@@ -127,6 +127,45 @@ describe('StatusBadge sizes', () => {
   });
 });
 
+// The prompt's chip styles and icon list, pinned by status. Background and text
+// are the raw values the CSS must declare; shape is the data-shape the badge
+// renders. A swapped colour or shape fails here even when contrast still passes.
+const PROMPT_STYLE: Record<StatusCode, { background: string; text: string; shape: string }> = {
+  accepting: { background: 'var(--c-primary)', text: '#ffffff', shape: 'circle-tick' },
+  limited: { background: 'var(--c-limited)', text: '#ffffff', shape: 'triangle' },
+  'not-accepting': { background: 'var(--c-closed)', text: '#ffffff', shape: 'circle-bar' },
+  'over-capacity': { background: 'var(--c-surge)', text: '#ffffff', shape: 'diamond' },
+  'not-updated': { background: '#ffffff', text: 'var(--c-ink-2)', shape: 'dashed-circle' },
+  'out-of-hours': { background: 'var(--c-closed)', text: '#ffffff', shape: 'moon' },
+  'last-known': { background: '#ffffff', text: 'var(--c-ink-2)', shape: 'dashed-circle' },
+};
+
+describe('status styles match the prompt', () => {
+  it.each(ALL)('%s chip uses the prompt background and text colour', (status) => {
+    const decls = declarationsFor(status);
+    expect(decls.get('background') ?? decls.get('background-color')).toBe(
+      PROMPT_STYLE[status].background,
+    );
+    expect(decls.get('color')).toBe(PROMPT_STYLE[status].text);
+  });
+
+  it.each(['not-updated', 'last-known'] as StatusCode[])(
+    '%s chip has the 2px dashed --c-unknown border',
+    (status) => {
+      expect(declarationsFor(status).get('border')).toBe('2px dashed var(--c-unknown)');
+    },
+  );
+
+  it.each(ALL)('%s renders the prompt icon shape', (status) => {
+    const { container, unmount } = render(<StatusBadge status={status} />);
+    expect(container.querySelector('[data-status]')).toHaveAttribute(
+      'data-shape',
+      PROMPT_STYLE[status].shape,
+    );
+    unmount();
+  });
+});
+
 describe('chip colour pairs', () => {
   it('reads a text and background pair for every status from the CSS', () => {
     expect(CHIP_PAIRS.map(([status]) => status)).toEqual(ALL);

@@ -22,7 +22,7 @@ From the repository root:
 docker compose -f infra/docker-compose.yml up -d --wait
 ```
 
-`--wait` returns only when every service is healthy. On the first run Docker pulls the images, which takes several minutes.
+`--wait` waits for the services that have a healthcheck (neo4j, redis, servicebus-ready). The Service Bus emulator reports no health status of its own, so its readiness is gated by `servicebus-ready`, which polls the emulator's `/health` endpoint. On the first run Docker pulls the images, which takes several minutes.
 
 To change the SQL password, copy `infra/.env.example` to `infra/.env` and edit it. Compose reads that file automatically. Keep it out of git.
 

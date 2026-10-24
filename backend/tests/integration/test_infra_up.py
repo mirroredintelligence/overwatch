@@ -5,8 +5,8 @@ They open their own connections to the services that
 harness (that arrives with F10), and they do not start containers: DEC-008 gives the test
 suite its own throwaway Neo4j, while this file proves the local compose stack itself.
 
-Neo4j follows DEC-012: one driver for the module, created by the fixture and closed at the end.
-The one exception is the cross-driver test, which the prompt requires to read back in a new driver.
+Neo4j follows DEC-012 with no exception: one AsyncDriver for the module, created by the fixture and
+closed at the end. Each test that writes or reads uses fresh sessions on that driver.
 """
 
 import json
@@ -70,28 +70,24 @@ async def test_neo4j_answers_a_query(neo4j_driver: AsyncDriver) -> None:
 
 
 @pytest.mark.asyncio(loop_scope="module")
-async def test_neo4j_keeps_a_node_across_drivers(neo4j_driver: AsyncDriver) -> None:
-    # Exception to DEC-012 "never create a driver per test": the prompt requires the read-back
-    # to happen in a new driver, so this test opens one reader driver and closes it again.
+async def test_neo4j_keeps_a_node_between_sessions(neo4j_driver: AsyncDriver) -> None:
+    # DEC-012: one driver, so persistence is proved across sessions on that driver, not across
+    # drivers. The write commits in its own session, and the read uses a fresh session.
     async with neo4j_driver.session() as session:
         result = await session.run("CREATE (:InfraProbe {id: 'p1'})")
         await result.consume()
-
-    reader = _driver()
     try:
-        async with reader.session() as session:
-            try:
-                count = await _single_value(
-                    session,
-                    "MATCH (p:InfraProbe {id: 'p1'}) RETURN count(p) AS n",
-                    "n",
-                )
-                assert count == 1
-            finally:
-                cleanup = await session.run("MATCH (p:InfraProbe {id: 'p1'}) DELETE p")
-                await cleanup.consume()
+        async with neo4j_driver.session() as session:
+            count = await _single_value(
+                session,
+                "MATCH (p:InfraProbe {id: 'p1'}) RETURN count(p) AS n",
+                "n",
+            )
+        assert count == 1
     finally:
-        await reader.close()
+        async with neo4j_driver.session() as session:
+            cleanup = await session.run("MATCH (p:InfraProbe {id: 'p1'}) DELETE p")
+            await cleanup.consume()
 
 
 async def test_redis_pings_and_expires_a_key_after_five_seconds() -> None:
@@ -122,6 +118,26 @@ def _compose_ps() -> list[dict[str, str]]:
         rows: list[dict[str, str]] = json.loads(text)
         return rows
     return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def _compose_config_services() -> dict[str, dict[str, object]]:
+    completed = subprocess.run(
+        ["docker", "compose", "-f", str(COMPOSE_FILE), "config", "--format", "json"],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    config: dict[str, dict[str, dict[str, object]]] = json.loads(completed.stdout)
+    return config["services"]
+
+
+def test_compose_config_defines_healthchecks_for_gated_services() -> None:
+    # Reads the file, not the running containers: a removed healthcheck fails here even when the
+    # container is still running. The emulator has no healthcheck; servicebus-ready gates it.
+    services = _compose_config_services()
+    for name in ("neo4j", "redis", "servicebus-ready"):
+        assert "healthcheck" in services[name], f"{name} has no healthcheck in the compose file"
 
 
 def test_every_compose_service_reports_healthy() -> None:

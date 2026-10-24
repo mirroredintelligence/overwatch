@@ -127,7 +127,9 @@ def test_exact_tie_on_effective_at_returns_the_one_that_comes_last_in_input() ->
 
 
 def test_latest_accepts_any_iterable() -> None:
-    reports = (report(id=f"r{i}", effective_at=datetime(2026, 10, 23, i, 0, tzinfo=UTC)) for i in range(3))
+    reports = (
+        report(id=f"r{i}", effective_at=datetime(2026, 10, 23, i, 0, tzinfo=UTC)) for i in range(3)
+    )
     result = latest_report(reports)
     assert result is not None
     assert result.id == "r2"

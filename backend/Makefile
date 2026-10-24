@@ -15,6 +15,7 @@ down:
 lint:
 	uv run ruff check .
 	uv run ruff format --check .
+	uv run lint-imports
 
 format:
 	uv run ruff format .

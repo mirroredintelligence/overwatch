@@ -107,8 +107,7 @@ def test_domain_importing_adapter_breaks_domain_contract(tmp_path: Path) -> None
     result = _lint(config, cwd=tmp_path, pythonpath=src)
     output = result.stdout + result.stderr
     assert result.returncode != 0, output
-    assert DOMAIN_CONTRACT in output, output
-    assert "BROKEN" in output, output
+    assert f"{DOMAIN_CONTRACT} BROKEN" in output, output
 
 
 def test_adapter_importing_sibling_adapter_breaks_independence(tmp_path: Path) -> None:
@@ -120,8 +119,7 @@ def test_adapter_importing_sibling_adapter_breaks_independence(tmp_path: Path) -
     result = _lint(config, cwd=tmp_path, pythonpath=src)
     output = result.stdout + result.stderr
     assert result.returncode != 0, output
-    assert INDEPENDENCE_CONTRACT in output, output
-    assert "BROKEN" in output, output
+    assert f"{INDEPENDENCE_CONTRACT} BROKEN" in output, output
 
 
 @pytest.mark.parametrize(
@@ -157,4 +155,4 @@ def test_forbidden_import_breaks_named_contract(
     result = _lint(config, cwd=tmp_path, pythonpath=src)
     output = result.stdout + result.stderr
     assert result.returncode != 0, output
-    assert contract in output, output
+    assert f"{contract} BROKEN" in output, output

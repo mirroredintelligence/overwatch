@@ -40,6 +40,3 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 [tool.mypy]
 strict = true
 files = ["src"]
-
-[tool.importlinter]
-root_packages = ["diucs"]

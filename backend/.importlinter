@@ -1,0 +1,61 @@
+# Architecture rules for the diucs package (hexagonal layout).
+# Run from backend/: uv run lint-imports (set PYTHONIOENCODING=utf-8 on Windows, see lesson L1).
+# Each contract is a rule the build enforces. Add new adapter packages to the
+# "Adapters are independent" contract as they are created. Wildcards cover today's
+# children; a package that is not covered by a wildcard is not checked.
+
+[importlinter]
+root_packages =
+    diucs
+include_external_packages = True
+
+[importlinter:contract:layers]
+name = Layers
+type = layers
+containers = diucs
+layers =
+    bootstrap
+    adapters
+    application
+    domain
+
+[importlinter:contract:domain-pure]
+name = Domain stays pure
+type = forbidden
+source_modules =
+    diucs.domain
+forbidden_modules =
+    fastapi
+    neo4j
+    redis
+    azure
+    httpx
+    twilio
+    pydantic_settings
+    diucs.application
+    diucs.adapters
+    diucs.bootstrap
+
+[importlinter:contract:application-pure]
+name = Application stays pure
+type = forbidden
+source_modules =
+    diucs.application
+forbidden_modules =
+    fastapi
+    neo4j
+    redis
+    azure
+    httpx
+    twilio
+    pydantic_settings
+    diucs.adapters
+    diucs.bootstrap
+
+[importlinter:contract:adapters-independent]
+name = Adapters are independent
+type = independence
+modules =
+    diucs.adapters.inbound.*
+    diucs.adapters.outbound.*
+    diucs.adapters.testing

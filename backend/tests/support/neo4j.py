@@ -69,8 +69,9 @@ def _ready(name: str, password: str) -> bool:
 
 
 def new_container_password() -> str:
-    """A random password for one container. Stub (F11)."""
-    raise NotImplementedError("F11 stub: new_container_password")
+    """A random password for one container: 128 bits as hex. Hex never starts with a dash, which
+    neo4j-admin would read as an option and refuse (the container then exits at once)."""
+    return secrets.token_hex(16)
 
 
 def start_throwaway_neo4j() -> ThrowawayNeo4j:

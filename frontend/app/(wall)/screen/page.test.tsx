@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
-import { axe } from 'vitest-axe';
 import { describe, expect, it } from 'vitest';
+import { runAxe } from '@/test/a11y';
 import WallScreenPage from './page';
 
 describe('wall screen page', () => {
@@ -18,6 +18,6 @@ describe('wall screen page', () => {
   it('has no accessibility violations', async () => {
     const { container } = render(<WallScreenPage />);
 
-    expect(await axe(container)).toHaveNoViolations();
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 });

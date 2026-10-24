@@ -1,7 +1,7 @@
 import os
 
 import pytest
-from pydantic import ValidationError
+from pydantic import SecretStr, ValidationError
 
 from diucs.bootstrap.settings import Settings
 
@@ -44,3 +44,29 @@ def test_repr_does_not_reveal_the_neo4j_password() -> None:
 def test_secret_value_is_available_only_through_get_secret_value() -> None:
     settings = Settings()
     assert settings.neo4j_password.get_secret_value() == SECRET
+
+
+SERVICEBUS_CANARY = "Endpoint=sb://canary.invalid/;SharedAccessKey=canary-sb-7f3a9c"
+NEO4J_CANARY = "canary-neo4j-4d8e1b"
+
+
+def test_servicebus_connection_is_a_secret_and_hidden_from_repr_and_str(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", SERVICEBUS_CANARY)
+    settings = Settings()
+    assert isinstance(settings.servicebus_connection, SecretStr)
+    assert settings.servicebus_connection.get_secret_value() == SERVICEBUS_CANARY
+    assert SERVICEBUS_CANARY not in repr(settings)
+    assert SERVICEBUS_CANARY not in str(settings)
+
+
+def test_neo4j_password_from_environment_is_hidden_from_repr_and_str(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", NEO4J_CANARY)
+    settings = Settings()
+    assert isinstance(settings.neo4j_password, SecretStr)
+    assert settings.neo4j_password.get_secret_value() == NEO4J_CANARY
+    assert NEO4J_CANARY not in repr(settings)
+    assert NEO4J_CANARY not in str(settings)

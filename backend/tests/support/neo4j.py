@@ -78,7 +78,6 @@ def start_throwaway_neo4j() -> ThrowawayNeo4j:
         started = _docker(
             "run",
             "-d",
-            "--rm",
             "--name",
             name,
             "--label",
@@ -102,31 +101,40 @@ def start_throwaway_neo4j() -> ThrowawayNeo4j:
     container = ThrowawayNeo4j(
         name=name, uri=f"bolt://127.0.0.1:{port}", user="neo4j", password=password
     )
-    deadline = time.monotonic() + CONTAINER_READY_TIMEOUT_S
-    while not _ready(name, password):
-        if time.monotonic() > deadline:
-            stop_throwaway_neo4j(container)
-            raise Neo4jNotRunning(
-                f"The Neo4j test container {name} did not answer within "
-                f"{CONTAINER_READY_TIMEOUT_S:.0f} seconds and was removed."
-            )
-        time.sleep(1.0)
+    try:
+        wait_until_ready(container)
+    except Neo4jNotRunning:
+        stop_throwaway_neo4j(container)
+        raise
     return container
 
 
 def stop_container(container: ThrowawayNeo4j) -> None:
-    """Stop the container (F11 restartable mode). The stub raises until F11 is implemented."""
-    raise NotImplementedError("F11 stub: stop_container")
+    """Stop the running container. It stays on disk, so start_container can bring it back."""
+    result = _docker("stop", container.name)
+    if result.returncode != 0:
+        raise RuntimeError(f"Could not stop the Neo4j test container {container.name}.")
 
 
 def start_container(container: ThrowawayNeo4j) -> None:
-    """Start a stopped container (F11 restartable mode). Stub."""
-    raise NotImplementedError("F11 stub: start_container")
+    """Start a stopped container on the same port, with the same data. Call wait_until_ready
+    before using it, because `docker start` returns before Neo4j accepts connections (lesson L7)."""
+    result = _docker("start", container.name)
+    if result.returncode != 0:
+        raise RuntimeError(f"Could not start the Neo4j test container {container.name}.")
 
 
 def wait_until_ready(container: ThrowawayNeo4j) -> None:
-    """Block until cypher-shell in the container answers after a start (F11). Stub."""
-    raise NotImplementedError("F11 stub: wait_until_ready")
+    """Block until cypher-shell inside the container answers, for up to CONTAINER_READY_TIMEOUT_S.
+    Raises Neo4jNotRunning if it does not. The caller decides whether to remove the container."""
+    deadline = time.monotonic() + CONTAINER_READY_TIMEOUT_S
+    while not _ready(container.name, container.password):
+        if time.monotonic() > deadline:
+            raise Neo4jNotRunning(
+                f"The Neo4j test container {container.name} did not answer within "
+                f"{CONTAINER_READY_TIMEOUT_S:.0f} seconds."
+            )
+        time.sleep(1.0)
 
 
 def stop_throwaway_neo4j(container: ThrowawayNeo4j) -> None:

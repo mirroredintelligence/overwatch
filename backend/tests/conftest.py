@@ -13,7 +13,7 @@ import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
-from tests.support.neo4j import apply_session_env, throwaway_driver, wipe
+from tests.support.neo4j import ThrowawayNeo4j, apply_session_env, throwaway_driver, wipe
 
 _INTEGRATION_ROOT = Path(__file__).resolve().parent / "integration"
 # Drivers of the running harness session. Empty until a test needs Neo4j, so a run of tests that
@@ -33,21 +33,37 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def harness_driver() -> AsyncIterator[AsyncDriver]:
-    """One throwaway Neo4j and one driver for the whole pytest session; migrations applied once.
+async def harness_neo4j() -> AsyncIterator[tuple[ThrowawayNeo4j, AsyncDriver]]:
+    """One throwaway Neo4j container and one driver for the whole pytest session; migrations
+    applied once.
 
     The harness sets NEO4J_URI, NEO4J_USER and NEO4J_PASSWORD for the session, so code that reads
-    them (the G01 test module) reaches this container and nothing else. The container is removed
-    when the session ends, even if connecting failed.
+    them (the G01 test module) reaches this container and nothing else. The container is restartable
+    (F11): tests may stop and start it, and it is removed when the session ends, even if connecting
+    failed.
     """
     async with throwaway_driver() as (container, driver):
         apply_session_env(container)
         await apply_migrations(driver)
         _active.append(driver)
         try:
-            yield driver
+            yield container, driver
         finally:
             _active.clear()
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def harness_driver(harness_neo4j: tuple[ThrowawayNeo4j, AsyncDriver]) -> AsyncDriver:
+    """The harness session's driver. Wiped by clean_graph before each integration test."""
+    _, driver = harness_neo4j
+    return driver
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def harness_container(harness_neo4j: tuple[ThrowawayNeo4j, AsyncDriver]) -> ThrowawayNeo4j:
+    """The harness session's container, for tests that stop and start Neo4j (F11, G14)."""
+    container, _ = harness_neo4j
+    return container
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")

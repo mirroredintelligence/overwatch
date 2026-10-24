@@ -1,15 +1,8 @@
 """Integration tests for the Neo4j connection lifecycle, health and recovery (G14, DEC-012).
 
-Two kinds of throwaway Neo4j are used. Both are removed when the session ends.
-
-- The F10 harness (`harness_driver`, DEC-008, lesson L11) supplies the container for every test
-  that does not stop Neo4j. Its NEO4J_URI, NEO4J_USER and NEO4J_PASSWORD are set for the session,
-  and `clean_graph` wipes it before each test.
-- The recovery tests stop and start Neo4j, so they need a container that survives a stop. The
-  harness starts its container with `docker run --rm`, which removes it on stop. These tests start
-  their own container without --rm (`recovery_neo4j`), with the harness's image, port and readiness
-  helpers. Moving them onto `harness_driver` needs a restartable mode in the harness. That is a
-  named follow-up (see the G14 evidence file).
+Every test runs on the F10 harness: the throwaway container and `harness_driver` for the pytest
+session (DEC-008, lesson L11). The recovery tests stop and start that container. F11 made the
+harness container restartable, so no test needs a container of its own.
 
 Every test writes only nodes with the label G14Probe, and removes them before it runs.
 """
@@ -17,11 +10,8 @@ Every test writes only nodes with the label G14Probe, and removes them before it
 import asyncio
 import logging
 import os
-import secrets
-import subprocess
 import time
-import uuid
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -38,18 +28,9 @@ from diucs.adapters.outbound.graph_store.connection import (
 from diucs.adapters.outbound.graph_store.health import HealthStatus, neo4j_health
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
-from tests.support.neo4j import (
-    CONTAINER_READY_TIMEOUT_S,
-    NEO4J_BOLT_PORT,
-    NEO4J_IMAGE,
-    ThrowawayNeo4j,
-    _docker,
-    _free_port,
-    _ready,
-    stop_throwaway_neo4j,
-)
+from tests.support.neo4j import ThrowawayNeo4j, start_container, stop_container
 
-# Every test here runs on the session loop, because the harness driver and the recovery container
+# Every test here runs on the session loop, because the harness driver and container
 # are session-scoped (lesson L11).
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -97,69 +78,10 @@ async def _delete_probes(conn: Neo4jConnection) -> None:
     await conn.run_write(work)
 
 
-def _docker_checked(*args: str) -> None:
-    subprocess.run(["docker", *args], check=True, capture_output=True, text=True, timeout=180)
-
-
-def _start_restartable_neo4j() -> ThrowawayNeo4j:
-    """The harness's image, without --rm, so the container can be stopped and started. It has a
-    random localhost port, a unique name and a generated password. The fixture removes it."""
-    name = f"diucs-test-neo4j-restart-{uuid.uuid4().hex[:12]}"
-    port = _free_port()
-    password = secrets.token_urlsafe(16)
-    started = _docker(
-        "run",
-        "-d",
-        "--name",
-        name,
-        "--label",
-        "diucs-test=true",
-        "-p",
-        f"127.0.0.1:{port}:{NEO4J_BOLT_PORT}",
-        "-e",
-        f"NEO4J_AUTH=neo4j/{password}",
-        NEO4J_IMAGE,
-    )
-    if started.returncode != 0:
-        stop_throwaway_neo4j(ThrowawayNeo4j(name, "", "", ""))
-        pytest.fail(f"could not start the restartable Neo4j container: {started.stderr.strip()}")
-    deadline = time.monotonic() + CONTAINER_READY_TIMEOUT_S
-    while not _ready(name, password):
-        if time.monotonic() > deadline:
-            stop_throwaway_neo4j(ThrowawayNeo4j(name, "", "", ""))
-            pytest.fail(f"restartable Neo4j {name} did not answer in time")
-        time.sleep(1.0)
-    return ThrowawayNeo4j(
-        name=name, uri=f"bolt://127.0.0.1:{port}", user="neo4j", password=password
-    )
-
-
-@pytest.fixture(scope="session")
-def recovery_neo4j() -> Iterator[ThrowawayNeo4j]:
-    """One restartable throwaway Neo4j for the recovery tests. Removed when the session ends."""
-    container = _start_restartable_neo4j()
-    try:
-        yield container
-    finally:
-        stop_throwaway_neo4j(container)
-
-
 @pytest_asyncio.fixture(loop_scope="session")
 async def conn(harness_driver: AsyncDriver) -> AsyncIterator[Neo4jConnection]:
     uri, user, password = _harness_settings()
     connection = Neo4jConnection(uri, user, password)
-    await connection.open()
-    await _delete_probes(connection)
-    try:
-        yield connection
-    finally:
-        await _delete_probes(connection)
-        await connection.close()
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def recovery_conn(recovery_neo4j: ThrowawayNeo4j) -> AsyncIterator[Neo4jConnection]:
-    connection = Neo4jConnection(recovery_neo4j.uri, recovery_neo4j.user, recovery_neo4j.password)
     await connection.open()
     await _delete_probes(connection)
     try:
@@ -267,9 +189,8 @@ async def test_a_write_that_raises_mid_transaction_leaves_no_node_behind(
 
 
 async def test_in_flight_write_fails_retryably_and_the_service_recovers(
-    recovery_conn: Neo4jConnection, recovery_neo4j: ThrowawayNeo4j
+    conn: Neo4jConnection, harness_container: ThrowawayNeo4j
 ) -> None:
-    name = recovery_neo4j.name
     started = asyncio.Event()
 
     async def long_write(tx: AsyncManagedTransaction) -> None:
@@ -279,11 +200,11 @@ async def test_in_flight_write_fails_retryably_and_the_service_recovers(
             await _ping(tx)
             await asyncio.sleep(0.2)
 
-    in_flight = asyncio.create_task(recovery_conn.run_write(long_write))
+    in_flight = asyncio.create_task(conn.run_write(long_write))
     try:
         await asyncio.wait_for(started.wait(), timeout=30)
 
-        _docker_checked("stop", name)
+        stop_container(harness_container)
         stopped_at = time.monotonic()
         with pytest.raises(RETRYABLE_ERRORS) as failure:
             await asyncio.wait_for(in_flight, timeout=RECOVERY_DEADLINE_S * 2)
@@ -291,12 +212,12 @@ async def test_in_flight_write_fails_retryably_and_the_service_recovers(
         log.info("G14 in-flight write failed %.1f s after stop", time.monotonic() - stopped_at)
 
         restarted_at = time.monotonic()
-        _docker_checked("start", name)
+        start_container(harness_container)
         attempts = 0
         while True:
             attempts += 1
             try:
-                rows = await recovery_conn.run_read(_ping)
+                rows = await conn.run_read(_ping)
                 break
             except RETRYABLE_ERRORS:
                 if time.monotonic() - restarted_at > RECOVERY_DEADLINE_S:
@@ -311,33 +232,32 @@ async def test_in_flight_write_fails_retryably_and_the_service_recovers(
         assert recovered_in <= RECOVERY_DEADLINE_S
         # A weak check only: the server discards uncommitted work during an outage, so this
         # cannot fail on its own. The rollback test is the partial-write proof.
-        assert await _count_probes(recovery_conn) == 0
-        health = await neo4j_health(recovery_conn, timeout=10)
+        assert await _count_probes(conn) == 0
+        health = await neo4j_health(conn, timeout=10)
         assert health.status is HealthStatus.OK
     finally:
         if not in_flight.done():
             in_flight.cancel()
             await asyncio.gather(in_flight, return_exceptions=True)
-        _docker_checked("start", name)
-        await _wait_until_healthy(recovery_conn)
+        start_container(harness_container)
+        await _wait_until_healthy(conn)
 
 
 async def test_health_reports_degraded_within_the_timeout_while_stopped_and_never_raises(
-    recovery_conn: Neo4jConnection, recovery_neo4j: ThrowawayNeo4j
+    conn: Neo4jConnection, harness_container: ThrowawayNeo4j
 ) -> None:
-    name = recovery_neo4j.name
     try:
-        _docker_checked("stop", name)
+        stop_container(harness_container)
         started = time.monotonic()
-        health = await neo4j_health(recovery_conn, timeout=5)
+        health = await neo4j_health(conn, timeout=5)
         elapsed = time.monotonic() - started
         assert health.status is HealthStatus.DEGRADED
         assert health.reason
         # The timeout must bound the check. Without it the driver's retries take about 30 s.
         assert elapsed <= 5 + HEALTH_TIMEOUT_MARGIN_S, f"health took {elapsed:.1f} s"
     finally:
-        _docker_checked("start", name)
-        await _wait_until_healthy(recovery_conn)
+        start_container(harness_container)
+        await _wait_until_healthy(conn)
 
 
 async def test_health_of_an_unopened_connection_is_degraded_and_never_raises() -> None:

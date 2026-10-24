@@ -3,6 +3,8 @@ from datetime import UTC, datetime
 
 import pytest
 
+from neo4j import AsyncDriver
+
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -35,3 +37,19 @@ def test_container_is_frozen() -> None:
     container = build_for_tests()
     with pytest.raises(dataclasses.FrozenInstanceError):
         container.clock = SystemClock()  # type: ignore[misc]
+
+
+async def test_build_wires_one_neo4j_driver_from_settings() -> None:
+    container = build(Settings())
+    try:
+        assert isinstance(container.neo4j_driver, AsyncDriver)
+    finally:
+        await container.neo4j_driver.close()
+
+
+async def test_build_for_tests_wires_a_neo4j_driver() -> None:
+    container = build_for_tests()
+    try:
+        assert isinstance(container.neo4j_driver, AsyncDriver)
+    finally:
+        await container.neo4j_driver.close()

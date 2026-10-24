@@ -69,7 +69,7 @@ const SPACING: [string, string][] = [
   ['--space-8', '64px'],
 ];
 
-// Design system section 3. Caption is 14 px in the table; see DEC-015.
+// Design system section 3, with caption at 16 px per DEC-019 (overrides the 14 px in the table).
 const TYPE_ROLES: [string, string, string, string, string][] = [
   // [role, size, line height, weight, tracking]
   ['display', 'clamp(2rem, 5vw, 3.5rem)', '1.05', '700', '-0.02em'],
@@ -77,7 +77,7 @@ const TYPE_ROLES: [string, string, string, string, string][] = [
   ['title', '22px', '1.3', '700', '0'],
   ['body', '18px', '1.5', '400', '0'],
   ['label', '17px', '1.4', '700', '0.01em'],
-  ['caption', '14px', '1.4', '400', '0.01em'],
+  ['caption', '16px', '1.4', '400', '0.01em'],
 ];
 
 // Source files the no-ease-in rule scans. Test files are excluded: they name the rule.
@@ -112,7 +112,8 @@ describe('tokens.css', () => {
 });
 
 describe('motion tokens', () => {
-  it.each(DURATIONS)('%s equals its design system duration', (name) => {
+  // --dur-sheet is set by DEC-019 (280 ms), which overrides the 320 ms in the design system table.
+  it.each(DURATIONS.filter((name) => name !== '--dur-sheet'))('%s equals its design system duration', (name) => {
     expect(SPEC.has(name)).toBe(true);
     expect(squash(declared.get(name) ?? '')).toBe(SPEC.get(name));
   });
@@ -137,13 +138,16 @@ describe('motion tokens', () => {
     expect([...reducedDeclared.keys()].sort()).toEqual([...MOVEMENT_DURATIONS].sort());
   });
 
-  it('keeps UI durations under 300 ms, with --dur-sheet as the one stated exception (DEC-015)', () => {
-    for (const name of DURATIONS.filter((n) => n !== '--dur-onboard' && n !== '--dur-sheet')) {
+  it('keeps UI durations under 300 ms, except onboarding (480 ms)', () => {
+    for (const name of DURATIONS.filter((n) => n !== '--dur-onboard')) {
       const ms = Number.parseInt(declared.get(name) ?? '', 10);
       expect(ms, name).toBeLessThanOrEqual(300);
     }
-    expect(declared.get('--dur-sheet')).toBe('320ms');
     expect(declared.get('--dur-onboard')).toBe('480ms');
+  });
+
+  it('sets --dur-sheet to 280 ms per DEC-019 (was 320 ms; under the 300 ms rule)', () => {
+    expect(declared.get('--dur-sheet')).toBe('280ms');
   });
 
   it('uses only the approved easing curves', () => {

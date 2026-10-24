@@ -163,6 +163,19 @@
    ]
   },
   {
+   "id": "X01",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 2,
+   "deps": [
+    "F06"
+   ],
+   "title": "Fix London wall-clock property test on other UK change days",
+   "files": [
+    "backend/tests/unit/domain/rules/test_london_time.py"
+   ]
+  },
+  {
    "id": "F07",
    "sprint": "S0",
    "epic": "F",

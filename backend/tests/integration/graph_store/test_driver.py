@@ -169,3 +169,20 @@ async def test_run_query_logs_no_cypher_text_even_when_the_server_warns(
     async with neo4j_driver.session() as session:
         await session.execute_read(work)
     assert "zzmarkerlabel" not in caplog.text
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_run_query_logs_no_cypher_text_even_at_debug(
+    neo4j_driver: AsyncDriver, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The Bolt logger (neo4j.io) writes RUN messages with the Cypher text at DEBUG. The driver must
+    # keep it off the log even when the root logger asks for DEBUG.
+    caplog.set_level(logging.DEBUG)
+
+    async def work(tx: object) -> list[dict[str, object]]:
+        return await run_query(tx, "Q-TEST-ECHO", x=1)  # type: ignore[arg-type]
+
+    async with neo4j_driver.session() as session:
+        await session.execute_read(work)
+    assert "RETURN $x AS x" not in caplog.text
+    assert "RETURN" not in caplog.text

@@ -44,4 +44,3 @@ def test_repr_does_not_reveal_the_neo4j_password() -> None:
 def test_secret_value_is_available_only_through_get_secret_value() -> None:
     settings = Settings()
     assert settings.neo4j_password.get_secret_value() == SECRET
-

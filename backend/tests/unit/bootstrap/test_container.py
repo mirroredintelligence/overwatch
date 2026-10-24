@@ -7,7 +7,7 @@ from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.bootstrap.container import Container, build, build_for_tests
+from diucs.bootstrap.container import build, build_for_tests
 from diucs.bootstrap.settings import Settings
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)

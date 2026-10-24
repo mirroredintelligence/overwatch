@@ -1,0 +1,88 @@
+# Local services for running DIUCS by hand, and for the back-end integration smoke tests.
+# Start:  docker compose -f infra/docker-compose.yml up -d --wait
+# Reset:  docker compose -f infra/docker-compose.yml down -v
+# The credentials below are local-only and carry no real access. See infra/README.md.
+# The test suite does not rely on this stack: each pytest run starts its own throwaway Neo4j (DEC-008).
+
+name: diucs-local
+
+services:
+  neo4j:
+    image: neo4j:5.26.32-community
+    environment:
+      NEO4J_AUTH: neo4j/diucs-test-password
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "diucs-test-password", "RETURN 1"]
+      interval: 5s
+      timeout: 15s
+      retries: 30
+      start_period: 20s
+
+  redis:
+    image: redis:7.4.11-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  servicebus-sql:
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-DiucsLocal-Only!2026}
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' > /dev/null 2>&1"
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
+
+  servicebus-emulator:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:2.0.1
+    depends_on:
+      servicebus-sql:
+        condition: service_healthy
+    environment:
+      ACCEPT_EULA: "Y"
+      SQL_SERVER: servicebus-sql
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-DiucsLocal-Only!2026}
+      SQL_WAIT_INTERVAL: "20"
+      EMULATOR_HTTP_PORT: "5300"
+    ports:
+      - "5672:5672"
+      - "5300:5300"
+    volumes:
+      - ./servicebus-config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+
+  # The emulator image has no shell or curl, so it cannot run its own healthcheck. This probe
+  # container holds no state. It is healthy only when the emulator's /health endpoint answers 200,
+  # which lets `up --wait` return only when the emulator is ready. It uses the SQL image because
+  # that image already has bash.
+  servicebus-ready:
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    entrypoint: ["sleep", "infinity"]
+    depends_on:
+      - servicebus-emulator
+    healthcheck:
+      test:
+        - "CMD"
+        - "bash"
+        - "-c"
+        - "exec 3<>/dev/tcp/servicebus-emulator/5300 && printf 'GET /health HTTP/1.0\\r\\n\\r\\n' >&3 && head -n1 <&3 | grep -q ' 200'"
+      interval: 5s
+      timeout: 10s
+      retries: 60
+      start_period: 10s
+
+volumes:
+  neo4j-data:

@@ -2,3 +2,5 @@ __pycache__/
 .pytest_cache/
 *.pyc
 .claude/scheduled_tasks.lock
+
+infra/.env

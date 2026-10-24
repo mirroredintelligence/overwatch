@@ -156,3 +156,52 @@ def test_forbidden_import_breaks_named_contract(
     output = result.stdout + result.stderr
     assert result.returncode != 0, output
     assert f"{contract} BROKEN" in output, output
+
+
+def _swapped_layers_config(tmp_path: Path) -> Path:
+    """The probe config with the layer order reversed, to show the Layers contract bites."""
+    text = _probe_config(tmp_path).read_text(encoding="utf-8")
+    old = "    bootstrap\n    adapters\n    application\n    domain\n"
+    assert old in text, "layers block not found in backend/.importlinter"
+    target = tmp_path / "swapped.importlinter"
+    target.write_text(
+        text.replace(old, "    domain\n    application\n    adapters\n    bootstrap\n"),
+        encoding="utf-8",
+    )
+    return target
+
+
+def test_adapter_importing_bootstrap_breaks_layers_contract(tmp_path: Path) -> None:
+    config = _probe_config(tmp_path)
+    src = _build_probe(
+        tmp_path,
+        {"diucs_probe/adapters/outbound/a.py": "import diucs_probe.bootstrap\n"},
+    )
+    result = _lint(config, cwd=tmp_path, pythonpath=src)
+    output = result.stdout + result.stderr
+    assert result.returncode != 0, output
+    assert "Layers BROKEN" in output, output
+
+
+def test_adapter_importing_application_passes_layers_contract(tmp_path: Path) -> None:
+    config = _probe_config(tmp_path)
+    src = _build_probe(
+        tmp_path,
+        {"diucs_probe/adapters/outbound/a.py": "import diucs_probe.application.use_case\n"},
+    )
+    result = _lint(config, cwd=tmp_path, pythonpath=src)
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert "Layers KEPT" in output, output
+
+
+def test_swapped_layer_order_rejects_adapter_importing_application(tmp_path: Path) -> None:
+    config = _swapped_layers_config(tmp_path)
+    src = _build_probe(
+        tmp_path,
+        {"diucs_probe/adapters/outbound/a.py": "import diucs_probe.application.use_case\n"},
+    )
+    result = _lint(config, cwd=tmp_path, pythonpath=src)
+    output = result.stdout + result.stderr
+    assert result.returncode == 1, output
+    assert "Layers BROKEN" in output, output

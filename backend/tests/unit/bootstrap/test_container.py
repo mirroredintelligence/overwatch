@@ -1,16 +1,17 @@
 import dataclasses
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
-from neo4j import AsyncDriver
+from neo4j import AsyncDriver, AsyncGraphDatabase
 
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store.driver import create_driver
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
+from diucs.bootstrap import container as container_module
 from diucs.bootstrap.container import build, build_for_tests
 from diucs.bootstrap.settings import Settings
 
@@ -88,3 +89,31 @@ async def test_build_passes_the_dec_012_pool_settings_to_the_driver(
         assert workspace.connection_acquisition_timeout == 2.0
     finally:
         await container.neo4j_driver.close()
+
+
+async def test_build_for_tests_makes_no_driver_calls(
+    neo4j_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """DEC-012: one driver per process, never per test. build_for_tests only uses the driver it is
+    given, so neither factory may be called while it builds containers."""
+    calls: list[str] = []
+
+    def _spy(name: str) -> Callable[..., AsyncDriver]:
+        def _record(*args: object, **kwargs: object) -> AsyncDriver:
+            calls.append(name)
+            raise AssertionError(f"build_for_tests must not call {name}")
+
+        return _record
+
+    monkeypatch.setattr(container_module, "create_driver", _spy("create_driver"))
+    monkeypatch.setattr(AsyncGraphDatabase, "driver", _spy("AsyncGraphDatabase.driver"))
+
+    build_for_tests(neo4j_driver=neo4j_driver)
+    build_for_tests(clock=FixedClock(TEST_NOW), neo4j_driver=neo4j_driver)
+
+    assert calls == []
+
+
+def test_build_for_tests_requires_the_driver_to_be_passed_in() -> None:
+    with pytest.raises(TypeError):
+        build_for_tests()  # type: ignore[call-arg]

@@ -1,9 +1,10 @@
 """Integration tests for the Neo4j adapter base (G01): driver, named queries, migrations.
 
-They run against a real Neo4j. NEO4J_URI selects the instance; point it at an isolated stack
-(never the shared diucs-local stack) and start that stack with `up -d --wait neo4j`. The F10
-harness will own these fixtures later; until then this module holds its own driver (DEC-012:
-one AsyncDriver per module, closed at the end).
+They run against a real Neo4j. NEO4J_URI is required and has no default: when it is unset the
+tests fail with a message, so they can never reach the shared diucs-local stack on port 7687 by
+accident. Point it at an isolated stack (see the evidence file for G01) and start that stack with
+`up -d --wait neo4j`. The F10 harness will supply the URI later. This module holds its own driver
+until then (DEC-012: one AsyncDriver per module, closed at the end).
 
 Some tests remove (:Migration) bookkeeping nodes, and one drops an index, so that the migrations
 run again over an existing schema. They run only against the isolated instance and touch no
@@ -22,7 +23,6 @@ from diucs.adapters.outbound.graph_store.driver import create_driver, run_query
 from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 
-NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "diucs-test-password")
 
@@ -49,7 +49,15 @@ REGISTRY.register(
 
 @pytest_asyncio.fixture(scope="module", loop_scope="module")
 async def neo4j_driver() -> AsyncIterator[AsyncDriver]:
-    driver = create_driver(NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD)
+    uri = os.environ.get("NEO4J_URI")
+    if not uri:
+        pytest.fail(
+            "NEO4J_URI is not set. These tests need an isolated Neo4j, and they never default to "
+            "the shared diucs-local stack on bolt://localhost:7687. Start an isolated stack and "
+            "set NEO4J_URI to its bolt address. The F10 harness will supply it.",
+            pytrace=False,
+        )
+    driver = create_driver(uri, NEO4J_USER, NEO4J_PASSWORD)
     try:
         yield driver
     finally:

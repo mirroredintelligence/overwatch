@@ -5,10 +5,12 @@ They run against a real Neo4j. NEO4J_URI selects the instance; point it at an is
 harness will own these fixtures later; until then this module holds its own driver (DEC-012:
 one AsyncDriver per module, closed at the end).
 
-The migration test removes only (:Migration) bookkeeping nodes first, so it can be re-run on the
-same database. It does not touch other data.
+Some tests remove (:Migration) bookkeeping nodes, and one drops an index, so that the migrations
+run again over an existing schema. They run only against the isolated instance and touch no
+data of record.
 """
 
+import logging
 import os
 from collections.abc import AsyncIterator
 
@@ -35,6 +37,14 @@ EXPECTED_INDEXES = {
 }
 
 REGISTRY.register(NamedQuery(id="Q-TEST-ECHO", cypher="RETURN $x AS x", mode="read"))
+# The label does not exist, so the server sends a warning; the driver used to log the query text.
+REGISTRY.register(
+    NamedQuery(
+        id="Q-TEST-WARN",
+        cypher="MATCH (zzmarkerlabel:NoSuchLabelForG01) RETURN zzmarkerlabel",
+        mode="read",
+    )
+)
 
 
 @pytest_asyncio.fixture(scope="module", loop_scope="module")
@@ -46,12 +56,16 @@ async def neo4j_driver() -> AsyncIterator[AsyncDriver]:
         await driver.close()
 
 
+async def _reset_bookkeeping(driver: AsyncDriver) -> None:
+    async with driver.session() as session:
+        await session.run("MATCH (m:Migration) DETACH DELETE m")
+
+
 @pytest.mark.asyncio(loop_scope="module")
 async def test_apply_migrations_applies_every_migration_then_none_on_the_second_call(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    async with neo4j_driver.session() as session:
-        await session.run("MATCH (m:Migration) DETACH DELETE m")
+    await _reset_bookkeeping(neo4j_driver)
 
     first = await apply_migrations(neo4j_driver)
     assert len(first) == EXPECTED_MIGRATION_COUNT
@@ -91,6 +105,37 @@ async def test_schema_has_the_named_constraints_and_indexes(neo4j_driver: AsyncD
 
 
 @pytest.mark.asyncio(loop_scope="module")
+async def test_every_migration_statement_runs_twice_in_separate_sessions(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # A missing IF NOT EXISTS fails the second run against an object the first run created.
+    await apply_migrations(neo4j_driver)
+    for _, statement in MIGRATIONS:
+        for _ in range(2):
+            async with neo4j_driver.session() as session:
+                await session.run(statement)
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_reapplying_over_an_existing_schema_recreates_a_dropped_index(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await apply_migrations(neo4j_driver)
+    async with neo4j_driver.session() as session:
+        await session.run("DROP INDEX obs_by_service IF EXISTS")
+    await _reset_bookkeeping(neo4j_driver)
+
+    reapplied = await apply_migrations(neo4j_driver)
+
+    assert reapplied == [migration_id for migration_id, _ in MIGRATIONS]
+    async with neo4j_driver.session() as session:
+        indexes = {
+            r["name"] async for r in await session.run("SHOW INDEXES YIELD name RETURN name")
+        }
+    assert "obs_by_service" in indexes
+
+
+@pytest.mark.asyncio(loop_scope="module")
 async def test_a_registered_named_query_runs_in_a_read_transaction(
     neo4j_driver: AsyncDriver,
 ) -> None:
@@ -100,3 +145,19 @@ async def test_a_registered_named_query_runs_in_a_read_transaction(
     async with neo4j_driver.session() as session:
         rows = await session.execute_read(work)
     assert rows == [{"x": 1}]
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_run_query_logs_no_cypher_text_even_when_the_server_warns(
+    neo4j_driver: AsyncDriver, caplog: pytest.LogCaptureFixture
+) -> None:
+    # WARNING is the level a service logs at. The neo4j.io logger also writes Cypher at DEBUG,
+    # so the logging configuration must keep the neo4j loggers above DEBUG (see the evidence file).
+    caplog.set_level(logging.WARNING)
+
+    async def work(tx: object) -> list[dict[str, object]]:
+        return await run_query(tx, "Q-TEST-WARN")  # type: ignore[arg-type]
+
+    async with neo4j_driver.session() as session:
+        await session.execute_read(work)
+    assert "zzmarkerlabel" not in caplog.text

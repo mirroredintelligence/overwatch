@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import pytest
@@ -79,6 +80,18 @@ async def test_observer_sees_no_cypher_text(local_registry: QueryRegistry) -> No
     )
 
 
+async def test_run_query_logs_no_cypher_text(
+    local_registry: QueryRegistry, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+    local_registry.register(NamedQuery(id="Q-LOG", cypher=SECRET_CYPHER, mode="read"))
+
+    await run_query(_StubTx(rows=[{"n": 1}]), "Q-LOG", marker="secret-cypher-marker")
+
+    assert "secret-cypher-marker" not in caplog.text
+    assert "Observation" not in caplog.text
+
+
 async def test_run_query_returns_records_as_dicts_and_passes_parameters(
     local_registry: QueryRegistry,
 ) -> None:
@@ -114,5 +127,37 @@ async def test_create_driver_returns_an_async_driver_without_connecting() -> Non
     created = create_driver("bolt://localhost:1", "neo4j", "not-a-real-password")
     try:
         assert isinstance(created, AsyncDriver)
+    finally:
+        await created.close()
+
+
+async def test_create_driver_sets_the_dec_012_pool_options() -> None:
+    created = create_driver("bolt://localhost:1", "neo4j", "not-a-real-password")
+    try:
+        pool = created._pool.pool_config
+        assert pool.max_connection_lifetime == 1800.0
+        assert pool.liveness_check_timeout == 30.0
+        assert pool.max_connection_pool_size == 50
+        assert created._default_workspace_config.connection_acquisition_timeout == 30.0
+    finally:
+        await created.close()
+
+
+async def test_create_driver_passes_its_pool_arguments_through() -> None:
+    created = create_driver(
+        "bolt://localhost:1",
+        "neo4j",
+        "not-a-real-password",
+        max_connection_lifetime=600.0,
+        liveness_check_timeout=5.0,
+        connection_acquisition_timeout=2.0,
+        max_connection_pool_size=7,
+    )
+    try:
+        pool = created._pool.pool_config
+        assert pool.max_connection_lifetime == 600.0
+        assert pool.liveness_check_timeout == 5.0
+        assert pool.max_connection_pool_size == 7
+        assert created._default_workspace_config.connection_acquisition_timeout == 2.0
     finally:
         await created.close()

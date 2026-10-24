@@ -12,7 +12,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
 
-from diucs.domain.codes import BookingStatus, parse_code
+from diucs.domain.codes import BookingStatus
 from diucs.domain.errors import InvalidTransition, ValidationFailed
 
 _R = BookingStatus.REQUESTED
@@ -101,4 +101,7 @@ def to_fhir(status: BookingStatus) -> FhirTaskStatus:
 
 
 def from_fhir(business_status: str) -> BookingStatus:
-    return parse_code(BookingStatus, business_status)
+    try:
+        return BookingStatus(business_status)
+    except ValueError:
+        raise ValidationFailed("businessStatus", "not a known booking status") from None

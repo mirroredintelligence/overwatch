@@ -50,6 +50,7 @@ async def test_harness_container_survives_stop_and_start_and_is_ready_again() ->
         await write_tx(driver, _create_probe)
 
         stop_container(container)
+        assert _docker_inspect(container.name, "{{.State.Running}}") == "false"
         start_container(container)
         wait_until_ready(container)
 

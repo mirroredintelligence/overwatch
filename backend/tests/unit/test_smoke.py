@@ -43,7 +43,6 @@ def test_integration_directory_gets_marker(pytester: pytest.Pytester) -> None:
     result.assert_outcomes(passed=2)
 
 
-
 def test_integration_probe_runs_without_docker(
     pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
 ) -> None:

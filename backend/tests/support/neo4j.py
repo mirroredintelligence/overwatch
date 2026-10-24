@@ -9,6 +9,7 @@ session, so each round trip proves what was really stored.
 """
 
 import asyncio
+import os
 import re
 import secrets
 import socket
@@ -121,12 +122,25 @@ def stop_throwaway_neo4j(container: ThrowawayNeo4j) -> None:
 
 @asynccontextmanager
 async def throwaway_driver() -> AsyncIterator[tuple[ThrowawayNeo4j, AsyncDriver]]:
-    raise NotImplementedError("F10 red stub: throwaway_driver")
-    yield  # pragma: no cover
+    """Start a container, connect to it, and yield (container, driver). The driver is closed and
+    the container removed on exit, including when connecting fails."""
+    container = start_throwaway_neo4j()
+    try:
+        driver = await connect_or_fail(container.uri, container.user, container.password)
+        try:
+            yield container, driver
+        finally:
+            await driver.close()
+    finally:
+        stop_throwaway_neo4j(container)
 
 
 def apply_session_env(container: ThrowawayNeo4j) -> None:
-    raise NotImplementedError("F10 red stub: apply_session_env")
+    """Point the process environment at the throwaway container. Any NEO4J_URI already set in the
+    shell is overwritten (DEC-013)."""
+    os.environ["NEO4J_URI"] = container.uri
+    os.environ["NEO4J_USER"] = container.user
+    os.environ["NEO4J_PASSWORD"] = container.password
 
 
 async def connect_or_fail(uri: str, user: str, password: str, timeout_s: float = 5) -> AsyncDriver:

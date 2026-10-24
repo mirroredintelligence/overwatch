@@ -4,14 +4,13 @@ Every test runs against the throwaway Neo4j that the session starts (DEC-008). c
 before each test, so each test starts from an empty graph.
 """
 
+import os
+import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import pytest
 from neo4j import AsyncDriver
-
-import os
-import subprocess
 
 from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
 from tests.support import neo4j as harness

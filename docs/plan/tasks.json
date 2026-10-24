@@ -262,6 +262,20 @@
     "frontend/app/layout.tsx"
    ]
   },
+{
+    "id": "X03",
+    "sprint": "S0",
+    "epic": "F",
+    "hours": 2,
+    "deps": [
+      "X02"
+    ],
+    "title": "Apply DEC-019 design-system values (sheet 280 ms, caption 16 px, reduced-motion opacity)",
+    "files": [
+      "frontend/app/tokens.css",
+      "frontend/app/tokens.test.ts"
+    ]
+  },
   {
    "id": "F10",
    "sprint": "S0",

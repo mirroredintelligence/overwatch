@@ -114,6 +114,21 @@ def start_throwaway_neo4j() -> ThrowawayNeo4j:
     return container
 
 
+def stop_container(container: ThrowawayNeo4j) -> None:
+    """Stop the container (F11 restartable mode). The stub raises until F11 is implemented."""
+    raise NotImplementedError("F11 stub: stop_container")
+
+
+def start_container(container: ThrowawayNeo4j) -> None:
+    """Start a stopped container (F11 restartable mode). Stub."""
+    raise NotImplementedError("F11 stub: start_container")
+
+
+def wait_until_ready(container: ThrowawayNeo4j) -> None:
+    """Block until cypher-shell in the container answers after a start (F11). Stub."""
+    raise NotImplementedError("F11 stub: wait_until_ready")
+
+
 def stop_throwaway_neo4j(container: ThrowawayNeo4j) -> None:
     result = _docker("rm", "-f", container.name)
     if result.returncode != 0:

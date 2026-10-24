@@ -4,6 +4,7 @@ DEC-012: the composition root creates one AsyncDriver per process with create_dr
 on shutdown. Nothing else constructs a driver.
 """
 
+import logging
 import time
 from collections.abc import Callable
 from typing import Any
@@ -13,6 +14,11 @@ from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 
 QueryObserver = Callable[[str, str, int, float], None]
+
+# The Bolt logger writes every RUN message, with its Cypher text, at DEBUG, and the notifications
+# logger writes each server notification with the query text. Both stay at INFO or above, so a
+# DEBUG root logger does not put Cypher into the logs (DEC-012, L10).
+_TEXT_LOGGERS = ("neo4j.io", "neo4j.notifications")
 
 _observer: QueryObserver | None = None
 
@@ -30,10 +36,11 @@ def create_driver(
     """Build the driver with the DEC-012 staleness and pool bounds. It opens no connection until a
     session first needs one.
 
-    Server notifications are switched off. The driver logs each notification with the full query
-    text (`for query: '...'`), which would put Cypher in the logs. Nothing in this code base
-    relies on those notifications.
+    Server notifications are switched off, and the loggers that write query text are held at INFO
+    (see _TEXT_LOGGERS). Nothing in this code base relies on the notifications.
     """
+    for name in _TEXT_LOGGERS:
+        logging.getLogger(name).setLevel(logging.INFO)
     return AsyncGraphDatabase.driver(
         uri,
         auth=(user, password),

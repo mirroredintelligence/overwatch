@@ -10,7 +10,7 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.domain.codes import BookingStatus, BestFitNotUsedReason, ReportType
+from diucs.domain.codes import BestFitNotUsedReason, BookingStatus, ReportType
 from diucs.domain.errors import InvalidTransition, ValidationFailed
 from diucs.domain.rules.booking_state import (
     ALLOWED,
@@ -55,7 +55,9 @@ SPEC_MAPPING = [
 def test_to_fhir_follows_the_spec_table(
     state: BookingStatus, status: str, business: str, reason: str | None
 ) -> None:
-    assert to_fhir(state) == FhirTaskStatus(status=status, business_status=business, status_reason=reason)
+    assert to_fhir(state) == FhirTaskStatus(
+        status=status, business_status=business, status_reason=reason
+    )
 
 
 @pytest.mark.parametrize("state", ALL_STATES)
@@ -63,7 +65,9 @@ def test_from_fhir_reads_back_every_state(state: BookingStatus) -> None:
     assert from_fhir(to_fhir(state).business_status) is state
 
 
-@pytest.mark.parametrize("business_status", ["rejected", "accepted", "Requested", "", "not a state"])
+@pytest.mark.parametrize(
+    "business_status", ["rejected", "accepted", "Requested", "", "not a state"]
+)
 def test_from_fhir_refuses_anything_that_is_not_a_business_status(business_status: str) -> None:
     with pytest.raises(ValidationFailed):
         from_fhir(business_status)
@@ -91,8 +95,14 @@ def test_transition_is_legal_exactly_when_the_rule_book_says_so(
             transition(current, target)
 
 
-@pytest.mark.parametrize("state", [s for s in ALL_STATES if s is not BookingStatus.REQUESTED
-                                   and s is not BookingStatus.CONFIRMED])
+@pytest.mark.parametrize(
+    "state",
+    [
+        s
+        for s in ALL_STATES
+        if s is not BookingStatus.REQUESTED and s is not BookingStatus.CONFIRMED
+    ],
+)
 def test_terminal_states_refuse_every_move(state: BookingStatus) -> None:
     for target in ALL_STATES:
         with pytest.raises(InvalidTransition):

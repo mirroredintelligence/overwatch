@@ -1,25 +1,30 @@
-"""Domain errors. Red-stage stub: behaviour is added in the implementation commit."""
+"""Domain errors. Every error the domain or use cases raise on purpose subclasses DomainError."""
 
 
 class DomainError(Exception):
-    pass
+    """Base class for expected, reportable failures of a rule or a request."""
 
 
-class InvalidTransition(Exception):
-    pass
+class InvalidTransition(DomainError):
+    """A state change that the state machine does not allow."""
 
 
-class ValidationFailed(Exception):
-    pass
+class ValidationFailed(DomainError):
+    """An input broke a rule. Carries the field name and a plain message, never patient data."""
+
+    def __init__(self, field: str, message: str) -> None:
+        super().__init__(f"{field}: {message}")
+        self.field = field
+        self.message = message
 
 
-class NotFound(Exception):
-    pass
+class NotFound(DomainError):
+    """The thing asked for does not exist."""
 
 
-class Conflict(Exception):
-    pass
+class Conflict(DomainError):
+    """The request clashes with the current state of the record."""
 
 
-class NotAllowed(Exception):
-    pass
+class NotAllowed(DomainError):
+    """The actor may not do this."""

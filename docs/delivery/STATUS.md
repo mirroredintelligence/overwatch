@@ -1,28 +1,33 @@
 # Delivery status
 
-Generated 2026-10-24T13:47:58.419830+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 0/210 tasks.
+Generated 2026-10-24T21:16:07.714454+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 18/215 tasks.
 
 ## S0 Foundations
 
 | Task | Title | Status | Owner | Commit | Evidence |
 |---|---|---|---|---|---|
-| F01 | Backend project scaffold | not-started | - | - | - |
-| F02 | Architecture import rules enforced by tests | not-started | - | - | - |
-| F03 | Front-end project scaffold | not-started | - | - | - |
-| F04 | Local infrastructure with Docker Compose | not-started | - | - | - |
-| F05 | CI pipeline | not-started | - | - | - |
-| F06 | Clock and id ports, London time helpers | not-started | - | - | - |
-| F07 | Local code systems and Coding value object | not-started | - | - | - |
-| F08 | Settings and composition root skeleton | not-started | - | - | - |
-| G01 | Neo4j adapter base: driver, named queries, migrations | not-started | - | - | - |
-| F09 | Design tokens, font and StatusBadge | not-started | - | - | - |
-| F10 | Neo4j test harness | not-started | - | - | - |
+| F01 | Backend project scaffold | delivered | build-F01 | b6a7cb6 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-F01b |
+| F02 | Architecture import rules enforced by tests | delivered | build-F02 | 5e29a46 | checks, spec-trace, tests-green, tests-red; verified by verify-F02c |
+| F03 | Front-end project scaffold | delivered | build-F03 | 7eed47c6048a639704fa6436af40e03dfa9111ca | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-F03c |
+| F04 | Local infrastructure with Docker Compose | delivered | build-F04 | 219ea97 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-F04c |
+| F05 | CI pipeline | delivered | build-orchestrator | 7234615 | checks, spec-trace, tests-green, tests-red; verified by verify-F05b |
+| F06 | Clock and id ports, London time helpers | delivered | build-F06 | ce74a30baf62b762704ea6eccb6bf6d45c009b5f | checks, hazard-note, mutation, spec-trace, tests-green, tests-red; verified by verify-F06b |
+| X01 | Fix London wall-clock property test on other UK change days | delivered | build-X01 | a2a71ed | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-X01 |
+| F07 | Local code systems and Coding value object | delivered | build-F07 | a2adacc0f3aa473610c6865c2f265ca9616c973e | checks, coverage, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-F07b |
+| F08 | Settings and composition root skeleton | delivered | build-F08 | 8efb67520550d03f4218f6ae1bbfb4025d39fd0a | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-F08b |
+| G01 | Neo4j adapter base: driver, named queries, migrations | delivered | build-G01 | 1e2060a | checks, spec-trace, tests-green, tests-red; verified by verify-G01d |
+| G14 | Neo4j connection lifecycle, health and recovery | delivered | build-G14 | 7edb1ebaccef75af0f1239a03153079e8c5c0c87 | checks, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-G14f |
+| F09 | Design tokens, font and StatusBadge | delivered | build-F09 | 259734a | checks, coverage, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-F09c |
+| X02 | Add motion, spacing and type tokens from the design system | delivered | build-X02 | e24b8d0e826250fe41cbe67335145a0644a40d44 | checks, spec-trace, tests-green, tests-red; verified by verify-X02 |
+| X03 | Apply DEC-019 design-system values (sheet 280 ms, caption 16 px, reduced-motion opacity) | delivered | build-X03 | 1e7ce93 | checks, spec-trace, tests-green, tests-red; verified by verify-X03 |
+| F10 | Neo4j test harness | delivered | build-F10 | bd41c96 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-F10b |
+| F11 | Restartable Neo4j mode in the test harness | delivered | build-F11 | cb920f4 | checks, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-F11b |
 
 ## S1 Domain rules
 
 | Task | Title | Status | Owner | Commit | Evidence |
 |---|---|---|---|---|---|
-| D01 | Service profile value objects | not-started | - | - | - |
+| D01 | Service profile value objects | delivered | build-D01 | cffe75e | checks, mutation, spec-trace, tests-green, tests-red; verified by verify-D01c |
 | D02 | Capacity report value object and latest report | not-started | - | - | - |
 | D03 | Opening hours rule | not-started | - | - | - |
 | D04 | Report schedule and missed-report ladder times | not-started | - | - | - |
@@ -30,7 +35,7 @@ Generated 2026-10-24T13:47:58.419830+00:00. Source of truth: the shared ledger (
 | D06 | Effective available and pending count | not-started | - | - | - |
 | D07 | Service status rule | not-started | - | - | - |
 | D08 | System pressure rule | not-started | - | - | - |
-| D09 | Reply parser: capacity and booking words | not-started | - | - | - |
+| D09 | Reply parser: capacity and booking words | delivered | build-D09 | e3ed49f26e363184790dcae1330fbe3ce3bb083b | checks, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D09 |
 | D10 | Reply parser: multi-service lettered replies | not-started | - | - | - |
 | D11 | Capacity reply policy | not-started | - | - | - |
 | D12 | Report flag rules | not-started | - | - | - |

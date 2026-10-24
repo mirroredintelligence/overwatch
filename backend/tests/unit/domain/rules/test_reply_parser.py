@@ -172,6 +172,8 @@ def test_parser_never_raises_and_only_returns_in_range_figures(text: str) -> Non
         ("A 4 B", (Unrecognised("A 4 B"),)),
         ("A4 4", (Unrecognised("A4 4"),)),
         ("Y A 4", (Unrecognised("Y A 4"),)),
+        ("Y 4 A 2", (Unrecognised("Y 4 A 2"),)),
+        ("Y 4, A 2", (Unrecognised("Y 4, A 2"),)),
         ("A 4 Y", (Unrecognised("A 4 Y"),)),
         ("A,4", (Unrecognised("A,4"),)),
         ("A 4,,B 2", (Unrecognised("A 4,,B 2"),)),

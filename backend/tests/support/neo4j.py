@@ -68,12 +68,17 @@ def _ready(name: str, password: str) -> bool:
     return result.returncode == 0
 
 
+def new_container_password() -> str:
+    """A random password for one container. Stub (F11)."""
+    raise NotImplementedError("F11 stub: new_container_password")
+
+
 def start_throwaway_neo4j() -> ThrowawayNeo4j:
     """Start a container and wait until cypher-shell inside it answers. Blocks for up to
     CONTAINER_READY_TIMEOUT_S, because a Neo4j container takes tens of seconds to start."""
     name = f"diucs-test-neo4j-{uuid.uuid4().hex[:12]}"
     port = _free_port()
-    password = secrets.token_urlsafe(16)
+    password = new_container_password()
     try:
         started = _docker(
             "run",

@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from zoneinfo import ZoneInfo
 
 import pytest
-from hypothesis import assume, example, given
+from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from diucs.domain.rules.london_time import LONDON, format_hhmm, london_to_utc, to_london
@@ -27,9 +27,18 @@ def is_spring_gap(day: date, local: time) -> bool:
     return day == SPRING_CHANGE and time(1, 0) <= local < time(2, 0)
 
 
+def london_offset(day: date, local: time) -> timedelta:
+    offset = datetime.combine(day, local, tzinfo=ZoneInfo("Europe/London")).utcoffset()
+    assert offset is not None
+    return offset
+
+
 def is_change_day(day: date) -> bool:
-    # DEC-010 red stub: no behaviour yet. The fix derives the answer from the zone.
-    raise NotImplementedError
+    """A London day is a clock-change day when its UTC offset at midnight differs from its offset at 23:59.
+
+    Derived from the zone itself, so it holds for every year the zone database covers.
+    """
+    return london_offset(day, time(0, 0)) != london_offset(day, time(23, 59))
 
 
 def minute_to_time(minute: int) -> time:
@@ -176,7 +185,7 @@ def test_datetime_whose_offset_is_unknown_is_rejected() -> None:
 
 
 minutes_of_day = st.integers(min_value=0, max_value=23 * 60 + 59).map(minute_to_time)
-london_days = st.dates(min_value=date(2020, 1, 1), max_value=date(2035, 12, 31))
+london_days = st.dates(min_value=date(2020, 1, 1), max_value=date(2040, 12, 31))
 change_day_minutes = st.integers(min_value=0, max_value=23 * 60 + 59)
 
 
@@ -216,9 +225,8 @@ def test_spring_gap_is_shifted_forward_one_hour_on_2026_03_29(minute: int) -> No
 
 
 @given(day=london_days, local=minutes_of_day)
-@example(day=date(2028, 3, 26), local=time(1, 0))  # deterministic: the 2028 spring gap
 def test_wall_clock_is_kept_on_other_days(day: date, local: time) -> None:
-    assume(day not in CHANGE_DAYS)
+    assume(not is_change_day(day))
     assert to_london(london_to_utc(day, local)).replace(tzinfo=None) == datetime.combine(day, local)
 
 

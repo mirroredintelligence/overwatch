@@ -204,6 +204,46 @@ def test_every_failure_is_a_domain_error_naming_the_field() -> None:
     assert info.value.field == "established_capacity"
 
 
+# --- Type guards: wrong kinds of value are rejected, never coerced ----------------------------
+
+
+@pytest.mark.parametrize("capacity", ["8", 8.0, True])
+def test_established_capacity_must_be_a_whole_number(capacity: Any) -> None:
+    assert_field("established_capacity", lambda: ucr_west(established_capacity=capacity))
+
+
+@pytest.mark.parametrize("percent", ["80", 80.0, True])
+def test_limited_level_percent_must_be_a_whole_number(percent: Any) -> None:
+    assert_field("limited_level_percent", lambda: ucr_west(limited_level_percent=percent))
+
+
+@pytest.mark.parametrize("usual_range", [(0,), (0, 8, 9), [0, 8], ("0", 8), (0, True)])
+def test_usual_range_must_be_a_pair_of_whole_numbers(usual_range: Any) -> None:
+    assert_field("usual_range", lambda: ucr_west(usual_range=usual_range))
+
+
+@pytest.mark.parametrize("value", [None, 7, b"UCR West"])
+def test_text_fields_must_be_strings(value: Any) -> None:
+    assert_field("name", lambda: ucr_west(name=value))
+
+
+def test_available_times_must_be_a_tuple_of_available_time_values() -> None:
+    window = AvailableTime.weekdays(time(8, 0), time(20, 0))
+    assert_field("available_times", lambda: ucr_west(available_times=[window]))
+    assert_field("available_times", lambda: ucr_west(available_times=(object(),)))
+
+
+@pytest.mark.parametrize("days", [frozenset({"1"}), frozenset({1.0})])
+def test_day_numbers_must_be_integers(days: Any) -> None:
+    assert_field("days", lambda: timed(days, time(8), time(20)))
+
+
+@pytest.mark.parametrize("value", ["08:00", 8])
+def test_window_times_must_be_time_values(value: Any) -> None:
+    assert_field("start", lambda: timed(WEEKDAYS, value, time(20)))
+    assert_field("end", lambda: timed(WEEKDAYS, time(8), value))
+
+
 # --- Frozen and hashable ----------------------------------------------------------------------
 
 

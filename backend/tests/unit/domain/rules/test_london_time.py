@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from zoneinfo import ZoneInfo
 
 import pytest
-from hypothesis import assume, given
+from hypothesis import assume, example, given
 from hypothesis import strategies as st
 
 from diucs.domain.rules.london_time import LONDON, format_hhmm, london_to_utc, to_london
@@ -25,6 +25,11 @@ def last_sunday_of(year: int, month: int) -> date:
 
 def is_spring_gap(day: date, local: time) -> bool:
     return day == SPRING_CHANGE and time(1, 0) <= local < time(2, 0)
+
+
+def is_change_day(day: date) -> bool:
+    # DEC-010 red stub: no behaviour yet. The fix derives the answer from the zone.
+    raise NotImplementedError
 
 
 def minute_to_time(minute: int) -> time:
@@ -187,6 +192,21 @@ def test_wall_clock_is_kept_on_change_days_outside_the_spring_gap(day: date, min
     assert to_london(london_to_utc(day, local)).replace(tzinfo=None) == datetime.combine(day, local)
 
 
+def test_change_days_are_the_last_sundays_of_march_and_october_for_every_year() -> None:
+    for year in range(2020, 2041):
+        days_in_year = [date(year, 1, 1) + timedelta(days=i) for i in range(366)]
+        derived = [d for d in days_in_year if d.year == year and is_change_day(d)]
+        assert derived == [last_sunday_of(year, 3), last_sunday_of(year, 10)], year
+
+
+def test_2028_spring_change_day_is_a_change_day_and_the_wall_clock_is_not_kept() -> None:
+    day, local = date(2028, 3, 26), time(1, 0)
+    assert is_change_day(day)
+    result = london_to_utc(day, local)
+    assert result == utc(2028, 3, 26, 1, 0)  # gap: 01:00 does not exist, shifted to 02:00 BST
+    assert to_london(result).replace(tzinfo=None) != datetime.combine(day, local)
+
+
 @given(minute=st.integers(min_value=60, max_value=119))
 def test_spring_gap_is_shifted_forward_one_hour_on_2026_03_29(minute: int) -> None:
     local = minute_to_time(minute)
@@ -196,6 +216,7 @@ def test_spring_gap_is_shifted_forward_one_hour_on_2026_03_29(minute: int) -> No
 
 
 @given(day=london_days, local=minutes_of_day)
+@example(day=date(2028, 3, 26), local=time(1, 0))  # deterministic: the 2028 spring gap
 def test_wall_clock_is_kept_on_other_days(day: date, local: time) -> None:
     assume(day not in CHANGE_DAYS)
     assert to_london(london_to_utc(day, local)).replace(tzinfo=None) == datetime.combine(day, local)

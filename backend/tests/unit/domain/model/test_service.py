@@ -244,6 +244,22 @@ def test_window_times_must_be_time_values(value: Any) -> None:
     assert_field("end", lambda: timed(WEEKDAYS, time(8), value))
 
 
+@pytest.mark.parametrize(
+    ("start", "end", "field", "message"),
+    [
+        (None, time(20), "start", "a timed window needs a start time"),
+        (time(8), None, "end", "a timed window needs an end time"),
+    ],
+)
+def test_timed_window_missing_a_time_says_which_time_is_needed(
+    start: time | None, end: time | None, field: str, message: str
+) -> None:
+    with pytest.raises(ValidationFailed) as info:
+        timed(WEEKDAYS, start, end)
+    assert info.value.field == field
+    assert info.value.message == message
+
+
 # --- Frozen and hashable ----------------------------------------------------------------------
 
 

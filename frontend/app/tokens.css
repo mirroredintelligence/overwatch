@@ -1,5 +1,6 @@
-/* Design tokens. Values are fixed by docs/spec/contracts.md ("Front end").
-   Change a value only by a new decision in docs/delivery/decisions.md. */
+/* Design tokens. Values are fixed by docs/spec/contracts.md ("Front end") and
+   docs/design/design-system.md (sections 3, 4 and 5.2). Change a value only by a
+   new decision in docs/delivery/decisions.md. */
 :root {
   --c-primary: #0B5C8C;
   --c-primary-dark: #0B3F61;
@@ -15,12 +16,95 @@
   --c-tint: #E3F1F8;
   --c-amber-tint: #FFF1DC;
 
+  /* Shape. --radius is the control radius (buttons, fields). */
   --radius: 14px;
+  --radius-card: 24px;
+  --radius-chip: 9999px;
   --btn-h: 52px;
   --chip-h: 48px;
   --focus: 3px solid #14232B;
+
+  /* Spacing scale (section 4). Use only these values. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --space-8: 64px;
+
+  /* Type roles (section 3). Caption is 14px as specified; see DEC-015. */
+  --type-display-size: clamp(2rem, 5vw, 3.5rem);
+  --type-display-lh: 1.05;
+  --type-display-weight: 700;
+  --type-display-tracking: -0.02em;
+
+  --type-heading-size: 28px;
+  --type-heading-lh: 1.2;
+  --type-heading-weight: 700;
+  --type-heading-tracking: -0.01em;
+
+  --type-title-size: 22px;
+  --type-title-lh: 1.3;
+  --type-title-weight: 700;
+  --type-title-tracking: 0;
+
+  --type-body-size: 18px;
+  --type-body-lh: 1.5;
+  --type-body-weight: 400;
+  --type-body-tracking: 0;
+
+  --type-label-size: 17px;
+  --type-label-lh: 1.4;
+  --type-label-weight: 700;
+  --type-label-tracking: 0.01em;
+
+  --type-caption-size: 14px;
+  --type-caption-lh: 1.4;
+  --type-caption-weight: 400;
+  --type-caption-tracking: 0.01em;
+
+  /* Motion durations (section 5.2). Movement tokens are zeroed under reduced motion. */
+  --dur-press: 140ms;
+  --dur-tip: 150ms;
+  --dur-menu: 200ms;
+  --dur-sheet: 320ms;
+  --dur-state: 240ms;
+  --dur-onboard: 480ms;
+
+  /* Easing curves (section 5.2). */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-hover: ease;
+}
+
+/* Reduced motion (section 5.5): movement goes, meaning stays. --dur-state is a
+   colour change and keeps its value. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 0ms;
+    --dur-tip: 0ms;
+    --dur-menu: 0ms;
+    --dur-sheet: 0ms;
+    --dur-onboard: 0ms;
+  }
 }
 
 html {
   font-family: var(--font-atkinson), system-ui, sans-serif;
+  font-size: 16px;
+}
+
+body {
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: var(--type-body-weight);
+  letter-spacing: var(--type-body-tracking);
+}
+
+/* Numbers that line up in columns or tick over (section 3). */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }

@@ -29,11 +29,14 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     for item in items:
         if Path(str(item.path)).resolve().is_relative_to(_INTEGRATION_ROOT):
             item.add_marker(pytest.mark.integration)
-            item.add_marker(pytest.mark.usefixtures("clean_graph"))
+            # usefixtures markers are read at collection, before this hook runs, so the fixture
+            # name is added to the item's closure directly (as pytest-asyncio does).
+            if "clean_graph" not in item.fixturenames:
+                item.fixturenames.append("clean_graph")
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def neo4j_driver() -> AsyncIterator[AsyncDriver]:
+async def harness_driver() -> AsyncIterator[AsyncDriver]:
     """One throwaway Neo4j and one driver for the whole pytest session; migrations applied once.
 
     The harness sets NEO4J_URI, NEO4J_USER and NEO4J_PASSWORD for the session, so code that reads
@@ -52,8 +55,15 @@ async def neo4j_driver() -> AsyncIterator[AsyncDriver]:
         stop_throwaway_neo4j(container)
 
 
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def neo4j_driver(harness_driver: AsyncDriver) -> AsyncDriver:
+    """The session's driver. A test module may override this name (test_infra_up.py does, for the
+    shared compose stack); clean_graph does not use the name, so it can never wipe another stack."""
+    return harness_driver
+
+
 @pytest_asyncio.fixture(loop_scope="session")
-async def clean_graph(neo4j_driver: AsyncDriver) -> None:
-    """Delete every node and relationship before an integration test. Constraints, indexes and
-    :Migration nodes stay."""
-    await wipe(neo4j_driver)
+async def clean_graph(harness_driver: AsyncDriver) -> None:
+    """Delete every node and relationship in the harness container before an integration test.
+    Constraints, indexes and :Migration nodes stay."""
+    await wipe(harness_driver)

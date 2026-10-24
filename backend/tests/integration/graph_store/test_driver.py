@@ -1,10 +1,8 @@
 """Integration tests for the Neo4j adapter base (G01): driver, named queries, migrations.
 
-They run against a real Neo4j. NEO4J_URI is required and has no default: when it is unset the
-tests fail with a message, so they can never reach the shared diucs-local stack on port 7687 by
-accident. Point it at an isolated stack (see the evidence file for G01) and start that stack with
-`up -d --wait neo4j`. The F10 harness will supply the URI later. This module holds its own driver
-until then (DEC-012: one AsyncDriver per module, closed at the end).
+They run against a real Neo4j: the throwaway container that the F10 harness starts for the pytest
+session (DEC-008), through the session-scoped `neo4j_driver` fixture in tests/conftest.py. The
+harness never uses the shared diucs-local stack on port 7687.
 
 Some tests remove (:Migration) bookkeeping nodes, and one drops an index, so that the migrations
 run again over an existing schema. They run only against the isolated instance and touch no
@@ -12,19 +10,13 @@ data of record.
 """
 
 import logging
-import os
-from collections.abc import AsyncIterator
 
 import pytest
-import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.driver import create_driver, run_query
+from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-
-NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
-NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "diucs-test-password")
 
 EXPECTED_MIGRATION_COUNT = 8
 EXPECTED_CONSTRAINTS = {"resource_id", "identifier_key", "concept_key"}
@@ -47,29 +39,12 @@ REGISTRY.register(
 )
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="module")
-async def neo4j_driver() -> AsyncIterator[AsyncDriver]:
-    uri = os.environ.get("NEO4J_URI")
-    if not uri:
-        pytest.fail(
-            "NEO4J_URI is not set. These tests need an isolated Neo4j, and they never default to "
-            "the shared diucs-local stack on bolt://localhost:7687. Start an isolated stack and "
-            "set NEO4J_URI to its bolt address. The F10 harness will supply it.",
-            pytrace=False,
-        )
-    driver = create_driver(uri, NEO4J_USER, NEO4J_PASSWORD)
-    try:
-        yield driver
-    finally:
-        await driver.close()
-
-
 async def _reset_bookkeeping(driver: AsyncDriver) -> None:
     async with driver.session() as session:
         await session.run("MATCH (m:Migration) DETACH DELETE m")
 
 
-@pytest.mark.asyncio(loop_scope="module")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_apply_migrations_applies_every_migration_then_none_on_the_second_call(
     neo4j_driver: AsyncDriver,
 ) -> None:
@@ -83,7 +58,7 @@ async def test_apply_migrations_applies_every_migration_then_none_on_the_second_
     assert second == []
 
 
-@pytest.mark.asyncio(loop_scope="module")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_each_applied_migration_is_recorded_with_an_id_and_a_utc_time(
     neo4j_driver: AsyncDriver,
 ) -> None:
@@ -98,7 +73,7 @@ async def test_each_applied_migration_is_recorded_with_an_id_and_a_utc_time(
         assert record["appliedAt"].tzinfo is not None
 
 
-@pytest.mark.asyncio(loop_scope="module")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_schema_has_the_named_constraints_and_indexes(neo4j_driver: AsyncDriver) -> None:
     await apply_migrations(neo4j_driver)
     async with neo4j_driver.session() as session:
@@ -112,7 +87,7 @@ async def test_schema_has_the_named_constraints_and_indexes(neo4j_driver: AsyncD
     assert indexes >= EXPECTED_INDEXES
 
 
-@pytest.mark.asyncio(loop_scope="module")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_every_migration_statement_runs_twice_in_separate_sessions(
     neo4j_driver: AsyncDriver,
 ) -> None:
@@ -124,7 +99,7 @@ async def test_every_migration_statement_runs_twice_in_separate_sessions(
                 await session.run(statement)
 
 
-@pytest.mark.asyncio(loop_scope="module")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_reapplying_over_an_existing_schema_recreates_a_dropped_index(
     neo4j_driver: AsyncDriver,
 ) -> None:
@@ -143,7 +118,7 @@ async def test_reapplying_over_an_existing_schema_recreates_a_dropped_index(
     assert "obs_by_service" in indexes
 
 
-@pytest.mark.asyncio(loop_scope="module")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_a_registered_named_query_runs_in_a_read_transaction(
     neo4j_driver: AsyncDriver,
 ) -> None:
@@ -155,7 +130,7 @@ async def test_a_registered_named_query_runs_in_a_read_transaction(
     assert rows == [{"x": 1}]
 
 
-@pytest.mark.asyncio(loop_scope="module")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_run_query_logs_no_cypher_text_even_when_the_server_warns(
     neo4j_driver: AsyncDriver, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -171,7 +146,7 @@ async def test_run_query_logs_no_cypher_text_even_when_the_server_warns(
     assert "zzmarkerlabel" not in caplog.text
 
 
-@pytest.mark.asyncio(loop_scope="module")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_run_query_logs_no_cypher_text_even_at_debug(
     neo4j_driver: AsyncDriver, caplog: pytest.LogCaptureFixture
 ) -> None:

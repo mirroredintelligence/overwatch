@@ -1,14 +1,38 @@
-"""Neo4j test harness (F10). Stub for the red commit (DEC-010): every function raises."""
+"""Neo4j test harness (F10, DEC-008, DEC-012).
 
+start_throwaway_neo4j runs one Neo4j container per pytest session, on a free localhost port, with a
+unique name, and stop_throwaway_neo4j removes it. Nothing here reads a shared stack: the container
+is ours alone and its port is picked by the OS.
+
+Helpers run in fresh sessions: a write commits in one session and a read sees it only from another
+session, so each round trip proves what was really stored.
+"""
+
+import asyncio
+import re
+import secrets
+import socket
+import subprocess
+import time
+import uuid
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
+from neo4j.exceptions import ServiceUnavailable
+
+from diucs.adapters.outbound.graph_store.driver import create_driver
 
 START_MESSAGE = (
     "Neo4j is not running. Start it with: docker compose -f infra/docker-compose.yml up -d neo4j"
 )
+# The image is the one pinned in infra/docker-compose.yml. Keep the two in step.
+NEO4J_IMAGE = "neo4j:5.26.32-community"
+NEO4J_BOLT_PORT = 7687
+CONTAINER_READY_TIMEOUT_S = 120.0
+DELETE_BATCH = 10_000
+_SAFE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class Neo4jNotRunning(Exception):
@@ -23,37 +47,150 @@ class ThrowawayNeo4j:
     password: str
 
 
+def _free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        probe.bind(("127.0.0.1", 0))
+        return int(probe.getsockname()[1])
+
+
+def _docker(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        ["docker", *args], capture_output=True, text=True, timeout=timeout, check=False
+    )
+
+
+def _ready(name: str, password: str) -> bool:
+    result = _docker(
+        "exec", name, "cypher-shell", "-u", "neo4j", "-p", password, "RETURN 1", timeout=20.0
+    )
+    return result.returncode == 0
+
+
 def start_throwaway_neo4j() -> ThrowawayNeo4j:
-    raise NotImplementedError("F10 red stub: start_throwaway_neo4j")
+    """Start a container and wait until cypher-shell inside it answers. Blocks for up to
+    CONTAINER_READY_TIMEOUT_S, because a Neo4j container takes tens of seconds to start."""
+    name = f"diucs-test-neo4j-{uuid.uuid4().hex[:12]}"
+    port = _free_port()
+    password = secrets.token_urlsafe(16)
+    try:
+        started = _docker(
+            "run",
+            "-d",
+            "--rm",
+            "--name",
+            name,
+            "--label",
+            "diucs-test=true",
+            "-p",
+            f"127.0.0.1:{port}:{NEO4J_BOLT_PORT}",
+            "-e",
+            f"NEO4J_AUTH=neo4j/{password}",
+            NEO4J_IMAGE,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise Neo4jNotRunning(
+            f"Docker is not available, so the Neo4j test harness cannot start its container: "
+            f"{error}"
+        ) from error
+    if started.returncode != 0:
+        first_line = (started.stderr.strip().splitlines() or ["no output"])[0]
+        raise Neo4jNotRunning(
+            f"Docker could not start the Neo4j test container (is Docker running?): {first_line}"
+        )
+    container = ThrowawayNeo4j(
+        name=name, uri=f"bolt://127.0.0.1:{port}", user="neo4j", password=password
+    )
+    deadline = time.monotonic() + CONTAINER_READY_TIMEOUT_S
+    while not _ready(name, password):
+        if time.monotonic() > deadline:
+            stop_throwaway_neo4j(container)
+            raise Neo4jNotRunning(
+                f"The Neo4j test container {name} did not answer within "
+                f"{CONTAINER_READY_TIMEOUT_S:.0f} seconds and was removed."
+            )
+        time.sleep(1.0)
+    return container
 
 
 def stop_throwaway_neo4j(container: ThrowawayNeo4j) -> None:
-    raise NotImplementedError("F10 red stub: stop_throwaway_neo4j")
+    result = _docker("rm", "-f", container.name)
+    if result.returncode != 0:
+        raise RuntimeError(f"Could not remove the Neo4j test container {container.name}.")
 
 
 async def connect_or_fail(uri: str, user: str, password: str, timeout_s: float = 5) -> AsyncDriver:
-    raise NotImplementedError("F10 red stub: connect_or_fail")
+    """Return a driver whose server answers within timeout_s, or raise Neo4jNotRunning."""
+    driver = create_driver(uri, user, password)
+    try:
+        await asyncio.wait_for(driver.verify_connectivity(), timeout=timeout_s)
+    except (ServiceUnavailable, OSError, TimeoutError) as error:
+        await driver.close()
+        raise Neo4jNotRunning(START_MESSAGE) from error
+    return driver
 
 
 async def write_tx[T](
     driver: AsyncDriver, fn: Callable[[AsyncManagedTransaction], Awaitable[T]]
 ) -> T:
-    raise NotImplementedError("F10 red stub: write_tx")
+    async with driver.session() as session:
+        return await session.execute_write(fn)
 
 
 async def read_tx[T](
     driver: AsyncDriver, fn: Callable[[AsyncManagedTransaction], Awaitable[T]]
 ) -> T:
-    raise NotImplementedError("F10 red stub: read_tx")
+    async with driver.session() as session:
+        return await session.execute_read(fn)
+
+
+def _checked_name(name: str) -> str:
+    if not _SAFE_NAME.match(name):
+        raise ValueError(f"not a safe Neo4j label or property name: {name!r}")
+    return name
 
 
 async def count_nodes(driver: AsyncDriver, label: str) -> int:
-    raise NotImplementedError("F10 red stub: count_nodes")
+    query = f"MATCH (n:`{_checked_name(label)}`) RETURN count(n) AS total"
+
+    async def work(tx: AsyncManagedTransaction) -> int:
+        record = await (await tx.run(query)).single()
+        assert record is not None
+        return int(record["total"])
+
+    return await read_tx(driver, work)
 
 
 async def node_props(driver: AsyncDriver, label: str, **match: Any) -> dict[str, Any]:
-    raise NotImplementedError("F10 red stub: node_props")
+    """Properties of the single node with this label and these property values. Fails unless
+    exactly one node matches, and the message names how many did."""
+    conditions = " AND ".join(f"n.`{_checked_name(key)}` = ${key}" for key in match)
+    where = f" WHERE {conditions}" if conditions else ""
+    query = f"MATCH (n:`{_checked_name(label)}`){where} RETURN properties(n) AS props"
+
+    async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
+        return await (await tx.run(query, **match)).data()
+
+    rows = await read_tx(driver, work)
+    if len(rows) != 1:
+        raise AssertionError(
+            f"expected exactly 1 {label} node matching {match!r}, found {len(rows)}"
+        )
+    props: dict[str, Any] = rows[0]["props"]
+    return props
 
 
 async def wipe(driver: AsyncDriver) -> None:
-    raise NotImplementedError("F10 red stub: wipe")
+    """Delete every node and relationship, in batches. :Migration nodes stay, and so do
+    constraints and indexes (deleting nodes does not touch them)."""
+    query = (
+        f"MATCH (n) WHERE NOT n:Migration WITH n LIMIT {DELETE_BATCH} "
+        "DETACH DELETE n RETURN count(*) AS deleted"
+    )
+
+    async def batch(tx: AsyncManagedTransaction) -> int:
+        record = await (await tx.run(query)).single()
+        assert record is not None
+        return int(record["deleted"])
+
+    while await write_tx(driver, batch):
+        pass

@@ -1,6 +1,8 @@
 """Identifier generator that returns random UUID4 strings."""
 
+import uuid
+
 
 class UuidGenerator:
     def new_id(self) -> str:
-        raise NotImplementedError
+        return str(uuid.uuid4())

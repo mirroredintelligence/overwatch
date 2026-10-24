@@ -1,6 +1,6 @@
 """London local time rules: conversion across the 2026 clock changes, and formatting."""
 
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -27,7 +27,7 @@ def is_spring_gap(day: date, local: time) -> bool:
 
 
 def test_london_zone_is_europe_london() -> None:
-    assert LONDON == ZoneInfo("Europe/London")
+    assert ZoneInfo("Europe/London") == LONDON
 
 
 def test_clock_change_dates_used_by_the_tests_are_the_last_sundays() -> None:
@@ -115,9 +115,7 @@ def test_result_is_always_aware_utc(day: date, local: time) -> None:
 def test_wall_clock_is_kept_outside_the_spring_gap(day: date, local: time) -> None:
     if is_spring_gap(day, local):
         return
-    assert to_london(london_to_utc(day, local)).replace(tzinfo=None) == datetime.combine(
-        day, local
-    )
+    assert to_london(london_to_utc(day, local)).replace(tzinfo=None) == datetime.combine(day, local)
 
 
 @given(day=london_days, local=minutes_of_day)
@@ -141,3 +139,19 @@ def test_conversion_is_monotonic_within_a_day_outside_the_gap(
 def test_format_hhmm_round_trips_a_summer_wall_clock_time(local: time) -> None:
     instant = london_to_utc(date(2026, 7, 1), local)
     assert format_hhmm(instant) == local.strftime("%H:%M")
+
+
+class _TzWithoutOffset(tzinfo):
+    def utcoffset(self, dt: datetime | None) -> None:
+        return None
+
+    def dst(self, dt: datetime | None) -> None:
+        return None
+
+
+def test_datetime_whose_offset_is_unknown_is_rejected() -> None:
+    unknown = datetime(2026, 7, 1, 9, 0, tzinfo=_TzWithoutOffset())
+    with pytest.raises(ValueError):
+        to_london(unknown)
+    with pytest.raises(ValueError):
+        format_hhmm(unknown)

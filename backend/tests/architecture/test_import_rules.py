@@ -7,6 +7,7 @@ swapped, plants one illegal import, and asserts that lint-imports fails on that 
 
 from __future__ import annotations
 
+import ast
 import os
 import re
 import subprocess
@@ -205,3 +206,116 @@ def test_swapped_layer_order_rejects_adapter_importing_application(tmp_path: Pat
     output = result.stdout + result.stderr
     assert result.returncode == 1, output
     assert "Layers BROKEN" in output, output
+
+
+# Allowlist rules (prompt F02, "Rules you need"). The import-linter contracts above are
+# blacklists; these tests state what the domain and application may import, so an unlisted
+# third-party package fails the build. Only direct imports are read: fhir.resources pulls
+# in pydantic internally, and that indirect path is not a violation.
+DOMAIN_INTERNAL = ("diucs.domain",)
+DOMAIN_EXTERNAL = ("fhir.resources",)
+APPLICATION_INTERNAL = ("diucs.application", "diucs.domain")
+APPLICATION_EXTERNAL: tuple[str, ...] = ()
+
+SRC_ROOT = BACKEND / "src"
+
+
+def _imports_of(path: Path, package: list[str]) -> list[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    names: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            names.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            if node.level == 0:
+                names.append(node.module or "")
+            else:
+                base = package[: len(package) - (node.level - 1)]
+                names.append(".".join([*base, *([node.module] if node.module else [])]))
+    return names
+
+
+def _allowed(name: str, internal: tuple[str, ...], external: tuple[str, ...]) -> bool:
+    if name.split(".")[0] in sys.stdlib_module_names:
+        return True
+    return any(name == prefix or name.startswith(prefix + ".") for prefix in (*internal, *external))
+
+
+def _allowlist_violations(
+    src_root: Path, layer: str, internal: tuple[str, ...], external: tuple[str, ...]
+) -> list[str]:
+    found: list[str] = []
+    for path in sorted((src_root / Path(*layer.split("."))).rglob("*.py")):
+        rel = path.relative_to(src_root)
+        for name in _imports_of(path, list(rel.parent.parts)):
+            if not _allowed(name, internal, external):
+                found.append(f"{rel.as_posix()} imports {name}")
+    return found
+
+
+def test_real_domain_imports_are_on_the_allowlist() -> None:
+    assert any((SRC_ROOT / "diucs" / "domain").rglob("*.py")), "no domain files were scanned"
+    assert _allowlist_violations(SRC_ROOT, "diucs.domain", DOMAIN_INTERNAL, DOMAIN_EXTERNAL) == []
+
+
+def test_real_application_imports_are_on_the_allowlist() -> None:
+    assert any((SRC_ROOT / "diucs" / "application").rglob("*.py")), "no application files scanned"
+    assert (
+        _allowlist_violations(
+            SRC_ROOT, "diucs.application", APPLICATION_INTERNAL, APPLICATION_EXTERNAL
+        )
+        == []
+    )
+
+
+def _layer_file(tmp_path: Path, layer: str, relpath: str, source: str) -> Path:
+    src = tmp_path / "src"
+    target = src / "diucs" / layer / relpath
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(source, encoding="utf-8")
+    return src
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import datetime\nfrom typing import Protocol\n",
+        "from fhir.resources.patient import Patient\n",
+        "from diucs.domain import errors\nfrom . import errors as same\n",
+    ],
+)
+def test_domain_allowlist_accepts_permitted_imports(tmp_path: Path, source: str) -> None:
+    src = _layer_file(tmp_path, "domain", "ok.py", source)
+    assert _allowlist_violations(src, "diucs.domain", DOMAIN_INTERNAL, DOMAIN_EXTERNAL) == []
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [
+        ("import pydantic\n", "pydantic"),
+        ("from pydantic import BaseModel\n", "pydantic"),
+        ("import httpx\n", "httpx"),
+        ("import diucs.adapters.x\n", "diucs.adapters.x"),
+        ("from ..adapters import x\n", "diucs.adapters"),
+    ],
+)
+def test_domain_allowlist_rejects_unlisted_imports(
+    tmp_path: Path, source: str, expected: str
+) -> None:
+    src = _layer_file(tmp_path, "domain", "bad.py", source)
+    found = _allowlist_violations(src, "diucs.domain", DOMAIN_INTERNAL, DOMAIN_EXTERNAL)
+    assert any(f"imports {expected}" in line for line in found), found
+
+
+def test_application_allowlist_rejects_fhir_and_adapters(tmp_path: Path) -> None:
+    src = _layer_file(tmp_path, "application", "bad.py", "import fhir.resources\n")
+    found = _allowlist_violations(
+        src, "diucs.application", APPLICATION_INTERNAL, APPLICATION_EXTERNAL
+    )
+    assert any("imports fhir.resources" in line for line in found), found
+
+    src = _layer_file(tmp_path, "application", "worse.py", "import diucs.adapters.x\n")
+    found = _allowlist_violations(
+        src, "diucs.application", APPLICATION_INTERNAL, APPLICATION_EXTERNAL
+    )
+    assert any("imports diucs.adapters.x" in line for line in found), found

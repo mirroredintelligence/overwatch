@@ -1,0 +1,11 @@
+
+> diucs-frontend@0.1.0 e2e C:\github\overwatch-wt\F03\frontend
+> playwright install chromium && playwright test
+
+
+Running 2 tests using 2 workers
+
+  ok 1 [chromium] › e2e\smoke.spec.ts:4:1 › wall screen shows its heading and a page title (455ms)
+  ok 2 [chromium] › e2e\smoke.spec.ts:14:1 › wall screen passes axe including colour contrast in a real browser (707ms)
+
+  2 passed (3.9s)

@@ -1,0 +1,33 @@
+
+Running 1 test using 1 worker
+
+  x  1 [chromium] › e2e\smoke.spec.ts:3:1 › wall screen shows its heading and a page title (5.2s)
+
+
+  1) [chromium] › e2e\smoke.spec.ts:3:1 › wall screen shows its heading and a page title ───────────
+
+    Error: expect(locator).toBeVisible() failed
+
+    Locator: getByRole('heading', { name: 'DIUCS capacity wall screen' })
+    Expected: visible
+    Timeout: 5000ms
+    Error: element(s) not found
+
+    Call log:
+      - Expect "toBeVisible" with timeout 5000ms
+      - waiting for getByRole('heading', { name: 'DIUCS capacity wall screen' })
+
+
+       6 |   await expect(
+       7 |     page.getByRole('heading', { name: 'DIUCS capacity wall screen' }),
+    >  8 |   ).toBeVisible();
+         |     ^
+       9 |   await expect(page).toHaveTitle(/DIUCS capacity/);
+      10 | });
+      11 |
+        at C:\github\overwatch-wt\F03-redproof\frontend\e2e\smoke.spec.ts:8:5
+
+    Error Context: test-results\smoke-wall-screen-shows-its-heading-and-a-page-title-chromium\error-context.md
+
+  1 failed
+    [chromium] › e2e\smoke.spec.ts:3:1 › wall screen shows its heading and a page title ────────────

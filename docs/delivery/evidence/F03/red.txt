@@ -1,0 +1,45 @@
+
+> diucs-frontend@0.1.0 test C:\github\overwatch-wt\F03\frontend
+> vitest run
+
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vitest.config.ts:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+
+ RUN  v4.1.12 C:/github/overwatch-wt/F03/frontend
+
+ ❯ app/(wall)/screen/page.test.tsx (2 tests | 1 failed) 74ms
+     × shows the wall screen heading and the no-patient-information line 42ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  app/(wall)/screen/page.test.tsx > wall screen page > shows the wall screen heading and the no-patient-information line
+TestingLibraryElementError: Unable to find an accessible element with the role "heading" and name "DIUCS capacity wall screen"
+
+There are no accessible roles. But there might be some inaccessible roles. If you wish to access them, then set the `hidden` option to `true`. Learn more about this here: https://testing-library.com/docs/dom-testing-library/api-queries#byrole
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div />[39m
+[36m</body>[39m
+ ❯ Object.getElementError node_modules/.pnpm/@testing-library+dom@10.4.0/node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.0/node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.0/node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/.pnpm/@testing-library+dom@10.4.0/node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ app/(wall)/screen/page.test.tsx:11:14
+      9|
+     10|     expect(
+     11|       screen.getByRole('heading', { name: 'DIUCS capacity wall screen'…
+       |              ^
+     12|     ).toBeInTheDocument();
+     13|     expect(
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 1 passed (2)
+   Start at  14:56:55
+   Duration  1.09s (transform 55ms, setup 83ms, import 445ms, tests 74ms, environment 350ms)
+
+ ELIFECYCLE  Test failed. See above for more details.

@@ -34,7 +34,7 @@ def london_offset(day: date, local: time) -> timedelta:
 
 
 def is_change_day(day: date) -> bool:
-    """A London day is a clock-change day when its UTC offset at midnight differs from its offset at 23:59.
+    """A London day is a change day when its UTC offset at 00:00 differs from its offset at 23:59.
 
     Derived from the zone itself, so it holds for every year the zone database covers.
     """

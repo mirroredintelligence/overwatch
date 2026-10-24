@@ -10,7 +10,21 @@ from datetime import UTC, datetime
 import pytest
 from neo4j import AsyncDriver
 
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
+import os
+import subprocess
+
+from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
+from tests.support import neo4j as harness
+from tests.support.neo4j import (
+    Neo4jNotRunning,
+    apply_session_env,
+    count_nodes,
+    node_props,
+    read_tx,
+    throwaway_driver,
+    wipe,
+    write_tx,
+)
 from tests.support.round_trip import assert_round_trip
 
 NAIVE_TIME = datetime(2026, 10, 24, 9, 30)
@@ -106,3 +120,67 @@ async def test_constraint_from_migrations_survives_wipe(neo4j_driver: AsyncDrive
 
     assert await read_tx(neo4j_driver, constraint_names) == ["resource_id"]
     assert await count_nodes(neo4j_driver, "Probe") == 0
+
+
+def _container_exists(name: str) -> bool:
+    result = subprocess.run(
+        ["docker", "ps", "-a", "--filter", f"name=^{name}$", "--format", "{{.Names}}"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return name in result.stdout.split()
+
+
+async def test_migration_nodes_survive_clean_graph(neo4j_driver: AsyncDriver) -> None:
+    await apply_migrations(neo4j_driver)
+    before = await count_nodes(neo4j_driver, "Migration")
+
+    await wipe(neo4j_driver)
+
+    assert before == len(MIGRATIONS)
+    assert await count_nodes(neo4j_driver, "Migration") == len(MIGRATIONS)
+
+
+async def test_container_is_removed_when_the_block_exits() -> None:
+    async with throwaway_driver() as (container, driver):
+        assert await count_nodes(driver, "Probe") == 0
+        assert _container_exists(container.name)
+
+    assert not _container_exists(container.name)
+
+
+async def test_container_is_removed_when_connecting_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    started: list[str] = []
+    real_start = harness.start_throwaway_neo4j
+
+    def recording_start() -> harness.ThrowawayNeo4j:
+        container = real_start()
+        started.append(container.name)
+        return container
+
+    async def refuse(uri: str, user: str, password: str, timeout_s: float = 5) -> object:
+        raise Neo4jNotRunning(harness.START_MESSAGE)
+
+    monkeypatch.setattr(harness, "start_throwaway_neo4j", recording_start)
+    monkeypatch.setattr(harness, "connect_or_fail", refuse)
+
+    with pytest.raises(Neo4jNotRunning):
+        async with throwaway_driver():
+            pass  # pragma: no cover
+
+    assert len(started) == 1
+    assert not _container_exists(started[0])
+
+
+async def test_a_shell_neo4j_uri_is_overwritten_by_the_harness(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    shared_stack = "bolt://localhost:7687"
+    monkeypatch.setenv("NEO4J_URI", shared_stack)
+
+    async with throwaway_driver() as (container, driver):
+        apply_session_env(container)
+        assert os.environ["NEO4J_URI"] == container.uri
+        assert os.environ["NEO4J_URI"] != shared_stack
+        assert await count_nodes(driver, "Probe") == 0

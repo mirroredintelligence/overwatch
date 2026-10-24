@@ -15,7 +15,8 @@ import socket
 import subprocess
 import time
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -116,6 +117,16 @@ def stop_throwaway_neo4j(container: ThrowawayNeo4j) -> None:
     result = _docker("rm", "-f", container.name)
     if result.returncode != 0:
         raise RuntimeError(f"Could not remove the Neo4j test container {container.name}.")
+
+
+@asynccontextmanager
+async def throwaway_driver() -> AsyncIterator[tuple[ThrowawayNeo4j, AsyncDriver]]:
+    raise NotImplementedError("F10 red stub: throwaway_driver")
+    yield  # pragma: no cover
+
+
+def apply_session_env(container: ThrowawayNeo4j) -> None:
+    raise NotImplementedError("F10 red stub: apply_session_env")
 
 
 async def connect_or_fail(uri: str, user: str, password: str, timeout_s: float = 5) -> AsyncDriver:

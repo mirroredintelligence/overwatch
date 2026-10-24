@@ -121,7 +121,7 @@ async def _wait_until_healthy(conn: Neo4jConnection) -> None:
         await asyncio.sleep(1)
 
 
-async def test_open_with_a_bad_password_fails_and_names_host_and_port_but_not_the_password() -> None:
+async def test_bad_password_fails_naming_host_and_port_but_not_the_password() -> None:
     host, port = _endpoint()
     bad = Neo4jConnection(_neo4j_uri(), NEO4J_USER, WRONG_PASSWORD)
     with pytest.raises(Neo4jConnectionError) as failure:
@@ -134,18 +134,18 @@ async def test_open_with_a_bad_password_fails_and_names_host_and_port_but_not_th
     await bad.close()
 
 
-async def test_close_is_a_no_op_the_second_time_and_later_use_raises_a_clear_error(
-    conn: Neo4jConnection,
-) -> None:
-    await conn.close()
-    await conn.close()
+async def test_close_is_a_no_op_the_second_time_and_later_use_raises_a_clear_error() -> None:
+    own = Neo4jConnection(_neo4j_uri(), NEO4J_USER, NEO4J_PASSWORD)
+    await own.open()
+    await own.close()
+    await own.close()
     with pytest.raises(Neo4jConnectionError, match="closed"):
-        await conn.run_read(_ping)
+        await own.run_read(_ping)
     with pytest.raises(Neo4jConnectionError, match="closed"):
-        async with conn.session():
+        async with own.session():
             pass
     with pytest.raises(Neo4jConnectionError, match="closed"):
-        await conn.open()
+        await own.open()
 
 
 async def test_every_session_is_closed_after_success_and_after_an_exception(
@@ -217,7 +217,7 @@ async def test_in_flight_read_fails_retryably_and_the_service_recovers_after_res
         try:
             rows = await conn.run_read(_ping)
             break
-        except (DriverError, Neo4jError):
+        except DriverError, Neo4jError:
             if time.monotonic() - restarted_at > RECOVERY_DEADLINE_S:
                 raise
             await asyncio.sleep(1)
@@ -244,7 +244,7 @@ async def test_health_reports_degraded_while_neo4j_is_stopped_and_never_raises(
         await _wait_until_healthy(conn)
 
 
-async def test_health_of_a_connection_that_was_never_opened_is_degraded_and_does_not_raise() -> None:
+async def test_health_of_an_unopened_connection_is_degraded_and_never_raises() -> None:
     unopened = Neo4jConnection(_neo4j_uri(), NEO4J_USER, NEO4J_PASSWORD)
     health = await neo4j_health(unopened, timeout=5)
     assert health.status is HealthStatus.DEGRADED
@@ -260,7 +260,7 @@ async def test_closing_the_connection_leaves_zero_open_pool_connections() -> Non
     assert connection.pool_connection_count() == 0
 
 
-async def test_the_pool_uses_the_dec_012_defaults() -> None:
+async def test_the_pool_uses_the_dec_012_defaults_in_the_installed_driver() -> None:
     connection = Neo4jConnection(_neo4j_uri(), NEO4J_USER, NEO4J_PASSWORD)
     assert connection.pool_options == Neo4jPoolOptions(
         max_connection_lifetime=1800.0,
@@ -268,7 +268,19 @@ async def test_the_pool_uses_the_dec_012_defaults() -> None:
         connection_acquisition_timeout=30.0,
         max_connection_pool_size=50,
     )
-    await connection.close()
+    await connection.open()
+    try:
+        # The option names reach the installed driver (neo4j 6.4.1) and take effect there.
+        driver = connection._driver
+        assert driver is not None
+        pool = driver._pool.pool_config  # type: ignore[attr-defined]
+        assert pool.max_connection_lifetime == 1800.0
+        assert pool.liveness_check_timeout == 30.0
+        assert pool.max_connection_pool_size == 50
+        workspace = driver._default_workspace_config  # type: ignore[attr-defined]
+        assert workspace.connection_acquisition_timeout == 30.0
+    finally:
+        await connection.close()
 
 
 async def test_logs_for_every_path_carry_no_password_and_no_patient_like_value(

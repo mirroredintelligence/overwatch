@@ -4,10 +4,19 @@ They open their own connections to the services that
 `docker compose -f infra/docker-compose.yml up -d --wait` starts. They are not the shared
 harness (that arrives with F10), and they do not start containers: DEC-008 gives the test
 suite its own throwaway Neo4j, while this file proves the local compose stack itself.
+
+Neo4j follows DEC-012: one driver for the module, created by the fixture and closed at the end.
+The one exception is the cross-driver test, which the prompt requires to read back in a new driver.
 """
 
+import json
 import os
+import subprocess
+from collections.abc import AsyncIterator
+from pathlib import Path
 
+import pytest
+import pytest_asyncio
 from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncSession
 from redis.asyncio import Redis
@@ -22,6 +31,14 @@ SERVICEBUS_CONNECTION = os.environ.get(
     "SharedAccessKey=SAS_KEY_VALUE;UseDevelopmentEmulator=true;",
 )
 PROBE_KEY = "infra-probe"
+COMPOSE_FILE = Path(__file__).resolve().parents[3] / "infra" / "docker-compose.yml"
+EXPECTED_SERVICES = {
+    "neo4j",
+    "redis",
+    "servicebus-sql",
+    "servicebus-emulator",
+    "servicebus-ready",
+}
 
 
 def _driver() -> AsyncDriver:
@@ -35,24 +52,30 @@ async def _single_value(session: AsyncSession, query: str, key: str) -> object:
     return record[key]
 
 
-async def test_neo4j_answers_a_query() -> None:
+@pytest_asyncio.fixture(scope="module", loop_scope="module")
+async def neo4j_driver() -> AsyncIterator[AsyncDriver]:
+    """The module's one Neo4j driver (DEC-012): created once, closed at the end."""
     driver = _driver()
     try:
-        async with driver.session() as session:
-            ok = await _single_value(session, "RETURN 1 AS ok", "ok")
-        assert ok == 1
+        yield driver
     finally:
         await driver.close()
 
 
-async def test_neo4j_keeps_a_node_across_drivers() -> None:
-    writer = _driver()
-    try:
-        async with writer.session() as session:
-            result = await session.run("CREATE (:InfraProbe {id: 'p1'})")
-            await result.consume()
-    finally:
-        await writer.close()
+@pytest.mark.asyncio(loop_scope="module")
+async def test_neo4j_answers_a_query(neo4j_driver: AsyncDriver) -> None:
+    async with neo4j_driver.session() as session:
+        ok = await _single_value(session, "RETURN 1 AS ok", "ok")
+    assert ok == 1
+
+
+@pytest.mark.asyncio(loop_scope="module")
+async def test_neo4j_keeps_a_node_across_drivers(neo4j_driver: AsyncDriver) -> None:
+    # Exception to DEC-012 "never create a driver per test": the prompt requires the read-back
+    # to happen in a new driver, so this test opens one reader driver and closes it again.
+    async with neo4j_driver.session() as session:
+        result = await session.run("CREATE (:InfraProbe {id: 'p1'})")
+        await result.consume()
 
     reader = _driver()
     try:
@@ -82,6 +105,38 @@ async def test_redis_pings_and_expires_a_key_after_five_seconds() -> None:
     finally:
         await client.delete(PROBE_KEY)
         await client.aclose()
+
+
+def _compose_ps() -> list[dict[str, str]]:
+    completed = subprocess.run(
+        ["docker", "compose", "-f", str(COMPOSE_FILE), "ps", "--format", "json"],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=60,
+    )
+    text = completed.stdout.strip()
+    if not text:
+        return []
+    if text.startswith("["):
+        rows: list[dict[str, str]] = json.loads(text)
+        return rows
+    return [json.loads(line) for line in text.splitlines() if line.strip()]
+
+
+def test_every_compose_service_reports_healthy() -> None:
+    # Fails if a healthcheck is removed from any service: that service then has no Health value.
+    # The emulator image has no shell, so it has no healthcheck of its own. Its readiness is
+    # reported by servicebus-ready, which is healthy only when the emulator /health returns 200.
+    rows = _compose_ps()
+    status = {row.get("Service", ""): (row.get("Health", ""), row.get("State", "")) for row in rows}
+    assert set(status) == EXPECTED_SERVICES
+    assert status["servicebus-emulator"][1] == "running"
+    healthchecked = EXPECTED_SERVICES - {"servicebus-emulator"}
+    not_healthy = {
+        svc: status[svc] for svc in healthchecked if status[svc] != ("healthy", "running")
+    }
+    assert not_healthy == {}
 
 
 def test_queue_delivers_message_id_and_body() -> None:

@@ -6,8 +6,8 @@ Docker Compose runs the services DIUCS needs when you run it by hand:
 |---|---|---|---|
 | Neo4j (the only database) | `neo4j:5.26.32-community` | Bolt 7687, browser 7474 | Data in the named volume `neo4j-data` |
 | Redis (cache) | `redis:7.4.11-alpine` | 6379 | Transient only, no volume |
-| Azure Service Bus emulator | `azure-messaging/servicebus-emulator:2.0.1` | AMQP 5672, management and health 5300 | Entities come from `servicebus-config.json`; they do not survive a restart |
-| SQL Server (emulator storage) | `mssql/server:2022-CU27-ubuntu-22.04` | internal | Needed by the emulator |
+| Azure Service Bus emulator | `azure-messaging/servicebus-emulator:2.0.1` | AMQP 5672, management and health 5300 | Queues, topics and subscriptions are recreated from `servicebus-config.json` on every start. Messages are not kept when the stack is taken down, because the emulator's SQL store (`servicebus-sql`) has no volume |
+| SQL Server (emulator storage) | `mssql/server:2022-CU27-ubuntu-22.04` | internal | Needed by the emulator. It has no volume, so its contents, including any messages, are lost when the container is removed (`down`) and recreated |
 | `servicebus-ready` | same SQL image | none | Probe container: healthy only when the emulator's `/health` answers 200. The emulator image has no shell, so it cannot check itself |
 
 The credentials are local-only and are for this stack alone. Never put a real secret in this folder.
@@ -41,6 +41,8 @@ docker compose -f infra/docker-compose.yml down -v
 ```
 
 `down -v` removes the containers and the `neo4j-data` volume, so every node and relationship is gone. Run `up -d --wait` again afterwards.
+
+Service Bus messages are not kept when the stack is taken down (`down`), because `servicebus-sql` has no volume. Entities are recreated from `infra/servicebus-config.json` each time the emulator starts.
 
 ## Open the Neo4j browser
 

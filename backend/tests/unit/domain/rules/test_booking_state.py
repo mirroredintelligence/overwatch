@@ -73,6 +73,36 @@ def test_from_fhir_refuses_anything_that_is_not_a_business_status(business_statu
         from_fhir(business_status)
 
 
+# FHIR R4B Task.status value set (fhir.resources Task, status ValueSet). Item 7 of D13.md.
+FHIR_R4B_TASK_STATUS = frozenset(
+    {
+        "draft",
+        "requested",
+        "received",
+        "accepted",
+        "rejected",
+        "ready",
+        "cancelled",
+        "in-progress",
+        "on-hold",
+        "failed",
+        "completed",
+        "entered-in-error",
+    }
+)
+
+
+@pytest.mark.parametrize("state", ALL_STATES)
+def test_task_status_is_a_fhir_r4b_task_status_code(state: BookingStatus) -> None:
+    assert to_fhir(state).status in FHIR_R4B_TASK_STATUS
+
+
+def test_from_fhir_names_the_businessstatus_field_when_it_refuses() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        from_fhir("booked")
+    assert refused.value.field == "businessStatus"
+
+
 def test_fhir_task_status_is_frozen() -> None:
     status = to_fhir(BookingStatus.REQUESTED)
     with pytest.raises(dataclasses.FrozenInstanceError):

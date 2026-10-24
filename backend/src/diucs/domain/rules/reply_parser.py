@@ -41,6 +41,9 @@ ParsedReply = Confirm | Number | BookingConfirm | BookingDecline | Unrecognised
 MAX_FIGURE_DIGITS = 3
 """Digits allowed in a figure after leading zeros are removed: 0 to 999."""
 
+SERVICE_LETTERS = "ABCDEFGH"
+"""Letters that name the services of a grouped prompt, in name order (D10). At most 8."""
+
 MIN_REFERENCE_DIGITS = 3
 MAX_REFERENCE_DIGITS = 8
 

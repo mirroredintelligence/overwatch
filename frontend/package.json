@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "e2e": "playwright test"
+    "e2e": "playwright install chromium && playwright test"
   },
   "dependencies": {
     "next": "16.3.8",
@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "4.13.0",
-    "@playwright/test": "1.56.1",
+    "@playwright/test": "1.61.1",
     "@testing-library/dom": "10.4.0",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.0",

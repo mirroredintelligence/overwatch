@@ -8,6 +8,7 @@ test('wall screen shows its heading and a page title', async ({ page }) => {
     page.getByRole('heading', { name: 'DIUCS capacity wall screen' }),
   ).toBeVisible();
   await expect(page).toHaveTitle(/DIUCS capacity/);
+  await expect(page.locator("html")).toHaveAttribute("lang", "en-GB");
 });
 
 test('wall screen passes axe including colour contrast in a real browser', async ({

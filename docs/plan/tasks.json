@@ -279,6 +279,22 @@
    ]
   },
   {
+   "id": "F11",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 2,
+   "deps": [
+    "F10",
+    "G14"
+   ],
+   "title": "Restartable Neo4j mode in the test harness",
+   "files": [
+    "backend/tests/support/neo4j.py",
+    "backend/tests/conftest.py",
+    "backend/tests/integration/graph_store/test_connection_recovery.py"
+   ]
+  },
+  {
    "id": "D01",
    "sprint": "S1",
    "epic": "D",

@@ -36,7 +36,7 @@ def _index_of(runs: list[str], needle: str) -> int:
 
 
 def test_jobs_exist(jobs: dict[str, Any]) -> None:
-    assert EXPECTED_JOBS <= set(jobs)
+    assert EXPECTED_JOBS.issubset(jobs)
 
 
 def test_backend_static_runs_py314_and_py315_and_only_315_may_fail(jobs: dict[str, Any]) -> None:
@@ -100,7 +100,11 @@ def test_e2e_needs_frontend_and_runs_e2e(jobs: dict[str, Any]) -> None:
 
 
 def test_e2e_uploads_report_on_failure(jobs: dict[str, Any]) -> None:
-    uploads = [s for s in jobs["e2e"]["steps"] if str(s.get("uses", "")).startswith("actions/upload-artifact@")]
+    uploads = [
+        s
+        for s in jobs["e2e"]["steps"]
+        if str(s.get("uses", "")).startswith("actions/upload-artifact@")
+    ]
     assert uploads, "e2e job does not upload a report"
     assert any(s.get("if") == "failure()" for s in uploads)
 
@@ -125,12 +129,7 @@ def test_concurrency_cancels_superseded_runs_per_ref(workflow: dict[str, Any]) -
 
 def test_every_action_is_pinned_to_a_major_tag(jobs: dict[str, Any]) -> None:
     pinned = re.compile(r"^[\w.-]+/[\w.-]+@v\d+$")
-    uses = [
-        step["uses"]
-        for job in jobs.values()
-        for step in job["steps"]
-        if "uses" in step
-    ]
+    uses = [step["uses"] for job in jobs.values() for step in job["steps"] if "uses" in step]
     assert uses, "no actions used"
     bad = [u for u in uses if not pinned.match(u)]
     assert not bad, f"actions not pinned to a major tag: {bad}"

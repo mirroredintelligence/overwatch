@@ -2,7 +2,6 @@ import dataclasses
 from datetime import UTC, datetime
 
 import pytest
-
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock

@@ -74,9 +74,9 @@ async def test_observer_sees_no_cypher_text(local_registry: QueryRegistry) -> No
     await run_query(_StubTx(rows=[]), "Q-NO-TEXT", marker="secret-cypher-marker")
 
     assert len(seen) == 1
-    assert all(
-        not (isinstance(arg, str) and "secret-cypher-marker" in arg) for arg in seen[0]
-    ), "the observer must receive the query id, never the Cypher text or parameters"
+    assert all(not (isinstance(arg, str) and "secret-cypher-marker" in arg) for arg in seen[0]), (
+        "the observer must receive the query id, never the Cypher text or parameters"
+    )
 
 
 async def test_run_query_returns_records_as_dicts_and_passes_parameters(

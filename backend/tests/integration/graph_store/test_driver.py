@@ -83,9 +83,11 @@ async def test_schema_has_the_named_constraints_and_indexes(neo4j_driver: AsyncD
         constraints = {
             r["name"] async for r in await session.run("SHOW CONSTRAINTS YIELD name RETURN name")
         }
-        indexes = {r["name"] async for r in await session.run("SHOW INDEXES YIELD name RETURN name")}
-    assert EXPECTED_CONSTRAINTS <= constraints
-    assert EXPECTED_INDEXES <= indexes
+        indexes = {
+            r["name"] async for r in await session.run("SHOW INDEXES YIELD name RETURN name")
+        }
+    assert constraints >= EXPECTED_CONSTRAINTS
+    assert indexes >= EXPECTED_INDEXES
 
 
 @pytest.mark.asyncio(loop_scope="module")

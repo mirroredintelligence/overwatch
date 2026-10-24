@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: SecretStr = SecretStr("diucs-test-password")
+    # DEC-012 pool bounds. Values are [ASSUMED] until measured.
+    neo4j_max_connection_lifetime_s: float = 1800.0
+    neo4j_liveness_check_timeout_s: float = 30.0
+    neo4j_connection_acquisition_timeout_s: float = 30.0
+    neo4j_max_connection_pool_size: int = 50
     redis_url: str = "redis://localhost:6379/0"
     servicebus_connection: SecretStr | None = None
     sms_provider: Literal["twilio", "govuk-notify", "none"] = "none"

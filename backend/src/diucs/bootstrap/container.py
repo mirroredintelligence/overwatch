@@ -35,7 +35,13 @@ class Container:
 
 def _neo4j_driver(settings: Settings) -> AsyncDriver:
     return create_driver(
-        settings.neo4j_uri, settings.neo4j_user, settings.neo4j_password.get_secret_value()
+        settings.neo4j_uri,
+        settings.neo4j_user,
+        settings.neo4j_password.get_secret_value(),
+        max_connection_lifetime=settings.neo4j_max_connection_lifetime_s,
+        liveness_check_timeout=settings.neo4j_liveness_check_timeout_s,
+        connection_acquisition_timeout=settings.neo4j_connection_acquisition_timeout_s,
+        max_connection_pool_size=settings.neo4j_max_connection_pool_size,
     )
 
 
@@ -48,16 +54,16 @@ def build(settings: Settings) -> Container:
 def build_for_tests(
     clock: Clock | None = None,
     ids: IdGenerator | None = None,
-    neo4j_driver: AsyncDriver | None = None,
+    *,
+    neo4j_driver: AsyncDriver,
 ) -> Container:
     """Wire the container for tests: a fixed clock and sequential ids unless overridden.
 
-    The driver is built from default settings unless one is passed in. It connects only when a
-    session first needs it, so a unit test that runs no query needs no Neo4j. The caller closes
-    the driver it gets.
+    The driver is required, so each test owns one driver (a fixture) and shares it with every
+    container it builds. Nothing here creates a driver. The fixture closes it.
     """
     return Container(
         clock=FixedClock(TEST_NOW) if clock is None else clock,
         ids=SequentialIds() if ids is None else ids,
-        neo4j_driver=_neo4j_driver(Settings()) if neo4j_driver is None else neo4j_driver,
+        neo4j_driver=neo4j_driver,
     )

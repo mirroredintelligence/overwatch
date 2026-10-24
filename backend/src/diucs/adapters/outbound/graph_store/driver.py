@@ -17,9 +17,32 @@ QueryObserver = Callable[[str, str, int, float], None]
 _observer: QueryObserver | None = None
 
 
-def create_driver(uri: str, user: str, password: str) -> AsyncDriver:
-    """Build the driver. It opens no connection until a session first needs one."""
-    return AsyncGraphDatabase.driver(uri, auth=(user, password))
+def create_driver(
+    uri: str,
+    user: str,
+    password: str,
+    *,
+    max_connection_lifetime: float = 1800.0,
+    liveness_check_timeout: float = 30.0,
+    connection_acquisition_timeout: float = 30.0,
+    max_connection_pool_size: int = 50,
+) -> AsyncDriver:
+    """Build the driver with the DEC-012 staleness and pool bounds. It opens no connection until a
+    session first needs one.
+
+    Server notifications are switched off. The driver logs each notification with the full query
+    text (`for query: '...'`), which would put Cypher in the logs. Nothing in this code base
+    relies on those notifications.
+    """
+    return AsyncGraphDatabase.driver(
+        uri,
+        auth=(user, password),
+        max_connection_lifetime=max_connection_lifetime,
+        liveness_check_timeout=liveness_check_timeout,
+        connection_acquisition_timeout=connection_acquisition_timeout,
+        max_connection_pool_size=max_connection_pool_size,
+        notifications_min_severity="OFF",
+    )
 
 
 async def run_query(

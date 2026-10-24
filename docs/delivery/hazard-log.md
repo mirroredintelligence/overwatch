@@ -34,4 +34,4 @@ Rules for sessions:
 | H-22 | A stale installed app or cache shows old data | F40 | The offline shell never caches capacity or case data. | W32 | | TBD |
 | H-23 | Staff analytics become a performance monitor | n/a | No per-person view. Support sessions only with a shared code. Groups under 10 hidden. | O02 to O08, W48 | | TBD |
 | H-24 | The graph is changed without a trace, or two copies of a fact disagree | n/a | Graph-native storage with no duplicate copy (DEC-001). Audit and provenance append-only. | G02 to G05, P05 | | TBD |
-| H-25 | A DST or timezone error makes a prompt or deadline wrong | n/a | All schedules computed in Europe/London and converted to UTC. Tests across 2026-03-29 and 2026-10-25. | F06, D03, D04 | | TBD |
+| H-25 | A DST or timezone error makes a prompt or deadline wrong | n/a | All schedules computed in Europe/London and converted to UTC. Tests across 2026-03-29 and 2026-10-25. | F06, D03, D04 | | backend/tests/unit/domain/rules/test_london_time.py (spring gap, autumn fold, round trip, monotonic property) |

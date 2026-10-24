@@ -133,3 +133,15 @@ def test_latest_accepts_any_iterable() -> None:
     result = latest_report(reports)
     assert result is not None
     assert result.id == "r2"
+
+
+# --- value is a whole number -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize("bad_value", [2.5, True, float("nan")])
+def test_non_integer_value_is_rejected_with_field_value(bad_value: Any) -> None:
+    assert_field("value", lambda: report(value=bad_value))
+
+
+def test_whole_number_value_still_builds() -> None:
+    assert report(value=3).value == 3

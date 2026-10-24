@@ -4,12 +4,19 @@ import { describe, expect, it } from 'vitest';
 
 const css = readFileSync(resolve(__dirname, 'tokens.css'), 'utf8');
 
-// Reads the value a custom property is declared with on :root. The lookbehind
-// stops --c-primary matching inside --c-primary-dark.
-function declaredValue(name: string): string | undefined {
-  const match = new RegExp(`(?<![\w-])${name}\s*:\s*([^;]+);`).exec(css);
-  return match?.[1].trim();
+// Every "--name: value;" declaration. The lookbehind stops --c-primary matching
+// inside --c-primary-dark, and stops var(--x) uses counting as declarations.
+const DECLARATION = /(?<![\w-])(--[\w-]+)\s*:\s*([^;]+);/g;
+
+function declarations(source: string): Map<string, string> {
+  const found = new Map<string, string>();
+  for (const match of source.matchAll(DECLARATION)) {
+    found.set(match[1], match[2].trim());
+  }
+  return found;
 }
+
+const declared = declarations(css);
 
 const TOKENS: [string, string][] = [
   ['--c-primary', '#0B5C8C'],
@@ -33,7 +40,7 @@ const TOKENS: [string, string][] = [
 
 describe('tokens.css', () => {
   it.each(TOKENS)('declares %s as %s', (name, value) => {
-    expect(declaredValue(name)).toBe(value);
+    expect(declared.get(name)).toBe(value);
   });
 
   it('sets the page font to the Atkinson variable from layout.tsx', () => {

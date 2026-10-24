@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
@@ -24,16 +26,54 @@ const WORDS: Record<StatusCode, string> = {
   'last-known': 'Last known',
 };
 
-// Text and background of each chip, as the token values in tokens.css.
-const CHIP_PAIRS: [StatusCode, string, string][] = [
-  ['accepting', '#FFFFFF', '#0B5C8C'],
-  ['limited', '#FFFFFF', '#A34700'],
-  ['not-accepting', '#FFFFFF', '#3A4750'],
-  ['over-capacity', '#FFFFFF', '#6B2C91'],
-  ['out-of-hours', '#FFFFFF', '#3A4750'],
-  ['not-updated', '#26343B', '#FFFFFF'],
-  ['last-known', '#26343B', '#FFFFFF'],
-];
+// The chip colours are read from the shipped CSS, not copied here, so a change
+// to StatusBadge.module.css or tokens.css is what the contrast test sees.
+const tokensCss = readFileSync(resolve(__dirname, '../../app/tokens.css'), 'utf8');
+const badgeCss = readFileSync(resolve(__dirname, 'StatusBadge.module.css'), 'utf8');
+
+const TOKEN_DECLARATION = /(?<![\w-])(--[\w-]+)\s*:\s*([^;]+);/g;
+const tokenValues = new Map<string, string>();
+for (const match of tokensCss.matchAll(TOKEN_DECLARATION)) {
+  tokenValues.set(match[1], match[2].trim());
+}
+
+// Resolves a colour value from a declaration: var(--token) or a six-digit hex.
+// Anything else throws, so an unreadable colour fails the test instead of
+// being skipped.
+function resolveColour(value: string): string {
+  const variable = /^var\((--[\w-]+)\)$/.exec(value);
+  const colour = variable ? tokenValues.get(variable[1]) : value;
+  if (colour === undefined || !/^#[0-9a-f]{6}$/i.test(colour)) {
+    throw new Error(`cannot resolve colour "${value}"`);
+  }
+  return colour;
+}
+
+// Collects the declarations of every rule whose selector list names
+// `.<status>`, so grouped selectors such as ".not-accepting, .out-of-hours"
+// are read for both statuses.
+function declarationsFor(status: StatusCode): Map<string, string> {
+  const found = new Map<string, string>();
+  for (const rule of badgeCss.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selectors = rule[1].split(',').map((s) => s.trim());
+    if (!selectors.includes(`.${status}`)) continue;
+    for (const decl of rule[2].matchAll(/([\w-]+)\s*:\s*([^;]+);/g)) {
+      found.set(decl[1], decl[2].trim());
+    }
+  }
+  return found;
+}
+
+// Text colour and background of each chip, read from the CSS.
+const CHIP_PAIRS: [StatusCode, string, string][] = ALL.map((status) => {
+  const decls = declarationsFor(status);
+  const background = decls.get('background') ?? decls.get('background-color');
+  const text = decls.get('color');
+  if (background === undefined || text === undefined) {
+    throw new Error(`no background and colour for ${status} in StatusBadge.module.css`);
+  }
+  return [status, resolveColour(text), resolveColour(background)];
+});
 
 describe('STATUS_LABELS', () => {
   it('holds the agreed word for every status', () => {
@@ -88,6 +128,10 @@ describe('StatusBadge sizes', () => {
 });
 
 describe('chip colour pairs', () => {
+  it('reads a text and background pair for every status from the CSS', () => {
+    expect(CHIP_PAIRS.map(([status]) => status)).toEqual(ALL);
+  });
+
   it.each(CHIP_PAIRS)('%s text meets WCAG AA 4.5:1', (_status, fg, bg) => {
     expect(contrastRatio(fg, bg)).toBeGreaterThanOrEqual(4.5);
   });

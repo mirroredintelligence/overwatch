@@ -167,6 +167,7 @@ def test_parser_never_raises_and_only_returns_in_range_figures(text: str) -> Non
         ("I 3", (Unrecognised("I 3"),)),
         ("A", (Unrecognised("A"),)),
         ("A 1000", (Unrecognised("A 1000"),)),
+        ("A1000", (Unrecognised("A1000"),)),
         ("A -1", (Unrecognised("A -1"),)),
         ("A 4 B", (Unrecognised("A 4 B"),)),
         ("A4 4", (Unrecognised("A4 4"),)),
@@ -178,7 +179,10 @@ def test_parser_never_raises_and_only_returns_in_range_figures(text: str) -> Non
         ("Y, A 4", (Unrecognised("Y, A 4"),)),
         ("AB 4", (Unrecognised("AB 4"),)),
         ("A 4 CONFIRMED", (Unrecognised("A 4 CONFIRMED"),)),
-        ("A 4 B 2 C 3 D 4 E 5 F 6 G 7 H 8 A 1", (Unrecognised("A 4 B 2 C 3 D 4 E 5 F 6 G 7 H 8 A 1"),)),
+        (
+            "A 4 B 2 C 3 D 4 E 5 F 6 G 7 H 8 A 1",
+            (Unrecognised("A 4 B 2 C 3 D 4 E 5 F 6 G 7 H 8 A 1"),),
+        ),
         ("٤ A", (Unrecognised("٤ A"),)),  # ARABIC-INDIC DIGIT FOUR
         ("Ａ 4", (Unrecognised("Ａ 4"),)),  # FULLWIDTH LATIN CAPITAL LETTER A
     ],
@@ -198,9 +202,7 @@ def test_service_letters_are_a_to_h() -> None:
 
 @st.composite
 def _lettered_messages(draw: st.DrawFn) -> tuple[str, tuple[ParsedReply, ...]]:
-    letters = draw(
-        st.lists(st.sampled_from(SERVICE_LETTERS), unique=True, min_size=1, max_size=8)
-    )
+    letters = draw(st.lists(st.sampled_from(SERVICE_LETTERS), unique=True, min_size=1, max_size=8))
     expected: list[ParsedReply] = []
     pieces: list[str] = []
     for letter in letters:
@@ -218,7 +220,9 @@ def _lettered_messages(draw: st.DrawFn) -> tuple[str, tuple[ParsedReply, ...]]:
             max_size=len(pieces) - 1,
         )
     )
-    text = pieces[0] + "".join(sep + piece for sep, piece in zip(separators, pieces[1:]))
+    text = pieces[0] + "".join(
+        sep + piece for sep, piece in zip(separators, pieces[1:], strict=True)
+    )
     return text, tuple(expected)
 
 

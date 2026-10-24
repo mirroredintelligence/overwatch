@@ -1,0 +1,26 @@
+/* Design tokens. Values are fixed by docs/spec/contracts.md ("Front end").
+   Change a value only by a new decision in docs/delivery/decisions.md. */
+:root {
+  --c-primary: #0B5C8C;
+  --c-primary-dark: #0B3F61;
+  --c-limited: #A34700;
+  --c-closed: #3A4750;
+  --c-surge: #6B2C91;
+  --c-unknown: #6B7B83;
+  --c-ink: #14232B;
+  --c-ink-2: #26343B;
+  --c-muted: #44555D;
+  --c-line: #DDE3E6;
+  --c-bg: #F4F6F5;
+  --c-tint: #E3F1F8;
+  --c-amber-tint: #FFF1DC;
+
+  --radius: 14px;
+  --btn-h: 52px;
+  --chip-h: 48px;
+  --focus: 3px solid #14232B;
+}
+
+html {
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}

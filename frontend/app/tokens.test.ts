@@ -35,4 +35,8 @@ describe('tokens.css', () => {
   it.each(TOKENS)('declares %s as %s', (name, value) => {
     expect(declaredValue(name)).toBe(value);
   });
+
+  it('sets the page font to the Atkinson variable from layout.tsx', () => {
+    expect(css).toMatch(/html\s*\{[^}]*font-family:\s*var\(--font-atkinson\)/);
+  });
 });

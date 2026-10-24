@@ -1,4 +1,12 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+// next/font/google fetches the font at build time, so the test replaces it with
+// a stub that records the options the layout passes.
+const atkinson = vi.hoisted(() => ({
+  Atkinson_Hyperlegible: vi.fn(() => ({ className: 'atkinson-class', variable: 'atkinson-var' })),
+}));
+vi.mock('next/font/google', () => atkinson);
+
 import RootLayout from './layout';
 
 // The root layout returns the <html> element itself, so the attribute can be
@@ -9,5 +17,14 @@ describe('root layout', () => {
 
     expect(tree.type).toBe('html');
     expect(tree.props.lang).toBe('en-GB');
+  });
+
+  it('loads Atkinson Hyperlegible into the --font-atkinson variable', () => {
+    const tree = RootLayout({ children: null });
+
+    expect(atkinson.Atkinson_Hyperlegible).toHaveBeenCalledWith(
+      expect.objectContaining({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-atkinson' }),
+    );
+    expect(tree.props.className).toBe('atkinson-var');
   });
 });

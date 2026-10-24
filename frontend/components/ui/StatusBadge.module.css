@@ -1,0 +1,61 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.sm {
+  min-height: 2rem;
+  padding: 0.1rem 0.6rem;
+  font-size: 0.95rem;
+}
+
+.lg {
+  min-height: var(--chip-h);
+  padding: 0.3rem 0.9rem;
+  font-size: 1.2rem;
+}
+
+.icon {
+  flex: none;
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.accepting {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: #ffffff;
+}
+
+.limited {
+  background: var(--c-limited);
+  border-color: var(--c-limited);
+  color: #ffffff;
+}
+
+.not-accepting,
+.out-of-hours {
+  background: var(--c-closed);
+  border-color: var(--c-closed);
+  color: #ffffff;
+}
+
+.over-capacity {
+  background: var(--c-surge);
+  border-color: var(--c-surge);
+  color: #ffffff;
+}
+
+.not-updated,
+.last-known {
+  background: #ffffff;
+  border: 2px dashed var(--c-unknown);
+  color: var(--c-ink-2);
+}

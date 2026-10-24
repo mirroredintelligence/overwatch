@@ -19,11 +19,14 @@ async def test_async_test_runs_without_decorator() -> None:
 
 def test_integration_directory_gets_marker(pytester: pytest.Pytester) -> None:
     conftest_source = (Path(__file__).parents[1] / "conftest.py").read_text(encoding="utf-8")
-    pytester.makeini("[pytest]\nasyncio_mode = auto\nmarkers =\n    integration: needs docker\n")
-    pytester.makeconftest(conftest_source)
+    pytester.makeini(
+        "[pytest]\nasyncio_mode = auto\nasyncio_default_fixture_loop_scope = function\n"
+        "markers =\n    integration: needs docker\n"
+    )
     pytester.mkdir("tests")
     pytester.mkdir("tests/integration")
     pytester.mkdir("tests/unit")
+    (pytester.path / "tests" / "conftest.py").write_text(conftest_source, encoding="utf-8")
     pytester.makepyfile(
         **{
             "tests/integration/test_probe_integration": (

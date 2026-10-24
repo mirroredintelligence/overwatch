@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.opening_hours: is a service in hours, and when does it next open (D03).
+"""Tests for diucs.domain.rules.opening_hours: is a service in hours, and when it next opens (D03).
 
 Rules from docs/spec/domain-rules.md 1.3 (rule 2) and the D03 prompt. Windows are London local.
 A window with start < end covers start <= t < end on each listed day. An end earlier than the
@@ -207,7 +207,6 @@ def test_next_opening_rejects_a_naive_datetime() -> None:
 # Property tests. The oracle reads the local wall clock of the instant. Windows whose bounds
 # fall in the 01:00 to 02:00 hour on a change day are excluded, because the wall clock is
 # ambiguous or missing there. Instants in that hour are still tested.
-
 
 
 def ambiguous_hour(bound: time) -> bool:

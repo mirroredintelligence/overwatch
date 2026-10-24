@@ -173,3 +173,12 @@ Three values in `docs/design/design-system.md` conflict with its own rules. The 
 The design-system document is not edited; it is a shared source. The owner should reconcile it with these values.
 
 Follow-up: task X03 applies these values test-first, with `tokens.test.ts` updated to expect them.
+
+## DEC-020 next_opening counts a window start only where the service was closed just before (D03)
+Status: accepted · Affects: D03 (`next_opening`), and any task that shows or schedules the next opening (D04 due times, D07 out-of-hours status).
+
+The D03 prompt says "the next moment strictly after now when a window starts". Read literally, that makes two cases wrong. An all-day window starts at 00:00 each day, so an every-day all-day service would report midnight, which the prompt says must be None. Two adjacent windows (08:00 to 12:00, then 12:00 to 20:00) would report 12:00 as an opening, though the service never closes.
+
+Decision: an opening is a window start at instant s, with s after now and within 8 days, where the instant just before s (s minus one microsecond) is not in hours. All-day windows follow the same rule. An all-day service that is open every day never opens (None). A Monday-only all-day service opens at Monday 00:00 London.
+
+Deviation: this reads "a window starts" as "the service opens". The prompt's own None rule for all-day services requires it. Covered by tests in tests/unit/domain/rules/test_opening_hours.py (adjacent windows, all-day every day, all-day Monday).

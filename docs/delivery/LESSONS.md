@@ -1,0 +1,3 @@
+# Lessons learnt
+
+Newest last. Add one with: python delivery.py lesson add ...

@@ -1,0 +1,3190 @@
+{
+ "source_artifact": "https://claude.ai/artifact/J72UZiG9P5ka2PBoteQyYF",
+ "stages": [
+  {
+   "id": "S0",
+   "name": "Foundations",
+   "goal": "Both projects build, test and lint in CI. Neo4j, Redis and Service Bus run in Docker, the graph driver and schema migrations exist, and the Neo4j test harness wipes and round-trips the graph for every test."
+  },
+  {
+   "id": "S1",
+   "name": "Domain rules",
+   "goal": "Every business rule is a pure, tested function (status, freshness, schedules, reply parsing, booking states, criteria filter, registration gate, alerts, templates), and the FHIR-to-graph mapper and resource store round-trip resources through Neo4j."
+  },
+  {
+   "id": "S2",
+   "name": "Capacity loop: core and storage",
+   "goal": "Each port ships with its Neo4j adapter and round-trip tests: services, capacity, bookings, cases, people, criteria, registrations, flags, audit, outbox, unit of work, idempotency, tokens and credentials. Report, confirm, prompt and missed-report use cases run against the real graph; Redis and Service Bus adapters pass their contract tests."
+  },
+  {
+   "id": "S3",
+   "name": "Capacity loop: channels, API and wall board",
+   "goal": "A reporter answers a text or a link and the wall board changes live. Milestone A: the board runs on real data."
+  },
+  {
+   "id": "S4",
+   "name": "Advisor call",
+   "goal": "An advisor captures needs, sees filtered options with data age, records phoned and declined positions and closes the case. The shift lead chases late reporters and sets services up. Milestone B: pilot-ready (the pilot cut line)."
+  },
+  {
+   "id": "S5",
+   "name": "Booking by text and link",
+   "goal": "Advisors request bookings; services confirm or decline by text, link or app; timers expire silence; withdrawals and cancellations work."
+  },
+  {
+   "id": "S6",
+   "name": "Registration and approval",
+   "goal": "Services are invited from the scope list, register themselves, and go live only after checks, a call-back, criteria second approval and a test prompt."
+  },
+  {
+   "id": "S7",
+   "name": "Reporter app, PIN, push and alerts",
+   "goal": "Installed web app with PIN and push for reporters; COO and ICB users get chosen alerts with acknowledgement and escalation."
+  },
+  {
+   "id": "S8",
+   "name": "Shift lead tools, clinical advice and safety",
+   "goal": "Suspend, remove, move, flags, audit replay, the clinical advice queue and safety concern reporting."
+  },
+  {
+   "id": "S9",
+   "name": "Observability and support console",
+   "goal": "Browser and backend telemetry without personal values, friction rules, aggregates, and the consent-based support console."
+  },
+  {
+   "id": "S10",
+   "name": "Later",
+   "goal": "Map and travel time, planning view, product tour and training, RDF export, the second SMS provider."
+  }
+ ],
+ "epics": {
+  "F": "Foundations",
+  "D": "Domain rules",
+  "P": "Ports and fakes",
+  "U": "Use cases",
+  "G": "Graph store (Neo4j)",
+  "I": "Infrastructure adapters",
+  "R": "FHIR REST API",
+  "L": "Link pages (backend)",
+  "W": "Web front end",
+  "O": "Observability",
+  "S": "Security"
+ },
+ "tasks": [
+  {
+   "id": "F01",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 3,
+   "deps": [],
+   "title": "Backend project scaffold",
+   "files": [
+    "backend/pyproject.toml",
+    "backend/src/diucs/__init__.py",
+    "backend/src/diucs/{domain,application,adapters,bootstrap}/",
+    "backend/tests/unit/test_smoke.py",
+    "backend/Makefile"
+   ]
+  },
+  {
+   "id": "F02",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 2,
+   "deps": [
+    "F01"
+   ],
+   "title": "Architecture import rules enforced by tests",
+   "files": [
+    "backend/.importlinter",
+    "backend/tests/architecture/test_import_rules.py"
+   ]
+  },
+  {
+   "id": "F03",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 4,
+   "deps": [],
+   "title": "Front-end project scaffold",
+   "files": [
+    "frontend/package.json",
+    "frontend/app/layout.tsx",
+    "frontend/app/(wall)/screen/page.tsx",
+    "frontend/vitest.config.ts",
+    "frontend/playwright.config.ts"
+   ]
+  },
+  {
+   "id": "F04",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 3,
+   "deps": [
+    "F01"
+   ],
+   "title": "Local infrastructure with Docker Compose",
+   "files": [
+    "infra/docker-compose.yml",
+    "infra/servicebus-config.json",
+    "backend/tests/integration/test_infra_up.py"
+   ]
+  },
+  {
+   "id": "F05",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 3,
+   "deps": [
+    "F01",
+    "F02",
+    "F03"
+   ],
+   "title": "CI pipeline",
+   "files": [
+    ".github/workflows/ci.yml"
+   ]
+  },
+  {
+   "id": "F06",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 3,
+   "deps": [
+    "F01"
+   ],
+   "title": "Clock and id ports, London time helpers",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/clock.py",
+    "backend/src/diucs/application/ports/outbound/ids.py",
+    "backend/src/diucs/domain/rules/london_time.py",
+    "backend/src/diucs/adapters/outbound/clock_system/",
+    "backend/src/diucs/adapters/testing/fixed_clock.py"
+   ]
+  },
+  {
+   "id": "F07",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 3,
+   "deps": [
+    "F01"
+   ],
+   "title": "Local code systems and Coding value object",
+   "files": [
+    "backend/src/diucs/domain/codes.py"
+   ]
+  },
+  {
+   "id": "F08",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 2,
+   "deps": [
+    "F06"
+   ],
+   "title": "Settings and composition root skeleton",
+   "files": [
+    "backend/src/diucs/bootstrap/settings.py",
+    "backend/src/diucs/bootstrap/container.py"
+   ]
+  },
+  {
+   "id": "G01",
+   "sprint": "S0",
+   "epic": "G",
+   "hours": 4,
+   "deps": [
+    "F04",
+    "F08"
+   ],
+   "title": "Neo4j adapter base: driver, named queries, migrations",
+   "files": [
+    "backend/src/diucs/adapters/outbound/graph_store/driver.py",
+    "backend/src/diucs/adapters/outbound/graph_store/queries.py",
+    "backend/src/diucs/adapters/outbound/graph_store/migrations.py"
+   ]
+  },
+  {
+   "id": "F09",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 3,
+   "deps": [
+    "F03"
+   ],
+   "title": "Design tokens, font and StatusBadge",
+   "files": [
+    "frontend/app/tokens.css",
+    "frontend/components/ui/StatusBadge.tsx"
+   ]
+  },
+  {
+   "id": "F10",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 3,
+   "deps": [
+    "G01",
+    "F04"
+   ],
+   "title": "Neo4j test harness",
+   "files": [
+    "backend/tests/conftest.py",
+    "backend/tests/support/neo4j.py",
+    "backend/tests/support/round_trip.py"
+   ]
+  },
+  {
+   "id": "D01",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "F07"
+   ],
+   "title": "Service profile value objects",
+   "files": [
+    "backend/src/diucs/domain/model/service.py"
+   ]
+  },
+  {
+   "id": "D02",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 2,
+   "deps": [
+    "D01"
+   ],
+   "title": "Capacity report value object and latest report",
+   "files": [
+    "backend/src/diucs/domain/model/capacity.py"
+   ]
+  },
+  {
+   "id": "D03",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "D01",
+    "F06"
+   ],
+   "title": "Opening hours rule",
+   "files": [
+    "backend/src/diucs/domain/rules/opening_hours.py"
+   ]
+  },
+  {
+   "id": "D04",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 4,
+   "deps": [
+    "D03"
+   ],
+   "title": "Report schedule and missed-report ladder times",
+   "files": [
+    "backend/src/diucs/domain/rules/schedule.py"
+   ]
+  },
+  {
+   "id": "D05",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "D04"
+   ],
+   "title": "Freshness and data-age text",
+   "files": [
+    "backend/src/diucs/domain/rules/freshness.py"
+   ]
+  },
+  {
+   "id": "D06",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 2,
+   "deps": [
+    "D02"
+   ],
+   "title": "Effective available and pending count",
+   "files": [
+    "backend/src/diucs/domain/rules/availability.py"
+   ]
+  },
+  {
+   "id": "D07",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 4,
+   "deps": [
+    "D05",
+    "D06"
+   ],
+   "title": "Service status rule",
+   "files": [
+    "backend/src/diucs/domain/rules/status.py"
+   ]
+  },
+  {
+   "id": "D08",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 2,
+   "deps": [
+    "D07"
+   ],
+   "title": "System pressure rule",
+   "files": [
+    "backend/src/diucs/domain/rules/pressure.py"
+   ]
+  },
+  {
+   "id": "D09",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "F07"
+   ],
+   "title": "Reply parser: capacity and booking words",
+   "files": [
+    "backend/src/diucs/domain/rules/reply_parser.py"
+   ]
+  },
+  {
+   "id": "D10",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "D09"
+   ],
+   "title": "Reply parser: multi-service lettered replies",
+   "files": [
+    "backend/src/diucs/domain/rules/reply_parser.py"
+   ]
+  },
+  {
+   "id": "D11",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 4,
+   "deps": [
+    "D09",
+    "D04"
+   ],
+   "title": "Capacity reply policy",
+   "files": [
+    "backend/src/diucs/domain/rules/reply_policy.py"
+   ]
+  },
+  {
+   "id": "D12",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "D02"
+   ],
+   "title": "Report flag rules",
+   "files": [
+    "backend/src/diucs/domain/rules/report_flags.py"
+   ]
+  },
+  {
+   "id": "D13",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "F07"
+   ],
+   "title": "Booking state machine and FHIR status mapping",
+   "files": [
+    "backend/src/diucs/domain/rules/booking_state.py"
+   ]
+  },
+  {
+   "id": "D14",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "D13"
+   ],
+   "title": "Booking rules: timers, one open request, references",
+   "files": [
+    "backend/src/diucs/domain/rules/booking_rules.py"
+   ]
+  },
+  {
+   "id": "D15",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 4,
+   "deps": [
+    "D05"
+   ],
+   "title": "Message templates: capacity (C1 to C11)",
+   "files": [
+    "backend/src/diucs/domain/messages/templates.py",
+    "backend/src/diucs/domain/messages/catalogue.py",
+    "backend/src/diucs/domain/messages/sms_length.py"
+   ]
+  },
+  {
+   "id": "D16",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "D15"
+   ],
+   "title": "Message templates: booking, invitations, codes, alerts",
+   "files": [
+    "backend/src/diucs/domain/messages/templates.py"
+   ]
+  },
+  {
+   "id": "D17",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "D15",
+    "D16"
+   ],
+   "title": "No-patient-data guard for every template",
+   "files": [
+    "backend/src/diucs/domain/messages/privacy_guard.py",
+    "backend/tests/unit/domain/messages/test_no_patient_data_in_templates.py"
+   ]
+  },
+  {
+   "id": "D18",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "F07"
+   ],
+   "title": "Case model, referrer scores and outcomes",
+   "files": [
+    "backend/src/diucs/domain/model/case.py",
+    "backend/src/diucs/domain/model/scores.py"
+   ]
+  },
+  {
+   "id": "D19",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 2,
+   "deps": [
+    "F01"
+   ],
+   "title": "Postcode normalisation and district",
+   "files": [
+    "backend/src/diucs/domain/rules/postcode.py"
+   ]
+  },
+  {
+   "id": "D20",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 4,
+   "deps": [
+    "D18",
+    "D19"
+   ],
+   "title": "Criteria model and hard filter",
+   "files": [
+    "backend/src/diucs/domain/model/criteria.py",
+    "backend/src/diucs/domain/rules/criteria_filter.py"
+   ]
+  },
+  {
+   "id": "D21",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "D20"
+   ],
+   "title": "Criteria workflow and review-overdue rule",
+   "files": [
+    "backend/src/diucs/domain/rules/criteria_workflow.py"
+   ]
+  },
+  {
+   "id": "D22",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 4,
+   "deps": [
+    "F07"
+   ],
+   "title": "Registration state machine and approval gate",
+   "files": [
+    "backend/src/diucs/domain/rules/registration.py"
+   ]
+  },
+  {
+   "id": "D23",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "F06"
+   ],
+   "title": "Clinical advice queue and presence rules",
+   "files": [
+    "backend/src/diucs/domain/rules/clinical_queue.py"
+   ]
+  },
+  {
+   "id": "D24",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 4,
+   "deps": [
+    "D07",
+    "D08"
+   ],
+   "title": "Alert rules: triggers, subscriptions, quiet hours, escalation",
+   "files": [
+    "backend/src/diucs/domain/rules/alerts.py"
+   ]
+  },
+  {
+   "id": "D25",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 2,
+   "deps": [
+    "F07"
+   ],
+   "title": "Domain events",
+   "files": [
+    "backend/src/diucs/domain/events.py"
+   ]
+  },
+  {
+   "id": "D26",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "F01"
+   ],
+   "title": "Link tokens, pairing codes and support codes",
+   "files": [
+    "backend/src/diucs/domain/rules/tokens.py"
+   ]
+  },
+  {
+   "id": "D27",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 3,
+   "deps": [
+    "F06"
+   ],
+   "title": "Identity policy: text codes, PINs, re-verification",
+   "files": [
+    "backend/src/diucs/domain/rules/identity_policy.py"
+   ]
+  },
+  {
+   "id": "D28",
+   "sprint": "S1",
+   "epic": "D",
+   "hours": 2,
+   "deps": [
+    "D04"
+   ],
+   "title": "Multi-service rules: grouped prompts and phone load",
+   "files": [
+    "backend/src/diucs/domain/rules/multi_service.py"
+   ]
+  },
+  {
+   "id": "G02",
+   "sprint": "S1",
+   "epic": "G",
+   "hours": 4,
+   "deps": [
+    "F07"
+   ],
+   "title": "FHIR-to-graph mapper: resources, primitives, references",
+   "files": [
+    "backend/src/diucs/adapters/outbound/graph_store/mapper.py"
+   ]
+  },
+  {
+   "id": "G03",
+   "sprint": "S1",
+   "epic": "G",
+   "hours": 4,
+   "deps": [
+    "G02"
+   ],
+   "title": "Mapper: concepts, identifiers, periods and quantities",
+   "files": [
+    "backend/src/diucs/adapters/outbound/graph_store/mapper.py"
+   ]
+  },
+  {
+   "id": "G04",
+   "sprint": "S1",
+   "epic": "G",
+   "hours": 4,
+   "deps": [
+    "G03"
+   ],
+   "title": "Mapper: backbone elements and extension registry",
+   "files": [
+    "backend/src/diucs/adapters/outbound/graph_store/mapper.py",
+    "backend/src/diucs/adapters/outbound/graph_store/extensions.py"
+   ]
+  },
+  {
+   "id": "G05",
+   "sprint": "S1",
+   "epic": "G",
+   "hours": 4,
+   "deps": [
+    "G01",
+    "G04",
+    "F10"
+   ],
+   "title": "Graph writer and reader with versions",
+   "files": [
+    "backend/src/diucs/adapters/outbound/graph_store/resource_store.py"
+   ]
+  },
+  {
+   "id": "P01",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 4,
+   "deps": [
+    "D01",
+    "D02",
+    "G05",
+    "F10"
+   ],
+   "title": "Service and capacity ports with Neo4j repositories",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/adapters/outbound/graph_store/service_repository.py",
+    "backend/src/diucs/adapters/outbound/graph_store/capacity_repository.py"
+   ]
+  },
+  {
+   "id": "P02",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 4,
+   "deps": [
+    "P01",
+    "D13"
+   ],
+   "title": "Booking port with Neo4j repository",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/domain/model/booking.py",
+    "backend/src/diucs/adapters/outbound/graph_store/booking_repository.py"
+   ]
+  },
+  {
+   "id": "P21",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 4,
+   "deps": [
+    "P01",
+    "D18"
+   ],
+   "title": "Case port with Neo4j repository",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/adapters/outbound/graph_store/case_repository.py"
+   ]
+  },
+  {
+   "id": "P03",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 4,
+   "deps": [
+    "P01"
+   ],
+   "title": "Person, role and practitioner ports with Neo4j repository",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/domain/model/people.py",
+    "backend/src/diucs/adapters/outbound/graph_store/person_repository.py"
+   ]
+  },
+  {
+   "id": "P04",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 4,
+   "deps": [
+    "P01",
+    "D20",
+    "D21"
+   ],
+   "title": "Criteria port with Neo4j repository",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/adapters/outbound/graph_store/criteria_repository.py"
+   ]
+  },
+  {
+   "id": "P13",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 4,
+   "deps": [
+    "P01",
+    "D22"
+   ],
+   "title": "Registration and scope list ports with Neo4j repositories",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/domain/model/registration.py",
+    "backend/src/diucs/adapters/outbound/graph_store/registration_repository.py",
+    "backend/src/diucs/adapters/outbound/graph_store/scope_list_repository.py"
+   ]
+  },
+  {
+   "id": "P14",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 3,
+   "deps": [
+    "P01",
+    "D12"
+   ],
+   "title": "Report and service flag ports with Neo4j repository",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/domain/model/flags.py",
+    "backend/src/diucs/adapters/outbound/graph_store/flag_repository.py"
+   ]
+  },
+  {
+   "id": "P05",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 4,
+   "deps": [
+    "G01",
+    "F10",
+    "F06"
+   ],
+   "title": "Audit log port with Neo4j hash chain and provenance",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/audit.py",
+    "backend/src/diucs/application/actor.py",
+    "backend/src/diucs/adapters/outbound/audit_neo4j/audit_log.py"
+   ]
+  },
+  {
+   "id": "P06",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 4,
+   "deps": [
+    "P01",
+    "P02",
+    "P21",
+    "P03",
+    "P04",
+    "P05",
+    "P07",
+    "P08",
+    "P10",
+    "P13",
+    "P14",
+    "D25"
+   ],
+   "title": "Outbox and unit of work on Neo4j",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/outbox.py",
+    "backend/src/diucs/application/ports/outbound/unit_of_work.py",
+    "backend/src/diucs/adapters/outbound/audit_neo4j/outbox.py",
+    "backend/src/diucs/adapters/outbound/graph_store/unit_of_work.py",
+    "backend/tests/support/uow.py"
+   ]
+  },
+  {
+   "id": "P15",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 3,
+   "deps": [
+    "P06"
+   ],
+   "title": "Idempotency store and processed-message markers on Neo4j",
+   "files": [
+    "backend/src/diucs/application/idempotency.py",
+    "backend/src/diucs/application/ports/outbound/idempotency.py",
+    "backend/src/diucs/adapters/outbound/graph_store/idempotency_store.py"
+   ]
+  },
+  {
+   "id": "P07",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 3,
+   "deps": [
+    "F07",
+    "G01",
+    "F10"
+   ],
+   "title": "Messaging ports, recording senders and Neo4j communication records",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/messaging.py",
+    "backend/src/diucs/adapters/testing/recording_senders.py",
+    "backend/src/diucs/adapters/outbound/graph_store/communication_repository.py"
+   ]
+  },
+  {
+   "id": "P08",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 3,
+   "deps": [
+    "F06",
+    "G01",
+    "F10"
+   ],
+   "title": "Event bus port, manual-clock fake and Neo4j scheduled-work records",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/event_bus.py",
+    "backend/src/diucs/application/work.py",
+    "backend/src/diucs/adapters/testing/memory_event_bus.py",
+    "backend/src/diucs/adapters/outbound/graph_store/scheduled_work_repository.py"
+   ]
+  },
+  {
+   "id": "P09",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 3,
+   "deps": [
+    "F06"
+   ],
+   "title": "Cache port with in-memory fake",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/cache.py",
+    "backend/src/diucs/adapters/testing/memory_cache.py"
+   ]
+  },
+  {
+   "id": "P10",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 3,
+   "deps": [
+    "D26",
+    "D27",
+    "G01",
+    "F10"
+   ],
+   "title": "Link token, secret and phone-hash ports with Neo4j token store",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/tokens.py",
+    "backend/src/diucs/adapters/testing/fixed_secrets.py",
+    "backend/src/diucs/adapters/outbound/graph_store/link_token_repository.py"
+   ]
+  },
+  {
+   "id": "P16",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 4,
+   "deps": [
+    "P10",
+    "P03"
+   ],
+   "title": "Contact store and PIN credentials on Neo4j, text-code store port",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/identity.py",
+    "backend/src/diucs/adapters/outbound/graph_store/contact_store.py",
+    "backend/src/diucs/adapters/outbound/graph_store/credential_store.py",
+    "backend/src/diucs/adapters/testing/memory_code_store.py"
+   ]
+  },
+  {
+   "id": "P11",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 2,
+   "deps": [
+    "D19"
+   ],
+   "title": "Geocoder, travel-time, terminology and validator ports with fakes",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/geo.py",
+    "backend/src/diucs/application/ports/outbound/terminology.py",
+    "backend/src/diucs/adapters/testing/fixed_geo.py"
+   ]
+  },
+  {
+   "id": "P12",
+   "sprint": "S2",
+   "epic": "P",
+   "hours": 2,
+   "deps": [
+    "P08",
+    "P09"
+   ],
+   "title": "Contract tests for the cache and event bus fakes",
+   "files": [
+    "backend/tests/contract/conftest.py",
+    "backend/tests/contract/test_cache_contract.py",
+    "backend/tests/contract/test_event_bus_contract.py"
+   ]
+  },
+  {
+   "id": "U01",
+   "sprint": "S2",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "P01",
+    "P06",
+    "D07",
+    "D15",
+    "D25",
+    "P15"
+   ],
+   "title": "ReportCapacity use case",
+   "files": [
+    "backend/src/diucs/application/use_cases/report_capacity.py"
+   ]
+  },
+  {
+   "id": "U02",
+   "sprint": "S2",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U01"
+   ],
+   "title": "ConfirmCapacity use case",
+   "files": [
+    "backend/src/diucs/application/use_cases/confirm_capacity.py"
+   ]
+  },
+  {
+   "id": "U03",
+   "sprint": "S2",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U01",
+    "P07",
+    "P08",
+    "P10",
+    "D04"
+   ],
+   "title": "SendPrompts use case (one service)",
+   "files": [
+    "backend/src/diucs/application/use_cases/send_prompts.py",
+    "backend/src/diucs/application/scheduling.py"
+   ]
+  },
+  {
+   "id": "U04",
+   "sprint": "S2",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U03",
+    "D28"
+   ],
+   "title": "Grouped prompts for multi-service phones",
+   "files": [
+    "backend/src/diucs/application/use_cases/send_prompts.py"
+   ]
+  },
+  {
+   "id": "U05",
+   "sprint": "S2",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U02",
+    "P03",
+    "D10",
+    "D11"
+   ],
+   "title": "HandleInboundText use case: capacity replies",
+   "files": [
+    "backend/src/diucs/application/use_cases/handle_inbound_text.py"
+   ]
+  },
+  {
+   "id": "U06",
+   "sprint": "S2",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U03",
+    "P08"
+   ],
+   "title": "Missed-report ladder handlers",
+   "files": [
+    "backend/src/diucs/application/use_cases/missed_report_ladder.py"
+   ]
+  },
+  {
+   "id": "U07",
+   "sprint": "S2",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U01",
+    "D12",
+    "P04",
+    "P14"
+   ],
+   "title": "Raise report flags when reports break rules",
+   "files": [
+    "backend/src/diucs/application/use_cases/report_capacity.py",
+    "backend/src/diucs/application/use_cases/report_flags.py"
+   ]
+  },
+  {
+   "id": "U08",
+   "sprint": "S2",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "P02",
+    "D07",
+    "D08"
+   ],
+   "title": "QueryBoard read model",
+   "files": [
+    "backend/src/diucs/application/use_cases/query_board.py"
+   ]
+  },
+  {
+   "id": "U09",
+   "sprint": "S2",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U08",
+    "P09"
+   ],
+   "title": "Board projector: cache and live updates",
+   "files": [
+    "backend/src/diucs/application/use_cases/board_projector.py"
+   ]
+  },
+  {
+   "id": "I01",
+   "sprint": "S2",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "F04",
+    "P09",
+    "P12"
+   ],
+   "title": "Redis cache adapter",
+   "files": [
+    "backend/src/diucs/adapters/outbound/cache_redis/redis_cache.py"
+   ]
+  },
+  {
+   "id": "I02",
+   "sprint": "S2",
+   "epic": "I",
+   "hours": 4,
+   "deps": [
+    "F04",
+    "P08",
+    "P12"
+   ],
+   "title": "Service Bus event bus adapter",
+   "files": [
+    "backend/src/diucs/adapters/outbound/bus_servicebus/service_bus.py"
+   ]
+  },
+  {
+   "id": "I03",
+   "sprint": "S2",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "I01",
+    "I02",
+    "P06",
+    "P15",
+    "U03",
+    "P07",
+    "P08",
+    "P10"
+   ],
+   "title": "Outbox relay worker",
+   "files": [
+    "backend/src/diucs/adapters/inbound/workers/outbox_relay.py"
+   ]
+  },
+  {
+   "id": "I04",
+   "sprint": "S2",
+   "epic": "I",
+   "hours": 4,
+   "deps": [
+    "I02",
+    "P06",
+    "P15"
+   ],
+   "title": "Idempotent message consumer framework",
+   "files": [
+    "backend/src/diucs/adapters/inbound/workers/consumer.py"
+   ]
+  },
+  {
+   "id": "I05",
+   "sprint": "S2",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "I04",
+    "U06"
+   ],
+   "title": "Scheduled work consumer",
+   "files": [
+    "backend/src/diucs/adapters/inbound/scheduler/scheduled_work_consumer.py"
+   ]
+  },
+  {
+   "id": "R01",
+   "sprint": "S3",
+   "epic": "R",
+   "hours": 3,
+   "deps": [
+    "F08"
+   ],
+   "title": "FHIR REST app skeleton",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/app.py",
+    "backend/src/diucs/adapters/inbound/fhir_rest/errors.py",
+    "backend/src/diucs/adapters/inbound/fhir_rest/capability.py"
+   ]
+  },
+  {
+   "id": "R02",
+   "sprint": "S3",
+   "epic": "R",
+   "hours": 4,
+   "deps": [
+    "R01"
+   ],
+   "title": "Authentication, roles and service scope",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/auth.py"
+   ]
+  },
+  {
+   "id": "R03",
+   "sprint": "S3",
+   "epic": "R",
+   "hours": 3,
+   "deps": [
+    "R01",
+    "P09"
+   ],
+   "title": "ETag, If-Match and Idempotency-Key handling",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/concurrency.py"
+   ]
+  },
+  {
+   "id": "R04",
+   "sprint": "S3",
+   "epic": "R",
+   "hours": 4,
+   "deps": [
+    "R02",
+    "U01",
+    "P01"
+   ],
+   "title": "HealthcareService and capacity Observation endpoints",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_services.py"
+   ]
+  },
+  {
+   "id": "R05",
+   "sprint": "S3",
+   "epic": "R",
+   "hours": 3,
+   "deps": [
+    "R02",
+    "U08",
+    "U02"
+   ],
+   "title": "$board and $confirm-capacity operations",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_board.py"
+   ]
+  },
+  {
+   "id": "R06",
+   "sprint": "S3",
+   "epic": "R",
+   "hours": 3,
+   "deps": [
+    "R02",
+    "U09"
+   ],
+   "title": "Server-sent events stream",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_events.py"
+   ]
+  },
+  {
+   "id": "L01",
+   "sprint": "S3",
+   "epic": "L",
+   "hours": 4,
+   "deps": [
+    "R01",
+    "P10",
+    "U02"
+   ],
+   "title": "Capacity link API",
+   "files": [
+    "backend/src/diucs/adapters/inbound/link_pages/capacity_links.py",
+    "backend/src/diucs/application/use_cases/link_access.py"
+   ]
+  },
+  {
+   "id": "I06",
+   "sprint": "S3",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "P07"
+   ],
+   "title": "Twilio SMS adapter",
+   "files": [
+    "backend/src/diucs/adapters/outbound/sms_twilio/twilio_sms.py"
+   ]
+  },
+  {
+   "id": "I07",
+   "sprint": "S3",
+   "epic": "I",
+   "hours": 4,
+   "deps": [
+    "R01",
+    "I06",
+    "I01",
+    "I02"
+   ],
+   "title": "SMS inbound webhook",
+   "files": [
+    "backend/src/diucs/adapters/inbound/sms_webhook/routes.py"
+   ]
+  },
+  {
+   "id": "I08",
+   "sprint": "S3",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "I04",
+    "U05"
+   ],
+   "title": "Reply processor and delivery receipt consumers",
+   "files": [
+    "backend/src/diucs/adapters/inbound/workers/reply_processor.py",
+    "backend/src/diucs/adapters/inbound/workers/delivery_tracker.py"
+   ]
+  },
+  {
+   "id": "I09",
+   "sprint": "S3",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "P07",
+    "D15"
+   ],
+   "title": "Email adapter (SMTP) with HTML and text bodies",
+   "files": [
+    "backend/src/diucs/adapters/outbound/email_smtp/smtp_email.py"
+   ]
+  },
+  {
+   "id": "I10",
+   "sprint": "S3",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "I03",
+    "I06",
+    "I09"
+   ],
+   "title": "Outbound message senders (messages.outbound consumers)",
+   "files": [
+    "backend/src/diucs/adapters/inbound/workers/message_senders.py"
+   ]
+  },
+  {
+   "id": "U10",
+   "sprint": "S3",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "D26",
+    "P10",
+    "U01"
+   ],
+   "title": "PairWallScreen use case",
+   "files": [
+    "backend/src/diucs/application/use_cases/pair_wall_screen.py"
+   ]
+  },
+  {
+   "id": "R15",
+   "sprint": "S3",
+   "epic": "R",
+   "hours": 2,
+   "deps": [
+    "R02",
+    "U10"
+   ],
+   "title": "Wall screen pairing endpoints",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_screens.py"
+   ]
+  },
+  {
+   "id": "W01",
+   "sprint": "S3",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "F03"
+   ],
+   "title": "BFF foundations: typed FHIR client and MSW test setup",
+   "files": [
+    "frontend/lib/fhir/client.ts",
+    "frontend/lib/fhir/types.ts",
+    "frontend/test/msw/server.ts"
+   ]
+  },
+  {
+   "id": "W02",
+   "sprint": "S3",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W01"
+   ],
+   "title": "BFF session cookie and CSRF",
+   "files": [
+    "frontend/lib/auth/session.ts",
+    "frontend/lib/auth/csrf.ts",
+    "frontend/app/api/bff/session/route.ts"
+   ]
+  },
+  {
+   "id": "W03",
+   "sprint": "S3",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "F09"
+   ],
+   "title": "Base UI components",
+   "files": [
+    "frontend/components/ui/Button.tsx",
+    "frontend/components/ui/Chip.tsx",
+    "frontend/components/ui/OptionButton.tsx",
+    "frontend/components/ui/NumberStepper.tsx",
+    "frontend/components/ui/Banner.tsx"
+   ]
+  },
+  {
+   "id": "W04",
+   "sprint": "S3",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W02",
+    "W03",
+    "L01"
+   ],
+   "title": "Capacity link pages",
+   "files": [
+    "frontend/app/l/[token]/page.tsx",
+    "frontend/app/l/[token]/thanks/page.tsx",
+    "frontend/app/api/bff/links/[token]/route.ts"
+   ]
+  },
+  {
+   "id": "W05",
+   "sprint": "S3",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W01",
+    "W03",
+    "R05"
+   ],
+   "title": "Wall board page",
+   "files": [
+    "frontend/app/(wall)/screen/page.tsx",
+    "frontend/components/board/Tile.tsx",
+    "frontend/components/board/Legend.tsx"
+   ]
+  },
+  {
+   "id": "W06",
+   "sprint": "S3",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W05",
+    "R06"
+   ],
+   "title": "Wall board live updates and Last known",
+   "files": [
+    "frontend/app/api/bff/events/route.ts",
+    "frontend/components/board/LiveBoard.tsx"
+   ]
+  },
+  {
+   "id": "W07",
+   "sprint": "S3",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W05"
+   ],
+   "title": "Wall board variants: pressure, out of hours, pending",
+   "files": [
+    "frontend/components/board/Tile.tsx",
+    "frontend/components/board/PressureBanner.tsx"
+   ]
+  },
+  {
+   "id": "W08",
+   "sprint": "S3",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "U10",
+    "W02",
+    "W03",
+    "R15"
+   ],
+   "title": "Wall screen pairing pages",
+   "files": [
+    "frontend/app/(wall)/screen/pair/page.tsx",
+    "frontend/app/(lead)/lead/screens/new/page.tsx"
+   ]
+  },
+  {
+   "id": "O01",
+   "sprint": "S3",
+   "epic": "O",
+   "hours": 3,
+   "deps": [
+    "F08"
+   ],
+   "title": "Backend OpenTelemetry baseline",
+   "files": [
+    "backend/src/diucs/adapters/outbound/telemetry/otel.py",
+    "backend/src/diucs/application/tracing.py"
+   ]
+  },
+  {
+   "id": "U11",
+   "sprint": "S4",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "P02",
+    "D18",
+    "D19",
+    "U01",
+    "P21"
+   ],
+   "title": "OpenCase use case",
+   "files": [
+    "backend/src/diucs/application/use_cases/open_case.py"
+   ]
+  },
+  {
+   "id": "U12",
+   "sprint": "S4",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U11",
+    "D20",
+    "U08",
+    "P11",
+    "P04",
+    "P21"
+   ],
+   "title": "FilterOptions use case with audit snapshot",
+   "files": [
+    "backend/src/diucs/application/use_cases/filter_options.py"
+   ]
+  },
+  {
+   "id": "U13",
+   "sprint": "S4",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U01",
+    "U11",
+    "P21"
+   ],
+   "title": "Advisor phoned and declined-despite-capacity",
+   "files": [
+    "backend/src/diucs/application/use_cases/advisor_phoned.py",
+    "backend/src/diucs/application/use_cases/record_decline.py"
+   ]
+  },
+  {
+   "id": "U14",
+   "sprint": "S4",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U11",
+    "P21"
+   ],
+   "title": "RecordOutcome and close case",
+   "files": [
+    "backend/src/diucs/application/use_cases/record_outcome.py"
+   ]
+  },
+  {
+   "id": "U15",
+   "sprint": "S4",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "P01",
+    "P03",
+    "P04",
+    "U03"
+   ],
+   "title": "Lead-assisted service set-up (pilot)",
+   "files": [
+    "backend/src/diucs/application/use_cases/setup_service_by_lead.py"
+   ]
+  },
+  {
+   "id": "U16",
+   "sprint": "S4",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "P03",
+    "U01",
+    "P16"
+   ],
+   "title": "Change reporter number and cover",
+   "files": [
+    "backend/src/diucs/application/use_cases/change_reporter_number.py"
+   ]
+  },
+  {
+   "id": "G11",
+   "sprint": "S4",
+   "epic": "G",
+   "hours": 4,
+   "deps": [
+    "P04",
+    "D20"
+   ],
+   "title": "Criteria hard-filter and history queries",
+   "files": [
+    "backend/src/diucs/adapters/outbound/graph_store/criteria_repository.py"
+   ]
+  },
+  {
+   "id": "I11",
+   "sprint": "S4",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "P11"
+   ],
+   "title": "Local postcode centroids and interim travel-time adapter",
+   "files": [
+    "backend/src/diucs/adapters/outbound/postcodes_local/centroids.py",
+    "backend/src/diucs/adapters/outbound/travel_time/straight_line.py"
+   ]
+  },
+  {
+   "id": "R07",
+   "sprint": "S4",
+   "epic": "R",
+   "hours": 4,
+   "deps": [
+    "R02",
+    "U11",
+    "U12",
+    "U13",
+    "U14",
+    "P21"
+   ],
+   "title": "Case endpoints and $filter-options",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_cases.py"
+   ]
+  },
+  {
+   "id": "R08",
+   "sprint": "S4",
+   "epic": "R",
+   "hours": 3,
+   "deps": [
+    "R02",
+    "U15",
+    "U16"
+   ],
+   "title": "Lead endpoints: service set-up and reporter numbers",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_lead.py"
+   ]
+  },
+  {
+   "id": "R16",
+   "sprint": "S4",
+   "epic": "R",
+   "hours": 2,
+   "deps": [
+    "R02",
+    "P11"
+   ],
+   "title": "Pathways Dx code lookup endpoint",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_terminology.py",
+    "backend/data/pathways_dx_sample.json"
+   ]
+  },
+  {
+   "id": "W09",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W02"
+   ],
+   "title": "Staff sign-in with Entra ID and role guard",
+   "files": [
+    "frontend/lib/auth/staff.ts",
+    "frontend/app/sign-in/page.tsx",
+    "frontend/middleware.ts"
+   ]
+  },
+  {
+   "id": "W10",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W09",
+    "W03"
+   ],
+   "title": "Advisor home and call step header",
+   "files": [
+    "frontend/app/(advisor)/advisor/page.tsx",
+    "frontend/components/advisor/CallSteps.tsx"
+   ]
+  },
+  {
+   "id": "W11",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W10",
+    "R07"
+   ],
+   "title": "Patient needs form",
+   "files": [
+    "frontend/app/(advisor)/advisor/case/[ref]/page.tsx",
+    "frontend/components/advisor/NeedsForm.tsx"
+   ]
+  },
+  {
+   "id": "W12",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W11",
+    "R16"
+   ],
+   "title": "Referrer score pickers",
+   "files": [
+    "frontend/components/advisor/ScorePickers.tsx"
+   ]
+  },
+  {
+   "id": "W13",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W11"
+   ],
+   "title": "Options list",
+   "files": [
+    "frontend/app/(advisor)/advisor/case/[ref]/options/page.tsx",
+    "frontend/components/advisor/ServiceCard.tsx",
+    "frontend/components/advisor/NotSuitableList.tsx"
+   ]
+  },
+  {
+   "id": "W14",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W13"
+   ],
+   "title": "Criteria, I phoned and They declined dialogs",
+   "files": [
+    "frontend/components/advisor/CriteriaDialog.tsx",
+    "frontend/components/advisor/PhonedDialog.tsx",
+    "frontend/components/advisor/DeclinedDialog.tsx"
+   ]
+  },
+  {
+   "id": "W15",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W13"
+   ],
+   "title": "Record outcome, SystmOne summary and call closed",
+   "files": [
+    "frontend/app/(advisor)/advisor/case/[ref]/finish/page.tsx",
+    "frontend/components/advisor/SummaryCopy.tsx"
+   ]
+  },
+  {
+   "id": "W16",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 2,
+   "deps": [
+    "W13"
+   ],
+   "title": "No service fits state",
+   "files": [
+    "frontend/components/advisor/NoServiceFits.tsx"
+   ]
+  },
+  {
+   "id": "W17",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W09",
+    "R08",
+    "R05"
+   ],
+   "title": "Shift lead page: chasing, system now, covering",
+   "files": [
+    "frontend/app/(lead)/lead/page.tsx",
+    "frontend/components/lead/ChaseCard.tsx"
+   ]
+  },
+  {
+   "id": "W18",
+   "sprint": "S4",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W17"
+   ],
+   "title": "Shift lead: add service and change number forms (pilot)",
+   "files": [
+    "frontend/app/(lead)/lead/services/new/page.tsx",
+    "frontend/app/(lead)/lead/reporters/number/page.tsx"
+   ]
+  },
+  {
+   "id": "S01",
+   "sprint": "S4",
+   "epic": "S",
+   "hours": 2,
+   "deps": [
+    "F03"
+   ],
+   "title": "Browser security headers and CSP",
+   "files": [
+    "frontend/next.config.ts",
+    "frontend/middleware.ts"
+   ]
+  },
+  {
+   "id": "U17",
+   "sprint": "S5",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "P02",
+    "D14",
+    "D16",
+    "P08",
+    "U03",
+    "P21"
+   ],
+   "title": "RequestBooking use case",
+   "files": [
+    "backend/src/diucs/application/use_cases/request_booking.py"
+   ]
+  },
+  {
+   "id": "U18",
+   "sprint": "S5",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U17"
+   ],
+   "title": "RespondToBooking use case",
+   "files": [
+    "backend/src/diucs/application/use_cases/respond_to_booking.py"
+   ]
+  },
+  {
+   "id": "U19",
+   "sprint": "S5",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U17",
+    "I05"
+   ],
+   "title": "Booking timers: phone prompt and expiry",
+   "files": [
+    "backend/src/diucs/application/use_cases/booking_timers.py"
+   ]
+  },
+  {
+   "id": "U20",
+   "sprint": "S5",
+   "epic": "U",
+   "hours": 2,
+   "deps": [
+    "U17"
+   ],
+   "title": "CancelBooking use case",
+   "files": [
+    "backend/src/diucs/application/use_cases/cancel_booking.py"
+   ]
+  },
+  {
+   "id": "U21",
+   "sprint": "S5",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U18"
+   ],
+   "title": "WithdrawBooking and NotReached use cases",
+   "files": [
+    "backend/src/diucs/application/use_cases/withdraw_booking.py"
+   ]
+  },
+  {
+   "id": "U22",
+   "sprint": "S5",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U05",
+    "U18"
+   ],
+   "title": "Booking replies by text",
+   "files": [
+    "backend/src/diucs/application/use_cases/handle_inbound_text.py"
+   ]
+  },
+  {
+   "id": "R09",
+   "sprint": "S5",
+   "epic": "R",
+   "hours": 4,
+   "deps": [
+    "R02",
+    "U17",
+    "U18",
+    "U20",
+    "U21"
+   ],
+   "title": "Booking Task endpoints, $respond and service projection",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_bookings.py"
+   ]
+  },
+  {
+   "id": "R17",
+   "sprint": "S5",
+   "epic": "R",
+   "hours": 2,
+   "deps": [
+    "R09",
+    "U21"
+   ],
+   "title": "Advisor acknowledgement of a withdrawn booking",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_bookings.py"
+   ]
+  },
+  {
+   "id": "L02",
+   "sprint": "S5",
+   "epic": "L",
+   "hours": 3,
+   "deps": [
+    "L01",
+    "U18",
+    "U21"
+   ],
+   "title": "Booking link API",
+   "files": [
+    "backend/src/diucs/adapters/inbound/link_pages/booking_links.py"
+   ]
+  },
+  {
+   "id": "W19",
+   "sprint": "S5",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W04",
+    "L02"
+   ],
+   "title": "Booking link page for services",
+   "files": [
+    "frontend/app/l/[token]/booking/page.tsx"
+   ]
+  },
+  {
+   "id": "W20",
+   "sprint": "S5",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W13",
+    "R09",
+    "W06"
+   ],
+   "title": "Advisor booking card states, live",
+   "files": [
+    "frontend/components/advisor/BookingCard.tsx"
+   ]
+  },
+  {
+   "id": "W21",
+   "sprint": "S5",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W20",
+    "R17"
+   ],
+   "title": "Advisor cancel booking and withdrawal alert",
+   "files": [
+    "frontend/components/advisor/CancelBookingDialog.tsx",
+    "frontend/components/advisor/WithdrawalAlert.tsx"
+   ]
+  },
+  {
+   "id": "W22",
+   "sprint": "S5",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W19",
+    "L02"
+   ],
+   "title": "Service booking exceptions: withdraw, not reached, cancelled",
+   "files": [
+    "frontend/app/l/[token]/booking/change/page.tsx"
+   ]
+  },
+  {
+   "id": "U23",
+   "sprint": "S6",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "P04",
+    "U01",
+    "P13"
+   ],
+   "title": "Scope list management",
+   "files": [
+    "backend/src/diucs/application/use_cases/scope_list.py"
+   ]
+  },
+  {
+   "id": "U24",
+   "sprint": "S6",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U23",
+    "P10",
+    "D16"
+   ],
+   "title": "Invite a service reporter",
+   "files": [
+    "backend/src/diucs/application/use_cases/invite_reporter.py"
+   ]
+  },
+  {
+   "id": "U25",
+   "sprint": "S6",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "P10",
+    "D27",
+    "U01",
+    "P16"
+   ],
+   "title": "Text code request and verification",
+   "files": [
+    "backend/src/diucs/application/use_cases/text_code.py"
+   ]
+  },
+  {
+   "id": "U26",
+   "sprint": "S6",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "D22",
+    "P04",
+    "U01",
+    "P13"
+   ],
+   "title": "Registration draft and submit",
+   "files": [
+    "backend/src/diucs/application/use_cases/registration_draft.py"
+   ]
+  },
+  {
+   "id": "I12",
+   "sprint": "S6",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "P11"
+   ],
+   "title": "OS Places geocoder and ODS terminology check adapters",
+   "files": [
+    "backend/src/diucs/adapters/outbound/geocoder_os_places/os_places.py",
+    "backend/src/diucs/adapters/outbound/terminology/local_terminology.py"
+   ]
+  },
+  {
+   "id": "U27",
+   "sprint": "S6",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U26",
+    "I12",
+    "G05",
+    "P13"
+   ],
+   "title": "Registration persistence as one FHIR transaction",
+   "files": [
+    "backend/src/diucs/application/use_cases/registration_submit.py",
+    "backend/src/diucs/adapters/outbound/graph_store/registration_repository.py"
+   ]
+  },
+  {
+   "id": "U28",
+   "sprint": "S6",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U26"
+   ],
+   "title": "Review registration: automatic checks, call-back, scope",
+   "files": [
+    "backend/src/diucs/application/use_cases/review_registration.py"
+   ]
+  },
+  {
+   "id": "U29",
+   "sprint": "S6",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U28",
+    "U30",
+    "U03"
+   ],
+   "title": "Approve, send back, test prompt and go live",
+   "files": [
+    "backend/src/diucs/application/use_cases/approve_registration.py"
+   ]
+  },
+  {
+   "id": "U30",
+   "sprint": "S6",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "D21",
+    "P04",
+    "U01"
+   ],
+   "title": "ChangeCriteria, ApproveCriteria and ConfirmCriteria",
+   "files": [
+    "backend/src/diucs/application/use_cases/criteria.py"
+   ]
+  },
+  {
+   "id": "U31",
+   "sprint": "S6",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U30",
+    "I05"
+   ],
+   "title": "Criteria review reminders and overdue flag",
+   "files": [
+    "backend/src/diucs/application/use_cases/criteria_reviews.py"
+   ]
+  },
+  {
+   "id": "R10",
+   "sprint": "S6",
+   "epic": "R",
+   "hours": 4,
+   "deps": [
+    "R02",
+    "U23",
+    "U24",
+    "U26",
+    "U28",
+    "U29",
+    "U30"
+   ],
+   "title": "Registration, scope and criteria endpoints",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_registration.py",
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_criteria.py"
+   ]
+  },
+  {
+   "id": "W23",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W02",
+    "W03",
+    "U25",
+    "R10"
+   ],
+   "title": "Registration: sign in and start",
+   "files": [
+    "frontend/app/register/page.tsx",
+    "frontend/app/register/[id]/start/page.tsx",
+    "frontend/components/forms/CodeEntry.tsx"
+   ]
+  },
+  {
+   "id": "W54",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W23"
+   ],
+   "title": "Registration: organisation step and error summary",
+   "files": [
+    "frontend/app/register/[id]/organisation/page.tsx",
+    "frontend/components/forms/ErrorSummary.tsx"
+   ]
+  },
+  {
+   "id": "W24",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W54",
+    "I12"
+   ],
+   "title": "Registration: location step with address lookup",
+   "files": [
+    "frontend/app/register/[id]/location/page.tsx"
+   ]
+  },
+  {
+   "id": "W25",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W54"
+   ],
+   "title": "Registration: service and criteria step",
+   "files": [
+    "frontend/app/register/[id]/service/page.tsx"
+   ]
+  },
+  {
+   "id": "W26",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W25"
+   ],
+   "title": "Registration: capacity reporting, review, submitted, my services",
+   "files": [
+    "frontend/app/register/[id]/reporting/page.tsx",
+    "frontend/app/register/[id]/review/page.tsx",
+    "frontend/app/register/services/page.tsx"
+   ]
+  },
+  {
+   "id": "W27",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W26"
+   ],
+   "title": "Applicant status pages",
+   "files": [
+    "frontend/app/register/[id]/status/page.tsx"
+   ]
+  },
+  {
+   "id": "W28",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W09",
+    "R10"
+   ],
+   "title": "Reviewer: scope list, queue and overview",
+   "files": [
+    "frontend/app/(lead)/lead/registrations/page.tsx",
+    "frontend/app/(lead)/lead/scope/page.tsx"
+   ]
+  },
+  {
+   "id": "W29",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W28"
+   ],
+   "title": "Reviewer: call-back, scope, decide and go live",
+   "files": [
+    "frontend/app/(lead)/lead/registrations/[id]/page.tsx"
+   ]
+  },
+  {
+   "id": "W30",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W09",
+    "R10"
+   ],
+   "title": "Criteria owner: review, confirm, change, preview, send",
+   "files": [
+    "frontend/app/(owner)/criteria/[serviceId]/page.tsx"
+   ]
+  },
+  {
+   "id": "W31",
+   "sprint": "S6",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W30"
+   ],
+   "title": "Criteria second approval, history and overdue",
+   "files": [
+    "frontend/app/(owner)/criteria/[serviceId]/approve/page.tsx",
+    "frontend/app/(owner)/criteria/[serviceId]/history/page.tsx"
+   ]
+  },
+  {
+   "id": "P17",
+   "sprint": "S7",
+   "epic": "P",
+   "hours": 3,
+   "deps": [
+    "P06",
+    "D24"
+   ],
+   "title": "Alert subscription and alert repositories on Neo4j",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/adapters/outbound/graph_store/alert_repository.py"
+   ]
+  },
+  {
+   "id": "P19",
+   "sprint": "S7",
+   "epic": "P",
+   "hours": 2,
+   "deps": [
+    "P06",
+    "P07"
+   ],
+   "title": "Push subscription repository on Neo4j",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/messaging.py",
+    "backend/src/diucs/adapters/outbound/graph_store/push_subscription_repository.py"
+   ]
+  },
+  {
+   "id": "U32",
+   "sprint": "S7",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U25",
+    "D27",
+    "P16"
+   ],
+   "title": "PIN set, sign-in, lock, reset and 30-day check",
+   "files": [
+    "backend/src/diucs/application/use_cases/pin.py"
+   ]
+  },
+  {
+   "id": "I13",
+   "sprint": "S7",
+   "epic": "I",
+   "hours": 3,
+   "deps": [
+    "I01",
+    "P10"
+   ],
+   "title": "Redis sessions, attempt counters and rate limits",
+   "files": [
+    "backend/src/diucs/adapters/outbound/cache_redis/sessions.py",
+    "backend/src/diucs/adapters/outbound/pin_store/pin_store.py"
+   ]
+  },
+  {
+   "id": "I14",
+   "sprint": "S7",
+   "epic": "I",
+   "hours": 4,
+   "deps": [
+    "P07",
+    "P19"
+   ],
+   "title": "Web Push adapter and notification consent",
+   "files": [
+    "backend/src/diucs/adapters/outbound/push_webpush/web_push.py",
+    "backend/src/diucs/application/use_cases/push_subscription.py"
+   ]
+  },
+  {
+   "id": "R11",
+   "sprint": "S7",
+   "epic": "R",
+   "hours": 3,
+   "deps": [
+    "R02",
+    "U32",
+    "I14"
+   ],
+   "title": "Reporter identity and push endpoints",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_identity.py"
+   ]
+  },
+  {
+   "id": "W32",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "F03"
+   ],
+   "title": "PWA manifest, service worker and offline shell",
+   "files": [
+    "frontend/public/manifest.webmanifest",
+    "frontend/public/sw.js",
+    "frontend/app/offline/page.tsx"
+   ]
+  },
+  {
+   "id": "W33",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W02",
+    "W03",
+    "R11"
+   ],
+   "title": "Reporter set-up: welcome, number check, channel",
+   "files": [
+    "frontend/app/(reporter)/setup/page.tsx"
+   ]
+  },
+  {
+   "id": "W34",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W33",
+    "W32"
+   ],
+   "title": "Reporter set-up: home screen, notifications, PIN",
+   "files": [
+    "frontend/app/(reporter)/setup/pin/page.tsx",
+    "frontend/components/reporter/PinPad.tsx"
+   ]
+  },
+  {
+   "id": "W35",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W34"
+   ],
+   "title": "Reporter app: PIN entry, respond, confirmation",
+   "files": [
+    "frontend/app/(reporter)/app/page.tsx",
+    "frontend/app/(reporter)/app/respond/[serviceId]/page.tsx"
+   ]
+  },
+  {
+   "id": "W36",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W35",
+    "R09"
+   ],
+   "title": "Reporter app: booking decision",
+   "files": [
+    "frontend/app/(reporter)/app/booking/[ref]/page.tsx"
+   ]
+  },
+  {
+   "id": "W37",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W35"
+   ],
+   "title": "Reporter app: recovery and settings",
+   "files": [
+    "frontend/app/(reporter)/app/settings/page.tsx",
+    "frontend/app/(reporter)/app/locked/page.tsx"
+   ]
+  },
+  {
+   "id": "W38",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W35",
+    "U04"
+   ],
+   "title": "Reporter app: several services on one phone",
+   "files": [
+    "frontend/app/(reporter)/app/services/page.tsx"
+   ]
+  },
+  {
+   "id": "U33",
+   "sprint": "S7",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "D24",
+    "P04",
+    "U01",
+    "P17"
+   ],
+   "title": "SubscribeAlert use case",
+   "files": [
+    "backend/src/diucs/application/use_cases/subscribe_alert.py"
+   ]
+  },
+  {
+   "id": "U34",
+   "sprint": "S7",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U33",
+    "I04",
+    "I14",
+    "U03"
+   ],
+   "title": "Alert evaluator, acknowledge, snooze and escalation",
+   "files": [
+    "backend/src/diucs/application/use_cases/alerts.py"
+   ]
+  },
+  {
+   "id": "U35",
+   "sprint": "S7",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U08"
+   ],
+   "title": "Week summary for COO and ICB",
+   "files": [
+    "backend/src/diucs/application/use_cases/week_summary.py"
+   ]
+  },
+  {
+   "id": "R12",
+   "sprint": "S7",
+   "epic": "R",
+   "hours": 3,
+   "deps": [
+    "R02",
+    "U33",
+    "U34",
+    "U35"
+   ],
+   "title": "Subscription and alert endpoints",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_alerts.py"
+   ]
+  },
+  {
+   "id": "W39",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W33",
+    "R12"
+   ],
+   "title": "Exec set-up: alerts, quiet hours, escalation",
+   "files": [
+    "frontend/app/(exec)/exec/setup/page.tsx",
+    "frontend/app/(exec)/exec/settings/page.tsx"
+   ]
+  },
+  {
+   "id": "W40",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W39"
+   ],
+   "title": "Exec home, service detail and alerts",
+   "files": [
+    "frontend/app/(exec)/exec/page.tsx",
+    "frontend/app/(exec)/exec/alerts/page.tsx"
+   ]
+  },
+  {
+   "id": "W41",
+   "sprint": "S7",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W40",
+    "U35"
+   ],
+   "title": "Exec week summary",
+   "files": [
+    "frontend/app/(exec)/exec/week/page.tsx"
+   ]
+  },
+  {
+   "id": "P18",
+   "sprint": "S8",
+   "epic": "P",
+   "hours": 3,
+   "deps": [
+    "P06",
+    "D23"
+   ],
+   "title": "Clinical request repository on Neo4j",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/adapters/outbound/graph_store/clinical_request_repository.py"
+   ]
+  },
+  {
+   "id": "P20",
+   "sprint": "S8",
+   "epic": "P",
+   "hours": 3,
+   "deps": [
+    "P06",
+    "P16"
+   ],
+   "title": "Service move and protected text stores on Neo4j",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/repositories.py",
+    "backend/src/diucs/adapters/outbound/graph_store/service_move_repository.py",
+    "backend/src/diucs/adapters/outbound/graph_store/protected_text_store.py"
+   ]
+  },
+  {
+   "id": "U36",
+   "sprint": "S8",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U17",
+    "P04",
+    "P14"
+   ],
+   "title": "SuspendService and ResumeService",
+   "files": [
+    "backend/src/diucs/application/use_cases/suspend_service.py"
+   ]
+  },
+  {
+   "id": "U37",
+   "sprint": "S8",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "U32",
+    "P03",
+    "P16"
+   ],
+   "title": "RemovePerson, sign out everywhere and lost phone",
+   "files": [
+    "backend/src/diucs/application/use_cases/remove_person.py"
+   ]
+  },
+  {
+   "id": "U38",
+   "sprint": "S8",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "U16",
+    "P20"
+   ],
+   "title": "Move a service between phones",
+   "files": [
+    "backend/src/diucs/application/use_cases/move_service.py"
+   ]
+  },
+  {
+   "id": "U39",
+   "sprint": "S8",
+   "epic": "U",
+   "hours": 2,
+   "deps": [
+    "U07",
+    "P14"
+   ],
+   "title": "Resolve report flags",
+   "files": [
+    "backend/src/diucs/application/use_cases/resolve_report_flag.py"
+   ]
+  },
+  {
+   "id": "U40",
+   "sprint": "S8",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "D23",
+    "U12",
+    "U03",
+    "P18",
+    "P21"
+   ],
+   "title": "Clinical advice requests",
+   "files": [
+    "backend/src/diucs/application/use_cases/clinical_advice.py"
+   ]
+  },
+  {
+   "id": "U41",
+   "sprint": "S8",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "P04",
+    "U01",
+    "P20"
+   ],
+   "title": "Safety concern and problem report",
+   "files": [
+    "backend/src/diucs/application/use_cases/safety_concern.py"
+   ]
+  },
+  {
+   "id": "U42",
+   "sprint": "S8",
+   "epic": "U",
+   "hours": 3,
+   "deps": [
+    "P05",
+    "U12",
+    "P21"
+   ],
+   "title": "Audit replay of what the advisor saw",
+   "files": [
+    "backend/src/diucs/application/use_cases/audit_replay.py"
+   ]
+  },
+  {
+   "id": "R13",
+   "sprint": "S8",
+   "epic": "R",
+   "hours": 4,
+   "deps": [
+    "R02",
+    "U36",
+    "U37",
+    "U38",
+    "U39",
+    "U40",
+    "U41",
+    "U42"
+   ],
+   "title": "Lead, clinical and safety endpoints",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_admin.py",
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_clinical.py"
+   ]
+  },
+  {
+   "id": "R14",
+   "sprint": "S8",
+   "epic": "R",
+   "hours": 4,
+   "deps": [
+    "R01"
+   ],
+   "title": "Profiles, $validate and the validator adapter",
+   "files": [
+    "backend/src/diucs/adapters/outbound/fhir_validator/validator.py",
+    "backend/profiles/"
+   ]
+  },
+  {
+   "id": "W42",
+   "sprint": "S8",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W17",
+    "R13"
+   ],
+   "title": "Lead: suspend, resume, remove, reports to check",
+   "files": [
+    "frontend/app/(lead)/lead/services/[id]/suspend/page.tsx",
+    "frontend/app/(lead)/lead/flags/page.tsx"
+   ]
+  },
+  {
+   "id": "W43",
+   "sprint": "S8",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W17",
+    "R13"
+   ],
+   "title": "Lead: phones and services, invite and track set-up",
+   "files": [
+    "frontend/app/(lead)/lead/phones/page.tsx",
+    "frontend/app/(lead)/lead/reporters/invite/page.tsx"
+   ]
+  },
+  {
+   "id": "W44",
+   "sprint": "S8",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W09",
+    "R13"
+   ],
+   "title": "Clinical advisor screens",
+   "files": [
+    "frontend/app/(clinical)/clinical/page.tsx",
+    "frontend/app/(clinical)/clinical/request/[id]/page.tsx"
+   ]
+  },
+  {
+   "id": "W45",
+   "sprint": "S8",
+   "epic": "W",
+   "hours": 2,
+   "deps": [
+    "W16",
+    "W44"
+   ],
+   "title": "Advisor: ask a clinical advisor, wired",
+   "files": [
+    "frontend/components/advisor/AskClinicalDialog.tsx"
+   ]
+  },
+  {
+   "id": "W46",
+   "sprint": "S8",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W03",
+    "R13"
+   ],
+   "title": "Help: safety concern, problem report, share session",
+   "files": [
+    "frontend/app/help/page.tsx"
+   ]
+  },
+  {
+   "id": "W47",
+   "sprint": "S8",
+   "epic": "W",
+   "hours": 2,
+   "deps": [
+    "W17",
+    "R13"
+   ],
+   "title": "Lead: audit replay screen",
+   "files": [
+    "frontend/app/(lead)/lead/audit/[ref]/page.tsx"
+   ]
+  },
+  {
+   "id": "W55",
+   "sprint": "S8",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W37",
+    "R13"
+   ],
+   "title": "Reporter: lost phone and sign out everywhere",
+   "files": [
+    "frontend/app/(reporter)/app/lost-phone/page.tsx",
+    "frontend/app/(reporter)/app/sign-out-all/page.tsx"
+   ]
+  },
+  {
+   "id": "O02",
+   "sprint": "S9",
+   "epic": "O",
+   "hours": 4,
+   "deps": [
+    "W01"
+   ],
+   "title": "Browser telemetry module and element ids",
+   "files": [
+    "frontend/lib/telemetry/events.ts",
+    "frontend/lib/telemetry/trace.ts"
+   ]
+  },
+  {
+   "id": "O03",
+   "sprint": "S9",
+   "epic": "O",
+   "hours": 4,
+   "deps": [
+    "O02"
+   ],
+   "title": "Friction rules engine",
+   "files": [
+    "frontend/lib/telemetry/friction.ts"
+   ]
+  },
+  {
+   "id": "O04",
+   "sprint": "S9",
+   "epic": "O",
+   "hours": 3,
+   "deps": [
+    "O01"
+   ],
+   "title": "OpenTelemetry Collector with attribute allow-list",
+   "files": [
+    "infra/otel-collector.yaml"
+   ]
+  },
+  {
+   "id": "O05",
+   "sprint": "S9",
+   "epic": "O",
+   "hours": 2,
+   "deps": [
+    "O02"
+   ],
+   "title": "Telemetry schema scan for free text",
+   "files": [
+    "frontend/lib/telemetry/schema.ts",
+    "frontend/lib/telemetry/schema.test.ts"
+   ]
+  },
+  {
+   "id": "O06",
+   "sprint": "S9",
+   "epic": "O",
+   "hours": 4,
+   "deps": [
+    "G01",
+    "D26",
+    "P06"
+   ],
+   "title": "Support codes and support access audit",
+   "files": [
+    "backend/src/diucs/application/use_cases/support_access.py"
+   ]
+  },
+  {
+   "id": "O07",
+   "sprint": "S9",
+   "epic": "O",
+   "hours": 4,
+   "deps": [
+    "F08"
+   ],
+   "title": "TelemetryQuery port and Azure Monitor adapter",
+   "files": [
+    "backend/src/diucs/application/ports/outbound/telemetry_query.py",
+    "backend/src/diucs/adapters/outbound/telemetry/azure_monitor_query.py"
+   ]
+  },
+  {
+   "id": "O08",
+   "sprint": "S9",
+   "epic": "O",
+   "hours": 4,
+   "deps": [
+    "O07",
+    "G01"
+   ],
+   "title": "Daily telemetry aggregates job",
+   "files": [
+    "backend/src/diucs/application/use_cases/telemetry_aggregates.py"
+   ]
+  },
+  {
+   "id": "R18",
+   "sprint": "S9",
+   "epic": "R",
+   "hours": 4,
+   "deps": [
+    "R02",
+    "O06",
+    "O07"
+   ],
+   "title": "Support code and console endpoints",
+   "files": [
+    "backend/src/diucs/adapters/inbound/fhir_rest/routes_support.py"
+   ]
+  },
+  {
+   "id": "W48",
+   "sprint": "S9",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "O06",
+    "O07",
+    "W09",
+    "R18"
+   ],
+   "title": "Console: find session, timeline and trace",
+   "files": [
+    "frontend/app/(console)/console/page.tsx",
+    "frontend/app/(console)/console/session/[id]/page.tsx"
+   ]
+  },
+  {
+   "id": "W49",
+   "sprint": "S9",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "O08",
+    "W48"
+   ],
+   "title": "Console: funnels, paths, friction, performance, releases",
+   "files": [
+    "frontend/app/(console)/console/insight/page.tsx"
+   ]
+  },
+  {
+   "id": "W56",
+   "sprint": "S9",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W46",
+    "O06",
+    "R18"
+   ],
+   "title": "Help: share my session (support code)",
+   "files": [
+    "frontend/app/help/share/page.tsx"
+   ]
+  },
+  {
+   "id": "O09",
+   "sprint": "S9",
+   "epic": "O",
+   "hours": 3,
+   "deps": [
+    "W15",
+    "W04"
+   ],
+   "title": "Synthetic journey checks",
+   "files": [
+    "frontend/e2e/synthetic/advisor-journey.spec.ts",
+    "frontend/e2e/synthetic/reporter-loop.spec.ts"
+   ]
+  },
+  {
+   "id": "I15",
+   "sprint": "S10",
+   "epic": "I",
+   "hours": 4,
+   "deps": [
+    "P11"
+   ],
+   "title": "Routing travel-time adapter (once the engine is chosen)",
+   "files": [
+    "backend/src/diucs/adapters/outbound/travel_time/routing.py"
+   ]
+  },
+  {
+   "id": "W50",
+   "sprint": "S10",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "W13",
+    "I15"
+   ],
+   "title": "Map view and travel details",
+   "files": [
+    "frontend/app/(advisor)/advisor/case/[ref]/map/page.tsx"
+   ]
+  },
+  {
+   "id": "U43",
+   "sprint": "S10",
+   "epic": "U",
+   "hours": 4,
+   "deps": [
+    "P05",
+    "U14",
+    "P21"
+   ],
+   "title": "Planning analysis from decision snapshots",
+   "files": [
+    "backend/src/diucs/application/use_cases/planning_analysis.py"
+   ]
+  },
+  {
+   "id": "W51",
+   "sprint": "S10",
+   "epic": "W",
+   "hours": 4,
+   "deps": [
+    "U43",
+    "W09"
+   ],
+   "title": "Planning view",
+   "files": [
+    "frontend/app/(planning)/planning/page.tsx"
+   ]
+  },
+  {
+   "id": "W52",
+   "sprint": "S10",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W03"
+   ],
+   "title": "Product tour by role",
+   "files": [
+    "frontend/app/tour/page.tsx"
+   ]
+  },
+  {
+   "id": "W53",
+   "sprint": "S10",
+   "epic": "W",
+   "hours": 3,
+   "deps": [
+    "W03"
+   ],
+   "title": "Training lessons and practice mode",
+   "files": [
+    "frontend/app/learn/page.tsx"
+   ]
+  },
+  {
+   "id": "G13",
+   "sprint": "S10",
+   "epic": "G",
+   "hours": 4,
+   "deps": [
+    "G04"
+   ],
+   "title": "RDF (Turtle) export from the mapper",
+   "files": [
+    "backend/src/diucs/adapters/outbound/graph_store/rdf_export.py"
+   ]
+  }
+ ]
+}

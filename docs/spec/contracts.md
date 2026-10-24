@@ -16,10 +16,10 @@ backend/                      Python 3.14, uv, package `diucs` (src layout)
     work.py                         WorkKind enum and ScheduledWork dataclass (created by P08)
   src/diucs/adapters/inbound/{fhir_rest,sms_webhook,link_pages,scheduler,workers}/
   src/diucs/adapters/outbound/{graph_store,audit_neo4j,cache_redis,bus_servicebus,sms_twilio,sms_govuk_notify,email_smtp,push_webpush,geocoder_os_places,postcodes_local,travel_time,terminology,fhir_validator,pin_store,clock_system,ids_uuid,telemetry}/
-  src/diucs/adapters/testing/       in-memory fakes for every port
+  src/diucs/adapters/testing/       fakes for external providers only (see "Testing and persistence")
   src/diucs/bootstrap/{settings.py,container.py}
   tests/unit/...      mirrors src paths (tests/unit/domain/rules/test_status.py)
-  tests/contract/...  one suite per port, parametrised over fake + real adapter
+  tests/contract/...  cache and event bus suites, run against the fake and the real adapter
   tests/integration/... marked @pytest.mark.integration, need docker compose
   tests/architecture/test_import_rules.py
 frontend/                     Next.js 16 App Router, React 19.2, TypeScript strict, pnpm
@@ -36,12 +36,39 @@ docs/spec/                    source specs; docs/spec/domain-rules.md is the rul
 
 Commands: `cd backend && uv run pytest`, `uv run pytest -m integration`, `uv run ruff check . && uv run ruff format --check .`, `uv run mypy src`, `uv run lint-imports`. Frontend: `cd frontend && pnpm test`, `pnpm lint`, `pnpm typecheck`, `pnpm e2e`.
 
+## Testing and persistence (supersedes anything below that says otherwise)
+
+Neo4j in Docker is the only implementation of everything Neo4j stores. There are no in-memory repositories, unit of work, audit log, outbox, idempotency store, link-token store, scheduled-work store, communication store, contact store or credential store. Tests that touch them run against the real Neo4j from `infra/docker-compose.yml`, so persistence and hydration are proven by every test.
+
+**What still has a fake** (in `diucs/adapters/testing/`, because it is outside our control or not a store of record): `FixedClock`, `SequentialIds`, `RecordingSmsSender`, `RecordingEmailSender`, `RecordingPushSender`, `ManualEventBus` (Service Bus), `InMemoryCache` (Redis), `InMemoryCodeStore` (short-lived text codes, Redis in production), `FixedSecretStore`, `FixedGeocoder`, `FixedPostcodeLocator`, `FixedTravelTime`, `FixedTerminology`, `PassThroughValidator`. The cache and event bus fakes are kept honest by contract suites that also run against Redis and the Service Bus emulator (P12, I01, I02).
+
+**Neo4j for tests.** Docker Compose service `neo4j` (image `neo4j:5`, Community edition), Bolt at `bolt://localhost:7687`, user `neo4j`, password `diucs-test-password`, overridable with `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`. Community edition has one database, so tests run serially (no pytest-xdist).
+
+**Test layout.**
+- `backend/tests/unit/`: pure tests (domain rules, templates, the mapper's pure functions). No Docker. `uv run pytest tests/unit`.
+- `backend/tests/integration/`: everything that touches Neo4j, Redis or Service Bus, including every use-case test and every repository test. The conftest marks them `integration` automatically.
+- `uv run pytest` runs both and needs `docker compose -f infra/docker-compose.yml up -d` (from the repo root). If Neo4j is unreachable the session fails at once with: "Neo4j is not running. Start it with: docker compose -f infra/docker-compose.yml up -d neo4j".
+
+**Harness (F10), in `backend/tests/support/` and `backend/tests/conftest.py`.**
+- `neo4j_driver` (session-scoped async fixture): an `AsyncDriver` connected with the settings above; applies the schema once with `apply_migrations(driver)` from G01.
+- `clean_graph` (autouse for `tests/integration`): before each test deletes every node and relationship in batches (`MATCH (n) WITH n LIMIT 10000 DETACH DELETE n`, repeated), keeping constraints and indexes.
+- `write_tx(driver, fn)` and `read_tx(driver, fn)`: run `fn(tx)` in a managed write or read transaction in a fresh session and return its result.
+- `assert_round_trip(driver, save, load, expected)`: runs `save(tx)` in one committed write transaction, then `load(tx)` in a new read session, and asserts the loaded value equals `expected` (frozen dataclasses compare by value; datetimes must come back timezone-aware UTC).
+- `count_nodes(driver, label) -> int` and `node_props(driver, label, **match) -> dict`: for asserting on what is really stored.
+- `uow_factory` (fixture, added by P06 in `tests/support/uow.py`): returns a `UnitOfWorkFactory` that opens `Neo4jUnitOfWork` sessions on `neo4j_driver`.
+
+**Repository adapters.** Live in `adapters/outbound/graph_store/` (audit and outbox in `adapters/outbound/audit_neo4j/`), are named `Neo4j<Port>` (for example `Neo4jServiceRepository`, `Neo4jAuditLog`, `Neo4jOutbox`), and are constructed with the open `AsyncManagedTransaction` the unit of work holds: `Neo4jServiceRepository(tx)`. FHIR-shaped aggregates are saved and loaded through the resource store from G05 (canonical `json` property plus hydrated properties and relationships); platform nodes (`OutboxMessage`, `ScheduledWork`, `LinkToken`, `Processed`, `Credential`, `IdempotencyRecord`, ...) are written with named queries registered in G01's query registry. Every repository task's tests include, for each aggregate: a save-then-load round trip with `assert_round_trip`; a check of the stored node labels and key properties; for FHIR-backed aggregates, that the node's `json` equals the canonical resource; and the "not found" case.
+
+**Use-case tests.** Construct the use case with `uow_factory` plus the external fakes above. Assert outcomes by reading back through a fresh unit of work or the harness helpers, never by peeking into Python objects. Check rollback: when the use case raises, nothing it wrote is in the graph.
+
+**Who builds what (the old graph tasks are folded into the port tasks).** G06 → P01 (services, capacity); G10 → P03 (people); G12 → P02 (bookings, cases); G07 → P05 (audit); G08 → P06 (outbox, unit of work) and P15 (idempotency store, processed markers); G09 → P07 (communications), P08 (scheduled work), P10 (link tokens). New: P13 registrations and scope list, P14 flags, P16 contact store and PIN credentials, P17 alert subscriptions and alerts, P18 clinical requests, P19 push subscriptions, P20 service moves and the protected text store. `IdempotencyStore` is created by P15 (not U01) and `ProcessedMessages` by P15 (not G08). G01 (driver, named queries, migrations) is in Stage 0; G02–G05 (mapper and resource store) are in Stage 1. G11 keeps the criteria hard-filter and history queries.
+
 ## Python conventions
 
 - Value objects: `@dataclass(frozen=True, slots=True)`. Codes: `enum.StrEnum` whose values are the FHIR code strings.
 - Datetimes are timezone-aware UTC everywhere. Domain functions take `now: datetime` as an argument; they never read the clock.
 - Errors: `diucs.domain.errors.DomainError` base; subclasses `InvalidTransition`, `ValidationFailed(field, message)`, `NotFound`, `Conflict`, `NotAllowed`.
-- Ports are `typing.Protocol` classes. Fakes live in `diucs.adapters.testing` and are named `InMemory<Port>`, `Recording<Port>`, `Fixed<Port>` or `Manual<Port>`.
+- Ports are `typing.Protocol` classes. Neo4j-backed ports have no fake; the external-provider fakes listed under "Testing and persistence" live in `diucs.adapters.testing`.
 - Use cases: class named after the use case, constructor-injected ports, one public method `async def execute(self, command: <Name>Command) -> <Name>Result`. Commands carry `idempotency_key: str` and `actor: Actor`.
 - `Actor` (in `application/actor.py`, created by P05): `Actor(role: Role, practitioner_id: str | None, device_id: str | None, channel: str, service_ids: frozenset[str])`.
 - pytest with `asyncio_mode = "auto"`.
@@ -160,7 +187,7 @@ These names were added by individual task prompts. They are as binding as the re
 | `outbox_message_for(event, id, ...)` | `application/ports/outbound/outbox.py` | P06 |
 | `UnitOfWork.scheduled_work` typed as `ScheduledWorkRepository` | `application/ports/outbound/unit_of_work.py` | P06, tightened by P08 |
 | `Communication.message_id` is `str`; `latest_prompt_for_phone` takes role ids | `application/ports/outbound/messaging.py` | P07 |
-| `IdempotencyStore` (`get`, `put`) and `InMemoryIdempotencyStore`: command replay | `application/idempotency.py`, `adapters/testing/` | U01 |
+| `IdempotencyStore` (`get`, `put`): command replay, backed by `Neo4jIdempotencyStore` | `application/idempotency.py`, `adapters/outbound/graph_store/idempotency_store.py` | P15 |
 | `ReportCapacityCommand.flag` | `application/use_cases/report_capacity.py` | U01 |
 | `schedule_work(uow, ids, *, kind, about_id, due_at, now)`, `cancel_work(uow, work, now)` | `application/scheduling.py` | U03 |
 | Outbox event types `ScheduleWork` (payload `work_id, kind, about_id, enqueue_at`) and `CancelWork` (payload `work_id`) on topic `scheduled.work`; the relay delivers `ScheduledWorkDue` (payload `work_id, kind, about_id`) | `application/scheduling.py`, relay in I03 | U03, I03 |

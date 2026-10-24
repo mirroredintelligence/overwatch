@@ -1,0 +1,71 @@
+{
+ "about": "Source-of-truth artifacts for DIUCS capacity. The artifacts win over the snapshots in docs/spec. 'snapshot_rev' is what the snapshot in this repo was taken from; compare it with the live revision before relying on a snapshot (see .claude/skills/diucs-delivery/references/sources-of-truth.md).",
+ "sources": [
+  {
+   "id": "architecture",
+   "title": "DIUCS capacity: architecture and data flows",
+   "url": "https://claude.ai/artifact/HcuzHw8Hp4PkRPS4aqyyRQ",
+   "kind": "claude-docs",
+   "doc_id": "8695e7c8-1a02-4aa2-a33d-6ecdbbab6607",
+   "tab_id": "84049e63-b529",
+   "node_id": "797929c1-32db",
+   "snapshot": "docs/spec/architecture.md",
+   "snapshot_rev": 25,
+   "authority": "Hexagonal layout, ports, data flows F1-F9, security, build order. Platform decisions section overrides older PostgreSQL text."
+  },
+  {
+   "id": "fhir-data-model",
+   "title": "DIUCS capacity: FHIR R4B data model, property graph and triples",
+   "url": "https://claude.ai/artifact/EHzzw2sQQR2r6ZvCHj8xkC",
+   "kind": "claude-docs",
+   "doc_id": "6ba67229-519f-4e30-a8a2-2b95835f117d",
+   "tab_id": "29a42cf6-aa6a",
+   "node_id": "85c92945-9bff",
+   "snapshot": "docs/spec/fhir-data-model.md",
+   "snapshot_rev": 18,
+   "authority": "Resource inventory, mapping rules R1-R11, code systems, relationship catalogue, platform nodes, queries."
+  },
+  {
+   "id": "observability",
+   "title": "DIUCS capacity: observability, session troubleshooting and product analytics",
+   "url": "https://claude.ai/artifact/Fs4NQaicHGbFiDjgau5Ywk",
+   "kind": "claude-docs",
+   "doc_id": "785d34bc-f88e-4264-8898-c969b687f803",
+   "tab_id": "b4c3a452-f163",
+   "node_id": "b5d7225b-e3ed",
+   "snapshot": "docs/spec/observability.md",
+   "snapshot_rev": 10,
+   "authority": "Event taxonomy, friction rules, funnels, privacy rules, support console."
+  },
+  {
+   "id": "design-canvas",
+   "title": "DIUCS SPOA Capacity: Journeys and UI",
+   "url": "https://claude.ai/artifact/HFH2vRs95QbWbSFXbaLomk",
+   "kind": "design-canvas",
+   "artifact_id": "83908319-36b1-4963-a524-d976a064f563",
+   "snapshot": "docs/spec/ui-screens.md",
+   "snapshot_version": "1792828565-7f44",
+   "authority": "Every screen, its exact wording and states, and the user journeys. Screens are in project/*.dc.html; canvas.json lists the boards."
+  },
+  {
+   "id": "sprint-plan",
+   "title": "DIUCS Capacity Sprint Plan",
+   "url": "https://claude.ai/artifact/J72UZiG9P5ka2PBoteQyYF",
+   "kind": "html-page",
+   "snapshot": "docs/plan/tasks.json and docs/plan/prompts/",
+   "snapshot_version": "1792849669-043c",
+   "authority": "Task list, order, dependencies and task prompts. Written by Claude; the repo copy in docs/plan is the working copy."
+  }
+ ],
+ "not_a_source": [
+  {
+   "title": "Enterprise — Prologue",
+   "url": "https://claude.ai/artifact/JEufjxkDjuDWFvL9YoDt2c",
+   "reason": "An Azur Lane fan-fiction draft. It is not part of DIUCS. Do not read it for requirements."
+  }
+ ],
+ "derived_in_repo": [
+  {"file": "docs/spec/domain-rules.md", "note": "Consolidated rule book written by Claude from the four sources. Values marked [ASSUMED] are working decisions, not spec."},
+  {"file": "docs/spec/contracts.md", "note": "Shared names, paths and signatures for the task prompts, including the Neo4j-only testing rules."}
+ ]
+}

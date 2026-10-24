@@ -1,0 +1,15 @@
+# dependencies
+node_modules
+
+# next.js
+.next
+out
+
+# test output
+coverage
+playwright-report
+test-results
+
+# misc
+*.tsbuildinfo
+.env*.local

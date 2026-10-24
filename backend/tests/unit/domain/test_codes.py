@@ -349,3 +349,12 @@ def test_parse_code_error_does_not_echo_the_input() -> None:
         parse_code(Status, "not-a-code-xyz123")
     assert "xyz123" not in excinfo.value.message
     assert "not-a-code-xyz123" not in str(excinfo.value)
+
+
+def test_explicit_display_is_scoped_to_its_enum_class(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Two enums share the code "other". An explicit word registered for ReferrerType must not
+    # leak onto ServiceCategory.OTHER, which has the same value.
+    table = {(ReferrerType, "other"): "Other referrer"}
+    monkeypatch.setattr(codes, "_EXPLICIT_DISPLAY", table)
+    assert display(ReferrerType.OTHER) == "Other referrer"
+    assert display(ServiceCategory.OTHER) == "Other"

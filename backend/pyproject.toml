@@ -11,10 +11,12 @@ dependencies = [
     "fhir-resources>=8.3.0",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.1",
+    "tzdata>=2026.5",
 ]
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.170.9",
     "import-linter>=2.15",
     "mypy>=2.4.0",
     "pytest>=9.1.1",

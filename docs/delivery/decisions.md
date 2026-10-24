@@ -78,3 +78,31 @@ The prompt for F02 states the purity rules as allowlists: the domain imports onl
 - The `.importlinter` blacklist contracts stay as well, so the import-linter output still names the broken contract for the forbidden cases.
 
 Any change to these lists needs a new decision entry and a test update.
+
+## DEC-012 Neo4j connections are owned, bounded, health-checked and recoverable
+Status: accepted · Affects: G01, G14 (new), F10, P06, I03, I05, I08, R01 and every task that opens a session.
+
+Connections to Neo4j must never go stale silently, and the system must recover fully when a connection drops, the server restarts or the network fails. These rules apply to every task that touches the driver.
+
+Ownership and closing:
+- One `AsyncDriver` per process, created once in the composition root (F08) and closed on shutdown. Never create a driver per request, per use case or per test.
+- A session is short-lived and belongs to one unit of work (P06). It is always closed, with a context manager.
+- A unit of work holds one explicit transaction. It commits on success and rolls back in a `finally` on any other path, so a failed operation never leaves a partial write.
+
+Staleness prevention (values in settings, all `[ASSUMED]` until measured):
+- `max_connection_lifetime`: 1800 s, so connections are recycled before the server or a middlebox drops them.
+- `liveness_check_timeout`: 30 s, so an idle connection is verified before it is used.
+- `connection_acquisition_timeout`: 30 s, so a dead pool fails fast with a clear error.
+- `max_connection_pool_size`: bounded (default 50). Check the exact option names against the installed driver version and record them in evidence.
+
+Health and startup:
+- `verify_connectivity()` runs at startup. If Neo4j is unreachable the process refuses to start, with a message that names the URI host and port, but no credentials.
+- A health function runs `RETURN 1` with a timeout and reports `ok` or `degraded`. It never crashes the process.
+
+Recovery:
+- Driver managed transactions (`execute_read` / `execute_write`) retry transient errors with backoff. Every write they retry must be idempotent, using the keys from P15.
+- Background workers (outbox relay I03, scheduler consumer I05, reply processor I08) never exit on connection loss. They retry with capped exponential backoff and resume from durable state: the outbox `published` flag and the scheduled-work status. Nothing is lost, and at-least-once delivery with idempotent consumers means nothing is duplicated in effect.
+- The driver is not recreated after an outage. The pool reconnects on next use, and health reports recovery.
+- Connection logs carry no patient data and no credentials.
+
+Proof: integration tests (G14) stop and restart the Neo4j container, assert that an in-flight operation fails with a retryable error and leaves no partial write, assert that operations succeed again after recovery within a stated time, and assert that closing the driver leaves zero open connections.

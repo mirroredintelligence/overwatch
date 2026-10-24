@@ -206,6 +206,21 @@
    ]
   },
   {
+   "id": "G14",
+   "sprint": "S0",
+   "epic": "G",
+   "hours": 4,
+   "deps": [
+    "G01"
+   ],
+   "title": "Neo4j connection lifecycle, health and recovery",
+   "files": [
+    "backend/src/diucs/adapters/outbound/graph_store/connection.py",
+    "backend/src/diucs/adapters/outbound/graph_store/health.py",
+    "backend/tests/integration/graph_store/test_connection_recovery.py"
+   ]
+  },
+  {
    "id": "F09",
    "sprint": "S0",
    "epic": "F",
@@ -812,7 +827,8 @@
     "P10",
     "P13",
     "P14",
-    "D25"
+    "D25",
+    "G14"
    ],
    "title": "Outbox and unit of work on Neo4j",
    "files": [

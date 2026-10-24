@@ -20,7 +20,7 @@ from urllib.parse import urlsplit
 
 import pytest
 import pytest_asyncio
-from neo4j import AsyncManagedTransaction
+from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession
 from neo4j.exceptions import DriverError, Neo4jError
 
 from diucs.adapters.outbound.graph_store.connection import (
@@ -39,6 +39,8 @@ PROBE_LABEL = "G14Probe"
 # Sample values from the specs. Patient-like values must never reach the logs.
 PATIENT_LIKE = "Jane Example"
 RECOVERY_DEADLINE_S = 60.0
+RETRYABLE_ERRORS = (DriverError, Neo4jError)
+HEALTH_TIMEOUT_MARGIN_S = 2.0
 
 log = logging.getLogger(__name__)
 
@@ -148,17 +150,28 @@ async def test_close_is_a_no_op_the_second_time_and_later_use_raises_a_clear_err
         await own.open()
 
 
-async def test_every_session_is_closed_after_success_and_after_an_exception(
-    conn: Neo4jConnection,
+async def test_every_real_driver_session_is_closed_after_success_and_after_an_exception(
+    conn: Neo4jConnection, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    assert conn.open_session_count == 0
+    # Spy on the driver's own sessions and on their close(), not on the adapter's counter.
+    opened: list[AsyncSession] = []
+    closed: list[AsyncSession] = []
+    real_session = AsyncDriver.session
+    real_close = AsyncSession.close
+
+    def spy_session(self: AsyncDriver, **config: Any) -> AsyncSession:
+        session = real_session(self, **config)
+        opened.append(session)
+        return session
+
+    async def spy_close(self: AsyncSession) -> None:
+        closed.append(self)
+        await real_close(self)
+
+    monkeypatch.setattr(AsyncDriver, "session", spy_session)
+    monkeypatch.setattr(AsyncSession, "close", spy_close)
 
     assert await conn.run_read(_ping) == [{"ok": 1}]
-    assert conn.open_session_count == 0
-
-    async with conn.session():
-        assert conn.open_session_count == 1
-    assert conn.open_session_count == 0
 
     async def fails(tx: AsyncManagedTransaction) -> None:
         await tx.run("RETURN 1")
@@ -166,6 +179,9 @@ async def test_every_session_is_closed_after_success_and_after_an_exception(
 
     with pytest.raises(ValueError, match="deliberate"):
         await conn.run_read(fails)
+
+    assert len(opened) >= 2
+    assert all(any(c is s for c in closed) for s in opened)
     assert conn.open_session_count == 0
 
 
@@ -187,27 +203,28 @@ async def test_a_write_that_raises_mid_transaction_leaves_no_node_behind(
     assert await _count_probes(conn) == 1
 
 
-async def test_in_flight_read_fails_retryably_and_the_service_recovers_after_restart(
+async def test_in_flight_write_fails_retryably_leaves_no_partial_write_and_recovers(
     conn: Neo4jConnection,
 ) -> None:
     container = _container_name()
     started = asyncio.Event()
 
-    async def long_read(tx: AsyncManagedTransaction) -> None:
+    async def long_write(tx: AsyncManagedTransaction) -> None:
+        await tx.run(f"CREATE (:{PROBE_LABEL} {{name: 'inflight'}})")
         started.set()
         while True:
             await _ping(tx)
             await asyncio.sleep(0.2)
 
-    in_flight = asyncio.create_task(conn.run_read(long_read))
+    in_flight = asyncio.create_task(conn.run_write(long_write))
     await asyncio.wait_for(started.wait(), timeout=30)
 
     _docker("stop", container)
     stopped_at = time.monotonic()
-    with pytest.raises((DriverError, Neo4jError)) as failure:
+    with pytest.raises(RETRYABLE_ERRORS) as failure:
         await asyncio.wait_for(in_flight, timeout=RECOVERY_DEADLINE_S * 2)
     assert failure.value.is_retryable()
-    log.info("G14 in-flight read failed %.1f s after stop", time.monotonic() - stopped_at)
+    log.info("G14 in-flight write failed %.1f s after stop", time.monotonic() - stopped_at)
 
     restarted_at = time.monotonic()
     _docker("start", container)
@@ -217,7 +234,7 @@ async def test_in_flight_read_fails_retryably_and_the_service_recovers_after_res
         try:
             rows = await conn.run_read(_ping)
             break
-        except DriverError, Neo4jError:
+        except RETRYABLE_ERRORS:
             if time.monotonic() - restarted_at > RECOVERY_DEADLINE_S:
                 raise
             await asyncio.sleep(1)
@@ -226,6 +243,8 @@ async def test_in_flight_read_fails_retryably_and_the_service_recovers_after_res
 
     assert rows == [{"ok": 1}]
     assert recovered_in <= RECOVERY_DEADLINE_S
+    # DEC-012: the failed transaction left no partial write behind.
+    assert await _count_probes(conn) == 0
     health = await neo4j_health(conn, timeout=10)
     assert health.status is HealthStatus.OK
 
@@ -236,9 +255,13 @@ async def test_health_reports_degraded_while_neo4j_is_stopped_and_never_raises(
     container = _container_name()
     _docker("stop", container)
     try:
+        started = time.monotonic()
         health = await neo4j_health(conn, timeout=5)
+        elapsed = time.monotonic() - started
         assert health.status is HealthStatus.DEGRADED
         assert health.reason
+        # The timeout must bound the check. Without it the driver's retries take about 30 s.
+        assert elapsed <= 5 + HEALTH_TIMEOUT_MARGIN_S, f"health took {elapsed:.1f} s"
     finally:
         _docker("start", container)
         await _wait_until_healthy(conn)
@@ -342,3 +365,28 @@ async def test_container_startup_refuses_to_start_when_neo4j_is_wrong(
         await container.startup()
     assert WRONG_PASSWORD not in str(failure.value)
     await container.shutdown()
+
+
+async def test_non_default_neo4j_settings_reach_the_built_driver(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DIUCS_NEO4J_URI", _neo4j_uri())
+    monkeypatch.setenv("DIUCS_NEO4J_USER", NEO4J_USER)
+    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", NEO4J_PASSWORD)
+    monkeypatch.setenv("DIUCS_NEO4J_MAX_CONNECTION_LIFETIME_S", "600")
+    monkeypatch.setenv("DIUCS_NEO4J_LIVENESS_CHECK_TIMEOUT_S", "5")
+    monkeypatch.setenv("DIUCS_NEO4J_CONNECTION_ACQUISITION_TIMEOUT_S", "2")
+    monkeypatch.setenv("DIUCS_NEO4J_MAX_CONNECTION_POOL_SIZE", "7")
+    container = build(Settings())
+    await container.startup()
+    try:
+        driver = container.neo4j._driver
+        assert driver is not None
+        pool = driver._pool.pool_config  # type: ignore[attr-defined]
+        assert pool.max_connection_lifetime == 600.0
+        assert pool.liveness_check_timeout == 5.0
+        assert pool.max_connection_pool_size == 7
+        workspace = driver._default_workspace_config  # type: ignore[attr-defined]
+        assert workspace.connection_acquisition_timeout == 2.0
+    finally:
+        await container.shutdown()

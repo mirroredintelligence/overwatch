@@ -28,6 +28,9 @@ class CapacityReport:
     derived_from: str | None = None
 
     def __post_init__(self) -> None:
+        # bool is an int subclass, and float('nan') is not an int: reject both by type.
+        if isinstance(self.value, bool) or not isinstance(self.value, int):
+            raise ValidationFailed("value", "must be a whole number")
         if self.value < 0:
             raise ValidationFailed("value", "must be zero or more")
         if self.effective_at.tzinfo is None or self.effective_at.utcoffset() is None:

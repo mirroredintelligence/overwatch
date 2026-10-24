@@ -77,6 +77,8 @@ from diucs.domain.rules.reply_parser import (
         ("CONFIRMED 4821 4821", (Unrecognised("CONFIRMED 4821 4821"),)),
         ("CONFIRMED DECLINE", (Unrecognised("CONFIRMED DECLINE"),)),
         ("0 4", (Unrecognised("0 4"),)),
+        ("Y 4821", (Unrecognised("Y 4821"),)),
+        ("4821 YES", (Unrecognised("4821 YES"),)),
         # Only ASCII digits and words count
         ("٤", (Unrecognised("٤"),)),  # ARABIC-INDIC DIGIT FOUR
         ("４", (Unrecognised("４"),)),  # FULLWIDTH DIGIT FOUR

@@ -34,7 +34,7 @@
   --space-7: 48px;
   --space-8: 64px;
 
-  /* Type roles (section 3). Caption is 14px as specified; see DEC-015. */
+  /* Type roles (section 3). Caption is 16px per DEC-019 (the table says 14px; see DEC-015). */
   --type-display-size: clamp(2rem, 5vw, 3.5rem);
   --type-display-lh: 1.05;
   --type-display-weight: 700;
@@ -60,7 +60,7 @@
   --type-label-weight: 700;
   --type-label-tracking: 0.01em;
 
-  --type-caption-size: 14px;
+  --type-caption-size: 16px;
   --type-caption-lh: 1.4;
   --type-caption-weight: 400;
   --type-caption-tracking: 0.01em;
@@ -69,7 +69,7 @@
   --dur-press: 140ms;
   --dur-tip: 150ms;
   --dur-menu: 200ms;
-  --dur-sheet: 320ms;
+  --dur-sheet: 280ms;
   --dur-state: 240ms;
   --dur-onboard: 480ms;
 

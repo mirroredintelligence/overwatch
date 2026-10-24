@@ -106,3 +106,13 @@ Recovery:
 - Connection logs carry no patient data and no credentials.
 
 Proof: integration tests (G14) stop and restart the Neo4j container, assert that an in-flight operation fails with a retryable error and leaves no partial write, assert that operations succeed again after recovery within a stated time, and assert that closing the driver leaves zero open connections.
+
+## DEC-014 Community Overwatch design system, motion rules and component library
+Status: accepted · Affects: every front-end task (W*, F09, X02) and the copy on every screen.
+
+1. The design system is `docs/design/design-system.md` (Community Overwatch). It is the source for colour, type, spacing, motion, status, components, voice and accessibility. Where the design canvas wording differs, the canvas wording wins for text, and the design system wins for everything else (including the "Dorset" wording, which is replaced by configured area names).
+2. Motion is in scope and is governed by the gate and review checklist in the design system (section 5). Motion is rare on frequently used controls and absent on keyboard actions and on data. Reduced motion keeps meaning and drops movement.
+3. Interactive primitives (dialogs, menus, selects, tabs, switches, toasts) come from React Aria Components. Visual components are ours, on the tokens in `frontend/app/tokens.css`.
+4. Motion, spacing and type values are tokens. Components never hard-code durations, easing curves or spacing values.
+5. The community and product name is "Community Overwatch". No copy names an area, service or telephone number; those come from configuration.
+6. The skills reviewed for this decision are from emilkowalski/skills (MIT, read as summaries) and the taste-skill review. Their rules were paraphrased into the design system. Their files are not installed or executed.

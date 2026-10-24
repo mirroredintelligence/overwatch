@@ -248,6 +248,21 @@
    ]
   },
   {
+   "id": "X02",
+   "sprint": "S0",
+   "epic": "F",
+   "hours": 3,
+   "deps": [
+    "F09"
+   ],
+   "title": "Add motion, spacing and type tokens from the design system",
+   "files": [
+    "frontend/app/tokens.css",
+    "frontend/app/tokens.test.ts",
+    "frontend/app/layout.tsx"
+   ]
+  },
+  {
    "id": "F10",
    "sprint": "S0",
    "epic": "F",

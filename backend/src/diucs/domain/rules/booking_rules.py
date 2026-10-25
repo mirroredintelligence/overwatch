@@ -2,7 +2,8 @@
 
 Rules: docs/spec/domain-rules.md section 3.2 (timers, one open request, references, reply matching).
 Decisions: DEC-016 (references are matched exactly, never by prefix), DEC-021 (statusReason).
-Pure: no I/O. Times are passed in as timezone-aware UTC datetimes.
+Pure: no I/O. Times are passed in as timezone-aware UTC datetimes; timers are instant offsets,
+so they are unaffected by the London clock change (lesson L4).
 """
 
 import random
@@ -12,10 +13,14 @@ from datetime import datetime, timedelta
 
 from diucs.domain.codes import BookingStatus
 from diucs.domain.errors import Conflict
+from diucs.domain.rules.booking_state import is_open
 
 BOOKING_REPLY_WINDOW = timedelta(minutes=10)
 PHONE_PROMPT_AFTER = timedelta(minutes=5)
 REFERENCE_ATTEMPTS = 50
+
+_REFERENCE_LOWEST = 1000
+_REFERENCE_HIGHEST = 9999
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,38 +41,42 @@ class NoOpenBooking:
 
 
 def booking_reply_by(requested_at: datetime) -> datetime:
-    raise NotImplementedError
+    return requested_at + BOOKING_REPLY_WINDOW
 
 
 def phone_prompt_at(requested_at: datetime) -> datetime:
-    raise NotImplementedError
+    return requested_at + PHONE_PROMPT_AFTER
 
 
 def can_request(open_statuses_for_service: Iterable[BookingStatus]) -> bool:
-    raise NotImplementedError
+    """A service takes a new request only when none of its bookings is still requested."""
+    return not any(is_open(status) for status in open_statuses_for_service)
 
 
 def new_reference(rng: random.Random, taken: set[str]) -> str:
-    raise NotImplementedError
+    """A 4-digit reference without a leading zero, not in `taken` (DEC-007)."""
+    for _ in range(REFERENCE_ATTEMPTS):
+        candidate = str(rng.randint(_REFERENCE_LOWEST, _REFERENCE_HIGHEST))
+        if candidate not in taken:
+            return candidate
+    raise Conflict("no free booking reference after repeated collisions")
 
 
 def match_reply(
     open: Sequence[OpenBookingRef], reference: str | None
 ) -> OpenBookingRef | AskWhichReference | NoOpenBooking:
-    raise NotImplementedError
+    """Pick the open booking a text reply is about.
 
-
-__all__ = [
-    "BOOKING_REPLY_WINDOW",
-    "PHONE_PROMPT_AFTER",
-    "REFERENCE_ATTEMPTS",
-    "AskWhichReference",
-    "Conflict",
-    "NoOpenBooking",
-    "OpenBookingRef",
-    "booking_reply_by",
-    "can_request",
-    "match_reply",
-    "new_reference",
-    "phone_prompt_at",
-]
+    A reference must match exactly (DEC-016): a prefix or a longer number never matches.
+    Without a reference, one open booking is used and several make the reply ask which one.
+    """
+    if reference is not None:
+        for booking in open:
+            if booking.reference == reference:
+                return booking
+        return NoOpenBooking()
+    if not open:
+        return NoOpenBooking()
+    if len(open) == 1:
+        return open[0]
+    return AskWhichReference(tuple(sorted(booking.reference for booking in open)))

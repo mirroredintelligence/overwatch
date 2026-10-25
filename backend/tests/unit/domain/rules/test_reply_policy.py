@@ -6,6 +6,7 @@ Service UCR West, usual range (0, 8), recorded value 3, unless a test says other
 Every comparison in the rule is between instants (DEC-025, lesson L4).
 """
 
+from dataclasses import replace
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -13,6 +14,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from diucs.domain.codes import ReportFlagReason
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.london_time import LONDON
 from diucs.domain.rules.reply_parser import Confirm, Number
 from diucs.domain.rules.reply_policy import (
@@ -224,6 +226,24 @@ def test_out_of_range_correction_repeated_is_recorded_as_correction_with_flag() 
     )
     decision = decide(Number(40), corrected, london(14, 14))
     assert decision == record(40, correction=True, flag=OUT_OF_RANGE_TWICE)
+
+
+# Fail closed: a naive datetime is refused. It is never read as the machine's local time.
+
+
+@pytest.mark.parametrize("field", ["now", "reply_by", "last_accepted_at"])
+def test_naive_datetime_is_refused_not_guessed(field: str) -> None:
+    naive = datetime(2026, 10, 23, 12, 0)  # noqa: DTZ001 - the point of the test
+    prompt = state(reply_by=london(12, 30), last_accepted_at=london(12, 0))
+    now = london(12, 10)
+    if field == "now":
+        now = naive
+    elif field == "reply_by":
+        prompt = replace(prompt, reply_by=naive)
+    else:
+        prompt = replace(prompt, last_accepted_at=naive)
+    with pytest.raises(ValidationFailed):
+        decide(Number(4), prompt, now)
 
 
 # Property tests: the decision is never a recorded figure outside the usual range, unless it is

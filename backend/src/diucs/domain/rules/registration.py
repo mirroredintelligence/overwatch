@@ -95,9 +95,7 @@ def missing_for_approval(checks: ApprovalChecks) -> list[str]:
     return missing
 
 
-def approve_registration(
-    current: RegistrationStatus, checks: ApprovalChecks
-) -> RegistrationStatus:
+def approve_registration(current: RegistrationStatus, checks: ApprovalChecks) -> RegistrationStatus:
     # The state is checked first: approval is only a move from in-review.
     approved = transition_registration(current, _R.APPROVED)
     missing = missing_for_approval(checks)

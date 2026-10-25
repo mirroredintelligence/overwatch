@@ -41,9 +41,7 @@ LEGAL_MOVES: tuple[tuple[RegistrationStatus, RegistrationStatus], ...] = (
     (R.NOT_APPROVED, R.IN_REVIEW),
 )
 
-ILLEGAL_MOVES = tuple(
-    pair for pair in itertools.product(R, R) if pair not in LEGAL_MOVES
-)
+ILLEGAL_MOVES = tuple(pair for pair in itertools.product(R, R) if pair not in LEGAL_MOVES)
 
 COMPLETE = ApprovalChecks(
     automatic_ok=True,
@@ -157,10 +155,7 @@ def test_nothing_missing_exactly_when_all_four_hold(
 ) -> None:
     checks = ApprovalChecks(automatic_ok, callback_confirmed, scope, criteria_approved)
     all_hold = (
-        automatic_ok
-        and callback_confirmed
-        and scope is ScopeFlag.IN_PILOT
-        and criteria_approved
+        automatic_ok and callback_confirmed and scope is ScopeFlag.IN_PILOT and criteria_approved
     )
     assert (missing_for_approval(checks) == []) is all_hold
 
@@ -199,7 +194,9 @@ def test_incomplete_checks_from_submitted_raise_invalid_transition() -> None:
 
 
 @pytest.mark.parametrize("current", [s for s in R if s is not R.IN_REVIEW])
-def test_approve_from_any_other_state_raises_invalid_transition(current: RegistrationStatus) -> None:
+def test_approve_from_any_other_state_raises_invalid_transition(
+    current: RegistrationStatus,
+) -> None:
     with pytest.raises(InvalidTransition):
         approve_registration(current, COMPLETE)
 
@@ -213,7 +210,7 @@ def test_can_invite_only_when_in_pilot(flag: ScopeFlag) -> None:
 
 
 def test_invitation_lasts_48_hours() -> None:
-    assert INVITATION_VALID_FOR == timedelta(hours=48)
+    assert timedelta(hours=48) == INVITATION_VALID_FOR
 
 
 def test_invitation_sent_23_oct_0900_utc_is_valid_until_25_oct_0900_utc() -> None:

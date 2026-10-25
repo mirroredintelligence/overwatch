@@ -236,7 +236,7 @@ The D14 red test file is kept byte-identical to its red commit, so the test-firs
 
 Condition: remove the waiver in the same change that next edits the red file legitimately, and say so in that change's evidence. Reviewed by the D14 verifier (`verify-D14c`).
 
-## DEC-027 Postcode whitespace is any whitespace, input is ASCII only, and districts are never de-spaced (D19)
+## DEC-028 Postcode whitespace is any whitespace, input is ASCII only, and districts are never de-spaced (D19)
 Status: accepted · Affects: `backend/src/diucs/domain/rules/postcode.py`, `backend/tests/unit/domain/rules/test_postcode.py`.
 
 The prompt says to remove all spaces before normalising a postcode, but does not say what counts as a space. A no-break space (U+00A0, pasted from web pages) is treated as a space, so "SS1 1AA" with one is accepted. Any other non-ASCII character is refused rather than upper-cased into ASCII ('ß' becomes 'SS' and would otherwise form a valid-looking outward code).

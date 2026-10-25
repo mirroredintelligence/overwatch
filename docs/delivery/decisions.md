@@ -324,3 +324,23 @@ Numbered DEC-034 because DEC-032 is taken on main (D22) and DEC-033 on task/D07-
 9. **Screen texts with no template (open, owner decision).** ui-screens.md line 963 is C1 without the link ("Reply Y if right, or send the new number (0 = closed). By 12:30."). Line 970 is a correction echo ("Thanks. UCR West: updated to 4 referrals, as of 14:10."). Line 3360 is an echo after Y for a lettered prompt ("Thanks. A) UCR West 3 confirmed. Next prompt 12:00."). None of them is a catalogue id, so none is built. The owner decides whether to add ids or to align the screens with C1, C4 and C10.
 
 Tests: `backend/tests/unit/domain/messages/`. The DEC-034 choices 1, 5 and 7 are asserted there. Choices 3 and 4 are the owner's to approve: the prompt says the per-measure C2 phrasing is still awaiting IG approval.
+
+## DEC-035 The criteria filter fails closed on unknown codes, and matches enums by exact type (D20)
+Status: accepted · Affects: D20 (`rules/criteria_filter.py`, `model/criteria.py`), D21, D22, U12 and any task that checks a need, age band or criteria status.
+
+domain-rules 4.1 and the D20 prompt say what passes and what fails for known values. They are silent on values that are not codes at all. Decision:
+
+- A need that is not a `NeedCategory` member excludes the service with the fixed reason `Need not recognised`. A plain string with a code's value, or a member of another enum with the same value (for example a `StrEnum` member `frailty` from a different class), is not a need. It is never accepted.
+- An age band that is not an `AgeBand` member, including `None`, excludes the service with `Age not recognised`.
+- The status gate uses `is not CriteriaStatus.CURRENT`, so only the current version passes.
+- `ServiceCriteria` refuses at construction any `accepts` or `excludes` value that is not a `NeedCategory` member, any status that is not a `CriteriaStatus` member, and any district that `normalise_district` would not return unchanged (so `dt4`, `DT4 8` and the empty string are refused, D19 rule).
+- Reasons never echo the case value. An unknown need gives one `Need not recognised` reason, without its text.
+
+- A `None` criteria raises `ValidationFailed("criteria", ...)`, and `None` needs (or any non-iterable needs) raises `ValidationFailed("needs", ...)`. These are caller errors, not services to exclude, so the filter refuses them by field name rather than raising `AttributeError` or `TypeError`. The caller must handle a missing criteria version before calling the filter.
+- Active and suspended are not checked by the filter. domain-rules 4.1 lists "active, not suspended, and has a `current` criteria version". The D20 prompt lists only the criteria status, district, needs and age, and its out-of-scope list defers graph queries to G11. The split is intentional: G11 (`candidates`) excludes services with `active: false` and services with an active `ServiceFlag` code `suspended` (G11 prompt, lines 59 to 79), and U12 lists suspended services under "not suitable" (U12 prompt, line 49). The filter is only ever called on candidates from G11, so a suspended service never reaches it. Enforcing the check in the filter as well would duplicate the source of truth (delivery-standard principle 5). Owner to confirm.
+
+Reason order is fixed: status, district, excluded needs, needs not accepted, age. Unknown needs come first in the need phase.
+
+Deviation: the reasons `Need not recognised` and `Age not recognised` are new text, not in the rule book. They are the fail-closed form of the rule book's "excluded" outcome for values the rule book does not list. Owner may reword them.
+
+Tests: `backend/tests/unit/domain/rules/test_criteria_filter.py` (`test_an_unrecognised_need...`, `test_a_need_from_another_enum...`, `test_an_unrecognised_age_band...`) and `backend/tests/unit/domain/model/test_criteria.py` (`test_a_need_from_another_enum...`, `test_districts_must_be_upper_case_outward_codes`).

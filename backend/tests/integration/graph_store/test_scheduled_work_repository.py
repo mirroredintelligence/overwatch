@@ -1,0 +1,180 @@
+"""Integration tests for the ScheduledWork records (P08).
+
+They run against the throwaway Neo4j that the harness starts for the pytest session (DEC-008). Each
+write is one committed transaction and each read is a new session, so the assertions are on what
+was really stored. Values are synthetic.
+"""
+
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
+
+import pytest
+from neo4j import AsyncDriver, AsyncManagedTransaction
+
+from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
+    Neo4jScheduledWorkRepository,
+)
+from diucs.application.work import ScheduledWork, WorkKind
+from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.round_trip import assert_round_trip
+
+pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+LONDON = ZoneInfo("Europe/London")
+BOOKING = "booking-1"
+
+
+def _work(
+    id_: str,
+    kind: WorkKind,
+    *,
+    due: datetime = datetime(2026, 10, 24, 14, 21, tzinfo=UTC),
+    about: str = BOOKING,
+    status: str = "scheduled",
+    sequence: int | None = 4,
+) -> ScheduledWork:
+    return ScheduledWork(
+        id=id_,
+        kind=kind,
+        due_at=due,
+        about_id=about,
+        sequence_number=sequence,
+        status=status,
+    )
+
+
+async def _add(driver: AsyncDriver, *works: ScheduledWork) -> None:
+    async def work(tx: AsyncManagedTransaction) -> None:
+        repo = Neo4jScheduledWorkRepository(tx)
+        for item in works:
+            await repo.add(item)
+
+    await write_tx(driver, work)
+
+
+async def _get(driver: AsyncDriver, id_: str) -> ScheduledWork:
+    async def work(tx: AsyncManagedTransaction) -> ScheduledWork:
+        return await Neo4jScheduledWorkRepository(tx).get(id_)
+
+    return await read_tx(driver, work)
+
+
+async def _for_about(
+    driver: AsyncDriver, about: str, kind: WorkKind | None = None
+) -> list[ScheduledWork]:
+    async def work(tx: AsyncManagedTransaction) -> list[ScheduledWork]:
+        return await Neo4jScheduledWorkRepository(tx).for_about(about, kind)
+
+    return await read_tx(driver, work)
+
+
+async def test_for_about_returns_only_the_asked_kind_and_the_cancelled_status_persists(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    expire = _work("work-expire", WorkKind.BOOKING_EXPIRE)
+    prompt = _work("work-prompt", WorkKind.BOOKING_PHONE_PROMPT, sequence=5)
+    timer = _work("work-timer", WorkKind.BOOKING_EXPIRE, sequence=6)
+    await _add(neo4j_driver, expire, prompt, timer)
+
+    async def cancel(tx: AsyncManagedTransaction) -> None:
+        repo = Neo4jScheduledWorkRepository(tx)
+        cancelled = _work("work-timer", WorkKind.BOOKING_EXPIRE, status="cancelled", sequence=6)
+        await repo.save(cancelled)
+
+    await write_tx(neo4j_driver, cancel)
+
+    found = await _for_about(neo4j_driver, BOOKING, WorkKind.BOOKING_EXPIRE)
+    assert [w.id for w in found] == ["work-expire", "work-timer"]
+    assert {w.id: w.status for w in found} == {
+        "work-expire": "scheduled",
+        "work-timer": "cancelled",
+    }
+    assert len(await _for_about(neo4j_driver, BOOKING)) == 3
+
+
+async def test_a_work_record_round_trips_through_a_fresh_session(neo4j_driver: AsyncDriver) -> None:
+    saved = _work("work-rt", WorkKind.NOT_UPDATED_CHECK, sequence=9)
+
+    async def save(tx: AsyncManagedTransaction) -> None:
+        await Neo4jScheduledWorkRepository(tx).add(saved)
+
+    async def load(tx: AsyncManagedTransaction) -> ScheduledWork:
+        return await Neo4jScheduledWorkRepository(tx).get("work-rt")
+
+    await assert_round_trip(neo4j_driver, save, load, saved)
+
+
+async def test_a_london_due_time_is_stored_and_read_back_as_the_same_instant(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # 2026-10-25 01:30 GMT (fold 1) is 01:30 UTC. The record must keep the instant.
+    gmt_0130 = datetime(2026, 10, 25, 1, 30, tzinfo=LONDON, fold=1).astimezone(UTC)
+    await _add(neo4j_driver, _work("work-london", WorkKind.REVERIFY, due=gmt_0130))
+
+    loaded = await _get(neo4j_driver, "work-london")
+    assert loaded.due_at == datetime(2026, 10, 25, 1, 30, tzinfo=UTC)
+    assert loaded.due_at.utcoffset() == UTC.utcoffset(None)
+
+
+async def test_the_stored_node_has_its_labels_keys_and_a_single_about_link(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _add(neo4j_driver, _work("work-props", WorkKind.REMINDER, sequence=12))
+
+    props = await node_props(neo4j_driver, "ScheduledWork", id="work-props")
+    assert props["kind"] == "reminder"
+    assert props["status"] == "scheduled"
+    assert props["sequenceNumber"] == 12
+
+
+async def test_a_subject_is_created_once_when_absent_and_reused_after(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _add(neo4j_driver, _work("work-a", WorkKind.BOOKING_EXPIRE, sequence=1))
+    await _add(neo4j_driver, _work("work-b", WorkKind.BOOKING_PHONE_PROMPT, sequence=2))
+
+    assert await count_nodes(neo4j_driver, "Resource") == 1
+    props = await node_props(neo4j_driver, "Resource", id=BOOKING)
+    assert props["placeholder"] is True
+
+
+async def test_adding_the_same_record_twice_is_safe_to_retry(neo4j_driver: AsyncDriver) -> None:
+    work = _work("work-retry", WorkKind.ESCALATE_TO_LEAD, sequence=3)
+    await _add(neo4j_driver, work)
+    await _add(neo4j_driver, work)
+
+    assert await count_nodes(neo4j_driver, "ScheduledWork") == 1
+
+
+async def test_adding_a_different_record_under_an_existing_id_is_a_conflict(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _add(neo4j_driver, _work("work-clash", WorkKind.ESCALATE_TO_LEAD, sequence=3))
+
+    with pytest.raises(Conflict):
+        await _add(neo4j_driver, _work("work-clash", WorkKind.REMINDER, sequence=3))
+    assert (await _get(neo4j_driver, "work-clash")).kind is WorkKind.ESCALATE_TO_LEAD
+
+
+async def test_getting_an_unknown_record_is_not_found(neo4j_driver: AsyncDriver) -> None:
+    with pytest.raises(NotFound):
+        await _get(neo4j_driver, "work-missing")
+
+
+async def test_saving_an_unknown_record_is_not_found(neo4j_driver: AsyncDriver) -> None:
+    async def save(tx: AsyncManagedTransaction) -> None:
+        await Neo4jScheduledWorkRepository(tx).save(_work("work-missing", WorkKind.REVERIFY))
+
+    with pytest.raises(NotFound):
+        await write_tx(neo4j_driver, save)
+
+
+async def test_a_naive_due_time_is_refused_before_anything_is_written(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    naive = _work("work-naive", WorkKind.REVERIFY, due=datetime(2026, 10, 24, 14, 21))
+
+    with pytest.raises(ValidationFailed):
+        await _add(neo4j_driver, naive)
+    assert await count_nodes(neo4j_driver, "ScheduledWork") == 0

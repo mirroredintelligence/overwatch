@@ -1,0 +1,133 @@
+"""Unit tests for the Service Bus fake with a manual clock (P08).
+
+Times are UTC unless a test says otherwise. Europe/London is exercised on 2026-10-25, the day the
+clocks go back (lessons L4 and L52): due times are compared as instants, never as wall-clock times.
+"""
+
+from datetime import UTC, datetime
+from zoneinfo import ZoneInfo
+
+import pytest
+
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.memory_event_bus import ManualEventBus
+from diucs.application.ports.outbound.event_bus import BusMessage
+from diucs.domain.errors import ValidationFailed
+
+LONDON = ZoneInfo("Europe/London")
+NOW = datetime(2026, 10, 24, 14, 0, tzinfo=UTC)
+QUEUE = "scheduled.work"
+
+
+def _at(hour: int, minute: int) -> datetime:
+    return datetime(2026, 10, 24, hour, minute, tzinfo=UTC)
+
+
+def _message(id_: str, topic: str = "scheduled.work") -> BusMessage:
+    return BusMessage(id=id_, topic=topic, event_type="ScheduleWork", payload={"n": 1})
+
+
+def _bus() -> ManualEventBus:
+    return ManualEventBus(FixedClock(NOW))
+
+
+async def test_three_schedules_get_sequence_numbers_one_two_three() -> None:
+    bus = _bus()
+    numbers = [await bus.schedule(QUEUE, _message(f"m{i}"), _at(15, i)) for i in range(1, 4)]
+    assert numbers == [1, 2, 3]
+
+
+async def test_messages_are_due_only_once_their_enqueue_time_has_passed() -> None:
+    bus = _bus()
+    a = _message("a")
+    b = _message("b")
+    await bus.schedule(QUEUE, a, _at(14, 21))
+    await bus.schedule(QUEUE, b, _at(14, 26))
+
+    assert bus.due(_at(14, 20)) == []
+    assert bus.due(_at(14, 21)) == [(QUEUE, a)]
+    assert bus.due(_at(14, 30)) == [(QUEUE, b)]
+    assert bus.due(_at(14, 30)) == []
+
+
+async def test_a_cancelled_message_is_never_delivered_and_unknown_numbers_do_nothing() -> None:
+    bus = _bus()
+    await bus.schedule(QUEUE, _message("a"), _at(14, 21))
+    b_number = await bus.schedule(QUEUE, _message("b"), _at(14, 26))
+
+    await bus.cancel(QUEUE, b_number)
+    assert bus.due(_at(14, 30)) == [(QUEUE, _message("a"))]
+
+    await bus.cancel(QUEUE, 99)
+    await bus.cancel(QUEUE, 1)  # already delivered above
+    assert bus.due(_at(15, 0)) == []
+
+
+async def test_a_message_published_to_a_topic_appears_only_under_that_topic() -> None:
+    bus = _bus()
+    booking = _message("booking-1", topic="booking.events")
+    await bus.publish(booking)
+
+    assert bus.published_to("booking.events") == [booking]
+    assert bus.published_to("capacity.events") == []
+    assert bus.published == [booking]
+
+
+async def test_scheduling_to_a_topic_or_an_unknown_name_is_refused() -> None:
+    bus = _bus()
+    with pytest.raises(ValidationFailed, match="queue"):
+        await bus.schedule("booking.events", _message("x"), _at(14, 21))
+    with pytest.raises(ValidationFailed, match="queue"):
+        await bus.schedule("nowhere", _message("y"), _at(14, 21))
+
+
+async def test_publishing_to_an_unknown_topic_is_refused() -> None:
+    bus = _bus()
+    with pytest.raises(ValidationFailed, match="topic"):
+        await bus.publish(_message("x", topic="nowhere.events"))
+
+
+async def test_capacity_events_must_carry_the_service_id_as_session_id() -> None:
+    bus = _bus()
+    unsessioned = _message("cap-1", topic="capacity.events")
+    with pytest.raises(ValidationFailed, match="session"):
+        await bus.publish(unsessioned)
+
+    sessioned = BusMessage(
+        id="cap-2",
+        topic="capacity.events",
+        event_type="CapacityReported",
+        payload={},
+        session_id="service-1",
+    )
+    await bus.publish(sessioned)
+    assert bus.published_to("capacity.events") == [sessioned]
+
+
+async def test_a_naive_enqueue_time_is_refused() -> None:
+    bus = _bus()
+    with pytest.raises(ValidationFailed, match="enqueue_at"):
+        await bus.schedule(QUEUE, _message("x"), datetime(2026, 10, 24, 14, 21))
+
+
+async def test_due_compares_instants_across_the_london_clock_change() -> None:
+    # 2026-10-25 01:30 London is ambiguous. Fold 0 is BST, which is 00:30 UTC. Fold 1 is GMT.
+    bst_0130 = datetime(2026, 10, 25, 1, 30, tzinfo=LONDON, fold=0)
+    bus = ManualEventBus(FixedClock(datetime(2026, 10, 25, 1, 0, tzinfo=UTC)))
+    message = _message("london")
+    await bus.schedule(QUEUE, message, bst_0130)
+
+    # 00:30 UTC has passed at 01:00 UTC, so the message is due. Comparing wall-clock times
+    # (01:30 against 01:00) would wrongly keep it back.
+    assert bus.due() == [(QUEUE, message)]
+
+
+async def test_due_defaults_to_the_clock_when_no_time_is_given() -> None:
+    clock = FixedClock(_at(14, 0))
+    bus = ManualEventBus(clock)
+    message = _message("a")
+    await bus.schedule(QUEUE, message, _at(14, 21))
+
+    assert bus.due() == []
+    clock.advance(_at(14, 21) - _at(14, 0))
+    assert bus.due() == [(QUEUE, message)]

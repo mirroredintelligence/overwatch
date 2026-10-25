@@ -7,10 +7,14 @@ An empty list from FhirValidator.validate means valid. Any issue, of any severit
 """
 
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, get_args
+
+from diucs.domain.errors import ValidationFailed
 
 Severity = Literal["fatal", "error", "warning", "information"]
 """The FHIR issue severities (OperationOutcome.issue.severity)."""
+
+_SEVERITIES: frozenset[str] = frozenset(get_args(Severity))
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +32,10 @@ class ValidationIssue:
     code: str
     path: str
     message: str
+
+    def __post_init__(self) -> None:
+        if self.severity not in _SEVERITIES:
+            raise ValidationFailed("severity", "must be a FHIR issue severity")
 
 
 class Terminology(Protocol):

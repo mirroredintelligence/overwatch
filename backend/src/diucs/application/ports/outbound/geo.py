@@ -11,6 +11,8 @@ Postcodes given to these ports are normalised by the caller or by the adapter us
 from dataclasses import dataclass
 from typing import Protocol
 
+from diucs.domain.errors import ValidationFailed
+
 
 @dataclass(frozen=True, slots=True)
 class LatLon:
@@ -35,6 +37,10 @@ class TravelRange:
     high_minutes: int
     source: str
 
+    def __post_init__(self) -> None:
+        if not 0 <= self.low_minutes <= self.high_minutes:
+            raise ValidationFailed("minutes", "must satisfy 0 <= low <= high")
+
 
 class Geocoder(Protocol):
     async def find_addresses(self, postcode: str) -> list[AddressCandidate]: ...
@@ -50,4 +56,3 @@ class PostcodeLocator(Protocol):
 
 class TravelTime(Protocol):
     async def estimate(self, origin: LatLon, destination: LatLon) -> TravelRange: ...
-

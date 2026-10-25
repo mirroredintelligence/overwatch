@@ -9,7 +9,9 @@ from diucs.domain.errors import ValidationFailed
 
 
 def _issue(severity: str) -> ValidationIssue:
-    return ValidationIssue(cast(Severity, severity), "required", "Location.name", "Name is required")
+    return ValidationIssue(
+        cast(Severity, severity), "required", "Location.name", "Name is required"
+    )
 
 
 @pytest.mark.parametrize("severity", ["fatal", "error", "warning", "information"])

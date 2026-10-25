@@ -1,7 +1,7 @@
 """Effective available and pending counts (D06).
 
-Rules: docs/spec/domain-rules.md section 1.6. Names: docs/spec/contracts.md, rules/availability.py row.
-A booking confirmed at exactly effective_at counts as after the report. Sample values only; no patient data.
+Rules: docs/spec/domain-rules.md section 1.6. Names: docs/spec/contracts.md, rules/availability.py.
+A booking confirmed at exactly effective_at counts as after the report. Sample values only.
 """
 
 from collections.abc import Iterable

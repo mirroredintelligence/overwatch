@@ -8,6 +8,7 @@ silently dropped, overwritten or moved. All values are synthetic.
 """
 
 import ast
+import json
 import re
 from pathlib import Path
 from typing import Any
@@ -107,9 +108,21 @@ def _rels(fragment: GraphFragment, rel_type: str) -> list[RelSpec]:
     return [rel for rel in fragment.rels if rel.type == rel_type]
 
 
-# UCUM annotations such as {referral} or [in_i] are the only strings allowed to start with
-# a brace or bracket, and only in a *_code property (DEC-051 item 13).
-_UCUM_ANNOTATION = re.compile(r"^(\{[^{}]*\}|\[[^\[\]]*\])$")
+# A UCUM annotation such as {referral} or [in_i]: the only bracketed string that may be kept,
+# and only in a *_code property (DEC-051 item 13). Strict: no braces or brackets inside.
+_UCUM_ANNOTATION = re.compile(r"^(\{[A-Za-z][A-Za-z0-9_]*\}|\[[A-Za-z][A-Za-z0-9_]*\])$")
+
+
+def _parses_as_json_container(text: str) -> bool:
+    """A string that parses as a JSON object or array is never allowed (DEC-001)."""
+    try:
+        return isinstance(json.loads(text), dict | list)
+    except ValueError:
+        return False
+
+
+def _is_ucum_annotation_in_a_code_property(name: str, value: str) -> bool:
+    return name.endswith("_code") and _UCUM_ANNOTATION.match(value) is not None
 
 
 def _assert_graph_safe(fragment: GraphFragment) -> None:
@@ -123,10 +136,11 @@ def _assert_graph_safe(fragment: GraphFragment) -> None:
                     f"{name} is a list of maps"
                 )
             if isinstance(value, str):
-                exempt = name.endswith("_code") and _UCUM_ANNOTATION.match(value) is not None
-                assert exempt or not value.lstrip().startswith(("{", "[")), (
-                    f"{name} looks like JSON"
-                )
+                assert not _parses_as_json_container(value), f"{name} looks like JSON"
+                if not _is_ucum_annotation_in_a_code_property(name, value):
+                    assert not value.lstrip().startswith(("{", "[")), (
+                        f"{name} starts with a bracket"
+                    )
 
 
 # R5: a coded value is a relationship to a shared Concept node

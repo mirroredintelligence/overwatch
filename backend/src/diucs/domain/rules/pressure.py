@@ -6,7 +6,7 @@ banner shows when every in-hours service is limited or worse. Thresholds are nam
 the rule book, not literals.
 
 Each status must be a Status member of exactly this enum. A plain string with the same value, or a
-member of another enum, is refused with TypeError rather than counted (DEC-036, lesson L44). Input
+member of another enum, is refused with TypeError rather than counted (DEC-040, lesson L44). Input
 is read once, so a generator is safe.
 """
 

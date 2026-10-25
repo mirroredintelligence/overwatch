@@ -3,7 +3,7 @@
 Rule: docs/spec/domain-rules.md 1.7, and the D08 prompt. Limited or worse means limited,
 not-accepting or over-capacity. Not-updated is unknown, not worse. Out-of-hours is left out.
 The banner shows when every in-hours service is limited or worse (an in-hours not-updated
-service stops it). Plain strings and members of other enums are refused (DEC-036, lesson L44).
+service stops it). Plain strings and members of other enums are refused (DEC-040, lesson L44).
 """
 
 from enum import StrEnum

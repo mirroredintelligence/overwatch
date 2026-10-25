@@ -84,6 +84,11 @@ MIGRATIONS: list[tuple[str, str]] = [
         "0020_chain_seq",
         "CREATE CONSTRAINT chain_seq IF NOT EXISTS FOR (n:ChainLink) REQUIRE n.seq IS UNIQUE",
     ),
+    (
+        "0021_link_token_hash",
+        "CREATE CONSTRAINT link_token_hash IF NOT EXISTS "
+        "FOR (n:LinkToken) REQUIRE n.tokenHash IS UNIQUE",
+    ),
 ]
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

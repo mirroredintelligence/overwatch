@@ -1,7 +1,9 @@
-"""Fake secret store: a fixed mapping of secret names to bytes (P10). External-provider fake only.
+"""Fake secret store: a fixed mapping of secret names to bytes (P10).
 
-Stub for the red commit (DEC-010).
+An external-provider fake: the secrets never come from a real vault in tests.
 """
+
+from diucs.domain.errors import NotFound
 
 
 class FixedSecretStore:
@@ -9,4 +11,7 @@ class FixedSecretStore:
         self._secrets = dict(secrets)
 
     def get(self, name: str) -> bytes:
-        raise NotImplementedError
+        try:
+            return self._secrets[name]
+        except KeyError:
+            raise NotFound(f"secret {name}") from None

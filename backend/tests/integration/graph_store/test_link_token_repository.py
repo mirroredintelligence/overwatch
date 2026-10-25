@@ -120,7 +120,7 @@ async def test_mark_used_on_an_unknown_hash_is_false_and_writes_nothing(
     assert await count_nodes(neo4j_driver, "LinkToken") == 0
 
 
-@pytest.mark.parametrize("round_number", [1, 2, 3])
+@pytest.mark.parametrize("round_number", range(1, 6))
 async def test_concurrent_mark_used_lets_exactly_one_caller_win(
     neo4j_driver: AsyncDriver, round_number: int
 ) -> None:
@@ -128,7 +128,7 @@ async def test_concurrent_mark_used_lets_exactly_one_caller_win(
     record = _record(token)
     await _add(neo4j_driver, record)
     results = await asyncio.gather(
-        *(_mark_used(neo4j_driver, record.token_hash, AT) for _ in range(8))
+        *(_mark_used(neo4j_driver, record.token_hash, AT) for _ in range(16))
     )
     assert sum(results) == 1, f"{sum(results)} callers were told they burned the link"
     stored = await _get(neo4j_driver, record.token_hash)
@@ -142,8 +142,8 @@ async def test_a_stored_link_token_has_only_the_documented_properties(
     record = _record()
     await _add(neo4j_driver, record)
     props = await node_props(neo4j_driver, "LinkToken", tokenHash=record.token_hash)
-    assert set(props) == PROPERTY_NAMES
-    assert props["usedAt"] is None
+    # Neo4j stores no null property, so an unused link has no usedAt key at all.
+    assert set(props) == PROPERTY_NAMES - {"usedAt"}
 
 
 async def test_the_phone_is_stored_only_as_its_hash(neo4j_driver: AsyncDriver) -> None:

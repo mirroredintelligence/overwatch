@@ -1,13 +1,18 @@
 """Outbound ports and the service for single-use link tokens (P10, D26, domain-rules 7).
 
-Stub for the red commit (DEC-010): every method raises NotImplementedError until the green commit.
+Only the keyed hash of a token is stored (HMAC-SHA256 with the secret `link-token`). The token
+text is returned once, to the caller that issued it, and never reaches the database or a log.
+Decisions: DEC-057.
 """
 
 from datetime import datetime
-from typing import Protocol
+from typing import Final, Protocol
 
 from diucs.application.ports.outbound.clock import Clock
-from diucs.domain.rules.tokens import LinkTokenRecord
+from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from diucs.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
+
+LINK_TOKEN_SECRET: Final = "link-token"
 
 
 class LinkTokenRepository(Protocol):
@@ -31,10 +36,44 @@ class LinkTokenService:
     async def issue(
         self, purpose: str, about_id: str, phone_hash: str | None, expires_at: datetime
     ) -> str:
-        raise NotImplementedError
+        """Create a token, store its hash and return the token text once. A record that breaks a
+        rule (for example a naive expiry) is refused before anything is written."""
+        token = new_link_token()
+        record = LinkTokenRecord(
+            token_hash=hash_token(token, self._secrets.get(LINK_TOKEN_SECRET)),
+            purpose=purpose,
+            about_id=about_id,
+            phone_hash=phone_hash,
+            expires_at=expires_at,
+            used_at=None,
+        )
+        await self._repo.add(record)
+        return token
 
     async def resolve(self, token: str) -> LinkTokenRecord | None:
-        raise NotImplementedError
+        """Return the stored record for a token, or None. Text that cannot be a token is not
+        found, so a malformed link is treated like an unknown one."""
+        token_hash = self._hash_or_none(token)
+        if token_hash is None:
+            return None
+        return await self._repo.get_by_hash(token_hash)
 
     async def burn(self, token: str) -> None:
-        raise NotImplementedError
+        """Mark a token used. Unknown text is NotFound; a token already used is Conflict. The
+        expiry is not checked here: the caller checks check_link first."""
+        token_hash = self._hash_or_none(token)
+        if token_hash is None:
+            raise NotFound("link token")
+        if await self._repo.mark_used(token_hash, self._clock.now()):
+            return
+        if await self._repo.get_by_hash(token_hash) is None:
+            raise NotFound("link token")
+        raise Conflict("link token has already been used")
+
+    def _hash_or_none(self, token: str) -> str | None:
+        try:
+            return hash_token(token, self._secrets.get(LINK_TOKEN_SECRET))
+        except ValidationFailed as error:
+            if error.field == "token":
+                return None
+            raise

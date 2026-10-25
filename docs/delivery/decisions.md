@@ -235,3 +235,14 @@ Status: accepted · Affects: `backend/pyproject.toml` (per-file ignores), `backe
 The D14 red test file is kept byte-identical to its red commit, so the test-first record stays honest. Two rules that the file breaks (E501 line length, SIM300 Yoda comparisons) are waived for that one path only. Nothing else is waived.
 
 Condition: remove the waiver in the same change that next edits the red file legitimately, and say so in that change's evidence. Reviewed by the D14 verifier (`verify-D14c`).
+
+## DEC-027 Postcode normalisation: any whitespace is a space, ASCII only; districts keep inner spacing refused (D19)
+Status: accepted · Affects: `backend/src/diucs/domain/rules/postcode.py`, `backend/tests/unit/domain/rules/test_postcode.py`.
+
+The prompt says to remove all spaces before normalising a postcode, but does not say what counts as a space. A no-break space (U+00A0, pasted from web pages) is treated as a space, so "SS1 1AA" with one is accepted. Any other non-ASCII character is refused rather than upper-cased into ASCII ('ß' becomes 'SS' and would otherwise form a valid-looking outward code).
+
+A district is only trimmed at its ends, never de-spaced. "DT4 8" is therefore refused, not read as the district "DT48". Only a full postcode has its internal spacing removed.
+
+Consequence: none of the normalisers or `postcode_district` ever put the input into an error message or log line. `ValidationFailed` carries a fixed message.
+
+Reviewer: the D19 verifier. Owner to confirm the whitespace rule when IG reviews the advisor input.

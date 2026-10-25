@@ -406,3 +406,13 @@ B6 uses the screen text, not the prompt's form. The prompt gives "DIUCS: booking
 9. **D15 placeholder test removed.** `test_ids_not_yet_implemented_raise_not_implemented` in `tests/unit/domain/messages/test_templates.py` asserted that B1, I1 and K1 raise `NotImplementedError`. The D16 prompt requires that path to be removed, so the test is removed with it. No other D15 test changed.
 
 Tests: `backend/tests/unit/domain/messages/test_templates_d16.py`. They assert the exact sample text for B1, B4, B5, B6, B7, I1, I2, I3, K1 and K4, the B2 subject and body, the B3 and K2 push wording, the K3 pass-through, the channel and field refusals, the B7 list rules and an SMS length of at most two segments for B1.
+
+## DEC-042 Owner decisions on the open items (2026-10-25)
+Status: accepted · Decided by the owner (operations@mirroredintelligence.com) through the orchestrator. Each item below supersedes the open question it answers.
+
+1. **Booking reference and Role on events (DEC-041).** Accepted. A booking reference is the 4-digit number from domain-rules line 165 and DEC-007. An acknowledgement's `by` is a Role, as in ui-screens line 3640. Both refuse names, postcodes and phone numbers. Free-text identifiers stay unchecked and that residual stays recorded in H-09.
+2. **Three unmapped screen texts (DEC-034 item 9).** Accepted as follows. The no-link C1 variant (ui-screens 963) goes to a follow-up in D15's template set. The correction echo (970) and the Y echo (3360) go to U05, which renders echoes. None blocks Stage 1.
+3. **Email and push wording (DEC-034 items 3 and 4).** Not approved. Information governance sign-off is an external approval and is human-only, so it is not granted here. The wording stays marked IG-pending. No real email or push may use it until IG approves it in writing.
+4. **DEC-029 (Monday-overdue reading).** Accepted. A service with no report on a Monday morning is overdue. This follows domain-rules 1.5. A service registered after a missed due with no report is flagged for a prompt it never received; the registration task should mark its first due as not yet due.
+5. **DEC-040 (pressure type check).** Accepted. The pressure functions refuse any value that is not exactly a Status member, fail closed, with TypeError. Callers in D24, U08, W07 and W40 must pass Status members.
+6. **Active versus suspended split (DEC-035).** Accepted. G11 excludes inactive and suspended services from the candidate list. U12 lists suspended services under not suitable. U12 must depend on G11 so a suspended service is never offered; its prompt must say so.

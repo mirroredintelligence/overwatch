@@ -41,7 +41,7 @@ class Cache(Protocol):
         """Return an iterator of messages published to the channel after this call returns.
 
         The subscription exists from the moment this method returns, not from the first
-        iteration (DEC-057). Messages published earlier are not replayed.
+        iteration (DEC-058). Messages published earlier are not replayed.
         """
         ...
 

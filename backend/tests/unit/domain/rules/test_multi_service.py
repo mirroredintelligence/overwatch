@@ -1,8 +1,9 @@
 """Tests for diucs.domain.rules.multi_service: grouped prompts and the phone load limit (D28).
 
 Rules from docs/spec/domain-rules.md 2.4 and the D28 prompt. Groups start at the earliest due time
-and take every item less than 10 minutes after the group's first item. Lettering follows name order
-and only groups of two or more get letters. Due times are compared as UTC instants (lessons L52, L53).
+and take every item less than 10 minutes after the group's first item. Lettering follows name
+order and only groups of two or more get letters. Due times are compared as UTC instants
+(lessons L52, L53).
 """
 
 from datetime import UTC, datetime, timedelta
@@ -103,7 +104,9 @@ def test_a_group_of_three_is_lettered_a_b_c() -> None:
     assert items_of(groups[0]) == [("Ward A", "A"), ("Ward C", "C"), ("Ward B", "B")]
 
 
-@pytest.mark.parametrize(("count", "overloaded"), [(0, False), (1, False), (3, False), (4, True), (9, True)])
+@pytest.mark.parametrize(
+    ("count", "overloaded"), [(0, False), (1, False), (3, False), (4, True), (9, True)]
+)
 def test_phone_is_overloaded_only_above_three_services(count: int, overloaded: bool) -> None:
     assert MAX_SERVICES_PER_PHONE == 3
     assert phone_overloaded(count) is overloaded
@@ -168,7 +171,8 @@ def test_group_due_times_are_returned_in_utc() -> None:
 
 
 def test_grouping_compares_real_instants_across_the_clock_change() -> None:
-    # 2026-10-25: 01:50 BST (fold 0, 00:50 UTC) and 01:55 GMT (fold 1, 01:55 UTC) are 65 minutes apart.
+    # 2026-10-25: 01:50 BST (fold 0, 00:50 UTC) and 01:55 GMT (fold 1, 01:55 UTC)
+    # are 65 minutes apart.
     # Wall-clock subtraction would read them as 5 minutes and join them into one group (lesson L52).
     bst = datetime(2026, 10, 25, 1, 50, tzinfo=LONDON, fold=0)
     gmt = datetime(2026, 10, 25, 1, 55, tzinfo=LONDON, fold=1)

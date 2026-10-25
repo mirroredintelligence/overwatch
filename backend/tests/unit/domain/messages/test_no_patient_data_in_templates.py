@@ -171,7 +171,7 @@ def test_a_personal_title_with_a_capitalised_word_is_found() -> None:
 
 
 @pytest.mark.parametrize(
-    "text", ["dt48xx", "DT48XX", "DT4\t8XX", "DT4  8XX", "SW1A 1AA", "dt4 8xx."]
+    "text", ["dt48xx", "DT48XX", "DT4\t8XX", "DT4  8XX", "QZ9 9ZZ", "dt4 8xx."]
 )
 def test_postcode_shapes_are_found_whatever_the_case_or_spacing(text: str) -> None:
     assert len(find_patient_data(text)) == 1

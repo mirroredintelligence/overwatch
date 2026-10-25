@@ -55,6 +55,10 @@ class UnsupportedElement(DomainError):
         self.path = path
 
 
+class UnknownExtension(UnsupportedElement):
+    """An extension URL that is not in the registry. Rejected, never dropped."""
+
+
 class InvalidReference(DomainError):
     """A reference that is not a relative Type/id reference."""
 

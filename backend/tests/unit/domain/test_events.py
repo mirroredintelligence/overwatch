@@ -259,6 +259,13 @@ def test_booking_reference_is_checked_when_the_event_is_built(reference: str) ->
     assert info.value.field == "reference"
 
 
+@pytest.mark.parametrize("reference", [None, 4821, b"4821"])
+def test_booking_reference_must_be_text(reference: object) -> None:
+    with pytest.raises(ValidationFailed) as info:
+        BookingRequested("bk-1", SERVICE_ID, reference, AT)  # type: ignore[arg-type]
+    assert info.value.field == "reference"
+
+
 @pytest.mark.parametrize("reference", ["1000", "4821", "9999"])
 def test_booking_reference_accepts_a_four_digit_number(reference: str) -> None:
     event = BookingRequested("bk-1", SERVICE_ID, reference, AT)

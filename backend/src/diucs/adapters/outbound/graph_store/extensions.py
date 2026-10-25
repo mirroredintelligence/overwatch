@@ -99,3 +99,7 @@ register_extension(
 register_extension(
     ExtensionDef(f"{BASE_URL}StructureDefinition/referrerType", "referrerType", "string")
 )
+# P01: a service's measure, unit label and channel (service profile, domain-rules 1.1).
+register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/measure", "measure", "string"))
+register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/unitLabel", "unitLabel", "string"))
+register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/channel", "channel", "string"))

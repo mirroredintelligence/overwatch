@@ -17,7 +17,7 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     Neo4jServiceRepository,
     profile_to_fhir,
 )
-from diucs.domain.codes import BASE_URL, Cadence, Channel, Measure, ServiceCategory
+from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip

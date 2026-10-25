@@ -26,6 +26,7 @@ from diucs.domain.codes import (
     NeedCategory,
     NotReachedReason,
     Outcome,
+    PractitionerRoleCode,
     ReferrerType,
     RegistrationStatus,
     ReportFlagReason,
@@ -185,6 +186,17 @@ SPEC: dict[type[StrEnum], tuple[str, tuple[str, ...]]] = {
     ReferrerType: (
         "referrer-type",
         ("ambulance-crew", "care-home", "gp", "nhs-111", "other"),
+    ),
+    PractitionerRoleCode: (
+        "practitioner-role",
+        (
+            "duty-manager",
+            "coordinator",
+            "criteria-owner",
+            "clinical-lead",
+            "shift-lead",
+            "reviewer",
+        ),
     ),
 }
 

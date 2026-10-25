@@ -220,6 +220,15 @@ class ReferrerType(StrEnum):
     OTHER = "other"
 
 
+class PractitionerRoleCode(StrEnum):
+    DUTY_MANAGER = "duty-manager"
+    COORDINATOR = "coordinator"
+    CRITERIA_OWNER = "criteria-owner"
+    CLINICAL_LEAD = "clinical-lead"
+    SHIFT_LEAD = "shift-lead"
+    REVIEWER = "reviewer"
+
+
 _NAMES: dict[type[StrEnum], str] = {
     Status: "status",
     Measure: "capacity-measure",

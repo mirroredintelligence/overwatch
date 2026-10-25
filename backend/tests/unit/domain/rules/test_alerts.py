@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.rules.alerts: alert triggers, subscriptions, quiet hours, escalation (D24).
+"""Tests for diucs.domain.rules.alerts: triggers, subscriptions, quiet hours, escalation (D24).
 
 Rule: docs/spec/domain-rules.md section 8, and the D24 prompt. Instants are written as London
 wall-clock times through london_to_utc, so each test reads as a London time in both seasons.
@@ -113,7 +113,9 @@ def test_alert_carries_no_free_text() -> None:
         (AlertKind.SERVICE_CLOSED, SERVICE, False),  # critical follows the kind
     ],
 )
-def test_alert_fields_must_match_their_kind(kind: AlertKind, service_id: str | None, critical: bool) -> None:
+def test_alert_fields_must_match_their_kind(
+    kind: AlertKind, service_id: str | None, critical: bool
+) -> None:
     with pytest.raises(ValidationFailed):
         Alert(kind, service_id, at(SUMMER, 14), critical)
 
@@ -133,7 +135,15 @@ def test_planned_out_of_hours_closure_raises_nothing() -> None:
 
 
 @pytest.mark.parametrize(
-    "before", [Status.ACCEPTING, Status.LIMITED, Status.OVER_CAPACITY, Status.NOT_UPDATED, Status.OUT_OF_HOURS, None]
+    "before",
+    [
+        Status.ACCEPTING,
+        Status.LIMITED,
+        Status.OVER_CAPACITY,
+        Status.NOT_UPDATED,
+        Status.OUT_OF_HOURS,
+        None,
+    ],
 )
 def test_service_closed_fires_from_any_other_status(before: Status | None) -> None:
     alerts = alerts_for_change(SERVICE, before, Status.NOT_ACCEPTING, True, at(SUMMER, 10))
@@ -147,11 +157,17 @@ def test_moving_to_over_capacity_is_one_non_critical_alert() -> None:
 
 
 def test_over_capacity_to_over_capacity_raises_nothing() -> None:
-    assert alerts_for_change(SERVICE, Status.OVER_CAPACITY, Status.OVER_CAPACITY, True, at(SUMMER, 14)) == []
+    assert (
+        alerts_for_change(SERVICE, Status.OVER_CAPACITY, Status.OVER_CAPACITY, True, at(SUMMER, 14))
+        == []
+    )
 
 
 def test_not_accepting_to_not_accepting_raises_nothing_no_repeat() -> None:
-    assert alerts_for_change(SERVICE, Status.NOT_ACCEPTING, Status.NOT_ACCEPTING, True, at(SUMMER, 14)) == []
+    assert (
+        alerts_for_change(SERVICE, Status.NOT_ACCEPTING, Status.NOT_ACCEPTING, True, at(SUMMER, 14))
+        == []
+    )
 
 
 def test_a_change_to_accepting_raises_nothing() -> None:
@@ -165,7 +181,9 @@ def test_blank_service_id_is_refused() -> None:
 
 def test_status_from_another_enum_with_the_same_value_is_refused() -> None:
     with pytest.raises(TypeError):
-        alerts_for_change(SERVICE, Status.ACCEPTING, OtherStatus.NOT_ACCEPTING, True, at(SUMMER, 14))  # type: ignore[arg-type]
+        alerts_for_change(
+            SERVICE, Status.ACCEPTING, OtherStatus.NOT_ACCEPTING, True, at(SUMMER, 14)
+        )  # type: ignore[arg-type]
 
 
 def test_plain_string_status_is_refused() -> None:
@@ -194,7 +212,9 @@ def test_high_to_high_raises_nothing() -> None:
     assert alert_for_pressure(Pressure.HIGH, Pressure.HIGH, at(SUMMER, 14)) is None
 
 
-@pytest.mark.parametrize(("before", "after"), [(Pressure.HIGH, Pressure.WATCH), (Pressure.WATCH, Pressure.NORMAL)])
+@pytest.mark.parametrize(
+    ("before", "after"), [(Pressure.HIGH, Pressure.WATCH), (Pressure.WATCH, Pressure.NORMAL)]
+)
 def test_easing_pressure_raises_nothing(before: Pressure, after: Pressure) -> None:
     assert alert_for_pressure(before, after, at(SUMMER, 14)) is None
 
@@ -280,10 +300,18 @@ def test_quiet_window_starts_exactly_at_twenty_two_in_summer_and_winter() -> Non
 def test_quiet_window_across_the_spring_change() -> None:
     p = prefs(quiet_hours=QUIET)
     # 23:00 on the evening before, and 03:30 on the change night, are both quiet.
-    assert should_notify(p, _over_capacity(at(SPRING_CHANGE, 3, 30)), at(SPRING_CHANGE, 3, 30)) is False
+    assert (
+        should_notify(p, _over_capacity(at(SPRING_CHANGE, 3, 30)), at(SPRING_CHANGE, 3, 30))
+        is False
+    )
     # 05:59 BST is quiet; 06:00 BST is the end of the window.
-    assert should_notify(p, _over_capacity(at(SPRING_CHANGE, 5, 59)), at(SPRING_CHANGE, 5, 59)) is False
-    assert should_notify(p, _over_capacity(at(SPRING_CHANGE, 6, 0)), at(SPRING_CHANGE, 6, 0)) is True
+    assert (
+        should_notify(p, _over_capacity(at(SPRING_CHANGE, 5, 59)), at(SPRING_CHANGE, 5, 59))
+        is False
+    )
+    assert (
+        should_notify(p, _over_capacity(at(SPRING_CHANGE, 6, 0)), at(SPRING_CHANGE, 6, 0)) is True
+    )
 
 
 def test_quiet_window_across_the_autumn_change() -> None:
@@ -291,9 +319,17 @@ def test_quiet_window_across_the_autumn_change() -> None:
     evening = at(AUTUMN_CHANGE - timedelta(days=1), 23, 30)
     assert should_notify(p, _over_capacity(evening), evening) is False
     # The repeated 01:30 is the first occurrence (BST), which is inside the window.
-    assert should_notify(p, _over_capacity(at(AUTUMN_CHANGE, 1, 30)), at(AUTUMN_CHANGE, 1, 30)) is False
-    assert should_notify(p, _over_capacity(at(AUTUMN_CHANGE, 5, 59)), at(AUTUMN_CHANGE, 5, 59)) is False
-    assert should_notify(p, _over_capacity(at(AUTUMN_CHANGE, 6, 0)), at(AUTUMN_CHANGE, 6, 0)) is True
+    assert (
+        should_notify(p, _over_capacity(at(AUTUMN_CHANGE, 1, 30)), at(AUTUMN_CHANGE, 1, 30))
+        is False
+    )
+    assert (
+        should_notify(p, _over_capacity(at(AUTUMN_CHANGE, 5, 59)), at(AUTUMN_CHANGE, 5, 59))
+        is False
+    )
+    assert (
+        should_notify(p, _over_capacity(at(AUTUMN_CHANGE, 6, 0)), at(AUTUMN_CHANGE, 6, 0)) is True
+    )
 
 
 def test_everything_during_quiet_hours_sends_non_critical_alerts() -> None:
@@ -309,8 +345,14 @@ def test_no_quiet_hours_sends_at_night() -> None:
 
 def test_kind_not_in_preferences_is_never_sent() -> None:
     now = at(SUMMER, 14)
-    assert should_notify(prefs(kinds=frozenset({AlertKind.SERVICE_CLOSED})), _over_capacity(now), now) is False
-    assert should_notify(prefs(kinds=frozenset({AlertKind.SERVICE_CLOSED})), _service_closed(now), now) is True
+    assert (
+        should_notify(prefs(kinds=frozenset({AlertKind.SERVICE_CLOSED})), _over_capacity(now), now)
+        is False
+    )
+    assert (
+        should_notify(prefs(kinds=frozenset({AlertKind.SERVICE_CLOSED})), _service_closed(now), now)
+        is True
+    )
 
 
 @given(
@@ -357,7 +399,7 @@ def test_escalation_follows_the_chosen_window(ack: int, expected: tuple[int, int
 
 
 def test_escalation_across_the_autumn_change_adds_real_minutes() -> None:
-    # 01:50 BST (first occurrence) plus 15 real minutes ends at 01:05 GMT. Escalation adds real time.
+    # 01:50 BST (first occurrence) plus 15 real minutes ends at 01:05 GMT.
     sent = at(AUTUMN_CHANGE, 1, 50)
     assert escalation_at(sent, prefs(ack_minutes=15)) == sent + timedelta(minutes=15)
 

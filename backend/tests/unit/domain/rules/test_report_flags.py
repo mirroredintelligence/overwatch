@@ -341,7 +341,7 @@ def test_reports_later_than_new_never_change_the_result(
 ) -> None:
     new = build(new_draw)
     recent = [build(d) for d in recent_draws]
-    later = [build(d) for d in later_draws if d.minute > 0]
+    later = [build(d) for d in later_draws if d.minute > new_draw.minute]
     before = flags(new, recent)
     assert flags(new, recent + later) == before
 

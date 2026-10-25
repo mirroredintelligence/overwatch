@@ -198,3 +198,16 @@ Status: accepted · Affects: D10 (`reply_parser.parse_reply`), D11 and later rep
 Consumers must iterate the tuple and must never assume one item. Commas separate items only, so `A,4` is refused. A message takes the lettered path only when it contains a service letter token, so D09 replies are unchanged.
 
 Evidence: `docs/delivery/evidence/D10.md`.
+
+## DEC-023 Report flag windows and the phoned comparison (D12)
+Status: accepted · Affects: D12 (`rules/report_flags.py`), and U07 and W42 where flags are saved and shown.
+
+`docs/spec/domain-rules.md` 2.3 gives the two report flags with [ASSUMED] windows. D12 decides three points the rule book leaves open:
+
+1. **Edges are inclusive.** A report exactly 5 minutes before the new one counts towards `many-changes`, and one exactly 60 minutes before counts towards `differs-from-phoned`. Only reports strictly outside the window are ignored.
+2. **Any phoned figure in the window can trigger `differs-from-phoned`.** If two advisor-phoned figures fall in the previous 60 minutes and either differs from the new text figure, the flag is raised, even when the later phoned figure matches. This is the literal reading of 2.3 ("differs from an advisor-phoned figure") and the safer direction: the lead checks by phone. The alternative (compare only with the latest phoned figure) is not built; the owner may choose it.
+3. **Time is measured between instants.** Windows are subtracted and compared as aware datetimes, so the 2026-03-29 and 2026-10-25 clock changes need no special handling here (lesson L4 applies to schedules, not to windows).
+
+Reports for other services, and reports later than the new one, are ignored. A report in `recent` with the same id as the new report is counted once.
+
+Evidence: `docs/delivery/evidence/D12.md`. Tests: `backend/tests/unit/domain/rules/test_report_flags.py`.

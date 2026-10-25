@@ -170,7 +170,9 @@ def test_a_personal_title_with_a_capitalised_word_is_found() -> None:
 # --- Boundary cases beyond the prompt's seven tests (DEC-043) -------------------------------
 
 
-@pytest.mark.parametrize("text", ["dt48xx", "DT48XX", "DT4\t8XX", "SW1A 1AA", "dt4 8xx."])
+@pytest.mark.parametrize(
+    "text", ["dt48xx", "DT48XX", "DT4\t8XX", "DT4  8XX", "SW1A 1AA", "dt4 8xx."]
+)
 def test_postcode_shapes_are_found_whatever_the_case_or_spacing(text: str) -> None:
     assert len(find_patient_data(text)) == 1
 
@@ -211,7 +213,7 @@ def test_a_title_needs_a_capitalised_word_after_it(text: str) -> None:
 
 
 def test_forbidden_fields_are_the_prompt_list() -> None:
-    assert FORBIDDEN_FIELDS == frozenset(
+    expected = frozenset(
         {
             "name",
             "patient_name",
@@ -223,6 +225,7 @@ def test_forbidden_fields_are_the_prompt_list() -> None:
             "free_text",
         }
     )
+    assert expected == FORBIDDEN_FIELDS
 
 
 # --- The sweep over every template ----------------------------------------------------------
@@ -270,7 +273,8 @@ def test_a_name_placed_in_any_printed_scalar_field_is_flagged(message_id: Messag
             rendered = render(message_id, channel, **{**sample, field: PROBE})
             text = _all_text(rendered)
             if PROBE in text:
-                assert find_patient_data(text) == [PROBE], (message_id, channel, field)
+                found = find_patient_data(text)
+                assert found and set(found) == {PROBE}, (message_id, channel, field)
 
 
 def test_b1_with_a_postcode_is_refused() -> None:

@@ -10,7 +10,7 @@ Rules for sessions:
 
 | Id | Hazard | Source | Control in the design | Where it is built | Verified by | Severity |
 |---|---|---|---|---|---|---|
-| H-01 | An old figure looks current, so an advisor offers a service that is full | F3, F2 | Status is Not updated when a report is overdue. Data age is always shown. A figure over 2 hours old carries a warning. | D05, D07, W05, W13 | | TBD |
+| H-01 | An old figure looks current, so an advisor offers a service that is full | F3, F2 | Status is Not updated when a report is overdue. Data age is always shown. A figure over 2 hours old carries a warning. | D05, D07, W05, W13 | Partial (D05): overdue, data age, the 2-hour warning and the data-age wording, `backend/tests/unit/domain/rules/test_freshness.py`. The Not updated status itself is D07. | TBD |
 | H-02 | The advisor trusts the display without question | F1 | Options are a filter, never a ranking. Reasons for and against are shown. Clinical advisor is one tap away. | D20, U12, W13 | | TBD |
 | H-03 | A wrong or misread figure is recorded | F16 | Range check on every number. Echo with the figure and time. A repeat Y is capped at two. Unknown senders get no reply. | D09 to D12, U05 | | TBD |
 | H-04 | Two advisors book the same last place | F15 | Pending is shown apart from available. One open booking per service. Not booked until the service confirms. | D14, U17, U18 | `backend/tests/unit/domain/rules/test_booking_rules.py::test_a_service_with_a_requested_booking_cannot_take_another`, `::test_one_open_booking_blocks_a_request_among_closed_ones` (rule only; use-case enforcement is U17) | TBD |

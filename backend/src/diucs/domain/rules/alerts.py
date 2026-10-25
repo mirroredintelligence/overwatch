@@ -10,7 +10,7 @@ Rule: docs/spec/domain-rules.md section 8. Pure: no I/O and no clock. `now` is a
 
 Quiet hours are London local 22:00 to 06:00, or none. Each instant is converted to UTC before it is
 compared, so the clock changes of 2026-03-29 and 2026-10-25 do not shift a window (lessons L4, L25,
-L52). Choices the prompt leaves open are in DEC-043. Refusals: naive datetimes raise ValueError
+L52). Choices the prompt leaves open are in DEC-046. Refusals: naive datetimes raise ValueError
 (as london_time.py does); a status or pressure that is not an exact member raises TypeError
 (DEC-040, lessons L3 and L38); a bad field value raises ValidationFailed with the field name.
 An alert carries no free text (H-09).

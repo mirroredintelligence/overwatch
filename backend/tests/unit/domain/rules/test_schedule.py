@@ -14,7 +14,7 @@ from hypothesis import strategies as st
 
 from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
 from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.london_time import to_london
+from diucs.domain.rules.london_time import london_to_utc, to_london
 from diucs.domain.rules.schedule import (
     ESCALATE_AFTER,
     PHONE_TASK_AFTER,
@@ -34,6 +34,11 @@ ONE_TICK: Final = timedelta(microseconds=1)
 
 def utc(*args: int) -> datetime:
     return datetime(*args, tzinfo=UTC)
+
+
+def utc_local(day: date, t: time) -> datetime:
+    """The UTC instant of a London local time on a summer day."""
+    return london_to_utc(day, t)
 
 
 def profile(
@@ -104,9 +109,38 @@ def test_twice_a_day_opening_after_1400_has_only_the_opening() -> None:
     assert due_times_on(twice, date(2026, 10, 26)) == [utc(2026, 10, 26, 15)]
 
 
-def test_twice_a_day_closing_at_1400_has_only_the_opening() -> None:
+def test_twice_a_day_opening_at_1400_has_one_due_time() -> None:
+    twice = profile(AvailableTime.weekdays(time(14, 0), time(20, 0)), cadence=Cadence.TWICE_A_DAY)
+    assert due_times_on(twice, date(2026, 10, 26)) == [utc(2026, 10, 26, 14)]
+
+
+def test_twice_a_day_closing_at_1400_still_has_1400() -> None:
+    # domain-rules 1.4: 14:00 is due unless the service opens after 14:00. The end is not an
+    # exception (DEC-024). 08:00 to 14:00 gives 08:00 and 14:00.
     twice = profile(AvailableTime.weekdays(time(8, 0), time(14, 0)), cadence=Cadence.TWICE_A_DAY)
-    assert due_times_on(twice, date(2026, 10, 26)) == [utc(2026, 10, 26, 8)]
+    assert due_times_on(twice, date(2026, 10, 26)) == [utc(2026, 10, 26, 8), utc(2026, 10, 26, 14)]
+
+
+def test_twice_a_day_window_closing_before_1400_still_has_1400() -> None:
+    # Same reading as above (DEC-024): the rule book gives 14:00 whenever the opening is not after it.
+    twice = profile(AvailableTime.weekdays(time(8, 0), time(12, 0)), cadence=Cadence.TWICE_A_DAY)
+    assert due_times_on(twice, date(2026, 10, 26)) == [utc(2026, 10, 26, 8), utc(2026, 10, 26, 14)]
+
+
+def test_twice_a_day_overnight_10_to_06_keeps_the_1400_due() -> None:
+    # The window is open at 14:00 on the day it starts, so the 14:00 due is kept (DEC-024).
+    twice = profile(AvailableTime.every_day(time(10, 0), time(6, 0)), cadence=Cadence.TWICE_A_DAY)
+    assert due_times_on(twice, date(2026, 10, 26)) == [utc(2026, 10, 26, 10), utc(2026, 10, 26, 14)]
+
+
+def test_twice_a_day_window_crossing_midnight_from_0600_has_1400() -> None:
+    twice = profile(AvailableTime.every_day(time(6, 0), time(2, 0)), cadence=Cadence.TWICE_A_DAY)
+    assert due_times_on(twice, date(2026, 10, 26)) == [utc(2026, 10, 26, 6), utc(2026, 10, 26, 14)]
+
+
+def test_twice_a_day_overnight_opening_after_1400_has_only_the_opening() -> None:
+    twice = profile(AvailableTime.every_day(time(22, 0), time(8, 0)), cadence=Cadence.TWICE_A_DAY)
+    assert due_times_on(twice, date(2026, 10, 26)) == [utc(2026, 10, 26, 22)]
 
 
 def test_once_a_day_is_the_opening_only() -> None:
@@ -311,3 +345,16 @@ def test_next_and_current_due_bracket_now_with_no_due_time_between(
     # Nothing is due between now and the next due time.
     assert current_due(schedule, upcoming - ONE_TICK) == latest
     assert current_due(schedule, upcoming) == upcoming
+
+
+@settings(max_examples=300)
+@given(window=timed_window, day=st.dates(date(2026, 4, 1), date(2026, 9, 30)))
+def test_twice_a_day_has_1400_exactly_when_the_window_does_not_open_after_it(
+    window: AvailableTime, day: date
+) -> None:
+    # Summer days only, so local 14:00 is one instant. Oracle: the rule book's one exception.
+    start = window.start
+    assert start is not None
+    due = due_times_on(profile(window, cadence=Cadence.TWICE_A_DAY), day)
+    fourteen = utc_local(day, TWICE_A_DAY_SECOND)
+    assert (fourteen in due) is (start <= TWICE_A_DAY_SECOND)

@@ -1,4 +1,4 @@
-"""Outbound port: the cache for read models, short-lived keys, live-update fan-out and single-flight locks.
+"""Outbound port: the cache for read models, short-lived keys, live updates and single-flight locks.
 
 Redis is the production cache (architecture.md, Platform decisions). The cache holds no record of
 truth: nothing in Neo4j depends on it, and losing every key must lose no fact.
@@ -14,7 +14,7 @@ BOARD_UPDATES_CHANNEL = "board.updates"
 
 @dataclass(frozen=True, slots=True)
 class Lock:
-    """A single-flight lock holding a fencing token. Only the holder of the current token may release."""
+    """A single-flight lock with a fencing token. Only the current holder's token may release it."""
 
     name: str
     fencing_token: int
@@ -34,7 +34,7 @@ class Cache(Protocol):
         ...
 
     async def publish(self, channel: str, message: str) -> None:
-        """Send a message to the subscribers present at the time of publishing. Nothing is stored."""
+        """Send a message to the subscribers present now. Nothing is stored."""
         ...
 
     def subscribe(self, channel: str) -> AsyncIterator[str]:
@@ -46,9 +46,9 @@ class Cache(Protocol):
         ...
 
     async def acquire_lock(self, name: str, ttl: timedelta) -> Lock | None:
-        """Return a lock with a fresh fencing token, or None while another holder's lock is unexpired."""
+        """Return a lock with a fresh fencing token, or None while another holder is unexpired."""
         ...
 
     async def release_lock(self, lock: Lock) -> None:
-        """Release the lock only if its token is the current holder's token. Otherwise do nothing."""
+        """Release the lock only when its token is the current holder's. Otherwise do nothing."""
         ...

@@ -244,9 +244,9 @@ def test_bookings_beyond_the_report_floor_at_zero_and_close_the_service() -> Non
 
 
 def test_occupied_count_includes_bookings_confirmed_since_the_report() -> None:
-    # Occupied 11 of 12, one booking confirmed since: 12 of 12, so not accepting.
+    # Occupied 11 of 12, one booking confirmed since: 12 of 12, so not accepting (cannot exceed).
     result = state(
-        HOSPITAL_AT_HOME,
+        replace(HOSPITAL_AT_HOME, can_exceed_established=False),
         occupied(11),
         confirmed=(utc(2026, 10, 23, 13, 10),),
     )

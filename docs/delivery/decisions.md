@@ -290,3 +290,17 @@ Decision:
 - Fail closed: `missing_for_approval` treats anything other than the exact passing value as missing.
 
 Not decided here: whether a registration approval (not criteria) needs two distinct people. The rule book names two approvers in 6.1 but gives no separate second-approval rule for registrations. The owner should confirm. Until then the use case must require two distinct actors if it records both approvals.
+
+## DEC-033 Figures for occupied-patients, and refused reports in compute_status (D07)
+Status: accepted · Affects: D07 (`rules/status.py`) and every caller of `compute_status` (U08 board read model, U-tasks that show a service state).
+
+domain-rules 1.2 and 1.3 give the status rule but not the figures a service shows. Decided here:
+
+1. For occupied-patients, `effective_available` is None: there is no free count for occupancy, and `availability.effective_available` refuses that measure. `used` is the effective occupied count (the report plus bookings confirmed since it, see `effective_occupied`). `over_by` is `occupied − established` when occupied is above established, otherwise None.
+2. For free-count measures, `used` is `max(0, established − effective_available)`, so an over-reported figure never shows a negative used count.
+3. Figures are filled whenever a latest report exists, including for not-updated and out-of-hours, so the board can show the last known figure (prompt, D07 "Numbers are filled in"). With no report they are None.
+4. Occupancy status: occupied above established is over-capacity whether or not the service can exceed; occupied equal to established is limited when it can exceed, otherwise not-accepting; otherwise the used share (occupied × 100 ≥ limited_level_percent × established) decides limited or accepting.
+5. `compute_status` raises ValueError for a report from another service or with another measure than the profile. A figure that reaches the wrong profile would be a confident wrong answer (delivery-standard principle 1). Tested.
+6. A naive `now` or a report after `now` is refused by `assess_freshness` (DEC-030).
+
+All integer arithmetic. Instants are compared as UTC (lesson L4).

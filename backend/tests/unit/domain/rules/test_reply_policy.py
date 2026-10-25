@@ -228,6 +228,46 @@ def test_out_of_range_correction_repeated_is_recorded_as_correction_with_flag() 
     assert decision == record(40, correction=True, flag=OUT_OF_RANGE_TWICE)
 
 
+# Letters: a reply must name the service this prompt is for. The policy checks it itself, so a
+# caller that forgets to check cannot record a figure against the wrong service (DEC-028).
+
+
+def test_letter_for_another_service_is_refused_not_recorded() -> None:
+    prompt = state(letter="A")
+    with pytest.raises(ValidationFailed):
+        decide(Confirm(letter="B"), prompt, london(10, 12))
+    with pytest.raises(ValidationFailed):
+        decide(Number(4, letter="B"), prompt, london(10, 12))
+
+
+def test_letter_refusal_comes_before_the_timing_rules() -> None:
+    closed = state(letter="A", reply_by=london(9, 0))
+    with pytest.raises(ValidationFailed):
+        decide(Confirm(letter="B"), closed, london(10, 12))
+
+
+def test_letter_matching_this_service_is_accepted() -> None:
+    assert decide(Number(4, letter="A"), state(letter="A"), london(10, 12)) == RecordNumber(
+        4, False, None
+    )
+    assert decide(Confirm(letter="A"), state(letter="A"), london(10, 12)) == RecordConfirm()
+
+
+def test_letter_on_a_single_service_prompt_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        decide(Number(4, letter="A"), state(letter=None), london(10, 12))
+
+
+def test_bare_number_on_a_lettered_prompt_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        decide(Number(4), state(letter="A"), london(10, 12))
+
+
+def test_bare_y_on_a_lettered_prompt_confirms_the_prompt() -> None:
+    # domain-rules 2.1: Y on a multi-service prompt confirms all services in the prompt.
+    assert decide(Confirm(), state(letter="A"), london(10, 12)) == RecordConfirm()
+
+
 # Fail closed: a naive datetime is refused. It is never read as the machine's local time.
 
 

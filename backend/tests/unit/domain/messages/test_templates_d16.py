@@ -3,8 +3,8 @@
 Wording: docs/spec/domain-rules.md section 9 and the D16 prompt (exact text). Where the prompt is
 silent or marks a text [ASSUMED], DEC-037 records the choice. ui-screens.md is the screen wording
 for B1, B2, B3, B4, B5, I1, I2 and K2; the prompt text is followed where the two differ.
-Sample values are from the rule book, except B1 `need`, which is a NeedCategory code (DEC-047 item 9,
-owner-pending): the B1 text therefore differs from the rule-book sample "fall and frailty".
+Sample values are from the rule book, except B1 `need`: a NeedCategory code (DEC-047 item 9,
+owner-pending), so B1 text differs from the rule-book sample "fall and frailty".
 No test uses a real patient, name or postcode.
 """
 

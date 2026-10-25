@@ -1,6 +1,6 @@
 # Delivery status
 
-Generated 2026-10-24T21:16:07.714454+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 18/215 tasks.
+Generated 2026-10-25T16:03:56.879531+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 48/215 tasks.
 
 ## S0 Foundations
 
@@ -28,37 +28,37 @@ Generated 2026-10-24T21:16:07.714454+00:00. Source of truth: the shared ledger (
 | Task | Title | Status | Owner | Commit | Evidence |
 |---|---|---|---|---|---|
 | D01 | Service profile value objects | delivered | build-D01 | cffe75e | checks, mutation, spec-trace, tests-green, tests-red; verified by verify-D01c |
-| D02 | Capacity report value object and latest report | not-started | - | - | - |
-| D03 | Opening hours rule | not-started | - | - | - |
-| D04 | Report schedule and missed-report ladder times | not-started | - | - | - |
-| D05 | Freshness and data-age text | not-started | - | - | - |
-| D06 | Effective available and pending count | not-started | - | - | - |
-| D07 | Service status rule | not-started | - | - | - |
-| D08 | System pressure rule | not-started | - | - | - |
+| D02 | Capacity report value object and latest report | delivered | build-D02 | 455f068 | checks, spec-trace, tests-green, tests-red; verified by verify-D02b |
+| D03 | Opening hours rule | delivered | build-D03 | a80cca20cdf4e2c7ad2cdcac068cff35a6f24864 | checks, coverage, mutation, spec-trace, tests-green, tests-red; verified by verify-D03 |
+| D04 | Report schedule and missed-report ladder times | delivered | build-D04 | 9116b055188ffddab9cfc7c5d4a737a7114a2e17 | checks, hazard-note, spec-trace, tests-green, tests-red; verified by verify-D04b |
+| D05 | Freshness and data-age text | delivered | build-D05 | c48df3dc73973d3e9e98e2665d84e6cbf7903620 | checks, coverage, hazard-note, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D05 |
+| D06 | Effective available and pending count | delivered | build-D06 | 97c1fd4 | checks, spec-trace, tests-green, tests-red; verified by verify-D06 |
+| D07 | Service status rule | delivered | build-D07 | b1510be2f0fc72c0cdbdcd1802fb5fee965327ea | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D07 |
+| D08 | System pressure rule | delivered | build-D08 | 14fe09a4db8f437fdb0db842cb499915fc028462 | checks, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D08 |
 | D09 | Reply parser: capacity and booking words | delivered | build-D09 | e3ed49f26e363184790dcae1330fbe3ce3bb083b | checks, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D09 |
-| D10 | Reply parser: multi-service lettered replies | not-started | - | - | - |
-| D11 | Capacity reply policy | not-started | - | - | - |
-| D12 | Report flag rules | not-started | - | - | - |
-| D13 | Booking state machine and FHIR status mapping | not-started | - | - | - |
-| D14 | Booking rules: timers, one open request, references | not-started | - | - | - |
-| D15 | Message templates: capacity (C1 to C11) | not-started | - | - | - |
-| D16 | Message templates: booking, invitations, codes, alerts | not-started | - | - | - |
-| D17 | No-patient-data guard for every template | not-started | - | - | - |
-| D18 | Case model, referrer scores and outcomes | not-started | - | - | - |
-| D19 | Postcode normalisation and district | not-started | - | - | - |
-| D20 | Criteria model and hard filter | not-started | - | - | - |
-| D21 | Criteria workflow and review-overdue rule | not-started | - | - | - |
-| D22 | Registration state machine and approval gate | not-started | - | - | - |
-| D23 | Clinical advice queue and presence rules | not-started | - | - | - |
-| D24 | Alert rules: triggers, subscriptions, quiet hours, escalation | not-started | - | - | - |
-| D25 | Domain events | not-started | - | - | - |
-| D26 | Link tokens, pairing codes and support codes | not-started | - | - | - |
-| D27 | Identity policy: text codes, PINs, re-verification | not-started | - | - | - |
-| D28 | Multi-service rules: grouped prompts and phone load | not-started | - | - | - |
-| G02 | FHIR-to-graph mapper: resources, primitives, references | not-started | - | - | - |
-| G03 | Mapper: concepts, identifiers, periods and quantities | not-started | - | - | - |
-| G04 | Mapper: backbone elements and extension registry | not-started | - | - | - |
-| G05 | Graph writer and reader with versions | not-started | - | - | - |
+| D10 | Reply parser: multi-service lettered replies | delivered | build-D10 | c87b9380830e460a2263f11781e7cfef727d8d72 | checks, hazard-note, spec-trace, tests-green, tests-red; verified by verify-D10 |
+| D11 | Capacity reply policy | delivered | build-D11 | 81ca04dd50dc13a13de419db00a363ac16d166d8 | checks, hazard-note, spec-trace, tests-green, tests-red; verified by verify-D11b |
+| D12 | Report flag rules | delivered | build-D12 | 4d59f752026cb6687eb4f47ad2bac9f1eff99258 | checks, hazard-note, mutation, spec-trace, tests-green, tests-red; verified by verify-D12b |
+| D13 | Booking state machine and FHIR status mapping | delivered | build-D13 | aa700150c102cad7da07a5f9d792550bf521e128 | checks, spec-trace, tests-green, tests-red; verified by verify-D13b |
+| D14 | Booking rules: timers, one open request, references | delivered | build-D14 | 2318c8852968ed6a7729ca3fd4c949c7eb18177c | checks, spec-trace, tests-green, tests-red; verified by verify-D14c |
+| D15 | Message templates: capacity (C1 to C11) | delivered | build-D15 | ef3383f7bd4ea6599cffcee93613d4b2c877579c | checks, spec-trace, tests-green, tests-red; verified by verify-D15b |
+| D16 | Message templates: booking, invitations, codes, alerts | delivered | build-D16 | 3697401e6d01dae64baff5eee52fc49ce6e71b5f | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D16c |
+| D17 | No-patient-data guard for every template | delivered | build-D17 | f3d4fb543891eae40ff0beca180cae92426e5234 | checks, spec-trace, tests-green, tests-red; verified by verify-D17d |
+| D18 | Case model, referrer scores and outcomes | delivered | build-D18 | 2849e29bce68d3af261b9023ab1af09e1f80cb68 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D18 |
+| D19 | Postcode normalisation and district | delivered | build-D19 | f7a9941 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D19 |
+| D20 | Criteria model and hard filter | delivered | build-D20 | 98d6e4dbbe1b0e20552ab17aea069f58a3fa6cfa | checks, hazard-note, spec-trace, tests-green, tests-red; verified by verify-D20b |
+| D21 | Criteria workflow and review-overdue rule | delivered | build-D21 | b2100a3 | checks, hazard-note, spec-trace, tests-green, tests-red; verified by verify-D21 |
+| D22 | Registration state machine and approval gate | delivered | build-D22 | bf031a3e69d8881b23d85f30818ac54729b941eb | checks, coverage, hazard-note, spec-trace, tests-green, tests-red; verified by verify-D22 |
+| D23 | Clinical advice queue and presence rules | delivered | build-D23 | dc6541be49b4ad842d40d775700e60c60bb0d54a | checks, hazard-note, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D23b |
+| D24 | Alert rules: triggers, subscriptions, quiet hours, escalation | delivered | build-D24 | 04ce1aef07ce14c42b2d42cc9ae057004d327367 | checks, spec-trace, tests-green, tests-red; verified by verify-D24b |
+| D25 | Domain events | delivered | build-D25 | d46f2fd46b5deea95a3c96f802ed6e11bb51e23a | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-D25c |
+| D26 | Link tokens, pairing codes and support codes | delivered | build-D26 | 85dbcd7f13f61f5f5190d4eb663f54dba6dde186 | checks, spec-trace, tests-green, tests-red; verified by verify-D26b |
+| D27 | Identity policy: text codes, PINs, re-verification | delivered | build-D27 | 75af9a5eca56ce9f84e060c87a7eca0b7cdc87f5 | checks, spec-trace, tests-green, tests-red; verified by verify-D27b |
+| D28 | Multi-service rules: grouped prompts and phone load | delivered | build-D28 | c98bf538b761c09bd1a49ecb77ee1fa7a7e40c34 | checks, spec-trace, tests-green, tests-red; verified by verify-D28b |
+| G02 | FHIR-to-graph mapper: resources, primitives, references | delivered | build-G02 | 80c2d949a36a4843420d0cd2edc44142962bb53c | checks, spec-trace, tests-green, tests-red; verified by verify-G02c |
+| G03 | Mapper: concepts, identifiers, periods and quantities | delivered | build-G03 | fee0d2c529b948dbce5bc7326e46b1005c62d243 | checks, spec-trace, tests-green, tests-red; verified by verify-G03c |
+| G04 | Mapper: backbone elements and extension registry | delivered | build-G04 | 343870a8b6ea5ed32a2c1745248fe261fe71c17d | checks, spec-trace, tests-green, tests-red; verified by verify-G04c |
+| G05 | Graph writer and reader with versions | delivered | build-G05 | 9e64636a1e5c05d1cb69a24d0c3eb66b9a23538f | checks, spec-trace, tests-green, tests-red; verified by verify-G05b |
 
 ## S2 Capacity loop: core and storage
 

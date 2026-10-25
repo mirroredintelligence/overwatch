@@ -122,7 +122,7 @@ def test_twice_a_day_closing_at_1400_still_has_1400() -> None:
 
 
 def test_twice_a_day_window_closing_before_1400_still_has_1400() -> None:
-    # Same reading as above (DEC-024): the rule book gives 14:00 whenever the opening is not after it.
+    # Same reading as above (DEC-024): 14:00 is due whenever the opening is not after 14:00.
     twice = profile(AvailableTime.weekdays(time(8, 0), time(12, 0)), cadence=Cadence.TWICE_A_DAY)
     assert due_times_on(twice, date(2026, 10, 26)) == [utc(2026, 10, 26, 8), utc(2026, 10, 26, 14)]
 

@@ -48,7 +48,8 @@ def _window_local_times(cadence: Cadence, window: AvailableTime, day: date) -> I
 
     if cadence is Cadence.TWICE_A_DAY:
         yield opening
-        if window.all_day or _start(window) < TWICE_A_DAY_SECOND < _end(window):
+        # domain-rules 1.4 and DEC-024: 14:00 is due unless the window opens after it.
+        if window.all_day or _start(window) <= TWICE_A_DAY_SECOND:
             yield datetime.combine(day, TWICE_A_DAY_SECOND)
         return
 

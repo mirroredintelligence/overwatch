@@ -17,6 +17,8 @@ data is registered on first use under its template id plus that label or type (f
 Q-RES-UPSERT-NODE:Organization). Its text is built only from names that passed a check.
 """
 
+import hashlib
+import json
 import re
 import uuid
 from datetime import UTC, datetime, timedelta, timezone
@@ -134,6 +136,17 @@ _TEMPLATES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "labels(t) AS endLabels, "
         "CASE WHEN t:Resource OR t:ResourceVersion THEN null ELSE properties(t) END AS endProps",
         "read",
+    ),
+    "Q-RES-IDEM-GET": (
+        "MATCH (i:IdempotencyRecord {idemKey: $idemKey}) "
+        "RETURN i.fingerprint AS fingerprint, i.versionId AS versionId",
+        "read",
+    ),
+    "Q-RES-IDEM-RECORD": (
+        "MERGE (i:IdempotencyRecord {idemKey: $idemKey}) "
+        "ON CREATE SET i.fingerprint = $fingerprint, i.versionId = $versionId "
+        "RETURN count(i) AS recorded",
+        "write",
     ),
     "Q-RES-HISTORY": (
         "MATCH (r:Resource {key: $key})-[h:HAS_VERSION]->(v:ResourceVersion) "
@@ -281,16 +294,42 @@ def _props_from_db(props: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_IDEMPOTENCY_KEY = re.compile(r"[A-Za-z0-9._:\-]{1,128}")
+
+
+def _check_idempotency_key(key: str) -> None:
+    if not _IDEMPOTENCY_KEY.fullmatch(key):
+        raise ValidationFailed("idempotencyKey", "1 to 128 letters, digits and . _ : -")
+
+
+def _fingerprint(resource: dict[str, Any], expected_version: str | None) -> str:
+    """A hash of the request, so a replay can be told from a different write. Only the digest is
+    stored, never the request."""
+    canonical = json.dumps(
+        {"resource": resource, "expected": expected_version}, sort_keys=True, default=str
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
 class ResourceStore:
     def __init__(self, tx: AsyncManagedTransaction, clock: Clock | None = None) -> None:
         self._tx = tx
         self._clock = clock
 
-    async def put(self, resource: dict[str, Any], expected_version: str | None) -> str:
+    async def put(
+        self,
+        resource: dict[str, Any],
+        expected_version: str | None,
+        idempotency_key: str | None = None,
+    ) -> str:
         """Write the resource and return its new version.
 
         expected_version None creates it (Conflict if it exists). A string replaces that version
         (Conflict if the stored version differs). An existing Observation raises NotAllowed.
+
+        idempotency_key (DEC-053 item 15): a replay with the same key and the same request returns
+        the version the first call wrote, and writes nothing. The same key with a different request
+        raises Conflict. The key is recorded in the same transaction as the write.
         """
         if "meta" in resource:
             raise ValidationFailed("meta", "the store sets meta; omit it")
@@ -298,12 +337,35 @@ class ResourceStore:
             resource.get("resourceType"), resource.get("id")
         )
         key = f"{resource_type}/{resource_id}"
+        fingerprint = None
+        if idempotency_key is not None:
+            _check_idempotency_key(idempotency_key)
+            fingerprint = _fingerprint(resource, expected_version)
+            replayed = await self._replay(idempotency_key, fingerprint)
+            if replayed is not None:
+                return replayed
         try:
-            return await self._put(resource, resource_type, resource_id, key, expected_version)
+            version = await self._put(resource, resource_type, resource_id, key, expected_version)
         except ClientError as error:
             if str(getattr(error, "code", "")).endswith("ConstraintValidationFailed"):
                 raise Conflict(f"{key} was written by another request") from error
             raise
+        if idempotency_key is not None and fingerprint is not None:
+            await self._run(
+                "Q-RES-IDEM-RECORD",
+                idemKey=idempotency_key,
+                fingerprint=fingerprint,
+                versionId=version,
+            )
+        return version
+
+    async def _replay(self, idempotency_key: str, fingerprint: str) -> str | None:
+        rows = await self._run("Q-RES-IDEM-GET", idemKey=idempotency_key)
+        if not rows:
+            return None
+        if rows[0]["fingerprint"] != fingerprint:
+            raise Conflict("the idempotency key was used for a different write")
+        return str(rows[0]["versionId"])
 
     async def get(self, type: str, id: str) -> dict[str, Any] | None:
         _check_type(type)
@@ -332,8 +394,15 @@ class ResourceStore:
         key: str,
         expected_version: str | None,
     ) -> str:
-        # The lock write comes first: it makes a concurrent writer wait, then the read sees the
-        # committed version.
+        stamp = self._stamp()
+        # Refusals on the input, the shared nodes and the version come before the lock write, so a
+        # refused put leaves nothing in the graph, not even a lock node.
+        nodes, _ = self._fragment(resource, key, "1", stamp)
+        await self._plan_shared([node for node in nodes if not _is_owned(node.key, key)])
+        before = await self._root_props(resource_type, key)
+        self._next_version(resource_type, key, before, expected_version)
+
+        # The lock write makes a concurrent writer wait, then the read sees the committed version.
         await self._run(
             "Q-RES-LOCK",
             insert=_labels_text((resource_type,)),
@@ -342,33 +411,10 @@ class ResourceStore:
             stamp=uuid.uuid4().hex,
         )
         current = await self._root_props(resource_type, key)
-        if current is not None and resource_type in NEVER_UPDATED_TYPES:
-            raise NotAllowed(f"{resource_type} is never updated: write a new one")
-        if current is None:
-            if expected_version is not None:
-                raise Conflict(f"{key} does not exist at version {expected_version}")
-            new_version = "1"
-        else:
-            current_version = str(current["versionId"])
-            if expected_version is None:
-                raise Conflict(f"{key} exists: state the version it replaces")
-            if expected_version != current_version:
-                raise Conflict(f"{key} is at version {current_version}, not {expected_version}")
-            new_version = str(int(current_version) + 1)
-
-        body = {**resource, "meta": {"versionId": new_version, "lastUpdated": self._stamp()}}
-        fragment = to_graph(body)
-        nodes = [
-            NodeSpec(node.key, node.labels, _node_props_to_db(node.key, node.properties))
-            for node in fragment.nodes
-        ]
-        rels = [
-            RelSpec(rel.type, rel.start, rel.end, _props_to_db(rel.properties))
-            for rel in fragment.rels
-        ]
+        new_version = self._next_version(resource_type, key, current, expected_version)
+        nodes, rels = self._fragment(resource, key, new_version, stamp)
         owned = [node for node in nodes if _is_owned(node.key, key)]
         shared = [node for node in nodes if not _is_owned(node.key, key)]
-        # Everything that can be refused is checked here, before the first change to the graph.
         plan = await self._plan_shared(shared)
         node_keys = {node.key for node in nodes}
         placeholders = {
@@ -387,6 +433,40 @@ class ResourceStore:
         if resource_type == "Location":
             await self._run("Q-RES-SET-POSITION", key=key)
         return new_version
+
+    @staticmethod
+    def _next_version(
+        resource_type: str, key: str, current: dict[str, Any] | None, expected_version: str | None
+    ) -> str:
+        if current is not None and resource_type in NEVER_UPDATED_TYPES:
+            raise NotAllowed(f"{resource_type} is never updated: write a new one")
+        if current is None:
+            if expected_version is not None:
+                raise Conflict(f"{key} does not exist at version {expected_version}")
+            return "1"
+        current_version = str(current["versionId"])
+        if expected_version is None:
+            raise Conflict(f"{key} exists: state the version it replaces")
+        if expected_version != current_version:
+            raise Conflict(f"{key} is at version {current_version}, not {expected_version}")
+        return str(int(current_version) + 1)
+
+    def _fragment(
+        self, resource: dict[str, Any], key: str, version: str, stamp: str
+    ) -> tuple[list[NodeSpec], list[RelSpec]]:
+        """The mapper fragment with its stored values converted. Every refusal on a value raises
+        here, before any write."""
+        body = {**resource, "meta": {"versionId": version, "lastUpdated": stamp}}
+        fragment = to_graph(body)
+        nodes = [
+            NodeSpec(node.key, node.labels, _node_props_to_db(node.key, node.properties))
+            for node in fragment.nodes
+        ]
+        rels = [
+            RelSpec(rel.type, rel.start, rel.end, _props_to_db(rel.properties))
+            for rel in fragment.rels
+        ]
+        return nodes, rels
 
     def _stamp(self) -> str:
         now = self._clock.now() if self._clock is not None else datetime.now(UTC)

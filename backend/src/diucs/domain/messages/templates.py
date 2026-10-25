@@ -48,7 +48,7 @@ class _Template:
 
 _CAPACITY_FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.C1: frozenset({"service", "value", "unit", "as_of", "link", "reply_by"}),
-    MessageId.C2: frozenset({"service", "unit", "reply_by", "link"}),
+    MessageId.C2: frozenset({"service", "unit", "window", "reply_by", "link"}),
     MessageId.C3: frozenset({"service", "value", "unit", "recorded_at", "next_due"}),
     MessageId.C4: frozenset({"service", "value", "unit", "recorded_at", "replaced"}),
     MessageId.C5: frozenset({"cutoff", "rejected", "service", "value", "unit", "reply_by"}),
@@ -65,7 +65,8 @@ _C1_TEXT: Final = (
     "Confirm or update: {link} Or reply Y, or a new number. By {reply_by}."
 )
 _C2_TEXT: Final = (
-    "DIUCS: {service}. How many {unit} can you take? Send a number (0 = closed). By {reply_by}."
+    "DIUCS: {service}. How many {unit} can you take {window}? "
+    "Send a number (0 = closed). By {reply_by}."
 )
 _C8_TEXT: Final = (
     "DIUCS reminder: {service} has not updated. Confirm or update: {link} By {reply_by}."
@@ -75,6 +76,7 @@ _PUSH_SUBJECT: Final = "{service}: confirm or update"
 
 _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.C1, Channel.TEXT): _Template(required=_CAPACITY_FIELDS[MessageId.C1], text=_C1_TEXT),
+    # IG-pending (DEC-034 item 3): the email body and HTML are not owner-approved.
     (MessageId.C1, Channel.EMAIL): _Template(
         required=_CAPACITY_FIELDS[MessageId.C1],
         text=f"{_C1_TEXT}\n\n{FOOTER}",
@@ -92,22 +94,23 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         subject=_PUSH_SUBJECT,
     ),
     (MessageId.C2, Channel.TEXT): _Template(
-        required=frozenset({"service", "unit", "reply_by"}), text=_C2_TEXT
+        required=frozenset({"service", "unit", "window", "reply_by"}), text=_C2_TEXT
     ),
     (MessageId.C2, Channel.EMAIL): _Template(
         required=_CAPACITY_FIELDS[MessageId.C2],
+        # IG-pending (DEC-034 item 3): email body and HTML are not owner-approved.
         text=f"{_C2_TEXT}\n\nConfirm or update: {{link}}\n\n{FOOTER}",
         subject=_EMAIL_SUBJECT,
         html=(
-            "<p>DIUCS: {service}. How many {unit} can you take? "
+            "<p>DIUCS: {service}. How many {unit} can you take {window}? "
             "Send a number (0 = closed). By {reply_by}.</p>\n"
             f'<p><a href="{{link}}" style="{BUTTON_STYLE}">Confirm or update</a></p>\n'
             f"<p>{FOOTER}</p>"
         ),
     ),
     (MessageId.C2, Channel.PUSH): _Template(
-        required=frozenset({"service", "unit", "reply_by"}),
-        text="How many {unit} can you take? Reply by {reply_by}.",
+        required=frozenset({"service", "unit", "window", "reply_by"}),
+        text="How many {unit} can you take {window}? Reply by {reply_by}.",
         subject=_PUSH_SUBJECT,
     ),
     (MessageId.C3, Channel.TEXT): _Template(
@@ -149,6 +152,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
             f"<p>{FOOTER}</p>"
         ),
     ),
+    # IG-pending (DEC-034 item 4): this push wording is not in the spec and is not approved.
     (MessageId.C8, Channel.PUSH): _Template(
         required=frozenset({"service", "reply_by"}),
         text="{service} has not updated. Reply by {reply_by}.",

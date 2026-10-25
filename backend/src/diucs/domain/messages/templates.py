@@ -5,7 +5,8 @@ Wording: docs/spec/domain-rules.md section 9 and the D15 and D16 prompts. Field 
 docs/spec/contracts.md. DEC-034 records the capacity choices the prompt leaves open: which fields
 each channel needs, the email bodies, push wording for C8, and the minimum number of items for C9.
 DEC-037 records the booking, invitation, code and alert choices: the B2, B3 and K2 email and push
-wording (not yet IG-approved), the B7 minimum of two references, and the [ASSUMED] texts.
+wording and every rule-book example (not yet IG-approved), the B7 minimum of two references,
+and the [ASSUMED] texts.
 
 Callers pass time fields already formatted as "HH:MM" strings and the unit phrase as text.
 No template holds a patient name, NHS number or postcode, and no field may add one.
@@ -219,8 +220,9 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
             "For a booking, reply CONFIRMED or DECLINE."
         ),
     ),
+    # IG-pending (DEC-037 item 3): rule-book example, awaiting IG approval.
     (MessageId.B1, Channel.TEXT): _Template(required=_FIELDS[MessageId.B1], text=_B1_TEXT),
-    # IG-pending (DEC-037 item 1): email and push wording is not yet IG-approved.
+    # IG-pending (DEC-037 item 3): B2 email wording, awaiting IG approval.
     (MessageId.B2, Channel.EMAIL): _Template(
         required=_FIELDS[MessageId.B2],
         text=(f"{_B2_LINES}Review request: {{link}}\n\n{_B2_NO_BOOKING}"),
@@ -234,16 +236,18 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
             f"<p>{_B2_NO_BOOKING}</p>"
         ),
     ),
-    # IG-pending (DEC-037 item 1): push wording is not yet IG-approved.
+    # IG-pending (DEC-037 item 3): B3 push wording, awaiting IG approval.
     (MessageId.B3, Channel.PUSH): _Template(
         required=_FIELDS[MessageId.B3],
         text="Reply by {reply_by}. Not booked until you confirm.",
         subject="Booking request {reference}: {service}",
     ),
+    # IG-pending (DEC-037 item 3): rule-book example, awaiting IG approval.
     (MessageId.B4, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.B4],
         text="Booked: {reference}, {service}, confirmed {confirmed_at}. Thank you.",
     ),
+    # IG-pending (DEC-037 item 3): rule-book example, awaiting IG approval.
     (MessageId.B5, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.B5],
         text=(
@@ -251,15 +255,13 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
             "Optional reason: reply 1 full, 2 outside criteria, 3 other."
         ),
     ),
-    # [ASSUMED] wording (domain-rules section 9 id list; DEC-037 item 4).
+    # Screen text, ui-screens.md line 1276 (DEC-037 item 1). No rule-book sample exists.
     (MessageId.B6, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.B6],
-        text=(
-            "DIUCS: booking {reference} was cancelled by the SPOA at {cancelled_at}. "
-            "No action needed."
-        ),
+        text="Booking {reference} was cancelled at {cancelled_at}. No action needed.",
     ),
     (MessageId.B7, Channel.TEXT): _Template(required=_FIELDS[MessageId.B7], text=_B7_TEXT),
+    # IG-pending (DEC-037 item 3): rule-book example, awaiting IG approval.
     (MessageId.I1, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I1],
         text=(
@@ -267,6 +269,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
             "Set up takes about 3 minutes: {link} Valid for 48 hrs."
         ),
     ),
+    # IG-pending (DEC-037 item 3): screen wording, awaiting IG approval.
     (MessageId.I2, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I2],
         text=(
@@ -284,7 +287,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         required=_FIELDS[MessageId.K1],
         text="DIUCS code: {code}. It works for 10 minutes. Do not share it.",
     ),
-    # IG-pending (DEC-037 item 1): email and push wording is not yet IG-approved.
+    # IG-pending (DEC-037 item 3): K2 email and push wording, awaiting IG approval.
     (MessageId.K2, Channel.EMAIL): _Template(
         required=_FIELDS[MessageId.K2],
         text=_K2_TEXT,

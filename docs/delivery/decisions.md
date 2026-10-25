@@ -211,3 +211,20 @@ Status: accepted · Affects: D12 (`rules/report_flags.py`), and U07 and W42 wher
 Reports for other services, and reports later than the new one, are ignored. A report in `recent` with the same id as the new report is counted once.
 
 Evidence: `docs/delivery/evidence/D12.md`. Tests: `backend/tests/unit/domain/rules/test_report_flags.py`.
+
+## DEC-023 current_due looks back up to 8 days, not only today and yesterday (D04)
+Status: accepted · Affects: D04 (`current_due`), and every consumer of "was due" (D05 reports, D07 board, 1.5 overdue).
+
+- The D04 prompt says `current_due` looks at today's and yesterday's due lists. A service that is due only on weekdays, with its last due time on Friday 19:00, would then have no current due time on Sunday or before 08:00 on Monday. The overdue rule in domain-rules 1.5 would lose the missed Friday report, and the board would show the service without "was due". That is the wrong answer for a patient-facing display.
+- Decision: `current_due` searches back over the same 8-day window as `next_due`, and returns the latest due time at or before `now`. Any valid profile has a due time within 7 days, so the result is never None for a valid profile.
+- Tests: `test_current_due_on_monday_morning_finds_friday_evening` and the weekend cases in `backend/tests/unit/domain/rules/test_schedule.py`.
+
+## DEC-024 Twice-a-day 14:00 is due unless the service opens after 14:00 (D04)
+Status: accepted · Affects: D04 (`due_times_on` for `twice-a-day`), D05 (reports due), D07 (board overdue), and any task that shows a due time.
+
+- domain-rules 1.4 says: due at the opening time and at 14:00, and "if the service opens after 14:00, only the opening time". That is the only exception in the rule book.
+- The D04 prompt added a second exception: "or closes at or before 14:00". The rule book has no such exception. The prompt also tested the opening after 14:00 only.
+- Decision: follow the rule book. 14:00 is due whenever the window opens at or before 14:00, including windows that end at or before 14:00 and overnight windows that are open across 14:00 (for example 10:00 to 06:00). The 14:00 due is not kept only when the opening is after 14:00.
+- Reading the rule book this way gives a due at 14:00 for a window that ends at 12:00 (the service is closed at 14:00). This is the cost of the rule book's wording. Missing a due is worse than an extra one. If the owner wants the closed case removed, that is a rule-book change, not a code change.
+- Tests: `test_twice_a_day_*` in `backend/tests/unit/domain/rules/test_schedule.py`, and the property `test_twice_a_day_has_1400_exactly_when_the_window_does_not_open_after_it`.
+- The number is DEC-024 on this branch. The orchestrator may renumber at delivery, since DEC-023 is also taken on another branch.

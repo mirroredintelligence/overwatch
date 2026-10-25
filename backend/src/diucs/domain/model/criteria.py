@@ -1,12 +1,36 @@
 """Service criteria: the needs, districts and ages a service takes, as one versioned record (D20).
 
-DEC-010 red stub: fields only. Validation and behaviour come in the implementation commit.
+A criteria version is current, pending approval, draft, superseded or retired (domain-rules 4.2).
+Only a current version is used to filter cases. Validation fails closed: a malformed version
+cannot be built, so it cannot reach the filter.
 """
 
 from dataclasses import dataclass
 from datetime import date
 
 from diucs.domain.codes import CriteriaStatus, NeedCategory
+from diucs.domain.errors import ValidationFailed
+from diucs.domain.rules.postcode import normalise_district
+
+
+def _check_int(field: str, value: object, minimum: int) -> None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < minimum:
+        raise ValidationFailed(field, f"must be a whole number of at least {minimum}")
+
+
+def _check_needs(field: str, needs: object) -> None:
+    # Exact enum members only: a StrEnum from another enum, or a plain string, with the same
+    # value would compare equal and must not pass as a need (lesson L3).
+    if not isinstance(needs, frozenset) or any(type(need) is not NeedCategory for need in needs):
+        raise ValidationFailed(field, "must be a set of need categories")
+
+
+def _check_districts(districts: object) -> None:
+    if not isinstance(districts, frozenset):
+        raise ValidationFailed("districts", "must be a set of district codes")
+    for district in districts:
+        if not isinstance(district, str) or normalise_district(district) != district:
+            raise ValidationFailed("districts", "must be upper-case district codes")
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,3 +48,16 @@ class ServiceCriteria:
     owner_role_id: str
     change_reason: str = ""
     supersedes_id: str | None = None
+
+    def __post_init__(self) -> None:
+        _check_int("version", self.version, minimum=1)
+        if not isinstance(self.status, CriteriaStatus):
+            raise ValidationFailed("status", "must be a criteria status")
+        _check_int("age_min", self.age_min, minimum=0)
+        if self.age_max is not None:
+            _check_int("age_max", self.age_max, minimum=self.age_min)
+        _check_districts(self.districts)
+        _check_needs("accepts", self.accepts)
+        _check_needs("excludes", self.excludes)
+        if self.accepts & self.excludes:
+            raise ValidationFailed("excludes", "a need cannot be both accepted and excluded")

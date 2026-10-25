@@ -113,3 +113,15 @@ def test_a_need_in_both_lists_raises_validation_failed() -> None:
             accepts=frozenset({NeedCategory.SUSPECTED_FRACTURE}),
             excludes=frozenset({NeedCategory.SUSPECTED_FRACTURE}),
         )
+
+
+@pytest.mark.parametrize("districts", [["DT4"], frozenset({3}), frozenset({None})])
+def test_districts_must_be_a_set_of_strings(districts: object) -> None:
+    with pytest.raises(ValidationFailed) as error:
+        ucr_west(districts=districts)
+    assert error.value.field == "districts"
+
+
+def test_a_service_with_no_districts_is_built_and_is_never_covered() -> None:
+    criteria = ucr_west(districts=frozenset())
+    assert criteria.districts == frozenset()

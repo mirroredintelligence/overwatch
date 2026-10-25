@@ -15,7 +15,7 @@ from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.rules.criteria_filter import AGE_BAND_BOUNDS, FilterResult, check_hard_criteria
 from tests.unit.domain.model.test_criteria import ucr_west
 
-AGE_WARNING = "Check age: band overlaps the service's age limits"
+AGE_OVERLAP_WARNING = "Check age: band overlaps the service's age limits"
 
 
 class _OtherCodes(StrEnum):
@@ -50,7 +50,7 @@ def test_partial_age_overlap_passes_with_the_age_warning() -> None:
     result = run(age=AgeBand.A16_64, needs=(NeedCategory.FRAILTY,))
     assert result.passes is True
     assert result.reasons == ()
-    assert result.warnings == (AGE_WARNING,)
+    assert result.warnings == (AGE_OVERLAP_WARNING,)
 
 
 def test_band_entirely_below_the_age_minimum_fails() -> None:
@@ -151,12 +151,10 @@ def test_age_maximum_is_reported_when_it_is_the_limit() -> None:
         (AgeBand.A80_PLUS, True, False),
     ],
 )
-def test_each_band_against_the_sample_age_limits(
-    age: AgeBand, passes: bool, warned: bool
-) -> None:
+def test_each_band_against_the_sample_age_limits(age: AgeBand, passes: bool, warned: bool) -> None:
     result = run(age=age, needs=(NeedCategory.FRAILTY,))
     assert result.passes is passes
-    assert (result.warnings == (AGE_WARNING,)) is warned
+    assert (result.warnings == (AGE_OVERLAP_WARNING,)) is warned
 
 
 def test_age_bound_table_matches_the_rule_book() -> None:
@@ -212,7 +210,36 @@ def test_passes_exactly_when_every_need_is_accepted_and_none_excluded(
 @given(district=st.sampled_from(["DT1", "DT2", "DT3", "DT4", "DT5", "DT6", "SW1A"]))
 def test_district_passes_exactly_when_it_is_covered(district: str) -> None:
     criteria = ucr_west()
-    result = check_hard_criteria(
-        criteria, AgeBand.A80_PLUS, district, (NeedCategory.FRAILTY,)
-    )
+    result = check_hard_criteria(criteria, AgeBand.A80_PLUS, district, (NeedCategory.FRAILTY,))
     assert result.passes is (district in criteria.districts)
+
+
+def test_a_service_with_no_districts_is_never_covered() -> None:
+    result = run(criteria=ucr_west(districts=frozenset()), needs=(NeedCategory.FRAILTY,))
+    assert result.passes is False
+    assert result.reasons == ("Does not cover DT4",)
+
+
+def test_a_non_text_district_is_not_covered() -> None:
+    result = run(district=None, needs=(NeedCategory.FRAILTY,))  # type: ignore[arg-type]
+    assert result.passes is False
+    assert result.reasons == ("Does not cover None",)
+
+
+@pytest.mark.parametrize(
+    ("age_min", "age_max", "age", "passes", "warned"),
+    [
+        (65, None, AgeBand.A65_79, True, False),
+        (18, 65, AgeBand.A65_79, True, True),
+        (64, None, AgeBand.A16_64, True, True),
+        (15, None, AgeBand.A0_15, True, True),
+        (16, None, AgeBand.A0_15, False, False),
+    ],
+)
+def test_age_edges_are_inclusive(
+    age_min: int, age_max: int | None, age: AgeBand, passes: bool, warned: bool
+) -> None:
+    criteria = ucr_west(age_min=age_min, age_max=age_max)
+    result = run(criteria=criteria, age=age, needs=(NeedCategory.FRAILTY,))
+    assert result.passes is passes
+    assert (result.warnings == (AGE_OVERLAP_WARNING,)) is warned

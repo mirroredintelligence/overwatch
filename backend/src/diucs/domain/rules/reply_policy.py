@@ -1,14 +1,21 @@
-"""Capacity reply policy (D11): what happens to a capacity reply. Stub for the red commit (DEC-010).
+"""Capacity reply policy (D11): what happens to a capacity reply.
+
+Record it, record it as a correction, refuse it as late, refuse a third Y, or ask the reporter to
+send an unusual number again. This is a pure decision; the use case acts on it later.
 
 Rules: docs/spec/domain-rules.md section 2.2. Names: docs/spec/contracts.md (rules/reply_policy.py).
-Pure: no I/O and no clock; `now` is an argument.
+Pure: no I/O and no clock. `now` is an argument. Every datetime is converted to UTC before it is
+compared, so the London clock change does not move a window (lesson L4, DEC-025). Silent points
+in the rule book are decided in DEC-027.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from diucs.domain.codes import ReportFlagReason
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.reply_parser import Confirm, Number
+from diucs.domain.rules.schedule import REPLY_WINDOW
 
 CORRECTION_WINDOW = timedelta(minutes=15)  # [ASSUMED] domain-rules 2.2
 MAX_CONSECUTIVE_CONFIRMS = 2
@@ -62,5 +69,54 @@ Decision = RecordNumber | RecordConfirm | RejectLate | RejectConfirmLimit | AskR
 
 
 def decide_capacity_reply(reply: Confirm | Number, state: PromptState, now: datetime) -> Decision:
-    """Decide what happens to one capacity reply. Stub: behaviour is added in the green commit."""
-    raise NotImplementedError
+    """Decide what happens to one capacity reply. Only decides; `state` is not changed.
+
+    Order: a Y is judged against the open prompt only. A figure inside the correction window is a
+    correction, whether or not the prompt is open. Otherwise a figure needs an open prompt. Anything
+    else is late. A datetime without a UTC offset raises ValidationFailed.
+    """
+    now_utc = _instant("now", now)
+    reply_by_utc = None if state.reply_by is None else _instant("reply_by", state.reply_by)
+    accepted_utc = (
+        None
+        if state.last_accepted_at is None
+        else _instant("last_accepted_at", state.last_accepted_at)
+    )
+    prompt_open = reply_by_utc is not None and now_utc <= reply_by_utc
+    if isinstance(reply, Confirm):
+        return _decide_confirm(state, now, prompt_open)
+    if accepted_utc is not None and _in_correction_window(now_utc, accepted_utc):
+        return _decide_figure(reply.value, state, is_correction=True)
+    if prompt_open:
+        return _decide_figure(reply.value, state, is_correction=False)
+    return RejectLate(now + REPLY_WINDOW)
+
+
+def _decide_confirm(state: PromptState, now: datetime, prompt_open: bool) -> Decision:
+    if not prompt_open:
+        return RejectLate(now + REPLY_WINDOW)
+    if state.recorded_value is None:
+        return NeedNumber()
+    if state.consecutive_confirms >= MAX_CONSECUTIVE_CONFIRMS:
+        return RejectConfirmLimit()
+    return RecordConfirm()
+
+
+def _decide_figure(value: int, state: PromptState, *, is_correction: bool) -> Decision:
+    low, high = state.usual_range
+    if low <= value <= high:
+        return RecordNumber(value, is_correction, None)
+    if state.pending_out_of_range == value:
+        return RecordNumber(value, is_correction, ReportFlagReason.OUT_OF_RANGE_TWICE)
+    return AskRecheck(value)
+
+
+def _in_correction_window(now_utc: datetime, accepted_utc: datetime) -> bool:
+    elapsed = now_utc - accepted_utc
+    return timedelta(0) <= elapsed <= CORRECTION_WINDOW
+
+
+def _instant(field: str, value: datetime) -> datetime:
+    if value.utcoffset() is None:
+        raise ValidationFailed(field, "a timezone-aware datetime is needed")
+    return value.astimezone(UTC)

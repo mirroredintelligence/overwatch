@@ -164,7 +164,7 @@ def test_correction_inside_an_open_prompt_is_marked_as_a_correction() -> None:
 
 
 def test_correction_window_is_fifteen_minutes() -> None:
-    assert CORRECTION_WINDOW == timedelta(minutes=15)
+    assert timedelta(minutes=15) == CORRECTION_WINDOW
 
 
 def test_y_after_the_prompt_closed_is_late_even_inside_the_correction_window() -> None:
@@ -270,8 +270,8 @@ def test_no_figure_outside_the_usual_range_is_recorded_without_the_flag(
     confirms: int,
 ) -> None:
     now = london(12, 0)
-    accepted = None if minutes_since_accept is None else now - timedelta(
-        minutes=minutes_since_accept
+    accepted = (
+        None if minutes_since_accept is None else now - timedelta(minutes=minutes_since_accept)
     )
     prompt = state(
         reply_by=now + timedelta(minutes=minutes_to_reply_by),

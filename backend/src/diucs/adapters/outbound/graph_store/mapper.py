@@ -1,4 +1,4 @@
-"""FHIR R4B resource to property-graph mapper (rules R1 to R3, R5 to R7, R11 of fhir-data-model.md).
+"""FHIR R4B resource to property-graph mapper (rules R1 to R8, R11 of fhir-data-model.md).
 
 Pure: no I/O, no neo4j import. G05 writes the fragment to Neo4j.
 
@@ -8,6 +8,9 @@ or a relationship, so the fragment is always storable as Neo4j properties.
 
 DEC-049 and DEC-051: lossless or refused. Each element either round-trips exactly or raises a
 DomainError. Nothing is dropped, overwritten or moved.
+
+G04 (rules R4 and R8): a repeating or multi-part backbone element is a child node keyed
+`<parentKey>#<element>[<index>]`; a registered extension is the property `ext_<shortName>`.
 """
 
 import re
@@ -15,6 +18,11 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from diucs.adapters.outbound.graph_store.extensions import (
+    EXTENSIONS,
+    PROPERTY_PREFIX,
+    by_short_name,
+)
 from diucs.domain.codes import BASE_URL
 from diucs.domain.errors import DomainError, NotFound, ValidationFailed
 
@@ -38,6 +46,7 @@ _CONCEPT_PREFIX = "Concept|"
 _IDENTIFIER_PREFIX = "Identifier|"
 _CODE_SYSTEM_PREFIX = "CodeSystem|"
 _KEY_SEPARATOR = "|"
+_CHILD_SEPARATOR = "#"
 _CODEABLE_KEYS = frozenset({"coding", "text"})
 _CODING_KEYS = frozenset({"system", "code", "display", "version", "userSelected"})
 _IDENTIFIER_KEYS = frozenset({"system", "value", "use"})
@@ -45,6 +54,19 @@ _PERIOD_KEYS = frozenset({"start", "end"})
 _RANGE_KEYS = frozenset({"low", "high"})
 _QUANTITY_KEYS = frozenset({"value", "unit", "system", "code"})
 _START, _END = "Start", "End"
+
+_EXTENSION_ELEMENT = "extension"
+_EXTENSION_URL = "url"
+_EXTENSION_ORDER = "extensionOrder"
+_POSITION_ELEMENT = "position"
+_POSITION_PROPERTIES: dict[str, str] = {
+    "latitude": "positionLatitude",
+    "longitude": "positionLongitude",
+}
+_POSITION_ELEMENTS: dict[str, str] = {prop: name for name, prop in _POSITION_PROPERTIES.items()}
+# Top-level names the mapper uses for its own properties. A FHIR element with one of these names
+# would be read back as an extension, a position or the order list, so it is refused.
+_MAPPER_NAMES = frozenset({"ext", _EXTENSION_ORDER, *_POSITION_PROPERTIES.values()})
 
 
 class UnsupportedElement(DomainError):
@@ -57,6 +79,10 @@ class UnsupportedElement(DomainError):
 
 class UnknownExtension(UnsupportedElement):
     """An extension URL that is not in the registry. Rejected, never dropped."""
+
+    def __init__(self, url: str, path: str = "extension") -> None:
+        super().__init__(path)
+        self.url = url
 
 
 class InvalidReference(DomainError):
@@ -89,18 +115,61 @@ class GraphFragment:
     rels: tuple[RelSpec, ...]
 
 
+@dataclass(frozen=True, slots=True)
+class BackboneDef:
+    """A backbone element (R4): the child node's label and the catalogue relationship to it."""
+
+    label: str
+    relation: str
+
+
+# Keyed by (FHIR path of the owner, element). "Organization.contact" is the contact child of an
+# Organization. An element not listed here is refused, never guessed.
+_BACKBONE: dict[tuple[str, str], BackboneDef] = {
+    ("HealthcareService", "availableTime"): BackboneDef(
+        "HealthcareService_AvailableTime", "HAS_AVAILABLE_TIME"
+    ),
+    ("HealthcareService", "notAvailable"): BackboneDef(
+        "HealthcareService_NotAvailable", "HAS_NOT_AVAILABLE"
+    ),
+    ("HealthcareService", "eligibility"): BackboneDef(
+        "HealthcareService_Eligibility", "HAS_ELIGIBILITY"
+    ),
+    ("HealthcareService", "telecom"): BackboneDef("ContactPoint", "HAS_TELECOM"),
+    ("Location", "address"): BackboneDef("Address", "HAS_ADDRESS"),
+    ("Location", "hoursOfOperation"): BackboneDef("Location_HoursOfOperation", "HAS_HOURS"),
+    ("Location", "telecom"): BackboneDef("ContactPoint", "HAS_TELECOM"),
+    ("Organization", "address"): BackboneDef("Address", "HAS_ADDRESS"),
+    ("Organization", "contact"): BackboneDef("Organization_Contact", "HAS_CONTACT"),
+    ("Organization", "telecom"): BackboneDef("ContactPoint", "HAS_TELECOM"),
+    ("Organization.contact", "address"): BackboneDef("Address", "HAS_ADDRESS"),
+    ("Organization.contact", "telecom"): BackboneDef("ContactPoint", "HAS_TELECOM"),
+}
+
+
+@dataclass(slots=True)
+class _Owner:
+    """A node being mapped: the resource itself, or one backbone child of it."""
+
+    key: str
+    path: str
+    properties: dict[str, Any]
+    is_root: bool
+
+    def set_ods_code(self, value: str) -> None:
+        current = self.properties.get(_ODS_CODE_PROPERTY)
+        if current is not None and current != value:
+            raise ValidationFailed(_IDENTIFIER_ELEMENT, "more than one ODS organisation code")
+        self.properties[_ODS_CODE_PROPERTY] = value
+
+
 @dataclass(slots=True)
 class _Mapping:
-    """Accumulates one resource's root properties, relationships and shared nodes."""
+    """Accumulates one resource's relationships, backbone children and shared concept nodes."""
 
-    root_key: str
-    resource_type: str
-    properties: dict[str, Any]
     rels: list[RelSpec] = field(default_factory=list)
+    children: list[NodeSpec] = field(default_factory=list)
     shared: dict[str, NodeSpec] = field(default_factory=dict)
-
-    def path(self, element: str) -> str:
-        return f"{self.resource_type}.{element}"
 
     def share(self, node: NodeSpec, field_name: str) -> None:
         """Keep one copy of a shared node; the same key with other details is refused."""
@@ -109,12 +178,6 @@ class _Mapping:
             self.shared[node.key] = node
         elif existing != node:
             raise ValidationFailed(field_name, "the same code or identifier is given two ways")
-
-    def set_ods_code(self, value: str) -> None:
-        current = self.properties.get(_ODS_CODE_PROPERTY)
-        if current is not None and current != value:
-            raise ValidationFailed(_IDENTIFIER_ELEMENT, "more than one ODS organisation code")
-        self.properties[_ODS_CODE_PROPERTY] = value
 
 
 def upper_snake(name: str) -> str:
@@ -132,13 +195,15 @@ def to_graph(resource: dict[str, Any]) -> GraphFragment:
         raise ValidationFailed("id", "required")
 
     root_key = f"{resource_type}/{resource_id}"
-    mapping = _Mapping(
-        root_key=root_key,
-        resource_type=resource_type,
+    mapping = _Mapping()
+    root = _Owner(
+        key=root_key,
+        path=resource_type,
         properties={
             "id": resource_id,
             "iri": f"{BASE_URL}fhir/{resource_type}/{resource_id}",
         },
+        is_root=True,
     )
 
     # Sorted, so two dicts that differ only in key order give equal fragments.
@@ -147,24 +212,28 @@ def to_graph(resource: dict[str, Any]) -> GraphFragment:
             continue
         _check_element_name(element)
         if element == "meta":
-            mapping.properties.update(_meta(mapping.path(element), value))
+            root.properties.update(_meta(f"{resource_type}.meta", value))
         else:
-            _map_element(mapping, element, value)
+            _map_element(mapping, root, element, value)
 
-    node = NodeSpec(key=root_key, labels=("Resource", resource_type), properties=mapping.properties)
+    node = NodeSpec(key=root_key, labels=("Resource", resource_type), properties=root.properties)
     return GraphFragment(
         root_key=root_key,
-        nodes=(node, *mapping.shared.values()),
+        nodes=(node, *mapping.children, *mapping.shared.values()),
         rels=tuple(mapping.rels),
     )
 
 
 def from_graph(fragment: GraphFragment) -> dict[str, Any]:
     """Rebuild the FHIR resource from the root node's properties and its relationships."""
-    root = next((node for node in fragment.nodes if node.key == fragment.root_key), None)
+    nodes = {node.key: node for node in fragment.nodes}
+    root = nodes.get(fragment.root_key)
     if root is None:
         raise NotFound(fragment.root_key)
-    nodes = {node.key: node for node in fragment.nodes}
+
+    by_start: dict[str, list[RelSpec]] = {}
+    for rel in fragment.rels:
+        by_start.setdefault(rel.start, []).append(rel)
 
     resource_type = next(label for label in root.labels if label != "Resource")
     props = dict(root.properties)
@@ -174,21 +243,10 @@ def from_graph(fragment: GraphFragment) -> dict[str, Any]:
     meta = {key: props.pop(key) for key in sorted(_META_KEYS) if key in props}
     if meta:
         resource["meta"] = meta
-
     for name in _COPIED_NAMES:
         props.pop(name, None)
-    for name, value in props.items():
-        _rebuild_property(resource, name, value)
 
-    by_element: dict[str, list[RelSpec]] = {}
-    for rel in fragment.rels:
-        if rel.start == fragment.root_key:
-            element = rel.properties["fhirPath"].split(".", 1)[1]
-            by_element.setdefault(element, []).append(rel)
-
-    for element, rels in by_element.items():
-        resource[element] = _rebuild_element(element, rels, nodes)
-
+    resource.update(_rebuild_owner(root.key, props, by_start, nodes))
     return resource
 
 
@@ -201,73 +259,171 @@ def _check_element_name(element: str) -> None:
         raise ValidationFailed(element, "reserved: the mapper stores this on the node itself")
     if element in _COPIED_NAMES:
         raise ValidationFailed(element, "reserved: a copied property")
+    if element in _MAPPER_NAMES:
+        raise ValidationFailed(element, "reserved: the mapper uses this name for its properties")
     if "_" in element:
         raise ValidationFailed(element, "reserved: underscore is used by flattened names")
     if element.endswith((_START, _END)):
         raise ValidationFailed(element, "reserved: Start and End are used by periods")
 
 
-def _map_element(mapping: _Mapping, element: str, value: Any) -> None:
-    path = mapping.path(element)
+def _map_element(mapping: _Mapping, owner: _Owner, element: str, value: Any) -> None:
+    path = f"{owner.path}.{element}"
+    if element == _EXTENSION_ELEMENT:
+        _map_extensions(owner, path, value)
+        return
+    if owner.path == "Location" and element == _POSITION_ELEMENT:
+        _map_position(owner, path, value)
+        return
+    if (owner.path, element) in _BACKBONE:
+        _map_backbone(mapping, owner, element, path, value)
+        return
     if isinstance(value, list):
-        _map_list(mapping, element, path, value)
+        _map_list(mapping, owner, element, path, value)
     else:
-        _map_single(mapping, element, path, value)
-    _copy_filter_code(mapping, element, value)
+        _map_single(mapping, owner, element, path, value)
+    _copy_filter_code(owner, element, value)
 
 
-def _map_list(mapping: _Mapping, element: str, path: str, value: list[Any]) -> None:
+def _map_list(mapping: _Mapping, owner: _Owner, element: str, path: str, value: list[Any]) -> None:
     if not value:
         raise UnsupportedElement(path)
     if all(_is_primitive(item) for item in value):
-        mapping.properties[element] = list(value)
+        owner.properties[element] = list(value)
     elif all(_is_reference(item) for item in value):
         for order, item in enumerate(value):
-            mapping.rels.append(_reference_rel(mapping.root_key, path, element, item, order))
+            mapping.rels.append(_reference_rel(owner.key, path, element, item, order))
     elif all(_is_codeable(item) for item in value):
         for concept_order, item in enumerate(value):
-            _concept_rels(mapping, element, path, item, concept_order)
-    elif element == _IDENTIFIER_ELEMENT and all(isinstance(item, dict) for item in value):
+            _concept_rels(mapping, owner, element, path, item, concept_order)
+    elif (
+        owner.is_root
+        and element == _IDENTIFIER_ELEMENT
+        and all(isinstance(item, dict) for item in value)
+    ):
         for order, item in enumerate(value):
-            _identifier_rel(mapping, path, item, order)
+            _identifier_rel(mapping, owner, path, item, order)
     else:
         raise UnsupportedElement(path)
 
 
-def _map_single(mapping: _Mapping, element: str, path: str, value: Any) -> None:
+def _map_single(mapping: _Mapping, owner: _Owner, element: str, path: str, value: Any) -> None:
     if _is_primitive(value):
-        mapping.properties[element] = value
+        owner.properties[element] = value
     elif _is_reference(value):
-        mapping.rels.append(_reference_rel(mapping.root_key, path, element, value, None))
+        mapping.rels.append(_reference_rel(owner.key, path, element, value, None))
     elif _is_codeable(value):
-        _concept_rels(mapping, element, path, value, None)
-    elif element == _IDENTIFIER_ELEMENT and isinstance(value, dict):
-        _identifier_rel(mapping, path, value, None)
+        _concept_rels(mapping, owner, element, path, value, None)
+    elif owner.is_root and element == _IDENTIFIER_ELEMENT and isinstance(value, dict):
+        _identifier_rel(mapping, owner, path, value, None)
     elif _is_shape(value, _PERIOD_KEYS):
-        _flatten_period(mapping, element, path, value)
+        _flatten_period(owner, element, path, value)
     elif _is_shape(value, _RANGE_KEYS):
-        _flatten_range(mapping, element, path, value)
+        _flatten_range(owner, element, path, value)
     elif _is_shape(value, _QUANTITY_KEYS):
-        _flatten_quantity(mapping, path, element, value)
+        _flatten_quantity(owner, path, element, value)
     else:
         raise UnsupportedElement(path)
 
 
-def _copy_filter_code(mapping: _Mapping, element: str, value: Any) -> None:
+def _copy_filter_code(owner: _Owner, element: str, value: Any) -> None:
     """R11: copy the first code of a frequently filtered CodeableConcept to a property."""
-    property_name = FILTER_CODE_PROPERTIES.get((mapping.resource_type, element))
+    if not owner.is_root:
+        return
+    property_name = FILTER_CODE_PROPERTIES.get((owner.path, element))
     if property_name is None:
         return
     concept = value[0] if isinstance(value, list) and value else value
     if _is_codeable(concept):
-        mapping.properties[property_name] = concept["coding"][0]["code"]
+        owner.properties[property_name] = concept["coding"][0]["code"]
+
+
+# Backbone elements (R4)
+
+
+def _map_backbone(mapping: _Mapping, owner: _Owner, element: str, path: str, value: Any) -> None:
+    """A repeating or multi-part element becomes one child node per entry, keyed by its index."""
+    definition = _BACKBONE[(owner.path, element)]
+    if isinstance(value, list) and not value:
+        raise UnsupportedElement(path)
+    entries = value if isinstance(value, list) else [value]
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise UnsupportedElement(path)
+        if not entry:
+            raise ValidationFailed(element, "empty; omit the element instead")
+        key = f"{owner.key}{_CHILD_SEPARATOR}{element}[{index}]"
+        child = _Owner(key=key, path=path, properties={}, is_root=False)
+        for name, item in sorted(entry.items()):
+            _check_element_name(name)
+            _map_element(mapping, child, name, item)
+        mapping.children.append(NodeSpec(key, (definition.label,), child.properties))
+        rel_props: dict[str, Any] = {"fhirPath": path}
+        if isinstance(value, list):
+            rel_props["order"] = index
+        mapping.rels.append(RelSpec(definition.relation, owner.key, key, rel_props))
+
+
+# Extensions (R8)
+
+
+def _map_extensions(owner: _Owner, path: str, value: Any) -> None:
+    """Each registered extension becomes ext_<shortName>. Several keep their list order."""
+    if not isinstance(value, list) or not value:
+        raise UnsupportedElement(path)
+    names: list[str] = []
+    for entry in value:
+        if not isinstance(entry, dict) or not isinstance(entry.get(_EXTENSION_URL), str):
+            raise UnsupportedElement(path)
+        url = entry[_EXTENSION_URL]
+        defn = EXTENSIONS.get(url)
+        if defn is None:
+            raise UnknownExtension(url, path)
+        if set(entry) != {_EXTENSION_URL, defn.value_key}:
+            raise UnsupportedElement(path)
+        extension_value = entry[defn.value_key]
+        if not _matches_value_type(defn.value_type, extension_value):
+            raise ValidationFailed(defn.property_name, "value does not match its registered type")
+        if defn.short_name in names:
+            raise ValidationFailed(_EXTENSION_ELEMENT, "the same extension appears twice")
+        names.append(defn.short_name)
+        owner.properties[defn.property_name] = extension_value
+    if len(names) > 1:
+        owner.properties[_EXTENSION_ORDER] = names
+
+
+def _matches_value_type(value_type: str, value: Any) -> bool:
+    if value_type in ("string", "dateTime"):
+        return isinstance(value, str)
+    if value_type == "boolean":
+        return isinstance(value, bool)
+    if value_type == "integer":
+        return isinstance(value, int) and not isinstance(value, bool)
+    return isinstance(value, int | float) and not isinstance(value, bool)
+
+
+def _map_position(owner: _Owner, path: str, value: Any) -> None:
+    """Location.position keeps its latitude and longitude as properties (G04)."""
+    if not isinstance(value, dict) or not value or not set(value) <= set(_POSITION_PROPERTIES):
+        raise UnsupportedElement(path)
+    for name, prop in _POSITION_PROPERTIES.items():
+        if name in value:
+            coordinate = value[name]
+            if isinstance(coordinate, bool) or not isinstance(coordinate, int | float):
+                raise UnsupportedElement(path)
+            owner.properties[prop] = coordinate
 
 
 # Concepts (R5), identifiers (R6), periods, quantities and ranges (R7)
 
 
 def _concept_rels(
-    mapping: _Mapping, element: str, path: str, concept: Any, concept_order: int | None
+    mapping: _Mapping,
+    owner: _Owner,
+    element: str,
+    path: str,
+    concept: Any,
+    concept_order: int | None,
 ) -> None:
     codings = concept.get("coding")
     if not isinstance(codings, list) or not codings:
@@ -276,11 +432,12 @@ def _concept_rels(
     if "text" in concept and not isinstance(text, str):
         raise UnsupportedElement(path)
     for order, coding in enumerate(codings):
-        _coding_rel(mapping, element, path, coding, order, concept_order, text)
+        _coding_rel(mapping, owner, element, path, coding, order, concept_order, text)
 
 
 def _coding_rel(
     mapping: _Mapping,
+    owner: _Owner,
     element: str,
     path: str,
     coding: Any,
@@ -311,10 +468,12 @@ def _coding_rel(
         rel_props["text"] = text
     if "userSelected" in coding:
         rel_props["userSelected"] = _boolean(path, coding["userSelected"])
-    mapping.rels.append(RelSpec(upper_snake(element), mapping.root_key, concept_key, rel_props))
+    mapping.rels.append(RelSpec(upper_snake(element), owner.key, concept_key, rel_props))
 
 
-def _identifier_rel(mapping: _Mapping, path: str, identifier: Any, order: int | None) -> None:
+def _identifier_rel(
+    mapping: _Mapping, owner: _Owner, path: str, identifier: Any, order: int | None
+) -> None:
     if not isinstance(identifier, dict) or not set(identifier) <= _IDENTIFIER_KEYS:
         raise UnsupportedElement(path)
     system = _key_part("system", identifier.get("system"))
@@ -328,30 +487,30 @@ def _identifier_rel(mapping: _Mapping, path: str, identifier: Any, order: int | 
 
     key = f"{_IDENTIFIER_PREFIX}{system}{_KEY_SEPARATOR}{value}"
     mapping.share(NodeSpec(key, ("Identifier",), {"system": system, "value": value}), "value")
-    mapping.rels.append(RelSpec("IDENTIFIED_BY", mapping.root_key, key, rel_props))
+    mapping.rels.append(RelSpec("IDENTIFIED_BY", owner.key, key, rel_props))
     if system == ODS_ORG_SYSTEM:
-        mapping.set_ods_code(value)
+        owner.set_ods_code(value)
 
 
-def _flatten_period(mapping: _Mapping, element: str, path: str, period: dict[str, Any]) -> None:
+def _flatten_period(owner: _Owner, element: str, path: str, period: dict[str, Any]) -> None:
     for name, suffix in (("start", _START), ("end", _END)):
         if name in period:
-            mapping.properties[f"{element}{suffix}"] = _text(path, period[name])
+            owner.properties[f"{element}{suffix}"] = _text(path, period[name])
 
 
-def _flatten_range(mapping: _Mapping, element: str, path: str, value: dict[str, Any]) -> None:
+def _flatten_range(owner: _Owner, element: str, path: str, value: dict[str, Any]) -> None:
     for name in ("low", "high"):
         if name in value:
             if not _is_shape(value[name], _QUANTITY_KEYS):
                 raise UnsupportedElement(path)
-            _flatten_quantity(mapping, path, f"{element}_{name}", value[name])
+            _flatten_quantity(owner, path, f"{element}_{name}", value[name])
 
 
-def _flatten_quantity(mapping: _Mapping, path: str, prefix: str, quantity: dict[str, Any]) -> None:
+def _flatten_quantity(owner: _Owner, path: str, prefix: str, quantity: dict[str, Any]) -> None:
     for name, item in quantity.items():
         if not _is_primitive(item):
             raise UnsupportedElement(path)
-        mapping.properties[f"{prefix}_{name}"] = item
+        owner.properties[f"{prefix}_{name}"] = item
 
 
 def _key_part(field_name: str, value: Any) -> str:
@@ -376,25 +535,82 @@ def _boolean(path: str, value: Any) -> bool:
 # Rebuild
 
 
-def _rebuild_property(resource: dict[str, Any], name: str, value: Any) -> None:
+def _rebuild_owner(
+    owner_key: str,
+    props: dict[str, Any],
+    by_start: dict[str, list[RelSpec]],
+    nodes: dict[str, NodeSpec],
+) -> dict[str, Any]:
+    """The FHIR fields of one node: from its own properties, then from its relationships."""
+    body: dict[str, Any] = {}
+    _rebuild_extensions_and_positions(body, props)
+    for name, value in props.items():
+        _rebuild_property(body, name, value)
+
+    groups: dict[str, list[RelSpec]] = {}
+    for rel in by_start.get(owner_key, []):
+        groups.setdefault(rel.properties["fhirPath"].rsplit(".", 1)[1], []).append(rel)
+    for element, rels in groups.items():
+        if element in body:
+            raise ValidationFailed(element, "stored both as a property and as a relationship")
+        body[element] = _rebuild_element(element, rels, by_start, nodes)
+    return body
+
+
+def _rebuild_extensions_and_positions(body: dict[str, Any], props: dict[str, Any]) -> None:
+    """Pops the mapper's own properties (extensions, their order and positions) from props."""
+    order = props.pop(_EXTENSION_ORDER, None)
+    prefix_length = len(PROPERTY_PREFIX)
+    extensions = {
+        name[prefix_length:]: props.pop(name)
+        for name in list(props)
+        if name.startswith(PROPERTY_PREFIX)
+    }
+    if extensions:
+        if order is None and len(extensions) > 1:
+            raise ValidationFailed(_EXTENSION_ELEMENT, "several extensions without an order")
+        names = list(order) if order is not None else list(extensions)
+        if sorted(names) != sorted(extensions):
+            raise ValidationFailed(_EXTENSION_ELEMENT, "order does not match the extensions")
+        entries: list[dict[str, Any]] = []
+        for short_name in names:
+            defn = by_short_name(short_name)
+            if defn is None:
+                raise ValidationFailed(f"{PROPERTY_PREFIX}{short_name}", "not registered")
+            entries.append({_EXTENSION_URL: defn.url, defn.value_key: extensions[short_name]})
+        body[_EXTENSION_ELEMENT] = entries
+    elif order is not None:
+        raise ValidationFailed(_EXTENSION_ELEMENT, "an order without extensions")
+
+    for prop, element_name in _POSITION_ELEMENTS.items():
+        if prop in props:
+            body.setdefault(_POSITION_ELEMENT, {})[element_name] = props.pop(prop)
+
+
+def _rebuild_property(body: dict[str, Any], name: str, value: Any) -> None:
     if name.endswith(_START):
-        resource.setdefault(name[: -len(_START)], {})["start"] = value
+        body.setdefault(name[: -len(_START)], {})["start"] = value
     elif name.endswith(_END):
-        resource.setdefault(name[: -len(_END)], {})["end"] = value
+        body.setdefault(name[: -len(_END)], {})["end"] = value
     elif "_" in name:
         parts = name.split("_")
         if len(parts) == 2:
-            resource.setdefault(parts[0], {})[parts[1]] = value
+            body.setdefault(parts[0], {})[parts[1]] = value
         elif len(parts) == 3:
-            resource.setdefault(parts[0], {}).setdefault(parts[1], {})[parts[2]] = value
+            body.setdefault(parts[0], {}).setdefault(parts[1], {})[parts[2]] = value
         else:
             raise ValidationFailed(name, "unknown flattened property")
     else:
-        resource[name] = list(value) if isinstance(value, list) else value
+        body[name] = list(value) if isinstance(value, list) else value
 
 
-def _rebuild_element(element: str, rels: list[RelSpec], nodes: dict[str, NodeSpec]) -> Any:
-    kinds = {_kind(rel.end) for rel in rels}
+def _rebuild_element(
+    element: str,
+    rels: list[RelSpec],
+    by_start: dict[str, list[RelSpec]],
+    nodes: dict[str, NodeSpec],
+) -> Any:
+    kinds = {_kind(rel) for rel in rels}
     if len(kinds) > 1:
         raise ValidationFailed(element, "mixed kinds of value")
     kind = kinds.pop()
@@ -404,14 +620,24 @@ def _rebuild_element(element: str, rels: list[RelSpec], nodes: dict[str, NodeSpe
         return _ordered_or_single(
             element, rels, lambda rel: _identifier_dict(rel, _node_for(nodes, rel.end))
         )
+    if kind == "child":
+        return _ordered_or_single(
+            element,
+            rels,
+            lambda rel: _rebuild_owner(
+                rel.end, dict(_node_for(nodes, rel.end).properties), by_start, nodes
+            ),
+        )
     return _ordered_or_single(element, rels, _reference_dict)
 
 
-def _kind(end: str) -> str:
-    if end.startswith(_CONCEPT_PREFIX):
+def _kind(rel: RelSpec) -> str:
+    if rel.end.startswith(_CONCEPT_PREFIX):
         return "concept"
-    if end.startswith(_IDENTIFIER_PREFIX):
+    if rel.end.startswith(_IDENTIFIER_PREFIX):
         return "identifier"
+    if rel.end.startswith(f"{rel.start}{_CHILD_SEPARATOR}"):
+        return "child"
     return "reference"
 
 
@@ -508,7 +734,7 @@ def _meta(path: str, meta: Any) -> dict[str, Any]:
 
 
 def _reference_rel(
-    root_key: str, path: str, element: str, reference: dict[str, Any], order: int | None
+    owner_key: str, path: str, element: str, reference: dict[str, Any], order: int | None
 ) -> RelSpec:
     target = _target_key(path, reference["reference"])
     properties: dict[str, Any] = {"fhirPath": path}
@@ -519,11 +745,12 @@ def _reference_rel(
         if not isinstance(display, str):
             raise UnsupportedElement(path)
         properties["display"] = display
-    return RelSpec(type=upper_snake(element), start=root_key, end=target, properties=properties)
+    return RelSpec(type=upper_snake(element), start=owner_key, end=target, properties=properties)
 
 
 def _target_key(path: str, reference: Any) -> str:
-    if not isinstance(reference, str) or reference.count("/") != 1:
+    # '#' is the child separator in node keys, so a reference that contains it is refused.
+    if not isinstance(reference, str) or reference.count("/") != 1 or _CHILD_SEPARATOR in reference:
         raise InvalidReference(path)
     target_type, target_id = reference.split("/")
     if not target_type or not target_id or _KEY_SEPARATOR in target_type:

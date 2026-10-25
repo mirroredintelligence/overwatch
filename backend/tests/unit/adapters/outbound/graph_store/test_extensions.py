@@ -18,6 +18,7 @@ from diucs.adapters.outbound.graph_store.extensions import (
 from diucs.adapters.outbound.graph_store.mapper import (
     GraphFragment,
     NodeSpec,
+    RelSpec,
     UnknownExtension,
     UnsupportedElement,
     from_graph,
@@ -104,7 +105,7 @@ def test_registering_an_extension_is_one_line_and_it_is_mapped() -> None:
     defn = ExtensionDef(url=_url("testFlag"), short_name="testFlag", value_type="boolean")
     try:
         register_extension(defn)
-        fragment = to_graph(_service_with(_extension("testFlag", True)))
+        fragment = to_graph(_service_with({"url": _url("testFlag"), "valueBoolean": True}))
     finally:
         EXTENSIONS.pop(_url("testFlag"), None)
 
@@ -124,7 +125,9 @@ def test_registering_the_same_url_twice_is_refused() -> None:
 def test_a_url_that_does_not_match_its_short_name_is_refused() -> None:
     with pytest.raises(ValueError):
         register_extension(
-            ExtensionDef(url="https://example.test/other", short_name="wrongUrl", value_type="string")
+            ExtensionDef(
+                url="https://example.test/other", short_name="wrongUrl", value_type="string"
+            )
         )
 
 
@@ -176,9 +179,7 @@ def test_a_complex_extension_value_is_refused_not_dropped() -> None:
     resource = {
         "resourceType": "HealthcareService",
         "id": SVC_ID,
-        "extension": [
-            {"url": _url("establishedCapacity"), "valueCodeableConcept": {"text": "8"}}
-        ],
+        "extension": [{"url": _url("establishedCapacity"), "valueCodeableConcept": {"text": "8"}}],
     }
 
     with pytest.raises(UnsupportedElement):
@@ -220,7 +221,9 @@ def test_a_value_key_that_does_not_match_the_registered_type_is_refused() -> Non
 
 
 def test_the_same_extension_twice_is_refused() -> None:
-    resource = _service_with(_extension("establishedCapacity", 8), _extension("establishedCapacity", 9))
+    resource = _service_with(
+        _extension("establishedCapacity", 8), _extension("establishedCapacity", 9)
+    )
 
     with pytest.raises(ValidationFailed):
         to_graph(resource)
@@ -241,12 +244,18 @@ def test_several_extensions_keep_their_order_exactly() -> None:
 
     fragment = to_graph(resource)
 
-    assert _root(fragment)["extensionOrder"] == ["usualRangeMax", "establishedCapacity", "smsShortName"]
+    assert _root(fragment)["extensionOrder"] == [
+        "usualRangeMax",
+        "establishedCapacity",
+        "smsShortName",
+    ]
     assert from_graph(fragment) == resource
 
 
 def test_a_single_extension_has_no_extension_order_property() -> None:
-    assert "extensionOrder" not in _root(to_graph(_service_with(_extension("uprn", "100000000001"))))
+    assert "extensionOrder" not in _root(
+        to_graph(_service_with(_extension("uprn", "100000000001")))
+    )
 
 
 def test_rebuild_refuses_an_extension_property_that_is_not_registered() -> None:
@@ -271,7 +280,10 @@ def test_rebuild_refuses_several_extensions_without_an_order() -> None:
     without_order = {k: v for k, v in root.properties.items() if k != "extensionOrder"}
     broken = GraphFragment(
         root_key=fragment.root_key,
-        nodes=(NodeSpec(key=root.key, labels=root.labels, properties=without_order), *fragment.nodes[1:]),
+        nodes=(
+            NodeSpec(key=root.key, labels=root.labels, properties=without_order),
+            *fragment.nodes[1:],
+        ),
         rels=fragment.rels,
     )
 
@@ -367,3 +379,102 @@ def test_an_extension_on_a_backbone_child_is_kept_on_that_child() -> None:
     child = next(node for node in fragment.nodes if node.key == f"{SVC_KEY}#availableTime[0]")
     assert child.properties["ext_usualRangeMin"] == 1
     assert from_graph(fragment) == resource
+
+
+@pytest.mark.parametrize(
+    "entry",
+    ["not-an-object", {"url": 5, "valueInteger": 1}, {"valueInteger": 1}],
+)
+def test_an_extension_entry_without_an_object_and_text_url_is_refused(entry: Any) -> None:
+    with pytest.raises(UnsupportedElement):
+        to_graph(_service_with(entry))
+
+
+def test_a_decimal_extension_accepts_numbers_and_refuses_text_and_booleans() -> None:
+    url = f"{BASE_URL}StructureDefinition/decimalTest"
+    try:
+        register_extension(ExtensionDef(url=url, short_name="decimalTest", value_type="decimal"))
+        ok = _service_with({"url": url, "valueDecimal": 2.5})
+        assert from_graph(to_graph(ok)) == ok
+        for bad in ("2.5", True):
+            with pytest.raises(ValidationFailed):
+                to_graph(_service_with({"url": url, "valueDecimal": bad}))
+    finally:
+        EXTENSIONS.pop(url, None)
+
+
+def test_rebuild_refuses_an_order_that_names_other_extensions() -> None:
+    fragment = to_graph(
+        _service_with(_extension("establishedCapacity", 8), _extension("uprn", "100000000001"))
+    )
+    root = fragment.nodes[0]
+    wrong_order = {**root.properties, "extensionOrder": ["establishedCapacity", "smsShortName"]}
+    broken = GraphFragment(
+        root_key=fragment.root_key,
+        nodes=(
+            NodeSpec(key=root.key, labels=root.labels, properties=wrong_order),
+            *fragment.nodes[1:],
+        ),
+        rels=fragment.rels,
+    )
+
+    with pytest.raises(ValidationFailed):
+        from_graph(broken)
+
+
+def test_rebuild_refuses_an_unregistered_extension_when_there_is_no_order() -> None:
+    fragment = to_graph(_service_with(_extension("uprn", "100000000001")))
+    root = fragment.nodes[0]
+    renamed = {"ext_notRegistered": root.properties["ext_uprn"], "id": root.properties["id"]}
+    broken = GraphFragment(
+        root_key=fragment.root_key,
+        nodes=(NodeSpec(key=root.key, labels=root.labels, properties=renamed), *fragment.nodes[1:]),
+        rels=fragment.rels,
+    )
+
+    with pytest.raises(ValidationFailed):
+        from_graph(broken)
+
+
+def test_rebuild_refuses_an_order_without_any_extension() -> None:
+    broken = GraphFragment(
+        root_key="HealthcareService/r1",
+        nodes=(
+            NodeSpec(
+                key="HealthcareService/r1",
+                labels=("Resource", "HealthcareService"),
+                properties={"id": "r1", "extensionOrder": ["uprn"]},
+            ),
+        ),
+        rels=(),
+    )
+
+    with pytest.raises(ValidationFailed):
+        from_graph(broken)
+
+
+def test_rebuild_refuses_a_property_that_is_also_a_relationship() -> None:
+    fragment = to_graph({"resourceType": "HealthcareService", "id": SVC_ID})
+    root = fragment.nodes[0]
+    clash = GraphFragment(
+        root_key=fragment.root_key,
+        nodes=(
+            NodeSpec(
+                key=root.key,
+                labels=root.labels,
+                properties={**root.properties, "location": ["x"]},
+            ),
+            *fragment.nodes[1:],
+        ),
+        rels=(
+            RelSpec(
+                type="LOCATION",
+                start=root.key,
+                end="Location/l1",
+                properties={"fhirPath": "HealthcareService.location"},
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationFailed):
+        from_graph(clash)

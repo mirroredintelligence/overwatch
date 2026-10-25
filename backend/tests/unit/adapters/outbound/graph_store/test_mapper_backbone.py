@@ -8,12 +8,15 @@ DEC-049 and DEC-051: every case round-trips exactly or is refused with a DomainE
 silently dropped, overwritten or moved. All values are synthetic.
 """
 
+import json
+import re
 from typing import Any
 
 import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS
 from diucs.adapters.outbound.graph_store.mapper import (
     GraphFragment,
     InvalidReference,
@@ -73,7 +76,10 @@ UCR_WEST: dict[str, Any] = {
         {"coding": [{"system": SERVICE_CATEGORY, "code": "same-day-emergency-care"}]},
     ],
     "providedBy": {"reference": f"Organization/{ORG_ID}"},
-    "coverageArea": [{"reference": f"Location/{AREA_A_ID}"}, {"reference": f"Location/{AREA_B_ID}"}],
+    "coverageArea": [
+        {"reference": f"Location/{AREA_A_ID}"},
+        {"reference": f"Location/{AREA_B_ID}"},
+    ],
     "referralMethod": [
         {"coding": [{"system": REFERRAL_METHOD, "code": "phone"}]},
         {"coding": [{"system": REFERRAL_METHOD, "code": "link"}], "text": "Web link"},
@@ -141,8 +147,27 @@ def _rels(fragment: GraphFragment, rel_type: str, start: str) -> list[RelSpec]:
     return [rel for rel in fragment.rels if rel.type == rel_type and rel.start == start]
 
 
-# A value that parses as JSON, or starts with a bracket, is never stored (DEC-001, DEC-051 item 13).
+# The DEC-001 and DEC-051 item 13 graph-safety check, copied unchanged from
+# test_mapper_coded_values.py.
+# A UCUM annotation such as {referral} or [in_i]: the only bracketed string that may be kept,
+# and only in a *_code property (DEC-051 item 13). Strict: no braces or brackets inside.
+_UCUM_ANNOTATION = re.compile(r"^(\{[A-Za-z][A-Za-z0-9_]*\}|\[[A-Za-z][A-Za-z0-9_]*\])$")
+
+
+def _parses_as_json_container(text: str) -> bool:
+    """A string that parses as a JSON object or array is never allowed (DEC-001)."""
+    try:
+        return isinstance(json.loads(text), dict | list)
+    except ValueError:
+        return False
+
+
+def _is_ucum_annotation_in_a_code_property(name: str, value: str) -> bool:
+    return name.endswith("_code") and _UCUM_ANNOTATION.match(value) is not None
+
+
 def _assert_graph_safe(fragment: GraphFragment) -> None:
+    """DEC-001: no map, no list of maps, no JSON-looking string, no json property."""
     for owner in [*fragment.nodes, *fragment.rels]:
         assert "json" not in owner.properties
         for name, value in owner.properties.items():
@@ -152,7 +177,11 @@ def _assert_graph_safe(fragment: GraphFragment) -> None:
                     f"{name} is a list of maps"
                 )
             if isinstance(value, str):
-                assert not value.lstrip().startswith(("{", "[")), f"{name} looks like JSON"
+                assert not _parses_as_json_container(value), f"{name} looks like JSON"
+                if not _is_ucum_annotation_in_a_code_property(name, value):
+                    assert not value.lstrip().startswith(("{", "[")), (
+                        f"{name} starts with a bracket"
+                    )
 
 
 # R4: repeating backbone elements become child nodes
@@ -235,9 +264,7 @@ def test_a_child_concept_with_different_display_for_the_same_code_is_refused() -
     resource = {
         **UCR_WEST,
         "eligibility": {
-            "code": {
-                "coding": [{"system": SERVICE_CATEGORY, "code": "urgent-community-response"}]
-            }
+            "code": {"coding": [{"system": SERVICE_CATEGORY, "code": "urgent-community-response"}]}
         },
     }
 
@@ -343,7 +370,9 @@ def test_organization_contact_round_trips_exactly() -> None:
         {"daysOfWeek": ["mon"], "extension": [{"url": "https://example.test/x"}]},
     ],
 )
-def test_a_backbone_child_with_an_unmapped_key_is_refused_with_its_path(value: dict[str, Any]) -> None:
+def test_a_backbone_child_with_an_unmapped_key_is_refused_with_its_path(
+    value: dict[str, Any],
+) -> None:
     resource = {**UCR_WEST, "availableTime": [value]}
 
     with pytest.raises(UnsupportedElement) as raised:
@@ -451,3 +480,107 @@ def test_generated_available_times_round_trip_exactly(slots: list[dict[str, Any]
     resource = {"resourceType": "HealthcareService", "id": SVC_ID, "availableTime": slots}
 
     assert from_graph(to_graph(resource)) == resource
+
+
+# Property: any mix of the backbone and extension elements is exact or refused (DEC-049)
+
+_CONCEPT_SAMPLE = st.fixed_dictionaries(
+    {
+        "coding": st.lists(
+            st.fixed_dictionaries(
+                {
+                    "system": st.sampled_from([SERVICE_CATEGORY, NEED]),
+                    "code": st.sampled_from(["a", "b"]),
+                },
+                optional={"display": st.sampled_from(["x", "y"])},
+            ),
+            min_size=1,
+            max_size=2,
+        )
+    },
+    optional={"text": st.sampled_from(["t", "u"])},
+)
+_REFERENCE_SAMPLE = st.fixed_dictionaries(
+    {"reference": st.sampled_from(["Location/l1", "Organization/o1", "Location/l#x"])}
+)
+_TEXT_SAMPLE = st.text(alphabet="abc |#_{}[]", max_size=5)
+_PRIMITIVE_SAMPLE = st.one_of(_TEXT_SAMPLE, st.booleans(), st.integers(-3, 3))
+_BACKBONE_ITEM = st.dictionaries(
+    st.sampled_from(
+        ["daysOfWeek", "allDay", "comment", "code", "telecom", "line", "rank", "purpose", "name"]
+    ),
+    st.one_of(
+        _PRIMITIVE_SAMPLE,
+        st.lists(_TEXT_SAMPLE, min_size=1, max_size=2),
+        _CONCEPT_SAMPLE,
+        _REFERENCE_SAMPLE,
+        st.lists(_CONCEPT_SAMPLE, min_size=1, max_size=2),
+    ),
+    max_size=3,
+)
+_EXTENSION_ENTRY = st.one_of(
+    st.fixed_dictionaries(
+        {
+            "url": st.sampled_from([defn.url for defn in EXTENSIONS.values()]),
+            "value": _PRIMITIVE_SAMPLE,
+        }
+    ),
+    st.fixed_dictionaries(
+        {"url": st.just("https://example.test/unknown"), "value": _PRIMITIVE_SAMPLE}
+    ),
+).map(
+    lambda entry: {
+        "url": entry["url"],
+        f"value{type(entry['value']).__name__.capitalize()}": entry["value"],
+    }
+)
+_BACKBONE_VALUE = st.one_of(
+    _BACKBONE_ITEM,
+    st.lists(_BACKBONE_ITEM, max_size=2),
+    st.none(),
+    _PRIMITIVE_SAMPLE,
+)
+_ELEMENT_VALUES: dict[str, st.SearchStrategy[Any]] = {
+    "availableTime": _BACKBONE_VALUE,
+    "eligibility": _BACKBONE_VALUE,
+    "telecom": _BACKBONE_VALUE,
+    "contact": _BACKBONE_VALUE,
+    "address": _BACKBONE_VALUE,
+    "hoursOfOperation": _BACKBONE_VALUE,
+    "extension": st.one_of(st.lists(_EXTENSION_ENTRY, max_size=3), _EXTENSION_ENTRY, st.none()),
+    "position": st.one_of(
+        st.dictionaries(
+            st.sampled_from(["latitude", "longitude", "altitude"]),
+            st.one_of(st.integers(-90, 90), st.floats(-90, 90, allow_nan=False)),
+            max_size=3,
+        ),
+        st.none(),
+    ),
+    "name": _PRIMITIVE_SAMPLE,
+    "category": st.lists(_CONCEPT_SAMPLE, min_size=1, max_size=2),
+}
+
+
+@settings(max_examples=400, deadline=None)
+@given(
+    resource_type=st.sampled_from(["HealthcareService", "Location", "Organization"]),
+    body=st.fixed_dictionaries({}, optional=_ELEMENT_VALUES),
+)
+def test_backbone_and_extension_input_is_exact_or_refused(
+    resource_type: str, body: dict[str, Any]
+) -> None:
+    resource = {**body, "resourceType": resource_type, "id": "r1"}
+    try:
+        fragment = to_graph(resource)
+    except DomainError:
+        return
+    assert from_graph(fragment) == resource
+
+
+def test_a_position_with_only_latitude_round_trips() -> None:
+    resource = {**LOCATION, "position": {"latitude": 50.61}}
+
+    fragment = to_graph(resource)
+
+    assert "positionLongitude" not in _node(fragment, LOC_KEY).properties
+    assert from_graph(fragment) == resource

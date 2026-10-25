@@ -24,7 +24,7 @@ def last_sunday_of(year: int, month: int) -> date:
 
 
 def is_spring_gap(day: date, local: time) -> bool:
-    """True when local wall-clock time `local` does not exist on `day` because the clocks went forward.
+    """True when wall-clock time `local` does not exist on `day` because the clocks went forward.
 
     Derived from the zone: a spring change day is one where the UTC offset is GMT at 00:30 local
     and BST at 02:30 local. The gap is 01:00 to 02:00 local on such a day.

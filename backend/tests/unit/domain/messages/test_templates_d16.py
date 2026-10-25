@@ -34,7 +34,7 @@ BOOKING_FIELDS: dict[MessageId, dict[str, object]] = {
     MessageId.B3: {"reference": "4821", "service": "UCR West", "reply_by": "14:26"},
     MessageId.B4: {"reference": "4821", "service": "UCR West", "confirmed_at": "14:19"},
     MessageId.B5: {"reference": "4821"},
-    MessageId.B6: {"reference": "4821", "cancelled_at": "14:05"},
+    MessageId.B6: {"reference": "4821", "cancelled_at": "14:40"},
     MessageId.B7: {"references": ["4821", "4830"]},
     MessageId.I1: {"service": "UCR West", "link": "diucs.example/i/Qx82"},
     MessageId.I2: {"link": "diucs.example/i/Ab41"},
@@ -77,11 +77,10 @@ def test_b5_declined_echo_matches_the_rule_book() -> None:
     )
 
 
-def test_b6_cancelled_notice_wording() -> None:
-    rendered = render(MessageId.B6, Channel.TEXT, reference="4821", cancelled_at="14:05")
-    assert rendered.text == (
-        "DIUCS: booking 4821 was cancelled by the SPOA at 14:05. No action needed."
-    )
+def test_b6_cancelled_notice_matches_the_screen_text() -> None:
+    # ui-screens.md line 1276: "Booking 4821 was cancelled at 14:40. No action needed."
+    rendered = render(MessageId.B6, Channel.TEXT, reference="4821", cancelled_at="14:40")
+    assert rendered.text == "Booking 4821 was cancelled at 14:40. No action needed."
 
 
 def test_b7_names_both_references_and_the_confirm_example() -> None:

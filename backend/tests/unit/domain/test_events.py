@@ -10,7 +10,14 @@ from typing import Any, get_args
 
 import pytest
 
-from diucs.domain.codes import AlertKind, BookingStatus, ReportSource, Status
+from diucs.domain.codes import (
+    AlertKind,
+    BookingStatus,
+    DeclineReason,
+    ReportSource,
+    Role,
+    Status,
+)
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.events import (
     AlertAcknowledged,
@@ -37,14 +44,14 @@ SAMPLES: tuple[DomainEvent, ...] = (
     CapacityReported(SERVICE_ID, "obs-1", 4, ReportSource.TEXT, AT),
     StatusChanged(SERVICE_ID, Status.ACCEPTING, Status.LIMITED, AT),
     StatusChanged(SERVICE_ID, None, Status.NOT_UPDATED, AT),
-    BookingRequested("bk-1", SERVICE_ID, "REF-2K7Q", AT),
+    BookingRequested("bk-1", SERVICE_ID, "4821", AT),
     BookingResponded("bk-1", SERVICE_ID, BookingStatus.CONFIRMED, AT),
     BookingExpired("bk-1", SERVICE_ID, AT),
     RegistrationSubmitted("reg-1", AT),
     RegistrationApproved("reg-1", SERVICE_ID, AT),
     CriteriaApproved("crit-1", SERVICE_ID, 2, AT),
     AlertRaised("alert-1", AlertKind.OVER_CAPACITY, SERVICE_ID, AT),
-    AlertAcknowledged("alert-1", "prac-lead-1", AT),
+    AlertAcknowledged("alert-1", Role.LEAD, AT),
 )
 
 EXPECTED_TOPIC: dict[type, str] = {
@@ -106,7 +113,7 @@ def test_session_id_is_the_service_id_for_capacity_events() -> None:
 
 
 def test_session_id_is_none_for_booking_events() -> None:
-    assert session_id_for(BookingRequested("bk-1", SERVICE_ID, "REF-2K7Q", AT)) is None
+    assert session_id_for(BookingRequested("bk-1", SERVICE_ID, "4821", AT)) is None
 
 
 @pytest.mark.parametrize("event", SAMPLES, ids=lambda e: type(e).__name__)
@@ -198,7 +205,7 @@ def test_a_code_from_another_enum_is_refused() -> None:
     }
     with pytest.raises(ValidationFailed) as info:
         from_payload("BookingResponded", payload)
-    assert info.value.field == "code"
+    assert info.value.field == "status"
 
 
 def test_refused_code_is_not_echoed() -> None:
@@ -212,3 +219,142 @@ def test_refused_code_is_not_echoed() -> None:
     with pytest.raises(ValidationFailed) as info:
         from_payload("CapacityReported", payload)
     assert "jane-smith" not in str(info.value)
+
+
+def booking_payload(reference: object) -> dict[str, Any]:
+    return {
+        "booking_id": "bk-1",
+        "service_id": SERVICE_ID,
+        "reference": reference,
+        "at": "2026-10-23T10:12:00Z",
+    }
+
+
+@pytest.mark.parametrize(
+    "reference",
+    [
+        "Jane Smith DT4 8XX",
+        "DT4 8XX",
+        "943 476 5919",
+        "9434765919",
+        "0482",
+        "48210",
+        "482",
+        "4821 ",
+        "",
+        "REF-2K7Q",
+    ],
+)
+def test_booking_reference_refuses_anything_but_a_four_digit_number(reference: str) -> None:
+    with pytest.raises(ValidationFailed) as info:
+        from_payload("BookingRequested", booking_payload(reference))
+    assert info.value.field == "reference"
+    assert reference.strip() == "" or reference not in str(info.value)
+
+
+@pytest.mark.parametrize("reference", ["Jane Smith DT4 8XX", "943 476 5919", "0482"])
+def test_booking_reference_is_checked_when_the_event_is_built(reference: str) -> None:
+    with pytest.raises(ValidationFailed) as info:
+        BookingRequested("bk-1", SERVICE_ID, reference, AT)
+    assert info.value.field == "reference"
+
+
+@pytest.mark.parametrize("reference", ["1000", "4821", "9999"])
+def test_booking_reference_accepts_a_four_digit_number(reference: str) -> None:
+    event = BookingRequested("bk-1", SERVICE_ID, reference, AT)
+    assert event.reference == reference
+    assert from_payload("BookingRequested", booking_payload(reference)) == event
+
+
+@pytest.mark.parametrize(
+    "by",
+    ["943 476 5919", "9434765919", "Jane Smith", "prac-lead-1", "full", ""],
+)
+def test_alert_acknowledged_by_must_be_a_role(by: str) -> None:
+    payload: dict[str, Any] = {
+        "alert_id": "alert-1",
+        "by": by,
+        "at": "2026-10-23T10:12:00Z",
+    }
+    with pytest.raises(ValidationFailed) as info:
+        from_payload("AlertAcknowledged", payload)
+    assert info.value.field == "by"
+
+
+def test_alert_acknowledged_by_refuses_a_member_of_another_enum() -> None:
+    # DeclineReason.FULL is a str with the value "full". It is not a Role and must be refused.
+    with pytest.raises(ValidationFailed) as info:
+        AlertAcknowledged("alert-1", DeclineReason.FULL, AT)  # type: ignore[arg-type]
+    assert info.value.field == "by"
+
+
+def test_alert_acknowledged_by_a_role_round_trips_as_a_role() -> None:
+    event = from_payload(
+        "AlertAcknowledged",
+        {"alert_id": "alert-1", "by": "lead", "at": "2026-10-23T10:12:00Z"},
+    )
+    assert isinstance(event, AlertAcknowledged)
+    assert type(event.by) is Role
+    assert event.by is Role.LEAD
+
+
+@pytest.mark.parametrize("role", list(Role))
+def test_every_role_is_accepted_for_alert_acknowledged(role: Role) -> None:
+    event = AlertAcknowledged("alert-1", role, AT)
+    assert from_payload("AlertAcknowledged", event.to_payload()) == event
+
+
+def test_the_same_value_in_two_enums_is_parsed_by_the_field_enum() -> None:
+    # "not-updated" is a Status and an AlertKind; "over-capacity" is too (lesson L3).
+    alert = from_payload(
+        "AlertRaised",
+        {"alert_id": "alert-1", "kind": "not-updated", "service_id": SERVICE_ID, "at": "2026-10-23T10:12:00Z"},
+    )
+    assert isinstance(alert, AlertRaised)
+    assert type(alert.kind) is AlertKind
+    change = from_payload(
+        "StatusChanged",
+        {"service_id": SERVICE_ID, "before": None, "after": "over-capacity", "at": "2026-10-23T10:12:00Z"},
+    )
+    assert isinstance(change, StatusChanged)
+    assert type(change.after) is Status
+
+
+def test_a_status_value_is_not_an_alert_kind() -> None:
+    # "accepting" is a Status only, so it is refused where an AlertKind is expected.
+    with pytest.raises(ValidationFailed) as info:
+        from_payload(
+            "AlertRaised",
+            {"alert_id": "alert-1", "kind": "accepting", "service_id": SERVICE_ID, "at": "2026-10-23T10:12:00Z"},
+        )
+    assert info.value.field == "kind"
+
+
+@pytest.mark.parametrize(
+    "at",
+    ["2026-10-23T10:12:00", "2026-10-23T10:12:00+00:00", "2026-10-23 10:12:00Z"],
+)
+def test_decoded_timestamp_must_end_in_z(at: str) -> None:
+    payload: dict[str, Any] = {
+        "service_id": SERVICE_ID,
+        "report_id": "obs-1",
+        "value": 4,
+        "source": "text",
+        "at": at,
+    }
+    with pytest.raises(ValidationFailed) as info:
+        from_payload("CapacityReported", payload)
+    assert info.value.field == "at"
+
+
+def test_decoded_timestamp_that_does_not_parse_is_refused() -> None:
+    payload: dict[str, Any] = {
+        "service_id": SERVICE_ID,
+        "report_id": "obs-1",
+        "value": 4,
+        "source": "text",
+        "at": "2026-13-45T10:12:00Z",
+    }
+    with pytest.raises(ValidationFailed) as info:
+        from_payload("CapacityReported", payload)
+    assert info.value.field == "at"

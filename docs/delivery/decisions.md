@@ -699,10 +699,10 @@ Residuals, not fixed here: the `AuditEvent.id` is not hashed (item 2) and is not
 
 Tests: `backend/tests/unit/application/ports/outbound/test_audit.py`, `backend/tests/unit/adapters/outbound/audit_neo4j/test_audit_log_queries.py`, `backend/tests/integration/audit_neo4j/test_audit_log.py` (17 integration tests against the harness Neo4j).
 
-## DEC-057 Geography and terminology port choices the prompt leaves open (P11)
+## DEC-059 Geography and terminology port choices the prompt leaves open (P11)
 Status: accepted · Affects: P11 (`application/ports/outbound/geo.py`, `terminology.py`, `adapters/testing/fixed_geo.py`, `fixed_terminology.py`), I11, I12, I15, R14, U12, R16 and every use case that calls these ports.
 
-Numbered DEC-057: DEC-056 is the highest number on `main` and on every `task/*` branch when this was written (checked with `git show <branch>:docs/delivery/decisions.md`, lesson L43).
+Numbered DEC-059. It was first written as DEC-057, which task/P08-event-bus-work also claims (lesson L70), and DEC-058 is task/P09-cache-port's. DEC-059 is the next free number on `main` and on every `task/*` branch (checked with `git show <branch>:docs/delivery/decisions.md`, lesson L43).
 
 1. **File list.** The prompt's "Files this task owns" names three files. Its build section also names `adapters/testing/fixed_terminology.py`, and contracts.md places `FixedTerminology`, `PassThroughValidator` and the validator fake there. All four files are built. The prompt's file list is treated as incomplete; the owner should correct it.
 2. **Sync and async.** `Geocoder`, `TravelTime`, `Terminology` and `FhirValidator` are `async`, because each is a network call or a remote service in production, matching the existing outbound ports (`SmsSender`). `PostcodeLocator` is synchronous: the centroid file is read into memory at start-up, so each lookup is local. The fakes follow the same signatures.

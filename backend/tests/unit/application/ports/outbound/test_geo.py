@@ -1,4 +1,4 @@
-"""Value objects of the geography port (P11). TravelRange validates its bounds (DEC-057)."""
+"""Value objects of the geography port (P11). TravelRange validates its bounds (DEC-059)."""
 
 from dataclasses import FrozenInstanceError
 

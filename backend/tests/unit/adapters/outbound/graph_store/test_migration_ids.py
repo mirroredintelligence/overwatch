@@ -23,5 +23,12 @@ def test_no_two_migrations_share_a_numeric_prefix() -> None:
 
 def test_the_audit_migrations_are_numbered_0016_to_0020_in_order_after_p07() -> None:
     ids = [migration_id for migration_id, _ in MIGRATIONS]
-    assert ids[-5:] == AUDIT_MIGRATION_IDS
-    assert ids.index("0015_communication_provider_id") < ids.index("0016_audit_event_id")
+    start = ids.index("0016_audit_event_id")
+    assert ids[start : start + 5] == AUDIT_MIGRATION_IDS
+    assert ids.index("0015_communication_provider_id") < start
+
+
+def test_the_link_token_migration_is_0021_after_the_audit_migrations() -> None:
+    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    assert ids.count("0021_link_token_hash") == 1
+    assert ids.index("0021_link_token_hash") > ids.index("0020_chain_seq")

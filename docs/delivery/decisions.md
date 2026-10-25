@@ -345,7 +345,7 @@ Deviation: the reasons `Need not recognised` and `Age not recognised` are new te
 
 Tests: `backend/tests/unit/domain/rules/test_criteria_filter.py` (`test_an_unrecognised_need...`, `test_a_need_from_another_enum...`, `test_an_unrecognised_age_band...`) and `backend/tests/unit/domain/model/test_criteria.py` (`test_a_need_from_another_enum...`, `test_districts_must_be_upper_case_outward_codes`).
 
-## DEC-036 Criteria workflow: calendar dates, approval guards and version status (D21)
+## DEC-038 Criteria workflow: calendar dates, approval guards and version status (D21)
 Status: accepted, owner to confirm · Affects: D21 (`rules/criteria_workflow.py`), U30 (`ApproveCriteria`), U31 (criteria review reminders and the `criteria-overdue` flag).
 
 domain-rules 4.2 and the D21 prompt fix the transitions, the review-by arithmetic and the reminder window. They are silent on the points below. Decision:

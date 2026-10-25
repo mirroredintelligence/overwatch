@@ -1,7 +1,7 @@
 """Criteria version workflow and review dates (D21, docs/spec/domain-rules.md section 4.2).
 
 Pure: no I/O. Dates are calendar dates, the London day. Callers derive it from an instant with
-london_time.to_london(instant).date(); this module never receives a datetime as a date (DEC-036).
+london_time.to_london(instant).date(); this module never receives a datetime as a date (DEC-038).
 Enum inputs are checked as members of CriteriaStatus, so another enum with the same value is
 refused (lesson L3, L38).
 """

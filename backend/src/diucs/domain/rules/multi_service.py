@@ -14,8 +14,11 @@ from typing import Final
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.schedule import reply_by
 
+# [ASSUMED] domain-rules 2.4: the 10-minute grouping window. Owner-pending: the clinical safety
+# officer must confirm it with the other [ASSUMED] values. Not a settled rule-book value.
 GROUP_WINDOW: Final = timedelta(minutes=10)
 MAX_SERVICES_PER_PHONE: Final = 3
+# From the D28 prompt and DEC-048 item 6. NOT a rule-book value: it is the number of letters A to Z.
 MAX_LETTERED_ITEMS: Final = 26
 
 

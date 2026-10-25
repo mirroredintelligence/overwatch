@@ -182,6 +182,18 @@ def test_grouping_compares_real_instants_across_the_clock_change() -> None:
     assert len(groups) == 2
 
 
+def test_regression_pin_spring_clock_change_compares_real_instants() -> None:
+    # Regression pin, not a new rule. 2026-03-29: 01:58 GMT (01:58 UTC) and 03:03 BST
+    # (02:03 UTC) are 5 minutes apart. Wall-clock subtraction would read 65 minutes and split them.
+    gmt = datetime(2026, 3, 29, 1, 58, tzinfo=LONDON, fold=0)
+    bst = datetime(2026, 3, 29, 3, 3, tzinfo=LONDON, fold=0)
+
+    groups = group_due([("a", "Ward A", gmt), ("b", "Ward B", bst)])
+
+    assert len(groups) == 1
+    assert [item.letter for item in groups[0].items] == ["A", "B"]
+
+
 def test_grouped_item_is_a_frozen_value() -> None:
     item = GroupedItem(service_id="a", name="Ward A", due=TEN, letter=None)
     with pytest.raises(AttributeError):

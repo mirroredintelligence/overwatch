@@ -12,18 +12,27 @@ from diucs.domain.model.people import Practitioner, check_phone_hash
 
 VALID_HASH = "ab" * 32
 
+# The ids are neutral on purpose: pytest builds ids from the values, and a probe value such as a
+# phone number or an address must never appear in a test name (DEC-065 item 6).
 BAD_PHONE_HASHES = [
-    "07700900123",
-    "A" * 64,
-    "a" * 63,
-    "a" * 65,
-    "g" * 64,
-    " " + "a" * 63,
-    "",
+    pytest.param("07700900123", id="raw-phone"),
+    pytest.param("A" * 64, id="upper-hex"),
+    pytest.param("a" * 63, id="short-hex"),
+    pytest.param("a" * 65, id="long-hex"),
+    pytest.param("g" * 64, id="non-hex"),
+    pytest.param(" " + "a" * 63, id="leading-space"),
+    pytest.param("", id="empty"),
 ]
 
 GOOD_DOMAINS = ["nhs.example", "dorset.nhs.uk", "a-b.c1.example"]
-BAD_DOMAINS = ["jane.doe@nhs.example", "nodot", "Upper.Example", "nhs .example", "nhs.example.", ""]
+BAD_DOMAINS = [
+    pytest.param("jane.doe@nhs.example", id="full-email"),
+    pytest.param("nodot", id="no-dot"),
+    pytest.param("Upper.Example", id="upper-case"),
+    pytest.param("nhs .example", id="space"),
+    pytest.param("nhs.example.", id="trailing-dot"),
+    pytest.param("", id="empty"),
+]
 
 
 @pytest.mark.parametrize("phone_hash", BAD_PHONE_HASHES)

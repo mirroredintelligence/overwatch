@@ -332,3 +332,14 @@ def test_validate_pin_format_accepts_exactly_six_ascii_digits(pin: str) -> None:
     else:
         with pytest.raises(ValidationFailed):
             validate_pin_format(pin)
+
+
+# Fail closed on a clock that has gone backwards (added after the first red commit)
+
+
+def test_a_code_stamped_in_the_future_is_expired() -> None:
+    state = CodeState(issued_at=utc(2026, 10, 26, 9, 5, 0))
+    result = code_attempt(state, entered_ok=True, now=utc(2026, 10, 26, 9, 0, 0))
+    assert result.verified is False
+    assert result.last_outcome is CodeOutcome.EXPIRED
+

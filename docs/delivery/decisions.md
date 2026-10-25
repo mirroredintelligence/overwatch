@@ -473,3 +473,16 @@ Numbered DEC-046. DEC-043 was first written here, but task/D17-template-privacy-
 9. **Out of scope and open.** Snooze (1 hour, ui-screens.md line 3737) is not in D24 and has no function here. The owner should confirm item 1 and the choice in item 4, which narrows the contract's tuple to the two screen options.
 
 Tests: `backend/tests/unit/domain/rules/test_alerts.py`. The red commit holds the DEC-010 stub `alerts.py`, with constants and declarations only.
+
+## DEC-044 Identity policy choices the prompt leaves open (D27)
+Status: accepted for items 2, 3, 5, 6 and 7; items 1 (fifth-PIN outcome) and 4 (fail-closed clock rules) are in force but pending owner confirmation, which the owner has not yet given · Affects: D27 (`domain/rules/identity_policy.py`), U25 (sending codes), U32 (PIN use cases), P10 and I13 (code and PIN storage), any task that checks a text code, a PIN or the 30-day re-verification.
+
+1. The fifth wrong PIN gives outcome `locked` (`PinState.locked` is True, `last_outcome` is `locked`). The prompt gives no outcome for the locking attempt. The text-code rule gives `too-many-tries` on its fifth wrong try, and `locked` is the PIN's equivalent.
+2. While a PIN is locked, every attempt returns `locked`, right or wrong, and does not change the try count. Only `reset_pin_state()`, called after a verified text code, unlocks it.
+3. Once a text code is verified, any further entry against it is `expired` and never counts as a try, right or wrong (prompt rule 3).
+4. Fail closed on clocks. A code stamped in the future is `expired`. `can_resend` refuses when the last send is in the future. `needs_reverification` returns True when the last verification is in the future.
+5. Every datetime must be timezone-aware, or `ValidationFailed` is raised with the argument name. Instants are converted to UTC before they are compared, subtracted or added to. Same-zone London arithmetic is wrong across the clock change (lesson L52), so the code-expiry and 30-day tests use London-zoned inputs that cross 2026-10-25.
+6. The PIN never enters this module. `pin_attempt` takes a boolean the caller computed. `validate_pin_format` refuses by length and ASCII-digit check, and its message never repeats the value.
+7. Whether a device is known is an input from the caller (I13 and P10). An unknown device always requires a text code.
+
+Tests: `backend/tests/unit/domain/rules/test_identity_policy.py`. Numbered DEC-044 because DEC-043 is claimed on `task/D24-alert-rules`.

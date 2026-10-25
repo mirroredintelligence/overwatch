@@ -60,23 +60,23 @@ MIGRATIONS: list[tuple[str, str]] = [
         "ON (n.providerMessageId)",
     ),
     (
-        "0009_audit_event_id",
+        "0016_audit_event_id",
         "CREATE CONSTRAINT audit_event_id IF NOT EXISTS FOR (n:AuditEvent) REQUIRE n.id IS UNIQUE",
     ),
     (
-        "0010_audit_head_id",
+        "0017_audit_head_id",
         "CREATE CONSTRAINT audit_head_id IF NOT EXISTS FOR (n:AuditHead) REQUIRE n.id IS UNIQUE",
     ),
     (
-        "0011_audit_ref_id",
+        "0018_audit_ref_id",
         "CREATE CONSTRAINT audit_ref_id IF NOT EXISTS FOR (n:AuditRef) REQUIRE n.id IS UNIQUE",
     ),
     (
-        "0012_provenance_id",
+        "0019_provenance_id",
         "CREATE CONSTRAINT provenance_id IF NOT EXISTS FOR (n:Provenance) REQUIRE n.id IS UNIQUE",
     ),
     (
-        "0013_chain_seq",
+        "0020_chain_seq",
         "CREATE CONSTRAINT chain_seq IF NOT EXISTS FOR (n:ChainLink) REQUIRE n.seq IS UNIQUE",
     ),
 ]

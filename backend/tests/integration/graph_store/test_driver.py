@@ -18,7 +18,7 @@ from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 
-# 10 on main (0001 to 0008, 0014, 0015); P05 adds 0009 to 0013 (DEC-055 item 16).
+# 10 on main (0001 to 0008, 0014, 0015); P05 adds 0016 to 0020 (DEC-055 item 16).
 EXPECTED_MIGRATION_COUNT = 15
 EXPECTED_CONSTRAINTS = {"resource_id", "identifier_key", "concept_key"}
 EXPECTED_INDEXES = {

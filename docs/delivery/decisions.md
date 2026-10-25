@@ -278,3 +278,15 @@ Status: accepted · Affects: D11 (`rules/reply_policy.py`), U05 and any use case
 Caller contract (lesson L27): use cases loop over every item of `parse_reply`'s tuple and call the policy once per item.
 
 Tests: `backend/tests/unit/domain/rules/test_reply_policy.py`. Evidence: `docs/delivery/evidence/D11.md`.
+
+## DEC-032 Approval gate is pure booleans; the approver-differs check lives in the use case (D22)
+Status: accepted · Affects: D22 (`rules/registration.py`), U28 and any use case that approves a registration, ApproveRegistration, ApproveCriteria.
+
+`domain-rules.md` 6.2 says Approve needs four checks, and 6.1 says the shift lead and the clinical lead approve in review. The criteria control in `ui-screens.md` (ApprovalStates, F7 and F11) says the criteria owner and a clinical lead both approve. None of these is an identity check inside the registration rule itself, and the D22 prompt fixes `ApprovalChecks` as four booleans and a scope flag, with no actor.
+
+Decision:
+- `approve_registration` checks state (only `in-review` may approve) and then the four checks. It does not and cannot check who approved.
+- The approver-differs rule (the requester of a criteria change may not be its second approver; the shift lead and the clinical lead are two different people where 6.1 names both) is enforced by the use case that holds the actor, using `Actor` from `application/actor.py`. It must refuse with `NotAllowed` before calling `approve_registration`, and must have its own integration test against the real Neo4j adapters.
+- Fail closed: `missing_for_approval` treats anything other than the exact passing value as missing.
+
+Not decided here: whether a registration approval (not criteria) needs two distinct people. The rule book names two approvers in 6.1 but gives no separate second-approval rule for registrations. The owner should confirm. Until then the use case must require two distinct actors if it records both approvals.

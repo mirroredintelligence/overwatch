@@ -228,3 +228,24 @@ async def test_a_naive_due_time_is_refused_before_anything_is_written(
         )
 
     assert await count_nodes(neo4j_driver, "ScheduledWork") == 0
+
+
+async def test_work_is_found_only_for_its_exact_subject_key(neo4j_driver: AsyncDriver) -> None:
+    # A prefix match on the subject key would return the svc-10 record for svc-1 (and the reverse
+    # for a longer query). Both directions are stored, so each query must return only its own.
+    await _add(
+        neo4j_driver,
+        _work("work-svc-10", WorkKind.PROMPT_DUE, about="HealthcareService/svc-10", sequence=5),
+        _work("work-svc-1", WorkKind.PROMPT_DUE, about="HealthcareService/svc-1", sequence=6),
+    )
+
+    async def find(tx: AsyncManagedTransaction, about: str) -> list[ScheduledWork]:
+        return await Neo4jScheduledWorkRepository(tx).for_about(about)
+
+    async def ids_for(about: str) -> list[str]:
+        return [work.id for work in await read_tx(neo4j_driver, lambda tx: find(tx, about))]
+
+    assert await ids_for("HealthcareService/svc-1") == ["work-svc-1"]
+    assert await ids_for("HealthcareService/svc-10") == ["work-svc-10"]
+    for variant in ("HealthcareService/svc", "HealthcareService/svc-1 ", "healthcareservice/svc-1"):
+        assert await ids_for(variant) == [], variant

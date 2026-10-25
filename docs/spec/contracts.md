@@ -211,6 +211,7 @@ These names were added by individual task prompts. They are as binding as the re
 | P05 names (DEC-055): `canonical_json`, `chain_hash_over`, `TIME_FORMAT`; `AuditLog` methods are `async`; `records(since=<record id>)`; `Neo4jAuditLog(tx, ids=None, clock=None)`; `append_provenance(..., extra=None, agent_type="Practitioner")`; `ensure_audit_head(driver)`, `AuditHeadMissing`; node label `AuditRef {id, kind}` for audit placeholders | `application/ports/outbound/audit.py`, `adapters/outbound/audit_neo4j/audit_log.py` | P05 |
 | `SupportRepository` | `application/ports/outbound/support.py` | O06 |
 | `SequentialIds` fake | `adapters/testing/` | F06 |
+| P11 names (DEC-057): `Severity` (FHIR issue severities; `ValidationIssue` refuses others); `TravelRange` refuses `low > high`; `Geocoder`, `TravelTime`, `Terminology`, `FhirValidator` methods are `async`, `PostcodeLocator` is synchronous; `FixedGeocoder`, `FixedPostcodeLocator`, `FixedTravelTime` in `fixed_geo.py`, `FixedTerminology`, `PassThroughValidator`, `RecordingValidator` (with `calls`) in `fixed_terminology.py` | `application/ports/outbound/geo.py`, `application/ports/outbound/terminology.py`, `adapters/testing/fixed_geo.py`, `adapters/testing/fixed_terminology.py` | P11 |
 
 ### HTTP (back end)
 

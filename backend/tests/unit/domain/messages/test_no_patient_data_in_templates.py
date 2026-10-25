@@ -9,7 +9,7 @@ can be seen to catch them.
 
 import pytest
 
-from diucs.domain.codes import Channel
+from diucs.domain.codes import Channel, NeedCategory
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages import templates as templates_module
 from diucs.domain.messages.catalogue import MessageId
@@ -106,7 +106,7 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
         "reference": "4821",
         "service": "UCR West",
         "age_band": "80+",
-        "need": "fall and frailty",
+        "need": "frailty",
         "urgency": "within 2 hrs",
         "link": _BOOKING_LINK,
         "reply_by": "14:26",
@@ -115,7 +115,7 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
         "reference": "4821",
         "service": "UCR West",
         "age_band": "80+",
-        "need": "fall and frailty",
+        "need": "frailty",
         "urgency": "within 2 hrs",
         "link": _BOOKING_LINK,
         "reply_by": "14:26",
@@ -323,7 +323,7 @@ def test_a_name_in_a_b1_field_is_refused(field: str, value: str) -> None:
         render(MessageId.B1, TEXT, **fields)
 
 
-@pytest.mark.parametrize("reference", ["482", "04821", "48210", "REF-2K7Q", "4821 "])
+@pytest.mark.parametrize("reference", ["482", "0482", "04821", "48210", "REF-2K7Q", "4821 "])
 def test_a_reference_must_be_four_digits_without_a_leading_zero(reference: str) -> None:
     fields = {**SAMPLE_FIELDS[MessageId.B5], "reference": reference}
     with pytest.raises(ValidationFailed):
@@ -344,16 +344,47 @@ def test_an_urgency_must_be_a_rule_book_wording(urgency: str) -> None:
         render(MessageId.B1, TEXT, **fields)
 
 
-@pytest.mark.parametrize("need", ["Fall and frailty", "fall and frailty 943 476 5919", "frailty."])
-def test_a_need_is_lowercase_words_only(need: str) -> None:
+@pytest.mark.parametrize(
+    "need",
+    [
+        "jane smith",
+        "Jane Smith",
+        "fall and frailty",
+        "frailty.",
+        "frailty 943 476 5919",
+        "DT4 8XX",
+        "frailty ",
+        "",
+    ],
+)
+def test_a_free_text_need_is_refused(need: str) -> None:
+    """need is a NeedCategory code (contracts.md, domain-rules section 3): nothing else is accepted."""
     fields = {**SAMPLE_FIELDS[MessageId.B1], "need": need}
     with pytest.raises(ValidationFailed):
         render(MessageId.B1, TEXT, **fields)
 
 
+@pytest.mark.parametrize("need", [member.value for member in NeedCategory])
+def test_every_need_category_is_accepted(need: str) -> None:
+    fields = {**SAMPLE_FIELDS[MessageId.B1], "need": need}
+    assert render(MessageId.B1, TEXT, **fields).text
+
+
+@pytest.mark.parametrize("urgency", ["within 2 hrs", "today", "planned"])
+def test_every_urgency_wording_the_rule_book_names_is_accepted(urgency: str) -> None:
+    """Urgency has three members (contracts.md, domain-rules 3); the rule book names all three."""
+    fields = {**SAMPLE_FIELDS[MessageId.B1], "urgency": urgency}
+    assert render(MessageId.B1, TEXT, **fields).text
+
+
 def test_b7_refuses_a_malformed_reference_in_the_list() -> None:
     with pytest.raises(ValidationFailed):
         render(MessageId.B7, TEXT, references=["4821", "48"])
+
+
+def test_b7_refuses_a_leading_zero_reference_in_the_list() -> None:
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B7, TEXT, references=["4821", "0482"])
 
 
 def test_b1_with_a_postcode_is_refused() -> None:
@@ -378,3 +409,22 @@ def test_output_the_guard_flags_is_refused(monkeypatch: pytest.MonkeyPatch) -> N
     )
     with pytest.raises(ValidationFailed):
         render(MessageId.C1, TEXT, **SAMPLE_FIELDS[MessageId.C1])
+
+
+@pytest.mark.parametrize("message_id", list(MessageId), ids=lambda m: m.value)
+def test_the_field_guard_alone_refuses_every_probe_by_field_name(
+    message_id: MessageId, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With the output guard disabled, each field must still be refused by its own name.
+
+    This is what stops the field guard being an equivalent mutant: if it were removed, the
+    output guard alone would catch the probe only where the template prints the field.
+    """
+    assert hasattr(templates_module, "_output_has_patient_data"), "output guard seam is missing"
+    monkeypatch.setattr(templates_module, "_output_has_patient_data", lambda text: False)
+    channel = min(EXPECTED_CHANNELS[message_id], key=lambda c: c.value)
+    for probe in PROBES:
+        for field, fields in _probe_cases(message_id, probe):
+            with pytest.raises(ValidationFailed) as refusal:
+                render(message_id, channel, **fields)
+            assert refusal.value.field == field, (message_id, probe, field)

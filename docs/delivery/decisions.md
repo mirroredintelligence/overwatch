@@ -360,3 +360,17 @@ domain-rules 4.2 and the D21 prompt fix the transitions, the review-by arithmeti
 - **Reminder and overdue do not look at the version's status.** `is_review_overdue` is `today > review_by` for any version, as the prompt states. The caller (U31) checks only the current version for the service flag and reminders. A superseded version with a past review-by is therefore "overdue" to this function, and U31 must not read it. Owner to confirm.
 
 Tests: `backend/tests/unit/domain/rules/test_criteria_workflow.py` (64 tests: every transition pair, reminder and overdue boundaries, clamping, and property tests with Hypothesis). Branch coverage of the module is 100%.
+
+## DEC-039 Clinical queue choices the prompt leaves open (D23)
+Status: accepted · Affects: U40 (clinical advice use case and 10-minute timer), W44 (advisor screens), any caller of `rules/clinical_queue.py`.
+
+The D23 prompt and domain-rules section 5 leave these points open. They are decided here and tested in `backend/tests/unit/domain/rules/test_clinical_queue.py`.
+
+1. **A lapsed lock refuses advice.** `give_advice` raises `NotAllowed` once the taker's lock is ten minutes old, even when nobody else has taken the request yet. The taker must take it again. Advice under a lapsed lock could race another advisor who has been shown the request.
+2. **Re-taking while still locked keeps the original lock.** The same clinician taking a live lock again returns the request unchanged. Only an idle lock is renewed, and only then does `taken_at` move.
+3. **Presence is counted only when it is a `Presence` member.** A plain string with the same value, or `None`, is not counted, so an unknown presence under-counts. This follows DEC-035 (fail closed, enums matched by exact type).
+4. **Advice is shown as available only when both inputs are known.** `advice_shown_as_available(available, queue_known)` is true only when `available` is an `int` above zero and the queue is known. `None`, zero, a `bool` or an unknown queue all mean advice is not shown as available. The name is added to `docs/spec/contracts.md`.
+5. **Constructors validate.** Urgency is `now` or `within-15-min`. `taken_by` and `taken_at` are set together. An advised request has a taker. Every instant must be timezone-aware and is compared in UTC. A blank clinician id is refused.
+6. **`release_for_away` returns only the released copies.** The caller merges them back into its list.
+7. **Instants are compared in UTC.** Same-zone aware datetimes (for example `ZoneInfo("Europe/London")`) subtract on wall-clock time, so a lock taken at 01:50 BST and checked at 01:55 GMT on 2026-10-25 would look five minutes old. Every instant is converted with `astimezone(UTC)` before any comparison or subtraction. Tests cover both clock-change dates.
+8. **Open gap for U40.** `queue_order` keeps the contract signature (no `now`). It leaves out any request that is still locked, including one whose lock is already idle. U40 must run `return_if_idle` on each request before it calls `queue_order`, on every read and on the timer. Otherwise a request stays hidden from the queue until someone runs the timer. Published as a lesson.

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from diucs.domain.codes import AgeBand, CriteriaStatus, NeedCategory
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
 
 AGE_BAND_BOUNDS: dict[AgeBand, tuple[int, int | None]] = {
@@ -60,6 +61,12 @@ def check_hard_criteria(
     district: str,
     needs: Iterable[NeedCategory],
 ) -> FilterResult:
+    # A missing input is a caller error, not a service to exclude: refuse it by name (DEC-035).
+    if not isinstance(criteria, ServiceCriteria):
+        raise ValidationFailed("criteria", "a service criteria version is required")
+    if not isinstance(needs, Iterable):
+        raise ValidationFailed("needs", "must be a collection of need categories")
+
     reasons: list[str] = []
     warnings: list[str] = []
 

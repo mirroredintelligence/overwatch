@@ -542,3 +542,13 @@ Numbered DEC-049: DEC-048 is the highest number on any branch when this was writ
 9. **Scope.** `meta` is limited to `versionId` and `lastUpdated` here. Other meta keys, extensions and the rest of the R-rules belong to G03 and G04.
 
 Tests: `backend/tests/unit/adapters/outbound/graph_store/test_mapper.py` (40 tests, 100% line and branch on `mapper.py`).
+
+## DEC-050 Owner decisions on the three open items (2026-10-25)
+Status: accepted · Decided by the owner through the orchestrator. Each item supersedes the open question it answers.
+
+1. **Grouping window, 10 minutes (DEC-048).** Accepted as the working value. It stays marked [ASSUMED] in the code and in contracts.md, because the rule book gives no figure. It is checked against real timings in the pilot before go-live. Changing it needs a new decision, not a silent edit.
+2. **Printed need wording (DEC-047 item 9).** Accepted in principle, with a change to be made: the printed need in B1 is the plain-English category name, not the code. The wording of each category is drafted from the NeedCategory display names and goes to information governance for sign-off, so it stays IG-pending until IG approves it in writing. Until the change is built, B1 keeps printing the code and the decision does not claim otherwise. The change is a follow-up task on the D16 templates.
+3. **DEC-044 item 1 (fifth-PIN outcome: locked).** Accepted. The fifth wrong PIN locks the account, as domain-rules section 7 requires; the fourth wrong attempt is still allowed.
+4. **DEC-044 item 4 (fail-closed clock rules).** Accepted. Expiry and the 30-day re-verification are compared in UTC, and any check that cannot be evaluated denies access.
+
+Follow-up: the B1 plain-English need change is not built. It must be built test-first on the D16 templates before any printed B1 message goes to users.

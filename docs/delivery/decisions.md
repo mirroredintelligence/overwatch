@@ -246,3 +246,17 @@ A district is only trimmed at its ends, never de-spaced. "DT4 8" is therefore re
 Consequence: none of the normalisers or `postcode_district` ever put the input into an error message or log line. `ValidationFailed` carries a fixed message.
 
 Reviewer: the D19 verifier. Owner to confirm the whitespace rule when IG reviews the advisor input.
+
+## DEC-029 No report ever: the prompt's "not overdue before the first due" conflicts with the rule book (D05)
+Status: accepted, owner to confirm · Affects: D05 (`assess_freshness`, `test_no_report_ever_before_monday_first_due_is_overdue_from_friday`), D07 (board overdue for a service that has never reported), and the owner's reading of domain-rules 1.5.
+
+- D05 prompt test 7 says: no report ever, now Monday 06:30Z, before the first due, so not overdue. Test 6 says: no report ever, now Monday 07:31Z, so overdue. Between those two instants no due time falls, and the last due before them is Friday 19:00Z, whose reply-by passed on Friday. A rule built on due times and reply-by cannot make 06:30Z not overdue and 07:31Z overdue. Only a rule that uses the clock-time of day or a service start date could, and the profile holds neither.
+- domain-rules 1.5 says a service is overdue when any due time since its last report has passed its reply-by. With no report ever, every due time in the look-back is "since its last report". So the rule book gives overdue at 06:30Z Monday.
+- Decision: follow the rule book and the fail-safe principle (delivery-standard principle 1). Overdue is true, `was_due` is Friday 19:00Z, `age` is None. The board already shows Not updated for a service with no figure, so the visible result does not change. Test 7 is written with this expectation, and the prompt's expectation is not met.
+- Owner: confirm this, or say which instant a service's reporting started, so a "not before first due" rule can be designed with the registration date (D13 / P-tasks), which is not in the profile today.
+
+## DEC-030 freshness conventions not stated in the prompt (D05)
+- `stale_warning` is False when there is no report at all: the warning is about the age of a figure, and there is no figure. The board shows Not updated for that case.
+- A report later than `now` raises ValueError, and a naive datetime raises ValueError. A clock error must not be shown as a fresh figure.
+- `was_due` is found with `current_due` only (lesson L30): the latest due at or before `now - REPLY_WINDOW`. Missed means reply-by before `now`, strictly (a due whose reply-by equals now is not yet missed).
+- A report at exactly a due time answers that due (the prompt's "at or after").

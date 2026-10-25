@@ -97,9 +97,9 @@ def flags(new: CapacityReport, recent: Sequence[CapacityReport]) -> list[ReportF
 
 
 def test_window_and_count_constants_match_the_rule_book() -> None:
-    assert MANY_CHANGES_WINDOW == timedelta(minutes=5)
+    assert timedelta(minutes=5) == MANY_CHANGES_WINDOW
     assert MANY_CHANGES_COUNT == 3
-    assert PHONED_WINDOW == timedelta(minutes=60)
+    assert timedelta(minutes=60) == PHONED_WINDOW
 
 
 # --- No flags for an ordinary report ----------------------------------------------------------

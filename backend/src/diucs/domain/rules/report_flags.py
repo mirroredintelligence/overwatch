@@ -1,6 +1,7 @@
 """Report flag rules (D12): which capacity reports a shift lead should check by phone.
 
-Rules: docs/spec/domain-rules.md section 2.3. Names: docs/spec/contracts.md, rules/report_flags.py row.
+Rules: docs/spec/domain-rules.md section 2.3.
+Names: docs/spec/contracts.md (rules/report_flags.py row).
 Pure: no I/O, and no clock. Windows are compared as instants (aware datetimes), so the London clock
 changes do not affect them. Both windows include their edges (see DEC-023 for the phoned rule).
 

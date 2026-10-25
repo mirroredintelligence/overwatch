@@ -9,7 +9,6 @@ silently dropped, overwritten or moved. All values are synthetic.
 """
 
 import json
-import re
 from typing import Any
 
 import pytest
@@ -147,27 +146,18 @@ def _rels(fragment: GraphFragment, rel_type: str, start: str) -> list[RelSpec]:
     return [rel for rel in fragment.rels if rel.type == rel_type and rel.start == start]
 
 
-# The DEC-001 and DEC-051 item 13 graph-safety check, copied unchanged from
-# test_mapper_coded_values.py.
-# A UCUM annotation such as {referral} or [in_i]: the only bracketed string that may be kept,
-# and only in a *_code property (DEC-051 item 13). Strict: no braces or brackets inside.
-_UCUM_ANNOTATION = re.compile(r"^(\{[A-Za-z][A-Za-z0-9_]*\}|\[[A-Za-z][A-Za-z0-9_]*\])$")
-
-
+# The graph-safety check (DEC-001), strict: no map, no list of maps, no JSON-looking string.
+# A string that parses as a JSON object or array is refused, and so is any string that starts
+# with a bracket. There is no UCUM carve-out here: none of these fixtures holds a *_code value,
+# so the DEC-051 item 13 exception is not needed and is not applied.
 def _parses_as_json_container(text: str) -> bool:
-    """A string that parses as a JSON object or array is never allowed (DEC-001)."""
     try:
         return isinstance(json.loads(text), dict | list)
     except ValueError:
         return False
 
 
-def _is_ucum_annotation_in_a_code_property(name: str, value: str) -> bool:
-    return name.endswith("_code") and _UCUM_ANNOTATION.match(value) is not None
-
-
 def _assert_graph_safe(fragment: GraphFragment) -> None:
-    """DEC-001: no map, no list of maps, no JSON-looking string, no json property."""
     for owner in [*fragment.nodes, *fragment.rels]:
         assert "json" not in owner.properties
         for name, value in owner.properties.items():
@@ -178,10 +168,7 @@ def _assert_graph_safe(fragment: GraphFragment) -> None:
                 )
             if isinstance(value, str):
                 assert not _parses_as_json_container(value), f"{name} looks like JSON"
-                if not _is_ucum_annotation_in_a_code_property(name, value):
-                    assert not value.lstrip().startswith(("{", "[")), (
-                        f"{name} starts with a bracket"
-                    )
+                assert not value.lstrip().startswith(("{", "[")), f"{name} starts with a bracket"
 
 
 # R4: repeating backbone elements become child nodes

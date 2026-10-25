@@ -8,7 +8,7 @@ silently dropped, overwritten or moved. All values are synthetic.
 """
 
 import ast
-import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -107,12 +107,9 @@ def _rels(fragment: GraphFragment, rel_type: str) -> list[RelSpec]:
     return [rel for rel in fragment.rels if rel.type == rel_type]
 
 
-def _parses_as_json_container(text: str) -> bool:
-    """A UCUM annotation such as {referral} starts with a brace but is not JSON."""
-    try:
-        return isinstance(json.loads(text), dict | list)
-    except ValueError:
-        return False
+# UCUM annotations such as {referral} or [in_i] are the only strings allowed to start with
+# a brace or bracket, and only in a *_code property (DEC-051 item 13).
+_UCUM_ANNOTATION = re.compile(r"^(\{[^{}]*\}|\[[^\[\]]*\])$")
 
 
 def _assert_graph_safe(fragment: GraphFragment) -> None:
@@ -126,7 +123,10 @@ def _assert_graph_safe(fragment: GraphFragment) -> None:
                     f"{name} is a list of maps"
                 )
             if isinstance(value, str):
-                assert not _parses_as_json_container(value), f"{name} looks like JSON"
+                exempt = name.endswith("_code") and _UCUM_ANNOTATION.match(value) is not None
+                assert exempt or not value.lstrip().startswith(("{", "[")), (
+                    f"{name} looks like JSON"
+                )
 
 
 # R5: a coded value is a relationship to a shared Concept node
@@ -146,10 +146,14 @@ def test_coding_becomes_code_relationship_to_a_concept_with_an_in_system_link() 
     assert concept.labels == ("Concept",)
     assert concept.properties == {"system": CAPACITY_MEASURE, "code": "referrals-acceptable"}
 
-    in_system = [rel for rel in _rels(fragment, "IN_SYSTEM") if rel.start == concept_key]
-    assert [(rel.start, rel.end) for rel in in_system] == [
-        (concept_key, f"CodeSystem|{CAPACITY_MEASURE}")
-    ]
+    in_system = _rels(fragment, "IN_SYSTEM")
+    assert sorted((rel.start, rel.end) for rel in in_system) == sorted(
+        [
+            (concept_key, f"CodeSystem|{CAPACITY_MEASURE}"),
+            (f"Concept|{REPORT_SOURCE}|text", f"CodeSystem|{REPORT_SOURCE}"),
+            (f"Concept|{STATUS}|accepting", f"CodeSystem|{STATUS}"),
+        ]
+    )
     code_system = _one_node(fragment, f"CodeSystem|{CAPACITY_MEASURE}")
     assert code_system.labels == ("CodeSystem",)
     assert code_system.properties == {"url": CAPACITY_MEASURE}
@@ -874,3 +878,29 @@ def test_a_range_with_only_one_end_round_trips(part: str) -> None:
 
     assert from_graph(fragment) == resource
     assert f"valueRange_{part}_value" in fragment.nodes[0].properties
+
+
+def test_rebuild_restores_the_original_order_whatever_order_the_relationships_arrive_in() -> None:
+    resource = {
+        "resourceType": "Organization",
+        "id": ORG_ID,
+        "type": [
+            {
+                "coding": [
+                    {"system": ORGANIZATION_TYPE, "code": "nhs-trust"},
+                    {"system": ORGANIZATION_TYPE, "code": "community"},
+                ],
+                "text": "Trust and community",
+            },
+            {"coding": [{"system": ORGANIZATION_TYPE, "code": "hospice"}]},
+        ],
+        "identifier": [
+            {"system": ODS_ORG_SYSTEM, "value": "X1A"},
+            {"system": ODS_SITE_SYSTEM, "value": "S9Z", "use": "secondary"},
+        ],
+    }
+    fragment = to_graph(resource)
+    reversed_rels = GraphFragment(fragment.root_key, fragment.nodes, tuple(reversed(fragment.rels)))
+
+    assert reversed_rels.rels != fragment.rels
+    assert from_graph(reversed_rels) == resource

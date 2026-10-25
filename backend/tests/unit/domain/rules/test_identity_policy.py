@@ -54,11 +54,11 @@ def wrong_then(state: CodeState, times: int, now: datetime) -> CodeState:
 
 
 def test_constants_match_the_rule_book() -> None:
-    assert CODE_VALID_FOR == timedelta(minutes=10)
+    assert timedelta(minutes=10) == CODE_VALID_FOR
     assert CODE_MAX_TRIES == 5
-    assert CODE_RESEND_AFTER == timedelta(seconds=60)
+    assert timedelta(seconds=60) == CODE_RESEND_AFTER
     assert PIN_MAX_TRIES == 5
-    assert REVERIFY_EVERY == timedelta(days=30)
+    assert timedelta(days=30) == REVERIFY_EVERY
 
 
 # 1. Code validity window
@@ -342,4 +342,3 @@ def test_a_code_stamped_in_the_future_is_expired() -> None:
     result = code_attempt(state, entered_ok=True, now=utc(2026, 10, 26, 9, 0, 0))
     assert result.verified is False
     assert result.last_outcome is CodeOutcome.EXPIRED
-

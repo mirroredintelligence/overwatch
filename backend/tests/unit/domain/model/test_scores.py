@@ -70,7 +70,7 @@ def test_manchester_accepts_each_listed_level(level: str) -> None:
     assert ManchesterTriage(level).level == level
 
 
-@pytest.mark.parametrize("code", ["Dx0121", "dx0121", "DX-0121", "DX 0121", "D", "DX0123456789A"])
+@pytest.mark.parametrize("code", ["Dx0121", "dx0121", "DX-0121", "DX 0121", "D", "DX012345678"])
 def test_pathways_dx_rejects_bad_format(code: str) -> None:
     assert_rejected("pathways_dx", lambda: PathwaysDx(code))
 
@@ -79,7 +79,7 @@ def test_pathways_dx_rejects_a_trailing_newline() -> None:
     assert_rejected("pathways_dx", lambda: PathwaysDx("DX0121\n"))
 
 
-@pytest.mark.parametrize("code", ["DX0121", "DX", "DX0123456789"])
+@pytest.mark.parametrize("code", ["DX0121", "DX", "DX01234567"])
 def test_pathways_dx_accepts_upper_case_and_digits_from_2_to_10_characters(code: str) -> None:
     assert PathwaysDx(code).code == code
 

@@ -168,3 +168,8 @@ def test_priority_for_maps_urgency_to_service_request_priority(
     urgency: Urgency, priority: str
 ) -> None:
     assert priority_for(urgency) == priority
+
+
+def test_priority_for_refuses_an_unknown_urgency_rather_than_routine() -> None:
+    with pytest.raises(ValidationFailed):
+        priority_for("someday")  # type: ignore[arg-type]

@@ -454,3 +454,22 @@ domain-rules 7 and the D26 prompt fix the lengths, alphabets, expiry and the che
 
 Tests: `backend/tests/unit/domain/rules/test_tokens.py` (54 tests, three of them Hypothesis property tests). Branch coverage of the module is 100%.
 
+
+## DEC-046 Alert rule choices the prompt leaves open (D24)
+Status: accepted · Affects: D24 (`domain/rules/alerts.py`); U33 and U34 (subscriptions, alert raising), the worker that polls not-updated, U08 and W07 (pressure callers), and every task that schedules alert escalation (alert-escalate work, P08).
+
+Numbered DEC-046. DEC-043 was first written here, but task/D17-template-privacy-guard already uses DEC-043, task/D27-identity-policy uses DEC-044 and task/D26-link-tokens uses DEC-045 (verify-D24 found the clash). Checked by listing every `^## DEC-` heading in `docs/delivery/decisions.md` on main and on every local and remote branch: highest is DEC-045, so DEC-046 is the first free number.
+
+`docs/spec/domain-rules.md` section 8 gives the alert kinds, the critical set, the quiet-hours options, the acknowledge windows and the defaults. The D24 prompt and the screens (ui-screens.md lines 3696 to 3751) fix the rest. The choices the prompt leaves open:
+
+1. **No prior status counts as another status.** `alerts_for_change` takes `before: Status | None`. `None` (a service with no earlier status) is treated as "any other status", so `service-closed` and `over-capacity` fire on the first known status. This is the fail-safe reading: a closure at registration is not silently dropped. Owner may reverse it.
+2. **Which kinds come from which trigger.** `alerts_for_change` raises only `service-closed` and `over-capacity`. `not-updated` is time-based and comes from `not_updated_alert_due`, which a worker calls with the clock. `system-pressure` comes from `alert_for_pressure`, and fires only when the pressure moves to `high` from `normal` or `watch`.
+3. **Critical kinds.** `service-closed` and `system-pressure` are critical, as the rule book marks [ASSUMED]. `Alert.critical` must equal "kind is critical", and `AlertPreferences` and `Alert` refuse anything else (`ValidationFailed`).
+4. **Quiet hours are only None or 22:00 to 06:00.** ui-screens.md lines 3738 to 3741 offer only these two, and the rule book says "either none or 22:00–06:00". `AlertPreferences` refuses any other tuple, so the field is a `(time, time)` pair only for the contract's signature. A window is checked as instants: for the London dates either side of `now`, 22:00 and 06:00 are converted with `london_to_utc`, and `now` is quiet when it falls in `[start, end)`. Quiet with "critical only" suppresses non-critical kinds; with "everything" nothing is suppressed.
+5. **Refusals.** Naive datetimes raise `ValueError`, the convention of `london_time.py`. A `Status` or `Pressure` that is not an exact member of its enum raises `TypeError` (DEC-040, lessons L3 and L38). A blank service id, an unknown kind, an ack window other than 10, 15 or 30 minutes, and a not-updated threshold other than 2 or 4 hours raise `ValidationFailed` with the field name.
+6. **No free text in an alert.** `Alert` has four fields: kind, service id, raised time, critical. No message text is carried. The wording is produced by the message templates (D16) and the screens, so no patient or service detail reaches an alert record (H-09).
+7. **Escalation.** `escalation_at` is the alert time plus the chosen ack window, in real time. `ESCALATION_LADDER` is `("subscriber", "deputy", "shift-lead")` as strings, matching the contract. `next_escalation_target` returns `None` after `shift-lead`, and refuses an unknown stage with `ValidationFailed`.
+8. **Defaults.** `default_preferences()` turns on all four kinds, not-updated after 2 hours, no quiet hours, critical-only during quiet hours, and acknowledge within 15 minutes (domain-rules section 8 defaults).
+9. **Out of scope and open.** Snooze (1 hour, ui-screens.md line 3737) is not in D24 and has no function here. The owner should confirm item 1 and the choice in item 4, which narrows the contract's tuple to the two screen options.
+
+Tests: `backend/tests/unit/domain/rules/test_alerts.py`. The red commit holds the DEC-010 stub `alerts.py`, with constants and declarations only.

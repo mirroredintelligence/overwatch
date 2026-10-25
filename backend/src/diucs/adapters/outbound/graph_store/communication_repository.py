@@ -81,6 +81,10 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "CREATE (c)-[:IN_RESPONSE_TO]->(p) RETURN count(p) AS linked",
         "write",
     ),
+    "Q-COMM-EXISTS": (
+        "MATCH (c:Communication {id: $id}) RETURN count(c) AS found",
+        "read",
+    ),
     "Q-COMM-GET": ("MATCH (c:Communication {id: $id}) " + _READ, "read"),
     "Q-COMM-BY-PROVIDER": (
         "MATCH (c:Communication {providerMessageId: $providerMessageId}) WITH c LIMIT 1 " + _READ,
@@ -138,7 +142,20 @@ class Neo4jCommunicationRepository:
         self._tx = tx
 
     async def add(self, communication: Communication) -> None:
+        """Store one communication. Idempotent (DEC-012): a second add of the same record is a
+        no-op, and a different record under the same id is refused with Conflict. Every refusal is
+        decided before the first write, so a caller that catches the error leaves nothing stored
+        (DEC-053 item 16)."""
         _check(communication)
+        stored = await self.get(communication.id)
+        if stored is not None:
+            if stored == communication:
+                return
+            raise Conflict(f"communication {communication.id} already exists with other content")
+        if communication.in_response_to is not None:
+            found = await self._run("Q-COMM-EXISTS", id=communication.in_response_to)
+            if int(found[0]["found"]) == 0:
+                raise NotFound(f"the communication {communication.in_response_to} to reply to")
         inbound = communication.delivery_status == "received"
         sent_at = communication.sent_at.astimezone(UTC)
         try:
@@ -180,12 +197,9 @@ class Neo4jCommunicationRepository:
                 targetId=subject,
             )
         if communication.in_response_to is not None:
-            linked = await self._run(
+            await self._run(
                 "Q-COMM-LINK-REPLY", id=communication.id, inResponseTo=communication.in_response_to
             )
-            # count() over no matches still returns one row, with 0.
-            if int(linked[0]["linked"]) == 0:
-                raise NotFound(f"the communication {communication.in_response_to} to reply to")
 
     async def get(self, communication_id: str) -> Communication | None:
         rows = await self._run("Q-COMM-GET", id=communication_id)

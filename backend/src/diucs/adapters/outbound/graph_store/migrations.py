@@ -50,12 +50,12 @@ MIGRATIONS: list[tuple[str, str]] = [
         "CREATE POINT INDEX location_position IF NOT EXISTS FOR (l:Location) ON (l.position)",
     ),
     (
-        "0009_communication_id",
+        "0014_communication_id",
         "CREATE CONSTRAINT communication_id IF NOT EXISTS "
         "FOR (n:Communication) REQUIRE n.id IS UNIQUE",
     ),
     (
-        "0010_communication_provider_id",
+        "0015_communication_provider_id",
         "CREATE INDEX communication_provider_id IF NOT EXISTS FOR (n:Communication) "
         "ON (n.providerMessageId)",
     ),

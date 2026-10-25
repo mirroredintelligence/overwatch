@@ -12,14 +12,16 @@ Callers pass time fields already formatted as "HH:MM" strings and the unit phras
 No template holds a patient name, NHS number or postcode, and no field may add one.
 """
 
-from collections.abc import Mapping
+import re
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from html import escape
 from typing import Final, cast
 
-from diucs.domain.codes import Channel
+from diucs.domain.codes import AgeBand, Channel
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.catalogue import MessageId
+from diucs.domain.messages.privacy_guard import find_patient_data
 
 FOOTER: Final = (
     "The link works once, needs no login, and expires at {reply_by}. "
@@ -32,6 +34,14 @@ BUTTON_STYLE: Final = (
 MIN_MULTI_SERVICE_ITEMS: Final = 2
 MIN_MULTI_REFERENCES: Final = 2
 BOTH: Final = 2
+
+# Constrained fields (DEC-047 items 9 to 11). A reference is a 4-digit booking reference with no
+# leading zero (DEC-041). An age band is one of the rule-book bands. An urgency is one of the
+# wordings the rule book uses. A need is lowercase words, spaces and hyphens, at most 40 characters.
+REFERENCE_FORMAT: Final = re.compile(r"[1-9][0-9]{3}")
+AGE_BANDS: Final = frozenset(band.value for band in AgeBand)
+URGENCY_WORDING: Final = frozenset({"within 2 hrs", "today", "planned"})
+NEED_FORMAT: Final = re.compile(r"[a-z][a-z -]{0,39}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -375,10 +385,48 @@ def _reference_values(raw: object) -> dict[str, object]:
         raise ValidationFailed("references", "more than one open request needs two or more")
     if not all(isinstance(reference, str) and reference for reference in references):
         raise ValidationFailed("references", "each reference is non-empty text")
+    if not all(_is_reference(reference) for reference in references):
+        raise ValidationFailed("references", "each reference is four digits, no leading zero")
     return {
         "references": ", ".join(references),
         "first_reference": references[0],
     }
+
+
+def _is_reference(value: object) -> bool:
+    return isinstance(value, str) and REFERENCE_FORMAT.fullmatch(value) is not None
+
+
+def _strings(value: object) -> Iterator[str]:
+    """Every piece of text a caller passed, looking inside lists and tuples."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, (list, tuple)):
+        for item in value:
+            yield from _strings(item)
+    else:
+        yield str(value)
+
+
+def _refuse_patient_data(fields: Mapping[str, object]) -> None:
+    """Refuse a postcode, NHS-number or titled-name shape in any field the caller passed."""
+    for name, value in fields.items():
+        for text in _strings(value):
+            if find_patient_data(text):
+                raise ValidationFailed(name, "a patient-data shape is not allowed")
+
+
+def _check_constrained_fields(fields: Mapping[str, object]) -> None:
+    if "reference" in fields and not _is_reference(fields["reference"]):
+        raise ValidationFailed("reference", "must be four digits, no leading zero")
+    if "age_band" in fields and fields["age_band"] not in AGE_BANDS:
+        raise ValidationFailed("age_band", "must be a rule-book age band")
+    if "urgency" in fields and fields["urgency"] not in URGENCY_WORDING:
+        raise ValidationFailed("urgency", "must be a rule-book urgency wording")
+    if "need" in fields and not (
+        isinstance(fields["need"], str) and NEED_FORMAT.fullmatch(fields["need"])
+    ):
+        raise ValidationFailed("need", "must be lowercase words of at most 40 characters")
 
 
 def _values(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, object]:
@@ -409,12 +457,18 @@ def render(message_id: MessageId, channel: Channel, **fields: object) -> Rendere
     if missing:
         raise ValidationFailed(missing[0], "required field is missing")
 
+    _refuse_patient_data(fields)
+    _check_constrained_fields(fields)
     values = _values(message_id, fields)
     html_values = {key: escape(str(value)) for key, value in values.items()}
-    return RenderedMessage(
+    rendered = RenderedMessage(
         message_id=message_id,
         channel=channel,
         text=template.text.format(**values),
         subject=None if template.subject is None else template.subject.format(**values),
         html=None if template.html is None else template.html.format(**html_values),
     )
+    for part in (rendered.text, rendered.subject, rendered.html):
+        if part is not None and find_patient_data(part):
+            raise ValidationFailed("text", "a patient-data shape is not allowed in the output")
+    return rendered

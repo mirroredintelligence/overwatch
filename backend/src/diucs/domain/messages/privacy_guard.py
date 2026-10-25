@@ -3,7 +3,7 @@
 No text, email or push may carry a patient name, a full postcode, an NHS number or free text
 (docs/spec/domain-rules.md section 9). This module finds the shapes it can recognise. The
 build-time sweep in tests/unit/domain/messages/test_no_patient_data_in_templates.py runs it over
-every template, every channel and every sample. DEC-043 records the choices made here and what
+every template, every channel and every sample. DEC-047 records the choices made here and what
 the guard does not cover.
 """
 
@@ -23,7 +23,7 @@ FORBIDDEN_FIELDS: Final[frozenset[str]] = frozenset(
     }
 )
 
-# Full UK postcode, with any run of whitespace (or none) between the halves (DEC-028, DEC-043).
+# Full UK postcode, with any run of whitespace (or none) between the halves (DEC-028, DEC-047).
 # "DT4" alone does not match.
 _POSTCODE: Final = re.compile(r"\b[A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2}\b", re.IGNORECASE)
 

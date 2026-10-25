@@ -1,6 +1,6 @@
 """Tests for diucs.domain.messages.privacy_guard and the build-time sweep over every template (D17).
 
-Rules: docs/spec/domain-rules.md section 9 and 10; hazard H-09; DEC-043 for the choices the
+Rules: docs/spec/domain-rules.md section 9 and 10; hazard H-09; DEC-047 for the choices the
 prompt leaves open. Every sample value here is synthetic: rule-book samples (UCR West, 4821,
 DT4) or invented probes ("Mrs Smith", "DT4 8XX", "943 476 5919"). None is a real patient, name,
 NHS number or postcode. The probe values are shaped like patient data on purpose, so the guard
@@ -11,6 +11,7 @@ import pytest
 
 from diucs.domain.codes import Channel
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.messages import templates as templates_module
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.privacy_guard import FORBIDDEN_FIELDS, find_patient_data
 from diucs.domain.messages.templates import RenderedMessage, render
@@ -167,7 +168,7 @@ def test_a_personal_title_with_a_capitalised_word_is_found() -> None:
     assert find_patient_data("Seen by Mrs Smith") == ["Mrs Smith"]
 
 
-# --- Boundary cases beyond the prompt's seven tests (DEC-043) -------------------------------
+# --- Boundary cases beyond the prompt's seven tests (DEC-047) -------------------------------
 
 
 @pytest.mark.parametrize(
@@ -290,7 +291,7 @@ def test_every_field_refuses_a_patient_shape_in_render(message_id: MessageId, pr
     proves the guard runs on whatever a caller passes.
     """
     channel = min(EXPECTED_CHANNELS[message_id], key=lambda c: c.value)
-    for field, fields in _probe_cases(message_id, probe):
+    for _field, fields in _probe_cases(message_id, probe):
         with pytest.raises(ValidationFailed):
             render(message_id, channel, **fields)
 
@@ -359,3 +360,21 @@ def test_b1_with_a_postcode_is_refused() -> None:
     fields = {**SAMPLE_FIELDS[MessageId.B1], "postcode": "DT4 8XX"}
     with pytest.raises(ValidationFailed):
         render(MessageId.B1, TEXT, **fields)
+
+
+def test_b7_refuses_an_empty_reference() -> None:
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B7, TEXT, references=["4821", ""])
+
+
+def test_output_the_guard_flags_is_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A template that printed a patient shape would be caught here, whatever the caller sent.
+
+    The guard is replaced for this test by one that flags only long text, which is the rendered
+    output and not a short field value. The real templates hold no such text (the sweep proves it).
+    """
+    monkeypatch.setattr(
+        templates_module, "find_patient_data", lambda text: ["hit"] if len(text) > 40 else []
+    )
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C1, TEXT, **SAMPLE_FIELDS[MessageId.C1])

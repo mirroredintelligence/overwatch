@@ -18,6 +18,7 @@ _PRIMITIVE_TYPES = (str, bool, int, float)
 _REFERENCE_KEYS = frozenset({"reference", "display"})
 _META_KEYS = frozenset({"versionId", "lastUpdated"})
 _ROOT_KEYS = frozenset({"resourceType", "id"})
+_NODE_OWNED_NAMES = frozenset({"iri", "versionId", "lastUpdated"})
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
 
@@ -84,6 +85,9 @@ def to_graph(resource: dict[str, Any]) -> GraphFragment:
     for element, value in sorted(resource.items()):
         if element in _ROOT_KEYS:
             continue
+        if element in _NODE_OWNED_NAMES:
+            # The node already uses this name; storing it too would overwrite or move it.
+            raise ValidationFailed(element, "reserved: the mapper stores this on the node itself")
         path = f"{resource_type}.{element}"
         if element == "meta":
             properties.update(_meta(path, value))
@@ -155,6 +159,8 @@ def _is_reference(value: Any) -> bool:
 def _meta(path: str, meta: Any) -> dict[str, Any]:
     if not isinstance(meta, dict) or not set(meta) <= _META_KEYS:
         raise UnsupportedElement(path)
+    if not meta:
+        raise ValidationFailed("meta", "empty; omit the element instead")
     if not all(_is_primitive(value) for value in meta.values()):
         raise UnsupportedElement(path)
     return {key: meta[key] for key in _META_KEYS if key in meta}

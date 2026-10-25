@@ -258,23 +258,101 @@ def test_a_forbidden_field_is_refused_for_every_id(message_id: MessageId) -> Non
             render(message_id, TEXT, **fields)
 
 
-@pytest.mark.parametrize("message_id", list(MessageId), ids=lambda m: m.value)
-def test_a_name_placed_in_any_printed_scalar_field_is_flagged(message_id: MessageId) -> None:
-    """The sweep must see a name placed in a field that the template prints.
+PROBE_POSTCODE = "DT4 8XX"
+PROBE_NHS = "943 476 5919"
+PROBES = (PROBE_POSTCODE, PROBE_NHS, PROBE, "943-476-5919")
 
-    For each scalar field, the probe replaces its sample value. If the probe reaches the output,
-    the guard must flag it. A field the template does not print needs no flag.
-    """
+
+def _probe_cases(message_id: MessageId, probe: str) -> list[tuple[str, dict[str, object]]]:
+    """Each field of the id, in turn, carrying the probe. Lists get the probe in one element."""
     sample = SAMPLE_FIELDS[message_id]
+    cases: list[tuple[str, dict[str, object]]] = []
     for field, value in sample.items():
-        if isinstance(value, list | tuple):
+        if isinstance(value, list):
             continue
-        for channel in EXPECTED_CHANNELS[message_id]:
-            rendered = render(message_id, channel, **{**sample, field: PROBE})
-            text = _all_text(rendered)
-            if PROBE in text:
-                found = find_patient_data(text)
-                assert found and set(found) == {PROBE}, (message_id, channel, field)
+        cases.append((field, {**sample, field: probe}))
+    if message_id is MessageId.C9:
+        cases.append(("items", {**sample, "items": [("A", probe, 3), ("B", "UCR East", 1)]}))
+    if message_id is MessageId.C10:
+        cases.append(("updated", {**sample, "updated": [("B", probe, 2)]}))
+        cases.append(("waiting", {**sample, "waiting": [("A", probe)]}))
+    if message_id is MessageId.B7:
+        cases.append(("references", {**sample, "references": [probe, "4830"]}))
+    return cases
+
+
+@pytest.mark.parametrize("probe", PROBES)
+@pytest.mark.parametrize("message_id", list(MessageId), ids=lambda m: m.value)
+def test_every_field_refuses_a_patient_shape_in_render(message_id: MessageId, probe: str) -> None:
+    """Every field of every id: a postcode, an NHS shape or a name is refused by render itself.
+
+    This is the per-field probe. The synthetic samples prove only that the samples are clean; this
+    proves the guard runs on whatever a caller passes.
+    """
+    channel = min(EXPECTED_CHANNELS[message_id], key=lambda c: c.value)
+    for field, fields in _probe_cases(message_id, probe):
+        with pytest.raises(ValidationFailed):
+            render(message_id, channel, **fields)
+
+
+def test_a_postcode_in_service_is_refused_on_c1() -> None:
+    fields = {**SAMPLE_FIELDS[MessageId.C1], "service": "DT4 8XX"}
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C1, TEXT, **fields)
+
+
+def test_an_nhs_shape_in_the_k3_body_is_refused() -> None:
+    fields = {"title": "Capacity alert", "body": "Patient 943 476 5919 at DT4 8XX"}
+    with pytest.raises(ValidationFailed):
+        render(MessageId.K3, PUSH, **fields)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("need", "John Smith"),
+        ("age_band", "John Smith"),
+        ("urgency", "John Smith"),
+        ("reference", "John Smith"),
+    ],
+)
+def test_a_name_in_a_b1_field_is_refused(field: str, value: str) -> None:
+    fields = {**SAMPLE_FIELDS[MessageId.B1], field: value}
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B1, TEXT, **fields)
+
+
+@pytest.mark.parametrize("reference", ["482", "04821", "48210", "REF-2K7Q", "4821 "])
+def test_a_reference_must_be_four_digits_without_a_leading_zero(reference: str) -> None:
+    fields = {**SAMPLE_FIELDS[MessageId.B5], "reference": reference}
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B5, TEXT, **fields)
+
+
+@pytest.mark.parametrize("age_band", ["81", "80 +", "Age 80+", "80+ years"])
+def test_an_age_band_must_be_a_rule_book_band(age_band: str) -> None:
+    fields = {**SAMPLE_FIELDS[MessageId.B1], "age_band": age_band}
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B1, TEXT, **fields)
+
+
+@pytest.mark.parametrize("urgency", ["soon", "Within 2 hrs", "10:30", "within 2 hrs."])
+def test_an_urgency_must_be_a_rule_book_wording(urgency: str) -> None:
+    fields = {**SAMPLE_FIELDS[MessageId.B1], "urgency": urgency}
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B1, TEXT, **fields)
+
+
+@pytest.mark.parametrize("need", ["Fall and frailty", "fall and frailty 943 476 5919", "frailty."])
+def test_a_need_is_lowercase_words_only(need: str) -> None:
+    fields = {**SAMPLE_FIELDS[MessageId.B1], "need": need}
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B1, TEXT, **fields)
+
+
+def test_b7_refuses_a_malformed_reference_in_the_list() -> None:
+    with pytest.raises(ValidationFailed):
+        render(MessageId.B7, TEXT, references=["4821", "48"])
 
 
 def test_b1_with_a_postcode_is_refused() -> None:

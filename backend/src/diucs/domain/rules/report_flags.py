@@ -5,7 +5,7 @@ Names: docs/spec/contracts.md (rules/report_flags.py row).
 Pure: no I/O, and no clock. Every datetime is converted to UTC before it is compared or subtracted.
 This matters for London input: two datetimes with the same tzinfo object (ZoneInfo caches them)
 subtract and compare wall-clock fields, so 00:58 GMT to 02:02 BST would read as 1h04 instead of
-4 minutes. Both windows include their edges (see DEC-023).
+4 minutes. Both windows include their edges (see DEC-025).
 
 A flag says "check by phone"; it never changes a report. The profile is accepted for the shared
 signature; the rules depend only on the reports.

@@ -199,7 +199,7 @@ Consumers must iterate the tuple and must never assume one item. Commas separate
 
 Evidence: `docs/delivery/evidence/D10.md`.
 
-## DEC-023 Report flag windows and the phoned comparison (D12)
+## DEC-025 Report flag windows and the phoned comparison (D12)
 Status: accepted · Affects: D12 (`rules/report_flags.py`), and U07 and W42 where flags are saved and shown.
 
 `docs/spec/domain-rules.md` 2.3 gives the two report flags with [ASSUMED] windows. D12 decides three points the rule book leaves open:

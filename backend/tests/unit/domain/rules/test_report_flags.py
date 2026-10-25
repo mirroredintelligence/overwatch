@@ -167,7 +167,7 @@ def test_new_report_that_is_itself_phoned_is_not_flagged_as_differs() -> None:
 
 
 def test_any_differing_phoned_figure_in_the_window_flags_differs() -> None:
-    # Literal reading of domain-rules 2.3: "differs from an advisor-phoned figure". See DEC-023.
+    # Literal reading of domain-rules 2.3: "differs from an advisor-phoned figure". See DEC-025.
     recent = [phoned(3, at(12, 20)), phoned(5, at(12, 40))]
     assert flags(rpt(5, at(13, 14)), recent) == [DIFFERS]
 

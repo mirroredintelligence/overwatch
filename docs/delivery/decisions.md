@@ -506,3 +506,22 @@ The D17 prompt gives the patterns and the field list. It leaves these open, and 
 10. **Build failure.** The guard runs inside the unit suite, so a template that fails it fails `pytest tests/unit`. The completeness test (`test_every_message_id_has_a_sample`) fails when a new `MessageId` has no sample. The channel table `EXPECTED_CHANNELS` in the same test file must be updated with any new channel rule, which makes a channel change visible in review.
 
 Tests: `backend/tests/unit/domain/messages/test_no_patient_data_in_templates.py` (guard, sweep, per-field probes, constraints) and `backend/tests/unit/domain/messages/test_templates*.py` (existing wording, unchanged). Mutation checks are in the D17 evidence file.
+
+## DEC-048 Grouped-prompt and phone-load choices the prompt leaves open (D28)
+Status: accepted by the builder (build-D28); owner to confirm · Affects: D28 (`domain/rules/multi_service.py`), U04 (sends grouped prompts), U05 and D14 (apply replies per letter), D15 C9 and C10.
+
+Numbered DEC-048: DEC-047 is the highest number on main and on every `task/*` branch (checked with `git show <branch>:docs/delivery/decisions.md`), so this is the next.
+
+1. **Return type.** `group_due` returns `list[PromptGroup]` with `GroupedItem` and `PromptGroup` as the D28 prompt's Build section says. contracts.md had written `list[list[...]]`; it is corrected in the same commit.
+2. **Order.** Items are sorted by due instant (UTC), ties by name, then service id. Letters follow the name order of `letters_for`, which uses Python string order (code point, case-sensitive).
+3. **Clock.** Due times are converted to UTC before they are compared or added to (lesson L52). A naive due time raises `ValidationFailed("due")`. Returned due times are UTC.
+4. **Membership.** An item joins the current group only when it is less than `GROUP_WINDOW` after the group's first item. Groups are anchored on their first item, not chained, so 10:00, 10:05 and 10:12 give [10:00, 10:05] and [10:12] (the prompt's test 3).
+5. **Lettering.** Only groups of two or more get letters. A group of one has `letter=None`. `letters_for` letters every name it is given, so one name gets `A`.
+6. **Limits.** More than 26 items in one group raises `ValidationFailed("items")`. `letters_for` with more than 26 names raises `ValidationFailed("names")`. `MAX_LETTERED_ITEMS = 26`.
+7. **Uniqueness, fail closed.** A repeated `service_id` in the input raises `ValidationFailed("service_id")`. Repeated names in one group, or in `letters_for`, raise `ValidationFailed("names")`: the letter map is keyed by name, so a repeat would give one name two letters.
+8. **Phone load.** A negative count raises `ValidationFailed("count")`. A count above `MAX_SERVICES_PER_PHONE` (3) is overloaded, so 4 is flagged and 3 is not.
+9. **Reply-by.** A group's reply-by is `schedule.reply_by(group due)`, due plus `REPLY_WINDOW` (30 minutes).
+
+Owner-pending: the 10-minute `GROUP_WINDOW` is `[ASSUMED]` in domain-rules 2.4. The clinical safety officer should confirm it with the other `[ASSUMED]` values.
+
+Tests: `backend/tests/unit/domain/rules/test_multi_service.py` (25 tests, including a Hypothesis partition property and a clock-change case). Partial replies (2.4, second bullet) belong to D11 and U04, not this module.

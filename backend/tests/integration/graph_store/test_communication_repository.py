@@ -1,4 +1,4 @@
-"""Integration tests for the Neo4j communication records (P07, DEC-004, DEC-054).
+"""Integration tests for the Neo4j communication records (P07, DEC-004, DEC-056).
 
 They run against the throwaway Neo4j that the F10 harness starts for the pytest session. Each write
 commits in one transaction and each read runs in a fresh session, so the assertions are about what

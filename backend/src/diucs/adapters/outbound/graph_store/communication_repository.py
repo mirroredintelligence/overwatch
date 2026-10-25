@@ -1,4 +1,4 @@
-"""Neo4j communication records (P07, DEC-054): one node per message sent or received.
+"""Neo4j communication records (P07, DEC-056): one node per message sent or received.
 
 Layout. (:Resource:Communication {id, status, deliveryStatus, payloadText, sent, received,
 providerMessageId, inResponseTo}) with -[:TOPIC]-> a catalogue Concept (message-id system),

@@ -904,3 +904,41 @@ def test_rebuild_restores_the_original_order_whatever_order_the_relationships_ar
 
     assert reversed_rels.rels != fragment.rels
     assert from_graph(reversed_rels) == resource
+
+
+# Graph-safety helper: the exemption for UCUM annotations is narrow (DEC-051 item 13).
+
+
+def _fragment_with_property(name: str, value: str) -> GraphFragment:
+    key = f"Observation/{OBS_ID}"
+    return GraphFragment(
+        root_key=key,
+        nodes=(NodeSpec(key, ("Resource", "Observation"), {"id": OBS_ID, name: value}),),
+        rels=(),
+    )
+
+
+@pytest.mark.parametrize("value", ['{"a":1}', '["a","b"]', "[1,2]", "{}", "[]"])
+def test_a_code_property_holding_json_is_refused(value: str) -> None:
+    with pytest.raises(AssertionError):
+        _assert_graph_safe(_fragment_with_property("valueQuantity_code", value))
+
+
+@pytest.mark.parametrize("value", ["{bad", "[x", "{not ucum}", "{a b}"])
+def test_a_code_property_holding_a_bracketed_non_ucum_value_is_refused(value: str) -> None:
+    with pytest.raises(AssertionError):
+        _assert_graph_safe(_fragment_with_property("valueQuantity_code", value))
+
+
+@pytest.mark.parametrize("value", ["{referral}", "[in_i]"])
+def test_a_real_ucum_annotation_in_a_code_property_passes(value: str) -> None:
+    _assert_graph_safe(_fragment_with_property("valueQuantity_code", value))
+
+
+@pytest.mark.parametrize(
+    ("name", "value"),
+    [("valueQuantity_unit", "{referral}"), ("valueQuantity_system", "[in_i]")],
+)
+def test_a_ucum_looking_value_outside_a_code_property_is_refused(name: str, value: str) -> None:
+    with pytest.raises(AssertionError):
+        _assert_graph_safe(_fragment_with_property(name, value))

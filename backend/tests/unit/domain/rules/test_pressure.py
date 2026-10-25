@@ -48,7 +48,7 @@ OVERNIGHT_BOARD: Final = _board({OUT_OF_HOURS: 6, ACCEPTING: 2, LIMITED: 1})
 def test_constants_match_the_rule_book() -> None:
     assert WATCH_FROM == 3
     assert HIGH_FROM == 5
-    assert LIMITED_OR_WORSE == frozenset({LIMITED, NOT_ACCEPTING, OVER_CAPACITY})
+    assert frozenset({LIMITED, NOT_ACCEPTING, OVER_CAPACITY}) == LIMITED_OR_WORSE
 
 
 def test_pressure_values() -> None:
@@ -224,4 +224,3 @@ def test_not_updated_never_adds_to_the_count(statuses: list[Status]) -> None:
     without = [s for s in statuses if s is not NOT_UPDATED]
     assert limited_or_worse_count(statuses) == limited_or_worse_count(without)
     assert system_pressure(statuses) is system_pressure(without)
-

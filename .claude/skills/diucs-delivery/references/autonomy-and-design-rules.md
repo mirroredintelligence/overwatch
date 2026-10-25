@@ -4,7 +4,7 @@ Contents: what you decide, what is fixed, the graph-native rule, guardrails, wha
 
 ## What you decide
 
-The product owner's instruction: full design and implementation control, no approval needed, outside four fixed technologies. In practice you decide and record, without asking:
+The product owner's instruction: full design and implementation control, no approval needed, outside four fixed technologies. The owner has also said, in so many words, "you are the owner, these are your decisions to make". So the open items that used to wait for the owner are yours: the grouping window and other [ASSUMED] values, the reading of a rule book gap, which of two conflicting spec values to follow, owner-pending wording that is not a human-only sign-off, and the fifth-PIN style outcomes. Decide, record the decision in `decisions.md` with its reason, and report the outcome in one line. Do not hand these back to the owner as questions. The exceptions are the human-only items in the section below, which you cannot decide and must leave pending. In practice you decide and record, without asking:
 
 - Architecture details, libraries, test tools, CI, hosting shape, queue and cache choices, UI structure and components, file layout, naming (subject to `contracts.md`), task order within a stage, how to split or add tasks, and whether a spec instruction is wrong.
 - Merging to `main` once a task is verified.

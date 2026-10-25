@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from diucs.adapters.outbound.graph_store.mapper import (
     GraphFragment,
@@ -22,7 +24,7 @@ from diucs.adapters.outbound.graph_store.mapper import (
     upper_snake,
 )
 from diucs.domain.codes import BASE_URL
-from diucs.domain.errors import NotFound, ValidationFailed
+from diucs.domain.errors import DomainError, NotFound, ValidationFailed
 
 ORG_ID = "6b1f0c2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
 LOC_ID = "7c2a1d3f-4b5e-4f60-9b0c-1d2e3f4a5b6c"
@@ -358,3 +360,123 @@ def test_a_resource_without_a_resource_type_is_refused() -> None:
         to_graph({"id": ORG_ID, "name": "Dorset HealthCare"})
 
     assert raised.value.field == "resourceType"
+
+
+# 11. F1 (verifier, 65f622d): the round trip must be exact or refused, never lossy.
+
+
+def test_an_empty_meta_object_is_refused_not_dropped() -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph({"resourceType": "Organization", "id": ORG_ID, "meta": {}})
+
+    assert raised.value.field == "meta"
+
+
+@pytest.mark.parametrize("element", ["iri", "versionId", "lastUpdated"])
+def test_a_top_level_name_the_node_already_uses_is_refused(element: str) -> None:
+    resource = {"resourceType": "Organization", "id": ORG_ID, element: "2026-10-25T01:55:00+01:00"}
+
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph(resource)
+
+    assert raised.value.field == element
+
+
+def test_a_top_level_iri_is_never_overwritten_or_dropped() -> None:
+    resource = {"resourceType": "Organization", "id": ORG_ID, "iri": "https://example.test/x"}
+
+    with pytest.raises(ValidationFailed):
+        to_graph(resource)
+
+
+def test_a_top_level_version_id_does_not_move_into_meta() -> None:
+    resource = {"resourceType": "Organization", "id": ORG_ID, "versionId": "3"}
+
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph(resource)
+
+    assert raised.value.field == "versionId"
+
+
+_LOSSY_OR_EXACT_CASES: list[dict[str, Any]] = [
+    {"resourceType": "Organization", "id": ORG_ID, "meta": {}},
+    {"resourceType": "Organization", "id": ORG_ID, "iri": "https://example.test/x"},
+    {"resourceType": "Organization", "id": ORG_ID, "versionId": "3"},
+    {"resourceType": "Organization", "id": ORG_ID, "lastUpdated": "2026-10-25T01:55:00Z"},
+    {"resourceType": "Organization", "id": ORG_ID, "meta": {"versionId": "3"}},
+    {"resourceType": "Organization", "id": ORG_ID, "meta": {"lastUpdated": "2026-10-25T01:55:00Z"}},
+    {"resourceType": "Organization", "id": ORG_ID, "alias": ["DHC"], "active": False},
+    {"resourceType": "Location", "id": LOC_ID, "partOf": {"reference": "Location/l0"}},
+    {
+        "resourceType": "Location",
+        "id": LOC_ID,
+        "partOf": {"reference": "Location/l0", "display": ""},
+    },
+]
+
+
+@pytest.mark.parametrize("resource", _LOSSY_OR_EXACT_CASES)
+def test_round_trip_is_exact_or_refused_for_each_known_edge(resource: dict[str, Any]) -> None:
+    try:
+        fragment = to_graph(resource)
+    except DomainError:
+        return
+    assert from_graph(fragment) == resource
+
+
+_NAMES = st.sampled_from(
+    [
+        "name",
+        "active",
+        "alias",
+        "status",
+        "partOf",
+        "location",
+        "iri",
+        "versionId",
+        "lastUpdated",
+        "meta",
+        "extra",
+        "type",
+    ]
+)
+_PRIMITIVE = st.one_of(st.text(max_size=12), st.booleans(), st.integers(-1000, 1000))
+_REFERENCE = st.fixed_dictionaries(
+    {
+        "reference": st.tuples(
+            st.sampled_from(["Location", "Organization"]),
+            st.from_regex(r"[a-z0-9]{1,6}", fullmatch=True),
+        ).map(lambda pair: f"{pair[0]}/{pair[1]}")
+    },
+    optional={"display": st.text(max_size=8)},
+)
+_META = st.dictionaries(
+    st.sampled_from(["versionId", "lastUpdated", "tag"]),
+    st.text(max_size=12),
+    max_size=3,
+)
+_VALUE = st.one_of(
+    _PRIMITIVE,
+    st.lists(_PRIMITIVE, min_size=1, max_size=3),
+    _REFERENCE,
+    st.lists(_REFERENCE, min_size=1, max_size=3),
+    _META,
+    st.none(),
+)
+
+
+@settings(max_examples=400, deadline=None)
+@given(
+    resource_type=st.sampled_from(["Organization", "Location", "HealthcareService"]),
+    resource_id=st.from_regex(r"[a-z0-9-]{1,12}", fullmatch=True),
+    body=st.dictionaries(_NAMES, _VALUE, max_size=5),
+)
+def test_round_trip_is_exact_or_refused_for_any_generated_resource(
+    resource_type: str, resource_id: str, body: dict[str, Any]
+) -> None:
+    resource = {**body, "resourceType": resource_type, "id": resource_id}
+    try:
+        fragment = to_graph(resource)
+    except DomainError:
+        return
+    assert from_graph(fragment) == resource

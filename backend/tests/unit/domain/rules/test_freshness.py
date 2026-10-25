@@ -3,7 +3,7 @@
 Rules: docs/spec/domain-rules.md 1.5 and the D05 prompt. The sample service is UCR West, Monday to
 Friday 08:00 to 20:00 London local, due every 2 hours. 2026-10-23 is a Friday in British summer
 time; the clocks go back on 2026-10-25, so Monday 2026-10-26 is on GMT (its first due is 08:00Z).
-Every instant is compared as UTC (lesson L4). DEC-027 records the one case where the prompt's
+Every instant is compared as UTC (lesson L4). DEC-029 records the one case where the prompt's
 expectation and the rule book differ (no report ever, before the first due on Monday).
 """
 
@@ -110,7 +110,7 @@ def test_no_report_ever_is_overdue_with_no_age() -> None:
 
 
 def test_no_report_ever_before_monday_first_due_is_overdue_from_friday() -> None:
-    # DEC-027. The prompt expected "not overdue" at 06:30Z. Friday 19:00Z was due, its reply-by
+    # DEC-029. The prompt expected "not overdue" at 06:30Z. Friday 19:00Z was due, its reply-by
     # has passed, and with no report ever any missed due counts (domain-rules 1.5).
     result = assess_freshness(UCR_WEST, None, utc(2026, 10, 26, 6, 30))
     assert result.overdue is True

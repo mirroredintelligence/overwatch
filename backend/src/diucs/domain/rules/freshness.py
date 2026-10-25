@@ -1,6 +1,6 @@
 """Freshness of a service's figure: overdue, data age and the stale warning (D05).
 
-Rules: docs/spec/domain-rules.md 1.5 and the D05 prompt. Decision DEC-027 records one deviation.
+Rules: docs/spec/domain-rules.md 1.5 and the D05 prompt. Decision DEC-029 records one deviation.
 Pure: no I/O and no clock. `now` is an argument. Every instant is converted to UTC before it is
 compared or subtracted (lesson L4).
 

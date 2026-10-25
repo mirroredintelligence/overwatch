@@ -130,8 +130,7 @@ def test_c7_out_of_range_wording() -> None:
 def test_c8_reminder_wording() -> None:
     rendered = render(MessageId.C8, Channel.TEXT, **SAMPLE_FIELDS[MessageId.C8])
     assert rendered.text == (
-        "DIUCS reminder: UCR West has not updated. Confirm or update: diucs.example/k3F9a "
-        "By 10:30."
+        "DIUCS reminder: UCR West has not updated. Confirm or update: diucs.example/k3F9a By 10:30."
     )
 
 
@@ -233,9 +232,7 @@ def test_c1_push_has_title_and_body() -> None:
 def test_c2_push_has_title_and_body() -> None:
     rendered = render(MessageId.C2, Channel.PUSH, **SAMPLE_FIELDS[MessageId.C2])
     assert rendered.subject == "UCR West: confirm or update"
-    assert rendered.text == (
-        "How many referrals in the next 2 hrs can you take? Reply by 08:30."
-    )
+    assert rendered.text == ("How many referrals in the next 2 hrs can you take? Reply by 08:30.")
 
 
 def test_c8_push_has_title_and_body() -> None:
@@ -285,3 +282,31 @@ def test_no_rendered_capacity_message_contains_a_postcode(message_id: MessageId)
         for part in (rendered.text, rendered.subject, rendered.html):
             if part is not None:
                 assert UK_POSTCODE.search(part) is None
+
+
+@pytest.mark.parametrize(
+    "items",
+    [
+        "A UCR West 3",
+        [("A", "UCR West")],
+        [("A", "UCR West", "3"), ("B", "UCR East", 1)],
+        [("A", "UCR West", True), ("B", "UCR East", 1)],
+        [("A", "UCR West", 3), ("B", "UCR East")],
+    ],
+)
+def test_c9_malformed_items_are_refused(items: object) -> None:
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C9, Channel.TEXT, reply_by="10:30", items=items)
+
+
+@pytest.mark.parametrize(
+    ("updated", "waiting"),
+    [
+        ("B UCR East 2", []),
+        ([("B", "UCR East")], []),
+        ([], [("A",)]),
+    ],
+)
+def test_c10_malformed_rows_are_refused(updated: object, waiting: object) -> None:
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C10, Channel.TEXT, updated=updated, waiting=waiting)

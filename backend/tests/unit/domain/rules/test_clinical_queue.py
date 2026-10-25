@@ -5,6 +5,7 @@ Decision DEC-036 records the choices the prompt leaves open. Every instant is ti
 """
 
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -255,3 +256,52 @@ def test_an_advised_request_must_have_a_taker() -> None:
 def test_a_note_must_be_text() -> None:
     with pytest.raises(ValidationFailed):
         validate_note(None)  # type: ignore[arg-type]
+
+
+LONDON = ZoneInfo("Europe/London")
+
+
+def london(year: int, month: int, day: int, hour: int, minute: int, fold: int = 0) -> datetime:
+    """A London wall-clock time. fold=1 picks the second of the two 01:xx hours on 2026-10-25."""
+    return datetime(year, month, day, hour, minute, tzinfo=LONDON, fold=fold)
+
+
+def test_autumn_lapse_counts_real_minutes_across_the_clock_change() -> None:
+    # 01:50 BST (00:50Z) to 01:55 GMT (01:55Z) is 65 real minutes: the lock has lapsed.
+    locked = take(request("r1"), "c1", london(2026, 10, 25, 1, 50, fold=0))
+
+    with pytest.raises(NotAllowed):
+        give_advice(locked, "c1", london(2026, 10, 25, 1, 55, fold=1))
+
+
+def test_autumn_lock_is_idle_after_ten_real_minutes_across_the_clock_change() -> None:
+    # 01:50 BST (00:50Z) to 01:00 GMT (01:00Z) is 10 real minutes: the lock is idle.
+    locked = take(request("r1"), "c1", london(2026, 10, 25, 1, 50, fold=0))
+
+    released = return_if_idle(locked, london(2026, 10, 25, 1, 0, fold=1))
+
+    assert released.taken_by is None
+
+
+def test_spring_gap_lock_is_still_live_after_nine_real_minutes() -> None:
+    # 00:59 GMT (00:59Z) to 02:03 BST (01:03Z) is 4 real minutes: another advisor is refused.
+    locked = take(request("r1"), "c1", london(2026, 3, 29, 0, 59))
+
+    with pytest.raises(Conflict):
+        take(locked, "c2", london(2026, 3, 29, 2, 3))
+
+
+def test_spring_gap_lock_is_not_idle_after_nine_real_minutes() -> None:
+    # 00:55 GMT (00:55Z) to 02:04 BST (01:04Z) is 9 real minutes: the lock is kept.
+    locked = take(request("r1"), "c1", london(2026, 3, 29, 0, 55))
+
+    kept = return_if_idle(locked, london(2026, 3, 29, 2, 4))
+
+    assert kept.taken_by == "c1"
+
+
+@pytest.mark.parametrize(("count", "queue_known"), [(3, None), (None, None), (1, 0)])
+def test_advice_shown_as_available_returns_exactly_false_when_not_known(
+    count: int | None, queue_known: bool
+) -> None:
+    assert advice_shown_as_available(count, queue_known) is False

@@ -351,3 +351,14 @@ async def test_no_stored_property_is_a_map_a_list_of_maps_or_a_json_string(
             except ValueError:
                 continue
             assert not isinstance(parsed, dict | list)
+
+
+async def test_a_stored_filter_code_is_written_with_its_coded_value(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # H-24: measureCode is a derived copy of the first code; the same put must store both.
+    await _put(neo4j_driver, _observation(), None)
+
+    props = await node_props(neo4j_driver, "Observation", id=OBS_ID)
+    assert props["measureCode"] == "referral-capacity"
+    assert await _get(neo4j_driver, "Observation", OBS_ID) == _with_meta(_observation(), "1")

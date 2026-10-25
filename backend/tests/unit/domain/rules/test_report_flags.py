@@ -259,6 +259,47 @@ def test_many_changes_window_crosses_the_autumn_clock_change() -> None:
     assert flags(rpt(5, datetime(2026, 10, 25, 1, 2, tzinfo=UTC)), recent) == [MANY]
 
 
+# --- London-zoned reports across the clock changes -------------------------------------------
+# Same tzinfo object on both sides: Python subtracts and compares wall-clock fields, not instants.
+# So these must be converted to UTC. Spring 2026-03-29: 00:58 GMT to 02:02 BST is 4 minutes,
+# wall clock says 1h04. Autumn 2026-10-25: 01:02 GMT is fold=1, 01:58 BST is fold=0.
+
+
+def london(day: int, month: int, hour: int, minute: int, fold: int = 0) -> datetime:
+    return datetime(2026, month, day, hour, minute, tzinfo=LONDON, fold=fold)
+
+
+def test_many_changes_across_the_spring_change_uses_elapsed_time_london_zoned() -> None:
+    # 00:58 GMT and 00:59 GMT are 4 and 3 minutes before 02:02 BST (01:02 UTC).
+    recent = [rpt(3, london(29, 3, 0, 58)), rpt(4, london(29, 3, 0, 59))]
+    assert flags(rpt(5, london(29, 3, 2, 2)), recent) == [MANY]
+
+
+def test_many_changes_across_the_autumn_change_uses_elapsed_time_london_zoned() -> None:
+    # 01:58 BST (fold 0) and 01:59 BST are 4 and 3 minutes before 01:02 GMT (fold 1).
+    recent = [rpt(3, london(25, 10, 1, 58)), rpt(4, london(25, 10, 1, 59))]
+    assert flags(rpt(5, london(25, 10, 1, 2, fold=1)), recent) == [MANY]
+
+
+def test_london_zoned_pair_11_minutes_apart_across_spring_change_is_not_flagged() -> None:
+    # True elapsed time 11 minutes (00:50 GMT to 01:01 UTC). Window is not widened.
+    recent = [rpt(3, london(29, 3, 0, 50)), rpt(4, london(29, 3, 0, 51))]
+    assert flags(rpt(5, london(29, 3, 2, 2)), recent) == []
+
+
+def test_differs_from_phoned_across_the_spring_change_uses_elapsed_time() -> None:
+    # Phoned 00:30 GMT, text 02:10 BST: 40 minutes of real time, 1h40 on the wall clock.
+    recent = [rpt(3, london(29, 3, 0, 30), source=ReportSource.ADVISOR_PHONED)]
+    assert flags(rpt(5, london(29, 3, 2, 10)), recent) == [DIFFERS]
+
+
+def test_differs_from_phoned_across_the_autumn_change_uses_elapsed_time() -> None:
+    # Phoned 01:30 BST (fold 0), text 01:10 GMT (fold 1): the phoned one is 40 minutes earlier
+    # in real time, but later on the wall clock.
+    recent = [rpt(3, london(25, 10, 1, 30), source=ReportSource.ADVISOR_PHONED)]
+    assert flags(rpt(5, london(25, 10, 1, 10, fold=1)), recent) == [DIFFERS]
+
+
 # --- Property tests: an independent oracle written from the rule text -------------------------
 
 
@@ -294,13 +335,16 @@ def build(draw: Draw) -> CapacityReport:
 
 def oracle(new: CapacityReport, recent: Sequence[CapacityReport]) -> list[ReportFlagReason]:
     """Written from domain-rules 2.3, not from the implementation."""
+    new_at = new.effective_at.astimezone(UTC)
     earlier = [
         r
         for r in recent
-        if r.id != new.id and r.service_id == new.service_id and r.effective_at <= new.effective_at
+        if r.id != new.id
+        and r.service_id == new.service_id
+        and r.effective_at.astimezone(UTC) <= new_at
     ]
     result: list[ReportFlagReason] = []
-    in_five = [r for r in earlier if r.effective_at >= new.effective_at - timedelta(minutes=5)]
+    in_five = [r for r in earlier if r.effective_at.astimezone(UTC) >= new_at - timedelta(minutes=5)]
     if len(in_five) + 1 >= 3:
         result.append(MANY)
     if new.source is not ReportSource.ADVISOR_PHONED:
@@ -308,7 +352,7 @@ def oracle(new: CapacityReport, recent: Sequence[CapacityReport]) -> list[Report
             r
             for r in earlier
             if r.source is ReportSource.ADVISOR_PHONED
-            and r.effective_at >= new.effective_at - timedelta(minutes=60)
+            and r.effective_at.astimezone(UTC) >= new_at - timedelta(minutes=60)
         ]
         if any(r.value != new.value for r in in_hour_phoned):
             result.append(DIFFERS)
@@ -344,6 +388,40 @@ def test_reports_later_than_new_never_change_the_result(
     later = [build(d) for d in later_draws if d.minute > new_draw.minute]
     before = flags(new, recent)
     assert flags(new, recent + later) == before
+
+
+CHANGE_INSTANTS = [datetime(2026, 3, 29, 1, 0, tzinfo=UTC), datetime(2026, 10, 25, 1, 0, tzinfo=UTC)]
+near_change = st.builds(
+    Draw,
+    minute=st.integers(min_value=-15, max_value=15),
+    value=st.integers(min_value=0, max_value=12),
+    source=st.sampled_from(list(ReportSource)),
+    confirm=st.just(False),
+    other_service=st.booleans(),
+)
+
+
+@given(
+    base=st.sampled_from(CHANGE_INSTANTS),
+    new_draw=near_change,
+    recent_draws=st.lists(near_change, max_size=8),
+)
+def test_result_matches_the_rule_text_across_the_clock_changes(
+    base: datetime, new_draw: Draw, recent_draws: list[Draw]
+) -> None:
+    def london_report(d: Draw) -> CapacityReport:
+        when = (base + timedelta(minutes=d.minute)).astimezone(LONDON)
+        return rpt(
+            d.value,
+            when,
+            source=d.source,
+            service_id=OTHER_SERVICE if d.other_service else SERVICE,
+        )
+
+    new = london_report(new_draw)
+    new = rpt(new.value, new.effective_at, source=new.source)
+    recent = [london_report(d) for d in recent_draws]
+    assert flags(new, recent) == oracle(new, recent)
 
 
 @given(new_draw=draws, recent_draws=st.lists(draws, max_size=8))

@@ -1,7 +1,6 @@
 """Booking rules around the state machine (D14).
 
-Rules: docs/spec/domain-rules.md section 3.2.
-Names: docs/spec/contracts.md, rules/booking_rules.py row.
+Rules: docs/spec/domain-rules.md section 3.2. Names: docs/spec/contracts.md, rules/booking_rules.py row.
 Decisions: DEC-016 (references match exactly, never by prefix).
 """
 
@@ -39,8 +38,8 @@ def booking(booking_id: str, reference: str, service_id: str) -> OpenBookingRef:
 
 
 def test_the_reply_window_and_phone_prompt_are_the_rule_book_values() -> None:
-    assert timedelta(minutes=10) == BOOKING_REPLY_WINDOW
-    assert timedelta(minutes=5) == PHONE_PROMPT_AFTER
+    assert BOOKING_REPLY_WINDOW == timedelta(minutes=10)
+    assert PHONE_PROMPT_AFTER == timedelta(minutes=5)
     assert REFERENCE_ATTEMPTS == 50
 
 

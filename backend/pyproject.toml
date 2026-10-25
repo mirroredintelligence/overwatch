@@ -43,6 +43,11 @@ target-version = "py314"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
 
+# D14 red tests were committed before this lint config was checked against them.
+# Their assertions are left exactly as committed in ef5f9bb; these two rules are waived for that file only.
+[tool.ruff.lint.per-file-ignores]
+"tests/unit/domain/rules/test_booking_rules.py" = ["E501", "SIM300"]
+
 [tool.mypy]
 strict = true
 files = ["src"]

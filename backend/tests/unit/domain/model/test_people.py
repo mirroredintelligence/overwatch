@@ -21,6 +21,9 @@ from diucs.domain.model.people import (
     role_holder,
 )
 
+H1 = "a" * 64
+H2 = "b" * 64
+H_UNKNOWN = "d" * 64
 LONDON = ZoneInfo("Europe/London")
 PERIOD_START = datetime(2026, 10, 1, tzinfo=UTC)
 COVER_UNTIL = datetime(2026, 10, 25, 19, 0, tzinfo=UTC)
@@ -45,9 +48,9 @@ def _role(**changes: object) -> PractitionerRole:
 
 
 def test_a_practitioner_is_a_person_with_no_telecom_field() -> None:
-    person = Practitioner(id="p1", active=True, display_name="Duty Manager One", phone_hash="h1")
+    person = Practitioner(id="p1", active=True, display_name="Duty Manager One", phone_hash=H1)
 
-    assert person.phone_hash == "h1"
+    assert person.phone_hash == H1
     assert person.email_domain is None
     assert not hasattr(person, "telecom")
 

@@ -22,11 +22,12 @@ from diucs.domain.codes import BASE_URL, Channel, PractitionerRoleCode
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole
 
+H1 = "a" * 64
 PERSON = Practitioner(
     id="p1",
     active=True,
     display_name="Duty Manager One",
-    phone_hash="h1",
+    phone_hash=H1,
     email_domain="nhs.example",
 )
 ROLE_EAST_COVERED = PractitionerRole(
@@ -60,14 +61,14 @@ def test_practitioner_fhir_has_no_telecom() -> None:
 def test_practitioner_fhir_carries_no_phone_hash_or_email_domain() -> None:
     resource = practitioner_to_fhir(PERSON)
 
-    assert "h1" not in _all_strings(resource)
+    assert H1 not in _all_strings(resource)
     assert "nhs.example" not in _all_strings(resource)
 
 
 def test_practitioner_round_trips_through_fhir_with_its_graph_properties() -> None:
     resource = practitioner_to_fhir(PERSON)
 
-    rebuilt = practitioner_from_fhir(resource, phone_hash="h1", email_domain="nhs.example")
+    rebuilt = practitioner_from_fhir(resource, phone_hash=H1, email_domain="nhs.example")
 
     assert rebuilt == PERSON
 

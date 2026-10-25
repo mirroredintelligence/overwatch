@@ -23,6 +23,10 @@ REPORTER_ROLE_CODES: frozenset[PractitionerRoleCode] = frozenset(
 )
 
 
+def check_phone_hash(value: str) -> None:
+    raise NotImplementedError
+
+
 def _aware(field: str, value: datetime) -> None:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValidationFailed(field, "must be timezone-aware")

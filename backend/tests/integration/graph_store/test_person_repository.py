@@ -29,8 +29,11 @@ NOW = datetime(2026, 10, 25, 13, 0, tzinfo=UTC)
 COVER_UNTIL = datetime(2026, 10, 25, 19, 0, tzinfo=UTC)
 SERVICE_NAMES = {"svc-ucr-west": "UCR West", "svc-ucr-east": "UCR East"}
 
-P1 = Practitioner(id="p1", active=True, display_name="Duty Manager One", phone_hash="h1")
-P2 = Practitioner(id="p2", active=True, display_name="Cover Manager Two", phone_hash="h2")
+H1 = "a" * 64
+H2 = "b" * 64
+H_UNKNOWN = "d" * 64
+P1 = Practitioner(id="p1", active=True, display_name="Duty Manager One", phone_hash=H1)
+P2 = Practitioner(id="p2", active=True, display_name="Cover Manager Two", phone_hash=H2)
 
 ROLE_WEST = PractitionerRole(
     id="r-west",
@@ -111,7 +114,7 @@ async def test_p1_round_trips_with_its_phone_hash_as_a_node_property(
     await assert_round_trip(neo4j_driver, save, load, P1)
 
     props = await node_props(neo4j_driver, "Practitioner", id="p1")
-    assert props["phoneHash"] == "h1"
+    assert props["phoneHash"] == H1
 
 
 async def test_the_duty_manager_role_round_trips_with_its_text_channel(
@@ -134,7 +137,7 @@ async def test_phone_h1_gets_both_services_it_holds_sorted_by_service_id(
 ) -> None:
     await _write(neo4j_driver, "services", P1, ROLE_WEST, ROLE_EAST)
 
-    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW))
+    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash(H1, NOW))
 
     assert services == [(ROLE_EAST, "UCR East"), (ROLE_WEST, "UCR West")]
 
@@ -144,13 +147,13 @@ async def test_a_cover_moves_east_to_phone_h2_until_19_00_and_then_reverts(
 ) -> None:
     await _write(neo4j_driver, "services", P1, P2, ROLE_WEST, ROLE_EAST_COVERED)
 
-    h1_now = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW))
-    h2_now = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h2", NOW))
+    h1_now = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash(H1, NOW))
+    h2_now = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash(H2, NOW))
     h1_after = await read_tx(
-        neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", COVER_UNTIL)
+        neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash(H1, COVER_UNTIL)
     )
     h2_after = await read_tx(
-        neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h2", COVER_UNTIL)
+        neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash(H2, COVER_UNTIL)
     )
 
     assert h1_now == [(ROLE_WEST, "UCR West")]
@@ -177,7 +180,7 @@ async def test_an_inactive_practitioner_is_not_found_by_phone(neo4j_driver: Asyn
     inactive = dataclasses.replace(P1, active=False)
     await _write(neo4j_driver, inactive)
 
-    found = await read_tx(neo4j_driver, lambda tx: _repo(tx).find_by_phone_hash("h1"))
+    found = await read_tx(neo4j_driver, lambda tx: _repo(tx).find_by_phone_hash(H1))
 
     assert found is None
 
@@ -185,8 +188,8 @@ async def test_an_inactive_practitioner_is_not_found_by_phone(neo4j_driver: Asyn
 async def test_an_active_practitioner_is_found_by_phone_hash(neo4j_driver: AsyncDriver) -> None:
     await _write(neo4j_driver, P1)
 
-    assert await read_tx(neo4j_driver, lambda tx: _repo(tx).find_by_phone_hash("h1")) == P1
-    assert await read_tx(neo4j_driver, lambda tx: _repo(tx).find_by_phone_hash("nope")) is None
+    assert await read_tx(neo4j_driver, lambda tx: _repo(tx).find_by_phone_hash(H1)) == P1
+    assert await read_tx(neo4j_driver, lambda tx: _repo(tx).find_by_phone_hash(H_UNKNOWN)) is None
 
 
 async def test_an_inactive_role_is_excluded_from_phone_and_person_lookups(
@@ -195,7 +198,7 @@ async def test_an_inactive_role_is_excluded_from_phone_and_person_lookups(
     inactive = dataclasses.replace(ROLE_WEST, active=False)
     await _write(neo4j_driver, "services", P1, inactive)
 
-    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW))
+    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash(H1, NOW))
     roles = await read_tx(neo4j_driver, lambda tx: _repo(tx).roles_for_practitioner("p1"))
 
     assert services == []
@@ -206,7 +209,7 @@ async def test_a_criteria_owner_role_is_not_a_reporter_role(neo4j_driver: AsyncD
     owner = dataclasses.replace(ROLE_WEST, code=PractitionerRoleCode.CRITERIA_OWNER)
     await _write(neo4j_driver, "services", P1, owner)
 
-    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW))
+    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash(H1, NOW))
     reporters = await read_tx(
         neo4j_driver, lambda tx: _repo(tx).reporter_roles_for_service("svc-ucr-west", NOW)
     )
@@ -250,7 +253,7 @@ async def test_saving_a_role_without_its_cover_removes_the_covered_by_relationsh
     await _write(neo4j_driver, ROLE_EAST)
 
     assert await _count_rels(neo4j_driver, "COVERED_BY") == 0
-    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h2", NOW))
+    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash(H2, NOW))
     assert services == []
 
 

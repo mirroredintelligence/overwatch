@@ -228,3 +228,10 @@ Status: accepted · Affects: D04 (`due_times_on` for `twice-a-day`), D05 (report
 - Reading the rule book this way gives a due at 14:00 for a window that ends at 12:00 (the service is closed at 14:00). This is the cost of the rule book's wording. Missing a due is worse than an extra one. If the owner wants the closed case removed, that is a rule-book change, not a code change.
 - Tests: `test_twice_a_day_*` in `backend/tests/unit/domain/rules/test_schedule.py`, and the property `test_twice_a_day_has_1400_exactly_when_the_window_does_not_open_after_it`.
 - The number is DEC-024 on this branch. The orchestrator may renumber at delivery, since DEC-023 is also taken on another branch.
+
+## DEC-026 Lint waiver for the D14 red test file (E501, SIM300)
+Status: accepted · Affects: `backend/pyproject.toml` (per-file ignores), `backend/tests/unit/domain/rules/test_booking_rules.py`.
+
+The D14 red test file is kept byte-identical to its red commit, so the test-first record stays honest. Two rules that the file breaks (E501 line length, SIM300 Yoda comparisons) are waived for that one path only. Nothing else is waived.
+
+Condition: remove the waiver in the same change that next edits the red file legitimately, and say so in that change's evidence. Reviewed by the D14 verifier (`verify-D14c`).

@@ -306,3 +306,101 @@ async def test_appending_without_a_chain_head_is_refused_not_repaired(
     with pytest.raises(AuditHeadMissing):
         await write_tx(neo4j_driver, lambda tx: Neo4jAuditLog(tx).append(entry_at(0)))
     assert await count_nodes(neo4j_driver, "AuditEvent") == 0
+
+
+async def _run_tamper(driver: AsyncDriver, cypher: str, **params: object) -> None:
+    async def edit(tx: AsyncManagedTransaction) -> None:
+        result = await tx.run(cypher, **params)
+        await result.consume()
+
+    await write_tx(driver, edit)
+
+
+async def _verifies(driver: AsyncDriver) -> bool:
+    return await read_tx(driver, lambda tx: Neo4jAuditLog(tx).verify_chain())
+
+
+async def test_an_edited_audit_event_recorded_time_is_detected(
+    neo4j_driver: AsyncDriver, audit_head: None
+) -> None:
+    await write_tx(neo4j_driver, lambda tx: Neo4jAuditLog(tx).append(entry_at(0)))
+    assert await _verifies(neo4j_driver) is True
+
+    await _run_tamper(
+        neo4j_driver,
+        "MATCH (e:AuditEvent {seq: 1}) SET e.recorded = datetime('2026-10-25T10:00:00Z')",
+    )
+
+    assert await _verifies(neo4j_driver) is False
+
+
+async def test_an_edited_provenance_recorded_time_is_detected(
+    neo4j_driver: AsyncDriver, audit_head: None
+) -> None:
+    async def record(tx: AsyncManagedTransaction) -> str:
+        return await Neo4jAuditLog(tx, clock=FixedClock(NOW)).append_provenance(
+            target_type="Booking",
+            target_id="bk-1",
+            activity="confirm",
+            agent_id="prac-1",
+            agent_role=Role.ADVISOR,
+        )
+
+    prov_id = await write_tx(neo4j_driver, record)
+    assert await _verifies(neo4j_driver) is True
+
+    await _run_tamper(
+        neo4j_driver,
+        "MATCH (p:Provenance {id: $id}) SET p.recorded = datetime('2026-10-25T10:00:00Z')",
+        id=prov_id,
+    )
+
+    assert await _verifies(neo4j_driver) is False
+
+
+async def test_a_retargeted_provenance_target_is_detected(
+    neo4j_driver: AsyncDriver, audit_head: None
+) -> None:
+    async def record(tx: AsyncManagedTransaction) -> str:
+        return await Neo4jAuditLog(tx, clock=FixedClock(NOW)).append_provenance(
+            target_type="Booking",
+            target_id="bk-1",
+            activity="confirm",
+            agent_id="prac-1",
+            agent_role=Role.ADVISOR,
+        )
+
+    prov_id = await write_tx(neo4j_driver, record)
+    assert await _verifies(neo4j_driver) is True
+
+    await _run_tamper(
+        neo4j_driver,
+        "MATCH (:Provenance {id: $id})-[:TARGET]->(t:AuditRef) SET t.id = 'bk-9'",
+        id=prov_id,
+    )
+
+    assert await _verifies(neo4j_driver) is False
+
+
+async def test_an_edited_audit_agent_edge_is_detected(
+    neo4j_driver: AsyncDriver, audit_head: None
+) -> None:
+    practitioner = Actor(
+        role=Role.ADVISOR,
+        practitioner_id="prac-1",
+        device_id=None,
+        channel="advisor-app",
+        service_ids=frozenset(),
+    )
+    await write_tx(
+        neo4j_driver,
+        lambda tx: Neo4jAuditLog(tx).append(replace(entry_at(0), actor=practitioner)),
+    )
+    assert await _verifies(neo4j_driver) is True
+
+    await _run_tamper(
+        neo4j_driver,
+        "MATCH (:AuditEvent)-[r:AGENT]->(:AuditRef {id: 'prac-1'}) SET r.role = 'lead'",
+    )
+
+    assert await _verifies(neo4j_driver) is False

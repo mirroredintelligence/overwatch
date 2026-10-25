@@ -26,6 +26,17 @@ REPORTER_ROLE_CODES: frozenset[PractitionerRoleCode] = frozenset(
 
 _PHONE_HASH = re.compile(r"[0-9a-f]{64}")
 _EMAIL_DOMAIN = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+")
+# The patient-data shapes of DEC-047 items 1 and 2, copied here so the domain model does not depend
+# on the messages module. A staff name carries neither shape (DEC-065 item 6).
+_POSTCODE = re.compile(r"\b[A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2}\b", re.IGNORECASE)
+_NHS_NUMBER = re.compile(r"(?<![0-9])(?:[0-9]{10}|[0-9]{3}[ -][0-9]{3}[ -][0-9]{4})(?![0-9])")
+
+
+def check_staff_text(field: str, value: str) -> None:
+    """Free text on a Practitioner (a staff name) may not carry a postcode shape or an NHS-number
+    shape. Refused by field name only; the value is never echoed (DEC-065 item 6)."""
+    if _POSTCODE.search(value) or _NHS_NUMBER.search(value):
+        raise ValidationFailed(field, "must not carry a postcode or an NHS number")
 
 
 def check_phone_hash(value: str) -> None:
@@ -56,6 +67,7 @@ class Practitioner:
     email_domain: str | None = None
 
     def __post_init__(self) -> None:
+        check_staff_text("display_name", self.display_name)
         if self.phone_hash is not None:
             check_phone_hash(self.phone_hash)
         if self.email_domain is not None:

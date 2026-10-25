@@ -48,4 +48,3 @@ def test_an_nhs_number_shape_in_the_display_name_is_refused(display_name: str) -
 
     assert refused.value.field == "display_name"
     assert "943" not in str(refused.value)
-

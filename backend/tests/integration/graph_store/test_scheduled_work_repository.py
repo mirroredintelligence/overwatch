@@ -15,7 +15,7 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
     Neo4jScheduledWorkRepository,
 )
 from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.errors import Conflict, NotFound
+from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 
@@ -215,3 +215,16 @@ async def test_a_refused_save_of_an_unknown_record_leaves_no_node_after_commit(
 
     assert await count_nodes(neo4j_driver, "ScheduledWork") == 0
     assert await _count_subjects(neo4j_driver, "booking-3") == 0
+
+
+async def test_a_naive_due_time_is_refused_before_anything_is_written(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # Restored from the first round, where the test built the record outside pytest.raises and was
+    # then deleted. The refusal is at construction, so no node is written (DEC-053 item 16).
+    with pytest.raises(ValidationFailed):
+        await _add(
+            neo4j_driver, _work("work-naive", WorkKind.REVERIFY, due=datetime(2026, 10, 24, 14, 21))
+        )
+
+    assert await count_nodes(neo4j_driver, "ScheduledWork") == 0

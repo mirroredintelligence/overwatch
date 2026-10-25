@@ -28,7 +28,8 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
     MessageId.C1: C1_FIELDS,
     MessageId.C2: {
         "service": "UCR West",
-        "unit": "referrals in the next 2 hrs",
+        "unit": "referrals",
+        "window": "in the next 2 hrs",
         "reply_by": "08:30",
         "link": "diucs.example/k3F9a",
     },
@@ -91,7 +92,7 @@ def test_c1_text_is_one_sms_segment() -> None:
 def test_c2_matches_the_rule_book_first_prompt() -> None:
     rendered = render(MessageId.C2, Channel.TEXT, **SAMPLE_FIELDS[MessageId.C2])
     assert rendered.text == (
-        "DIUCS: UCR West. How many referrals in the next 2 hrs can you take? "
+        "DIUCS: UCR West. How many referrals can you take in the next 2 hrs? "
         "Send a number (0 = closed). By 08:30."
     )
 
@@ -232,7 +233,7 @@ def test_c1_push_has_title_and_body() -> None:
 def test_c2_push_has_title_and_body() -> None:
     rendered = render(MessageId.C2, Channel.PUSH, **SAMPLE_FIELDS[MessageId.C2])
     assert rendered.subject == "UCR West: confirm or update"
-    assert rendered.text == ("How many referrals in the next 2 hrs can you take? Reply by 08:30.")
+    assert rendered.text == "How many referrals can you take in the next 2 hrs? Reply by 08:30."
 
 
 def test_c8_push_has_title_and_body() -> None:
@@ -310,3 +311,32 @@ def test_c9_malformed_items_are_refused(items: object) -> None:
 def test_c10_malformed_rows_are_refused(updated: object, waiting: object) -> None:
     with pytest.raises(ValidationFailed):
         render(MessageId.C10, Channel.TEXT, updated=updated, waiting=waiting)
+
+
+@pytest.mark.parametrize("raw", [None, 3, "A UCR West 3"])
+def test_c9_items_that_are_not_a_list_are_refused(raw: object) -> None:
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C9, Channel.TEXT, reply_by="10:30", items=raw)
+
+
+@pytest.mark.parametrize("raw", [None, 3])
+def test_c10_updated_or_waiting_that_is_not_a_list_is_refused(raw: object) -> None:
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C10, Channel.TEXT, updated=raw, waiting=[])
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C10, Channel.TEXT, updated=[("B", "UCR East", 2)], waiting=raw)
+
+
+@pytest.mark.parametrize("row", ["AB", ["A", "UCR West"]])
+def test_c10_rows_that_are_not_tuples_are_refused(row: object) -> None:
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C10, Channel.TEXT, updated=[], waiting=[row])
+
+
+@pytest.mark.parametrize(
+    "row",
+    [(1, "UCR West", 3), ("A", 2, 3)],
+)
+def test_c9_letter_and_service_must_be_text(row: tuple[object, ...]) -> None:
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C9, Channel.TEXT, reply_by="10:30", items=[row, ("B", "UCR East", 1)])

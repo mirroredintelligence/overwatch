@@ -304,3 +304,23 @@ domain-rules 1.2 and 1.3 give the status rule but not the figures a service show
 6. A naive `now` or a report after `now` is refused by `assess_freshness` (DEC-030).
 
 All integer arithmetic. Instants are compared as UTC (lesson L4).
+
+## DEC-034 Message template and SMS length choices the prompt leaves open (D15)
+Status: accepted · Affects: D15 (`domain/messages/templates.py`, `sms_length.py`), U01 to U06 and any use case that renders a capacity message.
+
+Numbered DEC-034 because DEC-032 is taken on main (D22) and DEC-033 on task/D07-service-status.
+
+`docs/spec/domain-rules.md` section 9 and the D15 prompt give the wording but not these choices:
+
+1. **Accepted fields per id, required fields per channel.** A caller may pass any field listed for the id in `docs/spec/contracts.md` (for example a push C1 also accepts `as_of` and `link`). A field is required only when the channel's template uses it, so a push C1 needs `service`, `value`, `unit` and `reply_by`. A name outside the id's list raises `ValidationFailed` (the extra-field rule in the prompt).
+2. **Channels per id.** C1, C2 and C8 render on text, email and push. C3 to C7, C9 to C11 render on text only. Any other channel raises `ValidationFailed`.
+3. **Email bodies (OWNER SIGN-OFF PENDING, NOT APPROVED, not IG-approved).** The subject is `{service}: confirm or update by {reply_by}`. The text body is the id's text wording, plus the footer line from the prompt. C1 and C8 already carry the link in their text. C2 has no link in its text, so its email body adds the line `Confirm or update: {link}`. The HTML body repeats the wording, with the link as a button-style anchor. Every field value is HTML-escaped in the HTML body and left as written in the text body.
+4. **Push C8 text (OWNER SIGN-OFF PENDING, NOT APPROVED, not IG-approved).** is not given in the spec (C8 has no value). It reads `{service} has not updated. Reply by {reply_by}.`
+5. **C9 needs at least two items** (the wording says "2 services" and "both"). One item raises `ValidationFailed`. Three or more items use "all". The reply examples always use the first two items, with value plus 1, as the prompt says.
+6. **C10 with no updated and no waiting items** raises `ValidationFailed`. Updated items come first, then waiting items, in the order given.
+7. **SMS length.** The extension set is exactly the prompt's `^{}\[~]|` and the euro sign, plus form feed, which GSM 03.38 also places in its extension table. Any other character outside GSM-7, including a non-BMP character, switches the message to UCS-2. Length is counted in UTF-16 code units. An empty text is one segment. A concatenated UCS-2 message holds 67 units per segment.
+
+8. **C2 takes `window` as its own field.** The rule book sample is "How many referrals can you take in the next 2 hrs?" (ui-screens.md line 1002, domain-rules section 9). The unit alone cannot give that order, so C2 takes `unit` ("referrals") and `window` ("in the next 2 hrs"). contracts.md is updated and lesson L46 published. The screen at line 1011 ("in the next 2 hours") is the same template with another window.
+9. **Screen texts with no template (open, owner decision).** ui-screens.md line 963 is C1 without the link ("Reply Y if right, or send the new number (0 = closed). By 12:30."). Line 970 is a correction echo ("Thanks. UCR West: updated to 4 referrals, as of 14:10."). Line 3360 is an echo after Y for a lettered prompt ("Thanks. A) UCR West 3 confirmed. Next prompt 12:00."). None of them is a catalogue id, so none is built. The owner decides whether to add ids or to align the screens with C1, C4 and C10.
+
+Tests: `backend/tests/unit/domain/messages/`. The DEC-034 choices 1, 5 and 7 are asserted there. Choices 3 and 4 are the owner's to approve: the prompt says the per-measure C2 phrasing is still awaiting IG approval.

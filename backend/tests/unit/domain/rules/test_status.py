@@ -4,7 +4,7 @@ Rules: docs/spec/domain-rules.md 1.2 and 1.3 (first match wins), and the D07 pro
 services are the ones in the spec's sample board. Friday 2026-10-23 is in British summer time
 (14:12 BST at 13:12Z). The clocks go back on 2026-10-25, so Monday 2026-10-26 is on GMT.
 Every instant is UTC (lesson L4). Limited uses integer arithmetic (no floats).
-DEC-029 governs no-report-ever overdue. DEC-032 governs the figures for occupied patients.
+DEC-029 governs no-report-ever overdue. DEC-033 governs the figures for occupied patients.
 """
 
 from dataclasses import replace

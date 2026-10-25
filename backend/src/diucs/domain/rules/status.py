@@ -6,7 +6,7 @@ Rules: docs/spec/domain-rules.md 1.2 and 1.3. The first matching rule wins, in t
 when the status is not-updated or out-of-hours, so the board can show the last known figure.
 
 Pure: no I/O and no clock. `now` is an argument. Every comparison uses integer arithmetic (no
-floats) and instants are compared as UTC (lesson L4). Decision DEC-032 fixes the figures for
+floats) and instants are compared as UTC (lesson L4). Decision DEC-033 fixes the figures for
 occupied-patients: there is no free count for occupancy, so available is None and used is the
 occupied count (including bookings confirmed since the report).
 """

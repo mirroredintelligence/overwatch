@@ -22,7 +22,7 @@ B1_FIELDS: dict[str, object] = {
     "reference": "4821",
     "service": "UCR West",
     "age_band": "80+",
-    "need": "fall and frailty",
+    "need": "frailty",
     "urgency": "within 2 hrs",
     "link": "diucs.example/b4821",
     "reply_by": "14:26",
@@ -52,7 +52,7 @@ BOOKING_FIELDS: dict[MessageId, dict[str, object]] = {
 def test_b1_matches_the_rule_book_sample_exactly() -> None:
     rendered = render(MessageId.B1, Channel.TEXT, **B1_FIELDS)
     assert rendered.text == (
-        "DIUCS REQUEST 4821: UCR West. Age 80+, fall and frailty, within 2 hrs. "
+        "DIUCS REQUEST 4821: UCR West. Age 80+, frailty, within 2 hrs. "
         "Referral details follow in SystmOne. Reply CONFIRMED or DECLINE, "
         "or open diucs.example/b4821 by 14:26."
     )
@@ -104,7 +104,7 @@ def test_b2_email_subject_and_labelled_review_link() -> None:
     assert rendered.text.splitlines()[:6] == [
         "Booking request 4821 for UCR West.",
         "Age band 80+",
-        "Need: fall and frailty",
+        "Need: frailty",
         "Response wanted: within 2 hrs",
         "Referral details follow in SystmOne.",
         "Please review and reply by 14:26.",

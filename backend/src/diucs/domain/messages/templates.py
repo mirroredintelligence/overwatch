@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from html import escape
 from typing import Final, cast
 
-from diucs.domain.codes import AgeBand, Channel
+from diucs.domain.codes import AgeBand, Channel, NeedCategory
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.privacy_guard import find_patient_data
@@ -35,13 +35,13 @@ MIN_MULTI_SERVICE_ITEMS: Final = 2
 MIN_MULTI_REFERENCES: Final = 2
 BOTH: Final = 2
 
-# Constrained fields (DEC-047 items 9 to 11). A reference is a 4-digit booking reference with no
-# leading zero (DEC-041). An age band is one of the rule-book bands. An urgency is one of the
-# wordings the rule book uses. A need is lowercase words, spaces and hyphens, at most 40 characters.
+# Constrained fields (DEC-047 item 9). A reference is a 4-digit booking reference with no leading
+# zero (DEC-041). An age band is an AgeBand value. An urgency is one of the three wordings of the
+# Urgency members (within 2 hrs, today, planned). A need is a NeedCategory code.
 REFERENCE_FORMAT: Final = re.compile(r"[1-9][0-9]{3}")
 AGE_BANDS: Final = frozenset(band.value for band in AgeBand)
 URGENCY_WORDING: Final = frozenset({"within 2 hrs", "today", "planned"})
-NEED_FORMAT: Final = re.compile(r"[a-z][a-z -]{0,39}")
+NEED_CODES: Final = frozenset(need.value for need in NeedCategory)
 
 
 @dataclass(frozen=True, slots=True)
@@ -416,6 +416,10 @@ def _refuse_patient_data(fields: Mapping[str, object]) -> None:
                 raise ValidationFailed(name, "a patient-data shape is not allowed")
 
 
+def _output_has_patient_data(part: str | None) -> bool:
+    return part is not None and bool(find_patient_data(part))
+
+
 def _check_constrained_fields(fields: Mapping[str, object]) -> None:
     if "reference" in fields and not _is_reference(fields["reference"]):
         raise ValidationFailed("reference", "must be four digits, no leading zero")
@@ -423,10 +427,8 @@ def _check_constrained_fields(fields: Mapping[str, object]) -> None:
         raise ValidationFailed("age_band", "must be a rule-book age band")
     if "urgency" in fields and fields["urgency"] not in URGENCY_WORDING:
         raise ValidationFailed("urgency", "must be a rule-book urgency wording")
-    if "need" in fields and not (
-        isinstance(fields["need"], str) and NEED_FORMAT.fullmatch(fields["need"])
-    ):
-        raise ValidationFailed("need", "must be lowercase words of at most 40 characters")
+    if "need" in fields and not (isinstance(fields["need"], str) and fields["need"] in NEED_CODES):
+        raise ValidationFailed("need", "must be a need category code")
 
 
 def _values(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, object]:
@@ -469,6 +471,6 @@ def render(message_id: MessageId, channel: Channel, **fields: object) -> Rendere
         html=None if template.html is None else template.html.format(**html_values),
     )
     for part in (rendered.text, rendered.subject, rendered.html):
-        if part is not None and find_patient_data(part):
+        if _output_has_patient_data(part):
             raise ValidationFailed("text", "a patient-data shape is not allowed in the output")
     return rendered

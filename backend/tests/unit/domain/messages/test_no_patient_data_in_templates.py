@@ -358,7 +358,7 @@ def test_an_urgency_must_be_a_rule_book_wording(urgency: str) -> None:
     ],
 )
 def test_a_free_text_need_is_refused(need: str) -> None:
-    """need is a NeedCategory code (contracts.md, domain-rules section 3): nothing else is accepted."""
+    """need is a NeedCategory code (contracts.md, domain-rules section 3). Nothing else passes."""
     fields = {**SAMPLE_FIELDS[MessageId.B1], "need": need}
     with pytest.raises(ValidationFailed):
         render(MessageId.B1, TEXT, **fields)

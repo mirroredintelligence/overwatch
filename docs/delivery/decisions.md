@@ -435,3 +435,22 @@ The prompt for D25 fixes the event names, fields and topics (also in `docs/spec/
 8. **Residual: id and free-text fields are not shape-checked.** `booking_id`, `service_id`, `alert_id`, `registration_id`, `criteria_id` and `report_id` are text. The rule book gives no id format to check against, so D25 does not invent one. Ids are minted by the id port, not typed by people, but nothing in the event type enforces that. `BookingRequested.reference` and `AlertAcknowledged.by` are the only shape-checked fields. `test_no_event_has_a_patient_field` checks field names, not values. Before any task puts a free-text value into an event, the owner or a later task must set an id format and add a shape test. This is an open residual for hazard H-09.
 
 Tests: `backend/tests/unit/domain/test_events.py`.
+
+## DEC-044 Link token, pairing code and support code choices the prompt leaves open (D26)
+Status: accepted · Affects: D26 (`domain/rules/tokens.py`); P10 (link tokens), U10 (pairing), O06 (support codes), L01 (link endpoints), R15 (screen pairing).
+
+Numbered DEC-044: DEC-043 is claimed by task/D24-alert-rules (unmerged), so this takes the next free number. Checked on main and every task/* branch.
+
+domain-rules 7 and the D26 prompt fix the lengths, alphabets, expiry and the check order. They leave these points open:
+
+1. **Pairing digits are drawn one at a time.** `new_pairing_code` calls the random source six times, each with bound 10, and each result must be an `int` from 0 to 9 (`bool` is refused). The prompt's expectation that `lambda n: 7` gives "777777" holds only on this reading. Each digit is uniform, so every six-digit code is equally likely.
+2. **Support codes draw from the 31-character alphabet.** `new_support_code` calls the random source eight times, each with bound `len(SUPPORT_CODE_ALPHABET)` (31), and refuses any index outside 0 to 30. The output is `XXXX-XXXX`.
+3. **The link token source must give exactly 16 bytes.** Any other length, or any non-`bytes` result, raises `ValidationFailed("token", ...)`.
+4. **`hash_token` takes only URL-safe text and a non-empty secret.** The token must match `[A-Za-z0-9_-]+`, so the 22-character form and the prompt's test value "abc" both pass. An empty secret is refused, because an HMAC with an empty key is not a keyed hash.
+5. **Every instant must be timezone-aware.** A naive or non-datetime value raises `ValidationFailed` by field name (`now`, `expires_at`, `used_at`, `issued_at`). `LinkTokenRecord` checks its times when it is built. All comparisons are made in UTC (DEC-039 item 7, lesson L52).
+6. **A pairing code issued after `now` is refused, not reported as valid.** `pairing_code_expired` raises `ValidationFailed("issued_at", ...)`. A skewed clock must not quietly extend a code's life.
+7. **Errors never echo a token, a code or a secret.** Each `ValidationFailed` names the field and a fixed message. Tests check this for a malformed token and a malformed pairing code.
+8. **Scope.** `check_link` does not look at `phone_hash` or `purpose`. The link endpoint (L01) and the token store (P10) must check both before they act on a link.
+
+Tests: `backend/tests/unit/domain/rules/test_tokens.py` (54 tests, three of them Hypothesis property tests). Branch coverage of the module is 100%.
+

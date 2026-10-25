@@ -344,3 +344,19 @@ Reason order is fixed: status, district, excluded needs, needs not accepted, age
 Deviation: the reasons `Need not recognised` and `Age not recognised` are new text, not in the rule book. They are the fail-closed form of the rule book's "excluded" outcome for values the rule book does not list. Owner may reword them.
 
 Tests: `backend/tests/unit/domain/rules/test_criteria_filter.py` (`test_an_unrecognised_need...`, `test_a_need_from_another_enum...`, `test_an_unrecognised_age_band...`) and `backend/tests/unit/domain/model/test_criteria.py` (`test_a_need_from_another_enum...`, `test_districts_must_be_upper_case_outward_codes`).
+
+## DEC-036 Criteria workflow: calendar dates, approval guards and version status (D21)
+Status: accepted, owner to confirm · Affects: D21 (`rules/criteria_workflow.py`), U30 (`ApproveCriteria`), U31 (criteria review reminders and the `criteria-overdue` flag).
+
+domain-rules 4.2 and the D21 prompt fix the transitions, the review-by arithmetic and the reminder window. They are silent on the points below. Decision:
+
+- **Dates are calendar dates, the London day.** `is_review_overdue`, `review_reminder_due` and `next_review_by` refuse a `datetime` (`ValidationFailed`), because a `datetime` is a `date` and an instant could pass as a day. The caller derives the day with `london_time.to_london(instant).date()` (lesson L4).
+- **Enums are checked as members.** `transition_criteria` refuses any value that is not a `CriteriaStatus` member, including a member of another enum with the same value (lessons L3, L38). It raises `ValidationFailed`, not `InvalidTransition`, because that is a caller error.
+- **Months are an exact int of 3, 6 or 12.** `True` and `6.0` are refused.
+- **`approve` checks the pending version's status through the transition table.** Only `pending-approval` can become `current`; any other status raises `InvalidTransition`.
+- **`approve` refuses a pending version of another service** (`ValidationFailed("service_id")`). The prompt does not list this check. Without it, a version of one service could supersede another service's current version.
+- **`approve` with no current version applies no version or `supersedes_id` check.** The prompt applies those checks only "when there is a current one". A service whose earlier version was retired may therefore be approved at any version number. The use case (U30) decides whether that is allowed.
+- **The current version must be `current` to be superseded.** `approve` calls the transition table for the old version, so a superseded or retired current version raises `InvalidTransition`.
+- **Reminder and overdue do not look at the version's status.** `is_review_overdue` is `today > review_by` for any version, as the prompt states. The caller (U31) checks only the current version for the service flag and reminders. A superseded version with a past review-by is therefore "overdue" to this function, and U31 must not read it. Owner to confirm.
+
+Tests: `backend/tests/unit/domain/rules/test_criteria_workflow.py` (64 tests: every transition pair, reminder and overdue boundaries, clamping, and property tests with Hypothesis). Branch coverage of the module is 100%.

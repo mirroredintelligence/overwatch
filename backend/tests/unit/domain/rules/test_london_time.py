@@ -216,6 +216,23 @@ def test_2028_spring_change_day_is_a_change_day_and_the_wall_clock_is_not_kept()
     assert to_london(result).replace(tzinfo=None) != datetime.combine(day, local)
 
 
+def test_spring_gap_is_recognised_on_the_2020_change_day() -> None:
+    # Regression for F06: the helper knew only 2026-03-29, so the monotonic property
+    # found 2020-03-29 (local 01:00 and 02:00 both map to 01:00Z) and failed.
+    day = date(2020, 3, 29)
+    assert is_spring_gap(day, time(1, 0))
+    assert not is_spring_gap(day, time(2, 0))
+
+
+def test_spring_gap_is_derived_from_the_zone_for_every_year() -> None:
+    for year in range(2020, 2041):
+        spring = last_sunday_of(year, 3)
+        assert is_spring_gap(spring, time(1, 0)), year
+        assert not is_spring_gap(spring, time(0, 59)), year
+        assert not is_spring_gap(spring, time(2, 0)), year
+        assert not is_spring_gap(last_sunday_of(year, 10), time(1, 30)), year
+
+
 @given(minute=st.integers(min_value=60, max_value=119))
 def test_spring_gap_is_shifted_forward_one_hour_on_2026_03_29(minute: int) -> None:
     local = minute_to_time(minute)

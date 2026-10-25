@@ -308,13 +308,23 @@ def test_the_same_value_in_two_enums_is_parsed_by_the_field_enum() -> None:
     # "not-updated" is a Status and an AlertKind; "over-capacity" is too (lesson L3).
     alert = from_payload(
         "AlertRaised",
-        {"alert_id": "alert-1", "kind": "not-updated", "service_id": SERVICE_ID, "at": "2026-10-23T10:12:00Z"},
+        {
+            "alert_id": "alert-1",
+            "kind": "not-updated",
+            "service_id": SERVICE_ID,
+            "at": "2026-10-23T10:12:00Z",
+        },
     )
     assert isinstance(alert, AlertRaised)
     assert type(alert.kind) is AlertKind
     change = from_payload(
         "StatusChanged",
-        {"service_id": SERVICE_ID, "before": None, "after": "over-capacity", "at": "2026-10-23T10:12:00Z"},
+        {
+            "service_id": SERVICE_ID,
+            "before": None,
+            "after": "over-capacity",
+            "at": "2026-10-23T10:12:00Z",
+        },
     )
     assert isinstance(change, StatusChanged)
     assert type(change.after) is Status
@@ -325,7 +335,12 @@ def test_a_status_value_is_not_an_alert_kind() -> None:
     with pytest.raises(ValidationFailed) as info:
         from_payload(
             "AlertRaised",
-            {"alert_id": "alert-1", "kind": "accepting", "service_id": SERVICE_ID, "at": "2026-10-23T10:12:00Z"},
+            {
+                "alert_id": "alert-1",
+                "kind": "accepting",
+                "service_id": SERVICE_ID,
+                "at": "2026-10-23T10:12:00Z",
+            },
         )
     assert info.value.field == "kind"
 

@@ -373,7 +373,7 @@ def _map_extensions(owner: _Owner, path: str, value: Any) -> None:
         raise UnsupportedElement(path)
     names: list[str] = []
     for entry in value:
-        if not isinstance(entry, dict) or not isinstance(entry.get(_EXTENSION_URL), str):
+        if not isinstance(entry, dict):  # TEMPORARY: text-url guard removed for red
             raise UnsupportedElement(path)
         url = entry[_EXTENSION_URL]
         defn = EXTENSIONS.get(url)

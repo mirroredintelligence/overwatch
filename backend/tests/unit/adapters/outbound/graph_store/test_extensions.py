@@ -383,11 +383,21 @@ def test_an_extension_on_a_backbone_child_is_kept_on_that_child() -> None:
 
 @pytest.mark.parametrize(
     "entry",
-    ["not-an-object", {"url": 5, "valueInteger": 1}, {"valueInteger": 1}],
+    [
+        "not-an-object",
+        {"url": 5, "valueInteger": 1},
+        {"valueInteger": 1},
+        {"url": ["https://example.test/x"], "valueInteger": 1},
+    ],
 )
 def test_an_extension_entry_without_an_object_and_text_url_is_refused(entry: Any) -> None:
-    with pytest.raises(UnsupportedElement):
+    with pytest.raises(UnsupportedElement) as raised:
         to_graph(_service_with(entry))
+
+    # Exact type: UnknownExtension is a subclass, so a plain isinstance check would hide a guard
+    # that has been removed. Without the text-url guard, the list url raises TypeError and
+    # the integer and missing urls raise UnknownExtension.
+    assert type(raised.value) is UnsupportedElement
 
 
 def test_a_decimal_extension_accepts_numbers_and_refuses_text_and_booleans() -> None:

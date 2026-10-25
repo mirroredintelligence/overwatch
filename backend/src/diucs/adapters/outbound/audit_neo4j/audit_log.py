@@ -166,7 +166,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
             "OPTIONAL MATCH (n)-[r]->(m) "
             "WITH n, collect(CASE WHEN r IS NULL THEN NULL ELSE {type: type(r), "
             "props: properties(r), target: CASE WHEN m:Snapshot THEN m.hash + '|' + m.json "
-            "WHEN m:Concept THEN m.code ELSE m.id END} END) AS edges "
+            "WHEN m:Concept THEN m.system + '|' + m.code ELSE m.id END} END) AS edges "
             "RETURN labels(n) AS labels, n.seq AS seq, n.previousHash AS previousHash, "
             "n.chainHash AS chainHash, n.entryJson AS entryJson, properties(n) AS props, "
             "edges ORDER BY seq"
@@ -270,7 +270,9 @@ def _expected_audit_edges(entry: AuditEntry) -> list[_Edge]:
         snapshot_json = canonical_json(entry.snapshot)
         digest = hashlib.sha256(snapshot_json.encode()).hexdigest()
         edges.append(("SNAPSHOT", {}, f"{digest}|{snapshot_json}"))
-    edges.extend(("ENTITY", {"role": "subject"}, entity_id) for entity_id in entry.entity_ids)
+    # MERGE writes one ENTITY edge per distinct id, however often the id repeats in the entry.
+    distinct_ids = sorted(set(entry.entity_ids))
+    edges.extend(("ENTITY", {"role": "subject"}, entity_id) for entity_id in distinct_ids)
     for agent_id in (entry.actor.practitioner_id, entry.actor.device_id):
         if agent_id is not None:
             agent_props = {"role": entry.actor.role.value, "requestor": True}
@@ -287,7 +289,7 @@ def _expected_provenance_edges(payload: dict[str, Any]) -> list[_Edge]:
             {"type": payload["agent_type"], "role": payload["agent_role"]},
             payload["agent_id"],
         ),
-        ("ACTIVITY", {}, payload["activity"]),
+        ("ACTIVITY", {}, f"{ACTIVITY_CODE_SYSTEM}|{payload['activity']}"),
     ]
     if payload["source_communication_id"] is not None:
         edges.append(("ENTITY", {"role": "source"}, payload["source_communication_id"]))

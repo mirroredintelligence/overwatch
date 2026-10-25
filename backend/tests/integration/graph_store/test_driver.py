@@ -18,7 +18,7 @@ from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 
-EXPECTED_MIGRATION_COUNT = 8
+EXPECTED_MIGRATION_COUNT = 10
 EXPECTED_CONSTRAINTS = {"resource_id", "identifier_key", "concept_key"}
 EXPECTED_INDEXES = {
     "obs_by_service",

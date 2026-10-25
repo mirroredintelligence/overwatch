@@ -219,7 +219,12 @@ async def test_latest_prompt_ignores_inbound_replies(neo4j_driver: AsyncDriver) 
     await _add(neo4j_driver, prompt)
     await _add(
         neo4j_driver,
-        _reply(id="comm-reply", message_id="C1", sent_at=SENT + timedelta(minutes=5)),
+        _reply(
+            id="comm-reply",
+            message_id="C1",
+            sent_at=SENT + timedelta(minutes=5),
+            in_response_to="comm-c1",
+        ),
     )
 
     async def work(tx: AsyncManagedTransaction) -> Communication | None:
@@ -266,3 +271,15 @@ async def test_a_naive_sent_time_is_refused(neo4j_driver: AsyncDriver) -> None:
     with pytest.raises(ValidationFailed):
         await _add(neo4j_driver, _comm(sent_at=datetime(2026, 10, 25, 9, 0)))
     assert await count_nodes(neo4j_driver, "Communication") == 0
+
+
+async def test_set_delivery_status_refuses_an_unknown_status(neo4j_driver: AsyncDriver) -> None:
+    await _add(neo4j_driver, _comm())
+
+    async def work(tx: AsyncManagedTransaction) -> bool:
+        return await Neo4jCommunicationRepository(tx).set_delivery_status("sms-1", "lost")
+
+    with pytest.raises(ValidationFailed):
+        await write_tx(neo4j_driver, work)
+    props = await node_props(neo4j_driver, "Communication", id="comm-1")
+    assert props["deliveryStatus"] == "sent"

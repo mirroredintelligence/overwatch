@@ -247,7 +247,8 @@ def test_age_edges_are_inclusive(
 
 
 def test_band_fully_inside_an_upper_limit_it_meets_passes_without_warning() -> None:
-    # 65-79 ends exactly at age_max 79: fully inside, so no overlap warning (mutant: band_max < age_max).
+    # 65-79 ends exactly at age_max 79: fully inside, so no warning.
+    # Mutant band_max < age_max turns this into an overlap warning.
     result = run(
         criteria=ucr_west(age_min=18, age_max=79), age=AgeBand.A65_79, needs=(NeedCategory.FRAILTY,)
     )

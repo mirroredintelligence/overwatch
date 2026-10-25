@@ -622,3 +622,26 @@ Numbered DEC-053: DEC-052 is the highest number on `main` and on every `task/*` 
 18. **Residual: `Resource.id` is unique across all resource types.** Migration `0001_resource_id` makes `Resource.id IS UNIQUE`, so `Organization/x` and `Location/x` with the same id collide, and the second write fails with a constraint error, mapped to `Conflict`. The spec line is `docs/spec/fhir-data-model.md`: "Resource ids | Random UUIDs. Never meaningful, never reused." The collision is not tested here. The owner or a later task decides whether the constraint becomes `(type, id)` or ids stay globally unique.
 
 Tests: `backend/tests/integration/graph_store/test_resource_store.py` (27 integration tests against the harness Neo4j).
+
+## DEC-054 Service and capacity repositories: stored names, mapping, versions and queries (P01)
+Status: accepted · Affects: P01 (`application/ports/outbound/repositories.py`, `adapters/outbound/graph_store/service_repository.py`, `capacity_repository.py`), G04 (extension registry), every later repository that stores a FHIR resource (P02, P03, P13, P14).
+
+Numbered DEC-054: DEC-053 is the highest number on `main` and on every `task/*` branch when this was written (checked with `git show <branch>:docs/delivery/decisions.md`).
+
+1. **Stored names (DEC-052).** A registered extension is stored as `ext_<shortName>`. The prompt's test 3 asked for `establishedCapacity` as the property name; the stored name is `ext_establishedCapacity`, and the test asserts that name.
+2. **No `json` (DEC-001).** The prompt's "json equals `profile_to_fhir(p)` apart from meta" check is replaced by a rebuild check: `ResourceStore.get` of the stored service equals `profile_to_fhir(p)` apart from `meta`.
+3. **Extensions added.** `measure`, `unitLabel` and `channel` join the G04 registry (`extensions.py`). The G04 registry test pinned twelve names; it now pins fifteen. This edits a delivered task's test only to match the registry change.
+4. **Test paths.** The prompt names `tests/unit/adapters/graph_store/` and `tests/integration/adapters/graph_store/`. The repo mirrors source paths (`adapters/outbound/graph_store/`) and G05 uses `tests/integration/graph_store/`, so the P01 tests live under those paths.
+5. **Constructors.** `Neo4jServiceRepository(tx, store)` and `Neo4jCapacityRepository(tx, store)`, as the prompt says. `contracts.md` line 60 shows `(tx)`; the store is passed in so a repository never builds its own. The contract line is amended in this commit.
+6. **`suspended`** is not stored (service flags hold it, P14). `save` ignores it, `get` returns `False`.
+7. **`save` is insert or replace.** It reads the current version and writes with it. A change between that read and the write raises `Conflict` after the store's lock (DEC-053 item 4); nothing is silently overwritten.
+8. **`add` checks before it writes.** An unknown service raises `NotFound` (the prompt is silent; a report must not create a placeholder service). An existing report id raises `Conflict`; the store would say `NotAllowed` for an existing Observation, so a race that reaches the store is mapped to `Conflict` as well. Reports are never updated or deleted.
+9. **Latest.** Greatest `effectiveDateTime`. `CapacityReport` has no `issued` field, so the prompt's "later issued" tie-break uses the store's `meta.lastUpdated` (the write time, whole seconds). Two reports with the same effective time in the same second still tie and the order is undefined. Owner to decide whether D02's `CapacityReport` gets an `issued` field.
+10. **`reports_since` is inclusive** (effective at or after `since`). The prompt says "since" only.
+11. **`last_report_times`** is added to the port (the prompt lists it; `contracts.md` did not). It is named in `contracts.md` Additions in the same commit.
+12. **Queries.** `Q-SVC-LIST-ACTIVE`, `Q-CAP-LATEST`, `Q-CAP-LATEST-FOR`, `Q-CAP-SINCE`, `Q-SVC-LAST-REPORT` are registered at import in the repository modules. The latest queries use the CALL-subquery shape of fhir-data-model query 1 and return observation ids; each observation is then loaded through the resource store. That is one load per report, acceptable at pilot size. The `effectiveDateTime` index in fhir-data-model is not created here (no migration in this task).
+13. **Time text.** Effective times are written in UTC with a `Z`, fractions kept without trailing zeros, so the store accepts them and they read back identically (DEC-053 item 2).
+14. **Shared helpers.** `codeable_to_fhir` and `codeable_from_fhir` live in `service_repository.py` and are used by `capacity_repository.py`. A code is read from its enum class's own code system (lesson L3); a coding from another system is refused.
+15. **UCUM units** per measure as the prompt lists: `{referral}`, `{bed}`, `{slot}`, `{patient}`, `{package}`.
+
+Residuals, not settled here: no `issued` on `CapacityReport` (item 9); no migration for the `effectiveDateTime` index (item 12); the mapping path where a racing add reaches the store is not exercised by a test.

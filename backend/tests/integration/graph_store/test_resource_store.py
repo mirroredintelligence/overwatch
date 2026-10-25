@@ -362,3 +362,77 @@ async def test_a_stored_filter_code_is_written_with_its_coded_value(
     props = await node_props(neo4j_driver, "Observation", id=OBS_ID)
     assert props["measureCode"] == "referral-capacity"
     assert await _get(neo4j_driver, "Observation", OBS_ID) == _with_meta(_observation(), "1")
+
+
+async def test_a_replayed_create_with_the_same_key_returns_the_same_version(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    async def first(tx: Any) -> str:
+        return await ResourceStore(tx, FixedClock(AT)).put(_org(), None, idempotency_key="k-create")
+
+    async def replay(tx: Any) -> str:
+        return await ResourceStore(tx, FixedClock(AT)).put(_org(), None, idempotency_key="k-create")
+
+    assert await write_tx(neo4j_driver, first) == "1"
+    assert await write_tx(neo4j_driver, replay) == "1"
+    assert await count_nodes(neo4j_driver, "ResourceVersion") == 0
+    assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(_org(), "1")
+
+
+async def test_a_replayed_update_with_the_same_key_writes_no_second_version(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _put(neo4j_driver, _org("Before"), None)
+
+    async def update(tx: Any) -> str:
+        return await ResourceStore(tx, FixedClock(AT)).put(
+            _org("After"), "1", idempotency_key="k-update"
+        )
+
+    assert await write_tx(neo4j_driver, update) == "2"
+    assert await write_tx(neo4j_driver, update) == "2"
+    assert await count_nodes(neo4j_driver, "ResourceVersion") == 1
+    assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(_org("After"), "2")
+
+
+async def test_a_key_reused_for_a_different_write_is_refused(neo4j_driver: AsyncDriver) -> None:
+    async def first(tx: Any) -> str:
+        return await ResourceStore(tx, FixedClock(AT)).put(_org("A"), None, idempotency_key="k-x")
+
+    async def other(tx: Any) -> str:
+        return await ResourceStore(tx, FixedClock(AT)).put(_org("B"), None, idempotency_key="k-x")
+
+    assert await write_tx(neo4j_driver, first) == "1"
+    with pytest.raises(Conflict):
+        await write_tx(neo4j_driver, other)
+    assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(_org("A"), "1")
+
+
+async def test_a_refused_create_leaves_no_node_even_if_the_caller_commits(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    async def swallow(tx: Any) -> str:
+        try:
+            await ResourceStore(tx, FixedClock(AT)).put(_org(), "1")
+        except Conflict:
+            return "refused"
+        return "written"
+
+    assert await write_tx(neo4j_driver, swallow) == "refused"
+    assert await count_nodes(neo4j_driver, "Resource") == 0
+
+
+async def test_a_refused_datetime_leaves_no_node_even_if_the_caller_commits(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    bad = {**_observation(), "effectiveDateTime": "2026-10-25T08:00:00+00:00"}
+
+    async def swallow(tx: Any) -> str:
+        try:
+            await ResourceStore(tx, FixedClock(AT)).put(bad, None)
+        except ValidationFailed:
+            return "refused"
+        return "written"
+
+    assert await write_tx(neo4j_driver, swallow) == "refused"
+    assert await count_nodes(neo4j_driver, "Resource") == 0

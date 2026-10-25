@@ -223,3 +223,22 @@ def test_overdue_names_a_due_after_the_last_report_and_past_its_reply_by(
         assert result.was_due + timedelta(minutes=30) < now
     else:
         assert result.was_due is None
+
+
+def test_report_exactly_at_the_due_time_answers_it() -> None:
+    # "No report has arrived at or after it": a report at 11:00Z answers the 11:00Z due.
+    result = assess_freshness(UCR_WEST, utc(2026, 10, 23, 11, 0), utc(2026, 10, 23, 11, 31))
+    assert result.overdue is False
+
+
+def test_reply_by_exactly_now_is_not_yet_missed() -> None:
+    # Reply-by is 11:30Z. "Before now" is strict, so at 11:30Z exactly it is not missed.
+    result = assess_freshness(UCR_WEST, utc(2026, 10, 23, 9, 15), utc(2026, 10, 23, 11, 30))
+    assert result.overdue is False
+
+
+def test_one_microsecond_after_reply_by_is_overdue() -> None:
+    now = utc(2026, 10, 23, 11, 30) + timedelta(microseconds=1)
+    result = assess_freshness(UCR_WEST, utc(2026, 10, 23, 9, 15), now)
+    assert result.overdue is True
+    assert result.was_due == utc(2026, 10, 23, 11, 0)

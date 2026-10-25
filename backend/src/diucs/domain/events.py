@@ -166,7 +166,7 @@ class BookingRequested:
 
     def __post_init__(self) -> None:
         _require_utc(self.at)
-        if _REFERENCE.fullmatch(self.reference) is None:
+        if not isinstance(self.reference, str) or _REFERENCE.fullmatch(self.reference) is None:
             raise ValidationFailed("reference", "must be a four-digit booking reference")
 
     def to_payload(self) -> dict[str, Any]:

@@ -11,6 +11,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from diucs.domain.codes import AgeBand, CriteriaStatus, NeedCategory
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.rules.criteria_filter import AGE_BAND_BOUNDS, FilterResult, check_hard_criteria
 from tests.unit.domain.model.test_criteria import ucr_west
@@ -243,3 +244,32 @@ def test_age_edges_are_inclusive(
     result = run(criteria=criteria, age=age, needs=(NeedCategory.FRAILTY,))
     assert result.passes is passes
     assert (result.warnings == (AGE_OVERLAP_WARNING,)) is warned
+
+
+def test_band_fully_inside_an_upper_limit_it_meets_passes_without_warning() -> None:
+    # 65-79 ends exactly at age_max 79: fully inside, so no overlap warning (mutant: band_max < age_max).
+    result = run(
+        criteria=ucr_west(age_min=18, age_max=79), age=AgeBand.A65_79, needs=(NeedCategory.FRAILTY,)
+    )
+    assert result.passes is True
+    assert result.warnings == ()
+
+
+def test_band_ending_one_year_past_the_upper_limit_passes_with_warning() -> None:
+    result = run(
+        criteria=ucr_west(age_min=18, age_max=78), age=AgeBand.A65_79, needs=(NeedCategory.FRAILTY,)
+    )
+    assert result.passes is True
+    assert result.warnings == (AGE_OVERLAP_WARNING,)
+
+
+def test_a_missing_criteria_version_is_refused_with_the_field_named() -> None:
+    with pytest.raises(ValidationFailed) as error:
+        check_hard_criteria(None, AgeBand.A80_PLUS, "DT4", (NeedCategory.FRAILTY,))  # type: ignore[arg-type]
+    assert error.value.field == "criteria"
+
+
+def test_missing_needs_are_refused_with_the_field_named() -> None:
+    with pytest.raises(ValidationFailed) as error:
+        check_hard_criteria(ucr_west(), AgeBand.A80_PLUS, "DT4", None)  # type: ignore[arg-type]
+    assert error.value.field == "needs"

@@ -10,6 +10,7 @@ from typing import Protocol
 
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
+from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 
 
@@ -80,4 +81,50 @@ class BookingRepository(Protocol):
 
     async def pending_count(self, service_id: str) -> int:
         """How many bookings for this service are requested (Q-BOOK-PENDING)."""
+        ...
+
+
+class PersonRepository(Protocol):
+    """Practitioners and their posts (P03). Adapter: Neo4jPersonRepository (graph_store/).
+
+    A role's period and cover are read at the `now` the caller passes. Services are returned sorted
+    by service id, with the service's name. Saves refuse an unknown practitioner, service or cover
+    practitioner with NotFound, before anything is written.
+    """
+
+    async def get_practitioner(self, practitioner_id: str) -> Practitioner | None:
+        """The stored practitioner, or None."""
+        ...
+
+    async def find_by_phone_hash(self, phone_hash: str) -> Practitioner | None:
+        """The active practitioner holding this phone hash, or None. Inactive people are never
+        returned."""
+        ...
+
+    async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:
+        """The active roles this practitioner owns, whatever their code."""
+        ...
+
+    async def services_for_phone_hash(
+        self, phone_hash: str, now: datetime
+    ) -> list[tuple[PractitionerRole, str]]:
+        """Every active reporter role this phone holds and is not covered out of at `now`, plus
+        every active reporter role it covers until after `now`. Each comes with its service name.
+        Sorted by service id."""
+        ...
+
+    async def reporter_roles_for_service(
+        self, service_id: str, now: datetime
+    ) -> list[PractitionerRole]:
+        """The active reporter roles of this service in effect at `now`. A covered role is included
+        as stored; the caller resolves the holder with role_holder."""
+        ...
+
+    async def save_practitioner(self, practitioner: Practitioner) -> None:
+        """Insert the practitioner, or replace the stored one."""
+        ...
+
+    async def save_role(self, role: PractitionerRole) -> None:
+        """Insert the role, or replace the stored one, with its channel and cover links. Replacing
+        without a cover removes the cover link."""
         ...

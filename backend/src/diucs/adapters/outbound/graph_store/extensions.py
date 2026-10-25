@@ -103,3 +103,8 @@ register_extension(
 register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/measure", "measure", "string"))
 register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/unitLabel", "unitLabel", "string"))
 register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/channel", "channel", "string"))
+# P03: a post's cover (domain-rules 2.4). The cover practitioner and the time the cover ends.
+register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/coveredBy", "coveredBy", "string"))
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/coveredUntil", "coveredUntil", "dateTime")
+)

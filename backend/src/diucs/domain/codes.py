@@ -255,6 +255,7 @@ _NAMES: dict[type[StrEnum], str] = {
     Outcome: "case-outcome",
     BestFitNotUsedReason: "best-fit-not-used",
     ReferrerType: "referrer-type",
+    PractitionerRoleCode: "practitioner-role",
 }
 
 CODE_SYSTEM_NAMES: Mapping[type[StrEnum], str] = MappingProxyType(_NAMES)

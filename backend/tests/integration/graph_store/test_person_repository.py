@@ -134,9 +134,7 @@ async def test_phone_h1_gets_both_services_it_holds_sorted_by_service_id(
 ) -> None:
     await _write(neo4j_driver, "services", P1, ROLE_WEST, ROLE_EAST)
 
-    services = await read_tx(
-        neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW)
-    )
+    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW))
 
     assert services == [(ROLE_EAST, "UCR East"), (ROLE_WEST, "UCR West")]
 
@@ -197,9 +195,7 @@ async def test_an_inactive_role_is_excluded_from_phone_and_person_lookups(
     inactive = dataclasses.replace(ROLE_WEST, active=False)
     await _write(neo4j_driver, "services", P1, inactive)
 
-    services = await read_tx(
-        neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW)
-    )
+    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW))
     roles = await read_tx(neo4j_driver, lambda tx: _repo(tx).roles_for_practitioner("p1"))
 
     assert services == []
@@ -210,9 +206,7 @@ async def test_a_criteria_owner_role_is_not_a_reporter_role(neo4j_driver: AsyncD
     owner = dataclasses.replace(ROLE_WEST, code=PractitionerRoleCode.CRITERIA_OWNER)
     await _write(neo4j_driver, "services", P1, owner)
 
-    services = await read_tx(
-        neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW)
-    )
+    services = await read_tx(neo4j_driver, lambda tx: _repo(tx).services_for_phone_hash("h1", NOW))
     reporters = await read_tx(
         neo4j_driver, lambda tx: _repo(tx).reporter_roles_for_service("svc-ucr-west", NOW)
     )

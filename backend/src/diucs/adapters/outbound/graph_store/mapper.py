@@ -147,6 +147,8 @@ _BACKBONE: dict[tuple[str, str], BackboneDef] = {
     # P02: a booking's reply-by period and its decision and reason entries (booking_repository).
     ("Task", "restriction"): BackboneDef("Task_Restriction", "HAS_RESTRICTION"),
     ("Task", "output"): BackboneDef("Task_Output", "HAS_OUTPUT"),
+    # P03: a practitioner's name, one HumanName entry as a child node (person_repository).
+    ("Practitioner", "name"): BackboneDef("Practitioner_Name", "HAS_NAME"),
 }
 
 

@@ -23,7 +23,11 @@ from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole
 
 PERSON = Practitioner(
-    id="p1", active=True, display_name="Duty Manager One", phone_hash="h1", email_domain="nhs.example"
+    id="p1",
+    active=True,
+    display_name="Duty Manager One",
+    phone_hash="h1",
+    email_domain="nhs.example",
 )
 ROLE_EAST_COVERED = PractitionerRole(
     id="r-east",
@@ -108,7 +112,9 @@ def test_a_role_with_no_service_no_channel_and_no_cover_round_trips() -> None:
 
 
 def test_a_role_channel_that_is_not_a_channel_code_is_refused() -> None:
-    role = dataclasses.replace(ROLE_EAST_COVERED, channel=None, covered_by_practitioner_id=None)
+    role = dataclasses.replace(
+        ROLE_EAST_COVERED, channel=None, covered_by_practitioner_id=None, covered_until=None
+    )
     resource = role_to_fhir(role)
     resource["extension"] = [
         {"url": f"{BASE_URL}StructureDefinition/channel", "valueString": "fax"}

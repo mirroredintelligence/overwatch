@@ -597,6 +597,10 @@ class ResourceStore:
             )
         rels: list[RelSpec] = []
         for row in await self._run("Q-RES-LOAD-RELS", key=key, prefix=prefix):
+            # A relationship the mapper did not write has no fhirPath. It is a local relationship
+            # (CHANNEL, COVERED_BY: P03, DEC-064), not an element, so it is not in the resource.
+            if "fhirPath" not in row["props"]:
+                continue
             if row["endProps"] is not None and row["end"] not in nodes:
                 nodes[row["end"]] = _node_from_row(
                     row["end"], row["endLabels"], row["endProps"], key, root_type

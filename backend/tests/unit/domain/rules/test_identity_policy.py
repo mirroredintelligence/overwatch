@@ -3,7 +3,7 @@
 Rules: docs/spec/domain-rules.md section 7 and the D27 prompt. Times are UTC unless a test says
 otherwise. The London-zoned tests cross the autumn clock change on 2026-10-25, where the same
 zone's wall-clock arithmetic differs from the real instant difference (lesson L52).
-The PIN values in this file are test samples only. DEC-043 records the choices the prompt
+The PIN values in this file are test samples only. DEC-044 records the choices the prompt
 leaves open.
 """
 
@@ -342,3 +342,39 @@ def test_a_code_stamped_in_the_future_is_expired() -> None:
     result = code_attempt(state, entered_ok=True, now=utc(2026, 10, 26, 9, 0, 0))
     assert result.verified is False
     assert result.last_outcome is CodeOutcome.EXPIRED
+
+
+# Regression pins for the spring clock change, 2026-03-29 (not red: the code is already correct)
+# London goes from 01:00 GMT straight to 02:00 BST, so wall-clock arithmetic on the same zone
+# would run an hour fast across this day. These pin the real-instant behaviour.
+
+
+def test_spring_clock_code_is_still_valid_one_minute_before_ten_minutes() -> None:
+    # Issued 00:55Z (London 00:55 GMT). Expiry is 01:05Z. At 01:04Z the code is still valid.
+    issued = datetime(2026, 3, 29, 0, 55, tzinfo=UTC).astimezone(LONDON)
+    now = datetime(2026, 3, 29, 1, 4, tzinfo=UTC).astimezone(LONDON)
+    result = code_attempt(CodeState(issued_at=issued), entered_ok=True, now=now)
+    assert result.verified is True
+    assert result.last_outcome is CodeOutcome.VERIFIED
+
+
+def test_spring_clock_code_expires_at_exactly_ten_real_minutes() -> None:
+    issued = datetime(2026, 3, 29, 0, 55, tzinfo=UTC).astimezone(LONDON)
+    now = datetime(2026, 3, 29, 1, 5, tzinfo=UTC).astimezone(LONDON)
+    result = code_attempt(CodeState(issued_at=issued), entered_ok=True, now=now)
+    assert result.verified is False
+    assert result.last_outcome is CodeOutcome.EXPIRED
+
+
+def test_spring_clock_29_days_23h59m_does_not_need_reverification() -> None:
+    # Last verified 2026-02-27 12:30Z (GMT). 29 days 23 h 59 min later is 12:29Z on 2026-03-29.
+    # Wall-clock arithmetic would count the spring hour and say 30 days.
+    last = datetime(2026, 2, 27, 12, 30, tzinfo=UTC).astimezone(LONDON)
+    now = datetime(2026, 3, 29, 12, 29, tzinfo=UTC).astimezone(LONDON)
+    assert needs_reverification(last, now, True) is False
+
+
+def test_spring_clock_exactly_thirty_real_days_needs_reverification() -> None:
+    last = datetime(2026, 2, 27, 12, 30, tzinfo=UTC).astimezone(LONDON)
+    now = datetime(2026, 3, 29, 12, 30, tzinfo=UTC).astimezone(LONDON)
+    assert needs_reverification(last, now, True) is True

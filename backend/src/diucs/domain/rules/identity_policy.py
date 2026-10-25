@@ -1,6 +1,6 @@
 """Identity policy for reporters and COO or ICB users: text codes, PINs and re-verification (D27).
 
-Rules: docs/spec/domain-rules.md section 7 and the D27 prompt. Decision DEC-043 records the
+Rules: docs/spec/domain-rules.md section 7 and the D27 prompt. Decision DEC-044 records the
 choices the prompt leaves open.
 
 Pure: no I/O and no clock. `now` is an argument. The PIN itself never enters this module: a

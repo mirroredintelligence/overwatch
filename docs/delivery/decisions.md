@@ -374,3 +374,15 @@ The D23 prompt and domain-rules section 5 leave these points open. They are deci
 6. **`release_for_away` returns only the released copies.** The caller merges them back into its list.
 7. **Instants are compared in UTC.** Same-zone aware datetimes (for example `ZoneInfo("Europe/London")`) subtract on wall-clock time, so a lock taken at 01:50 BST and checked at 01:55 GMT on 2026-10-25 would look five minutes old. Every instant is converted with `astimezone(UTC)` before any comparison or subtraction. Tests cover both clock-change dates.
 8. **Open gap for U40.** `queue_order` keeps the contract signature (no `now`). It leaves out any request that is still locked, including one whose lock is already idle. U40 must run `return_if_idle` on each request before it calls `queue_order`, on every read and on the timer. Otherwise a request stays hidden from the queue until someone runs the timer. Published as a lesson.
+
+## DEC-040 System pressure counts Status members only, and refuses anything else (D08)
+Status: accepted · Affects: D08 (`rules/pressure.py`) and every caller of `system_pressure`, `all_limited_or_worse` or `limited_or_worse_count` (D24 pressure alert, U08 board read model, W07 banner, W40 exec home).
+
+domain-rules 1.7 gives the thresholds, the banner rule and the exclusions, but not what a caller may pass. Decision:
+
+- Each element must be exactly a `Status` member (`type(x) is Status`). A plain string with a status value (for example `"limited"`), or a member of another enum with the same value, raises `TypeError` before anything is counted. Lesson L3 and L44 show the same mistake in the other direction, so the count fails closed rather than under-counting a service the caller meant to include.
+- Each function reads its input once, so a generator is accepted and gives the same answer as a list.
+- In-hours means not `out-of-hours`. The banner needs at least one in-hours service, so an empty or all-out-of-hours board shows no banner.
+- `not-updated` is unknown: it does not count towards pressure and it stops the banner, as 1.7 requires.
+
+Tests: `backend/tests/unit/domain/rules/test_pressure.py`, in particular `test_plain_strings_and_other_enums_are_refused` and the `test_iterables_are_read_once...` test.

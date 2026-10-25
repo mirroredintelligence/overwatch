@@ -1,4 +1,4 @@
-"""Neo4j repository for ScheduledWork records (P08, DEC-054).
+"""Neo4j repository for ScheduledWork records (P08, DEC-057).
 
 A ScheduledWork node (id, kind, dueAt, sequenceNumber, status) has one ABOUT relationship to its
 subject. The subject is matched by its resource key (`Type/id`, DEC-053). A placeholder Resource is

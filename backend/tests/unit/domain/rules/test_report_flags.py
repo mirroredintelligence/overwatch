@@ -344,7 +344,9 @@ def oracle(new: CapacityReport, recent: Sequence[CapacityReport]) -> list[Report
         and r.effective_at.astimezone(UTC) <= new_at
     ]
     result: list[ReportFlagReason] = []
-    in_five = [r for r in earlier if r.effective_at.astimezone(UTC) >= new_at - timedelta(minutes=5)]
+    in_five = [
+        r for r in earlier if r.effective_at.astimezone(UTC) >= new_at - timedelta(minutes=5)
+    ]
     if len(in_five) + 1 >= 3:
         result.append(MANY)
     if new.source is not ReportSource.ADVISOR_PHONED:
@@ -390,7 +392,10 @@ def test_reports_later_than_new_never_change_the_result(
     assert flags(new, recent + later) == before
 
 
-CHANGE_INSTANTS = [datetime(2026, 3, 29, 1, 0, tzinfo=UTC), datetime(2026, 10, 25, 1, 0, tzinfo=UTC)]
+CHANGE_INSTANTS = [
+    datetime(2026, 3, 29, 1, 0, tzinfo=UTC),
+    datetime(2026, 10, 25, 1, 0, tzinfo=UTC),
+]
 near_change = st.builds(
     Draw,
     minute=st.integers(min_value=-15, max_value=15),

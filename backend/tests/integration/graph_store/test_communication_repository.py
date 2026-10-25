@@ -6,6 +6,7 @@ was really stored. The sample values are synthetic: a role id, a catalogue id an
 from the prompt, never a patient name, NHS number or postcode.
 """
 
+import contextlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -292,12 +293,10 @@ async def test_a_refused_reply_that_is_swallowed_and_committed_leaves_no_node(
     no placeholder recipient or subject either (DEC-053 item 16, DEC-056 item 7)."""
 
     async def probe(tx: AsyncManagedTransaction) -> None:
-        try:
+        with contextlib.suppress(NotFound):
             await Neo4jCommunicationRepository(tx).add(
                 _reply(id="comm-orphan", in_response_to="comm-missing")
             )
-        except NotFound:
-            pass
 
     await write_tx(neo4j_driver, probe)
     assert await count_nodes(neo4j_driver, "Communication") == 0

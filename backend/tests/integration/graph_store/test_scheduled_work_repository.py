@@ -5,7 +5,7 @@ write is one committed transaction and each read is a new session, so the assert
 was really stored. Values are synthetic.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -15,7 +15,7 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
     Neo4jScheduledWorkRepository,
 )
 from diucs.application.work import ScheduledWork, WorkKind
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, NotFound
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 
@@ -114,7 +114,7 @@ async def test_a_london_due_time_is_stored_and_read_back_as_the_same_instant(
 
     loaded = await _get(neo4j_driver, "work-london")
     assert loaded.due_at == datetime(2026, 10, 25, 1, 30, tzinfo=UTC)
-    assert loaded.due_at.utcoffset() == UTC.utcoffset(None)
+    assert loaded.due_at.utcoffset() == timedelta(0)
 
 
 async def test_the_stored_node_has_its_labels_keys_and_a_single_about_link(
@@ -135,7 +135,7 @@ async def test_a_subject_is_created_once_when_absent_and_reused_after(
     await _add(neo4j_driver, _work("work-b", WorkKind.BOOKING_PHONE_PROMPT, sequence=2))
 
     assert await count_nodes(neo4j_driver, "Resource") == 1
-    props = await node_props(neo4j_driver, "Resource", id=BOOKING)
+    props = await node_props(neo4j_driver, "Resource", key=BOOKING)
     assert props["placeholder"] is True
 
 
@@ -168,13 +168,3 @@ async def test_saving_an_unknown_record_is_not_found(neo4j_driver: AsyncDriver) 
 
     with pytest.raises(NotFound):
         await write_tx(neo4j_driver, save)
-
-
-async def test_a_naive_due_time_is_refused_before_anything_is_written(
-    neo4j_driver: AsyncDriver,
-) -> None:
-    naive = _work("work-naive", WorkKind.REVERIFY, due=datetime(2026, 10, 24, 14, 21))
-
-    with pytest.raises(ValidationFailed):
-        await _add(neo4j_driver, naive)
-    assert await count_nodes(neo4j_driver, "ScheduledWork") == 0

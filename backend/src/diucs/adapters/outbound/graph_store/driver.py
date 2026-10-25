@@ -11,7 +11,7 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, QueryRegistry
 
 QueryObserver = Callable[[str, str, int, float], None]
 
@@ -53,14 +53,21 @@ def create_driver(
 
 
 async def run_query(
-    tx: AsyncManagedTransaction, query_id: str, /, **params: Any
+    tx: AsyncManagedTransaction,
+    query_id: str,
+    /,
+    *,
+    registry: QueryRegistry | None = None,
+    **params: Any,
 ) -> list[dict[str, Any]]:
     """Run a registered query inside the caller's transaction and return its rows as dicts.
+    The query is looked up in registry, or in the module registry when none is given.
 
     The observer, if set, is called once per successful run with the query id, its mode, the row
     count and the duration in milliseconds. It never receives the Cypher text or parameters.
     """
-    query = REGISTRY.get(query_id)
+    lookup = REGISTRY if registry is None else registry
+    query = lookup.get(query_id)
     started = time.perf_counter()
     result = await tx.run(query.cypher, **params)
     rows = await result.data()

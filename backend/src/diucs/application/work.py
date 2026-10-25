@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from diucs.domain.errors import ValidationFailed
+
 
 class WorkKind(StrEnum):
     PROMPT_DUE = "prompt-due"
@@ -38,3 +40,9 @@ class ScheduledWork:
     about_id: str
     sequence_number: int | None
     status: str
+
+    def __post_init__(self) -> None:
+        if self.due_at.tzinfo is None or self.due_at.utcoffset() is None:
+            raise ValidationFailed("due_at", "must be a timezone-aware datetime")
+        if self.status not in WORK_STATUSES:
+            raise ValidationFailed("status", "must be scheduled, done or cancelled")

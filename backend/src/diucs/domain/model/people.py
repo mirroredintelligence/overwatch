@@ -12,6 +12,7 @@ A role's period is in effect from `period_start` (inclusive) to `period_end` (ex
 has one. The rule book is silent on periods; this is the reading that uses the fields (DEC-064).
 """
 
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -23,8 +24,22 @@ REPORTER_ROLE_CODES: frozenset[PractitionerRoleCode] = frozenset(
 )
 
 
+_PHONE_HASH = re.compile(r"[0-9a-f]{64}")
+_EMAIL_DOMAIN = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+")
+
+
 def check_phone_hash(value: str) -> None:
-    raise NotImplementedError
+    """A phone hash is exactly 64 lowercase hex characters (the keyed HMAC, DEC-060). Anything else
+    is refused by field name only: the value may be a phone number, so it is never echoed."""
+    if not isinstance(value, str) or not _PHONE_HASH.fullmatch(value):
+        raise ValidationFailed("phone_hash", "must be a 64-character lowercase hex hash")
+
+
+def check_email_domain(value: str) -> None:
+    """A bare domain: lowercase letters, digits and hyphens, with at least one dot. No '@', no
+    spaces, no local part. Refused by field name only, never echoed (DEC-065)."""
+    if not isinstance(value, str) or not _EMAIL_DOMAIN.fullmatch(value):
+        raise ValidationFailed("email_domain", "must be a bare domain such as nhs.example")
 
 
 def _aware(field: str, value: datetime) -> None:
@@ -39,6 +54,12 @@ class Practitioner:
     display_name: str
     phone_hash: str | None
     email_domain: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.phone_hash is not None:
+            check_phone_hash(self.phone_hash)
+        if self.email_domain is not None:
+            check_email_domain(self.email_domain)
 
 
 @dataclass(frozen=True, slots=True)

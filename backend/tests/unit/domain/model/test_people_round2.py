@@ -66,7 +66,9 @@ def test_a_bare_domain_is_accepted(domain: str) -> None:
 @pytest.mark.parametrize("domain", BAD_DOMAINS)
 def test_an_email_domain_must_be_a_bare_domain(domain: str) -> None:
     with pytest.raises(ValidationFailed) as refused:
-        Practitioner(id="p1", active=True, display_name="Duty", phone_hash=None, email_domain=domain)
+        Practitioner(
+            id="p1", active=True, display_name="Duty", phone_hash=None, email_domain=domain
+        )
 
     assert refused.value.field == "email_domain"
 

@@ -46,6 +46,8 @@ NO_HISTORY_TYPES = frozenset({"Patient", "ServiceRequest"})
 NEVER_UPDATED_TYPES = frozenset({"Observation"})
 # Names the store uses for its own properties. An element with one of these names is refused.
 RESERVED_PROPERTIES = frozenset({"key", "placeholder", "lockStamp", "position"})
+# Local relationships that are not FHIR elements, so they have no fhirPath (DEC-064 item 5).
+LOCAL_RELATIONSHIP_TYPES = frozenset({"CHANNEL", "COVERED_BY"})
 
 _TYPE = re.compile(r"[A-Z][A-Za-z0-9]{0,63}")
 _LABEL = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,127}")
@@ -597,9 +599,10 @@ class ResourceStore:
             )
         rels: list[RelSpec] = []
         for row in await self._run("Q-RES-LOAD-RELS", key=key, prefix=prefix):
-            # A relationship the mapper did not write has no fhirPath. It is a local relationship
-            # (CHANNEL, COVERED_BY: P03, DEC-064), not an element, so it is not in the resource.
-            if "fhirPath" not in row["props"]:
+            # A named local relationship (P03) has no fhirPath and is not an element, so it is not
+            # in the resource. Any other relationship without a fhirPath is kept, and from_graph
+            # then refuses it with KeyError.
+            if "fhirPath" not in row["props"] and row["type"] in LOCAL_RELATIONSHIP_TYPES:
                 continue
             if row["endProps"] is not None and row["end"] not in nodes:
                 nodes[row["end"]] = _node_from_row(

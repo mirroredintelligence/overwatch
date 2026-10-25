@@ -33,11 +33,12 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_to_fhir,
 )
 from diucs.domain.codes import Channel, PractitionerRoleCode, coding_for, parse_code
-from diucs.domain.errors import NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.people import (
     REPORTER_ROLE_CODES,
     Practitioner,
     PractitionerRole,
+    check_phone_hash,
     is_in_effect,
 )
 
@@ -58,8 +59,7 @@ def _register(query: NamedQuery) -> None:
 _PERSON_PHONE_FIND: Final = NamedQuery(
     id="Q-PERSON-PHONE-FIND",
     cypher=(
-        "MATCH (p:Practitioner {phoneHash: $hash, active: true}) "
-        "RETURN p.id AS id ORDER BY p.id LIMIT 1"
+        "MATCH (p:Practitioner {phoneHash: $hash, active: true}) RETURN p.id AS id ORDER BY p.id"
     ),
     mode="read",
 )
@@ -326,9 +326,13 @@ class Neo4jPersonRepository:
         return None if resource is None else _practitioner_from_stored(resource)
 
     async def find_by_phone_hash(self, phone_hash: str) -> Practitioner | None:
+        check_phone_hash(phone_hash)
         rows = await run_query(self._tx, "Q-PERSON-PHONE-FIND", hash=phone_hash)
         if not rows:
             return None
+        # Two active people on one phone is ambiguous: refuse, and return nothing (DEC-065).
+        if len(rows) > 1:
+            raise Conflict("more than one active practitioner holds this phone")
         return await self.get_practitioner(str(rows[0]["id"]))
 
     async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:
@@ -340,6 +344,7 @@ class Neo4jPersonRepository:
     async def services_for_phone_hash(
         self, phone_hash: str, now: datetime
     ) -> list[tuple[PractitionerRole, str]]:
+        check_phone_hash(phone_hash)
         found: dict[str, tuple[PractitionerRole, str]] = {}
         for query_id in ("Q-PHONE-SERVICES-HELD", "Q-PHONE-SERVICES-AT"):
             rows = await run_query(self._tx, query_id, hash=phone_hash, now=now)
@@ -348,7 +353,11 @@ class Neo4jPersonRepository:
                 if role is None or not _reporter_in_effect(role, now):
                     continue
                 found[role.id] = (role, str(row["name"]))
-        return sorted(found.values(), key=lambda pair: (pair[0].service_id or "", pair[0].id))
+        # Spec query #3 orders by service name; service id then role id break ties (DEC-065).
+        return sorted(
+            found.values(),
+            key=lambda pair: (pair[1], pair[0].service_id or "", pair[0].id),
+        )
 
     async def reporter_roles_for_service(
         self, service_id: str, now: datetime

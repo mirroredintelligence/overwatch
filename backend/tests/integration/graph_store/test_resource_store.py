@@ -25,7 +25,7 @@ from tests.unit.adapters.outbound.graph_store.test_mapper_backbone import SVC_ID
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 AT = datetime(2026, 10, 25, 9, 0, 0, tzinfo=UTC)
-STAMP = "2026-10-25T09:00:00.000Z"
+STAMP = "2026-10-25T09:00:00Z"
 ORG_ID = "6b1f0c2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
 LOC_ID = "7c2a1d3f-4b5e-4f60-9b0c-1d2e3f4a5b6c"
 OBS_ID = "9e4c3f5b-6d7a-4182-9d2e-3f4a5b6c7d8e"
@@ -106,9 +106,7 @@ async def test_an_update_with_the_current_version_returns_2_and_keeps_version_1(
 
     assert version == "2"
     assert await count_nodes(neo4j_driver, "ResourceVersion") == 1
-    assert await _history(neo4j_driver, "Organization", ORG_ID) == [
-        _with_meta(_org("Before"), "1")
-    ]
+    assert await _history(neo4j_driver, "Organization", ORG_ID) == [_with_meta(_org("Before"), "1")]
     assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(_org("After"), "2")
 
 
@@ -172,7 +170,7 @@ async def test_a_reference_to_a_missing_resource_is_a_placeholder_until_it_is_wr
 async def test_clearing_a_patient_value_leaves_no_version_and_no_copy_of_it(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    # Patient.address is not a mapped element (G04), so the address-like value is the uprn extension.
+    # Patient.address is not a mapped element (G04), so the address-like value is the uprn.
     uprn = "100000000001"
     patient = {
         "resourceType": "Patient",

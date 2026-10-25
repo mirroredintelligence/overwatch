@@ -1,13 +1,284 @@
 """Graph writer and reader for FHIR resources, with versions (G05, rule R10, DEC-053).
 
-DEC-010 stub: every method raises until the implementation commit.
+ResourceStore(tx, clock) works inside the caller's transaction. put() decomposes one resource with
+the mapper and writes the fragment; get() and history() rebuild resources from the graph alone
+(DEC-001: no json property anywhere). Nothing is dropped, overwritten or moved (DEC-049): a value
+that would not read back identically is refused with ValidationFailed before the graph changes.
+
+Layout. Every node written here has a `key` property: the mapper's NodeSpec.key (`Type/id` for a
+resource, `<parent>#<element>[i]` for a backbone child, `Concept|...`, `Identifier|...`,
+`CodeSystem|...` for shared nodes). A version is a `ResourceVersion` node keyed `Type/id@<version>`,
+a copy of the owned nodes and their relationships, linked from the resource by HAS_VERSION.
+
+Writers are serialised by a write on the resource's root node (Q-RES-LOCK): a second writer waits
+for the first to commit, then reads the committed version, so a stale expected version is Conflict.
+Named queries run through driver.run_query. A query that needs a label or a relationship type from
+data is registered on first use under its template id plus that label or type (for example
+Q-RES-UPSERT-NODE:Organization). Its text is built only from names that passed a check.
 """
 
-from typing import Any
+import re
+import uuid
+from datetime import UTC, datetime, timedelta, timezone
+from typing import Any, Literal
 
 from neo4j import AsyncManagedTransaction
+from neo4j.exceptions import ClientError
+from neo4j.time import Date, DateTime, Time
 
+from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.mapper import (
+    GraphFragment,
+    NodeSpec,
+    RelSpec,
+    from_graph,
+    to_graph,
+)
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.application.ports.outbound.clock import Clock
+from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+
+# DEC-053 item 3: these types keep no ResourceVersion, so a cleared value is gone everywhere.
+NO_HISTORY_TYPES = frozenset({"Patient", "ServiceRequest"})
+# Observations are facts: a second put is refused, never an update.
+NEVER_UPDATED_TYPES = frozenset({"Observation"})
+# Names the store uses for its own properties. An element with one of these names is refused.
+RESERVED_PROPERTIES = frozenset({"key", "placeholder", "lockStamp", "position"})
+
+_TYPE = re.compile(r"[A-Z][A-Za-z0-9]{0,63}")
+_LABEL = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,127}")
+_FHIR_ID = re.compile(r"[A-Za-z0-9.\-]{1,64}")
+_SHARED_PREFIXES = ("Concept|", "Identifier|", "CodeSystem|")
+_SHARED_FILLABLE = ("display", "version")
+_HAS_VERSION = "HAS_VERSION"
+
+_DATETIME = re.compile(
+    r"(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})"
+)
+_DATE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
+_TIME = re.compile(r"(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?")
+_PARTIAL = re.compile(r"\d{4}-\d{2}")
+
+# Query templates. {insert} is a label list (":Organization") or a relationship type (":HAS_X").
+_TEMPLATES: dict[str, tuple[str, Literal["read", "write"]]] = {
+    "Q-RES-LOCK": (
+        "MERGE (n:Resource {key: $key}) ON CREATE SET n.id = $id, n.placeholder = true "
+        "SET n{insert} SET n.lockStamp = $stamp RETURN count(n) AS locked",
+        "write",
+    ),
+    "Q-RES-GET": (
+        "MATCH (n:Resource {key: $key}) WHERE $type IN labels(n) RETURN properties(n) AS props",
+        "read",
+    ),
+    "Q-RES-UPSERT-ROOT": (
+        "UNWIND $rows AS row MERGE (n{insert} {key: row.key}) SET n = row.props "
+        "RETURN count(n) AS written",
+        "write",
+    ),
+    "Q-RES-UPSERT-NODE": (
+        "UNWIND $rows AS row MERGE (n{insert} {key: row.key}) SET n = row.props "
+        "RETURN count(n) AS written",
+        "write",
+    ),
+    "Q-RES-SHARED-READ": (
+        "UNWIND $keys AS k MATCH (n {key: k}) WHERE n:Concept OR n:Identifier OR n:CodeSystem "
+        "RETURN n.key AS key, properties(n) AS props",
+        "read",
+    ),
+    "Q-RES-SHARED-CREATE": (
+        "UNWIND $rows AS row MERGE (n{insert} {key: row.key}) ON CREATE SET n = row.props "
+        "RETURN count(n) AS written",
+        "write",
+    ),
+    "Q-RES-SHARED-FILL": (
+        "MATCH (n {key: $key}) SET n += $fill RETURN count(n) AS filled",
+        "write",
+    ),
+    "Q-RES-MERGE-NODES": (
+        "UNWIND $rows AS row MERGE (n:Resource {key: row.key}) "
+        "ON CREATE SET n.id = row.id, n.placeholder = true SET n{insert} "
+        "RETURN count(n) AS written",
+        "write",
+    ),
+    "Q-RES-CLEAR-OWNED": (
+        "MATCH (c) WHERE c.key STARTS WITH $prefix AND NOT c:Resource AND NOT c:ResourceVersion "
+        "DETACH DELETE c RETURN count(*) AS cleared",
+        "write",
+    ),
+    "Q-RES-CLEAR-ROOT-RELS": (
+        "MATCH (r:Resource {key: $key})-[rel]->() WHERE type(rel) <> 'HAS_VERSION' "
+        "DELETE rel RETURN count(*) AS cleared",
+        "write",
+    ),
+    "Q-RES-MERGE-RELS": (
+        "UNWIND $rows AS row MATCH (a {key: row.start}) MATCH (b {key: row.end}) "
+        "CREATE (a)-[r{insert}]->(b) SET r = row.props RETURN count(r) AS created",
+        "write",
+    ),
+    "Q-RES-SET-POSITION": (
+        "MATCH (n:Location {key: $key}) WHERE n.positionLatitude IS NOT NULL "
+        "AND n.positionLongitude IS NOT NULL "
+        "SET n.position = point({latitude: n.positionLatitude, longitude: n.positionLongitude}) "
+        "RETURN count(n) AS positioned",
+        "write",
+    ),
+    "Q-RES-LOAD-NODES": (
+        "MATCH (o) WHERE o.key = $key OR o.key STARTS WITH $prefix "
+        "RETURN labels(o) AS labels, properties(o) AS props",
+        "read",
+    ),
+    "Q-RES-LOAD-RELS": (
+        "MATCH (o)-[r]->(t) WHERE (o.key = $key OR o.key STARTS WITH $prefix) "
+        "AND type(r) <> 'HAS_VERSION' "
+        "RETURN o.key AS start, type(r) AS type, properties(r) AS props, t.key AS end, "
+        "labels(t) AS endLabels, "
+        "CASE WHEN t:Resource OR t:ResourceVersion THEN null ELSE properties(t) END AS endProps",
+        "read",
+    ),
+    "Q-RES-HISTORY": (
+        "MATCH (r:Resource {key: $key})-[h:HAS_VERSION]->(v:ResourceVersion) "
+        "RETURN v.key AS key, h.versionId AS versionId",
+        "read",
+    ),
+}
+
+
+def _labels_text(labels: tuple[str, ...]) -> str:
+    """The label list of a query. A name that is not a plain label is refused."""
+    for label in labels:
+        if not _LABEL.fullmatch(label):
+            raise ValidationFailed("label", "not a plain Neo4j label name")
+    return "".join(f":{label}" for label in labels)
+
+
+def _is_owned(node_key: str, root_key: str) -> bool:
+    return node_key == root_key or node_key.startswith(f"{root_key}#")
+
+
+def _is_reference_key(key: str) -> bool:
+    return not key.startswith(_SHARED_PREFIXES) and "#" not in key
+
+
+def _check_type(type_: str) -> None:
+    if not _TYPE.fullmatch(type_):
+        raise ValidationFailed("resourceType", "not a FHIR resource type")
+
+
+def _check_identity(type_: Any, id_: Any) -> tuple[str, str]:
+    if not isinstance(type_, str) or not _TYPE.fullmatch(type_):
+        raise ValidationFailed("resourceType", "not a FHIR resource type")
+    if not isinstance(id_, str) or not _FHIR_ID.fullmatch(id_):
+        raise ValidationFailed("id", "not a FHIR id")
+    return type_, id_
+
+
+def _nanos(fraction: str | None) -> int:
+    return int(fraction.ljust(9, "0")) if fraction else 0
+
+
+def _fraction_text(nanos: int) -> str:
+    return f".{nanos:09d}".rstrip("0") if nanos else ""
+
+
+def _zone_text(offset: timedelta) -> str:
+    if offset == timedelta(0):
+        return "Z"
+    minutes = int(offset.total_seconds()) // 60
+    sign = "+" if minutes >= 0 else "-"
+    minutes = abs(minutes)
+    return f"{sign}{minutes // 60:02d}:{minutes % 60:02d}"
+
+
+def _format(value: Any) -> str:
+    """The FHIR text of a stored date, time or datetime. A zero offset reads back as Z."""
+    if isinstance(value, DateTime):
+        offset = value.utcoffset()
+        if offset is None:
+            raise ValidationFailed("datetime", "stored without a zone")
+        return (
+            f"{value.year:04d}-{value.month:02d}-{value.day:02d}"
+            f"T{value.hour:02d}:{value.minute:02d}:{value.second:02d}"
+            f"{_fraction_text(value.nanosecond)}{_zone_text(offset)}"
+        )
+    if isinstance(value, Date):
+        return f"{value.year:04d}-{value.month:02d}-{value.day:02d}"
+    if isinstance(value, Time):
+        return (
+            f"{value.hour:02d}:{value.minute:02d}:{value.second:02d}"
+            f"{_fraction_text(value.nanosecond)}"
+        )
+    raise ValidationFailed("value", "not a date, time or datetime")
+
+
+def _text_to_db(text: str, field: str) -> Any:
+    """A FHIR date, time or datetime becomes the Neo4j type, but only if it reads back identically.
+
+    A partial date (2026-10) has no Neo4j type that keeps its precision, so it is refused."""
+    try:
+        if match := _DATETIME.fullmatch(text):
+            year, month, day, hour, minute, second = (int(group) for group in match.groups()[:6])
+            zone = match.group(8)
+            if zone == "Z":
+                tzinfo: timezone = UTC
+            else:
+                sign = 1 if zone[0] == "+" else -1
+                offset = timedelta(hours=int(zone[1:3]), minutes=int(zone[4:6]))
+                tzinfo = timezone(sign * offset)
+            value: Any = DateTime(
+                year, month, day, hour, minute, second, _nanos(match.group(7)), tzinfo=tzinfo
+            )
+        elif match := _DATE.fullmatch(text):
+            value = Date(*(int(group) for group in match.groups()))
+        elif match := _TIME.fullmatch(text):
+            hour, minute, second = (int(group) for group in match.groups()[:3])
+            value = Time(hour, minute, second, _nanos(match.group(4)))
+        elif _PARTIAL.match(text):
+            raise ValidationFailed(field, "a partial date is refused: give the full value")
+        else:
+            return text
+    except ValueError as error:
+        raise ValidationFailed(field, "not a valid date, time or datetime") from error
+    if _format(value) != text:
+        raise ValidationFailed(field, "the zone or precision would not read back identically")
+    return value
+
+
+def _to_db(value: Any, field: str) -> Any:
+    if isinstance(value, str):
+        return _text_to_db(value, field)
+    if isinstance(value, bool | int | float):
+        return value
+    if isinstance(value, list):
+        return [_to_db(item, field) for item in value]
+    raise ValidationFailed(field, "only primitives and lists of primitives can be stored")
+
+
+def _from_db(value: Any) -> Any:
+    if isinstance(value, DateTime | Date | Time):
+        return _format(value)
+    if isinstance(value, list):
+        return [_from_db(item) for item in value]
+    if isinstance(value, bool | int | float | str):
+        return value
+    raise ValidationFailed("value", "unexpected stored type")
+
+
+def _props_to_db(props: dict[str, Any]) -> dict[str, Any]:
+    return {name: _to_db(value, name) for name, value in props.items()}
+
+
+def _node_props_to_db(key: str, props: dict[str, Any]) -> dict[str, Any]:
+    for name in props:
+        if name in RESERVED_PROPERTIES:
+            raise ValidationFailed(name, "reserved: the store uses this name")
+    return {**_props_to_db(props), "key": key}
+
+
+def _props_from_db(props: dict[str, Any]) -> dict[str, Any]:
+    """FHIR properties of a stored node or relationship. The store's own properties are left out."""
+    return {
+        name: _from_db(value) for name, value in props.items() if name not in RESERVED_PROPERTIES
+    }
 
 
 class ResourceStore:
@@ -16,13 +287,250 @@ class ResourceStore:
         self._clock = clock
 
     async def put(self, resource: dict[str, Any], expected_version: str | None) -> str:
-        raise NotImplementedError("G05 stub")
+        """Write the resource and return its new version.
+
+        expected_version None creates it (Conflict if it exists). A string replaces that version
+        (Conflict if the stored version differs). An existing Observation raises NotAllowed.
+        """
+        if "meta" in resource:
+            raise ValidationFailed("meta", "the store sets meta; omit it")
+        resource_type, resource_id = _check_identity(
+            resource.get("resourceType"), resource.get("id")
+        )
+        key = f"{resource_type}/{resource_id}"
+        try:
+            return await self._put(resource, resource_type, resource_id, key, expected_version)
+        except ClientError as error:
+            if str(getattr(error, "code", "")).endswith("ConstraintValidationFailed"):
+                raise Conflict(f"{key} was written by another request") from error
+            raise
 
     async def get(self, type: str, id: str) -> dict[str, Any] | None:
-        raise NotImplementedError("G05 stub")
+        _check_type(type)
+        key = f"{type}/{id}"
+        if await self._root_props(type, key) is None:
+            return None
+        return from_graph(await self._load(key, type))
 
     async def history(self, type: str, id: str) -> list[dict[str, Any]]:
-        raise NotImplementedError("G05 stub")
+        _check_type(type)
+        rows = await self._run("Q-RES-HISTORY", key=f"{type}/{id}")
+        ordered = sorted(rows, key=lambda row: int(row["versionId"]))
+        return [from_graph(await self._load(row["key"], type)) for row in ordered]
 
     async def exists(self, type: str, id: str) -> bool:
-        raise NotImplementedError("G05 stub")
+        _check_type(type)
+        return await self._root_props(type, f"{type}/{id}") is not None
+
+    # Writing
+
+    async def _put(
+        self,
+        resource: dict[str, Any],
+        resource_type: str,
+        resource_id: str,
+        key: str,
+        expected_version: str | None,
+    ) -> str:
+        # The lock write comes first: it makes a concurrent writer wait, then the read sees the
+        # committed version.
+        await self._run(
+            "Q-RES-LOCK",
+            insert=_labels_text((resource_type,)),
+            key=key,
+            id=resource_id,
+            stamp=uuid.uuid4().hex,
+        )
+        current = await self._root_props(resource_type, key)
+        if current is not None and resource_type in NEVER_UPDATED_TYPES:
+            raise NotAllowed(f"{resource_type} is never updated: write a new one")
+        if current is None:
+            if expected_version is not None:
+                raise Conflict(f"{key} does not exist at version {expected_version}")
+            new_version = "1"
+        else:
+            current_version = str(current["versionId"])
+            if expected_version is None:
+                raise Conflict(f"{key} exists: state the version it replaces")
+            if expected_version != current_version:
+                raise Conflict(f"{key} is at version {current_version}, not {expected_version}")
+            new_version = str(int(current_version) + 1)
+
+        body = {**resource, "meta": {"versionId": new_version, "lastUpdated": self._stamp()}}
+        fragment = to_graph(body)
+        nodes = [
+            NodeSpec(node.key, node.labels, _node_props_to_db(node.key, node.properties))
+            for node in fragment.nodes
+        ]
+        rels = [
+            RelSpec(rel.type, rel.start, rel.end, _props_to_db(rel.properties))
+            for rel in fragment.rels
+        ]
+        owned = [node for node in nodes if _is_owned(node.key, key)]
+        shared = [node for node in nodes if not _is_owned(node.key, key)]
+        # Everything that can be refused is checked here, before the first change to the graph.
+        plan = await self._plan_shared(shared)
+        node_keys = {node.key for node in nodes}
+        placeholders = {
+            rel.end for rel in rels if _is_reference_key(rel.end) and rel.end not in node_keys
+        }
+
+        if current is not None and resource_type not in NO_HISTORY_TYPES:
+            old = await self._load(key, resource_type)
+            await self._write_snapshot(key, str(current["versionId"]), old)
+        await self._run("Q-RES-CLEAR-OWNED", prefix=f"{key}#")
+        await self._run("Q-RES-CLEAR-ROOT-RELS", key=key)
+        await self._write_nodes(owned)
+        await self._apply_shared(plan)
+        await self._write_placeholders(placeholders)
+        await self._write_rels(rels)
+        if resource_type == "Location":
+            await self._run("Q-RES-SET-POSITION", key=key)
+        return new_version
+
+    def _stamp(self) -> str:
+        now = self._clock.now() if self._clock is not None else datetime.now(UTC)
+        return now.astimezone(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+    async def _write_snapshot(self, key: str, version: str, old: GraphFragment) -> None:
+        """Copy the owned nodes and relationships of the current state under the version key."""
+        snapshot = f"{key}@{version}"
+
+        def rekey(node_key: str) -> str:
+            return snapshot + node_key[len(key) :] if _is_owned(node_key, key) else node_key
+
+        nodes: list[NodeSpec] = []
+        for node in old.nodes:
+            if not _is_owned(node.key, key):
+                continue
+            # Copies carry their own labels, so a query for a live type or child never sees history.
+            labels = ("ResourceVersion",) if node.key == key else ("ResourceVersionPart",)
+            copy_key = rekey(node.key)
+            nodes.append(NodeSpec(copy_key, labels, _node_props_to_db(copy_key, node.properties)))
+        rels = [
+            RelSpec(rel.type, rekey(rel.start), rekey(rel.end), _props_to_db(rel.properties))
+            for rel in old.rels
+            if _is_owned(rel.start, key)
+        ]
+        rels.append(RelSpec(_HAS_VERSION, key, snapshot, {"versionId": version}))
+        await self._write_nodes(nodes)
+        await self._write_rels(rels)
+
+    async def _write_nodes(self, nodes: list[NodeSpec]) -> None:
+        groups: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+        for node in nodes:
+            groups.setdefault(node.labels, []).append({"key": node.key, "props": node.properties})
+        for labels, rows in groups.items():
+            template = "Q-RES-UPSERT-ROOT" if labels[0] == "Resource" else "Q-RES-UPSERT-NODE"
+            await self._run(template, insert=_labels_text(labels), rows=rows)
+
+    async def _plan_shared(self, nodes: list[NodeSpec]) -> tuple[list[NodeSpec], list[Any]]:
+        """Shared Concept, Identifier and CodeSystem nodes are never overwritten (L59). A display
+        or version that is missing is filled in. A different one is refused, and nothing changes."""
+        if not nodes:
+            return [], []
+        rows = await self._run("Q-RES-SHARED-READ", keys=[node.key for node in nodes])
+        existing = {row["key"]: row["props"] for row in rows}
+        create: list[NodeSpec] = []
+        fill: list[tuple[str, dict[str, Any]]] = []
+        for node in nodes:
+            current = existing.get(node.key)
+            if current is None:
+                create.append(node)
+                continue
+            missing: dict[str, Any] = {}
+            for name in _SHARED_FILLABLE:
+                if name not in node.properties:
+                    continue
+                if name in current and current[name] != node.properties[name]:
+                    raise ValidationFailed(name, "the same concept has a different value stored")
+                if name not in current:
+                    missing[name] = node.properties[name]
+            if missing:
+                fill.append((node.key, missing))
+        return create, fill
+
+    async def _apply_shared(self, plan: tuple[list[NodeSpec], list[Any]]) -> None:
+        create, fill = plan
+        groups: dict[tuple[str, ...], list[dict[str, Any]]] = {}
+        for node in create:
+            groups.setdefault(node.labels, []).append({"key": node.key, "props": node.properties})
+        for labels, rows in groups.items():
+            await self._run("Q-RES-SHARED-CREATE", insert=_labels_text(labels), rows=rows)
+        for key, missing in fill:
+            await self._run("Q-RES-SHARED-FILL", key=key, fill=missing)
+
+    async def _write_placeholders(self, keys: set[str]) -> None:
+        """A reference target that does not exist yet becomes a placeholder. ON CREATE only."""
+        groups: dict[str, list[dict[str, str]]] = {}
+        for key in sorted(keys):
+            target_type, target_id = key.split("/", 1)
+            groups.setdefault(target_type, []).append({"key": key, "id": target_id})
+        for target_type, rows in groups.items():
+            await self._run("Q-RES-MERGE-NODES", insert=_labels_text((target_type,)), rows=rows)
+
+    async def _write_rels(self, rels: list[RelSpec]) -> None:
+        # CREATE, not MERGE: two relationships of one type between the same nodes are two facts
+        # (one concept listed twice, in different positions). Owned ones were cleared above.
+        groups: dict[str, list[dict[str, Any]]] = {}
+        for rel in rels:
+            groups.setdefault(rel.type, []).append(
+                {"start": rel.start, "end": rel.end, "props": rel.properties}
+            )
+        for rel_type, rows in groups.items():
+            created = await self._run(
+                "Q-RES-MERGE-RELS", insert=_labels_text((rel_type,)), rows=rows
+            )
+            if int(created[0]["created"]) != len(rows):
+                raise NotFound(f"an endpoint of {rel_type} is missing")
+
+    # Reading
+
+    async def _run(self, template: str, insert: str = "", **params: Any) -> list[dict[str, Any]]:
+        """Run a named query. The first use of a template with a label or type registers it."""
+        query_id = f"{template}{insert}"
+        try:
+            REGISTRY.get(query_id)
+        except KeyError:
+            cypher, mode = _TEMPLATES[template]
+            REGISTRY.register(
+                NamedQuery(id=query_id, cypher=cypher.replace("{insert}", insert), mode=mode)
+            )
+        return await run_query(self._tx, query_id, **params)
+
+    async def _root_props(self, resource_type: str, key: str) -> dict[str, Any] | None:
+        rows = await self._run("Q-RES-GET", key=key, type=resource_type)
+        if not rows or "placeholder" in rows[0]["props"]:
+            return None
+        props: dict[str, Any] = rows[0]["props"]
+        return props
+
+    async def _load(self, key: str, root_type: str) -> GraphFragment:
+        """The owned nodes and relationships of one stored resource (or of a version), plus the
+        shared Concept and Identifier nodes they point at, in the shape the mapper rebuilds from."""
+        prefix = f"{key}#"
+        nodes: dict[str, NodeSpec] = {}
+        for row in await self._run("Q-RES-LOAD-NODES", key=key, prefix=prefix):
+            stored_key = str(row["props"]["key"])
+            nodes[stored_key] = _node_from_row(
+                stored_key, row["labels"], row["props"], key, root_type
+            )
+        rels: list[RelSpec] = []
+        for row in await self._run("Q-RES-LOAD-RELS", key=key, prefix=prefix):
+            if row["endProps"] is not None and row["end"] not in nodes:
+                nodes[row["end"]] = _node_from_row(
+                    row["end"], row["endLabels"], row["endProps"], key, root_type
+                )
+            rels.append(
+                RelSpec(row["type"], row["start"], row["end"], _props_from_db(row["props"]))
+            )
+        if key not in nodes:
+            raise NotFound(key)
+        return GraphFragment(root_key=key, nodes=tuple(nodes.values()), rels=tuple(rels))
+
+
+def _node_from_row(
+    stored_key: str, labels: list[str], props: dict[str, Any], root_key: str, root_type: str
+) -> NodeSpec:
+    node_labels = ("Resource", root_type) if stored_key == root_key else tuple(labels)
+    return NodeSpec(key=stored_key, labels=node_labels, properties=_props_from_db(props))

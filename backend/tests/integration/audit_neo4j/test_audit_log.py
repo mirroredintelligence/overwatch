@@ -308,6 +308,29 @@ async def test_appending_without_a_chain_head_is_refused_not_repaired(
     assert await count_nodes(neo4j_driver, "AuditEvent") == 0
 
 
+async def test_an_untampered_chain_with_snapshot_entities_and_provenance_verifies(
+    neo4j_driver: AsyncDriver, audit_head: None
+) -> None:
+    snapshot: dict[str, object] = {"service_ids": ["svc-ucr-west"], "status": "accepting"}
+    entry = replace(entry_at(0, snapshot), entity_ids=("obs-1", "obs-2"))
+    await write_tx(neo4j_driver, lambda tx: Neo4jAuditLog(tx).append(entry))
+
+    async def record(tx: AsyncManagedTransaction) -> str:
+        return await Neo4jAuditLog(tx, clock=FixedClock(NOW)).append_provenance(
+            target_type="Booking",
+            target_id="bk-1",
+            activity="call-back",
+            agent_id="prac-1",
+            agent_role=Role.ADVISOR,
+            source_communication_id="comm-1",
+            extra={"numberCalled": "switchboard-ref-1"},
+        )
+
+    await write_tx(neo4j_driver, record)
+
+    assert await _verifies(neo4j_driver) is True
+
+
 async def _run_tamper(driver: AsyncDriver, cypher: str, **params: object) -> None:
     async def edit(tx: AsyncManagedTransaction) -> None:
         result = await tx.run(cypher, **params)

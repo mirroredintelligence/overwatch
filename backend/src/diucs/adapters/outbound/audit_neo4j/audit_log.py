@@ -163,9 +163,13 @@ _QUERIES: tuple[NamedQuery, ...] = (
         id="Q-AUDIT-CHAIN",
         cypher=(
             "MATCH (n:ChainLink) "
+            "OPTIONAL MATCH (n)-[r]->(m) "
+            "WITH n, collect(CASE WHEN r IS NULL THEN NULL ELSE {type: type(r), "
+            "props: properties(r), target: CASE WHEN m:Snapshot THEN m.hash + '|' + m.json "
+            "WHEN m:Concept THEN m.code ELSE m.id END} END) AS edges "
             "RETURN labels(n) AS labels, n.seq AS seq, n.previousHash AS previousHash, "
-            "n.chainHash AS chainHash, n.entryJson AS entryJson, properties(n) AS props "
-            "ORDER BY n.seq"
+            "n.chainHash AS chainHash, n.entryJson AS entryJson, properties(n) AS props, "
+            "edges ORDER BY seq"
         ),
         mode="read",
     ),
@@ -244,8 +248,56 @@ def _parse_entry(text: str) -> AuditEntry:
     )
 
 
-def _matches_stored_properties(row: dict[str, Any]) -> bool:
-    """The node's own properties must agree with the hashed text, and carry nothing else."""
+_Edge = tuple[str, dict[str, Any], object]
+
+
+def _instant_of(stored: object) -> datetime | None:
+    """A stored Neo4j datetime as an aware UTC datetime, or None if it is not one."""
+    native = stored.to_native() if hasattr(stored, "to_native") else stored
+    if isinstance(native, datetime) and native.tzinfo is not None:
+        return native.astimezone(UTC)
+    return None
+
+
+def _edge_key(kind: str, props: dict[str, Any], target: object) -> str:
+    return canonical_json([kind, props, target])
+
+
+def _expected_audit_edges(entry: AuditEntry) -> list[_Edge]:
+    """The edges append writes for an entry: snapshot, touched ids and the agents."""
+    edges: list[_Edge] = []
+    if entry.snapshot is not None:
+        snapshot_json = canonical_json(entry.snapshot)
+        digest = hashlib.sha256(snapshot_json.encode()).hexdigest()
+        edges.append(("SNAPSHOT", {}, f"{digest}|{snapshot_json}"))
+    edges.extend(("ENTITY", {"role": "subject"}, entity_id) for entity_id in entry.entity_ids)
+    for agent_id in (entry.actor.practitioner_id, entry.actor.device_id):
+        if agent_id is not None:
+            agent_props = {"role": entry.actor.role.value, "requestor": True}
+            edges.append(("AGENT", agent_props, agent_id))
+    return edges
+
+
+def _expected_provenance_edges(payload: dict[str, Any]) -> list[_Edge]:
+    """The edges append_provenance writes: target, agent, activity and the optional source."""
+    edges: list[_Edge] = [
+        ("TARGET", {}, payload["target_id"]),
+        (
+            "AGENT",
+            {"type": payload["agent_type"], "role": payload["agent_role"]},
+            payload["agent_id"],
+        ),
+        ("ACTIVITY", {}, payload["activity"]),
+    ]
+    if payload["source_communication_id"] is not None:
+        edges.append(("ENTITY", {"role": "source"}, payload["source_communication_id"]))
+    return edges
+
+
+def _stored_node_matches(row: dict[str, Any]) -> bool:
+    """A chain node must agree with its hashed text in every stored part: its own properties
+    (including recorded), and its outgoing edges with their properties and targets. Anything the
+    text does not account for is refused."""
     text = str(row["entryJson"])
     props: dict[str, Any] = row["props"]
     try:
@@ -257,16 +309,27 @@ def _matches_stored_properties(row: dict[str, Any]) -> bool:
                 "outcome": OUTCOME_RECORDED,
             }
             allowed = _AUDIT_PROPERTIES
+            instant = entry.at.astimezone(UTC)
+            expected_edges = _expected_audit_edges(entry)
         else:
             payload: dict[str, Any] = json.loads(text)
             extra: dict[str, Any] = payload["extra"]
             expected = {"id": payload["id"], "activity": payload["activity"], **extra}
             allowed = _PROVENANCE_PROPERTIES | set(extra)
+            instant = datetime.strptime(payload["recorded"], TIME_FORMAT).replace(tzinfo=UTC)
+            expected_edges = _expected_provenance_edges(payload)
     except ValueError, KeyError, TypeError:
         return False
     if not set(props) <= allowed:
         return False
-    return all(props.get(name) == value for name, value in expected.items())
+    if not all(props.get(name) == value for name, value in expected.items()):
+        return False
+    if _instant_of(props.get("recorded")) != instant:
+        return False
+    actual = sorted(_edge_key(e["type"], e["props"] or {}, e["target"]) for e in row["edges"])
+    return actual == sorted(
+        _edge_key(kind, props_, target) for kind, props_, target in expected_edges
+    )
 
 
 class Neo4jAuditLog:
@@ -386,7 +449,7 @@ class Neo4jAuditLog:
                 return False
             if chain_hash_over(previous, str(row["entryJson"])) != row["chainHash"]:
                 return False
-            if not _matches_stored_properties(row):
+            if not _stored_node_matches(row):
                 return False
             previous = str(row["chainHash"])
         head = head_rows[0]

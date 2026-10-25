@@ -331,6 +331,39 @@ async def test_an_untampered_chain_with_snapshot_entities_and_provenance_verifie
     assert await _verifies(neo4j_driver) is True
 
 
+async def test_an_honest_append_with_a_repeated_entity_id_verifies(
+    neo4j_driver: AsyncDriver, audit_head: None
+) -> None:
+    entry = replace(entry_at(0), entity_ids=("obs-1", "obs-1"))
+    await write_tx(neo4j_driver, lambda tx: Neo4jAuditLog(tx).append(entry))
+
+    assert await _verifies(neo4j_driver) is True
+
+
+async def test_a_retyped_activity_concept_system_is_detected(
+    neo4j_driver: AsyncDriver, audit_head: None
+) -> None:
+    async def record(tx: AsyncManagedTransaction) -> str:
+        return await Neo4jAuditLog(tx, clock=FixedClock(NOW)).append_provenance(
+            target_type="Booking",
+            target_id="bk-1",
+            activity="confirm",
+            agent_id="prac-1",
+            agent_role=Role.ADVISOR,
+        )
+
+    await write_tx(neo4j_driver, record)
+    assert await _verifies(neo4j_driver) is True
+
+    await _run_tamper(
+        neo4j_driver,
+        "MATCH (:Provenance)-[:ACTIVITY]->(c:Concept {code: 'confirm'}) "
+        "SET c.system = 'https://diucs.example/CodeSystem/other'",
+    )
+
+    assert await _verifies(neo4j_driver) is False
+
+
 async def _run_tamper(driver: AsyncDriver, cypher: str, **params: object) -> None:
     async def edit(tx: AsyncManagedTransaction) -> None:
         result = await tx.run(cypher, **params)

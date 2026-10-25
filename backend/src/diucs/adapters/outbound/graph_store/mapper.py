@@ -21,6 +21,12 @@ _ROOT_KEYS = frozenset({"resourceType", "id"})
 _NODE_OWNED_NAMES = frozenset({"iri", "versionId", "lastUpdated"})
 _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])|(?<=[A-Z])(?=[A-Z][a-z])")
 
+# VERIFY against NHS England FHIR docs: the ODS system URIs are unverified (see G03 prompt).
+ODS_ORG_SYSTEM = "https://fhir.nhs.uk/Id/ods-organization-code"
+ODS_SITE_SYSTEM = "https://fhir.nhs.uk/Id/ods-site-code"
+# Frequently filtered codes, copied to a property (R11): (resource type, element) -> property.
+FILTER_CODE_PROPERTIES: dict[tuple[str, str], str] = {("Observation", "code"): "measureCode"}
+
 
 class UnsupportedElement(DomainError):
     """An element the mapper does not represent yet. Rejected, never dropped."""

@@ -5,6 +5,7 @@ write is one committed transaction and each read is a fresh session, so the test
 was really stored. All values are synthetic; there is no patient data.
 """
 
+import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
@@ -134,7 +135,9 @@ async def test_confirmed_since_lists_confirmed_at_until_the_booking_is_cancelled
     confirmed = BOOKING_4821.with_status(BookingStatus.CONFIRMED, CONFIRMED_AT)
     await _write(neo4j_driver, confirmed)
 
-    before = await read_tx(neo4j_driver, lambda tx: _repo(tx).confirmed_since("svc-ucr-west", since))
+    before = await read_tx(
+        neo4j_driver, lambda tx: _repo(tx).confirmed_since("svc-ucr-west", since)
+    )
     assert before == [CONFIRMED_AT]
 
     cancelled = confirmed.with_status(BookingStatus.CANCELLED_AFTER, CONFIRMED_AT)
@@ -185,4 +188,20 @@ async def test_add_twice_is_a_conflict_and_save_of_an_unknown_booking_is_not_fou
     with pytest.raises(NotFound):
         await _write(neo4j_driver, BOOKING_4822_EAST, save=True)
 
+    assert await count_nodes(neo4j_driver, "Task") == 1
+
+
+async def test_sixteen_racing_adds_of_one_booking_let_exactly_one_win(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    async def add_once() -> bool:
+        try:
+            await _write(neo4j_driver, BOOKING_4821)
+        except Conflict:
+            return False
+        return True
+
+    outcomes = await asyncio.gather(*(add_once() for _ in range(16)))
+
+    assert outcomes.count(True) == 1
     assert await count_nodes(neo4j_driver, "Task") == 1

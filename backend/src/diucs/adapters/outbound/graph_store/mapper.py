@@ -144,6 +144,9 @@ _BACKBONE: dict[tuple[str, str], BackboneDef] = {
     ("Organization", "telecom"): BackboneDef("ContactPoint", "HAS_TELECOM"),
     ("Organization.contact", "address"): BackboneDef("Address", "HAS_ADDRESS"),
     ("Organization.contact", "telecom"): BackboneDef("ContactPoint", "HAS_TELECOM"),
+    # P02: a booking's reply-by period and its decision and reason entries (booking_repository).
+    ("Task", "restriction"): BackboneDef("Task_Restriction", "HAS_RESTRICTION"),
+    ("Task", "output"): BackboneDef("Task_Output", "HAS_OUTPUT"),
 }
 
 

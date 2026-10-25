@@ -24,10 +24,15 @@ def _booking_in(status: BookingStatus) -> Booking:
     else:
         responded_at = RESPONDED_AT
         reason = "full" if status is BookingStatus.DECLINED else None
-    confirmed_at = RESPONDED_AT if status in (
-        BookingStatus.CONFIRMED,
-        BookingStatus.CANCELLED_AFTER,
-    ) else None
+    confirmed_at = (
+        RESPONDED_AT
+        if status
+        in (
+            BookingStatus.CONFIRMED,
+            BookingStatus.CANCELLED_AFTER,
+        )
+        else None
+    )
     return Booking(
         id="bk-4821",
         reference="4821",

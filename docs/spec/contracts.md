@@ -228,3 +228,7 @@ These names were added by individual task prompts. They are as binding as the re
 | `components/forms/ErrorSummary.tsx` (`errors: {field, message}[]`) | W18 (small), extended by W54 |
 | `components/forms/CodeEntry.tsx` | W23 |
 | `lib/forms/ukMobile.ts` (`isUkMobile`) | W37 |
+
+## Registration approval (DEC-032)
+- The pure gate `domain/rules/registration.py` takes booleans; it does not know who the approver is.
+- The use case that approves a registration (U29) must refuse when the approver is the requester. This is the only place that check lives. Any other caller that approves a registration must make the same check.

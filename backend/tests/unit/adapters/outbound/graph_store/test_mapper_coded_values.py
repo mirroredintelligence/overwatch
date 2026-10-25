@@ -8,6 +8,7 @@ silently dropped, overwritten or moved. All values are synthetic.
 """
 
 import ast
+import json
 from pathlib import Path
 from typing import Any
 
@@ -106,6 +107,14 @@ def _rels(fragment: GraphFragment, rel_type: str) -> list[RelSpec]:
     return [rel for rel in fragment.rels if rel.type == rel_type]
 
 
+def _parses_as_json_container(text: str) -> bool:
+    """A UCUM annotation such as {referral} starts with a brace but is not JSON."""
+    try:
+        return isinstance(json.loads(text), dict | list)
+    except ValueError:
+        return False
+
+
 def _assert_graph_safe(fragment: GraphFragment) -> None:
     """DEC-001: no map, no list of maps, no JSON-looking string, no json property."""
     for owner in [*fragment.nodes, *fragment.rels]:
@@ -117,7 +126,7 @@ def _assert_graph_safe(fragment: GraphFragment) -> None:
                     f"{name} is a list of maps"
                 )
             if isinstance(value, str):
-                assert not value.lstrip().startswith(("{", "[")), f"{name} looks like JSON"
+                assert not _parses_as_json_container(value), f"{name} looks like JSON"
 
 
 # R5: a coded value is a relationship to a shared Concept node
@@ -137,7 +146,7 @@ def test_coding_becomes_code_relationship_to_a_concept_with_an_in_system_link() 
     assert concept.labels == ("Concept",)
     assert concept.properties == {"system": CAPACITY_MEASURE, "code": "referrals-acceptable"}
 
-    in_system = _rels(fragment, "IN_SYSTEM")
+    in_system = [rel for rel in _rels(fragment, "IN_SYSTEM") if rel.start == concept_key]
     assert [(rel.start, rel.end) for rel in in_system] == [
         (concept_key, f"CodeSystem|{CAPACITY_MEASURE}")
     ]
@@ -712,3 +721,156 @@ def test_generated_coded_quantity_and_period_values_round_trip_exactly(
     except DomainError:
         return
     assert from_graph(fragment) == resource
+
+
+# Coverage of the refusal paths and of corrupt fragments (G05 reads these back from Neo4j)
+
+
+def test_a_single_identifier_round_trips_with_and_without_use() -> None:
+    with_use = {
+        "resourceType": "Organization",
+        "id": ORG_ID,
+        "identifier": {"system": ODS_ORG_SYSTEM, "value": "X1A", "use": "official"},
+    }
+    without_use = {
+        "resourceType": "Organization",
+        "id": ORG_ID,
+        "identifier": {"system": ODS_ORG_SYSTEM, "value": "X1A"},
+    }
+
+    for resource in (with_use, without_use):
+        fragment = to_graph(resource)
+        (rel,) = _rels(fragment, "IDENTIFIED_BY")
+        assert "order" not in rel.properties
+        assert from_graph(fragment) == resource
+
+
+def test_a_code_that_is_not_a_codeable_concept_is_kept_and_not_copied_as_a_filter_code() -> None:
+    resource = {"resourceType": "Observation", "id": OBS_ID, "status": "final", "code": "x"}
+
+    fragment = to_graph(resource)
+
+    assert "measureCode" not in fragment.nodes[0].properties
+    assert from_graph(fragment) == resource
+
+
+@pytest.mark.parametrize(
+    "coding_extra", [{"userSelected": "yes"}, {"display": 7}, {"version": None}]
+)
+def test_a_coding_with_a_non_text_or_non_boolean_detail_is_refused(
+    coding_extra: dict[str, Any],
+) -> None:
+    coding = {"system": STATUS, "code": "accepting", **coding_extra}
+    resource = {
+        "resourceType": "Observation",
+        "id": OBS_ID,
+        "status": "final",
+        "code": {"coding": [coding]},
+    }
+
+    with pytest.raises(UnsupportedElement) as raised:
+        to_graph(resource)
+
+    assert raised.value.path == "Observation.code"
+
+
+@pytest.mark.parametrize("low", [{}, {"comparator": "<", "value": 1}])
+def test_a_range_part_that_cannot_be_flattened_exactly_is_refused(low: dict[str, Any]) -> None:
+    resource = {
+        "resourceType": "Observation",
+        "id": OBS_ID,
+        "status": "final",
+        "valueRange": {"low": low},
+    }
+
+    with pytest.raises(UnsupportedElement) as raised:
+        to_graph(resource)
+
+    assert raised.value.path == "Observation.valueRange"
+
+
+def _fragment_with(extra_props: dict[str, Any] | None = None) -> GraphFragment:
+    base = to_graph(CAPACITY_REPORT)
+    root = _one_node(base, f"Observation/{OBS_ID}")
+    props = {**root.properties, **(extra_props or {})}
+    return GraphFragment(
+        root_key=base.root_key,
+        nodes=(NodeSpec(root.key, root.labels, props), *base.nodes[1:]),
+        rels=base.rels,
+    )
+
+
+def test_from_graph_refuses_a_flattened_property_with_too_many_parts() -> None:
+    fragment = _fragment_with({"valueQuantity_a_b_c": 1})
+
+    with pytest.raises(ValidationFailed) as raised:
+        from_graph(fragment)
+
+    assert raised.value.field == "valueQuantity_a_b_c"
+
+
+def test_from_graph_refuses_a_fragment_whose_element_mixes_reference_and_concept() -> None:
+    base = to_graph(CAPACITY_REPORT)
+    reference = RelSpec(
+        type="CODE",
+        start=base.root_key,
+        end="Location/l9",
+        properties={"fhirPath": "Observation.code", "order": 1},
+    )
+    fragment = GraphFragment(base.root_key, base.nodes, (*base.rels, reference))
+
+    with pytest.raises(ValidationFailed) as raised:
+        from_graph(fragment)
+
+    assert raised.value.field == "code"
+
+
+def test_from_graph_refuses_a_concept_list_mixed_with_a_single_concept() -> None:
+    base = to_graph(SERVICE_TWO_CATEGORIES)
+    first, second = _rels(base, "CATEGORY")
+    unlisted_first = RelSpec(
+        type=first.type,
+        start=first.start,
+        end=first.end,
+        properties={key: value for key, value in first.properties.items() if key != "conceptOrder"},
+    )
+    other_rels = [rel for rel in base.rels if rel.type != "CATEGORY"]
+    mixed = GraphFragment(base.root_key, base.nodes, (*other_rels, unlisted_first, second))
+
+    with pytest.raises(ValidationFailed) as raised:
+        from_graph(mixed)
+
+    assert raised.value.field == "category"
+
+
+def test_from_graph_refuses_codings_of_one_concept_that_disagree_on_text() -> None:
+    base = to_graph(SERVICE_TWO_CATEGORIES)
+    first, second = _rels(base, "CATEGORY")
+    second_other_text = RelSpec(
+        type=second.type,
+        start=second.start,
+        end=second.end,
+        properties={**second.properties, "text": "Other"},
+    )
+    other_rels = [rel for rel in base.rels if rel.type != "CATEGORY"]
+    disagreeing = GraphFragment(base.root_key, base.nodes, (*other_rels, first, second_other_text))
+
+    with pytest.raises(ValidationFailed) as raised:
+        from_graph(disagreeing)
+
+    assert raised.value.field == "category"
+
+
+@pytest.mark.parametrize("part", ["low", "high"])
+def test_a_range_with_only_one_end_round_trips(part: str) -> None:
+    resource = {
+        "resourceType": "Observation",
+        "id": OBS_ID,
+        "status": "final",
+        "valueRange": {part: {"value": 2, "unit": "referral"}},
+    }
+
+    fragment = to_graph(resource)
+
+    assert from_graph(fragment) == resource
+    assert f"valueRange_{part}_value" in fragment.nodes[0].properties

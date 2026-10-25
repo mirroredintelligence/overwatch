@@ -194,11 +194,11 @@ def test_no_node_or_relationship_carries_a_json_property() -> None:
 # 7. Unmapped elements are refused, not dropped
 
 
-def test_codeable_concept_raises_unsupported_element_with_its_path() -> None:
+def test_codeable_concept_with_an_unmapped_element_raises_unsupported_element() -> None:
     resource = {
         "resourceType": "Organization",
         "id": ORG_ID,
-        "type": [{"coding": [{"system": "https://example.test/cs", "code": "x"}]}],
+        "type": [{"coding": [{"system": "https://example.test/cs", "code": "x"}], "extension": []}],
     }
 
     with pytest.raises(UnsupportedElement) as raised:
@@ -210,7 +210,6 @@ def test_codeable_concept_raises_unsupported_element_with_its_path() -> None:
 @pytest.mark.parametrize(
     ("element", "value"),
     [
-        ("identifier", [{"system": "https://example.test/ods", "value": "X1"}]),
         ("contact", [{"name": {"text": "x"}}]),
         ("extension", [{"url": "https://example.test/ext", "valueString": "x"}]),
         ("telecom", None),

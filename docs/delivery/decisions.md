@@ -260,3 +260,21 @@ Status: accepted, owner to confirm · Affects: D05 (`assess_freshness`, `test_no
 - A report later than `now` raises ValueError, and a naive datetime raises ValueError. A clock error must not be shown as a fresh figure.
 - `was_due` is found with `current_due` only (lesson L30): the latest due at or before `now - REPLY_WINDOW`. Missed means reply-by before `now`, strictly (a due whose reply-by equals now is not yet missed).
 - A report at exactly a due time answers that due (the prompt's "at or after").
+
+## DEC-031 Reply policy choices the rule book leaves open (D11)
+Status: accepted · Affects: D11 (`rules/reply_policy.py`), U05 and any use case that acts on its decisions, D14 and U22 where a Y follows a late number.
+
+`docs/spec/domain-rules.md` 2.2 does not say these things. Numbered DEC-031 because DEC-027 and DEC-028 are taken (DEC-028 on main by D19, DEC-027 on task/D05-freshness) and DEC-029 and DEC-030 are on task/D05-freshness. The decisions are:
+
+1. **A Y is never a correction.** A Y is judged only against an open prompt. A Y after the prompt has closed is `RejectLate`, even inside the 15-minute correction window. The window applies to figures only.
+2. **Correction takes precedence over an open prompt.** A figure inside the correction window is a correction (`is_correction=True`) whether or not the prompt is open. The prompt-open case with a recent report is the one the prompt's test 7 describes.
+3. **The correction window is a decision, not a rule-book value.** `domain-rules.md` 2.2 gives a 15-minute window marked [ASSUMED] and does not define its edges. This entry fixes them: the window is inclusive at both ends, and an accepted report stamped after `now` is not a correction (elapsed must be zero or more). The same applies to the 30-minute reply-by window, which comes from `schedule.REPLY_WINDOW`.
+4. **Instants, not wall-clock times.** Every datetime is converted to UTC before it is compared or subtracted, because two London-zoned datetimes with the same tzinfo subtract by wall clock and give wrong answers across the 2026-10-25 change (lesson L4).
+5. **A late figure is refused before its range is checked.** An out-of-range number that arrives late gets `RejectLate`, not `AskRecheck`. The value is not used either way.
+6. **A repeated out-of-range figure inside the correction window** is recorded as a correction with flag `out-of-range-twice`. The rule book's flag rule covers the open window and the correction window alike.
+7. **A naive datetime (no UTC offset) for `now`, `reply_by` or `last_accepted_at` raises `ValidationFailed`.** The policy fails closed rather than reading the machine's local time.
+8. **A reply must name this prompt's service.** A letter other than the prompt's letter, a letter on a single-service prompt, or a bare figure on a lettered prompt raises `ValidationFailed`. The check runs first, before any timing rule. The policy does not rely on the caller to check letters. A bare Y on a lettered prompt confirms the prompt (domain-rules 2.1).
+
+Caller contract (lesson L27): use cases loop over every item of `parse_reply`'s tuple and call the policy once per item.
+
+Tests: `backend/tests/unit/domain/rules/test_reply_policy.py`. Evidence: `docs/delivery/evidence/D11.md`.

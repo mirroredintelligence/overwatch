@@ -6,7 +6,7 @@ send an unusual number again. This is a pure decision; the use case acts on it l
 Rules: docs/spec/domain-rules.md section 2.2. Names: docs/spec/contracts.md (rules/reply_policy.py).
 Pure: no I/O and no clock. `now` is an argument. Every datetime is converted to UTC before it is
 compared, so the London clock change does not move a window (lesson L4). Points the rule book
-leaves open are decided in DEC-028.
+leaves open are decided in DEC-031.
 
 Caller contract (lesson L27): a use case must loop over every item of `parse_reply`'s tuple and
 call this function once per item. It never reads `replies[0]` as the whole reply. A reply that

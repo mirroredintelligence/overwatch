@@ -229,7 +229,7 @@ def test_out_of_range_correction_repeated_is_recorded_as_correction_with_flag() 
 
 
 # Letters: a reply must name the service this prompt is for. The policy checks it itself, so a
-# caller that forgets to check cannot record a figure against the wrong service (DEC-028).
+# caller that forgets to check cannot record a figure against the wrong service (DEC-031).
 
 
 def test_letter_for_another_service_is_refused_not_recorded() -> None:

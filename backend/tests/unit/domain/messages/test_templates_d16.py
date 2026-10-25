@@ -1,7 +1,7 @@
 """Tests for diucs.domain.messages.templates: booking, invitation, code and alert messages (D16).
 
 Wording: docs/spec/domain-rules.md section 9 and the D16 prompt (exact text). Where the prompt is
-silent or marks a text [ASSUMED], DEC-036 records the choice. ui-screens.md is the screen wording
+silent or marks a text [ASSUMED], DEC-037 records the choice. ui-screens.md is the screen wording
 for B1, B2, B3, B4, B5, I1, I2 and K2; the prompt text is followed where the two differ.
 Every sample value is from the rule book. No test uses a real patient, name or postcode.
 """
@@ -114,7 +114,7 @@ def test_b2_email_subject_and_labelled_review_link() -> None:
     assert "Opening the link does not book anything." in rendered.text
     assert "The link works once and needs no login." in rendered.text
     assert rendered.html is not None
-    assert '>Review request</a>' in rendered.html
+    assert ">Review request</a>" in rendered.html
     assert 'href="diucs.example/b4821"' in rendered.html
 
 
@@ -189,8 +189,7 @@ def test_k3_alert_push_takes_title_and_body_as_given() -> None:
 def test_k4_suspended_notice_wording() -> None:
     rendered = render(MessageId.K4, Channel.TEXT, service="UCR East")
     assert rendered.text == (
-        "DIUCS: UCR East is suspended. Prompts have stopped. "
-        "The SPOA shift lead will phone you."
+        "DIUCS: UCR East is suspended. Prompts have stopped. The SPOA shift lead will phone you."
     )
 
 

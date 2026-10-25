@@ -264,15 +264,6 @@ def test_text_only_ids_refuse_email_and_push(channel: Channel) -> None:
         render(MessageId.C3, channel, **SAMPLE_FIELDS[MessageId.C3])
 
 
-@pytest.mark.parametrize(
-    "message_id",
-    [MessageId.B1, MessageId.I1, MessageId.K1],
-)
-def test_ids_not_yet_implemented_raise_not_implemented(message_id: MessageId) -> None:
-    with pytest.raises(NotImplementedError):
-        render(message_id, Channel.TEXT)
-
-
 @pytest.mark.parametrize("message_id", list(SAMPLE_FIELDS))
 def test_no_rendered_capacity_message_contains_a_postcode(message_id: MessageId) -> None:
     for channel in (Channel.TEXT, Channel.EMAIL, Channel.PUSH):

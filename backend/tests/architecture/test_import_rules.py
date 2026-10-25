@@ -38,7 +38,7 @@ PROBE_TREE: dict[str, str] = {
     "diucs_probe/adapters/outbound/__init__.py": "",
     "diucs_probe/adapters/outbound/a.py": "",
     "diucs_probe/adapters/outbound/b.py": "",
-    # The two modules named in .importlinter's ignore_imports (DEC-054), so the ignore has a target.
+    # The two modules named in .importlinter's ignore_imports (DEC-055), so the ignore has a target.
     "diucs_probe/adapters/outbound/graph_store/__init__.py": "",
     "diucs_probe/adapters/outbound/graph_store/driver.py": "",
     "diucs_probe/adapters/outbound/graph_store/queries.py": "",

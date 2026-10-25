@@ -59,7 +59,7 @@ modules =
     diucs.adapters.inbound.*
     diucs.adapters.outbound.*
     diucs.adapters.testing
-# DEC-054: the audit adapter runs its queries through the G01 driver and query registry.
+# DEC-055: the audit adapter runs its queries through the G01 driver and query registry.
 ignore_imports =
     diucs.adapters.outbound.audit_neo4j.audit_log -> diucs.adapters.outbound.graph_store.driver
     diucs.adapters.outbound.audit_neo4j.audit_log -> diucs.adapters.outbound.graph_store.queries

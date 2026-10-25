@@ -1,4 +1,4 @@
-"""Neo4j audit log and provenance on one hash chain (P05, DEC-054).
+"""Neo4j audit log and provenance on one hash chain (P05, DEC-055).
 
 Neo4jAuditLog(tx) works inside the caller's transaction, so an audit entry or provenance record
 commits or rolls back with the change it records (the unit of work, P06, passes its transaction).
@@ -24,7 +24,7 @@ ensure_audit_head must run once at startup, after apply_migrations. Appending wi
 AuditHeadMissing rather than creating one: creating the head inside a concurrent append would race.
 
 The adapter imports the G01 driver and query registry from graph_store. The import-linter contract
-"Adapters are independent" allows exactly those two imports (see .importlinter, DEC-054).
+"Adapters are independent" allows exactly those two imports (see .importlinter, DEC-055).
 """
 
 import hashlib

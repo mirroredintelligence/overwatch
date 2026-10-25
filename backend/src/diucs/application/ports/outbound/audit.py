@@ -1,4 +1,4 @@
-"""Outbound port: the append-only audit log with a hash chain (P05, DEC-054).
+"""Outbound port: the append-only audit log with a hash chain (P05, DEC-055).
 
 Every audit entry and every provenance record is a link in one chain:
 

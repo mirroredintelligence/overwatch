@@ -1,4 +1,4 @@
-"""Pure tests of the audit adapter's shape (P05, DEC-054): its queries and its method set."""
+"""Pure tests of the audit adapter's shape (P05, DEC-055): its queries and its method set."""
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog
 from diucs.adapters.outbound.graph_store.queries import REGISTRY

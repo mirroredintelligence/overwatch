@@ -1,4 +1,4 @@
-"""Pure tests of the audit chain functions (P05, DEC-054): canonical JSON and the chain hash."""
+"""Pure tests of the audit chain functions (P05, DEC-055): canonical JSON and the chain hash."""
 
 import hashlib
 from dataclasses import replace

@@ -1,4 +1,4 @@
-"""Integration tests for the audit log and provenance on Neo4j (P05, DEC-054).
+"""Integration tests for the audit log and provenance on Neo4j (P05, DEC-055).
 
 They run against the throwaway Neo4j of the F10 harness (DEC-008). Every write commits in its own
 transaction and every assertion reads back in a fresh session, so the tests check what was really

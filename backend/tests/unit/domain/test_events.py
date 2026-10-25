@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.events: the domain events, their payloads and their Service Bus topics (D25).
+"""Tests for diucs.domain.events: domain event payloads and Service Bus topics (D25).
 
 Events are pure data: identifiers, counts and codes, never patient values. Sample values only.
 """
@@ -95,8 +95,14 @@ def test_topic_for_each_family(event: DomainEvent) -> None:
 
 
 def test_session_id_is_the_service_id_for_capacity_events() -> None:
-    assert session_id_for(StatusChanged(SERVICE_ID, Status.ACCEPTING, Status.LIMITED, AT)) == SERVICE_ID
-    assert session_id_for(CapacityReported(SERVICE_ID, "obs-1", 4, ReportSource.TEXT, AT)) == SERVICE_ID
+    assert (
+        session_id_for(StatusChanged(SERVICE_ID, Status.ACCEPTING, Status.LIMITED, AT))
+        == SERVICE_ID
+    )
+    assert (
+        session_id_for(CapacityReported(SERVICE_ID, "obs-1", 4, ReportSource.TEXT, AT))
+        == SERVICE_ID
+    )
 
 
 def test_session_id_is_none_for_booking_events() -> None:
@@ -137,7 +143,9 @@ def test_naive_datetime_is_refused() -> None:
 def test_non_utc_offset_is_refused() -> None:
     bst = timezone(timedelta(hours=1))
     with pytest.raises(ValidationFailed) as info:
-        CapacityReported(SERVICE_ID, "obs-1", 4, ReportSource.TEXT, datetime(2026, 10, 23, 11, 12, tzinfo=bst))
+        CapacityReported(
+            SERVICE_ID, "obs-1", 4, ReportSource.TEXT, datetime(2026, 10, 23, 11, 12, tzinfo=bst)
+        )
     assert info.value.field == "at"
 
 
@@ -155,7 +163,12 @@ def test_payload_timestamp_with_an_offset_is_refused() -> None:
 
 
 def test_missing_payload_field_is_refused() -> None:
-    payload: dict[str, Any] = {"service_id": SERVICE_ID, "report_id": "obs-1", "source": "text", "at": "2026-10-23T10:12:00Z"}
+    payload: dict[str, Any] = {
+        "service_id": SERVICE_ID,
+        "report_id": "obs-1",
+        "source": "text",
+        "at": "2026-10-23T10:12:00Z",
+    }
     with pytest.raises(ValidationFailed) as info:
         from_payload("CapacityReported", payload)
     assert info.value.field == "value"

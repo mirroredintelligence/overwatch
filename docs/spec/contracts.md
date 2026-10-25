@@ -178,6 +178,7 @@ These names were added by individual task prompts. They are as binding as the re
 | Event `BookingCancelled` | `domain/events.py` | U20 |
 | Events `BookingWithdrawn`, `BookingNotReached`, `WithdrawalEscalated` | `domain/events.py` | U21 |
 | Event `ReporterInvited` | `domain/events.py` | U24 |
+| `DomainEvent` union, `topic_for`, `session_id_for`, `from_payload`, `<Event>.decode(payload)`, topic constants `CAPACITY_EVENTS`, `BOOKING_EVENTS`, `REGISTRATION_EVENTS`, `CRITERIA_EVENTS`, `ALERTS_EVENTS` (rules in DEC-041) | `domain/events.py` | D25 |
 
 ### Application
 

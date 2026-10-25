@@ -162,3 +162,22 @@ async def test_a_refused_issue_leaves_zero_nodes(neo4j_driver: AsyncDriver) -> N
     with pytest.raises(ValidationFailed):
         await _issue(neo4j_driver, clock, expires_at=naive)
     assert await count_nodes(neo4j_driver, "LinkToken") == 0
+
+
+async def test_burning_malformed_text_is_not_found_and_writes_nothing(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    clock = FixedClock(NOW)
+    await _issue(neo4j_driver, clock)
+    with pytest.raises(NotFound):
+        await _burn(neo4j_driver, clock, "not a token!")
+    assert await count_nodes(neo4j_driver, "LinkToken") == 1
+
+
+async def test_an_empty_secret_is_refused_and_never_used_as_a_key(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    clock = FixedClock(NOW)
+    token = await _issue(neo4j_driver, clock)
+    with pytest.raises(ValidationFailed, match="secret"):
+        await _resolve(neo4j_driver, clock, token, secret=b"")

@@ -76,6 +76,36 @@ async def test_an_unknown_hash_is_not_found(neo4j_driver: AsyncDriver) -> None:
     assert await _get(neo4j_driver, "f" * 64) is None
 
 
+async def test_two_racing_adds_of_one_hash_store_one_node_and_refuse_the_other(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    record = _record()
+    results = await asyncio.gather(
+        _add(neo4j_driver, record), _add(neo4j_driver, record), return_exceptions=True
+    )
+    refused = [result for result in results if isinstance(result, Conflict)]
+    assert len(refused) == 1, results
+    assert await count_nodes(neo4j_driver, "LinkToken") == 1
+
+
+async def test_a_duplicate_the_precheck_missed_is_still_a_conflict(
+    neo4j_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A racing add can pass the existence check and then hit the unique constraint. Forcing the
+    check to miss shows the constraint's refusal becomes Conflict, and that one node remains."""
+    record = _record()
+    await _add(neo4j_driver, record)
+
+    async def precheck_misses(self: Neo4jLinkTokenRepository, token_hash: str) -> None:
+        return None
+
+    monkeypatch.setattr(Neo4jLinkTokenRepository, "get_by_hash", precheck_misses)
+    with pytest.raises(Conflict):
+        await _add(neo4j_driver, record)
+    monkeypatch.undo()
+    assert await count_nodes(neo4j_driver, "LinkToken") == 1
+
+
 async def test_a_second_add_of_the_same_hash_is_a_conflict_and_leaves_one_node(
     neo4j_driver: AsyncDriver,
 ) -> None:

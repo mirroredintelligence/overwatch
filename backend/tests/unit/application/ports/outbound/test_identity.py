@@ -49,3 +49,8 @@ def test_a_number_that_is_not_a_uk_mobile_is_refused_and_not_echoed(number: str)
     assert refused.value.field == "phone"
     if number:
         assert number not in str(refused.value)
+
+
+def test_a_number_that_is_not_text_is_refused() -> None:
+    with pytest.raises(ValidationFailed, match="phone"):
+        normalise_uk_mobile(7700900123)  # type: ignore[arg-type]

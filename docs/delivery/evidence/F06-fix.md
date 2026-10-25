@@ -1,7 +1,7 @@
 # Evidence: F06-fix, derive the spring gap from the zone in the London test helper
 
 Builder: build-F06fix · Branch: `task/F06-gap-helper-fix` · Corrects: `task/F06-clock-ids` (F06, delivered)
-Decision: DEC-060 in `docs/delivery/decisions.md`.
+Decision: DEC-061 in `docs/delivery/decisions.md`.
 
 ## Honest note
 

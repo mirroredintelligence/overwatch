@@ -3,7 +3,7 @@
 Rules: docs/spec/domain-rules.md section 2.2. Sample values only (UCR West), no patient data.
 Service UCR West, usual range (0, 8), recorded value 3, unless a test says otherwise. Dates are
 2026-10-23 (BST, UTC+1). The clock-change tests use 2026-10-25, when London goes from BST to GMT.
-Every comparison in the rule is between instants (DEC-025, lesson L4).
+Every comparison in the rule is between instants (lesson L4).
 """
 
 from dataclasses import replace

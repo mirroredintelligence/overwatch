@@ -127,18 +127,38 @@ async def test_burn_marks_the_link_used_at_the_clock_time(neo4j_driver: AsyncDri
     assert stored.used_at == later
 
 
-async def test_a_second_burn_is_a_conflict_and_changes_nothing(neo4j_driver: AsyncDriver) -> None:
+async def test_a_second_burn_with_another_key_is_a_conflict_and_changes_nothing(
+    neo4j_driver: AsyncDriver,
+) -> None:
     clock = FixedClock(NOW)
     token = await _issue(neo4j_driver, clock)
     first = NOW + timedelta(minutes=2)
     clock.set(first)
-    await _burn(neo4j_driver, clock, token)
+    await _burn(neo4j_driver, clock, token, key="req-1")
     clock.set(NOW + timedelta(minutes=3))
     with pytest.raises(Conflict):
-        await _burn(neo4j_driver, clock, token)
+        await _burn(neo4j_driver, clock, token, key="req-2")
     stored = await _resolve(neo4j_driver, clock, token)
     assert stored is not None
     assert stored.used_at == first
+
+
+async def test_a_retried_burn_with_the_same_key_returns_the_original_result_without_a_write(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """A caller whose burn committed but whose reply was lost retries with the same key. The
+    retry must succeed, and it must not write again (DEC-012, the P15 replay pattern)."""
+    clock = FixedClock(NOW)
+    token = await _issue(neo4j_driver, clock)
+    first = NOW + timedelta(minutes=2)
+    clock.set(first)
+    await _burn(neo4j_driver, clock, token, key="req-1")
+    clock.set(NOW + timedelta(minutes=5))
+    await _burn(neo4j_driver, clock, token, key="req-1")
+    stored = await _resolve(neo4j_driver, clock, token)
+    assert stored is not None
+    assert stored.used_at == first
+    assert await count_nodes(neo4j_driver, "LinkToken") == 1
 
 
 async def test_burning_an_unknown_token_is_not_found_and_writes_nothing(

@@ -8,13 +8,15 @@ import asyncio
 import hashlib
 import hmac
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
+from typing import cast
 
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
-from diucs.domain.errors import Conflict
+from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
@@ -104,6 +106,17 @@ async def test_a_duplicate_the_precheck_missed_is_still_a_conflict(
         await _add(neo4j_driver, record)
     monkeypatch.undo()
     assert await count_nodes(neo4j_driver, "LinkToken") == 1
+
+
+async def test_the_repository_refuses_a_raw_phone_in_the_phone_field_with_zero_nodes(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """The record type refuses a raw phone when it is built. This shows the repository refuses it
+    too, for a record that reached it without that check, and that nothing is written."""
+    raw = SimpleNamespace(**{**_record().__dict__, "phone_hash": "07700 900123"})
+    with pytest.raises(ValidationFailed):
+        await _add(neo4j_driver, cast(LinkTokenRecord, raw))
+    assert await count_nodes(neo4j_driver, "LinkToken") == 0
 
 
 async def test_a_second_add_of_the_same_hash_is_a_conflict_and_leaves_one_node(

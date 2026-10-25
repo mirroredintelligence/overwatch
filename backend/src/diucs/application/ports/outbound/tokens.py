@@ -58,9 +58,11 @@ class LinkTokenService:
             return None
         return await self._repo.get_by_hash(token_hash)
 
-    async def burn(self, token: str) -> None:
-        """Mark a token used. Unknown text is NotFound; a token already used is Conflict. The
-        expiry is not checked here: the caller checks check_link first."""
+    async def burn(self, token: str, key: str) -> None:
+        """Stub for the red commit (DEC-010)."""
+        raise NotImplementedError
+
+    async def _unused_burn(self, token: str) -> None:
         token_hash = self._hash_or_none(token)
         if token_hash is None:
             raise NotFound("link token")

@@ -436,10 +436,10 @@ The prompt for D25 fixes the event names, fields and topics (also in `docs/spec/
 
 Tests: `backend/tests/unit/domain/test_events.py`.
 
-## DEC-044 Link token, pairing code and support code choices the prompt leaves open (D26)
+## DEC-045 Link token, pairing code and support code choices the prompt leaves open (D26)
 Status: accepted · Affects: D26 (`domain/rules/tokens.py`); P10 (link tokens), U10 (pairing), O06 (support codes), L01 (link endpoints), R15 (screen pairing).
 
-Numbered DEC-044: DEC-043 is claimed by task/D24-alert-rules (unmerged), so this takes the next free number. Checked on main and every task/* branch.
+Numbered DEC-045: DEC-043 is claimed by task/D17-template-privacy-guard and task/D24-alert-rules, and DEC-044 by task/D27-identity-policy (all unmerged). Checked on main and every task/* branch with grep for DEC-0NN; DEC-045 was free. Lesson L43.
 
 domain-rules 7 and the D26 prompt fix the lengths, alphabets, expiry and the check order. They leave these points open:
 

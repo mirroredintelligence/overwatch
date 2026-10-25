@@ -22,7 +22,7 @@ from diucs.adapters.outbound.graph_store.mapper import (
     upper_snake,
 )
 from diucs.domain.codes import BASE_URL
-from diucs.domain.errors import ValidationFailed
+from diucs.domain.errors import NotFound, ValidationFailed
 
 ORG_ID = "6b1f0c2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
 LOC_ID = "7c2a1d3f-4b5e-4f60-9b0c-1d2e3f4a5b6c"
@@ -68,7 +68,9 @@ def _assert_graph_safe(fragment: GraphFragment) -> None:
         for name, value in owner.properties.items():
             assert not isinstance(value, dict), f"{name} holds a map"
             if isinstance(value, list):
-                assert not any(isinstance(item, dict) for item in value), f"{name} is a list of maps"
+                assert not any(isinstance(item, dict) for item in value), (
+                    f"{name} is a list of maps"
+                )
             if isinstance(value, str):
                 assert not value.lstrip().startswith(("{", "[")), f"{name} looks like JSON"
 
@@ -276,3 +278,83 @@ def test_mapper_module_imports_nothing_from_neo4j() -> None:
             imported.add(node.module)
 
     assert not [name for name in imported if name.split(".")[0] == "neo4j"]
+
+
+# 10. Error paths and the one skip path, covered after green (branch coverage for the mapper)
+
+
+def test_a_resource_whose_id_is_not_text_is_refused() -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph({"resourceType": "Organization", "id": 42})
+
+    assert raised.value.field == "id"
+
+
+def test_meta_with_a_non_primitive_value_is_refused() -> None:
+    resource = {"resourceType": "Organization", "id": ORG_ID, "meta": {"versionId": {"x": 1}}}
+
+    with pytest.raises(UnsupportedElement) as raised:
+        to_graph(resource)
+
+    assert raised.value.path == "Organization.meta"
+
+
+def test_a_reference_display_that_is_not_text_is_refused() -> None:
+    resource = {
+        "resourceType": "Location",
+        "id": LOC_ID,
+        "partOf": {"reference": "Location/l0", "display": 7},
+    }
+
+    with pytest.raises(UnsupportedElement) as raised:
+        to_graph(resource)
+
+    assert raised.value.path == "Location.partOf"
+
+
+def test_from_graph_refuses_a_fragment_whose_root_is_absent() -> None:
+    fragment = to_graph(LOCATION)
+    orphan = GraphFragment(root_key="Location/missing", nodes=fragment.nodes, rels=fragment.rels)
+
+    with pytest.raises(NotFound):
+        from_graph(orphan)
+
+
+def test_from_graph_ignores_relationships_that_start_elsewhere() -> None:
+    fragment = to_graph(LOCATION)
+    other = RelSpec(
+        type="PART_OF",
+        start="Location/other",
+        end="Location/l9",
+        properties={"fhirPath": "Location.partOf"},
+    )
+    mixed = GraphFragment(
+        root_key=fragment.root_key, nodes=fragment.nodes, rels=(*fragment.rels, other)
+    )
+
+    assert from_graph(mixed) == LOCATION
+
+
+def test_from_graph_refuses_two_references_for_a_single_valued_element() -> None:
+    fragment = to_graph(LOCATION)
+    duplicate = RelSpec(
+        type="PART_OF",
+        start=fragment.root_key,
+        end="Location/l5",
+        properties={"fhirPath": "Location.partOf"},
+    )
+    broken = GraphFragment(
+        root_key=fragment.root_key, nodes=fragment.nodes, rels=(*fragment.rels, duplicate)
+    )
+
+    with pytest.raises(ValidationFailed) as raised:
+        from_graph(broken)
+
+    assert raised.value.field == "partOf"
+
+
+def test_a_resource_without_a_resource_type_is_refused() -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph({"id": ORG_ID, "name": "Dorset HealthCare"})
+
+    assert raised.value.field == "resourceType"

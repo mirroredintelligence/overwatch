@@ -230,6 +230,14 @@ These names were added by individual task prompts. They are as binding as the re
 | `components/forms/CodeEntry.tsx` | W23 |
 | `lib/forms/ukMobile.ts` (`isUkMobile`) | W37 |
 
+### Adapters: graph mapper (G02)
+
+| Name | Created by |
+|---|---|
+| `adapters/outbound/graph_store/mapper.py`: `NodeSpec(key, labels, properties)`, `RelSpec(type, start, end, properties)`, `GraphFragment(root_key, nodes, rels)`, `to_graph(resource) -> GraphFragment`, `from_graph(fragment) -> dict`, `upper_snake(name) -> str`, errors `UnsupportedElement(path)` and `InvalidReference(path)` | G02 |
+| Node key `Type/id`; node labels `("Resource", Type)`; node properties `id`, `iri`, optional `versionId` and `lastUpdated`, plus primitives under their FHIR names. No `json` property (DEC-001). | G02 |
+
 ## Registration approval (DEC-032)
 - The pure gate `domain/rules/registration.py` takes booleans; it does not know who the approver is.
 - The use case that approves a registration (U29) must refuse when the approver is the requester. This is the only place that check lives. Any other caller that approves a registration must make the same check.
+

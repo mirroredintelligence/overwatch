@@ -80,3 +80,12 @@ def test_each_measure_has_its_ucum_unit(measure: Measure, ucum: str) -> None:
     report = replace(NUMBER_REPORT, measure=measure)
 
     assert report_to_fhir(report)["valueQuantity"]["unit"] == ucum
+
+
+def test_a_report_time_with_a_fraction_round_trips_without_trailing_zeros() -> None:
+    report = replace(
+        NUMBER_REPORT, effective_at=datetime(2026, 10, 25, 9, 12, 0, 120000, tzinfo=UTC)
+    )
+
+    assert report_to_fhir(report)["effectiveDateTime"] == "2026-10-25T09:12:00.12Z"
+    assert report_from_fhir(report_to_fhir(report)) == report

@@ -7,7 +7,7 @@ AUDIT_QUERY_IDS = {"Q-AUDIT-APPEND", "Q-AUDIT-LIST", "Q-PROV-APPEND"}
 
 
 def test_the_audit_and_provenance_queries_are_registered() -> None:
-    assert AUDIT_QUERY_IDS <= set(REGISTRY.ids())
+    assert set(REGISTRY.ids()) >= AUDIT_QUERY_IDS
 
 
 def test_no_audit_or_provenance_query_deletes_anything() -> None:

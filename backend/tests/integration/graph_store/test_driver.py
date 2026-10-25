@@ -162,3 +162,12 @@ async def test_run_query_logs_no_cypher_text_even_at_debug(
         await session.execute_read(work)
     assert "RETURN $x AS x" not in caplog.text
     assert "RETURN" not in caplog.text
+
+
+def test_migration_ids_are_unique_and_run_in_ascending_order() -> None:
+    # P05, P07 and P08 each chose ids (lesson L68); a duplicate or out-of-order id would make one
+    # migration silently skipped or applied before the one it follows.
+    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    assert len(ids) == len(set(ids))
+    assert ids == sorted(ids)
+    assert "0009_scheduled_work_id" in ids

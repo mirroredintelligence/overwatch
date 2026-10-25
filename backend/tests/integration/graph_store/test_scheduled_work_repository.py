@@ -168,3 +168,50 @@ async def test_saving_an_unknown_record_is_not_found(neo4j_driver: AsyncDriver) 
 
     with pytest.raises(NotFound):
         await write_tx(neo4j_driver, save)
+
+
+async def _count_subjects(driver: AsyncDriver, key: str) -> int:
+    """How many subject Resource nodes carry this key (a placeholder subject is one of them)."""
+
+    async def work(tx: AsyncManagedTransaction) -> int:
+        record = await (
+            await tx.run("MATCH (s:Resource {key: $key}) RETURN count(s) AS total", key=key)
+        ).single()
+        assert record is not None
+        return int(record["total"])
+
+    return await read_tx(driver, work)
+
+
+async def test_a_refused_add_for_a_new_subject_leaves_no_subject_node_after_commit(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _add(neo4j_driver, _work("work-held", WorkKind.ESCALATE_TO_LEAD, sequence=3))
+
+    async def refused_then_commit(tx: AsyncManagedTransaction) -> None:
+        # The caller swallows the refusal and the unit of work still commits (DEC-053 item 16).
+        with pytest.raises(Conflict):
+            await Neo4jScheduledWorkRepository(tx).add(
+                _work("work-held", WorkKind.REMINDER, about="booking-2", sequence=3)
+            )
+
+    await write_tx(neo4j_driver, refused_then_commit)
+
+    assert await count_nodes(neo4j_driver, "ScheduledWork") == 1
+    assert await _count_subjects(neo4j_driver, "booking-2") == 0
+    assert (await _get(neo4j_driver, "work-held")).about_id == BOOKING
+
+
+async def test_a_refused_save_of_an_unknown_record_leaves_no_node_after_commit(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    async def refused_then_commit(tx: AsyncManagedTransaction) -> None:
+        with pytest.raises(NotFound):
+            await Neo4jScheduledWorkRepository(tx).save(
+                _work("work-ghost", WorkKind.REVERIFY, about="booking-3")
+            )
+
+    await write_tx(neo4j_driver, refused_then_commit)
+
+    assert await count_nodes(neo4j_driver, "ScheduledWork") == 0
+    assert await _count_subjects(neo4j_driver, "booking-3") == 0

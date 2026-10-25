@@ -1,0 +1,53 @@
+"""Outbound ports for geography (P11): geocoding, postcode centroids and travel time.
+
+Geocoding (OS Places), the local postcode centroid file and the travel-time engine are external
+providers, so each port has a fixed-table fake in diucs.adapters.testing (DEC-002, DEC-004). The
+real adapters come later (I11, I12, I15).
+
+Postcodes given to these ports are normalised by the caller or by the adapter using the D19 rules
+(diucs.domain.rules.postcode). Nothing here logs or echoes a postcode (DEC-047).
+"""
+
+from dataclasses import dataclass
+from typing import Protocol
+
+
+@dataclass(frozen=True, slots=True)
+class LatLon:
+    lat: float
+    lon: float
+
+
+@dataclass(frozen=True, slots=True)
+class AddressCandidate:
+    uprn: str
+    line: str
+    town: str
+    postcode: str
+    position: LatLon
+
+
+@dataclass(frozen=True, slots=True)
+class TravelRange:
+    """A travel time as a range, never a promise. `source` says where the range came from."""
+
+    low_minutes: int
+    high_minutes: int
+    source: str
+
+
+class Geocoder(Protocol):
+    async def find_addresses(self, postcode: str) -> list[AddressCandidate]: ...
+
+
+class PostcodeLocator(Protocol):
+    """Local centroid lookups. Read from a file held in memory, so the methods are synchronous."""
+
+    def centroid(self, postcode: str) -> LatLon | None: ...
+
+    def district_centroid(self, district: str) -> LatLon | None: ...
+
+
+class TravelTime(Protocol):
+    async def estimate(self, origin: LatLon, destination: LatLon) -> TravelRange: ...
+

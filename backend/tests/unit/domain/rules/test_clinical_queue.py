@@ -1,7 +1,7 @@
 """Clinical advice queue and presence rules (D23).
 
 Rules: docs/spec/domain-rules.md section 5 and the D23 prompt. Names: docs/spec/contracts.md.
-Decision DEC-036 records the choices the prompt leaves open. Every instant is timezone-aware UTC.
+Decision DEC-039 records the choices the prompt leaves open. Every instant is timezone-aware UTC.
 """
 
 from datetime import UTC, datetime, timedelta

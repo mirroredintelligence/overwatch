@@ -1,6 +1,6 @@
 """Clinical advice queue and presence rules (D23).
 
-Rules: docs/spec/domain-rules.md section 5. Names: docs/spec/contracts.md. Decision DEC-036 records
+Rules: docs/spec/domain-rules.md section 5. Names: docs/spec/contracts.md. Decision DEC-039 records
 the choices the prompt leaves open: a lapsed lock refuses advice, a plain string is not a presence,
 and an unknown presence or an unknown queue state fails closed.
 
@@ -10,7 +10,7 @@ compared in UTC.
 
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Final
 
@@ -30,10 +30,12 @@ class Presence(StrEnum):
     AWAY = "away"
 
 
-def _aware(value: datetime, name: str) -> datetime:
+def _utc(value: datetime, name: str) -> datetime:
+    """Refuse naive datetimes and return the instant in UTC. Same-zone arithmetic is wall-clock
+    arithmetic, so every instant is converted before it is compared or subtracted (lesson L4)."""
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValidationFailed(name, "must be timezone-aware")
-    return value
+    return value.astimezone(UTC)
 
 
 def _clinician(clinician_id: str) -> str:
@@ -55,25 +57,25 @@ class ClinicalRequest:
     def __post_init__(self) -> None:
         if self.urgency not in _URGENCY_RANK:
             raise ValidationFailed("urgency", "must be 'now' or 'within-15-min'")
-        _aware(self.requested_at, "requested_at")
+        _utc(self.requested_at, "requested_at")
         if (self.taken_by is None) != (self.taken_at is None):
             raise ValidationFailed("taken_by", "taken_by and taken_at are set together")
         if self.taken_at is not None:
-            _aware(self.taken_at, "taken_at")
+            _utc(self.taken_at, "taken_at")
         if self.advised_at is not None:
-            _aware(self.advised_at, "advised_at")
+            _utc(self.advised_at, "advised_at")
             if self.taken_by is None:
                 raise ValidationFailed("advised_at", "an advised request has a taker")
 
 
 def _is_idle(request: ClinicalRequest, now: datetime) -> bool:
-    return request.taken_at is not None and now - request.taken_at >= TAKE_TIMEOUT
+    return request.taken_at is not None and now - _utc(request.taken_at, "taken_at") >= TAKE_TIMEOUT
 
 
 def take(request: ClinicalRequest, clinician_id: str, now: datetime) -> ClinicalRequest:
     """Lock the request to this clinician. A lock held by someone else is free once idle."""
     clinician = _clinician(clinician_id)
-    _aware(now, "now")
+    now = _utc(now, "now")
     if request.advised_at is not None:
         raise InvalidTransition("this request has already had advice")
     if request.taken_by is None or _is_idle(request, now):
@@ -85,7 +87,7 @@ def take(request: ClinicalRequest, clinician_id: str, now: datetime) -> Clinical
 
 def return_if_idle(request: ClinicalRequest, now: datetime) -> ClinicalRequest:
     """Clear an unadvised lock once it is ten minutes old. Advised requests are never released."""
-    _aware(now, "now")
+    now = _utc(now, "now")
     if request.advised_at is None and _is_idle(request, now):
         return replace(request, taken_by=None, taken_at=None)
     return request
@@ -94,7 +96,7 @@ def return_if_idle(request: ClinicalRequest, now: datetime) -> ClinicalRequest:
 def give_advice(request: ClinicalRequest, clinician_id: str, now: datetime) -> ClinicalRequest:
     """Record advice by the taker, once, while the lock is still live."""
     clinician = _clinician(clinician_id)
-    _aware(now, "now")
+    now = _utc(now, "now")
     if request.advised_at is not None:
         raise InvalidTransition("advice has already been given for this request")
     if request.taken_by != clinician:
@@ -127,13 +129,15 @@ def available_count(presences: Iterable[Presence]) -> int:
 
 def advice_shown_as_available(available: int | None, queue_known: bool) -> bool:
     """Advice is offered only when the presence count and the queue are both known and non-empty."""
-    return queue_known and type(available) is int and available > 0
+    return bool(queue_known) and type(available) is int and available > 0
 
 
 def queue_order(requests: Iterable[ClinicalRequest]) -> list[ClinicalRequest]:
     """Untaken, unadvised requests: now first, then within-15-min, oldest first within each."""
     waiting = [r for r in requests if r.taken_by is None and r.advised_at is None]
-    return sorted(waiting, key=lambda r: (_URGENCY_RANK[r.urgency], r.requested_at))
+    return sorted(
+        waiting, key=lambda r: (_URGENCY_RANK[r.urgency], _utc(r.requested_at, "requested_at"))
+    )
 
 
 def validate_note(note: str) -> None:

@@ -1,7 +1,7 @@
 """Message templates (D15): the capacity messages C1 to C11, rendered as pure functions.
 
 Wording: docs/spec/domain-rules.md section 9 and the D15 prompt. Field names per id:
-docs/spec/contracts.md. DEC-032 records the choices the prompt leaves open: which fields each
+docs/spec/contracts.md. DEC-034 records the choices the prompt leaves open: which fields each
 channel needs, the email bodies, push wording for C8, and the minimum number of items for C9.
 
 Callers pass time fields already formatted as "HH:MM" strings and the unit phrase as text.

@@ -3,7 +3,7 @@
 GSM-7 (3GPP TS 23.038): 160 characters in one segment, 153 per segment when concatenated.
 Extension characters take two characters each. Any character outside GSM-7 switches the whole
 message to UCS-2: 70 UTF-16 code units in one segment, 67 per segment when concatenated.
-DEC-032 records the choices made here (form feed is an extension character; empty text is one
+DEC-034 records the choices made here (form feed is an extension character; empty text is one
 segment).
 """
 

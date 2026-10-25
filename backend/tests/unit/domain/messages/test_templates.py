@@ -1,7 +1,7 @@
 """Tests for diucs.domain.messages.templates: the capacity messages C1 to C11 (D15).
 
 Wording: docs/spec/domain-rules.md section 9 (samples) and the D15 prompt (templates). Where the
-prompt is silent (email body, push wording for C8), DEC-032 records the choice.
+prompt is silent (email body, push wording for C8), DEC-034 records the choice.
 Every sample value is from the rule book. No test uses a real patient, name or postcode.
 """
 

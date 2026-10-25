@@ -49,7 +49,7 @@ def request(
 
 
 def test_timeout_and_note_limit_are_the_rule_book_values() -> None:
-    assert TAKE_TIMEOUT == timedelta(minutes=10)
+    assert timedelta(minutes=10) == TAKE_TIMEOUT
     assert NOTE_MAX == 280
 
 
@@ -179,7 +179,9 @@ def test_queue_order_leaves_out_locked_and_advised_requests() -> None:
 
 
 def test_available_count_counts_only_available_presence() -> None:
-    assert available_count([Presence.AVAILABLE, Presence.BUSY, Presence.AVAILABLE, Presence.AWAY]) == 2
+    assert (
+        available_count([Presence.AVAILABLE, Presence.BUSY, Presence.AVAILABLE, Presence.AWAY]) == 2
+    )
 
 
 def test_available_count_does_not_count_plain_strings_or_unknown_presence() -> None:
@@ -243,3 +245,13 @@ def test_naive_datetimes_are_refused() -> None:
 def test_a_blank_clinician_id_is_refused() -> None:
     with pytest.raises(ValidationFailed):
         take(request("r1"), "", at(14, 13))
+
+
+def test_an_advised_request_must_have_a_taker() -> None:
+    with pytest.raises(ValidationFailed):
+        request("r1", advised_at=at(14, 14))
+
+
+def test_a_note_must_be_text() -> None:
+    with pytest.raises(ValidationFailed):
+        validate_note(None)  # type: ignore[arg-type]

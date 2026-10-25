@@ -721,3 +721,15 @@ Tests: `backend/tests/unit/application/ports/outbound/test_geo.py`, `backend/tes
 2. **Fix.** The helper now returns True only for local times 01:00 to 01:59 on a day where the UTC offset is GMT at 00:30 local and BST at 02:30 local. Autumn days are False. The 2026 constant is kept for the existing examples and boundary tests, which are unchanged.
 3. **Scope.** This is a test-helper correction to F06 (`task/F06-clock-ids`, delivered). `london_time.py` is untouched, so the F06 behaviour and the schedule tasks that rely on `london_to_utc` (lesson L4) are unaffected. The property now runs over every year from 2020 to 2040.
 4. **Tests.** `test_spring_gap_is_recognised_on_the_2020_change_day` and `test_spring_gap_is_derived_from_the_zone_for_every_year` were added. All existing assertions are kept.
+
+## DEC-058 Cache port: when a subscription starts, fencing tokens, and expiry (P09)
+Status: accepted · Affects: P12 and I01 (Redis adapter and its contract suite), I03 (outbox relay lock), I05, U08 and every live-update consumer of `board.updates`.
+
+The prompt fixes the cache names but leaves these choices open. The owner decided them as follows.
+
+1. **`subscribe` registers when it is called, not on the first read.** `Cache.subscribe(channel)` is a plain method that returns an `AsyncIterator[str]`. An `async def` generator would register only on the first `__anext__`, so a publish made between the call and the first read would be lost, which the prompt's "a subscriber receives only messages published after it subscribed" does not allow. The Redis adapter (I01) must have its SUBSCRIBE complete before `subscribe` returns, or buffer from the call. Both must pass the same contract test.
+2. **Fencing tokens are a per-name counter that only goes up.** Each successful `acquire_lock` takes the next number for that name. Releasing does not lower it, and a lock for another name starts at 1 on its own counter. The Redis adapter must take tokens from an `INCR` on a key that never expires. A token taken from a key with a TTL, or from a per-process counter, could repeat after a restart and break the rule that a later token is always greater.
+3. **Expiry is an instant comparison in UTC, inclusive at the end.** A value set with a TTL is missing at `set time + ttl` and after. A lock is held while `now < expires_at` and free from `expires_at` on. The fake converts every instant with `astimezone(UTC)` before comparing (lesson L52), and a test crosses the 2026-10-25 clock change.
+4. **Releasing a lock that is not the current holder's does nothing.** It raises nothing, so a holder that lost its lock to expiry cannot release a newer holder's lock. The caller must still check its own token before writing (fencing), because an expired holder can keep running.
+
+Limits: `InMemoryCache` never evicts expired keys except when they are read, so an unread expired key stays in memory. The fake is for tests only (architecture.md, Platform decisions), so the memory held by unread expired keys does not reach production.

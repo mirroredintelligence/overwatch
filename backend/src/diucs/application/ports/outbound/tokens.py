@@ -20,7 +20,9 @@ class LinkTokenRepository(Protocol):
 
     async def get_by_hash(self, token_hash: str) -> LinkTokenRecord | None: ...
 
-    async def mark_used(self, token_hash: str, at: datetime) -> bool: ...
+    async def mark_used(self, token_hash: str, at: datetime, key: str) -> bool: ...
+
+    async def burn_key(self, token_hash: str) -> str | None: ...
 
 
 class SecretStore(Protocol):
@@ -59,17 +61,19 @@ class LinkTokenService:
         return await self._repo.get_by_hash(token_hash)
 
     async def burn(self, token: str, key: str) -> None:
-        """Stub for the red commit (DEC-010)."""
-        raise NotImplementedError
-
-    async def _unused_burn(self, token: str) -> None:
+        """Mark a token used, for the attempt identified by `key`. A replay with the same key (a
+        retry after a lost reply) returns without writing again. A different key for a token
+        already used is Conflict; unknown or malformed text is NotFound. The expiry is not checked
+        here: the caller checks check_link first."""
         token_hash = self._hash_or_none(token)
         if token_hash is None:
             raise NotFound("link token")
-        if await self._repo.mark_used(token_hash, self._clock.now()):
+        if await self._repo.mark_used(token_hash, self._clock.now(), key):
             return
         if await self._repo.get_by_hash(token_hash) is None:
             raise NotFound("link token")
+        if await self._repo.burn_key(token_hash) == key:
+            return
         raise Conflict("link token has already been used")
 
     def _hash_or_none(self, token: str) -> str | None:

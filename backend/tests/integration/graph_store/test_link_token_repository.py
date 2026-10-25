@@ -7,6 +7,7 @@ one transaction and each load runs in a fresh session. Synthetic values only: no
 import asyncio
 import hashlib
 import hmac
+from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import cast
@@ -57,9 +58,11 @@ async def _get(driver: AsyncDriver, token_hash: str) -> LinkTokenRecord | None:
     return await read_tx(driver, work)
 
 
-async def _mark_used(driver: AsyncDriver, token_hash: str, at: datetime) -> bool:
+async def _mark_used(
+    driver: AsyncDriver, token_hash: str, at: datetime, key: str = "req-1"
+) -> bool:
     async def work(tx: AsyncManagedTransaction) -> bool:
-        return await Neo4jLinkTokenRepository(tx).mark_used(token_hash, at)
+        return await Neo4jLinkTokenRepository(tx).mark_used(token_hash, at, key)
 
     return await write_tx(driver, work)
 
@@ -113,7 +116,7 @@ async def test_the_repository_refuses_a_raw_phone_in_the_phone_field_with_zero_n
 ) -> None:
     """The record type refuses a raw phone when it is built. This shows the repository refuses it
     too, for a record that reached it without that check, and that nothing is written."""
-    raw = SimpleNamespace(**{**_record().__dict__, "phone_hash": "07700 900123"})
+    raw = SimpleNamespace(**{**asdict(_record()), "phone_hash": "07700 900123"})
     with pytest.raises(ValidationFailed):
         await _add(neo4j_driver, cast(LinkTokenRecord, raw))
     assert await count_nodes(neo4j_driver, "LinkToken") == 0

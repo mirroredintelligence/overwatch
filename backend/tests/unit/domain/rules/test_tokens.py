@@ -51,7 +51,7 @@ def _record(
         token_hash="sample-hash",
         purpose="booking-response",
         about_id="booking-4821",
-        phone_hash="sample-phone-hash",
+        phone_hash="ab" * 32,
         expires_at=expires_at,
         used_at=used_at,
     )

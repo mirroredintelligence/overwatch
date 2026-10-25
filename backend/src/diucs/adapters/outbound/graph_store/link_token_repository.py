@@ -14,7 +14,7 @@ from neo4j.exceptions import ConstraintError
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.domain.errors import Conflict
-from diucs.domain.rules.tokens import LinkTokenRecord
+from diucs.domain.rules.tokens import LinkTokenRecord, check_phone_hash
 
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-LINK-ADD": (
@@ -35,8 +35,12 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "MATCH (t:LinkToken {tokenHash: $tokenHash}) "
         "SET t.tokenHash = t.tokenHash "
         "WITH t WHERE t.usedAt IS NULL "
-        "SET t.usedAt = $at RETURN count(t) AS n",
+        "SET t.usedAt = $at, t.burnKey = $key RETURN count(t) AS n",
         "write",
+    ),
+    "Q-LINK-BURN-KEY": (
+        "MATCH (t:LinkToken {tokenHash: $tokenHash}) RETURN t.burnKey AS key",
+        "read",
     ),
 }
 
@@ -66,8 +70,10 @@ class Neo4jLinkTokenRepository:
         self._tx = tx
 
     async def add(self, record: LinkTokenRecord) -> None:
-        """Store one token hash. A second add of the same hash is Conflict, decided before the
-        write, so a refused add leaves no node (DEC-053 item 16)."""
+        """Store one token hash. A phone field that is not a hash is refused, and a second add of
+        the same hash is Conflict; both are decided before the write, so a refused add leaves no
+        node (DEC-053 item 16, H-09)."""
+        check_phone_hash(record.phone_hash)
         if await self.get_by_hash(record.token_hash) is not None:
             raise Conflict("link token already exists")
         try:
@@ -88,10 +94,17 @@ class Neo4jLinkTokenRepository:
         rows = await self._run("Q-LINK-GET", tokenHash=token_hash)
         return _from_props(rows[0]["props"]) if rows else None
 
-    async def mark_used(self, token_hash: str, at: datetime) -> bool:
-        """Set usedAt once. True only for the caller whose write set it (the count is 1)."""
-        rows = await self._run("Q-LINK-MARK-USED", tokenHash=token_hash, at=at.astimezone(UTC))
+    async def mark_used(self, token_hash: str, at: datetime, key: str) -> bool:
+        """Set usedAt and the burn key once. True only for the caller whose write set it."""
+        rows = await self._run(
+            "Q-LINK-MARK-USED", tokenHash=token_hash, at=at.astimezone(UTC), key=key
+        )
         return int(rows[0]["n"]) == 1
+
+    async def burn_key(self, token_hash: str) -> str | None:
+        """The key of the attempt that burned the link, or None if it is unused or unknown."""
+        rows = await self._run("Q-LINK-BURN-KEY", tokenHash=token_hash)
+        return rows[0]["key"] if rows else None
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
         return await run_query(self._tx, query_id, **params)

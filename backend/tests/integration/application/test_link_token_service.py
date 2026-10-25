@@ -60,9 +60,9 @@ async def _issue(driver: AsyncDriver, clock: FixedClock, expires_at: datetime = 
     return token
 
 
-async def _burn(driver: AsyncDriver, clock: FixedClock, token: str) -> None:
+async def _burn(driver: AsyncDriver, clock: FixedClock, token: str, key: str = "req-1") -> None:
     async def action(service: LinkTokenService) -> None:
-        await service.burn(token)
+        await service.burn(token, key)
 
     await _in_write(driver, clock, action)
 

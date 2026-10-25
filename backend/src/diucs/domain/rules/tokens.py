@@ -58,9 +58,23 @@ class LinkTokenRecord:
     used_at: datetime | None
 
     def __post_init__(self) -> None:
+        check_phone_hash(self.phone_hash)
         _utc(self.expires_at, "expires_at")
         if self.used_at is not None:
             _utc(self.used_at, "used_at")
+
+
+_PHONE_HASH: Final = re.compile(r"[0-9a-f]{64}")
+
+
+def check_phone_hash(value: str | None) -> None:
+    """Refuse anything in the phone field that is not a 64-character lower-case hex digest. A phone
+    number, a name or a postcode must never reach a stored record (H-09, DEC-047). The message
+    never echoes the value."""
+    if value is None:
+        return
+    if not isinstance(value, str) or not _PHONE_HASH.fullmatch(value):
+        raise ValidationFailed("phone_hash", "must be a 64-character lower-case hex digest")
 
 
 def _utc(moment: datetime, field: str) -> datetime:

@@ -190,6 +190,7 @@ These names were added by individual task prompts. They are as binding as the re
 | `outbox_message_for(event, id, ...)` | `application/ports/outbound/outbox.py` | P06 |
 | `UnitOfWork.scheduled_work` typed as `ScheduledWorkRepository` | `application/ports/outbound/unit_of_work.py` | P06, tightened by P08 |
 | `UnitOfWork.contacts`, `UnitOfWork.pins`, `UnitOfWork.devices` (the P16 stores: `ContactStore`, `PinStore`, `DeviceRegistry`) | `application/ports/outbound/unit_of_work.py` | P06 (DEC-071 item 9, lesson L86) |
+| `BookingRepository.confirmed_since_for_services(service_ids, since) -> dict[str, list[datetime]]` (one query, `Q-BOOK-CONFIRMED-FOR`; extends the P02 port) | `application/ports/outbound/repositories.py`, `adapters/outbound/graph_store/booking_repository.py` | U08 (DEC-088) |
 | `Communication.message_id` is `str`; `latest_prompt_for_phone` takes role ids | `application/ports/outbound/messaging.py` | P07 |
 | `IdempotencyStore` (`get`, `put`): command replay, backed by `Neo4jIdempotencyStore` | `application/idempotency.py`, `adapters/outbound/graph_store/idempotency_store.py` | P15 |
 | `ReportCapacityCommand.flag` | `application/use_cases/report_capacity.py` | U01 |

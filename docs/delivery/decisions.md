@@ -1176,3 +1176,15 @@ Numbered DEC-085: DEC-084 is the highest number on `main` and on every `task/*` 
 10. **Fields.** `BoardEntry` has the fourteen fields of contracts.md and no other. A test fixes the field names, so a later field that could hold patient data fails the build.
 
 Evidence: `docs/delivery/evidence/U08.md`. Tests: `backend/tests/integration/application/test_query_board.py`.
+
+## DEC-088 Batch confirmation read for the board; supersedes DEC-085 item 1 (U08)
+Status: accepted (builder build-U08b, for the owner to confirm) · Affects: U08 (`application/use_cases/query_board.py`), P02 (`BookingRepository` port and `adapters/outbound/graph_store/booking_repository.py`, one added method), U09, R05, and `docs/spec/contracts.md` "Additions".
+
+Numbered DEC-088: DEC-087 is the highest number on `main` and on every `task/*` branch when this was written (R01 holds DEC-086 and DEC-087 unmerged).
+
+1. **Supersedes DEC-085 item 1 for the board's reads.** The board no longer calls `confirmed_since` once per service. It calls the new `confirmed_since_for_services(service_ids, since)` once for all services with a latest report. `since` is the earliest of those report times. Each service's confirmations are then kept only at or after its own report time, by the availability rule (domain-rules 1.6). DEC-085 item 1 is otherwise unchanged; the per-service `confirmed_since` port method is kept for other callers.
+2. **Port change to a delivered task.** The new method is added to P02's `BookingRepository` protocol, and listed in contracts.md "Additions". It returns every requested service id as a key, with `[]` where there are no confirmations.
+3. **Query shape.** One named query, `Q-BOOK-CONFIRMED-FOR`, returns the confirmed Task ids of all the listed services. Each confirmed booking is then loaded for its `confirmed_at`, as `open_for_services` loads its bookings. `confirmed_at` is kept in the output entry only (DEC-063 item 5), so it cannot be filtered in Cypher without a second copy of the fact (DEC-001). The residual is one load per confirmed booking, not per service.
+4. **Pending is per service.** A test pins each service's pending count and availability, so a count taken from one service for every service fails the build.
+
+Evidence: `docs/delivery/evidence/U08.md` (round 2 section).

@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC
 
 from diucs.application.ports.outbound.clock import Clock
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.identity_policy import CODE_VALID_FOR, CodeState
 
 
@@ -19,6 +20,8 @@ class InMemoryCodeStore:
         self._codes: dict[str, tuple[str, CodeState]] = {}
 
     async def save(self, phone_hash: str, code_hash: str, state: CodeState) -> None:
+        if state.issued_at.tzinfo is None or state.issued_at.utcoffset() is None:
+            raise ValidationFailed("issued_at", "must be a timezone-aware datetime")
         self._codes[phone_hash] = (code_hash, state)
 
     async def get(self, phone_hash: str) -> tuple[str, CodeState] | None:

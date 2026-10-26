@@ -44,7 +44,7 @@ _KEYS: Final = frozenset(
 _QUERIES: Final = (
     NamedQuery(
         id="Q-FLAG-OBS-LOCK",
-        cypher=("MATCH (o:Observation {key: $key}) SET o.id = o.id RETURN count(o) AS locked"),
+        cypher=("MATCH (o:Observation {key: $key}) RETURN count(o) AS locked"),
         mode="write",
     ),
     NamedQuery(
@@ -102,7 +102,7 @@ _QUERIES: Final = (
     NamedQuery(
         id="Q-FLAG-SERVICE-LOCK",
         cypher=(
-            "MATCH (s:HealthcareService {id: $serviceId}) SET s.id = s.id RETURN count(s) AS locked"
+            "MATCH (s:HealthcareService {id: $serviceId}) RETURN count(s) AS locked"
         ),
         mode="write",
     ),

@@ -1,37 +1,45 @@
-"""Neo4j store for protected contacts (P16, DEC-070): phone numbers and role emails.
+"""Neo4j store for protected contacts (P16, DEC-070, DEC-073): phone numbers and role emails.
 
-Layout: (:ProtectedContact {roleId, kind, value, updatedAt}), one node per role and kind ("phone" or
-"email"). The node is deliberately not linked to any FHIR resource or PractitionerRole, so a read of
-the readable graph never reaches a number. Only this store reads it. Indexed on roleId (migration
-0024). updatedAt is a UTC datetime written by the database.
+Layout: (:ProtectedContact {key, roleId, kind, value, updatedAt}), one node per role and kind
+("phone" or "email"). key is roleId and kind joined by "|", and it is unique in the graph (migration
+0025), so two racing first writes for one role cannot create two nodes (DEC-073 item 1). The node is
+not linked to any FHIR resource or PractitionerRole, so a read of the readable graph never reaches a
+number. Only this store reads it. roleId is indexed (migration 0024). updatedAt is a UTC datetime
+written by the database.
 """
 
 from typing import Any, Final, Literal
 
 from neo4j import AsyncManagedTransaction
+from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.domain.errors import ValidationFailed
+from diucs.domain.errors import Conflict, ValidationFailed
 
 _PHONE: Final = "phone"
 _EMAIL: Final = "email"
 
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-CONTACT-PUT": (
-        "MERGE (c:ProtectedContact {roleId: $roleId, kind: $kind}) "
+        "MERGE (c:ProtectedContact {key: $key}) "
+        "ON CREATE SET c.roleId = $roleId, c.kind = $kind "
         "SET c.value = $value, c.updatedAt = datetime({timezone: 'UTC'}) "
         "RETURN count(c) AS n",
         "write",
     ),
     "Q-CONTACT-GET": (
-        "MATCH (c:ProtectedContact {roleId: $roleId, kind: $kind}) RETURN c.value AS value LIMIT 1",
+        "MATCH (c:ProtectedContact {key: $key}) RETURN c.value AS value LIMIT 1",
         "read",
     ),
 }
 
 for _query_id, (_cypher, _mode) in _QUERIES.items():
     REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode))
+
+
+def _key(role_id: str, kind: str) -> str:
+    return f"{role_id}|{kind}"
 
 
 def _checked_phone(number: str) -> str:
@@ -67,10 +75,16 @@ class Neo4jContactStore:
         return await self._get(role_id, _EMAIL)
 
     async def _put(self, role_id: str, kind: str, value: str) -> None:
-        await self._run("Q-CONTACT-PUT", roleId=role_id, kind=kind, value=value)
+        try:
+            await self._run(
+                "Q-CONTACT-PUT", key=_key(role_id, kind), roleId=role_id, kind=kind, value=value
+            )
+        except ConstraintError as error:
+            # A racing first write for the same role and kind. Nothing is stored by this write.
+            raise Conflict("protected contact is being written by another request") from error
 
     async def _get(self, role_id: str, kind: str) -> str | None:
-        rows = await self._run("Q-CONTACT-GET", roleId=role_id, kind=kind)
+        rows = await self._run("Q-CONTACT-GET", key=_key(role_id, kind))
         if not rows or rows[0]["value"] is None:
             return None
         return str(rows[0]["value"])

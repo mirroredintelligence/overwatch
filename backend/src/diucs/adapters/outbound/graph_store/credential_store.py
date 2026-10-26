@@ -20,10 +20,11 @@ from datetime import UTC, datetime
 from typing import Any, Final, Literal
 
 from neo4j import AsyncManagedTransaction
+from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.domain.errors import Conflict, NotFound
+from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.rules.identity_policy import PinOutcome, PinState
 
 _PRACTITIONER_KEY: Final = "Practitioner/{}"
@@ -47,6 +48,7 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     # read, so a concurrent attempt waits for this one to commit (lesson L73).
     "Q-CRED-GET": (
         "MATCH (:Practitioner {key: $key})-[:HAS_CREDENTIAL]->(c:Credential {deviceId: $deviceId}) "
+        "SET c.deviceId = c.deviceId "
         "RETURN c.pinHash AS pinHash, c.failed AS failed, c.locked AS locked, "
         "c.lastOutcome AS lastOutcome",
         "write",
@@ -61,6 +63,12 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-CRED-CLEAR": (
         "MATCH (:Practitioner {key: $key})-[:HAS_CREDENTIAL]->(c:Credential) "
         "DETACH DELETE c RETURN count(*) AS n",
+        "write",
+    ),
+    # Locks the practitioner first, so racing registrations by one practitioner run one after the
+    # other, and the second sees the first device (DEC-073 item 2). Also the existence check.
+    "Q-DEVICE-LOCK": (
+        "MATCH (p:Practitioner {key: $key}) SET p.key = p.key RETURN count(p) AS n",
         "write",
     ),
     "Q-DEVICE-OWNER": (
@@ -95,6 +103,8 @@ def _key(practitioner_id: str) -> str:
 
 
 def _utc(value: datetime, field: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValidationFailed(field, "must be a timezone-aware datetime")
     return value.astimezone(UTC)
 
 
@@ -159,20 +169,24 @@ class Neo4jDeviceRegistry:
         to another practitioner is Conflict. A practitioner who does not exist is NotFound. Every
         check runs before the write."""
         registered_at = _utc(at, "at")
-        if not await self._practitioner_exists(_key(practitioner_id)):
+        locked = await self._run("Q-DEVICE-LOCK", key=_key(practitioner_id))
+        if not locked or int(locked[0]["n"]) != 1:
             raise NotFound("practitioner")
         owners = await self._run("Q-DEVICE-OWNER", deviceId=device_id)
         if owners:
             if owners[0]["owner"] != practitioner_id:
                 raise Conflict("device is registered to another practitioner")
             return
-        await self._run(
-            "Q-DEVICE-REGISTER",
-            key=_key(practitioner_id),
-            deviceId=device_id,
-            status=_STATUS_ACTIVE,
-            at=registered_at,
-        )
+        try:
+            await self._run(
+                "Q-DEVICE-REGISTER",
+                key=_key(practitioner_id),
+                deviceId=device_id,
+                status=_STATUS_ACTIVE,
+                at=registered_at,
+            )
+        except ConstraintError as error:
+            raise Conflict("device is already registered") from error
 
     async def known(self, practitioner_id: str, device_id: str) -> bool:
         rows = await self._run("Q-DEVICE-KNOWN", key=_key(practitioner_id), deviceId=device_id)
@@ -180,10 +194,6 @@ class Neo4jDeviceRegistry:
 
     async def revoke_all(self, practitioner_id: str) -> None:
         await self._run("Q-DEVICE-REVOKE", key=_key(practitioner_id), revoked=_STATUS_REVOKED)
-
-    async def _practitioner_exists(self, key: str) -> bool:
-        rows = await self._run("Q-CRED-PRACTITIONER-EXISTS", key=key)
-        return bool(rows) and int(rows[0]["n"]) == 1
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
         return await run_query(self._tx, query_id, **params)

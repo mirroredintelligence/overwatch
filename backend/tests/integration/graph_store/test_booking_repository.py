@@ -232,3 +232,61 @@ async def test_confirmed_since_for_services_gives_each_service_its_own_confirmat
         "svc-ucr-east": [east_at],
         "svc-none": [],
     }
+
+
+class _CountingTx:
+    """Wraps a transaction and counts the queries run through it (a test double)."""
+
+    def __init__(self, tx: AsyncManagedTransaction) -> None:
+        self._tx = tx
+        self.runs = 0
+
+    async def run(self, query: str, **params: Any) -> Any:
+        self.runs += 1
+        return await self._tx.run(query, **params)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._tx, name)
+
+
+async def test_confirmed_since_for_services_with_no_ids_issues_no_query(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    since = datetime(2026, 10, 25, 13, 0, tzinfo=UTC)
+
+    async def work(tx: AsyncManagedTransaction) -> tuple[dict[str, list[datetime]], int]:
+        counting = _CountingTx(tx)
+        repo = Neo4jBookingRepository(counting, ResourceStore(counting))  # type: ignore[arg-type]
+        grouped = await repo.confirmed_since_for_services([], since)
+        return grouped, counting.runs
+
+    grouped, runs = await read_tx(neo4j_driver, work)
+
+    assert grouped == {}
+    assert runs == 0
+
+
+async def test_confirmed_since_for_services_reads_every_service_in_one_query(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    since = datetime(2026, 10, 25, 13, 0, tzinfo=UTC)
+    west_after = BOOKING_4821.with_status(BookingStatus.CONFIRMED, CONFIRMED_AT)
+    west_before = dataclasses.replace(BOOKING_4821, id="bk-4823", reference="4823").with_status(
+        BookingStatus.CONFIRMED, datetime(2026, 10, 25, 12, 0, tzinfo=UTC)
+    )
+    east_after = BOOKING_4822_EAST.with_status(
+        BookingStatus.CONFIRMED, datetime(2026, 10, 25, 13, 30, tzinfo=UTC)
+    )
+    await _write(neo4j_driver, west_after, west_before, east_after)
+
+    async def work(tx: AsyncManagedTransaction) -> tuple[dict[str, list[datetime]], int]:
+        counting = _CountingTx(tx)
+        repo = Neo4jBookingRepository(counting, ResourceStore(counting))  # type: ignore[arg-type]
+        grouped = await repo.confirmed_since_for_services(["svc-ucr-west", "svc-ucr-east"], since)
+        return grouped, counting.runs
+
+    grouped, runs = await read_tx(neo4j_driver, work)
+
+    # Three confirmed bookings, two services, one query: the loads are not one query each.
+    assert runs == 1
+    assert grouped["svc-ucr-west"] == [CONFIRMED_AT]

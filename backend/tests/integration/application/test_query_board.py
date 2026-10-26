@@ -9,6 +9,7 @@ Clock: Friday 23 October 2026 at 14:12 London (BST, 13:12 UTC) unless a test say
 
 import dataclasses
 from datetime import UTC, datetime, time
+from typing import Any
 
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
@@ -472,3 +473,59 @@ async def test_bookings_count_only_for_their_own_service(uow_factory: UnitOfWork
     assert entries["svc-ucr-east"].effective_available == 0
     assert entries["svc-hospital-at-home"].pending == 0
     assert entries["svc-virtual-ward-frailty"].pending == 0
+
+
+class _CountingBookings:
+    """Counts each call to the bookings repository it wraps, then delegates to the real one."""
+
+    def __init__(self, inner: Any, calls: dict[str, int]) -> None:
+        self._inner = inner
+        self._calls = calls
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._inner, name)
+
+        async def counted(*args: Any, **kwargs: Any) -> Any:
+            self._calls[name] = self._calls.get(name, 0) + 1
+            return await attr(*args, **kwargs)
+
+        return counted
+
+
+class _CountingUow:
+    def __init__(self, uow: Any, calls: dict[str, int]) -> None:
+        self._uow = uow
+        self._calls = calls
+
+    async def __aenter__(self) -> _CountingUow:
+        await self._uow.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc: Any) -> Any:
+        return await self._uow.__aexit__(*exc)
+
+    @property
+    def bookings(self) -> _CountingBookings:
+        return _CountingBookings(self._uow.bookings, self._calls)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._uow, name)
+
+
+async def test_the_board_reads_confirmations_in_one_batch_call(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    await _seed(uow_factory, profiles=MAIN_PROFILES, reports=MAIN_REPORTS)
+    calls: dict[str, int] = {}
+
+    def counting_factory() -> Any:
+        return _CountingUow(uow_factory(), calls)
+
+    await QueryBoard(counting_factory, FixedClock(FRIDAY_NOON_LONDON)).execute(
+        QueryBoardQuery(actor=ACTOR)
+    )
+
+    # Four services have a report. The board reads their confirmations in one call, and never
+    # calls the single-service method once per service.
+    assert calls.get("confirmed_since_for_services", 0) == 1
+    assert calls.get("confirmed_since", 0) == 0

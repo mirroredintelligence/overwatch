@@ -78,12 +78,10 @@ class QueryBoard:
             reports = await uow.capacity.latest_for_services(service_ids)
             open_bookings = await uow.bookings.open_for_services(service_ids)
             confirmed: dict[str, list[datetime]] = {}
-            if reports:
-                # One read for every service with a report. The earliest report time is the
-                # lower bound; availability keeps only the confirmations at or after each
-                # service's own report (domain-rules 1.6).
-                since = min(report.effective_at for report in reports.values())
-                confirmed = await uow.bookings.confirmed_since_for_services(list(reports), since)
+            for service_id, report in reports.items():
+                confirmed[service_id] = await uow.bookings.confirmed_since(
+                    service_id, report.effective_at
+                )
 
         entries = [
             _entry(

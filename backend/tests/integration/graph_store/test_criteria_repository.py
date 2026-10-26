@@ -345,3 +345,37 @@ async def test_a_service_with_a_current_version_still_reads_and_saves(
     # A service save clears the service's outgoing relationships (DEC-053 item 6), so the link
     # may be gone, but the current version is still found by its status.
     assert await _read(neo4j_driver, lambda repo: repo.current_for_service(SERVICE)) == UCR_WEST_V3
+
+
+async def test_two_racing_saves_that_make_a_version_current_leave_one_current(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed_service(neo4j_driver)
+    pending_v5 = replace(V4_PENDING, id="crit-ucr-west-v5", version=5)
+    await _run(
+        neo4j_driver,
+        lambda repo: repo.add(UCR_WEST_V3),
+        lambda repo: repo.add(V4_PENDING),
+        lambda repo: repo.add(pending_v5),
+        lambda repo: repo.save(V3_SUPERSEDED),
+    )
+    session = neo4j_driver.session()
+    held = await session.begin_transaction()
+    try:
+        await _repo(held).save(V4_CURRENT)
+        current_v5 = replace(pending_v5, status=CriteriaStatus.CURRENT)
+        racer = asyncio.create_task(write_tx(neo4j_driver, lambda tx: _repo(tx).save(current_v5)))
+        done, _ = await asyncio.wait({racer}, timeout=1.0)
+        assert not done, "the second save must wait for the held write on the service"
+    finally:
+        await held.commit()
+        await session.close()
+    with pytest.raises(Conflict):
+        await racer
+    current = await _rows(
+        neo4j_driver,
+        "MATCH (:HealthcareService {id: $service})-[:CURRENT_CRITERIA]->(c) RETURN c.id AS id",
+        service=SERVICE,
+    )
+    assert current == [{"id": V4_CURRENT.id}]
+    assert await _read(neo4j_driver, lambda repo: repo.current_for_service(SERVICE)) == V4_CURRENT

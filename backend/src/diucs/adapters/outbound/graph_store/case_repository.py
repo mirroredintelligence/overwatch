@@ -217,6 +217,12 @@ def _check_closed_residue(case: Case) -> None:
         raise ValidationFailed("closed", "a closed case holds no postcode or needs")
 
 
+def _check_outcome(case: Case) -> None:
+    # Read-side twin: case_from_fhir refuses an outcome without a close time (DEC-067 item 5).
+    if case.outcome is not None and case.closed_at is None:
+        raise ValidationFailed("outcome", "needs a close time")
+
+
 def _refuse_unknown(resource: dict[str, Any], allowed: frozenset[str], field: str) -> None:
     # An element the mapping cannot represent is refused, never dropped (DEC-067 item 3).
     for key in resource:
@@ -294,6 +300,7 @@ def case_to_fhir(case: Case) -> tuple[dict[str, Any], dict[str, Any], list[dict[
     _check_district(case.postcode)
     _check_reference(case.reference)
     _check_closed_residue(case)
+    _check_outcome(case)
     patient_id = _patient_id(case.id)
     patient: dict[str, Any] = {
         "resourceType": _PATIENT,

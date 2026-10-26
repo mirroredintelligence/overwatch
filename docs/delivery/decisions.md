@@ -886,7 +886,7 @@ The P21 prompt leaves these points open, or cannot be built as written on the st
 10. **References are not unique in the graph.** `get_by_reference` returns the first case by id. Nothing in this task stops two cases holding one reference, and `domain-rules.md` section 4 is silent on it. The use case that opens a case (U11) must allocate a reference that no other case holds, as `new_reference(rng, taken)` does for bookings (lesson L29). Residual, not fixed here.
 11. **Contract names.** `contracts.md` lists `CaseRepository` under P02, but P02 merged without it, and P21 owns the port and the adapter. This task does not edit `docs/spec/`, so `contracts.md` is not updated for `CaseRepository` or for the five extension names. The owner should add them.
 12. **No migration and no index on `ServiceRequest.reference`.** A lookup by reference scans the request nodes, the same residual as DEC-053 item 14a. Acceptable at pilot size.
-13. **Corrected in DEC-067.** `occurrenceDateTime` is listed for the ServiceRequest in the prompt and in `fhir-data-model.md`. The `Case` type has no field for it, so the port cannot carry it, and it is not written. That is an unmet requirement, not an accepted omission: the owner must either add a field to `Case` (D18) or remove the property from the spec.
+13. **occurrenceDateTime is a spec gap (corrected in DEC-068).** The prompt does not mention it (checked by grep of `docs/plan` and `docs/spec`). It appears only in `docs/spec/fhir-data-model.md` line 218, in the ServiceRequest property list. `Case` has no field for it, so it is not written. This is for the owner to reconcile (add a field to `Case`, D18, or drop the property from the spec). It is not a prompt requirement and is not added to the code.
 14. **Lesson L78 does not apply.** P21 writes no local relationship: every relationship it writes is mapped and carries a `fhirPath`, so the loader does not skip any of them.
 
 Tests: `backend/tests/unit/adapters/outbound/graph_store/test_case_mapping.py` (the pure mapping, the identity and guard refusals), `backend/tests/integration/graph_store/test_case_repository.py` (the stored case: round trips, closing, reference lookup, add and save guards, sixteen racing adds), and `test_extensions.py` (the registry, now twenty-two names).
@@ -909,7 +909,25 @@ Numbered DEC-067: DEC-065 is the highest on main and on every task/* branch, DEC
    The migration count in `test_driver.py` rises from 17 to 18, and `test_migration_ids.py` pins the new id after 0021 (lesson L75).
    **A racing test was written and removed.** Concurrent adds of one reference all share the same Identifier node and Concept nodes, so the store's existing constraints decide that race, not the reference constraint. The test passed on the red run for that reason, so it did not prove the guard (lesson L77).
 8. **A need coded in another system is refused.** Test: `test_a_need_coded_in_another_system_is_refused`. The check is in `service_repository.codeable_from_fhir`, which is shared with P01, and was not changed.
-9. **DEC-066 item 13 is corrected** (see that entry): `occurrenceDateTime` is an unmet requirement, not an accepted omission.
+9. **DEC-066 item 13 is corrected** (superseded in wording by DEC-068): `occurrenceDateTime` is a spec gap in `fhir-data-model.md` line 218, not a prompt requirement. The earlier text said the prompt listed it; that was wrong.
 10. **Residuals.** The `ClientError` to `Conflict` mapping in item 7 is a backstop; it has its own test. The identity check is replaced by the allowlist (item 3). The district check does not run when a case is read back, because nothing that fails it can be written.
 
 Tests: `backend/tests/unit/adapters/outbound/graph_store/test_case_mapping.py`, `backend/tests/unit/adapters/outbound/graph_store/test_migration_ids.py`, `backend/tests/integration/graph_store/test_case_repository.py`, `backend/tests/integration/graph_store/test_driver.py`.
+
+## DEC-068 Write-path checks for every P21 refusal, and the occurrenceDateTime correction (P21, round 3)
+Status: accepted (builder, for the owner to confirm) · Affects: P21 (`adapters/outbound/graph_store/case_repository.py`, the case tests), DEC-066 item 13, DEC-067 item 9, and any use case that writes a case (U11 to U14).
+
+Numbered DEC-068: DEC-067 is the highest on main and every task/* branch when checked. No branch claims DEC-068.
+
+1. **Outcome without a close time is refused on the write path (verify-P21-r2 blocking finding).** `case_to_fhir` now refuses it, so `add` and `save` both refuse before any write. The read-side check in `case_from_fhir` stays. Tests: `test_an_outcome_without_a_close_time_is_refused_on_add_and_writes_nothing` (zero nodes after a swallowed and committed refusal) and `test_an_outcome_without_a_close_time_is_refused_on_save_and_the_stored_case_is_kept`.
+2. **Every round-2 refusal now has a write-path test, or a reason it cannot be written.**
+   - Full postcode: refused on `add` (round 2) and on `save` (`test_a_full_postcode_is_refused_on_save_and_the_stored_case_is_kept`, new). This test passed on the red run because the check already ran in `case_to_fhir`, which `save` calls. It was confirmed by removing the check (mutant killed).
+   - Reference format: refused on `add` with zero nodes (round 2). On `save` the reference cannot change, so the immutability guard refuses a changed reference first, and a stored reference is always well formed.
+   - Closed case with residue: refused on `add` (`test_a_closed_case_with_residue_is_refused_on_add_and_writes_nothing`, new, passed on the red run for the same reason as the postcode) and on `save` (round 2).
+   - Duplicate reference: refused on `add` by the pre-check and the constraint (round 2). `save` never changes the reference.
+   - Outcome without close time: item 1.
+   - Priority/urgency, status/close time, unknown elements, need coding system: these are read-side checks in `case_from_fhir`. The write path cannot produce a mismatch, because `case_to_fhir` derives `priority` from urgency, derives `status` from the close time, emits only the elements it knows, and checks the code system when it builds the code. The read-side tests therefore stand for these. Owner note: if a second writer is ever added that bypasses `case_to_fhir`, these would need write-path tests.
+3. **occurrenceDateTime (DEC-066 item 13, DEC-067 item 9).** The prompt does not mention it. It appears only in `docs/spec/fhir-data-model.md` line 218. The correction in DEC-066 item 13 and DEC-067 item 9 says the prompt listed it; that was wrong. It is a spec gap for the owner to reconcile (add a field to `Case`, D18, or drop the property from the spec). It is not added to the code.
+
+Tests: `backend/tests/integration/graph_store/test_case_repository.py` (the four round-3 tests above).
+

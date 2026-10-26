@@ -15,7 +15,16 @@ def _with_name(display_name: str) -> Practitioner:
     return Practitioner(id="p1", active=True, display_name=display_name, phone_hash=None)
 
 
-@pytest.mark.parametrize("display_name", ["Dr A Example", "Sharon Smith", "Duty Manager One"])
+# Neutral ids: a pytest id is built from its value, so a staff name must not be used as an id
+# (DEC-065 item 7).
+@pytest.mark.parametrize(
+    "display_name",
+    [
+        pytest.param("Dr A Example", id="staff-title-initial"),
+        pytest.param("Sharon Smith", id="staff-plain-name"),
+        pytest.param("Duty Manager One", id="staff-role-title"),
+    ],
+)
 def test_a_plain_staff_name_is_accepted(display_name: str) -> None:
     assert _with_name(display_name).display_name == display_name
 

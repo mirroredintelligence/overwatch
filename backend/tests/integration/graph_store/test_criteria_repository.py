@@ -322,3 +322,24 @@ async def test_two_racing_writers_of_one_version_number_leave_one_version(
     with pytest.raises(Conflict):
         await racer
     assert await count_nodes(neo4j_driver, "ServiceCriteria") == 1
+
+
+async def test_two_racing_writers_with_a_seeded_version_leave_two_versions(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed_service(neo4j_driver)
+    await _run(neo4j_driver, lambda repo: repo.add(UCR_WEST_V3))
+    twin = replace(V4_PENDING, id="crit-ucr-west-v4-twin")
+    session = neo4j_driver.session()
+    held = await session.begin_transaction()
+    try:
+        await _repo(held).add(V4_PENDING)
+        racer = asyncio.create_task(write_tx(neo4j_driver, lambda tx: _repo(tx).add(twin)))
+        done, _ = await asyncio.wait({racer}, timeout=1.0)
+        assert not done, "the second writer must wait for the held write on the service"
+    finally:
+        await held.commit()
+        await session.close()
+    with pytest.raises(Conflict):
+        await racer
+    assert await count_nodes(neo4j_driver, "ServiceCriteria") == 2

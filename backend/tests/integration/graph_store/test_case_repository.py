@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
+from neo4j.exceptions import ClientError
 
 from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
@@ -33,7 +34,7 @@ OPEN_CASE = Case(
     reference="4821",
     referrer_type=ReferrerType.AMBULANCE_CREW,
     age_band=AgeBand.A80_PLUS,
-    postcode="DT4 8XX",
+    postcode="DT4",
     needs=(NeedCategory.FALL_NO_INJURY, NeedCategory.FRAILTY),
     urgency=Urgency.WITHIN_2_HRS,
     scores=(News2(2), ClinicalFrailty(6)),
@@ -45,7 +46,7 @@ MANCHESTER_CASE = Case(
     reference="4822",
     referrer_type=ReferrerType.GP,
     age_band=AgeBand.A65_79,
-    postcode="DT4 8XX",
+    postcode="DT4",
     needs=(NeedCategory.WOUND_CARE,),
     urgency=Urgency.TODAY,
     scores=(ManchesterTriage("urgent"), PathwaysDx("PD12")),
@@ -96,7 +97,7 @@ async def test_the_open_case_round_trips_and_keeps_its_postcode_on_the_stub(
     stub = await _rows(
         neo4j_driver, "MATCH (p:Patient {id: 'pt-case-1'}) RETURN p.postalCode AS postalCode"
     )
-    assert stub == [{"postalCode": "DT4 8XX"}]
+    assert stub == [{"postalCode": "DT4"}]
 
 
 async def test_get_by_reference_finds_the_case_and_an_unknown_reference_finds_nothing(
@@ -127,7 +128,7 @@ async def test_closing_the_case_removes_its_postcode_and_needs_and_writes_no_his
 
     postcode_left = await _rows(
         neo4j_driver,
-        "MATCH (n) WHERE n.postalCode IS NOT NULL OR n.json CONTAINS 'DT4 8XX' "
+        "MATCH (n) WHERE n.postalCode IS NOT NULL OR n.json CONTAINS 'DT4' "
         "RETURN count(n) AS total",
     )
     reason_links = await _rows(
@@ -276,3 +277,82 @@ async def test_a_manchester_and_pathways_case_round_trips(neo4j_driver: AsyncDri
         return await _repo(tx).get("case-2")
 
     await assert_round_trip(neo4j_driver, save, load, MANCHESTER_CASE)
+
+
+async def test_a_full_postcode_is_refused_and_writes_nothing(neo4j_driver: AsyncDriver) -> None:
+    full = replace(OPEN_CASE, postcode="DT4 8XX")
+
+    async def swallow_and_commit(tx: AsyncManagedTransaction) -> None:
+        with contextlib.suppress(ValidationFailed):
+            await _repo(tx).add(full)
+
+    await write_tx(neo4j_driver, swallow_and_commit)
+
+    assert await count_nodes(neo4j_driver, "Patient") == 0
+    assert await count_nodes(neo4j_driver, "ServiceRequest") == 0
+
+
+async def test_a_reference_outside_the_four_digit_format_is_refused_and_writes_nothing(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    bad = replace(OPEN_CASE, reference="9434765919")
+
+    async def swallow_and_commit(tx: AsyncManagedTransaction) -> None:
+        with contextlib.suppress(ValidationFailed):
+            await _repo(tx).add(bad)
+
+    await write_tx(neo4j_driver, swallow_and_commit)
+
+    assert await count_nodes(neo4j_driver, "Patient") == 0
+    assert await count_nodes(neo4j_driver, "ServiceRequest") == 0
+
+
+async def test_a_second_case_with_the_same_reference_is_refused_and_writes_nothing(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _write(neo4j_driver, OPEN_CASE)
+    second = replace(OPEN_CASE, id="case-3")
+
+    async def swallow_and_commit(tx: AsyncManagedTransaction) -> None:
+        with contextlib.suppress(Conflict):
+            await _repo(tx).add(second)
+
+    await write_tx(neo4j_driver, swallow_and_commit)
+
+    assert await count_nodes(neo4j_driver, "Patient") == 1
+    assert await _load(neo4j_driver, "case-1") == OPEN_CASE
+
+
+async def test_the_case_reference_is_unique_in_the_graph(neo4j_driver: AsyncDriver) -> None:
+    await _write(neo4j_driver, OPEN_CASE)
+
+    async def duplicate(tx: AsyncManagedTransaction) -> None:
+        await tx.run(
+            "CREATE (:ServiceRequest {id: 'case-x', key: 'ServiceRequest/case-x', "
+            "reference: '4821'})"
+        )
+
+    with pytest.raises(ClientError):
+        await write_tx(neo4j_driver, duplicate)
+
+
+@pytest.mark.parametrize(
+    ("postcode", "needs"),
+    [("DT4", OPEN_CASE.needs), (None, (NeedCategory.FRAILTY,))],
+)
+async def test_a_closed_case_saved_with_postcode_or_needs_left_is_refused(
+    neo4j_driver: AsyncDriver, postcode: str | None, needs: tuple[NeedCategory, ...]
+) -> None:
+    await _write(neo4j_driver, OPEN_CASE)
+    residue = replace(
+        OPEN_CASE,
+        closed_at=CLOSED,
+        outcome=Outcome.DECLINED,
+        postcode=postcode,
+        needs=needs,
+    )
+
+    with pytest.raises(ValidationFailed):
+        await _write(neo4j_driver, residue, save=True)
+
+    assert await _load(neo4j_driver, "case-1") == OPEN_CASE

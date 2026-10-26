@@ -1,7 +1,7 @@
 """Pure tests for the case mapping between Case and its FHIR resources (P21).
 
 No Neo4j: these run without Docker. Values are synthetic. The sample postcode is the one the specs
-use (DT4 8XX); no name, NHS number or free text appears anywhere in this file.
+use (district DT4); no name, NHS number or free text appears anywhere in this file.
 """
 
 from dataclasses import replace
@@ -24,7 +24,7 @@ OPEN_CASE = Case(
     reference="4821",
     referrer_type=ReferrerType.AMBULANCE_CREW,
     age_band=AgeBand.A80_PLUS,
-    postcode="DT4 8XX",
+    postcode="DT4",
     needs=(NeedCategory.FALL_NO_INJURY, NeedCategory.FRAILTY),
     urgency=Urgency.WITHIN_2_HRS,
     scores=(News2(2), ClinicalFrailty(6)),
@@ -36,7 +36,7 @@ SCORED_CASE = Case(
     reference="4822",
     referrer_type=ReferrerType.GP,
     age_band=AgeBand.A65_79,
-    postcode="DT4 8XX",
+    postcode="DT4",
     needs=(NeedCategory.WOUND_CARE,),
     urgency=Urgency.TODAY,
     scores=(ManchesterTriage("urgent"), PathwaysDx("PD12")),
@@ -59,7 +59,7 @@ def test_the_patient_stub_holds_the_postcode_and_no_identity_element() -> None:
 
     assert patient["id"] == "pt-case-1"
     assert patient["active"] is True
-    assert patient["address"] == [{"postalCode": "DT4 8XX"}]
+    assert patient["address"] == [{"postalCode": "DT4"}]
     assert patient["meta"]["tag"][0]["code"] == "pseudonymised-case-stub"
     assert patient["meta"]["security"][0]["code"] == "R"
 
@@ -161,7 +161,7 @@ def test_a_request_with_two_case_references_is_refused() -> None:
 
 def test_a_stub_with_two_postcodes_is_refused() -> None:
     patient, request, scores = case_to_fhir(OPEN_CASE)
-    patient["address"].append({"postalCode": "DT4 8XX"})
+    patient["address"].append({"postalCode": "DT4"})
 
     with pytest.raises(ValidationFailed):
         case_from_fhir(patient, request, scores)
@@ -188,6 +188,93 @@ def test_a_closed_time_without_a_zone_is_refused() -> None:
 def test_a_manchester_score_coded_in_another_system_is_refused() -> None:
     patient, request, scores = case_to_fhir(SCORED_CASE)
     scores[0]["valueCodeableConcept"]["coding"][0]["system"] = "https://diucs.example/other"
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+OUTCOME_URL = "https://diucs.example/StructureDefinition/outcome"
+
+
+def test_a_full_postcode_is_refused_and_the_value_is_not_echoed() -> None:
+    with pytest.raises(ValidationFailed) as error:
+        case_to_fhir(replace(OPEN_CASE, postcode="DT4 8XX"))
+
+    assert "8XX" not in str(error.value)
+
+
+@pytest.mark.parametrize("postcode", ["DT4 8", "1234", "dt4"])
+def test_a_postcode_that_is_not_a_district_is_refused(postcode: str) -> None:
+    with pytest.raises(ValidationFailed):
+        case_to_fhir(replace(OPEN_CASE, postcode=postcode))
+
+
+@pytest.mark.parametrize("reference", ["0482", "48210", "4821A", "943 476 5919", "9434765919"])
+def test_a_reference_outside_the_four_digit_format_is_refused(reference: str) -> None:
+    with pytest.raises(ValidationFailed):
+        case_to_fhir(replace(OPEN_CASE, reference=reference))
+
+
+@pytest.mark.parametrize("which", ["patient", "request", "score"])
+def test_an_element_the_mapping_cannot_represent_is_refused_not_dropped(which: str) -> None:
+    patient, request, scores = case_to_fhir(OPEN_CASE)
+    target = {"patient": patient, "request": request, "score": scores[0]}[which]
+    target["unrepresented"] = {"text": "sample"}
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+@pytest.mark.parametrize(
+    ("urgency", "wrong_priority"),
+    [(Urgency.WITHIN_2_HRS, "routine"), (Urgency.TODAY, "urgent"), (Urgency.PLANNED, "urgent")],
+)
+def test_a_priority_that_does_not_match_the_urgency_is_refused(
+    urgency: Urgency, wrong_priority: str
+) -> None:
+    patient, request, scores = case_to_fhir(replace(OPEN_CASE, urgency=urgency))
+    request["priority"] = wrong_priority
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_a_priority_without_an_urgency_is_refused() -> None:
+    patient, request, scores = case_to_fhir(replace(OPEN_CASE, urgency=None))
+    request["priority"] = "urgent"
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_an_open_case_whose_status_is_completed_is_refused() -> None:
+    patient, request, scores = case_to_fhir(OPEN_CASE)
+    request["status"] = "completed"
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_a_closed_case_whose_status_is_active_is_refused() -> None:
+    closed = OPEN_CASE.close(Outcome.DECLINED, CLOSED)
+    patient, request, scores = case_to_fhir(closed)
+    request["status"] = "active"
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_an_outcome_without_a_close_time_is_refused() -> None:
+    patient, request, scores = case_to_fhir(OPEN_CASE)
+    request["extension"].append({"url": OUTCOME_URL, "valueString": "declined"})
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_a_need_coded_in_another_system_is_refused() -> None:
+    patient, request, scores = case_to_fhir(OPEN_CASE)
+    request["reasonCode"][0]["coding"][0]["system"] = "https://diucs.example/CodeSystem/other"
 
     with pytest.raises(ValidationFailed):
         case_from_fhir(patient, request, scores)

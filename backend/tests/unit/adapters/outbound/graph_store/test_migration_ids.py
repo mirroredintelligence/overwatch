@@ -32,3 +32,9 @@ def test_the_link_token_migration_is_0021_after_the_audit_migrations() -> None:
     ids = [migration_id for migration_id, _ in MIGRATIONS]
     assert ids.count("0021_link_token_hash") == 1
     assert ids.index("0021_link_token_hash") > ids.index("0020_chain_seq")
+
+
+def test_the_case_reference_migration_is_0022_after_the_link_token_migration() -> None:
+    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    assert ids.count("0022_case_reference_id") == 1
+    assert ids.index("0022_case_reference_id") > ids.index("0021_link_token_hash")

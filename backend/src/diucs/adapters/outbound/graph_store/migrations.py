@@ -115,8 +115,7 @@ MIGRATIONS: list[tuple[str, str]] = [
     ),
     (
         "0027_report_flag_id",
-        "CREATE CONSTRAINT report_flag_id IF NOT EXISTS "
-        "FOR (n:ReportFlag) REQUIRE n.id IS UNIQUE",
+        "CREATE CONSTRAINT report_flag_id IF NOT EXISTS FOR (n:ReportFlag) REQUIRE n.id IS UNIQUE",
     ),
 ]
 

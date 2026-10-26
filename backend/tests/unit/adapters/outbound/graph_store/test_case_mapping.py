@@ -120,7 +120,9 @@ def test_scores_are_observations_with_their_acuity_code_and_recorded_value() -> 
 
 def test_an_observation_whose_code_is_not_an_acuity_method_is_refused() -> None:
     patient, request, scores = case_to_fhir(OPEN_CASE)
-    scores[0]["code"] = {"coding": [{"system": "https://diucs.example/CodeSystem/other", "code": "x"}]}
+    scores[0]["code"] = {
+        "coding": [{"system": "https://diucs.example/CodeSystem/other", "code": "x"}]
+    }
 
     with pytest.raises(ValidationFailed):
         case_from_fhir(patient, request, scores)
@@ -139,3 +141,53 @@ def test_the_reference_is_the_case_identifier_value() -> None:
     identifiers: list[dict[str, Any]] = request["identifier"]
 
     assert identifiers == [{"system": "https://diucs.example/case-reference", "value": "4821"}]
+
+
+def test_a_stub_for_another_case_is_refused() -> None:
+    patient, request, scores = case_to_fhir(OPEN_CASE)
+    patient["id"] = "pt-case-9"
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_a_request_with_two_case_references_is_refused() -> None:
+    patient, request, scores = case_to_fhir(OPEN_CASE)
+    request["identifier"].append({"system": "https://diucs.example/case-reference", "value": "9"})
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_a_stub_with_two_postcodes_is_refused() -> None:
+    patient, request, scores = case_to_fhir(OPEN_CASE)
+    patient["address"].append({"postalCode": "DT4 8XX"})
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_a_destination_that_is_not_a_service_is_refused() -> None:
+    patient, request, scores = case_to_fhir(OPEN_CASE)
+    request["performer"] = [{"reference": "Practitioner/prac-advisor-1"}]
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_a_closed_time_without_a_zone_is_refused() -> None:
+    closed = OPEN_CASE.close(Outcome.DECLINED, CLOSED)
+    patient, request, scores = case_to_fhir(closed)
+    closed_at = next(e for e in request["extension"] if e["url"].endswith("/closedAt"))
+    closed_at["valueDateTime"] = "2026-10-25T13:40:00"
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)
+
+
+def test_a_manchester_score_coded_in_another_system_is_refused() -> None:
+    patient, request, scores = case_to_fhir(SCORED_CASE)
+    scores[0]["valueCodeableConcept"]["coding"][0]["system"] = "https://diucs.example/other"
+
+    with pytest.raises(ValidationFailed):
+        case_from_fhir(patient, request, scores)

@@ -6,6 +6,7 @@ was really stored. Values are synthetic; there is no patient data.
 """
 
 import asyncio
+import contextlib
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
@@ -204,10 +205,8 @@ async def test_a_refused_second_add_that_is_committed_leaves_the_stored_case_unc
     await _write(neo4j_driver, OPEN_CASE)
 
     async def swallow_and_commit(tx: AsyncManagedTransaction) -> None:
-        try:
+        with contextlib.suppress(Conflict):
             await _repo(tx).add(replace(OPEN_CASE, scores=(News2(9),)))
-        except Conflict:
-            pass
 
     await write_tx(neo4j_driver, swallow_and_commit)
 

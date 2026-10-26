@@ -108,3 +108,12 @@ register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/coveredBy", "cov
 register_extension(
     ExtensionDef(f"{BASE_URL}StructureDefinition/coveredUntil", "coveredUntil", "dateTime")
 )
+# P21: a case's age band (on the Patient stub), urgency, close time, outcome and the reason the
+# best fit was not used (on the ServiceRequest). Domain values are stored as their codes.
+register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/ageBand", "ageBand", "string"))
+register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/urgency", "urgency", "string"))
+register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/closedAt", "closedAt", "dateTime"))
+register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/outcome", "outcome", "string"))
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/bestFitNotUsed", "bestFitNotUsed", "string")
+)

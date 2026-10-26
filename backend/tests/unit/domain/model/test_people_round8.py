@@ -1,8 +1,9 @@
-"""Round 8 (verifier finding): the digit-run rule covers every separator a phone number is written with.
+"""Round 8 (verifier finding): the digit-run rule covers every separator a phone number uses.
 
-A run of ten or more digits is refused in staff text when its digit groups are separated by a space,
-a hyphen, a full stop, round brackets or a plus sign (DEC-065 item 9). A short number, and a run of
-nine digits, is a name and is accepted. A refusal names the field only and never echoes the value.
+A run of ten or more digits is refused in staff text when its digit groups are separated by a
+space, a hyphen, a full stop, round brackets or a plus sign (DEC-065 item 9). A short number, and
+a run of nine digits, is a name and is accepted. A refusal names the field only and never echoes
+the value.
 """
 
 import pytest

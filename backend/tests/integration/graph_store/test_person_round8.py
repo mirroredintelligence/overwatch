@@ -1,7 +1,8 @@
-"""Round 8 (verifier finding): `now` is validated before any query, so an empty graph refuses it too.
+"""Round 8 (verifier finding): `now` is validated before any query.
 
-A naive datetime passed as `now` raises ValidationFailed from the phone and service lookups, even when
-nothing is stored. Run against the throwaway Neo4j of the F10 harness (DEC-008). Values are synthetic.
+A naive datetime passed as `now` raises ValidationFailed from the phone and service lookups, even
+when nothing is stored. Run against the throwaway Neo4j of the F10 harness (DEC-008). The values
+are synthetic.
 """
 
 from datetime import datetime

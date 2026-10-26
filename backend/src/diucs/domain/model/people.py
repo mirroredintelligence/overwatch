@@ -29,11 +29,12 @@ _EMAIL_DOMAIN = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+")
 # The postcode shape of DEC-047 item 1, copied here so the domain model does not depend on the
 # messages module. A staff name carries no postcode (DEC-065 item 6).
 _POSTCODE = re.compile(r"\b[A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2}\b", re.IGNORECASE)
-# Ten or more digits in a row, where a single space or hyphen may sit between two digits. This
-# catches a phone number and both NHS-number forms, contiguous (9434765919) and grouped (943 476
-# 5919), so the NHS-number pattern of DEC-047 item 2 is not needed here (DEC-065 item 6). A short
-# number is not matched.
-_DIGIT_RUN = re.compile(r"(?<![0-9])[0-9](?:[ -]?[0-9]){9,}(?![0-9])")
+# Ten or more digits in one run. Between two consecutive digits the run may pass over any sequence
+# of the separators space, hyphen, full stop, round brackets and plus sign (DEC-065 items 8 and 9);
+# any other character ends the run. A run of nine digits or fewer does not match. This catches a
+# phone number in every usual form and both NHS-number forms, so the NHS-number pattern of DEC-047
+# item 2 is not needed here.
+_DIGIT_RUN = re.compile(r"(?<![0-9])[0-9](?:[ .()+-]*[0-9]){9,}(?![0-9])")
 
 
 def check_staff_text(field: str, value: str) -> None:
@@ -58,7 +59,7 @@ def check_email_domain(value: str) -> None:
         raise ValidationFailed("email_domain", "must be a bare domain such as nhs.example")
 
 
-def _aware(field: str, value: datetime) -> None:
+def check_aware(field: str, value: datetime) -> None:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValidationFailed(field, "must be timezone-aware")
 
@@ -99,18 +100,18 @@ class PractitionerRole:
             raise ValidationFailed("code", "not a practitioner role code")
         if self.channel is not None and not isinstance(self.channel, Channel):
             raise ValidationFailed("channel", "not a channel")
-        _aware("period_start", self.period_start)
+        check_aware("period_start", self.period_start)
         if self.period_end is not None:
-            _aware("period_end", self.period_end)
+            check_aware("period_end", self.period_end)
         if (self.covered_by_practitioner_id is None) != (self.covered_until is None):
             raise ValidationFailed("covered", "needs both the covering practitioner and the end")
         if self.covered_until is not None:
-            _aware("covered_until", self.covered_until)
+            check_aware("covered_until", self.covered_until)
 
 
 def role_holder(role: PractitionerRole, now: datetime) -> str:
     """The practitioner whose phone gets this role's prompts at `now`."""
-    _aware("now", now)
+    check_aware("now", now)
     if (
         role.covered_by_practitioner_id is not None
         and role.covered_until is not None
@@ -122,7 +123,7 @@ def role_holder(role: PractitionerRole, now: datetime) -> str:
 
 def is_in_effect(role: PractitionerRole, now: datetime) -> bool:
     """Whether the role's period covers `now`: from period_start, and before period_end if set."""
-    _aware("now", now)
+    check_aware("now", now)
     at = now.astimezone(UTC)
     if at < role.period_start.astimezone(UTC):
         return False

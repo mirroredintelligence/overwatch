@@ -89,8 +89,8 @@ class PersonRepository(Protocol):
 
     A role's period and cover are read at the `now` the caller passes. Services are returned with
     the service's name, sorted by service name, then service id, then role id (DEC-065 item 2).
-    Saves refuse an unknown practitioner, service or cover practitioner with NotFound, before
-    anything is written.
+    Saves refuse an unknown practitioner, service or cover practitioner with NotFound, checked
+    before anything is written.
     """
 
     async def get_practitioner(self, practitioner_id: str) -> Practitioner | None:

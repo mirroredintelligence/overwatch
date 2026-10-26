@@ -10,13 +10,19 @@ Three things are not FHIR and are written beside the resource, in the same trans
   property at all (lesson L74), so an absent value removes the key.
 - CHANNEL: a role's text, email or push channel, as a relationship to a Concept.
 - COVERED_BY {until}: a role covered by another practitioner until an instant.
-The store clears a resource's outgoing relationships on every put, so a cover removed by a save is
-gone with no extra step. When a resource is read, resource_store._load skips a relationship with no
-fhirPath only if its type is CHANNEL or COVERED_BY (LOCAL_RELATIONSHIP_TYPES, DEC-065 item 5); any
-other relationship without a fhirPath is kept, and reading it raises KeyError.
+The store clears a resource's outgoing relationships on every put (Q-RES-CLEAR-ROOT-RELS), except
+HAS_VERSION, which links the resource to its version snapshots and is kept. So a cover removed by
+a save is gone with no extra step. When a resource is read, resource_store._load skips a
+relationship with no fhirPath only if its type is CHANNEL or COVERED_BY (LOCAL_RELATIONSHIP_TYPES,
+DEC-065 item 5); any other relationship without a fhirPath is kept, and reading it raises KeyError.
 
-Lookups for a phone or a service read the graph with named queries, then load each role through the
-store and filter with the domain rules (reporter code, period, cover at `now`).
+Filters, by function:
+- services_for_phone_hash: the cover filter is in Cypher (Q-PHONE-SERVICES-HELD excludes a role
+  covered past `now`; Q-PHONE-SERVICES-AT takes the roles covered until after `now`). The reporter
+  code and the period (`is_in_effect`) are applied in Python after each role is loaded.
+- reporter_roles_for_service: no cover filter. It returns covered roles as stored, and the caller
+  resolves the holder with role_holder. The reporter code and the period are applied in Python.
+- roles_for_practitioner: active roles only, in Cypher; no code or period filter.
 """
 
 from collections.abc import Iterable
@@ -39,6 +45,7 @@ from diucs.domain.model.people import (
     REPORTER_ROLE_CODES,
     Practitioner,
     PractitionerRole,
+    check_aware,
     check_phone_hash,
     is_in_effect,
 )
@@ -346,6 +353,7 @@ class Neo4jPersonRepository:
         self, phone_hash: str, now: datetime
     ) -> list[tuple[PractitionerRole, str]]:
         check_phone_hash(phone_hash)
+        check_aware("now", now)
         found: dict[str, tuple[PractitionerRole, str]] = {}
         for query_id in ("Q-PHONE-SERVICES-HELD", "Q-PHONE-SERVICES-AT"):
             rows = await run_query(self._tx, query_id, hash=phone_hash, now=now)
@@ -363,6 +371,7 @@ class Neo4jPersonRepository:
     async def reporter_roles_for_service(
         self, service_id: str, now: datetime
     ) -> list[PractitionerRole]:
+        check_aware("now", now)
         rows = await run_query(self._tx, "Q-SERVICE-REPORTER-ROLES", key=f"{_SERVICE}/{service_id}")
         roles = await self._roles(str(row["id"]) for row in rows)
         return [role for role in roles if _reporter_in_effect(role, now)]
@@ -381,7 +390,9 @@ class Neo4jPersonRepository:
         )
 
     async def save_role(self, role: PractitionerRole) -> None:
-        # Every refusal comes before the write, so a caller that catches it commits nothing.
+        # The practitioner, service and cover-practitioner checks come before the write, so a caller
+        # that catches their NotFound commits nothing. The cover-link check after the write is a
+        # backstop: it cannot fire unless the graph changed after the pre-check.
         await self._require(_PRACTITIONER, role.practitioner_id)
         if role.service_id is not None:
             await self._require(_SERVICE, role.service_id)

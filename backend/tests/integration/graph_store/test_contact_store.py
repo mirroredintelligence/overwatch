@@ -10,9 +10,11 @@ from typing import Any
 
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
+from neo4j.exceptions import ConstraintError
 from neo4j.time import DateTime
 
 from diucs.adapters.outbound.graph_store.contact_store import Neo4jContactStore
+from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.domain.errors import Conflict, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 
@@ -164,4 +166,19 @@ async def test_racing_first_puts_for_one_role_leave_one_protected_contact(
     outcomes = await asyncio.gather(*(put(number) for number in numbers))
 
     assert set(outcomes) <= {"stored", "conflict"}
+    assert await count_nodes(neo4j_driver, "ProtectedContact") == 1
+
+
+async def test_a_second_protected_contact_for_one_role_and_kind_is_refused_by_the_schema(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """Deterministic: a second raw CREATE with the same key raises ConstraintError (lesson L92)."""
+    await apply_migrations(neo4j_driver)
+
+    async def create(tx: AsyncManagedTransaction) -> None:
+        await tx.run("CREATE (:ProtectedContact {key: 'r-west-duty|phone', value: 'x'})")
+
+    await write_tx(neo4j_driver, create)
+    with pytest.raises(ConstraintError):
+        await write_tx(neo4j_driver, create)
     assert await count_nodes(neo4j_driver, "ProtectedContact") == 1

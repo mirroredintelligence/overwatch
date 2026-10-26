@@ -52,3 +52,9 @@ def test_the_protected_contact_key_migration_is_0025_after_the_contact_index() -
     ids = [migration_id for migration_id, _ in MIGRATIONS]
     assert ids.count("0025_protected_contact_key") == 1
     assert ids.index("0025_protected_contact_key") > ids.index("0024_protected_contact_role_id")
+
+
+def test_the_credential_device_migration_is_0026_after_the_contact_key() -> None:
+    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    assert ids.count("0026_credential_device_id") == 1
+    assert ids.index("0026_credential_device_id") > ids.index("0025_protected_contact_key")

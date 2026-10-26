@@ -12,13 +12,14 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
-from neo4j.exceptions import ClientError
+from neo4j.exceptions import ClientError, ConstraintError
 from neo4j.time import DateTime
 
 from diucs.adapters.outbound.graph_store.credential_store import (
     Neo4jDeviceRegistry,
     Neo4jPinStore,
 )
+from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
@@ -350,24 +351,6 @@ async def test_racing_registrations_of_one_device_leave_one_device_node(
     assert outcomes.count("registered") >= 1
 
 
-async def test_racing_set_pin_for_one_device_leaves_one_credential(
-    neo4j_driver: AsyncDriver, practitioners: None
-) -> None:
-    """Sixteen racing first writes of one credential. Without a lock taken before the MERGE, two
-    transactions can each create a Credential node (lesson L90), and a later save_state then
-    matches two nodes."""
-
-    async def set_pin(_: int) -> None:
-        async def work(tx: AsyncManagedTransaction) -> None:
-            await Neo4jPinStore(tx).set_pin("p1", "dev-1", PIN_HASH)
-
-        await write_tx(neo4j_driver, work)
-
-    await asyncio.gather(*(set_pin(n) for n in range(16)))
-
-    assert await count_nodes(neo4j_driver, "Credential") == 1
-
-
 async def test_racing_register_by_the_same_practitioner_succeeds_and_leaves_one_device(
     neo4j_driver: AsyncDriver, practitioners: None
 ) -> None:
@@ -384,3 +367,40 @@ async def test_racing_register_by_the_same_practitioner_succeeds_and_leaves_one_
 
     assert await count_nodes(neo4j_driver, "Device") == 1
     assert await _read(neo4j_driver, lambda _, devices: devices.known("p1", "dev-same")) is True
+
+
+async def test_a_second_credential_for_one_device_is_refused_by_the_schema(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """Deterministic: a second raw CREATE of a Credential with the same deviceId raises. The schema
+    is applied first, so the result does not depend on which test ran before (lesson L92). A
+    duplicate Credential would defeat the PIN lockout (DEC-074)."""
+    await apply_migrations(neo4j_driver)
+
+    async def create(tx: AsyncManagedTransaction) -> None:
+        await tx.run("CREATE (:Credential {deviceId: 'dev-1', pinHash: 'x'})")
+
+    await write_tx(neo4j_driver, create)
+    with pytest.raises(ConstraintError):
+        await write_tx(neo4j_driver, create)
+    assert await count_nodes(neo4j_driver, "Credential") == 1
+
+
+async def test_a_pin_for_a_device_of_another_practitioner_is_a_conflict(
+    neo4j_driver: AsyncDriver, practitioners: None
+) -> None:
+    """One credential per device in the graph: a second practitioner cannot set a PIN for a device
+    that already has one (DEC-074)."""
+    await _run(neo4j_driver, lambda pins, _: pins.set_pin("p1", "dev-1", PIN_HASH))
+
+    async def work(tx: AsyncManagedTransaction) -> None:
+        await Neo4jPinStore(tx).set_pin("p2", "dev-1", OTHER_PIN_HASH)
+
+    with pytest.raises(Conflict):
+        await write_tx(neo4j_driver, work)
+
+    assert await count_nodes(neo4j_driver, "Credential") == 1
+    assert await _read(neo4j_driver, lambda pins, _: pins.get("p1", "dev-1")) == (
+        PIN_HASH,
+        PinState(),
+    )

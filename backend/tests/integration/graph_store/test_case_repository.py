@@ -15,6 +15,7 @@ import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 
+from diucs.adapters.outbound.graph_store import case_repository
 from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Urgency
@@ -355,4 +356,28 @@ async def test_a_closed_case_saved_with_postcode_or_needs_left_is_refused(
     with pytest.raises(ValidationFailed):
         await _write(neo4j_driver, residue, save=True)
 
+    assert await _load(neo4j_driver, "case-1") == OPEN_CASE
+
+
+async def test_a_duplicate_reference_that_passes_the_check_is_a_conflict(
+    neo4j_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Only the pre-check is bypassed: the unique constraint on the reference must still refuse the
+    # write at the reference step, and the store's error must come back as Conflict.
+    await _write(neo4j_driver, OPEN_CASE)
+    real_run_query = case_repository.run_query
+
+    async def skip_the_reference_check(
+        tx: AsyncManagedTransaction, query_id: str, **params: Any
+    ) -> Any:
+        if query_id == "Q-CASE-BY-REF":
+            return []
+        return await real_run_query(tx, query_id, **params)
+
+    monkeypatch.setattr(case_repository, "run_query", skip_the_reference_check)
+
+    with pytest.raises(Conflict):
+        await _write(neo4j_driver, replace(OPEN_CASE, id="case-3"))
+
+    assert await count_nodes(neo4j_driver, "Patient") == 1
     assert await _load(neo4j_driver, "case-1") == OPEN_CASE

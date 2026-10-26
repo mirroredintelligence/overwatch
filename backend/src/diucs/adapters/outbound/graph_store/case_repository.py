@@ -15,10 +15,12 @@ Scores are Observations. The store refuses to put an existing Observation (DEC-0
 scores are written once, with the case, and a save never rewrites them.
 """
 
+import re
 from datetime import UTC, datetime
 from typing import Any, Final
 
 from neo4j import AsyncManagedTransaction
+from neo4j.exceptions import ClientError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
@@ -38,7 +40,7 @@ from diucs.domain.codes import (
     Urgency,
     parse_code,
 )
-from diucs.domain.errors import InvalidTransition, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
 from diucs.domain.model.case import Case, priority_for
 from diucs.domain.model.scores import (
     AmbulanceCategory,
@@ -49,12 +51,12 @@ from diucs.domain.model.scores import (
     Score,
     method_of,
 )
+from diucs.domain.rules.postcode import normalise_district
 
 _PATIENT: Final = "Patient"
 _REQUEST: Final = "ServiceRequest"
 _OBSERVATION: Final = "Observation"
 _SERVICE: Final = "HealthcareService"
-_IDENTITY_ELEMENTS: Final = ("name", "identifier", "birthDate", "telecom")
 
 REFERENCE_SYSTEM: Final = "https://diucs.example/case-reference"
 TAG_SYSTEM: Final = "https://diucs.example/CodeSystem/meta-tag"
@@ -63,6 +65,29 @@ SECURITY_SYSTEM: Final = "http://terminology.hl7.org/CodeSystem/v3-Confidentiali
 SECURITY_CODE: Final = "R"
 MANCHESTER_SYSTEM: Final = "https://diucs.example/CodeSystem/manchester-triage"
 PATHWAYS_SYSTEM: Final = "https://diucs.example/CodeSystem/pathways-dx"
+# A case reference is four digits with no leading zero (DEC-041, the format events.py uses).
+CASE_REFERENCE: Final = re.compile(r"[1-9][0-9]{3}")
+_PATIENT_KEYS: Final = frozenset({"resourceType", "id", "active", "meta", "address", "extension"})
+_REQUEST_KEYS: Final = frozenset(
+    {
+        "resourceType",
+        "id",
+        "status",
+        "intent",
+        "authoredOn",
+        "identifier",
+        "subject",
+        "supportingInfo",
+        "priority",
+        "reasonCode",
+        "performer",
+        "extension",
+        "meta",
+    }
+)
+_SCORE_KEYS: Final = frozenset(
+    {"resourceType", "id", "status", "code", "subject", "valueInteger", "valueCodeableConcept"}
+)
 
 _PRIORITY: Final = "priority"
 _REQUEST_STATUS_ACTIVE: Final = "active"
@@ -175,6 +200,46 @@ def _coded_text(concept: Any, system: str, field: str) -> str:
     return code
 
 
+def _check_district(postcode: str | None) -> None:
+    # Only the district is stored (owner decision, DEC-067 item 1). The value is not echoed.
+    if postcode is not None and normalise_district(postcode) != postcode:
+        raise ValidationFailed("postcode", "must be a district, not a full postcode")
+
+
+def _check_reference(reference: str) -> None:
+    if CASE_REFERENCE.fullmatch(reference) is None:
+        raise ValidationFailed("reference", "must be four digits with no leading zero")
+
+
+def _check_closed_residue(case: Case) -> None:
+    # A closed case holds no postcode or needs. Refused rather than cleared (DEC-067 item 6).
+    if case.closed_at is not None and (case.postcode is not None or case.needs):
+        raise ValidationFailed("closed", "a closed case holds no postcode or needs")
+
+
+def _refuse_unknown(resource: dict[str, Any], allowed: frozenset[str], field: str) -> None:
+    # An element the mapping cannot represent is refused, never dropped (DEC-067 item 3).
+    for key in resource:
+        if key not in allowed:
+            raise ValidationFailed(field, "an element the case mapping cannot represent")
+
+
+def _check_priority(request: dict[str, Any], urgency_text: str | None) -> None:
+    priority = request.get(_PRIORITY)
+    if urgency_text is None:
+        if priority is not None:
+            raise ValidationFailed(_PRIORITY, "needs an urgency")
+        return
+    if priority != priority_for(parse_code(Urgency, urgency_text)):
+        raise ValidationFailed(_PRIORITY, "does not match the urgency")
+
+
+def _check_status(request: dict[str, Any], closed_text: str | None) -> None:
+    expected = _REQUEST_STATUS_COMPLETED if closed_text is not None else _REQUEST_STATUS_ACTIVE
+    if request.get("status") != expected:
+        raise ValidationFailed("status", "does not match the close time")
+
+
 def _score_to_fhir(case_id: str, patient_id: str, index: int, score: Score) -> dict[str, Any]:
     resource: dict[str, Any] = {
         "resourceType": _OBSERVATION,
@@ -226,6 +291,9 @@ def case_to_fhir(case: Case) -> tuple[dict[str, Any], dict[str, Any], list[dict[
 
     The stub's postcode is present only while the case is open. Its meta (tag and security label)
     is part of this output; the repository does not store it (see the module docstring)."""
+    _check_district(case.postcode)
+    _check_reference(case.reference)
+    _check_closed_residue(case)
     patient_id = _patient_id(case.id)
     patient: dict[str, Any] = {
         "resourceType": _PATIENT,
@@ -284,13 +352,14 @@ def case_from_fhir(
 ) -> Case:
     """The case for a stub, its request and its score Observations, in the order they were
     recorded. Refuses an identity element on the stub and any value it does not recognise."""
-    for element in _IDENTITY_ELEMENTS:
-        if element in patient:
-            raise ValidationFailed(element, "a case stub holds no identity element")
     case_id = str(_required(service_request, "id"))
     if patient.get("id") != _patient_id(case_id):
         raise ValidationFailed("patient", "is not the stub of this case")
 
+    _refuse_unknown(patient, _PATIENT_KEYS, "patient")
+    _refuse_unknown(service_request, _REQUEST_KEYS, "serviceRequest")
+    for resource in scores:
+        _refuse_unknown(resource, _SCORE_KEYS, "score")
     patient_values = _extension_values(patient)
     values = _extension_values(service_request)
     identifiers = _required(service_request, "identifier")
@@ -319,6 +388,10 @@ def case_from_fhir(
     outcome_text = values.get(_EXT_OUTCOME)
     best_fit_text = values.get(_EXT_BEST_FIT)
     age_text = patient_values.get(_EXT_AGE_BAND)
+    _check_priority(service_request, urgency_text)
+    _check_status(service_request, closed_text)
+    if outcome_text is not None and closed_text is None:
+        raise ValidationFailed(_EXT_OUTCOME, "needs a close time")
     return Case(
         id=case_id,
         reference=str(identifiers[0]["value"]),
@@ -354,6 +427,8 @@ class Neo4jCaseRepository:
         # The store refuses an existing Patient with Conflict before it writes anything, so a
         # second add of one case is refused on its first write (expected version None).
         patient, request, scores = case_to_fhir(case)
+        if await run_query(self._tx, "Q-CASE-BY-REF", reference=case.reference):
+            raise Conflict("another case already holds this reference")
         await self._put_patient(case, patient, expected=None)
         for resource in scores:
             await self._store.put(resource, None)
@@ -373,7 +448,7 @@ class Neo4jCaseRepository:
             observation = await self._store.get(_OBSERVATION, observation_id)
             if observation is None:
                 raise NotFound(f"{_OBSERVATION}/{observation_id}")
-            observations.append(observation)
+            observations.append(_without_meta(observation))
         postcode = await self._postcode(patient_id)
         return case_from_fhir(
             _rebuilt_patient(patient, postcode), _rebuilt_request(request), observations
@@ -420,7 +495,13 @@ class Neo4jCaseRepository:
         # The reference is a copy of the identifier, set after the put (DEC-066).
         await self._store.put(request, expected)
         key = f"{_REQUEST}/{case.id}"
-        await run_query(self._tx, "Q-CASE-SET-REFERENCE", key=key, reference=case.reference)
+        try:
+            await run_query(self._tx, "Q-CASE-SET-REFERENCE", key=key, reference=case.reference)
+        except ClientError as error:
+            # The unique constraint on the reference (migration 0022) refused a racing write.
+            if str(getattr(error, "code", "")).endswith("ConstraintValidationFailed"):
+                raise Conflict("another case already holds this reference") from error
+            raise
 
     async def _postcode(self, patient_id: str) -> str | None:
         rows = await run_query(self._tx, "Q-CASE-READ-POSTCODE", key=f"{_PATIENT}/{patient_id}")
@@ -435,6 +516,10 @@ def _rebuilt_patient(patient: dict[str, Any], postcode: str | None) -> dict[str,
     if postcode is not None:
         rebuilt["address"] = [{"postalCode": postcode}]
     return rebuilt
+
+
+def _without_meta(resource: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in resource.items() if key != "meta"}
 
 
 def _rebuilt_request(request: dict[str, Any]) -> dict[str, Any]:

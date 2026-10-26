@@ -89,6 +89,11 @@ MIGRATIONS: list[tuple[str, str]] = [
         "CREATE CONSTRAINT link_token_hash IF NOT EXISTS "
         "FOR (n:LinkToken) REQUIRE n.tokenHash IS UNIQUE",
     ),
+    (
+        "0022_case_reference_id",
+        "CREATE CONSTRAINT case_reference_id IF NOT EXISTS "
+        "FOR (n:ServiceRequest) REQUIRE n.reference IS UNIQUE",
+    ),
 ]
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

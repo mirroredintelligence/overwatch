@@ -81,7 +81,7 @@ class Neo4jContactStore:
             )
         except ConstraintError as error:
             # A racing first write for the same role and kind. Nothing is stored by this write.
-            raise error
+            raise Conflict("protected contact is being written by another request") from error
 
     async def _get(self, role_id: str, kind: str) -> str | None:
         rows = await self._run("Q-CONTACT-GET", key=_key(role_id, kind))

@@ -8,10 +8,12 @@ never echoed in an error. Decisions: DEC-057.
 import hashlib
 import hmac
 import re
+from datetime import datetime
 from typing import Final, Protocol
 
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.rules.identity_policy import CodeState, PinState
 
 PHONE_HASH_SECRET: Final = "phone-hash"
 
@@ -52,3 +54,53 @@ def normalise_uk_mobile(number: str) -> str:
     if not _UK_MOBILE.fullmatch(national):
         raise ValidationFailed("phone", "must be a UK mobile number")
     return national
+
+
+class ContactStore(Protocol):
+    """Protected phone numbers and role emails (P16). Only this port reads them."""
+
+    async def put_phone(self, role_id: str, number: str) -> None: ...
+
+    async def get_phone(self, role_id: str) -> str | None: ...
+
+    async def put_email(self, role_id: str, email: str) -> None: ...
+
+    async def get_email(self, role_id: str) -> str | None: ...
+
+
+class CodeSender(Protocol):
+    """Sends a text code to a phone (U25). The code is sent, never stored by the sender."""
+
+    async def send_code(self, phone: str, code: str) -> None: ...
+
+
+class CodeStore(Protocol):
+    """Short-lived text-code state, keyed by the phone hash. Redis in production (I13)."""
+
+    async def save(self, phone_hash: str, code_hash: str, state: CodeState) -> None: ...
+
+    async def get(self, phone_hash: str) -> tuple[str, CodeState] | None: ...
+
+    async def clear(self, phone_hash: str) -> None: ...
+
+
+class PinStore(Protocol):
+    """PIN hashes and their lock state, one credential per practitioner and device (P16)."""
+
+    async def set_pin(self, practitioner_id: str, device_id: str, pin_hash: str) -> None: ...
+
+    async def get(self, practitioner_id: str, device_id: str) -> tuple[str, PinState] | None: ...
+
+    async def save_state(self, practitioner_id: str, device_id: str, state: PinState) -> None: ...
+
+    async def clear_all(self, practitioner_id: str) -> None: ...
+
+
+class DeviceRegistry(Protocol):
+    """The devices a practitioner has registered (P16). A revoked device is never known again."""
+
+    async def register(self, practitioner_id: str, device_id: str, at: datetime) -> None: ...
+
+    async def known(self, practitioner_id: str, device_id: str) -> bool: ...
+
+    async def revoke_all(self, practitioner_id: str) -> None: ...

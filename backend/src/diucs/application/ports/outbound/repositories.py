@@ -8,11 +8,13 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
+from diucs.domain.codes import RegistrationStatus
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.people import Practitioner, PractitionerRole
+from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import ServiceProfile
 
 
@@ -197,4 +199,58 @@ class CriteriaRepository(Protocol):
 
     async def history(self, service_id: str) -> list[ServiceCriteria]:
         """Every version for this service, newest version number first. Old versions are kept."""
+        ...
+
+
+class RegistrationRepository(Protocol):
+    """Service registrations, stored as Task code register-service (P13).
+    Adapter: Neo4jRegistrationRepository (graph_store/registration_repository.py).
+
+    The repository stores what it is given. It does not decide which status may follow which:
+    the use cases do that with transition_registration (D22). Adding for an unknown service is
+    NotFound and writes nothing.
+    """
+
+    async def add(self, registration: Registration) -> None:
+        """Store a new registration. An id that exists raises Conflict."""
+        ...
+
+    async def get(self, registration_id: str) -> Registration | None:
+        """The stored registration, or None."""
+        ...
+
+    async def save(self, registration: Registration) -> None:
+        """Replace the stored registration, including its draft. An unknown id raises NotFound.
+        A draft is replaced as a whole: fields left out of the new draft are gone."""
+        ...
+
+    async def list_by_status(self, status: RegistrationStatus) -> list[Registration]:
+        """Registrations with this status, oldest submission first. Drafts have no submission time
+        and so are only listed under draft, ordered by id."""
+        ...
+
+    async def for_service(self, service_id: str) -> list[Registration]:
+        """Registrations for this service, newest first."""
+        ...
+
+
+class ScopeListRepository(Protocol):
+    """The scope list: one list whose entries point at services, which may not have registered yet
+    (P13). Adapter: Neo4jScopeListRepository (graph_store/scope_list_repository.py).
+
+    save_entry for an unknown service creates a minimal inactive HealthcareService. It never
+    changes an existing service's name, category or active flag.
+    """
+
+    async def entries(self) -> list[ScopeEntry]:
+        """Every entry, sorted by service name, then service id."""
+        ...
+
+    async def get_entry(self, service_id: str) -> ScopeEntry | None:
+        """The entry for this service, or None."""
+        ...
+
+    async def save_entry(self, entry: ScopeEntry) -> None:
+        """Insert the entry, or replace its flag, date and reason. Services that do not exist yet
+        are created as minimal inactive HealthcareServices."""
         ...

@@ -57,6 +57,12 @@ REGISTERED_TYPES: dict[str, str] = {
     "closedAt": "dateTime",
     "outcome": "string",
     "bestFitNotUsed": "string",
+    # P13: a registration's four approval checks (domain-rules 6.2). checkScope holds the scope
+    # flag, and is left out until the scope is decided.
+    "checkAutomatic": "boolean",
+    "checkCallback": "boolean",
+    "checkScope": "string",
+    "checkCriteria": "boolean",
 }
 
 _VALUE_KEY = {
@@ -98,7 +104,7 @@ def _root(fragment: GraphFragment) -> dict[str, Any]:
 # The registry
 
 
-def test_registry_holds_the_twenty_two_named_extensions() -> None:
+def test_registry_holds_the_twenty_six_named_extensions() -> None:
     assert {defn.short_name for defn in EXTENSIONS.values()} == set(REGISTERED_TYPES)
 
 

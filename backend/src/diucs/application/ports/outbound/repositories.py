@@ -11,6 +11,7 @@ from typing import Protocol
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
+from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 
@@ -159,4 +160,41 @@ class CaseRepository(Protocol):
         """Replace the stored case. An unknown id raises NotFound. A change to the scores or the
         reference raises ValidationFailed, and reopening a closed case raises InvalidTransition.
         All of these are checked before anything is written."""
+        ...
+
+
+class CriteriaRepository(Protocol):
+    """Service criteria versions (P04).
+    Adapter: Neo4jCriteriaRepository (graph_store/criteria_repository.py).
+
+    Each version is stored with its own id and is never deleted. At most one version per service
+    is current. Saving a current version moves the service's CURRENT_CRITERIA link in the same
+    transaction. Writes check everything before the first change.
+    """
+
+    async def current_for_service(self, service_id: str) -> ServiceCriteria | None:
+        """The current version for this service, or None. Two current versions raise Conflict."""
+        ...
+
+    async def current_for_services(self, service_ids: Sequence[str]) -> dict[str, ServiceCriteria]:
+        """The current version per service. Services without a current version are left out."""
+        ...
+
+    async def get(self, criteria_id: str) -> ServiceCriteria | None:
+        """The stored version with this id, or None. A service flag is not a criteria version."""
+        ...
+
+    async def add(self, criteria: ServiceCriteria) -> None:
+        """Store a new version. An id that exists raises Conflict, an unknown service or superseded
+        version raises NotFound, a version number already used for the service raises Conflict, and
+        a second current version raises Conflict. Nothing is written when any of these holds."""
+        ...
+
+    async def save(self, criteria: ServiceCriteria) -> None:
+        """Replace a stored version. An unknown id raises NotFound. A change of service or version
+        number raises ValidationFailed. A second current version raises Conflict."""
+        ...
+
+    async def history(self, service_id: str) -> list[ServiceCriteria]:
+        """Every version for this service, newest version number first. Old versions are kept."""
         ...

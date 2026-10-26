@@ -244,7 +244,7 @@ These names were added by individual task prompts. They are as binding as the re
 | `adapters/outbound/graph_store/mapper.py`: `NodeSpec(key, labels, properties)`, `RelSpec(type, start, end, properties)`, `GraphFragment(root_key, nodes, rels)`, `to_graph(resource) -> GraphFragment`, `from_graph(fragment) -> dict`, `upper_snake(name) -> str`, errors `UnsupportedElement(path)` and `InvalidReference(path)` | G02 |
 | Node key `Type/id`; node labels `("Resource", Type)`; node properties `id`, `iri`, optional `versionId` and `lastUpdated`, plus primitives under their FHIR names. No `json` property (DEC-001). | G02 |
 
-- P14: `FlagRepository` gains `services_with_flag(code) -> set[str]` (ids of services with an active service flag of that code). `ReportFlag` and `ServiceFlag` are in `domain/model/flags.py`; the service flag id is `<serviceId>.<code>`. `ReportFlag.id` has a unique key (migration 0027); a racing add raises `Conflict`, and the caller (the unit of work, P06) must roll back on `Conflict`, never commit (DEC-083 item 9). (DEC-083)
+- P14: `FlagRepository` gains `services_with_flag(code) -> set[str]` (ids of services with an active service flag of that code). `ReportFlag` and `ServiceFlag` are in `domain/model/flags.py`; the service flag id is `<serviceId>.<code>`. `ReportFlag.id` has a unique key (migration 0027); a racing add raises `Conflict`, and the unit of work (P06) must roll back on any `Conflict` and never commit a failed write, for every write path (DEC-083 item 9). (DEC-083)
 
 ## Registration approval (DEC-032)
 - The pure gate `domain/rules/registration.py` takes booleans; it does not know who the approver is.

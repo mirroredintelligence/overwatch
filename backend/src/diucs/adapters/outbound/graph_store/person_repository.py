@@ -11,8 +11,9 @@ Three things are not FHIR and are written beside the resource, in the same trans
 - CHANNEL: a role's text, email or push channel, as a relationship to a Concept.
 - COVERED_BY {until}: a role covered by another practitioner until an instant.
 The store clears a resource's outgoing relationships on every put, so a cover removed by a save is
-gone with no extra step. Local relationships have no fhirPath and are skipped when a resource is
-read (resource_store._load).
+gone with no extra step. When a resource is read, resource_store._load skips a relationship with no
+fhirPath only if its type is CHANNEL or COVERED_BY (LOCAL_RELATIONSHIP_TYPES, DEC-065 item 5); any
+other relationship without a fhirPath is kept, and reading it raises KeyError.
 
 Lookups for a phone or a service read the graph with named queries, then load each role through the
 store and filter with the domain rules (reporter code, period, cover at `now`).

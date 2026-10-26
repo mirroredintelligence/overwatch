@@ -87,9 +87,10 @@ class BookingRepository(Protocol):
 class PersonRepository(Protocol):
     """Practitioners and their posts (P03). Adapter: Neo4jPersonRepository (graph_store/).
 
-    A role's period and cover are read at the `now` the caller passes. Services are returned sorted
-    by service id, with the service's name. Saves refuse an unknown practitioner, service or cover
-    practitioner with NotFound, before anything is written.
+    A role's period and cover are read at the `now` the caller passes. Services are returned with
+    the service's name, sorted by service name, then service id, then role id (DEC-065 item 2).
+    Saves refuse an unknown practitioner, service or cover practitioner with NotFound, before
+    anything is written.
     """
 
     async def get_practitioner(self, practitioner_id: str) -> Practitioner | None:
@@ -98,7 +99,8 @@ class PersonRepository(Protocol):
 
     async def find_by_phone_hash(self, phone_hash: str) -> Practitioner | None:
         """The active practitioner holding this phone hash, or None. Inactive people are never
-        returned."""
+        returned. Two active practitioners on one hash raise Conflict and return nothing
+        (DEC-065 item 1). A malformed hash raises ValidationFailed."""
         ...
 
     async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:
@@ -109,8 +111,9 @@ class PersonRepository(Protocol):
         self, phone_hash: str, now: datetime
     ) -> list[tuple[PractitionerRole, str]]:
         """Every active reporter role this phone holds and is not covered out of at `now`, plus
-        every active reporter role it covers until after `now`. Each comes with its service name.
-        Sorted by service id."""
+        every active reporter role it covers until after `now`. Each comes with its service name,
+        sorted by service name, then service id, then role id (DEC-065 item 2). A malformed phone
+        hash raises ValidationFailed."""
         ...
 
     async def reporter_roles_for_service(

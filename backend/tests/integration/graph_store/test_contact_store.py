@@ -10,9 +10,11 @@ from typing import Any
 
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
+from neo4j.exceptions import ConstraintError
 from neo4j.time import DateTime
 
 from diucs.adapters.outbound.graph_store.contact_store import Neo4jContactStore
+from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.domain.errors import Conflict, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 
@@ -144,24 +146,53 @@ async def test_an_email_without_an_at_sign_is_refused_and_writes_nothing(
     assert await count_nodes(neo4j_driver, "ProtectedContact") == 0
 
 
-async def test_racing_first_puts_for_one_role_leave_one_protected_contact(
+async def test_a_racing_first_put_is_refused_while_the_first_write_is_uncommitted(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    """Sixteen racing first writes of one role's phone. Each either commits or is refused as a
-    Conflict, and exactly one ProtectedContact node exists afterwards (DEC-073 item 3)."""
-
-    async def put(number: str) -> str:
-        async def work(tx: AsyncManagedTransaction) -> None:
-            await Neo4jContactStore(tx).put_phone(ROLE, number)
-
+    """Deterministic interleaving, not a race run (lesson L92). The first write is held
+    uncommitted. The second write runs while the first is open. Without the unique key it finishes
+    at once and creates a second node, so the commit leaves two. With the key it waits for the
+    first commit, then either updates that node (stored) or is refused (conflict). Either is
+    correct; what is asserted is one node. The schema is applied first, so the result does not
+    depend on other tests."""
+    await apply_migrations(neo4j_driver)
+    first_session = neo4j_driver.session()
+    second_session = neo4j_driver.session()
+    try:
+        first_tx = await first_session.begin_transaction()
+        await Neo4jContactStore(first_tx).put_phone(ROLE, PHONE)
+        second_tx = await second_session.begin_transaction()
+        racing = asyncio.create_task(Neo4jContactStore(second_tx).put_phone(ROLE, NEW_PHONE))
+        await asyncio.wait({racing}, timeout=1.0)
+        await first_tx.commit()
+        outcome = "stored"
         try:
-            await write_tx(neo4j_driver, work)
+            await racing
         except Conflict:
-            return "conflict"
-        return "stored"
+            outcome = "conflict"
+        if outcome == "stored":
+            await second_tx.commit()
+        else:
+            await second_tx.rollback()
+    finally:
+        await first_session.close()
+        await second_session.close()
 
-    numbers = [f"07700 9001{n:02d}" for n in range(16)]
-    outcomes = await asyncio.gather(*(put(number) for number in numbers))
+    assert outcome in {"stored", "conflict"}
+    assert await count_nodes(neo4j_driver, "ProtectedContact") == 1
+    assert await _get_phone(neo4j_driver, ROLE) == (NEW_PHONE if outcome == "stored" else PHONE)
 
-    assert set(outcomes) <= {"stored", "conflict"}
+
+async def test_a_second_protected_contact_for_one_role_and_kind_is_refused_by_the_schema(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """Deterministic: a second raw CREATE with the same key raises ConstraintError (lesson L92)."""
+    await apply_migrations(neo4j_driver)
+
+    async def create(tx: AsyncManagedTransaction) -> None:
+        await tx.run("CREATE (:ProtectedContact {key: 'r-west-duty|phone', value: 'x'})")
+
+    await write_tx(neo4j_driver, create)
+    with pytest.raises(ConstraintError):
+        await write_tx(neo4j_driver, create)
     assert await count_nodes(neo4j_driver, "ProtectedContact") == 1

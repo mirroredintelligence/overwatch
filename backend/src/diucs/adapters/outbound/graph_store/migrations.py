@@ -103,11 +103,6 @@ MIGRATIONS: list[tuple[str, str]] = [
         "CREATE INDEX protected_contact_role_id IF NOT EXISTS "
         "FOR (n:ProtectedContact) ON (n.roleId)",
     ),
-    (
-        "0025_protected_contact_key",
-        "CREATE CONSTRAINT protected_contact_key IF NOT EXISTS "
-        "FOR (n:ProtectedContact) REQUIRE n.key IS UNIQUE",
-    ),
 ]
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

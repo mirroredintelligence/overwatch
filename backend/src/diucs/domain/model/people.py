@@ -26,21 +26,22 @@ REPORTER_ROLE_CODES: frozenset[PractitionerRoleCode] = frozenset(
 
 _PHONE_HASH = re.compile(r"[0-9a-f]{64}")
 _EMAIL_DOMAIN = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+")
-# The patient-data shapes of DEC-047 items 1 and 2, copied here so the domain model does not depend
-# on the messages module. A staff name carries neither shape (DEC-065 item 6).
+# The postcode shape of DEC-047 item 1, copied here so the domain model does not depend on the
+# messages module. A staff name carries no postcode (DEC-065 item 6).
 _POSTCODE = re.compile(r"\b[A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2}\b", re.IGNORECASE)
-_NHS_NUMBER = re.compile(r"(?<![0-9])(?:[0-9]{10}|[0-9]{3}[ -][0-9]{3}[ -][0-9]{4})(?![0-9])")
 # Ten or more digits in a row, where a single space or hyphen may sit between two digits. This
-# catches a phone number, contiguous or grouped (DEC-065 item 8). A short number is not matched.
+# catches a phone number and both NHS-number forms, contiguous (9434765919) and grouped (943 476
+# 5919), so the NHS-number pattern of DEC-047 item 2 is not needed here (DEC-065 item 6). A short
+# number is not matched.
 _DIGIT_RUN = re.compile(r"(?<![0-9])[0-9](?:[ -]?[0-9]){9,}(?![0-9])")
 
 
 def check_staff_text(field: str, value: str) -> None:
-    """Free text on a Practitioner (a staff name) may not carry a postcode shape, an NHS-number
-    shape, or a run of ten or more digits. Refused by field name only; the value is never echoed
-    (DEC-065 items 6 and 8)."""
-    if _POSTCODE.search(value) or _NHS_NUMBER.search(value) or _DIGIT_RUN.search(value):
-        raise ValidationFailed(field, "must not carry a postcode, an NHS number or a phone number")
+    """Free text on a Practitioner (a staff name) may not carry a postcode or a run of ten or more
+    digits, which includes NHS-number and phone-number forms. Refused by field name only; the value
+    is never echoed (DEC-065 items 6 and 8)."""
+    if _POSTCODE.search(value) or _DIGIT_RUN.search(value):
+        raise ValidationFailed(field, "must not carry a postcode or a phone or NHS number")
 
 
 def check_phone_hash(value: str) -> None:

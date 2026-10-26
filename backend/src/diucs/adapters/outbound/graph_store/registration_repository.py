@@ -65,7 +65,7 @@ _BY_STATUS: Final = NamedQuery(
     cypher=(
         "MATCH (t:Task {businessStatus: $status})-[:CODE]->"
         "(:Concept {system: $system, code: $code}) "
-        "RETURN t.id AS id ORDER BY t.submittedAt, t.id DESC"
+        "RETURN t.id AS id ORDER BY t.submittedAt, t.id"
     ),
     mode="read",
 )

@@ -312,7 +312,7 @@ async def test_two_racing_writers_of_one_version_number_leave_one_version(
     session = neo4j_driver.session()
     held = await session.begin_transaction()
     try:
-        await _repo(held).add(V4_PENDING)
+        await _repo(held).add(replace(V4_PENDING, supersedes_id=None))
         racer = asyncio.create_task(write_tx(neo4j_driver, lambda tx: _repo(tx).add(twin)))
         done, _ = await asyncio.wait({racer}, timeout=1.0)
         assert not done, "the second writer must wait for the held write on the service"

@@ -107,7 +107,8 @@ def _as_utc_instant(value: Any) -> datetime:
     """A stored Neo4j datetime as an aware UTC datetime (the driver's own type, or text)."""
     if isinstance(value, str):
         return _instant("confirmedAt", value)
-    return value.to_native().astimezone(UTC)
+    native: datetime = value.to_native()
+    return native.astimezone(UTC)
 
 
 def _iso(value: datetime) -> str:

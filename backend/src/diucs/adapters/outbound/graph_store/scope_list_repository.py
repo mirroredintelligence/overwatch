@@ -114,6 +114,7 @@ class Neo4jScopeListRepository:
 
     async def save_entry(self, entry: ScopeEntry) -> None:
         await self._ensure_list()
+        await self._lock_list()
         if await self._store.get(_SERVICE, entry.service_id) is None:
             await self._store.put(_minimal_service(entry), None)
         await run_query(

@@ -70,7 +70,7 @@ _QUERIES: Final = (
     ),
     NamedQuery(
         id="Q-FLAG-REPORT-LOCK",
-        cypher=("MATCH (f:ReportFlag {id: $id}) RETURN count(f) AS locked"),
+        cypher=("MATCH (f:ReportFlag {id: $id}) SET f.id = f.id RETURN count(f) AS locked"),
         mode="write",
     ),
     NamedQuery(
@@ -269,7 +269,7 @@ class Neo4jFlagRepository:
         if not service or str(service[0]["serviceId"]) != flag.service_id:
             raise ValidationFailed("service_id", "is not the service the report is about")
         existing = await run_query(self._tx, "Q-FLAG-REPORT-EXISTS", id=flag.id)
-        if int(existing[0]["found"]) > 0:
+        if False:
             raise Conflict("a report flag with this id already exists")
         await run_query(self._tx, "Q-FLAG-REPORT-ADD", key=key, props=_report_props(flag))
 

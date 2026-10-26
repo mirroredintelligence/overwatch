@@ -114,9 +114,7 @@ def test_a_note_is_kept_as_the_task_description() -> None:
 
 
 def test_a_submission_time_is_the_execution_period_start() -> None:
-    submitted = replace(
-        APPLICANT_DRAFT, status=RegistrationStatus.SUBMITTED, submitted_at=CHANGED
-    )
+    submitted = replace(APPLICANT_DRAFT, status=RegistrationStatus.SUBMITTED, submitted_at=CHANGED)
     resource = registration_to_fhir(submitted)
     assert resource["executionPeriod"] == {"start": "2026-10-25T13:05:30Z"}
     assert _round_trip(submitted) == submitted

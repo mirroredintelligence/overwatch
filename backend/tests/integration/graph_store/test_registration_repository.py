@@ -14,8 +14,8 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.registration_repository import Neo4jRegistrationRepository
+from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
 from diucs.domain.codes import CriteriaStatus, RegistrationStatus, ServiceCategory
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed

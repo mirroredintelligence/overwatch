@@ -8,11 +8,11 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
+from diucs.domain.codes import RegistrationStatus
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
 from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.codes import RegistrationStatus
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import ServiceProfile

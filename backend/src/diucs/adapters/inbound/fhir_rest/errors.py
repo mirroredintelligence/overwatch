@@ -2,7 +2,7 @@
 
 Every error under /fhir, including 404 for an unknown path and 405, is an OperationOutcome with one
 issue. Diagnostics are fixed plain words, never text from the request or from the exception, so no
-error body can carry a postcode or a name (DEC-085 items 2 to 5).
+error body can carry a postcode or a name (DEC-086 items 2 to 5).
 """
 
 import logging
@@ -121,7 +121,7 @@ class UnhandledErrorMiddleware:
     """Turns any exception that no handler maps into a 500 OperationOutcome.
 
     It logs the exception's class name only. The message and the traceback are left out, because
-    they can carry a postcode, and the server's own log would otherwise record them (DEC-085
+    they can carry a postcode, and the server's own log would otherwise record them (DEC-086
     item 4). If a response has already started, the error cannot be turned into a body, so the
     connection is left to the server.
     """

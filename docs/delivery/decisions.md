@@ -1159,10 +1159,10 @@ Numbered DEC-084: DEC-083 is the highest number on `main` and on every `task/*` 
    d. `docs/spec/contracts.md`, the Additions table: `UnitOfWork.contacts`, `pins` and `devices`. This names the attributes the code uses. It is an addition, not an edit to a source-of-truth artifact.
 9. **Not built here.** The unit of work has no `processed` (P15) and no `alert_subscriptions` (U33) attribute. Those tasks add their factories and attributes. The idempotency store is P15.
 
-## DEC-085 FHIR REST error bodies, body types and unexpected errors (R01)
+## DEC-086 FHIR REST error bodies, body types and unexpected errors (R01)
 Status: accepted (builder build-R01b, for the owner to confirm) · Affects: R01 (`adapters/inbound/fhir_rest/errors.py`), every R-task that adds a route (R02 to R18), hazard H-09.
 
-Numbered DEC-085: DEC-084 is the highest on `main` and on every `task/*` branch when this was written (checked with `git show <branch>:docs/delivery/decisions.md`).
+Numbered DEC-086: DEC-084 is the highest on `main` and on every `task/*` branch when this was written (checked with `git show <branch>:docs/delivery/decisions.md`). DEC-085 was then taken by `task/U08-query-board` (QueryBoard), so this entry and the next are DEC-086 and DEC-087. Checked against every branch before the commit.
 
 1. **415 and the body types.** A POST or PUT whose body is not `application/fhir+json` or `application/json` (parameters after `;` are ignored, the match is case-blind) gets 415 with code `not-supported`. A POST or PUT with no Content-Type is refused the same way. The prompt's list of error codes has no 415 code, so `not-supported` (the FHIR issue type) is the choice. The check runs before routing, so it also covers paths that do not exist.
 2. **Other framework errors use the same shape.** An unknown path under `/fhir` is 404 `not-found`, a wrong method is 405 `not-supported`, other 4xx are `invalid` and 5xx are `exception`. Diagnostics are fixed text for each status. Starlette's own `detail` text is not used, because it can echo the request.
@@ -1172,7 +1172,7 @@ Numbered DEC-085: DEC-084 is the highest on `main` and on every `task/*` branch 
 
 Tests: `tests/integration/adapters/inbound/fhir_rest/test_app.py` (red in b6d5dc2 as stubs; the body and log tests guard items 1 to 5). Mutation runs on the green build: removing the 415 check, removing the catch-all, logging the message, and changing the NotAllowed body each fail a test.
 
-## DEC-086 FHIR REST app wiring, metadata registry and API test fixtures (R01)
+## DEC-087 FHIR REST app wiring, metadata registry and API test fixtures (R01)
 Status: accepted (builder build-R01b, for the owner to confirm) · Affects: R01 (`app.py`, `capability.py`, `tests/support/api.py`), every R-task that adds a route or a resource, `docs/spec/contracts.md` (Additions).
 
 1. **The container is a Protocol.** `create_app` takes an `ApiContainer` (read-only `clock` and `uow_factory`), not `bootstrap.Container`. The layers contract forbids adapters from importing bootstrap. `Container` satisfies the Protocol structurally, so the composition root is unchanged.

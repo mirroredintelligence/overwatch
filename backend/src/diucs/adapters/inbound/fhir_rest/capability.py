@@ -1,7 +1,7 @@
 """GET /fhir/metadata: the CapabilityStatement, and the registry later resource tasks add to (R01).
 
 The statement is built with fhir.resources.R4B and dated from the container's clock, never from
-the system clock (DEC-086 item 4).
+the system clock (DEC-087 item 4).
 """
 
 from collections.abc import Sequence
@@ -17,7 +17,7 @@ from diucs.application.ports.outbound.clock import Clock
 FHIR_MEDIA_TYPE = "application/fhir+json; fhirVersion=4.3"
 FHIR_VERSION = "4.3.0"
 
-# The R4B TypeRestfulInteraction codes (DEC-086 item 5). A code outside this set is refused when
+# The R4B TypeRestfulInteraction codes (DEC-087 item 5). A code outside this set is refused when
 # the resource is registered, so a bad registration fails at start-up, not on each request.
 INTERACTIONS = frozenset(
     {

@@ -14,16 +14,18 @@ import pytest_asyncio
 from neo4j import AsyncDriver, AsyncSession
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.unit_of_work import DEFAULT_FACTORIES, neo4j_uow_factory
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.work import ScheduledWork, WorkKind
+from diucs.bootstrap.container import build_for_tests
 from diucs.domain.codes import ReportSource, Role
 from diucs.domain.errors import Conflict
 from diucs.domain.events import CapacityReported
-from tests.support.neo4j import count_nodes
+from tests.support.neo4j import ThrowawayNeo4j, count_nodes
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -206,3 +208,21 @@ async def test_a_repository_added_to_the_mapping_is_built_on_the_unit_of_work(
     async with neo4j_uow_factory(neo4j_driver, factories=factories)() as uow:
         assert await uow.probe.ping() == "pong"  # type: ignore[attr-defined]
         await uow.commit()
+
+
+async def test_the_container_hands_out_units_of_work_on_its_own_connection(
+    harness_container: ThrowawayNeo4j,
+) -> None:
+    """The composition root wires one unit of work factory on the process's one connection
+    (DEC-012, lesson L12). A unit of work that commits leaves no session open."""
+    connection = Neo4jConnection(
+        harness_container.uri, harness_container.user, harness_container.password
+    )
+    await connection.open()
+    try:
+        container = build_for_tests(neo4j=connection)
+        async with container.uow_factory() as uow:
+            await uow.commit()
+        assert connection.open_session_count == 0
+    finally:
+        await connection.close()

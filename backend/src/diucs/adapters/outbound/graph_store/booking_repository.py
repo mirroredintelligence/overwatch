@@ -67,7 +67,11 @@ _CONFIRMED_FOR_SERVICES: Final = NamedQuery(
     id="Q-BOOK-CONFIRMED-FOR",
     cypher=(
         "MATCH (t:Task {businessStatus: 'confirmed'})-[:OWNER]->(s:HealthcareService) "
-        "WHERE s.id IN $ids RETURN s.id AS serviceId, t.id AS id ORDER BY t.id"
+        "WHERE s.id IN $ids "
+        "MATCH (t)-[:HAS_OUTPUT]->(o:Task_Output)-[:TYPE]->"
+        "(c:Concept {code: $code, system: $system}) "
+        "RETURN s.id AS serviceId, o.valueDateTime AS confirmedAt "
+        "ORDER BY s.id, o.valueDateTime"
     ),
     mode="read",
 )
@@ -97,6 +101,13 @@ def _register(query: NamedQuery) -> None:
 
 for _query in (_PENDING, _OPEN_FOR, _CONFIRMED_FOR, _CONFIRMED_FOR_SERVICES, _BY_REF, _SET_PROPS):
     _register(_query)
+
+
+def _as_utc_instant(value: Any) -> datetime:
+    """A stored Neo4j datetime as an aware UTC datetime (the driver's own type, or text)."""
+    if isinstance(value, str):
+        return _instant("confirmedAt", value)
+    return value.to_native().astimezone(UTC)
 
 
 def _iso(value: datetime) -> str:
@@ -298,13 +309,21 @@ class Neo4jBookingRepository:
         self, service_ids: Sequence[str], since: datetime
     ) -> dict[str, list[datetime]]:
         grouped: dict[str, list[datetime]] = {service_id: [] for service_id in service_ids}
-        # One query finds the confirmed Tasks of every service. Each one is then loaded for its
-        # confirmed_at, as open_for_services loads its bookings (DEC-088 item 1).
-        rows = await run_query(self._tx, "Q-BOOK-CONFIRMED-FOR", ids=list(service_ids))
+        if not service_ids:
+            return grouped
+        # One query: the confirmed-at output of every confirmed Task of the listed services, with
+        # its service. confirmed_at is kept only in the output entry (DEC-063 item 5), so the
+        # instant is read from there, not from a second copy (DEC-001).
+        rows = await run_query(
+            self._tx,
+            "Q-BOOK-CONFIRMED-FOR",
+            ids=list(service_ids),
+            code=_CONFIRMED_AT,
+            system=_OUTPUT_TYPE_SYSTEM,
+        )
         for row in rows:
-            booking = await self.get(str(row["id"]))
-            confirmed = booking.confirmed_at if booking is not None else None
-            if confirmed is not None and confirmed >= since:
+            confirmed = _as_utc_instant(row["confirmedAt"])
+            if confirmed >= since:
                 grouped[str(row["serviceId"])].append(confirmed)
         for times in grouped.values():
             times.sort()

@@ -46,3 +46,9 @@ def test_the_device_and_contact_migrations_are_0023_and_0024_after_the_case_refe
     assert ids.count("0024_protected_contact_role_id") == 1
     assert ids.index("0023_device_id") > ids.index("0022_case_reference_id")
     assert ids.index("0024_protected_contact_role_id") > ids.index("0023_device_id")
+
+
+def test_the_protected_contact_key_migration_is_0025_after_the_contact_index() -> None:
+    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    assert ids.count("0025_protected_contact_key") == 1
+    assert ids.index("0025_protected_contact_key") > ids.index("0024_protected_contact_role_id")

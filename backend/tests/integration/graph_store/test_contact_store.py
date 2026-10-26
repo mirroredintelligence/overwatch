@@ -5,6 +5,7 @@ one transaction and each load runs in a fresh session. The phone number used her
 sample; no patient data is used.
 """
 
+import asyncio
 from typing import Any
 
 import pytest
@@ -12,7 +13,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.time import DateTime
 
 from diucs.adapters.outbound.graph_store.contact_store import Neo4jContactStore
-from diucs.domain.errors import ValidationFailed
+from diucs.domain.errors import Conflict, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -141,3 +142,26 @@ async def test_an_email_without_an_at_sign_is_refused_and_writes_nothing(
         await write_tx(neo4j_driver, work)
 
     assert await count_nodes(neo4j_driver, "ProtectedContact") == 0
+
+
+async def test_racing_first_puts_for_one_role_leave_one_protected_contact(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """Sixteen racing first writes of one role's phone. Each either commits or is refused as a
+    Conflict, and exactly one ProtectedContact node exists afterwards (DEC-073 item 3)."""
+
+    async def put(number: str) -> str:
+        async def work(tx: AsyncManagedTransaction) -> None:
+            await Neo4jContactStore(tx).put_phone(ROLE, number)
+
+        try:
+            await write_tx(neo4j_driver, work)
+        except Conflict:
+            return "conflict"
+        return "stored"
+
+    numbers = [f"07700 9001{n:02d}" for n in range(16)]
+    outcomes = await asyncio.gather(*(put(number) for number in numbers))
+
+    assert set(outcomes) <= {"stored", "conflict"}
+    assert await count_nodes(neo4j_driver, "ProtectedContact") == 1

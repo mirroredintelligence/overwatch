@@ -5,6 +5,7 @@ each read runs in a fresh session. The PIN hashes are synthetic: the raw PIN nev
 store, so the tests assert that no stored property holds it.
 """
 
+import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
@@ -20,9 +21,9 @@ from diucs.adapters.outbound.graph_store.credential_store import (
 )
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.domain.errors import Conflict, NotFound
+from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.people import Practitioner
-from diucs.domain.rules.identity_policy import PinOutcome, PinState
+from diucs.domain.rules.identity_policy import PinOutcome, PinState, pin_attempt
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -282,3 +283,104 @@ async def test_device_id_is_unique_in_the_graph(
 
     with pytest.raises(ClientError):
         await write_tx(neo4j_driver, duplicate)
+
+
+async def test_sixteen_concurrent_wrong_pins_lock_the_device_at_five_failures(
+    neo4j_driver: AsyncDriver, practitioners: None
+) -> None:
+    """Each attempt reads the state, judges it and saves it in its own unit of work. Without the
+    lock taken by the read, two attempts can read the same count and both be allowed, so more than
+    four wrong PINs would get an answer of WRONG."""
+    await _run(neo4j_driver, lambda pins, _: pins.set_pin("p1", "dev-1", PIN_HASH))
+
+    async def attempt(_: int) -> PinOutcome | None:
+        async def work(tx: AsyncManagedTransaction) -> PinOutcome | None:
+            pins = Neo4jPinStore(tx)
+            current = await pins.get("p1", "dev-1")
+            assert current is not None
+            judged = pin_attempt(current[1], ok=False, now=AT)
+            await pins.save_state("p1", "dev-1", judged)
+            return judged.last_outcome
+
+        return await write_tx(neo4j_driver, work)
+
+    outcomes = await asyncio.gather(*(attempt(n) for n in range(16)))
+
+    assert outcomes.count(PinOutcome.WRONG) == 4
+    assert outcomes.count(PinOutcome.LOCKED) == 12
+    final = await _read(neo4j_driver, lambda pins, _: pins.get("p1", "dev-1"))
+    assert final == (
+        PIN_HASH,
+        PinState(failed_tries=5, locked=True, last_outcome=PinOutcome.LOCKED),
+    )
+
+
+async def test_a_naive_registration_time_is_refused_and_writes_nothing(
+    neo4j_driver: AsyncDriver, practitioners: None
+) -> None:
+    async def work(tx: AsyncManagedTransaction) -> None:
+        await Neo4jDeviceRegistry(tx).register("p1", "dev-1", datetime(2026, 10, 25, 11, 0))
+
+    with pytest.raises(ValidationFailed):
+        await write_tx(neo4j_driver, work)
+
+    assert await count_nodes(neo4j_driver, "Device") == 0
+
+
+async def test_racing_registrations_of_one_device_leave_one_device_node(
+    neo4j_driver: AsyncDriver, practitioners: None
+) -> None:
+    """Two practitioners race for one device id. The device-owner check passes for both before
+    either writes, so the unique constraint decides: one wins and the other is Conflict."""
+
+    async def register(practitioner_id: str) -> str:
+        async def work(tx: AsyncManagedTransaction) -> None:
+            await Neo4jDeviceRegistry(tx).register(practitioner_id, "dev-race", AT)
+
+        try:
+            await write_tx(neo4j_driver, work)
+        except Conflict:
+            return "conflict"
+        return "registered"
+
+    outcomes = await asyncio.gather(*(register(pid) for pid in ["p1", "p2"] * 8))
+
+    assert await count_nodes(neo4j_driver, "Device") == 1
+    assert set(outcomes) <= {"registered", "conflict"}
+    assert outcomes.count("registered") >= 1
+
+
+async def test_racing_set_pin_for_one_device_leaves_one_credential(
+    neo4j_driver: AsyncDriver, practitioners: None
+) -> None:
+    """Sixteen racing first writes of one credential. Without a lock taken before the MERGE, two
+    transactions can each create a Credential node (lesson L90), and a later save_state then
+    matches two nodes."""
+
+    async def set_pin(_: int) -> None:
+        async def work(tx: AsyncManagedTransaction) -> None:
+            await Neo4jPinStore(tx).set_pin("p1", "dev-1", PIN_HASH)
+
+        await write_tx(neo4j_driver, work)
+
+    await asyncio.gather(*(set_pin(n) for n in range(16)))
+
+    assert await count_nodes(neo4j_driver, "Credential") == 1
+
+
+async def test_racing_register_by_the_same_practitioner_succeeds_and_leaves_one_device(
+    neo4j_driver: AsyncDriver, practitioners: None
+) -> None:
+    """Sixteen racing registrations of one device by one practitioner are one registration, so
+    none is refused (DEC-073 item 2)."""
+
+    async def register(_: int) -> None:
+        async def work(tx: AsyncManagedTransaction) -> None:
+            await Neo4jDeviceRegistry(tx).register("p1", "dev-same", AT)
+
+        await write_tx(neo4j_driver, work)
+
+    await asyncio.gather(*(register(n) for n in range(16)))
+
+    assert await count_nodes(neo4j_driver, "Device") == 1
+    assert await _read(neo4j_driver, lambda _, devices: devices.known("p1", "dev-same")) is True

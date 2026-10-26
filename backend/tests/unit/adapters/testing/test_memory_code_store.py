@@ -3,8 +3,11 @@ keeps the same contract: a code's state is gone once it has been valid for ten m
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
+
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_code_store import InMemoryCodeStore, RecordingCodeSender
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.identity_policy import CodeState
 
 ISSUED = datetime(2026, 10, 25, 11, 0, tzinfo=UTC)
@@ -51,3 +54,12 @@ async def test_recording_code_sender_records_the_phone_and_the_code() -> None:
         ("07700 900123", "482913"),
         ("07700 900456", "101112"),
     ]
+
+
+async def test_a_code_saved_with_a_naive_issue_time_is_refused() -> None:
+    store = InMemoryCodeStore(FixedClock(ISSUED))
+
+    with pytest.raises(ValidationFailed):
+        await store.save(PHONE_HASH, CODE_HASH, CodeState(issued_at=datetime(2026, 10, 25, 11, 0)))
+
+    assert await store.get(PHONE_HASH) is None

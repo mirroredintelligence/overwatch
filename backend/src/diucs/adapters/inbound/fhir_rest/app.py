@@ -42,7 +42,6 @@ def create_app(container: ApiContainer) -> FastAPI:
     install_exception_handlers(app)
     # add_middleware wraps the app, so the last one added runs first: the catch-all is outermost.
     app.add_middleware(BodyTypeMiddleware)
-    app.add_middleware(UnhandledErrorMiddleware)
 
     @app.get("/health")
     def health() -> dict[str, str]:

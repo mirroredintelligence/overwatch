@@ -41,6 +41,9 @@ REFUSED = [
     pytest.param("Duty 07700" + COMBINING_ACUTE + "90012", id="combining-mark-in-ten-digits"),
     pytest.param("Duty 07700" + ZERO_WIDTH_SPACE + "90012", id="zero-width-space-in-ten-digits"),
     pytest.param("Duty SW1A" + COMBINING_ACUTE + " 1AA", id="postcode-with-combining-mark"),
+    # The precomposed letter: NFKC would keep it as one character, so only the NFKD step (which
+    # exposes the combining mark before removal) refuses it (DEC-065 item 12).
+    pytest.param("Duty SW1Á 1AA", id="postcode-with-precomposed-accent"),
     pytest.param("Duty SW1A" + ZERO_WIDTH_SPACE + "1AA", id="postcode-with-zero-width-space"),
 ]
 

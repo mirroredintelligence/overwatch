@@ -41,3 +41,11 @@ async def test_a_registered_resource_appears_in_the_next_metadata(
     assert resources == [
         {"type": "HealthcareService", "interaction": [{"code": "read"}]},
     ]
+
+
+async def test_the_metadata_is_dated_from_the_container_clock(
+    api_client: AsyncClient,
+) -> None:
+    response = await api_client.get("/fhir/metadata")
+
+    assert response.json()["date"] == "2026-10-23T13:12:00Z"

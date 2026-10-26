@@ -1,12 +1,20 @@
 """The FastAPI application every FHIR route hangs off (R01).
 
-Stub for the red commit (DEC-010): the signatures are final, the bodies are not built yet.
+The app reads only from the container it is given. It imports no outbound adapter and no bootstrap
+module (the layers and independence contracts in backend/.importlinter). The process that serves
+it calls container.startup() before serving and container.shutdown() on exit (DEC-012).
 """
 
-from typing import Protocol
+from typing import Protocol, cast
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 
+from diucs.adapters.inbound.fhir_rest import capability
+from diucs.adapters.inbound.fhir_rest.errors import (
+    BodyTypeMiddleware,
+    UnhandledErrorMiddleware,
+    install_exception_handlers,
+)
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 
@@ -23,8 +31,28 @@ class ApiContainer(Protocol):
 
 
 def create_app(container: ApiContainer) -> FastAPI:
-    raise NotImplementedError("R01: create_app is not built yet")
+    # The OpenAPI pages are off: every response is FHIR, and the surface is the FHIR API only.
+    app = FastAPI(
+        title="DIUCS capacity FHIR API",
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
+    app.state.container = container
+    install_exception_handlers(app)
+    # add_middleware wraps the app, so the last one added runs first: the catch-all is outermost.
+    app.add_middleware(BodyTypeMiddleware)
+    app.add_middleware(UnhandledErrorMiddleware)
+
+    @app.get("/health")
+    def health() -> dict[str, str]:
+        return {"status": "ok"}
+
+    fhir = APIRouter(prefix="/fhir")
+    fhir.include_router(capability.router)
+    app.include_router(fhir)
+    return app
 
 
 def get_container(request: Request) -> ApiContainer:
-    raise NotImplementedError("R01: get_container is not built yet")
+    return cast(ApiContainer, request.app.state.container)

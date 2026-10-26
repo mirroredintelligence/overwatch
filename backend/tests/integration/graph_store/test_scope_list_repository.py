@@ -140,8 +140,17 @@ async def test_saving_an_entry_for_an_existing_active_service_leaves_it_untouche
 async def test_entries_are_sorted_by_name_and_an_unknown_service_has_no_entry(
     neo4j_driver: AsyncDriver,
 ) -> None:
+    # Both services need an entry for the sort to have two rows to order. The first red version
+    # of this test left UCR West out of the list, so its expectation was wrong (corrected red).
     await _seed_active_service(neo4j_driver)
-    await _run(neo4j_driver, _sdec(ScopeFlag.IN_PILOT))
+    west_entry = ScopeEntry(
+        service_id=WEST,
+        name="UCR West",
+        category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+        flag=ScopeFlag.IN_PILOT,
+        date=DAY,
+    )
+    await _run(neo4j_driver, _sdec(ScopeFlag.IN_PILOT), west_entry)
 
     entries = await _read(neo4j_driver, lambda repo: repo.entries())
 

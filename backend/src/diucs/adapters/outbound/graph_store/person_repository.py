@@ -362,7 +362,8 @@ class Neo4jPersonRepository:
                 if role is None or not _reporter_in_effect(role, now):
                     continue
                 found[role.id] = (role, str(row["name"]))
-        # Spec query #3 orders by service name; service id then role id break ties (DEC-065).
+        # The spec's query #3 orders by service name. Service id and role id are added tie-breaks
+        # (DEC-065 item 2).
         return sorted(
             found.values(),
             key=lambda pair: (pair[1], pair[0].service_id or "", pair[0].id),

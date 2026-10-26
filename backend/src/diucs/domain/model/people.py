@@ -34,25 +34,38 @@ _POSTCODE = re.compile(r"\b[A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2}\b", re.IGNOR
 _MAX_STAFF_DIGITS = 9
 
 
+def _normalise_staff_text(value: str) -> str:
+    """Normalise before any check, in this order: decompose (NFKD), drop format characters (Cf) and
+    combining marks (Mn), then compose (NFKC). The decomposition comes first so that a combining
+    mark is seen before NFKC composes it into a letter (DEC-065 item 12)."""
+    decomposed = unicodedata.normalize("NFKD", value)
+    kept = "".join(c for c in decomposed if unicodedata.category(c) not in ("Cf", "Mn"))
+    return unicodedata.normalize("NFKC", kept)
+
+
 def check_staff_text(field: str, value: str) -> None:
-    """A staff name may not carry a postcode, and may not hold ten or more Unicode decimal digits in
-    total. The postcode check runs on NFKC-normalised text, so fullwidth letters and digits are
-    matched. Refused by field name only; the value is never echoed (DEC-065 items 6 and 11)."""
-    digits = sum(1 for character in value if character.isdecimal())
-    if _POSTCODE.search(unicodedata.normalize("NFKC", value)) or digits > _MAX_STAFF_DIGITS:
+    """A staff name may not carry a postcode, and may not hold ten or more Unicode decimal digits
+    in total. Both checks run on the normalised text (DEC-065 items 6, 11 and 12). Refused by field
+    name only; the value is never echoed."""
+    text = _normalise_staff_text(value)
+    digits = sum(1 for character in text if character.isdecimal())
+    if _POSTCODE.search(text) or digits > _MAX_STAFF_DIGITS:
         raise ValidationFailed(field, "must not carry a postcode or a phone or NHS number")
 
 
 def check_phone_hash(value: str) -> None:
     """A phone hash is exactly 64 lowercase hex characters (the keyed HMAC, DEC-060). Anything else
-    is refused by field name only: the value may be a phone number, so it is never echoed."""
+    is refused by field name only: the value may be a phone number, so it is never echoed. The check
+    is ASCII by design and is not normalised, so a fullwidth or Arabic-Indic digit is refused rather
+    than folded into an ASCII one (DEC-065 item 13)."""
     if not isinstance(value, str) or not _PHONE_HASH.fullmatch(value):
         raise ValidationFailed("phone_hash", "must be a 64-character lowercase hex hash")
 
 
 def check_email_domain(value: str) -> None:
     """A bare domain: lowercase letters, digits and hyphens, with at least one dot. No '@', no
-    spaces, no local part. Refused by field name only, never echoed (DEC-065)."""
+    spaces, no local part. Refused by field name only, never echoed (DEC-065). ASCII by design and
+    not normalised: a fullwidth full stop is refused, not folded into a dot (DEC-065 item 13)."""
     if not isinstance(value, str) or not _EMAIL_DOMAIN.fullmatch(value):
         raise ValidationFailed("email_domain", "must be a bare domain such as nhs.example")
 

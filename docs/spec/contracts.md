@@ -198,6 +198,9 @@ These names were added by individual task prompts. They are as binding as the re
 | `WorkKind` value `not-updated-check` | `application/work.py` | U34 |
 | `DeviceRegistry.get`, `DeviceRegistry.save`; `ClaimPairingResult.status` may be `expired` | `application/ports/outbound/identity.py`, `use_cases/pair_wall_screen.py` | U10, R15 |
 | `DeviceRegistry.revoke_all`, device status `pending-callback` | `application/ports/outbound/identity.py` | U37 |
+| Graph names for P13 (DEC-080 to DEC-082): label `RegistrationDraftField` (properties `step`, `field`, `value`) joined to its Task by `DRAFT_OF`; Task properties `businessStatus` and `submittedAt`; Task code `register-service` in CodeSystem `task-code`; ENTRY properties `flag`, `date`, `reason`; the scope list is `(:Resource:List {id: 'scope-list'})` | `adapters/outbound/graph_store/registration_repository.py`, `scope_list_repository.py` | P13 |
+| Extensions `checkAutomatic`, `checkCallback`, `checkScope`, `checkCriteria` (the four approval checks, DEC-081) | `adapters/outbound/graph_store/extensions.py` | P13 |
+| `registration_to_fhir`, `registration_from_fhir`, `draft_to_rows`, `draft_from_rows` (pure mapping) | `adapters/outbound/graph_store/registration_repository.py` | P13 |
 | `ServicePositions` port | `application/ports/outbound/geo.py` | U12 |
 | `Terminology.search_pathways_dx(text, limit)` | `application/ports/outbound/terminology.py` | R16 |
 | `ProcessedMessages` port and `UnitOfWork.processed`: consumer idempotency | `application/ports/outbound/idempotency.py` | G08 |

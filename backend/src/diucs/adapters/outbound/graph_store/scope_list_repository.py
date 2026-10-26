@@ -12,7 +12,7 @@ with Conflict. Every save takes the list's write lock first (lesson L99), then c
 so two saves for one service serialise and leave one entry.
 """
 
-from datetime import date, datetime
+from datetime import date
 from typing import Any, Final
 
 from neo4j import AsyncManagedTransaction
@@ -26,7 +26,7 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_to_fhir,
 )
 from diucs.domain.codes import ScopeFlag, ServiceCategory, parse_code
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.model.registration import ScopeEntry
 
 LIST_ID: Final = "scope-list"
@@ -87,10 +87,9 @@ for _query in (_ENSURE_LIST, _LOCK_LIST, _UPSERT_ENTRY, _ENTRIES, _ENTRY_FOR):
 
 
 def _as_date(value: Any) -> date:
-    """The driver returns Neo4j dates as its own type; the entry holds a plain calendar date."""
-    native = value.to_native() if hasattr(value, "to_native") else value
-    if not isinstance(native, date) or isinstance(native, datetime):
-        raise ValidationFailed("date", "must be a calendar date")
+    """The driver returns Neo4j dates as its own type. ScopeEntry refuses anything that is not a
+    calendar date, so a stored instant is refused there, once."""
+    native: date = value.to_native() if hasattr(value, "to_native") else value
     return native
 
 

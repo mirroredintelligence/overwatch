@@ -308,6 +308,7 @@ async def test_two_racing_writers_of_one_version_number_leave_one_version(
     neo4j_driver: AsyncDriver,
 ) -> None:
     await _seed_service(neo4j_driver)
+    await _run(neo4j_driver, lambda repo: repo.add(UCR_WEST_V3))
     twin = replace(V4_PENDING, id="crit-ucr-west-v4-twin")
     session = neo4j_driver.session()
     held = await session.begin_transaction()
@@ -321,4 +322,4 @@ async def test_two_racing_writers_of_one_version_number_leave_one_version(
         await session.close()
     with pytest.raises(Conflict):
         await racer
-    assert await count_nodes(neo4j_driver, "ServiceCriteria") == 1
+    assert await count_nodes(neo4j_driver, "ServiceCriteria") == 2

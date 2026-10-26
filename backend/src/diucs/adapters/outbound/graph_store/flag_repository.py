@@ -70,7 +70,7 @@ _QUERIES: Final = (
     ),
     NamedQuery(
         id="Q-FLAG-REPORT-LOCK",
-        cypher=("MATCH (f:ReportFlag {id: $id}) RETURN count(f) AS locked"),
+        cypher=("MATCH (f:ReportFlag {id: $id}) SET f.id = f.id RETURN count(f) AS locked"),
         mode="write",
     ),
     NamedQuery(

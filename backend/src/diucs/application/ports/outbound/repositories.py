@@ -10,6 +10,7 @@ from typing import Protocol
 
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
+from diucs.domain.model.case import Case
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 
@@ -130,4 +131,32 @@ class PersonRepository(Protocol):
     async def save_role(self, role: PractitionerRole) -> None:
         """Insert the role, or replace the stored one, with its channel and cover links. Replacing
         without a cover removes the cover link."""
+        ...
+
+
+class CaseRepository(Protocol):
+    """Advisor cases: a Patient stub, a ServiceRequest and the referrer's score Observations (P21).
+    Adapter: Neo4jCaseRepository (graph_store/case_repository.py).
+
+    The postcode and needs are cleared when the case closes, and no copy of them survives (the
+    stub and the request keep no history). Scores and the reference never change once recorded,
+    and a closed case cannot be reopened.
+    """
+
+    async def add(self, case: Case) -> None:
+        """Store a new case with its scores. A case id that already exists raises Conflict."""
+        ...
+
+    async def get(self, case_id: str) -> Case | None:
+        """The stored case, open or closed, or None."""
+        ...
+
+    async def get_by_reference(self, reference: str) -> Case | None:
+        """The case with this reference, or None."""
+        ...
+
+    async def save(self, case: Case) -> None:
+        """Replace the stored case. An unknown id raises NotFound. A change to the scores or the
+        reference raises ValidationFailed, and reopening a closed case raises InvalidTransition.
+        All of these are checked before anything is written."""
         ...

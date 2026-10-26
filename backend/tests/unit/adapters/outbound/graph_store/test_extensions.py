@@ -52,6 +52,11 @@ REGISTERED_TYPES: dict[str, str] = {
     "channel": "string",
     "coveredBy": "string",
     "coveredUntil": "dateTime",
+    "ageBand": "string",
+    "urgency": "string",
+    "closedAt": "dateTime",
+    "outcome": "string",
+    "bestFitNotUsed": "string",
 }
 
 _VALUE_KEY = {
@@ -93,7 +98,7 @@ def _root(fragment: GraphFragment) -> dict[str, Any]:
 # The registry
 
 
-def test_registry_holds_the_seventeen_named_extensions() -> None:
+def test_registry_holds_the_twenty_two_named_extensions() -> None:
     assert {defn.short_name for defn in EXTENSIONS.values()} == set(REGISTERED_TYPES)
 
 

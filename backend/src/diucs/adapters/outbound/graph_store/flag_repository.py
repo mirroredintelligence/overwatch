@@ -269,7 +269,7 @@ class Neo4jFlagRepository:
         if not service or str(service[0]["serviceId"]) != flag.service_id:
             raise ValidationFailed("service_id", "is not the service the report is about")
         existing = await run_query(self._tx, "Q-FLAG-REPORT-EXISTS", id=flag.id)
-        if False:
+        if int(existing[0]["found"]) > 0:
             raise Conflict("a report flag with this id already exists")
         await run_query(self._tx, "Q-FLAG-REPORT-ADD", key=key, props=_report_props(flag))
 

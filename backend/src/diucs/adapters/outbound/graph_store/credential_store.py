@@ -125,12 +125,21 @@ class Neo4jPinStore:
         """Store the keyed hash of a PIN and start its state fresh: no failures, not locked. A
         practitioner who does not exist is NotFound, and nothing is written."""
         await self._require_practitioner(practitioner_id)
-        await self._run(
-            "Q-CRED-SET", key=_key(practitioner_id), deviceId=device_id, pinHash=pin_hash
-        )
+        try:
+            await self._run(
+                "Q-CRED-SET", key=_key(practitioner_id), deviceId=device_id, pinHash=pin_hash
+            )
+        except ConstraintError as error:
+            # The device already has a credential, held by another practitioner or raced in
+            # parallel. The write is refused and nothing is stored (DEC-074).
+            raise Conflict("device already has a PIN credential") from error
 
     async def get(self, practitioner_id: str, device_id: str) -> tuple[str, PinState] | None:
+        """The credential for the device, or None. More than one row is refused, never read as
+        one of them: a duplicate would let a PIN be checked against the wrong hash (DEC-074)."""
         rows = await self._run("Q-CRED-GET", key=_key(practitioner_id), deviceId=device_id)
+        if len(rows) > 1:
+            raise Conflict("more than one credential for this device")
         if not rows or rows[0]["pinHash"] is None:
             return None
         return str(rows[0]["pinHash"]), _pin_state(rows[0])

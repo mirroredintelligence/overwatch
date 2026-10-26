@@ -17,8 +17,8 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.registration_repository import Neo4jRegistrationRepository
 from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
-from diucs.domain.codes import RegistrationStatus, ServiceCategory
-from diucs.domain.errors import Conflict, NotFound
+from diucs.domain.codes import CriteriaStatus, RegistrationStatus, ServiceCategory
+from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.registration import Registration
 from diucs.domain.rules.registration import ApprovalChecks
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
@@ -133,6 +133,20 @@ async def test_submitted_registrations_are_listed_in_submission_order_and_drafts
     )
 
     assert [r.id for r in listed] == ["reg-ucr-east-3", "reg-ucr-east-1", "reg-ucr-east-2"]
+
+
+async def test_listing_by_a_criteria_status_with_the_same_value_is_refused(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # Lesson L38: CriteriaStatus.DRAFT and RegistrationStatus.DRAFT both hold "draft" and compare
+    # equal, so a status lookup must check the enum type before it matches the business status.
+    assert CriteriaStatus.DRAFT == RegistrationStatus.DRAFT
+    await _seed_service(neo4j_driver, EAST)
+    draft = replace(SUBMITTED_EAST, id="reg-ucr-east-5", status=RegistrationStatus.DRAFT)
+    await _run(neo4j_driver, lambda repo: repo.add(draft))
+
+    with pytest.raises(ValidationFailed):
+        await _read(neo4j_driver, lambda repo: repo.list_by_status(CriteriaStatus.DRAFT))
 
 
 async def test_saving_submitted_as_in_review_updates_the_business_status(

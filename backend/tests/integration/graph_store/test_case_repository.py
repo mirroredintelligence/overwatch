@@ -381,3 +381,58 @@ async def test_a_duplicate_reference_that_passes_the_check_is_a_conflict(
 
     assert await count_nodes(neo4j_driver, "Patient") == 1
     assert await _load(neo4j_driver, "case-1") == OPEN_CASE
+
+
+async def test_an_outcome_without_a_close_time_is_refused_on_add_and_writes_nothing(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # Round-2 finding: the write path accepted this and the next read raised. Refused on the way in.
+    bad = replace(OPEN_CASE, outcome=Outcome.DECLINED)
+
+    async def swallow_and_commit(tx: AsyncManagedTransaction) -> None:
+        with contextlib.suppress(ValidationFailed):
+            await _repo(tx).add(bad)
+
+    await write_tx(neo4j_driver, swallow_and_commit)
+
+    assert await count_nodes(neo4j_driver, "Patient") == 0
+    assert await count_nodes(neo4j_driver, "ServiceRequest") == 0
+
+
+async def test_an_outcome_without_a_close_time_is_refused_on_save_and_the_stored_case_is_kept(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _write(neo4j_driver, OPEN_CASE)
+    bad = replace(OPEN_CASE, outcome=Outcome.DECLINED)
+
+    with pytest.raises(ValidationFailed):
+        await _write(neo4j_driver, bad, save=True)
+
+    assert await _load(neo4j_driver, "case-1") == OPEN_CASE
+
+
+async def test_a_full_postcode_is_refused_on_save_and_the_stored_case_is_kept(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _write(neo4j_driver, OPEN_CASE)
+    full = replace(OPEN_CASE, postcode="DT4 8XX")
+
+    with pytest.raises(ValidationFailed):
+        await _write(neo4j_driver, full, save=True)
+
+    assert await _load(neo4j_driver, "case-1") == OPEN_CASE
+
+
+async def test_a_closed_case_with_residue_is_refused_on_add_and_writes_nothing(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    residue = replace(OPEN_CASE, closed_at=CLOSED, outcome=Outcome.DECLINED)
+
+    async def swallow_and_commit(tx: AsyncManagedTransaction) -> None:
+        with contextlib.suppress(ValidationFailed):
+            await _repo(tx).add(residue)
+
+    await write_tx(neo4j_driver, swallow_and_commit)
+
+    assert await count_nodes(neo4j_driver, "Patient") == 0
+    assert await count_nodes(neo4j_driver, "Observation") == 0

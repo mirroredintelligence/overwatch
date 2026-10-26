@@ -16,11 +16,13 @@ from datetime import UTC, datetime
 
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
+from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.bootstrap.settings import Settings
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -32,6 +34,8 @@ class Container:
     ids: IdGenerator
     # One connection per process, which owns the one AsyncDriver (DEC-012).
     neo4j: Neo4jConnection
+    # Units of work on that connection: one session and one transaction each (P06).
+    uow_factory: UnitOfWorkFactory
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -60,10 +64,13 @@ def build(settings: Settings) -> Container:
     """Wire the production-facing adapters. Profiles differ only in external providers,
     which later tasks add; the clock and ids are the same in every profile. Connects to nothing:
     call startup() to open Neo4j."""
+    neo4j = _neo4j_connection(settings)
+    clock = SystemClock()
     return Container(
-        clock=SystemClock(),
+        clock=clock,
         ids=UuidGenerator(),
-        neo4j=_neo4j_connection(settings),
+        neo4j=neo4j,
+        uow_factory=neo4j_uow_factory(neo4j, clock=clock),
     )
 
 
@@ -78,8 +85,10 @@ def build_for_tests(
     The connection is required, so each test owns one connection (a fixture) and shares it with
     every container it builds. Nothing here creates a driver. The fixture closes the connection.
     """
+    resolved_clock = FixedClock(TEST_NOW) if clock is None else clock
     return Container(
-        clock=FixedClock(TEST_NOW) if clock is None else clock,
+        clock=resolved_clock,
         ids=SequentialIds() if ids is None else ids,
         neo4j=neo4j,
+        uow_factory=neo4j_uow_factory(neo4j, clock=resolved_clock),
     )

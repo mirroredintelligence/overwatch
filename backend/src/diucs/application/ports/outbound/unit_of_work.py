@@ -13,6 +13,7 @@ committed (DEC-083 item 9).
 """
 
 from collections.abc import Callable
+from types import TracebackType
 from typing import Protocol, Self
 
 from diucs.application.ports.outbound.audit import AuditLog
@@ -55,7 +56,12 @@ class UnitOfWork(Protocol):
 
     async def __aenter__(self) -> Self: ...
 
-    async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None: ...
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None: ...
 
     async def commit(self) -> None:
         """Commit every write of this unit of work at once. Refused (and rolled back) after a

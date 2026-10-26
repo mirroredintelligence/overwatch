@@ -117,6 +117,11 @@ MIGRATIONS: list[tuple[str, str]] = [
         "0027_report_flag_id",
         "CREATE CONSTRAINT report_flag_id IF NOT EXISTS FOR (n:ReportFlag) REQUIRE n.id IS UNIQUE",
     ),
+    (
+        "0028_outbox_message_id",
+        "CREATE CONSTRAINT outbox_message_id IF NOT EXISTS "
+        "FOR (n:OutboxMessage) REQUIRE n.id IS UNIQUE",
+    ),
 ]
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

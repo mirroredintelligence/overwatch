@@ -9,10 +9,11 @@ The payload is the event's to_payload() output. Stored graph-native (DEC-001): n
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Protocol
 
-from diucs.domain.events import DomainEvent
+from diucs.domain.errors import ValidationFailed
+from diucs.domain.events import DomainEvent, session_id_for, topic_for
 
 MAX_ATTEMPTS = 10
 PENDING = "pending"
@@ -32,11 +33,26 @@ class OutboxMessage:
     attempts: int = 0
     session_id: str | None = None
 
+    def __post_init__(self) -> None:
+        if self.created_at.utcoffset() != timedelta(0):
+            raise ValidationFailed("created_at", "must be a timezone-aware UTC datetime")
+        if self.status not in OUTBOX_STATUSES:
+            raise ValidationFailed("status", "must be pending, published or dead")
+        if self.attempts < 0:
+            raise ValidationFailed("attempts", "cannot be negative")
+
 
 def outbox_message_for(event: DomainEvent, id: str, now: datetime) -> OutboxMessage:
     """The outbox message for one domain event: topic and session from the event, payload from
     to_payload(), status pending and no attempts."""
-    raise NotImplementedError("outbox_message_for is not built yet (P06)")
+    return OutboxMessage(
+        id=id,
+        topic=topic_for(event),
+        event_type=event.event_type,
+        payload=event.to_payload(),
+        created_at=now,
+        session_id=session_id_for(event),
+    )
 
 
 class Outbox(Protocol):

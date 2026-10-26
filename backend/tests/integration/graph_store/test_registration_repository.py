@@ -293,7 +293,9 @@ async def test_a_save_waits_for_a_held_save_and_a_refused_save_leaves_its_draft(
 async def test_drafts_are_listed_in_id_order(neo4j_driver: AsyncDriver) -> None:
     # Drafts have no submission time, so the order is by id, not by insertion (DEC-080).
     await _seed_service(neo4j_driver, EAST)
-    later = replace(SUBMITTED_EAST, id="reg-ucr-east-6", status=RegistrationStatus.DRAFT, submitted_at=None)
+    later = replace(
+        SUBMITTED_EAST, id="reg-ucr-east-6", status=RegistrationStatus.DRAFT, submitted_at=None
+    )
     earlier = replace(later, id="reg-ucr-east-5")
     await _run(neo4j_driver, lambda repo: repo.add(later), lambda repo: repo.add(earlier))
 

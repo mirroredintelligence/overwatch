@@ -6,6 +6,7 @@ was really stored. All values are synthetic; there is no patient data.
 """
 
 import asyncio
+import dataclasses
 from datetime import UTC, datetime
 from typing import Any
 
@@ -205,3 +206,29 @@ async def test_sixteen_racing_adds_of_one_booking_let_exactly_one_win(
 
     assert outcomes.count(True) == 1
     assert await count_nodes(neo4j_driver, "Task") == 1
+
+
+async def test_confirmed_since_for_services_gives_each_service_its_own_confirmations(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    since = datetime(2026, 10, 25, 13, 0, tzinfo=UTC)
+    west_after = BOOKING_4821.with_status(BookingStatus.CONFIRMED, CONFIRMED_AT)
+    west_before = dataclasses.replace(BOOKING_4821, id="bk-4823", reference="4823").with_status(
+        BookingStatus.CONFIRMED, datetime(2026, 10, 25, 12, 0, tzinfo=UTC)
+    )
+    east_at = datetime(2026, 10, 25, 13, 30, tzinfo=UTC)
+    east_after = BOOKING_4822_EAST.with_status(BookingStatus.CONFIRMED, east_at)
+    await _write(neo4j_driver, west_after, west_before, east_after)
+
+    grouped = await read_tx(
+        neo4j_driver,
+        lambda tx: _repo(tx).confirmed_since_for_services(
+            ["svc-ucr-west", "svc-ucr-east", "svc-none"], since
+        ),
+    )
+
+    assert grouped == {
+        "svc-ucr-west": [CONFIRMED_AT],
+        "svc-ucr-east": [east_at],
+        "svc-none": [],
+    }

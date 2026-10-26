@@ -432,3 +432,43 @@ async def test_a_board_entry_holds_only_service_fields() -> None:
         "next_due_at",
         "was_due_at",
     }
+
+
+async def test_bookings_count_only_for_their_own_service(uow_factory: UnitOfWorkFactory) -> None:
+    west_request = Booking(
+        id="bk-4821",
+        reference="4821",
+        service_id=WEST.id,
+        case_id="case-4821",
+        requester_id="prac-advisor-1",
+        status=BookingStatus.REQUESTED,
+        requested_at=datetime(2026, 10, 23, 13, 10, tzinfo=UTC),
+        reply_by=datetime(2026, 10, 23, 13, 40, tzinfo=UTC),
+    )
+    east_request = dataclasses.replace(
+        west_request, id="bk-4822", reference="4822", service_id=EAST.id
+    )
+    await _seed(
+        uow_factory,
+        profiles=MAIN_PROFILES,
+        reports=MAIN_REPORTS,
+        bookings=(west_request, east_request),
+    )
+    async with uow_factory() as uow:
+        await uow.bookings.save(
+            east_request.with_status(
+                BookingStatus.CONFIRMED, datetime(2026, 10, 23, 13, 19, tzinfo=UTC)
+            )
+        )
+        await uow.commit()
+
+    entries = await _board(uow_factory, FRIDAY_LATER)
+
+    # Each service counts only its own bookings: UCR West keeps its pending request, and the
+    # confirmed UCR East booking takes its last place without changing UCR West.
+    assert entries["svc-ucr-west"].pending == 1
+    assert entries["svc-ucr-west"].effective_available == 4
+    assert entries["svc-ucr-east"].pending == 0
+    assert entries["svc-ucr-east"].effective_available == 0
+    assert entries["svc-hospital-at-home"].pending == 0
+    assert entries["svc-virtual-ward-frailty"].pending == 0

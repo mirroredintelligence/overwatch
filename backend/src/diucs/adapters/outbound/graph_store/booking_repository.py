@@ -286,6 +286,11 @@ class Neo4jBookingRepository:
                 times.append(confirmed)
         return sorted(times)
 
+    async def confirmed_since_for_services(
+        self, service_ids: Sequence[str], since: datetime
+    ) -> dict[str, list[datetime]]:
+        raise NotImplementedError
+
     async def pending_count(self, service_id: str) -> int:
         rows = await run_query(self._tx, "Q-BOOK-PENDING", id=service_id)
         return int(rows[0]["pending"])

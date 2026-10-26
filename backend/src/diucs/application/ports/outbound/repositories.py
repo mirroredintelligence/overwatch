@@ -84,6 +84,14 @@ class BookingRepository(Protocol):
         """confirmed_at of bookings whose status is exactly confirmed, at or after `since`."""
         ...
 
+    async def confirmed_since_for_services(
+        self, service_ids: Sequence[str], since: datetime
+    ) -> dict[str, list[datetime]]:
+        """For each service, the confirmed_at of its bookings whose status is exactly confirmed,
+        at or after `since`. Every requested id is a key, with [] if none. One query for all the
+        services (Q-BOOK-CONFIRMED-FOR, DEC-086)."""
+        ...
+
     async def pending_count(self, service_id: str) -> int:
         """How many bookings for this service are requested (Q-BOOK-PENDING)."""
         ...

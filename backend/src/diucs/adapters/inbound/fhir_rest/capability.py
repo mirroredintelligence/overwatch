@@ -5,13 +5,14 @@ the system clock (DEC-087 item 4).
 """
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from fhir.resources.R4B.capabilitystatement import CapabilityStatement
 
+from diucs.application.ports.outbound.clock import Clock
 
 FHIR_MEDIA_TYPE = "application/fhir+json; fhirVersion=4.3"
 FHIR_VERSION = "4.3.0"
@@ -89,4 +90,5 @@ def build_capability_statement(now: datetime) -> dict[str, Any]:
 @router.get("/metadata")
 async def metadata(request: Request) -> FhirJSONResponse:
     # Read from app.state, not via app.py's get_container: app.py imports this module.
-    return FhirJSONResponse(content=build_capability_statement(datetime.now(UTC)))
+    clock: Clock = request.app.state.container.clock
+    return FhirJSONResponse(content=build_capability_statement(clock.now()))

@@ -323,3 +323,25 @@ async def test_two_racing_writers_of_one_version_number_leave_one_version(
     with pytest.raises(Conflict):
         await racer
     assert await count_nodes(neo4j_driver, "ServiceCriteria") == 2
+
+
+async def test_a_service_with_a_current_version_still_reads_and_saves(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # CURRENT_CRITERIA is a local relationship with no fhirPath. Before the loader skips it, the
+    # service's own read fails with KeyError, which would break every service that has criteria.
+    await _seed_service(neo4j_driver)
+    await _run(neo4j_driver, lambda repo: repo.add(UCR_WEST_V3))
+
+    async def read_service(tx: AsyncManagedTransaction) -> Any:
+        return await Neo4jServiceRepository(tx, ResourceStore(tx)).get(SERVICE)
+
+    assert await read_tx(neo4j_driver, read_service) == UCR_WEST
+
+    async def save_service(tx: AsyncManagedTransaction) -> None:
+        await Neo4jServiceRepository(tx, ResourceStore(tx)).save(UCR_WEST)
+
+    await write_tx(neo4j_driver, save_service)
+    # A service save clears the service's outgoing relationships (DEC-053 item 6), so the link
+    # may be gone, but the current version is still found by its status.
+    assert await _read(neo4j_driver, lambda repo: repo.current_for_service(SERVICE)) == UCR_WEST_V3

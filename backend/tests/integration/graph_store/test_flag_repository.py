@@ -15,6 +15,7 @@ from typing import Any
 
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
+from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
 from diucs.adapters.outbound.graph_store.flag_repository import (
@@ -483,3 +484,49 @@ async def test_sixteen_racing_sets_for_one_service_and_code_all_succeed_and_leav
     flags = await _read(neo4j_driver, lambda repo: repo.service_flags(WEST))
     assert len(flags) == 1
     assert flags[0].code == SERVICE_FLAG_SUSPENDED
+
+
+async def test_the_database_refuses_a_second_report_flag_node_with_one_id(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # Not the repository: a raw CREATE, so the unique key on ReportFlag.id is what is tested.
+    await _seed(neo4j_driver)
+
+    async def create(tx: AsyncManagedTransaction) -> None:
+        result = await tx.run(
+            "MATCH (o:Observation {key: $key}) "
+            "CREATE (f:ReportFlag {id: $id, serviceId: $service})-[:ON]->(o)",
+            key=f"Observation/{WEST_REPORT}",
+            id="rf-raw-duplicate",
+            service=WEST,
+        )
+        await result.consume()
+
+    await write_tx(neo4j_driver, create)
+    with pytest.raises(ConstraintError):
+        await write_tx(neo4j_driver, create)
+    assert await count_nodes(neo4j_driver, "ReportFlag") == 1
+
+
+async def test_two_racing_adds_of_one_flag_id_on_different_reports_leave_one_flag(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # The report-add lock is per report, so two reports never serialise here: the unique key on
+    # the flag id must hold the second writer (lesson L94: a held transaction, not timing).
+    await _seed(neo4j_driver)
+    same_id_on_east = replace(RANGE_FLAG_EAST, id=RANGE_FLAG_WEST.id)
+    session = neo4j_driver.session()
+    held = await session.begin_transaction()
+    try:
+        await _repo(held).add_report_flag(RANGE_FLAG_WEST)
+        racer = asyncio.create_task(
+            write_tx(neo4j_driver, lambda tx: _repo(tx).add_report_flag(same_id_on_east))
+        )
+        done, _ = await asyncio.wait({racer}, timeout=1.0)
+        assert not done, "the second add must wait for the held add on the flag id"
+    finally:
+        await held.commit()
+        await session.close()
+    with pytest.raises(Conflict):
+        await racer
+    assert await count_nodes(neo4j_driver, "ReportFlag") == 1

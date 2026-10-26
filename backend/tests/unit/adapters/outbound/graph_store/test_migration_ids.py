@@ -58,3 +58,9 @@ def test_the_credential_device_migration_is_0026_after_the_contact_key() -> None
     ids = [migration_id for migration_id, _ in MIGRATIONS]
     assert ids.count("0026_credential_device_id") == 1
     assert ids.index("0026_credential_device_id") > ids.index("0025_protected_contact_key")
+
+
+def test_the_report_flag_id_migration_is_0027_after_the_credential_migration() -> None:
+    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    assert ids.count("0027_report_flag_id") == 1
+    assert ids.index("0027_report_flag_id") > ids.index("0026_credential_device_id")

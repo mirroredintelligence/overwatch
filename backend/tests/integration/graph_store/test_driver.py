@@ -19,7 +19,7 @@ from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_mig
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 
 # 9 on main (0001 to 0009, 0014 to 0020; DEC-055 item 16); P10 adds 0021, so 17.
-EXPECTED_MIGRATION_COUNT = 22  # 0001-0009, 0014-0026
+EXPECTED_MIGRATION_COUNT = 23  # 0001-0009, 0014-0027
 EXPECTED_CONSTRAINTS = {"resource_id", "identifier_key", "concept_key"}
 EXPECTED_INDEXES = {
     "obs_by_service",

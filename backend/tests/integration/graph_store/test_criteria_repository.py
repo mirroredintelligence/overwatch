@@ -322,7 +322,7 @@ async def test_two_racing_writers_of_one_version_number_leave_one_version(
         await session.close()
     with pytest.raises(Conflict):
         await racer
-    assert await count_nodes(neo4j_driver, "ServiceCriteria") == 2
+    assert await count_nodes(neo4j_driver, "ServiceCriteria") == 1
 
 
 async def test_two_racing_saves_that_make_a_version_current_leave_one_current(

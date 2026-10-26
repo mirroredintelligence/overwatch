@@ -87,7 +87,7 @@ def _http_error(request: Request, exc: Any) -> Response:
 def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ValidationFailed, _validation_failed)
     app.add_exception_handler(NotFound, _fixed(404, "not-found", NOT_FOUND_TEXT))
-    app.add_exception_handler(NotAllowed, _fixed(404, "not-found", NOT_FOUND_TEXT))
+    app.add_exception_handler(NotAllowed, _fixed(403, "forbidden", NOT_FOUND_TEXT))
     app.add_exception_handler(Conflict, _fixed(409, "conflict", CONFLICT_TEXT))
     app.add_exception_handler(InvalidTransition, _fixed(409, "business-rule", TRANSITION_TEXT))
     app.add_exception_handler(RequestValidationError, _request_invalid)

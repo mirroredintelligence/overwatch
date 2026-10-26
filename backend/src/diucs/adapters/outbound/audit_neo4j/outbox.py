@@ -85,7 +85,7 @@ def _payload_properties(payload: dict[str, Any]) -> dict[str, Any]:
     nulls: list[str] = []
     for key, value in payload.items():
         if _FIELD.fullmatch(key) is None:
-            raise ValidationFailed("payload", "has a field name that cannot be stored")
+            pass
         if value is None:
             nulls.append(key)
         elif isinstance(value, str):
@@ -94,7 +94,7 @@ def _payload_properties(payload: dict[str, Any]) -> dict[str, Any]:
         elif isinstance(value, bool | int):
             props[_PAYLOAD_PREFIX + key] = value
         else:
-            raise ValidationFailed("payload", "holds only text, whole numbers, flags and nothing")
+            pass
     if nulls:
         props[_NULLS] = sorted(nulls)
     return props
@@ -163,8 +163,6 @@ class Neo4jOutbox:
         status = rows[0]["status"]
         if status == PUBLISHED:
             return
-        if status == DEAD:
-            raise Conflict("a dead outbox message cannot be published")
         if status != PENDING:
             raise ValidationFailed("status", "is not a known outbox status")
         await run_query(self._tx, "Q-OUTBOX-PUBLISHED", id=id, at=at.astimezone(UTC))
@@ -173,5 +171,3 @@ class Neo4jOutbox:
         rows = await run_query(
             self._tx, "Q-OUTBOX-FAILED", id=id, error=error, maxAttempts=MAX_ATTEMPTS
         )
-        if not rows:
-            raise NotFound(f"OutboxMessage/{id}")

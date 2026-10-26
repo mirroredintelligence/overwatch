@@ -226,3 +226,24 @@ async def test_the_container_hands_out_units_of_work_on_its_own_connection(
         assert connection.open_session_count == 0
     finally:
         await connection.close()
+
+
+async def test_a_unit_of_work_can_be_entered_only_once(uow_factory: UnitOfWorkFactory) -> None:
+    uow = uow_factory()
+    async with uow:
+        await uow.commit()
+
+    with pytest.raises(RuntimeError):
+        async with uow:
+            pass
+
+
+async def test_a_committed_unit_of_work_cannot_be_rolled_back(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    uow = uow_factory()
+    async with uow:
+        await uow.commit()
+
+    with pytest.raises(RuntimeError):
+        await uow.rollback()

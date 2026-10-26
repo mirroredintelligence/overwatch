@@ -12,7 +12,7 @@ from neo4j.time import DateTime
 
 from diucs.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.errors import Conflict, NotFound
+from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -163,4 +163,44 @@ async def test_marking_an_unknown_message_is_not_found(uow_factory: UnitOfWorkFa
     async with uow_factory() as uow:
         with pytest.raises(NotFound):
             await uow.outbox.mark_published("out-missing", NOW)
+        await uow.rollback()
+
+
+async def test_a_payload_field_holding_a_list_is_refused_and_nothing_is_stored(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver
+) -> None:
+    with pytest.raises(ValidationFailed, match="payload"):
+        await _add(uow_factory, _message("out-1", payload={"service_ids": ["svc-ucr-west"]}))
+
+    assert await count_nodes(neo4j_driver, "OutboxMessage") == 0
+
+
+async def test_a_payload_field_name_that_cannot_be_stored_is_refused(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver
+) -> None:
+    with pytest.raises(ValidationFailed, match="payload"):
+        await _add(uow_factory, _message("out-1", payload={"service-id": "svc-ucr-west"}))
+
+    assert await count_nodes(neo4j_driver, "OutboxMessage") == 0
+
+
+async def test_a_dead_message_cannot_be_published(uow_factory: UnitOfWorkFactory) -> None:
+    await _add(uow_factory, _message("out-1"))
+    async with uow_factory() as uow:
+        for _ in range(MAX_ATTEMPTS):
+            await uow.outbox.mark_failed("out-1", "queue unavailable")
+        await uow.commit()
+
+    async with uow_factory() as uow:
+        with pytest.raises(Conflict):
+            await uow.outbox.mark_published("out-1", NOW)
+        await uow.rollback()
+
+
+async def test_recording_a_failure_for_an_unknown_message_is_not_found(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    async with uow_factory() as uow:
+        with pytest.raises(NotFound):
+            await uow.outbox.mark_failed("out-missing", "queue unavailable")
         await uow.rollback()

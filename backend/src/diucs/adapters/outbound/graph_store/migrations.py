@@ -113,6 +113,11 @@ MIGRATIONS: list[tuple[str, str]] = [
         "CREATE CONSTRAINT credential_device_id IF NOT EXISTS "
         "FOR (n:Credential) REQUIRE n.deviceId IS UNIQUE",
     ),
+    (
+        "0027_report_flag_id",
+        "CREATE CONSTRAINT report_flag_id IF NOT EXISTS "
+        "FOR (n:ReportFlag) REQUIRE n.id IS UNIQUE",
+    ),
 ]
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

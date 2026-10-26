@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from typing import Any, Final
 
 from neo4j import AsyncManagedTransaction
+from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
@@ -271,7 +272,10 @@ class Neo4jFlagRepository:
         existing = await run_query(self._tx, "Q-FLAG-REPORT-EXISTS", id=flag.id)
         if int(existing[0]["found"]) > 0:
             raise Conflict("a report flag with this id already exists")
-        await run_query(self._tx, "Q-FLAG-REPORT-ADD", key=key, props=_report_props(flag))
+        try:
+            await run_query(self._tx, "Q-FLAG-REPORT-ADD", key=key, props=_report_props(flag))
+        except ConstraintError as error:  # the unique key on ReportFlag.id refused a racing add
+            raise Conflict("a report flag with this id already exists") from error
 
     async def open_report_flags(self, service_id: str | None = None) -> list[ReportFlag]:
         rows = await run_query(

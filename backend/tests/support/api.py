@@ -46,5 +46,7 @@ async def api_app(test_container: Container) -> FastAPI:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def api_client(api_app: FastAPI) -> AsyncIterator[AsyncClient]:
-    async with AsyncClient(transport=ASGITransport(app=api_app, raise_app_exceptions=False), base_url="http://test") as client:
+    async with AsyncClient(
+        transport=ASGITransport(app=api_app, raise_app_exceptions=False), base_url="http://test"
+    ) as client:
         yield client

@@ -13,6 +13,7 @@ has one. The rule book is silent on periods; this is the reading that uses the f
 """
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -29,16 +30,16 @@ _EMAIL_DOMAIN = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+")
 # The postcode shape of DEC-047 item 1, copied here so the domain model does not depend on the
 # messages module. A staff name carries no postcode (DEC-065 item 6).
 _POSTCODE = re.compile(r"\b[A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2}\b", re.IGNORECASE)
-# A staff name may hold at most nine digits in total (DEC-065 item 11).
-_DIGIT = re.compile(r"[0-9]")
+# A staff name may hold at most nine Unicode decimal digits (Nd) in total (DEC-065 item 11).
 _MAX_STAFF_DIGITS = 9
 
 
 def check_staff_text(field: str, value: str) -> None:
-    """A staff name may not carry a postcode, and may not hold ten or more digits in total: every
-    other character is ignored when the digits are counted. Refused by field name only; the value
-    is never echoed (DEC-065 items 6 and 11)."""
-    if _POSTCODE.search(value) or len(_DIGIT.findall(value)) > _MAX_STAFF_DIGITS:
+    """A staff name may not carry a postcode, and may not hold ten or more Unicode decimal digits in
+    total. The postcode check runs on NFKC-normalised text, so fullwidth letters and digits are
+    matched. Refused by field name only; the value is never echoed (DEC-065 items 6 and 11)."""
+    digits = sum(1 for character in value if character.isdecimal())
+    if _POSTCODE.search(unicodedata.normalize("NFKC", value)) or digits > _MAX_STAFF_DIGITS:
         raise ValidationFailed(field, "must not carry a postcode or a phone or NHS number")
 
 

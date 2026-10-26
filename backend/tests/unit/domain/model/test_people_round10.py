@@ -1,8 +1,9 @@
 """Round 10 (verifier finding of round 9): every Unicode decimal digit counts (DEC-065 item 11).
 
-A staff name holds at most nine digits in total, counting every Unicode decimal digit (category Nd),
-whatever the script. A postcode written in fullwidth letters and digits is still refused: the
-postcode check runs on NFKC-normalised text. A refusal names the field only and never echoes the value.
+A staff name holds at most nine digits in total, counting every Unicode decimal digit (category
+Nd), whatever the script. A postcode written in fullwidth letters and digits is still refused: the
+postcode check runs on NFKC-normalised text. A refusal names the field only and never echoes the
+value.
 """
 
 import pytest

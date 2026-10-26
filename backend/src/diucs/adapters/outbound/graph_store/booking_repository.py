@@ -63,6 +63,14 @@ _CONFIRMED_FOR: Final = NamedQuery(
     ),
     mode="read",
 )
+_CONFIRMED_FOR_SERVICES: Final = NamedQuery(
+    id="Q-BOOK-CONFIRMED-FOR",
+    cypher=(
+        "MATCH (t:Task {businessStatus: 'confirmed'})-[:OWNER]->(s:HealthcareService) "
+        "WHERE s.id IN $ids RETURN s.id AS serviceId, t.id AS id ORDER BY t.id"
+    ),
+    mode="read",
+)
 _BY_REF: Final = NamedQuery(
     id="Q-BOOK-BY-REF",
     cypher=(
@@ -87,7 +95,7 @@ def _register(query: NamedQuery) -> None:
         REGISTRY.register(query)
 
 
-for _query in (_PENDING, _OPEN_FOR, _CONFIRMED_FOR, _BY_REF, _SET_PROPS):
+for _query in (_PENDING, _OPEN_FOR, _CONFIRMED_FOR, _CONFIRMED_FOR_SERVICES, _BY_REF, _SET_PROPS):
     _register(_query)
 
 
@@ -289,7 +297,18 @@ class Neo4jBookingRepository:
     async def confirmed_since_for_services(
         self, service_ids: Sequence[str], since: datetime
     ) -> dict[str, list[datetime]]:
-        raise NotImplementedError
+        grouped: dict[str, list[datetime]] = {service_id: [] for service_id in service_ids}
+        # One query finds the confirmed Tasks of every service. Each one is then loaded for its
+        # confirmed_at, as open_for_services loads its bookings (DEC-088 item 1).
+        rows = await run_query(self._tx, "Q-BOOK-CONFIRMED-FOR", ids=list(service_ids))
+        for row in rows:
+            booking = await self.get(str(row["id"]))
+            confirmed = booking.confirmed_at if booking is not None else None
+            if confirmed is not None and confirmed >= since:
+                grouped[str(row["serviceId"])].append(confirmed)
+        for times in grouped.values():
+            times.sort()
+        return grouped
 
     async def pending_count(self, service_id: str) -> int:
         rows = await run_query(self._tx, "Q-BOOK-PENDING", id=service_id)

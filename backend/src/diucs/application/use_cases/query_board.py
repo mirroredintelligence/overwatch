@@ -5,8 +5,8 @@ and left without a commit, so nothing is written, audited or put on the outbox.
 
 Rules: domain-rules 1.2 to 1.7 through compute_status, next_due and system_pressure. Entries are
 ordered by ServiceCategory enum order, then name (ASSUMED, the prompt). Services are read in bulk:
-one list of active services, one flag query, one latest-report query and one open-booking query for
-all services. confirmed_since is per service, because the port has no batch form (DEC-085).
+one list of active services, one flag query, one latest-report query, one open-booking query and
+one confirmation query for all services (DEC-088 supersedes DEC-085 item 1).
 """
 
 from dataclasses import dataclass, replace
@@ -78,10 +78,12 @@ class QueryBoard:
             reports = await uow.capacity.latest_for_services(service_ids)
             open_bookings = await uow.bookings.open_for_services(service_ids)
             confirmed: dict[str, list[datetime]] = {}
-            for service_id, report in reports.items():
-                confirmed[service_id] = await uow.bookings.confirmed_since(
-                    service_id, report.effective_at
-                )
+            if reports:
+                # One read for every service with a report. The earliest report time is the
+                # lower bound; availability keeps only the confirmations at or after each
+                # service's own report (domain-rules 1.6).
+                since = min(report.effective_at for report in reports.values())
+                confirmed = await uow.bookings.confirmed_since_for_services(list(reports), since)
 
         entries = [
             _entry(

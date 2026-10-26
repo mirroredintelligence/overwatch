@@ -315,6 +315,7 @@ class Neo4jCriteriaRepository:
             criteria.supersedes_id,
         ):
             raise ValidationFailed("criteria", "service, version and supersedes are fixed")
+        await self._lock_service(criteria.service_id)
         current = await self._store.get(_RESOURCE_TYPE, criteria.id)
         if current is None:
             raise NotFound("criteria version")

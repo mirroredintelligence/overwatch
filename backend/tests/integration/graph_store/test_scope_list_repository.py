@@ -250,3 +250,67 @@ async def test_sixteen_racing_creations_of_the_list_leave_one_list(
     assert all(outcome is None or isinstance(outcome, Conflict) for outcome in outcomes)
     assert await count_nodes(neo4j_driver, "List") == 1
     assert await count_nodes(neo4j_driver, "HealthcareService") == 1
+
+
+NEW = "svc-sdec-2"
+
+
+def _new_entry(flag: ScopeFlag) -> ScopeEntry:
+    return ScopeEntry(
+        service_id=NEW,
+        name="SDEC second",
+        category=ServiceCategory.SAME_DAY_EMERGENCY_CARE,
+        flag=flag,
+        date=DAY,
+    )
+
+
+async def test_a_save_for_a_service_that_a_held_save_is_creating_waits_and_succeeds(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # The lock is what makes this a success: without it the second writer creates the same
+    # service, meets the uniqueness constraint after the held write commits, and is refused.
+    await _run(neo4j_driver, _sdec(ScopeFlag.LATER))  # the list exists before the race
+    session = neo4j_driver.session()
+    held = await session.begin_transaction()
+    try:
+        await _repo(held).save_entry(_new_entry(ScopeFlag.IN_PILOT))
+        racer = asyncio.create_task(
+            write_tx(neo4j_driver, lambda tx: _repo(tx).save_entry(_new_entry(ScopeFlag.LATER)))
+        )
+        done, _ = await asyncio.wait({racer}, timeout=1.0)
+        assert not done, "the second save must wait for the held save of the same service"
+    finally:
+        await held.commit()
+        await session.close()
+    await racer
+
+    assert await count_nodes(neo4j_driver, "HealthcareService") == 2
+    rows = await _rows(
+        neo4j_driver,
+        "MATCH (:List)-[e:ENTRY]->(:HealthcareService {id: $id}) RETURN e.flag AS flag",
+        id=NEW,
+    )
+    assert rows == [{"flag": "later"}]
+
+
+async def test_sixteen_racing_saves_for_a_new_service_all_succeed_and_leave_one_service(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _run(neo4j_driver, _sdec(ScopeFlag.LATER))  # the list exists before the race
+    racers = [
+        asyncio.create_task(
+            write_tx(neo4j_driver, lambda tx: _repo(tx).save_entry(_new_entry(ScopeFlag.LATER)))
+        )
+        for _ in range(16)
+    ]
+    outcomes = await asyncio.gather(*racers, return_exceptions=True)
+
+    assert all(outcome is None for outcome in outcomes), outcomes
+    assert await count_nodes(neo4j_driver, "HealthcareService") == 2
+    rows = await _rows(
+        neo4j_driver,
+        "MATCH (:List)-[e:ENTRY]->(:HealthcareService {id: $id}) RETURN count(e) AS entries",
+        id=NEW,
+    )
+    assert rows == [{"entries": 1}]

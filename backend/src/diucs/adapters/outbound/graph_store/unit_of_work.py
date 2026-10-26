@@ -158,6 +158,8 @@ class Neo4jUnitOfWork:
         self._refused: Conflict | None = None
 
     async def __aenter__(self) -> Self:
+        if self._state != _NEW:
+            raise RuntimeError("a unit of work is used once; open a new one")
         session_cm = self._source.session()
         session = await session_cm.__aenter__()
         try:
@@ -220,6 +222,8 @@ class Neo4jUnitOfWork:
         self._state = _FINISHED
 
     async def rollback(self) -> None:
+        if self._state == _FINISHED:
+            raise RuntimeError("the unit of work is finished; open a new one")
         if self._state == _NEW:
             raise RuntimeError("the unit of work is not open; use it inside 'async with'")
         self._state = _FINISHED

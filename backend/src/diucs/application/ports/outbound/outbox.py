@@ -34,7 +34,12 @@ class OutboxMessage:
     session_id: str | None = None
 
     def __post_init__(self) -> None:
-        pass
+        if self.created_at.utcoffset() != timedelta(0):
+            raise ValidationFailed("created_at", "must be a timezone-aware UTC datetime")
+        if self.status not in OUTBOX_STATUSES:
+            raise ValidationFailed("status", "must be pending, published or dead")
+        if self.attempts < 0:
+            raise ValidationFailed("attempts", "cannot be negative")
 
 
 def outbox_message_for(event: DomainEvent, id: str, now: datetime) -> OutboxMessage:

@@ -1,4 +1,4 @@
-"""Pure tests for the service flag mapping (P14): ServiceFlag <-> FHIR Basic with profile ServiceFlag.
+"""Pure tests for the service flag mapping (P14): ServiceFlag <-> FHIR Basic, ServiceFlag profile.
 
 A flag must survive the mapping unchanged, and a value the mapping cannot hold exactly is refused,
 never stored. All values are synthetic.

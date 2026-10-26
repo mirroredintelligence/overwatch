@@ -365,7 +365,10 @@ async def test_saving_a_flag_cannot_change_its_report_or_its_reason(
     await _seed(neo4j_driver)
     await _run(neo4j_driver, lambda repo: repo.add_report_flag(RANGE_FLAG_WEST))
     moved = replace(
-        RANGE_FLAG_WEST, reason=ReportFlagReason.MANY_CHANGES, status=REPORT_FLAG_CHECKED
+        RANGE_FLAG_WEST,
+        reason=ReportFlagReason.MANY_CHANGES,
+        status=REPORT_FLAG_CHECKED,
+        resolved_at=RESOLVED,
     )
     with pytest.raises(ValidationFailed):
         await _run(neo4j_driver, lambda repo: repo.save_report_flag(moved))

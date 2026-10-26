@@ -186,7 +186,7 @@ class Neo4jDeviceRegistry:
                 at=registered_at,
             )
         except ConstraintError as error:
-            raise error
+            raise Conflict("device is already registered") from error
 
     async def known(self, practitioner_id: str, device_id: str) -> bool:
         rows = await self._run("Q-DEVICE-KNOWN", key=_key(practitioner_id), deviceId=device_id)

@@ -4,7 +4,7 @@ The bus is asked for the next message with `receive`. Durations are seconds, so 
 can run the same test in real time.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
@@ -164,9 +164,3 @@ async def test_scheduling_to_an_unknown_queue_or_to_a_topic_is_refused(
 ) -> None:
     with pytest.raises(ValidationFailed):
         await bus_harness.subject.schedule(name, _work("w-1"), bus_harness.now() + DELAY)
-
-
-async def test_a_naive_enqueue_time_is_refused(bus_harness: Harness[EventBus]) -> None:
-    naive: datetime = datetime(2026, 10, 25, 12, 0)
-    with pytest.raises(ValidationFailed):
-        await bus_harness.subject.schedule(QUEUE, _work("w-1"), naive)

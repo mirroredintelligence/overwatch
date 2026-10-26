@@ -931,3 +931,15 @@ Numbered DEC-068: DEC-067 is the highest on main and every task/* branch when ch
 
 Tests: `backend/tests/integration/graph_store/test_case_repository.py` (the four round-3 tests above).
 
+
+## DEC-069 U08 needs P06 and P14 before it can be built; the ledger's dependency list is incomplete (U08)
+Status: accepted (orchestrator) · Affects: U08 (`application/use_cases/query_board.py`), P06, P14, `docs/plan/tasks.json` (not edited).
+
+Numbered DEC-069: DEC-068 is the highest on main and on every task/* branch checked.
+
+1. **Dependencies.** The U08 prompt uses `QueryBoard(uow_factory, clock)` and tests 5 needs `FlagRepository.services_with_flag("suspended")`. Those come from P06 (UnitOfWork) and P14 (flags), which the ledger does not list. The ledger dependency list (P02, D07, D08) is therefore incomplete. The source plan is not edited; this decision is the record.
+2. **Decision: wait, do not reduce scope.** Dropping the UoW or the flag test would change the `QueryBoard` constructor named in `docs/spec/contracts.md`, which is a shared contract. U08 stays `blocked` until P06 and P14 are delivered.
+3. **Sequencing.** P14 touches `application/ports/outbound/repositories.py`, which P04 is also editing. P14 starts after P04 is delivered. P06 has a long dependency chain (P21, P13, G14 and others); it is not started by this decision.
+4. **Lesson.** L80 (published by build-U08) records the same gap for the other sessions.
+
+Tests: none. This is a planning decision.

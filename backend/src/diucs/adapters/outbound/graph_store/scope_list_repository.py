@@ -103,7 +103,7 @@ class Neo4jScopeListRepository:
     async def entries(self) -> list[ScopeEntry]:
         rows = await run_query(self._tx, "Q-SCOPE-ENTRIES", id=LIST_ID)
         found = [await self._entry(row) for row in rows]
-        return sorted(found, key=lambda entry: (entry.name, entry.service_id))
+        return sorted(found, key=lambda entry: (entry.name, tuple(-ord(c) for c in entry.service_id)))
 
     async def get_entry(self, service_id: str) -> ScopeEntry | None:
         rows = await run_query(self._tx, "Q-SCOPE-ENTRY-FOR", id=LIST_ID, serviceId=service_id)

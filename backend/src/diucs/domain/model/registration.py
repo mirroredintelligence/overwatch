@@ -81,7 +81,7 @@ class ScopeEntry:
         if not isinstance(self.category, ServiceCategory):
             raise ValidationFailed("category", "must be a service category")
         # Lesson L48: datetime is a subclass of date, so an instant must be refused explicitly.
-        if not isinstance(self.date, date) or isinstance(self.date, datetime):
+        if isinstance(self.date, datetime):
             raise ValidationFailed("date", "must be a calendar date")
         if not isinstance(self.reason, str):
             raise ValidationFailed("reason", "must be text")

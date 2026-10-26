@@ -335,3 +335,24 @@ async def test_an_entry_whose_stored_date_is_an_instant_is_refused(
 
     with pytest.raises(ValidationFailed):
         await _read(neo4j_driver, lambda repo: repo.entries())
+
+
+def _named(service_id: str) -> ScopeEntry:
+    return ScopeEntry(
+        service_id=service_id,
+        name="SDEC pilot",
+        category=ServiceCategory.SAME_DAY_EMERGENCY_CARE,
+        flag=ScopeFlag.IN_PILOT,
+        date=DAY,
+    )
+
+
+async def test_entries_with_the_same_name_are_ordered_by_service_id(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # Two services share a name, so only the service id orders them (DEC-082 item 3).
+    await _run(neo4j_driver, _named("svc-sdec-2"), _named("svc-sdec-1"))
+
+    entries = await _read(neo4j_driver, lambda repo: repo.entries())
+
+    assert [entry.service_id for entry in entries] == ["svc-sdec-1", "svc-sdec-2"]

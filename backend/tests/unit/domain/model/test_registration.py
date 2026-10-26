@@ -112,3 +112,9 @@ def test_the_scope_date_is_a_calendar_date_not_an_instant() -> None:
     # Lesson L48: datetime is a subclass of date, so an instant would pass a plain isinstance check.
     with pytest.raises(ValidationFailed):
         _entry(date=datetime(2026, 10, 25, 13, 5, tzinfo=UTC))
+
+
+def test_a_scope_date_given_as_text_is_refused() -> None:
+    # A date that arrives as text is not a calendar date, whatever it looks like.
+    with pytest.raises(ValidationFailed):
+        _entry(date="2026-10-25")

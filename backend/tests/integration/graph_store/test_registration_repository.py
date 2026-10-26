@@ -288,3 +288,15 @@ async def test_a_save_waits_for_a_held_save_and_a_refused_save_leaves_its_draft(
     assert loaded is not None
     assert loaded.draft == held_draft
     assert await count_nodes(neo4j_driver, "RegistrationDraftField") == 3
+
+
+async def test_drafts_are_listed_in_id_order(neo4j_driver: AsyncDriver) -> None:
+    # Drafts have no submission time, so the order is by id, not by insertion (DEC-080).
+    await _seed_service(neo4j_driver, EAST)
+    later = replace(SUBMITTED_EAST, id="reg-ucr-east-6", status=RegistrationStatus.DRAFT)
+    earlier = replace(later, id="reg-ucr-east-5", submitted_at=None)
+    await _run(neo4j_driver, lambda repo: repo.add(later), lambda repo: repo.add(earlier))
+
+    listed = await _read(neo4j_driver, lambda repo: repo.list_by_status(RegistrationStatus.DRAFT))
+
+    assert [r.id for r in listed] == ["reg-ucr-east-5", "reg-ucr-east-6"]

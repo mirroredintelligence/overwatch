@@ -64,3 +64,9 @@ def test_the_report_flag_id_migration_is_0027_after_the_credential_migration() -
     ids = [migration_id for migration_id, _ in MIGRATIONS]
     assert ids.count("0027_report_flag_id") == 1
     assert ids.index("0027_report_flag_id") > ids.index("0026_credential_device_id")
+
+
+def test_the_outbox_message_id_migration_is_0028_after_the_report_flag_migration() -> None:
+    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    assert ids.count("0028_outbox_message_id") == 1
+    assert ids.index("0028_outbox_message_id") > ids.index("0027_report_flag_id")

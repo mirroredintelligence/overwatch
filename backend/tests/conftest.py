@@ -13,7 +13,12 @@ import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.bootstrap.container import TEST_NOW
 from tests.support.neo4j import ThrowawayNeo4j, apply_session_env, throwaway_driver, wipe
+from tests.support.uow import uow_factory_on
 
 _INTEGRATION_ROOT = Path(__file__).resolve().parent / "integration"
 # Drivers of the running harness session. Empty until a test needs Neo4j, so a run of tests that
@@ -80,3 +85,16 @@ async def clean_graph() -> None:
     does not exist and there is nothing to clean, so this starts nothing."""
     for driver in _active:
         await wipe(driver)
+
+
+@pytest.fixture
+def uow_clock() -> Clock:
+    """The clock the unit of work uses. A test that needs another instant overrides this fixture."""
+    return FixedClock(TEST_NOW)
+
+
+@pytest.fixture
+def uow_factory(neo4j_driver: AsyncDriver, uow_clock: Clock) -> UnitOfWorkFactory:
+    """The unit of work factory every use-case test takes (P06): real Neo4j, the default
+    repositories, and the fixed clock."""
+    return uow_factory_on(neo4j_driver, uow_clock)

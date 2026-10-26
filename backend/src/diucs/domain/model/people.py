@@ -29,19 +29,16 @@ _EMAIL_DOMAIN = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+")
 # The postcode shape of DEC-047 item 1, copied here so the domain model does not depend on the
 # messages module. A staff name carries no postcode (DEC-065 item 6).
 _POSTCODE = re.compile(r"\b[A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2}\b", re.IGNORECASE)
-# Ten or more digits in one run. Between two consecutive digits the run may pass over any sequence
-# of the separators space, hyphen, full stop, round brackets and plus sign (DEC-065 items 8 and 9);
-# any other character ends the run. A run of nine digits or fewer does not match. This catches a
-# phone number in every usual form and both NHS-number forms, so the NHS-number pattern of DEC-047
-# item 2 is not needed here.
-_DIGIT_RUN = re.compile(r"(?<![0-9])[0-9](?:[ .()+-]*[0-9]){9,}(?![0-9])")
+# A staff name may hold at most nine digits in total (DEC-065 item 11).
+_DIGIT = re.compile(r"[0-9]")
+_MAX_STAFF_DIGITS = 9
 
 
 def check_staff_text(field: str, value: str) -> None:
-    """Free text on a Practitioner (a staff name) may not carry a postcode or a run of ten or more
-    digits, which includes NHS-number and phone-number forms. Refused by field name only; the value
-    is never echoed (DEC-065 items 6 and 8)."""
-    if _POSTCODE.search(value) or _DIGIT_RUN.search(value):
+    """A staff name may not carry a postcode, and may not hold ten or more digits in total: every
+    other character is ignored when the digits are counted. Refused by field name only; the value
+    is never echoed (DEC-065 items 6 and 11)."""
+    if _POSTCODE.search(value) or len(_DIGIT.findall(value)) > _MAX_STAFF_DIGITS:
         raise ValidationFailed(field, "must not carry a postcode or a phone or NHS number")
 
 

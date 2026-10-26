@@ -46,7 +46,7 @@ NO_HISTORY_TYPES = frozenset({"Patient", "ServiceRequest"})
 NEVER_UPDATED_TYPES = frozenset({"Observation"})
 # Names the store uses for its own properties. An element with one of these names is refused.
 RESERVED_PROPERTIES = frozenset({"key", "placeholder", "lockStamp", "position"})
-# Local relationships that are not FHIR elements, so they have no fhirPath (DEC-064 item 5).
+# Local relationships that are not FHIR elements, so they have no fhirPath (DEC-065 item 5).
 LOCAL_RELATIONSHIP_TYPES = frozenset({"CHANNEL", "COVERED_BY"})
 
 _TYPE = re.compile(r"[A-Z][A-Za-z0-9]{0,63}")

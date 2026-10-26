@@ -38,3 +38,11 @@ def test_the_case_reference_migration_is_0022_after_the_link_token_migration() -
     ids = [migration_id for migration_id, _ in MIGRATIONS]
     assert ids.count("0022_case_reference_id") == 1
     assert ids.index("0022_case_reference_id") > ids.index("0021_link_token_hash")
+
+
+def test_the_device_and_contact_migrations_are_0023_and_0024_after_the_case_reference() -> None:
+    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    assert ids.count("0023_device_id") == 1
+    assert ids.count("0024_protected_contact_role_id") == 1
+    assert ids.index("0023_device_id") > ids.index("0022_case_reference_id")
+    assert ids.index("0024_protected_contact_role_id") > ids.index("0023_device_id")

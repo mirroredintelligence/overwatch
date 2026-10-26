@@ -57,10 +57,13 @@ async def _run(driver: AsyncDriver, step: Any) -> None:
 
 
 async def _read(driver: AsyncDriver, step: Any) -> Any:
+    """Read in a fresh session. Reads run as writes: a PIN read takes the credential's lock first
+    (lesson L73), so it needs a write transaction, as the attempt that follows it does."""
+
     async def work(tx: AsyncManagedTransaction) -> Any:
         return await step(Neo4jPinStore(tx), Neo4jDeviceRegistry(tx))
 
-    return await read_tx(driver, work)
+    return await write_tx(driver, work)
 
 
 async def _nodes_holding(driver: AsyncDriver, text: str) -> int:
@@ -81,7 +84,7 @@ async def _nodes_holding(driver: AsyncDriver, text: str) -> int:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def practitioners(neo4j_driver: AsyncDriver) -> None:
+async def practitioners(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
     await _seed_practitioners(neo4j_driver)
 
 
@@ -171,9 +174,7 @@ async def test_set_pin_for_an_unknown_practitioner_is_refused_and_writes_nothing
     assert await count_nodes(neo4j_driver, "Credential") == 0
 
 
-async def test_register_then_known_is_true(
-    neo4j_driver: AsyncDriver, practitioners: None
-) -> None:
+async def test_register_then_known_is_true(neo4j_driver: AsyncDriver, practitioners: None) -> None:
     await _run(neo4j_driver, lambda _, devices: devices.register("p1", "dev-1", AT))
 
     assert await _read(neo4j_driver, lambda _, devices: devices.known("p1", "dev-1")) is True

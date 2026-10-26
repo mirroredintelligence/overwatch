@@ -94,6 +94,15 @@ MIGRATIONS: list[tuple[str, str]] = [
         "CREATE CONSTRAINT case_reference_id IF NOT EXISTS "
         "FOR (n:ServiceRequest) REQUIRE n.reference IS UNIQUE",
     ),
+    (
+        "0023_device_id",
+        "CREATE CONSTRAINT device_id IF NOT EXISTS FOR (n:Device) REQUIRE n.id IS UNIQUE",
+    ),
+    (
+        "0024_protected_contact_role_id",
+        "CREATE INDEX protected_contact_role_id IF NOT EXISTS "
+        "FOR (n:ProtectedContact) ON (n.roleId)",
+    ),
 ]
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

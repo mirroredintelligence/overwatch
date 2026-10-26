@@ -30,13 +30,17 @@ _EMAIL_DOMAIN = re.compile(r"[a-z0-9-]+(?:\.[a-z0-9-]+)+")
 # on the messages module. A staff name carries neither shape (DEC-065 item 6).
 _POSTCODE = re.compile(r"\b[A-Z]{1,2}[0-9][A-Z0-9]?\s*[0-9][A-Z]{2}\b", re.IGNORECASE)
 _NHS_NUMBER = re.compile(r"(?<![0-9])(?:[0-9]{10}|[0-9]{3}[ -][0-9]{3}[ -][0-9]{4})(?![0-9])")
+# Ten or more digits in a row, where a single space or hyphen may sit between two digits. This
+# catches a phone number, contiguous or grouped (DEC-065 item 8). A short number is not matched.
+_DIGIT_RUN = re.compile(r"(?<![0-9])[0-9](?:[ -]?[0-9]){9,}(?![0-9])")
 
 
 def check_staff_text(field: str, value: str) -> None:
-    """Free text on a Practitioner (a staff name) may not carry a postcode shape or an NHS-number
-    shape. Refused by field name only; the value is never echoed (DEC-065 item 6)."""
-    if _POSTCODE.search(value) or _NHS_NUMBER.search(value):
-        raise ValidationFailed(field, "must not carry a postcode or an NHS number")
+    """Free text on a Practitioner (a staff name) may not carry a postcode shape, an NHS-number
+    shape, or a run of ten or more digits. Refused by field name only; the value is never echoed
+    (DEC-065 items 6 and 8)."""
+    if _POSTCODE.search(value) or _NHS_NUMBER.search(value) or _DIGIT_RUN.search(value):
+        raise ValidationFailed(field, "must not carry a postcode, an NHS number or a phone number")
 
 
 def check_phone_hash(value: str) -> None:

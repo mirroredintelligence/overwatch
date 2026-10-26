@@ -1,10 +1,114 @@
-"""Neo4j stores for PIN credentials and devices (P16). Stub for the red commit (DEC-010)."""
+"""Neo4j stores for PIN credentials and devices (P16, DEC-044, DEC-070).
 
-from datetime import datetime
+Layout:
+- (:Practitioner)-[:HAS_CREDENTIAL]->(:Credential {deviceId, pinHash, failed, locked, lastOutcome,
+  updatedAt}). One credential per practitioner and device. Only the keyed PIN hash is stored; the
+  PIN itself never reaches this module. `locked` is the lock from DEC-044 item 2, which has no end
+  time: it lasts until a verified text code resets it.
+- (:Practitioner)-[:HAS_DEVICE]->(:Device {id, status, registeredAt, revokedAt}). Device ids are
+  unique in the graph (migration 0023). A device belongs to one practitioner.
+
+Reads of a PIN state take the credential's write lock first (lesson L73), so an attempt that reads
+the failure count and the save that follows it cannot interleave with another attempt on the same
+device, provided the caller runs both in one unit of work.
+
+Times are written by the database in UTC, or passed in as aware instants and written in UTC.
+Neo4j stores no null property (lesson L74): a cleared value is absent, and readers treat it as None.
+"""
+
+from datetime import UTC, datetime
+from typing import Any, Final, Literal
 
 from neo4j import AsyncManagedTransaction
+from neo4j.exceptions import ConstraintError
 
-from diucs.domain.rules.identity_policy import PinState
+from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from diucs.domain.rules.identity_policy import PinOutcome, PinState
+
+_PRACTITIONER_KEY: Final = "Practitioner/{}"
+_STATUS_ACTIVE: Final = "active"
+_STATUS_REVOKED: Final = "revoked"
+
+_QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
+    "Q-CRED-PRACTITIONER-EXISTS": (
+        "MATCH (p:Practitioner {key: $key}) RETURN count(p) AS n",
+        "read",
+    ),
+    "Q-CRED-SET": (
+        "MATCH (p:Practitioner {key: $key}) "
+        "MERGE (p)-[:HAS_CREDENTIAL]->(c:Credential {deviceId: $deviceId}) "
+        "SET c.pinHash = $pinHash, c.failed = 0, c.locked = false, c.lastOutcome = null, "
+        "c.updatedAt = datetime({timezone: 'UTC'}) "
+        "RETURN count(c) AS n",
+        "write",
+    ),
+    # Lock first, then read: the SET takes the credential's write lock before the properties are
+    # read, so a concurrent attempt waits for this one to commit (lesson L73).
+    "Q-CRED-GET": (
+        "MATCH (:Practitioner {key: $key})-[:HAS_CREDENTIAL]->(c:Credential {deviceId: $deviceId}) "
+        "SET c.deviceId = c.deviceId "
+        "RETURN c.pinHash AS pinHash, c.failed AS failed, c.locked AS locked, "
+        "c.lastOutcome AS lastOutcome",
+        "write",
+    ),
+    "Q-CRED-SAVE-STATE": (
+        "MATCH (:Practitioner {key: $key})-[:HAS_CREDENTIAL]->(c:Credential {deviceId: $deviceId}) "
+        "SET c.failed = $failed, c.locked = $locked, c.lastOutcome = $lastOutcome, "
+        "c.updatedAt = datetime({timezone: 'UTC'}) "
+        "RETURN count(c) AS n",
+        "write",
+    ),
+    "Q-CRED-CLEAR": (
+        "MATCH (:Practitioner {key: $key})-[:HAS_CREDENTIAL]->(c:Credential) "
+        "DETACH DELETE c RETURN count(*) AS n",
+        "write",
+    ),
+    "Q-DEVICE-OWNER": (
+        "MATCH (p:Practitioner)-[:HAS_DEVICE]->(d:Device {id: $deviceId}) RETURN p.id AS owner",
+        "read",
+    ),
+    "Q-DEVICE-REGISTER": (
+        "MATCH (p:Practitioner {key: $key}) "
+        "CREATE (p)-[:HAS_DEVICE]->(:Device {id: $deviceId, status: $status, registeredAt: $at}) "
+        "RETURN count(*) AS n",
+        "write",
+    ),
+    "Q-DEVICE-KNOWN": (
+        "MATCH (:Practitioner {key: $key})-[:HAS_DEVICE]->(d:Device {id: $deviceId}) "
+        "WHERE d.revokedAt IS NULL RETURN count(d) AS n",
+        "read",
+    ),
+    "Q-DEVICE-REVOKE": (
+        "MATCH (:Practitioner {key: $key})-[:HAS_DEVICE]->(d:Device) WHERE d.revokedAt IS NULL "
+        "SET d.status = $revoked, d.revokedAt = datetime({timezone: 'UTC'}) "
+        "RETURN count(d) AS n",
+        "write",
+    ),
+}
+
+for _query_id, (_cypher, _mode) in _QUERIES.items():
+    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode))
+
+
+def _key(practitioner_id: str) -> str:
+    return _PRACTITIONER_KEY.format(practitioner_id)
+
+
+def _utc(value: datetime, field: str) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValidationFailed(field, "must be a timezone-aware datetime")
+    return value.astimezone(UTC)
+
+
+def _pin_state(row: dict[str, Any]) -> PinState:
+    last = row["lastOutcome"]
+    return PinState(
+        failed_tries=int(row["failed"] or 0),
+        locked=bool(row["locked"]),
+        last_outcome=PinOutcome(last) if last is not None else None,
+    )
 
 
 class Neo4jPinStore:
@@ -12,16 +116,41 @@ class Neo4jPinStore:
         self._tx = tx
 
     async def set_pin(self, practitioner_id: str, device_id: str, pin_hash: str) -> None:
-        raise NotImplementedError
+        """Store the keyed hash of a PIN and start its state fresh: no failures, not locked. A
+        practitioner who does not exist is NotFound, and nothing is written."""
+        await self._require_practitioner(practitioner_id)
+        await self._run(
+            "Q-CRED-SET", key=_key(practitioner_id), deviceId=device_id, pinHash=pin_hash
+        )
 
     async def get(self, practitioner_id: str, device_id: str) -> tuple[str, PinState] | None:
-        raise NotImplementedError
+        rows = await self._run("Q-CRED-GET", key=_key(practitioner_id), deviceId=device_id)
+        if not rows or rows[0]["pinHash"] is None:
+            return None
+        return str(rows[0]["pinHash"]), _pin_state(rows[0])
 
     async def save_state(self, practitioner_id: str, device_id: str, state: PinState) -> None:
-        raise NotImplementedError
+        rows = await self._run(
+            "Q-CRED-SAVE-STATE",
+            key=_key(practitioner_id),
+            deviceId=device_id,
+            failed=state.failed_tries,
+            locked=state.locked,
+            lastOutcome=None if state.last_outcome is None else str(state.last_outcome),
+        )
+        if not rows or int(rows[0]["n"]) != 1:
+            raise NotFound("credential")
 
     async def clear_all(self, practitioner_id: str) -> None:
-        raise NotImplementedError
+        await self._run("Q-CRED-CLEAR", key=_key(practitioner_id))
+
+    async def _require_practitioner(self, practitioner_id: str) -> None:
+        rows = await self._run("Q-CRED-PRACTITIONER-EXISTS", key=_key(practitioner_id))
+        if not rows or int(rows[0]["n"]) != 1:
+            raise NotFound("practitioner")
+
+    async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
+        return await run_query(self._tx, query_id, **params)
 
 
 class Neo4jDeviceRegistry:
@@ -29,10 +158,39 @@ class Neo4jDeviceRegistry:
         self._tx = tx
 
     async def register(self, practitioner_id: str, device_id: str, at: datetime) -> None:
-        raise NotImplementedError
+        """Record a device for the practitioner. Registering a device again for the same
+        practitioner changes nothing, so a revoked device stays revoked. A device id that belongs
+        to another practitioner is Conflict. A practitioner who does not exist is NotFound. Every
+        check runs before the write."""
+        registered_at = _utc(at, "at")
+        if not await self._practitioner_exists(_key(practitioner_id)):
+            raise NotFound("practitioner")
+        owners = await self._run("Q-DEVICE-OWNER", deviceId=device_id)
+        if owners:
+            if owners[0]["owner"] != practitioner_id:
+                raise Conflict("device is registered to another practitioner")
+            return
+        try:
+            await self._run(
+                "Q-DEVICE-REGISTER",
+                key=_key(practitioner_id),
+                deviceId=device_id,
+                status=_STATUS_ACTIVE,
+                at=registered_at,
+            )
+        except ConstraintError as error:
+            raise Conflict("device is already registered") from error
 
     async def known(self, practitioner_id: str, device_id: str) -> bool:
-        raise NotImplementedError
+        rows = await self._run("Q-DEVICE-KNOWN", key=_key(practitioner_id), deviceId=device_id)
+        return bool(rows) and int(rows[0]["n"]) > 0
 
     async def revoke_all(self, practitioner_id: str) -> None:
-        raise NotImplementedError
+        await self._run("Q-DEVICE-REVOKE", key=_key(practitioner_id), revoked=_STATUS_REVOKED)
+
+    async def _practitioner_exists(self, key: str) -> bool:
+        rows = await self._run("Q-CRED-PRACTITIONER-EXISTS", key=key)
+        return bool(rows) and int(rows[0]["n"]) == 1
+
+    async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
+        return await run_query(self._tx, query_id, **params)

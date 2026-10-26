@@ -54,7 +54,7 @@ def register_resource(
     """
     if not resource_type:
         raise ValueError("a resource type is required")
-    if False:
+    if any(code not in INTERACTIONS for code in interactions):
         raise ValueError(f"{resource_type}: an interaction code is not a FHIR R4B code")
     if resource_type in _RESOURCES:
         raise ValueError(f"{resource_type} is already registered")

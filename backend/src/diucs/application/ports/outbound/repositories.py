@@ -13,6 +13,7 @@ from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
 from diucs.domain.model.criteria import ServiceCriteria
+from diucs.domain.model.flags import ReportFlag, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import ServiceProfile
@@ -253,4 +254,42 @@ class ScopeListRepository(Protocol):
     async def save_entry(self, entry: ScopeEntry) -> None:
         """Insert the entry, or replace its flag, date and reason. Services that do not exist yet
         are created as minimal inactive HealthcareServices."""
+        ...
+
+
+class FlagRepository(Protocol):
+    """Report flags (platform nodes on an Observation) and service flags (Basic, ServiceFlag)
+    (P14). Adapter: Neo4jFlagRepository (graph_store/flag_repository.py).
+
+    A report flag is never edited except for its resolution: a resolved flag is not changed again.
+    A service flag is one per service and code; setting it again replaces it, and an inactive flag
+    stays stored but is not returned.
+    """
+
+    async def add_report_flag(self, flag: ReportFlag) -> None:
+        """Store a new report flag on its report. An unknown report raises NotFound, a report of
+        another service raises ValidationFailed, and an id that exists raises Conflict."""
+        ...
+
+    async def open_report_flags(self, service_id: str | None = None) -> list[ReportFlag]:
+        """Open report flags, oldest first, for one service or for all services."""
+        ...
+
+    async def save_report_flag(self, flag: ReportFlag) -> None:
+        """Record the resolution of a flag. An unknown id raises NotFound. A change to its report,
+        service, reason or creation time raises ValidationFailed. A flag already resolved raises
+        InvalidTransition."""
+        ...
+
+    async def service_flags(self, service_id: str) -> list[ServiceFlag]:
+        """The active service flags of this service."""
+        ...
+
+    async def set_service_flag(self, flag: ServiceFlag) -> None:
+        """Set the flag for this service and code, replacing any earlier one. An unknown service
+        raises NotFound and writes nothing."""
+        ...
+
+    async def services_with_flag(self, code: str) -> set[str]:
+        """The ids of services with an active service flag with this code."""
         ...

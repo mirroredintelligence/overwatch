@@ -943,3 +943,15 @@ Numbered DEC-069: DEC-068 is the highest on main and on every task/* branch chec
 4. **Lesson.** L80 (published by build-U08) records the same gap for the other sessions.
 
 Tests: none. This is a planning decision.
+
+## DEC-070 FastAPI and httpx for the FHIR REST app; the critical path to P06 (R01, U08)
+Status: accepted (orchestrator) · Affects: R01 (`adapters/inbound/fhir_rest/`), `backend/pyproject.toml`, `backend/uv.lock`, P06, P13, P14, U08.
+
+Numbered DEC-070: DEC-069 is the highest on main and on every task/* branch checked.
+
+1. **FastAPI and httpx are approved.** The spec names FastAPI (`docs/spec/architecture.md`). DEC-003 says it is a default that may be used or replaced. R01 uses it, so it is the default and is kept. httpx is the test client for it. Both are added to `backend/pyproject.toml` and `backend/uv.lock` on the R01 branch, when R01 resumes, so the lock change is reviewed with R01 and not on main. They are not added to main now.
+2. **Lock-file sequencing.** Only one branch may change `backend/uv.lock` at a time. Whoever adds a dependency first (R01 by default) rebases the others on it. Other R-tasks that need the same packages reuse this change.
+3. **Critical path to P06.** P06 needs P04 (in progress, build-P04), P13 (not started) and P14 (not started). P13 and P14 both edit `application/ports/outbound/repositories.py`, as P04 does, so they build one after another after P04 is delivered. U08 and R01 both wait for P06. Nothing on this path can be built in parallel with another edit of `repositories.py`.
+4. **R01 test clock.** The prompt's test clock is 13:12Z, while F08's TEST_NOW is 13:00Z (build-R01 noted this). R01 passes the clock explicitly. It does not change F08.
+
+Tests: none. This is a planning decision; the dependency change is tested with R01.

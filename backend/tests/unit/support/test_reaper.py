@@ -51,3 +51,17 @@ def test_reaper_removes_only_old_labelled_containers() -> None:
 
     assert removed == ["diucs-test-neo4j-old"]
     assert docker.removed() == ["diucs-test-neo4j-old"]
+
+
+def test_reaper_returns_nothing_and_does_not_raise_when_docker_is_missing() -> None:
+    def no_docker(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("docker")
+
+    assert reap_stale_test_containers(MAX_AGE, run=no_docker, now=lambda: NOW) == []
+
+
+def test_reaper_returns_nothing_when_docker_refuses_to_list() -> None:
+    def refused(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=list(args), returncode=1, stdout="", stderr="down")
+
+    assert reap_stale_test_containers(MAX_AGE, run=refused, now=lambda: NOW) == []

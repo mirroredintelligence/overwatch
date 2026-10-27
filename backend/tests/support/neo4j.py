@@ -9,6 +9,7 @@ session, so each round trip proves what was really stored.
 """
 
 import asyncio
+import logging
 import os
 import re
 import secrets
@@ -19,7 +20,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
@@ -251,14 +252,73 @@ async def wipe(driver: AsyncDriver) -> None:
         pass
 
 
+# DEC-108. Test runs take under 20 minutes, so a container this old cannot belong to a live run.
 REAPER_MAX_AGE = timedelta(minutes=90)
+TEST_LABEL = "diucs-test"
+DockerRunner = Callable[..., subprocess.CompletedProcess[str]]
+_CREATED_AT = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$")
+_reaper_log = logging.getLogger(__name__)
+
+
+def _utc_now() -> datetime:
+    return datetime.now(UTC)
+
+
+def _parse_created(text: str) -> datetime:
+    """Parse docker's Created value, RFC 3339 with up to nanoseconds, into an aware datetime."""
+    match = _CREATED_AT.match(text.strip())
+    if match is None:
+        raise ValueError(f"unrecognised Created time: {text!r}")
+    base, fraction, zone = match.groups()
+    micros = (fraction or "")[:6].ljust(6, "0")
+    offset = "+00:00" if zone == "Z" else zone
+    return datetime.fromisoformat(f"{base}.{micros}{offset}")
 
 
 def reap_stale_test_containers(
     max_age: timedelta = REAPER_MAX_AGE,
     *,
-    run: Callable[..., subprocess.CompletedProcess[str]] = _docker,
-    now: Callable[[], datetime] = lambda: datetime.now(),
+    run: DockerRunner = _docker,
+    now: Callable[[], datetime] = _utc_now,
 ) -> list[str]:
-    """Red stub (DEC-010): the reaper is not written yet, so nothing is removed."""
-    return []
+    """Remove diucs-test containers created more than max_age ago, and return their names.
+
+    A run killed by a timeout or a signal never reaches stop_throwaway_neo4j, so its container
+    stays. This runs once per pytest session (conftest.py). It never raises: if Docker is missing
+    or fails, it logs a warning and returns what it removed so far. The label is checked here as
+    well as in the docker filter, so an unlabelled container is never removed.
+    """
+    removed: list[str] = []
+    try:
+        listed = run("ps", "-a", "--filter", f"label={TEST_LABEL}=true", "--format", "{{.Names}}")
+        if listed.returncode != 0:
+            _reaper_log.warning("Could not list test containers: %s", listed.stderr.strip())
+            return removed
+        names = [name for name in listed.stdout.split() if name]
+        if not names:
+            return removed
+        inspected = run(
+            "inspect",
+            "--format",
+            f'{{{{.Name}}}}|{{{{.Created}}}}|{{{{index .Config.Labels "{TEST_LABEL}"}}}}',
+            *names,
+        )
+        if inspected.returncode != 0:
+            _reaper_log.warning("Could not inspect test containers: %s", inspected.stderr.strip())
+            return removed
+        cutoff = now() - max_age
+        for line in inspected.stdout.splitlines():
+            name, created, label = (line.split("|", 2) + ["", "", ""])[:3]
+            name = name.lstrip("/")
+            if label != "true" or name not in names or _parse_created(created) >= cutoff:
+                continue
+            result = run("rm", "-f", name)
+            if result.returncode == 0:
+                removed.append(name)
+            else:
+                _reaper_log.warning("Could not remove stale test container %s", name)
+    except Exception:
+        _reaper_log.warning(
+            "Stale test container reaper skipped: Docker is unavailable or failed.", exc_info=True
+        )
+    return removed

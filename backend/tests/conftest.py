@@ -17,13 +17,24 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.bootstrap.container import TEST_NOW
-from tests.support.neo4j import ThrowawayNeo4j, apply_session_env, throwaway_driver, wipe
+from tests.support.neo4j import (
+    ThrowawayNeo4j,
+    apply_session_env,
+    reap_stale_test_containers,
+    throwaway_driver,
+    wipe,
+)
 from tests.support.uow import uow_factory_on
 
 _INTEGRATION_ROOT = Path(__file__).resolve().parent / "integration"
 # Drivers of the running harness session. Empty until a test needs Neo4j, so a run of tests that
 # never touch Neo4j (and a Docker-less run) never starts a container.
 _active: list[AsyncDriver] = []
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """Remove test containers left by killed runs (DEC-108). It never raises."""
+    reap_stale_test_containers()
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

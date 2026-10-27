@@ -278,6 +278,8 @@ class ReportCapacity:
             return _replay(early, fingerprint)
 
         _check_figure("value", command.value)
+        if command.replaced_value is not None:
+            _check_figure("replaced_value", command.replaced_value)
         if command.flag is not None:
             raise ValidationFailed(
                 "flag", "report flags are recorded by U07, not by ReportCapacity"

@@ -1427,3 +1427,35 @@ Numbered DEC-111: DEC-109 is taken on `task/W01-bff-foundations` and DEC-110 on 
 9. **Test client.** httpx's ASGI transport waits for a whole body, and a stream never ends. The stream tests drive the ASGI app directly and read the body while the response is open (`_Stream` in the integration test).
 
 Tests: `backend/tests/unit/adapters/inbound/fhir_rest/test_routes_events.py` (the message rules), `backend/tests/integration/adapters/inbound/fhir_rest/test_routes_events.py` (the HTTP stream, roles, keep-alive, close and the projector path), `backend/tests/unit/adapters/testing/test_memory_cache.py` (the fake's close). Evidence: `docs/delivery/evidence/R06.md`.
+## DEC-100 ReportCapacity choices the prompt leaves open (U01)
+Status: accepted (builder build-U01, for the owner to confirm) · Affects: U01 (`application/use_cases/report_capacity.py`), U02 (reuses `record_report`), U07 (report flags), U03 (prompts after a report), and every echo that C3 or C4 renders.
+
+Numbered DEC-100: first written as DEC-100, renumbered because DEC-094 to DEC-098 are on task/R02-auth-roles and DEC-099 on task/U09-board-projector. DEC-099 is the highest number on `main` or any task branch (checked with `git show <branch>:docs/delivery/decisions.md` on each branch).
+
+The U01 prompt leaves these open or contradicts itself, and this decision settles them.
+
+1. **The C3 echo gives the next due instant strictly after the report, not "14:00".** The prompt's test 2 records a report at 13:12Z (14:12 BST) and expects "Next prompt 14:00". 14:00 is before the report, so it cannot be the next prompt. The prompt's own sample ("as of 08:06. Next prompt 10:00") also gives the next due after the report. The echo therefore uses `schedule.next_due(profile, now)` (domain-rules 1.4), which gives 16:00 for this sample. Test 2 asserts "Next prompt 16:00". The 14:00 expectation is not kept.
+2. **Refusals happen before any write.** A value outside 0 to 999 raises `ValidationFailed("value")`. An effective time after `now` raises `ValidationFailed("effective_at")`, because a figure from the future is a clock error and must not be shown as current. A `replaced_value` outside 0 to 999 raises `ValidationFailed("replaced_value")`. A report flag in the command raises `ValidationFailed("flag")` until U07 records report flags: accepting it here would drop the flag without a trace.
+3. **Who may report.** The service is loaded first: an unknown or inactive service raises `NotFound`. Then the permission check. A `REPORTER` may report for a service in `actor.service_ids`, from any source except `advisor-phoned`, because only an advisor or lead may name that source (a reporter cannot claim it). An `ADVISOR` or `LEAD` may report any active service, and only with source `advisor-phoned`. Every other combination raises `NotAllowed`, and nothing is written.
+4. **Replay (P15).** `ReportCapacity` takes the idempotency store in its constructor for an early read. The authoritative `get` and `put` run inside the unit of work (`uow.idempotency`), so the first result commits with the change. A replay returns the stored result with `replayed=True` and writes nothing.
+5. **Echo recipient and message id.** `record_report(send_echo=...)` takes the performer role id, or None for no echo. The echo is sent only when the source is `text` and a performer is given. The `Communication` and the `SendMessage` payload carry the catalogue id as `message_id` ("C3" or "C4"), because `Communication.message_id` is a catalogue code (contracts.md). The communication is `queued`, and its time is `now`.
+6. **Suspended services.** A service with an active `suspended` flag is read as suspended, for the status before and after the report (domain-rules 1.2). A report to a suspended service therefore emits no `StatusChanged`. Its `CapacityReported` is still emitted.
+7. **Audit snapshot.** The snapshot holds `value`, `source`, `status_before` and `status_after`, as the prompt says. The audit log canonicalises enums to their text.
+
+Tests: `backend/tests/integration/application/test_report_capacity.py`. Evidence: `docs/delivery/evidence/U01.md`.
+
+## DEC-101 Prompt test 2 expects Next prompt 14:00: the echo keeps 16:00 (U01)
+Status: accepted (builder decision, build-U01, for the owner to confirm; recorded after the verifier's FAIL at 9bcbc7e) · Collision: DEC-101 is also on task/I06-twilio-sms and task/R03-etag-idempotency; whichever of the two merges second renumbers in the same commit (lesson L43) · Affects: U01 test 2 (`docs/plan/prompts/U01.md`), `backend/tests/integration/application/test_report_capacity.py`, every C3 echo, and U02 (reuses `record_report`).
+
+1. The prompt's test 2 says a report recorded at 13:12Z (14:12 BST) gives "Next prompt 14:00". 14:00 BST is 13:00Z, which is before that report, so it cannot be the next prompt after it. The next due after the report is 16:00 BST by the two-hourly rule (domain-rules 1.4). The code and the test give 16:00. The prompt's expectation is wrong; the code is right.
+2. The decision is 16:00. The prompt snapshot `docs/plan/prompts/U01.md` is not edited, because it is a snapshot. The test asserts 16:00 with a comment that cites this entry.
+3. A prompt expectation of a next prompt earlier than the report that produces it cannot be met by any correct implementation. Check such expectations against the clock before building to them.
+
+## DEC-104 A reused command key with a different body is refused with Conflict (U01)
+Status: accepted (builder decision, build-U01, for the owner to confirm) · Affects: U01 (`application/use_cases/report_capacity.py`), U02 (reuses `record_report` and the same replay path), and every command that replays through `IdempotencyStore` (P15).
+
+1. A replay is the same command. The key is matched to a fingerprint: a SHA-256 of the command body and of the actor who sent it (service, value, source, effective time, performer role, replaced value, report flag, the actor's role and practitioner id). An identical replay returns the stored result with `replayed=True`. A replay whose fingerprint differs raises `Conflict` and writes nothing.
+2. The stored record is `_StoredReport(fingerprint, result)`, written through `IdempotencyStore` in the same unit of work as the change (DEC-090 item 4).
+3. The actor is part of the fingerprint. Without it, a second person holding a key could read the first person's result, and the early replay read runs before the permission check.
+4. The check runs on the early read and again inside the unit of work (the authoritative check). Tests: `test_a_reused_key_with_a_different_body_is_refused`, `test_the_same_key_twice_replays_the_first_result`, `test_a_replay_is_decided_inside_the_unit_of_work`.
+5. Known limit, for the owner: a key used again after a different actor's report is refused rather than replayed, so an honest retry by a different person needs a new key.

@@ -123,6 +123,25 @@ class _UnreadableCache(InMemoryCache):
         raise OSError("cache unavailable")
 
 
+class _ReadingAtPublishCache(InMemoryCache):
+    """Records what the cache held at the moment of each publish."""
+
+    def __init__(self, clock: Clock) -> None:
+        super().__init__(clock)
+        self.held_at_publish: list[str | None] = []
+
+    async def publish(self, channel: str, message: str) -> None:
+        self.held_at_publish.append(await super().get(BOARD_CACHE_KEY))
+        await super().publish(channel, message)
+
+
+class _UnpublishableCache(InMemoryCache):
+    """A cache that stores and reads but cannot publish."""
+
+    async def publish(self, channel: str, message: str) -> None:
+        raise OSError("cache unavailable")
+
+
 class _UnwritableCache(InMemoryCache):
     """A cache that reads but cannot store or publish."""
 
@@ -315,3 +334,47 @@ async def test_an_unreadable_cached_board_is_replaced_by_a_computed_one(
 
     assert [entry.effective_available for entry in board.entries] == [4]
     assert query_board.computations == 1
+
+
+async def test_the_board_is_stored_before_the_update_is_published(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    clock = FixedClock(FRIDAY_NOON_LONDON)
+    await _seed(uow_factory, _report("obs-west-1403", 4, WEST_REPORT_AT))
+    cache = _ReadingAtPublishCache(clock)
+    projector, _ = _projector(uow_factory, cache, clock)
+
+    assert await projector.handle("CapacityReported", _payload("svc-ucr-west"))
+
+    assert len(cache.held_at_publish) == 1
+    held = cache.held_at_publish[0]
+    assert held is not None
+    assert [entry.service_id for entry in board_from_dict(json.loads(held)).entries] == [WEST.id]
+
+
+async def test_a_failed_publish_is_raised_after_the_board_is_stored(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    clock = FixedClock(FRIDAY_NOON_LONDON)
+    await _seed(uow_factory, _report("obs-west-1403", 4, WEST_REPORT_AT))
+    cache = _UnpublishableCache(clock)
+    projector, _ = _projector(uow_factory, cache, clock)
+
+    with pytest.raises(OSError):
+        await projector.handle("CapacityReported", _payload("svc-ucr-west"))
+    assert await cache.get(BOARD_CACHE_KEY) is not None
+
+
+async def test_a_board_rebuilt_on_an_event_expires_after_sixty_seconds(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    clock = FixedClock(FRIDAY_NOON_LONDON)
+    await _seed(uow_factory, _report("obs-west-1403", 4, WEST_REPORT_AT))
+    cache = _RecordingCache(clock)
+    projector, query_board = _projector(uow_factory, cache, clock)
+    assert await projector.handle("CapacityReported", _payload("svc-ucr-west"))
+
+    clock.advance(timedelta(seconds=61))
+    await projector.get_board(ADVISOR)
+
+    assert query_board.computations == 2

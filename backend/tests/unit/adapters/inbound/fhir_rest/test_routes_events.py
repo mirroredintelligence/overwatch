@@ -80,3 +80,43 @@ def test_text_that_is_not_json_is_not_a_message() -> None:
 
 def test_text_that_is_json_is_parsed_as_the_message() -> None:
     assert parse_message('{"serviceId":"svc-1"}') == {"serviceId": "svc-1"}
+
+
+@pytest.mark.parametrize(
+    "service_id", ["Jane Smith", "DT4 8XX", "svc 1", "svc/1", "svc_1", "a" * 65]
+)
+def test_a_projector_message_with_a_malformed_service_id_is_dropped(service_id: str) -> None:
+    message = {"type": "board-changed", "service_id": service_id, "at": CHANGED_AT}
+
+    assert to_sse(message) is None
+
+
+@pytest.mark.parametrize(
+    "changed_at",
+    [
+        "2026-10-23 13:12:00Z",
+        "23/10/2026 13:12",
+        "2026-10-23T13:12:00+01:00",
+        "2026-10-23T13:12:00",
+        "2026-13-45T99:99:00Z",
+        "13:12",
+    ],
+)
+def test_a_projector_message_with_a_malformed_time_is_dropped(changed_at: str) -> None:
+    message = {"type": "board-changed", "service_id": "svc-1", "at": changed_at}
+
+    assert to_sse(message) is None
+
+
+@pytest.mark.parametrize("service_id", ["Jane Smith", "DT4 8XX", "svc 1"])
+def test_a_task_message_with_a_malformed_service_id_is_dropped(service_id: str) -> None:
+    message = {"serviceId": service_id, "kind": "capacity", "changedAt": CHANGED_AT}
+
+    assert to_sse(message) is None
+
+
+def test_a_malformed_value_is_not_echoed_into_any_event() -> None:
+    # A name or postcode in a bad field must never reach the stream, not even partly.
+    message = {"serviceId": "Jane Smith", "kind": "capacity", "changedAt": CHANGED_AT}
+
+    assert to_sse(message) is None

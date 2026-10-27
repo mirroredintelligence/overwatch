@@ -173,6 +173,22 @@ def test_a_malformed_or_badly_claimed_token_is_refused(token: str) -> None:
         decode_bff_token(token, SECRET, NOW)
 
 
+def test_a_header_naming_another_algorithm_is_refused_even_when_the_signature_matches() -> None:
+    # HMAC-SHA256 over the input, so only the header's alg claim is wrong.
+    token = sign({"alg": "HS512", "typ": "JWT"}, payload(), digest="sha256")
+
+    with pytest.raises(TokenRejected):
+        decode_bff_token(token, SECRET, NOW)
+
+
+def test_an_oversized_but_correctly_signed_token_is_refused() -> None:
+    token = valid_token(services=[f"svc-{n:05d}" for n in range(1000)])
+    assert len(token) > BFF_TOKEN_MAX_LENGTH
+
+    with pytest.raises(TokenRejected):
+        decode_bff_token(token, SECRET, NOW)
+
+
 def test_an_oversized_token_is_refused_before_it_is_parsed() -> None:
     oversized = "x" * (BFF_TOKEN_MAX_LENGTH + 1)
 

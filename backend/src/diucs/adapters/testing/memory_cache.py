@@ -36,6 +36,9 @@ class _Subscription:
     async def __anext__(self) -> str:
         return await self._queue.get()
 
+    async def aclose(self) -> None:
+        raise NotImplementedError
+
 
 class InMemoryCache:
     def __init__(self, clock: Clock) -> None:
@@ -74,6 +77,9 @@ class InMemoryCache:
         queue: asyncio.Queue[str] = asyncio.Queue()
         self._subscribers.setdefault(channel, []).append(queue)
         return _Subscription(queue)
+
+    def subscriber_count(self, channel: str) -> int:
+        raise NotImplementedError
 
     async def acquire_lock(self, name: str, ttl: timedelta) -> Lock | None:
         now = self._now()

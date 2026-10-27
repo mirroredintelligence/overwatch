@@ -159,3 +159,26 @@ async def test_releasing_a_lock_for_a_name_that_was_never_held_does_nothing() ->
 def test_the_fake_is_documented_as_a_test_only_stand_in_for_redis() -> None:
     assert memory_cache.__doc__ is not None
     assert "Fake for tests only. Redis is the production cache" in memory_cache.__doc__
+
+
+async def test_closing_a_subscription_removes_it_and_later_publishes_do_not_reach_it() -> None:
+    cache, _ = make_cache()
+    messages = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+    assert cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 1
+
+    await messages.aclose()  # type: ignore[attr-defined]
+
+    assert cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 0
+    await cache.publish(BOARD_UPDATES_CHANNEL, "after the close")
+
+
+async def test_closing_one_subscription_leaves_the_other_subscribers_live() -> None:
+    cache, _ = make_cache()
+    closed = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+    kept = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+
+    await closed.aclose()  # type: ignore[attr-defined]
+    await cache.publish(BOARD_UPDATES_CHANNEL, "still here")
+
+    assert cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 1
+    assert await next_message(kept) == "still here"

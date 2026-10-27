@@ -20,6 +20,7 @@ from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.bff_token import (
     BFF_SECRET_MIN_BYTES,
+    BFF_TOKEN_MAX_LENGTH,
     BffClaims,
     TokenRejected,
     decode_bff_token,
@@ -167,6 +168,26 @@ MALFORMED = [
 
 @pytest.mark.parametrize("token", MALFORMED)
 def test_a_malformed_or_badly_claimed_token_is_refused(token: str) -> None:
+    with pytest.raises(TokenRejected):
+        decode_bff_token(token, SECRET, NOW)
+
+
+def test_an_oversized_token_is_refused_before_it_is_parsed() -> None:
+    oversized = "x" * (BFF_TOKEN_MAX_LENGTH + 1)
+
+    with pytest.raises(TokenRejected):
+        decode_bff_token(oversized, SECRET, NOW)
+
+
+def test_a_deeply_nested_signed_payload_is_refused_not_raised() -> None:
+    # Nested far past the JSON parser's recursion limit, but under the token length limit, and
+    # correctly signed, so only the parser can refuse it.
+    head = b64(json.dumps(HEADER, separators=(",", ":")).encode())
+    body = b64(b"[" * 2000 + b"]" * 2000)
+    signature = hmac.new(SECRET, f"{head}.{body}".encode("ascii"), hashlib.sha256).digest()
+    token = f"{head}.{body}.{b64(signature)}"
+    assert len(token) < BFF_TOKEN_MAX_LENGTH
+
     with pytest.raises(TokenRejected):
         decode_bff_token(token, SECRET, NOW)
 

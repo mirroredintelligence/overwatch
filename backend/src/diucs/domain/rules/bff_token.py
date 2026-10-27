@@ -16,6 +16,9 @@ from diucs.domain.errors import DomainError
 
 BFF_TOKEN_ALGORITHM: Final = "HS256"
 BFF_SECRET_MIN_BYTES: Final = 32  # 256 bits, the output size of HMAC-SHA256 (DEC-094 item 3)
+BFF_TOKEN_MAX_LENGTH: Final = (
+    8192  # characters; a longer token is refused before it is parsed (DEC-094 item 2)
+)
 
 
 @dataclass(frozen=True, slots=True)

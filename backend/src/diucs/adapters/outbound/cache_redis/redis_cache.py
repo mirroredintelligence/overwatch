@@ -78,6 +78,8 @@ class RedisSubscription(AsyncIterator[str]):
         return self
 
     async def __anext__(self) -> str:
+        if self._closed:
+            raise StopAsyncIteration
         await self.opened
         item = await self._messages.get()
         if item is None:

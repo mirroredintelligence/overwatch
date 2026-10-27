@@ -128,7 +128,7 @@ SESSION_OPEN_LIMIT = timedelta(seconds=10)
 
 
 def session_open_window(wait: timedelta) -> float:
-    return max(wait.total_seconds(), _SESSION_OPEN_WAIT)
+    return min(max(wait.total_seconds(), _SESSION_OPEN_WAIT), SESSION_OPEN_LIMIT.total_seconds())
 
 
 def _as_bus_message(message: ServiceBusReceivedMessage, name: str) -> BusMessage:

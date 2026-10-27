@@ -62,9 +62,10 @@ def _headers_for(role: Role) -> dict[str, str]:
 class _Stream:
     """One GET /events, driven at the ASGI level so the body can be read while it is open."""
 
-    def __init__(self, app: FastAPI, headers: dict[str, str]) -> None:
+    def __init__(self, app: FastAPI, headers: dict[str, str], log: list[str] | None = None) -> None:
         self._app = app
         self._headers = headers
+        self._log = log
         self._body_sent = False
         self._closed = asyncio.Event()
         self._started = asyncio.Event()
@@ -102,6 +103,8 @@ class _Stream:
             self.response_headers = {
                 key.decode().lower(): value.decode() for key, value in message["headers"]
             }
+            if self._log is not None:
+                self._log.append("start")
             self._started.set()
         elif message["type"] == "http.response.body":
             self._chunks.append(message.get("body", b""))
@@ -201,12 +204,33 @@ async def test_a_role_outside_the_board_gets_a_404(stream_app: FastAPI, role: Ro
         await refused.read_until('"code":"not-found"')
 
 
-async def test_a_request_without_a_token_is_refused(
-    stream_app: FastAPI, api_client: AsyncClient
-) -> None:
-    response = await api_client.get("/events")
+async def test_a_request_without_a_token_is_refused(stream_app: FastAPI) -> None:
+    # Read as a stream, with the response start bounded by _Stream's timeout. Through httpx a
+    # missing role gate would open a stream that never ends, and the test would hang instead of
+    # failing. Here it fails on the status within the timeout.
+    async with _Stream(stream_app, {}) as stream:
+        assert stream.status == 401
+        assert stream.response_headers["www-authenticate"] == "Bearer"
 
-    assert response.status_code == 401
+
+async def test_the_subscription_is_opened_before_the_response_starts(
+    stream_app: FastAPI, stream_cache: InMemoryCache, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A stream that subscribed only when its body is first read would miss a message published as
+    # the response begins. The subscription must exist before the response starts (DEC-111 item 4).
+    log: list[str] = []
+    subscribe = stream_cache.subscribe
+
+    async def logged_subscribe(channel: str) -> Any:
+        log.append("subscribe")
+        return await subscribe(channel)
+
+    monkeypatch.setattr(stream_cache, "subscribe", logged_subscribe)
+
+    async with _Stream(stream_app, _wall_headers(), log) as stream:
+        assert stream.status == 200
+
+    assert log == ["subscribe", "start"]
 
 
 async def test_closing_the_stream_removes_its_subscription(

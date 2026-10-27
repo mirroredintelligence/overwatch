@@ -17,5 +17,5 @@ def connection_string() -> str:
     return secret.get_secret_value() if secret is not None else EMULATOR_CONNECTION
 
 
-def client() -> ServiceBusClient:
-    return ServiceBusClient.from_connection_string(connection_string())
+def client(**options: int) -> ServiceBusClient:
+    return ServiceBusClient.from_connection_string(connection_string(), **options)

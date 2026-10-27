@@ -142,12 +142,14 @@ def _as_bus_message(message: ServiceBusReceivedMessage, name: str) -> BusMessage
     )
 
 
-async def _receive_from(sb: ServiceBusClient, name: str, wait: timedelta) -> BusMessage | None:
+async def _receive_from(
+    sb: ServiceBusClient, sessions: ServiceBusClient, name: str, wait: timedelta
+) -> BusMessage | None:
     seconds = wait.total_seconds()
     if name in QUEUES:
         receiver = sb.get_queue_receiver(name, max_wait_time=seconds)
     elif name in _TOPIC_SUBSCRIPTIONS:
-        receiver = sb.get_subscription_receiver(
+        receiver = sessions.get_subscription_receiver(
             name,
             _TOPIC_SUBSCRIPTIONS[name],
             session_id=ServiceBusSessionFilter.NEXT_AVAILABLE,
@@ -172,10 +174,10 @@ async def _receive_from(sb: ServiceBusClient, name: str, wait: timedelta) -> Bus
         return _as_bus_message(found[0], name)
 
 
-async def _drain(sb: ServiceBusClient, names: tuple[str, ...]) -> None:
+async def _drain(sb: ServiceBusClient, sessions: ServiceBusClient, names: tuple[str, ...]) -> None:
     """Remove what is already waiting, so a message from an earlier run is not received."""
     for name in names:
-        while await _receive_from(sb, name, _DRAIN_WAIT) is not None:
+        while await _receive_from(sb, sessions, name, _DRAIN_WAIT) is not None:
             pass
 
 
@@ -203,27 +205,31 @@ class _RecordingBus:
 async def make_servicebus_event_bus() -> Harness[EventBus]:
     """The Service Bus emulator (I02, DEC-008 pattern: no state carries between tests)."""
     sb = servicebus_client()
+    # A timed-out session open is the normal empty case, so it fails at once instead of retrying
+    # for about 40 s per call (DEC-102 item 4).
+    sessions = servicebus_client(retry_total=0)
     try:
         bus = ServiceBusEventBus(sb)
     except BaseException:
         await sb.close()
         raise
     recorder = _RecordingBus(bus)
-    await _drain(sb, (*_CONTRACT_QUEUES, *_TOPIC_SUBSCRIPTIONS))
+    await _drain(sb, sessions, (*_CONTRACT_QUEUES, *_TOPIC_SUBSCRIPTIONS))
 
     async def advance(delta: timedelta) -> None:
         await asyncio.sleep(delta.total_seconds())
 
     async def receive(name: str, timeout: timedelta) -> BusMessage | None:
-        return await _receive_from(sb, name, timeout)
+        return await _receive_from(sb, sessions, name, timeout)
 
     async def close() -> None:
         try:
             for queue, number in sorted(recorder.pending):
                 await bus.cancel(queue, number)
-            await _drain(sb, _CONTRACT_QUEUES)
+            await _drain(sb, sessions, _CONTRACT_QUEUES)
         finally:
             await bus.close()
+            await sessions.close()
             await sb.close()
 
     return Harness(

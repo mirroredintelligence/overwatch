@@ -252,3 +252,8 @@ These names were added by individual task prompts. They are as binding as the re
 - The pure gate `domain/rules/registration.py` takes booleans; it does not know who the approver is.
 - The use case that approves a registration (U29) must refuse when the approver is the requester. This is the only place that check lives. Any other caller that approves a registration must make the same check.
 
+### Board cache and live update (U09)
+
+| Name | Created by |
+|---|---|
+| `application/use_cases/board_projector.py`: `BOARD_CACHE_KEY = "board:v1"`, `BOARD_CACHE_TTL` (60 s, [ASSUMED]), `BOARD_CHANGED = "board-changed"`, `REBUILD_EVENTS` (the seven event names that rebuild the board), `WALL_ACTOR`, `board_to_dict(board) -> dict`, `board_from_dict(data) -> Board`, `BoardProjector(query_board, cache, clock)` with `async handle(event_type, payload) -> bool` and `async get_board(actor) -> Board`. Message on `board.updates`: `{"type": "board-changed", "service_id": str or null, "at": ISO 8601 UTC}`, no figures. The cache holds the board as JSON under `board:v1`. | U09 |

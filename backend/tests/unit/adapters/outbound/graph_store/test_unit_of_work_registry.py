@@ -24,6 +24,8 @@ REQUIRED_NAMES = {
     "contacts",
     "pins",
     "devices",
+    "idempotency",
+    "processed",
 }
 
 

@@ -5,7 +5,7 @@ Docker Compose runs the services DIUCS needs when you run it by hand:
 | Service | Image (pinned) | Port | Notes |
 |---|---|---|---|
 | Neo4j (the only database) | `neo4j:5.26.32-community` | Bolt 7687, browser 7474 | Data in the named volume `neo4j-data` |
-| Redis (cache) | `redis:7.4.11-alpine` | 6379 | Transient only, no volume |
+| Redis (cache) | `redis:7.4.11-alpine` | 6379 | Append-only file on the `redis-data` volume (DEC-091); `down -v` clears it |
 | Azure Service Bus emulator | `azure-messaging/servicebus-emulator:2.0.1` | AMQP 5672, management and health 5300 | Queues, topics and subscriptions are recreated from `servicebus-config.json` on every start. Messages are not kept when the stack is taken down, because the emulator's SQL store (`servicebus-sql`) has no volume |
 | SQL Server (emulator storage) | `mssql/server:2022-CU27-ubuntu-22.04` | internal | Needed by the emulator. It has no volume, so its contents, including any messages, are lost when the container is removed (`down`) and recreated |
 | `servicebus-ready` | same SQL image | none | Probe container: healthy only when the emulator's `/health` answers 200. The emulator image has no shell, so it cannot check itself |

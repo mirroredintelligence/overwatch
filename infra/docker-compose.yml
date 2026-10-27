@@ -25,8 +25,12 @@ services:
 
   redis:
     image: redis:7.4.11-alpine
+    # Append-only file on a named volume, so a local restart keeps the counters (DEC-091).
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
+    volumes:
+      - redis-data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -86,3 +90,4 @@ services:
 
 volumes:
   neo4j-data:
+  redis-data:

@@ -248,7 +248,7 @@ async def test_sixteen_racing_marks_for_one_message_let_exactly_one_win(
 async def test_a_racing_mark_waits_for_a_held_mark_and_leaves_one_marker(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    """Held transaction (lesson L94): without the unique key the second mark creates a second node."""
+    """Held transaction (lesson L94): without the unique key the second mark makes a second node."""
     first_session = neo4j_driver.session()
     first_tx = await first_session.begin_transaction()
     try:
@@ -284,3 +284,33 @@ async def test_a_processed_marker_records_the_time_as_a_datetime(
         await uow.commit()
     marker = await node_props(neo4j_driver, "Processed", messageId="m4")
     assert isinstance(marker["processedAt"], DateTime)
+
+
+async def test_a_colon_in_either_value_cannot_make_two_pairs_share_a_marker(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    async with uow_factory() as uow:
+        assert await uow.processed.mark_if_new("a:b", "c") is True
+        await uow.commit()
+    async with uow_factory() as uow:
+        assert await uow.processed.mark_if_new("a", "b:c") is True
+        await uow.commit()
+
+
+async def test_an_instant_in_a_result_is_stored_as_a_neo4j_datetime(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver
+) -> None:
+    async with uow_factory() as uow:
+        await uow.idempotency.put("cmd-10", _result())
+        await uow.commit()
+
+    async def instants(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
+        result = await tx.run(
+            "MATCH (v:IdempotencyValue {kind: 'instant'}) RETURN properties(v) AS props"
+        )
+        return [dict(row["props"]) for row in await result.data()]
+
+    rows = await read_tx(neo4j_driver, instants)
+    assert len(rows) == 1
+    assert isinstance(rows[0]["at"], DateTime)
+    assert "text" not in rows[0]

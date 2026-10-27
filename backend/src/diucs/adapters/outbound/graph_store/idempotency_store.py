@@ -1,36 +1,269 @@
-"""Neo4j idempotency store and processed-message markers (P15, DEC-012, DEC-089).
+"""Neo4j idempotency store and processed-message markers (P15, DEC-012, DEC-089, DEC-001).
 
-Stub for the red commit (DEC-010): the behaviour is not written yet.
+Layout, graph-native (no JSON text and no map-valued property is stored):
+
+- (:IdempotencyRecord {key, resultType, createdAt}), key unique (migration 0029). createdAt is a
+  Neo4j datetime written by the database in UTC.
+- The result is a tree of (:IdempotencyValue {seq, kind, text, num, flag, at}) nodes, one per JSON
+  value. The record reaches each one by [:HAS_VALUE]. Each value holds its scalar in one typed
+  property: text for strings, num for numbers, flag for booleans, at for instants (a canonical UTC
+  instant is a Neo4j datetime). The children of an array or object hang off it by
+  [:MEMBER {position, name}], name set for object members only.
+- (:Processed {key, messageId, consumer, processedAt}), key unique (migration 0030). key joins the
+  consumer and the message id with the consumer's length, so no two pairs share a key. Neo4j
+  Community has no composite uniqueness (lesson L90), so the single-property key is the guard.
+
+A racing first write meets the unique key: its CREATE or MERGE fails with ConstraintError, which
+is mapped to Conflict, so the unit of work that made it is refused and never commits (lesson L106).
 """
 
+import json
+from collections import defaultdict
+from datetime import datetime
+from typing import Any, Literal
+from uuid import uuid4
+
 from neo4j import AsyncDriver, AsyncManagedTransaction
+from neo4j.exceptions import ConstraintError
+
+from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.application.idempotency import (
+    DATETIME_TAG,
+    decode_result,
+    encode_result,
+    format_instant,
+    parse_instant,
+)
+from diucs.domain.errors import Conflict
+
+_QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
+    "Q-IDEM-HEAD": (
+        "MATCH (r:IdempotencyRecord {key: $key}) RETURN r.resultType AS resultType",
+        "read",
+    ),
+    "Q-IDEM-VALUES": (
+        "MATCH (r:IdempotencyRecord {key: $key})-[:HAS_VALUE]->(v:IdempotencyValue) "
+        "RETURN v.seq AS seq, v.kind AS kind, v.text AS text, v.num AS num, v.flag AS flag, "
+        "v.at AS at",
+        "read",
+    ),
+    "Q-IDEM-EDGES": (
+        "MATCH (r:IdempotencyRecord {key: $key})-[:HAS_VALUE]->(p:IdempotencyValue)"
+        "-[e:MEMBER]->(c:IdempotencyValue) "
+        "RETURN p.seq AS parent, c.seq AS child, e.name AS name, e.position AS position",
+        "read",
+    ),
+    "Q-IDEM-CREATE": (
+        "CREATE (r:IdempotencyRecord {key: $key, resultType: $resultType, "
+        "createdAt: datetime({timezone: 'UTC'})}) "
+        "WITH r UNWIND $values AS row "
+        "CREATE (v:IdempotencyValue {seq: row.seq, kind: row.kind, text: row.text, "
+        "num: row.num, flag: row.flag, at: row.at}) "
+        "CREATE (r)-[:HAS_VALUE]->(v) "
+        "RETURN count(v) AS written",
+        "write",
+    ),
+    "Q-IDEM-LINK": (
+        "UNWIND $edges AS e "
+        "MATCH (r:IdempotencyRecord {key: $key})-[:HAS_VALUE]->"
+        "(p:IdempotencyValue {seq: e.parent}) "
+        "MATCH (r)-[:HAS_VALUE]->(c:IdempotencyValue {seq: e.child}) "
+        "CREATE (p)-[:MEMBER {name: e.name, position: e.position}]->(c) "
+        "RETURN count(c) AS linked",
+        "write",
+    ),
+    "Q-PROCESSED-MARK": (
+        "MERGE (p:Processed {key: $key}) "
+        "ON CREATE SET p.messageId = $messageId, p.consumer = $consumer, "
+        "p.processedAt = datetime({timezone: 'UTC'}), p.claim = $claim "
+        "WITH p, p.claim = $claim AS created "
+        "REMOVE p.claim "
+        "RETURN coalesce(created, false) AS created",
+        "write",
+    ),
+}
+
+for _query_id, (_cypher, _mode) in _QUERIES.items():
+    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode))
+
+
+def _processed_key(message_id: str, consumer: str) -> str:
+    # Length-prefixed consumer: the key cannot be split two ways, whatever the two values contain.
+    return f"{len(consumer)}:{consumer}:{message_id}"
+
+
+def _flatten(tree: object) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """One value row per JSON value (root is seq 0) and one edge row per member or item."""
+    values: list[dict[str, Any]] = []
+    edges: list[dict[str, Any]] = []
+
+    def visit(node: object) -> int:
+        seq = len(values)
+        row: dict[str, Any] = {
+            "seq": seq,
+            "kind": "",
+            "text": None,
+            "num": None,
+            "flag": None,
+            "at": None,
+        }
+        values.append(row)
+        if node is None:
+            row["kind"] = "null"
+        elif isinstance(node, bool):
+            row["kind"], row["flag"] = "boolean", node
+        elif isinstance(node, (int, float)):
+            row["kind"], row["num"] = "number", node
+        elif isinstance(node, str):
+            row["kind"], row["text"] = "string", node
+        elif isinstance(node, list):
+            row["kind"] = "array"
+            for position, item in enumerate(node):
+                edges.append(
+                    {"parent": seq, "child": visit(item), "name": None, "position": position}
+                )
+        elif isinstance(node, dict) and set(node) == {DATETIME_TAG}:
+            row["kind"] = "instant"
+            row["at"] = parse_instant(str(node[DATETIME_TAG]))
+        elif isinstance(node, dict):
+            row["kind"] = "object"
+            for position, (name, item) in enumerate(node.items()):
+                edges.append(
+                    {"parent": seq, "child": visit(item), "name": name, "position": position}
+                )
+        else:
+            raise ValueError("a stored value must be JSON")
+        return seq
+
+    visit(tree)
+    return values, edges
+
+
+def _rebuild(values: list[dict[str, Any]], edges: list[dict[str, Any]]) -> object:
+    by_seq = {row["seq"]: row for row in values}
+    children: defaultdict[int, list[tuple[int, str | None, int]]] = defaultdict(list)
+    for edge in edges:
+        children[edge["parent"]].append((edge["position"], edge["name"], edge["child"]))
+
+    def build(seq: int) -> object:
+        row = by_seq[seq]
+        kind = row["kind"]
+        if kind == "null":
+            return None
+        if kind == "boolean":
+            return bool(row["flag"])
+        if kind == "number":
+            return row["num"]
+        if kind == "string":
+            return row["text"]
+        if kind == "instant":
+            return {DATETIME_TAG: format_instant(_native(row["at"]))}
+        ordered = sorted(children[seq], key=lambda entry: entry[0])
+        if kind == "array":
+            return [build(child) for _, _, child in ordered]
+        return {name: build(child) for _, name, child in ordered}
+
+    return build(0)
+
+
+def _native(value: object) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    to_native = getattr(value, "to_native", None)
+    if to_native is None:
+        raise ValueError("a stored instant must be a Neo4j datetime")
+    native = to_native()
+    if not isinstance(native, datetime):
+        raise ValueError("a stored instant must be a Neo4j datetime")
+    return native
+
+
+async def _read_record(tx: AsyncManagedTransaction, key: str) -> tuple[str, str] | None:
+    """(resultType, canonical JSON text) of a stored record, or None. Read-only."""
+    head = await run_query(tx, "Q-IDEM-HEAD", key=key)
+    if not head:
+        return None
+    values = await run_query(tx, "Q-IDEM-VALUES", key=key)
+    edges = await run_query(tx, "Q-IDEM-EDGES", key=key)
+    tree = _rebuild(values, edges)
+    text = json.dumps(tree, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    return str(head[0]["resultType"]), text
 
 
 class Neo4jIdempotencyStore:
+    """Command replay on one unit of work's transaction (P15, DEC-089)."""
+
     def __init__(self, tx: AsyncManagedTransaction) -> None:
         self._tx = tx
 
     async def get(self, key: str) -> object | None:
-        raise NotImplementedError
+        stored = await _read_record(self._tx, key)
+        if stored is None:
+            return None
+        result_type, json_text = stored
+        return decode_result(result_type, json_text)
 
     async def put(self, key: str, result: object) -> None:
-        raise NotImplementedError
+        """Store the first result of a key. The same result again changes nothing. A different
+        result for a key already stored is Conflict, and so is a racing first write (the unique
+        key refuses the second CREATE)."""
+        result_type, json_text = encode_result(result)
+        stored = await _read_record(self._tx, key)
+        if stored is not None:
+            if stored == (result_type, json_text):
+                return
+            raise Conflict("a different result is already stored for this command key")
+        values, edges = _flatten(json.loads(json_text))
+        try:
+            await run_query(
+                self._tx, "Q-IDEM-CREATE", key=key, resultType=result_type, values=values
+            )
+            await run_query(self._tx, "Q-IDEM-LINK", key=key, edges=edges)
+        except ConstraintError as error:
+            raise Conflict("a result for this command key was stored first") from error
 
 
 class Neo4jProcessedMessages:
+    """Consumer idempotency: (messageId, consumer) is handled once (P15, DEC-012)."""
+
     def __init__(self, tx: AsyncManagedTransaction) -> None:
         self._tx = tx
 
     async def mark_if_new(self, message_id: str, consumer: str) -> bool:
-        raise NotImplementedError
+        """True when this call created the marker; False when it already existed. A racing first
+        mark is refused with Conflict (the unique key), so the caller must not commit."""
+        try:
+            rows = await run_query(
+                self._tx,
+                "Q-PROCESSED-MARK",
+                key=_processed_key(message_id, consumer),
+                messageId=message_id,
+                consumer=consumer,
+                claim=uuid4().hex,
+            )
+        except ConstraintError as error:
+            raise Conflict("this message is being processed by another unit of work") from error
+        return bool(rows[0]["created"])
 
 
 class DriverIdempotencyStore:
+    """The idempotency store for constructor injection: each call runs in its own transaction on
+    the process's driver, and its session is always closed (DEC-012)."""
+
     def __init__(self, driver: AsyncDriver) -> None:
         self._driver = driver
 
     async def get(self, key: str) -> object | None:
-        raise NotImplementedError
+        async def read(tx: AsyncManagedTransaction) -> object | None:
+            return await Neo4jIdempotencyStore(tx).get(key)
+
+        async with self._driver.session() as session:
+            return await session.execute_read(read)
 
     async def put(self, key: str, result: object) -> None:
-        raise NotImplementedError
+        async def write(tx: AsyncManagedTransaction) -> None:
+            await Neo4jIdempotencyStore(tx).put(key, result)
+
+        async with self._driver.session() as session:
+            await session.execute_write(write)

@@ -1,5 +1,6 @@
 """The command-result codec (P15, DEC-089). Pure: no Neo4j, no clock."""
 
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -67,7 +68,7 @@ def test_decoding_a_type_outside_the_allowed_packages_raises_value_error(type_na
 
 
 def test_a_domain_enum_nested_in_a_result_decodes_as_itself() -> None:
-    """Deviation from the P15 prompt, recorded in DEC-089: results carry domain enums such as Role."""
+    """A deviation from the P15 prompt, recorded in DEC-089: results carry domain enums."""
     type_name, json_text = encode_result(_entry())
     assert "diucs.domain.codes:Role" in json_text
     assert decode_result(type_name, json_text) == _entry()
@@ -87,3 +88,19 @@ def test_a_datetime_is_encoded_as_utc_text_with_a_z_suffix() -> None:
     local = datetime(2026, 10, 23, 14, 0, 0, 5, tzinfo=timezone(timedelta(hours=1)))
     _, json_text = encode_result(_entry(at=local))
     assert "2026-10-23T13:00:00.000005Z" in json_text
+
+
+@dataclass(frozen=True, slots=True)
+class Outside:
+    """A dataclass that is importable but lives outside the allowed packages."""
+
+    count: int
+
+
+def test_a_dataclass_outside_the_allowed_packages_is_refused_on_decode_and_encode() -> None:
+    type_name = f"{Outside.__module__}:{Outside.__qualname__}"
+    stored = '{"$type":"' + type_name + '","fields":{"count":1}}'
+    with pytest.raises(ValueError):
+        decode_result(type_name, stored)
+    with pytest.raises(ValueError):
+        encode_result(Outside(count=1))

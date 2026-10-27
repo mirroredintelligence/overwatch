@@ -5,7 +5,7 @@ work or the harness helpers, so it checks what was really stored (DEC-004). Valu
 sample values from the prompt. There is no patient data.
 
 Clock: Friday 23 October 2026 at 13:12 UTC (14:12 BST). The next due after that is 16:00 BST
-(DEC-094 item 1).
+(DEC-100 item 1).
 """
 
 import dataclasses
@@ -52,7 +52,7 @@ Seed = Callable[..., Awaitable[None]]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)  # 14:12 BST, Friday
-NEXT_DUE_LONDON = "16:00"  # the first due after NOW (DEC-094 item 1)
+NEXT_DUE_LONDON = "16:00"  # the first due after NOW (DEC-100 item 1)
 
 REPORTER = Actor(
     role=Role.REPORTER,

@@ -2,7 +2,7 @@
 
 Every reporting path (text, link, app, advisor phoned) ends here. The change, its audit entry, its
 outbox messages and the idempotency record are written in one unit of work (DEC-084, DEC-090).
-Rules: domain-rules 1.2 to 1.6 through compute_status; decisions DEC-094 for the choices the
+Rules: domain-rules 1.2 to 1.6 through compute_status; decisions DEC-100 for the choices the
 prompt leaves open.
 """
 
@@ -81,7 +81,7 @@ def _check_figure(field: str, value: object) -> None:
 def _check_may_report(actor: Actor, source: ReportSource, service_id: str) -> None:
     """A reporter reports for their own services, from any source but advisor-phoned, which only
     an advisor or lead may name. An advisor or lead reports any service, only as advisor-phoned
-    (DEC-094 item 3)."""
+    (DEC-100 item 3)."""
     if actor.role is Role.REPORTER:
         if source is ReportSource.ADVISOR_PHONED or service_id not in actor.service_ids:
             raise NotAllowed("a reporter may report only for their own services")
@@ -97,7 +97,7 @@ def _echo_text(
     next_prompt: datetime | None,
     replaced_value: int | None,
 ) -> tuple[MessageId, str]:
-    """The C3 echo, or the C4 echo when a figure is replaced (DEC-094 item 1)."""
+    """The C3 echo, or the C4 echo when a figure is replaced (DEC-100 item 1)."""
     if next_prompt is None:
         # A valid profile always has a due time within the search window (DEC-023). Refuse the
         # report rather than echo a prompt time that is not there.
@@ -138,7 +138,7 @@ async def record_report(
     replaced_value: int | None,
 ) -> ReportCapacityResult:
     """Store one report with its status change, echo, audit entry and outbox messages, inside the
-    caller's unit of work. The caller commits. U02 reuses this function (DEC-094).
+    caller's unit of work. The caller commits. U02 reuses this function (DEC-100).
 
     `send_echo` is the performer role to echo to, or None for no echo. The caller passes the
     performer only when the source is text. A suspended service (an active suspended flag) is

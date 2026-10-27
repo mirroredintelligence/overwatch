@@ -1330,10 +1330,10 @@ Status: accepted (builder build-U09, for the owner to confirm) · Affects: U09 (
 11. **Staleness bound.** If an event is missed or a rebuild fails, the board can be behind by up to 60 s. That bound is the hazard H-27. It is not a guarantee that the board is current; the advisor screen shows the data age (H-01).
 
 Tests: `backend/tests/unit/application/use_cases/test_board_projector.py`, `backend/tests/integration/application/test_board_projector.py`. Evidence: `docs/delivery/evidence/U09.md`.
-## DEC-094 ReportCapacity choices the prompt leaves open (U01)
+## DEC-100 ReportCapacity choices the prompt leaves open (U01)
 Status: accepted (builder build-U01, for the owner to confirm) · Affects: U01 (`application/use_cases/report_capacity.py`), U02 (reuses `record_report`), U07 (report flags), U03 (prompts after a report), and every echo that C3 or C4 renders.
 
-Numbered DEC-094: DEC-093 is the highest number on `main` and on every `task/*` branch when this was written (checked with `git show <branch>:docs/delivery/decisions.md` on each branch).
+Numbered DEC-100: first written as DEC-100, renumbered because DEC-100 to DEC-098 are on task/R02-auth-roles and DEC-099 on task/U09-board-projector. DEC-099 is the highest number on `main` or any task branch (checked with `git show <branch>:docs/delivery/decisions.md` on each branch).
 
 The U01 prompt leaves these open or contradicts itself, and this decision settles them.
 

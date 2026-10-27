@@ -4,6 +4,7 @@ Runs through api_client on the harness Neo4j (DEC-004). The routes below are tes
 :TestThing nodes through a real unit of work. Every request carries a synthetic bearer token.
 """
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
@@ -104,6 +105,20 @@ def things_app(api_app: FastAPI, test_container: Any) -> FastAPI:
 
         return await replay_or_run(request, sub, key, run)
 
+    @api_app.post(PATH + "/conflicted")
+    async def conflicted_thing(
+        request: Request,
+        actor: Annotated[Actor, Depends(current_actor)],
+        key: Annotated[str, Depends(idempotency_key)],
+    ) -> Response:
+        sub = subject_of(actor)
+
+        async def run() -> Response:
+            request.app.state.runs.append("conflicted")
+            return FhirJSONResponse({"refused": True}, status_code=409)
+
+        return await replay_or_run(request, sub, key, run)
+
     @api_app.post(PATH + "/refused")
     async def refused_thing(
         request: Request,
@@ -199,6 +214,27 @@ async def test_a_put_with_the_current_version_runs_and_stores_version_4(
     assert await version_of(things_app, "t-ok") == 4
 
 
+async def test_a_put_waits_for_a_held_write_then_sees_the_new_version_and_is_refused(
+    things_app: FastAPI, api_client: AsyncClient
+) -> None:
+    # A held transaction writes version 4 and does not commit. The PUT must wait for it (the
+    # version is read after the write lock, lesson L63), then see 4 and refuse 3 with 412.
+    await seed(things_app, "t-held", 3)
+    held = things_app.state.things_uow()
+    await held.__aenter__()
+    try:
+        await as_things(held.things).bump("t-held", 4)
+        put_task = asyncio.create_task(put(api_client, "t-held", "pr-1", 'W/"3"'))
+        await asyncio.sleep(1)
+        assert not put_task.done()
+        await held.commit()
+    finally:
+        await held.__aexit__(None, None, None)
+    response = await put_task
+    assert response.status_code == 412
+    assert await version_of(things_app, "t-held") == 4
+
+
 async def test_a_put_with_a_malformed_if_match_is_412(
     things_app: FastAPI, api_client: AsyncClient
 ) -> None:
@@ -289,6 +325,18 @@ async def test_a_refused_create_is_not_cached_so_a_retry_runs_again(
     assert second.status_code == 404
     assert "Idempotent-Replay" not in second.headers
     assert things_app.state.runs == ["refused", "refused"]
+
+
+async def test_a_returned_failure_is_not_cached_either(
+    things_app: FastAPI, api_client: AsyncClient
+) -> None:
+    headers = {**bearer("pr-1"), "Idempotency-Key": "key-409"}
+    first = await api_client.post(PATH + "/conflicted", json=BODY, headers=headers)
+    second = await api_client.post(PATH + "/conflicted", json=BODY, headers=headers)
+    assert first.status_code == 409
+    assert second.status_code == 409
+    assert "Idempotent-Replay" not in second.headers
+    assert things_app.state.runs == ["conflicted", "conflicted"]
 
 
 async def test_a_missing_cache_is_an_unexpected_error_and_the_handler_does_not_run(

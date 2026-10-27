@@ -185,3 +185,11 @@ async def test_the_request_body_is_not_stored_only_its_hash_is(
     stored_text = await raw.get("idem:pr-1:key-1")
     assert stored_text is not None
     assert "synthetic request body text" not in stored_text
+
+
+async def test_an_unreadable_cached_entry_is_a_miss_not_an_answer(
+    replay: tuple[ReplayCache, InMemoryCache],
+) -> None:
+    cache, raw = replay
+    await raw.set("idem:pr-1:key-1", "not json at all")
+    assert await cache.lookup("pr-1", "key-1", body_hash(REQUEST_BODY)) is None

@@ -243,3 +243,11 @@ async def test_logs_hold_neither_the_address_nor_the_body(
     assert MARKER_ADDRESS not in caplog.text
     assert MARKER_BODY not in caplog.text
     assert receipt.provider_message_id in caplog.text
+
+
+async def test_an_unconfigured_relay_is_a_failure_and_sends_nothing() -> None:
+    # No SMTP host in settings: the adapter must refuse, never fall back to a local relay.
+    settings = Settings(_env_file=None)  # type: ignore[call-arg]
+
+    with pytest.raises(SendFailedError):
+        await SmtpEmail(settings).send(TO, SUBJECT, TEXT, HTML)

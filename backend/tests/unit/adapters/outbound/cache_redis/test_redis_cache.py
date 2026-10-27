@@ -118,7 +118,9 @@ async def test_a_closed_subscription_ends_a_reader_that_is_waiting() -> None:
         except StopAsyncIteration:
             return None
 
+    await subscription.opened
     waiting = asyncio.ensure_future(next_or_none())
+    await asyncio.sleep(0)  # the reader now blocks on the empty queue
     await subscription.aclose()
 
     assert await asyncio.wait_for(waiting, timeout=1.0) is None

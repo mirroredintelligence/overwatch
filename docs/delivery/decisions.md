@@ -1274,3 +1274,43 @@ Status: accepted (coordinator ruling, builder implementation) · Affects: `backe
 2. **What changed.** The first case is renamed `test_a_lock_name_gets_a_positive_first_token_of_its_own` and asserts `other.fencing_token > 0` where it asserted `== 1`. The second keeps its name and asserts `lock.fencing_token > 0` where it asserted `== 1`. No other assertion in either case changed, and no other case changed.
 3. **Why.** The port promise (DEC-058) is that tokens for one lock name strictly increase. It does not promise that the first token is 1. DEC-091 makes the Redis token `max(INCR, host clock in microseconds)`, so the first token is large by design, and the two cases were over-specified against the port. The in-memory fake still starts at 1, which satisfies the revised assertion.
 4. **Red first.** The commit recording this entry was made while both Redis cases still asserted 1. Their failing lines (`assert 1793091110110967 == 1`, `assert 1793091119556943 == 1`) are in the evidence file. The assertion change is the next commit.
+
+## DEC-094 BFF bearer tokens: HS256 checked by a stdlib codec in the domain, no new dependency (R02)
+Status: accepted (builder build-R02, for the owner to confirm) · Affects: R02 (`domain/rules/bff_token.py`, `adapters/inbound/fhir_rest/auth.py`, `adapters/testing/tokens.py`), every R-task that routes under `/fhir`, and W02 and W09 (the BFF mints the token).
+
+Numbered DEC-094: DEC-093 is the highest number on main and on every task/* branch when this was written (checked with `git show <branch>:docs/delivery/decisions.md`, lesson L43).
+
+1. **Format and codec.** The FHIR API accepts the BFF's bearer JWT as the prompt sets it: HS256, claims `sub`, `role`, `services`, optional `device`, `exp`. The codec uses only the standard library (hmac, hashlib, base64, json) and lives in `domain/rules/bff_token.py`. PyJWT is not used. A JWT library would be a new dependency and a change to `uv.lock`, which other task branches also edit (lesson L95), and HS256 is HMAC-SHA256. DEC-003 makes this a free choice; the choice stays behind `decode_bff_token`, so it can be swapped.
+2. **Checks, in order.** The token is ASCII with exactly three parts and no `=` padding. The header's `alg` must be exactly `HS256`, so `none` and every other algorithm are refused. The signature is compared in constant time before the payload is parsed. `exp` is an integer, not a boolean, and the token is refused at or after `exp`, judged on the `now` argument and never on the system clock. `sub` is non-empty text, `role` is a `Role` value, `services` is a list of text (empty is allowed), and `device`, when present, is non-empty text. Any failure raises `TokenRejected`, whose message is fixed.
+3. **Secret and clock.** A secret shorter than `BFF_SECRET_MIN_BYTES` (32, the HMAC-SHA256 output size) is refused with `ValueError` on encode and decode. A naive `now` or a naive expiry is `ValidationFailed`, as in DEC-044 item 5.
+4. **Not checked, and the residual.** No `iss` or `aud` claim: the prompt names none. No revocation: a token is valid until `exp`. The lifetime is the issuer's choice (W02, W09), not this module's. A token replayed within its lifetime is accepted.
+5. **Human-only.** The signing secret's storage is a credential item (DEC-096). Nothing here needs a real secret.
+
+## DEC-095 A 401 is an OperationOutcome with code `login` and `WWW-Authenticate: Bearer` (R02, amends DEC-086 item 2 for 401 only)
+Status: accepted (builder build-R02, for the owner to confirm) · Affects: `adapters/inbound/fhir_rest/errors.py` (R01), `auth.py`, every route under `/fhir`.
+
+1. The prompt asks for a 401 with code `login` and `WWW-Authenticate: Bearer`. DEC-086 item 2 maps every other 4xx to `invalid`, which would have made a 401 `invalid`. For 401 only, `_http_error` now returns code `login`, the fixed text "The bearer token is missing, expired or not valid.", and the `WWW-Authenticate` header from the exception. `operation_outcome` takes an optional `headers`. Every other status is unchanged.
+2. **Deviation from file ownership.** `errors.py` is R01's file, outside R02's list. The edit is needed for the 401 tests to pass, since they assert the code `login`. It is in the R02 commits with those tests (`tests/integration/adapters/inbound/fhir_rest/test_auth.py`, every case that asserts `login`). This is recorded so the owner sees that R01's module changed.
+3. This task produces no 403. A refusal is `NotAllowed`, which R01 answers with a 404 (DEC-086 item 5, DEC-098 item 3). Lesson L112 mentions 403 shapes; none is needed.
+
+## DEC-096 The BFF secret is read from `request.app.state.secrets` (R02)
+Status: accepted (builder build-R02, for the owner to confirm) · Affects: `auth.py`, the later task that serves the FHIR app in a process (it must set the store), the test fixture in `test_auth.py`.
+
+1. The prompt says `SecretStore.get("bff-jwt")`. The composition root has no secret store (`bootstrap/container.py` has none; P10 gives only the port and `FixedSecretStore`), and `ApiContainer` (DEC-087 item 1) provides only `clock` and `uow_factory`. So the store is set on `app.state.secrets` by the process that serves the app. `create_app` is unchanged.
+2. **Fail closed.** If the store is absent, or it has no `bff-jwt` (`NotFound`), `current_actor` raises `RuntimeError`. That is a 500 `exception`, and only the class name is logged. A request is never passed on a missing secret.
+3. **Human-only.** A real secret store (a vault, with credentials and spend) is not built here. Tests use `TEST_BFF_SECRET`, a synthetic value, and nothing else.
+
+## DEC-097 Staff identity provider: not chosen by R02; the authentication design awaits sign-off (R02)
+Status: accepted for the build; the design sign-off is human-only and pending · Affects: R02, W02, W09, the BFF.
+
+1. `architecture.md` (Security, IG and operations) and `observability.md` name Microsoft Entra ID for staff sign-in, and `domain-rules.md` section 247 says the Trust staff account. Entra ID is a default, not a mandate (DEC-003). R02 calls no identity provider: the FHIR API checks only the BFF token (DEC-094). Which provider signs staff in is for the BFF (W02) and needs the Trust tenant, which is a human-only item.
+2. **Sign-off is pending.** The authentication design (token format, the role list, the scope rules, DEC-094 to DEC-098) is built here but has not been signed off by the owner or by information governance. The build does not claim that sign-off, and the evidence says it is pending. This does not block R02, because the design is what R02 delivers and the sign-off is a separate human gate.
+3. Roles are the ten members of `domain/codes.py` `Role`, exactly. A `wall` token takes its device from `sub`.
+
+## DEC-098 Projections, the reporter rule, and refusals (R02)
+Status: accepted (builder build-R02, for the owner to confirm) · Affects: `auth.py` (`ProjectionRegistry`, `PROJECTIONS`), every route from R04 on that returns a Task.
+
+1. **Projection key and label.** A projection is keyed by (resource type, role). When a projection changes a resource, the result gets `meta.security` with code `REDACTED` in system `http://terminology.hl7.org/CodeSystem/v3-ObservationValue`, added to any codes already there. A projection that changes nothing adds no label. The resource given in is not changed.
+2. **The reporter rule applies to every Task.** For `reporter`, a Task loses `focus` and `for`. The prompt says "a booking Task", but P02 (DEC-063) writes no `Task.code`, so a booking cannot be told apart by code. Applying the rule to every Task fails closed: a reporter never gets a case reference from any Task. The test is `test_a_reporter_task_with_nothing_to_remove_gets_no_label` and the Task without a code in `test_a_reporter_sees_a_booking_task_without_its_case_and_with_the_label`.
+3. **Refusals.** A wrong role, a service out of scope, and a non-patient role each raise `NotAllowed`. R01 answers them with the same 404 body as a missing record, and the integration tests compare the bytes (DEC-086 item 5).
+4. **Scope reading.** `ensure_can_act_for` passes for lead, advisor, clinical and audit, anywhere, as the prompt lists. Owner and exec are not in that list, so an owner acts only for services in the token's `services`. This is a reading of the prompt; the owner may change it.

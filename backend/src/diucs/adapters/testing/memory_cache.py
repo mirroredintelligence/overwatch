@@ -3,7 +3,7 @@ the same.
 """
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Self
@@ -25,26 +25,38 @@ class _Holder:
 
 
 class _Subscription:
-    """Messages published to one channel after the subscription was created."""
+    """Messages published to one channel after the subscription was created. Closing it ends a
+    reader that is waiting, and removes the subscription from the channel."""
 
-    def __init__(self, queue: asyncio.Queue[str]) -> None:
+    def __init__(self, queue: asyncio.Queue[str | None], on_close: Callable[[], None]) -> None:
         self._queue = queue
+        self._on_close = on_close
+        self._closed = False
 
     def __aiter__(self) -> Self:
         return self
 
     async def __anext__(self) -> str:
-        return await self._queue.get()
+        if self._closed:
+            raise StopAsyncIteration
+        item = await self._queue.get()
+        if item is None:
+            raise StopAsyncIteration
+        return item
 
     async def aclose(self) -> None:
-        raise NotImplementedError
+        if self._closed:
+            return
+        self._closed = True
+        self._queue.put_nowait(None)
+        self._on_close()
 
 
 class InMemoryCache:
     def __init__(self, clock: Clock) -> None:
         self._clock = clock
         self._values: dict[str, _Value] = {}
-        self._subscribers: dict[str, list[asyncio.Queue[str]]] = {}
+        self._subscribers: dict[str, list[asyncio.Queue[str | None]]] = {}
         self._holders: dict[str, _Holder] = {}
         self._last_token: dict[str, int] = {}
 
@@ -74,12 +86,20 @@ class InMemoryCache:
 
     async def subscribe(self, channel: str) -> AsyncIterator[str]:
         # Registered now, not on the first read, so a publish after this call is never missed.
-        queue: asyncio.Queue[str] = asyncio.Queue()
+        queue: asyncio.Queue[str | None] = asyncio.Queue()
         self._subscribers.setdefault(channel, []).append(queue)
-        return _Subscription(queue)
+        return _Subscription(queue, lambda: self._remove(channel, queue))
+
+    def _remove(self, channel: str, queue: asyncio.Queue[str | None]) -> None:
+        queues = self._subscribers.get(channel, [])
+        if queue in queues:
+            queues.remove(queue)
+        if not queues:
+            self._subscribers.pop(channel, None)
 
     def subscriber_count(self, channel: str) -> int:
-        raise NotImplementedError
+        """How many subscriptions are open on the channel. For tests: the port has no such call."""
+        return len(self._subscribers.get(channel, []))
 
     async def acquire_lock(self, name: str, ttl: timedelta) -> Lock | None:
         now = self._now()

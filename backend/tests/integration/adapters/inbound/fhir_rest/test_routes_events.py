@@ -35,8 +35,13 @@ from tests.support.api import R01_TEST_NOW
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 BOARD_ROLES = (Role.WALL, Role.ADVISOR, Role.CLINICAL, Role.LEAD, Role.EXEC)
-EVENT_TEXT = 'event: board\ndata: {"serviceId":"svc-1","kind":"capacity","changedAt":"2026-10-23T13:12:00Z"}\n\n'
-PROJECTOR_EVENT_TEXT = 'event: board\ndata: {"serviceId":"svc-1","changedAt":"2026-10-23T13:12:00Z"}\n\n'
+EVENT_TEXT = (
+    'event: board\ndata: {"serviceId":"svc-1","kind":"capacity",'
+    '"changedAt":"2026-10-23T13:12:00Z"}\n\n'
+)
+PROJECTOR_EVENT_TEXT = (
+    'event: board\ndata: {"serviceId":"svc-1","changedAt":"2026-10-23T13:12:00Z"}\n\n'
+)
 PUBLISHED_BOARD = json.dumps(
     {"serviceId": "svc-1", "kind": "capacity", "changedAt": "2026-10-23T13:12:00Z"}
 )
@@ -115,7 +120,7 @@ class _Stream:
             ) from None
         return self.text()
 
-    async def __aenter__(self) -> "_Stream":
+    async def __aenter__(self) -> _Stream:
         self._task = asyncio.ensure_future(self._app(self._scope(), self._receive, self._send))
         async with asyncio.timeout(2.0):
             await self._started.wait()
@@ -185,18 +190,15 @@ async def test_a_keep_alive_comment_is_sent_when_nothing_is_published(
 @pytest.mark.parametrize(
     "role", [Role.REPORTER, Role.OWNER, Role.AUDIT, Role.SUPPORT, Role.ANONYMOUS_LINK]
 )
-async def test_a_role_outside_the_board_gets_a_404(
-    stream_app: FastAPI, api_client: AsyncClient, role: Role
-) -> None:
+async def test_a_role_outside_the_board_gets_a_404(stream_app: FastAPI, role: Role) -> None:
     # The same path opens for a wall token, so the 404 below is the role's refusal and not a
-    # missing route.
+    # missing route. The refused request is read as a stream too: a route that wrongly opened
+    # the stream would otherwise keep the test waiting for a body that never ends.
     async with _Stream(stream_app, _wall_headers()) as wall:
         assert wall.status == 200
-    response = await api_client.get("/events", headers=_headers_for(role))
-
-    assert response.status_code == 404
-    assert response.headers["content-type"].startswith("application/fhir+json")
-    assert response.json()["issue"][0]["code"] == "not-found"
+    async with _Stream(stream_app, _headers_for(role)) as refused:
+        assert refused.status == 404
+        await refused.read_until('"code":"not-found"')
 
 
 async def test_a_request_without_a_token_is_refused(
@@ -283,7 +285,12 @@ async def test_a_capacity_report_written_through_the_board_projector_streams_one
     async with _Stream(stream_app, _wall_headers()) as stream:
         handled = await projector.handle(
             "CapacityReported",
-            {"service_id": west.id, "report_id": "obs-west-1303", "value": 4, "at": "2026-10-23T13:03:00Z"},
+            {
+                "service_id": west.id,
+                "report_id": "obs-west-1303",
+                "value": 4,
+                "at": "2026-10-23T13:03:00Z",
+            },
         )
         await stream.read_until('"serviceId":"svc-ucr-west"')
 

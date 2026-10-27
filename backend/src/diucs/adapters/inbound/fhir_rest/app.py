@@ -51,6 +51,10 @@ def create_app(container: ApiContainer) -> FastAPI:
     fhir = APIRouter(prefix="/fhir")
     fhir.include_router(capability.router)
     app.include_router(fhir)
+    # Imported here: routes_events depends on auth, which imports this module (DEC-110).
+    from diucs.adapters.inbound.fhir_rest import routes_events
+
+    app.include_router(routes_events.router)
     return app
 
 

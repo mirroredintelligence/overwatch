@@ -42,6 +42,9 @@ class Cache(Protocol):
 
         The subscription exists from the moment this method returns, not from the first
         iteration (DEC-058). Messages published earlier are not replayed.
+
+        The iterator may also have `aclose()`, which ends the subscription and frees it on the
+        cache. A caller that stops reading (the live stream, when a client leaves) closes it.
         """
         ...
 

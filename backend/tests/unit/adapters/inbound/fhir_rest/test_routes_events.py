@@ -21,7 +21,8 @@ def test_a_board_message_becomes_one_event_with_only_the_three_fields() -> None:
     }
 
     assert to_sse(message) == (
-        'event: board\ndata: {"serviceId":"svc-1","kind":"capacity","changedAt":"2026-10-23T13:12:00Z"}\n\n'
+        'event: board\ndata: {"serviceId":"svc-1","kind":"capacity",'
+        '"changedAt":"2026-10-23T13:12:00Z"}\n\n'
     )
 
 

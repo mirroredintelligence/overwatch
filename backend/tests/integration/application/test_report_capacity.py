@@ -453,6 +453,20 @@ async def test_the_audit_record_has_the_report_shape_and_the_chain_verifies(
     assert chain_ok is True
 
 
+async def test_a_naive_effective_time_is_refused(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+
+    with pytest.raises(ValidationFailed) as refused:
+        await _rig(uow_factory, neo4j_driver)[0].execute(
+            _command(4, effective_at=datetime(2026, 10, 23, 13, 0))
+        )
+
+    assert refused.value.field == "effective_at"
+    assert await count_nodes(neo4j_driver, "Observation") == 0
+
+
 async def test_a_back_dated_report_does_not_replace_the_latest_figure(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

@@ -19,6 +19,7 @@ import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
@@ -248,3 +249,16 @@ async def wipe(driver: AsyncDriver) -> None:
 
     while await write_tx(driver, batch):
         pass
+
+
+REAPER_MAX_AGE = timedelta(minutes=90)
+
+
+def reap_stale_test_containers(
+    max_age: timedelta = REAPER_MAX_AGE,
+    *,
+    run: Callable[..., subprocess.CompletedProcess[str]] = _docker,
+    now: Callable[[], datetime] = lambda: datetime.now(),
+) -> list[str]:
+    """Red stub (DEC-010): the reaper is not written yet, so nothing is removed."""
+    return []

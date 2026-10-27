@@ -5,8 +5,10 @@ only keys under the diucs: prefix. Subscriber counts come from PUBSUB NUMSUB on 
 the adapter's own connections cannot hide a leak.
 """
 
+import asyncio
 import os
 from datetime import timedelta
+from urllib.parse import urlparse
 
 from redis.asyncio import Redis
 
@@ -18,7 +20,7 @@ from tests.support.redis import flush_diucs_keys
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CHANNEL_KEY = f"diucs:chan:{BOARD_UPDATES_CHANNEL}"
 PATIENCE = timedelta(seconds=2)
-SUBSCRIBE_ROUNDS = 400
+PROXY_DELAY = 0.3
 
 
 async def subscriber_count(counter: Redis) -> int:
@@ -63,21 +65,52 @@ async def test_closing_the_cache_drops_its_live_subscriptions() -> None:
         await counter.aclose()
 
 
-async def test_a_publish_from_another_connection_right_after_subscribe_is_delivered() -> None:
-    # DEC-092: subscribe() returns only once the server has the subscription, so a publish sent
-    # from another connection straight after it cannot be lost. The publisher is a raw client,
-    # so the adapter's own publish() cannot be the reason the message arrives.
+async def _relay(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, delay: float) -> None:
+    try:
+        while data := await reader.read(65536):
+            if delay:
+                await asyncio.sleep(delay)
+            writer.write(data)
+            await writer.drain()
+    except ConnectionError:
+        pass
+    finally:
+        writer.close()
+
+
+async def _start_delaying_proxy(upstream_port: int, delay: float) -> tuple[asyncio.Server, int]:
+    """A TCP proxy that holds every client-to-server chunk for `delay` seconds."""
+
+    async def handle(client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter) -> None:
+        up_reader, up_writer = await asyncio.open_connection("127.0.0.1", upstream_port)
+        await asyncio.gather(
+            _relay(client_reader, up_writer, delay), _relay(up_reader, client_writer, 0.0)
+        )
+
+    server = await asyncio.start_server(handle, "127.0.0.1", 0)
+    return server, server.sockets[0].getsockname()[1]
+
+
+async def test_a_publish_sent_as_soon_as_subscribe_returns_is_delivered() -> None:
+    # DEC-092, made deterministic. The adapter's connection goes through a proxy that holds the
+    # SUBSCRIBE for PROXY_DELAY. The publish comes from a direct connection straight after
+    # subscribe() returns. With the server confirmation awaited, subscribe() returns after the
+    # delay and the message arrives. With the wait removed, the publish is sent before the
+    # SUBSCRIBE reaches Redis and is lost.
+    upstream = urlparse(REDIS_URL).port or 6379
+    proxy, proxy_port = await _start_delaying_proxy(upstream, PROXY_DELAY)
     publisher = Redis.from_url(REDIS_URL, decode_responses=True)
     await flush_diucs_keys(publisher)
-    cache = RedisCache.from_url(REDIS_URL)
+    cache = RedisCache(Redis(host="127.0.0.1", port=proxy_port, decode_responses=True))
     try:
-        for number in range(SUBSCRIBE_ROUNDS):
-            subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
-            await publisher.publish(CHANNEL_KEY, f"round-{number}")
-            assert await next_message(subscription, PATIENCE) == f"round-{number}"
-            await subscription.aclose()
+        subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+        await publisher.publish(CHANNEL_KEY, "first")
+        assert await next_message(subscription, PATIENCE) == "first"
+        await subscription.aclose()
     finally:
         await cache.aclose()
+        proxy.close()
+        await proxy.wait_closed()
         await flush_diucs_keys(publisher)
         await publisher.aclose()
 

@@ -255,6 +255,8 @@ async def wipe(driver: AsyncDriver) -> None:
 # DEC-108. Test runs take under 20 minutes, so a container this old cannot belong to a live run.
 REAPER_MAX_AGE = timedelta(minutes=90)
 TEST_LABEL = "diucs-test"
+# A container is removed only if its name has this prefix AND it carries TEST_LABEL (DEC-108).
+NAME_PREFIX = "diucs-test-neo4j-"
 DockerRunner = Callable[..., subprocess.CompletedProcess[str]]
 _CREATED_AT = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$")
 _reaper_log = logging.getLogger(__name__)
@@ -285,8 +287,9 @@ def reap_stale_test_containers(
 
     A run killed by a timeout or a signal never reaches stop_throwaway_neo4j, so its container
     stays. This runs once per pytest session (conftest.py). It never raises: if Docker is missing
-    or fails, it logs a warning and returns what it removed so far. The label is checked here as
-    well as in the docker filter, so an unlabelled container is never removed.
+    or fails, it logs a warning and returns what it removed so far. A container is removed only if
+    its name starts with NAME_PREFIX and it carries TEST_LABEL, both checked here as well as in the
+    docker filter. A Created value that does not parse skips that one container, not the sweep.
     """
     removed: list[str] = []
     try:
@@ -294,7 +297,7 @@ def reap_stale_test_containers(
         if listed.returncode != 0:
             _reaper_log.warning("Could not list test containers: %s", listed.stderr.strip())
             return removed
-        names = [name for name in listed.stdout.split() if name]
+        names = [name for name in listed.stdout.split() if name.startswith(NAME_PREFIX)]
         if not names:
             return removed
         inspected = run(
@@ -310,7 +313,16 @@ def reap_stale_test_containers(
         for line in inspected.stdout.splitlines():
             name, created, label = (line.split("|", 2) + ["", "", ""])[:3]
             name = name.lstrip("/")
-            if label != "true" or name not in names or _parse_created(created) >= cutoff:
+            if label != "true" or name not in names:
+                continue
+            try:
+                created_at = _parse_created(created)
+            except ValueError:
+                _reaper_log.warning(
+                    "Skipping %s: its Created value %r does not parse", name, created
+                )
+                continue
+            if created_at >= cutoff:
                 continue
             result = run("rm", "-f", name)
             if result.returncode == 0:

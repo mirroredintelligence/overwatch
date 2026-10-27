@@ -1377,10 +1377,10 @@ Context: a pytest run that is killed or times out never reaches the teardown in 
 
 Decision:
 1. **Cutoff: 90 minutes from the container's `Created` time** (`docker inspect`). Test runs take under 20 minutes, so a container older than 90 minutes cannot belong to a live run. `REAPER_MAX_AGE` holds the value.
-2. **Scope.** The reaper lists containers with the label `diucs-test=true` and checks the same label on each inspected container before it removes anything. An unlabelled container is never removed. The shared stack (`diucs-local-neo4j`, port 7687, lesson L67) has no such label, so the reaper cannot reach it.
+2. **Scope.** A container is removed only if both hold: its name starts with `diucs-test-neo4j-` (`NAME_PREFIX`), and it carries the label `diucs-test=true`. The reaper lists by label, then checks the name prefix and the label again on each inspected container before it removes anything. A labelled container with any other name is kept, and so is an unlabelled one. The shared stack (`diucs-local-neo4j`, port 7687, lesson L67) has neither the label nor the prefix, so the reaper cannot reach it.
 3. **When it runs.** `reap_stale_test_containers()` runs once per pytest session, from `pytest_sessionstart` in `tests/conftest.py`. This includes unit-only runs, so a unit run also removes stale containers.
-4. **Tolerance.** The reaper never raises. If Docker is missing, or a docker call fails or times out (60 seconds per call), it logs a warning and returns what it has removed so far. A test session is never stopped by the reaper.
-5. **Tests.** `tests/unit/support/test_reaper.py` injects a fake Docker runner, so the cases (old labelled removed, recent labelled kept, unlabelled kept, Docker missing, Docker refusing) run without Docker.
+4. **Tolerance.** The reaper never raises. If Docker is missing, or a docker call fails or times out (60 seconds per call), it logs a warning and returns what it has removed so far. A `Created` value that does not parse skips only that container: the reaper logs it and goes on with the rest. A test session is never stopped by the reaper.
+5. **Tests.** `tests/unit/support/test_reaper.py` injects a fake Docker runner, so the cases run without Docker: old labelled removed, recent labelled kept, unlabelled kept, a labelled container with another name kept, one bad timestamp skipped while a stale good container is still removed, Docker missing, Docker refusing.
 6. **Why this is safe for a live run.** A live run's container is younger than its run, and its run is younger than 20 minutes. The reaper removes only what is older than 90 minutes, so it cannot remove a container from a run that is within its normal length.
 
 What this does not cover:
@@ -1390,4 +1390,4 @@ What this does not cover:
 - **Load from live runs.** Several runs at once can still exhaust Docker memory. The reaper does not limit concurrency.
 - **Restarted containers.** F11 stops and starts a container. The cutoff uses the original `Created` time, so a container restarted late in a run can look older than it is. A run that restarts Neo4j after 90 minutes would lose its container, the same case as the first limit above.
 
-Tests: `backend/tests/unit/support/test_reaper.py`. Red commit `743f73b`, green commit `f34786a`.
+Tests: `backend/tests/unit/support/test_reaper.py`. Red commit `743f73b`, green commit `f34786a`. Name-prefix and bad-timestamp caveats from the verifier: red commit `de03d7a`, fix in the commit that follows it on the branch.

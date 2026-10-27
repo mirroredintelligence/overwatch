@@ -80,3 +80,28 @@ async def test_a_publish_from_another_connection_right_after_subscribe_is_delive
         await cache.aclose()
         await flush_diucs_keys(publisher)
         await publisher.aclose()
+
+
+async def test_a_token_after_the_counter_is_lost_is_greater_than_every_token_before_it() -> None:
+    # DEC-091: a Redis data loss resets the INCR counter. The token must still grow, because it is
+    # at least the host clock in microseconds. The loss is simulated by deleting the counter key.
+    counter = Redis.from_url(REDIS_URL, decode_responses=True)
+    await flush_diucs_keys(counter)
+    cache = RedisCache.from_url(REDIS_URL)
+    try:
+        last = 0
+        for _ in range(3):
+            lock = await cache.acquire_lock("relay", PATIENCE)
+            assert lock is not None
+            last = lock.fencing_token
+            await cache.release_lock(lock)
+
+        await counter.delete("diucs:fence:relay")
+
+        lock = await cache.acquire_lock("relay", PATIENCE)
+        assert lock is not None
+        assert lock.fencing_token > last
+    finally:
+        await cache.aclose()
+        await flush_diucs_keys(counter)
+        await counter.aclose()

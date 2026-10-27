@@ -105,3 +105,22 @@ async def test_a_token_after_the_counter_is_lost_is_greater_than_every_token_bef
         await cache.aclose()
         await flush_diucs_keys(counter)
         await counter.aclose()
+
+
+async def test_each_lock_name_has_its_own_fencing_counter() -> None:
+    # DEC-058 item 2: a counter per name. A shared counter would let one name's acquisitions move
+    # another name's tokens, so both counters must exist after one acquisition each.
+    counter = Redis.from_url(REDIS_URL, decode_responses=True)
+    await flush_diucs_keys(counter)
+    cache = RedisCache.from_url(REDIS_URL)
+    try:
+        for name in ("relay", "board"):
+            lock = await cache.acquire_lock(name, PATIENCE)
+            assert lock is not None
+            await cache.release_lock(lock)
+        assert await counter.exists("diucs:fence:relay") == 1
+        assert await counter.exists("diucs:fence:board") == 1
+    finally:
+        await cache.aclose()
+        await flush_diucs_keys(counter)
+        await counter.aclose()

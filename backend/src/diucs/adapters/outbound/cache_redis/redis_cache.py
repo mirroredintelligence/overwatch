@@ -59,6 +59,11 @@ class RedisSubscription(AsyncIterator[str]):
 
     async def start(self) -> None:
         await self._pubsub.subscribe(self._key)
+        while True:
+            # The first reply on a fresh connection is the server's confirmation of SUBSCRIBE.
+            reply = await self._pubsub.get_message(ignore_subscribe_messages=False, timeout=None)
+            if reply is not None and reply["type"] == "subscribe":
+                break
         self._reader = asyncio.get_running_loop().create_task(self._pump())
 
     async def _pump(self) -> None:

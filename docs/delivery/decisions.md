@@ -1330,3 +1330,19 @@ Status: accepted (builder build-U09, for the owner to confirm) · Affects: U09 (
 11. **Staleness bound.** If an event is missed or a rebuild fails, the board can be behind by up to 60 s. That bound is the hazard H-27. It is not a guarantee that the board is current; the advisor screen shows the data age (H-01).
 
 Tests: `backend/tests/unit/application/use_cases/test_board_projector.py`, `backend/tests/integration/application/test_board_projector.py`. Evidence: `docs/delivery/evidence/U09.md`.
+## DEC-094 ReportCapacity choices the prompt leaves open (U01)
+Status: accepted (builder build-U01, for the owner to confirm) · Affects: U01 (`application/use_cases/report_capacity.py`), U02 (reuses `record_report`), U07 (report flags), U03 (prompts after a report), and every echo that C3 or C4 renders.
+
+Numbered DEC-094: DEC-093 is the highest number on `main` and on every `task/*` branch when this was written (checked with `git show <branch>:docs/delivery/decisions.md` on each branch).
+
+The U01 prompt leaves these open or contradicts itself, and this decision settles them.
+
+1. **The C3 echo gives the next due instant strictly after the report, not "14:00".** The prompt's test 2 records a report at 13:12Z (14:12 BST) and expects "Next prompt 14:00". 14:00 is before the report, so it cannot be the next prompt. The prompt's own sample ("as of 08:06. Next prompt 10:00") also gives the next due after the report. The echo therefore uses `schedule.next_due(profile, now)` (domain-rules 1.4), which gives 16:00 for this sample. Test 2 asserts "Next prompt 16:00". The 14:00 expectation is not kept.
+2. **Refusals happen before any write.** A value outside 0 to 999 raises `ValidationFailed("value")`. An effective time after `now` raises `ValidationFailed("effective_at")`, because a figure from the future is a clock error and must not be shown as current. A `replaced_value` outside 0 to 999 raises `ValidationFailed("replaced_value")`. A report flag in the command raises `ValidationFailed("flag")` until U07 records report flags: accepting it here would drop the flag without a trace.
+3. **Who may report.** The service is loaded first: an unknown or inactive service raises `NotFound`. Then the permission check. A `REPORTER` may report for a service in `actor.service_ids`, from any source except `advisor-phoned`, because only an advisor or lead may name that source (a reporter cannot claim it). An `ADVISOR` or `LEAD` may report any active service, and only with source `advisor-phoned`. Every other combination raises `NotAllowed`, and nothing is written.
+4. **Replay (P15).** `ReportCapacity` takes the idempotency store in its constructor for an early read. The authoritative `get` and `put` run inside the unit of work (`uow.idempotency`), so the first result commits with the change. A replay returns the stored result with `replayed=True` and writes nothing.
+5. **Echo recipient and message id.** `record_report(send_echo=...)` takes the performer role id, or None for no echo. The echo is sent only when the source is `text` and a performer is given. The `Communication` and the `SendMessage` payload carry the catalogue id as `message_id` ("C3" or "C4"), because `Communication.message_id` is a catalogue code (contracts.md). The communication is `queued`, and its time is `now`.
+6. **Suspended services.** A service with an active `suspended` flag is read as suspended, for the status before and after the report (domain-rules 1.2). A report to a suspended service therefore emits no `StatusChanged`. Its `CapacityReported` is still emitted.
+7. **Audit snapshot.** The snapshot holds `value`, `source`, `status_before` and `status_after`, as the prompt says. The audit log canonicalises enums to their text.
+
+Tests: `backend/tests/integration/application/test_report_capacity.py`. Evidence: `docs/delivery/evidence/U01.md`.

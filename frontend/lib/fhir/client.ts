@@ -80,18 +80,19 @@ export async function fhirFetch<T>(path: string, init: FhirInit = {}): Promise<F
   if (hasBody) headers.set('Content-Type', FHIR_MEDIA_TYPE);
 
   let response: Response;
+  let text: string;
   try {
     response = await fetch(url, {
       method: init.method ?? (hasBody ? 'POST' : 'GET'),
       headers,
       body: hasBody ? JSON.stringify(init.body) : undefined,
     });
+    text = await response.text();
   } catch {
-    // The error itself is not kept: it can carry the URL or the network detail.
+    // Covers a failed request and a body that cannot be read. The error
+    // itself is not kept: it can carry the URL or the network detail.
     throw new FhirError(503, outcomeFor('transient', 'The back end could not be reached.'));
   }
-
-  const text = await response.text();
 
   if (!response.ok) {
     const parsed = text ? tryParseJson(text) : { ok: false as const };

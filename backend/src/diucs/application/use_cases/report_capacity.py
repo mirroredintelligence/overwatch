@@ -93,7 +93,7 @@ def _check_may_report(actor: Actor, source: ReportSource, service_id: str) -> No
 def _echo_text(
     profile: ServiceProfile,
     report: CapacityReport,
-    next_prompt: datetime | None,
+    next_prompt: datetime,
     replaced_value: int | None,
 ) -> tuple[MessageId, str]:
     """The C3 echo, or the C4 echo when a figure is replaced (DEC-100 item 1)."""
@@ -167,6 +167,10 @@ async def record_report(
 
     next_prompt = next_due(profile, now)
     if send_echo is not None:
+        # Unreachable for a valid profile: every window yields a due time on each day it starts,
+        # and SEARCH_DAYS covers more than a week. Refusing here is the only honest outcome.
+        if next_prompt is None:
+            raise ValueError("a profile with available times always has a next due instant")
         message_id, text = _echo_text(profile, report, next_prompt, replaced_value)
         communication = Communication(
             id=ids.new_id(),

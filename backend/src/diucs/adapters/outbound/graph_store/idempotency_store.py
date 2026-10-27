@@ -1,4 +1,4 @@
-"""Neo4j idempotency store and processed-message markers (P15, DEC-012, DEC-089, DEC-001).
+"""Neo4j idempotency store and processed-message markers (P15, DEC-012, DEC-090, DEC-001).
 
 Layout, graph-native (no JSON text and no map-valued property is stored):
 
@@ -192,7 +192,7 @@ async def _read_record(tx: AsyncManagedTransaction, key: str) -> tuple[str, str]
 
 
 class Neo4jIdempotencyStore:
-    """Command replay on one unit of work's transaction (P15, DEC-089)."""
+    """Command replay on one unit of work's transaction (P15, DEC-090)."""
 
     def __init__(self, tx: AsyncManagedTransaction) -> None:
         self._tx = tx

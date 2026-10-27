@@ -1,4 +1,4 @@
-"""The command-result codec (P15, DEC-089). Pure: no Neo4j, no clock."""
+"""The command-result codec (P15, DEC-090). Pure: no Neo4j, no clock."""
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta, timezone
@@ -68,7 +68,7 @@ def test_decoding_a_type_outside_the_allowed_packages_raises_value_error(type_na
 
 
 def test_a_domain_enum_nested_in_a_result_decodes_as_itself() -> None:
-    """A deviation from the P15 prompt, recorded in DEC-089: results carry domain enums."""
+    """A deviation from the P15 prompt, recorded in DEC-090: results carry domain enums."""
     type_name, json_text = encode_result(_entry())
     assert "diucs.domain.codes:Role" in json_text
     assert decode_result(type_name, json_text) == _entry()

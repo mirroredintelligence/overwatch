@@ -2,10 +2,10 @@
 
 encode_result turns a command result into (resultType, json text). decode_result is its inverse.
 The JSON text is an intermediate form only: the Neo4j store writes it as typed graph nodes and never
-stores the text (DEC-001, DEC-089).
+stores the text (DEC-001, DEC-090).
 
 Allowed result types are dataclasses and enum members defined in diucs.application or diucs.domain
-(DEC-089 item 2). Decoding imports nothing else. Tuples, frozensets, enums, dataclasses and UTC
+(DEC-090 item 2). Decoding imports nothing else. Tuples, frozensets, enums, dataclasses and UTC
 datetimes keep their types through the round trip, so a replay returns an equal object.
 """
 

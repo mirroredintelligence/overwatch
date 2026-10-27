@@ -1459,3 +1459,11 @@ Status: accepted (builder decision, build-U01, for the owner to confirm) · Affe
 3. The actor is part of the fingerprint. Without it, a second person holding a key could read the first person's result, and the early replay read runs before the permission check.
 4. The check runs on the early read and again inside the unit of work (the authoritative check). Tests: `test_a_reused_key_with_a_different_body_is_refused`, `test_the_same_key_twice_replays_the_first_result`, `test_a_replay_is_decided_inside_the_unit_of_work`.
 5. Known limit, for the owner: a key used again after a different actor's report is refused rather than replayed, so an honest retry by a different person needs a new key.
+
+## DEC-106 A stored command key is decided before any other check, and again inside the unit of work (U01, amends DEC-104 item 4)
+Status: accepted (builder decision, build-U01, for the owner to confirm) · Number: DEC-105 is on main and task/R03-etag-idempotency; DEC-106 is unused on main and on every task/* branch (checked with `git show <branch>:docs/delivery/decisions.md`) · Affects: U01 (`application/use_cases/report_capacity.py`), U02 (reuses the same path), every command that replays through `IdempotencyStore` (P15).
+
+1. A command key that already has a stored result is decided before the value, flag, effective-time and permission checks. An identical command (same body and same actor, DEC-104 item 1) returns the stored result with `replayed=True`. A different command raises `Conflict`. Neither writes anything. A different command is refused even when it would be refused on its own terms, so a reused key never reports a different outcome.
+2. Two requests with the same key can both miss the early read, so the same decision is taken again inside the unit of work, before any write. A stored result found there is returned with `replayed=True` and the unit of work commits nothing new.
+3. Item 4 of DEC-104 described this authoritative check, but the code at 5a66ca5 did not run it. This decision closes that gap. The test is `test_a_replay_is_decided_inside_the_unit_of_work`.
+4. The known limit in DEC-104 item 5 stands: a key used by a different actor is refused with `Conflict`, not replayed.

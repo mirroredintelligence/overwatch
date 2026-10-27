@@ -536,3 +536,51 @@ async def test_a_reused_key_with_a_different_body_is_refused(
 
     assert await count_nodes(neo4j_driver, "Observation") == 1
     assert await count_nodes(neo4j_driver, "AuditEvent") == 1
+
+
+class _MissingEarlyRead:
+    """An idempotency store whose early read always misses, as if another request had stored the
+    key after the early read and before the unit of work (DEC-106 item 2). Writes go through."""
+
+    def __init__(self, inner: DriverIdempotencyStore) -> None:
+        self._inner = inner
+
+    async def get(self, key: str) -> object | None:
+        return None
+
+    async def put(self, key: str, result: object) -> None:
+        await self._inner.put(key, result)
+
+
+async def test_a_replay_is_decided_inside_the_unit_of_work(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+    first = await _rig(uow_factory, neo4j_driver)[0].execute(_command(4, key="race-key"))
+    racing = ReportCapacity(
+        uow_factory,
+        FixedClock(NOW),
+        SequentialIds(),
+        _MissingEarlyRead(DriverIdempotencyStore(neo4j_driver)),
+    )
+
+    second = await racing.execute(_command(4, key="race-key"))
+
+    assert second.replayed is True
+    assert second.report_id == first.report_id
+    assert await count_nodes(neo4j_driver, "Observation") == 1
+    assert await count_nodes(neo4j_driver, "AuditEvent") == 1
+
+
+async def test_a_reused_key_from_a_different_practitioner_is_refused_before_any_check(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+    use_case = _rig(uow_factory, neo4j_driver)[0]
+    await use_case.execute(_command(4, key="shared-key"))
+    other_reporter = dataclasses.replace(REPORTER, practitioner_id="prac-reporter-2")
+
+    with pytest.raises(Conflict):
+        await use_case.execute(_command(4, key="shared-key", actor=other_reporter))
+
+    assert await count_nodes(neo4j_driver, "Observation") == 1

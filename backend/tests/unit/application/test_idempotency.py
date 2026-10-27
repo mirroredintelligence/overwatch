@@ -46,7 +46,7 @@ def test_a_london_datetime_comes_back_as_the_same_instant_in_utc() -> None:
     type_name, json_text = encode_result(_entry(at=london))
     decoded = decode_result(type_name, json_text)
     assert isinstance(decoded, AuditEntry)
-    assert decoded.at == london
+    assert decoded.at == london.astimezone(UTC)
     assert decoded.at.utcoffset() == timedelta(0)
 
 

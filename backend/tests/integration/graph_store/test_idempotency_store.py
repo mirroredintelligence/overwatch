@@ -128,9 +128,10 @@ async def test_a_racing_put_waits_for_a_held_put_and_is_refused(
                 tx = await session.begin_transaction()
                 try:
                     await Neo4jIdempotencyStore(tx).put("cmd-6", _result("second"))
-                    await tx.commit()
-                finally:
+                except BaseException:
                     await tx.rollback()
+                    raise
+                await tx.commit()
 
         task = asyncio.create_task(second())
         await asyncio.sleep(1)
@@ -151,12 +152,11 @@ async def test_sixteen_racing_puts_for_one_key_leave_one_record(
             tx = await session.begin_transaction()
             try:
                 await Neo4jIdempotencyStore(tx).put("cmd-7", _result(f"racer-{index}"))
-                await tx.commit()
-                return "committed"
             except Conflict:
-                return "refused"
-            finally:
                 await tx.rollback()
+                return "refused"
+            await tx.commit()
+            return "committed"
 
     outcomes = await asyncio.gather(*(racer(i) for i in range(16)))
     assert outcomes.count("committed") == 1
@@ -259,17 +259,18 @@ async def test_a_racing_mark_waits_for_a_held_mark_and_leaves_one_marker(
                 tx = await session.begin_transaction()
                 try:
                     created = await Neo4jProcessedMessages(tx).mark_if_new("m3", "c")
-                    await tx.commit()
-                    return created
-                finally:
+                except BaseException:
                     await tx.rollback()
+                    raise
+                await tx.commit()
+                return created
 
         task = asyncio.create_task(second())
         await asyncio.sleep(1)
         assert not task.done(), "the second mark must wait for the held mark"
         await first_tx.commit()
-        with pytest.raises(Conflict):
-            await task
+        # The MERGE waits for the held mark, then matches the committed marker: not new.
+        assert await task is False
     finally:
         await first_session.close()
     assert await count_nodes(neo4j_driver, "Processed") == 1

@@ -1,4 +1,4 @@
-"""ETag, If-Match and Idempotency-Key handling for the FHIR API (R03, DEC-101).
+"""ETag, If-Match and Idempotency-Key handling for the FHIR API (R03, DEC-105).
 
 Reads of a versioned resource carry `ETag: W/"<versionId>"`. A write to one sends If-Match with the
 version it read: no If-Match is 428, a version that does not match is 412 (check_version). A create

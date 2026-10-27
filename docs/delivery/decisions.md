@@ -1404,4 +1404,8 @@ Numbered DEC-109: DEC-108 is the highest number on `main` and on every `task/*` 
 5. **A network failure keeps no error text.** A rejected `fetch` becomes FhirError 503 with code `transient` and fixed diagnostics, because the underlying error can carry the request URL.
 6. **Server-only by convention.** The base URL is read from `process.env` in `lib/fhir/client.ts`, which only route handlers and Server Components should import. No `server-only` package is added. A client component importing the module would not fail the build; W02 may add the package if the owner wants the build to enforce it.
 
-Tests: `frontend/lib/fhir/client.test.ts`, `frontend/lib/fhir/traceparent.test.ts`, `frontend/lib/bff/errors.test.ts`, `frontend/test/msw/server.test.ts`. Evidence: `docs/delivery/evidence/W01.md`.
+7. **Empty and no-content successes.** A 204, or any 2xx whose body is empty, returns `data: undefined` and does not fail. `etag` is the `ETag` header when the response has one, and `undefined` when it has none.
+8. **Request headers.** `Authorization` is sent only when `token` is given. `traceparent` is sent on every request, GET and POST alike, and is generated when the caller gives none. `Idempotency-Key` and `If-Match` are sent only when given. `Content-Type` is sent only with a body. The method defaults as item 4 says.
+9. **Issue code in BFF errors.** `toBffError` uses the first issue's code when it is lower-case letters and hyphens, at most 40 characters. Otherwise it uses `invalid` for a 4xx and `exception` for a 5xx. A code that does not match is never echoed.
+
+Tests: `frontend/lib/fhir/client.test.ts`, `frontend/lib/fhir/client.guards.test.ts`, `frontend/lib/fhir/traceparent.test.ts`, `frontend/lib/bff/errors.test.ts`, `frontend/lib/bff/errors.guards.test.ts`, `frontend/test/msw/server.test.ts`. Evidence: `docs/delivery/evidence/W01.md`.

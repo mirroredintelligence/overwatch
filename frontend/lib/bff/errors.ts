@@ -1,4 +1,44 @@
-// Red stub (DEC-010): the behaviour is written after the tests fail.
-export function toBffError(_error: unknown): Response {
-  throw new Error('toBffError is not implemented yet');
+import { FhirError } from '@/lib/fhir/client';
+
+// Turns any error thrown by a route handler into the response the browser
+// sees. The body holds a code and a fixed message only: never the back end's
+// diagnostics, a URL, or an error's own text (DIUCS privacy rules).
+
+type BffErrorBody = { code: string; message: string };
+
+const MESSAGES: Record<number, string> = {
+  400: 'The request was not valid.',
+  401: 'Please sign in again.',
+  403: 'You cannot do that.',
+  404: 'We could not find that.',
+  409: 'That changed while you were working. Reload and try again.',
+  412: 'That changed while you were working. Reload and try again.',
+  422: 'The request could not be processed.',
+  428: 'The request needs the latest version. Reload and try again.',
+  503: 'The service is unavailable. Try again shortly.',
+};
+
+const FALLBACK_CLIENT_MESSAGE = 'The request could not be completed.';
+const FALLBACK_SERVER_MESSAGE = 'Something went wrong. Try again.';
+
+// FHIR issue codes are short lower-case words. Anything else is not echoed.
+const ISSUE_CODE = /^[a-z-]{1,40}$/;
+
+function messageFor(status: number): string {
+  return MESSAGES[status] ?? (status >= 500 ? FALLBACK_SERVER_MESSAGE : FALLBACK_CLIENT_MESSAGE);
+}
+
+function codeFor(error: FhirError): string {
+  const code = error.outcome.issue?.[0]?.code;
+  if (typeof code === 'string' && ISSUE_CODE.test(code)) return code;
+  return error.status >= 500 ? 'exception' : 'invalid';
+}
+
+export function toBffError(error: unknown): Response {
+  const status =
+    error instanceof FhirError && error.status >= 400 && error.status <= 599 ? error.status : 500;
+  const code = error instanceof FhirError && status === error.status ? codeFor(error) : 'exception';
+  const body: BffErrorBody = { code, message: messageFor(status) };
+
+  return Response.json(body, { status, headers: { 'Content-Type': 'application/json' } });
 }

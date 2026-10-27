@@ -122,6 +122,15 @@ MIGRATIONS: list[tuple[str, str]] = [
         "CREATE CONSTRAINT outbox_message_id IF NOT EXISTS "
         "FOR (n:OutboxMessage) REQUIRE n.id IS UNIQUE",
     ),
+    (
+        "0029_idempotency_key",
+        "CREATE CONSTRAINT idempotency_record_key IF NOT EXISTS "
+        "FOR (n:IdempotencyRecord) REQUIRE n.key IS UNIQUE",
+    ),
+    (
+        "0030_processed_key",
+        "CREATE CONSTRAINT processed_key IF NOT EXISTS FOR (n:Processed) REQUIRE n.key IS UNIQUE",
+    ),
 ]
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

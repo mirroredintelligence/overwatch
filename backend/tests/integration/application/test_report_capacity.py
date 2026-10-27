@@ -22,6 +22,7 @@ from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.use_cases import report_capacity
 from diucs.application.use_cases.report_capacity import (
     ReportCapacity,
     ReportCapacityCommand,
@@ -447,3 +448,133 @@ async def test_the_audit_record_has_the_report_shape_and_the_chain_verifies(
     assert entry.snapshot["status_before"] == "not-updated"
     assert entry.snapshot["status_after"] == "accepting"
     assert chain_ok is True
+
+
+class _MissingEarlyRead:
+    """An early read that always misses, so only the check inside the unit of work can replay."""
+
+    async def get(self, key: str) -> object | None:
+        return None
+
+    async def put(self, key: str, result: object) -> None:
+        return None
+
+
+async def test_a_replay_is_decided_inside_the_unit_of_work(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+    use_case = ReportCapacity(uow_factory, FixedClock(NOW), SequentialIds(), _MissingEarlyRead())
+
+    first = await use_case.execute(_command(4, key="same-key"))
+    second = await use_case.execute(_command(4, key="same-key"))
+
+    assert second.replayed is True
+    assert second.report_id == first.report_id
+    assert await count_nodes(neo4j_driver, "Observation") == 1
+
+
+@pytest.mark.parametrize("value", [True, "4"])
+async def test_a_value_that_is_not_a_whole_number_is_refused(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    value: Any,
+) -> None:
+    await seed_service(UCR_WEST)
+
+    with pytest.raises(ValidationFailed) as refused:
+        await _rig(uow_factory, neo4j_driver)[0].execute(_command(value))
+
+    assert refused.value.field == "value"
+    assert await count_nodes(neo4j_driver, "Observation") == 0
+
+
+async def test_a_replaced_value_outside_zero_to_999_is_refused(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+
+    with pytest.raises(ValidationFailed) as refused:
+        await _rig(uow_factory, neo4j_driver)[0].execute(
+            _command(4, performer_role_id="role-1", replaced_value=1000)
+        )
+
+    assert refused.value.field == "replaced_value"
+    assert await count_nodes(neo4j_driver, "Observation") == 0
+    assert await count_nodes(neo4j_driver, "Communication") == 0
+
+
+async def test_a_naive_effective_time_is_refused(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+
+    with pytest.raises(ValidationFailed) as refused:
+        await _rig(uow_factory, neo4j_driver)[0].execute(
+            _command(4, effective_at=datetime(2026, 10, 23, 13, 0))
+        )
+
+    assert refused.value.field == "effective_at"
+    assert await count_nodes(neo4j_driver, "Observation") == 0
+
+
+async def test_a_back_dated_report_does_not_replace_the_latest_figure(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+    use_case, clock = _rig(uow_factory, neo4j_driver)
+    await use_case.execute(_command(4, key="key-4"))
+
+    clock.set(NOW + timedelta(minutes=1))
+    back_dated = await use_case.execute(
+        _command(3, key="key-3", effective_at=NOW - timedelta(minutes=10))
+    )
+
+    assert back_dated.status is Status.ACCEPTING
+    assert back_dated.status_changed is False
+    latest = await _latest(uow_factory, "ucr-west")
+    assert latest is not None
+    assert latest.value == 4
+    assert latest.effective_at == NOW
+    assert len(await _events(uow_factory, "CapacityReported")) == 2
+
+
+@pytest.mark.parametrize(
+    ("actor", "source"),
+    [
+        (LEAD, ReportSource.TEXT),
+        (dataclasses.replace(ADVISOR, role=Role.CLINICAL), ReportSource.ADVISOR_PHONED),
+    ],
+)
+async def test_a_role_that_may_not_report_is_refused(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    actor: Actor,
+    source: ReportSource,
+) -> None:
+    await seed_service(UCR_WEST)
+
+    with pytest.raises(NotAllowed):
+        await _rig(uow_factory, neo4j_driver)[0].execute(_command(4, actor=actor, source=source))
+
+    assert await count_nodes(neo4j_driver, "Observation") == 0
+
+
+async def test_an_echo_is_refused_when_no_next_prompt_can_be_named(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await seed_service(UCR_WEST)
+    monkeypatch.setattr(report_capacity, "next_due", lambda profile, now: None)
+
+    with pytest.raises(ValidationFailed) as refused:
+        await _rig(uow_factory, neo4j_driver)[0].execute(_command(4, performer_role_id="role-1"))
+
+    assert refused.value.field == "available_times"
+    assert await count_nodes(neo4j_driver, "Observation") == 0
+    assert await count_nodes(neo4j_driver, "Communication") == 0
+    assert await count_nodes(neo4j_driver, "OutboxMessage") == 0

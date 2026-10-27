@@ -496,3 +496,17 @@ async def test_a_role_that_may_not_report_is_refused(
     assert await count_nodes(neo4j_driver, "Observation") == 0
 
 
+@pytest.mark.parametrize("value", [0, 999])
+async def test_a_value_at_the_bounds_is_accepted(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed, value: int
+) -> None:
+    await seed_service(UCR_WEST)
+
+    result = await _rig(uow_factory, neo4j_driver)[0].execute(_command(value))
+
+    latest = await _latest(uow_factory, "ucr-west")
+    assert latest is not None
+    assert latest.value == value
+    assert result.report_id == latest.id
+
+

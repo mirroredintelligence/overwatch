@@ -281,7 +281,7 @@ async def test_a_refusal_is_logged_without_the_number_or_body(
 async def test_a_send_logs_no_info_line_that_carries_the_account_sid(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    # httpx logs each request URL at INFO and the URL carries the account SID (DEC-101 item 8).
+    # httpx logs each request URL at INFO and the URL carries the account SID (DEC-107 item 8).
     caplog.set_level(logging.DEBUG)
     _, transport = _recording(httpx.Response(201, json={"sid": SID}))
     async with httpx.AsyncClient(transport=transport) as client:

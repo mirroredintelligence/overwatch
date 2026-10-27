@@ -1,4 +1,4 @@
-"""Twilio SMS adapter (I06): sends a text and maps Twilio's status callbacks. DEC-002, DEC-101.
+"""Twilio SMS adapter (I06): sends a text and maps Twilio's status callbacks. DEC-002, DEC-107.
 
 Nothing Twilio-specific leaves this module. Callers see the port's types: SendReceipt,
 TransientSendError, SendFailedError and DeliveryUpdate. The message id and the Twilio sid are
@@ -23,7 +23,7 @@ from diucs.domain.errors import ValidationFailed
 
 _log = logging.getLogger(__name__)
 
-# httpx logs every request URL at INFO, and the Twilio URL carries the account SID (DEC-101 item 8).
+# httpx logs every request URL at INFO, and the Twilio URL carries the account SID (DEC-107 item 8).
 # This is process-wide; the O01 logging configuration must hold the same levels (follow-up).
 for _name in ("httpx", "httpcore"):
     logging.getLogger(_name).setLevel(logging.WARNING)

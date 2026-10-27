@@ -46,8 +46,8 @@ def test_a_london_datetime_comes_back_as_the_same_instant_in_utc() -> None:
     london = datetime(2026, 10, 25, 1, 55, tzinfo=ZoneInfo("Europe/London"))
     type_name, json_text = encode_result(_entry(at=london))
     decoded = decode_result(type_name, json_text)
+    assert getattr(decoded, "at", None) == london.astimezone(UTC)
     assert isinstance(decoded, AuditEntry)
-    assert decoded.at == london.astimezone(UTC)
     assert decoded.at.utcoffset() == timedelta(0)
 
 

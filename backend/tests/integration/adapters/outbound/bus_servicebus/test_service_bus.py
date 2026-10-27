@@ -80,3 +80,64 @@ async def test_a_scheduled_message_that_is_cancelled_never_arrives() -> None:
     finally:
         await bus.close()
         await sb.close()
+
+
+async def test_cancelling_a_pending_message_succeeds() -> None:
+    sb = client()
+    bus = ServiceBusEventBus(sb)
+    try:
+        number = await bus.schedule(
+            "scheduled.work",
+            BusMessage(id=_unique_id("pending"), topic="messages.outbound", event_type="PromptDue"),
+            datetime.now(UTC) + timedelta(seconds=30),
+        )
+        await bus.cancel("scheduled.work", number)
+    finally:
+        await bus.close()
+        await sb.close()
+
+
+async def test_cancelling_an_unknown_number_is_a_no_op() -> None:
+    sb = client()
+    bus = ServiceBusEventBus(sb)
+    try:
+        await bus.cancel("scheduled.work", 999_999)
+    finally:
+        await bus.close()
+        await sb.close()
+
+
+async def test_cancelling_a_delivered_number_is_a_no_op() -> None:
+    sb = client()
+    bus = ServiceBusEventBus(sb)
+    try:
+        number = await bus.schedule(
+            "scheduled.work",
+            BusMessage(id=_unique_id("sent"), topic="messages.outbound", event_type="PromptDue"),
+            datetime.now(UTC) + timedelta(seconds=1),
+        )
+        delivered = await _receive_one("scheduled.work", timedelta(seconds=5))
+        assert delivered is not None
+        await bus.cancel("scheduled.work", number)
+    finally:
+        await bus.close()
+        await sb.close()
+
+
+async def test_cancelling_another_queues_number_is_a_no_op_and_leaves_the_message() -> None:
+    sb = client()
+    bus = ServiceBusEventBus(sb)
+    try:
+        message_id = _unique_id("elsewhere")
+        number = await bus.schedule(
+            "scheduled.work",
+            BusMessage(id=message_id, topic="messages.outbound", event_type="PromptDue"),
+            datetime.now(UTC) + timedelta(seconds=2),
+        )
+        await bus.cancel("inbound.receipts", number)
+        received = await _receive_one("scheduled.work", timedelta(seconds=6))
+        assert received is not None
+        assert received.message_id == message_id
+    finally:
+        await bus.close()
+        await sb.close()

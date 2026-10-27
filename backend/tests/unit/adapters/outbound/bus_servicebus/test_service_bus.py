@@ -34,7 +34,8 @@ def test_the_message_carries_its_id_session_subject_and_json_body() -> None:
     assert sent.session_id == "svc-1"
     assert sent.subject == "CapacityReported"
     assert sent.content_type == "application/json"
-    assert json.loads(bytes(sent.body)) == {"measure": 4}
+    # The SDK holds a sent body as a generator of chunks, so it is joined, not converted.
+    assert json.loads(b"".join(sent.body)) == {"measure": 4}
 
 
 def test_the_event_type_is_an_application_property() -> None:
@@ -75,13 +76,72 @@ async def test_scheduling_at_a_naive_time_is_refused_before_any_send() -> None:
         await client.close()
 
 
+EMULATOR_NOT_PENDING_TEXT = (
+    "Service request failed. b'The scheduled message with SequenceNumber = 999999 "
+    "is already being cancelled. TrackingId:abc_G0, Timestamp:2026-10-27T17:19:32'. "
+    "Error condition: amqp:not-allowed. Status Code: 400."
+)
+
+
 def test_a_cancel_of_a_number_that_is_not_pending_is_recognised() -> None:
-    error = ServiceBusError(
-        "Service request failed. b'The scheduled message with SequenceNumber = 999999 "
-        "is already being cancelled.'"
-    )
-    assert is_unscheduled_cancel(error)
+    assert is_unscheduled_cancel(ServiceBusError(EMULATOR_NOT_PENDING_TEXT), 999_999)
+
+
+def test_a_refusal_that_names_another_number_is_not_recognised() -> None:
+    assert not is_unscheduled_cancel(ServiceBusError(EMULATOR_NOT_PENDING_TEXT), 7)
 
 
 def test_any_other_cancel_error_is_not_swallowed() -> None:
-    assert not is_unscheduled_cancel(ServiceBusError("Service request failed. Unauthorized"))
+    error = ServiceBusError("Service request failed. Unauthorized")
+    assert not is_unscheduled_cancel(error, 999_999)
+
+
+class _FakeSender:
+    """A stand-in for the SDK sender (an external provider): records a cancel, or raises."""
+
+    def __init__(self, refusal: ServiceBusError | None = None) -> None:
+        self.refusal = refusal
+        self.cancelled: list[int] = []
+
+    async def cancel_scheduled_messages(self, sequence_number: int) -> None:
+        if self.refusal is not None:
+            raise self.refusal
+        self.cancelled.append(sequence_number)
+
+    async def close(self) -> None:
+        return None
+
+
+class _FakeClient:
+    def __init__(self, sender: _FakeSender) -> None:
+        self.sender = sender
+
+    def get_queue_sender(self, name: str) -> _FakeSender:
+        return self.sender
+
+
+async def test_a_cancel_of_a_pending_number_is_sent_to_the_queue() -> None:
+    sender = _FakeSender()
+    bus = ServiceBusEventBus(_FakeClient(sender))  # type: ignore[arg-type]
+    await bus.cancel("scheduled.work", 42)
+    assert sender.cancelled == [42]
+
+
+async def test_a_cancel_refused_as_not_pending_is_a_no_op() -> None:
+    sender = _FakeSender(ServiceBusError(EMULATOR_NOT_PENDING_TEXT))
+    bus = ServiceBusEventBus(_FakeClient(sender))  # type: ignore[arg-type]
+    await bus.cancel("scheduled.work", 999_999)
+
+
+async def test_a_refusal_naming_another_number_propagates() -> None:
+    sender = _FakeSender(ServiceBusError(EMULATOR_NOT_PENDING_TEXT))
+    bus = ServiceBusEventBus(_FakeClient(sender))  # type: ignore[arg-type]
+    with pytest.raises(ServiceBusError):
+        await bus.cancel("scheduled.work", 7)
+
+
+async def test_an_unrelated_service_bus_error_still_propagates_from_cancel() -> None:
+    sender = _FakeSender(ServiceBusError("Service request failed. Unauthorized"))
+    bus = ServiceBusEventBus(_FakeClient(sender))  # type: ignore[arg-type]
+    with pytest.raises(ServiceBusError, match="Unauthorized"):
+        await bus.cancel("scheduled.work", 999_999)

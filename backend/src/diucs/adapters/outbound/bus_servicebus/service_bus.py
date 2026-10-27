@@ -16,7 +16,7 @@ def to_service_bus_message(message: BusMessage) -> ServiceBusMessage:
     raise NotImplementedError("I02: to_service_bus_message is not built yet")
 
 
-def is_unscheduled_cancel(error: ServiceBusError) -> bool:
+def is_unscheduled_cancel(error: ServiceBusError, sequence_number: int) -> bool:
     raise NotImplementedError("I02: is_unscheduled_cancel is not built yet")
 
 

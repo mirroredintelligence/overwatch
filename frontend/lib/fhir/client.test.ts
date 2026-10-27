@@ -89,7 +89,7 @@ describe('fhirFetch', () => {
   });
 
   it('passes a supplied traceparent through unchanged', async () => {
-    const supplied = '00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01';
+    const supplied = '00-fe4bcda1f0eb2c7d9afb3e5c8d6a1bf4-ab3fc7e2d9a1cf84-01';
     const seen: (string | null)[] = [];
     server.use(
       http.get(`${BASE}/Patient/y`, ({ request }) => {

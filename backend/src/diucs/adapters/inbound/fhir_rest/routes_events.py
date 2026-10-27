@@ -10,7 +10,7 @@ been published for KEEPALIVE_INTERVAL_SECONDS, so proxies keep the connection op
 client goes away the subscription is closed (its aclose, see the Cache port), so the cache keeps
 no subscriber for a stream that has ended.
 
-The message rules are in DEC-110: the stream accepts the shape the board projector publishes
+The message rules are in DEC-111: the stream accepts the shape the board projector publishes
 (`{"type": "board-changed", "service_id", "at"}`, DEC-099 item 8) and the shape the task names
 (`serviceId`, optional `kind`, `changedAt`).
 """

@@ -1411,10 +1411,10 @@ Numbered DEC-109: DEC-108 is the highest number on `main` and on every `task/*` 
 
 Tests: `frontend/lib/fhir/client.test.ts`, `frontend/lib/fhir/client.guards.test.ts`, `frontend/lib/fhir/traceparent.test.ts`, `frontend/lib/bff/errors.test.ts`, `frontend/lib/bff/errors.guards.test.ts`, `frontend/test/msw/server.test.ts`. Evidence: `docs/delivery/evidence/W01.md`.
 
-## DEC-110 The live-update stream: route, message shapes, roles, subscription close and wiring (R06)
+## DEC-111 The live-update stream: route, message shapes, roles, subscription close and wiring (R06)
 Status: accepted (builder build-R06, for the owner to confirm) · Affects: R06 (`adapters/inbound/fhir_rest/routes_events.py`), `app.py` (one router include), the `Cache` port docstring, the in-memory cache fake (P09), W06 (the BFF relay and the wall board), U09 (the message it publishes).
 
-Numbered DEC-110: DEC-109 is taken on `task/W01-bff-foundations` (unmerged), and DEC-108 is the highest on `main`. DEC-110 is the next free number on every `task/*` branch (checked with `git show <branch>:docs/delivery/decisions.md`, lesson L43).
+Numbered DEC-111: DEC-109 is taken on `task/W01-bff-foundations` and DEC-110 on `task/I09-email-smtp` (both unmerged), and DEC-108 is the highest on `main`. DEC-111 is the next free number on every `task/*` branch (checked with `git show <branch>:docs/delivery/decisions.md`, lesson L43).
 
 1. **Route.** `GET /events` at the root, not under `/fhir`, as `contracts.md` (non-FHIR routes) gives it. The response is `text/event-stream` with `Cache-Control: no-store`. The stream stores nothing.
 2. **Two message shapes, one event.** The R06 prompt names `{serviceId, kind, changedAt}`. The board projector (U09, DEC-099 item 8) publishes `{"type": "board-changed", "service_id", "at"}` and no kind. Following the prompt alone would drop every real message, so the stream accepts both. A projector message becomes `event: board` with `serviceId` and `changedAt`, and no `kind`. The builder does not invent a kind for it. A message with a `kind` must have one of `capacity`, `status` or `booking`, or it is dropped. A message with no usable service id or time is dropped. A projector message with `service_id` null is dropped, because it names no service. A whole-board change with no service id therefore does not push; open pages still refetch on the wall's one-minute poll (architecture.md, live updates). Residual, owner to decide: whether W06 needs a whole-board event.

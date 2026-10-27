@@ -8,7 +8,7 @@ and application property. A cancel is a no-op for a number that is not pending (
 import json
 import re
 from datetime import UTC, datetime
-from typing import Any
+from uuid import UUID
 
 from azure.servicebus import ServiceBusMessage
 from azure.servicebus.aio import ServiceBusClient, ServiceBusSender
@@ -23,7 +23,9 @@ _NOT_PENDING = re.compile(r"SequenceNumber = (\d+) is already being cancelled")
 
 
 def to_service_bus_message(message: BusMessage) -> ServiceBusMessage:
-    properties: dict[str, Any] = {"event_type": message.event_type}
+    properties: dict[str | bytes, int | float | bytes | bool | str | UUID] = {
+        "event_type": message.event_type
+    }
     if "channel" in message.payload:
         properties["channel"] = message.payload["channel"]
     return ServiceBusMessage(

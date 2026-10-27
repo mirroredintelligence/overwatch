@@ -106,7 +106,7 @@ class TwilioSms:
         self._status_callback_url = status_callback_url
 
     async def send(self, to: str, text: str, message_id: str) -> SendReceipt:
-        if not text:
+        if not text.strip():
             raise ValueError("text is empty")
         recipient = to_e164_uk(to)
         form = {

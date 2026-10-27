@@ -13,6 +13,7 @@ change another test's result.
 import asyncio
 import json
 from collections import defaultdict, deque
+from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -122,6 +123,12 @@ _CONTRACT_QUEUES = ("scheduled.work", "inbound.receipts")
 _DRAIN_WAIT = timedelta(milliseconds=300)
 # A session receive opens its link with this window, not the short wait (DEC-102 item 4).
 _SESSION_OPEN_WAIT = 5.0
+# The budget for one session open, however long the caller asked to wait (I02).
+SESSION_OPEN_LIMIT = timedelta(seconds=10)
+
+
+def session_open_window(wait: timedelta) -> float:
+    return max(wait.total_seconds(), _SESSION_OPEN_WAIT)
 
 
 def _as_bus_message(message: ServiceBusReceivedMessage, name: str) -> BusMessage:
@@ -144,17 +151,21 @@ async def _receive_from(sb: ServiceBusClient, name: str, wait: timedelta) -> Bus
             name,
             _TOPIC_SUBSCRIPTIONS[name],
             session_id=ServiceBusSessionFilter.NEXT_AVAILABLE,
-            max_wait_time=max(seconds, _SESSION_OPEN_WAIT),
+            max_wait_time=session_open_window(wait),
         )
     else:
         raise AssertionError(f"{name} has no subscription in the contract")
-    async with receiver:
+    async with AsyncExitStack() as stack:
         try:
-            found = await receiver.receive_messages(max_message_count=1, max_wait_time=seconds)
+            # The session link opens here. With NEXT_AVAILABLE and nothing waiting, the open
+            # times out instead of returning an empty list (lesson L127). That is no message,
+            # not a failure. Only this open is guarded, not the receive or the complete.
+            await stack.enter_async_context(receiver)
         except OperationTimeoutError:
-            # With NEXT_AVAILABLE and nothing waiting, the link open times out instead of
-            # returning an empty list (lesson L127). That is no message, not a failure.
+            if name not in _TOPIC_SUBSCRIPTIONS:
+                raise
             return None
+        found = await receiver.receive_messages(max_message_count=1, max_wait_time=seconds)
         if not found:
             return None
         await receiver.complete_message(found[0])

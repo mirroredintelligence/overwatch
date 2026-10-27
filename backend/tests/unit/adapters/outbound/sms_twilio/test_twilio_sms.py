@@ -110,6 +110,39 @@ async def test_an_unlisted_refusal_is_a_failure_not_a_receipt(response: httpx.Re
 
 
 @pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(201, json={"status": "queued"}),
+        httpx.Response(201, text="accepted"),
+    ],
+)
+async def test_an_accepted_send_with_no_sid_is_a_failure_not_a_receipt(
+    response: httpx.Response,
+) -> None:
+    _, transport = _recording(response)
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(SendFailedError):
+            await _sms(client).send(NUMBER, BODY, "C1")
+
+
+@pytest.mark.parametrize(
+    "response",
+    [
+        httpx.Response(400, text="not json"),
+        httpx.Response(400, json=["not", "a", "dict"]),
+        httpx.Response(400, json={"status": 400}),
+    ],
+)
+async def test_a_refusal_with_no_usable_code_is_a_failure_not_a_receipt(
+    response: httpx.Response,
+) -> None:
+    _, transport = _recording(response)
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(SendFailedError):
+            await _sms(client).send(NUMBER, BODY, "C1")
+
+
+@pytest.mark.parametrize(
     ("number", "expected"),
     [
         ("07700 900123", "+447700900123"),

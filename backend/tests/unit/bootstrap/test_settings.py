@@ -70,3 +70,28 @@ def test_neo4j_password_from_environment_is_hidden_from_repr_and_str(
     assert settings.neo4j_password.get_secret_value() == NEO4J_CANARY
     assert NEO4J_CANARY not in repr(settings)
     assert NEO4J_CANARY not in str(settings)
+
+
+TWILIO_CANARY = "canary-twilio-token-5b2c"
+
+
+def test_twilio_settings_are_unset_by_default() -> None:
+    settings = Settings()
+    assert settings.twilio_account_sid is None
+    assert settings.twilio_auth_token is None
+    assert settings.twilio_from is None
+
+
+def test_twilio_token_is_read_from_environment_and_hidden_from_repr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DIUCS_TWILIO_ACCOUNT_SID", "ACplaceholder")
+    monkeypatch.setenv("DIUCS_TWILIO_AUTH_TOKEN", TWILIO_CANARY)
+    monkeypatch.setenv("DIUCS_TWILIO_FROM", "DIUCS-TEST")
+    settings = Settings()
+    assert settings.twilio_account_sid == "ACplaceholder"
+    assert settings.twilio_from == "DIUCS-TEST"
+    assert isinstance(settings.twilio_auth_token, SecretStr)
+    assert settings.twilio_auth_token.get_secret_value() == TWILIO_CANARY
+    assert TWILIO_CANARY not in repr(settings)
+    assert TWILIO_CANARY not in str(settings)

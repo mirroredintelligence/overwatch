@@ -39,7 +39,7 @@ def _sms(client: httpx.AsyncClient) -> TwilioSms:
 
 @pytest.fixture(autouse=True)
 def _restore_httpx_log_level() -> Iterator[None]:
-    """The httpx logger is process-wide; each test starts and ends with it unset (DEC-103 item 2)."""
+    """httpx logging is process-wide. Start and end each test unset (DEC-103 item 8)."""
     logger = logging.getLogger("httpx")
     saved = logger.level
     logger.setLevel(logging.NOTSET)

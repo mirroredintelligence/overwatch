@@ -29,6 +29,7 @@ from diucs.application.use_cases.report_capacity import (
     ReportCapacityResult,
 )
 from diucs.domain.codes import (
+    BookingStatus,
     Cadence,
     Channel,
     Measure,
@@ -40,6 +41,7 @@ from diucs.domain.codes import (
     Status,
 )
 from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
+from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.service import AvailableTime, ServiceProfile
@@ -578,3 +580,68 @@ async def test_an_echo_is_refused_when_no_next_prompt_can_be_named(
     assert await count_nodes(neo4j_driver, "Observation") == 0
     assert await count_nodes(neo4j_driver, "Communication") == 0
     assert await count_nodes(neo4j_driver, "OutboxMessage") == 0
+
+
+async def test_a_back_dated_report_subtracts_a_booking_confirmed_after_it(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """A figure recorded for 13:02Z takes the booking confirmed at 13:07Z, which is after it but
+    before the latest figure (13:12Z). Only the window from the back-dated report sees it."""
+    await seed_service(UCR_WEST)
+    use_case, clock = _rig(uow_factory, neo4j_driver)
+    await use_case.execute(_command(4, key="key-4"))
+    requested = Booking(
+        id="booking-1",
+        reference="4821",
+        service_id="ucr-west",
+        case_id="case-1",
+        requester_id="prac-advisor-1",
+        status=BookingStatus.REQUESTED,
+        requested_at=NOW - timedelta(minutes=20),
+        reply_by=NOW + timedelta(minutes=10),
+    )
+    confirmed = requested.with_status(BookingStatus.CONFIRMED, NOW - timedelta(minutes=5))
+    async with uow_factory() as uow:
+        await uow.bookings.add(confirmed)
+        await uow.commit()
+
+    clock.set(NOW + timedelta(minutes=1))
+    back_dated = await use_case.execute(
+        _command(1, key="key-1", effective_at=NOW - timedelta(minutes=10))
+    )
+
+    assert back_dated.status is Status.NOT_ACCEPTING
+    assert back_dated.status_changed is True
+
+
+async def test_a_booking_confirmed_between_two_figures_counts_in_both_statuses(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """A figure of 2 at 13:02Z is limited once a booking confirmed at 13:07Z takes a place (1 free).
+    The next figure, 1 at 13:12Z, is limited too, so the status does not change. Reading the
+    earlier figure's window from the later figure would drop the booking, see accepting, and
+    report a change that did not happen."""
+    await seed_service(UCR_WEST)
+    use_case, clock = _rig(uow_factory, neo4j_driver)
+    clock.set(NOW - timedelta(minutes=10))
+    await use_case.execute(_command(2, key="key-2"))
+    requested = Booking(
+        id="booking-2",
+        reference="4822",
+        service_id="ucr-west",
+        case_id="case-2",
+        requester_id="prac-advisor-1",
+        status=BookingStatus.REQUESTED,
+        requested_at=NOW - timedelta(minutes=20),
+        reply_by=NOW + timedelta(minutes=10),
+    )
+    confirmed = requested.with_status(BookingStatus.CONFIRMED, NOW - timedelta(minutes=5))
+    async with uow_factory() as uow:
+        await uow.bookings.add(confirmed)
+        await uow.commit()
+
+    clock.set(NOW)
+    latest_figure = await use_case.execute(_command(1, key="key-1"))
+
+    assert latest_figure.status is Status.LIMITED
+    assert latest_figure.status_changed is False

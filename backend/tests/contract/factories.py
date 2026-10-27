@@ -10,17 +10,22 @@ Real factories must delete what the test wrote when the harness is closed, so on
 change another test's result.
 """
 
+import asyncio
 from collections import defaultdict, deque
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from redis.asyncio import Redis
 
+from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.memory_event_bus import ManualEventBus
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS, BusMessage, EventBus
+from diucs.bootstrap.settings import Settings
 from tests.contract.harness import Harness
+from tests.support.redis import flush_diucs_keys
 
 # Every fake starts on 2026-10-25, the day of the London clock change, in UTC (the only zone a
 # contract may depend on). Durations are relative, so no test depends on the start instant.
@@ -76,5 +81,35 @@ async def make_memory_event_bus() -> Harness[EventBus]:
     )
 
 
-CACHE_FACTORIES = [pytest.param(make_memory_cache, id="memory")]
+async def make_redis_cache() -> Harness[Cache]:
+    """A RedisCache on the Redis of infra/docker-compose.yml. Each test starts with no diucs: keys
+    and leaves none behind, so the suites share no state."""
+    url = Settings().redis_url
+    cleaner = Redis.from_url(url, decode_responses=True)
+    await flush_diucs_keys(cleaner)
+    cache = RedisCache.from_url(url)
+
+    async def advance(delta: timedelta) -> None:
+        # A real adapter waits in real time; the suites use seconds only (DEC-075 item 4).
+        await asyncio.sleep(delta.total_seconds())
+
+    async def close() -> None:
+        try:
+            await flush_diucs_keys(cleaner)
+        finally:
+            await cache.aclose()
+            await cleaner.aclose()
+
+    return Harness(
+        subject=cache,
+        now=lambda: datetime.now(UTC),
+        advance=advance,
+        close=close,
+    )
+
+
+CACHE_FACTORIES = [
+    pytest.param(make_memory_cache, id="memory"),
+    pytest.param(make_redis_cache, id="redis", marks=pytest.mark.integration),
+]
 EVENT_BUS_FACTORIES = [pytest.param(make_memory_event_bus, id="memory")]

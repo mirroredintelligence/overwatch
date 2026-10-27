@@ -140,7 +140,7 @@ class RedisCache:
         # The counter never expires, so tokens keep increasing across restarts (DEC-058 item 2).
         # After a data loss the clock term keeps them increasing (DEC-091).
         now_us = time.time_ns() // 1_000
-        token: int = await self._client.eval(_NEXT_TOKEN, 1, _FENCE_KEY.format("shared"), str(now_us))
+        token: int = await self._client.eval(_NEXT_TOKEN, 1, _FENCE_KEY.format(name), str(now_us))
         acquired = await self._client.set(
             _LOCK_KEY.format(name), str(token), nx=True, px=_millis(ttl)
         )

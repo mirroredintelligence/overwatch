@@ -252,6 +252,65 @@ async def test_logs_hold_neither_the_address_nor_the_body(
     assert receipt.provider_message_id in adapter_log
 
 
+def _adapter_log(caplog: pytest.LogCaptureFixture) -> str:
+    # The in-process server logs under "mail.log" (it stands in for the relay). Only the
+    # adapter's own records are checked.
+    return "\n".join(
+        f"{record.name} {record.getMessage()}"
+        for record in caplog.records
+        if not record.name.startswith("mail.log")
+    )
+
+
+async def test_the_refusal_log_holds_neither_the_address_nor_the_body(
+    smtp_server: Any, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The relay's reply echoes the address and the body text; neither may reach the adapter's log.
+    handler, port = smtp_server
+    handler.rcpt_reply = f"550 5.1.1 <{MARKER_ADDRESS}> no such mailbox {MARKER_BODY}"
+    caplog.set_level(logging.DEBUG)
+
+    receipt = await SmtpEmail(settings_for(port)).send(
+        MARKER_ADDRESS, SUBJECT, f"{MARKER_BODY} text", f"<p>{MARKER_BODY} html</p>"
+    )
+
+    assert receipt.accepted is False
+    assert MARKER_ADDRESS not in _adapter_log(caplog)
+    assert MARKER_BODY not in _adapter_log(caplog)
+
+
+async def test_the_deferral_log_holds_neither_the_address_nor_the_body(
+    smtp_server: Any, caplog: pytest.LogCaptureFixture
+) -> None:
+    handler, port = smtp_server
+    handler.rcpt_reply = f"451 4.3.0 <{MARKER_ADDRESS}> try later {MARKER_BODY}"
+    caplog.set_level(logging.DEBUG)
+
+    with pytest.raises(TransientSendError):
+        await SmtpEmail(settings_for(port)).send(
+            MARKER_ADDRESS, SUBJECT, f"{MARKER_BODY} text", f"<p>{MARKER_BODY} html</p>"
+        )
+
+    assert MARKER_ADDRESS not in _adapter_log(caplog)
+    assert MARKER_BODY not in _adapter_log(caplog)
+
+
+async def test_the_failure_log_holds_neither_the_address_nor_the_body(
+    smtp_server: Any, caplog: pytest.LogCaptureFixture
+) -> None:
+    handler, port = smtp_server
+    handler.data_reply = f"554 5.7.1 rejected {MARKER_BODY} for {MARKER_ADDRESS}"
+    caplog.set_level(logging.DEBUG)
+
+    with pytest.raises(SendFailedError):
+        await SmtpEmail(settings_for(port)).send(
+            MARKER_ADDRESS, SUBJECT, f"{MARKER_BODY} text", f"<p>{MARKER_BODY} html</p>"
+        )
+
+    assert MARKER_ADDRESS not in _adapter_log(caplog)
+    assert MARKER_BODY not in _adapter_log(caplog)
+
+
 async def test_an_unconfigured_relay_is_a_failure_and_sends_nothing() -> None:
     # No SMTP host in settings: the adapter must refuse, never fall back to a local relay.
     settings = Settings(_env_file=None)  # type: ignore[call-arg]

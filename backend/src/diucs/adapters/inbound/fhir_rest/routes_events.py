@@ -18,7 +18,9 @@ The message rules are in DEC-111: the stream accepts the shape the board project
 import asyncio
 import contextlib
 import json
+import re
 from collections.abc import AsyncIterator, Mapping
+from datetime import datetime
 from typing import Any, Final
 
 from fastapi import APIRouter, Depends, Request
@@ -46,6 +48,27 @@ def parse_message(text: str) -> object | None:
     return value
 
 
+# A service id is a FHIR id (DEC-053 item 11). A changed time must be a UTC instant with an explicit
+# zero offset, written Z or +00:00 (the projector writes +00:00), and a real calendar moment. It is
+# sent with Z. Anything else is dropped, and the value is never echoed.
+_SERVICE_ID: Final = re.compile(r"[A-Za-z0-9.-]{1,64}")
+_UTC_TIME: Final = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|\+00:00)")
+
+
+def _is_service_id(value: object) -> bool:
+    return isinstance(value, str) and _SERVICE_ID.fullmatch(value) is not None
+
+
+def _utc_time_text(value: object) -> str | None:
+    if not isinstance(value, str) or _UTC_TIME.fullmatch(value) is None:
+        return None
+    try:
+        moment = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return moment.isoformat().replace("+00:00", "Z")
+
+
 def _fields(message: object) -> tuple[str, str | None, str] | None:
     """The service, the optional kind and the time of a board message, or None to drop it."""
     if not isinstance(message, Mapping):
@@ -65,11 +88,10 @@ def _fields(message: object) -> tuple[str, str | None, str] | None:
             if not isinstance(message["kind"], str) or message["kind"] not in KINDS:
                 return None
             kind = message["kind"]
-    if not isinstance(service_id, str) or not service_id:
+    text = _utc_time_text(changed_at)
+    if not _is_service_id(service_id) or text is None:
         return None
-    if not isinstance(changed_at, str) or not changed_at:
-        return None
-    return service_id, kind, changed_at
+    return service_id, kind, text
 
 
 def to_sse(message: object) -> str | None:

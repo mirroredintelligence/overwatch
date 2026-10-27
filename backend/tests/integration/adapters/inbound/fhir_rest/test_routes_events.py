@@ -14,7 +14,6 @@ from typing import Any
 
 import pytest
 from fastapi import FastAPI
-from httpx import AsyncClient
 
 from diucs.adapters.inbound.fhir_rest import routes_events
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME

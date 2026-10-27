@@ -120,3 +120,12 @@ def test_a_malformed_value_is_not_echoed_into_any_event() -> None:
     message = {"serviceId": "Jane Smith", "kind": "capacity", "changedAt": CHANGED_AT}
 
     assert to_sse(message) is None
+
+
+def test_a_projector_time_written_with_a_zero_offset_is_sent_with_z() -> None:
+    # The projector writes isoformat(), which ends in +00:00. The event carries the Z form.
+    message = {"type": "board-changed", "service_id": "svc-1", "at": "2026-10-23T13:12:00+00:00"}
+
+    assert to_sse(message) == (
+        'event: board\ndata: {"serviceId":"svc-1","changedAt":"2026-10-23T13:12:00Z"}\n\n'
+    )

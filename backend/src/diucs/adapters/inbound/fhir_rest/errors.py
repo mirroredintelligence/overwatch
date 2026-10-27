@@ -49,6 +49,10 @@ UNSUPPORTED_MEDIA_TEXT = (
 INTERNAL_TEXT = "Internal error"
 METHOD_TEXT = "The HTTP method is not allowed for this resource."
 LOGIN_TEXT = "The bearer token is missing, expired or not valid."
+PRECONDITION_FAILED_TEXT = "The If-Match version does not match the current version of the record."
+PRECONDITION_REQUIRED_TEXT = (
+    "A write without a version is refused. Send If-Match with the version you read."
+)
 
 ACCEPTED_BODY_TYPES = frozenset({"application/fhir+json", "application/json"})
 _BODY_METHODS = frozenset({"POST", "PUT"})
@@ -111,6 +115,20 @@ def _http_error(request: Request, exc: Any) -> Response:
     return operation_outcome(status, "exception", INTERNAL_TEXT)
 
 
+def _precondition_failed(request: Request, exc: Any) -> Response:
+    return operation_outcome(412, "conflict", PRECONDITION_FAILED_TEXT)
+
+
+def _precondition_required(request: Request, exc: Any) -> Response:
+    return operation_outcome(428, "required", PRECONDITION_REQUIRED_TEXT)
+
+
+def _header_refused(request: Request, exc: Any) -> Response:
+    # The message is one of the fixed texts in concurrency.py; it never echoes the header value.
+    assert isinstance(exc, HeaderRefused)
+    return operation_outcome(exc.status_code, exc.code, exc.message)
+
+
 def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ValidationFailed, _validation_failed)
     app.add_exception_handler(NotFound, _fixed(404, "not-found", NOT_FOUND_TEXT))
@@ -119,6 +137,9 @@ def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(InvalidTransition, _fixed(409, "business-rule", TRANSITION_TEXT))
     app.add_exception_handler(RequestValidationError, _request_invalid)
     app.add_exception_handler(StarletteHTTPException, _http_error)
+    app.add_exception_handler(PreconditionFailed, _precondition_failed)
+    app.add_exception_handler(PreconditionRequired, _precondition_required)
+    app.add_exception_handler(HeaderRefused, _header_refused)
 
 
 class BodyTypeMiddleware:

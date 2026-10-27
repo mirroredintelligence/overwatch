@@ -147,6 +147,7 @@ MALFORMED = [
     pytest.param("aaa.bbb.cccé", id="non-ascii"),
     pytest.param(_with_padding(valid_token()), id="base64-padding"),
     pytest.param("!!!." + valid_token().split(".", 1)[1], id="header-not-base64"),
+    pytest.param("abcde.abc.abc", id="base64-impossible-length"),
     pytest.param(sign(HEADER, [1, 2]), id="payload-is-a-list"),
     pytest.param(sign(["HS256"], payload()), id="header-is-a-list"),
     pytest.param(valid_token(sub=...), id="sub-missing"),
@@ -190,6 +191,27 @@ def test_a_deeply_nested_signed_payload_is_refused_not_raised() -> None:
 
     with pytest.raises(TokenRejected):
         decode_bff_token(token, SECRET, NOW)
+
+
+def test_a_payload_that_is_not_json_is_refused() -> None:
+    head = b64(json.dumps(HEADER, separators=(",", ":")).encode())
+    body = b64(b"not json at all")
+    signature = hmac.new(SECRET, f"{head}.{body}".encode("ascii"), hashlib.sha256).digest()
+
+    with pytest.raises(TokenRejected):
+        decode_bff_token(f"{head}.{body}.{b64(signature)}", SECRET, NOW)
+
+
+def test_a_json_parser_that_hits_its_recursion_limit_is_a_refusal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def hits_the_limit(raw: object) -> object:
+        raise RecursionError
+
+    monkeypatch.setattr(json, "loads", hits_the_limit)
+
+    with pytest.raises(TokenRejected):
+        decode_bff_token(valid_token(), SECRET, NOW)
 
 
 def test_the_refusal_message_never_repeats_the_token_or_the_secret() -> None:

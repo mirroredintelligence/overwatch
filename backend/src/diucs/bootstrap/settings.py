@@ -32,7 +32,7 @@ class Settings(BaseSettings):
     twilio_account_sid: str | None = None
     twilio_auth_token: SecretStr | None = None
     twilio_from: str | None = None
-    # I09 (DEC-109): SMTP relay for role-inbox email. Unset in tests; real values come from the
+    # I09 (DEC-110): SMTP relay for role-inbox email. Unset in tests; real values come from the
     # environment or a secret manager and are never committed.
     smtp_host: str | None = None
     smtp_port: int = 587

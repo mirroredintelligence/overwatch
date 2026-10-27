@@ -1,4 +1,4 @@
-"""Tests for the SMTP email adapter (I09, DEC-109).
+"""Tests for the SMTP email adapter (I09, DEC-110).
 
 The SMTP server is an in-process aiosmtpd controller on 127.0.0.1, so no mail leaves the machine.
 Neo4j is not needed. Test addresses and bodies are synthetic markers, never patient data.
@@ -239,10 +239,17 @@ async def test_logs_hold_neither_the_address_nor_the_body(
         f"<p>{MARKER_BODY} html</p>",
     )
 
+    # The in-process server stands in for the relay and logs what it receives under "mail.log".
+    # Its log is not the adapter's, so only the other records are checked.
+    adapter_log = "\n".join(
+        f"{record.name} {record.getMessage()}"
+        for record in caplog.records
+        if not record.name.startswith("mail.log")
+    )
     assert receipt.accepted is True
-    assert MARKER_ADDRESS not in caplog.text
-    assert MARKER_BODY not in caplog.text
-    assert receipt.provider_message_id in caplog.text
+    assert MARKER_ADDRESS not in adapter_log
+    assert MARKER_BODY not in adapter_log
+    assert receipt.provider_message_id in adapter_log
 
 
 async def test_an_unconfigured_relay_is_a_failure_and_sends_nothing() -> None:
@@ -251,3 +258,44 @@ async def test_an_unconfigured_relay_is_a_failure_and_sends_nothing() -> None:
 
     with pytest.raises(SendFailedError):
         await SmtpEmail(settings).send(TO, SUBJECT, TEXT, HTML)
+
+
+def test_text_on_either_side_of_the_link_becomes_its_own_paragraph() -> None:
+    text = f"Ward summary line. {LINK} Thanks for your time."
+
+    html = text_to_html(text, "Confirm or update")
+
+    assert "<p>Ward summary line.</p>" in html
+    assert "<p>Thanks for your time.</p>" in html
+    assert html.count("<a ") == 1
+
+
+def test_a_text_without_a_link_gets_no_anchor() -> None:
+    html = text_to_html("No link here.", "Confirm or update")
+
+    assert "<p>No link here.</p>" in html
+    assert "<a " not in html
+
+
+async def test_a_4xx_answer_to_the_message_is_transient(smtp_server: Any) -> None:
+    handler, port = smtp_server
+    handler.data_reply = "451 4.3.0 try again later"
+
+    with pytest.raises(TransientSendError):
+        await SmtpEmail(settings_for(port)).send(TO, SUBJECT, TEXT, HTML)
+
+    assert handler.messages == []
+
+
+async def test_a_text_only_message_without_a_link_still_gets_an_html_part(
+    smtp_server: Any,
+) -> None:
+    handler, port = smtp_server
+
+    await SmtpEmail(settings_for(port)).send(TO, "Notice", "No link here.", None)
+
+    _, raw = handler.messages[0]
+    received = email.message_from_bytes(raw, policy=policy.default)
+    html_part = received.get_body(("html",))
+    assert html_part is not None
+    assert "<a " not in html_part.get_content()

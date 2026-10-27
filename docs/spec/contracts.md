@@ -259,3 +259,6 @@ These names were added by individual task prompts. They are as binding as the re
 | Name | Created by |
 |---|---|
 | `application/use_cases/board_projector.py`: `BOARD_CACHE_KEY = "board:v1"`, `BOARD_CACHE_TTL` (60 s, [ASSUMED]), `BOARD_CHANGED = "board-changed"`, `REBUILD_EVENTS` (the seven event names that rebuild the board), `WALL_ACTOR`, `board_to_dict(board) -> dict`, `board_from_dict(data) -> Board`, `BoardProjector(query_board, cache, clock)` with `async handle(event_type, payload) -> bool` and `async get_board(actor) -> Board`. Message on `board.updates`: `{"type": "board-changed", "service_id": str or null, "at": ISO 8601 UTC}`, no figures. The cache holds the board as JSON under `board:v1`. | U09 |
+
+## Email adapter (I09, DEC-110)
+- `adapters/outbound/email_smtp/smtp_email.py`: `SmtpEmail(settings)` implements `EmailSender`. `SmtpSettings` is the structural Protocol it reads (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_password`, `smtp_starttls`, `email_from`). `build_message(to, subject, text, html, from_addr, message_id) -> EmailMessage` and `text_to_html(text, link_label) -> str` are module functions. The settings are read by `bootstrap/settings.py` as `Settings` fields with the same names.

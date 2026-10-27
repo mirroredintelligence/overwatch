@@ -581,3 +581,17 @@ async def test_a_reused_key_from_a_different_practitioner_is_refused_before_any_
         await use_case.execute(_command(4, key="shared-key", actor=other_reporter))
 
     assert await count_nodes(neo4j_driver, "Observation") == 1
+
+
+@pytest.mark.parametrize("replaced", [-1, 1000])
+async def test_a_replaced_value_outside_zero_to_999_is_refused_and_writes_nothing(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed, replaced: int
+) -> None:
+    await seed_service(UCR_WEST)
+
+    with pytest.raises(ValidationFailed) as refused:
+        await _rig(uow_factory, neo4j_driver)[0].execute(_command(4, replaced_value=replaced))
+
+    assert refused.value.field == "replaced_value"
+    assert await count_nodes(neo4j_driver, "Observation") == 0
+    assert await count_nodes(neo4j_driver, "AuditEvent") == 0

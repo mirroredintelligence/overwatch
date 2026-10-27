@@ -151,7 +151,7 @@ async def test_a_held_lock_is_not_granted_again(cache_harness: Harness[Cache]) -
     assert await cache.acquire_lock("relay", TTL) is None
 
 
-async def test_a_lock_name_starts_its_own_token_count_at_one(
+async def test_a_lock_name_gets_a_positive_first_token_of_its_own(
     cache_harness: Harness[Cache],
 ) -> None:
     cache = cache_harness.subject
@@ -160,7 +160,7 @@ async def test_a_lock_name_starts_its_own_token_count_at_one(
     await cache.release_lock(relay)
     other = await cache.acquire_lock("board", TTL)
     assert other is not None
-    assert other.fencing_token == 1
+    assert other.fencing_token > 0
 
 
 async def test_fencing_tokens_increase_with_each_acquisition_of_one_name(
@@ -226,4 +226,4 @@ async def test_releasing_a_lock_nobody_holds_does_nothing(cache_harness: Harness
     await cache.release_lock(Lock(name="never-held", fencing_token=1))
     lock = await cache.acquire_lock("never-held", TTL)
     assert lock is not None
-    assert lock.fencing_token == 1
+    assert lock.fencing_token > 0

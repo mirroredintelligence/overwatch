@@ -188,11 +188,17 @@ async def test_an_invalid_number_or_empty_text_makes_no_request() -> None:
             DeliveryUpdate("SM1", "failed", "30003"),
         ),
         ({"MessageSid": "SM2", "MessageStatus": "failed"}, DeliveryUpdate("SM2", "failed", None)),
-        ({"MessageSid": "SM3", "MessageStatus": "failed", "ErrorCode": ""}, DeliveryUpdate("SM3", "failed", None)),
+        (
+            {"MessageSid": "SM3", "MessageStatus": "failed", "ErrorCode": ""},
+            DeliveryUpdate("SM3", "failed", None),
+        ),
         ({"MessageSid": "SM4", "MessageStatus": "queued"}, DeliveryUpdate("SM4", "queued", None)),
         ({"MessageSid": "SM5", "MessageStatus": "sending"}, DeliveryUpdate("SM5", "queued", None)),
         ({"MessageSid": "SM6", "MessageStatus": "sent"}, DeliveryUpdate("SM6", "sent", None)),
-        ({"MessageSid": "SM7", "MessageStatus": "delivered"}, DeliveryUpdate("SM7", "delivered", None)),
+        (
+            {"MessageSid": "SM7", "MessageStatus": "delivered"},
+            DeliveryUpdate("SM7", "delivered", None),
+        ),
     ],
 )
 def test_a_status_callback_maps_to_a_delivery_update(

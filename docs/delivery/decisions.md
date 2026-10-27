@@ -1369,3 +1369,25 @@ Status: accepted (builder build-I06, for the owner to confirm) · Affects: I06 (
 13. **A 201 with no non-empty `sid` is a malformed reply, not a receipt.** `_accepted_sid` raises `SendFailedError` when the body has no `sid`, or an empty one. It does not return `SendReceipt` with an empty provider id, because a consumer must not store an empty provider id (lesson L141). The error is not retried; the consumer (I10) records the message as failed for staff. A 201 with a non-empty `sid` is unchanged. This refines item 4's 201 rule. The guard was already in the adapter when this item was recorded (`f0b50d2`), so no code changed for it. Test: `test_an_accepted_send_with_an_empty_sid_is_a_failure_not_a_receipt` (commit `02feddd`), a characterisation test; a temporary weakening of the guard made it fail with `DID NOT RAISE SendFailedError`, and the weakening was not committed.
 
 Tests: `backend/tests/unit/adapters/outbound/sms_twilio/test_twilio_sms.py`, `backend/tests/unit/bootstrap/test_settings.py`. Evidence: `docs/delivery/evidence/I06.md`.
+
+## DEC-108 Reaper for stale diucs-test containers: cutoff, scope and limits (F10)
+Status: accepted (builder build-F10-reaper, for the owner to confirm) · Affects: F10 (`tests/support/neo4j.py`, `tests/conftest.py`), every pytest session on a developer machine or in CI that runs Docker, DEC-008, DEC-013, lesson L67. Numbered DEC-108: DEC-107 is the highest number on `main` and on every `task/*` branch, and no branch uses DEC-108.
+
+Context: a pytest run that is killed or times out never reaches the teardown in `throwaway_driver` or `stop_throwaway_neo4j`, so its `diucs-test-neo4j-*` container keeps running. Dozens of these exhausted Docker memory and stopped the Service Bus emulator.
+
+Decision:
+1. **Cutoff: 90 minutes from the container's `Created` time** (`docker inspect`). Test runs take under 20 minutes, so a container older than 90 minutes cannot belong to a live run. `REAPER_MAX_AGE` holds the value.
+2. **Scope.** The reaper lists containers with the label `diucs-test=true` and checks the same label on each inspected container before it removes anything. An unlabelled container is never removed. The shared stack (`diucs-local-neo4j`, port 7687, lesson L67) has no such label, so the reaper cannot reach it.
+3. **When it runs.** `reap_stale_test_containers()` runs once per pytest session, from `pytest_sessionstart` in `tests/conftest.py`. This includes unit-only runs, so a unit run also removes stale containers.
+4. **Tolerance.** The reaper never raises. If Docker is missing, or a docker call fails or times out (60 seconds per call), it logs a warning and returns what it has removed so far. A test session is never stopped by the reaper.
+5. **Tests.** `tests/unit/support/test_reaper.py` injects a fake Docker runner, so the cases (old labelled removed, recent labelled kept, unlabelled kept, Docker missing, Docker refusing) run without Docker.
+6. **Why this is safe for a live run.** A live run's container is younger than its run, and its run is younger than 20 minutes. The reaper removes only what is older than 90 minutes, so it cannot remove a container from a run that is within its normal length.
+
+What this does not cover:
+- **A run that lasts more than 90 minutes.** Another session's reaper removes its container, and the run then fails at its next Neo4j call. No run is expected to last that long, and the harness has no guard against it. If a legitimately long run appears, raise `REAPER_MAX_AGE` in one place.
+- **Leftovers accumulate between sessions.** A killed run's container stays until a session starts after its 90-minute mark. If no session starts, it stays longer. The reaper does not run on a timer.
+- **Other machines.** The reaper sees only the local Docker daemon. A container on another developer's machine or a CI runner is not affected.
+- **Load from live runs.** Several runs at once can still exhaust Docker memory. The reaper does not limit concurrency.
+- **Restarted containers.** F11 stops and starts a container. The cutoff uses the original `Created` time, so a container restarted late in a run can look older than it is. A run that restarts Neo4j after 90 minutes would lose its container, the same case as the first limit above.
+
+Tests: `backend/tests/unit/support/test_reaper.py`. Red commit `743f73b`, green commit `f34786a`.

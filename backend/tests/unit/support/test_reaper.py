@@ -20,19 +20,22 @@ CONTAINERS = [
 class FakeDocker:
     """Answers the three docker calls the reaper makes, and records every call."""
 
-    def __init__(self) -> None:
+    def __init__(self, containers: list[tuple[str, str, str]] = CONTAINERS) -> None:
+        self.containers = containers
         self.calls: list[tuple[str, ...]] = []
 
     def __call__(self, *args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
         self.calls.append(args)
         if args[:2] == ("ps", "-a"):
             # Lists every container, labelled or not: the reaper must check the label itself.
-            out = "\n".join(name for name, _, _ in CONTAINERS)
+            out = "\n".join(name for name, _, _ in self.containers)
         elif args[0] == "inspect":
             # args are ("inspect", "--format", FORMAT, *names); docker prints the name with a slash.
             asked = set(args[3:])
             out = "\n".join(
-                f"/{name}|{created}|{label}" for name, created, label in CONTAINERS if name in asked
+                f"/{name}|{created}|{label}"
+                for name, created, label in self.containers
+                if name in asked
             )
         else:
             out = ""
@@ -65,3 +68,31 @@ def test_reaper_returns_nothing_when_docker_refuses_to_list() -> None:
         return subprocess.CompletedProcess(args=list(args), returncode=1, stdout="", stderr="down")
 
     assert reap_stale_test_containers(MAX_AGE, run=refused, now=lambda: NOW) == []
+
+
+def test_reaper_keeps_a_labelled_container_whose_name_is_not_ours() -> None:
+    docker = FakeDocker(
+        [
+            ("other-app-old", "2026-10-27T19:00:00.000000000Z", "true"),
+            ("diucs-test-neo4j-old", "2026-10-27T19:00:00.000000000Z", "true"),
+        ]
+    )
+
+    removed = reap_stale_test_containers(MAX_AGE, run=docker, now=lambda: NOW)
+
+    assert removed == ["diucs-test-neo4j-old"]
+    assert docker.removed() == ["diucs-test-neo4j-old"]
+
+
+def test_reaper_skips_a_bad_timestamp_and_still_removes_the_stale_good_container() -> None:
+    docker = FakeDocker(
+        [
+            ("diucs-test-neo4j-bad", "not-a-timestamp", "true"),
+            ("diucs-test-neo4j-old", "2026-10-27T19:00:00.000000000Z", "true"),
+        ]
+    )
+
+    removed = reap_stale_test_containers(MAX_AGE, run=docker, now=lambda: NOW)
+
+    assert removed == ["diucs-test-neo4j-old"]
+    assert docker.removed() == ["diucs-test-neo4j-old"]

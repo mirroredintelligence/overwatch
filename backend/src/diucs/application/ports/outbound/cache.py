@@ -37,7 +37,7 @@ class Cache(Protocol):
         """Send a message to the subscribers present now. Nothing is stored."""
         ...
 
-    def subscribe(self, channel: str) -> AsyncIterator[str]:
+    async def subscribe(self, channel: str) -> AsyncIterator[str]:
         """Return an iterator of messages published to the channel after this call returns.
 
         The subscription exists from the moment this method returns, not from the first

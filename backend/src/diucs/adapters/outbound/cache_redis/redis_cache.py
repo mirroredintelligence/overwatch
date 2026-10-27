@@ -1,4 +1,4 @@
-"""Redis adapter for the cache port (I01, DEC-003, DEC-058).
+"""Redis adapter for the cache port (I01, DEC-003, DEC-058, DEC-092).
 
 Redis holds only transient data: losing every key loses no fact (DEC-001). Key families, all under
 the diucs: prefix: cache values, lock holders, fencing counters and pub/sub channels. Values are
@@ -6,7 +6,6 @@ text. The client must decode responses (from_url does), so replies are str.
 """
 
 import asyncio
-import contextlib
 from collections.abc import AsyncIterator, Callable
 from datetime import timedelta
 from typing import Self, cast
@@ -34,34 +33,23 @@ def _millis(ttl: timedelta) -> int:
 
 
 class RedisSubscription(AsyncIterator[str]):
-    """Messages published to one channel, from the moment the subscription is made (DEC-058 item 1).
-
-    The SUBSCRIBE runs in a task started by the constructor. `opened` finishes once the server has
-    confirmed it. RedisCache.publish waits for every open subscription before it sends, so a
-    publish made by the same cache after subscribe() is never missed.
-    """
+    """Messages published to one channel, from the moment subscribe() returns (DEC-092)."""
 
     def __init__(
         self,
         client: Redis,
         key: str,
-        on_close: Callable[[RedisSubscription], None],
+        on_close: Callable[["RedisSubscription"], None],
     ) -> None:
         self._pubsub = client.pubsub()
         self._key = key
         self._on_close = on_close
         self._messages: asyncio.Queue[str | None] = asyncio.Queue()
         self._closed = False
-        self.opened: asyncio.Task[None] = asyncio.get_running_loop().create_task(self._open())
         self._reader: asyncio.Task[None] | None = None
 
-    async def _open(self) -> None:
+    async def start(self) -> None:
         await self._pubsub.subscribe(self._key)
-        while True:
-            # The first reply on a fresh connection is the server's confirmation of SUBSCRIBE.
-            reply = await self._pubsub.get_message(ignore_subscribe_messages=False, timeout=None)
-            if reply is not None and reply["type"] == "subscribe":
-                break
         self._reader = asyncio.get_running_loop().create_task(self._pump())
 
     async def _pump(self) -> None:
@@ -80,7 +68,6 @@ class RedisSubscription(AsyncIterator[str]):
     async def __anext__(self) -> str:
         if self._closed:
             raise StopAsyncIteration
-        await self.opened
         item = await self._messages.get()
         if item is None:
             raise StopAsyncIteration
@@ -92,9 +79,6 @@ class RedisSubscription(AsyncIterator[str]):
             return
         self._closed = True
         self._on_close(self)
-        with contextlib.suppress(Exception):
-            # A subscription that never opened has nothing to unsubscribe.
-            await self.opened
         if self._reader is not None:
             await self._pubsub.unsubscribe(self._key)
             await self._reader  # the pump returns on the unsubscribe reply
@@ -126,18 +110,16 @@ class RedisCache:
         await self._client.delete(_CACHE_KEY.format(key))
 
     async def publish(self, channel: str, message: str) -> None:
-        # Wait until every subscription this cache made has been confirmed by the server. A
-        # subscription that failed to open is reported to its own reader, not to this publisher.
-        await asyncio.gather(*(s.opened for s in self._subscriptions), return_exceptions=True)
         await self._client.publish(_CHANNEL_KEY.format(channel), message)
 
-    def subscribe(self, channel: str) -> RedisSubscription:
+    async def subscribe(self, channel: str) -> RedisSubscription:
         subscription = RedisSubscription(
             self._client,
             _CHANNEL_KEY.format(channel),
             on_close=self._subscriptions.discard,
         )
         self._subscriptions.add(subscription)
+        await subscription.start()
         return subscription
 
     async def acquire_lock(self, name: str, ttl: timedelta) -> Lock | None:

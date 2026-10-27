@@ -18,6 +18,7 @@ from tests.support.redis import flush_diucs_keys
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
 CHANNEL_KEY = f"diucs:chan:{BOARD_UPDATES_CHANNEL}"
 PATIENCE = timedelta(seconds=2)
+SUBSCRIBE_ROUNDS = 400
 
 
 async def subscriber_count(counter: Redis) -> int:
@@ -30,7 +31,7 @@ async def test_closing_a_subscription_unsubscribes_it() -> None:
     await flush_diucs_keys(counter)
     cache = RedisCache.from_url(REDIS_URL)
     try:
-        subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+        subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
         await cache.publish(BOARD_UPDATES_CHANNEL, "ready")
         assert await next_message(subscription, PATIENCE) == "ready"
         assert await subscriber_count(counter) == 1
@@ -49,7 +50,7 @@ async def test_closing_the_cache_drops_its_live_subscriptions() -> None:
     await flush_diucs_keys(counter)
     cache = RedisCache.from_url(REDIS_URL)
     try:
-        subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+        subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
         await cache.publish(BOARD_UPDATES_CHANNEL, "ready")
         assert await next_message(subscription, PATIENCE) == "ready"
         assert await subscriber_count(counter) == 1
@@ -60,3 +61,22 @@ async def test_closing_the_cache_drops_its_live_subscriptions() -> None:
     finally:
         await flush_diucs_keys(counter)
         await counter.aclose()
+
+
+async def test_a_publish_from_another_connection_right_after_subscribe_is_delivered() -> None:
+    # DEC-092: subscribe() returns only once the server has the subscription, so a publish sent
+    # from another connection straight after it cannot be lost. The publisher is a raw client,
+    # so the adapter's own publish() cannot be the reason the message arrives.
+    publisher = Redis.from_url(REDIS_URL, decode_responses=True)
+    await flush_diucs_keys(publisher)
+    cache = RedisCache.from_url(REDIS_URL)
+    try:
+        for number in range(SUBSCRIBE_ROUNDS):
+            subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+            await publisher.publish(CHANNEL_KEY, f"round-{number}")
+            assert await next_message(subscription, PATIENCE) == f"round-{number}"
+            await subscription.aclose()
+    finally:
+        await cache.aclose()
+        await flush_diucs_keys(publisher)
+        await publisher.aclose()

@@ -88,8 +88,8 @@ async def test_ttl_is_judged_on_the_real_instant_across_the_london_clock_change(
 
 async def test_two_subscribers_both_receive_a_message_published_after_they_subscribed() -> None:
     cache, _ = make_cache()
-    first = cache.subscribe(BOARD_UPDATES_CHANNEL)
-    second = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    first = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+    second = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish(BOARD_UPDATES_CHANNEL, "x")
     assert await next_message(first) == "x"
     assert await next_message(second) == "x"
@@ -98,21 +98,21 @@ async def test_two_subscribers_both_receive_a_message_published_after_they_subsc
 async def test_a_message_published_before_subscribing_is_not_received() -> None:
     cache, _ = make_cache()
     await cache.publish(BOARD_UPDATES_CHANNEL, "early")
-    messages = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    messages = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish(BOARD_UPDATES_CHANNEL, "late")
     assert await next_message(messages) == "late"
 
 
 async def test_a_subscription_is_live_from_the_call_even_before_its_first_read() -> None:
     cache, _ = make_cache()
-    messages = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    messages = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish(BOARD_UPDATES_CHANNEL, "x")
     assert await next_message(messages) == "x"
 
 
 async def test_a_subscriber_gets_only_its_own_channel() -> None:
     cache, _ = make_cache()
-    messages = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    messages = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish("other.channel", "wrong")
     await cache.publish(BOARD_UPDATES_CHANNEL, "right")
     assert await next_message(messages) == "right"

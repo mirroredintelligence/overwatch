@@ -87,7 +87,7 @@ async def test_every_name_the_adapter_passes_to_the_client_starts_with_diucs() -
     lock = await cache.acquire_lock("outbox-relay", TTL)
     assert lock is not None
     await cache.release_lock(lock)
-    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await subscription.aclose()
 
     assert client.names
@@ -110,7 +110,7 @@ async def test_each_key_family_is_used_under_its_own_prefix() -> None:
 
 async def test_a_closed_subscription_ends_a_reader_that_is_waiting() -> None:
     cache = RedisCache(RecordingClient())  # type: ignore[arg-type]
-    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
 
     async def next_or_none() -> str | None:
         try:
@@ -118,7 +118,6 @@ async def test_a_closed_subscription_ends_a_reader_that_is_waiting() -> None:
         except StopAsyncIteration:
             return None
 
-    await subscription.opened
     waiting = asyncio.ensure_future(next_or_none())
     await asyncio.sleep(0)  # the reader now blocks on the empty queue
     await subscription.aclose()
@@ -135,8 +134,46 @@ async def read_or_none(subscription: AsyncIterator[str]) -> str | None:
 
 async def test_a_read_after_a_closed_subscription_has_ended_also_ends_at_once() -> None:
     cache = RedisCache(RecordingClient())  # type: ignore[arg-type]
-    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await subscription.aclose()
 
     assert await asyncio.wait_for(read_or_none(subscription), timeout=1.0) is None
     assert await asyncio.wait_for(read_or_none(subscription), timeout=1.0) is None
+
+
+class HeldConfirmationPubSub(RecordingPubSub):
+    """The server's subscribe reply is withheld until the test releases it."""
+
+    def __init__(self, names: list[str], release: asyncio.Event) -> None:
+        super().__init__(names)
+        self._release = release
+
+    async def get_message(
+        self, ignore_subscribe_messages: bool = False, timeout: float | None = 0.0
+    ) -> dict[str, Any] | None:
+        await self._release.wait()
+        return await super().get_message(ignore_subscribe_messages, timeout)
+
+
+class HeldConfirmationClient(RecordingClient):
+    def __init__(self, release: asyncio.Event) -> None:
+        super().__init__()
+        self._release = release
+
+    def pubsub(self, **kwargs: Any) -> HeldConfirmationPubSub:
+        return HeldConfirmationPubSub(self.names, self._release)
+
+
+async def test_subscribe_returns_only_after_the_server_confirms_the_subscription() -> None:
+    # DEC-092: the subscription is live when subscribe() returns, so it must wait for the reply.
+    release = asyncio.Event()
+    cache = RedisCache(HeldConfirmationClient(release))  # type: ignore[arg-type]
+
+    pending = asyncio.ensure_future(cache.subscribe(BOARD_UPDATES_CHANNEL))
+    for _ in range(5):
+        await asyncio.sleep(0)
+    assert not pending.done()
+
+    release.set()
+    subscription = await asyncio.wait_for(pending, timeout=1.0)
+    await subscription.aclose()

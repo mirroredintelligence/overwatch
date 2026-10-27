@@ -69,7 +69,7 @@ class InMemoryCache:
         for queue in self._subscribers.get(channel, []):
             queue.put_nowait(message)
 
-    def subscribe(self, channel: str) -> AsyncIterator[str]:
+    async def subscribe(self, channel: str) -> AsyncIterator[str]:
         # Registered now, not on the first read, so a publish after this call is never missed.
         queue: asyncio.Queue[str] = asyncio.Queue()
         self._subscribers.setdefault(channel, []).append(queue)

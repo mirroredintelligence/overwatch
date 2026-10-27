@@ -78,7 +78,7 @@ async def test_a_subscriber_receives_a_message_published_after_it_subscribed(
     cache_harness: Harness[Cache],
 ) -> None:
     cache = cache_harness.subject
-    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish(BOARD_UPDATES_CHANNEL, "svc-1")
     assert await next_message(subscription, PATIENCE) == "svc-1"
 
@@ -88,7 +88,7 @@ async def test_a_message_published_between_subscribing_and_the_first_read_is_rec
 ) -> None:
     # DEC-058 item 1: the subscription exists from the call, not from the first read.
     cache = cache_harness.subject
-    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish(BOARD_UPDATES_CHANNEL, "first")
     await cache.publish(BOARD_UPDATES_CHANNEL, "second")
     assert await next_message(subscription, PATIENCE) == "first"
@@ -100,7 +100,7 @@ async def test_a_message_published_before_subscribing_is_not_replayed(
 ) -> None:
     cache = cache_harness.subject
     await cache.publish(BOARD_UPDATES_CHANNEL, "early")
-    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish(BOARD_UPDATES_CHANNEL, "late")
     assert await next_message(subscription, PATIENCE) == "late"
 
@@ -109,8 +109,8 @@ async def test_every_subscriber_to_a_channel_receives_the_message(
     cache_harness: Harness[Cache],
 ) -> None:
     cache = cache_harness.subject
-    first = cache.subscribe(BOARD_UPDATES_CHANNEL)
-    second = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    first = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+    second = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish(BOARD_UPDATES_CHANNEL, "svc-1")
     assert await next_message(first, PATIENCE) == "svc-1"
     assert await next_message(second, PATIENCE) == "svc-1"
@@ -118,7 +118,7 @@ async def test_every_subscriber_to_a_channel_receives_the_message(
 
 async def test_a_subscriber_gets_only_its_own_channel(cache_harness: Harness[Cache]) -> None:
     cache = cache_harness.subject
-    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish("other.channel", "svc-1")
     assert await next_message(subscription, QUIET) is None
 
@@ -126,7 +126,7 @@ async def test_a_subscriber_gets_only_its_own_channel(cache_harness: Harness[Cac
 async def test_a_subscription_can_be_read_with_async_for(cache_harness: Harness[Cache]) -> None:
     # The port returns AsyncIterator[str], so async iteration is part of the contract.
     cache = cache_harness.subject
-    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
     await cache.publish(BOARD_UPDATES_CHANNEL, "svc-1")
 
     async def first_by_async_for() -> str:

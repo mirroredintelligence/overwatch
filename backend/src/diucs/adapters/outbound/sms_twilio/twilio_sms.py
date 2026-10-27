@@ -48,8 +48,8 @@ _STATUS_MAP: Final[Mapping[str, str]] = {
 def to_e164_uk(number: str) -> str:
     """Return a UK mobile number in E.164 form ("+447700900123").
 
-    The rule is the identity port's (normalise_uk_mobile); this adds only the bare 44 form. Landlines
-    and any other shape raise ValueError. The message never includes the number.
+    The rule is the identity port's (normalise_uk_mobile); this adds only the bare 44 form.
+    Landlines and any other shape raise ValueError. The message never includes the number.
     """
     compact = _SEPARATORS.sub("", number)
     if _BARE_INTERNATIONAL.fullmatch(compact):
@@ -75,8 +75,12 @@ def parse_status_callback(form: Mapping[str, str]) -> DeliveryUpdate:
 
 def _provider_code(response: httpx.Response) -> int | None:
     """The Twilio error code of a refusal, or None. The body is parsed, never logged."""
-    code: int = response.json()["code"]
-    return code
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    code = body.get("code") if isinstance(body, dict) else None
+    return code if isinstance(code, int) else None
 
 
 class TwilioSms:
@@ -132,5 +136,11 @@ class TwilioSms:
 
 
 def _accepted_sid(response: httpx.Response) -> str:
-    sid: str = response.json()["sid"]
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    sid = body.get("sid") if isinstance(body, dict) else None
+    if not isinstance(sid, str) or not sid:
+        raise SendFailedError("the provider accepted a message but gave no sid")
     return sid

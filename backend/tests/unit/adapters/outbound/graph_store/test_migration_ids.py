@@ -70,3 +70,11 @@ def test_the_outbox_message_id_migration_is_0028_after_the_report_flag_migration
     ids = [migration_id for migration_id, _ in MIGRATIONS]
     assert ids.count("0028_outbox_message_id") == 1
     assert ids.index("0028_outbox_message_id") > ids.index("0027_report_flag_id")
+
+
+def test_the_idempotency_migrations_are_0029_and_0030_after_the_outbox_migration() -> None:
+    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    assert ids.count("0029_idempotency_key") == 1
+    assert ids.count("0030_processed_key") == 1
+    assert ids.index("0029_idempotency_key") > ids.index("0028_outbox_message_id")
+    assert ids.index("0030_processed_key") > ids.index("0029_idempotency_key")

@@ -67,16 +67,18 @@ async def test_a_message_scheduled_three_seconds_ahead_arrives_after_its_time() 
 
 
 async def test_a_scheduled_message_that_is_cancelled_never_arrives() -> None:
+    # A 3 s schedule is not enough: the emulator delivers a cancelled message due under about
+    # 16 s away (DEC-102 item 3). The wait runs past the 30 s due time, so a delivery would show.
     sb = client()
     bus = ServiceBusEventBus(sb)
     try:
         number = await bus.schedule(
             "scheduled.work",
             BusMessage(id=_unique_id("gone"), topic="messages.outbound", event_type="PromptDue"),
-            datetime.now(UTC) + timedelta(seconds=3),
+            datetime.now(UTC) + timedelta(seconds=30),
         )
         await bus.cancel("scheduled.work", number)
-        assert await _receive_one("scheduled.work", timedelta(seconds=5)) is None
+        assert await _receive_one("scheduled.work", timedelta(seconds=33)) is None
     finally:
         await bus.close()
         await sb.close()

@@ -16,6 +16,7 @@ QUEUE = "scheduled.work"
 OTHER_QUEUE = "inbound.receipts"
 DELAY = timedelta(seconds=2)
 PAST_DELAY = timedelta(seconds=3)
+CANCEL_DELAY = timedelta(seconds=30)
 QUIET = timedelta(milliseconds=200)
 PATIENCE = timedelta(seconds=2)
 
@@ -96,11 +97,15 @@ async def test_a_scheduled_message_is_received_only_from_its_own_queue(
 
 
 async def test_a_cancelled_message_is_never_received(bus_harness: Harness[EventBus]) -> None:
+    # The emulator 2.0.1 ignores a cancel, and still delivers, for a message due under about
+    # 16 s away (measured, DEC-102 item 3). This case uses CANCEL_DELAY so the emulator honours
+    # the cancel. The assertion is unchanged. Production Azure behaviour at short delays is a
+    # human-only check.
     harness = _receiver(bus_harness)
     assert harness.receive is not None
-    number = await harness.subject.schedule(QUEUE, _work("w-1"), harness.now() + DELAY)
+    number = await harness.subject.schedule(QUEUE, _work("w-1"), harness.now() + CANCEL_DELAY)
     await harness.subject.cancel(QUEUE, number)
-    await harness.advance(PAST_DELAY)
+    await harness.advance(CANCEL_DELAY + PAST_DELAY)
     assert await harness.receive(QUEUE, QUIET) is None
 
 

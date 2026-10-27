@@ -18,6 +18,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from azure.servicebus import ServiceBusReceivedMessage, ServiceBusSessionFilter
 from azure.servicebus.aio import ServiceBusClient
+from azure.servicebus.exceptions import OperationTimeoutError
 from redis.asyncio import Redis
 
 from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
@@ -119,6 +120,8 @@ _TOPIC_SUBSCRIPTIONS = {"capacity.events": "board-projector"}
 # Queues the contract drains at start and close. Nothing else reads them.
 _CONTRACT_QUEUES = ("scheduled.work", "inbound.receipts")
 _DRAIN_WAIT = timedelta(milliseconds=300)
+# A session receive opens its link with this window, not the short wait (DEC-102 item 4).
+_SESSION_OPEN_WAIT = 5.0
 
 
 def _as_bus_message(message: ServiceBusReceivedMessage, name: str) -> BusMessage:
@@ -141,12 +144,17 @@ async def _receive_from(sb: ServiceBusClient, name: str, wait: timedelta) -> Bus
             name,
             _TOPIC_SUBSCRIPTIONS[name],
             session_id=ServiceBusSessionFilter.NEXT_AVAILABLE,
-            max_wait_time=seconds,
+            max_wait_time=max(seconds, _SESSION_OPEN_WAIT),
         )
     else:
         raise AssertionError(f"{name} has no subscription in the contract")
     async with receiver:
-        found = await receiver.receive_messages(max_message_count=1, max_wait_time=seconds)
+        try:
+            found = await receiver.receive_messages(max_message_count=1, max_wait_time=seconds)
+        except OperationTimeoutError:
+            # With NEXT_AVAILABLE and nothing waiting, the link open times out instead of
+            # returning an empty list (lesson L127). That is no message, not a failure.
+            return None
         if not found:
             return None
         await receiver.complete_message(found[0])

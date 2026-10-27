@@ -20,6 +20,25 @@ from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFoun
 
 log = logging.getLogger(__name__)
 
+
+class PreconditionFailed(Exception):
+    """An If-Match value that does not match the stored version, or cannot match (412, R03)."""
+
+
+class PreconditionRequired(Exception):
+    """A write with no If-Match header (428, R03)."""
+
+
+class HeaderRefused(Exception):
+    """A request header that the API refuses, with the status and code it maps to (R03)."""
+
+    def __init__(self, status_code: int, code: str, message: str) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.code = code
+        self.message = message
+
+
 NOT_FOUND_TEXT = "The requested resource was not found."
 CONFLICT_TEXT = "The change conflicts with the current state of the record."
 TRANSITION_TEXT = "This change is not allowed in the current state of the record."

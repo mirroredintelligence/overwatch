@@ -142,9 +142,10 @@ def _as_bus_message(message: ServiceBusReceivedMessage, name: str) -> BusMessage
     )
 
 
-async def _receive_from(
+async def _take(
     sb: ServiceBusClient, sessions: ServiceBusClient, name: str, wait: timedelta
-) -> BusMessage | None:
+) -> ServiceBusReceivedMessage | None:
+    """Complete and return the next message as the SDK sees it, unparsed (the drain needs this)."""
     seconds = wait.total_seconds()
     if name in QUEUES:
         receiver = sb.get_queue_receiver(name, max_wait_time=seconds)
@@ -171,13 +172,21 @@ async def _receive_from(
         if not found:
             return None
         await receiver.complete_message(found[0])
-        return _as_bus_message(found[0], name)
+        return found[0]
+
+
+async def _receive_from(
+    sb: ServiceBusClient, sessions: ServiceBusClient, name: str, wait: timedelta
+) -> BusMessage | None:
+    message = await _take(sb, sessions, name, wait)
+    return None if message is None else _as_bus_message(message, name)
 
 
 async def _drain(sb: ServiceBusClient, sessions: ServiceBusClient, names: tuple[str, ...]) -> None:
     """Remove what is already waiting, so a message from an earlier run is not received."""
     for name in names:
-        while await _receive_from(sb, sessions, name, _DRAIN_WAIT) is not None:
+        # Taken without parsing: a leftover from another run may not be this contract's JSON.
+        while await _take(sb, sessions, name, _DRAIN_WAIT) is not None:
             pass
 
 

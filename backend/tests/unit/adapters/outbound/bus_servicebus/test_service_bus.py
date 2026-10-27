@@ -96,6 +96,22 @@ def test_any_other_cancel_error_is_not_swallowed() -> None:
     assert not is_unscheduled_cancel(error, 999_999)
 
 
+class _RefusalSubclass(ServiceBusError):
+    """The emulator refusal text, from a subclass: a different failure (DEC-102 item 2)."""
+
+
+def test_a_subclass_with_the_refusal_text_is_not_recognised() -> None:
+    error = _RefusalSubclass(EMULATOR_NOT_PENDING_TEXT)
+    assert not is_unscheduled_cancel(error, 999_999)
+
+
+async def test_a_subclass_with_the_refusal_text_is_raised_from_cancel() -> None:
+    sender = _FakeSender(refusal=_RefusalSubclass(EMULATOR_NOT_PENDING_TEXT))
+    bus = ServiceBusEventBus(_FakeClient(sender))  # type: ignore[arg-type]
+    with pytest.raises(_RefusalSubclass):
+        await bus.cancel("scheduled.work", 999_999)
+
+
 class _FakeSender:
     """A stand-in for the SDK sender (an external provider): records a cancel, or raises."""
 

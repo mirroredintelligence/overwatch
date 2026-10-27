@@ -36,7 +36,10 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 pythonpath = ["."]
 testpaths = ["tests"]
-markers = ["integration: needs the Docker services in infra/"]
+markers = [
+    "integration: needs the Docker services in infra/",
+    "emulator_limit: a case where the emulator refuses what the port allows; names the case, the emulator and the error (DEC-102)",
+]
 
 [tool.ruff]
 line-length = 100

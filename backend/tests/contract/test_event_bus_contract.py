@@ -124,6 +124,12 @@ async def test_cancelling_a_number_on_another_queue_leaves_the_message(
     assert received.id == "w-1"
 
 
+@pytest.mark.emulator_limit(
+    case="test_cancelling_an_unknown_or_delivered_number_does_nothing[servicebus]",
+    emulator="Azure Service Bus emulator 2.0.1",
+    error="ServiceBusError: SequenceNumber = N is already being cancelled (amqp:not-allowed, 400)",
+    handled_by="ServiceBusEventBus.cancel via is_unscheduled_cancel (DEC-102 item 2)",
+)
 async def test_cancelling_an_unknown_or_delivered_number_does_nothing(
     bus_harness: Harness[EventBus],
 ) -> None:

@@ -23,6 +23,11 @@ from diucs.domain.errors import ValidationFailed
 
 _log = logging.getLogger(__name__)
 
+# httpx logs every request URL at INFO, and the Twilio URL carries the account SID (DEC-103 item 8).
+# This is process-wide; the O01 logging configuration must hold the same levels (follow-up).
+for _name in ("httpx", "httpcore"):
+    logging.getLogger(_name).setLevel(logging.WARNING)
+
 _MESSAGES_URL: Final = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
 _ACCEPTED: Final = 201
 

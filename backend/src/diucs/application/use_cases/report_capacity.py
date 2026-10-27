@@ -38,8 +38,8 @@ from diucs.domain.rules.london_time import format_hhmm
 from diucs.domain.rules.schedule import next_due
 from diucs.domain.rules.status import compute_status
 
-MIN_VALUE: Final = 1
-MAX_VALUE: Final = 998
+MIN_VALUE: Final = 0
+MAX_VALUE: Final = 999
 """A figure is a whole number from 0 to 999. 0 means closed to referrals (domain-rules, U01)."""
 
 CAPACITY_TOPIC: Final = "capacity.events"

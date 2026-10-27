@@ -15,10 +15,13 @@ from redis.asyncio import Redis
 
 from diucs.application.ports.outbound.cache import Lock
 
-_CACHE_KEY = "diucs:cache:{}"
-_LOCK_KEY = "diucs:lock:{}"
-_FENCE_KEY = "diucs:fence:{}"
-_CHANNEL_KEY = "diucs:chan:{}"
+# The key families below sit under a prefix, "diucs:" by default. A test run may use its own prefix
+# so that concurrent runs on one Redis share no keys (I01, lesson on the shared stack).
+DEFAULT_KEY_PREFIX = "diucs:"
+_CACHE_KEY = "cache:{}"
+_LOCK_KEY = "lock:{}"
+_FENCE_KEY = "fence:{}"
+_CHANNEL_KEY = "chan:{}"
 
 # DEC-091: the token is the larger of the next INCR value and the host clock in microseconds, and
 # the counter is set to it. A lost counter restarts above every token issued before the loss.
@@ -103,33 +106,37 @@ class RedisSubscription(AsyncIterator[str]):
 class RedisCache:
     """The Cache port on Redis. The client must decode responses (see from_url)."""
 
-    def __init__(self, client: Redis) -> None:
+    def __init__(self, client: Redis, key_prefix: str = DEFAULT_KEY_PREFIX) -> None:
         self._client = client
+        self._prefix = key_prefix
         self._subscriptions: set[RedisSubscription] = set()
 
     @classmethod
-    def from_url(cls, url: str) -> RedisCache:
-        return cls(Redis.from_url(url, decode_responses=True))
+    def from_url(cls, url: str, key_prefix: str = DEFAULT_KEY_PREFIX) -> RedisCache:
+        return cls(Redis.from_url(url, decode_responses=True), key_prefix)
+
+    def _key(self, family: str, name: str) -> str:
+        return self._prefix + family.format(name)
 
     async def get(self, key: str) -> str | None:
         # from_url sets decode_responses=True, so a reply is text; the stubs also allow bytes.
-        value = await self._client.get(_CACHE_KEY.format(key))
+        value = await self._client.get(self._key(_CACHE_KEY, key))
         return cast("str | None", value)
 
     async def set(self, key: str, value: str, ttl: timedelta | None = None) -> None:
         px = None if ttl is None else _millis(ttl)
-        await self._client.set(_CACHE_KEY.format(key), value, px=px)
+        await self._client.set(self._key(_CACHE_KEY, key), value, px=px)
 
     async def delete(self, key: str) -> None:
-        await self._client.delete(_CACHE_KEY.format(key))
+        await self._client.delete(self._key(_CACHE_KEY, key))
 
     async def publish(self, channel: str, message: str) -> None:
-        await self._client.publish(_CHANNEL_KEY.format(channel), message)
+        await self._client.publish(self._key(_CHANNEL_KEY, channel), message)
 
     async def subscribe(self, channel: str) -> RedisSubscription:
         subscription = RedisSubscription(
             self._client,
-            _CHANNEL_KEY.format(channel),
+            self._key(_CHANNEL_KEY, channel),
             on_close=self._subscriptions.discard,
         )
         self._subscriptions.add(subscription)
@@ -140,9 +147,11 @@ class RedisCache:
         # The counter never expires, so tokens keep increasing across restarts (DEC-058 item 2).
         # After a data loss the clock term keeps them increasing (DEC-091).
         now_us = time.time_ns() // 1_000
-        token: int = await self._client.eval(_NEXT_TOKEN, 1, _FENCE_KEY.format(name), str(now_us))
+        token: int = await self._client.eval(
+            _NEXT_TOKEN, 1, self._key(_FENCE_KEY, name), str(now_us)
+        )
         acquired = await self._client.set(
-            _LOCK_KEY.format(name), str(token), nx=True, px=_millis(ttl)
+            self._key(_LOCK_KEY, name), str(token), nx=True, px=_millis(ttl)
         )
         if not acquired:
             return None
@@ -150,7 +159,7 @@ class RedisCache:
 
     async def release_lock(self, lock: Lock) -> None:
         await self._client.eval(
-            _RELEASE_IF_HOLDER, 1, _LOCK_KEY.format(lock.name), str(lock.fencing_token)
+            _RELEASE_IF_HOLDER, 1, self._key(_LOCK_KEY, lock.name), str(lock.fencing_token)
         )
 
     async def aclose(self) -> None:

@@ -10,3 +10,10 @@ async def flush_diucs_keys(client: Redis) -> None:
     keys = [key async for key in client.scan_iter(match=DIUCS_KEYS)]
     if keys:
         await client.delete(*keys)
+
+
+async def flush_prefix(client: Redis, prefix: str) -> None:
+    """Delete every key under one run's prefix, and nothing else on the shared Redis."""
+    keys = [key async for key in client.scan_iter(match=f"{prefix}*")]
+    if keys:
+        await client.delete(*keys)

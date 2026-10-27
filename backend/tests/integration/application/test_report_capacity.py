@@ -510,3 +510,15 @@ async def test_a_value_at_the_bounds_is_accepted(
     assert result.report_id == latest.id
 
 
+async def test_a_reused_key_with_a_different_body_is_refused(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+    use_case = _rig(uow_factory, neo4j_driver)[0]
+    await use_case.execute(_command(4, key="same-key"))
+
+    with pytest.raises(Conflict):
+        await use_case.execute(_command(3, key="same-key"))
+
+    assert await count_nodes(neo4j_driver, "Observation") == 1
+    assert await count_nodes(neo4j_driver, "AuditEvent") == 1

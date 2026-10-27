@@ -6,7 +6,7 @@ error body can carry a postcode or a name (DEC-086 items 2 to 5).
 """
 
 import logging
-from collections.abc import MutableMapping
+from collections.abc import Mapping, MutableMapping
 from typing import Any
 
 from fastapi import FastAPI, Request
@@ -29,6 +29,7 @@ UNSUPPORTED_MEDIA_TEXT = (
 )
 INTERNAL_TEXT = "Internal error"
 METHOD_TEXT = "The HTTP method is not allowed for this resource."
+LOGIN_TEXT = "The bearer token is missing, expired or not valid."
 
 ACCEPTED_BODY_TYPES = frozenset({"application/fhir+json", "application/json"})
 _BODY_METHODS = frozenset({"POST", "PUT"})
@@ -39,13 +40,17 @@ DomainHandler = Any
 
 
 def operation_outcome(
-    status: int, code: str, diagnostics: str, expression: str | None = None
+    status: int,
+    code: str,
+    diagnostics: str,
+    expression: str | None = None,
+    headers: Mapping[str, str] | None = None,
 ) -> Response:
     issue: dict[str, Any] = {"severity": "error", "code": code, "diagnostics": diagnostics}
     if expression is not None:
         issue["expression"] = [expression]
     body = {"resourceType": "OperationOutcome", "issue": [issue]}
-    return FhirJSONResponse(content=body, status_code=status)
+    return FhirJSONResponse(content=body, status_code=status, headers=headers)
 
 
 def _fixed(status: int, code: str, text: str) -> DomainHandler:
@@ -75,6 +80,9 @@ def _request_invalid(request: Request, exc: Any) -> Response:
 def _http_error(request: Request, exc: Any) -> Response:
     assert isinstance(exc, StarletteHTTPException)
     status = exc.status_code
+    if status == 401:
+        # DEC-095: a missing, expired or badly signed bearer token is `login`, not `invalid`.
+        return operation_outcome(401, "login", LOGIN_TEXT, headers=exc.headers)
     if status == 404:
         return operation_outcome(404, "not-found", NOT_FOUND_TEXT)
     if status in (405, 415):

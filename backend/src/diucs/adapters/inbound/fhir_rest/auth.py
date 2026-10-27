@@ -6,56 +6,148 @@ with NotAllowed, which the app answers with the same 404 body as a missing recor
 `PROJECTIONS` removes fields a role may not see and labels the result (DEC-098).
 
 The BFF secret is read through `request.app.state.secrets`, a SecretStore set by the process that
-serves the app (DEC-096). No secret value is logged, returned or put in an error.
+serves the app (DEC-096). No token or secret value is logged, returned or put in an error.
 """
 
 from collections.abc import Awaitable, Callable
-from typing import Annotated, Any, Final, TypeVar
+from typing import Annotated, Any, Final
 
-from fastapi import Depends, Request
+from fastapi import Depends, HTTPException, Request
+from fhir.resources.R4B.coding import Coding
+from fhir.resources.R4B.meta import Meta
 from fhir.resources.R4B.resource import Resource
+from fhir.resources.R4B.task import Task
 
+from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.application.actor import Actor
+from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.domain.codes import Role
-from diucs.domain.rules.bff_token import BffClaims
+from diucs.domain.errors import NotAllowed, NotFound
+from diucs.domain.rules.bff_token import BffClaims, TokenRejected, decode_bff_token
 
 BFF_SECRET_NAME: Final = "bff-jwt"
 PATIENT_ROLES: Final = frozenset({Role.ADVISOR, Role.CLINICAL})
+_SERVICE_WIDE_ROLES: Final = frozenset({Role.LEAD, Role.ADVISOR, Role.CLINICAL, Role.AUDIT})
+REDACTED_SYSTEM: Final = "http://terminology.hl7.org/CodeSystem/v3-ObservationValue"
+REDACTED_CODE: Final = "REDACTED"
 
-ResourceT = TypeVar("ResourceT", bound=Resource)
+Projection = Callable[[Any], Any]
 
 
 def actor_from_claims(claims: BffClaims) -> Actor:
-    raise NotImplementedError("actor_from_claims is an R02 red stub")
+    # A wall screen is a device: its `sub` is the device id and it has no practitioner.
+    if claims.role is Role.WALL:
+        return Actor(
+            role=Role.WALL,
+            practitioner_id=None,
+            device_id=claims.sub,
+            channel="api",
+            service_ids=claims.services,
+        )
+    return Actor(
+        role=claims.role,
+        practitioner_id=claims.sub,
+        device_id=claims.device,
+        channel="api",
+        service_ids=claims.services,
+    )
+
+
+def _unauthorised() -> HTTPException:
+    return HTTPException(status_code=401, headers={"WWW-Authenticate": "Bearer"})
+
+
+def _bearer_token(request: Request) -> str:
+    header = request.headers.get("authorization")
+    if header is None:
+        raise _unauthorised()
+    scheme, _, token = header.partition(" ")
+    token = token.strip()
+    if scheme.lower() != "bearer" or not token:
+        raise _unauthorised()
+    return token
+
+
+def _secret(request: Request) -> bytes:
+    # Fail closed: a missing store or secret is a configuration error (a 500), never a pass.
+    store: SecretStore | None = getattr(request.app.state, "secrets", None)
+    if store is None:
+        raise RuntimeError("no secret store is configured for the FHIR API")
+    try:
+        return store.get(BFF_SECRET_NAME)
+    except NotFound:
+        raise RuntimeError("the BFF token secret is not configured") from None
 
 
 def current_actor(request: Request) -> Actor:
-    raise NotImplementedError("current_actor is an R02 red stub")
+    token = _bearer_token(request)
+    secret = _secret(request)
+    now = get_container(request).clock.now()
+    try:
+        claims = decode_bff_token(token, secret, now)
+    except TokenRejected:
+        raise _unauthorised() from None
+    return actor_from_claims(claims)
 
 
 def require_role(*roles: Role) -> Callable[[Actor], Awaitable[Actor]]:
-    # The factory itself must not fail: routes are registered when a fixture runs, so a stub that
-    # raised here would hide every per-test red behind a setup error (lesson L114).
+    allowed = frozenset(roles)
+
     async def dependency(actor: Annotated[Actor, Depends(current_actor)]) -> Actor:
-        raise NotImplementedError("require_role is an R02 red stub")
+        if actor.role not in allowed:
+            raise NotAllowed("role")
+        return actor
 
     return dependency
 
 
 def ensure_can_act_for(actor: Actor, service_id: str) -> None:
-    raise NotImplementedError("ensure_can_act_for is an R02 red stub")
+    if actor.role in _SERVICE_WIDE_ROLES or service_id in actor.service_ids:
+        return
+    raise NotAllowed("service")
 
 
 def ensure_patient_access(actor: Actor) -> None:
-    raise NotImplementedError("ensure_patient_access is an R02 red stub")
+    if actor.role not in PATIENT_ROLES:
+        raise NotAllowed("patient")
+
+
+def _with_redacted_label[T: Resource](resource: T) -> T:
+    meta = resource.meta or Meta()
+    security = [*(meta.security or []), Coding(system=REDACTED_SYSTEM, code=REDACTED_CODE)]
+    return resource.model_copy(update={"meta": meta.model_copy(update={"security": security})})
 
 
 class ProjectionRegistry:
-    def register(self, resource_type: str, role: Role, fn: Callable[[Any], Any]) -> None:
-        raise NotImplementedError("ProjectionRegistry.register is an R02 red stub")
+    """What each role may see of each resource type. A rule returns a changed copy, and a changed
+    result is labelled REDACTED. A resource with no rule for the caller's role is returned as it is.
+    """
 
-    def project(self, resource: ResourceT, actor: Actor) -> ResourceT:
-        raise NotImplementedError("ProjectionRegistry.project is an R02 red stub")
+    def __init__(self) -> None:
+        self._rules: dict[tuple[str, Role], Projection] = {}
+
+    def register(self, resource_type: str, role: Role, fn: Projection) -> None:
+        key = (resource_type, role)
+        if key in self._rules:
+            raise ValueError(f"a projection for {resource_type} and {role.value} is already set")
+        self._rules[key] = fn
+
+    def project[T: Resource](self, resource: T, actor: Actor) -> T:
+        rule = self._rules.get((resource.get_resource_type(), actor.role))
+        if rule is None:
+            return resource
+        projected: T = rule(resource)
+        if projected == resource:
+            return resource
+        return _with_redacted_label(projected)
+
+
+def _reporter_task(task: Task) -> Task:
+    # The case a booking refers to (focus) and the patient (for) are not a reporter's to see.
+    # The rule covers every Task, not only bookings: P02 writes no Task.code, so a booking cannot
+    # be told apart by code, and failing closed is the safer reading (DEC-098 item 2).
+    return task.model_copy(update={"focus": None, "for_fhir": None})
 
 
 PROJECTIONS: Final = ProjectionRegistry()
+PROJECTIONS.register("Task", Role.REPORTER, _reporter_task)

@@ -16,8 +16,10 @@ from collections.abc import Callable
 from types import TracebackType
 from typing import Protocol, Self
 
+from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
+from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
 from diucs.application.ports.outbound.messaging import CommunicationRepository
 from diucs.application.ports.outbound.outbox import Outbox
@@ -53,6 +55,8 @@ class UnitOfWork(Protocol):
     contacts: ContactStore
     pins: PinStore
     devices: DeviceRegistry
+    idempotency: IdempotencyStore
+    processed: ProcessedMessages
 
     async def __aenter__(self) -> Self: ...
 

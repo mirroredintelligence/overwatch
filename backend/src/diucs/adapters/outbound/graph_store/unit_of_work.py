@@ -34,6 +34,10 @@ from diucs.adapters.outbound.graph_store.credential_store import (
 )
 from diucs.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
 from diucs.adapters.outbound.graph_store.flag_repository import Neo4jFlagRepository
+from diucs.adapters.outbound.graph_store.idempotency_store import (
+    Neo4jIdempotencyStore,
+    Neo4jProcessedMessages,
+)
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
 from diucs.adapters.outbound.graph_store.registration_repository import (
@@ -45,9 +49,11 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
 )
 from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
+from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
 from diucs.application.ports.outbound.messaging import CommunicationRepository
 from diucs.application.ports.outbound.outbox import Outbox
@@ -88,6 +94,8 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "contacts": lambda tx, store: Neo4jContactStore(tx),
     "pins": lambda tx, store: Neo4jPinStore(tx),
     "devices": lambda tx, store: Neo4jDeviceRegistry(tx),
+    "idempotency": lambda tx, store: Neo4jIdempotencyStore(tx),
+    "processed": lambda tx, store: Neo4jProcessedMessages(tx),
 }
 
 _NEW = "new"
@@ -140,6 +148,8 @@ class Neo4jUnitOfWork:
     contacts: ContactStore
     pins: PinStore
     devices: DeviceRegistry
+    idempotency: IdempotencyStore
+    processed: ProcessedMessages
 
     def __init__(
         self,

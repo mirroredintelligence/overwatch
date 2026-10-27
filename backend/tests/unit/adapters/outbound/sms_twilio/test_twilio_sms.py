@@ -125,6 +125,14 @@ async def test_an_accepted_send_with_no_sid_is_a_failure_not_a_receipt(
             await _sms(client).send(NUMBER, BODY, "C1")
 
 
+async def test_an_accepted_send_with_an_empty_sid_is_a_failure_not_a_receipt() -> None:
+    # L141: a consumer must not store an empty provider id, so a 201 with sid "" is never a receipt.
+    _, transport = _recording(httpx.Response(201, json={"sid": "", "status": "queued"}))
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(SendFailedError):
+            await _sms(client).send(NUMBER, BODY, "C1")
+
+
 @pytest.mark.parametrize(
     "response",
     [

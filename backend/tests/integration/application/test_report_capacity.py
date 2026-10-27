@@ -22,14 +22,12 @@ from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases import report_capacity
 from diucs.application.use_cases.report_capacity import (
     ReportCapacity,
     ReportCapacityCommand,
     ReportCapacityResult,
 )
 from diucs.domain.codes import (
-    BookingStatus,
     Cadence,
     Channel,
     Measure,
@@ -41,7 +39,6 @@ from diucs.domain.codes import (
     Status,
 )
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.service import AvailableTime, ServiceProfile

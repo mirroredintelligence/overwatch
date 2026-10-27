@@ -72,7 +72,7 @@ class ReportCapacityResult:
     replayed: bool = False
 
 
-def _check_figure(field: str, value: object) -> None:
+def _check_figure(field: str, value: int) -> None:
     if not MIN_VALUE <= value <= MAX_VALUE:
         raise ValidationFailed(field, "must be from 0 to 999")
 
@@ -280,11 +280,17 @@ class ReportCapacity:
             )
         now = self._clock.now()
         effective = now if command.effective_at is None else command.effective_at
+        if effective.utcoffset() is None:
+            raise ValidationFailed("effective_at", "must include a timezone")
         if effective > now:
             raise ValidationFailed("effective_at", "is after the current time")
         effective = effective.astimezone(UTC)
 
         async with self._uow_factory() as uow:
+            # The authoritative replay check, before any write (DEC-106 item 2).
+            stored = await uow.idempotency.get(command.idempotency_key)
+            if isinstance(stored, _StoredReport):
+                return _replay(stored, fingerprint)
 
             profile = await uow.services.get(command.service_id)
             if profile is None or not profile.active:

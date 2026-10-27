@@ -159,3 +159,22 @@ async def test_each_lock_name_has_its_own_fencing_counter() -> None:
         await cache.aclose()
         await flush_diucs_keys(counter)
         await counter.aclose()
+
+
+async def test_a_subscriber_of_another_run_is_not_counted() -> None:
+    # Two runs of this suite share one Redis, and pub/sub channel names are global across its
+    # databases. A subscriber another run holds on the same channel must not appear in this run's
+    # count (I01; the overlap failure: "assert 2 == 1" in two of five overlapping pairs).
+    counter = Redis.from_url(REDIS_URL, decode_responses=True)
+    other = RedisCache.from_url(REDIS_URL)
+    cache = RedisCache.from_url(REDIS_URL)
+    try:
+        foreign = await other.subscribe(BOARD_UPDATES_CHANNEL)
+        subscription = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+        assert await subscriber_count(counter) == 1
+        await subscription.aclose()
+        await foreign.aclose()
+    finally:
+        await cache.aclose()
+        await other.aclose()
+        await counter.aclose()

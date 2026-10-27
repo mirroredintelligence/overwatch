@@ -11,7 +11,8 @@ Layout, graph-native (no JSON text and no map-valued property is stored):
   [:MEMBER {position, name}], name set for object members only.
 - (:Processed {key, messageId, consumer, processedAt}), key unique (migration 0030). key joins the
   consumer and the message id with the consumer's length, so no two pairs share a key. Neo4j
-  Community has no composite uniqueness (lesson L90), so the single-property key is the guard.
+  Community 5.26.32 does enforce a composite key (probe, DEC-090 item 5); one property is used here
+  as the guard for a simpler form, not because composite keys are unavailable.
 
 A racing first write meets the unique key: its CREATE or MERGE fails with ConstraintError, which
 is mapped to Conflict, so the unit of work that made it is refused and never commits (lesson L106).

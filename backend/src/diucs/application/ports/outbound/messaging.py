@@ -19,8 +19,37 @@ DELIVERY_STATUSES = frozenset({"queued", "sent", "delivered", "failed", "receive
 
 @dataclass(frozen=True, slots=True)
 class SendReceipt:
+    """The provider's answer to one send. accepted False is a refusal for good (a listed permanent
+    refusal, DEC-103): the provider issued no id, so provider_message_id is "". A consumer must not
+    store "" as a provider id."""
+
     provider_message_id: str
     accepted: bool
+
+
+class TransientSendError(Exception):
+    """A send that may succeed on retry: the provider was unreachable, timed out or was busy.
+
+    The caller (the outbox consumer, I10) retries it. No receipt exists for it.
+    """
+
+
+class SendFailedError(Exception):
+    """A send the provider answered in a way that is neither accepted nor a listed refusal.
+
+    Not retried: the answer shows a configuration or contract fault that a retry will not fix.
+    The error text names the status and the provider's error code only, never the number or body.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class DeliveryUpdate:
+    """A provider's delivery report for one message, mapped to the statuses of DELIVERY_STATUSES
+    (queued, sent, delivered, failed). error_code is the provider's code, or None."""
+
+    provider_message_id: str
+    status: str
+    error_code: str | None
 
 
 class SmsSender(Protocol):

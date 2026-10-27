@@ -207,6 +207,9 @@ These names were added by individual task prompts. They are as binding as the re
 | `Terminology.search_pathways_dx(text, limit)` | `application/ports/outbound/terminology.py` | R16 |
 | `ProcessedMessages` port and `UnitOfWork.processed`: consumer idempotency | `application/ports/outbound/idempotency.py` | G08 |
 | `DeliveryUpdate` | `application/ports/outbound/messaging.py` | I06 (or P07) |
+| `DeliveryUpdate(provider_message_id, status, error_code)`, `TransientSendError`, `SendFailedError` (DEC-103) | `application/ports/outbound/messaging.py` | I06 (DEC-103) |
+| `TwilioSms(client, account_sid, auth_token, from_number, status_callback_url)`, `to_e164_uk(number)`, `parse_status_callback(form)` (DEC-103) | `adapters/outbound/sms_twilio/twilio_sms.py` | I06 (DEC-103) |
+| Settings `twilio_account_sid`, `twilio_auth_token`, `twilio_from` (DEC-103; the public base is the existing `base_url`) | `bootstrap/settings.py` | I06 (DEC-103) |
 | `PushSubscriptionRepository` | `application/ports/outbound/messaging.py` | I14 |
 | `AlertSubscriptionRepository` and `UnitOfWork.alert_subscriptions` | `application/ports/outbound/repositories.py` | U33 |
 | `AlertRepository` | `application/ports/outbound/repositories.py` | U34 |

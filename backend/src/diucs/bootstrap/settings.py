@@ -27,3 +27,8 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
     servicebus_connection: SecretStr | None = None
     sms_provider: Literal["twilio", "govuk-notify", "none"] = "none"
+    # DEC-002, I06: Twilio credentials and sender. Unset in tests; real values come from the
+    # environment or a secret manager and are never committed.
+    twilio_account_sid: str | None = None
+    twilio_auth_token: SecretStr | None = None
+    twilio_from: str | None = None

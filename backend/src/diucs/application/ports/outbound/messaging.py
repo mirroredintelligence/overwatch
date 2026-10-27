@@ -23,6 +23,31 @@ class SendReceipt:
     accepted: bool
 
 
+class TransientSendError(Exception):
+    """A send that may succeed on retry: the provider was unreachable, timed out or was busy.
+
+    The caller (the outbox consumer, I10) retries it. No receipt exists for it.
+    """
+
+
+class SendFailedError(Exception):
+    """A send the provider answered in a way that is neither accepted nor a listed refusal.
+
+    Not retried: the answer shows a configuration or contract fault that a retry will not fix.
+    The error text names the status and the provider's error code only, never the number or body.
+    """
+
+
+@dataclass(frozen=True, slots=True)
+class DeliveryUpdate:
+    """A provider's delivery report for one message, mapped to the statuses of DELIVERY_STATUSES
+    (queued, sent, delivered, failed). error_code is the provider's code, or None."""
+
+    provider_message_id: str
+    status: str
+    error_code: str | None
+
+
 class SmsSender(Protocol):
     async def send(self, to: str, text: str, message_id: str) -> SendReceipt: ...
 

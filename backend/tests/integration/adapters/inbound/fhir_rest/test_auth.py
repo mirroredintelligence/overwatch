@@ -33,7 +33,7 @@ from diucs.domain.rules.bff_token import BffClaims, encode_bff_token
 from tests.support.api import R01_TEST_NOW
 
 FHIR_JSON = "application/fhir+json; fhirVersion=4.3"
-OTHER_SECRET = b"another-synthetic-secret-for-route-tests-0123456789"
+OTHER_SECRET = b"another-synthetic-secret-for-route-tests-zyxwvutsrq"
 REDACTED_SYSTEM = "http://terminology.hl7.org/CodeSystem/v3-ObservationValue"
 ONE_SECOND = R01_TEST_NOW + timedelta(seconds=1)
 

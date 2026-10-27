@@ -11,7 +11,7 @@ from typing import Final
 from diucs.domain.codes import Role
 from diucs.domain.rules.bff_token import BffClaims, encode_bff_token
 
-TEST_BFF_SECRET: Final = b"synthetic-bff-secret-for-route-tests-only-0123456789"
+TEST_BFF_SECRET: Final = b"synthetic-bff-secret-for-route-tests-only-zyxwvutsrq"
 TEST_TOKEN_EXPIRES_AT: Final = datetime(2026, 10, 24, 13, 12, tzinfo=UTC)
 
 

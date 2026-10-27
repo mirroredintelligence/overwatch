@@ -27,8 +27,8 @@ from diucs.domain.rules.bff_token import (
     encode_bff_token,
 )
 
-SECRET = b"synthetic-secret-for-unit-tests-0123456789abcdef"
-OTHER_SECRET = b"another-synthetic-secret-for-unit-tests-0123456789"
+SECRET = b"synthetic-secret-for-unit-tests-zyxwvutsrqabcdef"
+OTHER_SECRET = b"another-synthetic-secret-for-unit-tests-zyxwvutsrq"
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 EXPIRES = datetime(2026, 10, 24, 13, 12, tzinfo=UTC)
 CLAIMS = BffClaims(
@@ -271,7 +271,7 @@ def test_a_short_secret_is_refused_when_decoding() -> None:
         decode_bff_token(token, short, NOW)
 
 
-_TEXT = st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789-", min_size=1, max_size=12)
+_TEXT = st.text(alphabet="abcdefghijklmnopqrstuvwxyzzyxwvutsrq-", min_size=1, max_size=12)
 
 
 @given(

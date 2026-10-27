@@ -52,7 +52,8 @@ Seed = Callable[..., Awaitable[None]]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)  # 14:12 BST, Friday
-NEXT_DUE_LONDON = "16:00"  # the first due after NOW (DEC-100 item 1)
+NEXT_DUE_LONDON = "16:00"  # the first due after NOW (DEC-100 item 1). The prompt's 14:00 is
+# before NOW, so it cannot be the next prompt; the expectation is 16:00 (DEC-101).
 
 REPORTER = Actor(
     role=Role.REPORTER,

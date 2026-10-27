@@ -1333,7 +1333,7 @@ Tests: `backend/tests/unit/application/use_cases/test_board_projector.py`, `back
 ## DEC-100 ReportCapacity choices the prompt leaves open (U01)
 Status: accepted (builder build-U01, for the owner to confirm) · Affects: U01 (`application/use_cases/report_capacity.py`), U02 (reuses `record_report`), U07 (report flags), U03 (prompts after a report), and every echo that C3 or C4 renders.
 
-Numbered DEC-100: first written as DEC-100, renumbered because DEC-100 to DEC-098 are on task/R02-auth-roles and DEC-099 on task/U09-board-projector. DEC-099 is the highest number on `main` or any task branch (checked with `git show <branch>:docs/delivery/decisions.md` on each branch).
+Numbered DEC-100: first written as DEC-100, renumbered because DEC-094 to DEC-098 are on task/R02-auth-roles and DEC-099 on task/U09-board-projector. DEC-099 is the highest number on `main` or any task branch (checked with `git show <branch>:docs/delivery/decisions.md` on each branch).
 
 The U01 prompt leaves these open or contradicts itself, and this decision settles them.
 
@@ -1346,3 +1346,10 @@ The U01 prompt leaves these open or contradicts itself, and this decision settle
 7. **Audit snapshot.** The snapshot holds `value`, `source`, `status_before` and `status_after`, as the prompt says. The audit log canonicalises enums to their text.
 
 Tests: `backend/tests/integration/application/test_report_capacity.py`. Evidence: `docs/delivery/evidence/U01.md`.
+
+## DEC-101 Prompt test 2 expects Next prompt 14:00: the echo keeps 16:00 (U01)
+Status: accepted (orchestrator decision, recorded by build-U01 after the verifier's FAIL at 9bcbc7e) · Affects: U01 test 2 (`docs/plan/prompts/U01.md`), `backend/tests/integration/application/test_report_capacity.py`, every C3 echo, and U02 (reuses `record_report`).
+
+1. The prompt's test 2 says a report recorded at 13:12Z (14:12 BST) gives "Next prompt 14:00". 14:00 BST is 13:00Z, which is before that report, so it cannot be the next prompt after it. The next due after the report is 16:00 BST by the two-hourly rule (domain-rules 1.4). The code and the test give 16:00. The prompt's expectation is wrong; the code is right.
+2. The decision is 16:00. The prompt snapshot `docs/plan/prompts/U01.md` is not edited, because it is a snapshot. The test asserts 16:00 with a comment that cites this entry.
+3. A prompt expectation of a next prompt earlier than the report that produces it cannot be met by any correct implementation. Check such expectations against the clock before building to them.

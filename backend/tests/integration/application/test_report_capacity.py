@@ -22,6 +22,7 @@ from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.use_cases import report_capacity
 from diucs.application.use_cases.report_capacity import (
     ReportCapacity,
     ReportCapacityCommand,
@@ -595,3 +596,24 @@ async def test_a_replaced_value_outside_zero_to_999_is_refused_and_writes_nothin
     assert refused.value.field == "replaced_value"
     assert await count_nodes(neo4j_driver, "Observation") == 0
     assert await count_nodes(neo4j_driver, "AuditEvent") == 0
+
+
+async def test_an_echo_with_no_next_prompt_is_refused_and_writes_nothing(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # No valid profile reaches this state (see test_next_due_total.py). The state is built by
+    # replacing next_due, so the guard in execute is exercised and nothing is written.
+    await seed_service(UCR_WEST)
+    monkeypatch.setattr(report_capacity, "next_due", lambda profile, now: None)
+
+    with pytest.raises(ValueError, match="next due instant"):
+        await _rig(uow_factory, neo4j_driver)[0].execute(
+            _command(4, performer_role_id="role-1")
+        )
+
+    assert await count_nodes(neo4j_driver, "Observation") == 0
+    assert await count_nodes(neo4j_driver, "AuditEvent") == 0
+    assert await count_nodes(neo4j_driver, "OutboxMessage") == 0

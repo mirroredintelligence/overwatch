@@ -50,7 +50,7 @@ class RedisSubscription(AsyncIterator[str]):
         self._pubsub = client.pubsub()
         self._key = key
         self._on_close = on_close
-        self._messages: asyncio.Queue[str] = asyncio.Queue()
+        self._messages: asyncio.Queue[str | None] = asyncio.Queue()
         self._closed = False
         self.opened: asyncio.Task[None] = asyncio.get_running_loop().create_task(self._open())
         self._reader: asyncio.Task[None] | None = None
@@ -78,8 +78,13 @@ class RedisSubscription(AsyncIterator[str]):
         return self
 
     async def __anext__(self) -> str:
+        if self._closed:
+            raise StopAsyncIteration
         await self.opened
-        return await self._messages.get()
+        item = await self._messages.get()
+        if item is None:
+            raise StopAsyncIteration
+        return item
 
     async def aclose(self) -> None:
         """Unsubscribe and wait for the server to confirm it, then release the connection."""
@@ -93,6 +98,7 @@ class RedisSubscription(AsyncIterator[str]):
         if self._reader is not None:
             await self._pubsub.unsubscribe(self._key)
             await self._reader  # the pump returns on the unsubscribe reply
+        self._messages.put_nowait(None)
         await self._pubsub.aclose()  # type: ignore[no-untyped-call]  # redis-py leaves it unannotated
 
 

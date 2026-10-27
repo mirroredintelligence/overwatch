@@ -79,9 +79,11 @@ async def _relay(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, del
 
 
 async def _start_delaying_proxy(upstream_port: int, delay: float) -> tuple[asyncio.Server, int]:
-    """A TCP proxy that holds every client-to-server chunk for `delay` seconds."""
+    """A TCP proxy that holds each client-to-server chunk for `delay` seconds."""
 
-    async def handle(client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter) -> None:
+    async def handle(
+        client_reader: asyncio.StreamReader, client_writer: asyncio.StreamWriter
+    ) -> None:
         up_reader, up_writer = await asyncio.open_connection("127.0.0.1", upstream_port)
         await asyncio.gather(
             _relay(client_reader, up_writer, delay), _relay(up_reader, client_writer, 0.0)

@@ -300,3 +300,18 @@ async def test_the_anonymous_link_is_refused_even_when_the_board_is_cached(
 
     with pytest.raises(NotAllowed):
         await projector.get_board(ANONYMOUS)
+
+
+async def test_an_unreadable_cached_board_is_replaced_by_a_computed_one(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    clock = FixedClock(FRIDAY_NOON_LONDON)
+    await _seed(uow_factory, _report("obs-west-1403", 4, WEST_REPORT_AT))
+    cache = _RecordingCache(clock)
+    await cache.set(BOARD_CACHE_KEY, '{"entries": "not a board"}')
+    projector, query_board = _projector(uow_factory, cache, clock)
+
+    board = await projector.get_board(ADVISOR)
+
+    assert [entry.effective_available for entry in board.entries] == [4]
+    assert query_board.computations == 1

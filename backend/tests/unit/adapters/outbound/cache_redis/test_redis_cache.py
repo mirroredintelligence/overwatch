@@ -105,3 +105,19 @@ async def test_each_key_family_is_used_under_its_own_prefix() -> None:
 
     families = {name.split(":")[1] for name in client.names}
     assert families == {"cache", "lock", "fence", "chan"}
+
+
+async def test_a_closed_subscription_ends_a_reader_that_is_waiting() -> None:
+    cache = RedisCache(RecordingClient())  # type: ignore[arg-type]
+    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+
+    async def next_or_none() -> str | None:
+        try:
+            return await subscription.__anext__()
+        except StopAsyncIteration:
+            return None
+
+    waiting = asyncio.ensure_future(next_or_none())
+    await subscription.aclose()
+
+    assert await asyncio.wait_for(waiting, timeout=1.0) is None

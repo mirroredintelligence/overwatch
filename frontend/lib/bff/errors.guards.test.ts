@@ -23,14 +23,42 @@ describe('toBffError issue code guard (DEC-109)', () => {
     const response = toBffError(
       new FhirError(409, {
         resourceType: 'OperationOutcome',
-        issue: [{ severity: 'error', code: 'Bad Code 943476591', diagnostics: 'x' }],
+        issue: [{ severity: 'error', code: 'Bad Code synthetic-token-xq', diagnostics: 'x' }],
       }),
     );
 
     const text = await response.text();
 
     expect(JSON.parse(text)).toMatchObject({ code: 'invalid' });
-    expect(text).not.toContain('943476591');
+    expect(text).not.toContain('synthetic-token-xq');
+  });
+
+  it('takes the code of the first issue even when a later issue has a valid code', async () => {
+    const response = toBffError(
+      new FhirError(409, {
+        resourceType: 'OperationOutcome',
+        issue: [
+          { severity: 'error', code: 'Bad Code synthetic-token-xq', diagnostics: 'x' },
+          { severity: 'error', code: 'conflict', diagnostics: 'y' },
+        ],
+      }),
+    );
+
+    expect(await response.json()).toMatchObject({ code: 'invalid' });
+  });
+
+  it('takes the first issue code when several issues all have valid codes', async () => {
+    const response = toBffError(
+      new FhirError(409, {
+        resourceType: 'OperationOutcome',
+        issue: [
+          { severity: 'error', code: 'conflict', diagnostics: 'x' },
+          { severity: 'error', code: 'invalid', diagnostics: 'y' },
+        ],
+      }),
+    );
+
+    expect(await response.json()).toMatchObject({ code: 'conflict' });
   });
 
   it('does not echo an issue code longer than 40 characters', async () => {

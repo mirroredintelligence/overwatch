@@ -6,6 +6,7 @@ Rules: domain-rules 1.2 to 1.6 through compute_status; decisions DEC-100 for the
 prompt leaves open.
 """
 
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
@@ -27,7 +28,7 @@ from diucs.domain.codes import (
     Role,
     Status,
 )
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import CapacityReported, StatusChanged
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
@@ -217,6 +218,41 @@ async def record_report(
     )
 
 
+def _fingerprint(command: ReportCapacityCommand) -> str:
+    """The command body and the actor who sent it. A replay must match both (DEC-104)."""
+    effective = None if command.effective_at is None else command.effective_at.isoformat()
+    flag = None if command.flag is None else command.flag.value
+    body = repr(
+        (
+            command.service_id,
+            command.value,
+            command.source.value,
+            effective,
+            command.performer_role_id,
+            command.replaced_value,
+            flag,
+            command.actor.role.value,
+            command.actor.practitioner_id,
+        )
+    )
+    return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class _StoredReport:
+    """What the idempotency store keeps for a command key: the result and the fingerprint of the
+    command that made it (DEC-104)."""
+
+    fingerprint: str
+    result: ReportCapacityResult
+
+
+def _replay(stored: _StoredReport, fingerprint: str) -> ReportCapacityResult:
+    if stored.fingerprint != fingerprint:
+        raise Conflict("this command key was used for a different report")
+    return replace(stored.result, replayed=True)
+
+
 class ReportCapacity:
     def __init__(
         self,
@@ -231,10 +267,11 @@ class ReportCapacity:
         self._idempotency = idempotency
 
     async def execute(self, command: ReportCapacityCommand) -> ReportCapacityResult:
+        fingerprint = _fingerprint(command)
         # An early read outside the unit of work. The authoritative replay check is inside it.
         early = await self._idempotency.get(command.idempotency_key)
-        if isinstance(early, ReportCapacityResult):
-            return replace(early, replayed=True)
+        if isinstance(early, _StoredReport):
+            return _replay(early, fingerprint)
 
         _check_figure("value", command.value)
         if command.flag is not None:
@@ -275,6 +312,6 @@ class ReportCapacity:
                 send_echo=send_echo,
                 replaced_value=command.replaced_value,
             )
-            await uow.idempotency.put(command.idempotency_key, result)
+            await uow.idempotency.put(command.idempotency_key, _StoredReport(fingerprint, result))
             await uow.commit()
         return result

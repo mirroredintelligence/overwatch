@@ -5,6 +5,7 @@ test can check the key families (DEC-058, architecture.md) without a server.
 """
 
 import asyncio
+from collections.abc import AsyncIterator
 from datetime import timedelta
 from typing import Any
 
@@ -121,3 +122,19 @@ async def test_a_closed_subscription_ends_a_reader_that_is_waiting() -> None:
     await subscription.aclose()
 
     assert await asyncio.wait_for(waiting, timeout=1.0) is None
+
+
+async def read_or_none(subscription: AsyncIterator[str]) -> str | None:
+    try:
+        return await subscription.__anext__()
+    except StopAsyncIteration:
+        return None
+
+
+async def test_a_read_after_a_closed_subscription_has_ended_also_ends_at_once() -> None:
+    cache = RedisCache(RecordingClient())  # type: ignore[arg-type]
+    subscription = cache.subscribe(BOARD_UPDATES_CHANNEL)
+    await subscription.aclose()
+
+    assert await asyncio.wait_for(read_or_none(subscription), timeout=1.0) is None
+    assert await asyncio.wait_for(read_or_none(subscription), timeout=1.0) is None

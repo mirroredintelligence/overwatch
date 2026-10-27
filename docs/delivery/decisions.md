@@ -1391,3 +1391,17 @@ What this does not cover:
 - **Restarted containers.** F11 stops and starts a container. The cutoff uses the original `Created` time, so a container restarted late in a run can look older than it is. A run that restarts Neo4j after 90 minutes would lose its container, the same case as the first limit above.
 
 Tests: `backend/tests/unit/support/test_reaper.py`. Red commit `743f73b`, green commit `f34786a`. Name-prefix and bad-timestamp caveats from the verifier: red commit `de03d7a`, fix in the commit that follows it on the branch.
+
+## DEC-109 Front-end FHIR client: MSW version, fixed BFF error text, and a non-JSON success body (W01)
+Status: accepted (builder build-W01, for the owner to confirm) · Affects: W01 (`frontend/lib/fhir/client.ts`, `frontend/lib/bff/errors.ts`, `frontend/test/msw/`, `frontend/package.json`), every route handler that calls the back end (W02 onward).
+
+Numbered DEC-109: DEC-108 is the highest number on `main` and on every `task/*` branch (checked with `git show <branch>:docs/delivery/decisions.md` on each local branch).
+
+1. **MSW 2.15.0, pinned exactly.** The front-end conventions name MSW, and the prompt does not pin a version. 2.15.0 was published on 2026-07-08, more than two weeks before this build. 3.0.3 is newer, but it needs Node 22.12 or later and vite 6 or later as peers, and it falls outside the `msw: ^2.4.9` peer range that `@vitest/mocker` declares, so pnpm would report an unmet peer. Moving to 3.x later is one version change followed by a run of the suite.
+2. **BFF error text is a fixed table** (`lib/bff/errors.ts`). The browser receives a code and one message chosen by status. The wording is placeholder API text, not screen wording from `ui-screens.md`, and the owner can replace it in one place. An issue code that is not lower-case letters and hyphens is not echoed; the code falls back to `exception` for 5xx and `invalid` for other statuses.
+3. **A 2xx body that is not JSON is a 502 `exception` FhirError.** It is not returned as text in `data`. A non-2xx body that is not an OperationOutcome is replaced by the synthesised outcome `HTTP <status>`, as the prompt says.
+4. **Request defaults.** `init` is optional. `method` defaults to GET, or POST when a body is given. This extends the signature in `contracts.md` (Front end) and does not change it.
+5. **A network failure keeps no error text.** A rejected `fetch` becomes FhirError 503 with code `transient` and fixed diagnostics, because the underlying error can carry the request URL.
+6. **Server-only by convention.** The base URL is read from `process.env` in `lib/fhir/client.ts`, which only route handlers and Server Components should import. No `server-only` package is added. A client component importing the module would not fail the build; W02 may add the package if the owner wants the build to enforce it.
+
+Tests: `frontend/lib/fhir/client.test.ts`, `frontend/lib/fhir/traceparent.test.ts`, `frontend/lib/bff/errors.test.ts`, `frontend/test/msw/server.test.ts`. Evidence: `docs/delivery/evidence/W01.md`.

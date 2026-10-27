@@ -6,6 +6,7 @@ text. The client must decode responses (from_url does), so replies are str.
 """
 
 import asyncio
+import time
 from collections.abc import AsyncIterator, Callable
 from datetime import timedelta
 from typing import Self, cast
@@ -18,6 +19,14 @@ _CACHE_KEY = "diucs:cache:{}"
 _LOCK_KEY = "diucs:lock:{}"
 _FENCE_KEY = "diucs:fence:{}"
 _CHANNEL_KEY = "diucs:chan:{}"
+
+# DEC-091: the token is the larger of the next INCR value and the host clock in microseconds, and
+# the counter is set to it. A lost counter restarts above every token issued before the loss.
+_NEXT_TOKEN = """
+local issued = math.max(redis.call('INCR', KEYS[1]), tonumber(ARGV[1]))
+redis.call('SET', KEYS[1], issued)
+return issued
+"""
 
 # Compare-and-delete: the lock goes only while it still holds this holder's token (DEC-058 item 4).
 _RELEASE_IF_HOLDER = """
@@ -129,7 +138,9 @@ class RedisCache:
 
     async def acquire_lock(self, name: str, ttl: timedelta) -> Lock | None:
         # The counter never expires, so tokens keep increasing across restarts (DEC-058 item 2).
-        token: int = await self._client.incr(_FENCE_KEY.format(name))
+        # After a data loss the clock term keeps them increasing (DEC-091).
+        now_us = time.time_ns() // 1_000
+        token: int = await self._client.eval(_NEXT_TOKEN, 1, _FENCE_KEY.format(name), str(now_us))
         acquired = await self._client.set(
             _LOCK_KEY.format(name), str(token), nx=True, px=_millis(ttl)
         )

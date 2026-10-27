@@ -200,6 +200,15 @@ async def test_an_invalid_number_or_empty_text_makes_no_request() -> None:
     assert seen == []
 
 
+@pytest.mark.parametrize("text", ["", " ", "   ", "\n\t \r\n"])
+async def test_empty_or_whitespace_only_text_makes_no_request(text: str) -> None:
+    seen, transport = _recording(httpx.Response(201, json={"sid": SID}))
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(ValueError):
+            await _sms(client).send(NUMBER, text, "C1")
+    assert seen == []
+
+
 @pytest.mark.parametrize(
     ("form", "expected"),
     [

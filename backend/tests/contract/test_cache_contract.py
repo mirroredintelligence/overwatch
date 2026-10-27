@@ -11,6 +11,7 @@ from tests.contract.harness import Harness, next_message
 
 TTL = timedelta(seconds=2)
 ONE_SECOND = timedelta(seconds=1)
+LONG_TTL = timedelta(seconds=10)
 PATIENCE = timedelta(seconds=2)
 QUIET = timedelta(milliseconds=200)
 
@@ -54,13 +55,20 @@ async def test_a_key_without_a_ttl_is_still_there_after_time_passes(
 # TTL
 
 
-async def test_a_key_is_present_before_its_ttl_and_missing_once_it_has_passed(
-    cache_harness: Harness[Cache],
-) -> None:
-    await cache_harness.subject.set("svc-1:status", "accepting", TTL)
+# The TTL cases leave at least ONE_SECOND between every check and the expiry they test. A check
+# on the expiry instant itself races the Redis clock: the probe saw a key still present at the
+# second check, with 12 ms of TTL left, in 2 of 60 runs (DEC-102 item 12).
+
+
+async def test_a_key_is_present_before_its_ttl(cache_harness: Harness[Cache]) -> None:
+    await cache_harness.subject.set("svc-1:status", "accepting", LONG_TTL)
     await cache_harness.advance(ONE_SECOND)
     assert await cache_harness.subject.get("svc-1:status") == "accepting"
-    await cache_harness.advance(ONE_SECOND)
+
+
+async def test_a_key_is_missing_once_its_ttl_has_passed(cache_harness: Harness[Cache]) -> None:
+    await cache_harness.subject.set("svc-1:status", "accepting", TTL)
+    await cache_harness.advance(TTL + ONE_SECOND)
     assert await cache_harness.subject.get("svc-1:status") is None
 
 
@@ -200,11 +208,13 @@ async def test_a_lock_is_held_until_its_ttl_and_free_after(
     assert again.fencing_token > first.fencing_token
 
 
-async def test_a_lock_is_free_at_the_instant_its_ttl_ends(cache_harness: Harness[Cache]) -> None:
-    # DEC-058 item 3: held while now < expires_at, free from expires_at on.
+async def test_a_lock_is_free_once_its_ttl_has_passed(cache_harness: Harness[Cache]) -> None:
+    # DEC-058 item 3 (held while now < expires_at, free from expires_at on) is checked at the
+    # exact instant by the in-memory unit test on its fixed clock. A real store cannot be checked
+    # at that instant, so this case checks well after it.
     cache = cache_harness.subject
     assert await cache.acquire_lock("relay", TTL) is not None
-    await cache_harness.advance(TTL)
+    await cache_harness.advance(TTL + ONE_SECOND)
     assert await cache.acquire_lock("relay", TTL) is not None
 
 

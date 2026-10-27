@@ -182,3 +182,16 @@ async def test_closing_one_subscription_leaves_the_other_subscribers_live() -> N
 
     assert cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 1
     assert await next_message(kept) == "still here"
+
+
+async def test_a_lock_is_held_one_millisecond_before_its_ttl_ends_and_free_at_the_instant() -> None:
+    # DEC-058 item 3, at the exact instant: the contract checks this after the TTL on a real store.
+    cache, clock = make_cache(START)
+    ttl = timedelta(seconds=2)
+    assert await cache.acquire_lock("relay", ttl) is not None
+
+    clock.set(START + ttl - timedelta(milliseconds=1))
+    assert await cache.acquire_lock("relay", ttl) is None
+
+    clock.set(START + ttl)
+    assert await cache.acquire_lock("relay", ttl) is not None

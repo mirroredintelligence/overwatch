@@ -1,4 +1,4 @@
-"""Twilio SMS adapter (I06): sends a text and maps Twilio's status callbacks. DEC-002, DEC-101.
+"""Twilio SMS adapter (I06): sends a text and maps Twilio's status callbacks. DEC-002, DEC-103.
 
 Nothing Twilio-specific leaves this module. Callers see the port's types: SendReceipt,
 TransientSendError, SendFailedError and DeliveryUpdate. The message id and the Twilio sid are

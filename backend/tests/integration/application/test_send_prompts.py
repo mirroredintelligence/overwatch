@@ -320,14 +320,16 @@ async def test_the_use_case_writes_one_audit_entry(
 
     result = await use_case.execute(_command())
 
-    async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        return await (await tx.run("MATCH (a:AuditEntry) RETURN properties(a) AS props")).data()
-
-    entries = await read_tx(neo4j_driver, work)
-    assert len(entries) == 1
-    props = entries[0]["props"]
-    assert "SendPrompts" in props.values()
-    assert result.communication_ids[0] in repr(props)
+    async with uow_factory() as uow:
+        records = await uow.audit.records()
+        chain_ok = await uow.audit.verify_chain()
+    assert chain_ok is True
+    [record] = records
+    assert record.entry.use_case == "SendPrompts"
+    assert record.entry.actor == SYSTEM_ACTOR
+    assert record.entry.entity_ids == (*result.communication_ids, "ucr-west")
+    assert record.entry.snapshot == {"due_at": DUE.isoformat(), "prompts": 1}
+    assert record.entry.at == DUE
 
 
 @pytest.mark.parametrize(
@@ -368,6 +370,7 @@ async def test_a_skipped_prompt_writes_nothing(
     assert reason_part in result.skipped_reason
     assert await _node_counts(neo4j_driver) == (0, 0, 0)
     assert await count_nodes(neo4j_driver, "LinkToken") == 0
+    assert await count_nodes(neo4j_driver, "AuditEvent") == 0
 
 
 async def test_a_lifted_suspension_does_not_skip_the_prompt(
@@ -708,3 +711,47 @@ async def test_cancel_work_does_nothing_for_work_that_is_not_scheduled(
 async def test_result_type_is_the_documented_shape() -> None:
     result = SendPromptResult(sent=False, communication_ids=(), skipped_reason="x")
     assert result.replayed is False
+
+
+async def test_an_inactive_holder_is_left_out(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+    gone = dataclasses.replace(_practitioner(1, PHONE_HASH_1), active=False)
+    await _seed_people(uow_factory, (gone,), (_role(1),))
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+
+    result = await use_case.execute(_command())
+
+    assert result.sent is False
+    assert await count_nodes(neo4j_driver, "Communication") == 0
+    assert await count_nodes(neo4j_driver, "LinkToken") == 0
+
+
+async def test_the_ladder_is_counted_in_real_minutes_across_the_autumn_clock_change(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # 00:30 UTC on 2026-10-25 is 01:30 BST, the hour before the clocks go back. The reminder 30
+    # minutes later is 01:00 UTC, which is 01:00 GMT on the wall clock: the same wall time as the
+    # prompt's hour, so only an instant comparison keeps the order (lessons L4, L52).
+    due = datetime(2026, 10, 25, 0, 30, tzinfo=UTC)
+    early = dataclasses.replace(
+        UCR_WEST, available_times=(AvailableTime.every_day(time(0, 0), time(20, 0)),)
+    )
+    await seed_service(early)
+    await _seed_people(uow_factory, (_practitioner(1, PHONE_HASH_1),), (_role(1),))
+    use_case, _ = _rig(uow_factory, neo4j_driver, now=due)
+
+    result = await use_case.execute(_command(due))
+
+    [communication_id] = result.communication_ids
+    ladder = await _work_about(uow_factory, communication_id)
+    assert [w.due_at for w in ladder] == [
+        datetime(2026, 10, 25, 1, 0, tzinfo=UTC),
+        datetime(2026, 10, 25, 1, 30, tzinfo=UTC),
+        datetime(2026, 10, 25, 2, 0, tzinfo=UTC),
+    ]
+    [message] = [
+        m for m in await _outbox(uow_factory) if m.payload.get("kind") == "escalate-to-lead"
+    ]
+    assert message.payload["enqueue_at"] == "2026-10-25T02:00:00Z"

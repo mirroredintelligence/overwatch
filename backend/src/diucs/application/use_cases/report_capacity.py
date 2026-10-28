@@ -10,7 +10,7 @@ import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Final
+from typing import Any, Final
 
 from diucs.application.actor import Actor
 from diucs.application.idempotency import IdempotencyStore
@@ -77,7 +77,7 @@ def _check_figure(field: str, value: int) -> None:
         raise ValidationFailed(field, "must be from 0 to 999")
 
 
-def _check_may_report(actor: Actor, source: ReportSource, service_id: str) -> None:
+def check_may_report(actor: Actor, source: ReportSource, service_id: str) -> None:
     """A reporter reports for their own services, from any source but advisor-phoned, which only
     an advisor or lead may name. An advisor or lead reports any service, only as advisor-phoned
     (DEC-100 item 3)."""
@@ -131,6 +131,8 @@ async def record_report(
     ids: IdGenerator,
     send_echo: str | None,
     replaced_value: int | None,
+    use_case: str = USE_CASE,
+    audit_snapshot: dict[str, Any] | None = None,
 ) -> ReportCapacityResult:
     """Store one report with its status change, echo, audit entry and outbox messages, inside the
     caller's unit of work. The caller commits. U02 reuses this function (DEC-100).
@@ -138,6 +140,9 @@ async def record_report(
     `send_echo` is the performer role to echo to, or None for no echo. The caller passes the
     performer only when the source is text. A suspended service (an active suspended flag) is
     read as suspended for the status before and after the report.
+
+    `use_case` names the caller in the audit entry, and `audit_snapshot` replaces the default
+    snapshot when a caller records its own (U02, DEC-112 item 1).
     """
     flags: Sequence[ServiceFlag] = await uow.flags.service_flags(profile.id)
     if any(flag.code == SERVICE_FLAG_SUSPENDED for flag in flags):
@@ -202,15 +207,19 @@ async def record_report(
     await uow.audit.append(
         AuditEntry(
             action=AUDIT_ACTION,
-            use_case=USE_CASE,
+            use_case=use_case,
             actor=actor,
             entity_ids=(report.id, profile.id),
-            snapshot={
-                "value": report.value,
-                "source": report.source.value,
-                "status_before": before.value,
-                "status_after": after.value,
-            },
+            snapshot=(
+                audit_snapshot
+                if audit_snapshot is not None
+                else {
+                    "value": report.value,
+                    "source": report.source.value,
+                    "status_before": before.value,
+                    "status_after": after.value,
+                }
+            ),
             at=now,
         )
     )
@@ -301,7 +310,7 @@ class ReportCapacity:
             profile = await uow.services.get(command.service_id)
             if profile is None or not profile.active:
                 raise NotFound("no active service with this id")
-            _check_may_report(command.actor, command.source, profile.id)
+            check_may_report(command.actor, command.source, profile.id)
 
             report = CapacityReport(
                 id=self._ids.new_id(),

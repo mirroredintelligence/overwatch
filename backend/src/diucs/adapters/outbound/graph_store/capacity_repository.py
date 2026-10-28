@@ -76,6 +76,25 @@ _QUERIES: Final = (
         mode="read",
     ),
     NamedQuery(
+        id="Q-CAP-LOCK-SERVICE",
+        cypher=(
+            "MATCH (s:HealthcareService {key: $key}) SET s.id = s.id RETURN count(s) AS locked"
+        ),
+        mode="write",
+    ),
+    NamedQuery(
+        id="Q-CAP-TRAILING-CONFIRMS",
+        cypher=(
+            "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
+            "WITH o ORDER BY o.effectiveDateTime DESC, o.lastUpdated DESC "
+            "WITH collect(o.ext_reportType) AS types "
+            "WITH types, [i IN range(0, size(types) - 1) WHERE types[i] <> 'confirmed' | i] "
+            "AS stops "
+            "RETURN CASE WHEN size(stops) = 0 THEN size(types) ELSE stops[0] END AS trailing"
+        ),
+        mode="read",
+    ),
+    NamedQuery(
         id="Q-SVC-LAST-REPORT",
         cypher=(
             "MATCH (s:HealthcareService {active: true}) "
@@ -227,5 +246,9 @@ class Neo4jCapacityRepository:
         rows = await run_query(self._tx, "Q-SVC-LAST-REPORT")
         return {str(row["id"]): _as_utc(row["last"]) for row in rows}
 
+    async def lock_service(self, service_id: str) -> None:
+        await run_query(self._tx, "Q-CAP-LOCK-SERVICE", key=f"{_SERVICE}/{service_id}")
+
     async def trailing_confirmations(self, service_id: str) -> int:
-        return -1  # RED STUB (U02)
+        rows = await run_query(self._tx, "Q-CAP-TRAILING-CONFIRMS", key=f"{_SERVICE}/{service_id}")
+        return int(rows[0]["trailing"]) if rows else 0

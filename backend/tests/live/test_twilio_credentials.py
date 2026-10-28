@@ -19,9 +19,9 @@ pytestmark = pytest.mark.skipif(
     reason="live Twilio check: set DIUCS_LIVE_TWILIO=1 to run it",
 )
 
-# Twilio regional endpoint (Ireland, ie1). It must match the Allowed websites of the network
-# secret exactly: the agent proxy attaches the credentials only to requests for that host.
-TWILIO_HOST = "api.dublin.ie1.twilio.com"
+# Global Twilio endpoint (DEC-138). It must match the Allowed websites of the network secret
+# exactly: the agent proxy attaches the credentials only to requests for that host.
+TWILIO_HOST = "api.twilio.com"
 TWILIO_ACCOUNTS = f"https://{TWILIO_HOST}/2010-04-01/Accounts.json"
 
 

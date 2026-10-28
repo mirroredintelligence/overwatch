@@ -542,6 +542,75 @@ async def test_a_key_stored_by_a_report_is_a_conflict_for_a_confirmation_and_wri
     assert await _confirmed_count(neo4j_driver) == 0
 
 
+async def test_a_reporter_for_another_service_is_refused_before_nothing_to_confirm(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """DEC-112 item 5: a refused actor learns nothing about the figure. A service with no report
+    must answer NotAllowed to another service's reporter, not NothingToConfirm."""
+    await _seed_with_report(uow_factory, seed_service, None)
+    other = dataclasses.replace(REPORTER, service_ids=frozenset({"ucr-east"}))
+
+    with pytest.raises(NotAllowed):
+        await Rig(uow_factory, neo4j_driver).yes(AT_1005, "k1", actor=other)
+
+    assert await _confirmed_count(neo4j_driver) == 0
+    assert await count_nodes(neo4j_driver, "Observation") == 0
+
+
+async def test_a_reporter_for_another_service_is_refused_before_the_limit(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """DEC-112 item 5: a service already confirmed twice in a row must answer NotAllowed to
+    another service's reporter, not ConfirmLimitReached, so the refusal reveals nothing."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    rig = Rig(uow_factory, neo4j_driver)
+    await rig.yes(AT_1005, "k1")
+    await rig.yes(AT_1205, "k2")
+    other = dataclasses.replace(REPORTER, service_ids=frozenset({"ucr-east"}))
+
+    with pytest.raises(NotAllowed):
+        await rig.yes(AT_1412, "k3", actor=other)
+
+    assert await _confirmed_count(neo4j_driver) == 2
+
+
+async def test_a_text_confirmation_stores_the_performer_the_command_carried(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The confirmation report records who performed it (the performer role the command named),
+    read back through a fresh unit of work, not only the echo."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+
+    await Rig(uow_factory, neo4j_driver).yes(AT_1005, "k1", performer="role-1")
+
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.report_type is ReportType.CONFIRMED
+    assert latest.performer_role_id == "role-1"
+
+
+async def test_a_key_stored_by_a_confirmation_is_a_conflict_for_a_report_and_writes_nothing(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """DEC-112 item 6, reverse direction: a key ConfirmCapacity stored is refused by
+    ReportCapacity with Conflict. The refusal comes from the idempotency store's put (a different
+    result for a stored key), so the unit of work that wrote the report never commits."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    ids = SequentialIds()
+    rig = Rig(uow_factory, neo4j_driver, ids)
+    await rig.yes(AT_1005, "shared-3")
+    observations_before = await count_nodes(neo4j_driver, "Observation")
+
+    with pytest.raises(Conflict):
+        await rig.number(4, AT_1205, "shared-3")
+
+    assert await count_nodes(neo4j_driver, "Observation") == observations_before
+    assert await _confirmed_count(neo4j_driver) == 1
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.value == 3
+
+
 async def test_a_second_confirmation_waits_for_a_held_confirmation_then_is_refused(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

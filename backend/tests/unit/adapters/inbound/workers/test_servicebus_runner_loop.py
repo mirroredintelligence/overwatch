@@ -353,9 +353,15 @@ async def test_cancelling_the_runner_is_not_swallowed(monkeypatch: pytest.Monkey
     task = asyncio.create_task(runner.run(stop))
     while not _actions(world, "receive"):
         await asyncio.sleep(0)
+    opened = len(world.opens)
+    marker = len(world.log)
     task.cancel()
     with pytest.raises(asyncio.CancelledError):
         await asyncio.wait_for(task, timeout=5)
+    # A swallowed cancellation keeps the loop running: it would pause, open a receiver and
+    # receive again. The gather still re-raises at the end, so the raise alone cannot tell.
+    assert len(world.opens) == opened
+    assert not [entry for entry in world.log[marker:] if entry[0] == "receive"]
 
 
 async def test_the_stop_signal_ends_a_pause_at_once() -> None:

@@ -60,6 +60,9 @@ GLOBAL_STATEMENT_MESSAGE: Final = (
     "a global statement runs only through run_global_query, "
     "and run_global_query runs only global statements"
 )
+UNIT_OF_WORK_OPEN_MESSAGE: Final = (
+    "a unit of work is already open in this context; open the next one after this one has finished"
+)
 _TENANCY_ERROR_MESSAGE: Final = "a tenancy error"
 
 
@@ -104,6 +107,10 @@ class QueryNotRegistered(TenancyError):
 
 class GlobalStatementMisuse(TenancyError):
     MESSAGE = GLOBAL_STATEMENT_MESSAGE
+
+
+class UnitOfWorkAlreadyOpen(TenancyError):
+    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,3 +189,19 @@ def current_tenant() -> str:
     if scope is None or scope.kind is not ScopeKind.TENANT:
         raise TenantNotBound
     return scope.value
+
+
+# Created and set only here (an architecture test checks it).
+_UNIT: ContextVar[object | None] = ContextVar("diucs_open_unit", default=None)
+
+
+def claim_unit(owner: object) -> None:
+    raise NotImplementedError
+
+
+def release_unit(owner: object) -> None:
+    raise NotImplementedError
+
+
+def scope_for_new_unit() -> ScopeId | None:
+    raise NotImplementedError

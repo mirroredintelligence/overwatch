@@ -17,7 +17,7 @@ from urllib.parse import urlsplit
 
 from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession
 
-from diucs.adapters.outbound.graph_store.driver import create_driver
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, create_driver
 
 log = logging.getLogger(__name__)
 
@@ -148,6 +148,14 @@ class Neo4jConnection:
     async def run_write[T](self, work: Callable[[AsyncManagedTransaction], Awaitable[T]]) -> T:
         async with self.session() as session:
             return await session.execute_write(work)
+
+    async def run_scoped_read[T](self, work: Callable[[ScopedTx], Awaitable[T]]) -> T:
+        async with self.session() as session:
+            return await session.execute_read(work)  # type: ignore[arg-type]
+
+    async def run_scoped_write[T](self, work: Callable[[ScopedTx], Awaitable[T]]) -> T:
+        async with self.session() as session:
+            return await session.execute_write(work)  # type: ignore[arg-type]
 
     def pool_connection_count(self) -> int:
         """Connections the driver's pool holds, idle or in use. Zero after close().

@@ -70,6 +70,7 @@ from diucs.application.ports.outbound.repositories import (
 )
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import ScopeId, current_scope_or_none
 from diucs.domain.errors import Conflict
 
 RepositoryFactory = Callable[[AsyncManagedTransaction, ResourceStore], object]
@@ -166,6 +167,10 @@ class Neo4jUnitOfWork:
         self._store: ResourceStore | None = None
         self._repositories: dict[str, object] = {}
         self._refused: Conflict | None = None
+
+    @property
+    def unit_scope(self) -> ScopeId | None:
+        return current_scope_or_none()
 
     async def __aenter__(self) -> Self:
         if self._state != _NEW:

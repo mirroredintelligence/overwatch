@@ -12,14 +12,16 @@ migration runner aside) executes Cypher.
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
-from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction
+from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction, AsyncTransaction
 
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, QueryRegistry
 from diucs.application.tenancy import (
     GlobalStatementMisuse,
     QueryNotRegistered,
+    ScopeId,
     TenantNotBound,
     TenantParameterRefused,
     current_scope_or_none,
@@ -71,11 +73,22 @@ def _refuse_tenant_parameter(params: dict[str, Any]) -> None:
         raise TenantParameterRefused
 
 
-async def _execute(
-    tx: AsyncManagedTransaction, query: NamedQuery, parameters: dict[str, Any]
-) -> list[dict[str, Any]]:
+@dataclass(frozen=True, slots=True)
+class ScopedTx:
+    tx: AsyncManagedTransaction | AsyncTransaction
+    scope: ScopeId | None
+
+    async def run(self, *args: Any, **kwargs: Any) -> Any:
+        raise NotImplementedError
+
+
+type Tx = AsyncManagedTransaction | AsyncTransaction | ScopedTx
+
+
+async def _execute(tx: Tx, query: NamedQuery, parameters: dict[str, Any]) -> list[dict[str, Any]]:
     started = time.perf_counter()
-    result = await tx.run(query.cypher, parameters)
+    raw = tx.tx if isinstance(tx, ScopedTx) else tx
+    result = await raw.run(query.cypher, parameters)
     rows = await result.data()
     duration_ms = (time.perf_counter() - started) * 1000
     observer = _observer
@@ -85,7 +98,7 @@ async def _execute(
 
 
 async def run_query(
-    tx: AsyncManagedTransaction,
+    tx: Tx,
     query: NamedQuery,
     /,
     *,
@@ -122,7 +135,7 @@ async def run_query(
 
 
 async def run_global_query(
-    tx: AsyncManagedTransaction,
+    tx: Tx,
     query: NamedQuery,
     /,
     *,

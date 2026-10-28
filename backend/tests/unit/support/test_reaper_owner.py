@@ -18,6 +18,7 @@ import pytest
 
 from tests.support import proc as proc_module
 from tests.support.neo4j import (
+    _CREATED_AT,
     OTHER_HOST_MAX_AGE,
     REAPER_MAX_AGE,
     reap_stale_test_containers,
@@ -229,13 +230,16 @@ def test_a_non_ascii_digit_pid_label_falls_back_to_the_ninety_minute_rule(pid: s
 
 
 def test_a_created_value_with_non_ascii_digits_is_not_parsed_so_the_container_is_kept() -> None:
-    # Arabic-Indic digits: \d would match them, [0-9] does not. An unparsed Created value means the
-    # age cannot be judged, so the container is kept (the safe direction). Pins existing behaviour.
+    # An unparsed Created value means the age cannot be judged, so the container is kept (the safe
+    # direction). Pins the outcome; the pattern assertion below pins the regex itself, since
+    # fromisoformat rejects these digits anyway and the outcome alone cannot tell \d from [0-9].
     containers = [Container("diucs-test-neo4j-createdgarbled", "٢٠٢٦-10-28T06:00:00.000000000Z")]
 
     removed, _ = _sweep(containers, table={})
 
     assert removed == []
+    assert _CREATED_AT.match("٢٠٢٦-10-28T06:00:00.000000000Z") is None
+    assert _CREATED_AT.match("2026-10-28T06:00:00.000000000Z") is not None
 
 
 def test_a_container_owned_from_another_host_is_judged_by_age_not_by_this_hosts_processes() -> None:

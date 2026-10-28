@@ -39,6 +39,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import (
     ConfirmLimitReached,
     Conflict,
+    EffectiveBeforeConfirmation,
     NotAllowed,
     NotFound,
     NothingToConfirm,
@@ -56,6 +57,8 @@ REPORT_AT = datetime(2026, 10, 23, 7, 15, tzinfo=UTC)  # 08:15 BST
 AT_1005 = datetime(2026, 10, 23, 9, 5, tzinfo=UTC)  # 10:05 BST
 AT_1205 = datetime(2026, 10, 23, 11, 5, tzinfo=UTC)  # 12:05 BST
 AT_1412 = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)  # 14:12 BST
+AT_1004 = datetime(2026, 10, 23, 9, 4, tzinfo=UTC)  # 10:04 BST
+AT_1006 = datetime(2026, 10, 23, 9, 6, tzinfo=UTC)  # 10:06 BST
 SEED_REPORT_ID = "seed-number-0815"
 
 REPORTER = Actor(
@@ -141,6 +144,48 @@ def gated_factory(factory: UnitOfWorkFactory, gate: CommitGate) -> UnitOfWorkFac
         hold = gate.hold_next
         gate.hold_next = False
         return GatedUnitOfWork(factory(), gate, hold)  # type: ignore[return-value]
+
+    return make
+
+
+class EntryGate:
+    """Holds the next unit of work at entry, before its first statement, until `release` is set.
+    The test uses it to put a use case between its clock read and its lock, so the test decides
+    what the clock reads (DEC-139)."""
+
+    def __init__(self) -> None:
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+        self.hold_next = False
+
+
+class EntryGatedUnitOfWork:
+    def __init__(self, inner: UnitOfWork, gate: EntryGate, hold: bool) -> None:
+        self._inner = inner
+        self._gate = gate
+        self._hold = hold
+
+    async def __aenter__(self) -> Self:
+        if self._hold:
+            self._gate.entered.set()
+            await self._gate.release.wait()
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc: object) -> Any:
+        return await self._inner.__aexit__(*exc)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+def entry_gated_factory(factory: UnitOfWorkFactory, gate: EntryGate) -> UnitOfWorkFactory:
+    """A factory whose next unit of work waits at entry, if gate.hold_next was set."""
+
+    def make() -> UnitOfWork:
+        hold = gate.hold_next
+        gate.hold_next = False
+        return EntryGatedUnitOfWork(factory(), gate, hold)  # type: ignore[return-value]
 
     return make
 
@@ -696,3 +741,212 @@ async def test_sixteen_confirmations_at_once_let_exactly_two_through(
     assert len(refused) == 14
     assert len(accepted) + len(refused) == 16
     assert await _confirmed_count(neo4j_driver) == 2
+
+
+async def test_a_number_reported_while_a_confirmation_is_held_is_not_hidden_behind_it(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """DEC-139 (round-2 finding F1, the lost update). A number is reported at 10:04. A confirmation
+    at 10:05 takes the service lock and is held before it commits. The number's unit of work then
+    resumes. Its effective time must be taken after the lock, so it is later than the confirmation
+    and the board shows 5. Taken before the lock it would be 10:04, the confirmation would stay the
+    latest report, and the board would show the old 3."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    ids = SequentialIds()
+    store = DriverIdempotencyStore(neo4j_driver)
+    clock = FixedClock(AT_1004)
+    entry = EntryGate()
+    commit = CommitGate()
+    number = ReportCapacity(entry_gated_factory(uow_factory, entry), clock, ids, store)
+    confirm = ConfirmCapacity(gated_factory(uow_factory, commit), clock, ids, store)
+    number_command = ReportCapacityCommand(
+        idempotency_key="number-5",
+        actor=REPORTER,
+        service_id="ucr-west",
+        value=5,
+        source=ReportSource.TEXT,
+    )
+    confirm_command = ConfirmCapacityCommand("confirm-1", REPORTER, "ucr-west", ReportSource.TEXT)
+
+    entry.hold_next = True
+    number_task = asyncio.ensure_future(number.execute(number_command))
+    await asyncio.wait_for(entry.entered.wait(), timeout=30)
+
+    clock.set(AT_1005)
+    commit.hold_next = True
+    confirm_task = asyncio.ensure_future(confirm.execute(confirm_command))
+    await asyncio.wait_for(commit.entered.wait(), timeout=30)
+
+    entry.release.set()
+    await asyncio.sleep(1.0)
+    clock.set(AT_1006)
+    commit.release.set()
+
+    confirm_result = await asyncio.wait_for(confirm_task, timeout=60)
+    number_result = await asyncio.wait_for(number_task, timeout=60)
+
+    assert confirm_result.confirmed_value == 3
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.id == number_result.report_id
+    assert latest.report_type is ReportType.NUMBER
+    assert latest.value == 5
+
+
+async def test_a_confirmation_waiting_behind_a_held_number_is_stored_after_it(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """DEC-139, the other direction. A confirmation starts at 10:04 and waits for the lock behind a
+    number reported at 10:05. Its effective time is taken after the lock (10:06), so it is the
+    latest report and carries the number's figure. Taken before the lock (10:04) it would sort
+    before the number, and the number would stay the stored latest report."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    ids = SequentialIds()
+    store = DriverIdempotencyStore(neo4j_driver)
+    clock = FixedClock(AT_1004)
+    entry = EntryGate()
+    commit = CommitGate()
+    confirm = ConfirmCapacity(entry_gated_factory(uow_factory, entry), clock, ids, store)
+    number = ReportCapacity(gated_factory(uow_factory, commit), clock, ids, store)
+    number_command = ReportCapacityCommand(
+        idempotency_key="number-5",
+        actor=REPORTER,
+        service_id="ucr-west",
+        value=5,
+        source=ReportSource.TEXT,
+    )
+    confirm_command = ConfirmCapacityCommand("confirm-1", REPORTER, "ucr-west", ReportSource.TEXT)
+
+    entry.hold_next = True
+    confirm_task = asyncio.ensure_future(confirm.execute(confirm_command))
+    await asyncio.wait_for(entry.entered.wait(), timeout=30)
+
+    clock.set(AT_1005)
+    commit.hold_next = True
+    number_task = asyncio.ensure_future(number.execute(number_command))
+    await asyncio.wait_for(commit.entered.wait(), timeout=30)
+
+    entry.release.set()
+    await asyncio.sleep(1.0)
+    clock.set(AT_1006)
+    commit.release.set()
+
+    await asyncio.wait_for(number_task, timeout=60)
+    confirm_result = await asyncio.wait_for(confirm_task, timeout=60)
+
+    assert confirm_result.confirmed_value == 5
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.id == confirm_result.report_id
+    assert latest.report_type is ReportType.CONFIRMED
+    assert latest.value == 5
+
+
+async def test_a_number_given_before_the_latest_confirmation_is_refused_and_writes_nothing(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """DEC-140. A number whose explicit effective time is earlier than the latest confirmed figure
+    is refused. Stored behind the confirmation it would never reach the board, so the refusal
+    fails closed. Nothing is written: no report, outbox message, audit entry or communication, and
+    the command key is not stored."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    rig = Rig(uow_factory, neo4j_driver, SequentialIds())
+    await rig.yes(AT_1005, "k1")
+    observations_before = await count_nodes(neo4j_driver, "Observation")
+    outbox_before = len(await _outbox(uow_factory))
+    audits_before = await count_nodes(neo4j_driver, "AuditEvent")
+    communications_before = await count_nodes(neo4j_driver, "Communication")
+    rig.clock.set(AT_1205)
+
+    with pytest.raises(EffectiveBeforeConfirmation):
+        await rig.report.execute(
+            ReportCapacityCommand(
+                idempotency_key="back-1",
+                actor=REPORTER,
+                service_id="ucr-west",
+                value=5,
+                source=ReportSource.TEXT,
+                effective_at=AT_1005 - timedelta(microseconds=1),
+            )
+        )
+
+    assert await count_nodes(neo4j_driver, "Observation") == observations_before
+    assert len(await _outbox(uow_factory)) == outbox_before
+    assert await count_nodes(neo4j_driver, "AuditEvent") == audits_before
+    assert await count_nodes(neo4j_driver, "Communication") == communications_before
+    assert await DriverIdempotencyStore(neo4j_driver).get("back-1") is None
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.report_type is ReportType.CONFIRMED
+    assert latest.value == 3
+
+
+async def test_a_refused_back_dated_number_can_be_sent_again_at_the_current_time(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """DEC-140: the reporter is refused and sends the figure again. The refusal stored nothing under
+    its key, so the same key given with no effective time (the current time) is accepted and
+    becomes the latest figure."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    rig = Rig(uow_factory, neo4j_driver, SequentialIds())
+    await rig.yes(AT_1005, "k1")
+    rig.clock.set(AT_1205)
+    with pytest.raises(EffectiveBeforeConfirmation):
+        await rig.report.execute(
+            ReportCapacityCommand(
+                idempotency_key="back-1",
+                actor=REPORTER,
+                service_id="ucr-west",
+                value=5,
+                source=ReportSource.TEXT,
+                effective_at=AT_1005 - timedelta(microseconds=1),
+            )
+        )
+
+    result = await rig.report.execute(
+        ReportCapacityCommand(
+            idempotency_key="back-1",
+            actor=REPORTER,
+            service_id="ucr-west",
+            value=5,
+            source=ReportSource.TEXT,
+        )
+    )
+
+    assert result.replayed is False
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.id == result.report_id
+    assert latest.report_type is ReportType.NUMBER
+    assert latest.value == 5
+    assert latest.effective_at == AT_1205
+
+
+async def test_a_number_given_after_the_latest_confirmation_is_accepted_and_becomes_the_latest(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """DEC-140, the allowed side of the rule. Passes on arrival: it guards against refusing every
+    back-dated number, not against the fixed race."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    rig = Rig(uow_factory, neo4j_driver, SequentialIds())
+    await rig.yes(AT_1005, "k1")
+    rig.clock.set(AT_1205)
+    later = AT_1005 + timedelta(minutes=1)
+
+    result = await rig.report.execute(
+        ReportCapacityCommand(
+            idempotency_key="later-5",
+            actor=REPORTER,
+            service_id="ucr-west",
+            value=5,
+            source=ReportSource.TEXT,
+            effective_at=later,
+        )
+    )
+
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.id == result.report_id
+    assert latest.report_type is ReportType.NUMBER
+    assert latest.value == 5
+    assert latest.effective_at == later

@@ -65,6 +65,11 @@ class CapacityRepository(Protocol):
         effective time. All of them when the service has no number report."""
         ...
 
+    async def latest_confirmation_at(self, service_id: str) -> datetime | None:
+        """The effective time of the newest confirmed report of the service, or None when it has
+        none (DEC-140). Numbers do not count."""
+        ...
+
 
 class BookingRepository(Protocol):
     async def add(self, booking: Booking) -> None:

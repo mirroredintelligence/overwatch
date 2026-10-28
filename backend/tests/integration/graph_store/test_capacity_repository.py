@@ -249,3 +249,26 @@ async def test_trailing_confirmations_of_an_unknown_service_is_zero(
     neo4j_driver: AsyncDriver,
 ) -> None:
     assert await _read(neo4j_driver, lambda repo: repo.trailing_confirmations("nope")) == 0
+
+
+async def test_latest_confirmation_at_is_the_newest_confirmed_effective_time(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """DEC-140: the effective time of the newest confirmed report of one service. Numbers are not
+    confirmations, another service's confirmation is not this service's, and a service with no
+    confirmation has None."""
+    await _seed(neo4j_driver, UCR_WEST, UCR_EAST)
+    repo_none = await _read(neo4j_driver, lambda repo: repo.latest_confirmation_at("svc-ucr-west"))
+    assert repo_none is None
+    await _add(
+        neo4j_driver,
+        _report("obs-n1", 6, ReportType.NUMBER),
+        _report("obs-c1", 8, ReportType.CONFIRMED),
+        _report("obs-n2", 10, ReportType.NUMBER),
+    )
+    other = replace(_report("obs-other-c", 20, ReportType.CONFIRMED), service_id="svc-ucr-east")
+    await _add(neo4j_driver, other)
+
+    at = await _read(neo4j_driver, lambda repo: repo.latest_confirmation_at("svc-ucr-west"))
+
+    assert at == datetime(2026, 10, 25, 8, 0, tzinfo=UTC)

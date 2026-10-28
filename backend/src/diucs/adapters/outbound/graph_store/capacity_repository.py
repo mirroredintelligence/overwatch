@@ -252,3 +252,7 @@ class Neo4jCapacityRepository:
     async def trailing_confirmations(self, service_id: str) -> int:
         rows = await run_query(self._tx, "Q-CAP-TRAILING-CONFIRMS", key=f"{_SERVICE}/{service_id}")
         return int(rows[0]["trailing"]) if rows else 0
+
+    async def latest_confirmation_at(self, service_id: str) -> datetime | None:
+        # DEC-010 stub for the red commit: no behaviour yet.
+        raise NotImplementedError("latest_confirmation_at is not implemented yet (DEC-140)")

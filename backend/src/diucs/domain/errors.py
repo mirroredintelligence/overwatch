@@ -36,3 +36,8 @@ class ConfirmLimitReached(DomainError):
 
 class NothingToConfirm(DomainError):
     """The service has no report on record, so there is no figure to confirm."""
+
+
+class EffectiveBeforeConfirmation(ValidationFailed):
+    """A number given with an effective time before the latest confirmed figure of its service.
+    Stored behind that confirmation it would never reach the board, so it is refused (DEC-140)."""

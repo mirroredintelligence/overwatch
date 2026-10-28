@@ -76,6 +76,34 @@ _QUERIES: Final = (
         mode="read",
     ),
     NamedQuery(
+        id="Q-CAP-LOCK-SERVICE",
+        cypher=(
+            "MATCH (s:HealthcareService {key: $key}) SET s.id = s.id RETURN count(s) AS locked"
+        ),
+        mode="write",
+    ),
+    NamedQuery(
+        id="Q-CAP-LATEST-CONFIRMED-AT",
+        cypher=(
+            "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
+            "WHERE o.ext_reportType = 'confirmed' "
+            "RETURN o.effectiveDateTime AS at ORDER BY o.effectiveDateTime DESC LIMIT 1"
+        ),
+        mode="read",
+    ),
+    NamedQuery(
+        id="Q-CAP-TRAILING-CONFIRMS",
+        cypher=(
+            "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
+            "WITH o ORDER BY o.effectiveDateTime DESC, o.lastUpdated DESC "
+            "WITH collect(o.ext_reportType) AS types "
+            "WITH types, [i IN range(0, size(types) - 1) WHERE types[i] <> 'confirmed' | i] "
+            "AS stops "
+            "RETURN CASE WHEN size(stops) = 0 THEN size(types) ELSE stops[0] END AS trailing"
+        ),
+        mode="read",
+    ),
+    NamedQuery(
         id="Q-SVC-LAST-REPORT",
         cypher=(
             "MATCH (s:HealthcareService {active: true}) "
@@ -226,3 +254,16 @@ class Neo4jCapacityRepository:
     async def last_report_times(self) -> dict[str, datetime | None]:
         rows = await run_query(self._tx, "Q-SVC-LAST-REPORT")
         return {str(row["id"]): _as_utc(row["last"]) for row in rows}
+
+    async def lock_service(self, service_id: str) -> None:
+        await run_query(self._tx, "Q-CAP-LOCK-SERVICE", key=f"{_SERVICE}/{service_id}")
+
+    async def trailing_confirmations(self, service_id: str) -> int:
+        rows = await run_query(self._tx, "Q-CAP-TRAILING-CONFIRMS", key=f"{_SERVICE}/{service_id}")
+        return int(rows[0]["trailing"]) if rows else 0
+
+    async def latest_confirmation_at(self, service_id: str) -> datetime | None:
+        rows = await run_query(
+            self._tx, "Q-CAP-LATEST-CONFIRMED-AT", key=f"{_SERVICE}/{service_id}"
+        )
+        return _as_utc(rows[0]["at"]) if rows else None

@@ -54,6 +54,22 @@ class CapacityRepository(Protocol):
         """For every active service, the effective time of its latest report, or None."""
         ...
 
+    async def lock_service(self, service_id: str) -> None:
+        """Take the service's write lock for the rest of the unit of work. Two writers that decide
+        a per-service count (confirmations in a row) must lock first, then read (DEC-112 item 8).
+        Writes nothing; an unknown service is left for the caller to refuse."""
+        ...
+
+    async def trailing_confirmations(self, service_id: str) -> int:
+        """How many confirmed reports come after the last number report, newest first by
+        effective time. All of them when the service has no number report."""
+        ...
+
+    async def latest_confirmation_at(self, service_id: str) -> datetime | None:
+        """The effective time of the newest confirmed report of the service, or None when it has
+        none (DEC-140). Numbers do not count."""
+        ...
+
 
 class BookingRepository(Protocol):
     async def add(self, booking: Booking) -> None:

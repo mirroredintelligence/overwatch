@@ -22,6 +22,17 @@ One session can play several roles over time, but not builder and verifier of th
 
 Usage limits can stop agents mid-task. They keep their saved progress; resume them with SendMessage when the limit resets, and do not start a duplicate.
 
+## Models and consultation
+
+The Agent tool takes a `model` argument, and subagents inherit the orchestrator's model unless you set it. Use `model: "sonnet"` for judgement-heavy work. The default model is fine for mechanical work.
+
+- **Consult Sonnet for a second reading** when a decision or a suspected defect is hard to settle alone: a tenancy, security or privacy rule; locking or concurrency; the behaviour of Cypher, Neo4j, cryptography or the Python runtime; a finding you cannot tell is real. Give the consult a self-contained question, the files and commit to read, and what you have already ruled out. Its answer is advice. You decide, record the decision, and make the change yourself.
+- **Use Sonnet for fix rounds** whose findings are logic, tenancy, security or concurrency, especially after a FAIL on such a finding. The orchestrator starts that builder with `model: "sonnet"`. A builder does not start its own builders.
+- **Keep the default model for mechanical work**: record and documentation fixes, formatting, renames, lint, and re-running checks.
+- **A consult is not verification.** The verdict on a task comes only from an agent that did not build it. A verifier may consult Sonnet, but the verdict stays the verifier's, and the consult goes in the verifier's report.
+- **Say it in the evidence.** When a consult or a Sonnet builder shaped a change, add one line to the evidence: the question, and what changed because of the answer.
+- **Quote, don't paraphrase.** Every sentence in evidence that quotes an earlier commit, a guard line or a spec sentence is checked with `git show <commit>:<path>` and `grep -F` before it is written. Paraphrased quotes are the most common reason a task has failed verification.
+
 ## Command cheat sheet
 
 | Command | Purpose |
@@ -59,7 +70,7 @@ Evidence references for `tests-red` and `tests-green` must start with the sha of
 - One task, one branch, one worktree: `git worktree add ../overwatch-wt/<ID> -b task/<ID>-<slug> main`. Remove the worktree after delivery (`git worktree remove`).
 - Commits: `<ID>: failing tests (red)`, `<ID>: implement`, further commits as needed, all prefixed with the task id.
 - To deliver: in your worktree run `git rebase main` (the repo is local, there is nothing to fetch), re-run every check, then in the primary checkout run `git merge --ff-only task/<ID>-<slug>`. If the fast-forward is refused because `main` moved, rebase again and re-run the checks. Never merge with a merge commit, never force.
-- Parallel integration tests: the harness wipes the graph before every test, so runs must not share a database. DEC-008 makes each pytest session start its own throwaway Neo4j on a random port, so any number of sessions can run at once. Until the harness task F10 is delivered, only one session at a time may run anything that needs Neo4j; the orchestrator should not start two Neo4j-dependent builders in Stage 0.
+- Parallel integration tests: the harness wipes the graph before every test, so runs must not share a database. DEC-008 makes each pytest session start its own throwaway Neo4j on a random port, but several at once overloaded the machine and filled the disk, so since DEC-135 Neo4j test starts are serialised: the harness takes the lock `/tmp/diucs-neo4j-harness.lock` before it starts a container and holds it until the container is removed (a second session waits, up to an hour, then fails naming the holder's pid). Whole runs also queue on the manual `flock /tmp/diucs-neo4j-tests.lock <command>`, a different file: nest the manual lock first and the harness lock second, never the other way round. A test that hangs fails after 300 s (`DIUCS_TEST_TIMEOUT`, 0 turns it off) and set-up after 900 s (`DIUCS_TEST_SETUP_TIMEOUT`). Unit, architecture and front-end tests take no lock.
 
 ## Lessons and notifications
 

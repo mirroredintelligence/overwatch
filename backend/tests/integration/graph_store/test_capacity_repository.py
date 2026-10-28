@@ -188,3 +188,87 @@ async def test_adding_the_same_report_id_twice_is_a_conflict_and_keeps_one_node(
         await _add(neo4j_driver, NUMBER_REPORT)
 
     assert await count_nodes(neo4j_driver, "Observation") == 1
+
+
+def _report(report_id: str, hour: int, report_type: ReportType) -> CapacityReport:
+    return CapacityReport(
+        id=report_id,
+        service_id="svc-ucr-west",
+        value=5,
+        measure=Measure.REFERRALS_ACCEPTABLE,
+        effective_at=datetime(2026, 10, 25, hour, 0, tzinfo=UTC),
+        source=ReportSource.TEXT,
+        report_type=report_type,
+        derived_from=None if report_type is ReportType.NUMBER else "obs-n",
+    )
+
+
+@pytest.mark.parametrize(
+    ("types", "expected"),
+    [
+        ((), 0),
+        (("number",), 0),
+        (("number", "confirmed"), 1),
+        (("number", "confirmed", "confirmed"), 2),
+        (("number", "confirmed", "confirmed", "confirmed"), 3),
+        (("number", "confirmed", "confirmed", "number"), 0),
+        (("number", "confirmed", "confirmed", "number", "confirmed"), 1),
+        (("confirmed",), 1),
+    ],
+)
+async def test_trailing_confirmations_counts_confirmed_reports_after_the_last_number(
+    neo4j_driver: AsyncDriver, types: tuple[str, ...], expected: int
+) -> None:
+    await _seed(neo4j_driver, UCR_WEST, UCR_EAST)
+    other = replace(_report("obs-other", 20, ReportType.NUMBER), service_id="svc-ucr-east")
+    await _add(neo4j_driver, other)
+    reports = [_report(f"obs-{i}", 6 + i, ReportType(t)) for i, t in enumerate(types)]
+    await _add(neo4j_driver, *reports)
+
+    count = await _read(neo4j_driver, lambda repo: repo.trailing_confirmations("svc-ucr-west"))
+
+    assert count == expected
+
+
+async def test_trailing_confirmations_follows_effective_time_not_insert_order(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed(neo4j_driver, UCR_WEST)
+    await _add(
+        neo4j_driver,
+        _report("obs-late-confirm", 10, ReportType.CONFIRMED),
+        _report("obs-early-number", 6, ReportType.NUMBER),
+    )
+
+    count = await _read(neo4j_driver, lambda repo: repo.trailing_confirmations("svc-ucr-west"))
+
+    assert count == 1
+
+
+async def test_trailing_confirmations_of_an_unknown_service_is_zero(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    assert await _read(neo4j_driver, lambda repo: repo.trailing_confirmations("nope")) == 0
+
+
+async def test_latest_confirmation_at_is_the_newest_confirmed_effective_time(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """DEC-140: the effective time of the newest confirmed report of one service. Numbers are not
+    confirmations, another service's confirmation is not this service's, and a service with no
+    confirmation has None."""
+    await _seed(neo4j_driver, UCR_WEST, UCR_EAST)
+    repo_none = await _read(neo4j_driver, lambda repo: repo.latest_confirmation_at("svc-ucr-west"))
+    assert repo_none is None
+    await _add(
+        neo4j_driver,
+        _report("obs-n1", 6, ReportType.NUMBER),
+        _report("obs-c1", 8, ReportType.CONFIRMED),
+        _report("obs-n2", 10, ReportType.NUMBER),
+    )
+    other = replace(_report("obs-other-c", 20, ReportType.CONFIRMED), service_id="svc-ucr-east")
+    await _add(neo4j_driver, other)
+
+    at = await _read(neo4j_driver, lambda repo: repo.latest_confirmation_at("svc-ucr-west"))
+
+    assert at == datetime(2026, 10, 25, 8, 0, tzinfo=UTC)

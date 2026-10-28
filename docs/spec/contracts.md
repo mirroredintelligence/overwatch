@@ -143,7 +143,7 @@ Use case files and class names are the task titles in tasks.json (ReportCapacity
 
 - Browser → `/api/bff/*` route handlers only. Route handlers call the backend through `lib/fhir/client.ts`: `fhirFetch<T>(path: string, init: { method?, body?, token?, idempotencyKey?, ifMatch? }): Promise<{ data: T; etag?: string }>`, throwing `FhirError(status, outcome)`.
 - Board types in `lib/board/types.ts`: `BoardEntry` (camelCase of the backend fields) and `Board`; `parseBoardParameters(p: Parameters): Board` (created by W05).
-- Session: `lib/auth/session.ts` exposes `getSession(): Promise<Session | null>`, `Session { role, services, sub, device? , backendToken }`; CSRF via `lib/auth/csrf.ts` `issueCsrf()`, `checkCsrf(request)` (W02).
+- Session: `lib/auth/session.ts` exposes `getSession(): Promise<Session | null>`, `Session { role, services, sub, device?, backendToken, expiresAt }` (`expiresAt` is an ISO instant); also `sealSession`, `unsealSession`, `sessionFromRequest(request)`, `createSession`, `destroySession`, `readRequestCookie`, `ROLES`, `Role`. CSRF via `lib/auth/csrf.ts` `issueCsrf()`, `checkCsrf(request)`, `clearCsrf()`, `CSRF_COOKIE`, `CSRF_HEADER`. `lib/bff/handler.ts` `withBff(handler, { roles?, csrf? })` (W02, DEC-125).
 - Every interactive element carries `data-el="<AREA>-<SCREEN>-<THING>"`, upper-case with hyphens, for example `ADV-OPT-REQUEST-BTN`, `REP-LINK-CONFIRM-BTN`, `WALL-TILE`.
 - Status display everywhere uses `components/ui/StatusBadge.tsx` (F09): `<StatusBadge status="limited" />` renders shape + word + colour.
 - Styling: CSS Modules plus tokens from `app/tokens.css`: `--c-primary #0B5C8C`, `--c-primary-dark #0B3F61`, `--c-limited #A34700`, `--c-closed #3A4750`, `--c-surge #6B2C91`, `--c-unknown #6B7B83`, `--c-ink #14232B`, `--c-ink-2 #26343B`, `--c-muted #44555D`, `--c-line #DDE3E6`, `--c-bg #F4F6F5`, `--c-tint #E3F1F8`, `--c-amber-tint #FFF1DC`; font Atkinson Hyperlegible; buttons min height 52px, chips 48px, radius 14px.
@@ -266,3 +266,11 @@ These names were added by individual task prompts. They are as binding as the re
 
 ## Email adapter (I09, DEC-110)
 - `adapters/outbound/email_smtp/smtp_email.py`: `SmtpEmail(settings)` implements `EmailSender`. `SmtpSettings` is the structural Protocol it reads (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_password`, `smtp_starttls`, `email_from`). `build_message(to, subject, text, html, from_addr, message_id) -> EmailMessage` and `text_to_html(text, link_label) -> str` are module functions. The settings are read by `bootstrap/settings.py` as `Settings` fields with the same names.
+
+## ConfirmCapacity (U02, DEC-112)
+- `application/use_cases/confirm_capacity.py`: `ConfirmCapacityCommand(idempotency_key, actor, service_id, source, performer_role_id=None)`, `ConfirmCapacityResult(report_id, status, status_changed, next_due, confirmed_value, replayed=False)`, `ConfirmCapacity(uow_factory, clock, ids, idempotency)`. Created by U02.
+- `domain/errors.py`: `ConfirmLimitReached`, `NothingToConfirm` (both `DomainError`). Created by U02.
+- `CapacityRepository.lock_service(service_id) -> None` (query `Q-CAP-LOCK-SERVICE`) and `CapacityRepository.trailing_confirmations(service_id) -> int` (query `Q-CAP-TRAILING-CONFIRMS`). Created by U02.
+- `CapacityRepository.latest_confirmation_at(service_id) -> datetime | None` (query `Q-CAP-LATEST-CONFIRMED-AT`): the effective time of the newest confirmed report, None when there is none. Created by U02 round 3 (DEC-140).
+- `domain/errors.py`: `EffectiveBeforeConfirmation(ValidationFailed)`, a number whose explicit effective time is before the latest confirmed figure. Created by U02 round 3 (DEC-140).
+- `application/use_cases/report_capacity.py`: `record_report(..., use_case=, audit_snapshot=)` gains two optional keyword arguments, and `_check_may_report` is renamed to the public `check_may_report`. Changed by U02 (DEC-112 item 1).

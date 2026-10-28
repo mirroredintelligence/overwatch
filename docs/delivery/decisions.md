@@ -1505,3 +1505,11 @@ Status: accepted (builder build-I09, for the owner to confirm) · Affects: I09 (
 8. **Dependencies.** `aiosmtplib` 5.1.3 is a runtime dependency. `aiosmtpd` 1.4.6 is a dev dependency, used only as the in-process test server. Both are pinned in `uv.lock`.
 
 Tests: `backend/tests/unit/adapters/outbound/email_smtp/test_smtp_email.py`. Evidence: `docs/delivery/evidence/I09.md`.
+
+## DEC-122 Base UI components: white has no token, Card is built, empty stepper steps to min (W03)
+Status: accepted (builder decision, owner to confirm) · Affects: W03 and every screen that uses `components/ui`.
+
+1. **White.** The prompt asks for white backgrounds and white text on primary, but `tokens.css` has no white token, and `tokens.test.ts` pins the colour set to the design-system table, so a token cannot be added inside W03. The components use the CSS system colour `Canvas` (white in this light-only app, and it follows forced-colours mode). No hex, rgb or named colour appears in any component stylesheet (`styles.test.ts`). The owner may add `--c-white` to the design system, after which `Canvas` is replaced in one pass.
+2. **Card.** The prompt's goal and rules describe a Card, but the file list omits it. `Card.tsx` and `Card.module.css` are built, with `index.ts` exporting it, so the goal is met. The heading prop is `heading` with `headingLevel` (2 to 6, default 2); the section is named by its heading.
+3. **Stepper from empty.** Decrease from `null` gives `min` (prompt). Increase from `null` also gives `min`, because no figure has been chosen and one step lands on the lowest allowed value. Clearing the input reports `null`.
+4. **Option button shape.** `OptionButton` takes `selected` and `onSelect`; its accessible name includes the hint. Button `Button` takes `onClick` and `type` as well as the prompt's props.

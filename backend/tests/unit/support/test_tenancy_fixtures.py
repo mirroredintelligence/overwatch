@@ -42,7 +42,7 @@ from tests.support.tenancy import (
     new_run_identity,
     parse_run_id,
 )
-from tests.support.uow import tenant_uow_factory
+from tests.support.uow import tenant_uow_factory, uow_factory_on
 
 pytest_plugins = ["pytester"]
 
@@ -174,6 +174,24 @@ def test_two_identities_share_no_id_unless_they_are_the_same_run(
     ],
 )
 def test_a_value_that_is_not_one_of_the_three_shapes_does_not_parse(value: str) -> None:
+    assert parse_run_id(value) is None
+
+
+@pytest.mark.parametrize("value", [None, 5, b"tt-39u-tro8w0-ab12", ["tt-39u-tro8w0-ab12"]])
+def test_a_value_that_is_not_text_does_not_parse(value: object) -> None:
+    assert parse_run_id(cast(Any, value)) is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "tt-zzzzzz-1-ab12",  # decodes to a pid above 2**22
+        "tt-1-zzzzzzzzzz-ab12",  # decodes to a start above 2**36 - 1
+        "net-zzzzzz-1-ab12",
+        "net-1-zzzzzzzzzz-ab12",
+    ],
+)
+def test_a_well_shaped_value_whose_numbers_are_out_of_range_does_not_parse(value: str) -> None:
     assert parse_run_id(value) is None
 
 
@@ -630,3 +648,13 @@ def test_an_invalid_tenant_is_refused_when_the_factory_is_built() -> None:
     for tenant in ("A1", "a:1", "", "net-pilot", ScopeId.network("net-pilot")):
         with pytest.raises(ScopeInvalid):
             tenant_uow_factory(cast(Any, FakeDriver()), tenant)
+
+
+async def test_the_plain_factory_binds_whatever_is_ambient_when_the_unit_opens() -> None:
+    fake = FakeDriver()
+    factory = uow_factory_on(cast(Any, fake))
+    with bind_tenant("a1"):
+        async with factory() as uow:
+            assert uow.unit_scope == A1
+    async with factory() as uow:
+        assert uow.unit_scope is None

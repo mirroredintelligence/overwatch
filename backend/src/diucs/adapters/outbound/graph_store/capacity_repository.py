@@ -226,3 +226,6 @@ class Neo4jCapacityRepository:
     async def last_report_times(self) -> dict[str, datetime | None]:
         rows = await run_query(self._tx, "Q-SVC-LAST-REPORT")
         return {str(row["id"]): _as_utc(row["last"]) for row in rows}
+
+    async def trailing_confirmations(self, service_id: str) -> int:
+        return -1  # RED STUB (U02)

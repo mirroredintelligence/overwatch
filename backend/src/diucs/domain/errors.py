@@ -28,3 +28,11 @@ class Conflict(DomainError):
 
 class NotAllowed(DomainError):
     """The actor may not do this."""
+
+
+class ConfirmLimitReached(DomainError):
+    """A third confirmation in a row: the figure must be given again as a number."""
+
+
+class NothingToConfirm(DomainError):
+    """The service has no report on record, so there is no figure to confirm."""

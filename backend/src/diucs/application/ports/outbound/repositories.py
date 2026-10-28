@@ -54,6 +54,11 @@ class CapacityRepository(Protocol):
         """For every active service, the effective time of its latest report, or None."""
         ...
 
+    async def trailing_confirmations(self, service_id: str) -> int:
+        """How many confirmed reports come after the last number report, newest first by
+        effective time. All of them when the service has no number report."""
+        ...
+
 
 class BookingRepository(Protocol):
     async def add(self, booking: Booking) -> None:

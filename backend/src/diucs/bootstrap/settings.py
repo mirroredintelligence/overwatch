@@ -32,3 +32,11 @@ class Settings(BaseSettings):
     twilio_account_sid: str | None = None
     twilio_auth_token: SecretStr | None = None
     twilio_from: str | None = None
+    # I09 (DEC-110): SMTP relay for role-inbox email. Unset in tests; real values come from the
+    # environment or a secret manager and are never committed.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: SecretStr | None = None
+    smtp_starttls: bool = True
+    email_from: str = "DIUCS Capacity <capacity@diucs.example>"

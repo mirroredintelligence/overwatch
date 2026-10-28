@@ -37,7 +37,7 @@ from diucs.application.ports.outbound.tokens import (
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.scheduling import schedule_work
 from diucs.application.work import WorkKind
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, DomainError, NotFound, ValidationFailed
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import RenderedMessage, render
 from diucs.domain.model.capacity import CapacityReport
@@ -455,15 +455,18 @@ class SendPrompts:
         self, uow: UnitOfWork, profile: ServiceProfile, due: datetime, now: datetime
     ) -> None:
         following = next_due(profile, due + ONE_SECOND)
-        if following is not None:
-            await schedule_work(
-                uow,
-                self._ids,
-                kind=WorkKind.PROMPT_DUE,
-                about_id=profile.id,
-                due_at=following,
-                now=now,
-            )
+        if following is None:
+            # A valid profile always has one (every window yields due times). Refuse rather than
+            # send this prompt and drop the chain (DEC-115 item 29).
+            raise DomainError("a profile with available times always has a next due instant")
+        await schedule_work(
+            uow,
+            self._ids,
+            kind=WorkKind.PROMPT_DUE,
+            about_id=profile.id,
+            due_at=following,
+            now=now,
+        )
 
     async def _audit(
         self,

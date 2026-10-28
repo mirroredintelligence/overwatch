@@ -938,6 +938,53 @@ async def test_a_profile_with_no_next_due_instant_is_refused_and_writes_nothing(
     assert await _counts(neo4j_driver) == before
 
 
+async def test_a_replay_seen_only_inside_the_unit_of_work_is_still_a_replay(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # A race: the early read outside the unit of work misses the record another writer made. The
+    # check inside the unit of work must still answer with the stored result, and write nothing
+    # (DEC-106 item 2). After the fact: the code passed this test when it was written.
+    await _seed_one_reporter(uow_factory, seed_service)
+    first_use_case, _ = _rig(uow_factory, neo4j_driver)
+    first = await first_use_case.execute(_command())
+    counts = await _counts(neo4j_driver)
+
+    class _MissesTheEarlyRead:
+        def __init__(self, inner: DriverIdempotencyStore) -> None:
+            self._inner = inner
+            self._missed = False
+
+        async def get(self, key: str) -> Any:
+            if not self._missed:
+                self._missed = True
+                return None
+            return await self._inner.get(key)
+
+        async def put(self, key: str, result: object) -> None:
+            await self._inner.put(key, result)
+
+    clock = FixedClock(DUE)
+
+    def tokens(repo: LinkTokenRepository) -> LinkTokenService:
+        return LinkTokenService(repo, FixedSecretStore({"link-token": SECRET}), clock)
+
+    racing = SendPrompts(
+        uow_factory,
+        clock,
+        SequentialIds(),
+        _MissesTheEarlyRead(DriverIdempotencyStore(neo4j_driver)),  # type: ignore[arg-type]
+        tokens,
+        LINK_BASE,
+        FixedSecretStore({"link-token": SECRET}),
+        TENANT,
+    )
+
+    replay = await racing.execute(_command())
+
+    assert replay == dataclasses.replace(first, replayed=True)
+    assert await _counts(neo4j_driver) == counts
+
+
 async def test_an_unknown_service_is_refused(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

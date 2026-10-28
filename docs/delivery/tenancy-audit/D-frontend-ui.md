@@ -34,7 +34,7 @@ Wording note: "scope" below means exactly one of two things a viewer can look at
 | UI tasks in plan | 65 (56 W + O02, O03, O05, O09, S01, X02, X03, F03, F09), 226 planned hours; delivered: F03 (4 h), F09 (3), X02 (3), X03 (2), W01 (4), W03 (4); W02 (3 h) built but unmerged | `tasks.json`, ledger |
 | `tenant` in `frontend/` | 0 matches | `grep -rni tenant frontend` |
 
-New under DEC-132 (none of these exist in the spec, the canvas, `tasks.json` or any prompt): 6 new screens or screen groups (network administration, grant approval, sharing transparency, network capacity view, which-board control with wall screen list, network unavailable states) and a network variant of 14 existing screens (section 2e).
+New under DEC-132 (none of these exist in the spec, the canvas, `tasks.json` or any prompt): 5 new screen groups, N1 to N5 (network administration, grant approval with sharing transparency, network capacity view, wall screen list with the which-board control, network unavailable states) and a network variant of 14 existing screens (section 2e).
 
 ### Overall difficulty
 

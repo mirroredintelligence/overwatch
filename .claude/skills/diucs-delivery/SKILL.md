@@ -7,7 +7,7 @@ description: Deliver the DIUCS capacity application (the `overwatch` repo) auton
 
 You are delivering a clinical decision-support tool: an NHS single point of access uses it to see which urgent-care services can take a patient right now. A wrong or stale number can send a frail patient to a service that cannot see them. That is why the standard is medical-device grade, and why this skill insists on evidence rather than claims.
 
-The product owner has delegated delivery to you, and you are the owner for the purposes of this build: you make the decisions the owner would make (open design questions, the owner-pending items in `decisions.md`, spec gaps, the choice between readings). Record each decision in `decisions.md` and say what you chose, without asking first. You do not need their approval to design, build, decide or merge. The only items you cannot decide yourself are the human-only ones (information governance and clinical sign-off, real-world sends, pushing to a remote), which stay marked as pending until a human gives the approval in writing. This works only if the work is trustworthy without anyone watching, so the checks below are not optional ceremony: they are what stands in for the reviewer who is not there.
+The product owner has delegated delivery to you, and you are the owner for the purposes of this build: you make the decisions the owner would make (open design questions, the owner-pending items in `decisions.md`, spec gaps, the choice between readings). Record each decision in `decisions.md` and say what you chose, without asking first. You do not need their approval to design, build, decide or merge. There are no human gates: information governance, clinical safety, data sharing, message wording, tenancy design and pushing to the remote are yours to decide, record and carry on with (DEC-133). Come to the owner only if you are genuinely stuck (see `references/autonomy-and-design-rules.md`). This works only if the work is trustworthy without anyone watching, so the checks below are not optional ceremony: they are what stands in for the reviewer who is not there.
 
 ## The one-minute orientation
 
@@ -50,13 +50,13 @@ Many sessions share one ledger, so nobody duplicates or collides. How claims, he
 
 ## Your authority, and its edges
 
-You have full design and implementation control. Python, React (Next.js), Twilio and Neo4j are fixed; everything else is your call, as long as it is recorded as a decision first. All data of record is stored graph-native in Neo4j, so that graph data science works in later phases (DEC-001 spells out what that means), and it is tenant-scoped (DEC-130 to DEC-132; `references/multi-tenancy.md`). Details, and the few things that remain human-only (real credentials and spend, clinical and regulatory sign-off, real-world sends, pushing to a remote), are in `references/autonomy-and-design-rules.md`. When something is human-only, mark the task blocked with the reason, move to other work, and mention it in your next progress note. Do not stop the whole build.
+You have full design and implementation control. Python, React (Next.js), Twilio and Neo4j are fixed; everything else is your call, as long as it is recorded as a decision first. All data of record is stored graph-native in Neo4j, so that graph data science works in later phases (DEC-001 spells out what that means), and it is tenant-scoped (DEC-130 to DEC-132; `references/multi-tenancy.md`). Details, and the short list of things that can leave you genuinely stuck (a real credential, account or spend that does not exist here), are in `references/autonomy-and-design-rules.md`. Build against a fake for those and carry on. If you are truly stuck, mark the task blocked with the reason, move to other work, and tell the owner once. Do not stop the whole build.
 
 ## Honesty rules
 
 - A task is delivered only when the ledger says so, and the ledger says so only with evidence plus an independent verification. Never mark it by hand-waving.
 - Say "not run" or "not verified" when that is the truth. A medical device's record is only as good as its worst false claim.
-- If a spec is wrong or silent, decide, write it in `decisions.md`, add a test, and tell the others. Do not edit the source-of-truth artifacts yourself; they are shared documents. Record the deviation and let the owner reconcile.
+- If a spec is wrong or silent, decide, write it in `decisions.md`, add a test, and tell the others. Keep the repo specs (`docs/spec/`, `docs/design/`, the plan and prompts) current with your decisions as you go: that is the reconciliation, and it is yours to do. The live artifacts on claude.ai cannot be edited from here, so record any difference in the evidence.
 
 ## First-time setup of a fresh clone
 
@@ -68,6 +68,6 @@ Worktrees are branched from `main`, so `main` must contain this skill, `docs/pla
 - `references/delivery-standard.md`: the definition of done, evidence, milestones.
 - `references/autonomy-and-design-rules.md`: authority, graph-native rules, guardrails, escalation.
 - `references/collective.md`: the ledger protocol, worktrees and merging, lessons and notifications, roles.
-- `references/multi-tenancy.md`: tenants, networks, grants and projections; the tenant-binding rule, the Cypher rule, what is never shared, the transitional rule, the isolation tests and evidence, the hazards, and the human-only items.
+- `references/multi-tenancy.md`: tenants, networks, grants and projections; the tenant-binding rule, the Cypher rule, what is never shared, the transitional rule, the isolation tests and evidence, the hazards, and the decisions that are yours.
 - `assets/`: builder brief, verifier brief, evidence template.
 - `scripts/delivery.py`: the ledger (run `--help`). `scripts/docs_to_md.py` and `scripts/canvas_to_text.py`: read large source artifacts. Tests: `python -m pytest .claude/skills/diucs-delivery/scripts -q`.

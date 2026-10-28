@@ -57,7 +57,7 @@ Why it is not trivial:
 4. Worker and system actors have no tenant source (risk 4).
 5. The collaboration model (grants plus projections, or a network above organisations) changes what `QueryBoard`, `BoardProjector`, booking and filtering mean. It should be chosen before those are reworked (section 3, collaboration column).
 
-Estimated effort for this layer: about 80 hours across 16 tasks (section 11), plus amendments to about 45 planned task prompts, plus the collaboration seam which cannot be sized until the model is chosen.
+Estimated effort for this layer: about 153 hours across 26 tasks (80 hours for TEN-A01 to TEN-A15 for tenant isolation, 73 hours for TEN-A17 to TEN-A27 for the DEC-132 network, grants and projections, section 12.8), plus amendments to about 45 planned task prompts. DEC-132 roughly doubles the work, mostly because it adds a second scope kind and the projection path.
 
 ---
 
@@ -505,6 +505,165 @@ Add to every use-case prompt a common clause: the use case never accepts a tenan
 | O07, O08 | Aggregates per tenant, no cross-tenant join. |
 | P17, P18, P19, P20 | New repositories written tenant-bound from the start (`$tenant` in every statement); `P19` push subscriptions are tenant-bound (DEC-131 item 5). |
 | I03, I05, I10 (adapters, listed because they implement this layer's contracts) | I03 iterates tenants and writes the tenant property; I05 binds from the property; I10 resolves the sender from the bound tenant's configuration. |
+
+---
+
+## 12. NETWORK, GRANTS AND PROJECTIONS (DEC-132)
+
+DEC-132 summary as used here: a tenant is one legal entity. One `Network`, owned by a lead tenant, groups member tenants. Data is shared only through `Grant` records (scopes `capacity`, `directory`, `criteria`; purpose "network capacity view") and read-only projections that a worker copies from a member's scope into the network scope. A unit of work binds exactly one scope. No query joins two scopes. No patient-level data crosses. Members' staff see the network view and their own tenant's. Reporters see their own tenant only. History stays when a member leaves.
+
+### 12.1 What changes in the kernel (TEN-A01 grows, TEN-A17)
+
+- A **scope** is a tenant or a network. `TenantId` in section 2 becomes `ScopeId` with a kind. Network scope ids are generated with a reserved prefix (`net-`) and tenant ids may not use it, so the string stored in `tenantId` (DEC-132 item 4 "treated like a tenant by DEC-130") and used in `diucs:<scope>:` keys can never be mistaken for a tenant.
+- API: `bind_scope(scope)`, `current_scope()`, and `current_tenant()`, which **raises if the bound scope is a network**. Tenant use cases call `current_tenant()` and so cannot run inside a network binding by accident. Network use cases call `current_network()`, which raises in a tenant binding.
+- Two unit-of-work Protocols in `ports/outbound/unit_of_work.py`: the existing `UnitOfWork` (tenant) and a new `NetworkUnitOfWork` with only network-scope stores (`networks`, `memberships`, `grant_register`, `projections` (writer), `network_view` (reader), `audit`, `outbox`, `idempotency`, `processed`). Two factories. Each refuses to enter in the wrong kind of scope. This is a type-level and runtime guard on "binds exactly one scope": a tenant repository cannot be reached from a network use case and the reverse.
+- `require_actor_in_bound_tenant(actor)` (section 2) applies to tenant scopes. For a network scope the check is `require_member(actor, network)` (12.3), because the actor's tenant is a member, not the scope.
+- Audit: one chain per scope, so the network scope has its own chain with its own genesis. An action that spans scopes (grant approval) writes an audit entry in each scope's chain, in each unit of work.
+
+### 12.2 New use cases
+
+Scope column: the scope the unit of work binds. Where two scopes are involved there are **two units of work in sequence** linked by an outbox message and a bus message (never nested, never one transaction). "Handler" means a consumer reacting to an event.
+
+| Use case | Scope | Who may call | What it does | Ports (beyond clock, ids, idempotency, audit, outbox) | Events |
+|---|---|---|---|---|---|
+| **CreateNetwork** | network (new) | Platform provisioning only (not a request role; DEC-130 item 8 privilege is held by no role, so this is a bootstrap command run by the operator, audited) | Creates the `Network` (id, name, owner tenant, status), its audit head and its first membership for the owner tenant | `NetworkRepository`, `MembershipRepository`, `TenantDirectory` (owner exists) | `NetworkCreated`, `MemberAdded` |
+| **AddNetworkMember** | network | Network administrator of the owner tenant | Adds a membership (`active`, joined date) for a tenant that exists and is not already a member. Records the data sharing agreement reference and version that applies | `MembershipRepository`, `TenantDirectory` | `MemberAdded` |
+| **RemoveNetworkMember** / **LeaveNetwork** | network, then tenant (handler) | Network administrator (remove) or the member's tenant administrator (leave) | Ends the membership (`left` date). Handler in each affected tenant scope lapses that tenant's grants. Projections already written stay and are marked with the leave date (DEC-132 item 6). No new data is projected | `MembershipRepository`, `GrantRepository` (tenant side), `ProjectionWriter.mark_source_left` | `MemberRemoved(reason: left or removed)`, `GrantEnded(reason: lapsed)` per grant |
+| **RecordAgreement** | network | Network administrator | Stores the agreement reference and version only, never its content | `NetworkRepository` | `AgreementRecorded` |
+| **ProposeGrant** | tenant (grantor) | Grantor's tenant administrator | Creates a `Grant` (scope, purpose, effective from and to, version 1) approved by the grantor | `GrantRepository` (tenant) | `GrantProposed`, `GrantApproved(by: grantor)` |
+| **ApproveGrant** | network | Network administrator | Second approval. Checks membership and that the proposal exists in the network register (mirrored by a handler of `GrantProposed`). When both approvals exist the grant is effective from its start time | `NetworkGrantRegister`, `MembershipRepository` | `GrantApproved(by: owner)`, `GrantEffective` |
+| **ActivateGrant** (handler) | tenant (grantor) | system | On `GrantEffective` sets the tenant-side grant `effective`, starts the initial full projection (backfill) | `GrantRepository` | `GrantEffective` (tenant copy) |
+| **EndGrant** | tenant (grantor), then network (handler) | Grantor's tenant administrator (at any time, DEC-132 item 3) | Marks the grant ended in the grantor's scope. The producer stops projecting at once because it checks the tenant-side grant. The handler marks the network-side register ended, so the view stops including new data and marks the source's projections "grant ended on <date>". Existing projections stay | `GrantRepository`, `NetworkGrantRegister` | `GrantEnded(reason: ended)` |
+| **ProjectCapacity**, **ProjectDirectory**, **ProjectCriteria** (producers) | tenant (source) | system (handlers of tenant events, 12.6) | Read inside the member's tenant scope. Build the **allowlisted** projection with pure functions (12.5), check that the tenant-side grant for that scope is effective, write one outbox message per projection with `tenant_id` = source tenant and `network_id` | `GrantRepository`, `ServiceRepository`, `CapacityRepository`, `FlagRepository`, `BookingRepository.confirmed_since` (count only), `CriteriaRepository`, `Outbox` | `ProjectionRequested` (bus message, not a domain event) |
+| **ApplyProjection** (consumer) | network | system | Binds the network from the property. Verifies the source tenant has an **active membership** and an **effective grant** of that scope in the network register at the message time. Upserts the projection node with `sourceTenantId`. Last write wins by the source's `at`; older messages are ignored. A message for an ended grant or a departed member is acknowledged, audited as rejected, not retried | `NetworkGrantRegister`, `MembershipRepository`, `ProjectionWriter` | `ProjectionApplied`, `ProjectionRejected` |
+| **ReprojectAll** (reconcile, scheduled) | tenant (source), per tenant | system | Periodic full resend of current projections, to heal a lost message and to recompute time-dependent values (12.6) | as producers | `ProjectionRequested` |
+| **QueryNetworkBoard** | network | Staff of a member tenant whose role may see the board (12.3) | Read-only. Checks membership, then returns a `NetworkBoard`: entries from projections of sources whose capacity grant is effective, each with the source organisation name, plus a pressure figure over those entries. A departed member's last projections are shown only in a history query, marked with the leave date, never on the live board | `NetworkView`, `MembershipRepository` | none (read only; no commit) |
+| **QueryNetworkDirectory**, **QueryNetworkCriteria** | network | Same | Read-only lists of projected services and their current criteria version. Used by FilterOptions (U12) | `NetworkView` | none |
+| **NetworkBoardProjector** (`handle`, `get_board`) | network | system / same staff | Variant of `BoardProjector`: rebuilds and caches the network board on `ProjectionApplied`, `GrantEffective`, `GrantEnded`, `MemberAdded`, `MemberRemoved`; publishes on the network channel | `QueryNetworkBoard`, `Cache`, `Clock` | none |
+| **AdministerNetwork** (queries and commands: ListMembers, ListGrants, ShowAgreement, ProjectionStatus) | network | Network administrator | Members, grants and their states, the agreement reference and version, and projection health per member (last applied time, lag, rejected count) | `MembershipRepository`, `NetworkGrantRegister`, `ProjectionWriter` (read counters) | none |
+| **ListMyGrants** | tenant | Tenant administrator | Own grants and their network approval state | `GrantRepository` | none |
+
+### 12.3 How the actor carries tenant and network memberships
+
+- **Home tenant stays the only authority for tenant scopes.** `Actor.tenant_id` is the verified home tenant (section 2). Nothing about networks changes tenant-scope checks.
+- **Memberships are a claim that routes, and a check that authorises.** Add `Actor.network_ids: frozenset[NetworkId]`, filled from a signed claim minted by the BFF at sign-in from the membership records (so the UI and the SSE route know a network view exists). The claim is **never** the authority. Every network use case starts with `require_member(actor, network_id)` inside the network unit of work: read the membership of `actor.tenant_id` in that network scope, require `active` and a role in `NETWORK_VIEW_ROLES`. That closes the staleness window of the token (a member who left, or whose role changed, is refused at once, not at token expiry).
+- **Non-members get the same answer as a nonexistent network** (`NotFound`, identical class, message and query count), so network ids and membership are not discoverable. This is the network version of the section 2 rule.
+- **Binding.** The edge binds the tenant scope for tenant requests. A request for the network view binds the network scope from the claim's `network_ids` after the route picks `view=network` (the request selects the *kind* of view, never an id the caller invents). If `network_ids` has no entry, no network scope is bound and the request is `NotFound`.
+- **Roles.** `NETWORK_VIEW_ROLES` = the roles that may see the board in the tenant (advisor, clinical, lead, exec, plus owner if the owner confirms what `Role.OWNER` is), not reporter, anonymous-link, support or audit. A wall screen shows the network view only when its tenant administrator has set `shows = network` and the screen's token carries the network claim. Network administration needs two things the role set does not have today: a **network administrator** (staff of the owner tenant, valid only in the network scope) and a **tenant administrator** (approves grants and leaves the network). `Role` is a global enum (`codes.py`, code system `role`, 10 members) used in `auth.py` role sets and stored on tokens, so adding members is a shared change. Owner question 12.9(1). An alternative that adds no Role members: a `NetworkAdminAssignment` record in the network scope for the former and a flag on the tenant `lead` for the latter. Recommended: new roles, because assignments invisible to the token are easy to lose in audit.
+- **Audit shows both.** The entry in the network chain records `actor.tenant_id` (who acted for which organisation) and the network scope it was written in. Cross-scope actions write one entry in each chain.
+- **Support** (DEC-132 item 8) remains no role. A network administrator has no read access to members' private data by being the owner (item 2): there is no tenant-scope path from a network use case.
+
+### 12.4 Ports
+
+| Port (new) | Scope | Methods (sketch) |
+|---|---|---|
+| `NetworkRepository` | network | `create`, `get`, `set_status`, `record_agreement(reference, version)`, `agreement()` |
+| `MembershipRepository` | network | `add`, `end(tenant_id, left_on)`, `get_for_tenant(tenant_id)`, `list_active()`, `list_all()` |
+| `GrantRepository` | tenant | `add`, `get`, `save` (version bump), `effective_for(scope, now)` (the producer's gate), `list` |
+| `NetworkGrantRegister` | network | `mirror(grant)`, `approve_by_owner(grant_id)`, `effective_for(source_tenant, scope, now)`, `end(grant_id, at, reason)` |
+| `ProjectionWriter` | network | `upsert_capacity(source_tenant, CapacityProjection)`, `upsert_directory(...)`, `upsert_criteria(...)`, `mark_source_left(tenant_id, left_on)`, `counters()` |
+| `NetworkView` (read only) | network | `live_capacity(now)`, `services()`, `current_criteria(service_refs)`, `history_for_source(tenant_id)` |
+| `NetworkUnitOfWork` and factory | network | as 12.1 |
+| `TenantDirectory` (extended) | explicit global | `networks_of(tenant_id)` (a denormalised index for routing only, the authority stays the network scope), `network(network_id)` |
+
+`ProjectionWriter` and `NetworkView` are separate Protocols on purpose: member-facing use cases import only `NetworkView`, so "members read through a read-only use case" is a compile-time fact an architecture test can assert. `ProjectionWriter` may be imported only by `ApplyProjection` and `ReprojectAll` consumers. Neo4j-backed, so no in-memory fakes (contracts.md, "Testing and persistence"). The contract suite gains: the cache wrapper with scope kinds (a network key is never readable from a tenant binding), the bus properties `tenant_id` and `network_id`, and per-port two-scope integration tests.
+
+New pure domain code: `domain/model/network.py` (`Network`, `Membership`, `Grant`), enums in `domain/codes.py` (`GrantScope`: capacity, directory, criteria; `GrantPurpose`: network-capacity-view; `GrantStatus`: proposed, grantor-approved, owner-approved, effective, ended, lapsed; `MembershipStatus`; `NetworkStatus`; `ProjectionSource`: manual, directory-of-services), `domain/rules/grant.py` (transition table in the style of `registration.py`, `is_effective(grant, now)`, both-approvals rule, version bump on any change, scope and purpose allowlist, fail closed on anything not exactly a `GrantStatus`), `domain/rules/projection.py` (allowlists, builders, 12.5), `domain/rules/network_board.py` (assembly and network pressure).
+
+### 12.5 Which existing use cases gain a network variant, and which stay tenant-only
+
+| Existing | Verdict | Reason |
+|---|---|---|
+| **QueryBoard** (`query_board.py:64`) | Stays tenant-only. A **separate class** `QueryNetworkBoard`, not a flag | `BoardEntry` (`query_board.py:39-54`) carries booking-derived and free-text fields that are not shareable (below). A flag would make a leak one parameter away. |
+| **BoardProjector** (`board_projector.py:123`) | Stays tenant-only. New `NetworkBoardProjector` | Different scope, key, channel and triggers (12.7). |
+| **FilterOptions (U12)** | Gains a network variant | Reads projected criteria and capacity. Two sequential units of work (12.2 note in section 11). |
+| **Week summary (U35), planning (U43)** | Tenant-only | Built from cases, bookings and communications: never shared. |
+| **ReportCapacity, ConfirmCapacity, SendPrompts, HandleInboundText, ladder, flags, link and pairing, registration, criteria, scope list, alerts, clinical advice, audit replay** | Tenant-only | Own data and own reporters. |
+| **RequestBooking and the booking use cases (U17-U22)** | Tenant-only | Bookings and cases never cross (DEC-132 item 4). **Consequence:** an advisor cannot request a booking at another member's service through the platform. The network view tells them who has capacity; they phone. Confirm with the owner. |
+| **Alerts (U33, U34)** | Tenant-only | A network-wide pressure banner on the view is a display; alerts and escalation need a decision (12.9). |
+| **ADVISOR_PHONED reports** | Tenant-only | The `check_may_report` rule (`report_capacity.py:88`) stays inside the home tenant. |
+
+Allowlist applied to today's `BoardEntry` (this is what `domain/rules/projection.py` and the D17 test must enforce):
+
+| `BoardEntry` field (`query_board.py:39-54`) | In the network board? | Why |
+|---|---|---|
+| `service_id` | yes, as a source-qualified reference `(sourceTenantId, service_id)` | identifies the service |
+| `name`, `category`, `unit_label` | yes | service directory data |
+| `status`, `effective_available`, `over_by`, `used`, `established` | yes | capacity status and figures |
+| `reported_at` | yes | "as-of time" |
+| `was_due_at` | only as the boolean "not updated" plus the as-of time | "not-updated flag" |
+| `pending` (open bookings count) | **no** | derived from bookings |
+| `comment` | **no** | free text |
+| `next_due_at` | **no** | operational, not in the allowlist |
+| new: organisation display name, `source` (manual or Directory of Services), grant-ended and member-left dates | yes (network-level) | provenance and history |
+| directory: location, district coverage, opening hours, service-level contact | yes (directory projection) | allowed fields |
+| criteria: current version only | yes (criteria projection) | allowed fields |
+| reporters' names, phones, devices, PINs, link tokens, communications, bookings, cases, audit entries | **never** | DEC-132 item 4 |
+
+The projection types are dataclasses with exactly the allowed fields. A test fails if any field name is outside the allowlist or is in `FORBIDDEN_FIELDS` (`privacy_guard.py`), and a second test inspects every projection payload sample.
+
+### 12.6 Events and projection mechanics
+
+**Staleness is the key design problem.** `QueryBoard` recomputes `compute_status(..., now)` at every read, so "not updated" and "out of hours" appear as time passes with no event (`freshness.py`, `opening_hours.py`). A stored status in the network scope would go stale: a service that stopped reporting would stay "accepting" on the network board indefinitely. That is a patient-safety defect in a tool whose board is the product. Two ways, recommended **both in a limited form**:
+1. **Project the inputs, not only the output.** The capacity projection carries what `compute_status` needs: the allowlisted profile subset (measure, established capacity, can-exceed flag, limited-level percent, cadence, opening hours), the latest report (value, type, effective time), the count of bookings confirmed since it (an integer, not bookings), the suspended flag, and the **source tenant's reply window and stale-warning values** (the pure rules take a policy, section 6). `QueryNetworkBoard` calls the same pure `compute_status` with `now` and the source policy, so freshness and hours are recomputed at read time exactly as on the tenant board. Needs a small pure helper that accepts the confirmed count (the current function takes instants, `availability.py`).
+2. **Reconcile** with `ReprojectAll` (12.2) at an interval, to heal a lost message.
+A stored status alone is not acceptable. Policy changes in the source tenant reach the network on the next projection.
+
+**Triggers (tenant scope).** The projection producers consume the same seven events as the tenant board (`REBUILD_EVENTS`, `board_projector.py:35-43`: `StatusChanged`, `CapacityReported`, `BookingRequested`, `BookingResponded`, `BookingExpired`, `CriteriaApproved`, `PhoneTaskRaised`) for capacity, `CriteriaApproved` for criteria, `RegistrationApproved` and a new `ServiceDirectoryChanged` for directory. A booking event triggers a capacity reprojection only to refresh the confirmed count; the bookings themselves are never projected.
+
+**Domain events to add (D25, `domain/events.py`)**, with the existing conventions (frozen, UTC `at`, `to_payload`/`decode`, registered in `_TOPIC_BY_CLASS` and `_DECODER_BY_NAME`): `NetworkCreated(network_id, owner_tenant_id)`, `MemberAdded(network_id, tenant_id)`, `MemberRemoved(network_id, tenant_id, reason)`, `AgreementRecorded(network_id, reference, version)`, `GrantProposed(grant_id, scope, version)`, `GrantApproved(grant_id, by)`, `GrantEffective(grant_id, scope)`, `GrantEnded(grant_id, reason)`, `ProjectionApplied(source_tenant_id, kind, ref)`, `ProjectionRejected(source_tenant_id, kind, reason)`, `ServiceDirectoryChanged(service_id, source)`. Network-scope events go on a new topic `network.events` (add to `TOPICS`, `event_bus.py:16`, plus the infrastructure topic and subscriptions). Tenant-side grant events reuse `registration.events` or take `grant.events`: infrastructure choice, flag to the adapters audit.
+
+**Projection transport message.** `ProjectionRequested` is a bus message on `network.projections` (queue or topic), not a decoded `DomainEvent`. Its payload is the allowlisted projection, the one place a payload carries service names, figures and contact details rather than ids and counts. D25's rule "identifiers, counts and codes, never patient values" therefore needs a documented exception, bounded by the allowlist test. Properties: `tenant_id` (the source scope, set from the binding by the relay), `network_id` (set by the producer from the tenant-side grant), `event_type`. The consumer takes the source from the property, never the payload. Session id `<network_id>:<source tenant>:<service id>` keeps per-service ordering. Upserts are idempotent with last-write-wins on the source's `at`; `Processed` markers are composite `(scope, consumer, message id)`.
+
+**Membership and grant events** are produced in whichever scope handled the command, and the second scope is reached by a handler on the bus (saga), never by one transaction. A failed second step is retried (at-least-once, idempotent). The grant is `effective` in a scope only when that scope has recorded both approvals; the producer's gate is the **tenant-side** record (a grantor ending a grant stops projection immediately, item 3) and the consumer's gate is the **network-side** register (a grant the owner has not approved produces no view).
+
+### 12.7 Cache keys and channels for the network view
+
+With the scope-aware cache wrapper (section 4) the scope prefix is added at call time, so the logical names below are all callers write:
+
+| Item | Tenant board (unchanged) | Network view |
+|---|---|---|
+| Board key | `diucs:<tenant>:cache:board:v1:all` | `diucs:net-<network>:cache:board:v1:all` (one key serves every member viewer because every member sees the same network board). A role, service or flag filter uses its own `board:v1:role:<role>` or `board:v1:svc:<hash>` (lesson L130). |
+| Directory and criteria lists | none cached today | `diucs:net-<network>:cache:directory:v1`, `:criteria:v1` if cached |
+| Pub/sub | `diucs:<tenant>:chan:board.updates` | `diucs:net-<network>:chan:board.updates` |
+| TTL | 60 s backstop (`BOARD_CACHE_TTL`, `board_projector.py:33`) | 60 s backstop. **Event-driven invalidation is mandatory** on `GrantEffective`, `GrantEnded`, `MemberAdded`, `MemberRemoved`: delete the key and rebuild, so a revoked or departed source disappears from the view at once, not after up to a minute. |
+| SSE message | `{"type","service_id","at"}` | same shape, on the network channel. No tenant ids, no figures. |
+| Subscribers | the actor's tenant | a viewer may hold two subscriptions. The `/events` route chooses the channel by `view` and by the verified claim, and re-checks membership at subscribe time. A member who leaves while a stream is open keeps receiving service ids and times until they reconnect. Residual, low (no figures). Mitigation: the keep-alive tick re-checks membership and closes the stream. Adapter work. |
+| Locks, counters | `diucs:<tenant>:lock:...` | `diucs:net-<network>:lock:projection:<source>:<service>` if a single-flight rebuild is needed |
+| Platform-level | `diucs:_global:` (relay leader lock, pre-auth limiters) | same |
+
+The network cache never contains tenant-scope data and the tenant cache never contains network data. A tenant binding cannot read a network key, and a network binding cannot read a tenant key, because the wrapper derives the prefix from the single bound scope.
+
+### 12.8 Added tasks
+
+| Id | Title | Files | Hours | Depends on |
+|---|---|---|---|---|
+| TEN-A17 | Scope kinds in the kernel: `ScopeId` (reserved `net-` prefix), `bind_scope`, `current_scope`, `current_tenant` refusing a network binding, `current_network`, `NetworkUnitOfWork` Protocol and factory, scope-aware cache prefix contract | `application/tenancy.py`, `ports/outbound/unit_of_work.py`, tests | 4 | TEN-A01 |
+| TEN-A18 | Network domain model and grant rules: `Network`, `Membership`, `Grant`, new enums, `rules/grant.py` (transitions, effective window, two approvals, versioning, fail closed), tests with mutation checks | `domain/model/network.py`, `domain/codes.py`, `domain/rules/grant.py`, tests | 7 | TEN-A03 |
+| TEN-A19 | Projection domain: allowlists, `CapacityProjection`, `DirectoryProjection`, `CriteriaProjection`, builders from profile, report and state, confirmed-count helper for `compute_status`, source-policy carry, `network_board` assembly and network pressure, D17-style allowlist and payload tests | `domain/rules/projection.py`, `domain/rules/network_board.py`, `domain/rules/availability.py`, `status.py`, `messages/privacy_guard.py`, tests | 8 | TEN-A18, TEN-A04a |
+| TEN-A20 | Network ports: `NetworkRepository`, `MembershipRepository`, `GrantRepository`, `NetworkGrantRegister`, `ProjectionWriter`, `NetworkView`, `TenantDirectory.networks_of`, architecture test that `ProjectionWriter` is imported only by projection consumers and member use cases import only `NetworkView` | `ports/outbound/network.py`, `tenant_directory.py`, `tests/architecture` | 5 | TEN-A17 |
+| TEN-A21 | Actor and access: `Actor.network_ids`, `NetworkAccess`, `require_member`, `NETWORK_VIEW_ROLES`, new roles (owner decision), claim encode and decode in `bff_token.py`, wall display setting contract | `application/actor.py`, `domain/rules/bff_token.py`, `domain/codes.py`, `application/network_access.py` | 5 | TEN-A02, TEN-A20 |
+| TEN-A22 | Membership use cases: CreateNetwork (provisioning), AddNetworkMember, RemoveNetworkMember, LeaveNetwork, RecordAgreement, AdministerNetwork queries | `use_cases/network_admin.py`, `use_cases/membership.py`, tests | 8 | TEN-A18, TEN-A20, TEN-A21 |
+| TEN-A23 | Grant use cases and saga: ProposeGrant, ApproveGrant, ActivateGrant, EndGrant, lapse on leave, ListMyGrants; idempotent handlers across the two scopes | `use_cases/grants.py`, tests | 8 | TEN-A22 |
+| TEN-A24 | Projection producers and consumer: ProjectCapacity, ProjectDirectory, ProjectCriteria, ApplyProjection (membership and grant gate, last write wins, rejected audit), ReprojectAll, backfill on activation, session ordering | `use_cases/project_*.py`, `use_cases/apply_projection.py`, tests | 10 | TEN-A19, TEN-A20, TEN-A23, TEN-A05 |
+| TEN-A25 | Network read side: QueryNetworkBoard, QueryNetworkDirectory, QueryNetworkCriteria, NetworkBoardProjector, cache keys and channel, event-driven invalidation, history query for departed members | `use_cases/query_network_*.py`, `use_cases/network_board_projector.py`, tests | 8 | TEN-A24, TEN-A09 |
+| TEN-A26 | Events: add the eleven event classes and `network.events` topic, `ServiceDirectoryChanged`, the documented exception to D25 for the projection payload, decode and payload tests | `domain/events.py`, `ports/outbound/event_bus.py`, tests | 4 | TEN-A05 |
+| TEN-A27 | Network isolation tests: generated allowlist test over every projection type, no-cross-scope test (a unit of work binds one scope), non-member equals unknown network (class, message, query count), grant ended stops projection at once, member left keeps history marked, stale membership claim refused, stale-status test (service stops reporting, network board turns not-updated without any event) | `tests/integration/application/test_network_isolation.py` | 6 | TEN-A25 |
+
+Added hours: 4+7+8+5+5+8+8+10+8+4+6 = **73**. Order after the base tasks: A17, A18, A26, A19, A20, A21, A22, A23, A24, A25, A27.
+
+Adapter-side work these imply (other audits): network-scope Cypher and constraints (composite on `(scopeId, ...)` plus `sourceTenantId`), cache wrapper scope kinds, SSE route `view` selector and membership re-check, Service Bus topic and properties, the projection queue, wall screen setting, BFF sign-in minting the `network_ids` claim, and a data sharing agreement reference field (human-only content).
+
+### 12.9 Questions the owner should answer (from DEC-132)
+
+1. Roles: new `Role` members for tenant administrator and network administrator, or assignments? What is `Role.OWNER` (the current enum has `owner`, and it is not tied to the new "network owner")? Which roles see the network view?
+2. Confirm that cross-organisation booking is out: the network view is read-only and an advisor phones a member's service (U17 to U22 are tenant-only).
+3. Network pressure: computed over projected services, with whose thresholds (a `NetworkPolicy` set by the owner)? Does a network-wide pressure raise alerts, or is it a display only?
+4. Week summary for an ICB user covering several members needs a new grant scope and its own decision (DEC-132 item 7). Is it expected?
+5. Directory data: manual entry now. Is the organisation display name and the service-level contact public to every member?
+6. Is the projection payload exception to D25 acceptable, and who signs off the allowlist (human-only, DEC-132 item 9)?
+7. When a member leaves, is its history visible on the live network view for a period, or only in a history query as designed here?
+8. Who creates the Network in the first place (operator provisioning), given DEC-130 item 8 grants no role cross-tenant power?
 
 ---
 

@@ -73,4 +73,4 @@ Each gate is a real run on `main` with Docker up, written up in `docs/delivery/e
 
 ## What this standard is not
 
-It is engineering rigour. It is not regulatory approval. Whether this is a medical device in law, the clinical safety case (DCB0129 and DCB0160), the DPIA, DTAC and penetration testing are decisions for the owner, the clinical safety officer and information governance. Prepare the material they need (hazard log, traceability, evidence, decisions), never write that any of them is complete, and list them as human-required in progress notes.
+It is engineering rigour. It is not regulatory approval. Whether this is a medical device in law, the clinical safety case (DCB0129 and DCB0160), the DPIA, DTAC and penetration testing are external certifications that this repository cannot grant. Prepare the material (hazard log, traceability, evidence, decisions) and make the engineering and design decisions yourself (DEC-133); never write that an external certification exists when it does not, and describe the status truthfully ("prepared, not externally certified"). None of it blocks a task.

@@ -7,7 +7,7 @@ Repository `/home/user/overwatch`, `main` at 2cf069e (DEC-130, DEC-131 and DEC-1
 - **Impact**: NONE (no change), LOW (one or two statements, a config value or a test), MEDIUM (a repository, key scheme or use case changes), HIGH (the seam itself, an audit/outbox/session key scheme, or an unauthenticated entry point).
 - **Action**: REWORK-DELIVERED (code already delivered must change), AMEND-PROMPT (the task is not delivered, so its prompt gets the amendment paragraphs in section 2 plus the task-specific change shown), NO-CHANGE.
 - **Depends on**: SEAM (tenant binding, run_query injection, registration check, two-tenant test, harness), SCHEMA (composite constraints, backfill), AUTH (token, session and link-record claims), CONFIG (per-tenant configuration and secret references, DEC-131), LIFECYCLE (tenant creation and admin), NETWORK (DEC-132 network scope, grants, projections).
-- **Extra hours**: for REWORK-DELIVERED, hours to change the delivered code and its tests once the seam exists. For AMEND-PROMPT, hours added to the task's original estimate. These are my estimates (about 0.25 h per statement plus fixture and test work), not measurements. The seam, schema, config, lifecycle and network work that is not one of the 215 tasks is listed as new rows in section 5 and counted separately.
+- **Extra hours**: for REWORK-DELIVERED, hours to change the delivered code and its tests once the seam exists. For AMEND-PROMPT, hours added to the task's original estimate. These are my estimates (about 0.25 h per statement plus fixture and test work), not measurements. The seam, schema, config, lifecycle and network work that is not one of the 215 tasks is listed in the New rows section below and counted separately.
 - A status of `stale` means the claim lapsed (I04 and I09 are stale with review requested and no verification recorded).
 
 ## S0 Foundations
@@ -341,7 +341,7 @@ Where the REWORK-DELIVERED tasks sit by ledger status: all 40 are `delivered`. I
 
 Extra hours by stage (the 215 tasks only):
 
-| Stage | Extra h (rework + amendments) | Of which rework of delivered | Of which prompt amendments | New rows (section 5) |
+| Stage | Extra h (rework + amendments) | Of which rework of delivered | Of which prompt amendments | New rows (below) |
 |---|---|---|---|---|
 | S0 Foundations | 19.5 | 19.5 | 0 | 0 |
 | S1 Domain rules | 18.5 | 18.5 | 0 | 0 |
@@ -428,3 +428,97 @@ Append the matching paragraph to the prompt of every task whose action is AMEND-
 (0 words)
 
 Apply 2c in addition to 2a on these AMEND-PROMPT tasks: I03, I04, I05, I07, I08, I09, I10, I13, I14, I15, U03, U05, U22, U25, U34, U40, R11, plus the new rows TEN-N04 and TEN-N07. (I01, I02, I06, R03, R06, U09, P08, P09 and P12 are already delivered, so they are rework rows, not prompt amendments.) Apply 2b to these AMEND-PROMPT frontend tasks: W02, W05, W06, W07, W08, W09, W10, W13, W14, W17, W19, W22, W23, W29, W33, W36, W40, W41, W55, O02, W48, W49, W50, W53.
+
+## 3. The critical path and wave plan
+
+### 3.1 Principles
+
+1. **The seam goes first and lands in two steps.** Step one is the tenant context, `run_query` injection and the registration check in *warn* mode, together with the F10 harness that binds a test tenant, so the roughly 123 existing statements keep working. Step two flips the check to *enforce* once G05 and the P-series are migrated. Turning enforcement on first would fail every unmigrated repository and every in-flight branch at once.
+2. **Order of the tenancy chain** (each step needs the one before): G01 seam, F10 harness, TEN-G01 two-tenant test, TEN-G02 composite constraints (runs alone), G02/G03/G04 mapper, G05 store, then the P-series repositories in parallel, P06 unit of work, P15 idempotency, then adapters (I01, I02), AUTH (R02, R06, R01, R03), CONFIG (TEN-G03, I06) and LIFECYCLE (TEN-G04). TEN-N01 (network scope model) can start as soon as TEN-G02 is in, in parallel with the mapper and repositories. The network projector TEN-N04 needs the consumer framework (I04, I05), the outbox relay (I03) and U09, so the network chain finishes later than the tenant chain: TEN-N01, TEN-N03, TEN-N04, TEN-N05, TEN-N06, then the UI (TEN-N10 to TEN-N12).
+3. **Longest sequential chain** (my estimate): G01 9 + F10 6 + TEN-G01 6 + TEN-G02 6 + mapper 4.5 + G05 10 + critical P-series repository about 9.5 + P15 3 + consumers I04, I05, I03 about 10 + TEN-N04 12 + TEN-N05 8 + TEN-N06 5 + TEN-N11 6, about **95 hours** if nothing waits. The network work adds roughly 40 hours at the end of the chain; it does not delay the tenant seam.
+4. **New feature work after the seam is written tenant-aware** (its prompt is amended), so it creates no rework. Feature work that is unaffected can use the free slots now.
+5. **One Neo4j test run at a time** until the tenant-per-run harness is delivered (DEC-130 item 9). After that, runs share one Neo4j and may run in parallel, except TEN-G02 and container-lifecycle tests (F11, G14 recovery), which run alone. `[N]` below means the wave may run Neo4j tests, `[P]` means no Neo4j is needed.
+
+### 3.2 What can proceed now without waiting for the seam
+
+Ready by dependency today and NONE impact (prompt unchanged): **I11** [P], **I12** [P], **S01** [P], **W32** [P], **W52** [P], **R16** [P], **R14** [N, route tests only]. Ready with only a one-line amendment and no Neo4j: **O02** [P], **W53** [P]. All pure domain rules are already delivered. I15 and G13 (S10) are ready but low priority and wait for the seam (cache keys and IRIs).
+
+Ready by dependency but better started only once the seam exists, with the amended prompt: U07, R04, I07, U10, O01, U11, U16, G11, U23, U25, U26, U30, P17, P19, I13, U35, P18, P20, O06, O07. Each registers new Cypher, and the amendment requires `tenantId: $tenant` and a two-tenant test, which is only provable once the harness exists.
+
+Must wait for the seam: every repository, the unit of work, adapters I01 and I02, and every use case after U08.
+
+### 3.3 Wave plan (waves of up to four concurrent tasks)
+
+| Wave | Tasks | Neo4j | Notes |
+|---|---|---|---|
+| 1 (now) | U02 (finish, current model), W02 (finish, current model), G01 seam step one (unit-level work first), I11 | [N]: U02 first, G01 integration run after it | In-flight tasks finish on the current model (DEC-130 item 10). G01 starts with pure unit work (context variable, injection, check in warn mode) so it needs Neo4j only after U02 has delivered. I11 is free work. |
+| 2 | U03 (finish), F10 tenant-per-run harness, I12, S01 | [N]: U03 then F10 | F10 and G01 merge to main together so a default test tenant is bound everywhere. The U03 and I04 branches rebase onto it. Last wave that needs strictly serial Neo4j. |
+| 3 | TEN-G01 two-tenant test, I04 (verify and deliver on current model), W32, R16 | [N]: TEN-G01 then I04 (emulator) | After this wave every run has its own tenant, so Neo4j runs can be parallel. |
+| 4 | TEN-G02 composite constraints and backfill, O02, W52, D16 | [N] TEN-G02 runs alone; the others [P] | Schema-changing, so exclusive. D16 is a unit-level template change. |
+| 5 | G02+G03+G04 (one lane, mapper), TEN-G03 tenant record and config, TEN-N01 network scope model, P05 audit chain | [N] parallel allowed | P05 only needs the seam, so it runs beside the mapper. TEN-N01 starts the network model early. |
+| 6 | G05 resource store, R02 token and session claims, cache lane (I01, P09, P12), TEN-N03 allowlist guard with D17 rework | [N] G05, R02 | G05 is the biggest single rework; nothing that stores FHIR resources can be verified until it lands. |
+| 7 | P01, P02, P21, P03 | [N] parallel | Separate files. P03 is HIGH (phone index). |
+| 8 | P04, P13, P14, P16 | [N] parallel | P13 carries the fixed `scope-list` id collision. |
+| 9 | P06 unit of work and outbox, P15 idempotency, P07 communication, P08 scheduled work | [N] parallel | P06 follows the repositories it wires. Seam step two (enforce the registration check) is switched on at the end of this wave. |
+| 10 | I02 Service Bus tenant property, P10 link tokens, I06 per-tenant Twilio (DEC-131), TEN-G04 lifecycle | [N]; the I02 emulator run is serial | TEN-G04 needs P05 and P13. |
+| 11 | U01, U08, U09, API lane (R01, R03, R06) | [N] | Delivered use-case and API reworks. R06 closes the cross-tenant SSE leak: move it forward if any shared environment is reachable by more than one tenant. |
+| 12 | I03 relay, I05 scheduler consumer, I07 inbound SMS, TEN-G05 unauthenticated-edge resolver | [N] | First feature tasks written tenant-aware. I03 and I05 are on the network critical path. |
+| 13 | TEN-N04 network projector, TEN-N14 two-member tests, L01 link API, U10 pairing | [N] | The projector needs I04, I05, U09, TEN-N01 and TEN-N03. |
+| 14 | TEN-N05 network read use cases, TEN-N07 network cache and channel, R05 `$board` with network scope, R04 | [N] | |
+| 15 | TEN-N06 network API, W05 wall board with network variant, W06, W09 staff sign-in | [N] API; W05, W06, W09 [P] | W09 needs the tenant record (TEN-G03). |
+| 16 | TEN-N10 wall screen scope setting, TEN-N11 network board UI, TEN-N12 directory and criteria view, W07 | [P] | Frontend wave. |
+| 17 onward | Remaining feature work in stage order (S4 advisor, S5 booking, S6 registration, S7 reporter app, S8, S9), with TEN-N02, TEN-N08, TEN-N09 (network administration) in the S6 slot, TEN-N13 in S7 and TEN-G06 in S9 | [N] parallel | Do not start S6 registration before TEN-G05 and W09 exist. |
+
+**First three waves:** wave 1 is U02, W02, G01 seam and I11; wave 2 is U03, F10 harness, I12 and S01; wave 3 is TEN-G01, I04, W32 and R16.
+
+Why the network chain cannot start earlier: grants and projections need working consumers (I03 to I05), the per-tenant board projector (U09) and the composite schema. Only the model (TEN-N01, wave 5) and the allowlist guard (TEN-N03, wave 6) can start early, and both are cheap and let information governance start reviewing (DEC-132 item 9 is human-only).
+
+### 3.4 Network variants of existing tasks (DEC-132)
+
+| Existing task | Variant | Covered by |
+|---|---|---|
+| U08 QueryBoard, D08 pressure | Network board and network pressure as a separate read use case bound to the network scope; own-tenant and network views merged in the application layer | TEN-N05 (U08 itself only needs the two-tenant test) |
+| U09 board projector | Per-network cache key and channel written by the projector | TEN-N07 |
+| R05 `$board`, R06 events | `scope=network` parameter; network stream for members only | R05 amendment, TEN-N06 |
+| U10, R15, W08 wall screen | Device is paired to one tenant; the administrator sets tenant or network board | TEN-N10 plus amendments |
+| W05, W06, W07 wall board | Organisation label on tiles, network pressure, stream scope | amendments, TEN-N11 |
+| U12, G11, W13, W14, W50 advisor options, criteria, map | Network services shown view-only from projected data; booking, 'I phoned' and declines refused (a cross-tenant write, and bookings are not shared) | amendments, TEN-N12 |
+| W10, W17, W40 home counts and 'system now' | Network counts and pressure; heading is the tenant or network name | amendments, TEN-N11 |
+| U34, U35, R12, W41 alerts and week summary | Network pressure alert and network summary are owner decisions; only capacity-derived figures could be shown | amendments, TEN-N13 |
+| D17 privacy guard | Projection allowlist and test | TEN-N03 |
+| F04 infra | `network-projector` subscriptions | F04 rework |
+| U27, U29, U30, U36 go live, criteria change, suspend | Start or stop projecting a service | amendments |
+| U43, W51 planning | Stay tenant-only (decision snapshots are not shared) | no variant |
+
+## 4. Conflicts with in-flight work
+
+Live ledger state on 2026-10-28: U02 and U03 are `in-progress` after failed verification; W02 is `in-review` after failed verification r3 (a fourth verifier session, `verify-W02-r4`, was last seen at 11:30); I04 is `stale` with review requested, green evidence at fa0d5b3 and no verification recorded; I09 (not in your list) is also `stale`.
+
+| Task | Do now (current model) | After the seam |
+|---|---|---|
+| U02 | Fix the seven verification findings and deliver: per-service write lock (set the HealthcareService id first, then read, then write) with the held-first-write and 16-caller race test, pin the stub message, rebase onto main, rerun the harness self-tests on a quiet machine, test the suspended case and the reverse key direction, make the U01 helper public. Add no tenant code. Keep the new `Q-CAP-TRAILING-CONFIRMS` statement small and parameterised so the sweep is a one-line change. | Add `tenantId: $tenant` to that statement and to the lock statement, and a two-tenant race test (+0.5 h). The lock pattern is what the seam relies on: a write lock on a tenant-qualified node. |
+| U03 | Fix findings A to I now. A (the link token stored in plain text in `Communication.payloadText` and the outbox payload) is a security defect independent of tenancy and must not wait. Keep `link_base_url` a constructor argument, as it is, so config can later supply it per tenant. | Link token record carries the tenant; link host from tenant config; the idempotency key `prompt:{service_id}:{due_at}` is made tenant-safe by P15; messages are stamped by P06 (+1.5 h). Expect a merge with F10: rebase in wave 2. |
+| I04 | Verify and deliver as built. It is the shared consumer framework, so later rework lands in one function (`IdempotentConsumer.handle`) and the runner conversion. Do not add a half-finished tenant hook. | Bind the tenant from the message property before opening the unit of work, dead-letter a missing or unknown tenant as PermanentError, make `mark_if_new` composite, add the property to the runner conversion (+2.5 h). TEN-N04 depends on this. |
+| W02 | Finish the three verify-r3 findings (the expired-`exp` test that kills the jose survivor, the DEC-010 stub-file list in the evidence, the jose 6.1.0 age check) and deliver. No tenant code. | Add `tenantId` to Session, and make `withBff` refuse any `tenant` or `tenantId` query or body key (+1 h). This changes the sealed-cookie format, which is harmless before the pilot. |
+| I09 (not asked) | Deliver as built, then rework for per-tenant sender identity (DEC-131 item 1, product under DEC-003). | +1 h. |
+
+Merge risk: F10 changes the harness for everyone. Tell the owners of U02, U03 and I04 that the wave-2 rebase binds a default test tenant, so tests that seed raw nodes with `CREATE (...)` must add `tenantId` (the criteria, credential, flag, scope-list and registration integration tests do this most: 31, 31, 28, 21 and 20 matching lines).
+
+## 5. Design gaps the owner or coordinator should settle (not decided by DEC-130 to DEC-132)
+
+1. **Unauthenticated phone-only flows.** DEC-131 resolves inbound SMS by the number called, but a request that carries only a phone number (lost phone W55 and R13 `/identity/new-phone`, PIN reset, first text-code request R11 and U25) has no tenant. Proposed rule: a tenant hint (host or path slug) selects the lookup scope only, is resolved by one allowlisted statement, is overridden by any token, and every later check happens inside that tenant. DEC-130 item 6 currently forbids caller-controlled sources outright.
+2. **The global-statement allowlist.** Link-token hash lookup (L01, L02, U24), pairing start and claim (U10, R15), device-token resolution, tenant-by-number lookup (I07) and the outbox relay's pending read (I03) are tenantless by nature. List them explicitly in G01's allowlist and record the exception to DEC-130 item 3.
+3. **Shared Concepts can be written by a tenant.** `Q-RES-SHARED-FILL` in the delivered resource store merges `display` and `version` onto shared Concept nodes from any tenant request. DEC-130 item 5 says tenants never write reference data; G05's rework must seed code systems and make that statement read-only.
+4. **Audit hash.** Decide whether `tenantId` goes inside the hashed `entryJson` (my recommendation; there is no production data to migrate).
+5. **Advisor view across the network.** DEC-132 item 5 lets advisors see the network capacity view. Bookings, cases, 'I phoned' and declines are tenant-private, so a network option can only be a phone-to-confirm card. Confirm that is the intended workflow; otherwise a cross-tenant booking grant scope is needed (DEC-132 item 7 defers that).
+6. **Network week summary.** Referrals, bookings and outcomes are not shared, so a network summary could show only capacity-derived figures. Owner to confirm (TEN-N13).
+7. **Projector and the one-scope rule.** The projector reads in the member's scope and writes in the network scope as two units of work with an in-memory hand-off. State that this satisfies 'a unit of work binds exactly one scope'.
+8. **Clinical advice pool.** A clinical queue shared by several tenants would be cross-tenant access; U40 is written as per-tenant.
+9. **Name clash.** W09 uses `ENTRA_TENANT_ID` for the Microsoft directory. Keep 'tenant' for the DIUCS organisation in every prompt and call the Entra directory `entraDirectoryId`.
+10. **DEC-130 statement count** (78) versus about 123 found by grep, noted in section 1.
+
+## 6. What I could not read or verify
+
+- Everything in the repository was readable. I read every task's prompt from the Goal through Rules and Build (lines trimmed to 260 to 420 characters in my working extracts) rather than every line of every prompt, and I did not read the 81 evidence files in full: delivered tasks were classified from the prompt, the live ledger record and the delivered source (graph_store, audit, outbox, cache, bus, auth, events, harness). If an evidence file records behaviour that differs from its prompt, my row for that task could be off.
+- I did not run the registry, tests, Docker or the app, so the statement count and all hours are estimates.
+- No `TEN-` ids from other auditors exist in the repository, so my new rows use provisional ids.

@@ -1,8 +1,8 @@
 # Multi-tenancy and networks
 
-Contents: the requirement, the model, the rules every task follows, the transitional rule, what is never shared, testing and evidence, hazards, human-only items, where the detail lives.
+Contents: the requirement, the model, the rules every task follows, the transitional rule, what is never shared, testing and evidence, hazards, the decisions that are yours and what can leave you stuck, where the detail lives.
 
-The original specifications describe one deployment for one organisation. The owner has ruled that the platform is multi-tenant, with organisations collaborating in a network. The specs have not been changed (they are shared documents; the owner reconciles them in v1.1). Until then these decisions override the specs and the task prompts:
+The original specifications describe one deployment for one organisation. The owner has ruled that the platform is multi-tenant, with organisations collaborating in a network. The repo specs, plan and prompts are updated to match as the tenancy tasks land (they are yours to keep current, DEC-133). Until each is updated, these decisions override it:
 
 - **DEC-130**: the platform is multi-tenant; the tenant is bound at one execution point.
 - **DEC-131**: SMS and email are one Twilio subaccount per tenant; the number called identifies the tenant.
@@ -57,6 +57,6 @@ Until the tenant-per-run harness exists, run tests that need Neo4j one at a time
 
 Cross-tenant data leak; a message sent from the wrong tenant's number or to the wrong tenant's reporter; a wall screen showing the wrong tenant's or the wrong network's board; a projection that carries something it should not; a revoked grant that still projects; a stale projection read as live; support or operator access misused; a person confused about which tenant they are viewing. Each gets a row in `docs/delivery/hazard-log.md` with its control and the test that proves it. Every screen that can show more than one scope says clearly which scope and which organisation each row belongs to.
 
-## Human-only items
+## Decisions that are yours, and what can leave you stuck
 
-The data sharing agreement and each organisation's controller and processor roles; information-governance approval of every grant scope and of the projection allowlist; creating Twilio subaccounts, buying numbers, registering sender ids and any spend (DEC-131); who may hold cross-tenant support access; clinical sign-off of per-tenant thresholds. Mark tasks blocked for these with the reason; do not decide them.
+You decide, record and build: the data sharing agreement's reference and version in the model, controller and processor roles, which grant scopes exist, the projection allowlist, who may hold cross-tenant support access (DEC-134), and per-tenant thresholds. Describe their status truthfully ("prepared, not externally certified"); none of it blocks a task. The only thing that can leave you stuck is a real Twilio subaccount, number, sender registration or other credential or spend (DEC-131): build against a fake secret store and a recording sender, verify it, and list it as "needs a real credential at deploy".

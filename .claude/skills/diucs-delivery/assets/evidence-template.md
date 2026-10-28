@@ -44,8 +44,8 @@ Say which applies. **Tenant-scoped statements, keys, channels, queues and messag
 ## Decisions and assumptions
 Deviations from the prompt or spec (with the `DEC-n` that authorises each), assumptions made, `[ASSUMED]` values used.
 
-## Not done / human-required
-Anything left out and why. Anything that needs a human.
+## Not done
+Anything left out and why. Anything you are stuck on (a real credential, account or spend) and what you used instead.
 
 ## Verification (filled in by the verifier)
 Verifier: `<label>` · Result: `<pass|fail>` · Date: `<date>`

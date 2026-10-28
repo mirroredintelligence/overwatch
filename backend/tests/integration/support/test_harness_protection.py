@@ -61,8 +61,8 @@ async def test_a_real_container_has_its_memory_limit_neo4j_settings_and_owner_la
         config = inspected["Config"]
         assert isinstance(host_config, dict)
         assert isinstance(config, dict)
-        assert DEFAULT_CONTAINER_MEMORY == "768m"
-        assert host_config["Memory"] == 768 * 1024 * 1024
+        assert DEFAULT_CONTAINER_MEMORY == "1g"
+        assert host_config["Memory"] == 1024 * 1024 * 1024
         assert config["Labels"]["diucs-test-owner-pid"] == str(os.getpid())
         assert config["Labels"]["diucs-test-owner-start"] == process_start_marker(os.getpid())
 

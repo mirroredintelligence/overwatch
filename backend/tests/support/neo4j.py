@@ -14,7 +14,7 @@ machine to load 15 on 4 cores. So:
   Agents also wrap pytest in `flock /tmp/diucs-neo4j-tests.lock <command>`. That is a different
   file, deliberately: the manual lock queues whole runs, this one guards the container, and a
   process that takes the manual lock first and this one second can never deadlock.
-* Memory limits. The container gets --memory (DIUCS_NEO4J_MEMORY, default 768m) and Neo4j heap
+* Memory limits. The container gets --memory (DIUCS_NEO4J_MEMORY, default 1g) and Neo4j heap
   (DIUCS_NEO4J_HEAP, 256m) and page cache (DIUCS_NEO4J_PAGECACHE, 128m) settings.
 * Owner labels. The container is labelled with the owning pid, that process's start time and the
   host, so the reaper can tell a live run's container from a leaked one.
@@ -75,9 +75,9 @@ class HarnessStartError(Neo4jNotRunning):
 OWNER_PID_LABEL = "diucs-test-owner-pid"
 OWNER_START_LABEL = "diucs-test-owner-start"
 OWNER_HOST_LABEL = "diucs-test-owner-host"
-# DEC-135: heap 256m and page cache 128m inside a 768m container; see the decision for the measured
+# DEC-135: heap 256m and page cache 128m inside a 1g container; see the decision for the measured
 # peak. A heavier test can raise them with the environment variables named in the module docstring.
-DEFAULT_CONTAINER_MEMORY = "768m"
+DEFAULT_CONTAINER_MEMORY = "1g"
 DEFAULT_HEAP = "256m"
 DEFAULT_PAGECACHE = "128m"
 MEMORY_ENV = "DIUCS_NEO4J_MEMORY"
@@ -133,7 +133,7 @@ def _size_from_environment(variable: str, default: str) -> str:
     value = os.environ.get(variable) or default
     if not _SIZE.match(value):
         raise HarnessStartError(
-            "config", f"{variable} must be a size such as 768m or 2g, not {value!r}."
+            "config", f"{variable} must be a size such as 1g or 2g, not {value!r}."
         )
     return value
 

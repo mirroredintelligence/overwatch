@@ -138,14 +138,15 @@ describe('sealSession and unsealSession', () => {
   it.each([
     ['A256KW + A256GCM', { alg: 'A256KW', enc: 'A256GCM' }],
     ['A256KW + A128GCM', { alg: 'A256KW', enc: 'A128GCM' }],
-    ['dir + A256CBC-HS512 (64-byte key)', { alg: 'dir', enc: 'A256CBC-HS512' }],
+    // A128CBC-HS256 takes a 32-byte key, so the real secret is a valid key for
+    // it: only the enc pin can refuse this one.
+    ['dir + A128CBC-HS256', { alg: 'dir', enc: 'A128CBC-HS256' }],
   ])('returns null for a string sealed with the real secret using %s', async (_label, header) => {
     const real = Buffer.from(TEST_SESSION_SECRET, 'base64');
-    const key = header.enc === 'A256CBC-HS512' ? Buffer.concat([real, real]) : real;
     const other = await new EncryptJWT({ ...sample() })
       .setProtectedHeader(header)
       .setExpirationTime(Math.floor(NOW.getTime() / 1000) + 600)
-      .encrypt(key);
+      .encrypt(real);
     expect(await unsealSession(other, NOW)).toBeNull();
   });
 

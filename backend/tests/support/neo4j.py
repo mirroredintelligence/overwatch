@@ -538,6 +538,11 @@ def _parse_created(text: str) -> datetime:
     return datetime.fromisoformat(f"{base}.{micros}{offset}")
 
 
+def _plain_digits(text: str) -> bool:
+    # str.isdigit() also accepts "²" and "٥"; the labels this harness writes are ASCII digits only.
+    return text.isascii() and text.isdigit()
+
+
 def _owner_verdict(
     owner: _OwnerLabels, here: _OwnerLabels, process_start: ProcessStart
 ) -> tuple[str, timedelta | None]:
@@ -553,7 +558,7 @@ def _owner_verdict(
     """
     if owner.is_empty():
         return _UNKNOWN, REAPER_MAX_AGE
-    if not owner.pid.isdigit() or not owner.start.isdigit():
+    if not _plain_digits(owner.pid) or not _plain_digits(owner.start):
         return _UNKNOWN, REAPER_MAX_AGE
     if not (owner.host and owner.namespace and owner.boot):
         return _UNKNOWN, OTHER_HOST_MAX_AGE

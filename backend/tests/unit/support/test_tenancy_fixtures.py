@@ -220,6 +220,17 @@ def test_two_default_identities_differ_and_the_default_nonce_is_four_hex_charact
     assert all(identity.pid == os.getpid() for identity in identities)
 
 
+def test_the_default_identity_takes_its_pid_and_start_from_the_process_and_the_clock(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("tests.support.tenancy.os.getpid", lambda: 4242)
+    monkeypatch.setattr("tests.support.tenancy.time.time", lambda: 1_800_000_000.9)
+    identity = new_run_identity(nonce="ab12")
+    assert (identity.pid, identity.started) == (4242, 1_800_000_000)
+    assert new_run_identity(pid=7, nonce="ab12").pid == 7
+    assert new_run_identity(now=5, nonce="ab12").started == 5
+
+
 # 4. as_tenant and in_tenant
 
 

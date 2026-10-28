@@ -209,9 +209,9 @@ async def test_a_lock_is_held_until_its_ttl_and_free_after(
 
 
 async def test_a_lock_is_free_once_its_ttl_has_passed(cache_harness: Harness[Cache]) -> None:
-    # DEC-058 item 3 (held while now < expires_at, free from expires_at on) is checked at the
-    # exact instant by the in-memory unit test on its fixed clock. A real store cannot be checked
-    # at that instant, so this case checks well after it.
+    # DEC-058 item 3 (held while now < expires_at, free from expires_at on). The exact instant is
+    # checked on the in-memory fake's fixed clock (test_memory_cache.py). This case checks well
+    # after the TTL on the store's own clock, with a second of slack.
     cache = cache_harness.subject
     assert await cache.acquire_lock("relay", TTL) is not None
     await cache_harness.advance(TTL + ONE_SECOND)

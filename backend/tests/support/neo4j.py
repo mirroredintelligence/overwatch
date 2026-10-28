@@ -559,8 +559,6 @@ def _owner_verdict(
         return _UNKNOWN, OTHER_HOST_MAX_AGE
     if owner.host != here.host or owner.namespace != here.namespace or owner.boot != here.boot:
         return _UNKNOWN, OTHER_HOST_MAX_AGE
-    if not (here.namespace and here.boot):
-        return _UNKNOWN, OTHER_HOST_MAX_AGE
     try:
         marker = process_start(int(owner.pid))
     except Exception:

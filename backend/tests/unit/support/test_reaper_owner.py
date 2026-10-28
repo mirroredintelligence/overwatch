@@ -510,3 +510,27 @@ def test_an_owner_that_is_really_dead_is_removed_at_any_age() -> None:
     )
 
     assert removed == ["diucs-test-neo4j-really-dead"]
+
+
+def test_an_empty_host_on_both_sides_is_still_not_comparable() -> None:
+    # The owner's empty host equals this process's empty host, so only the emptiness check keeps
+    # the owner from being compared and judged gone.
+    seven_hours = (NOW - timedelta(hours=7)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    five_hours = (NOW - timedelta(hours=5)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    containers = [
+        _owned("diucs-test-neo4j-both-empty-five", 4060, "5", created=five_hours, host=""),
+        _owned("diucs-test-neo4j-both-empty-old", 4061, "5", created=seven_hours, host=""),
+    ]
+    docker = FakeDocker(containers)
+
+    removed = reap_stale_test_containers(
+        MAX_AGE,
+        run=docker,
+        now=lambda: NOW,
+        process_start=lambda pid: None,
+        host="",
+        here_namespace=NS,
+        here_boot=BOOT,
+    )
+
+    assert removed == ["diucs-test-neo4j-both-empty-old"]

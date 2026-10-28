@@ -25,6 +25,9 @@ from diucs.application.tenancy import (
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
+# The conftest binds the run tenant around every integration test (TEN-003). The two tests marked
+# `no_tenant` below prove what happens with nothing bound, so they run with nothing bound.
+
 _SCENARIO = Scenario("placeholder until TEN-004")
 
 
@@ -115,6 +118,7 @@ async def test_the_same_id_in_two_tenants_does_not_collide_and_each_sees_only_it
         assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT", id="only-b") == [{"n": 1}]
 
 
+@pytest.mark.no_tenant
 async def test_an_unbound_tenant_statement_is_refused_before_it_writes(
     neo4j_driver: AsyncDriver,
 ) -> None:
@@ -162,6 +166,7 @@ async def test_a_string_and_a_forged_statement_are_refused_and_write_nothing(
     assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT-ALL", id="x") == [{"n": 0}]
 
 
+@pytest.mark.no_tenant
 async def test_a_statement_not_yet_converted_runs_with_and_without_a_scope(
     neo4j_driver: AsyncDriver,
 ) -> None:

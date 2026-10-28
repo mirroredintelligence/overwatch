@@ -18,6 +18,8 @@ Not a source: https://claude.ai/artifact/JEufjxkDjuDWFvL9YoDt2c ("Enterprise, Pr
 
 Derived in the repo and kept current by the team: `docs/spec/domain-rules.md` (every threshold and timing; `[ASSUMED]` marks working decisions), `docs/spec/contracts.md` (shared names, paths, signatures, the Neo4j-only testing rules), `docs/delivery/decisions.md` (overrides everything else).
 
+**Known gap in all five sources: tenancy.** None of them describes tenants, networks or per-tenant configuration. DEC-130, DEC-131 and DEC-132 fill the gap and take precedence over any contrary statement in a spec or prompt; `docs/delivery/tenancy-audit/` sizes the work. Do not edit the source artifacts; where a screen, rule or flow in them assumes one organisation, build to the decisions and note the difference in the evidence so the owner can reconcile it in v1.1. The design canvas snapshot in the repo is the specification for UI tasks (DEC-129).
+
 ## Precedence when sources disagree
 
 1. `docs/delivery/decisions.md`

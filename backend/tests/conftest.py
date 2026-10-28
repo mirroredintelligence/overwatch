@@ -5,7 +5,7 @@ on a free port with a unique name, and removes it when the session ends. The har
 or uses a shared stack, so no test can wipe diucs-local (port 7687).
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -25,6 +25,7 @@ from tests.support.neo4j import (
     wipe,
 )
 from tests.support.uow import uow_factory_on
+from tests.support.watchdog import configured_timeout_s, setup_timeout_s, time_limit
 
 _INTEGRATION_ROOT = Path(__file__).resolve().parent / "integration"
 # Drivers of the running harness session. Empty until a test needs Neo4j, so a run of tests that
@@ -35,6 +36,33 @@ _active: list[AsyncDriver] = []
 def pytest_sessionstart(session: pytest.Session) -> None:
     """Remove test containers left by killed runs (DEC-108). It never raises."""
     reap_stale_test_containers()
+
+
+def _capture_release(item: pytest.Item) -> Callable[[], None] | None:
+    """What the hard stage calls to give the real terminal back before it reports: pytest's output
+    capture holds fd 2, and anything written there would be lost when the process is ended."""
+    manager = item.config.pluginmanager.get_plugin("capturemanager")
+    if manager is None:
+        return None
+    return lambda: manager.suspend_global_capture(in_=False)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
+    """Fail a test whose fixture set-up runs past DIUCS_TEST_SETUP_TIMEOUT seconds (default 900,
+    0 turns it off). The harness pauses this clock for its lock wait and image pull (F10b)."""
+    with time_limit(
+        setup_timeout_s(), f"{item.nodeid} (set-up)", release_capture=_capture_release(item)
+    ):
+        return (yield)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_call(item: pytest.Item) -> Iterator[None]:
+    """Fail a test that runs past DIUCS_TEST_TIMEOUT seconds (default 300, 0 turns it off), so a
+    hang ends in minutes with a stack, not never (F10b, lesson L67)."""
+    with time_limit(configured_timeout_s(), item.nodeid, release_capture=_capture_release(item)):
+        return (yield)
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

@@ -553,7 +553,7 @@ def _owner_verdict(
     """
     if owner.is_empty():
         return _UNKNOWN, REAPER_MAX_AGE
-    if not owner.pid.isdigit() or not owner.start:
+    if not owner.pid.isdigit() or not owner.start.isdigit():
         return _UNKNOWN, REAPER_MAX_AGE
     if not (owner.host and owner.namespace and owner.boot):
         return _UNKNOWN, OTHER_HOST_MAX_AGE

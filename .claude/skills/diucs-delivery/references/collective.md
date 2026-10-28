@@ -22,6 +22,17 @@ One session can play several roles over time, but not builder and verifier of th
 
 Usage limits can stop agents mid-task. They keep their saved progress; resume them with SendMessage when the limit resets, and do not start a duplicate.
 
+## Models and consultation
+
+The Agent tool takes a `model` argument, and subagents inherit the orchestrator's model unless you set it. Use `model: "sonnet"` for judgement-heavy work. The default model is fine for mechanical work.
+
+- **Consult Sonnet for a second reading** when a decision or a suspected defect is hard to settle alone: a tenancy, security or privacy rule; locking or concurrency; the behaviour of Cypher, Neo4j, cryptography or the Python runtime; a finding you cannot tell is real. Give the consult a self-contained question, the files and commit to read, and what you have already ruled out. Its answer is advice. You decide, record the decision, and make the change yourself.
+- **Use Sonnet for fix rounds** whose findings are logic, tenancy, security or concurrency, especially after a FAIL on such a finding. The orchestrator starts that builder with `model: "sonnet"`. A builder does not start its own builders.
+- **Keep the default model for mechanical work**: record and documentation fixes, formatting, renames, lint, and re-running checks.
+- **A consult is not verification.** The verdict on a task comes only from an agent that did not build it. A verifier may consult Sonnet, but the verdict stays the verifier's, and the consult goes in the verifier's report.
+- **Say it in the evidence.** When a consult or a Sonnet builder shaped a change, add one line to the evidence: the question, and what changed because of the answer.
+- **Quote, don't paraphrase.** Every sentence in evidence that quotes an earlier commit, a guard line or a spec sentence is checked with `git show <commit>:<path>` and `grep -F` before it is written. Paraphrased quotes are the most common reason a task has failed verification.
+
 ## Command cheat sheet
 
 | Command | Purpose |

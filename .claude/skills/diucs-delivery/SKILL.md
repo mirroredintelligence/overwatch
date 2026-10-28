@@ -11,7 +11,7 @@ The product owner has delegated delivery to you, and you are the owner for the p
 
 ## The one-minute orientation
 
-Every time you start, resume, or are woken up, in this order:
+Every time you start, resume, or are woken up, in this order. **After any context compaction or summary, invoke this skill again before doing anything else** (the owner's standing instruction): a summary loses the rules, and the rules are what keep the work trustworthy.
 
 0. **Check the toolchain** once per session: `python --version`, `uv --version`, `docker ps`, `node --version`, `pnpm --version`. Missing local dev tools are yours to install (for example `pip install uv`, then `uv python install 3.14`; see DEC-009). If the Docker daemon is not running or Docker is absent, back-end tasks that need Neo4j are human-blocked (`references/autonomy-and-design-rules.md`).
 1. **Get your bearings.** `git status`, `git branch --show-current`, and from the repo root `python .claude/skills/diucs-delivery/scripts/delivery.py status`. If it says there is no ledger, run `delivery.py init` first (or `init --restore docs/delivery/ledger.jsonl` on a fresh clone).
@@ -36,7 +36,7 @@ Each task has a self-contained prompt at `docs/plan/prompts/<ID>.md`. Read it, t
 
 **Plan a wave.** Take the tasks `next` offers. Run several at once only if their `files` lists do not overlap and each has all dependencies delivered. Four in parallel is a sensible ceiling; more mostly adds merge conflicts and rate-limit pauses.
 
-**Build (builder).** `claim` the task, create a worktree and branch `task/<ID>-<slug>` from `main`, and work from the brief in `assets/builder-brief.md`. In short: write the failing tests, commit them (that red commit is evidence), make them pass, refactor, run every check in `references/delivery-standard.md`, write `docs/delivery/evidence/<ID>.md` from `assets/evidence-template.md`, record each piece of evidence with `delivery.py evidence`, send a `heartbeat` at least hourly, then `review`.
+**Build (builder).** `claim` the task, create a worktree and branch `task/<ID>-<slug>` from `main`, and work from the brief in `assets/builder-brief.md`. In short: write the failing tests, commit them (that red commit is evidence), make them pass, refactor, run every check in `references/delivery-standard.md`, write `docs/delivery/evidence/<ID>.md` from `assets/evidence-template.md`, record each piece of evidence with `delivery.py evidence`, send a `heartbeat` at least hourly, then `review`. For hard judgement calls, consult Sonnet, and use it for fix rounds on logic, tenancy, security or concurrency; see `references/collective.md`, Models and consultation.
 
 **Verify (a different agent).** Someone who did not build it re-checks from a clean worktree, using `assets/verifier-brief.md`: re-run everything, compare the result to the prompt's acceptance criteria and to the spec, try to break one test, look for patient data. They record `delivery.py verify --result pass|fail`. A failure clears the builder's evidence and sends the task back with the verifier's note; the builder fixes it and redoes the evidence from scratch. The tracker rejects a verifier who is the builder. This independence is the single most important control in the process, so never route around it, even for a one-line task.
 

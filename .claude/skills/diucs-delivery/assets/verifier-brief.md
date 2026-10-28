@@ -8,6 +8,8 @@ You are the independent verifier for task **<ID>** of the DIUCS capacity applica
 
 Read: `.claude/skills/diucs-delivery/SKILL.md`, `references/delivery-standard.md`, then `docs/delivery/decisions.md`, the task prompt `docs/plan/prompts/<ID>.md`, and the builder's `docs/delivery/evidence/<ID>.md` on branch **<BRANCH>**. First `python .claude/skills/diucs-delivery/scripts/delivery.py lesson list --unread --session <SESSION>` and `lesson ack --session <SESSION>`.
 
+**Models.** You may consult Sonnet (see `references/collective.md`, Models and consultation), but the verdict is yours, it must not be the builder's, and any consult goes in your report. Check every quotation in the evidence against `git show <commit>:<path>` and `grep -F`; a quotation that is not found is a finding.
+
 Do this, in a **clean worktree** you create yourself (`git worktree add ../overwatch-wt/verify-<ID> <BRANCH>`), not the builder's:
 
 1. **Re-run everything.** Every check command in the evidence file, and the full test suites for the parts touched, with Docker running (the harness starts its own throwaway Neo4j per DEC-008). Compare the results with the evidence. A number that differs is a finding.

@@ -24,4 +24,6 @@ Do this:
 
 Rules that matter: no patient data anywhere; stay inside the task's scope (the prompt's "Out of scope" lists other tasks' work); if a name you need is not in `docs/spec/contracts.md`, add it there in your commit and publish a lesson; if you are stuck on something that needs a real credential, account or spend, build against a fake and carry on (only if nothing can be built, run `delivery.py block <ID> --session <SESSION> --reason "..."` and stop); decide design, wording and policy questions yourself and record them in `decisions.md`; never claim a result you did not run.
 
+**Models.** You may consult a Sonnet subagent (`model: "sonnet"`) for a hard judgement call in your change; see `references/collective.md`, Models and consultation. Record a consult in the evidence. Check every sentence that quotes an earlier commit, a guard line or a spec sentence against `git show <commit>:<path>` and `grep -F` before you write it.
+
 Finish with a short report: what you built, the evidence recorded, anything you assumed, anything you could not do.

@@ -67,3 +67,13 @@ def test_the_script_exits_zero_when_every_check_passed(monkeypatch, tmp_path) ->
     monkeypatch.setattr(rc, "git", lambda args, cwd: "")
 
     assert rc.main(["--cwd", str(tmp_path)]) == 0
+
+
+def test_a_trailing_tool_warning_is_not_taken_as_the_last_line() -> None:
+    output = "3515 passed in 70s\nwarning: The `UV_NATIVE_TLS` environment variable is deprecated\n"
+
+    assert rc.last_line(output) == "3515 passed in 70s"
+
+
+def test_output_that_is_only_warnings_gives_an_empty_summary() -> None:
+    assert rc.last_line("warning: something\n") == ""

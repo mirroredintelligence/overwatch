@@ -116,6 +116,7 @@ There is no STOP, START or HELP keyword handling in the product. Messages from a
 - **Y limit**: `Y` is recorded as a `confirmed` report (derived from the latest number). At most 2 confirmations in a row. A third `Y` is refused: "Y was used twice already. Please send the number for <service>."
 - **Range check**: a number outside the usual range is not recorded the first time. Reply asking the reporter to send it again to confirm. **[ASSUMED]** If the same number is sent again within the open window, record it and raise a `ReportFlag` (reason `out-of-range-twice`).
 - Every accepted reply gets an echo with the figure, the time recorded and the next due time.
+- **A Y never makes an old figure current** (hazard H-31, DEC-148): a Y confirms the figure on record only if that figure was no more than 2 hours old when the prompt was sent (D05's stale warning). Otherwise nothing is recorded and the reporter is told the figure is out of date (C12) and asked for a number.
 
 ### 2.3 Report flags (for the shift lead to check)
 
@@ -305,6 +306,7 @@ Message catalogue ids (stored as `Communication.topic`) **[ASSUMED numbering; th
 | C9 | Multi-service prompt |
 | C10 | Multi-service partial echo |
 | C11 | Unrecognised reply help |
+| C12 | A Y was refused: the figure on record is out of date, please send a number (U05, DEC-148) |
 | B1 | Booking request by text |
 | B2 | Booking request by email |
 | B3 | Booking request by push |

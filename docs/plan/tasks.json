@@ -4505,7 +4505,8 @@
    "deps": [],
    "title": "Network screens specification for the UI",
    "files": [
-    "docs/design/network-views.md"
+    "docs/design/network-ui.md",
+    "frontend/test/docs/network-ui-spec.test.ts"
    ]
   },
   {

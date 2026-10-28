@@ -11,7 +11,7 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, QueryRegistry
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, QueryRegistry
 
 QueryObserver = Callable[[str, str, int, float], None]
 
@@ -76,6 +76,18 @@ async def run_query(
     if observer is not None:
         observer(query.id, query.mode, len(rows), duration_ms)
     return rows
+
+
+async def run_global_query(
+    tx: AsyncManagedTransaction,
+    query: NamedQuery,
+    /,
+    *,
+    registry: QueryRegistry | None = None,
+    **params: Any,
+) -> list[dict[str, Any]]:
+    """DEC-010 stub for the red commit of TEN-001."""
+    raise NotImplementedError
 
 
 def set_query_observer(fn: QueryObserver | None) -> None:

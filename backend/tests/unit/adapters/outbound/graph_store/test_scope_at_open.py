@@ -107,6 +107,15 @@ async def test_the_idempotency_store_scope_is_the_one_at_the_start_when_the_driv
     assert fake.tenants_sent() == ["a1", "a1"]
 
 
+async def test_a_put_keeps_the_scope_at_the_start_when_the_driver_retries_it() -> None:
+    fake = FakeDriver()
+    store = DriverIdempotencyStore(cast(Any, fake))
+    with bind_tenant("a1"), _rebinding_between_attempts(fake, "b1"):
+        await store.put("key-1", Role.REPORTER)
+    # Three statements per attempt (read the head, create, link), and two attempts.
+    assert fake.tenants_sent() == ["a1"] * 6
+
+
 # ensure_audit_head
 
 

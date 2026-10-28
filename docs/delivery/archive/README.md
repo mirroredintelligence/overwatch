@@ -33,3 +33,5 @@ git log --oneline archive/task-F01-green
 | `archive/task-F01-green` | `0f37034` | `task-F01-green` |
 | `archive/task-F01-red-green` | `7e4f04f` | `task-F01-red-green` |
 | `archive/task-F03-redproof` | `cfcf491` | `task-F03-redproof` |
+
+- `ten-001-seam-warn-2026-10-28.bundle`: tip `2bdca21` of `task/TEN-001-seam-warn`, the withdrawn Cypher-reader seam (DEC-142). Not merged. Read the verifier sections in its `docs/delivery/evidence/TEN-001.md` for the leak shapes found in rounds 3 to 5.

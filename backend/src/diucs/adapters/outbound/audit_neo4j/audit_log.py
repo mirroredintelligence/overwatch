@@ -223,7 +223,7 @@ async def ensure_audit_head(driver: AsyncDriver) -> None:
     """Create the chain head if missing. Idempotent. Call once at startup, after migrations."""
 
     async def work(tx: AsyncManagedTransaction) -> None:
-        await run_query(tx, "Q-AUDIT-ENSURE-HEAD", genesis=GENESIS_HASH)
+        await run_query(tx, REGISTRY.get("Q-AUDIT-ENSURE-HEAD"), genesis=GENESIS_HASH)
 
     async with driver.session() as session:
         await session.execute_write(work)
@@ -359,7 +359,7 @@ class Neo4jAuditLog:
 
     async def _lock_head(self) -> tuple[str, int]:
         """Take the head's write lock, then read where the chain stands (lesson L63)."""
-        rows = await run_query(self._tx, "Q-AUDIT-LOCK-HEAD")
+        rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-LOCK-HEAD"))
         if not rows:
             raise AuditHeadMissing(
                 "the audit chain head does not exist; call ensure_audit_head at startup"
@@ -370,7 +370,7 @@ class Neo4jAuditLog:
         if actor.practitioner_id is not None:
             await run_query(
                 self._tx,
-                "Q-AUDIT-LINK-AGENT",
+                REGISTRY.get("Q-AUDIT-LINK-AGENT"),
                 id=record_id,
                 agentId=actor.practitioner_id,
                 agentKind="Practitioner",
@@ -379,7 +379,7 @@ class Neo4jAuditLog:
         if actor.device_id is not None:
             await run_query(
                 self._tx,
-                "Q-AUDIT-LINK-AGENT",
+                REGISTRY.get("Q-AUDIT-LINK-AGENT"),
                 id=record_id,
                 agentId=actor.device_id,
                 agentKind="Device",
@@ -397,7 +397,7 @@ class Neo4jAuditLog:
         )
         await run_query(
             self._tx,
-            "Q-AUDIT-APPEND",
+            REGISTRY.get("Q-AUDIT-APPEND"),
             id=record_id,
             action=entry.action,
             useCase=entry.use_case,
@@ -414,7 +414,7 @@ class Neo4jAuditLog:
         if entry.entity_ids:
             await run_query(
                 self._tx,
-                "Q-AUDIT-LINK-ENTITY",
+                REGISTRY.get("Q-AUDIT-LINK-ENTITY"),
                 id=record_id,
                 entityIds=list(entry.entity_ids),
             )
@@ -422,7 +422,7 @@ class Neo4jAuditLog:
 
     async def records(self, since: str | None = None) -> list[AuditRecord]:
         """Audit records in chain order. With since, only the records after that record's id."""
-        rows = await run_query(self._tx, "Q-AUDIT-LIST")
+        rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-LIST"))
         found = [
             AuditRecord(
                 id=str(row["id"]),
@@ -441,8 +441,8 @@ class Neo4jAuditLog:
 
     async def verify_chain(self) -> bool:
         """True when every link is intact, in order, and the head points at the last link."""
-        rows = await run_query(self._tx, "Q-AUDIT-CHAIN")
-        head_rows = await run_query(self._tx, "Q-AUDIT-HEAD")
+        rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-CHAIN"))
+        head_rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-HEAD"))
         if not head_rows:
             return not rows
         previous = GENESIS_HASH
@@ -501,7 +501,7 @@ class Neo4jAuditLog:
         chain = chain_hash_over(previous, text)
         await run_query(
             self._tx,
-            "Q-PROV-APPEND",
+            REGISTRY.get("Q-PROV-APPEND"),
             id=prov_id,
             recorded=recorded,
             activity=activity,
@@ -513,7 +513,7 @@ class Neo4jAuditLog:
         )
         await run_query(
             self._tx,
-            "Q-PROV-LINK",
+            REGISTRY.get("Q-PROV-LINK"),
             id=prov_id,
             targetType=target_type,
             targetId=target_id,
@@ -527,7 +527,7 @@ class Neo4jAuditLog:
         if source_communication_id is not None:
             await run_query(
                 self._tx,
-                "Q-PROV-SOURCE",
+                REGISTRY.get("Q-PROV-SOURCE"),
                 id=prov_id,
                 sourceId=source_communication_id,
             )

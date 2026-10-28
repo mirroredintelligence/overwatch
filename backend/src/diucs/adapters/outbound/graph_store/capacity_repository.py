@@ -235,35 +235,44 @@ class Neo4jCapacityRepository:
         return report_from_fhir(resource)
 
     async def latest(self, service_id: str) -> CapacityReport | None:
-        rows = await run_query(self._tx, "Q-CAP-LATEST", key=f"{_SERVICE}/{service_id}")
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-CAP-LATEST"), key=f"{_SERVICE}/{service_id}"
+        )
         if not rows:
             return None
         return await self._load(str(rows[0]["obs"]))
 
     async def latest_for_services(self, service_ids: Sequence[str]) -> dict[str, CapacityReport]:
         keys = [f"{_SERVICE}/{service_id}" for service_id in service_ids]
-        rows = await run_query(self._tx, "Q-CAP-LATEST-FOR", keys=keys)
+        rows = await run_query(self._tx, REGISTRY.get("Q-CAP-LATEST-FOR"), keys=keys)
         return {str(row["service"]): await self._load(str(row["obs"])) for row in rows}
 
     async def reports_since(self, service_id: str, since: datetime) -> list[CapacityReport]:
         rows = await run_query(
-            self._tx, "Q-CAP-SINCE", key=f"{_SERVICE}/{service_id}", since=since.astimezone(UTC)
+            self._tx,
+            REGISTRY.get("Q-CAP-SINCE"),
+            key=f"{_SERVICE}/{service_id}",
+            since=since.astimezone(UTC),
         )
         return [await self._load(str(row["obs"])) for row in rows]
 
     async def last_report_times(self) -> dict[str, datetime | None]:
-        rows = await run_query(self._tx, "Q-SVC-LAST-REPORT")
+        rows = await run_query(self._tx, REGISTRY.get("Q-SVC-LAST-REPORT"))
         return {str(row["id"]): _as_utc(row["last"]) for row in rows}
 
     async def lock_service(self, service_id: str) -> None:
-        await run_query(self._tx, "Q-CAP-LOCK-SERVICE", key=f"{_SERVICE}/{service_id}")
+        await run_query(
+            self._tx, REGISTRY.get("Q-CAP-LOCK-SERVICE"), key=f"{_SERVICE}/{service_id}"
+        )
 
     async def trailing_confirmations(self, service_id: str) -> int:
-        rows = await run_query(self._tx, "Q-CAP-TRAILING-CONFIRMS", key=f"{_SERVICE}/{service_id}")
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-CAP-TRAILING-CONFIRMS"), key=f"{_SERVICE}/{service_id}"
+        )
         return int(rows[0]["trailing"]) if rows else 0
 
     async def latest_confirmation_at(self, service_id: str) -> datetime | None:
         rows = await run_query(
-            self._tx, "Q-CAP-LATEST-CONFIRMED-AT", key=f"{_SERVICE}/{service_id}"
+            self._tx, REGISTRY.get("Q-CAP-LATEST-CONFIRMED-AT"), key=f"{_SERVICE}/{service_id}"
         )
         return _as_utc(rows[0]["at"]) if rows else None

@@ -241,9 +241,12 @@ class _CountingTx:
         self._tx = tx
         self.runs = 0
 
-    async def run(self, query: str, **params: Any) -> Any:
+    async def run(
+        self, query: str, parameters: dict[str, Any] | None = None, **kwparameters: Any
+    ) -> Any:
+        # run_query hands the parameters to the driver as one dict (TEN-001).
         self.runs += 1
-        return await self._tx.run(query, **params)
+        return await self._tx.run(query, parameters, **kwparameters)
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._tx, name)

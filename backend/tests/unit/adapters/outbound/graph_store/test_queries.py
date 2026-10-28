@@ -397,12 +397,17 @@ def test_an_instance_of_a_ratchet_template_is_tenant_pending_by_the_ratchet_on_t
     assert registry.ratchet_ids() == ["Q-TPL-OLD"]
 
 
-def test_a_registered_statement_cannot_be_shadowed_by_an_instance_id() -> None:
-    registry = QueryRegistry()
-    registry.register_template(TEMPLATE)
-    registry.register(_tenant_query("Q-TPL-WRITE:Organization"))
-    with pytest.raises(ValueError, match="Q-TPL-WRITE:Organization"):
-        registry.instance("Q-TPL-WRITE", ":Organization")
+def test_a_plain_statement_id_cannot_contain_a_colon_so_it_cannot_borrow_a_template_place() -> None:
+    """`Q-TPL-OLD:Evil` would otherwise take the ratchet place of the template `Q-TPL-OLD`."""
+    registry = QueryRegistry(unconverted=frozenset({"Q-TPL-OLD"}))
+    with pytest.raises(ValueError, match="colon"):
+        registry.register(NamedQuery(id="Q-TPL-OLD:Evil", cypher=OLD_CYPHER, mode="read"))
+    with pytest.raises(ValueError, match="colon"):
+        registry.register_template(
+            QueryTemplate(id="Q-TPL-OLD:Evil", cypher="MERGE (n{insert}) RETURN n", mode="write")
+        )
+    assert registry.ids() == []
+    assert registry.template_ids() == []
 
 
 # The module registry and the ratchet

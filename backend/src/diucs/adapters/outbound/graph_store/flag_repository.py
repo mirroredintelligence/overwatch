@@ -263,31 +263,36 @@ class Neo4jFlagRepository:
 
     async def add_report_flag(self, flag: ReportFlag) -> None:
         key = f"{_OBSERVATION}/{flag.report_id}"
-        locked = await run_query(self._tx, "Q-FLAG-OBS-LOCK", key=key)
+        locked = await run_query(self._tx, REGISTRY.get("Q-FLAG-OBS-LOCK"), key=key)
         if not locked or int(locked[0]["locked"]) == 0:
             raise NotFound("report")
-        service = await run_query(self._tx, "Q-FLAG-OBS-SERVICE", key=key)
+        service = await run_query(self._tx, REGISTRY.get("Q-FLAG-OBS-SERVICE"), key=key)
         if not service or str(service[0]["serviceId"]) != flag.service_id:
             raise ValidationFailed("service_id", "is not the service the report is about")
-        existing = await run_query(self._tx, "Q-FLAG-REPORT-EXISTS", id=flag.id)
+        existing = await run_query(self._tx, REGISTRY.get("Q-FLAG-REPORT-EXISTS"), id=flag.id)
         if int(existing[0]["found"]) > 0:
             raise Conflict("a report flag with this id already exists")
         try:
-            await run_query(self._tx, "Q-FLAG-REPORT-ADD", key=key, props=_report_props(flag))
+            await run_query(
+                self._tx, REGISTRY.get("Q-FLAG-REPORT-ADD"), key=key, props=_report_props(flag)
+            )
         except ConstraintError as error:  # the unique key on ReportFlag.id refused a racing add
             raise Conflict("a report flag with this id already exists") from error
 
     async def open_report_flags(self, service_id: str | None = None) -> list[ReportFlag]:
         rows = await run_query(
-            self._tx, "Q-FLAG-REPORT-OPEN", status=REPORT_FLAG_OPEN, serviceId=service_id
+            self._tx,
+            REGISTRY.get("Q-FLAG-REPORT-OPEN"),
+            status=REPORT_FLAG_OPEN,
+            serviceId=service_id,
         )
         return [_report_flag(row["props"], str(row["reportId"])) for row in rows]
 
     async def save_report_flag(self, flag: ReportFlag) -> None:
-        locked = await run_query(self._tx, "Q-FLAG-REPORT-LOCK", id=flag.id)
+        locked = await run_query(self._tx, REGISTRY.get("Q-FLAG-REPORT-LOCK"), id=flag.id)
         if not locked or int(locked[0]["locked"]) == 0:
             raise NotFound("report flag")
-        rows = await run_query(self._tx, "Q-FLAG-REPORT-GET", id=flag.id)
+        rows = await run_query(self._tx, REGISTRY.get("Q-FLAG-REPORT-GET"), id=flag.id)
         stored = _report_flag(rows[0]["props"], str(rows[0]["reportId"]))
         if (stored.report_id, stored.service_id, stored.reason, stored.created_at) != (
             flag.report_id,
@@ -300,7 +305,7 @@ class Neo4jFlagRepository:
             raise InvalidTransition("this flag is already resolved")
         await run_query(
             self._tx,
-            "Q-FLAG-REPORT-SAVE",
+            REGISTRY.get("Q-FLAG-REPORT-SAVE"),
             id=flag.id,
             status=flag.status,
             outcome=flag.outcome,
@@ -311,7 +316,7 @@ class Neo4jFlagRepository:
 
     async def service_flags(self, service_id: str) -> list[ServiceFlag]:
         rows = await run_query(
-            self._tx, "Q-FLAG-SERVICE-ACTIVE", active=_ACTIVE, serviceId=service_id
+            self._tx, REGISTRY.get("Q-FLAG-SERVICE-ACTIVE"), active=_ACTIVE, serviceId=service_id
         )
         found: list[ServiceFlag] = []
         for row in rows:
@@ -323,14 +328,16 @@ class Neo4jFlagRepository:
         return found
 
     async def set_service_flag(self, flag: ServiceFlag) -> None:
-        locked = await run_query(self._tx, "Q-FLAG-SERVICE-LOCK", serviceId=flag.service_id)
+        locked = await run_query(
+            self._tx, REGISTRY.get("Q-FLAG-SERVICE-LOCK"), serviceId=flag.service_id
+        )
         if not locked or int(locked[0]["locked"]) == 0:
             raise NotFound("service")
         resource = service_flag_to_fhir(flag)
         flag_id = str(resource["id"])
         key = f"{_BASIC}/{flag_id}"
         if await self._store.exists(_BASIC, flag_id):
-            state = await run_query(self._tx, "Q-FLAG-BASIC-STATE", key=key)
+            state = await run_query(self._tx, REGISTRY.get("Q-FLAG-BASIC-STATE"), key=key)
             if not state or not state[0]["flagged"]:
                 raise Conflict("a resource with this id is not a service flag")
             current = await self._store.get(_BASIC, flag_id)
@@ -339,8 +346,10 @@ class Neo4jFlagRepository:
             await self._store.put(resource, str(current["meta"]["versionId"]))
         else:
             await self._store.put(resource, None)
-        await run_query(self._tx, "Q-FLAG-LABEL", key=key)
+        await run_query(self._tx, REGISTRY.get("Q-FLAG-LABEL"), key=key)
 
     async def services_with_flag(self, code: str) -> set[str]:
-        rows = await run_query(self._tx, "Q-FLAG-SERVICES-WITH", active=_ACTIVE, code=code)
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-FLAG-SERVICES-WITH"), active=_ACTIVE, code=code
+        )
         return {str(row["serviceId"]) for row in rows}

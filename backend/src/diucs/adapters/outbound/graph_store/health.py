@@ -7,11 +7,14 @@ from enum import StrEnum
 from neo4j import AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import run_global_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 
 PING_QUERY_ID = "Q-NEO4J-PING"
-REGISTRY.register(NamedQuery(id=PING_QUERY_ID, cypher="RETURN 1 AS ok", mode="read"))
+# A global statement (DEC-130 item 3): it answers RETURN 1 before any tenant is known, so it runs
+# through run_global_query and is on the global allowlist.
+_PING = NamedQuery(id=PING_QUERY_ID, cypher="RETURN 1 AS ok", mode="read", scope="global")
+REGISTRY.register(_PING)
 
 
 class HealthStatus(StrEnum):
@@ -26,7 +29,7 @@ class Health:
 
 
 async def _ping(tx: AsyncManagedTransaction) -> list[dict[str, object]]:
-    return await run_query(tx, PING_QUERY_ID)
+    return await run_global_query(tx, _PING)
 
 
 async def neo4j_health(conn: Neo4jConnection, timeout: float) -> Health:

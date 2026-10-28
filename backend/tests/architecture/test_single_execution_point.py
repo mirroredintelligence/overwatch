@@ -640,9 +640,12 @@ def test_the_real_tree_follows_every_rule() -> None:
 
 def test_the_real_tree_has_the_things_the_scan_looks_for() -> None:
     files = load_tree(PACKAGE_ROOT)
-    assert runner_reference_lines(files[f"{GRAPH_STORE}/driver.py"]), (
-        "driver.py defines the runners"
-    )
+    defined = {
+        node.name
+        for node in ast.walk(_parse(files[f"{GRAPH_STORE}/driver.py"]))
+        if isinstance(node, ast.AsyncFunctionDef)
+    }
+    assert defined >= QUERY_RUNNERS, "driver.py defines the runners"
     assert statement_construction_lines(files[f"{GRAPH_STORE}/health.py"])
     assert any(
         runner_reference_lines(source)

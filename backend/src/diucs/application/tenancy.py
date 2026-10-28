@@ -1,11 +1,30 @@
-"""DEC-010 stub for the red commit of TEN-001: the names of the tenancy kernel, no behaviour."""
+"""The tenancy kernel: who a unit of work belongs to, and how the data layer finds out.
+
+DEC-130 to DEC-132, DEC-142. A scope is a tenant or a network (DEC-132): both are bound the same
+way and reach the data layer as the one `tenant` parameter. The edge of the system (an HTTP
+dependency, a worker entry, a webhook) binds a scope once per unit of work from a verified source
+and nothing else reads or writes the context variable except the graph store's execution point,
+the unit of work and tests. No function takes a tenant argument.
+
+Reused from the verified earlier branch (archived bundle, tip 2bdca21), without the warn and
+enforce mode (DEC-142 item 7): this module holds the scope id, the binding and the fixed-message
+errors, and nothing about how a statement is checked.
+
+Standard library only (enforced by an import contract): this module is imported by the adapters and
+must not pull a framework or a driver in with it.
+
+Every error here has one fixed message and takes no argument, so no tenant id, parameter value or
+Cypher text can ever be put in one. They are programming errors (a missing or wrong binding), not
+`DomainError`s, and answer 500.
+"""
 
 import contextlib
+import re
 from collections.abc import Iterator
 from contextvars import ContextVar
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final, Self
+from typing import ClassVar, Final, Self
 
 
 class ScopeKind(StrEnum):
@@ -13,10 +32,19 @@ class ScopeKind(StrEnum):
     NETWORK = "network"
 
 
+# A network scope id starts with this reserved prefix and a tenant id may not, so the two can never
+# be equal (DEC-132 item 4).
 NETWORK_PREFIX: Final = "net-"
+# The tenant that the backfill of TEN-005 assigns to the development data that exists today.
 DEFAULT_TENANT_ID: Final = "default"
+
+# 2 to 31 characters: lower case letters, digits and hyphen, no colon or slash, so the id is safe
+# inside a Redis key, a Service Bus property and an idempotency key. Matched with fullmatch.
 TENANT_ID_PATTERN: Final = r"[a-z0-9][a-z0-9-]{1,30}"
+# `net-` and then 2 to 27 characters of the same alphabet: 6 to 31 characters in all.
 NETWORK_ID_PATTERN: Final = r"net-[a-z0-9][a-z0-9-]{1,26}"
+_TENANT_ID = re.compile(TENANT_ID_PATTERN)
+_NETWORK_ID = re.compile(NETWORK_ID_PATTERN)
 
 SCOPE_INVALID_MESSAGE: Final = "the scope id is not valid"
 TENANT_NOT_BOUND_MESSAGE: Final = (
@@ -32,77 +60,125 @@ GLOBAL_STATEMENT_MESSAGE: Final = (
     "a global statement runs only through run_global_query, "
     "and run_global_query runs only global statements"
 )
+_TENANCY_ERROR_MESSAGE: Final = "a tenancy error"
 
 
 def is_valid_tenant_id(text: str) -> bool:
-    raise NotImplementedError
+    """True when text is a valid tenant id: 2 to 31 characters of `[a-z0-9-]`, starting with a
+    letter or digit, and not a network id (`net-...`). The one validator that other layers use
+    (the domain cannot import this module and keeps a copy under a parity test)."""
+    return (
+        isinstance(text, str)
+        and _TENANT_ID.fullmatch(text) is not None
+        and not text.startswith(NETWORK_PREFIX)
+    )
 
 
 class TenancyError(RuntimeError):
-    pass
+    """Base of the tenancy errors. Takes no argument; `str()` is the class's fixed message."""
+
+    MESSAGE: ClassVar[str] = _TENANCY_ERROR_MESSAGE
+
+    def __init__(self) -> None:
+        super().__init__()
+
+    def __str__(self) -> str:
+        return self.MESSAGE
 
 
 class ScopeInvalid(TenancyError):
-    pass
+    MESSAGE = SCOPE_INVALID_MESSAGE
 
 
 class TenantNotBound(TenancyError):
-    pass
+    MESSAGE = TENANT_NOT_BOUND_MESSAGE
 
 
 class TenantParameterRefused(TenancyError):
-    pass
+    MESSAGE = TENANT_PARAMETER_MESSAGE
 
 
 class QueryNotRegistered(TenancyError):
-    pass
+    MESSAGE = QUERY_NOT_REGISTERED_MESSAGE
 
 
 class GlobalStatementMisuse(TenancyError):
-    pass
+    MESSAGE = GLOBAL_STATEMENT_MESSAGE
 
 
 @dataclass(frozen=True, slots=True)
 class ScopeId:
+    """A tenant or a network, validated when it is built. Compares by value and kind."""
+
     value: str
     kind: ScopeKind
 
+    def __post_init__(self) -> None:
+        if not isinstance(self.value, str) or not isinstance(self.kind, ScopeKind):
+            raise ScopeInvalid
+        if self.kind is ScopeKind.NETWORK:
+            valid = _NETWORK_ID.fullmatch(self.value) is not None
+        else:
+            valid = is_valid_tenant_id(self.value)
+        if not valid:
+            raise ScopeInvalid
+
     @classmethod
     def tenant(cls, value: str) -> Self:
-        raise NotImplementedError
+        return cls(value, ScopeKind.TENANT)
 
     @classmethod
     def network(cls, value: str) -> Self:
-        raise NotImplementedError
+        return cls(value, ScopeKind.NETWORK)
 
     @classmethod
     def parse(cls, value: str) -> Self:
-        raise NotImplementedError
+        """The kind is decided by the reserved prefix: `net-...` is a network, anything else a
+        tenant."""
+        is_network = isinstance(value, str) and value.startswith(NETWORK_PREFIX)
+        return cls(value, ScopeKind.NETWORK if is_network else ScopeKind.TENANT)
 
     def __str__(self) -> str:
-        raise NotImplementedError
+        return self.value
 
 
+# Created and set only here (an architecture test checks it).
 _SCOPE: ContextVar[ScopeId | None] = ContextVar("diucs_tenancy_scope", default=None)
 
 
 @contextlib.contextmanager
 def bind_scope(scope: ScopeId) -> Iterator[ScopeId]:
-    raise NotImplementedError
-    yield scope
+    """Bind a scope for the unit of work inside the block, and restore the previous binding on
+    exit, normal or not (nesting restores the outer one)."""
+    if not isinstance(scope, ScopeId):
+        raise ScopeInvalid
+    token = _SCOPE.set(scope)
+    try:
+        yield scope
+    finally:
+        _SCOPE.reset(token)
 
 
 def bind_tenant(tenant_id: str) -> contextlib.AbstractContextManager[ScopeId]:
-    raise NotImplementedError
+    """`bind_scope` for a tenant id."""
+    return bind_scope(ScopeId.tenant(tenant_id))
 
 
 def current_scope_or_none() -> ScopeId | None:
-    raise NotImplementedError
+    return _SCOPE.get()
 
 
 def current_scope() -> ScopeId:
-    raise NotImplementedError
+    scope = _SCOPE.get()
+    if scope is None:
+        raise TenantNotBound
+    return scope
 
 
 def current_tenant() -> str:
-    raise NotImplementedError
+    """The bound tenant id. A bound network scope is not a tenant: a tenant use case must never
+    run inside a network binding by accident."""
+    scope = _SCOPE.get()
+    if scope is None or scope.kind is not ScopeKind.TENANT:
+        raise TenantNotBound
+    return scope.value

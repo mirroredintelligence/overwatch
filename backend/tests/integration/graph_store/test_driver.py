@@ -16,7 +16,7 @@ from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry
 
 # 9 on main (0001 to 0009, 0014 to 0020; DEC-055 item 16); P10 adds 0021, so 17.
 EXPECTED_MIGRATION_COUNT = 26  # 0001-0009, 0014-0030 (P06 adds 0028; P15 adds 0029 and 0030)
@@ -29,15 +29,20 @@ EXPECTED_INDEXES = {
     "location_position",
 }
 
-REGISTRY.register(NamedQuery(id="Q-TEST-ECHO", cypher="RETURN $x AS x", mode="read"))
+# A registry of this file's own (DEC-142): the test statements are not tenant-scoped, so they sit on
+# its ratchet and run with no scope bound. They are never registered in the module registry.
+_TEST_REGISTRY = QueryRegistry(unconverted=frozenset({"Q-TEST-ECHO", "Q-TEST-WARN"}))
+_TEST_REGISTRY.register(NamedQuery(id="Q-TEST-ECHO", cypher="RETURN $x AS x", mode="read"))
 # The label does not exist, so the server sends a warning; the driver used to log the query text.
-REGISTRY.register(
+_TEST_REGISTRY.register(
     NamedQuery(
         id="Q-TEST-WARN",
         cypher="MATCH (zzmarkerlabel:NoSuchLabelForG01) RETURN zzmarkerlabel",
         mode="read",
     )
 )
+_ECHO = _TEST_REGISTRY.get("Q-TEST-ECHO")
+_WARN = _TEST_REGISTRY.get("Q-TEST-WARN")
 
 
 async def _reset_bookkeeping(driver: AsyncDriver) -> None:
@@ -124,7 +129,7 @@ async def test_a_registered_named_query_runs_in_a_read_transaction(
     neo4j_driver: AsyncDriver,
 ) -> None:
     async def work(tx: object) -> list[dict[str, object]]:
-        return await run_query(tx, "Q-TEST-ECHO", x=1)  # type: ignore[arg-type]
+        return await run_query(tx, _ECHO, registry=_TEST_REGISTRY, x=1)  # type: ignore[arg-type]
 
     async with neo4j_driver.session() as session:
         rows = await session.execute_read(work)
@@ -140,7 +145,7 @@ async def test_run_query_logs_no_cypher_text_even_when_the_server_warns(
     caplog.set_level(logging.WARNING)
 
     async def work(tx: object) -> list[dict[str, object]]:
-        return await run_query(tx, "Q-TEST-WARN")  # type: ignore[arg-type]
+        return await run_query(tx, _WARN, registry=_TEST_REGISTRY)  # type: ignore[arg-type]
 
     async with neo4j_driver.session() as session:
         await session.execute_read(work)
@@ -156,7 +161,7 @@ async def test_run_query_logs_no_cypher_text_even_at_debug(
     caplog.set_level(logging.DEBUG)
 
     async def work(tx: object) -> list[dict[str, object]]:
-        return await run_query(tx, "Q-TEST-ECHO", x=1)  # type: ignore[arg-type]
+        return await run_query(tx, _ECHO, registry=_TEST_REGISTRY, x=1)  # type: ignore[arg-type]
 
     async with neo4j_driver.session() as session:
         await session.execute_read(work)

@@ -52,6 +52,25 @@ forbidden_modules =
     diucs.adapters
     diucs.bootstrap
 
+# TEN-001, DEC-142: the tenancy kernel is imported by the adapters and must pull nothing in with it.
+[importlinter:contract:tenancy-kernel]
+name = The tenancy kernel is standard library only
+type = forbidden
+source_modules =
+    diucs.application.tenancy
+forbidden_modules =
+    diucs.domain
+    diucs.adapters
+    diucs.bootstrap
+    neo4j
+    redis
+    azure
+    fastapi
+    httpx
+    twilio
+    pydantic
+    pydantic_settings
+
 [importlinter:contract:adapters-independent]
 name = Adapters are independent
 type = independence

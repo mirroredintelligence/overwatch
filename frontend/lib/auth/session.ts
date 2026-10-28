@@ -33,7 +33,6 @@ export type Session = {
 export const SESSION_COOKIE = 'diucs_session';
 
 const SECRET_VARIABLE = 'SESSION_SECRET';
-const KEY_BYTES = 32;
 // 32 bytes in base64 are 43 characters and one '='.
 const BASE64_32_BYTES = /^[A-Za-z0-9+/]{43}=$/;
 const ENCRYPTION = { alg: 'dir', enc: 'A256GCM' } as const;
@@ -45,11 +44,7 @@ function secretKey(): Uint8Array {
   if (!value || !BASE64_32_BYTES.test(value)) {
     throw new Error(`${SECRET_VARIABLE} must be set to 32 random bytes, base64 encoded`);
   }
-  const key = new Uint8Array(Buffer.from(value, 'base64'));
-  if (key.length !== KEY_BYTES) {
-    throw new Error(`${SECRET_VARIABLE} must be set to 32 random bytes, base64 encoded`);
-  }
-  return key;
+  return new Uint8Array(Buffer.from(value, 'base64'));
 }
 
 /** Attributes shared by every cookie the BFF sets. */

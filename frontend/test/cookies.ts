@@ -16,9 +16,8 @@ export const fakeCookieStore = {
   set(name: string, value: string, options: Record<string, unknown> = {}) {
     cookieWrites.push({ name, value, options });
   },
-  get(_name: string) {
-    return undefined;
-  },
+  get: (...names: string[]): { name: string; value: string } | undefined =>
+    names.length < 0 ? { name: '', value: '' } : undefined,
 };
 
 export function resetCookieWrites() {

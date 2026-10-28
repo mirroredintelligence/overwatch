@@ -107,6 +107,12 @@ describe('sealSession and unsealSession', () => {
     ).rejects.toThrow(/expir/i);
   });
 
+  it('refuses to seal a session that expires at this very instant', async () => {
+    await expect(sealSession(sample({ expiresAt: NOW.toISOString() }), NOW)).rejects.toThrow(
+      /expir/i,
+    );
+  });
+
   it('refuses to seal an expiry that is not a date', async () => {
     await expect(sealSession(sample({ expiresAt: 'tomorrow' }), NOW)).rejects.toThrow(/expir/i);
   });
@@ -149,6 +155,16 @@ describe('sealSession and unsealSession', () => {
     ]) {
       expect(await unsealSession(await seal(bad), NOW)).toBeNull();
     }
+  });
+
+  it('returns null when expiresAt is this instant, even if the sealed exp claim is later', async () => {
+    const key = Buffer.from(TEST_SESSION_SECRET, 'base64');
+    const sealed = await new EncryptJWT({ ...sample({ expiresAt: NOW.toISOString() }) })
+      .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+      .setExpirationTime(Math.floor(NOW.getTime() / 1000) + 600)
+      .encrypt(key);
+    expect(await unsealSession(sealed, NOW)).toBeNull();
+    expect(await unsealSession(sealed, new Date(NOW.getTime() - 1))).not.toBeNull();
   });
 
   it('accepts every role in the contract and no other', async () => {
@@ -276,7 +292,7 @@ describe('getSession', () => {
     const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
     const { fakeCookieStore } = await import('@/test/cookies');
     vi.spyOn(fakeCookieStore, 'get').mockImplementation((name: string) =>
-      name === SESSION_COOKIE ? ({ name, value: sealed } as never) : undefined,
+      name === SESSION_COOKIE ? { name, value: sealed } : undefined,
     );
     expect(await getSession()).toEqual(sample({ expiresAt: soon() }));
   });

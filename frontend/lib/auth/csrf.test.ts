@@ -96,6 +96,14 @@ describe('checkCsrf', () => {
     }
   });
 
+  it('skips a cookie part that has no name=value form', () => {
+    const request = new Request(URL_, {
+      method: 'POST',
+      headers: { Cookie: `junk; ${CSRF_COOKIE}=${TOKEN}=`, [CSRF_HEADER]: `${TOKEN}=` },
+    });
+    expect(checkCsrf(request)).toBe(true);
+  });
+
   it('is not fooled by another cookie of similar name', () => {
     const request = requestWithCookies(URL_, { [`x${CSRF_COOKIE}`]: TOKEN }, {
       method: 'POST',

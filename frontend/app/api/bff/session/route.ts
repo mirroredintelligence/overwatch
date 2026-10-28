@@ -7,7 +7,7 @@ import { withBff } from '@/lib/bff/handler';
 const NO_STORE = { 'Cache-Control': 'no-store' };
 const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
 
-export const GET = withBff(async (request, session) => {
+const get = withBff(async (request, session) => {
   // Keep the token already in the cookie, so a second tab is not logged out.
   const existing = readRequestCookie(request, CSRF_COOKIE);
   const csrfToken = existing && TOKEN_SHAPE.test(existing) ? existing : await issueCsrf();
@@ -17,7 +17,7 @@ export const GET = withBff(async (request, session) => {
   );
 });
 
-export const DELETE = withBff(
+const del = withBff(
   async () => {
     await destroySession();
     await clearCsrf();
@@ -25,3 +25,7 @@ export const DELETE = withBff(
   },
   { csrf: true },
 );
+
+// Route handlers receive a context the session routes do not use.
+export const GET = (request: Request) => get(request, undefined);
+export const DELETE = (request: Request) => del(request, undefined);

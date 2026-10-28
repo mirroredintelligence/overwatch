@@ -503,3 +503,124 @@ I03 (relay per tenant), I04 (consumer, in flight), I05, I07 (webhooks, DEC-131 f
 - Not verified (no network, not in repo): Twilio webhook parameter list and `AccountSid` semantics, Twilio UK number regulation and lead time, the Service Bus emulator's entity limits, Azure Monitor custom-metric dimension limits, Redis cluster behaviour of the Azure products, Entra multi-tenant app behaviour, and browser push subscription rules per VAPID key. Each is flagged where used.
 - The ledger on main is stale (STATUS.md says 48 delivered); I used the refreshed copy on `origin/ledger-refresh` (76 delivered) for the delivered list. I did not read that branch's ledger line by line.
 - I did not run any code, tests, Docker or the app, as instructed; counts came from `grep`, `find`, and a short script over `docs/plan/tasks.json`, `infra/servicebus-config.json` and `bootstrap/settings.py`.
+
+---
+
+## 13. NETWORK SCOPE AT THE EDGES (DEC-132)
+
+DEC-132 in one line for this section: a tenant is the legal entity; a `Network` groups tenants; data crosses only as **read-only projections** a projector writes into a **network scope** (an id treated like a tenant, each copied node carrying `sourceTenantId`); members read the network view through a use case bound to the network scope after a membership and grant check; a unit of work binds exactly one scope (DEC-132 items 3 to 5).
+
+Edge consequence: the bound context is a **scope**, not a tenant. Keep two values: `acting_tenant` (from the token; used for audit, telemetry, authorisation) and `bound_scope` (tenant scope or network scope; used by `run_query`, the cache wrapper and the unit of work). They are equal on every route that exists today. Network routes and the projector write path are the only places they differ. Scope id namespaces: tenant ids match `[a-z0-9][a-z0-9-]{1,30}` (2B); network scope ids are `_net-<id>` with the reserved leading underscore, so a tenant can never be named like a network and `SCAN MATCH diucs:<scope>:` stays exact.
+
+### 13.1 (a) Claims, sessions and new REST routes
+
+**Token and BFF session claims** for a user of one tenant that belongs to one network:
+
+```
+{ "sub": "<entra oid>", "tenant": "dorset-icb", "networks": ["dorset-spoa"],
+  "role": "advisor", "services": [], "exp": ... }          // BFF backend token (HS256, R02 codec)
+Session { role, services, sub, tenant, networks, device?, backendToken, expiresAt }   // sealed cookie (W02 session.ts:23-31)
+```
+
+- `tenant` (required): authoritative. Binds the tenant scope (3.2).
+- `networks` (optional list of network ids): **a hint, not authority.** Membership changes during an 8 hour token (a tenant leaves; a tenant joins). Authority is a request-time check of active membership through a `NetworkAccess` port (Neo4j read, in-process cache of at most 30 seconds [ASSUMED]). Mismatch between claim and directory: uniform 404 body (same bytes as a missing record, DEC-086 item 5). The claim lets the BFF decide whether to render the network link without a call and lets the route reject an obviously foreign id before any read. A token with no `networks` claim is valid for tenant routes.
+- `role`: stays a tenant role (the ten `Role` values). Network administration is **not** a token role: it is derived at request time from facts: (i) "network owner administrator" = a token whose `tenant` equals `Network.ownerTenantId` and whose role is the tenant administrator role; (ii) "grantor administrator" = the token's own tenant. There is no tenant-administrator role among the ten `Role` values today (`domain/codes.py` Role: reporter, advisor, clinical, lead, owner, exec, wall, anonymous-link, support, audit; `owner` means criteria owner). DEC-132 uses "administrator" without naming a role. Owner decision needed: reuse `lead` or add an eleventh role `admin`. Recommendation: add `admin` (one enum member, one entry in `frontend/lib/auth/session.ts` ROLES and the W09 role mapping `DIUCS.Admin`), because `lead` is the shift lead and approving a data-sharing grant is a different accountability.
+- `Actor` gains `tenant_id` (C02) and `network_ids: frozenset[str]` (hint). `actor_from_claims` copies both.
+- Wall token: `role=wall`, `sub=<device id>`, `tenant`; **no network claim**. The network board setting is on the device record (13.5).
+- No cross-tenant claim of any kind. `support` stays platform-only (3.6, DEC-132 item 8).
+
+**Routes.** All bind `acting_tenant` from the token. A `networkId` in a path is a selector that is validated against membership; it is never a source of a tenant. Every refusal is the uniform 404. Mutations of grants write in the **grantor's** tenant scope (authority), with a mirror record in the network scope for the owner to see; the two writes are two units of work (one scope each), so a grant request or approval is two steps and the second step is retried by an outbox message (the same pattern as use case change plus outbox).
+
+| Route | Purpose | Auth rule |
+|---|---|---|
+| `GET /network` | the networks my tenant belongs to (id, name, my membership status) | any authenticated staff role; tenant from token; returns only networks where membership is active or ended (so a leaver can see history) |
+| `GET /fhir/HealthcareService/$network-board?network=<id>` | network capacity view (same Parameters shape as `$board`, plus `sourceTenant` display name per entry) | roles allowed to read the board today (`routes_events.py:36` STREAM_ROLES: wall, advisor, clinical, lead, exec; `QueryBoard` refuses only `anonymous-link`, `query_board.py:70`) **except** `wall` unless the device is set to network (13.5); reporters and link users never (DEC-132 item 5); active membership in `network`; binds the network scope; read-only use case, no write |
+| `GET /network/{id}/services` and `GET /network/{id}/services/{serviceId}/criteria` | directory and current criteria projections | same as above; criteria only for the service's current version (DEC-132 item 4) |
+| `GET /network/{id}/events` (SSE) | live "network board changed" messages | same as above; membership re-checked on connect and every 60 seconds [ASSUMED] while the stream is open; a `scope-ended` message or a failed re-check closes the stream (a long-lived SSE must not outlive a grant or membership) |
+| `GET /network/{id}/members` | members, status, joined, left | network owner administrator: all; any other member's staff: names and status only |
+| `POST /network/{id}/members` | add a tenant to the network | network owner administrator only; the new tenant must already exist; the data sharing agreement reference and version are in the body (reference only, never content); `Idempotency-Key` required |
+| `POST /network/{id}/members/{tenantId}/$leave` | end membership (history stays, DEC-132 item 6) | that tenant's administrator or the network owner administrator; the owner tenant cannot leave while it owns the network |
+| `GET /network/{id}/grants` | grants (scope, purpose, dates, status, version) | grantor administrator sees its own tenant's grants; network owner administrator sees all grants' **metadata** (never data); other staff: none |
+| `POST /network/{id}/grants` | request a grant (scope in `capacity`, `directory`, `criteria`; purpose; dates) | grantor = **the token's tenant**, never a body field; grantor administrator; status `requested` |
+| `POST /network/{id}/grants/{grantId}/$approve` | second approval | network owner administrator; must differ from the person who requested (the DEC-032 approver-is-not-requester pattern); the grant is only `active` when both approvals exist (DEC-132 item 3) |
+| `POST /network/{id}/grants/{grantId}/$end` | end a grant, stops future sharing only | grantor administrator, any time; takes effect at the source immediately because the projector checks the grant in the grantor's scope |
+| `GET /network/{id}/projection-status` | last projected time and lag per member and scope, counts, no data | administrators of the owner and of the member's own row |
+| `PUT /screens/{deviceId}/board-scope` | wall screen setting (13.5) | the paired tenant's administrator; `If-Match` required (R03 pattern) |
+
+Network creation and tenant creation have **no** REST route in the pilot: they are human-only provisioning (DEC-132 item 9, DEC-131 item 1), done by a script that writes the Neo4j side.
+
+Gaps in the owner's text that the routes expose:
+- **Reciprocity.** DEC-132 answer 1 says members see the network view. It does not say whether a member that has granted nothing may see what others granted. The route above does not require the viewer's own grant. Owner to confirm.
+- **Role scope.** "Staff of a member tenant whose role may see the board" is read here as the roles in STREAM_ROLES plus `advisor`'s board read. Confirm `exec` and `lead`.
+- **Booking across tenants.** The capacity loop in F2 is an advisor requesting a booking of a service. Under DEC-132 item 4, bookings are never shared, and under DEC-130/131 each tenant texts only its own reporters from its own number. If the advisors are in the network owner's tenant (the SPOA) and the services belong to member tenants, an advisor can **see** another tenant's capacity but cannot request a booking from it, because the booking request SMS would be sent by tenant A's subaccount to a reporter record that lives in tenant B's scope and is not readable by A. Answer 5 ("today's need is to share capacity") may mean that bookings stay within one tenant today, but this is the product's core workflow, so the owner should confirm explicitly what an advisor can do with a network row. This is the largest question the network model leaves open for the edges.
+
+### 13.2 (b) Redis keys and channels for the network scope
+
+Scope id `<s>` is `_net-<networkId>`. Everything else follows 4.2.
+
+| Key or channel | TTL | Written by |
+|---|---|---|
+| `diucs:_net-<id>:cache:board:v1` | 60 s [ASSUMED], same backstop as the tenant board | network projector after a successful write |
+| `diucs:_net-<id>:cache:services:v1` | 5 min [ASSUMED] | directory projection read model |
+| `diucs:_net-<id>:chan:board.updates` | pub/sub | projector publishes `{"type":"network-board-changed","source_tenant":"<id>","service_id":"<id>","at":...}` after the network write commits; `source_tenant` is allowed because the viewer is entitled to the projected data, which already names it |
+| `diucs:_net-<id>:chan:scope.control` | pub/sub | `scope-ended` and `grant-ended` control messages that close open streams |
+| `diucs:<t>:lock:project:<networkId>` and `diucs:<t>:fence:project:<networkId>` | lock 30 s; fence never expires | single-flight per (source tenant, network) for backfill and rebuild; **the lock lives under the source tenant** because the projector reads that tenant's scope. The high-water fencing mark lives in Neo4j on the network-scope projection head for that source tenant, because that is where the guarded write commits (DEC-091, L118, L125) |
+| `diucs:<t>:cache:network-access:<networkId>` | 30 s | `NetworkAccess` membership cache, tenant side |
+| `diucs:_:rl:...` | | unchanged |
+
+Rules:
+- A tenant-scope subscription and a network-scope subscription are different channels; a wall in tenant mode never subscribes to the network channel and the reverse.
+- The scoped cache (C26) reads the bound **scope**, so the same `RedisCache` wrapper serves both; reading `_net-*` with a tenant bound is refused by the wrapper (a tenant scope may only construct keys under its own id; a network scope is reached only through the network-bound path, which is entered only by the network use cases after the membership check). Test: bind tenant A, ask the wrapper for `_net-x` keys: error.
+- Tenant board cache entries are **not** invalidated by network changes and the reverse.
+- Flush: tests create a unique network scope per run (`_net-t<uuid8>`) as well as a unique tenant; `flush_prefix(client, f"diucs:{scope}:")`.
+- Leaving: when a tenant leaves, the network board cache key is deleted so the next read rebuilds with the leave-date marking (DEC-132 item 6); history in Neo4j is untouched.
+
+### 13.3 (c) Service Bus: how projection work is queued and carried
+
+**Two kinds of projection work, two carriers.**
+
+1. **Steady state (event driven): subscriptions on topics that already exist.** `CapacityReported` and `StatusChanged` are already published on `capacity.events` with `tenant`, ordered per service by session; `CriteriaApproved` goes on `criteria.events`; service activation and registration changes on `registration.events` (`RegistrationApproved`; there is **no** event for a service profile edit in `domain/events.py`, so manual directory changes by a lead, U15 and U16, would never reach the projector unless a `ServiceChanged` event is added; flag to the owner of U15 and the events module). Add one subscription named `network-projector` to each of `capacity.events` (session required, like the existing three), `criteria.events` and `registration.events`. No new topic. The message carries `tenant` (the source, set by the relay) and the usual `event_type`; it carries **no network property**, because the source event does not know about networks.
+2. **Commands that are not events: a new queue `projection.work`.** Backfill when a grant becomes active, retract or mark-left when a grant ends or a tenant leaves, full rebuild after an allowlist or schema change, and the periodic reconcile. Properties: `tenant` (source scope to read), `network` (target scope to write), `event_type` in `ProjectCapacity`, `ProjectDirectory`, `ProjectCriteria`, `RetractGrant`, `MarkLeft`, `Rebuild`; body: ids only (`service_id`, `grant_id`, `grant_version`, `reason`), **never figures**, so a replayed or stale message can only cause "project the current state again", and a dead-lettered message holds no capacity data (cleaner than `messages.outbound`, 5.6). `message_id = "<tenant>:<network>:<command id>"`, no sessions, duplicate detection off (idempotence is by the Processed marker and by a monotonic `asOf` guard on the projected node), TTL PT1H like the others.
+
+**Does the projector need its own queue? Yes, one queue (`projection.work`), not one per network and not a topic.** Reasons: (i) a backfill or rebuild for a large tenant is bursty and must not sit in front of the missed-report ladder on `scheduled.work` (reminders and phone tasks are time critical, domain-rules 1.5); (ii) it needs a second property (`network`); (iii) it has different retry and dead-letter handling (a missing grant is a permanent no-op, not an error); (iv) it keeps the steady-state subscriptions from carrying commands. Cost: `QUEUES` (`application/ports/outbound/event_bus.py:15`), `ManualEventBus`, the config (3 queues become 4, 18 subscriptions become 21) and the contract suite grow by one entity each.
+
+**How a consumer handles it (two scopes, one unit of work each).** For a steady-state event: (1) bind the source tenant from `tenant`, open a **read-only** unit of work, check that the tenant has an active `Grant` for the scope and an active membership for each network (reading the grant in the grantor's own scope, which makes "the grantor can end it at any time" immediate), load the allowlisted fields into a plain value object, close; (2) for each target network, bind the **network scope** and open a write unit of work: `processed.mark_if_new(message.id, "network-projector")`, upsert the projected node keyed `(sourceTenantId, serviceId)` with `asOf`, refusing to overwrite a newer `asOf`, commit; (3) after commit publish `chan:board.updates` for the network and invalidate the network board cache. The Processed marker therefore lives in the **network scope**, so the marker and the write commit together; the source read has no write. A grant ended between (1) and (2): the end flow first marks the grant mirror ended in the network scope, and the write unit of work re-reads that mirror and drops the write if ended. Message order across the two streams is not guaranteed by Service Bus sessions (different session ids), so the mirror read, not ordering, is the guard.
+
+Fan-out amplification is one projection per event per network (one network today), and the projector must not project a field outside the allowlist: the I04 framework needs a `Projector` handler type whose input is the value object, not a unit of work, so the allowlist type (D17 guard and a test, DEC-132 item 7) is the only thing that can reach a network write.
+
+Runner and framework changes (beyond C08): `IdempotentConsumer` gets a two-scope handler variant (`ScopedHandler(read_scope, write_scope)`), `to_bus_message` reads `network` when present and validates it against the directory, and a message for a network the source tenant is not (or no longer) a member of is a `PermanentError` ("not a member") dead-lettered with a fixed reason.
+
+### 13.4 (d) Telemetry for the network scope
+
+New attributes (all pass the O01 `*.id` rule except the last two, which are added explicitly): `network.id`; `scope.kind` (`tenant` or `network`); `scope.id` is **not** added (it duplicates `tenant.id` or `network.id` and would double the cardinality); `projection.kind` (`capacity`, `directory`, `criteria`); `projection.outcome` (`projected`, `no-grant`, `not-member`, `stale-dropped`, `retracted`, `marked-left`); `grant.id` (an id, allowed; never the agreement reference or version text).
+
+- Request spans on network routes: `tenant.id` = acting tenant, `network.id`, `scope.kind=network`, `fhir.search HealthcareService` operation `network-board`.
+- Projector spans: `projection.project {kind}` with `tenant.id` = **source**, `network.id` = target, `grant.id`, `projection.outcome`, row counts. The write unit of work's `neo4j.query` spans carry `scope.kind=network`.
+- Metrics (bounded dimensions): `projection.lag` histogram by `projection.kind` and `projection.outcome` (lag = event time to network commit; this is the network-view equivalent of the "text reply to board change p95 3 s" budget, observability.md:121; propose p95 10 s [ASSUMED] since it crosses a queue hop and two units of work); `projection.queue.depth` by `scope.kind`; with `tenant.id` allowed under the 7.1 rule and `network.id` allowed while the network count is at most about 5.
+- Logs: `tenant.id`, `network.id`, `projection.outcome`, message id. Never the projected values, `sourceTenantId` of a **non-granting** tenant, the grant agreement reference, or anything from the allowlist payload.
+- Collector allow-list `infra/otel-allowlist.txt` (O04) adds `network.id`, `scope.kind`, `projection.kind`, `projection.outcome`, `grant.id`.
+- Aggregates (O08): usage of the network view is a network-scope aggregate; the "groups under 10 sessions" floor (observability.md:150) is evaluated across the members' staff, which makes network aggregates more usable than per-tenant ones (7.4).
+- Support console: sessions are tenant-scoped (3.6); a support access never opens a network scope in this model.
+
+### 13.5 (e) Wall screen network-board setting at the edge
+
+- **Where the setting lives.** On the Device record in the **paired tenant's scope**: `boardScope` in `tenant` (default) or `network`, and `networkId` when `network`. It is not in the wall token, so the administrator can change it without re-pairing and a stolen token cannot widen its own view. The wall token carries `tenant`, role `wall`, `sub=<device>` only (13.1).
+- **Who changes it.** `PUT /screens/{deviceId}/board-scope` (13.1), tenant administrator, `If-Match` and `Idempotency-Key`, audited in the tenant's chain. Setting `network` requires active membership of that network and at least one active grant in the network (otherwise 404 uniform; the UI task decides the control, DEC-132 item 5).
+- **How the board request is decided.** `GET /fhir/HealthcareService/$board` (tenant board) is unchanged. `GET .../$network-board?network=<id>` for role `wall` is accepted only if the device's stored `boardScope` is `network` and `networkId` equals the path value and membership is active; otherwise uniform 404. The query parameter is a request for a view, never a source of authority. The server does not infer the view from the parameter alone for a wall: a wall cannot read the network board just by asking.
+- **SSE.** `GET /events` stays tenant. `GET /network/{id}/events` for a wall follows the same device check on connect and on each 60 second re-check; changing the setting publishes `scope.control` so open streams close and the screen re-reads its setting. A wall in `network` mode may also need the tenant channel (to show its own pending count); that is two subscriptions held by the BFF's SSE relay, not one mixed stream, because a stream has exactly one scope.
+- **Last known.** The wall page shows "Last known" when the stream and poll fail (architecture.md:272, W06). With a network setting it must not keep showing network data after membership ends or the setting returns to `tenant`: the setting response carries a `scopeVersion`; the page clears cached network state when it changes or when the network read answers 404. The cached payload is data from other organisations (a copy under a data sharing agreement) so the "Last known" copy has a maximum age [ASSUMED 2 hours, matching the stale warning `STALE_WARNING_AFTER`, `domain/rules/freshness.py`].
+- **Failure modes.** Grant ended: the network board loses that tenant's rows on the next projection (retract) and the wall keeps working. Membership ended: 404 uniform, the wall shows a fixed "Network view is no longer available" and reverts to the tenant board (UI wording is for the UI task). Device revoked: 401 as in 3.1.
+- **Pairing impact.** U10 and R15 are unchanged except that `ConfirmPairing` creates the Device with `boardScope=tenant`.
+
+### 13.6 Network-scope risks added to section 10
+
+14. **Booking across tenants is not modelled (high, owner).** 13.1, last bullet.
+15. **Projection staleness is a safety issue (medium to high).** Another organisation's wall shows a figure that is a copy; lag, a stuck projector or a dead-lettered projection makes a stale number look current. Each projected node must carry the source's `asOf` and the board must compute freshness from `asOf`, not from projection time, so the existing "Not updated: treat as unknown, phone" rule (domain-rules 1.3) keeps working. A projection lag alert is a safety control, not only an operational one (hazard log entry for the clinical safety officer; I have not read the hazard log).
+16. **Retraction after a grant ends (medium).** DEC-132 says a grant stops **future** sharing only and that projections stay (item 3, 6). A grantor who ends a grant because of an error expects the data to disappear from the network board now. The board must show projected nodes only while a grant is active and mark ended-grant nodes as history, not as live capacity; otherwise a former member's last figure stays on the board indefinitely. Owner to confirm that the live board hides data of ended grants while history keeps it.
+17. **Two-scope atomicity (medium).** No unit of work spans a source scope and the network scope, so the read and the write are separate and the guard is the grant mirror (13.3). This needs a test with a grant ended between the read and the write.
+18. **Network owner is a single point of administration (low to medium).** The owner tenant approves every grant and holds the agreement reference; its administrator accounts are the most privileged tenant accounts in the system, yet DEC-132 gives the owner no read access to members' private data. The route table enforces that, and a test must assert it (owner administrator calls a member-tenant route: 404).
+19. **Entra mapping for the network owner (low).** The owner and members may share an Entra directory in practice (an ICB hosting its own provider collaborative); then `tid` alone does not name the tenant (risk 11). The same resolution applies.
+
+### 13.7 Delivered and planned tasks touched by DEC-132
+
+Delivered and affected beyond section 11: R06 (SSE gets a second, network route), U08 and U09 (`QueryBoard` and `BoardProjector` get a network-scope variant; `WALL_ACTOR` at `board_projector.py:46`), I02 (queue constant), P08 (queue constant in `ManualEventBus`). Planned prompts to amend: I03 (relay publishes the `tenant` property to the steady-state subscriptions, nothing new), I04 (two-scope handler), R15 and U10 (device `boardScope`), W05 to W08 (wall board and last-known behaviour, setting control), W09 (role `admin`, `networks` claim), O01, O04, O07, O08 (network attributes), U15 and U16 (a service profile edit event for the directory projection), D17 (privacy guard enforces the projection allowlist).

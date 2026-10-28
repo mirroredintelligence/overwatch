@@ -42,6 +42,10 @@ def unseal_content(
     raise NotImplementedError
 
 
+def split_unit_label(label: str) -> tuple[str, str]:
+    raise NotImplementedError
+
+
 @dataclass(frozen=True, slots=True)
 class SendPromptCommand:
     idempotency_key: str

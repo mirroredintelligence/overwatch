@@ -820,6 +820,21 @@ async def test_cover_sends_the_prompt_to_the_cover_phone(
     assert record.phone_hash == PHONE_HASH_2
 
 
+async def test_a_role_whose_holder_is_not_stored_is_left_out(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # The role names a practitioner who is not stored: nobody can be texted for it.
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory, (), (_role(1),))
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+
+    result = await use_case.execute(_command())
+
+    assert result.sent is False
+    assert result.skipped_reason == SKIP_NO_REPORTER
+    assert await count_nodes(neo4j_driver, "Communication") == 0
+
+
 async def test_an_inactive_holder_is_treated_as_no_textable_reporter(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

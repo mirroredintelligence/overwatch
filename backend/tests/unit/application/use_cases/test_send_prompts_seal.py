@@ -6,7 +6,12 @@ import base64
 
 import pytest
 
-from diucs.application.use_cases.send_prompts import derive_key, seal_content, unseal_content
+from diucs.application.use_cases.send_prompts import (
+    derive_key,
+    seal_content,
+    split_unit_label,
+    unseal_content,
+)
 from diucs.domain.errors import ValidationFailed
 
 SECRET = b"s" * 40
@@ -136,3 +141,45 @@ def test_a_secret_shorter_than_32_bytes_is_refused() -> None:
 
 def test_a_32_byte_secret_gives_a_32_byte_key() -> None:
     assert len(derive_key(b"s" * 32)) == 32
+
+
+def test_a_key_that_is_not_32_bytes_is_refused(key: bytes) -> None:
+    with pytest.raises(ValidationFailed):
+        seal_content(TEXT, key[:16], **AAD)
+    sealed = seal_content(TEXT, key, **AAD)
+    with pytest.raises(ValidationFailed):
+        unseal_content(sealed, key[:16], **AAD)
+
+
+def test_a_character_outside_the_base64_alphabet_is_refused(key: bytes) -> None:
+    sealed = seal_content(TEXT, key, **AAD)
+    with pytest.raises(ValidationFailed):
+        unseal_content(sealed[:5] + "!" + sealed[6:], key, **AAD)
+
+
+def test_a_non_ascii_character_is_refused(key: bytes) -> None:
+    sealed = seal_content(TEXT, key, **AAD)
+    with pytest.raises(ValidationFailed):
+        unseal_content(sealed[:5] + "é" + sealed[6:], key, **AAD)
+
+
+def test_a_body_shorter_than_nonce_and_tag_is_refused(key: bytes) -> None:
+    short = _sealed(b"x" * 10)
+    with pytest.raises(ValidationFailed):
+        unseal_content(short, key, **AAD)
+
+
+@pytest.mark.parametrize(
+    ("label", "expected"),
+    [
+        ("referrals in the next 2 hrs", ("referrals", "in the next 2 hrs")),
+        ("referrals", ("referrals", "")),
+        ("referrals in", ("referrals", "")),
+        ("referrals in ", ("referrals", "")),
+        (" in the next 2 hrs", (" in the next 2 hrs", "")),
+    ],
+)
+def test_the_unit_label_is_split_into_unit_and_window_or_refused(
+    label: str, expected: tuple[str, str]
+) -> None:
+    assert split_unit_label(label) == expected

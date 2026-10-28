@@ -267,4 +267,6 @@ These names were added by individual task prompts. They are as binding as the re
 - `application/use_cases/confirm_capacity.py`: `ConfirmCapacityCommand(idempotency_key, actor, service_id, source, performer_role_id=None)`, `ConfirmCapacityResult(report_id, status, status_changed, next_due, confirmed_value, replayed=False)`, `ConfirmCapacity(uow_factory, clock, ids, idempotency)`. Created by U02.
 - `domain/errors.py`: `ConfirmLimitReached`, `NothingToConfirm` (both `DomainError`). Created by U02.
 - `CapacityRepository.lock_service(service_id) -> None` (query `Q-CAP-LOCK-SERVICE`) and `CapacityRepository.trailing_confirmations(service_id) -> int` (query `Q-CAP-TRAILING-CONFIRMS`). Created by U02.
+- `CapacityRepository.latest_confirmation_at(service_id) -> datetime | None` (query `Q-CAP-LATEST-CONFIRMED-AT`): the effective time of the newest confirmed report, None when there is none. Created by U02 round 3 (DEC-140).
+- `domain/errors.py`: `EffectiveBeforeConfirmation(ValidationFailed)`, a number whose explicit effective time is before the latest confirmed figure. Created by U02 round 3 (DEC-140).
 - `application/use_cases/report_capacity.py`: `record_report(..., use_case=, audit_snapshot=)` gains two optional keyword arguments, and `_check_may_report` is renamed to the public `check_may_report`. Changed by U02 (DEC-112 item 1).

@@ -28,7 +28,14 @@ from diucs.domain.codes import (
     Role,
     Status,
 )
-from diucs.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
+from diucs.domain.errors import (
+    Conflict,
+    DomainError,
+    EffectiveBeforeConfirmation,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
 from diucs.domain.events import CapacityReported, StatusChanged
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
@@ -266,6 +273,18 @@ def _replay(stored: _StoredReport, fingerprint: str) -> ReportCapacityResult:
     return replace(stored.result, replayed=True)
 
 
+def _explicit_effective(given: datetime | None, now: datetime) -> datetime | None:
+    """The command's effective time in UTC, or None when it gives none. A naive time, or one after
+    `now` (read before the unit of work), is refused before any lock is taken."""
+    if given is None:
+        return None
+    if given.utcoffset() is None:
+        raise ValidationFailed("effective_at", "must include a timezone")
+    if given > now:
+        raise ValidationFailed("effective_at", "is after the current time")
+    return given.astimezone(UTC)
+
+
 class ReportCapacity:
     def __init__(
         self,
@@ -293,15 +312,13 @@ class ReportCapacity:
             raise ValidationFailed(
                 "flag", "report flags are recorded by U07, not by ReportCapacity"
             )
-        now = self._clock.now()
-        effective = now if command.effective_at is None else command.effective_at
-        if effective.utcoffset() is None:
-            raise ValidationFailed("effective_at", "must include a timezone")
-        if effective > now:
-            raise ValidationFailed("effective_at", "is after the current time")
-        effective = effective.astimezone(UTC)
+        explicit = _explicit_effective(command.effective_at, self._clock.now())
 
         async with self._uow_factory() as uow:
+            # The service lock comes before every read that decides the report, and before the
+            # default effective time is taken (DEC-139). A report that waits behind a confirmation
+            # is therefore timed after it, so it sorts after the confirmation on the board.
+            await uow.capacity.lock_service(command.service_id)
             # The authoritative replay check, before any write (DEC-106 item 2).
             stored = await uow.idempotency.get(command.idempotency_key)
             if isinstance(stored, _StoredReport):
@@ -311,6 +328,17 @@ class ReportCapacity:
             if profile is None or not profile.active:
                 raise NotFound("no active service with this id")
             check_may_report(command.actor, command.source, profile.id)
+
+            now = self._clock.now()
+            effective = now if explicit is None else explicit
+            if explicit is not None:
+                # A number back-dated behind the latest confirmed figure would never reach the
+                # board, so it is refused and nothing is written (DEC-140).
+                confirmed_at = await uow.capacity.latest_confirmation_at(profile.id)
+                if confirmed_at is not None and explicit < confirmed_at:
+                    raise EffectiveBeforeConfirmation(
+                        "effective_at", "is before the latest confirmed figure of this service"
+                    )
 
             report = CapacityReport(
                 id=self._ids.new_id(),

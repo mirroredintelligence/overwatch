@@ -234,7 +234,7 @@ Every flow has one rule in common: a change and its audit record are written in 
 - The scheduler adapter finds services whose prompt is due and calls `SendPrompts`.
 - The use case reads the service and its latest figure, makes a link token, and writes a Communication and an outbox row.
 - The relay sends by the service's channel (text, push or email) and records delivery status from the provider callback.
-- **A text reply** reaches the webhook adapter. The number called and the Twilio account pick the tenant's subaccount, the provider signature is checked with that subaccount's token (a request that does not verify, or names an unknown number, gets one fixed refusal), and only then are the allow-list and the idempotency key checked. Anything unknown is dropped without a reply, and the text is queued for the domain reply parser (DEC-131, DEC-147).
+- **A text reply** reaches the webhook adapter. The number called and the Twilio account pick the tenant's subaccount, the provider signature is checked with that subaccount's token (a request that does not verify, or names an unknown number, gets one fixed refusal), and only then are the allow-list and the idempotency key checked. Anything unknown is dropped without a reply, and the text is queued for the domain reply parser (DEC-131, DEC-149).
 - **A link page** is opened with a GET that changes nothing. A button press is a POST through the BFF.
 - **The app** calls the FHIR interface behind the PIN session.
 - Each path ends in `ReportCapacity` or `ConfirmCapacity`. The use case writes an Observation with its source, a Provenance record and an audit row, then raises `CapacityReported`.
@@ -277,7 +277,7 @@ Every command writes an AuditEvent and a Provenance record with the actor, role,
 ## Security, IG and operations
 These are design intentions for IG, cyber and the clinical safety officer to challenge. I have not checked them against current NHS standards, so treat the standards named here as prompts.
 - **No patient data in any channel.** Texts, emails and notifications carry a reference, an age band, a need category and an urgency at most. A test fails the build if a message template contains a postcode, a name or a number that looks like an NHS number.
-- **Allow-list.** Replies are accepted only from registered numbers. Unknown senders get no reply, and the answer to Twilio is the same as for an accepted text (DEC-147).
+- **Allow-list.** Replies are accepted only from registered numbers. Unknown senders get no reply, and the answer to Twilio is the same as for an accepted text (DEC-149).
 - **Link tokens.** At least 128 bits, single use, tied to one prompt and one number, expiring with the prompt. A state change needs a button press.
 - **PIN.** Six digits, stored only as a keyed hash on the server and bound to the device. Five wrong tries lock it. A text code resets it. Re-verify by text code every 30 days, and on any new device. Ask cyber whether passkeys would be a better second factor.
 - **Staff sign-in.** Advisors, clinical advisors, leads and owners use the Trust staff account. Reporters and COO or ICB viewers use text code and PIN.

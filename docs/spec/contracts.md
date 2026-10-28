@@ -277,7 +277,7 @@ These names were added by individual task prompts. They are as binding as the re
 - `adapters/outbound/graph_store/driver.py`: `run_query(tx, query, /, *, registry=None, **params)` and `run_global_query(...)` take a registered `NamedQuery` and nothing else (no string); `run_query` binds the tenant, refuses the keywords `tenant` and `parameters`, and passes the parameters to `tx.run` as one dict. Callers write `run_query(tx, REGISTRY.get("Q-ID"), ...)`.
 - Tests: `tests/architecture/test_single_execution_point.py` holds `BINDING_MODULES`, `TENANT_PARAMETER_MODULES` (dotted module names, empty) and `BUILT_CYPHER_RATCHET` (module and count of statements that splice a constant; it may only shrink).
 
-## Inbound SMS webhook (I07, DEC-147)
+## Inbound SMS webhook (I07, DEC-149)
 - `adapters/inbound/sms_webhook/routes.py`: `router` with `POST /webhooks/sms/twilio` and `POST /webhooks/sms/twilio/status` (`REPLY_PATH`, `STATUS_PATH`), `SmsWebhookDeps(cache, event_bus, hasher, secrets, lines, public_base_url)` (set on `app.state.sms_webhook`), `twilio_signature(url, params, token) -> str`, `replay_key(message_sid) -> str`, `REPLAY_TTL` (24 h), `MAX_TEXT_CHARS` (1600), `MAX_FORM_BYTES`, `MAX_FORM_FIELDS`. Mounted by `create_app`.
 - `application/ports/outbound/tenant_lines.py`: `InboundLine(tenant_id, token_secret)` and `InboundLineDirectory` (`for_number(to_number, account_sid)`, `for_account(account_sid)`), each `-> InboundLine | None`. Fake: `adapters/testing/fixed_inbound_lines.py` `FixedInboundLines(lines)`. The real directory is TEN-007 and TEN-041.
 - `Cache.set_if_absent(key, value, ttl) -> bool` (`application/ports/outbound/cache.py`), on `RedisCache` and `InMemoryCache`.

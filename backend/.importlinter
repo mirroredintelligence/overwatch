@@ -81,7 +81,7 @@ modules =
 # DEC-055: the audit adapter runs its queries through the G01 driver and query registry.
 # DEC-084: the outbox runs its queries the same way, and the Neo4j unit of work is the one place
 # that wires the audit log and the outbox into the transaction it hands out.
-# I07 (DEC-147): the FHIR app mounts the Twilio webhook router, and the webhook reuses I06's
+# I07 (DEC-149): the FHIR app mounts the Twilio webhook router, and the webhook reuses I06's
 # mapping of a Twilio status, so the two statuses cannot disagree.
 ignore_imports =
     diucs.adapters.outbound.audit_neo4j.audit_log -> diucs.adapters.outbound.graph_store.driver

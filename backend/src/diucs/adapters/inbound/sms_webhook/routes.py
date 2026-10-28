@@ -1,4 +1,4 @@
-"""Twilio inbound SMS webhook (I07, DEC-131, DEC-147).
+"""Twilio inbound SMS webhook (I07, DEC-131, DEC-149).
 
 POST /webhooks/sms/twilio takes a text sent to one tenant's number; POST /webhooks/sms/twilio/status
 takes a delivery receipt. Both answer Twilio at once and leave the work to the queues.

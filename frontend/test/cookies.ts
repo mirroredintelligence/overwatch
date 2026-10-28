@@ -16,8 +16,8 @@ export const fakeCookieStore = {
   set(name: string, value: string, options: Record<string, unknown> = {}) {
     cookieWrites.push({ name, value, options });
   },
-  get: (...names: string[]): { name: string; value: string } | undefined =>
-    names.length < 0 ? { name: '', value: '' } : undefined,
+  // No cookie by default; tests that need one spy on this.
+  get: (_name: string): { name: string; value: string } | undefined => undefined,
 };
 
 export function resetCookieWrites() {

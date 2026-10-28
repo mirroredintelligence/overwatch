@@ -169,6 +169,22 @@ describe('withBff', () => {
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
   });
 
+  it.each(['', 'short'])('answers 500, not 401, for a request with no cookie when SESSION_SECRET is %j', async (value) => {
+    vi.stubEnv('SESSION_SECRET', value);
+    const handler = vi.fn(() => new Response('ok'));
+    const response = await withBff(handler)(new Request('http://localhost/api/bff/x'), undefined);
+    expect(response.status).toBe(500);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('sends Cache-Control no-store on a thrown-error response', async () => {
+    const wrapped = withBff(() => {
+      throw new FhirError(404, { resourceType: 'OperationOutcome', issue: [] });
+    });
+    const response = await wrapped(await request('GET'), undefined);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+  });
+
   it('answers 500 when SESSION_SECRET is missing, never a pass', async () => {
     const req = await request('GET');
     vi.stubEnv('SESSION_SECRET', '');

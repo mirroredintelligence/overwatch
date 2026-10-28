@@ -81,7 +81,11 @@ describe('sealSession and unsealSession', () => {
   it('returns null for a modified string', async () => {
     const sealed = await sealSession(sample(), NOW);
     const parts = sealed.split('.');
-    parts[3] = (parts[3] ?? '').replace(/.$/, (c) => (c === 'A' ? 'B' : 'A'));
+    // Change a character in the middle of the ciphertext segment. The last
+    // character holds unused base64url bits, so changing it can change nothing.
+    const ct = parts[3] ?? '';
+    const mid = Math.floor(ct.length / 2);
+    parts[3] = ct.slice(0, mid) + (ct[mid] === 'A' ? 'B' : 'A') + ct.slice(mid + 1);
     expect(await unsealSession(parts.join('.'), NOW)).toBeNull();
   });
 
@@ -129,6 +133,36 @@ describe('sealSession and unsealSession', () => {
       .setProtectedHeader({ alg: 'dir', enc: 'A128GCM' })
       .encrypt(key);
     expect(await unsealSession(other, NOW)).toBeNull();
+  });
+
+  it.each([
+    ['A256KW + A256GCM', { alg: 'A256KW', enc: 'A256GCM' }],
+    ['A256KW + A128GCM', { alg: 'A256KW', enc: 'A128GCM' }],
+    ['dir + A256CBC-HS512 (64-byte key)', { alg: 'dir', enc: 'A256CBC-HS512' }],
+  ])('returns null for a string sealed with the real secret using %s', async (_label, header) => {
+    const real = Buffer.from(TEST_SESSION_SECRET, 'base64');
+    const key = header.enc === 'A256CBC-HS512' ? Buffer.concat([real, real]) : real;
+    const other = await new EncryptJWT({ ...sample() })
+      .setProtectedHeader(header)
+      .setExpirationTime(Math.floor(NOW.getTime() / 1000) + 600)
+      .encrypt(key);
+    expect(await unsealSession(other, NOW)).toBeNull();
+  });
+
+  it('returns null for dir + A128GCM sealed with a 16-byte key derived from the real secret', async () => {
+    const key = Buffer.from(TEST_SESSION_SECRET, 'base64').subarray(0, 16);
+    const other = await new EncryptJWT({ ...sample() })
+      .setProtectedHeader({ alg: 'dir', enc: 'A128GCM' })
+      .setExpirationTime(Math.floor(NOW.getTime() / 1000) + 600)
+      .encrypt(key);
+    expect(await unsealSession(other, NOW)).toBeNull();
+  });
+
+  it('throws for an empty cookie when SESSION_SECRET is missing or malformed, never null', async () => {
+    for (const value of ['', 'short']) {
+      vi.stubEnv('SESSION_SECRET', value);
+      await expect(unsealSession('', NOW)).rejects.toThrow(/SESSION_SECRET/);
+    }
   });
 
   it('returns null for a correctly sealed payload that is not a session', async () => {

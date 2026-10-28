@@ -37,6 +37,8 @@ def test_text_that_is_not_a_stat_line_gives_no_marker() -> None:
     assert parse_start_marker("") is None
     assert parse_start_marker("no brackets here") is None
     assert parse_start_marker("1 (short) S 1 2") is None
+    # many numeric fields but no command name in brackets: not a /proc stat line
+    assert parse_start_marker(" ".join(str(n) for n in range(30))) is None
 
 
 def test_the_marker_of_this_process_is_stable() -> None:

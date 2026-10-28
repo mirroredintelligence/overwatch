@@ -1513,3 +1513,10 @@ Status: accepted (builder decision, owner to confirm) · Affects: W03 and every 
 2. **Card.** The prompt's goal and rules describe a Card, but the file list omits it. `Card.tsx` and `Card.module.css` are built, with `index.ts` exporting it, so the goal is met. The heading prop is `heading` with `headingLevel` (2 to 6, default 2); the section is named by its heading.
 3. **Stepper from empty.** Decrease from `null` gives `min` (prompt). Increase from `null` also gives `min`, because no figure has been chosen and one step lands on the lowest allowed value. Clearing the input reports `null`.
 4. **Option button shape.** `OptionButton` takes `selected` and `onSelect`; its accessible name includes the hint. Button `Button` takes `onClick` and `type` as well as the prompt's props.
+
+## DEC-128 Test harness containers are removed with their anonymous volumes (F10-fix)
+Status: accepted · Affects: `backend/tests/support/neo4j.py`, every pytest run that uses the Neo4j harness. Amends DEC-013 (which says the harness removes its container).
+
+- The neo4j image declares anonymous volumes for `/data` and `/logs`. `docker rm -f` leaves them behind, so every pytest run leaked two volumes (measured: 70 volumes, 18 GB in about one hour with four parallel builders, which used up the machine's disk allowance).
+- Decision: both removal paths, `stop_throwaway_neo4j` and `reap_stale_test_containers`, call `docker rm -f -v <name>`. The reaper's name-prefix and label checks are unchanged.
+- Cleaning existing leaks: `docker volume prune -f` removes only volumes that no container references, so it is safe while other builders' containers run.

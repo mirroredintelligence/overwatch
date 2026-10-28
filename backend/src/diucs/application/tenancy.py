@@ -110,7 +110,7 @@ class GlobalStatementMisuse(TenancyError):
 
 
 class UnitOfWorkAlreadyOpen(TenancyError):
-    pass
+    MESSAGE = UNIT_OF_WORK_OPEN_MESSAGE
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,17 +191,39 @@ def current_tenant() -> str:
     return scope.value
 
 
-# Created and set only here (an architecture test checks it).
+# Created and set only here (an architecture test checks it). Holds the unit of work that is open in
+# this context, so a second one cannot open inside it (DEC-132 item 4: a unit binds one scope).
 _UNIT: ContextVar[object | None] = ContextVar("diucs_open_unit", default=None)
 
 
 def claim_unit(owner: object) -> None:
-    raise NotImplementedError
+    """Take the one place for an open unit of work in this context, or raise
+    `UnitOfWorkAlreadyOpen`. Called only by the graph store's unit of work, when it opens.
+
+    The claim is a context variable, so it follows the rules of the scope binding (lesson L151): a
+    task started while a unit is open copies the claim and is refused; sibling tasks started from
+    a context that holds none each get their own. A unit is entered and left in the same task: left
+    in another one, its claim stays in the context that entered it.
+    """
+    if _UNIT.get() is not None:
+        raise UnitOfWorkAlreadyOpen
+    _UNIT.set(owner)
 
 
 def release_unit(owner: object) -> None:
-    raise NotImplementedError
+    """Give the place back, but only if `owner` still holds it: a release by another owner, a
+    second release, or a release with nothing claimed changes nothing."""
+    if _UNIT.get() is owner:
+        _UNIT.set(None)
 
 
 def scope_for_new_unit() -> ScopeId | None:
-    raise NotImplementedError
+    """The scope a unit of work, or any other code that opens its own transaction, takes when it
+    opens: the one bound now, or None when none is. Read once, at that moment, and carried on the
+    transaction (`ScopedTx`), so a later rebinding of the context changes nothing for that unit.
+
+    None is allowed while statements are on the ratchet (DEC-144 item 3): a unit opened unbound can
+    run only those, and a converted statement refuses on it. TEN-030 empties the ratchet and makes
+    this function refuse with `TenantNotBound`, which is the one place that change is made.
+    """
+    return current_scope_or_none()

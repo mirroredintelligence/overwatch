@@ -190,6 +190,11 @@ class QueryRegistry:
             raise ValueError(f"duplicate query id: {query_id}")
 
     def _check(self, query_id: str, cypher: str, scope: str, scenario: Scenario | None) -> None:
+        if scope != "global" and query_id in GLOBAL_QUERY_IDS:
+            raise ValueError(
+                f"query {query_id}: this id is on the global allowlist, so it must be registered "
+                "with scope='global'"
+            )
         if scope == "global":
             if query_id not in GLOBAL_QUERY_IDS:
                 raise ValueError(f"query {query_id}: not on the global allowlist")

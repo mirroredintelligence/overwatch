@@ -44,7 +44,7 @@ class FakeDocker:
         )
 
     def removed(self) -> list[str]:
-        return [call[2] for call in self.calls if call[:2] == ("rm", "-f")]
+        return [call[3] for call in self.calls if call[:3] == ("rm", "-f", "-v")]
 
 
 def test_reaper_removes_only_old_labelled_containers() -> None:

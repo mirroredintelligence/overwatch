@@ -146,7 +146,7 @@ def wait_until_ready(container: ThrowawayNeo4j) -> None:
 
 
 def stop_throwaway_neo4j(container: ThrowawayNeo4j) -> None:
-    result = _docker("rm", "-f", container.name)
+    result = _docker("rm", "-f", "-v", container.name)
     if result.returncode != 0:
         raise RuntimeError(f"Could not remove the Neo4j test container {container.name}.")
 
@@ -324,7 +324,7 @@ def reap_stale_test_containers(
                 continue
             if created_at >= cutoff:
                 continue
-            result = run("rm", "-f", name)
+            result = run("rm", "-f", "-v", name)
             if result.returncode == 0:
                 removed.append(name)
             else:

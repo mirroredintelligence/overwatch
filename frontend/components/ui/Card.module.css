@@ -1,0 +1,15 @@
+.card {
+  box-sizing: border-box;
+  padding: var(--space-5) 28px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  color: var(--c-ink);
+}
+
+.heading {
+  margin: 0 0 var(--space-3);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}

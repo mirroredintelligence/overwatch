@@ -1,0 +1,64 @@
+.stepper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.step {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  background: Canvas;
+  color: var(--c-primary);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-out);
+}
+
+.step:focus-visible,
+.input:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.step:active {
+  transform: scale(0.97);
+}
+
+.input {
+  box-sizing: border-box;
+  width: 5rem;
+  height: 56px;
+  border: 2px solid var(--c-closed);
+  border-radius: var(--radius);
+  background: Canvas;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}

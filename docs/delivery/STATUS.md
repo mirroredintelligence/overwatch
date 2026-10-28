@@ -1,6 +1,6 @@
 # Delivery status
 
-Generated 2026-10-25T16:03:56.879531+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 48/215 tasks.
+Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 77/215 tasks.
 
 ## S0 Foundations
 
@@ -64,59 +64,59 @@ Generated 2026-10-25T16:03:56.879531+00:00. Source of truth: the shared ledger (
 
 | Task | Title | Status | Owner | Commit | Evidence |
 |---|---|---|---|---|---|
-| P01 | Service and capacity ports with Neo4j repositories | not-started | - | - | - |
-| P02 | Booking port with Neo4j repository | not-started | - | - | - |
-| P21 | Case port with Neo4j repository | not-started | - | - | - |
-| P03 | Person, role and practitioner ports with Neo4j repository | not-started | - | - | - |
-| P04 | Criteria port with Neo4j repository | not-started | - | - | - |
-| P13 | Registration and scope list ports with Neo4j repositories | not-started | - | - | - |
-| P14 | Report and service flag ports with Neo4j repository | not-started | - | - | - |
-| P05 | Audit log port with Neo4j hash chain and provenance | not-started | - | - | - |
-| P06 | Outbox and unit of work on Neo4j | not-started | - | - | - |
-| P15 | Idempotency store and processed-message markers on Neo4j | not-started | - | - | - |
-| P07 | Messaging ports, recording senders and Neo4j communication records | not-started | - | - | - |
-| P08 | Event bus port, manual-clock fake and Neo4j scheduled-work records | not-started | - | - | - |
-| P09 | Cache port with in-memory fake | not-started | - | - | - |
-| P10 | Link token, secret and phone-hash ports with Neo4j token store | not-started | - | - | - |
-| P16 | Contact store and PIN credentials on Neo4j, text-code store port | not-started | - | - | - |
-| P11 | Geocoder, travel-time, terminology and validator ports with fakes | not-started | - | - | - |
-| P12 | Contract tests for the cache and event bus fakes | not-started | - | - | - |
-| U01 | ReportCapacity use case | not-started | - | - | - |
-| U02 | ConfirmCapacity use case | not-started | - | - | - |
-| U03 | SendPrompts use case (one service) | not-started | - | - | - |
+| P01 | Service and capacity ports with Neo4j repositories | delivered | build-P01 | 07d3f829c96b98efda15ca0a2003d6dd195222a0 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P01 |
+| P02 | Booking port with Neo4j repository | delivered | build-P02 | dcb7b99 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P02 |
+| P21 | Case port with Neo4j repository | delivered | build-P21 | 3ec6095 | checks, coverage, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P21-r3 |
+| P03 | Person, role and practitioner ports with Neo4j repository | delivered | build-P03 | 5b84c49 | checks, coverage, spec-trace, tests-green, tests-red; verified by verify-P03-final |
+| P04 | Criteria port with Neo4j repository | delivered | build-P04b | ab2cdcc | checks, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P04-r6 |
+| P13 | Registration and scope list ports with Neo4j repositories | delivered | build-P13 | 77d5421 | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P13-r3 |
+| P14 | Report and service flag ports with Neo4j repository | delivered | build-P14 | 0b00832084f91cf8dc7d5d463827109c2bea785b | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P14-r8 |
+| P05 | Audit log port with Neo4j hash chain and provenance | delivered | build-P05 | f1e4066085dc0e7ed1c5d5fd4ed6eeb13ef33ad4 | checks, spec-trace, tests-green, tests-red; verified by verify-P05f |
+| P06 | Outbox and unit of work on Neo4j | delivered | build-P06 | 54a0d50 | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P06 |
+| P15 | Idempotency store and processed-message markers on Neo4j | delivered | build-P15 | 5577a48 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P15-r3 |
+| P07 | Messaging ports, recording senders and Neo4j communication records | delivered | build-P07 | c5869c2ca67b7c8848c10ecd551ad02e43cb459c | checks, spec-trace, tests-green, tests-red; verified by verify-P07b |
+| P08 | Event bus port, manual-clock fake and Neo4j scheduled-work records | delivered | build-P08b | 42f615990e206c1ed08791678b83adf6094ea36c | checks, hazard-note, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P08b |
+| P09 | Cache port with in-memory fake | delivered | build-P09 | fba1226137d72a44f6a657d0796bd7453d36aa1d | checks, spec-trace, tests-green, tests-red; verified by verify-P09b |
+| P10 | Link token, secret and phone-hash ports with Neo4j token store | delivered | build-P10 | 9060dcc | checks, spec-trace, tests-green, tests-red; verified by verify-P10-r2 |
+| P16 | Contact store and PIN credentials on Neo4j, text-code store port | delivered | build-P16 | 6198f4f | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P16-r5 |
+| P11 | Geocoder, travel-time, terminology and validator ports with fakes | delivered | build-P11 | 35ed2c628d3a7ddeccc31fb01fbc5de67cb428c0 | checks, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P11 |
+| P12 | Contract tests for the cache and event bus fakes | delivered | build-P12b | 0924380808a0648c83044e0c89cb6086cfd8aeb3 | checks, coverage, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P12-r4 |
+| U01 | ReportCapacity use case | delivered | build-U01 | ca6e95f | checks, coverage, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U01-r7 |
+| U02 | ConfirmCapacity use case | in-progress | build-U02 | - | - |
+| U03 | SendPrompts use case (one service) | in-progress | build-U03 | - | - |
 | U04 | Grouped prompts for multi-service phones | not-started | - | - | - |
 | U05 | HandleInboundText use case: capacity replies | not-started | - | - | - |
 | U06 | Missed-report ladder handlers | not-started | - | - | - |
 | U07 | Raise report flags when reports break rules | not-started | - | - | - |
-| U08 | QueryBoard read model | not-started | - | - | - |
-| U09 | Board projector: cache and live updates | not-started | - | - | - |
-| I01 | Redis cache adapter | not-started | - | - | - |
-| I02 | Service Bus event bus adapter | not-started | - | - | - |
+| U08 | QueryBoard read model | delivered | build-U08b | 5ac4b94 | checks, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U08-r3 |
+| U09 | Board projector: cache and live updates | delivered | build-U09 | 9b11f6e | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U09 |
+| I01 | Redis cache adapter | delivered | build-I01 | af8bce876c088853319b9770886f5107666fed71 | checks, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I01-r4 |
+| I02 | Service Bus event bus adapter | delivered | build-I02 | ff0c49d | checks, coverage, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I02-r6 |
 | I03 | Outbox relay worker | not-started | - | - | - |
-| I04 | Idempotent message consumer framework | not-started | - | - | - |
+| I04 | Idempotent message consumer framework | stale | build-I04 | - | checks, coverage, privacy-scan, spec-trace, tests-green, tests-red |
 | I05 | Scheduled work consumer | not-started | - | - | - |
 
 ## S3 Capacity loop: channels, API and wall board
 
 | Task | Title | Status | Owner | Commit | Evidence |
 |---|---|---|---|---|---|
-| R01 | FHIR REST app skeleton | not-started | - | - | - |
-| R02 | Authentication, roles and service scope | not-started | - | - | - |
-| R03 | ETag, If-Match and Idempotency-Key handling | not-started | - | - | - |
+| R01 | FHIR REST app skeleton | delivered | build-R01b | 4a04d06d8a9be8b4131161daa7942e1af1b3dcd5 | checks, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-R01-r4 |
+| R02 | Authentication, roles and service scope | delivered | build-R02 | 2fd0829 | checks, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-R02 |
+| R03 | ETag, If-Match and Idempotency-Key handling | delivered | build-R03 | 9f208fe | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-R03-r3 |
 | R04 | HealthcareService and capacity Observation endpoints | not-started | - | - | - |
 | R05 | $board and $confirm-capacity operations | not-started | - | - | - |
-| R06 | Server-sent events stream | not-started | - | - | - |
+| R06 | Server-sent events stream | delivered | build-R06 | b6e1283 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-R06-r3 |
 | L01 | Capacity link API | not-started | - | - | - |
-| I06 | Twilio SMS adapter | not-started | - | - | - |
+| I06 | Twilio SMS adapter | delivered | orch-sharon-r6 | 31fbd89 | checks, coverage, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I06-r5 |
 | I07 | SMS inbound webhook | not-started | - | - | - |
 | I08 | Reply processor and delivery receipt consumers | not-started | - | - | - |
-| I09 | Email adapter (SMTP) with HTML and text bodies | not-started | - | - | - |
+| I09 | Email adapter (SMTP) with HTML and text bodies | stale | build-I09 | - | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red |
 | I10 | Outbound message senders (messages.outbound consumers) | not-started | - | - | - |
 | U10 | PairWallScreen use case | not-started | - | - | - |
 | R15 | Wall screen pairing endpoints | not-started | - | - | - |
-| W01 | BFF foundations: typed FHIR client and MSW test setup | not-started | - | - | - |
-| W02 | BFF session cookie and CSRF | not-started | - | - | - |
-| W03 | Base UI components | not-started | - | - | - |
+| W01 | BFF foundations: typed FHIR client and MSW test setup | delivered | build-W01 | 16b31ab | checks, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W01-r6 |
+| W02 | BFF session cookie and CSRF | in-review | build-W02 | - | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red |
+| W03 | Base UI components | delivered | build-W03 | 4b2dc1f51b1b90c99c7f00cc7eb22c165060c514 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W03 |
 | W04 | Capacity link pages | not-started | - | - | - |
 | W05 | Wall board page | not-started | - | - | - |
 | W06 | Wall board live updates and Last known | not-started | - | - | - |

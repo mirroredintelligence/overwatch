@@ -16,11 +16,12 @@ import asyncio
 import contextlib
 import json
 import logging
+from collections.abc import Sequence
 from typing import Any, Protocol
 
 from azure.servicebus import NEXT_AVAILABLE_SESSION
 from azure.servicebus.aio import ServiceBusClient
-from azure.servicebus.exceptions import OperationTimeoutError, ServiceBusError
+from azure.servicebus.exceptions import OperationTimeoutError
 
 from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
 from diucs.application.ports.outbound.event_bus import BusMessage
@@ -30,7 +31,24 @@ logger = logging.getLogger(__name__)
 RECEIVE_WAIT_SECONDS = 5.0
 BACKOFF_START_SECONDS = 1.0
 BACKOFF_CAP_SECONDS = 30.0
+NO_SESSION_PAUSE_SECONDS = 0.2
 MALFORMED_REASON = "malformed message"
+
+
+class Backoff:
+    """1 s, doubling to a 30 s cap; reset() starts again. One schedule for the receiver and for
+    the pause after a retry (DEC-119)."""
+
+    def __init__(self) -> None:
+        self._next = BACKOFF_START_SECONDS
+
+    def next(self) -> float:
+        delay = self._next
+        self._next = min(delay * 2, BACKOFF_CAP_SECONDS)
+        return delay
+
+    def reset(self) -> None:
+        self._next = BACKOFF_START_SECONDS
 
 
 class Receiver(Protocol):
@@ -102,8 +120,9 @@ class ServiceBusRunner:
         self._sessions = sessions
         self._max_concurrency = max_concurrency
 
-    async def process(self, receiver: Receiver, raw: Any) -> None:
-        """Handle one received message and settle it. Never raises for a message or a settle."""
+    async def process(self, receiver: Receiver, raw: Any) -> Outcome | None:
+        """Handle one received message and settle it. Never raises for a message or a settle.
+        Returns the outcome, or None when the message could not be handled or settled."""
         message_id = _text(getattr(raw, "message_id", None)) or "unknown"
         try:
             outcome = await self._outcome(raw)
@@ -115,6 +134,8 @@ class ServiceBusRunner:
                 self._entity,
                 type(error).__name__,
             )
+            return None
+        return outcome
 
     async def _outcome(self, raw: Any) -> Outcome:
         try:
@@ -153,16 +174,20 @@ class ServiceBusRunner:
         return self._client.get_subscription_receiver(self._entity, self._subscription)
 
     async def _loop(self, stop: asyncio.Event) -> None:
-        delay = BACKOFF_START_SECONDS
+        connect = Backoff()  # reset by a receive that returns
+        work = Backoff()  # reset by a message that completes
         while not stop.is_set():
             try:
                 async with self._open() as receiver:
-                    delay = BACKOFF_START_SECONDS
-                    await self._receive(receiver, stop)
+                    await self._receive(receiver, stop, connect, work)
             except OperationTimeoutError:
                 # No session is waiting (lesson L127): not a failure.
-                await self._pause(stop, 0.2)
-            except (ServiceBusError, OSError) as error:
+                await self._pause(stop, NO_SESSION_PAUSE_SECONDS)
+            except Exception as error:
+                # Any failure, not only a connection error: the worker never exits (DEC-012).
+                # CancelledError is a BaseException and passes through. The class name only is
+                # logged, because the text of an error can carry data.
+                delay = connect.next()
                 logger.warning(
                     "receiver for %s failed (%s); trying again in %.0f s",
                     self._entity,
@@ -170,21 +195,40 @@ class ServiceBusRunner:
                     delay,
                 )
                 await self._pause(stop, delay)
-                delay = min(delay * 2, BACKOFF_CAP_SECONDS)
 
-    async def _receive(self, receiver: Any, stop: asyncio.Event) -> None:
+    async def _receive(
+        self, receiver: Any, stop: asyncio.Event, connect: Backoff, work: Backoff
+    ) -> None:
         while not stop.is_set():
             batch = await receiver.receive_messages(
                 max_message_count=1 if self._sessions else self._max_concurrency,
                 max_wait_time=RECEIVE_WAIT_SECONDS,
             )
+            connect.reset()
             if not batch and self._sessions:
                 return  # the session is empty: release it and take the next one
             if self._sessions:
                 for raw in batch:  # in order within the session
-                    await self.process(receiver, raw)
+                    outcome = await self.process(receiver, raw)
+                    await self._after(stop, work, [outcome])
             else:
-                await asyncio.gather(*(self.process(receiver, raw) for raw in batch))
+                outcomes = await asyncio.gather(*(self.process(receiver, raw) for raw in batch))
+                await self._after(stop, work, outcomes)
+
+    async def _after(
+        self, stop: asyncio.Event, work: Backoff, outcomes: Sequence[Outcome | None]
+    ) -> None:
+        """A message that ended in retry was abandoned for a failure that is not the message's
+        own (a store or bus outage). Pause before the next receive, so a short outage uses a few
+        delivery attempts and not all of them (DEC-119, hazard H-27). A completed or duplicate
+        message ends the outage; a dead-letter says nothing about it."""
+        if any(outcome is not None and outcome.kind == "retry" for outcome in outcomes):
+            await self._pause(stop, work.next())
+        elif any(
+            outcome is not None and outcome.kind in ("completed", "duplicate")
+            for outcome in outcomes
+        ):
+            work.reset()
 
     @staticmethod
     async def _pause(stop: asyncio.Event, seconds: float) -> None:

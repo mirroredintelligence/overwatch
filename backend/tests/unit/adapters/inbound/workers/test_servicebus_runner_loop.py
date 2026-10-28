@@ -44,6 +44,7 @@ class _World:
         self.opens: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
         self.open_failures: list[BaseException | None] = []
         self.redeliver: list[Any] = []
+        self.redelivers = False  # an abandoned message comes back, as the bus does
         self.receivers = 0
 
 
@@ -84,7 +85,8 @@ class _Receiver:
 
     async def abandon_message(self, raw: Any) -> None:
         self._world.log.append(("abandon", raw.message_id, self.number))
-        self._world.redeliver.append(raw)
+        if self._world.redelivers:
+            self._world.redeliver.append(raw)
 
     async def dead_letter_message(
         self, raw: Any, reason: str | None = None, error_description: str | None = None
@@ -199,7 +201,7 @@ async def test_without_sessions_exactly_one_receiver_is_opened_for_the_whole_bat
 
 
 async def test_a_session_reads_one_message_at_a_time(monkeypatch: pytest.MonkeyPatch) -> None:
-    runner, world, stop = _setup(monkeypatch, [[_raw("a")]], sessions=True, max_concurrency=1)
+    runner, world, stop = _setup(monkeypatch, [[_raw("a")]], sessions=True, max_concurrency=3)
     await _run(runner, stop)
     assert _actions(world, "receive")[0][2] == 1
 
@@ -448,6 +450,7 @@ async def test_a_short_outage_spaces_the_attempts_and_dead_letters_nothing(
     runner, world, stop = _setup(
         monkeypatch, [[_raw("a")]], outcomes={"a": [_retry(), _retry(), _retry(), _retry()]}
     )
+    world.redelivers = True
     await _run(runner, stop)
     assert len(_actions(world, "abandon")) == 4
     assert _pauses(world)[:4] == [1.0, 2.0, 4.0, 8.0]

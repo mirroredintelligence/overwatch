@@ -185,3 +185,11 @@ def test_the_consumer_core_does_not_import_the_azure_sdk() -> None:
         )
     }
     assert not [name for name in imported if name.split(".")[0] == "azure"]
+
+
+async def test_a_body_that_is_plain_bytes_is_read() -> None:
+    consumer = _Consumer(Outcome("completed"))
+    raw = _raw()
+    raw.body = b'{"a": 2}'
+    await _runner(consumer).process(_Receiver(), raw)
+    assert consumer.seen[0].payload == {"a": 2}

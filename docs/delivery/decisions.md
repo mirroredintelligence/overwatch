@@ -1634,3 +1634,14 @@ Status: accepted · Affects: the tenancy plan, the S5 to S9 prompts, DEC-130 ite
 14. **Telemetry is per tenant.** Cross-tenant analytics are anonymised aggregates across at least three tenants, only under the data sharing agreement. The network owner sees no per-member on-time breakdown.
 15. **Scale assumption:** 10 to 30 organisations in year one. Who pays for numbers and sender registration is outside the build.
 16. **Hazards:** the 29 `H-T` and 15 `H-N` rows proposed in audit F are added to the hazard log as the tenancy tasks land, each with its control and verifying test.
+
+## DEC-119 The Service Bus runner pauses after a retry and never exits on a failure (I04)
+
+Status: accepted (builder build-I04, instructed by the orchestrator after verification) · Affects: I04 (`adapters/inbound/workers/servicebus_runner.py`), and every consumer that runs on it: I05, I08, I10, U09 wiring · Hazard H-27, DEC-012.
+
+1. **A retry outcome pauses the receive loop.** An `IdempotentConsumer` returns retry for any exception that is not a `PermanentError`, which includes a Neo4j or bus outage. The message is still abandoned, so Service Bus redelivers it. Before it receives again, the receive loop pauses 1 s, then 2, 4, 8, 16 and 30 s (cap) for each further retry. A message that completes or is a duplicate resets the pause to 1 s. A dead-letter neither pauses nor resets. Without the pause, an outage of a few seconds redelivers the same capacity event at once, up to the max delivery count of 10, and dead-letters work that would have succeeded when the store returned. One pause is taken per batch, not per message.
+2. **The receiver connection failure uses the same schedule**, separately counted, and it resets when a receive returns.
+3. **The loop catches any Exception**, not only `ServiceBusError` and `OSError`, so the worker never exits (DEC-012). `asyncio.CancelledError` and the stop signal pass through. Logs carry the exception class name only.
+4. **Cost, accepted:** a poison message that raises a non-permanent error slows its own receiver by up to 30 s per delivery until the bus dead-letters it. Handlers should raise `PermanentError` for a message that can never succeed.
+5. **Not done:** lock renewal for a long handler (the queue lock is one minute).
+Tests: `backend/tests/unit/adapters/inbound/workers/test_servicebus_runner_loop.py`.

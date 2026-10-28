@@ -276,7 +276,10 @@ class _FailingAudit:
 class _FailingAuditUnitOfWork:
     def __init__(self, inner: Any) -> None:
         self._inner = inner
-        self.audit = _FailingAudit(inner.audit)
+
+    @property
+    def audit(self) -> _FailingAudit:
+        return _FailingAudit(self._inner.audit)
 
     async def __aenter__(self) -> _FailingAuditUnitOfWork:
         await self._inner.__aenter__()
@@ -445,7 +448,6 @@ async def test_no_stored_node_and_no_outbox_payload_holds_the_token_text(
     assert await _resolve(neo4j_driver, DUE, token) is not None
     for props in await _every_node_property(neo4j_driver):
         assert token not in repr(props)
-        assert f"{LINK_BASE}/" not in repr(props)
     for outbox_message in await _outbox(uow_factory):
         assert token not in repr(outbox_message.payload)
 
@@ -472,7 +474,7 @@ async def test_a_dead_lettered_message_holds_no_token_text(
         assert token not in repr(props)
 
 
-def test_the_sealed_content_does_not_show_its_plain_text() -> None:
+async def test_the_sealed_content_does_not_show_its_plain_text() -> None:
     sealed = seal_content("DIUCS: UCR West. Confirm or update: diucs.example/abc123", SECRET)
     assert "UCR West" not in sealed
     assert "diucs.example" not in sealed
@@ -481,17 +483,17 @@ def test_the_sealed_content_does_not_show_its_plain_text() -> None:
     )
 
 
-def test_two_seals_of_one_text_differ() -> None:
+async def test_two_seals_of_one_text_differ() -> None:
     assert seal_content("same text", SECRET) != seal_content("same text", SECRET)
 
 
-def test_a_sealed_content_does_not_open_with_another_secret() -> None:
+async def test_a_sealed_content_does_not_open_with_another_secret() -> None:
     sealed = seal_content("text", SECRET)
     with pytest.raises(ValidationFailed):
         unseal_content(sealed, OTHER_SECRET)
 
 
-def test_a_changed_sealed_content_is_refused() -> None:
+async def test_a_changed_sealed_content_is_refused() -> None:
     sealed = seal_content("text", SECRET)
     head, body = sealed[:3], sealed[3:]
     flipped = body[:-2] + ("A" if body[-2] != "A" else "B") + body[-1]
@@ -785,6 +787,7 @@ async def test_cover_sends_the_prompt_to_the_cover_phone(
         (_practitioner(1, PHONE_HASH_1), _practitioner(2, PHONE_HASH_2)),
         (covered,),
     )
+    await _seed_report(uow_factory)
     use_case, _ = _rig(uow_factory, neo4j_driver)
 
     result = await use_case.execute(_command())

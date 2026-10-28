@@ -20,6 +20,12 @@ _START_TIME_INDEX = 22 - 3  # fields after the closing bracket start at field 3 
 _GONE_STATES = {"Z", "X"}
 
 
+def ascii_digits(text: str) -> bool:
+    # str.isdigit() also accepts "²" and "٥"; /proc and the container labels only ever hold
+    # ASCII digits (DEC-135 item 3).
+    return text.isascii() and text.isdigit()
+
+
 def parse_start_marker(stat_line: str) -> str | None:
     """The start-time field of one /proc/<pid>/stat line, or None if the process is a zombie or
     dead. Text that is not a stat line raises ProcessUnreadable: a garbled line says nothing about
@@ -31,7 +37,7 @@ def parse_start_marker(stat_line: str) -> str | None:
         raise ProcessUnreadable("not a /proc stat line")
     if fields[0] in _GONE_STATES:
         return None
-    if len(fields) <= _START_TIME_INDEX or not fields[_START_TIME_INDEX].isdigit():
+    if len(fields) <= _START_TIME_INDEX or not ascii_digits(fields[_START_TIME_INDEX]):
         raise ProcessUnreadable("not a /proc stat line")
     return fields[_START_TIME_INDEX]
 

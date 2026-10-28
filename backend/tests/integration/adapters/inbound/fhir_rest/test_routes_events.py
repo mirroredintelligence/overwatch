@@ -8,7 +8,7 @@ projector (U09) and expects one event for that service.
 
 import asyncio
 import json
-from collections.abc import Callable
+from collections.abc import Callable, MutableMapping
 from datetime import UTC, datetime, time
 from typing import Any
 
@@ -96,7 +96,7 @@ class _Stream:
         await self._closed.wait()
         return {"type": "http.disconnect"}
 
-    async def _send(self, message: dict[str, Any]) -> None:
+    async def _send(self, message: MutableMapping[str, Any]) -> None:
         if message["type"] == "http.response.start":
             self.status = message["status"]
             self.response_headers = {

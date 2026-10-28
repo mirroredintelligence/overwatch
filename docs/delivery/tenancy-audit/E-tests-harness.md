@@ -1,6 +1,6 @@
 # Tenancy audit E: tests and test harness
 
-Audit of `main` at 1ac81b9 (read-only). Scope: `backend/tests/**`, every conftest, `frontend/test/**`, frontend unit and e2e tests, `.github/workflows/ci.yml`, `backend/Makefile`, the scripts under `.claude/skills/diucs-delivery/scripts`, and the tests on the four unmerged branches (I04, U02, U03, W02, read from their worktrees under `/home/user/overwatch-wt/`). Nothing was run: no pytest, Docker, app or tenancy code. Counts come from `grep -c` and file listings.
+Audit of `main` at 1ac81b9 (read-only); section 11 added after DEC-132 (main at 780bb3e). Scope: `backend/tests/**`, every conftest, `frontend/test/**`, frontend unit and e2e tests, `.github/workflows/ci.yml`, `backend/Makefile`, the scripts under `.claude/skills/diucs-delivery/scripts`, and the tests on the four unmerged branches (I04, U02, U03, W02, read from their worktrees under `/home/user/overwatch-wt/`). Nothing was run: no pytest, Docker, app or tenancy code. Counts come from `grep -c` and file listings.
 
 Method note on counts: "tests" below means `def test_` / `it(` / `test(` definitions. Parametrised and Hypothesis tests collect into more items than this (backend: 266 `parametrize` and 72 `@given` lines in unit, 20 `parametrize` in integration, 3 in architecture, 1 in contract). Pytest was not run, so collected-item totals are not stated.
 
@@ -53,7 +53,7 @@ Fixtures defined outside unit: 23. Unit: 10 (7 files, none touch a database).
 
 ### 1.4 Difficulty assessment
 
-Overall: **medium-high, about 300 hours (range 210 to 390) across 31 tasks**, of which about 28 hours are the interim protection that does not depend on tenancy.
+Overall: **medium-high, about 365 hours (range 260 to 470) across 38 tasks**: about 297 hours for tenant isolation (31 tasks, sections 1 to 10) and about 68 hours for the network layer of DEC-132 (7 tasks, section 11). About 28 hours of the total are interim protection that does not depend on tenancy.
 
 Why it is not worse: the tests already use one chokepoint for data (`neo4j_driver` + `uow_factory` + helpers in `support/neo4j.py`), the Redis contract factory already uses a unique key prefix per run, and the pure domain layer (49 unit files, 901 tests) is untouched. Firm edits are 48 of 154 backend test files (31%); a further 18 are conditional on design choices in section 3.
 
@@ -476,7 +476,7 @@ Hours are builder hours including the red/green commit pair and evidence; verifi
 | TEN-E30 | Migrate unmerged branch tests to tenancy (I04 3 files, U02 2, U03 1, W02 4 plus helper) | the branch files listed in 1.1 | 12 | merges |
 | TEN-E31 | Lessons, DECs, correct the builder, verifier and collective briefs | `docs/delivery/decisions.md`, `LESSONS.md`, `.claude/skills/diucs-delivery/assets/{builder,verifier}-brief.md`, `references/collective.md:62` | 3 | E01 to E04 |
 
-Subtotals: interim (E01 to E04) 20 h, with E05 28 h; harness (E06 to E11) 43 h; fixtures and edits (E12 to E18) 87 h; new tests (E19 to E27) 108 h; infrastructure (E28 to E31) 31 h. **Total about 297 hours** (31 tasks), plus verification.
+Subtotals: interim (E01 to E04) 20 h, with E05 28 h; harness (E06 to E11) 43 h; fixtures and edits (E12 to E18) 87 h; new tests (E19 to E27) 108 h; infrastructure (E28 to E31) 31 h. **Total about 297 hours** (31 tasks) for tenant isolation, plus verification. Section 11 adds TEN-E32 to TEN-E38 (68 hours), giving about 365 hours for 38 tasks.
 
 ### 10.1 Existing test files that will need edits
 
@@ -490,3 +490,101 @@ Firm (cannot be avoided by helper changes alone), with the ambient-tenant design
 - Support and conftest modules edited: `tests/conftest.py`, `support/{neo4j,api,things,servicebus,redis}.py`, `integration/application/conftest.py`, `contract/{factories,conftest}.py`, `integration/adapters/inbound/fhir_rest/conftest.py` (re-export list).
 
 Totals: **48 firm backend test files (of 154), up to 66 with the conditional ones**; 0 firm frontend test files on `main` (W02's 4 files and `test/cookies.ts` on the branch); 11 branch test files at merge time; 9 support modules.
+
+---
+
+## 11. NETWORK LAYER (DEC-132): FIXTURES, TESTS, TASKS
+
+Source: DEC-132 on main (780bb3e). Tenant is the legal entity; one `Network` groups member tenants; sharing happens only through `Grant`s (scopes `capacity`, `directory`, `criteria`; purpose "network capacity view") and read-only projections written into a network scope with its own id, each copied node carrying `sourceTenantId`. A unit of work binds exactly one scope. The projector reads in a member's scope and writes in the network scope, in two units of work. Nothing in this section changes sections 1 to 10; it extends them.
+
+### 11.1 Effects on the harness design
+
+- A second scope kind. The ambient context variable (3.2) must carry one scope, either a tenant or a network. `bind_tenant` becomes `bind_scope`; the guard that checks the bound scope at teardown stays. A unit of work that tries to bind a second scope must fail (tested in 11.3).
+- Scope ids per run: networks get `n-test-<ownerpid>-<epoch>-<8 hex>`, same format and sweeper rules as tenants (3.2). `wipe_tenant` becomes `wipe_scope(driver, scope)`; a run's wipe covers its tenants and its network. The orphan sweeper (TEN-E11) must sweep network scopes and `Network`, `NetworkMembership` and `Grant` nodes too.
+- Production has one network (DEC-132 item 5). Tests must not share it across runs, so the model must allow many `Network` nodes, with each run creating its own. Flag for the design audit: any code that assumes a single network breaks parallel runs.
+- Redis keys and SSE channels, Service Bus message properties and the projector consumer need a scope id as well as a tenant id; the Redis prefix `diucs:<scope>:` carries either (4.6, 4.7).
+- Composite constraints (DEC-130 item 7) apply to the network scope: `(scopeId, id)` on projected nodes, plus `(tenantId or scopeId, sourceTenantId, sourceId)` so a projection is idempotent per source node. The schema tests (5) stay in owned mode.
+
+### 11.2 Fixtures for a network with three member tenants and an owner
+
+Added to the 6.4 fixtures (`tests/support/tenancy.py`, `tests/support/seed.py`):
+- `owner_tenant`: the lead hosting organisation. It is itself a tenant and also holds the network, so the world has four tenants in total: the owner plus members `member_a`, `member_b`, `member_c`. Whether the owner is also a member that projects capacity is a design point; the fixture makes it a parameter (`owner_is_member=True`) so both are tested.
+- `outsider_tenant`: a fifth tenant that is not in the network, to prove non-members read nothing.
+- `network_id`: the run's network scope id (11.1).
+- `network_world` (function scope, torn down by `wipe_scope` for all five tenants and the network): creates the network, the memberships, and one service with a capacity report in each member. Every member gets identical service ids with a per-tenant marker (as in 6.1), and sentinel values in every private field the allowlist forbids (reporter name, phone, device, PIN, link token, communication, booking, case, audit entry), so the allowlist test (11.4) can scan for them.
+- `grants_for(member, scopes, approved_by_grantor=True, approved_by_owner=True, effective_from, effective_to)` builder with a `FixedClock`, producing grants in each lifecycle state (pending, approved by one side, active, expired, ended by grantor, lapsed by leaving).
+- `run_projector(member)`: runs the projector as two units of work (read in the member scope, write in the network scope), returning what it wrote; `as_member(tenant)` and `as_network()` context managers for binding.
+- `member_clients`: bearer tokens for staff of each member (a role that may see the board) and for a reporter, plus a wall-screen device token paired to one tenant, for 11.3.
+- Fixed `FixedClock` instants are shared by all scopes, as in 4.5; the lifecycle tests move one clock to cross `effective_from`, `effective_to` and the leave date.
+
+### 11.3 Generated isolation test extended to network scope
+
+Extension of 6.1 (`test_tenant_isolation_generated.py`, `query_probes.py`):
+1. A scope dimension: each probe declares which scope kind the query belongs to (`tenant` or `network`). The registry will gain network queries (network read, membership, grant, projection write); expect 15 to 25 new ids on top of the about 123 (the probe table and the completeness test cover them).
+2. Seed the network scope with copies of the same ids used in the member tenants, each carrying `sourceTenantId`. Run every tenant-scope query bound to tenant A: it returns nothing from the network scope or from B. Run every network-scope query bound to the network scope: it returns nothing that carries a tenant's private properties and touches no tenant-scope node. Rolled-back transactions, as before.
+3. Invariant, widened: no relationship joins nodes of two different scopes (tenant to tenant, tenant to network, network to network of another network). The only allowed link from a projected node to its source is the `sourceTenantId` property, not an edge; this is tested.
+4. Single-scope unit of work: a unit of work bound to tenant A that calls a network-scope repository, or binds the network scope, raises a fixed-message error and writes nothing. A projector test proves the two-unit-of-work shape: the read in scope A commits or is read-only, the write happens in a second unit of work in the network scope, and a failure between them leaves no partial projection (the second unit is idempotent by source key, so a retry converges).
+5. No query text mixes `$tenant` and `$network` (or whichever parameter names the seam uses) in one statement; a static lint in the test of 6.2 (`test_tenant_predicate.py`).
+6. Read use case: a member's staff reads the network view only after the membership and grant checks. A non-member and a member whose grant ended get `NotFound` (same body as a missing record, DEC-086 item 5), not `NotAllowed`. The network owner has no read access to a member's private data by being owner: the owner, bound to its own tenant, reading `member_a`'s service id gets `NotFound`, and a query bound to the network scope cannot reach `member_a`'s scope.
+7. Roles: staff of a member see the network view and their own tenant's; a reporter on phone or link sees the own tenant only; a wall screen paired to one tenant shows that tenant's board or the network board per its administrator's setting, and cannot be switched by a request parameter.
+
+### 11.4 Projection allowlist test
+
+`tests/unit/.../test_projection_allowlist.py` and `tests/integration/.../test_projection_privacy.py`, tied to the privacy guard (D17, `domain/messages/privacy_guard.py` already has `test_no_patient_data_in_templates.py`, 32 tests, as the pattern):
+- An explicit allowlist table: node labels and properties that may enter the network scope. Capacity status and figures, as-of time, not-updated flag; service name, category, location, district coverage, opening hours, service-level contact; current criteria version; the directory `source` property (manual today, Directory of Services later); `sourceTenantId`; the leave date mark. A test fails if a projector statement writes any property not in the table (parse the `SET`, `CREATE` and `MERGE` property maps of the registered projection statements, and any `SET n += $map` is refused because it hides fields).
+- Sentinel scan: seed a tenant with a unique sentinel in every forbidden field and run the projector for that tenant; then read every node and relationship in the network scope, all labels, all properties, flattened, and assert no sentinel appears. One parametrised case per forbidden category: reporter name, reporter phone (raw and hash), device id, PIN (raw and hash), link token (raw and hash), communication text, booking, case, audit entry, plus patient identifiers (NHS number, postcode, date of birth) and free text.
+- Property-based test (Hypothesis, already a dev dependency): random strings written to forbidden fields never reach the network scope.
+- Label allowlist: only the projection labels exist in the network scope; a tenant label (`Practitioner`, `Communication`, `ServiceRequest`, `Task`, `AuditEvent`, `LinkToken`, `Credential`, `ProtectedContact`, `OutboxMessage`) in the network scope fails the test.
+- Contact fields: service-level contact is allowed, a practitioner's personal contact is not; the test checks that a service contact stored as a practitioner phone is not projected.
+- The allowlist is data the owner and information governance approve (DEC-132 item 9), so the test pins it with a version string; changing the table forces a test edit and a decision.
+
+### 11.5 Grant lifecycle tests
+
+`tests/integration/.../test_grant_lifecycle.py` (clock-driven):
+- Approval by both sides: a grant is `pending` until approved by the grantor's administrator and by the network owner; either approval alone shares nothing (the projector writes nothing); approval by a non-administrator is refused; the same person cannot be both approvals if the design says so (open question, section 11.7); the version increases on each change; the stored agreement reference and version are present and the agreement content is never stored.
+- Effective window: before `effective_from` nothing projects; between, it does; at and after `effective_to` it stops (boundary at the instant, `FixedClock.set`).
+- Ended by the grantor: allowed at any time; stops future sharing only (existing projections stay, no new data projects, the read use case reflects the end date); the network owner cannot end or alter another tenant's grant on its own; ending is audited in the grantor's own audit chain, not the owner's.
+- Scope separation: a grant for `capacity` does not share `directory` or `criteria`; each scope is tested as an independent grant.
+- A member leaves: membership ends with a leave date, its grants lapse, projections already written stay in the network scope marked with the leave date, no new data is projected, and history remains readable for audit by the path the design allows; the leaving tenant's own data is untouched and follows its own retention. The audit chain of the tenant and of the network each verify after the leave.
+- Re-joining creates new membership and grant versions; history from before the leave is not rewritten.
+- Concurrency: two administrators approve at the same time, or the grantor ends while the projector runs: a projection written after the end instant must not exist (the projector re-checks the grant in the write unit of work; test with a held transaction as in the racing tests of 5).
+- Network-wide: a grant exists per member; one member's grant ending does not change another member's projections.
+
+### 11.6 Number of new tests (network layer)
+
+| Group | Test functions | Collected cases |
+|---|---|---|
+| Fixtures and harness (scope ids, `wipe_scope`, sweeper, per-run networks) | 5 | 5 |
+| Generated isolation extended to network scope (11.3 items 1 to 4) | 8 | about 123 extra parametrised cases (one more scope run per registered query) plus about 20 for the new network queries |
+| Network read use case, roles, wall screen, REST (11.3 items 5 to 7) | 14 | 14 |
+| Projection allowlist (11.4) | 12 | about 26 (parametrised categories and labels) |
+| Grant lifecycle (11.5) | 22 | 22 |
+| Network realtime (network SSE channel, Redis keys, projector consumer idempotency per source key) | 7 | 7 |
+| **Network total** | **68** | **about 215** |
+
+Combined with 6.5: about **258 new test functions and about 645 collected cases** across tenant isolation and the network. About 55 of the network tests depend on code not yet built (membership, grant, projector, network read use case, wall-screen setting) and are written with those tasks; this audit only counts them.
+
+### 11.7 Open questions and risks added by DEC-132
+
+1. Single network in production, many in tests: the model must not assume one network (11.1), or parallel runs share and corrupt it.
+2. Can one person approve both sides of a grant (administrator of the grantor who is also in the owner)? Needed to write the approval tests.
+3. Are projections of a member that left readable by the other members, or only by the owner for audit? DEC-132 item 6 says they stay "for audit and history"; the read tests need the visibility rule.
+4. The projection allowlist is the highest-value test in this audit: a wrong allowlist exposes patient-adjacent data to other organisations. A mutation check (add a forbidden property to one projector statement on a scratch branch and confirm the tests fail) belongs in the evidence.
+5. The network owner is a tenant. The tests must prove that being owner gives no read to members' private data, and that owner-administration actions (membership) are audited in the owner's chain.
+6. Two-unit-of-work projection is not atomic: a crash between read and write must converge on retry. Idempotency by source key is a precondition and is tested in 11.3 item 4.
+7. Wall-screen board choice (tenant board or network board) is a UI decision still open (DEC-132 item 5); its tests wait for that decision.
+8. Human-only gates (DEC-132 item 9) cannot be tested away: the allowlist, the grants and the agreement need information-governance approval before the projector is enabled in any real environment.
+
+### 11.8 Added tasks
+
+| ID | Title | Files | Hours | Depends on |
+|---|---|---|---|---|
+| TEN-E32 | Network fixtures and harness: `bind_scope`, run network id, `network_world` (owner, three members, outsider), `grants_for`, `run_projector`, `wipe_scope`, sweeper for network scopes | `tests/support/tenancy.py`, `tests/support/seed.py`, `tests/support/neo4j.py`, `tests/conftest.py` | 10 | E07, E08, E11, network model (src) |
+| TEN-E33 | Generated isolation test extended to network scope: scope dimension, probes for the new network queries, widened invariant | `tests/support/query_probes.py`, `integration/test_tenant_isolation_generated.py` | 14 | E20, E32 |
+| TEN-E34 | Single-scope unit of work and two-unit-of-work projection tests, including retry convergence | `integration/test_network_scope_binding.py` (new) | 6 | E32, projector (src) |
+| TEN-E35 | Projection allowlist tests: allowlist table, statement parse, sentinel scan, Hypothesis, label allowlist, mutation evidence | `unit/.../test_projection_allowlist.py` (new), `integration/.../test_projection_privacy.py` (new) | 10 | E32, D17, projector (src) |
+| TEN-E36 | Grant lifecycle tests: dual approval, window, end by grantor, leave and history, re-join, concurrency | `integration/.../test_grant_lifecycle.py` (new) | 12 | E32, grant model (src) |
+| TEN-E37 | Network read use case, role matrix and wall-screen setting tests (REST) | `integration/adapters/inbound/fhir_rest/test_network_view.py` (new) | 10 | E12, E32, network read (src) |
+| TEN-E38 | Network realtime tests: network SSE channel, Redis keys, projector consumer idempotency | `integration/adapters/inbound/fhir_rest/test_network_stream.py`, `integration/adapters/outbound/cache_redis/test_network_keys.py` (new) | 6 | E16, E32 |
+
+Network subtotal 68 hours. Existing test files that gain edits because of DEC-132: none beyond section 10.1 (the network tests are new files); `tests/support/tenancy.py`, `seed.py` and `conftest.py` grow, and the lint tests of 6.2 gain the network-scope rule.

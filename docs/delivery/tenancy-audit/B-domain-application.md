@@ -1,6 +1,8 @@
 # Tenancy audit B: domain and application layers
 
-Scope: `backend/src/diucs/domain/**` and `backend/src/diucs/application/**` on `main` (65c7da2, which is DEC-131 on top of the audited 1ac81b9), plus what the four unmerged task branches add under those paths. Read-only audit. Nothing was run. Decisions applied: DEC-130, DEC-131 (arrived while the audit was in progress, so sections 2, 3 and 5 reflect it), DEC-001, DEC-007, DEC-032, DEC-104, DEC-106, DEC-099, DEC-100.
+Scope: `backend/src/diucs/domain/**` and `backend/src/diucs/application/**` on `main` (2cf069e, which is DEC-132 on top of DEC-131 and the audited 1ac81b9), plus what the four unmerged task branches add under those paths. Read-only audit. Nothing was run. Decisions applied: DEC-130, DEC-131 (sections 2, 3 and 5 reflect it), DEC-132 (new section 12 and the extra tasks in section 11; sections 1 to 11 were written before DEC-132 and are corrected by section 12 where they disagree), DEC-001, DEC-007, DEC-032, DEC-104, DEC-106, DEC-099, DEC-100.
+
+**Reading order after DEC-132:** where section 3.4 or section 10 treats collaboration as an open choice, it is now decided: tenant = legal entity, one Network, sharing only by Grants and read-only projections into a network scope, no patient-level data crosses. Section 12 gives the use cases, ports, actor, events and cache keys for it. One consequence needs the owner's attention: cross-organisation booking (U17 to U22) is not possible under DEC-132 (bookings and cases are never shared), so the network view is read-only (section 12.5).
 
 Notes on sources:
 - The unmerged branches exist locally as `task/U02-confirm-capacity`, `task/U03-send-prompts`, `task/I04-consumer-framework`, `task/W02-bff-session-csrf` (worktrees under `/home/user/overwatch-wt/`). There are no `origin/task/...` refs for these four, so the diffs below are `git diff main...task/<name>`.
@@ -124,7 +126,7 @@ The rule is an ordering invariant, not a parameter: **load by id through the ten
 
 ## 3. EVERY USE CASE
 
-Collaboration column: "reads other organisations?" asks whether the use case would ever need another organisation's data once organisations collaborate. R = reads, W = writes or sends to, N = never.
+Collaboration column: "reads other organisations?" asks whether the use case would ever need another organisation's data once organisations collaborate. R = reads, W = writes or sends to, N = never. **Superseded by DEC-132 for the final answer:** a use case never reads another tenant. Where the column says R or W, read it as "gains a network variant that reads the network scope's projections" (QueryBoard, FilterOptions) or "stays tenant-only because the data is not shareable" (bookings, cases, week summary). The resolved column is in section 12.5.
 
 ### 3.1 On main
 
@@ -400,7 +402,7 @@ Recommendation: keep Europe/London fixed for phase 1, write it as an explicit pl
 2. **Global uniqueness and lookups are existence oracles or cross-tenant joins.** (a) `IdempotencyRecord.key` global: a guessed key returns `Conflict` across tenants (`report_capacity.py:254`). (b) `Device.id` global and an owner lookup returning the practitioner id (`credential_store.py`). (c) `Identifier (system, value)` is a shared node (`mapper.py` `mapping.share`), so a booking reference joins tasks of different tenants to one node, which DEC-130 item 1 forbids. (d) `Q-BOOK-BY-REF` and `Q-CASE-BY-REF` match references globally. (e) U02's `lock_service` before the existence check is a timing channel if not tenant-bound. All are closed by composite keys and tenant-bound statements, but the list shows where the generated query test and the differential use-case test earn their keep.
 3. **Workers and system actors have no tenant source.** `BusMessage` has no tenant (`event_bus.py:29`); I04's runner and consumer build the unit of work before any tenant is known; I03 and I05 do not exist yet; U03 says the scheduled-work consumer "passes a system actor" with no tenant. Risk of an "unscoped system actor" workaround creeping in. Mitigation: required fields plus the import-restricted `unscoped`.
 4. **The audit chain is one global chain** with one head and a global `seq` (`audit_log.py` docstring and `0020_chain_seq`, `0017_audit_head_id`). Per-tenant chains, per-tenant genesis, composite constraints and a legacy-tenant mapping must keep old links verifying. `_parse_entry` (`audit_log.py:232`) must tolerate entries with no tenant. Getting this wrong silently breaks `verify_chain`, which is a clinical-safety control.
-5. **Collaboration model undecided.** It changes `Actor` (extra visibility), `QueryBoard` and `BoardProjector` (whose data, fan-out, cache keys), booking (cross-organisation writes), `FilterOptions`, alerts, week summary, clinical queue and audit replay (section 3.4). Reworking those before the model is chosen risks doing the board twice.
+5. **Collaboration is now decided (DEC-132), and it adds a second scope kind.** A unit of work binds exactly one scope, tenant or network. The projection path (read in the tenant scope, write in the network scope, through the outbox and bus) is the only place member data moves, and it is the highest-risk new code: an over-wide allowlist or a missed grant check shares data a member never agreed to share. A stored status also goes stale with time (section 12.6), which is a patient-safety issue on the network board. See section 12.
 6. **Thresholds are module constants inside pure functions** (`REPLY_WINDOW` imported by four modules). Per-tenant policy touches about 14 rule functions and roughly 100 test call sites (`assess_freshness` 22, `is_in_hours` 25, `system_pressure` 16, `LONDON` 84 references). Behaviour during a policy change (in-flight rows keep old times) can make the board and ladder disagree for a cycle. Also a clinical-safety governance question, not only a coding one.
 7. **Reference space and lifetime uniqueness.** The case reference is lifetime-unique over 9000 values today (`0022_case_reference_id`). It exhausts independent of tenancy. Booking references have no such constraint but share Identifier nodes (risk 2c).
 8. **Unauthenticated tenant resolution paths**: link tokens (128 bit, low risk), pairing codes (six digits, brute-force surface grows with tenants), text verification code requests (tenant hint). Each needs rate limiting in a global namespace and identical responses.
@@ -410,7 +412,7 @@ Recommendation: keep Europe/London fixed for phase 1, write it as an explicit pl
 
 ### Questions for the owner
 
-1. Which collaboration model: grants plus read-only projections, or a network above organisations? Section 3.4 shows where it bites. Until chosen, no use case reads another tenant.
+1. ~~Which collaboration model~~ Decided by DEC-132 (Network, Grants, read-only projections). Remaining questions from it are in section 12.9.
 2. May any role hold cross-tenant access (DEC-130 item 8)? Proposed shape in section 2. Does it include a platform operator who is not part of any tenant?
 3. Policy governance: who may change a tenant's thresholds, with two-person approval, and does each tenant's clinical safety officer own them? Which of the "D+O" values in section 6 do you want exposed at all in phase 1? A minimal first set could be reply window, ladder minutes and pressure thresholds.
 4. Pressure thresholds: absolute counts per tenant, or a share of services? Over which set of services once organisations collaborate?
@@ -448,9 +450,9 @@ Order is dependency order. The adapters seam (`run_query`, `NamedQuery` `$tenant
 | TEN-A13 | Rework U02 ConfirmCapacity after it merges: tenant-bound lock and trailing-count statements, replay across tenants, held-lock test | `use_cases/confirm_capacity.py`, `adapters/outbound/graph_store/capacity_repository.py` (with the adapters audit), tests | 3 | U02 merged, TEN-A08 |
 | TEN-A14 | Rework U03 SendPrompts and scheduling after it merges: per-tenant `link_base_url`, derived key tenant-scoped, ladder and next prompt from policy, `schedule_work` tenant | `use_cases/send_prompts.py`, `application/scheduling.py`, tests | 4 | U03 merged, TEN-A04a, TEN-A05 |
 | TEN-A15 | Legacy migration of the domain contract: default tenant id and name, legacy audit genesis, backfill rules | `domain/model/tenant.py`, migration note | 2 | TEN-A03, TEN-A06 |
-| TEN-A16 | Collaboration seam (placeholder, **not sized**): `Visibility`, `CollaborationGrants`, board fan-out, booking across organisations | `application/**` | TBD | owner decision 1 |
+| TEN-A16 | (Placeholder replaced by TEN-A17 to TEN-A27 below, DEC-132.) | | 0 | |
 
-Total sized: 80 hours (4+5+6+7+8+6+4+3+5+6+5+6+6+3+4+2).
+Total sized for TEN-A01 to TEN-A15: 80 hours (4+5+6+7+8+6+4+3+5+6+5+6+6+3+4+2). DEC-132 tasks (TEN-A17 to TEN-A27, section 12.8): 73 hours. **Total about 153 hours.**
 
 ### Delivered tasks that need rework
 
@@ -486,13 +488,17 @@ Add to every use-case prompt a common clause: the use case never accepts a tenan
 | U10, R15 | Pairing code resolves the tenant through a global lookup of active codes, unique among active codes, global attempt limiter. |
 | O01 | Add an opaque `tenant.id` span attribute; no tenant name; allow-list update. |
 | U11, U13, U14 | Case reference unique within the tenant, per owner answer 5. Cases never cross tenants. |
-| U12 | Mark clearly which organisation's criteria and capacity were read; collaboration model dependent (section 3.4). The audit snapshot must record the source tenant. |
+| U12 | Two sequential units of work, never nested: read the case in the advisor's tenant scope, read candidate services from the network view (projected capacity and criteria, `NetworkView` port), evaluate `check_hard_criteria` in memory, then write the audit snapshot in the tenant scope. The case (age band, district, needs) is never passed into the network scope. The snapshot records the source tenant of each candidate (section 12.5). |
 | U15, U16, U23-U26, U28-U31 | Inside one tenant. U16: a phone held by another tenant is not a Conflict and is never mentioned. U24: invitation text from the tenant's number; wording fields per TEN-A10. U29: test prompt sent from the tenant's number. |
-| U17-U21 | Reference from `open_references()` of the tenant. The cross-organisation booking question must be answered first (owner decision 1). U19 timers from policy. |
+| U17-U21 | Tenant-only (DEC-132 item 4: bookings and cases are never shared). The target service must be one of the advisor's own tenant; a service from the network view is read-only ("phone to confirm") and `RequestBooking` must refuse it as `NotFound`. Reference from `open_references()` of the tenant. U19 timers from policy. Owner to confirm the UI shows no Request action on network-only services (section 12.9). |
 | U27 | The one-transaction registration write is tenant-bound; ODS lookups use shared `Terminology`. |
 | U32, U37 | Server-issued, tenant-scoped device ids. PIN lock unaffected. |
 | U33, U34 | Alert evaluation per tenant. `CRITICAL_KINDS` and defaults from policy. Escalation stays in the tenant. |
-| U35, U43 | Collaboration-dependent. If they aggregate across tenants they need the cross-tenant privilege; otherwise per tenant only. |
+| U35, U43 | Tenant-only. Their figures come from cases, bookings and communications, which DEC-132 never shares. An ICB user is staff of a member tenant: they get their own tenant's week summary plus the network capacity view, not other members' summaries. A cross-member summary would need a new grant scope and its own decision (DEC-132 item 7). |
+| U05 (booking part), U22, U33, U34, U36, U40, U41, U42 | Tenant-only. No network variant. |
+| R05 (`$board`), R06 (`/events`), R04 | Add a `view` selector (`tenant` or `network`) that chooses the scope kind only. The network id comes from the verified claim and the membership check, never from the request. |
+| U10, R15 (wall pairing) | A wall screen is paired to one tenant; its tenant administrator sets `shows = tenant or network` (DEC-132 item 5). The setting lives in the tenant scope. |
+| U15, U26, U27 | Service directory edits emit `ServiceDirectoryChanged` with `source: manual` (section 12.6), so the later Directory of Services integration changes nothing else. |
 | U40 | Clinical queue per tenant until the collaboration model says otherwise. |
 | U42 | Audit replay per tenant chain; record the source tenant of each datum. |
 | O06, R18 | Cross-tenant by design (DEC-130 item 8): grant record, two-chain audit, code globally unique among active codes. |

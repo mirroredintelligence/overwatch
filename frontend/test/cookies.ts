@@ -17,7 +17,10 @@ export const fakeCookieStore = {
     cookieWrites.push({ name, value, options });
   },
   // No cookie by default; tests that need one spy on this.
-  get: (_name: string): { name: string; value: string } | undefined => undefined,
+  get: (name: string): { name: string; value: string } | undefined => {
+    void name; // the cookie name is ignored: no cookie by default
+    return undefined;
+  },
 };
 
 export function resetCookieWrites() {

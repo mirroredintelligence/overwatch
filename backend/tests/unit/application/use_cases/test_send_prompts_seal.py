@@ -174,8 +174,8 @@ def test_a_body_shorter_than_nonce_and_tag_is_refused(key: bytes) -> None:
     [
         ("referrals in the next 2 hrs", ("referrals", "in the next 2 hrs")),
         ("referrals", ("referrals", "")),
-        ("referrals in", ("referrals", "")),
-        ("referrals in ", ("referrals", "")),
+        ("referrals in", ("referrals in", "")),
+        ("referrals in ", ("referrals in ", "")),
         (" in the next 2 hrs", (" in the next 2 hrs", "")),
     ],
 )

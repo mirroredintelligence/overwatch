@@ -1520,3 +1520,11 @@ Status: accepted · Affects: `backend/tests/support/neo4j.py`, every pytest run 
 - The neo4j image declares anonymous volumes for `/data` and `/logs`. `docker rm -f` leaves them behind, so every pytest run leaked two volumes (measured: 70 volumes, 18 GB in about one hour with four parallel builders, which used up the machine's disk allowance).
 - Decision: both removal paths, `stop_throwaway_neo4j` and `reap_stale_test_containers`, call `docker rm -f -v <name>`. The reaper's name-prefix and label checks are unchanged.
 - Cleaning existing leaks: `docker volume prune -f` removes only volumes that no container references, so it is safe while other builders' containers run.
+
+## DEC-129 UI tasks build from the repo snapshot of the design canvas; changes are collected for v1.1
+Status: accepted (owner instruction) · Affects: every UI task (W-series, F09 follow-ons, X-series UI). Supersedes the build hold in lesson L136.
+
+- The live design canvas has moved past the snapshot in `docs/spec/sources.json` (L136). The owner has ruled that the repo's `docs/spec/ui-screens.md` and `docs/design/` are the specification for this build, and that UI tasks proceed without waiting for a canvas refresh.
+- Any difference a builder or verifier notices between the repo snapshot and the live canvas is not a failure. Record it in the task's evidence under "Canvas differences" (what the snapshot says, what the live canvas says, if known) so it can be gathered for v1.1.
+- Once every task in the plan is delivered, the owner will run a v1.1 pass for required changes, including the canvas refresh. W03 was delivered before this ruling and its canvas comparison was not run (verifier note); it is included in the v1.1 pass.
+- The source-of-truth artifacts are not edited.

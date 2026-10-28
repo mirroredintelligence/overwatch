@@ -172,6 +172,7 @@ async def test_the_signature_is_compared_in_constant_time(
     "send",
     [
         "json-body",
+        "text-plain-form",
         "duplicate-field",
         "too-large",
         "too-large-chunked",
@@ -186,10 +187,22 @@ async def test_a_body_that_is_not_one_plain_twilio_form_is_refused(
     signature = {"X-Twilio-Signature": sign(REPLY_URL, params, TENANT_A.token)}
     if send == "json-body":
         response = await sms_client.post(INTERNAL_REPLY_URL, json=params, headers=signature)
-    elif send == "duplicate-field":
-        content = "&".join(f"{name}={value}" for name, value in params.items()) + "&Body=5"
+    elif send == "text-plain-form":
+        # A correctly signed form, but not sent as a urlencoded form.
         response = await sms_client.post(
-            INTERNAL_REPLY_URL, content=content.replace("+", "%2B"), headers={**FORM, **signature}
+            INTERNAL_REPLY_URL,
+            content=urlencode(params),
+            headers={"content-type": "text/plain", **signature},
+        )
+    elif send == "duplicate-field":
+        # Body is sent twice. The signature is valid over the value a reader keeping the last
+        # one would see, so only the duplicate check can refuse it.
+        content = "&".join(f"{name}={value}" for name, value in params.items()) + "&Body=5"
+        last_wins = {**params, "Body": "5"}
+        response = await sms_client.post(
+            INTERNAL_REPLY_URL,
+            content=content.replace("+", "%2B"),
+            headers={**FORM, "X-Twilio-Signature": sign(REPLY_URL, last_wins, TENANT_A.token)},
         )
     elif send == "too-large":
         big = {**params, "Padding": "x" * 70_000}

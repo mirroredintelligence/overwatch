@@ -259,8 +259,17 @@ def test_the_created_pattern_refuses_each_group_with_non_ascii_digits_or_a_sign(
     assert _CREATED_AT.match(created) is None
 
 
-def test_the_created_pattern_accepts_an_ascii_timestamp() -> None:
-    assert _CREATED_AT.match("2026-10-28T06:00:00.000000000Z") is not None
+@pytest.mark.parametrize(
+    "created",
+    [
+        "2026-10-28T06:00:00.000000000Z",
+        # Go RFC 3339 output drops a zero fraction, so a Created value can have no fraction at all.
+        "2026-10-28T06:00:00Z",
+        "2026-10-28T06:00:00+01:00",
+    ],
+)
+def test_the_created_pattern_accepts_an_ascii_timestamp(created: str) -> None:
+    assert _CREATED_AT.match(created) is not None
 
 
 def test_a_container_owned_from_another_host_is_judged_by_age_not_by_this_hosts_processes() -> None:

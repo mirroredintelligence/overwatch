@@ -1,6 +1,6 @@
 # Delivery status
 
-Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 77/215 tasks.
+Generated 2026-10-28T19:48:26.191302+00:00. Source of truth: the shared ledger (python delivery.py status). Delivered 80/301 tasks.
 
 ## S0 Foundations
 
@@ -82,8 +82,8 @@ Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (
 | P11 | Geocoder, travel-time, terminology and validator ports with fakes | delivered | build-P11 | 35ed2c628d3a7ddeccc31fb01fbc5de67cb428c0 | checks, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P11 |
 | P12 | Contract tests for the cache and event bus fakes | delivered | build-P12b | 0924380808a0648c83044e0c89cb6086cfd8aeb3 | checks, coverage, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-P12-r4 |
 | U01 | ReportCapacity use case | delivered | build-U01 | ca6e95f | checks, coverage, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U01-r7 |
-| U02 | ConfirmCapacity use case | in-progress | build-U02 | - | - |
-| U03 | SendPrompts use case (one service) | in-progress | build-U03 | - | - |
+| U02 | ConfirmCapacity use case | delivered | build-U02-r3 | 953e4ab | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-U02-r3 |
+| U03 | SendPrompts use case (one service) | in-progress | build-U03-r3-sonnet | - | - |
 | U04 | Grouped prompts for multi-service phones | not-started | - | - | - |
 | U05 | HandleInboundText use case: capacity replies | not-started | - | - | - |
 | U06 | Missed-report ladder handlers | not-started | - | - | - |
@@ -93,8 +93,46 @@ Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (
 | I01 | Redis cache adapter | delivered | build-I01 | af8bce876c088853319b9770886f5107666fed71 | checks, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I01-r4 |
 | I02 | Service Bus event bus adapter | delivered | build-I02 | ff0c49d | checks, coverage, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I02-r6 |
 | I03 | Outbox relay worker | not-started | - | - | - |
-| I04 | Idempotent message consumer framework | stale | build-I04 | - | checks, coverage, privacy-scan, spec-trace, tests-green, tests-red |
+| I04 | Idempotent message consumer framework | delivered | build-I04 | 8f76cf9 | checks, coverage, hazard-note, mutation, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-I04-r5 |
 | I05 | Scheduled work consumer | not-started | - | - | - |
+| TEN-001 | Tenancy seam step one: tenant context, run_query binding and registration check in warn mode | in-progress | build-TEN-001-r5-sonnet | - | - |
+| TEN-002 | Unit of work, connection and health on the scoped transaction (reworks P06, G14) | not-started | - | - | - |
+| TEN-003 | Test harness step one: tenant per run, bound-tenant fixtures, tenant-prefixed ids (reworks F10, F11) | not-started | - | - | - |
+| TEN-004 | Generated two-tenant isolation test over the query registry, with the unconverted-ids ratchet | not-started | - | - | - |
+| TEN-005 | Composite constraints, index swap and default-tenant backfill (runs alone) | not-started | - | - | - |
+| TEN-006 | Tenant domain model, configuration bounds, policy defaults and lifecycle state machine (pure) | not-started | - | - | - |
+| TEN-007 | Tenant record, TenantDirectory, global statement allowlist, secret references and fake secret store | not-started | - | - | - |
+| TEN-008 | Mapper reserves tenantId; Concept, CodeSystem and Identifier tenant-scoped (reworks G02 to G04) | not-started | - | - | - |
+| TEN-009 | Resource store statements stamped and anchored (reworks G05) | not-started | - | - | - |
+| TEN-010 | Service, capacity, booking and case repositories tenant-scoped (reworks P01, P02, P21) | not-started | - | - | - |
+| TEN-011 | Person, registration and scope-list repositories tenant-scoped (reworks P03, P13) | not-started | - | - | - |
+| TEN-012 | Criteria and flag repositories tenant-scoped (reworks P04, P14) | not-started | - | - | - |
+| TEN-013 | Link token record and store carry the tenant (reworks D26, P10) | not-started | - | - | - |
+| TEN-014 | Contact, credential and device stores tenant-scoped (reworks P16) | not-started | - | - | - |
+| TEN-015 | Communication and scheduled-work repositories tenant-scoped (reworks P07, P08) | not-started | - | - | - |
+| TEN-016 | Outbox, idempotency and processed markers tenant-scoped (reworks P06, P15) | not-started | - | - | - |
+| TEN-017 | Audit chain per scope with per-scope genesis (reworks P05) | not-started | - | - | - |
+| TEN-018 | REST edge: tenant claim, Actor.tenant_id, roles, scope binding dependency (reworks R01, R02, R03) | not-started | - | - | - |
+| TEN-019 | Tenant-scoped cache keys, locks and channels in the adapter and the fake (reworks P09, I01, P12) | not-started | - | - | - |
+| TEN-020 | Service Bus tenant property and in-memory bus parity (reworks I02, P08, P12) | not-started | - | - | - |
+| TEN-021 | Tenant policy threaded through board and prompt rules (reworks D04, D05, D07, D08, D11) | not-started | - | - | - |
+| TEN-022 | Message templates take tenant fields; no place names (reworks D15, D16, D17) | not-started | - | - | - |
+| TEN-023 | Per-tenant derived hash and token keys | not-started | - | - | - |
+| TEN-024 | ReportCapacity rework: tenant guard, performer validation, fingerprint (reworks U01) | not-started | - | - | - |
+| TEN-025 | Consumer framework binds and verifies the tenant (I04 after delivery) | not-started | - | - | - |
+| TEN-026 | Tenant configuration versions, channels, contacts, directory binding and retention | not-started | - | - | - |
+| TEN-027 | Migrate U02 and U03 after delivery; use-case differential and held-lock test | not-started | - | - | - |
+| TEN-028 | Tenant provisioning: create, activate, provision scope, first administrator | not-started | - | - | - |
+| TEN-029 | Cross-tenant reference matrix test and placeholder refusal | not-started | - | - | - |
+| TEN-030 | Tenancy seam step two: enforce mode, ratchet empty, mutant evidence | not-started | - | - | - |
+| TEN-031 | Start-up and daily invariant check for nodes without a tenantId | not-started | - | - | - |
+| TEN-032 | Contract migration: drop superseded single-property constraints (runs alone) | not-started | - | - | - |
+| TEN-033 | Test harness step two (a): tenant-scoped wipe, helpers, sweeper, seed layer | not-started | - | - | - |
+| TEN-034 | Test harness step two (b): shared Neo4j attached mode, markers, exclusive runs, migration lock | not-started | - | - | - |
+| TEN-035 | Test harness step two (c): parallel runs, CI, serial markers, briefs corrected | not-started | - | - | - |
+| TEN-036 | Network domain model and grant rules (pure) | not-started | - | - | - |
+| TEN-037 | Seam: network scope kind, label partition lint, read-only and nested-unit rules | not-started | - | - | - |
+| TEN-038 | Network domain events and topic | not-started | - | - | - |
 
 ## S3 Capacity loop: channels, API and wall board
 
@@ -115,7 +153,7 @@ Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (
 | U10 | PairWallScreen use case | not-started | - | - | - |
 | R15 | Wall screen pairing endpoints | not-started | - | - | - |
 | W01 | BFF foundations: typed FHIR client and MSW test setup | delivered | build-W01 | 16b31ab | checks, hazard-note, other, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W01-r6 |
-| W02 | BFF session cookie and CSRF | in-review | build-W02 | - | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red |
+| W02 | BFF session cookie and CSRF | delivered | build-W02 | aaf3cca | checks, coverage, hazard-note, mutation, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W02-r4 |
 | W03 | Base UI components | delivered | build-W03 | 4b2dc1f51b1b90c99c7f00cc7eb22c165060c514 | checks, privacy-scan, spec-trace, tests-green, tests-red; verified by verify-W03 |
 | W04 | Capacity link pages | not-started | - | - | - |
 | W05 | Wall board page | not-started | - | - | - |
@@ -123,6 +161,31 @@ Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (
 | W07 | Wall board variants: pressure, out of hours, pending | not-started | - | - | - |
 | W08 | Wall screen pairing pages | not-started | - | - | - |
 | O01 | Backend OpenTelemetry baseline | not-started | - | - | - |
+| TEN-039 | Board projector, query board and SSE stream per tenant (reworks U08, U09, R06) | not-started | - | - | - |
+| TEN-040 | Unauthenticated edge: host-based tenant resolution, public profile, rate limiter | not-started | - | - | - |
+| TEN-041 | Unauthenticated edge: link, invitation, device, pairing and inbound-number resolvers | not-started | - | - | - |
+| TEN-042 | Per-tenant Twilio and email senders (reworks I06; I09 after delivery) | not-started | - | - | - |
+| TEN-043 | Back-end token exchange: the back end issues the tenant-bound token | not-started | - | - | - |
+| TEN-044 | BFF session and handler rework: tenant in session, no-store, input guard (reworks W02) | not-started | - | - | - |
+| TEN-045 | Front-end foundation guards (reworks W01, F03) | not-started | - | - | - |
+| TEN-046 | Tenant-bound CSRF and separate link CSRF cookie | not-started | - | - | - |
+| TEN-047 | Front-end tenancy test harness and leak canary | not-started | - | - | - |
+| TEN-048 | Front-end guard rails: lint and repository scans | not-started | - | - | - |
+| TEN-049 | Tenant profile and copy layer; remove global SPOA phone variable | not-started | - | - | - |
+| TEN-050 | Browser state wipe on sign-out and unpair | not-started | - | - | - |
+| TEN-051 | Network registry: Network, membership, grant and listing nodes, repositories, ports | not-started | - | - | - |
+| TEN-052 | Projection allowlist, DTOs and privacy guard (reworks D17) | not-started | - | - | - |
+| TEN-053 | Network-scope projection repository and constraints | not-started | - | - | - |
+| TEN-054 | Network projector core: producers and apply step in two units of work | not-started | - | - | - |
+| TEN-055 | Projection transport: queue, subscriptions, two-scope runner (reworks F04) | not-started | - | - | - |
+| TEN-056 | Leave and grant-end semantics, boundary projection, reconciliation | not-started | - | - | - |
+| TEN-057 | Network read use cases with staleness degrade | not-started | - | - | - |
+| TEN-058 | Network board projector, cache keys and channel | not-started | - | - | - |
+| TEN-059 | Network API: board, directory, criteria, stream, membership claims | not-started | - | - | - |
+| TEN-060 | Network test fixtures and generated test extended to three scopes | not-started | - | - | - |
+| TEN-061 | Two-member network tests: grant lifecycle, leave, history, concurrency | not-started | - | - | - |
+| TEN-062 | Two-member network tests: privacy scan, scope binding, roles, isolation of keys and streams | not-started | - | - | - |
+| TEN-063 | Network screens specification for the UI | not-started | - | - | - |
 
 ## S4 Advisor call
 
@@ -150,6 +213,15 @@ Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (
 | W17 | Shift lead page: chasing, system now, covering | not-started | - | - | - |
 | W18 | Shift lead: add service and change number forms (pilot) | not-started | - | - | - |
 | S01 | Browser security headers and CSP | not-started | - | - | - |
+| TEN-064 | Tenant policy threaded through booking, flag, grouping, criteria, alert and clinical rules | not-started | - | - | - |
+| TEN-065 | Time zone per tenant and network passed explicitly into the time rules | not-started | - | - | - |
+| TEN-066 | Bank holiday calendar and service closures | not-started | - | - | - |
+| TEN-067 | Wall screen board scope setting (backend) | not-started | - | - | - |
+| TEN-068 | BFF network scope: routes, availability check, stream relay | not-started | - | - | - |
+| TEN-069 | Scope header and organisation label components | not-started | - | - | - |
+| TEN-070 | Network board UI and unavailable states | not-started | - | - | - |
+| TEN-071 | Network directory and criteria views | not-started | - | - | - |
+| TEN-072 | Wall screen administration and last-known by scope | not-started | - | - | - |
 
 ## S5 Booking by text and link
 
@@ -194,6 +266,15 @@ Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (
 | W29 | Reviewer: call-back, scope, decide and go live | not-started | - | - | - |
 | W30 | Criteria owner: review, confirm, change, preview, send | not-started | - | - | - |
 | W31 | Criteria second approval, history and overdue | not-started | - | - | - |
+| TEN-073 | Tenant suspend and resume | not-started | - | - | - |
+| TEN-074 | Tenant offboarding, export and purge | not-started | - | - | - |
+| TEN-075 | Operator and tenant-administrator API routes | not-started | - | - | - |
+| TEN-076 | Tenant administration screens | not-started | - | - | - |
+| TEN-077 | Network administration use cases: network, members, agreement, listings | not-started | - | - | - |
+| TEN-078 | Network administration use cases: grants and the cross-scope saga | not-started | - | - | - |
+| TEN-079 | Network and grant administration API | not-started | - | - | - |
+| TEN-080 | Network administration screens | not-started | - | - | - |
+| TEN-081 | Grant approval and sharing transparency screens | not-started | - | - | - |
 
 ## S7 Reporter app, PIN, push and alerts
 
@@ -219,6 +300,7 @@ Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (
 | W39 | Exec set-up: alerts, quiet hours, escalation | not-started | - | - | - |
 | W40 | Exec home, service detail and alerts | not-started | - | - | - |
 | W41 | Exec week summary | not-started | - | - | - |
+| TEN-082 | Network week summary and pressure (capacity-derived only) | not-started | - | - | - |
 
 ## S8 Shift lead tools, clinical advice and safety
 
@@ -259,6 +341,10 @@ Generated 2026-10-28T12:33:38.169966+00:00. Source of truth: the shared ledger (
 | W49 | Console: funnels, paths, friction, performance, releases | not-started | - | - | - |
 | W56 | Help: share my session (support code) | not-started | - | - | - |
 | O09 | Synthetic journey checks | not-started | - | - | - |
+| TEN-083 | Operator console screens (last, droppable) | not-started | - | - | - |
+| TEN-084 | Cross-tenant support guard | not-started | - | - | - |
+| TEN-085 | Two-tenant and network end-to-end suite | not-started | - | - | - |
+| TEN-086 | Hazard log rows and tenancy runbooks | not-started | - | - | - |
 
 ## S10 Later
 

@@ -113,12 +113,12 @@ def test_top_level_permissions_are_read_only(workflow: dict[str, Any]) -> None:
     assert workflow["permissions"] == {"contents": "read"}
 
 
-def test_triggers_are_push_and_pull_request(workflow: dict[str, Any]) -> None:
-    # PyYAML reads the bare key `on` as the boolean True.
+def test_triggers_are_manual_only_by_the_owners_request(workflow: dict[str, Any]) -> None:
+    # The owner disabled push and pull-request runs on 2026-10-28 (pushes were billing Actions).
+    # The workflow still runs when started by hand. To turn it back on, change this test too.
     triggers = workflow.get(True, workflow.get("on"))
     assert triggers is not None
-    assert "push" in triggers
-    assert "pull_request" in triggers
+    assert set(triggers) == {"workflow_dispatch"}
 
 
 def test_concurrency_cancels_superseded_runs_per_ref(workflow: dict[str, Any]) -> None:

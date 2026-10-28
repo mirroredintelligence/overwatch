@@ -842,6 +842,111 @@ async def test_a_confirmation_waiting_behind_a_held_number_is_stored_after_it(
     assert latest.value == 5
 
 
+class AddGate:
+    """Holds a number at its first write (capacity.add): by then it has read the latest figure and
+    its effective time, and it still holds whatever lock it took (DEC-139)."""
+
+    def __init__(self) -> None:
+        self.entered = asyncio.Event()
+        self.release = asyncio.Event()
+        self.hold_next = False
+
+
+class _AddGatedCapacity:
+    def __init__(self, inner: Any, gate: AddGate, hold: bool) -> None:
+        self._inner = inner
+        self._gate = gate
+        self._hold = hold
+
+    async def add(self, report: CapacityReport) -> None:
+        if self._hold:
+            self._gate.entered.set()
+            await self._gate.release.wait()
+        await self._inner.add(report)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+class AddGatedUnitOfWork:
+    def __init__(self, inner: UnitOfWork, gate: AddGate, hold: bool) -> None:
+        self._inner = inner
+        self._gate = gate
+        self._hold = hold
+
+    async def __aenter__(self) -> Self:
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc: object) -> Any:
+        return await self._inner.__aexit__(*exc)
+
+    @property
+    def capacity(self) -> Any:
+        return _AddGatedCapacity(self._inner.capacity, self._gate, self._hold)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+def add_gated_factory(factory: UnitOfWorkFactory, gate: AddGate) -> UnitOfWorkFactory:
+    """A factory whose next unit of work is held at its first capacity write, if set."""
+
+    def make() -> UnitOfWork:
+        hold = gate.hold_next
+        gate.hold_next = False
+        return AddGatedUnitOfWork(factory(), gate, hold)  # type: ignore[return-value]
+
+    return make
+
+
+async def test_a_number_that_read_the_figure_before_a_confirmation_is_not_written_behind_it(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """DEC-139, the lock held from the first read. A number reported at 10:04 reads the latest
+    figure (3) and holds the service lock, then pauses before its write. A confirmation at 10:05
+    must wait for that lock, not commit in between. The number then writes at 10:04 and the
+    confirmation is timed at 10:06 after it, so the board shows the confirmed 5. Without the lock
+    the confirmation commits 3 at 10:05 and the number lands behind it, so the board shows 3."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    ids = SequentialIds()
+    store = DriverIdempotencyStore(neo4j_driver)
+    clock = FixedClock(AT_1004)
+    gate = AddGate()
+    number = ReportCapacity(add_gated_factory(uow_factory, gate), clock, ids, store)
+    confirm = ConfirmCapacity(uow_factory, clock, ids, store)
+    number_command = ReportCapacityCommand(
+        idempotency_key="number-5",
+        actor=REPORTER,
+        service_id="ucr-west",
+        value=5,
+        source=ReportSource.TEXT,
+    )
+    confirm_command = ConfirmCapacityCommand("confirm-1", REPORTER, "ucr-west", ReportSource.TEXT)
+
+    gate.hold_next = True
+    number_task = asyncio.ensure_future(number.execute(number_command))
+    await asyncio.wait_for(gate.entered.wait(), timeout=30)
+
+    clock.set(AT_1005)
+    confirm_task = asyncio.ensure_future(confirm.execute(confirm_command))
+    await asyncio.sleep(1.0)
+    confirm_waited = not confirm_task.done()
+
+    clock.set(AT_1006)
+    gate.release.set()
+    await asyncio.wait_for(number_task, timeout=60)
+    confirm_result = await asyncio.wait_for(confirm_task, timeout=60)
+
+    assert confirm_result.confirmed_value == 5
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.id == confirm_result.report_id
+    assert latest.report_type is ReportType.CONFIRMED
+    assert latest.value == 5
+    assert confirm_waited is True
+
+
 async def test_a_number_given_before_the_latest_confirmation_is_refused_and_writes_nothing(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

@@ -28,6 +28,7 @@ from diucs.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
 from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.scheduling import cancel_work, schedule_work
+from diucs.application.use_cases import send_prompts as send_prompts_module
 from diucs.application.use_cases.send_prompts import (
     SKIP_INACTIVE,
     SKIP_NO_REPORTER,
@@ -51,7 +52,7 @@ from diucs.domain.codes import (
     Role,
     ServiceCategory,
 )
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, DomainError, NotFound, ValidationFailed
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
@@ -916,6 +917,25 @@ async def test_a_failure_after_the_writes_leaves_nothing_behind(
     assert await count_nodes(neo4j_driver, "Communication") == 0
     async with uow_factory() as uow:
         assert await uow.idempotency.get(_command().idempotency_key) is None
+
+
+async def test_a_profile_with_no_next_due_instant_is_refused_and_writes_nothing(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The next prompt cannot be armed. A valid profile always has one (every window yields due
+    # times), so this is refused rather than sent without a chain (DEC-115 item 29).
+    await _seed_one_reporter(uow_factory, seed_service)
+    before = await _counts(neo4j_driver)
+    monkeypatch.setattr(send_prompts_module, "next_due", lambda profile, now: None)
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+
+    with pytest.raises(DomainError):
+        await use_case.execute(_command())
+
+    assert await _counts(neo4j_driver) == before
 
 
 async def test_an_unknown_service_is_refused(

@@ -5,9 +5,10 @@ derived_from set to that report. At most MAX_CONSECUTIVE_CONFIRMS may follow one
 further one is refused and nothing is written.
 
 The unit of work takes the service's write lock first, then reads the latest report and the count,
-then takes the effective time and writes (DEC-112 items 8 and 10, DEC-139; lessons L73, L99). Two confirmations for one service therefore
-run one after the other. The write itself goes through record_report (U01), which also writes the
-echo, status events, audit entry and idempotency record in the same unit of work.
+then takes the effective time and writes (DEC-112 items 8 and 10, DEC-139; lessons L73, L99). Two
+confirmations for one service therefore run one after the other. The write itself goes through
+record_report (U01), which also writes the echo, status events, audit entry and idempotency record
+in the same unit of work.
 """
 
 import hashlib

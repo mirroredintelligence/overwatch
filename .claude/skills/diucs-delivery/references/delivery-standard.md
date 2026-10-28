@@ -10,6 +10,7 @@ Contents: principles, definition of done, evidence, safety-critical code, stage 
 4. **No patient data, anywhere.** Not in code, fixtures, logs, messages, telemetry, errors or evidence files.
 5. **One source of truth per fact.** No duplicate copies that can disagree (DEC-001).
 6. **Change is controlled.** Deviations are written down (`decisions.md`) before they are built, and tested.
+7. **Tenants are isolated.** One organisation's data is never readable, changeable or detectable by another's. Sharing is only through grants and read-only projections of an allowlisted minimum (DEC-130 to DEC-132, `multi-tenancy.md`). A leak between tenants is a patient-safety and information-governance failure, not a bug to fix later.
 
 ## Definition of done (every task)
 
@@ -21,8 +22,9 @@ A task is done only when all of these hold. The tracker enforces the evidence ki
 4. **Traced to the spec** (**spec-trace**). The evidence file lists each requirement the task satisfies (a section of `domain-rules.md`, a data-flow step, a screen, a hazard id) beside the test that proves it. Wording on screens matches `docs/spec/ui-screens.md` exactly.
 5. **Hazards updated.** If the task builds or changes a control listed in `docs/delivery/hazard-log.md`, add the test reference in the "Verified by" column in the same commit. A new hazard you notice goes in the log at once.
 6. **Privacy scan** (**privacy-scan**, when the task renders, stores, logs or sends text). The privacy guard (D17) passes, and a search of the diff for UK postcodes, NHS-number-shaped strings and names finds only the sample values already in the specs (for example `DT4 8XX`).
-7. **Independent verification** (**verification**, recorded by `delivery.py verify`). A different agent re-ran the work in a clean worktree and passed it.
-8. **Merged to `main` by fast-forward**, then `delivery.py deliver --commit <sha>`.
+7. **Tenant isolation** (when the task reads, writes, sends, receives, caches, queues, authenticates or shows data; register as `other` with a summary starting `tenant-isolation:`). Every statement, key, channel, queue and message the task adds is tenant-scoped as `multi-tenancy.md` requires; the task has a two-tenant test showing tenant A cannot read, change, delete or detect tenant B's records; any cross-scope read it would need is written in the evidence. While the tenancy seam is not yet delivered, follow the transitional rule in `multi-tenancy.md` and list tenant-pending statements.
+8. **Independent verification** (**verification**, recorded by `delivery.py verify`). A different agent re-ran the work in a clean worktree and passed it.
+9. **Merged to `main` by fast-forward**, then `delivery.py deliver --commit <sha>`. Check the merge's exit code before `deliver`; never chain them through a pipe (L148).
 
 Also expected, not tracked by the tool: no skipped or xfail tests without a decision; no network in unit tests; no `print` debugging; no secrets; dependency versions pinned in the lock file; names and paths exactly as `docs/spec/contracts.md`.
 
@@ -38,7 +40,7 @@ Evidence is a record someone else can re-check. The builder writes `docs/deliver
 | `spec-trace` | yes | The requirement-to-test table in the evidence file |
 | `privacy-scan` | when relevant | The scan output |
 | `hazard-note` | when relevant | The hazard-log rows changed |
-| `coverage`, `mutation`, `perf`, `other` | when relevant | The report or number |
+| `coverage`, `mutation`, `perf`, `other` | when relevant | The report or number. Tenant isolation is registered as `other` with a summary starting `tenant-isolation:` and a ref to the evidence file's "Tenant isolation" section |
 
 The verification record (`verify`) is the eighth piece, written by the verifier, with a note saying what they re-ran and what they tried to break.
 
@@ -48,6 +50,7 @@ These carry the clinical risk. In addition to the rules above they need **100% l
 
 - Back end: `domain/rules/` (status, freshness, availability, schedule, opening hours, reply parser, reply policy, booking state and rules, criteria filter and workflow, registration gate, alerts, identity policy, tokens, multi-service), `domain/messages/` (templates and privacy guard), and the use cases `ReportCapacity`, `ConfirmCapacity`, `HandleInboundText`, `FilterOptions`, `RequestBooking`, `RespondToBooking`, the booking timers, `ApproveRegistration`, `ApproveCriteria`.
 - Front end: the status badge and tile, the options list and its not-suitable reasons, the booking card states, the criteria dialogs.
+- Tenancy: the tenant context and its binding in `run_query` and the unit of work, the registration-time `$tenant` check, tenant resolution at each edge (token, session, inbound number, link token, pairing, message properties), the grant rules and the projector, and the projection allowlist. Their mutants include removing the tenant predicate, ignoring the bound tenant, trusting a caller-supplied tenant, and letting a non-allowlisted field through.
 
 Mutation checking: run a mutation tool for the module with a killed-mutant target of 90% or better. Tools such as `mutmut` do not run natively on Windows; run them in a Linux container (`docker run --rm -v <worktree>:/w -w /w python:3.14 ...`). If no tool runs, the verifier does it by hand: change at least three decisive lines (a comparison, a boundary, a branch) and confirm a test fails each time. A test suite that survives obvious mutants is not evidence.
 
@@ -66,7 +69,7 @@ Each gate is a real run on `main` with Docker up, written up in `docs/delivery/e
 - **Stage 6**: invitation to live, with every gate of the approval enforced.
 - **Stage 7**: installed app with PIN and push; an alert escalates through the ladder.
 - **Stage 8 and 9**: suspend and removal, clinical queue, safety concern; telemetry contains no values and support sessions need a code.
-- At every gate: whole-suite run, axe checks, hazard log reviewed, `delivery.py render --out docs/delivery` committed.
+- At every gate: whole-suite run, axe checks, hazard log reviewed, `delivery.py render --out docs/delivery` committed. Once tenancy is enforced, the generated two-tenant isolation test over the whole query registry also runs at every gate, and any statement not covered by it is a gate failure. The whole-suite run is a single serial run by the orchestrator, not one per agent.
 
 ## What this standard is not
 

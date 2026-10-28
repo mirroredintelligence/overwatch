@@ -16,6 +16,8 @@ Record any decision that changes what a task prompt or spec says in `docs/delive
 - **Python** for the back end. **React** (Next.js) for the front end. **Twilio** for SMS. **Neo4j** as the database.
 - **All data of record is stored graph-native.** The purpose is that Neo4j Graph Data Science can run on this data in later phases (finding where capacity runs out, how patients flow between services, which criteria correlate with declines). That only works if the structure is in the graph, not hidden in strings.
 
+- **The platform is multi-tenant, with organisations collaborating in a network** (DEC-130, DEC-131, DEC-132). A tenant is a legal entity; its data is isolated from every other tenant's; sharing is only by grants and read-only projections into a network scope; SMS and email are one Twilio subaccount per tenant. This is a requirement, not a default: do not replace or work around it. The rules are in `multi-tenancy.md`.
+
 Everything else the specs name (Redis, Azure Service Bus, Entra ID, Azure Monitor, FastAPI, OpenTelemetry) is a default you may replace, subject to DEC-003.
 
 ## The graph-native rule
@@ -40,13 +42,15 @@ DEC-001 is the full text. In short:
 7. **Do not edit the source-of-truth artifacts.** They are shared documents owned by others. Record disagreements in `decisions.md` and the evidence, and let the owner reconcile. (You may refresh the repo snapshots.)
 8. **Destructive actions outside the repository** (deleting files or data elsewhere, changing system or security settings) are out of scope.
 9. **Never claim a human-only item is done:** clinical safety sign-off, DPIA, DTAC, regulatory classification, penetration test, approval of message wording by information governance.
+10. **No cross-tenant reads, joins or shortcuts.** Never take a tenant from a request body or any caller-controlled header, never write a query that spans two tenants or a tenant and a network, never share a field outside the grant allowlist, never add an operator or support back door, never answer another tenant's id with anything but NotFound. If a task seems to need one of these, stop, record it in `decisions.md` and the evidence, and carry on with other work.
 
 ## Human-only items
 
 Collect these in the ledger as blocked tasks or in your progress note, with who must act and what you have prepared for them:
 
 - A running Docker daemon, if the machine has none (back-end integration tests need it).
-- Real Twilio, Entra and hosting credentials and any spend.
+- Real Twilio, Entra and hosting credentials and any spend. Creating each tenant's Twilio subaccount and numbers, and registering sender ids (DEC-131).
+- The data sharing agreement for the network, each organisation's controller and processor roles, information-governance approval of each grant scope and of the projection allowlist, and who may hold cross-tenant support access (DEC-132).
 - Text provider sender number and terms; SNOMED and OS Places licences; the real Pathways Dx code list.
 - Clinical safety officer: hazard severities, the safety case, sign-off of safety-critical rules and assumed thresholds (`[ASSUMED]`).
 - Information governance: message wording, retention periods, whether staff notice or consent is needed.

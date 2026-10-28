@@ -38,6 +38,9 @@ Rows of `docs/delivery/hazard-log.md` this task verifies or changes, and the tes
 ## Privacy
 Scan result and what was searched: `<result>`.
 
+## Tenant isolation
+Say which applies. **Tenant-scoped statements, keys, channels, queues and messages this task adds:** `<list, with query ids>`. **Where the tenant comes from** (token, session, inbound number, link token, pairing, message property): `<source>`. **Two-tenant test:** `<test path>` and what it shows (tenant A cannot read, change, delete or detect tenant B; same key in both tenants does not collide). **Predicate-removal mutant:** `<statement changed and the test that failed>`. **Tenant-pending statements** (transitional rule, until tenancy is enforced): `<query ids and why>`. **Cross-scope reads this task would need under DEC-132:** `<none or list>`. Mark `n/a` with a reason only if the task touches no data, messages, caches, queues or sign-in.
+
 ## Decisions and assumptions
 Deviations from the prompt or spec (with the `DEC-n` that authorises each), assumptions made, `[ASSUMED]` values used.
 

@@ -1,6 +1,6 @@
 ---
 name: diucs-delivery
-description: Deliver the DIUCS capacity application (the `overwatch` repo) autonomously, to medical-device engineering quality, as part of a team of sessions that share one ledger and one set of lessons. Knows the source-of-truth artifacts (architecture, FHIR/graph data model, observability, design canvas, sprint plan), the 210-task plan, what is delivered and what evidence proves it, who is working on what, and the rules for design freedom (React, Python, Twilio and Neo4j are fixed; all data is graph-native). Use this skill whenever the user mentions DIUCS, overwatch, the capacity app, the sprint plan, delivering or continuing the build, "what's next", status, progress, evidence, lessons learnt, verifying or reviewing a task, the source-of-truth artifacts, or delegates the application to you, even if they do not name the skill. Also use it when you are one of several sessions working in this repo and need to claim, build, verify or hand over a task.
+description: Deliver the DIUCS capacity application (the `overwatch` repo) autonomously, to medical-device engineering quality, as part of a team of sessions that share one ledger and one set of lessons. Knows the source-of-truth artifacts (architecture, FHIR/graph data model, observability, design canvas, sprint plan), the 215-task plan, what is delivered and what evidence proves it, who is working on what, and the rules for design freedom (React, Python, Twilio and Neo4j are fixed; all data is graph-native). The platform is multi-tenant, with each organisation a tenant and organisations collaborating in a network (DEC-130 to DEC-132), so every task follows the tenancy rules. Use this skill whenever the user mentions DIUCS, overwatch, the capacity app, the sprint plan, delivering or continuing the build, "what's next", status, progress, evidence, lessons learnt, verifying or reviewing a task, the source-of-truth artifacts, tenants, tenancy, networks, grants or projections, or delegates the application to you, even if they do not name the skill. Also use it when you are one of several sessions working in this repo and need to claim, build, verify or hand over a task.
 ---
 
 # DIUCS delivery
@@ -21,6 +21,10 @@ Every time you start, resume, or are woken up, in this order:
 5. **Pick work.** `delivery.py next` shows tasks whose dependencies are delivered and that nobody holds. `delivery.py status` also shows what is held, by whom, and what is stale.
 
 Your session label is any short unique string, for example your session id, or `build-F01` for a subagent. Use the same label for every command, and a different one for the verifier.
+
+## The platform is multi-tenant (read this before any data, message, capacity or sign-in task)
+
+Each organisation that feeds the platform is a **tenant** (a legal entity and the controller of its own data), and organisations collaborate in a **network** owned by a lead organisation. The specs were written for one organisation and do not say this; DEC-130, DEC-131 and DEC-132 in `docs/delivery/decisions.md` do, and they override the specs and the task prompts. In short: every node carries `tenantId`; the tenant is bound once per unit of work from a verified source and added to every Cypher call by `run_query`; every statement names `tenantId: $tenant`; another tenant's records read as NotFound; SMS and email are one Twilio subaccount per tenant, so the number called identifies the tenant; organisations share only capacity, the service directory and criteria, through grants and read-only projections into a network scope, never through a query that spans tenants, and never any patient-level or personal data. The rules, the transitional rule that applies until the tenancy seam is delivered, the tests and the hazards are in `references/multi-tenancy.md`. Read it with the standard; the audit that sizes the retrofit is in `docs/delivery/tenancy-audit/`.
 
 ## What you are building from
 
@@ -46,7 +50,7 @@ Many sessions share one ledger, so nobody duplicates or collides. How claims, he
 
 ## Your authority, and its edges
 
-You have full design and implementation control. Python, React (Next.js), Twilio and Neo4j are fixed; everything else is your call, as long as it is recorded as a decision first. All data of record is stored graph-native in Neo4j, so that graph data science works in later phases (DEC-001 spells out what that means). Details, and the few things that remain human-only (real credentials and spend, clinical and regulatory sign-off, real-world sends, pushing to a remote), are in `references/autonomy-and-design-rules.md`. When something is human-only, mark the task blocked with the reason, move to other work, and mention it in your next progress note. Do not stop the whole build.
+You have full design and implementation control. Python, React (Next.js), Twilio and Neo4j are fixed; everything else is your call, as long as it is recorded as a decision first. All data of record is stored graph-native in Neo4j, so that graph data science works in later phases (DEC-001 spells out what that means), and it is tenant-scoped (DEC-130 to DEC-132; `references/multi-tenancy.md`). Details, and the few things that remain human-only (real credentials and spend, clinical and regulatory sign-off, real-world sends, pushing to a remote), are in `references/autonomy-and-design-rules.md`. When something is human-only, mark the task blocked with the reason, move to other work, and mention it in your next progress note. Do not stop the whole build.
 
 ## Honesty rules
 
@@ -64,5 +68,6 @@ Worktrees are branched from `main`, so `main` must contain this skill, `docs/pla
 - `references/delivery-standard.md`: the definition of done, evidence, milestones.
 - `references/autonomy-and-design-rules.md`: authority, graph-native rules, guardrails, escalation.
 - `references/collective.md`: the ledger protocol, worktrees and merging, lessons and notifications, roles.
+- `references/multi-tenancy.md`: tenants, networks, grants and projections; the tenant-binding rule, the Cypher rule, what is never shared, the transitional rule, the isolation tests and evidence, the hazards, and the human-only items.
 - `assets/`: builder brief, verifier brief, evidence template.
 - `scripts/delivery.py`: the ledger (run `--help`). `scripts/docs_to_md.py` and `scripts/canvas_to_text.py`: read large source artifacts. Tests: `python -m pytest .claude/skills/diucs-delivery/scripts -q`.

@@ -249,6 +249,7 @@ def test_a_created_value_with_non_ascii_digits_is_not_parsed_so_the_container_is
         "2026-10-28T06:00:00.٠٠٠000000Z",  # fraction
         "2026-10-28T06:00:00.000000000+٠١:00",  # offset
         "+2026-10-28T06:00:00.000000000Z",  # a leading sign is not part of the format
+        "2026-10-28T06:00:00.000000000",  # an offset is required
     ],
 )
 def test_the_created_pattern_refuses_each_group_with_non_ascii_digits_or_a_sign(

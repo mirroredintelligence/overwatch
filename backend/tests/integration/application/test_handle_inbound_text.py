@@ -112,6 +112,7 @@ def _profile(service_id: str, name: str, **changes: Any) -> ServiceProfile:
 
 UCR_WEST = _profile("ucr-west", "UCR West")
 UCR_EAST = _profile("ucr-east", "UCR East")
+UCR_NORTH = _profile("ucr-north", "UCR North")
 
 ROLE_WEST = PractitionerRole(
     id="role-west",
@@ -123,6 +124,7 @@ ROLE_WEST = PractitionerRole(
     period_start=datetime(2026, 1, 1, tzinfo=UTC),
 )
 ROLE_EAST = dataclasses.replace(ROLE_WEST, id="role-east", service_id="ucr-east")
+ROLE_NORTH = dataclasses.replace(ROLE_WEST, id="role-north", service_id="ucr-north")
 
 
 # --- seeding -------------------------------------------------------------------------------------
@@ -233,11 +235,15 @@ def _c9_text() -> str:
     ).text
 
 
-async def _seed_group(factory: UnitOfWorkFactory, sent_at: datetime | None = None) -> None:
+async def _seed_group(
+    factory: UnitOfWorkFactory,
+    sent_at: datetime | None = None,
+    roles: tuple[PractitionerRole, ...] = (ROLE_WEST, ROLE_EAST),
+) -> None:
     """Two services on one phone, prompted together by one C9 (U04 stores one communication per
     grouped service, all C9, with the same text): A) UCR East 1, B) UCR West 3."""
     sent_at = sent_at or bst(10, 0)
-    await _seed_people(factory, (ROLE_WEST, ROLE_EAST))
+    await _seed_people(factory, roles)
     await _seed_figure(factory, 3, bst(8, 15), "ucr-west")
     await _seed_figure(factory, 1, bst(8, 20), "ucr-east")
     for service_id, role_id in (("ucr-east", "role-east"), ("ucr-west", "role-west")):
@@ -261,9 +267,12 @@ class SpyReports:
     def __init__(self, inner: ReportCapacity) -> None:
         self._inner = inner
         self.commands: list[ReportCapacityCommand] = []
+        self.raises: Exception | None = None
 
     async def execute(self, command: ReportCapacityCommand) -> ReportCapacityResult:
         self.commands.append(command)
+        if self.raises is not None:
+            raise self.raises
         return await self._inner.execute(command)
 
 
@@ -282,6 +291,27 @@ class SpyConfirms:
         return await self._inner.execute(command)
 
 
+class BlindFirstRead:
+    """The idempotency store, except that after `arm()` its next `get` finds nothing, as it would
+    for a message that another delivery is still working on (both pass the early check)."""
+
+    def __init__(self, inner: DriverIdempotencyStore) -> None:
+        self._inner = inner
+        self._blind_next = False
+
+    def arm(self) -> None:
+        self._blind_next = True
+
+    async def get(self, key: str) -> object | None:
+        if self._blind_next:
+            self._blind_next = False
+            return None
+        return await self._inner.get(key)
+
+    async def put(self, key: str, result: object) -> None:
+        await self._inner.put(key, result)
+
+
 class Rig:
     def __init__(
         self,
@@ -297,11 +327,12 @@ class Rig:
         store = DriverIdempotencyStore(driver)
         self.reports = SpyReports(ReportCapacity(factory, self.clock, ids, store))
         self.confirms = SpyConfirms(ConfirmCapacity(factory, self.clock, ids, store))
+        self.blind = BlindFirstRead(store)
         self.use_case = HandleInboundText(
             use_case_factory or factory,
             self.clock,
             ids,
-            store,
+            self.blind,  # type: ignore[arg-type]
             self.cache,
             self.reports,  # type: ignore[arg-type]
             self.confirms,  # type: ignore[arg-type]
@@ -432,7 +463,7 @@ async def test_a_number_is_recorded_and_echoed_as_c3(
     assert echo["about"] == "ucr-west"
     assert echo["status"] == "queued"
     assert echo["text"].startswith("Thanks. UCR West: 4 referrals in the next 2 hrs, as of 10:12.")
-    [sent] = await _send_messages(uow_factory)
+    [sent] = [m for m in await _send_messages(uow_factory) if m.payload["message_id"] == "C3"]
     assert sent.payload["recipient_role_id"] == "role-west"
 
 
@@ -576,14 +607,13 @@ async def test_a_text_from_an_unknown_phone_is_dropped_and_writes_nothing(
     await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
     rig = Rig(uow_factory, neo4j_driver)
     nodes_before = await _total_nodes(neo4j_driver)
+    sends_before = len(await _send_messages(uow_factory))
 
     result = await rig.say("4", bst(10, 12), phone=UNKNOWN_PHONE)
 
     assert result == HandleInboundTextResult(DROPPED, ())
     assert await _total_nodes(neo4j_driver) == nodes_before
-    assert await _send_messages(uow_factory) == [
-        m for m in await _send_messages(uow_factory) if m.payload["message_id"] == "C1"
-    ]
+    assert len(await _send_messages(uow_factory)) == sends_before
 
 
 async def test_one_service_answered_on_a_grouped_prompt_leaves_the_other_waiting(
@@ -699,6 +729,23 @@ async def test_the_number_asked_for_after_a_stale_y_is_recorded(
     await rig.say("Y", bst(12, 5))
 
     result = await rig.say("4", bst(12, 8))
+
+    assert result == HandleInboundTextResult(RECORDED, ("ucr-west",))
+    assert (await _latest(uow_factory)).value == 4
+
+
+async def test_the_number_asked_for_by_c12_is_judged_against_the_c12_reply_by(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The C1 closed at 12:30. The C12 sent at 12:25 asks for a number by 12:55, so a number at
+    12:40 is on time: C12 is the open question, as a C5 is."""
+    await _one_reporter_one_prompt(
+        uow_factory, neo4j_driver, seed_service, prompt_at=bst(12, 0), figure_at=LONG_AGO
+    )
+    rig = Rig(uow_factory, neo4j_driver)
+    assert (await rig.say("Y", bst(12, 25))).outcome == STALE_FIGURE
+
+    result = await rig.say("4", bst(12, 40))
 
     assert result == HandleInboundTextResult(RECORDED, ("ucr-west",))
     assert (await _latest(uow_factory)).value == 4
@@ -1161,14 +1208,39 @@ async def test_a_reply_processed_late_is_judged_at_the_time_it_was_received(
 async def test_a_received_time_after_the_clock_is_not_believed(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+
+    # At 10:12 the prompt (reply-by 10:30) is open. A received time of 10:45 is in the future of
+    # the clock and would make the reply late if it were believed.
+    result = await rig.say("5", bst(10, 12), received_at=bst(10, 45))
+
+    assert result.outcome == RECORDED
+
+
+async def test_a_reply_received_after_the_reply_by_is_late_even_if_processed_at_once(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
     await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service, prompt_at=bst(12, 0))
     rig = Rig(uow_factory, neo4j_driver)
 
-    # At 12:41 the prompt has closed. A received time of 12:10 would make it open; one of 13:00
-    # (in the future) must not be used to move the decision either way.
-    late = await rig.say("5", bst(12, 41), received_at=bst(13, 0))
+    result = await rig.say("5", bst(12, 41), received_at=bst(12, 40))
 
-    assert late.outcome == LATE
+    assert result.outcome == LATE
+
+
+async def test_a_phone_hash_that_is_not_a_hash_is_refused_and_nothing_is_written(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+    nodes_before = await _total_nodes(neo4j_driver)
+
+    with pytest.raises(ValidationFailed) as refused:
+        await rig.say("4", bst(10, 12), phone="ph-123")
+
+    assert refused.value.field == "phone_hash"
+    assert await _total_nodes(neo4j_driver) == nodes_before
 
 
 async def test_a_naive_received_time_is_refused_and_nothing_is_written(
@@ -1427,3 +1499,97 @@ async def test_the_command_carries_no_tenant_and_the_result_has_no_message_text(
         "service_ids",
         "replayed",
     ]
+
+
+# --- paths that need a particular state to reach ----------------------------------
+
+
+async def test_two_deliveries_that_both_pass_the_early_check_finish_the_message_once(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The early read is only a shortcut. If a second delivery gets past it while the first is
+    still working, the check inside the last unit of work finds the first one's record, and the
+    figure and the echo are there once."""
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+    first = await rig.say("4", bst(10, 12), key="SM-race")
+    nodes_after_first = await _total_nodes(neo4j_driver)
+    rig.blind.arm()
+
+    second = await rig.say("4", bst(10, 12), key="SM-race")
+
+    assert second == dataclasses.replace(first, replayed=True)
+    assert await _total_nodes(neo4j_driver) == nodes_after_first
+    assert len(await _reports(uow_factory)) == 2
+    assert len(await _handle_audits(uow_factory)) == 1
+
+
+async def test_a_phone_with_two_roles_for_one_service_acts_as_the_role_the_prompt_went_to(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    second_role = dataclasses.replace(
+        ROLE_WEST, id="role-aa", code=PractitionerRoleCode.COORDINATOR
+    )
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory, (ROLE_WEST, second_role))
+    await _seed_figure(uow_factory)
+    await _seed_prompt(uow_factory, bst(10, 0), role_id="role-west")
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("4", bst(10, 12))
+
+    assert result == HandleInboundTextResult(RECORDED, ("ucr-west",))
+    assert (await _latest(uow_factory)).performer_role_id == "role-west"
+    assert rig.reports.commands[0].actor.service_ids == frozenset({"ucr-west"})
+
+
+async def test_a_service_of_the_phone_that_was_not_in_the_group_is_left_out_of_it(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST, UCR_EAST, UCR_NORTH)
+    await _seed_group(uow_factory, roles=(ROLE_WEST, ROLE_EAST, ROLE_NORTH))
+    await _seed_figure(uow_factory, 6, bst(8, 30), "ucr-north")
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
+    assert result == HandleInboundTextResult(CONFIRMED, ("ucr-east", "ucr-west"))
+    assert [r.value for r in await _reports(uow_factory, "ucr-north")] == [6]
+    [thanks] = await _replies(neo4j_driver)
+    assert thanks["text"] == "Thanks. A) UCR East updated to 1. B) UCR West updated to 3."
+
+
+async def test_a_first_out_of_range_figure_for_a_service_with_no_figure_asks_again(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory)
+    await _seed_prompt(uow_factory, bst(8, 0), message_id="C2", text="first prompt")
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("40", bst(8, 5))
+
+    assert result == HandleInboundTextResult(RECHECK, ("ucr-west",))
+    assert await _reports(uow_factory) == []
+    assert await rig.cache.get(f"recheck:{PHONE}:ucr-west") == "40"
+    rig.clock.set(bst(8, 30))
+    assert await rig.cache.get(f"recheck:{PHONE}:ucr-west") is None
+
+
+@pytest.mark.parametrize("text", ["4", "40"])
+async def test_a_refusal_of_the_figure_itself_by_report_capacity_is_not_retried(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed, text: str
+) -> None:
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+    if text == "40":
+        await rig.say("40", bst(10, 11))
+    rig.reports.commands.clear()
+    rig.reports.raises = ValidationFailed("value", "must be from 0 to 999")
+    nodes_before = await _total_nodes(neo4j_driver)
+
+    with pytest.raises(ValidationFailed):
+        await rig.say(text, bst(10, 12))
+
+    assert len(rig.reports.commands) == 1
+    assert await _total_nodes(neo4j_driver) == nodes_before

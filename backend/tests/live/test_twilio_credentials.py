@@ -36,7 +36,7 @@ def _get_without_credentials(url: str) -> tuple[int, dict[str, object]]:
 def test_stored_twilio_credentials_authenticate() -> None:
     status, body = _get_without_credentials(TWILIO_ACCOUNTS)
     assert status == 200, (
-        f"Twilio answered HTTP {status}. The network secret for api.twilio.com is missing, "
+        f"Twilio answered HTTP {status}. The network secret for api.dublin.ie1.twilio.com is missing, "
         "shows 'Not sent' in the environment's list, or its credentials are wrong."
     )
 

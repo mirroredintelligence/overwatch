@@ -45,7 +45,9 @@ export function withBff<C = unknown>(
 
       return await handler(request, session, context);
     } catch (error) {
-      return toBffError(error);
+      const response = toBffError(error);
+      response.headers.set('Cache-Control', 'no-store');
+      return response;
     }
   };
 }

@@ -75,12 +75,17 @@ def _os_flock(fd: int, operation: int) -> None:
 
 
 def _open(path: str) -> int:
+    """Open the lock file. O_NOFOLLOW: a symlink planted at this path in a shared /tmp must not
+    redirect our pid write to someone else's file. The file is made 0666 on purpose, whatever the
+    umask: agents may run as different users and every one of them must be able to take the lock
+    (the price is that any local user can also hold it; this is a development-machine tool)."""
+    flags = os.O_NOFOLLOW
     try:
-        fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
+        fd = os.open(path, os.O_RDWR | os.O_CREAT | flags, 0o666)
     except PermissionError:
-        return os.open(path, os.O_RDONLY)  # another user made it; flock works on a read-only fd
+        return os.open(path, os.O_RDONLY | flags)  # another user made it; flock works read-only
     with contextlib.suppress(OSError):
-        os.fchmod(fd, 0o666)  # the umask may have removed write for other users' sessions
+        os.fchmod(fd, 0o666)
     return fd
 
 
@@ -116,7 +121,13 @@ def acquire(
             _log.warning("No flock on this platform: the Neo4j harness lock is not taken.")
             _holds.add(owner)
             return
-        fd = _open(resolved)
+        try:
+            fd = _open(resolved)
+        except OSError as error:
+            raise HarnessLockError(
+                f"The Neo4j harness lock file {resolved} cannot be opened: {error}. "
+                f"It must be a plain file, not a symlink."
+            ) from error
         deadline = clock() + limit
         warned = False
         while True:

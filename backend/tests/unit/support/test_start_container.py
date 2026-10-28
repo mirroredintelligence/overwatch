@@ -629,3 +629,21 @@ def test_an_image_that_is_simply_missing_is_still_pulled() -> None:
     _start(docker, ScriptedProbe(clock, [True]), clock)
 
     assert docker.named("pull") == [("pull", NEO4J_IMAGE)]
+
+
+def test_a_proc_that_cannot_be_read_gives_no_owner_labels_instead_of_failing_the_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tests.support import proc as proc_module
+
+    def refuse(path: object, *args: object, **kwargs: object) -> object:
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(proc_module, "open", refuse, raising=False)
+    clock = FakeClock()
+    docker = FakeDocker(clock)
+
+    _start(docker, ScriptedProbe(clock, [True]), clock)
+
+    assert owner_labels() == {}
+    assert [v for v in _values(docker.run_args(), "--label") if "owner" in v] == []

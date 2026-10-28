@@ -309,3 +309,35 @@ def test_a_set_up_limit_of_zero_turns_it_off(
     result = _setup_session(pytester, SLOW_SETUP.replace("sleep(20)", "sleep(2)"))
 
     result.assert_outcomes(passed=2)
+
+
+def test_under_pytests_default_output_capture_the_hard_report_still_reaches_the_terminal(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The verifier's N2: with fd capture on (the default), the report written at the hard stage
+    # was lost with the capture buffer and the run just ended with exit code 3.
+    monkeypatch.setenv("DIUCS_TEST_TIMEOUT", "1")
+    monkeypatch.setenv("DIUCS_TEST_HARD_GRACE", "1")
+    monkeypatch.setenv("PYTHONPATH", str(BACKEND))
+    conftest_source = (Path(__file__).parents[2] / "conftest.py").read_text(encoding="utf-8")
+    pytester.makeini("[pytest]\nmarkers =\n    integration: needs docker\n")
+    pytester.mkdir("tests")
+    (pytester.path / "tests" / "conftest.py").write_text(conftest_source, encoding="utf-8")
+    pytester.makepyfile(
+        **{
+            "tests/test_stuck": (
+                "import signal, time\n"
+                "def test_stuck():\n"
+                "    signal.signal(signal.SIGALRM, signal.SIG_IGN)\n"
+                "    time.sleep(60)\n"
+            )
+        }
+    )
+
+    result = pytester.runpytest_subprocess("-p", "no:cacheprovider")
+
+    assert result.ret == 3
+    output = result.stdout.str() + result.stderr.str()
+    assert "test_stuck" in output
+    assert "did not stop" in output
+    assert "most recent call first" in output

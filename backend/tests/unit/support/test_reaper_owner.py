@@ -360,3 +360,18 @@ def test_the_default_age_for_a_container_with_no_owner_is_ninety_minutes() -> No
     )
 
     assert removed == ["diucs-test-neo4j-legacy-91"]
+
+
+def test_an_owner_that_cannot_be_checked_is_judged_by_a_six_hour_age() -> None:
+    two_hours = (NOW - timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    seven_hours = (NOW - timedelta(hours=7)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+
+    def cannot_tell(pid: int) -> str | None:
+        raise ProcessUnreadable("hidepid")
+
+    containers = [
+        _owned("diucs-test-neo4j-two-hours", 4030, "5", created=two_hours),
+        _owned("diucs-test-neo4j-seven-hours", 4031, "5", created=seven_hours),
+    ]
+
+    assert _reap(containers, cannot_tell) == ["diucs-test-neo4j-seven-hours"]

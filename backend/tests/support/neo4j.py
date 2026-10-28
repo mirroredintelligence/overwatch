@@ -47,7 +47,8 @@ from neo4j.exceptions import ServiceUnavailable
 
 from diucs.adapters.outbound.graph_store.driver import create_driver
 from tests.support import harness_lock
-from tests.support.proc import process_start_marker
+from tests.support.proc import ProcessUnreadable, process_start_marker
+from tests.support.watchdog import paused
 
 START_MESSAGE = (
     "Neo4j is not running. Start it with: docker compose -f infra/docker-compose.yml up -d neo4j"
@@ -119,7 +120,10 @@ def new_container_password() -> str:
 def owner_labels() -> dict[str, str]:
     """The labels that name this process as the owner of a container: pid, process start time and
     host. Empty where the start time cannot be read (no /proc), so the reaper then judges by age."""
-    marker = process_start_marker(os.getpid())
+    try:
+        marker = process_start_marker(os.getpid())
+    except ProcessUnreadable:
+        return {}
     if marker is None:
         return {}
     return {
@@ -151,10 +155,17 @@ def ready_timeout_s() -> float:
     return seconds
 
 
-def _run_arguments(name: str, port: int, password: str) -> list[str]:
-    memory = _size_from_environment(MEMORY_ENV, DEFAULT_CONTAINER_MEMORY)
-    heap = _size_from_environment(HEAP_ENV, DEFAULT_HEAP)
-    pagecache = _size_from_environment(PAGECACHE_ENV, DEFAULT_PAGECACHE)
+def _memory_limits() -> tuple[str, str, str]:
+    """Container memory, heap and page cache from the environment, checked up front."""
+    return (
+        _size_from_environment(MEMORY_ENV, DEFAULT_CONTAINER_MEMORY),
+        _size_from_environment(HEAP_ENV, DEFAULT_HEAP),
+        _size_from_environment(PAGECACHE_ENV, DEFAULT_PAGECACHE),
+    )
+
+
+def _run_arguments(name: str, port: int, password: str, limits: tuple[str, str, str]) -> list[str]:
+    memory, heap, pagecache = limits
     arguments = ["run", "-d", "--name", name, "--memory", memory, "--label", f"{TEST_LABEL}=true"]
     for key, value in owner_labels().items():
         arguments += ["--label", f"{key}={value}"]
@@ -178,12 +189,29 @@ def _first_line(text: str) -> str:
     return (text.strip().splitlines() or ["no output"])[0]
 
 
+_DAEMON_UNREACHABLE = (
+    "cannot connect to the docker daemon",
+    "is the docker daemon running",
+    "permission denied while trying to connect",
+    "error during connect",
+)
+
+
 def _ensure_image(run: DockerRunner) -> None:
     """Make sure the Neo4j image is on this machine, pulling it only if it is missing. This runs
-    before the readiness clock starts, so a slow pull is never counted against the container."""
+    before the readiness clock starts, so a slow pull is never counted against the container. An
+    inspect that fails because the daemon cannot be reached is the docker phase, not a missing
+    image."""
     try:
-        if run("image", "inspect", NEO4J_IMAGE).returncode == 0:
+        inspected = run("image", "inspect", NEO4J_IMAGE)
+        if inspected.returncode == 0:
             return
+        if any(text in inspected.stderr.lower() for text in _DAEMON_UNREACHABLE):
+            raise HarnessStartError(
+                "docker",
+                f"Docker is not available, so the Neo4j test harness cannot start its "
+                f"container: {_first_line(inspected.stderr)}",
+            )
         pulled = run("pull", NEO4J_IMAGE, timeout=IMAGE_PULL_TIMEOUT_S)
     except OSError as error:
         raise HarnessStartError(
@@ -251,16 +279,19 @@ def start_throwaway_neo4j(
     are injectable for tests."""
     runner = run or _docker
     name = f"{NAME_PREFIX}{uuid.uuid4().hex[:12]}"
-    port = _free_port()
     password = new_container_password()
-    arguments = _run_arguments(name, port, password)
-    ready_timeout_s()  # a bad DIUCS_NEO4J_READY_TIMEOUT fails here, before anything is started
+    limits = _memory_limits()  # a bad environment value fails here, before anything is started
+    ready_timeout_s()
     try:
-        harness_lock.acquire(name, clock=clock, sleep=sleep)
-    except harness_lock.HarnessLockTimeout as error:
+        with paused():  # the lock wait has its own bound; it must not count against set-up
+            harness_lock.acquire(name, clock=clock, sleep=sleep)
+    except harness_lock.HarnessLockError as error:
         raise HarnessStartError("lock", str(error)) from error
     try:
-        _ensure_image(runner)
+        port = _free_port()  # after the lock: a pick made before a long wait would be stale
+        arguments = _run_arguments(name, port, password, limits)
+        with paused():  # a pull has its own bound too
+            _ensure_image(runner)
         _docker_run(runner, name, arguments)
         container = ThrowawayNeo4j(
             name=name, uri=f"bolt://127.0.0.1:{port}", user="neo4j", password=password
@@ -494,7 +525,8 @@ def _owner_verdict(
 
     alive: the owner's pid exists here and has the start time on the label.
     gone: no such pid, or the pid was reused by a process that started at another time.
-    unknown: no usable owner label (an old container), or the owner is on another host.
+    unknown: no usable owner label (an old container), the owner is on another host, or the
+    process table could not be read.
     """
     if not pid_text and not start and not owner_host:
         return _UNKNOWN, REAPER_MAX_AGE
@@ -502,7 +534,13 @@ def _owner_verdict(
         return _UNKNOWN, REAPER_MAX_AGE
     if owner_host != this_host:
         return _UNKNOWN, OTHER_HOST_MAX_AGE
-    return (_ALIVE, None) if process_start(int(pid_text)) == start else (_GONE, None)
+    try:
+        marker = process_start(int(pid_text))
+    except Exception:
+        # The process table could not say (hidepid, no descriptors left, a garbled line). That is
+        # not "gone": the age rule decides, as for an owner on another host.
+        return _UNKNOWN, OTHER_HOST_MAX_AGE
+    return (_ALIVE, None) if marker == start else (_GONE, None)
 
 
 def reap_stale_test_containers(
@@ -550,13 +588,9 @@ def reap_stale_test_containers(
             name = name.lstrip("/")
             if label != "true" or name not in names:
                 continue
-            try:
-                verdict, fallback_age = _owner_verdict(
-                    pid_text, start, owner_host, this_host, process_start
-                )
-            except Exception:
-                _reaper_log.warning("Skipping %s: its owner could not be checked", name)
-                continue
+            verdict, fallback_age = _owner_verdict(
+                pid_text, start, owner_host, this_host, process_start
+            )
             if verdict == _ALIVE:
                 continue
             if verdict == _UNKNOWN:

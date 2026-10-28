@@ -315,7 +315,7 @@ class Neo4jRegistrationRepository:
             raise ValidationFailed("status", "must be a registration status")
         rows = await run_query(
             self._tx,
-            "Q-REG-BY-STATUS",
+            REGISTRY.get("Q-REG-BY-STATUS"),
             status=status.value,
             system=TASK_CODE_SYSTEM,
             code=REGISTER_SERVICE,
@@ -325,7 +325,7 @@ class Neo4jRegistrationRepository:
     async def for_service(self, service_id: str) -> list[Registration]:
         rows = await run_query(
             self._tx,
-            "Q-REG-FOR-SERVICE",
+            REGISTRY.get("Q-REG-FOR-SERVICE"),
             serviceId=service_id,
             system=TASK_CODE_SYSTEM,
             code=REGISTER_SERVICE,
@@ -348,7 +348,9 @@ class Neo4jRegistrationRepository:
         if not isinstance(stored_status, str):
             raise ValidationFailed("businessStatus", "missing on a stored registration")
         resource["businessStatus"] = codeable_to_fhir(parse_code(RegistrationStatus, stored_status))
-        rows = await run_query(self._tx, "Q-REG-DRAFT-FOR", key=f"{TASK}/{resource['id']}")
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-REG-DRAFT-FOR"), key=f"{TASK}/{resource['id']}"
+        )
         return registration_from_fhir(resource, draft_from_rows(rows))
 
     async def _require_service(self, service_id: str) -> None:
@@ -362,12 +364,12 @@ class Neo4jRegistrationRepository:
         key = f"{TASK}/{registration.id}"
         await run_query(
             self._tx,
-            "Q-REG-SET-PROPS",
+            REGISTRY.get("Q-REG-SET-PROPS"),
             key=key,
             businessStatus=status,
             submittedAt=_utc(registration.submitted_at),
         )
-        await run_query(self._tx, "Q-REG-DRAFT-CLEAR", key=key)
+        await run_query(self._tx, REGISTRY.get("Q-REG-DRAFT-CLEAR"), key=key)
         rows = draft_to_rows(registration.draft)
         if rows:
-            await run_query(self._tx, "Q-REG-DRAFT-ADD", key=key, rows=rows)
+            await run_query(self._tx, REGISTRY.get("Q-REG-DRAFT-ADD"), key=key, rows=rows)

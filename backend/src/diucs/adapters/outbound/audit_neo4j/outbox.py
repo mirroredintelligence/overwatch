@@ -148,16 +148,16 @@ class Neo4jOutbox:
         if message.session_id is not None:
             props["sessionId"] = message.session_id
         try:
-            await run_query(self._tx, "Q-OUTBOX-ADD", props=props)
+            await run_query(self._tx, REGISTRY.get("Q-OUTBOX-ADD"), props=props)
         except ConstraintError as error:
             raise Conflict("outbox message already exists") from error
 
     async def pending(self, limit: int = 100) -> list[OutboxMessage]:
-        rows = await run_query(self._tx, "Q-OUTBOX-PENDING", limit=limit)
+        rows = await run_query(self._tx, REGISTRY.get("Q-OUTBOX-PENDING"), limit=limit)
         return [_message_of(row["props"]) for row in rows]
 
     async def mark_published(self, id: str, at: datetime) -> None:
-        rows = await run_query(self._tx, "Q-OUTBOX-LOCK", id=id)
+        rows = await run_query(self._tx, REGISTRY.get("Q-OUTBOX-LOCK"), id=id)
         if not rows:
             raise NotFound(f"OutboxMessage/{id}")
         status = rows[0]["status"]
@@ -167,11 +167,11 @@ class Neo4jOutbox:
             raise Conflict("a dead outbox message cannot be published")
         if status != PENDING:
             raise ValidationFailed("status", "is not a known outbox status")
-        await run_query(self._tx, "Q-OUTBOX-PUBLISHED", id=id, at=at.astimezone(UTC))
+        await run_query(self._tx, REGISTRY.get("Q-OUTBOX-PUBLISHED"), id=id, at=at.astimezone(UTC))
 
     async def mark_failed(self, id: str, error: str) -> None:
         rows = await run_query(
-            self._tx, "Q-OUTBOX-FAILED", id=id, error=error, maxAttempts=MAX_ATTEMPTS
+            self._tx, REGISTRY.get("Q-OUTBOX-FAILED"), id=id, error=error, maxAttempts=MAX_ATTEMPTS
         )
         if not rows:
             raise NotFound(f"OutboxMessage/{id}")

@@ -7,7 +7,7 @@ clinical, lead, exec, owner. Any other role is refused with the not-found answer
 POST /fhir/HealthcareService/{id}/$confirm-capacity says the figure on record is still right
 (ConfirmCapacity, U02). Roles: a reporter for their own service, or a lead. It needs an
 Idempotency-Key. The request body is not read: the service comes from the path and the actor from
-the token, never from the body (DEC-144). A third confirmation in a row, or a service with no figure
+the token, never from the body (DEC-145). A third confirmation in a row, or a service with no figure
 to confirm, is 409 business-rule "Send the number for <service name>.".
 
 The routes hold no business rule: they check the role and the service scope, run one use case and

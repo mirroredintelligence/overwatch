@@ -36,7 +36,7 @@ from diucs.adapters.outbound.graph_store.mapper import (
     from_graph,
     to_graph,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, QueryTemplate
 from diucs.application.ports.outbound.clock import Clock
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 
@@ -157,6 +157,11 @@ _TEMPLATES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "read",
     ),
 }
+
+# The templates are fixed text, registered once at import; an instance (the template with one label
+# chain or relationship type in it) is registered the first time it is used (DEC-142).
+for _template_id, (_cypher, _mode) in _TEMPLATES.items():
+    REGISTRY.register_template(QueryTemplate(id=_template_id, cypher=_cypher, mode=_mode))
 
 
 def _labels_text(labels: tuple[str, ...]) -> str:
@@ -570,16 +575,9 @@ class ResourceStore:
     # Reading
 
     async def _run(self, template: str, insert: str = "", **params: Any) -> list[dict[str, Any]]:
-        """Run a named query. The first use of a template with a label or type registers it."""
-        query_id = f"{template}{insert}"
-        try:
-            REGISTRY.get(query_id)
-        except KeyError:
-            cypher, mode = _TEMPLATES[template]
-            REGISTRY.register(
-                NamedQuery(id=query_id, cypher=cypher.replace("{insert}", insert), mode=mode)
-            )
-        return await run_query(self._tx, query_id, **params)
+        """Run an instance of a registered template. The first use of a label or type registers
+        the instance; the registry checks that the insert is a chain of label names."""
+        return await run_query(self._tx, REGISTRY.instance(template, insert), **params)
 
     async def _root_props(self, resource_type: str, key: str) -> dict[str, Any] | None:
         rows = await self._run("Q-RES-GET", key=key, type=resource_type)

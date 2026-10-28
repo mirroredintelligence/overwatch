@@ -434,7 +434,7 @@ class Neo4jCaseRepository:
         # The store refuses an existing Patient with Conflict before it writes anything, so a
         # second add of one case is refused on its first write (expected version None).
         patient, request, scores = case_to_fhir(case)
-        if await run_query(self._tx, "Q-CASE-BY-REF", reference=case.reference):
+        if await run_query(self._tx, REGISTRY.get("Q-CASE-BY-REF"), reference=case.reference):
             raise Conflict("another case already holds this reference")
         await self._put_patient(case, patient, expected=None)
         for resource in scores:
@@ -462,7 +462,7 @@ class Neo4jCaseRepository:
         )
 
     async def get_by_reference(self, reference: str) -> Case | None:
-        rows = await run_query(self._tx, "Q-CASE-BY-REF", reference=reference)
+        rows = await run_query(self._tx, REGISTRY.get("Q-CASE-BY-REF"), reference=reference)
         if not rows:
             return None
         return await self.get(str(rows[0]["id"]))
@@ -496,14 +496,18 @@ class Neo4jCaseRepository:
         resource = {key: value for key, value in patient.items() if key not in ("meta", "address")}
         await self._store.put(resource, expected)
         key = f"{_PATIENT}/{_patient_id(case.id)}"
-        await run_query(self._tx, "Q-CASE-SET-POSTCODE", key=key, postalCode=case.postcode)
+        await run_query(
+            self._tx, REGISTRY.get("Q-CASE-SET-POSTCODE"), key=key, postalCode=case.postcode
+        )
 
     async def _put_request(self, case: Case, request: dict[str, Any], expected: str | None) -> None:
         # The reference is a copy of the identifier, set after the put (DEC-066).
         await self._store.put(request, expected)
         key = f"{_REQUEST}/{case.id}"
         try:
-            await run_query(self._tx, "Q-CASE-SET-REFERENCE", key=key, reference=case.reference)
+            await run_query(
+                self._tx, REGISTRY.get("Q-CASE-SET-REFERENCE"), key=key, reference=case.reference
+            )
         except ClientError as error:
             # The unique constraint on the reference (migration 0022) refused a racing write.
             if str(getattr(error, "code", "")).endswith("ConstraintValidationFailed"):
@@ -511,7 +515,9 @@ class Neo4jCaseRepository:
             raise
 
     async def _postcode(self, patient_id: str) -> str | None:
-        rows = await run_query(self._tx, "Q-CASE-READ-POSTCODE", key=f"{_PATIENT}/{patient_id}")
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-CASE-READ-POSTCODE"), key=f"{_PATIENT}/{patient_id}"
+        )
         if not rows or rows[0]["postalCode"] is None:
             return None
         return str(rows[0]["postalCode"])

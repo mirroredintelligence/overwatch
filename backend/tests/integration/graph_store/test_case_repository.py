@@ -17,6 +17,7 @@ from neo4j.exceptions import ClientError
 
 from diucs.adapters.outbound.graph_store import case_repository
 from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
+from diucs.adapters.outbound.graph_store.queries import NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Urgency
 from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
@@ -368,11 +369,11 @@ async def test_a_duplicate_reference_that_passes_the_check_is_a_conflict(
     real_run_query = case_repository.run_query
 
     async def skip_the_reference_check(
-        tx: AsyncManagedTransaction, query_id: str, **params: Any
+        tx: AsyncManagedTransaction, query: NamedQuery, **params: Any
     ) -> Any:
-        if query_id == "Q-CASE-BY-REF":
+        if query.id == "Q-CASE-BY-REF":
             return []
-        return await real_run_query(tx, query_id, **params)
+        return await real_run_query(tx, query, **params)
 
     monkeypatch.setattr(case_repository, "run_query", skip_the_reference_check)
 

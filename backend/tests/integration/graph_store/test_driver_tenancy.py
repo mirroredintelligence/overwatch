@@ -1,0 +1,184 @@
+"""The execution point against a real Neo4j (TEN-001, DEC-142): the tenant that `run_query` adds
+reaches the server as the `$tenant` parameter, a string or a forged statement never reaches it, and
+the same key in two tenants does not collide.
+
+The unit tests use a recording transaction; this file is the one place the parameter is shown to
+work end to end, because every later tenancy task relies on it. It uses a registry of its own, so
+no shared statement is touched, and removes its own nodes.
+"""
+
+from collections.abc import AsyncIterator
+from typing import Any
+
+import pytest
+import pytest_asyncio
+from neo4j import AsyncDriver
+
+from diucs.adapters.outbound.graph_store.driver import run_global_query, run_query
+from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
+from diucs.application.tenancy import (
+    QueryNotRegistered,
+    TenantNotBound,
+    TenantParameterRefused,
+    bind_tenant,
+)
+
+pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+_SCENARIO = Scenario("placeholder until TEN-004")
+
+
+def _registry() -> QueryRegistry:
+    registry = QueryRegistry(unconverted=frozenset({"Q-TEST-PROBE-COUNT-ALL"}))
+    registry.register(
+        NamedQuery(
+            id="Q-TEST-PROBE-CREATE",
+            cypher="CREATE (n:TenancyProbe {id: $id, note: $note, tenantId: $tenant}) "
+            "RETURN n.tenantId AS tenant",
+            mode="write",
+            scenario=_SCENARIO,
+        )
+    )
+    registry.register(
+        NamedQuery(
+            id="Q-TEST-PROBE-COUNT",
+            cypher="MATCH (n:TenancyProbe {id: $id, tenantId: $tenant}) RETURN count(n) AS n",
+            mode="read",
+            scenario=_SCENARIO,
+        )
+    )
+    # Not tenant-scoped, so it is on this registry's ratchet: it runs with or without a scope.
+    registry.register(
+        NamedQuery(
+            id="Q-TEST-PROBE-COUNT-ALL",
+            cypher="MATCH (n:TenancyProbe {id: $id}) RETURN count(n) AS n",
+            mode="read",
+        )
+    )
+    registry.register(
+        NamedQuery(id="Q-NEO4J-PING", cypher="RETURN 1 AS ok", mode="read", scope="global")
+    )
+    return registry
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def _clean_probe_nodes(neo4j_driver: AsyncDriver) -> AsyncIterator[None]:
+    async def wipe() -> None:
+        async with neo4j_driver.session() as session:
+            await session.run("MATCH (n:TenancyProbe) DETACH DELETE n")
+
+    await wipe()
+    yield
+    await wipe()
+
+
+async def _write(driver: AsyncDriver, registry: QueryRegistry, query_id: str, **params: Any) -> Any:
+    query = registry.get(query_id)
+    async with driver.session() as session:
+        return await session.execute_write(
+            lambda tx: run_query(tx, query, registry=registry, **params)
+        )
+
+
+async def _read(driver: AsyncDriver, registry: QueryRegistry, query_id: str, **params: Any) -> Any:
+    query = registry.get(query_id)
+    async with driver.session() as session:
+        return await session.execute_read(
+            lambda tx: run_query(tx, query, registry=registry, **params)
+        )
+
+
+async def test_the_bound_tenant_reaches_the_server_as_the_tenant_parameter(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    registry = _registry()
+    with bind_tenant("a1"):
+        rows = await _write(neo4j_driver, registry, "Q-TEST-PROBE-CREATE", id="x", note="n")
+    assert rows == [{"tenant": "a1"}]
+
+
+async def test_the_same_id_in_two_tenants_does_not_collide_and_each_sees_only_its_own(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    registry = _registry()
+    with bind_tenant("a1"):
+        await _write(neo4j_driver, registry, "Q-TEST-PROBE-CREATE", id="same", note="a")
+    with bind_tenant("b1"):
+        assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT", id="same") == [{"n": 0}]
+        await _write(neo4j_driver, registry, "Q-TEST-PROBE-CREATE", id="same", note="b")
+        await _write(neo4j_driver, registry, "Q-TEST-PROBE-CREATE", id="only-b", note="b")
+    with bind_tenant("a1"):
+        assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT", id="same") == [{"n": 1}]
+        assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT", id="only-b") == [{"n": 0}]
+    with bind_tenant("b1"):
+        assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT", id="same") == [{"n": 1}]
+        assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT", id="only-b") == [{"n": 1}]
+
+
+async def test_an_unbound_tenant_statement_is_refused_before_it_writes(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    registry = _registry()
+    with pytest.raises(TenantNotBound):
+        await _write(neo4j_driver, registry, "Q-TEST-PROBE-CREATE", id="x", note="n")
+    assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT-ALL", id="x") == [{"n": 0}]
+
+
+async def test_a_caller_supplied_tenant_never_reaches_the_server(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    registry = _registry()
+    with bind_tenant("a1"), pytest.raises(TenantParameterRefused):
+        await _write(neo4j_driver, registry, "Q-TEST-PROBE-CREATE", id="x", note="n", tenant="evil")
+    assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT-ALL", id="x") == [{"n": 0}]
+
+
+async def test_a_string_and_a_forged_statement_are_refused_and_write_nothing(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    registry = _registry()
+    forged = NamedQuery(
+        id="Q-TEST-PROBE-CREATE",
+        cypher="CREATE (n:TenancyProbe {id: $id, note: $note, tenantId: 'forged'}) RETURN $tenant",
+        mode="write",
+        scenario=_SCENARIO,
+    )
+    async with neo4j_driver.session() as session:
+        with bind_tenant("a1"):
+            with pytest.raises(QueryNotRegistered):
+                await session.execute_write(
+                    lambda tx: run_query(
+                        tx,
+                        "Q-TEST-PROBE-CREATE",
+                        registry=registry,
+                        id="x",
+                        note="n",  # type: ignore[arg-type]
+                    )
+                )
+            with pytest.raises(QueryNotRegistered):
+                await session.execute_write(
+                    lambda tx: run_query(tx, forged, registry=registry, id="x", note="n")
+                )
+    assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT-ALL", id="x") == [{"n": 0}]
+
+
+async def test_a_statement_not_yet_converted_runs_with_and_without_a_scope(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    registry = _registry()
+    with bind_tenant("a1"):
+        await _write(neo4j_driver, registry, "Q-TEST-PROBE-CREATE", id="x", note="n")
+        # Bound: the server receives an unused `tenant` parameter and accepts it.
+        assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT-ALL", id="x") == [{"n": 1}]
+    # Unbound: the one exemption, for a statement that does not mention $tenant yet.
+    assert await _read(neo4j_driver, registry, "Q-TEST-PROBE-COUNT-ALL", id="x") == [{"n": 1}]
+
+
+async def test_a_global_statement_runs_through_run_global_query_with_no_scope_bound(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    registry = _registry()
+    ping = registry.get("Q-NEO4J-PING")
+    async with neo4j_driver.session() as session:
+        rows = await session.execute_read(lambda tx: run_global_query(tx, ping, registry=registry))
+    assert rows == [{"ok": 1}]

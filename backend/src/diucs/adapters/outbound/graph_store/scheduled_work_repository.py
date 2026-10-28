@@ -15,7 +15,7 @@ from typing import Any
 from neo4j import AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, QueryRegistry
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.errors import Conflict, NotFound
 
@@ -99,12 +99,11 @@ def _params(work: ScheduledWork) -> dict[str, Any]:
 
 
 class Neo4jScheduledWorkRepository:
-    def __init__(self, tx: AsyncManagedTransaction, store: QueryRegistry = REGISTRY) -> None:
+    def __init__(self, tx: AsyncManagedTransaction) -> None:
         self._tx = tx
-        self._store = store
 
     async def _rows(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
-        return await run_query(self._tx, query_id, registry=self._store, **params)
+        return await run_query(self._tx, REGISTRY.get(query_id), **params)
 
     async def add(self, work: ScheduledWork) -> None:
         existing = await self._rows("Q-WORK-GET", id=work.id)

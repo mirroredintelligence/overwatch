@@ -12,6 +12,7 @@ import pytest
 from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store import credential_store
+from diucs.adapters.outbound.graph_store.queries import NamedQuery
 from diucs.domain.errors import Conflict
 
 
@@ -20,7 +21,7 @@ async def test_a_read_that_finds_two_credentials_fails_closed(
 ) -> None:
     row = {"pinHash": "c" * 64, "failed": 0, "locked": False, "lastOutcome": None}
 
-    async def two_rows(tx: Any, query_id: str, **params: Any) -> list[dict[str, Any]]:
+    async def two_rows(tx: Any, query: NamedQuery, **params: Any) -> list[dict[str, Any]]:
         return [row, dict(row, pinHash="d" * 64)]
 
     monkeypatch.setattr(credential_store, "run_query", two_rows)
@@ -33,9 +34,9 @@ async def test_a_constraint_error_on_set_pin_is_a_conflict(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     async def practitioner_then_refuse(
-        tx: Any, query_id: str, **params: Any
+        tx: Any, query: NamedQuery, **params: Any
     ) -> list[dict[str, Any]]:
-        if query_id == "Q-CRED-PRACTITIONER-EXISTS":
+        if query.id == "Q-CRED-PRACTITIONER-EXISTS":
             return [{"n": 1}]
         raise ConstraintError("unique deviceId already exists")
 

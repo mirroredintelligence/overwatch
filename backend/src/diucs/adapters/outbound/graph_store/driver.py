@@ -2,6 +2,11 @@
 
 DEC-012: the composition root creates one AsyncDriver per process with create_driver, and closes it
 on shutdown. Nothing else constructs a driver.
+
+DEC-130 item 2, DEC-142: run_query is the execution point that binds the tenant, and
+run_global_query is the only way an allowlisted global statement runs. Both take a registered
+NamedQuery and nothing else. An architecture test checks that nothing else under src (the
+migration runner aside) executes Cypher.
 """
 
 import logging
@@ -11,7 +16,14 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, QueryRegistry
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, QueryRegistry
+from diucs.application.tenancy import (
+    GlobalStatementMisuse,
+    QueryNotRegistered,
+    TenantNotBound,
+    TenantParameterRefused,
+    current_scope_or_none,
+)
 
 QueryObserver = Callable[[str, str, int, float], None]
 
@@ -52,30 +64,83 @@ def create_driver(
     )
 
 
-async def run_query(
-    tx: AsyncManagedTransaction,
-    query_id: str,
-    /,
-    *,
-    registry: QueryRegistry | None = None,
-    **params: Any,
-) -> list[dict[str, Any]]:
-    """Run a registered query inside the caller's transaction and return its rows as dicts.
-    The query is looked up in registry, or in the module registry when none is given.
+def _refuse_tenant_parameter(params: dict[str, Any]) -> None:
+    """Refuse `tenant`, and refuse `parameters`: neo4j's own `tx.run(query, parameters=None, **kw)`
+    merges that dict with the keywords, so it is a second way to hand the server a tenant."""
+    if "tenant" in params or "parameters" in params:
+        raise TenantParameterRefused
 
-    The observer, if set, is called once per successful run with the query id, its mode, the row
-    count and the duration in milliseconds. It never receives the Cypher text or parameters.
-    """
-    lookup = REGISTRY if registry is None else registry
-    query = lookup.get(query_id)
+
+async def _execute(
+    tx: AsyncManagedTransaction, query: NamedQuery, parameters: dict[str, Any]
+) -> list[dict[str, Any]]:
     started = time.perf_counter()
-    result = await tx.run(query.cypher, **params)
+    result = await tx.run(query.cypher, parameters)
     rows = await result.data()
     duration_ms = (time.perf_counter() - started) * 1000
     observer = _observer
     if observer is not None:
         observer(query.id, query.mode, len(rows), duration_ms)
     return rows
+
+
+async def run_query(
+    tx: AsyncManagedTransaction,
+    query: NamedQuery,
+    /,
+    *,
+    registry: QueryRegistry | None = None,
+    **params: Any,
+) -> list[dict[str, Any]]:
+    """Run a registered tenant statement inside the caller's transaction and return its rows as
+    dicts. The registry is the module registry unless one is given.
+
+    The execution point of DEC-130 item 2 and DEC-142. In this order, all before any Cypher is
+    sent: a string or a statement that is not the registered one is refused; a caller-supplied
+    `tenant` is refused; a global statement is refused; with no scope bound the call is refused,
+    except for a statement on the ratchet (it does not mention `$tenant` yet: it runs with no
+    `tenant` parameter, as it did before the seam, until its conversion bundle takes it off the
+    list). Otherwise the statement runs with `tenant=<the bound scope>`, written first and with
+    nothing in `params` able to replace it.
+
+    The observer, if set, is called once per successful run with the query id, its mode, the row
+    count and the duration in milliseconds. It never receives the Cypher text, the parameters or
+    the scope.
+    """
+    lookup = REGISTRY if registry is None else registry
+    if not lookup.is_registered(query):
+        raise QueryNotRegistered
+    _refuse_tenant_parameter(params)
+    if query.scope == "global":
+        raise GlobalStatementMisuse
+    scope = current_scope_or_none()
+    if scope is None:
+        if lookup.is_tenant_pending(query):
+            return await _execute(tx, query, params)
+        raise TenantNotBound
+    return await _execute(tx, query, {"tenant": scope.value, **params})
+
+
+async def run_global_query(
+    tx: AsyncManagedTransaction,
+    query: NamedQuery,
+    /,
+    *,
+    registry: QueryRegistry | None = None,
+    **params: Any,
+) -> list[dict[str, Any]]:
+    """Run a global statement (one on GLOBAL_QUERY_IDS) with no tenant parameter, whether or not a
+    scope is bound. The only way a global statement runs: the health ping runs before any scope
+    exists. Refuses a string, an unregistered statement, a `tenant` parameter and any tenant
+    statement.
+    """
+    lookup = REGISTRY if registry is None else registry
+    if not lookup.is_registered(query):
+        raise QueryNotRegistered
+    _refuse_tenant_parameter(params)
+    if query.scope != "global":
+        raise GlobalStatementMisuse
+    return await _execute(tx, query, params)
 
 
 def set_query_observer(fn: QueryObserver | None) -> None:

@@ -107,4 +107,4 @@ class Neo4jLinkTokenRepository:
         return rows[0]["key"] if rows else None
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
-        return await run_query(self._tx, query_id, **params)
+        return await run_query(self._tx, REGISTRY.get(query_id), **params)

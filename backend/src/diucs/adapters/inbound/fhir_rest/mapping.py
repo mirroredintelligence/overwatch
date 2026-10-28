@@ -3,7 +3,7 @@
 board_to_parameters turns a Board into an R4B Parameters resource (contracts.md, "HTTP surface"):
 one `entry` parameter per service whose parts are the BoardEntry fields in camelCase, then
 `pressure`, `allLimitedOrWorse` and `generatedAt`. A null field is left out, and so is an empty
-comment, because FHIR has no empty string (DEC-144 item 3). Times are UTC with a Z suffix.
+comment, because FHIR has no empty string (DEC-145 item 3). Times are UTC with a Z suffix.
 
 report_to_fhir turns a stored capacity report into an R4B Observation. The graph store keeps its
 own form of the same report (`focus` as one reference), so the two are separate on purpose: this one

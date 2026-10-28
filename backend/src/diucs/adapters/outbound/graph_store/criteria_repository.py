@@ -269,7 +269,7 @@ class Neo4jCriteriaRepository:
         self._store = store
 
     async def current_for_service(self, service_id: str) -> ServiceCriteria | None:
-        rows = await run_query(self._tx, "Q-CRIT-CURRENT", serviceId=service_id)
+        rows = await run_query(self._tx, REGISTRY.get("Q-CRIT-CURRENT"), serviceId=service_id)
         if len(rows) > 1:
             raise Conflict("a service has more than one current criteria version")
         if not rows:
@@ -277,7 +277,9 @@ class Neo4jCriteriaRepository:
         return await self.get(str(rows[0]["id"]))
 
     async def current_for_services(self, service_ids: Sequence[str]) -> dict[str, ServiceCriteria]:
-        rows = await run_query(self._tx, "Q-CRIT-CURRENT-FOR", serviceIds=list(service_ids))
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-CRIT-CURRENT-FOR"), serviceIds=list(service_ids)
+        )
         ids: dict[str, str] = {}
         for row in rows:
             service = str(row["serviceId"])
@@ -324,7 +326,7 @@ class Neo4jCriteriaRepository:
         await self._finish(criteria)
 
     async def history(self, service_id: str) -> list[ServiceCriteria]:
-        rows = await run_query(self._tx, "Q-CRIT-VERSIONS", serviceId=service_id)
+        rows = await run_query(self._tx, REGISTRY.get("Q-CRIT-VERSIONS"), serviceId=service_id)
         found: list[ServiceCriteria] = []
         for row in rows:
             criteria = await self.get(str(row["id"]))
@@ -333,11 +335,11 @@ class Neo4jCriteriaRepository:
         return found
 
     async def _is_criteria(self, criteria_id: str) -> bool:
-        rows = await run_query(self._tx, "Q-CRIT-SUBJECT", key=_key(criteria_id))
+        rows = await run_query(self._tx, REGISTRY.get("Q-CRIT-SUBJECT"), key=_key(criteria_id))
         return bool(rows)
 
     async def _lock_service(self, service_id: str) -> None:
-        rows = await run_query(self._tx, "Q-CRIT-LOCK-SERVICE", serviceId=service_id)
+        rows = await run_query(self._tx, REGISTRY.get("Q-CRIT-LOCK-SERVICE"), serviceId=service_id)
         if not rows or int(rows[0]["locked"]) == 0:
             raise NotFound("service")
 
@@ -345,15 +347,21 @@ class Neo4jCriteriaRepository:
         """Refuse before anything is written: a version number used by another version of the
         service, a second current version, or a superseded version that is missing or belongs to
         another service."""
-        for row in await run_query(self._tx, "Q-CRIT-VERSIONS", serviceId=criteria.service_id):
+        for row in await run_query(
+            self._tx, REGISTRY.get("Q-CRIT-VERSIONS"), serviceId=criteria.service_id
+        ):
             if str(row["id"]) != criteria.id and int(row["version"]) == criteria.version:
                 raise Conflict("this version number is already used for the service")
         if criteria.status is CriteriaStatus.CURRENT:
-            currents = await run_query(self._tx, "Q-CRIT-CURRENT", serviceId=criteria.service_id)
+            currents = await run_query(
+                self._tx, REGISTRY.get("Q-CRIT-CURRENT"), serviceId=criteria.service_id
+            )
             if any(str(row["id"]) != criteria.id for row in currents):
                 raise Conflict("another criteria version is already current")
         if criteria.supersedes_id is not None:
-            subject = await run_query(self._tx, "Q-CRIT-SUBJECT", key=_key(criteria.supersedes_id))
+            subject = await run_query(
+                self._tx, REGISTRY.get("Q-CRIT-SUBJECT"), key=_key(criteria.supersedes_id)
+            )
             if not subject:
                 raise NotFound("superseded criteria version")
             if str(subject[0]["serviceId"]) != criteria.service_id:
@@ -362,18 +370,18 @@ class Neo4jCriteriaRepository:
     async def _finish(self, criteria: ServiceCriteria) -> None:
         """The profile label, then the service's link: moved when the version is current, removed
         when it is not, so the link never names a version that is no longer current."""
-        await run_query(self._tx, "Q-CRIT-LABEL", key=_key(criteria.id))
+        await run_query(self._tx, REGISTRY.get("Q-CRIT-LABEL"), key=_key(criteria.id))
         if criteria.status is CriteriaStatus.CURRENT:
             await run_query(
                 self._tx,
-                "Q-CRIT-SET-CURRENT",
+                REGISTRY.get("Q-CRIT-SET-CURRENT"),
                 serviceId=criteria.service_id,
                 key=_key(criteria.id),
             )
         else:
             await run_query(
                 self._tx,
-                "Q-CRIT-CLEAR-CURRENT",
+                REGISTRY.get("Q-CRIT-CLEAR-CURRENT"),
                 serviceId=criteria.service_id,
                 key=_key(criteria.id),
             )

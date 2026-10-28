@@ -127,6 +127,9 @@ class RedisCache:
         px = None if ttl is None else _millis(ttl)
         await self._client.set(self._key(_CACHE_KEY, key), value, px=px)
 
+    async def set_if_absent(self, key: str, value: str, ttl: timedelta) -> bool:
+        return True
+
     async def delete(self, key: str) -> None:
         await self._client.delete(self._key(_CACHE_KEY, key))
 

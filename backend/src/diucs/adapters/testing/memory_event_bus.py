@@ -50,6 +50,15 @@ class ManualEventBus:
             raise ValidationFailed("session_id", "capacity events carry the service id")
         self._published.append(message)
 
+    async def enqueue(self, queue: str, message: BusMessage) -> None:
+        return None
+
+    def enqueued_to(self, queue: str) -> list[BusMessage]:
+        return []
+
+    def take_enqueued(self) -> list[tuple[str, BusMessage]]:
+        return []
+
     async def schedule(self, queue: str, message: BusMessage, enqueue_at: datetime) -> int:
         if queue not in QUEUES:
             raise ValidationFailed("queue", "not a known queue")

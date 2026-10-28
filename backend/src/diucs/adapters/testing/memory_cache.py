@@ -77,6 +77,9 @@ class InMemoryCache:
         expires_at = None if ttl is None else self._now() + ttl
         self._values[key] = _Value(text=value, expires_at=expires_at)
 
+    async def set_if_absent(self, key: str, value: str, ttl: timedelta) -> bool:
+        return True
+
     async def delete(self, key: str) -> None:
         self._values.pop(key, None)
 

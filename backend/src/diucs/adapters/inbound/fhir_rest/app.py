@@ -55,6 +55,11 @@ def create_app(container: ApiContainer) -> FastAPI:
     from diucs.adapters.inbound.fhir_rest import routes_events
 
     app.include_router(routes_events.router)
+    # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
+    # this one module wire it in.
+    from diucs.adapters.inbound.sms_webhook import routes as sms_routes
+
+    app.include_router(sms_routes.router)
     return app
 
 

@@ -68,6 +68,9 @@ class ServiceBusEventBus:
             raise ValidationFailed("topic", "not a known topic")
         await self._sender(message.topic).send_messages(to_service_bus_message(message))
 
+    async def enqueue(self, queue: str, message: BusMessage) -> None:
+        return None
+
     async def schedule(self, queue: str, message: BusMessage, enqueue_at: datetime) -> int:
         if queue not in QUEUES:
             raise ValidationFailed("queue", "not a known queue")

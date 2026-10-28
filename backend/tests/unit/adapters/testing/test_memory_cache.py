@@ -195,3 +195,16 @@ async def test_a_lock_is_held_one_millisecond_before_its_ttl_ends_and_free_at_th
 
     clock.set(START + ttl)
     assert await cache.acquire_lock("relay", ttl) is not None
+
+
+async def test_set_if_absent_stores_once_and_a_later_one_fails_until_the_ttl_passes() -> None:
+    cache, clock = make_cache()
+    ttl = timedelta(hours=24)
+    assert await cache.set_if_absent("idem:sms:one", "1", ttl) is True
+    assert await cache.set_if_absent("idem:sms:one", "2", ttl) is False
+    clock.advance(ttl - timedelta(seconds=1))
+    assert await cache.set_if_absent("idem:sms:one", "3", ttl) is False
+    assert await cache.get("idem:sms:one") == "1"
+    clock.advance(timedelta(seconds=1))
+    assert await cache.set_if_absent("idem:sms:one", "4", ttl) is True
+    assert await cache.get("idem:sms:one") == "4"

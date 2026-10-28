@@ -67,8 +67,9 @@ async def make_memory_event_bus() -> Harness[EventBus]:
         # The fake answers at once; a real adapter waits up to timeout.
         del timeout
         if name in QUEUES:
-            # due() removes what it returns, so keep it until the queue asks for it.
-            for queue, message in bus.due():
+            # due() and take_enqueued() remove what they return, so keep it until the queue
+            # asks for it.
+            for queue, message in [*bus.take_enqueued(), *bus.due()]:
                 inbox[queue].append(message)
             return inbox[name].popleft() if inbox[name] else None
         if name in TOPICS:
@@ -202,6 +203,9 @@ class _RecordingBus:
 
     async def publish(self, message: BusMessage) -> None:
         await self._bus.publish(message)
+
+    async def enqueue(self, queue: str, message: BusMessage) -> None:
+        await self._bus.enqueue(queue, message)
 
     async def schedule(self, queue: str, message: BusMessage, enqueue_at: datetime) -> int:
         number = await self._bus.schedule(queue, message, enqueue_at)

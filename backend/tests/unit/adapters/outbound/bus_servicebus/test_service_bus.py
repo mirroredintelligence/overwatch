@@ -55,6 +55,33 @@ def test_a_message_without_a_session_has_no_session_id() -> None:
     assert sent.session_id is None
 
 
+def test_a_tenant_becomes_the_tenant_id_application_property() -> None:
+    sent = to_service_bus_message(
+        BusMessage(
+            id="m-1", topic="inbound.replies", event_type="SmsReceived", tenant_id="tenant-a"
+        )
+    )
+    assert sent.application_properties == {"event_type": "SmsReceived", "tenantId": "tenant-a"}
+
+
+def test_a_message_with_no_tenant_has_no_tenant_id_property() -> None:
+    sent = to_service_bus_message(_capacity())
+    assert "tenantId" not in (sent.application_properties or {})
+
+
+@pytest.mark.parametrize("name", ["not.a.queue", "capacity.events"])
+async def test_enqueueing_to_an_unknown_queue_or_a_topic_is_refused_before_any_send(
+    name: str,
+) -> None:
+    client: ServiceBusClient = ServiceBusClient.from_connection_string(EMULATOR_CONNECTION)
+    try:
+        bus = ServiceBusEventBus(client)
+        with pytest.raises(ValidationFailed, match="queue"):
+            await bus.enqueue(name, _capacity())
+    finally:
+        await client.close()
+
+
 async def test_publishing_to_an_unknown_topic_is_refused_before_any_send() -> None:
     client: ServiceBusClient = ServiceBusClient.from_connection_string(EMULATOR_CONNECTION)
     try:

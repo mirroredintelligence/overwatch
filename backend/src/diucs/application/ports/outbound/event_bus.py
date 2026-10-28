@@ -32,11 +32,20 @@ class BusMessage:
     event_type: str
     payload: dict[str, Any] = field(default_factory=dict)
     session_id: str | None = None
+    # The scope the message belongs to (DEC-130 item 7). The adapter sends it as the Service Bus
+    # application property `tenantId`; a consumer binds it before it opens a unit of work. None
+    # until every producer sets it (the outbound-adapters bundle makes it mandatory).
+    tenant_id: str | None = None
 
 
 class EventBus(Protocol):
     async def publish(self, message: BusMessage) -> None:
         """Send to a topic. Refuses an unknown topic (ValidationFailed)."""
+        ...
+
+    async def enqueue(self, queue: str, message: BusMessage) -> None:
+        """Send to a queue now, so it can be received at once (I07). Refuses a name that is not
+        a queue (ValidationFailed): a topic takes publish, a later time takes schedule."""
         ...
 
     async def schedule(self, queue: str, message: BusMessage, enqueue_at: datetime) -> int:

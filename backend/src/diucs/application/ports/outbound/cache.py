@@ -29,6 +29,12 @@ class Cache(Protocol):
         """Store a value. With no ttl the key stays until deleted or overwritten."""
         ...
 
+    async def set_if_absent(self, key: str, value: str, ttl: timedelta) -> bool:
+        """Store a value only when the key is absent or expired, in one step. Return True when it
+        was stored, False when the key already held a value (which is left unchanged). The ttl is
+        required: a marker that never expires would grow the cache without bound (I07)."""
+        ...
+
     async def delete(self, key: str) -> None:
         """Remove a key. Deleting a missing key is not an error."""
         ...

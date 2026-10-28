@@ -235,7 +235,8 @@ class Neo4jCapacityRepository:
         return report_from_fhir(resource)
 
     async def get(self, report_id: str) -> CapacityReport | None:
-        raise NotImplementedError
+        resource = await self._store.get(_OBSERVATION, report_id)
+        return None if resource is None else report_from_fhir(resource)
 
     async def latest(self, service_id: str) -> CapacityReport | None:
         rows = await run_query(self._tx, "Q-CAP-LATEST", key=f"{_SERVICE}/{service_id}")

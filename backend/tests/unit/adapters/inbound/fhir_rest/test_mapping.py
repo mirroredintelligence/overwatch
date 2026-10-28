@@ -10,7 +10,6 @@ from dataclasses import fields, replace
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 
-import pytest
 from fhir.resources.R4B.observation import Observation
 from fhir.resources.R4B.parameters import Parameters
 
@@ -213,7 +212,7 @@ def test_an_empty_board_has_only_the_top_level_parameters() -> None:
 
 
 def test_a_time_with_microseconds_is_written_in_full_with_a_z_suffix() -> None:
-    precise = replace(GENERATED_AT, microsecond=250000)
+    precise = GENERATED_AT.replace(microsecond=250000)
 
     parameters = _parameters(replace(BOARD, generated_at=precise))
 
@@ -221,16 +220,20 @@ def test_a_time_with_microseconds_is_written_in_full_with_a_z_suffix() -> None:
 
 
 def test_a_time_in_another_zone_is_written_in_utc() -> None:
-    bst = replace(GENERATED_AT, tzinfo=timezone(timedelta(hours=1)))  # 13:12 at +01:00
+    bst = GENERATED_AT.replace(tzinfo=timezone(timedelta(hours=1)))  # 13:12 at +01:00
 
     parameters = _parameters(replace(BOARD, generated_at=bst))
 
     assert _named(parameters, "generatedAt")[0]["valueDateTime"] == "2026-10-23T12:12:00Z"
 
 
-@pytest.mark.parametrize("word", ["postcode", "patient", "servicerequest"])
-def test_the_parameters_hold_no_patient_word(word: str) -> None:
-    assert word not in repr(_parameters()).lower()
+def test_the_parameters_hold_no_patient_word() -> None:
+    # "inpatient-beds" is a service category, so the check is for the capitalised FHIR word.
+    text = repr(_parameters())
+
+    assert "postcode" not in text.lower()
+    assert "servicerequest" not in text.lower()
+    assert "Patient" not in text
 
 
 # report_to_fhir: the Observation the confirm operation returns

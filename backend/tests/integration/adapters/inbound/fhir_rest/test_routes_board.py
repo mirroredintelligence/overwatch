@@ -23,6 +23,7 @@ from httpx import AsyncClient, Response
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.memory_cache import InMemoryCache
@@ -113,8 +114,13 @@ def _west_reporter() -> dict[str, str]:
     return _bearer(Role.REPORTER, ("svc-ucr-west",), "prac-reporter-west")
 
 
-@pytest.fixture
-def board_app(api_app: FastAPI, test_container: Container) -> FastAPI:
+@pytest_asyncio.fixture(loop_scope="session")
+async def board_app(
+    api_app: FastAPI, test_container: Container, neo4j_driver: AsyncDriver
+) -> FastAPI:
+    # The audit chain head exists after startup. test_container ran clean_graph, so this is after
+    # the wipe (lesson L133): a confirmation writes an audit entry.
+    await ensure_audit_head(neo4j_driver)
     api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
     api_app.state.cache = InMemoryCache(test_container.clock)
     return api_app
@@ -280,9 +286,10 @@ async def test_the_board_body_holds_no_patient_word(api_client: AsyncClient) -> 
     response = await api_client.get(BOARD, headers=_bearer(Role.WALL, (), "device-wall-1"))
 
     assert response.status_code == 200
-    text = response.text.lower()
-    for word in ("postcode", "patient", "servicerequest"):
-        assert word not in text
+    # "inpatient-beds" is a service category, so the check is for the capitalised FHIR word.
+    assert "postcode" not in response.text.lower()
+    assert "servicerequest" not in response.text.lower()
+    assert "Patient" not in response.text
 
 
 @pytest.mark.usefixtures("seeded")

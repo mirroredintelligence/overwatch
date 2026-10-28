@@ -162,3 +162,8 @@ def test_a_body_shorter_than_nonce_and_tag_is_refused(key: bytes) -> None:
     short = _sealed(b"x" * 10)
     with pytest.raises(ValidationFailed):
         unseal_content(short, key, **AAD)
+
+
+def test_no_nonce_repeats_across_many_seals_of_one_text(key: bytes) -> None:
+    nonces = {_raw(seal_content(TEXT, key, **AAD))[:12] for _ in range(2000)}
+    assert len(nonces) == 2000

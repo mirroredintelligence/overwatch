@@ -7,6 +7,7 @@ Clock: Friday 23 October 2026. The prompt is due at 10:00 London (09:00 UTC, BST
 08:00 to 20:00 every day and reports every 2 hours.
 """
 
+import asyncio
 import dataclasses
 import json
 import re
@@ -164,6 +165,7 @@ def _rig(
     driver: AsyncDriver,
     now: datetime = DUE,
     link_base: str = LINK_BASE,
+    tenant: str = TENANT,
 ) -> tuple[SendPrompts, FixedClock]:
     clock = FixedClock(now)
 
@@ -178,7 +180,7 @@ def _rig(
         tokens,
         link_base,
         AesGcmContentSealer(FixedSecretStore({"link-token": SECRET})),
-        TENANT,
+        tenant,
     )
     return use_case, clock
 
@@ -1154,3 +1156,88 @@ async def test_cancel_work_does_nothing_for_work_that_is_not_scheduled(
     async with uow_factory() as uow:
         assert (await uow.scheduled_work.get(work.id)).status == status
     assert await count_nodes(neo4j_driver, "OutboxMessage") == before
+
+
+# --- Probes added in round 3 (not run by verify-U03-r2): the value at rest, and racing sends ----
+
+
+async def _outbox_node_values(driver: AsyncDriver) -> list[str]:
+    """Every property value of every OutboxMessage node, as stored, as text."""
+
+    async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
+        result = await tx.run("MATCH (o:OutboxMessage) RETURN properties(o) AS props")
+        return await result.data()
+
+    return [repr(row["props"]) for row in await read_tx(driver, work)]
+
+
+async def test_the_value_stored_for_a_prompt_holds_none_of_its_plain_text(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # Token-at-rest probe: read the stored outbox node back and look for the plain words, the whole
+    # text and the token. The sealed value is there, and nothing readable is.
+    await _seed_one_reporter(uow_factory, seed_service)
+    await _seed_report(uow_factory)
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+    await use_case.execute(_command())
+    [message] = _sent(await _outbox(uow_factory))
+    plain = _opened(message)["text"]
+    token = _token_of(message)
+    assert "UCR West" in plain
+    assert "referrals" in plain
+
+    stored = await _outbox_node_values(neo4j_driver)
+    sent_node = [value for value in stored if message.payload["sealed_content"] in value]
+    assert len(sent_node) == 1
+    for value in stored:
+        for fragment in ("UCR West", "referrals", "Confirm or update", "as of", LINK_BASE, token):
+            assert fragment not in value
+        assert plain not in value
+
+
+async def test_sixteen_racing_sends_of_one_prompt_record_one_send(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # Racing-send probe: sixteen deliveries of one due prompt at once (a redelivered scheduled
+    # message). Exactly one records the send. The rest are answered from it or refused, and
+    # nothing is written twice. The use case and its id generator are shared, as in a worker.
+    await _seed_one_reporter(uow_factory, seed_service)
+    await _seed_report(uow_factory)
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+
+    async def racer() -> str:
+        try:
+            result = await use_case.execute(_command())
+        except Conflict:
+            return "refused"
+        if result.replayed:
+            return "replayed"
+        return "sent" if result.sent else "skipped"
+
+    outcomes = await asyncio.gather(*(racer() for _ in range(16)))
+
+    assert outcomes.count("sent") == 1
+    assert set(outcomes) <= {"sent", "replayed", "refused"}
+    counts = await _counts(neo4j_driver)
+    assert counts["Communication"] == 1
+    assert counts["LinkToken"] == 1
+    assert counts["AuditEvent"] == 1
+    assert counts["OutboxMessage"] == 5  # the text, three ladder steps, the next prompt
+    assert counts["ScheduledWork"] == 4
+    assert len(_sent(await _outbox(uow_factory))) == 1
+
+
+async def test_the_content_is_sealed_under_the_tenant_the_use_case_was_given(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # The tenant in the associated data is the constructor's, not a fixed value: a use case built
+    # for tenant-b seals for tenant-b, and the content does not open as the default test tenant.
+    await _seed_one_reporter(uow_factory, seed_service)
+    await _seed_report(uow_factory)
+    use_case, _ = _rig(uow_factory, neo4j_driver, tenant="tenant-b")
+    await use_case.execute(_command())
+    [message] = _sent(await _outbox(uow_factory))
+
+    assert "text" in _opened(message, tenant="tenant-b")
+    with pytest.raises(ValidationFailed):
+        _opened(message, tenant=TENANT)

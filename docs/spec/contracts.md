@@ -287,3 +287,9 @@ These names were added by individual task prompts. They are as binding as the re
 - `application/ports/outbound/unit_of_work.py`: `UnitOfWork.unit_scope -> ScopeId | None` (read-only; raises `RuntimeError` before the unit is entered). `Neo4jUnitOfWork.unit_scope` implements it. (`uow.scope` stays the scope list repository.)
 - `adapters/outbound/graph_store/connection.py`: `Neo4jConnection.run_scoped_read(work)` and `run_scoped_write(work)`, where `work` takes a `ScopedTx`: the supported way for a worker to run scoped work outside a unit of work.
 - `tests/support/fake_neo4j.py`: `FakeDriver`, `FakeSession`, `FakeTx`, a recording stand-in for the driver in unit tests (not a store).
+
+## $board and $confirm-capacity (R05, DEC-145)
+- `adapters/inbound/fhir_rest/routes_board.py`: `router`, `BOARD_ROLES`, `CONFIRM_ROLES`. `GET /fhir/HealthcareService/$board` (roles wall, advisor, clinical, lead, exec, owner; `Cache-Control: no-store`) and `POST /fhir/HealthcareService/{id}/$confirm-capacity` (reporter for own service, or lead; `Idempotency-Key` required; 200 with the new Observation).
+- `adapters/inbound/fhir_rest/mapping.py`: `board_to_parameters(board) -> dict`, `report_to_fhir(report) -> dict` (valid R4B). R04 adds its functions to this file.
+- `CapacityRepository.get(report_id) -> CapacityReport | None`. Created by R05.
+- `ApiContainer` (`fhir_rest/app.py`) gains `ids`.

@@ -16,6 +16,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
     install_exception_handlers,
 )
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 
 
@@ -28,6 +29,9 @@ class ApiContainer(Protocol):
 
     @property
     def uow_factory(self) -> UnitOfWorkFactory: ...
+
+    @property
+    def ids(self) -> IdGenerator: ...
 
 
 def create_app(container: ApiContainer) -> FastAPI:
@@ -51,10 +55,12 @@ def create_app(container: ApiContainer) -> FastAPI:
     fhir = APIRouter(prefix="/fhir")
     fhir.include_router(capability.router)
     app.include_router(fhir)
-    # Imported here: routes_events depends on auth, which imports this module (DEC-111).
-    from diucs.adapters.inbound.fhir_rest import routes_events
+    # Imported here: the route modules depend on auth, which imports this module (DEC-111).
+    from diucs.adapters.inbound.fhir_rest import routes_board, routes_events
 
     app.include_router(routes_events.router)
+    # $board must be routed before any HealthcareService/{id} route, or {id} would take it.
+    app.include_router(routes_board.router)
     return app
 
 

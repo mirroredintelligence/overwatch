@@ -46,7 +46,9 @@ def run_shell(command: str, cwd: str) -> tuple[int, str]:
 
 
 def last_line(text: str) -> str:
+    """The last output line that is not a tool warning (uv prints deprecation warnings on stderr)."""
     lines = [line.strip() for line in text.splitlines() if line.strip()]
+    lines = [line for line in lines if not line.lower().startswith("warning:")]
     return lines[-1][:120] if lines else ""
 
 

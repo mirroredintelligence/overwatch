@@ -24,7 +24,7 @@ async def test_a_message_sent_twice_with_one_id_is_processed_once(
     calls: list[str] = []
 
     async def handler(message: BusMessage, uow: UnitOfWork) -> None:
-        calls.append(message.id)
+        calls.append(message.id)  # the queue can hold an older run's message: filter by id below
 
     consumer = IdempotentConsumer("delivery-tracker-i04", handler, uow_factory)
     message_id = f"receipt-{uuid.uuid4()}"
@@ -41,11 +41,11 @@ async def test_a_message_sent_twice_with_one_id_is_processed_once(
         task = asyncio.create_task(runner.run(stop))
         try:
             async with asyncio.timeout(60):
-                while len(calls) < 1 or await count_nodes(neo4j_driver, "Processed") < 1:
+                while message_id not in calls:
                     await asyncio.sleep(0.2)
             await asyncio.sleep(3)  # let the second copy arrive and be settled
         finally:
             stop.set()
             await asyncio.wait_for(task, timeout=30)
-    assert calls == [message_id]
-    assert await count_nodes(neo4j_driver, "Processed") == 1
+    assert calls.count(message_id) == 1
+    assert await count_nodes(neo4j_driver, "Processed") == len(set(calls))

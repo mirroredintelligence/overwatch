@@ -1513,3 +1513,19 @@ Status: accepted (builder decision, owner to confirm) · Affects: W03 and every 
 2. **Card.** The prompt's goal and rules describe a Card, but the file list omits it. `Card.tsx` and `Card.module.css` are built, with `index.ts` exporting it, so the goal is met. The heading prop is `heading` with `headingLevel` (2 to 6, default 2); the section is named by its heading.
 3. **Stepper from empty.** Decrease from `null` gives `min` (prompt). Increase from `null` also gives `min`, because no figure has been chosen and one step lands on the lowest allowed value. Clearing the input reports `null`.
 4. **Option button shape.** `OptionButton` takes `selected` and `onSelect`; its accessible name includes the hint. Button `Button` takes `onClick` and `type` as well as the prompt's props.
+
+## DEC-125 BFF session cookie and CSRF: choices beyond the prompt (W02)
+Status: accepted (builder decision, owner to confirm) · Affects: W02 (`frontend/lib/auth/session.ts`, `csrf.ts`, `lib/bff/handler.ts`, `app/api/bff/session/route.ts`), every BFF route (W09 onward).
+
+1. **Dependency.** `jose` 6.1.0 is added to `frontend/package.json` as an exact dependency (the prompt names it). Tests for these modules run in the node environment (`// @vitest-environment node`), because jose rejects jsdom's Uint8Array.
+2. **Session has `expiresAt`.** The prompt's `Session` shape carries it, contracts.md did not; contracts.md is updated. It is checked twice: jose `exp` (whole seconds) and `expiresAt` itself (`<=` now is void). A session already expired is refused at seal time.
+3. **Secret.** `SESSION_SECRET` must be base64 of exactly 32 bytes. A missing or malformed value throws an error naming the variable only; `withBff` turns it into 500, never into "no session" or a pass.
+4. **Request reads are pure.** `withBff`, `checkCsrf` and `sessionFromRequest` read the `Cookie` header of the request, matched by exact name. `getSession()` (Next cookie store) is for Server Components. Writes use `cookies().set`.
+5. **CSRF default.** `withBff` checks CSRF on POST, PUT, PATCH and DELETE always; `csrf: true` adds the check to other methods; `csrf: false` cannot switch it off for an unsafe method. Order: session (401), role (403 forbidden), CSRF (403 csrf).
+6. **Constant time.** Header and cookie are hashed with SHA-256 and the digests compared with `timingSafeEqual`, so length never changes the path. An empty header or cookie fails.
+7. **GET keeps the CSRF token.** If the `diucs_csrf` cookie already holds a 43-character base64url value it is returned, not rotated, so a second tab keeps working; otherwise a new one is issued.
+8. **No-store.** Session responses and the withBff refusals send `Cache-Control: no-store`.
+9. **Cookie attributes.** Session: HttpOnly, SameSite=Strict, Path=/, Secure unless `NODE_ENV` is `development`, no Domain, Max-Age to expiry. CSRF: same, not HttpOnly. Clearing uses the same attributes with Max-Age 0.
+10. **Residuals.** No server-side revocation: a stolen cookie works until `expiresAt` (the lifetime is chosen by the sign-in task, W09). DELETE with an expired cookie answers 401 and the browser drops the cookie at its Max-Age. The `server-only` package (DEC-109 item 6) is not added.
+
+Tests: `frontend/lib/auth/session.test.ts`, `csrf.test.ts`, `frontend/lib/bff/handler.test.ts`, `frontend/app/api/bff/session/route.test.ts`. Evidence: `docs/delivery/evidence/W02.md`.

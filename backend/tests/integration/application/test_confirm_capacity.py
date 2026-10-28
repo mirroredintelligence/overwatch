@@ -577,6 +577,38 @@ async def test_a_second_confirmation_waits_for_a_held_confirmation_then_is_refus
     assert await count_nodes(neo4j_driver, "Observation") == 3
 
 
+async def test_the_same_key_twice_at_once_writes_once_and_replays_inside_the_unit_of_work(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """Both calls pass the early key check before either has committed. The second waits on the
+    service lock, then finds the first one's stored result inside its own unit of work and replays
+    it (DEC-112 items 6 and 8). One confirmed report, one audit event."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    ids = SequentialIds()
+    gate = CommitGate()
+    store = DriverIdempotencyStore(neo4j_driver)
+    clock = FixedClock(AT_1205)
+    held = ConfirmCapacity(gated_factory(uow_factory, gate), clock, ids, store)
+    second = ConfirmCapacity(uow_factory, clock, ids, store)
+    command = ConfirmCapacityCommand("k1", REPORTER, "ucr-west", ReportSource.TEXT)
+
+    gate.hold_next = True
+    first_task = asyncio.ensure_future(held.execute(command))
+    await asyncio.wait_for(gate.entered.wait(), timeout=30)
+    second_task = asyncio.ensure_future(second.execute(command))
+    await asyncio.sleep(1.0)
+    still_waiting = not second_task.done()
+    gate.release.set()
+
+    first_result = await asyncio.wait_for(first_task, timeout=60)
+    second_result = await asyncio.wait_for(second_task, timeout=60)
+
+    assert still_waiting is True
+    assert second_result == dataclasses.replace(first_result, replayed=True)
+    assert await _confirmed_count(neo4j_driver) == 1
+    assert await count_nodes(neo4j_driver, "AuditEvent") == 1
+
+
 async def test_sixteen_confirmations_at_once_let_exactly_two_through(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

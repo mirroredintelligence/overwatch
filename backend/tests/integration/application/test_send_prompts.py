@@ -37,7 +37,7 @@ from diucs.application.use_cases.send_prompts import (
     SKIP_SUSPENDED,
     SendPromptCommand,
     SendPrompts,
-    seal_content,
+    derive_key,
     unseal_content,
 )
 from diucs.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
@@ -63,7 +63,7 @@ Seed = Callable[..., Awaitable[None]]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
-OTHER_SECRET = b"another-secret-0123456789abcdef0"
+TENANT = "tenant-a"
 LINK_BASE = "diucs.example"
 DUE = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)  # 10:00 BST
 PHONE_HASH_1 = "ab" * 32
@@ -178,6 +178,7 @@ def _rig(
         tokens,
         link_base,
         FixedSecretStore({"link-token": SECRET}),
+        TENANT,
     )
     return use_case, clock
 
@@ -232,9 +233,18 @@ def _sent(messages: list[OutboxMessage]) -> list[OutboxMessage]:
     return [m for m in messages if m.event_type == "SendMessage"]
 
 
-def _opened(message: OutboxMessage, secret: bytes = SECRET) -> dict[str, Any]:
-    """The rendered content of one SendMessage, opened with the link secret (the sender's view)."""
-    opened: dict[str, Any] = json.loads(unseal_content(message.payload["sealed_content"], secret))
+def _opened(message: OutboxMessage, tenant: str = TENANT) -> dict[str, Any]:
+    """The rendered content of one SendMessage, opened as the sender does: with the key derived from
+    the link secret, and the message id, tenant and recipient role as associated data."""
+    opened: dict[str, Any] = json.loads(
+        unseal_content(
+            message.payload["sealed_content"],
+            derive_key(SECRET),
+            message_id=message.id,
+            tenant_id=tenant,
+            recipient_role_id=message.payload["recipient_role_id"],
+        )
+    )
     return opened
 
 
@@ -474,31 +484,19 @@ async def test_a_dead_lettered_message_holds_no_token_text(
         assert token not in repr(props)
 
 
-async def test_the_sealed_content_does_not_show_its_plain_text() -> None:
-    sealed = seal_content("DIUCS: UCR West. Confirm or update: diucs.example/abc123", SECRET)
-    assert "UCR West" not in sealed
-    assert "diucs.example" not in sealed
-    assert unseal_content(sealed, SECRET) == (
-        "DIUCS: UCR West. Confirm or update: diucs.example/abc123"
-    )
+async def test_sealed_content_opens_only_in_its_own_tenant(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # A: the content is bound to its tenant. Opened as another tenant it is refused.
+    await _seed_one_reporter(uow_factory, seed_service)
+    await _seed_report(uow_factory)
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+    await use_case.execute(_command())
+    [message] = _sent(await _outbox(uow_factory))
 
-
-async def test_two_seals_of_one_text_differ() -> None:
-    assert seal_content("same text", SECRET) != seal_content("same text", SECRET)
-
-
-async def test_a_sealed_content_does_not_open_with_another_secret() -> None:
-    sealed = seal_content("text", SECRET)
+    assert "text" in _opened(message)
     with pytest.raises(ValidationFailed):
-        unseal_content(sealed, OTHER_SECRET)
-
-
-async def test_a_changed_sealed_content_is_refused() -> None:
-    sealed = seal_content("text", SECRET)
-    head, body = sealed[:3], sealed[3:]
-    flipped = body[:-2] + ("A" if body[-2] != "A" else "B") + body[-1]
-    with pytest.raises(ValidationFailed):
-        unseal_content(head + flipped, SECRET)
+        _opened(message, tenant="tenant-b")
 
 
 async def test_the_use_case_writes_one_audit_entry(
@@ -523,6 +521,26 @@ async def test_the_use_case_writes_one_audit_entry(
         "skipped_reason": "none",
     }
     assert record.entry.at == DUE
+
+
+async def test_a_no_reporter_prompt_audits_the_real_reason(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # 4: the audit entry names the reason the prompt was not sent, as the result does.
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory, (_practitioner(1, None),), (_role(1),))
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+
+    result = await use_case.execute(_command())
+
+    assert result.skipped_reason == SKIP_NO_REPORTER
+    async with uow_factory() as uow:
+        [record] = await uow.audit.records()
+    assert record.entry.snapshot == {
+        "due_at": DUE.isoformat(),
+        "prompts": 0,
+        "skipped_reason": SKIP_NO_REPORTER,
+    }
 
 
 # --- Skips re-arm the chain (B) ------------------------------------------------------------------

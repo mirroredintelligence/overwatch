@@ -28,7 +28,7 @@ from diucs.domain.codes import (
     Role,
     Status,
 )
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import CapacityReported, StatusChanged
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
@@ -170,7 +170,7 @@ async def record_report(
         # Unreachable for a valid profile: every window yields a due time on each day it starts,
         # and SEARCH_DAYS covers more than a week. Refusing here is the only honest outcome.
         if next_prompt is None:
-            raise ValueError("a profile with available times always has a next due instant")
+            raise DomainError("a profile with available times always has a next due instant")
         message_id, text = _echo_text(profile, report, next_prompt, replaced_value)
         communication = Communication(
             id=ids.new_id(),

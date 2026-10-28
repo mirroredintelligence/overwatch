@@ -39,7 +39,7 @@ from diucs.domain.codes import (
     ServiceCategory,
     Status,
 )
-from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.service import AvailableTime, ServiceProfile
@@ -609,7 +609,7 @@ async def test_an_echo_with_no_next_prompt_is_refused_and_writes_nothing(
     await seed_service(UCR_WEST)
     monkeypatch.setattr(report_capacity, "next_due", lambda profile, now: None)
 
-    with pytest.raises(ValueError, match="next due instant"):
+    with pytest.raises(DomainError, match="next due instant"):
         await _rig(uow_factory, neo4j_driver)[0].execute(_command(4, performer_role_id="role-1"))
 
     assert await count_nodes(neo4j_driver, "Observation") == 0

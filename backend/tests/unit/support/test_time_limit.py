@@ -37,13 +37,16 @@ def test_a_call_inside_the_limit_is_left_alone() -> None:
 
 
 def test_the_alarm_is_cancelled_and_the_old_handler_restored_after_the_block() -> None:
-    before = signal.getsignal(signal.SIGALRM)
+    # The root conftest already runs this test under its own limit: that outer alarm must come
+    # back, still counting down, and must not be replaced by the inner 5 seconds or by none.
+    handler_before = signal.getsignal(signal.SIGALRM)
+    outer_before = signal.getitimer(signal.ITIMER_REAL)[0]
 
     with time_limit(5, "quick"):
         pass
 
-    assert signal.getsignal(signal.SIGALRM) == before
-    assert signal.getitimer(signal.ITIMER_REAL)[0] == 0
+    assert signal.getsignal(signal.SIGALRM) == handler_before
+    assert abs(signal.getitimer(signal.ITIMER_REAL)[0] - outer_before) < 1.0
 
 
 def test_limits_nest_and_the_outer_one_keeps_running() -> None:
@@ -54,8 +57,12 @@ def test_limits_nest_and_the_outer_one_keeps_running() -> None:
 
 
 def test_zero_means_no_limit() -> None:
+    outer = signal.getitimer(signal.ITIMER_REAL)[0]
+    handler = signal.getsignal(signal.SIGALRM)
+
     with time_limit(0, "off"):
-        assert signal.getitimer(signal.ITIMER_REAL)[0] == 0
+        assert signal.getsignal(signal.SIGALRM) == handler
+        assert abs(signal.getitimer(signal.ITIMER_REAL)[0] - outer) < 1.0
 
 
 def test_the_default_limit_is_five_minutes_and_the_environment_overrides_it(

@@ -1,8 +1,27 @@
-"""Neo4j test harness (F10, DEC-008, DEC-012).
+"""Neo4j test harness (F10, DEC-008, DEC-012, F10b: DEC-135).
 
 start_throwaway_neo4j runs one Neo4j container per pytest session, on a free localhost port, with a
 unique name, and stop_throwaway_neo4j removes it. Nothing here reads a shared stack: the container
 is ours alone and its port is picked by the OS.
+
+Load protection (DEC-135). Four agents running pytest at once, each with its own Neo4j, took the
+machine to load 15 on 4 cores. So:
+
+* One container at a time machine-wide. start_throwaway_neo4j takes an exclusive flock on
+  /tmp/diucs-neo4j-harness.lock (environment DIUCS_NEO4J_LOCK overrides the path) and holds it until
+  stop_throwaway_neo4j, or until the process dies (the operating system frees it). A second session
+  waits up to DIUCS_NEO4J_LOCK_TIMEOUT seconds (default 3600), then fails naming the holder's pid.
+  Agents also wrap pytest in `flock /tmp/diucs-neo4j-tests.lock <command>`. That is a different
+  file, deliberately: the manual lock queues whole runs, this one guards the container, and a
+  process that takes the manual lock first and this one second can never deadlock.
+* Memory limits. The container gets --memory (DIUCS_NEO4J_MEMORY, default 768m) and Neo4j heap
+  (DIUCS_NEO4J_HEAP, 256m) and page cache (DIUCS_NEO4J_PAGECACHE, 128m) settings.
+* Owner labels. The container is labelled with the owning pid, that process's start time and the
+  host, so the reaper can tell a live run's container from a leaked one.
+* Readiness is a Bolt check with the Python driver, not `docker exec cypher-shell`, which starts
+  a JVM per probe. The image is checked, and pulled if missing, before the readiness clock starts
+  (DIUCS_NEO4J_READY_TIMEOUT, default 120 s). A failure names its phase: lock, config, docker,
+  image, start or ready.
 
 Helpers run in fresh sessions: a write commits in one session and a read sees it only from another
 session, so each round trip proves what was really stored.
@@ -23,10 +42,11 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from neo4j import AsyncDriver, AsyncManagedTransaction
+from neo4j import AsyncDriver, AsyncManagedTransaction, GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
 
 from diucs.adapters.outbound.graph_store.driver import create_driver
+from tests.support import harness_lock
 from tests.support.proc import process_start_marker
 
 START_MESSAGE = (
@@ -55,10 +75,18 @@ class HarnessStartError(Neo4jNotRunning):
 OWNER_PID_LABEL = "diucs-test-owner-pid"
 OWNER_START_LABEL = "diucs-test-owner-start"
 OWNER_HOST_LABEL = "diucs-test-owner-host"
+# DEC-135: heap 256m and page cache 128m inside a 768m container; see the decision for the measured
+# peak. A heavier test can raise them with the environment variables named in the module docstring.
 DEFAULT_CONTAINER_MEMORY = "768m"
 DEFAULT_HEAP = "256m"
 DEFAULT_PAGECACHE = "128m"
+MEMORY_ENV = "DIUCS_NEO4J_MEMORY"
+HEAP_ENV = "DIUCS_NEO4J_HEAP"
+PAGECACHE_ENV = "DIUCS_NEO4J_PAGECACHE"
 READY_TIMEOUT_ENV = "DIUCS_NEO4J_READY_TIMEOUT"
+IMAGE_PULL_TIMEOUT_S = 900.0
+DOCKER_RUN_TIMEOUT_S = 120.0
+_SIZE = re.compile(r"^[1-9][0-9]*[kKmMgG]$")
 Probe = Callable[["ThrowawayNeo4j"], bool]
 
 
@@ -82,13 +110,6 @@ def _docker(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[st
     )
 
 
-def _ready(name: str, password: str) -> bool:
-    result = _docker(
-        "exec", name, "cypher-shell", "-u", "neo4j", "-p", password, "RETURN 1", timeout=20.0
-    )
-    return result.returncode == 0
-
-
 def new_container_password() -> str:
     """A random password for one container: 128 bits as hex. Hex never starts with a dash, which
     neo4j-admin would read as an option and refuse (the container then exits at once)."""
@@ -96,11 +117,123 @@ def new_container_password() -> str:
 
 
 def owner_labels() -> dict[str, str]:
-    return {}
+    """The labels that name this process as the owner of a container: pid, process start time and
+    host. Empty where the start time cannot be read (no /proc), so the reaper then judges by age."""
+    marker = process_start_marker(os.getpid())
+    if marker is None:
+        return {}
+    return {
+        OWNER_PID_LABEL: str(os.getpid()),
+        OWNER_START_LABEL: marker,
+        OWNER_HOST_LABEL: socket.gethostname(),
+    }
 
 
-def bolt_ready(container: ThrowawayNeo4j) -> bool:
-    return False
+def _size_from_environment(variable: str, default: str) -> str:
+    value = os.environ.get(variable) or default
+    if not _SIZE.match(value):
+        raise HarnessStartError(
+            "config", f"{variable} must be a size such as 768m or 2g, not {value!r}."
+        )
+    return value
+
+
+def ready_timeout_s() -> float:
+    value = os.environ.get(READY_TIMEOUT_ENV)
+    if not value:
+        return CONTAINER_READY_TIMEOUT_S
+    try:
+        seconds = float(value)
+    except ValueError:
+        seconds = 0.0
+    if seconds <= 0:
+        raise HarnessStartError("config", f"{READY_TIMEOUT_ENV} must be a number of seconds.")
+    return seconds
+
+
+def _run_arguments(name: str, port: int, password: str) -> list[str]:
+    memory = _size_from_environment(MEMORY_ENV, DEFAULT_CONTAINER_MEMORY)
+    heap = _size_from_environment(HEAP_ENV, DEFAULT_HEAP)
+    pagecache = _size_from_environment(PAGECACHE_ENV, DEFAULT_PAGECACHE)
+    arguments = ["run", "-d", "--name", name, "--memory", memory, "--label", f"{TEST_LABEL}=true"]
+    for key, value in owner_labels().items():
+        arguments += ["--label", f"{key}={value}"]
+    arguments += [
+        "-p",
+        f"127.0.0.1:{port}:{NEO4J_BOLT_PORT}",
+        "-e",
+        f"NEO4J_AUTH=neo4j/{password}",
+        "-e",
+        f"NEO4J_server_memory_heap_initial__size={heap}",
+        "-e",
+        f"NEO4J_server_memory_heap_max__size={heap}",
+        "-e",
+        f"NEO4J_server_memory_pagecache_size={pagecache}",
+        NEO4J_IMAGE,
+    ]
+    return arguments
+
+
+def _first_line(text: str) -> str:
+    return (text.strip().splitlines() or ["no output"])[0]
+
+
+def _ensure_image(run: DockerRunner) -> None:
+    """Make sure the Neo4j image is on this machine, pulling it only if it is missing. This runs
+    before the readiness clock starts, so a slow pull is never counted against the container."""
+    try:
+        if run("image", "inspect", NEO4J_IMAGE).returncode == 0:
+            return
+        pulled = run("pull", NEO4J_IMAGE, timeout=IMAGE_PULL_TIMEOUT_S)
+    except OSError as error:
+        raise HarnessStartError(
+            "docker",
+            f"Docker is not available, so the Neo4j test harness cannot start its container: "
+            f"{error}",
+        ) from error
+    except subprocess.TimeoutExpired as error:
+        raise HarnessStartError(
+            "image", f"pulling {NEO4J_IMAGE} timed out after {IMAGE_PULL_TIMEOUT_S:.0f} seconds."
+        ) from error
+    if pulled.returncode != 0:
+        raise HarnessStartError(
+            "image",
+            f"{NEO4J_IMAGE} is not present and could not be pulled: {_first_line(pulled.stderr)}",
+        )
+
+
+def _remove_quietly(name: str, run: DockerRunner) -> None:
+    """Best-effort `docker rm -f -v`, for a start that failed. A failed run can leave a created
+    container behind, and its anonymous volumes with it (DEC-128)."""
+    try:
+        run("rm", "-f", "-v", name)
+    except OSError, subprocess.TimeoutExpired:
+        _reaper_log.warning("Could not remove the failed Neo4j test container %s", name)
+
+
+def _docker_run(run: DockerRunner, name: str, arguments: list[str]) -> None:
+    try:
+        started = run(*arguments, timeout=DOCKER_RUN_TIMEOUT_S)
+    except OSError as error:
+        raise HarnessStartError(
+            "docker",
+            f"Docker is not available, so the Neo4j test harness cannot start its container: "
+            f"{error}",
+        ) from error
+    except subprocess.TimeoutExpired as error:
+        _remove_quietly(name, run)
+        raise HarnessStartError(
+            "start",
+            f"docker run for {name} timed out after {DOCKER_RUN_TIMEOUT_S:.0f} seconds (the "
+            f"image was already present, so this is not a pull).",
+        ) from error
+    if started.returncode != 0:
+        _remove_quietly(name, run)
+        raise HarnessStartError(
+            "start",
+            f"Docker could not start the Neo4j test container (is Docker running?): "
+            f"{_first_line(started.stderr)}",
+        )
 
 
 def start_throwaway_neo4j(
@@ -110,44 +243,35 @@ def start_throwaway_neo4j(
     clock: Callable[[], float] = time.monotonic,
     sleep: Callable[[float], None] = time.sleep,
 ) -> ThrowawayNeo4j:
-    """Start a container and wait until cypher-shell inside it answers. Blocks for up to
-    CONTAINER_READY_TIMEOUT_S, because a Neo4j container takes tens of seconds to start."""
-    if run is not None:  # red-run stub (DEC-010): an injected runner is not used yet
-        return ThrowawayNeo4j("stub", "bolt://127.0.0.1:1", "neo4j", "stub")
-    name = f"diucs-test-neo4j-{uuid.uuid4().hex[:12]}"
+    """Start a container and wait until Neo4j answers on Bolt. Phases, in order, each named in its
+    error (HarnessStartError.phase): config, lock (wait for the machine-wide harness lock), docker
+    and image (make sure the image is here), start (docker run) and ready (the readiness clock,
+    default 120 s, which starts only after the image is present). The lock is held until
+    stop_throwaway_neo4j, and is released here on any failure. `run`, `probe`, `clock` and `sleep`
+    are injectable for tests."""
+    runner = run or _docker
+    name = f"{NAME_PREFIX}{uuid.uuid4().hex[:12]}"
     port = _free_port()
     password = new_container_password()
+    arguments = _run_arguments(name, port, password)
+    ready_timeout_s()  # a bad DIUCS_NEO4J_READY_TIMEOUT fails here, before anything is started
     try:
-        started = _docker(
-            "run",
-            "-d",
-            "--name",
-            name,
-            "--label",
-            "diucs-test=true",
-            "-p",
-            f"127.0.0.1:{port}:{NEO4J_BOLT_PORT}",
-            "-e",
-            f"NEO4J_AUTH=neo4j/{password}",
-            NEO4J_IMAGE,
-        )
-    except (OSError, subprocess.TimeoutExpired) as error:
-        raise Neo4jNotRunning(
-            f"Docker is not available, so the Neo4j test harness cannot start its container: "
-            f"{error}"
-        ) from error
-    if started.returncode != 0:
-        first_line = (started.stderr.strip().splitlines() or ["no output"])[0]
-        raise Neo4jNotRunning(
-            f"Docker could not start the Neo4j test container (is Docker running?): {first_line}"
-        )
-    container = ThrowawayNeo4j(
-        name=name, uri=f"bolt://127.0.0.1:{port}", user="neo4j", password=password
-    )
+        harness_lock.acquire(name, clock=clock, sleep=sleep)
+    except harness_lock.HarnessLockTimeout as error:
+        raise HarnessStartError("lock", str(error)) from error
     try:
-        wait_until_ready(container)
-    except Neo4jNotRunning:
-        stop_throwaway_neo4j(container)
+        _ensure_image(runner)
+        _docker_run(runner, name, arguments)
+        container = ThrowawayNeo4j(
+            name=name, uri=f"bolt://127.0.0.1:{port}", user="neo4j", password=password
+        )
+        try:
+            wait_until_ready(container, probe=probe, clock=clock, sleep=sleep)
+        except BaseException:
+            _remove_quietly(name, runner)
+            raise
+    except BaseException:
+        harness_lock.release(name)
         raise
     return container
 
@@ -167,6 +291,26 @@ def start_container(container: ThrowawayNeo4j) -> None:
         raise RuntimeError(f"Could not start the Neo4j test container {container.name}.")
 
 
+def bolt_ready(container: ThrowawayNeo4j) -> bool:
+    """True when the server answers on Bolt and the default database runs a query. This uses the
+    driver in this process, not `docker exec cypher-shell`, which starts a JVM per probe and timed
+    out under load. Each attempt is bounded by the driver's connection timeout."""
+    try:
+        with GraphDatabase.driver(
+            container.uri,
+            auth=(container.user, container.password),
+            connection_timeout=3.0,
+            connection_acquisition_timeout=5.0,
+            notifications_min_severity="OFF",
+        ) as driver:
+            driver.verify_connectivity()
+            with driver.session() as session:
+                session.run("RETURN 1").consume()
+    except Exception:
+        return False
+    return True
+
+
 def wait_until_ready(
     container: ThrowawayNeo4j,
     *,
@@ -175,22 +319,32 @@ def wait_until_ready(
     sleep: Callable[[float], None] = time.sleep,
     timeout_s: float | None = None,
 ) -> None:
-    """Block until cypher-shell inside the container answers, for up to CONTAINER_READY_TIMEOUT_S.
-    Raises Neo4jNotRunning if it does not. The caller decides whether to remove the container."""
-    if probe is not None:  # red-run stub (DEC-010): an injected probe is not used yet
-        return
-    deadline = time.monotonic() + CONTAINER_READY_TIMEOUT_S
-    while not _ready(container.name, container.password):
-        if time.monotonic() > deadline:
-            raise Neo4jNotRunning(
-                f"The Neo4j test container {container.name} did not answer within "
-                f"{CONTAINER_READY_TIMEOUT_S:.0f} seconds."
+    """Block until Neo4j answers on Bolt, for up to timeout_s (default DIUCS_NEO4J_READY_TIMEOUT or
+    120 s), probing with a backoff from 0.25 s to 2 s. Raises HarnessStartError (phase ready, a
+    Neo4jNotRunning) if it does not. The caller decides whether to remove the container."""
+    limit = ready_timeout_s() if timeout_s is None else timeout_s
+    check = probe or bolt_ready
+    deadline = clock() + limit
+    pause = 0.25
+    while not check(container):
+        remaining = deadline - clock()
+        if remaining <= 0:
+            raise HarnessStartError(
+                "ready",
+                f"The Neo4j test container {container.name} did not answer on Bolt within "
+                f"{limit:g} seconds.",
             )
-        time.sleep(1.0)
+        sleep(max(min(pause, remaining), 0.1))
+        pause = min(pause * 1.5, 2.0)
 
 
 def stop_throwaway_neo4j(container: ThrowawayNeo4j, *, run: DockerRunner | None = None) -> None:
-    result = (run or _docker)("rm", "-f", "-v", container.name)
+    """Remove the container and its anonymous volumes (DEC-128), then free its hold on the harness
+    lock. The lock is freed even if the removal fails: the next session's reaper finishes it."""
+    try:
+        result = (run or _docker)("rm", "-f", "-v", container.name)
+    finally:
+        harness_lock.release(container.name)
     if result.returncode != 0:
         raise RuntimeError(f"Could not remove the Neo4j test container {container.name}.")
 
@@ -296,14 +450,25 @@ async def wipe(driver: AsyncDriver) -> None:
         pass
 
 
-# DEC-108. Test runs take under 20 minutes, so a container this old cannot belong to a live run.
+# DEC-108, amended by DEC-135. A container labelled with its owner is judged by whether that owner
+# is still running, at any age. This age is only the fallback for a container with no usable owner
+# label (made by the harness before F10b): test runs take under 20 minutes, so one this old cannot
+# belong to a live run.
 REAPER_MAX_AGE = timedelta(minutes=90)
+# A container whose owner ran on another host, or in another pid namespace, cannot be judged from
+# this host's process table. It is removed only after this much longer age.
+OTHER_HOST_MAX_AGE = timedelta(hours=6)
 TEST_LABEL = "diucs-test"
 # A container is removed only if its name has this prefix AND it carries TEST_LABEL (DEC-108).
 NAME_PREFIX = "diucs-test-neo4j-"
 DockerRunner = Callable[..., subprocess.CompletedProcess[str]]
+ProcessStart = Callable[[int], str | None]
 _CREATED_AT = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$")
 _reaper_log = logging.getLogger(__name__)
+
+_ALIVE = "alive"
+_GONE = "gone"
+_UNKNOWN = "unknown"
 
 
 def _utc_now() -> datetime:
@@ -321,22 +486,47 @@ def _parse_created(text: str) -> datetime:
     return datetime.fromisoformat(f"{base}.{micros}{offset}")
 
 
+def _owner_verdict(
+    pid_text: str, start: str, owner_host: str, this_host: str, process_start: ProcessStart
+) -> tuple[str, timedelta | None]:
+    """Is the owner of a container running? Returns the verdict and, for an unknown one, the age
+    after which the container may be removed anyway (None for alive and gone).
+
+    alive: the owner's pid exists here and has the start time on the label.
+    gone: no such pid, or the pid was reused by a process that started at another time.
+    unknown: no usable owner label (an old container), or the owner is on another host.
+    """
+    if not pid_text and not start and not owner_host:
+        return _UNKNOWN, REAPER_MAX_AGE
+    if not pid_text.isdigit() or not start:
+        return _UNKNOWN, REAPER_MAX_AGE
+    if owner_host != this_host:
+        return _UNKNOWN, OTHER_HOST_MAX_AGE
+    return (_ALIVE, None) if process_start(int(pid_text)) == start else (_GONE, None)
+
+
 def reap_stale_test_containers(
     max_age: timedelta = REAPER_MAX_AGE,
     *,
     run: DockerRunner = _docker,
     now: Callable[[], datetime] = _utc_now,
-    process_start: Callable[[int], str | None] = process_start_marker,
+    process_start: ProcessStart = process_start_marker,
     host: str | None = None,
 ) -> list[str]:
-    """Remove diucs-test containers created more than max_age ago, and return their names.
+    """Remove the diucs-test containers whose owner has gone, and return their names.
 
     A run killed by a timeout or a signal never reaches stop_throwaway_neo4j, so its container
-    stays. This runs once per pytest session (conftest.py). It never raises: if Docker is missing
-    or fails, it logs a warning and returns what it removed so far. A container is removed only if
-    its name starts with NAME_PREFIX and it carries TEST_LABEL, both checked here as well as in the
-    docker filter. A Created value that does not parse skips that one container, not the sweep.
+    stays. Each container carries the pid and start time of its owner (owner_labels): the sweep
+    removes it when no process here has that pid and start time, whatever its age, and never removes
+    one whose owner is running. A container with no usable owner label (made before F10b) keeps the
+    age rule, `max_age` (DEC-108). One owned from another host is removed only past
+    OTHER_HOST_MAX_AGE. This runs once per pytest session (conftest.py). It never raises: if Docker
+    is missing or fails, it logs a warning and returns what it removed so far. A container is
+    removed only if its name starts with NAME_PREFIX and it carries TEST_LABEL, both checked here as
+    well as in the docker filter, and removal is `docker rm -f -v` (DEC-128). A Created value that
+    does not parse skips that one container, not the sweep.
     """
+    this_host = host if host is not None else socket.gethostname()
     removed: list[str] = []
     try:
         listed = run("ps", "-a", "--filter", f"label={TEST_LABEL}=true", "--format", "{{.Names}}")
@@ -346,30 +536,40 @@ def reap_stale_test_containers(
         names = [name for name in listed.stdout.split() if name.startswith(NAME_PREFIX)]
         if not names:
             return removed
+        labels = (TEST_LABEL, OWNER_PID_LABEL, OWNER_START_LABEL, OWNER_HOST_LABEL)
+        label_format = "|".join(f'{{{{index .Config.Labels "{label}"}}}}' for label in labels)
         inspected = run(
-            "inspect",
-            "--format",
-            f'{{{{.Name}}}}|{{{{.Created}}}}|{{{{index .Config.Labels "{TEST_LABEL}"}}}}',
-            *names,
+            "inspect", "--format", f"{{{{.Name}}}}|{{{{.Created}}}}|{label_format}", *names
         )
         if inspected.returncode != 0:
             _reaper_log.warning("Could not inspect test containers: %s", inspected.stderr.strip())
             return removed
-        cutoff = now() - max_age
+        current = now()
         for line in inspected.stdout.splitlines():
-            name, created, label = (line.split("|") + ["", "", ""])[:3]
+            name, created, label, pid_text, start, owner_host = (line.split("|") + [""] * 6)[:6]
             name = name.lstrip("/")
             if label != "true" or name not in names:
                 continue
             try:
-                created_at = _parse_created(created)
-            except ValueError:
-                _reaper_log.warning(
-                    "Skipping %s: its Created value %r does not parse", name, created
+                verdict, fallback_age = _owner_verdict(
+                    pid_text, start, owner_host, this_host, process_start
                 )
+            except Exception:
+                _reaper_log.warning("Skipping %s: its owner could not be checked", name)
                 continue
-            if created_at >= cutoff:
+            if verdict == _ALIVE:
                 continue
+            if verdict == _UNKNOWN:
+                assert fallback_age is not None
+                try:
+                    created_at = _parse_created(created)
+                except ValueError:
+                    _reaper_log.warning(
+                        "Skipping %s: its Created value %r does not parse", name, created
+                    )
+                    continue
+                if created_at >= current - max(fallback_age, max_age):
+                    continue
             result = run("rm", "-f", "-v", name)
             if result.returncode == 0:
                 removed.append(name)

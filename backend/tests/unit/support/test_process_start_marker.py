@@ -12,8 +12,8 @@ from tests.support.proc import parse_start_marker, process_start_marker
 def _stat_line(comm: str, state: str = "S", starttime: int = 987654) -> str:
     # pid (comm) state ppid pgrp session tty tpgid flags minflt cminflt majflt cmajflt utime stime
     # cutime cstime priority nice threads itrealvalue starttime ...  (starttime is field 22)
-    after_comm = [state, "1", "1", "1", "0", "-1", "4194560"] + ["0"] * 11 + [str(starttime), "0"]
-    assert len(after_comm) == 20
+    after_comm = [state, "1", "1", "1", "0", "-1", "4194560"] + ["0"] * 12 + [str(starttime), "0"]
+    assert len(after_comm) == 21
     return f"4321 ({comm}) " + " ".join(after_comm) + "\n"
 
 

@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import subprocess
+import threading
 import time
 from collections.abc import Iterator
 from pathlib import Path
@@ -294,6 +295,40 @@ def test_the_real_probe_says_no_at_once_when_nothing_listens() -> None:
     assert bolt_ready(container) is False
 
     assert time.monotonic() - began < 10
+
+
+def test_the_real_probe_gives_up_on_a_server_that_accepts_a_connection_and_says_nothing() -> None:
+    # A JVM stalled by load can hold a Bolt connection open without answering the handshake. One
+    # probe must still end in seconds, or the readiness limit could be overrun by a long way.
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(5)
+    accepted: list[socket.socket] = []
+    stop = threading.Event()
+
+    def accept_and_stay_silent() -> None:
+        listener.settimeout(0.2)
+        while not stop.is_set():
+            try:
+                accepted.append(listener.accept()[0])
+            except OSError:
+                continue
+
+    thread = threading.Thread(target=accept_and_stay_silent, daemon=True)
+    thread.start()
+    container = ThrowawayNeo4j(
+        "diucs-test-neo4j-x", f"bolt://127.0.0.1:{listener.getsockname()[1]}", "neo4j", "pw"
+    )
+    began = time.monotonic()
+    try:
+        assert bolt_ready(container) is False
+        assert time.monotonic() - began < 12
+    finally:
+        stop.set()
+        thread.join(timeout=2)
+        for connection in accepted:
+            connection.close()
+        listener.close()
 
 
 # ---- the docker run itself --------------------------------------------------------------------

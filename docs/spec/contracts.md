@@ -270,3 +270,9 @@ These names were added by individual task prompts. They are as binding as the re
 - `CapacityRepository.latest_confirmation_at(service_id) -> datetime | None` (query `Q-CAP-LATEST-CONFIRMED-AT`): the effective time of the newest confirmed report, None when there is none. Created by U02 round 3 (DEC-140).
 - `domain/errors.py`: `EffectiveBeforeConfirmation(ValidationFailed)`, a number whose explicit effective time is before the latest confirmed figure. Created by U02 round 3 (DEC-140).
 - `application/use_cases/report_capacity.py`: `record_report(..., use_case=, audit_snapshot=)` gains two optional keyword arguments, and `_check_may_report` is renamed to the public `check_may_report`. Changed by U02 (DEC-112 item 1).
+
+## $board and $confirm-capacity (R05, DEC-144)
+- `adapters/inbound/fhir_rest/routes_board.py`: `router`, `BOARD_ROLES`, `CONFIRM_ROLES`. `GET /fhir/HealthcareService/$board` (roles wall, advisor, clinical, lead, exec, owner; `Cache-Control: no-store`) and `POST /fhir/HealthcareService/{id}/$confirm-capacity` (reporter for own service, or lead; `Idempotency-Key` required; 200 with the new Observation).
+- `adapters/inbound/fhir_rest/mapping.py`: `board_to_parameters(board) -> dict`, `report_to_fhir(report) -> dict` (valid R4B). R04 adds its functions to this file.
+- `CapacityRepository.get(report_id) -> CapacityReport | None`. Created by R05.
+- `ApiContainer` (`fhir_rest/app.py`) gains `ids`.

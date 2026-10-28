@@ -23,6 +23,7 @@ from tests.support import harness_lock
 from tests.support import neo4j as harness
 from tests.support.harness_lock import (
     DEFAULT_LOCK_PATH,
+    HarnessLockError,
     HarnessLockTimeout,
     acquire,
     holder_pid,
@@ -311,3 +312,54 @@ def test_a_timeout_against_a_live_holder_names_its_real_pid(tmp_path: Path) -> N
     finally:
         holder.kill()
         holder.wait()
+
+
+# ---- verifier follow-up N5: the lock file ------------------------------------------------------
+
+
+def test_a_lock_file_that_is_a_symlink_is_refused_and_its_target_is_left_alone(
+    tmp_path: Path,
+) -> None:
+    target = tmp_path / "somebody-elses-file"
+    target.write_text("keep me\n", encoding="utf-8")
+    link = tmp_path / "harness.lock"
+    link.symlink_to(target)
+
+    with pytest.raises(HarnessLockError, match="harness.lock"):
+        acquire("a", timeout_s=1, path=str(link))
+
+    assert target.read_text(encoding="utf-8") == "keep me\n"
+
+
+def test_a_symlinked_lock_file_fails_a_start_in_the_lock_phase(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    target = tmp_path / "target"
+    target.write_text("keep\n", encoding="utf-8")
+    link = tmp_path / "link.lock"
+    link.symlink_to(target)
+    monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(link))
+    calls: list[tuple[str, ...]] = []
+
+    def docker(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return subprocess.CompletedProcess(args=list(args), returncode=0, stdout="", stderr="")
+
+    with pytest.raises(harness.HarnessStartError) as excinfo:
+        harness.start_throwaway_neo4j(run=docker, probe=lambda container: True)
+
+    assert excinfo.value.phase == "lock"
+    assert calls == []
+    assert target.read_text(encoding="utf-8") == "keep\n"
+
+
+def test_the_lock_file_is_world_writable_on_purpose_whatever_the_umask(tmp_path: Path) -> None:
+    # Agents may run as different users and all of them must be able to take the lock.
+    path = tmp_path / "harness.lock"
+    old = os.umask(0o077)
+    try:
+        acquire("a", path=str(path))
+    finally:
+        os.umask(old)
+
+    assert path.stat().st_mode & 0o777 == 0o666

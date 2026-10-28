@@ -5,18 +5,28 @@ limit is a SIGALRM watchdog in the root conftest, built on tests/support/watchdo
 hangs fails with a message that names it and shows where it was; the next test still runs.
 """
 
+import os
 import signal
+import subprocess
+import sys
+import threading
 import time
 from pathlib import Path
 
 import pytest
 
+from tests.support import neo4j as harness
 from tests.support.watchdog import (
     DEFAULT_TEST_TIMEOUT_S,
     TimeLimitExceeded,
     configured_timeout_s,
+    hard_grace_s,
+    paused,
+    setup_timeout_s,
     time_limit,
 )
+
+BACKEND = Path(__file__).resolve().parents[3]
 
 pytest_plugins = ["pytester"]
 
@@ -109,3 +119,193 @@ def test_the_conftest_fails_a_hanging_sync_test_and_a_hanging_async_test_and_run
     result.assert_outcomes(passed=1, failed=2)
     result.stdout.fnmatch_lines(["*TimeLimitExceeded*test_sync_hang*"])
     result.stdout.fnmatch_lines(["*TimeLimitExceeded*test_async_hang*"])
+
+
+# ---- verifier follow-ups: B2c, B2d, N2, N3 ------------------------------------------------------
+
+
+def _run_script(script: str, **env: str) -> tuple[subprocess.CompletedProcess[str], float]:
+    began = time.monotonic()
+    try:
+        result = subprocess.run(
+            [sys.executable, "-c", script],
+            cwd=BACKEND,
+            env={**os.environ, "PYTHONPATH": str(BACKEND), **env},
+            capture_output=True,
+            text=True,
+            timeout=40,
+            check=False,
+        )
+    except subprocess.TimeoutExpired:
+        pytest.fail("the child process was not ended by the time limit")
+    return result, time.monotonic() - began
+
+
+HUNG = """
+import io, signal, sys, time
+from tests.support.watchdog import time_limit
+with time_limit(1, "tests/test_x.py::test_stuck"):
+    signal.signal(signal.SIGALRM, signal.SIG_IGN)  # the soft stage cannot stop this test
+    sys.stderr = io.StringIO()  # what pytest's output capture does to sys.stderr
+    time.sleep(60)
+print("not reached")
+"""
+
+
+def test_the_hard_stage_ends_a_stuck_test_and_its_report_reaches_the_real_stderr() -> None:
+    result, took = _run_script(HUNG, DIUCS_TEST_HARD_GRACE="1")
+
+    assert result.returncode == 3
+    assert took < 20  # limit 1 s plus grace 1 s, not the 60 s default grace
+    assert "not reached" not in result.stdout
+    # sys.stderr was replaced by a capture buffer; the report must still reach the real stderr
+    assert "tests/test_x.py::test_stuck" in result.stderr
+    assert "did not stop" in result.stderr
+    assert "most recent call first" in result.stderr  # the stack of every thread
+
+
+def test_the_hard_grace_defaults_to_sixty_seconds_and_the_environment_overrides_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DIUCS_TEST_HARD_GRACE", raising=False)
+    assert hard_grace_s() == 60.0
+    monkeypatch.setenv("DIUCS_TEST_HARD_GRACE", "2.5")
+    assert hard_grace_s() == 2.5
+    monkeypatch.setenv("DIUCS_TEST_HARD_GRACE", "nonsense")
+    assert hard_grace_s() == 60.0
+    monkeypatch.setenv("DIUCS_TEST_HARD_GRACE", "-1")
+    assert hard_grace_s() == 60.0
+
+
+CLEAN = """
+import signal
+from tests.support.watchdog import time_limit
+before = signal.getsignal(signal.SIGALRM)
+with time_limit(5, "x"):
+    assert 0 < signal.getitimer(signal.ITIMER_REAL)[0] <= 5
+assert signal.getitimer(signal.ITIMER_REAL) == (0.0, 0.0), signal.getitimer(signal.ITIMER_REAL)
+assert signal.getsignal(signal.SIGALRM) == before
+print("clean")
+"""
+
+
+def test_with_no_outer_alarm_the_block_leaves_no_alarm_and_the_old_handler() -> None:
+    # In this test process the root conftest's own alarm masks the same check, so it runs alone.
+    result, _ = _run_script(CLEAN)
+
+    assert result.returncode == 0, result.stderr
+    assert "clean" in result.stdout
+
+
+def test_the_setup_limit_defaults_to_fifteen_minutes_and_the_environment_overrides_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DIUCS_TEST_SETUP_TIMEOUT", raising=False)
+    assert setup_timeout_s() == 900.0
+    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "30")
+    assert setup_timeout_s() == 30.0
+    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "0")
+    assert setup_timeout_s() == 0.0
+    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "nonsense")
+    assert setup_timeout_s() == 900.0
+
+
+def test_a_paused_limit_does_not_count_the_paused_time_and_counts_the_rest() -> None:
+    began = time.monotonic()
+
+    with pytest.raises(TimeLimitExceeded, match="paused-limit"), time_limit(1.5, "paused-limit"):
+        with paused():
+            time.sleep(2.5)  # longer than the limit, but not counted
+        time.sleep(10)
+
+    assert 3.5 <= time.monotonic() - began <= 8
+
+
+def test_pausing_with_no_limit_running_does_nothing() -> None:
+    with paused():
+        pass
+
+
+def test_the_lock_wait_of_a_start_is_not_counted_against_the_setup_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import fcntl
+    import subprocess as sp
+
+    path = tmp_path / "harness.lock"
+    monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(path))
+    other = os.open(path, os.O_RDWR | os.O_CREAT, 0o666)
+    fcntl.flock(other, fcntl.LOCK_EX)
+    threading.Timer(2.5, lambda: os.close(other)).start()  # frees the lock after 2.5 s
+
+    def docker(*args: str, timeout: float = 60.0) -> sp.CompletedProcess[str]:
+        return sp.CompletedProcess(args=list(args), returncode=0, stdout="", stderr="")
+
+    with time_limit(1.0, "set-up of the first test"):
+        container = harness.start_throwaway_neo4j(run=docker, probe=lambda c: True)
+
+    harness.stop_throwaway_neo4j(container, run=docker)
+
+
+def test_a_slow_image_pull_is_not_counted_against_the_setup_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import subprocess as sp
+
+    monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(tmp_path / "harness.lock"))
+
+    def docker(*args: str, timeout: float = 60.0) -> sp.CompletedProcess[str]:
+        if args[:2] == ("image", "inspect"):
+            return sp.CompletedProcess(args=list(args), returncode=1, stdout="", stderr="")
+        if args[0] == "pull":
+            time.sleep(2.5)
+        return sp.CompletedProcess(args=list(args), returncode=0, stdout="", stderr="")
+
+    with time_limit(1.0, "set-up of the first test"):
+        container = harness.start_throwaway_neo4j(run=docker, probe=lambda c: True)
+
+    harness.stop_throwaway_neo4j(container, run=docker)
+
+
+def _setup_session(pytester: pytest.Pytester, body: str) -> pytest.RunResult:
+    conftest_source = (Path(__file__).parents[2] / "conftest.py").read_text(encoding="utf-8")
+    pytester.makeini(
+        "[pytest]\nasyncio_mode = auto\nasyncio_default_fixture_loop_scope = session\n"
+        "asyncio_default_test_loop_scope = session\nmarkers =\n    integration: needs docker\n"
+    )
+    pytester.mkdir("tests")
+    (pytester.path / "tests" / "conftest.py").write_text(conftest_source, encoding="utf-8")
+    pytester.makepyfile(**{"tests/test_setup": body})
+    return pytester.runpytest("-p", "no:cacheprovider")
+
+
+SLOW_SETUP = (
+    "import time, pytest\n"
+    "@pytest.fixture\n"
+    "def slow():\n    time.sleep(20)\n"
+    "def test_needs_it(slow):\n    pass\n"
+    "def test_does_not(): pass\n"
+)
+
+
+def test_the_conftest_fails_a_test_whose_set_up_hangs_and_runs_the_next(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "1")
+    began = time.monotonic()
+
+    result = _setup_session(pytester, SLOW_SETUP)
+
+    assert time.monotonic() - began < 30
+    result.assert_outcomes(passed=1, errors=1)
+    result.stdout.fnmatch_lines(["*TimeLimitExceeded*test_needs_it*set-up*"])
+
+
+def test_a_set_up_limit_of_zero_turns_it_off(
+    pytester: pytest.Pytester, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DIUCS_TEST_SETUP_TIMEOUT", "0")
+
+    result = _setup_session(pytester, SLOW_SETUP.replace("sleep(20)", "sleep(2)"))
+
+    result.assert_outcomes(passed=2)

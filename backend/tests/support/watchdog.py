@@ -31,6 +31,9 @@ from types import FrameType
 DEFAULT_TEST_TIMEOUT_S = 300.0
 TIMEOUT_ENV = "DIUCS_TEST_TIMEOUT"
 HARD_GRACE_S = 60.0
+GRACE_ENV = "DIUCS_TEST_HARD_GRACE"
+DEFAULT_SETUP_TIMEOUT_S = 900.0
+SETUP_TIMEOUT_ENV = "DIUCS_TEST_SETUP_TIMEOUT"
 HARD_EXIT_CODE = 3
 
 
@@ -46,6 +49,22 @@ def configured_timeout_s() -> float:
     except ValueError:
         return DEFAULT_TEST_TIMEOUT_S
     return value if value >= 0 else DEFAULT_TEST_TIMEOUT_S
+
+
+def hard_grace_s() -> float:
+    """Red-run stub (DEC-010)."""
+    return HARD_GRACE_S
+
+
+def setup_timeout_s() -> float:
+    """Red-run stub (DEC-010)."""
+    return 0.0
+
+
+@contextmanager
+def paused() -> Iterator[None]:
+    """Red-run stub (DEC-010)."""
+    yield
 
 
 def _message(label: str, seconds: float, frame: FrameType | None) -> str:

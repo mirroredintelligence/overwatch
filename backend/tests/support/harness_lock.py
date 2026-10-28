@@ -40,7 +40,11 @@ _holds: set[str] = set()
 _fd: int | None = None
 
 
-class HarnessLockTimeout(Exception):
+class HarnessLockError(Exception):
+    """The lock cannot be taken at all (for example the lock file is a symlink)."""
+
+
+class HarnessLockTimeout(HarnessLockError):
     """The lock was not free within the timeout. The message names the holder's pid."""
 
 

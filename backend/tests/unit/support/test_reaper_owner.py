@@ -7,13 +7,22 @@ the diucs-test-neo4j-* names is ever touched. No Docker needed: the Docker runne
 process table are fakes.
 """
 
+import errno
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from tests.support.neo4j import reap_stale_test_containers
-from tests.support.proc import process_start_marker
+import pytest
+
+from tests.support import proc as proc_module
+from tests.support.neo4j import (
+    OTHER_HOST_MAX_AGE,
+    REAPER_MAX_AGE,
+    reap_stale_test_containers,
+)
+from tests.support.proc import ProcessUnreadable, process_start_marker
 
 NOW = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
 MAX_AGE = timedelta(minutes=90)
@@ -246,3 +255,108 @@ def test_the_real_process_table_keeps_this_process_container_and_drops_a_dead_on
     removed = reap_stale_test_containers(MAX_AGE, run=docker, now=lambda: NOW, host="this-host")
 
     assert removed == ["diucs-test-neo4j-gone"]
+
+
+# ---- an owner that cannot be checked is unknown, never gone (verifier finding B1) --------------
+
+UNREADABLE = [
+    ProcessUnreadable("garbled"),
+    PermissionError(errno.EACCES, "Permission denied"),
+    OSError(errno.EMFILE, "Too many open files"),
+    OSError("some other failure"),
+    RuntimeError("anything at all"),
+]
+
+
+def _reap(
+    containers: list[Container],
+    process_start: Callable[[int], str | None],
+    *,
+    host: str = HOST,
+) -> list[str]:
+    return reap_stale_test_containers(
+        MAX_AGE, run=FakeDocker(containers), now=lambda: NOW, process_start=process_start, host=host
+    )
+
+
+@pytest.mark.parametrize("error", UNREADABLE, ids=lambda error: type(error).__name__)
+def test_an_owner_that_cannot_be_checked_keeps_a_young_container(error: BaseException) -> None:
+    def cannot_tell(pid: int) -> str | None:
+        raise error
+
+    removed = _reap([_owned("diucs-test-neo4j-live", 4010, "5", created=RECENT)], cannot_tell)
+
+    assert removed == []
+
+
+@pytest.mark.parametrize("error", UNREADABLE, ids=lambda error: type(error).__name__)
+def test_an_owner_that_cannot_be_checked_falls_back_to_the_age_rule(error: BaseException) -> None:
+    def cannot_tell(pid: int) -> str | None:
+        raise error
+
+    removed = _reap([_owned("diucs-test-neo4j-old", 4011, "5", created=ANCIENT)], cannot_tell)
+
+    assert removed == ["diucs-test-neo4j-old"]
+
+
+def test_a_proc_that_refuses_to_be_read_does_not_cost_the_sweeping_process_its_container(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # The verifier's case: this very process owns the container, and /proc/<pid>/stat raises
+    # PermissionError (hidepid, or no descriptors left). The real process table is used.
+    mine = process_start_marker(os.getpid())
+    assert mine is not None
+    container = _owned("diucs-test-neo4j-mine", os.getpid(), mine, created=RECENT, host="h")
+
+    def refuse(path: object, *args: object, **kwargs: object) -> object:
+        raise PermissionError(errno.EACCES, "Permission denied")
+
+    monkeypatch.setattr(proc_module, "open", refuse, raising=False)
+    docker = FakeDocker([container])
+
+    removed = reap_stale_test_containers(MAX_AGE, run=docker, now=lambda: NOW, host="h")
+
+    assert removed == []
+    assert docker.removed() == []
+
+
+def test_a_pid_with_no_proc_entry_still_means_gone() -> None:
+    removed = _reap([_owned("diucs-test-neo4j-dead", 4012, "5")], lambda pid: None)
+
+    assert removed == ["diucs-test-neo4j-dead"]
+
+
+# ---- the age constants are pinned (verifier finding B2) ----------------------------------------
+
+
+def test_another_hosts_container_is_kept_under_six_hours_and_removed_over() -> None:
+    five_59 = (NOW - timedelta(hours=5, minutes=59)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    six_01 = (NOW - timedelta(hours=6, minutes=1)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    containers = [
+        _owned("diucs-test-neo4j-just-under", 4020, "5", created=five_59, host="other"),
+        _owned("diucs-test-neo4j-just-over", 4021, "5", created=six_01, host="other"),
+    ]
+
+    assert _reap(containers, lambda pid: None) == ["diucs-test-neo4j-just-over"]
+
+
+def test_the_other_host_age_is_six_hours() -> None:
+    assert timedelta(hours=6) == OTHER_HOST_MAX_AGE
+
+
+def test_the_default_age_for_a_container_with_no_owner_is_ninety_minutes() -> None:
+    assert timedelta(minutes=90) == REAPER_MAX_AGE
+    eighty_nine = (NOW - timedelta(minutes=89)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    ninety_one = (NOW - timedelta(minutes=91)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    docker = FakeDocker(
+        [
+            Container("diucs-test-neo4j-legacy-89", eighty_nine),
+            Container("diucs-test-neo4j-legacy-91", ninety_one),
+        ]
+    )
+
+    removed = reap_stale_test_containers(
+        run=docker, now=lambda: NOW, process_start=lambda pid: None
+    )
+
+    assert removed == ["diucs-test-neo4j-legacy-91"]

@@ -71,12 +71,14 @@ class FakeDocker:
         pull_ok: bool = True,
         run_ok: bool = True,
         pull_seconds: float = 0.0,
+        inspect_stderr: str = "",
     ) -> None:
         self.clock = clock
         self.image_present = image_present
         self.pull_ok = pull_ok
         self.run_ok = run_ok
         self.pull_seconds = pull_seconds
+        self.inspect_stderr = inspect_stderr
         self.calls: list[tuple[str, ...]] = []
         self.timeouts: dict[str, float] = {}
 
@@ -87,6 +89,7 @@ class FakeDocker:
         stderr = ""
         if args[:2] == ("image", "inspect"):
             ok = self.image_present
+            stderr = "" if ok else self.inspect_stderr
         elif args[0] == "pull":
             self.clock.now += self.pull_seconds
             ok = self.pull_ok
@@ -538,3 +541,91 @@ def test_a_lock_that_stays_taken_fails_in_the_lock_phase_naming_the_holder(
     assert excinfo.value.phase == "lock"
     assert "31337" in str(excinfo.value)
     assert docker.calls == []
+
+
+# ---- verifier follow-ups: B2b, N1, N4 ---------------------------------------------------------
+
+
+def test_stop_frees_the_lock_even_when_docker_cannot_remove_the_container(tmp_path: Path) -> None:
+    clock = FakeClock()
+    docker = FakeDocker(clock)
+    container = _start(docker, ScriptedProbe(clock, [True]), clock)
+
+    def rm_fails(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=list(args), returncode=1, stdout="", stderr="busy")
+
+    with pytest.raises(RuntimeError, match=container.name):
+        stop_throwaway_neo4j(container, run=rm_fails)
+
+    assert _lock_is_free(tmp_path)
+
+
+def test_stop_frees_the_lock_even_when_docker_itself_raises(tmp_path: Path) -> None:
+    clock = FakeClock()
+    container = _start(FakeDocker(clock), ScriptedProbe(clock, [True]), clock)
+
+    def gone(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
+        raise FileNotFoundError("docker")
+
+    with pytest.raises(FileNotFoundError):
+        stop_throwaway_neo4j(container, run=gone)
+
+    assert _lock_is_free(tmp_path)
+
+
+def test_the_port_is_picked_after_the_lock_is_held(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Waiting for the lock can take an hour; a port picked before the wait would be stale.
+    held_when_picked: list[bool] = []
+
+    def pick() -> int:
+        held_when_picked.append(not _lock_is_free(tmp_path))
+        return 45678
+
+    monkeypatch.setattr(harness, "_free_port", pick)
+    clock = FakeClock()
+
+    container = _start(FakeDocker(clock), ScriptedProbe(clock, [True]), clock)
+
+    assert held_when_picked == [True]
+    assert container.uri == "bolt://127.0.0.1:45678"
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        "Cannot connect to the Docker daemon at unix:///var/run/docker.sock. "
+        "Is the docker daemon running?",
+        "permission denied while trying to connect to the Docker daemon socket at "
+        "unix:///var/run/docker.sock",
+        "error during connect: Get http://localhost:2375/v1.24/images/x/json: dial tcp refused",
+    ],
+)
+def test_a_docker_daemon_that_cannot_be_reached_is_the_docker_phase_not_the_image_phase(
+    stderr: str, tmp_path: Path
+) -> None:
+    clock = FakeClock()
+    docker = FakeDocker(clock, image_present=False, inspect_stderr=stderr)
+
+    with pytest.raises(HarnessStartError) as excinfo:
+        _start(docker, ScriptedProbe(clock, [True]), clock)
+
+    assert excinfo.value.phase == "docker"
+    assert "Docker is not available" in str(excinfo.value)
+    assert docker.named("pull") == []
+    assert docker.named("run") == []
+    assert _lock_is_free(tmp_path)
+
+
+def test_an_image_that_is_simply_missing_is_still_pulled() -> None:
+    clock = FakeClock()
+    docker = FakeDocker(
+        clock,
+        image_present=False,
+        inspect_stderr="Error response from daemon: No such image: neo4j:5.26.32-community",
+    )
+
+    _start(docker, ScriptedProbe(clock, [True]), clock)
+
+    assert docker.named("pull") == [("pull", NEO4J_IMAGE)]

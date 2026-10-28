@@ -2,14 +2,18 @@
 time, so a pid that the operating system has handed to another process cannot keep a leaked
 container alive. No Docker needed."""
 
+import errno
 import os
 import subprocess
 import sys
 
-from tests.support.proc import parse_start_marker, process_start_marker
+import pytest
+
+from tests.support import proc as proc_module
+from tests.support.proc import ProcessUnreadable, parse_start_marker, process_start_marker
 
 
-def _stat_line(comm: str, state: str = "S", starttime: int = 987654) -> str:
+def _stat_line(comm: str, state: str = "S", starttime: int | str = 987654) -> str:
     # pid (comm) state ppid pgrp session tty tpgid flags minflt cminflt majflt cmajflt utime stime
     # cutime cstime priority nice threads itrealvalue starttime ...  (starttime is field 22)
     after_comm = [state, "1", "1", "1", "0", "-1", "4194560"] + ["0"] * 12 + [str(starttime), "0"]
@@ -33,12 +37,26 @@ def test_a_dead_process_is_gone() -> None:
     assert parse_start_marker(_stat_line("python", state="X")) is None
 
 
-def test_text_that_is_not_a_stat_line_gives_no_marker() -> None:
-    assert parse_start_marker("") is None
-    assert parse_start_marker("no brackets here") is None
-    assert parse_start_marker("1 (short) S 1 2") is None
-    # many numeric fields but no command name in brackets: not a /proc stat line
-    assert parse_start_marker(" ".join(str(n) for n in range(30))) is None
+@pytest.mark.parametrize(
+    "text",
+    [
+        "",
+        "no brackets here",
+        "1 (short) S 1 2",
+        # many numeric fields but no command name in brackets: not a /proc stat line
+        " ".join(str(n) for n in range(30)),
+    ],
+)
+def test_text_that_is_not_a_stat_line_is_unreadable_not_gone(text: str) -> None:
+    # A garbled line says nothing about the process. Reading it as "gone" would let the reaper
+    # remove a live owner's container.
+    with pytest.raises(ProcessUnreadable):
+        parse_start_marker(text)
+
+
+def test_a_start_time_field_that_is_not_a_number_is_unreadable_not_gone() -> None:
+    with pytest.raises(ProcessUnreadable):
+        parse_start_marker(_stat_line("python", starttime="abc"))
 
 
 def test_the_marker_of_this_process_is_stable() -> None:
@@ -64,3 +82,37 @@ def test_a_running_child_has_a_marker() -> None:
     finally:
         child.kill()
         child.wait()
+
+
+def _failing_open(monkeypatch: pytest.MonkeyPatch, error: BaseException) -> None:
+    def fake_open(path: object, *args: object, **kwargs: object) -> object:
+        raise error
+
+    monkeypatch.setattr(proc_module, "open", fake_open, raising=False)
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        PermissionError(errno.EACCES, "Permission denied"),  # hidepid, or another user's process
+        OSError(errno.EMFILE, "Too many open files"),
+        OSError(errno.EIO, "Input/output error"),
+        OSError("some other failure"),
+    ],
+)
+def test_a_proc_stat_that_cannot_be_read_is_unreadable_not_gone(
+    monkeypatch: pytest.MonkeyPatch, error: OSError
+) -> None:
+    _failing_open(monkeypatch, error)
+
+    with pytest.raises(ProcessUnreadable):
+        process_start_marker(os.getpid())
+
+
+@pytest.mark.parametrize(
+    "error", [FileNotFoundError(errno.ENOENT, "No such file"), ProcessLookupError(errno.ESRCH, "")]
+)
+def test_a_pid_with_no_proc_entry_is_gone(monkeypatch: pytest.MonkeyPatch, error: OSError) -> None:
+    _failing_open(monkeypatch, error)
+
+    assert process_start_marker(os.getpid()) is None

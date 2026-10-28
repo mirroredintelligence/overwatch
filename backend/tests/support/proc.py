@@ -7,6 +7,11 @@ process counts as gone. Platforms without /proc (macOS, Windows) give no marker,
 labels no owner and the reaper falls back to the age rule.
 """
 
+
+class ProcessUnreadable(Exception):
+    """The process table could not tell whether a pid is running: not the same as gone."""
+
+
 _START_TIME_INDEX = 22 - 3  # fields after the closing bracket start at field 3 (the state)
 _GONE_STATES = {"Z", "X"}
 

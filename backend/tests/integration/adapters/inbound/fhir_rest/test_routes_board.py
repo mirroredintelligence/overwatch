@@ -260,6 +260,7 @@ async def test_any_other_role_gets_the_not_found_answer(
 
     assert allowed.status_code == 200  # the route exists: the refusal below is the role check
     assert refused.status_code == 404
+    assert refused.json()["resourceType"] == "OperationOutcome"
     assert refused.json() == missing.json()
 
 
@@ -270,6 +271,7 @@ async def test_a_reporter_token_is_refused_with_not_found(api_client: AsyncClien
 
     assert allowed.status_code == 200
     assert response.status_code == 404
+    assert response.json()["resourceType"] == "OperationOutcome"
     assert response.json()["issue"][0]["code"] == "not-found"
 
 
@@ -286,10 +288,12 @@ async def test_the_board_body_holds_no_patient_word(api_client: AsyncClient) -> 
     response = await api_client.get(BOARD, headers=_bearer(Role.WALL, (), "device-wall-1"))
 
     assert response.status_code == 200
-    # "inpatient-beds" is a service category, so the check is for the capitalised FHIR word.
-    assert "postcode" not in response.text.lower()
-    assert "servicerequest" not in response.text.lower()
-    assert "Patient" not in response.text
+    # "inpatient-beds" is a service category code, so it is taken out before the check; any other
+    # "patient" in any case (a part name, a value) fails it.
+    text = response.text.lower().replace("inpatient-beds", "")
+    assert "postcode" not in text
+    assert "servicerequest" not in text
+    assert "patient" not in text
 
 
 @pytest.mark.usefixtures("seeded")
@@ -393,6 +397,7 @@ async def test_a_third_confirm_in_a_row_is_refused_and_writes_nothing(
 
     assert (first.status_code, second.status_code) == (200, 200)
     assert third.status_code == 409
+    assert third.json()["resourceType"] == "OperationOutcome"
     issue = third.json()["issue"][0]
     assert issue["code"] == "business-rule"
     assert "UCR West" in issue["diagnostics"]
@@ -468,6 +473,7 @@ async def test_a_reporter_cannot_confirm_another_service_and_learns_nothing(
 
     assert own.status_code == 200  # the route exists: the refusals below are the scope check
     assert other.status_code == 404
+    assert other.json()["resourceType"] == "OperationOutcome"
     assert other.json() == unknown.json()
     assert await _observations(neo4j_driver) == 3  # two seeded numbers and the one confirmation
 
@@ -501,6 +507,68 @@ async def test_other_roles_cannot_confirm(
 
 
 @pytest.mark.usefixtures("seeded")
+@pytest.mark.parametrize("role", [Role.WALL, Role.ADVISOR, Role.EXEC, Role.CLINICAL, Role.OWNER])
+async def test_a_role_that_may_not_confirm_is_refused_even_with_a_key_that_was_used_before(
+    api_client: AsyncClient, neo4j_driver: AsyncDriver, role: Role
+) -> None:
+    # The replay cache answers before the use case runs, and it is keyed by the token's sub. The
+    # same sub, key and body that a lead used must not be answered from that cached 200 once the
+    # token's role is one that may not confirm: only the route's role check refuses it.
+    lead = await _confirm(api_client, CONFIRM_WEST, _bearer(Role.LEAD, (), "shared-sub"), "key-k")
+    observations = await _observations(neo4j_driver)
+
+    refused = await _confirm(
+        api_client, CONFIRM_WEST, _bearer(role, ("svc-ucr-west",), "shared-sub"), "key-k"
+    )
+
+    assert lead.status_code == 200
+    assert refused.status_code == 404
+    assert refused.json()["resourceType"] == "OperationOutcome"
+    assert refused.json()["issue"][0]["code"] == "not-found"
+    assert "idempotent-replay" not in refused.headers
+    assert await _observations(neo4j_driver) == observations
+
+
+@pytest.mark.usefixtures("seeded")
+async def test_a_reporter_who_lost_the_service_is_refused_even_with_a_key_used_before(
+    api_client: AsyncClient, neo4j_driver: AsyncDriver
+) -> None:
+    # Same reasoning as above, for the service scope: the new token for the same sub no longer
+    # lists svc-ucr-west, so only ensure_can_act_for refuses the cached request.
+    first = await _confirm(api_client, CONFIRM_WEST, _west_reporter(), "key-k")
+    observations = await _observations(neo4j_driver)
+    moved = _bearer(Role.REPORTER, ("svc-ward-a",), "prac-reporter-west")
+
+    refused = await _confirm(api_client, CONFIRM_WEST, moved, "key-k")
+    elsewhere = await _confirm(
+        api_client, CONFIRM_WEST, _bearer(Role.REPORTER, (), "prac-reporter-west"), "key-k"
+    )
+
+    assert first.status_code == 200
+    assert refused.status_code == 404
+    assert refused.json()["resourceType"] == "OperationOutcome"
+    assert "idempotent-replay" not in refused.headers
+    assert elsewhere.status_code == 404
+    assert await _observations(neo4j_driver) == observations
+
+
+@pytest.mark.usefixtures("seeded")
+async def test_a_reporter_for_another_service_with_no_key_gets_not_found_not_a_key_error(
+    api_client: AsyncClient, neo4j_driver: AsyncDriver
+) -> None:
+    # The scope check runs before the key check, so a refusal says nothing about the request.
+    control = await _confirm(api_client, CONFIRM_WEST, _west_reporter(), key=None)
+
+    refused = await _confirm(api_client, CONFIRM_WARD, _west_reporter(), key=None)
+
+    assert control.status_code == 400  # the key check exists: it answers for the own service
+    assert refused.status_code == 404
+    assert refused.json()["resourceType"] == "OperationOutcome"
+    assert refused.json()["issue"][0]["code"] == "not-found"
+    assert await _observations(neo4j_driver) == 2
+
+
+@pytest.mark.usefixtures("seeded")
 async def test_no_token_cannot_confirm(api_client: AsyncClient, neo4j_driver: AsyncDriver) -> None:
     response = await _confirm(api_client, CONFIRM_WEST, {})
 
@@ -521,6 +589,7 @@ async def test_a_service_with_no_report_cannot_be_confirmed(
     )
 
     assert response.status_code == 409
+    assert response.json()["resourceType"] == "OperationOutcome"
     issue = response.json()["issue"][0]
     assert issue["code"] == "business-rule"
     assert issue["diagnostics"] == "Send the number for Quiet service."

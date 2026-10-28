@@ -228,12 +228,13 @@ def test_a_time_in_another_zone_is_written_in_utc() -> None:
 
 
 def test_the_parameters_hold_no_patient_word() -> None:
-    # "inpatient-beds" is a service category, so the check is for the capitalised FHIR word.
-    text = repr(_parameters())
+    # "inpatient-beds" is a service category code, so it is taken out before the check; any other
+    # "patient" in any case (a part name, a value) fails it.
+    text = repr(_parameters()).lower().replace("inpatient-beds", "")
 
-    assert "postcode" not in text.lower()
-    assert "servicerequest" not in text.lower()
-    assert "Patient" not in text
+    assert "postcode" not in text
+    assert "servicerequest" not in text
+    assert "patient" not in text
 
 
 # report_to_fhir: the Observation the confirm operation returns

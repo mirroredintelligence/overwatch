@@ -27,6 +27,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ServiceUnavailable
 
 from diucs.adapters.outbound.graph_store.driver import create_driver
+from tests.support.proc import process_start_marker
 
 START_MESSAGE = (
     "Neo4j is not running. Start it with: docker compose -f infra/docker-compose.yml up -d neo4j"
@@ -41,6 +42,24 @@ _SAFE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 class Neo4jNotRunning(Exception):
     """Raised when the Neo4j instance cannot be reached in time."""
+
+
+class HarnessStartError(Neo4jNotRunning):
+    """The harness failed in one named phase: lock, config, image, start or ready."""
+
+    def __init__(self, phase: str, detail: str) -> None:
+        super().__init__(f"Neo4j test harness failed in the {phase} phase: {detail}")
+        self.phase = phase
+
+
+OWNER_PID_LABEL = "diucs-test-owner-pid"
+OWNER_START_LABEL = "diucs-test-owner-start"
+OWNER_HOST_LABEL = "diucs-test-owner-host"
+DEFAULT_CONTAINER_MEMORY = "768m"
+DEFAULT_HEAP = "256m"
+DEFAULT_PAGECACHE = "128m"
+READY_TIMEOUT_ENV = "DIUCS_NEO4J_READY_TIMEOUT"
+Probe = Callable[["ThrowawayNeo4j"], bool]
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,9 +95,25 @@ def new_container_password() -> str:
     return secrets.token_hex(16)
 
 
-def start_throwaway_neo4j() -> ThrowawayNeo4j:
+def owner_labels() -> dict[str, str]:
+    return {}
+
+
+def bolt_ready(container: ThrowawayNeo4j) -> bool:
+    return False
+
+
+def start_throwaway_neo4j(
+    *,
+    run: DockerRunner | None = None,
+    probe: Probe | None = None,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+) -> ThrowawayNeo4j:
     """Start a container and wait until cypher-shell inside it answers. Blocks for up to
     CONTAINER_READY_TIMEOUT_S, because a Neo4j container takes tens of seconds to start."""
+    if run is not None:  # red-run stub (DEC-010): an injected runner is not used yet
+        return ThrowawayNeo4j("stub", "bolt://127.0.0.1:1", "neo4j", "stub")
     name = f"diucs-test-neo4j-{uuid.uuid4().hex[:12]}"
     port = _free_port()
     password = new_container_password()
@@ -132,9 +167,18 @@ def start_container(container: ThrowawayNeo4j) -> None:
         raise RuntimeError(f"Could not start the Neo4j test container {container.name}.")
 
 
-def wait_until_ready(container: ThrowawayNeo4j) -> None:
+def wait_until_ready(
+    container: ThrowawayNeo4j,
+    *,
+    probe: Probe | None = None,
+    clock: Callable[[], float] = time.monotonic,
+    sleep: Callable[[float], None] = time.sleep,
+    timeout_s: float | None = None,
+) -> None:
     """Block until cypher-shell inside the container answers, for up to CONTAINER_READY_TIMEOUT_S.
     Raises Neo4jNotRunning if it does not. The caller decides whether to remove the container."""
+    if probe is not None:  # red-run stub (DEC-010): an injected probe is not used yet
+        return
     deadline = time.monotonic() + CONTAINER_READY_TIMEOUT_S
     while not _ready(container.name, container.password):
         if time.monotonic() > deadline:
@@ -145,8 +189,8 @@ def wait_until_ready(container: ThrowawayNeo4j) -> None:
         time.sleep(1.0)
 
 
-def stop_throwaway_neo4j(container: ThrowawayNeo4j) -> None:
-    result = _docker("rm", "-f", "-v", container.name)
+def stop_throwaway_neo4j(container: ThrowawayNeo4j, *, run: DockerRunner | None = None) -> None:
+    result = (run or _docker)("rm", "-f", "-v", container.name)
     if result.returncode != 0:
         raise RuntimeError(f"Could not remove the Neo4j test container {container.name}.")
 
@@ -282,6 +326,8 @@ def reap_stale_test_containers(
     *,
     run: DockerRunner = _docker,
     now: Callable[[], datetime] = _utc_now,
+    process_start: Callable[[int], str | None] = process_start_marker,
+    host: str | None = None,
 ) -> list[str]:
     """Remove diucs-test containers created more than max_age ago, and return their names.
 
@@ -311,7 +357,7 @@ def reap_stale_test_containers(
             return removed
         cutoff = now() - max_age
         for line in inspected.stdout.splitlines():
-            name, created, label = (line.split("|", 2) + ["", "", ""])[:3]
+            name, created, label = (line.split("|") + ["", "", ""])[:3]
             name = name.lstrip("/")
             if label != "true" or name not in names:
                 continue

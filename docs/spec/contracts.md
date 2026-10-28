@@ -196,6 +196,10 @@ These names were added by individual task prompts. They are as binding as the re
 | `ReportCapacityCommand.flag` | `application/use_cases/report_capacity.py` | U01 |
 | `schedule_work(uow, ids, *, kind, about_id, due_at, now)`, `cancel_work(uow, work, now)` | `application/scheduling.py` | U03 |
 | Outbox event types `ScheduleWork` (payload `work_id, kind, about_id, enqueue_at`) and `CancelWork` (payload `work_id`) on topic `scheduled.work`; the relay delivers `ScheduledWorkDue` (payload `work_id, kind, about_id`) | `application/scheduling.py`, relay in I03 | U03, I03 |
+| `ContentSealer` port (`seal(content, *, message_id, tenant_id, recipient_role_id)`, `unseal(sealed, *, ...)`): seals prompt content so no token text is at rest (DEC-116) | `application/ports/outbound/sealing.py` | U03 (DEC-116) |
+| `AesGcmContentSealer(secrets)`, `derive_key(secret)`, `seal_content`, `unseal_content`: AES-256-GCM, associated data the outbox message id, tenant id and recipient role id, strict `v2.` base64url text (DEC-116) | `adapters/outbound/content_seal/aes_gcm.py` | U03 (DEC-116) |
+| `SendMessage` outbox payload from `SendPrompts`: `communication_id, message_id, channel, recipient_role_id, sealed_content` (no `text`, `subject` or `html`; I10 opens `sealed_content` with the outbox message id, the tenant and `recipient_role_id`; a U01 echo still carries `text`) (DEC-115 item 10, DEC-116 item 8) | `application/use_cases/send_prompts.py` | U03 |
+| `SendPrompts(uow_factory, clock, ids, idempotency, link_tokens: LinkTokenServiceFactory, link_base_url, sealer: ContentSealer, tenant_id)`, `SendPromptCommand`, `SendPromptResult`, the skip reasons `SKIP_*`, `split_unit_label` (DEC-115 items 1, 12, 13, 15; DEC-116 item 7) | `application/use_cases/send_prompts.py` | U03 |
 | `ScheduledWork.status` values `scheduled`, `done`, `cancelled` | `application/work.py` | P08 |
 | `WorkKind` value `not-updated-check` | `application/work.py` | U34 |
 | `DeviceRegistry.get`, `DeviceRegistry.save`; `ClaimPairingResult.status` may be `expired` | `application/ports/outbound/identity.py`, `use_cases/pair_wall_screen.py` | U10, R15 |

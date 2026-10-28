@@ -363,3 +363,29 @@ def test_the_lock_file_is_world_writable_on_purpose_whatever_the_umask(tmp_path:
         os.umask(old)
 
     assert path.stat().st_mode & 0o777 == 0o666
+
+
+def test_releasing_the_first_holder_first_keeps_the_lock_for_the_second(tmp_path: Path) -> None:
+    # The reverse of the order above: if the second holder was never recorded, releasing the first
+    # would free a lock that the second container still holds.
+    path = tmp_path / "harness.lock"
+    acquire("session", path=str(path))
+    acquire("extra", timeout_s=0.5, path=str(path))
+
+    release("session")
+    assert not _is_free(path)
+    release("extra")
+    assert _is_free(path)
+
+
+def test_freeing_the_lock_empties_the_file_so_a_stale_pid_is_not_left_behind(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "harness.lock"
+    acquire("a", path=str(path))
+    assert holder_pid(str(path)) == os.getpid()
+
+    release("a")
+
+    assert path.read_bytes() == b""
+    assert holder_pid(str(path)) is None

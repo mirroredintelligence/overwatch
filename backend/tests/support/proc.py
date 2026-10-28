@@ -8,6 +8,8 @@ process and a pid with no /proc entry count as gone; a /proc entry that cannot b
 very process, so the harness labels no owner and the reaper falls back to the age rule.
 """
 
+import os
+
 
 class ProcessUnreadable(Exception):
     """The process table could not tell whether a pid is running: not the same as gone."""
@@ -46,3 +48,13 @@ def process_start_marker(pid: int) -> str | None:
     except OSError as error:
         raise ProcessUnreadable(f"/proc/{pid}/stat could not be read: {error}") from error
     return parse_start_marker(text)
+
+
+def pid_namespace() -> str:
+    """Red-run stub (DEC-010): the identity of this process's pid namespace."""
+    return ""
+
+
+def boot_id() -> str:
+    """Red-run stub (DEC-010): the identity of this boot of the machine."""
+    return ""

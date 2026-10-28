@@ -4,13 +4,20 @@ container alive. No Docker needed."""
 
 import errno
 import os
+import re
 import subprocess
 import sys
 
 import pytest
 
 from tests.support import proc as proc_module
-from tests.support.proc import ProcessUnreadable, parse_start_marker, process_start_marker
+from tests.support.proc import (
+    ProcessUnreadable,
+    boot_id,
+    parse_start_marker,
+    pid_namespace,
+    process_start_marker,
+)
 
 
 def _stat_line(comm: str, state: str = "S", starttime: int | str = 987654) -> str:
@@ -116,3 +123,77 @@ def test_a_pid_with_no_proc_entry_is_gone(monkeypatch: pytest.MonkeyPatch, error
     _failing_open(monkeypatch, error)
 
     assert process_start_marker(os.getpid()) is None
+
+
+def _hide_stat_but_keep_the_process(
+    monkeypatch: pytest.MonkeyPatch, pid: int, kill_result: BaseException | None
+) -> None:
+    """Make /proc/<pid>/stat answer ENOENT, as hidepid=2 does for another user's live process, and
+    control what kill(pid, 0) says. Other pids and paths behave as usual."""
+    real_open = open
+    real_kill = os.kill
+
+    def fake_open(path: object, *args: object, **kwargs: object) -> object:
+        if path == f"/proc/{pid}/stat":
+            raise FileNotFoundError(errno.ENOENT, "No such file or directory")
+        return real_open(path, *args, **kwargs)  # type: ignore[call-overload]
+
+    def fake_kill(target: int, signal_number: int) -> None:
+        if target == pid and kill_result is not None:
+            raise kill_result
+        real_kill(target, signal_number)
+
+    monkeypatch.setattr(proc_module, "open", fake_open, raising=False)
+    monkeypatch.setattr(proc_module.os, "kill", fake_kill)
+
+
+def test_a_missing_stat_for_a_live_pid_is_unreadable_not_gone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # hidepid=2: the pid exists (kill(pid, 0) succeeds) but its stat file is not visible
+    _hide_stat_but_keep_the_process(monkeypatch, os.getpid(), kill_result=None)
+
+    with pytest.raises(ProcessUnreadable):
+        process_start_marker(os.getpid())
+
+
+def test_a_missing_stat_that_kill_refuses_with_eperm_is_unreadable_not_gone(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _hide_stat_but_keep_the_process(
+        monkeypatch,
+        os.getpid(),
+        kill_result=PermissionError(errno.EPERM, "Operation not permitted"),
+    )
+
+    with pytest.raises(ProcessUnreadable):
+        process_start_marker(os.getpid())
+
+
+def test_a_missing_stat_for_a_really_dead_pid_is_gone() -> None:
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+
+    assert process_start_marker(child.pid) is None
+
+
+def test_this_process_has_a_pid_namespace_identity() -> None:
+    namespace = pid_namespace()
+
+    assert namespace.startswith("pid:[")
+    assert namespace.endswith("]")
+
+
+def test_an_unreadable_pid_namespace_is_empty_not_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    def refuse(path: object) -> str:
+        raise OSError(errno.EACCES, "denied")
+
+    monkeypatch.setattr(proc_module.os, "readlink", refuse)
+
+    assert pid_namespace() == ""
+
+
+def test_this_boot_has_an_identity_that_is_a_uuid() -> None:
+    identity = boot_id()
+
+    assert re.fullmatch(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", identity)

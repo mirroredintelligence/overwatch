@@ -22,9 +22,12 @@ from tests.support.neo4j import (
     REAPER_MAX_AGE,
     reap_stale_test_containers,
 )
-from tests.support.proc import ProcessUnreadable, process_start_marker
+from tests.support.proc import ProcessUnreadable, boot_id, pid_namespace, process_start_marker
 
 NOW = datetime(2026, 10, 28, 12, 0, 0, tzinfo=UTC)
+# The pid namespace and boot identity of "this process" in these fake tests (B4).
+NS = "pid:[4026531836]"
+BOOT = "11111111-2222-3333-4444-555555555555"
 MAX_AGE = timedelta(minutes=90)
 HOST = "build-host"
 RECENT = "2026-10-28T11:55:00.000000000Z"  # five minutes old
@@ -42,10 +45,12 @@ class Container:
         pid: str = "",
         start: str = "",
         host: str = "",
+        ns: str = "",
+        boot: str = "",
     ) -> None:
         self.name = name
         self.created = created
-        self.fields = [test_label, pid, start, host]
+        self.fields = [test_label, pid, start, host, ns, boot]
 
 
 class FakeDocker:
@@ -85,6 +90,8 @@ def _sweep(
     table: dict[int, str],
     *,
     host: str = HOST,
+    namespace: str = NS,
+    boot: str = BOOT,
 ) -> tuple[list[str], FakeDocker]:
     docker = FakeDocker(containers)
     removed = reap_stale_test_containers(
@@ -93,12 +100,22 @@ def _sweep(
         now=lambda: NOW,
         process_start=lambda pid: table.get(pid),
         host=host,
+        here_namespace=namespace,
+        here_boot=boot,
     )
     return removed, docker
 
 
-def _owned(name: str, pid: int, start: str, created: str = RECENT, host: str = HOST) -> Container:
-    return Container(name, created, pid=str(pid), start=start, host=host)
+def _owned(
+    name: str,
+    pid: int,
+    start: str,
+    created: str = RECENT,
+    host: str = HOST,
+    ns: str = NS,
+    boot: str = BOOT,
+) -> Container:
+    return Container(name, created, pid=str(pid), start=start, host=host, ns=ns, boot=boot)
 
 
 def test_the_inspect_format_reads_the_three_owner_labels() -> None:
@@ -235,7 +252,13 @@ def test_a_refused_removal_is_logged_and_the_sweep_goes_on() -> None:
     )
 
     removed = reap_stale_test_containers(
-        MAX_AGE, run=docker, now=lambda: NOW, process_start=lambda pid: None, host=HOST
+        MAX_AGE,
+        run=docker,
+        now=lambda: NOW,
+        process_start=lambda pid: None,
+        host=HOST,
+        here_namespace=NS,
+        here_boot=BOOT,
     )
 
     assert removed == ["diucs-test-neo4j-fine"]
@@ -246,9 +269,26 @@ def test_the_real_process_table_keeps_this_process_container_and_drops_a_dead_on
     assert mine is not None
     child = subprocess.Popen([sys.executable, "-c", "pass"])
     child.wait()
+    here_ns, here_boot = pid_namespace(), boot_id()
     containers = [
-        _owned("diucs-test-neo4j-mine", os.getpid(), mine, created=ANCIENT, host="this-host"),
-        _owned("diucs-test-neo4j-gone", child.pid, "1", created=RECENT, host="this-host"),
+        _owned(
+            "diucs-test-neo4j-mine",
+            os.getpid(),
+            mine,
+            created=ANCIENT,
+            host="this-host",
+            ns=here_ns,
+            boot=here_boot,
+        ),
+        _owned(
+            "diucs-test-neo4j-gone",
+            child.pid,
+            "1",
+            created=RECENT,
+            host="this-host",
+            ns=here_ns,
+            boot=here_boot,
+        ),
     ]
     docker = FakeDocker(containers)
 
@@ -275,7 +315,13 @@ def _reap(
     host: str = HOST,
 ) -> list[str]:
     return reap_stale_test_containers(
-        MAX_AGE, run=FakeDocker(containers), now=lambda: NOW, process_start=process_start, host=host
+        MAX_AGE,
+        run=FakeDocker(containers),
+        now=lambda: NOW,
+        process_start=process_start,
+        host=host,
+        here_namespace=NS,
+        here_boot=BOOT,
     )
 
 
@@ -306,7 +352,15 @@ def test_a_proc_that_refuses_to_be_read_does_not_cost_the_sweeping_process_its_c
     # PermissionError (hidepid, or no descriptors left). The real process table is used.
     mine = process_start_marker(os.getpid())
     assert mine is not None
-    container = _owned("diucs-test-neo4j-mine", os.getpid(), mine, created=RECENT, host="h")
+    container = _owned(
+        "diucs-test-neo4j-mine",
+        os.getpid(),
+        mine,
+        created=RECENT,
+        host="h",
+        ns=pid_namespace(),
+        boot=boot_id(),
+    )
 
     def refuse(path: object, *args: object, **kwargs: object) -> object:
         raise PermissionError(errno.EACCES, "Permission denied")
@@ -375,3 +429,84 @@ def test_an_owner_that_cannot_be_checked_is_judged_by_a_six_hour_age() -> None:
     ]
 
     assert _reap(containers, cannot_tell) == ["diucs-test-neo4j-seven-hours"]
+
+
+# ---- B4: an owner that is not visible from here is unknown, never gone ------------------------
+
+
+def test_an_owner_in_another_pid_namespace_is_kept_young_and_removed_after_six_hours() -> None:
+    # Same host name, same pid and start time, but a different pid namespace: the pid means
+    # nothing here, so the owner may be alive. Only the six-hour age may remove it.
+    five_hours = (NOW - timedelta(hours=5)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    seven_hours = (NOW - timedelta(hours=7)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    containers = [
+        _owned("diucs-test-neo4j-other-ns-young", 4050, "5", created=RECENT, ns="pid:[4026532001]"),
+        _owned(
+            "diucs-test-neo4j-other-ns-five", 4051, "5", created=five_hours, ns="pid:[4026532001]"
+        ),
+        _owned(
+            "diucs-test-neo4j-other-ns-old", 4052, "5", created=seven_hours, ns="pid:[4026532001]"
+        ),
+    ]
+
+    removed = _reap(containers, lambda pid: None)
+
+    assert removed == ["diucs-test-neo4j-other-ns-old"]
+
+
+def test_an_owner_from_another_boot_is_judged_by_the_six_hour_age() -> None:
+    # A boot id is the same for every process of one boot. After a reboot a pid and a start time
+    # can repeat, so a different boot is not this machine's process table.
+    containers = [
+        _owned("diucs-test-neo4j-other-boot-young", 4053, "5", created=RECENT, boot="other-boot"),
+    ]
+
+    assert _reap(containers, lambda pid: None) == []
+
+
+def test_an_owner_label_with_no_host_is_not_treated_as_this_host() -> None:
+    five_hours = (NOW - timedelta(hours=5)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    seven_hours = (NOW - timedelta(hours=7)).strftime("%Y-%m-%dT%H:%M:%S.000000000Z")
+    containers = [
+        _owned("diucs-test-neo4j-nohost-five", 4054, "5", created=five_hours, host=""),
+        _owned("diucs-test-neo4j-nohost-old", 4055, "5", created=seven_hours, host=""),
+    ]
+
+    assert _reap(containers, lambda pid: None) == ["diucs-test-neo4j-nohost-old"]
+
+
+def test_an_owner_whose_stat_is_hidden_but_which_is_alive_is_kept_young(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # hidepid=2 gives ENOENT for another user's live process. The real process table is used:
+    # kill(pid, 0) succeeds for this live process, so the owner is not gone.
+    real_open = open
+    own_stat = f"/proc/{os.getpid()}/stat"
+
+    def hidden(path: object, *args: object, **kwargs: object) -> object:
+        if path == own_stat:
+            raise FileNotFoundError(errno.ENOENT, "No such file or directory")
+        return real_open(path, *args, **kwargs)  # type: ignore[call-overload]
+
+    monkeypatch.setattr(proc_module, "open", hidden, raising=False)
+    docker = FakeDocker([_owned("diucs-test-neo4j-hidden-owner", os.getpid(), "5", created=RECENT)])
+
+    removed = reap_stale_test_containers(
+        MAX_AGE, run=docker, now=lambda: NOW, host=HOST, here_namespace=NS, here_boot=BOOT
+    )
+
+    assert removed == []
+    assert docker.removed() == []
+
+
+def test_an_owner_that_is_really_dead_is_removed_at_any_age() -> None:
+    # The real process table: the child has been reaped, so kill(pid, 0) says no such process.
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+    docker = FakeDocker([_owned("diucs-test-neo4j-really-dead", child.pid, "5", created=RECENT)])
+
+    removed = reap_stale_test_containers(
+        MAX_AGE, run=docker, now=lambda: NOW, host=HOST, here_namespace=NS, here_boot=BOOT
+    )
+
+    assert removed == ["diucs-test-neo4j-really-dead"]

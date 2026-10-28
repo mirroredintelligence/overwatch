@@ -76,6 +76,8 @@ class HarnessStartError(Neo4jNotRunning):
 OWNER_PID_LABEL = "diucs-test-owner-pid"
 OWNER_START_LABEL = "diucs-test-owner-start"
 OWNER_HOST_LABEL = "diucs-test-owner-host"
+OWNER_NS_LABEL = "diucs-test-owner-pidns"  # red-run stub (DEC-010): not written yet
+OWNER_BOOT_LABEL = "diucs-test-owner-boot"  # red-run stub (DEC-010): not written yet
 # DEC-135: heap 256m and page cache 128m inside a 1g container; see the decision for the measured
 # peak. A heavier test can raise them with the environment variables named in the module docstring.
 DEFAULT_CONTAINER_MEMORY = "1g"
@@ -550,6 +552,8 @@ def reap_stale_test_containers(
     now: Callable[[], datetime] = _utc_now,
     process_start: ProcessStart = process_start_marker,
     host: str | None = None,
+    here_namespace: str | None = None,
+    here_boot: str | None = None,
 ) -> list[str]:
     """Remove the diucs-test containers whose owner has gone, and return their names.
 

@@ -27,7 +27,7 @@ from tests.support.neo4j import (
     stop_throwaway_neo4j,
     wait_until_ready,
 )
-from tests.support.proc import process_start_marker
+from tests.support.proc import boot_id, pid_namespace, process_start_marker
 
 ENV_NAMES = (
     "DIUCS_NEO4J_MEMORY",
@@ -410,6 +410,8 @@ def test_the_container_is_labelled_with_its_owner_process_and_start_time() -> No
     assert marker is not None
     assert f"diucs-test-owner-start={marker}" in labels
     assert f"diucs-test-owner-host={socket.gethostname()}" in labels
+    assert f"diucs-test-owner-pidns={pid_namespace()}" in labels
+    assert f"diucs-test-owner-boot={boot_id()}" in labels
 
 
 def test_owner_labels_name_this_process_and_this_host() -> None:
@@ -417,7 +419,11 @@ def test_owner_labels_name_this_process_and_this_host() -> None:
         "diucs-test-owner-pid": str(os.getpid()),
         "diucs-test-owner-start": process_start_marker(os.getpid()),
         "diucs-test-owner-host": socket.gethostname(),
+        "diucs-test-owner-pidns": pid_namespace(),
+        "diucs-test-owner-boot": boot_id(),
     }
+    assert pid_namespace() != ""  # the namespace and boot identity are labelled, not left empty
+    assert boot_id() != ""
 
 
 def test_a_container_name_keeps_the_prefix_the_reaper_requires() -> None:
@@ -647,3 +653,55 @@ def test_a_proc_that_cannot_be_read_gives_no_owner_labels_instead_of_failing_the
 
     assert owner_labels() == {}
     assert [v for v in _values(docker.run_args(), "--label") if "owner" in v] == []
+
+
+# ---- verifier round 2, N9: the size, timeout and run-limit values are pinned ---------------------
+
+
+@pytest.mark.parametrize("value", ["0", "0m", "0g", "512", "1.5g", "m", "1x", " 1g", "-1g"])
+def test_a_memory_value_that_is_not_a_positive_size_is_refused(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("DIUCS_NEO4J_MEMORY", value)
+
+    with pytest.raises(HarnessStartError) as excinfo:
+        harness._memory_limits()
+
+    assert excinfo.value.phase == "config"
+
+
+@pytest.mark.parametrize("value", ["1g", "512m", "2G", "256M"])
+def test_a_memory_value_that_is_a_size_is_accepted(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("DIUCS_NEO4J_MEMORY", value)
+
+    assert harness._memory_limits()[0] == value
+
+
+def test_an_empty_size_variable_means_the_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DIUCS_NEO4J_MEMORY", "")
+
+    assert harness._memory_limits()[0] == harness.DEFAULT_CONTAINER_MEMORY
+
+
+@pytest.mark.parametrize("value", ["0", "-5", "nan", "abc", "0.0"])
+def test_a_readiness_timeout_that_is_not_positive_is_refused(
+    monkeypatch: pytest.MonkeyPatch, value: str
+) -> None:
+    monkeypatch.setenv("DIUCS_NEO4J_READY_TIMEOUT", value)
+
+    with pytest.raises(HarnessStartError) as excinfo:
+        harness.ready_timeout_s()
+
+    assert excinfo.value.phase == "config"
+
+
+def test_the_docker_run_limit_is_two_minutes_and_is_passed_to_docker() -> None:
+    assert harness.DOCKER_RUN_TIMEOUT_S == 120.0
+    clock = FakeClock()
+    docker = FakeDocker(clock)
+
+    _start(docker, ScriptedProbe(clock, [True]), clock)
+
+    assert docker.timeouts["run"] == 120.0

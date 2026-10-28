@@ -36,6 +36,7 @@ class ConfirmCapacityCommand:
     service_id: str
     source: ReportSource
     performer_role_id: str | None = None
+    send_echo: bool = True
 
 
 @dataclass(frozen=True, slots=True)

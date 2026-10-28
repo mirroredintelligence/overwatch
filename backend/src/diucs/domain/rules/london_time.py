@@ -40,3 +40,7 @@ def london_to_utc(d: date, t: time) -> datetime:
 def format_hhmm(dt: datetime) -> str:
     """Return the London wall-clock time as HH:MM, for messages and the wall board."""
     return to_london(dt).strftime("%H:%M")
+
+
+def format_stamp(dt: datetime) -> str:
+    raise NotImplementedError

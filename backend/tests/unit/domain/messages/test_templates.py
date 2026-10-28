@@ -1,4 +1,4 @@
-"""Tests for diucs.domain.messages.templates: the capacity messages C1 to C11 (D15).
+"""Tests for diucs.domain.messages.templates: the capacity messages C1 to C12 (D15; C12 by U05).
 
 Wording: docs/spec/domain-rules.md section 9 (samples) and the D15 prompt (templates). Where the
 prompt is silent (email body, push wording for C8), DEC-034 records the choice.
@@ -71,6 +71,14 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
         "waiting": [("A", "UCR West")],
     },
     MessageId.C11: {},
+    MessageId.C12: {
+        "service": "UCR West",
+        "value": 3,
+        "unit": "referrals in the next 2 hrs",
+        "as_of": "22 Oct 17:00",
+        "reply_with": "a number",
+        "reply_by": "12:35",
+    },
 }
 
 UK_POSTCODE = re.compile(r"\b[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}\b")
@@ -331,3 +339,40 @@ def test_c10_rows_that_are_not_tuples_are_refused(row: object) -> None:
 def test_c9_letter_and_service_must_be_text(row: tuple[object, ...]) -> None:
     with pytest.raises(ValidationFailed):
         render(MessageId.C9, Channel.TEXT, reply_by="10:30", items=[row, ("B", "UCR East", 1)])
+
+
+# --- C12: the figure on record is out of date, so a Y was not used (U05, hazard H-31) -------------
+
+
+def test_c12_tells_the_reporter_the_figure_is_out_of_date_and_asks_for_a_number() -> None:
+    rendered = render(MessageId.C12, Channel.TEXT, **SAMPLE_FIELDS[MessageId.C12])
+    assert rendered.text == (
+        "DIUCS: UCR West. The figure on record, 3 referrals in the next 2 hrs, is out of date "
+        "(as of 22 Oct 17:00), so Y was not used. Send a number (0 = closed). By 12:35."
+    )
+
+
+def test_c12_for_a_lettered_prompt_names_the_letter_to_send() -> None:
+    fields = {**SAMPLE_FIELDS[MessageId.C12], "reply_with": "B and a number"}
+    rendered = render(MessageId.C12, Channel.TEXT, **fields)
+    assert "Send B and a number (0 = closed). By 12:35." in rendered.text
+
+
+@pytest.mark.parametrize("reply_with", ["", "a figure", "B", "Z and a number", "b and a number"])
+def test_c12_reply_with_is_one_of_the_two_instructions(reply_with: str) -> None:
+    fields = {**SAMPLE_FIELDS[MessageId.C12], "reply_with": reply_with}
+    with pytest.raises(ValidationFailed):
+        render(MessageId.C12, Channel.TEXT, **fields)
+
+
+def test_c12_is_sent_by_text_only() -> None:
+    for channel in (Channel.EMAIL, Channel.PUSH):
+        with pytest.raises(ValidationFailed):
+            render(MessageId.C12, channel, **SAMPLE_FIELDS[MessageId.C12])
+
+
+def test_c12_needs_every_field() -> None:
+    for field in SAMPLE_FIELDS[MessageId.C12]:
+        fields = {k: v for k, v in SAMPLE_FIELDS[MessageId.C12].items() if k != field}
+        with pytest.raises(ValidationFailed):
+            render(MessageId.C12, Channel.TEXT, **fields)

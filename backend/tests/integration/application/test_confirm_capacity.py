@@ -389,6 +389,54 @@ async def test_a_text_confirmation_gets_the_c3_echo_with_the_confirmed_value(
     assert sends[0].payload["recipient_role_id"] == "role-1"
 
 
+async def test_the_echo_can_be_switched_off_for_a_caller_that_sends_its_own_reply(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """U05 answers a grouped reply with one C10 and so asks for no per-service C3 (DEC-148). The
+    performer is still recorded on the report."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    rig = Rig(uow_factory, neo4j_driver)
+
+    rig.clock.set(AT_1005)
+    result = await rig.confirm.execute(
+        ConfirmCapacityCommand(
+            idempotency_key="k1",
+            actor=REPORTER,
+            service_id="ucr-west",
+            source=ReportSource.TEXT,
+            performer_role_id="role-1",
+            send_echo=False,
+        )
+    )
+
+    assert result.confirmed_value == 3
+    assert await count_nodes(neo4j_driver, "Communication") == 0
+    assert [m for m in await _outbox(uow_factory) if m.event_type == "SendMessage"] == []
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.performer_role_id == "role-1"
+
+
+async def test_a_key_reused_with_the_echo_switched_is_a_different_command(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    rig = Rig(uow_factory, neo4j_driver)
+    await rig.yes(AT_1005, "k1", performer="role-1")
+
+    with pytest.raises(Conflict):
+        await rig.confirm.execute(
+            ConfirmCapacityCommand(
+                idempotency_key="k1",
+                actor=REPORTER,
+                service_id="ucr-west",
+                source=ReportSource.TEXT,
+                performer_role_id="role-1",
+                send_echo=False,
+            )
+        )
+
+
 async def test_a_link_confirmation_is_not_echoed(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

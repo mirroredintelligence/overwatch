@@ -19,6 +19,7 @@ class MessageId(StrEnum):
     C9 = "C9"
     C10 = "C10"
     C11 = "C11"
+    C12 = "C12"
     # Bookings (D16)
     B1 = "B1"
     B2 = "B2"

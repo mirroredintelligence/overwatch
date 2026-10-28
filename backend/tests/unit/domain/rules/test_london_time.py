@@ -7,7 +7,13 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
-from diucs.domain.rules.london_time import LONDON, format_hhmm, london_to_utc, to_london
+from diucs.domain.rules.london_time import (
+    LONDON,
+    format_hhmm,
+    format_stamp,
+    london_to_utc,
+    to_london,
+)
 
 SPRING_CHANGE = date(2026, 3, 29)
 AUTUMN_CHANGE = date(2026, 10, 25)
@@ -279,3 +285,45 @@ def test_format_hhmm_round_trips_a_summer_wall_clock_time(minute: int) -> None:
     local = minute_to_time(minute)
     instant = london_to_utc(date(2026, 7, 1), local)
     assert format_hhmm(instant) == local.strftime("%H:%M")
+
+
+# --- format_stamp: the full London date and time of a figure, "23 Oct 08:15" (U05, DEC-148) ------
+
+
+@pytest.mark.parametrize(
+    ("instant", "expected"),
+    [
+        (utc(2026, 10, 23, 7, 15), "23 Oct 08:15"),  # BST
+        (utc(2026, 12, 22, 17, 0), "22 Dec 17:00"),  # GMT
+        (utc(2026, 11, 5, 9, 5), "5 Nov 09:05"),  # no leading zero on the day
+        (utc(2026, 10, 22, 23, 30), "23 Oct 00:30"),  # the London date, not the UTC date
+        (utc(2026, 3, 29, 0, 59), "29 Mar 00:59"),  # the last minute before the spring gap
+        (utc(2026, 3, 29, 1, 0), "29 Mar 02:00"),  # the gap is skipped
+        (utc(2026, 10, 25, 0, 30), "25 Oct 01:30"),  # first 01:30 of the autumn fold
+        (utc(2026, 10, 25, 1, 30), "25 Oct 01:30"),  # second 01:30: the same words, a later instant
+        (utc(2026, 1, 1, 0, 0), "1 Jan 00:00"),
+        (utc(2026, 12, 31, 23, 59), "31 Dec 23:59"),
+    ],
+)
+def test_format_stamp_is_the_london_day_month_and_time(instant: datetime, expected: str) -> None:
+    assert format_stamp(instant) == expected
+
+
+def test_format_stamp_refuses_a_naive_datetime() -> None:
+    with pytest.raises(ValueError):
+        format_stamp(datetime(2026, 10, 23, 7, 15))
+
+
+def test_format_stamp_is_the_wording_send_prompts_gives_a_figure() -> None:
+    """U03's `_stamp` words the C1 date. A second copy must not disagree with it (known-issues)."""
+    from diucs.application.use_cases.send_prompts import _stamp
+
+    instants = [
+        utc(2026, 10, 23, 7, 15),
+        utc(2026, 3, 29, 0, 30),
+        utc(2026, 3, 29, 1, 0),
+        utc(2026, 10, 25, 0, 59),
+        utc(2026, 10, 25, 1, 0),
+        utc(2026, 12, 22, 17, 0),
+    ]
+    assert [format_stamp(i) for i in instants] == [_stamp(i) for i in instants]

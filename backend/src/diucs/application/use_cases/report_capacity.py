@@ -68,6 +68,7 @@ class ReportCapacityCommand:
     performer_role_id: str | None = None
     replaced_value: int | None = None
     flag: ReportFlagReason | None = None
+    send_echo: bool = True
 
 
 @dataclass(frozen=True, slots=True)

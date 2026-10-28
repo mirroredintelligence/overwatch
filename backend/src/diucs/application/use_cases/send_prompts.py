@@ -8,18 +8,12 @@ recipient role, so no token text is ever stored and sealed content cannot be mov
 Rules: domain-rules 1.4 (schedule), 1.5 (ladder), 2.1 and 9 (C1, C2), 7 (link tokens).
 """
 
-import base64
 import hashlib
-import hmac
 import json
-import os
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Final
-
-from cryptography.exceptions import InvalidTag
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from diucs.application.actor import Actor
 from diucs.application.idempotency import IdempotencyStore
@@ -28,12 +22,8 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.ports.outbound.tokens import (
-    LINK_TOKEN_SECRET,
-    LinkTokenRepository,
-    LinkTokenService,
-    SecretStore,
-)
+from diucs.application.ports.outbound.sealing import ContentSealer
+from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.scheduling import schedule_work
 from diucs.application.work import WorkKind
@@ -92,75 +82,6 @@ _MONTHS: Final = (
 LinkTokenServiceFactory = Callable[[LinkTokenRepository], LinkTokenService]
 """Builds the link-token service on a unit of work's own token repository, so the token is stored
 in the same transaction as the prompt (DEC-115 item 1)."""
-
-SEAL_VERSION: Final = "v2."
-NONCE_BYTES: Final = 12
-TAG_BYTES: Final = 16
-KEY_BYTES: Final = 32
-MIN_SECRET_BYTES: Final = 32
-_KEY_LABEL: Final = b"diucs:prompt-content:v2"
-_NOT_SEALED: Final = "is not a sealed prompt"
-
-
-def derive_key(secret: bytes) -> bytes:
-    """The 256-bit content key, derived from the link secret with a fixed label. A secret shorter
-    than 32 bytes is refused (DEC-116 item 2)."""
-    if len(secret) < MIN_SECRET_BYTES:
-        raise ValidationFailed("secret", "must be at least 32 bytes")
-    return hmac.new(secret, _KEY_LABEL, hashlib.sha256).digest()
-
-
-def _check_key(key: bytes) -> None:
-    if len(key) != KEY_BYTES:
-        raise ValidationFailed("key", "must be 32 bytes")
-
-
-def _associated(message_id: str, tenant_id: str, recipient_role_id: str) -> bytes:
-    """The associated data: the outbox message, the tenant and the recipient, as canonical JSON, so
-    that sealed content cannot be moved to another message, tenant or recipient (DEC-116 item 3)."""
-    return json.dumps(
-        {"message_id": message_id, "recipient_role_id": recipient_role_id, "tenant_id": tenant_id},
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-
-
-def seal_content(
-    content: str, key: bytes, *, message_id: str, tenant_id: str, recipient_role_id: str
-) -> str:
-    """Seal text with AES-256-GCM. The nonce is 96 random bits from the operating system, one per
-    seal, and is kept in the sealed text. The text is base64url without padding."""
-    _check_key(key)
-    nonce = os.urandom(NONCE_BYTES)
-    aad = _associated(message_id, tenant_id, recipient_role_id)
-    sealed = AESGCM(key).encrypt(nonce, content.encode("utf-8"), aad)
-    return SEAL_VERSION + base64.urlsafe_b64encode(nonce + sealed).rstrip(b"=").decode("ascii")
-
-
-def unseal_content(
-    sealed: str, key: bytes, *, message_id: str, tenant_id: str, recipient_role_id: str
-) -> str:
-    """The text a seal holds. Refused (ValidationFailed, field name only) when the text is not in
-    strict form (no padding, base64url alphabet only, canonical encoding), when it is too short,
-    or when it does not verify under this key and these associated data (DEC-116 items 4, 5)."""
-    _check_key(key)
-    if not sealed.startswith(SEAL_VERSION) or "=" in sealed:
-        raise ValidationFailed("sealed_content", _NOT_SEALED)
-    body = sealed[len(SEAL_VERSION) :]
-    try:
-        raw = base64.b64decode(body + "=" * (-len(body) % 4), altchars=b"-_", validate=True)
-    except ValueError:
-        raise ValidationFailed("sealed_content", _NOT_SEALED) from None
-    if base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii") != body:
-        raise ValidationFailed("sealed_content", _NOT_SEALED)
-    if len(raw) < NONCE_BYTES + TAG_BYTES:
-        raise ValidationFailed("sealed_content", _NOT_SEALED)
-    aad = _associated(message_id, tenant_id, recipient_role_id)
-    try:
-        plain = AESGCM(key).decrypt(raw[:NONCE_BYTES], raw[NONCE_BYTES:], aad)
-    except InvalidTag:
-        raise ValidationFailed("sealed_content", "does not verify") from None
-    return plain.decode("utf-8")
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,7 +206,7 @@ def _send_payload(
     message_id: MessageId,
     role: PractitionerRole,
     rendered: RenderedMessage,
-    key: bytes,
+    sealer: ContentSealer,
     tenant_id: str,
 ) -> dict[str, object]:
     content = json.dumps(
@@ -299,9 +220,8 @@ def _send_payload(
         "message_id": message_id.value,
         "channel": rendered.channel.value,
         "recipient_role_id": role.id,
-        "sealed_content": seal_content(
+        "sealed_content": sealer.seal(
             content,
-            key,
             message_id=outbox_id,
             tenant_id=tenant_id,
             recipient_role_id=role.id,
@@ -318,7 +238,7 @@ class SendPrompts:
         idempotency: IdempotencyStore,
         link_tokens: LinkTokenServiceFactory,
         link_base_url: str,
-        secret_store: SecretStore,
+        sealer: ContentSealer,
         tenant_id: str,
     ) -> None:
         self._uow_factory = uow_factory
@@ -327,7 +247,7 @@ class SendPrompts:
         self._idempotency = idempotency
         self._link_tokens = link_tokens
         self._link_base_url = link_base_url.rstrip("/")
-        self._secret_store = secret_store
+        self._sealer = sealer
         self._tenant_id = tenant_id
 
     async def execute(self, command: SendPromptCommand) -> SendPromptResult:
@@ -401,7 +321,6 @@ class SendPrompts:
     ) -> list[str]:
         reply = reply_by(due)
         tokens = self._link_tokens(uow.link_tokens)
-        key = derive_key(self._secret_store.get(LINK_TOKEN_SECRET))
         communication_ids: list[str] = []
         for role in await uow.people.reporter_roles_for_service(profile.id, now):
             phone_hash = await _phone_hash(uow, role, now)
@@ -435,7 +354,7 @@ class SendPrompts:
                         message_id,
                         role,
                         rendered,
-                        key,
+                        self._sealer,
                         self._tenant_id,
                     ),
                     created_at=now,

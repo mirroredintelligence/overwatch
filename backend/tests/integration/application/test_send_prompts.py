@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
+from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -38,8 +39,6 @@ from diucs.application.use_cases.send_prompts import (
     SKIP_SUSPENDED,
     SendPromptCommand,
     SendPrompts,
-    derive_key,
-    unseal_content,
 )
 from diucs.application.work import CANCELLED, SCHEDULED, ScheduledWork, WorkKind
 from diucs.domain.codes import (
@@ -178,7 +177,7 @@ def _rig(
         DriverIdempotencyStore(driver),
         tokens,
         link_base,
-        FixedSecretStore({"link-token": SECRET}),
+        AesGcmContentSealer(FixedSecretStore({"link-token": SECRET})),
         TENANT,
     )
     return use_case, clock
@@ -235,12 +234,12 @@ def _sent(messages: list[OutboxMessage]) -> list[OutboxMessage]:
 
 
 def _opened(message: OutboxMessage, tenant: str = TENANT) -> dict[str, Any]:
-    """The rendered content of one SendMessage, opened as the sender does: with the key derived from
-    the link secret, and the message id, tenant and recipient role as associated data."""
+    """The rendered content of one SendMessage, opened as the sender does. The sealer is keyed
+    from the link secret. The outbox message id, tenant and recipient role are associated data."""
+    sealer = AesGcmContentSealer(FixedSecretStore({"link-token": SECRET}))
     opened: dict[str, Any] = json.loads(
-        unseal_content(
+        sealer.unseal(
             message.payload["sealed_content"],
-            derive_key(SECRET),
             message_id=message.id,
             tenant_id=tenant,
             recipient_role_id=message.payload["recipient_role_id"],
@@ -975,7 +974,7 @@ async def test_a_replay_seen_only_inside_the_unit_of_work_is_still_a_replay(
         _MissesTheEarlyRead(DriverIdempotencyStore(neo4j_driver)),  # type: ignore[arg-type]
         tokens,
         LINK_BASE,
-        FixedSecretStore({"link-token": SECRET}),
+        AesGcmContentSealer(FixedSecretStore({"link-token": SECRET})),
         TENANT,
     )
 

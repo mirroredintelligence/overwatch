@@ -1,17 +1,12 @@
-"""Unit tests for the sealed prompt content (U03 round 3, DEC-116): AES-256-GCM with associated
-data (the outbox message id, the tenant id and the recipient role id). Pure: no Neo4j, no clock.
-Synthetic values only."""
+"""Unit tests for the AES-256-GCM content seal (U03, DEC-116): the associated data (the outbox
+message id, the tenant id and the recipient role id), the nonce, the key, and strict decoding.
+Pure: no Neo4j, no clock. Synthetic values only."""
 
 import base64
 
 import pytest
 
-from diucs.application.use_cases.send_prompts import (
-    derive_key,
-    seal_content,
-    split_unit_label,
-    unseal_content,
-)
+from diucs.adapters.outbound.content_seal.aes_gcm import derive_key, seal_content, unseal_content
 from diucs.domain.errors import ValidationFailed
 
 SECRET = b"s" * 40
@@ -167,19 +162,3 @@ def test_a_body_shorter_than_nonce_and_tag_is_refused(key: bytes) -> None:
     short = _sealed(b"x" * 10)
     with pytest.raises(ValidationFailed):
         unseal_content(short, key, **AAD)
-
-
-@pytest.mark.parametrize(
-    ("label", "expected"),
-    [
-        ("referrals in the next 2 hrs", ("referrals", "in the next 2 hrs")),
-        ("referrals", ("referrals", "")),
-        ("referrals in", ("referrals in", "")),
-        ("referrals in ", ("referrals in ", "")),
-        (" in the next 2 hrs", (" in the next 2 hrs", "")),
-    ],
-)
-def test_the_unit_label_is_split_into_unit_and_window_or_refused(
-    label: str, expected: tuple[str, str]
-) -> None:
-    assert split_unit_label(label) == expected

@@ -508,7 +508,9 @@ TEST_LABEL = "diucs-test"
 NAME_PREFIX = "diucs-test-neo4j-"
 DockerRunner = Callable[..., subprocess.CompletedProcess[str]]
 ProcessStart = Callable[[int], str | None]
-_CREATED_AT = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$")
+_CREATED_AT = re.compile(
+    r"^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]+))?(Z|[+-][0-9]{2}:[0-9]{2})$"
+)
 _reaper_log = logging.getLogger(__name__)
 
 _ALIVE = "alive"
@@ -555,7 +557,8 @@ def _owner_verdict(
     gone: only when this process can see that no such process exists: the pid is absent from this
     pid table (kill(pid, 0) says so) or it was reused by a process that started at another time.
     unknown: anything else. A container with no owner label at all (made before F10b) keeps the
-    90-minute age rule (REAPER_MAX_AGE); every other unknown owner keeps OTHER_HOST_MAX_AGE.
+    90-minute age rule (REAPER_MAX_AGE); an owner whose pid or start label is not ASCII digits keeps
+    REAPER_MAX_AGE too; every other unknown owner keeps OTHER_HOST_MAX_AGE.
     """
     if owner.is_empty():
         return _UNKNOWN, REAPER_MAX_AGE
@@ -590,7 +593,8 @@ def reap_stale_test_containers(
     stays. Each container carries the pid and start time of its owner (owner_labels): the sweep
     removes it when this process can see that the owner is gone, whatever its age, and never removes
     one whose owner is running. The owner is comparable only from its own host name, pid namespace
-    and boot: any other, or an owner that cannot be seen, is kept until OTHER_HOST_MAX_AGE. A
+    and boot: any other, or an owner that cannot be seen, is kept until OTHER_HOST_MAX_AGE (a pid or
+    start label that is not ASCII digits keeps the 90-minute rule instead). A
     container with no owner label at all (made before F10b) keeps the age rule, `max_age`
     (DEC-108). `here_namespace` and `here_boot` default to this process's identities and are
     injectable for tests. This runs once per pytest session (conftest.py). It never raises: if

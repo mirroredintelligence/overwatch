@@ -228,6 +228,16 @@ def test_a_non_ascii_digit_pid_label_falls_back_to_the_ninety_minute_rule(pid: s
     assert removed == ["diucs-test-neo4j-pidgarbled-old"]
 
 
+def test_a_created_value_with_non_ascii_digits_is_not_parsed_so_the_container_is_kept() -> None:
+    # Arabic-Indic digits: \d would match them, [0-9] does not. An unparsed Created value means the
+    # age cannot be judged, so the container is kept (the safe direction). Pins existing behaviour.
+    containers = [Container("diucs-test-neo4j-createdgarbled", "٢٠٢٦-10-28T06:00:00.000000000Z")]
+
+    removed, _ = _sweep(containers, table={})
+
+    assert removed == []
+
+
 def test_a_container_owned_from_another_host_is_judged_by_age_not_by_this_hosts_processes() -> None:
     # pid 4004 means nothing here: it may be alive in another pid namespace. Never reap it young.
     containers = [

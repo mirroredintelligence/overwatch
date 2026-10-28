@@ -19,9 +19,10 @@ pytestmark = pytest.mark.skipif(
     reason="live Twilio check: set DIUCS_LIVE_TWILIO=1 to run it",
 )
 
-# Twilio regional endpoint (Ireland, ie1). It must match the Allowed websites of the network secret
-# exactly: the agent proxy attaches the credentials only to requests for that host.
-TWILIO_ACCOUNTS = "https://api.dublin.ie1.twilio.com/2010-04-01/Accounts.json"
+# Twilio regional endpoint (Ireland, ie1). It must match the Allowed websites of the network
+# secret exactly: the agent proxy attaches the credentials only to requests for that host.
+TWILIO_HOST = "api.dublin.ie1.twilio.com"
+TWILIO_ACCOUNTS = f"https://{TWILIO_HOST}/2010-04-01/Accounts.json"
 
 
 def _get_without_credentials(url: str) -> tuple[int, dict[str, object]]:
@@ -34,9 +35,9 @@ def _get_without_credentials(url: str) -> tuple[int, dict[str, object]]:
 
 
 def test_stored_twilio_credentials_authenticate() -> None:
-    status, body = _get_without_credentials(TWILIO_ACCOUNTS)
+    status, _ = _get_without_credentials(TWILIO_ACCOUNTS)
     assert status == 200, (
-        f"Twilio answered HTTP {status}. The network secret for api.dublin.ie1.twilio.com is missing, "
+        f"Twilio answered HTTP {status}. The network secret for {TWILIO_HOST} is missing, "
         "shows 'Not sent' in the environment's list, or its credentials are wrong."
     )
 

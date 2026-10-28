@@ -19,7 +19,9 @@ pytestmark = pytest.mark.skipif(
     reason="live Twilio check: set DIUCS_LIVE_TWILIO=1 to run it",
 )
 
-TWILIO_ACCOUNTS = "https://api.twilio.com/2010-04-01/Accounts.json"
+# Twilio regional endpoint (Ireland, ie1). It must match the Allowed websites of the network secret
+# exactly: the agent proxy attaches the credentials only to requests for that host.
+TWILIO_ACCOUNTS = "https://api.dublin.ie1.twilio.com/2010-04-01/Accounts.json"
 
 
 def _get_without_credentials(url: str) -> tuple[int, dict[str, object]]:

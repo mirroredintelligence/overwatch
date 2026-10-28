@@ -16,7 +16,7 @@ Overall difficulty: **high**. The storage seam is mechanical (78 named queries, 
 
 1. **Every entry point that exists before a session has no tenant.** Link tokens, invitation links, pairing codes, wall device tokens, text codes and webhooks are resolved by a secret or a provider number, not by a signed session. DEC-130 item 6 covers only bearer tokens, sessions and worker messages. DEC-131 item 5 lists the rest as "still to bind". Section 3 designs each one.
 2. **Roles are global today.** `lead`, `advisor` and `clinical` act on "all services" (`R02.md:62`). The `support` role is mapped from an Entra app role in the customer's own directory (`W09.md:48`), so a customer administrator could grant it to themselves. DEC-130 item 6 ("staff sign-in maps a user to exactly one tenant") is too strict for a clinician in two organisations.
-3. **Shared state is keyed globally in at least 19 places** (section 3.3): `board:v1`, the `board.updates` channel, the `outbox-relay` lock, the single `AuditHead`, `IdempotencyRecord.key`, `ChainLink.seq`, `ServiceRequest.reference`, the fixed `scope-list` id, `Settings.area_districts`, `twilio_from`, one `bff-jwt` secret and one phone-hash secret, and others. The idempotency key one is a real data-leak path (an arbitrary client key returns another tenant's stored result).
+3. **Shared state is keyed globally in at least 20 places** (section 3.3): `board:v1`, the `board.updates` channel, the `outbox-relay` lock, the single `AuditHead`, `IdempotencyRecord.key`, `ChainLink.seq`, `ServiceRequest.reference`, the fixed `scope-list` id, `Settings.area_districts`, `twilio_from`, one `bff-jwt` secret and one phone-hash secret, and others. The idempotency key one is a real data-leak path (an arbitrary client key returns another tenant's stored result).
 4. **DEC-132 does not cover the booking flow, registration approval, criteria second approval, the chasing ladder, alerts or the week summary**, all of which cross legal entities today. Its three scopes are capacity, directory and criteria. Section 4.9 lists each gap with a proposed default. These are the largest unanswered design questions.
 5. **Neo4j Community cannot enforce "every node has a tenant id"** (property existence constraints are Enterprise-only; `migrations.py:1-10`). A node missing its tenant id is invisible to every tenant-bound query. A service that vanishes from the board looks like "not listed", not "not updated". That needs a startup and daily invariant check, not only tests (section 2.6).
 6. **Constants that are really tenant or network configuration**: London time zone in five modules, "Dorset" in five templates and screens, "SystmOne" in B1 wording, a Dorset-specific default for `area_districts`, the 14:00 second report, the 2-hour stale limit, pressure thresholds of 3 and 5 (section 6). Bank holidays are modelled nowhere (`D03.md:77` defers planned closures).
@@ -25,7 +25,7 @@ Difficulty by area (hours are my estimates for work beyond the DEC-130 seam task
 
 | Area | Difficulty | Why |
 |---|---|---|
-| Storage seam and constraints | Medium | Mechanical, but 9 of the 28 migrations need an expand-and-contract change (section 2.6) |
+| Storage seam and constraints | Medium | Mechanical, but six of the 26 migrations change a constraint (expand and contract) (section 2.6) |
 | Tenant lifecycle (create, activate, suspend, offboard) | High | Does not exist; offboarding touches Redis, Service Bus, Twilio, backups |
 | Pre-session entry points | High | Six mechanisms, each needs a platform-scope resolver |
 | Staff and operator identity | High | Multi-directory Entra, role source of trust, two audiences |
@@ -117,7 +117,7 @@ provisioning -> active <-> suspended -> offboarding -> offboarded -> purged
 
 | Transition | Who | Preconditions | Effects |
 |---|---|---|---|
-| Create | platform-admin | Unique slug; legal name; owner tenant of an existing network if it is a member | `Tenant` in `provisioning`; `TenantConfigVersion` 1 as `draft` from platform defaults; tenant audit chain created (genesis is `sha256("diucs-genesis:" + scopeId)`, section 2.6); secret references recorded; tenant-scope tombstone-free |
+| Create | platform-admin | Unique slug; legal name; owner tenant of an existing network if it is a member | `Tenant` in `provisioning`; `TenantConfigVersion` 1 as `draft` from platform defaults; tenant audit chain created (genesis is `sha256("diucs-genesis:" + scopeId)`, section 2.6); secret references recorded |
 | Activate | platform-admin plus a second operator | `activation_blockers(tenant)` is empty (below) | Config version 1 becomes `current`; `activatedAt`; first tenant admin invitation sent |
 | Suspend | platform-admin (urgent: one person, reviewed by a second within 24 hours) | Reason code | `suspendMode` set; `epoch` incremented; relay and consumers skip the tenant; see below |
 | Resume | platform-admin plus tenant-admin confirmation | Reason resolved | `epoch` incremented; per service the next `prompt-due` is rescheduled (the logic of `ResumeService`, `U36.md`); a `StatusChanged` is emitted per service so boards recompute |
@@ -170,7 +170,7 @@ Exclude shared reference data: `Concept`, `CodeSystem`, `Migration` (DEC-130 ite
 
 **If no production data exists when the first tenant goes live**, skip steps 3 and 4 and create the tenant at first deploy. Keep the migration for development databases.
 
-**Constraint and index conversion** (from `migrations.py:20-132`):
+**Constraint and index conversion** (from `migrations.py:20-132`, 26 entries):
 
 | Migration | Today | Action |
 |---|---|---|
@@ -216,12 +216,12 @@ DEC-130 item 6 names only the first kind and worker messages. Kinds 2 and 3 need
 
 | Entry point | Today | How the tenant is established | Notes and failure handling |
 |---|---|---|---|
-| Link token, capacity or booking (`GET/POST /links/{token}`, `contracts.md:139`; `L01.md`) | `Q-LINK-GET` by `tokenHash` (unique, migration 0021) | `Q-LINK-TENANT-BY-HASH` (platform scope) returns `tenantId` and `status`. The bound lookup then runs `Q-LINK-GET` inside the tenant. Unknown, expired, used or suspended all give the same 410 body (`L01.md:53`) | Keep `tokenHash` unique globally. The CSRF secret `link-csrf` (`L01.md:55`) is derived per tenant. The page header shows the tenant name and the service |
+| Link token, capacity or booking (`GET/POST /links/{token}`, `contracts.md:139`; `L01.md`) | `Q-LINK-GET` by `tokenHash` (unique, migration 0021) | `Q-LINK-TENANT-BY-HASH` (platform scope) returns `tenantId` and `status`. The bound lookup then runs `Q-LINK-GET` inside the tenant. Unknown, expired, used or suspended all give the same 410 body (`L01.md:54`) | Keep `tokenHash` unique globally. The CSRF secret `link-csrf` (`L01.md:55`) is derived per tenant. The page header shows the tenant name and the service |
 | Invitation link `/i/<token>` (`U24.md:58`) | Token purpose `invite` | Same resolver. `/register` takes `?invite=<token>` (`W23.md`) so the tenant is known before any phone is typed | A tenant-admin invitation uses purpose `tenant-admin-invite` |
 | Text code request and verify (`U25`, `R11.md`) | `(phoneHash, purpose)`; request carries only a mobile | During registration the invitation token gives the tenant. For later sign-in (set-up, re-verify, PIN reset) the **installed app is per tenant** (`/t/<slug>/app`, manifest `start_url` and `scope` include the slug). The slug is a hint; the authority is a `Practitioner` found in that tenant by the tenant-keyed phone hash | Code key `diucs:<scopeId>:code:<hash>:<purpose>`; the code is texted from the tenant's number (DEC-131 item 5); unknown number gets the identical response, as `U25.md:56` requires |
 | Inbound SMS (`I07`) | Allow-list by `phoneHash` only (`I07.md:55`); idempotency key `diucs:idem:sms:<MessageSid>` (`I07.md:56`) | `To` + `AccountSid` -> `TenantNumber` -> tenant (DEC-131 item 2). The signature is checked with that subaccount's token. Idempotency key `diucs:<scopeId>:idem:sms:<sid>`. The queued message carries the tenant property | Unknown number: fixed empty answer, log the id only. `U05` then runs bound to the tenant, so `find_by_phone_hash` and `latest_prompt_for_phone` (`U05.md:55`) can only see that tenant |
 | Delivery receipt (`I08`) | `by_provider_id` | `AccountSid` -> tenant; `Communication` matched inside the tenant | |
-| Wall pairing code (`U10`, `R15`) | Code hash looked up with no tenant; start is unauthenticated (`R15.md:55`) | Pairing records live in the platform scope (`WallPairing`: `codeHash`, `secretHash`, `expiresAt`, `status`). The code is unique among open pairings (regenerate on a clash). The lead of tenant T confirms it, which writes `tenantId = T` into the record. The claim then returns the device token | Rate-limit the unauthenticated start per address (none is specified). The lead's page says "Connect to <tenant name>" before the button. The paired screen shows the tenant name large for 10 seconds |
+| Wall pairing code (`U10`, `R15`) | Code hash looked up with no tenant; start is unauthenticated (`R15.md:59`) | Pairing records live in the platform scope (`WallPairing`: `codeHash`, `secretHash`, `expiresAt`, `status`). The code is unique among open pairings (regenerate on a clash). The lead of tenant T confirms it, which writes `tenantId = T` into the record. The claim then returns the device token | Rate-limit the unauthenticated start per address (none is specified). The lead's page says "Connect to <tenant name>" before the button. The paired screen shows the tenant name large for 10 seconds |
 | Wall device token (`W08.md`) | Hash lookup, `sub` is the device id | The bearer is the opaque token. The backend resolves it each request (hash -> device -> tenant, status, `displayMode`; cached at most 60 seconds). No long-lived JWT with a tenant claim | Suspend and revoke take effect at the next request |
 | Staff sign-in (`W09`) | One Entra directory; role from the `roles` claim; JWT `sub` is `oid` | `tid` + group ids -> `TenantRoleMapping` -> candidate tenants -> a `Practitioner` with that account reference in each. One tenant: sign in. More than one: chooser. The session holds exactly one tenant | `sub` must be `tid` + `oid`; an `oid` is unique only within one directory. Platform roles are ignored unless `tid` is the operator's |
 | Operator sign-in | none | `aud=ops`, operator directory, separate route group and cookie | |
@@ -281,7 +281,7 @@ Settled by DEC-132: each organisation registers and operates its own services in
 - Tenant: from the invitation token (section 3.2). The code is sent from the tenant's number.
 - Rate limits and code keys are per tenant and per tenant-keyed phone hash.
 
-**Step 3. Draft.** `RegistrationDraftField` rows and the Task (DEC-080). Tenant owned. The ODS code and service name are locked from the invitation. The reporter's mobile or email goes only to `ProtectedContact` (`U26.md:55`). Uniqueness of the ODS code is per tenant (migration 0002 change).
+**Step 3. Draft.** `RegistrationDraftField` rows and the Task (DEC-080). Tenant owned. The ODS code and service name are locked from the invitation. The reporter's mobile or email goes only to `ProtectedContact` (`U26.md:57`). Uniqueness of the ODS code is per tenant (migration 0002 change).
 
 **Step 4. Submit and persist as one FHIR transaction (`U27`).** Records: `Organization`, `Location`, `HealthcareService` (all inactive) and the first `ServiceCriteria` (`pending-approval`). Reused district `Location`s (`U27.md` test 2) become per tenant. The bundle writer resolves `urn:uuid:` references only inside the bundle, and refuses any other id that is not in the tenant (section 3.4). The OS Places call carries only a site postcode (`I12.md`); the key and the quota are platform level, so record usage per tenant.
 
@@ -291,7 +291,7 @@ Settled by DEC-132: each organisation registers and operates its own services in
 
 **Step 6. Criteria second approval (`U30`).** Within the tenant, the owner and a `clinical-lead` role in the same tenant (two distinct people, DEC-032; `U30.md`). A second tenant's clinical lead cannot approve it because they cannot see it. The network owner's clinical lead performs a separate **endorsement** of the projected version (section 4.9, gap G3).
 
-**Step 7. Approve and test prompt (`U29`).** Needs two distinct people, the requester and the approver (DEC-032, `U29.md` "Added after D22"; the owner has not confirmed whether a registration needs two people, DEC-062 left it open; keep two as the default). The I3 test prompt is sent from the tenant's number to the registered phone. The answer arrives on that number and is matched to the registered phone hash inside the tenant (`U29.md:54`).
+**Step 7. Approve and test prompt (`U29`).** Needs two distinct people, the requester and the approver (DEC-032, `U29.md` "Added after D22"; the owner has not confirmed whether a registration needs two people, DEC-062 left it open; keep two as the default). The I3 test prompt is sent from the tenant's number to the registered phone. The answer arrives on that number and is matched to the registered phone hash inside the tenant (`U29.md:57`).
 
 **Step 8. Listing admission (new, network scope).** After the tenant approves, the service appears as a `listing request` in the network scope (a projection of the directory scope). The network owner's `network-admin` or `lead` runs the network-side checks: call-back, scope decision (`in-pilot`, `later`, `out-of-scope`, with reason), criteria endorsement. The decision is a network-scope record `ListingDecision`. The tenant receives `ListingDecided`. Until a listing is approved the service is not shown on the network view (and a board that mixes unapproved services would repeat F26, "fake service").
 
@@ -300,7 +300,7 @@ Settled by DEC-132: each organisation registers and operates its own services in
 **Step 10. Links between services, reporters, locations and districts.** `PractitionerRole` (`PRACTITIONER`, `HEALTHCARE_SERVICE`, `ORGANIZATION`), `HealthcareService` (`LOCATION`, `COVERAGE_AREA`, `CURRENT_CRITERIA`), `Location` districts. All within one tenant. Check: section 3.4.
 
 **Step 11. Reporter set-up: channel, home screen, notifications, PIN, device (`W33`, `W34`, `U32`).**
-- Records: `Credential` and `Device` (per practitioner and device), `PushSubscription`, a `Consent` or `Basic` (`I14.md:55`).
+- Records: `Credential` and `Device` (per practitioner and device), `PushSubscription`, a `Consent` or `Basic` (`I14.md:58`).
 - Device ids are random and minted per tenant enrolment, so one physical phone running two tenants' apps has two device ids; `Device.id` and `Credential.deviceId` stay globally unique (DEC-071 item 4, DEC-074 item 2).
 - The PIN is stored per tenant person and device with the tenant's `pin-hmac` key.
 
@@ -355,7 +355,7 @@ DEC-130 item 8 and DEC-132 item 8: no role holds cross-tenant access yet. This i
 1. **Where the role comes from.** `platform-admin` and `platform-support` exist only in the operator's own Entra directory. The BFF refuses them unless `tid` equals the operator's tid, and mints a token with `aud=ops`. A customer directory cannot create them. This fixes `W09.md:48`, which maps `DIUCS.Support` from whatever directory signs in.
 2. **No standing data access.** `platform-admin` manages tenant records. It cannot read capacity, people, communications or audit of any tenant. `platform-support` has no access until one is opened.
 3. **A national or regional viewer is not a role.** DEC-132 gives a regional viewer nothing live. If one is wanted, it is a member of a network (or a future aggregate recipient, section 7), not a cross-tenant user.
-4. **Support access** (extends O06, `O06.md:54`). A `SupportAccess` is created for exactly one tenant. It needs either a support code the person shared (the person is in that tenant) or a ticket **approved by that tenant's `lead`**, not by an operator `lead` (`O06.md:54` says "a lead's approval"; with tenants that must name whose lead). It lasts one hour [ASSUMED, `O06.md:54`]. It allows reading one session's timeline and traces (events carry element ids, outcomes and timings only, `R18.md:55`), not the graph. Every call made under it carries `accessId` and the tenant, and is written to the tenant's chain and the platform chain. The tenant admin's "operator access log" screen lists each open with the role, never a name (`observability.md:149`).
+4. **Support access** (extends O06, `O06.md:54`). A `SupportAccess` is created for exactly one tenant. It needs either a support code the person shared (the person is in that tenant) or a ticket **approved by that tenant's `lead`**, not by an operator `lead` (`O06.md:54` says "a lead's approval"; with tenants that must name whose lead). It lasts one hour [ASSUMED, `O06.md:55`]. It allows reading one session's timeline and traces (events carry element ids, outcomes and timings only, `R18.md:55`), not the graph. Every call made under it carries `accessId` and the tenant, and is written to the tenant's chain and the platform chain. The tenant admin's "operator access log" screen lists each open with the role, never a name (`observability.md:149`).
 5. **Break-glass.** None in the application. Direct database access is the real super-privilege: Neo4j Community has one database and no role-based access (`migrations.py:6-10`, `contracts.md:45`), so anyone with database credentials can read every scope. That is a processor-level control (privileged access management, logging, named people) for IG to accept, and an argument for deciding early whether any tenant needs a dedicated instance (section 9, question O2).
 6. **Token freshness.** Tokens carry the tenant and the tenant `epoch`; the API compares the epoch on each request (small cached read), so suspending a tenant or changing a role mapping takes effect within the cache time, not at `exp`.
 
@@ -610,7 +610,7 @@ Rule for the table: a value is **global** if changing it would make the product 
 | 7 re-verify every 30 days (`REVERIFY_EVERY`, `:250`) | 30 | Tenant may only shorten | `reverifyEveryDays`, 7 to 30 | tenant, clinical |
 | 7 link token 128 bits, single use (`:251`) | Security rule | Global | none | global |
 | 7 pairing code 6 digits, 10 minutes (`:253`) | Rule | Global (uniqueness platform wide, section 3.2) | none | global |
-| 7 support code 4 hours, access 1 hour (`O06.md:54`) | [ASSUMED] | Tenant may only shorten | `supportCodeHours`, `supportAccessMinutes` | tenant, operational |
+| 7 support code 4 hours, access 1 hour (`O06.md:54-55`) | [ASSUMED] | Tenant may only shorten | `supportCodeHours`, `supportAccessMinutes` | tenant, operational |
 | 7 session lifetimes: reporters 12 hours [ASSUMED] (`I13.md:55`); staff JWT 8 hours (`W09.md:49`) | | Tenant may only shorten | `sessionHoursReporter`, `sessionHoursStaff` | tenant, operational |
 | 8 alert kinds, thresholds 2 or 4 hours, quiet hours "none or 22:00 to 06:00", acknowledge 10, 15, 30 (`:259-271`; DEC-046 item 4) | Options | Option sets global; the zone is tenant | none | global |
 | 8 critical kinds `service-closed`, `system-pressure` [ASSUMED] (`:268`) | | Tenant | `criticalAlertKinds` (list) | tenant, clinical |
@@ -692,7 +692,7 @@ Existing hazards are H-01 to H-28 (`hazard-log.md`). New rows use `H-T` (tenancy
 | H-T06 | Support access is abused | The `support` role comes from a customer directory; standing access | Platform roles only from the operator directory; per-tenant access with a code or the tenant lead's approval; one hour; logged to both chains; shown to the tenant | `::test_a_customer_directory_cannot_grant_a_platform_role`, `::test_support_access_expires_and_is_logged_in_both_chains` |
 | H-T07 | Staff act in the wrong tenant | One cookie for two tabs; no tenant name on screen | Tenant in the URL; cookie per slug; header and banner; irreversible actions name the tenant; a session for A with a B URL is refused | `frontend/e2e/tenant-tabs.spec.ts`, `::test_a_session_for_a_with_a_b_path_is_refused` |
 | H-T08 | A reply on a shared phone goes to the wrong service | Two threads, both "DIUCS" | Per-tenant sender label; service name in every text and echo; range check | `::test_every_prompt_and_echo_names_the_service_and_the_sender_label` |
-| H-T09 | A caller reaches another tenant's record by guessing an id in a path, query or body | Client-supplied ids in routes and in references | Every read and write is tenant bound, so a foreign id is "not found", with the same body and timing class as a missing record (`R02.md:57`, DEC-098 item 3); no existence oracle through constraint errors (section 3.4) | `::test_a_foreign_id_in_every_route_gives_the_same_response_as_a_missing_one` (`TEN-T04`) |
+| H-T09 | A caller reaches another tenant's record by guessing an id in a path, query or body | Client-supplied ids in routes and in references | Every read and write is tenant bound, so a foreign id is "not found", with the same body and timing class as a missing record (`R02.md:55`, DEC-098 item 3); no existence oracle through constraint errors (section 3.4) | `::test_a_foreign_id_in_every_route_gives_the_same_response_as_a_missing_one` (`TEN-T04`) |
 | H-T10 | A client idempotency key returns another tenant's stored result | `IdempotencyRecord.key` unique globally (migration 0029; `R03.md:56`) | `(tenantId, key)` and the actor in the fingerprint | `::test_the_same_key_in_two_tenants_runs_both_and_replays_neither` |
 | H-T11 | An audit chain is spliced or contends | One global head and sequence (`P05.md:57`) | One chain per scope with its own genesis; verification per scope | `::test_a_chain_copied_into_another_tenant_fails_verification` |
 | H-T12 | Suspending a tenant blinds advisors mid-call | Board disappears | Suspend modes; the network view degrades to "Not updated" and the tool-offline state; notify and a runbook; the manual process (`architecture.md:292`) | `::test_a_suspended_tenants_services_read_not_updated_on_the_network_board` |
@@ -749,3 +749,208 @@ These stay human, as the owner has ruled for sign-off (DEC-042 item 3, DEC-062, 
 9. Whether and how the operator may use staff telemetry across tenants (section 7.4).
 10. The decision on isolation strength (shared database versus dedicated instance for any tenant) and the privileged-access controls on the database.
 11. A named authority at each tenant to sign the agreement and approve grants: the system can only record that an account asserted it.
+
+---
+
+## 9. Risks and open questions
+
+### 9.1 Settled (owner decisions; no longer questions)
+
+| Question I had raised | Settled by | Answer |
+|---|---|---|
+| What is a tenant? Network, organisation, or each legal entity? | DEC-132 item 1 | Each legal entity is one tenant and the controller of its own data |
+| How do organisations collaborate? | DEC-132 items 2 to 4 | One Network owned by a lead hosting tenant; sharing only by Grants and read-only projections; no query spans scopes |
+| Who is in the network, how many networks? | DEC-132 owner answers 3 and 5 | One network; the lead hosting organisation is the network owner |
+| What is shared? | DEC-132 owner answer 2, item 4 | Capacity, the service directory (manual now, Directory of Services later) and criteria. Never reporters' personal data, bookings, cases, audit |
+| Who sees the network view? | DEC-132 item 5 | Staff of member tenants whose role may see the board; reporters see their own tenant only; a wall screen is paired to one tenant and set by its administrator to show the tenant or network board |
+| What happens to history when a member leaves? | DEC-132 item 6 | It stays, marked with the leave date; nothing new is projected |
+| Patient-level coordination in the network? | DEC-132 item 7 | Out of scope; needs a new scope, purpose, agreement, IG and clinical sign-off |
+| Who approves a grant? | DEC-132 item 3 | The grantor's administrator and the network owner |
+| One Twilio account or one per tenant; how does an inbound reply find its tenant? | DEC-131 | One subaccount and number per tenant; the number called and the `AccountSid` |
+| Shared mobile across tenants | DEC-131 item 3, DEC-132 | Two `Practitioner`s, one per tenant |
+| Where is the tenant bound? | DEC-130 item 2 | At `run_query`, once per unit of work, one scope per unit |
+| Do any cross-tenant roles exist? | DEC-130 item 8, DEC-132 item 8 | None yet (the model in section 4.2 is a proposal, see O5) |
+
+### 9.2 Top risks, ranked
+
+1. **DEC-132 leaves the cross-entity workflows open (section 4.9, G1 to G6).** Bookings, registration approval, criteria second approval, the chasing ladder, alerts and the week summary all cross legal entities today. About 30 undelivered tasks (`U17` to `U22`, `U28`, `U29`, `U33` to `U36`, `U13`, `U35`, `L02`, `W17` to `W22`, `W28` to `W31`, `W36`, `W39` to `W43`) assume one organisation. The booking path alone is a patient-safety flow. A wrong default here costs more than anything else in this file.
+2. **A new safety-critical component: the projector and the network read path.** The board, the options list and the wall screen all become reads of copies. Staleness, ordering, a revoked grant still projecting and an allowlist leak are new ways to show a confident wrong figure or to expose data. Controls in sections 4.6 and 4.7 are designed but unproven; this component needs the mutation and race testing the delivery standard already applies to the repositories.
+3. **Isolation is enforced by application code in one shared Neo4j Community database** (`contracts.md:45`, `migrations.py:6-10`). A missed predicate, a missing tenant id (not enforceable by constraint on Community), or database credentials expose every tenant. DEC-130's generated test is the right control; the invariant monitor (H-T19) and the access test harness (`TEN-T04`) close the rest. The residual belongs to IG.
+4. **Global state and pre-session entry points** (section 3.2 and 3.3, 20 items). The `IdempotencyRecord.key` collision and the shared board cache key are leaks today. Link tokens, pairing codes, device tokens and the invitation link need platform-scope resolvers that are not yet in DEC-130's allow-list design.
+5. **Identity.** One Entra app registration for one directory (`W09.md:47`); a `support` role that a customer directory can mint (`W09.md:48`); staff who work for two tenants (DEC-130 item 6); token revocation (DEC-094 item 4). Each can turn a tenant boundary into a role claim that a customer can forge.
+6. **Backfill and constraints.** Six of the 26 migrations change a constraint; Community cannot require `tenantId`. The migration is additive and low risk, and it is only exercised by development data today, but the null-tenant failure is silent.
+7. **Configuration and hard-coded place and time.** London time in five modules, "Dorset" in ten places, a Dorset district default, no bank holidays. All are cheap now and expensive after 137 more tasks are built on them.
+8. **Tenant count.** Tenant = organisation means a Twilio subaccount, number, sender registration and an Entra binding per organisation. If the network has 20 or more members, onboarding is an operator workload, not a form. The cost of numbers and sender registration, and the time to obtain them, is on the critical path (`architecture.md:311`).
+9. **Plan effort.** New work is about 271 hours in 71 tasks (section 10), excluding the DEC-130 seam, the in-flight task sweep and the rework of about 30 undelivered tasks under risk 1.
+
+### 9.3 Genuinely open questions, ranked, each with a recommended default
+
+Answer yes or no to each. Nothing below is decided by DEC-130, 131 or 132.
+
+| # | Question | Recommended default |
+|---|---|---|
+| O1 | **Bookings (G1).** How does a booking request reach a provider and its answer return, given bookings are not shared? | Yes: the owner tenant texts a **booking contact** that the provider publishes in the directory (an organisational mobile), the reply returns on the owner's number, no tenant-to-tenant path. IG to confirm the disclosure of age band, need and urgency is covered. Bookings by app, push and email are not offered outside the owner tenant |
+| O2 | Accept application-level isolation in one shared Neo4j database for the pilot, with the driver choice kept open at the binding point for any tenant that needs a dedicated instance? | Yes, and record the residual for IG |
+| O3 | **Registration and the scope list (G2).** The provider registers in its own tenant; the network owner admits or declines the *listing* (call-back, scope decision), and the invitation is by the provider's own lead? | Yes |
+| O4 | **Criteria (G3).** Two approvals inside the provider (owner plus its clinical lead), then the network's clinical lead **endorses** before advisors see the version? | Yes, endorsement required |
+| O5 | **Chasing and control (G4, G4b).** The network owner can suspend a *listing*, advisor-phoned positions are written into the network scope, the provider's own lead changes its reporter numbers; the ladder is split between provider and network? | Yes |
+| O6 | **Cross-tenant roles (DEC-130 item 8).** Platform roles only from the operator directory; support access to one tenant at a time, one hour, by a code or the tenant lead's approval, never reading the graph; no break-glass in the application? | Yes |
+| O7 | Amend DEC-130 item 6: a session is bound to one tenant, but one person may hold a session in each tenant they work for? | Yes |
+| O8 | **Registration approvals (DEC-032, DEC-062).** Two distinct people for a registration, not configurable? | Yes, two |
+| O9 | **Alerts, summaries and the clinical pool (G5, G6).** Alerts by network events consumed per tenant; the owner tenant's week summary plus network capacity measures; clinical advisors from other organisations hold accounts in the owner tenant? | Yes |
+| O10 | The owner tenant (the lead hosting organisation) hosts the SPOA's advisors, clinical advisors, shift leads and the case and booking data? | Yes |
+| O11 | Lifecycle parameters: tenant creation by the operator only; 30-day offboarding notice; 90-day number quarantine; purge by two operators; activation blocked until retention is set by IG? | Yes |
+| O12 | One link host `diucs.example` with the tenant resolved from the token, and an installed app per tenant at `/t/<slug>`? | Yes |
+| O13 | Per-tenant derived phone-hash and token keys, with the legacy global key kept for the default tenant only? | Yes |
+| O14 | Time: store `timeZone` per tenant and network, restrict to `Europe/London`, pass it explicitly; and build bank holidays before the pilot? | Yes to both |
+| O15 | Telemetry: per tenant by default; cross-tenant product analytics only on anonymised aggregates meeting the group floor across at least three tenants and only under the agreement? | Yes |
+| O16 | How many organisations will be in the network in the first year, and who pays for each number and sender registration? | I assumed 10 to 30. Please confirm; above 30 I would add self-service tenant creation with operator approval |
+| O17 | Per-member breakdown of on-time rate visible to the network owner? | No unless the agreement says so |
+
+---
+
+## 10. Proposed task breakdown
+
+Ids use the prefix `TEN-` and a group letter: F foundations, M migration, L lifecycle, A access, C channels, K configuration, N network, R reporting, T tests, W screens, H documentation. `SEAM` means the DEC-130 item 10 seam tasks (the binding in `run_query`, the registry rule and the two-tenant harness), which I assume exist elsewhere and are not counted here. Hours are the plan's units (3 to 4 hours per task, `tasks.json`). Each task follows the plan's test-first rules. The booking task `TEN-N16` is a placeholder for the answer to O1; it replaces rework of `U17` to `U22`, `L02` and `W19` to `W22` and `W36`, and its hours are a guess until the booking design is settled.
+
+| Id | Title | Files | Hours | Depends on |
+|---|---|---|---|---|
+| | **Foundations** | | | |
+| TEN-F01 | Tenant and scope domain model, lifecycle state machine, activation blockers (pure) | domain/model/tenant.py, domain/rules/tenant_lifecycle.py, tests/unit | 4 | F07, D22 |
+| TEN-F02 | Scope registry, scope kinds, platform-scope resolvers (link, device, number, pairing) on the allow-list | adapters/outbound/graph_store/scope_registry.py, queries.py | 4 | SEAM, G01 |
+| TEN-F03 | Tenant records and repositories (Tenant, config versions, settings, channels, numbers, contacts, Entra bindings, retention) and migrations | graph_store/tenant_repository.py, migrations.py | 4 | TEN-F01, TEN-F02 |
+| TEN-F04 | Tenant settings registry (typed keys, bounds, safety class) and configuration versioning rules | domain/rules/tenant_settings.py, domain/model/tenant_config.py | 4 | TEN-F01 |
+| TEN-F05 | Per-tenant key derivation, secret references, hashKeyVersion and the legacy key | application/ports/outbound/identity.py, adapters/outbound/secrets/ | 3 | P10, TEN-F03 |
+| TEN-F06 | Per-scope audit chain: genesis, head per scope, verification per scope | audit_neo4j/audit_log.py, migrations.py | 4 | P05, SEAM |
+| TEN-F07 | Composite constraints, expand and contract (table in section 2.6) | graph_store/migrations.py, test_migration_ids.py | 4 | SEAM |
+| TEN-F08 | Session and token claims: scope, tenant epoch, per-request epoch check (amends R02, W02, W09) | domain/rules/bff_token.py, fhir_rest/auth.py, frontend/lib/auth/session.ts | 4 | R02, TEN-F03 |
+| | **Migration and backfill** | | | |
+| TEN-M01 | Default-tenant backfill job, label by label, restartable, idempotent | scripts/backfill_default_tenant.py, graph_store/backfill.py | 4 | TEN-F03, TEN-F07 |
+| TEN-M02 | Invariant monitor: null tenant id check at start and daily, services reconciliation per tenant | graph_store/invariants.py, health.py | 3 | TEN-M01 |
+| TEN-M03 | Cut-over runbook and scripts: drain, Redis, Service Bus, secrets, Twilio, Entra, rollback | docs/runbooks/tenancy-cutover.md, scripts/ | 3 | TEN-M01, TEN-F05 |
+| TEN-M04 | Contract step: drop superseded constraints | graph_store/migrations.py | 2 | TEN-M02 |
+| | **Tenant lifecycle use cases** | | | |
+| TEN-L01 | CreateTenant, RecordTenantChannel, ActivateTenant | application/use_cases/tenant_admin.py | 4 | TEN-F03, TEN-F04, TEN-F06 |
+| TEN-L02 | InviteTenantAdmin and first sign-in, BindEntraDirectory, MapEntraGroup | application/use_cases/tenant_access.py | 4 | TEN-L01, U25 |
+| TEN-L03 | DraftTenantConfig, ApproveTenantConfig, configuration diff | application/use_cases/tenant_config.py | 4 | TEN-F04 |
+| TEN-L04 | SuspendTenant and ResumeTenant: modes, epoch, relay gate, board degrade, rescheduling | application/use_cases/tenant_suspend.py | 4 | TEN-L01, TEN-F08, U36 |
+| TEN-L05 | StartOffboarding and ExportTenant | application/use_cases/tenant_offboard.py | 4 | TEN-L04 |
+| TEN-L06 | PurgeTenant, tombstone, number quarantine | application/use_cases/tenant_purge.py | 4 | TEN-L05 |
+| TEN-L07 | Operator and tenant-admin API routes (/platform, /tenant, /me/tenants) | adapters/inbound/fhir_rest/routes_platform.py, routes_tenant.py | 4 | TEN-L01, TEN-A02 |
+| | **Identity and access** | | | |
+| TEN-A01 | Staff sign-in: multi-directory Entra, tid allow-list, group mapping, tenant chooser backend (amends W09) | frontend/lib/auth/staff.ts, application/use_cases/list_my_tenants.py | 4 | W09, TEN-L02 |
+| TEN-A02 | Operator sign-in and roles: operator directory only, audience, separate route group and cookie | frontend/app/(operator)/, lib/auth/operator.ts | 4 | TEN-A01 |
+| TEN-A03 | Support access scoped to one tenant, approved by the tenant lead (amends O06, R18) | application/use_cases/support_access.py, routes_support.py | 3 | O06, TEN-F08 |
+| TEN-A04 | Wire pre-session resolvers: link token, invitation, device token, pairing with unique open codes and rate limit (amends L01, U10, R15, U24) | application/use_cases/pair_wall_screen.py, link_access.py | 4 | TEN-F02, L01, U10 |
+| TEN-A05 | Tenant-keyed identity stores: Redis keys, code store, sessions, rate limits, devices (amends I13, U25, U32, I01) | adapters/outbound/cache_redis/, application/use_cases/text_code.py | 4 | I13, TEN-F05 |
+| | **Channels and messaging** | | | |
+| TEN-C01 | Per-tenant Twilio resolver, inbound webhook by To and AccountSid, receipts (amends I06, I07, I08) | sms_twilio/, sms_webhook/routes.py, workers/ | 4 | I07, TEN-F02 |
+| TEN-C02 | Per-tenant email sender (amends I09, I10) | email_smtp/smtp_email.py, workers/message_senders.py | 3 | I09, TEN-F03 |
+| TEN-C03 | Service Bus tenant property, per-tenant relay loop and lock, consumer binding check (amends I02, I03, I04, I05) | bus_servicebus/, workers/outbox_relay.py, consumer.py | 4 | I03, I04, SEAM |
+| TEN-C04 | Push per tenant: VAPID per tenant, manifest per tenant (amends I14, W32) | push_webpush/, frontend/public/ | 3 | I14 |
+| | **Per-tenant configuration** | | | |
+| TEN-K01 | Thread tenant settings through the pure rules (reply window, ladder, stale limit, pressure, flags, group window, booking windows) | domain/rules/schedule.py, freshness.py, pressure.py, reply_policy.py, report_flags.py, multi_service.py, booking_rules.py, clinical_queue.py | 4 | TEN-F04, D04, D05, D08 |
+| TEN-K02 | Load settings in use cases and keep the version on decisions (audit snapshot and status interpretation) | application/use_cases/*, audit snapshots | 4 | TEN-K01 |
+| TEN-K03 | Time zone threading into the five modules (amends F06, D03, D04, D21, D24) | domain/rules/london_time.py, opening_hours.py, schedule.py, alerts.py, criteria_workflow.py | 4 | TEN-F04 |
+| TEN-K04 | Template tenant fields and guard: sender label, system name, SPOA phone, referral system (amends D15, D16, D17) | domain/messages/templates.py, privacy_guard.py | 3 | D17, TEN-F04 |
+| TEN-K05 | Bank holiday calendar and service closures | domain/rules/holidays.py, opening_hours.py, reference data | 4 | D03, TEN-K03 |
+| | **Network, grants and projections** | | | |
+| TEN-N01 | Network, membership, agreement and grant domain rules and state machines | domain/model/network.py, domain/rules/grants.py | 4 | TEN-F01 |
+| TEN-N02 | Network scope repositories and migrations (Network, agreement, membership, grant, listing decision, projection health) | graph_store/network_repository.py, migrations.py | 4 | TEN-N01, TEN-F02 |
+| TEN-N03 | Create network, add and remove members, leave notice | application/use_cases/network_admin.py | 4 | TEN-N02, TEN-L01 |
+| TEN-N04 | Grant create, approve, change, end: two approvals, lock-first end | application/use_cases/grants.py | 4 | TEN-N03 |
+| TEN-N05 | Projection allowlist registry, DTOs, privacy guard and schema tests | application/projection/allowlist.py, tests/unit | 4 | D17, TEN-N01 |
+| TEN-N06 | Projector: directory and criteria | adapters/inbound/workers/projector.py | 4 | TEN-N05, TEN-N04, I04 |
+| TEN-N07 | Projector: capacity and status with validUntil, heartbeat and ordering | adapters/inbound/workers/projector.py | 4 | TEN-N06, U09 |
+| TEN-N08 | Provider-side boundary scheduler: overdue, open, close emit a projection | application/use_cases/projection_boundaries.py | 3 | TEN-N07, U03 |
+| TEN-N09 | QueryNetworkBoard and the network versions of the options and criteria reads (amends U08, U12, G11) | application/use_cases/query_network_board.py | 4 | TEN-N07, U08 |
+| TEN-N10 | Network cache and live stream; staleness degrade (amends U09, R06) | board_projector.py, routes_events.py | 3 | TEN-N09 |
+| TEN-N11 | Wall screen display mode, tenant or network, with fallback (amends U10, W08) | pair_wall_screen.py, routes_screens.py | 3 | TEN-N10, TEN-A04 |
+| TEN-N12 | Member leave handling: lapse grants, mark records, history view | application/use_cases/network_leave.py | 3 | TEN-N04 |
+| TEN-N13 | Listing admission and criteria endorsement (G2, G3) | application/use_cases/listing_admission.py | 4 | TEN-N09, U28 |
+| TEN-N14 | Network events to member alert evaluators (G5) (amends U33, U34) | application/use_cases/alerts.py | 4 | U34, TEN-N10 |
+| TEN-N15 | Projection reconciliation and revoked-grant leak check job | application/use_cases/projection_reconcile.py | 3 | TEN-N07 |
+| TEN-N16 | Booking path under the G1 default: booking contact in the directory, send from the owner tenant (contingent on owner decision O1; replaces rework of U17 to U22, L02) | application/use_cases/request_booking.py, link_access.py | 12 | TEN-N09, U17 |
+| TEN-N17 | Advisor-phoned positions and listing suspension in the network scope (G4, G4b) (amends U13, U36) | application/use_cases/network_positions.py | 4 | TEN-N09, U13 |
+| | **Reporting** | | | |
+| TEN-R01 | Tenant and network dimension on telemetry and aggregates (amends O04, O08) | infra/otel-allowlist.txt, aggregate_repository.py | 3 | O04, O08 |
+| TEN-R02 | Network-scope week summary measures (G6) (amends U35) | application/use_cases/week_summary.py | 4 | TEN-N07, U35 |
+| | **Tests** | | | |
+| TEN-T01 | Two-tenant and network test harness: seed two tenants and a network, generated network-scope checks | backend/tests/support/tenancy.py | 4 | SEAM, TEN-N02 |
+| TEN-T02 | Relationship matrix test: cross-tenant references refused with the same body as missing | backend/tests/integration/test_cross_tenant_references.py | 4 | SEAM |
+| TEN-T03 | Pre-session entry points and idempotency cross-tenant tests | backend/tests/integration/test_pre_session.py | 4 | TEN-A04, TEN-C01 |
+| TEN-T04 | Access test harness: per-route cross-tenant and cross-network object reference attempts | backend/tests/integration/test_access_matrix.py | 4 | R02, TEN-T01 |
+| | **Screens** | | | |
+| TEN-W01 | Operator console shell, tenants list and detail | frontend/app/(operator)/ | 4 | TEN-A02, TEN-L07 |
+| TEN-W02 | Create tenant wizard and activation checklist | frontend/app/(operator)/tenants/new | 4 | TEN-W01 |
+| TEN-W03 | Suspend, offboard, export and purge dialogs | frontend/app/(operator)/tenants/[id] | 4 | TEN-W01, TEN-L06 |
+| TEN-W04 | Tenant settings: configuration versions, diff, approvals | frontend/app/(tenant)/settings | 4 | TEN-L03 |
+| TEN-W05 | Channels (read-only), Entra mapping, retention and operator access log pages | frontend/app/(tenant)/ | 4 | TEN-W04 |
+| TEN-W06 | Tenant users and roles page | frontend/app/(tenant)/users | 3 | TEN-W04, TEN-L02 |
+| TEN-W07 | Tenant chooser, header banner, URL scoping, per-slug cookies (amends W02, W09, every route group) | frontend/app/, lib/auth/, middleware.ts | 4 | TEN-A01 |
+| TEN-W08 | Wall header, exec home and wording from settings (sweep of W05, W36, W40, W46, D16 texts) | frontend/components/board/, exec/ | 3 | TEN-K04 |
+| TEN-W09 | Network admin: members, invite, remove, leave notice | frontend/app/(network)/members | 4 | TEN-N03 |
+| TEN-W10 | Network admin: grants (create, approve, end) and agreement versions | frontend/app/(network)/grants | 4 | TEN-N04 |
+| TEN-W11 | Network view on board and options, projection health and stale states | frontend/components/board/, advisor/ | 4 | TEN-N09, TEN-N10 |
+| TEN-W12 | Wall screen mode control for the tenant admin | frontend/app/(tenant)/screens | 2 | TEN-N11 |
+| TEN-W13 | PWA per tenant: manifest, scope, set-up flow changes (amends W32 to W35) | frontend/public/, app/(reporter)/ | 3 | TEN-C04, W34 |
+| TEN-W14 | Listing admission and criteria endorsement screens | frontend/app/(network)/listings | 4 | TEN-N13 |
+| | **Documentation** | | | |
+| TEN-H01 | Hazard log rows, DCB0129 note and runbooks (suspend, offboard, lost phone, number quarantine) | docs/delivery/hazard-log.md, docs/runbooks/ | 3 | - |
+
+| Group | Tasks | Hours |
+|---|---|---|
+| Foundations | 8 | 31 |
+| Migration and backfill | 4 | 12 |
+| Tenant lifecycle use cases | 7 | 28 |
+| Identity and access | 5 | 19 |
+| Channels and messaging | 4 | 14 |
+| Per-tenant configuration | 5 | 19 |
+| Network, grants and projections | 17 | 71 |
+| Reporting | 2 | 7 |
+| Tests | 4 | 16 |
+| Screens | 14 | 51 |
+| Documentation | 1 | 3 |
+| **Total** | 71 | **271** |
+
+### 10.1 What the total does not include
+
+- The DEC-130 seam and the sweep of the existing 78 queries and delivered repositories.
+- The amendment of about 30 undelivered prompts that assume one organisation (risk 1 in section 9.2); each needs a tenancy paragraph in its prompt, and the booking, registration, criteria, alert and week-summary ones need redesign under O1 to O9.
+- Human-only work: agreements, DPIA, sign-offs, Twilio and Entra set-up (section 8.3).
+
+### 10.2 Existing tasks that need a tenancy amendment (the change in one line)
+
+| Task | Change |
+|---|---|
+| P05 | Per-scope chain, genesis and head (`TEN-F06`) |
+| P06, P15 | Bind the scope in the unit of work; `(tenantId, key)` idempotency and processed markers |
+| P10 | Per-tenant keys; platform-scope token resolver |
+| P13 | List id per tenant; scope list becomes the network owner's listing candidates |
+| P16 | Device ids per tenant enrolment; tenant-keyed contacts |
+| P03 | Phone lookup per tenant; no sharing of practitioners (`U15.md:55`) |
+| P07, P08 | Tenant on `Communication` and `ScheduledWork`; tenant message property |
+| I01, I13 | Key prefixes per scope; sessions, codes, rate limits per tenant |
+| I02, I03, I04, I05 | Tenant property; relay per tenant; consumer binding check |
+| I06, I07, I08, I09, I10 | Per-tenant channel; inbound by `To` and `AccountSid`; per-tenant idempotency key |
+| I12 | Per-tenant usage metering of OS Places |
+| I14, W32 to W35 | Push, manifest and install per tenant |
+| L01, L02 | Per-tenant CSRF secret; token resolver; booking per G1 |
+| U03, U04 | Tenant sender label; grouping only within a tenant; time zone |
+| U05 | Tenant bound lookups only |
+| U09, R06 | Per-scope cache and stream; network board |
+| U10, R15, W08 | Unique open pairing codes; tenant at confirm; display mode |
+| U15, U16, U38 | Tenant only; no practitioner sharing; the provider's own lead |
+| U17 to U22, W19 to W22, W36 | Booking path per O1 |
+| U23, U24, U26 to U29, R10, W23 to W29 | Registration in the provider's tenant; listing admission in the network scope (O3) |
+| U30, U31, W30, W31 | Criteria approvals in the tenant; endorsement in the network scope (O4); per-tenant job |
+| U33, U34, W39, W40 | Subscriptions in the tenant; network events (O9) |
+| U35, W41, U43, W51 | Per-tenant and network measures (section 7) |
+| U36, U37, W42 | Tenant scope only; listing suspension (O5) |
+| U40, U41, W44, W46 | Presence per tenant; safety officer from `TenantContact`; counter per tenant |
+| O04, O06, O08, R18, W48 | `tenant.id`; support access per tenant (O6) |
+| R02, W02, W09 | Tenant and epoch claims; Entra multi-directory; operator audience |
+| D15, D16, D17 | Tenant fields in wording and the guard after substitution |
+| D03, D04, D21, D24, F06 | Time zone parameter |
+| W05, W36, W40, W46 | Header and wording from settings |
+| F04, F10 | Harness: unique tenant per run, tenant-only cleanup (DEC-130 item 9); a second tenant and a network fixture |

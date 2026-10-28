@@ -204,21 +204,22 @@ def test_a_live_owner_whose_start_label_is_not_a_number_is_kept_young(start: str
     assert removed == ["diucs-test-neo4j-startgarbled-old"]
 
 
-def test_a_non_ascii_digit_pid_label_falls_back_to_the_ninety_minute_rule() -> None:
-    # "²" is a digit to str.isdigit() but not an ASCII digit: the pid label is not a number, so
-    # the container keeps the 90-minute rule (DEC-135 item 3), not the six-hour rule.
+@pytest.mark.parametrize("pid", ["²", "٥"])
+def test_a_non_ascii_digit_pid_label_falls_back_to_the_ninety_minute_rule(pid: str) -> None:
+    # "²" and "٥" are digits to str.isdigit() but not ASCII digits: the pid label is not a number,
+    # so the container keeps the 90-minute rule (DEC-135 item 3), not the six-hour rule.
     containers = [
         Container(
             "diucs-test-neo4j-pidgarbled-new",
             RECENT,
-            pid="²",
+            pid=pid,
             start="5",
             host=HOST,
             ns=NS,
             boot=BOOT,
         ),
         Container(
-            "diucs-test-neo4j-pidgarbled-old", OLD, pid="²", start="5", host=HOST, ns=NS, boot=BOOT
+            "diucs-test-neo4j-pidgarbled-old", OLD, pid=pid, start="5", host=HOST, ns=NS, boot=BOOT
         ),
     ]
 

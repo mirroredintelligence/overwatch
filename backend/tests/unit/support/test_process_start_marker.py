@@ -66,6 +66,13 @@ def test_a_start_time_field_that_is_not_a_number_is_unreadable_not_gone() -> Non
         parse_start_marker(_stat_line("python", starttime="abc"))
 
 
+@pytest.mark.parametrize("starttime", ["²", "٥"])
+def test_a_start_time_field_of_non_ascii_digits_is_unreadable_not_gone(starttime: str) -> None:
+    # str.isdigit() accepts these; /proc only ever writes ASCII digits (DEC-135 item 3).
+    with pytest.raises(ProcessUnreadable):
+        parse_start_marker(_stat_line("python", starttime=starttime))
+
+
 def test_the_marker_of_this_process_is_stable() -> None:
     first = process_start_marker(os.getpid())
     assert first is not None

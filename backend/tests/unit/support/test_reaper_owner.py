@@ -189,6 +189,20 @@ def test_an_owner_label_that_is_not_a_number_falls_back_to_the_age_rule() -> Non
     assert removed == ["diucs-test-neo4j-garbled-old"]
 
 
+@pytest.mark.parametrize("start", ["abc", " 12345", "12x"])
+def test_a_live_owner_whose_start_label_is_not_a_number_is_kept_young(start: str) -> None:
+    # pid 4004 is alive here with start "5", but the label is garbled, so the label cannot be
+    # compared with it. The owner is unknown, not gone (DEC-135 item 3): the age rule decides.
+    containers = [
+        _owned("diucs-test-neo4j-startgarbled-new", 4004, start, created=RECENT),
+        _owned("diucs-test-neo4j-startgarbled-old", 4004, start, created=OLD),
+    ]
+
+    removed, _ = _sweep(containers, table={4004: "5"})
+
+    assert removed == ["diucs-test-neo4j-startgarbled-old"]
+
+
 def test_a_container_owned_from_another_host_is_judged_by_age_not_by_this_hosts_processes() -> None:
     # pid 4004 means nothing here: it may be alive in another pid namespace. Never reap it young.
     containers = [

@@ -1524,7 +1524,7 @@ Status: accepted (builder decision, owner to confirm) · Affects: W02 (`frontend
 5. **CSRF default.** `withBff` checks CSRF on POST, PUT, PATCH and DELETE always; `csrf: true` adds the check to other methods; `csrf: false` cannot switch it off for an unsafe method. Order: session (401), role (403 forbidden), CSRF (403 csrf).
 6. **Constant time.** Header and cookie are hashed with SHA-256 and the digests compared with `timingSafeEqual`, so length never changes the path. An empty header or cookie fails.
 7. **GET keeps the CSRF token.** If the `diucs_csrf` cookie already holds a 43-character base64url value it is returned, not rotated, so a second tab keeps working; otherwise a new one is issued.
-8. **No-store.** Session responses and the withBff refusals send `Cache-Control: no-store`.
+8. **No-store.** Session responses, the withBff refusals and the responses withBff builds from thrown errors send `Cache-Control: no-store` (set in `withBff`; `lib/bff/errors.ts` is not changed).
 9. **Cookie attributes.** Session: HttpOnly, SameSite=Strict, Path=/, Secure unless `NODE_ENV` is `development`, no Domain, Max-Age to expiry. CSRF: same, not HttpOnly. Clearing uses the same attributes with Max-Age 0.
 10. **Residuals.** No server-side revocation: a stolen cookie works until `expiresAt` (the lifetime is chosen by the sign-in task, W09). DELETE with an expired cookie answers 401 and the browser drops the cookie at its Max-Age. The `server-only` package (DEC-109 item 6) is not added.
 

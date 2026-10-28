@@ -40,14 +40,14 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, NamedTuple
 
 from neo4j import AsyncDriver, AsyncManagedTransaction, GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
 
 from diucs.adapters.outbound.graph_store.driver import create_driver
 from tests.support import harness_lock
-from tests.support.proc import ProcessUnreadable, process_start_marker
+from tests.support.proc import ProcessUnreadable, boot_id, pid_namespace, process_start_marker
 from tests.support.watchdog import paused
 
 START_MESSAGE = (
@@ -76,8 +76,8 @@ class HarnessStartError(Neo4jNotRunning):
 OWNER_PID_LABEL = "diucs-test-owner-pid"
 OWNER_START_LABEL = "diucs-test-owner-start"
 OWNER_HOST_LABEL = "diucs-test-owner-host"
-OWNER_NS_LABEL = "diucs-test-owner-pidns"  # red-run stub (DEC-010): not written yet
-OWNER_BOOT_LABEL = "diucs-test-owner-boot"  # red-run stub (DEC-010): not written yet
+OWNER_NS_LABEL = "diucs-test-owner-pidns"
+OWNER_BOOT_LABEL = "diucs-test-owner-boot"
 # DEC-135: heap 256m and page cache 128m inside a 1g container; see the decision for the measured
 # peak. A heavier test can raise them with the environment variables named in the module docstring.
 DEFAULT_CONTAINER_MEMORY = "1g"
@@ -120,8 +120,10 @@ def new_container_password() -> str:
 
 
 def owner_labels() -> dict[str, str]:
-    """The labels that name this process as the owner of a container: pid, process start time and
-    host. Empty where the start time cannot be read (no /proc), so the reaper then judges by age."""
+    """The labels that name this process as the owner of a container: pid, process start time, host,
+    pid namespace and boot. Empty where the start time cannot be read (no /proc). The namespace and
+    boot labels may be empty when they cannot be read; the reaper then cannot match the owner and
+    judges it by the six-hour age (DEC-135 item 3)."""
     try:
         marker = process_start_marker(os.getpid())
     except ProcessUnreadable:
@@ -132,6 +134,8 @@ def owner_labels() -> dict[str, str]:
         OWNER_PID_LABEL: str(os.getpid()),
         OWNER_START_LABEL: marker,
         OWNER_HOST_LABEL: socket.gethostname(),
+        OWNER_NS_LABEL: pid_namespace(),
+        OWNER_BOOT_LABEL: boot_id(),
     }
 
 
@@ -152,7 +156,7 @@ def ready_timeout_s() -> float:
         seconds = float(value)
     except ValueError:
         seconds = 0.0
-    if seconds <= 0:
+    if not seconds > 0:  # also refuses nan, which compares false with everything
         raise HarnessStartError("config", f"{READY_TIMEOUT_ENV} must be a number of seconds.")
     return seconds
 
@@ -484,12 +488,14 @@ async def wipe(driver: AsyncDriver) -> None:
 
 
 # DEC-108, amended by DEC-135. A container labelled with its owner is judged by whether that owner
-# is still running, at any age. This age is only the fallback for a container with no usable owner
-# label (made by the harness before F10b): test runs take under 20 minutes, so one this old cannot
+# is still running, at any age. This age is only the fallback for a container with no owner label
+# at all (made by the harness before F10b): test runs take under 20 minutes, so one this old cannot
 # belong to a live run.
 REAPER_MAX_AGE = timedelta(minutes=90)
-# A container whose owner ran on another host, or in another pid namespace, cannot be judged from
-# this host's process table. It is removed only after this much longer age.
+# A container whose owner cannot be checked from this process is removed only after this much
+# longer age. "Cannot be checked" covers: another host name, another pid namespace, another boot
+# (a pid and start time can repeat across boots), an owner label that is only partly written, and
+# a process table that will not say (see proc.process_start_marker). The owner may be alive there.
 OTHER_HOST_MAX_AGE = timedelta(hours=6)
 TEST_LABEL = "diucs-test"
 # A container is removed only if its name has this prefix AND it carries TEST_LABEL (DEC-108).
@@ -502,6 +508,19 @@ _reaper_log = logging.getLogger(__name__)
 _ALIVE = "alive"
 _GONE = "gone"
 _UNKNOWN = "unknown"
+
+
+class _OwnerLabels(NamedTuple):
+    """The owner labels of one container, or of this process when used as the "here" side."""
+
+    pid: str
+    start: str
+    host: str
+    namespace: str
+    boot: str
+
+    def is_empty(self) -> bool:
+        return not any(self)
 
 
 def _utc_now() -> datetime:
@@ -520,29 +539,35 @@ def _parse_created(text: str) -> datetime:
 
 
 def _owner_verdict(
-    pid_text: str, start: str, owner_host: str, this_host: str, process_start: ProcessStart
+    owner: _OwnerLabels, here: _OwnerLabels, process_start: ProcessStart
 ) -> tuple[str, timedelta | None]:
     """Is the owner of a container running? Returns the verdict and, for an unknown one, the age
     after which the container may be removed anyway (None for alive and gone).
 
-    alive: the owner's pid exists here and has the start time on the label.
-    gone: no such pid, or the pid was reused by a process that started at another time.
-    unknown: no usable owner label (an old container), the owner is on another host, or the
-    process table could not be read.
+    alive: the owner is in this pid namespace and boot on this host, its pid exists here, and it has
+    the start time on the label.
+    gone: only when this process can see that no such process exists: the pid is absent from this
+    pid table (kill(pid, 0) says so) or it was reused by a process that started at another time.
+    unknown: anything else. A container with no owner label at all (made before F10b) keeps the
+    90-minute age rule (REAPER_MAX_AGE); every other unknown owner keeps OTHER_HOST_MAX_AGE.
     """
-    if not pid_text and not start and not owner_host:
+    if owner.is_empty():
         return _UNKNOWN, REAPER_MAX_AGE
-    if not pid_text.isdigit() or not start:
+    if not owner.pid.isdigit() or not owner.start:
         return _UNKNOWN, REAPER_MAX_AGE
-    if owner_host != this_host:
+    if not (owner.host and owner.namespace and owner.boot):
+        return _UNKNOWN, OTHER_HOST_MAX_AGE
+    if owner.host != here.host or owner.namespace != here.namespace or owner.boot != here.boot:
+        return _UNKNOWN, OTHER_HOST_MAX_AGE
+    if not (here.namespace and here.boot):
         return _UNKNOWN, OTHER_HOST_MAX_AGE
     try:
-        marker = process_start(int(pid_text))
+        marker = process_start(int(owner.pid))
     except Exception:
         # The process table could not say (hidepid, no descriptors left, a garbled line). That is
-        # not "gone": the age rule decides, as for an owner on another host.
+        # not "gone": the age rule decides.
         return _UNKNOWN, OTHER_HOST_MAX_AGE
-    return (_ALIVE, None) if marker == start else (_GONE, None)
+    return (_ALIVE, None) if marker == owner.start else (_GONE, None)
 
 
 def reap_stale_test_containers(
@@ -559,16 +584,24 @@ def reap_stale_test_containers(
 
     A run killed by a timeout or a signal never reaches stop_throwaway_neo4j, so its container
     stays. Each container carries the pid and start time of its owner (owner_labels): the sweep
-    removes it when no process here has that pid and start time, whatever its age, and never removes
-    one whose owner is running. A container with no usable owner label (made before F10b) keeps the
-    age rule, `max_age` (DEC-108). One owned from another host is removed only past
-    OTHER_HOST_MAX_AGE. This runs once per pytest session (conftest.py). It never raises: if Docker
-    is missing or fails, it logs a warning and returns what it removed so far. A container is
+    removes it when this process can see that the owner is gone, whatever its age, and never removes
+    one whose owner is running. The owner is comparable only from its own host name, pid namespace
+    and boot: any other, or an owner that cannot be seen, is kept until OTHER_HOST_MAX_AGE. A
+    container with no owner label at all (made before F10b) keeps the age rule, `max_age`
+    (DEC-108). `here_namespace` and `here_boot` default to this process's identities and are
+    injectable for tests. This runs once per pytest session (conftest.py). It never raises: if
+    Docker is missing or fails, it logs a warning and returns what it removed so far. A container is
     removed only if its name starts with NAME_PREFIX and it carries TEST_LABEL, both checked here as
     well as in the docker filter, and removal is `docker rm -f -v` (DEC-128). A Created value that
     does not parse skips that one container, not the sweep.
     """
-    this_host = host if host is not None else socket.gethostname()
+    here = _OwnerLabels(
+        pid="",
+        start="",
+        host=host if host is not None else socket.gethostname(),
+        namespace=here_namespace if here_namespace is not None else pid_namespace(),
+        boot=here_boot if here_boot is not None else boot_id(),
+    )
     removed: list[str] = []
     try:
         listed = run("ps", "-a", "--filter", f"label={TEST_LABEL}=true", "--format", "{{.Names}}")
@@ -578,7 +611,14 @@ def reap_stale_test_containers(
         names = [name for name in listed.stdout.split() if name.startswith(NAME_PREFIX)]
         if not names:
             return removed
-        labels = (TEST_LABEL, OWNER_PID_LABEL, OWNER_START_LABEL, OWNER_HOST_LABEL)
+        labels = (
+            TEST_LABEL,
+            OWNER_PID_LABEL,
+            OWNER_START_LABEL,
+            OWNER_HOST_LABEL,
+            OWNER_NS_LABEL,
+            OWNER_BOOT_LABEL,
+        )
         label_format = "|".join(f'{{{{index .Config.Labels "{label}"}}}}' for label in labels)
         inspected = run(
             "inspect", "--format", f"{{{{.Name}}}}|{{{{.Created}}}}|{label_format}", *names
@@ -588,13 +628,13 @@ def reap_stale_test_containers(
             return removed
         current = now()
         for line in inspected.stdout.splitlines():
-            name, created, label, pid_text, start, owner_host = (line.split("|") + [""] * 6)[:6]
+            fields = (line.split("|") + [""] * 8)[:8]
+            name, created, label, pid_text, start, owner_host, owner_ns, owner_boot = fields
             name = name.lstrip("/")
             if label != "true" or name not in names:
                 continue
-            verdict, fallback_age = _owner_verdict(
-                pid_text, start, owner_host, this_host, process_start
-            )
+            owner = _OwnerLabels(pid_text, start, owner_host, owner_ns, owner_boot)
+            verdict, fallback_age = _owner_verdict(owner, here, process_start)
             if verdict == _ALIVE:
                 continue
             if verdict == _UNKNOWN:

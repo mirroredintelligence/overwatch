@@ -116,13 +116,15 @@ def test_a_proc_stat_that_cannot_be_read_is_unreadable_not_gone(
         process_start_marker(os.getpid())
 
 
-@pytest.mark.parametrize(
-    "error", [FileNotFoundError(errno.ENOENT, "No such file"), ProcessLookupError(errno.ESRCH, "")]
-)
-def test_a_pid_with_no_proc_entry_is_gone(monkeypatch: pytest.MonkeyPatch, error: OSError) -> None:
-    _failing_open(monkeypatch, error)
+def test_a_pid_with_no_proc_entry_is_gone_only_when_no_such_process_exists(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # B4: "no /proc entry" alone is not "gone". The kernel must also say there is no such process.
+    child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child.wait()
+    _failing_open(monkeypatch, FileNotFoundError(errno.ENOENT, "No such file"))
 
-    assert process_start_marker(os.getpid()) is None
+    assert process_start_marker(child.pid) is None
 
 
 def _hide_stat_but_keep_the_process(

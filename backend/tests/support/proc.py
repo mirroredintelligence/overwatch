@@ -2,10 +2,11 @@
 (F10b, DEC-135).
 
 The marker is field 22 of /proc/<pid>/stat: the process start time in clock ticks since boot. A
-pid that the operating system has handed to a new process has a different marker. A zombie, a dead
-process and a pid with no /proc entry count as gone; a /proc entry that cannot be read is unknown
-(ProcessUnreadable), never gone. Platforms without /proc (macOS, Windows) give no marker for this
-very process, so the harness labels no owner and the reaper falls back to the age rule.
+pid that the operating system has handed to a new process has a different marker. A zombie, and a
+pid with no /proc entry that the kernel also says does not exist, count as gone. Anything else that
+cannot be seen is unknown (ProcessUnreadable), never gone. Platforms without /proc (macOS, Windows)
+give no marker for this very process, so the harness labels no owner and the reaper falls back to
+the age rule.
 """
 
 import os
@@ -36,25 +37,50 @@ def parse_start_marker(stat_line: str) -> str | None:
 
 
 def process_start_marker(pid: int) -> str | None:
-    """The start marker of a running process. None means gone: no /proc entry (or the process
-    vanished while it was read), or a zombie. Anything else that goes wrong (permission denied
-    under hidepid, no file descriptors left, a garbled line) raises ProcessUnreadable, because
-    "cannot tell" must not be read as "gone": the caller deletes on "gone"."""
+    """The start marker of a process this one can see. None means gone, and only in two cases: a
+    zombie, or no /proc entry and kill(pid, 0) says there is no such process (a really dead pid).
+    Everything else raises ProcessUnreadable, because "cannot tell" must never be read as "gone":
+    a stat file that is hidden (hidepid=2 answers ENOENT for another user's live process) with a
+    pid that still exists, a permission error, no file descriptors left, or a garbled line. The
+    caller deletes on "gone", so it must be exact."""
     try:
         with open(f"/proc/{pid}/stat", encoding="utf-8", errors="replace") as handle:
             text = handle.read()
-    except FileNotFoundError, ProcessLookupError:
-        return None
+    except FileNotFoundError:
+        return _confirm_gone(pid)
     except OSError as error:
         raise ProcessUnreadable(f"/proc/{pid}/stat could not be read: {error}") from error
     return parse_start_marker(text)
 
 
+def _confirm_gone(pid: int) -> None:
+    """A pid with no visible /proc entry is gone only if the kernel also says there is no such
+    process. kill(pid, 0) sends nothing: ProcessLookupError means no such pid, while success or
+    PermissionError means the process exists (in this pid namespace, for another user), so the
+    owner may be alive and the answer is unknown."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return None
+    except OSError as error:
+        raise ProcessUnreadable(f"pid {pid} exists but its stat is not visible: {error}") from error
+    raise ProcessUnreadable(f"pid {pid} exists but its stat is not visible")
+
+
 def pid_namespace() -> str:
-    """Red-run stub (DEC-010): the identity of this process's pid namespace."""
-    return ""
+    """The identity of this process's pid namespace, for example "pid:[4026531836]". Two processes
+    with the same identity share one pid table. "" when it cannot be read."""
+    try:
+        return os.readlink("/proc/self/ns/pid")
+    except OSError:
+        return ""
 
 
 def boot_id() -> str:
-    """Red-run stub (DEC-010): the identity of this boot of the machine."""
-    return ""
+    """The identity of this boot of the machine. Pids and start times can repeat across boots, so
+    an owner from another boot is never looked up in this one. "" when it cannot be read."""
+    try:
+        with open("/proc/sys/kernel/random/boot_id", encoding="ascii") as handle:
+            return handle.read().strip()
+    except OSError:
+        return ""

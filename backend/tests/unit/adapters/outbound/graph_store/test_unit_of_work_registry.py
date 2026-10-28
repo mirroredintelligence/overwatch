@@ -108,6 +108,11 @@ class _Probe:
     async def refuse(self) -> None:
         raise Conflict("a write was refused")
 
+    async def refuse_again(self) -> None:
+        raise Conflict("another write was refused")
+
+    label = "probe"
+
 
 class _Rig:
     """A unit of work on a fake driver with one extra repository, `probe`, and a record of what
@@ -333,3 +338,62 @@ async def test_a_refused_write_still_rolls_back_the_commit_and_then_frees_the_cl
         assert not rig.driver.transactions[0].committed
         async with rig.unit():
             pass
+
+
+async def test_exiting_a_unit_that_was_never_entered_does_not_free_another_units_claim() -> None:
+    rig = _Rig()
+    async with rig.unit():
+        stranger = rig.unit()
+        await stranger.__aexit__(None, None, None)
+        with pytest.raises(UnitOfWorkAlreadyOpen):
+            async with rig.unit():
+                pytest.fail("the claim of the open unit was freed")
+
+
+# The states around the scope (each guard that was already there keeps its message)
+
+
+async def test_a_unit_that_is_not_open_refuses_a_repository_a_rollback_and_its_own_handles() -> (
+    None
+):
+    rig = _Rig()
+    uow = rig.unit()
+    with pytest.raises(RuntimeError, match=NOT_OPEN):
+        _ = uow.probe
+    with pytest.raises(RuntimeError, match=NOT_OPEN):
+        await uow.rollback()
+    with pytest.raises(RuntimeError, match=NOT_OPEN):
+        await uow.commit()
+    for handle in ("_require_tx", "_require_scoped", "_require_store"):
+        with pytest.raises(RuntimeError, match="use it inside 'async with'"):
+            getattr(uow, handle)()
+    with pytest.raises(AttributeError):
+        _ = uow._private
+    with pytest.raises(AttributeError, match="no 'services' repository registered"):
+        _ = Neo4jUnitOfWork(cast(Any, rig.driver), {}).services
+
+
+async def test_a_finished_unit_cannot_be_rolled_back() -> None:
+    rig = _Rig()
+    async with rig.unit() as uow:
+        await uow.commit()
+        with pytest.raises(RuntimeError, match="is finished"):
+            await uow.rollback()
+
+
+async def test_a_repository_attribute_that_is_not_a_coroutine_passes_through_the_guard() -> None:
+    rig = _Rig()
+    async with rig.unit() as uow:
+        assert uow.probe.label == "probe"
+
+
+async def test_the_first_refused_write_is_the_one_the_commit_reports() -> None:
+    rig = _Rig()
+    async with rig.unit() as uow:
+        with pytest.raises(Conflict):
+            await uow.probe.refuse()
+        with pytest.raises(Conflict):
+            await uow.probe.refuse_again()
+        with pytest.raises(Conflict, match="nothing was committed") as raised:
+            await uow.commit()
+        assert str(raised.value.__cause__) == "a write was refused"

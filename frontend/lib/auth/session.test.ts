@@ -202,6 +202,17 @@ describe('sealSession and unsealSession', () => {
     expect(await unsealSession(sealed, new Date(NOW.getTime() - 1))).not.toBeNull();
   });
 
+  it('returns null when the jose exp claim has passed, even if expiresAt is still later', async () => {
+    // Checked by jose (exp), not by our expiresAt comparison: expiresAt is an
+    // hour ahead, so only the exp check can refuse this token.
+    const key = Buffer.from(TEST_SESSION_SECRET, 'base64');
+    const sealed = await new EncryptJWT({ ...sample({ expiresAt: new Date(NOW.getTime() + 3_600_000).toISOString() }) })
+      .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+      .setExpirationTime(Math.floor(NOW.getTime() / 1000) - 60)
+      .encrypt(key);
+    expect(await unsealSession(sealed, NOW)).toBeNull();
+  });
+
   it('accepts every role in the contract and no other', async () => {
     expect([...ROLES]).toEqual([
       'reporter',

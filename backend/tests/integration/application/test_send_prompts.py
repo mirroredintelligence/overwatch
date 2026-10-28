@@ -24,7 +24,7 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.actor import Actor
-from diucs.application.ports.outbound.outbox import OutboxMessage
+from diucs.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
 from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.scheduling import cancel_work, schedule_work
@@ -448,6 +448,28 @@ async def test_no_stored_node_and_no_outbox_payload_holds_the_token_text(
         assert f"{LINK_BASE}/" not in repr(props)
     for outbox_message in await _outbox(uow_factory):
         assert token not in repr(outbox_message.payload)
+
+
+async def test_a_dead_lettered_message_holds_no_token_text(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # A: a message that fails until it is dead keeps its payload and an error text. Neither holds
+    # a live link token (multi-tenancy rule: no message body at rest holds a token).
+    await _seed_one_reporter(uow_factory, seed_service)
+    await _seed_report(uow_factory)
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+    await use_case.execute(_command())
+    [message] = _sent(await _outbox(uow_factory))
+    token = _token_of(message)
+
+    async with uow_factory() as uow:
+        for _ in range(MAX_ATTEMPTS):
+            await uow.outbox.mark_failed(message.id, "send failed")
+        await uow.commit()
+
+    assert await _resolve(neo4j_driver, DUE, token) is not None
+    for props in await _every_node_property(neo4j_driver):
+        assert token not in repr(props)
 
 
 def test_the_sealed_content_does_not_show_its_plain_text() -> None:

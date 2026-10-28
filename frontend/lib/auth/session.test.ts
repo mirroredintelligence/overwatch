@@ -29,6 +29,12 @@ vi.mock('next/headers', async () => {
 const NOW = new Date('2026-10-23T13:12:00.000Z');
 const TOKEN = 'backend-token-sample-value';
 
+// An expiry that is in the future whenever the test runs.
+const FUTURE = new Date(Date.now() + 3_600_000).toISOString();
+function soon() {
+  return FUTURE;
+}
+
 function sample(overrides: Partial<Session> = {}): Session {
   return {
     role: 'advisor',
@@ -182,12 +188,12 @@ describe('sealSession and unsealSession', () => {
 
 describe('sessionFromRequest', () => {
   it('reads the session from the Cookie header', async () => {
-    const sealed = await sealSession(sample(), new Date());
+    const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
     const request = requestWithCookies('https://app.test/x', {
       other: '1',
       [SESSION_COOKIE]: sealed,
     });
-    expect(await sessionFromRequest(request)).toEqual(sample());
+    expect(await sessionFromRequest(request)).toEqual(sample({ expiresAt: soon() }));
   });
 
   it('returns null with no cookie, an empty cookie or a bad cookie', async () => {
@@ -267,12 +273,12 @@ describe('getSession', () => {
   });
 
   it('reads the session cookie from the Next cookie store', async () => {
-    const sealed = await sealSession(sample(), new Date());
+    const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
     const { fakeCookieStore } = await import('@/test/cookies');
     vi.spyOn(fakeCookieStore, 'get').mockImplementation((name: string) =>
       name === SESSION_COOKIE ? ({ name, value: sealed } as never) : undefined,
     );
-    expect(await getSession()).toEqual(sample());
+    expect(await getSession()).toEqual(sample({ expiresAt: soon() }));
   });
 });
 
@@ -281,7 +287,7 @@ describe('logging', () => {
     const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((m) =>
       vi.spyOn(console, m).mockImplementation(() => undefined),
     );
-    const sealed = await sealSession(sample(), new Date());
+    const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
     await unsealSession(`${sealed}x`);
     await unsealSession('junk');
     await createSession(sample({ expiresAt: new Date(Date.now() + 3_600_000).toISOString() }));

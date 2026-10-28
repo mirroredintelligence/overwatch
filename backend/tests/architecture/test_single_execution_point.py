@@ -40,8 +40,9 @@ TENANCY_KERNEL = "application/tenancy.py"
 
 # Modules, as dotted names, that may call bind_scope or bind_tenant besides the kernel: the edges
 # that bind a verified tenant once per unit of work. Empty in TEN-001; the edge tasks (TEN-018,
-# TEN-025, TEN-041 and later) add their module in their own commit.
-BINDING_MODULES: frozenset[str] = frozenset()
+# TEN-025, TEN-041 and later) add their module in their own commit. I07 adds the inbound SMS
+# webhook, which binds the tenant of a request whose Twilio signature verified (DEC-131, DEC-147).
+BINDING_MODULES: frozenset[str] = frozenset({"diucs.adapters.inbound.sms_webhook.routes"})
 
 # Modules, as dotted names, under adapters/outbound/graph_store that may define a function with a
 # `tenant` or `tenant_id` parameter. Empty in TEN-001; the tenant registry (TEN-007) names its

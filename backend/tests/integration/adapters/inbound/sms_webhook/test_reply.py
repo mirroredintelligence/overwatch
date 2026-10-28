@@ -7,7 +7,9 @@ and arrives at http://internal:8000 as it would behind a proxy.
 
 import json
 import logging
+from collections.abc import AsyncIterator
 from datetime import timedelta
+from urllib.parse import urlencode
 
 import pytest
 from fastapi import FastAPI
@@ -168,7 +170,14 @@ async def test_the_signature_is_compared_in_constant_time(
 
 @pytest.mark.parametrize(
     "send",
-    ["json-body", "duplicate-field", "too-large", "not-utf8"],
+    [
+        "json-body",
+        "duplicate-field",
+        "too-large",
+        "too-large-chunked",
+        "too-many-fields",
+        "not-utf8",
+    ],
 )
 async def test_a_body_that_is_not_one_plain_twilio_form_is_refused(
     sms_client: AsyncClient, sms_bus: ManualEventBus, reporter: None, send: str
@@ -188,6 +197,28 @@ async def test_a_body_that_is_not_one_plain_twilio_form_is_refused(
             INTERNAL_REPLY_URL,
             data=big,
             headers={"X-Twilio-Signature": sign(REPLY_URL, big, TENANT_A.token)},
+        )
+    elif send == "too-large-chunked":
+        # No Content-Length: the size is checked as the body arrives. The form is signed, so only
+        # its size can refuse it.
+        big = {**params, "Padding": "x" * 70_000}
+        encoded = urlencode(big).encode()
+
+        async def chunks() -> AsyncIterator[bytes]:
+            for start in range(0, len(encoded), 4096):
+                yield encoded[start : start + 4096]
+
+        response = await sms_client.post(
+            INTERNAL_REPLY_URL,
+            content=chunks(),
+            headers={**FORM, "X-Twilio-Signature": sign(REPLY_URL, big, TENANT_A.token)},
+        )
+    elif send == "too-many-fields":
+        many = {**params, **{f"Extra{n}": "1" for n in range(120)}}
+        response = await sms_client.post(
+            INTERNAL_REPLY_URL,
+            data=many,
+            headers={"X-Twilio-Signature": sign(REPLY_URL, many, TENANT_A.token)},
         )
     else:
         response = await sms_client.post(
@@ -302,6 +333,32 @@ async def test_a_failed_queue_send_gives_a_500_and_frees_the_marker_so_the_retry
     retry = await post_signed(sms_client, reply_params(sid=SID))
     assert retry.status_code == 200
     assert len(sms_bus.enqueued_to(QUEUE)) == 1
+
+
+async def test_a_marker_that_cannot_be_removed_is_logged_by_class_and_the_answer_is_still_500(
+    sms_client: AsyncClient,
+    sms_bus: ManualEventBus,
+    sms_cache: InMemoryCache,
+    reporter: None,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    async def down(queue: str, message: BusMessage) -> None:
+        raise ConnectionError("bus down")
+
+    async def cannot_delete(key: str) -> None:
+        raise OSError("cache down")
+
+    monkeypatch.setattr(sms_bus, "enqueue", down)
+    monkeypatch.setattr(sms_cache, "delete", cannot_delete)
+    caplog.set_level(logging.DEBUG)
+
+    response = await post_signed(sms_client, reply_params(sid=SID))
+
+    assert response.status_code == 500
+    logged = "\n".join(record.getMessage() for record in caplog.records)
+    assert "the replay marker could not be removed: OSError" in logged
+    assert "cache down" not in logged
 
 
 # Fields that cannot be queued

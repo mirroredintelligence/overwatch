@@ -78,6 +78,13 @@ class InMemoryCache:
         self._values[key] = _Value(text=value, expires_at=expires_at)
 
     async def set_if_absent(self, key: str, value: str, ttl: timedelta) -> bool:
+        if ttl <= timedelta(0):
+            raise ValueError("ttl must be positive")
+        # No await between the check and the store, so two tasks cannot both see the key absent.
+        stored = self._values.get(key)
+        if stored is not None and (stored.expires_at is None or self._now() < stored.expires_at):
+            return False
+        self._values[key] = _Value(text=value, expires_at=self._now() + ttl)
         return True
 
     async def delete(self, key: str) -> None:

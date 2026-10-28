@@ -34,6 +34,7 @@ class ManualEventBus:
         self._clock = clock
         self._published: list[BusMessage] = []
         self._pending: list[_Pending] = []
+        self._enqueued: list[tuple[str, BusMessage]] = []
         self._next_number = 1
 
     @property
@@ -51,13 +52,21 @@ class ManualEventBus:
         self._published.append(message)
 
     async def enqueue(self, queue: str, message: BusMessage) -> None:
-        return None
+        if queue not in QUEUES:
+            raise ValidationFailed("queue", "not a known queue")
+        self._enqueued.append((queue, message))
 
     def enqueued_to(self, queue: str) -> list[BusMessage]:
-        return []
+        """What was enqueued to a queue and not yet taken, oldest first. For tests: the port has
+        no such call."""
+        return [message for name, message in self._enqueued if name == queue]
 
     def take_enqueued(self) -> list[tuple[str, BusMessage]]:
-        return []
+        """Remove and return every enqueued message with its queue, oldest first, as a receiver
+        would take them."""
+        taken = list(self._enqueued)
+        self._enqueued.clear()
+        return taken
 
     async def schedule(self, queue: str, message: BusMessage, enqueue_at: datetime) -> int:
         if queue not in QUEUES:

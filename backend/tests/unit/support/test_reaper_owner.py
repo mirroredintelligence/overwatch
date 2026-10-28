@@ -238,7 +238,28 @@ def test_a_created_value_with_non_ascii_digits_is_not_parsed_so_the_container_is
     removed, _ = _sweep(containers, table={})
 
     assert removed == []
-    assert _CREATED_AT.match("٢٠٢٦-10-28T06:00:00.000000000Z") is None
+
+
+@pytest.mark.parametrize(
+    "created",
+    [
+        "٢٠٢٦-10-28T06:00:00.000000000Z",  # year
+        "2026-١٠-28T06:00:00.000000000Z",  # month
+        "2026-10-28T٠٦:00:00.000000000Z",  # hour
+        "2026-10-28T06:00:00.٠٠٠000000Z",  # fraction
+        "2026-10-28T06:00:00.000000000+٠١:00",  # offset
+        "+2026-10-28T06:00:00.000000000Z",  # a leading sign is not part of the format
+    ],
+)
+def test_the_created_pattern_refuses_each_group_with_non_ascii_digits_or_a_sign(
+    created: str,
+) -> None:
+    # One sample per group, so a \d in any single group is caught (fromisoformat rejects these
+    # digits anyway, so the reaper outcome alone cannot tell \d from [0-9]).
+    assert _CREATED_AT.match(created) is None
+
+
+def test_the_created_pattern_accepts_an_ascii_timestamp() -> None:
     assert _CREATED_AT.match("2026-10-28T06:00:00.000000000Z") is not None
 
 

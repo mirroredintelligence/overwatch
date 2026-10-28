@@ -1593,3 +1593,71 @@ async def test_a_refusal_of_the_figure_itself_by_report_capacity_is_not_retried(
 
     assert len(rig.reports.commands) == 1
     assert await _total_nodes(neo4j_driver) == nodes_before
+
+
+def _c9_text_of_three() -> str:
+    return render(
+        MessageId.C9,
+        Channel.TEXT,
+        reply_by="10:30",
+        items=[("A", "UCR East", 1), ("B", "UCR North", 6), ("C", "UCR West", 3)],
+    ).text
+
+
+async def _seed_group_of_three(factory: UnitOfWorkFactory) -> None:
+    await _seed_people(factory, (ROLE_WEST, ROLE_EAST, ROLE_NORTH))
+    await _seed_figure(factory, 3, bst(8, 15), "ucr-west")
+    await _seed_figure(factory, 1, bst(8, 20), "ucr-east")
+    await _seed_figure(factory, 6, bst(8, 25), "ucr-north")
+    for service_id, role_id in (
+        ("ucr-east", "role-east"),
+        ("ucr-north", "role-north"),
+        ("ucr-west", "role-west"),
+    ):
+        await _seed_prompt(
+            factory,
+            bst(10, 0),
+            message_id="C9",
+            role_id=role_id,
+            service_id=service_id,
+            prompt_id=f"c9-{service_id}",
+            text=_c9_text_of_three(),
+        )
+
+
+@pytest.mark.parametrize("text", ["A 4", "B 4", "Y", "Y A"])
+async def test_letters_do_not_shift_onto_other_services_when_the_first_of_three_has_left(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed, text: str
+) -> None:
+    """The prompt said A) East, B) North, C) West. With East gone, two services are still held, and
+    rebuilding the letters would make North "A" and West "B". The words the reporter was sent say
+    otherwise, so no reply is read: `A 4` must not land on North."""
+    await seed_service(UCR_WEST, UCR_EAST, UCR_NORTH)
+    await _seed_group_of_three(uow_factory)
+    async with uow_factory() as uow:
+        await uow.people.save_role(dataclasses.replace(ROLE_EAST, active=False))
+        await uow.commit()
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say(text, bst(10, 5))
+
+    assert result.outcome == HELP
+    for service_id, value in (("ucr-west", 3), ("ucr-north", 6), ("ucr-east", 1)):
+        assert [r.value for r in await _reports(uow_factory, service_id)] == [value]
+
+
+async def test_letters_stay_valid_when_the_last_of_three_has_left(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST, UCR_EAST, UCR_NORTH)
+    await _seed_group_of_three(uow_factory)
+    async with uow_factory() as uow:
+        await uow.people.save_role(dataclasses.replace(ROLE_WEST, active=False))
+        await uow.commit()
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("A 4", bst(10, 12))
+
+    assert result == HandleInboundTextResult(RECORDED, ("ucr-east",))
+    assert (await _latest(uow_factory, "ucr-east")).value == 4
+    assert (await rig.say("C 2", bst(10, 13))).outcome == HELP

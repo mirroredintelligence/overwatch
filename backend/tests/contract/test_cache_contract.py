@@ -6,6 +6,8 @@ Durations are seconds, so a real adapter can run the same test in real time.
 import asyncio
 from datetime import timedelta
 
+import pytest
+
 from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache, Lock
 from tests.contract.harness import Harness, next_message
 
@@ -149,6 +151,16 @@ async def test_of_many_concurrent_set_if_absent_calls_exactly_one_wins(
     )
     assert results.count(True) == 1
     assert results.count(False) == 19
+
+
+@pytest.mark.parametrize("ttl", [timedelta(0), timedelta(seconds=-1)])
+async def test_set_if_absent_refuses_a_ttl_that_is_not_positive_and_stores_nothing(
+    cache_harness: Harness[Cache], ttl: timedelta
+) -> None:
+    cache = cache_harness.subject
+    with pytest.raises(ValueError, match="ttl"):
+        await cache.set_if_absent("idem:sms:one", "1", ttl)
+    assert await cache.get("idem:sms:one") is None
 
 
 # Publish and subscribe

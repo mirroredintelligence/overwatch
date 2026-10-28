@@ -5,6 +5,7 @@ limit is a SIGALRM watchdog in the root conftest, built on tests/support/watchdo
 hangs fails with a message that names it and shows where it was; the next test still runs.
 """
 
+import contextlib
 import os
 import signal
 import subprocess
@@ -214,11 +215,20 @@ def test_a_paused_limit_does_not_count_the_paused_time_and_counts_the_rest() -> 
     began = time.monotonic()
 
     with pytest.raises(TimeLimitExceeded, match="paused-limit"), time_limit(1.5, "paused-limit"):
+        time.sleep(1.0)  # 0.5 s of the limit is left
         with paused():
-            time.sleep(2.5)  # longer than the limit, but not counted
+            time.sleep(1.5)  # longer than what was left, but not counted
         time.sleep(10)
 
-    assert 3.5 <= time.monotonic() - began <= 8
+    # 1.0 + 1.5 + the 0.5 s that was left. Giving back the full 1.5 s would end near 4.0.
+    assert 2.9 <= time.monotonic() - began <= 3.7
+
+
+def test_a_broad_except_exception_cannot_swallow_the_limit() -> None:
+    with pytest.raises(TimeLimitExceeded), time_limit(0.5, "swallowed"):
+        with contextlib.suppress(Exception):  # what a library's retry loop might do
+            time.sleep(5)
+        time.sleep(5)  # only reached if the limit was swallowed
 
 
 def test_pausing_with_no_limit_running_does_nothing() -> None:

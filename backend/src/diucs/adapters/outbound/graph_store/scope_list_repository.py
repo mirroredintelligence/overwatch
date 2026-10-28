@@ -101,12 +101,14 @@ class Neo4jScopeListRepository:
         self._store = store
 
     async def entries(self) -> list[ScopeEntry]:
-        rows = await run_query(self._tx, "Q-SCOPE-ENTRIES", id=LIST_ID)
+        rows = await run_query(self._tx, REGISTRY.get("Q-SCOPE-ENTRIES"), id=LIST_ID)
         found = [await self._entry(row) for row in rows]
         return sorted(found, key=lambda entry: (entry.name, entry.service_id))
 
     async def get_entry(self, service_id: str) -> ScopeEntry | None:
-        rows = await run_query(self._tx, "Q-SCOPE-ENTRY-FOR", id=LIST_ID, serviceId=service_id)
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-SCOPE-ENTRY-FOR"), id=LIST_ID, serviceId=service_id
+        )
         if not rows:
             return None
         return await self._entry(rows[0])
@@ -118,7 +120,7 @@ class Neo4jScopeListRepository:
             await self._store.put(_minimal_service(entry), None)
         await run_query(
             self._tx,
-            "Q-SCOPE-UPSERT-ENTRY",
+            REGISTRY.get("Q-SCOPE-UPSERT-ENTRY"),
             id=LIST_ID,
             serviceId=entry.service_id,
             flag=entry.flag.value,
@@ -130,7 +132,7 @@ class Neo4jScopeListRepository:
         try:
             await run_query(
                 self._tx,
-                "Q-SCOPE-ENSURE-LIST",
+                REGISTRY.get("Q-SCOPE-ENSURE-LIST"),
                 id=LIST_ID,
                 status=_LIST_STATUS,
                 title=_LIST_TITLE,
@@ -141,7 +143,7 @@ class Neo4jScopeListRepository:
             raise
 
     async def _lock_list(self) -> None:
-        rows = await run_query(self._tx, "Q-SCOPE-LOCK-LIST", id=LIST_ID)
+        rows = await run_query(self._tx, REGISTRY.get("Q-SCOPE-LOCK-LIST"), id=LIST_ID)
         if not rows or int(rows[0]["locked"]) == 0:
             raise NotFound("scope list")
 

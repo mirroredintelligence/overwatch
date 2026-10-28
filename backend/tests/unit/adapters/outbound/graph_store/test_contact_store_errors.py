@@ -11,11 +11,12 @@ import pytest
 from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store import contact_store
+from diucs.adapters.outbound.graph_store.queries import NamedQuery
 from diucs.domain.errors import Conflict
 
 
 async def test_a_constraint_error_on_put_is_a_conflict(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def refuse(tx: Any, query_id: str, **params: Any) -> list[dict[str, Any]]:
+    async def refuse(tx: Any, query: NamedQuery, **params: Any) -> list[dict[str, Any]]:
         raise ConstraintError("unique key already exists")
 
     monkeypatch.setattr(contact_store, "run_query", refuse)

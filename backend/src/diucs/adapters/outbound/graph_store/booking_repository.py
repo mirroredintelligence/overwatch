@@ -272,7 +272,7 @@ class Neo4jBookingRepository:
         return None if resource is None else booking_from_fhir(resource)
 
     async def get_by_reference(self, reference: str) -> Booking | None:
-        rows = await run_query(self._tx, "Q-BOOK-BY-REF", reference=reference)
+        rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-BY-REF"), reference=reference)
         if not rows:
             return None
         return await self.get(str(rows[0]["id"]))
@@ -289,7 +289,7 @@ class Neo4jBookingRepository:
 
     async def open_for_services(self, service_ids: Sequence[str]) -> dict[str, list[Booking]]:
         grouped: dict[str, list[Booking]] = {service_id: [] for service_id in service_ids}
-        rows = await run_query(self._tx, "Q-BOOK-OPEN-FOR", ids=list(service_ids))
+        rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-OPEN-FOR"), ids=list(service_ids))
         for row in rows:
             booking = await self.get(str(row["id"]))
             if booking is not None:
@@ -297,7 +297,7 @@ class Neo4jBookingRepository:
         return grouped
 
     async def confirmed_since(self, service_id: str, since: datetime) -> list[datetime]:
-        rows = await run_query(self._tx, "Q-BOOK-CONFIRMED-SINCE", id=service_id)
+        rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-CONFIRMED-SINCE"), id=service_id)
         times: list[datetime] = []
         for row in rows:
             booking = await self.get(str(row["id"]))
@@ -317,7 +317,7 @@ class Neo4jBookingRepository:
         # instant is read from there, not from a second copy (DEC-001).
         rows = await run_query(
             self._tx,
-            "Q-BOOK-CONFIRMED-FOR",
+            REGISTRY.get("Q-BOOK-CONFIRMED-FOR"),
             ids=list(service_ids),
             code=_CONFIRMED_AT,
             system=_OUTPUT_TYPE_SYSTEM,
@@ -331,7 +331,7 @@ class Neo4jBookingRepository:
         return grouped
 
     async def pending_count(self, service_id: str) -> int:
-        rows = await run_query(self._tx, "Q-BOOK-PENDING", id=service_id)
+        rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-PENDING"), id=service_id)
         return int(rows[0]["pending"])
 
     async def _put(self, booking: Booking, expected_version: str | None) -> None:
@@ -342,7 +342,7 @@ class Neo4jBookingRepository:
         await self._store.put(stored, expected_version)
         await run_query(
             self._tx,
-            "Q-BOOK-SET-PROPS",
+            REGISTRY.get("Q-BOOK-SET-PROPS"),
             key=f"{_TASK}/{booking.id}",
             businessStatus=status,
             reference=booking.reference,

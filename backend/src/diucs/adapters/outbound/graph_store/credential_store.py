@@ -165,7 +165,7 @@ class Neo4jPinStore:
             raise NotFound("practitioner")
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
-        return await run_query(self._tx, query_id, **params)
+        return await run_query(self._tx, REGISTRY.get(query_id), **params)
 
 
 class Neo4jDeviceRegistry:
@@ -205,4 +205,4 @@ class Neo4jDeviceRegistry:
         await self._run("Q-DEVICE-REVOKE", key=_key(practitioner_id), revoked=_STATUS_REVOKED)
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
-        return await run_query(self._tx, query_id, **params)
+        return await run_query(self._tx, REGISTRY.get(query_id), **params)

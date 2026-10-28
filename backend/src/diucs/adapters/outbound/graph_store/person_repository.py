@@ -335,7 +335,7 @@ class Neo4jPersonRepository:
 
     async def find_by_phone_hash(self, phone_hash: str) -> Practitioner | None:
         check_phone_hash(phone_hash)
-        rows = await run_query(self._tx, "Q-PERSON-PHONE-FIND", hash=phone_hash)
+        rows = await run_query(self._tx, REGISTRY.get("Q-PERSON-PHONE-FIND"), hash=phone_hash)
         if not rows:
             return None
         # Two active people on one phone is ambiguous: refuse, and return nothing (DEC-065).
@@ -345,7 +345,7 @@ class Neo4jPersonRepository:
 
     async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:
         rows = await run_query(
-            self._tx, "Q-PERSON-ROLES-OF", key=f"{_PRACTITIONER}/{practitioner_id}"
+            self._tx, REGISTRY.get("Q-PERSON-ROLES-OF"), key=f"{_PRACTITIONER}/{practitioner_id}"
         )
         return await self._roles(str(row["id"]) for row in rows)
 
@@ -356,7 +356,7 @@ class Neo4jPersonRepository:
         check_aware("now", now)
         found: dict[str, tuple[PractitionerRole, str]] = {}
         for query_id in ("Q-PHONE-SERVICES-HELD", "Q-PHONE-SERVICES-AT"):
-            rows = await run_query(self._tx, query_id, hash=phone_hash, now=now)
+            rows = await run_query(self._tx, REGISTRY.get(query_id), hash=phone_hash, now=now)
             for row in rows:
                 role = await self._role(str(row["roleId"]))
                 if role is None or not _reporter_in_effect(role, now):
@@ -373,7 +373,9 @@ class Neo4jPersonRepository:
         self, service_id: str, now: datetime
     ) -> list[PractitionerRole]:
         check_aware("now", now)
-        rows = await run_query(self._tx, "Q-SERVICE-REPORTER-ROLES", key=f"{_SERVICE}/{service_id}")
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-SERVICE-REPORTER-ROLES"), key=f"{_SERVICE}/{service_id}"
+        )
         roles = await self._roles(str(row["id"]) for row in rows)
         return [role for role in roles if _reporter_in_effect(role, now)]
 
@@ -384,7 +386,7 @@ class Neo4jPersonRepository:
         await self._store.put(practitioner_to_fhir(practitioner), expected)
         await run_query(
             self._tx,
-            "Q-PERSON-SET-PROPS",
+            REGISTRY.get("Q-PERSON-SET-PROPS"),
             key=f"{_PRACTITIONER}/{practitioner.id}",
             phoneHash=practitioner.phone_hash,
             emailDomain=practitioner.email_domain,
@@ -408,7 +410,7 @@ class Neo4jPersonRepository:
             coding = coding_for(role.channel)
             await run_query(
                 self._tx,
-                "Q-ROLE-CHANNEL",
+                REGISTRY.get("Q-ROLE-CHANNEL"),
                 roleKey=key,
                 system=coding.system,
                 code=coding.code,
@@ -418,7 +420,7 @@ class Neo4jPersonRepository:
         if role.covered_by_practitioner_id is not None and role.covered_until is not None:
             rows = await run_query(
                 self._tx,
-                "Q-ROLE-COVER",
+                REGISTRY.get("Q-ROLE-COVER"),
                 roleKey=key,
                 coverKey=f"{_PRACTITIONER}/{role.covered_by_practitioner_id}",
                 until=role.covered_until,

@@ -182,11 +182,11 @@ def _native(value: object) -> datetime:
 
 async def _read_record(tx: AsyncManagedTransaction, key: str) -> tuple[str, str] | None:
     """(resultType, canonical JSON text) of a stored record, or None. Read-only."""
-    head = await run_query(tx, "Q-IDEM-HEAD", key=key)
+    head = await run_query(tx, REGISTRY.get("Q-IDEM-HEAD"), key=key)
     if not head:
         return None
-    values = await run_query(tx, "Q-IDEM-VALUES", key=key)
-    edges = await run_query(tx, "Q-IDEM-EDGES", key=key)
+    values = await run_query(tx, REGISTRY.get("Q-IDEM-VALUES"), key=key)
+    edges = await run_query(tx, REGISTRY.get("Q-IDEM-EDGES"), key=key)
     tree = _rebuild(values, edges)
     text = json.dumps(tree, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
     return str(head[0]["resultType"]), text
@@ -218,9 +218,13 @@ class Neo4jIdempotencyStore:
         values, edges = _flatten(json.loads(json_text))
         try:
             await run_query(
-                self._tx, "Q-IDEM-CREATE", key=key, resultType=result_type, values=values
+                self._tx,
+                REGISTRY.get("Q-IDEM-CREATE"),
+                key=key,
+                resultType=result_type,
+                values=values,
             )
-            await run_query(self._tx, "Q-IDEM-LINK", key=key, edges=edges)
+            await run_query(self._tx, REGISTRY.get("Q-IDEM-LINK"), key=key, edges=edges)
         except ConstraintError as error:
             raise Conflict("a result for this command key was stored first") from error
 
@@ -237,7 +241,7 @@ class Neo4jProcessedMessages:
         try:
             rows = await run_query(
                 self._tx,
-                "Q-PROCESSED-MARK",
+                REGISTRY.get("Q-PROCESSED-MARK"),
                 key=_processed_key(message_id, consumer),
                 messageId=message_id,
                 consumer=consumer,

@@ -193,7 +193,7 @@ class Neo4jServiceRepository:
         return None if resource is None else profile_from_fhir(resource)
 
     async def list_active(self) -> list[ServiceProfile]:
-        rows = await run_query(self._tx, "Q-SVC-LIST-ACTIVE")
+        rows = await run_query(self._tx, REGISTRY.get("Q-SVC-LIST-ACTIVE"))
         profiles: list[ServiceProfile] = []
         for row in rows:
             profile = await self.get(str(row["id"]))

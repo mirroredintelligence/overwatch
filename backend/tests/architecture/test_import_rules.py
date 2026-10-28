@@ -23,6 +23,7 @@ DOMAIN_CONTRACT = "Domain stays pure"
 APPLICATION_CONTRACT = "Application stays pure"
 INDEPENDENCE_CONTRACT = "Adapters are independent"
 LAYERS_CONTRACT = "Layers"
+TENANCY_CONTRACT = "The tenancy kernel is standard library only"
 
 # A clean probe tree: every package the real contracts name, with no violations.
 PROBE_TREE: dict[str, str] = {
@@ -31,6 +32,8 @@ PROBE_TREE: dict[str, str] = {
     "diucs_probe/domain/ok.py": "import datetime\n",
     "diucs_probe/application/__init__.py": "",
     "diucs_probe/application/use_case.py": "from diucs_probe.domain import ok\n",
+    # TEN-001: the tenancy kernel, the source module of the tenancy contract.
+    "diucs_probe/application/tenancy.py": "import contextvars\n",
     "diucs_probe/bootstrap/__init__.py": "",
     "diucs_probe/adapters/__init__.py": "",
     "diucs_probe/adapters/x.py": "",
@@ -108,7 +111,7 @@ def test_real_tree_passes_every_contract() -> None:
     result = _lint(CONFIG, cwd=BACKEND)
     output = result.stdout + result.stderr
     assert result.returncode == 0, output
-    assert "4 kept, 0 broken" in output, output
+    assert "5 kept, 0 broken" in output, output
 
 
 def test_probe_with_clean_domain_passes(tmp_path: Path) -> None:
@@ -175,6 +178,37 @@ def test_forbidden_import_breaks_named_contract(
     output = result.stdout + result.stderr
     assert result.returncode != 0, output
     assert f"{contract} BROKEN" in output, output
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "import diucs_probe.domain.ok\n",
+        "import diucs_probe.adapters.x\n",
+        "import diucs_probe.bootstrap\n",
+        "import neo4j\n",
+        "import pydantic\n",
+        "import fastapi\n",
+    ],
+)
+def test_the_tenancy_kernel_importing_anything_but_the_standard_library_breaks_its_contract(
+    tmp_path: Path, source: str
+) -> None:
+    config = _probe_config(tmp_path)
+    src = _build_probe(tmp_path, {"diucs_probe/application/tenancy.py": source})
+    result = _lint(config, cwd=tmp_path, pythonpath=src)
+    output = result.stdout + result.stderr
+    assert result.returncode != 0, output
+    assert f"{TENANCY_CONTRACT} BROKEN" in output, output
+
+
+def test_another_application_module_may_still_import_the_domain(tmp_path: Path) -> None:
+    config = _probe_config(tmp_path)
+    src = _build_probe(tmp_path, {})
+    result = _lint(config, cwd=tmp_path, pythonpath=src)
+    output = result.stdout + result.stderr
+    assert result.returncode == 0, output
+    assert f"{TENANCY_CONTRACT} KEPT" in output, output
 
 
 def _swapped_layers_config(tmp_path: Path) -> Path:

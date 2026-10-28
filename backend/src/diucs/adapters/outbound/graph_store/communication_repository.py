@@ -229,4 +229,4 @@ class Neo4jCommunicationRepository:
         return _from_row(rows[0]) if rows else None
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
-        return await run_query(self._tx, query_id, **params)
+        return await run_query(self._tx, REGISTRY.get(query_id), **params)

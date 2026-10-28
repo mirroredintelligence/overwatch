@@ -262,3 +262,9 @@ These names were added by individual task prompts. They are as binding as the re
 
 ## Email adapter (I09, DEC-110)
 - `adapters/outbound/email_smtp/smtp_email.py`: `SmtpEmail(settings)` implements `EmailSender`. `SmtpSettings` is the structural Protocol it reads (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_password`, `smtp_starttls`, `email_from`). `build_message(to, subject, text, html, from_addr, message_id) -> EmailMessage` and `text_to_html(text, link_label) -> str` are module functions. The settings are read by `bootstrap/settings.py` as `Settings` fields with the same names.
+
+## ConfirmCapacity (U02, DEC-112)
+- `application/use_cases/confirm_capacity.py`: `ConfirmCapacityCommand(idempotency_key, actor, service_id, source, performer_role_id=None)`, `ConfirmCapacityResult(report_id, status, status_changed, next_due, confirmed_value, replayed=False)`, `ConfirmCapacity(uow_factory, clock, ids, idempotency)`. Created by U02.
+- `domain/errors.py`: `ConfirmLimitReached`, `NothingToConfirm` (both `DomainError`). Created by U02.
+- `CapacityRepository.lock_service(service_id) -> None` (query `Q-CAP-LOCK-SERVICE`) and `CapacityRepository.trailing_confirmations(service_id) -> int` (query `Q-CAP-TRAILING-CONFIRMS`). Created by U02.
+- `application/use_cases/report_capacity.py`: `record_report(..., use_case=, audit_snapshot=)` gains two optional keyword arguments, and `_check_may_report` is renamed to the public `check_may_report`. Changed by U02 (DEC-112 item 1).

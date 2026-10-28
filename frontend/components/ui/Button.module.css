@@ -1,1 +1,54 @@
-/* red stub */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: var(--btn-h);
+  padding: 0 22px;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  font: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-state) var(--ease-hover);
+}
+
+.button:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.primary {
+  background: var(--c-primary);
+  color: Canvas;
+  border: none;
+}
+
+.primary:hover:not(:disabled) {
+  background: var(--c-primary-dark);
+}
+
+.secondary {
+  background: Canvas;
+  color: var(--c-primary);
+  border-color: var(--c-primary);
+}
+
+.neutral {
+  background: Canvas;
+  color: var(--c-ink-2);
+  border-color: var(--c-closed);
+}

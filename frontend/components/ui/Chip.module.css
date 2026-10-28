@@ -1,1 +1,33 @@
-/* red stub */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: var(--chip-h);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-unknown);
+  border-radius: var(--radius-chip);
+  background: Canvas;
+  color: var(--c-ink);
+  font: inherit;
+  font-size: var(--type-label-size);
+  cursor: pointer;
+  transition:
+    transform var(--dur-press) var(--ease-out),
+    background-color var(--dur-state) var(--ease-hover);
+}
+
+.chip:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--c-primary);
+  border-color: var(--c-primary);
+  color: Canvas;
+  font-weight: 700;
+}

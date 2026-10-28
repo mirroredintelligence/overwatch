@@ -1,1 +1,33 @@
-/* red stub */
+.banner {
+  box-sizing: border-box;
+  padding: var(--space-4) var(--space-5);
+  border: 2px solid var(--c-primary);
+  border-left-width: 8px;
+  border-radius: var(--radius);
+  color: var(--c-ink);
+}
+
+.info {
+  background: var(--c-tint);
+  border-color: var(--c-primary);
+}
+
+.warning {
+  background: var(--c-amber-tint);
+  border-color: var(--c-limited);
+}
+
+.offline {
+  background: Canvas;
+  border-color: var(--c-closed);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: 700;
+}
+
+.body {
+  margin-top: var(--space-2);
+}

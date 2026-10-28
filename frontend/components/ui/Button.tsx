@@ -1,5 +1,40 @@
-// Red-commit stub (DEC-010): renders nothing so the tests fail on assertions.
-export type ButtonProps = Record<string, unknown>;
-export function Button(_props: ButtonProps) {
-  return null;
+import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import styles from './Button.module.css';
+
+export type ButtonVariant = 'primary' | 'secondary' | 'neutral';
+
+export type ButtonProps = {
+  variant: ButtonVariant;
+  children: ReactNode;
+  /** Disables the button and sets aria-busy, so an impatient second click does nothing. */
+  busy?: boolean;
+  /** Renders a link instead of a button. */
+  href?: string;
+  dataEl?: string;
+  onClick?: ButtonHTMLAttributes<HTMLButtonElement>['onClick'];
+  type?: 'button' | 'submit';
+};
+
+export function Button({ variant, children, busy = false, href, dataEl, onClick, type = 'button' }: ButtonProps) {
+  const className = `${styles.button} ${styles[variant]}`;
+  if (href !== undefined) {
+    return (
+      <a className={className} href={href} data-el={dataEl} data-variant={variant}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <button
+      type={type}
+      className={className}
+      disabled={busy}
+      aria-busy={busy ? 'true' : undefined}
+      onClick={onClick}
+      data-el={dataEl}
+      data-variant={variant}
+    >
+      {children}
+    </button>
+  );
 }

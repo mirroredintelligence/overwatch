@@ -3,6 +3,12 @@
 The Neo4j harness (F10, DEC-008): an integration session starts its own throwaway Neo4j container,
 on a free port with a unique name, and removes it when the session ends. The harness never reads
 or uses a shared stack, so no test can wipe diucs-local (port 7687).
+
+The tenant per run (TEN-003, DEC-147): each pytest session has one run identity, from which a run
+tenant, a second tenant and a run network scope derive. Every integration test runs with the run
+tenant bound (a test marked `no_tenant` runs with none), and a guard fails a test that leaves
+another tenant bound. The wipe is still the whole database and the container still one per run
+(TEN-033 to TEN-035).
 """
 
 from collections.abc import AsyncIterator, Callable, Iterator
@@ -16,6 +22,7 @@ from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import ScopeId
 from diucs.bootstrap.container import TEST_NOW
 from tests.support.neo4j import (
     ThrowawayNeo4j,
@@ -24,6 +31,7 @@ from tests.support.neo4j import (
     throwaway_driver,
     wipe,
 )
+from tests.support.tenancy import RunIdentity, new_run_identity
 from tests.support.uow import uow_factory_on
 from tests.support.watchdog import configured_timeout_s, setup_timeout_s, time_limit
 
@@ -31,6 +39,11 @@ _INTEGRATION_ROOT = Path(__file__).resolve().parent / "integration"
 # Drivers of the running harness session. Empty until a test needs Neo4j, so a run of tests that
 # never touch Neo4j (and a Docker-less run) never starts a container.
 _active: list[AsyncDriver] = []
+_RUN_IDENTITY: pytest.StashKey[RunIdentity] = pytest.StashKey()
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    config.stash[_RUN_IDENTITY] = new_run_identity()
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
@@ -126,6 +139,31 @@ async def clean_graph() -> None:
         await wipe(driver)
 
 
+@pytest.fixture(scope="session")
+def run_identity(request: pytest.FixtureRequest) -> RunIdentity:
+    return request.config.stash[_RUN_IDENTITY]
+
+
+@pytest.fixture(scope="session")
+def tenant_id(run_identity: RunIdentity) -> str:
+    return ""
+
+
+@pytest.fixture(scope="session")
+def other_tenant_id(run_identity: RunIdentity) -> str:
+    return ""
+
+
+@pytest.fixture(scope="session")
+def network_id(run_identity: RunIdentity) -> str:
+    return ""
+
+
+@pytest.fixture
+def bound_tenant(tenant_id: str) -> Iterator[ScopeId]:
+    yield ScopeId.tenant("zz-stub")
+
+
 @pytest.fixture
 def uow_clock() -> Clock:
     """The clock the unit of work uses. A test that needs another instant overrides this fixture."""
@@ -136,4 +174,16 @@ def uow_clock() -> Clock:
 def uow_factory(neo4j_driver: AsyncDriver, uow_clock: Clock) -> UnitOfWorkFactory:
     """The unit of work factory every use-case test takes (P06): real Neo4j, the default
     repositories, and the fixed clock."""
+    return uow_factory_on(neo4j_driver, uow_clock)
+
+
+@pytest.fixture
+def uow_factory_a(neo4j_driver: AsyncDriver, uow_clock: Clock, tenant_id: str) -> UnitOfWorkFactory:
+    return uow_factory_on(neo4j_driver, uow_clock)
+
+
+@pytest.fixture
+def uow_factory_b(
+    neo4j_driver: AsyncDriver, uow_clock: Clock, other_tenant_id: str
+) -> UnitOfWorkFactory:
     return uow_factory_on(neo4j_driver, uow_clock)

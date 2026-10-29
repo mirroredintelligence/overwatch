@@ -214,7 +214,12 @@ async def test_a_channel_for_a_role_that_is_not_there_creates_no_concept(
 
     await _as(two, tenant_id, work)
 
-    rows = await _rows_as(two, tenant_id, "MATCH (c:Concept) RETURN count(c) AS concepts")
+    rows = await _rows_as(
+        two,
+        tenant_id,
+        "MATCH (c:Concept {tenantId: $tenant}) RETURN count(c) AS concepts",
+        tenant=tenant_id,
+    )
     assert rows == [{"concepts": 0}]
 
 
@@ -358,10 +363,11 @@ async def test_each_tenant_has_its_own_scope_list_and_entries_do_not_cross(
     assert await invariant_breaks_of(two) == ([], [])
 
 
-async def test_a_scope_list_entry_cannot_point_at_the_other_tenants_service(
+async def test_a_scope_entry_for_a_service_the_other_tenant_holds_names_the_tenants_own(
     two: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
-    """Tenant B has a service svc-2 that tenant A does not. A's list must not name it."""
+    """Tenant B holds `svc-2`; tenant A has no `svc-2` and records an entry for it. The entry must
+    point at A's own new `svc-2`, and never at B's (an unscoped match would link both)."""
 
     async def other(tx: AsyncManagedTransaction) -> None:
         await _seed_service(tx, "svc-2", "Other service")
@@ -369,10 +375,9 @@ async def test_a_scope_list_entry_cannot_point_at_the_other_tenants_service(
     await _as(two, other_tenant_id, other)
 
     async def mine(tx: AsyncManagedTransaction) -> None:
-        await _seed_service(tx, "svc-1", "Mine")
         await Neo4jScopeListRepository(tx, ResourceStore(tx)).save_entry(
             ScopeEntry(
-                service_id="svc-1",
+                service_id="svc-2",
                 name="Mine",
                 category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
                 flag=ScopeFlag.IN_PILOT,
@@ -382,12 +387,15 @@ async def test_a_scope_list_entry_cannot_point_at_the_other_tenants_service(
 
     await _as(two, tenant_id, mine)
 
-    rows = await _rows_as(
-        two,
-        other_tenant_id,
-        "MATCH (:List)-[:ENTRY]->(s:HealthcareService) RETURN s.id AS id ORDER BY id",
+    query = (
+        "MATCH (:List {tenantId: $tenant})-[:ENTRY]->(s:HealthcareService) "
+        "RETURN s.id AS id, s.tenantId AS tenant"
     )
-    assert rows == [{"id": "svc-2"}]
+    assert await _rows_as(two, tenant_id, query, tenant=tenant_id) == [
+        {"id": "svc-2", "tenant": tenant_id}
+    ]
+    assert await _rows_as(two, other_tenant_id, query, tenant=other_tenant_id) == []
+    assert await invariant_breaks_of(two) == ([], [])
 
 
 async def test_a_seeded_relationship_keeps_the_properties_it_is_given(two: AsyncDriver) -> None:

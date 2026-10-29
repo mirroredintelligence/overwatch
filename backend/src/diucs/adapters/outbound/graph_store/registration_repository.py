@@ -25,6 +25,15 @@ from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    NodeSpec,
+    Scenario,
+    SeedNode,
+    SeedRel,
+    TenantSeed,
+)
 from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
@@ -60,54 +69,169 @@ TASK_STATUS: Final[dict[RegistrationStatus, str]] = {
     RegistrationStatus.NOT_APPROVED: "rejected",
 }
 
+# Scenarios of the converted statements (DEC-142 item 5, DEC-150, TEN-011). Both tenants hold a
+# registration `reg-1` for the service `svc-1`, with the same registration code and the same draft
+# keys: the keys are composite with the tenant (TEN-005), so both tenants share them.
+_TASK_SYSTEM: Final = TASK_CODE_SYSTEM
+_NOW: Final = datetime(2026, 10, 25, 13, 0, tzinfo=UTC)
+_NODE_CONCEPT: Final = SeedNode(
+    "concept",
+    ("Concept",),
+    {
+        "system": _TASK_SYSTEM,
+        "code": REGISTER_SERVICE,
+        "key": f"Concept|{_TASK_SYSTEM}|{REGISTER_SERVICE}",
+        "display": Marked("Register a service"),
+    },
+)
+_NODE_TASK: Final = SeedNode(
+    "task",
+    ("Resource", "Task"),
+    {"id": "reg-1", "key": "Task/reg-1", "businessStatus": "requested"},
+)
+_NODE_SERVICE: Final = SeedNode(
+    "service",
+    ("Resource", "HealthcareService"),
+    {"id": "svc-1", "key": "HealthcareService/svc-1", "active": False, "name": Marked("Ward")},
+)
+_NODE_DRAFT: Final = SeedNode(
+    "draft",
+    ("RegistrationDraftField",),
+    {"step": "org", "field": "name", "value": Marked("Org")},
+)
+_TASK_SEED: Final = TenantSeed(
+    nodes=(_NODE_TASK, _NODE_CONCEPT, _NODE_SERVICE),
+    rels=(SeedRel("task", "CODE", "concept"), SeedRel("task", "FOCUS", "service")),
+)
+_DRAFT_SEED: Final = TenantSeed(
+    nodes=(_NODE_TASK, _NODE_CONCEPT, _NODE_SERVICE, _NODE_DRAFT),
+    rels=(
+        SeedRel("task", "CODE", "concept"),
+        SeedRel("task", "FOCUS", "service"),
+        SeedRel("draft", "DRAFT_OF", "task"),
+    ),
+)
+_SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-REG-BY-STATUS": Scenario(
+        "list the registrations of a status, for the registration code",
+        seed=_TASK_SEED,
+        params={"status": "requested", "system": _TASK_SYSTEM, "code": REGISTER_SERVICE},
+        lookup=("status", "system", "code"),
+        expect=Expect(rows=({"id": "reg-1"},)),
+    ),
+    "Q-REG-FOR-SERVICE": Scenario(
+        "list the registrations of a service, for the registration code",
+        seed=_TASK_SEED,
+        params={"serviceId": "svc-1", "system": _TASK_SYSTEM, "code": REGISTER_SERVICE},
+        lookup=("serviceId", "system", "code"),
+        expect=Expect(rows=({"id": "reg-1"},)),
+    ),
+    "Q-REG-SET-PROPS": Scenario(
+        "set the business status and submission time of a registration",
+        seed=_TASK_SEED,
+        params={"key": "Task/reg-1", "businessStatus": "accepted", "submittedAt": _NOW},
+        lookup=("key",),
+        new=("businessStatus", "submittedAt"),
+        expect=Expect(
+            rows=({"set": 1},),
+            after=(NodeSpec(("Task",), {"id": "reg-1", "businessStatus": "accepted"}),),
+        ),
+    ),
+    "Q-REG-DRAFT-CLEAR": Scenario(
+        "remove the draft rows of a registration",
+        seed=_DRAFT_SEED,
+        params={"key": "Task/reg-1"},
+        lookup=("key",),
+        expect=Expect(
+            nodes={"RegistrationDraftField": -1},
+            rels={"DRAFT_OF": -1},
+            gone=(NodeSpec(("RegistrationDraftField",), {"step": "org", "field": "name"}),),
+        ),
+    ),
+    "Q-REG-DRAFT-ADD": Scenario(
+        "write the draft rows of a registration",
+        seed=_TASK_SEED,
+        params={"key": "Task/reg-1", "rows": [{"step": "org", "field": "name", "value": "Org"}]},
+        lookup=("key",),
+        new=("rows",),
+        expect=Expect(
+            nodes={"RegistrationDraftField": 1},
+            rels={"DRAFT_OF": 1},
+            after=(
+                NodeSpec(
+                    ("RegistrationDraftField",), {"step": "org", "field": "name", "value": "Org"}
+                ),
+            ),
+        ),
+    ),
+    "Q-REG-DRAFT-FOR": Scenario(
+        "read the draft rows of a registration",
+        seed=_DRAFT_SEED,
+        params={"key": "Task/reg-1"},
+        lookup=("key",),
+        expect=Expect(rows=({"step": "org", "field": "name", "value": Marked("Org")},)),
+    ),
+}
+
 _BY_STATUS: Final = NamedQuery(
     id="Q-REG-BY-STATUS",
     cypher=(
-        "MATCH (t:Task {businessStatus: $status})-[:CODE]->"
-        "(:Concept {system: $system, code: $code}) "
+        "MATCH (t:Task {businessStatus: $status, tenantId: $tenant})-[:CODE]->"
+        "(:Concept {system: $system, code: $code, tenantId: $tenant}) "
         "RETURN t.id AS id ORDER BY t.submittedAt, t.id"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-REG-BY-STATUS"],
 )
 _FOR_SERVICE: Final = NamedQuery(
     id="Q-REG-FOR-SERVICE",
     cypher=(
-        "MATCH (t:Task)-[:FOCUS]->(:HealthcareService {id: $serviceId}), "
-        "(t)-[:CODE]->(:Concept {system: $system, code: $code}) "
+        "MATCH (t:Task {tenantId: $tenant})-[:FOCUS]->"
+        "(:HealthcareService {id: $serviceId, tenantId: $tenant}), "
+        "(t)-[:CODE]->(:Concept {system: $system, code: $code, tenantId: $tenant}) "
         "RETURN t.id AS id ORDER BY t.authoredOn DESC, t.id DESC"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-REG-FOR-SERVICE"],
 )
 _SET_PROPS: Final = NamedQuery(
     id="Q-REG-SET-PROPS",
     cypher=(
-        "MATCH (t:Task {key: $key}) "
+        "MATCH (t:Task {key: $key, tenantId: $tenant}) "
         "SET t.businessStatus = $businessStatus, t.submittedAt = $submittedAt "
         "RETURN count(t) AS set"
     ),
     mode="write",
+    scenario=_SCENARIOS["Q-REG-SET-PROPS"],
 )
 _DRAFT_CLEAR: Final = NamedQuery(
     id="Q-REG-DRAFT-CLEAR",
-    cypher=("MATCH (d:RegistrationDraftField)-[:DRAFT_OF]->(:Task {key: $key}) DETACH DELETE d"),
+    cypher=(
+        "MATCH (d:RegistrationDraftField {tenantId: $tenant})-[:DRAFT_OF]->"
+        "(:Task {key: $key, tenantId: $tenant}) DETACH DELETE d"
+    ),
     mode="write",
+    scenario=_SCENARIOS["Q-REG-DRAFT-CLEAR"],
 )
 _DRAFT_ADD: Final = NamedQuery(
     id="Q-REG-DRAFT-ADD",
     cypher=(
-        "MATCH (t:Task {key: $key}) UNWIND $rows AS row "
-        "CREATE (:RegistrationDraftField {step: row.step, field: row.field, value: row.value})"
-        "-[:DRAFT_OF]->(t)"
+        "MATCH (t:Task {key: $key, tenantId: $tenant}) UNWIND $rows AS row "
+        "CREATE (:RegistrationDraftField {step: row.step, field: row.field, value: row.value, "
+        "tenantId: $tenant})-[:DRAFT_OF]->(t)"
     ),
     mode="write",
+    scenario=_SCENARIOS["Q-REG-DRAFT-ADD"],
 )
 _DRAFT_FOR: Final = NamedQuery(
     id="Q-REG-DRAFT-FOR",
     cypher=(
-        "MATCH (d:RegistrationDraftField)-[:DRAFT_OF]->(:Task {key: $key}) "
+        "MATCH (d:RegistrationDraftField {tenantId: $tenant})-[:DRAFT_OF]->"
+        "(:Task {key: $key, tenantId: $tenant}) "
         "RETURN d.step AS step, d.field AS field, d.value AS value"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-REG-DRAFT-FOR"],
 )
 
 

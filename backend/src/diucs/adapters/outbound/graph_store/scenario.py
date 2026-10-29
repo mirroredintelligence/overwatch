@@ -99,6 +99,9 @@ class SeedNode:
 
 @dataclass(frozen=True, slots=True)
 class SeedRel:
+    """A relationship of the seed, between two refs. `props` are its properties (a cover's
+    `until`); a relationship carries no tenant, because it joins nodes of one tenant."""
+
     start: str
     type: str
     end: str
@@ -234,11 +237,15 @@ def _check_structure(scenario: Scenario, add: Callable[[str], None]) -> None:
             add("a relationship names an unknown ref")
         if _IDENTIFIER.fullmatch(rel.type) is None:
             add("a relationship type name is not a plain identifier")
+        if any(_IDENTIFIER.fullmatch(name) is None for name in rel.props):
+            add("a relationship property name is not a plain identifier")
 
 
 def _check_reserved(scenario: Scenario, add: Callable[[str], None]) -> None:
     if any(RESERVED_PROPERTIES & set(node.props) for node in scenario.seed.nodes):
         add("a seed node sets a reserved property (the seeder sets the tenant and the marker)")
+    if any(RESERVED_PROPERTIES & set(rel.props) for rel in scenario.seed.rels):
+        add("a seed relationship sets a reserved property (the seeder sets the tenant)")
     specs = (*scenario.expect.after, *scenario.expect.gone)
     if any(RESERVED_PROPERTIES & set(spec.props) for spec in specs):
         add("an expectation names a reserved property (only the caller's nodes are looked at)")

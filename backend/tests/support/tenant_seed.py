@@ -143,12 +143,20 @@ def seed_statement(seed: TenantSeed, slot: Slot) -> tuple[str, dict[str, Any]]:
             f"SET n{position}.tenantId = $tenant, n{position}.seedMarker = $marker"
         )
         params[f"p{position}"] = render(dict(node.props), slot)
-    for rel in seed.rels:
+    for position, rel in enumerate(seed.rels):
         if _IDENTIFIER.fullmatch(rel.type) is None:
             raise ValueError("a seed relationship type name must be a plain identifier")
         if rel.start not in index or rel.end not in index:
             raise ValueError("a seed relationship names an unknown ref")
-        lines.append(f"CREATE (n{index[rel.start]})-[:{rel.type}]->(n{index[rel.end]})")
+        if rel.props:
+            # A relationship's properties are set from one map parameter, rendered for the slot.
+            params[f"r{position}"] = render(dict(rel.props), slot)
+            lines.append(
+                f"CREATE (n{index[rel.start]})-[r{position}:{rel.type}]->(n{index[rel.end]}) "
+                f"SET r{position} = $r{position}"
+            )
+        else:
+            lines.append(f"CREATE (n{index[rel.start]})-[:{rel.type}]->(n{index[rel.end]})")
     return " ".join(lines), params
 
 

@@ -89,6 +89,11 @@ def canonical_entry_json(entry: AuditEntry) -> str:
     )
 
 
+def genesis_hash_for(scope: str) -> str:
+    """STUB (TEN-017 red): every scope gets the original genesis, so the per-scope guards fail."""
+    return GENESIS_HASH
+
+
 def chain_hash_over(previous_hash: str, canonical_text: str) -> str:
     """The chain link for a canonical text, given the link before it."""
     return hashlib.sha256((previous_hash + canonical_text).encode()).hexdigest()

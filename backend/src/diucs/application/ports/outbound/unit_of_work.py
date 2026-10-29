@@ -30,6 +30,7 @@ from diucs.application.ports.outbound.repositories import (
     AlertRepository,
     AlertSubscriptionRepository,
     BookingRepository,
+    ClinicalRequestRepository,
     CapacityRepository,
     CaseRepository,
     CriteriaRepository,
@@ -47,6 +48,7 @@ class UnitOfWork(Protocol):
     services: ServiceRepository
     alert_subscriptions: AlertSubscriptionRepository
     alerts: AlertRepository
+    clinical_requests: ClinicalRequestRepository
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository

@@ -11,6 +11,7 @@ from typing import Protocol
 from diucs.domain.codes import AlertKind, RegistrationStatus
 from diucs.domain.model.alerts import AlertRecord, AlertSubscription
 from diucs.domain.model.booking import Booking
+from diucs.domain.model.clinical import ClinicalRequestRecord
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
 from diucs.domain.model.criteria import ServiceCriteria
@@ -371,4 +372,32 @@ class AlertRepository(Protocol):
     async def chain(self, alert_id: str) -> list[AlertRecord]:
         """The alert and every alert it escalates from, from the root through each partOf link,
         oldest first. An unknown id raises NotFound."""
+        ...
+
+
+class ClinicalRequestRepository(Protocol):
+    """Clinical advice requests, stored as Task code clinical-advice-request (P18). Adapter:
+    Neo4jClinicalRequestRepository (graph_store/clinical_request_repository.py). The queue order is
+    the one of queue_order (D23): now before within-15-min, then oldest first. Presence is not
+    stored here."""
+
+    async def add(self, record: ClinicalRequestRecord) -> None:
+        """Store a new request. An id that exists raises Conflict."""
+        ...
+
+    async def get(self, request_id: str) -> ClinicalRequestRecord | None:
+        """The stored request, or None."""
+        ...
+
+    async def save(self, record: ClinicalRequestRecord) -> None:
+        """Replace the stored request. An unknown id raises NotFound; a stale version raises
+        Conflict."""
+        ...
+
+    async def waiting(self) -> list[ClinicalRequestRecord]:
+        """The requests nobody has taken, in queue order."""
+        ...
+
+    async def taken_by(self, clinician_id: str) -> list[ClinicalRequestRecord]:
+        """The requests this clinician has taken and not yet advised on."""
         ...

@@ -36,6 +36,7 @@ REQUIRED_NAMES = {
     "services",
     "alert_subscriptions",
     "alerts",
+    "clinical_requests",
     "capacity",
     "bookings",
     "cases",

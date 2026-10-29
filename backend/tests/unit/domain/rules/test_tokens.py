@@ -35,7 +35,7 @@ from diucs.domain.rules.tokens import (
 SECRET: Final = b"sample-server-secret"
 NOW: Final = datetime(2026, 10, 25, 14, 0, tzinfo=UTC)
 LATER: Final = NOW + timedelta(hours=2)
-LINK_TOKEN: Final = re.compile(r"[A-Za-z]{23}")  # DEC-152: letters only, 23 characters
+LINK_TOKEN: Final = re.compile(r"[A-Za-z]{23}")  # DEC-154: letters only, 23 characters
 SUPPORT_CODE: Final = re.compile(
     r"[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}"
 )

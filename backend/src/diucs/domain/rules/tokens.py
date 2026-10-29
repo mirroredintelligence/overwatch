@@ -7,7 +7,7 @@ cryptographically secure source), and every time is an argument, so tests are de
 
 - A link token is 128 bits written as a base-52 number of 23 letters (A to Z, a to z), with no
   digit, no "-" or "_" and no space. Only its keyed hash (HMAC-SHA256, hex) is stored. A link is
-  used once; used takes precedence over expired. The letters-only layout is deliberate (DEC-152):
+  used once; used takes precedence over expired. The letters-only layout is deliberate (DEC-154):
   the token goes into an SMS link that the privacy guard (D17) reads, and no text made of 23
   letters can have a postcode, NHS-number or titled-name shape, so a random token can never make
   the guard refuse a capacity prompt. (With base64url, about 0.18 percent of tokens did: "-" is a

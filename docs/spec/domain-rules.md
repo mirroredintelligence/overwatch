@@ -248,7 +248,7 @@ Every options view writes an audit snapshot: for each service shown, its status,
 - **Reporters and COO or ICB users**: text code then PIN.
 - **Text code**: 6 digits, valid 10 minutes, 5 wrong tries then a new code is needed, resend allowed after 60 seconds **[ASSUMED cooldown]**.
 - **PIN**: 6 digits, stored only as a keyed hash, bound to the device. 5 wrong tries lock it; a text code resets it. Re-verify by text code every 30 days and on any new device.
-- **Link tokens**: at least 128 bits of randomness, written as 23 letters (A to Z, a to z) and nothing else, so a random token can never look like a postcode or NHS number to the privacy guard (DEC-152), single use, tied to one prompt and one phone, expiring with the prompt (the reply-by time). Only a hash is stored. Opening a link (GET) changes nothing; a button press (POST with a CSRF check) does.
+- **Link tokens**: at least 128 bits of randomness, written as 23 letters (A to Z, a to z) and nothing else, so a random token can never look like a postcode or NHS number to the privacy guard (DEC-154), single use, tied to one prompt and one phone, expiring with the prompt (the reply-by time). Only a hash is stored. Opening a link (GET) changes nothing; a button press (POST with a CSRF check) does.
 - **Invitation links**: valid 48 hours.
 - **Wall screen pairing code**: 6 digits shown as "482 913", valid 10 minutes. A paired screen holds a device token (hash stored) and can read only the board. It never sees patient data.
 - **Support code**: 8 characters shown as `XXXX-XXXX` from an unambiguous alphabet, valid for a set period, created only by the person.

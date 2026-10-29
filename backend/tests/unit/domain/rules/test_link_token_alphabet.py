@@ -3,7 +3,7 @@
 The guard (domain/messages/privacy_guard.py) has three patterns. A postcode needs a digit and a
 word boundary on both sides, so inside a token it can only match a whole word of 5 to 7
 characters. An NHS number needs ten digits. A titled name needs whitespace. A token of letters
-only, with no "-", "_", digit or space, and 23 characters long, can match none of them (DEC-152).
+only, with no "-", "_", digit or space, and 23 characters long, can match none of them (DEC-154).
 The 128 bits that domain-rules 7 and DEC-115 require are kept: 52 ** 23 is more than 2 ** 128.
 """
 

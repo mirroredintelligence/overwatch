@@ -71,7 +71,7 @@ def purge_tenant(tenant: Tenant, now: datetime) -> Tenant:
     return tenant
 
 
-def reopen_tenant(tenant: Tenant, now: datetime) -> Tenant:
+def reopen_tenant(tenant: Tenant) -> Tenant:
     return tenant
 
 

@@ -759,6 +759,9 @@ def test_two_approvers_who_are_not_the_author_pass_a_clinical_change() -> None:
         ["approver-1", None],
         ["approver-1", 7],
         "approver-1approver-2",
+        None,
+        5,
+        {"approver-1", "approver-2"},
     ],
     ids=[
         "none",
@@ -771,6 +774,9 @@ def test_two_approvers_who_are_not_the_author_pass_a_clinical_change() -> None:
         "none-ref",
         "number-ref",
         "a-bare-string",
+        "no-list",
+        "a-number",
+        "a-set",
     ],
 )
 def test_a_clinical_change_is_refused_without_two_distinct_named_non_author_approvers(

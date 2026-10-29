@@ -248,7 +248,6 @@ def test_every_function_that_takes_now_refuses_a_naive_or_missing_instant(now: A
         lambda: start_offboarding(active, now),
         lambda: complete_offboarding(offboarding, now),
         lambda: purge_tenant(offboarded, now),
-        lambda: reopen_tenant(offboarding, now),
         lambda: activate_tenant(make_tenant(S.PROVISIONING), passing_facts(), now),
         lambda: purge_blockers(offboarded, now, ["a", "b"], SAMPLE_ID),
         lambda: number_assignable(NumberStatus.RETIRED, T0, now),
@@ -268,7 +267,7 @@ def test_a_function_that_takes_a_tenant_refuses_anything_else() -> None:
             lambda b=bad: start_offboarding(b, now),
             lambda b=bad: complete_offboarding(b, now),
             lambda b=bad: purge_tenant(b, now),
-            lambda b=bad: reopen_tenant(b, now),
+            lambda b=bad: reopen_tenant(b),
             lambda b=bad: activate_tenant(b, passing_facts(), now),
             lambda b=bad: offboarding_may_complete_at(b),
             lambda b=bad: purge_blockers(b, now, ["a", "b"], SAMPLE_ID),
@@ -378,7 +377,7 @@ def test_purge_applies_only_to_an_offboarded_tenant(status: TenantStatus) -> Non
 def test_reopening_before_purge_makes_the_tenant_active_again(status: TenantStatus) -> None:
     tenant = make_tenant(status)
     now = T0 + 100 * DAY
-    reopened = reopen_tenant(tenant, now)
+    reopened = reopen_tenant(tenant)
     assert reopened.status is S.ACTIVE
     assert reopened.offboarding_started_at is None and reopened.offboarded_at is None
     assert reopened.activated_at == tenant.activated_at
@@ -388,11 +387,11 @@ def test_reopening_before_purge_makes_the_tenant_active_again(status: TenantStat
 @pytest.mark.parametrize("status", [S.PROVISIONING, S.ACTIVE, S.SUSPENDED, S.PURGED])
 def test_only_an_offboarding_or_offboarded_tenant_is_reopened(status: TenantStatus) -> None:
     with pytest.raises(InvalidTransition):
-        reopen_tenant(make_tenant(status), T0 + 900 * DAY)
+        reopen_tenant(make_tenant(status))
 
 
 def test_a_reopened_tenant_starts_a_new_notice_period_when_it_offboards_again() -> None:
-    reopened = reopen_tenant(make_tenant(S.OFFBOARDING), T0 + 100 * DAY)
+    reopened = reopen_tenant(make_tenant(S.OFFBOARDING))
     again = start_offboarding(reopened, T0 + 200 * DAY)
     assert offboarding_may_complete_at(again) == T0 + 230 * DAY
 
@@ -416,6 +415,12 @@ def test_activation_is_refused_with_the_blockers_named_in_order() -> None:
     text = str(refused.value)
     assert text.startswith("Activation is unavailable until: ")
     assert text.index("Configuration version approved") < text.index("System, referral system")
+
+
+@pytest.mark.parametrize("bad", [None, {"config_approved": True}, "facts", 5])
+def test_activation_needs_activation_facts_and_nothing_else(bad: Any) -> None:
+    with pytest.raises(TypeError, match="ActivationFacts are required"):
+        activate_tenant(make_tenant(S.PROVISIONING), bad, T0 + DAY)
 
 
 def test_the_state_is_checked_before_the_facts() -> None:
@@ -872,7 +877,7 @@ def _apply(tenant: Tenant, op: str, now: datetime) -> Tenant:
         return complete_offboarding(tenant, now, waived=True)
     if op == "purge":
         return purge_tenant(tenant, now)
-    return reopen_tenant(tenant, now)
+    return reopen_tenant(tenant)
 
 
 @settings(max_examples=300, deadline=None)

@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -362,6 +363,80 @@ def is_ancestor(older: str, newer: str) -> bool:
         return False
 
 
+def failing_checks(markdown: str):
+    """The labels of failing rows in the generated checks table, [] if all pass, None if there is no table.
+
+    record_checks.py writes `| label | `command` | exit | summary |` rows under a heading that starts with
+    "Checks (generated". Rows elsewhere in the file are ignored, so a red or green table cannot satisfy the gate."""
+    rows, failing, inside = 0, [], False
+    for line in markdown.splitlines():
+        if line.startswith("#"):
+            inside = "Checks (generated" in line
+            continue
+        if not (inside and line.startswith("|")):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) >= 3 and cells[2].isdigit():
+            rows += 1
+            if int(cells[2]) != 0:
+                failing.append(cells[0])
+    return None if rows == 0 else failing
+
+
+def checks_gate(a):
+    """Refuse delivery unless the evidence file at the commit holds a generated checks table with no failures."""
+    path = f"docs/delivery/evidence/{a.task}.md"
+    shown = subprocess.run(["git", "show", f"{a.commit}:{path}"], capture_output=True, text=True)
+    if shown.returncode != 0:
+        raise Refused(f"{path} is not in commit {a.commit}; the checks table is the evidence of the checks.")
+    failing = failing_checks(shown.stdout)
+    if failing is None:
+        raise Refused(f"{path} has no generated checks table (record_checks.py) at {a.commit}.")
+    if failing:
+        raise Refused(f"checks failing at {a.commit}: {', '.join(failing)}. Fix them and re-record before delivery.")
+
+
+ATTRIBUTION = re.compile(
+    r"co-authored-by\s*:|\bclaude[- ](sonnet|haiku|opus|fable)\b|\bclaude-(sonnet|haiku|opus|fable)-"
+    r"|\b(sonnet|haiku|opus|fable)\s*5(\.\d)?\b",
+    re.IGNORECASE,
+)
+
+
+def attribution_problems(message: str):
+    """The lines of a commit message that carry a co-author trailer or a model identifier (CLAUDE system rule:
+    no model name and no Co-Authored-By trailer in commits). Product names such as Claude Code are allowed."""
+    return [line for line in message.splitlines() if ATTRIBUTION.search(line)]
+
+
+def unpushed_attribution_problems(base: str = "origin/main"):
+    """(sha, lines) for each commit between base and HEAD whose message carries attribution. Empty when base
+    does not exist, because there is then no unpushed range to check."""
+    out = subprocess.run(["git", "log", "--format=%H%x1f%B%x1e", f"{base}..HEAD"], capture_output=True, text=True)
+    if out.returncode != 0:
+        return []
+    found = []
+    for record in out.stdout.split("\x1e"):
+        if "\x1f" not in record:
+            continue
+        sha, body = record.strip().split("\x1f", 1)
+        lines = attribution_problems(body)
+        if lines:
+            found.append((sha[:7], lines))
+    return found
+
+
+def cmd_check_messages(a, d, now):
+    found = unpushed_attribution_problems()
+    if not found:
+        print("No unpushed commit carries a co-author trailer or a model name.")
+        return 0
+    for sha, lines in found:
+        print(f"{sha}: " + "; ".join(lines))
+    print("Reword these commits before pushing (git rebase -i on unpushed commits only).")
+    return 2
+
+
 def cmd_deliver(a, d, now):
     with locked(d):
         task = need_task(ledger(d, now), a.task)
@@ -372,6 +447,11 @@ def cmd_deliver(a, d, now):
             raise Refused(f"{a.task} has no passing verification from a second session yet.")
         if not a.skip_git_check and not commit_exists(a.commit):
             raise Refused(f"Commit {a.commit} was not found in this repository.")
+        if not a.skip_git_check:
+            checks_gate(a)
+            found = unpushed_attribution_problems()
+            if found:
+                raise Refused(f"attribution in unpushed commits {', '.join(sha for sha, _ in found)}: run check-messages and reword them.")
         append(d, {"t": "deliver", "task": a.task, "session": a.session, "commit": a.commit}, now)
     print(f"{a.task} delivered at {a.commit}. Run `next`, and add a lesson if anything surprised you.")
     return 0
@@ -501,6 +581,7 @@ def build_parser() -> argparse.ArgumentParser:
     sp.add_argument("task"); sp.add_argument("--session", required=True); sp.add_argument("--skip-git-check", action="store_true", help="tests of this tool only; never on real work")
     sp = add("verify", cmd_verify, "independent check by a different session")
     sp.add_argument("task"); sp.add_argument("--verifier", required=True); sp.add_argument("--result", required=True, choices=["pass", "fail"]); sp.add_argument("--note", default="")
+    add("check-messages", cmd_check_messages, "list unpushed commits whose messages carry a co-author trailer or a model name")
     sp = add("deliver", cmd_deliver, "mark delivered once verified (--skip-git-check is for tests of this tool only)")
     sp.add_argument("task"); sp.add_argument("--session", required=True); sp.add_argument("--commit", required=True); sp.add_argument("--skip-git-check", action="store_true")
     sp = add("block", cmd_block, "mark a task blocked, with the reason")

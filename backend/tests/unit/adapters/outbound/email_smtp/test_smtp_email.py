@@ -139,6 +139,7 @@ def test_the_capacity_email_for_ucr_west_has_its_subject_and_footer() -> None:
     assert rendered.html is not None
     assert "The link works once, needs no login, and expires at 10:30." in rendered.text
     assert "This email has no patient information." in rendered.text
+    assert "Replies to this address are not read." in rendered.text
 
 
 async def test_send_delivers_one_message_with_both_parts(smtp_server: Any) -> None:

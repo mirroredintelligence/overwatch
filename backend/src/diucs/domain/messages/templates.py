@@ -25,7 +25,8 @@ from diucs.domain.messages.privacy_guard import find_patient_data
 
 FOOTER: Final = (
     "The link works once, needs no login, and expires at {reply_by}. "
-    "This email has no patient information."
+    "This email has no patient information. "
+    "Replies to this address are not read."
 )
 BUTTON_STYLE: Final = (
     "display:inline-block;padding:12px 20px;background:#0B5C8C;color:#FFFFFF;"

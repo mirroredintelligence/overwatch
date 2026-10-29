@@ -14,6 +14,7 @@ from diucs.application.use_cases.handle_inbound_text import (
     HandleInboundTextCommand,
     HandleInboundTextResult,
 )
+from diucs.application.work import WorkKind
 from diucs.bootstrap import workers_main
 from diucs.bootstrap.settings import Settings
 from diucs.bootstrap.workers_main import (
@@ -25,6 +26,10 @@ from diucs.bootstrap.workers_main import (
 )
 
 CONNECTION = "Endpoint=sb://example;SharedAccessKeyName=k;SharedAccessKey=SECRET-KEY-TEXT"
+
+
+async def _no_work(work: object) -> None:
+    raise AssertionError("no work runs when the runners are only built")
 
 
 class _UseCase:
@@ -109,17 +114,19 @@ def test_main_runs_the_workers_for_the_configured_tenants(
     assert seen == [(Settings, StaticTenants)]
 
 
-def test_there_is_one_runner_for_each_inbound_queue_and_each_binds_the_tenant() -> None:
+def test_there_is_one_runner_for_each_queue_and_each_binds_the_tenant() -> None:
     runners = build_runners(
         client=None,  # type: ignore[arg-type]
         handle_inbound_text=_UseCase(),
         uow_factory=_no_unit,  # type: ignore[arg-type]
         tenants=StaticTenants(["tenant-a"]),
+        work_handlers={WorkKind.REMINDER: _no_work},
     )
 
     assert [(r._entity, r._subscription, r._sessions) for r in runners] == [
         ("inbound.replies", None, False),
         ("inbound.receipts", None, False),
+        ("scheduled.work", None, False),
     ]
     assert all(isinstance(r._consumer, TenantBoundConsumer) for r in runners)
 

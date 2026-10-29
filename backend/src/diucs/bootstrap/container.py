@@ -19,6 +19,7 @@ process that serves, and without one every secret reads as not found (fail close
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from diucs.adapters.inbound.scheduler.scheduled_work_consumer import WorkHandler
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
@@ -34,6 +35,8 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.use_cases.missed_report_ladder import MissedReportLadder
+from diucs.application.work import WorkKind
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
 
@@ -71,6 +74,11 @@ class Container:
 
     async def shutdown(self) -> None:
         await self.neo4j.close()
+
+
+def ladder_handlers(ladder: MissedReportLadder) -> dict[WorkKind, WorkHandler]:
+    """Red stub (I05): the dispatch table of the three ladder kinds."""
+    raise NotImplementedError
 
 
 def _neo4j_connection(settings: Settings) -> Neo4jConnection:

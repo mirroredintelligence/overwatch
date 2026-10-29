@@ -22,6 +22,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 
 from azure.servicebus.aio import ServiceBusClient
 
+from diucs.adapters.inbound.scheduler.scheduled_work_consumer import WorkHandler
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants, StaticTenants
 from diucs.adapters.inbound.workers.reply_processor import HandlesInboundText, reply_consumer
@@ -33,6 +34,7 @@ from diucs.application.tenancy import is_valid_tenant_id
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
 from diucs.application.use_cases.report_capacity import ReportCapacity
+from diucs.application.work import WorkKind
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
 
@@ -72,6 +74,7 @@ def build_runners(
     handle_inbound_text: HandlesInboundText,
     uow_factory: UnitOfWorkFactory,
     tenants: ActiveTenants,
+    work_handlers: Mapping[WorkKind, WorkHandler],
 ) -> list[ServiceBusRunner]:
     """One runner for each inbound queue, each over a consumer that binds the message's tenant."""
     return [

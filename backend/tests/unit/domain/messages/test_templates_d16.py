@@ -9,6 +9,7 @@ No test uses a real patient, name or postcode.
 """
 
 import re
+from typing import Final
 
 import pytest
 
@@ -20,6 +21,11 @@ from diucs.domain.messages.templates import RenderedMessage, render
 
 UK_POSTCODE = re.compile(r"\b[A-Z]{1,2}\d[A-Z\d]? ?\d[A-Z]{2}\b")
 
+# The default tenant's words (TEN-022). They are test fixtures only; no source file holds them.
+DEFAULT_SYSTEM_NAME = "Dorset urgent care capacity"
+DEFAULT_REFERRAL_SYSTEM_NAME = "SystmOne"
+DEFAULT_COORDINATION_TEAM_NAME = "The SPOA shift lead"
+
 B1_FIELDS: dict[str, object] = {
     "reference": "4821",
     "service": "UCR West",
@@ -28,6 +34,7 @@ B1_FIELDS: dict[str, object] = {
     "urgency": "within 2 hrs",
     "link": "diucs.example/b4821",
     "reply_by": "14:26",
+    "referral_system_name": DEFAULT_REFERRAL_SYSTEM_NAME,
 }
 
 BOOKING_FIELDS: dict[MessageId, dict[str, object]] = {
@@ -39,12 +46,12 @@ BOOKING_FIELDS: dict[MessageId, dict[str, object]] = {
     MessageId.B6: {"reference": "4821", "cancelled_at": "14:40"},
     MessageId.B7: {"references": ["4821", "4830"]},
     MessageId.I1: {"service": "UCR West", "link": "diucs.example/i/Qx82"},
-    MessageId.I2: {"link": "diucs.example/i/Ab41"},
+    MessageId.I2: {"link": "diucs.example/i/Ab41", "system_name": DEFAULT_SYSTEM_NAME},
     MessageId.I3: {"service": "UCR West"},
     MessageId.K1: {"code": "582913"},
     MessageId.K2: {"service": "UCR West", "review_by": "12 Dec"},
     MessageId.K3: {"title": "UCR West is over capacity", "body": "Open the board to see it."},
-    MessageId.K4: {"service": "UCR East"},
+    MessageId.K4: {"service": "UCR East", "coordination_team_name": DEFAULT_COORDINATION_TEAM_NAME},
 }
 
 
@@ -144,7 +151,12 @@ def test_i1_invitation_for_a_service_matches_the_rule_book() -> None:
 
 
 def test_i2_invitation_for_the_exec_view() -> None:
-    rendered = render(MessageId.I2, Channel.TEXT, link="diucs.example/i/Ab41")
+    rendered = render(
+        MessageId.I2,
+        Channel.TEXT,
+        link="diucs.example/i/Ab41",
+        system_name=DEFAULT_SYSTEM_NAME,
+    )
     assert rendered.text == (
         "DIUCS: You are invited to see Dorset urgent care capacity on your phone. "
         "Set up takes about 3 minutes: diucs.example/i/Ab41 Valid for 48 hrs."
@@ -188,7 +200,12 @@ def test_k3_alert_push_takes_title_and_body_as_given() -> None:
 
 
 def test_k4_suspended_notice_wording() -> None:
-    rendered = render(MessageId.K4, Channel.TEXT, service="UCR East")
+    rendered = render(
+        MessageId.K4,
+        Channel.TEXT,
+        service="UCR East",
+        coordination_team_name=DEFAULT_COORDINATION_TEAM_NAME,
+    )
     assert rendered.text == (
         "DIUCS: UCR East is suspended. Prompts have stopped. The SPOA shift lead will phone you."
     )
@@ -274,3 +291,155 @@ def test_no_placeholder_is_left_in_any_rendered_text() -> None:
             for part in (rendered.text, rendered.subject, rendered.html):
                 if part is not None:
                     assert "{" not in part and "}" not in part
+
+
+# --- Tenant fields (TEN-022) ----------------------------------------------------------------
+
+ANOTHER_SYSTEM_NAME = "Wessex urgent care"
+ANOTHER_REFERRAL_SYSTEM_NAME = "EMIS Web"
+ANOTHER_COORDINATION_TEAM_NAME = "The duty co-ordinator"
+LONGEST_SYSTEM_NAME = "Wessex urgent care capacity team for the whole county area a"
+LONGEST_REFERRAL_SYSTEM_NAME = "Wessex urgent care referral system for t"
+OLD_PLACE_AND_SYSTEM_WORDS = ("Dorset", "SPOA", "SystmOne")
+
+
+def _rendered_parts(rendered: RenderedMessage) -> str:
+    return "\n".join(part for part in (rendered.text, rendered.subject, rendered.html) if part)
+
+
+# Test 1 (TEN-022): the default tenant's values give the rule-book text, character for character.
+
+
+def test_default_tenant_values_give_the_rule_book_text_for_i2_b1_and_k4() -> None:
+    i2 = render(
+        MessageId.I2, Channel.TEXT, link="diucs.example/i/Qx82", system_name=DEFAULT_SYSTEM_NAME
+    )
+    assert i2.text == (
+        "DIUCS: You are invited to see Dorset urgent care capacity on your phone. "
+        "Set up takes about 3 minutes: diucs.example/i/Qx82 Valid for 48 hrs."
+    )
+    b1 = render(MessageId.B1, Channel.TEXT, **B1_FIELDS)
+    assert b1.text == (
+        "DIUCS REQUEST 4821: UCR West. Age 80+, frailty, within 2 hrs. "
+        "Referral details follow in SystmOne. Reply CONFIRMED or DECLINE, "
+        "or open diucs.example/b4821 by 14:26."
+    )
+    k4 = render(
+        MessageId.K4,
+        Channel.TEXT,
+        service="UCR West",
+        coordination_team_name=DEFAULT_COORDINATION_TEAM_NAME,
+    )
+    assert k4.text == (
+        "DIUCS: UCR West is suspended. Prompts have stopped. The SPOA shift lead will phone you."
+    )
+
+
+# Test 2 (TEN-022): another tenant's words are printed, and none of the first deployment's.
+
+
+def test_another_tenants_words_replace_the_first_deployments_in_every_message() -> None:
+    i2 = render(
+        MessageId.I2, Channel.TEXT, link="diucs.example/i/Qx82", system_name=ANOTHER_SYSTEM_NAME
+    )
+    b1 = render(
+        MessageId.B1,
+        Channel.TEXT,
+        **{**B1_FIELDS, "referral_system_name": ANOTHER_REFERRAL_SYSTEM_NAME},
+    )
+    b2 = render(
+        MessageId.B2,
+        Channel.EMAIL,
+        **{**B1_FIELDS, "referral_system_name": ANOTHER_REFERRAL_SYSTEM_NAME},
+    )
+    k4 = render(
+        MessageId.K4,
+        Channel.TEXT,
+        service="UCR East",
+        coordination_team_name=ANOTHER_COORDINATION_TEAM_NAME,
+    )
+    assert ANOTHER_SYSTEM_NAME in i2.text
+    assert ANOTHER_REFERRAL_SYSTEM_NAME in b1.text
+    assert ANOTHER_REFERRAL_SYSTEM_NAME in (b2.text or "")
+    assert ANOTHER_REFERRAL_SYSTEM_NAME in (b2.html or "")
+    assert ANOTHER_COORDINATION_TEAM_NAME in k4.text
+    for rendered in (i2, b1, b2, k4):
+        for word in OLD_PLACE_AND_SYSTEM_WORDS:
+            assert word not in _rendered_parts(rendered), (rendered.message_id, word)
+
+
+# Test 3 (TEN-022): each new field is required; there is no default.
+
+
+@pytest.mark.parametrize(
+    ("message_id", "channel", "fields", "missing"),
+    [
+        (MessageId.I2, Channel.TEXT, {"link": "diucs.example/i/Qx82"}, "system_name"),
+        (
+            MessageId.B1,
+            Channel.TEXT,
+            {k: v for k, v in B1_FIELDS.items() if k != "referral_system_name"},
+            "referral_system_name",
+        ),
+        (
+            MessageId.B2,
+            Channel.EMAIL,
+            {k: v for k, v in B1_FIELDS.items() if k != "referral_system_name"},
+            "referral_system_name",
+        ),
+        (MessageId.K4, Channel.TEXT, {"service": "UCR East"}, "coordination_team_name"),
+    ],
+    ids=["i2", "b1", "b2", "k4"],
+)
+def test_omitting_a_tenant_field_names_it_and_nothing_is_guessed(
+    message_id: MessageId, channel: Channel, fields: dict[str, object], missing: str
+) -> None:
+    with pytest.raises(ValidationFailed) as refusal:
+        render(message_id, channel, **fields)
+    assert refusal.value.field == missing
+
+
+# Test 4 (TEN-022): segment counts for the default values and the longest allowed values.
+
+
+# SMS segments (sms_length.py): I2 is 141 characters by default and 174 with the longest name
+# (60); B1 is 164 by default and 196 with the longest referral name (40). A tenant cannot push a
+# text to more segments unnoticed: a longer name changes these figures and the test shows it.
+DEFAULT_I2_SEGMENTS: Final = 1
+LONGEST_I2_SEGMENTS: Final = 2
+DEFAULT_B1_SEGMENTS: Final = 2
+LONGEST_B1_SEGMENTS: Final = 2
+
+
+def test_i2_and_b1_segment_counts_for_the_default_and_the_longest_allowed_values() -> None:
+    default_i2 = render(
+        MessageId.I2, Channel.TEXT, link="diucs.example/i/Qx82", system_name=DEFAULT_SYSTEM_NAME
+    )
+    longest_i2 = render(
+        MessageId.I2, Channel.TEXT, link="diucs.example/i/Qx82", system_name=LONGEST_SYSTEM_NAME
+    )
+    default_b1 = render(MessageId.B1, Channel.TEXT, **B1_FIELDS)
+    longest_b1 = render(
+        MessageId.B1,
+        Channel.TEXT,
+        **{**B1_FIELDS, "referral_system_name": LONGEST_REFERRAL_SYSTEM_NAME},
+    )
+    assert len(LONGEST_SYSTEM_NAME) == 60
+    assert len(LONGEST_REFERRAL_SYSTEM_NAME) == 40
+    assert sms_segments(default_i2.text) == DEFAULT_I2_SEGMENTS
+    assert sms_segments(longest_i2.text) == LONGEST_I2_SEGMENTS
+    assert sms_segments(default_b1.text) == DEFAULT_B1_SEGMENTS
+    assert sms_segments(longest_b1.text) == LONGEST_B1_SEGMENTS
+    assert DEFAULT_B1_SEGMENTS <= 2
+
+
+# Test 8 (TEN-022): HTML escaping of the referral name in the email; plain text is unescaped.
+
+
+def test_an_ampersand_in_the_referral_name_is_escaped_in_html_only() -> None:
+    rendered = render(
+        MessageId.B2, Channel.EMAIL, **{**B1_FIELDS, "referral_system_name": "Tom & Co"}
+    )
+    assert rendered.html is not None
+    assert "Tom &amp; Co" in rendered.html
+    assert "Tom & Co" in rendered.text

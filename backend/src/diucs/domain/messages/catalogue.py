@@ -3,7 +3,20 @@
 Ids are stored as `Communication.topic`, so their values never change once a message is sent.
 """
 
+from collections.abc import Mapping
 from enum import StrEnum
+from typing import Final
+
+# The wording fields a tenant supplies (TEN-022). Each is validated by check_tenant_text.
+TENANT_TEXT_FIELD_NAMES: Final = frozenset(
+    {"system_name", "referral_system_name", "coordination_team_name"}
+)
+# Red stub (TEN-022): no id takes a tenant field yet.
+TENANT_TEXT_FIELDS: Final[Mapping[object, frozenset[str]]] = {}
+
+
+def tenant_text_fields_for(message_id: object) -> frozenset[str]:
+    return frozenset()
 
 
 class MessageId(StrEnum):

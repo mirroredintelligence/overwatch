@@ -10,6 +10,19 @@ the guard does not cover.
 import re
 from typing import Final
 
+# The names that belonged to the first deployment (TEN-022). Used on raw template text only.
+DEPLOYMENT_TERMS: Final[tuple[str, ...]] = (
+    "Dorset",
+    "SPOA",
+    "SystmOne",
+    "EMIS",
+    "Bournemouth",
+    "Poole",
+    "Christchurch",
+    "Weymouth",
+    "Dorchester",
+)
+
 FORBIDDEN_FIELDS: Final[frozenset[str]] = frozenset(
     {
         "name",
@@ -37,6 +50,11 @@ _NHS_NUMBER: Final = re.compile(
 _TITLED_NAME: Final = re.compile(r"\b(?i:mr|mrs|ms|miss|dr)\.?\s[A-Z][a-z]+")
 
 _PATTERNS: Final = (_POSTCODE, _NHS_NUMBER, _TITLED_NAME)
+
+
+def find_deployment_terms(text: str) -> list[str]:
+    # Red stub (TEN-022).
+    return []
 
 
 def find_patient_data(text: str) -> list[str]:

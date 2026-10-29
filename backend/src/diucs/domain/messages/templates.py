@@ -14,14 +14,15 @@ No template holds a patient name, NHS number or postcode, and no field may add o
 
 import re
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from html import escape
 from typing import Final, cast
 
 from diucs.domain.codes import AgeBand, Channel, NeedCategory
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
+from diucs.domain.messages.catalogue import TENANT_TEXT_FIELD_NAMES, MessageId
 from diucs.domain.messages.privacy_guard import find_patient_data
+from diucs.domain.rules.tenant_settings import check_tenant_text
 
 FOOTER: Final = (
     "The link works once, needs no login, and expires at {reply_by}. "
@@ -67,10 +68,28 @@ class _Template:
 
 _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.B1: frozenset(
-        {"reference", "service", "age_band", "need", "urgency", "link", "reply_by"}
+        {
+            "reference",
+            "service",
+            "age_band",
+            "need",
+            "urgency",
+            "link",
+            "reply_by",
+            "referral_system_name",
+        }
     ),
     MessageId.B2: frozenset(
-        {"reference", "service", "age_band", "need", "urgency", "link", "reply_by"}
+        {
+            "reference",
+            "service",
+            "age_band",
+            "need",
+            "urgency",
+            "link",
+            "reply_by",
+            "referral_system_name",
+        }
     ),
     MessageId.B3: frozenset({"reference", "service", "reply_by"}),
     MessageId.B4: frozenset({"reference", "service", "confirmed_at"}),
@@ -78,18 +97,18 @@ _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.B6: frozenset({"reference", "cancelled_at"}),
     MessageId.B7: frozenset({"references"}),
     MessageId.I1: frozenset({"service", "link"}),
-    MessageId.I2: frozenset({"link"}),
+    MessageId.I2: frozenset({"link", "system_name"}),
     MessageId.I3: frozenset({"service"}),
     MessageId.K1: frozenset({"code"}),
     MessageId.K2: frozenset({"service", "review_by"}),
     MessageId.K3: frozenset({"title", "body"}),
-    MessageId.K4: frozenset({"service"}),
+    MessageId.K4: frozenset({"service", "coordination_team_name"}),
     MessageId.C1: frozenset({"service", "value", "unit", "as_of", "link", "reply_by"}),
     MessageId.C2: frozenset({"service", "unit", "window", "reply_by", "link"}),
     MessageId.C3: frozenset({"service", "value", "unit", "recorded_at", "next_due"}),
     MessageId.C4: frozenset({"service", "value", "unit", "recorded_at", "replaced"}),
     MessageId.C5: frozenset({"cutoff", "rejected", "service", "value", "unit", "reply_by"}),
-    MessageId.C6: frozenset({"service"}),
+    MessageId.C6: frozenset({"service", "confirm_limit"}),
     MessageId.C7: frozenset({"service", "value", "low", "high"}),
     MessageId.C8: frozenset({"service", "reply_by", "link"}),
     MessageId.C9: frozenset({"reply_by", "items"}),
@@ -333,6 +352,13 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
             "The SPOA shift lead will phone you."
         ),
     ),
+}
+
+
+# Red stub (TEN-022): the tenant fields are accepted but not yet required by any template.
+_TEMPLATES = {
+    key: replace(template, required=template.required - TENANT_TEXT_FIELD_NAMES)
+    for key, template in _TEMPLATES.items()
 }
 
 

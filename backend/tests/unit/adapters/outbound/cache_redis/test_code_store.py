@@ -40,14 +40,20 @@ def test_text_that_is_not_a_code_record_decodes_to_none(text: str) -> None:
 async def test_save_get_and_clear_without_a_tenant_are_refused_before_redis() -> None:
     store = RedisCodeStore(NO_CLIENT, FixedClock(NOW))
     with pytest.raises(TenantNotBound):
-        await store.save("h1", CODE_HASH, CodeState(issued_at=NOW))
+        await store.save("registration", "h1", CODE_HASH, CodeState(issued_at=NOW))
     with pytest.raises(TenantNotBound):
-        await store.get("h1")
+        await store.get("registration", "h1")
     with pytest.raises(TenantNotBound):
-        await store.clear("h1")
+        await store.clear("registration", "h1")
 
 
 async def test_an_issue_time_without_a_timezone_is_refused_before_redis() -> None:
     store = RedisCodeStore(NO_CLIENT, FixedClock(NOW))
     with bind_tenant("tenant-alpha"), pytest.raises(ValidationFailed):
-        await store.save("h1", CODE_HASH, CodeState(issued_at=datetime(2026, 10, 25, 9, 0)))
+        await store.save("registration", "h1", CODE_HASH, CodeState(issued_at=datetime(2026, 10, 25, 9, 0)))
+
+
+async def test_a_purpose_that_is_not_a_plain_name_is_refused_before_redis() -> None:
+    store = RedisCodeStore(NO_CLIENT, FixedClock(NOW))
+    with bind_tenant("tenant-alpha"), pytest.raises(ValidationFailed):
+        await store.save("sign:in", "h1", CODE_HASH, CodeState(issued_at=NOW))

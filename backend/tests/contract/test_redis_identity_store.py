@@ -66,9 +66,9 @@ async def test_a_stored_code_is_the_keyed_hash_and_never_the_digits(
     code_hash = _code_hash(CODE_DIGITS)
 
     with bind_tenant(TENANT_A):
-        await store.save("h1", code_hash, CodeState(issued_at=NOW))
+        await store.save("registration", "h1", code_hash, CodeState(issued_at=NOW))
 
-    raw = await client.get(f"{prefix}{TENANT_A}:code:h1")
+    raw = await client.get(f"{prefix}{TENANT_A}:code:registration:h1")
     assert raw is not None
     assert code_hash in raw
     assert CODE_DIGITS not in raw
@@ -79,9 +79,9 @@ async def test_a_code_key_carries_the_tenant_and_a_ttl(redis: tuple[Redis, str])
     store = RedisCodeStore(client, FixedClock(NOW), key_prefix=prefix)
 
     with bind_tenant(TENANT_A):
-        await store.save("h1", _code_hash(CODE_DIGITS), CodeState(issued_at=NOW))
+        await store.save("registration", "h1", _code_hash(CODE_DIGITS), CodeState(issued_at=NOW))
 
-    key = f"{prefix}{TENANT_A}:code:h1"
+    key = f"{prefix}{TENANT_A}:code:registration:h1"
     assert await client.exists(key) == 1
     assert 0 < await client.pttl(key) <= 10 * 60 * 1000
 
@@ -91,14 +91,14 @@ async def test_a_code_is_invisible_to_another_tenant(redis: tuple[Redis, str]) -
     store = RedisCodeStore(client, FixedClock(NOW), key_prefix=prefix)
     code_hash = _code_hash(CODE_DIGITS)
     with bind_tenant(TENANT_A):
-        await store.save("h1", code_hash, CodeState(issued_at=NOW))
+        await store.save("registration", "h1", code_hash, CodeState(issued_at=NOW))
 
     with bind_tenant(TENANT_B):
-        assert await store.get("h1") is None
-        await store.clear("h1")
+        assert await store.get("registration", "h1") is None
+        await store.clear("registration", "h1")
 
     with bind_tenant(TENANT_A):
-        stored = await store.get("h1")
+        stored = await store.get("registration", "h1")
     assert stored is not None
     assert stored[0] == code_hash
 
@@ -253,8 +253,8 @@ async def test_no_log_line_holds_a_session_id_a_code_or_its_hash(
         session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW)
         await sessions.get(session_id)
         await sessions.touch(session_id, NOW)
-        await codes.save("h1", code_hash, CodeState(issued_at=NOW))
-        await codes.get("h1")
+        await codes.save("registration", "h1", code_hash, CodeState(issued_at=NOW))
+        await codes.get("registration", "h1")
         await limiter.allow("code:h1", 3, timedelta(seconds=60))
 
     assert session_id not in caplog.text

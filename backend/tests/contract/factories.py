@@ -149,17 +149,17 @@ class _TenantBoundCodeStore:
         self._inner = inner
         self._tenant = tenant
 
-    async def save(self, phone_hash: str, code_hash: str, state: CodeState) -> None:
+    async def save(self, purpose: str, phone_hash: str, code_hash: str, state: CodeState) -> None:
         with bind_tenant(self._tenant):
-            await self._inner.save(phone_hash, code_hash, state)
+            await self._inner.save(purpose, phone_hash, code_hash, state)
 
-    async def get(self, phone_hash: str) -> tuple[str, CodeState] | None:
+    async def get(self, purpose: str, phone_hash: str) -> tuple[str, CodeState] | None:
         with bind_tenant(self._tenant):
-            return await self._inner.get(phone_hash)
+            return await self._inner.get(purpose, phone_hash)
 
-    async def clear(self, phone_hash: str) -> None:
+    async def clear(self, purpose: str, phone_hash: str) -> None:
         with bind_tenant(self._tenant):
-            await self._inner.clear(phone_hash)
+            await self._inner.clear(purpose, phone_hash)
 
 
 async def make_memory_code_store() -> Harness[CodeStore]:

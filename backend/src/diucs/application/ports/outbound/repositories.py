@@ -24,6 +24,13 @@ class ServiceRepository(Protocol):
         """The stored profile, or None if there is no such service."""
         ...
 
+    async def get_versioned(self, service_id: str) -> tuple[ServiceProfile, int] | None:
+        """The stored profile and the version of the stored resource it was read from, in one
+        read, or None if there is no such service. Raises ValidationFailed for a service that has
+        no profile yet (a scope-list entry that has not registered, lesson L104). R04 builds the
+        ETag of a service from the version."""
+        ...
+
     async def list_active(self) -> list[ServiceProfile]:
         """Every active service, sorted by name."""
         ...

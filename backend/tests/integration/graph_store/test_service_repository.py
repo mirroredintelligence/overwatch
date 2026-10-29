@@ -15,9 +15,11 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import (
     Neo4jServiceRepository,
+    codeable_to_fhir,
     profile_to_fhir,
 )
 from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
@@ -100,6 +102,41 @@ async def test_the_stored_resource_rebuilds_to_the_mapped_fhir_apart_from_meta(
 
 async def test_a_missing_service_is_none(neo4j_driver: AsyncDriver) -> None:
     assert await _get(neo4j_driver, "svc-missing") is None
+
+
+async def test_get_versioned_returns_the_profile_and_the_stored_version(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _save(neo4j_driver, UCR_WEST)
+    first = await read_tx(neo4j_driver, lambda tx: _repo(tx).get_versioned("svc-ucr-west"))
+    await _save(neo4j_driver, replace(UCR_WEST, established_capacity=9))
+    second = await read_tx(neo4j_driver, lambda tx: _repo(tx).get_versioned("svc-ucr-west"))
+
+    assert first == (UCR_WEST, 1)
+    assert second == (replace(UCR_WEST, established_capacity=9), 2)
+
+
+async def test_get_versioned_of_a_missing_service_is_none(neo4j_driver: AsyncDriver) -> None:
+    assert await read_tx(neo4j_driver, lambda tx: _repo(tx).get_versioned("svc-missing")) is None
+
+
+async def test_get_versioned_refuses_a_service_with_no_profile(neo4j_driver: AsyncDriver) -> None:
+    async def put(tx: AsyncManagedTransaction) -> None:
+        await ResourceStore(tx).put(
+            {
+                "resourceType": "HealthcareService",
+                "id": "svc-sdec-1",
+                "active": False,
+                "name": "SDEC pilot",
+                "category": codeable_to_fhir(ServiceCategory.SAME_DAY_EMERGENCY_CARE),
+            },
+            None,
+        )
+
+    await write_tx(neo4j_driver, put)
+
+    with pytest.raises(ValidationFailed):
+        await read_tx(neo4j_driver, lambda tx: _repo(tx).get_versioned("svc-sdec-1"))
 
 
 async def test_list_active_returns_active_services_by_name_and_skips_inactive(

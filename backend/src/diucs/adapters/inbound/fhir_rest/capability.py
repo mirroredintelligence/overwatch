@@ -61,6 +61,12 @@ def register_resource(
     _RESOURCES[resource_type] = (tuple(interactions), tuple(operations))
 
 
+def is_registered(resource_type: str) -> bool:
+    """True when the type is already advertised, so a route module can register once per process
+    however many apps are built."""
+    return resource_type in _RESOURCES
+
+
 def build_capability_statement(now: datetime) -> dict[str, Any]:
     resources: list[dict[str, Any]] = []
     for resource_type, (interactions, operations) in _RESOURCES.items():

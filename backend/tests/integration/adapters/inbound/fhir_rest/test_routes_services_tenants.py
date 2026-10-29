@@ -208,7 +208,10 @@ async def test_tenant_b_reads_and_reports_for_its_own_service(
     with as_tenant(other_tenant_id):
         service = await api_client.get(f"{SERVICES}/{B_SERVICE}", headers=_b_lead())
         created = await post(
-            api_client, report_body(5, service=B_SERVICE), _b_reporter(), key="b-key-1"
+            api_client,
+            report_body(5, service=B_SERVICE, at="2026-10-23T13:10:00Z"),
+            _b_reporter(),
+            key="b-key-1",
         )
         latest = await api_client.get(B_LATEST, headers=_b_lead())
 

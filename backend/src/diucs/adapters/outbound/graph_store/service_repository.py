@@ -192,6 +192,12 @@ class Neo4jServiceRepository:
         resource = await self._store.get(_RESOURCE_TYPE, service_id)
         return None if resource is None else profile_from_fhir(resource)
 
+    async def get_versioned(self, service_id: str) -> tuple[ServiceProfile, int] | None:
+        resource = await self._store.get(_RESOURCE_TYPE, service_id)
+        if resource is None:
+            return None
+        return profile_from_fhir(resource), int(resource["meta"]["versionId"])
+
     async def list_active(self) -> list[ServiceProfile]:
         rows = await run_query(self._tx, REGISTRY.get("Q-SVC-LIST-ACTIVE"))
         profiles: list[ServiceProfile] = []

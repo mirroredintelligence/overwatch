@@ -389,3 +389,9 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 | Name | Where | Task |
 |---|---|---|
 | `application/use_cases/missed_report_ladder.py`: `LadderStepCommand(idempotency_key, actor, work_id)`, `LadderStepResult(action, communication_id=None, replayed=False)` with `action` one of `REMINDED`, `PHONE_TASK_RAISED`, `ESCALATED`, `STOPPED`, `IGNORED` (`"reminded"`, `"phone-task"`, `"escalated"`, `"stopped"`, `"ignored"`), `MissedReportLadder(uow_factory, clock, ids, link_tokens, link_base_url, sealer)` with `async execute(command)`, `LADDER_OFFSETS`, `LADDER_KINDS`, `REMINDER_REPLY_WINDOW` (30 min, [ASSUMED]), `ladder_due(work)`, `prompt_answered(effective_at, due)`, `async stop_answered_ladders(uow, service_id, *, answered_at, now) -> tuple[str, ...]`. The tenant is the unit of work's scope, not an argument. `record_report` calls `stop_answered_ladders`. | U06 |
+
+### Services and capacity endpoints (R04, DEC-168)
+
+- `GET /fhir/HealthcareService` (searchset Bundle; `active=true`, `service-category`, `organization`, `_count` 1 to 100, `_offset`), `GET /fhir/HealthcareService/{id}` (ETag), `POST /fhir/Observation` (201, `Location: /fhir/Observation/{id}`), `GET /fhir/Observation?focus=HealthcareService/{id}&_sort=-date&_count=1`, `GET /fhir/Observation/{id}`; `PUT`, `PATCH`, `DELETE` on `/fhir/Observation/{id}` are 405. Created by R04.
+- `routes_services.register_capabilities`, `capability.is_registered`. `mapping.py`: `service_to_fhir`, `search_bundle`, `report_request_from_fhir` (returns `ReportRequest`), `validate_outbound`, `ucum_unit`, `API_SOURCES`, `FHIR_ID_PATTERN`. Created by R04.
+- `ServiceRepository.get_versioned(service_id) -> tuple[ServiceProfile, int] | None` (no new query). Created by R04.

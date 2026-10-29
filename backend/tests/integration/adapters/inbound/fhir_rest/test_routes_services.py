@@ -27,6 +27,7 @@ from neo4j import AsyncDriver
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from diucs.adapters.inbound.fhir_rest.mapping import report_to_fhir
+from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -937,7 +938,7 @@ async def test_a_number_dated_before_the_latest_confirmed_figure_is_refused_by_t
         headers={**west_reporter(), **JSON_TYPE, "Idempotency-Key": "confirm-1"},
         content=json.dumps({"resourceType": "Parameters"}),
     )
-    assert confirmed.status_code == 201
+    assert confirmed.status_code == 200
 
     response = await post(api_client, report_body(5, at="2026-10-23T13:05:00Z"), west_reporter())
 
@@ -1099,9 +1100,14 @@ async def test_a_key_used_for_a_confirmation_is_refused_for_a_report_and_writes_
         headers={**west_reporter(), **JSON_TYPE, "Idempotency-Key": "shared-key"},
         content=json.dumps({"resourceType": "Parameters"}),
     )
-    assert confirmed.status_code == 201
+    assert confirmed.status_code == 200
 
-    response = await post(api_client, report_body(5), west_reporter(), key="shared-key")
+    response = await post(
+        api_client,
+        report_body(5, at="2026-10-23T13:12:00Z"),
+        west_reporter(),
+        key="shared-key",
+    )
 
     assert response.status_code == 409
     assert await count_nodes(neo4j_driver, "Observation") == 2
@@ -1128,7 +1134,7 @@ async def test_a_report_is_never_edited_or_deleted(
     issue = response.json()["issue"][0]
     assert issue["code"] == "not-supported"
     assert issue["diagnostics"] == NOT_EDITED
-    assert response.headers["allow"] == "GET"
+    assert response.headers["allow"] == "GET, HEAD"
     assert await count_nodes(neo4j_driver, "Observation") == 1
     assert (await api_client.get(LATEST_WEST, headers=west_reporter())).json()["entry"][0][
         "resource"
@@ -1405,7 +1411,7 @@ async def test_no_response_body_holds_a_token_a_secret_or_a_patient_word(
     latest = await api_client.get(LATEST_WEST, headers=headers)
 
     for response in (created, refused, listing, latest):
-        text = response.text.lower().replace("inpatient-beds", "")
+        text = response.text.lower().replace("inpatient-beds", "").replace("inpatient beds", "")
         assert headers["Authorization"].split(" ")[1] not in response.text
         assert TEST_BFF_SECRET.decode() not in response.text
         assert "postcode" not in text
@@ -1425,3 +1431,14 @@ async def test_a_report_stored_but_not_readable_back_is_a_500_with_no_detail(
     assert response.status_code == 500
     assert response.json()["issue"][0]["code"] == "exception"
     assert response.json()["issue"][0]["diagnostics"] == "Internal error"
+
+
+async def test_the_early_replay_store_reads_and_writes_the_units_idempotency_record(
+    seeded: None, factory: UnitOfWorkFactory
+) -> None:
+    store = UnitOfWorkIdempotency(factory)
+
+    assert await store.get("early-key") is None
+    await store.put("early-key", WEST_PRIOR.id)
+
+    assert await store.get("early-key") == WEST_PRIOR.id

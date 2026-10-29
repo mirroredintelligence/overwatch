@@ -4,15 +4,19 @@ Tenant A and tenant B each run the same service, with the same reporter, the sam
 the same figure. The ladder handler takes its tenant only from the unit of work the consumer bound
 (there is no tenant on the command), so a step for A never reads, changes or sends anything of B's.
 
-Until TEN-032 drops the single-property keys, two tenants cannot share a resource id on the shared
-test schema, so each tenant's ids carry a prefix. The resource store (TEN-009), the work and
+Until TEN-032 drops the single-property keys, two tenants cannot share a key on the shared test
+schema (a resource id, or a Concept system such as the service-category CodeSystem url that the
+domain builds, which no test can prefix). So this module runs on a private contracted container
+(DEC-159, as the generated isolation test does), and each tenant's ids still carry a prefix so a
+failure names its tenant. The resource store (TEN-009), the work and
 communication statements (TEN-015), the person statements (TEN-011) and the capacity statements
 (TEN-010) are still unconverted (tenant-pending, evidence U06). What is proved here is what the use
 case itself decides: the tenant of every row, key and sealed message it writes comes from the unit
-of work, and one tenant's ladder never changes another's. That a step for A given B's work id reads
-as not found is written as a strict expected failure until TEN-009 scopes the service lookup.
+of work, and one tenant's ladder never changes another's. That a step for A given B's work id reads as not found is proved here, since TEN-009 scopes the
+service lookup.
 """
 
+from collections.abc import AsyncIterator
 from typing import Any
 
 import pytest
@@ -43,7 +47,8 @@ from tests.support.ladder_rig import (
     seed_report,
     virtual_ward,
 )
-from tests.support.neo4j import read_tx
+from tests.support.neo4j import read_tx, wipe
+from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -86,6 +91,28 @@ async def _owners(driver: AsyncDriver, label: str) -> list[Any]:
     return await read_tx(driver, work)
 
 
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
+    """A private Neo4j with every migration applied and the superseded single-property keys
+    dropped (DEC-159). The shared harness keeps them until TEN-032, which refuses a second
+    tenant's Concept or resource with the same key."""
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
+    """Overrides the session driver for this module: every test here runs two tenants."""
+    return two_tenant_driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[None]:
+    await wipe(two_tenant_driver)
+    yield
+    await wipe(two_tenant_driver)
+
+
 @pytest_asyncio.fixture(loop_scope="session")
 async def tenants(
     uow_factory_a: UnitOfWorkFactory,
@@ -93,7 +120,7 @@ async def tenants(
     neo4j_driver: AsyncDriver,
     tenant_id: str,
     other_tenant_id: str,
-    clean_graph: None,
+    two: None,
 ) -> tuple[tuple[Rig, str], tuple[Rig, str]]:
     a = await _tenant_rig(uow_factory_a, neo4j_driver, tenant_id, "a")
     b = await _tenant_rig(uow_factory_b, neo4j_driver, other_tenant_id, "b")
@@ -142,15 +169,6 @@ async def test_the_messages_a_step_queues_belong_to_the_tenant_whose_step_it_was
     assert "CancelWork" in {m.event_type for m in await rig_a.outbox()}
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=pytest.fail.Exception,
-    reason=(
-        "DEC-166 item 12: the resource store does not scope its reads yet (TEN-009), so tenant A's "
-        "service lookup still finds tenant B's service. When TEN-009 lands this test passes and "
-        "the strict marker fails the suite: remove the marker then."
-    ),
-)
 async def test_tenant_b_work_given_to_tenant_a_is_not_found_whatever_its_state(
     tenants: tuple[tuple[Rig, str], tuple[Rig, str]],
 ) -> None:

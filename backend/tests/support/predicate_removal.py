@@ -38,15 +38,16 @@ def without_predicate(cypher: str, occurrence: int | None = None) -> str:
 
 
 def mutant_of(query: NamedQuery, occurrence: int | None = None) -> tuple[QueryRegistry, NamedQuery]:
-    """A private registry holding the statement without its predicate (the same id, mode, scope and
-    scenario), and that statement."""
+    """A private registry holding the statement without its predicate (the same mode, scope and
+    scenario, and the same id, but for an instance of a template: the registry refuses a colon in a
+    statement id, so the copy takes the template's id), and that statement."""
     mutant = NamedQuery(
-        id=query.id,
+        id=query.id.partition(":")[0],
         cypher=without_predicate(query.cypher, occurrence),
         mode=query.mode,
         scope=query.scope,
         scenario=query.scenario,
     )
-    registry = QueryRegistry(unconverted=frozenset({query.id}))
+    registry = QueryRegistry(unconverted=frozenset({mutant.id}))
     registry.register(mutant)
     return registry, mutant

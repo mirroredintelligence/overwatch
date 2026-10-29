@@ -90,6 +90,7 @@
 
 .figure {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-4);
 }
@@ -106,7 +107,25 @@
 }
 
 .words {
+  flex: 1 1 10rem;
   min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The pending count, shown apart from the number and never taken off it
+   (domain-rules 1.6). A word and a number in a bordered chip, so it needs no colour
+   to be read; white, so it reads the same on every tile. */
+.pending {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  border: 2px solid var(--c-ink);
+  border-radius: var(--radius-chip);
+  background: Canvas;
+  color: var(--c-ink);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 .unit {

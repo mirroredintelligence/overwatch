@@ -15,10 +15,16 @@ for the first to commit, then reads the committed version, so a stale expected v
 Named queries run through driver.run_query. A query that needs a label or a relationship type from
 data is registered on first use under its template id plus that label or type (for example
 Q-RES-UPSERT-NODE:Organization). Its text is built only from names that passed a check.
+
+Tenancy (TEN-009, DEC-164). Every node written here carries `tenantId`, the tenant of the unit of
+work, stamped by the statement from the bound scope: the resource root, its backbone children, the
+version copies, the placeholders for reference targets, and the Concept, CodeSystem and Identifier
+nodes, which are the tenant's own (DEC-134 item 1). Every statement matches on it, so another
+tenant's resource reads as absent (`get` returns None, `exists` is False, `history` is empty) and a
+put creates the tenant's own. A resource cannot carry the stamp: the mapper refuses the name and the
+store refuses and strips it too (`RESERVED_PROPERTIES`).
 """
 
-import hashlib
-import json
 import re
 import uuid
 from datetime import UTC, datetime, timedelta, timezone
@@ -29,6 +35,7 @@ from neo4j.exceptions import ClientError
 from neo4j.time import Date, DateTime, Time
 
 from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.extensions import TENANT_OWNED_NAMES
 from diucs.adapters.outbound.graph_store.mapper import (
     GraphFragment,
     NodeSpec,
@@ -36,7 +43,13 @@ from diucs.adapters.outbound.graph_store.mapper import (
     from_graph,
     to_graph,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, QueryTemplate
+from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
+from diucs.adapters.outbound.graph_store.queries import (
+    GLOBAL_STATEMENT_LABELS,
+    REGISTRY,
+    QueryTemplate,
+)
+from diucs.adapters.outbound.graph_store.resource_scenarios import SCENARIOS
 from diucs.application.ports.outbound.clock import Clock
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 
@@ -44,13 +57,24 @@ from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 NO_HISTORY_TYPES = frozenset({"Patient", "ServiceRequest"})
 # Observations are facts: a second put is refused, never an update.
 NEVER_UPDATED_TYPES = frozenset({"Observation"})
-# Names the store uses for its own properties. An element with one of these names is refused.
-RESERVED_PROPERTIES = frozenset({"key", "placeholder", "lockStamp", "position"})
+# Names the store uses for its own properties, and the names of the tenancy seam. An element with
+# one of these names is refused, and they are left out of what is read back (TEN-009, DEC-164).
+RESERVED_PROPERTIES = frozenset(
+    {"key", "placeholder", "lockStamp", "position", *TENANT_OWNED_NAMES}
+)
 # Local relationships that are not FHIR elements, so they have no fhirPath (DEC-065 item 5,
 # DEC-076 item 2 for CURRENT_CRITERIA).
 LOCAL_RELATIONSHIP_TYPES = frozenset({"CHANNEL", "COVERED_BY", "CURRENT_CRITERIA"})
 
 _TYPE = re.compile(r"[A-Z][A-Za-z0-9]{0,63}")
+# A reference makes a placeholder labelled with its type, so a type is letters only with a capital.
+_REFERENCE_TYPE = re.compile(r"[A-Z][A-Za-z]{0,63}")
+# Labels no resource or reference may take (DEC-164 item 11): the registry labels (the global
+# statements read them with no tenant bound) and the store's own labels.
+_STORE_LABELS = frozenset(
+    {"Resource", "ResourceVersion", "ResourceVersionPart", "Concept", "CodeSystem", "Identifier"}
+)
+_FORBIDDEN_TYPES = frozenset(REGISTRY_LABELS) | GLOBAL_STATEMENT_LABELS | _STORE_LABELS
 _LABEL = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,127}")
 _FHIR_ID = re.compile(r"[A-Za-z0-9.\-]{1,64}")
 _SHARED_PREFIXES = ("Concept|", "Identifier|", "CodeSystem|")
@@ -65,94 +89,121 @@ _TIME = re.compile(r"(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,9}))?")
 _PARTIAL = re.compile(r"\d{4}-\d{2}")
 
 # Query templates. {insert} is a label list (":Organization") or a relationship type (":HAS_X").
+#
+# Tenancy (TEN-009, DEC-164). Every node pattern names `tenantId: $tenant`, so a statement reads,
+# changes and creates only the bound tenant's nodes, and every node it writes is stamped. A write
+# that replaces a node's properties (`SET n = row.props`) sets `n.tenantId = $tenant` straight
+# after, because the replacement would erase the stamp; the properties it replaces with come from
+# the mapper, which refuses the name `tenantId` (TEN-008). A match is typed (by the label it can
+# only be: the resource root, a shared label, a version) or reaches its nodes from a typed root.
+#
+# Children are the nodes whose key starts with the root's key and `#`. They are reached from the
+# tenant's root along relationships, through nodes of that prefix only (a quantified path pattern),
+# so the statement never looks at another resource's or another tenant's nodes. A relationship
+# belongs to the tenant of the nodes it joins and never joins two tenants (DEC-130 item 1), so
+# `Q-RES-CLEAR-ROOT-RELS` anchors the root alone: it clears every relationship a resource starts,
+# whatever it points at, as it always has (a CHANNEL to a concept another statement wrote).
 _TEMPLATES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-RES-LOCK": (
-        "MERGE (n:Resource {key: $key}) ON CREATE SET n.id = $id, n.placeholder = true "
+        "MERGE (n:Resource {key: $key, tenantId: $tenant}) "
+        "ON CREATE SET n.id = $id, n.placeholder = true "
         "SET n{insert} SET n.lockStamp = $stamp RETURN count(n) AS locked",
         "write",
     ),
     "Q-RES-GET": (
-        "MATCH (n:Resource {key: $key}) WHERE $type IN labels(n) RETURN properties(n) AS props",
+        "MATCH (n:Resource {key: $key, tenantId: $tenant}) WHERE $type IN labels(n) "
+        "RETURN properties(n) AS props",
         "read",
     ),
     "Q-RES-UPSERT-ROOT": (
-        "UNWIND $rows AS row MERGE (n{insert} {key: row.key}) SET n = row.props "
-        "RETURN count(n) AS written",
+        "UNWIND $rows AS row MERGE (n{insert} {key: row.key, tenantId: $tenant}) "
+        "SET n = row.props, n.tenantId = $tenant RETURN count(n) AS written",
         "write",
     ),
     "Q-RES-UPSERT-NODE": (
-        "UNWIND $rows AS row MERGE (n{insert} {key: row.key}) SET n = row.props "
-        "RETURN count(n) AS written",
+        "UNWIND $rows AS row MERGE (n{insert} {key: row.key, tenantId: $tenant}) "
+        "SET n = row.props, n.tenantId = $tenant RETURN count(n) AS written",
         "write",
     ),
     "Q-RES-SHARED-READ": (
-        "UNWIND $keys AS k MATCH (n {key: k}) WHERE n:Concept OR n:Identifier OR n:CodeSystem "
+        "UNWIND $keys AS k "
+        "MATCH (n:Concept|Identifier|CodeSystem {key: k, tenantId: $tenant}) "
         "RETURN n.key AS key, properties(n) AS props",
         "read",
     ),
     "Q-RES-SHARED-CREATE": (
-        "UNWIND $rows AS row MERGE (n{insert} {key: row.key}) ON CREATE SET n = row.props "
-        "RETURN count(n) AS written",
+        "UNWIND $rows AS row MERGE (n{insert} {key: row.key, tenantId: $tenant}) "
+        "ON CREATE SET n = row.props, n.tenantId = $tenant RETURN count(n) AS written",
         "write",
     ),
     "Q-RES-SHARED-FILL": (
-        "MATCH (n {key: $key}) SET n += $fill RETURN count(n) AS filled",
+        "MATCH (n:Concept|Identifier|CodeSystem {key: $key, tenantId: $tenant}) "
+        "SET n += $fill RETURN count(n) AS filled",
         "write",
     ),
     "Q-RES-MERGE-NODES": (
-        "UNWIND $rows AS row MERGE (n:Resource {key: row.key}) "
+        "UNWIND $rows AS row MERGE (n:Resource {key: row.key, tenantId: $tenant}) "
         "ON CREATE SET n.id = row.id, n.placeholder = true SET n{insert} "
         "RETURN count(n) AS written",
         "write",
     ),
     "Q-RES-CLEAR-OWNED": (
-        "MATCH (c) WHERE c.key STARTS WITH $prefix AND NOT c:Resource AND NOT c:ResourceVersion "
-        "DETACH DELETE c RETURN count(*) AS cleared",
+        "MATCH (r:Resource {key: $key, tenantId: $tenant}) "
+        "MATCH (r) (()-[]->(c {tenantId: $tenant} WHERE c.key STARTS WITH $prefix))+ () "
+        "UNWIND c AS node WITH DISTINCT node WHERE NOT node:Resource AND NOT node:ResourceVersion "
+        "DETACH DELETE node RETURN count(*) AS cleared",
         "write",
     ),
     "Q-RES-CLEAR-ROOT-RELS": (
-        "MATCH (r:Resource {key: $key})-[rel]->() WHERE type(rel) <> 'HAS_VERSION' "
-        "DELETE rel RETURN count(*) AS cleared",
+        "MATCH (r:Resource {key: $key, tenantId: $tenant})-[rel]->() "
+        "WHERE type(rel) <> 'HAS_VERSION' DELETE rel RETURN count(*) AS cleared",
         "write",
     ),
     "Q-RES-MERGE-RELS": (
-        "UNWIND $rows AS row MATCH (a {key: row.start}) MATCH (b {key: row.end}) "
+        "UNWIND $rows AS row MATCH (a {key: row.start, tenantId: $tenant}) "
+        "MATCH (b {key: row.end, tenantId: $tenant}) "
         "CREATE (a)-[r{insert}]->(b) SET r = row.props RETURN count(r) AS created",
         "write",
     ),
+    "Q-RES-LINK-SHARED": (
+        "UNWIND $rows AS row MATCH (a:Concept {key: row.start, tenantId: $tenant}) "
+        "MATCH (b:CodeSystem {key: row.end, tenantId: $tenant}) "
+        "MERGE (a)-[r{insert}]->(b) RETURN count(DISTINCT [a.key, b.key]) AS linked",
+        "write",
+    ),
     "Q-RES-SET-POSITION": (
-        "MATCH (n:Location {key: $key}) WHERE n.positionLatitude IS NOT NULL "
+        "MATCH (n:Location {key: $key, tenantId: $tenant}) WHERE n.positionLatitude IS NOT NULL "
         "AND n.positionLongitude IS NOT NULL "
         "SET n.position = point({latitude: n.positionLatitude, longitude: n.positionLongitude}) "
         "RETURN count(n) AS positioned",
         "write",
     ),
     "Q-RES-LOAD-NODES": (
-        "MATCH (o) WHERE o.key = $key OR o.key STARTS WITH $prefix "
+        "MATCH (res:Resource {key: $resourceKey, tenantId: $tenant}) "
+        "MATCH (res)-[:HAS_VERSION*0..1]->(r{insert} {key: $key, tenantId: $tenant}) "
+        "OPTIONAL MATCH (r) "
+        "(()-[]->(c {tenantId: $tenant} WHERE c.key STARTS WITH $prefix))+ () "
+        "WITH r, reduce(acc = [], p IN collect(c) | acc + p) AS kids "
+        "UNWIND [r] + kids AS x WITH DISTINCT x AS o "
         "RETURN labels(o) AS labels, properties(o) AS props",
         "read",
     ),
     "Q-RES-LOAD-RELS": (
-        "MATCH (o)-[r]->(t) WHERE (o.key = $key OR o.key STARTS WITH $prefix) "
-        "AND type(r) <> 'HAS_VERSION' "
-        "RETURN o.key AS start, type(r) AS type, properties(r) AS props, t.key AS end, "
+        "MATCH (res:Resource {key: $resourceKey, tenantId: $tenant}) "
+        "MATCH (res)-[:HAS_VERSION*0..1]->(r{insert} {key: $key, tenantId: $tenant}) "
+        "OPTIONAL MATCH (r) "
+        "(()-[]->(c {tenantId: $tenant} WHERE c.key STARTS WITH $prefix))+ () "
+        "WITH r, reduce(acc = [], p IN collect(c) | acc + p) AS kids "
+        "UNWIND [r] + kids AS x WITH DISTINCT x AS o "
+        "MATCH (o)-[rel]->(t {tenantId: $tenant}) WHERE type(rel) <> 'HAS_VERSION' "
+        "RETURN o.key AS start, type(rel) AS type, properties(rel) AS props, t.key AS end, "
         "labels(t) AS endLabels, "
         "CASE WHEN t:Resource OR t:ResourceVersion THEN null ELSE properties(t) END AS endProps",
         "read",
     ),
-    "Q-RES-IDEM-GET": (
-        "MATCH (i:IdempotencyRecord {idemKey: $idemKey}) "
-        "RETURN i.fingerprint AS fingerprint, i.versionId AS versionId",
-        "read",
-    ),
-    "Q-RES-IDEM-RECORD": (
-        "MERGE (i:IdempotencyRecord {idemKey: $idemKey}) "
-        "ON CREATE SET i.fingerprint = $fingerprint, i.versionId = $versionId "
-        "RETURN count(i) AS recorded",
-        "write",
-    ),
     "Q-RES-HISTORY": (
-        "MATCH (r:Resource {key: $key})-[h:HAS_VERSION]->(v:ResourceVersion) "
+        "MATCH (r:Resource {key: $key, tenantId: $tenant})-[h:HAS_VERSION]->"
+        "(v:ResourceVersion {tenantId: $tenant}) "
         "RETURN v.key AS key, h.versionId AS versionId",
         "read",
     ),
@@ -161,7 +212,9 @@ _TEMPLATES: dict[str, tuple[str, Literal["read", "write"]]] = {
 # The templates are fixed text, registered once at import; an instance (the template with one label
 # chain or relationship type in it) is registered the first time it is used (DEC-142).
 for _template_id, (_cypher, _mode) in _TEMPLATES.items():
-    REGISTRY.register_template(QueryTemplate(id=_template_id, cypher=_cypher, mode=_mode))
+    REGISTRY.register_template(
+        QueryTemplate(id=_template_id, cypher=_cypher, mode=_mode, scenario=SCENARIOS[_template_id])
+    )
 
 
 def _labels_text(labels: tuple[str, ...]) -> str:
@@ -176,6 +229,10 @@ def _is_owned(node_key: str, root_key: str) -> bool:
     return node_key == root_key or node_key.startswith(f"{root_key}#")
 
 
+def _is_shared_key(key: str) -> bool:
+    return key.startswith(_SHARED_PREFIXES)
+
+
 def _is_reference_key(key: str) -> bool:
     return not key.startswith(_SHARED_PREFIXES) and "#" not in key
 
@@ -185,8 +242,16 @@ def _check_type(type_: str) -> None:
         raise ValidationFailed("resourceType", "not a FHIR resource type")
 
 
+def _check_reference_type(key: str) -> None:
+    """A reference target `Type/id` must name a plain resource type that is not a label other
+    statements read. Nothing of the value is repeated in the error."""
+    target_type = key.partition("/")[0]
+    if not _REFERENCE_TYPE.fullmatch(target_type) or target_type in _FORBIDDEN_TYPES:
+        raise ValidationFailed("reference", "not a resource type this store can link to")
+
+
 def _check_identity(type_: Any, id_: Any) -> tuple[str, str]:
-    if not isinstance(type_, str) or not _TYPE.fullmatch(type_):
+    if not isinstance(type_, str) or not _TYPE.fullmatch(type_) or type_ in _FORBIDDEN_TYPES:
         raise ValidationFailed("resourceType", "not a FHIR resource type")
     if not isinstance(id_, str) or not _FHIR_ID.fullmatch(id_):
         raise ValidationFailed("id", "not a FHIR id")
@@ -302,42 +367,17 @@ def _props_from_db(props: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-_IDEMPOTENCY_KEY = re.compile(r"[A-Za-z0-9._:\-]{1,128}")
-
-
-def _check_idempotency_key(key: str) -> None:
-    if not _IDEMPOTENCY_KEY.fullmatch(key):
-        raise ValidationFailed("idempotencyKey", "1 to 128 letters, digits and . _ : -")
-
-
-def _fingerprint(resource: dict[str, Any], expected_version: str | None) -> str:
-    """A hash of the request, so a replay can be told from a different write. Only the digest is
-    stored, never the request."""
-    canonical = json.dumps(
-        {"resource": resource, "expected": expected_version}, sort_keys=True, default=str
-    )
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
-
-
 class ResourceStore:
     def __init__(self, tx: AsyncManagedTransaction, clock: Clock | None = None) -> None:
         self._tx = tx
         self._clock = clock
 
-    async def put(
-        self,
-        resource: dict[str, Any],
-        expected_version: str | None,
-        idempotency_key: str | None = None,
-    ) -> str:
+    async def put(self, resource: dict[str, Any], expected_version: str | None) -> str:
         """Write the resource and return its new version.
 
         expected_version None creates it (Conflict if it exists). A string replaces that version
-        (Conflict if the stored version differs). An existing Observation raises NotAllowed.
-
-        idempotency_key (DEC-053 item 15): a replay with the same key and the same request returns
-        the version the first call wrote, and writes nothing. The same key with a different request
-        raises Conflict. The key is recorded in the same transaction as the write.
+        (Conflict if the stored version differs). An existing Observation raises NotAllowed. The
+        resource is the bound tenant's: the same id in another tenant is another resource.
         """
         if "meta" in resource:
             raise ValidationFailed("meta", "the store sets meta; omit it")
@@ -345,35 +385,12 @@ class ResourceStore:
             resource.get("resourceType"), resource.get("id")
         )
         key = f"{resource_type}/{resource_id}"
-        fingerprint = None
-        if idempotency_key is not None:
-            _check_idempotency_key(idempotency_key)
-            fingerprint = _fingerprint(resource, expected_version)
-            replayed = await self._replay(idempotency_key, fingerprint)
-            if replayed is not None:
-                return replayed
         try:
-            version = await self._put(resource, resource_type, resource_id, key, expected_version)
+            return await self._put(resource, resource_type, resource_id, key, expected_version)
         except ClientError as error:
             if str(getattr(error, "code", "")).endswith("ConstraintValidationFailed"):
                 raise Conflict(f"{key} was written by another request") from error
             raise
-        if idempotency_key is not None and fingerprint is not None:
-            await self._run(
-                "Q-RES-IDEM-RECORD",
-                idemKey=idempotency_key,
-                fingerprint=fingerprint,
-                versionId=version,
-            )
-        return version
-
-    async def _replay(self, idempotency_key: str, fingerprint: str) -> str | None:
-        rows = await self._run("Q-RES-IDEM-GET", idemKey=idempotency_key)
-        if not rows:
-            return None
-        if rows[0]["fingerprint"] != fingerprint:
-            raise Conflict("the idempotency key was used for a different write")
-        return str(rows[0]["versionId"])
 
     async def get(self, type: str, id: str) -> dict[str, Any] | None:
         _check_type(type)
@@ -386,7 +403,7 @@ class ResourceStore:
         _check_type(type)
         rows = await self._run("Q-RES-HISTORY", key=f"{type}/{id}")
         ordered = sorted(rows, key=lambda row: int(row["versionId"]))
-        return [from_graph(await self._load(row["key"], type)) for row in ordered]
+        return [from_graph(await self._load(row["key"], type, version=True)) for row in ordered]
 
     async def exists(self, type: str, id: str) -> bool:
         _check_type(type)
@@ -432,12 +449,13 @@ class ResourceStore:
         if current is not None and resource_type not in NO_HISTORY_TYPES:
             old = await self._load(key, resource_type)
             await self._write_snapshot(key, str(current["versionId"]), old)
-        await self._run("Q-RES-CLEAR-OWNED", prefix=f"{key}#")
+        await self._run("Q-RES-CLEAR-OWNED", key=key, prefix=f"{key}#")
         await self._run("Q-RES-CLEAR-ROOT-RELS", key=key)
         await self._write_nodes(owned)
         await self._apply_shared(plan)
         await self._write_placeholders(placeholders)
-        await self._write_rels(rels)
+        await self._write_rels([rel for rel in rels if not _is_shared_key(rel.start)])
+        await self._link_shared([rel for rel in rels if _is_shared_key(rel.start)])
         if resource_type == "Location":
             await self._run("Q-RES-SET-POSITION", key=key)
         return new_version
@@ -466,6 +484,9 @@ class ResourceStore:
         here, before any write."""
         body = {**resource, "meta": {"versionId": version, "lastUpdated": stamp}}
         fragment = to_graph(body)
+        for rel in fragment.rels:
+            if _is_reference_key(rel.end):
+                _check_reference_type(rel.end)
         nodes = [
             NodeSpec(node.key, node.labels, _node_props_to_db(node.key, node.properties))
             for node in fragment.nodes
@@ -572,6 +593,25 @@ class ResourceStore:
             if int(created[0]["created"]) != len(rows):
                 raise NotFound(f"an endpoint of {rel_type} is missing")
 
+    async def _link_shared(self, rels: list[RelSpec]) -> None:
+        """Link each concept to its code system once: MERGE, so a repeat adds no second edge."""
+        groups: dict[str, dict[tuple[str, str], dict[str, str]]] = {}
+        for rel in rels:
+            # One row per distinct pair: a concept used twice in a resource is linked once.
+            groups.setdefault(rel.type, {})[(rel.start, rel.end)] = {
+                "start": rel.start,
+                "end": rel.end,
+            }
+        for rel_type, pairs in groups.items():
+            rows = list(pairs.values())
+            linked = await self._run(
+                "Q-RES-LINK-SHARED", insert=_labels_text((rel_type,)), rows=rows
+            )
+            # The statement counts distinct pairs, so legacy duplicate edges (one per earlier put)
+            # are not read as a missing endpoint; a pair with a missing end has no row at all.
+            if int(linked[0]["linked"]) != len(rows):
+                raise NotFound(f"an endpoint of {rel_type} is missing")
+
     # Reading
 
     async def _run(self, template: str, insert: str = "", **params: Any) -> list[dict[str, Any]]:
@@ -586,18 +626,25 @@ class ResourceStore:
         props: dict[str, Any] = rows[0]["props"]
         return props
 
-    async def _load(self, key: str, root_type: str) -> GraphFragment:
-        """The owned nodes and relationships of one stored resource (or of a version), plus the
-        shared Concept and Identifier nodes they point at, in the shape the mapper rebuilds from."""
+    async def _load(self, key: str, root_type: str, *, version: bool = False) -> GraphFragment:
+        """The owned nodes and relationships of one stored resource (or of one of its versions),
+        plus the shared Concept and Identifier nodes they point at, in the shape the mapper rebuilds
+        from. A version is reached from its resource, so both statements start at its own key."""
         prefix = f"{key}#"
+        root_label = ":ResourceVersion" if version else ":Resource"
+        resource_key = key.partition("@")[0]
         nodes: dict[str, NodeSpec] = {}
-        for row in await self._run("Q-RES-LOAD-NODES", key=key, prefix=prefix):
+        for row in await self._run(
+            "Q-RES-LOAD-NODES", root_label, resourceKey=resource_key, key=key, prefix=prefix
+        ):
             stored_key = str(row["props"]["key"])
             nodes[stored_key] = _node_from_row(
                 stored_key, row["labels"], row["props"], key, root_type
             )
         rels: list[RelSpec] = []
-        for row in await self._run("Q-RES-LOAD-RELS", key=key, prefix=prefix):
+        for row in await self._run(
+            "Q-RES-LOAD-RELS", root_label, resourceKey=resource_key, key=key, prefix=prefix
+        ):
             # A named local relationship (P03) has no fhirPath and is not an element, so it is not
             # in the resource. Any other relationship without a fhirPath is kept, and from_graph
             # then refuses it with KeyError.

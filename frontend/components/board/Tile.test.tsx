@@ -1,7 +1,17 @@
 import { render, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
-import { entry, MAIN_ENTRIES, NOW, UCR_WEST, VIRTUAL_WARD } from '@/test/fixtures/board';
+import {
+  CONFIRMED_TILE,
+  entry,
+  MAIN_ENTRIES,
+  NOW,
+  PENDING_TILE,
+  QUIET_ENTRIES,
+  SURGE_ENTRIES,
+  UCR_WEST,
+  VIRTUAL_WARD,
+} from '@/test/fixtures/board';
 import { Tile } from './Tile';
 
 function tile(container: HTMLElement): HTMLElement {
@@ -171,38 +181,262 @@ describe('Tile: not updated', () => {
   });
 });
 
-describe('Tile: statuses outside this task still show the word and no misleading figure', () => {
-  it('over capacity shows the word Over capacity, +N and the bar full', () => {
-    const over = MAIN_ENTRIES.find((e) => e.status === 'over-capacity');
-    if (!over) throw new Error('fixture has no over-capacity service');
+describe('Tile: over capacity (W07)', () => {
+  const over = MAIN_ENTRIES.find((e) => e.status === 'over-capacity');
+  if (!over) throw new Error('fixture has no over-capacity service');
+
+  it('shows the word Over capacity, +2, the unit as sent, "Used 14 of 12" and the comment', () => {
     const { container } = render(<Tile entry={over} now={NOW} />);
     const t = within(tile(container));
 
     expect(t.getByText('Over capacity')).toBeInTheDocument();
-    expect(t.getByText('+2')).toBeInTheDocument();
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent('+2');
     expect(t.getByText('over established capacity')).toBeInTheDocument();
     expect(t.getByText('Used 14 of 12')).toBeInTheDocument();
+    expect(t.getByText('Escalation in place')).toBeInTheDocument();
+  });
+
+  it('is told apart by a word and a shape (the diamond), not by colour alone', () => {
+    const { container } = render(<Tile entry={over} now={NOW} />);
+    const el = tile(container);
+
+    expect(el).toHaveAttribute('data-status', 'over-capacity');
+    expect(el.className).toMatch(/overCapacity/);
+    expect(el.querySelector('[data-status="over-capacity"][data-shape="diamond"]')).toHaveTextContent('Over capacity');
+  });
+
+  it('fills the bar to 100% however far over it is', () => {
+    const { container } = render(<Tile entry={over} now={NOW} />);
+
     expect(container.querySelector<HTMLElement>('[data-bar-fill]')?.style.width).toBe('100%');
   });
 
-  it('out of hours shows the word Out of hours and no number', () => {
+  it('shows the pending count apart: +4 stays +4 and the bar label gains " · 1 pending"', () => {
+    const surge = SURGE_ENTRIES.find((e) => e.serviceId === 'svc-hospital-at-home');
+    if (!surge) throw new Error('fixture');
+    const { container } = render(<Tile entry={surge} now={NOW} />);
+    const t = within(tile(container));
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent('+4');
+    expect(t.getByText('Used 16 of 12 · 1 pending')).toBeInTheDocument();
+    expect(container.querySelector('[data-el="WALL-TILE-PENDING"]')).toHaveTextContent('1 pending');
+  });
+
+  it('uses the unit label exactly as the back end sent it, singular or plural', () => {
+    const { container } = render(<Tile entry={{ ...over, unitLabel: 'bed over established capacity' }} now={NOW} />);
+
+    expect(within(tile(container)).getByText('bed over established capacity')).toBeInTheDocument();
+  });
+});
+
+describe('Tile: over capacity without an over-by count (W07)', () => {
+  const base = entry({
+    serviceId: 'svc-o',
+    name: 'Over',
+    status: 'over-capacity',
+    effectiveAvailable: null,
+    overBy: null,
+    unitLabel: 'over established capacity',
+  });
+
+  it('works +N out from used and established when the back end sends no over-by', () => {
+    const { container } = render(<Tile entry={{ ...base, used: 14, established: 12 }} now={NOW} />);
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent('+2');
+  });
+
+  it('shows ? and Phone to confirm, never a guessed number, when it cannot work it out', () => {
+    const { container } = render(<Tile entry={{ ...base, used: null, established: 12 }} now={NOW} />);
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent('?');
+    expect(within(tile(container)).getByText('Phone to confirm')).toBeInTheDocument();
+    expect(within(tile(container)).getByText('Over capacity')).toBeInTheDocument();
+  });
+
+  it('fills the bar when nothing is established and something is used, and leaves it empty when nothing is used', () => {
+    const used = render(<Tile entry={{ ...base, used: 3, established: 0 }} now={NOW} />);
+    const none = render(<Tile entry={{ ...base, status: 'accepting', effectiveAvailable: 0, used: 0, established: 0 }} now={NOW} />);
+
+    expect(used.container.querySelector<HTMLElement>('[data-bar-fill]')?.style.width).toBe('100%');
+    expect(none.container.querySelector<HTMLElement>('[data-bar-fill]')?.style.width).toBe('0%');
+  });
+});
+
+describe('Tile: out of hours (W07)', () => {
+  const quiet = QUIET_ENTRIES[0];
+  const QUIET_NOW = new Date('2026-10-24T01:40:00Z');
+
+  it('shows the word Out of hours, a big 0, the unit as sent, "Reopens 08:00", the bar label and "Closed overnight"', () => {
+    const { container } = render(<Tile entry={quiet} now={QUIET_NOW} />);
+    const t = within(tile(container));
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent(/^0$/);
+    expect(t.getByText('referrals in the next 2 hrs')).toBeInTheDocument();
+    expect(t.getByText('Reopens 08:00')).toBeInTheDocument();
+    // The badge word and the bar label.
+    expect(t.getAllByText('Out of hours')).toHaveLength(2);
+    expect(t.getByText('Closed overnight')).toBeInTheDocument();
+  });
+
+  it('is told apart from Not accepting by its word and its own shape (the moon)', () => {
+    const { container } = render(<Tile entry={quiet} now={QUIET_NOW} />);
+    const el = tile(container);
+
+    expect(el).toHaveAttribute('data-status', 'out-of-hours');
+    expect(el.className).toMatch(/outOfHours/);
+    expect(el.querySelector('[data-status="out-of-hours"][data-shape="moon"]')).toHaveTextContent('Out of hours');
+    expect(el.textContent).not.toContain('Not accepting');
+  });
+
+  it('fills the bar to 100%', () => {
+    const { container } = render(<Tile entry={quiet} now={QUIET_NOW} />);
+
+    expect(container.querySelector<HTMLElement>('[data-bar-fill]')?.style.width).toBe('100%');
+  });
+
+  it('shows 0 whatever free count the back end held, never a number that could be read as places', () => {
     const { container } = render(
-      <Tile
-        entry={entry({
-          serviceId: 'svc-ooh',
-          name: 'Evening service',
-          status: 'out-of-hours',
-          effectiveAvailable: 4,
-          used: 4,
-        })}
-        now={NOW}
-      />,
+      <Tile entry={{ ...quiet, effectiveAvailable: 4, used: 4 }} now={QUIET_NOW} />,
     );
     const t = within(tile(container));
 
-    expect(t.getByText('Out of hours')).toBeInTheDocument();
-    expect(t.getByText('Outside opening hours')).toBeInTheDocument();
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent(/^0$/);
     expect(t.queryByText('4')).toBeNull();
+    expect(t.queryByText(/Used/)).toBeNull();
+  });
+
+  it('gives the reopening time in London time: 07:00 UTC in summer is 08:00, in winter it is 07:00', () => {
+    const summer = render(<Tile entry={quiet} now={QUIET_NOW} />);
+    expect(within(tile(summer.container)).getByText('Reopens 08:00')).toBeInTheDocument();
+
+    const winter = render(
+      <Tile entry={{ ...quiet, nextDueAt: '2026-10-26T08:00:00Z' }} now={new Date('2026-10-26T01:40:00Z')} />,
+    );
+    expect(within(tile(winter.container)).getByText('Reopens 08:00')).toBeInTheDocument();
+    const winterEarly = render(
+      <Tile entry={{ ...quiet, nextDueAt: '2026-10-26T07:00:00Z' }} now={new Date('2026-10-26T01:40:00Z')} />,
+    );
+    expect(within(tile(winterEarly.container)).getByText('Reopens 07:00')).toBeInTheDocument();
+  });
+
+  it('says which day when the service does not reopen today', () => {
+    const { container } = render(<Tile entry={quiet} now={NOW} />);
+
+    // Friday 14:12 London, reopening Saturday 08:00.
+    expect(within(tile(container)).getByText('Reopens 08:00 tomorrow')).toBeInTheDocument();
+  });
+
+  it('leaves out the reopening line, and nothing else, when the back end sends no next time', () => {
+    const { container } = render(<Tile entry={{ ...quiet, nextDueAt: null }} now={QUIET_NOW} />);
+    const t = within(tile(container));
+
+    expect(t.queryByText(/Reopens/)).toBeNull();
+    expect(t.getAllByText('Out of hours')).toHaveLength(2);
+    expect(t.getByText('Closed overnight')).toBeInTheDocument();
+  });
+
+  it('does not show the service comment, which may describe hours that no longer apply', () => {
+    const { container } = render(<Tile entry={{ ...quiet, comment: 'Admissions until 06:00' }} now={QUIET_NOW} />);
+
+    expect(tile(container).textContent).not.toContain('Admissions until 06:00');
+  });
+
+  it('shows no "Updated", "next due" or "Not updated" wording', () => {
+    const { container } = render(<Tile entry={quiet} now={QUIET_NOW} />);
+
+    expect(tile(container).textContent).not.toMatch(/Updated|next due|Not updated/);
+  });
+});
+
+describe('Tile: pending bookings (W07, "TileStates")', () => {
+  function chip(container: HTMLElement): HTMLElement | null {
+    return container.querySelector<HTMLElement>('[data-el="WALL-TILE-PENDING"]');
+  }
+
+  it('step 1, a request sent: 4 stays, a "1 pending" chip shows beside it and the bar label says so', () => {
+    const { container } = render(<Tile entry={PENDING_TILE} now={NOW} />);
+    const t = within(tile(container));
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent(/^4$/);
+    expect(chip(container)).toHaveTextContent(/^1 pending$/);
+    expect(t.getByText('Used 4 of 8 · 1 pending')).toBeInTheDocument();
+    expect(t.getByText('referrals in the next 2 hrs')).toBeInTheDocument();
+    expect(t.getByText('Updated 9 min ago · next due 14:30')).toBeInTheDocument();
+  });
+
+  it('puts the chip next to the number', () => {
+    const { container } = render(<Tile entry={PENDING_TILE} now={NOW} />);
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')?.nextElementSibling).toBe(chip(container));
+  });
+
+  it('step 2, confirmed by text: 3, "Used 5 of 8" and no pending chip', () => {
+    const { container } = render(<Tile entry={CONFIRMED_TILE} now={NOW} />);
+    const t = within(tile(container));
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent(/^3$/);
+    expect(t.getByText('Used 5 of 8')).toBeInTheDocument();
+    expect(chip(container)).toBeNull();
+    expect(tile(container).textContent).not.toContain('pending');
+  });
+
+  it('step 3, declined or no reply: pending clears and the figure is back to 4', () => {
+    const { container } = render(<Tile entry={{ ...PENDING_TILE, pending: 0 }} now={NOW} />);
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent(/^4$/);
+    expect(within(tile(container)).getByText('Used 4 of 8')).toBeInTheDocument();
+    expect(chip(container)).toBeNull();
+  });
+
+  it('never reduces the available number, however many are pending', () => {
+    const { container } = render(<Tile entry={{ ...PENDING_TILE, pending: 3 }} now={NOW} />);
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent(/^4$/);
+    expect(chip(container)).toHaveTextContent(/^3 pending$/);
+    expect(within(tile(container)).getByText('Used 4 of 8 · 3 pending')).toBeInTheDocument();
+  });
+
+  it('says "pending" for one and for many, never "pendings"', () => {
+    const one = render(<Tile entry={PENDING_TILE} now={NOW} />);
+    const two = render(<Tile entry={{ ...PENDING_TILE, pending: 2 }} now={NOW} />);
+
+    expect(chip(one.container)).toHaveTextContent(/^1 pending$/);
+    expect(chip(two.container)).toHaveTextContent(/^2 pending$/);
+  });
+
+  it('shows it on a limited and a not-accepting tile too', () => {
+    const limited = render(<Tile entry={{ ...PENDING_TILE, status: 'limited', effectiveAvailable: 1, used: 7 }} now={NOW} />);
+    const full = render(<Tile entry={{ ...PENDING_TILE, status: 'not-accepting', effectiveAvailable: 0, used: 8 }} now={NOW} />);
+
+    expect(within(tile(limited.container)).getByText('Used 7 of 8 · 1 pending')).toBeInTheDocument();
+    expect(within(tile(full.container)).getByText('Used 8 of 8 · 1 pending')).toBeInTheDocument();
+  });
+
+  it('keeps a pending request visible on a service that is not updated, beside the ?', () => {
+    const { container } = render(<Tile entry={{ ...VIRTUAL_WARD, pending: 1 }} now={NOW} />);
+    const t = within(tile(container));
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent(/^\?$/);
+    expect(chip(container)).toHaveTextContent(/^1 pending$/);
+    expect(t.getByText('Used ? of 10 · 1 pending')).toBeInTheDocument();
+    expect(t.getByText('Phone to confirm')).toBeInTheDocument();
+  });
+
+  it('keeps a pending request visible on a service that is out of hours', () => {
+    const { container } = render(
+      <Tile entry={{ ...QUIET_ENTRIES[0], pending: 1 }} now={new Date('2026-10-24T01:40:00Z')} />,
+    );
+
+    expect(chip(container)).toHaveTextContent(/^1 pending$/);
+    expect(within(tile(container)).getByText('Out of hours · 1 pending')).toBeInTheDocument();
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent(/^0$/);
+  });
+
+  it('shows a pending count only as a word and a number, so it is not carried by colour', () => {
+    const { container } = render(<Tile entry={PENDING_TILE} now={NOW} />);
+
+    expect(chip(container)?.textContent).toBe('1 pending');
+    expect(chip(container)?.className).toMatch(/pending/);
   });
 });
 
@@ -345,6 +579,22 @@ describe('Tile: last known', () => {
 
     expect(el.textContent).toContain('Last known 00:58');
     expect(el.textContent).toContain('3 min ago');
+  });
+
+  it('never carries a variant into Last known: no pending chip, no Reopens, no Closed overnight, no status word', () => {
+    for (const e of [...SURGE_ENTRIES, ...QUIET_ENTRIES, PENDING_TILE]) {
+      const { container, unmount } = render(<Tile entry={{ ...e, pending: 2 }} now={NOW} lastKnown />);
+      const el = tile(container);
+
+      expect(el).toHaveAttribute('data-status', 'last-known');
+      expect(el.className).toMatch(/notUpdated/);
+      expect(el.className).not.toMatch(/outOfHours|overCapacity|accepting|limited/);
+      expect(el.querySelector('[data-el="WALL-TILE-PENDING"]')).toBeNull();
+      expect(el.textContent).not.toMatch(/pending|Reopens|Closed overnight|Outside opening hours|Escalation/);
+      expect(el.textContent).not.toMatch(/Over capacity|Out of hours|Not accepting|Limited|Accepting|Not updated/);
+      expect(el.textContent).toContain('Do not rely on this. Phone to confirm.');
+      unmount();
+    }
   });
 
   it('is a normal current tile when lastKnown is not set', () => {

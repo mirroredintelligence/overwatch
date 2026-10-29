@@ -12,6 +12,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.application.tenancy import current_tenant
 from diucs.domain.codes import Channel, PractitionerRoleCode
 from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole
@@ -150,8 +151,10 @@ async def test_a_relationship_without_a_fhir_path_that_is_not_local_still_fails_
         await _repo(tx).save_role(_role("r-west", "svc-ucr-west"))
         await tx.run(
             "MATCH (r:PractitionerRole {key: 'PractitionerRole/r-west'}) "
-            "CREATE (c:Concept {system: 'stray', code: 'x', key: 'Concept|stray|x'}) "
-            "CREATE (r)-[:STRAY]->(c)"
+            "CREATE (c:Concept {system: 'stray', code: 'x', key: 'Concept|stray|x', "
+            "tenantId: $tenant}) "
+            "CREATE (r)-[:STRAY]->(c)",
+            tenant=current_tenant(),
         )
 
     await write_tx(neo4j_driver, save_and_add_stray)

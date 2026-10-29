@@ -15,6 +15,7 @@ from collections.abc import Awaitable, Callable
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, Response
+from neo4j import AsyncDriver
 
 from diucs.adapters.inbound.sms_webhook.routes import SmsWebhookDeps
 from diucs.adapters.testing.fixed_inbound_lines import FixedInboundLines
@@ -26,6 +27,7 @@ from diucs.application.ports.outbound.tenant_lines import InboundLine
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork
 from diucs.application.tenancy import ScopeId, current_scope_or_none
 from diucs.bootstrap.container import Container
+from tests.integration.adapters.inbound.sms_webhook.conftest import seed_practitioner
 from tests.support.sms import (
     INTERNAL_REPLY_URL,
     PHONE_HASH_KEY,
@@ -39,15 +41,22 @@ from tests.support.sms import (
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SID = "SM" + "1" * 32
+# Tenant B's own reporter. The person lookup (Q-PERSON-PHONE-FIND) is not converted yet and finds a
+# phone across tenants, so one number held in both tenants would be ambiguous (Conflict); each
+# tenant has its own reporter with its own number until TEN-011 (known-issues).
+SENDER_B_E164 = "+447700900789"
 QUEUE = "inbound.replies"
 
 
 async def test_the_number_called_decides_the_tenant_of_the_queue_message(
-    sms_client: AsyncClient, sms_bus: ManualEventBus, reporter: None
+    sms_client: AsyncClient, sms_bus: ManualEventBus, reporter: None, neo4j_driver: AsyncDriver
 ) -> None:
-    # The same sender texts both organisations' numbers (DEC-131 item 3).
+    # A reporter of each organisation texts that organisation's number (DEC-131 item 3).
+    await seed_practitioner(neo4j_driver, "p-reporter-b", SENDER_B_E164, TENANT_B.tenant_id)
     to_a = await post_signed(sms_client, reply_params(TENANT_A, sid=SID))
-    to_b = await post_signed(sms_client, reply_params(TENANT_B, sid=SID), token=TENANT_B.token)
+    to_b = await post_signed(
+        sms_client, reply_params(TENANT_B, sid=SID, sender=SENDER_B_E164), token=TENANT_B.token
+    )
 
     assert (to_a.status_code, to_b.status_code) == (200, 200)
     queued = {message.tenant_id: message for message in sms_bus.enqueued_to(QUEUE)}
@@ -57,12 +66,18 @@ async def test_the_number_called_decides_the_tenant_of_the_queue_message(
 
 
 async def test_the_same_message_sid_in_two_tenants_is_not_a_replay_but_a_repeat_is(
-    sms_client: AsyncClient, sms_bus: ManualEventBus, sms_cache: InMemoryCache, reporter: None
+    sms_client: AsyncClient,
+    sms_bus: ManualEventBus,
+    sms_cache: InMemoryCache,
+    reporter: None,
+    neo4j_driver: AsyncDriver,
 ) -> None:
+    await seed_practitioner(neo4j_driver, "p-reporter-b", SENDER_B_E164, TENANT_B.tenant_id)
+    params_b = reply_params(TENANT_B, sid=SID, sender=SENDER_B_E164)
     await post_signed(sms_client, reply_params(TENANT_A, sid=SID))
-    await post_signed(sms_client, reply_params(TENANT_B, sid=SID), token=TENANT_B.token)
+    await post_signed(sms_client, params_b, token=TENANT_B.token)
     await post_signed(sms_client, reply_params(TENANT_A, sid=SID))
-    await post_signed(sms_client, reply_params(TENANT_B, sid=SID), token=TENANT_B.token)
+    await post_signed(sms_client, params_b, token=TENANT_B.token)
 
     tenants = sorted(str(m.tenant_id) for m in sms_bus.enqueued_to(QUEUE))
     assert tenants == ["tenant-a", "tenant-b"]

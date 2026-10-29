@@ -332,6 +332,13 @@ These names were added by individual task prompts. They are as binding as the re
 - `GET /api/bff/events` (roles wall, advisor, lead, exec; takes no input): relays the back end's `GET /events` as `text/event-stream`, forwarding only the events `board`, `board.updated` and `booking.updated` with only `serviceId`, `kind` and `changedAt` (`lib/bff/events.ts`: `RELAYED_EVENTS`, `relayEvents(upstream, { signal?, onCancel? })`). `lib/fhir/client.ts`: `fhirStream(path, { token?, traceparent?, signal? }) -> { body }`.
 - R06's event is named `board` (DEC-111), not `board.updated`; both are listened to. Network scope: a stream for the network board is not built.
 
+## Wall board variants (W07, DEC-169)
+- `components/board/PressureBanner.tsx`: `PressureBanner({ board })` (`board.allLimitedOrWorse`, `board.entries`); `data-el="WALL-PRESSURE-BANNER"`; renders `null` when the flag is false or no service is in hours. `Board` shows it unless the board is last known.
+- `lib/board/format.ts`: `reopensText(nextDueAt, now)` ("Reopens 08:00", "... tomorrow", "... Monday"); `ageLineText` returns "Closed overnight" for `out-of-hours`.
+- `Tile` data attributes: `WALL-TILE-PENDING` (the "N pending" chip), `WALL-TILE-REOPENS` (the out-of-hours meta line).
+- `lib/board/parse.ts` refuses an entry with `tenantId` or `sourceTenantId`, and an entry whose `organisation` is not the board's own.
+- Test support: `test/fixtures/board.ts` (`PENDING_TILE`, `CONFIRMED_TILE`, `SURGE_ENTRIES`, `BOARD_SURGE`, `QUIET_ENTRIES`, `BOARD_QUIET`, `QUIET_AT`, `withForeignOrganisation`); `test/msw/handlers/board.ts` (`TOKEN_SURGE`, `TOKEN_QUIET`, `TOKEN_FOREIGN_ENTRY`); `e2e/support/tokens.ts` (the same three, and `LIVE_SURGE_PREFIX`).
+
 ## Tenant domain model, settings and lifecycle (TEN-006, DEC-155)
 Pure domain, standard library and `diucs.domain` only. Names are the contract for TEN-007, TEN-021, TEN-022, TEN-026, TEN-028, TEN-036, TEN-064, TEN-065, TEN-073 and TEN-074.
 - `domain/model/tenant_policy.py`: `TenantPolicy` (frozen; 24 fields in this order with today's defaults: `reply_window`, `reminder_after`, `phone_task_after`, `escalate_after`, `twice_a_day_second`, `stale_warning_after`, `pressure_watch_from`, `pressure_high_from`, `correction_window`, `max_consecutive_confirms`, `many_changes_window`, `many_changes_count`, `phoned_window`, `group_window`, `max_services_per_phone`, `booking_reply_window`, `booking_phone_prompt_after`, `withdrawal_escalate_after`, `criteria_reminder_before`, `clinical_take_timeout`, `reverify_every`, `critical_alert_kinds`, `alert_default_kinds`, `alert_default_not_updated_hours`) with `as_settings() -> dict[str, SettingValue]`; `DEFAULT_POLICY`; `FIELD_BOUNDS` (read-only, field name to inclusive `(minimum, maximum)` in native types; the three set-valued fields have none); `require_policy(value) -> TenantPolicy` (`TypeError("a TenantPolicy is required")` for anything but exactly a `TenantPolicy`); `POLICY_FIELDS`, `POLICY_FIELD_BY_KEY`, `PolicyField(name, key, shape, unit)`, `Shape`, `to_setting_value`, `from_setting_value`; `SettingValue = int | str | bool | time | frozenset[str]`. Every default and bound is a named `Final` constant (`REPLY_WINDOW_DEFAULT`, `REPLY_WINDOW_MIN`, `REPLY_WINDOW_MAX` and so on).
@@ -383,6 +390,13 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 
 ## Mapper tenant names (TEN-008, DEC-162)
 - `adapters/outbound/graph_store/extensions.py`: `TENANT_OWNED_NAMES = frozenset({"tenantId", "sourceTenantId"})`. `ExtensionDef` refuses a short name in it (`ValueError`). `mapper.py` imports it: `to_graph` refuses an element of either name (`ValidationFailed`, "reserved: the tenancy seam stamps this name") and refuses a fragment that would carry one, and `from_graph` drops both from every node it rebuilds from. TEN-009 adds both to the resource store's `RESERVED_PROPERTIES`; no other module writes the name `tenantId` on a node a resource owns except the writer's stamp.
+
+## Resource store tenancy (TEN-009, DEC-164)
+- `adapters/outbound/graph_store/resource_scenarios.py`: `SCENARIOS: dict[str, Scenario]`, one per `Q-RES-*` template, read by `resource_store.py` when it registers them.
+- Templates: sixteen, all with `tenantId: $tenant` and a scenario. New: `Q-RES-LINK-SHARED` (insert `:IN_SYSTEM`; params `rows` of `{start, end}`; returns `linked`; a MERGE of the concept-to-code-system edge). Changed parameters: `Q-RES-LOAD-NODES` and `Q-RES-LOAD-RELS` take `resourceKey` (the resource's own key, also for a version), `key` and `prefix` and an insert of `:Resource` or `:ResourceVersion`; `Q-RES-CLEAR-OWNED` takes `key` and `prefix`; `Q-RES-SHARED-READ` takes no insert. Removed: `Q-RES-IDEM-GET`, `Q-RES-IDEM-RECORD`.
+- `ResourceStore.put(resource, expected_version)`: the `idempotency_key` argument is gone. `RESERVED_PROPERTIES` also holds `tenantId` and `sourceTenantId`.
+- Tests: `tests/support/predicate_removal.py::mutant_of` registers the copy of a template instance under the template's id.
+- `ResourceStore.put` refuses (`ValidationFailed`, before any write) a reference target or a resource type that is not letters only with a capital or is a registry label (`REGISTRY_LABELS`, `GLOBAL_STATEMENT_LABELS`) or a store label (DEC-164 item 11). `Q-RES-LINK-SHARED` returns `count(DISTINCT [a.key, b.key]) AS linked`.
 
 ### Missed-report ladder (U06, DEC-166)
 

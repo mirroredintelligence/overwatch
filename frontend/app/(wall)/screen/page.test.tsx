@@ -3,14 +3,17 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSession, type Role, type Session } from '@/lib/auth/session';
 import { runAxe } from '@/test/a11y';
-import { BOARD_A, BOARD_B, GENERATED_AT } from '@/test/fixtures/board';
+import { BOARD_A, BOARD_B, BOARD_SURGE, GENERATED_AT, QUIET_AT } from '@/test/fixtures/board';
 import {
   BACKEND_BASE,
   BOARD_URL,
   resetSeenBoardRequests,
   seenBoardRequests,
+  TOKEN_FOREIGN_ENTRY,
   TOKEN_ORG_A,
   TOKEN_ORG_B,
+  TOKEN_QUIET,
+  TOKEN_SURGE,
 } from '@/test/msw/handlers/board';
 import { server } from '@/test/msw/server';
 import WallScreenPage from './page';
@@ -123,7 +126,7 @@ describe('wall screen page: signed in', () => {
     expect(seenBoardRequests[0].headers.get('authorization')).toBe(`Bearer ${TOKEN_ORG_A}`);
   });
 
-  it('never renders another organisation’s services on a screen paired to this one', async () => {
+  it('renders the session’s own board only, with none of the other organisation’s sample entries', async () => {
     as(signedIn('wall', TOKEN_ORG_A));
 
     const { container } = render(await WallScreenPage());
@@ -186,6 +189,60 @@ describe('wall screen page: the board is judged by the clock (W06)', () => {
     render(await WallScreenPage());
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+});
+
+describe('wall screen page: the board variants (W07)', () => {
+  it('shows the pressure banner, over-capacity and pending, for the surge board, and is accessible', async () => {
+    as(signedIn('wall', TOKEN_SURGE));
+
+    const { container } = render(await WallScreenPage());
+
+    expect(screen.getByText('System under pressure')).toBeInTheDocument();
+    expect(screen.getByText('All 9 services are limited, not accepting or over capacity.')).toBeInTheDocument();
+    expect(screen.getByText('Used 16 of 12 · 1 pending')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-el="WALL-TILE"]')).toHaveLength(BOARD_SURGE.entries.length);
+    expect(container.textContent).not.toContain('Last known');
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows the out-of-hours tiles for the quiet board, at the board’s own time, and no banner', async () => {
+    as(signedIn('wall', TOKEN_QUIET));
+    vi.setSystemTime(new Date(QUIET_AT));
+
+    const { container } = render(await WallScreenPage());
+
+    expect(screen.getAllByText('Reopens 08:00')).toHaveLength(6);
+    expect(screen.getAllByText('Closed overnight')).toHaveLength(6);
+    expect(screen.queryByText('System under pressure')).toBeNull();
+    expect(container.textContent).not.toContain('Last known');
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows Last known, and no pressure banner, when the surge board is already old at the first paint', async () => {
+    as(signedIn('wall', TOKEN_SURGE));
+    vi.setSystemTime(new Date(Date.parse(GENERATED_AT) + 30 * 60_000));
+
+    const { container } = render(await WallScreenPage());
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Tool offline since 14:12');
+    expect(container.textContent).not.toContain('System under pressure');
+    for (const tile of container.querySelectorAll('[data-el="WALL-TILE"]')) {
+      expect(tile).toHaveAttribute('data-status', 'last-known');
+      // The key under the grid names every status, so look at the tiles only.
+      expect(tile.textContent).not.toMatch(/pending|Over capacity|Out of hours/);
+    }
+  });
+
+  it('shows Board unavailable, and no tile, when an entry carries a foreign organisation part', async () => {
+    as(signedIn('wall', TOKEN_FOREIGN_ENTRY));
+
+    const { container } = render(await WallScreenPage());
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Board unavailable');
+    expect(container.querySelector('[data-el="WALL-TILE"]')).toBeNull();
+    expect(container.textContent).not.toContain('Neighbouring');
+    expect(container.textContent).not.toContain('UCR West');
   });
 });
 

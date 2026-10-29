@@ -6,12 +6,12 @@ the REST edge will do once it binds the tenant from the verified token (TEN-018)
 read a tenant: it comes only from the unit of work.
 
 Until TEN-032 drops the single-property keys, two tenants cannot share a resource id or a concept
-on the shared test schema, so B's ids, category, measure and source differ from A's. The resource
-store (TEN-009) is still unconverted on main (tenant-pending, evidence R04): tenant A's lookups
-still find tenant B's service and reports. The tests that show that are strict expected failures.
-When TEN-009 lands they pass (checked on a merge of its tip) and the strict marker fails the
-suite: remove the markers then. The tests without a marker hold today: nothing of B changes when A
-writes, and a tenant, whether sent in the body, in a header or in a query string, is never read.
+on the shared test schema, so B's ids, category, measure and source differ from A's. Since TEN-009
+the resource store scopes its reads, so tenant A's lookups never find tenant B's service or
+reports: each of those reads as the same 404 as an unknown id. The capacity and flag statements the
+use case runs are still unconverted (tenant-pending, evidence R04), but every one of them is reached
+only after a scoped service lookup. The same id in both tenants is not tested here (it needs a
+contracted container).
 """
 
 import json
@@ -50,15 +50,6 @@ __all__ = ["services_app"]
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-PENDING = pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "R04 DEC-168: the resource store does not scope its reads yet (TEN-009), so tenant A still "
-        "reads tenant B's service and reports. When TEN-009 lands this test passes (checked on a "
-        "merge of TEN-009 tip 6210657) and the strict marker fails the suite: remove the marker."
-    ),
-)
 B_SERVICE = "svc-b-clinic"
 B_REPORT = "obs-b-1303"
 # B uses another category, measure and source than A: the shared test schema keeps the old
@@ -107,7 +98,6 @@ def _b_lead() -> dict[str, str]:
     return bearer(Role.LEAD, (), "prac-lead-b")
 
 
-@PENDING
 async def test_tenant_a_lists_only_its_own_services(
     both_tenants: None, api_client: AsyncClient
 ) -> None:
@@ -117,7 +107,6 @@ async def test_tenant_a_lists_only_its_own_services(
     assert response.json()["total"] == 1
 
 
-@PENDING
 async def test_tenant_bs_service_id_is_the_same_404_as_an_unknown_id(
     both_tenants: None, api_client: AsyncClient
 ) -> None:
@@ -128,7 +117,6 @@ async def test_tenant_bs_service_id_is_the_same_404_as_an_unknown_id(
     assert response.json() == unknown.json()
 
 
-@PENDING
 async def test_tenant_bs_service_in_a_focus_search_is_the_same_404_as_an_unknown_id(
     both_tenants: None, api_client: AsyncClient
 ) -> None:
@@ -141,7 +129,6 @@ async def test_tenant_bs_service_in_a_focus_search_is_the_same_404_as_an_unknown
     assert response.json() == unknown.json()
 
 
-@PENDING
 async def test_tenant_bs_report_id_is_the_same_404_as_an_unknown_id(
     both_tenants: None, api_client: AsyncClient
 ) -> None:
@@ -152,7 +139,6 @@ async def test_tenant_bs_report_id_is_the_same_404_as_an_unknown_id(
     assert response.json() == unknown.json()
 
 
-@PENDING
 async def test_a_report_for_tenant_bs_service_is_the_same_404_and_changes_nothing_of_bs(
     both_tenants: None,
     api_client: AsyncClient,
@@ -174,7 +160,6 @@ async def test_a_report_for_tenant_bs_service_is_the_same_404_and_changes_nothin
     assert await count_nodes(neo4j_driver, "Observation") == 2  # A's and B's prior reports only
 
 
-@PENDING
 async def test_tenant_as_service_is_not_found_for_tenant_b(
     both_tenants: None, api_client: AsyncClient, other_tenant_id: str
 ) -> None:

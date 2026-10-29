@@ -459,7 +459,7 @@ def test_every_statement_in_the_source_is_in_the_registry(loaded: QueryRegistry)
     assert found, "the scan found no statement ids: it is not looking at the source"
     assert found - known == set(), sorted(found - known)
     assert len(loaded.ids()) >= 100
-    assert len(loaded.template_ids()) == 17
+    assert len(loaded.template_ids()) == 16  # 17 less the dead idempotency pair, plus LINK-SHARED
 
 
 def test_every_registered_statement_is_converted_unconverted_or_global(
@@ -487,10 +487,11 @@ def test_the_ratchet_is_exactly_the_statements_that_are_not_converted(
 
 def test_the_ratchet_may_only_shrink() -> None:
     """126 is the number of statements and templates at TEN-001; TEN-004 converted eight of them
-    (118 left). A conversion bundle lowers this number in the same commit that removes ids from
+    (118 left) and TEN-009 the seventeen of the resource store, fifteen converted and two removed
+    (101 left). A conversion bundle lowers this number in the same commit that removes ids from
     the list; nothing raises it. The ids themselves are pinned against the initial list in
     test_tenant_ratchet.py."""
-    assert len(UNCONVERTED) <= 118
+    assert len(UNCONVERTED) <= 101
     assert len(UNCONVERTED) == len(set(UNCONVERTED))
 
 

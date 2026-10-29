@@ -3,6 +3,7 @@ import type { Board as BoardData } from '@/lib/board/types';
 import styles from './Board.module.css';
 import { Legend } from './Legend';
 import { LastKnownBanner, type LastKnown } from './LastKnownBanner';
+import { PressureBanner } from './PressureBanner';
 import { Tile } from './Tile';
 
 // The call-centre wall board: a header, a grid of tiles in the order the back
@@ -56,6 +57,9 @@ export function Board({
           Live updates paused. This board refreshes every minute.
         </p>
       ) : null}
+
+      {/* Not while last known: a pressure claim from old figures must not look current. */}
+      {lastKnown ? null : <PressureBanner board={board} />}
 
       {board.entries.length === 0 ? (
         <p className={styles.empty} role="status">

@@ -16,6 +16,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
 from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
+from diucs.application.tenancy import current_tenant
 from diucs.domain.codes import ScopeFlag, ServiceCategory
 from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.model.registration import ScopeEntry
@@ -324,11 +325,17 @@ async def test_an_entry_whose_stored_date_is_an_instant_is_refused(
     await _seed_active_service(neo4j_driver)
 
     async def seed(tx: AsyncManagedTransaction) -> None:
-        await tx.run("CREATE (:Resource:List {id: 'scope-list', status: 'current'})")
+        # Stamped as the store stamps a node: the list and the service are the bound tenant's.
         await tx.run(
-            "MATCH (l:List {id: 'scope-list'}), (s:HealthcareService {id: $id}) "
+            "CREATE (:Resource:List {id: 'scope-list', status: 'current', tenantId: $tenant})",
+            tenant=current_tenant(),
+        )
+        await tx.run(
+            "MATCH (l:List {id: 'scope-list', tenantId: $tenant}), "
+            "(s:HealthcareService {id: $id, tenantId: $tenant}) "
             "CREATE (l)-[:ENTRY {flag: 'in-pilot', date: datetime('2026-10-25T13:05:00Z')}]->(s)",
             id=WEST,
+            tenant=current_tenant(),
         )
 
     await write_tx(neo4j_driver, seed)

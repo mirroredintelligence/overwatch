@@ -150,7 +150,7 @@ async def test_a_relationship_without_a_fhir_path_that_is_not_local_still_fails_
     async def save_and_add_stray(tx: AsyncManagedTransaction) -> None:
         await _repo(tx).save_role(_role("r-west", "svc-ucr-west"))
         await tx.run(
-            "MATCH (r:PractitionerRole {key: 'PractitionerRole/r-west'}) "
+            "MATCH (r:PractitionerRole {key: 'PractitionerRole/r-west', tenantId: $tenant}) "
             "CREATE (c:Concept {system: 'stray', code: 'x', key: 'Concept|stray|x', "
             "tenantId: $tenant}) "
             "CREATE (r)-[:STRAY]->(c)",

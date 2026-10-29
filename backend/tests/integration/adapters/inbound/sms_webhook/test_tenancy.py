@@ -4,9 +4,10 @@ The number called and the AccountSid pick the subaccount whose token verifies th
 verified request binds a tenant, and nothing the caller controls can change which one. Refusals do
 not say whether a number or an account exists.
 
-Tenant-pending: the allow-list statement (Q-PERSON-PHONE-FIND) is not converted yet, so the person
-lookup is not filtered by tenant in Neo4j. What these tests prove is the edge: the tenant is bound
-for that read, and a queue message, a replay marker and a verification never cross tenants.
+The allow-list read (Q-PERSON-PHONE-FIND) is tenant-scoped (TEN-011), so the same phone can be a
+reporter of both tenants: each tenant's text reaches its own queue, and a phone known only to the
+other tenant is unknown here. A queue message, a replay marker and a verification never cross
+tenants.
 """
 
 import dataclasses
@@ -41,21 +42,18 @@ from tests.support.sms import (
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SID = "SM" + "1" * 32
-# Tenant B's own reporter. The person lookup (Q-PERSON-PHONE-FIND) is not converted yet and finds a
-# phone across tenants, so one number held in both tenants would be ambiguous (Conflict); each
-# tenant has its own reporter with its own number until TEN-011 (known-issues).
-SENDER_B_E164 = "+447700900789"
 QUEUE = "inbound.replies"
 
 
 async def test_the_number_called_decides_the_tenant_of_the_queue_message(
     sms_client: AsyncClient, sms_bus: ManualEventBus, reporter: None, neo4j_driver: AsyncDriver
 ) -> None:
-    # A reporter of each organisation texts that organisation's number (DEC-131 item 3).
-    await seed_practitioner(neo4j_driver, "p-reporter-b", SENDER_B_E164, TENANT_B.tenant_id)
+    # The same sender is a reporter of both organisations, and texts each organisation's number
+    # (DEC-131 item 3). The reporter of each tenant is found in that tenant only (TEN-011).
+    await seed_practitioner(neo4j_driver, "p-reporter-b", SENDER_E164, TENANT_B.tenant_id)
     to_a = await post_signed(sms_client, reply_params(TENANT_A, sid=SID))
     to_b = await post_signed(
-        sms_client, reply_params(TENANT_B, sid=SID, sender=SENDER_B_E164), token=TENANT_B.token
+        sms_client, reply_params(TENANT_B, sid=SID, sender=SENDER_E164), token=TENANT_B.token
     )
 
     assert (to_a.status_code, to_b.status_code) == (200, 200)
@@ -72,8 +70,8 @@ async def test_the_same_message_sid_in_two_tenants_is_not_a_replay_but_a_repeat_
     reporter: None,
     neo4j_driver: AsyncDriver,
 ) -> None:
-    await seed_practitioner(neo4j_driver, "p-reporter-b", SENDER_B_E164, TENANT_B.tenant_id)
-    params_b = reply_params(TENANT_B, sid=SID, sender=SENDER_B_E164)
+    await seed_practitioner(neo4j_driver, "p-reporter-b", SENDER_E164, TENANT_B.tenant_id)
+    params_b = reply_params(TENANT_B, sid=SID, sender=SENDER_E164)
     await post_signed(sms_client, reply_params(TENANT_A, sid=SID))
     await post_signed(sms_client, params_b, token=TENANT_B.token)
     await post_signed(sms_client, reply_params(TENANT_A, sid=SID))
@@ -83,6 +81,21 @@ async def test_the_same_message_sid_in_two_tenants_is_not_a_replay_but_a_repeat_
     assert tenants == ["tenant-a", "tenant-b"]
     assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
     assert await sms_cache.get(f"idem:sms:tenant-b:{SID}") == "1"
+
+
+async def test_a_sender_known_only_to_the_other_tenant_is_unknown_on_this_number(
+    sms_client: AsyncClient, sms_bus: ManualEventBus, reporter: None
+) -> None:
+    # The reporter exists in tenant A only. The same phone texting tenant B's number is unknown
+    # there: nothing is queued for B, and A's reporter is not borrowed.
+    response = await post_signed(
+        sms_client,
+        reply_params(TENANT_B, sid=SID, sender=SENDER_E164),
+        token=TENANT_B.token,
+    )
+
+    assert response.status_code == 200
+    assert sms_bus.enqueued_to(QUEUE) == []
 
 
 async def test_a_tenant_in_the_body_a_header_or_the_host_changes_nothing(

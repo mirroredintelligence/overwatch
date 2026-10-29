@@ -7,8 +7,8 @@ Communication per grouped service, all with the same send time and text, and the
 "A) Name " for each letter.
 
 Clock: Friday 23 October 2026. UCR East and UCR West both open 08:00 to 20:00 and report every
-2 hours, so both are due at 10:00 London (09:00 UTC, BST). Synthetic values only: no patient data and
-no real phone number (the phone hash is a made-up 64-character hex string).
+2 hours, so both are due at 10:00 London (09:00 UTC, BST). Synthetic values only: no patient data
+and no real phone number (the phone hash is a made-up 64-character hex string).
 """
 
 import dataclasses
@@ -31,8 +31,8 @@ from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTok
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.send_prompts import (
     SendPromptCommand,
-    SendPrompts,
     SendPromptResult,
+    SendPrompts,
 )
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.codes import (
@@ -501,22 +501,48 @@ async def test_three_services_due_together_are_lettered_a_b_c_in_name_order(
 # --- 7. only the same channel is grouped ------------------------------------------------------
 
 
+@pytest.mark.parametrize("first", ["ucr-west", "ucr-east"])
 async def test_an_email_service_on_the_same_phone_is_not_grouped(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed, first: str
 ) -> None:
+    # Whichever of the two jobs runs first: C9 is a text, so the email service is never in it, and
+    # a text service is never grouped with it.
     await _seed_phone(
         uow_factory, seed_service, WEST, _service("ucr-east", "UCR East", channel=Channel.EMAIL)
     )
     use_case, _ = _rig(uow_factory, neo4j_driver)
+    order = [first, "ucr-east" if first == "ucr-west" else "ucr-west"]
 
-    west = await use_case.execute(_command("ucr-west"))
-    east = await use_case.execute(_command("ucr-east"))
+    results = [await use_case.execute(_command(service_id)) for service_id in order]
 
-    assert west.grouped_service_ids == () and east.grouped_service_ids == ()
-    assert east.replayed is False
+    assert all(result.grouped_service_ids == () for result in results)
+    assert all(result.replayed is False for result in results)
     rows = _by_service(await _communications(neo4j_driver))
     assert rows["ucr-west"]["messageId"] == rows["ucr-east"]["messageId"] == "C1"
     assert len(_sent(await _outbox(uow_factory))) == 2
+
+
+async def test_the_letters_follow_name_order_even_when_the_due_times_do_not(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # West is due first (10:00) and East five minutes later, but East is A: name order decides, and
+    # A's message is the one that is sent.
+    await _seed_phone(uow_factory, seed_service, WEST, _service("ucr-east", "UCR East", time(8, 5)))
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+
+    await use_case.execute(_command("ucr-west", _london(10, 0)))
+
+    [message] = _sent(await _outbox(uow_factory))
+    assert _opened(message)["text"].startswith(
+        "DIUCS: 2 services need an update by 10:30. A) UCR East 1. B) UCR West 3."
+    )
+    rows = _by_service(await _communications(neo4j_driver))
+    assert (rows["ucr-east"]["status"], rows["ucr-west"]["status"]) == ("queued", "grouped")
+    # Each service keeps its own due time for its own ladder.
+    east_ladder = await _works(uow_factory, rows["ucr-east"]["id"], WorkKind.REMINDER)
+    assert [w.due_at for w in east_ladder] == [_london(10, 35)]
+    # And East's own prompt, at 10:05, does nothing.
+    assert (await use_case.execute(_command("ucr-east", _london(10, 5)))).replayed is True
 
 
 # --- what makes a service ineligible for the group --------------------------------------------

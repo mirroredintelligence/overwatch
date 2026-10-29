@@ -5,10 +5,11 @@ consumes one number, so a refused send still has an id. Only accepted sends are 
 fail_next() refuses the next send only, which lets a test prove how a caller handles a refusal.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from diucs.application.ports.outbound.messaging import SendReceipt
+from diucs.application.ports.outbound.messaging import EmailSender, SendReceipt, SmsSender
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,14 +106,14 @@ class FixedSenderResolver:
 
     def __init__(
         self,
-        sms: dict[str, RecordingSmsSender] | None = None,
-        email: dict[str, RecordingEmailSender] | None = None,
+        sms: Mapping[str, SmsSender] | None = None,
+        email: Mapping[str, EmailSender] | None = None,
     ) -> None:
         self._sms = dict(sms or {})
         self._email = dict(email or {})
 
-    async def sms_for(self, tenant_id: str) -> RecordingSmsSender | None:
+    async def sms_for(self, tenant_id: str) -> SmsSender | None:
         return self._sms.get(tenant_id)
 
-    async def email_for(self, tenant_id: str) -> RecordingEmailSender | None:
+    async def email_for(self, tenant_id: str) -> EmailSender | None:
         return self._email.get(tenant_id)

@@ -55,6 +55,9 @@ from diucs.adapters.outbound.graph_store.idempotency_store import (
     Neo4jProcessedMessages,
 )
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
+from diucs.adapters.outbound.graph_store.notification_consent_store import (
+    Neo4jNotificationConsentStore,
+)
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
 from diucs.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
 from diucs.adapters.outbound.graph_store.push_subscription_repository import (
@@ -74,6 +77,7 @@ from diucs.adapters.outbound.graph_store.support_repository import Neo4jSupportR
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.consent import NotificationConsentStore
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
@@ -114,6 +118,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "alerts": lambda tx, store: Neo4jAlertRepository(tx, store),
     "clinical_requests": lambda tx, store: Neo4jClinicalRequestRepository(tx, store),
     "push_subscriptions": lambda tx, store: Neo4jPushSubscriptionRepository(tx),
+    "notification_consents": lambda tx, store: Neo4jNotificationConsentStore(store),
     "service_moves": lambda tx, store: Neo4jServiceMoveRepository(tx),
     "protected_text": lambda tx, store: Neo4jProtectedTextStore(tx),
     "capacity": lambda tx, store: Neo4jCapacityRepository(tx, store),
@@ -187,6 +192,7 @@ class Neo4jUnitOfWork:
     flags: FlagRepository
     communications: CommunicationRepository
     push_subscriptions: PushSubscriptionRepository
+    notification_consents: NotificationConsentStore
     link_tokens: LinkTokenRepository
     scheduled_work: ScheduledWorkRepository
     audit: AuditLog

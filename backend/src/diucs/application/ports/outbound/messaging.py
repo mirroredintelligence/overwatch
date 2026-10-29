@@ -89,7 +89,13 @@ class EmailSender(Protocol):
 
 class PushSender(Protocol):
     async def send(
-        self, subscription: dict[str, Any], title: str, body: str, url: str, *, urgency: str = "normal"
+        self,
+        subscription: dict[str, Any],
+        title: str,
+        body: str,
+        url: str,
+        *,
+        urgency: str = "normal",
     ) -> SendReceipt:
         """Send one push to one installed app. urgency is 'high' for a booking request or an alert,
         'normal' otherwise. A gone subscription is a refused receipt with reason PUSH_GONE; a busy

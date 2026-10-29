@@ -1,7 +1,7 @@
 """The push message sender against real Neo4j (I14): a gone subscription is deleted and the
 Communication is settled; a send reaches the recording fake only (no real push).
 
-WRITTEN, NOT RUN in the build wave (no Neo4j per build-wave rules); the verification stage runs them.
+WRITTEN, NOT RUN in the build wave (no Neo4j per build-wave rules); verification runs them.
 """
 
 import json
@@ -10,7 +10,11 @@ from datetime import UTC, datetime
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.inbound.workers.message_senders import MESSAGES_TOPIC, SEND_MESSAGE_EVENT, PushMessageSender
+from diucs.adapters.inbound.workers.message_senders import (
+    MESSAGES_TOPIC,
+    SEND_MESSAGE_EVENT,
+    PushMessageSender,
+)
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
@@ -69,9 +73,7 @@ def _message(tenant: str) -> BusMessage:
 
 
 @pytest.fixture(loop_scope="session")
-async def seeded(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
-) -> None:
+async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
     await ensure_audit_heads(neo4j_driver, tenant_id)
     await seed_people(uow_factory, reporter(1, None))
     async with uow_factory() as uow:

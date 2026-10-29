@@ -146,6 +146,10 @@ class PersonRepository(Protocol):
     before anything is written.
     """
 
+    async def get_role(self, role_id: str) -> PractitionerRole | None:
+        """The stored role with this id, or None (I14: the holder of a push's recipient role)."""
+        ...
+
     async def get_practitioner(self, practitioner_id: str) -> Practitioner | None:
         """The stored practitioner, or None."""
         ...

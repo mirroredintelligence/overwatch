@@ -1,6 +1,6 @@
 """Integration tests for SavePushSubscription and RemovePushSubscription (I14), on the real Neo4j.
 
-WRITTEN, NOT RUN in the build wave (no Neo4j per build-wave rules); the verification stage runs them.
+WRITTEN, NOT RUN in the build wave (no Neo4j per build-wave rules); verification runs them.
 Each assertion reads back through a fresh unit of work or the harness helpers. Sample values only.
 """
 
@@ -57,9 +57,7 @@ def _actor(practitioner_id: str) -> Actor:
 
 
 @pytest.fixture(loop_scope="session")
-async def seeded(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
-) -> None:
+async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
     """One reporter, prac-1, with no device yet. The audit head exists for the run tenant."""
     await ensure_audit_heads(neo4j_driver, tenant_id)
     await seed_people(uow_factory, reporter(1, None))

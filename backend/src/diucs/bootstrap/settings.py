@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_starttls: bool = True
     email_from: str = "DIUCS Capacity <capacity@diucs.example>"
+    # I14: the VAPID subject (a mailto: address) that push services may contact about the platform's
+    # key. A placeholder here; the operations inbox is set in the environment at deploy.
+    webpush_subject: str = "mailto:operations@diucs.example"
     # R16: the Pathways Dx file the score picker searches. The default is the pilot sample, whose
     # codes are not real. The licensed NHS Pathways list is a configuration change to this path.
     pathways_dx_file: Path = (

@@ -98,7 +98,13 @@ class RecordingPushSender:
         self._gone_next = False
 
     async def send(
-        self, subscription: dict[str, Any], title: str, body: str, url: str, *, urgency: str = "normal"
+        self,
+        subscription: dict[str, Any],
+        title: str,
+        body: str,
+        url: str,
+        *,
+        urgency: str = "normal",
     ) -> SendReceipt:
         if self._gone_next:
             self._gone_next = False

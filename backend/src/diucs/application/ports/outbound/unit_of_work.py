@@ -21,6 +21,7 @@ from typing import Protocol, Self
 
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditLog
+from diucs.application.ports.outbound.consent import NotificationConsentStore
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
@@ -67,6 +68,7 @@ class UnitOfWork(Protocol):
     flags: FlagRepository
     communications: CommunicationRepository
     push_subscriptions: PushSubscriptionRepository
+    notification_consents: NotificationConsentStore
     link_tokens: LinkTokenRepository
     scheduled_work: ScheduledWorkRepository
     audit: AuditLog

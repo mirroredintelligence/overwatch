@@ -44,9 +44,9 @@ _UTC_TIMESTAMP = re.compile(
 )
 
 
-def _require_utc(at: datetime) -> None:
+def _require_utc(at: datetime, field: str = "at") -> None:
     if at.tzinfo is None or at.utcoffset() != _UTC_OFFSET:
-        raise ValidationFailed("at", "must be a timezone-aware UTC datetime")
+        raise ValidationFailed(field, "must be a timezone-aware UTC datetime")
 
 
 def _at_text(at: datetime) -> str:
@@ -86,14 +86,14 @@ def _optional_code[E: StrEnum](payload: Mapping[str, Any], key: str, enum_cls: t
     return _code(payload, key, enum_cls)
 
 
-def _when(payload: Mapping[str, Any]) -> datetime:
-    text = _text(payload, "at")
+def _when(payload: Mapping[str, Any], key: str = "at") -> datetime:
+    text = _text(payload, key)
     if _UTC_TIMESTAMP.fullmatch(text) is None:
-        raise ValidationFailed("at", "must be an ISO 8601 UTC timestamp ending in Z")
+        raise ValidationFailed(key, "must be an ISO 8601 UTC timestamp ending in Z")
     try:
         return datetime.fromisoformat(text)
     except ValueError:
-        raise ValidationFailed("at", "is not an ISO 8601 timestamp") from None
+        raise ValidationFailed(key, "is not an ISO 8601 timestamp") from None
 
 
 @dataclass(frozen=True, slots=True)
@@ -405,6 +405,66 @@ class ReportFlagged:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class PhoneTaskRaised:
+    """A prompt went unanswered for an hour: advisors are tasked to phone the service (U06,
+    domain-rules 1.5). `due_at` is the prompt's due time, `at` when the task was raised."""
+
+    event_type: ClassVar[str] = "PhoneTaskRaised"
+    service_id: str
+    due_at: datetime
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.due_at, "due_at")
+        _require_utc(self.at)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "service_id": self.service_id,
+            "due_at": _at_text(self.due_at),
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            service_id=_text(payload, "service_id"),
+            due_at=_when(payload, "due_at"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ReportEscalated:
+    """A prompt went unanswered for an hour and a half: the shift lead is told (U06,
+    domain-rules 1.5). `due_at` is the prompt's due time, `at` when it was escalated."""
+
+    event_type: ClassVar[str] = "ReportEscalated"
+    service_id: str
+    due_at: datetime
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.due_at, "due_at")
+        _require_utc(self.at)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "service_id": self.service_id,
+            "due_at": _at_text(self.due_at),
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            service_id=_text(payload, "service_id"),
+            due_at=_when(payload, "due_at"),
+            at=_when(payload),
+        )
+
+
 DomainEvent = (
     CapacityReported
     | StatusChanged
@@ -417,6 +477,8 @@ DomainEvent = (
     | AlertRaised
     | AlertAcknowledged
     | ReportFlagged
+    | PhoneTaskRaised
+    | ReportEscalated
 )
 
 _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
@@ -432,6 +494,8 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         AlertRaised: ALERTS_EVENTS,
         AlertAcknowledged: ALERTS_EVENTS,
         ReportFlagged: CAPACITY_EVENTS,
+        PhoneTaskRaised: CAPACITY_EVENTS,
+        ReportEscalated: ALERTS_EVENTS,
     }
 )
 
@@ -448,6 +512,8 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "AlertRaised": AlertRaised.decode,
         "AlertAcknowledged": AlertAcknowledged.decode,
         "ReportFlagged": ReportFlagged.decode,
+        "PhoneTaskRaised": PhoneTaskRaised.decode,
+        "ReportEscalated": ReportEscalated.decode,
     }
 )
 
@@ -459,7 +525,7 @@ def topic_for(event: DomainEvent) -> str:
 
 def session_id_for(event: DomainEvent) -> str | None:
     """The Service Bus session id: the service id on capacity.events, None elsewhere."""
-    if isinstance(event, CapacityReported | StatusChanged | ReportFlagged):
+    if isinstance(event, CapacityReported | StatusChanged | ReportFlagged | PhoneTaskRaised):
         return event.service_id
     return None
 

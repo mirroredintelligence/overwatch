@@ -24,6 +24,7 @@ export const ALLOWED_EVENTS: readonly string[] = [
   'ui.chip',
   'ui.submit',
   'ui.error_shown',
+  'ui.friction',
 ];
 
 /** The attribute keys the browser sends. The BFF route adds tenant.id from the session itself. */
@@ -51,6 +52,10 @@ export const ALLOWED_ATTRIBUTES: readonly string[] = [
   'error_count',
   'time_to_submit_ms',
   'error.code',
+  // ui.friction (O03).
+  'kind',
+  'count',
+  'window_ms',
 ];
 
 export type Attributes = Record<string, string | number | boolean>;

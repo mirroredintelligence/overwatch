@@ -271,6 +271,7 @@ class ResolveReportFlag:
         status = resolved_status(command.outcome)
         async with self._uow_factory() as uow:
             seen = await uow.flags.report_flag(command.flag_id)
+            scope = uow.unit_scope
         if seen is None:
             raise NotFound("no report flag with this id")
         if seen.status != REPORT_FLAG_OPEN:
@@ -280,7 +281,7 @@ class ResolveReportFlag:
         if command.outcome == "phoned":
             recorded = await self._report_capacity.execute(
                 ReportCapacityCommand(
-                    idempotency_key=f"{command.idempotency_key}:phoned",
+                    idempotency_key=f"resolve-flag:{scope}:{command.idempotency_key}:phoned",
                     actor=command.actor,
                     service_id=seen.service_id,
                     value=command.phoned_value or 0,

@@ -114,6 +114,11 @@ class OtelTracer:
     def __init__(self, tracer: otel_trace.Tracer) -> None:
         self._tracer = tracer
 
+    def current_span(self) -> _OtelSpan:
+        """The span OpenTelemetry's own context holds as current. A span that is not recording (none
+        open) takes attributes and does nothing, so an annotation outside a span is harmless."""
+        return _OtelSpan(otel_trace.get_current_span())
+
     @contextmanager
     def span(self, name: str, attributes: Mapping[str, tracing.AttrValue]) -> Iterator[_OtelSpan]:
         with self._tracer.start_as_current_span(

@@ -170,6 +170,11 @@ def figure_is_out_of_date(figure_as_of: datetime, prompt_sent_at: datetime) -> b
     return sent_at - as_of > CONFIRMABLE_FIGURE_AGE
 
 
+def recorded_since_prompt(report: CapacityReport, prompt_sent_at: datetime) -> bool:
+    """STUB (red commit)."""
+    return False
+
+
 def recheck_key(phone_hash: str, service_id: str) -> str:
     """The cache key of an out-of-range figure waiting to be sent again. The cache adds the tenant
     prefix, so this is the key the specification names (U05)."""

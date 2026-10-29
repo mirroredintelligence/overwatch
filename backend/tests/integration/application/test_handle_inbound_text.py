@@ -89,6 +89,29 @@ SYSTEM_ACTOR = Actor(
 )
 
 
+LEAD = Actor(
+    role=Role.LEAD,
+    practitioner_id="prac-lead-1",
+    device_id=None,
+    channel="web",
+    service_ids=frozenset(),
+)
+
+EARLY = datetime(2026, 1, 1, tzinfo=UTC)
+STORE_CLOCK = FixedClock(EARLY)
+"""The clock the graph store stamps every write with (meta.lastUpdated, whole seconds). It is not
+the use case's clock: a report is written at one instant and carries an effective time that may be
+earlier (DEC-140). Hazard H-32 turns on the write time, so these tests set it. It starts long
+before every prompt, so a figure seeded without a write time was reported long before the prompt;
+`Rig.say` moves it to the time of the text, so what a text writes is stamped when it was handled."""
+
+
+@pytest.fixture
+def uow_clock() -> FixedClock:
+    STORE_CLOCK.set(EARLY)
+    return STORE_CLOCK
+
+
 def bst(hour: int, minute: int, second: int = 0, day: int = 23) -> datetime:
     """A London (BST) wall time in October 2026 as a UTC instant."""
     return datetime(2026, 10, day, hour, minute, second, tzinfo=UTC) - timedelta(hours=1)
@@ -153,8 +176,11 @@ async def _seed_figure(
     service_id: str = "ucr-west",
     report_id: str | None = None,
     report_type: ReportType = ReportType.NUMBER,
+    written_at: datetime = EARLY,
 ) -> None:
+    """A report in the store: its effective time is `at`, the store stamps it `written_at`."""
     at = at or bst(8, 15)
+    STORE_CLOCK.set(written_at)
     async with factory() as uow:
         await uow.capacity.add(
             CapacityReport(
@@ -355,6 +381,7 @@ class Rig:
     ) -> HandleInboundTextResult:
         if at is not None:
             self.clock.set(at)
+        STORE_CLOCK.set(self.clock.now())
         self._count += 1
         return await self.use_case.execute(
             HandleInboundTextCommand(
@@ -832,7 +859,7 @@ async def test_a_y_is_refused_when_a_number_was_reported_after_the_prompt(
     await _seed_people(uow_factory)
     await _seed_figure(uow_factory, 3, LONG_AGO)
     await _seed_prompt(uow_factory, bst(12, 0))
-    await _seed_figure(uow_factory, 5, bst(12, 3), report_id="seed-link")
+    await _seed_figure(uow_factory, 5, bst(12, 3), report_id="seed-link", written_at=bst(12, 3))
     rig = Rig(uow_factory, neo4j_driver)
 
     result = await rig.say("Y", bst(12, 5))
@@ -870,28 +897,227 @@ async def test_a_number_the_reporter_sent_after_the_prompt_is_also_not_confirmed
     assert [r["messageId"] for r in await _replies(neo4j_driver)] == ["C3", "C12"]
 
 
+# --- hazard H-32 by record order (verify-U05-r2: a back-dated number is still a number the reporter
+# was never shown). The test is the store's write time, not the effective time ------------------
+
+
+async def _lead_records(
+    factory: UnitOfWorkFactory,
+    driver: AsyncDriver,
+    value: int,
+    at: datetime,
+    effective_at: datetime,
+) -> None:
+    """An advisor-phoned figure through U01, as a lead records it (DEC-140): handled at `at`, with
+    an explicit effective time that may be earlier."""
+    STORE_CLOCK.set(at)
+    result = await ReportCapacity(
+        factory, FixedClock(at), SequentialIds("lead"), DriverIdempotencyStore(driver)
+    ).execute(
+        ReportCapacityCommand(
+            idempotency_key=f"lead-{value}-{effective_at.isoformat()}",
+            actor=LEAD,
+            service_id="ucr-west",
+            value=value,
+            source=ReportSource.ADVISOR_PHONED,
+            effective_at=effective_at,
+        )
+    )
+    assert result.replayed is False
+
+
+async def _assert_refused_with_c12(
+    rig: Rig,
+    factory: UnitOfWorkFactory,
+    driver: AsyncDriver,
+    result: HandleInboundTextResult,
+    value: int,
+) -> None:
+    assert result == HandleInboundTextResult(STALE_FIGURE, ("ucr-west",))
+    assert rig.confirms.commands == []
+    assert [r.report_type for r in await _reports(factory)] == [ReportType.NUMBER] * 2
+    [refusal] = await _replies(driver)
+    assert refusal["messageId"] == "C12"
+    assert (
+        f"The figure on record, {value} referrals in the next 2 hrs, is out of date"
+        in (refusal["text"])
+    )
+
+
 @pytest.mark.parametrize(
-    ("after", "expected"),
-    [(timedelta(0), CONFIRMED), (timedelta(seconds=1), STALE_FIGURE)],
-    ids=["at the prompt: not later", "one second after the prompt"],
+    ("effective_at", "through"),
+    [
+        (bst(9, 59), "use case"),
+        (bst(10, 0), "use case"),
+        (bst(10, 4), "seeded"),
+    ],
+    ids=["effective before the prompt", "effective at the prompt", "effective after the prompt"],
 )
-async def test_the_newer_figure_test_is_strictly_later_than_the_prompt(
+async def test_a_y_is_refused_when_a_number_was_recorded_after_the_prompt_whatever_its_effective_time(
     uow_factory: UnitOfWorkFactory,
     neo4j_driver: AsyncDriver,
     seed_service: Seed,
-    after: timedelta,
-    expected: str,
+    effective_at: datetime,
+    through: str,
 ) -> None:
+    """The hole verify-U05-r2 reproduced. The C1 at 10:00 names a figure of 3. A lead records 7 at
+    10:03 and gives it the effective time 09:59 (or exactly 10:00): it is later in the record than
+    the prompt, and earlier by its effective time. The Y at 10:05 must not confirm it: nothing is
+    recorded, ConfirmCapacity is not called, and the reporter gets C12 naming the 7. (U01 refuses
+    an effective time after now, so the 10:04 case, which this use case already refused by its
+    effective time, is seeded.)"""
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    if through == "use case":
+        await _lead_records(uow_factory, neo4j_driver, 7, bst(10, 3), effective_at)
+    else:
+        await _seed_figure(uow_factory, 7, effective_at, report_id="lead-7", written_at=bst(10, 3))
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
+    await _assert_refused_with_c12(rig, uow_factory, neo4j_driver, result, 7)
+
+
+async def test_a_number_written_before_the_prompt_with_a_later_effective_time_is_confirmed(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The record decides, not the effective time. A 6 was written at 09:30 with the effective time
+    10:30 (only a direct write can do that: U01 refuses an effective time after now). The prompt of
+    10:00 named the latest figure, which is that 6, and nothing has been written since. The Y
+    confirms it."""
     await seed_service(UCR_WEST)
     await _seed_people(uow_factory)
-    await _seed_figure(uow_factory, 3, bst(10, 0) + after)
+    await _seed_figure(uow_factory, 3, bst(8, 15))
+    await _seed_figure(uow_factory, 6, bst(10, 30), report_id="seed-six", written_at=bst(9, 30))
     await _seed_prompt(uow_factory, bst(10, 0))
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
+    assert result == HandleInboundTextResult(CONFIRMED, ("ucr-west",))
+    [command] = rig.confirms.commands
+    assert command.expected_latest_id == "seed-six"
+    assert [(r.value, r.report_type) for r in await _reports(uow_factory)][-1] == (
+        6,
+        ReportType.CONFIRMED,
+    )
+
+
+@pytest.mark.parametrize(
+    "written_at",
+    [bst(9, 0), bst(9, 59, 58), bst(9, 59, 59)],
+    ids=["an hour before", "two seconds before", "one second before"],
+)
+async def test_a_number_reported_before_the_prompt_is_still_confirmed(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    written_at: datetime,
+) -> None:
+    """The fix must not refuse everything: a figure reported inside 2 hours before the prompt, and
+    written before it, is the figure the Y confirms (also when its effective time is the later
+    of the two)."""
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory)
+    await _seed_figure(uow_factory, 3, bst(8, 15))
+    await _seed_figure(uow_factory, 4, written_at, report_id="seed-four", written_at=written_at)
+    await _seed_prompt(uow_factory, bst(10, 0))
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
+    assert result == HandleInboundTextResult(CONFIRMED, ("ucr-west",))
+    assert [r.report_type for r in await _reports(uow_factory)][-1] is ReportType.CONFIRMED
+
+
+@pytest.mark.parametrize(
+    ("sent_at", "written_at", "expected"),
+    [
+        (bst(10, 0), bst(9, 59, 59), CONFIRMED),
+        (bst(10, 0), bst(10, 0), STALE_FIGURE),
+        (bst(10, 0), bst(10, 0, 1), STALE_FIGURE),
+        (bst(10, 0) + timedelta(milliseconds=500), bst(9, 59, 59), CONFIRMED),
+        (bst(10, 0) + timedelta(milliseconds=500), bst(10, 0), STALE_FIGURE),
+        (bst(10, 0) + timedelta(milliseconds=500), bst(10, 0, 1), STALE_FIGURE),
+    ],
+    ids=[
+        "whole-second prompt, a second before: confirmed",
+        "whole-second prompt, the same second: refused (tie)",
+        "whole-second prompt, a second after: refused",
+        "half-second prompt, the second before: confirmed",
+        "half-second prompt, the same whole second: refused (tie)",
+        "half-second prompt, the next second: refused",
+    ],
+)
+async def test_the_newer_figure_test_fails_closed_on_the_same_whole_second(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    sent_at: datetime,
+    written_at: datetime,
+    expected: str,
+) -> None:
+    """The store stamps whole seconds (lesson L65), so a number written in the same second as the
+    prompt cannot be told from one written just after it: it counts as newer. This refuses a Y
+    only when a figure was reported in the very second the prompt was sent, which is accepted."""
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory)
+    await _seed_figure(uow_factory, 3, bst(8, 15))
+    await _seed_figure(uow_factory, 5, bst(9, 59, 30), report_id="seed-five", written_at=written_at)
+    await _seed_prompt(uow_factory, sent_at)
     rig = Rig(uow_factory, neo4j_driver)
 
     result = await rig.say("Y", bst(10, 5))
 
     assert result.outcome == expected
     assert (len(rig.confirms.commands) == 1) is (expected == CONFIRMED)
+
+
+async def test_a_number_then_a_confirmation_of_it_after_the_prompt_still_refuses_the_y(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The latest report is a confirmation (by another manager) of a 5 that came in after the
+    prompt. The 5 is still a number the reporter never saw."""
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory)
+    await _seed_figure(uow_factory, 3, bst(8, 15))
+    await _seed_prompt(uow_factory, bst(10, 0))
+    await _seed_figure(uow_factory, 5, bst(10, 2), report_id="seed-five", written_at=bst(10, 2))
+    await _seed_figure(
+        uow_factory,
+        5,
+        bst(10, 3),
+        report_id="seed-confirm",
+        report_type=ReportType.CONFIRMED,
+        written_at=bst(10, 3),
+    )
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
+    assert result.outcome == STALE_FIGURE
+    assert rig.confirms.commands == []
+
+
+async def test_the_second_y_to_one_prompt_is_still_confirmed_after_the_first_ys_confirmation(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The first Y writes a confirmation, stamped after the prompt. A confirmation is not a newer
+    number (DEC-148 item 17): the second Y is still a Y to the figure the prompt named, and the
+    third is refused by the limit of two."""
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+
+    first = await rig.say("Y", bst(10, 5))
+    second = await rig.say("Y", bst(10, 8))
+    third = await rig.say("Y", bst(10, 11))
+
+    assert [first.outcome, second.outcome, third.outcome] == [CONFIRMED, CONFIRMED, CONFIRM_LIMIT]
+    assert [r.report_type for r in await _reports(uow_factory)] == [
+        ReportType.NUMBER,
+        ReportType.CONFIRMED,
+        ReportType.CONFIRMED,
+    ]
 
 
 async def test_a_confirmation_after_the_prompt_is_not_a_newer_figure(

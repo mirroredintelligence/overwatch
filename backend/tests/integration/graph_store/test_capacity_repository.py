@@ -15,6 +15,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.domain.codes import Measure, ReportSource, ReportType
 from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.model.capacity import CapacityReport
@@ -161,6 +162,37 @@ async def test_reports_since_returns_only_reports_at_or_after_the_time_oldest_fi
     reports = await _read(neo4j_driver, lambda repo: repo.reports_since("svc-ucr-west", since))
 
     assert reports == [REPORT_0912]
+
+
+async def test_a_report_read_back_carries_the_whole_second_the_store_wrote_it(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """The record order behind hazard H-32 (U05): the write time is the store's, not the report's
+    effective time, and it is whole seconds (lesson L65)."""
+    await _seed(neo4j_driver, UCR_WEST)
+    clock = FixedClock(datetime(2026, 10, 25, 10, 3, 7, 987_654, tzinfo=UTC))
+
+    async def save(tx: AsyncManagedTransaction) -> None:
+        await Neo4jCapacityRepository(tx, ResourceStore(tx, clock)).add(REPORT_0715)
+
+    await write_tx(neo4j_driver, save)
+
+    for read in (
+        lambda repo: repo.latest("svc-ucr-west"),
+        lambda repo: repo.get(REPORT_0715.id),
+        lambda repo: repo.reports_since("svc-ucr-west", datetime(2026, 1, 1, tzinfo=UTC)),
+        lambda repo: repo.latest_for_services(["svc-ucr-west"]),
+    ):
+        found = await _read(neo4j_driver, read)
+        report = (
+            found["svc-ucr-west"]
+            if isinstance(found, dict)
+            else found[0]
+            if isinstance(found, list)
+            else found
+        )
+        assert report.effective_at == REPORT_0715.effective_at  # the report's own time is kept
+        assert report.written_at == datetime(2026, 10, 25, 10, 3, 7, tzinfo=UTC)
 
 
 async def test_last_report_times_gives_the_latest_time_or_none_for_every_active_service(

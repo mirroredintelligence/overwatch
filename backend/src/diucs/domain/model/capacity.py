@@ -8,7 +8,7 @@ Validation runs once, in __post_init__, and every failure raises ValidationFaile
 """
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 from diucs.domain.codes import Measure, ReportSource, ReportType
@@ -26,6 +26,11 @@ class CapacityReport:
     report_type: ReportType
     performer_role_id: str | None = None
     derived_from: str | None = None
+    written_at: datetime | None = field(default=None, compare=False)
+    """When the store wrote the report (FHIR meta.lastUpdated, whole seconds), or None for a report
+    that has not been stored. It is the record order, which an explicit effective time can differ
+    from (DEC-140). Set by the repository on a read; it is not part of the report's identity, so it
+    takes no part in equality, and the repository never writes it from here (U05, DEC-148)."""
 
     def __post_init__(self) -> None:
         # bool is an int subclass, and float('nan') is not an int: reject both by type.

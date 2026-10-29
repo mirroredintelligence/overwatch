@@ -18,8 +18,11 @@ from diucs.application.use_cases.handle_inbound_text import (
     CONFIRM_PROCESSING_LIMIT,
     CONFIRMABLE_FIGURE_AGE,
     figure_is_out_of_date,
+    recorded_since_prompt,
 )
+from diucs.domain.codes import Measure, ReportSource, ReportType
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.rules.freshness import STALE_WARNING_AFTER
 
 LONDON = ZoneInfo("Europe/London")
@@ -158,3 +161,80 @@ def test_property_the_verdict_does_not_depend_on_the_zone_the_instants_are_writt
     assert figure_is_out_of_date(
         as_of.astimezone(LONDON), sent_at.astimezone(LONDON)
     ) is figure_is_out_of_date(as_of, sent_at)
+
+
+# --- the record-order test behind hazard H-32 ----------------------------------------------------
+
+
+def _report(written_at: datetime | None, effective_at: datetime) -> CapacityReport:
+    return CapacityReport(
+        id="r",
+        service_id="s",
+        value=7,
+        measure=Measure.REFERRALS_ACCEPTABLE,
+        effective_at=effective_at,
+        source=ReportSource.ADVISOR_PHONED,
+        report_type=ReportType.NUMBER,
+        written_at=written_at,
+    )
+
+
+@pytest.mark.parametrize(
+    ("sent_microsecond", "written_second", "since"),
+    [
+        (0, -1, False),  # written the second before the prompt
+        (0, 0, True),  # the same whole second: a tie fails closed
+        (0, 1, True),  # the second after
+        (500_000, -1, False),
+        (500_000, 0, True),  # the stamp is the whole second the prompt was sent in
+        (999_999, 0, True),
+        (500_000, 1, True),
+    ],
+)
+def test_a_report_is_since_the_prompt_by_the_whole_second_of_its_write(
+    sent_microsecond: int, written_second: int, since: bool
+) -> None:
+    sent_at = SENT_ORDINARY.replace(microsecond=sent_microsecond)
+    written_at = SENT_ORDINARY + timedelta(seconds=written_second)
+    # The effective time is a day before the prompt: the answer cannot come from it.
+    report = _report(written_at, SENT_ORDINARY - timedelta(days=1))
+
+    assert recorded_since_prompt(report, sent_at) is since
+
+
+def test_the_effective_time_does_not_decide_whether_a_report_is_since_the_prompt() -> None:
+    written_before = _report(SENT_ORDINARY - timedelta(hours=1), SENT_ORDINARY + timedelta(hours=1))
+    written_after = _report(
+        SENT_ORDINARY + timedelta(minutes=3), SENT_ORDINARY - timedelta(hours=1)
+    )
+
+    assert recorded_since_prompt(written_before, SENT_ORDINARY) is False
+    assert recorded_since_prompt(written_after, SENT_ORDINARY) is True
+
+
+def test_a_report_with_no_write_time_counts_as_since_the_prompt() -> None:
+    """Fail closed: a report the store has not stamped cannot be shown to predate the prompt."""
+    assert recorded_since_prompt(_report(None, SENT_ORDINARY - timedelta(days=1)), SENT_ORDINARY)
+
+
+def test_write_times_are_compared_as_utc_instants() -> None:
+    """The prompt at 00:30 London (GMT, 00:30Z) on the spring change day, against write times in
+    Athens (02:30 EET is 00:30Z; the clock there changes at 03:00, after both)."""
+    sent_at = datetime(2026, 3, 29, 0, 30, tzinfo=LONDON)
+    athens = ZoneInfo("Europe/Athens")
+    effective = sent_at - timedelta(days=1)
+
+    same = _report(datetime(2026, 3, 29, 2, 30, tzinfo=athens), effective)
+    before = _report(datetime(2026, 3, 29, 2, 29, 59, tzinfo=athens), effective)
+
+    assert recorded_since_prompt(same, sent_at) is True
+    assert recorded_since_prompt(before, sent_at) is False
+
+
+@pytest.mark.parametrize("which", ["written_at", "sent_at"])
+def test_a_naive_instant_is_refused_by_the_record_order_test(which: str) -> None:
+    naive = datetime(2026, 10, 23, 11, 0)
+    report = _report(naive if which == "written_at" else SENT_ORDINARY, SENT_ORDINARY)
+    with pytest.raises(ValidationFailed) as refused:
+        recorded_since_prompt(report, naive if which == "sent_at" else SENT_ORDINARY)
+    assert refused.value.field == which

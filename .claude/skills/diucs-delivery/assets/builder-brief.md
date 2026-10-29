@@ -29,3 +29,5 @@ Rules that matter: no patient data anywhere; stay inside the task's scope (the p
 **Models.** You may consult a Sonnet subagent (`model: "sonnet"`) for a hard judgement call in your change; see `references/collective.md`, Models and consultation. Record a consult in the evidence. Check every sentence that quotes an earlier commit, a guard line or a spec sentence against `git show <commit>:<path>` and `grep -F` before you write it.
 
 Finish with a short report: what you built, the evidence recorded, anything you assumed, anything you could not do.
+
+**Running tests: one run, one wait.** Start each test or checks run once. For a run that may take more than a minute, start a single background command and wait for its completion notice. Do not start a second copy of a run that is already queued, do not write polling loops (`until ... sleep`) and do not arm extra watchers on the same run: each one stays alive as its own task after you stop. If a run is waiting on the Neo4j lock, let it wait.

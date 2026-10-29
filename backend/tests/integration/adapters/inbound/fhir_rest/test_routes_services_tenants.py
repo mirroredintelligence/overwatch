@@ -5,13 +5,13 @@ units of work (`uow_factory_b`) and its requests are sent with `as_tenant`, whic
 the REST edge will do once it binds the tenant from the verified token (TEN-018). The routes never
 read a tenant: it comes only from the unit of work.
 
-Until TEN-032 drops the single-property keys, two tenants cannot share a resource id on the shared
-test schema, so B's ids differ from A's. The resource store (TEN-009) is still unconverted on main (tenant-pending, evidence R04): tenant
-A's lookups still find tenant B's service and reports. The tests that show that are strict expected
-failures. When TEN-009 lands they pass (checked on a merge of its tip) and the strict marker fails
-the suite: remove the markers then.
-The tests without a marker hold today: nothing of B changes when A writes, and a tenant, whether
-sent in the body, in a header or in a query string, is never read.
+Until TEN-032 drops the single-property keys, two tenants cannot share a resource id or a concept
+on the shared test schema, so B's ids, category, measure and source differ from A's. The resource
+store (TEN-009) is still unconverted on main (tenant-pending, evidence R04): tenant A's lookups
+still find tenant B's service and reports. The tests that show that are strict expected failures.
+When TEN-009 lands they pass (checked on a merge of its tip) and the strict marker fails the
+suite: remove the markers then. The tests without a marker hold today: nothing of B changes when A
+writes, and a tenant, whether sent in the body, in a header or in a query string, is never read.
 """
 
 import json

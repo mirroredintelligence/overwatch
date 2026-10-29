@@ -40,10 +40,18 @@ def statuses_before(status: str) -> tuple[str, ...]:
     return tuple(sorted(name for name, other in _STATUS_RANK.items() if other < rank))
 
 
+PUSH_GONE: Final = "gone"
+"""The reason of a push receipt whose subscription the provider no longer holds (404 or 410). The
+caller deletes that subscription (I14)."""
+
+
 @dataclass(frozen=True, slots=True)
 class SendReceipt:
     provider_message_id: str
     accepted: bool
+    reason: str | None = None
+    """Why a refused send was refused, when the provider's answer says (push: PUSH_GONE). None
+    for an accepted send."""
 
 
 class TransientSendError(Exception):
@@ -81,8 +89,18 @@ class EmailSender(Protocol):
 
 class PushSender(Protocol):
     async def send(
-        self, subscription: dict[str, Any], title: str, body: str, url: str
-    ) -> SendReceipt: ...
+        self,
+        subscription: dict[str, Any],
+        title: str,
+        body: str,
+        url: str,
+        *,
+        urgency: str = "normal",
+    ) -> SendReceipt:
+        """Send one push to one installed app. urgency is 'high' for a booking request or an alert,
+        'normal' otherwise. A gone subscription is a refused receipt with reason PUSH_GONE; a busy
+        provider raises TransientSendError."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)

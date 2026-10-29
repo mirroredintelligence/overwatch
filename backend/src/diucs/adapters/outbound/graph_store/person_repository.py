@@ -516,6 +516,9 @@ class Neo4jPersonRepository:
             raise Conflict("more than one active practitioner holds this phone")
         return await self.get_practitioner(str(rows[0]["id"]))
 
+    async def get_role(self, role_id: str) -> PractitionerRole | None:
+        return await self._role(role_id)
+
     async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:
         rows = await run_query(
             self._tx, REGISTRY.get("Q-PERSON-ROLES-OF"), key=f"{_PRACTITIONER}/{practitioner_id}"

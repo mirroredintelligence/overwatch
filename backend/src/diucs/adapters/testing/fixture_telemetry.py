@@ -10,7 +10,7 @@ query does with its `tenant.id` filter. Attributes pass the same allow-list as t
 import json
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +27,14 @@ from diucs.application.ports.outbound.telemetry_query import (
     check_trace_id,
 )
 from diucs.application.tenancy import current_tenant
+from diucs.domain.model.telemetry_aggregates import (
+    DayAggregates,
+    ElementUsageDailyRow,
+    FrictionDailyRow,
+    FunnelDailyRow,
+    QueryStatDailyRow,
+    RouteDailyRow,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +47,9 @@ class _Owned:
 class FixtureTelemetryQuery:
     def __init__(self, fixture_path: Path, attributes: AttributeCleaner) -> None:
         """`attributes` is the O01 cleaner the composition root passes (the allow-list and the value
-        scan); this fake has no allow-list of its own."""
+        scan); this fake has no allow-list of its own.
+
+        """
         self._attributes = attributes
         data: Mapping[str, Any] = json.loads(fixture_path.read_text(encoding="utf-8"))
         self._timeline = [
@@ -52,6 +62,10 @@ class FixtureTelemetryQuery:
         self._sessions = [
             _Owned(row["tenant_id"], row["session_id"], self._session(row))
             for row in data["sessions"]
+        ]
+        self._daily = [
+            _Owned(row["tenant_id"], row["day"], _day_aggregates(row))
+            for row in data.get("daily", [])
         ]
 
     def _event(self, row: Mapping[str, Any]) -> TimelineEvent:
@@ -87,6 +101,15 @@ class FixtureTelemetryQuery:
             friction_count=int(row["friction_count"]),
             error_count=int(row["error_count"]),
         )
+
+    async def daily_aggregates(self, day: date) -> DayAggregates:
+        tenant = current_tenant()
+        key = day.isoformat()
+        for owned in self._daily:
+            if owned.tenant_id == tenant and owned.key == key:
+                aggregates: DayAggregates = owned.value
+                return aggregates
+        return DayAggregates()
 
     async def session_timeline(
         self, session_id: str, start: datetime, end: datetime
@@ -135,3 +158,84 @@ def _matches(session: SessionSummary, filters: SessionFilters) -> bool:
     if filters.started_from is not None and session.started < as_utc(filters.started_from):
         return False
     return not (filters.started_to is not None and session.started > as_utc(filters.started_to))
+
+
+def _day_aggregates(row: Mapping[str, Any]) -> DayAggregates:
+    """One tenant's day from the fixture. Each row names its day; the fake serves the day asked
+    for.
+
+    """
+    day = date.fromisoformat(row["day"])
+    return DayAggregates(
+        funnel=tuple(
+            FunnelDailyRow(
+                day=day,
+                funnel=item["funnel"],
+                step=item["step"],
+                role=item["role"],
+                channel=item["channel"],
+                device=item["device"],
+                entered=int(item["entered"]),
+                completed=int(item["completed"]),
+                median_ms=_optional_float(item["median_ms"]),
+                branch=bool(item["branch"]),
+            )
+            for item in row.get("funnel", [])
+        ),
+        friction=tuple(
+            FrictionDailyRow(
+                day=day,
+                element_id=item["element_id"],
+                kind=item["kind"],
+                role=item["role"],
+                device=item["device"],
+                interactions=int(item["interactions"]),
+                events=int(item["events"]),
+                sessions=int(item["sessions"]),
+            )
+            for item in row.get("friction", [])
+        ),
+        usage=tuple(
+            ElementUsageDailyRow(
+                day=day,
+                element_id=item["element_id"],
+                role=item["role"],
+                device=item["device"],
+                interactions=int(item["interactions"]),
+                sessions=int(item["sessions"]),
+            )
+            for item in row.get("usage", [])
+        ),
+        routes=tuple(
+            RouteDailyRow(
+                day=day,
+                route=item["route"],
+                role=item["role"],
+                device=item["device"],
+                p50=_optional_float(item["p50"]),
+                p75=_optional_float(item["p75"]),
+                p95=_optional_float(item["p95"]),
+                lcp75=_optional_float(item["lcp75"]),
+                inp75=_optional_float(item["inp75"]),
+                cls75=_optional_float(item["cls75"]),
+                errors=int(item["errors"]),
+                sessions=int(item["sessions"]),
+            )
+            for item in row.get("routes", [])
+        ),
+        queries=tuple(
+            QueryStatDailyRow(
+                day=day,
+                query_id=item["query_id"],
+                calls=int(item["calls"]),
+                p50=_optional_float(item["p50"]),
+                p95=_optional_float(item["p95"]),
+                errors=int(item["errors"]),
+            )
+            for item in row.get("queries", [])
+        ),
+    )
+
+
+def _optional_float(value: Any) -> float | None:
+    return None if value is None else float(value)

@@ -4,11 +4,11 @@ Adapters: Neo4jServiceRepository and Neo4jCapacityRepository in adapters/outboun
 Reports are never updated or deleted: a correction is a new report.
 """
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Protocol
 
-from diucs.domain.codes import RegistrationStatus
+from diucs.domain.codes import AgeBand, NeedCategory, RegistrationStatus
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
@@ -233,8 +233,17 @@ class CriteriaRepository(Protocol):
         number raises ValidationFailed. A second current version raises Conflict."""
         ...
 
+    async def candidates(
+        self, age_band: AgeBand, district: str, needs: Iterable[NeedCategory]
+    ) -> list[ServiceCriteria]:
+        """The current versions of the active, unsuspended services that pass the database hard
+        pre-filter (G11, Q-CRIT-FILTER). Not an age band, a district or a need category raises
+        ValidationFailed before any query. The caller still runs check_hard_criteria on each one."""
+        ...
+
     async def history(self, service_id: str) -> list[ServiceCriteria]:
-        """Every version for this service, newest version number first. Old versions are kept."""
+        """The versions reached from the service's current version by SUPERSEDES, newest version
+        number first. Old versions are kept. A service with no current version has no history."""
         ...
 
 

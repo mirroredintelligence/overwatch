@@ -18,7 +18,7 @@ version number is refused rather than stored.
 Decisions: DEC-076 (the choices the prompt leaves open, and the local-relationship rule).
 """
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date
 from typing import Any, Final
 
@@ -27,13 +27,28 @@ from neo4j import AsyncManagedTransaction
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    Scenario,
+    SeedNode,
+    SeedRel,
+    TenantSeed,
+)
 from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
-from diucs.domain.codes import CriteriaStatus, NeedCategory, parse_code
+from diucs.domain.codes import (
+    AgeBand,
+    CriteriaStatus,
+    NeedCategory,
+    code_system_url,
+    parse_code,
+)
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
+from diucs.domain.rules.criteria_filter import AGE_BAND_BOUNDS
 
 _BASIC: Final = "Basic"
 _SERVICE: Final = "HealthcareService"
@@ -129,6 +144,141 @@ _CLEAR_CURRENT: Final = NamedQuery(
     mode="write",
 )
 
+# The hard pre-filter of the advisor's options list (G11, domain-rules 4.1). It gives the candidates
+# and the domain (check_hard_criteria) then decides pass or the "Check age" warning. The age test is
+# the overlap that the domain's age rule warns on; the band bounds come from AGE_BAND_BOUNDS, with
+# no upper limit passed as null (coalesced to 999). Concepts are matched inside the criteria's own
+# relationships, so a need can only be the one this tenant's criteria holds. Everything is read in
+# the caller's tenant only, and a suspended service (an active ServiceFlag) is never a candidate.
+_FILTER_CYPHER: Final = (
+    "MATCH (s:HealthcareService {active: true, tenantId: $tenant})"
+    "-[:CURRENT_CRITERIA]->(c:ServiceCriteria {status: 'current', tenantId: $tenant}) "
+    "WHERE c.ageMin <= coalesce($bandMax, 999) AND (c.ageMax IS NULL OR $bandMin <= c.ageMax) "
+    "AND $district IN c.postcodeDistricts "
+    "AND NOT EXISTS { MATCH (c)-[:EXCLUDES_NEED]->(x:Concept {tenantId: $tenant}) "
+    "WHERE x.code IN $needs } "
+    "AND ALL(n IN $needs WHERE EXISTS { MATCH (c)-[:ACCEPTS_NEED]->(a:Concept {tenantId: $tenant}) "
+    "WHERE a.code = n }) "
+    "AND NOT EXISTS { MATCH (f:ServiceFlag "
+    "{code: 'suspended', status: 'active', tenantId: $tenant})-[:SUBJECT]->(s) } "
+    "RETURN s.id AS serviceId, c.id AS id ORDER BY s.id, c.id"
+)
+# The criteria versions of one service reached from its current version by SUPERSEDES (query #6 of
+# fhir-data-model.md), newest first. The walk starts at the current version, so a service with no
+# current version has no history here.
+_HISTORY_CYPHER: Final = (
+    "MATCH (c:ServiceCriteria {status: 'current', tenantId: $tenant})"
+    "-[:SUBJECT]->(:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+    "MATCH (c)-[:SUPERSEDES*0..]->(old:ServiceCriteria {tenantId: $tenant}) "
+    "RETURN old.id AS id ORDER BY old.version DESC"
+)
+
+# The scenarios (DEC-150). Both tenants get the same service and criteria keys; the ids that differ
+# are Marked, so a row read from the other tenant has another value and fails the expectation.
+_NEED_SYSTEM: Final = code_system_url("need-category")
+_FILTER_SERVICE: Final = SeedNode(
+    "service",
+    ("Resource", "HealthcareService"),
+    {"id": Marked("svc-1"), "key": "HealthcareService/svc-1", "active": True},
+)
+_FILTER_CRITERIA: Final = SeedNode(
+    "criteria",
+    ("Resource", "Basic", "ServiceCriteria"),
+    {
+        "id": Marked("crit-1"),
+        "key": "Basic/crit-1",
+        "status": "current",
+        "version": 1,
+        "ageMin": 18,
+        "postcodeDistricts": ["DT4"],
+    },
+)
+_FRAILTY: Final = SeedNode(
+    "frailty",
+    ("Concept",),
+    {"key": f"Concept|{_NEED_SYSTEM}|frailty", "system": _NEED_SYSTEM, "code": "frailty"},
+)
+_FRACTURE: Final = SeedNode(
+    "fracture",
+    ("Concept",),
+    {
+        "key": f"Concept|{_NEED_SYSTEM}|suspected-fracture",
+        "system": _NEED_SYSTEM,
+        "code": "suspected-fracture",
+    },
+)
+_FILTER_SEED: Final = TenantSeed(
+    nodes=(_FILTER_SERVICE, _FILTER_CRITERIA, _FRAILTY, _FRACTURE),
+    rels=(
+        SeedRel("service", "CURRENT_CRITERIA", "criteria"),
+        SeedRel("criteria", "SUBJECT", "service"),
+        SeedRel("criteria", "ACCEPTS_NEED", "frailty"),
+        SeedRel("criteria", "EXCLUDES_NEED", "fracture"),
+    ),
+)
+_HISTORY_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "service",
+            ("Resource", "HealthcareService"),
+            {"id": "svc-1", "key": "HealthcareService/svc-1", "active": True},
+        ),
+        SeedNode(
+            "v1",
+            ("Resource", "Basic", "ServiceCriteria"),
+            {
+                "id": Marked("crit-1"),
+                "key": "Basic/crit-1",
+                "status": "superseded",
+                "version": 1,
+            },
+        ),
+        SeedNode(
+            "v2",
+            ("Resource", "Basic", "ServiceCriteria"),
+            {
+                "id": Marked("crit-2"),
+                "key": "Basic/crit-2",
+                "status": "current",
+                "version": 2,
+            },
+        ),
+    ),
+    rels=(
+        SeedRel("service", "CURRENT_CRITERIA", "v2"),
+        SeedRel("v1", "SUBJECT", "service"),
+        SeedRel("v2", "SUBJECT", "service"),
+        SeedRel("v2", "SUPERSEDES", "v1"),
+    ),
+)
+
+_FILTER: Final = NamedQuery(
+    id="Q-CRIT-FILTER",
+    cypher=_FILTER_CYPHER,
+    mode="read",
+    scenario=Scenario(
+        "the criteria that pass the hard filter for a band, a district and a need, of the "
+        "tenant's active, unsuspended services",
+        seed=_FILTER_SEED,
+        params={"bandMin": 16, "bandMax": 64, "district": "DT4", "needs": ["frailty"]},
+        new=("bandMin", "bandMax"),
+        expect=Expect(rows=({"serviceId": Marked("svc-1"), "id": Marked("crit-1")},)),
+    ),
+)
+_HISTORY: Final = NamedQuery(
+    id="Q-CRIT-HISTORY",
+    cypher=_HISTORY_CYPHER,
+    mode="read",
+    scenario=Scenario(
+        "the criteria versions of one of the tenant's services, reached from the current one "
+        "by SUPERSEDES, newest first",
+        seed=_HISTORY_SEED,
+        params={"serviceId": "svc-1"},
+        lookup=("serviceId",),
+        expect=Expect(rows=({"id": Marked("crit-2")}, {"id": Marked("crit-1")})),
+    ),
+)
+
 
 def _register(query: NamedQuery) -> None:
     if query.id not in REGISTRY.ids():
@@ -144,6 +294,8 @@ for _query in (
     _VERSIONS,
     _SET_CURRENT,
     _CLEAR_CURRENT,
+    _FILTER,
+    _HISTORY,
 ):
     _register(_query)
 
@@ -325,8 +477,42 @@ class Neo4jCriteriaRepository:
         await self._store.put(criteria_to_fhir(criteria), str(current["meta"]["versionId"]))
         await self._finish(criteria)
 
+    async def candidates(
+        self, age_band: AgeBand, district: str, needs: Iterable[NeedCategory]
+    ) -> list[ServiceCriteria]:
+        """The current criteria of the tenant's active, unsuspended services that pass the database
+        pre-filter for this band, district and needs. The pre-filter applies the same rules as the
+        domain filter (check_hard_criteria): district, needs, and the age overlap. The caller still
+        runs check_hard_criteria on each candidate, which decides the "Check age" warning. Inputs
+        that are not an age band, a district and need categories are refused before any query runs,
+        so a caller error never reads as an empty list."""
+        if type(age_band) is not AgeBand:
+            raise ValidationFailed("age_band", "must be an age band")
+        if not isinstance(district, str) or not district:
+            raise ValidationFailed("district", "must be a district code")
+        if not isinstance(needs, Iterable):
+            raise ValidationFailed("needs", "must be a collection of need categories")
+        needs_seen = tuple(needs)
+        if any(type(need) is not NeedCategory for need in needs_seen):
+            raise ValidationFailed("needs", "must be need categories")
+        band_min, band_max = AGE_BAND_BOUNDS[age_band]
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-CRIT-FILTER"),
+            bandMin=band_min,
+            bandMax=band_max,
+            district=district,
+            needs=[need.value for need in needs_seen],
+        )
+        found: list[ServiceCriteria] = []
+        for row in rows:
+            criteria = await self.get(str(row["id"]))
+            if criteria is not None:
+                found.append(criteria)
+        return found
+
     async def history(self, service_id: str) -> list[ServiceCriteria]:
-        rows = await run_query(self._tx, REGISTRY.get("Q-CRIT-VERSIONS"), serviceId=service_id)
+        rows = await run_query(self._tx, REGISTRY.get("Q-CRIT-HISTORY"), serviceId=service_id)
         found: list[ServiceCriteria] = []
         for row in rows:
             criteria = await self.get(str(row["id"]))

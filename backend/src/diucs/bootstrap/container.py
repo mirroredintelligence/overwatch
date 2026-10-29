@@ -34,6 +34,7 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
 
@@ -64,7 +65,11 @@ class Container:
         try:
             driver = self.neo4j.driver
             await apply_migrations(driver)
-            await ensure_audit_head(driver)
+            # One chain per scope (TEN-017): each active tenant gets its head, bound in turn. A
+            # tenant with no head fails closed at its first append (AuditHeadMissing).
+            for tenant_id in await self.tenants.active_tenant_ids():
+                with bind_tenant(tenant_id):
+                    await ensure_audit_head(driver)
         except BaseException:
             await self.neo4j.close()
             raise

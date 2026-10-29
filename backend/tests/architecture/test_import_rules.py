@@ -50,6 +50,7 @@ PROBE_TREE: dict[str, str] = {
     "diucs_probe/adapters/outbound/audit_neo4j/audit_log.py": (
         "import diucs_probe.adapters.outbound.graph_store.driver\n"
         "import diucs_probe.adapters.outbound.graph_store.queries\n"
+        "import diucs_probe.adapters.outbound.graph_store.scenario\n"
     ),
     # DEC-084: the outbox and the unit of work, the other modules named in ignore_imports.
     "diucs_probe/adapters/outbound/audit_neo4j/outbox.py": (

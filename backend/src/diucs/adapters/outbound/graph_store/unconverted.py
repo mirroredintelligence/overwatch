@@ -17,14 +17,6 @@ from typing import Final
 
 UNCONVERTED: Final[frozenset[str]] = frozenset(
     {
-        "Q-AUDIT-APPEND",
-        "Q-AUDIT-CHAIN",
-        "Q-AUDIT-ENSURE-HEAD",
-        "Q-AUDIT-HEAD",
-        "Q-AUDIT-LINK-AGENT",
-        "Q-AUDIT-LINK-ENTITY",
-        "Q-AUDIT-LIST",
-        "Q-AUDIT-LOCK-HEAD",
         "Q-CONTACT-GET",
         "Q-CONTACT-PUT",
         "Q-CRIT-CLEAR-CURRENT",
@@ -53,8 +45,5 @@ UNCONVERTED: Final[frozenset[str]] = frozenset(
         "Q-FLAG-SERVICE-ACTIVE",
         "Q-FLAG-SERVICE-LOCK",
         "Q-FLAG-SERVICES-WITH",
-        "Q-PROV-APPEND",
-        "Q-PROV-LINK",
-        "Q-PROV-SOURCE",
     }
 )

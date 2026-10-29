@@ -1,8 +1,8 @@
 """Pure tests of the audit adapter's shape (P05, DEC-055): its queries and its method set, and, from
 TEN-017, that every audit and provenance statement is per scope (DEC-130 item 6, DEC-132 item 4).
 The chain head, its links, the agents and the targets carry the bound tenant, and an unbound call
-is refused before any Cypher is sent. No Neo4j here: the generated two-tenant test runs each scenario
-on a real database."""
+is refused before any Cypher is sent. No Neo4j here: the generated two-tenant test runs each
+scenario on a real database."""
 
 import re
 from collections.abc import Iterator
@@ -128,7 +128,7 @@ class _RecordingSession:
     def __init__(self, tx: _RecordingTx) -> None:
         self._tx = tx
 
-    async def __aenter__(self) -> "_RecordingSession":
+    async def __aenter__(self) -> _RecordingSession:
         return self
 
     async def __aexit__(self, *exc: object) -> None:

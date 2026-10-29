@@ -4,8 +4,12 @@ Every audit entry and every provenance record is a link in one chain:
 
     chain_hash = sha256((previous_hash + canonical_json(entry)).encode()).hexdigest()
 
-The first link's previous_hash is GENESIS_HASH. Canonical JSON: sorted keys, no spaces, ASCII kept,
-datetimes as ISO 8601 UTC ending in Z, enums as their values, sets as sorted lists, tuples as lists.
+The first link's previous_hash is the genesis of its scope: GENESIS_HASH for the default tenant (the
+chain the development data holds), and a hash of the scope id for every other tenant or network
+scope (genesis_hash_for, TEN-017). Each scope has its own chain and its own head.
+
+Canonical JSON: sorted keys, no spaces, ASCII kept, datetimes as ISO 8601 UTC ending in Z, enums as
+their values, sets as sorted lists, tuples as lists.
 """
 
 import hashlib
@@ -16,9 +20,11 @@ from enum import StrEnum
 from typing import Any, Protocol
 
 from diucs.application.actor import Actor
+from diucs.application.tenancy import DEFAULT_TENANT_ID
 from diucs.domain.errors import ValidationFailed
 
 GENESIS_HASH = "0" * 64
+GENESIS_LABEL = "diucs-genesis|"
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
 
@@ -90,8 +96,16 @@ def canonical_entry_json(entry: AuditEntry) -> str:
 
 
 def genesis_hash_for(scope: str) -> str:
-    """STUB (TEN-017 red): every scope gets the original genesis, so the per-scope guards fail."""
-    return GENESIS_HASH
+    """The hash the chain of one scope starts from (TEN-017, audit A section 3.2).
+
+    The default tenant keeps GENESIS_HASH, so the chain the development data was written on still
+    verifies unchanged. Every other scope starts from the SHA-256 of its own id, so a chain cannot
+    be grafted onto another scope's head, and a link hashed under one genesis never verifies under
+    another. The hashed text of every link is unchanged: the tenant is the chain's, not the entry's.
+    """
+    if scope == DEFAULT_TENANT_ID:
+        return GENESIS_HASH
+    return hashlib.sha256((GENESIS_LABEL + scope).encode()).hexdigest()
 
 
 def chain_hash_over(previous_hash: str, canonical_text: str) -> str:

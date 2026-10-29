@@ -988,3 +988,158 @@ async def test_a_local_relationship_of_the_tenant_is_not_an_element_of_the_resou
     await write_tx(neo4j_driver, link)
 
     assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(_org(), "1")
+
+
+# Round 2 (verifier finding): a database written before TEN-009 holds more than one IN_SYSTEM edge
+# per concept, because every put created another. A put must work on it and leave the same links.
+
+
+async def _concept_links(driver: AsyncDriver) -> list[tuple[str, str, int]]:
+    """(concept, code system, edges) for every concept that has an edge to a code system."""
+
+    async def work(tx: Any) -> list[tuple[str, str, int]]:
+        rows = await (
+            await tx.run(
+                "MATCH (c:Concept)-[r:IN_SYSTEM]->(s:CodeSystem) "
+                "RETURN c.key AS c, s.key AS s, count(r) AS edges ORDER BY c, s"
+            )
+        ).data()
+        return [(r["c"], r["s"], int(r["edges"])) for r in rows]
+
+    return await read_tx(driver, work)
+
+
+async def _duplicate_every_edge(driver: AsyncDriver, extra: int) -> None:
+    async def work(tx: Any) -> None:
+        await (
+            await tx.run(
+                "UNWIND range(1, $extra) AS i MATCH (c:Concept)-[:IN_SYSTEM]->(s:CodeSystem) "
+                "CREATE (c)-[:IN_SYSTEM]->(s)",
+                extra=extra,
+            )
+        ).consume()
+
+    await write_tx(driver, work)
+
+
+@pytest.mark.parametrize("extra", [1, 2])
+async def test_a_put_on_concepts_that_already_have_duplicate_edges_succeeds_and_keeps_the_links(
+    neo4j_driver: AsyncDriver, extra: int
+) -> None:
+    await _put(neo4j_driver, _rich_service(), None)
+    before = await _concept_links(neo4j_driver)
+    await _duplicate_every_edge(neo4j_driver, extra)
+    assert {edges for _, _, edges in await _concept_links(neo4j_driver)} == {1 + extra}
+
+    version = await _put(neo4j_driver, {**_rich_service(), "name": "Renamed"}, "1")
+
+    assert version == "2"
+    assert await _get(neo4j_driver, "HealthcareService", SVC_ID) == _with_meta(
+        {**_rich_service(), "name": "Renamed"}, "2"
+    )
+    after = await _concept_links(neo4j_driver)
+    assert [(c, s) for c, s, _ in after] == [(c, s) for c, s, _ in before]
+    # The store adds no edge, and does not delete the legacy ones.
+    assert {edges for _, _, edges in after} == {1 + extra}
+
+
+async def test_a_concept_whose_code_system_is_missing_is_still_not_found(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _put(neo4j_driver, _observation(), None)
+
+    async def drop_systems(tx: Any) -> None:
+        await (await tx.run("MATCH (s:CodeSystem) DETACH DELETE s")).consume()
+
+    await write_tx(neo4j_driver, drop_systems)
+
+    async def work(tx: Any) -> None:
+        store = ResourceStore(tx, FixedClock(AT))
+        with pytest.raises(NotFound):
+            await store._link_shared(
+                [
+                    RelSpec(
+                        "IN_SYSTEM",
+                        f"Concept|{MEASURE}|referral-capacity",
+                        f"CodeSystem|{MEASURE}",
+                        {},
+                    )
+                ]
+            )
+
+    await write_tx(neo4j_driver, work)
+
+
+async def test_the_same_pair_twice_in_one_put_is_linked_once(neo4j_driver: AsyncDriver) -> None:
+    twice = {
+        **_observation(),
+        "code": {"coding": [{"system": MEASURE, "code": "referral-capacity"}]},
+        "method": {"coding": [{"system": MEASURE, "code": "referral-capacity"}]},
+    }
+
+    await _put(neo4j_driver, twice, None)
+
+    assert [edges for _, _, edges in await _concept_links(neo4j_driver)] == [1]
+
+
+# Round 2 (verifier hardening): a reference or a resource type must be a plain resource-type name
+# and may not be a label another statement reads (the registry labels, the store's own labels).
+
+
+@pytest.mark.parametrize(
+    "target",
+    [
+        "Tenant/x",
+        "TenantNumber/x",
+        "Network/x",
+        "NetworkMembership/x",
+        "Grant/x",
+        "Migration/x",
+        "Concept/x",
+        "Resource/x",
+        "ResourceVersion/x",
+        "organization/x",
+        "Org_anisation/x",
+        "Org-anisation/x",
+        "Type1/x",
+    ],
+)
+async def test_a_reference_to_a_registry_label_or_a_non_type_is_refused_and_writes_nothing(
+    neo4j_driver: AsyncDriver, target: str
+) -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        await _put(neo4j_driver, {**_org(), "partOf": {"reference": target}}, None)
+    assert target not in str(raised.value)
+    with pytest.raises(ValidationFailed):
+        await _put(
+            neo4j_driver,
+            {
+                **_rich_service(),
+                "coverageArea": [{"reference": "Location/ok"}, {"reference": target}],
+            },
+            None,
+        )
+
+    async def everything(tx: Any) -> int:
+        record = await (
+            await tx.run("MATCH (n) WHERE NOT n:Migration RETURN count(n) AS c")
+        ).single()
+        assert record is not None
+        return int(record["c"])
+
+    assert await read_tx(neo4j_driver, everything) == 0
+
+
+@pytest.mark.parametrize("resource_type", ["Tenant", "TenantNumber", "Concept", "Network"])
+async def test_a_resource_of_a_registry_type_is_refused_and_writes_nothing(
+    neo4j_driver: AsyncDriver, resource_type: str
+) -> None:
+    with pytest.raises(ValidationFailed):
+        await _put(neo4j_driver, {"resourceType": resource_type, "id": "x"}, None)
+    assert await count_nodes(neo4j_driver, "Resource") == 0
+
+
+async def test_a_reference_to_an_ordinary_type_is_still_accepted(neo4j_driver: AsyncDriver) -> None:
+    await _put(neo4j_driver, {**_org(), "partOf": {"reference": "Organization/parent"}}, None)
+
+    assert await _get(neo4j_driver, "Organization", ORG_ID) is not None

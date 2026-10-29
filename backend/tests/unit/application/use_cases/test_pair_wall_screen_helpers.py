@@ -110,7 +110,8 @@ async def test_take_gives_the_units_back_when_their_window_has_passed() -> None:
     clock.advance(WINDOW - timedelta(seconds=1))
     assert not await limiter.take("k", 3, WINDOW)
     clock.advance(timedelta(seconds=1))
-    assert [await limiter.take("k", 3, WINDOW) for _ in range(4)] == [True, True, True, False]
+    again = [await limiter.take("k", 3, WINDOW) for _ in range(4)]
+    assert [slot is not None for slot in again] == [True, True, True, False]
 
 
 async def test_the_window_is_counted_from_each_unit_not_from_the_first() -> None:

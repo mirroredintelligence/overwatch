@@ -148,30 +148,26 @@ class AttemptLimiter:
     """A count of events inside a window, kept in the cache (nothing of record: losing it loses no
     fact). Each event takes the first free slot `<name>#<n>`, written with the window as its
     lifetime, so a slot comes free one window after it was taken and the window is counted from each
-    event, not from the first."""
+    event, not from the first. Taking a slot is one atomic step per slot (`set_if_absent`), so
+    parallel callers can never hold more than `limit` slots between them."""
 
     def __init__(self, cache: Cache) -> None:
         self._cache = cache
 
-    async def take(self, name: str, limit: int, window: timedelta) -> bool:
-        """Count one event. False, and nothing counted, when `limit` events are already inside the
-        window."""
+    async def take(self, name: str, limit: int, window: timedelta) -> str | None:
+        """Count one event, and return the slot it took, or None (and count nothing) when `limit`
+        events are already inside the window. A cache that cannot be reached raises: the caller is
+        refused, never let through."""
         _check_limit(limit)
         for slot in range(limit):
-            if await self._cache.set_if_absent(f"{name}#{slot}", "1", window):
-                return True
-        return False
+            key = f"{name}#{slot}"
+            if await self._cache.set_if_absent(key, "1", window):
+                return key
+        return None
 
     async def release(self, slot: str) -> None:
-        raise NotImplementedError
-
-    async def is_full(self, name: str, limit: int) -> bool:
-        """True when `limit` events are inside the window. Counts nothing."""
-        _check_limit(limit)
-        for slot in range(limit):
-            if await self._cache.get(f"{name}#{slot}") is None:
-                return False
-        return True
+        """Give back a slot that `take` returned. A slot that is already free does nothing."""
+        await self._cache.delete(slot)
 
 
 def _check_limit(limit: int) -> None:
@@ -261,7 +257,10 @@ class StartPairing:
         now = self._clock.now()
         async with self._uow_factory() as uow:
             scope = _tenant_scope(uow)
-            if not await self._limiter.take(f"pairing-start:{scope}", START_LIMIT, LIMIT_WINDOW):
+            if (
+                await self._limiter.take(f"pairing-start:{scope}", START_LIMIT, LIMIT_WINDOW)
+                is None
+            ):
                 raise PairingRateLimited(RATE_LIMITED_MESSAGE)
             code, code_hash = await self._fresh_code(uow, scope, link_secret)
             pairing_id = self._ids.new_id()
@@ -334,13 +333,17 @@ class ConfirmPairing:
             stored = await uow.idempotency.get(key)
             if stored is not None:
                 return _replay(stored, fingerprint)
+            # The failure slot is taken before the code is looked up, in one atomic step, so
+            # parallel requests cannot all pass a check that none has yet counted against. A slot
+            # is kept for a refusal and given back for a success.
             attempts = f"pairing-confirm:{scope}:{_who(actor.practitioner_id)}"
-            if await self._limiter.is_full(attempts, CONFIRM_FAILURE_LIMIT):
+            slot = await self._limiter.take(attempts, CONFIRM_FAILURE_LIMIT, LIMIT_WINDOW)
+            if slot is None:
                 raise PairingRateLimited(RATE_LIMITED_MESSAGE)
             device_id = await _burn_code(uow, code_hash, now, key)
             if device_id is None or await uow.devices.get(device_id) is not None:
-                await self._limiter.take(attempts, CONFIRM_FAILURE_LIMIT, LIMIT_WINDOW)
                 raise NotAllowed(REFUSED_MESSAGE)
+            await self._limiter.release(slot)
             device = Device(
                 id=device_id,
                 status=DeviceStatus.PAIRED_UNCLAIMED,

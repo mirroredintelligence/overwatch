@@ -1064,13 +1064,14 @@ async def test_a_good_confirmation_after_fewer_than_five_failures_works_and_give
         with pytest.raises(NotAllowed):
             await rig.confirm.execute(_command(started, code="000 000", key=f"wrong-{n}"))
     assert (await rig.confirm.execute(_command(started, key="good"))).device_id
-    # The success took the fifth slot and gave it back: four more failures still get the verdict,
-    # not the limit.
+    # The success took the fifth slot and gave it back: one more failure still gets the verdict, and
+    # only the one after it gets the limit. Kept, the fifth slot would limit the very next failure.
     other = await rig.start.execute()
-    for n in range(4):
-        with pytest.raises(NotAllowed) as refused:
-            await rig.confirm.execute(_command(other, code="111 111", key=f"again-{n}"))
-        assert not isinstance(refused.value, PairingRateLimited)
+    with pytest.raises(NotAllowed) as refused:
+        await rig.confirm.execute(_command(other, code="111 111", key="again-1"))
+    assert not isinstance(refused.value, PairingRateLimited)
+    with pytest.raises(PairingRateLimited):
+        await rig.confirm.execute(_command(other, code="111 111", key="again-2"))
 
 
 async def test_a_refused_confirmation_keeps_its_slot(rig: Rig) -> None:

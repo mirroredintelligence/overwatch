@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { LINK, TENANT_HOST } from '@/test/fixtures/links';
+import { BACKEND_ROOT, LINK, TENANT_HOST } from '@/test/fixtures/links';
 import { cookiesMock, requestWithCookies, resetCookieWrites } from '@/test/cookies';
 import { resetLinkRequests, seenBackendRequests } from '@/test/msw/handlers/links';
 import { POST } from './route';
@@ -14,6 +14,7 @@ const url = (token: string) => `https://${TENANT_HOST}/api/bff/links/${token}/re
 const ctx = (token: string) => ({ params: Promise.resolve({ token }) });
 
 beforeEach(() => {
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetLinkRequests();
   resetCookieWrites();
   cookiesMock.mockClear();

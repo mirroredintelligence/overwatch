@@ -1,10 +1,14 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { BACKEND_ROOT, LINK, RECORDED_VIEW, TENANT_HOST, csrfFor } from '@/test/fixtures/links';
 import { seenBackendRequests, resetLinkRequests } from '@/test/msw/handlers/links';
 import { server } from '@/test/msw/server';
 import { backendRoot, callLinkApi, LinkApiError, publicReply, readLink } from './server';
+
+beforeEach(() => {
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+});
 
 describe('backendRoot', () => {
   it('is the origin of the FHIR base URL, because the link routes sit beside /fhir', () => {

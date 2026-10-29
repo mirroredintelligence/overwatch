@@ -20,7 +20,8 @@ const ctx = (token: string) => ({ params: Promise.resolve({ token }) });
 function post(token: string, body: unknown, cookie: string | null, header: string | null) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json', Host: TENANT_HOST };
   if (header !== null) headers['X-CSRF-Token'] = header;
-  const cookies = cookie === null ? {} : { [LINK_CSRF_COOKIE]: cookie };
+  const cookies: Record<string, string> = {};
+  if (cookie !== null) cookies[LINK_CSRF_COOKIE] = cookie;
   return requestWithCookies(url(token), cookies, {
     method: 'POST',
     headers,
@@ -29,6 +30,7 @@ function post(token: string, body: unknown, cookie: string | null, header: strin
 }
 
 beforeEach(() => {
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetLinkRequests();
   resetCookieWrites();
   cookiesMock.mockClear();

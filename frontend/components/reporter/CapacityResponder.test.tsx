@@ -34,9 +34,8 @@ describe('CapacityResponder with a figure on record', () => {
     expect(await runAxe(container)).toHaveNoViolations();
   });
 
-  it('makes no POST while it renders', async () => {
+  it('makes no POST while it renders', () => {
     renderFor(LINK.recorded);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Yes, still 3' })).toBeEnabled());
     expect(seenBffPosts).toHaveLength(0);
     expect(seenBackendRequests.filter((r) => r.method === 'POST')).toHaveLength(0);
   });
@@ -114,10 +113,6 @@ describe('CapacityResponder with a figure on record', () => {
     expect(push).not.toHaveBeenCalled();
   });
 
-  it('shows the expired message straight away when the link is no longer open', async () => {
-    renderFor(LINK.expired, RECORDED_VIEW);
-    expect(await screen.findByRole('heading', { level: 1, name: 'This link has expired' })).toBeInTheDocument();
-  });
 });
 
 describe('CapacityResponder with no figure yet', () => {

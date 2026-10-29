@@ -8,6 +8,8 @@ export type ButtonProps = {
   children: ReactNode;
   /** Disables the button and sets aria-busy, so an impatient second click does nothing. */
   busy?: boolean;
+  /** Disables the button without the busy state (for example, until a figure is chosen). */
+  disabled?: boolean;
   /** Renders a link instead of a button. */
   href?: string;
   dataEl?: string;
@@ -15,7 +17,16 @@ export type ButtonProps = {
   type?: 'button' | 'submit';
 };
 
-export function Button({ variant, children, busy = false, href, dataEl, onClick, type = 'button' }: ButtonProps) {
+export function Button({
+  variant,
+  children,
+  busy = false,
+  disabled = false,
+  href,
+  dataEl,
+  onClick,
+  type = 'button',
+}: ButtonProps) {
   const className = `${styles.button} ${styles[variant]}`;
   if (href !== undefined) {
     return (
@@ -28,7 +39,7 @@ export function Button({ variant, children, busy = false, href, dataEl, onClick,
     <button
       type={type}
       className={className}
-      disabled={busy}
+      disabled={busy || disabled}
       aria-busy={busy ? 'true' : undefined}
       onClick={onClick}
       data-el={dataEl}

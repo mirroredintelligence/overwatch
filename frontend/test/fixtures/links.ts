@@ -57,3 +57,48 @@ export const RECORDED_ANSWER = {
 } as const;
 
 export const EXPIRED_BODY = { state: 'expired' } as const;
+
+export type LinkReplyFor = { status: number; body: Record<string, unknown>; headers?: Record<string, string> };
+
+const CSRF_OK = (token: string, given: string | null) => given === csrfFor(token);
+
+const VIEW_FOR_OPEN: Partial<Record<string, Record<string, unknown>>> = {
+  [LINK.recorded]: RECORDED_VIEW as unknown as Record<string, unknown>,
+  [LINK.empty]: EMPTY_VIEW as unknown as Record<string, unknown>,
+  [LINK.booking]: { ...RECORDED_VIEW, purpose: 'booking-request' },
+  [LINK.limited]: RECORDED_VIEW as unknown as Record<string, unknown>,
+  [LINK.stale]: RECORDED_VIEW as unknown as Record<string, unknown>,
+};
+
+/** What the back end answers to `GET /links/{token}` (the view, with its CSRF token). */
+export function linkViewReply(token: string): LinkReplyFor {
+  if (token === LINK.down) return { status: 503, body: { state: 'error' } };
+  const view = VIEW_FOR_OPEN[token];
+  if (view === undefined) return { status: 410, body: token === LINK.used ? { state: 'used' } : { state: 'expired' } };
+  return { status: 200, body: { ...view, csrfToken: csrfFor(token) } };
+}
+
+/** What the back end answers to `POST /links/{token}` with an answer and the CSRF token the caller sent. */
+export function linkAnswerReply(token: string, given: string | null, body: Record<string, unknown>): LinkReplyFor {
+  if (!CSRF_OK(token, given)) return { status: 403, body: { state: 'forbidden' } };
+  if (token === LINK.expired) return { status: 410, body: { state: 'expired' } };
+  if (token === LINK.used) return { status: 410, body: { state: 'used' } };
+  if (token === LINK.limited) return { status: 429, body: { state: 'rate-limited' }, headers: { 'Retry-After': '600' } };
+  if (token === LINK.stale) return { status: 409, body: { state: 'send-number', reason: 'stale', message: 'Please send the number' } };
+  if (body.action === 'confirm') return { status: 200, body: { ...RECORDED_ANSWER } };
+  if (body.action === 'closed') return { status: 200, body: { ...RECORDED_ANSWER, value: 0 } };
+  if (body.action === 'number') {
+    const value = body.value as number;
+    if (value > RECORDED_VIEW.usualMax && body.confirmOutOfRange !== true) {
+      return { status: 422, body: { state: 'out-of-range', usualMin: RECORDED_VIEW.usualMin, usualMax: RECORDED_VIEW.usualMax } };
+    }
+    return { status: 200, body: { ...RECORDED_ANSWER, value } };
+  }
+  return { status: 400, body: { state: 'invalid' } };
+}
+
+/** What the back end answers to `POST /links/{token}/renew`. */
+export function linkRenewReply(token: string): LinkReplyFor {
+  if (token === LINK.limited) return { status: 429, body: { state: 'rate-limited' }, headers: { 'Retry-After': '600' } };
+  return { status: 202, body: { state: 'accepted' } };
+}

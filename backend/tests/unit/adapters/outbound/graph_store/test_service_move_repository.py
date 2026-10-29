@@ -45,3 +45,15 @@ def test_the_add_statement_writes_the_phone_hash_and_no_number() -> None:
 def test_the_open_move_guard_takes_the_service_lock_first() -> None:
     # The service is locked before the open moves are read, so two adds for one service serialise.
     assert "SET s.id = s.id" in REGISTRY.get("Q-MOVE-LOCK-SERVICE").cypher
+
+
+def test_a_move_is_keyed_by_its_move_id_under_the_tenant() -> None:
+    # The move's own id is the property moveId, so the composite constraint (tenantId, moveId)
+    # refuses a second move with one id in a tenant (migration 0041).
+    for query_id in ("Q-MOVE-ADD", "Q-MOVE-GET", "Q-MOVE-SAVE", "Q-MOVE-OPEN-FOR"):
+        cypher = REGISTRY.get(query_id).cypher
+        assert "{id: $id" not in cypher, query_id
+        assert "{id: $id, tenantId" not in cypher, query_id
+    assert "moveId: $id" in REGISTRY.get("Q-MOVE-ADD").cypher
+    assert "MATCH (m:ServiceMove {moveId: $id, tenantId: $tenant})" in REGISTRY.get("Q-MOVE-GET").cypher
+    assert "m.moveId AS id" in REGISTRY.get("Q-MOVE-GET").cypher

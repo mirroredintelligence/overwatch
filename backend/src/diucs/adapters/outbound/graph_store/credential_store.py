@@ -32,7 +32,6 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedNode,
     SeedRel,
     TenantSeed,
-    Unique,
 )
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.rules.identity_policy import PinOutcome, PinState
@@ -42,15 +41,15 @@ _STATUS_ACTIVE: Final = "active"
 _STATUS_REVOKED: Final = "revoked"
 
 # Scenarios of the converted statements (DEC-142 item 5, DEC-150). Both tenants have a practitioner
-# with the same key; the practitioner's id and the credential's device id are unique in the whole
-# graph until TEN-005 (migrations 0001 and 0026), so they are `Unique`: the generated test also
-# runs each statement with the other tenant's device id. A practitioner is written by the resource
-# store, which does not stamp the tenant yet (TEN-009); the scenarios seed it stamped.
+# with the same id and key, and a credential with the same device id: the keys are composite
+# (tenantId plus the key, migration 0031), so the two tenants share them and every statement is
+# proved with colliding keys (TEN-005). A practitioner is written by the resource store, which does
+# not stamp the tenant yet (TEN-009); the scenarios seed it stamped.
 _PRACTITIONER: Final = SeedNode(
     "practitioner",
     ("Resource", "Practitioner"),
     {
-        "id": Unique("prac-1", "resource_id"),
+        "id": "prac-1",
         "key": "Practitioner/prac-1",
         "active": True,
         "name": Marked("Duty Manager"),
@@ -64,7 +63,7 @@ _CREDENTIAL_SEED: Final = TenantSeed(
             "credential",
             ("Credential",),
             {
-                "deviceId": Unique("dev-1", "credential_device_id"),
+                "deviceId": "dev-1",
                 "pinHash": Marked("hash"),
                 "failed": 1,
                 "locked": False,
@@ -74,7 +73,7 @@ _CREDENTIAL_SEED: Final = TenantSeed(
     rels=(SeedRel("practitioner", "HAS_CREDENTIAL", "credential"),),
 )
 _KEY: Final = "Practitioner/prac-1"
-_DEVICE: Final = Unique("dev-1", "credential_device_id")
+_DEVICE: Final = "dev-1"
 _EXISTS_SCENARIO: Final = Scenario(
     "count the tenant's practitioner by key",
     seed=_PRACTITIONER_SEED,
@@ -87,7 +86,7 @@ _SET_SCENARIO: Final = Scenario(
     seed=_CREDENTIAL_SEED,
     params={
         "key": _KEY,
-        "deviceId": Unique("dev-new", "credential_device_id"),
+        "deviceId": "dev-new",
         "pinHash": "hash-new",
     },
     lookup=("key",),
@@ -100,7 +99,7 @@ _SET_SCENARIO: Final = Scenario(
             NodeSpec(
                 ("Credential",),
                 {
-                    "deviceId": Unique("dev-new", "credential_device_id"),
+                    "deviceId": "dev-new",
                     "pinHash": "hash-new",
                     "failed": 0,
                 },

@@ -132,6 +132,7 @@ async def test_a_statement_only_migration_runs_each_statement_in_its_own_write_t
 
 async def test_the_record_is_written_last_and_in_its_own_transaction() -> None:
     world = _World()
+    world.handlers["L1"] = lambda _: [{"changed": 0}]
 
     await runner.apply_migrations(world, [Migration("0090_a", ("S1",), loops=("L1",))])  # type: ignore[arg-type]
 

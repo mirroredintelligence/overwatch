@@ -31,11 +31,11 @@ from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
+    Marked,
     NodeSpec,
     Scenario,
     SeedNode,
     TenantSeed,
-    Unique,
 )
 from diucs.application.idempotency import (
     DATETIME_TAG,
@@ -47,10 +47,11 @@ from diucs.application.idempotency import (
 from diucs.application.tenancy import ScopeId, scope_for_new_unit
 from diucs.domain.errors import Conflict
 
-# The scenario of the one converted statement (DEC-142 item 5, DEC-150). A marker's key is unique
-# in the whole graph until TEN-005 (migration 0030), so the two tenants cannot share one; the key
-# is `Unique`, and the scenario marks a message that no marker holds yet, so the node the statement
-# creates must carry the tenant. The consumer and the message id are shared plain values.
+# The scenario of the one converted statement (DEC-142 item 5, DEC-150). A marker's key is composite
+# with the tenant (migration 0031), so both tenants hold the same marker, and the scenario marks a
+# message that no marker holds yet, so the node the statement creates must carry the tenant. The
+# claim of the held marker is `Marked`, so the two tenants' markers differ. Residual (DEC-156 item
+# 4): the key is declared `new`, so only the creation is run, not a match on a held key.
 _PROCESSED_SCENARIO: Final = Scenario(
     "mark a message as processed by a consumer, once",
     seed=TenantSeed(
@@ -59,15 +60,16 @@ _PROCESSED_SCENARIO: Final = Scenario(
                 "done",
                 ("Processed",),
                 {
-                    "key": Unique("8:consumer:m-0", "processed_key"),
+                    "key": "8:consumer:m-0",
                     "messageId": "m-0",
                     "consumer": "consumer",
+                    "claim": Marked("claim"),
                 },
             ),
         )
     ),
     params={
-        "key": Unique("8:consumer:m-1", "processed_key"),
+        "key": "8:consumer:m-1",
         "messageId": "m-1",
         "consumer": "consumer",
         "claim": "claim-1",
@@ -79,7 +81,7 @@ _PROCESSED_SCENARIO: Final = Scenario(
         after=(
             NodeSpec(
                 ("Processed",),
-                {"key": Unique("8:consumer:m-1", "processed_key"), "messageId": "m-1"},
+                {"key": "8:consumer:m-1", "messageId": "m-1"},
             ),
         ),
     ),

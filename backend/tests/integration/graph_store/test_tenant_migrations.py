@@ -534,7 +534,9 @@ async def test_the_rollback_statements_undo_0031_and_nothing_the_old_schema_owns
         assert constraints == before_constraints - {c.name for c in COMPOSITE_CONSTRAINTS} - {
             "migration_id"
         }
-        assert indexes == before_indexes - {i.name for i in COMPOSITE_INDEXES}
+        # A unique constraint owns an index of its own name, so it goes with the constraint.
+        owned = {i.name for i in COMPOSITE_INDEXES} | {c.name for c in COMPOSITE_CONSTRAINTS}
+        assert indexes == before_indexes - owned - {"migration_id"}
         assert constraints >= _OLD_CONSTRAINTS
         assert indexes >= _OLD_INDEXES
     finally:

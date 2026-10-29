@@ -16,12 +16,14 @@ tenant A and as tenant B:
   that matches on it and leaks only when it matches would never be run on a match).
 - `expect`: the rows the caller gets and the change to the caller's own data.
 
-Some keys cannot be shared by two tenants yet, because the production schema has a single-property
-unique constraint on them (the composite keys are TEN-005; DEC-150). A value such a constraint
-covers is a `Unique`: the seeder writes it as is for tenant A and with a suffix for tenant B, and
-the value names the constraint, which must exist and must sit on that label and property. The
-generated test then also runs each statement with the other tenant's value. `constraints_used`
-lists the constraints a scenario leans on, and a test pins the list so it can only shrink.
+Every key a tenant can hold is composite with the tenant (migration 0031, TEN-005), so a scenario
+shares its ids and keys between the two tenants and needs no `Unique`. The one key that stays
+unique across tenants is a `LinkToken`'s `tokenHash` (`link_token_hash`): the hash is looked up
+without a scope (DEC-131 item 5), so two tenants cannot hold one. A value such a constraint covers
+is a `Unique`: the seeder writes it as is for tenant A and with a suffix for tenant B, and the
+value names the constraint, which must sit on that label and property. The generated test then
+also runs each statement with the other tenant's value (the foreign-id run). `constraints_used`
+lists the constraints a scenario leans on, and a test pins the list, which is empty today.
 
 This module is pure: no Neo4j, no tenant context. The scenario is data and holds no Cypher.
 """
@@ -38,30 +40,14 @@ _IDENTIFIER: Final = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 RESERVED_PROPERTIES: Final = frozenset({"tenantId", "seedMarker"})
 RESERVED_PARAMETERS: Final = frozenset({"tenant", "parameters"})
 
-# The single-property unique constraints of the production schema (migrations.py). A value one of
-# them covers cannot be shared by two tenants until TEN-005 makes the key composite. The test
-# tests/integration/graph_store/test_tenant_isolation.py compares this table with the live schema,
-# so it loses an entry in the same change that drops or replaces the constraint.
+# The single-property unique constraints that two tenants still cannot share, on the schema the
+# platform has after TEN-032 (the superseded keys dropped). TEN-005 made every other key composite
+# with the tenant; `link_token_hash` stays globally unique by design (DEC-131 item 5, a hash lookup
+# yields the tenant). A value one of them covers is a `Unique`. The test
+# tests/integration/graph_store/test_tenant_isolation.py compares this table with the schema of a
+# container that has the superseded keys dropped, so the table and the schema cannot drift.
 SINGLE_PROPERTY_UNIQUE: Final[Mapping[str, tuple[str, str]]] = MappingProxyType(
-    {
-        "resource_id": ("Resource", "id"),
-        "scheduled_work_id": ("ScheduledWork", "id"),
-        "communication_id": ("Communication", "id"),
-        "audit_event_id": ("AuditEvent", "id"),
-        "audit_head_id": ("AuditHead", "id"),
-        "audit_ref_id": ("AuditRef", "id"),
-        "provenance_id": ("Provenance", "id"),
-        "chain_seq": ("ChainLink", "seq"),
-        "link_token_hash": ("LinkToken", "tokenHash"),
-        "case_reference_id": ("ServiceRequest", "reference"),
-        "device_id": ("Device", "id"),
-        "protected_contact_key": ("ProtectedContact", "key"),
-        "credential_device_id": ("Credential", "deviceId"),
-        "report_flag_id": ("ReportFlag", "id"),
-        "outbox_message_id": ("OutboxMessage", "id"),
-        "idempotency_record_key": ("IdempotencyRecord", "key"),
-        "processed_key": ("Processed", "key"),
-    }
+    {"link_token_hash": ("LinkToken", "tokenHash")}
 )
 
 
@@ -74,8 +60,8 @@ class Marked:
 
 @dataclass(frozen=True, slots=True)
 class Unique:
-    """A value that a single-property unique constraint stops two tenants sharing: `<base>` for
-    tenant A and `<base>-B` for tenant B. `constraint` names the constraint."""
+    """A value that a single-property unique constraint stops two tenants sharing (today only a
+    link token hash): `<base>` for tenant A and `<base>-B` for tenant B. `constraint` names it."""
 
     base: str
     constraint: str
@@ -194,13 +180,13 @@ def _scenario_values(scenario: Scenario) -> Iterator[Any]:
 
 def constraints_used(scenario: Scenario) -> frozenset[str]:
     """The constraints a scenario leans on: every `Unique` in its seed, parameters and
-    expectations. A test pins this per statement, so it can only shrink (TEN-005)."""
+    expectations. A test pins this per statement; it is empty for every statement (TEN-005)."""
     return frozenset(v.constraint for v in _scenario_values(scenario) if isinstance(v, Unique))
 
 
 def collision_blocked(scenario: Scenario) -> bool:
     """True when every lookup value is one a unique constraint stops the tenants sharing, so no
-    key the statement is called with collides until TEN-005."""
+    key the statement is called with collides."""
     if not scenario.lookup:
         return False
     return all(

@@ -29,10 +29,15 @@ GRAPH_STORE = "adapters/outbound/graph_store"
 # schema statements and records Migration nodes (audit A 7.1).
 EXECUTION_POINT = f"{GRAPH_STORE}/driver.py"
 # Named, not a glob (known issue of TEN-001, closed in TEN-005): a new `migrations_x.py` that calls
-# `tx.run` is flagged until it is listed here. `migrations_tenant.py` runs the backfill and the
-# invariant queries; `migrations_network.py` and `migration_types.py` hold data and run nothing.
+# `tx.run` is flagged until it is listed here. `migrations.py` runs the steps and the record,
+# `migration_loop.py` the batched data steps, `migrations_tenant.py` the invariant queries;
+# `migrations_network.py` and `migration_types.py` hold data and run nothing.
 MIGRATION_RUNNER_FILES = frozenset(
-    {f"{GRAPH_STORE}/migrations.py", f"{GRAPH_STORE}/migrations_tenant.py"}
+    {
+        f"{GRAPH_STORE}/migrations.py",
+        f"{GRAPH_STORE}/migration_loop.py",
+        f"{GRAPH_STORE}/migrations_tenant.py",
+    }
 )
 
 # Receivers whose `run` is not a database call.

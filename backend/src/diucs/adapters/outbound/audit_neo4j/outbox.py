@@ -24,7 +24,6 @@ from diucs.adapters.outbound.graph_store.scenario import (
     Scenario,
     SeedNode,
     TenantSeed,
-    Unique,
 )
 from diucs.application.ports.outbound.outbox import (
     DEAD,
@@ -42,9 +41,10 @@ _CANONICAL_INSTANT = re.compile(
     r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z"
 )
 
-# Scenarios (DEC-142 item 5): two tenants, each with a pending and a published message. The
-# message id is unique in the whole graph until TEN-005 (migration 0028), so it is `Unique`; the
-# status, the event type and the times are shared. The generated test runs these.
+# Scenarios (DEC-142 item 5): two tenants, each with a pending and a published message. The two
+# share every id, status, event type and time (the key is composite, tenantId plus the message id,
+# migration 0031), and the topic is `Marked`, so a row that came from the wrong tenant looks
+# different. The generated test runs these.
 _AT = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
 _OUTBOX_SEED: Final = TenantSeed(
     nodes=(
@@ -52,7 +52,7 @@ _OUTBOX_SEED: Final = TenantSeed(
             "pending",
             ("OutboxMessage",),
             {
-                "id": Unique("m-1", "outbox_message_id"),
+                "id": "m-1",
                 "topic": Marked("topic"),
                 "eventType": "capacity.reported",
                 "status": "pending",
@@ -64,7 +64,7 @@ _OUTBOX_SEED: Final = TenantSeed(
             "published",
             ("OutboxMessage",),
             {
-                "id": Unique("m-2", "outbox_message_id"),
+                "id": "m-2",
                 "topic": Marked("topic"),
                 "eventType": "capacity.reported",
                 "status": "published",
@@ -79,7 +79,7 @@ _ADD_SCENARIO: Final = Scenario(
     seed=_OUTBOX_SEED,
     params={
         "props": {
-            "id": Unique("m-new", "outbox_message_id"),
+            "id": "m-new",
             "topic": Marked("topic"),
             "eventType": "capacity.reported",
             "status": "pending",
@@ -91,7 +91,7 @@ _ADD_SCENARIO: Final = Scenario(
     expect=Expect(
         rows=({"written": 1},),
         nodes={"OutboxMessage": 1},
-        after=(NodeSpec(("OutboxMessage",), {"id": Unique("m-new", "outbox_message_id")}),),
+        after=(NodeSpec(("OutboxMessage",), {"id": "m-new"}),),
     ),
 )
 _PENDING_SCENARIO: Final = Scenario(
@@ -103,7 +103,7 @@ _PENDING_SCENARIO: Final = Scenario(
         rows=(
             {
                 "props": {
-                    "id": Unique("m-1", "outbox_message_id"),
+                    "id": "m-1",
                     "topic": Marked("topic"),
                     "status": "pending",
                 }

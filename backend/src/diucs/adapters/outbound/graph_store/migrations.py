@@ -1,7 +1,14 @@
 """Idempotent Neo4j schema migrations, for Neo4j Community 5.
 
 Every statement uses IF NOT EXISTS, and each applied migration is recorded as (:Migration {id,
-appliedAt}) so it is skipped next time. Later tasks append migrations; never edit an applied one.
+appliedAt}) so it is skipped next time. Never edit an applied migration (a unit test pins a digest
+of the core list). The list is assembled from per-area modules, so a later task adds its own ids to
+its own module and never edits the core list: `migrations_tenant.py` (the tenant schema, TEN-005,
+TEN-007, TEN-031, TEN-032) and `migrations_network.py` (the network registry and projections,
+TEN-051, TEN-053). Ids stay unique and ascending across all areas.
+
+Migrations run on the global path: raw transactions, outside `run_query`, the registry and any
+bound tenant.
 
 Enterprise-only features this file does not use, so they are not needed (and would change this
 file if adopted): NODE KEY constraints (the composite uniqueness here is UNIQUE, which Community
@@ -10,13 +17,18 @@ supports), role-based access control (one user, no roles created here) and multi
 here depends on it.
 """
 
-from collections.abc import Sequence
+from collections.abc import Awaitable, Sequence
 from datetime import UTC, datetime
 from typing import Final
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.migration_types import Migration
+from diucs.adapters.outbound.graph_store.migration_loop import run_loop
+from diucs.adapters.outbound.graph_store.migration_types import (
+    MAX_LOOP_ITERATIONS,
+    Migration,
+    MigrationFailed,
+)
 from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_tenant import TENANT_MIGRATIONS
 
@@ -145,8 +157,15 @@ CORE_MIGRATIONS: Final = tuple(
 
 
 def assemble_migrations(*areas: Sequence[Migration]) -> list[Migration]:
-    """The migrations of every area, sorted by id. A duplicate id is a ValueError (stub)."""
-    return [migration for area in areas for migration in area]
+    """The migrations of every area, sorted by id. A duplicate id, across areas or inside one, is a
+    ValueError at import: two migrations with one id would make one of them silently skipped."""
+    combined = [migration for area in areas for migration in area]
+    seen: set[str] = set()
+    for migration in combined:
+        if migration.id in seen:
+            raise ValueError(f"the migration id {migration.id} is used twice")
+        seen.add(migration.id)
+    return sorted(combined, key=lambda migration: migration.id)
 
 
 MIGRATIONS: Final[list[Migration]] = assemble_migrations(
@@ -162,18 +181,62 @@ async def _applied_ids(tx: AsyncManagedTransaction) -> set[str]:
     return {row["id"] for row in await result.data()}
 
 
-async def _run_statement(tx: AsyncManagedTransaction, statement: str) -> None:
-    await tx.run(statement)
+async def _step[T](migration: Migration, step: str, call: Awaitable[T]) -> T:
+    """Await one step. A failure is a MigrationFailed that names the migration, the step and the
+    class of the cause, and never a statement or a value; the cause is chained."""
+    try:
+        return await call
+    except Exception as error:
+        raise MigrationFailed(
+            f"migration {migration.id} failed at {step}: {type(error).__name__}"
+        ) from error
 
 
-async def _record(tx: AsyncManagedTransaction, migration_id: str) -> None:
-    await tx.run(_RECORD, id=migration_id, appliedAt=datetime.now(UTC))
+async def _run_statement(driver: AsyncDriver, statement: str, params: dict[str, object]) -> None:
+    # Neo4j refuses a data write in the same transaction as a schema change (lesson L8), so each
+    # statement is its own transaction and the record is another. All are idempotent: IF NOT EXISTS,
+    # a loop that selects only what is still to do, and MERGE.
+    async def work(tx: AsyncManagedTransaction) -> None:
+        await tx.run(statement, params)
+
+    async with driver.session() as session:
+        await session.execute_write(work)
+
+
+async def _record(driver: AsyncDriver, migration_id: str) -> None:
+    async def work(tx: AsyncManagedTransaction) -> None:
+        await tx.run(_RECORD, id=migration_id, appliedAt=datetime.now(UTC))
+
+    async with driver.session() as session:
+        await session.execute_write(work)
+
+
+async def _apply_one(driver: AsyncDriver, migration: Migration) -> None:
+    params = dict(migration.params)
+    for number, statement in enumerate(migration.statements, start=1):
+        await _step(migration, f"statement {number}", _run_statement(driver, statement, params))
+    for number, loop in enumerate(migration.loops, start=1):
+        loop_step = run_loop(
+            driver, loop, params, batch=migration.batch, max_iterations=MAX_LOOP_ITERATIONS
+        )
+        await _step(migration, f"loop {number}", loop_step)
+    await _step(migration, "record", _record(driver, migration.id))
 
 
 async def apply_migrations(
     driver: AsyncDriver, migrations: Sequence[Migration] | None = None
 ) -> list[str]:
-    """Apply every migration not yet recorded, in order. Return the ids applied by this call."""
+    """Apply every migration not yet recorded, in order. Return the ids applied by this call.
+
+    For each one: its schema statements, each in its own write transaction; then its loop steps,
+    each repetition in its own session and transaction until the step reports no change; then the
+    record, last, in a transaction of its own. A failure raises MigrationFailed and nothing after
+    the failing step runs: the steps before it stay applied, the migration is not recorded, and
+    the later migrations are not attempted. A crash between the last step and the record re-runs
+    the steps on the next start, which is safe because every step is idempotent.
+
+    `migrations` is for tests; the default is the assembled list.
+    """
     plan = MIGRATIONS if migrations is None else list(migrations)
     async with driver.session() as session:
         applied = await session.execute_read(_applied_ids)
@@ -181,10 +244,6 @@ async def apply_migrations(
     for migration in plan:
         if migration.id in applied:
             continue
-        for statement in migration.statements:
-            async with driver.session() as session:
-                await session.execute_write(_run_statement, statement)
-        async with driver.session() as session:
-            await session.execute_write(_record, migration.id)
+        await _apply_one(driver, migration)
         newly_applied.append(migration.id)
     return newly_applied

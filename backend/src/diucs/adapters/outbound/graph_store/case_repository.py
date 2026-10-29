@@ -121,7 +121,8 @@ _READ_POSTCODE: Final = NamedQuery(
 _SET_REFERENCE: Final = NamedQuery(
     id="Q-CASE-SET-REFERENCE",
     cypher=(
-        "MATCH (r:ServiceRequest {key: $key}) SET r.reference = $reference RETURN count(r) AS set"
+        "MATCH (r:ServiceRequest {key: $key}) "
+        "SET r.reference = $reference, r.openReference = $openReference RETURN count(r) AS set"
     ),
     mode="write",
 )
@@ -505,8 +506,16 @@ class Neo4jCaseRepository:
         await self._store.put(request, expected)
         key = f"{_REQUEST}/{case.id}"
         try:
+            # The open reference is what the per-tenant constraint is unique on (migration 0033):
+            # set while the case is open, and removed when it closes (a null property is removed),
+            # so a closed case's reference blocks nobody once the lifetime constraint goes
+            # (TEN-032).
             await run_query(
-                self._tx, REGISTRY.get("Q-CASE-SET-REFERENCE"), key=key, reference=case.reference
+                self._tx,
+                REGISTRY.get("Q-CASE-SET-REFERENCE"),
+                key=key,
+                reference=case.reference,
+                openReference=case.reference if case.closed_at is None else None,
             )
         except ClientError as error:
             # The unique constraint on the reference (migration 0022) refused a racing write.
@@ -536,5 +545,10 @@ def _without_meta(resource: dict[str, Any]) -> dict[str, Any]:
 
 
 def _rebuilt_request(request: dict[str, Any]) -> dict[str, Any]:
-    """The stored request without the reference copy, which is not a FHIR element of its own."""
-    return {key: value for key, value in request.items() if key not in ("meta", "reference")}
+    """The stored request without the reference copy and the open reference, which are not FHIR
+    elements of their own."""
+    return {
+        key: value
+        for key, value in request.items()
+        if key not in ("meta", "reference", "openReference")
+    }

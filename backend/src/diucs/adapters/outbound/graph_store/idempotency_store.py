@@ -304,6 +304,9 @@ class Neo4jProcessedMessages:
             raise Conflict("this message is being processed by another unit of work") from error
         return bool(rows[0]["created"])
 
+    async def seen(self, message_id: str, consumer: str) -> bool:
+        return False
+
 
 def _scoped(tx: AsyncManagedTransaction, scope: ScopeId | None) -> AsyncManagedTransaction:
     """The managed transaction wrapped as a ScopedTx. The repository is annotated for the raw

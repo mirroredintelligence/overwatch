@@ -22,6 +22,11 @@ DELIVERY_STATUSES = frozenset({"queued", "sent", "delivered", "failed", "receive
 """Statuses a Communication can hold. 'received' marks an inbound message."""
 
 
+def statuses_before(status: str) -> tuple[str, ...]:
+    """Stub."""
+    return ()
+
+
 @dataclass(frozen=True, slots=True)
 class SendReceipt:
     provider_message_id: str

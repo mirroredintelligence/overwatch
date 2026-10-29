@@ -17,7 +17,7 @@ in a PermanentError.
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, Protocol
 
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
@@ -40,6 +40,13 @@ class PermanentError(DomainError):
 class Outcome:
     kind: OutcomeKind
     reason: str | None = None
+
+
+class MessageConsumer(Protocol):
+    """What the Service Bus runner needs from a consumer: handle one message and say how it ended.
+    IdempotentConsumer is one; TenantBoundConsumer wraps one and binds the tenant first (I08)."""
+
+    async def handle(self, message: BusMessage) -> Outcome: ...
 
 
 class IdempotentConsumer:

@@ -23,7 +23,7 @@ from azure.servicebus import NEXT_AVAILABLE_SESSION
 from azure.servicebus.aio import ServiceBusClient
 from azure.servicebus.exceptions import OperationTimeoutError
 
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
+from diucs.adapters.inbound.workers.consumer import MessageConsumer, Outcome
 from diucs.application.ports.outbound.event_bus import BusMessage
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ class ServiceBusRunner:
         client: ServiceBusClient,
         entity: str,
         subscription: str | None,
-        consumer: IdempotentConsumer,
+        consumer: MessageConsumer,
         sessions: bool = False,
         max_concurrency: int = 4,
     ) -> None:

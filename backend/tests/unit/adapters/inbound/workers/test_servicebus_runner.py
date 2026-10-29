@@ -116,6 +116,40 @@ async def test_the_event_type_falls_back_to_the_application_property() -> None:
 
 
 @pytest.mark.parametrize(
+    ("key", "value"), [("tenantId", "tenant-a"), (b"tenantId", b"tenant-a")], ids=["text", "bytes"]
+)
+async def test_the_tenant_comes_from_the_tenant_id_application_property(
+    key: str | bytes, value: str | bytes
+) -> None:
+    """I08: a consumer binds the tenant from the message, so the runner must carry the property
+    the bus adapter sends (DEC-130 item 7). The key may arrive as text or as bytes."""
+    consumer = _Consumer(Outcome("completed"))
+    raw = _raw(application_properties={key: value})
+
+    await _runner(consumer).process(_Receiver(), raw)
+
+    assert consumer.seen[0].tenant_id == "tenant-a"
+
+
+@pytest.mark.parametrize("value", [None, 7])
+async def test_a_tenant_property_that_is_not_text_is_not_a_tenant(value: Any) -> None:
+    consumer = _Consumer(Outcome("completed"))
+    raw = _raw(application_properties={"tenantId": value})
+
+    await _runner(consumer).process(_Receiver(), raw)
+
+    assert consumer.seen[0].tenant_id is None
+
+
+async def test_a_message_with_no_tenant_property_reaches_the_consumer_with_none() -> None:
+    consumer = _Consumer(Outcome("completed"))
+
+    await _runner(consumer).process(_Receiver(), _raw())
+
+    assert consumer.seen[0].tenant_id is None
+
+
+@pytest.mark.parametrize(
     "raw",
     [
         _raw(b"not json at all 4821"),

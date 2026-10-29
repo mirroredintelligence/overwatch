@@ -66,7 +66,11 @@ PROBE_TREE: dict[str, str] = {
     "diucs_probe/adapters/inbound/fhir_rest/__init__.py": "",
     "diucs_probe/adapters/inbound/fhir_rest/app.py": (
         "import diucs_probe.adapters.inbound.sms_webhook.routes\n"
+        "import diucs_probe.adapters.inbound.link_pages.capacity_links\n"
     ),
+    # L01: the link pages, mounted on the same app by the same named ignore.
+    "diucs_probe/adapters/inbound/link_pages/__init__.py": "",
+    "diucs_probe/adapters/inbound/link_pages/capacity_links.py": "",
     "diucs_probe/adapters/inbound/sms_webhook/__init__.py": "",
     "diucs_probe/adapters/inbound/sms_webhook/routes.py": (
         "import diucs_probe.adapters.outbound.sms_twilio.twilio_sms\n"

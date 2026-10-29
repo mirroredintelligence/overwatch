@@ -56,6 +56,7 @@ TENANCY_KERNEL = "application/tenancy.py"
 # which binds the tenant a message carries once the directory lists it as active (DEC-165).
 BINDING_MODULES: frozenset[str] = frozenset(
     {
+        "diucs.adapters.inbound.link_pages.capacity_links",
         "diucs.adapters.inbound.sms_webhook.routes",
         "diucs.adapters.inbound.workers.outbox_relay",
         "diucs.adapters.inbound.workers.tenant_binding",

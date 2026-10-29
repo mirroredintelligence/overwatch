@@ -94,4 +94,5 @@ ignore_imports =
     diucs.adapters.outbound.graph_store.unit_of_work -> diucs.adapters.outbound.audit_neo4j.audit_log
     diucs.adapters.outbound.graph_store.unit_of_work -> diucs.adapters.outbound.audit_neo4j.outbox
     diucs.adapters.inbound.fhir_rest.app -> diucs.adapters.inbound.sms_webhook.routes
+    diucs.adapters.inbound.fhir_rest.app -> diucs.adapters.inbound.link_pages.capacity_links
     diucs.adapters.inbound.sms_webhook.routes -> diucs.adapters.outbound.sms_twilio.twilio_sms

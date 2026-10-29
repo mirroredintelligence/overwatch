@@ -264,8 +264,11 @@ def build_rig(
     ids: SequentialIds | None = None,
     prefix: str = "",
     token_source: Callable[[int], bytes] | None = None,
+    clock: FixedClock | None = None,
 ) -> Rig:
-    clock = FixedClock(start or london(12, 0))
+    """`clock` is the clock the rig's use cases run on; a test that has one (an app's container)
+    passes it so the rig and the code under test agree on the time (L01)."""
+    clock = clock if clock is not None else FixedClock(start or london(12, 0))
     source: dict[str, Any] = {} if token_source is None else {"rng": token_source}
     shared = ids or SequentialIds()
 

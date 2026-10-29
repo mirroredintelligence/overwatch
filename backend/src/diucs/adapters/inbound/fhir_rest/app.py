@@ -69,6 +69,12 @@ def create_app(container: ApiContainer) -> FastAPI:
     from diucs.adapters.inbound.sms_webhook import routes as sms_routes
 
     app.include_router(sms_routes.router)
+
+    # The one-tap capacity link pages (L01). Another inbound adapter, wired in the same way; the
+    # named ignore in .importlinter lets this one module do it.
+    from diucs.adapters.inbound.link_pages import capacity_links
+
+    app.include_router(capacity_links.router)
     return app
 
 

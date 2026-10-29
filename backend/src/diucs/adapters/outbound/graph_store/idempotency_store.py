@@ -47,7 +47,7 @@ from diucs.application.idempotency import (
 from diucs.application.tenancy import ScopeId, scope_for_new_unit
 from diucs.domain.errors import Conflict
 
-# The scenario of the one converted statement (DEC-142 item 5, DEC-151). A marker's key is unique
+# The scenario of the one converted statement (DEC-142 item 5, DEC-150). A marker's key is unique
 # in the whole graph until TEN-005 (migration 0030), so the two tenants cannot share one; the key
 # is `Unique`, and the scenario marks a message that no marker holds yet, so the node the statement
 # creates must carry the tenant. The consumer and the message id are shared plain values.

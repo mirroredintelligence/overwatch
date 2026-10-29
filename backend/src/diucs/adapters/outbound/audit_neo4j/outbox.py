@@ -110,7 +110,7 @@ _PENDING_SCENARIO: Final = Scenario(
     ),
 )
 
-# Converted (DEC-151): the message is created stamped with the tenant and listed for it. The
+# Converted (DEC-150): the message is created stamped with the tenant and listed for it. The
 # properties come from `Neo4jOutbox.add`, which sets only the fixed names and `payload_` ones, so
 # `props` cannot carry a `tenantId`. Lock, published and failed match by id and are not converted
 # yet (TEN-016).

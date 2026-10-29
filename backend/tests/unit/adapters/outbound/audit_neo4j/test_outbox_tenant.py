@@ -1,5 +1,5 @@
 """The outbox statement that creates a message carries the tenant, and the properties it is given
-cannot replace it (TEN-004, DEC-151 item 2). `Q-OUTBOX-ADD` is `CREATE (m {tenantId: $tenant}) SET
+cannot replace it (TEN-004, DEC-150 item 11). `Q-OUTBOX-ADD` is `CREATE (m {tenantId: $tenant}) SET
 m += $props`: a `tenantId` in `props` would overwrite the stamp, so `Neo4jOutbox.add` must never
 write one, whatever the payload holds.
 """

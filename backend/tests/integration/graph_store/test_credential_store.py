@@ -47,7 +47,7 @@ async def _seed_practitioners(driver: AsyncDriver) -> None:
             Practitioner(id="p2", active=True, display_name="Duty Manager Two", phone_hash=None)
         )
         # The resource store does not stamp the tenant yet (TEN-009), and the credential
-        # statements match the practitioner by tenant (DEC-151 item 3): stamp what it wrote.
+        # statements match the practitioner by tenant (DEC-150 item 12): stamp what it wrote.
         await tx.run(
             "MATCH (n:Practitioner) WHERE n.tenantId IS NULL SET n.tenantId = $tenant",
             tenant=current_tenant(),

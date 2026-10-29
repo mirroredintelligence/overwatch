@@ -41,7 +41,7 @@ _PRACTITIONER_KEY: Final = "Practitioner/{}"
 _STATUS_ACTIVE: Final = "active"
 _STATUS_REVOKED: Final = "revoked"
 
-# Scenarios of the converted statements (DEC-142 item 5, DEC-151). Both tenants have a practitioner
+# Scenarios of the converted statements (DEC-142 item 5, DEC-150). Both tenants have a practitioner
 # with the same key; the practitioner's id and the credential's device id are unique in the whole
 # graph until TEN-005 (migrations 0001 and 0026), so they are `Unique`: the generated test also
 # runs each statement with the other tenant's device id. A practitioner is written by the resource

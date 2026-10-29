@@ -24,7 +24,7 @@ from tests.support.query_probes import (
     scenario_gaps,
 )
 
-# The statements TEN-004 converted to prove the mechanism on real code (DEC-151). A later
+# The statements TEN-004 converted to prove the mechanism on real code (DEC-150). A later
 # conversion bundle adds its own ids to the registry and leaves this list alone.
 STARTER = frozenset(
     {

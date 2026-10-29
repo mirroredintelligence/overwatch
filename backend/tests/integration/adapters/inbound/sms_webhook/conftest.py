@@ -16,6 +16,7 @@ from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.memory_event_bus import ManualEventBus
 from diucs.application.ports.outbound.identity import HmacPhoneHasher
+from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.container import Container
 from diucs.domain.model.people import Practitioner
 from tests.support.api import api_app, test_container
@@ -23,6 +24,7 @@ from tests.support.neo4j import write_tx
 from tests.support.sms import (
     PUBLIC_BASE_URL,
     SENDER_E164,
+    TENANT_A,
     inbound_lines,
     phone_hash,
     secret_store,
@@ -40,7 +42,11 @@ __all__ = [
 ]
 
 
-async def seed_practitioner(driver: AsyncDriver, practitioner_id: str, number: str) -> None:
+async def seed_practitioner(
+    driver: AsyncDriver, practitioner_id: str, number: str, tenant: str = TENANT_A.tenant_id
+) -> None:
+    """Write the practitioner into one tenant, tenant A unless told. The webhook binds the tenant of
+    the number called, and the store reads only that tenant's nodes (TEN-009)."""
     person = Practitioner(
         id=practitioner_id,
         active=True,
@@ -51,7 +57,8 @@ async def seed_practitioner(driver: AsyncDriver, practitioner_id: str, number: s
     async def work(tx: AsyncManagedTransaction) -> None:
         await Neo4jPersonRepository(tx, ResourceStore(tx)).save_practitioner(person)
 
-    await write_tx(driver, work)
+    with bind_tenant(tenant):
+        await write_tx(driver, work)
 
 
 @pytest.fixture

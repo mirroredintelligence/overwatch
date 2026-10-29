@@ -16,18 +16,19 @@ from typing import Any
 import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
+from neo4j.exceptions import ClientError
 from neo4j.spatial import WGS84Point
-from neo4j.time import DateTime
+from neo4j.time import Date, DateTime, Time
 
 from diucs.adapters.outbound.graph_store import resource_store
-from diucs.adapters.outbound.graph_store.mapper import UnknownExtension
+from diucs.adapters.outbound.graph_store.mapper import RelSpec, UnknownExtension
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.tenancy import TenantNotBound, bind_tenant
 from diucs.domain.codes import BASE_URL
-from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
+from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
 from tests.support.tenant_seed import contracted_container, invariant_breaks
 from tests.unit.adapters.outbound.graph_store.test_mapper_backbone import (
@@ -378,50 +379,6 @@ async def test_a_stored_filter_code_is_written_with_its_coded_value(
     assert await _get(neo4j_driver, "Observation", OBS_ID) == _with_meta(_observation(), "1")
 
 
-async def test_a_replayed_create_with_the_same_key_returns_the_same_version(
-    neo4j_driver: AsyncDriver,
-) -> None:
-    async def first(tx: Any) -> str:
-        return await ResourceStore(tx, FixedClock(AT)).put(_org(), None, idempotency_key="k-create")
-
-    async def replay(tx: Any) -> str:
-        return await ResourceStore(tx, FixedClock(AT)).put(_org(), None, idempotency_key="k-create")
-
-    assert await write_tx(neo4j_driver, first) == "1"
-    assert await write_tx(neo4j_driver, replay) == "1"
-    assert await count_nodes(neo4j_driver, "ResourceVersion") == 0
-    assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(_org(), "1")
-
-
-async def test_a_replayed_update_with_the_same_key_writes_no_second_version(
-    neo4j_driver: AsyncDriver,
-) -> None:
-    await _put(neo4j_driver, _org("Before"), None)
-
-    async def update(tx: Any) -> str:
-        return await ResourceStore(tx, FixedClock(AT)).put(
-            _org("After"), "1", idempotency_key="k-update"
-        )
-
-    assert await write_tx(neo4j_driver, update) == "2"
-    assert await write_tx(neo4j_driver, update) == "2"
-    assert await count_nodes(neo4j_driver, "ResourceVersion") == 1
-    assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(_org("After"), "2")
-
-
-async def test_a_key_reused_for_a_different_write_is_refused(neo4j_driver: AsyncDriver) -> None:
-    async def first(tx: Any) -> str:
-        return await ResourceStore(tx, FixedClock(AT)).put(_org("A"), None, idempotency_key="k-x")
-
-    async def other(tx: Any) -> str:
-        return await ResourceStore(tx, FixedClock(AT)).put(_org("B"), None, idempotency_key="k-x")
-
-    assert await write_tx(neo4j_driver, first) == "1"
-    with pytest.raises(Conflict):
-        await write_tx(neo4j_driver, other)
-    assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(_org("A"), "1")
-
-
 async def test_a_refused_create_leaves_no_node_even_if_the_caller_commits(
     neo4j_driver: AsyncDriver,
 ) -> None:
@@ -491,14 +448,16 @@ def _template_text(template_id: str) -> str:
     return REGISTRY.instance(template_id, insert).cypher
 
 
-def test_the_resource_store_registers_exactly_these_templates() -> None:
+async def test_the_resource_store_registers_exactly_these_templates() -> None:
     registered = {t for t in REGISTRY.template_ids() if t.startswith("Q-RES-")}
 
     assert registered == RES_TEMPLATES
 
 
 @pytest.mark.parametrize("template_id", sorted(RES_TEMPLATES))
-def test_a_resource_store_template_is_converted_and_leaves_the_ratchet(template_id: str) -> None:
+async def test_a_resource_store_template_is_converted_and_leaves_the_ratchet(
+    template_id: str,
+) -> None:
     assert template_id in REGISTRY.template_ids()
     template = REGISTRY.template(template_id)
 
@@ -509,7 +468,7 @@ def test_a_resource_store_template_is_converted_and_leaves_the_ratchet(template_
 
 
 @pytest.mark.parametrize("template_id", sorted(RES_TEMPLATES))
-def test_every_node_pattern_with_a_label_or_a_key_names_the_tenant(template_id: str) -> None:
+async def test_every_node_pattern_with_a_label_or_a_key_names_the_tenant(template_id: str) -> None:
     """A cheap look at the text (the generated test is the proof): each node pattern that has a
     label or a property map names `tenantId: $tenant`. A bare variable bound earlier need not."""
     assert template_id in REGISTRY.template_ids()
@@ -526,7 +485,7 @@ def test_every_node_pattern_with_a_label_or_a_key_names_the_tenant(template_id: 
         )
 
 
-def test_no_resource_store_statement_matches_the_whole_graph_by_a_property_alone() -> None:
+async def test_no_resource_store_statement_matches_the_whole_graph_by_a_property_alone() -> None:
     """The label-less matches were typed or anchored on a typed root: no statement is a scan of
     every node (`MATCH (c) WHERE c.key ...`)."""
     for template_id in sorted(RES_TEMPLATES):
@@ -534,7 +493,7 @@ def test_no_resource_store_statement_matches_the_whole_graph_by_a_property_alone
         assert re.search(r"MATCH \(\w+\) WHERE", text) is None, template_id
 
 
-def test_the_idempotency_pair_and_the_put_argument_are_gone() -> None:
+async def test_the_idempotency_pair_and_the_put_argument_are_gone() -> None:
     assert "Q-RES-IDEM-GET" not in REGISTRY.template_ids()
     assert "Q-RES-IDEM-RECORD" not in REGISTRY.template_ids()
     assert "idempotency_key" not in inspect.signature(ResourceStore.put).parameters
@@ -542,7 +501,7 @@ def test_the_idempotency_pair_and_the_put_argument_are_gone() -> None:
 
 
 @pytest.mark.parametrize("name", ["tenantId", "sourceTenantId"])
-def test_the_store_refuses_and_strips_the_tenant_names(name: str) -> None:
+async def test_the_store_refuses_and_strips_the_tenant_names(name: str) -> None:
     assert name in resource_store.RESERVED_PROPERTIES
     with pytest.raises(ValidationFailed):
         resource_store._node_props_to_db("Organization/o1", {"name": "x", name: "tenant-b"})
@@ -551,7 +510,11 @@ def test_the_store_refuses_and_strips_the_tenant_names(name: str) -> None:
 
 async def _labels_and_tenants(driver: AsyncDriver) -> list[tuple[str, Any]]:
     async def work(tx: Any) -> list[tuple[str, Any]]:
-        rows = await (await tx.run("MATCH (n) RETURN labels(n) AS labels, n.tenantId AS t")).data()
+        rows = await (
+            await tx.run(
+                "MATCH (n) WHERE NOT n:Migration RETURN labels(n) AS labels, n.tenantId AS t"
+            )
+        ).data()
         return [(":".join(sorted(r["labels"])), r["t"]) for r in rows]
 
     return await read_tx(driver, work)
@@ -576,8 +539,8 @@ async def test_every_node_the_store_writes_carries_the_run_tenant(
 
     labels = {label for label, _ in found}
     for expected in (
-        "Resource:HealthcareService",
-        "Resource:Organization",
+        "HealthcareService:Resource",
+        "Organization:Resource",
         "HealthcareService_AvailableTime",
         "Concept",
         "CodeSystem",
@@ -587,7 +550,7 @@ async def test_every_node_the_store_writes_carries_the_run_tenant(
     ):
         assert expected in labels, expected
     # The reference targets that do not exist yet are placeholders, stamped like the rest.
-    assert any(label.startswith("Location") for label in labels) or "Resource:Location" in labels
+    assert "Location:Resource" in labels
     assert {tenant for _, tenant in found} == {tenant_id}
 
 
@@ -907,8 +870,16 @@ async def test_key_lookups_of_one_resource_do_not_grow_with_the_number_of_tenant
         "Q-RES-HISTORY": {"key": "Organization/o3"},
         "Q-RES-CLEAR-ROOT-RELS": {"key": "Organization/o3"},
         "Q-RES-CLEAR-OWNED": {"key": "Organization/o3", "prefix": "Organization/o3#"},
-        "Q-RES-LOAD-NODES": {"key": "Organization/o3", "prefix": "Organization/o3#"},
-        "Q-RES-LOAD-RELS": {"key": "Organization/o3", "prefix": "Organization/o3#"},
+        "Q-RES-LOAD-NODES": {
+            "resourceKey": "Organization/o3",
+            "key": "Organization/o3",
+            "prefix": "Organization/o3#",
+        },
+        "Q-RES-LOAD-RELS": {
+            "resourceKey": "Organization/o3",
+            "key": "Organization/o3",
+            "prefix": "Organization/o3#",
+        },
     }
     hits: dict[int, dict[str, int]] = {}
     filled = 0
@@ -922,3 +893,98 @@ async def test_key_lookups_of_one_resource_do_not_grow_with_the_number_of_tenant
 
     for template_id in probes:
         assert hits[50][template_id] <= hits[1][template_id] * 1.25 + 4, (template_id, hits)
+
+
+# The refusals and the failures of the store, each reached: the branches TEN-009 leaves in place.
+
+
+async def test_a_label_that_is_not_a_plain_name_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        resource_store._labels_text(("Not A Label",))
+
+
+async def test_a_type_and_an_id_that_are_not_fhir_are_refused(neo4j_driver: AsyncDriver) -> None:
+    with pytest.raises(ValidationFailed):
+        await _get(neo4j_driver, "lower", "x")
+    with pytest.raises(ValidationFailed):
+        await _put(neo4j_driver, {"resourceType": 5, "id": "x"}, None)
+    with pytest.raises(ValidationFailed):
+        await _put(neo4j_driver, {"resourceType": "Organization", "id": "not an id!"}, None)
+
+
+async def test_a_value_the_store_cannot_write_or_read_back_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        resource_store._to_db({"a": 1}, "field")
+    with pytest.raises(ValidationFailed):
+        resource_store._from_db(object())
+    with pytest.raises(ValidationFailed):
+        resource_store._format(DateTime(2026, 10, 25, 9, 0, 0))
+    with pytest.raises(ValidationFailed):
+        resource_store._format("2026-10-25")
+    assert resource_store._format(Time(9, 30, 5)) == "09:30:05"
+    assert resource_store._format(Date(2026, 10, 25)) == "2026-10-25"
+
+
+async def test_a_relationship_with_a_missing_end_is_not_found_and_links_nothing(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    async def work(tx: Any) -> None:
+        store = ResourceStore(tx, FixedClock(AT))
+        with pytest.raises(NotFound):
+            await store._write_rels([RelSpec("PART_OF", "Organization/a", "Organization/b", {})])
+        with pytest.raises(NotFound):
+            await store._link_shared([RelSpec("IN_SYSTEM", "Concept|s|c", "CodeSystem|s", {})])
+
+    await write_tx(neo4j_driver, work)
+
+
+async def test_loading_a_resource_that_is_not_there_is_not_found(neo4j_driver: AsyncDriver) -> None:
+    async def work(tx: Any) -> None:
+        with pytest.raises(NotFound):
+            await ResourceStore(tx, FixedClock(AT))._load("Organization/none", "Organization")
+
+    await read_tx(neo4j_driver, work)
+
+
+async def test_on_the_production_schema_a_second_tenants_same_id_is_a_conflict(
+    neo4j_driver: AsyncDriver, other_tenant_id: str
+) -> None:
+    """The single-property key `resource_id` stays until TEN-032, so the second tenant cannot take
+    an id the first holds there (DEC-164 item 10): `Conflict`, and the first one's is unchanged."""
+    await _put(neo4j_driver, _org("Of the run tenant"), None)
+
+    with pytest.raises(Conflict):
+        await _put_as(neo4j_driver, other_tenant_id, _org("Of the other"), None)
+
+    assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(
+        _org("Of the run tenant"), "1"
+    )
+
+
+async def test_a_database_error_that_is_not_a_constraint_passes_through() -> None:
+    class Failing:
+        async def run(self, query: str, parameters: Any = None, **kwargs: Any) -> Any:
+            raise ClientError("a statement failure that is not a constraint")
+
+    with pytest.raises(ClientError):
+        await ResourceStore(Failing(), FixedClock(AT)).put(_org(), None)  # type: ignore[arg-type]
+
+
+async def test_a_local_relationship_of_the_tenant_is_not_an_element_of_the_resource(
+    neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    await _put(neo4j_driver, _org(), None)
+
+    async def link(tx: Any) -> None:
+        await (
+            await tx.run(
+                "MATCH (o:Organization {key: $key, tenantId: $tenant}) "
+                "CREATE (o)-[:CHANNEL]->(:Concept {key: 'Concept|c|t', tenantId: $tenant})",
+                key=f"Organization/{ORG_ID}",
+                tenant=tenant_id,
+            )
+        ).consume()
+
+    await write_tx(neo4j_driver, link)
+
+    assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(_org(), "1")

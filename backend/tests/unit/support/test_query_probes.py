@@ -139,7 +139,7 @@ def test_the_universe_is_complete_in_a_fresh_interpreter() -> None:
         [sys.executable, "-c", code], cwd=backend, capture_output=True, text=True, check=True
     )
     count, *present = done.stdout.split()
-    assert int(count) >= 126
+    assert int(count) >= 125  # 126 at TEN-004; TEN-009 removed two statements and added one
     assert present == ["True", "True", "True"]
 
 

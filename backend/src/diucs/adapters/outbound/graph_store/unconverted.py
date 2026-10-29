@@ -6,8 +6,8 @@ The list may only shrink. A conversion bundle removes the ids of the statements 
 same commit that converts them, and lowers the number pinned in
 `tests/unit/adapters/outbound/graph_store/test_queries.py`. A new statement is never added here: the
 registry refuses a tenant statement that does not mention `$tenant` or has no scenario unless its id
-is on this list. The ids of the templates of the resource store stand for every instance of them
-(`Q-RES-UPSERT-ROOT` for `Q-RES-UPSERT-ROOT:Resource:Organization`).
+is on this list. The templates of the resource store left the list in TEN-009 (DEC-164); an id of
+a template would stand for every instance of it (`Q-X-Y` for `Q-X-Y:Resource:Organization`).
 
 While an id is on this list its statement may run with no scope bound, as before the seam; when the
 list is empty that exemption is removed from `run_query`.
@@ -104,23 +104,6 @@ UNCONVERTED: Final[frozenset[str]] = frozenset(
         "Q-REG-DRAFT-FOR",
         "Q-REG-FOR-SERVICE",
         "Q-REG-SET-PROPS",
-        "Q-RES-CLEAR-OWNED",
-        "Q-RES-CLEAR-ROOT-RELS",
-        "Q-RES-GET",
-        "Q-RES-HISTORY",
-        "Q-RES-IDEM-GET",
-        "Q-RES-IDEM-RECORD",
-        "Q-RES-LOAD-NODES",
-        "Q-RES-LOAD-RELS",
-        "Q-RES-LOCK",
-        "Q-RES-MERGE-NODES",
-        "Q-RES-MERGE-RELS",
-        "Q-RES-SET-POSITION",
-        "Q-RES-SHARED-CREATE",
-        "Q-RES-SHARED-FILL",
-        "Q-RES-SHARED-READ",
-        "Q-RES-UPSERT-NODE",
-        "Q-RES-UPSERT-ROOT",
         "Q-ROLE-CHANNEL",
         "Q-ROLE-COVER",
         "Q-SCOPE-ENSURE-LIST",

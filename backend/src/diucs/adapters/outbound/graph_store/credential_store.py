@@ -43,8 +43,8 @@ _STATUS_REVOKED: Final = "revoked"
 # Scenarios of the converted statements (DEC-142 item 5, DEC-150). Both tenants have a practitioner
 # with the same id and key, and a credential with the same device id: the keys are composite
 # (tenantId plus the key, migration 0031), so the two tenants share them and every statement is
-# proved with colliding keys (TEN-005). A practitioner is written by the resource store, which does
-# not stamp the tenant yet (TEN-009); the scenarios seed it stamped.
+# proved with colliding keys (TEN-005). A practitioner is written by the resource store, which
+# stamps the tenant since TEN-009; the scenarios seed it stamped the same way.
 _PRACTITIONER: Final = SeedNode(
     "practitioner",
     ("Resource", "Practitioner"),

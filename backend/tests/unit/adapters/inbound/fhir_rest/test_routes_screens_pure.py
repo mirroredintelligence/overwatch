@@ -110,7 +110,10 @@ class _Container:
 
 
 def _client(container: _Container) -> httpx.AsyncClient:
-    transport = httpx.ASGITransport(app=create_app(container), client=(ADDRESS, 4321))
+    app = create_app(container)
+    # The bearer check reads its secret store from the app, as the serving process sets it.
+    app.state.secrets = container.secrets
+    transport = httpx.ASGITransport(app=app, client=(ADDRESS, 4321))
     return httpx.AsyncClient(transport=transport, base_url=f"http://{ACTIVE_HOST}")
 
 

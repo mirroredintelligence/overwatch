@@ -45,12 +45,14 @@ class _Consumer:
 
 
 def _raw(body: bytes = b'{"service": "svc-1"}', **overrides: Any) -> Any:
+    # As the adapter sends it (TEN-020): the ids are qualified with the tenant and the tenant is
+    # an application property. A test that wants another shape overrides it.
     fields: dict[str, Any] = {
-        "message_id": "m-1",
+        "message_id": "tenant-a:m-1",
         "body": iter([body]),
         "subject": "CapacityReported",
         "session_id": None,
-        "application_properties": {},
+        "application_properties": {"tenantId": "tenant-a"},
         "delivery_count": 1,
     }
     fields.update(overrides)
@@ -94,7 +96,10 @@ async def test_dead_letter_dead_letters_with_the_reason() -> None:
 async def test_the_message_is_converted_for_the_consumer() -> None:
     consumer = _Consumer(Outcome("completed"))
     raw = _raw(
-        json.dumps({"a": 1}).encode(), message_id="m-9", session_id="svc-1", subject="BookingMade"
+        json.dumps({"a": 1}).encode(),
+        message_id="tenant-a:m-9",
+        session_id="tenant-a:svc-1",
+        subject="BookingMade",
     )
     await _runner(consumer).process(_Receiver(), raw)
     assert consumer.seen == [
@@ -104,13 +109,17 @@ async def test_the_message_is_converted_for_the_consumer() -> None:
             event_type="BookingMade",
             payload={"a": 1},
             session_id="svc-1",
+            tenant_id="tenant-a",
         )
     ]
 
 
 async def test_the_event_type_falls_back_to_the_application_property() -> None:
     consumer = _Consumer(Outcome("completed"))
-    raw = _raw(subject=None, application_properties={b"event_type": b"PromptDue"})
+    raw = _raw(
+        subject=None,
+        application_properties={b"tenantId": b"tenant-a", b"event_type": b"PromptDue"},
+    )
     await _runner(consumer).process(_Receiver(), raw)
     assert consumer.seen[0].event_type == "PromptDue"
 
@@ -131,22 +140,47 @@ async def test_the_tenant_comes_from_the_tenant_id_application_property(
     assert consumer.seen[0].tenant_id == "tenant-a"
 
 
-@pytest.mark.parametrize("value", [None, 7])
-async def test_a_tenant_property_that_is_not_text_is_not_a_tenant(value: Any) -> None:
-    consumer = _Consumer(Outcome("completed"))
+@pytest.mark.parametrize("value", [None, "", 7, True, b"\xff", "Tenant-A", "a:b"])
+async def test_a_tenant_property_that_is_not_a_tenant_dead_letters_the_message(value: Any) -> None:
+    # TEN-020 (rule 9): the reader is `from_wire`, and a message with no usable tenant is the
+    # existing "malformed message" dead letter; TEN-025 gives it the four fixed reasons.
+    receiver, consumer = _Receiver(), _Consumer(Outcome("completed"))
     raw = _raw(application_properties={"tenantId": value})
 
-    await _runner(consumer).process(_Receiver(), raw)
+    await _runner(consumer).process(receiver, raw)
 
-    assert consumer.seen[0].tenant_id is None
+    assert consumer.seen == []
+    assert receiver.calls == [("dead-letter", ("malformed message", "malformed message"))]
 
 
-async def test_a_message_with_no_tenant_property_reaches_the_consumer_with_none() -> None:
-    consumer = _Consumer(Outcome("completed"))
+async def test_a_message_with_no_tenant_property_is_dead_lettered_before_the_consumer() -> None:
+    receiver, consumer = _Receiver(), _Consumer(Outcome("completed"))
 
-    await _runner(consumer).process(_Receiver(), _raw())
+    await _runner(consumer).process(receiver, _raw(application_properties={}))
 
-    assert consumer.seen[0].tenant_id is None
+    assert consumer.seen == []
+    assert receiver.calls == [("dead-letter", ("malformed message", "malformed message"))]
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"message_id": "m-1"},
+        {"message_id": "tenant-b:m-1"},
+        {"session_id": "tenant-b:svc-1"},
+        {"session_id": "svc-1"},
+    ],
+    ids=["id-not-qualified", "id-of-another-tenant", "session-of-another-tenant", "session-bare"],
+)
+async def test_ids_that_do_not_belong_to_the_property_tenant_dead_letter_the_message(
+    overrides: dict[str, Any],
+) -> None:
+    receiver, consumer = _Receiver(), _Consumer(Outcome("completed"))
+
+    await _runner(consumer).process(receiver, _raw(**overrides))
+
+    assert consumer.seen == []
+    assert receiver.calls == [("dead-letter", ("malformed message", "malformed message"))]
 
 
 @pytest.mark.parametrize(

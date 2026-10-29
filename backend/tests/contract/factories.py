@@ -31,7 +31,13 @@ from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
 from diucs.adapters.testing.memory_event_bus import ManualEventBus
 from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS, BusMessage, EventBus
+from diucs.application.ports.outbound.event_bus import (
+    QUEUES,
+    TOPICS,
+    BusMessage,
+    EventBus,
+    from_wire,
+)
 from diucs.application.ports.outbound.identity import CodeStore
 from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.settings import Settings
@@ -217,13 +223,15 @@ def session_open_window(wait: timedelta) -> float:
 
 
 def _as_bus_message(message: ServiceBusReceivedMessage, name: str) -> BusMessage:
-    payload = json.loads(b"".join(message.body))
-    return BusMessage(
-        id=message.message_id or "",
-        topic=name,
-        event_type=message.subject or "",
-        payload=payload,
+    """The received message through the one reader of the tenant (TEN-020): a message with no
+    usable tenant fails here, as it would be dead-lettered by a consumer."""
+    return from_wire(
+        name,
+        message_id=message.message_id,
         session_id=message.session_id,
+        subject=message.subject,
+        properties=message.application_properties,
+        payload=json.loads(b"".join(message.body)),
     )
 
 

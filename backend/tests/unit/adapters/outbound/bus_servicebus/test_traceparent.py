@@ -37,6 +37,7 @@ def _message(**overrides: Any) -> BusMessage:
         "id": "cap-1",
         "topic": "capacity.events",
         "event_type": "CapacityReported",
+        "tenant_id": "tenant-a",
     }
     fields.update(overrides)
     return BusMessage(**fields)

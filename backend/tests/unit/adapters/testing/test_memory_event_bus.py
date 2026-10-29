@@ -11,7 +11,8 @@ import pytest
 
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.event_bus import BusMessage
+from diucs.application.ports.outbound.event_bus import BusMessage, WireView
+from diucs.application.tenancy import bind_tenant
 from diucs.domain.errors import ValidationFailed
 
 LONDON = ZoneInfo("Europe/London")
@@ -24,7 +25,9 @@ def _at(hour: int, minute: int) -> datetime:
 
 
 def _message(id_: str, topic: str = "scheduled.work") -> BusMessage:
-    return BusMessage(id=id_, topic=topic, event_type="ScheduleWork", payload={"n": 1})
+    return BusMessage(
+        id=id_, topic=topic, event_type="ScheduleWork", payload={"n": 1}, tenant_id="tenant-a"
+    )
 
 
 def _bus() -> ManualEventBus:
@@ -99,6 +102,7 @@ async def test_capacity_events_must_carry_the_service_id_as_session_id() -> None
         event_type="CapacityReported",
         payload={},
         session_id="service-1",
+        tenant_id="tenant-a",
     )
     await bus.publish(sessioned)
     assert bus.published_to("capacity.events") == [sessioned]
@@ -172,3 +176,148 @@ async def test_enqueueing_to_an_unknown_queue_or_a_topic_is_refused_and_records_
     with pytest.raises(ValidationFailed):
         await bus.enqueue(name, _message("e-1"))
     assert bus.enqueued_to(name) == []
+
+
+# -------------------------------------------------------------- TEN-020: the tenant
+
+
+def _capacity(id_: str, tenant: str, session: str = "svc-1") -> BusMessage:
+    return BusMessage(
+        id=id_,
+        topic="capacity.events",
+        event_type="CapacityReported",
+        session_id=session,
+        tenant_id=tenant,
+    )
+
+
+async def test_two_tenants_may_publish_the_same_local_id_and_session_and_both_are_kept() -> None:
+    bus = _bus()
+    first, second = _capacity("c-1", "tenant-a"), _capacity("c-1", "tenant-b")
+    await bus.publish(first)
+    await bus.publish(second)
+
+    assert bus.published_to("capacity.events") == [first, second]
+    assert bus.published_to("capacity.events", "tenant-a") == [first]
+    assert bus.published_to("capacity.events", "tenant-b") == [second]
+    assert bus.published_to("capacity.events", "tenant-c") == []
+
+
+async def test_the_wire_form_of_two_tenants_messages_differs_in_both_ids() -> None:
+    bus = _bus()
+    first, second = _capacity("c-1", "tenant-a"), _capacity("c-1", "tenant-b")
+
+    wire_a, wire_b = bus.wire(first), bus.wire(second)
+
+    assert isinstance(wire_a, WireView)
+    assert wire_a.message_id == "tenant-a:c-1" and wire_b.message_id == "tenant-b:c-1"
+    assert wire_a.session_id == "tenant-a:svc-1" and wire_b.session_id == "tenant-b:svc-1"
+    assert wire_a.application_properties["tenantId"] == "tenant-a"
+
+
+async def test_due_returns_each_message_with_its_own_tenant() -> None:
+    bus = _bus()
+    await bus.schedule(QUEUE, _capacity("w-1", "tenant-a"), _at(14, 21))
+    await bus.schedule(QUEUE, _capacity("w-1", "tenant-b"), _at(14, 21))
+
+    due = bus.due(_at(15, 0))
+
+    assert [(queue, message.tenant_id) for queue, message in due] == [
+        (QUEUE, "tenant-a"),
+        (QUEUE, "tenant-b"),
+    ]
+
+
+async def test_an_enqueued_message_keeps_its_tenant() -> None:
+    bus = _bus()
+    await bus.enqueue("inbound.replies", _capacity("e-1", "tenant-b"))
+
+    assert [m.tenant_id for m in bus.enqueued_to("inbound.replies")] == ["tenant-b"]
+
+
+async def _publish(bus: ManualEventBus, message: BusMessage) -> None:
+    await bus.publish(message)
+
+
+async def _enqueue(bus: ManualEventBus, message: BusMessage) -> None:
+    await bus.enqueue("inbound.replies", message)
+
+
+async def _schedule(bus: ManualEventBus, message: BusMessage) -> None:
+    await bus.schedule(QUEUE, message, _at(15, 0))
+
+
+_SENDS = [
+    pytest.param(_publish, id="publish"),
+    pytest.param(_enqueue, id="enqueue"),
+    pytest.param(_schedule, id="schedule"),
+]
+
+
+def _plain(**changes: object) -> BusMessage:
+    fields: dict[str, object] = {
+        "id": "m-1",
+        "topic": "messages.outbound",
+        "event_type": "SendMessage",
+        "session_id": "svc-1",
+        "tenant_id": "tenant-a",
+    }
+    fields.update(changes)
+    return BusMessage(**fields)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("send", _SENDS)
+async def test_a_message_the_adapter_refuses_for_length_is_refused_by_the_fake(
+    send: object,
+) -> None:
+    bus = _bus()
+
+    with pytest.raises(ValidationFailed, match="id"):
+        await send(bus, _plain(id="x" * 120))  # type: ignore[operator]
+
+    assert (
+        bus.published == []
+        and bus.enqueued_to("inbound.replies") == []
+        and bus.due(_at(23, 0)) == []
+    )
+
+
+@pytest.mark.parametrize("send", _SENDS)
+async def test_a_message_the_adapter_refuses_for_the_bound_tenant_is_refused_by_the_fake(
+    send: object,
+) -> None:
+    bus = _bus()
+
+    with bind_tenant("tenant-b"), pytest.raises(ValidationFailed, match="tenant_id"):
+        await send(bus, _plain())  # type: ignore[operator]
+
+    assert (
+        bus.published == []
+        and bus.enqueued_to("inbound.replies") == []
+        and bus.due(_at(23, 0)) == []
+    )
+
+
+@pytest.mark.parametrize("send", _SENDS)
+async def test_a_message_the_adapter_refuses_for_a_live_link_is_refused_by_the_fake(
+    send: object,
+) -> None:
+    bus = _bus()
+
+    with pytest.raises(ValidationFailed, match="payload"):
+        await send(bus, _plain(payload={"token": "x"}))  # type: ignore[operator]
+
+    assert (
+        bus.published == []
+        and bus.enqueued_to("inbound.replies") == []
+        and bus.due(_at(23, 0)) == []
+    )
+
+
+async def test_a_message_for_the_bound_tenant_is_accepted() -> None:
+    bus = _bus()
+
+    with bind_tenant("tenant-a"):
+        await bus.publish(_plain())
+
+    assert len(bus.published) == 1

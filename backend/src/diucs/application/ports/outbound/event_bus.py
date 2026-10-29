@@ -6,11 +6,13 @@ implement EventBus. A use case never calls schedule or cancel: it writes a Sched
 the outbox relay (I03) makes the bus call.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 
 from diucs.application.work import ScheduledWork, WorkKind
+from diucs.domain.errors import DomainError
 
 QUEUES: frozenset[str] = frozenset({"inbound.replies", "inbound.receipts", "scheduled.work"})
 TOPICS: frozenset[str] = frozenset(
@@ -40,6 +42,59 @@ class BusMessage:
     # adapter sends it as the `traceparent` application property; a consumer opens its span under
     # it. None when there is no trace.
     traceparent: str | None = None
+
+
+# RED STUBS (TEN-020): the smallest code that lets the tests import. Replaced in the next commit.
+TENANT_PROPERTY: Final = "tenantId"
+REASON_TENANT_MISSING: Final = "tenant-missing"
+REASON_TENANT_MALFORMED: Final = "tenant-malformed"
+REASON_TENANT_MISMATCH: Final = "tenant-mismatch"
+TENANT_REJECTION_REASONS: Final = (
+    REASON_TENANT_MISSING,
+    REASON_TENANT_MALFORMED,
+    REASON_TENANT_MISMATCH,
+)
+
+
+class MessageTenantError(DomainError):
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+@dataclass(frozen=True, slots=True)
+class WireView:
+    message_id: str
+    session_id: str | None
+    subject: str
+    application_properties: Mapping[str, str]
+
+
+def to_wire(message: BusMessage) -> WireView:
+    return WireView(message.id, message.session_id, message.event_type, {})
+
+
+def from_wire(
+    topic: str,
+    *,
+    message_id: str | None,
+    session_id: str | None,
+    subject: str | None,
+    properties: Mapping[str | bytes, object] | None,
+    payload: object,
+) -> BusMessage:
+    return BusMessage(
+        id=message_id or "x",
+        topic=topic,
+        event_type=subject or "x",
+        payload=payload if isinstance(payload, dict) else {},
+        session_id=session_id,
+        tenant_id="",
+    )
+
+
+def check_publishable(message: BusMessage) -> None:
+    return None
 
 
 class EventBus(Protocol):

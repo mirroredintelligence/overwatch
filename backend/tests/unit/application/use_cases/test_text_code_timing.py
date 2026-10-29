@@ -230,9 +230,12 @@ async def test_only_a_known_number_is_enqueued_to_be_sent() -> None:
     assert SEND_CODE not in [m.event_type for m in unknown_calls.outbox]
 
 
-async def test_the_send_carries_the_tenant_and_a_sealed_code_never_the_digits() -> None:
+async def test_the_send_carries_a_sealed_code_never_the_digits_and_no_tenant_in_the_body() -> None:
+    # TEN-020: the tenant is a message property the relay sets from the row's own tenant, never a
+    # field of the body (a body copy would be a second, forgeable source), and a bus message whose
+    # payload names a tenant is refused. The consumer opens the sealed code with the bound tenant.
     _, known_calls = await _request(KNOWN_MOBILE, {KNOWN_HASH: _practitioner(KNOWN_HASH)}, {})
     (message,) = known_calls.outbox
-    assert message.payload["tenantId"] == "default"
+    assert not {"tenantId", "tenant_id", "tenant"} & set(message.payload)
     assert message.payload["sealed_code"].startswith("sealed:6:")
     assert KNOWN_MOBILE not in repr(message.payload)

@@ -566,6 +566,36 @@ async def test_a_service_with_no_figure_yet_is_not_grouped(
     assert rows["ucr-east"]["messageId"] == "C2"
 
 
+@pytest.mark.parametrize(
+    ("figure_at", "grouped"),
+    [(_london(8, 0), True), (_london(8, 0) - timedelta(minutes=1), False)],
+    ids=["exactly two hours old", "two hours and a minute old"],
+)
+@pytest.mark.parametrize("stale", ["ucr-east", "ucr-west"])
+async def test_a_service_whose_figure_is_over_two_hours_old_is_not_grouped(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    figure_at: datetime,
+    grouped: bool,
+    stale: str,
+) -> None:
+    # C9 shows no "as of" time, and U05 refuses a Y for a figure more than 2 hours old when the
+    # prompt was sent. So the group never offers a Y that will be refused: that service is prompted
+    # on its own with C1, which shows the date and time of its figure (DEC-156 item 4).
+    await _seed_phone(uow_factory, seed_service, WEST, EAST, reports=False)
+    for service_id in ("ucr-west", "ucr-east"):
+        at = figure_at if service_id == stale else _london(9, 30)
+        await _seed_report(uow_factory, service_id, effective_at=at)
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+
+    result = await use_case.execute(_command("ucr-west"))
+
+    assert (result.grouped_service_ids != ()) is grouped
+    rows = await _communications(neo4j_driver)
+    assert [r["messageId"] for r in rows] == (["C9", "C9"] if grouped else ["C1"])
+
+
 async def test_the_triggering_service_with_no_figure_is_not_grouped_either(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

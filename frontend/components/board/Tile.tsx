@@ -87,7 +87,9 @@ export function Tile({ entry, now }: { entry: BoardEntry; now: string | Date }) 
       </div>
 
       <div className={styles.figure}>
-        {figure.big === null ? null : <p className={styles.number}>{figure.big}</p>}
+        {figure.big === null ? null : <p className={styles.number} data-el="WALL-TILE-NUMBER">
+            {figure.big}
+          </p>}
         <div className={styles.words}>
           <p className={styles.unit}>{figure.unit}</p>
           {entry.comment ? (

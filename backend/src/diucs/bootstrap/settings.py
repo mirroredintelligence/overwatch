@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     profile: Literal["test", "production"] = "test"
     minutes_per_avoided_call: int | None = None
     """Minutes one phone call takes, for the week summary's time-back estimate (U35). Unset is not
-    guessed: the summary shows [x] until the owner sets it (DEC-175)."""
+    guessed: the summary shows [x] until the owner sets it (fragments/U35.md)."""
     base_url: str = "https://diucs.example/"
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"

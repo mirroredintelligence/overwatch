@@ -16,10 +16,12 @@ of the container (TEN-007). No secret store exists beyond the fake: `build` take
 process that serves, and without one every secret reads as not found (fail closed).
 """
 
+import random
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
@@ -29,6 +31,8 @@ from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.adapters.testing.memory_cache import InMemoryCache
+from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.tenants import TenantDirectory
@@ -38,6 +42,7 @@ from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
+TEST_RNG_SEED = 20261023
 
 
 @dataclass(frozen=True)
@@ -52,6 +57,11 @@ class Container:
     tenants: TenantDirectory
     # Secrets by reference (DEC-131 item 4): the tenant record holds the reference, never the value.
     secrets: SecretStore
+    # The cache: Redis in production, short-lived counts and keys only (DEC-003). The pairing
+    # limits of the wall screen routes (R15) are kept here.
+    cache: Cache
+    # The random source of pairing codes and device tokens (U10): cryptographic in production.
+    rng: random.Random
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -98,7 +108,8 @@ class NoSecrets:
 def build(settings: Settings, *, secrets: SecretStore | None = None) -> Container:
     """Wire the production-facing adapters. Profiles differ only in external providers,
     which later tasks add; the clock and ids are the same in every profile. Connects to nothing:
-    call startup() to open Neo4j. `secrets` is the process's secret store, if it has one."""
+    call startup() to open Neo4j. `secrets` is the process's secret store, if it has one. The
+    Redis client connects on first use, and the random source is the operating system's."""
     neo4j = _neo4j_connection(settings)
     clock = SystemClock()
     return Container(
@@ -108,6 +119,8 @@ def build(settings: Settings, *, secrets: SecretStore | None = None) -> Containe
         uow_factory=neo4j_uow_factory(neo4j, clock=clock),
         tenants=Neo4jTenantDirectory(neo4j),
         secrets=NoSecrets() if secrets is None else secrets,
+        cache=RedisCache.from_url(settings.redis_url),
+        rng=random.SystemRandom(),
     )
 
 
@@ -117,9 +130,12 @@ def build_for_tests(
     *,
     neo4j: Neo4jConnection,
     secrets: SecretStore | None = None,
+    cache: Cache | None = None,
+    rng: random.Random | None = None,
 ) -> Container:
     """Wire the container for tests: a fixed clock and sequential ids unless overridden, and a
-    recording fake secret store that holds nothing unless one is passed.
+    recording fake secret store that holds nothing unless one is passed. The cache is an in-memory
+    one on the same clock, and the random source is seeded, so a test's codes are repeatable.
 
     The connection is required, so each test owns one connection (a fixture) and shares it with
     every container it builds. Nothing here creates a driver. The fixture closes the connection.
@@ -132,4 +148,6 @@ def build_for_tests(
         uow_factory=neo4j_uow_factory(neo4j, clock=resolved_clock),
         tenants=Neo4jTenantDirectory(neo4j),
         secrets=FixedSecretStore({}) if secrets is None else secrets,
+        cache=InMemoryCache(resolved_clock) if cache is None else cache,
+        rng=random.Random(TEST_RNG_SEED) if rng is None else rng,
     )

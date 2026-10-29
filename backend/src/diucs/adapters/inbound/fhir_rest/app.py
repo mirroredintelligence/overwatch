@@ -56,13 +56,20 @@ def create_app(container: ApiContainer) -> FastAPI:
     fhir.include_router(capability.router)
     app.include_router(fhir)
     # Imported here: the route modules depend on auth, which imports this module (DEC-111).
-    from diucs.adapters.inbound.fhir_rest import routes_board, routes_events, routes_services
+    from diucs.adapters.inbound.fhir_rest import (
+        routes_board,
+        routes_events,
+        routes_screens,
+        routes_services,
+    )
 
     app.include_router(routes_events.router)
     # $board must be routed before any HealthcareService/{id} route, or {id} would take it.
     app.include_router(routes_board.router)
     app.include_router(routes_services.router)
     routes_services.register_capabilities()
+    # Wall screen pairing (R15): JSON routes outside /fhir, over the U10 use cases.
+    app.include_router(routes_screens.router)
 
     # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
     # this one module wire it in.

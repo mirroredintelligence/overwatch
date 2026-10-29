@@ -236,6 +236,21 @@ LEAKY: dict[str, tuple[str, str, Scenario, FindingKind]] = {
         ),
         FindingKind.FOREIGN_ID_EFFECT,
     ),
+    "Q-TEST-LEAK-OWN-STATE": (
+        "MATCH (n:ProbeThing {id: $id, tenantId: $tenant}) "
+        "OPTIONAL MATCH (o:ProbeThing {id: $id}) WHERE o.tenantId <> $tenant "
+        "SET n.note = coalesce(o.note, 'alone') RETURN count(n) AS changed",
+        "write",
+        _scenario(
+            "set a note from the other tenant's node, returning only a count",
+            _THING_PARAMS,
+            Expect(
+                rows=({"changed": 1},),
+                after=(NodeSpec(THING, {"id": "thing-1", "note": "alone"}),),
+            ),
+        ),
+        FindingKind.OWN_STATE_DIFFERS,
+    ),
     "Q-TEST-LEAK-WRONG-ROWS": (
         _GET,
         "read",
@@ -441,6 +456,24 @@ async def test_a_leak_that_shows_in_one_direction_is_found_in_the_other_too(
         neo4j_driver, private, ["Q-TEST-LEAK-LABEL-ONLY"], tenant_id, other_tenant_id
     )
     assert {f.phase for f in findings} == {"A-then-B", "B-then-A"}
+
+
+async def test_a_statement_with_no_scenario_is_not_run_by_the_runner(
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    """`scenario_gaps` and the ratchet refuse it; the runner has nothing to run for it."""
+    registry = QueryRegistry(unconverted=frozenset({"Q-TEST-BARE"}))
+    bare = NamedQuery(id="Q-TEST-BARE", cypher="MATCH (n:ProbeThing) RETURN n", mode="read")
+    registry.register(bare)
+    findings = await run_isolation(
+        neo4j_driver,
+        {"Q-TEST-BARE": bare},
+        registry=registry,
+        tenant_a=tenant_id,
+        tenant_b=other_tenant_id,
+    )
+    assert findings == []
+    assert scenario_gaps({"Q-TEST-BARE": bare}, frozenset()) != []
 
 
 async def test_a_probe_error_names_the_exception_class_and_never_the_text_or_a_value(

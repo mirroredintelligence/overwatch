@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 from fhir.resources.R4B.structuredefinition import StructureDefinition
 
 from diucs.adapters.outbound.fhir_validator.validator import (
@@ -93,3 +94,22 @@ def test_every_profile_file_parses_and_has_a_rule_and_every_rule_has_a_file() ->
         definition = StructureDefinition.model_validate(json.loads(path.read_text("utf-8")))
         assert definition.url == profile_url(path.stem)
     assert set(PROFILE_NAMES) == EXPECTED_PROFILES
+
+
+@pytest.mark.parametrize(
+    "at", [None, "2026-10-23", "2026-10-23T10:00:00", "2026-10-23T10:00Z", "2026-13-45T10:00:00Z"]
+)
+async def test_a_report_time_needs_seconds_a_zone_and_a_real_date(at: str | None) -> None:
+    resource = _capacity_observation()
+    if at is None:
+        del resource["effectiveDateTime"]
+    else:
+        resource["effectiveDateTime"] = at
+    issues = await ProfileValidator().validate(resource, CAPACITY)
+    assert "Observation.effectiveDateTime" in _paths(issues)
+
+
+async def test_a_resource_of_another_type_is_refused_at_its_resource_type() -> None:
+    resource = {"resourceType": "Patient", "id": "p-1"}
+    issues = await ProfileValidator().validate(resource, CAPACITY)
+    assert _paths(issues) == ["Observation.resourceType"]

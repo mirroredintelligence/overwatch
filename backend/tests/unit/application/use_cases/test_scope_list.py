@@ -17,6 +17,7 @@ from diucs.application.use_cases.scope_list import (
 )
 from diucs.domain.codes import Role, ScopeFlag, ServiceCategory
 from diucs.domain.errors import NotAllowed, ValidationFailed
+from tests.support.actors import ACTOR_TENANT
 
 
 def actor(role: Role) -> Actor:
@@ -26,6 +27,7 @@ def actor(role: Role) -> Actor:
         device_id=None,
         channel="web",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
 
 

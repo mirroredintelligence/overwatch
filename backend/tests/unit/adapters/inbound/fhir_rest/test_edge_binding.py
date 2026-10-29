@@ -14,12 +14,13 @@ Sample identifiers only.
 
 import asyncio
 import json
+from collections.abc import Iterator
 from datetime import timedelta
 from typing import Annotated, Any
 
 import pytest
 from fastapi import Depends, FastAPI, Request
-from fastapi.routing import APIRoute
+from fastapi.routing import APIRoute, _IncludedRouter
 from httpx import ASGITransport, AsyncClient
 
 from diucs.adapters.inbound.fhir_rest.app import create_app
@@ -52,7 +53,9 @@ def _scope_text() -> str | None:
     return None if scope is None else str(scope)
 
 
-def build(directory: RecordingTenantDirectory, *, container: EdgeContainer | None = None) -> FastAPI:
+def build(
+    directory: RecordingTenantDirectory, *, container: EdgeContainer | None = None
+) -> FastAPI:
     container = container or EdgeContainer(tenants=directory)
     app = create_app(container)  # type: ignore[arg-type]
     app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
@@ -91,6 +94,10 @@ def bearer(
 ) -> dict[str, str]:
     token = issue_test_token(role, [], sub, tenant=tenant, epoch=epoch)
     return {"Authorization": f"Bearer {token}"}
+
+
+def json_bearer(*args: Any, **kwargs: Any) -> dict[str, str]:
+    return {**bearer(*args, **kwargs), "Content-Type": "application/json"}
 
 
 # ---------------------------------------------------------------- the binding
@@ -225,9 +232,7 @@ async def test_a_body_that_names_a_tenant_changes_nothing() -> None:
     body = json.dumps({"tenant": TENANT_B, "tenantId": TENANT_B, "tenant_id": TENANT_B})
 
     async with client_for(app) as client:
-        response = await client.post(
-            f"{PROBE}/write", headers=bearer(TENANT_A), content=body
-        )
+        response = await client.post(f"{PROBE}/write", headers=json_bearer(TENANT_A), content=body)
 
     assert response.json()["scope"] == TENANT_A
 
@@ -321,7 +326,9 @@ async def test_a_read_only_suspension_lets_only_the_tenant_admin_read() -> None:
             f"{PROBE}/async", headers=bearer(TENANT_A, Role.TENANT_ADMIN, epoch=2)
         )
         admin_write = await client.post(
-            f"{PROBE}/write", headers=bearer(TENANT_A, Role.TENANT_ADMIN, epoch=2), content="{}"
+            f"{PROBE}/write",
+            headers=json_bearer(TENANT_A, Role.TENANT_ADMIN, epoch=2),
+            content="{}",
         )
         lead_read = await client.get(f"{PROBE}/async", headers=bearer(TENANT_A, Role.LEAD, epoch=2))
 
@@ -355,7 +362,7 @@ async def test_the_directory_is_not_asked_when_the_token_is_bad() -> None:
 
 
 async def test_a_directory_that_fails_fails_closed_and_runs_no_handler() -> None:
-    directory = RecordingTenantDirectory(RuntimeError("the directory is down"))
+    directory = RecordingTenantDirectory()
     directory.put(RuntimeError("the directory is down"), TENANT_A)
     app = build(directory)
     ran = False
@@ -420,7 +427,9 @@ async def test_a_token_newer_than_a_fresh_record_is_refused_after_one_more_read(
     assert directory.asked == [TENANT_A]  # a first read is already fresh: no second one
 
 
-async def test_a_token_newer_than_a_cached_record_is_refused_when_the_record_is_still_behind() -> None:
+async def test_a_token_newer_than_a_cached_record_is_refused_when_the_record_is_still_behind() -> (
+    None
+):
     directory = active_tenants(TENANT_A, epoch=1)
     app = build(directory)
     async with client_for(app) as client:
@@ -500,16 +509,22 @@ async def test_an_unknown_tenant_is_not_cached() -> None:
 TENANT_FREE = {
     ("GET", "/health"): "no data, no tenant",
     ("GET", "/fhir/metadata"): "the capability statement names no tenant data",
+    ("PUT", "/fhir/Observation/{report_id}"): "refuses every write with 405, reads nothing (R04)",
+    ("PATCH", "/fhir/Observation/{report_id}"): "refuses every write with 405, reads nothing (R04)",
+    (
+        "DELETE",
+        "/fhir/Observation/{report_id}",
+    ): "refuses every write with 405, reads nothing (R04)",
 }
 BINDS_ITSELF = {
     ("POST", "/screens/pairing"): "tenant from the host (R15)",
     ("GET", "/screens/pairing/{pairing_id}"): "tenant from the host (R15)",
-    ("POST", "/webhooks/sms/reply"): "tenant from the number called and the account (I07)",
-    ("POST", "/webhooks/sms/status"): "tenant from the number called and the account (I07)",
+    ("POST", "/webhooks/sms/twilio"): "tenant from the number called and the account (I07)",
+    ("POST", "/webhooks/sms/twilio/status"): "tenant from the account and the message (I07)",
     ("GET", "/links/{token}"): "tenant from the link token record (L01)",
     ("POST", "/links/{token}"): "tenant from the link token record (L01)",
     ("POST", "/links/{token}/renew"): "tenant from the link token record (L01)",
-    ("POST", "/synthetic/prompt"): "the synthetic hook's own configured tenant (O09)",
+    ("POST", "/test/synthetic/prompt"): "the synthetic hook's own configured tenant (O09)",
 }
 
 
@@ -519,12 +534,26 @@ def _depends_on_actor(dependant: Any) -> bool:
     return any(_depends_on_actor(child) for child in dependant.dependencies)
 
 
-def _routes(app: FastAPI) -> dict[tuple[str, str], APIRoute]:
-    found: dict[tuple[str, str], APIRoute] = {}
-    for route in app.routes:
-        if isinstance(route, APIRoute):
-            for method in route.methods - {"HEAD", "OPTIONS"}:
-                found[(method, route.path)] = route
+def _effective_routes(routes: Any) -> Iterator[Any]:
+    """Every route of the app with its full path and dependencies. FastAPI includes a router
+    lazily (`_IncludedRouter`, whose `effective_candidates` carry the prefix and the router's
+    dependencies), so the walk uses those. The lock file pins FastAPI; a shape this walk does not
+    know fails the test instead of passing it by missing a route."""
+    for route in routes:
+        if isinstance(route, APIRoute) or hasattr(route, "dependant") and route.dependant:
+            yield route
+        elif isinstance(route, _IncludedRouter):
+            yield from _effective_routes(route.effective_candidates())
+            yield from _effective_routes(route.effective_low_priority_routes())
+        else:
+            raise AssertionError(f"a route of a kind the registry test does not know: {route!r}")
+
+
+def _routes(app: FastAPI) -> dict[tuple[str, str], Any]:
+    found: dict[tuple[str, str], Any] = {}
+    for route in _effective_routes(app.routes):
+        for method in route.methods - {"HEAD", "OPTIONS"}:
+            found[(method, route.path)] = route
     return found
 
 

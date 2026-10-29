@@ -4,8 +4,17 @@ import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from diucs.application.use_cases.board_projector import WALL_ACTOR, board_from_dict, board_to_dict
-from diucs.application.use_cases.query_board import Board, BoardEntry
+import pytest
+
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.memory_cache import InMemoryCache
+from diucs.application.tenancy import bind_tenant
+from diucs.application.use_cases.board_projector import (
+    BoardProjector,
+    board_from_dict,
+    board_to_dict,
+)
+from diucs.application.use_cases.query_board import Board, BoardEntry, QueryBoardQuery
 from diucs.domain.codes import Role, ServiceCategory, Status
 from diucs.domain.rules.pressure import Pressure
 
@@ -56,6 +65,29 @@ def test_the_encoding_uses_iso_times_and_plain_string_codes() -> None:
     assert type(encoded["pressure"]) is str
 
 
-def test_the_system_actor_is_the_wall_role() -> None:
-    assert WALL_ACTOR.role is Role.WALL
-    assert WALL_ACTOR.practitioner_id is None
+class _RecordingQueryBoard:
+    def __init__(self) -> None:
+        self.queries: list[QueryBoardQuery] = []
+
+    async def execute(self, query: QueryBoardQuery) -> Board:
+        self.queries.append(query)
+        return _every_status_board()
+
+
+@pytest.mark.asyncio(loop_scope="session")
+@pytest.mark.parametrize("tenant", ["tenant-a", "tenant-b"])
+async def test_the_projector_reads_the_board_as_the_wall_of_the_bound_tenant(tenant: str) -> None:
+    query_board = _RecordingQueryBoard()
+    projector = BoardProjector(
+        query_board,  # type: ignore[arg-type]
+        InMemoryCache(FixedClock(AT)),
+        FixedClock(AT),
+    )
+
+    with bind_tenant(tenant):
+        assert await projector.handle("StatusChanged", {"service_id": "svc-1"}) is True
+
+    (query,) = query_board.queries
+    assert query.actor.role is Role.WALL
+    assert query.actor.practitioner_id is None
+    assert query.actor.tenant_id == tenant

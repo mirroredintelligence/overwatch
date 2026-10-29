@@ -1,7 +1,13 @@
 """Bearer tokens from the BFF: HS256 JWTs, checked here (R02, DEC-094).
 
 Rule: docs/plan/prompts/R02.md ("Rules you need"). The token carries `sub`, `role`, `services`,
-an optional `device`, and `exp`. Every check is in this module and the refusal is one fixed error.
+`tenant`, `epoch`, an optional `device`, and `exp`. Every check is in this module and the refusal is
+one fixed error.
+
+The tenant claim is the only source of the tenant at the REST edge (DEC-130 item 6, TEN-018): a
+token without one, or with one that is not a tenant id (a network id, the platform id, a list), is
+refused. The epoch is the tenant record's counter when the token was issued: the edge refuses a
+token whose epoch the record has moved past, so a suspend takes effect before `exp` (H-T23).
 
 Pure: no I/O and no clock. The caller passes `now` and the secret as bytes.
 A TokenRejected message is fixed words, so it never repeats the token, the secret or a claim.
@@ -18,12 +24,17 @@ from typing import Any, Final
 
 from diucs.domain.codes import Role
 from diucs.domain.errors import DomainError, ValidationFailed
+from diucs.domain.model.tenant import check_tenant_id
 
 BFF_TOKEN_ALGORITHM: Final = "HS256"
 BFF_SECRET_MIN_BYTES: Final = 32  # 256 bits, the output size of HMAC-SHA256 (DEC-094 item 3)
 BFF_TOKEN_MAX_LENGTH: Final = (
     8192  # characters; a longer token is refused before it is parsed (DEC-094 item 2)
 )
+
+# An epoch counts suspends, resumes and role-mapping changes: far below this, and a bound keeps the
+# claim a number every JSON reader holds exactly.
+EPOCH_MAX: Final = 10**9
 
 _BASE64URL: Final = re.compile(r"[A-Za-z0-9_-]*")
 
@@ -34,6 +45,8 @@ class BffClaims:
     role: Role
     services: frozenset[str]
     expires_at: datetime
+    tenant: str
+    epoch: int
     device: str | None = None
 
 
@@ -48,10 +61,15 @@ class TokenRejected(DomainError):
 def encode_bff_token(claims: BffClaims, secret: bytes) -> str:
     _check_secret(secret)
     _check_aware(claims.expires_at, "expires_at")
+    check_tenant_id(claims.tenant)
+    if not _is_epoch(claims.epoch):
+        raise ValidationFailed("epoch", "must be a whole number from 1")
     body: dict[str, Any] = {
         "sub": claims.sub,
         "role": claims.role.value,
         "services": sorted(claims.services),
+        "tenant": claims.tenant,
+        "epoch": claims.epoch,
         "exp": int(claims.expires_at.timestamp()),
     }
     if claims.device is not None:
@@ -81,6 +99,10 @@ def decode_bff_token(token: str, secret: bytes, now: datetime) -> BffClaims:
 
 def _header() -> dict[str, str]:
     return {"alg": BFF_TOKEN_ALGORITHM, "typ": "JWT"}
+
+
+def _is_epoch(value: object) -> bool:
+    return type(value) is int and 1 <= value <= EPOCH_MAX
 
 
 def _check_secret(secret: bytes) -> None:
@@ -151,10 +173,20 @@ def _claims(body: dict[str, Any], now: datetime) -> BffClaims:
     device = body.get("device")
     if device is not None and (not isinstance(device, str) or not device):
         raise TokenRejected()
+    tenant = body.get("tenant")
+    try:
+        check_tenant_id(tenant)
+    except ValidationFailed:
+        raise TokenRejected() from None
+    epoch = body.get("epoch")
+    if type(epoch) is not int or not _is_epoch(epoch):
+        raise TokenRejected()
     return BffClaims(
         sub=sub,
         role=role,
         services=frozenset(services),
         expires_at=expires_at,
+        tenant=str(tenant),
+        epoch=epoch,
         device=device,
     )

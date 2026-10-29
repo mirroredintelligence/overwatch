@@ -88,7 +88,7 @@ def test_a_tenant_that_is_not_a_tenant_id_is_refused(tenant: str) -> None:
     with pytest.raises(ValidationFailed) as refused:
         make(tenant_id=tenant)
 
-    assert tenant not in str(refused.value) or tenant == ""
+    assert str(refused.value) == "tenant_id: is not a valid tenant id"
 
 
 @pytest.mark.parametrize("tenant", [None, 7, b"tenant-a", ["tenant-a"]])

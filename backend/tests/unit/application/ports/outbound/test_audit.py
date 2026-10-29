@@ -19,6 +19,7 @@ from diucs.application.ports.outbound.audit import (
 from diucs.application.tenancy import DEFAULT_TENANT_ID
 from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
+from tests.support.actors import ACTOR_TENANT
 
 ENTRY = AuditEntry(
     action="report-capacity",
@@ -29,6 +30,7 @@ ENTRY = AuditEntry(
         device_id="dev-sms-1",
         channel="text",
         service_ids=frozenset({"svc-ucr-west"}),
+        tenant_id=ACTOR_TENANT,
     ),
     entity_ids=("obs-1",),
     snapshot=None,

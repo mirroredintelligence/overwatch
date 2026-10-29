@@ -37,6 +37,7 @@ from diucs.domain.codes import (
 )
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 
 KEY = "key-1"
 REPORTER = Actor(
@@ -45,6 +46,7 @@ REPORTER = Actor(
     device_id=None,
     channel="api",
     service_ids=frozenset({"svc-ucr-west"}),
+    tenant_id=ACTOR_TENANT,
 )
 LEAD = Actor(
     role=Role.LEAD,
@@ -52,6 +54,7 @@ LEAD = Actor(
     device_id=None,
     channel="api",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 MEASURE_SYSTEM = code_system_url("capacity-measure")
 SOURCE_SYSTEM = code_system_url("report-source")

@@ -31,6 +31,7 @@ from diucs.domain.codes import PractitionerRoleCode, Role
 from diucs.domain.errors import NotAllowed
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.rules.support import hash_support_code, normalise_support_code
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx
 from tests.support.uow import ensure_audit_heads
 
@@ -77,6 +78,7 @@ def _actor(role: Role, practitioner: str | None) -> Actor:
         device_id=None,
         channel="web",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
 
 

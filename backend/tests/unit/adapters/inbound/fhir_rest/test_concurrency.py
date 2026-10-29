@@ -215,7 +215,7 @@ async def test_an_unreadable_cached_entry_is_a_miss_not_an_answer(
     assert await cache.lookup(ACTOR, "key-1", digest) is None
 
 
-# ---------------------------------------------------------------- the replay guard per tenant (TEN-018)
+# ---------------------------------------------------------------- replay guard per tenant (TEN-018)
 
 
 async def test_the_same_subject_key_and_body_in_another_tenant_is_not_a_replay(

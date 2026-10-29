@@ -38,6 +38,7 @@ from diucs.domain.errors import Conflict, NotAllowed, NotFound
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import REPORT_FLAG_CHECKED, ReportFlag
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import node_props
 
 Seed = Callable[..., Awaitable[None]]
@@ -49,6 +50,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ADVISOR = Actor(
     role=Role.ADVISOR,
@@ -56,6 +58,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 UCR_EAST = ServiceProfile(
     id="ucr-east",

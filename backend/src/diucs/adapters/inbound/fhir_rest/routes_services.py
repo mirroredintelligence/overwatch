@@ -13,7 +13,7 @@ routes decide is the shape of the request: which elements and parameters are acc
 and which answer an id that is not the caller's gets (the same 404 as an unknown id).
 
 Tenancy: no tenant is read, passed or accepted here. The tenant is the scope the unit of work was
-bound to by the edge from a verified source (transitional rule: the REST edge binds it in TEN-018).
+bound to by the edge from the verified token (`auth.current_actor`, TEN-018).
 The one place a route looks at the scope is the `organization` search parameter, which matches only
 the caller's own organisation (DEC-168 item 4).
 """

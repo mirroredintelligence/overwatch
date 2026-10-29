@@ -59,7 +59,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.fixed_terminology import FixedTerminology
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
 from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
+from diucs.application.actor import system_actor
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.geo import (
@@ -89,7 +89,7 @@ from diucs.application.ports.outbound.tokens import (
     SecretStore,
 )
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
+from diucs.application.tenancy import bind_tenant, current_tenant
 from diucs.application.use_cases.missed_report_ladder import (
     LADDER_KINDS,
     LadderStepCommand,
@@ -97,7 +97,6 @@ from diucs.application.use_cases.missed_report_ladder import (
 )
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.bootstrap.settings import Settings
-from diucs.domain.codes import Role
 from diucs.domain.errors import NotFound
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -108,14 +107,9 @@ TELEMETRY_FIXTURE = (
 TEST_LINK_BASE_URL = "https://diucs.example"
 TEST_RNG_SEED = 20261023
 
-SCHEDULER_ACTOR = Actor(
-    role=Role.OWNER,
-    practitioner_id=None,
-    device_id=None,
-    channel="scheduler",
-    service_ids=frozenset(),
-)
-"""The actor of the scheduled-work queue's steps (DEC-193): the role enum has no system role."""
+SCHEDULER_CHANNEL = "scheduler"
+"""The channel of the scheduled-work queue's steps (DEC-193). Its actor is a system actor of the
+tenant the step runs in, built per step: there is no platform-wide actor (TEN-018)."""
 
 
 @dataclass(frozen=True)
@@ -195,7 +189,11 @@ def ladder_handlers(ladder: MissedReportLadder) -> dict[WorkKind, WorkHandler]:
 
     async def step(work: ScheduledWork) -> None:
         await ladder.execute(
-            LadderStepCommand(idempotency_key=work.id, actor=SCHEDULER_ACTOR, work_id=work.id)
+            LadderStepCommand(
+                idempotency_key=work.id,
+                actor=system_actor(current_tenant(), SCHEDULER_CHANNEL),
+                work_id=work.id,
+            )
         )
 
     return {kind: step for kind in LADDER_KINDS}

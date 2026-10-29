@@ -42,6 +42,7 @@ from diucs.domain.codes import (
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import wipe
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
@@ -62,6 +63,7 @@ APPLICANT = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ORG = OrganisationStep(
     name="Community Response Ltd",

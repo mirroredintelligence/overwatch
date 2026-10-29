@@ -38,6 +38,7 @@ from diucs.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Rol
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.case import Case
 from diucs.domain.model.scores import ClinicalFrailty, News2
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx, wipe
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
@@ -55,6 +56,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 CLINICAL = dataclasses.replace(ADVISOR, role=Role.CLINICAL, practitioner_id="prac-clinical-1")
 REFUSED_ROLES = (

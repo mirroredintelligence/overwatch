@@ -71,6 +71,7 @@ from diucs.domain.messages.templates import render
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
 
 Seed = Callable[..., Awaitable[None]]
@@ -85,7 +86,12 @@ ANYTIME = datetime(2000, 1, 1, tzinfo=UTC)
 LONG_AGO = datetime(2026, 10, 22, 7, 15, tzinfo=UTC)  # 08:15 BST the day before
 
 SYSTEM_ACTOR = Actor(
-    role=Role.OWNER, practitioner_id=None, device_id=None, channel="worker", service_ids=frozenset()
+    role=Role.OWNER,
+    practitioner_id=None,
+    device_id=None,
+    channel="worker",
+    service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 
@@ -95,6 +101,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 EARLY = datetime(2026, 1, 1, tzinfo=UTC)
@@ -1933,6 +1940,7 @@ async def test_the_commands_name_the_reporter_the_text_source_and_the_role(
             device_id=None,
             channel="text",
             service_ids=frozenset({"ucr-west"}),
+            tenant_id=ACTOR_TENANT,
         )
         assert command.source is ReportSource.TEXT
         assert command.performer_role_id == "role-west"

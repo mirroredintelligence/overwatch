@@ -17,6 +17,7 @@ from diucs.application.use_cases.week_summary import (
 )
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed
+from tests.support.actors import ACTOR_TENANT
 
 MONDAY = date(2026, 10, 19)
 
@@ -166,7 +167,12 @@ def test_a_small_count_of_updates_in_the_time_back_text_is_not_stated() -> None:
 def test_the_exec_and_the_lead_may_read_the_week_summary(role: Role) -> None:
     check_may_read(
         Actor(
-            role=role, practitioner_id="p", device_id=None, channel="web", service_ids=frozenset()
+            role=role,
+            practitioner_id="p",
+            device_id=None,
+            channel="web",
+            service_ids=frozenset(),
+            tenant_id=ACTOR_TENANT,
         )
     )
 
@@ -181,5 +187,6 @@ def test_no_other_role_may_read_the_week_summary(role: Role) -> None:
                 device_id=None,
                 channel="web",
                 service_ids=frozenset(),
+                tenant_id=ACTOR_TENANT,
             )
         )

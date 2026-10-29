@@ -51,6 +51,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
 
 Seed = Callable[..., Awaitable[None]]
@@ -64,7 +65,12 @@ OTHER_PHONE = "cd" * 32
 DUE = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)  # 10:00 BST
 
 SYSTEM_ACTOR = Actor(
-    role=Role.OWNER, practitioner_id=None, device_id=None, channel="worker", service_ids=frozenset()
+    role=Role.OWNER,
+    practitioner_id=None,
+    device_id=None,
+    channel="worker",
+    service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 COUNTED_LABELS = ("Communication", "LinkToken", "ScheduledWork", "OutboxMessage", "AuditEvent")
@@ -392,6 +398,7 @@ async def test_a_grouped_services_key_cannot_be_reused_by_another_actor(
         device_id=None,
         channel="worker",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
 
     with pytest.raises(Conflict):

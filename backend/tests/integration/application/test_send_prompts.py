@@ -59,6 +59,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
 
 Seed = Callable[..., Awaitable[None]]
@@ -74,7 +75,12 @@ PHONE_HASH_2 = "cd" * 32
 LONDON = ZoneInfo("Europe/London")
 
 SYSTEM_ACTOR = Actor(
-    role=Role.OWNER, practitioner_id=None, device_id=None, channel="worker", service_ids=frozenset()
+    role=Role.OWNER,
+    practitioner_id=None,
+    device_id=None,
+    channel="worker",
+    service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 UCR_WEST = ServiceProfile(
@@ -927,6 +933,7 @@ async def test_a_reused_key_from_another_actor_is_a_conflict(
         device_id=None,
         channel="web",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
     same_body = dataclasses.replace(_command(), actor=other_actor)
 

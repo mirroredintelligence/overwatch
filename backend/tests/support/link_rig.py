@@ -53,6 +53,7 @@ from diucs.domain.codes import ReportSource, Role
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.rules.schedule import reply_by
 from diucs.domain.rules.tokens import hash_token
+from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import (
     LINK_BASE,
     PHONE_HASH_1,
@@ -261,6 +262,7 @@ class LinkRig:
                     device_id=None,
                     channel="text",
                     service_ids=frozenset({self.service_id}),
+                    tenant_id=ACTOR_TENANT,
                 ),
                 service_id=self.service_id,
                 source=ReportSource.TEXT,

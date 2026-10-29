@@ -460,6 +460,7 @@ class ClaimPairing:
                         device_id=device.id,
                         channel=SCREEN_CHANNEL,
                         service_ids=frozenset(),
+                        tenant_id=_tenant_scope(uow).value,
                     ),
                     entity_ids=(device.id,),
                     snapshot={"board_scope": device.board_scope.value},

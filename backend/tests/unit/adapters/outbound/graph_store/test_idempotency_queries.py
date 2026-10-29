@@ -19,6 +19,7 @@ from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.application.actor import Actor
 from diucs.application.tenancy import TenantNotBound, bind_tenant
 from diucs.domain.codes import Role
+from tests.support.actors import ACTOR_TENANT
 
 # The statements that TEN-016 converts. Each is on the ratchet today; the conversion removes it.
 CONVERTED_BY_TEN_016: tuple[str, ...] = (
@@ -44,6 +45,7 @@ _RESULT = Actor(
     device_id="dev-sms-1",
     channel="text",
     service_ids=frozenset({"svc-ucr-west"}),
+    tenant_id=ACTOR_TENANT,
 )
 
 

@@ -181,6 +181,12 @@ class Role(StrEnum):
     ANONYMOUS_LINK = "anonymous-link"
     SUPPORT = "support"
     AUDIT = "audit"
+    # Administration (DEC-134 item 4). A tenant administrator runs one tenant; a network
+    # administrator runs the sharing of one network; the platform operator runs tenant lifecycle
+    # only and has no data access.
+    TENANT_ADMIN = "tenant-admin"
+    NETWORK_ADMIN = "network-admin"
+    PLATFORM_OPERATOR = "platform-operator"
 
 
 class ScopeFlag(StrEnum):

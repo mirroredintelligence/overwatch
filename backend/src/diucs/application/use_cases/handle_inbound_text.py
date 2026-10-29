@@ -33,6 +33,7 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.tenancy import current_tenant
 from diucs.application.use_cases.confirm_capacity import (
     ConfirmCapacityCommand,
     ConfirmCapacityResult,
@@ -478,6 +479,7 @@ class HandleInboundText:
             device_id=None,
             channel="text",
             service_ids=frozenset(roles),
+            tenant_id=current_tenant(),
         )
         prompt = await uow.communications.latest_prompt_for_phone(
             {role.id for role, _ in holdings}, PROMPT_MESSAGES

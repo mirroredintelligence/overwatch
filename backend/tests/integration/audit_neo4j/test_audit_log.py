@@ -25,6 +25,7 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry, genesis_hash_for
 from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -42,6 +43,7 @@ def entry_at(minute: int, snapshot: dict[str, object] | None = None) -> AuditEnt
             device_id="dev-sms-1",
             channel="text",
             service_ids=frozenset({"svc-ucr-west"}),
+            tenant_id=ACTOR_TENANT,
         ),
         entity_ids=("obs-1",),
         snapshot=snapshot,
@@ -255,6 +257,7 @@ async def test_an_agent_is_linked_on_the_audit_event(
         device_id=None,
         channel="advisor-app",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
     entry = replace(entry_at(0), actor=practitioner)
     await write_tx(neo4j_driver, lambda tx: Neo4jAuditLog(tx).append(entry))
@@ -449,6 +452,7 @@ async def test_an_edited_audit_agent_edge_is_detected(
         device_id=None,
         channel="advisor-app",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
     await write_tx(
         neo4j_driver,

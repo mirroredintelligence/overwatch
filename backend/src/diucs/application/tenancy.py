@@ -63,6 +63,9 @@ GLOBAL_STATEMENT_MESSAGE: Final = (
 UNIT_OF_WORK_OPEN_MESSAGE: Final = (
     "a unit of work is already open in this context; open the next one after this one has finished"
 )
+TENANT_MISMATCH_MESSAGE: Final = (
+    "the actor belongs to another tenant than the one bound for this work"
+)
 _TENANCY_ERROR_MESSAGE: Final = "a tenancy error"
 
 
@@ -111,6 +114,13 @@ class GlobalStatementMisuse(TenancyError):
 
 class UnitOfWorkAlreadyOpen(TenancyError):
     MESSAGE = UNIT_OF_WORK_OPEN_MESSAGE
+
+
+class TenantMismatch(TenancyError):
+    """An actor of one tenant reached work bound to another: a wiring fault, never an access
+    decision, and never reachable by a value the caller supplies (TEN-018)."""
+
+    MESSAGE = TENANT_MISMATCH_MESSAGE
 
 
 @dataclass(frozen=True, slots=True)

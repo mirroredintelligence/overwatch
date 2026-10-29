@@ -86,9 +86,9 @@ def test_every_role_carries_the_claims_tenant_into_the_actor(role: Role) -> None
 
 
 def test_a_wall_actor_carries_the_tenant_of_its_claim() -> None:
-    assert actor_from_claims(claims(Role.WALL, "dev-1", frozenset(), tenant="tenant-b")).tenant_id == (
-        "tenant-b"
-    )
+    wall = actor_from_claims(claims(Role.WALL, "dev-1", frozenset(), tenant="tenant-b"))
+
+    assert wall.tenant_id == "tenant-b"
 
 
 def test_a_device_claim_is_kept_for_a_person() -> None:

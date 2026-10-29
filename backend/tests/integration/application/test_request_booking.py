@@ -39,6 +39,7 @@ from diucs.domain.codes import (
 )
 from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.case import Case
+from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import PHONE_HASH_1, reporter, seed_people, seed_report
 from tests.support.link_rig import ucr_west
 from tests.support.neo4j import count_nodes
@@ -63,6 +64,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 CLINICAL = Actor(
     role=Role.CLINICAL,
@@ -70,6 +72,7 @@ CLINICAL = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 REPORTER = Actor(
     role=Role.REPORTER,
@@ -77,6 +80,7 @@ REPORTER = Actor(
     device_id=None,
     channel="text",
     service_ids=frozenset({SERVICE_ID}),
+    tenant_id=ACTOR_TENANT,
 )
 
 

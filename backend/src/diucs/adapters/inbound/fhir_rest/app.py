@@ -19,6 +19,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
 from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 
@@ -35,6 +36,9 @@ class ApiContainer(Protocol):
 
     @property
     def ids(self) -> IdGenerator: ...
+
+    @property
+    def tenants(self) -> TenantDirectory: ...
 
     @property
     def terminology(self) -> Terminology: ...

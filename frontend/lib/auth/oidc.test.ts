@@ -23,6 +23,7 @@ import { idTokenFrom, startFakeEntra } from '@/test/oidc/harness';
 import {
   authorizeUrl,
   bindingFor,
+  entraAuthorityOrigin,
   exchangeCode,
   loadEntraConfig,
   newTransaction,
@@ -131,6 +132,27 @@ describe('loadEntraConfig', () => {
     } catch (error) {
       expect(String(error)).not.toContain(CLIENT_SECRET);
     }
+  });
+});
+
+describe('entraAuthorityOrigin', () => {
+  it('is the Microsoft sign-in host when nothing is set', () => {
+    expect(entraAuthorityOrigin({})).toBe('https://login.microsoftonline.com');
+  });
+
+  it('is the configured host, as an origin', () => {
+    expect(entraAuthorityOrigin({ ENTRA_AUTHORITY_HOST: 'https://login.example.test' })).toBe('https://login.example.test');
+    expect(entraAuthorityOrigin({ ENTRA_AUTHORITY_HOST: 'http://127.0.0.1:4011' })).toBe('http://127.0.0.1:4011');
+  });
+
+  it.each([
+    { ENTRA_AUTHORITY_HOST: 'not an address' },
+    { ENTRA_AUTHORITY_HOST: 'https://login.example.test/some/path' },
+    { ENTRA_AUTHORITY_HOST: 'https://user:pw@login.example.test' },
+    { ENTRA_AUTHORITY_HOST: 'ftp://login.example.test' },
+    { ENTRA_AUTHORITY_HOST: 'http://login.example.test', NODE_ENV: 'production' },
+  ])('is null, never a throw, for a setting the sign-in would refuse: %j', (env) => {
+    expect(entraAuthorityOrigin(env)).toBeNull();
   });
 });
 

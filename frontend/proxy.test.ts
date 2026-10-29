@@ -198,6 +198,41 @@ describe('the content security policy (S01) on every guarded answer', () => {
   });
 });
 
+describe('the sign-in page may submit its form to the sign-in provider (W09, S01)', () => {
+  // Chrome applies form-action to the redirect that answers a form post, so the page whose form
+  // starts the sign-in must name the provider; no other page may.
+  const formAction = (response: Response | undefined) =>
+    (response?.headers.get('content-security-policy') ?? '')
+      .split(';')
+      .map((part) => part.trim())
+      .find((part) => part.startsWith('form-action'));
+
+  it('names the default Microsoft host on /sign-in', async () => {
+    vi.stubEnv('ENTRA_AUTHORITY_HOST', '');
+    expect(formAction(await proxy(await request('/sign-in')))).toBe("form-action 'self' https://login.microsoftonline.com");
+  });
+
+  it('names the configured host, and /sign-in with a query string too', async () => {
+    vi.stubEnv('ENTRA_AUTHORITY_HOST', 'https://login.example.test');
+    expect(formAction(await proxy(await request('/sign-in?next=%2Flead&error=failed')))).toBe(
+      "form-action 'self' https://login.example.test",
+    );
+  });
+
+  it('keeps self alone on every other path, guarded or not', async () => {
+    vi.stubEnv('ENTRA_AUTHORITY_HOST', 'https://login.example.test');
+    for (const path of ['/', '/screen', '/forbidden', '/sign-in/other', '/signin', '/lead', '/api/bff/auth/entra/start']) {
+      expect(formAction(await proxy(await request(path)))).toBe("form-action 'self'");
+    }
+    expect(formAction(await proxy(await request('/lead', 'advisor')))).toBe("form-action 'self'");
+  });
+
+  it('falls back to self alone when the host setting is not an address the sign-in would accept', async () => {
+    vi.stubEnv('ENTRA_AUTHORITY_HOST', 'https://login.example.test/path');
+    expect(formAction(await proxy(await request('/sign-in')))).toBe("form-action 'self'");
+  });
+});
+
 describe('matcher', () => {
   const patterns = config.matcher.map((m) => new RegExp(`^${m}$`));
   const covered = (path: string) => patterns.some((p) => p.test(path));

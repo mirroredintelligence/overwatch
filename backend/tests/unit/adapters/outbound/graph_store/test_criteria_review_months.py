@@ -1,4 +1,4 @@
-"""The chosen review period survives the criteria mapper (U30, DEC-174): a pending version that
+"""The chosen review period survives the criteria mapper (U30): a pending version that
 lost it could not be approved, so the round trip is pinned here without Neo4j."""
 
 from datetime import date

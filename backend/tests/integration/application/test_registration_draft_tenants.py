@@ -44,6 +44,7 @@ from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.neo4j import wipe
 from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -185,8 +186,11 @@ async def tenants(
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,
     two_tenant_driver: AsyncDriver,
+    tenant_id: str,
+    other_tenant_id: str,
 ) -> AsyncIterator[None]:
     await wipe(two_tenant_driver)
+    await ensure_audit_heads(two_tenant_driver, tenant_id, other_tenant_id)
     await _seed_tenant(uow_factory_a, "a", A_REGISTRATION, A_ROLE)
     await _seed_tenant(uow_factory_b, "b", B_REGISTRATION, B_ROLE)
     yield

@@ -9,13 +9,14 @@ The routing of a reply is checked where the handler decides it: `services_for_ph
 """
 
 import json
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
@@ -33,7 +34,9 @@ from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole, role_holder
 from tests.support.ladder_rig import reporter, seed_people, virtual_ward
-from tests.support.neo4j import count_nodes, node_props
+from tests.support.neo4j import count_nodes, node_props, wipe
+from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -93,12 +96,37 @@ def command(
     )
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
+    """A private Neo4j with every migration applied and the superseded single-property keys dropped
+    (DEC-159). The cross-tenant test writes practitioner prac-1 in both tenants, which the shared
+    schema refuses until TEN-032."""
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
+    """Overrides the session driver for this module."""
+    return two_tenant_driver
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
+    """Wipes the module's own container before each test (clean_graph wipes only the harness)."""
+    await wipe(neo4j_driver)
+
+
+@pytest_asyncio.fixture(loop_scope="session")
 async def seeded(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, clean_graph: None
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+    other_tenant_id: str,
 ) -> None:
-    """The service and its reporter: practitioner prac-1 on the old mobile, role role-1 for it."""
-    await ensure_audit_head(neo4j_driver)
+    """The service and its reporter: practitioner prac-1 on the old mobile, role role-1 for it.
+    Both tenants' audit heads exist, so the cross-tenant test can read and write in tenant B."""
+    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
     async with uow_factory() as uow:
         await uow.services.save(virtual_ward(SERVICE_ID))
         await uow.commit()
@@ -265,6 +293,9 @@ async def test_a_cover_in_tenant_a_leaves_tenant_b_with_the_same_mobile_unchange
     neo4j_driver: AsyncDriver,
     seeded: None,
 ) -> None:
+    async with uow_factory_b() as uow:
+        await uow.services.save(virtual_ward(SERVICE_ID))
+        await uow.commit()
     await seed_people(uow_factory_b, reporter(1, OLD_HASH, service_id=SERVICE_ID))
     async with uow_factory_b() as uow:
         before = await uow.people.reporter_roles_for_service(SERVICE_ID, FRIDAY_14)

@@ -8,6 +8,7 @@ through a fresh unit of work or the harness helpers. Values are synthetic: no pa
 import asyncio
 import random
 import re
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, cast
@@ -46,7 +47,9 @@ from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
-from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
+from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -189,6 +192,27 @@ def make_rig(
         claim=ClaimPairing(uow_factory, fixed, shared_rng, secrets),
         uow_factory=uow_factory,
     )
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
+    """A private Neo4j with every migration applied and the superseded single-property keys dropped
+    (DEC-159). The tenancy tests give each tenant its own audit chain head, and the shared schema
+    keeps one AuditHead per id until TEN-032."""
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
+    """Overrides the session driver for this module."""
+    return two_tenant_driver
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
+    """Wipes the module's own container before each test (clean_graph wipes only the harness)."""
+    await wipe(neo4j_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -1120,7 +1144,7 @@ async def pair(
     tenant_id: str,
     other_tenant_id: str,
 ) -> Pair:
-    await ensure_audit_head(neo4j_driver)
+    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
     cache = InMemoryCache(cast(FixedClock, uow_clock))
     both_same_digits = lambda: ScriptedRandom([4, 8, 2, 9, 1, 3] * 3)  # noqa: E731
     return Pair(

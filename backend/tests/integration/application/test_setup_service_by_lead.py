@@ -9,9 +9,11 @@ bound tenant, so another tenant's practitioner is neither used nor reused.
 """
 
 import dataclasses
+from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime, time
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
@@ -41,9 +43,35 @@ from diucs.domain.codes import (
 from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.people import Practitioner
 from diucs.domain.model.service import AvailableTime
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, wipe
+from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
+    """A private Neo4j with every migration applied and the superseded single-property keys dropped
+    (DEC-159). Each tenant has its own audit chain head, which the shared schema refuses until
+    TEN-032."""
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
+    """Overrides the session driver for this module."""
+    return two_tenant_driver
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def audit_heads(neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str) -> None:
+    """A fresh container, then each tenant's audit chain head: set-up writes an audit entry, and
+    the cross-tenant test reads back in the other tenant."""
+    await wipe(neo4j_driver)
+    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
+
 
 NOW = datetime(2026, 10, 29, 9, 10, tzinfo=UTC)
 FIRST_PROMPT = datetime(2026, 10, 29, 10, 0, tzinfo=UTC)

@@ -39,7 +39,7 @@ NOW = datetime(2026, 10, 29, 14, 16, tzinfo=UTC)
 TENANT = "tenant-unit-a"
 SERVICE_ID = "ucr-west"
 ROLE_ID = "role-1"
-TOKEN = "TOKENtokenTOKEN0123456789abcdef"
+TOKEN = "Tq7-LinkTokenAbCdEfGhIjKlMnOpQrSt_u"
 LINK_HOST = "https://unit.diucs.example"
 FULL_LINK = f"{LINK_HOST}/l/{TOKEN}"
 DISTRICT = "DT4"
@@ -340,3 +340,11 @@ async def test_the_wording_is_asked_of_the_bound_tenant() -> None:
     await _request(Channel.TEXT, wording)
 
     assert asked == [ScopeId.tenant(TENANT)]
+
+
+async def test_the_communication_is_about_the_service_not_the_booking() -> None:
+    """The store links a Communication to a HealthcareService by the id it is given, so a booking
+    id there would make a placeholder service that clashes with the booking's own Task id."""
+    unit, _ = await _request(Channel.TEXT)
+
+    assert unit.stores["communications"].items[0].about_id == SERVICE_ID

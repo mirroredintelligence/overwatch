@@ -6,7 +6,9 @@ reads back through a fresh unit of work or the harness helpers. Values are the s
 prompt: no patient data.
 """
 
+import json
 import random
+import re
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
@@ -15,6 +17,7 @@ import pytest
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
@@ -39,6 +42,7 @@ from diucs.domain.codes import (
 )
 from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.case import Case
+from tests.support.booking_rig import sample_wording
 from tests.support.ladder_rig import PHONE_HASH_1, reporter, seed_people, seed_report
 from tests.support.link_rig import ucr_west
 from tests.support.neo4j import count_nodes
@@ -56,6 +60,7 @@ POSTCODE = "DT4 8XX"
 DISTRICT = "DT4"
 LINK_HOST = "https://dorset.diucs.example"
 SECRETS = FixedSecretStore({LINK_TOKEN_SECRET: b"link-token-test-secret-0123456789abcdef"})
+SEALER = AesGcmContentSealer(SECRETS)
 
 ADVISOR = Actor(
     role=Role.ADVISOR,
@@ -101,6 +106,7 @@ def request_booking(
     *,
     link_tokens_fail: bool = False,
     rng_seed: int = 7,
+    ids: SequentialIds | None = None,
 ) -> RequestBooking:
     clock = FixedClock(REQUESTED_AT)
 
@@ -119,11 +125,25 @@ def request_booking(
         DriverIdempotencyStore(driver),
         tokens,
         clock,
-        SequentialIds("bk"),
+        ids or SequentialIds("bk"),
         random.Random(rng_seed),
         QueryBoard(uow_factory, clock),
+        SEALER,
+        sample_wording,
         link_base_url_for=lambda scope: LINK_HOST,
     )
+
+
+def _opened(message: Any, tenant: str) -> dict[str, Any]:
+    """The content of a queued SendMessage, opened as the sender opens it (DEC-116)."""
+    text = SEALER.unseal(
+        message.payload["sealed_content"],
+        message_id=message.id,
+        tenant_id=tenant,
+        recipient_role_id=message.payload["recipient_role_id"],
+    )
+    content: dict[str, Any] = json.loads(text)
+    return content
 
 
 def command(key: str, actor: Actor = ADVISOR, case_id: str = CASE_ID) -> RequestBookingCommand:
@@ -216,14 +236,16 @@ async def test_a_second_request_for_the_same_service_conflicts_and_writes_nothin
 async def test_after_the_first_is_declined_a_new_request_succeeds(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seeded: None
 ) -> None:
-    first = await request_booking(uow_factory, neo4j_driver).execute(command("req-5a"))
+    # One generator for both requests: a new one would give the second booking the first's id.
+    ids = SequentialIds("bk")
+    first = await request_booking(uow_factory, neo4j_driver, ids=ids).execute(command("req-5a"))
     async with uow_factory() as uow:
         booking = await uow.bookings.get(first.booking_id)
         assert booking is not None
         await uow.bookings.save(booking.with_status(BookingStatus.DECLINED, REQUESTED_AT))
         await uow.commit()
     await seed_case(uow_factory, open_case("case-1003"))
-    second = await request_booking(uow_factory, neo4j_driver).execute(
+    second = await request_booking(uow_factory, neo4j_driver, ids=ids).execute(
         command("req-5b", case_id="case-1003")
     )
     assert second.booking_id != first.booking_id
@@ -232,7 +254,9 @@ async def test_after_the_first_is_declined_a_new_request_succeeds(
 async def test_a_closed_case_is_a_validation_failure_and_a_reporter_is_not_allowed(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seeded: None
 ) -> None:
-    await seed_case(uow_factory, open_case("case-closed", closed_at=REQUESTED_AT))
+    # A closed case holds no postcode or needs (DEC-067 item 6): that is what Case.close leaves.
+    closed = open_case("case-closed", closed_at=REQUESTED_AT, postcode=None, needs=())
+    await seed_case(uow_factory, closed)
     with pytest.raises(ValidationFailed):
         await request_booking(uow_factory, neo4j_driver).execute(
             command("req-6a", case_id="case-closed")
@@ -249,6 +273,7 @@ async def test_each_channel_gets_its_booking_message(
     uow_factory: UnitOfWorkFactory,
     neo4j_driver: AsyncDriver,
     seeded: None,
+    tenant_id: str,
     channel: Channel,
     message_id: str,
 ) -> None:
@@ -257,18 +282,41 @@ async def test_each_channel_gets_its_booking_message(
     async with uow_factory() as uow:
         sent = [m for m in await uow.outbox.pending(100) if m.event_type == "SendMessage"]
     assert [m.payload["message_id"] for m in sent] == [message_id]
+    assert "text" not in sent[0].payload
     if channel is Channel.EMAIL:
-        assert sent[0].payload.get("subject")
+        assert _opened(sent[0], tenant_id).get("subject")
 
 
 async def test_no_stored_text_or_outbox_payload_holds_the_postcode(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seeded: None
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seeded: None, tenant_id: str
 ) -> None:
     await request_booking(uow_factory, neo4j_driver).execute(command("req-8"))
     async with uow_factory() as uow:
         messages = await uow.outbox.pending(100)
     assert all(POSTCODE not in repr(m.payload) for m in messages)
     assert all(POSTCODE not in str(m.payload) for m in messages)
+    sent = [m for m in messages if m.event_type == "SendMessage"]
+    assert all(POSTCODE not in repr(_opened(m, tenant_id)) for m in sent)
+
+
+async def test_the_request_is_sealed_for_the_sender_and_no_token_or_link_is_at_rest(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seeded: None, tenant_id: str
+) -> None:
+    result = await request_booking(uow_factory, neo4j_driver).execute(command("req-8b"))
+    async with uow_factory() as uow:
+        messages = await uow.outbox.pending(100)
+        sent = next(m for m in messages if m.event_type == "SendMessage")
+        stored = await uow.communications.get(str(sent.payload["communication_id"]))
+    text = _opened(sent, tenant_id)["text"]
+    link = re.search(rf"{re.escape(LINK_HOST)}/l/\S+", text)
+    assert link is not None
+    assert "SystmOne" in text
+    assert result.reference in text
+    assert stored is not None
+    assert stored.payload_text == text.replace(link.group(0), "[link]")
+    token = link.group(0).rsplit("/", 1)[1]
+    assert all(token not in repr(m.payload) for m in messages)
+    assert token not in stored.payload_text
 
 
 async def test_the_same_key_twice_gives_one_booking_and_one_audit_entry(

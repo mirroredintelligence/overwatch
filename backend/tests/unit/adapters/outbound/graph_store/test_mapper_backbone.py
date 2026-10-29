@@ -584,3 +584,87 @@ def test_a_position_with_only_latitude_round_trips() -> None:
 
     assert "positionLongitude" not in _node(fragment, LOC_KEY).properties
     assert from_graph(fragment) == resource
+
+
+# TEN-008 (DEC-162): a backbone child is stamped by the store like the root, and an element of a
+# resource cannot be named for the stamp, at any depth.
+
+_TENANT_NAMES = ("tenantId", "sourceTenantId")
+
+
+@pytest.mark.parametrize("name", _TENANT_NAMES)
+@pytest.mark.parametrize(
+    ("resource_type", "element", "entry"),
+    [
+        ("HealthcareService", "availableTime", {"allDay": True}),
+        ("HealthcareService", "eligibility", {"comment": "x"}),
+        ("Location", "address", {"city": "Example Town"}),
+        ("Location", "hoursOfOperation", {"allDay": True}),
+        ("Organization", "contact", {"telecom": [{"system": "phone", "value": "07700 900002"}]}),
+        ("Task", "restriction", {"period": {"end": "2026-10-25T09:30:00Z"}}),
+    ],
+)
+def test_a_backbone_child_with_a_tenant_element_is_refused(
+    name: str, resource_type: str, element: str, entry: dict[str, Any]
+) -> None:
+    resource = {"resourceType": resource_type, "id": "r-1", element: [{**entry, name: "tenant-b"}]}
+
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph(resource)
+
+    assert raised.value.field == name
+
+
+@pytest.mark.parametrize("name", _TENANT_NAMES)
+def test_a_contact_address_two_levels_down_cannot_carry_a_tenant_element(name: str) -> None:
+    resource = {
+        "resourceType": "Organization",
+        "id": ORG_ID,
+        "contact": [{"address": {"city": "Example Town", name: "tenant-b"}}],
+    }
+
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph(resource)
+
+    assert raised.value.field == name
+
+
+def test_no_node_or_relationship_of_a_full_resource_names_a_tenant() -> None:
+    for resource in (UCR_WEST, LOCATION, ORGANIZATION_WITH_CONTACT):
+        fragment = to_graph(resource)
+        names = {name for node in fragment.nodes for name in node.properties}
+        names |= {name for rel in fragment.rels for name in rel.properties}
+        assert not names & set(_TENANT_NAMES)
+
+
+@pytest.mark.parametrize("resource", [UCR_WEST, LOCATION, ORGANIZATION_WITH_CONTACT])
+def test_stamped_children_rebuild_without_the_stamp(resource: dict[str, Any]) -> None:
+    fragment = to_graph(resource)
+    stamped = GraphFragment(
+        fragment.root_key,
+        tuple(
+            NodeSpec(
+                node.key,
+                node.labels,
+                {**node.properties, "tenantId": "tenant-a", "sourceTenantId": "tenant-z"},
+            )
+            for node in fragment.nodes
+        ),
+        fragment.rels,
+    )
+
+    assert len(stamped.nodes) > 1, "the sample must have children for this to prove anything"
+    assert from_graph(stamped) == resource
+
+
+def test_a_stamp_on_a_child_alone_is_stripped_and_the_other_children_are_kept() -> None:
+    fragment = to_graph(UCR_WEST)
+    child = f"{SVC_KEY}#availableTime[1]"
+    nodes = tuple(
+        NodeSpec(node.key, node.labels, {**node.properties, "tenantId": "tenant-a"})
+        if node.key == child
+        else node
+        for node in fragment.nodes
+    )
+
+    assert from_graph(GraphFragment(fragment.root_key, nodes, fragment.rels)) == UCR_WEST

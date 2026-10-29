@@ -956,3 +956,107 @@ def test_a_real_ucum_annotation_in_a_code_property_passes(value: str) -> None:
 def test_a_ucum_looking_value_outside_a_code_property_is_refused(name: str, value: str) -> None:
     with pytest.raises(AssertionError):
         _assert_graph_safe(_fragment_with_property(name, value))
+
+
+# TEN-008 (DEC-162): Concept, CodeSystem and Identifier are tenant-scoped like every other node.
+# The mapper stays pure: a shared node is plain data with no tenant and no "shared" flag, and the
+# store stamps it. Reading back a stamped one must not turn the stamp into a FHIR element.
+
+_SHARED_LABELS = ("Concept", "CodeSystem", "Identifier")
+_TENANT_NAMES = ("tenantId", "sourceTenantId")
+
+
+def _shared_nodes(fragment: GraphFragment) -> list[NodeSpec]:
+    return [node for node in fragment.nodes if node.labels[0] in _SHARED_LABELS]
+
+
+def test_a_shared_node_is_plain_data_with_no_tenant_and_no_shared_flag() -> None:
+    fragment = to_graph(ORGANIZATION_WITH_TYPE)
+
+    shared = _shared_nodes(fragment)
+    assert {node.labels for node in shared} == {("Concept",), ("CodeSystem",), ("Identifier",)}
+    allowed = {
+        ("Concept",): {"system", "code", "display", "version"},
+        ("CodeSystem",): {"url"},
+        ("Identifier",): {"system", "value"},
+    }
+    for node in shared:
+        assert set(node.properties) <= allowed[node.labels]
+    assert [field for field in NodeSpec.__dataclass_fields__] == ["key", "labels", "properties"]
+
+
+def test_a_coding_system_or_code_that_spells_a_tenant_name_is_a_value_not_a_property() -> None:
+    resource = {
+        "resourceType": "Observation",
+        "id": OBS_ID,
+        "code": {
+            "coding": [{"system": "tenantId", "code": "sourceTenantId", "display": "tenantId"}]
+        },
+        "identifier": [{"system": "tenantId", "value": "sourceTenantId"}],
+    }
+
+    fragment = to_graph(resource)
+
+    assert from_graph(fragment) == resource
+    for node in _shared_nodes(fragment):
+        assert not set(node.properties) & set(_TENANT_NAMES)
+
+
+@pytest.mark.parametrize("resource", [CAPACITY_REPORT, ORGANIZATION_WITH_TYPE])
+def test_a_stamped_concept_codesystem_and_identifier_do_not_change_the_rebuilt_resource(
+    resource: dict[str, Any],
+) -> None:
+    fragment = to_graph(resource)
+    stamped = GraphFragment(
+        fragment.root_key,
+        tuple(
+            NodeSpec(node.key, node.labels, {**node.properties, "tenantId": "tenant-a"})
+            for node in fragment.nodes
+        ),
+        fragment.rels,
+    )
+
+    assert from_graph(stamped) == resource
+    assert _shared_nodes(stamped), "the sample must hold shared nodes for this to prove anything"
+
+
+def test_the_same_coding_in_two_resources_gives_equal_shared_nodes_for_any_tenant() -> None:
+    first = to_graph(CAPACITY_REPORT)
+    second = to_graph({**CAPACITY_REPORT, "id": "9e4c3f5b-6d7a-4182-8d2e-3f4a5b6c7d99"})
+
+    assert sorted(
+        (n.key, tuple(sorted(n.properties.items()))) for n in _shared_nodes(first)
+    ) == sorted((n.key, tuple(sorted(n.properties.items()))) for n in _shared_nodes(second))
+
+
+@pytest.mark.parametrize("element", _TENANT_NAMES)
+def test_a_period_range_or_quantity_named_for_a_tenant_is_refused(element: str) -> None:
+    for value in (
+        {"start": "2026-10-25T09:00:00Z"},
+        {"low": {"value": 1}, "high": {"value": 2}},
+        {"value": 3, "unit": "referral"},
+    ):
+        with pytest.raises(ValidationFailed):
+            to_graph({"resourceType": "Observation", "id": OBS_ID, element: value})
+
+
+def test_an_identifier_that_carries_a_tenant_key_is_refused_not_dropped() -> None:
+    resource = {
+        "resourceType": "Organization",
+        "id": ORG_ID,
+        "identifier": [{"system": ODS_ORG_SYSTEM, "value": "X1A", "tenantId": "tenant-b"}],
+    }
+
+    with pytest.raises(UnsupportedElement):
+        to_graph(resource)
+
+
+def test_a_coding_that_carries_a_tenant_key_is_refused_not_dropped() -> None:
+    resource = {
+        "resourceType": "Observation",
+        "id": OBS_ID,
+        "code": {"coding": [{"system": STATUS, "code": "accepting", "tenantId": "tenant-b"}]},
+    }
+
+    with pytest.raises(UnsupportedElement):
+        to_graph(resource)

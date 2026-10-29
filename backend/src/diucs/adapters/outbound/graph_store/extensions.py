@@ -2,7 +2,8 @@
 
 A registered extension is stored as the property `ext_<shortName>`. The mapper refuses any URL
 that is not registered (UnknownExtension); nothing is dropped. Registration is one call:
-`register_extension(ExtensionDef(...))`.
+`register_extension(ExtensionDef(...))`. A short name the tenancy seam owns is refused
+(`TENANT_OWNED_NAMES`), so no extension can stand in for the tenant stamp.
 """
 
 import re
@@ -22,6 +23,11 @@ VALUE_KEYS: Final[dict[ValueType, str]] = {
     "decimal": "valueDecimal",
 }
 PROPERTY_PREFIX: Final = "ext_"
+# Names the tenancy seam owns (DEC-162). `tenantId` is stamped on every node by the writer from the
+# bound scope (DEC-130) and `sourceTenantId` marks a network projection (DEC-132). A resource can
+# carry neither, so the mapper refuses an element of that name and this registry refuses an
+# extension whose short name is one.
+TENANT_OWNED_NAMES: Final[frozenset[str]] = frozenset({"tenantId", "sourceTenantId"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +37,8 @@ class ExtensionDef:
     value_type: ValueType
 
     def __post_init__(self) -> None:
+        if self.short_name in TENANT_OWNED_NAMES:
+            raise ValueError("short name is reserved for the tenancy seam")
         # No underscore: the property name ext_<shortName> must split unambiguously on the prefix.
         if not _SHORT_NAME.fullmatch(self.short_name):
             raise ValueError("short name must be letters and digits, starting with a letter")

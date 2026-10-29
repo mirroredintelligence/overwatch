@@ -11,16 +11,25 @@ DomainError. Nothing is dropped, overwritten or moved.
 
 G04 (rules R4 and R8): a repeating or multi-part backbone element is a child node keyed
 `<parentKey>#<element>[<index>]`; a registered extension is the property `ext_<shortName>`.
+
+Tenancy (TEN-008, DEC-162). The mapper stays pure and knows no tenant: the writer stamps `tenantId`
+on every node it writes, the root, the backbone children, the version copies and the Concept,
+CodeSystem and Identifier nodes (DEC-134 item 1: none of them is shared), from the scope the unit of
+work bound. The names `tenantId` and `sourceTenantId` are the seam's, not the resource's:
+`to_graph` refuses an element of either name at any depth, and refuses a fragment that would carry
+one on a node or a relationship, so content can neither forge nor overwrite the stamp. `from_graph`
+drops both from every node it rebuilds from, so a stamped node never becomes an element.
 """
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
 from diucs.adapters.outbound.graph_store.extensions import (
     EXTENSIONS,
     PROPERTY_PREFIX,
+    TENANT_OWNED_NAMES,
     by_short_name,
 )
 from diucs.domain.codes import BASE_URL
@@ -222,11 +231,13 @@ def to_graph(resource: dict[str, Any]) -> GraphFragment:
             _map_element(mapping, root, element, value)
 
     node = NodeSpec(key=root_key, labels=("Resource", resource_type), properties=root.properties)
-    return GraphFragment(
+    fragment = GraphFragment(
         root_key=root_key,
         nodes=(node, *mapping.children, *mapping.shared.values()),
         rels=tuple(mapping.rels),
     )
+    _refuse_tenant_names(fragment)
+    return fragment
 
 
 def from_graph(fragment: GraphFragment) -> dict[str, Any]:
@@ -259,6 +270,7 @@ def from_graph(fragment: GraphFragment) -> dict[str, Any]:
 
 
 def _check_element_name(element: str) -> None:
+    _refuse_names((element,))
     if element in _NODE_OWNED_NAMES:
         # The node already uses this name; storing it too would overwrite or move it.
         raise ValidationFailed(element, "reserved: the mapper stores this on the node itself")
@@ -270,6 +282,23 @@ def _check_element_name(element: str) -> None:
         raise ValidationFailed(element, "reserved: underscore is used by flattened names")
     if element.endswith((_START, _END)):
         raise ValidationFailed(element, "reserved: Start and End are used by periods")
+
+
+def _refuse_tenant_names(fragment: GraphFragment) -> None:
+    """A last check on what leaves the mapper: no node or relationship property is the seam's.
+
+    The element names are refused as they are read. This also covers a name the mapper itself
+    would write (a copied filter code), so nothing but the writer's own stamp can be `tenantId`."""
+    for node in fragment.nodes:
+        _refuse_names(node.properties)
+    for rel in fragment.rels:
+        _refuse_names(rel.properties)
+
+
+def _refuse_names(properties: Iterable[str]) -> None:
+    for name in properties:
+        if name in TENANT_OWNED_NAMES:
+            raise ValidationFailed(name, "reserved: the tenancy seam stamps this name")
 
 
 def _map_element(mapping: _Mapping, owner: _Owner, element: str, value: Any) -> None:
@@ -548,6 +577,9 @@ def _rebuild_owner(
 ) -> dict[str, Any]:
     """The FHIR fields of one node: from its own properties, then from its relationships."""
     body: dict[str, Any] = {}
+    for name in TENANT_OWNED_NAMES:
+        # The stamp is the writer's, not part of the resource: never rebuilt as an element.
+        props.pop(name, None)
     _rebuild_extensions_and_positions(body, props)
     for name, value in props.items():
         _rebuild_property(body, name, value)

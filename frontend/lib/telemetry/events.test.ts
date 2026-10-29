@@ -26,7 +26,7 @@ async function sentEvents(): Promise<SentEvent[]> {
   await settle();
   const events: SentEvent[] = [];
   for (const [, body] of beacon.mock.calls) {
-    const parsed = JSON.parse(await (body as Blob).text()) as { events: SentEvent[] };
+    const parsed = JSON.parse(String(body)) as { events: SentEvent[] };
     events.push(...parsed.events);
   }
   beacon.mockClear();

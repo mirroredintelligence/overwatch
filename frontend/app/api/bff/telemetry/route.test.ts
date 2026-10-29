@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
+import { sessionFromRequest, SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { server } from '@/test/msw/server';
 import { POST } from './route';
@@ -9,6 +9,13 @@ import { POST } from './route';
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
   return { cookies: m.cookiesMock };
+});
+
+// The session seals a fixed set of claims and carries no tenant yet. The tenant test below supplies
+// one through this spy, so the route's own rule (the tenant comes from the session) is still tested.
+vi.mock('@/lib/auth/session', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/auth/session')>();
+  return { ...actual, sessionFromRequest: vi.fn(actual.sessionFromRequest) };
 });
 
 const URL_ = 'https://app.test/api/bff/telemetry';
@@ -24,13 +31,15 @@ function session(role: Role): Session {
   };
 }
 
-async function post(body: unknown, role: Role | null = 'advisor') {
+async function post(body: unknown, role: Role | null = 'advisor', options: { origin?: string } = {}) {
   const cookies: Record<string, string> = {};
   if (role !== null) cookies[SESSION_COOKIE] = await sealSession(session(role));
+  const headers: Record<string, string> = { 'Content-Type': 'text/plain;charset=UTF-8' };
+  if (options.origin !== undefined) headers.Origin = options.origin;
   return POST(
     requestWithCookies(URL_, cookies, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: typeof body === 'string' ? body : JSON.stringify(body),
     }),
   );
@@ -76,10 +85,23 @@ describe('POST /api/bff/telemetry', () => {
     expect(JSON.stringify(forwarded)).not.toContain('DT4');
   });
 
-  it('takes a tenant only from the session, never from the browser', async () => {
+  it('takes the tenant from the session, never from the browser', async () => {
+    vi.mocked(sessionFromRequest).mockResolvedValueOnce({ ...session('advisor'), tenantId: 'tenant-a' } as Session);
+
     await post(batch({ 'element.id': 'ADV-REF-INPUT', 'tenant.id': 'tenant-b' }));
 
+    const [sent] = forwarded as Array<{ events: Array<{ attributes: Record<string, unknown> }> }>;
+    expect(sent?.events[0]?.attributes['tenant.id']).toBe('tenant-a');
     expect(JSON.stringify(forwarded)).not.toContain('tenant-b');
+  });
+
+  it('refuses a batch sent from another origin', async () => {
+    const response = await post(batch({ 'element.id': 'ADV-REF-INPUT' }), 'advisor', {
+      origin: 'https://evil.test',
+    });
+
+    expect(response.status).toBe(403);
+    expect(forwarded).toEqual([]);
   });
 
   it('refuses an event name that is not one of the ui events in scope', async () => {

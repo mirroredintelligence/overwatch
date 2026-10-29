@@ -339,7 +339,7 @@ export function attachFriction(now: () => number = () => Date.now()): FrictionHa
 
   const engine = createFrictionEngine({
     now,
-    emit: (event) => track('ui.friction', { ...event }),
+    emit: (event) => track(FRICTION_EVENT, { ...event }),
   });
   let lastClickElement: string | null = null;
   let lastScrollY = window.scrollY;

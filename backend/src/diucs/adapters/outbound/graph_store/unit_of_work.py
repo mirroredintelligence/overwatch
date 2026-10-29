@@ -56,6 +56,9 @@ from diucs.adapters.outbound.graph_store.idempotency_store import (
 )
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from diucs.adapters.outbound.graph_store.push_subscription_repository import (
+    Neo4jPushSubscriptionRepository,
+)
 from diucs.adapters.outbound.graph_store.registration_repository import (
     Neo4jRegistrationRepository,
 )
@@ -71,7 +74,10 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
-from diucs.application.ports.outbound.messaging import CommunicationRepository
+from diucs.application.ports.outbound.messaging import (
+    CommunicationRepository,
+    PushSubscriptionRepository,
+)
 from diucs.application.ports.outbound.outbox import Outbox
 from diucs.application.ports.outbound.repositories import (
     AlertRepository,
@@ -101,6 +107,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "alert_subscriptions": lambda tx, store: Neo4jAlertSubscriptionRepository(tx),
     "alerts": lambda tx, store: Neo4jAlertRepository(tx, store),
     "clinical_requests": lambda tx, store: Neo4jClinicalRequestRepository(tx, store),
+    "push_subscriptions": lambda tx, store: Neo4jPushSubscriptionRepository(tx),
     "capacity": lambda tx, store: Neo4jCapacityRepository(tx, store),
     "bookings": lambda tx, store: Neo4jBookingRepository(tx, store),
     "cases": lambda tx, store: Neo4jCaseRepository(tx, store),
@@ -168,6 +175,7 @@ class Neo4jUnitOfWork:
     scope: ScopeListRepository
     flags: FlagRepository
     communications: CommunicationRepository
+    push_subscriptions: PushSubscriptionRepository
     link_tokens: LinkTokenRepository
     scheduled_work: ScheduledWorkRepository
     audit: AuditLog

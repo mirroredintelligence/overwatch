@@ -24,7 +24,9 @@ SUB_DEV_1 = {"endpoint": "https://push.example/abc", "keys": {"p256dh": "k1", "a
 SAVED = datetime(2026, 10, 25, 13, 12, tzinfo=UTC)
 
 
-def _sub(device: str, practitioner: str, subscription: dict[str, Any], saved: datetime) -> PushSubscription:
+def _sub(
+    device: str, practitioner: str, subscription: dict[str, Any], saved: datetime
+) -> PushSubscription:
     return PushSubscription(
         device_id=device, practitioner_id=practitioner, subscription=subscription, saved_at=saved
     )
@@ -78,10 +80,17 @@ async def test_saving_again_for_a_device_replaces_its_endpoint(
 
 async def test_two_devices_come_back_newest_first(neo4j_driver: AsyncDriver, p1: None) -> None:
     older = _sub("dev-1", "p1", SUB_DEV_1, SAVED)
-    newer = _sub("dev-2", "p1", {"endpoint": "https://push.example/two", "keys": {"p256dh": "k2", "auth": "a2"}}, datetime(2026, 10, 25, 13, 20, tzinfo=UTC))
+    newer = _sub(
+        "dev-2",
+        "p1",
+        {"endpoint": "https://push.example/two", "keys": {"p256dh": "k2", "auth": "a2"}},
+        datetime(2026, 10, 25, 13, 20, tzinfo=UTC),
+    )
     await _save(neo4j_driver, older, newer)
 
-    found = await read_tx(neo4j_driver, lambda tx: Neo4jPushSubscriptionRepository(tx).for_practitioner("p1"))
+    found = await read_tx(
+        neo4j_driver, lambda tx: Neo4jPushSubscriptionRepository(tx).for_practitioner("p1")
+    )
     assert [s.device_id for s in found] == ["dev-2", "dev-1"]
 
 
@@ -92,7 +101,9 @@ async def test_deleting_removes_the_subscription_and_keeps_the_device(
 
     await write_tx(neo4j_driver, lambda tx: Neo4jPushSubscriptionRepository(tx).delete("dev-1"))
 
-    found = await read_tx(neo4j_driver, lambda tx: Neo4jPushSubscriptionRepository(tx).for_practitioner("p1"))
+    found = await read_tx(
+        neo4j_driver, lambda tx: Neo4jPushSubscriptionRepository(tx).for_practitioner("p1")
+    )
     assert found == []
     assert await count_nodes(neo4j_driver, "Device") == 1
     props = await node_props(neo4j_driver, "Device", id="dev-1")
@@ -100,11 +111,15 @@ async def test_deleting_removes_the_subscription_and_keeps_the_device(
 
 
 async def test_an_unknown_practitioner_has_no_subscriptions(neo4j_driver: AsyncDriver) -> None:
-    found = await read_tx(neo4j_driver, lambda tx: Neo4jPushSubscriptionRepository(tx).for_practitioner("nobody"))
+    found = await read_tx(
+        neo4j_driver, lambda tx: Neo4jPushSubscriptionRepository(tx).for_practitioner("nobody")
+    )
     assert found == []
 
 
-async def test_a_subscription_for_an_unknown_practitioner_is_refused(neo4j_driver: AsyncDriver) -> None:
+async def test_a_subscription_for_an_unknown_practitioner_is_refused(
+    neo4j_driver: AsyncDriver,
+) -> None:
     with pytest.raises(NotFound):
         await _save(neo4j_driver, _sub("dev-9", "nobody", SUB_DEV_1, SAVED))
     assert await count_nodes(neo4j_driver, "Device") == 0

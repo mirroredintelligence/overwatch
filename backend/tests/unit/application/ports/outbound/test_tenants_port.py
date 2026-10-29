@@ -105,13 +105,13 @@ def test_a_refusal_never_repeats_the_value() -> None:
 
 
 @given(st.text(max_size=80))
-def test_a_reference_is_accepted_only_when_it_is_the_tenants_and_a_refusal_holds_no_text(
+def test_a_reference_is_accepted_only_when_it_is_the_tenants_and_a_refusal_is_one_fixed_text(
     text: str,
 ) -> None:
     try:
         accepted = check_secret_ref(text, TENANT)
     except ValidationFailed as refusal:
-        assert text == "" or text not in str(refusal)
+        assert str(refusal) == "secret_ref: is not a valid secret reference"
     else:
         assert accepted == text
         assert text.split("/")[1] == TENANT
@@ -198,6 +198,7 @@ def test_a_host_is_lower_case_and_without_the_final_dot(value: str, expected: st
         "https://acme.example.org",
         "acme.example.org/",
         "ünï.example.org",
+        "\u212aacme.example.org",  # the Kelvin sign lower-cases to a plain k
         "a" * 64 + ".example.org",  # a label over 63
         ("a" * 60 + ".") * 5 + "org",  # over 253 in all
         "",

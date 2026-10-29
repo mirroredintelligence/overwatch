@@ -153,3 +153,41 @@ async def test_a_failing_start_up_opens_nothing_else_and_leaves_no_connection(
         await outbox_relay_main.serve(settings, asyncio.Event())
 
     assert events == ["shutdown"]
+
+
+async def test_the_run_handles_the_stop_signals_and_serves_until_stopped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    loop = asyncio.get_running_loop()
+    handled: list[object] = []
+    served: list[asyncio.Event] = []
+
+    async def fake_serve(settings: Settings, stop: asyncio.Event) -> None:
+        served.append(stop)
+
+    monkeypatch.setattr(loop, "add_signal_handler", lambda name, callback: handled.append(name))
+    monkeypatch.setattr(outbox_relay_main, "serve", fake_serve)
+
+    await outbox_relay_main._run(Settings(servicebus_connection=SecretStr(CONNECTION)))
+
+    assert len(handled) == 2 and len(served) == 1
+
+
+async def test_the_run_goes_on_where_a_signal_handler_cannot_be_added(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    loop = asyncio.get_running_loop()
+    served: list[bool] = []
+
+    def refuse(name: object, callback: Any) -> None:
+        raise NotImplementedError
+
+    async def fake_serve(settings: Settings, stop: asyncio.Event) -> None:
+        served.append(True)
+
+    monkeypatch.setattr(loop, "add_signal_handler", refuse)
+    monkeypatch.setattr(outbox_relay_main, "serve", fake_serve)
+
+    await outbox_relay_main._run(Settings(servicebus_connection=SecretStr(CONNECTION)))
+
+    assert served == [True]

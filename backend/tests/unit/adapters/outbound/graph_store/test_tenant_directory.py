@@ -163,12 +163,21 @@ def test_a_node_the_domain_refuses_is_a_record_fault_that_repeats_no_value(
         tenant_from_properties(props)
     text = str(raised.value)
     for value in damage.values():
-        assert value is None or str(value) not in text
+        assert value in (None, "") or str(value) not in text
     assert "example-icb" not in text and "Example" not in text
 
 
 def test_a_node_missing_a_required_property_is_a_record_fault() -> None:
-    for name in ("id", "displayName", "legalName", "organisationType", "status", "createdAt"):
+    for name in (
+        "id",
+        "displayName",
+        "legalName",
+        "organisationType",
+        "status",
+        "createdAt",
+        "epoch",
+        "hashKeyVersion",
+    ):
         props = _as_stored(tenant_properties(make_tenant(TenantStatus.ACTIVE)))
         del props[name]
         with pytest.raises(TenantRecordInvalid):
@@ -403,3 +412,25 @@ async def test_a_tenant_record_keeps_every_status_the_registry_holds() -> None:
         tenant = replace(make_tenant(status), organisation_type=OrganisationType.OTHER)
         connection = RecordingConnection({"Q-TENANT-GET": [_row(tenant)]})
         assert await _directory(connection).get(tenant.id) == tenant
+
+
+async def test_two_rows_for_a_key_that_is_unique_are_a_registry_fault() -> None:
+    tenant = make_tenant(TenantStatus.ACTIVE)
+    other = make_tenant(TenantStatus.ACTIVE, id="other-trust")
+    connection = RecordingConnection(
+        {
+            "Q-TENANT-GET": [_row(tenant), _row(other)],
+            "Q-TENANT-BY-HOST": [_row(tenant), _row(other)],
+            "Q-TENANT-BY-ENTRA": [_row(tenant), _row(other)],
+            "Q-TENANT-BY-NUMBER": [_line_row(tenant), _line_row(other)],
+        }
+    )
+    directory = _directory(connection)
+    with pytest.raises(TenantRecordInvalid):
+        await directory.get(tenant.id)
+    with pytest.raises(TenantRecordInvalid):
+        await directory.by_host(HOST)
+    with pytest.raises(TenantRecordInvalid):
+        await directory.by_entra_directory(GUID)
+    with pytest.raises(TenantRecordInvalid):
+        await directory.by_inbound_number(NUMBER, SID)

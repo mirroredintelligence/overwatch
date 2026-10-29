@@ -7,7 +7,8 @@ ever reaches telemetry, never the Cypher text.
 The check at registration is cheap and is not a proof. A tenant statement must mention `$tenant`
 and must carry a `Scenario`, unless its id is on the ratchet (`UNCONVERTED`: the statements that
 existed before the seam and have not been converted yet). A global statement must be on the short
-allowlist `GLOBAL_QUERY_IDS` and must not mention `$tenant`. That catches omissions only. The proof
+allowlist `GLOBAL_QUERY_IDS`, must not mention `$tenant`, must be read-only and may name registry
+labels only (`GLOBAL_STATEMENT_LABELS`, TEN-007). That catches omissions only. The proof
 that a statement cannot read or change another tenant's data is the generated two-tenant test that
 runs each statement's scenario on a real Neo4j (TEN-004). The `Scenario` type and its validator
 are in `scenario.py` (DEC-150).
@@ -41,14 +42,62 @@ _INSERT = re.compile(r"(?::[A-Za-z_][A-Za-z0-9_]*)+")
 _INSTANCE_SEPARATOR: Final = ":"
 
 # The short global allowlist (DEC-130 item 3): statements that run before any tenant is known or
-# on data that is shared. Each has the reason it is here. Later tasks add theirs (the tenant
-# lookups, the link-token hash lookup, the network registry) in their own commit.
+# on data that is shared. Each has the reason it is here. Adding one is a deliberate change: the
+# list and the text of every statement on it are pinned in test_global_allowlist.py, and a global
+# statement must be read-only and may name registry labels only (GLOBAL_STATEMENT_LABELS), so being
+# on this list does not let a statement reach a tenant's data. Later tasks add theirs (the
+# link-token hash lookup, the network registry) in their own commit.
 GLOBAL_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
-    {"Q-NEO4J-PING": "the health ping answers RETURN 1: no data, and no tenant is known yet"}
+    {
+        "Q-NEO4J-PING": "the health ping answers RETURN 1: no data, and no tenant is known yet",
+        "Q-TENANT-GET": (
+            "reads one Tenant registry node by id: registry data only, and the caller needs the "
+            "record before a tenant is bound"
+        ),
+        "Q-TENANT-LIST-ACTIVE": (
+            "lists the Tenant registry nodes that are active, for the workers that visit each "
+            "tenant in turn"
+        ),
+        "Q-TENANT-ACTIVE-IDS": (
+            "lists the ids of the active Tenant registry nodes, so the outbox relay can bind each "
+            "tenant in turn without reading a whole record"
+        ),
+        "Q-TENANT-BY-NUMBER": (
+            "finds the tenant of an active TenantNumber registry node by the number called and "
+            "the Twilio account (DEC-131 item 2): the tenant is not known until this answers"
+        ),
+        "Q-TENANT-BY-ACCOUNT": (
+            "finds the tenant of the active TenantNumber registry nodes of a Twilio account, for "
+            "delivery receipts (DEC-131 item 2): matched by account alone"
+        ),
+        "Q-TENANT-BY-HOST": (
+            "finds the Tenant registry node of a host name (DEC-134 item 3): the host of an "
+            "unauthenticated request is the only thing that names its tenant"
+        ),
+        "Q-TENANT-BY-ENTRA": (
+            "finds the Tenant registry node bound to an Entra directory id (DEC-134 item 14): "
+            "sign-in maps a verified directory to exactly one tenant"
+        ),
+    }
 )
 
-# The labels a global statement may name (stub until the implementation commit).
-GLOBAL_STATEMENT_LABELS: Final[frozenset[str]] = frozenset()
+# The labels a global statement may name: the registry nodes, which carry no tenant (DEC-132,
+# `REGISTRY_LABELS` in migrations_tenant.py). A global statement runs with no tenant, so it must not
+# be able to match a node that holds a tenant's data. Adding a label here is as deliberate as adding
+# an id to the allowlist, and the pinned test names both.
+GLOBAL_STATEMENT_LABELS: Final[frozenset[str]] = frozenset({"Tenant", "TenantNumber"})
+
+_IDENT = r"(?:[A-Za-z_]\w*|`[^`]*`)"
+# A node pattern in its simple form: `(x:Label:Label {key: value})`, every part optional. A
+# parenthesis that follows a word is a function call, not a node.
+_NODE_PATTERN = re.compile(
+    rf"(?<![\w`])\(\s*(?:{_IDENT})?\s*((?::\s*{_IDENT}\s*)*)(?:\{{[^{{}}]*\}})?\s*\)"
+)
+_OPEN_PARENTHESIS = re.compile(r"(?<![\w`])\(")
+_LABEL = re.compile(rf":\s*({_IDENT})")
+_WRITES = re.compile(
+    r"\b(?:CREATE|MERGE|SET|DELETE|DETACH|REMOVE|CALL|LOAD|FOREACH|DROP)\b", re.IGNORECASE
+)
 
 
 class TenantPredicateMissing(ValueError):
@@ -57,6 +106,26 @@ class TenantPredicateMissing(ValueError):
 
 class ScenarioMissing(ValueError):
     """A tenant statement that has no scenario and is not on the ratchet."""
+
+
+def _check_global_text(query_id: str, cypher: str) -> None:
+    """The cheap check of a global statement's text, as DEC-142 item 4 is cheap: it catches a
+    write, a node with no label and a label outside the registry. It is not a proof; the text of
+    each global statement is also pinned, and a test reads the real graph."""
+    if _WRITES.search(cypher) is not None:
+        raise ValueError(f"query {query_id}: a global statement cannot write or call a procedure")
+    nodes = list(_NODE_PATTERN.finditer(cypher))
+    if len(_OPEN_PARENTHESIS.findall(cypher)) != len(nodes):
+        raise ValueError(
+            f"query {query_id}: a global statement may use parentheses only for node patterns "
+            "and function calls"
+        )
+    for node in nodes:
+        labels = [label.strip("`") for label in _LABEL.findall(node.group(1))]
+        if not labels:
+            raise ValueError(f"query {query_id}: every node in a global statement needs a label")
+        if not set(labels) <= GLOBAL_STATEMENT_LABELS:
+            raise ValueError(f"query {query_id}: a global statement may name registry labels only")
 
 
 def _validate(query_id: str, mode: object, scope: object, scenario: object) -> None:
@@ -108,14 +177,16 @@ class QueryRegistry:
         if _INSTANCE_SEPARATOR in query.id:
             raise ValueError(f"query {query.id}: a statement id cannot contain a colon")
         self._refuse_taken(query.id)
-        self._check(query.id, query.cypher, query.scope, query.scenario)
+        self._check(query.id, query.cypher, query.mode, query.scope, query.scenario)
         self._queries[query.id] = query
 
     def register_template(self, template: QueryTemplate) -> None:
         if _INSTANCE_SEPARATOR in template.id:
             raise ValueError(f"template {template.id}: a statement id cannot contain a colon")
+        if template.scope == "global":
+            raise ValueError(f"template {template.id}: a template cannot be a global statement")
         self._refuse_taken(template.id)
-        self._check(template.id, template.cypher, template.scope, template.scenario)
+        self._check(template.id, template.cypher, template.mode, template.scope, template.scenario)
         self._templates[template.id] = template
 
     def instance(self, template_id: str, insert: str = "") -> NamedQuery:
@@ -192,7 +263,9 @@ class QueryRegistry:
         if query_id in self._queries or query_id in self._templates:
             raise ValueError(f"duplicate query id: {query_id}")
 
-    def _check(self, query_id: str, cypher: str, scope: str, scenario: Scenario | None) -> None:
+    def _check(
+        self, query_id: str, cypher: str, mode: str, scope: str, scenario: Scenario | None
+    ) -> None:
         if scope != "global" and query_id in GLOBAL_QUERY_IDS:
             raise ValueError(
                 f"query {query_id}: this id is on the global allowlist, so it must be registered "
@@ -203,6 +276,9 @@ class QueryRegistry:
                 raise ValueError(f"query {query_id}: not on the global allowlist")
             if _mentions_tenant(cypher):
                 raise ValueError(f"query {query_id}: a global statement cannot mention $tenant")
+            if mode != "read":
+                raise ValueError(f"query {query_id}: a global statement must be read-only")
+            _check_global_text(query_id, cypher)
             return
         on_ratchet = query_id in self._unconverted
         if not _mentions_tenant(cypher) and not on_ratchet:

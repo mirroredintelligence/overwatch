@@ -158,6 +158,37 @@ def test_a_global_statement_that_writes_is_refused_even_on_the_allowlist(
 @pytest.mark.parametrize(
     "cypher",
     [
+        "MATCH (t:Tenant) SET t.x = 1",
+        "MATCH (t:Tenant) CREATE (:Tenant {id: 'x'})",
+        "MATCH (t:Tenant) DETACH DELETE t",
+        "MATCH (t:Tenant) CALL db.labels() YIELD label RETURN label",
+        "match (t:Tenant) merge (t)-[:HAS_NUMBER]->(:TenantNumber)",
+    ],
+)
+def test_a_read_that_contains_a_write_or_a_procedure_is_refused(
+    allowlisted: QueryRegistry, cypher: str
+) -> None:
+    with pytest.raises(ValueError, match="Q-TEST-GLOBAL.*write"):
+        allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
+
+
+@pytest.mark.parametrize(
+    "cypher",
+    [
+        "MATCH (t:Tenant) WHERE (t.id = 'x') RETURN t.id AS id",
+        "MATCH (t:Tenant) RETURN (1 + 2) AS three",
+    ],
+)
+def test_a_parenthesis_that_is_neither_a_node_nor_a_function_call_is_refused(
+    allowlisted: QueryRegistry, cypher: str
+) -> None:
+    with pytest.raises(ValueError, match="Q-TEST-GLOBAL.*parentheses"):
+        allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
+
+
+@pytest.mark.parametrize(
+    "cypher",
+    [
         "MATCH (o:Observation {id: $id}) RETURN o.id AS id",
         "MATCH (t:Tenant)-[:HAS_NUMBER]->(n:Person) RETURN n.id AS id",
         "MATCH (t:Tenant) OPTIONAL MATCH (o:Observation) RETURN o.id AS id",
@@ -197,6 +228,7 @@ def test_a_global_statement_with_a_node_that_has_no_label_is_refused(
     "cypher",
     [
         "MATCH (t:Tenant) RETURN count(t) AS n",
+        "MATCH (t:Tenant {id: toLower($id)}) RETURN t.id AS id",
         "MATCH (t:Tenant {id: $id}) RETURN coalesce(t.host, '') AS host",
         "MATCH (t:Tenant)-[:HAS_NUMBER]->(n:TenantNumber {e164: $number}) RETURN t.id AS id",
         "MATCH (t:Tenant) WHERE t.status IN ['active'] RETURN t.id AS id ORDER BY t.id",

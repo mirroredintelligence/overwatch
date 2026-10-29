@@ -19,7 +19,7 @@ from typing import Final, cast
 from redis.asyncio import Redis
 from redis.asyncio.client import Pipeline
 
-from diucs.adapters.outbound.cache_redis.redis_cache import DEFAULT_KEY_PREFIX
+from diucs.adapters.outbound.cache_redis.redis_cache import ROOT
 from diucs.adapters.outbound.cache_redis.tenant_keys import millis, tenant_prefix
 from diucs.application.ports.outbound.identity import ReporterSession
 from diucs.domain.codes import Role
@@ -93,9 +93,7 @@ def _text(value: object) -> str | None:
 class RedisSessionStore:
     """Reporter sessions in Redis, under the bound tenant's prefix (see tenant_keys.py)."""
 
-    def __init__(
-        self, client: Redis, key_prefix: str = DEFAULT_KEY_PREFIX, ttl: timedelta = SESSION_TTL
-    ) -> None:
+    def __init__(self, client: Redis, key_prefix: str = ROOT, ttl: timedelta = SESSION_TTL) -> None:
         self._client = client
         self._prefix = key_prefix
         self._ttl = ttl
@@ -193,7 +191,7 @@ class RedisRateLimiter:
     """A fixed-window throttle in Redis (I13): INCR, and the window's TTL set once by EXPIRE NX in
     the same transaction, so a window can never be left without an end."""
 
-    def __init__(self, client: Redis, key_prefix: str = DEFAULT_KEY_PREFIX) -> None:
+    def __init__(self, client: Redis, key_prefix: str = ROOT) -> None:
         self._client = client
         self._prefix = key_prefix
 

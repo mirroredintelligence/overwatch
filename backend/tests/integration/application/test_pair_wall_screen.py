@@ -47,7 +47,7 @@ from diucs.application.use_cases.pair_wall_screen import (
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
-from diucs.domain.rules.tokens import hash_token
+from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -802,6 +802,35 @@ async def test_a_code_whose_screen_id_is_already_taken_is_refused_and_not_burned
     assert await _state(neo4j_driver) == before
     assert await _device(rig, started.pairing_id) == taken
     assert (await _link_tokens(neo4j_driver))[0].get("usedAt") is None
+
+
+async def test_a_link_token_of_another_purpose_is_never_taken_for_a_pairing_code_or_a_secret(
+    rig: Rig, neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    """Records stored under the hash a code (or a secret) would have, but for another purpose, are
+    refused: the purpose is checked, not only the hash."""
+    code, screen_secret = "482913", "Q" * 23
+    expires = rig.clock.now() + timedelta(minutes=10)
+    async with rig.uow_factory() as uow:
+        for text, purpose in ((code, PAIRING_SECRET_PURPOSE), (screen_secret, PAIRING_PURPOSE)):
+            await uow.link_tokens.add(
+                LinkTokenRecord(
+                    token_hash=hash_token(f"{tenant_id}-{text}", LINK_SECRET),
+                    purpose=purpose,
+                    about_id="pairing-x",
+                    phone_hash=None,
+                    expires_at=expires,
+                    used_at=None,
+                )
+            )
+        await uow.commit()
+    before = await _state(neo4j_driver)
+    lead_command = ConfirmPairingCommand("key-x", LEAD, code, SCREEN_NAME, None)
+    with pytest.raises(NotAllowed, match=re.escape(REFUSED_MESSAGE)):
+        await rig.confirm.execute(lead_command)
+    with pytest.raises(NotAllowed, match=re.escape(REFUSED_MESSAGE)):
+        await rig.claim.execute(ClaimPairingCommand("pairing-x", screen_secret))
+    assert await _state(neo4j_driver) == before
 
 
 # -- Input checks ------------------------------------------------------------------------------

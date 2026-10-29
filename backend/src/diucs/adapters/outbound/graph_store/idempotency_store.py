@@ -21,13 +21,13 @@ is mapped to Conflict, so the unit of work that made it is refused and never com
 import json
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Final, Literal, cast
+from typing import Any, Final, Literal
 from uuid import uuid4
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, Tx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
@@ -35,6 +35,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     NodeSpec,
     Scenario,
     SeedNode,
+    SeedRel,
     TenantSeed,
 )
 from diucs.application.idempotency import (
@@ -44,7 +45,7 @@ from diucs.application.idempotency import (
     format_instant,
     parse_instant,
 )
-from diucs.application.tenancy import ScopeId, scope_for_new_unit
+from diucs.application.tenancy import scope_for_new_unit
 from diucs.domain.errors import Conflict
 
 # The scenario of the one converted statement (DEC-142 item 5, DEC-150). A marker's key is composite
@@ -97,41 +98,132 @@ _SEEN_SCENARIO: Final = Scenario(
     expect=Expect(rows=({"found": 1},)),
 )
 
-_QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
+# The replay record and its value tree (TEN-016, DEC-130 item 6). A record is unique per tenant on
+# (tenantId, key) (migration 0029, composite in 0031), and every value node of the tree carries the
+# tenant too, so a read in one tenant never reaches another tenant's tree. The scenarios seed the
+# same key for both tenants: a statement that forgot the tenant would find the other tenant's
+# record, or its value nodes, and the generated test reports it.
+_TREE_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "record",
+            ("IdempotencyRecord",),
+            {"key": "k-0", "resultType": Marked("type")},
+        ),
+        SeedNode("root", ("IdempotencyValue",), {"seq": 0, "kind": "object"}),
+        SeedNode(
+            "name",
+            ("IdempotencyValue",),
+            {"seq": 1, "kind": "string", "text": Marked("text")},
+        ),
+    ),
+    rels=(
+        SeedRel("record", "HAS_VALUE", "root"),
+        SeedRel("record", "HAS_VALUE", "name"),
+    ),
+)
+_LINKED_SEED: Final = TenantSeed(
+    nodes=_TREE_SEED.nodes,
+    rels=(*_TREE_SEED.rels, SeedRel("root", "MEMBER", "name", {"name": "label", "position": 0})),
+)
+_HEAD_SCENARIO: Final = Scenario(
+    "read the result type of the tenant's own record for a key",
+    seed=_TREE_SEED,
+    params={"key": "k-0"},
+    lookup=("key",),
+    expect=Expect(rows=({"resultType": Marked("type")},)),
+)
+_VALUES_SCENARIO: Final = Scenario(
+    "read the tenant's own value nodes of a record and no other tenant's",
+    seed=_TREE_SEED,
+    params={"key": "k-0"},
+    lookup=("key",),
+    expect=Expect(
+        rows=(
+            {"seq": 0, "kind": "object"},
+            {"seq": 1, "kind": "string", "text": Marked("text")},
+        )
+    ),
+)
+_EDGES_SCENARIO: Final = Scenario(
+    "read the member edges of the tenant's own record and no other tenant's",
+    seed=_LINKED_SEED,
+    params={"key": "k-0"},
+    lookup=("key",),
+    expect=Expect(rows=({"parent": 0, "child": 1, "name": "label", "position": 0},)),
+)
+_CREATE_SCENARIO: Final = Scenario(
+    "store a one-value result for a new key beside the tenant's own record",
+    seed=_TREE_SEED,
+    params={
+        "key": "k-1",
+        "resultType": "type-new",
+        "values": [{"seq": 0, "kind": "null", "text": None, "num": None, "flag": None, "at": None}],
+    },
+    new=("key", "resultType", "values"),
+    expect=Expect(
+        rows=({"written": 1},),
+        nodes={"IdempotencyRecord": 1, "IdempotencyValue": 1},
+        after=(NodeSpec(("IdempotencyRecord",), {"key": "k-1"}),),
+    ),
+)
+_LINK_SCENARIO: Final = Scenario(
+    "link two values of the tenant's own record and no other tenant's",
+    seed=_TREE_SEED,
+    params={
+        "key": "k-0",
+        "edges": [{"parent": 0, "child": 1, "name": "label", "position": 0}],
+    },
+    lookup=("key",),
+    new=("edges",),
+    expect=Expect(rows=({"linked": 1},), rels={"MEMBER": 1}),
+)
+
+# Each statement, its mode and its scenario (DEC-142 item 5). The replay record statements are
+# converted by TEN-016; the processed-message statements (converted by TEN-004) are listed too.
+_QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario | None]] = {
     "Q-IDEM-HEAD": (
-        "MATCH (r:IdempotencyRecord {key: $key}) RETURN r.resultType AS resultType",
+        "MATCH (r:IdempotencyRecord {key: $key, tenantId: $tenant}) "
+        "RETURN r.resultType AS resultType",
         "read",
+        _HEAD_SCENARIO,
     ),
     "Q-IDEM-VALUES": (
-        "MATCH (r:IdempotencyRecord {key: $key})-[:HAS_VALUE]->(v:IdempotencyValue) "
+        "MATCH (r:IdempotencyRecord {key: $key, tenantId: $tenant})-[:HAS_VALUE]->"
+        "(v:IdempotencyValue {tenantId: $tenant}) "
         "RETURN v.seq AS seq, v.kind AS kind, v.text AS text, v.num AS num, v.flag AS flag, "
         "v.at AS at",
         "read",
+        _VALUES_SCENARIO,
     ),
     "Q-IDEM-EDGES": (
-        "MATCH (r:IdempotencyRecord {key: $key})-[:HAS_VALUE]->(p:IdempotencyValue)"
-        "-[e:MEMBER]->(c:IdempotencyValue) "
+        "MATCH (r:IdempotencyRecord {key: $key, tenantId: $tenant})-[:HAS_VALUE]->"
+        "(p:IdempotencyValue {tenantId: $tenant})-[e:MEMBER]->"
+        "(c:IdempotencyValue {tenantId: $tenant}) "
         "RETURN p.seq AS parent, c.seq AS child, e.name AS name, e.position AS position",
         "read",
+        _EDGES_SCENARIO,
     ),
     "Q-IDEM-CREATE": (
         "CREATE (r:IdempotencyRecord {key: $key, resultType: $resultType, "
-        "createdAt: datetime({timezone: 'UTC'})}) "
+        "createdAt: datetime({timezone: 'UTC'}), tenantId: $tenant}) "
         "WITH r UNWIND $values AS row "
         "CREATE (v:IdempotencyValue {seq: row.seq, kind: row.kind, text: row.text, "
-        "num: row.num, flag: row.flag, at: row.at}) "
+        "num: row.num, flag: row.flag, at: row.at, tenantId: $tenant}) "
         "CREATE (r)-[:HAS_VALUE]->(v) "
         "RETURN count(v) AS written",
         "write",
+        _CREATE_SCENARIO,
     ),
     "Q-IDEM-LINK": (
         "UNWIND $edges AS e "
-        "MATCH (r:IdempotencyRecord {key: $key})-[:HAS_VALUE]->"
-        "(p:IdempotencyValue {seq: e.parent}) "
-        "MATCH (r)-[:HAS_VALUE]->(c:IdempotencyValue {seq: e.child}) "
+        "MATCH (r:IdempotencyRecord {key: $key, tenantId: $tenant})-[:HAS_VALUE]->"
+        "(p:IdempotencyValue {seq: e.parent, tenantId: $tenant}) "
+        "MATCH (r)-[:HAS_VALUE]->(c:IdempotencyValue {seq: e.child, tenantId: $tenant}) "
         "CREATE (p)-[:MEMBER {name: e.name, position: e.position}]->(c) "
         "RETURN count(c) AS linked",
         "write",
+        _LINK_SCENARIO,
     ),
     "Q-PROCESSED-MARK": (
         "MERGE (p:Processed {key: $key, tenantId: $tenant}) "
@@ -141,22 +233,17 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "REMOVE p.claim "
         "RETURN coalesce(created, false) AS created",
         "write",
+        _PROCESSED_SCENARIO,
     ),
     "Q-PROCESSED-SEEN": (
         "MATCH (p:Processed {key: $key, tenantId: $tenant}) RETURN count(p) AS found",
         "read",
+        _SEEN_SCENARIO,
     ),
 }
 
-_SCENARIOS: Final[dict[str, Scenario]] = {
-    "Q-PROCESSED-MARK": _PROCESSED_SCENARIO,
-    "Q-PROCESSED-SEEN": _SEEN_SCENARIO,
-}
-
-for _query_id, (_cypher, _mode) in _QUERIES.items():
-    REGISTRY.register(
-        NamedQuery(id=_query_id, cypher=_cypher, mode=_mode, scenario=_SCENARIOS.get(_query_id))
-    )
+for _query_id, (_cypher, _mode, _scenario) in _QUERIES.items():
+    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode, scenario=_scenario))
 
 
 def _processed_key(message_id: str, consumer: str) -> str:
@@ -250,7 +337,7 @@ def _native(value: object) -> datetime:
     return native
 
 
-async def _read_record(tx: AsyncManagedTransaction, key: str) -> tuple[str, str] | None:
+async def _read_record(tx: Tx, key: str) -> tuple[str, str] | None:
     """(resultType, canonical JSON text) of a stored record, or None. Read-only."""
     head = await run_query(tx, REGISTRY.get("Q-IDEM-HEAD"), key=key)
     if not head:
@@ -263,9 +350,10 @@ async def _read_record(tx: AsyncManagedTransaction, key: str) -> tuple[str, str]
 
 
 class Neo4jIdempotencyStore:
-    """Command replay on one unit of work's transaction (P15, DEC-090)."""
+    """Command replay on one unit of work's transaction (P15, DEC-090). The transaction is a
+    ScopedTx on the unit of work, so every statement runs in the tenant the unit opened with."""
 
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: Tx) -> None:
         self._tx = tx
 
     async def get(self, key: str) -> object | None:
@@ -330,13 +418,6 @@ class Neo4jProcessedMessages:
         return int(rows[0]["found"]) > 0
 
 
-def _scoped(tx: AsyncManagedTransaction, scope: ScopeId | None) -> AsyncManagedTransaction:
-    """The managed transaction wrapped as a ScopedTx. The repository is annotated for the raw
-    transaction until its own conversion task (TEN-016) re-annotates it to `Tx`; at run time it
-    only hands the transaction to run_query."""
-    return cast(AsyncManagedTransaction, ScopedTx(tx, scope))
-
-
 class DriverIdempotencyStore:
     """The idempotency store for constructor injection: each call runs in its own transaction on
     the process's driver, and its session is always closed (DEC-012)."""
@@ -350,7 +431,7 @@ class DriverIdempotencyStore:
         scope = scope_for_new_unit()
 
         async def read(tx: AsyncManagedTransaction) -> object | None:
-            return await Neo4jIdempotencyStore(_scoped(tx, scope)).get(key)
+            return await Neo4jIdempotencyStore(ScopedTx(tx, scope)).get(key)
 
         async with self._driver.session() as session:
             return await session.execute_read(read)
@@ -359,7 +440,7 @@ class DriverIdempotencyStore:
         scope = scope_for_new_unit()
 
         async def write(tx: AsyncManagedTransaction) -> None:
-            await Neo4jIdempotencyStore(_scoped(tx, scope)).put(key, result)
+            await Neo4jIdempotencyStore(ScopedTx(tx, scope)).put(key, result)
 
         async with self._driver.session() as session:
             await session.execute_write(write)

@@ -1,0 +1,16 @@
+[
+  {
+    "code": "RDY",
+    "name": "PILOT SAMPLE COMMUNITY SERVICE",
+    "active": true,
+    "role": "PILOT-SAMPLE",
+    "postcode": "DT1 1AA"
+  },
+  {
+    "code": "RDZ",
+    "name": "PILOT SAMPLE WARD (CLOSED)",
+    "active": false,
+    "role": "PILOT-SAMPLE",
+    "postcode": "DT4 8XX"
+  }
+]

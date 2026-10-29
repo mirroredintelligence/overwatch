@@ -1,0 +1,27 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "not-reached-reason",
+  "url": "https://diucs.example/CodeSystem/not-reached-reason",
+  "name": "not-reached-reason",
+  "status": "active",
+  "content": "complete",
+  "count": 4,
+  "concept": [
+    {
+      "code": "gone-to-hospital",
+      "display": "Gone to hospital"
+    },
+    {
+      "code": "no-answer",
+      "display": "No answer"
+    },
+    {
+      "code": "not-at-address",
+      "display": "Not at address"
+    },
+    {
+      "code": "other",
+      "display": "Other"
+    }
+  ]
+}

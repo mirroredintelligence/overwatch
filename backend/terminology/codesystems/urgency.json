@@ -1,0 +1,23 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "urgency",
+  "url": "https://diucs.example/CodeSystem/urgency",
+  "name": "urgency",
+  "status": "active",
+  "content": "complete",
+  "count": 3,
+  "concept": [
+    {
+      "code": "planned",
+      "display": "Planned"
+    },
+    {
+      "code": "today",
+      "display": "Today"
+    },
+    {
+      "code": "within-2-hrs",
+      "display": "Within 2 hrs"
+    }
+  ]
+}

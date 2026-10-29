@@ -5,7 +5,8 @@ Rules: docs/spec/domain-rules.md section 1.6. Names: docs/spec/contracts.md, rul
 A booking confirmed at exactly the report's effective_at counts as after it, so it is subtracted.
 Measures are compared by identity (`is`): StrEnum members from other enums with the same value
 compare equal (lesson L3), and an identity check cannot be fooled by them.
-Pure: no I/O, no clock.
+Pure: no I/O, no clock. The formulas are global (rule book 1.6, audit F 6.1): they take no tenant
+policy, so a tenant's thresholds never change how bookings reduce availability.
 """
 
 from collections.abc import Iterable, Sequence

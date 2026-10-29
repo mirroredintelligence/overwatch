@@ -9,7 +9,13 @@ from diucs.adapters.outbound.graph_store import link_token_repository  # registe
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 
-LINK_IDS = ["Q-LINK-ADD", "Q-LINK-GET", "Q-LINK-MARK-USED", "Q-LINK-BURN-KEY"]
+LINK_IDS = [
+    "Q-LINK-ADD",
+    "Q-LINK-GET",
+    "Q-LINK-MARK-USED",
+    "Q-LINK-BURN-KEY",
+    "Q-LINK-OPEN-FOR-PHONE",
+]
 
 
 def test_the_three_link_queries_are_registered() -> None:

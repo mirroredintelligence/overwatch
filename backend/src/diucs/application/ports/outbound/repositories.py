@@ -8,15 +8,18 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Protocol
 
-from diucs.domain.codes import AgeBand, NeedCategory, RegistrationStatus
+from diucs.domain.codes import AgeBand, AlertKind, NeedCategory, RegistrationStatus
+from diucs.domain.model.alerts import AlertRecord, AlertSubscription
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
+from diucs.domain.model.clinical import ClinicalRequestRecord
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import ReportFlag, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.service_move import ServiceMove
 
 
 class ServiceRepository(Protocol):
@@ -336,4 +339,99 @@ class FlagRepository(Protocol):
 
     async def services_with_flag(self, code: str) -> set[str]:
         """The ids of services with an active service flag with this code."""
+        ...
+
+
+class AlertSubscriptionRepository(Protocol):
+    """Alert preferences, one per practitioner (P17). Adapter: Neo4jAlertSubscriptionRepository
+    (graph_store/alert_repository.py). Saving again replaces the practitioner's subscription."""
+
+    async def get_for_practitioner(self, practitioner_id: str) -> AlertSubscription | None:
+        """The stored subscription of this practitioner, or None."""
+        ...
+
+    async def save(self, subscription: AlertSubscription) -> None:
+        """Insert the subscription, or replace the practitioner's stored one. An unknown
+        practitioner raises NotFound and writes nothing."""
+        ...
+
+    async def subscribers_for_kind(self, kind: AlertKind) -> list[AlertSubscription]:
+        """The subscriptions of the bound tenant that have this alert kind switched on."""
+        ...
+
+
+class AlertRepository(Protocol):
+    """Alerts, stored as Task code acknowledge-alert (P17). Adapter: Neo4jAlertRepository."""
+
+    async def add(self, alert: AlertRecord) -> None:
+        """Store a new alert. An id that exists raises Conflict."""
+        ...
+
+    async def get(self, alert_id: str) -> AlertRecord | None:
+        """The stored alert, or None."""
+        ...
+
+    async def save(self, alert: AlertRecord) -> None:
+        """Replace the stored alert. An unknown id raises NotFound."""
+        ...
+
+    async def open_for_owner(self, practitioner_id: str) -> list[AlertRecord]:
+        """The alerts owned by this practitioner that are still new."""
+        ...
+
+    async def chain(self, alert_id: str) -> list[AlertRecord]:
+        """The alert and every alert it escalates from, from the root through each partOf link,
+        oldest first. An unknown id raises NotFound."""
+        ...
+
+
+class ClinicalRequestRepository(Protocol):
+    """Clinical advice requests, stored as Task code clinical-advice-request (P18). Adapter:
+    Neo4jClinicalRequestRepository (graph_store/clinical_request_repository.py). The queue order is
+    the one of queue_order (D23): now before within-15-min, then oldest first. Presence is not
+    stored here."""
+
+    async def add(self, record: ClinicalRequestRecord) -> None:
+        """Store a new request. An id that exists raises Conflict."""
+        ...
+
+    async def get(self, request_id: str) -> ClinicalRequestRecord | None:
+        """The stored request, or None."""
+        ...
+
+    async def save(self, record: ClinicalRequestRecord) -> None:
+        """Replace the stored request. An unknown id raises NotFound; a stale version raises
+        Conflict."""
+        ...
+
+    async def waiting(self) -> list[ClinicalRequestRecord]:
+        """The requests nobody has taken, in queue order."""
+        ...
+
+    async def taken_by(self, clinician_id: str) -> list[ClinicalRequestRecord]:
+        """The requests this clinician has taken and not yet advised on."""
+        ...
+
+
+class ServiceMoveRepository(Protocol):
+    """Service moves (P20, U38). Adapter: Neo4jServiceMoveRepository
+    (graph_store/service_move_repository.py). Only the phone hash is stored, never the number."""
+
+    async def add(self, move: ServiceMove) -> None:
+        """Store a new move. A second open move for the service raises Conflict, an id that exists
+        raises Conflict, and a service or practitioner that is not there raises NotFound."""
+        ...
+
+    async def get(self, move_id: str) -> ServiceMove | None:
+        """The stored move, or None."""
+        ...
+
+    async def save(self, move: ServiceMove) -> None:
+        """Record the times of a move (verified, callback, completed, cancelled, until). A change
+        to its service, practitioner or phone hash raises ValidationFailed; an unknown id raises
+        NotFound."""
+        ...
+
+    async def open_for_service(self, service_id: str) -> list[ServiceMove]:
+        """The moves of this service that are not completed and not cancelled."""
         ...

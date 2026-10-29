@@ -296,7 +296,18 @@
                   "LockDuration": "PT1M",
                   "MaxDeliveryCount": 10,
                   "RequiresSession": false
-                }
+                },
+                "Rules": [
+                  {
+                    "Name": "channel-text",
+                    "Properties": {
+                      "FilterType": "SqlFilter",
+                      "SqlFilter": {
+                        "SqlExpression": "channel = 'text'"
+                      }
+                    }
+                  }
+                ]
               },
               {
                 "Name": "email-sender",
@@ -308,7 +319,18 @@
                   "LockDuration": "PT1M",
                   "MaxDeliveryCount": 10,
                   "RequiresSession": false
-                }
+                },
+                "Rules": [
+                  {
+                    "Name": "channel-email",
+                    "Properties": {
+                      "FilterType": "SqlFilter",
+                      "SqlFilter": {
+                        "SqlExpression": "channel = 'email'"
+                      }
+                    }
+                  }
+                ]
               },
               {
                 "Name": "push-sender",
@@ -320,7 +342,18 @@
                   "LockDuration": "PT1M",
                   "MaxDeliveryCount": 10,
                   "RequiresSession": false
-                }
+                },
+                "Rules": [
+                  {
+                    "Name": "channel-push",
+                    "Properties": {
+                      "FilterType": "SqlFilter",
+                      "SqlFilter": {
+                        "SqlExpression": "channel = 'push'"
+                      }
+                    }
+                  }
+                ]
               }
             ]
           }

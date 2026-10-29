@@ -87,6 +87,7 @@ def to_bus_message(raw: Any, entity: str) -> BusMessage:
     if not message_id or not event_type:
         raise MalformedMessage
     tenant_id = _text(properties.get("tenantId", properties.get(b"tenantId")))
+    traceparent = _text(properties.get("traceparent", properties.get(b"traceparent")))
     try:
         payload = json.loads(_body(raw).decode("utf-8"))
     except (ValueError, TypeError) as error:
@@ -100,6 +101,7 @@ def to_bus_message(raw: Any, entity: str) -> BusMessage:
         payload=payload,
         session_id=_text(raw.session_id),
         tenant_id=tenant_id,
+        traceparent=traceparent,
     )
 
 

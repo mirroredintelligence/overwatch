@@ -251,6 +251,7 @@ def test_the_people_registration_and_scope_statements_are_converted(
         assert "tenantId: $tenant" in query.cypher, query_id
         assert query_id not in UNCONVERTED, query_id
 
+
 # The thirteen statements of the communication and scheduled-work records (TEN-015, reworks P07 and
 # P08): nine on Communication, four on ScheduledWork. Each must be off the ratchet, carry a valid
 # scenario, and name `tenantId: $tenant` on every node it matches or creates.
@@ -279,6 +280,91 @@ def test_the_communication_and_scheduled_work_statements_are_converted(
     assert set() == TEN_015 & UNCONVERTED
     assert set(statements) >= TEN_015
     for query_id in sorted(TEN_015):
+        query = statements[query_id]
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query.scenario is not None, query_id
+        assert validate_scenario(query_id, query.scenario) == [], query_id
+        pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{[^}]*\})?\)")
+        for match in pattern.finditer(query.cypher):
+            assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), (
+                query_id,
+                match.group(0),
+            )
+
+
+# The twenty-one statements of the criteria and report or service flag repositories (TEN-012,
+# reworks P04 and P14): eight on the criteria Basic and its service, thirteen on the flags. Each
+# must be off the ratchet, carry a valid scenario, and name `tenantId: $tenant` on every node it
+# matches, merges or creates.
+CRITERIA_AND_FLAGS = frozenset(
+    {
+        "Q-CRIT-CLEAR-CURRENT",
+        "Q-CRIT-CURRENT",
+        "Q-CRIT-CURRENT-FOR",
+        "Q-CRIT-LABEL",
+        "Q-CRIT-LOCK-SERVICE",
+        "Q-CRIT-SET-CURRENT",
+        "Q-CRIT-SUBJECT",
+        "Q-CRIT-VERSIONS",
+        "Q-FLAG-BASIC-STATE",
+        "Q-FLAG-LABEL",
+        "Q-FLAG-OBS-LOCK",
+        "Q-FLAG-OBS-SERVICE",
+        "Q-FLAG-REPORT-ADD",
+        "Q-FLAG-REPORT-EXISTS",
+        "Q-FLAG-REPORT-GET",
+        "Q-FLAG-REPORT-LOCK",
+        "Q-FLAG-REPORT-OPEN",
+        "Q-FLAG-REPORT-SAVE",
+        "Q-FLAG-SERVICE-ACTIVE",
+        "Q-FLAG-SERVICE-LOCK",
+        "Q-FLAG-SERVICES-WITH",
+    }
+)
+
+
+def test_the_criteria_and_flag_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert len(CRITERIA_AND_FLAGS) == 21
+    assert CRITERIA_AND_FLAGS.isdisjoint(UNCONVERTED)
+    assert set(statements) >= CRITERIA_AND_FLAGS
+    for query_id in sorted(CRITERIA_AND_FLAGS):
+        query = statements[query_id]
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query.scenario is not None, query_id
+        assert validate_scenario(query_id, query.scenario) == [], query_id
+        pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{[^}]*\})?\)")
+        for match in pattern.finditer(query.cypher):
+            assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), (
+                query_id,
+                match.group(0),
+            )
+
+
+# The seven statements of the contact and device stores (TEN-014, reworks P16): two on the protected
+# contact, five on the practitioner's devices. Each must be off the ratchet, carry a valid scenario,
+# and name `tenantId: $tenant` on every node it matches, merges or creates.
+CONTACT_AND_DEVICE = frozenset(
+    {
+        "Q-CONTACT-GET",
+        "Q-CONTACT-PUT",
+        "Q-DEVICE-KNOWN",
+        "Q-DEVICE-LOCK",
+        "Q-DEVICE-OWNER",
+        "Q-DEVICE-REGISTER",
+        "Q-DEVICE-REVOKE",
+    }
+)
+
+
+def test_the_contact_and_device_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert len(CONTACT_AND_DEVICE) == 7
+    assert CONTACT_AND_DEVICE.isdisjoint(UNCONVERTED)
+    assert set(statements) >= CONTACT_AND_DEVICE
+    for query_id in sorted(CONTACT_AND_DEVICE):
         query = statements[query_id]
         assert "tenantId: $tenant" in query.cypher, query_id
         assert query.scenario is not None, query_id

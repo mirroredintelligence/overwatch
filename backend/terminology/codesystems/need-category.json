@@ -1,0 +1,47 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "need-category",
+  "url": "https://diucs.example/CodeSystem/need-category",
+  "name": "need-category",
+  "status": "active",
+  "content": "complete",
+  "count": 9,
+  "concept": [
+    {
+      "code": "dementia",
+      "display": "Dementia"
+    },
+    {
+      "code": "fall-no-injury",
+      "display": "Fall, no injury"
+    },
+    {
+      "code": "frailty",
+      "display": "Frailty"
+    },
+    {
+      "code": "head-injury-anticoagulants",
+      "display": "Head injury on anticoagulants"
+    },
+    {
+      "code": "infection-isolation",
+      "display": "Infection isolation"
+    },
+    {
+      "code": "iv-therapy",
+      "display": "IV therapy"
+    },
+    {
+      "code": "palliative",
+      "display": "Palliative"
+    },
+    {
+      "code": "suspected-fracture",
+      "display": "Suspected fracture"
+    },
+    {
+      "code": "wound-care",
+      "display": "Wound care"
+    }
+  ]
+}

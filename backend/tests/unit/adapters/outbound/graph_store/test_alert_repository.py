@@ -142,7 +142,12 @@ def test_an_alert_round_trips_through_its_task(alert: AlertRecord) -> None:
 
 @pytest.mark.parametrize(
     ("status", "task_status"),
-    [("new", "requested"), ("escalated", "requested"), ("acknowledged", "completed"), ("closed", "completed")],
+    [
+        ("new", "requested"),
+        ("escalated", "requested"),
+        ("acknowledged", "completed"),
+        ("closed", "completed"),
+    ],
 )
 def test_an_alert_status_maps_to_a_task_status(status: str, task_status: str) -> None:
     alert = AlertRecord(

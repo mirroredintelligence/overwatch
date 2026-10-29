@@ -139,3 +139,11 @@ register_extension(
 register_extension(
     ExtensionDef(f"{BASE_URL}StructureDefinition/checkCriteria", "checkCriteria", "boolean")
 )
+# P17: an alert's kind, the time its escalation is due and the time it was acknowledged.
+register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/alertKind", "alertKind", "string"))
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/escalationDueAt", "escalationDueAt", "dateTime")
+)
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/acknowledgedAt", "acknowledgedAt", "dateTime")
+)

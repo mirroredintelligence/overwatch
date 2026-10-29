@@ -28,6 +28,10 @@ from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession, AsyncTrans
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog
 from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
+from diucs.adapters.outbound.graph_store.alert_repository import (
+    Neo4jAlertRepository,
+    Neo4jAlertSubscriptionRepository,
+)
 from diucs.adapters.outbound.graph_store.booking_repository import Neo4jBookingRepository
 from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
 from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
@@ -67,6 +71,8 @@ from diucs.application.ports.outbound.identity import ContactStore, DeviceRegist
 from diucs.application.ports.outbound.messaging import CommunicationRepository
 from diucs.application.ports.outbound.outbox import Outbox
 from diucs.application.ports.outbound.repositories import (
+    AlertRepository,
+    AlertSubscriptionRepository,
     BookingRepository,
     CapacityRepository,
     CaseRepository,
@@ -88,6 +94,8 @@ RepositoryFactory = Callable[[AsyncManagedTransaction, ResourceStore], object]
 # registers its repository by adding one entry here (P06 "Later tasks register new repositories").
 DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "services": lambda tx, store: Neo4jServiceRepository(tx, store),
+    "alert_subscriptions": lambda tx, store: Neo4jAlertSubscriptionRepository(tx),
+    "alerts": lambda tx, store: Neo4jAlertRepository(tx, store),
     "capacity": lambda tx, store: Neo4jCapacityRepository(tx, store),
     "bookings": lambda tx, store: Neo4jBookingRepository(tx, store),
     "cases": lambda tx, store: Neo4jCaseRepository(tx, store),
@@ -143,6 +151,8 @@ class Neo4jUnitOfWork:
     """One session and one explicit transaction. Use it once: `async with uow:`, then commit."""
 
     services: ServiceRepository
+    alert_subscriptions: AlertSubscriptionRepository
+    alerts: AlertRepository
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository

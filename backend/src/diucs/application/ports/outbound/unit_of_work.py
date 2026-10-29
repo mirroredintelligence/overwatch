@@ -27,6 +27,8 @@ from diucs.application.ports.outbound.identity import ContactStore, DeviceRegist
 from diucs.application.ports.outbound.messaging import CommunicationRepository
 from diucs.application.ports.outbound.outbox import Outbox
 from diucs.application.ports.outbound.repositories import (
+    AlertRepository,
+    AlertSubscriptionRepository,
     BookingRepository,
     CapacityRepository,
     CaseRepository,
@@ -43,6 +45,8 @@ from diucs.application.tenancy import ScopeId
 
 class UnitOfWork(Protocol):
     services: ServiceRepository
+    alert_subscriptions: AlertSubscriptionRepository
+    alerts: AlertRepository
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository

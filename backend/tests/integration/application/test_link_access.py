@@ -36,6 +36,7 @@ from diucs.application.use_cases.link_access import (
     RespondViaLinkCommand,
     SendTheNumber,
     UnitOfWorkIdempotency,
+    ViewLinkQuery,
 )
 from diucs.application.use_cases.link_access import LinkAction as Action
 from diucs.application.use_cases.report_capacity import ReportCapacityResult
@@ -243,8 +244,10 @@ async def test_a_link_whose_prompt_service_or_reporter_is_gone_is_an_expired_one
 
 @pytest.mark.no_tenant
 async def test_a_link_cannot_be_looked_at_with_no_tenant_bound(links: LinkRig) -> None:
+    # The use case itself, not `links.view`: the rig's own methods bind the rig's tenant (as the
+    # edge would), which would give the use case a tenant and make this test look for a link.
     with pytest.raises(TenantNotBound):
-        await links.view("A" * 23)
+        await links.view_link.execute(ViewLinkQuery(token="A" * 23, client=CLIENT))
 
 
 # -- answering a link -----------------------------------------------------------------------------

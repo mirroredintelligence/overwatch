@@ -127,6 +127,13 @@ class RedisCache:
         px = None if ttl is None else _millis(ttl)
         await self._client.set(self._key(_CACHE_KEY, key), value, px=px)
 
+    async def set_if_absent(self, key: str, value: str, ttl: timedelta) -> bool:
+        if ttl <= timedelta(0):
+            raise ValueError("ttl must be positive")
+        # One SET NX PX: Redis decides which of two concurrent callers stores the key.
+        stored = await self._client.set(self._key(_CACHE_KEY, key), value, nx=True, px=_millis(ttl))
+        return bool(stored)
+
     async def delete(self, key: str) -> None:
         await self._client.delete(self._key(_CACHE_KEY, key))
 

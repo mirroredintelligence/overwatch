@@ -281,6 +281,15 @@ These names were added by individual task prompts. They are as binding as the re
 - `adapters/outbound/graph_store/driver.py`: `run_query(tx, query, /, *, registry=None, **params)` and `run_global_query(...)` take a registered `NamedQuery` and nothing else (no string); `run_query` binds the tenant, refuses the keywords `tenant` and `parameters`, and passes the parameters to `tx.run` as one dict. Callers write `run_query(tx, REGISTRY.get("Q-ID"), ...)`.
 - Tests: `tests/architecture/test_single_execution_point.py` holds `BINDING_MODULES`, `TENANT_PARAMETER_MODULES` (dotted module names, empty) and `BUILT_CYPHER_RATCHET` (module and count of statements that splice a constant; it may only shrink).
 
+## Inbound SMS webhook (I07, DEC-149)
+- `adapters/inbound/sms_webhook/routes.py`: `router` with `POST /webhooks/sms/twilio` and `POST /webhooks/sms/twilio/status` (`REPLY_PATH`, `STATUS_PATH`), `SmsWebhookDeps(cache, event_bus, hasher, secrets, lines, public_base_url)` (set on `app.state.sms_webhook`), `twilio_signature(url, params, token) -> str`, `replay_key(message_sid) -> str`, `REPLAY_TTL` (24 h), `MAX_TEXT_CHARS` (1600), `MAX_FORM_BYTES`, `MAX_FORM_FIELDS`. Mounted by `create_app`.
+- `application/ports/outbound/tenant_lines.py`: `InboundLine(tenant_id, token_secret)` and `InboundLineDirectory` (`for_number(to_number, account_sid)`, `for_account(account_sid)`), each `-> InboundLine | None`. Fake: `adapters/testing/fixed_inbound_lines.py` `FixedInboundLines(lines)`. The real directory is TEN-007 and TEN-041.
+- `Cache.set_if_absent(key, value, ttl) -> bool` (`application/ports/outbound/cache.py`), on `RedisCache` and `InMemoryCache`.
+- `EventBus.enqueue(queue, message) -> None` (`application/ports/outbound/event_bus.py`), on `ServiceBusEventBus` and `ManualEventBus` (which also has `enqueued_to(queue)` and `take_enqueued()`); `BusMessage.tenant_id: str | None = None`, sent as the application property `tenantId`.
+- Queue messages: `inbound.replies` carries `SmsReceived` with `{phone_hash, text, received_at, provider_message_id}`; `inbound.receipts` carries `SmsDeliveryReceived` with `{provider_message_id, status, error_code}`, id `<MessageSid>:<MessageStatus>`. Both carry the tenant.
+- Replay key: `idem:sms:<tenant>:<MessageSid>` through the cache's `cache:` family.
+
+
 ## Tenancy seam, unit of work and scoped transaction (TEN-002, DEC-146)
 - `adapters/outbound/graph_store/driver.py`: `ScopedTx(tx, scope)` (frozen; a transaction and the `ScopeId | None` its unit of work opened under; it has no `run`), `type Tx = AsyncManagedTransaction | AsyncTransaction | ScopedTx` (transitional; TEN-030 narrows it to `ScopedTx`). `run_query` and `run_global_query` take a `Tx`: on a `ScopedTx` the scope is the one it carries and the ambient context is ignored; on a raw transaction it is the ambient scope, as before.
 - `application/tenancy.py`: `UnitOfWorkAlreadyOpen`, `UNIT_OF_WORK_OPEN_MESSAGE`, `claim_unit(owner)`, `release_unit(owner)` (called only by the graph store's unit of work), `scope_for_new_unit() -> ScopeId | None` (the one place that reads the scope when a unit, or any code that opens its own transaction, opens).

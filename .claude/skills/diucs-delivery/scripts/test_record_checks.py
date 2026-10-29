@@ -77,3 +77,28 @@ def test_a_trailing_tool_warning_is_not_taken_as_the_last_line() -> None:
 
 def test_output_that_is_only_warnings_gives_an_empty_summary() -> None:
     assert rc.last_line("warning: something\n") == ""
+
+
+def test_the_summary_comes_from_stdout_when_a_tool_also_writes_to_stderr(monkeypatch) -> None:
+    class Done:
+        returncode = 0
+        stdout = "3915 passed in 70s\n"
+        stderr = "Installed 4 packages in 6ms\n"
+
+    monkeypatch.setattr(rc.subprocess, "run", lambda *a, **k: Done())
+
+    code, output = rc.run_shell("uv run pytest", "backend")
+
+    assert code == 0
+    assert rc.last_line(output) == "3915 passed in 70s"
+
+
+def test_stderr_is_the_fallback_when_stdout_is_empty(monkeypatch) -> None:
+    class Done:
+        returncode = 2
+        stdout = ""
+        stderr = "error: no such command\n"
+
+    monkeypatch.setattr(rc.subprocess, "run", lambda *a, **k: Done())
+
+    assert rc.last_line(rc.run_shell("x", "backend")[1]) == "error: no such command"

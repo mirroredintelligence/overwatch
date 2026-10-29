@@ -143,3 +143,31 @@ async def test_cancelling_another_queues_number_is_a_no_op_and_leaves_the_messag
     finally:
         await bus.close()
         await sb.close()
+
+
+async def test_an_enqueued_message_arrives_at_once_with_its_id_and_tenant_property() -> None:
+    # I07: the webhook sends to inbound.replies now, not at a time, and the message carries the
+    # tenant as the application property `tenantId` (DEC-130 item 7).
+    sb = client()
+    bus = ServiceBusEventBus(sb)
+    message_id = _unique_id("enqueued")
+    try:
+        await bus.enqueue(
+            "inbound.replies",
+            BusMessage(
+                id=message_id,
+                topic="inbound.replies",
+                event_type="SmsReceived",
+                payload={"provider_message_id": "SM1"},
+                tenant_id="tenant-a",
+            ),
+        )
+        received = await _receive_one("inbound.replies", timedelta(seconds=10))
+        assert received is not None
+        assert received.message_id == message_id
+        assert received.subject == "SmsReceived"
+        assert received.application_properties is not None
+        assert received.application_properties[b"tenantId"] == b"tenant-a"
+    finally:
+        await bus.close()
+        await sb.close()

@@ -169,6 +169,54 @@ async def test_publishing_to_an_unknown_topic_is_refused(bus_harness: Harness[Ev
         )
 
 
+def _inbound(message_id: str) -> BusMessage:
+    return BusMessage(
+        id=message_id,
+        topic=OTHER_QUEUE,
+        event_type="SmsDeliveryReceived",
+        payload={"provider_message_id": "SM1", "status": "delivered"},
+        tenant_id="tenant-a",
+    )
+
+
+async def test_an_enqueued_message_is_received_at_once_without_a_wait_for_a_time(
+    bus_harness: Harness[EventBus],
+) -> None:
+    harness = _receiver(bus_harness)
+    assert harness.receive is not None
+    await harness.subject.enqueue(OTHER_QUEUE, _inbound("e-1"))
+    received = await harness.receive(OTHER_QUEUE, PATIENCE)
+    assert received is not None
+    assert received.id == "e-1"
+    assert received.payload == {"provider_message_id": "SM1", "status": "delivered"}
+
+
+async def test_an_enqueued_message_is_received_on_its_queue_only(
+    bus_harness: Harness[EventBus],
+) -> None:
+    harness = _receiver(bus_harness)
+    assert harness.receive is not None
+    await harness.subject.enqueue(OTHER_QUEUE, _inbound("e-1"))
+    assert await harness.receive(QUEUE, QUIET) is None
+    assert await harness.receive(OTHER_QUEUE, PATIENCE) is not None
+
+
+async def test_an_enqueued_message_is_received_once(bus_harness: Harness[EventBus]) -> None:
+    harness = _receiver(bus_harness)
+    assert harness.receive is not None
+    await harness.subject.enqueue(OTHER_QUEUE, _inbound("e-1"))
+    assert await harness.receive(OTHER_QUEUE, PATIENCE) is not None
+    assert await harness.receive(OTHER_QUEUE, QUIET) is None
+
+
+@pytest.mark.parametrize("name", ["not.a.queue", "capacity.events"])
+async def test_enqueueing_to_an_unknown_queue_or_to_a_topic_is_refused(
+    bus_harness: Harness[EventBus], name: str
+) -> None:
+    with pytest.raises(ValidationFailed):
+        await bus_harness.subject.enqueue(name, _inbound("e-1"))
+
+
 @pytest.mark.parametrize("name", ["not.a.queue", "capacity.events"])
 async def test_scheduling_to_an_unknown_queue_or_to_a_topic_is_refused(
     bus_harness: Harness[EventBus], name: str

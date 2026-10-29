@@ -155,8 +155,8 @@ CLEAR_CURRENT_SCENARIO: Final = Scenario(
 
 
 # G11: the advisor's hard pre-filter (Q-CRIT-FILTER, domain-rules 4.1) and the criteria history
-# (Q-CRIT-HISTORY, the SUPERSEDES walk from the current version). Both tenants hold the same service
-# and criteria keys; the ids that differ are Marked.
+# (Q-CRIT-HISTORY, the SUPERSEDES walk both ways from the current version). Both tenants hold the
+# same service and criteria keys; the ids that differ are Marked.
 _NEED_SYSTEM: Final = code_system_url("need-category")
 _FILTER_SERVICE: Final = SeedNode(
     "service",
@@ -225,12 +225,24 @@ _HISTORY_SEED: Final = TenantSeed(
                 "version": 2,
             },
         ),
+        SeedNode(
+            "v3",
+            ("Resource", "Basic", "ServiceCriteria"),
+            {
+                "id": Marked("crit-3"),
+                "key": "Basic/crit-3",
+                "status": "pending-approval",
+                "version": 3,
+            },
+        ),
     ),
     rels=(
         SeedRel("service", "CURRENT_CRITERIA", "v2"),
         SeedRel("v1", "SUBJECT", "service"),
         SeedRel("v2", "SUBJECT", "service"),
+        SeedRel("v3", "SUBJECT", "service"),
         SeedRel("v2", "SUPERSEDES", "v1"),
+        SeedRel("v3", "SUPERSEDES", "v2"),
     ),
 )
 FILTER_SCENARIO: Final = Scenario(
@@ -243,11 +255,14 @@ FILTER_SCENARIO: Final = Scenario(
 )
 HISTORY_SCENARIO: Final = Scenario(
     "the criteria versions of one of the tenant's services, reached from the current one "
-    "by SUPERSEDES, newest first",
+    "by SUPERSEDES in both directions (a pending version newer than the current one is listed), "
+    "newest first",
     seed=_HISTORY_SEED,
     params={"serviceId": "svc-1"},
     lookup=("serviceId",),
-    expect=Expect(rows=({"id": Marked("crit-2")}, {"id": Marked("crit-1")})),
+    expect=Expect(
+        rows=({"id": Marked("crit-3")}, {"id": Marked("crit-2")}, {"id": Marked("crit-1")})
+    ),
 )
 
 CRITERIA_SCENARIOS: Final[dict[str, Scenario]] = {

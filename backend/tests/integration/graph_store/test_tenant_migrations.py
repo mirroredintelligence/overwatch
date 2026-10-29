@@ -23,7 +23,9 @@ from diucs.adapters.outbound.graph_store.migrations import (
     MIGRATIONS,
     apply_migrations,
 )
+from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
+from diucs.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_tenant import (
     COMPOSITE_CONSTRAINTS,
     COMPOSITE_INDEXES,
@@ -151,10 +153,59 @@ class _CountingDriver:
 
 # Test 12: a fresh database
 
+PINNED_MIGRATION_IDS = [
+    "0001_resource_id",
+    "0002_identifier_key",
+    "0003_concept_key",
+    "0004_obs_by_service",
+    "0005_task_by_status",
+    "0006_svc_active",
+    "0007_phone_hash",
+    "0008_location_position",
+    "0009_scheduled_work_id",
+    "0014_communication_id",
+    "0015_communication_provider_id",
+    "0016_audit_event_id",
+    "0017_audit_head_id",
+    "0018_audit_ref_id",
+    "0019_provenance_id",
+    "0020_chain_seq",
+    "0021_link_token_hash",
+    "0022_case_reference_id",
+    "0023_device_id",
+    "0024_protected_contact_role_id",
+    "0025_protected_contact_key",
+    "0026_credential_device_id",
+    "0027_report_flag_id",
+    "0028_outbox_message_id",
+    "0029_idempotency_key",
+    "0030_processed_key",
+    "0031_tenant_composites",
+    "0032_backfill_default_tenant",
+    "0033_case_open_reference",
+    "0034_tenant_registry",
+    "0035_default_tenant_record",
+    "0040_protected_text_handle",
+    "0041_service_move_id",
+    "0045_support_session_id",
+    "0046_support_code_hash",
+]
+
 
 async def test_a_fresh_database_applies_every_migration_in_order(built: _Built) -> None:
     assert built.applied == [m.id for m in MIGRATIONS]
-    assert len(built.applied) == 26 + len(TENANT_MIGRATIONS) + len(PROTECTED_MIGRATIONS)
+    # The count is the sum of the areas, so a new area or migration cannot leave a stale number...
+    areas = (
+        CORE_MIGRATIONS,
+        TENANT_MIGRATIONS,
+        NETWORK_MIGRATIONS,
+        PROTECTED_MIGRATIONS,
+        SUPPORT_MIGRATIONS,
+    )
+    assert len(built.applied) == sum(len(area) for area in areas)
+    # ...and the ids are pinned, so adding, removing or renaming one is a change to this list made
+    # on purpose (an id applied in one place must never become a different migration elsewhere).
+    assert built.applied == PINNED_MIGRATION_IDS
 
 
 async def test_every_composite_constraint_has_the_label_the_properties_and_the_type_of_its_row(

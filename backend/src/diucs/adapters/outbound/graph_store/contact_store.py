@@ -85,7 +85,10 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "write",
     ),
     "Q-CONTACT-GET": (
-        "MATCH (c:ProtectedContact {key: $key, tenantId: $tenant}) RETURN c.value AS value LIMIT 1",
+        # No LIMIT: (tenantId, key) is unique (migration 0031), so the tenant's own node is the only
+        # row. A LIMIT would hide a second row, so the generated test could not see this statement
+        # reach another tenant's node when its tenant predicate is removed.
+        "MATCH (c:ProtectedContact {key: $key, tenantId: $tenant}) RETURN c.value AS value",
         "read",
     ),
 }

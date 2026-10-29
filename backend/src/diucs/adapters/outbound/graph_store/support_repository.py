@@ -96,7 +96,8 @@ _ENSURE: Final = Scenario(
     new=("id", "deviceType", "appMode", "release"),
     expect=Expect(
         rows=({"n": 1},),
-        nodes={"UiSession": 2},
+        # `nodes` is the net change: the seed holds one session, so a second is +1.
+        nodes={"UiSession": 1},
         after=(NodeSpec(("UiSession",), {"id": "ui-2", "deviceType": "tablet"}),),
     ),
 )
@@ -128,7 +129,9 @@ _CODE_ADD: Final = Scenario(
     new=("codeHash",),
     expect=Expect(
         rows=({"written": 1},),
-        nodes={"SupportCode": 2},
+        # Net change: one new code, joined to the session and to the practitioner.
+        nodes={"SupportCode": 1},
+        rels={"SHARED_VIA": 1, "SHARED_BY": 1},
         after=(NodeSpec(("SupportCode",), {"codeHash": "hash-new"}),),
     ),
 )
@@ -191,7 +194,9 @@ _ACCESS_ADD: Final = Scenario(
     new=("id", "reason"),
     expect=Expect(
         rows=({"written": 1},),
+        # Net change: one new open, joined to the session and to the practitioner.
         nodes={"SupportAccess": 1},
+        rels={"OPENED": 1, "OPENED_BY": 1},
         after=(NodeSpec(("SupportAccess",), {"id": "acc-new", "reason": "code"}),),
     ),
 )

@@ -167,12 +167,17 @@ REPORT_SAVE_SCENARIO: Final = Scenario(
         "status": "checked",
         "outcome": "confirmed",
         "resolvedAt": _AT_1100,
+        # The statement sets resolvedBy, so the probe must pass it: a missing parameter is a
+        # ClientError, which the generated test reports as a probe error.
+        "resolvedBy": "role-1",
     },
     lookup=("id",),
-    new=("status", "outcome", "resolvedAt"),
+    new=("status", "outcome", "resolvedAt", "resolvedBy"),
     expect=Expect(
         rows=({"saved": 1},),
-        after=(NodeSpec(("ReportFlag",), {"id": "rf-1", "status": "checked"}),),
+        after=(
+            NodeSpec(("ReportFlag",), {"id": "rf-1", "status": "checked", "resolvedBy": "role-1"}),
+        ),
     ),
 )
 REPORT_OPEN_SCENARIO: Final = Scenario(
@@ -221,12 +226,22 @@ SERVICE_ACTIVE_SCENARIO: Final = Scenario(
     lookup=("serviceId",),
     expect=Expect(rows=({"key": _SERVICE_FLAG_KEY},)),
 )
+# The statement returns DISTINCT service ids, so two tenants holding one service id would collapse
+# to one row and hide a leak: the service id differs between the tenants here.
+_FLAGGED_SERVICE: Final = SeedNode(
+    "service",
+    ("Resource", "HealthcareService"),
+    {"id": Marked("svc"), "key": "HealthcareService/svc-1", "name": Marked("Ward"), "active": True},
+)
 SERVICES_WITH_SCENARIO: Final = Scenario(
     "list the services that hold an active flag of a code",
-    seed=_SEED,
+    seed=TenantSeed(
+        nodes=(_FLAGGED_SERVICE, _SERVICE_FLAG),
+        rels=(SeedRel("service-flag", "SUBJECT", "service"),),
+    ),
     params={"active": "active", "code": "suspended"},
     lookup=("code",),
-    expect=Expect(rows=({"serviceId": "svc-1"},)),
+    expect=Expect(rows=({"serviceId": Marked("svc")},)),
 )
 
 FLAG_SCENARIOS: Final[dict[str, Scenario]] = {

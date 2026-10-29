@@ -53,7 +53,7 @@ async def _save(driver: AsyncDriver, *subscriptions: PushSubscription) -> None:
 
 
 @pytest.fixture
-async def p1(neo4j_driver: AsyncDriver) -> None:
+async def p1(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
     await _seed_practitioner(neo4j_driver, "p1")
 
 
@@ -168,4 +168,4 @@ async def test_a_push_device_id_is_refused_by_a_wall_display_save(
 
     props = await node_props(neo4j_driver, "Device", id="dev-7")
     assert props["pushSubscriptionJson"] is not None
-    assert props.get("deviceType") is None
+    assert props["deviceType"] == "mobile-app"

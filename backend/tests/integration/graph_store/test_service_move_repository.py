@@ -48,7 +48,7 @@ async def _seed(driver: AsyncDriver) -> None:
 
 
 @pytest.fixture
-async def seeded(neo4j_driver: AsyncDriver) -> None:
+async def seeded(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
     await _seed(neo4j_driver)
 
 

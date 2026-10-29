@@ -1,7 +1,9 @@
 """Each tenant predicate of the communication and scheduled-work statements is needed, or is
 redundant under the invariant that no relationship joins two tenants (TEN-015, DEC-132 item 8).
 
-For every occurrence of `tenantId: $tenant` in the thirteen statements, the statement is run with
+For every occurrence of `tenantId: $tenant` in the statements of TEN_015 (thirteen from TEN-015,
+and the two that the week bundle B1 added to the same module, Q-COMM-PROMPTS-DUE-BETWEEN and
+Q-COMM-RECORD-OUTCOME), the statement is run with
 that one predicate taken out, and the generated two-tenant test (the same probe as
 test_tenant_isolation.py) runs it on a contracted container. A predicate on a node the statement
 anchors on, or on a node it creates, must be killed. A predicate on a node reached through a
@@ -32,6 +34,10 @@ REDUNDANT: dict[tuple[str, int], str] = {
     **{("Q-COMM-BY-PROVIDER", k): _VIA_RELATIONSHIP for k in (1, 2, 3, 4)},
     **{("Q-COMM-GET", k): _VIA_RELATIONSHIP for k in (1, 2, 3, 4)},
     **{("Q-COMM-LATEST-PROMPT", k): _VIA_RELATIONSHIP for k in range(7)},
+    # Each of the three nodes is joined to the other two by TOPIC and ABOUT, so with the other two
+    # in the caller's tenant a third in another tenant cannot join them (the same as the prompt
+    # statement above, which the anchor is no exception to).
+    **{("Q-COMM-PROMPTS-DUE-BETWEEN", k): _VIA_RELATIONSHIP for k in (0, 1, 2)},
     **{("Q-WORK-GET", k): _VIA_RELATIONSHIP for k in (0, 1)},
     **{("Q-WORK-FOR-ABOUT", k): _VIA_RELATIONSHIP for k in (0, 1)},
 }
@@ -45,6 +51,8 @@ TEN_015 = (
     "Q-COMM-LINK-ABOUT",
     "Q-COMM-LINK-RECIPIENT",
     "Q-COMM-LINK-REPLY",
+    "Q-COMM-PROMPTS-DUE-BETWEEN",
+    "Q-COMM-RECORD-OUTCOME",
     "Q-COMM-SET-STATUS",
     "Q-WORK-ADD",
     "Q-WORK-FOR-ABOUT",

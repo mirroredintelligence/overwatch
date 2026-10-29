@@ -84,10 +84,12 @@ def test_the_candidate_statement_uses_the_age_band_bounds_and_the_district() -> 
     assert "$district IN c.postcodeDistricts" in cypher
 
 
-def test_the_history_statement_walks_the_superseded_chain_from_the_current_version() -> None:
+def test_the_history_statement_walks_the_chain_both_ways_from_the_current_version() -> None:
     cypher = _statement("Q-CRIT-HISTORY").cypher
-    assert "(c)-[:SUPERSEDES*0..]->(old:ServiceCriteria" in cypher
-    assert "ORDER BY old.version DESC" in cypher
+    assert "(c)-[:SUPERSEDES*0..]->(v)" in cypher  # the older versions
+    assert "(v)-[:SUPERSEDES*0..]->(c)" in cypher  # a pending version newer than the current one
+    assert "MATCH (v:ServiceCriteria {tenantId: $tenant})" in cypher
+    assert "ORDER BY v.version DESC" in cypher
 
 
 async def test_candidates_refuses_an_age_band_that_is_not_a_band() -> None:

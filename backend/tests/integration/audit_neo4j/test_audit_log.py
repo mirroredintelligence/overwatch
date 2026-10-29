@@ -22,7 +22,7 @@ from diucs.adapters.outbound.audit_neo4j.audit_log import (
 )
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import GENESIS_HASH, AuditEntry
+from diucs.application.ports.outbound.audit import AuditEntry, genesis_hash_for
 from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
@@ -65,7 +65,7 @@ async def audit_head(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
 
 
 async def test_three_appends_read_back_in_order_and_each_links_to_the_last(
-    neo4j_driver: AsyncDriver, audit_head: None
+    neo4j_driver: AsyncDriver, audit_head: None, tenant_id: str
 ) -> None:
     entries = [entry_at(0), entry_at(1), entry_at(2)]
     for entry in entries:
@@ -74,7 +74,9 @@ async def test_three_appends_read_back_in_order_and_each_links_to_the_last(
     records = await read_tx(neo4j_driver, lambda tx: Neo4jAuditLog(tx).records())
 
     assert [record.entry for record in records] == entries
-    assert records[0].previous_hash == GENESIS_HASH
+    # One chain per tenant (TEN-017): the first link starts from the tenant's own genesis, which is
+    # the zero hash only for the default tenant. The run tenant is not the default tenant.
+    assert records[0].previous_hash == genesis_hash_for(tenant_id)
     assert records[1].previous_hash == records[0].chain_hash
     assert records[2].previous_hash == records[1].chain_hash
 
@@ -99,7 +101,7 @@ async def test_verify_chain_is_true_then_false_after_an_entry_is_edited(
 
 
 async def test_an_append_that_is_rolled_back_leaves_no_event_and_does_not_move_the_head(
-    neo4j_driver: AsyncDriver, audit_head: None
+    neo4j_driver: AsyncDriver, audit_head: None, tenant_id: str
 ) -> None:
     async with neo4j_driver.session() as session:
         tx = await session.begin_transaction()
@@ -110,7 +112,7 @@ async def test_an_append_that_is_rolled_back_leaves_no_event_and_does_not_move_t
 
     assert await count_nodes(neo4j_driver, "AuditEvent") == 0
     head = await node_props(neo4j_driver, "AuditHead", id="audit")
-    assert head["lastHash"] == GENESIS_HASH
+    assert head["lastHash"] == genesis_hash_for(tenant_id)
 
 
 async def test_a_snapshot_is_stored_with_the_sha256_of_its_canonical_json(

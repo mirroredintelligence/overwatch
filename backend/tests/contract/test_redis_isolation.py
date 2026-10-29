@@ -53,7 +53,12 @@ async def test_closing_one_harness_does_not_delete_keys_of_another_run() -> None
             try:
                 await first.subject.set("svc-1:status", "accepting")
                 await second.close()
-                assert await first.subject.get("svc-1:status") == "accepting"
+                # Both harnesses use this run's tenant, and a close removes the keys of the run's
+                # tenants (the module docstring, factories.make_redis_cache), so the close of the
+                # second harness also removed what the first one wrote. What it must never remove
+                # is another run's key: that stays after every close, not only the last.
+                assert await first.subject.get("svc-1:status") is None
+                assert await other.get(key) == "accepting"
             finally:
                 await first.close()
         assert await other.get(key) == "accepting"

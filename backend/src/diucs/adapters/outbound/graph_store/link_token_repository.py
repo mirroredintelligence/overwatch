@@ -150,7 +150,9 @@ _OPEN_FOR_PHONE_SEED: Final = TenantSeed(
             "invite",
             ("LinkToken",),
             {
-                "id": "invite-1",
+                # Marked: the tie-break of the statement is the id, so with equal expiries the
+                # other tenant's link would be the first of the two if the tenant were not matched.
+                "id": Marked("invite"),
                 # Marked, not Unique: the lookup is by phone, so the hash needs no shared value.
                 "tokenHash": Marked("invite-hash"),
                 "phoneHash": _PHONE,
@@ -207,7 +209,9 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario]] = {
     "Q-LINK-OPEN-FOR-PHONE": (
         "MATCH (t:LinkToken {phoneHash: $phoneHash, purpose: $purpose, tenantId: $tenant}) "
         "WHERE t.usedAt IS NULL AND t.expiresAt > $now "
-        "RETURN properties(t) AS props ORDER BY t.expiresAt DESC LIMIT 1",
+        # The id breaks a tie in the expiry, so the choice never depends on the order the store
+        # happens to scan in (and the generated test can see another tenant's link win a tie).
+        "RETURN properties(t) AS props ORDER BY t.expiresAt DESC, t.id ASC LIMIT 1",
         "read",
         _OPEN_FOR_PHONE_SCENARIO,
     ),

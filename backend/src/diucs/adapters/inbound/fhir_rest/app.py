@@ -15,6 +15,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
     UnhandledErrorMiddleware,
     install_exception_handlers,
 )
+from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
@@ -34,7 +35,7 @@ class ApiContainer(Protocol):
     def ids(self) -> IdGenerator: ...
 
 
-def create_app(container: ApiContainer) -> FastAPI:
+def create_app(container: ApiContainer, synthetic: SyntheticHook | None = None) -> FastAPI:
     # The OpenAPI pages are off: every response is FHIR, and the surface is the FHIR API only.
     app = FastAPI(
         title="DIUCS capacity FHIR API",
@@ -43,6 +44,8 @@ def create_app(container: ApiContainer) -> FastAPI:
         openapi_url=None,
     )
     app.state.container = container
+    # The synthetic test hook (O09). None when it is not configured: the route then answers 404.
+    app.state.synthetic = synthetic
     install_exception_handlers(app)
     # add_middleware wraps the app, so the last one added runs first: the catch-all is outermost.
     app.add_middleware(BodyTypeMiddleware)
@@ -75,6 +78,12 @@ def create_app(container: ApiContainer) -> FastAPI:
     from diucs.adapters.inbound.link_pages import capacity_links
 
     app.include_router(capacity_links.router)
+
+    # The synthetic test hook (O09, TEN-G04): refuses everything unless it is configured and the
+    # bearer is its token. Mounted always, so an unconfigured server answers the same 404.
+    from diucs.adapters.inbound.fhir_rest import routes_synthetic
+
+    app.include_router(routes_synthetic.router)
     return app
 
 

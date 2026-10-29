@@ -40,3 +40,9 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_starttls: bool = True
     email_from: str = "DIUCS Capacity <capacity@diucs.example>"
+    # O09 (TEN-G04): the synthetic test hook, POST /test/synthetic/prompt. Off by default. When it
+    # is on, the hook answers only to the bearer hook token and only for this one tenant, which the
+    # edge binds (a request never names a tenant). Real values come from the environment.
+    synthetic_enabled: bool = False
+    synthetic_hook_token: SecretStr | None = None
+    synthetic_tenant_id: str | None = None

@@ -34,4 +34,8 @@ Non-blocking findings and residual limits (DEC-141). A verifier may not hold a t
 | TEN-002 | Idempotency, outbox and audit rows written in a unit carry no tenantId until TEN-016 and TEN-017 and the conversion bundles. The evidence says so. | `adapters/outbound/` stores | TEN-016, TEN-017 (bundles B3, B4). |
 | TEN-002 | A unit entered in one task and left in another keeps its claim in the entering context. Fails closed, documented, untested. | `tenancy.py` `claim_unit` | Next change to the unit of work. |
 | TEN-002 | The evidence verification block still holds placeholders. | `docs/delivery/evidence/TEN-002.md` | None. |
+| I07 | The replay guard is the MessageSid marker only, with a 24 h TTL. Twilio signs no timestamp, so a captured valid request is a no-op for 24 h and queues again afterwards. I04's durable ProcessedMessages is the next layer. | `sms_webhook/routes.py` | When I04's consumer processes inbound replies (TEN-025). |
+| I07 | Two surviving mutants are equivalent in effect: the declared Content-Length guard (the streamed 64 KiB cap refuses the same bodies) and `errors="strict"` on `parse_qsl` (the raw-bytes decode is still strict). | `sms_webhook/routes.py` | None. |
+| I07 | The FHIR 415 exemption for `/webhooks/` is tested on a toy Starlette app; the verifier checked the real app by hand, but no committed test does. | `fhir_rest` body-type check | Next change to the FHIR error middleware. |
+| I07 | The Service Bus enqueue contract cases and integration test were not re-run after the container restart (the emulator is gone). They passed before it. | `adapters/outbound/bus_servicebus` | Next full integration run with the compose stack up. |
 

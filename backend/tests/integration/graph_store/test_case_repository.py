@@ -511,3 +511,47 @@ async def test_two_open_cases_with_one_reference_are_still_refused_as_conflict(
     assert await _references(neo4j_driver) == [
         {"id": "case-1", "reference": "4821", "open": "4821"}
     ]
+
+
+async def test_the_first_recording_of_scores_on_an_open_case_writes_them_and_reads_them_back(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # UpdateCase records the referrer's scores once, after the case is opened without them (U11;
+    # the CaseRepository port: scores never change once recorded). Each score is written once, here,
+    # and nothing else about the case changes.
+    await _write(neo4j_driver, replace(OPEN_CASE, scores=()))
+
+    await _write(neo4j_driver, OPEN_CASE, save=True)
+
+    assert await _load(neo4j_driver, "case-1") == OPEN_CASE
+    assert await count_nodes(neo4j_driver, "Observation") == 2
+
+
+async def test_a_save_that_clears_recorded_scores_is_refused_and_writes_nothing(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _write(neo4j_driver, OPEN_CASE)
+
+    with pytest.raises(ValidationFailed):
+        await _write(neo4j_driver, replace(OPEN_CASE, scores=()), save=True)
+
+    assert await _load(neo4j_driver, "case-1") == OPEN_CASE
+    assert await count_nodes(neo4j_driver, "Observation") == 2
+
+
+async def test_a_case_opened_with_no_scores_round_trips_and_has_no_empty_score_list(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # An advisor opens a case before any score is known (U11). The mapper refuses an empty list,
+    # so a case with no scores leaves the supporting-information element out (the P21 mapping).
+    empty = replace(OPEN_CASE, scores=())
+
+    await assert_round_trip(
+        neo4j_driver,
+        lambda tx: _repo(tx).add(empty),
+        lambda tx: _repo(tx).get("case-1"),
+        empty,
+    )
+    assert await _rows(
+        neo4j_driver, "MATCH (r:ServiceRequest {id: 'case-1'}) RETURN r.supportingInfo AS info"
+    ) == [{"info": None}]

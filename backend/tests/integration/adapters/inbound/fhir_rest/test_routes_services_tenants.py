@@ -6,10 +6,10 @@ the REST edge will do once it binds the tenant from the verified token (TEN-018)
 read a tenant: it comes only from the unit of work.
 
 Until TEN-032 drops the single-property keys, two tenants cannot share a resource id on the shared
-test schema, so B's ids differ from A's. The resource store (TEN-009) and the capacity statements
-(TEN-010) are still unconverted (tenant-pending, evidence R04): tenant A's lookups still find
-tenant B's service and reports. The tests that show that are strict expected failures. When
-TEN-009 and TEN-010 land they pass and the strict marker fails the suite: remove the markers then.
+test schema, so B's ids differ from A's. The resource store (TEN-009) is still unconverted on main (tenant-pending, evidence R04): tenant
+A's lookups still find tenant B's service and reports. The tests that show that are strict expected
+failures. When TEN-009 lands they pass (checked on a merge of its tip) and the strict marker fails
+the suite: remove the markers then.
 The tests without a marker hold today: nothing of B changes when A writes, and a tenant, whether
 sent in the body, in a header or in a query string, is never read.
 """
@@ -25,7 +25,7 @@ from neo4j import AsyncDriver
 
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.bootstrap.container import Container
-from diucs.domain.codes import Measure, ReportSource, ReportType, Role
+from diucs.domain.codes import Measure, ReportSource, ReportType, Role, ServiceCategory
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.service import ServiceProfile
 from tests.integration.adapters.inbound.fhir_rest.test_routes_services import (
@@ -54,21 +54,33 @@ PENDING = pytest.mark.xfail(
     strict=True,
     raises=AssertionError,
     reason=(
-        "R04 DEC-168: the resource store and the capacity statements do not scope their reads yet "
-        "(TEN-009, TEN-010), so tenant A still reads tenant B's service and reports. When they "
-        "land this test passes and the strict marker fails the suite: remove the marker then."
+        "R04 DEC-168: the resource store does not scope its reads yet (TEN-009), so tenant A still "
+        "reads tenant B's service and reports. When TEN-009 lands this test passes (checked on a "
+        "merge of TEN-009 tip 6210657) and the strict marker fails the suite: remove the marker."
     ),
 )
 B_SERVICE = "svc-b-clinic"
 B_REPORT = "obs-b-1303"
-B_PROFILE = ServiceProfile(**{**fields(WEST), "id": B_SERVICE, "name": "Clinic B"})
+# B uses another category, measure and source than A: the shared test schema keeps the old
+# single-property keys of Concept nodes until TEN-032, so two tenants cannot hold the same concept
+# there (lesson L164 item 5).
+B_PROFILE = ServiceProfile(
+    **{
+        **fields(WEST),
+        "id": B_SERVICE,
+        "name": "Clinic B",
+        "category": ServiceCategory.SAME_DAY_EMERGENCY_CARE,
+        "measure": Measure.FREE_SLOTS,
+        "unit_label": "slots",
+    }
+)
 B_PRIOR = CapacityReport(
     id=B_REPORT,
     service_id=B_SERVICE,
     value=7,
-    measure=Measure.REFERRALS_ACCEPTABLE,
+    measure=Measure.FREE_SLOTS,
     effective_at=datetime(2026, 10, 23, 13, 3, tzinfo=UTC),
-    source=ReportSource.TEXT,
+    source=ReportSource.EMAIL,
     report_type=ReportType.NUMBER,
 )
 B_LATEST = f"{OBSERVATION}?focus=HealthcareService/{B_SERVICE}&_sort=-date&_count=1"
@@ -93,10 +105,6 @@ async def both_tenants(
 
 def _b_lead() -> dict[str, str]:
     return bearer(Role.LEAD, (), "prac-lead-b")
-
-
-def _b_reporter() -> dict[str, str]:
-    return bearer(Role.REPORTER, (B_SERVICE,), "prac-reporter-b")
 
 
 @PENDING
@@ -209,8 +217,15 @@ async def test_tenant_b_reads_and_reports_for_its_own_service(
         service = await api_client.get(f"{SERVICES}/{B_SERVICE}", headers=_b_lead())
         created = await post(
             api_client,
-            report_body(5, service=B_SERVICE, at="2026-10-23T13:10:00Z"),
-            _b_reporter(),
+            report_body(
+                5,
+                service=B_SERVICE,
+                at="2026-10-23T13:10:00Z",
+                method="advisor-phoned",
+                measure="free-slots",
+                unit="{slot}",
+            ),
+            _b_lead(),
             key="b-key-1",
         )
         latest = await api_client.get(B_LATEST, headers=_b_lead())

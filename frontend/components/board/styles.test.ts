@@ -54,6 +54,22 @@ describe('Tile borders and backgrounds (prompt, "Rules you need")', () => {
   it('over capacity has a 3px --c-surge border', () => {
     expect(rule(tile, '.overCapacity')).toMatch(/border:\s*3px solid var\(--c-surge\)/);
   });
+
+  it('over capacity fills its bar with a striped purple, not a flat colour (a pattern as well as a colour)', () => {
+    expect(rule(tile, '.overCapacity')).toMatch(/--tile-fill:\s*repeating-linear-gradient\(/);
+  });
+
+  it('out of hours has the #E9EDEF background and a 3px --c-closed border (W07)', () => {
+    expect(rule(tile, '.outOfHours')).toMatch(/border:\s*3px solid var\(--c-closed\)/);
+    expect(rule(tile, '.outOfHours')).toMatch(/background:\s*var\(--tile-closed-bg\)/);
+    expect(rule(tile, '.outOfHours')).toMatch(/--tile-fill:\s*var\(--c-closed\)/);
+  });
+
+  it('the pending chip has its own border and a white background, so it reads on every tile (W07)', () => {
+    expect(rule(tile, '.pending')).toMatch(/border:\s*2px solid/);
+    expect(rule(tile, '.pending')).toMatch(/background:\s*Canvas/);
+    expect(rule(tile, '.pending')).toMatch(/color:\s*var\(--c-ink\)/);
+  });
 });
 
 describe('Tile size', () => {
@@ -88,6 +104,7 @@ describe('Tile contrast (WCAG AA), from the shipped colours', () => {
     ['limited', [WHITE]],
     ['over capacity', [WHITE]],
     ['not accepting', [colour('--tile-closed-bg')]],
+    ['out of hours', [colour('--tile-closed-bg')]],
     ['not updated (both hatch colours)', [colour('--tile-hatch-a'), colour('--tile-hatch-b')]],
   ];
 
@@ -102,6 +119,15 @@ describe('Tile contrast (WCAG AA), from the shipped colours', () => {
 
   it('the not-accepting number is at least 3:1 on its background', () => {
     expect(contrastRatio(colour('--c-closed'), colour('--tile-closed-bg'))).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the out-of-hours 0 is at least 3:1 on its background', () => {
+    expect(rule(tile, '.outOfHours')).toMatch(/--tile-number:\s*var\(--c-closed\)/);
+    expect(contrastRatio(colour('--c-closed'), colour('--tile-closed-bg'))).toBeGreaterThanOrEqual(3);
+  });
+
+  it('the pending chip text (--c-ink) is at least 4.5:1 on its white background', () => {
+    expect(contrastRatio(colour('--c-ink'), WHITE)).toBeGreaterThanOrEqual(4.5);
   });
 
   it('the not-updated ? is at least 3:1 on both hatch colours', () => {

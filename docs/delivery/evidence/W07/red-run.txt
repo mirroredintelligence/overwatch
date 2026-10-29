@@ -1,0 +1,100 @@
+Command: pnpm vitest run (frontend/) at the red commit
+Test Files 8 failed | 34 passed (42)
+Tests 44 failed | 768 passed (812)
+
+components/board/Board.test.tsx (5 failed)
+  FAIL Board: the system under pressure banner (W07) shows "System under pressure" and the count above the grid when allLimitedOrWorse is true (BoardSurge)
+        Error: expect(received).toHaveTextContent()
+  FAIL Board: the system under pressure banner (W07) does not count out-of-hours services in the number
+        TestingLibraryElementError: Unable to find an element with the text: All 6 services are limited, not accepting or over capacity.. This could be because the text is broken
+  FAIL Board: the system under pressure banner (W07) is shown beside the quiet "live updates paused" note, not instead of it
+        Error: expect(received).toBeInTheDocument()
+  FAIL Board: the variant tiles together (W07) the surge board shows its over-capacity, not-accepting and limited tiles by word, with the pending counts
+        TestingLibraryElementError: Unable to find an element with the text: Used 16 of 12 · 1 pending. This could be because the text is broken up by multiple elements. In this 
+  FAIL Board: the variant tiles together (W07) the quiet board (02:40) shows six out-of-hours tiles reopening at 08:00 beside three open ones
+        TestingLibraryElementError: Unable to find an element with the text: Reopens 08:00. This could be because the text is broken up by multiple elements. In this case, you ca
+components/board/LiveBoard.test.tsx (3 failed)
+  FAIL LiveBoard: the pressure banner follows the board (W07) appears when a refetch says the system is under pressure and goes when it says it is not
+        TestingLibraryElementError: Unable to find an element with the text: System under pressure. This could be because the text is broken up by multiple elements. In this case
+  FAIL LiveBoard: the pressure banner follows the board (W07) is replaced by the Last known banner, never shown beside it, when the board goes offline
+        TestingLibraryElementError: Unable to find an element with the text: System under pressure. This could be because the text is broken up by multiple elements. In this case
+  FAIL LiveBoard: the pressure banner follows the board (W07) comes back with the board when the board recovers
+        TestingLibraryElementError: Unable to find an element with the text: System under pressure. This could be because the text is broken up by multiple elements. In this case
+components/board/PressureBanner.test.tsx (5 failed)
+  FAIL PressureBanner shows "System under pressure" and the count of services when every service in hours is limited or worse
+        TestingLibraryElementError: Unable to find an element with the text: System under pressure. This could be because the text is broken up by multiple elements. In this case
+  FAIL PressureBanner is the warning Banner: a warning tone and a wall id
+        AssertionError: expected null not to be null
+  FAIL PressureBanner does not count out-of-hours services: 3 of 9 closed leaves 6
+        TestingLibraryElementError: Unable to find an element with the text: All 6 services are limited, not accepting or over capacity.. This could be because the text is broken
+  FAIL PressureBanner says so in words, not "All 1 services", when one service is in hours
+        TestingLibraryElementError: Unable to find an element with the text: The only service in hours is limited, not accepting or over capacity.. This could be because the text
+  FAIL PressureBanner counts a service of any in-hours status, not only the limited ones the flag speaks of
+        TestingLibraryElementError: Unable to find an element with the text: /^All 2 services/. This could be because the text is broken up by multiple elements. In this case, yo
+components/board/Tile.test.tsx (17 failed)
+  FAIL Tile: over capacity (W07) shows the pending count apart: +4 stays +4 and the bar label gains " · 1 pending"
+        TestingLibraryElementError: Unable to find an element with the text: Used 16 of 12 · 1 pending. This could be because the text is broken up by multiple elements. In this 
+  FAIL Tile: out of hours (W07) shows the word Out of hours, a big 0, the unit as sent, "Reopens 08:00", the bar label and "Closed overnight"
+        Error: expect(received).toHaveTextContent()
+  FAIL Tile: out of hours (W07) fills the bar to 100%
+        AssertionError: expected undefined to be '100%' // Object.is equality
+  FAIL Tile: out of hours (W07) shows 0 whatever free count the back end held, never a number that could be read as places
+        Error: expect(received).toHaveTextContent()
+  FAIL Tile: out of hours (W07) gives the reopening time in London time: 07:00 UTC in summer is 08:00, in winter it is 07:00
+        TestingLibraryElementError: Unable to find an element with the text: Reopens 08:00. This could be because the text is broken up by multiple elements. In this case, you ca
+  FAIL Tile: out of hours (W07) says which day when the service does not reopen today
+        TestingLibraryElementError: Unable to find an element with the text: Reopens 08:00 tomorrow. This could be because the text is broken up by multiple elements. In this cas
+  FAIL Tile: out of hours (W07) leaves out the reopening line, and nothing else, when the back end sends no next time
+        AssertionError: expected [ <span></span> ] to have a length of 2 but got 1
+  FAIL Tile: out of hours (W07) does not show the service comment, which may describe hours that no longer apply
+        AssertionError: expected 'UCR WestUrgent community responseOut …' not to contain 'Admissions until 06:00'
+  FAIL Tile: out of hours (W07) shows no "Updated", "next due" or "Not updated" wording
+        AssertionError: expected 'UCR WestUrgent community responseOut …' not to match /Updated|next due|Not updated/
+  FAIL Tile: pending bookings (W07, "TileStates") step 1, a request sent: 4 stays, a "1 pending" chip shows beside it and the bar label says so
+        Error: expect(received).toHaveTextContent()
+  FAIL Tile: pending bookings (W07, "TileStates") puts the chip next to the number
+        AssertionError: expected <div class="_words_81be10">…(1)</div> to be null // Object.is equality
+  FAIL Tile: pending bookings (W07, "TileStates") never reduces the available number, however many are pending
+        Error: expect(received).toHaveTextContent()
+  FAIL Tile: pending bookings (W07, "TileStates") says "pending" for one and for many, never "pendings"
+        Error: expect(received).toHaveTextContent()
+  FAIL Tile: pending bookings (W07, "TileStates") shows it on a limited and a not-accepting tile too
+        TestingLibraryElementError: Unable to find an element with the text: Used 7 of 8 · 1 pending. This could be because the text is broken up by multiple elements. In this ca
+  FAIL Tile: pending bookings (W07, "TileStates") keeps a pending request visible on a service that is not updated, beside the ?
+        Error: expect(received).toHaveTextContent()
+  FAIL Tile: pending bookings (W07, "TileStates") keeps a pending request visible on a service that is out of hours
+        Error: expect(received).toHaveTextContent()
+  FAIL Tile: pending bookings (W07, "TileStates") shows a pending count only as a word and a number, so it is not carried by colour
+        AssertionError: expected undefined to be '1 pending' // Object.is equality
+components/board/styles.test.ts (1 failed)
+  FAIL Tile borders and backgrounds (prompt, "Rules you need") the pending chip has its own border and a white background, so it reads on every tile (W07)
+        AssertionError: expected '' to match /border:\s*2px solid/
+lib/board/format.test.ts (4 failed)
+  FAIL reopensText (W07) reads "Reopens 08:00" when the service reopens later the same London day
+        AssertionError: expected '' to be 'Reopens 08:00' // Object.is equality
+  FAIL reopensText (W07) adds "tomorrow" for the next London day and the weekday after that
+        AssertionError: expected '' to be 'Reopens 08:00 tomorrow' // Object.is equality
+  FAIL reopensText (W07) is in London time on both sides of the autumn clock change (25 October 2026)
+        AssertionError: expected '' to be 'Reopens 08:00 tomorrow' // Object.is equality
+  FAIL ageLineText reads "Closed overnight" for a service that is out of hours, whatever it last reported (W07)
+        AssertionError: expected 'Updated 9 min ago · next due 14:30' to be 'Closed overnight' // Object.is equality
+lib/board/parse.test.ts (6 failed)
+  FAIL parseBoardParameters: another organisation in the payload (W07, DEC-169 item 8) refuses a board whose entry names an organisation other than the board
+        Error: the board was accepted
+  FAIL parseBoardParameters: another organisation in the payload (W07, DEC-169 item 8) says nothing of the other organisation in the error: the part name onl
+        Error: the board was accepted
+  FAIL parseBoardParameters: another organisation in the payload (W07, DEC-169 item 8) refuses an entry that names an organisation when the board names none,
+        AssertionError: expected function to throw an error, but it didn't
+  FAIL parseBoardParameters: another organisation in the payload (W07, DEC-169 item 8) refuses an entry that carries a tenantId: a tenant board never has one
+        Error: the board was accepted
+  FAIL parseBoardParameters: another organisation in the payload (W07, DEC-169 item 8) refuses an entry that carries a sourceTenantId: a tenant board never h
+        Error: the board was accepted
+  FAIL parseBoardParameters: another organisation in the payload (W07, DEC-169 item 8) refuses the foreign entry wherever it is in the board, not only the fi
+        AssertionError: expected function to throw an error, but it didn't
+app/(wall)/screen/page.test.tsx (3 failed)
+  FAIL wall screen page: the board variants (W07) shows the pressure banner, over-capacity and pending, for the surge board, and is accessible
+        TestingLibraryElementError: Unable to find an element with the text: System under pressure. This could be because the text is broken up by multiple elements. In this case
+  FAIL wall screen page: the board variants (W07) shows the out-of-hours tiles for the quiet board, at the board’s own time, and no banner
+        TestingLibraryElementError: Unable to find an element with the text: Reopens 08:00. This could be because the text is broken up by multiple elements. In this case, you ca
+  FAIL wall screen page: the board variants (W07) shows Board unavailable, and nothing of the other organisation, when the payload names one on an entry
+        TestingLibraryElementError: Unable to find an accessible element with the role "alert"

@@ -1,6 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { Parameters, ParametersParameter } from '@/lib/fhir/types';
-import { BOARD_A, BOARD_B, boardParameters, entry, entryParameter, GENERATED_AT } from '@/test/fixtures/board';
+import {
+  BOARD_A,
+  BOARD_B,
+  BOARD_QUIET,
+  BOARD_SURGE,
+  boardParameters,
+  entry,
+  entryParameter,
+  GENERATED_AT,
+  ORGANISATION_A,
+  ORGANISATION_B,
+  withForeignOrganisation,
+} from '@/test/fixtures/board';
 import { BoardParseError, parseBoardParameters } from './parse';
 
 function part(parameters: Parameters, index: number): ParametersParameter[] {
@@ -214,5 +226,81 @@ describe('parseBoardParameters', () => {
   it('does not put a time in an entry that the back end left out', () => {
     expect(part(boardParameters(BOARD_A), 0).some((p) => p.name === 'wasDueAt')).toBe(false);
     expect(parseBoardParameters(boardParameters(BOARD_A)).entries[0].wasDueAt).toBeNull();
+  });
+});
+
+describe('parseBoardParameters: the variant boards (W07)', () => {
+  it.each([
+    ['BoardSurge', BOARD_SURGE],
+    ['BoardQuiet', BOARD_QUIET],
+  ])('reads the %s sample back exactly, pending, over-by and out-of-hours entries included', (_name, board) => {
+    expect(parseBoardParameters(boardParameters(board))).toEqual(board);
+  });
+});
+
+describe('parseBoardParameters: another organisation in the payload (W07, DEC-169 item 8)', () => {
+  function withEntryPart(parameters: Parameters, added: ParametersParameter): Parameters {
+    const copy = structuredClone(parameters);
+    copy.parameter?.find((p) => p.name === 'entry')?.part?.push(added);
+    return copy;
+  }
+
+  function failure(parameters: Parameters): Error {
+    try {
+      parseBoardParameters(parameters);
+    } catch (error) {
+      return error as Error;
+    }
+    throw new Error('the board was accepted');
+  }
+
+  it('refuses a board whose entry names an organisation other than the board’s own', () => {
+    const error = failure(withForeignOrganisation(boardParameters(BOARD_A)));
+
+    expect(error).toBeInstanceOf(BoardParseError);
+  });
+
+  it('says nothing of the other organisation in the error: the part name only', () => {
+    const error = failure(withForeignOrganisation(boardParameters(BOARD_A), 'Secret Neighbour Trust'));
+
+    expect(error.message).not.toContain('Secret Neighbour Trust');
+    expect(error.message).not.toContain(ORGANISATION_B);
+    expect(error.message).toContain('organisation');
+  });
+
+  it('accepts an entry that names the board’s own organisation', () => {
+    const parameters = withEntryPart(boardParameters(BOARD_A), { name: 'organisation', valueString: ORGANISATION_A });
+
+    expect(parseBoardParameters(parameters)).toEqual(BOARD_A);
+  });
+
+  it('refuses an entry that names an organisation when the board names none, because it cannot tell whose it is', () => {
+    const parameters = boardParameters({ ...BOARD_A, organisation: null });
+
+    expect(() => parseBoardParameters(withEntryPart(parameters, { name: 'organisation', valueString: ORGANISATION_A }))).toThrow(
+      BoardParseError,
+    );
+  });
+
+  it.each(['tenantId', 'sourceTenantId'])('refuses an entry that carries a %s: a tenant board never has one', (name) => {
+    const parameters = withEntryPart(boardParameters(BOARD_A), { name, valueString: 'tenant-b' });
+    const error = failure(parameters);
+
+    expect(error).toBeInstanceOf(BoardParseError);
+    expect(error.message).not.toContain('tenant-b');
+  });
+
+  it('refuses the foreign entry wherever it is in the board, not only the first', () => {
+    const parameters = boardParameters(BOARD_A);
+    const last = parameters.parameter?.filter((p) => p.name === 'entry').at(-1);
+    last?.part?.push({ name: 'organisation', valueString: ORGANISATION_B });
+
+    expect(() => parseBoardParameters(parameters)).toThrow(BoardParseError);
+  });
+
+  it('still ignores a part it does not know, as before', () => {
+    const parameters = withEntryPart(boardParameters(BOARD_A), { name: 'somethingNew', valueString: 'x' });
+
+    expect(parseBoardParameters(parameters)).toEqual(BOARD_A);
   });
 });

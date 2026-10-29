@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
-import { BOARD_A, MAIN_ENTRIES } from '@/test/fixtures/board';
+import { BOARD_A, BOARD_QUIET, BOARD_SURGE, MAIN_ENTRIES, QUIET_ENTRIES, SURGE_ENTRIES } from '@/test/fixtures/board';
 import { Board } from './Board';
 
 function tiles(container: HTMLElement): HTMLElement[] {
@@ -187,5 +187,130 @@ describe('Board: last known (W06)', () => {
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(tiles(container)).toHaveLength(0);
+  });
+});
+
+describe('Board: the system under pressure banner (W07)', () => {
+  const BANNER = 'All 9 services are limited, not accepting or over capacity.';
+  const lastKnown = {
+    mode: 'last-known' as const,
+    reason: 'offline' as const,
+    since: '2026-10-23T13:02:00Z',
+    asOf: '2026-10-23T13:02:00Z',
+    now: '2026-10-23T13:30:00Z',
+    ageMs: 1_680_000,
+  };
+
+  it('shows "System under pressure" and the count above the grid when allLimitedOrWorse is true (BoardSurge)', () => {
+    const { container } = render(<Board board={BOARD_SURGE} />);
+    const banner = container.querySelector('[data-el="WALL-PRESSURE-BANNER"]');
+    const grid = screen.getByRole('list', { name: 'Services' });
+
+    expect(banner).toHaveTextContent('System under pressure');
+    expect(screen.getByText(BANNER)).toBeInTheDocument();
+    expect(tiles(container)).toHaveLength(9);
+    // Above the grid in reading order.
+    expect(banner?.compareDocumentPosition(grid)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
+  it('shows no banner when allLimitedOrWorse is false', () => {
+    const { container } = render(<Board board={BOARD_A} />);
+
+    expect(container.querySelector('[data-el="WALL-PRESSURE-BANNER"]')).toBeNull();
+    expect(container.textContent).not.toContain('System under pressure');
+  });
+
+  it('is decided by the flag: every tile limited or worse with the flag false shows no banner', () => {
+    const { container } = render(<Board board={{ ...BOARD_SURGE, allLimitedOrWorse: false }} />);
+
+    expect(container.querySelector('[data-el="WALL-PRESSURE-BANNER"]')).toBeNull();
+  });
+
+  it('does not count out-of-hours services in the number', () => {
+    const entries = [...SURGE_ENTRIES.slice(0, 6), ...QUIET_ENTRIES.slice(0, 3)];
+    const { container } = render(<Board board={{ ...BOARD_SURGE, entries }} />);
+
+    expect(tiles(container)).toHaveLength(9);
+    expect(screen.getByText('All 6 services are limited, not accepting or over capacity.')).toBeInTheDocument();
+    expect(screen.queryByText(BANNER)).toBeNull();
+  });
+
+  it('shows none on the quiet board, where most services are out of hours', () => {
+    const { container } = render(<Board board={BOARD_QUIET} />);
+
+    expect(container.querySelector('[data-el="WALL-PRESSURE-BANNER"]')).toBeNull();
+  });
+
+  it('is never shown as current while the board is last known: the Last known banner is the only banner', () => {
+    const { container } = render(<Board board={BOARD_SURGE} lastKnown={lastKnown} />);
+
+    expect(container.querySelector('[data-el="WALL-PRESSURE-BANNER"]')).toBeNull();
+    expect(container.textContent).not.toContain('System under pressure');
+    expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('Tool offline since 14:02');
+    for (const t of tiles(container)) expect(t).toHaveAttribute('data-status', 'last-known');
+  });
+
+  it('is shown beside the quiet "live updates paused" note, not instead of it', () => {
+    const { container } = render(<Board board={BOARD_SURGE} streamPaused />);
+
+    expect(container.querySelector('[data-el="WALL-STREAM-NOTE"]')).toBeInTheDocument();
+    expect(container.querySelector('[data-el="WALL-PRESSURE-BANNER"]')).toBeInTheDocument();
+  });
+
+  it('has no axe violations on the surge board', async () => {
+    const { container } = render(<Board board={BOARD_SURGE} />);
+
+    expect(tiles(container)).toHaveLength(9);
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+});
+
+describe('Board: the variant tiles together (W07)', () => {
+  it('the surge board shows its over-capacity, not-accepting and limited tiles by word, with the pending counts', () => {
+    const { container } = render(<Board board={BOARD_SURGE} />);
+    const byId = (id: string) => container.querySelector<HTMLElement>(`[data-service-id="${id}"]`) as HTMLElement;
+
+    expect(within(byId('svc-hospital-at-home')).getByText('Over capacity')).toBeInTheDocument();
+    expect(within(byId('svc-hospital-at-home')).getByText('+4')).toBeInTheDocument();
+    expect(within(byId('svc-hospital-at-home')).getByText('Used 16 of 12 · 1 pending')).toBeInTheDocument();
+    expect(within(byId('svc-virtual-ward')).getByText('+1')).toBeInTheDocument();
+    expect(within(byId('svc-ucr-west')).getByText('Limited')).toBeInTheDocument();
+    expect(within(byId('svc-ucr-west')).getByText('Used 7 of 8 · 1 pending')).toBeInTheDocument();
+    expect(within(byId('svc-ucr-east')).getByText('Not accepting')).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-el="WALL-TILE-PENDING"]')).toHaveLength(2);
+  });
+
+  it('the quiet board (02:40) shows six out-of-hours tiles reopening at 08:00 beside three open ones', () => {
+    const { container } = render(<Board board={BOARD_QUIET} />);
+    const closed = tiles(container).filter((t) => t.getAttribute('data-status') === 'out-of-hours');
+
+    expect(screen.getByText('02:40')).toBeInTheDocument();
+    expect(screen.getByText('Saturday 24 October')).toBeInTheDocument();
+    expect(closed).toHaveLength(6);
+    for (const t of closed) {
+      expect(within(t).getByText('Reopens 08:00')).toBeInTheDocument();
+      expect(within(t).getByText('Closed overnight')).toBeInTheDocument();
+    }
+    expect(tiles(container)).toHaveLength(9);
+    expect(within(tiles(container)[4]).getByText('Updated 1 hr 20 min ago · next due 06:00')).toBeInTheDocument();
+  });
+
+  it('has no axe violations on the quiet board', async () => {
+    const { container } = render(<Board board={BOARD_QUIET} />);
+
+    expect(tiles(container)).toHaveLength(9);
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows no back-end id, tenant or organisation other than its own heading, on any variant board', () => {
+    for (const board of [BOARD_SURGE, BOARD_QUIET]) {
+      const { container, unmount } = render(<Board board={board} />);
+      const html = container.innerHTML.replace(/data-service-id="[^"]*"/g, '');
+
+      for (const e of board.entries) expect(html).not.toContain(e.serviceId);
+      expect(container.textContent).not.toContain('Neighbouring');
+      unmount();
+    }
   });
 });

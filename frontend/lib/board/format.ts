@@ -78,6 +78,11 @@ export function nextDueText(nextDueAt: Instant, now: Instant): string {
   return `next due ${time} ${weekdayName.format(ms(nextDueAt))}`;
 }
 
+/** DEC-010 stub for the red commit: no behaviour yet. */
+export function reopensText(_nextDueAt: Instant, _now: Instant): string {
+  return '';
+}
+
 /**
  * The age line under a tile. A service that is not updated says for how long and
  * when the figure was due; every other status says how old the figure is and when

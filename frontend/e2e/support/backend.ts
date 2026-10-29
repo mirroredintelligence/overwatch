@@ -1,9 +1,9 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { Board } from '@/lib/board/types';
-import { BOARD_A, boardBuiltAt, boardParameters } from '@/test/fixtures/board';
+import { BOARD_A, BOARD_SURGE, boardBuiltAt, boardParameters, withForeignOrganisation } from '@/test/fixtures/board';
 import { BACKEND_PORT } from './env';
-import { BOARDS_BY_TOKEN, LIVE_TOKEN_PREFIX } from './tokens';
+import { BOARDS_BY_TOKEN, LIVE_SURGE_PREFIX, LIVE_TOKEN_PREFIX, TOKEN_FOREIGN_ENTRY } from './tokens';
 
 // A stand-in for the back end, for the browser tests. Like the real one it answers
 // by bearer token alone and reads nothing else from the request: GET $board and
@@ -44,11 +44,12 @@ function bearer(request: IncomingMessage): string | undefined {
 }
 
 function boardFor(token: string, state: LiveState | undefined): Board | undefined {
-  const base = token.startsWith(LIVE_TOKEN_PREFIX) ? BOARD_A : BOARDS_BY_TOKEN[token];
+  const live = token.startsWith(LIVE_TOKEN_PREFIX);
+  const base = live ? (token.startsWith(LIVE_SURGE_PREFIX) ? BOARD_SURGE : BOARD_A) : BOARDS_BY_TOKEN[token];
   if (base === undefined) return undefined;
   const built = state?.mode === 'stale' ? new Date(Date.now() - 20 * 60_000) : new Date();
   const board = boardBuiltAt(base, built.toISOString());
-  if (state !== undefined) {
+  if (state !== undefined && base === BOARD_A) {
     board.entries = board.entries.map((e) =>
       e.serviceId === 'svc-ucr-west'
         ? { ...e, effectiveAvailable: state.ucrWestFree, used: Math.max(0, e.established - state.ucrWestFree) }
@@ -96,7 +97,8 @@ function handleBoard(request: IncomingMessage, response: ServerResponse) {
     json(response, 200, parameters, 'application/fhir+json');
     return;
   }
-  json(response, 200, boardParameters(board), 'application/fhir+json');
+  const parameters = boardParameters(board);
+  json(response, 200, token === TOKEN_FOREIGN_ENTRY ? withForeignOrganisation(parameters) : parameters, 'application/fhir+json');
 }
 
 function handleEvents(request: IncomingMessage, response: ServerResponse) {

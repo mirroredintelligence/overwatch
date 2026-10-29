@@ -5,7 +5,9 @@ text is returned once, to the caller that issued it, and never reaches the datab
 Decisions: DEC-057.
 """
 
+from collections.abc import Callable
 from datetime import datetime
+from secrets import token_bytes
 from typing import Final, Protocol
 
 from diucs.application.ports.outbound.clock import Clock
@@ -30,17 +32,26 @@ class SecretStore(Protocol):
 
 
 class LinkTokenService:
-    def __init__(self, repo: LinkTokenRepository, secrets: SecretStore, clock: Clock) -> None:
+    def __init__(
+        self,
+        repo: LinkTokenRepository,
+        secrets: SecretStore,
+        clock: Clock,
+        rng: Callable[[int], bytes] = token_bytes,
+    ) -> None:
+        """`rng` gives the random bytes of a token: the system source by default. A test passes its
+        own to force particular bits through `issue`."""
         self._repo = repo
         self._secrets = secrets
         self._clock = clock
+        self._rng = rng
 
     async def issue(
         self, purpose: str, about_id: str, phone_hash: str | None, expires_at: datetime
     ) -> str:
         """Create a token, store its hash and return the token text once. A record that breaks a
         rule (for example a naive expiry) is refused before anything is written."""
-        token = new_link_token()
+        token = new_link_token(self._rng)
         record = LinkTokenRecord(
             token_hash=hash_token(token, self._secrets.get(LINK_TOKEN_SECRET)),
             purpose=purpose,

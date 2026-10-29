@@ -278,6 +278,40 @@ class BookingPhonePrompt:
 
 
 @dataclass(frozen=True, slots=True)
+class BookingCancelled:
+    """A booking was cancelled by an advisor or a clinician, before or after the service answered
+    (U20). `status` is the cancelled state (cancelled-before or cancelled-after)."""
+
+    event_type: ClassVar[str] = "BookingCancelled"
+    booking_id: str
+    service_id: str
+    status: BookingStatus
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        if not isinstance(self.status, BookingStatus):
+            raise ValidationFailed("status", "must be a booking status")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "booking_id": self.booking_id,
+            "service_id": self.service_id,
+            "status": self.status.value,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            booking_id=_text(payload, "booking_id"),
+            service_id=_text(payload, "service_id"),
+            status=_code(payload, "status", BookingStatus),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class RegistrationSubmitted:
     event_type: ClassVar[str] = "RegistrationSubmitted"
     registration_id: str
@@ -525,6 +559,7 @@ DomainEvent = (
     | BookingResponded
     | BookingExpired
     | BookingPhonePrompt
+    | BookingCancelled
     | RegistrationSubmitted
     | RegistrationApproved
     | ServiceActivated
@@ -544,6 +579,7 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         BookingResponded: BOOKING_EVENTS,
         BookingExpired: BOOKING_EVENTS,
         BookingPhonePrompt: BOOKING_EVENTS,
+        BookingCancelled: BOOKING_EVENTS,
         RegistrationSubmitted: REGISTRATION_EVENTS,
         RegistrationApproved: REGISTRATION_EVENTS,
         ServiceActivated: REGISTRATION_EVENTS,
@@ -564,6 +600,7 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "BookingResponded": BookingResponded.decode,
         "BookingExpired": BookingExpired.decode,
         "BookingPhonePrompt": BookingPhonePrompt.decode,
+        "BookingCancelled": BookingCancelled.decode,
         "RegistrationSubmitted": RegistrationSubmitted.decode,
         "RegistrationApproved": RegistrationApproved.decode,
         "ServiceActivated": ServiceActivated.decode,

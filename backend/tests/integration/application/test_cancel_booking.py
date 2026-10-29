@@ -43,7 +43,7 @@ def cancel_use_case(
     uow_factory: UnitOfWorkFactory, driver: AsyncDriver, now: datetime
 ) -> CancelBooking:
     return CancelBooking(
-        uow_factory, DriverIdempotencyStore(driver), FixedClock(now), SequentialIds("cb")
+        uow_factory, DriverIdempotencyStore(driver), FixedClock(now), SequentialIds("cb"), sealer()
     )
 
 
@@ -106,7 +106,9 @@ async def test_cancelling_a_confirmed_booking_gives_the_slot_back_on_the_board(
     board_before = await QueryBoard(uow_factory, FixedClock(at(14, 20))).execute(
         QueryBoardQuery(actor=ADVISOR)
     )
-    assert next(e for e in board_before.entries if e.service_id == SERVICE_ID).effective_available == 3
+    assert (
+        next(e for e in board_before.entries if e.service_id == SERVICE_ID).effective_available == 3
+    )
     result = await cancel_use_case(uow_factory, neo4j_driver, at(14, 21)).execute(
         cancel("cc-2", booked.booking_id)
     )
@@ -114,7 +116,9 @@ async def test_cancelling_a_confirmed_booking_gives_the_slot_back_on_the_board(
     board_after = await QueryBoard(uow_factory, FixedClock(at(14, 21))).execute(
         QueryBoardQuery(actor=ADVISOR)
     )
-    assert next(e for e in board_after.entries if e.service_id == SERVICE_ID).effective_available == 4
+    assert (
+        next(e for e in board_after.entries if e.service_id == SERVICE_ID).effective_available == 4
+    )
 
 
 async def test_cancelling_a_declined_booking_is_an_invalid_transition_and_writes_nothing(

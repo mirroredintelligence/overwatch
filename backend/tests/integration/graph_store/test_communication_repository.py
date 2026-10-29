@@ -8,20 +8,24 @@ from the prompt, never a patient name, NHS number or postcode.
 
 import asyncio
 import contextlib
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.communication_repository import (
     Neo4jCommunicationRepository,
 )
 from diucs.application.ports.outbound.messaging import Communication
+from diucs.application.tenancy import bind_tenant
 from diucs.domain.codes import Channel
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
 from tests.support.round_trip import assert_round_trip
+from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -461,3 +465,102 @@ async def test_receipts_applied_in_every_order_all_end_delivered(
     props = await node_props(neo4j_driver, "Communication", id="comm-1")
     assert props["deliveryStatus"] == "delivered"
     assert results.count(True) <= 2  # queued to sent, then sent to delivered: never more
+
+
+# --- two tenants (TEN-015): a communication, its provider id and its concepts are one tenant's ---
+#
+# Both tenants use the same communication id, provider id and concept codes. The contracted
+# container holds the composite keys only (TEN-005, TEN-032), so the two tenants can share them.
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
+    await wipe(two_tenant_driver)
+    yield two_tenant_driver
+    await wipe(two_tenant_driver)
+
+
+async def _add_as(driver: AsyncDriver, tenant: str, communication: Communication) -> None:
+    with bind_tenant(tenant):
+        await _add(driver, communication)
+
+
+async def _get_as(driver: AsyncDriver, tenant: str, communication_id: str) -> Communication | None:
+    with bind_tenant(tenant):
+        return await _get(driver, communication_id)
+
+
+async def test_another_tenants_communication_reads_as_absent_and_cannot_be_changed(
+    two: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    await _add_as(two, other_tenant_id, _comm(id="comm-1", provider_message_id="SM-1"))
+
+    async def as_a_reads(tx: AsyncManagedTransaction) -> tuple[Any, ...]:
+        repo = Neo4jCommunicationRepository(tx)
+        return (
+            await repo.get("comm-1"),
+            await repo.by_provider_id("SM-1"),
+            await repo.latest_prompt_for_phone({"role-1"}, {"C1"}),
+        )
+
+    async def as_a_moves(tx: AsyncManagedTransaction) -> bool:
+        return await Neo4jCommunicationRepository(tx).set_delivery_status("SM-1", "delivered")
+
+    async def as_a_replies(tx: AsyncManagedTransaction) -> None:
+        with pytest.raises(NotFound):
+            await Neo4jCommunicationRepository(tx).add(_reply(id="comm-2", in_response_to="comm-1"))
+
+    with bind_tenant(tenant_id):
+        assert await read_tx(two, as_a_reads) == (None, None, None)
+        assert await write_tx(two, as_a_moves) is False
+        await write_tx(two, as_a_replies)
+
+    stored = await _get_as(two, other_tenant_id, "comm-1")
+    assert stored is not None
+    assert stored.delivery_status == "sent"
+
+
+async def test_the_same_ids_in_two_tenants_are_two_communications(
+    two: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    await _add_as(two, tenant_id, _comm(id="comm-1", provider_message_id="SM-1", payload_text="A"))
+    await _add_as(
+        two, other_tenant_id, _comm(id="comm-1", provider_message_id="SM-1", payload_text="B")
+    )
+
+    with bind_tenant(tenant_id):
+        await _add(two, _comm(id="comm-1", provider_message_id="SM-1", payload_text="A"))
+        assert await _get(two, "comm-1") == _comm(
+            id="comm-1", provider_message_id="SM-1", payload_text="A"
+        )
+
+    async def move_a(tx: AsyncManagedTransaction) -> bool:
+        return await Neo4jCommunicationRepository(tx).set_delivery_status("SM-1", "delivered")
+
+    with bind_tenant(tenant_id):
+        assert await write_tx(two, move_a) is True
+    stored_b = await _get_as(two, other_tenant_id, "comm-1")
+    assert stored_b is not None
+    assert (stored_b.payload_text, stored_b.delivery_status) == ("B", "sent")
+
+
+async def test_the_topic_and_channel_concepts_of_each_tenant_are_its_own(
+    two: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    await _add_as(two, tenant_id, _comm(id="comm-1", provider_message_id="SM-1"))
+    await _add_as(two, other_tenant_id, _comm(id="comm-1", provider_message_id="SM-1"))
+
+    async def concepts(tx: AsyncManagedTransaction) -> list[tuple[str, int]]:
+        result = await tx.run(
+            "MATCH (c:Concept) RETURN c.tenantId AS tenant, count(c) AS n ORDER BY tenant"
+        )
+        return [(record["tenant"], int(record["n"])) async for record in result]
+
+    rows = await read_tx(two, concepts)
+    assert sorted(rows) == sorted([(tenant_id, 2), (other_tenant_id, 2)])

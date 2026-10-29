@@ -488,11 +488,12 @@ def test_the_ratchet_is_exactly_the_statements_that_are_not_converted(
 def test_the_ratchet_may_only_shrink() -> None:
     """126 is the number of statements and templates at TEN-001; TEN-004 converted eight of them
     (118 left), TEN-009 the seventeen of the resource store, fifteen converted and two removed
-    (101 left), L01 the four link-token statements (97 left), and TEN-011 the nineteen statements of
-    the person, registration and scope-list repositories (78 left). A conversion bundle lowers this
-    number in the same commit that removes ids from the list; nothing raises it. The ids themselves
-    are pinned against the initial list in test_tenant_ratchet.py."""
-    assert len(UNCONVERTED) <= 78
+    (101 left), L01 the four link-token statements (97 left), TEN-011 the nineteen statements of
+    the person, registration and scope-list repositories, and TEN-015 the nine communication and four
+    scheduled-work statements (65 left). A conversion bundle lowers this number in the same commit
+    that removes ids from the list; nothing raises it. The ids themselves are pinned against the
+    initial list in test_tenant_ratchet.py."""
+    assert len(UNCONVERTED) <= 65
     assert len(UNCONVERTED) == len(set(UNCONVERTED))
 
 

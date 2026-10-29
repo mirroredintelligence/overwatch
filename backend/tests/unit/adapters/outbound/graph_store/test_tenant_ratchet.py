@@ -250,3 +250,42 @@ def test_the_people_registration_and_scope_statements_are_converted(
         assert query.scenario is not None, query_id
         assert "tenantId: $tenant" in query.cypher, query_id
         assert query_id not in UNCONVERTED, query_id
+
+# The thirteen statements of the communication and scheduled-work records (TEN-015, reworks P07 and
+# P08): nine on Communication, four on ScheduledWork. Each must be off the ratchet, carry a valid
+# scenario, and name `tenantId: $tenant` on every node it matches or creates.
+TEN_015 = frozenset(
+    {
+        "Q-COMM-ADD",
+        "Q-COMM-BY-PROVIDER",
+        "Q-COMM-EXISTS",
+        "Q-COMM-GET",
+        "Q-COMM-LATEST-PROMPT",
+        "Q-COMM-LINK-ABOUT",
+        "Q-COMM-LINK-RECIPIENT",
+        "Q-COMM-LINK-REPLY",
+        "Q-COMM-SET-STATUS",
+        "Q-WORK-ADD",
+        "Q-WORK-FOR-ABOUT",
+        "Q-WORK-GET",
+        "Q-WORK-SAVE",
+    }
+)
+
+
+def test_the_communication_and_scheduled_work_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert set() == TEN_015 & UNCONVERTED
+    assert set(statements) >= TEN_015
+    for query_id in sorted(TEN_015):
+        query = statements[query_id]
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query.scenario is not None, query_id
+        assert validate_scenario(query_id, query.scenario) == [], query_id
+        pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{[^}]*\})?\)")
+        for match in pattern.finditer(query.cypher):
+            assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), (
+                query_id,
+                match.group(0),
+            )

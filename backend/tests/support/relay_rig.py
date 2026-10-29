@@ -162,9 +162,10 @@ class SpyBus:
 class _OutboxFault:
     """Delegates to the real outbox; `mark_published` raises for the chosen ids, once each."""
 
-    def __init__(self, target: Any, fail_ids: set[str]) -> None:
+    def __init__(self, target: Any, fail_ids: set[str], fail_counting: set[str]) -> None:
         self._target = target
         self._fail_ids = fail_ids
+        self._fail_counting = fail_counting
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._target, name)
@@ -175,22 +176,35 @@ class _OutboxFault:
             raise RuntimeError("the store went away")
         await self._target.mark_published(id, at)
 
+    async def mark_failed(self, id: str, error: str) -> None:
+        if id in self._fail_counting:
+            self._fail_counting.discard(id)
+            raise RuntimeError("the store went away")
+        await self._target.mark_failed(id, error)
+
 
 class _InstrumentedUnit:
     """Delegates to a real unit of work. It records the scope the unit opened under, and may swap
     in an outbox whose mark_published fails."""
 
-    def __init__(self, unit: UnitOfWork, scopes: list[ScopeId | None], fail_ids: set[str]) -> None:
+    def __init__(
+        self,
+        unit: UnitOfWork,
+        scopes: list[ScopeId | None],
+        fail_ids: set[str],
+        fail_counting: set[str],
+    ) -> None:
         self._unit = unit
         self._scopes = scopes
         self._fail_ids = fail_ids
+        self._fail_counting = fail_counting
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._unit, name)
 
     @property
     def outbox(self) -> Any:
-        return _OutboxFault(self._unit.outbox, self._fail_ids)
+        return _OutboxFault(self._unit.outbox, self._fail_ids, self._fail_counting)
 
     async def __aenter__(self) -> Self:
         await self._unit.__aenter__()
@@ -210,13 +224,22 @@ class InstrumentedFactory:
     """A unit of work factory over a real one. `scopes` lists the scope of every unit opened, in
     order. `fail_mark_published` names outbox ids whose first mark_published raises."""
 
-    def __init__(self, factory: UnitOfWorkFactory, *, fail_mark_published: set[str] | None = None):
+    def __init__(
+        self,
+        factory: UnitOfWorkFactory,
+        *,
+        fail_mark_published: set[str] | None = None,
+        fail_mark_failed: set[str] | None = None,
+    ):
         self._factory = factory
         self.scopes: list[ScopeId | None] = []
         self.fail_mark_published = set() if fail_mark_published is None else fail_mark_published
+        self.fail_mark_failed = set() if fail_mark_failed is None else fail_mark_failed
 
     def __call__(self) -> UnitOfWork:
-        return _InstrumentedUnit(self._factory(), self.scopes, self.fail_mark_published)  # type: ignore[return-value]
+        return _InstrumentedUnit(
+            self._factory(), self.scopes, self.fail_mark_published, self.fail_mark_failed
+        )  # type: ignore[return-value]
 
 
 class TenantPrefixedCache:
@@ -259,3 +282,30 @@ class ScriptedTokenCache(InMemoryCache):
         token = self._script.pop(0)
         self._holders[name] = replace(self._holders[name], token=token)
         return Lock(name=name, fencing_token=token)
+
+
+class FlakyLockCache:
+    """A cache whose lock calls can fail once: `acquire_fails` and `release_fails` hold the tenant
+    ids (taken from the bound tenant) whose next call to that method raises."""
+
+    def __init__(self, inner: Cache) -> None:
+        self.inner = inner
+        self.acquire_fails: set[str] = set()
+        self.release_fails: set[str] = set()
+
+    async def acquire_lock(self, name: str, ttl: timedelta) -> Lock | None:
+        tenant = current_tenant()
+        if tenant in self.acquire_fails:
+            self.acquire_fails.discard(tenant)
+            raise ConnectionError(f"the cache is down {SECRET_TEXT}")
+        return await self.inner.acquire_lock(name, ttl)
+
+    async def release_lock(self, lock: Lock) -> None:
+        tenant = current_tenant()
+        if tenant in self.release_fails:
+            self.release_fails.discard(tenant)
+            raise ConnectionError(f"the cache is down {SECRET_TEXT}")
+        await self.inner.release_lock(lock)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self.inner, name)

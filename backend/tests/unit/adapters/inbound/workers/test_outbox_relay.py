@@ -102,3 +102,14 @@ def test_the_worker_imports_no_outbound_adapter_and_no_driver() -> None:
     forbidden = ("diucs.adapters.outbound", "diucs.adapters.testing", "diucs.bootstrap")
     assert not [name for name in imported if name.startswith(forbidden)]
     assert not [name for name in imported if name.split(".")[0] in {"neo4j", "redis", "azure"}]
+
+
+async def test_a_directory_that_cannot_be_read_is_raised_so_run_forever_can_wait_it_out() -> None:
+    class Down:
+        async def active_tenant_ids(self) -> Sequence[str]:
+            raise ConnectionError("directory down")
+
+    relay = OutboxRelay(_no_unit, ManualEventBus(CLOCK), InMemoryCache(CLOCK), CLOCK, Down())
+
+    with pytest.raises(ConnectionError):
+        await relay.run_once()

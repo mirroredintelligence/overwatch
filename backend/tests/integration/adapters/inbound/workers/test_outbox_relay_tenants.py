@@ -33,6 +33,8 @@ from diucs.application.tenancy import ScopeId
 from tests.support.relay_rig import (
     DUE,
     NOW,
+    SECRET_TEXT,
+    FlakyLockCache,
     InstrumentedFactory,
     SpyBus,
     TenantPrefixedCache,
@@ -305,3 +307,92 @@ async def test_a_cancel_in_tenant_a_cancels_only_tenant_as_scheduled_message(
         ("out-wb1", other_tenant_id)
     ]
     assert (await work_node(neo4j_driver, "wb1"))["status"] == "scheduled"
+
+
+async def test_a_cache_that_cannot_give_one_tenants_lock_costs_that_tenant_a_wait_only(
+    relay_for: Callable[..., OutboxRelay],
+    bus: SpyBus,
+    cache: InMemoryCache,
+    uow_factory_a: UnitOfWorkFactory,
+    uow_factory_b: UnitOfWorkFactory,
+    tenant_id: str,
+    other_tenant_id: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    await _seed_two_tenants(uow_factory_a, uow_factory_b)
+    flaky = FlakyLockCache(cache)
+    flaky.acquire_fails.add(tenant_id)
+    relay = relay_for(tenant_id, other_tenant_id, cache=flaky)
+
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        first = await relay.run_once()
+        again = await relay.run_once()
+
+    assert first == RelayResult(published=2, failed=0, skipped_no_lock=False)
+    assert [message.id for message in bus.published] == ["b-1", "b-2"]
+    # Tenant A is waiting, so the second round (no time passed) leaves it alone.
+    assert again == RelayResult(published=0, failed=0, skipped_no_lock=False)
+    assert "ConnectionError" in caplog.text
+    assert SECRET_TEXT not in caplog.text
+
+
+async def test_a_lock_that_cannot_be_released_does_not_undo_the_round(
+    relay_for: Callable[..., OutboxRelay],
+    bus: SpyBus,
+    cache: InMemoryCache,
+    uow_factory_a: UnitOfWorkFactory,
+    tenant_id: str,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    await add_messages(uow_factory_a, outbox_message("a-1"))
+    flaky = FlakyLockCache(cache)
+    flaky.release_fails.add(tenant_id)
+
+    with caplog.at_level(logging.DEBUG, logger=LOGGER):
+        result = await relay_for(tenant_id, cache=flaky).run_once()
+
+    assert result == RelayResult(published=1, failed=0, skipped_no_lock=False)
+    assert "ConnectionError" in caplog.text
+    assert SECRET_TEXT not in caplog.text
+
+
+async def test_when_the_attempt_cannot_be_counted_the_batch_stops_and_the_tenant_waits(
+    relay_for: Callable[..., OutboxRelay],
+    bus: SpyBus,
+    clock: FixedClock,
+    uow_factory: UnitOfWorkFactory,
+    uow_factory_a: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+) -> None:
+    await add_messages(uow_factory_a, outbox_message("a-1", 0), outbox_message("a-2", 1))
+    bus.failures["a-1"] = [ConnectionError("down")]
+    factory = InstrumentedFactory(uow_factory, fail_mark_failed={"a-1"})
+    relay = relay_for(tenant_id, factory=factory)
+
+    result = await relay.run_once()
+    tried_in_the_first_round = [call[1] for call in bus.calls]
+    at_once = await relay.run_once()
+    clock.advance(timedelta(seconds=1))
+    after_the_wait = await relay.run_once()
+
+    assert result == RelayResult(published=0, failed=1, skipped_no_lock=False)
+    assert tried_in_the_first_round == ["a-1"]  # a-2 was not tried
+    assert (await outbox_node(neo4j_driver, "a-1"))["attempts"] == 0
+    assert at_once == RelayResult(published=0, failed=0, skipped_no_lock=False)
+    assert after_the_wait == RelayResult(published=2, failed=0, skipped_no_lock=False)
+
+
+async def test_a_tenant_listed_twice_is_relayed_once(
+    relay_for: Callable[..., OutboxRelay],
+    uow_factory: UnitOfWorkFactory,
+    uow_factory_a: UnitOfWorkFactory,
+    tenant_id: str,
+) -> None:
+    await add_messages(uow_factory_a, outbox_message("a-1"))
+    factory = InstrumentedFactory(uow_factory)
+
+    result = await relay_for(tenant_id, tenant_id, factory=factory).run_once()
+
+    assert result == RelayResult(published=1, failed=0, skipped_no_lock=False)
+    assert len(factory.scopes) == 2  # one read and one mark, not a second round

@@ -448,8 +448,11 @@ async def test_the_callers_flag_and_a_rule_flag_are_both_raised_rule_first(
     result = await rig.number(40, at(14, 2), flag=OUT_OF_RANGE)
 
     flags = await _open_flags(uow_factory, "ucr-west")
-    assert _reasons(flags) == [MANY, OUT_OF_RANGE]
-    assert result.flag_ids == tuple(flag.id for flag in flags)
+    # Both flags carry the same time, so the order of the read is not the order raised: the
+    # result lists the flags in the order raised, the rule's first.
+    by_id = {flag.id: flag.reason for flag in flags}
+    assert [by_id[flag_id] for flag_id in result.flag_ids] == [MANY, OUT_OF_RANGE]
+    assert len(flags) == 2
     assert {flag.report_id for flag in flags} == {result.report_id}
     assert len(await _flagged_events(uow_factory)) == 2
 
@@ -570,10 +573,10 @@ async def test_a_replayed_command_returns_the_same_flags_and_raises_no_new_one(
 # --- tenancy -------------------------------------------------------------------------------------
 
 
-def test_the_command_carries_no_tenant_and_the_event_payload_names_none() -> None:
-    """DEC-130: the tenant is bound at the edge, never taken from a command or sent in a payload.
-    This task adds no Cypher statement: flags are written and read through the existing flag
-    repository, whose statements are on the ratchet and run in the bound scope."""
+async def test_the_command_carries_no_tenant_and_the_result_fields_are_pinned() -> None:
+    """DEC-130: the tenant is bound at the edge, never taken from a command. This task adds no
+    Cypher statement: flags are written and read through the existing flag repository, whose
+    statements are on the ratchet and run in the bound scope."""
     fields = {f.name for f in dataclasses.fields(ReportCapacityCommand)}
     assert not {name for name in fields if "tenant" in name or "scope" in name}
     assert {f.name for f in dataclasses.fields(ReportCapacityResult)} == {

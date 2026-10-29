@@ -65,7 +65,11 @@ def codeable_to_fhir(member: StrEnum) -> dict[str, Any]:
 
 def codeable_from_fhir[E: StrEnum](concept: Any, enum_cls: type[E], field: str) -> E:
     """The enum member for the one coding of a CodeableConcept. The coding must be from this enum
-    class's code system, or the value is refused."""
+    class's code system, or the value is refused. A list of one CodeableConcept is read as that
+    concept: FHIR's HealthcareService.category is a list, and registration writes it so (U27), while
+    the profile writer keeps the single form."""
+    if isinstance(concept, list) and len(concept) == 1:
+        concept = concept[0]
     codings = concept.get("coding") if isinstance(concept, dict) else None
     if not isinstance(codings, list) or len(codings) != 1 or not isinstance(codings[0], dict):
         raise ValidationFailed(field, "needs exactly one coding")

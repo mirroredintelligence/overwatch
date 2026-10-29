@@ -1,0 +1,68 @@
+# OpenTelemetry Collector allow-list (O04). One exact key per line; the collector matches exact keys only.
+# infra/otel-collector.yaml keeps these keys in its transform processor, and
+# backend/tests/unit/adapters/outbound/telemetry/test_collector_allowlist.py keeps the three sections equal to the sources:
+#   [backend]  = diucs.adapters.outbound.telemetry.attributes.ALLOWED_KEYS (O01), written out in full;
+#                the O01 prefixes usecase., db. and messaging. are listed key by key, so a new key is dropped until listed.
+#   [browser]  = the ui.* attributes of docs/spec/observability.md (O04), plus trace_id, which O02 sends on every event.
+#   [resource] = the resource attributes the collector keeps.
+# Refused everywhere: db.statement, db.query.text and any query parameter (privacy rule), patient and postcode keys.
+
+[backend]
+app.mode
+component.id
+db.access_mode
+db.query.id
+db.row_count
+db.system
+db.system.name
+device.type
+element.id
+error.type
+http.request.method
+http.response.status_code
+http.route
+messaging.destination.name
+messaging.message.id
+messaging.system
+net.effective_type
+page.route
+release
+server.address
+service.id
+session.id
+tenant.id
+url.scheme
+usecase.idempotent_replay
+usecase.outcome
+user.role
+
+[browser]
+from.route
+load.type
+ttfb_ms
+lcp_ms
+dwell_ms
+result
+valid
+length_bucket
+state
+form.id
+error_count
+time_to_submit_ms
+error.code
+kind
+count
+window_ms
+name
+value
+rating
+duration_ms
+gap_ms
+standalone
+session_code_shared
+trace_id
+
+[resource]
+service.name
+service.version
+deployment.environment

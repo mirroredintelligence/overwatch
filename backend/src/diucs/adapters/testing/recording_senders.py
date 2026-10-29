@@ -9,7 +9,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from diucs.application.ports.outbound.messaging import EmailSender, SendReceipt, SmsSender
+from diucs.application.ports.outbound.messaging import (
+    PUSH_GONE,
+    EmailSender,
+    SendReceipt,
+    SmsSender,
+)
 from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable
 from diucs.application.tenancy import current_tenant
 
@@ -35,6 +40,7 @@ class RecordedPush:
     title: str
     body: str
     url: str
+    urgency: str = "normal"
 
 
 class _Attempts:
@@ -89,17 +95,31 @@ class RecordingPushSender:
     def __init__(self) -> None:
         self.sent: list[RecordedPush] = []
         self._attempts = _Attempts("push")
+        self._gone_next = False
 
     async def send(
-        self, subscription: dict[str, Any], title: str, body: str, url: str
+        self,
+        subscription: dict[str, Any],
+        title: str,
+        body: str,
+        url: str,
+        *,
+        urgency: str = "normal",
     ) -> SendReceipt:
+        if self._gone_next:
+            self._gone_next = False
+            return SendReceipt(provider_message_id="", accepted=False, reason=PUSH_GONE)
         receipt = self._attempts.next_receipt()
         if receipt.accepted:
-            self.sent.append(RecordedPush(dict(subscription), title, body, url))
+            self.sent.append(RecordedPush(dict(subscription), title, body, url, urgency))
         return receipt
 
     def fail_next(self) -> None:
         self._attempts.fail_next()
+
+    def gone_next(self) -> None:
+        """The next subscription is gone (the provider answered 410): refused, reason `gone`."""
+        self._gone_next = True
 
 
 class FixedSenderResolver:

@@ -296,5 +296,206 @@
         "db.system.name": "neo4j"
       }
     }
+  ],
+  "daily": [
+    {
+      "tenant_id": "test-a",
+      "day": "2026-10-28",
+      "funnel": [
+        {
+          "funnel": "reporter-set-up",
+          "step": "Invitation delivered",
+          "branch": false,
+          "role": "reporter",
+          "channel": "text",
+          "device": "phone",
+          "entered": 40,
+          "completed": 36,
+          "median_ms": 5200.0
+        },
+        {
+          "funnel": "reporter-set-up",
+          "step": "Link opened",
+          "branch": false,
+          "role": "reporter",
+          "channel": "text",
+          "device": "phone",
+          "entered": 36,
+          "completed": 30,
+          "median_ms": 9100.0
+        },
+        {
+          "funnel": "reporter-set-up",
+          "step": "Welcome started",
+          "branch": false,
+          "role": "reporter",
+          "channel": "link",
+          "device": "phone",
+          "entered": 7,
+          "completed": 5,
+          "median_ms": 2400.0
+        },
+        {
+          "funnel": "reporter-set-up",
+          "step": "Code requested",
+          "branch": false,
+          "role": "reporter",
+          "channel": "link",
+          "device": "phone",
+          "entered": 5,
+          "completed": 5,
+          "median_ms": 1200.0
+        },
+        {
+          "funnel": "daily-capacity-loop",
+          "step": "Prompt sent",
+          "branch": false,
+          "role": "reporter",
+          "channel": "text",
+          "device": "phone",
+          "entered": 120,
+          "completed": 120,
+          "median_ms": null
+        },
+        {
+          "funnel": "daily-capacity-loop",
+          "step": "Delivered",
+          "branch": false,
+          "role": "reporter",
+          "channel": "text",
+          "device": "phone",
+          "entered": 120,
+          "completed": 117,
+          "median_ms": 3100.0
+        }
+      ],
+      "friction": [
+        {
+          "element_id": "ADV-OPT-REQUEST-BTN",
+          "kind": "rage",
+          "role": "advisor",
+          "device": "desktop",
+          "interactions": 312,
+          "events": 41,
+          "sessions": 14
+        },
+        {
+          "element_id": "ADV-REF-INPUT",
+          "kind": "validation-loop",
+          "role": "advisor",
+          "device": "desktop",
+          "interactions": 100,
+          "events": 3,
+          "sessions": 12
+        }
+      ],
+      "usage": [
+        {
+          "element_id": "ADV-OPT-REQUEST-BTN",
+          "role": "advisor",
+          "device": "desktop",
+          "interactions": 312,
+          "sessions": 14
+        },
+        {
+          "element_id": "ADV-REF-INPUT",
+          "role": "advisor",
+          "device": "desktop",
+          "interactions": 100,
+          "sessions": 12
+        },
+        {
+          "element_id": "ADV-CALL-80-BTN",
+          "role": "advisor",
+          "device": "phone",
+          "interactions": 9,
+          "sessions": 2
+        }
+      ],
+      "routes": [
+        {
+          "route": "/board",
+          "role": "wall",
+          "device": "desktop",
+          "p50": 310.0,
+          "p75": 480.0,
+          "p95": 820.0,
+          "lcp75": 1900.0,
+          "inp75": 140.0,
+          "cls75": 0.02,
+          "errors": 0,
+          "sessions": 22
+        },
+        {
+          "route": "/case/[ref]/options",
+          "role": "advisor",
+          "device": "desktop",
+          "p50": 420.0,
+          "p75": 700.0,
+          "p95": 1300.0,
+          "lcp75": 2200.0,
+          "inp75": 190.0,
+          "cls75": 0.05,
+          "errors": 2,
+          "sessions": 12
+        }
+      ],
+      "queries": [
+        {
+          "query_id": "Q-BOARD",
+          "calls": 120,
+          "p50": 38.0,
+          "p95": 91.0,
+          "errors": 1
+        }
+      ]
+    },
+    {
+      "tenant_id": "test-b",
+      "day": "2026-10-28",
+      "funnel": [
+        {
+          "funnel": "reporter-set-up",
+          "step": "Invitation delivered",
+          "branch": false,
+          "role": "reporter",
+          "channel": "text",
+          "device": "phone",
+          "entered": 50,
+          "completed": 49,
+          "median_ms": 4000.0
+        }
+      ],
+      "friction": [
+        {
+          "element_id": "B-ONLY-BTN",
+          "kind": "dead",
+          "role": "advisor",
+          "device": "desktop",
+          "interactions": 200,
+          "events": 90,
+          "sessions": 30
+        }
+      ],
+      "usage": [
+        {
+          "element_id": "B-ONLY-BTN",
+          "role": "advisor",
+          "device": "desktop",
+          "interactions": 200,
+          "sessions": 30
+        }
+      ],
+      "routes": [],
+      "queries": [
+        {
+          "query_id": "Q-BOARD",
+          "calls": 10,
+          "p50": 20.0,
+          "p95": 30.0,
+          "errors": 0
+        }
+      ]
+    }
   ]
 }

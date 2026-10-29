@@ -33,6 +33,14 @@ class LinkTokenRepository(Protocol):
         `now`, or None (U25: an open invitation). Only the bound tenant's links are seen."""
         ...
 
+    async def open_for_about(
+        self, purpose: str, about_id: str, now: datetime
+    ) -> LinkTokenRecord | None:
+        """The link of this purpose about this id that is unused and not expired at `now`, or None
+        (U24: the link of one invitation, so a resend burns that link and no other). When several
+        are open, the one that expires last. Only the bound tenant's links are seen."""
+        ...
+
 
 class SecretStore(Protocol):
     def get(self, name: str) -> bytes: ...

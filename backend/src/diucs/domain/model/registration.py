@@ -10,11 +10,33 @@ Pure: no I/O. Refusals name fields only, never values.
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from enum import StrEnum
+from typing import Any, Final
 
-from diucs.domain.codes import RegistrationStatus, ScopeFlag, ServiceCategory
+from diucs.domain.codes import RegistrationStatus, ScopeFlag, ServiceCategory, code_system_url
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.people import check_staff_text
 from diucs.domain.rules.registration import ApprovalChecks
+
+DISTRICT_TYPE_CODE: Final = "postcode-district"
+"""The Location type of an area a visiting service covers (fhir-data-model.md, Location)."""
+LOCATION_TYPE_SYSTEM: Final = code_system_url("location-type")
+
+
+class CallBackResult(StrEnum):
+    """What a reviewer's call-back to the number on the register found (U28)."""
+
+    CONFIRMED = "confirmed"
+    NOT_CONFIRMED = "not-confirmed"
+    NO_ANSWER = "no-answer"
+
+
+class Answer(StrEnum):
+    """One of the four scope questions answered yes, no or not sure (U28)."""
+
+    YES = "yes"
+    NO = "no"
+    NOT_SURE = "not-sure"
 
 
 def _aware(name: str, value: object) -> None:
@@ -85,3 +107,40 @@ class ScopeEntry:
             raise ValidationFailed("date", "must be a calendar date")
         if not isinstance(self.reason, str):
             raise ValidationFailed("reason", "must be text")
+
+
+@dataclass(frozen=True, slots=True)
+class Invitation:
+    """An invitation to report for a service (U24): a Task with code invite-reporter.
+
+    The lead's post asks, the invitee (a practitioner) is the owner, and the registration it opens
+    is `registration_id`. `sent_at` is when the latest text went out and `expires_at` is 48 hours
+    after it; a resend moves both. The link token is not here: only its hash is stored, by the link
+    adapter, and the phone number is never here (it is in the protected contact store).
+    """
+
+    id: str
+    service_id: str
+    registration_id: str
+    requester_role_id: str
+    invitee_id: str
+    role_label: str
+    created_at: datetime
+    sent_at: datetime
+    expires_at: datetime
+
+    def __post_init__(self) -> None:
+        for name in ("id", "service_id", "registration_id", "requester_role_id", "invitee_id"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValidationFailed(name, "must not be blank")
+        if not isinstance(self.role_label, str) or not self.role_label.strip():
+            raise ValidationFailed("role_label", "must not be blank")
+        check_staff_text("role_label", self.role_label)
+        _aware("created_at", self.created_at)
+        _aware("sent_at", self.sent_at)
+        _aware("expires_at", self.expires_at)
+        if self.sent_at < self.created_at:
+            raise ValidationFailed("sent_at", "cannot be before the invitation was made")
+        if self.expires_at <= self.sent_at:
+            raise ValidationFailed("expires_at", "must be after the invitation was sent")

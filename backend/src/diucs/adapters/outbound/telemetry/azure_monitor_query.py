@@ -12,7 +12,7 @@ trace or a search is the raw retention below, from the clock.
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Final, Protocol
 
 from diucs.adapters.outbound.telemetry.kql import SESSIONS_QUERY, SPANS_QUERY, TIMELINE_QUERY
@@ -22,6 +22,7 @@ from diucs.application.ports.outbound.telemetry_query import (
     SessionFilters,
     SessionSummary,
     SpanRecord,
+    TelemetryUnavailable,
     TimelineEvent,
     TimelineKind,
     as_utc,
@@ -30,6 +31,7 @@ from diucs.application.ports.outbound.telemetry_query import (
     check_trace_id,
 )
 from diucs.application.tenancy import current_tenant
+from diucs.domain.model.telemetry_aggregates import DayAggregates
 
 # Raw retention is 30 to 90 days (observability.md, "Privacy and governance"). [ASSUMED] 90: a
 # trace or a search older than this is not looked up. Set with IG.
@@ -102,6 +104,12 @@ class AzureMonitorTelemetryQuery:
         if not isinstance(dims, Mapping):
             return {}
         return result_attributes(dims)
+
+    async def daily_aggregates(self, day: date) -> DayAggregates:
+        # The daily summary is a KQL aggregation that is not built yet (known issue, O08). Until it
+        # is,
+        # the job refuses to run against the workspace rather than writing an empty day.
+        raise TelemetryUnavailable
 
     async def session_timeline(
         self, session_id: str, start: datetime, end: datetime

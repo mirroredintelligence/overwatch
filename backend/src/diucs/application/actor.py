@@ -75,3 +75,17 @@ def require_actor_in_bound_tenant(actor: Actor) -> None:
     Defence against a wiring fault: the check is on two values the edge set, not on any input."""
     if actor.tenant_id != current_tenant():
         raise TenantMismatch
+
+
+def timer_actor(tenant_id: str) -> Actor:
+    """The actor of a timer that the system runs on its own (U19): no person, no device, no
+    service, of the one tenant the timer is running for. The role is `audit`, as the booking timers
+    have always recorded it; there is no platform-wide timer actor (TEN-018)."""
+    return Actor(
+        role=Role.AUDIT,
+        practitioner_id=None,
+        device_id=None,
+        channel=SYSTEM_CHANNEL,
+        service_ids=frozenset(),
+        tenant_id=tenant_id,
+    )

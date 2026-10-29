@@ -21,6 +21,7 @@ from typing import Any, Protocol
 
 from diucs.application.actor import Actor
 from diucs.application.tenancy import DEFAULT_TENANT_ID
+from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
 
 GENESIS_HASH = "0" * 64
@@ -121,6 +122,23 @@ class AuditLog(Protocol):
     """Append-only. There is no update, delete or remove."""
 
     async def append(self, entry: AuditEntry) -> AuditRecord: ...
+
+    async def append_provenance(
+        self,
+        target_type: str,
+        target_id: str,
+        activity: str,
+        agent_id: str,
+        agent_role: Role,
+        source_communication_id: str | None = None,
+        extra: dict[str, Any] | None = None,
+        agent_type: str = "Practitioner",
+    ) -> str:
+        """Append a Provenance record to the chain: who did what to which record, with a few small
+        facts in `extra` (names of letters and digits, values text, whole numbers or flags). It is
+        linked to its target and its agent. Returns the record's id. Never a patient value, and
+        never a phone number (U28 puts the number in the contact store and its keyed hash here)."""
+        ...
 
     async def records(self, since: str | None = None) -> list[AuditRecord]: ...
 

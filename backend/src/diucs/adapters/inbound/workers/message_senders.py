@@ -35,10 +35,13 @@ from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, Permanen
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
 from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
 from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
+from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.messaging import (
+    PUSH_GONE,
     Communication,
     EmailSender,
+    PushSender,
     SendFailedError,
     SendReceipt,
     SmsSender,
@@ -50,6 +53,7 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWork
 from diucs.domain.codes import Channel
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.catalogue import MessageId
+from diucs.domain.model.people import role_holder
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +61,7 @@ MESSAGES_TOPIC: Final = "messages.outbound"
 SEND_MESSAGE_EVENT: Final = "SendMessage"
 CONSUMER_SMS: Final = "sender-sms"
 CONSUMER_EMAIL: Final = "sender-email"
+CONSUMER_PUSH: Final = "sender-push"
 SMS_SUBSCRIPTION: Final = "text-sender"
 EMAIL_SUBSCRIPTION: Final = "email-sender"
 PUSH_SUBSCRIPTION: Final = "push-sender"
@@ -287,6 +292,28 @@ class EmailMessageSender(_OutboundSender):
         return await sender.send(address, outbound.subject, outbound.text, outbound.html)
 
 
+def push_runner(
+    client: ServiceBusClient,
+    uow_factory: UnitOfWorkFactory,
+    tenants: ActiveTenants,
+    sender: PushSender,
+    sealer: ContentSealer,
+    clock: Clock,
+    app_url: str,
+    observe: Observe = untraced,
+) -> ServiceBusRunner:
+    """The runner of the `push-sender` subscription of `messages.outbound` (I14). It binds the
+    message's tenant like the other two senders do; the VAPID key is platform-wide."""
+    push = TenantBoundConsumer(
+        IdempotentConsumer(
+            CONSUMER_PUSH, PushMessageSender(sender, sealer, app_url, clock), uow_factory
+        ),
+        tenants,
+        observe,
+    )
+    return ServiceBusRunner(client, MESSAGES_TOPIC, PUSH_SUBSCRIPTION, push)
+
+
 def sender_runners(
     client: ServiceBusClient,
     uow_factory: UnitOfWorkFactory,
@@ -311,3 +338,134 @@ def sender_runners(
         ServiceBusRunner(client, MESSAGES_TOPIC, SMS_SUBSCRIPTION, sms),
         ServiceBusRunner(client, MESSAGES_TOPIC, EMAIL_SUBSCRIPTION, email),
     ]
+
+
+PUSH_URGENT_IDS: Final = frozenset({MessageId.B3, MessageId.K3})
+"""The push messages that are high urgency: a booking request (B3) and an alert (K3). Every other
+push is normal urgency (I14, DEC-340)."""
+
+
+def push_urgency(message_id: str) -> str:
+    """'high' for a booking request or an alert push, 'normal' otherwise (I14)."""
+    try:
+        catalogue = MessageId(message_id)
+    except ValueError:
+        return "normal"
+    return "high" if catalogue in PUSH_URGENT_IDS else "normal"
+
+
+class PushMessageSender:
+    """The `push-sender` subscription: Web Push to every installed app of the practitioner who holds
+    the recipient role at send time (I14). A subscription the provider reports gone is deleted; the
+    communication is sent when any app accepted, and failed otherwise. A transient failure on any
+    app retries the whole message (an app that already took it may take it again: a duplicate is
+    safer than a missed alert). Content is the bound tenant's template text; the URL is the
+    reporter app's root, never anything about a patient."""
+
+    channel = Channel.PUSH
+    name = CONSUMER_PUSH
+
+    def __init__(
+        self,
+        sender: PushSender,
+        sealer: ContentSealer,
+        app_url: str,
+        clock: Clock,
+    ) -> None:
+        self._sender = sender
+        self._sealer = sealer
+        self._app_url = app_url
+        self._clock = clock
+
+    async def __call__(self, message: BusMessage, uow: UnitOfWork) -> None:
+        if message.event_type != SEND_MESSAGE_EVENT:
+            raise PermanentError(NOT_A_SEND)
+        tenant_id = message.tenant_id
+        if not tenant_id:
+            raise PermanentError(NO_TENANT)
+        outbound = parse_outbound(
+            message.payload, message_id=message.id, tenant_id=tenant_id, sealer=self._sealer
+        )
+        if outbound.channel is not self.channel:
+            raise PermanentError(BAD_CHANNEL)
+        if outbound.subject is None or outbound.subject.strip() == "":
+            # The push title is the template's subject line (K3's title, C1's push subject).
+            raise PermanentError(BAD_CONTENT)
+
+        communication = await uow.communications.get(outbound.communication_id)
+        if communication is None:
+            raise PermanentError(NO_COMMUNICATION)
+        if is_handled(communication):
+            return
+
+        now = self._clock.now()
+        role = await uow.people.get_role(outbound.recipient_role_id)
+        if role is None:
+            await self._settle(uow, message, communication.id, "failed", NO_CONTACT)
+            return
+        practitioner_id = role_holder(role, now)
+        devices = await uow.push_subscriptions.for_practitioner(practitioner_id)
+        if not devices:
+            await self._settle(uow, message, communication.id, "failed", NO_CONTACT)
+            return
+
+        urgency = push_urgency(outbound.message_id)
+        accepted = 0
+        gone = 0
+        refused = 0
+        for device in devices:
+            try:
+                receipt = await self._sender.send(
+                    device.subscription,
+                    outbound.subject,
+                    outbound.text,
+                    self._app_url,
+                    urgency=urgency,
+                )
+            except TransientSendError:
+                # Retry the whole message: no send is recorded, so the message stays queued.
+                raise
+            except SendFailedError:
+                refused += 1
+                continue
+            if receipt.accepted:
+                accepted += 1
+            elif receipt.reason == PUSH_GONE:
+                gone += 1
+                await uow.push_subscriptions.delete(device.device_id)
+            else:
+                refused += 1
+
+        if accepted:
+            await self._settle(uow, message, communication.id, "sent", message.id)
+        elif refused and not gone:
+            await self._settle(uow, message, communication.id, "failed", REFUSED)
+        else:
+            await self._settle(uow, message, communication.id, "failed", NO_CONTACT)
+
+    async def _settle(
+        self,
+        uow: UnitOfWork,
+        message: BusMessage,
+        communication_id: str,
+        status: Literal["sent", "failed"],
+        error_code_or_message: str,
+    ) -> None:
+        """Record the outcome. For 'sent' the provider id is the outbox message id (push has no
+        receipt id); for 'failed' the reason is the error code."""
+        provider_id = message.id if status == "sent" else None
+        error_code = None if status == "sent" else error_code_or_message
+        recorded = await uow.communications.record_send_outcome(
+            communication_id,
+            status=status,
+            provider_message_id=provider_id,
+            error_code=error_code,
+        )
+        logger.info(
+            "%s %s: message=%s status=%s reason=%s",
+            self.name,
+            "recorded" if recorded else "not recorded (no longer queued)",
+            message.id,
+            status,
+            error_code or "-",
+        )

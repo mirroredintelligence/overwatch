@@ -244,6 +244,74 @@ class BookingExpired:
 
 
 @dataclass(frozen=True, slots=True)
+class BookingPhonePrompt:
+    """A requested booking is five minutes old and still unanswered: the advisor is to phone the
+    service (U19). Ids and the booking reference only, never a patient value."""
+
+    event_type: ClassVar[str] = "BookingPhonePrompt"
+    booking_id: str
+    service_id: str
+    reference: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        if not isinstance(self.reference, str) or _REFERENCE.fullmatch(self.reference) is None:
+            raise ValidationFailed("reference", "must be a four-digit booking reference")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "booking_id": self.booking_id,
+            "service_id": self.service_id,
+            "reference": self.reference,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            booking_id=_text(payload, "booking_id"),
+            service_id=_text(payload, "service_id"),
+            reference=_text(payload, "reference"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class BookingCancelled:
+    """A booking was cancelled by an advisor or a clinician, before or after the service answered
+    (U20). `status` is the cancelled state (cancelled-before or cancelled-after)."""
+
+    event_type: ClassVar[str] = "BookingCancelled"
+    booking_id: str
+    service_id: str
+    status: BookingStatus
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        if not isinstance(self.status, BookingStatus):
+            raise ValidationFailed("status", "must be a booking status")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "booking_id": self.booking_id,
+            "service_id": self.service_id,
+            "status": self.status.value,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            booking_id=_text(payload, "booking_id"),
+            service_id=_text(payload, "service_id"),
+            status=_code(payload, "status", BookingStatus),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class RegistrationSubmitted:
     event_type: ClassVar[str] = "RegistrationSubmitted"
     registration_id: str
@@ -281,6 +349,64 @@ class RegistrationApproved:
     def decode(cls, payload: Mapping[str, Any]) -> Self:
         return cls(
             registration_id=_text(payload, "registration_id"),
+            service_id=_text(payload, "service_id"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class RegistrationPersisted:
+    """A submitted registration's draft resources were written (U27, registration.events). Ids and
+    the time only."""
+
+    event_type: ClassVar[str] = "RegistrationPersisted"
+    registration_id: str
+    service_id: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "registration_id": self.registration_id,
+            "service_id": self.service_id,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            registration_id=_text(payload, "registration_id"),
+            service_id=_text(payload, "service_id"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ReporterInvited:
+    """A shift lead invited a person to report for a service (U24, registration.events). Ids and the
+    time only: never the number, the link or the person's name."""
+
+    event_type: ClassVar[str] = "ReporterInvited"
+    invitation_id: str
+    service_id: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "invitation_id": self.invitation_id,
+            "service_id": self.service_id,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            invitation_id=_text(payload, "invitation_id"),
             service_id=_text(payload, "service_id"),
             at=_when(payload),
         )
@@ -490,9 +616,13 @@ DomainEvent = (
     | BookingRequested
     | BookingResponded
     | BookingExpired
+    | BookingPhonePrompt
+    | BookingCancelled
     | RegistrationSubmitted
     | RegistrationApproved
     | ServiceActivated
+    | ReporterInvited
+    | RegistrationPersisted
     | CriteriaApproved
     | AlertRaised
     | AlertAcknowledged
@@ -508,9 +638,13 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         BookingRequested: BOOKING_EVENTS,
         BookingResponded: BOOKING_EVENTS,
         BookingExpired: BOOKING_EVENTS,
+        BookingPhonePrompt: BOOKING_EVENTS,
+        BookingCancelled: BOOKING_EVENTS,
         RegistrationSubmitted: REGISTRATION_EVENTS,
         RegistrationApproved: REGISTRATION_EVENTS,
         ServiceActivated: REGISTRATION_EVENTS,
+        ReporterInvited: REGISTRATION_EVENTS,
+        RegistrationPersisted: REGISTRATION_EVENTS,
         CriteriaApproved: CRITERIA_EVENTS,
         AlertRaised: ALERTS_EVENTS,
         AlertAcknowledged: ALERTS_EVENTS,
@@ -527,9 +661,13 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "BookingRequested": BookingRequested.decode,
         "BookingResponded": BookingResponded.decode,
         "BookingExpired": BookingExpired.decode,
+        "BookingPhonePrompt": BookingPhonePrompt.decode,
+        "BookingCancelled": BookingCancelled.decode,
         "RegistrationSubmitted": RegistrationSubmitted.decode,
         "RegistrationApproved": RegistrationApproved.decode,
         "ServiceActivated": ServiceActivated.decode,
+        "ReporterInvited": ReporterInvited.decode,
+        "RegistrationPersisted": RegistrationPersisted.decode,
         "CriteriaApproved": CriteriaApproved.decode,
         "AlertRaised": AlertRaised.decode,
         "AlertAcknowledged": AlertAcknowledged.decode,

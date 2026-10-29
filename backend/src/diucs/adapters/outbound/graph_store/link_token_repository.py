@@ -172,6 +172,34 @@ _OPEN_FOR_PHONE_SCENARIO: Final = Scenario(
     expect=Expect(rows=({"props": {"purpose": "invite", "aboutId": Marked("about")}},)),
 )
 
+# The open link of an invitation (U24 resend): the thing the link is about and the purpose, unused
+# and not yet expired at `now`. Both tenants hold a link about the same id, so the lookup collides
+# across them (the scenario's lookup), and only the bound tenant's link comes back.
+_OPEN_FOR_ABOUT_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "invite",
+            ("LinkToken",),
+            {
+                "id": Marked("invite"),
+                "tokenHash": Marked("invite-hash"),
+                "phoneHash": _PHONE,
+                "purpose": "invite",
+                "aboutId": "inv-1",
+                "expiresAt": _EXPIRES,
+            },
+        ),
+    )
+)
+_OPEN_FOR_ABOUT_SCENARIO: Final = Scenario(
+    "find the tenant's open link of an invitation by what it is about",
+    seed=_OPEN_FOR_ABOUT_SEED,
+    params={"aboutId": "inv-1", "purpose": "invite", "now": _BEFORE_EXPIRY},
+    lookup=("aboutId",),
+    new=("now",),
+    expect=Expect(rows=({"props": {"purpose": "invite", "aboutId": "inv-1"}},)),
+)
+
 _QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario]] = {
     "Q-LINK-ADD": (
         "CREATE (t:LinkToken {id: $id, tenantId: $tenant, tokenHash: $tokenHash, "
@@ -214,6 +242,14 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario]] = {
         "RETURN properties(t) AS props ORDER BY t.expiresAt DESC, t.id ASC LIMIT 1",
         "read",
         _OPEN_FOR_PHONE_SCENARIO,
+    ),
+    # The open link of one thing, so a resend burns the link of that invitation and no other.
+    "Q-LINK-OPEN-FOR-ABOUT": (
+        "MATCH (t:LinkToken {aboutId: $aboutId, purpose: $purpose, tenantId: $tenant}) "
+        "WHERE t.usedAt IS NULL AND t.expiresAt > $now "
+        "RETURN properties(t) AS props ORDER BY t.expiresAt DESC, t.id ASC LIMIT 1",
+        "read",
+        _OPEN_FOR_ABOUT_SCENARIO,
     ),
 }
 
@@ -292,6 +328,18 @@ class Neo4jLinkTokenRepository:
             phoneHash=phone_hash,
             purpose=purpose,
             now=now.astimezone(UTC),
+        )
+        return _from_props(rows[0]["props"]) if rows else None
+
+    async def open_for_about(
+        self, purpose: str, about_id: str, now: datetime
+    ) -> LinkTokenRecord | None:
+        """The open link of this purpose about this id at `now`, or None. When several are open,
+        the one that expires last. A naive `now` is refused."""
+        if now.utcoffset() is None:
+            raise ValidationFailed("now", "must be a timezone-aware datetime")
+        rows = await self._run(
+            "Q-LINK-OPEN-FOR-ABOUT", aboutId=about_id, purpose=purpose, now=now.astimezone(UTC)
         )
         return _from_props(rows[0]["props"]) if rows else None
 

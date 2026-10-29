@@ -30,15 +30,18 @@ from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
     build_scheduled_work_consumer,
 )
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
-from diucs.adapters.inbound.workers.message_senders import sender_runners
+from diucs.adapters.inbound.workers.message_senders import push_runner, sender_runners
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants, StaticTenants
 from diucs.adapters.inbound.workers.reply_processor import HandlesInboundText, reply_consumer
 from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from diucs.adapters.outbound.push_webpush.web_push import configured_push_sender
 from diucs.adapters.outbound.telemetry.attributes import INSTRUMENTATION_NAME
 from diucs.adapters.outbound.telemetry.consumer import consumer_observer
+from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.messaging import PushSender
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.sender_resolver import SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
@@ -94,6 +97,9 @@ def build_runners(
     *,
     senders: SenderResolver | None = None,
     sealer: ContentSealer | None = None,
+    push: PushSender | None = None,
+    clock: Clock | None = None,
+    app_url: str = "",
 ) -> list[ServiceBusRunner]:
     """One runner for each inbound queue, each over a consumer that binds the message's tenant and
     handles the message under its trace span (O01): the replies, the receipts and, with the
@@ -123,6 +129,10 @@ def build_runners(
     ]
     if senders is not None and sealer is not None:
         runners += sender_runners(client, uow_factory, tenants, senders, sealer, observe)
+    if push is not None and clock is not None and sealer is not None:
+        runners.append(
+            push_runner(client, uow_factory, tenants, push, sealer, clock, app_url, observe)
+        )
     return runners
 
 
@@ -138,6 +148,8 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
     connection = service_bus_connection(settings)
     container = build(settings)
     await container.startup()  # refuses to start when Neo4j cannot be reached
+    # The daily criteria review run (U31) is seeded once per tenant; a restart changes nothing.
+    await container.seed_daily_schedules(await tenants.active_tenant_ids())
     cache = RedisCache.from_url(settings.redis_url)
     client = ServiceBusClient.from_connection_string(connection)
     http = httpx.AsyncClient(timeout=SENDER_HTTP_TIMEOUT_SECONDS)
@@ -156,6 +168,7 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
             container.tenants, container.secrets, http, status_callback_url(settings)
         )
         sealer = AesGcmContentSealer(container.secrets)
+        push = configured_push_sender(container.secrets, settings.webpush_subject)
         runners = build_runners(
             client,
             use_case,
@@ -164,6 +177,9 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
             container.scheduled_work.handlers,
             senders=senders,
             sealer=sealer,
+            push=push,
+            clock=container.clock,
+            app_url=settings.base_url,
         )
         await run_workers([runner.serve for runner in runners], stop)
     finally:

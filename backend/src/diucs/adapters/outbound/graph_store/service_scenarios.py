@@ -153,7 +153,30 @@ _PATIENT: Final = SeedNode(
 )
 _CASE_SEED: Final = TenantSeed(nodes=(_REQUEST, _PATIENT))
 
+# Positions (U12). svc-1 has a Location with coordinates; svc-2 has none, so it is left out.
+_POSITION_LOCATION: Final = SeedNode(
+    "location",
+    ("Resource", "Location"),
+    {
+        "id": "loc-1",
+        "key": "Location/loc-1",
+        "name": Marked("Site"),
+        "positionLatitude": 50.7,
+        "positionLongitude": -2.4,
+    },
+)
+_POSITION_SEED: Final = TenantSeed(
+    nodes=(_WARD, _CLINIC, _POSITION_LOCATION),
+    rels=(SeedRel("ward", "LOCATION", "location"),),
+)
+
 SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-SVC-POSITIONS": Scenario(
+        "the site position of each of the tenant's services that has one",
+        seed=_POSITION_SEED,
+        params={"ids": ["svc-1", "svc-2"]},
+        expect=Expect(rows=({"id": "svc-1", "name": Marked("Ward"), "lat": 50.7, "lon": -2.4},)),
+    ),
     "Q-SVC-LIST-ACTIVE": Scenario(
         "list the tenant's active services by name",
         seed=_CAPACITY_SEED,

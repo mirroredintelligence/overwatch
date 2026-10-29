@@ -22,6 +22,7 @@ dependencies = [
     "opentelemetry-sdk>=1.45.2",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.1",
+    "pywebpush>=2.5.0",
     "rdflib>=7.6.0",
     "redis>=8.1.0",
     "tzdata>=2026.5",
@@ -66,3 +67,9 @@ select = ["E", "F", "I", "B", "UP", "SIM"]
 [tool.mypy]
 strict = true
 files = ["src"]
+
+[[tool.mypy.overrides]]
+# pywebpush ships no type information (I14). Its one call is wrapped by WebPushSender, which types
+# every value it passes in and out.
+module = ["pywebpush", "pywebpush.*"]
+ignore_missing_imports = true

@@ -8,6 +8,7 @@ Postcodes given to these ports are normalised by the caller or by the adapter us
 (diucs.domain.rules.postcode). Nothing here logs or echoes a postcode (DEC-047).
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -70,3 +71,11 @@ class PostcodeLocator(Protocol):
 
 class TravelTime(Protocol):
     async def estimate(self, origin: LatLon, destination: LatLon) -> TravelRange: ...
+
+
+class ServicePositions(Protocol):
+    """The site position of each service, read from its Location (U12, Q-SVC-POSITIONS). Stored
+    with the graph, so it is read through the unit of work, never by a separate lookup. A service
+    with no position is left out of the result."""
+
+    async def get_many(self, service_ids: Sequence[str]) -> dict[str, LatLon]: ...

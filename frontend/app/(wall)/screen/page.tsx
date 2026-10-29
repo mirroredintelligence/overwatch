@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
-import { Board } from '@/components/board/Board';
+import { LiveBoard } from '@/components/board/LiveBoard';
 import { BoardUnavailable } from '@/components/board/BoardUnavailable';
 import { getSession } from '@/lib/auth/session';
+import { serverNow } from '@/lib/board/clock';
 import { canReadBoard, readBoard } from '@/lib/board/read';
 import type { Board as BoardData } from '@/lib/board/types';
 import { FhirError } from '@/lib/fhir/client';
@@ -24,13 +25,17 @@ export default async function WallScreenPage() {
   if (!session || !canReadBoard(session.role)) redirect(PAIR);
 
   let board: BoardData;
+  let serverTime: number;
   try {
     board = await readBoard(session);
+    // The web server's clock when the board was read: the browser measures the
+    // board's age against it, not against its own clock (DEC-152).
+    serverTime = serverNow();
   } catch (error) {
     // The back end does not know this screen (or no longer lets it read the board): pair again.
     if (error instanceof FhirError && [401, 403, 404].includes(error.status)) redirect(PAIR);
     // Anything else: show no figure at all, and say what to do.
     return <BoardUnavailable />;
   }
-  return <Board board={board} />;
+  return <LiveBoard initialBoard={board} serverTime={serverTime} />;
 }

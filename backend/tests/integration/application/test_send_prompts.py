@@ -8,6 +8,7 @@ Clock: Friday 23 October 2026. The prompt is due at 10:00 London (09:00 UTC, BST
 """
 
 import asyncio
+import base64
 import dataclasses
 import json
 import re
@@ -53,6 +54,7 @@ from diucs.domain.codes import (
     ServiceCategory,
 )
 from diucs.domain.errors import Conflict, DomainError, NotFound, ValidationFailed
+from diucs.domain.messages.privacy_guard import find_patient_data
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
@@ -166,11 +168,13 @@ def _rig(
     now: datetime = DUE,
     link_base: str = LINK_BASE,
     tenant: str = TENANT,
+    token_source: Callable[[int], bytes] | None = None,
 ) -> tuple[SendPrompts, FixedClock]:
     clock = FixedClock(now)
+    source: dict[str, Any] = {} if token_source is None else {"rng": token_source}
 
     def tokens(repo: LinkTokenRepository) -> LinkTokenService:
-        return LinkTokenService(repo, FixedSecretStore({"link-token": SECRET}), clock)
+        return LinkTokenService(repo, FixedSecretStore({"link-token": SECRET}), clock, **source)
 
     use_case = SendPrompts(
         factory,
@@ -302,6 +306,38 @@ class _FailingAuditUnitOfWork:
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self._inner, name)
+
+
+# --- A random link token never looks like patient data (link-token privacy fix) ----------------
+
+# 128 random bits that the old base64url generator turned into a token holding a postcode shape,
+# and into one holding an NHS-number shape. Real random draws can be exactly these values.
+_BYTES_THAT_MADE_A_POSTCODE_TOKEN = base64.urlsafe_b64decode("AAAA-SW1A2AA-AAAAAAAAg==")
+_BYTES_THAT_MADE_AN_NHS_TOKEN = base64.urlsafe_b64decode("943-476-5919-AAAAAAAAg==")
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [_BYTES_THAT_MADE_A_POSTCODE_TOKEN, _BYTES_THAT_MADE_AN_NHS_TOKEN],
+    ids=["postcode", "nhs"],
+)
+async def test_a_token_that_once_matched_the_privacy_guard_still_sends_the_prompt(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed, raw: bytes
+) -> None:
+    # Before the fix these draws made render() raise "link: a patient-data shape is not allowed",
+    # so the prompt was not sent, the service went overdue and an alert could fire.
+    await _seed_one_reporter(uow_factory, seed_service)
+    await _seed_report(uow_factory)
+    use_case, _ = _rig(uow_factory, neo4j_driver, token_source=lambda n: raw)
+
+    result = await use_case.execute(_command())
+
+    assert result.sent is True
+    assert result.skipped_reason is None
+    [message] = _sent(await _outbox(uow_factory))
+    token = _token_of(message)
+    assert find_patient_data(f"{LINK_BASE}/{token}") == []
+    assert await _resolve(neo4j_driver, DUE, token) is not None
 
 
 # --- C1 and C2 wording, the link, and what is stored (A, K) -------------------------------------

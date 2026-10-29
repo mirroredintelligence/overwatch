@@ -75,12 +75,12 @@ async def _every_node_text(driver: AsyncDriver) -> str:
     return await read_tx(driver, work)
 
 
-async def test_issue_returns_a_22_character_token_and_stores_only_its_hash(
+async def test_issue_returns_a_23_letter_token_and_stores_only_its_hash(
     neo4j_driver: AsyncDriver,
 ) -> None:
     clock = FixedClock(NOW)
     token = await _issue(neo4j_driver, clock)
-    assert len(token) == 22
+    assert len(token) == 23
     stored = await _resolve(neo4j_driver, clock, token)
     assert stored is not None
     assert stored.token_hash == hash_token(token, SECRET)

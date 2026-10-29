@@ -27,6 +27,7 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_to_fhir,
 )
 from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
 from diucs.domain.codes import (
     BASE_URL,
     Measure,
@@ -281,6 +282,15 @@ class Neo4jCapacityRepository:
         rows = await run_query(self._tx, REGISTRY.get("Q-CAP-LATEST-FOR"), keys=keys)
         return {str(row["service"]): await self._load(str(row["obs"])) for row in rows}
 
+    async def reports_between(self, start: datetime, end: datetime) -> list[CapacityReport]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-CAP-BETWEEN"),
+            start=start.astimezone(UTC),
+            end=end.astimezone(UTC),
+        )
+        return [await self._load(str(row["obs"])) for row in rows]
+
     async def reports_since(self, service_id: str, since: datetime) -> list[CapacityReport]:
         rows = await run_query(
             self._tx,
@@ -310,3 +320,18 @@ class Neo4jCapacityRepository:
             self._tx, REGISTRY.get("Q-CAP-LATEST-CONFIRMED-AT"), key=f"{_SERVICE}/{service_id}"
         )
         return _as_utc(rows[0]["at"]) if rows else None
+
+
+_BETWEEN: Final = NamedQuery(
+    id="Q-CAP-BETWEEN",
+    cypher=(
+        "MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->"
+        "(s:HealthcareService {tenantId: $tenant}) "
+        "WHERE o.effectiveDateTime >= $start AND o.effectiveDateTime < $end "
+        "RETURN o.id AS obs ORDER BY o.effectiveDateTime ASC, o.id ASC"
+    ),
+    mode="read",
+    scenario=WEEK_SCENARIOS["Q-CAP-BETWEEN"],
+)
+if _BETWEEN.id not in REGISTRY.ids():
+    REGISTRY.register(_BETWEEN)

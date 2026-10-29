@@ -93,7 +93,7 @@ _QUERIES: Final = (
         "Q-FLAG-REPORT-SAVE",
         "MATCH (f:ReportFlag {id: $id, tenantId: $tenant}) "
         "SET f.status = $status, f.outcome = $outcome, "
-        "f.resolvedAt = $resolvedAt RETURN count(f) AS saved",
+        "f.resolvedAt = $resolvedAt, f.resolvedBy = $resolvedBy RETURN count(f) AS saved",
         "write",
     ),
     _query(
@@ -234,6 +234,8 @@ def _report_props(flag: ReportFlag) -> dict[str, Any]:
         props["resolvedAt"] = flag.resolved_at
     if flag.outcome is not None:
         props["outcome"] = flag.outcome
+    if flag.resolved_by is not None:
+        props["resolvedBy"] = flag.resolved_by
     return props
 
 
@@ -251,6 +253,7 @@ def _report_flag(props: dict[str, Any], report_id: str) -> ReportFlag:
         created_at=created,
         resolved_at=resolved,
         outcome=props.get("outcome"),
+        resolved_by=props.get("resolvedBy"),
     )
 
 
@@ -280,6 +283,12 @@ class Neo4jFlagRepository:
             )
         except ConstraintError as error:  # the unique key on ReportFlag.id refused a racing add
             raise Conflict("a report flag with this id already exists") from error
+
+    async def report_flag(self, flag_id: str) -> ReportFlag | None:
+        rows = await run_query(self._tx, REGISTRY.get("Q-FLAG-REPORT-GET"), id=flag_id)
+        if not rows:
+            return None
+        return _report_flag(rows[0]["props"], str(rows[0]["reportId"]))
 
     async def open_report_flags(self, service_id: str | None = None) -> list[ReportFlag]:
         rows = await run_query(
@@ -312,6 +321,7 @@ class Neo4jFlagRepository:
             status=flag.status,
             outcome=flag.outcome,
             resolvedAt=flag.resolved_at,
+            resolvedBy=flag.resolved_by,
         )
 
     # --- service flags --------------------------------------------------------------------------

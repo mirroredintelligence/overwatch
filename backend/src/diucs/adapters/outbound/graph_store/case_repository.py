@@ -31,6 +31,7 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_to_fhir,
 )
 from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
 from diucs.domain.codes import (
     AcuityMethod,
     AgeBand,
@@ -453,6 +454,16 @@ class Neo4jCaseRepository:
             await self._store.put(resource, None)
         await self._put_request(case, request, expected=None)
 
+    async def opened_between(self, start: datetime, end: datetime) -> list[Case]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-CASE-OPENED-BETWEEN"),
+            start=start.astimezone(UTC),
+            end=end.astimezone(UTC),
+        )
+        found = [await self.get(str(row["id"])) for row in rows]
+        return [case for case in found if case is not None]
+
     async def get(self, case_id: str) -> Case | None:
         request = await self._store.get(_REQUEST, case_id)
         if request is None:
@@ -563,3 +574,17 @@ def _rebuilt_request(request: dict[str, Any]) -> dict[str, Any]:
         for key, value in request.items()
         if key not in ("meta", "reference", "openReference")
     }
+
+
+_OPENED_BETWEEN: Final = NamedQuery(
+    id="Q-CASE-OPENED-BETWEEN",
+    cypher=(
+        "MATCH (r:ServiceRequest {tenantId: $tenant}) "
+        "WHERE r.authoredOn >= $start AND r.authoredOn < $end "
+        "RETURN r.id AS id ORDER BY r.authoredOn ASC, r.id ASC"
+    ),
+    mode="read",
+    scenario=WEEK_SCENARIOS["Q-CASE-OPENED-BETWEEN"],
+)
+if _OPENED_BETWEEN.id not in REGISTRY.ids():
+    REGISTRY.register(_OPENED_BETWEEN)

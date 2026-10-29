@@ -78,7 +78,7 @@ _OBS_1030: Final = SeedNode(
     "obs-1030",
     ("Resource", "Observation"),
     {
-        "id": "obs-3",
+        "id": Marked("obs-3"),
         "key": "Observation/obs-3",
         "effectiveDateTime": _AT_1030,
         "ext_reportType": "confirmed",
@@ -102,7 +102,7 @@ _BOOKING_REQUESTED: Final = SeedNode(
 _BOOKING_CONFIRMED: Final = SeedNode(
     "booking-confirmed",
     ("Resource", "Task"),
-    {"id": "bk-2", "key": "Task/bk-2", "businessStatus": "confirmed", "reference": "4822"},
+    {"id": Marked("bk-2"), "key": "Task/bk-2", "businessStatus": "confirmed", "reference": "4822"},
 )
 _CONFIRMED_OUTPUT: Final = SeedNode(
     "output",
@@ -169,13 +169,13 @@ SCENARIOS: Final[dict[str, Scenario]] = {
         seed=_CAPACITY_SEED,
         params={"key": _WARD_KEY},
         lookup=("key",),
-        expect=Expect(rows=({"obs": "obs-3"},)),
+        expect=Expect(rows=({"obs": Marked("obs-3")},)),
     ),
     "Q-CAP-LATEST-FOR": Scenario(
         "the latest report of each of the tenant's services in a list",
         seed=_CAPACITY_SEED,
         params={"keys": [_WARD_KEY, _HUB_KEY]},
-        expect=Expect(rows=({"service": "svc-1", "obs": "obs-3"},)),
+        expect=Expect(rows=({"service": "svc-1", "obs": Marked("obs-3")},)),
     ),
     "Q-CAP-SINCE": Scenario(
         "the reports of one service since a time, earliest first",
@@ -183,7 +183,7 @@ SCENARIOS: Final[dict[str, Scenario]] = {
         params={"key": _WARD_KEY, "since": _SINCE_0800},
         lookup=("key",),
         new=("since",),
-        expect=Expect(rows=({"obs": "obs-2"}, {"obs": "obs-3"})),
+        expect=Expect(rows=({"obs": "obs-2"}, {"obs": Marked("obs-3")})),
     ),
     "Q-CAP-LOCK-SERVICE": Scenario(
         "lock one of the tenant's services for the rest of the transaction",
@@ -197,7 +197,7 @@ SCENARIOS: Final[dict[str, Scenario]] = {
         seed=_CAPACITY_SEED,
         params={"key": _WARD_KEY},
         lookup=("key",),
-        expect=Expect(rows=({"at": _AT_1030},)),
+        expect=Expect(rows=({"obs": Marked("obs-3"), "at": _AT_1030},)),
     ),
     "Q-CAP-TRAILING-CONFIRMS": Scenario(
         "the confirmations that trail the reports of one of the tenant's services",
@@ -224,7 +224,7 @@ SCENARIOS: Final[dict[str, Scenario]] = {
         seed=_BOOKING_SEED,
         params={"id": "svc-1"},
         lookup=("id",),
-        expect=Expect(rows=({"id": "bk-2"},)),
+        expect=Expect(rows=({"id": Marked("bk-2")},)),
     ),
     "Q-BOOK-CONFIRMED-FOR": Scenario(
         "the confirmed-at outputs of the confirmed bookings of a list of services",
@@ -237,7 +237,7 @@ SCENARIOS: Final[dict[str, Scenario]] = {
         seed=_BOOKING_SEED,
         params={"reference": "4822"},
         lookup=("reference",),
-        expect=Expect(rows=({"id": "bk-2"},)),
+        expect=Expect(rows=({"id": Marked("bk-2")},)),
     ),
     "Q-BOOK-SET-PROPS": Scenario(
         "set the status and the reference of one of the tenant's bookings",

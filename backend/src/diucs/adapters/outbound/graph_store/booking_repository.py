@@ -42,7 +42,8 @@ _REFERENCE: Final = "reference"
 _PENDING: Final = NamedQuery(
     id="Q-BOOK-PENDING",
     cypher=(
-        "MATCH (t:Task {businessStatus: 'requested'})-[:OWNER]->(:HealthcareService {id: $id}) "
+        "MATCH (t:Task {businessStatus: 'requested', tenantId: $tenant})"
+        "-[:OWNER]->(:HealthcareService {id: $id, tenantId: $tenant}) "
         "RETURN count(t) AS pending"
     ),
     mode="read",
@@ -51,7 +52,8 @@ _PENDING: Final = NamedQuery(
 _OPEN_FOR: Final = NamedQuery(
     id="Q-BOOK-OPEN-FOR",
     cypher=(
-        "MATCH (t:Task {businessStatus: 'requested'})-[:OWNER]->(s:HealthcareService) "
+        "MATCH (t:Task {businessStatus: 'requested', tenantId: $tenant})"
+        "-[:OWNER]->(s:HealthcareService {tenantId: $tenant}) "
         "WHERE s.id IN $ids RETURN s.id AS serviceId, t.id AS id "
         "ORDER BY t.authoredOn, t.id"
     ),
@@ -61,7 +63,8 @@ _OPEN_FOR: Final = NamedQuery(
 _CONFIRMED_FOR: Final = NamedQuery(
     id="Q-BOOK-CONFIRMED-SINCE",
     cypher=(
-        "MATCH (t:Task {businessStatus: 'confirmed'})-[:OWNER]->(:HealthcareService {id: $id}) "
+        "MATCH (t:Task {businessStatus: 'confirmed', tenantId: $tenant})"
+        "-[:OWNER]->(:HealthcareService {id: $id, tenantId: $tenant}) "
         "RETURN t.id AS id ORDER BY t.id"
     ),
     mode="read",
@@ -70,10 +73,11 @@ _CONFIRMED_FOR: Final = NamedQuery(
 _CONFIRMED_FOR_SERVICES: Final = NamedQuery(
     id="Q-BOOK-CONFIRMED-FOR",
     cypher=(
-        "MATCH (t:Task {businessStatus: 'confirmed'})-[:OWNER]->(s:HealthcareService) "
+        "MATCH (t:Task {businessStatus: 'confirmed', tenantId: $tenant})"
+        "-[:OWNER]->(s:HealthcareService {tenantId: $tenant}) "
         "WHERE s.id IN $ids "
-        "MATCH (t)-[:HAS_OUTPUT]->(o:Task_Output)-[:TYPE]->"
-        "(c:Concept {code: $code, system: $system}) "
+        "MATCH (t)-[:HAS_OUTPUT]->(o:Task_Output {tenantId: $tenant})-[:TYPE]->"
+        "(c:Concept {code: $code, system: $system, tenantId: $tenant}) "
         "RETURN s.id AS serviceId, o.valueDateTime AS confirmedAt "
         "ORDER BY s.id, o.valueDateTime"
     ),
@@ -83,7 +87,7 @@ _CONFIRMED_FOR_SERVICES: Final = NamedQuery(
 _BY_REF: Final = NamedQuery(
     id="Q-BOOK-BY-REF",
     cypher=(
-        "MATCH (t:Task {reference: $reference}) RETURN t.id AS id "
+        "MATCH (t:Task {reference: $reference, tenantId: $tenant}) RETURN t.id AS id "
         "ORDER BY t.authoredOn DESC, t.id LIMIT 1"
     ),
     mode="read",
@@ -92,7 +96,7 @@ _BY_REF: Final = NamedQuery(
 _SET_PROPS: Final = NamedQuery(
     id="Q-BOOK-SET-PROPS",
     cypher=(
-        "MATCH (t:Task {key: $key}) "
+        "MATCH (t:Task {key: $key, tenantId: $tenant}) "
         "SET t.businessStatus = $businessStatus, t.reference = $reference "
         "RETURN count(t) AS set"
     ),

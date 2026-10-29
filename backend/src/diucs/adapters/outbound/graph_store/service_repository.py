@@ -41,7 +41,8 @@ _RESOURCE_TYPE: Final = "HealthcareService"
 
 _LIST_ACTIVE: Final = NamedQuery(
     id="Q-SVC-LIST-ACTIVE",
-    cypher="MATCH (s:HealthcareService {active: true}) RETURN s.id AS id ORDER BY s.name",
+    cypher="MATCH (s:HealthcareService {active: true, tenantId: $tenant}) "
+    "RETURN s.id AS id ORDER BY s.name",
     mode="read",
     scenario=SCENARIOS["Q-SVC-LIST-ACTIVE"],
 )

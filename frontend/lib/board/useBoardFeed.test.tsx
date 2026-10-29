@@ -375,13 +375,16 @@ describe('useBoardFeed: going offline and recovering', () => {
     await openStream(stream());
     await breakStream(stream());
     fetchBoard.mockRejectedValue(unreachable());
-    await advance(60_000);
-    fetchBoard.mockReset();
-    fetchBoard.mockResolvedValue({ board: boardBuiltAt(BOARD_A, iso(T0 - 600_000)), serverTime: Date.now() });
-
-    await advance(60_000);
-
+    await advance(5 * 60_000);
     expect(result.current.assessment).toMatchObject({ mode: 'last-known' });
+    const held = result.current.board;
+    fetchBoard.mockReset();
+    fetchBoard.mockResolvedValue({ board: boardBuiltAt(BOARD_B, iso(T0 - 600_000)), serverTime: Date.now() });
+
+    await advance(60_000);
+
+    expect(result.current.assessment).toMatchObject({ mode: 'last-known', reason: 'old' });
+    expect(result.current.board).toBe(held);
   });
 
   it('the board stays what it was when offline: the last good board, never blank', async () => {
@@ -402,12 +405,13 @@ describe('useBoardFeed: an answer it cannot read', () => {
   it('goes to Last known at once, with the stream up, and keeps the last good board', async () => {
     const { result, stream, fetchBoard } = mount();
     await openStream(stream());
+    const held = result.current.board;
     fetchBoard.mockRejectedValueOnce(unreadable());
 
     await emit(stream());
 
     expect(result.current.assessment).toMatchObject({ mode: 'last-known', reason: 'unreadable', since: iso(T0) });
-    expect(result.current.board).toBe(BOARD_A);
+    expect(result.current.board).toBe(held);
   });
 
   it('comes back with the next board it can read', async () => {
@@ -427,13 +431,14 @@ describe('useBoardFeed: an answer it cannot read', () => {
   it('treats an unexpected throw from the fetch as a failure, not a crash', async () => {
     const { result, stream, fetchBoard } = mount();
     await openStream(stream());
+    const held = result.current.board;
     fetchBoard.mockRejectedValue(new TypeError('boom'));
     await breakStream(stream());
 
     await advance(61_000);
 
     expect(result.current.assessment).toMatchObject({ mode: 'last-known', reason: 'offline' });
-    expect(result.current.board).toBe(BOARD_A);
+    expect(result.current.board).toBe(held);
   });
 });
 
@@ -496,7 +501,10 @@ describe('useBoardFeed: a board that stops refreshing', () => {
 
   it('measures the age on the back end clock, not the browser clock', async () => {
     const hourAhead = 3_600_000;
-    const { result, stream, fetchBoard } = mount({ serverTime: T0 + hourAhead });
+    const { result, stream, fetchBoard } = mount({
+      serverTime: T0 + hourAhead,
+      initialBoard: boardBuiltAt(BOARD_A, iso(T0 + hourAhead)),
+    });
     fetchBoard.mockImplementation(async () => ({
       board: boardBuiltAt(BOARD_A, iso(Date.now() + hourAhead)),
       serverTime: Date.now() + hourAhead,

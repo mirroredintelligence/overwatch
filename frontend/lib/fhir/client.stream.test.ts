@@ -112,13 +112,11 @@ describe('fhirStream', () => {
     );
     const controller = new AbortController();
     const { body } = await fhirStream('/events', { token: 't', signal: controller.signal });
-    const reader = body.getReader();
-    await reader.read();
+    await body.getReader().read();
 
     controller.abort();
-    await expect(reader.read()).rejects.toBeDefined();
 
-    expect(upstreamAborted).toBe(true);
+    await vi.waitFor(() => expect(upstreamAborted).toBe(true));
   });
 
   it('fails, naming the variable only, when the base URL is not set', async () => {

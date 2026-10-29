@@ -8,10 +8,14 @@ import { BOARD_A, boardBuiltAt, GENERATED_AT, MAIN_ENTRIES } from '@/test/fixtur
 import { server } from '@/test/msw/server';
 import { LiveBoard } from './LiveBoard';
 
+const replace = vi.hoisted(() => vi.fn());
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace }) }));
+
 const T0 = Date.parse(GENERATED_AT);
 const iso = (ms: number) => new Date(ms).toISOString();
 
 beforeEach(() => {
+  replace.mockClear();
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'] });
   vi.setSystemTime(T0);
 });
@@ -103,6 +107,7 @@ describe('LiveBoard: online', () => {
     const { container } = mount();
 
     expect(tiles(container)).toHaveLength(MAIN_ENTRIES.length);
+    vi.useRealTimers(); // axe uses timers of its own
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });
@@ -198,6 +203,7 @@ describe('LiveBoard: offline', () => {
     await goOffline(m);
 
     expect(screen.getByRole('alert')).toBeInTheDocument();
+    vi.useRealTimers(); // axe uses timers of its own
     expect(await runAxe(m.container)).toHaveNoViolations();
   });
 });
@@ -266,15 +272,13 @@ describe('LiveBoard: through the BFF, as the paired screen (no tenant from anywh
   });
 
   it('goes to /screen/pair when the BFF refuses the screen with 401', async () => {
-    const assign = vi.fn();
-    vi.stubGlobal('location', { ...window.location, assign });
     server.use(http.get('*/api/bff/board', () => HttpResponse.json({ code: 'no-session' }, { status: 401 })));
     mount({ fetchBoard: undefined, onUnpaired: undefined });
 
     await advance(60_000);
 
-    expect(assign).toHaveBeenCalledTimes(1);
-    expect(assign).toHaveBeenCalledWith('/screen/pair');
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(replace).toHaveBeenCalledWith('/screen/pair');
   });
 });
 

@@ -66,6 +66,12 @@ function tryParseJson(text: string): { ok: true; value: unknown } | { ok: false 
   }
 }
 
+/** The outcome of a failed answer: the back end's own OperationOutcome, or a plain one naming the status only. */
+function failureOutcome(status: number, text: string): OperationOutcome {
+  const parsed = text ? tryParseJson(text) : { ok: false as const };
+  return parsed.ok && isOperationOutcome(parsed.value) ? parsed.value : outcomeFor('exception', `HTTP ${status}`);
+}
+
 export async function fhirFetch<T>(path: string, init: FhirInit = {}): Promise<FhirResult<T>> {
   const url = `${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
   const hasBody = init.body !== undefined;
@@ -94,14 +100,7 @@ export async function fhirFetch<T>(path: string, init: FhirInit = {}): Promise<F
     throw new FhirError(503, outcomeFor('transient', 'The back end could not be reached.'));
   }
 
-  if (!response.ok) {
-    const parsed = text ? tryParseJson(text) : { ok: false as const };
-    const outcome =
-      parsed.ok && isOperationOutcome(parsed.value)
-        ? parsed.value
-        : outcomeFor('exception', `HTTP ${response.status}`);
-    throw new FhirError(response.status, outcome);
-  }
+  if (!response.ok) throw new FhirError(response.status, failureOutcome(response.status, text));
 
   const etag = response.headers.get('ETag') ?? undefined;
   if (response.status === 204 || text === '') {
@@ -118,12 +117,49 @@ export async function fhirFetch<T>(path: string, init: FhirInit = {}): Promise<F
   return { data: parsed.value as T, etag };
 }
 
-/** Opens a streaming GET (server-sent events) and returns its body without reading it. */
+export type FhirStreamInit = Pick<FhirInit, 'token' | 'traceparent'> & {
+  /** Aborting closes the connection to the back end. */
+  signal?: AbortSignal;
+};
+
+const EVENT_STREAM = 'text/event-stream';
+
+/**
+ * Opens a server-sent event stream (a GET) and returns its body without reading
+ * it, so a route handler can relay it as it arrives. It checks the answer before
+ * anything is relayed: a refusal or failure is a FhirError with the back end's
+ * status, and a 200 that is not an event stream is a 502.
+ */
 export async function fhirStream(
   path: string,
-  init: Pick<FhirInit, 'token' | 'traceparent'> & { signal?: AbortSignal } = {},
+  init: FhirStreamInit = {},
 ): Promise<{ body: ReadableStream<Uint8Array> }> {
-  void path;
-  void init;
-  return { body: new ReadableStream<Uint8Array>() };
+  const url = `${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  const headers = new Headers({ Accept: EVENT_STREAM, traceparent: init.traceparent ?? newTraceparent() });
+  if (init.token) headers.set('Authorization', `Bearer ${init.token}`);
+
+  let response: Response;
+  try {
+    response = await fetch(url, { method: 'GET', headers, signal: init.signal, cache: 'no-store' });
+  } catch {
+    // The error itself is not kept: it can carry the URL or the network detail.
+    throw new FhirError(503, outcomeFor('transient', 'The back end could not be reached.'));
+  }
+
+  if (!response.ok) {
+    let text = '';
+    try {
+      text = await response.text();
+    } catch {
+      text = '';
+    }
+    throw new FhirError(response.status, failureOutcome(response.status, text));
+  }
+
+  const isStream = (response.headers.get('Content-Type') ?? '').toLowerCase().startsWith(EVENT_STREAM);
+  if (!isStream || response.body === null) {
+    void response.body?.cancel().catch(() => undefined);
+    throw new FhirError(502, outcomeFor('exception', 'The back end did not return an event stream.'));
+  }
+  return { body: response.body };
 }

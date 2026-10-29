@@ -25,6 +25,8 @@ vi.mock('next/navigation', () => ({
   redirect: (url: string) => {
     throw new Redirected(url);
   },
+  // The live board (a client component) reads the router.
+  useRouter: () => ({ replace: vi.fn() }),
 }));
 
 vi.mock('@/lib/auth/session', async (importOriginal) => ({

@@ -1,5 +1,5 @@
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { ageLineText, categoryLabel } from '@/lib/board/format';
+import { ageLineText, categoryLabel, dataAgeText, londonTime } from '@/lib/board/format';
 import type { BoardEntry, BoardStatus } from '@/lib/board/types';
 import styles from './Tile.module.css';
 
@@ -38,12 +38,16 @@ function fillPercent(used: number | null, established: number): number {
   return Math.round(Math.min(100, Math.max(0, (used / established) * 100)) * 10) / 10;
 }
 
+function unknownFigure(established: number): Figure {
+  return { big: '?', unit: UNKNOWN_UNIT, bar: { label: usedLabel(null, established), percent: 100 } };
+}
+
 function figureFor(entry: BoardEntry): Figure {
   const { status, established, used } = entry;
 
   if (status === 'not-updated') {
     // Whatever the back end last held, the figure is not to be relied on.
-    return { big: '?', unit: UNKNOWN_UNIT, bar: { label: usedLabel(null, established), percent: 100 } };
+    return unknownFigure(established);
   }
   if (status === 'out-of-hours') {
     return { big: null, unit: 'Outside opening hours', bar: null };
@@ -66,41 +70,69 @@ function figureFor(entry: BoardEntry): Figure {
     : { big: String(free), unit: entry.unitLabel, bar };
 }
 
+/**
+ * The figure of a tile that is shown as last known. The number stays as the last
+ * report left it. A service that was not updated stays "?", and an out-of-hours
+ * claim is not repeated, because opening hours may have started or ended since.
+ */
+function lastKnownFigureFor(entry: BoardEntry): Figure {
+  return entry.status === 'not-updated' || entry.status === 'out-of-hours'
+    ? unknownFigure(entry.established)
+    : figureFor(entry);
+}
+
+const LAST_KNOWN_WARNING = 'Do not rely on this. Phone to confirm.';
+
 export function Tile({
   entry,
   now,
+  lastKnown = false,
 }: {
   entry: BoardEntry;
   now: string | Date;
   /** Shows the tile as last known: never styled or worded as current (W06). */
   lastKnown?: boolean;
 }) {
-  const figure = figureFor(entry);
+  const figure = lastKnown ? lastKnownFigureFor(entry) : figureFor(entry);
   const age = ageLineText(entry, now);
   const notUpdated = entry.status === 'not-updated';
+  const variant = lastKnown ? styles.notUpdated : VARIANT[entry.status];
 
   return (
     <article
-      className={`${styles.tile} ${VARIANT[entry.status]}`}
+      className={`${styles.tile} ${variant}`}
       data-el="WALL-TILE"
       data-service-id={entry.serviceId}
-      data-status={entry.status}
+      data-status={lastKnown ? 'last-known' : entry.status}
     >
       <div className={styles.top}>
         <div className={styles.who}>
           <h2 className={styles.name}>{entry.name}</h2>
           <p className={styles.category}>{categoryLabel(entry.category)}</p>
         </div>
-        <StatusBadge status={entry.status} size="lg" />
+        <StatusBadge status={lastKnown ? 'last-known' : entry.status} size="lg" />
       </div>
 
       <div className={styles.figure}>
-        {figure.big === null ? null : <p className={styles.number} data-el="WALL-TILE-NUMBER">
+        {figure.big === null ? null : (
+          <p className={styles.number} data-el="WALL-TILE-NUMBER">
             {figure.big}
-          </p>}
+          </p>
+        )}
         <div className={styles.words}>
           <p className={styles.unit}>{figure.unit}</p>
-          {entry.comment ? (
+          {lastKnown ? (
+            <p className={styles.meta} data-el="WALL-TILE-LAST-KNOWN">
+              {entry.reportedAt === null ? (
+                'No figure reported yet'
+              ) : (
+                <>
+                  <span>{`Last known ${londonTime(entry.reportedAt)}`}</span>
+                  <span>{` · ${dataAgeText(entry.reportedAt, now)}`}</span>
+                </>
+              )}
+            </p>
+          ) : entry.comment ? (
             <p className={styles.comment} data-el="WALL-TILE-COMMENT">
               {entry.comment}
             </p>
@@ -117,7 +149,7 @@ export function Tile({
         </div>
       )}
 
-      <p className={styles.age}>{notUpdated ? <strong>{age}</strong> : age}</p>
+      <p className={styles.age}>{lastKnown ? <strong>{LAST_KNOWN_WARNING}</strong> : notUpdated ? <strong>{age}</strong> : age}</p>
     </article>
   );
 }

@@ -24,7 +24,7 @@ const STATUS_SET: Record<BoardStatus, true> = {
   'out-of-hours': true,
 };
 
-function isStatus(value: string): value is BoardStatus {
+export function isStatus(value: string): value is BoardStatus {
   return Object.hasOwn(STATUS_SET, value);
 }
 

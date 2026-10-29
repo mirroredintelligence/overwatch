@@ -40,11 +40,13 @@ async function get(
 const upstreamRequests: Request[] = [];
 
 /** The back end's /events: sends these chunks, in order, then ends (or stays open when held). */
-function backend(chunks: string[], options: { hold?: boolean; onCancel?: () => void } = {}) {
+function backend(chunks: string[], options: { hold?: boolean; onClosed?: () => void } = {}) {
   server.use(
     http.get(EVENTS, ({ request }) => {
       upstreamRequests.push(request.clone());
-      return new HttpResponse(streamOf(chunks, options), { headers: { 'Content-Type': SSE } });
+      // The back end sees the connection close when the request's signal aborts.
+      request.signal.addEventListener('abort', () => options.onClosed?.());
+      return new HttpResponse(streamOf(chunks, { hold: options.hold }), { headers: { 'Content-Type': SSE } });
     }),
   );
 }
@@ -125,19 +127,19 @@ describe('GET /api/bff/events: the relay', () => {
   });
 
   it('closes the back end stream when the browser goes away (cancelling the body)', async () => {
-    const onCancel = vi.fn();
-    backend([frame('board', SERVICE)], { hold: true, onCancel });
+    const onClosed = vi.fn();
+    backend([frame('board', SERVICE)], { hold: true, onClosed });
     const response = await get('wall');
     const reader = (response.body as ReadableStream<Uint8Array>).getReader();
     await reader.read();
 
-    await reader.cancel();
-    await vi.waitFor(() => expect(onCancel).toHaveBeenCalled());
+    void reader.cancel();
+    await vi.waitFor(() => expect(onClosed).toHaveBeenCalled());
   });
 
   it('closes the back end stream when the request is aborted', async () => {
-    const onCancel = vi.fn();
-    backend([frame('board', SERVICE)], { hold: true, onCancel });
+    const onClosed = vi.fn();
+    backend([frame('board', SERVICE)], { hold: true, onClosed });
     const controller = new AbortController();
     const response = await get('wall', { signal: controller.signal });
     const reader = (response.body as ReadableStream<Uint8Array>).getReader();
@@ -145,7 +147,7 @@ describe('GET /api/bff/events: the relay', () => {
 
     controller.abort();
 
-    await vi.waitFor(() => expect(onCancel).toHaveBeenCalled());
+    await vi.waitFor(() => expect(onClosed).toHaveBeenCalled());
     await reader.cancel().catch(() => undefined);
   });
 

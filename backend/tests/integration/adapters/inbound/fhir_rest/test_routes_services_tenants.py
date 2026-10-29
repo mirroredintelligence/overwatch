@@ -1,9 +1,10 @@
 """Two-tenant tests for the service and report endpoints (R04, DEC-130 to DEC-132, DEC-142).
 
 Tenant A is the run tenant that the harness binds for the test. Tenant B is seeded through its own
-units of work (`uow_factory_b`) and its requests are sent with `as_tenant`, which stands for what
-the REST edge will do once it binds the tenant from the verified token (TEN-018). The routes never
-read a tenant: it comes only from the unit of work.
+units of work (`uow_factory_b`) and its requests carry a token that names tenant B (`_b_lead`): the
+REST edge binds the tenant from the verified token (TEN-018), so `as_tenant` around a request only
+restores the test's own binding afterwards. The routes never read a tenant: it comes only from the
+unit of work.
 
 Until TEN-032 drops the single-property keys, two tenants cannot share a resource id or a concept
 on the shared test schema, so B's ids, category, measure and source differ from A's. Since TEN-009
@@ -15,6 +16,7 @@ contracted container).
 """
 
 import json
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -44,7 +46,6 @@ from tests.integration.adapters.inbound.fhir_rest.test_routes_services import (
     OBSERVATION,
     SERVICES,
     WEST_PRIOR,
-    bearer,
     fields,
     ids,
     lead,
@@ -54,7 +55,7 @@ from tests.integration.adapters.inbound.fhir_rest.test_routes_services import (
     west_reporter,
 )
 from tests.integration.application.test_query_board import WEST
-from tests.support.api import R01_TEST_NOW
+from tests.support.api import R01_TEST_NOW, seed_edge_tenants, token_headers
 from tests.support.neo4j import count_nodes, throwaway_driver
 from tests.support.tenancy import as_tenant
 from tests.support.tenant_seed import contract_schema
@@ -109,7 +110,8 @@ async def both_tenants(
 
 
 def _b_lead() -> dict[str, str]:
-    return bearer(Role.LEAD, (), "prac-lead-b")
+    """Tenant B's lead: a token that names tenant B, which is what the REST edge binds (TEN-018)."""
+    return token_headers(os.environ["DIUCS_TEST_OTHER_TENANT"], Role.LEAD, (), "prac-lead-b")
 
 
 async def test_tenant_a_lists_only_its_own_services(
@@ -227,6 +229,7 @@ async def _b_on_its_own_chain(tenant: str) -> AsyncIterator[AsyncClient]:
             factory = tenant_uow_factory(driver, tenant, clock)
             with as_tenant(tenant):
                 await ensure_audit_head(driver)
+            await seed_edge_tenants(driver, tenant)
             async with factory() as uow:
                 await uow.services.save(B_PROFILE)
                 await uow.capacity.add(B_PRIOR)

@@ -1,0 +1,102 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "https://diucs.example/StructureDefinition/DiucsCapacityReport",
+  "name": "DiucsCapacityReport",
+  "title": "DIUCS capacity report",
+  "status": "active",
+  "description": "A capacity figure a service reports: a whole number of one measure, from one report source, about one HealthcareService. Validated by the profile rules in backend/src/diucs/adapters/outbound/fhir_validator/validator.py.",
+  "fhirVersion": "4.3.0",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Observation",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Observation",
+  "derivation": "constraint",
+  "differential": {
+    "element": [
+      {
+        "id": "Observation",
+        "path": "Observation"
+      },
+      {
+        "id": "Observation.status",
+        "path": "Observation.status",
+        "min": 1,
+        "max": "1",
+        "fixedCode": "final"
+      },
+      {
+        "id": "Observation.code",
+        "path": "Observation.code",
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "Observation.focus",
+        "path": "Observation.focus",
+        "type": [
+          {
+            "code": "Reference",
+            "targetProfile": [
+              "http://hl7.org/fhir/StructureDefinition/HealthcareService"
+            ]
+          }
+        ],
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "Observation.method",
+        "path": "Observation.method",
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "Observation.effectiveDateTime",
+        "path": "Observation.effectiveDateTime",
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "Observation.valueQuantity",
+        "path": "Observation.valueQuantity",
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "Observation.valueQuantity.value",
+        "path": "Observation.valueQuantity.value",
+        "min": 1,
+        "max": "1",
+        "constraint": [
+          {
+            "key": "diucs-cap-1",
+            "severity": "error",
+            "human": "A capacity figure is a whole number, zero or more.",
+            "expression": "$this.mod(1) = 0 and $this >= 0"
+          }
+        ]
+      },
+      {
+        "id": "Observation.valueQuantity.system",
+        "path": "Observation.valueQuantity.system",
+        "min": 1,
+        "max": "1",
+        "fixedUri": "http://unitsofmeasure.org"
+      },
+      {
+        "id": "Observation.valueQuantity.code",
+        "path": "Observation.valueQuantity.code",
+        "min": 1,
+        "max": "1",
+        "constraint": [
+          {
+            "key": "diucs-cap-2",
+            "severity": "error",
+            "human": "The unit is a UCUM annotation such as {referral} or {bed}.",
+            "expression": "exists()"
+          }
+        ]
+      }
+    ]
+  }
+}

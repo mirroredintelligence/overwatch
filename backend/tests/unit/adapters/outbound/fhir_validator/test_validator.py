@@ -30,7 +30,11 @@ CAPACITY = profile_url("DiucsCapacityReport")
 
 
 def _capacity_observation() -> dict[str, Any]:
-    return json.loads(json.dumps(report_to_fhir(NUMBER_REPORT)))
+    """The report as FHIR R4B needs it. report_to_fhir writes focus as one object, but R4B
+    Observation.focus is a list, so the fixture sets the list form (known issue R14-1)."""
+    resource = json.loads(json.dumps(report_to_fhir(NUMBER_REPORT)))
+    resource["focus"] = [resource["focus"]]
+    return resource
 
 
 def _paths(issues: list[Any]) -> list[str]:
@@ -60,9 +64,7 @@ async def test_a_patient_stub_with_a_name_is_refused_with_the_rule_in_words() ->
         ],
         "name": [{"family": "Sample"}],
     }
-    issues = await ProfileValidator().validate(
-        stub, profile_url("DiucsPatientCaseStub")
-    )
+    issues = await ProfileValidator().validate(stub, profile_url("DiucsPatientCaseStub"))
     refused = [issue for issue in issues if issue.path == "Patient.name"]
     assert [issue.message for issue in refused] == ["No patient names are stored"]
 

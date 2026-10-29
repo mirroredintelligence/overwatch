@@ -21,6 +21,7 @@ from datetime import UTC, datetime
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
+from diucs.adapters.outbound.fhir_validator.validator import ProfileValidator
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
@@ -32,6 +33,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.tenants import TenantDirectory
+from diucs.application.ports.outbound.terminology import FhirValidator
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.bootstrap.settings import Settings
@@ -52,6 +54,8 @@ class Container:
     tenants: TenantDirectory
     # Secrets by reference (DEC-131 item 4): the tenant record holds the reference, never the value.
     secrets: SecretStore
+    # The FHIR profile validator (R14): pure Python, no store and no external provider.
+    validator: FhirValidator
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -108,6 +112,7 @@ def build(settings: Settings, *, secrets: SecretStore | None = None) -> Containe
         uow_factory=neo4j_uow_factory(neo4j, clock=clock),
         tenants=Neo4jTenantDirectory(neo4j),
         secrets=NoSecrets() if secrets is None else secrets,
+        validator=ProfileValidator(),
     )
 
 
@@ -132,4 +137,5 @@ def build_for_tests(
         uow_factory=neo4j_uow_factory(neo4j, clock=resolved_clock),
         tenants=Neo4jTenantDirectory(neo4j),
         secrets=FixedSecretStore({}) if secrets is None else secrets,
+        validator=ProfileValidator(),
     )

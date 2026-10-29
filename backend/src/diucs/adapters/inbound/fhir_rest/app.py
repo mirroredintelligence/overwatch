@@ -17,6 +17,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
 )
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.terminology import FhirValidator
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 
 
@@ -32,6 +33,9 @@ class ApiContainer(Protocol):
 
     @property
     def ids(self) -> IdGenerator: ...
+
+    @property
+    def validator(self) -> FhirValidator: ...
 
 
 def create_app(container: ApiContainer) -> FastAPI:
@@ -56,13 +60,20 @@ def create_app(container: ApiContainer) -> FastAPI:
     fhir.include_router(capability.router)
     app.include_router(fhir)
     # Imported here: the route modules depend on auth, which imports this module (DEC-111).
-    from diucs.adapters.inbound.fhir_rest import routes_board, routes_events, routes_services
+    from diucs.adapters.inbound.fhir_rest import (
+        routes_board,
+        routes_events,
+        routes_services,
+        routes_validate,
+    )
 
     app.include_router(routes_events.router)
     # $board must be routed before any HealthcareService/{id} route, or {id} would take it.
     app.include_router(routes_board.router)
     app.include_router(routes_services.router)
     routes_services.register_capabilities()
+    app.include_router(routes_validate.router)
+    routes_validate.register_profiles()
 
     # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
     # this one module wire it in.

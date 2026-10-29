@@ -61,7 +61,11 @@ def make_input(
     )
     capacity = None
     if with_capacity:
-        report = None if value is None else sample_report(service_id=service_id, value=value)
+        report = (
+            None
+            if value is None
+            else sample_report(service_id=service_id, value=value, measure=profile.measure)
+        )
         capacity = sample_capacity_projection(profile=profile, latest=report, confirmed_since=0)
     return NetworkServiceInput(
         row_ref=ref,

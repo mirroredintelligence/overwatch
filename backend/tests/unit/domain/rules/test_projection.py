@@ -269,7 +269,7 @@ def test_a_contact_phone_with_the_wrong_shape_is_refused(phone: str) -> None:
         sample_service_projection(contact=ServiceContactInputs("Duty desk", phone))
 
 
-@pytest.mark.parametrize("phone", ["0300 123 4567", "+44 300 123 4567", "01234 567890"])
+@pytest.mark.parametrize("phone", ["0300 123 4567", "+44 1234 567890", "01234 567890"])
 def test_a_switchboard_style_phone_builds(phone: str) -> None:
     dto = sample_service_projection(contact=ServiceContactInputs("Duty desk", phone))
 
@@ -436,14 +436,17 @@ def test_a_policy_that_is_not_a_policy_is_refused() -> None:
 
 
 def test_a_reply_window_that_is_not_whole_minutes_is_refused() -> None:
-    policy = sample_policy(reply_window=timedelta(minutes=30, seconds=30))
+    """TenantPolicy already refuses it; the builder does not rely on that (defence in depth)."""
+    policy = sample_policy()
+    object.__setattr__(policy, "reply_window", timedelta(minutes=30, seconds=30))
 
     with pytest.raises(ValidationFailed):
         sample_capacity_projection(policy=policy)
 
 
 def test_a_stale_limit_that_is_not_whole_hours_is_refused() -> None:
-    policy = sample_policy(stale_warning_after=timedelta(hours=2, minutes=30))
+    policy = sample_policy()
+    object.__setattr__(policy, "stale_warning_after", timedelta(hours=2, minutes=30))
 
     with pytest.raises(ValidationFailed):
         sample_capacity_projection(policy=policy)
@@ -800,8 +803,8 @@ def test_a_report_past_its_due_time_and_reply_window_reads_not_updated_with_no_n
     service = sample_service_projection(profile=profile)
     inputs = status_inputs(capacity, service)
 
-    before = compute_network_state(inputs, REPORTED_AT + timedelta(minutes=119))
-    after = compute_network_state(inputs, REPORTED_AT + timedelta(hours=2, minutes=31))
+    before = compute_network_state(inputs, REPORTED_AT + timedelta(minutes=89))
+    after = compute_network_state(inputs, REPORTED_AT + timedelta(minutes=91))
 
     assert before.status is Status.ACCEPTING
     assert after.status is Status.NOT_UPDATED

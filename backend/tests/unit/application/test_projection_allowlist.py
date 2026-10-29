@@ -72,7 +72,7 @@ from tests.support.projection_samples import (
 # The digest of version 1 of the allowlist. A change to a field, a property name or a source
 # changes it: bump PROJECTION_ALLOWLIST_VERSION, record a decision, and update both pins together.
 PINNED_VERSION = 1
-PINNED_DIGEST = "0" * 64
+PINNED_DIGEST = "6ed747fd9ea7b4d753811d2f8bcea92b6a5524ba2710ef1972857f56095fdf97"
 
 LABELS = (
     "ProjectedService",
@@ -300,13 +300,23 @@ def test_the_digest_changes_when_a_source_is_changed(monkeypatch: pytest.MonkeyP
 def test_no_stored_property_or_dto_field_is_a_forbidden_key_form() -> None:
     names = {spec.prop for specs in ALLOWLIST.values() for spec in specs}
     names |= {spec.dto_field for specs in ALLOWLIST.values() for spec in specs}
-    names |= {prop for props in SYSTEM_PROPERTIES.values() for prop in props}
 
     clashes = [name for name in names if normalise_key(name) in FORBIDDEN_KEY_FORMS]
 
     assert clashes == []
     assert "serviceName" in names
     assert "serviceContactPhone" in names
+
+
+def test_the_only_system_property_that_is_a_forbidden_key_form_is_the_scope_stamp() -> None:
+    """`tenantId` is stamped by every statement from the bound scope (`$tenant`); it is never a
+    DTO field and never in a row or a body, where `tenant_id` stays forbidden (TEN-022)."""
+    system = {prop for props in SYSTEM_PROPERTIES.values() for prop in props}
+
+    clashes = {name for name in system if normalise_key(name) in FORBIDDEN_KEY_FORMS}
+
+    assert clashes == {"tenantId"}
+    assert normalise_key("tenant_id") in FORBIDDEN_KEY_FORMS
 
 
 def test_a_future_phone_property_would_be_caught_by_that_test() -> None:
@@ -655,7 +665,6 @@ def test_a_comment_key_is_refused() -> None:
         ("source", "feed"),
         ("latitude", "52.0"),
         ("opening_hours", "0|all-day"),
-        ("opening_hours", ["0|all-day"]),
         ("opening_hours", ("0|all-day", 5)),
         ("opening_hours", ()),
     ],
@@ -669,6 +678,17 @@ def test_a_value_of_the_wrong_type_or_set_is_refused_without_echoing_it(
         from_body(GrantScope.DIRECTORY, body)
 
     assert str(bad) not in str(refused.value) or len(str(bad)) < 3
+
+
+def test_a_body_that_came_through_json_has_lists_for_its_tuples_and_still_reads_back() -> None:
+    for kind in (GrantScope.DIRECTORY, GrantScope.CRITERIA):
+        dto = GOOD_BODIES[kind]()
+        body = {
+            key: list(value) if isinstance(value, tuple) else value
+            for key, value in to_body(dto).items()
+        }
+
+        assert from_body(kind, body) == dto
 
 
 def test_a_capacity_timestamp_that_is_not_iso_with_z_is_refused() -> None:

@@ -8,7 +8,10 @@ the guard does not cover.
 """
 
 import re
+from collections.abc import Mapping
 from typing import Final
+
+from diucs.domain.errors import ValidationFailed
 
 # The names that belonged to the first deployment (TEN-022). Used on raw template text only.
 DEPLOYMENT_TERMS: Final[tuple[str, ...]] = (
@@ -78,18 +81,98 @@ def find_patient_data(text: str) -> list[str]:
 
 
 # ---------------------------------------------------------------- keys and values (TEN-052)
+#
+# A projection leaves a tenant as rows and bodies, so the guard reads keys as well as text: every
+# string through `find_patient_data`, and every key through the forbidden forms below. The forms
+# are compared after `normalise_key`, so `patient_name`, `patientName` and `Patient-Name` agree.
+
+_KEY_SEPARATORS: Final = re.compile(r"[_\-\s]")
+MAX_SCAN_DEPTH: Final = 16
 
 
 def normalise_key(name: str) -> str:
-    raise NotImplementedError
+    """Lower case, with underscores, hyphens and white space removed."""
+    if type(name) is not str:
+        raise ValidationFailed("key", "must be text")
+    return _KEY_SEPARATORS.sub("", name).lower()
 
 
-FORBIDDEN_KEY_FORMS: Final[frozenset[str]] = frozenset()
+FORBIDDEN_KEY_FORMS: Final[frozenset[str]] = frozenset(
+    {normalise_key(name) for name in FORBIDDEN_FIELDS}
+    | {
+        "phone",
+        "phonehash",
+        "mobile",
+        "email",
+        "emailhash",
+        "emaildomain",
+        "pin",
+        "pinhash",
+        "token",
+        "tokenhash",
+        "deviceid",
+        "devicetoken",
+        "practitionerid",
+        "performerroleid",
+        "reportername",
+        "comment",
+        "reason",
+        "changereason",
+        "note",
+        "notes",
+        "text",
+        "body",
+        "message",
+    }
+)
+
+
+def _is_forbidden_key(key: object) -> bool:
+    return type(key) is not str or normalise_key(key) in FORBIDDEN_KEY_FORMS
+
+
+def _walk_keys(value: object, depth: int, found: list[str]) -> None:
+    if depth > MAX_SCAN_DEPTH:
+        raise ValidationFailed("value", "is nested too deeply")
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            if _is_forbidden_key(key):
+                found.append(key if type(key) is str else str(key))
+            _walk_keys(item, depth + 1, found)
+    elif isinstance(value, list | tuple | set | frozenset):
+        for item in value:
+            _walk_keys(item, depth + 1, found)
 
 
 def find_forbidden_keys(mapping: object) -> list[str]:
-    raise NotImplementedError
+    """The offending keys, as written, of a mapping and of every mapping nested in it (inside
+    lists and tuples too). A key that is not text cannot be read, so it counts as offending."""
+    found: list[str] = []
+    _walk_keys(mapping, 0, found)
+    return found
+
+
+def _walk_values(value: object, depth: int, found: list[str]) -> None:
+    if depth > MAX_SCAN_DEPTH:
+        raise ValidationFailed("value", "is nested too deeply")
+    if isinstance(value, str):
+        found.extend(find_patient_data(value))
+    elif isinstance(value, Mapping):
+        for key, item in value.items():
+            text = key if type(key) is str else str(key)
+            found.extend(find_patient_data(text))
+            if _is_forbidden_key(key):
+                found.append(text)
+            _walk_values(item, depth + 1, found)
+    elif isinstance(value, list | tuple | set | frozenset):
+        for item in value:
+            _walk_values(item, depth + 1, found)
 
 
 def scan_value(value: object) -> list[str]:
-    raise NotImplementedError
+    """What looks like patient data or a forbidden key anywhere in a value: every string through
+    `find_patient_data`, and every key of every mapping, in lists, tuples and sets too. A value
+    nested deeper than `MAX_SCAN_DEPTH`, which includes a value that contains itself, is refused."""
+    found: list[str] = []
+    _walk_values(value, 0, found)
+    return found

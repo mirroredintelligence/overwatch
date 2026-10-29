@@ -211,7 +211,20 @@ def configure_telemetry(settings: TelemetrySettings) -> TracerProvider | None:
     return provider
 
 
-def instrument_fastapi(app: Any, provider: TracerProvider) -> None:
+_INSTRUMENTED_FLAG: Final = "diucs_fastapi_instrumented"
+
+
+def instrument_fastapi(app: Any, provider: TracerProvider | None = None) -> None:
     """Span every FastAPI request under its route template (http.route), never its raw URL. The
-    raw URL and the body are not on the allow-list, so they are removed before export."""
-    FastAPIInstrumentor.instrument_app(app, tracer_provider=provider, excluded_urls="health")
+    raw URL and the body are not on the allow-list, so they are removed before export. A None
+    provider means the global one. Once an app is instrumented, a second call does nothing: a
+    request gets one server span, not two."""
+    if getattr(app.state, _INSTRUMENTED_FLAG, False):
+        return
+    FastAPIInstrumentor.instrument_app(
+        app,
+        tracer_provider=provider,
+        excluded_urls="health",
+        exclude_spans=["receive", "send"],  # one server span per request, not three
+    )
+    setattr(app.state, _INSTRUMENTED_FLAG, True)

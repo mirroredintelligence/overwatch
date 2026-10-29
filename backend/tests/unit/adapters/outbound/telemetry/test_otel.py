@@ -217,3 +217,24 @@ def test_fastapi_spans_carry_the_route_template_and_no_raw_url(
         assert not any("Sample" in str(value) for value in span.attributes.values())
         assert "url.full" not in span.attributes
         assert "http.target" not in span.attributes
+
+
+def test_instrumenting_an_app_twice_gives_each_request_one_server_span(
+    provider, exporter: InMemorySpanExporter
+) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+
+    @app.get("/ping")
+    def ping() -> dict[str, str]:
+        return {"ok": "yes"}
+
+    otel.instrument_fastapi(app, provider)
+    otel.instrument_fastapi(app, provider)
+    response = TestClient(app).get("/ping")
+
+    assert response.status_code == 200
+    provider.force_flush()
+    assert len(exporter.get_finished_spans()) == 1

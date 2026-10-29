@@ -15,14 +15,16 @@ cannot
 find the tenant's node matches nothing, so another tenant's session or code is not found, stopped or
 read (DEC-130, DEC-132).
 
-Uniqueness of a code hash is checked before the write (add_code refuses a second with Conflict). The
-composite unique constraint on (tenantId, codeHash) is a follow-up migration (see the fragment).
+Uniqueness is composite (tenantId plus the key). The constraints are migrations 0045 (the session
+id) and 0046 (the code hash), in migrations_support.py. add_code checks before it writes, and a
+racing second write that the constraint refuses is raised as Conflict too.
 """
 
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final, Literal
 
 from neo4j import AsyncManagedTransaction
+from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
@@ -334,14 +336,17 @@ class Neo4jSupportRepository:
         before the write. False when the session or the practitioner is not in this tenant."""
         if await self.code_by_hash(record.code_hash) is not None:
             raise Conflict("support code already exists")
-        rows = await self._run(
-            "Q-SUPPORT-CODE-ADD",
-            sessionId=record.session_id,
-            practitionerId=record.practitioner_id,
-            codeHash=record.code_hash,
-            createdAt=record.created_at.astimezone(UTC),
-            expiresAt=record.expires_at.astimezone(UTC),
-        )
+        try:
+            rows = await self._run(
+                "Q-SUPPORT-CODE-ADD",
+                sessionId=record.session_id,
+                practitionerId=record.practitioner_id,
+                codeHash=record.code_hash,
+                createdAt=record.created_at.astimezone(UTC),
+                expiresAt=record.expires_at.astimezone(UTC),
+            )
+        except ConstraintError as error:
+            raise Conflict("support code already exists") from error
         return int(rows[0]["written"]) == 1
 
     async def code_by_hash(self, code_hash: str) -> SupportCodeRecord | None:

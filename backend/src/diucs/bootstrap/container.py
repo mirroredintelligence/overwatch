@@ -23,10 +23,15 @@ from pathlib import Path
 import httpx
 from redis.asyncio import Redis
 
+from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
+    ScheduledWorkDispatcher,
+    WorkHandler,
+)
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
 from diucs.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
+from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.outbound.fhir_validator.validator import ProfileValidator
 from diucs.adapters.outbound.geocoder_os_places.os_places import (
     REQUEST_TIMEOUT_SECONDS,
@@ -51,6 +56,7 @@ from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.fixed_terminology import FixedTerminology
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+from diucs.application.actor import Actor
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.geo import (
     AddressCandidate,
@@ -73,10 +79,21 @@ from diucs.application.ports.outbound.telemetry_query import (
 )
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
-from diucs.application.ports.outbound.tokens import SecretStore
+from diucs.application.ports.outbound.tokens import (
+    LinkTokenRepository,
+    LinkTokenService,
+    SecretStore,
+)
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant
+from diucs.application.use_cases.missed_report_ladder import (
+    LADDER_KINDS,
+    LadderStepCommand,
+    MissedReportLadder,
+)
+from diucs.application.work import ScheduledWork, WorkKind
 from diucs.bootstrap.settings import Settings
+from diucs.domain.codes import Role
 from diucs.domain.errors import NotFound
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -84,6 +101,16 @@ TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 TELEMETRY_FIXTURE = (
     Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "telemetry" / "s-7f3a.json"
 )
+TEST_LINK_BASE_URL = "https://diucs.example"
+
+SCHEDULER_ACTOR = Actor(
+    role=Role.OWNER,
+    practitioner_id=None,
+    device_id=None,
+    channel="scheduler",
+    service_ids=frozenset(),
+)
+"""The actor of the scheduled-work queue's steps (DEC-193): the role enum has no system role."""
 
 
 @dataclass(frozen=True)
@@ -121,6 +148,8 @@ class Container:
     # The support console's raw telemetry (O07): Azure Monitor in a process that has a workspace and
     # a client, otherwise NoTelemetry, which refuses every read.
     telemetry: TelemetryQuery
+    # The dispatch table of the scheduled.work queue: the missed-report ladder steps (I05, DEC-192).
+    scheduled_work: ScheduledWorkDispatcher
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -149,6 +178,35 @@ class Container:
             await self.neo4j.close()
         finally:
             await self.redis.aclose()
+
+
+def ladder_handlers(ladder: MissedReportLadder) -> dict[WorkKind, WorkHandler]:
+    """The three ladder kinds, each run as one ladder step keyed by the work's id (DEC-193)."""
+
+    async def step(work: ScheduledWork) -> None:
+        await ladder.execute(
+            LadderStepCommand(idempotency_key=work.id, actor=SCHEDULER_ACTOR, work_id=work.id)
+        )
+
+    return {kind: step for kind in LADDER_KINDS}
+
+
+def _scheduled_work(
+    uow_factory: UnitOfWorkFactory,
+    clock: Clock,
+    ids: IdGenerator,
+    secrets: SecretStore,
+    link_base_url: str,
+) -> ScheduledWorkDispatcher:
+    """The dispatch table, built on the same clock, ids and secrets as the rest of the container."""
+
+    def tokens(repo: LinkTokenRepository) -> LinkTokenService:
+        return LinkTokenService(repo, secrets, clock)
+
+    ladder = MissedReportLadder(
+        uow_factory, clock, ids, tokens, link_base_url, AesGcmContentSealer(secrets)
+    )
+    return ScheduledWorkDispatcher(ladder_handlers(ladder))
 
 
 def _neo4j_connection(settings: Settings) -> Neo4jConnection:
@@ -232,13 +290,16 @@ def build(
     redis = _redis_client(settings.redis_url)
     key = settings.os_places_api_key
     http = None if key is None else httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS)
+    ids = UuidGenerator()
+    store: SecretStore = NoSecrets() if secrets is None else secrets
+    uow_factory = neo4j_uow_factory(neo4j, clock=clock)
     return Container(
         clock=clock,
-        ids=UuidGenerator(),
+        ids=ids,
         neo4j=neo4j,
-        uow_factory=neo4j_uow_factory(neo4j, clock=clock),
+        uow_factory=uow_factory,
         tenants=Neo4jTenantDirectory(neo4j),
-        secrets=NoSecrets() if secrets is None else secrets,
+        secrets=store,
         validator=ProfileValidator(),
         redis=redis,
         sessions=RedisSessionStore(redis),
@@ -262,6 +323,7 @@ def build(
                 telemetry_client, settings.telemetry_workspace_id, clock
             )
         ),
+        scheduled_work=_scheduled_work(uow_factory, clock, ids, store, settings.base_url),
     )
 
 
@@ -273,6 +335,7 @@ def build_for_tests(
     secrets: SecretStore | None = None,
     redis: Redis | None = None,
     telemetry: TelemetryQuery | None = None,
+    link_base_url: str = TEST_LINK_BASE_URL,
 ) -> Container:
     """Wire the container for tests: a fixed clock and sequential ids unless overridden, and a
     recording fake secret store that holds nothing unless one is passed.
@@ -285,13 +348,16 @@ def build_for_tests(
     """
     resolved_clock = FixedClock(TEST_NOW) if clock is None else clock
     resolved_redis = _redis_client(Settings().redis_url) if redis is None else redis
+    resolved_ids = SequentialIds() if ids is None else ids
+    store: SecretStore = FixedSecretStore({}) if secrets is None else secrets
+    uow_factory = neo4j_uow_factory(neo4j, clock=resolved_clock)
     return Container(
         clock=resolved_clock,
-        ids=SequentialIds() if ids is None else ids,
+        ids=resolved_ids,
         neo4j=neo4j,
-        uow_factory=neo4j_uow_factory(neo4j, clock=resolved_clock),
+        uow_factory=uow_factory,
         tenants=Neo4jTenantDirectory(neo4j),
-        secrets=FixedSecretStore({}) if secrets is None else secrets,
+        secrets=store,
         validator=ProfileValidator(),
         redis=resolved_redis,
         sessions=RedisSessionStore(resolved_redis),
@@ -306,5 +372,8 @@ def build_for_tests(
             FixtureTelemetryQuery(TELEMETRY_FIXTURE, result_attributes)
             if telemetry is None
             else telemetry
+        ),
+        scheduled_work=_scheduled_work(
+            uow_factory, resolved_clock, resolved_ids, store, link_base_url
         ),
     )

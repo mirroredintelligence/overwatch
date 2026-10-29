@@ -102,6 +102,10 @@ class SeedRel:
     start: str
     type: str
     end: str
+    props: Mapping[str, Any] = field(default_factory=dict, hash=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "props", _frozen(self.props))
 
 
 @dataclass(frozen=True, slots=True)

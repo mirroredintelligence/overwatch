@@ -64,6 +64,33 @@ RESOURCE_STORE = frozenset(
     }
 )
 
+# The nineteen statements of the person, registration and scope-list repositories (TEN-011,
+# DEC-170): each is tenant-scoped on every node it matches, merges or creates, carries a scenario,
+# and is off the ratchet. None may be on the ratchet again.
+PEOPLE_REGISTRATION_SCOPE = frozenset(
+    {
+        "Q-PERSON-PHONE-FIND",
+        "Q-PERSON-ROLES-OF",
+        "Q-PERSON-SET-PROPS",
+        "Q-PHONE-SERVICES-AT",
+        "Q-PHONE-SERVICES-HELD",
+        "Q-ROLE-CHANNEL",
+        "Q-ROLE-COVER",
+        "Q-SERVICE-REPORTER-ROLES",
+        "Q-REG-BY-STATUS",
+        "Q-REG-DRAFT-ADD",
+        "Q-REG-DRAFT-CLEAR",
+        "Q-REG-DRAFT-FOR",
+        "Q-REG-FOR-SERVICE",
+        "Q-REG-SET-PROPS",
+        "Q-SCOPE-ENSURE-LIST",
+        "Q-SCOPE-ENTRIES",
+        "Q-SCOPE-ENTRY-FOR",
+        "Q-SCOPE-LOCK-LIST",
+        "Q-SCOPE-UPSERT-ENTRY",
+    }
+)
+
 # The single-property unique constraints each starter scenario leans on. TEN-005 replaced them with
 # composite keys (tenantId plus the key), so the two tenants share every key a scenario uses and no
 # scenario leans on one, but for the one key that stays unique across tenants by design: the hash
@@ -212,3 +239,14 @@ def test_a_converted_statement_names_its_tenant_on_every_node_it_matches_or_crea
                 query_id,
                 match.group(0),
             )
+
+
+def test_the_people_registration_and_scope_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert len(PEOPLE_REGISTRATION_SCOPE) == 19
+    for query_id in sorted(PEOPLE_REGISTRATION_SCOPE):
+        query = statements[query_id]
+        assert query.scenario is not None, query_id
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query_id not in UNCONVERTED, query_id

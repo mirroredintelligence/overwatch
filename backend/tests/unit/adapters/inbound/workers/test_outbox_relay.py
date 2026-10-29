@@ -6,6 +6,7 @@ touched". It is not a fake store: nothing here stores or reads a record.
 
 import ast
 import asyncio
+import logging
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -113,3 +114,16 @@ async def test_a_directory_that_cannot_be_read_is_raised_so_run_forever_can_wait
 
     with pytest.raises(ConnectionError):
         await relay.run_once()
+
+
+async def test_an_id_that_is_not_a_tenant_is_logged_once_however_many_rounds_see_it(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    relay = _relay(["Not A Tenant"])
+
+    with caplog.at_level(logging.DEBUG, logger=outbox_relay.__name__):
+        for _ in range(3):
+            await relay.run_once()
+
+    assert len(caplog.records) == 1
+    assert "Not A Tenant" not in caplog.text

@@ -94,14 +94,17 @@ _FILTER_CYPHER: Final = (
     "{code: 'suspended', status: 'active', tenantId: $tenant})-[:SUBJECT]->(s) } "
     "RETURN s.id AS serviceId, c.id AS id ORDER BY s.id, c.id"
 )
-# The criteria versions of one service reached from its current version by SUPERSEDES (query #6 of
-# fhir-data-model.md), newest first. The walk starts at the current version, so a service with no
-# current version has no history here.
+# The criteria versions of one service in its SUPERSEDES chain, newest first (query #6 of
+# fhir-data-model.md): the current version, every older version it supersedes, and every newer
+# version that supersedes it (a pending or draft change, U30: history lists versions 4, 3, 2, 1
+# while version 4 waits for approval). The chain is located by the current version, so a service
+# with no current version has no history here. Each version is one row, matched once.
 _HISTORY_CYPHER: Final = (
     "MATCH (c:ServiceCriteria {status: 'current', tenantId: $tenant})"
     "-[:SUBJECT]->(:HealthcareService {id: $serviceId, tenantId: $tenant}) "
-    "MATCH (c)-[:SUPERSEDES*0..]->(old:ServiceCriteria {tenantId: $tenant}) "
-    "RETURN old.id AS id ORDER BY old.version DESC"
+    "MATCH (v:ServiceCriteria {tenantId: $tenant}) "
+    "WHERE (c)-[:SUPERSEDES*0..]->(v) OR (v)-[:SUPERSEDES*0..]->(c) "
+    "RETURN v.id AS id ORDER BY v.version DESC"
 )
 
 _QUERIES: Final = (

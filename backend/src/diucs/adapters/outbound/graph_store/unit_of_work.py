@@ -69,12 +69,14 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
 )
 from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
 from diucs.adapters.outbound.graph_store.service_move_repository import Neo4jServiceMoveRepository
+from diucs.adapters.outbound.graph_store.service_positions import Neo4jServicePositions
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
 from diucs.adapters.outbound.graph_store.support_repository import Neo4jSupportRepository
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
+from diucs.application.ports.outbound.geo import ServicePositions
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
 from diucs.application.ports.outbound.messaging import (
@@ -110,6 +112,7 @@ RepositoryFactory = Callable[[AsyncManagedTransaction, ResourceStore], object]
 # registers its repository by adding one entry here (P06 "Later tasks register new repositories").
 DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "services": lambda tx, store: Neo4jServiceRepository(tx, store),
+    "positions": lambda tx, store: Neo4jServicePositions(tx),
     "alert_subscriptions": lambda tx, store: Neo4jAlertSubscriptionRepository(tx),
     "alerts": lambda tx, store: Neo4jAlertRepository(tx, store),
     "clinical_requests": lambda tx, store: Neo4jClinicalRequestRepository(tx, store),
@@ -172,6 +175,7 @@ class Neo4jUnitOfWork:
     """One session and one explicit transaction. Use it once: `async with uow:`, then commit."""
 
     services: ServiceRepository
+    positions: ServicePositions
     alert_subscriptions: AlertSubscriptionRepository
     alerts: AlertRepository
     clinical_requests: ClinicalRequestRepository

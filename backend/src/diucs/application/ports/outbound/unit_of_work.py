@@ -22,6 +22,7 @@ from typing import Protocol, Self
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
+from diucs.application.ports.outbound.geo import ServicePositions
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
 from diucs.application.ports.outbound.messaging import (
@@ -52,6 +53,7 @@ from diucs.application.tenancy import ScopeId
 
 class UnitOfWork(Protocol):
     services: ServiceRepository
+    positions: ServicePositions
     alert_subscriptions: AlertSubscriptionRepository
     alerts: AlertRepository
     clinical_requests: ClinicalRequestRepository

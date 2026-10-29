@@ -80,6 +80,7 @@ def _adapter(
         (61, 5, 5),  # the prompt's case: 2 minutes and 2.5 minutes, both rounded up to 5
         (1800, 30, 45),  # the prompt's case: 30 minutes and 42 minutes, rounded up to 5
         (300, 5, 10),
+        (301, 10, 10),  # 5.02 minutes rounds up to 10; rounding down would give 5
         (3600, 60, 85),
     ],
 )
@@ -185,7 +186,12 @@ async def test_a_reply_that_never_comes_falls_back_at_the_adapter_timeout() -> N
 
     cache = InMemoryCache(FixedClock(NOW))
     adapter = RoutingTravelTime(
-        HangingClient(), BASE, EXTRACT, cache, FixedTravelTime(FALLBACK_RANGE), timedelta(milliseconds=50)
+        HangingClient(),
+        BASE,
+        EXTRACT,
+        cache,
+        FixedTravelTime(FALLBACK_RANGE),
+        timedelta(milliseconds=50),
     )
     with bind_tenant("tenant-alpha"):
         assert await adapter.estimate(PATIENT, SITE) == FALLBACK_RANGE
@@ -240,7 +246,9 @@ def test_a_malformed_reply_is_a_routing_error(body: Any) -> None:
 
 def test_a_malformed_reply_error_carries_no_coordinates_or_body() -> None:
     with pytest.raises(RoutingReplyMalformed) as caught:
-        duration_seconds({"routes": [{"duration": "50.7100"}], "waypoints": [{"location": [-2.44, 50.71]}]})
+        duration_seconds(
+            {"routes": [{"duration": "50.7100"}], "waypoints": [{"location": [-2.44, 50.71]}]}
+        )
     assert str(caught.value) == ""
     assert caught.value.args == ()
     assert "50.7100" not in repr(caught.value)
@@ -283,7 +291,9 @@ async def test_the_httpx_client_turns_a_timeout_into_the_timeout_error_without_t
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(TimeoutError) as caught:
-            await HttpxRouteClient(client).get_json(BASE + "/route/-2.44,50.71", timedelta(seconds=1))
+            await HttpxRouteClient(client).get_json(
+                BASE + "/route/-2.44,50.71", timedelta(seconds=1)
+            )
     assert "50.71" not in str(caught.value)
 
 
@@ -293,5 +303,7 @@ async def test_the_httpx_client_turns_a_transport_error_into_a_routing_failure()
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client:
         with pytest.raises(RoutingFailed) as caught:
-            await HttpxRouteClient(client).get_json(BASE + "/route/-2.44,50.71", timedelta(seconds=1))
+            await HttpxRouteClient(client).get_json(
+                BASE + "/route/-2.44,50.71", timedelta(seconds=1)
+            )
     assert "50.71" not in str(caught.value)

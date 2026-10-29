@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     neo4j_connection_acquisition_timeout_s: float = 30.0
     neo4j_max_connection_pool_size: int = 50
     redis_url: str = "redis://localhost:6379/0"
+    # I15: the self-hosted routing engine, speaking the OSRM route API. Unset in tests. The URL is
+    # a deployment setting, not a credential. The timeout is [ASSUMED] (I15 prompt said 2 s; the
+    # owner set 3 s). The extract date names the map data in the travel range's source.
+    routing_base_url: str | None = None
+    routing_timeout_s: float = 3.0
+    routing_extract_date: str | None = None
     servicebus_connection: SecretStr | None = None
     sms_provider: Literal["twilio", "govuk-notify", "none"] = "none"
     # DEC-002, I06: Twilio credentials and sender. Unset in tests; real values come from the

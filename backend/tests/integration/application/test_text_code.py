@@ -13,13 +13,17 @@ import pytest
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_code_store import InMemoryCodeStore, RecordingCodeSender
+from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
 from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPhoneHasher
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import current_scope
 from diucs.application.use_cases.text_code import (
+    SEND_CODE,
     RequestTextCode,
     RequestTextCodeCommand,
     RequestTextCodeResult,
@@ -45,23 +49,45 @@ PURPOSE = "register"
 
 
 class Rig:
-    """One clock, one code store and one sender, shared by the request and the verify."""
+    """One clock, one code store and one sealer, shared by the request and the verify. A code
+    reaches the person only through a SendCode outbox message, which the test opens here."""
 
     def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
+        self.uow_factory = uow_factory
         self.clock = FixedClock(START)
         self.codes = InMemoryCodeStore(self.clock)
-        self.sender = RecordingCodeSender()
         secrets = FixedSecretStore({"code-hmac": CODE_SECRET, LINK_TOKEN_SECRET: LINK_SECRET})
+        self.sealer = AesGcmContentSealer(secrets)
         self.request = RequestTextCode(
             self.codes,
-            self.sender,
             HASHER,
             uow_factory,
             secrets,
+            self.sealer,
+            SequentialIds("code"),
             self.clock,
             random.Random(2026),
         )
         self.verify = VerifyTextCode(self.codes, HASHER, uow_factory, secrets, self.clock)
+
+    async def sent_to(self, mobile: str) -> list[str]:
+        """The codes that would be texted to this number: opened from SendCode messages only."""
+        phone_hash = HASHER.hash(mobile)
+        async with self.uow_factory() as uow:
+            messages = await uow.outbox.pending(100)
+        codes: list[str] = []
+        for message in messages:
+            if message.event_type != SEND_CODE:
+                continue
+            codes.append(
+                self.sealer.unseal(
+                    message.payload["sealed_code"],
+                    message_id=message.id,
+                    tenant_id=current_scope().value,
+                    recipient_role_id=code_key(phone_hash, PURPOSE),
+                )
+            )
+        return codes
 
     async def ask(self, mobile: str, key: str) -> RequestTextCodeResult:
         return await self.request.execute(
@@ -95,8 +121,9 @@ async def test_a_known_invited_phone_gets_one_code_and_the_store_holds_a_hash_no
 ) -> None:
     result = await invited.ask(INVITED_MOBILE, "req-1")
     assert result == RequestTextCodeResult(sent=True, retry_after_seconds=60)
-    assert len(invited.sender.sent) == 1
-    code = invited.sender.sent[0].code
+    sent = await invited.sent_to(INVITED_MOBILE)
+    assert len(sent) == 1
+    code = sent[0]
     stored = await invited.codes.get(code_key(INVITED_HASH, PURPOSE))
     assert stored is not None
     stored_hash, _ = stored
@@ -110,7 +137,8 @@ async def test_an_unknown_phone_gets_the_same_result_and_no_text(
     known = await invited.ask(INVITED_MOBILE, "req-known")
     unknown = await invited.ask(UNKNOWN_MOBILE, "req-unknown")
     assert unknown == known
-    assert [message.phone for message in invited.sender.sent] == [INVITED_MOBILE]
+    assert len(await invited.sent_to(INVITED_MOBILE)) == 1
+    assert await invited.sent_to(UNKNOWN_MOBILE) == []
 
 
 async def test_a_second_request_after_thirty_seconds_sends_nothing_and_after_sixty_one_sends(
@@ -120,18 +148,18 @@ async def test_a_second_request_after_thirty_seconds_sends_nothing_and_after_six
     invited.clock.set(START + timedelta(seconds=30))
     again = await invited.ask(INVITED_MOBILE, "req-b")
     assert again == RequestTextCodeResult(sent=False, retry_after_seconds=30)
-    assert len(invited.sender.sent) == 1
+    assert len(await invited.sent_to(INVITED_MOBILE)) == 1
     invited.clock.set(START + timedelta(seconds=61))
     later = await invited.ask(INVITED_MOBILE, "req-c")
     assert later.sent is True
-    assert len(invited.sender.sent) == 2
+    assert len(await invited.sent_to(INVITED_MOBILE)) == 2
 
 
 async def test_the_right_code_within_ten_minutes_verifies_once(
     uow_factory: UnitOfWorkFactory, invited: Rig
 ) -> None:
     await invited.ask(INVITED_MOBILE, "req-d")
-    code = invited.sender.sent[-1].code
+    code = (await invited.sent_to(INVITED_MOBILE))[-1]
     invited.clock.set(START + timedelta(minutes=9))
     ok = await invited.enter(INVITED_MOBILE, code)
     assert ok.ok is True
@@ -146,7 +174,7 @@ async def test_the_right_code_after_ten_minutes_and_one_second_is_refused(
     uow_factory: UnitOfWorkFactory, invited: Rig
 ) -> None:
     await invited.ask(INVITED_MOBILE, "req-e")
-    code = invited.sender.sent[-1].code
+    code = (await invited.sent_to(INVITED_MOBILE))[-1]
     invited.clock.set(START + CODE_VALID_FOR + timedelta(seconds=1))
     late = await invited.enter(INVITED_MOBILE, code)
     assert late.ok is False
@@ -157,7 +185,7 @@ async def test_five_wrong_codes_use_the_code_up_and_even_the_right_one_then_fail
     uow_factory: UnitOfWorkFactory, invited: Rig
 ) -> None:
     await invited.ask(INVITED_MOBILE, "req-f")
-    right = invited.sender.sent[-1].code
+    right = (await invited.sent_to(INVITED_MOBILE))[-1]
     wrong = "000000" if right != "000000" else "111111"
     last: VerifyTextCodeResult | None = None
     for _ in range(5):
@@ -172,7 +200,7 @@ async def test_the_audit_entries_hold_the_purpose_and_outcome_and_neither_code_n
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, invited: Rig
 ) -> None:
     await invited.ask(INVITED_MOBILE, "req-g")
-    code = invited.sender.sent[-1].code
+    code = (await invited.sent_to(INVITED_MOBILE))[-1]
     await invited.enter(INVITED_MOBILE, code)
     events: list[dict[str, Any]] = []
     for use_case in ("RequestTextCode", "VerifyTextCode"):

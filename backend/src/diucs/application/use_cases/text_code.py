@@ -22,7 +22,10 @@ from typing import Final
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import CodeSender, CodeStore, PhoneHasher
+from diucs.application.ports.outbound.identity import CodeStore, PhoneHasher
+from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.outbox import OutboxMessage
+from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
@@ -43,6 +46,12 @@ PURPOSES: Final = frozenset({"register", "setup", "reverify", "pin-reset", "new-
 CODE_DIGITS: Final = 6
 CODE_CHOICES: Final = 10
 RESEND_AFTER_SECONDS: Final = int(CODE_RESEND_AFTER.total_seconds())
+CODES_TOPIC: Final = "codes.dispatch"
+SEND_CODE: Final = "SendCode"
+"""The outbox event of a code for a known number: the sender opens the sealed code and texts it."""
+DISCARD_CODE: Final = "DiscardCode"
+"""The outbox event of a code for an unknown number: written so both paths make the same calls, and
+never sent. The sender sends SendCode only."""
 REQUEST_USE_CASE: Final = "RequestTextCode"
 VERIFY_USE_CASE: Final = "VerifyTextCode"
 REQUEST_ACTION: Final = "C"
@@ -144,10 +153,11 @@ def _replay_key(scope: ScopeId, key: str) -> str:
 
 
 async def _is_known(uow: UnitOfWork, phone_hash: str, now: datetime) -> bool:
-    """A number is known when a registered practitioner holds it or an invitation is open for it."""
-    if await uow.people.find_by_phone_hash(phone_hash) is not None:
-        return True
-    return await uow.link_tokens.open_for_phone(INVITATION_PURPOSE, phone_hash, now) is not None
+    """A number is known when a registered practitioner holds it or an invitation is open for it.
+    Both lookups always run, so a known and an unknown number make the same calls (H-NEW-2)."""
+    practitioner = await uow.people.find_by_phone_hash(phone_hash)
+    invitation = await uow.link_tokens.open_for_phone(INVITATION_PURPOSE, phone_hash, now)
+    return practitioner is not None or invitation is not None
 
 
 def verify_fields(state: CodeState) -> tuple[int, bool]:
@@ -158,21 +168,28 @@ def verify_fields(state: CodeState) -> tuple[int, bool]:
 
 
 class RequestTextCode:
+    """Request a code. The response is the same for a known and an unknown number, and so is the
+    work done before it returns: the same lookups, the same store write, the same sealing and the
+    same outbox and audit writes. Only the outbox event differs (SendCode for a known number), and
+    the sender acts on that event alone, after the response (H-NEW-2)."""
+
     def __init__(
         self,
         code_store: CodeStore,
-        code_sender: CodeSender,
         phone_hasher: PhoneHasher,
         uow_factory: UnitOfWorkFactory,
         secret_store: SecretStore,
+        sealer: ContentSealer,
+        ids: IdGenerator,
         clock: Clock,
         rng: random.Random,
     ) -> None:
         self._codes = code_store
-        self._sender = code_sender
         self._hasher = phone_hasher
         self._uow_factory = uow_factory
         self._secrets = secret_store
+        self._sealer = sealer
+        self._ids = ids
         self._clock = clock
         self._rng = rng
 
@@ -183,7 +200,8 @@ class RequestTextCode:
         now = self._clock.now()
 
         async with self._uow_factory() as uow:
-            replay_key = _replay_key(_tenant_scope(uow.unit_scope), command.idempotency_key)
+            scope = _tenant_scope(uow.unit_scope)
+            replay_key = _replay_key(scope, command.idempotency_key)
             stored = await uow.idempotency.get(replay_key)
             if isinstance(stored, _RequestStored):
                 if stored.fingerprint != fingerprint:
@@ -200,15 +218,24 @@ class RequestTextCode:
 
         code = new_code(self._rng)
         secret = self._secrets.get(CODE_HMAC_SECRET)
-        await self._codes.save(
-            key,
-            code_hash(secret, phone_hash, purpose, code),
-            CodeState(issued_at=now),
-        )
+        await self._codes.save(key, code_hash(secret, phone_hash, purpose, code), CodeState(now))
 
         result = RequestTextCodeResult(sent=True, retry_after_seconds=RESEND_AFTER_SECONDS)
         async with self._uow_factory() as uow:
             scope = _tenant_scope(uow.unit_scope)
+            message_id = self._ids.new_id()
+            sealed = self._sealer.seal(
+                code, message_id=message_id, tenant_id=scope.value, recipient_role_id=key
+            )
+            await uow.outbox.add(
+                OutboxMessage(
+                    id=message_id,
+                    topic=CODES_TOPIC,
+                    event_type=SEND_CODE if known else DISCARD_CODE,
+                    payload={"tenantId": scope.value, "sealed_code": sealed, "purpose": purpose},
+                    created_at=now,
+                )
+            )
             await uow.audit.append(
                 AuditEntry(
                     action=REQUEST_ACTION,
@@ -224,9 +251,6 @@ class RequestTextCode:
                 _RequestStored(fingerprint, result),
             )
             await uow.commit()
-        # Only a known number is texted. The same answer goes to every caller, sent or not.
-        if known:
-            await self._sender.send_code(command.phone, code)
         return result
 
 

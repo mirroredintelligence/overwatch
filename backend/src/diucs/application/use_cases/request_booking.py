@@ -47,6 +47,10 @@ from diucs.domain.rules.booking_rules import (
 from diucs.domain.rules.booking_state import is_open
 from diucs.domain.rules.london_time import format_hhmm
 
+LinkBaseUrlFor = Callable[[ScopeId], str]
+"""The link base URL of a tenant (`https://<host>`), given the bound scope. The composition root
+backs it with the tenant directory, which holds the host (the Tenant record has none; DEC-134
+item 3)."""
 BOOKING_PURPOSE: Final = "booking-request"
 """The link token purpose of a booking request (L01 names booking purposes by this prefix)."""
 MESSAGES_TOPIC: Final = "messages.outbound"
@@ -200,7 +204,7 @@ class RequestBooking:
         rng: random.Random,
         query_board: QueryBoard,
         *,
-        link_base_url_for: Callable[[ScopeId], str],
+        link_base_url_for: LinkBaseUrlFor,
     ) -> None:
         """`link_tokens` builds the link service over the unit's own repository. The link host of
         a tenant comes from its configuration, through `link_base_url_for` (DEC-134 item 3)."""

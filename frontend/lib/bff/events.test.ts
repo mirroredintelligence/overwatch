@@ -171,4 +171,39 @@ describe('relayEvents: how the bytes arrive', () => {
     expect(first).not.toBe('waited');
     await reader.cancel();
   });
+
+  it('calls onCancel when the browser side goes away', async () => {
+    const onCancel = vi.fn();
+    const out = relayEvents(streamOf([frame('board', SERVICE)], { hold: true }), { onCancel });
+    const reader = out.getReader();
+    await reader.read();
+
+    await reader.cancel();
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('ends the relayed stream and cancels the upstream when its signal aborts', async () => {
+    const onCancel = vi.fn();
+    const controller = new AbortController();
+    const out = relayEvents(streamOf([frame('board', SERVICE)], { hold: true, onCancel }), { signal: controller.signal });
+    const reader = out.getReader();
+    await reader.read();
+
+    controller.abort();
+
+    await expect(reader.read()).resolves.toMatchObject({ done: true });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
+
+  it('is already closed when the signal was aborted before it started', async () => {
+    const onCancel = vi.fn();
+    const controller = new AbortController();
+    controller.abort();
+
+    const text = await readAll(relayEvents(streamOf([frame('board', SERVICE)], { hold: true, onCancel }), { signal: controller.signal }));
+
+    expect(text).toBe('');
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
 });

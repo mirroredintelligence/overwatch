@@ -179,3 +179,25 @@ describe('assessBoard: London clock changes (instants, never local times)', () =
     expect(between('2026-10-24T23:59:00Z', '2026-10-25T00:01:00Z')).toEqual({ mode: 'live', streamPaused: false });
   });
 });
+
+describe('assessBoard: a board time it cannot use', () => {
+  it('is last known, reason unreadable, for a time that is not a date, and never live', () => {
+    for (const generatedAt of ['', 'yesterday', 'NaN']) {
+      expect(assessBoard({ generatedAt, nowLocal: T, clockOffsetMs: 0, health: NONE })).toMatchObject({
+        mode: 'last-known',
+        reason: 'unreadable',
+      });
+    }
+  });
+
+  it('says a board from the future has been unreadable since now, not since its own future time', () => {
+    const future = assessBoard({
+      generatedAt: new Date(T + 10 * 60_000).toISOString(),
+      nowLocal: T,
+      clockOffsetMs: 0,
+      health: NONE,
+    });
+    expect(future).toMatchObject({ since: new Date(T).toISOString(), now: new Date(T).toISOString() });
+  });
+});
+

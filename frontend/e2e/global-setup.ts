@@ -5,6 +5,8 @@ import { startMockBackend } from './support/backend';
 export default async function globalSetup() {
   const server: Server = await startMockBackend();
   return async () => {
+    // Event streams stay open until closed.
+    server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
   };
 }

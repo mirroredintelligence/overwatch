@@ -22,8 +22,15 @@
 
 .icon {
   flex: none;
-  width: 2.5rem;
-  height: 2.5rem;
+  display: inline-flex;
+  width: 3rem;
+  height: 3rem;
+}
+
+/* The shape is drawn by the status badge's icon, which sizes itself to the text; fill the box instead. */
+.icon > svg {
+  width: 100%;
+  height: 100%;
 }
 
 .title {

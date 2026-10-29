@@ -173,7 +173,7 @@ These names were added by individual task prompts. They are as binding as the re
 | `Registration` | `domain/model/registration.py` | P04 |
 | `ReportFlag`, service flags | `domain/model/flags.py` | P04 |
 | Events `PhoneTaskRaised` (`capacity.events`), `ReportEscalated` (`alerts.events`) | `domain/events.py` | U06 |
-| Event `ReportFlagged` | `domain/events.py` | U07 |
+| Event `ReportFlagged` (`capacity.events`; fields `flag_id`, `service_id`, `report_id`, `reason: ReportFlagReason`, `at`) | `domain/events.py` | U07 (delivered) |
 | Event `DeclinedDespiteCapacity` | `domain/events.py` | U13 |
 | Event `ServiceActivated` (`registration.events`) | `domain/events.py` | U15 |
 | Event `BookingPhonePrompt` | `domain/events.py` | U19 |
@@ -340,3 +340,8 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `application/use_cases/send_prompts.py`: `prompt_key(service_id, due) -> str` (`prompt:<service_id>:<due in UTC, isoformat>`: the idempotency key of the prompt for a service at a due instant; the `prompt-due` job builds its `SendPromptCommand.idempotency_key` with it, because a grouped prompt stores the other services' results under these keys), and `SendPromptResult.grouped_service_ids: tuple[str, ...] = ()` (every service prompted in one C9 with this one, itself included, in letter order; empty when prompted alone). `SendPrompts`'s constructor and `SendPromptCommand` are unchanged.
 - `application/ports/outbound/messaging.py`: `GROUPED_STATUS = "grouped"`, a member of `DELIVERY_STATUSES`: the delivery status of the Communications of a grouped prompt other than the one that is sent (letter A's is `queued`). Its FHIR `Communication.status` is `completed`.
 - Stored form of a grouped prompt, which U05 reads (DEC-148 item 9, DEC-158 item 7): one `Communication` per grouped service, `message_id` C9, the same `sent_at` and `payload_text` (`A) <name> <figure>. B) <name> <figure>...`), `about_id` the service, `recipient_role_id` the role the phone holds for it; only letter A's has a `SendMessage` outbox message.
+
+## Report flags (U07, DEC-161)
+- `application/use_cases/report_flags.py`: `raise_report_flags(uow, ids, *, profile, report, extra: ReportFlagReason | None, now) -> list[str]` (the ids of the flags raised, in order) and `LOOKBACK` (the longer of D12's two windows). Called by `record_report`; a use case that writes a report does not call it itself.
+- `application/use_cases/report_capacity.py`: `ReportCapacityResult.flag_ids: tuple[str, ...] = ()`; `record_report(..., flag: ReportFlagReason | None = None)`; `ReportCapacity` no longer refuses `ReportCapacityCommand.flag`. The audit entry's `entity_ids` are `(report id, service id, *flag ids)`.
+- `domain/events.py`: `ReportFlagged` is in the `DomainEvent` union, on `capacity.events`, with the service id as session id.

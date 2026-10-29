@@ -160,7 +160,9 @@ class Rig:
         )
 
 
-async def _open_flags(factory: UnitOfWorkFactory, service_id: str | None = None) -> list[ReportFlag]:
+async def _open_flags(
+    factory: UnitOfWorkFactory, service_id: str | None = None
+) -> list[ReportFlag]:
     async with factory() as uow:
         return await uow.flags.open_report_flags(service_id)
 
@@ -503,7 +505,7 @@ class _FailingFlagsUnitOfWork:
     def flags(self) -> _FailingFlags:
         return _FailingFlags(self._inner.flags)
 
-    async def __aenter__(self) -> "_FailingFlagsUnitOfWork":
+    async def __aenter__(self) -> _FailingFlagsUnitOfWork:
         await self._inner.__aenter__()
         return self
 
@@ -542,7 +544,9 @@ async def test_when_the_flag_cannot_be_written_neither_the_report_nor_the_flag_i
     assert await count_nodes(neo4j_driver, "OutboxMessage") == 0
     assert await count_nodes(neo4j_driver, "AuditEvent") == 0
     # Nothing was recorded for the key either, so the same command may be tried again.
-    working = ReportCapacity(uow_factory, clock, SequentialIds(), DriverIdempotencyStore(neo4j_driver))
+    working = ReportCapacity(
+        uow_factory, clock, SequentialIds(), DriverIdempotencyStore(neo4j_driver)
+    )
     retried = await working.execute(command)
     assert len(retried.flag_ids) == 1
     assert await count_nodes(neo4j_driver, "Observation") == 1
@@ -591,4 +595,3 @@ async def test_flags_are_read_for_the_service_asked_for_only(
 
     assert await _open_flags(uow_factory, "ward-a") == []
     assert [f.service_id for f in await _open_flags(uow_factory, "ucr-west")] == ["ucr-west"]
-

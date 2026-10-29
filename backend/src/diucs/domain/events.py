@@ -370,7 +370,8 @@ class AlertAcknowledged:
 
 @dataclass(frozen=True, slots=True)
 class ReportFlagged:
-    """Stub for the red commit (DEC-010): the real class lands with the implementation."""
+    """A capacity report was flagged for a lead to check (U07, domain-rules 2.3). Ids, a reason
+    code and a time: no figure, no name, no phone. `reason` is a ReportFlagReason (lesson L53)."""
 
     event_type: ClassVar[str] = "ReportFlagged"
     flag_id: str
@@ -379,12 +380,29 @@ class ReportFlagged:
     reason: ReportFlagReason
     at: datetime
 
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        if not isinstance(self.reason, ReportFlagReason):
+            raise ValidationFailed("reason", "must be a report flag reason")
+
     def to_payload(self) -> dict[str, Any]:
-        return {}
+        return {
+            "flag_id": self.flag_id,
+            "service_id": self.service_id,
+            "report_id": self.report_id,
+            "reason": self.reason.value,
+            "at": _at_text(self.at),
+        }
 
     @classmethod
     def decode(cls, payload: Mapping[str, Any]) -> Self:
-        raise NotImplementedError
+        return cls(
+            flag_id=_text(payload, "flag_id"),
+            service_id=_text(payload, "service_id"),
+            report_id=_text(payload, "report_id"),
+            reason=_code(payload, "reason", ReportFlagReason),
+            at=_when(payload),
+        )
 
 
 DomainEvent = (
@@ -398,6 +416,7 @@ DomainEvent = (
     | CriteriaApproved
     | AlertRaised
     | AlertAcknowledged
+    | ReportFlagged
 )
 
 _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
@@ -412,6 +431,7 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         CriteriaApproved: CRITERIA_EVENTS,
         AlertRaised: ALERTS_EVENTS,
         AlertAcknowledged: ALERTS_EVENTS,
+        ReportFlagged: CAPACITY_EVENTS,
     }
 )
 
@@ -427,6 +447,7 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "CriteriaApproved": CriteriaApproved.decode,
         "AlertRaised": AlertRaised.decode,
         "AlertAcknowledged": AlertAcknowledged.decode,
+        "ReportFlagged": ReportFlagged.decode,
     }
 )
 
@@ -438,7 +459,7 @@ def topic_for(event: DomainEvent) -> str:
 
 def session_id_for(event: DomainEvent) -> str | None:
     """The Service Bus session id: the service id on capacity.events, None elsewhere."""
-    if isinstance(event, CapacityReported | StatusChanged):
+    if isinstance(event, CapacityReported | StatusChanged | ReportFlagged):
         return event.service_id
     return None
 

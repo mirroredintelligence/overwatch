@@ -612,6 +612,11 @@ class HandleInboundText:
             replaced = latest.value if decision.is_correction and latest is not None else None
             item.outcome = RECORDED
             item.write = _Write(decision.value, replaced, decision.flag)
+        elif isinstance(decision, RecordConfirm) and pending is not None:
+            # DEC-161: a figure the reporter was asked to send again is waiting. A Y is not that
+            # answer and does not say which figure is meant, so it records nothing and asks again.
+            item.outcome = RECHECK
+            item.reply = _ask_again(target, int(pending))
         elif isinstance(decision, RecordConfirm):
             # Hazard H-32: has a number been reported since the prompt named the figure?
             newer = await self._number_after_prompt(uow, service_id, latest, plan.prompt_sent_at)
@@ -732,7 +737,7 @@ class HandleInboundText:
                 )
                 item.recorded_value = confirmed.confirmed_value
             else:
-                await self._report(
+                await self._report_capacity.execute(
                     ReportCapacityCommand(
                         idempotency_key=key,
                         actor=plan.actor,
@@ -757,18 +762,6 @@ class HandleInboundText:
         except NothingToConfirm:
             item.outcome = NEED_NUMBER
             item.reply = _need_number(target, now)
-
-    async def _report(self, command: ReportCapacityCommand) -> None:
-        """Pass the figure, with its flag, to ReportCapacity. Until U07 records flags,
-        ReportCapacity refuses any flag by name (DEC-148 item 7); the figure is then passed again
-        without it, so a figure the reporter has twice confirmed is never lost to a flag that
-        cannot be kept."""
-        try:
-            await self._report_capacity.execute(command)
-        except ValidationFailed as refused:
-            if command.flag is None or refused.field != "flag":
-                raise
-            await self._report_capacity.execute(replace(command, flag=None))
 
     async def _record(
         self,

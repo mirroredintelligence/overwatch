@@ -115,6 +115,7 @@ There is no STOP, START or HELP keyword handling in the product. Messages from a
 - **Correction**: a number sent within 15 minutes **[ASSUMED]** of an accepted report replaces it. Echo "Updated: … Replaces N."
 - **Y limit**: `Y` is recorded as a `confirmed` report (derived from the latest number). At most 2 confirmations in a row. A third `Y` is refused: "Y was used twice already. Please send the number for <service>."
 - **Range check**: a number outside the usual range is not recorded the first time. Reply asking the reporter to send it again to confirm. **[ASSUMED]** If the same number is sent again within the open window, record it and raise a `ReportFlag` (reason `out-of-range-twice`).
+- **A Y never answers an out-of-range figure that is waiting to be sent again** (DEC-161): while a figure the reporter was asked to send again is pending for a service, a Y for that service records nothing and the same question is asked again. A Y is not "send it again", and it does not say which figure is meant.
 - Every accepted reply gets an echo with the figure, the time recorded and the next due time.
 - **A Y never makes an old figure current** (hazard H-31, DEC-148): a Y confirms the figure on record only if that figure was no more than 2 hours old when the prompt was sent (D05's stale warning). Otherwise nothing is recorded and the reporter is told the figure is out of date (C12) and asked for a number.
 - **A Y never confirms a figure the reporter was not shown** (hazard H-32, DEC-148 items 17 to 19): a Y is also refused, with C12 and nothing recorded, (a) when a number has been reported for the service later than the moment the prompt was sent (a confirmation after the prompt does not count: it repeats the figure), (b) when a report lands between the check and the write (ConfirmCapacity is told which report was judged and refuses if the latest is another), and (c) when the Y is processed more than `CONFIRM_PROCESSING_LIMIT` = 10 minutes **[ASSUMED]** after it was received, because a confirmation is stamped at the time it is processed and a Y that waited in a queue or an outage would make an old figure current now. Exactly 10 minutes is inside the limit. The reporter is asked for a number (fails closed).
@@ -127,7 +128,7 @@ Raised by rules, never by a person's speed:
 - `many-changes`: 3 or more reports for one service within 5 minutes **[ASSUMED window]**.
 - `differs-from-phoned`: a reported figure differs from an advisor-phoned figure recorded in the previous 60 minutes **[ASSUMED window]**.
 
-A flag is its own record. Capacity reports are never edited.
+A flag is its own record. Capacity reports are never edited. A flag is raised in the same unit of work that stores the report (a report is never stored without the flags it earns, DEC-161); there is one open flag per service and reason at a time **[ASSUMED]**; the windows run from the report's own time.
 
 ### 2.4 Multi-service phones
 

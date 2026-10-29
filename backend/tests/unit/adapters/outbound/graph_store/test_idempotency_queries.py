@@ -62,9 +62,7 @@ class _RecordingTx:
         self.calls: list[tuple[str, dict[str, Any]]] = []
         self._rows = rows or []
 
-    async def run(
-        self, cypher: str, parameters: dict[str, Any] | None = None, **kw: Any
-    ) -> _Rows:
+    async def run(self, cypher: str, parameters: dict[str, Any] | None = None, **kw: Any) -> _Rows:
         self.calls.append((cypher, dict(parameters or {})))
         return _Rows(self._rows)
 
@@ -161,5 +159,3 @@ async def test_failing_an_outbox_message_is_stamped_with_the_bound_tenant() -> N
     cypher, parameters = tx.calls[0]
     assert _STAMP in cypher
     assert parameters["tenant"] == "tt-unit-0001"
-
-

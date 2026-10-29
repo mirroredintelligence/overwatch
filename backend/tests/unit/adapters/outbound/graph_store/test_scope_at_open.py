@@ -31,13 +31,12 @@ from diucs.adapters.outbound.graph_store.queries import (
     QueryRegistry,
     Scenario,
 )
-from diucs.application.tenancy import GlobalStatementMisuse, ScopeId, bind_tenant
+from diucs.application.tenancy import GlobalStatementMisuse, ScopeId, TenantNotBound, bind_tenant
 from diucs.domain.codes import Role
 from tests.support.fake_neo4j import FakeDriver, FakeTx
 
 A1 = ScopeId.tenant("a1")
 PROBE_CYPHER = "MATCH (n:Probe {id: $id, tenantId: $tenant}) RETURN n.id AS id"
-NO_TENANT = "-"
 
 
 @contextmanager
@@ -88,13 +87,16 @@ async def test_the_idempotency_store_sends_the_bound_scope_on_get_and_put() -> N
     assert set(fake.tenants_sent()) == {"a1"}
 
 
-async def test_the_idempotency_store_with_nothing_bound_sends_no_tenant() -> None:
+async def test_the_idempotency_store_with_nothing_bound_is_refused_before_any_statement() -> None:
+    # TEN-016 converted the replay statements: with no scope bound they refuse (fail closed), so
+    # no statement reaches the driver, with or without a tenant.
     fake = FakeDriver()
     store = DriverIdempotencyStore(cast(Any, fake))
-    await store.get("key-1")
-    await store.put("key-1", Role.REPORTER)
-    assert fake.calls
-    assert set(fake.tenants_sent()) == {NO_TENANT}
+    with pytest.raises(TenantNotBound):
+        await store.get("key-1")
+    with pytest.raises(TenantNotBound):
+        await store.put("key-1", Role.REPORTER)
+    assert fake.tenants_sent() == []
 
 
 async def test_the_idempotency_store_scope_is_the_one_at_the_start_when_the_driver_retries() -> (

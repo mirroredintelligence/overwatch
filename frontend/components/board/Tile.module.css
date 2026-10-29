@@ -1,0 +1,162 @@
+/* A wall tile (docs/spec/ui-screens.md, artboard "Main"; W05 prompt).
+   Colours that have no token in app/tokens.css are board-local values taken
+   from the artboard, declared once here so the contrast test can read them. */
+.tile {
+  --tile-closed-bg: #E9EDEF;
+  --tile-hatch-a: #F1F3F4;
+  --tile-hatch-b: #E4E8EA;
+  --tile-limited-number: #7A3500;
+  --tile-surge-number: #4B1C69;
+  --tile-surge-light: #9A6BB8;
+  --tile-unknown-light: #9AA7AD;
+
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 100%;
+  padding: var(--space-4) var(--space-5);
+  border-radius: var(--radius-card);
+  background: Canvas;
+  color: var(--c-ink);
+}
+
+/* Status styles. Shape and word come from StatusBadge; these add the border and
+   background the artboard gives each status. */
+.accepting {
+  border: 3px solid var(--c-primary);
+  --tile-number: var(--c-primary-dark);
+  --tile-fill: var(--c-primary);
+}
+
+.limited {
+  border: 3px solid var(--c-limited);
+  --tile-number: var(--tile-limited-number);
+  --tile-fill: var(--c-limited);
+}
+
+.notAccepting {
+  border: 3px solid var(--c-closed);
+  background: var(--tile-closed-bg);
+  --tile-number: var(--c-closed);
+  --tile-fill: var(--c-closed);
+}
+
+.overCapacity {
+  border: 3px solid var(--c-surge);
+  --tile-number: var(--tile-surge-number);
+  --tile-fill: repeating-linear-gradient(135deg, var(--c-surge) 0 8px, var(--tile-surge-light) 8px 16px);
+}
+
+.notUpdated {
+  border: 3px dashed var(--c-unknown);
+  background: repeating-linear-gradient(135deg, var(--tile-hatch-a) 0 12px, var(--tile-hatch-b) 12px 24px);
+  --tile-number: var(--c-unknown);
+  --tile-fill: repeating-linear-gradient(135deg, var(--tile-unknown-light) 0 6px, var(--c-line) 6px 12px);
+}
+
+.outOfHours {
+  border: 3px solid var(--c-closed);
+  background: var(--tile-closed-bg);
+  --tile-number: var(--c-closed);
+  --tile-fill: var(--c-closed);
+}
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.who {
+  min-width: 0;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  overflow-wrap: anywhere;
+}
+
+.category {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.figure {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* Readable across a room: 72px at the smallest (the prompt). */
+.number {
+  flex: none;
+  margin: 0;
+  color: var(--tile-number);
+  font-size: 4.5rem;
+  line-height: 1;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.words {
+  min-width: 0;
+}
+
+.unit {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: 1.25rem;
+  line-height: 1.25;
+  font-weight: 700;
+}
+
+.comment {
+  margin: var(--space-1) 0 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.usage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.barLabel {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+}
+
+.bar {
+  height: 12px;
+  overflow: hidden;
+  border-radius: var(--radius-chip);
+  background: var(--c-line);
+}
+
+.fill {
+  height: 100%;
+  background: var(--tile-fill);
+}
+
+.age {
+  margin: auto 0 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.notUpdated .age {
+  color: var(--c-ink-2);
+}

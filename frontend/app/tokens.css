@@ -98,6 +98,7 @@ html {
 }
 
 body {
+  margin: 0;
   font-size: var(--type-body-size);
   line-height: var(--type-body-lh);
   font-weight: var(--type-body-weight);

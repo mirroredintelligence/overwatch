@@ -30,3 +30,8 @@ A bundle is a chain of tasks that one builder session claims and builds in order
 ## After M1
 
 Networks and grants (TEN-036 to TEN-062), the front-end tenancy work (TEN-044 to TEN-050), lifecycle and administration (TEN-028, TEN-073 to TEN-084), and the end-to-end suite (TEN-085) follow, as their own bundles.
+
+## Required before any real use of the wall board
+
+W05 shows a snapshot that does not refresh, and a stale `generatedAt` only shows an old clock (hazard H-33, verifier note). A wall must not be relied on until **W06** (live updates and Last known) and the stale rule it implements are delivered. W06 is therefore part of M1, not after it.
+

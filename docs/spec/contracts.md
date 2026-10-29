@@ -309,3 +309,7 @@ These names were added by individual task prompts. They are as binding as the re
 - `adapters/inbound/fhir_rest/mapping.py`: `board_to_parameters(board) -> dict`, `report_to_fhir(report) -> dict` (valid R4B). R04 adds its functions to this file.
 - `CapacityRepository.get(report_id) -> CapacityReport | None`. Created by R05.
 - `ApiContainer` (`fhir_rest/app.py`) gains `ids`.
+
+## Wall board page (W05, DEC-151)
+- `lib/board/types.ts`: `BoardStatus`, `BoardEntry`, `Board` (now with `organisation: string | null`), re-exports `parseBoardParameters` and `BoardParseError` from `lib/board/parse.ts`. `lib/board/format.ts`: `durationText`, `dataAgeText`, `londonTime`, `londonDate`, `nextDueText`, `ageLineText`, `categoryLabel`. `lib/board/read.ts`: `BOARD_ROLES`, `canReadBoard`, `readBoard(session)` (server only). `components/board/{Board,Tile,Legend,BoardUnavailable}.tsx`. `GET /api/bff/board` (roles wall, advisor, lead, exec; `Cache-Control: no-store`; takes no input).
+- **API addition needed (not built):** `$board` gains an optional top-level parameter `organisation` (`valueString`), the display name of the tenant the token is bound to. The wall board header reads it. To be built by the API and sign-in tenancy bundle.

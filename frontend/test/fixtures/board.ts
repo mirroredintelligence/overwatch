@@ -1,0 +1,213 @@
+import type { Parameters, ParametersParameter } from '@/lib/fhir/types';
+import type { Board, BoardEntry } from '@/lib/board/types';
+
+// Sample boards for the tests. The nine services are the "Main" artboard in
+// docs/spec/ui-screens.md (sample data only). The clock is Friday 23 October
+// at 14:12 London time, which is 13:12 UTC (British Summer Time).
+
+export const GENERATED_AT = '2026-10-23T13:12:00Z';
+export const NOW = new Date(GENERATED_AT);
+
+export function entry(overrides: Partial<BoardEntry> & { serviceId: string; name: string }): BoardEntry {
+  return {
+    category: 'urgent-community-response',
+    status: 'accepting',
+    effectiveAvailable: 4,
+    overBy: null,
+    used: 4,
+    established: 8,
+    pending: 0,
+    unitLabel: 'referrals in the next 2 hrs',
+    comment: null,
+    reportedAt: '2026-10-23T13:03:00Z',
+    nextDueAt: '2026-10-23T13:30:00Z',
+    wasDueAt: null,
+    ...overrides,
+  };
+}
+
+export const UCR_WEST = entry({
+  serviceId: 'svc-ucr-west',
+  name: 'UCR West',
+  comment: 'Response time about 1 hr 20',
+});
+
+export const VIRTUAL_WARD = entry({
+  serviceId: 'svc-virtual-ward',
+  name: 'Virtual ward · frailty',
+  category: 'hospital-at-home-or-virtual-ward',
+  status: 'not-updated',
+  effectiveAvailable: 3,
+  used: 7,
+  established: 10,
+  unitLabel: 'beds free',
+  comment: 'Last reported 3 beds free',
+  reportedAt: '2026-10-23T09:02:00Z',
+  nextDueAt: '2026-10-23T15:00:00Z',
+  wasDueAt: '2026-10-23T11:00:00Z',
+});
+
+export const MAIN_ENTRIES: BoardEntry[] = [
+  UCR_WEST,
+  entry({
+    serviceId: 'svc-ucr-east',
+    name: 'UCR East',
+    status: 'limited',
+    effectiveAvailable: 1,
+    used: 7,
+    unitLabel: 'referral in the next 2 hrs',
+    comment: 'Response time about 2 hrs',
+    reportedAt: '2026-10-23T12:41:00Z',
+  }),
+  entry({
+    serviceId: 'svc-sdec-1',
+    name: 'SDEC · Site 1',
+    category: 'same-day-emergency-care',
+    effectiveAvailable: 6,
+    used: 4,
+    established: 10,
+    unitLabel: 'slots left today',
+    comment: 'Referral cut-off 17:00',
+    reportedAt: '2026-10-23T12:07:00Z',
+    nextDueAt: '2026-10-23T15:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-sdec-2',
+    name: 'SDEC · Site 2',
+    category: 'same-day-emergency-care',
+    status: 'not-accepting',
+    effectiveAvailable: 0,
+    used: 8,
+    unitLabel: 'slots left today',
+    comment: 'Closed to referrals since 13:30',
+    reportedAt: '2026-10-23T12:34:00Z',
+    nextDueAt: '2026-10-23T15:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-ward-a',
+    name: 'Community hospital · Ward A',
+    category: 'inpatient-beds',
+    status: 'limited',
+    effectiveAvailable: 2,
+    used: 10,
+    established: 12,
+    unitLabel: 'beds free',
+    comment: 'Both women only · no side room',
+    reportedAt: '2026-10-23T11:02:00Z',
+    nextDueAt: '2026-10-23T16:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-ward-b',
+    name: 'Community hospital · Ward B',
+    category: 'inpatient-beds',
+    effectiveAvailable: 5,
+    used: 7,
+    established: 12,
+    unitLabel: 'beds free',
+    comment: 'Rehab · 1 side room',
+    reportedAt: '2026-10-23T11:02:00Z',
+    nextDueAt: '2026-10-23T16:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-hospital-at-home',
+    name: 'Hospital at home',
+    category: 'hospital-at-home-or-virtual-ward',
+    status: 'over-capacity',
+    effectiveAvailable: null,
+    overBy: 2,
+    used: 14,
+    established: 12,
+    unitLabel: 'over established capacity',
+    comment: 'Escalation in place',
+    reportedAt: '2026-10-23T12:58:00Z',
+    nextDueAt: '2026-10-23T15:00:00Z',
+  }),
+  VIRTUAL_WARD,
+  entry({
+    serviceId: 'svc-reablement',
+    name: 'Reablement',
+    category: 'reablement',
+    effectiveAvailable: 3,
+    used: 7,
+    established: 10,
+    unitLabel: 'packages today',
+    comment: 'Postcode catchment applies',
+    reportedAt: '2026-10-23T10:12:00Z',
+    nextDueAt: '2026-10-24T08:00:00Z',
+  }),
+];
+
+export const ORGANISATION_A = 'Dorset';
+export const ORGANISATION_B = 'Neighbouring';
+
+export const BOARD_A: Board = {
+  entries: MAIN_ENTRIES,
+  pressure: 'normal',
+  allLimitedOrWorse: false,
+  generatedAt: GENERATED_AT,
+  organisation: ORGANISATION_A,
+};
+
+// A second organisation's board. Its names and ids must never appear on a
+// screen that was paired to organisation A.
+export const BOARD_B: Board = {
+  entries: [
+    entry({
+      serviceId: 'svc-other-unit',
+      name: 'Other unit',
+      effectiveAvailable: 2,
+      used: 6,
+      unitLabel: 'slots left today',
+    }),
+  ],
+  pressure: 'normal',
+  allLimitedOrWorse: false,
+  generatedAt: GENERATED_AT,
+  organisation: ORGANISATION_B,
+};
+
+function integer(name: string, value: number | null): ParametersParameter[] {
+  return value === null ? [] : [{ name, valueInteger: value }];
+}
+
+function dateTime(name: string, value: string | null): ParametersParameter[] {
+  return value === null ? [] : [{ name, valueDateTime: value }];
+}
+
+/** An `entry` parameter as the back end writes it: a null part, and an empty comment, are left out. */
+export function entryParameter(e: BoardEntry): ParametersParameter {
+  return {
+    name: 'entry',
+    part: [
+      { name: 'serviceId', valueString: e.serviceId },
+      { name: 'name', valueString: e.name },
+      { name: 'category', valueCode: e.category },
+      { name: 'status', valueCode: e.status },
+      ...integer('effectiveAvailable', e.effectiveAvailable),
+      ...integer('overBy', e.overBy),
+      ...integer('used', e.used),
+      { name: 'established', valueInteger: e.established },
+      { name: 'pending', valueInteger: e.pending },
+      { name: 'unitLabel', valueString: e.unitLabel },
+      ...(e.comment ? [{ name: 'comment', valueString: e.comment }] : []),
+      ...dateTime('reportedAt', e.reportedAt),
+      ...dateTime('nextDueAt', e.nextDueAt),
+      ...dateTime('wasDueAt', e.wasDueAt),
+    ],
+  };
+}
+
+export function boardParameters(board: Board): Parameters {
+  return {
+    resourceType: 'Parameters',
+    parameter: [
+      ...board.entries.map(entryParameter),
+      { name: 'pressure', valueCode: board.pressure },
+      { name: 'allLimitedOrWorse', valueBoolean: board.allLimitedOrWorse },
+      { name: 'generatedAt', valueDateTime: board.generatedAt },
+      ...(board.organisation === null
+        ? []
+        : [{ name: 'organisation', valueString: board.organisation }]),
+    ],
+  };
+}

@@ -11,6 +11,9 @@ expect.extend(axeMatchers);
 // the test instead of reaching the network.
 beforeAll(() => {
   server.listen({ onUnhandledRequest: 'error' });
+  // The default handlers are in place for the first test too, not only after
+  // the first afterEach (W05: the first test of a file saw none).
+  server.resetHandlers(...handlers);
 });
 
 // Each test starts with the default handlers only.

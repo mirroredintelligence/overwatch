@@ -1050,3 +1050,61 @@ async def test_racing_deliveries_of_one_step_send_one_reminder(
     assert sorted(r.action for r in results) == [IGNORED] * 7 + [REMINDED]
     assert len(await _reminders(neo4j_driver)) == 1
     assert len(await rig.events("StatusChanged")) == 1
+
+
+# --- Grouped prompts: each service keeps its own ladder (U04, DEC-158, H-16) ------------------
+
+
+async def test_a_grouped_prompt_gives_each_service_its_own_reminder_and_ladder(
+    rig: Rig, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # One phone holds a role in two services, so one C9 text covers both at 12:00. Each service
+    # keeps its own ladder: its own reminder names only it, carries its own link, and a report for
+    # one service stops that ladder and not the other.
+    await seed_service(
+        virtual_ward(), virtual_ward("vw-respiratory", name="Virtual ward · respiratory")
+    )
+    practitioner, frailty_role = reporter(1, PHONE_HASH_1)
+    respiratory_role = dataclasses.replace(frailty_role, id="role-2", service_id="vw-respiratory")
+    async with rig.factory() as uow:
+        await uow.people.save_practitioner(practitioner)
+        await uow.people.save_role(frailty_role)
+        await uow.people.save_role(respiratory_role)
+        await uow.commit()
+    await seed_report(rig.factory, london(10, 5))
+    await seed_report(
+        rig.factory, london(10, 5), service_id="vw-respiratory", report_id="seed-respiratory"
+    )
+    respiratory = dataclasses.replace(rig, service_id="vw-respiratory")
+    first = await rig.prompt(london(12, 0))
+    second = await respiratory.prompt(london(12, 0))
+    assert first.grouped_service_ids == ("vw-frailty", "vw-respiratory")
+    [frailty_prompt] = first.communication_ids
+    [respiratory_prompt] = second.communication_ids
+
+    await rig.step(frailty_prompt, WorkKind.REMINDER, london(12, 30))
+    await respiratory.step(respiratory_prompt, WorkKind.REMINDER, london(12, 30))
+
+    reminders = {row["service"]: row for row in await _reminders(neo4j_driver)}
+    assert set(reminders) == {"vw-frailty", "vw-respiratory"}
+    assert reminders["vw-frailty"]["role"] == "role-1"
+    assert reminders["vw-respiratory"]["role"] == "role-2"
+    assert "Virtual ward · frailty has not updated" in reminders["vw-frailty"]["text"]
+    assert "respiratory" not in reminders["vw-frailty"]["text"]
+    assert "Virtual ward · respiratory has not updated" in reminders["vw-respiratory"]["text"]
+    assert "frailty" not in reminders["vw-respiratory"]["text"]
+    for service, row in reminders.items():
+        [message] = [
+            m
+            for m in _of_type(await rig.events("SendMessage"), "C8")
+            if m.payload["communication_id"] == row["id"]
+        ]
+        match = LINK_AT_END.search(rig.opened(message)["text"])
+        assert match is not None
+        record = await _resolve(neo4j_driver, match.group(1))
+        assert record.about_id == row["id"]
+        assert service in {"vw-frailty", "vw-respiratory"}
+    # A report for one service stops that service's ladder only.
+    await rig.report(london(12, 40), value=3)
+    assert set((await _ladder_statuses(rig, frailty_prompt)).values()) == {DONE, CANCELLED}
+    assert (await _ladder_statuses(rig, respiratory_prompt))[WorkKind.PHONE_TASK] == SCHEDULED

@@ -17,7 +17,7 @@ A bundle is a chain of tasks that one builder session claims and builds in order
 | B3 Stores | TEN-010, TEN-011, TEN-012, TEN-015, TEN-016 | B2 | Service, capacity, booking, case, person, scope-list, criteria, flag, communication, scheduled-work, outbox, idempotency repositories. One module family at a time. |
 | B4 Audit, cache and bus | TEN-017, TEN-019, TEN-020, TEN-025 | B1, B3 | Audit chain per scope, cache keys and channels, the Service Bus tenant property, the consumer binding the tenant. |
 | B5 Edge and rules | TEN-018, TEN-021, TEN-024, TEN-039, TEN-040, TEN-041 | B2, B3, B4 | REST edge and Actor, tenant policy in the rules, ReportCapacity rework, board projector, host and inbound-number resolution. |
-| B6 Enforce | TEN-030 | B1 to B5 | Enforce mode on, the ratchet empty, mutant evidence. |
+| B6 Enforce and contract | TEN-030, TEN-031, TEN-032 | B1 to B5 | Enforce mode on, the ratchet empty, mutant evidence; the start-up invariant check; then the contract migration that drops the superseded single-property keys (runs alone). TEN-005 only adds the composite keys, so until TEN-032 a second tenant using a key the first holds fails with a constraint error that reveals the key exists: no second tenant is provisioned in a shared database, and the M1 same-key end-to-end test does not run, before TEN-032 (TEN-005 verifier, DEC-159 items 2 and 7). |
 | B7 Slice | I07, U05, R05, W05 (and U10, R15, W08 for pairing) | B5 | The inbound webhook, the capacity reply handler, `$board`, the wall board page. These can start before the bundles above finish: they follow the transitional rule (`references/multi-tenancy.md`) and are retrofitted by the bundles. |
 
 ## Order and parallelism

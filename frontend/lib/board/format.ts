@@ -69,26 +69,32 @@ function daysBetween(instant: Instant, now: Instant): number {
   return Math.round((toDay(instant) - toDay(now)) / 86_400_000);
 }
 
-/** "next due 14:30", "next due 09:00 tomorrow", or "next due 09:00 Monday". */
-export function nextDueText(nextDueAt: Instant, now: Instant): string {
-  const time = londonTime(nextDueAt);
-  const days = daysBetween(nextDueAt, now);
-  if (days <= 0) return `next due ${time}`;
-  if (days === 1) return `next due ${time} tomorrow`;
-  return `next due ${time} ${weekdayName.format(ms(nextDueAt))}`;
+/** "" for the same London day, " tomorrow" for the next, " Monday" for a later one. */
+function dayWord(instant: Instant, now: Instant): string {
+  const days = daysBetween(instant, now);
+  if (days <= 0) return '';
+  if (days === 1) return ' tomorrow';
+  return ` ${weekdayName.format(ms(instant))}`;
 }
 
-/** DEC-010 stub for the red commit: no behaviour yet. */
-export function reopensText(_nextDueAt: Instant, _now: Instant): string {
-  return '';
+/** "next due 14:30", "next due 09:00 tomorrow", or "next due 09:00 Monday". */
+export function nextDueText(nextDueAt: Instant, now: Instant): string {
+  return `next due ${londonTime(nextDueAt)}${dayWord(nextDueAt, now)}`;
+}
+
+/** "Reopens 08:00", "Reopens 08:00 tomorrow", or "Reopens 08:00 Monday": the meta line of an out-of-hours tile. */
+export function reopensText(nextDueAt: Instant, now: Instant): string {
+  return `Reopens ${londonTime(nextDueAt)}${dayWord(nextDueAt, now)}`;
 }
 
 /**
  * The age line under a tile. A service that is not updated says for how long and
- * when the figure was due; every other status says how old the figure is and when
- * the next one is due.
+ * when the figure was due; one that is out of hours says it is closed; every other
+ * status says how old the figure is and when the next one is due.
  */
 export function ageLineText(entry: BoardEntry, now: Instant): string {
+  // The prompt's wording (W07). A closed service has no age to show: its figure is not in use.
+  if (entry.status === 'out-of-hours') return 'Closed overnight';
   const wasDue = entry.wasDueAt === null ? null : `was due ${londonTime(entry.wasDueAt)}`;
   if (entry.status === 'not-updated') {
     const since =

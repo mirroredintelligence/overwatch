@@ -73,6 +73,12 @@ function optional<T>(parts: Map<string, ParametersParameter>, name: string, read
   return value;
 }
 
+// Parts a tenant's own board never carries. The wall shows one organisation's
+// services and never another's name or id (DEC-130, DEC-132), so an entry that names
+// an organisation other than the board's own, or carries a tenant id, is refused.
+const ORGANISATION_PART = 'organisation';
+const TENANT_PARTS = ['tenantId', 'sourceTenantId'] as const;
+
 const ENTRY_PARTS = [
   'serviceId',
   'name',
@@ -88,10 +94,18 @@ const ENTRY_PARTS = [
   'reportedAt',
   'nextDueAt',
   'wasDueAt',
+  ORGANISATION_PART,
+  ...TENANT_PARTS,
 ] as const;
 
-function parseEntry(parameter: ParametersParameter): BoardEntry {
+function parseEntry(parameter: ParametersParameter, organisation: string | null): BoardEntry {
   const parts = index(parameter.part ?? [], ENTRY_PARTS);
+  // Names the part only, never the value: the value is another organisation's.
+  if (TENANT_PARTS.some((name) => parts.has(name))) fail('an entry carries a tenant id');
+  const entryOrganisation = optional(parts, ORGANISATION_PART, string);
+  if (entryOrganisation !== null && entryOrganisation !== organisation) {
+    fail('an entry names an organisation other than the board’s own');
+  }
   const status = required(parts, 'status', code);
   if (!isStatus(status)) fail('status is not one the board knows');
   return {
@@ -120,11 +134,12 @@ export function parseBoardParameters(parameters: Parameters): Board {
   }
   const all = parameters.parameter ?? [];
   const top = index(all, TOP_LEVEL);
+  const organisation = optional(top, 'organisation', string);
   return {
-    entries: all.filter((p) => p.name === 'entry').map(parseEntry),
+    entries: all.filter((p) => p.name === 'entry').map((p) => parseEntry(p, organisation)),
     pressure: required(top, 'pressure', code),
     allLimitedOrWorse: required(top, 'allLimitedOrWorse', boolean),
     generatedAt: required(top, 'generatedAt', instant),
-    organisation: optional(top, 'organisation', string),
+    organisation,
   };
 }

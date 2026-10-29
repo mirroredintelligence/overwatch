@@ -229,6 +229,39 @@ describe('Tile: over capacity (W07)', () => {
   });
 });
 
+describe('Tile: over capacity without an over-by count (W07)', () => {
+  const base = entry({
+    serviceId: 'svc-o',
+    name: 'Over',
+    status: 'over-capacity',
+    effectiveAvailable: null,
+    overBy: null,
+    unitLabel: 'over established capacity',
+  });
+
+  it('works +N out from used and established when the back end sends no over-by', () => {
+    const { container } = render(<Tile entry={{ ...base, used: 14, established: 12 }} now={NOW} />);
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent('+2');
+  });
+
+  it('shows ? and Phone to confirm, never a guessed number, when it cannot work it out', () => {
+    const { container } = render(<Tile entry={{ ...base, used: null, established: 12 }} now={NOW} />);
+
+    expect(container.querySelector('[data-el="WALL-TILE-NUMBER"]')).toHaveTextContent('?');
+    expect(within(tile(container)).getByText('Phone to confirm')).toBeInTheDocument();
+    expect(within(tile(container)).getByText('Over capacity')).toBeInTheDocument();
+  });
+
+  it('fills the bar when nothing is established and something is used, and leaves it empty when nothing is used', () => {
+    const used = render(<Tile entry={{ ...base, used: 3, established: 0 }} now={NOW} />);
+    const none = render(<Tile entry={{ ...base, status: 'accepting', effectiveAvailable: 0, used: 0, established: 0 }} now={NOW} />);
+
+    expect(used.container.querySelector<HTMLElement>('[data-bar-fill]')?.style.width).toBe('100%');
+    expect(none.container.querySelector<HTMLElement>('[data-bar-fill]')?.style.width).toBe('0%');
+  });
+});
+
 describe('Tile: out of hours (W07)', () => {
   const quiet = QUIET_ENTRIES[0];
   const QUIET_NOW = new Date('2026-10-24T01:40:00Z');

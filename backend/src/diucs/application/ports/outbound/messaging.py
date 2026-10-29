@@ -102,7 +102,21 @@ class Communication:
     in_response_to: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PromptDue:
+    """A capacity prompt that was sent in a period: the service it asked about and when it was sent,
+    which is its due time (U35). Ids and times only, no phone number."""
+
+    service_id: str
+    due_at: datetime
+
+
 class CommunicationRepository(Protocol):
+    async def prompts_due_between(self, start: datetime, end: datetime) -> list[PromptDue]:
+        """The capacity prompts (C1 and grouped C9) sent at or after `start` and before `end`, each
+        with the service it is about, oldest first (U35)."""
+        ...
+
     async def add(self, communication: Communication) -> None: ...
 
     async def get(self, communication_id: str) -> Communication | None: ...

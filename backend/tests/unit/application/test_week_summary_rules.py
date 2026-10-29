@@ -31,7 +31,7 @@ def test_the_week_starts_at_monday_midnight_london_time_in_utc() -> None:
 
 def test_the_week_ends_at_the_next_monday_midnight_london_time() -> None:
     _, end = london_week(MONDAY)
-    assert end == datetime(2026, 10, 25, 23, 0, tzinfo=UTC)  # 26 Oct is after the clock change
+    assert end == datetime(2026, 10, 26, 0, 0, tzinfo=UTC)  # the clocks went back on 25 Oct
 
 
 def test_the_week_that_crosses_the_clock_change_has_169_hours() -> None:
@@ -41,8 +41,8 @@ def test_the_week_that_crosses_the_clock_change_has_169_hours() -> None:
 
 def test_a_sunday_evening_case_is_in_the_week_and_a_monday_just_after_midnight_is_not() -> None:
     start, end = london_week(MONDAY)
-    sunday_2330 = datetime(2026, 10, 25, 23, 30, tzinfo=UTC).replace(tzinfo=UTC)
     # 23:30 London on Sunday 25 October is GMT, so 23:30 UTC.
+    sunday_2330 = datetime(2026, 10, 25, 23, 30, tzinfo=UTC)
     assert start <= sunday_2330 < end
     monday_0010 = datetime(2026, 10, 26, 0, 10, tzinfo=UTC)  # 00:10 London on Monday 26 October
     assert not (start <= monday_0010 < end)
@@ -53,7 +53,7 @@ def test_a_week_that_does_not_start_on_a_monday_is_refused() -> None:
         london_week(date(2026, 10, 20))
 
 
-# --- small groups are hidden ------------------------------------------------------------------------
+# --- small groups are hidden -------------------------------------------------------------------
 
 
 @pytest.mark.parametrize("count", [0, 1, 9])

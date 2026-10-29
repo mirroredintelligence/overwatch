@@ -24,6 +24,7 @@ from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
 from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
 from diucs.domain.codes import BASE_URL, BookingStatus, code_system_url
 from diucs.domain.errors import NotFound, ValidationFailed
 from diucs.domain.model.booking import Booking
@@ -317,6 +318,18 @@ class Neo4jBookingRepository:
                 times.append(confirmed)
         return sorted(times)
 
+    async def confirmed_between(self, start: datetime, end: datetime) -> list[Booking]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-BOOK-CONFIRMED-BETWEEN"),
+            start=start.astimezone(UTC),
+            end=end.astimezone(UTC),
+            code=_CONFIRMED_AT,
+            system=_OUTPUT_TYPE_SYSTEM,
+        )
+        found = [await self.get(str(row["id"])) for row in rows]
+        return [booking for booking in found if booking is not None]
+
     async def confirmed_since_for_services(
         self, service_ids: Sequence[str], since: datetime
     ) -> dict[str, list[datetime]]:
@@ -358,3 +371,19 @@ class Neo4jBookingRepository:
             businessStatus=status,
             reference=booking.reference,
         )
+
+
+_CONFIRMED_BETWEEN: Final = NamedQuery(
+    id="Q-BOOK-CONFIRMED-BETWEEN",
+    cypher=(
+        "MATCH (t:Task {businessStatus: 'confirmed', tenantId: $tenant})"
+        "-[:HAS_OUTPUT]->(o:Task_Output {tenantId: $tenant})-[:TYPE]->"
+        "(c:Concept {code: $code, system: $system, tenantId: $tenant}) "
+        "WHERE o.valueDateTime >= $start AND o.valueDateTime < $end "
+        "RETURN t.id AS id ORDER BY o.valueDateTime ASC, t.id ASC"
+    ),
+    mode="read",
+    scenario=WEEK_SCENARIOS["Q-BOOK-CONFIRMED-BETWEEN"],
+)
+if _CONFIRMED_BETWEEN.id not in REGISTRY.ids():
+    REGISTRY.register(_CONFIRMED_BETWEEN)

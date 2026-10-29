@@ -31,9 +31,11 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
+from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
 from diucs.application.ports.outbound.messaging import (
     DELIVERY_STATUSES,
     Communication,
+    PromptDue,
     statuses_before,
 )
 from diucs.domain.codes import BASE_URL, Channel
@@ -419,6 +421,15 @@ def _from_row(row: dict[str, Any]) -> Communication:
     )
 
 
+PROMPT_MESSAGE_IDS: Final = ("C1", "C9")
+"""The capacity prompts: C1 (one service) and C9 (a grouped prompt, one per service, U04)."""
+
+
+def _utc_instant(value: Any) -> datetime:
+    native: datetime = value.to_native() if hasattr(value, "to_native") else value
+    return native.astimezone(UTC)
+
+
 class Neo4jCommunicationRepository:
     def __init__(self, tx: AsyncManagedTransaction) -> None:
         self._tx = tx
@@ -503,6 +514,19 @@ class Neo4jCommunicationRepository:
         )
         return int(rows[0]["updated"]) > 0
 
+    async def prompts_due_between(self, start: datetime, end: datetime) -> list[PromptDue]:
+        rows = await self._run(
+            "Q-COMM-PROMPTS-DUE-BETWEEN",
+            start=start.astimezone(UTC),
+            end=end.astimezone(UTC),
+            messageSystem=MESSAGE_SYSTEM,
+            messageIds=list(PROMPT_MESSAGE_IDS),
+        )
+        return [
+            PromptDue(service_id=str(row["serviceId"]), due_at=_utc_instant(row["dueAt"]))
+            for row in rows
+        ]
+
     async def latest_prompt_for_phone(
         self, role_ids: Collection[str], message_ids: Collection[str]
     ) -> Communication | None:
@@ -516,3 +540,19 @@ class Neo4jCommunicationRepository:
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
         return await run_query(self._tx, REGISTRY.get(query_id), **params)
+
+
+_PROMPTS_DUE_BETWEEN: Final = NamedQuery(
+    id="Q-COMM-PROMPTS-DUE-BETWEEN",
+    cypher=(
+        "MATCH (c:Communication {tenantId: $tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
+        "WHERE t.system = $messageSystem AND t.code IN $messageIds "
+        "AND c.deliveryStatus <> 'received' AND c.sent >= $start AND c.sent < $end "
+        "MATCH (c)-[:ABOUT]->(s:HealthcareService {tenantId: $tenant}) "
+        "RETURN s.id AS serviceId, c.sent AS dueAt ORDER BY c.sent ASC, s.id ASC"
+    ),
+    mode="read",
+    scenario=WEEK_SCENARIOS["Q-COMM-PROMPTS-DUE-BETWEEN"],
+)
+if _PROMPTS_DUE_BETWEEN.id not in REGISTRY.ids():
+    REGISTRY.register(_PROMPTS_DUE_BETWEEN)

@@ -61,6 +61,11 @@ class CapacityRepository(Protocol):
         """Reports effective at or after `since`, oldest first."""
         ...
 
+    async def reports_between(self, start: datetime, end: datetime) -> list[CapacityReport]:
+        """Reports of every service effective at or after `start` and before `end` (U35), oldest
+        first."""
+        ...
+
     async def last_report_times(self) -> dict[str, datetime | None]:
         """For every active service, the effective time of its latest report, or None."""
         ...
@@ -117,6 +122,11 @@ class BookingRepository(Protocol):
         """For each service, the confirmed_at of its bookings whose status is exactly confirmed,
         at or after `since`. Every requested id is a key, with [] if none. One query for all the
         services (Q-BOOK-CONFIRMED-FOR, DEC-088)."""
+        ...
+
+    async def confirmed_between(self, start: datetime, end: datetime) -> list[Booking]:
+        """Bookings whose confirmation is at or after `start` and before `end` (U35), with their
+        requested and confirmed times."""
         ...
 
     async def pending_count(self, service_id: str) -> int:
@@ -192,6 +202,10 @@ class CaseRepository(Protocol):
 
     async def get_by_reference(self, reference: str) -> Case | None:
         """The case with this reference, or None."""
+        ...
+
+    async def opened_between(self, start: datetime, end: datetime) -> list[Case]:
+        """Cases opened at or after `start` and before `end` (U35), oldest first."""
         ...
 
     async def save(self, case: Case) -> None:

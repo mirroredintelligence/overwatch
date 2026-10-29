@@ -340,3 +340,38 @@ def test_the_criteria_and_flag_statements_are_converted(
                 query_id,
                 match.group(0),
             )
+
+
+# The seven statements of the contact and device stores (TEN-014, reworks P16): two on the protected
+# contact, five on the practitioner's devices. Each must be off the ratchet, carry a valid scenario,
+# and name `tenantId: $tenant` on every node it matches, merges or creates.
+CONTACT_AND_DEVICE = frozenset(
+    {
+        "Q-CONTACT-GET",
+        "Q-CONTACT-PUT",
+        "Q-DEVICE-KNOWN",
+        "Q-DEVICE-LOCK",
+        "Q-DEVICE-OWNER",
+        "Q-DEVICE-REGISTER",
+        "Q-DEVICE-REVOKE",
+    }
+)
+
+
+def test_the_contact_and_device_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert len(CONTACT_AND_DEVICE) == 7
+    assert CONTACT_AND_DEVICE.isdisjoint(UNCONVERTED)
+    assert set(statements) >= CONTACT_AND_DEVICE
+    for query_id in sorted(CONTACT_AND_DEVICE):
+        query = statements[query_id]
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query.scenario is not None, query_id
+        assert validate_scenario(query_id, query.scenario) == [], query_id
+        pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{[^}]*\})?\)")
+        for match in pattern.finditer(query.cypher):
+            assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), (
+                query_id,
+                match.group(0),
+            )

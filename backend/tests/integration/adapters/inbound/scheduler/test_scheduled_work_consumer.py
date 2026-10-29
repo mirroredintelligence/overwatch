@@ -6,9 +6,9 @@ so a consumer that held a unit around its handler would be refused here (DEC-146
 tenant comes from the message's property, bound by TenantBoundConsumer. Synthetic ids only: no
 patient data.
 
-Two tests are strict xfails until TEN-015 converts the scheduled-work statements to tenant scope
-(DEC-195 item 2, lesson L168): a message for tenant A that names tenant B's work, and one work id
-held by both tenants. Remove their markers in the change that lands TEN-015.
+Two tests pin the tenancy of the scheduled-work statements (DEC-195 item 2, lesson L168): a message
+for tenant A that names tenant B's work, and one work id held by both tenants. They were strict
+xfails until TEN-015 converted the statements, and their markers are removed here (DEC-195 item 4).
 """
 
 from collections.abc import Awaitable, Callable
@@ -382,10 +382,6 @@ async def test_each_tenant_runs_its_own_work_under_its_own_scope(
         assert await count_nodes(driver, "ScheduledWork") == 2
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="TEN-015 makes the scheduled-work reads tenant-scoped; remove this marker when it lands",
-)
 async def test_a_message_for_tenant_a_naming_tenant_bs_work_is_not_found(
     tenant_id: str, other_tenant_id: str
 ) -> None:
@@ -403,10 +399,6 @@ async def test_a_message_for_tenant_a_naming_tenant_bs_work_is_not_found(
         assert handler.works == []
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="TEN-015 makes the work key composite; remove this marker when it lands",
-)
 async def test_one_work_id_in_two_tenants_is_two_jobs(tenant_id: str, other_tenant_id: str) -> None:
     async with contracted_container() as driver:
         factory = neo4j_uow_factory(driver, clock=FixedClock(TEST_NOW))

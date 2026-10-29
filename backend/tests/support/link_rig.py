@@ -17,7 +17,6 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
@@ -64,6 +63,7 @@ from tests.support.ladder_rig import (
     virtual_ward,
 )
 from tests.support.neo4j import read_tx
+from tests.support.uow import ensure_audit_heads
 
 CSRF_SECRET = b"link-csrf-secret-for-the-link-tests"
 SERVICE_ID = "ucr-west"
@@ -125,7 +125,7 @@ class LinkRig:
         reporters: int = 1,
     ) -> None:
         """The service, its reporter(s) and the figure on record, committed."""
-        await ensure_audit_head(self.driver)
+        await ensure_audit_heads(self.driver, self.tenant)
         service = profile or ucr_west(self.service_id)
         async with self.factory() as uow:
             await uow.services.save(service)

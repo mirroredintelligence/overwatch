@@ -19,7 +19,6 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
@@ -41,6 +40,7 @@ from diucs.domain.model.case import Case
 from diucs.domain.model.scores import ClinicalFrailty, News2
 from tests.support.neo4j import count_nodes, node_props, read_tx, wipe
 from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -112,12 +112,15 @@ async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
 
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def fresh_graph(neo4j_driver: AsyncDriver) -> AsyncIterator[None]:
-    """An empty graph with the audit chain head, before and after every test."""
+async def fresh_graph(
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> AsyncIterator[None]:
+    """An empty graph with the audit chain head of each tenant, before and after every test. The
+    heads are made per tenant, bound in turn, so a test with no tenant bound still has them."""
     global _DRIVER
     _DRIVER = neo4j_driver
     await wipe(neo4j_driver)
-    await ensure_audit_head(neo4j_driver)
+    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
     yield
     await wipe(neo4j_driver)
 

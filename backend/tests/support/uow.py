@@ -11,6 +11,7 @@ from typing import Self
 
 from neo4j import AsyncDriver
 
+from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.unit_of_work import (
     DEFAULT_FACTORIES,
     Neo4jUnitOfWork,
@@ -21,6 +22,18 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, bind_scope
 from tests.support.tenancy import tenant_scope
+
+
+async def ensure_audit_heads(driver: AsyncDriver, *tenants: str | ScopeId) -> None:
+    """Give each tenant its audit chain head, as the product's start-up does (Container.startup,
+    TEN-017): each tenant is bound in turn and `ensure_audit_head` runs under it. Appending without
+    a head raises AuditHeadMissing, so a rig that writes as a tenant calls this for that tenant.
+    Each binding is restored afterwards, so the caller's own binding (or none) is unchanged.
+
+    Call it after the graph is wiped: a wipe removes the heads too. Idempotent."""
+    for tenant in tenants:
+        with bind_scope(tenant_scope(tenant)):
+            await ensure_audit_head(driver)
 
 
 def uow_factory_on(driver: AsyncDriver, clock: Clock | None = None) -> UnitOfWorkFactory:

@@ -23,7 +23,6 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
@@ -49,6 +48,7 @@ from tests.support.ladder_rig import (
 )
 from tests.support.neo4j import read_tx, wipe
 from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -69,7 +69,7 @@ async def _tenant_rig(
         ids=SequentialIds.scoped(tenant),
         prefix=f"{letter}-",
     )
-    await ensure_audit_head(driver)
+    await ensure_audit_heads(driver, tenant)
     async with factory() as uow:
         await uow.services.save(virtual_ward(service_id))
         await uow.commit()

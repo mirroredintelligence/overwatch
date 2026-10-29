@@ -16,6 +16,7 @@ same transaction (DEC-080):
 Decisions: DEC-080 (the draft and the derived copies), DEC-081 (the Task status and the checks).
 """
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -460,6 +461,12 @@ class Neo4jRegistrationRepository:
             code=REGISTER_SERVICE,
         )
         return await self._many(rows)
+
+    async def write_bundle(self, bundle: dict[str, Any]) -> dict[str, str]:
+        raise NotImplementedError
+
+    async def district_locations(self, districts: Sequence[str]) -> dict[str, str]:
+        raise NotImplementedError
 
     async def add_invitation(self, invitation: Invitation) -> None:
         # The store refuses an existing Task with Conflict (expected version None).

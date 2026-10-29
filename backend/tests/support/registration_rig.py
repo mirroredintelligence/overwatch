@@ -6,6 +6,7 @@ not stores of record: nothing here survives a test, and no use-case flow is prov
 `unit.writes`, so a test can show that a refused command wrote nothing. Sample values only.
 """
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime
 from types import TracebackType
@@ -75,6 +76,9 @@ class StubRegistrations(_Part):
         super().__init__(writes, "registrations")
         self.held: dict[str, Registration] = {}
         self.invitations: dict[str, Invitation] = {}
+        self.bundles: list[dict[str, Any]] = []
+        self.districts: dict[str, str] = {}
+        self.fail_write: Exception | None = None
 
     async def add(self, registration: Registration) -> None:
         self.wrote("add")
@@ -93,6 +97,16 @@ class StubRegistrations(_Part):
 
     async def list_by_status(self, status: Any) -> list[Registration]:
         return [item for item in self.held.values() if item.status is status]
+
+    async def write_bundle(self, bundle: dict[str, Any]) -> dict[str, str]:
+        self.wrote("write_bundle")
+        if self.fail_write is not None:
+            raise self.fail_write
+        self.bundles.append(bundle)
+        return {}
+
+    async def district_locations(self, districts: Sequence[str]) -> dict[str, str]:
+        return {name: self.districts[name] for name in districts if name in self.districts}
 
     async def add_invitation(self, invitation: Invitation) -> None:
         self.wrote("add_invitation")

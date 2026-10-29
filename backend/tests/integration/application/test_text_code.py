@@ -32,6 +32,7 @@ from diucs.application.use_cases.text_code import (
     VerifyTextCodeResult,
     code_key,
 )
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.identity_policy import CODE_VALID_FOR
 from tests.support.neo4j import node_props
 
@@ -79,14 +80,18 @@ class Rig:
         for message in messages:
             if message.event_type != SEND_CODE:
                 continue
-            codes.append(
-                self.sealer.unseal(
+            try:
+                code = self.sealer.unseal(
                     message.payload["sealed_code"],
                     message_id=message.id,
                     tenant_id=current_scope().value,
                     recipient_role_id=code_key(phone_hash, PURPOSE),
                 )
-            )
+            except ValidationFailed:
+                # A SendCode for another number: its seal is bound to that number's recipient
+                # (DEC-116 item 3), so it does not open for this one.
+                continue
+            codes.append(code)
         return codes
 
     async def ask(self, mobile: str, key: str) -> RequestTextCodeResult:

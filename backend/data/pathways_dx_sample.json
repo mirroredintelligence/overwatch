@@ -1,0 +1,15 @@
+{
+  "notice": "Sample codes for the pilot only. These codes are not real NHS Pathways codes. The licensed list replaces this file by configuration.",
+  "codes": [
+    {"code": "DxSAMPLE01", "display": "Sample disposition 1 (not a real code)"},
+    {"code": "DxSAMPLE02", "display": "Sample disposition 2 (not a real code)"},
+    {"code": "DxSAMPLE03", "display": "Sample disposition 3 (not a real code)"},
+    {"code": "DxSAMPLE04", "display": "Sample disposition 4 (not a real code)"},
+    {"code": "DxSAMPLE05", "display": "Sample disposition 5 (not a real code)"},
+    {"code": "DxSAMPLE06", "display": "Sample disposition 6 (not a real code)"},
+    {"code": "DxSAMPLE07", "display": "Sample disposition 7 (not a real code)"},
+    {"code": "DxSAMPLE08", "display": "Sample disposition 8 (not a real code)"},
+    {"code": "DxSAMPLE09", "display": "Sample disposition 9 (not a real code)"},
+    {"code": "DxSAMPLE10", "display": "Sample disposition 10 (not a real code)"}
+  ]
+}

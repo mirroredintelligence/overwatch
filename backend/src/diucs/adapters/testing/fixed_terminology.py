@@ -10,6 +10,7 @@ from typing import Any
 
 from diucs.application.ports.outbound.terminology import OdsRecord, ValidationIssue
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.rules.code_search import search_codes
 
 
 def _ods_key(code: str) -> str:
@@ -21,7 +22,8 @@ class FixedTerminology:
     """ODS lookups by code, and display names by (system, code). Unknown is None.
 
     An ODS record is returned as stored, including an inactive one; the caller checks `active`.
-    Display codes are matched exactly, because FHIR codes are case-sensitive.
+    Display codes are matched exactly, because FHIR codes are case-sensitive. Pathways Dx entries
+    (R16) are searched as the domain rule searches them: case-insensitively, in code order.
     """
 
     def __init__(
@@ -45,8 +47,7 @@ class FixedTerminology:
         return self._displays.get((system, code))
 
     async def search_pathways_dx(self, text: str, limit: int = 20) -> list[tuple[str, str]]:
-        # DEC-010 red stub.
-        return []
+        return search_codes(self._pathways_dx, text, limit)
 
 
 class PassThroughValidator:

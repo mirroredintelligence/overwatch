@@ -43,6 +43,11 @@ class Terminology(Protocol):
 
     async def display(self, system: str, code: str) -> str | None: ...
 
+    async def search_pathways_dx(self, text: str, limit: int = 20) -> list[tuple[str, str]]:
+        """The Pathways Dx codes (code, display) whose code or display contains `text`, in code
+        order, at most `limit`. Text under two characters, once trimmed, finds nothing (R16)."""
+        ...
+
 
 class FhirValidator(Protocol):
     async def validate(self, resource: dict[str, Any], profile: str) -> list[ValidationIssue]: ...

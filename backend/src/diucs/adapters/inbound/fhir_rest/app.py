@@ -17,6 +17,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
 )
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.terminology import Terminology
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 
 
@@ -32,6 +33,9 @@ class ApiContainer(Protocol):
 
     @property
     def ids(self) -> IdGenerator: ...
+
+    @property
+    def terminology(self) -> Terminology: ...
 
 
 def create_app(container: ApiContainer) -> FastAPI:

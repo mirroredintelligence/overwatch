@@ -5,6 +5,7 @@ never appear in repr. Profiles differ only in external providers; both use Neo4j
 everything Neo4j stores.
 """
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
@@ -40,3 +41,8 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_starttls: bool = True
     email_from: str = "DIUCS Capacity <capacity@diucs.example>"
+    # R16: the Pathways Dx file the score picker searches. The default is the pilot sample, whose
+    # codes are not real. The licensed NHS Pathways list is a configuration change to this path.
+    pathways_dx_file: Path = (
+        Path(__file__).resolve().parents[3] / "data" / "pathways_dx_sample.json"
+    )

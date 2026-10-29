@@ -26,7 +26,7 @@ from diucs.adapters.outbound.cache_redis.sessions import (
 )
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.ports.outbound.identity import ReporterSession
-from diucs.application.tenancy import TenantNotBound, bind_tenant
+from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.settings import Settings
 from diucs.domain.codes import Role
 from diucs.domain.rules.identity_policy import CodeState
@@ -108,9 +108,7 @@ async def test_a_session_is_created_read_and_deleted(redis: tuple[Redis, str]) -
     sessions = RedisSessionStore(client, key_prefix=prefix)
 
     with bind_tenant(TENANT_A):
-        session_id = await sessions.create(
-            Role.REPORTER, "prac-1", "device-1", ("svc-1",), NOW
-        )
+        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", ("svc-1",), NOW)
         assert len(session_id) == 43
         assert await sessions.get(session_id) == ReporterSession(
             session_id=session_id,
@@ -137,7 +135,11 @@ async def test_the_session_key_carries_the_tenant_and_the_full_ttl(
     key = f"{prefix}{TENANT_A}:sess:{session_id}"
     assert await client.exists(key) == 1
     ttl_ms = await client.pttl(key)
-    assert int(SESSION_TTL.total_seconds()) * 1000 - 60_000 < ttl_ms <= SESSION_TTL.total_seconds() * 1000
+    assert (
+        int(SESSION_TTL.total_seconds()) * 1000 - 60_000
+        < ttl_ms
+        <= SESSION_TTL.total_seconds() * 1000
+    )
 
 
 async def test_touch_extends_the_session_to_the_full_ttl(redis: tuple[Redis, str]) -> None:

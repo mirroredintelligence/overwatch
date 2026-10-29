@@ -49,7 +49,7 @@ def test_two_session_ids_differ() -> None:
 
 
 def test_the_session_ttl_is_twelve_hours() -> None:
-    assert SESSION_TTL == timedelta(hours=12)
+    assert timedelta(hours=12) == SESSION_TTL
 
 
 def test_a_session_body_round_trips() -> None:

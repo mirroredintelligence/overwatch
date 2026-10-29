@@ -87,9 +87,10 @@ class CodeResendRefused(DomainError):
 
 
 class CodeStore(Protocol):
-    """Short-lived text-code state, keyed by the phone hash, bound to the tenant of the unit of work.
-    Redis in production (I13). Only a hash of the code is stored; the caller hashes it. Saving a
-    different code less than the resend cooldown after the stored one raises CodeResendRefused."""
+    """Short-lived text-code state, keyed by the phone hash and bound to the tenant of the unit of
+    work. Redis in production (I13). Only a hash of the code is stored; the caller hashes it.
+    Saving a different code less than the resend cooldown after the stored one raises
+    CodeResendRefused."""
 
     async def save(self, phone_hash: str, code_hash: str, state: CodeState) -> None: ...
 
@@ -100,7 +101,7 @@ class CodeStore(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class ReporterSession:
-    """A signed-in reporter or COO user: short-lived, held in Redis, never a record of truth (I13)."""
+    """A signed-in reporter or COO user. Short-lived, held in Redis, never a record (I13)."""
 
     session_id: str
     role: Role
@@ -112,8 +113,8 @@ class ReporterSession:
 
 
 class SessionStore(Protocol):
-    """Reporter sessions, bound to the tenant of the unit of work (I13). Losing them signs people out.
-    A session id is never logged."""
+    """Reporter sessions, bound to the tenant of the unit of work (I13). Losing them signs people
+    out. A session id is never logged."""
 
     async def create(
         self,

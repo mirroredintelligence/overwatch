@@ -6,7 +6,10 @@ from typing import cast
 import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncGraphDatabase
+from redis.asyncio import Redis
 
+from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
+from diucs.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store import connection as connection_module
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
@@ -290,3 +293,40 @@ async def test_a_connection_that_will_not_open_stops_the_start_before_any_migrat
         await container.startup()
 
     assert "migrate" not in events
+
+
+async def test_build_wires_the_redis_identity_stores_from_settings() -> None:
+    container = build(Settings())
+    try:
+        assert isinstance(container.sessions, RedisSessionStore)
+        assert isinstance(container.codes, RedisCodeStore)
+        assert isinstance(container.rate_limiter, RedisRateLimiter)
+        assert isinstance(container.redis, Redis)
+    finally:
+        await container.shutdown()
+
+
+async def test_build_for_tests_wires_the_redis_identity_stores_without_a_server(
+    neo4j: Neo4jConnection,
+) -> None:
+    """The stores connect lazily: building a container opens no Redis connection."""
+    container = build_for_tests(neo4j=neo4j)
+    assert isinstance(container.sessions, RedisSessionStore)
+    assert isinstance(container.codes, RedisCodeStore)
+    assert isinstance(container.rate_limiter, RedisRateLimiter)
+
+
+async def test_shutdown_closes_the_redis_client_as_well_as_neo4j() -> None:
+    container = build(Settings())
+    closed: list[str] = []
+
+    async def close_neo4j() -> None:
+        closed.append("neo4j")
+
+    async def close_redis() -> None:
+        closed.append("redis")
+
+    object.__setattr__(container.neo4j, "close", close_neo4j)
+    object.__setattr__(container.redis, "aclose", close_redis)
+    await container.shutdown()
+    assert closed == ["neo4j", "redis"]

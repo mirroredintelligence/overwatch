@@ -10,8 +10,9 @@ from dataclasses import dataclass
 from datetime import UTC
 
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.identity import CodeResendRefused
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.identity_policy import CODE_VALID_FOR, CodeState
+from diucs.domain.rules.identity_policy import CODE_VALID_FOR, CodeState, can_resend
 
 
 class InMemoryCodeStore:
@@ -22,6 +23,14 @@ class InMemoryCodeStore:
     async def save(self, phone_hash: str, code_hash: str, state: CodeState) -> None:
         if state.issued_at.tzinfo is None or state.issued_at.utcoffset() is None:
             raise ValidationFailed("issued_at", "must be a timezone-aware datetime")
+        current = self._codes.get(phone_hash)
+        # A different code within the resend cooldown of the one it replaces is refused (I13).
+        if (
+            current is not None
+            and current[0] != code_hash
+            and not can_resend(current[1].issued_at, state.issued_at)
+        ):
+            raise CodeResendRefused()
         self._codes[phone_hash] = (code_hash, state)
 
     async def get(self, phone_hash: str) -> tuple[str, CodeState] | None:

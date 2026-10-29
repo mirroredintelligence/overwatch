@@ -42,7 +42,8 @@ Runner = Callable[[str, str], tuple[int, str]]
 
 def run_shell(command: str, cwd: str) -> tuple[int, str]:
     done = subprocess.run(shlex.split(command), cwd=cwd, capture_output=True, text=True)
-    return done.returncode, (done.stdout or "") + (done.stderr or "")
+    # stdout carries the tool's own summary; stderr is only a fallback (uv writes install notes there).
+    return done.returncode, done.stdout if (done.stdout or "").strip() else (done.stderr or "")
 
 
 def last_line(text: str) -> str:

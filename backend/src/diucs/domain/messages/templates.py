@@ -431,6 +431,15 @@ def _output_has_patient_data(part: str | None) -> bool:
     return part is not None and bool(find_patient_data(part))
 
 
+def _is_need_text(value: object) -> bool:
+    """One need code, or two joined with " and" (U17: a booking names the first two needs). Any
+    other word, or free text, is refused."""
+    if not isinstance(value, str):
+        return False
+    parts = value.split(" and ")
+    return len(parts) in (1, 2) and all(part in NEED_CODES for part in parts)
+
+
 def _check_constrained_fields(fields: Mapping[str, object]) -> None:
     if "reference" in fields and not _is_reference(fields["reference"]):
         raise ValidationFailed("reference", "must be four digits, no leading zero")
@@ -442,8 +451,8 @@ def _check_constrained_fields(fields: Mapping[str, object]) -> None:
         isinstance(fields["reply_with"], str) and REPLY_WITH_FORMAT.fullmatch(fields["reply_with"])
     ):
         raise ValidationFailed("reply_with", "must be 'a number' or a letter and 'a number'")
-    if "need" in fields and not (isinstance(fields["need"], str) and fields["need"] in NEED_CODES):
-        raise ValidationFailed("need", "must be a need category code")
+    if "need" in fields and not _is_need_text(fields["need"]):
+        raise ValidationFailed("need", "must be a need category code, or two joined with 'and'")
 
 
 def _values(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, object]:

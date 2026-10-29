@@ -252,8 +252,10 @@ async def test_the_planner_uses_the_resource_key_index(built: _Built) -> None:
         return repr(summary.plan)
 
     plan = await read_tx(built.driver, explain)
+    # The plan names the label and the properties of the index, not its name:
+    # "NodeUniqueIndexSeek UNIQUE n:Resource(tenantId, key) WHERE tenantId = $tenant AND ...".
     assert "NodeUniqueIndexSeek" in plan
-    assert "Resource(tenantId, key)" in plan or "tenant_resource_key" in plan
+    assert "n:Resource(tenantId, key)" in plan
 
 
 # Test 15: the backfill

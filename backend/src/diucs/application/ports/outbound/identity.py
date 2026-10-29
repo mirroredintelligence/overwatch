@@ -8,11 +8,13 @@ never echoed in an error. Decisions: DEC-057.
 import hashlib
 import hmac
 import re
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Final, Protocol
 
 from diucs.application.ports.outbound.tokens import SecretStore
-from diucs.domain.errors import ValidationFailed
+from diucs.domain.codes import Role
+from diucs.domain.errors import DomainError, ValidationFailed
 from diucs.domain.model.device import Device
 from diucs.domain.rules.identity_policy import CodeState, PinState
 
@@ -76,14 +78,81 @@ class CodeSender(Protocol):
     async def send_code(self, phone: str, code: str) -> None: ...
 
 
+class CodeResendRefused(DomainError):
+    """A new text code was saved less than the resend cooldown after the code it replaces. Carries
+    no data: neither the phone hash nor a code is ever put in the message (I13)."""
+
+    def __init__(self) -> None:
+        super().__init__("a new code is not allowed yet")
+
+
 class CodeStore(Protocol):
-    """Short-lived text-code state, keyed by the phone hash. Redis in production (I13)."""
+    """Short-lived text-code state, keyed by (tenant, purpose, phone hash). Redis in production
+    (I13). A code issued for one purpose is never found for another, and each purpose has its own
+    resend cooldown. Only a hash of the code is stored; the caller hashes it. Saving a different
+    code less than the resend cooldown after the stored one, for the same purpose and phone, raises
+    CodeResendRefused. A purpose that is not a plain name raises ValidationFailed."""
 
-    async def save(self, phone_hash: str, code_hash: str, state: CodeState) -> None: ...
+    async def save(
+        self, purpose: str, phone_hash: str, code_hash: str, state: CodeState
+    ) -> None: ...
 
-    async def get(self, phone_hash: str) -> tuple[str, CodeState] | None: ...
+    async def get(self, purpose: str, phone_hash: str) -> tuple[str, CodeState] | None: ...
 
-    async def clear(self, phone_hash: str) -> None: ...
+    async def clear(self, purpose: str, phone_hash: str) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ReporterSession:
+    """A signed-in reporter or COO user. Short-lived, held in Redis, never a record (I13)."""
+
+    session_id: str
+    role: Role
+    practitioner_id: str
+    device_id: str
+    services: tuple[str, ...]
+    created: datetime
+    last_seen: datetime
+
+
+class SessionStore(Protocol):
+    """Reporter sessions, bound to the tenant of the unit of work (I13). Losing them signs people
+    out. A session id is never logged."""
+
+    async def create(
+        self,
+        role: Role,
+        practitioner_id: str,
+        device_id: str,
+        services: tuple[str, ...],
+        now: datetime,
+    ) -> str:
+        """Start a session and return its new random id (256 bits, urlsafe)."""
+        ...
+
+    async def get(self, session_id: str) -> ReporterSession | None:
+        """The session while it is live in the bound tenant, or None. Does not extend it."""
+        ...
+
+    async def touch(self, session_id: str, now: datetime) -> bool:
+        """Record activity and extend the session's life to the full TTL. False when it is gone."""
+        ...
+
+    async def delete(self, session_id: str) -> None:
+        """End one session. A missing session is not an error."""
+        ...
+
+    async def delete_all_for_person(self, practitioner_id: str) -> None:
+        """End every session of one practitioner in the bound tenant ("sign out of every phone")."""
+        ...
+
+
+class RateLimiter(Protocol):
+    """A fixed-window throttle (I13). `allow` counts one attempt under `key` in the bound tenant and
+    returns False once `limit` attempts have been counted in the current window. It is a fast
+    throttle only; the durable PIN lock lives on the credential in Neo4j."""
+
+    async def allow(self, key: str, limit: int, window: timedelta) -> bool: ...
 
 
 class PinStore(Protocol):

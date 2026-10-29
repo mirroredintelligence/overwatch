@@ -5,10 +5,13 @@ consumes one number, so a refused send still has an id. Only accepted sends are 
 fail_next() refuses the next send only, which lets a test prove how a caller handles a refusal.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from diucs.application.ports.outbound.messaging import SendReceipt
+from diucs.application.ports.outbound.messaging import EmailSender, SendReceipt, SmsSender
+from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable
+from diucs.application.tenancy import current_tenant
 
 
 @dataclass(frozen=True, slots=True)
@@ -97,3 +100,31 @@ class RecordingPushSender:
 
     def fail_next(self) -> None:
         self._attempts.fail_next()
+
+
+class FixedSenderResolver:
+    """A SenderResolver for tests: each tenant gets its own recording sender, read from the tenant
+    bound on the unit of work (current_tenant). A tenant that is not listed has no channel, so the
+    resolver raises ChannelUnavailable and nothing is sent for it (I10)."""
+
+    def __init__(
+        self,
+        sms: Mapping[str, SmsSender] | None = None,
+        email: Mapping[str, EmailSender] | None = None,
+    ) -> None:
+        self._sms = dict(sms or {})
+        self._email = dict(email or {})
+
+    async def sms_for(self) -> SmsSender:
+        tenant = current_tenant()
+        sender = self._sms.get(tenant)
+        if sender is None:
+            raise ChannelUnavailable(f"no text channel for tenant {tenant}")
+        return sender
+
+    async def email_for(self) -> EmailSender:
+        tenant = current_tenant()
+        sender = self._email.get(tenant)
+        if sender is None:
+            raise ChannelUnavailable(f"no email channel for tenant {tenant}")
+        return sender

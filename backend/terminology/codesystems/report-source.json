@@ -1,0 +1,35 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "report-source",
+  "url": "https://diucs.example/CodeSystem/report-source",
+  "name": "report-source",
+  "status": "active",
+  "content": "complete",
+  "count": 6,
+  "concept": [
+    {
+      "code": "advisor-phoned",
+      "display": "Advisor phoned"
+    },
+    {
+      "code": "app",
+      "display": "App"
+    },
+    {
+      "code": "email",
+      "display": "Email"
+    },
+    {
+      "code": "feed",
+      "display": "Feed"
+    },
+    {
+      "code": "link",
+      "display": "Link"
+    },
+    {
+      "code": "text",
+      "display": "Text"
+    }
+  ]
+}

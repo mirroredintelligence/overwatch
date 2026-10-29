@@ -55,7 +55,7 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
         "unit": "referrals",
         "reply_by": "13:11",
     },
-    MessageId.C6: {"service": "UCR West"},
+    MessageId.C6: {"service": "UCR West", "confirm_limit": 2},
     MessageId.C7: {"service": "UCR West", "value": 40, "low": 0, "high": 12},
     MessageId.C8: {
         "service": "UCR West",
@@ -125,7 +125,7 @@ def test_c5_too_late_matches_the_rule_book_sample() -> None:
 
 
 def test_c6_y_limit_matches_the_rule_book_sample() -> None:
-    rendered = render(MessageId.C6, Channel.TEXT, service="UCR West")
+    rendered = render(MessageId.C6, Channel.TEXT, service="UCR West", confirm_limit=2)
     assert rendered.text == "Y was used twice already. Please send the number for UCR West."
 
 
@@ -258,12 +258,12 @@ def test_missing_field_is_refused() -> None:
 
 def test_unexpected_field_is_refused() -> None:
     with pytest.raises(ValidationFailed):
-        render(MessageId.C6, Channel.TEXT, service="UCR West", postcode="DT4 8XX")
+        render(MessageId.C6, Channel.TEXT, service="UCR West", confirm_limit=2, postcode="DT4 8XX")
 
 
 def test_channel_not_supported_by_the_id_is_refused() -> None:
     with pytest.raises(ValidationFailed):
-        render(MessageId.C6, Channel.EMAIL, service="UCR West")
+        render(MessageId.C6, Channel.EMAIL, service="UCR West", confirm_limit=2)
 
 
 @pytest.mark.parametrize("channel", [Channel.EMAIL, Channel.PUSH])
@@ -376,3 +376,28 @@ def test_c12_needs_every_field() -> None:
         fields = {k: v for k, v in SAMPLE_FIELDS[MessageId.C12].items() if k != field}
         with pytest.raises(ValidationFailed):
             render(MessageId.C12, Channel.TEXT, **fields)
+
+
+# --- The confirm limit in C6 (TEN-022) -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("limit", "words"),
+    [(1, "once"), (2, "twice"), (3, "3 times")],
+)
+def test_c6_states_the_tenants_confirm_limit_in_words(limit: int, words: str) -> None:
+    rendered = render(MessageId.C6, Channel.TEXT, service="UCR West", confirm_limit=limit)
+    assert rendered.text == f"Y was used {words} already. Please send the number for UCR West."
+
+
+@pytest.mark.parametrize("limit", [0, 4, True, False, "2", 2.0, None])
+def test_c6_refuses_a_confirm_limit_that_is_not_exactly_one_two_or_three(limit: object) -> None:
+    with pytest.raises(ValidationFailed) as refusal:
+        render(MessageId.C6, Channel.TEXT, service="UCR West", confirm_limit=limit)
+    assert refusal.value.field == "confirm_limit"
+
+
+def test_c6_without_a_confirm_limit_is_refused_and_nothing_is_guessed() -> None:
+    with pytest.raises(ValidationFailed) as refusal:
+        render(MessageId.C6, Channel.TEXT, service="UCR West")
+    assert refusal.value.field == "confirm_limit"

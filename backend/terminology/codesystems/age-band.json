@@ -1,0 +1,27 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "age-band",
+  "url": "https://diucs.example/CodeSystem/age-band",
+  "name": "age-band",
+  "status": "active",
+  "content": "complete",
+  "count": 4,
+  "concept": [
+    {
+      "code": "0-15",
+      "display": "0-15"
+    },
+    {
+      "code": "16-64",
+      "display": "16-64"
+    },
+    {
+      "code": "65-79",
+      "display": "65-79"
+    },
+    {
+      "code": "80+",
+      "display": "80+"
+    }
+  ]
+}

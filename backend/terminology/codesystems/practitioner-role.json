@@ -1,0 +1,35 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "practitioner-role",
+  "url": "https://diucs.example/CodeSystem/practitioner-role",
+  "name": "practitioner-role",
+  "status": "active",
+  "content": "complete",
+  "count": 6,
+  "concept": [
+    {
+      "code": "clinical-lead",
+      "display": "Clinical lead"
+    },
+    {
+      "code": "coordinator",
+      "display": "Coordinator"
+    },
+    {
+      "code": "criteria-owner",
+      "display": "Criteria owner"
+    },
+    {
+      "code": "duty-manager",
+      "display": "Duty manager"
+    },
+    {
+      "code": "reviewer",
+      "display": "Reviewer"
+    },
+    {
+      "code": "shift-lead",
+      "display": "Shift lead"
+    }
+  ]
+}

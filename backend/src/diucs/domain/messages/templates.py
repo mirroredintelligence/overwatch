@@ -10,6 +10,11 @@ and the [ASSUMED] texts.
 
 Callers pass time fields already formatted as "HH:MM" strings and the unit phrase as text.
 No template holds a patient name, NHS number or postcode, and no field may add one.
+
+The words that differ between organisations are fields, never text in a template (TEN-022): the
+system name (I2), the referral system name (B1 and B2) and the coordination team name (K4) are
+validated by check_tenant_text, and the confirm limit (C6) is 1, 2 or 3. No field has a default,
+so a message that needs a tenant's words never prints a guess. "DIUCS" stays in the text.
 """
 
 import re
@@ -20,8 +25,9 @@ from typing import Final, cast
 
 from diucs.domain.codes import AgeBand, Channel, NeedCategory
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.messages.catalogue import MessageId
+from diucs.domain.messages.catalogue import TENANT_TEXT_FIELD_NAMES, MessageId
 from diucs.domain.messages.privacy_guard import find_patient_data
+from diucs.domain.rules.tenant_settings import check_tenant_text
 
 FOOTER: Final = (
     "The link works once, needs no login, and expires at {reply_by}. "
@@ -67,10 +73,28 @@ class _Template:
 
 _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.B1: frozenset(
-        {"reference", "service", "age_band", "need", "urgency", "link", "reply_by"}
+        {
+            "reference",
+            "service",
+            "age_band",
+            "need",
+            "urgency",
+            "link",
+            "reply_by",
+            "referral_system_name",
+        }
     ),
     MessageId.B2: frozenset(
-        {"reference", "service", "age_band", "need", "urgency", "link", "reply_by"}
+        {
+            "reference",
+            "service",
+            "age_band",
+            "need",
+            "urgency",
+            "link",
+            "reply_by",
+            "referral_system_name",
+        }
     ),
     MessageId.B3: frozenset({"reference", "service", "reply_by"}),
     MessageId.B4: frozenset({"reference", "service", "confirmed_at"}),
@@ -78,18 +102,18 @@ _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.B6: frozenset({"reference", "cancelled_at"}),
     MessageId.B7: frozenset({"references"}),
     MessageId.I1: frozenset({"service", "link"}),
-    MessageId.I2: frozenset({"link"}),
+    MessageId.I2: frozenset({"link", "system_name"}),
     MessageId.I3: frozenset({"service"}),
     MessageId.K1: frozenset({"code"}),
     MessageId.K2: frozenset({"service", "review_by"}),
     MessageId.K3: frozenset({"title", "body"}),
-    MessageId.K4: frozenset({"service"}),
+    MessageId.K4: frozenset({"service", "coordination_team_name"}),
     MessageId.C1: frozenset({"service", "value", "unit", "as_of", "link", "reply_by"}),
     MessageId.C2: frozenset({"service", "unit", "window", "reply_by", "link"}),
     MessageId.C3: frozenset({"service", "value", "unit", "recorded_at", "next_due"}),
     MessageId.C4: frozenset({"service", "value", "unit", "recorded_at", "replaced"}),
     MessageId.C5: frozenset({"cutoff", "rejected", "service", "value", "unit", "reply_by"}),
-    MessageId.C6: frozenset({"service"}),
+    MessageId.C6: frozenset({"service", "confirm_limit"}),
     MessageId.C7: frozenset({"service", "value", "low", "high"}),
     MessageId.C8: frozenset({"service", "reply_by", "link"}),
     MessageId.C9: frozenset({"reply_by", "items"}),
@@ -119,14 +143,15 @@ _C12_TEXT: Final = (
 
 _B1_TEXT: Final = (
     "DIUCS REQUEST {reference}: {service}. Age {age_band}, {need}, {urgency}. "
-    "Referral details follow in SystmOne. Reply CONFIRMED or DECLINE, or open {link} by {reply_by}."
+    "Referral details follow in {referral_system_name}. Reply CONFIRMED or DECLINE, "
+    "or open {link} by {reply_by}."
 )
 _B2_LINES: Final = (
     "Booking request {reference} for {service}.\n"
     "Age band {age_band}\n"
     "Need: {need}\n"
     "Response wanted: {urgency}\n"
-    "Referral details follow in SystmOne.\n"
+    "Referral details follow in {referral_system_name}.\n"
     "Please review and reply by {reply_by}.\n"
 )
 _B2_NO_BOOKING: Final = (
@@ -196,7 +221,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     ),
     (MessageId.C6, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C6],
-        text="Y was used twice already. Please send the number for {service}.",
+        text="Y was used {times} already. Please send the number for {service}.",
     ),
     (MessageId.C7, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C7],
@@ -251,7 +276,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         html=(
             "<p>Booking request {reference} for {service}.</p>\n"
             "<p>Age band {age_band}<br>Need: {need}<br>Response wanted: {urgency}</p>\n"
-            "<p>Referral details follow in SystmOne.</p>\n"
+            "<p>Referral details follow in {referral_system_name}.</p>\n"
             "<p>Please review and reply by {reply_by}.</p>\n"
             f'<p><a href="{{link}}" style="{BUTTON_STYLE}">Review request</a></p>\n'
             f"<p>{_B2_NO_BOOKING}</p>"
@@ -294,7 +319,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.I2, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I2],
         text=(
-            "DIUCS: You are invited to see Dorset urgent care capacity on your phone. "
+            "DIUCS: You are invited to see {system_name} on your phone. "
             "Set up takes about 3 minutes: {link} Valid for 48 hrs."
         ),
     ),
@@ -330,7 +355,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         required=_FIELDS[MessageId.K4],
         text=(
             "DIUCS: {service} is suspended. Prompts have stopped. "
-            "The SPOA shift lead will phone you."
+            "{coordination_team_name} will phone you."
         ),
     ),
 }
@@ -431,6 +456,15 @@ def _output_has_patient_data(part: str | None) -> bool:
     return part is not None and bool(find_patient_data(part))
 
 
+def _is_need_text(value: object) -> bool:
+    """One need code, or two joined with " and" (U17: a booking names the first two needs). Any
+    other word, or free text, is refused."""
+    if not isinstance(value, str):
+        return False
+    parts = value.split(" and ")
+    return len(parts) in (1, 2) and all(part in NEED_CODES for part in parts)
+
+
 def _check_constrained_fields(fields: Mapping[str, object]) -> None:
     if "reference" in fields and not _is_reference(fields["reference"]):
         raise ValidationFailed("reference", "must be four digits, no leading zero")
@@ -442,11 +476,33 @@ def _check_constrained_fields(fields: Mapping[str, object]) -> None:
         isinstance(fields["reply_with"], str) and REPLY_WITH_FORMAT.fullmatch(fields["reply_with"])
     ):
         raise ValidationFailed("reply_with", "must be 'a number' or a letter and 'a number'")
-    if "need" in fields and not (isinstance(fields["need"], str) and fields["need"] in NEED_CODES):
-        raise ValidationFailed("need", "must be a need category code")
+    if "need" in fields and not _is_need_text(fields["need"]):
+        raise ValidationFailed("need", "must be a need category code, or two joined with 'and'")
+
+
+# The confirm limit as words for C6 (TEN-022). Only the three limits the policy allows are words.
+CONFIRM_LIMIT_WORDS: Final[Mapping[int, str]] = {1: "once", 2: "twice", 3: "3 times"}
+
+
+def _check_tenant_fields(fields: Mapping[str, object]) -> None:
+    """Each tenant wording field passes check_tenant_text; the confirm limit is exactly 1, 2 or 3.
+
+    A bool is not an int here, and a float or a string is never a limit: each is refused."""
+    for name in TENANT_TEXT_FIELD_NAMES:
+        if name in fields:
+            check_tenant_text(name, fields[name])
+    if "confirm_limit" in fields:
+        limit = fields["confirm_limit"]
+        if type(limit) is not int or limit not in CONFIRM_LIMIT_WORDS:
+            raise ValidationFailed("confirm_limit", "must be 1, 2 or 3")
 
 
 def _values(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, object]:
+    if message_id is MessageId.C6:
+        return {
+            "service": fields["service"],
+            "times": CONFIRM_LIMIT_WORDS[cast(int, fields["confirm_limit"])],
+        }
     if message_id is MessageId.C9:
         return _multi_service_values(fields["items"], fields["reply_by"])
     if message_id is MessageId.C10:
@@ -476,6 +532,7 @@ def render(message_id: MessageId, channel: Channel, **fields: object) -> Rendere
 
     _refuse_patient_data(fields)
     _check_constrained_fields(fields)
+    _check_tenant_fields(fields)
     values = _values(message_id, fields)
     html_values = {key: escape(str(value)) for key, value in values.items()}
     rendered = RenderedMessage(

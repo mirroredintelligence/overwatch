@@ -16,6 +16,7 @@ from diucs.adapters.outbound.graph_store.migrations import (
     assemble_migrations,
 )
 from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
+from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_tenant import TENANT_MIGRATIONS
 
 CORE_IDS = [
@@ -171,11 +172,12 @@ def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_togethe
     assert len(CORE_MIGRATIONS) == 26
     assert len(MIGRATIONS) == len(CORE_MIGRATIONS) + len(TENANT_MIGRATIONS) + len(
         NETWORK_MIGRATIONS
-    )
+    ) + len(PROTECTED_MIGRATIONS)
     assert {m.id for m in MIGRATIONS} == (
         {m.id for m in CORE_MIGRATIONS}
         | {m.id for m in TENANT_MIGRATIONS}
         | {m.id for m in NETWORK_MIGRATIONS}
+        | {m.id for m in PROTECTED_MIGRATIONS}
     )
 
 

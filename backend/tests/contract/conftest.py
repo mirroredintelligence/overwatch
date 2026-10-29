@@ -6,13 +6,23 @@ import pytest
 
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.event_bus import EventBus
-from tests.contract.factories import CACHE_FACTORIES, EVENT_BUS_FACTORIES
+from diucs.application.ports.outbound.identity import CodeStore
+from tests.contract.factories import CACHE_FACTORIES, CODE_STORE_FACTORIES, EVENT_BUS_FACTORIES
 from tests.contract.harness import Harness
 
 
 @pytest.fixture(params=CACHE_FACTORIES)
 async def cache_harness(request: pytest.FixtureRequest) -> AsyncIterator[Harness[Cache]]:
     harness: Harness[Cache] = await request.param()
+    try:
+        yield harness
+    finally:
+        await harness.close()
+
+
+@pytest.fixture(params=CODE_STORE_FACTORIES)
+async def code_store_harness(request: pytest.FixtureRequest) -> AsyncIterator[Harness[CodeStore]]:
+    harness: Harness[CodeStore] = await request.param()
     try:
         yield harness
     finally:

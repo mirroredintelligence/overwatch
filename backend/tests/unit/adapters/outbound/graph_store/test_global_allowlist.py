@@ -459,6 +459,7 @@ def test_a_comment_or_string_holding_a_pattern_is_not_one_and_a_spaceless_read_i
     [
         "MATCH (t:Tenant) RETURN 'unterminated AS text",
         "MATCH (t:Tenant) RETURN t.id AS id /* unterminated",
+        "MATCH (t:Tenant) RETURN t.`id AS id",
     ],
 )
 def test_an_unterminated_string_or_comment_is_refused(

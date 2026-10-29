@@ -152,6 +152,8 @@ def test_the_node_holds_no_value_that_is_a_map_a_list_or_a_json_string() -> None
         {"timeZone": "America/New_York"},
         {"displayName": ""},
         {"id": None},
+        {"countryCode": ""},
+        {"timeZone": ""},
     ],
 )
 def test_a_node_the_domain_refuses_is_a_record_fault_that_repeats_no_value(
@@ -175,6 +177,8 @@ def test_a_node_missing_a_required_property_is_a_record_fault() -> None:
         "organisationType",
         "status",
         "createdAt",
+        "countryCode",
+        "timeZone",
         "epoch",
         "hashKeyVersion",
     ):

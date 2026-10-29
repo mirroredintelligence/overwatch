@@ -1,7 +1,7 @@
 """The command-result codec (P15, DEC-090). Pure: no Neo4j, no clock."""
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -9,6 +9,7 @@ import pytest
 from diucs.application.actor import Actor
 from diucs.application.idempotency import decode_result, encode_result
 from diucs.application.ports.outbound.audit import AuditEntry
+from diucs.application.use_cases.criteria import ConfirmCriteriaResult
 from diucs.domain.codes import Role
 
 AT = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -104,3 +105,32 @@ def test_a_dataclass_outside_the_allowed_packages_is_refused_on_decode_and_encod
         decode_result(type_name, stored)
     with pytest.raises(ValueError):
         encode_result(Outside(count=1))
+
+
+def test_a_calendar_date_in_a_result_round_trips_as_the_same_date() -> None:
+    result = ConfirmCriteriaResult(criteria_id="crit-ucr-west-4", review_by=date(2027, 4, 23))
+    type_name, text = encode_result(result)
+    decoded = decode_result(type_name, text)
+    assert decoded == result
+    assert type(decoded.review_by) is date
+
+
+def test_a_calendar_date_is_stored_as_its_own_text_not_as_an_instant() -> None:
+    _, text = encode_result(ConfirmCriteriaResult(criteria_id="c", review_by=date(2027, 4, 23)))
+    assert '"review_by":{"$date":"2027-04-23"}' in text
+
+
+@pytest.mark.parametrize(
+    "stored_day",
+    ["2027-02-30", "2027-1-5", "27-01-05", "2027-01-31T00:00:00Z", "2027-01-31 "],
+)
+def test_a_stored_day_that_is_not_a_calendar_date_in_canonical_form_is_refused(
+    stored_day: str,
+) -> None:
+    type_name = "diucs.application.use_cases.criteria:ConfirmCriteriaResult"
+    stored = (
+        '{"$type":"' + type_name + '","fields":{"criteria_id":"c",'
+        '"review_by":{"$date":"' + stored_day + '"},"replayed":false}}'
+    )
+    with pytest.raises(ValueError):
+        decode_result(type_name, stored)

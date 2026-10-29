@@ -5,8 +5,9 @@ The JSON text is an intermediate form only: the Neo4j store writes it as typed g
 stores the text (DEC-001, DEC-090).
 
 Allowed result types are dataclasses and enum members defined in diucs.application or diucs.domain
-(DEC-090 item 2). Decoding imports nothing else. Tuples, frozensets, enums, dataclasses and UTC
-datetimes keep their types through the round trip, so a replay returns an equal object.
+(DEC-090 item 2). Decoding imports nothing else. Tuples, frozensets, enums, dataclasses, UTC
+datetimes and calendar dates keep their types through the round trip, so a replay returns an equal
+object.
 """
 
 import dataclasses
@@ -14,13 +15,14 @@ import importlib
 import json
 import math
 import re
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import Enum
 from typing import Protocol
 
 ALLOWED_PACKAGES = ("diucs.application", "diucs.domain")
 
 DATETIME_TAG = "$datetime"
+DATE_TAG = "$date"
 ENUM_TAG = "$enum"
 TUPLE_TAG = "$tuple"
 FROZENSET_TAG = "$frozenset"
@@ -29,6 +31,7 @@ FIELDS_KEY = "fields"
 VALUE_KEY = "value"
 
 _INSTANT = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{6})?Z")
+_DAY = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _INT_MIN = -(2**63)
 _INT_MAX = 2**63 - 1
 
@@ -63,6 +66,16 @@ def parse_instant(text: str) -> datetime:
     value = datetime.fromisoformat(text)
     if format_instant(value) != text:
         raise ValueError("an instant must be UTC text in the form 2026-10-23T13:00:00Z")
+    return value
+
+
+def parse_day(text: str) -> date:
+    """The calendar date for a canonical text (YYYY-MM-DD). Any other text is refused."""
+    if not _DAY.fullmatch(text):
+        raise ValueError("a day must be text in the form 2026-10-23")
+    value = date.fromisoformat(text)
+    if value.isoformat() != text:
+        raise ValueError("a day must be text in the form 2026-10-23")
     return value
 
 
@@ -124,6 +137,8 @@ def _encode(value: object) -> object:
         if value.utcoffset() is None:
             raise ValueError("a naive datetime cannot be stored")
         return {DATETIME_TAG: format_instant(value)}
+    if isinstance(value, date):
+        return {DATE_TAG: value.isoformat()}
     if dataclasses.is_dataclass(value) and not isinstance(value, type):
         cls = type(value)
         _check_type(cls)
@@ -173,6 +188,8 @@ def _decode(tree: object) -> object:
     keys = set(tree)
     if keys == {DATETIME_TAG}:
         return parse_instant(_text(tree[DATETIME_TAG]))
+    if keys == {DATE_TAG}:
+        return parse_day(_text(tree[DATE_TAG]))
     if keys == {ENUM_TAG, VALUE_KEY}:
         enum_cls = _resolve(_text(tree[ENUM_TAG]))
         if not issubclass(enum_cls, Enum):

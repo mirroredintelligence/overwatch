@@ -23,6 +23,7 @@ from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.aggregates import AggregateRepository
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
+from diucs.application.ports.outbound.geo import ServicePositions
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
 from diucs.application.ports.outbound.messaging import (
@@ -46,6 +47,7 @@ from diucs.application.ports.outbound.repositories import (
     ServiceMoveRepository,
     ServiceRepository,
 )
+from diucs.application.ports.outbound.safety import SafetyReportRepository
 from diucs.application.ports.outbound.support import SupportRepository
 from diucs.application.ports.outbound.support_tickets import SupportTicketRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
@@ -54,11 +56,13 @@ from diucs.application.tenancy import ScopeId
 
 class UnitOfWork(Protocol):
     services: ServiceRepository
+    positions: ServicePositions
     alert_subscriptions: AlertSubscriptionRepository
     alerts: AlertRepository
     clinical_requests: ClinicalRequestRepository
     service_moves: ServiceMoveRepository
     protected_text: ProtectedTextStore
+    safety_reports: SafetyReportRepository
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository

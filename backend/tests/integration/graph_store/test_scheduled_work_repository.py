@@ -322,6 +322,4 @@ async def test_the_same_work_id_in_two_tenants_is_two_records(
         )
         return [(record["tenant"], int(record["n"])) async for record in result]
 
-    assert sorted(await read_tx(two, subjects)) == sorted(
-        [(tenant_id, 1), (other_tenant_id, 1)]
-    )
+    assert sorted(await read_tx(two, subjects)) == sorted([(tenant_id, 1), (other_tenant_id, 1)])

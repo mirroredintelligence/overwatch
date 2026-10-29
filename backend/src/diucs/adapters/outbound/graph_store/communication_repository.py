@@ -14,14 +14,23 @@ G05 convention (a Resource node with placeholder=true, created only when it does
 """
 
 from collections.abc import Collection
-from datetime import UTC
-from typing import Any, Literal
+from datetime import UTC, datetime
+from typing import Any, Final, Literal
 
 from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    NodeSpec,
+    Scenario,
+    SeedNode,
+    SeedRel,
+    TenantSeed,
+)
 from diucs.application.ports.outbound.messaging import (
     DELIVERY_STATUSES,
     Communication,
@@ -45,22 +54,274 @@ _FHIR_STATUS = {
     "grouped": "completed",
 }
 
+
+def _key(system: str, code: str) -> str:
+    return f"Concept{_KEY_SEPARATOR}{system}{_KEY_SEPARATOR}{code}"
+
+
 _READ = (
-    "OPTIONAL MATCH (c)-[:TOPIC]->(topic:Concept) "
-    "OPTIONAL MATCH (c)-[:MEDIUM]->(medium:Concept) "
-    "OPTIONAL MATCH (c)-[:RECIPIENT]->(role:PractitionerRole) "
-    "OPTIONAL MATCH (c)-[:ABOUT]->(subject:HealthcareService) "
+    "OPTIONAL MATCH (c)-[:TOPIC]->(topic:Concept {tenantId: $tenant}) "
+    "OPTIONAL MATCH (c)-[:MEDIUM]->(medium:Concept {tenantId: $tenant}) "
+    "OPTIONAL MATCH (c)-[:RECIPIENT]->(role:PractitionerRole {tenantId: $tenant}) "
+    "OPTIONAL MATCH (c)-[:ABOUT]->(subject:HealthcareService {tenantId: $tenant}) "
     "RETURN properties(c) AS props, topic.code AS messageId, medium.code AS channel, "
     "role.id AS recipientRoleId, subject.id AS aboutId"
 )
 
+# The scenarios of the statements (TEN-015, DEC-142 item 5, DEC-150). Both tenants get the same
+# nodes with the same ids and keys, and each tenant's message text is `Marked`, so a row from the
+# other tenant reads differently. The composite keys (tenantId plus the key) let the two share them.
+_SENT: Final = datetime(2026, 10, 25, 9, 0, 0, tzinfo=UTC)
+_MESSAGE_TEXT: Final = "how many referrals can you take?"
+_PROMPT_NODE: Final = SeedNode(
+    "prompt",
+    ("Resource", "Communication"),
+    {
+        "id": "comm-1",
+        "status": "completed",
+        "deliveryStatus": "sent",
+        "payloadText": Marked(_MESSAGE_TEXT),
+        "sent": _SENT,
+        "providerMessageId": "SM-1",
+    },
+)
+_UNLINKED_NODE: Final = SeedNode(
+    "unlinked",
+    ("Resource", "Communication"),
+    {
+        "id": "comm-2",
+        "status": "completed",
+        "deliveryStatus": "sent",
+        "payloadText": Marked("a second prompt"),
+        "sent": _SENT,
+        "providerMessageId": "SM-2",
+    },
+)
+_REPLY_NODE: Final = SeedNode(
+    "reply",
+    ("Resource", "Communication"),
+    {
+        "id": "comm-3",
+        "status": "completed",
+        "deliveryStatus": "received",
+        "payloadText": Marked("Y"),
+        "received": _SENT,
+    },
+)
+_ROLE_NODE: Final = SeedNode(
+    "role",
+    ("Resource", "PractitionerRole"),
+    {"id": "role-1", "key": "PractitionerRole/role-1", "name": Marked("Duty Manager")},
+)
+_SERVICE_NODE: Final = SeedNode(
+    "service",
+    ("Resource", "HealthcareService"),
+    {"id": "svc-1", "key": "HealthcareService/svc-1", "name": Marked("UCR West")},
+)
+_TOPIC_NODE: Final = SeedNode(
+    "topic",
+    ("Concept",),
+    {"key": _key(MESSAGE_SYSTEM, "C1"), "system": MESSAGE_SYSTEM, "code": "C1"},
+)
+_MEDIUM_NODE: Final = SeedNode(
+    "medium",
+    ("Concept",),
+    {"key": _key(CHANNEL_SYSTEM, "text"), "system": CHANNEL_SYSTEM, "code": "text"},
+)
+_TOPIC_EDGE: Final = SeedRel("prompt", "TOPIC", "topic")
+_MEDIUM_EDGE: Final = SeedRel("prompt", "MEDIUM", "medium")
+_RECIPIENT_EDGE: Final = SeedRel("prompt", "RECIPIENT", "role")
+_ABOUT_EDGE: Final = SeedRel("prompt", "ABOUT", "service")
+_PROMPT_SEED: Final = TenantSeed(
+    nodes=(_ROLE_NODE, _SERVICE_NODE, _TOPIC_NODE, _MEDIUM_NODE, _PROMPT_NODE),
+    rels=(_TOPIC_EDGE, _MEDIUM_EDGE, _RECIPIENT_EDGE, _ABOUT_EDGE),
+)
+# The latest prompt scenario: both tenants send at the same time, so the order is decided by the id.
+# The id is `Marked`, so it is `-B` for tenant B, and `ORDER BY c.id DESC` puts tenant B's prompt
+# first when the statement is not scoped: the leak then shows in the rows (TEN-015).
+_LATEST_PROMPT_NODE: Final = SeedNode(
+    "prompt",
+    ("Resource", "Communication"),
+    {
+        "id": Marked("comm-latest"),
+        "status": "completed",
+        "deliveryStatus": "sent",
+        "payloadText": Marked(_MESSAGE_TEXT),
+        "sent": _SENT,
+        "providerMessageId": "SM-1",
+    },
+)
+_LATEST_SEED: Final = TenantSeed(
+    nodes=(_ROLE_NODE, _SERVICE_NODE, _TOPIC_NODE, _MEDIUM_NODE, _LATEST_PROMPT_NODE),
+    rels=(_TOPIC_EDGE, _MEDIUM_EDGE, _RECIPIENT_EDGE, _ABOUT_EDGE),
+)
+_ROW_OF_PROMPT: Final = {
+    "messageId": "C1",
+    "channel": "text",
+    "recipientRoleId": "role-1",
+    "aboutId": "svc-1",
+    "props": {"id": "comm-1", "payloadText": Marked(_MESSAGE_TEXT), "deliveryStatus": "sent"},
+}
+_PROVIDER_ID: Final = "SM-1"
+
+
+def _scenario(
+    description: str,
+    seed: TenantSeed,
+    params: dict[str, Any],
+    *,
+    lookup: tuple[str, ...] = (),
+    new: tuple[str, ...] = (),
+    expect: Expect | None = None,
+) -> Scenario:
+    return Scenario(
+        description, seed=seed, params=params, lookup=lookup, new=new, expect=expect or Expect()
+    )
+
+
+_ADD_SEED: Final = TenantSeed(
+    nodes=(_ROLE_NODE, _SERVICE_NODE, _TOPIC_NODE),
+)
+_LINK_SEED: Final = TenantSeed(
+    nodes=(_ROLE_NODE, _SERVICE_NODE, _TOPIC_NODE, _MEDIUM_NODE, _UNLINKED_NODE),
+    rels=(
+        SeedRel("unlinked", "TOPIC", "topic"),
+        SeedRel("unlinked", "MEDIUM", "medium"),
+    ),
+)
+_REPLY_SEED: Final = TenantSeed(
+    nodes=(_ROLE_NODE, _SERVICE_NODE, _TOPIC_NODE, _MEDIUM_NODE, _PROMPT_NODE, _REPLY_NODE),
+    rels=(_TOPIC_EDGE, _MEDIUM_EDGE, _RECIPIENT_EDGE, _ABOUT_EDGE),
+)
+
+_SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-COMM-ADD": _scenario(
+        "store a new prompt whose topic is held and whose channel is not",
+        _ADD_SEED,
+        {
+            "id": "comm-new",
+            "status": "in-progress",
+            "deliveryStatus": "queued",
+            "payloadText": "a new prompt",
+            "sent": _SENT,
+            "received": None,
+            "providerMessageId": None,
+            "inResponseTo": None,
+            "topicKey": _key(MESSAGE_SYSTEM, "C1"),
+            "messageSystem": MESSAGE_SYSTEM,
+            "messageId": "C1",
+            "mediumKey": _key(CHANNEL_SYSTEM, "text"),
+            "channelSystem": CHANNEL_SYSTEM,
+            "channel": "text",
+        },
+        new=(
+            "id",
+            "status",
+            "deliveryStatus",
+            "payloadText",
+            "mediumKey",
+            "channelSystem",
+            "channel",
+        ),
+        expect=Expect(
+            rows=({"written": 1},),
+            nodes={"Resource": 1, "Communication": 1, "Concept": 1},
+            rels={"TOPIC": 1, "MEDIUM": 1},
+            after=(NodeSpec(("Communication",), {"id": "comm-new", "deliveryStatus": "queued"}),),
+        ),
+    ),
+    "Q-COMM-LINK-RECIPIENT": _scenario(
+        "link an unlinked communication to the role that holds the phone",
+        _LINK_SEED,
+        {"id": "comm-2", "key": "PractitionerRole/role-1", "targetId": "role-1"},
+        lookup=("id",),
+        expect=Expect(rows=({"linked": 1},), rels={"RECIPIENT": 1}),
+    ),
+    "Q-COMM-LINK-ABOUT": _scenario(
+        "link an unlinked communication to the service it is about",
+        _LINK_SEED,
+        {"id": "comm-2", "key": "HealthcareService/svc-1", "targetId": "svc-1"},
+        lookup=("id",),
+        expect=Expect(rows=({"linked": 1},), rels={"ABOUT": 1}),
+    ),
+    "Q-COMM-LINK-REPLY": _scenario(
+        "link a reply to the prompt it answers",
+        _REPLY_SEED,
+        {"id": "comm-3", "inResponseTo": "comm-1"},
+        lookup=("id", "inResponseTo"),
+        expect=Expect(rows=({"linked": 1},), rels={"IN_RESPONSE_TO": 1}),
+    ),
+    "Q-COMM-EXISTS": _scenario(
+        "count the communication by its id",
+        _PROMPT_SEED,
+        {"id": "comm-1"},
+        lookup=("id",),
+        expect=Expect(rows=({"found": 1},)),
+    ),
+    "Q-COMM-GET": _scenario(
+        "read a communication with its topic, channel, role and service",
+        _PROMPT_SEED,
+        {"id": "comm-1"},
+        lookup=("id",),
+        expect=Expect(rows=(_ROW_OF_PROMPT,)),
+    ),
+    "Q-COMM-BY-PROVIDER": _scenario(
+        "read a communication by its provider message id",
+        _PROMPT_SEED,
+        {"providerMessageId": _PROVIDER_ID},
+        lookup=("providerMessageId",),
+        expect=Expect(rows=(_ROW_OF_PROMPT,)),
+    ),
+    "Q-COMM-SET-STATUS": _scenario(
+        "move a sent communication to delivered by its provider message id",
+        _PROMPT_SEED,
+        {
+            "providerMessageId": _PROVIDER_ID,
+            "status": "delivered",
+            "fhirStatus": "completed",
+            "movesFrom": ["queued", "sent"],
+        },
+        lookup=("providerMessageId",),
+        new=("status", "movesFrom"),
+        expect=Expect(
+            rows=({"updated": 1},),
+            after=(
+                NodeSpec(
+                    ("Communication",),
+                    {"providerMessageId": _PROVIDER_ID, "deliveryStatus": "delivered"},
+                ),
+            ),
+        ),
+    ),
+    "Q-COMM-LATEST-PROMPT": _scenario(
+        "find the latest prompt sent to a role for a message id",
+        _LATEST_SEED,
+        {
+            "roleIds": ["role-1"],
+            "messageIds": ["C1"],
+            "messageSystem": MESSAGE_SYSTEM,
+        },
+        expect=Expect(
+            rows=(
+                {
+                    **_ROW_OF_PROMPT,
+                    "props": {
+                        **_ROW_OF_PROMPT["props"],
+                        "id": Marked("comm-latest"),
+                    },
+                },
+            )
+        ),
+    ),
+}
+
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-COMM-ADD": (
-        "MERGE (topic:Concept {key: $topicKey}) "
+        "MERGE (topic:Concept {key: $topicKey, tenantId: $tenant}) "
         "ON CREATE SET topic.system = $messageSystem, topic.code = $messageId "
-        "MERGE (medium:Concept {key: $mediumKey}) "
+        "MERGE (medium:Concept {key: $mediumKey, tenantId: $tenant}) "
         "ON CREATE SET medium.system = $channelSystem, medium.code = $channel "
-        "CREATE (c:Resource:Communication {id: $id, status: $status, "
+        "CREATE (c:Resource:Communication {id: $id, tenantId: $tenant, status: $status, "
         "deliveryStatus: $deliveryStatus, payloadText: $payloadText, sent: $sent, "
         "received: $received, providerMessageId: $providerMessageId, "
         "inResponseTo: $inResponseTo}) "
@@ -69,38 +330,42 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "write",
     ),
     "Q-COMM-LINK-RECIPIENT": (
-        "MATCH (c:Communication {id: $id}) "
-        "MERGE (r:Resource:PractitionerRole {key: $key}) "
+        "MATCH (c:Communication {id: $id, tenantId: $tenant}) "
+        "MERGE (r:Resource:PractitionerRole {key: $key, tenantId: $tenant}) "
         "ON CREATE SET r.id = $targetId, r.placeholder = true "
         "CREATE (c)-[:RECIPIENT]->(r) RETURN count(r) AS linked",
         "write",
     ),
     "Q-COMM-LINK-ABOUT": (
-        "MATCH (c:Communication {id: $id}) "
-        "MERGE (s:Resource:HealthcareService {key: $key}) "
+        "MATCH (c:Communication {id: $id, tenantId: $tenant}) "
+        "MERGE (s:Resource:HealthcareService {key: $key, tenantId: $tenant}) "
         "ON CREATE SET s.id = $targetId, s.placeholder = true "
         "CREATE (c)-[:ABOUT]->(s) RETURN count(s) AS linked",
         "write",
     ),
     "Q-COMM-LINK-REPLY": (
-        "MATCH (c:Communication {id: $id}) MATCH (p:Communication {id: $inResponseTo}) "
+        "MATCH (c:Communication {id: $id, tenantId: $tenant}) "
+        "MATCH (p:Communication {id: $inResponseTo, tenantId: $tenant}) "
         "CREATE (c)-[:IN_RESPONSE_TO]->(p) RETURN count(p) AS linked",
         "write",
     ),
     "Q-COMM-EXISTS": (
-        "MATCH (c:Communication {id: $id}) RETURN count(c) AS found",
+        "MATCH (c:Communication {id: $id, tenantId: $tenant}) RETURN count(c) AS found",
         "read",
     ),
-    "Q-COMM-GET": ("MATCH (c:Communication {id: $id}) " + _READ, "read"),
+    "Q-COMM-GET": ("MATCH (c:Communication {id: $id, tenantId: $tenant}) " + _READ, "read"),
+    # No LIMIT: a provider id is unique within a tenant, so one row comes back. A LIMIT with no
+    # order would hide another tenant's row from the generated test (TEN-015), so it is not used.
     "Q-COMM-BY-PROVIDER": (
-        "MATCH (c:Communication {providerMessageId: $providerMessageId}) WITH c LIMIT 1 " + _READ,
+        "MATCH (c:Communication {providerMessageId: $providerMessageId, tenantId: $tenant}) "
+        + _READ,
         "read",
     ),
     # The id is set to itself first: that takes the record's write lock, and the status is read
     # after it (lesson L73), so a receipt that waited for another sees the status the other left
     # and not the one it read before the lock. The id never changes, so the self-SET is safe (L142).
     "Q-COMM-SET-STATUS": (
-        "MATCH (c:Communication {providerMessageId: $providerMessageId}) "
+        "MATCH (c:Communication {providerMessageId: $providerMessageId, tenantId: $tenant}) "
         "SET c.id = c.id "
         "WITH c WHERE c.deliveryStatus IN $movesFrom "
         "SET c.deliveryStatus = $status, c.status = $fhirStatus "
@@ -108,21 +373,25 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "write",
     ),
     "Q-COMM-LATEST-PROMPT": (
-        "MATCH (c:Communication)-[:TOPIC]->(t:Concept) "
+        "MATCH (c:Communication {tenantId: $tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
         "WHERE t.system = $messageSystem AND t.code IN $messageIds "
         "AND c.deliveryStatus <> 'received' "
-        "MATCH (c)-[:RECIPIENT]->(role:PractitionerRole) WHERE role.id IN $roleIds "
+        "MATCH (c)-[:RECIPIENT]->(role:PractitionerRole {tenantId: $tenant}) "
+        "WHERE role.id IN $roleIds "
         "WITH c ORDER BY c.sent DESC, c.id DESC LIMIT 1 " + _READ,
         "read",
     ),
 }
 
 for _query_id, (_cypher, _mode) in _QUERIES.items():
-    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode))
-
-
-def _key(system: str, code: str) -> str:
-    return f"Concept{_KEY_SEPARATOR}{system}{_KEY_SEPARATOR}{code}"
+    REGISTRY.register(
+        NamedQuery(
+            id=_query_id,
+            cypher=_cypher,
+            mode=_mode,
+            scenario=_SCENARIOS[_query_id],
+        )
+    )
 
 
 def _check(communication: Communication) -> None:

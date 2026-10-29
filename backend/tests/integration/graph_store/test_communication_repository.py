@@ -467,7 +467,7 @@ async def test_receipts_applied_in_every_order_all_end_delivered(
     assert results.count(True) <= 2  # queued to sent, then sent to delivered: never more
 
 
-# --- two tenants (TEN-015): a communication, its provider id and its concepts belong to one tenant ---
+# --- two tenants (TEN-015): a communication, its provider id and its concepts are one tenant's ---
 #
 # Both tenants use the same communication id, provider id and concept codes. The contracted
 # container holds the composite keys only (TEN-005, TEN-032), so the two tenants can share them.
@@ -514,9 +514,7 @@ async def test_another_tenants_communication_reads_as_absent_and_cannot_be_chang
 
     async def as_a_replies(tx: AsyncManagedTransaction) -> None:
         with pytest.raises(NotFound):
-            await Neo4jCommunicationRepository(tx).add(
-                _reply(id="comm-2", in_response_to="comm-1")
-            )
+            await Neo4jCommunicationRepository(tx).add(_reply(id="comm-2", in_response_to="comm-1"))
 
     with bind_tenant(tenant_id):
         assert await read_tx(two, as_a_reads) == (None, None, None)

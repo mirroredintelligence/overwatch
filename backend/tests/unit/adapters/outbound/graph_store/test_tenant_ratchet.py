@@ -239,8 +239,8 @@ TEN_015 = frozenset(
 def test_the_communication_and_scheduled_work_statements_are_converted(
     statements: dict[str, NamedQuery],
 ) -> None:
-    assert TEN_015 & UNCONVERTED == set()
-    assert TEN_015 <= set(statements)
+    assert set() == TEN_015 & UNCONVERTED
+    assert set(statements) >= TEN_015
     for query_id in sorted(TEN_015):
         query = statements[query_id]
         assert "tenantId: $tenant" in query.cypher, query_id

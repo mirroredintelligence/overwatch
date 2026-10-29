@@ -13,9 +13,11 @@ from typing import Final, Protocol
 
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.device import Device
 from diucs.domain.rules.identity_policy import CodeState, PinState
 
 PHONE_HASH_SECRET: Final = "phone-hash"
+DEVICE_TOKEN_SECRET: Final = "device-token"
 
 _SEPARATORS: Final = re.compile(r"[ \-().]")
 _UK_MOBILE: Final = re.compile(r"07[0-9]{9}")
@@ -97,10 +99,27 @@ class PinStore(Protocol):
 
 
 class DeviceRegistry(Protocol):
-    """The devices a practitioner has registered (P16). A revoked device is never known again."""
+    """The devices a practitioner has registered (P16), and the wall screens of the tenant (U10).
+    A revoked device is never known again."""
 
     async def register(self, practitioner_id: str, device_id: str, at: datetime) -> None: ...
 
     async def known(self, practitioner_id: str, device_id: str) -> bool: ...
 
     async def revoke_all(self, practitioner_id: str) -> None: ...
+
+    async def get(self, device_id: str) -> Device | None:
+        """The wall screen of the bound tenant with this id, or None. Takes the screen's write lock
+        first, so a read that decides a single-use change cannot interleave with another (L85): use
+        it inside the unit of work that saves. A device of another tenant is None."""
+        ...
+
+    async def save(self, device: Device) -> None:
+        """Create or replace the wall screen of the bound tenant with this id. A device id that
+        another tenant or a practitioner's device already holds is Conflict."""
+        ...
+
+    async def find_by_token_hash(self, token_hash: str) -> Device | None:
+        """The ACTIVE wall screen of the bound tenant whose token hashes to this, or None: a screen
+        that is not active, or of another tenant, is never found. More than one is Conflict."""
+        ...

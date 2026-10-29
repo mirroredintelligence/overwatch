@@ -58,6 +58,7 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
 )
 from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from diucs.adapters.outbound.graph_store.support_repository import Neo4jSupportRepository
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.clock import Clock
@@ -77,6 +78,7 @@ from diucs.application.ports.outbound.repositories import (
     ScopeListRepository,
     ServiceRepository,
 )
+from diucs.application.ports.outbound.support import SupportRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, claim_unit, release_unit, scope_for_new_unit
@@ -106,6 +108,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "devices": lambda tx, store: Neo4jDeviceRegistry(tx),
     "idempotency": lambda tx, store: Neo4jIdempotencyStore(tx),
     "processed": lambda tx, store: Neo4jProcessedMessages(tx),
+    "support": lambda tx, store: Neo4jSupportRepository(tx),
 }
 
 _NOT_OPEN = "the unit of work is not open; use it inside 'async with'"
@@ -161,6 +164,7 @@ class Neo4jUnitOfWork:
     devices: DeviceRegistry
     idempotency: IdempotencyStore
     processed: ProcessedMessages
+    support: SupportRepository
 
     def __init__(
         self,

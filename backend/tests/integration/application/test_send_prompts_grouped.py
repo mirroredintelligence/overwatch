@@ -691,6 +691,24 @@ async def test_a_grouped_services_other_reporter_on_another_phone_still_gets_a_p
     assert len(await _works(uow_factory, "ucr-east", WorkKind.PROMPT_DUE)) == 1
 
 
+async def test_two_roles_of_one_service_on_one_phone_get_one_grouped_text(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    # The phone is texted once, not once for each post it holds for West.
+    await _seed_phone(uow_factory, seed_service, WEST, EAST)
+    await _seed_people(uow_factory, (), (_role("ucr-west", number=2),))
+    use_case, _ = _rig(uow_factory, neo4j_driver)
+
+    await use_case.execute(_command("ucr-west"))
+
+    rows = await _communications(neo4j_driver)
+    assert sorted((r["service"], r["messageId"]) for r in rows) == [
+        ("ucr-east", "C9"),
+        ("ucr-west", "C9"),
+    ]
+    assert len(_sent(await _outbox(uow_factory))) == 1
+
+
 async def test_a_phone_that_is_not_the_one_asked_is_not_grouped_with_the_others(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

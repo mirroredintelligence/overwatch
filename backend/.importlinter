@@ -32,6 +32,7 @@ forbidden_modules =
     httpx
     twilio
     pydantic_settings
+    opentelemetry
     diucs.application
     diucs.adapters
     diucs.bootstrap
@@ -49,6 +50,7 @@ forbidden_modules =
     httpx
     twilio
     pydantic_settings
+    opentelemetry
     diucs.adapters
     diucs.bootstrap
 

@@ -188,3 +188,32 @@ def test_an_endpoint_builds_one_exporter_for_that_endpoint(
     assert provider is not None
     assert built == ["http://collector:4318/v1/traces"]
     set_tracer(NoopTracer())
+
+
+def test_fastapi_spans_carry_the_route_template_and_no_raw_url(
+    provider, exporter: InMemorySpanExporter
+) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    app = FastAPI()
+
+    @app.get("/fhir/HealthcareService/{service_id}")
+    def read_service(service_id: str) -> dict[str, str]:
+        return {"id": service_id}
+
+    otel.instrument_fastapi(app, provider)
+    client = TestClient(app)
+
+    response = client.get("/fhir/HealthcareService/SVC-0042?name=Sample+Patient")
+
+    assert response.status_code == 200
+    provider.force_flush()
+    server_spans = [span for span in exporter.get_finished_spans() if span.attributes]
+    assert server_spans
+    for span in server_spans:
+        assert span.attributes.get("http.route") in (None, "/fhir/HealthcareService/{service_id}")
+        assert not any("SVC-0042" in str(value) for value in span.attributes.values())
+        assert not any("Sample" in str(value) for value in span.attributes.values())
+        assert "url.full" not in span.attributes
+        assert "http.target" not in span.attributes

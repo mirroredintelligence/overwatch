@@ -306,6 +306,10 @@ class FlagRepository(Protocol):
         another service raises ValidationFailed, and an id that exists raises Conflict."""
         ...
 
+    async def report_flag(self, flag_id: str) -> ReportFlag | None:
+        """The report flag with this id, open or resolved, or None (U39)."""
+        ...
+
     async def open_report_flags(self, service_id: str | None = None) -> list[ReportFlag]:
         """Open report flags, oldest first, for one service or for all services."""
         ...

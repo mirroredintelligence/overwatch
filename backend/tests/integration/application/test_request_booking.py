@@ -47,9 +47,13 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SERVICE_ID = "ucr-west"
 CASE_ID = "case-1001"
-CASE_REFERENCE = "CS-1001"
+# A case reference is four digits with no leading zero (case_repository._check_reference).
+REFERENCES = {"case-1001": "1001", "case-1002": "1002", "case-1003": "1003", "case-closed": "1004"}
 REQUESTED_AT = datetime(2026, 10, 29, 14, 16, tzinfo=UTC)
+# The sample full postcode. A case stores its district only (DEC-067 item 1), so open_case holds
+# DISTRICT; the full postcode must appear in no outbox payload.
 POSTCODE = "DT4 8XX"
+DISTRICT = "DT4"
 LINK_HOST = "https://dorset.diucs.example"
 SECRETS = FixedSecretStore({LINK_TOKEN_SECRET: b"link-token-test-secret-0123456789abcdef"})
 
@@ -79,10 +83,10 @@ REPORTER = Actor(
 def open_case(case_id: str = CASE_ID, **changes: Any) -> Case:
     case = Case(
         id=case_id,
-        reference=CASE_REFERENCE if case_id == CASE_ID else f"{case_id}-ref",
+        reference=REFERENCES[case_id],
         referrer_type=ReferrerType.GP,
         age_band=AgeBand.A80_PLUS,
-        postcode=POSTCODE,
+        postcode=DISTRICT,
         needs=(NeedCategory.FALL_NO_INJURY, NeedCategory.FRAILTY),
         urgency=Urgency.WITHIN_2_HRS,
         scores=(),

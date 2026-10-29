@@ -12,6 +12,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Final
 
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.schedule import reply_by
 
 # [ASSUMED] domain-rules 2.4: the 10-minute grouping window. Owner-pending: the clinical safety
@@ -51,7 +52,10 @@ def letters_for(names: Sequence[str]) -> dict[str, str]:
     return {name: chr(ord("A") + index) for index, name in enumerate(sorted(names))}
 
 
-def group_due(due: Sequence[tuple[str, str, datetime]]) -> list[PromptGroup]:
+def group_due(
+    due: Sequence[tuple[str, str, datetime]],
+    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+) -> list[PromptGroup]:
     seen_ids: set[str] = set()
     entries: list[tuple[datetime, str, str]] = []
     for service_id, name, when in due:
@@ -88,7 +92,7 @@ def group_due(due: Sequence[tuple[str, str, datetime]]) -> list[PromptGroup]:
     return groups
 
 
-def phone_overloaded(count: int) -> bool:
+def phone_overloaded(count: int, policy: TenantPolicy = DEFAULT_POLICY) -> bool:  # RED STUB
     if count < 0:
         raise ValidationFailed("count", "must not be negative")
     return count > MAX_SERVICES_PER_PHONE

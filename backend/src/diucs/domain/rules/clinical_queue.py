@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Final
 
 from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 
 TAKE_TIMEOUT: Final = timedelta(minutes=10)
 NOTE_MAX: Final = 280
@@ -72,7 +73,12 @@ def _is_idle(request: ClinicalRequest, now: datetime) -> bool:
     return request.taken_at is not None and now - _utc(request.taken_at, "taken_at") >= TAKE_TIMEOUT
 
 
-def take(request: ClinicalRequest, clinician_id: str, now: datetime) -> ClinicalRequest:
+def take(
+    request: ClinicalRequest,
+    clinician_id: str,
+    now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+) -> ClinicalRequest:
     """Lock the request to this clinician. A lock held by someone else is free once idle."""
     clinician = _clinician(clinician_id)
     now = _utc(now, "now")
@@ -85,7 +91,11 @@ def take(request: ClinicalRequest, clinician_id: str, now: datetime) -> Clinical
     raise Conflict("this request is taken by another clinical advisor")
 
 
-def return_if_idle(request: ClinicalRequest, now: datetime) -> ClinicalRequest:
+def return_if_idle(
+    request: ClinicalRequest,
+    now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+) -> ClinicalRequest:
     """Clear an unadvised lock once it is ten minutes old. Advised requests are never released."""
     now = _utc(now, "now")
     if request.advised_at is None and _is_idle(request, now):
@@ -93,7 +103,12 @@ def return_if_idle(request: ClinicalRequest, now: datetime) -> ClinicalRequest:
     return request
 
 
-def give_advice(request: ClinicalRequest, clinician_id: str, now: datetime) -> ClinicalRequest:
+def give_advice(
+    request: ClinicalRequest,
+    clinician_id: str,
+    now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+) -> ClinicalRequest:
     """Record advice by the taker, once, while the lock is still live."""
     clinician = _clinician(clinician_id)
     now = _utc(now, "now")

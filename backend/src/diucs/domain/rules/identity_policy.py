@@ -19,6 +19,7 @@ from enum import StrEnum
 from typing import Final
 
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 
 CODE_VALID_FOR: Final = timedelta(minutes=10)
 CODE_MAX_TRIES: Final = 5
@@ -121,7 +122,10 @@ def validate_pin_format(pin: str) -> None:
 
 
 def needs_reverification(
-    last_verified_at: datetime | None, now: datetime, device_known: bool
+    last_verified_at: datetime | None,
+    now: datetime,
+    device_known: bool,
+    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
 ) -> bool:
     """True when the caller must ask for a text code: new device, never verified, or 30 days old."""
     now_utc = _as_utc(now, "now")

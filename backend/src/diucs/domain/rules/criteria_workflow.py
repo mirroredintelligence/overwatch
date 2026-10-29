@@ -15,6 +15,7 @@ from types import MappingProxyType
 from diucs.domain.codes import CriteriaStatus
 from diucs.domain.errors import InvalidTransition, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 
 REVIEW_REMINDER_BEFORE = timedelta(days=14)
 """[ASSUMED] the reminder is due from this long before review-by, up to and including it."""
@@ -63,7 +64,9 @@ def is_review_overdue(criteria: ServiceCriteria, today: date) -> bool:
     return _calendar_date(today, "today") > criteria.review_by
 
 
-def review_reminder_due(criteria: ServiceCriteria, today: date) -> bool:
+def review_reminder_due(
+    criteria: ServiceCriteria, today: date, policy: TenantPolicy = DEFAULT_POLICY
+) -> bool:  # RED STUB
     """True from REVIEW_REMINDER_BEFORE before review-by, up to and including review-by."""
     checked_today = _calendar_date(today, "today")
     return criteria.review_by - REVIEW_REMINDER_BEFORE <= checked_today <= criteria.review_by

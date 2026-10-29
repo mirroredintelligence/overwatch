@@ -17,6 +17,7 @@ from datetime import UTC, datetime, timedelta
 from diucs.domain.codes import ReportFlagReason, ReportSource
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 
 MANY_CHANGES_WINDOW = timedelta(minutes=5)
 MANY_CHANGES_COUNT = 3
@@ -27,6 +28,7 @@ def flags_for_report(
     new: CapacityReport,
     recent: Sequence[CapacityReport],
     profile: ServiceProfile,
+    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
 ) -> list[ReportFlagReason]:
     """The flags raised by `new`, in rule order, each at most once.
 

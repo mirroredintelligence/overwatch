@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 
 from diucs.domain.codes import BookingStatus
 from diucs.domain.errors import Conflict
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.booking_state import is_open
 
 BOOKING_REPLY_WINDOW = timedelta(minutes=10)
@@ -40,11 +41,11 @@ class NoOpenBooking:
     pass
 
 
-def booking_reply_by(requested_at: datetime) -> datetime:
+def booking_reply_by(requested_at: datetime, policy: TenantPolicy = DEFAULT_POLICY) -> datetime:  # RED STUB
     return requested_at + BOOKING_REPLY_WINDOW
 
 
-def phone_prompt_at(requested_at: datetime) -> datetime:
+def phone_prompt_at(requested_at: datetime, policy: TenantPolicy = DEFAULT_POLICY) -> datetime:  # RED STUB
     return requested_at + PHONE_PROMPT_AFTER
 
 

@@ -22,6 +22,7 @@ from typing import Final
 
 from diucs.domain.codes import AlertKind, Status
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.london_time import london_to_utc, to_london
 from diucs.domain.rules.pressure import Pressure
 
@@ -70,7 +71,7 @@ class AlertPreferences:
             raise ValidationFailed("quiet_hours", "must be 22:00 to 06:00, or none")
 
 
-def default_preferences() -> AlertPreferences:
+def default_preferences(policy: TenantPolicy = DEFAULT_POLICY) -> AlertPreferences:  # RED STUB
     return AlertPreferences(
         kinds=frozenset(AlertKind),
         not_updated_hours=2,
@@ -99,7 +100,12 @@ def _pressure(value: object) -> Pressure:
 
 
 def alerts_for_change(
-    service_id: str, before: Status | None, after: Status, in_hours: bool, now: datetime
+    service_id: str,
+    before: Status | None,
+    after: Status,
+    in_hours: bool,
+    now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
 ) -> list[Alert]:
     if not service_id:
         raise ValidationFailed("service_id", "required")
@@ -115,7 +121,9 @@ def alerts_for_change(
     return alerts
 
 
-def alert_for_pressure(before: Pressure, after: Pressure, now: datetime) -> Alert | None:
+def alert_for_pressure(
+    before: Pressure, after: Pressure, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+) -> Alert | None:  # RED STUB
     raised_at = _as_utc(now)
     prior = _pressure(before)
     current = _pressure(after)

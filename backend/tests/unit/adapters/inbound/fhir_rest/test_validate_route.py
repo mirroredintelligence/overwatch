@@ -44,10 +44,7 @@ def app() -> Any:
 
 
 def _observation() -> dict[str, Any]:
-    """The report as FHIR R4B needs it: focus is a list (known issue R14-1, report_to_fhir)."""
-    resource = json.loads(json.dumps(report_to_fhir(NUMBER_REPORT)))
-    resource["focus"] = [resource["focus"]]
-    return resource
+    return json.loads(json.dumps(report_to_fhir(NUMBER_REPORT)))
 
 
 def _issues(body: dict[str, Any]) -> list[dict[str, Any]]:

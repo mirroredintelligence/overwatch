@@ -30,11 +30,7 @@ CAPACITY = profile_url("DiucsCapacityReport")
 
 
 def _capacity_observation() -> dict[str, Any]:
-    """The report as FHIR R4B needs it. report_to_fhir writes focus as one object, but R4B
-    Observation.focus is a list, so the fixture sets the list form (known issue R14-1)."""
-    resource = json.loads(json.dumps(report_to_fhir(NUMBER_REPORT)))
-    resource["focus"] = [resource["focus"]]
-    return resource
+    return json.loads(json.dumps(report_to_fhir(NUMBER_REPORT)))
 
 
 def _paths(issues: list[Any]) -> list[str]:

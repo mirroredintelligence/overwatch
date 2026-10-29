@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     neo4j_connection_acquisition_timeout_s: float = 30.0
     neo4j_max_connection_pool_size: int = 50
     redis_url: str = "redis://localhost:6379/0"
+    # O01: the build id put on every span and event (`release`). The OTLP endpoint is the
+    # collector (O04). Empty means no exporter: telemetry is off and nothing fails.
+    release: str = "dev"
+    otlp_endpoint: str = ""
     servicebus_connection: SecretStr | None = None
     sms_provider: Literal["twilio", "govuk-notify", "none"] = "none"
     # DEC-002, I06: Twilio credentials and sender. Unset in tests; real values come from the

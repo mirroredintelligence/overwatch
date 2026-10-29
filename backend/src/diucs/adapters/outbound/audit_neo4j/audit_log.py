@@ -20,8 +20,15 @@ TODO(enterprise): Community cannot deny SET or DELETE by role. When the Enterpri
 chosen (architecture.md), add role-based write restrictions on AuditEvent, Provenance, ChainLink
 and AuditHead, so that the application role can create but never change or remove a link.
 
-ensure_audit_head must run once at startup, after apply_migrations. Appending without a head raises
-AuditHeadMissing rather than creating one: creating the head inside a concurrent append would race.
+There is one chain per scope (DEC-055, DEC-130 item 7, TEN-017): one AuditHead, one sequence and
+one genesis per tenant or network scope, and every node of a chain carries the scope's tenantId. The
+hashed text of a link does not carry the tenant; the tenant is the chain's own. The default tenant's
+genesis is GENESIS_HASH, so the chain the development data holds verifies unchanged.
+
+ensure_audit_head must run once per scope, after apply_migrations: the start-up does it for each
+active tenant. Appending without a head raises AuditHeadMissing rather than creating one: creating
+the head inside a concurrent append would race. Every statement here refuses an unbound call
+(TenantNotBound) before any Cypher is sent.
 
 The adapter imports the G01 driver and query registry from graph_store. The import-linter contract
 "Adapters are independent" allows exactly those two imports (see .importlinter, DEC-055).
@@ -32,25 +39,39 @@ import json
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Final
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, Tx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    NodeSpec,
+    Scenario,
+    SeedNode,
+    SeedRel,
+    TenantSeed,
+)
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import (
-    GENESIS_HASH,
     TIME_FORMAT,
     AuditEntry,
     AuditRecord,
     canonical_entry_json,
     canonical_json,
     chain_hash_over,
+    genesis_hash_for,
 )
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.tenancy import scope_for_new_unit
+from diucs.application.tenancy import (
+    ScopeId,
+    TenantNotBound,
+    current_scope_or_none,
+    scope_for_new_unit,
+)
 from diucs.domain.codes import Role, code_system_url
 from diucs.domain.errors import ValidationFailed
 
@@ -72,6 +93,8 @@ _RESERVED = frozenset(
         "key",
         "placeholder",
         "lockStamp",
+        # The stamp of the scope: an extra of this name would overwrite it (`SET p += $extra`).
+        "tenantId",
     }
 )
 _AUDIT_PROPERTIES = frozenset(
@@ -85,86 +108,297 @@ _AUDIT_PROPERTIES = frozenset(
         "previousHash",
         "seq",
         "entryJson",
+        "tenantId",
     }
 )
 _PROVENANCE_PROPERTIES = frozenset(
-    {"id", "recorded", "activity", "chainHash", "previousHash", "seq", "entryJson"}
+    {"id", "recorded", "activity", "chainHash", "previousHash", "seq", "entryJson", "tenantId"}
 )
 
+# The statements of one chain, converted by TEN-017 (DEC-150). The scenarios seed the same chain for
+# both tenants: an AuditHead 'audit', two links (an AuditEvent at seq 1 and a Provenance at seq 2)
+# and the AuditRef and Concept nodes they point at. The texts of the links are `Marked`, so a link
+# read from the other tenant shows as the other tenant's. Each scenario checks that the caller's own
+# chain is the one it reads or extends, and that the other tenant's chain is untouched.
+_SEED_AT: Final = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
+_CHAIN_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "head",
+            ("AuditHead",),
+            {"id": HEAD_ID, "lastHash": Marked("chain-2"), "lastSeq": 2},
+        ),
+        SeedNode(
+            "event",
+            ("AuditEvent", "ChainLink"),
+            {
+                "id": "e-1",
+                "action": "report-capacity",
+                "useCase": "ReportCapacity",
+                "recorded": _SEED_AT,
+                "outcome": OUTCOME_RECORDED,
+                "chainHash": Marked("chain-1"),
+                "previousHash": "genesis-seed",
+                "seq": 1,
+                "entryJson": Marked("entry-1"),
+            },
+        ),
+        SeedNode(
+            "provenance",
+            ("Provenance", "ChainLink"),
+            {
+                "id": "p-1",
+                "recorded": _SEED_AT,
+                "activity": "create",
+                "chainHash": Marked("chain-2"),
+                "previousHash": Marked("chain-1"),
+                "seq": 2,
+                "entryJson": Marked("entry-2"),
+            },
+        ),
+        SeedNode("agent", ("AuditRef",), {"id": "pr-1", "kind": "Practitioner"}),
+        SeedNode("entity", ("AuditRef",), {"id": "ent-1", "kind": "entity"}),
+    ),
+    rels=(SeedRel("event", "AGENT", "agent", {"role": "reporter", "requestor": True}),),
+)
+_HEAD_ROW: Final = {"lastHash": Marked("chain-2"), "lastSeq": 2}
+_ENSURE_HEAD_SCENARIO: Final = Scenario(
+    "make sure the tenant's head exists and leave it as it is",
+    seed=_CHAIN_SEED,
+    params={"genesis": "genesis-new"},
+    new=("genesis",),
+    expect=Expect(rows=({"lastSeq": 2},)),
+)
+_LOCK_HEAD_SCENARIO: Final = Scenario(
+    "lock the tenant's own head and read where its chain stands",
+    seed=_CHAIN_SEED,
+    expect=Expect(
+        rows=(_HEAD_ROW,),
+        after=(NodeSpec(("AuditHead",), {"id": HEAD_ID, "_lock": 1}),),
+    ),
+)
+_HEAD_SCENARIO: Final = Scenario(
+    "read where the tenant's own chain stands",
+    seed=_CHAIN_SEED,
+    expect=Expect(rows=(_HEAD_ROW,)),
+)
+_LIST_SCENARIO: Final = Scenario(
+    "list the tenant's own links in order and no other tenant's",
+    seed=_CHAIN_SEED,
+    expect=Expect(
+        rows=(
+            {
+                "id": "e-1",
+                "entryJson": Marked("entry-1"),
+                "chainHash": Marked("chain-1"),
+                "previousHash": "genesis-seed",
+            },
+        )
+    ),
+)
+_CHAIN_WALK_SCENARIO: Final = Scenario(
+    "walk the tenant's own links in sequence order",
+    seed=_CHAIN_SEED,
+    expect=Expect(
+        rows=(
+            {"seq": 1, "chainHash": Marked("chain-1"), "entryJson": Marked("entry-1")},
+            {"seq": 2, "chainHash": Marked("chain-2"), "entryJson": Marked("entry-2")},
+        )
+    ),
+)
+_APPEND_SCENARIO: Final = Scenario(
+    "append an entry after the tenant's own chain and move its head",
+    seed=_CHAIN_SEED,
+    params={
+        "id": "e-2",
+        "action": "report-capacity",
+        "useCase": "ReportCapacity",
+        "recorded": _SEED_AT,
+        "outcome": OUTCOME_RECORDED,
+        "chainHash": "chain-3",
+        "previousHash": Marked("chain-2"),
+        "seq": 3,
+        "entryJson": "entry-3",
+        "snapshotHash": None,
+        "snapshotJson": None,
+    },
+    new=("id", "chainHash", "seq", "entryJson"),
+    expect=Expect(
+        rows=({"id": "e-2"},),
+        nodes={"AuditEvent": 1, "ChainLink": 1},
+        after=(
+            NodeSpec(("AuditEvent",), {"id": "e-2", "seq": 3}),
+            NodeSpec(("AuditHead",), {"id": HEAD_ID, "lastSeq": 3, "lastHash": "chain-3"}),
+        ),
+    ),
+)
+_LINK_AGENT_SCENARIO: Final = Scenario(
+    "link the tenant's own entry to its own agent, not the agent of the same id in another tenant",
+    seed=_CHAIN_SEED,
+    params={
+        "id": "e-1",
+        "agentId": "pr-1",
+        "agentKind": "Practitioner",
+        "role": "reporter",
+    },
+    lookup=("id",),
+    new=("role",),
+    expect=Expect(rels={"AGENT": 1}),
+)
+_LINK_ENTITY_SCENARIO: Final = Scenario(
+    "link the tenant's own entry to its entities, reusing the one it already has",
+    seed=_CHAIN_SEED,
+    params={"id": "e-1", "entityIds": ["ent-1", "ent-2"]},
+    lookup=("id",),
+    new=("entityIds",),
+    expect=Expect(nodes={"AuditRef": 1}, rels={"ENTITY": 2}),
+)
+_PROV_APPEND_SCENARIO: Final = Scenario(
+    "append a provenance record after the tenant's own chain and move its head",
+    seed=_CHAIN_SEED,
+    params={
+        "id": "p-2",
+        "recorded": _SEED_AT,
+        "activity": "confirm",
+        "chainHash": "chain-p2",
+        "previousHash": Marked("chain-2"),
+        "seq": 3,
+        "entryJson": "prov-2",
+        "extra": {},
+    },
+    new=("id", "activity", "chainHash", "seq", "entryJson"),
+    expect=Expect(
+        rows=({"id": "p-2"},),
+        nodes={"Provenance": 1, "ChainLink": 1},
+        after=(
+            NodeSpec(("Provenance",), {"id": "p-2", "seq": 3}),
+            NodeSpec(("AuditHead",), {"id": HEAD_ID, "lastSeq": 3, "lastHash": "chain-p2"}),
+        ),
+    ),
+)
+_PROV_LINK_SCENARIO: Final = Scenario(
+    "link the tenant's own provenance record to its target, agent and activity",
+    seed=_CHAIN_SEED,
+    params={
+        "id": "p-1",
+        "targetType": "Communication",
+        "targetId": "comm-1",
+        "agentType": "Practitioner",
+        "agentId": "pr-1",
+        "agentRole": "reporter",
+        "activity": "create",
+        "activitySystem": "https://diucs.example/codes/provenance-activity",
+        "activityKey": "Concept|https://diucs.example/codes/provenance-activity|create",
+    },
+    lookup=("id",),
+    new=(
+        "targetType",
+        "targetId",
+        "agentRole",
+        "activitySystem",
+        "activityKey",
+    ),
+    expect=Expect(
+        nodes={"AuditRef": 1, "Concept": 1},
+        rels={"TARGET": 1, "AGENT": 1, "ACTIVITY": 1},
+    ),
+)
+_PROV_SOURCE_SCENARIO: Final = Scenario(
+    "link the tenant's own provenance record to its source communication",
+    seed=_CHAIN_SEED,
+    params={"id": "p-1", "sourceId": "comm-1"},
+    lookup=("id",),
+    new=("sourceId",),
+    expect=Expect(nodes={"AuditRef": 1}, rels={"ENTITY": 1}),
+)
+
+# Each statement, its mode and its scenario (DEC-142 item 5). Every node a statement matches or
+# creates carries `$tenant`; the chain walk matches its targets within the tenant too.
 _QUERIES: tuple[NamedQuery, ...] = (
     NamedQuery(
         id="Q-AUDIT-ENSURE-HEAD",
         cypher=(
-            "MERGE (h:AuditHead {id: 'audit'}) ON CREATE SET h.lastHash = $genesis, h.lastSeq = 0 "
+            "MERGE (h:AuditHead {id: 'audit', tenantId: $tenant}) "
+            "ON CREATE SET h.lastHash = $genesis, h.lastSeq = 0 "
             "RETURN h.lastSeq AS lastSeq"
         ),
         mode="write",
+        scenario=_ENSURE_HEAD_SCENARIO,
     ),
     NamedQuery(
         id="Q-AUDIT-LOCK-HEAD",
         cypher=(
-            "MATCH (h:AuditHead {id: 'audit'}) SET h._lock = coalesce(h._lock, 0) + 1 "
+            "MATCH (h:AuditHead {id: 'audit', tenantId: $tenant}) "
+            "SET h._lock = coalesce(h._lock, 0) + 1 "
             "RETURN h.lastHash AS lastHash, h.lastSeq AS lastSeq"
         ),
         mode="write",
+        scenario=_LOCK_HEAD_SCENARIO,
     ),
     NamedQuery(
         id="Q-AUDIT-APPEND",
         cypher=(
-            "MATCH (h:AuditHead {id: 'audit'}) "
+            "MATCH (h:AuditHead {id: 'audit', tenantId: $tenant}) "
             "CREATE (e:AuditEvent:ChainLink {id: $id, action: $action, useCase: $useCase, "
             "recorded: $recorded, outcome: $outcome, chainHash: $chainHash, "
-            "previousHash: $previousHash, seq: $seq, entryJson: $entryJson}) "
+            "previousHash: $previousHash, seq: $seq, entryJson: $entryJson, tenantId: $tenant}) "
             "SET h.lastHash = $chainHash, h.lastSeq = $seq "
             "WITH e "
             "FOREACH (_ IN CASE WHEN $snapshotHash IS NULL THEN [] ELSE [1] END | "
-            "CREATE (s:Snapshot {hash: $snapshotHash, json: $snapshotJson}) "
+            "CREATE (s:Snapshot {hash: $snapshotHash, json: $snapshotJson, tenantId: $tenant}) "
             "CREATE (e)-[:SNAPSHOT]->(s)) "
             "RETURN e.id AS id"
         ),
         mode="write",
+        scenario=_APPEND_SCENARIO,
     ),
     NamedQuery(
         id="Q-AUDIT-LINK-AGENT",
         cypher=(
-            "MATCH (e:AuditEvent {id: $id}) "
-            "MERGE (a:AuditRef {id: $agentId}) ON CREATE SET a.kind = $agentKind "
+            "MATCH (e:AuditEvent {id: $id, tenantId: $tenant}) "
+            "MERGE (a:AuditRef {id: $agentId, tenantId: $tenant}) "
+            "ON CREATE SET a.kind = $agentKind "
             "CREATE (e)-[:AGENT {role: $role, requestor: true}]->(a)"
         ),
         mode="write",
+        scenario=_LINK_AGENT_SCENARIO,
     ),
     NamedQuery(
         id="Q-AUDIT-LINK-ENTITY",
         cypher=(
-            "MATCH (e:AuditEvent {id: $id}) "
+            "MATCH (e:AuditEvent {id: $id, tenantId: $tenant}) "
             "UNWIND $entityIds AS entityId "
-            "MERGE (r:AuditRef {id: entityId}) ON CREATE SET r.kind = 'entity' "
+            "MERGE (r:AuditRef {id: entityId, tenantId: $tenant}) ON CREATE SET r.kind = 'entity' "
             "MERGE (e)-[:ENTITY {role: 'subject'}]->(r)"
         ),
         mode="write",
+        scenario=_LINK_ENTITY_SCENARIO,
     ),
     NamedQuery(
         id="Q-AUDIT-LIST",
         cypher=(
-            "MATCH (e:AuditEvent) "
+            "MATCH (e:AuditEvent {tenantId: $tenant}) "
             "RETURN e.id AS id, e.entryJson AS entryJson, e.chainHash AS chainHash, "
             "e.previousHash AS previousHash "
             "ORDER BY e.seq"
         ),
         mode="read",
+        scenario=_LIST_SCENARIO,
     ),
     NamedQuery(
         id="Q-AUDIT-HEAD",
         cypher=(
-            "MATCH (h:AuditHead {id: 'audit'}) RETURN h.lastHash AS lastHash, h.lastSeq AS lastSeq"
+            "MATCH (h:AuditHead {id: 'audit', tenantId: $tenant}) "
+            "RETURN h.lastHash AS lastHash, h.lastSeq AS lastSeq"
         ),
         mode="read",
+        scenario=_HEAD_SCENARIO,
     ),
     NamedQuery(
         id="Q-AUDIT-CHAIN",
         cypher=(
-            "MATCH (n:ChainLink) "
-            "OPTIONAL MATCH (n)-[r]->(m) "
+            "MATCH (n:ChainLink {tenantId: $tenant}) "
+            "OPTIONAL MATCH (n)-[r]->(m {tenantId: $tenant}) "
             "WITH n, collect(CASE WHEN r IS NULL THEN NULL ELSE {type: type(r), "
             "props: properties(r), target: CASE WHEN m:Snapshot THEN m.hash + '|' + m.json "
             "WHEN m:Concept THEN m.system + '|' + m.code ELSE m.id END} END) AS edges "
@@ -173,42 +407,49 @@ _QUERIES: tuple[NamedQuery, ...] = (
             "edges ORDER BY seq"
         ),
         mode="read",
+        scenario=_CHAIN_WALK_SCENARIO,
     ),
     NamedQuery(
         id="Q-PROV-APPEND",
         cypher=(
-            "MATCH (h:AuditHead {id: 'audit'}) "
+            "MATCH (h:AuditHead {id: 'audit', tenantId: $tenant}) "
             "CREATE (p:Provenance:ChainLink {id: $id, recorded: $recorded, activity: $activity, "
             "chainHash: $chainHash, previousHash: $previousHash, seq: $seq, "
-            "entryJson: $entryJson}) "
+            "entryJson: $entryJson, tenantId: $tenant}) "
             "SET p += $extra "
             "SET h.lastHash = $chainHash, h.lastSeq = $seq "
             "RETURN p.id AS id"
         ),
         mode="write",
+        scenario=_PROV_APPEND_SCENARIO,
     ),
     NamedQuery(
         id="Q-PROV-LINK",
         cypher=(
-            "MATCH (p:Provenance {id: $id}) "
-            "MERGE (t:AuditRef {id: $targetId}) ON CREATE SET t.kind = $targetType "
+            "MATCH (p:Provenance {id: $id, tenantId: $tenant}) "
+            "MERGE (t:AuditRef {id: $targetId, tenantId: $tenant}) "
+            "ON CREATE SET t.kind = $targetType "
             "MERGE (p)-[:TARGET]->(t) "
-            "MERGE (g:AuditRef {id: $agentId}) ON CREATE SET g.kind = $agentType "
+            "MERGE (g:AuditRef {id: $agentId, tenantId: $tenant}) "
+            "ON CREATE SET g.kind = $agentType "
             "MERGE (p)-[:AGENT {type: $agentType, role: $agentRole}]->(g) "
-            "MERGE (c:Concept {system: $activitySystem, code: $activity}) "
+            "MERGE (c:Concept {system: $activitySystem, code: $activity, tenantId: $tenant}) "
             "ON CREATE SET c.key = $activityKey "
             "MERGE (p)-[:ACTIVITY]->(c)"
         ),
         mode="write",
+        scenario=_PROV_LINK_SCENARIO,
     ),
     NamedQuery(
         id="Q-PROV-SOURCE",
         cypher=(
-            "MATCH (p:Provenance {id: $id}) "
-            "MERGE (c:AuditRef {id: $sourceId}) ON CREATE SET c.kind = 'Communication' "
+            "MATCH (p:Provenance {id: $id, tenantId: $tenant}) "
+            "MERGE (c:AuditRef {id: $sourceId, tenantId: $tenant}) "
+            "ON CREATE SET c.kind = 'Communication' "
             "MERGE (p)-[:ENTITY {role: 'source'}]->(c)"
         ),
         mode="write",
+        scenario=_PROV_SOURCE_SCENARIO,
     ),
 )
 
@@ -221,21 +462,35 @@ class AuditHeadMissing(RuntimeError):
 
 
 async def ensure_audit_head(driver: AsyncDriver) -> None:
-    """Create the chain head if missing. Idempotent. Call once at startup, after migrations.
+    """Create the bound scope's chain head if missing, with that scope's genesis. Idempotent. Call
+    once per scope at startup, after migrations (the start-up does it for each active tenant).
 
     The scope is read once, before the session opens, and carried on a ScopedTx, so a retry of the
-    managed transaction uses the same one (TEN-002). TEN-017 makes the head and its genesis per
-    scope.
+    managed transaction uses the same one (TEN-002). With no scope bound there is no head to make:
+    TenantNotBound is raised before a session opens (TEN-017, fail closed).
     """
     scope = scope_for_new_unit()
+    if scope is None:
+        raise TenantNotBound
 
     async def work(tx: AsyncManagedTransaction) -> None:
         await run_query(
-            ScopedTx(tx, scope), REGISTRY.get("Q-AUDIT-ENSURE-HEAD"), genesis=GENESIS_HASH
+            ScopedTx(tx, scope),
+            REGISTRY.get("Q-AUDIT-ENSURE-HEAD"),
+            genesis=genesis_hash_for(scope.value),
         )
 
     async with driver.session() as session:
         await session.execute_write(work)
+
+
+def _bound_scope(tx: Tx) -> ScopeId:
+    """The scope the chain is read or written in: the one the unit of work carries, or the one bound
+    in the context for a raw transaction (the same one run_query uses). None is refused."""
+    scope = tx.scope if isinstance(tx, ScopedTx) else current_scope_or_none()
+    if scope is None:
+        raise TenantNotBound
+    return scope
 
 
 def _parse_entry(text: str) -> AuditEntry:
@@ -352,7 +607,7 @@ class Neo4jAuditLog:
 
     def __init__(
         self,
-        tx: AsyncManagedTransaction,
+        tx: Tx,
         ids: IdGenerator | None = None,
         clock: Clock | None = None,
     ) -> None:
@@ -449,12 +704,14 @@ class Neo4jAuditLog:
         return found[ids.index(since) + 1 :]
 
     async def verify_chain(self) -> bool:
-        """True when every link is intact, in order, and the head points at the last link."""
+        """True when every link of the bound scope's chain is intact, in order, and its head points
+        at the last link. Another scope's chain is not read, so it is not checked here."""
+        genesis = genesis_hash_for(_bound_scope(self._tx).value)
         rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-CHAIN"))
         head_rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-HEAD"))
         if not head_rows:
             return not rows
-        previous = GENESIS_HASH
+        previous = genesis
         for index, row in enumerate(rows, start=1):
             if row["seq"] != index or row["previousHash"] != previous:
                 return False

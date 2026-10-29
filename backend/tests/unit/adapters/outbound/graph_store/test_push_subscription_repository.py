@@ -8,11 +8,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store import credential_store  # noqa: F401 (wall displays)
-from diucs.adapters.outbound.graph_store import push_subscription_repository
+from diucs.adapters.outbound.graph_store import (
+    credential_store,  # noqa: F401 (wall displays)
+    push_subscription_repository,
+)
 from diucs.adapters.outbound.graph_store.push_subscription_repository import (
     Neo4jPushSubscriptionRepository,
     checked_subscription,
@@ -108,8 +109,9 @@ def test_no_push_statement_writes_the_subscription_text_into_a_log_or_an_audit_r
         assert "pushSubscriptionJson" not in REGISTRY.get(query_id).cypher, query_id
 
 
-# Device keying (orchestrator decision on P19): a Device is keyed by (tenant, deviceType, id). A push
-# subscription is a `mobile-app` device and can never address, overwrite or revoke a wall display.
+# Device keying (orchestrator decision on P19): a Device is keyed by (tenant, deviceType, id). A
+# push subscription is a `mobile-app` device and can never address, overwrite or revoke a wall
+# display.
 
 
 def test_every_push_statement_keys_the_device_by_its_type() -> None:
@@ -118,7 +120,7 @@ def test_every_push_statement_keys_the_device_by_its_type() -> None:
 
 
 def test_a_push_device_is_not_a_wall_display() -> None:
-    assert push_subscription_repository.PUSH_DEVICE_TYPE != DeviceType.WALL_DISPLAY.value
+    assert DeviceType.WALL_DISPLAY.value != push_subscription_repository.PUSH_DEVICE_TYPE
     for query_id in ("Q-PUSH-SAVE", "Q-PUSH-FOR", "Q-PUSH-DELETE"):
         assert "wall-display" not in REGISTRY.get(query_id).cypher, query_id
 

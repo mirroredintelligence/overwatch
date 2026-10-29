@@ -13,7 +13,7 @@ from typing import Final, cast
 
 from redis.asyncio import Redis
 
-from diucs.adapters.outbound.cache_redis.redis_cache import DEFAULT_KEY_PREFIX
+from diucs.adapters.outbound.cache_redis.redis_cache import ROOT
 from diucs.adapters.outbound.cache_redis.tenant_keys import millis, tenant_prefix
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.identity import CodeResendRefused
@@ -86,7 +86,7 @@ class RedisCodeStore:
     """Text codes in Redis, under the bound tenant's prefix. It holds only the code's keyed hash,
     which the caller computes; the digits never reach this module."""
 
-    def __init__(self, client: Redis, clock: Clock, key_prefix: str = DEFAULT_KEY_PREFIX) -> None:
+    def __init__(self, client: Redis, clock: Clock, key_prefix: str = ROOT) -> None:
         self._client = client
         self._clock = clock
         self._prefix = key_prefix

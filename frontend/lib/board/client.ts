@@ -1,3 +1,4 @@
+import { withTraceparent } from '@/lib/telemetry/trace';
 import { parseBoardJson } from './boardJson';
 import type { Board } from './types';
 
@@ -46,7 +47,10 @@ function serverTimeOf(response: Response): number | null {
 export async function fetchBoardFromBff(signal?: AbortSignal): Promise<FetchedBoard> {
   let response: Response;
   try {
-    response = await fetch(BOARD_URL, { method: 'GET', cache: 'no-store', credentials: 'same-origin', signal });
+    response = await fetch(
+      BOARD_URL,
+      withTraceparent({ method: 'GET', cache: 'no-store', credentials: 'same-origin', signal }),
+    );
   } catch {
     throw new BoardFetchError('unreachable');
   }

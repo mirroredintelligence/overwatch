@@ -22,6 +22,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 
 import httpx
 from azure.servicebus.aio import ServiceBusClient
+from opentelemetry import trace as otel_trace
 
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.message_senders import sender_runners
@@ -31,6 +32,8 @@ from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from diucs.adapters.outbound.telemetry.attributes import INSTRUMENTATION_NAME
+from diucs.adapters.outbound.telemetry.consumer import consumer_observer
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.sender_resolver import SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
@@ -40,6 +43,7 @@ from diucs.application.use_cases.handle_inbound_text import HandleInboundText
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
+from diucs.bootstrap.telemetry import start_telemetry
 from diucs.bootstrap.tenant_senders import TenantSenderResolver, status_callback_url
 
 TENANTS_VARIABLE = "DIUCS_WORKER_TENANTS"
@@ -83,25 +87,27 @@ def build_runners(
     senders: SenderResolver | None = None,
     sealer: ContentSealer | None = None,
 ) -> list[ServiceBusRunner]:
-    """One runner for each inbound queue, each over a consumer that binds the message's tenant.
-    With a sender resolver and a sealer, the two runners of `messages.outbound` (the text and email
-    senders, I10) are added; each binds the message's tenant in the same way."""
+    """One runner for each inbound queue, each over a consumer that binds the message's tenant and
+    handles the message under its trace span (O01). With a sender resolver and a sealer, the two
+    runners of `messages.outbound` (the text and email senders, I10) are added; each binds the
+    message's tenant in the same way."""
+    observe = consumer_observer(otel_trace.get_tracer(INSTRUMENTATION_NAME))
     runners = [
         ServiceBusRunner(
             client,
             REPLIES_QUEUE,
             None,
-            reply_consumer(handle_inbound_text, uow_factory, tenants),
+            reply_consumer(handle_inbound_text, uow_factory, tenants, observe),
         ),
         ServiceBusRunner(
             client,
             RECEIPTS_QUEUE,
             None,
-            receipt_consumer(uow_factory, tenants),
+            receipt_consumer(uow_factory, tenants, observe),
         ),
     ]
     if senders is not None and sealer is not None:
-        runners += sender_runners(client, uow_factory, tenants, senders, sealer)
+        runners += sender_runners(client, uow_factory, tenants, senders, sealer, observe)
     return runners
 
 
@@ -152,7 +158,12 @@ async def _run(settings: Settings, tenants: ActiveTenants) -> None:
     for name in (signal.SIGINT, signal.SIGTERM):
         with contextlib.suppress(NotImplementedError):  # not available on every platform
             loop.add_signal_handler(name, stop.set)
-    await serve(settings, tenants, stop)
+    provider = start_telemetry(settings)  # O01: nothing is exported without an OTLP endpoint
+    try:
+        await serve(settings, tenants, stop)
+    finally:
+        if provider is not None:
+            provider.shutdown()  # flushes the last batch of spans
 
 
 def main() -> None:

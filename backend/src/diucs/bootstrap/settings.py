@@ -29,6 +29,13 @@ class Settings(BaseSettings):
     neo4j_connection_acquisition_timeout_s: float = 30.0
     neo4j_max_connection_pool_size: int = 50
     redis_url: str = "redis://localhost:6379/0"
+    # O01: the build id put on every span and event (`release`). The OTLP endpoint is the
+    # collector (O04). Empty means no exporter: telemetry is off and nothing fails.
+    release: str = "dev"
+    otlp_endpoint: str = ""
+    # O06/O01: instrument the FHIR app's requests (one server span each, under the route template).
+    # Off by default: the instrumentation runs only where the owner turns it on.
+    otel_instrument_http: bool = False
     # I15: the self-hosted routing engine, speaking the OSRM route API. Unset in tests. The URL is
     # a deployment setting, not a credential. The timeout is [ASSUMED] (I15 prompt said 2 s; the
     # owner set 3 s). The extract date names the map data in the travel range's source.

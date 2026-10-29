@@ -164,6 +164,9 @@ _CREATE_SCENARIO: Final = Scenario(
     expect=Expect(
         rows=({"written": 1},),
         nodes={"IdempotencyRecord": 1, "IdempotencyValue": 1},
+        # The statement joins the new record to each new value node it creates (both stamped with
+        # the tenant): one value here, so one HAS_VALUE. The declaration was missing, not a leak.
+        rels={"HAS_VALUE": 1},
         after=(NodeSpec(("IdempotencyRecord",), {"key": "k-1"}),),
     ),
 )

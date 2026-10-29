@@ -17,6 +17,7 @@ process that serves, and without one every secret reads as not found (fail close
 """
 
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -93,6 +94,7 @@ from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.criteria_reviews import (
     RunCriteriaReviews,
     RunCriteriaReviewsCommand,
+    ensure_daily_schedule,
 )
 from diucs.application.use_cases.missed_report_ladder import (
     LADDER_KINDS,
@@ -184,6 +186,14 @@ class Container:
         except BaseException:
             await self.neo4j.close()
             raise
+
+    async def seed_daily_schedules(self, tenant_ids: Sequence[str]) -> None:
+        """Seed the daily criteria review run (U31) for each tenant, once. Each tenant is bound in
+        turn, as the start-up does for the audit heads (TEN-017). Idempotent: a second start writes
+        nothing."""
+        for tenant_id in tenant_ids:
+            with bind_tenant(tenant_id):
+                await ensure_daily_schedule(self.uow_factory, self.ids, self.clock)
 
     async def shutdown(self) -> None:
         if self.http is not None:

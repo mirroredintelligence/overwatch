@@ -190,6 +190,6 @@ async def test_an_unknown_duration_is_refused() -> None:
     assert response.status_code == 400
 
 
-def test_the_number_ending_is_the_last_four_digits_of_the_national_form() -> None:
+async def test_the_number_ending_is_the_last_four_digits_of_the_national_form() -> None:
     assert number_ending("07700 900456") == "0456"
     assert number_ending("+447700 900456") == "0456"

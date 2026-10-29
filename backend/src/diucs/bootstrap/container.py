@@ -314,7 +314,7 @@ def build(
         geocoder=NoGeocoder()
         if http is None or key is None
         else OsPlacesGeocoder(http, key.get_secret_value()),
-        terminology=LocalTerminology(settings.terminology_dir),
+        terminology=LocalTerminology(settings.terminology_dir, settings.pathways_dx_file),
         http=http,
         telemetry=(
             NoTelemetry()

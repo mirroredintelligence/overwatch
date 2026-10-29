@@ -19,7 +19,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
 from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.terminology import FhirValidator
+from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 
 
@@ -35,6 +35,9 @@ class ApiContainer(Protocol):
 
     @property
     def ids(self) -> IdGenerator: ...
+
+    @property
+    def terminology(self) -> Terminology: ...
 
     @property
     def validator(self) -> FhirValidator: ...
@@ -76,6 +79,7 @@ def create_app(
         routes_board,
         routes_events,
         routes_services,
+        routes_terminology,
         routes_validate,
     )
 
@@ -84,6 +88,8 @@ def create_app(
     app.include_router(routes_board.router)
     app.include_router(routes_services.router)
     routes_services.register_capabilities()
+    # The Pathways Dx lookup (R16) is not FHIR: a plain list for the score picker.
+    app.include_router(routes_terminology.router)
     app.include_router(routes_validate.router)
     routes_validate.register_profiles()
 

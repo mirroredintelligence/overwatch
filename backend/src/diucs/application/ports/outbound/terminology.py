@@ -44,6 +44,11 @@ class Terminology(Protocol):
 
     async def display(self, system: str, code: str) -> str | None: ...
 
+    async def search_pathways_dx(self, text: str, limit: int = 20) -> list[tuple[str, str]]:
+        """The Pathways Dx codes (code, display) whose code or display contains `text`, in code
+        order, at most `limit`. Text under two characters, once trimmed, finds nothing (R16)."""
+        ...
+
 
 def profile_url(name: str) -> str:
     """The canonical URL of a published profile: `{BASE_URL}StructureDefinition/<Name>` (R14)."""

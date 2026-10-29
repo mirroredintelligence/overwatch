@@ -14,11 +14,19 @@ from scripts.export_codesystems import export
 
 BACKEND = Path(__file__).resolve().parents[5]
 TERMINOLOGY = BACKEND / "terminology"
+PATHWAYS_DX = BACKEND / "data" / "pathways_dx_sample.json"
 
 
 @pytest.fixture
 def terminology() -> LocalTerminology:
-    return LocalTerminology(TERMINOLOGY)
+    return LocalTerminology(TERMINOLOGY, PATHWAYS_DX)
+
+
+async def test_the_pathways_dx_search_reads_the_sample_file(terminology: LocalTerminology) -> None:
+    found = await terminology.search_pathways_dx("not a real code", 20)
+
+    assert len(found) == 10
+    assert all(code.startswith("DxSAMPLE") for code, _ in found)
 
 
 async def test_an_ods_lookup_returns_the_sample_record(terminology: LocalTerminology) -> None:

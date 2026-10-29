@@ -97,6 +97,12 @@ def test_twilio_token_is_read_from_environment_and_hidden_from_repr(
     assert TWILIO_CANARY not in str(settings)
 
 
+def test_the_pathways_dx_file_defaults_to_the_repo_sample() -> None:
+    settings = Settings()
+    assert settings.pathways_dx_file.name == "pathways_dx_sample.json"
+    assert settings.pathways_dx_file.is_file()
+
+
 def test_the_synthetic_hook_is_off_by_default_and_its_token_is_hidden() -> None:
     settings = Settings()
     assert settings.synthetic_enabled is False

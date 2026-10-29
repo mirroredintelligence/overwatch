@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_starttls: bool = True
     email_from: str = "DIUCS Capacity <capacity@diucs.example>"
+    # R16: the Pathways Dx file the score picker searches. The default is the pilot sample, whose
+    # codes are not real. The licensed NHS Pathways list is a configuration change to this path.
+    pathways_dx_file: Path = (
+        Path(__file__).resolve().parents[3] / "data" / "pathways_dx_sample.json"
+    )
     # O09 (TEN-G04): the synthetic test hook, POST /test/synthetic/prompt. Off by default. When it
     # is on, the hook answers only to the bearer hook token and only for this one tenant, which the
     # edge binds (a request never names a tenant). Real values come from the environment.

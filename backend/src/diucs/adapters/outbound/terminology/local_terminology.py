@@ -13,6 +13,7 @@ import json
 from pathlib import Path
 from typing import Any, Final
 
+from diucs.adapters.outbound.terminology.pathways_dx_file import PathwaysDxFile
 from diucs.application.ports.outbound.terminology import OdsRecord
 from diucs.domain.errors import ValidationFailed
 
@@ -78,12 +79,16 @@ def _load_displays(directory: Path) -> dict[tuple[str, str], str]:
 
 
 class LocalTerminology:
-    """The Terminology port over the local files. Both files are read once, in the constructor."""
+    """The Terminology port over the local files. Each file is read once, in the constructor.
 
-    def __init__(self, base_dir: Path | str) -> None:
+    The Pathways Dx search (R16) reads its own file through PathwaysDxFile, the one loader for that
+    file, so the score picker's list is a configuration change to `pathways_dx_file`."""
+
+    def __init__(self, base_dir: Path | str, pathways_dx_file: Path | str) -> None:
         base = Path(base_dir)
         self._ods = _load_ods(base / ODS_FILE)
         self._displays = _load_displays(base / CODESYSTEMS_DIR)
+        self._pathways_dx = PathwaysDxFile(pathways_dx_file)
 
     async def ods_lookup(self, code: str) -> OdsRecord | None:
         key = _ods_key(code)
@@ -91,3 +96,6 @@ class LocalTerminology:
 
     async def display(self, system: str, code: str) -> str | None:
         return self._displays.get((system, code))
+
+    async def search_pathways_dx(self, text: str, limit: int = 20) -> list[tuple[str, str]]:
+        return await self._pathways_dx.search_pathways_dx(text, limit)

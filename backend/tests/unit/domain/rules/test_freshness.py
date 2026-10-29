@@ -13,7 +13,7 @@ from datetime import UTC, date, datetime, time, timedelta, timezone
 from typing import Final
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
@@ -344,25 +344,39 @@ PROFILE_FACTORIES: Final = (
 )
 
 
-@settings(max_examples=150, deadline=None)
+JITTER: Final = st.sampled_from(
+    [-ONE_MICROSECOND_DELTA, timedelta(0), ONE_MICROSECOND_DELTA, timedelta(minutes=1)]
+)
+
+
+@settings(max_examples=200, deadline=None)
 @given(
     tenant=policies(),
     factory=st.sampled_from(PROFILE_FACTORIES),
     cadence=st.sampled_from(list(Cadence)),
-    now=st.datetimes(min_value=datetime(2026, 3, 20), max_value=datetime(2026, 11, 3)).map(
-        lambda naive: naive.replace(tzinfo=UTC)
-    ),
-    age=st.one_of(st.none(), st.timedeltas(min_value=timedelta(0), max_value=timedelta(days=12))),
+    day=st.dates(min_value=date(2026, 3, 20), max_value=date(2026, 11, 2)),
+    pick=st.integers(min_value=0, max_value=12),
+    jitter=JITTER,
+    last_pick=st.one_of(st.none(), st.integers(min_value=0, max_value=12)),
 )
 def test_overdue_and_was_due_equal_the_brute_force_oracle(
     tenant: TenantPolicy,
     factory: Callable[[Cadence], ServiceProfile],
     cadence: Cadence,
-    now: datetime,
-    age: timedelta | None,
+    day: date,
+    pick: int,
+    jitter: timedelta,
+    last_pick: int | None,
 ) -> None:
+    """`now` sits at a due time plus the policy window, plus a jitter of a microsecond either side,
+    so the boundary of every policy is exercised, not only the instants a uniform draw happens to
+    hit. The last report is None or a due time before now."""
     prof = factory(cadence)
-    last = None if age is None else now - age
+    dues = due_times_on(prof, day, tenant)
+    assume(dues)
+    now = dues[pick % len(dues)] + tenant.reply_window + jitter
+    earlier = [due for due in due_times_on(prof, day, tenant) if due <= now]
+    last = None if last_pick is None or not earlier else earlier[last_pick % len(earlier)]
     result = assess_freshness(prof, last, now, tenant)
     expected_overdue, expected_was_due = oracle_overdue(prof, last, now, tenant)
     assert result.overdue == expected_overdue

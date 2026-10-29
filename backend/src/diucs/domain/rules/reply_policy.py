@@ -8,6 +8,10 @@ Pure: no I/O and no clock. `now` is an argument. Every datetime is converted to 
 compared, so the London clock change does not move a window (lesson L4). Points the rule book
 leaves open are decided in DEC-031.
 
+The correction window, the confirm limit and the reply window are tenant policy (TEN-021): the
+decision takes a `TenantPolicy` as its last argument, defaulting to `DEFAULT_POLICY`.
+CORRECTION_WINDOW and MAX_CONSECUTIVE_CONFIRMS are aliases of the default policy's values.
+
 Caller contract (lesson L27): a use case must loop over every item of `parse_reply`'s tuple and
 call this function once per item. It never reads `replies[0]` as the whole reply. A reply that
 names another service's letter, or a bare figure on a lettered prompt, raises ValidationFailed
@@ -18,13 +22,13 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from diucs.domain.codes import ReportFlagReason
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 from diucs.domain.rules.reply_parser import Confirm, Number
-from diucs.domain.rules.schedule import REPLY_WINDOW
 
-CORRECTION_WINDOW = timedelta(minutes=15)  # [ASSUMED] domain-rules 2.2
-MAX_CONSECUTIVE_CONFIRMS = 2
+# Aliases of the default policy (TEN-021): the numbers are defined once, in tenant_policy.py.
+CORRECTION_WINDOW = DEFAULT_POLICY.correction_window
+MAX_CONSECUTIVE_CONFIRMS = DEFAULT_POLICY.max_consecutive_confirms
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +92,7 @@ def decide_capacity_reply(
     not the prompt is open. Otherwise a figure needs an open prompt. Anything else is late. A
     datetime without a UTC offset raises ValidationFailed.
     """
+    policy = require_policy(policy)
     _check_letter(reply, state)
     now_utc = _instant("now", now)
     reply_by_utc = None if state.reply_by is None else _instant("reply_by", state.reply_by)
@@ -98,12 +103,14 @@ def decide_capacity_reply(
     )
     prompt_open = reply_by_utc is not None and now_utc <= reply_by_utc
     if isinstance(reply, Confirm):
-        return _decide_confirm(state, now, prompt_open)
-    if accepted_utc is not None and _in_correction_window(now_utc, accepted_utc):
+        return _decide_confirm(state, now, prompt_open, policy)
+    if accepted_utc is not None and _in_correction_window(
+        now_utc, accepted_utc, policy.correction_window
+    ):
         return _decide_figure(reply.value, state, is_correction=True)
     if prompt_open:
         return _decide_figure(reply.value, state, is_correction=False)
-    return RejectLate(now + REPLY_WINDOW)
+    return RejectLate(now + policy.reply_window)
 
 
 def _check_letter(reply: Confirm | Number, state: PromptState) -> None:
@@ -113,12 +120,14 @@ def _check_letter(reply: Confirm | Number, state: PromptState) -> None:
         raise ValidationFailed("letter", "a figure for a lettered prompt must name its service")
 
 
-def _decide_confirm(state: PromptState, now: datetime, prompt_open: bool) -> Decision:
+def _decide_confirm(
+    state: PromptState, now: datetime, prompt_open: bool, policy: TenantPolicy
+) -> Decision:
     if not prompt_open:
-        return RejectLate(now + REPLY_WINDOW)
+        return RejectLate(now + policy.reply_window)
     if state.recorded_value is None:
         return NeedNumber()
-    if state.consecutive_confirms >= MAX_CONSECUTIVE_CONFIRMS:
+    if state.consecutive_confirms >= policy.max_consecutive_confirms:
         return RejectConfirmLimit()
     return RecordConfirm()
 
@@ -132,9 +141,9 @@ def _decide_figure(value: int, state: PromptState, *, is_correction: bool) -> De
     return AskRecheck(value)
 
 
-def _in_correction_window(now_utc: datetime, accepted_utc: datetime) -> bool:
+def _in_correction_window(now_utc: datetime, accepted_utc: datetime, window: timedelta) -> bool:
     elapsed = now_utc - accepted_utc
-    return timedelta(0) <= elapsed <= CORRECTION_WINDOW
+    return timedelta(0) <= elapsed <= window
 
 
 def _instant(field: str, value: datetime) -> datetime:

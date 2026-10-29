@@ -120,7 +120,7 @@ def policies(draw: st.DrawFn) -> TenantPolicy:
         "alert_default_kinds": alert_kinds,
         "alert_default_not_updated_hours": draw(st.sampled_from(sorted(ALERT_NOT_UPDATED_CHOICES))),
     }
-    return TenantPolicy(**values)  # type: ignore[arg-type]
+    return TenantPolicy(**values)
 
 
 def _bounds(field: str) -> tuple[timedelta, timedelta]:
@@ -137,4 +137,3 @@ def _minutes_by_hour(field: str) -> st.SearchStrategy[timedelta]:
 def _days(field: str) -> st.SearchStrategy[timedelta]:
     low, high = _bounds(field)
     return st.integers(low // _DAY, high // _DAY).map(lambda n: _DAY * n)
-

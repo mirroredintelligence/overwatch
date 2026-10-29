@@ -34,6 +34,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     TenantSeed,
 )
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from diucs.domain.model.device import Device
 from diucs.domain.rules.identity_policy import PinOutcome, PinState
 
 _PRACTITIONER_KEY: Final = "Practitioner/{}"
@@ -331,3 +332,12 @@ class Neo4jDeviceRegistry:
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
         return await run_query(self._tx, REGISTRY.get(query_id), **params)
+
+    async def get(self, device_id: str) -> Device | None:
+        raise NotImplementedError
+
+    async def save(self, device: Device) -> None:
+        raise NotImplementedError
+
+    async def find_by_token_hash(self, token_hash: str) -> Device | None:
+        raise NotImplementedError

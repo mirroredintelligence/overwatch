@@ -491,7 +491,9 @@ async def test_a_damaged_tenant_record_fails_closed_as_an_unknown_link(
     link_app: FastAPI, links: LinkRig, neo4j_driver: Any, tenant_id: str, hosts: None
 ) -> None:
     token = await _prompted(links)
-    await seed_tenant_host(neo4j_driver, "damaged-tenant", "damaged.example.org", status="bogus")
+    await seed_tenant_host(
+        neo4j_driver, "damaged-tenant", "damaged.example.org", damage={"status": "bogus"}
+    )
 
     async with client_for(link_app, "damaged.example.org") as client:
         response = await client.get(f"/links/{token}")

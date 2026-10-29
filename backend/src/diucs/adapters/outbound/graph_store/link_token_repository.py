@@ -1,51 +1,181 @@
-"""Neo4j store for link tokens (P10, DEC-004, DEC-057). Only the token hash is stored.
+"""Neo4j store for link tokens (P10, DEC-004, DEC-057, L01). Only the token hash is stored.
 
-Layout: (:LinkToken {id, tokenHash, phoneHash, purpose, aboutId, expiresAt, usedAt}). The id is
-the token hash, so the node has no second identifier to keep in step. tokenHash is unique
-(migration 0021). Times are written in UTC and read back in UTC.
+Layout: (:LinkToken {id, tenantId, tokenHash, phoneHash, purpose, aboutId, expiresAt, usedAt}). The
+id is the token hash, so the node has no second identifier to keep in step. tokenHash is unique
+(migration 0021) and stays unique across tenants by design (DEC-131 item 5), so a second tenant
+cannot store a hash the first holds. A link token belongs to the tenant it was issued in (DEC-167
+item 2): every statement writes `tenantId: $tenant` on the node and matches it, so another tenant's
+link is not found, marked used or read. Times are written in UTC and read back in UTC.
 """
 
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    NodeSpec,
+    Scenario,
+    SeedNode,
+    TenantSeed,
+    Unique,
+)
 from diucs.domain.errors import Conflict
 from diucs.domain.rules.tokens import LinkTokenRecord, check_phone_hash
 
-_QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
+# Scenarios (DEC-142 item 5, DEC-167 item 2). Both tenants hold a link with the same id, phone hash,
+# prompt id and times; the purpose and the burn key differ (`Marked`), so a row that came from the
+# wrong tenant looks different. The token hash is the one key the schema keeps unique across
+# tenants (`link_token_hash`), so it is a `Unique`: the generated test runs each statement that
+# looks a link up by it with the other tenant's hash too, and it must find nothing. The create is
+# proved with a plain new hash: each probe is rolled back, so the two tenants' runs never collide.
+_EXPIRES: Final = datetime(2026, 10, 25, 12, 30, tzinfo=UTC)
+_USED: Final = datetime(2026, 10, 25, 12, 10, tzinfo=UTC)
+_PHONE: Final = "f" * 64
+_HASH: Final = Unique("link-hash", "link_token_hash")
+_OPEN_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "link",
+            ("LinkToken",),
+            {
+                "id": "link-1",
+                "tokenHash": _HASH,
+                "phoneHash": _PHONE,
+                "purpose": Marked("purpose"),
+                "aboutId": "c-1",
+                "expiresAt": _EXPIRES,
+            },
+        ),
+    )
+)
+_BURNED_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "link",
+            ("LinkToken",),
+            {
+                "id": "link-1",
+                "tokenHash": _HASH,
+                "phoneHash": _PHONE,
+                "purpose": "capacity-reply",
+                "aboutId": "c-1",
+                "expiresAt": _EXPIRES,
+                "usedAt": _USED,
+                "burnKey": Marked("key"),
+            },
+        ),
+    )
+)
+# The create is proved beside a link whose hash differs between the tenants (`Marked`): it needs no
+# shared hash, and so leans on no constraint.
+_ADD_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "link",
+            ("LinkToken",),
+            {
+                "id": "link-1",
+                "tokenHash": Marked("link-hash"),
+                "phoneHash": _PHONE,
+                "purpose": "capacity-reply",
+                "aboutId": "c-1",
+                "expiresAt": _EXPIRES,
+            },
+        ),
+    )
+)
+_ADD_SCENARIO: Final = Scenario(
+    "store a new link token beside the tenant's own",
+    seed=_ADD_SEED,
+    params={
+        "id": "link-new",
+        "tokenHash": "link-hash-new",
+        "phoneHash": _PHONE,
+        "purpose": "capacity-reply",
+        "aboutId": "c-1",
+        "expiresAt": _EXPIRES,
+        "usedAt": None,
+    },
+    new=("id", "tokenHash"),
+    expect=Expect(
+        rows=({"written": 1},),
+        nodes={"LinkToken": 1},
+        after=(
+            NodeSpec(
+                ("LinkToken",),
+                {"id": "link-new", "tokenHash": "link-hash-new", "purpose": "capacity-reply"},
+            ),
+        ),
+    ),
+)
+_GET_SCENARIO: Final = Scenario(
+    "read the tenant's link token by its hash",
+    seed=_OPEN_SEED,
+    params={"tokenHash": _HASH},
+    lookup=("tokenHash",),
+    expect=Expect(rows=({"props": {"purpose": Marked("purpose"), "aboutId": "c-1"}},)),
+)
+_MARK_SCENARIO: Final = Scenario(
+    "burn the tenant's link token once",
+    seed=_OPEN_SEED,
+    params={"tokenHash": _HASH, "at": _USED, "key": "key-1"},
+    lookup=("tokenHash",),
+    new=("at", "key"),
+    expect=Expect(
+        rows=({"n": 1},),
+        after=(NodeSpec(("LinkToken",), {"usedAt": _USED, "burnKey": "key-1"}),),
+    ),
+)
+_BURN_KEY_SCENARIO: Final = Scenario(
+    "read the key that burned the tenant's link token",
+    seed=_BURNED_SEED,
+    params={"tokenHash": _HASH},
+    lookup=("tokenHash",),
+    expect=Expect(rows=({"key": Marked("key")},)),
+)
+
+_QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario]] = {
     "Q-LINK-ADD": (
-        "CREATE (t:LinkToken {id: $id, tokenHash: $tokenHash, phoneHash: $phoneHash, "
-        "purpose: $purpose, aboutId: $aboutId, expiresAt: $expiresAt, usedAt: $usedAt}) "
+        "CREATE (t:LinkToken {id: $id, tenantId: $tenant, tokenHash: $tokenHash, "
+        "phoneHash: $phoneHash, purpose: $purpose, aboutId: $aboutId, expiresAt: $expiresAt, "
+        "usedAt: $usedAt}) "
         "RETURN count(t) AS written",
         "write",
+        _ADD_SCENARIO,
     ),
     "Q-LINK-GET": (
-        "MATCH (t:LinkToken {tokenHash: $tokenHash}) RETURN properties(t) AS props",
+        "MATCH (t:LinkToken {tokenHash: $tokenHash, tenantId: $tenant}) "
+        "RETURN properties(t) AS props",
         "read",
+        _GET_SCENARIO,
     ),
     # Lock first, then read. A MATCH ... WHERE usedAt IS NULL ... SET reads usedAt before any
     # write lock is held, so concurrent callers all see it unset (measured: 8 of 8, then 16 of 16,
     # won). Setting a property that does not exist (usedAt) to null is a no-op that takes no lock,
     # so the lock is taken on tokenHash, which always exists, and the WHERE then reads usedAt.
     "Q-LINK-MARK-USED": (
-        "MATCH (t:LinkToken {tokenHash: $tokenHash}) "
+        "MATCH (t:LinkToken {tokenHash: $tokenHash, tenantId: $tenant}) "
         "SET t.tokenHash = t.tokenHash "
         "WITH t WHERE t.usedAt IS NULL "
         "SET t.usedAt = $at, t.burnKey = $key RETURN count(t) AS n",
         "write",
+        _MARK_SCENARIO,
     ),
     "Q-LINK-BURN-KEY": (
-        "MATCH (t:LinkToken {tokenHash: $tokenHash}) RETURN t.burnKey AS key",
+        "MATCH (t:LinkToken {tokenHash: $tokenHash, tenantId: $tenant}) RETURN t.burnKey AS key",
         "read",
+        _BURN_KEY_SCENARIO,
     ),
 }
 
-for _query_id, (_cypher, _mode) in _QUERIES.items():
-    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode))
+for _query_id, (_cypher, _mode, _scenario) in _QUERIES.items():
+    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode, scenario=_scenario))
 
 
 def _utc(value: Any) -> datetime:

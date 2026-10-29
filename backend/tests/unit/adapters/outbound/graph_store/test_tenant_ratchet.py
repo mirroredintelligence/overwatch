@@ -66,12 +66,18 @@ RESOURCE_STORE = frozenset(
 
 # The single-property unique constraints each starter scenario leans on. TEN-005 replaced them with
 # composite keys (tenantId plus the key), so the two tenants share every key a scenario uses and no
-# scenario leans on one: the table is empty, and it may not grow. A value only a global key could
-# hold (`link_token_hash`) would be a `Unique` again, and its statement is listed here.
-CONSTRAINTS_LEANED_ON: dict[str, frozenset[str]] = {}
+# scenario leans on one, but for the one key that stays unique across tenants by design: the hash
+# of a link token (`link_token_hash`, DEC-131 item 5). The three link statements that look a token
+# up by its hash are listed here (L01, DEC-167 item 2), and the table may not grow.
+CONSTRAINTS_LEANED_ON: dict[str, frozenset[str]] = {
+    "Q-LINK-GET": frozenset({"link_token_hash"}),
+    "Q-LINK-MARK-USED": frozenset({"link_token_hash"}),
+    "Q-LINK-BURN-KEY": frozenset({"link_token_hash"}),
+}
 # The statements whose every lookup value is covered by such a constraint: the two tenants cannot
-# share the key the statement is called with. None.
-COLLISION_BLOCKED: frozenset[str] = frozenset()
+# share the key the statement is called with, so the generated test proves them with the other
+# tenant's hash instead.
+COLLISION_BLOCKED: frozenset[str] = frozenset(CONSTRAINTS_LEANED_ON)
 
 
 @pytest.fixture(scope="module")
@@ -163,8 +169,10 @@ def test_no_starter_scenario_holds_a_value_the_tenants_cannot_share(
     statements: dict[str, NamedQuery],
 ) -> None:
     """After TEN-005 every key of every starter scenario is shared by both tenants: no `Unique`
-    anywhere in a scenario (its seed, parameters or expectations)."""
-    assert CONSTRAINTS_LEANED_ON == {}
+    anywhere in a scenario (its seed, parameters or expectations). The only pins left are the link
+    token's own hash (L01)."""
+    assert all(pinned == {"link_token_hash"} for pinned in CONSTRAINTS_LEANED_ON.values())
+    assert set(CONSTRAINTS_LEANED_ON) <= {q for q in CONSTRAINTS_LEANED_ON if "LINK" in q}
     for query_id in sorted(STARTER):
         scenario = statements[query_id].scenario
         assert scenario is not None

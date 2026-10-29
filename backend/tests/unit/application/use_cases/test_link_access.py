@@ -13,6 +13,7 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.tenancy import ScopeId
 from diucs.application.use_cases.link_access import (
     ACTIONS,
@@ -31,6 +32,7 @@ from diucs.application.use_cases.link_access import (
     LinkOutOfRange,
     LinkRequest,
     SendTheNumber,
+    _token_hash,
     check_action,
     command_key,
     csrf_token,
@@ -428,3 +430,28 @@ def test_a_link_request_holds_what_it_was_found_with() -> None:
 
     assert replace(link, now=NOW + timedelta(seconds=1)).now > link.now
     assert link.scope == TENANT_A
+
+
+# -- the token hash -------------------------------------------------------------------------
+
+
+def test_a_secret_that_cannot_hash_a_token_is_a_fault_and_not_an_unknown_link() -> None:
+    """Text that cannot be a token is an unknown link; a store with no usable secret is a
+    configuration fault, which must not look like one."""
+    broken = FixedSecretStore({"link-token": b""})
+
+    with pytest.raises(ValidationFailed) as fault:
+        _token_hash("A" * 23, broken)
+
+    assert fault.value.field == "secret"
+
+
+@pytest.mark.parametrize("token", ["", "not a token", "a" * 65, "é" * 23, "a/b"])
+def test_text_that_cannot_be_a_token_has_no_hash(token: str) -> None:
+    assert _token_hash(token, FixedSecretStore({"link-token": SECRET})) is None
+
+
+def test_a_token_has_the_keyed_hash_of_the_tokens_module() -> None:
+    expected = hmac.new(SECRET, b"A" * 23, hashlib.sha256).hexdigest()
+
+    assert _token_hash("A" * 23, FixedSecretStore({"link-token": SECRET})) == expected

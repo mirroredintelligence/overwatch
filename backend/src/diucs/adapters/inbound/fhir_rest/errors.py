@@ -57,6 +57,9 @@ PRECONDITION_REQUIRED_TEXT = (
 ACCEPTED_BODY_TYPES = frozenset({"application/fhir+json", "application/json"})
 # The Twilio webhook (I07) is not FHIR: Twilio posts a form, which this check would refuse.
 WEBHOOK_PATH_PREFIX = "/webhooks/"
+# The link pages (L01) are not FHIR either: renewing a link is a POST with no body at all, and every
+# answer there is the link pages' own, so a bare POST must not be told it has the wrong media type.
+LINK_PATH_PREFIX = "/links/"
 _BODY_METHODS = frozenset({"POST", "PUT"})
 _HTTP_STATUS_TEXT = {404: NOT_FOUND_TEXT, 405: METHOD_TEXT, 415: UNSUPPORTED_MEDIA_TEXT}
 
@@ -155,7 +158,7 @@ class BodyTypeMiddleware:
         is_body_request = (
             scope["type"] == "http"
             and scope["method"] in _BODY_METHODS
-            and not str(scope["path"]).startswith(WEBHOOK_PATH_PREFIX)
+            and not str(scope["path"]).startswith((WEBHOOK_PATH_PREFIX, LINK_PATH_PREFIX))
         )
         if is_body_request and _body_type(scope) not in ACCEPTED_BODY_TYPES:
             response = operation_outcome(415, "not-supported", UNSUPPORTED_MEDIA_TEXT)

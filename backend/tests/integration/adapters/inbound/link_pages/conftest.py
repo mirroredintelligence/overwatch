@@ -88,13 +88,13 @@ async def seed_tenant_host(
     tenant_id: str,
     host: str,
     status: TenantStatus = TenantStatus.ACTIVE,
-    **damage: object,
+    damage: dict[str, object] | None = None,
 ) -> None:
     """A tenant record with this host. `damage` overwrites properties to make a record the domain
     refuses."""
     props = tenant_properties(make_tenant(status, id=tenant_id))
     props["host"] = host
-    props.update(damage)
+    props.update(damage or {})
 
     async def work(tx: AsyncManagedTransaction) -> None:
         await tx.run("CREATE (t:Tenant) SET t = $props", props=props)

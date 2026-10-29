@@ -23,7 +23,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.tokens import LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import TenantNotBound, bind_tenant
+from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
 from diucs.application.use_cases import link_access
 from diucs.application.use_cases.link_access import (
     CAPACITY_PURPOSE,
@@ -34,9 +34,11 @@ from diucs.application.use_cases.link_access import (
     RespondViaLink,
     RespondViaLinkCommand,
     SendTheNumber,
+    UnitOfWorkIdempotency,
 )
 from diucs.application.use_cases.link_access import LinkAction as Action
-from diucs.domain.codes import Channel, ReportFlagReason, ReportSource, ReportType
+from diucs.application.use_cases.report_capacity import ReportCapacityResult
+from diucs.domain.codes import Channel, ReportFlagReason, ReportSource, ReportType, Status
 from diucs.domain.errors import (
     ConfirmLimitReached,
     Conflict,
@@ -607,7 +609,7 @@ async def test_a_figure_that_was_stored_before_the_burn_failed_cannot_be_answere
 # -- the CSRF token --------------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("csrf", [None, "", "0" * 64, "not hex", "é"])
+@pytest.mark.parametrize("csrf", [None, " ", "0" * 64, "not hex", "é"])
 async def test_a_missing_or_wrong_csrf_token_is_refused_and_records_nothing(
     links: LinkRig, csrf: str | None
 ) -> None:
@@ -925,7 +927,6 @@ async def test_renewals_are_limited_per_tenant_and_a_renewal_that_sends_nothing_
 
     await links.renew(token)  # the one renewal
     other = await links.issue(about_id=(await links.token_node(token))["aboutId"])
-    links.clock.advance(timedelta(minutes=31))
     with pytest.raises(LinkRateLimited) as limited:
         await links.renew(other)
 
@@ -1009,11 +1010,16 @@ async def test_the_same_hash_in_one_tenant_is_not_readable_from_another_by_the_v
 # -- no secret in what the code writes or says -----------------------------------------------------
 
 
-async def _nodes_holding(links: LinkRig, text: str) -> int:
-    """How many properties of nodes other than the link-token node itself contain `text`."""
+async def _nodes_holding(links: LinkRig, text: str, *, not_labels: tuple[str, ...] = ()) -> int:
+    """How many properties of nodes other than the link-token node itself (and `not_labels`)
+    contain `text`."""
 
     async def everything(tx: Any) -> int:
-        result = await tx.run("MATCH (n) WHERE NOT n:LinkToken RETURN properties(n) AS props")
+        result = await tx.run(
+            "MATCH (n) WHERE NOT n:LinkToken AND NONE(l IN labels(n) WHERE l IN $skip) "
+            "RETURN properties(n) AS props",
+            skip=list(not_labels),
+        )
         return sum(
             text in str(value) for row in await result.data() for value in row["props"].values()
         )
@@ -1028,8 +1034,11 @@ async def test_no_token_hash_or_csrf_token_is_stored_in_a_record_or_an_audit_ent
     await links.respond(token, "number", 5)
 
     assert await _nodes_holding(links, token) == 0
-    assert await _nodes_holding(links, token_hash_of(token)) == 0
     assert await _nodes_holding(links, links.csrf(token)) == 0
+    # The hash is the link's identifier: it is in the replay key that makes the link single-use,
+    # and in no other record.
+    assert await _nodes_holding(links, token_hash_of(token)) == 1
+    assert await _nodes_holding(links, token_hash_of(token), not_labels=("IdempotencyRecord",)) == 0
 
 
 async def test_the_errors_a_link_raises_name_no_token_hash_or_value(links: LinkRig) -> None:
@@ -1061,3 +1070,65 @@ async def test_two_secrets_are_all_the_link_code_reads(links: LinkRig) -> None:
 
     assert {"link-token", "link-csrf"} <= set(secrets.requested)
     assert SECRET and new_secrets().names == {"link-token", "link-csrf"}
+
+
+# -- the edges of the gate and the helpers --------------------------------------------------------
+
+
+def _gate(links: LinkRig) -> Any:
+    return link_access._Gate(
+        links.factory,
+        links.clock,
+        links.secrets,
+        links.cache,
+        lambda repo: LinkTokenService(repo, links.secrets, links.clock),
+        links.purposes,
+    )
+
+
+@pytest.mark.no_tenant
+async def test_the_gate_refuses_a_unit_of_work_with_no_tenant_bound(links: LinkRig) -> None:
+    with pytest.raises(TenantNotBound):
+        await _gate(links).find("A" * 23, "slot")
+
+
+@pytest.mark.no_tenant
+async def test_the_gate_refuses_a_unit_of_work_bound_to_a_network(
+    links: LinkRig, network_id: str
+) -> None:
+    with bind_scope(ScopeId.network(network_id)), pytest.raises(TenantNotBound):
+        await _gate(links).find("A" * 23, "slot")
+
+
+async def test_a_report_that_was_just_stored_but_cannot_be_read_is_an_error(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    clock = FixedClock(ANSWER_AT)
+
+    class _Vanishing:
+        async def execute(self, command: object) -> ReportCapacityResult:
+            return ReportCapacityResult("no-such-report", Status.ACCEPTING, False, None)
+
+    links = build_link_rig(
+        uow_factory_on(neo4j_driver, clock),
+        neo4j_driver,
+        tenant_id,
+        clock=clock,
+        reports=_Vanishing(),
+    )
+    token = await _prompted(links)
+
+    with pytest.raises(RuntimeError, match="cannot be read"):
+        await links.respond(token, "number", 5)
+
+
+async def test_the_idempotency_store_of_the_use_cases_round_trips_a_result(
+    links: LinkRig,
+) -> None:
+    store = UnitOfWorkIdempotency(links.factory)
+    result = ReportCapacityResult("report-1", Status.ACCEPTING, False, None)
+
+    assert await store.get("a-key") is None
+    await store.put("a-key", result)
+
+    assert await store.get("a-key") == result

@@ -2,6 +2,7 @@
 shape of an answer in the body, and a route with nothing configured. All values are synthetic."""
 
 import logging
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -134,3 +135,13 @@ def test_the_page_paths_are_the_ones_the_front_end_and_the_prompt_use() -> None:
     assert pages.LINK_SCHEME == "https"
     assert pages.MAX_BODY_BYTES == 1024
     assert pages.SEND_THE_NUMBER_TEXT == "Please send the number"
+
+
+# -- the host ------------------------------------------------------------------------------
+
+
+async def test_a_request_with_no_host_has_no_tenant() -> None:
+    request: Any = SimpleNamespace(url=SimpleNamespace(hostname=None))
+    container: Any = SimpleNamespace(tenants=None)  # the directory is never asked
+
+    assert await pages._tenant_of(request, container) is None

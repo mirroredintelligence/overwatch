@@ -25,6 +25,7 @@ from diucs.application.ports.outbound.tokens import LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
 from diucs.application.use_cases import link_access
+from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.link_access import (
     CAPACITY_PURPOSE,
     CsrfRejected,
@@ -535,6 +536,46 @@ async def test_what_the_use_case_refuses_is_what_the_reporter_is_told(
     assert "usedAt" not in await links.token_node(token)  # nothing was recorded, so not burned
 
 
+class _ReportLandsFirst:
+    """ConfirmCapacity, after another report has landed: the race between judging a Y and writing
+    it, made to happen on cue."""
+
+    def __init__(self, links_ref: list[LinkRig], inner: Any) -> None:
+        self._links = links_ref
+        self._inner = inner
+
+    async def execute(self, command: Any) -> Any:
+        links = self._links[0]
+        await links.rig.report(london(10, 3), value=6)
+        return await self._inner.execute(command)
+
+
+async def test_a_report_that_lands_while_a_y_is_judged_is_not_confirmed_unjudged(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    clock = FixedClock(ANSWER_AT)
+    factory = uow_factory_on(neo4j_driver, clock)
+    holder: list[LinkRig] = []
+    real = ConfirmCapacity(factory, clock, SequentialIds(), UnitOfWorkIdempotency(factory))
+    links = build_link_rig(
+        factory,
+        neo4j_driver,
+        tenant_id,
+        clock=clock,
+        confirms=_ReportLandsFirst(holder, real),
+    )
+    holder.append(links)
+    token = await _prompted(links)
+
+    with pytest.raises(SendTheNumber) as refused:
+        await links.respond(token, "confirm")
+
+    assert refused.value.reason == "changed"
+    latest = await links.latest()
+    assert (latest.report_type, latest.value) == (ReportType.NUMBER, 6)  # nothing was confirmed
+    assert "usedAt" not in await links.token_node(token)  # and the link is still open
+
+
 # -- once, and only once -------------------------------------------------------------------------
 
 
@@ -852,6 +893,38 @@ async def test_renewing_the_old_link_after_a_fresh_one_was_sent_does_nothing(
     await links.renew(token)
 
     assert await links.counts() == before
+
+
+async def test_a_link_of_an_earlier_prompt_is_not_renewed_once_a_later_prompt_was_sent(
+    links: LinkRig,
+) -> None:
+    """The reporter has a newer link from the next prompt, so the old link's renewal is ignored: it
+    queues nothing and, having sent nothing, costs none of the tenant's renewals."""
+    earlier = await _prompted(links)
+    await links.prompt(london(12, 0))
+    links.clock.set(london(12, 40))  # both links have expired
+    before = await links.counts()
+
+    await links.renew(earlier)
+
+    assert await links.counts() == before
+
+
+async def test_a_renewal_that_sends_nothing_gives_its_slot_back(
+    links: LinkRig, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(link_access, "RENEWALS_PER_WINDOW", 1)
+    earlier = await _prompted(links)
+    later = await links.prompt(london(12, 0))
+    links.clock.set(london(12, 40))
+    before = await links.counts()
+
+    await links.renew(earlier)  # nothing to do: a later prompt exists
+    await links.renew(later)  # the one renewal the tenant has, still free
+
+    after = await links.counts()
+    assert after["OutboxMessage"] == before["OutboxMessage"] + 1
+    assert after["LinkToken"] == before["LinkToken"] + 1
 
 
 @pytest.mark.parametrize(

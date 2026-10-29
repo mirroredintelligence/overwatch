@@ -198,6 +198,13 @@ def _secret_hash(secret: bytes, scope: ScopeId, screen_secret: str) -> str | Non
     return _keyed(secret, scope, screen_secret)
 
 
+def _command_key(scope: ScopeId, key: str) -> str:
+    """The key handed to the replay store and the link-token burn: the tenant is part of it, so two
+    tenants that use the same key are two commands. Needed while the replay statements are
+    unconverted and key their records by the key alone (known-issues); the one place to change."""
+    return f"pairing:{scope}:{key}"
+
+
 def _who(practitioner_id: str) -> str:
     return hashlib.sha256(practitioner_id.encode("utf-8")).hexdigest()[:32]
 
@@ -320,13 +327,14 @@ class ConfirmPairing:
             digits = normalise_code(command.code)
             code_hash = None if digits is None else _keyed(link_secret, scope, digits)
             fingerprint = _fingerprint(command, name, location, code_hash)
-            stored = await uow.idempotency.get(command.idempotency_key)
+            key = _command_key(scope, command.idempotency_key)
+            stored = await uow.idempotency.get(key)
             if stored is not None:
                 return _replay(stored, fingerprint)
             attempts = f"pairing-confirm:{scope}:{_who(actor.practitioner_id)}"
             if await self._limiter.is_full(attempts, CONFIRM_FAILURE_LIMIT):
                 raise PairingRateLimited(RATE_LIMITED_MESSAGE)
-            device_id = await _burn_code(uow, code_hash, now, command.idempotency_key)
+            device_id = await _burn_code(uow, code_hash, now, key)
             if device_id is None or await uow.devices.get(device_id) is not None:
                 await self._limiter.take(attempts, CONFIRM_FAILURE_LIMIT, LIMIT_WINDOW)
                 raise NotAllowed(REFUSED_MESSAGE)
@@ -355,7 +363,7 @@ class ConfirmPairing:
                 )
             )
             result = ConfirmPairingResult(device_id=device.id, screen_name=device.name)
-            await uow.idempotency.put(command.idempotency_key, _StoredConfirm(fingerprint, result))
+            await uow.idempotency.put(key, _StoredConfirm(fingerprint, result))
             await uow.commit()
         return result
 

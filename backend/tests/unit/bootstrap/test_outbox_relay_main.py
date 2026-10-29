@@ -29,7 +29,7 @@ def test_no_configured_tenant_is_refused(value: str | None) -> None:
         configured_tenants(environ)
 
 
-@pytest.mark.parametrize("bad", ["Not A Tenant", "net-abcd1234", "a", "has:colon", "x" * 40])
+@pytest.mark.parametrize("bad", ["Not A Tenant", "net-abcd1234", "q", "has:colon", "x" * 40])
 def test_an_entry_that_is_not_a_tenant_id_is_refused_without_repeating_it(bad: str) -> None:
     with pytest.raises(RelayConfigError) as raised:
         configured_tenants({"DIUCS_RELAY_TENANTS": f"tenant-a,{bad}"})

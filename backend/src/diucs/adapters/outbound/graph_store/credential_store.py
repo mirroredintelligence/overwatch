@@ -523,6 +523,12 @@ class Neo4jDeviceRegistry:
     async def revoke_all(self, practitioner_id: str) -> None:
         await self._run("Q-DEVICE-REVOKE", key=_key(practitioner_id), revoked=_STATUS_REVOKED)
 
+    async def mark_verified(self, practitioner_id: str, device_id: str, at: datetime) -> None:
+        raise NotImplementedError
+
+    async def verified_at(self, practitioner_id: str, device_id: str) -> datetime | None:
+        raise NotImplementedError
+
     async def get(self, device_id: str) -> Device | None:
         rows = await self._run("Q-SCREEN-GET", id=device_id, type=_WALL_DISPLAY)
         return _screen(rows[0]) if rows else None

@@ -8,7 +8,7 @@ not stores of record: nothing here survives a test, and no use-case flow is prov
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from types import TracebackType
 from typing import Any, Self
 
@@ -19,6 +19,7 @@ from diucs.application.tenancy import ScopeId
 from diucs.domain.codes import PractitionerRoleCode, Role
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
+from diucs.domain.rules.identity_policy import PinState
 from diucs.domain.rules.tokens import LinkTokenRecord
 
 
@@ -39,12 +40,14 @@ class _Part:
 
 
 class StubPeople(_Part):
-    def __init__(self, writes: Writes) -> None:
+    def __init__(self, writes: Writes, calls: list[str] | None = None) -> None:
         super().__init__(writes, "people")
         self.practitioners: dict[str, Practitioner] = {}
         self.roles: dict[str, PractitionerRole] = {}
+        self.reads: list[str] = calls if calls is not None else []
 
     async def get_practitioner(self, practitioner_id: str) -> Practitioner | None:
+        self.reads.append("people.get_practitioner")
         return self.practitioners.get(practitioner_id)
 
     async def find_by_phone_hash(self, phone_hash: str) -> Practitioner | None:
@@ -292,6 +295,80 @@ class StubIdempotency(_Part):
         self.stored[key] = result
 
 
+class StubPins(_Part):
+    """PIN credentials by (practitioner, device): the stored hash and the lock state."""
+
+    def __init__(self, writes: Writes, calls: list[str]) -> None:
+        super().__init__(writes, "pins")
+        self.held: dict[tuple[str, str], tuple[str, PinState]] = {}
+        self._calls = calls
+
+    async def get(self, practitioner_id: str, device_id: str) -> tuple[str, PinState] | None:
+        self._calls.append("pins.get")
+        return self.held.get((practitioner_id, device_id))
+
+    async def set_pin(self, practitioner_id: str, device_id: str, pin_hash: str) -> None:
+        self.wrote("set_pin")
+        self.held[(practitioner_id, device_id)] = (pin_hash, PinState())
+
+    async def save_state(self, practitioner_id: str, device_id: str, state: PinState) -> None:
+        self.wrote("save_state")
+        pin_hash, _ = self.held[(practitioner_id, device_id)]
+        self.held[(practitioner_id, device_id)] = (pin_hash, state)
+
+    async def clear_all(self, practitioner_id: str) -> None:
+        self.wrote("clear_all")
+
+
+class StubDevices(_Part):
+    """Devices by (practitioner, device): revoked flag and the last text-code verification."""
+
+    def __init__(self, writes: Writes, calls: list[str]) -> None:
+        super().__init__(writes, "devices")
+        self.held: dict[tuple[str, str], dict[str, Any]] = {}
+        self._calls = calls
+
+    async def register(self, practitioner_id: str, device_id: str, at: datetime) -> None:
+        self.wrote("register")
+        self.held.setdefault(
+            (practitioner_id, device_id), {"revoked": False, "verified_at": None, "at": at}
+        )
+
+    async def known(self, practitioner_id: str, device_id: str) -> bool:
+        self._calls.append("devices.known")
+        device = self.held.get((practitioner_id, device_id))
+        return device is not None and not device["revoked"]
+
+    async def verified_at(self, practitioner_id: str, device_id: str) -> datetime | None:
+        self._calls.append("devices.verified_at")
+        device = self.held.get((practitioner_id, device_id))
+        if device is None or device["revoked"]:
+            return None
+        verified: datetime | None = device["verified_at"]
+        return verified
+
+    async def mark_verified(self, practitioner_id: str, device_id: str, at: datetime) -> None:
+        self.wrote("mark_verified")
+        self.held[(practitioner_id, device_id)]["verified_at"] = at
+
+    async def revoke_all(self, practitioner_id: str) -> None:
+        self.wrote("revoke_all")
+
+
+class StubLimiter:
+    """A fixed-window throttle without a window: it counts attempts per key and refuses the ones
+    past the limit. It keeps every key it was asked about, so a test can read the keys."""
+
+    def __init__(self) -> None:
+        self.counts: dict[str, int] = {}
+        self.limits: dict[str, int] = {}
+
+    async def allow(self, key: str, limit: int, window: timedelta) -> bool:
+        self.counts[key] = self.counts.get(key, 0) + 1
+        self.limits[key] = limit
+        return self.counts[key] <= limit
+
+
 class StubUnit:
     """One unit of work over the stubs. Several `StubUnit`s made by one `StubUnits` share state, so
     a second command sees what the first committed."""
@@ -333,7 +410,8 @@ class StubUnits:
         self.scope_id = scope or ScopeId.tenant("tenant-a")
         self.writes = Writes()
         self.commits = 0
-        self.people = StubPeople(self.writes)
+        self.calls: list[str] = []
+        self.people = StubPeople(self.writes, self.calls)
         self.registrations = StubRegistrations(self.writes)
         self.scope = StubScope(self.writes)
         self.criteria = StubCriteria(self.writes)
@@ -343,6 +421,8 @@ class StubUnits:
         self.outbox = StubOutbox(self.writes)
         self.communications = StubCommunications(self.writes)
         self.idempotency = StubIdempotency(self.writes)
+        self.pins = StubPins(self.writes, self.calls)
+        self.devices = StubDevices(self.writes, self.calls)
 
     def __call__(self) -> StubUnit:
         return StubUnit(self)

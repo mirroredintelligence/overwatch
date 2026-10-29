@@ -122,13 +122,20 @@ def test_a_site_type_outside_the_listed_five_is_refused() -> None:
     assert [e.field for e in validate_step(replace(SITE, site_type="shed"))] == ["site_type"]
 
 
-def test_opening_hours_that_end_before_they_start_are_refused() -> None:
+def test_opening_hours_that_start_and_end_at_the_same_time_are_refused() -> None:
     errors = validate_step(
         replace(
-            SITE, open_24h=False, opening_days="mon", opening_start="20:00", opening_end="08:00"
+            SITE, open_24h=False, opening_days="mon", opening_start="08:00", opening_end="08:00"
         )
     )
     assert [e.field for e in errors] == ["opening"]
+
+
+def test_an_overnight_opening_window_is_accepted_as_the_rule_book_allows_it() -> None:
+    overnight = replace(
+        SITE, open_24h=False, opening_days="mon", opening_start="20:00", opening_end="08:00"
+    )
+    assert validate_step(overnight) == []
 
 
 # --- service -----------------------------------------------------------------------------------

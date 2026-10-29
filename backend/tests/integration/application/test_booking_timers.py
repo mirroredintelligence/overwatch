@@ -44,7 +44,9 @@ async def work_for(uow_factory: UnitOfWorkFactory, booking_id: str, kind: WorkKi
     return found[0].id
 
 
-async def set_status(uow_factory: UnitOfWorkFactory, booking_id: str, target: BookingStatus) -> None:
+async def set_status(
+    uow_factory: UnitOfWorkFactory, booking_id: str, target: BookingStatus
+) -> None:
     async with uow_factory() as uow:
         booking = await uow.bookings.get(booking_id)
         assert booking is not None
@@ -132,7 +134,9 @@ async def test_the_same_work_delivered_twice_emits_one_event(
     booked = await request(uow_factory, neo4j_driver, "tm-5")
     work_id = await work_for(uow_factory, booked.booking_id, WorkKind.BOOKING_EXPIRE)
     use_case = ExpireBooking(uow_factory, FixedClock(EXPIRY_AT))
-    first = await use_case.execute(ExpireBookingCommand(work_id=work_id, booking_id=booked.booking_id))
+    first = await use_case.execute(
+        ExpireBookingCommand(work_id=work_id, booking_id=booked.booking_id)
+    )
     second = await use_case.execute(
         ExpireBookingCommand(work_id=work_id, booking_id=booked.booking_id)
     )

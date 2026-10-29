@@ -2,8 +2,8 @@
 are recording stubs here, and the stored behaviour is tested in tests/integration.
 """
 
-from datetime import UTC, datetime
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from diucs.application.actor import Actor
@@ -62,10 +62,13 @@ def test_exactly_the_two_booking_kinds_have_a_handler() -> None:
 
 
 def test_the_system_actor_is_the_audit_role_on_the_system_channel_with_no_service() -> None:
-    assert SYSTEM_ACTOR == Actor(
-        role=Role.AUDIT,
-        practitioner_id=None,
-        device_id=None,
-        channel="system",
-        service_ids=frozenset(),
+    assert (
+        Actor(
+            role=Role.AUDIT,
+            practitioner_id=None,
+            device_id=None,
+            channel="system",
+            service_ids=frozenset(),
+        )
+        == SYSTEM_ACTOR
     )

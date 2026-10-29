@@ -244,6 +244,40 @@ class BookingExpired:
 
 
 @dataclass(frozen=True, slots=True)
+class BookingPhonePrompt:
+    """A requested booking is five minutes old and still unanswered: the advisor is to phone the
+    service (U19). Ids and the booking reference only, never a patient value."""
+
+    event_type: ClassVar[str] = "BookingPhonePrompt"
+    booking_id: str
+    service_id: str
+    reference: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        if not isinstance(self.reference, str) or _REFERENCE.fullmatch(self.reference) is None:
+            raise ValidationFailed("reference", "must be a four-digit booking reference")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "booking_id": self.booking_id,
+            "service_id": self.service_id,
+            "reference": self.reference,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            booking_id=_text(payload, "booking_id"),
+            service_id=_text(payload, "service_id"),
+            reference=_text(payload, "reference"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class RegistrationSubmitted:
     event_type: ClassVar[str] = "RegistrationSubmitted"
     registration_id: str
@@ -490,6 +524,7 @@ DomainEvent = (
     | BookingRequested
     | BookingResponded
     | BookingExpired
+    | BookingPhonePrompt
     | RegistrationSubmitted
     | RegistrationApproved
     | ServiceActivated
@@ -508,6 +543,7 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         BookingRequested: BOOKING_EVENTS,
         BookingResponded: BOOKING_EVENTS,
         BookingExpired: BOOKING_EVENTS,
+        BookingPhonePrompt: BOOKING_EVENTS,
         RegistrationSubmitted: REGISTRATION_EVENTS,
         RegistrationApproved: REGISTRATION_EVENTS,
         ServiceActivated: REGISTRATION_EVENTS,
@@ -527,6 +563,7 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "BookingRequested": BookingRequested.decode,
         "BookingResponded": BookingResponded.decode,
         "BookingExpired": BookingExpired.decode,
+        "BookingPhonePrompt": BookingPhonePrompt.decode,
         "RegistrationSubmitted": RegistrationSubmitted.decode,
         "RegistrationApproved": RegistrationApproved.decode,
         "ServiceActivated": ServiceActivated.decode,

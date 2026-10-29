@@ -12,3 +12,13 @@ class Actor:
     device_id: str | None
     channel: str
     service_ids: frozenset[str]
+
+
+SYSTEM_ACTOR = Actor(
+    role=Role.AUDIT,
+    practitioner_id=None,
+    device_id=None,
+    channel="system",
+    service_ids=frozenset(),
+)
+"""The actor of a timer that the system runs on its own (U19): no person, no device, no service."""

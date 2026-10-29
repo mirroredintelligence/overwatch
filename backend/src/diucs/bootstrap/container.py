@@ -16,6 +16,7 @@ of the container (TEN-007). No secret store exists beyond the fake: `build` take
 process that serves, and without one every secret reads as not found (fail closed).
 """
 
+import random
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -29,6 +30,7 @@ from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
 )
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
+from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
@@ -56,7 +58,9 @@ from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.fixed_terminology import FixedTerminology
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.actor import Actor
+from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.geo import (
     AddressCandidate,
@@ -102,6 +106,7 @@ TELEMETRY_FIXTURE = (
     Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "telemetry" / "s-7f3a.json"
 )
 TEST_LINK_BASE_URL = "https://diucs.example"
+TEST_RNG_SEED = 20261023
 
 SCHEDULER_ACTOR = Actor(
     role=Role.OWNER,
@@ -134,6 +139,11 @@ class Container:
     sessions: SessionStore
     codes: CodeStore
     rate_limiter: RateLimiter
+    # The Cache port on the same Redis client (DEC-003: short-lived counts and keys only). The
+    # pairing limits of the wall screen routes (R15) are kept here.
+    cache: Cache
+    # The random source of pairing codes and device tokens (U10): cryptographic in production.
+    rng: random.Random
     # Postcode centroids for the patient's position, read from the local file (I11). A patient
     # postcode never leaves the Trust.
     postcodes: PostcodeLocator
@@ -305,6 +315,8 @@ def build(
         sessions=RedisSessionStore(redis),
         codes=RedisCodeStore(redis, clock),
         rate_limiter=RedisRateLimiter(redis),
+        cache=RedisCache(redis),
+        rng=random.SystemRandom(),
         postcodes=(
             NoPostcodes()
             if settings.postcode_centroids_path is None
@@ -334,6 +346,8 @@ def build_for_tests(
     neo4j: Neo4jConnection,
     secrets: SecretStore | None = None,
     redis: Redis | None = None,
+    cache: Cache | None = None,
+    rng: random.Random | None = None,
     telemetry: TelemetryQuery | None = None,
     link_base_url: str = TEST_LINK_BASE_URL,
 ) -> Container:
@@ -363,6 +377,8 @@ def build_for_tests(
         sessions=RedisSessionStore(resolved_redis),
         codes=RedisCodeStore(resolved_redis, resolved_clock),
         rate_limiter=RedisRateLimiter(resolved_redis),
+        cache=InMemoryCache(resolved_clock) if cache is None else cache,
+        rng=random.Random(TEST_RNG_SEED) if rng is None else rng,
         postcodes=FixedPostcodeLocator({}, {}),
         travel=FixedTravelTime(TravelRange(low_minutes=10, high_minutes=20, source="test fixed")),
         geocoder=FixedGeocoder({}),

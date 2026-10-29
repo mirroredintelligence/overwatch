@@ -42,6 +42,7 @@ testpaths = ["tests"]
 markers = [
     "integration: needs the Docker services in infra/",
     "emulator_limit: a case where the emulator refuses what the port allows; names the case, the emulator and the error (DEC-102)",
+    "no_tenant: an integration test that runs with no tenant bound; the conftest binds the run tenant around every other one (TEN-003)",
 ]
 
 [tool.ruff]

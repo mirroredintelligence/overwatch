@@ -28,6 +28,9 @@ def to_service_bus_message(message: BusMessage) -> ServiceBusMessage:
     }
     if "channel" in message.payload:
         properties["channel"] = message.payload["channel"]
+    if message.tenant_id is not None:
+        # DEC-130 item 7: the consumer binds this before it opens a unit of work.
+        properties["tenantId"] = message.tenant_id
     return ServiceBusMessage(
         body=json.dumps(message.payload).encode("utf-8"),
         message_id=message.id,
@@ -67,6 +70,11 @@ class ServiceBusEventBus:
         if message.topic not in TOPICS:
             raise ValidationFailed("topic", "not a known topic")
         await self._sender(message.topic).send_messages(to_service_bus_message(message))
+
+    async def enqueue(self, queue: str, message: BusMessage) -> None:
+        if queue not in QUEUES:
+            raise ValidationFailed("queue", "not a known queue")
+        await self._sender(queue).send_messages(to_service_bus_message(message))
 
     async def schedule(self, queue: str, message: BusMessage, enqueue_at: datetime) -> int:
         if queue not in QUEUES:

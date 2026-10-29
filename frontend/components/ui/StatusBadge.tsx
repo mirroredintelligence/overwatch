@@ -19,11 +19,11 @@ export const STATUS_LABELS: Record<StatusCode, string> = {
   'last-known': 'Last known',
 };
 
-type Shape = 'circle-tick' | 'triangle' | 'circle-bar' | 'diamond' | 'dashed-circle' | 'moon';
+export type Shape = 'circle-tick' | 'triangle' | 'circle-bar' | 'diamond' | 'dashed-circle' | 'moon';
 
 // Not updated and last known share a shape on purpose: both mean "do not rely
 // on this figure", and the word tells them apart.
-const SHAPES: Record<StatusCode, Shape> = {
+export const STATUS_SHAPES: Record<StatusCode, Shape> = {
   accepting: 'circle-tick',
   limited: 'triangle',
   'not-accepting': 'circle-bar',
@@ -34,7 +34,7 @@ const SHAPES: Record<StatusCode, Shape> = {
 };
 
 // Icons draw in currentColor, so they follow the chip's text colour.
-function ShapeIcon({ shape }: { shape: Shape }) {
+export function ShapeIcon({ shape }: { shape: Shape }) {
   const common = {
     viewBox: '0 0 24 24',
     fill: 'none',
@@ -99,10 +99,10 @@ export function StatusBadge({ status, size = 'sm' }: { status: StatusCode; size?
     <span
       className={`${styles.badge} ${styles[status]} ${styles[size]}`}
       data-status={status}
-      data-shape={SHAPES[status]}
+      data-shape={STATUS_SHAPES[status]}
       data-size={size}
     >
-      <ShapeIcon shape={SHAPES[status]} />
+      <ShapeIcon shape={STATUS_SHAPES[status]} />
       <span>{STATUS_LABELS[status]}</span>
     </span>
   );

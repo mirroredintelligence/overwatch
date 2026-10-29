@@ -6,6 +6,8 @@ Durations are seconds, so a real adapter can run the same test in real time.
 import asyncio
 from datetime import timedelta
 
+import pytest
+
 from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache, Lock
 from tests.contract.harness import Harness, next_message
 
@@ -77,6 +79,88 @@ async def test_an_expired_key_can_be_set_again(cache_harness: Harness[Cache]) ->
     await cache_harness.advance(TTL + ONE_SECOND)
     await cache_harness.subject.set("svc-1:status", "not-updated")
     assert await cache_harness.subject.get("svc-1:status") == "not-updated"
+
+
+# Set if absent (I07: the replay marker of the SMS webhook)
+
+
+async def test_set_if_absent_stores_a_missing_key(cache_harness: Harness[Cache]) -> None:
+    cache = cache_harness.subject
+    assert await cache.set_if_absent("idem:sms:one", "1", LONG_TTL) is True
+    assert await cache.get("idem:sms:one") == "1"
+
+
+async def test_set_if_absent_leaves_an_existing_value_and_says_so(
+    cache_harness: Harness[Cache],
+) -> None:
+    cache = cache_harness.subject
+    await cache.set("idem:sms:one", "first")
+    assert await cache.set_if_absent("idem:sms:one", "second", LONG_TTL) is False
+    assert await cache.get("idem:sms:one") == "first"
+
+
+async def test_the_second_set_if_absent_of_one_key_is_refused(
+    cache_harness: Harness[Cache],
+) -> None:
+    cache = cache_harness.subject
+    assert await cache.set_if_absent("idem:sms:one", "1", LONG_TTL) is True
+    assert await cache.set_if_absent("idem:sms:one", "2", LONG_TTL) is False
+    assert await cache.get("idem:sms:one") == "1"
+
+
+async def test_set_if_absent_keeps_keys_apart(cache_harness: Harness[Cache]) -> None:
+    cache = cache_harness.subject
+    assert await cache.set_if_absent("idem:sms:a:one", "1", LONG_TTL) is True
+    assert await cache.set_if_absent("idem:sms:b:one", "1", LONG_TTL) is True
+
+
+async def test_a_key_set_if_absent_is_free_again_once_its_ttl_has_passed(
+    cache_harness: Harness[Cache],
+) -> None:
+    cache = cache_harness.subject
+    assert await cache.set_if_absent("idem:sms:one", "1", TTL) is True
+    await cache_harness.advance(TTL + ONE_SECOND)
+    assert await cache.set_if_absent("idem:sms:one", "2", LONG_TTL) is True
+    assert await cache.get("idem:sms:one") == "2"
+
+
+async def test_a_refused_set_if_absent_does_not_extend_the_ttl(
+    cache_harness: Harness[Cache],
+) -> None:
+    cache = cache_harness.subject
+    assert await cache.set_if_absent("idem:sms:one", "1", TTL) is True
+    await cache_harness.advance(ONE_SECOND)
+    assert await cache.set_if_absent("idem:sms:one", "2", LONG_TTL) is False
+    await cache_harness.advance(TTL)
+    assert await cache.get("idem:sms:one") is None
+
+
+async def test_a_deleted_key_can_be_set_if_absent_again(cache_harness: Harness[Cache]) -> None:
+    cache = cache_harness.subject
+    assert await cache.set_if_absent("idem:sms:one", "1", LONG_TTL) is True
+    await cache.delete("idem:sms:one")
+    assert await cache.set_if_absent("idem:sms:one", "1", LONG_TTL) is True
+
+
+async def test_of_many_concurrent_set_if_absent_calls_exactly_one_wins(
+    cache_harness: Harness[Cache],
+) -> None:
+    cache = cache_harness.subject
+    results = await asyncio.gather(
+        *(cache.set_if_absent("idem:sms:race", str(n), LONG_TTL) for n in range(20))
+    )
+    assert results.count(True) == 1
+    assert results.count(False) == 19
+
+
+@pytest.mark.parametrize("ttl", [timedelta(0), timedelta(seconds=-1)])
+async def test_set_if_absent_refuses_a_ttl_that_is_not_positive_and_stores_nothing(
+    cache_harness: Harness[Cache], ttl: timedelta
+) -> None:
+    cache = cache_harness.subject
+    with pytest.raises(ValueError, match="ttl"):
+        await cache.set_if_absent("idem:sms:one", "1", ttl)
+    assert await cache.get("idem:sms:one") is None
 
 
 # Publish and subscribe

@@ -60,6 +60,17 @@ PROBE_TREE: dict[str, str] = {
         "import diucs_probe.adapters.outbound.audit_neo4j.outbox\n"
     ),
     "diucs_probe/adapters/testing/__init__.py": "",
+    # I07: the two modules pairs named in ignore_imports for the Twilio webhook.
+    "diucs_probe/adapters/inbound/fhir_rest/__init__.py": "",
+    "diucs_probe/adapters/inbound/fhir_rest/app.py": (
+        "import diucs_probe.adapters.inbound.sms_webhook.routes\n"
+    ),
+    "diucs_probe/adapters/inbound/sms_webhook/__init__.py": "",
+    "diucs_probe/adapters/inbound/sms_webhook/routes.py": (
+        "import diucs_probe.adapters.outbound.sms_twilio.twilio_sms\n"
+    ),
+    "diucs_probe/adapters/outbound/sms_twilio/__init__.py": "",
+    "diucs_probe/adapters/outbound/sms_twilio/twilio_sms.py": "",
 }
 
 

@@ -55,6 +55,8 @@ PRECONDITION_REQUIRED_TEXT = (
 )
 
 ACCEPTED_BODY_TYPES = frozenset({"application/fhir+json", "application/json"})
+# The Twilio webhook (I07) is not FHIR: Twilio posts a form, which this check would refuse.
+WEBHOOK_PATH_PREFIX = "/webhooks/"
 _BODY_METHODS = frozenset({"POST", "PUT"})
 _HTTP_STATUS_TEXT = {404: NOT_FOUND_TEXT, 405: METHOD_TEXT, 415: UNSUPPORTED_MEDIA_TEXT}
 
@@ -150,7 +152,11 @@ class BodyTypeMiddleware:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        is_body_request = scope["type"] == "http" and scope["method"] in _BODY_METHODS
+        is_body_request = (
+            scope["type"] == "http"
+            and scope["method"] in _BODY_METHODS
+            and not str(scope["path"]).startswith(WEBHOOK_PATH_PREFIX)
+        )
         if is_body_request and _body_type(scope) not in ACCEPTED_BODY_TYPES:
             response = operation_outcome(415, "not-supported", UNSUPPORTED_MEDIA_TEXT)
             await response(scope, receive, send)

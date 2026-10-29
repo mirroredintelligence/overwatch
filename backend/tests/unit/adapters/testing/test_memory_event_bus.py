@@ -131,3 +131,44 @@ async def test_due_defaults_to_the_clock_when_no_time_is_given() -> None:
     assert bus.due() == []
     clock.advance(_at(14, 21) - _at(14, 0))
     assert bus.due() == [(QUEUE, message)]
+
+
+async def test_an_enqueued_message_is_listed_for_its_queue_with_its_tenant() -> None:
+    bus = _bus()
+    message = BusMessage(
+        id="r-1", topic="inbound.replies", event_type="SmsReceived", tenant_id="tenant-a"
+    )
+    await bus.enqueue("inbound.replies", message)
+    assert bus.enqueued_to("inbound.replies") == [message]
+    assert bus.enqueued_to("inbound.replies")[0].tenant_id == "tenant-a"
+    assert bus.enqueued_to("inbound.receipts") == []
+
+
+async def test_enqueued_messages_keep_their_order_and_are_not_published_or_scheduled() -> None:
+    bus = _bus()
+    first = _message("e-1", "inbound.replies")
+    second = _message("e-2", "inbound.replies")
+    await bus.enqueue("inbound.replies", first)
+    await bus.enqueue("inbound.replies", second)
+    assert bus.enqueued_to("inbound.replies") == [first, second]
+    assert bus.published == []
+    assert bus.due(_at(23, 0)) == []
+
+
+async def test_take_enqueued_returns_each_message_once_with_its_queue() -> None:
+    bus = _bus()
+    message = _message("e-1", "inbound.receipts")
+    await bus.enqueue("inbound.receipts", message)
+    assert bus.take_enqueued() == [("inbound.receipts", message)]
+    assert bus.take_enqueued() == []
+    assert bus.enqueued_to("inbound.receipts") == []
+
+
+@pytest.mark.parametrize("name", ["not.a.queue", "capacity.events"])
+async def test_enqueueing_to_an_unknown_queue_or_a_topic_is_refused_and_records_nothing(
+    name: str,
+) -> None:
+    bus = _bus()
+    with pytest.raises(ValidationFailed):
+        await bus.enqueue(name, _message("e-1"))
+    assert bus.enqueued_to(name) == []

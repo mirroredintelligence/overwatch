@@ -288,6 +288,15 @@ These names were added by individual task prompts. They are as binding as the re
 - `messages/catalogue.py` `MessageId.C12` and `messages/templates.py`: C12 (text only) fields `service`, `value`, `unit`, `as_of` (full date and time, `23 Oct 08:15`), `reply_with` (`a number` or `<A-H> and a number`; nothing else is accepted), `reply_by`. Text: `DIUCS: UCR West. The figure on record, 3 referrals in the next 2 hrs, is out of date (as of 22 Oct 08:15), so Y was not used. Send a number (0 = closed). By 12:35.`
 - `domain/rules/london_time.py` `format_stamp(dt) -> str`: the London day, month and time, `23 Oct 08:15`.
 
+## Inbound SMS webhook (I07, DEC-149)
+- `adapters/inbound/sms_webhook/routes.py`: `router` with `POST /webhooks/sms/twilio` and `POST /webhooks/sms/twilio/status` (`REPLY_PATH`, `STATUS_PATH`), `SmsWebhookDeps(cache, event_bus, hasher, secrets, lines, public_base_url)` (set on `app.state.sms_webhook`), `twilio_signature(url, params, token) -> str`, `replay_key(message_sid) -> str`, `REPLAY_TTL` (24 h), `MAX_TEXT_CHARS` (1600), `MAX_FORM_BYTES`, `MAX_FORM_FIELDS`. Mounted by `create_app`.
+- `application/ports/outbound/tenant_lines.py`: `InboundLine(tenant_id, token_secret)` and `InboundLineDirectory` (`for_number(to_number, account_sid)`, `for_account(account_sid)`), each `-> InboundLine | None`. Fake: `adapters/testing/fixed_inbound_lines.py` `FixedInboundLines(lines)`. The real directory is TEN-007 and TEN-041.
+- `Cache.set_if_absent(key, value, ttl) -> bool` (`application/ports/outbound/cache.py`), on `RedisCache` and `InMemoryCache`.
+- `EventBus.enqueue(queue, message) -> None` (`application/ports/outbound/event_bus.py`), on `ServiceBusEventBus` and `ManualEventBus` (which also has `enqueued_to(queue)` and `take_enqueued()`); `BusMessage.tenant_id: str | None = None`, sent as the application property `tenantId`.
+- Queue messages: `inbound.replies` carries `SmsReceived` with `{phone_hash, text, received_at, provider_message_id}`; `inbound.receipts` carries `SmsDeliveryReceived` with `{provider_message_id, status, error_code}`, id `<MessageSid>:<MessageStatus>`. Both carry the tenant.
+- Replay key: `idem:sms:<tenant>:<MessageSid>` through the cache's `cache:` family.
+
+
 ## Tenancy seam, unit of work and scoped transaction (TEN-002, DEC-146)
 - `adapters/outbound/graph_store/driver.py`: `ScopedTx(tx, scope)` (frozen; a transaction and the `ScopeId | None` its unit of work opened under; it has no `run`), `type Tx = AsyncManagedTransaction | AsyncTransaction | ScopedTx` (transitional; TEN-030 narrows it to `ScopedTx`). `run_query` and `run_global_query` take a `Tx`: on a `ScopedTx` the scope is the one it carries and the ambient context is ignored; on a raw transaction it is the ambient scope, as before.
 - `application/tenancy.py`: `UnitOfWorkAlreadyOpen`, `UNIT_OF_WORK_OPEN_MESSAGE`, `claim_unit(owner)`, `release_unit(owner)` (called only by the graph store's unit of work), `scope_for_new_unit() -> ScopeId | None` (the one place that reads the scope when a unit, or any code that opens its own transaction, opens).
@@ -295,8 +304,18 @@ These names were added by individual task prompts. They are as binding as the re
 - `adapters/outbound/graph_store/connection.py`: `Neo4jConnection.run_scoped_read(work)` and `run_scoped_write(work)`, where `work` takes a `ScopedTx`: the supported way for a worker to run scoped work outside a unit of work.
 - `tests/support/fake_neo4j.py`: `FakeDriver`, `FakeSession`, `FakeTx`, a recording stand-in for the driver in unit tests (not a store).
 
+## Tenant per run in the test harness (TEN-003, DEC-147)
+- `tests/support/tenancy.py`: `RunIdentity(pid, started, nonce)` with `token`, `tenant_id` (`tt-<token>`), `other_tenant_id` (`tt-<token>-b`) and `network_id` (`net-<token>`); `new_run_identity(*, pid=None, now=None, nonce=None)`, `parse_run_id(value) -> RunIdentity | None`; `TenantLeak`, `LEAK_MESSAGE`, `assert_bound_to`, `as_tenant`, `in_tenant`, `tenant_scope`, `guard_async_test`, `guard_sync_test`, `guard_test`.
+- `tests/conftest.py`: session fixtures `run_identity`, `tenant_id`, `other_tenant_id`, `network_id`; function fixtures `bound_tenant`, `uow_factory_a`, `uow_factory_b`; the `no_tenant` marker (an integration test that runs with nothing bound). Environment variables `DIUCS_TEST_TENANT`, `DIUCS_TEST_OTHER_TENANT`, `DIUCS_TEST_NETWORK`.
+- `tests/support/uow.py`: `tenant_uow_factory(driver, tenant, clock=None, *, factories=None)`.
+- `adapters/testing/fixed_ids.py`: `SequentialIds.scoped(scope, prefix="id")` (ids `<scope>-<prefix>-<n>`); `SequentialIds()` is unchanged.
+
 ## $board and $confirm-capacity (R05, DEC-145)
 - `adapters/inbound/fhir_rest/routes_board.py`: `router`, `BOARD_ROLES`, `CONFIRM_ROLES`. `GET /fhir/HealthcareService/$board` (roles wall, advisor, clinical, lead, exec, owner; `Cache-Control: no-store`) and `POST /fhir/HealthcareService/{id}/$confirm-capacity` (reporter for own service, or lead; `Idempotency-Key` required; 200 with the new Observation).
 - `adapters/inbound/fhir_rest/mapping.py`: `board_to_parameters(board) -> dict`, `report_to_fhir(report) -> dict` (valid R4B). R04 adds its functions to this file.
 - `CapacityRepository.get(report_id) -> CapacityReport | None`. Created by R05.
 - `ApiContainer` (`fhir_rest/app.py`) gains `ids`.
+
+## Wall board page (W05, DEC-151)
+- `lib/board/types.ts`: `BoardStatus`, `BoardEntry`, `Board` (now with `organisation: string | null`), re-exports `parseBoardParameters` and `BoardParseError` from `lib/board/parse.ts`. `lib/board/format.ts`: `durationText`, `dataAgeText`, `londonTime`, `londonDate`, `nextDueText`, `ageLineText`, `categoryLabel`. `lib/board/read.ts`: `BOARD_ROLES`, `canReadBoard`, `readBoard(session)` (server only). `components/board/{Board,Tile,Legend,BoardUnavailable}.tsx`. `GET /api/bff/board` (roles wall, advisor, lead, exec; `Cache-Control: no-store`; takes no input).
+- **API addition needed (not built):** `$board` gains an optional top-level parameter `organisation` (`valueString`), the display name of the tenant the token is bound to. The wall board header reads it. To be built by the API and sign-in tenancy bundle.

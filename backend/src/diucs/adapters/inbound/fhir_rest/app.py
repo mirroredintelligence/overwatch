@@ -61,6 +61,12 @@ def create_app(container: ApiContainer) -> FastAPI:
     app.include_router(routes_events.router)
     # $board must be routed before any HealthcareService/{id} route, or {id} would take it.
     app.include_router(routes_board.router)
+
+    # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
+    # this one module wire it in.
+    from diucs.adapters.inbound.sms_webhook import routes as sms_routes
+
+    app.include_router(sms_routes.router)
     return app
 
 

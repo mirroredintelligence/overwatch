@@ -26,3 +26,5 @@ Do this, in a **clean worktree** you create yourself (`git worktree add ../overw
 Then record the result: `delivery.py verify <ID> --verifier <SESSION> --result pass|fail --note "<what you re-ran and what you tried to break>"`. If you fail it, the note must name each finding precisely enough for the builder to fix without asking you. Remove your worktree afterwards.
 
 You may not edit the builder's branch. If you find a defect, report it in the note; the builder fixes it. Be fair but do not be generous: an unproven claim is a fail.
+
+**Running tests: one run, one wait.** Start each test or checks run once. For a run that may take more than a minute, start a single background command and wait for its completion notice. Do not start a second copy of a run that is already queued, do not write polling loops (`until ... sleep`) and do not arm extra watchers on the same run: each one stays alive as its own task after you stop. If a run is waiting on the Neo4j lock, let it wait.

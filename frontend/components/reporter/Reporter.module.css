@@ -1,0 +1,51 @@
+/* The reporter's link pages: one column, phone first, no hover-only control. Colours and sizes
+   are the tokens in app/tokens.css. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 32rem;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+  color: var(--c-ink);
+  background: var(--c-bg);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.eyebrow {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.question {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.or {
+  margin: 0;
+  color: var(--c-ink-2);
+}
+
+.footer {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}

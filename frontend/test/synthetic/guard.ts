@@ -9,10 +9,11 @@
  * - SYNTHETIC_BACKEND_URL: the back end's test hook is served here.
  * - SYNTHETIC_ALLOWED_HOSTS: comma-separated host names (with a port when the URL has one).
  * - SYNTHETIC_HOOK_TOKEN: the bearer token for POST /test/synthetic/prompt.
+ * - SYNTHETIC_STAFF_STORAGE_STATE: a saved signed-in session for a test account (a file path).
  */
 
 export type SyntheticTarget =
-  | { ok: true; baseUrl: string; backendUrl: string; hookToken: string }
+  | { ok: true; baseUrl: string; backendUrl: string; hookToken: string; staffState: string }
   | { ok: false; reason: string };
 
 export type SyntheticEnv = Readonly<Record<string, string | undefined>>;
@@ -76,12 +77,16 @@ export function syntheticTarget(env: SyntheticEnv): SyntheticTarget {
 
   const hookToken = env.SYNTHETIC_HOOK_TOKEN ?? '';
   if (!hookToken) return skip('SYNTHETIC_HOOK_TOKEN is not set, so the synthetic checks are skipped.');
+  if (!env.SYNTHETIC_STAFF_STORAGE_STATE) {
+    return skip('SYNTHETIC_STAFF_STORAGE_STATE is not set, so the synthetic checks are skipped.');
+  }
 
   return {
     ok: true,
     baseUrl: baseUrl.origin,
     backendUrl: backendUrl.origin,
     hookToken,
+    staffState: env.SYNTHETIC_STAFF_STORAGE_STATE,
   };
 }
 

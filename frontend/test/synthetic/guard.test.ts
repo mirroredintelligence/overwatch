@@ -11,6 +11,7 @@ const GOOD: SyntheticEnv = {
   SYNTHETIC_ALLOWED_HOSTS: 'diucs-test.example,diucs-test-api.example',
   SYNTHETIC_BACKEND_URL: 'https://diucs-test-api.example',
   SYNTHETIC_HOOK_TOKEN: TOKEN,
+  SYNTHETIC_STAFF_STORAGE_STATE: '/run/secrets/synthetic-staff.json',
 };
 
 function withEnv(changes: SyntheticEnv): SyntheticEnv {
@@ -24,6 +25,7 @@ describe('syntheticTarget', () => {
       baseUrl: 'https://diucs-test.example',
       backendUrl: 'https://diucs-test-api.example',
       hookToken: TOKEN,
+      staffState: '/run/secrets/synthetic-staff.json',
     });
   });
 
@@ -87,6 +89,12 @@ describe('syntheticTarget', () => {
     const noBackend = syntheticTarget(withEnv({ SYNTHETIC_BACKEND_URL: undefined }));
     expect(noBackend.ok).toBe(false);
     if (!noBackend.ok) expect(noBackend.reason).toContain('SYNTHETIC_BACKEND_URL');
+  });
+
+  it('skips with a reason when the staff session file is not named', () => {
+    const result = syntheticTarget(withEnv({ SYNTHETIC_STAFF_STORAGE_STATE: undefined }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.reason).toContain('SYNTHETIC_STAFF_STORAGE_STATE');
   });
 
   it('never puts the hook token in a reason', () => {

@@ -12,7 +12,6 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
@@ -180,8 +179,7 @@ async def test_the_owner_changes_youngest_age_and_version_four_waits_for_approva
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_criteria: Seed
 ) -> None:
     await seed_criteria()
-    store = DriverIdempotencyStore(neo4j_driver)
-    result = await ChangeCriteria(uow_factory, store, SequentialIds(), _clock()).execute(_change())
+    result = await ChangeCriteria(uow_factory, SequentialIds(), _clock()).execute(_change())
     versions = await _versions(uow_factory)
     assert result.version == 4
     assert versions[4].status is CriteriaStatus.PENDING_APPROVAL
@@ -194,8 +192,7 @@ async def test_a_second_change_while_one_is_pending_is_a_conflict_and_writes_not
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_criteria: Seed
 ) -> None:
     await seed_criteria()
-    store = DriverIdempotencyStore(neo4j_driver)
-    change = ChangeCriteria(uow_factory, store, SequentialIds(), _clock())
+    change = ChangeCriteria(uow_factory, SequentialIds(), _clock())
     await change.execute(_change("change-1"))
     with pytest.raises(Conflict):
         await change.execute(_change("change-2", age_min=14))
@@ -206,9 +203,8 @@ async def test_the_author_approving_their_own_change_is_refused(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_criteria: Seed
 ) -> None:
     await seed_criteria()
-    store = DriverIdempotencyStore(neo4j_driver)
-    changed = await ChangeCriteria(uow_factory, store, SequentialIds(), _clock()).execute(_change())
-    approve = ApproveCriteria(uow_factory, store, SequentialIds(), _clock())
+    changed = await ChangeCriteria(uow_factory, SequentialIds(), _clock()).execute(_change())
+    approve = ApproveCriteria(uow_factory, SequentialIds(), _clock())
     with pytest.raises(NotAllowed):
         await approve.execute(
             ApproveCriteriaCommand("approve-own", OWNER, changed.criteria_id, "approve")
@@ -219,9 +215,8 @@ async def test_the_clinical_lead_approves_and_version_three_is_superseded_not_de
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_criteria: Seed
 ) -> None:
     await seed_criteria()
-    store = DriverIdempotencyStore(neo4j_driver)
-    changed = await ChangeCriteria(uow_factory, store, SequentialIds(), _clock()).execute(_change())
-    approved = await ApproveCriteria(uow_factory, store, SequentialIds(), _clock()).execute(
+    changed = await ChangeCriteria(uow_factory, SequentialIds(), _clock()).execute(_change())
+    approved = await ApproveCriteria(uow_factory, SequentialIds(), _clock()).execute(
         ApproveCriteriaCommand("approve-1", LEAD, changed.criteria_id, "approve")
     )
     versions = await _versions(uow_factory)
@@ -239,9 +234,8 @@ async def test_send_back_returns_the_pending_version_to_draft_and_version_three_
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_criteria: Seed
 ) -> None:
     await seed_criteria()
-    store = DriverIdempotencyStore(neo4j_driver)
-    changed = await ChangeCriteria(uow_factory, store, SequentialIds(), _clock()).execute(_change())
-    await ApproveCriteria(uow_factory, store, SequentialIds(), _clock()).execute(
+    changed = await ChangeCriteria(uow_factory, SequentialIds(), _clock()).execute(_change())
+    await ApproveCriteria(uow_factory, SequentialIds(), _clock()).execute(
         ApproveCriteriaCommand("back-1", LEAD, changed.criteria_id, "send-back", note="more detail")
     )
     assert (await _versions(uow_factory))[4].status is CriteriaStatus.DRAFT
@@ -264,8 +258,7 @@ async def test_confirming_six_months_sets_review_by_and_clears_the_overdue_flag(
             )
         )
         await uow.commit()
-    store = DriverIdempotencyStore(neo4j_driver)
-    confirmed = await ConfirmCriteria(uow_factory, store, _clock()).execute(
+    confirmed = await ConfirmCriteria(uow_factory, _clock()).execute(
         ConfirmCriteriaCommand("confirm-1", OWNER, SERVICE, review_months=6)
     )
     assert confirmed.review_by == date(2027, 4, 23)
@@ -278,8 +271,7 @@ async def test_history_returns_versions_four_to_one_newest_first(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_criteria: Seed
 ) -> None:
     await seed_criteria()
-    store = DriverIdempotencyStore(neo4j_driver)
-    await ChangeCriteria(uow_factory, store, SequentialIds(), _clock()).execute(_change())
+    await ChangeCriteria(uow_factory, SequentialIds(), _clock()).execute(_change())
     views = await CriteriaHistory(uow_factory).execute(CriteriaHistoryQuery(OWNER, SERVICE))
     assert [view.version for view in views] == [4, 3, 2, 1]
     assert {view.author_role_id for view in views} == {OWNER_ROLE}
@@ -289,8 +281,7 @@ async def test_a_key_replayed_with_another_command_is_a_conflict(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_criteria: Seed
 ) -> None:
     await seed_criteria()
-    store = DriverIdempotencyStore(neo4j_driver)
-    change = ChangeCriteria(uow_factory, store, SequentialIds(), _clock())
+    change = ChangeCriteria(uow_factory, SequentialIds(), _clock())
     await change.execute(_change("same-key"))
     with pytest.raises(Conflict):
         await change.execute(_change("same-key", age_min=12))
@@ -300,8 +291,7 @@ async def test_a_replayed_change_returns_the_first_result_and_writes_nothing_mor
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_criteria: Seed
 ) -> None:
     await seed_criteria()
-    store = DriverIdempotencyStore(neo4j_driver)
-    change = ChangeCriteria(uow_factory, store, SequentialIds(), _clock())
+    change = ChangeCriteria(uow_factory, SequentialIds(), _clock())
     first = await change.execute(_change("replay"))
     again: Any = await change.execute(_change("replay"))
     assert again.criteria_id == first.criteria_id

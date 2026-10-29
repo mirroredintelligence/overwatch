@@ -18,12 +18,12 @@ from datetime import UTC, date, datetime
 from typing import Literal
 
 from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.outbox import outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import ScopeId
 from diucs.domain.codes import CriteriaStatus, NeedCategory, PractitionerRoleCode, Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import CriteriaApproved
@@ -196,6 +196,12 @@ class CriteriaVersionView:
     author_role_id: str
 
 
+def _command_key(scope: ScopeId | None, key: str) -> str:
+    """The key handed to the replay store: the tenant is part of it, so two tenants that use one
+    key are two commands (lesson L160). The one place to change once the store is tenant-scoped."""
+    return f"criteria:{scope}:{key}"
+
+
 def _fingerprint(*parts: object) -> str:
     return hashlib.sha256(repr(parts).encode("utf-8")).hexdigest()
 
@@ -229,12 +235,10 @@ class ChangeCriteria:
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
-        idempotency: IdempotencyStore,
         ids: IdGenerator,
         clock: Clock,
     ) -> None:
         self._uow_factory = uow_factory
-        self._idempotency = idempotency
         self._ids = ids
         self._clock = clock
 
@@ -247,14 +251,12 @@ class ChangeCriteria:
             command.review_months,
             command.actor.practitioner_id,
         )
-        early = _replay(await self._idempotency.get(command.idempotency_key), fingerprint)
-        if isinstance(early, ChangeCriteriaResult):
-            return replace(early, replayed=True)
         now = self._clock.now()
         today = to_london(now).date()
         async with self._uow_factory() as uow:
             await uow.capacity.lock_service(command.service_id)
-            stored = _replay(await uow.idempotency.get(command.idempotency_key), fingerprint)
+            key = _command_key(uow.unit_scope, command.idempotency_key)
+            stored = _replay(await uow.idempotency.get(key), fingerprint)
             if isinstance(stored, ChangeCriteriaResult):
                 return replace(stored, replayed=True)
             if await uow.services.get(command.service_id) is None:
@@ -298,7 +300,7 @@ class ChangeCriteria:
             result = ChangeCriteriaResult(
                 criteria_id=pending.id, version=pending.version, status=pending.status
             )
-            await uow.idempotency.put(command.idempotency_key, _Stored(fingerprint, result))
+            await uow.idempotency.put(key, _Stored(fingerprint, result))
             await uow.commit()
         return result
 
@@ -307,12 +309,10 @@ class ApproveCriteria:
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
-        idempotency: IdempotencyStore,
         ids: IdGenerator,
         clock: Clock,
     ) -> None:
         self._uow_factory = uow_factory
-        self._idempotency = idempotency
         self._ids = ids
         self._clock = clock
 
@@ -324,9 +324,6 @@ class ApproveCriteria:
             command.note,
             command.actor.practitioner_id,
         )
-        early = _replay(await self._idempotency.get(command.idempotency_key), fingerprint)
-        if isinstance(early, ApproveCriteriaResult):
-            return replace(early, replayed=True)
         now = self._clock.now()
         today = to_london(now).date()
         async with self._uow_factory() as uow:
@@ -335,7 +332,8 @@ class ApproveCriteria:
                 raise NotFound("no criteria version with this id")
             # The service lock comes before the reads that decide the change (lesson L99).
             await uow.capacity.lock_service(seen.service_id)
-            stored = _replay(await uow.idempotency.get(command.idempotency_key), fingerprint)
+            key = _command_key(uow.unit_scope, command.idempotency_key)
+            stored = _replay(await uow.idempotency.get(key), fingerprint)
             if isinstance(stored, ApproveCriteriaResult):
                 return replace(stored, replayed=True)
             pending = await uow.criteria.get(command.criteria_id)
@@ -390,7 +388,7 @@ class ApproveCriteria:
                     at=now,
                 )
             )
-            await uow.idempotency.put(command.idempotency_key, _Stored(fingerprint, result))
+            await uow.idempotency.put(key, _Stored(fingerprint, result))
             await uow.commit()
         return result
 
@@ -399,25 +397,21 @@ class ConfirmCriteria:
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
-        idempotency: IdempotencyStore,
         clock: Clock,
     ) -> None:
         self._uow_factory = uow_factory
-        self._idempotency = idempotency
         self._clock = clock
 
     async def execute(self, command: ConfirmCriteriaCommand) -> ConfirmCriteriaResult:
         fingerprint = _fingerprint(
             "confirm", command.service_id, command.review_months, command.actor.practitioner_id
         )
-        early = _replay(await self._idempotency.get(command.idempotency_key), fingerprint)
-        if isinstance(early, ConfirmCriteriaResult):
-            return replace(early, replayed=True)
         now = self._clock.now()
         today = to_london(now).date()
         async with self._uow_factory() as uow:
             await uow.capacity.lock_service(command.service_id)
-            stored = _replay(await uow.idempotency.get(command.idempotency_key), fingerprint)
+            key = _command_key(uow.unit_scope, command.idempotency_key)
+            stored = _replay(await uow.idempotency.get(key), fingerprint)
             if isinstance(stored, ConfirmCriteriaResult):
                 return replace(stored, replayed=True)
             current = await uow.criteria.current_for_service(command.service_id)
@@ -456,7 +450,7 @@ class ConfirmCriteria:
                 )
             )
             result = ConfirmCriteriaResult(criteria_id=current.id, review_by=review_by)
-            await uow.idempotency.put(command.idempotency_key, _Stored(fingerprint, result))
+            await uow.idempotency.put(key, _Stored(fingerprint, result))
             await uow.commit()
         return result
 

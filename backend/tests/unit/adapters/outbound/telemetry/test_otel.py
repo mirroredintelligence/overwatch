@@ -241,12 +241,11 @@ def test_instrumenting_an_app_twice_gives_each_request_one_server_span(
 
 
 def test_an_annotation_lands_on_the_span_the_otel_tracer_has_open(
-    provider, exporter: InMemorySpanExporter
+    traced: None, provider: TracerProvider, exporter: InMemorySpanExporter
 ) -> None:
     # The span is opened by the adapter, not by the decorator: the OpenTelemetry context says which
     # span is current, and the annotation must land on it.
-    tracer = OtelTracer(provider.get_tracer("diucs-test"))
-    with tracer.span("usecase.ManualOpen", {}):
+    with tracing.get_tracer().span("usecase.ManualOpen", {}):
         annotate_usecase("usecase.idempotent_replay", True)
 
     provider.force_flush()

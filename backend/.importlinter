@@ -81,6 +81,8 @@ modules =
 # DEC-055: the audit adapter runs its queries through the G01 driver and query registry.
 # DEC-084: the outbox runs its queries the same way, and the Neo4j unit of work is the one place
 # that wires the audit log and the outbox into the transaction it hands out.
+# TEN-004 (DEC-150): a statement carries a scenario, and the outbox builds its own from the
+# scenario types of the graph store.
 # I07 (DEC-149): the FHIR app mounts the Twilio webhook router, and the webhook reuses I06's
 # mapping of a Twilio status, so the two statuses cannot disagree.
 ignore_imports =
@@ -88,6 +90,7 @@ ignore_imports =
     diucs.adapters.outbound.audit_neo4j.audit_log -> diucs.adapters.outbound.graph_store.queries
     diucs.adapters.outbound.audit_neo4j.outbox -> diucs.adapters.outbound.graph_store.driver
     diucs.adapters.outbound.audit_neo4j.outbox -> diucs.adapters.outbound.graph_store.queries
+    diucs.adapters.outbound.audit_neo4j.outbox -> diucs.adapters.outbound.graph_store.scenario
     diucs.adapters.outbound.graph_store.unit_of_work -> diucs.adapters.outbound.audit_neo4j.audit_log
     diucs.adapters.outbound.graph_store.unit_of_work -> diucs.adapters.outbound.audit_neo4j.outbox
     diucs.adapters.inbound.fhir_rest.app -> diucs.adapters.inbound.sms_webhook.routes

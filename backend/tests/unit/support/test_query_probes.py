@@ -56,6 +56,14 @@ def _registry() -> QueryRegistry:
             scenario=Scenario("a template", insert=":Lbl"),
         )
     )
+    registry.register_template(
+        QueryTemplate(
+            id="Q-TEST-TPL",
+            cypher="MATCH (n{insert} {tenantId: $tenant}) RETURN n",
+            mode="read",
+            scenario=Scenario("a test template"),
+        )
+    )
     registry.instance("Q-TPL-OLD", ":Other")  # a run-time instance
     return registry
 
@@ -93,12 +101,18 @@ def test_the_universe_of_the_real_registry_holds_the_eager_ids_and_the_templates
     from diucs.adapters.outbound.graph_store.queries import REGISTRY
 
     statements = production_statements()
+    templates = set(REGISTRY.template_ids())
+    # A template with no `{insert}` place is also registered under its own id once it has been
+    # asked for, so it is one statement of the universe, not two.
     eager = [
         i
         for i in REGISTRY.ids()
-        if ":" not in i and not i.startswith("Q-TEST-") and REGISTRY.get(i).scope == "tenant"
+        if ":" not in i
+        and not i.startswith("Q-TEST-")
+        and REGISTRY.get(i).scope == "tenant"
+        and i not in templates
     ]
-    assert len(statements) == len(eager) + len(REGISTRY.template_ids())
+    assert len(statements) == len(eager) + len(templates)
     assert "Q-NEO4J-PING" not in statements
     assert "Q-RES-UPSERT-ROOT" in statements
 
@@ -175,6 +189,14 @@ def test_normalised_rows_are_canonical_sorted_and_keep_duplicates() -> None:
     )
 
 
+def test_masked_rows_ignore_the_times_a_statement_stamps_itself() -> None:
+    first = [{"at": datetime(2026, 10, 25, 11, 0, tzinfo=UTC), "n": 1}]
+    second = [{"at": datetime(2026, 10, 25, 11, 0, 7, tzinfo=UTC), "n": 1}]
+    assert normalised(first) != normalised(second)
+    assert normalised(first, mask_times=True) == normalised(second, mask_times=True)
+    assert normalised(first, mask_times=True) != normalised([{"at": None, "n": 1}], mask_times=True)
+
+
 def test_the_expected_rows_are_matched_as_a_set_of_subsets_for_the_slot() -> None:
     expected = ({"id": Unique("a-C", "resource_id")}, {"props": {"note": Marked("n")}})
     assert row_problems(expected, [{"id": "a-C"}], "B") == ["expected 2 rows, got 1"]
@@ -221,12 +243,10 @@ def test_no_change_is_the_expected_effect_of_a_read() -> None:
 
 
 def test_a_change_to_a_read_is_a_problem() -> None:
-    problems = effect_problems(_snap(A), _snap(A, B), Expect(), "A")
-    assert problems == [
-        "the statement changed the caller's data, and the scenario expects no change"
-    ]
+    message = "the statement changed the caller's data, and the scenario expects no change"
+    assert message in effect_problems(_snap(A), _snap(A, B), Expect(), "A")
     changed = Node(("Thing",), {"id": "t-1", "note": "other"})
-    assert effect_problems(_snap(A), _snap(changed), Expect(), "A")
+    assert effect_problems(_snap(A), _snap(changed), Expect(), "A") == [message]
 
 
 def test_a_create_is_checked_by_count_and_by_the_node_that_appears() -> None:

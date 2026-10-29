@@ -21,7 +21,7 @@ is mapped to Conflict, so the unit of work that made it is refused and never com
 import json
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Literal, cast
+from typing import Any, Final, Literal, cast
 from uuid import uuid4
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
@@ -29,6 +29,14 @@ from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    NodeSpec,
+    Scenario,
+    SeedNode,
+    TenantSeed,
+    Unique,
+)
 from diucs.application.idempotency import (
     DATETIME_TAG,
     decode_result,
@@ -38,6 +46,43 @@ from diucs.application.idempotency import (
 )
 from diucs.application.tenancy import ScopeId, scope_for_new_unit
 from diucs.domain.errors import Conflict
+
+# The scenario of the one converted statement (DEC-142 item 5, DEC-151). A marker's key is unique
+# in the whole graph until TEN-005 (migration 0030), so the two tenants cannot share one; the key
+# is `Unique`, and the scenario marks a message that no marker holds yet, so the node the statement
+# creates must carry the tenant. The consumer and the message id are shared plain values.
+_PROCESSED_SCENARIO: Final = Scenario(
+    "mark a message as processed by a consumer, once",
+    seed=TenantSeed(
+        nodes=(
+            SeedNode(
+                "done",
+                ("Processed",),
+                {
+                    "key": Unique("8:consumer:m-0", "processed_key"),
+                    "messageId": "m-0",
+                    "consumer": "consumer",
+                },
+            ),
+        )
+    ),
+    params={
+        "key": Unique("8:consumer:m-1", "processed_key"),
+        "messageId": "m-1",
+        "consumer": "consumer",
+        "claim": "claim-1",
+    },
+    expect=Expect(
+        rows=({"created": True},),
+        nodes={"Processed": 1},
+        after=(
+            NodeSpec(
+                ("Processed",),
+                {"key": Unique("8:consumer:m-1", "processed_key"), "messageId": "m-1"},
+            ),
+        ),
+    ),
+)
 
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-IDEM-HEAD": (
@@ -76,7 +121,7 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "write",
     ),
     "Q-PROCESSED-MARK": (
-        "MERGE (p:Processed {key: $key}) "
+        "MERGE (p:Processed {key: $key, tenantId: $tenant}) "
         "ON CREATE SET p.messageId = $messageId, p.consumer = $consumer, "
         "p.processedAt = datetime({timezone: 'UTC'}), p.claim = $claim "
         "WITH p, p.claim = $claim AS created "
@@ -86,8 +131,12 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     ),
 }
 
+_SCENARIOS: Final[dict[str, Scenario]] = {"Q-PROCESSED-MARK": _PROCESSED_SCENARIO}
+
 for _query_id, (_cypher, _mode) in _QUERIES.items():
-    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode))
+    REGISTRY.register(
+        NamedQuery(id=_query_id, cypher=_cypher, mode=_mode, scenario=_SCENARIOS.get(_query_id))
+    )
 
 
 def _processed_key(message_id: str, consumer: str) -> str:

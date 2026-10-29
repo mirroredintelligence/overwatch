@@ -24,6 +24,16 @@ from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    NodeSpec,
+    Scenario,
+    SeedNode,
+    SeedRel,
+    TenantSeed,
+    Unique,
+)
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.rules.identity_policy import PinOutcome, PinState
 
@@ -31,14 +41,123 @@ _PRACTITIONER_KEY: Final = "Practitioner/{}"
 _STATUS_ACTIVE: Final = "active"
 _STATUS_REVOKED: Final = "revoked"
 
+# Scenarios of the converted statements (DEC-142 item 5, DEC-151). Both tenants have a practitioner
+# with the same key; the practitioner's id and the credential's device id are unique in the whole
+# graph until TEN-005 (migrations 0001 and 0026), so they are `Unique`: the generated test also
+# runs each statement with the other tenant's device id. A practitioner is written by the resource
+# store, which does not stamp the tenant yet (TEN-009); the scenarios seed it stamped.
+_PRACTITIONER: Final = SeedNode(
+    "practitioner",
+    ("Resource", "Practitioner"),
+    {
+        "id": Unique("prac-1", "resource_id"),
+        "key": "Practitioner/prac-1",
+        "active": True,
+        "name": Marked("Duty Manager"),
+    },
+)
+_PRACTITIONER_SEED: Final = TenantSeed(nodes=(_PRACTITIONER,))
+_CREDENTIAL_SEED: Final = TenantSeed(
+    nodes=(
+        _PRACTITIONER,
+        SeedNode(
+            "credential",
+            ("Credential",),
+            {
+                "deviceId": Unique("dev-1", "credential_device_id"),
+                "pinHash": Marked("hash"),
+                "failed": 1,
+                "locked": False,
+            },
+        ),
+    ),
+    rels=(SeedRel("practitioner", "HAS_CREDENTIAL", "credential"),),
+)
+_KEY: Final = "Practitioner/prac-1"
+_DEVICE: Final = Unique("dev-1", "credential_device_id")
+_EXISTS_SCENARIO: Final = Scenario(
+    "count the tenant's practitioner by key",
+    seed=_PRACTITIONER_SEED,
+    params={"key": _KEY},
+    lookup=("key",),
+    expect=Expect(rows=({"n": 1},)),
+)
+_SET_SCENARIO: Final = Scenario(
+    "set a PIN for a new device of the practitioner",
+    seed=_CREDENTIAL_SEED,
+    params={
+        "key": _KEY,
+        "deviceId": Unique("dev-new", "credential_device_id"),
+        "pinHash": "hash-new",
+    },
+    lookup=("key",),
+    expect=Expect(
+        rows=({"n": 1},),
+        nodes={"Credential": 1},
+        rels={"HAS_CREDENTIAL": 1},
+        after=(
+            NodeSpec(
+                ("Credential",),
+                {
+                    "deviceId": Unique("dev-new", "credential_device_id"),
+                    "pinHash": "hash-new",
+                    "failed": 0,
+                },
+            ),
+        ),
+    ),
+)
+_GET_SCENARIO: Final = Scenario(
+    "read and lock the credential of a practitioner's device",
+    seed=_CREDENTIAL_SEED,
+    params={"key": _KEY, "deviceId": _DEVICE},
+    lookup=("key", "deviceId"),
+    expect=Expect(rows=({"pinHash": Marked("hash"), "failed": 1, "locked": False},)),
+)
+_SAVE_STATE_SCENARIO: Final = Scenario(
+    "save the failure state of the credential of a device",
+    seed=_CREDENTIAL_SEED,
+    params={
+        "key": _KEY,
+        "deviceId": _DEVICE,
+        "failed": 2,
+        "locked": False,
+        "lastOutcome": "wrong-pin",
+    },
+    lookup=("key", "deviceId"),
+    expect=Expect(
+        rows=({"n": 1},),
+        after=(NodeSpec(("Credential",), {"deviceId": _DEVICE, "failed": 2}),),
+    ),
+)
+_CLEAR_SCENARIO: Final = Scenario(
+    "clear the credentials of a practitioner",
+    seed=_CREDENTIAL_SEED,
+    params={"key": _KEY},
+    lookup=("key",),
+    expect=Expect(
+        rows=({"n": 1},),
+        nodes={"Credential": -1},
+        rels={"HAS_CREDENTIAL": -1},
+        gone=(NodeSpec(("Credential",), {"deviceId": _DEVICE}),),
+    ),
+)
+_SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-CRED-PRACTITIONER-EXISTS": _EXISTS_SCENARIO,
+    "Q-CRED-SET": _SET_SCENARIO,
+    "Q-CRED-GET": _GET_SCENARIO,
+    "Q-CRED-SAVE-STATE": _SAVE_STATE_SCENARIO,
+    "Q-CRED-CLEAR": _CLEAR_SCENARIO,
+}
+
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-CRED-PRACTITIONER-EXISTS": (
-        "MATCH (p:Practitioner {key: $key}) RETURN count(p) AS n",
+        "MATCH (p:Practitioner {key: $key, tenantId: $tenant}) RETURN count(p) AS n",
         "read",
     ),
     "Q-CRED-SET": (
-        "MATCH (p:Practitioner {key: $key}) "
-        "MERGE (p)-[:HAS_CREDENTIAL]->(c:Credential {deviceId: $deviceId}) "
+        "MATCH (p:Practitioner {key: $key, tenantId: $tenant}) "
+        "MERGE (p)-[:HAS_CREDENTIAL]->(c:Credential {deviceId: $deviceId, tenantId: $tenant}) "
         "SET c.pinHash = $pinHash, c.failed = 0, c.locked = false, c.lastOutcome = null, "
         "c.updatedAt = datetime({timezone: 'UTC'}) "
         "RETURN count(c) AS n",
@@ -47,21 +166,24 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     # Lock first, then read: the SET takes the credential's write lock before the properties are
     # read, so a concurrent attempt waits for this one to commit (lesson L73).
     "Q-CRED-GET": (
-        "MATCH (:Practitioner {key: $key})-[:HAS_CREDENTIAL]->(c:Credential {deviceId: $deviceId}) "
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_CREDENTIAL]->"
+        "(c:Credential {deviceId: $deviceId, tenantId: $tenant}) "
         "SET c.deviceId = c.deviceId "
         "RETURN c.pinHash AS pinHash, c.failed AS failed, c.locked AS locked, "
         "c.lastOutcome AS lastOutcome",
         "write",
     ),
     "Q-CRED-SAVE-STATE": (
-        "MATCH (:Practitioner {key: $key})-[:HAS_CREDENTIAL]->(c:Credential {deviceId: $deviceId}) "
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_CREDENTIAL]->"
+        "(c:Credential {deviceId: $deviceId, tenantId: $tenant}) "
         "SET c.failed = $failed, c.locked = $locked, c.lastOutcome = $lastOutcome, "
         "c.updatedAt = datetime({timezone: 'UTC'}) "
         "RETURN count(c) AS n",
         "write",
     ),
     "Q-CRED-CLEAR": (
-        "MATCH (:Practitioner {key: $key})-[:HAS_CREDENTIAL]->(c:Credential) "
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_CREDENTIAL]->"
+        "(c:Credential {tenantId: $tenant}) "
         "DETACH DELETE c RETURN count(*) AS n",
         "write",
     ),
@@ -95,7 +217,9 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
 }
 
 for _query_id, (_cypher, _mode) in _QUERIES.items():
-    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode))
+    REGISTRY.register(
+        NamedQuery(id=_query_id, cypher=_cypher, mode=_mode, scenario=_SCENARIOS.get(_query_id))
+    )
 
 
 def _key(practitioner_id: str) -> str:

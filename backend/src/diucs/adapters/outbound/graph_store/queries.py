@@ -9,7 +9,8 @@ and must carry a `Scenario`, unless its id is on the ratchet (`UNCONVERTED`: the
 existed before the seam and have not been converted yet). A global statement must be on the short
 allowlist `GLOBAL_QUERY_IDS` and must not mention `$tenant`. That catches omissions only. The proof
 that a statement cannot read or change another tenant's data is the generated two-tenant test that
-runs each statement's scenario on a real Neo4j (TEN-004).
+runs each statement's scenario on a real Neo4j (TEN-004). The `Scenario` type and its validator
+are in `scenario.py` (DEC-150).
 
 A statement that needs a label or a relationship type is a `QueryTemplate`: one fixed text with
 one `{insert}` place. `QueryRegistry.instance` expands it, once per insert, and only for an insert
@@ -140,6 +141,13 @@ class QueryRegistry:
         )
         self._queries[query_id] = query
         return query
+
+    def template(self, template_id: str) -> QueryTemplate:
+        """A registered template, for the tools that list every statement (the generated test)."""
+        try:
+            return self._templates[template_id]
+        except KeyError:
+            raise KeyError(f"unknown query template: {template_id}") from None
 
     def get(self, query_id: str) -> NamedQuery:
         try:

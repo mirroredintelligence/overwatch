@@ -45,6 +45,7 @@ PROBE_TREE: dict[str, str] = {
     "diucs_probe/adapters/outbound/graph_store/__init__.py": "",
     "diucs_probe/adapters/outbound/graph_store/driver.py": "",
     "diucs_probe/adapters/outbound/graph_store/queries.py": "",
+    "diucs_probe/adapters/outbound/graph_store/scenario.py": "",
     "diucs_probe/adapters/outbound/audit_neo4j/__init__.py": "",
     "diucs_probe/adapters/outbound/audit_neo4j/audit_log.py": (
         "import diucs_probe.adapters.outbound.graph_store.driver\n"
@@ -54,6 +55,7 @@ PROBE_TREE: dict[str, str] = {
     "diucs_probe/adapters/outbound/audit_neo4j/outbox.py": (
         "import diucs_probe.adapters.outbound.graph_store.driver\n"
         "import diucs_probe.adapters.outbound.graph_store.queries\n"
+        "import diucs_probe.adapters.outbound.graph_store.scenario\n"
     ),
     "diucs_probe/adapters/outbound/graph_store/unit_of_work.py": (
         "import diucs_probe.adapters.outbound.audit_neo4j.audit_log\n"

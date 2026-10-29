@@ -127,7 +127,9 @@ def test_a_scenario_with_no_lookup_needs_a_value_both_tenants_share() -> None:
         "list the pending messages",
         seed=TenantSeed(
             nodes=(
-                SeedNode("a", ("Outbox",), {"id": Unique("m-1", "outbox_message_id"), "s": "up"}),
+                SeedNode(
+                    "a", ("OutboxMessage",), {"id": Unique("m-1", "outbox_message_id"), "s": "up"}
+                ),
             )
         ),
         params={"limit": 10},
@@ -282,6 +284,18 @@ def test_a_unique_value_must_sit_on_the_label_and_property_of_its_constraint() -
             params={"key": Unique("c:m-1", "processed_key")},
         )
         _assert_refused(scenario, "constraint")
+
+
+def test_a_unique_lookup_value_that_the_seed_does_not_hold_is_refused() -> None:
+    scenario = Scenario(
+        "mark a message",
+        seed=TenantSeed(
+            nodes=(SeedNode("p", ("Processed",), {"key": Unique("c:m-1", "processed_key")}),)
+        ),
+        params={"key": Unique("c:m-2", "processed_key")},
+        lookup=("key",),
+    )
+    _assert_refused(scenario, "collide")
 
 
 def test_a_seed_with_no_per_tenant_value_cannot_tell_the_tenants_apart() -> None:

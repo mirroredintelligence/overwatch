@@ -9,7 +9,7 @@ payload text that is a canonical UTC instant is stored as a datetime and read ba
 
 import re
 from datetime import UTC, datetime
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
@@ -17,6 +17,15 @@ from neo4j.time import DateTime
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    NodeSpec,
+    Scenario,
+    SeedNode,
+    TenantSeed,
+    Unique,
+)
 from diucs.application.ports.outbound.outbox import (
     DEAD,
     MAX_ATTEMPTS,
@@ -33,25 +42,101 @@ _CANONICAL_INSTANT = re.compile(
     r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,6})?Z"
 )
 
-_QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
+# Scenarios (DEC-142 item 5): two tenants, each with a pending and a published message. The
+# message id is unique in the whole graph until TEN-005 (migration 0028), so it is `Unique`; the
+# status, the event type and the times are shared. The generated test runs these.
+_AT = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
+_OUTBOX_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "pending",
+            ("OutboxMessage",),
+            {
+                "id": Unique("m-1", "outbox_message_id"),
+                "topic": Marked("topic"),
+                "eventType": "capacity.reported",
+                "status": "pending",
+                "attempts": 0,
+                "createdAt": _AT,
+            },
+        ),
+        SeedNode(
+            "published",
+            ("OutboxMessage",),
+            {
+                "id": Unique("m-2", "outbox_message_id"),
+                "topic": Marked("topic"),
+                "eventType": "capacity.reported",
+                "status": "published",
+                "attempts": 1,
+                "createdAt": _AT,
+            },
+        ),
+    )
+)
+_ADD_SCENARIO: Final = Scenario(
+    "add a pending message beside the tenant's others",
+    seed=_OUTBOX_SEED,
+    params={
+        "props": {
+            "id": Unique("m-new", "outbox_message_id"),
+            "topic": Marked("topic"),
+            "eventType": "capacity.reported",
+            "status": "pending",
+            "attempts": 0,
+            "createdAt": _AT,
+        }
+    },
+    expect=Expect(
+        rows=({"written": 1},),
+        nodes={"OutboxMessage": 1},
+        after=(NodeSpec(("OutboxMessage",), {"id": Unique("m-new", "outbox_message_id")}),),
+    ),
+)
+_PENDING_SCENARIO: Final = Scenario(
+    "list the tenant's pending messages and no other tenant's",
+    seed=_OUTBOX_SEED,
+    params={"limit": 10},
+    expect=Expect(
+        rows=(
+            {
+                "props": {
+                    "id": Unique("m-1", "outbox_message_id"),
+                    "topic": Marked("topic"),
+                    "status": "pending",
+                }
+            },
+        )
+    ),
+)
+
+# Converted (DEC-151): the message is created stamped with the tenant and listed for it. The
+# properties come from `Neo4jOutbox.add`, which sets only the fixed names and `payload_` ones, so
+# `props` cannot carry a `tenantId`. Lock, published and failed match by id and are not converted
+# yet (TEN-016).
+_QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario | None]] = {
     "Q-OUTBOX-ADD": (
-        "CREATE (m:OutboxMessage) SET m += $props RETURN count(m) AS written",
+        "CREATE (m:OutboxMessage {tenantId: $tenant}) SET m += $props RETURN count(m) AS written",
         "write",
+        _ADD_SCENARIO,
     ),
     "Q-OUTBOX-PENDING": (
-        "MATCH (m:OutboxMessage {status: 'pending'}) RETURN properties(m) AS props "
-        "ORDER BY m.createdAt, m.id LIMIT $limit",
+        "MATCH (m:OutboxMessage {status: 'pending', tenantId: $tenant}) "
+        "RETURN properties(m) AS props ORDER BY m.createdAt, m.id LIMIT $limit",
         "read",
+        _PENDING_SCENARIO,
     ),
     # Lock first (lesson L73): a self-SET takes the message's write lock, then the status is read.
     "Q-OUTBOX-LOCK": (
         "MATCH (m:OutboxMessage {id: $id}) SET m.id = m.id RETURN m.status AS status",
         "write",
+        None,
     ),
     "Q-OUTBOX-PUBLISHED": (
         "MATCH (m:OutboxMessage {id: $id}) SET m.status = 'published', m.publishedAt = $at "
         "RETURN count(m) AS n",
         "write",
+        None,
     ),
     "Q-OUTBOX-FAILED": (
         "MATCH (m:OutboxMessage {id: $id}) SET m.id = m.id "
@@ -60,11 +145,12 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "THEN 'dead' ELSE m.status END "
         "RETURN m.attempts AS attempts, m.status AS status",
         "write",
+        None,
     ),
 }
 
-for _query_id, (_cypher, _mode) in _QUERIES.items():
-    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode))
+for _query_id, (_cypher, _mode, _scenario) in _QUERIES.items():
+    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode, scenario=_scenario))
 
 
 def _text_of(instant: datetime) -> str:

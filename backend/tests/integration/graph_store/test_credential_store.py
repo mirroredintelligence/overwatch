@@ -22,6 +22,7 @@ from diucs.adapters.outbound.graph_store.credential_store import (
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.application.tenancy import current_tenant
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.people import Practitioner
 from diucs.domain.rules.identity_policy import PinOutcome, PinState, pin_attempt
@@ -44,6 +45,12 @@ async def _seed_practitioners(driver: AsyncDriver) -> None:
         )
         await repo.save_practitioner(
             Practitioner(id="p2", active=True, display_name="Duty Manager Two", phone_hash=None)
+        )
+        # The resource store does not stamp the tenant yet (TEN-009), and the credential
+        # statements match the practitioner by tenant (DEC-151 item 3): stamp what it wrote.
+        await tx.run(
+            "MATCH (n:Practitioner) WHERE n.tenantId IS NULL SET n.tenantId = $tenant",
+            tenant=current_tenant(),
         )
 
     await write_tx(driver, work)

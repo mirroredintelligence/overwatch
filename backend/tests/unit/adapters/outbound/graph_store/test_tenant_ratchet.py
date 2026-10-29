@@ -56,9 +56,11 @@ CONSTRAINTS_LEANED_ON = {
     "Q-PROCESSED-MARK": frozenset({"processed_key"}),
 }
 # The statements whose every lookup value is covered by such a constraint: the two tenants cannot
-# share the key the statement is called with, so a missing predicate is caught only by the
-# foreign-id run and the unstamped-node invariant, not by a collision.
-COLLISION_BLOCKED = frozenset({"Q-PROCESSED-MARK"})
+# share the key the statement is called with. None of the starter statements is one: each is called
+# by a key the tenants share (the practitioner's key), or by none (`Q-OUTBOX-PENDING` filters by
+# status; `Q-PROCESSED-MARK` and `Q-OUTBOX-ADD` create a key no tenant holds yet). Converting a
+# statement that is looked up by a unique id (`Q-OUTBOX-LOCK`) adds it here, until TEN-005.
+COLLISION_BLOCKED: frozenset[str] = frozenset()
 
 
 @pytest.fixture(scope="module")

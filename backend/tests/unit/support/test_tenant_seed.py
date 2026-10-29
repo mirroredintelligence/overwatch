@@ -4,10 +4,10 @@ Pure parts only: the text and parameters of a seed statement, canonical JSON and
 seed on a real Neo4j is in tests/integration/graph_store/test_tenant_isolation.py.
 """
 
-from datetime import UTC, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta, timezone
 
 import pytest
-from neo4j.time import DateTime
+from neo4j.time import Date, DateTime, Duration, Time
 
 from diucs.adapters.outbound.graph_store.scenario import (
     Marked,
@@ -39,6 +39,30 @@ def test_canonical_writes_python_and_neo4j_datetimes_the_same_way() -> None:
     assert canonical(at) == canonical(neo) == '"2026-10-25T11:00:05.123456+00:00"'
     other_zone = at.astimezone(timezone(timedelta(hours=1)))
     assert canonical(other_zone) != canonical(at)
+
+
+def test_canonical_can_mask_every_kind_of_time_and_nothing_else() -> None:
+    neo = DateTime(2026, 10, 25, 11, 0, 5, 0, tzinfo=UTC)
+    value = {
+        "a": neo,
+        "b": datetime(2026, 10, 25, tzinfo=UTC),
+        "c": date(2026, 10, 25),
+        "d": time(11, 0),
+        "e": Date(2026, 10, 25),
+        "f": Time(11, 0, 0, 0),
+        "g": Duration(hours=1),
+        "h": ["x", 3],
+    }
+    masked = canonical(value, mask_times=True)
+    assert masked == (
+        '{"a":"<time>","b":"<time>","c":"<time>","d":"<time>","e":"<time>","f":"<time>",'
+        '"g":"<time>","h":["x",3]}'
+    )
+    plain = canonical(value)
+    assert '"g":"PT1H"' in plain
+    assert '"c":"2026-10-25"' in plain
+    assert '"d":"11:00:00"' in plain
+    assert '"e":"2026-10-25"' in plain
 
 
 def test_canonical_refuses_a_value_it_cannot_write() -> None:
@@ -125,6 +149,22 @@ def test_the_digest_changes_with_a_property_a_label_a_node_or_a_relationship() -
     for snapshot in changed:
         seen.add(digest(snapshot))
     assert len(seen) == 1 + len(changed)
+
+
+def test_a_masked_digest_ignores_times_and_an_unmasked_one_does_not() -> None:
+    early = Node(("Thing",), {"at": datetime(2026, 10, 25, 11, 0, tzinfo=UTC), "n": 1})
+    late = Node(("Thing",), {"at": datetime(2026, 10, 25, 12, 0, tzinfo=UTC), "n": 1})
+    other = Node(("Thing",), {"at": datetime(2026, 10, 25, 12, 0, tzinfo=UTC), "n": 2})
+    one, two, three = Snapshot((early,)), Snapshot((late,)), Snapshot((other,))
+    assert digest(one) != digest(two)
+    assert digest(one, mask_times=True) == digest(two, mask_times=True)
+    assert digest(one, mask_times=True) != digest(three, mask_times=True)
+    start = Rel(early, "R", early, {"at": datetime(2026, 10, 25, 11, 0, tzinfo=UTC)})
+    end = Rel(late, "R", late, {"at": datetime(2026, 10, 25, 12, 0, tzinfo=UTC)})
+    assert digest(Snapshot((early,), (start,))) != digest(Snapshot((late,), (end,)))
+    assert digest(Snapshot((early,), (start,)), mask_times=True) == digest(
+        Snapshot((late,), (end,)), mask_times=True
+    )
 
 
 def test_the_digest_is_a_sha256_hex_string_and_ignores_the_order_of_labels() -> None:

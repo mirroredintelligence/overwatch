@@ -221,6 +221,21 @@ LEAKY: dict[str, tuple[str, str, Scenario, FindingKind]] = {
         ),
         FindingKind.FOREIGN_ID_EFFECT,
     ),
+    "Q-TEST-LEAK-FOREIGN-COPY": (
+        "MATCH (n:ProbeThing {id: $id}) "
+        "MATCH (m:ProbeThing {id: 'thing-1', tenantId: $tenant}) "
+        "SET m.note = n.note RETURN count(m) AS copied",
+        "write",
+        _scenario(
+            "copy a note from the node of an id the other tenant owns",
+            {"id": Unique("res-1", "resource_id")},
+            Expect(
+                rows=({"copied": 1},),
+                after=(NodeSpec(THING, {"id": "thing-1", "note": Marked("res")}),),
+            ),
+        ),
+        FindingKind.FOREIGN_ID_EFFECT,
+    ),
     "Q-TEST-LEAK-WRONG-ROWS": (
         _GET,
         "read",

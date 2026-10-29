@@ -71,3 +71,6 @@ Non-blocking findings and residual limits (DEC-141). A verifier may not hold a t
 | W06 | The age uses `Date.now`. A browser clock step back of less than the board's age plus 60 s, while polls fail and the stream is open, extends a stale figure as current by up to the step size (needs three coincident faults). Fix: use `performance.now` for elapsed time. | `frontend/` liveness | Next change to the live feed. |
 | W06 | If the back end's clock steps back, every new board is "older" than the held one and is refused, so the wall stays Last known until reload (fail safe). The `Date` header read is the BFF web server's clock, not the back end's: skew counts against the limit. | `frontend/` feed | Before more than one host serves the BFF. |
 
+| TEN-006 | `check_approvals` and `purge_blockers` compare approver refs as raw strings, so "alice" and "alice " count as two people. Callers must pass canonical authenticated actor ids. | `domain/rules/tenant_lifecycle.py` | TEN-026 and TEN-074. |
+| TEN-006 | `Tenant` is keyword-only (DEC-155 item 6); later tasks must not construct it positionally. | `domain/model/tenant.py` | Any task that builds a `Tenant`. |
+| TEN-006 | `start_offboarding` from a blocked suspension becomes read-only (DEC-155 item 8); decide whether that move needs confirmation. | `domain/rules/tenant_lifecycle.py` | TEN-073. |

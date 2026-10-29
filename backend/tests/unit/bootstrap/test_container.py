@@ -314,3 +314,27 @@ async def test_build_without_a_centroid_file_locates_nothing_rather_than_guessin
     container = build_for_tests(neo4j=neo4j)
 
     assert container.postcodes.locate("DT4 8XX") is None
+
+
+async def test_build_wires_the_pilot_terminology_and_no_geocoder_without_a_key() -> None:
+    container = build(Settings())
+    try:
+        record = await container.terminology.ods_lookup("RDY")
+        assert record is not None
+        assert container.http is None
+        assert await container.geocoder.find_addresses("DT1 1AA") == []
+    finally:
+        await container.shutdown()
+
+
+async def test_build_wires_the_os_places_geocoder_and_closes_its_client_on_shutdown() -> None:
+    from pydantic import SecretStr
+
+    from diucs.adapters.outbound.geocoder_os_places.os_places import OsPlacesGeocoder
+
+    container = build(Settings(os_places_api_key=SecretStr("test-key")))
+    assert isinstance(container.geocoder, OsPlacesGeocoder)
+    assert container.http is not None
+    client = container.http
+    await container.shutdown()
+    assert client.is_closed

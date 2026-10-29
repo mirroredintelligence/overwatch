@@ -1,0 +1,31 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "best-fit-not-used",
+  "url": "https://diucs.example/CodeSystem/best-fit-not-used",
+  "name": "best-fit-not-used",
+  "status": "active",
+  "content": "complete",
+  "count": 5,
+  "concept": [
+    {
+      "code": "caller-preference",
+      "display": "Caller preference"
+    },
+    {
+      "code": "clinical-override",
+      "display": "Clinical override"
+    },
+    {
+      "code": "data-too-old",
+      "display": "Data too old"
+    },
+    {
+      "code": "declined",
+      "display": "Declined"
+    },
+    {
+      "code": "full",
+      "display": "Full"
+    }
+  ]
+}

@@ -44,3 +44,8 @@ class Settings(BaseSettings):
     # I11 (DEC-047): the local postcode-centroid CSV (postcode,latitude,longitude, WGS84). Patient
     # postcodes are looked up in this file and never leave the Trust. Unset: nothing is located.
     postcode_centroids_path: Path | None = None
+    # I12 (DEC-047): the OS Places key, read by the geocoder for a service's site postcode only.
+    # Unset: no address is found (fail closed). Real values come from the environment.
+    os_places_api_key: SecretStr | None = None
+    # I12: the pilot ODS sample and the local CodeSystem files. The default is the repo's folder.
+    terminology_dir: Path = Path(__file__).resolve().parents[3] / "terminology"

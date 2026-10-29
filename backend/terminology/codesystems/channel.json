@@ -1,0 +1,23 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "channel",
+  "url": "https://diucs.example/CodeSystem/channel",
+  "name": "channel",
+  "status": "active",
+  "content": "complete",
+  "count": 3,
+  "concept": [
+    {
+      "code": "email",
+      "display": "Email"
+    },
+    {
+      "code": "push",
+      "display": "Push"
+    },
+    {
+      "code": "text",
+      "display": "Text"
+    }
+  ]
+}

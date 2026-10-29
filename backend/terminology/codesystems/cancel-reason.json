@@ -1,0 +1,27 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "cancel-reason",
+  "url": "https://diucs.example/CodeSystem/cancel-reason",
+  "name": "cancel-reason",
+  "status": "active",
+  "content": "complete",
+  "count": 4,
+  "concept": [
+    {
+      "code": "caller-declined",
+      "display": "Caller declined"
+    },
+    {
+      "code": "entered-in-error",
+      "display": "Entered in error"
+    },
+    {
+      "code": "no-longer-needed",
+      "display": "No longer needed"
+    },
+    {
+      "code": "other-route-found",
+      "display": "Other route found"
+    }
+  ]
+}

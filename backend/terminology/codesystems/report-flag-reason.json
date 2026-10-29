@@ -1,0 +1,23 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "report-flag-reason",
+  "url": "https://diucs.example/CodeSystem/report-flag-reason",
+  "name": "report-flag-reason",
+  "status": "active",
+  "content": "complete",
+  "count": 3,
+  "concept": [
+    {
+      "code": "differs-from-phoned",
+      "display": "Differs from phoned"
+    },
+    {
+      "code": "many-changes",
+      "display": "Many changes"
+    },
+    {
+      "code": "out-of-range-twice",
+      "display": "Out of range twice"
+    }
+  ]
+}

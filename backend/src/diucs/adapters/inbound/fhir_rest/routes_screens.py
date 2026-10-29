@@ -21,7 +21,7 @@ Limits in front of the use cases (R15, the per-address throttle DEC-160 item 4 a
 start counts against its address. A claim counts only the claims that are refused, so a display
 that polls and gets `waiting` is never throttled by its own polling. The address is the socket
 peer, hashed into the key; behind a proxy it is the proxy's address until the server trusts the
-proxy (DEC-186).
+proxy (DEC-224 item 18).
 
 The routes hold no business rule: they check the secrets, bind the host's tenant where the use case
 needs one, run one use case and map the result.

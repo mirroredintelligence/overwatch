@@ -154,7 +154,7 @@ def _replay_key(scope: ScopeId, key: str) -> str:
 
 async def _is_known(uow: UnitOfWork, phone_hash: str, now: datetime) -> bool:
     """A number is known when a registered practitioner holds it or an invitation is open for it.
-    Both lookups always run, so a known and an unknown number make the same calls (H-NEW-2)."""
+    Both lookups always run, so a known and an unknown number make the same calls (H-96)."""
     practitioner = await uow.people.find_by_phone_hash(phone_hash)
     invitation = await uow.link_tokens.open_for_phone(INVITATION_PURPOSE, phone_hash, now)
     return practitioner is not None or invitation is not None
@@ -171,7 +171,7 @@ class RequestTextCode:
     """Request a code. The response is the same for a known and an unknown number, and so is the
     work done before it returns: the same lookups, the same store write, the same sealing and the
     same outbox and audit writes. Only the outbox event differs (SendCode for a known number), and
-    the sender acts on that event alone, after the response (H-NEW-2)."""
+    the sender acts on that event alone, after the response (H-96)."""
 
     def __init__(
         self,

@@ -7,7 +7,7 @@ shown. "Time back" is an estimate and is labelled as one.
 
 Reads only: no unit of work writes. The tenant comes from the unit of work (DEC-146); the summary
 of a network is not built here (bookings and cases are not shared, DEC-132). Decisions:
-docs/delivery/fragments/U35.md.
+DEC-245.
 """
 
 import math

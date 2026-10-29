@@ -8,7 +8,7 @@ owner says the current criteria are still right, with no new version.
 
 The author of a version is the owner role it was written under (the FHIR `author` element). A
 version carries the review period the owner chose, so approval can set review-by from the approval
-date. Decisions: docs/delivery/fragments/U30.md.
+date. Decisions: DEC-244.
 """
 
 import hashlib

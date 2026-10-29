@@ -6,7 +6,7 @@ action), accepted (the figure stands) or phoned (the lead phoned the service; th
 told is recorded as a new advisor-phoned report). A resolved flag keeps its outcome, the lead who
 resolved it and the time, and it is never resolved twice. The capacity report is never edited.
 
-Decisions: docs/delivery/fragments/U39.md. RecordAdvisorPhoned (U13) is not built yet, so a phoned
+Decisions: DEC-246. RecordAdvisorPhoned (U13) is not built yet, so a phoned
 outcome records its figure through ReportCapacity with source advisor-phoned, which is the path
 U13 will also take.
 """

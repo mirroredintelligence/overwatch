@@ -6,7 +6,7 @@ reports them, so the form can show its error summary. Submit needs every step co
 registration in draft or needs-changes; it then moves to submitted and records the time.
 
 Contact numbers and addresses for reporting never enter the draft: they are written to the protected
-contact store (P16) for the registration's requester role. Decisions: fragments/U26.md.
+contact store (P16) for the registration's requester role. Decisions: DEC-243.
 """
 
 import hashlib

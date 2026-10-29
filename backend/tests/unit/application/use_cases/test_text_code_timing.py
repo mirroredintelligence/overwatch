@@ -1,5 +1,5 @@
 """The request for a code answers a known and an unknown number with the same calls, in the same
-order, and the same result (U25, H-NEW-2). The ports are recording doubles, so the sequence of calls
+order, and the same result (U25, H-96). The ports are recording doubles, so the sequence of calls
 before the result returns can be compared. Only the outbox event differs: SendCode for a known
 number, DiscardCode for an unknown one. The sender acts on SendCode alone.
 """

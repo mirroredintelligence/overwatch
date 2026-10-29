@@ -18,13 +18,21 @@ from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from diucs.application.tenancy import NETWORK_PREFIX, ScopeId, ScopeInvalid
-from diucs.domain.errors import Conflict, DomainError, InvalidTransition, NotAllowed, ValidationFailed
+from diucs.domain.errors import (
+    Conflict,
+    DomainError,
+    InvalidTransition,
+    NotAllowed,
+    ValidationFailed,
+)
 from diucs.domain.model.network import (
     NETWORK_ID_PREFIX,
     Agreement,
+    Approval,
     DirectorySource,
-    GrantEndReason,
+    Grant,
     GrantApprover,
+    GrantEndReason,
     GrantPurpose,
     GrantScope,
     GrantStatus,
@@ -37,7 +45,6 @@ from diucs.domain.model.network import (
     Network,
     NetworkMembership,
     NetworkStatus,
-    Approval,
     accept_membership,
     activate_network,
     check_network_id,
@@ -340,9 +347,7 @@ def test_a_foreign_member_as_a_membership_status_is_refused() -> None:
 
 
 def test_a_foreign_member_as_a_network_status_is_refused() -> None:
-    _refuses_a_foreign_member(
-        NetworkStatus, lambda m: transition_network(m, NetworkStatus.ACTIVE)
-    )
+    _refuses_a_foreign_member(NetworkStatus, lambda m: transition_network(m, NetworkStatus.ACTIVE))
 
 
 def test_a_foreign_member_as_an_end_reason_is_refused() -> None:
@@ -402,7 +407,11 @@ def test_agreement_builds_from_a_document_reference() -> None:
             "left_at": _at(2),
             "end_reason": MembershipEndReason.REMOVED,
         },
-        {"status": MembershipStatus.LEFT, "joined_at": _at(1), "end_reason": MembershipEndReason.LEFT},
+        {
+            "status": MembershipStatus.LEFT,
+            "joined_at": _at(1),
+            "end_reason": MembershipEndReason.LEFT,
+        },
         {
             "status": MembershipStatus.LEFT,
             "joined_at": _at(3),
@@ -418,7 +427,9 @@ def test_agreement_builds_from_a_document_reference() -> None:
         {"status": MembershipStatus.INVITED, "invited_at": datetime(2026, 4, 1, 9, 0)},
     ],
 )
-def test_a_membership_that_breaks_its_status_invariant_is_refused(kwargs: dict[str, object]) -> None:
+def test_a_membership_that_breaks_its_status_invariant_is_refused(
+    kwargs: dict[str, object],
+) -> None:
     with pytest.raises(ValidationFailed):
         membership(**kwargs)  # type: ignore[arg-type]
 
@@ -680,22 +691,24 @@ def test_the_owner_cannot_leave_its_own_network() -> None:
 
 def test_ending_a_left_membership_with_the_same_reason_returns_it_unchanged() -> None:
     network = active_network()
-    left = end_membership(network, active_member(joined=1), reason=MembershipEndReason.LEFT, now=_at(9))
+    left = end_membership(
+        network, active_member(joined=1), reason=MembershipEndReason.LEFT, now=_at(9)
+    )
     assert end_membership(network, left, reason=MembershipEndReason.LEFT, now=_at(20)) == left
 
 
 def test_ending_a_left_membership_with_a_different_reason_is_refused() -> None:
     network = active_network()
-    left = end_membership(network, active_member(joined=1), reason=MembershipEndReason.LEFT, now=_at(9))
+    left = end_membership(
+        network, active_member(joined=1), reason=MembershipEndReason.LEFT, now=_at(9)
+    )
     with pytest.raises(InvalidTransition):
         end_membership(network, left, reason=MembershipEndReason.REMOVED, now=_at(20))
 
 
 def test_an_invited_tenant_can_be_removed_but_not_marked_as_left() -> None:
     network = active_network()
-    removed = end_membership(
-        network, membership(), reason=MembershipEndReason.REMOVED, now=_at(4)
-    )
+    removed = end_membership(network, membership(), reason=MembershipEndReason.REMOVED, now=_at(4))
     assert removed.status is MembershipStatus.REMOVED
     assert removed.joined_at is None
     assert removed.left_at == _at(4)
@@ -743,9 +756,7 @@ def test_is_agreement_behind(
         created_at=T0,
         closed_at=None,
     )
-    row = membership(
-        status=MembershipStatus.ACTIVE, joined_at=_at(1), accepted_agreement=accepted
-    )
+    row = membership(status=MembershipStatus.ACTIVE, joined_at=_at(1), accepted_agreement=accepted)
     assert is_agreement_behind(network, row) is behind
 
 
@@ -866,3 +877,391 @@ def test_left_at_must_not_be_before_joined_at(joined: int, delta: int) -> None:
             end_reason=MembershipEndReason.LEFT,
         )
         assert row.left_at == left
+
+
+# ---------------------------------------------------------------- coverage of every refusal
+
+
+def test_a_membership_id_with_a_space_is_refused() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        membership(id="mem b")
+    assert refused.value.field == "id"
+
+
+def test_an_approval_with_a_short_account_reference_is_refused() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        Approval("short", OWNER, _at(1))
+    assert refused.value.field == "account_ref"
+
+
+def test_an_approval_by_a_network_id_is_refused_as_a_tenant() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        Approval("acct-owner-0001", NET, _at(1))
+    assert refused.value.field == "tenant_id"
+
+
+def test_a_closed_at_on_a_network_that_is_not_closed_is_refused() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        Network(
+            id=NET,
+            name="Sample network",
+            owner_tenant_id=OWNER,
+            status=NetworkStatus.DRAFT,
+            agreement=None,
+            created_at=T0,
+            closed_at=_at(3),
+        )
+    assert refused.value.field == "closed_at"
+
+
+def test_a_network_that_is_not_an_agreement_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        Network(
+            id=NET,
+            name="Sample network",
+            owner_tenant_id=OWNER,
+            status=NetworkStatus.DRAFT,
+            agreement="DSA-2026/14",  # type: ignore[arg-type]
+            created_at=T0,
+            closed_at=None,
+        )
+
+
+def test_an_invitation_that_already_names_an_agreement_is_refused() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        membership(status=MembershipStatus.INVITED, accepted_agreement=AGREEMENT_V1)
+    assert refused.value.field == "status"
+
+
+def test_a_removed_membership_that_never_joined_builds() -> None:
+    row = membership(
+        status=MembershipStatus.REMOVED, left_at=_at(2), end_reason=MembershipEndReason.REMOVED
+    )
+    assert row.joined_at is None
+
+
+def test_a_removed_membership_needs_its_end_reason_and_leave_date() -> None:
+    with pytest.raises(ValidationFailed):
+        membership(
+            status=MembershipStatus.REMOVED, left_at=_at(2), end_reason=MembershipEndReason.LEFT
+        )
+
+
+def _grant_kwargs(**overrides: object) -> dict[str, object]:
+    values: dict[str, object] = {
+        "id": "grt-1",
+        "network_id": NET,
+        "grantor_tenant_id": MEMBER,
+        "scope": GrantScope.CAPACITY,
+        "purpose": GrantPurpose.NETWORK_CAPACITY_VIEW,
+        "version": 1,
+        "status": GrantStatus.PROPOSED,
+        "effective_from": _at(10),
+        "effective_to": None,
+        "agreement": AGREEMENT_V1,
+        "allowlist_version": 1,
+        "proposed_by_account_ref": "acct-member-0001",
+        "proposed_at": T0,
+        "grantor_approval": None,
+        "owner_approval": None,
+        "ended_at": None,
+        "ended_by_account_ref": None,
+        "supersedes_id": None,
+    }
+    values.update(overrides)
+    return values
+
+
+@pytest.mark.parametrize(
+    ("overrides", "field"),
+    [
+        ({"version": 0}, "version"),
+        ({"allowlist_version": 0}, "allowlist_version"),
+        ({"scope": "capacity"}, "scope"),
+        ({"purpose": "network-capacity-view"}, "purpose"),
+        ({"status": "proposed"}, "status"),
+        ({"effective_from": datetime(2026, 4, 1, 9, 10)}, "effective_from"),
+        ({"effective_to": _at(5)}, "effective_to"),
+        ({"effective_to": datetime(2026, 4, 1, 9, 30)}, "effective_to"),
+        ({"proposed_by_account_ref": "x"}, "proposed_by_account_ref"),
+        ({"proposed_at": datetime(2026, 4, 1, 9, 0)}, "proposed_at"),
+        ({"agreement": "DSA-2026/14"}, "agreement"),
+        ({"ended_by_account_ref": "acct-owner-0001"}, "status"),
+        (
+            {
+                "ended_at": _at(20),
+                "status": GrantStatus.LAPSED,
+                "ended_by_account_ref": "acct-owner-0001",
+            },
+            "status",
+        ),
+        ({"ended_at": _at(20), "status": GrantStatus.ENDED}, "status"),
+        ({"status": GrantStatus.GRANTOR_APPROVED}, "status"),
+        ({"status": GrantStatus.OWNER_APPROVED}, "status"),
+        ({"status": GrantStatus.APPROVED}, "status"),
+        ({"status": GrantStatus.LAPSED}, "status"),
+        ({"supersedes_id": "grt-1"}, "supersedes_id"),
+        ({"supersedes_id": "bad id"}, "supersedes_id"),
+        ({"id": "bad id"}, "id"),
+        ({"network_id": "tenant-a"}, "network_id"),
+        ({"grantor_tenant_id": "net-test"}, "grantor_tenant_id"),
+    ],
+)
+def test_a_grant_that_breaks_a_field_rule_or_its_status_is_refused(
+    overrides: dict[str, object], field: str
+) -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        Grant(**_grant_kwargs(**overrides))  # type: ignore[arg-type]
+    assert refused.value.field == field
+
+
+def test_a_grantor_approval_by_another_tenant_is_refused() -> None:
+    approval = Approval("acct-member-0001", OUTSIDER, _at(2))
+    with pytest.raises(ValidationFailed) as refused:
+        Grant(**_grant_kwargs(status=GrantStatus.GRANTOR_APPROVED, grantor_approval=approval))  # type: ignore[arg-type]
+    assert refused.value.field == "grantor_approval"
+
+
+def test_a_grant_that_is_not_a_grant_approval_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        Grant(**_grant_kwargs(grantor_approval="acct-member-0001"))  # type: ignore[arg-type]
+
+
+def test_a_valid_ended_and_declined_grant_builds() -> None:
+    declined = Grant(**_grant_kwargs(status=GrantStatus.DECLINED, ended_at=_at(20)))  # type: ignore[arg-type]
+    ended = Grant(
+        **_grant_kwargs(  # type: ignore[arg-type]
+            status=GrantStatus.ENDED, ended_at=_at(20), ended_by_account_ref="acct-member-0001"
+        )
+    )
+    assert declined.ended_by_account_ref is None
+    assert ended.ended_by_account_ref == "acct-member-0001"
+
+
+@pytest.mark.parametrize(
+    ("overrides", "field"),
+    [
+        ({"status": ListingStatus.PENDING, "decided_at": _at(3)}, "status"),
+        ({"status": ListingStatus.PENDING, "reason": ListingReason.OTHER}, "status"),
+        ({"status": ListingStatus.ADMITTED, "decided_at": _at(3)}, "status"),
+        (
+            {
+                "status": ListingStatus.ADMITTED,
+                "decided_at": _at(3),
+                "decided_by_account_ref": "acct-owner-0001",
+                "reason": ListingReason.OTHER,
+            },
+            "status",
+        ),
+        (
+            {
+                "status": ListingStatus.DECLINED,
+                "decided_at": _at(3),
+                "decided_by_account_ref": "acct-owner-0001",
+            },
+            "status",
+        ),
+        (
+            {
+                "status": ListingStatus.SUSPENDED,
+                "decided_at": _at(3),
+                "reason": ListingReason.OTHER,
+            },
+            "status",
+        ),
+        ({"status": ListingStatus.WITHDRAWN, "reason": ListingReason.OTHER}, "status"),
+        ({"status": ListingStatus.WITHDRAWN}, "status"),
+        ({"status": "pending"}, "status"),
+        ({"reason": "other"}, "reason"),
+        ({"requested_at": datetime(2026, 4, 1, 9, 0)}, "requested_at"),
+        (
+            {"decided_at": datetime(2026, 4, 1, 9, 0), "status": ListingStatus.WITHDRAWN},
+            "decided_at",
+        ),
+        ({"decided_by_account_ref": "x"}, "decided_by_account_ref"),
+        ({"source_service_id": "bad service"}, "source_service_id"),
+        ({"source_tenant_id": NET}, "source_tenant_id"),
+        ({"network_id": OWNER}, "network_id"),
+        ({"id": "bad id"}, "id"),
+    ],
+)
+def test_a_listing_that_breaks_its_status_or_field_rule_is_refused(
+    overrides: dict[str, object], field: str
+) -> None:
+    values: dict[str, object] = {
+        "id": "lst-1",
+        "network_id": NET,
+        "source_tenant_id": MEMBER,
+        "source_service_id": "svc-1",
+        "status": ListingStatus.PENDING,
+        "requested_at": T0,
+        "decided_at": None,
+        "decided_by_account_ref": None,
+        "reason": None,
+    }
+    values.update(overrides)
+    with pytest.raises(ValidationFailed) as refused:
+        Listing(**values)  # type: ignore[arg-type]
+    assert refused.value.field == field
+
+
+def test_a_withdrawn_listing_may_name_no_decider() -> None:
+    withdrawn = Listing(
+        id="lst-1",
+        network_id=NET,
+        source_tenant_id=MEMBER,
+        source_service_id="svc-1",
+        status=ListingStatus.WITHDRAWN,
+        requested_at=T0,
+        decided_at=_at(4),
+        decided_by_account_ref=None,
+        reason=None,
+    )
+    assert withdrawn.decided_by_account_ref is None
+
+
+def test_accepting_an_invitation_of_another_network_is_refused() -> None:
+    other = membership(network_id="net-other", status=MembershipStatus.INVITED)
+    with pytest.raises(ValidationFailed):
+        accept_membership(
+            active_network(), other, agreement=AGREEMENT_V1, account_ref="acct-b-0001", now=_at(3)
+        )
+
+
+def test_accepting_a_membership_that_is_not_an_invitation_is_refused() -> None:
+    with pytest.raises(InvalidTransition):
+        accept_membership(
+            active_network(),
+            active_member(),
+            agreement=AGREEMENT_V1,
+            account_ref="acct-b-0001",
+            now=_at(3),
+        )
+
+
+def test_accepting_on_a_suspended_network_is_a_conflict() -> None:
+    suspended = Network(
+        id=NET,
+        name="Sample network",
+        owner_tenant_id=OWNER,
+        status=NetworkStatus.SUSPENDED,
+        agreement=AGREEMENT_V1,
+        created_at=T0,
+        closed_at=None,
+    )
+    with pytest.raises(Conflict):
+        accept_membership(
+            suspended, membership(), agreement=AGREEMENT_V1, account_ref="acct-b-0001", now=_at(3)
+        )
+
+
+def test_an_account_reference_that_is_too_short_is_refused_when_accepting() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        accept_membership(
+            active_network(), membership(), agreement=AGREEMENT_V1, account_ref="short", now=_at(3)
+        )
+    assert refused.value.field == "account_ref"
+
+
+def test_was_member_at_is_false_for_an_invitation_and_true_while_active() -> None:
+    assert was_member_at(membership(), _at(100)) is False
+    assert was_member_at(active_member(joined=1), _at(100)) is True
+    assert was_member_at(active_member(joined=1), _at(0)) is False
+
+
+def test_an_owner_membership_is_refused_a_leave_by_its_own_tenant_even_when_active() -> None:
+    network = active_network()
+    with pytest.raises(NotAllowed):
+        end_membership(
+            network,
+            owner_membership(network, "mem-owner", _at(0)),
+            reason=MembershipEndReason.REMOVED,
+            now=_at(5),
+        )
+
+
+def test_ending_a_membership_of_a_member_with_a_non_membership_record_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        end_membership(
+            active_network(),
+            "not a membership",  # type: ignore[arg-type]
+            reason=MembershipEndReason.LEFT,
+            now=_at(5),
+        )
+
+
+def test_inviting_with_an_existing_row_that_is_not_a_membership_is_refused() -> None:
+    with pytest.raises(ValidationFailed):
+        invite_member(
+            active_network(),
+            ["not a membership"],  # type: ignore[list-item]
+            id="mem-new",
+            tenant_id=MEMBER,
+            now=_at(2),
+        )
+
+
+def test_owner_membership_needs_a_valid_id_and_an_aware_time() -> None:
+    with pytest.raises(ValidationFailed):
+        owner_membership(active_network(), "bad id", _at(0))
+    with pytest.raises(ValidationFailed):
+        owner_membership(active_network(), "mem-owner", datetime(2026, 4, 1, 9, 0))
+
+
+def test_invite_refuses_a_bad_tenant_or_naive_time_before_anything_else() -> None:
+    with pytest.raises(ValidationFailed):
+        invite_member(active_network(), [], id="mem-new", tenant_id="net-test", now=_at(2))
+    with pytest.raises(ValidationFailed):
+        invite_member(
+            active_network(), [], id="mem-new", tenant_id=MEMBER, now=datetime(2026, 4, 1)
+        )
+
+
+def test_activating_a_network_needs_a_valid_time_and_a_transition() -> None:
+    draft = Network(
+        id=NET,
+        name="Sample network",
+        owner_tenant_id=OWNER,
+        status=NetworkStatus.DRAFT,
+        agreement=None,
+        created_at=T0,
+        closed_at=None,
+    )
+    closed = Network(
+        id=NET,
+        name="Sample network",
+        owner_tenant_id=OWNER,
+        status=NetworkStatus.CLOSED,
+        agreement=None,
+        created_at=T0,
+        closed_at=_at(1),
+    )
+    with pytest.raises(InvalidTransition):
+        activate_network(closed, AGREEMENT_V1, _at(2))
+    assert activate_network(draft, AGREEMENT_V1, _at(2)).status is NetworkStatus.ACTIVE
+
+
+def test_check_tenant_field_and_network_id_refuse_a_non_string_by_type() -> None:
+    with pytest.raises(ValidationFailed):
+        check_tenant_field(None, "owner_tenant_id")
+    with pytest.raises(ValidationFailed):
+        check_network_id(None)
+
+
+def test_an_agreement_reference_that_names_a_person_is_refused() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        Agreement("Dr Smith 2026", 1)
+    assert refused.value.field == "reference"
+
+
+def test_a_network_name_must_be_text() -> None:
+    with pytest.raises(ValidationFailed):
+        Network(
+            id=NET,
+            name=12,
+            owner_tenant_id=OWNER,
+            status=NetworkStatus.DRAFT,  # type: ignore[arg-type]
+            agreement=None,
+            created_at=T0,
+            closed_at=None,
+        )

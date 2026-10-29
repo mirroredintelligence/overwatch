@@ -13,7 +13,13 @@ from hypothesis import settings
 from hypothesis import strategies as st
 from hypothesis.stateful import RuleBasedStateMachine, invariant, rule
 
-from diucs.domain.errors import Conflict, DomainError, InvalidTransition, NotAllowed, ValidationFailed
+from diucs.domain.errors import (
+    Conflict,
+    DomainError,
+    InvalidTransition,
+    NotAllowed,
+    ValidationFailed,
+)
 from diucs.domain.model.network import (
     Agreement,
     Approval,
@@ -134,7 +140,11 @@ def proposed(**kwargs: object) -> Grant:
 
 
 def approve(
-    grant: Grant, party: GrantApprover, *, tenant: str | None = None, account: str | None = None,
+    grant: Grant,
+    party: GrantApprover,
+    *,
+    tenant: str | None = None,
+    account: str | None = None,
     at: int = 5,
 ) -> Grant:
     default_tenant = MEMBER if party is GrantApprover.GRANTOR else OWNER
@@ -162,20 +172,41 @@ def membership_row(
 ) -> NetworkMembership:
     if status is MembershipStatus.ACTIVE:
         return NetworkMembership(
-            id="mem-b", network_id=network, member_tenant_id=member, role=MembershipRole.MEMBER,
-            status=status, invited_at=T0, joined_at=_at(1), left_at=None, end_reason=None,
+            id="mem-b",
+            network_id=network,
+            member_tenant_id=member,
+            role=MembershipRole.MEMBER,
+            status=status,
+            invited_at=T0,
+            joined_at=_at(1),
+            left_at=None,
+            end_reason=None,
             accepted_agreement=AGREEMENT_V1,
         )
     if status is MembershipStatus.INVITED:
         return NetworkMembership(
-            id="mem-b", network_id=network, member_tenant_id=member, role=MembershipRole.MEMBER,
-            status=status, invited_at=T0, joined_at=None, left_at=None, end_reason=None,
+            id="mem-b",
+            network_id=network,
+            member_tenant_id=member,
+            role=MembershipRole.MEMBER,
+            status=status,
+            invited_at=T0,
+            joined_at=None,
+            left_at=None,
+            end_reason=None,
             accepted_agreement=None,
         )
     return NetworkMembership(
-        id="mem-b", network_id=network, member_tenant_id=member, role=MembershipRole.MEMBER,
-        status=MembershipStatus.LEFT, invited_at=T0, joined_at=_at(1), left_at=left_at or _at(30),
-        end_reason=MembershipEndReason.LEFT, accepted_agreement=AGREEMENT_V1,
+        id="mem-b",
+        network_id=network,
+        member_tenant_id=member,
+        role=MembershipRole.MEMBER,
+        status=MembershipStatus.LEFT,
+        invited_at=T0,
+        joined_at=_at(1),
+        left_at=left_at or _at(30),
+        end_reason=MembershipEndReason.LEFT,
+        accepted_agreement=AGREEMENT_V1,
     )
 
 
@@ -184,9 +215,15 @@ def raw_membership(**fields: object) -> NetworkMembership:
     itself refuses, so that a guard in `may_project` can be tested on its own (test 23)."""
     base = membership_row(status=MembershipStatus.ACTIVE)
     values = {
-        "id": base.id, "network_id": base.network_id, "member_tenant_id": base.member_tenant_id,
-        "role": base.role, "status": base.status, "invited_at": base.invited_at,
-        "joined_at": base.joined_at, "left_at": base.left_at, "end_reason": base.end_reason,
+        "id": base.id,
+        "network_id": base.network_id,
+        "member_tenant_id": base.member_tenant_id,
+        "role": base.role,
+        "status": base.status,
+        "invited_at": base.invited_at,
+        "joined_at": base.joined_at,
+        "left_at": base.left_at,
+        "end_reason": base.end_reason,
         "accepted_agreement": base.accepted_agreement,
     }
     values.update(fields)
@@ -212,10 +249,17 @@ def test_propose_builds_a_proposed_version_one_grant_with_no_approvals() -> None
 def test_propose_refuses_a_scope_that_is_not_a_grant_scope(scope: object) -> None:
     with pytest.raises(ValidationFailed) as refused:
         propose_grant(
-            id="grt-1", network_id=NET, grantor_tenant_id=MEMBER, scope=scope,  # type: ignore[arg-type]
-            purpose=GrantPurpose.NETWORK_CAPACITY_VIEW, effective_from=_at(10), effective_to=None,
-            agreement=AGREEMENT_V1, allowlist_version=1,
-            proposed_by_account_ref=GRANTOR_ACCOUNT, proposed_at=T0,
+            id="grt-1",
+            network_id=NET,
+            grantor_tenant_id=MEMBER,
+            scope=scope,  # type: ignore[arg-type]
+            purpose=GrantPurpose.NETWORK_CAPACITY_VIEW,
+            effective_from=_at(10),
+            effective_to=None,
+            agreement=AGREEMENT_V1,
+            allowlist_version=1,
+            proposed_by_account_ref=GRANTOR_ACCOUNT,
+            proposed_at=T0,
         )
     assert refused.value.field == "scope"
 
@@ -223,10 +267,17 @@ def test_propose_refuses_a_scope_that_is_not_a_grant_scope(scope: object) -> Non
 def test_propose_refuses_a_purpose_that_is_not_the_capacity_view() -> None:
     with pytest.raises(ValidationFailed) as refused:
         propose_grant(
-            id="grt-1", network_id=NET, grantor_tenant_id=MEMBER, scope=GrantScope.CAPACITY,
+            id="grt-1",
+            network_id=NET,
+            grantor_tenant_id=MEMBER,
+            scope=GrantScope.CAPACITY,
             purpose="network-capacity-view",  # type: ignore[arg-type]
-            effective_from=_at(10), effective_to=None, agreement=AGREEMENT_V1,
-            allowlist_version=1, proposed_by_account_ref=GRANTOR_ACCOUNT, proposed_at=T0,
+            effective_from=_at(10),
+            effective_to=None,
+            agreement=AGREEMENT_V1,
+            allowlist_version=1,
+            proposed_by_account_ref=GRANTOR_ACCOUNT,
+            proposed_at=T0,
         )
     assert refused.value.field == "purpose"
 
@@ -274,7 +325,9 @@ ALLOWED_GRANT = {
 }
 
 
-@pytest.mark.parametrize(("current", "target"), list(itertools.product(list(GrantStatus), repeat=2)))
+@pytest.mark.parametrize(
+    ("current", "target"), list(itertools.product(list(GrantStatus), repeat=2))
+)
 def test_every_grant_transition_pair_is_allowed_or_refused(
     current: GrantStatus, target: GrantStatus
 ) -> None:
@@ -359,12 +412,20 @@ def test_when_grantor_and_owner_are_one_tenant_the_same_account_twice_is_a_confl
 def test_when_grantor_and_owner_are_one_tenant_two_people_give_approved() -> None:
     same_tenant = make(_G.PROPOSED, grantor_tenant_id=OWNER)
     first = approve_grant(
-        same_tenant, approver=GrantApprover.GRANTOR, approver_tenant_id=OWNER,
-        network_owner_tenant_id=OWNER, account_ref=GRANTOR_ACCOUNT, now=_at(2),
+        same_tenant,
+        approver=GrantApprover.GRANTOR,
+        approver_tenant_id=OWNER,
+        network_owner_tenant_id=OWNER,
+        account_ref=GRANTOR_ACCOUNT,
+        now=_at(2),
     )
     second = approve_grant(
-        first, approver=GrantApprover.OWNER, approver_tenant_id=OWNER,
-        network_owner_tenant_id=OWNER, account_ref=THIRD_ACCOUNT, now=_at(3),
+        first,
+        approver=GrantApprover.OWNER,
+        approver_tenant_id=OWNER,
+        network_owner_tenant_id=OWNER,
+        account_ref=THIRD_ACCOUNT,
+        now=_at(3),
     )
     assert second.status is GrantStatus.APPROVED
     assert second.version == 1
@@ -398,7 +459,9 @@ def test_only_an_approved_grant_is_effective(status: GrantStatus) -> None:
 
 
 def test_an_ended_grant_is_not_effective_once_ended() -> None:
-    ended = end_grant(fully_approved(), by_tenant_id=MEMBER, account_ref=GRANTOR_ACCOUNT, now=_at(40))
+    ended = end_grant(
+        fully_approved(), by_tenant_id=MEMBER, account_ref=GRANTOR_ACCOUNT, now=_at(40)
+    )
     assert is_effective(ended, _at(41)) is False
     assert is_effective(make(_G.ENDED), _at(51)) is False
 
@@ -449,7 +512,9 @@ def test_end_by_a_third_tenant_is_refused() -> None:
 
 
 def test_ending_an_ended_grant_returns_it_unchanged() -> None:
-    ended = end_grant(fully_approved(), by_tenant_id=MEMBER, account_ref=GRANTOR_ACCOUNT, now=_at(40))
+    ended = end_grant(
+        fully_approved(), by_tenant_id=MEMBER, account_ref=GRANTOR_ACCOUNT, now=_at(40)
+    )
     assert end_grant(ended, by_tenant_id=MEMBER, account_ref=GRANTOR_ACCOUNT, now=_at(41)) == ended
 
 
@@ -480,8 +545,11 @@ def test_ending_a_proposed_grant_gives_ended_and_it_was_never_effective() -> Non
 @pytest.mark.parametrize("party", [MEMBER, OWNER], ids=["grantor", "owner"])
 def test_either_party_may_decline_before_approval(start: object, party: str) -> None:
     declined = decline_grant(
-        start(), by_tenant_id=party, network_owner_tenant_id=OWNER,  # type: ignore[operator]
-        account_ref=OWNER_ACCOUNT, now=_at(30),
+        start(),
+        by_tenant_id=party,
+        network_owner_tenant_id=OWNER,  # type: ignore[operator]
+        account_ref=OWNER_ACCOUNT,
+        now=_at(30),
     )
     assert declined.status is GrantStatus.DECLINED
     assert declined.ended_at == _at(30)
@@ -490,16 +558,22 @@ def test_either_party_may_decline_before_approval(start: object, party: str) -> 
 def test_declining_after_approval_is_refused() -> None:
     with pytest.raises(InvalidTransition):
         decline_grant(
-            fully_approved(), by_tenant_id=OWNER, network_owner_tenant_id=OWNER,
-            account_ref=OWNER_ACCOUNT, now=_at(30),
+            fully_approved(),
+            by_tenant_id=OWNER,
+            network_owner_tenant_id=OWNER,
+            account_ref=OWNER_ACCOUNT,
+            now=_at(30),
         )
 
 
 def test_a_third_tenant_cannot_decline() -> None:
     with pytest.raises(NotAllowed):
         decline_grant(
-            proposed(), by_tenant_id=OUTSIDER, network_owner_tenant_id=OWNER,
-            account_ref=THIRD_ACCOUNT, now=_at(30),
+            proposed(),
+            by_tenant_id=OUTSIDER,
+            network_owner_tenant_id=OWNER,
+            account_ref=THIRD_ACCOUNT,
+            now=_at(30),
         )
 
 
@@ -547,9 +621,14 @@ def test_lapse_for_a_leaving_member_touches_only_its_live_grants_in_that_network
 def test_revising_an_approved_grant_gives_a_proposed_next_version() -> None:
     current = fully_approved()
     successor = revise_grant(
-        current, new_id="grt-2", effective_from=_at(90), effective_to=None,
-        agreement=AGREEMENT_V1, allowlist_version=1,
-        proposed_by_account_ref=GRANTOR_ACCOUNT, now=_at(60),
+        current,
+        new_id="grt-2",
+        effective_from=_at(90),
+        effective_to=None,
+        agreement=AGREEMENT_V1,
+        allowlist_version=1,
+        proposed_by_account_ref=GRANTOR_ACCOUNT,
+        now=_at(60),
     )
     assert successor.status is GrantStatus.PROPOSED
     assert successor.version == current.version + 1
@@ -564,9 +643,14 @@ def test_revising_an_approved_grant_gives_a_proposed_next_version() -> None:
 def test_revising_anything_but_an_approved_grant_is_refused(status: GrantStatus) -> None:
     with pytest.raises(InvalidTransition):
         revise_grant(
-            make(status), new_id="grt-2", effective_from=_at(90), effective_to=None,
-            agreement=AGREEMENT_V1, allowlist_version=1,
-            proposed_by_account_ref=GRANTOR_ACCOUNT, now=_at(60),
+            make(status),
+            new_id="grt-2",
+            effective_from=_at(90),
+            effective_to=None,
+            agreement=AGREEMENT_V1,
+            allowlist_version=1,
+            proposed_by_account_ref=GRANTOR_ACCOUNT,
+            now=_at(60),
         )
 
 
@@ -574,14 +658,24 @@ def test_widening_the_allowlist_needs_a_higher_agreement_version() -> None:
     current = fully_approved()
     with pytest.raises(ValidationFailed):
         revise_grant(
-            current, new_id="grt-2", effective_from=_at(90), effective_to=None,
-            agreement=AGREEMENT_V1, allowlist_version=2,
-            proposed_by_account_ref=GRANTOR_ACCOUNT, now=_at(60),
+            current,
+            new_id="grt-2",
+            effective_from=_at(90),
+            effective_to=None,
+            agreement=AGREEMENT_V1,
+            allowlist_version=2,
+            proposed_by_account_ref=GRANTOR_ACCOUNT,
+            now=_at(60),
         )
     widened = revise_grant(
-        current, new_id="grt-2", effective_from=_at(90), effective_to=None,
-        agreement=AGREEMENT_V2, allowlist_version=2,
-        proposed_by_account_ref=GRANTOR_ACCOUNT, now=_at(60),
+        current,
+        new_id="grt-2",
+        effective_from=_at(90),
+        effective_to=None,
+        agreement=AGREEMENT_V2,
+        allowlist_version=2,
+        proposed_by_account_ref=GRANTOR_ACCOUNT,
+        now=_at(60),
     )
     assert widened.allowlist_version == 2
 
@@ -589,9 +683,14 @@ def test_widening_the_allowlist_needs_a_higher_agreement_version() -> None:
 def test_a_revision_cannot_be_backdated() -> None:
     with pytest.raises(ValidationFailed):
         revise_grant(
-            fully_approved(), new_id="grt-2", effective_from=_at(59), effective_to=None,
-            agreement=AGREEMENT_V1, allowlist_version=1,
-            proposed_by_account_ref=GRANTOR_ACCOUNT, now=_at(60),
+            fully_approved(),
+            new_id="grt-2",
+            effective_from=_at(59),
+            effective_to=None,
+            agreement=AGREEMENT_V1,
+            allowlist_version=1,
+            proposed_by_account_ref=GRANTOR_ACCOUNT,
+            now=_at(60),
         )
 
 
@@ -650,8 +749,13 @@ def test_a_gap_before_the_successor_is_a_conflict() -> None:
 def test_a_successor_that_does_not_follow_is_refused(bad: dict[str, object]) -> None:
     old = make(_G.APPROVED, effective_from=_at(10))
     if bad.get("status_is_proposed"):
-        successor = make(_G.PROPOSED, id="grt-2", version=2, supersedes_id=old.id,
-                         effective_from=_at(SUCCESSOR_START))
+        successor = make(
+            _G.PROPOSED,
+            id="grt-2",
+            version=2,
+            supersedes_id=old.id,
+            effective_from=_at(SUCCESSOR_START),
+        )
     else:
         successor = _successor(old, **bad)
     with pytest.raises((Conflict, ValidationFailed, InvalidTransition)):
@@ -684,10 +788,16 @@ def test_effective_grant_returns_the_highest_effective_version() -> None:
 
 def test_effective_grant_is_none_when_nothing_is_effective() -> None:
     proposed_only = make(_G.PROPOSED)
-    assert effective_grant(
-        [proposed_only], network_id=NET, grantor_tenant_id=MEMBER,
-        scope=GrantScope.CAPACITY, now=_at(70),
-    ) is None
+    assert (
+        effective_grant(
+            [proposed_only],
+            network_id=NET,
+            grantor_tenant_id=MEMBER,
+            scope=GrantScope.CAPACITY,
+            now=_at(70),
+        )
+        is None
+    )
 
 
 def test_effective_grant_ignores_other_grantors_scopes_and_networks() -> None:
@@ -698,8 +808,11 @@ def test_effective_grant_ignores_other_grantors_scopes_and_networks() -> None:
         replace(make(_G.APPROVED, id="grt-z", version=9), network_id=OTHER_NET),
     ]
     found = effective_grant(
-        [*others, right], network_id=NET, grantor_tenant_id=MEMBER,
-        scope=GrantScope.CAPACITY, now=_at(70),
+        [*others, right],
+        network_id=NET,
+        grantor_tenant_id=MEMBER,
+        scope=GrantScope.CAPACITY,
+        now=_at(70),
     )
     assert found == right
 
@@ -707,7 +820,10 @@ def test_effective_grant_ignores_other_grantors_scopes_and_networks() -> None:
 def test_effective_grant_refuses_a_scope_that_is_not_a_grant_scope() -> None:
     with pytest.raises(ValidationFailed):
         effective_grant(
-            [], network_id=NET, grantor_tenant_id=MEMBER, scope="capacity",  # type: ignore[arg-type]
+            [],
+            network_id=NET,
+            grantor_tenant_id=MEMBER,
+            scope="capacity",  # type: ignore[arg-type]
             now=_at(70),
         )
 
@@ -729,7 +845,10 @@ def test_may_project_is_false_for_a_left_membership() -> None:
 
 
 def test_may_project_is_false_for_an_invited_membership() -> None:
-    assert may_project(fully_approved(), membership_row(status=MembershipStatus.INVITED), _at(70)) is False
+    assert (
+        may_project(fully_approved(), membership_row(status=MembershipStatus.INVITED), _at(70))
+        is False
+    )
 
 
 def test_may_project_is_false_when_the_membership_has_a_leave_date() -> None:
@@ -798,12 +917,21 @@ class GrantLifecycle(RuleBasedStateMachine):
         if self.current is not None:
             return
         now = self._now(1)
-        self._try(lambda: propose_grant(
-            id="grt-1", network_id=NET, grantor_tenant_id=MEMBER, scope=GrantScope.CAPACITY,
-            purpose=GrantPurpose.NETWORK_CAPACITY_VIEW, effective_from=now + timedelta(minutes=offset),
-            effective_to=None, agreement=AGREEMENT_V1, allowlist_version=1,
-            proposed_by_account_ref=GRANTOR_ACCOUNT, proposed_at=now,
-        ))
+        self._try(
+            lambda: propose_grant(
+                id="grt-1",
+                network_id=NET,
+                grantor_tenant_id=MEMBER,
+                scope=GrantScope.CAPACITY,
+                purpose=GrantPurpose.NETWORK_CAPACITY_VIEW,
+                effective_from=now + timedelta(minutes=offset),
+                effective_to=None,
+                agreement=AGREEMENT_V1,
+                allowlist_version=1,
+                proposed_by_account_ref=GRANTOR_ACCOUNT,
+                proposed_at=now,
+            )
+        )
 
     @rule(party=st.sampled_from(list(GrantApprover)), step=st.integers(min_value=0, max_value=5))
     def approve_one(self, party: GrantApprover, step: int) -> None:
@@ -811,13 +939,16 @@ class GrantLifecycle(RuleBasedStateMachine):
             return
         now = self._now(step)
         grant = self.current
-        self._try(lambda: approve_grant(
-            grant, approver=party,
-            approver_tenant_id=MEMBER if party is GrantApprover.GRANTOR else OWNER,
-            network_owner_tenant_id=OWNER,
-            account_ref=GRANTOR_ACCOUNT if party is GrantApprover.GRANTOR else OWNER_ACCOUNT,
-            now=now,
-        ))
+        self._try(
+            lambda: approve_grant(
+                grant,
+                approver=party,
+                approver_tenant_id=MEMBER if party is GrantApprover.GRANTOR else OWNER,
+                network_owner_tenant_id=OWNER,
+                account_ref=GRANTOR_ACCOUNT if party is GrantApprover.GRANTOR else OWNER_ACCOUNT,
+                now=now,
+            )
+        )
 
     @rule(step=st.integers(min_value=0, max_value=30))
     def end(self, step: int) -> None:
@@ -825,7 +956,9 @@ class GrantLifecycle(RuleBasedStateMachine):
             return
         now = self._now(step)
         grant = self.current
-        self._try(lambda: end_grant(grant, by_tenant_id=MEMBER, account_ref=GRANTOR_ACCOUNT, now=now))
+        self._try(
+            lambda: end_grant(grant, by_tenant_id=MEMBER, account_ref=GRANTOR_ACCOUNT, now=now)
+        )
 
     @rule(step=st.integers(min_value=0, max_value=30))
     def decline(self, step: int) -> None:
@@ -833,10 +966,15 @@ class GrantLifecycle(RuleBasedStateMachine):
             return
         now = self._now(step)
         grant = self.current
-        self._try(lambda: decline_grant(
-            grant, by_tenant_id=OWNER, network_owner_tenant_id=OWNER,
-            account_ref=OWNER_ACCOUNT, now=now,
-        ))
+        self._try(
+            lambda: decline_grant(
+                grant,
+                by_tenant_id=OWNER,
+                network_owner_tenant_id=OWNER,
+                account_ref=OWNER_ACCOUNT,
+                now=now,
+            )
+        )
 
     @rule(step=st.integers(min_value=0, max_value=30))
     def lapse(self, step: int) -> None:
@@ -854,7 +992,9 @@ class GrantLifecycle(RuleBasedStateMachine):
 
     @invariant()
     def terminal_statuses_never_change(self) -> None:
-        terminal = [g for g in self.history if g.status in (_G.DECLINED, _G.ENDED, _G.LAPSED, _G.SUPERSEDED)]
+        terminal = [
+            g for g in self.history if g.status in (_G.DECLINED, _G.ENDED, _G.LAPSED, _G.SUPERSEDED)
+        ]
         if terminal:
             first_terminal = terminal[0]
             assert self.current == first_terminal
@@ -881,3 +1021,156 @@ class GrantLifecycle(RuleBasedStateMachine):
 
 
 TestGrantLifecycle = GrantLifecycle.TestCase
+
+
+# ---------------------------------------------------------------- coverage of refusals
+
+
+def test_a_rule_refuses_something_that_is_not_a_grant() -> None:
+    with pytest.raises(ValidationFailed):
+        is_effective("not a grant", _at(70))  # type: ignore[arg-type]
+    with pytest.raises(ValidationFailed):
+        end_grant(
+            "not a grant",  # type: ignore[arg-type]
+            by_tenant_id=MEMBER,
+            account_ref=GRANTOR_ACCOUNT,
+            now=_at(5),
+        )
+
+
+def test_approval_refuses_a_short_account_reference() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        approve_grant(
+            proposed(),
+            approver=GrantApprover.GRANTOR,
+            approver_tenant_id=MEMBER,
+            network_owner_tenant_id=OWNER,
+            account_ref="short",
+            now=_at(2),
+        )
+    assert refused.value.field == "account_ref"
+
+
+def test_revision_refuses_an_allowlist_version_below_one() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        revise_grant(
+            fully_approved(),
+            new_id="grt-2",
+            effective_from=_at(90),
+            effective_to=None,
+            agreement=AGREEMENT_V2,
+            allowlist_version=0,
+            proposed_by_account_ref=GRANTOR_ACCOUNT,
+            now=_at(60),
+        )
+    assert refused.value.field == "allowlist_version"
+
+
+def test_supersession_needs_the_successor_to_start_after_the_old_grant() -> None:
+    old = make(_G.APPROVED, effective_from=_at(10))
+    successor = make(
+        _G.APPROVED, id="grt-2", version=2, supersedes_id=old.id, effective_from=_at(10)
+    )
+    with pytest.raises(Conflict):
+        supersede_grant(old, successor, now=_at(70))
+
+
+def test_was_effective_at_is_false_without_both_approvals_even_when_ended() -> None:
+    ended_without_grantor = replace(make(_G.ENDED), grantor_approval=None)
+    assert was_effective_at(ended_without_grantor, _at(20)) is False
+
+
+def test_was_effective_at_is_false_for_a_grant_declined_after_approval_of_one_party() -> None:
+    declined = replace(fully_approved(), status=_G.DECLINED, ended_at=_at(40))
+    assert was_effective_at(declined, _at(20)) is False
+
+
+def test_was_effective_at_is_false_before_the_window_opens() -> None:
+    assert was_effective_at(make(_G.APPROVED, effective_from=_at(10)), _at(9)) is False
+
+
+def test_an_approved_grant_with_no_end_date_was_effective_at_any_later_instant() -> None:
+    assert was_effective_at(make(_G.APPROVED, effective_from=_at(10)), _at(9000)) is True
+
+
+def test_was_effective_at_uses_the_earlier_of_the_end_date_and_the_end_moment() -> None:
+    superseded = make(_G.SUPERSEDED, effective_from=_at(10), effective_to=_at(60))
+    superseded = replace(superseded, ended_at=_at(70))
+    assert was_effective_at(superseded, _at(59)) is True
+    assert was_effective_at(superseded, _at(60)) is False
+
+
+def test_may_project_refuses_a_non_grant_and_a_non_membership() -> None:
+    with pytest.raises(ValidationFailed):
+        may_project("not a grant", membership_row(), _at(70))  # type: ignore[arg-type]
+    with pytest.raises(ValidationFailed):
+        may_project(fully_approved(), "not a membership", _at(70))  # type: ignore[arg-type]
+
+
+def test_end_reason_refuses_a_non_grant() -> None:
+    with pytest.raises(ValidationFailed):
+        end_reason("not a grant")  # type: ignore[arg-type]
+
+
+def test_lapse_for_a_member_refuses_a_non_membership_and_a_non_grant() -> None:
+    with pytest.raises(ValidationFailed):
+        lapse_grants_for_member([], "not a membership", now=_at(80))  # type: ignore[arg-type]
+    with pytest.raises(ValidationFailed):
+        lapse_grants_for_member(
+            ["not a grant"],
+            membership_row(status=MembershipStatus.LEFT),
+            now=_at(80),  # type: ignore[list-item]
+        )
+
+
+def test_effective_grant_refuses_a_non_grant_in_the_list() -> None:
+    with pytest.raises(ValidationFailed):
+        effective_grant(
+            ["not a grant"],  # type: ignore[list-item]
+            network_id=NET,
+            grantor_tenant_id=MEMBER,
+            scope=GrantScope.CAPACITY,
+            now=_at(70),
+        )
+
+
+def test_proposing_refuses_a_naive_proposal_time() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        propose_grant(
+            id="grt-1",
+            network_id=NET,
+            grantor_tenant_id=MEMBER,
+            scope=GrantScope.CAPACITY,
+            purpose=GrantPurpose.NETWORK_CAPACITY_VIEW,
+            effective_from=_at(10),
+            effective_to=None,
+            agreement=AGREEMENT_V1,
+            allowlist_version=1,
+            proposed_by_account_ref=GRANTOR_ACCOUNT,
+            proposed_at=datetime(2026, 4, 1, 9, 0),
+        )
+    assert refused.value.field == "proposed_at"
+
+
+def raw_grant(**fields: object) -> Grant:
+    """A grant built without its invariant checks. The record refuses an approved grant without
+    both approvals and an approved grant that has ended, so `is_effective` must refuse them on its
+    own: this is the only way to hold such a value (the guard is defence in depth)."""
+    base = fully_approved()
+    values = {name: getattr(base, name) for name in Grant.__slots__}
+    values.update(fields)
+    grant = object.__new__(Grant)
+    for name, value in values.items():
+        object.__setattr__(grant, name, value)
+    return grant
+
+
+def test_is_effective_refuses_an_approved_grant_missing_an_approval_or_already_ended() -> None:
+    assert is_effective(raw_grant(owner_approval=None), _at(70)) is False
+    assert is_effective(raw_grant(ended_at=_at(40)), _at(70)) is False
+
+
+def test_the_owner_approval_from_the_grantor_tenant_is_refused() -> None:
+    # The grantor's organisation is not the network owner, so it cannot give the owner's approval.
+    with pytest.raises(NotAllowed):
+        approve(proposed(), GrantApprover.OWNER, tenant=MEMBER, account=THIRD_ACCOUNT)

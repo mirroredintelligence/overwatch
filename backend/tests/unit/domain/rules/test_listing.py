@@ -100,20 +100,41 @@ def row(
 ) -> NetworkMembership:
     if status is MembershipStatus.ACTIVE:
         return NetworkMembership(
-            id="mem-b", network_id=network, member_tenant_id=member, role=MembershipRole.MEMBER,
-            status=status, invited_at=T0, joined_at=_at(1), left_at=None, end_reason=None,
+            id="mem-b",
+            network_id=network,
+            member_tenant_id=member,
+            role=MembershipRole.MEMBER,
+            status=status,
+            invited_at=T0,
+            joined_at=_at(1),
+            left_at=None,
+            end_reason=None,
             accepted_agreement=AGREEMENT,
         )
     if status is MembershipStatus.LEFT:
         return NetworkMembership(
-            id="mem-b", network_id=network, member_tenant_id=member, role=MembershipRole.MEMBER,
-            status=status, invited_at=T0, joined_at=_at(1), left_at=_at(30),
-            end_reason=MembershipEndReason.LEFT, accepted_agreement=AGREEMENT,
+            id="mem-b",
+            network_id=network,
+            member_tenant_id=member,
+            role=MembershipRole.MEMBER,
+            status=status,
+            invited_at=T0,
+            joined_at=_at(1),
+            left_at=_at(30),
+            end_reason=MembershipEndReason.LEFT,
+            accepted_agreement=AGREEMENT,
         )
     return NetworkMembership(
-        id="mem-b", network_id=network, member_tenant_id=member, role=MembershipRole.MEMBER,
-        status=MembershipStatus.INVITED, invited_at=T0, joined_at=None, left_at=None,
-        end_reason=None, accepted_agreement=None,
+        id="mem-b",
+        network_id=network,
+        member_tenant_id=member,
+        role=MembershipRole.MEMBER,
+        status=MembershipStatus.INVITED,
+        invited_at=T0,
+        joined_at=None,
+        left_at=None,
+        end_reason=None,
+        accepted_agreement=None,
     )
 
 
@@ -128,7 +149,12 @@ def grant(
     id: str = "grt-1",
 ) -> Grant:
     approved = status is GrantStatus.APPROVED
-    ended = status in (GrantStatus.DECLINED, GrantStatus.ENDED, GrantStatus.LAPSED, GrantStatus.SUPERSEDED)
+    ended = status in (
+        GrantStatus.DECLINED,
+        GrantStatus.ENDED,
+        GrantStatus.LAPSED,
+        GrantStatus.SUPERSEDED,
+    )
     return Grant(
         id=id,
         network_id=network,
@@ -143,8 +169,12 @@ def grant(
         allowlist_version=1,
         proposed_by_account_ref=MEMBER_ACCOUNT,
         proposed_at=T0,
-        grantor_approval=Approval(MEMBER_ACCOUNT, grantor, _at(2)) if approved or status is GrantStatus.GRANTOR_APPROVED else None,
-        owner_approval=Approval(OWNER_ACCOUNT, OWNER, _at(3)) if approved or status is GrantStatus.OWNER_APPROVED else None,
+        grantor_approval=Approval(MEMBER_ACCOUNT, grantor, _at(2))
+        if approved or status is GrantStatus.GRANTOR_APPROVED
+        else None,
+        owner_approval=Approval(OWNER_ACCOUNT, OWNER, _at(3))
+        if approved or status is GrantStatus.OWNER_APPROVED
+        else None,
         ended_at=_at(50) if ended else None,
         ended_by_account_ref=OWNER_ACCOUNT if status is GrantStatus.ENDED else None,
         supersedes_id=None,
@@ -164,7 +194,9 @@ ALLOWED_LISTING = {
 }
 
 
-@pytest.mark.parametrize(("current", "target"), list(itertools.product(list(ListingStatus), repeat=2)))
+@pytest.mark.parametrize(
+    ("current", "target"), list(itertools.product(list(ListingStatus), repeat=2))
+)
 def test_every_listing_transition_pair_is_allowed_or_refused(
     current: ListingStatus, target: ListingStatus
 ) -> None:
@@ -192,20 +224,29 @@ def test_a_grant_status_is_refused_as_a_listing_status() -> None:
 @pytest.mark.parametrize("by", [MEMBER, OUTSIDER])
 def test_only_the_owner_admits_and_the_others_are_refused(by: str) -> None:
     with pytest.raises(NotAllowed):
-        admit_listing(listing(), by_tenant_id=by, owner_tenant_id=OWNER, account_ref=OWNER_ACCOUNT, now=_at(6))
+        admit_listing(
+            listing(), by_tenant_id=by, owner_tenant_id=OWNER, account_ref=OWNER_ACCOUNT, now=_at(6)
+        )
 
 
 @pytest.mark.parametrize("by", [MEMBER, OUTSIDER])
 def test_the_source_and_a_third_tenant_cannot_suspend_or_reinstate(by: str) -> None:
     with pytest.raises(NotAllowed):
         suspend_listing(
-            listing(_L.ADMITTED), by_tenant_id=by, owner_tenant_id=OWNER,
-            reason=ListingReason.DATA_QUALITY, account_ref=OWNER_ACCOUNT, now=_at(6),
+            listing(_L.ADMITTED),
+            by_tenant_id=by,
+            owner_tenant_id=OWNER,
+            reason=ListingReason.DATA_QUALITY,
+            account_ref=OWNER_ACCOUNT,
+            now=_at(6),
         )
     with pytest.raises(NotAllowed):
         reinstate_listing(
-            listing(_L.SUSPENDED), by_tenant_id=by, owner_tenant_id=OWNER,
-            account_ref=OWNER_ACCOUNT, now=_at(6),
+            listing(_L.SUSPENDED),
+            by_tenant_id=by,
+            owner_tenant_id=OWNER,
+            account_ref=OWNER_ACCOUNT,
+            now=_at(6),
         )
 
 
@@ -213,32 +254,48 @@ def test_the_source_and_a_third_tenant_cannot_suspend_or_reinstate(by: str) -> N
 def test_the_source_and_a_third_tenant_cannot_decline(by: str) -> None:
     with pytest.raises(NotAllowed):
         decline_listing(
-            listing(), by_tenant_id=by, owner_tenant_id=OWNER,
-            reason=ListingReason.OTHER, account_ref=OWNER_ACCOUNT, now=_at(6),
+            listing(),
+            by_tenant_id=by,
+            owner_tenant_id=OWNER,
+            reason=ListingReason.OTHER,
+            account_ref=OWNER_ACCOUNT,
+            now=_at(6),
         )
 
 
 def test_the_owner_admits_suspends_reinstates_and_declines() -> None:
-    admitted = admit_listing(listing(), by_tenant_id=OWNER, owner_tenant_id=OWNER, account_ref=OWNER_ACCOUNT, now=_at(6))
+    admitted = admit_listing(
+        listing(), by_tenant_id=OWNER, owner_tenant_id=OWNER, account_ref=OWNER_ACCOUNT, now=_at(6)
+    )
     assert admitted.status is _L.ADMITTED
     assert admitted.decided_by_account_ref == OWNER_ACCOUNT
     assert admitted.decided_at == _at(6)
     assert admitted.reason is None
 
     suspended = suspend_listing(
-        admitted, by_tenant_id=OWNER, owner_tenant_id=OWNER,
-        reason=ListingReason.SAFETY_CONCERN, account_ref=OWNER_ACCOUNT, now=_at(7),
+        admitted,
+        by_tenant_id=OWNER,
+        owner_tenant_id=OWNER,
+        reason=ListingReason.SAFETY_CONCERN,
+        account_ref=OWNER_ACCOUNT,
+        now=_at(7),
     )
     assert suspended.status is _L.SUSPENDED
     assert suspended.reason is ListingReason.SAFETY_CONCERN
 
-    back = reinstate_listing(suspended, by_tenant_id=OWNER, owner_tenant_id=OWNER, account_ref=OWNER_ACCOUNT, now=_at(8))
+    back = reinstate_listing(
+        suspended, by_tenant_id=OWNER, owner_tenant_id=OWNER, account_ref=OWNER_ACCOUNT, now=_at(8)
+    )
     assert back.status is _L.ADMITTED
     assert back.reason is None
 
     declined = decline_listing(
-        listing(), by_tenant_id=OWNER, owner_tenant_id=OWNER,
-        reason=ListingReason.OUTSIDE_AREA, account_ref=OWNER_ACCOUNT, now=_at(9),
+        listing(),
+        by_tenant_id=OWNER,
+        owner_tenant_id=OWNER,
+        reason=ListingReason.OUTSIDE_AREA,
+        account_ref=OWNER_ACCOUNT,
+        now=_at(9),
     )
     assert declined.status is _L.DECLINED
     assert declined.reason is ListingReason.OUTSIDE_AREA
@@ -248,14 +305,22 @@ def test_the_owner_admits_suspends_reinstates_and_declines() -> None:
 def test_decline_and_suspend_need_a_listing_reason_code(reason: object) -> None:
     with pytest.raises(ValidationFailed) as refused:
         decline_listing(
-            listing(), by_tenant_id=OWNER, owner_tenant_id=OWNER,
-            reason=reason, account_ref=OWNER_ACCOUNT, now=_at(9),  # type: ignore[arg-type]
+            listing(),
+            by_tenant_id=OWNER,
+            owner_tenant_id=OWNER,
+            reason=reason,
+            account_ref=OWNER_ACCOUNT,
+            now=_at(9),  # type: ignore[arg-type]
         )
     assert refused.value.field == "reason"
     with pytest.raises(ValidationFailed):
         suspend_listing(
-            listing(_L.ADMITTED), by_tenant_id=OWNER, owner_tenant_id=OWNER,
-            reason=reason, account_ref=OWNER_ACCOUNT, now=_at(9),  # type: ignore[arg-type]
+            listing(_L.ADMITTED),
+            by_tenant_id=OWNER,
+            owner_tenant_id=OWNER,
+            reason=reason,
+            account_ref=OWNER_ACCOUNT,
+            now=_at(9),  # type: ignore[arg-type]
         )
 
 
@@ -264,24 +329,34 @@ def test_a_listing_reason_of_another_enum_with_a_shared_value_is_refused() -> No
     # GrantStatus, and must not pass as a ListingReason.
     with pytest.raises(ValidationFailed):
         suspend_listing(
-            listing(_L.ADMITTED), by_tenant_id=OWNER, owner_tenant_id=OWNER,
-            reason=GrantStatus.DECLINED, account_ref=OWNER_ACCOUNT, now=_at(9),  # type: ignore[arg-type]
+            listing(_L.ADMITTED),
+            by_tenant_id=OWNER,
+            owner_tenant_id=OWNER,
+            reason=GrantStatus.DECLINED,
+            account_ref=OWNER_ACCOUNT,
+            now=_at(9),  # type: ignore[arg-type]
         )
 
 
 def test_the_source_tenant_withdraws_its_own_listing() -> None:
-    withdrawn = withdraw_listing(listing(_L.ADMITTED), by_tenant_id=MEMBER, account_ref=MEMBER_ACCOUNT, now=_at(12))
+    withdrawn = withdraw_listing(
+        listing(_L.ADMITTED), by_tenant_id=MEMBER, account_ref=MEMBER_ACCOUNT, now=_at(12)
+    )
     assert withdrawn.status is _L.WITHDRAWN
     assert withdrawn.decided_at == _at(12)
 
 
 def test_the_owner_cannot_withdraw_a_members_listing() -> None:
     with pytest.raises(NotAllowed):
-        withdraw_listing(listing(_L.ADMITTED), by_tenant_id=OWNER, account_ref=OWNER_ACCOUNT, now=_at(12))
+        withdraw_listing(
+            listing(_L.ADMITTED), by_tenant_id=OWNER, account_ref=OWNER_ACCOUNT, now=_at(12)
+        )
 
 
 def test_a_withdrawal_may_have_no_named_decider() -> None:
-    withdrawn = withdraw_listing(listing(_L.PENDING), by_tenant_id=MEMBER, account_ref=None, now=_at(12))
+    withdrawn = withdraw_listing(
+        listing(_L.PENDING), by_tenant_id=MEMBER, account_ref=None, now=_at(12)
+    )
     assert withdrawn.status is _L.WITHDRAWN
     assert withdrawn.decided_by_account_ref is None
 
@@ -302,16 +377,24 @@ def test_a_member_requests_a_listing_for_its_own_tenant() -> None:
 def test_an_inactive_membership_cannot_request() -> None:
     with pytest.raises(NotAllowed):
         request_listing(
-            [], row(MembershipStatus.INVITED), id="lst-9", network_id=NET,
-            source_service_id="svc-ucr-west", now=_at(20),
+            [],
+            row(MembershipStatus.INVITED),
+            id="lst-9",
+            network_id=NET,
+            source_service_id="svc-ucr-west",
+            now=_at(20),
         )
 
 
 def test_a_membership_of_another_network_cannot_request() -> None:
     with pytest.raises(NotAllowed):
         request_listing(
-            [], row(network=OTHER_NET), id="lst-9", network_id=NET,
-            source_service_id="svc-ucr-west", now=_at(20),
+            [],
+            row(network=OTHER_NET),
+            id="lst-9",
+            network_id=NET,
+            source_service_id="svc-ucr-west",
+            now=_at(20),
         )
 
 
@@ -319,16 +402,24 @@ def test_a_membership_of_another_network_cannot_request() -> None:
 def test_a_second_live_listing_of_one_service_is_a_conflict(status: ListingStatus) -> None:
     with pytest.raises(Conflict):
         request_listing(
-            [listing(status)], row(), id="lst-9", network_id=NET,
-            source_service_id="svc-ucr-west", now=_at(20),
+            [listing(status)],
+            row(),
+            id="lst-9",
+            network_id=NET,
+            source_service_id="svc-ucr-west",
+            now=_at(20),
         )
 
 
 @pytest.mark.parametrize("status", [_L.DECLINED, _L.WITHDRAWN])
 def test_a_new_request_is_allowed_after_a_declined_or_withdrawn_one(status: ListingStatus) -> None:
     again = request_listing(
-        [listing(status)], row(), id="lst-9", network_id=NET,
-        source_service_id="svc-ucr-west", now=_at(20),
+        [listing(status)],
+        row(),
+        id="lst-9",
+        network_id=NET,
+        source_service_id="svc-ucr-west",
+        now=_at(20),
     )
     assert again.id == "lst-9"
     assert again.status is _L.PENDING
@@ -337,8 +428,12 @@ def test_a_new_request_is_allowed_after_a_declined_or_withdrawn_one(status: List
 def test_a_live_listing_of_another_service_does_not_block_a_request() -> None:
     other_service = listing(_L.ADMITTED, service="svc-other")
     fresh = request_listing(
-        [other_service], row(), id="lst-9", network_id=NET,
-        source_service_id="svc-ucr-west", now=_at(20),
+        [other_service],
+        row(),
+        id="lst-9",
+        network_id=NET,
+        source_service_id="svc-ucr-west",
+        now=_at(20),
     )
     assert fresh.status is _L.PENDING
 
@@ -356,7 +451,9 @@ def test_a_live_listing_of_another_service_does_not_block_a_request() -> None:
         (_L.WITHDRAWN, ListingPresentation.HIDDEN),
     ],
 )
-def test_listing_presentation_per_status(status: ListingStatus, expected: ListingPresentation) -> None:
+def test_listing_presentation_per_status(
+    status: ListingStatus, expected: ListingPresentation
+) -> None:
     assert listing_presentation(status) is expected
 
 
@@ -370,7 +467,12 @@ def test_listing_presentation_refuses_a_foreign_status() -> None:
 
 def test_a_listing_that_is_not_admitted_shows_no_scope() -> None:
     for status in (_L.PENDING, _L.DECLINED, _L.WITHDRAWN, _L.SUSPENDED):
-        scopes = visible_scopes(listing(status), row(), [grant(), grant(scope=GrantScope.DIRECTORY, id="grt-2")], _at(70))
+        scopes = visible_scopes(
+            listing(status),
+            row(),
+            [grant(), grant(scope=GrantScope.DIRECTORY, id="grt-2")],
+            _at(70),
+        )
         assert scopes == frozenset()
 
 
@@ -385,7 +487,9 @@ def test_an_admitted_member_with_no_effective_grant_shows_no_scope() -> None:
 
 def test_capacity_only_is_not_enough_for_the_board() -> None:
     grants = [grant(GrantStatus.APPROVED, scope=GrantScope.CAPACITY)]
-    assert visible_scopes(listing(_L.ADMITTED), row(), grants, _at(70)) == frozenset({GrantScope.CAPACITY})
+    assert visible_scopes(listing(_L.ADMITTED), row(), grants, _at(70)) == frozenset(
+        {GrantScope.CAPACITY}
+    )
     assert shows_on_board(listing(_L.ADMITTED), row(), grants, _at(70)) is False
 
 
@@ -445,7 +549,15 @@ def test_visible_scopes_is_a_subset_of_the_effective_scopes(
     for index, (grant_status, scope, grantor, start) in enumerate(raw_grants):
         try:
             grants.append(
-                replace(grant(grant_status, scope=scope, grantor=grantor, effective_from=start, id=f"grt-{index}"))
+                replace(
+                    grant(
+                        grant_status,
+                        scope=scope,
+                        grantor=grantor,
+                        effective_from=start,
+                        id=f"grt-{index}",
+                    )
+                )
             )
         except ValidationFailed:
             continue
@@ -454,9 +566,7 @@ def test_visible_scopes_is_a_subset_of_the_effective_scopes(
     from diucs.domain.rules.grant import is_effective
 
     effective = {
-        g.scope
-        for g in grants
-        if g.grantor_tenant_id == MEMBER and is_effective(g, _at(minute))
+        g.scope for g in grants if g.grantor_tenant_id == MEMBER and is_effective(g, _at(minute))
     }
     assert scopes <= effective
     if status is not _L.ADMITTED or membership_status is not MembershipStatus.ACTIVE:
@@ -502,23 +612,160 @@ def test_an_admitted_listing_does_not_project_without_an_effective_grant() -> No
 
 
 def test_a_listing_of_another_tenant_does_not_project_through_this_member() -> None:
-    assert may_project_listing(listing(_L.ADMITTED, source=OUTSIDER), row(), grant(), _at(70)) is False
+    assert (
+        may_project_listing(listing(_L.ADMITTED, source=OUTSIDER), row(), grant(), _at(70)) is False
+    )
 
 
 def test_the_listing_key_is_network_source_and_service() -> None:
     first = listing(_L.PENDING, id="lst-1", service="svc-1")
     second = listing(_L.PENDING, id="lst-2", service="svc-1")
     assert (first.network_id, first.source_tenant_id, first.source_service_id) == (
-        second.network_id, second.source_tenant_id, second.source_service_id,
+        second.network_id,
+        second.source_tenant_id,
+        second.source_service_id,
     )
 
 
 def test_a_listing_reason_is_a_code_from_the_fixed_list() -> None:
     assert [r.value for r in ListingReason] == [
-        "outside-area", "outside-pilot", "duplicate-listing", "data-quality",
-        "safety-concern", "agreement-breach", "other",
+        "outside-area",
+        "outside-pilot",
+        "duplicate-listing",
+        "data-quality",
+        "safety-concern",
+        "agreement-breach",
+        "other",
     ]
 
 
 def test_the_listing_presentation_enum_has_the_three_values() -> None:
     assert [p.value for p in ListingPresentation] == ["shown", "unavailable", "hidden"]
+
+
+# ---------------------------------------------------------------- coverage of refusals
+
+
+def test_admitting_a_suspended_listing_is_refused_so_it_is_reinstated_instead() -> None:
+    with pytest.raises(InvalidTransition):
+        admit_listing(
+            listing(_L.SUSPENDED),
+            by_tenant_id=OWNER,
+            owner_tenant_id=OWNER,
+            account_ref=OWNER_ACCOUNT,
+            now=_at(6),
+        )
+
+
+def test_reinstating_a_pending_listing_is_refused() -> None:
+    with pytest.raises(InvalidTransition):
+        reinstate_listing(
+            listing(_L.PENDING),
+            by_tenant_id=OWNER,
+            owner_tenant_id=OWNER,
+            account_ref=OWNER_ACCOUNT,
+            now=_at(6),
+        )
+
+
+def test_a_request_refuses_a_bad_id_a_naive_time_and_a_non_listing() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        request_listing(
+            [], row(), id="bad id", network_id=NET, source_service_id="svc-1", now=_at(1)
+        )
+    assert refused.value.field == "id"
+    with pytest.raises(ValidationFailed):
+        request_listing(
+            [],
+            row(),
+            id="lst-9",
+            network_id=NET,
+            source_service_id="svc-1",
+            now=datetime(2026, 4, 1, 9, 0),
+        )
+    with pytest.raises(ValidationFailed):
+        request_listing(
+            ["not a listing"],
+            row(),
+            id="lst-9",
+            network_id=NET,  # type: ignore[list-item]
+            source_service_id="svc-1",
+            now=_at(1),
+        )
+
+
+def test_a_decision_refuses_a_short_account_reference() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        admit_listing(
+            listing(), by_tenant_id=OWNER, owner_tenant_id=OWNER, account_ref="short", now=_at(6)
+        )
+    assert refused.value.field == "account_ref"
+
+
+def test_a_decision_refuses_a_naive_time_and_a_non_listing() -> None:
+    with pytest.raises(ValidationFailed):
+        admit_listing(
+            listing(),
+            by_tenant_id=OWNER,
+            owner_tenant_id=OWNER,
+            account_ref=OWNER_ACCOUNT,
+            now=datetime(2026, 4, 1, 9, 0),
+        )
+    with pytest.raises(ValidationFailed):
+        admit_listing(
+            "not a listing",
+            by_tenant_id=OWNER,
+            owner_tenant_id=OWNER,  # type: ignore[arg-type]
+            account_ref=OWNER_ACCOUNT,
+            now=_at(6),
+        )
+
+
+def test_a_withdrawal_refuses_a_short_account_and_a_naive_time() -> None:
+    with pytest.raises(ValidationFailed):
+        withdraw_listing(listing(_L.PENDING), by_tenant_id=MEMBER, account_ref="short", now=_at(3))
+    with pytest.raises(ValidationFailed):
+        withdraw_listing(
+            listing(_L.PENDING),
+            by_tenant_id=MEMBER,
+            account_ref=None,
+            now=datetime(2026, 4, 1, 9, 0),
+        )
+
+
+def test_withdrawing_for_leave_refuses_a_non_listing_and_a_non_membership() -> None:
+    with pytest.raises(ValidationFailed):
+        withdraw_for_leave(["not a listing"], row(MembershipStatus.LEFT), now=_at(31))  # type: ignore[list-item]
+    with pytest.raises(ValidationFailed):
+        withdraw_for_leave([], "not a membership", now=_at(31))  # type: ignore[arg-type]
+
+
+def test_visible_scopes_is_empty_for_another_tenants_listing_and_another_network() -> None:
+    grants = [grant()]
+    assert (
+        visible_scopes(listing(_L.ADMITTED, source=OUTSIDER), row(), grants, _at(70)) == frozenset()
+    )
+    assert (
+        visible_scopes(listing(_L.ADMITTED, network=OTHER_NET), row(), grants, _at(70))
+        == frozenset()
+    )
+
+
+def test_visible_scopes_refuses_a_non_grant_in_the_list() -> None:
+    with pytest.raises(ValidationFailed):
+        visible_scopes(listing(_L.ADMITTED), row(), ["not a grant"], _at(70))  # type: ignore[list-item]
+
+
+def test_a_listing_does_not_project_for_another_network_or_tenant_or_a_non_listing() -> None:
+    assert (
+        may_project_listing(listing(_L.ADMITTED, network=OTHER_NET), row(), grant(), _at(70))
+        is False
+    )
+    with pytest.raises(ValidationFailed):
+        may_project_listing("not a listing", row(), grant(), _at(70))  # type: ignore[arg-type]
+
+
+def test_listing_presentation_for_a_pending_status_is_hidden_and_refuses_a_plain_string() -> None:
+    assert listing_presentation(_L.PENDING) is ListingPresentation.HIDDEN
+    with pytest.raises(ValidationFailed):
+        listing_presentation("admitted")  # type: ignore[arg-type]

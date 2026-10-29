@@ -11,12 +11,21 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog, ensure_audit_head
+from diucs.adapters.outbound.audit_neo4j.audit_log import (
+    Neo4jAuditLog,
+    _parse_entry,
+    ensure_audit_head,
+)
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
 from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.application.actor import Actor
-from diucs.application.ports.outbound.audit import GENESIS_HASH, AuditEntry, genesis_hash_for
+from diucs.application.ports.outbound.audit import (
+    GENESIS_HASH,
+    AuditEntry,
+    canonical_entry_json,
+    genesis_hash_for,
+)
 from diucs.application.tenancy import TenantNotBound, bind_tenant
 from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
@@ -50,6 +59,7 @@ _ENTRY = AuditEntry(
         device_id="dev-sms-1",
         channel="text",
         service_ids=frozenset({"svc-ucr-west"}),
+        tenant_id="tenant-a",
     ),
     entity_ids=("obs-1",),
     snapshot=None,
@@ -201,3 +211,40 @@ async def test_the_head_is_created_for_the_bound_scope_with_its_own_genesis(
     assert tx.calls == [
         (tx.calls[0][0], {"tenant": "acme-icb", "genesis": genesis_hash_for("acme-icb")})
     ]
+
+
+# ---------------------------------------------------------------- the actor's tenant (TEN-018)
+
+
+def test_the_hashed_text_of_an_entry_does_not_name_the_actors_tenant() -> None:
+    # DEC-231 item 3: the chain's own scope is the tenant, so the text every link was hashed from
+    # (and the existing chain with it) is unchanged by the actor gaining a tenant.
+    assert "tenant" not in canonical_entry_json(_ENTRY)
+
+
+def test_a_stored_entry_is_read_back_with_the_tenant_of_the_chain_it_sits_in() -> None:
+    parsed = _parse_entry(canonical_entry_json(_ENTRY), "tenant-b")
+
+    assert parsed.actor.tenant_id == "tenant-b"
+    assert parsed == AuditEntry(
+        action=_ENTRY.action,
+        use_case=_ENTRY.use_case,
+        actor=Actor(
+            role=_ENTRY.actor.role,
+            practitioner_id=_ENTRY.actor.practitioner_id,
+            device_id=_ENTRY.actor.device_id,
+            channel=_ENTRY.actor.channel,
+            service_ids=_ENTRY.actor.service_ids,
+            tenant_id="tenant-b",
+        ),
+        entity_ids=_ENTRY.entity_ids,
+        snapshot=_ENTRY.snapshot,
+        at=_ENTRY.at,
+    )
+
+
+def test_an_entry_written_before_the_actor_had_a_tenant_still_reads() -> None:
+    # The same text, byte for byte, is what an entry of the existing chain holds.
+    legacy = canonical_entry_json(_ENTRY)
+
+    assert _parse_entry(legacy, "default").actor.tenant_id == "default"

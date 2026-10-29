@@ -288,19 +288,31 @@ class RegistrationApproved:
 
 @dataclass(frozen=True, slots=True)
 class RegistrationPersisted:
-    """STUB (U27 red)."""
+    """A submitted registration's draft resources were written (U27, registration.events). Ids and
+    the time only."""
 
     event_type: ClassVar[str] = "RegistrationPersisted"
     registration_id: str
     service_id: str
     at: datetime
 
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+
     def to_payload(self) -> dict[str, Any]:
-        raise NotImplementedError
+        return {
+            "registration_id": self.registration_id,
+            "service_id": self.service_id,
+            "at": _at_text(self.at),
+        }
 
     @classmethod
     def decode(cls, payload: Mapping[str, Any]) -> Self:
-        raise NotImplementedError
+        return cls(
+            registration_id=_text(payload, "registration_id"),
+            service_id=_text(payload, "service_id"),
+            at=_when(payload),
+        )
 
 
 @dataclass(frozen=True, slots=True)

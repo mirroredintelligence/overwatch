@@ -19,6 +19,7 @@ from fhir.resources.R4B.location import Location
 from fhir.resources.R4B.organization import Organization
 
 from diucs.adapters.outbound.graph_store import mapper
+from diucs.adapters.outbound.graph_store.bundle_writer import resolve_bundle
 from diucs.adapters.outbound.graph_store.criteria_repository import criteria_from_fhir
 from diucs.adapters.outbound.graph_store.service_repository import profile_from_fhir
 from diucs.adapters.testing.fixed_ids import SequentialIds
@@ -469,12 +470,10 @@ def test_no_resource_carries_a_tenant() -> None:
     assert "tenantId" not in json.dumps(_build())
 
 
-def test_every_resource_goes_through_the_mapper_and_back_unchanged() -> None:
-    bundle = _build(_draft(location=SITE))
-
-    for entry in bundle["entry"]:
-        resource = entry["resource"]
-        assert mapper.from_graph(mapper.to_graph(resource)) == resource
+def test_every_resource_goes_through_the_mapper_and_back_unchanged_once_resolved() -> None:
+    for draft in (_draft(location=SITE), _draft(location=VISITING)):
+        for entry in resolve_bundle(_build(draft, existing={"DT4": "loc-existing"})):
+            assert mapper.from_graph(mapper.to_graph(entry.resource)) == entry.resource
 
 
 def test_a_draft_that_is_missing_a_step_is_refused() -> None:

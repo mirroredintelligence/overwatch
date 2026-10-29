@@ -10,12 +10,16 @@ Pure: no I/O. Refusals name fields only, never values.
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Final
 
-from diucs.domain.codes import RegistrationStatus, ScopeFlag, ServiceCategory
+from diucs.domain.codes import RegistrationStatus, ScopeFlag, ServiceCategory, code_system_url
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.people import check_staff_text
 from diucs.domain.rules.registration import ApprovalChecks
+
+DISTRICT_TYPE_CODE: Final = "postcode-district"
+"""The Location type of an area a visiting service covers (fhir-data-model.md, Location)."""
+LOCATION_TYPE_SYSTEM: Final = code_system_url("location-type")
 
 
 def _aware(name: str, value: object) -> None:

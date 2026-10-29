@@ -1,9 +1,8 @@
 """Telemetry query port (O07): the fixture fake, the Azure Monitor adapter and the shared rules.
 
 No Docker and no live Azure call: the Azure adapter gets a recording stub client, and the fixture
-fake reads tests/fixtures/telemetry/s-7f3a.json. The attribute allow-list below stands in for the
-O01 list (diucs/adapters/outbound/telemetry/otel.py), which is not in this tree yet; the adapters
-take the list as an argument, so the real list replaces this one without a code change.
+fake reads tests/fixtures/telemetry/s-7f3a.json. Both take O01's attribute cleaner
+(`result_attributes`), so the allow-list under test is the real one. Sample values only.
 """
 
 import inspect
@@ -21,6 +20,7 @@ from diucs.adapters.outbound.telemetry.azure_monitor_query import (
     LogsTable,
 )
 from diucs.adapters.outbound.telemetry.kql import SESSIONS_QUERY, SPANS_QUERY, TIMELINE_QUERY
+from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
 from diucs.application.ports.outbound.telemetry_query import (
     SessionFilters,
@@ -29,7 +29,7 @@ from diucs.application.ports.outbound.telemetry_query import (
     TelemetryQuery,
     TimelineEvent,
     TimelineKind,
-    allowed_attributes,
+    check_limit,
     check_session_id,
     check_trace_id,
 )
@@ -39,32 +39,9 @@ from diucs.domain.errors import ValidationFailed
 FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "telemetry" / "s-7f3a.json"
 TRACE_ID = "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7"
 SESSION_ID = "s-7f3a"
-# Stands in for the O01 attribute allow-list (see the module docstring).
-TEST_ALLOWED = frozenset(
-    {
-        "route",
-        "role",
-        "device.class",
-        "release",
-        "ui.element",
-        "friction.kind",
-        "error.type",
-        "http.method",
-        "http.status_code",
-        "trace.id",
-        "span.kind",
-        "neo4j.query_id",
-        "neo4j.access_mode",
-        "neo4j.row_count",
-        "messaging.destination",
-    }
-)
+WORKSPACE = "00000000-0000-0000-0000-000000000000"
 WINDOW_START = datetime(2026, 10, 28, 9, 0, tzinfo=UTC)
 WINDOW_END = datetime(2026, 10, 28, 10, 0, tzinfo=UTC)
-
-
-def _iso(text: str) -> datetime:
-    return datetime.fromisoformat(text.replace("Z", "+00:00"))
 
 
 def _fixture() -> dict[str, Any]:
@@ -72,12 +49,12 @@ def _fixture() -> dict[str, Any]:
 
 
 def _fake() -> FixtureTelemetryQuery:
-    return FixtureTelemetryQuery(FIXTURE, TEST_ALLOWED)
+    return FixtureTelemetryQuery(FIXTURE, result_attributes)
 
 
 @dataclass
 class StubLogsClient:
-    """A LogsQueryClient that records every call and returns canned tables by query kind."""
+    """A LogsQueryClient that records every call and returns canned tables, keyed by query text."""
 
     tables: dict[str, LogsTable]
     calls: list[dict[str, Any]] = field(default_factory=list)
@@ -98,20 +75,26 @@ class StubLogsClient:
                 "timespan": timespan,
             }
         )
-        for kind, text in {
-            "timeline": TIMELINE_QUERY,
-            "spans": SPANS_QUERY,
-            "sessions": SESSIONS_QUERY,
-        }.items():
+        known = {"timeline": TIMELINE_QUERY, "spans": SPANS_QUERY, "sessions": SESSIONS_QUERY}
+        for kind, text in known.items():
             if query == text and kind in self.tables:
                 return self.tables[kind]
         raise AssertionError("the stub has no table for this query")
 
 
+class _FixedClockStub:
+    def __init__(self, at: datetime) -> None:
+        self._at = at
+
+    def now(self) -> datetime:
+        return self._at
+
+
 def _table_for_fixture(tenant: str) -> dict[str, LogsTable]:
     """The rows a KQL query scoped to `tenant` would return, in the column shapes the adapter
     reads. The KQL does the tenant filter on the server; this stub returns only that tenant's rows,
-    which is what the server would send."""
+    which is what the server would send. The customDimensions carry the tenant and session ids, as
+    the KQL projects them, and the attributes the fixture holds."""
     data = _fixture()
     timeline_rows = [
         (
@@ -188,21 +171,8 @@ def _table_for_fixture(tenant: str) -> dict[str, LogsTable]:
 def _azure(tables: dict[str, LogsTable]) -> tuple[AzureMonitorTelemetryQuery, StubLogsClient]:
     stub = StubLogsClient(tables=tables)
     clock = _FixedClockStub(datetime(2026, 10, 28, 12, 0, tzinfo=UTC))
-    adapter = AzureMonitorTelemetryQuery(
-        client=stub,
-        workspace_id="00000000-0000-0000-0000-000000000000",
-        clock=clock,
-        allowed_attributes=TEST_ALLOWED,
-    )
+    adapter = AzureMonitorTelemetryQuery(client=stub, workspace_id=WORKSPACE, clock=clock)
     return adapter, stub
-
-
-class _FixedClockStub:
-    def __init__(self, at: datetime) -> None:
-        self._at = at
-
-    def now(self) -> datetime:
-        return self._at
 
 
 def _assert_timeline_contract(events: list[TimelineEvent]) -> None:
@@ -221,10 +191,7 @@ def _assert_timeline_contract(events: list[TimelineEvent]) -> None:
     friction = [event for event in events if event.kind is TimelineKind.FRICTION]
     assert len(friction) == 1
     assert friction[0].name == "ADV-OPT-REQUEST-BTN"
-    assert friction[0].attributes == {
-        "ui.element": "ADV-OPT-REQUEST-BTN",
-        "friction.kind": "dead_click",
-    }
+    assert friction[0].attributes == {"element.id": "ADV-OPT-REQUEST-BTN"}
     for event in events:
         assert "fieldValue" not in event.attributes
         assert "tenant.id" not in event.attributes
@@ -244,9 +211,15 @@ def _assert_trace_contract(spans: list[SpanRecord]) -> None:
     assert slowest_leaf.name == "neo4j Q-TASK-BOOK-CREATE"
     assert slowest_leaf.duration_ms == 480.5
     for span in spans:
-        assert "db.statement" not in span.attributes
         assert "tenant.id" not in span.attributes
-        assert "trace.id" not in span.attributes
+        assert "fieldValue" not in span.attributes
+    neo4j = next(span for span in spans if span.name == "neo4j Q-TASK-BOOK-CREATE")
+    assert neo4j.attributes == {
+        "db.query.id": "Q-TASK-BOOK-CREATE",
+        "db.access_mode": "write",
+        "db.row_count": 1,
+        "db.system.name": "neo4j",
+    }
 
 
 def _assert_sessions_contract(sessions: list[SessionSummary]) -> None:
@@ -257,28 +230,7 @@ def _assert_sessions_contract(sessions: list[SessionSummary]) -> None:
     assert (first.event_count, first.friction_count, first.error_count) == (8, 1, 1)
 
 
-# ---- Shared rules: attribute allow-list, identifiers ---------------------------------------
-
-
-def test_allowed_attributes_keeps_listed_scalars_and_drops_the_rest() -> None:
-    raw = {
-        "route": "/advisor/call",
-        "fieldValue": "sample-postcode-text",
-        "http.status_code": 200,
-        "db.statement": "MATCH (n) RETURN n",
-        "neo4j.row_count": 1.0,
-        "span.kind": None,
-        "trace.id": ["a", "b"],
-        "role": {"nested": "object"},
-        "release": True,
-    }
-    kept = allowed_attributes(raw, TEST_ALLOWED)
-    assert kept == {
-        "route": "/advisor/call",
-        "http.status_code": 200,
-        "neo4j.row_count": 1.0,
-        "release": True,
-    }
+# ---- Shared rules: identifiers and the result limit ----------------------------------------
 
 
 @pytest.mark.parametrize("value", ["s-7f3a", "a", "A_b-9", "x" * 64])
@@ -299,6 +251,44 @@ def test_a_trace_id_is_32_lower_case_hex() -> None:
     for bad in ("7C1E9A2B5D4F48E0A3B6C9D2E1F0A8B7", "7c1e9a2b", "z" * 32, ""):
         with pytest.raises(ValidationFailed):
             check_trace_id(bad)
+
+
+@pytest.mark.parametrize("value", [0, 201, -1, True])
+def test_a_result_limit_outside_1_to_200_is_refused(value: int) -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        check_limit(value)
+    assert refused.value.field == "limit"
+
+
+# ---- O01's attribute rules, as the results apply them -------------------------------------
+
+
+def test_result_attributes_keeps_o01_keys_and_drops_the_rest() -> None:
+    raw = {
+        "page.route": "/advisor/call",
+        "element.id": "ADV-CALL-80-BTN",
+        "fieldValue": "sample-postcode-text",
+        "http.response.status_code": 200,
+        "db.query.id": "Q-CASE-LOAD",
+        "span.kind": "client",
+        "tenant.id": "test-a",
+        "session.id": "s-7f3a",
+        "user.role": ["a", "list"],
+        "device.type": {"nested": "object"},
+        "release": True,
+    }
+    assert result_attributes(raw) == {
+        "page.route": "/advisor/call",
+        "element.id": "ADV-CALL-80-BTN",
+        "http.response.status_code": 200,
+        "db.query.id": "Q-CASE-LOAD",
+        "release": True,
+    }
+
+
+def test_result_attributes_redacts_a_value_that_looks_like_a_phone_number() -> None:
+    kept = result_attributes({"element.id": "07700 900123"})
+    assert kept == {"element.id": "[redacted]"}
 
 
 # ---- 1. Fixture fake: timeline ----------------------------------------------------------
@@ -351,7 +341,7 @@ async def test_azure_timeline_sends_the_session_id_as_a_parameter_not_in_the_kql
     assert call["parameters"]["session_id"] == SESSION_ID
     assert SESSION_ID not in call["query"]
     assert "declare query_parameters" in call["query"]
-    assert call["workspace_id"] == "00000000-0000-0000-0000-000000000000"
+    assert call["workspace_id"] == WORKSPACE
 
 
 async def test_azure_sends_the_bound_tenant_as_a_parameter_and_never_in_the_text() -> None:
@@ -407,7 +397,7 @@ async def test_azure_maps_a_canned_table_to_timeline_events_and_drops_field_valu
                 None,
                 None,
                 {
-                    "ui.element": "ADV-POSTCODE-INPUT",
+                    "element.id": "ADV-POSTCODE-INPUT",
                     "fieldValue": "sample-postcode-text",
                     "tenant.id": "test-a",
                     "session.id": "s-7f3a",
@@ -419,7 +409,11 @@ async def test_azure_maps_a_canned_table_to_timeline_events_and_drops_field_valu
                 "GET /api/bff/options",
                 212.4,
                 "200",
-                {"route": "/api/bff/options", "http.status_code": 200, "tenant.id": "test-a"},
+                {
+                    "http.route": "/api/bff/options",
+                    "http.response.status_code": 200,
+                    "tenant.id": "test-a",
+                },
             ),
         ),
     )
@@ -433,7 +427,7 @@ async def test_azure_maps_a_canned_table_to_timeline_events_and_drops_field_valu
             name="ADV-POSTCODE-INPUT",
             duration_ms=None,
             status=None,
-            attributes={"ui.element": "ADV-POSTCODE-INPUT"},
+            attributes={"element.id": "ADV-POSTCODE-INPUT"},
         ),
         TimelineEvent(
             at=datetime(2026, 10, 28, 9, 12, 15, tzinfo=UTC),
@@ -441,7 +435,7 @@ async def test_azure_maps_a_canned_table_to_timeline_events_and_drops_field_valu
             name="GET /api/bff/options",
             duration_ms=212.4,
             status="200",
-            attributes={"route": "/api/bff/options", "http.status_code": 200},
+            attributes={"http.route": "/api/bff/options", "http.response.status_code": 200},
         ),
     ]
 
@@ -458,7 +452,7 @@ async def test_azure_drops_a_row_whose_tenant_is_not_the_bound_one_even_if_the_s
                 "/advisor/call",
                 None,
                 None,
-                {"route": "/advisor/call", "tenant.id": "test-b", "session.id": "s-7f3a"},
+                {"page.route": "/advisor/call", "tenant.id": "test-b", "session.id": "s-7f3a"},
             ),
         ),
     )
@@ -506,38 +500,6 @@ async def test_contract_sessions_hold_on_the_fake_and_on_azure_with_fixture_rows
         _assert_sessions_contract(await adapter.search_sessions(SessionFilters()))
 
 
-# ---- Port shape ----------------------------------------------------------------------------
-
-
-def test_no_query_takes_a_tenant_argument() -> None:
-    for name in ("session_timeline", "trace", "search_sessions"):
-        for impl in (FixtureTelemetryQuery, AzureMonitorTelemetryQuery):
-            signature = inspect.signature(getattr(impl, name))
-            assert not any("tenant" in parameter for parameter in signature.parameters)
-    assert "tenant" not in " ".join(inspect.signature(TelemetryQuery.trace).parameters)
-
-
-async def test_the_fake_and_the_adapter_both_satisfy_the_port() -> None:
-    query: TelemetryQuery = _fake()
-    adapter, _ = _azure({})
-    other: TelemetryQuery = adapter
-    assert query is not other
-    assert isinstance(query, FixtureTelemetryQuery)
-    assert isinstance(other, AzureMonitorTelemetryQuery)
-
-
-# ---- Further acceptance cases -------------------------------------------------------------
-
-
-@pytest.mark.parametrize("value", [0, 201, -1, True])
-def test_a_result_limit_outside_1_to_200_is_refused(value: int) -> None:
-    from diucs.application.ports.outbound.telemetry_query import check_limit
-
-    with pytest.raises(ValidationFailed) as refused:
-        check_limit(value)
-    assert refused.value.field == "limit"
-
-
 async def test_fixture_search_applies_filters_and_the_limit_within_the_tenant() -> None:
     with bind_tenant("test-a"):
         advisors = await _fake().search_sessions(SessionFilters(role="advisor"))
@@ -566,3 +528,22 @@ async def test_fixture_refuses_to_run_with_no_tenant_bound() -> None:
 async def test_fixture_refuses_a_naive_time_window() -> None:
     with bind_tenant("test-a"), pytest.raises(ValueError):
         await _fake().session_timeline(SESSION_ID, datetime(2026, 10, 28, 9, 0), WINDOW_END)
+
+
+# ---- Port shape ----------------------------------------------------------------------------
+
+
+def test_no_query_takes_a_tenant_argument() -> None:
+    for name in ("session_timeline", "trace", "search_sessions"):
+        for impl in (FixtureTelemetryQuery, AzureMonitorTelemetryQuery):
+            signature = inspect.signature(getattr(impl, name))
+            assert not any("tenant" in parameter for parameter in signature.parameters)
+    assert "tenant" not in " ".join(inspect.signature(TelemetryQuery.trace).parameters)
+
+
+async def test_the_fake_and_the_adapter_both_satisfy_the_port() -> None:
+    query: TelemetryQuery = _fake()
+    adapter, _ = _azure({})
+    other: TelemetryQuery = adapter
+    assert isinstance(query, FixtureTelemetryQuery)
+    assert isinstance(other, AzureMonitorTelemetryQuery)

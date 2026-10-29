@@ -10,12 +10,13 @@ The session id, trace id and filters are parameters, never text in the query. Th
 trace or a search is the raw retention below, from the clock.
 """
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Final, Protocol
 
 from diucs.adapters.outbound.telemetry.kql import SESSIONS_QUERY, SPANS_QUERY, TIMELINE_QUERY
+from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.telemetry_query import (
     SessionFilters,
@@ -23,7 +24,6 @@ from diucs.application.ports.outbound.telemetry_query import (
     SpanRecord,
     TimelineEvent,
     TimelineKind,
-    allowed_attributes,
     as_utc,
     check_limit,
     check_session_id,
@@ -84,12 +84,10 @@ class AzureMonitorTelemetryQuery:
         client: LogsQueryClient,
         workspace_id: str,
         clock: Clock,
-        allowed_attributes: Iterable[str],
     ) -> None:
         self._client = client
         self._workspace_id = workspace_id
         self._clock = clock
-        self._allowed = frozenset(allowed_attributes)
 
     def _window(self) -> tuple[datetime, datetime]:
         now = as_utc(self._clock.now())
@@ -103,7 +101,7 @@ class AzureMonitorTelemetryQuery:
         dims = record.get("customDimensions")
         if not isinstance(dims, Mapping):
             return {}
-        return allowed_attributes(dims, self._allowed)
+        return result_attributes(dims)
 
     async def session_timeline(
         self, session_id: str, start: datetime, end: datetime

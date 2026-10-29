@@ -1,6 +1,7 @@
 import dataclasses
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, cast
 
 import pytest
@@ -378,3 +379,81 @@ async def test_build_wires_the_os_places_geocoder_and_closes_its_client_on_shutd
     client = container.http
     await container.shutdown()
     assert client.is_closed
+
+
+# -- the telemetry query (O07) -------------------------------------------------------------------
+
+WORKSPACE = "00000000-0000-0000-0000-000000000000"
+
+
+class _EmptyLogsClient:
+    """A stand-in logs client that records its calls and answers an empty table."""
+
+    def __init__(self) -> None:
+        self.workspaces: list[str] = []
+
+    async def query_workspace(self, workspace_id: str, query: str, **kwargs: Any) -> Any:
+        from diucs.adapters.outbound.telemetry.azure_monitor_query import LogsTable
+
+        self.workspaces.append(workspace_id)
+        return LogsTable(columns=(), rows=())
+
+
+async def test_build_for_tests_serves_the_sample_telemetry_from_the_fixture(
+    neo4j: Neo4jConnection,
+) -> None:
+    from diucs.application.ports.outbound.telemetry_query import SessionFilters
+    from diucs.application.tenancy import bind_tenant
+
+    container = build_for_tests(neo4j=neo4j)
+    with bind_tenant("test-a"):
+        sessions = await container.telemetry.search_sessions(SessionFilters())
+    assert [session.session_id for session in sessions] == ["s-4c81", "s-7f3a"]
+
+
+async def test_build_for_tests_passes_a_telemetry_query_that_is_given(
+    neo4j: Neo4jConnection,
+) -> None:
+    from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
+    from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+
+    other = FixtureTelemetryQuery(Path(container_module.TELEMETRY_FIXTURE), result_attributes)
+    container = build_for_tests(neo4j=neo4j, telemetry=other)
+    assert container.telemetry is other
+
+
+async def test_build_with_no_workspace_refuses_every_telemetry_read() -> None:
+    from diucs.application.ports.outbound.telemetry_query import (
+        SessionFilters,
+        TelemetryUnavailable,
+    )
+    from diucs.application.tenancy import bind_tenant
+
+    container = build(Settings())
+    with bind_tenant("test-a"), pytest.raises(TelemetryUnavailable):
+        await container.telemetry.search_sessions(SessionFilters())
+
+
+async def test_build_with_a_workspace_but_no_client_still_refuses_every_read() -> None:
+    from diucs.application.ports.outbound.telemetry_query import (
+        SessionFilters,
+        TelemetryUnavailable,
+    )
+    from diucs.application.tenancy import bind_tenant
+
+    container = build(Settings(telemetry_workspace_id=WORKSPACE))
+    with bind_tenant("test-a"), pytest.raises(TelemetryUnavailable):
+        await container.telemetry.search_sessions(SessionFilters())
+
+
+async def test_build_with_a_workspace_and_a_client_reads_from_that_workspace() -> None:
+    from diucs.adapters.outbound.telemetry.azure_monitor_query import AzureMonitorTelemetryQuery
+    from diucs.application.ports.outbound.telemetry_query import SessionFilters
+    from diucs.application.tenancy import bind_tenant
+
+    client = _EmptyLogsClient()
+    container = build(Settings(telemetry_workspace_id=WORKSPACE), telemetry_client=client)
+    assert isinstance(container.telemetry, AzureMonitorTelemetryQuery)
+    with bind_tenant("test-a"):
+        assert await container.telemetry.search_sessions(SessionFilters()) == []
+    assert client.workspaces == [WORKSPACE]

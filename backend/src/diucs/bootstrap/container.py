@@ -18,6 +18,7 @@ process that serves, and without one every secret reads as not found (fail close
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
 from redis.asyncio import Redis
@@ -36,6 +37,11 @@ from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDire
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
+from diucs.adapters.outbound.telemetry.azure_monitor_query import (
+    AzureMonitorTelemetryQuery,
+    LogsQueryClient,
+)
+from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
 from diucs.adapters.outbound.terminology.local_terminology import LocalTerminology
 from diucs.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -43,6 +49,7 @@ from diucs.adapters.testing.fixed_geo import FixedGeocoder, FixedPostcodeLocator
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.fixed_terminology import FixedTerminology
+from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.geo import (
     AddressCandidate,
@@ -55,6 +62,14 @@ from diucs.application.ports.outbound.geo import (
 )
 from diucs.application.ports.outbound.identity import CodeStore, RateLimiter, SessionStore
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.telemetry_query import (
+    SessionFilters,
+    SessionSummary,
+    SpanRecord,
+    TelemetryQuery,
+    TelemetryUnavailable,
+    TimelineEvent,
+)
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.terminology import Terminology
 from diucs.application.ports.outbound.tokens import SecretStore
@@ -63,6 +78,10 @@ from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
+# The sample telemetry the test container serves (O07). Sample values only.
+TELEMETRY_FIXTURE = (
+    Path(__file__).resolve().parents[3] / "tests" / "fixtures" / "telemetry" / "s-7f3a.json"
+)
 
 
 @dataclass(frozen=True)
@@ -95,6 +114,9 @@ class Container:
     terminology: Terminology
     # The HTTP client behind the geocoder, closed by shutdown(); None when there is no geocoder.
     http: httpx.AsyncClient | None
+    # The support console's raw telemetry (O07): Azure Monitor in a process that has a workspace and
+    # a client, otherwise NoTelemetry, which refuses every read.
+    telemetry: TelemetryQuery
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -157,6 +179,23 @@ class NoGeocoder:
         return []
 
 
+class NoTelemetry:
+    """The telemetry query of a process with no workspace or no client: every read is refused, so
+    the console says it cannot show telemetry rather than showing an empty timeline (fail closed,
+    O07)."""
+
+    async def session_timeline(
+        self, session_id: str, start: datetime, end: datetime
+    ) -> list[TimelineEvent]:
+        raise TelemetryUnavailable
+
+    async def trace(self, trace_id: str) -> list[SpanRecord]:
+        raise TelemetryUnavailable
+
+    async def search_sessions(self, filters: SessionFilters) -> list[SessionSummary]:
+        raise TelemetryUnavailable
+
+
 class NoSecrets:
     """The secret store of a process that was given none: every secret is not found, so anything
     that needs one fails closed. A real vault adapter is not built (it needs a credential)."""
@@ -169,10 +208,17 @@ def _redis_client(url: str) -> Redis:
     return Redis.from_url(url, decode_responses=True)
 
 
-def build(settings: Settings, *, secrets: SecretStore | None = None) -> Container:
+def build(
+    settings: Settings,
+    *,
+    secrets: SecretStore | None = None,
+    telemetry_client: LogsQueryClient | None = None,
+) -> Container:
     """Wire the production-facing adapters. Profiles differ only in external providers,
     which later tasks add; the clock and ids are the same in every profile. Connects to nothing:
-    call startup() to open Neo4j. `secrets` is the process's secret store, if it has one."""
+    call startup() to open Neo4j. `secrets` is the process's secret store, if it has one.
+    `telemetry_client` is the process's Azure Monitor logs client (O07); with no client, or with
+    no workspace id in the settings, the telemetry query refuses every read."""
     neo4j = _neo4j_connection(settings)
     clock = SystemClock()
     redis = _redis_client(settings.redis_url)
@@ -200,6 +246,13 @@ def build(settings: Settings, *, secrets: SecretStore | None = None) -> Containe
         else OsPlacesGeocoder(http, key.get_secret_value()),
         terminology=LocalTerminology(settings.terminology_dir),
         http=http,
+        telemetry=(
+            NoTelemetry()
+            if telemetry_client is None or settings.telemetry_workspace_id is None
+            else AzureMonitorTelemetryQuery(
+                telemetry_client, settings.telemetry_workspace_id, clock
+            )
+        ),
     )
 
 
@@ -210,6 +263,7 @@ def build_for_tests(
     neo4j: Neo4jConnection,
     secrets: SecretStore | None = None,
     redis: Redis | None = None,
+    telemetry: TelemetryQuery | None = None,
 ) -> Container:
     """Wire the container for tests: a fixed clock and sequential ids unless overridden, and a
     recording fake secret store that holds nothing unless one is passed.
@@ -217,7 +271,8 @@ def build_for_tests(
     The connection is required, so each test owns one connection (a fixture) and shares it with
     every container it builds. Nothing here creates a driver. The fixture closes the connection.
     The Redis stores use the Redis of Settings unless a client is passed; they connect only when a
-    test uses them, so building a container needs no Redis server.
+    test uses them, so building a container needs no Redis server. The telemetry query is the
+    fixture fake (O07, s-7f3a) unless one is passed.
     """
     resolved_clock = FixedClock(TEST_NOW) if clock is None else clock
     resolved_redis = _redis_client(Settings().redis_url) if redis is None else redis
@@ -237,4 +292,9 @@ def build_for_tests(
         geocoder=FixedGeocoder({}),
         terminology=FixedTerminology({}, {}),
         http=None,
+        telemetry=(
+            FixtureTelemetryQuery(TELEMETRY_FIXTURE, result_attributes)
+            if telemetry is None
+            else telemetry
+        ),
     )

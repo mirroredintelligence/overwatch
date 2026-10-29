@@ -68,3 +68,6 @@ class Settings(BaseSettings):
     os_places_api_key: SecretStr | None = None
     # I12: the pilot ODS sample and the local CodeSystem files. The default is the repo's folder.
     terminology_dir: Path = Path(__file__).resolve().parents[3] / "terminology"
+    # O07: the Log Analytics workspace the support console reads raw telemetry from. Unset: the
+    # telemetry query refuses every read (fail closed). The workspace id is not a secret.
+    telemetry_workspace_id: str | None = None

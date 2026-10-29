@@ -116,3 +116,11 @@ def test_the_synthetic_hook_token_is_read_from_the_environment_and_never_shown(
     assert settings.synthetic_hook_token is not None
     assert settings.synthetic_hook_token.get_secret_value() == "test-only-hook-token"
     assert "test-only-hook-token" not in repr(settings)
+
+
+def test_the_telemetry_workspace_is_unset_by_default_and_read_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert Settings().telemetry_workspace_id is None
+    monkeypatch.setenv("DIUCS_TELEMETRY_WORKSPACE_ID", "00000000-0000-0000-0000-000000000000")
+    assert Settings().telemetry_workspace_id == "00000000-0000-0000-0000-000000000000"

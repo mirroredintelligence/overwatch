@@ -9,9 +9,9 @@ directly. Three reads:
 - `trace`: the spans of one trace, from the browser to the provider.
 - `search_sessions`: session summaries for the find-a-session screen.
 
-Every result carries only allow-listed attributes. An adapter drops every other attribute when it
-maps a row, so a field value or a query text cannot reach the console
-(observability.md, "Scrubbing").
+Every result carries only the attributes the O01 allow-list passes (an `AttributeCleaner`). An
+adapter drops every other attribute when it maps a row, so a field value or a query text cannot
+reach the console (observability.md, "Scrubbing").
 
 The tenant is never an argument. Every read is for the tenant bound to the context at the edge
 (DEC-130, DEC-132); an adapter reads it with `application.tenancy.current_tenant()` and refuses to
@@ -19,16 +19,21 @@ run when none is bound.
 """
 
 import re
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Final, Protocol
+from typing import Any, Final, Protocol
 
-from diucs.domain.errors import ValidationFailed
+from diucs.domain.errors import DomainError, ValidationFailed
 
 # An attribute value after the allow-list: the types the telemetry schema carries.
 AttributeValue = str | int | float | bool
+
+# Turns one raw row's attributes into the attributes a result may carry: the O01 allow-list, the
+# values scanned, and the tenant and session ids removed. The adapters supply it (it lives in the
+# outbound telemetry package, O01's list, and an adapter may not import another adapter package).
+AttributeCleaner = Callable[[Mapping[str, Any]], dict[str, AttributeValue]]
 
 _SESSION_ID: Final = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _TRACE_ID: Final = re.compile(r"[0-9a-f]{32}")
@@ -109,16 +114,9 @@ class TelemetryQuery(Protocol):
         ...
 
 
-def allowed_attributes(
-    raw: Mapping[str, object], allowed: frozenset[str]
-) -> dict[str, AttributeValue]:
-    """Keep only the allow-listed keys whose values are plain scalars (text, whole number, number or
-    boolean). Everything else is dropped: an unlisted key, a null, a list or an object."""
-    kept: dict[str, AttributeValue] = {}
-    for key, value in raw.items():
-        if key in allowed and isinstance(value, bool | int | float | str):
-            kept[key] = value
-    return kept
+class TelemetryUnavailable(DomainError):
+    """The telemetry store cannot be read: it is not configured, or a read was refused. Carries no
+    query text, value or id."""
 
 
 def as_utc(value: object) -> datetime:

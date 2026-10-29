@@ -8,19 +8,19 @@ query does with its `tenant.id` filter. Attributes pass the same allow-list as t
 """
 
 import json
-from collections.abc import Iterable, Mapping
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from diucs.application.ports.outbound.telemetry_query import (
+    AttributeCleaner,
     SessionFilters,
     SessionSummary,
     SpanRecord,
     TimelineEvent,
     TimelineKind,
-    allowed_attributes,
     as_utc,
     check_limit,
     check_session_id,
@@ -37,8 +37,10 @@ class _Owned:
 
 
 class FixtureTelemetryQuery:
-    def __init__(self, fixture_path: Path, allowed: Iterable[str]) -> None:
-        self._allowed = frozenset(allowed)
+    def __init__(self, fixture_path: Path, attributes: AttributeCleaner) -> None:
+        """`attributes` is the O01 cleaner the composition root passes (the allow-list and the value
+        scan); this fake has no allow-list of its own."""
+        self._attributes = attributes
         data: Mapping[str, Any] = json.loads(fixture_path.read_text(encoding="utf-8"))
         self._timeline = [
             _Owned(row["tenant_id"], row["session_id"], self._event(row))
@@ -60,7 +62,7 @@ class FixtureTelemetryQuery:
             name=str(row["name"]),
             duration_ms=None if duration is None else float(duration),
             status=row["status"],
-            attributes=allowed_attributes(row["attributes"], self._allowed),
+            attributes=self._attributes(row["attributes"]),
         )
 
     def _span(self, row: Mapping[str, Any]) -> SpanRecord:
@@ -71,7 +73,7 @@ class FixtureTelemetryQuery:
             start=as_utc(row["start"]),
             duration_ms=float(row["duration_ms"]),
             status=row["status"],
-            attributes=allowed_attributes(row["attributes"], self._allowed),
+            attributes=self._attributes(row["attributes"]),
         )
 
     def _session(self, row: Mapping[str, Any]) -> SessionSummary:

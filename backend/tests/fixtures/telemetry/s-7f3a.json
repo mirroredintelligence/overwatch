@@ -44,7 +44,12 @@
       "name": "POST /api/bff/bookings",
       "duration_ms": 480.0,
       "status": "201",
-      "attributes": {"route": "/api/bff/bookings", "http.method": "POST", "http.status_code": 201, "trace.id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7"}
+      "attributes": {
+        "http.route": "/api/bff/bookings",
+        "http.request.method": "POST",
+        "http.response.status_code": 201,
+        "trace.id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7"
+      }
     },
     {
       "session_id": "s-7f3a",
@@ -54,7 +59,12 @@
       "name": "/advisor/call",
       "duration_ms": null,
       "status": null,
-      "attributes": {"route": "/advisor/call", "role": "advisor", "device.class": "desktop", "release": "2026.10.1"}
+      "attributes": {
+        "page.route": "/advisor/call",
+        "user.role": "advisor",
+        "device.type": "desktop",
+        "release": "2026.10.1"
+      }
     },
     {
       "session_id": "s-7f3a",
@@ -64,7 +74,10 @@
       "name": "ADV-POSTCODE-INPUT",
       "duration_ms": null,
       "status": null,
-      "attributes": {"ui.element": "ADV-POSTCODE-INPUT", "fieldValue": "sample-postcode-text"}
+      "attributes": {
+        "element.id": "ADV-POSTCODE-INPUT",
+        "fieldValue": "sample-postcode-text"
+      }
     },
     {
       "session_id": "s-7f3a",
@@ -74,7 +87,9 @@
       "name": "ADV-CALL-80-BTN",
       "duration_ms": null,
       "status": null,
-      "attributes": {"ui.element": "ADV-CALL-80-BTN"}
+      "attributes": {
+        "element.id": "ADV-CALL-80-BTN"
+      }
     },
     {
       "session_id": "s-7f3a",
@@ -84,7 +99,12 @@
       "name": "GET /api/bff/options",
       "duration_ms": 212.4,
       "status": "200",
-      "attributes": {"route": "/api/bff/options", "http.method": "GET", "http.status_code": 200, "trace.id": "0f2c6a8e1b9d4c7a8e3f5b2d6c9a1e4f"}
+      "attributes": {
+        "http.route": "/api/bff/options",
+        "http.request.method": "GET",
+        "http.response.status_code": 200,
+        "trace.id": "0f2c6a8e1b9d4c7a8e3f5b2d6c9a1e4f"
+      }
     },
     {
       "session_id": "s-7f3a",
@@ -94,7 +114,9 @@
       "name": "ADV-OPT-REQUEST-BTN",
       "duration_ms": null,
       "status": null,
-      "attributes": {"ui.element": "ADV-OPT-REQUEST-BTN", "friction.kind": "dead_click"}
+      "attributes": {
+        "element.id": "ADV-OPT-REQUEST-BTN"
+      }
     },
     {
       "session_id": "s-7f3a",
@@ -104,7 +126,9 @@
       "name": "ADV-OPT-REQUEST-BTN",
       "duration_ms": null,
       "status": null,
-      "attributes": {"ui.element": "ADV-OPT-REQUEST-BTN"}
+      "attributes": {
+        "element.id": "ADV-OPT-REQUEST-BTN"
+      }
     },
     {
       "session_id": "s-7f3a",
@@ -114,7 +138,10 @@
       "name": "BFF_TIMEOUT",
       "duration_ms": null,
       "status": null,
-      "attributes": {"error.type": "TimeoutError", "route": "/api/bff/options"}
+      "attributes": {
+        "error.type": "TimeoutError",
+        "http.route": "/api/bff/options"
+      }
     },
     {
       "session_id": "s-4c81",
@@ -124,7 +151,11 @@
       "name": "/l/[token]",
       "duration_ms": null,
       "status": null,
-      "attributes": {"route": "/l/[token]", "role": "reporter", "device.class": "mobile"}
+      "attributes": {
+        "page.route": "/l/[token]",
+        "user.role": "reporter",
+        "device.type": "mobile"
+      }
     },
     {
       "session_id": "s-b102",
@@ -134,18 +165,136 @@
       "name": "/advisor/call",
       "duration_ms": null,
       "status": null,
-      "attributes": {"route": "/advisor/call", "role": "advisor", "device.class": "desktop"}
+      "attributes": {
+        "page.route": "/advisor/call",
+        "user.role": "advisor",
+        "device.type": "desktop"
+      }
     }
   ],
   "spans": [
-    {"trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7", "tenant_id": "test-a", "span_id": "1a2b3c4d5e6f7a81", "parent_span_id": null, "name": "browser fetch POST /api/bff/bookings", "start": "2026-10-28T09:13:10.000Z", "duration_ms": 640.0, "status": "ok", "attributes": {"span.kind": "client", "http.method": "POST", "http.status_code": 201}},
-    {"trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7", "tenant_id": "test-a", "span_id": "1a2b3c4d5e6f7a82", "parent_span_id": "1a2b3c4d5e6f7a81", "name": "bff POST /api/bff/bookings", "start": "2026-10-28T09:13:10.005Z", "duration_ms": 600.0, "status": "ok", "attributes": {"span.kind": "server", "route": "/api/bff/bookings", "http.status_code": 201}},
-    {"trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7", "tenant_id": "test-a", "span_id": "1a2b3c4d5e6f7a83", "parent_span_id": "1a2b3c4d5e6f7a82", "name": "api POST /fhir/Task", "start": "2026-10-28T09:13:10.020Z", "duration_ms": 570.0, "status": "ok", "attributes": {"span.kind": "server", "http.method": "POST", "http.status_code": 201}},
-    {"trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7", "tenant_id": "test-a", "span_id": "1a2b3c4d5e6f7a84", "parent_span_id": "1a2b3c4d5e6f7a83", "name": "usecase CreateBooking", "start": "2026-10-28T09:13:10.025Z", "duration_ms": 560.0, "status": "ok", "attributes": {"span.kind": "internal"}},
-    {"trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7", "tenant_id": "test-a", "span_id": "1a2b3c4d5e6f7a85", "parent_span_id": "1a2b3c4d5e6f7a84", "name": "neo4j Q-TASK-BOOK-CREATE", "start": "2026-10-28T09:13:10.040Z", "duration_ms": 480.5, "status": "ok", "attributes": {"span.kind": "client", "neo4j.query_id": "Q-TASK-BOOK-CREATE", "neo4j.access_mode": "write", "neo4j.row_count": 1, "db.statement": "MATCH (s:HealthcareService {tenantId: $tenant, id: $id}) CREATE (t:Task {tenantId: $tenant}) RETURN t"}},
-    {"trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7", "tenant_id": "test-a", "span_id": "1a2b3c4d5e6f7a86", "parent_span_id": "1a2b3c4d5e6f7a84", "name": "neo4j Q-CASE-LOAD", "start": "2026-10-28T09:13:10.030Z", "duration_ms": 12.0, "status": "ok", "attributes": {"span.kind": "client", "neo4j.query_id": "Q-CASE-LOAD", "neo4j.access_mode": "read", "neo4j.row_count": 1}},
-    {"trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7", "tenant_id": "test-a", "span_id": "1a2b3c4d5e6f7a87", "parent_span_id": "1a2b3c4d5e6f7a84", "name": "redis cache.get", "start": "2026-10-28T09:13:10.026Z", "duration_ms": 1.2, "status": "ok", "attributes": {"span.kind": "client"}},
-    {"trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7", "tenant_id": "test-a", "span_id": "1a2b3c4d5e6f7a88", "parent_span_id": "1a2b3c4d5e6f7a84", "name": "servicebus publish outbox", "start": "2026-10-28T09:13:10.560Z", "duration_ms": 18.0, "status": "ok", "attributes": {"span.kind": "producer", "messaging.destination": "outbox.relay"}},
-    {"trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7", "tenant_id": "test-b", "span_id": "9f8e7d6c5b4a39b1", "parent_span_id": null, "name": "neo4j Q-PERSON-PHONE-FIND", "start": "2026-10-28T09:13:10.000Z", "duration_ms": 999.0, "status": "ok", "attributes": {"span.kind": "client", "neo4j.query_id": "Q-PERSON-PHONE-FIND"}}
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a81",
+      "parent_span_id": null,
+      "name": "browser fetch POST /api/bff/bookings",
+      "start": "2026-10-28T09:13:10.000Z",
+      "duration_ms": 640.0,
+      "status": "ok",
+      "attributes": {
+        "http.request.method": "POST",
+        "http.response.status_code": 201
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a82",
+      "parent_span_id": "1a2b3c4d5e6f7a81",
+      "name": "bff POST /api/bff/bookings",
+      "start": "2026-10-28T09:13:10.005Z",
+      "duration_ms": 600.0,
+      "status": "ok",
+      "attributes": {
+        "http.route": "/api/bff/bookings",
+        "http.response.status_code": 201
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a83",
+      "parent_span_id": "1a2b3c4d5e6f7a82",
+      "name": "api POST /fhir/Task",
+      "start": "2026-10-28T09:13:10.020Z",
+      "duration_ms": 570.0,
+      "status": "ok",
+      "attributes": {
+        "http.request.method": "POST",
+        "http.response.status_code": 201
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a84",
+      "parent_span_id": "1a2b3c4d5e6f7a83",
+      "name": "usecase CreateBooking",
+      "start": "2026-10-28T09:13:10.025Z",
+      "duration_ms": 560.0,
+      "status": "ok",
+      "attributes": {}
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a85",
+      "parent_span_id": "1a2b3c4d5e6f7a84",
+      "name": "neo4j Q-TASK-BOOK-CREATE",
+      "start": "2026-10-28T09:13:10.040Z",
+      "duration_ms": 480.5,
+      "status": "ok",
+      "attributes": {
+        "db.query.id": "Q-TASK-BOOK-CREATE",
+        "db.access_mode": "write",
+        "db.row_count": 1,
+        "db.system.name": "neo4j"
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a86",
+      "parent_span_id": "1a2b3c4d5e6f7a84",
+      "name": "neo4j Q-CASE-LOAD",
+      "start": "2026-10-28T09:13:10.030Z",
+      "duration_ms": 12.0,
+      "status": "ok",
+      "attributes": {
+        "db.query.id": "Q-CASE-LOAD",
+        "db.access_mode": "read",
+        "db.row_count": 1,
+        "db.system.name": "neo4j"
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a87",
+      "parent_span_id": "1a2b3c4d5e6f7a84",
+      "name": "redis cache.get",
+      "start": "2026-10-28T09:13:10.026Z",
+      "duration_ms": 1.2,
+      "status": "ok",
+      "attributes": {}
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a88",
+      "parent_span_id": "1a2b3c4d5e6f7a84",
+      "name": "servicebus publish outbox",
+      "start": "2026-10-28T09:13:10.560Z",
+      "duration_ms": 18.0,
+      "status": "ok",
+      "attributes": {
+        "messaging.destination.name": "outbox.relay"
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-b",
+      "span_id": "9f8e7d6c5b4a39b1",
+      "parent_span_id": null,
+      "name": "neo4j Q-PERSON-PHONE-FIND",
+      "start": "2026-10-28T09:13:10.000Z",
+      "duration_ms": 999.0,
+      "status": "ok",
+      "attributes": {
+        "db.query.id": "Q-PERSON-PHONE-FIND",
+        "db.system.name": "neo4j"
+      }
+    }
   ]
 }

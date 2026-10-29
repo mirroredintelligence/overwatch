@@ -152,6 +152,65 @@ _CLEAR_SCENARIO: Final = Scenario(
     ),
 )
 
+# The practitioner's devices (P16, TEN-014). The device hangs from the practitioner, so the seed
+# holds both, with the same ids and keys in both tenants. Nothing in the seed differs between the
+# tenants, so a row or a node that came from the other tenant shows as a count, not as text.
+_AT: Final = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
+_DEVICE_NODE: Final = SeedNode(
+    "device",
+    ("Device",),
+    {"id": _DEVICE, "status": _STATUS_ACTIVE, "registeredAt": _AT},
+)
+_DEVICE_SEED: Final = TenantSeed(
+    nodes=(_PRACTITIONER, _DEVICE_NODE),
+    rels=(SeedRel("practitioner", "HAS_DEVICE", "device"),),
+)
+_LOCK_SCENARIO: Final = Scenario(
+    "lock a practitioner before a device is registered for it",
+    seed=_DEVICE_SEED,
+    params={"key": _KEY},
+    lookup=("key",),
+    expect=Expect(rows=({"n": 1},)),
+)
+_OWNER_SCENARIO: Final = Scenario(
+    "read the practitioner who holds a device",
+    seed=_DEVICE_SEED,
+    params={"deviceId": _DEVICE},
+    lookup=("deviceId",),
+    expect=Expect(rows=({"owner": "prac-1"},)),
+)
+_REGISTER_SCENARIO: Final = Scenario(
+    "register a new device for a practitioner",
+    seed=_DEVICE_SEED,
+    params={"key": _KEY, "deviceId": "dev-new", "status": _STATUS_ACTIVE, "at": _AT},
+    lookup=("key",),
+    new=("deviceId", "at"),
+    expect=Expect(
+        rows=({"n": 1},),
+        nodes={"Device": 1},
+        rels={"HAS_DEVICE": 1},
+        after=(NodeSpec(("Device",), {"id": "dev-new", "status": _STATUS_ACTIVE}),),
+    ),
+)
+_KNOWN_SCENARIO: Final = Scenario(
+    "count the devices of a practitioner that are not revoked and have an id",
+    seed=_DEVICE_SEED,
+    params={"key": _KEY, "deviceId": _DEVICE},
+    lookup=("key", "deviceId"),
+    expect=Expect(rows=({"n": 1},)),
+)
+_REVOKE_SCENARIO: Final = Scenario(
+    "revoke the devices of a practitioner",
+    seed=_DEVICE_SEED,
+    params={"key": _KEY, "revoked": _STATUS_REVOKED},
+    lookup=("key",),
+    new=("revoked",),
+    expect=Expect(
+        rows=({"n": 1},),
+        after=(NodeSpec(("Device",), {"id": _DEVICE, "status": _STATUS_REVOKED}),),
+    ),
+)
+
 # The wall screen statements (U10, DEC-160). Both tenants hold a screen with the same id, type and
 # token hash (the keys are composite since TEN-005), so a statement that forgot the tenant finds the
 # other tenant's screen.
@@ -230,6 +289,11 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-CRED-GET": _GET_SCENARIO,
     "Q-CRED-SAVE-STATE": _SAVE_STATE_SCENARIO,
     "Q-CRED-CLEAR": _CLEAR_SCENARIO,
+    "Q-DEVICE-LOCK": _LOCK_SCENARIO,
+    "Q-DEVICE-OWNER": _OWNER_SCENARIO,
+    "Q-DEVICE-REGISTER": _REGISTER_SCENARIO,
+    "Q-DEVICE-KNOWN": _KNOWN_SCENARIO,
+    "Q-DEVICE-REVOKE": _REVOKE_SCENARIO,
     "Q-SCREEN-GET": _SCREEN_GET_SCENARIO,
     "Q-SCREEN-SAVE": _SCREEN_SAVE_SCENARIO,
     "Q-SCREEN-BY-TOKEN": _SCREEN_BY_TOKEN_SCENARIO,
@@ -275,26 +339,31 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     # Locks the practitioner first, so racing registrations by one practitioner run one after the
     # other, and the second sees the first device (DEC-073 item 2). Also the existence check.
     "Q-DEVICE-LOCK": (
-        "MATCH (p:Practitioner {key: $key}) SET p.key = p.key RETURN count(p) AS n",
+        "MATCH (p:Practitioner {key: $key, tenantId: $tenant}) "
+        "SET p.key = p.key RETURN count(p) AS n",
         "write",
     ),
     "Q-DEVICE-OWNER": (
-        "MATCH (p:Practitioner)-[:HAS_DEVICE]->(d:Device {id: $deviceId}) RETURN p.id AS owner",
+        "MATCH (p:Practitioner {tenantId: $tenant})-[:HAS_DEVICE]->"
+        "(d:Device {id: $deviceId, tenantId: $tenant}) RETURN p.id AS owner",
         "read",
     ),
     "Q-DEVICE-REGISTER": (
-        "MATCH (p:Practitioner {key: $key}) "
-        "CREATE (p)-[:HAS_DEVICE]->(:Device {id: $deviceId, status: $status, registeredAt: $at}) "
+        "MATCH (p:Practitioner {key: $key, tenantId: $tenant}) "
+        "CREATE (p)-[:HAS_DEVICE]->(:Device {id: $deviceId, tenantId: $tenant, "
+        "status: $status, registeredAt: $at}) "
         "RETURN count(*) AS n",
         "write",
     ),
     "Q-DEVICE-KNOWN": (
-        "MATCH (:Practitioner {key: $key})-[:HAS_DEVICE]->(d:Device {id: $deviceId}) "
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
+        "(d:Device {id: $deviceId, tenantId: $tenant}) "
         "WHERE d.revokedAt IS NULL RETURN count(d) AS n",
         "read",
     ),
     "Q-DEVICE-REVOKE": (
-        "MATCH (:Practitioner {key: $key})-[:HAS_DEVICE]->(d:Device) WHERE d.revokedAt IS NULL "
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
+        "(d:Device {tenantId: $tenant}) WHERE d.revokedAt IS NULL "
         "SET d.status = $revoked, d.revokedAt = datetime({timezone: 'UTC'}) "
         "RETURN count(d) AS n",
         "write",

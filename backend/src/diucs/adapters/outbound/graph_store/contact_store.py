@@ -15,27 +15,85 @@ from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    NodeSpec,
+    Scenario,
+    SeedNode,
+    TenantSeed,
+)
 from diucs.domain.errors import Conflict, ValidationFailed
 
 _PHONE: Final = "phone"
 _EMAIL: Final = "email"
 
+# Scenarios (DEC-150, TEN-014). Both tenants hold a phone for the same role, with the same key: the
+# keys are composite with the tenant (migration 0031's tenant_protected_contact_key), so the two
+# tenants share every key and only the number differs (`Marked`).
+_KEY: Final = "r-west-duty|phone"
+_CONTACT: Final = SeedNode(
+    "contact",
+    ("ProtectedContact",),
+    {
+        "key": _KEY,
+        "roleId": "r-west-duty",
+        "kind": _PHONE,
+        "value": Marked("01234 000111"),
+    },
+)
+_CONTACT_SEED: Final = TenantSeed(nodes=(_CONTACT,))
+_PUT_SCENARIO: Final = Scenario(
+    "store a new number for a role's phone, replacing the one it holds",
+    seed=_CONTACT_SEED,
+    params={
+        "key": _KEY,
+        "roleId": "r-west-duty",
+        "kind": _PHONE,
+        "value": "01234 999888",
+    },
+    lookup=("key",),
+    new=("value",),
+    expect=Expect(
+        rows=({"n": 1},),
+        after=(
+            NodeSpec(
+                ("ProtectedContact",),
+                {"key": _KEY, "roleId": "r-west-duty", "value": "01234 999888"},
+            ),
+        ),
+    ),
+)
+_GET_SCENARIO: Final = Scenario(
+    "read the phone a role holds",
+    seed=_CONTACT_SEED,
+    params={"key": _KEY},
+    lookup=("key",),
+    expect=Expect(rows=({"value": Marked("01234 000111")},)),
+)
+_SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-CONTACT-PUT": _PUT_SCENARIO,
+    "Q-CONTACT-GET": _GET_SCENARIO,
+}
+
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-CONTACT-PUT": (
-        "MERGE (c:ProtectedContact {key: $key}) "
+        "MERGE (c:ProtectedContact {key: $key, tenantId: $tenant}) "
         "ON CREATE SET c.roleId = $roleId, c.kind = $kind "
         "SET c.value = $value, c.updatedAt = datetime({timezone: 'UTC'}) "
         "RETURN count(c) AS n",
         "write",
     ),
     "Q-CONTACT-GET": (
-        "MATCH (c:ProtectedContact {key: $key}) RETURN c.value AS value LIMIT 1",
+        "MATCH (c:ProtectedContact {key: $key, tenantId: $tenant}) RETURN c.value AS value LIMIT 1",
         "read",
     ),
 }
 
 for _query_id, (_cypher, _mode) in _QUERIES.items():
-    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode))
+    REGISTRY.register(
+        NamedQuery(id=_query_id, cypher=_cypher, mode=_mode, scenario=_SCENARIOS[_query_id])
+    )
 
 
 def _key(role_id: str, kind: str) -> str:

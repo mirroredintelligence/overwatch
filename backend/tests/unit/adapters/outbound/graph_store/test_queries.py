@@ -491,8 +491,9 @@ def test_the_ratchet_may_only_shrink() -> None:
     (101 left), L01 the four link-token statements (97 left), TEN-011 the nineteen statements of the
     person, registration and scope-list repositories, TEN-015 the nine communication and four
     scheduled-work statements, TEN-010 the eighteen service, capacity, booking and case
-    statements (47 left), and TEN-012 the twenty-one criteria and flag statements (26 left). A
-    conversion bundle lowers this number in the same commit that removes ids
+    statements (47 left), TEN-012 the twenty-one criteria and flag statements (26 left), and
+    TEN-014 the seven contact and device statements (19 left). A conversion bundle lowers this
+    number in the same commit that removes ids
     from the list; nothing raises it. The ids themselves are pinned against the initial list in
     test_tenant_ratchet.py."""
     assert len(UNCONVERTED) <= 19

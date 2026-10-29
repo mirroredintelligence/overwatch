@@ -26,6 +26,13 @@ class LinkTokenRepository(Protocol):
 
     async def burn_key(self, token_hash: str) -> str | None: ...
 
+    async def open_for_phone(
+        self, purpose: str, phone_hash: str, now: datetime
+    ) -> LinkTokenRecord | None:
+        """The link of this purpose held by this phone hash that is unused and not expired at
+        `now`, or None (U25: an open invitation). Only the bound tenant's links are seen."""
+        ...
+
 
 class SecretStore(Protocol):
     def get(self, name: str) -> bytes: ...

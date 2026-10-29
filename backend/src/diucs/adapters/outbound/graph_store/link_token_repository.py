@@ -25,7 +25,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     TenantSeed,
     Unique,
 )
-from diucs.domain.errors import Conflict
+from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.rules.tokens import LinkTokenRecord, check_phone_hash
 
 # Scenarios (DEC-142 item 5, DEC-167 item 2). Both tenants hold a link with the same id, phone hash,
@@ -140,6 +140,36 @@ _BURN_KEY_SCENARIO: Final = Scenario(
     expect=Expect(rows=({"key": Marked("key")},)),
 )
 
+# The open invitation of a phone (U25): the phone's hash and the purpose, unused and not yet expired
+# at `now`. Both tenants hold a link for the same phone hash and purpose, so the lookup collides
+# across them (the scenario's lookup), and only the bound tenant's link comes back.
+_BEFORE_EXPIRY: Final = datetime(2026, 10, 25, 12, 0, tzinfo=UTC)
+_OPEN_FOR_PHONE_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "invite",
+            ("LinkToken",),
+            {
+                "id": "invite-1",
+                # Marked, not Unique: the lookup is by phone, so the hash needs no shared value.
+                "tokenHash": Marked("invite-hash"),
+                "phoneHash": _PHONE,
+                "purpose": "invite",
+                "aboutId": Marked("about"),
+                "expiresAt": _EXPIRES,
+            },
+        ),
+    )
+)
+_OPEN_FOR_PHONE_SCENARIO: Final = Scenario(
+    "find the tenant's open invitation link for a phone",
+    seed=_OPEN_FOR_PHONE_SEED,
+    params={"phoneHash": _PHONE, "purpose": "invite", "now": _BEFORE_EXPIRY},
+    lookup=("phoneHash",),
+    new=("now",),
+    expect=Expect(rows=({"props": {"purpose": "invite", "aboutId": Marked("about")}},)),
+)
+
 _QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario]] = {
     "Q-LINK-ADD": (
         "CREATE (t:LinkToken {id: $id, tenantId: $tenant, tokenHash: $tokenHash, "
@@ -171,6 +201,15 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario]] = {
         "MATCH (t:LinkToken {tokenHash: $tokenHash, tenantId: $tenant}) RETURN t.burnKey AS key",
         "read",
         _BURN_KEY_SCENARIO,
+    ),
+    # An unused link that has not expired (check_link: now before expiresAt). Missing usedAt is
+    # null (lesson L74), so IS NULL reads an unused link.
+    "Q-LINK-OPEN-FOR-PHONE": (
+        "MATCH (t:LinkToken {phoneHash: $phoneHash, purpose: $purpose, tenantId: $tenant}) "
+        "WHERE t.usedAt IS NULL AND t.expiresAt > $now "
+        "RETURN properties(t) AS props ORDER BY t.expiresAt DESC LIMIT 1",
+        "read",
+        _OPEN_FOR_PHONE_SCENARIO,
     ),
 }
 
@@ -235,6 +274,22 @@ class Neo4jLinkTokenRepository:
         """The key of the attempt that burned the link, or None if it is unused or unknown."""
         rows = await self._run("Q-LINK-BURN-KEY", tokenHash=token_hash)
         return rows[0]["key"] if rows else None
+
+    async def open_for_phone(
+        self, purpose: str, phone_hash: str, now: datetime
+    ) -> LinkTokenRecord | None:
+        """The open link of this purpose for this phone hash at `now`, or None. When several are
+        open, the one that expires last. A malformed hash or a naive `now` is refused."""
+        check_phone_hash(phone_hash)
+        if now.utcoffset() is None:
+            raise ValidationFailed("now", "must be a timezone-aware datetime")
+        rows = await self._run(
+            "Q-LINK-OPEN-FOR-PHONE",
+            phoneHash=phone_hash,
+            purpose=purpose,
+            now=now.astimezone(UTC),
+        )
+        return _from_props(rows[0]["props"]) if rows else None
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:
         return await run_query(self._tx, REGISTRY.get(query_id), **params)

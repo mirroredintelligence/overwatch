@@ -20,6 +20,7 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.tenancy import current_scope, current_scope_or_none
+from diucs.application.work import WorkKind
 from diucs.bootstrap import container as container_module
 from diucs.bootstrap.container import build, build_for_tests
 from diucs.bootstrap.settings import Settings
@@ -523,3 +524,23 @@ async def test_build_with_a_workspace_and_a_client_reads_from_that_workspace() -
     with bind_tenant("test-a"):
         assert await container.telemetry.search_sessions(SessionFilters()) == []
     assert client.workspaces == [WORKSPACE]
+
+
+async def test_build_for_tests_exposes_the_dispatcher_with_the_three_ladder_kinds(
+    neo4j: Neo4jConnection,
+) -> None:
+    container = build_for_tests(neo4j=neo4j)
+
+    assert container.scheduled_work.kinds == frozenset(
+        {WorkKind.REMINDER, WorkKind.PHONE_TASK, WorkKind.ESCALATE_TO_LEAD}
+    )
+
+
+async def test_build_exposes_the_same_dispatch_table() -> None:
+    container = build(Settings())
+    try:
+        assert container.scheduled_work.kinds == frozenset(
+            {WorkKind.REMINDER, WorkKind.PHONE_TASK, WorkKind.ESCALATE_TO_LEAD}
+        )
+    finally:
+        await container.shutdown()

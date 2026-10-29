@@ -4,7 +4,8 @@ It is in bootstrap, the one layer that may name both an inbound worker and the o
 It builds the Neo4j connection and the units of work from the container, the cache from Redis and
 the bus client from Service Bus, wires `HandleInboundText` with the use cases it calls, and runs one
 `ServiceBusRunner` for each inbound queue until it is told to stop: `inbound.replies` (the reply
-processor) and `inbound.receipts` (the delivery tracker). Nothing here holds a rule.
+processor), `inbound.receipts` (the delivery tracker) and `scheduled.work` (the missed-report
+ladder, I05), and the two sender runners of `messages.outbound` (I10). Nothing here holds a rule.
 
 The tenants it serves come from `DIUCS_WORKER_TENANTS`, a comma-separated list of tenant ids. That
 is a stand-in for the tenant directory (TEN-007): the consumers take any `ActiveTenants`, so
@@ -24,6 +25,10 @@ import httpx
 from azure.servicebus.aio import ServiceBusClient
 from opentelemetry import trace as otel_trace
 
+from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
+    WorkHandler,
+    build_scheduled_work_consumer,
+)
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.message_senders import sender_runners
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants, StaticTenants
@@ -41,6 +46,7 @@ from diucs.application.tenancy import is_valid_tenant_id
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
 from diucs.application.use_cases.report_capacity import ReportCapacity
+from diucs.application.work import WorkKind
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
 from diucs.bootstrap.telemetry import start_telemetry
@@ -55,6 +61,7 @@ SERVICE_BUS_MISSING = "DIUCS_SERVICEBUS_CONNECTION must be set for the queue wor
 REPLIES_QUEUE = "inbound.replies"
 SENDER_HTTP_TIMEOUT_SECONDS = 10.0
 RECEIPTS_QUEUE = "inbound.receipts"
+SCHEDULED_WORK_QUEUE = "scheduled.work"
 
 
 class WorkersConfigError(Exception):
@@ -83,14 +90,16 @@ def build_runners(
     handle_inbound_text: HandlesInboundText,
     uow_factory: UnitOfWorkFactory,
     tenants: ActiveTenants,
+    work_handlers: Mapping[WorkKind, WorkHandler],
     *,
     senders: SenderResolver | None = None,
     sealer: ContentSealer | None = None,
 ) -> list[ServiceBusRunner]:
     """One runner for each inbound queue, each over a consumer that binds the message's tenant and
-    handles the message under its trace span (O01). With a sender resolver and a sealer, the two
-    runners of `messages.outbound` (the text and email senders, I10) are added; each binds the
-    message's tenant in the same way."""
+    handles the message under its trace span (O01): the replies, the receipts and, with the
+    handlers of the dispatch table, `scheduled.work` (I05). With a sender resolver and a sealer,
+    the two runners of `messages.outbound` (the text and email senders, I10) are added; each binds
+    the message's tenant in the same way."""
     observe = consumer_observer(otel_trace.get_tracer(INSTRUMENTATION_NAME))
     runners = [
         ServiceBusRunner(
@@ -104,6 +113,12 @@ def build_runners(
             RECEIPTS_QUEUE,
             None,
             receipt_consumer(uow_factory, tenants, observe),
+        ),
+        ServiceBusRunner(
+            client,
+            SCHEDULED_WORK_QUEUE,
+            None,
+            build_scheduled_work_consumer(work_handlers, uow_factory, tenants, observe),
         ),
     ]
     if senders is not None and sealer is not None:
@@ -142,7 +157,13 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
         )
         sealer = AesGcmContentSealer(container.secrets)
         runners = build_runners(
-            client, use_case, container.uow_factory, tenants, senders=senders, sealer=sealer
+            client,
+            use_case,
+            container.uow_factory,
+            tenants,
+            container.scheduled_work.handlers,
+            senders=senders,
+            sealer=sealer,
         )
         await run_workers([runner.serve for runner in runners], stop)
     finally:

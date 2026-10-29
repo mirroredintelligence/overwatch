@@ -2284,3 +2284,61 @@ Status: accepted (builder build-TEN-010, under DEC-133; no owner gate) · Number
 8. **The latest confirmation names its report (behaviour, tested first).** `Q-CAP-LATEST-CONFIRMED-AT` returns the id of the report it reads (`obs`) and orders ties on the effective time by id, so two confirmations at one time name the same report on every run. Test: `tests/integration/graph_store/test_capacity_repository.py::test_two_confirmations_at_one_time_name_the_same_report_every_time` (red commit e9c4827, green 2086c50). The time returned is unchanged: `latest_confirmation_at` reads only `at`, and `report_capacity.py` uses only that time, so the U05 figure (H-31, H-32) does not depend on which report is named. The old statement named no report, so the tie-break is not a change to any figure.
 9. **The unbound call of a converted statement now refuses (behaviour change).** `Q-SVC-LIST-ACTIVE` ran with no tenant bound until this task (a pending statement, DEC-144 item 3); it now raises `TenantNotBound`, like every converted statement. The only caller that relied on the unbound call was a test double in `tests/integration/graph_store/test_unit_of_work.py::test_a_unit_opened_with_nothing_bound_refuses_a_converted_statement_and_leaks_nothing`, which now asserts the refusal. Production callers (`application/use_cases/query_board.py` and `adapters/inbound/fhir_rest/routes_services.py`) reach it through `uow.services`, inside a unit of work whose scope is bound at the edge, so no production path runs it unbound.
 7. **Tenant-pending statements left.** The flag, person, registration, criteria, communication, scheduled-work, outbox, idempotency and link statements remain on the ratchet for TEN-011 to TEN-016 and TEN-024 (for example Q-FLAG-OBS-SERVICE, Q-PHONE-SERVICES-HELD, Q-SERVICE-REPORTER-ROLES, Q-COMM-BY-PROVIDER). The wall's service reads and the board's own-services rule (W07, H-40) are now scoped through the resource store and these statements.
+
+## DEC-190 The scheduled-work consumer (I05): a message consumer around the dispatcher, not one idempotent unit, and the names it adds
+
+Status: accepted · Affects: `adapters/inbound/scheduler/scheduled_work_consumer.py`, `bootstrap/container.py`, `bootstrap/workers_main.py`, `docs/spec/contracts.md` (Additions). Decided by the I05 builder under DEC-133, where the I05 prompt and the I04 framework differ.
+
+1. **Why the prompt's shape does not work.** The prompt asks for `ScheduledWorkDispatcher.__call__(message, uow)` run by `IdempotentConsumer`, which holds one unit of work around its handler. The three missed-report ladder steps (U06) open their own units (`MissedReportLadder.execute`), and a unit cannot be entered while one is open in the same context (DEC-146 item 4, `UnitOfWorkAlreadyOpen`). Run inside `IdempotentConsumer`, every ladder step would fail on its first unit and dead-letter after the bus's delivery limit. Lessons L165 and L166 say the same for the reply processor and the ladder.
+2. **The shape built.** `ScheduledWorkConsumer(dispatcher, uow_factory)` is a `MessageConsumer` with the reply processor's three steps: (a) mark-seen check (`processed.seen`), (b) run the handler with no unit held, (c) one unit that saves the work `done` and marks the message (`processed.mark_if_new`) and commits. `build_scheduled_work_consumer(handlers, uow_factory, tenants, observe=untraced)` returns it wrapped in `TenantBoundConsumer` (I08, L165), under the consumer name `scheduler`. The processed markers are the I04 framework's (`ProcessedMessages`); the outcomes and `PermanentError` are the I04 ones. Nothing else of I04 is reused, and there is no second tenant binding.
+3. **Settling after the handler.** The work is saved `done` in the settle unit only if its stored status is still `scheduled`. A cancel that lands during the handler is kept (the cancel wins, the prompt's "cancel can race with delivery"). The `done` and the message marker commit together, so a crash between the handler and the settle unit leaves no marker and the bus redelivers.
+4. **At least once.** A handler can therefore run twice for one work item (a crash after it, a race between two deliveries). Every handler must be idempotent by work id. The ladder is: its replay key is the work id (DEC-191), its markers are per missed report, and its own `done` save is the same as the settle step's.
+
+## DEC-191 Delivery rules of the scheduled-work consumer: what dead-letters, what is complete, what retries
+
+Status: accepted · Affects: `adapters/inbound/scheduler/scheduled_work_consumer.py`. Decided by the I05 builder (DEC-133).
+
+1. A message whose `event_type` is not `ScheduledWorkDue`, or whose payload lacks a non-empty `work_id`, `kind` or `about_id` string, or whose `kind` is not a `WorkKind`, is dead-lettered with a fixed text before any store is read.
+2. A message whose id the consumer has marked is a duplicate and runs nothing.
+3. The work is read in its own unit. No stored work with that id (for example another tenant's, or none) is dead-lettered as "no scheduled work for this message". A stored kind or subject that differs from the payload's is dead-lettered as a disagreement: the message and the row are not the same job.
+4. Stored status `cancelled` or `done` is complete: no handler runs, and the message is marked. A `scheduled` work with no handler for its kind is dead-lettered with `no handler for <kind>` (the prompt's text), and its status is left `scheduled`, so it stays visible.
+5. A handler that raises `NotFound` or `ValidationFailed` is dead-lettered with a fixed text (L166: neither is retryable). Any other exception, `Conflict` included, is a retry: the stored status stays `scheduled` (or the settle unit does not run), and the bus redelivers.
+6. A dead-letter reason is the fixed text or `no handler for <kind>`; it never holds a payload value, a tenant id or a stored text (the I04 rule).
+
+## DEC-192 The dispatch table: three ladder kinds registered, prompt-due left unhandled
+
+Status: accepted · Affects: `bootstrap/container.py`. Decided by the I05 builder (DEC-133).
+
+1. The prompt says "register the four ladder kinds from U06". U06 defines three ladder steps (`LADDER_KINDS` in `missed_report_ladder.py`: reminder, phone-task, escalate-to-lead, domain-rules 1.5), and the prompt-due job is the one that starts a ladder, not one of its steps. The table registers the three. A test asserts the three.
+2. `prompt-due` has no handler. No task in `docs/plan/tasks.json` owns its dispatch (U03 schedules it and U04 groups it, but neither registers a handler for the queue). A `prompt-due` message is dead-lettered as `no handler for prompt-due` until a task registers one, so the first prompt of a service is not sent by this queue. This is a gap to close, not a decision to hide: it is reported in the evidence and the lesson.
+3. The handlers are built in the composition root: each ladder kind maps to a function that calls `MissedReportLadder.execute(LadderStepCommand(idempotency_key=work.id, actor=SCHEDULER_ACTOR, work_id=work.id))` and returns nothing. The step's result (`LadderStepResult`) is not used by the consumer.
+
+## DEC-193 The scheduler's actor, and the replay key of a ladder step
+
+Status: accepted · Affects: `bootstrap/container.py`. Decided by the I05 builder (DEC-133).
+
+1. The role enum has no system role. The scheduler's actor is `Actor(role=Role.OWNER, practitioner_id=None, device_id=None, channel="scheduler", service_ids=frozenset())`, the same actor the ladder tests use for their worker. Audit entries show the channel `scheduler`, never a person. A dedicated system role is a later decision (it changes `Role`, and the audit reader).
+2. The ladder's replay key is the work id, so a second delivery of the same work returns the replay of the first step, and a step that has already run on a done work returns `ignored`. Two steps for two works never share a key.
+
+## DEC-194 Wiring: the container holds the dispatcher, and workers serve the scheduled.work queue
+
+Status: accepted · Affects: `bootstrap/container.py`, `bootstrap/workers_main.py`, `tests/unit/bootstrap/test_workers_main.py`. Decided by the I05 builder (DEC-133).
+
+1. `Container.scheduled_work` is the `ScheduledWorkDispatcher` built from the three ladder kinds. `build(settings)` takes the link base from `settings.base_url` and the sealer and token service from the container's secret store; `build_for_tests` takes a keyword `link_base_url` (default the test base URL) and the same secret store as before.
+2. `workers_main` runs a third `ServiceBusRunner` on `scheduled.work`, with `build_scheduled_work_consumer(container.scheduled_work.handlers, uow_factory, tenants)`. The process has no secret store until a real one exists (`NoSecrets`, DEC-131 item 4), so a reminder step whose link-token secret is missing is refused with `NotFound` and dead-lettered. That is fail closed: a reminder is never sent without its link, and the other two steps do not need the secret.
+
+## DEC-195 Tenancy of the scheduled-work consumer while TEN-015 is not on main
+
+Status: accepted · Affects: `adapters/inbound/scheduler/scheduled_work_consumer.py`, the tests of I05. Decided by the I05 builder (DEC-130 to DEC-132, the transitional rule of `multi-tenancy.md`).
+
+1. The consumer never reads a tenant from the message or the payload. `TenantBoundConsumer` binds the scope from the `tenantId` property before anything runs (DEC-130 item 7), and each unit it opens is bound to that scope. The relay sets the property on every `ScheduledWorkDue` (I03).
+2. Until TEN-015 lands, `Q-WORK-ADD`, `Q-WORK-GET`, `Q-WORK-SAVE` and `Q-WORK-FOR-ABOUT` are on the ratchet (`graph_store/unconverted.py`): they match on the work id only and write no `tenantId`. So a message for tenant A that names tenant B's work id reads B's row. This is a real leak on main and is pinned by a strict `xfail` test (`test_a_message_for_tenant_a_naming_tenant_bs_work_is_not_found`), with the reason "remove the marker when TEN-015 lands" (L168). The same work id in two tenants is also pinned as a strict `xfail` until TEN-015 converts the statements. The processed-marker statements (`Q-PROCESSED-MARK`, `Q-PROCESSED-SEEN`) are already tenant-scoped (`$tenant` on the `Processed` node), so the duplicate check is per tenant.
+3. The tenant-pending statements, for the evidence: `Q-WORK-ADD`, `Q-WORK-GET`, `Q-WORK-SAVE`, `Q-WORK-FOR-ABOUT`. The ladder's reads (`Q-COMM-*`, the service, people and capacity statements) are also unscoped on main (L166 item 5), so a ladder step given another tenant's work is stopped by the xfail test of U06, not by this consumer.
+4. When TEN-015 lands: remove the three `xfail` markers in the same change, and no code in `scheduled_work_consumer.py` changes, because the scope is carried by the repository and the unit of work.
+
+## DEC-196 The scheduled-work consumer reuses the worker framework: three import edges are allowed (I05)
+
+Status: accepted · Affects: `backend/.importlinter` (`adapters-independent`, `ignore_imports`), `adapters/inbound/scheduler/scheduled_work_consumer.py`. Decided by the I05 builder (DEC-133).
+
+1. The `adapters-independent` contract keeps the inbound adapter packages from importing one another. The prompt puts the consumer in `adapters/inbound/scheduler/`, and it must reuse the I04 consumer core (`PermanentError`, `Outcome`, `MAX_REASON_LENGTH`), the I08 tenant binding (`TenantBoundConsumer`, `Observe`, `untraced`) and the `ActiveTenants` protocol, which live in `adapters/inbound/workers/`. The prompt forbids a second binding, so the three edges are allowed by name, as DEC-084 and DEC-149 allowed theirs.
+2. Only these three edges are allowed, one line each in `.importlinter`. Any other import between the two packages still fails the build.

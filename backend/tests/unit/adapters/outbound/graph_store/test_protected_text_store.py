@@ -95,7 +95,7 @@ def test_the_protected_statements_are_registered_and_carry_scenarios() -> None:
     _load_every_module()
     ids = [q for q in REGISTRY.ids() if q.startswith("Q-PROT-")]
     assert {"Q-PROT-PUT", "Q-PROT-GET"} <= set(ids)
-    pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{[^}]*\})?\)")
+    pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{(?:[^{}]|\{[^{}]*\})*\})?\)")
     for query_id in ids:
         query = REGISTRY.get(query_id)
         for match in pattern.finditer(query.cypher):
@@ -113,6 +113,7 @@ def test_a_protected_text_node_has_no_relationship_in_its_statement() -> None:
 
 
 def test_the_protected_module_exposes_its_kinds() -> None:
-    assert protected_text_store.KINDS == frozenset(
-        {"safety-concern", "problem-report", "clinical-note"}
+    assert (
+        frozenset({"safety-concern", "problem-report", "clinical-note"})
+        == protected_text_store.KINDS
     )

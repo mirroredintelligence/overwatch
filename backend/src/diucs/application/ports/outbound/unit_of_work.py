@@ -37,12 +37,12 @@ from diucs.application.ports.outbound.repositories import (
     CapacityRepository,
     CaseRepository,
     ClinicalRequestRepository,
-    ServiceMoveRepository,
     CriteriaRepository,
     FlagRepository,
     PersonRepository,
     RegistrationRepository,
     ScopeListRepository,
+    ServiceMoveRepository,
     ServiceRepository,
 )
 from diucs.application.ports.outbound.tokens import LinkTokenRepository

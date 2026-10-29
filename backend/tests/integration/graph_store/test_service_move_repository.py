@@ -65,15 +65,22 @@ async def test_one_open_move_per_service(neo4j_driver: AsyncDriver, seeded: None
     await write_tx(neo4j_driver, lambda tx: Neo4jServiceMoveRepository(tx).add(MOVE))
 
     second = ServiceMove(
-        id="move-2", service_id="svc-ucr-east", from_practitioner_id="p-1", to_phone_hash="h10",
+        id="move-2",
+        service_id="svc-ucr-east",
+        from_practitioner_id="p-1",
+        to_phone_hash="h10",
         until=UNTIL,
     )
     with pytest.raises(Conflict):
         await write_tx(neo4j_driver, lambda tx: Neo4jServiceMoveRepository(tx).add(second))
 
     completed = ServiceMove(
-        id="move-1", service_id="svc-ucr-east", from_practitioner_id="p-1", to_phone_hash="h9",
-        until=UNTIL, completed_at=datetime(2026, 10, 25, 18, 30, tzinfo=UTC),
+        id="move-1",
+        service_id="svc-ucr-east",
+        from_practitioner_id="p-1",
+        to_phone_hash="h9",
+        until=UNTIL,
+        completed_at=datetime(2026, 10, 25, 18, 30, tzinfo=UTC),
     )
     await write_tx(neo4j_driver, lambda tx: Neo4jServiceMoveRepository(tx).save(completed))
     await write_tx(neo4j_driver, lambda tx: Neo4jServiceMoveRepository(tx).add(second))

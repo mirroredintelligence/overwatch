@@ -56,6 +56,7 @@ from diucs.adapters.outbound.graph_store.idempotency_store import (
 )
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from diucs.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
 from diucs.adapters.outbound.graph_store.push_subscription_repository import (
     Neo4jPushSubscriptionRepository,
 )
@@ -67,6 +68,7 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
     Neo4jScheduledWorkRepository,
 )
 from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
+from diucs.adapters.outbound.graph_store.service_move_repository import Neo4jServiceMoveRepository
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditLog
@@ -79,6 +81,7 @@ from diucs.application.ports.outbound.messaging import (
     PushSubscriptionRepository,
 )
 from diucs.application.ports.outbound.outbox import Outbox
+from diucs.application.ports.outbound.protected_text import ProtectedTextStore
 from diucs.application.ports.outbound.repositories import (
     AlertRepository,
     AlertSubscriptionRepository,
@@ -91,6 +94,7 @@ from diucs.application.ports.outbound.repositories import (
     PersonRepository,
     RegistrationRepository,
     ScopeListRepository,
+    ServiceMoveRepository,
     ServiceRepository,
 )
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
@@ -108,6 +112,8 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "alerts": lambda tx, store: Neo4jAlertRepository(tx, store),
     "clinical_requests": lambda tx, store: Neo4jClinicalRequestRepository(tx, store),
     "push_subscriptions": lambda tx, store: Neo4jPushSubscriptionRepository(tx),
+    "service_moves": lambda tx, store: Neo4jServiceMoveRepository(tx),
+    "protected_text": lambda tx, store: Neo4jProtectedTextStore(tx),
     "capacity": lambda tx, store: Neo4jCapacityRepository(tx, store),
     "bookings": lambda tx, store: Neo4jBookingRepository(tx, store),
     "cases": lambda tx, store: Neo4jCaseRepository(tx, store),
@@ -166,6 +172,8 @@ class Neo4jUnitOfWork:
     alert_subscriptions: AlertSubscriptionRepository
     alerts: AlertRepository
     clinical_requests: ClinicalRequestRepository
+    service_moves: ServiceMoveRepository
+    protected_text: ProtectedTextStore
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository

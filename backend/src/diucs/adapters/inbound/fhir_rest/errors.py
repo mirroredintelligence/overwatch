@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from diucs.adapters.inbound.fhir_rest.validation import ProfileRejected, issue_outcome
 from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
 
 log = logging.getLogger(__name__)
@@ -94,6 +95,12 @@ def _validation_failed(request: Request, exc: Any) -> Response:
     return operation_outcome(400, "invalid", exc.message, expression=exc.field)
 
 
+def _profile_rejected(request: Request, exc: Any) -> Response:
+    # Every problem, each at its element: the check that refused the body is the profile's (R14).
+    assert isinstance(exc, ProfileRejected)
+    return FhirJSONResponse(content=issue_outcome(exc.issues), status_code=400)
+
+
 def _request_invalid(request: Request, exc: Any) -> Response:
     # Only the location is used, never the input value, which may be a postcode.
     assert isinstance(exc, RequestValidationError)
@@ -136,6 +143,7 @@ def _header_refused(request: Request, exc: Any) -> Response:
 
 def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ValidationFailed, _validation_failed)
+    app.add_exception_handler(ProfileRejected, _profile_rejected)
     app.add_exception_handler(NotFound, _fixed(404, "not-found", NOT_FOUND_TEXT))
     app.add_exception_handler(NotAllowed, _fixed(404, "not-found", NOT_FOUND_TEXT))
     app.add_exception_handler(Conflict, _fixed(409, "conflict", CONFLICT_TEXT))

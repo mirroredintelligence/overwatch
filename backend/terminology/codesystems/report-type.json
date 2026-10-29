@@ -1,0 +1,19 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "report-type",
+  "url": "https://diucs.example/CodeSystem/report-type",
+  "name": "report-type",
+  "status": "active",
+  "content": "complete",
+  "count": 2,
+  "concept": [
+    {
+      "code": "confirmed",
+      "display": "Confirmed"
+    },
+    {
+      "code": "number",
+      "display": "Number"
+    }
+  ]
+}

@@ -8,6 +8,7 @@ from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
+from fhir.resources.R4B.observation import Observation
 
 from diucs.adapters.outbound.graph_store.capacity_repository import (
     report_from_fhir,
@@ -43,6 +44,14 @@ def test_a_number_report_round_trips_through_fhir() -> None:
     assert report_from_fhir(report_to_fhir(NUMBER_REPORT)) == NUMBER_REPORT
 
 
+def test_the_observation_is_valid_fhir_r4b_and_reads_back_as_the_same_report() -> None:
+    # R4B Observation.focus is a list (0..*), so the object form is refused by the R4B model.
+    resource = report_to_fhir(NUMBER_REPORT)
+
+    Observation.model_validate(resource)
+    assert report_from_fhir(resource) == NUMBER_REPORT
+
+
 def test_a_confirmed_report_round_trips_with_its_performer_and_derived_from() -> None:
     assert report_from_fhir(report_to_fhir(CONFIRMED_REPORT)) == CONFIRMED_REPORT
 
@@ -52,7 +61,7 @@ def test_the_observation_names_the_service_the_measure_and_the_source() -> None:
 
     assert resource["resourceType"] == "Observation"
     assert resource["status"] == "final"
-    assert resource["focus"] == {"reference": "HealthcareService/svc-ucr-west"}
+    assert resource["focus"] == [{"reference": "HealthcareService/svc-ucr-west"}]
     assert resource["code"]["coding"][0]["code"] == "referrals-acceptable"
     assert resource["method"]["coding"][0]["code"] == "link"
     assert resource["effectiveDateTime"] == "2026-10-25T09:12:00Z"

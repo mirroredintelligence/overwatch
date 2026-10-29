@@ -112,10 +112,41 @@ _PENDING_SCENARIO: Final = Scenario(
     ),
 )
 
-# Converted (DEC-150): the message is created stamped with the tenant and listed for it. The
+# Converted (DEC-150, TEN-016): every statement matches or creates the message with the tenant, so
+# a message is created, listed, locked, published and failed only within its own tenant. The
 # properties come from `Neo4jOutbox.add`, which sets only the fixed names and `payload_` ones, so
-# `props` cannot carry a `tenantId`. Lock, published and failed match by id and are not converted
-# yet (TEN-016).
+# `props` cannot carry a `tenantId`. Lock, published and failed scenarios seed the same id in both
+# tenants and check that only the bound tenant's message changes.
+_LOCK_SCENARIO: Final = Scenario(
+    "lock and read the status of the tenant's own message and no other tenant's",
+    seed=_OUTBOX_SEED,
+    params={"id": "m-1"},
+    lookup=("id",),
+    expect=Expect(rows=({"status": "pending"},)),
+)
+_PUBLISHED_SCENARIO: Final = Scenario(
+    "publish the tenant's own message and leave the other tenant's pending",
+    seed=_OUTBOX_SEED,
+    params={"id": "m-1", "at": _AT},
+    lookup=("id",),
+    new=("at",),
+    expect=Expect(
+        rows=({"n": 1},),
+        after=(NodeSpec(("OutboxMessage",), {"id": "m-1", "status": "published"}),),
+    ),
+)
+_FAILED_SCENARIO: Final = Scenario(
+    "count one failed attempt on the tenant's own message and keep it pending below the limit",
+    seed=_OUTBOX_SEED,
+    params={"id": "m-1", "error": "relay refused", "maxAttempts": 10},
+    lookup=("id",),
+    new=("error", "maxAttempts"),
+    expect=Expect(
+        rows=({"attempts": 1, "status": "pending"},),
+        after=(NodeSpec(("OutboxMessage",), {"id": "m-1", "attempts": 1, "status": "pending"}),),
+    ),
+)
+
 _QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario | None]] = {
     "Q-OUTBOX-ADD": (
         "CREATE (m:OutboxMessage {tenantId: $tenant}) SET m += $props RETURN count(m) AS written",
@@ -130,24 +161,25 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario | None]] = {
     ),
     # Lock first (lesson L73): a self-SET takes the message's write lock, then the status is read.
     "Q-OUTBOX-LOCK": (
-        "MATCH (m:OutboxMessage {id: $id}) SET m.id = m.id RETURN m.status AS status",
+        "MATCH (m:OutboxMessage {id: $id, tenantId: $tenant}) SET m.id = m.id "
+        "RETURN m.status AS status",
         "write",
-        None,
+        _LOCK_SCENARIO,
     ),
     "Q-OUTBOX-PUBLISHED": (
-        "MATCH (m:OutboxMessage {id: $id}) SET m.status = 'published', m.publishedAt = $at "
-        "RETURN count(m) AS n",
+        "MATCH (m:OutboxMessage {id: $id, tenantId: $tenant}) "
+        "SET m.status = 'published', m.publishedAt = $at RETURN count(m) AS n",
         "write",
-        None,
+        _PUBLISHED_SCENARIO,
     ),
     "Q-OUTBOX-FAILED": (
-        "MATCH (m:OutboxMessage {id: $id}) SET m.id = m.id "
+        "MATCH (m:OutboxMessage {id: $id, tenantId: $tenant}) SET m.id = m.id "
         "WITH m SET m.attempts = m.attempts + 1, m.lastError = $error "
         "WITH m SET m.status = CASE WHEN m.status = 'pending' AND m.attempts >= $maxAttempts "
         "THEN 'dead' ELSE m.status END "
         "RETURN m.attempts AS attempts, m.status AS status",
         "write",
-        None,
+        _FAILED_SCENARIO,
     ),
 }
 

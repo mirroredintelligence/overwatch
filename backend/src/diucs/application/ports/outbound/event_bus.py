@@ -36,6 +36,10 @@ class BusMessage:
     # application property `tenantId`; a consumer binds it before it opens a unit of work. None
     # until every producer sets it (the outbound-adapters bundle makes it mandatory).
     tenant_id: str | None = None
+    # The W3C trace context of the span that sent the message (O01). The publisher stamps it; the
+    # adapter sends it as the `traceparent` application property; a consumer opens its span under
+    # it. None when there is no trace.
+    traceparent: str | None = None
 
 
 class EventBus(Protocol):

@@ -48,7 +48,9 @@ from diucs.adapters.inbound.fhir_rest.mapping import (
     validate_outbound,
 )
 from diucs.adapters.inbound.fhir_rest.routes_board import BOARD_ROLES
+from diucs.adapters.inbound.fhir_rest.validation import validated_body
 from diucs.application.actor import Actor
+from diucs.application.ports.outbound.terminology import profile_url
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeKind
 from diucs.application.use_cases.report_capacity import ReportCapacity
@@ -384,10 +386,16 @@ async def _json_object(request: Request) -> Any:
 
 @router.post("/Observation")
 async def create_report(
-    request: Request, actor: Annotated[Actor, Depends(require_role(*REPORT_WRITE_ROLES))]
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*REPORT_WRITE_ROLES))],
+    _conforming: Annotated[
+        dict[str, Any],
+        Depends(validated_body(profile_url("DiucsCapacityReport"), "Observation")),
+    ],
 ) -> Response:
-    # The key and the body are checked before the service is looked at, so a refusal here never
-    # depends on which services exist.
+    # The body conforms to the capacity profile (R14) before anything else. The key and the body
+    # are checked before the service is looked at, so a refusal here never depends on which
+    # services exist.
     key = idempotency_key(request)
     report_request = report_request_from_fhir(await _json_object(request), actor, key)
     command = report_request.command

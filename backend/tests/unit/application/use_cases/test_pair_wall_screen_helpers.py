@@ -3,6 +3,7 @@ over the in-memory cache. The use cases themselves are tested against Neo4j in
 tests/integration/application/test_pair_wall_screen.py. Values are synthetic."""
 
 import asyncio
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -11,7 +12,20 @@ from hypothesis import strategies as st
 
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_cache import InMemoryCache
+from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.pair_wall_screen import AttemptLimiter, normalise_code
+
+
+@pytest.fixture(autouse=True)
+def _bound_tenant(request: pytest.FixtureRequest) -> Iterator[None]:
+    """The cache keys every value by the bound tenant (TEN-019): each test binds one. A test marked
+    `no_tenant` runs with nothing bound."""
+    if request.node.get_closest_marker("no_tenant") is not None:
+        yield
+        return
+    with bind_tenant("acme-icb"):
+        yield
+
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 WINDOW = timedelta(minutes=10)

@@ -14,12 +14,13 @@ Every refusal is decided before the first change.
 """
 
 from datetime import UTC, datetime
-from typing import Any, Final
+from typing import Any, Final, Literal
 
 from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.flag_scenarios import FLAG_SCENARIOS
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.domain.codes import ReportFlagReason, parse_code
@@ -42,103 +43,104 @@ _KEYS: Final = frozenset(
     {"resourceType", "id", "meta", "subject", "code", "status", "reason", "actor", "at"}
 )
 
+
+def _query(query_id: str, cypher: str, mode: Literal["read", "write"]) -> NamedQuery:
+    return NamedQuery(id=query_id, cypher=cypher, mode=mode, scenario=FLAG_SCENARIOS[query_id])
+
+
 _QUERIES: Final = (
-    NamedQuery(
-        id="Q-FLAG-OBS-LOCK",
-        cypher=("MATCH (o:Observation {key: $key}) SET o.id = o.id RETURN count(o) AS locked"),
-        mode="write",
+    _query(
+        "Q-FLAG-OBS-LOCK",
+        "MATCH (o:Observation {key: $key, tenantId: $tenant}) "
+        "SET o.id = o.id RETURN count(o) AS locked",
+        "write",
     ),
-    NamedQuery(
-        id="Q-FLAG-OBS-SERVICE",
-        cypher=(
-            "MATCH (:Observation {key: $key})-[:FOCUS]->(s:HealthcareService) "
-            "RETURN s.id AS serviceId"
-        ),
-        mode="read",
+    _query(
+        "Q-FLAG-OBS-SERVICE",
+        "MATCH (:Observation {key: $key, tenantId: $tenant})-[:FOCUS]->"
+        "(s:HealthcareService {tenantId: $tenant}) "
+        "RETURN s.id AS serviceId",
+        "read",
     ),
-    NamedQuery(
-        id="Q-FLAG-REPORT-EXISTS",
-        cypher="MATCH (f:ReportFlag {id: $id}) RETURN count(f) AS found",
-        mode="read",
+    _query(
+        "Q-FLAG-REPORT-EXISTS",
+        "MATCH (f:ReportFlag {id: $id, tenantId: $tenant}) RETURN count(f) AS found",
+        "read",
     ),
-    NamedQuery(
-        id="Q-FLAG-REPORT-ADD",
-        cypher=(
-            "MATCH (o:Observation {key: $key}) CREATE (f:ReportFlag) SET f = $props "
-            "CREATE (f)-[:ON]->(o) RETURN count(f) AS created"
-        ),
-        mode="write",
+    # The stamp is set in the CREATE and kept by SET += (a SET = would erase it, DEC-150 item 4);
+    # the props are built from fixed names and never carry the tenant.
+    _query(
+        "Q-FLAG-REPORT-ADD",
+        "MATCH (o:Observation {key: $key, tenantId: $tenant}) "
+        "CREATE (f:ReportFlag {tenantId: $tenant}) SET f += $props "
+        "CREATE (f)-[:ON]->(o) RETURN count(f) AS created",
+        "write",
     ),
-    NamedQuery(
-        id="Q-FLAG-REPORT-LOCK",
-        cypher=("MATCH (f:ReportFlag {id: $id}) SET f.id = f.id RETURN count(f) AS locked"),
-        mode="write",
+    _query(
+        "Q-FLAG-REPORT-LOCK",
+        "MATCH (f:ReportFlag {id: $id, tenantId: $tenant}) "
+        "SET f.id = f.id RETURN count(f) AS locked",
+        "write",
     ),
-    NamedQuery(
-        id="Q-FLAG-REPORT-GET",
-        cypher=(
-            "MATCH (f:ReportFlag {id: $id})-[:ON]->(o:Observation) "
-            "RETURN properties(f) AS props, o.id AS reportId"
-        ),
-        mode="read",
+    _query(
+        "Q-FLAG-REPORT-GET",
+        "MATCH (f:ReportFlag {id: $id, tenantId: $tenant})-[:ON]->"
+        "(o:Observation {tenantId: $tenant}) "
+        "RETURN properties(f) AS props, o.id AS reportId",
+        "read",
     ),
-    NamedQuery(
-        id="Q-FLAG-REPORT-SAVE",
-        cypher=(
-            "MATCH (f:ReportFlag {id: $id}) SET f.status = $status, f.outcome = $outcome, "
-            "f.resolvedAt = $resolvedAt RETURN count(f) AS saved"
-        ),
-        mode="write",
+    _query(
+        "Q-FLAG-REPORT-SAVE",
+        "MATCH (f:ReportFlag {id: $id, tenantId: $tenant}) "
+        "SET f.status = $status, f.outcome = $outcome, "
+        "f.resolvedAt = $resolvedAt, f.resolvedBy = $resolvedBy RETURN count(f) AS saved",
+        "write",
     ),
-    NamedQuery(
-        id="Q-FLAG-REPORT-OPEN",
-        cypher=(
-            "MATCH (f:ReportFlag {status: $status})-[:ON]->(o:Observation) "
-            "WHERE $serviceId IS NULL OR f.serviceId = $serviceId "
-            "RETURN properties(f) AS props, o.id AS reportId "
-            "ORDER BY f.createdAt ASC, f.id ASC"
-        ),
-        mode="read",
+    _query(
+        "Q-FLAG-REPORT-OPEN",
+        "MATCH (f:ReportFlag {status: $status, tenantId: $tenant})-[:ON]->"
+        "(o:Observation {tenantId: $tenant}) "
+        "WHERE $serviceId IS NULL OR f.serviceId = $serviceId "
+        "RETURN properties(f) AS props, o.id AS reportId "
+        "ORDER BY f.createdAt ASC, f.id ASC",
+        "read",
     ),
-    NamedQuery(
-        id="Q-FLAG-SERVICE-LOCK",
-        cypher=(
-            "MATCH (s:HealthcareService {id: $serviceId}) SET s.id = s.id RETURN count(s) AS locked"
-        ),
-        mode="write",
+    _query(
+        "Q-FLAG-SERVICE-LOCK",
+        "MATCH (s:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+        "SET s.id = s.id RETURN count(s) AS locked",
+        "write",
     ),
-    NamedQuery(
-        id="Q-FLAG-BASIC-STATE",
-        cypher=("MATCH (b:Basic {key: $key}) RETURN 'ServiceFlag' IN labels(b) AS flagged"),
-        mode="read",
+    _query(
+        "Q-FLAG-BASIC-STATE",
+        "MATCH (b:Basic {key: $key, tenantId: $tenant}) "
+        "RETURN 'ServiceFlag' IN labels(b) AS flagged",
+        "read",
     ),
-    NamedQuery(
-        id="Q-FLAG-LABEL",
-        cypher="MATCH (b:Basic {key: $key}) SET b:ServiceFlag RETURN count(b) AS labelled",
-        mode="write",
+    _query(
+        "Q-FLAG-LABEL",
+        "MATCH (b:Basic {key: $key, tenantId: $tenant}) "
+        "SET b:ServiceFlag RETURN count(b) AS labelled",
+        "write",
     ),
-    NamedQuery(
-        id="Q-FLAG-SERVICE-ACTIVE",
-        cypher=(
-            "MATCH (f:ServiceFlag {status: $active})-[:SUBJECT]->"
-            "(:HealthcareService {id: $serviceId}) "
-            "RETURN f.key AS key ORDER BY f.code, f.key"
-        ),
-        mode="read",
+    _query(
+        "Q-FLAG-SERVICE-ACTIVE",
+        "MATCH (f:ServiceFlag {status: $active, tenantId: $tenant})-[:SUBJECT]->"
+        "(:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+        "RETURN f.key AS key ORDER BY f.code, f.key",
+        "read",
     ),
-    NamedQuery(
-        id="Q-FLAG-SERVICES-WITH",
-        cypher=(
-            "MATCH (f:ServiceFlag {status: $active, code: $code})-[:SUBJECT]->"
-            "(s:HealthcareService) "
-            "RETURN DISTINCT s.id AS serviceId"
-        ),
-        mode="read",
+    _query(
+        "Q-FLAG-SERVICES-WITH",
+        "MATCH (f:ServiceFlag {status: $active, code: $code, tenantId: $tenant})-[:SUBJECT]->"
+        "(s:HealthcareService {tenantId: $tenant}) "
+        "RETURN DISTINCT s.id AS serviceId",
+        "read",
     ),
 )
-for _query in _QUERIES:
-    if _query.id not in REGISTRY.ids():
-        REGISTRY.register(_query)
+for _query_definition in _QUERIES:
+    if _query_definition.id not in REGISTRY.ids():
+        REGISTRY.register(_query_definition)
 
 
 def _instant_text(instant: datetime) -> str:
@@ -232,6 +234,8 @@ def _report_props(flag: ReportFlag) -> dict[str, Any]:
         props["resolvedAt"] = flag.resolved_at
     if flag.outcome is not None:
         props["outcome"] = flag.outcome
+    if flag.resolved_by is not None:
+        props["resolvedBy"] = flag.resolved_by
     return props
 
 
@@ -249,6 +253,7 @@ def _report_flag(props: dict[str, Any], report_id: str) -> ReportFlag:
         created_at=created,
         resolved_at=resolved,
         outcome=props.get("outcome"),
+        resolved_by=props.get("resolvedBy"),
     )
 
 
@@ -278,6 +283,12 @@ class Neo4jFlagRepository:
             )
         except ConstraintError as error:  # the unique key on ReportFlag.id refused a racing add
             raise Conflict("a report flag with this id already exists") from error
+
+    async def report_flag(self, flag_id: str) -> ReportFlag | None:
+        rows = await run_query(self._tx, REGISTRY.get("Q-FLAG-REPORT-GET"), id=flag_id)
+        if not rows:
+            return None
+        return _report_flag(rows[0]["props"], str(rows[0]["reportId"]))
 
     async def open_report_flags(self, service_id: str | None = None) -> list[ReportFlag]:
         rows = await run_query(
@@ -310,6 +321,7 @@ class Neo4jFlagRepository:
             status=flag.status,
             outcome=flag.outcome,
             resolvedAt=flag.resolved_at,
+            resolvedBy=flag.resolved_by,
         )
 
     # --- service flags --------------------------------------------------------------------------

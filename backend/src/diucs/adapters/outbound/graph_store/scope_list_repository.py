@@ -21,6 +21,14 @@ from neo4j.exceptions import ClientError
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    Scenario,
+    SeedNode,
+    SeedRel,
+    TenantSeed,
+)
 from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
@@ -35,45 +43,119 @@ _LIST_STATUS: Final = "current"
 _SERVICE: Final = "HealthcareService"
 _CONSTRAINT_VALIDATION: Final = "ConstraintValidationFailed"
 
+# Scenarios of the converted statements (DEC-142 item 5, DEC-150, TEN-011). Both tenants hold the
+# scope list `scope-list` and the service `svc-1`, with an entry from the list to the service: the
+# keys are composite with the tenant (TEN-005), so both tenants share them.
+_NODE_LIST: Final = SeedNode(
+    "list",
+    ("Resource", "List"),
+    {"id": LIST_ID, "status": _LIST_STATUS, "title": _LIST_TITLE},
+)
+_NODE_PILOT: Final = SeedNode(
+    "pilot",
+    ("Resource", "HealthcareService"),
+    {"id": "svc-1", "key": "HealthcareService/svc-1", "active": True, "name": Marked("Pilot")},
+)
+_DAY: Final = date(2026, 10, 25)
+_LIST_SEED: Final = TenantSeed(nodes=(_NODE_LIST, _NODE_PILOT))
+_ENTRY_SEED: Final = TenantSeed(
+    nodes=(_NODE_LIST, _NODE_PILOT),
+    rels=(SeedRel("list", "ENTRY", "pilot", {"flag": "in-pilot"}),),
+)
+_SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-SCOPE-ENSURE-LIST": Scenario(
+        "ensure the scope list of the tenant exists, once",
+        seed=_LIST_SEED,
+        params={"id": LIST_ID, "status": _LIST_STATUS, "title": _LIST_TITLE},
+        lookup=("id",),
+        expect=Expect(rows=({"lists": 1},)),
+    ),
+    "Q-SCOPE-LOCK-LIST": Scenario(
+        "lock the scope list of the tenant",
+        seed=_LIST_SEED,
+        params={"id": LIST_ID},
+        lookup=("id",),
+        expect=Expect(rows=({"locked": 1},)),
+    ),
+    "Q-SCOPE-UPSERT-ENTRY": Scenario(
+        "record the scope entry of a service in the tenant's list",
+        seed=_LIST_SEED,
+        params={
+            "id": LIST_ID,
+            "serviceId": "svc-1",
+            "flag": "in-pilot",
+            "date": _DAY,
+            "reason": "Pilot",
+        },
+        lookup=("id", "serviceId"),
+        new=("flag", "date", "reason"),
+        expect=Expect(rows=({"entries": 1},), rels={"ENTRY": 1}),
+    ),
+    "Q-SCOPE-ENTRIES": Scenario(
+        "list the scope entries of the tenant's list",
+        seed=_ENTRY_SEED,
+        params={"id": LIST_ID},
+        lookup=("id",),
+        expect=Expect(rows=({"id": "svc-1", "flag": "in-pilot"},)),
+    ),
+    "Q-SCOPE-ENTRY-FOR": Scenario(
+        "read the scope entry of a service in the tenant's list",
+        seed=_ENTRY_SEED,
+        params={"id": LIST_ID, "serviceId": "svc-1"},
+        lookup=("id", "serviceId"),
+        expect=Expect(rows=({"id": "svc-1", "flag": "in-pilot"},)),
+    ),
+}
+
 _ENSURE_LIST: Final = NamedQuery(
     id="Q-SCOPE-ENSURE-LIST",
     cypher=(
-        "MERGE (l:Resource:List {id: $id}) "
+        "MERGE (l:Resource:List {id: $id, tenantId: $tenant}) "
         "ON CREATE SET l.status = $status, l.title = $title "
         "RETURN count(l) AS lists"
     ),
     mode="write",
+    scenario=_SCENARIOS["Q-SCOPE-ENSURE-LIST"],
 )
 _LOCK_LIST: Final = NamedQuery(
     id="Q-SCOPE-LOCK-LIST",
-    cypher="MATCH (l:List {id: $id}) SET l.id = l.id RETURN count(l) AS locked",
+    cypher=(
+        "MATCH (l:List {id: $id, tenantId: $tenant}) SET l.id = l.id RETURN count(l) AS locked"
+    ),
     mode="write",
+    scenario=_SCENARIOS["Q-SCOPE-LOCK-LIST"],
 )
 _UPSERT_ENTRY: Final = NamedQuery(
     id="Q-SCOPE-UPSERT-ENTRY",
     cypher=(
-        "MATCH (l:List {id: $id}), (s:HealthcareService {id: $serviceId}) "
+        "MATCH (l:List {id: $id, tenantId: $tenant}), "
+        "(s:HealthcareService {id: $serviceId, tenantId: $tenant}) "
         "MERGE (l)-[e:ENTRY]->(s) "
         "SET e.flag = $flag, e.date = $date, e.reason = $reason "
         "RETURN count(e) AS entries"
     ),
     mode="write",
+    scenario=_SCENARIOS["Q-SCOPE-UPSERT-ENTRY"],
 )
 _ENTRIES: Final = NamedQuery(
     id="Q-SCOPE-ENTRIES",
     cypher=(
-        "MATCH (:List {id: $id})-[e:ENTRY]->(s:HealthcareService) "
+        "MATCH (:List {id: $id, tenantId: $tenant})-[e:ENTRY]->"
+        "(s:HealthcareService {tenantId: $tenant}) "
         "RETURN s.id AS id, e.flag AS flag, e.date AS date, e.reason AS reason"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-SCOPE-ENTRIES"],
 )
 _ENTRY_FOR: Final = NamedQuery(
     id="Q-SCOPE-ENTRY-FOR",
     cypher=(
-        "MATCH (:List {id: $id})-[e:ENTRY]->(s:HealthcareService {id: $serviceId}) "
+        "MATCH (:List {id: $id, tenantId: $tenant})-[e:ENTRY]->"
+        "(s:HealthcareService {id: $serviceId, tenantId: $tenant}) "
         "RETURN s.id AS id, e.flag AS flag, e.date AS date, e.reason AS reason"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-SCOPE-ENTRY-FOR"],
 )
 
 

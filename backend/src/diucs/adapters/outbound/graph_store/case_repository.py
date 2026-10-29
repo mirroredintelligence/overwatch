@@ -30,6 +30,8 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
+from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
 from diucs.domain.codes import (
     AcuityMethod,
     AgeBand,
@@ -105,26 +107,36 @@ _EXT_BEST_FIT: Final = "bestFitNotUsed"
 
 _LOOKUP_BY_REFERENCE: Final = NamedQuery(
     id="Q-CASE-BY-REF",
-    cypher=("MATCH (r:ServiceRequest {reference: $reference}) RETURN r.id AS id ORDER BY r.id"),
+    cypher=(
+        "MATCH (r:ServiceRequest {reference: $reference, tenantId: $tenant}) "
+        "RETURN r.id AS id ORDER BY r.id"
+    ),
     mode="read",
+    scenario=SCENARIOS["Q-CASE-BY-REF"],
 )
 _SET_POSTCODE: Final = NamedQuery(
     id="Q-CASE-SET-POSTCODE",
-    cypher=("MATCH (p:Patient {key: $key}) SET p.postalCode = $postalCode RETURN count(p) AS set"),
+    cypher=(
+        "MATCH (p:Patient {key: $key, tenantId: $tenant}) "
+        "SET p.postalCode = $postalCode RETURN count(p) AS set"
+    ),
     mode="write",
+    scenario=SCENARIOS["Q-CASE-SET-POSTCODE"],
 )
 _READ_POSTCODE: Final = NamedQuery(
     id="Q-CASE-READ-POSTCODE",
-    cypher="MATCH (p:Patient {key: $key}) RETURN p.postalCode AS postalCode",
+    cypher="MATCH (p:Patient {key: $key, tenantId: $tenant}) RETURN p.postalCode AS postalCode",
     mode="read",
+    scenario=SCENARIOS["Q-CASE-READ-POSTCODE"],
 )
 _SET_REFERENCE: Final = NamedQuery(
     id="Q-CASE-SET-REFERENCE",
     cypher=(
-        "MATCH (r:ServiceRequest {key: $key}) "
+        "MATCH (r:ServiceRequest {key: $key, tenantId: $tenant}) "
         "SET r.reference = $reference, r.openReference = $openReference RETURN count(r) AS set"
     ),
     mode="write",
+    scenario=SCENARIOS["Q-CASE-SET-REFERENCE"],
 )
 
 
@@ -442,6 +454,16 @@ class Neo4jCaseRepository:
             await self._store.put(resource, None)
         await self._put_request(case, request, expected=None)
 
+    async def opened_between(self, start: datetime, end: datetime) -> list[Case]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-CASE-OPENED-BETWEEN"),
+            start=start.astimezone(UTC),
+            end=end.astimezone(UTC),
+        )
+        found = [await self.get(str(row["id"])) for row in rows]
+        return [case for case in found if case is not None]
+
     async def get(self, case_id: str) -> Case | None:
         request = await self._store.get(_REQUEST, case_id)
         if request is None:
@@ -552,3 +574,17 @@ def _rebuilt_request(request: dict[str, Any]) -> dict[str, Any]:
         for key, value in request.items()
         if key not in ("meta", "reference", "openReference")
     }
+
+
+_OPENED_BETWEEN: Final = NamedQuery(
+    id="Q-CASE-OPENED-BETWEEN",
+    cypher=(
+        "MATCH (r:ServiceRequest {tenantId: $tenant}) "
+        "WHERE r.authoredOn >= $start AND r.authoredOn < $end "
+        "RETURN r.id AS id ORDER BY r.authoredOn ASC, r.id ASC"
+    ),
+    mode="read",
+    scenario=WEEK_SCENARIOS["Q-CASE-OPENED-BETWEEN"],
+)
+if _OPENED_BETWEEN.id not in REGISTRY.ids():
+    REGISTRY.register(_OPENED_BETWEEN)

@@ -18,7 +18,7 @@ from neo4j import AsyncDriver
 
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.memory_event_bus import ManualEventBus
-from diucs.application.ports.outbound.cache import Cache, Lock
+from diucs.application.ports.outbound.cache import Cache, Lock, scoped_names
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.outbox import OutboxMessage
@@ -280,8 +280,9 @@ class ScriptedTokenCache(InMemoryCache):
         if lock is None:
             return None
         token = self._script.pop(0)
-        self._holders[name] = replace(self._holders[name], token=token)
-        return Lock(name=name, fencing_token=token)
+        holder_name = scoped_names().lock(name)
+        self._holders[holder_name] = replace(self._holders[holder_name], token=token)
+        return Lock(name=name, fencing_token=token, scope=scoped_names().segment)
 
 
 class FlakyLockCache:

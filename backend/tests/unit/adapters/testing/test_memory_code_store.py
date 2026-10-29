@@ -14,34 +14,35 @@ ISSUED = datetime(2026, 10, 25, 11, 0, tzinfo=UTC)
 PHONE_HASH = "e" * 64
 CODE_HASH = "f" * 64
 STATE = CodeState(issued_at=ISSUED)
+PURPOSE = "registration"
 
 
 async def test_the_code_state_is_returned_until_the_clock_passes_ten_minutes() -> None:
     clock = FixedClock(ISSUED)
     store = InMemoryCodeStore(clock)
-    await store.save(PHONE_HASH, CODE_HASH, STATE)
+    await store.save(PURPOSE, PHONE_HASH, CODE_HASH, STATE)
 
     clock.set(ISSUED + timedelta(minutes=9, seconds=59))
-    assert await store.get(PHONE_HASH) == (CODE_HASH, STATE)
+    assert await store.get(PURPOSE, PHONE_HASH) == (CODE_HASH, STATE)
 
     clock.set(ISSUED + timedelta(minutes=10))
-    assert await store.get(PHONE_HASH) is None
+    assert await store.get(PURPOSE, PHONE_HASH) is None
 
 
 async def test_an_unknown_phone_hash_has_no_code() -> None:
     store = InMemoryCodeStore(FixedClock(ISSUED))
-    assert await store.get(PHONE_HASH) is None
+    assert await store.get(PURPOSE, PHONE_HASH) is None
 
 
 async def test_clear_removes_the_code_for_that_phone_only() -> None:
     store = InMemoryCodeStore(FixedClock(ISSUED))
-    await store.save(PHONE_HASH, CODE_HASH, STATE)
-    await store.save("d" * 64, "c" * 64, STATE)
+    await store.save(PURPOSE, PHONE_HASH, CODE_HASH, STATE)
+    await store.save(PURPOSE, "d" * 64, "c" * 64, STATE)
 
-    await store.clear(PHONE_HASH)
+    await store.clear(PURPOSE, PHONE_HASH)
 
-    assert await store.get(PHONE_HASH) is None
-    assert await store.get("d" * 64) == ("c" * 64, STATE)
+    assert await store.get(PURPOSE, PHONE_HASH) is None
+    assert await store.get(PURPOSE, "d" * 64) == ("c" * 64, STATE)
 
 
 async def test_recording_code_sender_records_the_phone_and_the_code() -> None:
@@ -60,6 +61,16 @@ async def test_a_code_saved_with_a_naive_issue_time_is_refused() -> None:
     store = InMemoryCodeStore(FixedClock(ISSUED))
 
     with pytest.raises(ValidationFailed):
-        await store.save(PHONE_HASH, CODE_HASH, CodeState(issued_at=datetime(2026, 10, 25, 11, 0)))
+        await store.save(
+            PURPOSE, PHONE_HASH, CODE_HASH, CodeState(issued_at=datetime(2026, 10, 25, 11, 0))
+        )
 
-    assert await store.get(PHONE_HASH) is None
+    assert await store.get(PURPOSE, PHONE_HASH) is None
+
+
+async def test_a_code_for_one_purpose_is_not_found_for_another() -> None:
+    store = InMemoryCodeStore(FixedClock(ISSUED))
+    await store.save(PURPOSE, PHONE_HASH, CODE_HASH, STATE)
+
+    assert await store.get("sign-in", PHONE_HASH) is None
+    assert await store.get(PURPOSE, PHONE_HASH) == (CODE_HASH, STATE)

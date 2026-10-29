@@ -4,19 +4,22 @@ Adapters: Neo4jServiceRepository and Neo4jCapacityRepository in adapters/outboun
 Reports are never updated or deleted: a correction is a new report.
 """
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Protocol
 
-from diucs.domain.codes import RegistrationStatus
+from diucs.domain.codes import AgeBand, AlertKind, NeedCategory, RegistrationStatus
+from diucs.domain.model.alerts import AlertRecord, AlertSubscription
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
+from diucs.domain.model.clinical import ClinicalRequestRecord
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import ReportFlag, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.service_move import ServiceMove
 
 
 class ServiceRepository(Protocol):
@@ -59,6 +62,11 @@ class CapacityRepository(Protocol):
 
     async def reports_since(self, service_id: str, since: datetime) -> list[CapacityReport]:
         """Reports effective at or after `since`, oldest first."""
+        ...
+
+    async def reports_between(self, start: datetime, end: datetime) -> list[CapacityReport]:
+        """Reports of every service effective at or after `start` and before `end` (U35), oldest
+        first."""
         ...
 
     async def last_report_times(self) -> dict[str, datetime | None]:
@@ -117,6 +125,11 @@ class BookingRepository(Protocol):
         """For each service, the confirmed_at of its bookings whose status is exactly confirmed,
         at or after `since`. Every requested id is a key, with [] if none. One query for all the
         services (Q-BOOK-CONFIRMED-FOR, DEC-088)."""
+        ...
+
+    async def confirmed_between(self, start: datetime, end: datetime) -> list[Booking]:
+        """Bookings whose confirmation is at or after `start` and before `end` (U35), with their
+        requested and confirmed times."""
         ...
 
     async def pending_count(self, service_id: str) -> int:
@@ -194,6 +207,10 @@ class CaseRepository(Protocol):
         """The case with this reference, or None."""
         ...
 
+    async def opened_between(self, start: datetime, end: datetime) -> list[Case]:
+        """Cases opened at or after `start` and before `end` (U35), oldest first."""
+        ...
+
     async def save(self, case: Case) -> None:
         """Replace the stored case. An unknown id raises NotFound. A change to the scores or the
         reference raises ValidationFailed, and reopening a closed case raises InvalidTransition.
@@ -233,8 +250,17 @@ class CriteriaRepository(Protocol):
         number raises ValidationFailed. A second current version raises Conflict."""
         ...
 
+    async def candidates(
+        self, age_band: AgeBand, district: str, needs: Iterable[NeedCategory]
+    ) -> list[ServiceCriteria]:
+        """The current versions of the active, unsuspended services that pass the database hard
+        pre-filter (G11, Q-CRIT-FILTER). Not an age band, a district or a need category raises
+        ValidationFailed before any query. The caller still runs check_hard_criteria on each one."""
+        ...
+
     async def history(self, service_id: str) -> list[ServiceCriteria]:
-        """Every version for this service, newest version number first. Old versions are kept."""
+        """The versions reached from the service's current version by SUPERSEDES, newest version
+        number first. Old versions are kept. A service with no current version has no history."""
         ...
 
 
@@ -306,6 +332,10 @@ class FlagRepository(Protocol):
         another service raises ValidationFailed, and an id that exists raises Conflict."""
         ...
 
+    async def report_flag(self, flag_id: str) -> ReportFlag | None:
+        """The report flag with this id, open or resolved, or None (U39)."""
+        ...
+
     async def open_report_flags(self, service_id: str | None = None) -> list[ReportFlag]:
         """Open report flags, oldest first, for one service or for all services."""
         ...
@@ -327,4 +357,99 @@ class FlagRepository(Protocol):
 
     async def services_with_flag(self, code: str) -> set[str]:
         """The ids of services with an active service flag with this code."""
+        ...
+
+
+class AlertSubscriptionRepository(Protocol):
+    """Alert preferences, one per practitioner (P17). Adapter: Neo4jAlertSubscriptionRepository
+    (graph_store/alert_repository.py). Saving again replaces the practitioner's subscription."""
+
+    async def get_for_practitioner(self, practitioner_id: str) -> AlertSubscription | None:
+        """The stored subscription of this practitioner, or None."""
+        ...
+
+    async def save(self, subscription: AlertSubscription) -> None:
+        """Insert the subscription, or replace the practitioner's stored one. An unknown
+        practitioner raises NotFound and writes nothing."""
+        ...
+
+    async def subscribers_for_kind(self, kind: AlertKind) -> list[AlertSubscription]:
+        """The subscriptions of the bound tenant that have this alert kind switched on."""
+        ...
+
+
+class AlertRepository(Protocol):
+    """Alerts, stored as Task code acknowledge-alert (P17). Adapter: Neo4jAlertRepository."""
+
+    async def add(self, alert: AlertRecord) -> None:
+        """Store a new alert. An id that exists raises Conflict."""
+        ...
+
+    async def get(self, alert_id: str) -> AlertRecord | None:
+        """The stored alert, or None."""
+        ...
+
+    async def save(self, alert: AlertRecord) -> None:
+        """Replace the stored alert. An unknown id raises NotFound."""
+        ...
+
+    async def open_for_owner(self, practitioner_id: str) -> list[AlertRecord]:
+        """The alerts owned by this practitioner that are still new."""
+        ...
+
+    async def chain(self, alert_id: str) -> list[AlertRecord]:
+        """The alert and every alert it escalates from, from the root through each partOf link,
+        oldest first. An unknown id raises NotFound."""
+        ...
+
+
+class ClinicalRequestRepository(Protocol):
+    """Clinical advice requests, stored as Task code clinical-advice-request (P18). Adapter:
+    Neo4jClinicalRequestRepository (graph_store/clinical_request_repository.py). The queue order is
+    the one of queue_order (D23): now before within-15-min, then oldest first. Presence is not
+    stored here."""
+
+    async def add(self, record: ClinicalRequestRecord) -> None:
+        """Store a new request. An id that exists raises Conflict."""
+        ...
+
+    async def get(self, request_id: str) -> ClinicalRequestRecord | None:
+        """The stored request, or None."""
+        ...
+
+    async def save(self, record: ClinicalRequestRecord) -> None:
+        """Replace the stored request. An unknown id raises NotFound; a stale version raises
+        Conflict."""
+        ...
+
+    async def waiting(self) -> list[ClinicalRequestRecord]:
+        """The requests nobody has taken, in queue order."""
+        ...
+
+    async def taken_by(self, clinician_id: str) -> list[ClinicalRequestRecord]:
+        """The requests this clinician has taken and not yet advised on."""
+        ...
+
+
+class ServiceMoveRepository(Protocol):
+    """Service moves (P20, U38). Adapter: Neo4jServiceMoveRepository
+    (graph_store/service_move_repository.py). Only the phone hash is stored, never the number."""
+
+    async def add(self, move: ServiceMove) -> None:
+        """Store a new move. A second open move for the service raises Conflict, an id that exists
+        raises Conflict, and a service or practitioner that is not there raises NotFound."""
+        ...
+
+    async def get(self, move_id: str) -> ServiceMove | None:
+        """The stored move, or None."""
+        ...
+
+    async def save(self, move: ServiceMove) -> None:
+        """Record the times of a move (verified, callback, completed, cancelled, until). A change
+        to its service, practitioner or phone hash raises ValidationFailed; an unknown id raises
+        NotFound."""
+        ...
+
+    async def open_for_service(self, service_id: str) -> list[ServiceMove]:
+        """The moves of this service that are not completed and not cancelled."""
         ...

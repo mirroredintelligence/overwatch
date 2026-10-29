@@ -35,6 +35,15 @@ from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.adapters.outbound.graph_store.scenario import (
+    Expect,
+    Marked,
+    NodeSpec,
+    Scenario,
+    SeedNode,
+    SeedRel,
+    TenantSeed,
+)
 from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
@@ -64,79 +73,243 @@ def _register(query: NamedQuery) -> None:
         REGISTRY.register(query)
 
 
+# Scenarios of the converted statements (DEC-142 item 5, DEC-150, TEN-011). Both tenants hold a
+# practitioner `p-1` with the same phone hash, a role `r-1` at `svc-1`, a second practitioner `p-2`
+# and a role `r-2` that `p-1` covers until an instant. The keys are composite with the tenant
+# (TEN-005), so both tenants share them and every statement is proved with colliding keys.
+_PHONE: Final = "a" * 64
+_NOW: Final = datetime(2026, 10, 25, 13, 0, tzinfo=UTC)
+_UNTIL: Final = datetime(2026, 10, 25, 19, 0, tzinfo=UTC)
+_PRACTITIONER_KEY: Final = "Practitioner/p-1"
+_NODE_PERSON: Final = SeedNode(
+    "person",
+    ("Resource", "Practitioner"),
+    {
+        "id": "p-1",
+        "key": _PRACTITIONER_KEY,
+        "active": True,
+        "phoneHash": _PHONE,
+        "displayName": Marked("Duty Manager"),
+    },
+)
+_NODE_COVER: Final = SeedNode(
+    "cover",
+    ("Resource", "Practitioner"),
+    {"id": "p-2", "key": "Practitioner/p-2", "active": True, "displayName": Marked("Cover")},
+)
+_NODE_SERVICE: Final = SeedNode(
+    "service",
+    ("Resource", "HealthcareService"),
+    {"id": "svc-1", "key": "HealthcareService/svc-1", "active": True, "name": Marked("Ward")},
+)
+_NODE_ROLE: Final = SeedNode(
+    "role",
+    ("Resource", "PractitionerRole"),
+    {"id": "r-1", "key": "PractitionerRole/r-1", "active": True, "note": Marked("Duty")},
+)
+_NODE_COVERED: Final = SeedNode(
+    "covered",
+    ("Resource", "PractitionerRole"),
+    {"id": "r-2", "key": "PractitionerRole/r-2", "active": True},
+)
+_PERSON_SEED: Final = TenantSeed(nodes=(_NODE_PERSON,))
+_REPORTER_SEED: Final = TenantSeed(
+    nodes=(_NODE_PERSON, _NODE_SERVICE, _NODE_ROLE),
+    rels=(
+        SeedRel("role", "PRACTITIONER", "person"),
+        SeedRel("role", "HEALTHCARE_SERVICE", "service"),
+    ),
+)
+_COVER_SEED: Final = TenantSeed(
+    nodes=(_NODE_PERSON, _NODE_COVER, _NODE_SERVICE, _NODE_ROLE, _NODE_COVERED),
+    rels=(
+        SeedRel("role", "PRACTITIONER", "person"),
+        SeedRel("role", "HEALTHCARE_SERVICE", "service"),
+        SeedRel("covered", "PRACTITIONER", "person"),
+        SeedRel("covered", "HEALTHCARE_SERVICE", "service"),
+        SeedRel("covered", "COVERED_BY", "person", {"until": _UNTIL}),
+    ),
+)
+_TEXT: Final = coding_for(Channel.TEXT)
+_CONCEPT_KEY: Final = f"{_CONCEPT_PREFIX}{_TEXT.system}{_KEY_SEPARATOR}{_TEXT.code}"
+
+_SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-PERSON-PHONE-FIND": Scenario(
+        "find the one active practitioner of the phone in the tenant",
+        seed=_PERSON_SEED,
+        params={"hash": _PHONE},
+        lookup=("hash",),
+        expect=Expect(rows=({"id": "p-1"},)),
+    ),
+    "Q-PERSON-ROLES-OF": Scenario(
+        "list the active roles of a practitioner",
+        seed=_REPORTER_SEED,
+        params={"key": _PRACTITIONER_KEY},
+        lookup=("key",),
+        expect=Expect(rows=({"id": "r-1"},)),
+    ),
+    "Q-PHONE-SERVICES-HELD": Scenario(
+        "list the roles a phone holds and is not covered out of",
+        seed=_REPORTER_SEED,
+        params={"hash": _PHONE, "now": _NOW},
+        lookup=("hash",),
+        new=("now",),
+        expect=Expect(rows=({"roleId": "r-1", "name": Marked("Ward")},)),
+    ),
+    "Q-PHONE-SERVICES-AT": Scenario(
+        "list the roles a phone covers until after now",
+        seed=_COVER_SEED,
+        params={"hash": _PHONE, "now": _NOW},
+        lookup=("hash",),
+        new=("now",),
+        expect=Expect(rows=({"roleId": "r-2", "name": Marked("Ward")},)),
+    ),
+    "Q-SERVICE-REPORTER-ROLES": Scenario(
+        "list the active reporter roles of a service",
+        seed=_REPORTER_SEED,
+        params={"key": "HealthcareService/svc-1"},
+        lookup=("key",),
+        expect=Expect(rows=({"id": "r-1"},)),
+    ),
+    "Q-PERSON-SET-PROPS": Scenario(
+        "set the phone hash and email domain of the tenant's practitioner",
+        seed=_PERSON_SEED,
+        params={"key": _PRACTITIONER_KEY, "phoneHash": "b" * 64, "emailDomain": "example.test"},
+        lookup=("key",),
+        new=("phoneHash", "emailDomain"),
+        expect=Expect(
+            rows=({"set": 1},),
+            after=(
+                NodeSpec(
+                    ("Practitioner",),
+                    {
+                        "key": _PRACTITIONER_KEY,
+                        "phoneHash": "b" * 64,
+                        "emailDomain": "example.test",
+                    },
+                ),
+            ),
+        ),
+    ),
+    "Q-ROLE-CHANNEL": Scenario(
+        "link a role to the text channel concept of the tenant",
+        seed=TenantSeed(nodes=(_NODE_ROLE,)),
+        params={
+            "roleKey": "PractitionerRole/r-1",
+            "system": _TEXT.system,
+            "code": _TEXT.code,
+            "display": _TEXT.display,
+            "conceptKey": _CONCEPT_KEY,
+        },
+        lookup=("roleKey",),
+        new=("system", "code", "display", "conceptKey"),
+        expect=Expect(
+            rows=({"linked": 1},),
+            nodes={"Concept": 1},
+            rels={"CHANNEL": 1},
+            after=(NodeSpec(("Concept",), {"system": _TEXT.system, "code": _TEXT.code}),),
+        ),
+    ),
+    "Q-ROLE-COVER": Scenario(
+        "cover a role by another practitioner of the tenant until an instant",
+        seed=TenantSeed(
+            nodes=(_NODE_PERSON, _NODE_COVER, _NODE_ROLE),
+            rels=(SeedRel("role", "PRACTITIONER", "person"),),
+        ),
+        params={"roleKey": "PractitionerRole/r-1", "coverKey": "Practitioner/p-2", "until": _UNTIL},
+        lookup=("roleKey", "coverKey"),
+        new=("until",),
+        expect=Expect(rows=({"linked": 1},), rels={"COVERED_BY": 1}),
+    ),
+}
+
 _PERSON_PHONE_FIND: Final = NamedQuery(
     id="Q-PERSON-PHONE-FIND",
     cypher=(
-        "MATCH (p:Practitioner {phoneHash: $hash, active: true}) RETURN p.id AS id ORDER BY p.id"
+        "MATCH (p:Practitioner {phoneHash: $hash, active: true, tenantId: $tenant}) "
+        "RETURN p.id AS id ORDER BY p.id"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-PERSON-PHONE-FIND"],
 )
 _PERSON_ROLES_OF: Final = NamedQuery(
     id="Q-PERSON-ROLES-OF",
     cypher=(
-        "MATCH (r:PractitionerRole {active: true})-[:PRACTITIONER]->(:Practitioner {key: $key}) "
+        "MATCH (r:PractitionerRole {active: true, tenantId: $tenant})"
+        "-[:PRACTITIONER]->(:Practitioner {key: $key, tenantId: $tenant}) "
         "RETURN r.id AS id ORDER BY r.id"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-PERSON-ROLES-OF"],
 )
 # Query #3 (fhir-data-model): the roles a phone holds and is not covered out of at $now.
 _PHONE_SERVICES_HELD: Final = NamedQuery(
     id="Q-PHONE-SERVICES-HELD",
     cypher=(
-        "MATCH (p:Practitioner {phoneHash: $hash, active: true})"
-        "<-[:PRACTITIONER]-(r:PractitionerRole {active: true})"
-        "-[:HEALTHCARE_SERVICE]->(s:HealthcareService) "
-        "WHERE NOT EXISTS { MATCH (r)-[c:COVERED_BY]->(:Practitioner) WHERE c.until > $now } "
+        "MATCH (p:Practitioner {phoneHash: $hash, active: true, tenantId: $tenant})"
+        "<-[:PRACTITIONER]-(r:PractitionerRole {active: true, tenantId: $tenant})"
+        "-[:HEALTHCARE_SERVICE]->(s:HealthcareService {tenantId: $tenant}) "
+        "WHERE NOT EXISTS { MATCH (r)-[c:COVERED_BY]->(:Practitioner {tenantId: $tenant}) "
+        "WHERE c.until > $now } "
         "RETURN r.id AS roleId, s.name AS name"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-PHONE-SERVICES-HELD"],
 )
 # Query #3 extended with cover (Q-PHONE-SERVICES-AT): the roles this phone covers until after $now.
 _PHONE_SERVICES_AT: Final = NamedQuery(
     id="Q-PHONE-SERVICES-AT",
     cypher=(
-        "MATCH (p:Practitioner {phoneHash: $hash, active: true})"
-        "<-[c:COVERED_BY]-(r:PractitionerRole {active: true})"
-        "-[:HEALTHCARE_SERVICE]->(s:HealthcareService) "
+        "MATCH (p:Practitioner {phoneHash: $hash, active: true, tenantId: $tenant})"
+        "<-[c:COVERED_BY]-(r:PractitionerRole {active: true, tenantId: $tenant})"
+        "-[:HEALTHCARE_SERVICE]->(s:HealthcareService {tenantId: $tenant}) "
         "WHERE c.until > $now "
         "RETURN r.id AS roleId, s.name AS name"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-PHONE-SERVICES-AT"],
 )
 _SERVICE_ROLES: Final = NamedQuery(
     id="Q-SERVICE-REPORTER-ROLES",
     cypher=(
-        "MATCH (r:PractitionerRole {active: true})-[:HEALTHCARE_SERVICE]->"
-        "(:HealthcareService {key: $key}) RETURN r.id AS id ORDER BY r.id"
+        "MATCH (r:PractitionerRole {active: true, tenantId: $tenant})"
+        "-[:HEALTHCARE_SERVICE]->(:HealthcareService {key: $key, tenantId: $tenant}) "
+        "RETURN r.id AS id ORDER BY r.id"
     ),
     mode="read",
+    scenario=_SCENARIOS["Q-SERVICE-REPORTER-ROLES"],
 )
 _PERSON_SET_PROPS: Final = NamedQuery(
     id="Q-PERSON-SET-PROPS",
     cypher=(
-        "MATCH (p:Practitioner {key: $key}) "
+        "MATCH (p:Practitioner {key: $key, tenantId: $tenant}) "
         "SET p.phoneHash = $phoneHash, p.emailDomain = $emailDomain "
         "RETURN count(p) AS set"
     ),
     mode="write",
+    scenario=_SCENARIOS["Q-PERSON-SET-PROPS"],
 )
+# The role is matched first: a role that is not there creates no concept (TEN-011).
 _ROLE_CHANNEL: Final = NamedQuery(
     id="Q-ROLE-CHANNEL",
     cypher=(
-        "MERGE (c:Concept {system: $system, code: $code}) "
+        "MATCH (r:PractitionerRole {key: $roleKey, tenantId: $tenant}) "
+        "MERGE (c:Concept {system: $system, code: $code, tenantId: $tenant}) "
         "ON CREATE SET c.key = $conceptKey, c.display = $display "
-        "WITH c MATCH (r:PractitionerRole {key: $roleKey}) "
         "CREATE (r)-[:CHANNEL]->(c) RETURN count(r) AS linked"
     ),
     mode="write",
+    scenario=_SCENARIOS["Q-ROLE-CHANNEL"],
 )
 _ROLE_COVER: Final = NamedQuery(
     id="Q-ROLE-COVER",
     cypher=(
-        "MATCH (r:PractitionerRole {key: $roleKey}) MATCH (p:Practitioner {key: $coverKey}) "
+        "MATCH (r:PractitionerRole {key: $roleKey, tenantId: $tenant}) "
+        "MATCH (p:Practitioner {key: $coverKey, tenantId: $tenant}) "
         "CREATE (r)-[:COVERED_BY {until: $until}]->(p) RETURN count(*) AS linked"
     ),
     mode="write",
+    scenario=_SCENARIOS["Q-ROLE-COVER"],
 )
 for _query in (
     _PERSON_PHONE_FIND,

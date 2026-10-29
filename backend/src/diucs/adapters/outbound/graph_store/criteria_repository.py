@@ -18,12 +18,24 @@ version number is refused rather than stored.
 Decisions: DEC-076 (the choices the prompt leaves open, and the local-relationship rule).
 """
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from datetime import date
 from typing import Any, Final
 
 from neo4j import AsyncManagedTransaction
 
+from diucs.adapters.outbound.graph_store.criteria_scenarios import (
+    CLEAR_CURRENT_SCENARIO,
+    CURRENT_FOR_SCENARIO,
+    CURRENT_SCENARIO,
+    FILTER_SCENARIO,
+    HISTORY_SCENARIO,
+    LABEL_SCENARIO,
+    LOCK_SERVICE_SCENARIO,
+    SET_CURRENT_SCENARIO,
+    SUBJECT_SCENARIO,
+    VERSIONS_SCENARIO,
+)
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
@@ -31,9 +43,10 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
-from diucs.domain.codes import CriteriaStatus, NeedCategory, parse_code
+from diucs.domain.codes import AgeBand, CriteriaStatus, NeedCategory, parse_code
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
+from diucs.domain.rules.criteria_filter import AGE_BAND_BOUNDS
 
 _BASIC: Final = "Basic"
 _SERVICE: Final = "HealthcareService"
@@ -53,6 +66,7 @@ _KEYS: Final = frozenset(
         "ageMin",
         "ageMax",
         "reviewBy",
+        "reviewMonths",
         "postcodeDistricts",
         "acceptsNeed",
         "excludesNeed",
@@ -61,72 +75,130 @@ _KEYS: Final = frozenset(
     }
 )
 
-_LOCK_SERVICE: Final = NamedQuery(
-    id="Q-CRIT-LOCK-SERVICE",
-    cypher=(
-        "MATCH (s:HealthcareService {id: $serviceId}) SET s.id = s.id RETURN count(s) AS locked"
-    ),
-    mode="write",
+# The hard pre-filter of the advisor's options list (G11, domain-rules 4.1). It gives the candidates
+# and the domain (check_hard_criteria) then decides pass or the "Check age" warning. The age test is
+# the overlap that the domain's age rule warns on; the band bounds come from AGE_BAND_BOUNDS, with
+# no upper limit passed as null (coalesced to 999). Concepts are matched inside the criteria's own
+# relationships, so a need can only be the one this tenant's criteria holds. Everything is read in
+# the caller's tenant only, and a suspended service (an active ServiceFlag) is never a candidate.
+_FILTER_CYPHER: Final = (
+    "MATCH (s:HealthcareService {active: true, tenantId: $tenant})"
+    "-[:CURRENT_CRITERIA]->(c:ServiceCriteria {status: 'current', tenantId: $tenant}) "
+    "WHERE c.ageMin <= coalesce($bandMax, 999) AND (c.ageMax IS NULL OR $bandMin <= c.ageMax) "
+    "AND $district IN c.postcodeDistricts "
+    "AND NOT EXISTS { MATCH (c)-[:EXCLUDES_NEED]->(x:Concept {tenantId: $tenant}) "
+    "WHERE x.code IN $needs } "
+    "AND ALL(n IN $needs WHERE EXISTS { MATCH (c)-[:ACCEPTS_NEED]->(a:Concept {tenantId: $tenant}) "
+    "WHERE a.code = n }) "
+    "AND NOT EXISTS { MATCH (f:ServiceFlag "
+    "{code: 'suspended', status: 'active', tenantId: $tenant})-[:SUBJECT]->(s) } "
+    "RETURN s.id AS serviceId, c.id AS id ORDER BY s.id, c.id"
 )
-_LABEL: Final = NamedQuery(
-    id="Q-CRIT-LABEL",
-    cypher="MATCH (c:Basic {key: $key}) SET c:ServiceCriteria RETURN count(c) AS labelled",
-    mode="write",
+# The criteria versions of one service reached from its current version by SUPERSEDES (query #6 of
+# fhir-data-model.md), newest first. The walk starts at the current version, so a service with no
+# current version has no history here.
+_HISTORY_CYPHER: Final = (
+    "MATCH (c:ServiceCriteria {status: 'current', tenantId: $tenant})"
+    "-[:SUBJECT]->(:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+    "MATCH (c)-[:SUPERSEDES*0..]->(old:ServiceCriteria {tenantId: $tenant}) "
+    "RETURN old.id AS id ORDER BY old.version DESC"
 )
-_SUBJECT: Final = NamedQuery(
-    id="Q-CRIT-SUBJECT",
-    cypher=(
-        "MATCH (c:ServiceCriteria {key: $key})-[:SUBJECT]->(s:HealthcareService) "
-        "RETURN s.id AS serviceId"
+
+_QUERIES: Final = (
+    NamedQuery(
+        id="Q-CRIT-LOCK-SERVICE",
+        cypher=(
+            "MATCH (s:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+            "SET s.id = s.id RETURN count(s) AS locked"
+        ),
+        mode="write",
+        scenario=LOCK_SERVICE_SCENARIO,
     ),
-    mode="read",
-)
-_CURRENT: Final = NamedQuery(
-    id="Q-CRIT-CURRENT",
-    cypher=(
-        "MATCH (c:ServiceCriteria {status: 'current'})"
-        "-[:SUBJECT]->(:HealthcareService {id: $serviceId}) "
-        "RETURN c.id AS id ORDER BY c.id"
+    NamedQuery(
+        id="Q-CRIT-LABEL",
+        cypher=(
+            "MATCH (c:Basic {key: $key, tenantId: $tenant}) "
+            "SET c:ServiceCriteria RETURN count(c) AS labelled"
+        ),
+        mode="write",
+        scenario=LABEL_SCENARIO,
     ),
-    mode="read",
-)
-_CURRENT_FOR: Final = NamedQuery(
-    id="Q-CRIT-CURRENT-FOR",
-    cypher=(
-        "MATCH (c:ServiceCriteria {status: 'current'})-[:SUBJECT]->(s:HealthcareService) "
-        "WHERE s.id IN $serviceIds RETURN s.id AS serviceId, c.id AS id ORDER BY s.id, c.id"
+    NamedQuery(
+        id="Q-CRIT-SUBJECT",
+        cypher=(
+            "MATCH (c:ServiceCriteria {key: $key, tenantId: $tenant})"
+            "-[:SUBJECT]->(s:HealthcareService {tenantId: $tenant}) "
+            "RETURN s.id AS serviceId"
+        ),
+        mode="read",
+        scenario=SUBJECT_SCENARIO,
     ),
-    mode="read",
-)
-_VERSIONS: Final = NamedQuery(
-    id="Q-CRIT-VERSIONS",
-    cypher=(
-        "MATCH (c:ServiceCriteria)-[:SUBJECT]->(:HealthcareService {id: $serviceId}) "
-        "RETURN c.id AS id, c.version AS version ORDER BY c.version DESC, c.id"
+    NamedQuery(
+        id="Q-CRIT-CURRENT",
+        cypher=(
+            "MATCH (c:ServiceCriteria {status: 'current', tenantId: $tenant})"
+            "-[:SUBJECT]->(:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+            "RETURN c.id AS id ORDER BY c.id"
+        ),
+        mode="read",
+        scenario=CURRENT_SCENARIO,
     ),
-    mode="read",
-)
-_SET_CURRENT: Final = NamedQuery(
-    id="Q-CRIT-SET-CURRENT",
-    cypher=(
-        "MATCH (s:HealthcareService {id: $serviceId}) "
-        "OPTIONAL MATCH (s)-[old:CURRENT_CRITERIA]->() "
-        "DELETE old "
-        "WITH DISTINCT s "
-        "MATCH (c:Basic {key: $key}) "
-        "MERGE (s)-[:CURRENT_CRITERIA]->(c) "
-        "RETURN count(c) AS linked"
+    NamedQuery(
+        id="Q-CRIT-CURRENT-FOR",
+        cypher=(
+            "MATCH (c:ServiceCriteria {status: 'current', tenantId: $tenant})"
+            "-[:SUBJECT]->(s:HealthcareService {tenantId: $tenant}) "
+            "WHERE s.id IN $serviceIds RETURN s.id AS serviceId, c.id AS id ORDER BY s.id, c.id"
+        ),
+        mode="read",
+        scenario=CURRENT_FOR_SCENARIO,
     ),
-    mode="write",
-)
-_CLEAR_CURRENT: Final = NamedQuery(
-    id="Q-CRIT-CLEAR-CURRENT",
-    cypher=(
-        "MATCH (:HealthcareService {id: $serviceId})"
-        "-[link:CURRENT_CRITERIA]->(c:Basic {key: $key}) "
-        "DELETE link RETURN count(link) AS cleared"
+    NamedQuery(
+        id="Q-CRIT-VERSIONS",
+        cypher=(
+            "MATCH (c:ServiceCriteria {tenantId: $tenant})"
+            "-[:SUBJECT]->(:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+            "RETURN c.id AS id, c.version AS version ORDER BY c.version DESC, c.id"
+        ),
+        mode="read",
+        scenario=VERSIONS_SCENARIO,
     ),
-    mode="write",
+    NamedQuery(
+        id="Q-CRIT-SET-CURRENT",
+        cypher=(
+            "MATCH (s:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+            "OPTIONAL MATCH (s)-[old:CURRENT_CRITERIA]->(o {tenantId: $tenant}) "
+            "DELETE old "
+            "WITH DISTINCT s "
+            "MATCH (c:Basic {key: $key, tenantId: $tenant}) "
+            "MERGE (s)-[:CURRENT_CRITERIA]->(c) "
+            "RETURN count(c) AS linked"
+        ),
+        mode="write",
+        scenario=SET_CURRENT_SCENARIO,
+    ),
+    NamedQuery(
+        id="Q-CRIT-CLEAR-CURRENT",
+        cypher=(
+            "MATCH (:HealthcareService {id: $serviceId, tenantId: $tenant})"
+            "-[link:CURRENT_CRITERIA]->(c:Basic {key: $key, tenantId: $tenant}) "
+            "DELETE link RETURN count(link) AS cleared"
+        ),
+        mode="write",
+        scenario=CLEAR_CURRENT_SCENARIO,
+    ),
+    NamedQuery(
+        id="Q-CRIT-FILTER",
+        cypher=_FILTER_CYPHER,
+        mode="read",
+        scenario=FILTER_SCENARIO,
+    ),
+    NamedQuery(
+        id="Q-CRIT-HISTORY",
+        cypher=_HISTORY_CYPHER,
+        mode="read",
+        scenario=HISTORY_SCENARIO,
+    ),
 )
 
 
@@ -135,16 +207,7 @@ def _register(query: NamedQuery) -> None:
         REGISTRY.register(query)
 
 
-for _query in (
-    _LOCK_SERVICE,
-    _LABEL,
-    _SUBJECT,
-    _CURRENT,
-    _CURRENT_FOR,
-    _VERSIONS,
-    _SET_CURRENT,
-    _CLEAR_CURRENT,
-):
+for _query in _QUERIES:
     _register(_query)
 
 
@@ -226,6 +289,8 @@ def criteria_to_fhir(criteria: ServiceCriteria) -> dict[str, Any]:
         resource["excludesNeed"] = [codeable_to_fhir(need) for need in sorted(criteria.excludes)]
     if criteria.change_reason:
         resource["changeReason"] = criteria.change_reason
+    if criteria.review_months is not None:
+        resource["reviewMonths"] = criteria.review_months
     if criteria.supersedes_id is not None:
         resource["supersedes"] = {"reference": f"{_BASIC}/{criteria.supersedes_id}"}
     return resource
@@ -258,6 +323,11 @@ def criteria_from_fhir(resource: dict[str, Any]) -> ServiceCriteria:
         owner_role_id=_reference(resource, "author", _PRACTITIONER_ROLE),
         change_reason=resource.get("changeReason", ""),
         supersedes_id=(None if supersedes is None else _reference(resource, "supersedes", _BASIC)),
+        review_months=(
+            None
+            if resource.get("reviewMonths") is None
+            else _int(resource, "reviewMonths", minimum=1)
+        ),
     )
 
 
@@ -325,8 +395,42 @@ class Neo4jCriteriaRepository:
         await self._store.put(criteria_to_fhir(criteria), str(current["meta"]["versionId"]))
         await self._finish(criteria)
 
+    async def candidates(
+        self, age_band: AgeBand, district: str, needs: Iterable[NeedCategory]
+    ) -> list[ServiceCriteria]:
+        """The current criteria of the tenant's active, unsuspended services that pass the database
+        pre-filter for this band, district and needs. The pre-filter applies the same rules as the
+        domain filter (check_hard_criteria): district, needs, and the age overlap. The caller still
+        runs check_hard_criteria on each candidate, which decides the "Check age" warning. Inputs
+        that are not an age band, a district and need categories are refused before any query runs,
+        so a caller error never reads as an empty list."""
+        if type(age_band) is not AgeBand:
+            raise ValidationFailed("age_band", "must be an age band")
+        if not isinstance(district, str) or not district:
+            raise ValidationFailed("district", "must be a district code")
+        if not isinstance(needs, Iterable):
+            raise ValidationFailed("needs", "must be a collection of need categories")
+        needs_seen = tuple(needs)
+        if any(type(need) is not NeedCategory for need in needs_seen):
+            raise ValidationFailed("needs", "must be need categories")
+        band_min, band_max = AGE_BAND_BOUNDS[age_band]
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-CRIT-FILTER"),
+            bandMin=band_min,
+            bandMax=band_max,
+            district=district,
+            needs=[need.value for need in needs_seen],
+        )
+        found: list[ServiceCriteria] = []
+        for row in rows:
+            criteria = await self.get(str(row["id"]))
+            if criteria is not None:
+                found.append(criteria)
+        return found
+
     async def history(self, service_id: str) -> list[ServiceCriteria]:
-        rows = await run_query(self._tx, REGISTRY.get("Q-CRIT-VERSIONS"), serviceId=service_id)
+        rows = await run_query(self._tx, REGISTRY.get("Q-CRIT-HISTORY"), serviceId=service_id)
         found: list[ServiceCriteria] = []
         for row in rows:
             criteria = await self.get(str(row["id"]))

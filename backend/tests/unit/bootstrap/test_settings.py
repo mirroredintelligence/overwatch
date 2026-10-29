@@ -101,3 +101,32 @@ def test_the_pathways_dx_file_defaults_to_the_repo_sample() -> None:
     settings = Settings()
     assert settings.pathways_dx_file.name == "pathways_dx_sample.json"
     assert settings.pathways_dx_file.is_file()
+
+
+def test_the_synthetic_hook_is_off_by_default_and_its_token_is_hidden() -> None:
+    settings = Settings()
+    assert settings.synthetic_enabled is False
+    assert settings.synthetic_hook_token is None
+    assert settings.synthetic_tenant_id is None
+
+
+def test_the_synthetic_hook_token_is_read_from_the_environment_and_never_shown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DIUCS_SYNTHETIC_ENABLED", "true")
+    monkeypatch.setenv("DIUCS_SYNTHETIC_HOOK_TOKEN", "test-only-hook-token")
+    monkeypatch.setenv("DIUCS_SYNTHETIC_TENANT_ID", "synthetic")
+    settings = Settings()
+    assert settings.synthetic_enabled is True
+    assert settings.synthetic_tenant_id == "synthetic"
+    assert settings.synthetic_hook_token is not None
+    assert settings.synthetic_hook_token.get_secret_value() == "test-only-hook-token"
+    assert "test-only-hook-token" not in repr(settings)
+
+
+def test_the_telemetry_workspace_is_unset_by_default_and_read_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    assert Settings().telemetry_workspace_id is None
+    monkeypatch.setenv("DIUCS_TELEMETRY_WORKSPACE_ID", "00000000-0000-0000-0000-000000000000")
+    assert Settings().telemetry_workspace_id == "00000000-0000-0000-0000-000000000000"

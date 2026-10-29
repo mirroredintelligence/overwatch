@@ -5,6 +5,7 @@ module (the layers and independence contracts in backend/.importlinter). The pro
 it calls container.startup() before serving and container.shutdown() on exit (DEC-012).
 """
 
+from collections.abc import Callable
 from typing import Protocol, cast
 
 from fastapi import APIRouter, FastAPI, Request
@@ -15,9 +16,10 @@ from diucs.adapters.inbound.fhir_rest.errors import (
     UnhandledErrorMiddleware,
     install_exception_handlers,
 )
+from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.terminology import Terminology
+from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 
 
@@ -37,8 +39,19 @@ class ApiContainer(Protocol):
     @property
     def terminology(self) -> Terminology: ...
 
+    @property
+    def validator(self) -> FhirValidator: ...
 
-def create_app(container: ApiContainer) -> FastAPI:
+
+def create_app(
+    container: ApiContainer,
+    synthetic: SyntheticHook | None = None,
+    *,
+    instrument: Callable[[FastAPI], None] | None = None,
+) -> FastAPI:
+    """Build the app. `synthetic` is the synthetic test hook (O09; None answers 404). `instrument`,
+    when given, is called once with the finished app, so a process can add request tracing (the
+    composition root decides, from the telemetry setting; the default adds nothing)."""
     # The OpenAPI pages are off: every response is FHIR, and the surface is the FHIR API only.
     app = FastAPI(
         title="DIUCS capacity FHIR API",
@@ -47,6 +60,8 @@ def create_app(container: ApiContainer) -> FastAPI:
         openapi_url=None,
     )
     app.state.container = container
+    # The synthetic test hook (O09). None when it is not configured: the route then answers 404.
+    app.state.synthetic = synthetic
     install_exception_handlers(app)
     # add_middleware wraps the app, so the last one added runs first: the catch-all is outermost.
     app.add_middleware(BodyTypeMiddleware)
@@ -65,6 +80,7 @@ def create_app(container: ApiContainer) -> FastAPI:
         routes_events,
         routes_services,
         routes_terminology,
+        routes_validate,
     )
 
     app.include_router(routes_events.router)
@@ -74,6 +90,8 @@ def create_app(container: ApiContainer) -> FastAPI:
     routes_services.register_capabilities()
     # The Pathways Dx lookup (R16) is not FHIR: a plain list for the score picker.
     app.include_router(routes_terminology.router)
+    app.include_router(routes_validate.router)
+    routes_validate.register_profiles()
 
     # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
     # this one module wire it in.
@@ -86,6 +104,14 @@ def create_app(container: ApiContainer) -> FastAPI:
     from diucs.adapters.inbound.link_pages import capacity_links
 
     app.include_router(capacity_links.router)
+
+    # The synthetic test hook (O09, TEN-G04): refuses everything unless it is configured and the
+    # bearer is its token. Mounted always, so an unconfigured server answers the same 404.
+    from diucs.adapters.inbound.fhir_rest import routes_synthetic
+
+    app.include_router(routes_synthetic.router)
+    if instrument is not None:
+        instrument(app)
     return app
 
 

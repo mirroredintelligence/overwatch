@@ -953,7 +953,7 @@ async def _assert_refused_with_c12(
     ],
     ids=["effective before the prompt", "effective at the prompt", "effective after the prompt"],
 )
-async def test_a_y_is_refused_when_a_number_was_recorded_after_the_prompt_whatever_its_effective_time(
+async def test_a_y_is_refused_for_a_number_recorded_after_the_prompt_whatever_its_effective_time(
     uow_factory: UnitOfWorkFactory,
     neo4j_driver: AsyncDriver,
     seed_service: Seed,
@@ -982,13 +982,13 @@ async def test_a_number_written_before_the_prompt_with_a_later_effective_time_is
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
     """The record decides, not the effective time. A 6 was written at 09:30 with the effective time
-    10:30 (only a direct write can do that: U01 refuses an effective time after now). The prompt of
+    10:03 (only a direct write can do that: U01 refuses an effective time after now). The prompt of
     10:00 named the latest figure, which is that 6, and nothing has been written since. The Y
     confirms it."""
     await seed_service(UCR_WEST)
     await _seed_people(uow_factory)
     await _seed_figure(uow_factory, 3, bst(8, 15))
-    await _seed_figure(uow_factory, 6, bst(10, 30), report_id="seed-six", written_at=bst(9, 30))
+    await _seed_figure(uow_factory, 6, bst(10, 3), report_id="seed-six", written_at=bst(9, 30))
     await _seed_prompt(uow_factory, bst(10, 0))
     rig = Rig(uow_factory, neo4j_driver)
 

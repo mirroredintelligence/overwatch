@@ -171,8 +171,20 @@ def figure_is_out_of_date(figure_as_of: datetime, prompt_sent_at: datetime) -> b
 
 
 def recorded_since_prompt(report: CapacityReport, prompt_sent_at: datetime) -> bool:
-    """STUB (red commit)."""
-    return False
+    """True when the store wrote the report at or after the whole second the prompt was sent in.
+
+    This is the record order, not the effective time: a lead may record a figure that was true at
+    an earlier time (DEC-140), so a report written after the prompt can carry an effective time
+    before it, or exactly at it. The store stamps whole seconds (lesson L65), so the prompt's time
+    is cut to the whole second too and a tie counts as since: a figure written in the same second
+    as the prompt cannot be told from one written just after it, and the Y fails closed. A report
+    with no write time cannot be shown to predate the prompt and counts as since. Both are UTC
+    instants, so a London clock change cannot move the line (lesson L4).
+    """
+    sent = _instant("sent_at", prompt_sent_at).replace(microsecond=0)
+    if report.written_at is None:
+        return True
+    return _instant("written_at", report.written_at) >= sent
 
 
 def recheck_key(phone_hash: str, service_id: str) -> str:
@@ -602,7 +614,7 @@ class HandleInboundText:
             item.write = _Write(decision.value, replaced, decision.flag)
         elif isinstance(decision, RecordConfirm):
             # Hazard H-32: has a number been reported since the prompt named the figure?
-            newer = await self._number_after_prompt(uow, service_id, plan.prompt_sent_at)
+            newer = await self._number_after_prompt(uow, service_id, latest, plan.prompt_sent_at)
             self._judge_confirm(item, plan, latest, newer)
         elif isinstance(decision, RejectLate):
             rejected = str(reply.value) if isinstance(reply, Number) else "Y"
@@ -632,16 +644,26 @@ class HandleInboundText:
 
     @staticmethod
     async def _number_after_prompt(
-        uow: UnitOfWork, service_id: str, prompt_sent_at: datetime
+        uow: UnitOfWork,
+        service_id: str,
+        latest: CapacityReport | None,
+        prompt_sent_at: datetime,
     ) -> bool:
-        """True when a number was reported for the service after the prompt was sent. A Y is an
+        """True when a number was written for the service since the prompt was sent. A Y is an
         answer to the figure the prompt named; a number that came in since is a figure the
-        reporter was never shown. A confirmation repeats a figure and does not count, so the
-        second of two Ys to one prompt is still a Y to that figure (hazard H-32, DEC-148)."""
+        reporter was never shown, whatever effective time it was given (a lead may record a figure
+        for an earlier time, DEC-140): the test is the record order (`recorded_since_prompt`), not
+        the effective time. The reports looked at are the latest one and those effective from the
+        prompt on; a number written since with an earlier effective time than the latest report
+        does not change which figure is current, so the figure the prompt named still is. A
+        confirmation repeats a figure and does not count, so the second of two Ys to one prompt is
+        still a Y to that figure (hazard H-32, DEC-148 items 17 and 20)."""
         since = await uow.capacity.reports_since(service_id, prompt_sent_at)
+        candidates = since if latest is None else [*since, latest]
         return any(
-            report.report_type is ReportType.NUMBER and report.effective_at > prompt_sent_at
-            for report in since
+            report.report_type is ReportType.NUMBER
+            and recorded_since_prompt(report, prompt_sent_at)
+            for report in candidates
         )
 
     @staticmethod

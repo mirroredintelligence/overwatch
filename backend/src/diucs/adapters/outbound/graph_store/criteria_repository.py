@@ -24,6 +24,16 @@ from typing import Any, Final
 
 from neo4j import AsyncManagedTransaction
 
+from diucs.adapters.outbound.graph_store.criteria_scenarios import (
+    CLEAR_CURRENT_SCENARIO,
+    CURRENT_FOR_SCENARIO,
+    CURRENT_SCENARIO,
+    LABEL_SCENARIO,
+    LOCK_SERVICE_SCENARIO,
+    SET_CURRENT_SCENARIO,
+    SUBJECT_SCENARIO,
+    VERSIONS_SCENARIO,
+)
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
@@ -61,72 +71,89 @@ _KEYS: Final = frozenset(
     }
 )
 
-_LOCK_SERVICE: Final = NamedQuery(
-    id="Q-CRIT-LOCK-SERVICE",
-    cypher=(
-        "MATCH (s:HealthcareService {id: $serviceId}) SET s.id = s.id RETURN count(s) AS locked"
+_QUERIES: Final = (
+    NamedQuery(
+        id="Q-CRIT-LOCK-SERVICE",
+        cypher=(
+            "MATCH (s:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+            "SET s.id = s.id RETURN count(s) AS locked"
+        ),
+        mode="write",
+        scenario=LOCK_SERVICE_SCENARIO,
     ),
-    mode="write",
-)
-_LABEL: Final = NamedQuery(
-    id="Q-CRIT-LABEL",
-    cypher="MATCH (c:Basic {key: $key}) SET c:ServiceCriteria RETURN count(c) AS labelled",
-    mode="write",
-)
-_SUBJECT: Final = NamedQuery(
-    id="Q-CRIT-SUBJECT",
-    cypher=(
-        "MATCH (c:ServiceCriteria {key: $key})-[:SUBJECT]->(s:HealthcareService) "
-        "RETURN s.id AS serviceId"
+    NamedQuery(
+        id="Q-CRIT-LABEL",
+        cypher=(
+            "MATCH (c:Basic {key: $key, tenantId: $tenant}) "
+            "SET c:ServiceCriteria RETURN count(c) AS labelled"
+        ),
+        mode="write",
+        scenario=LABEL_SCENARIO,
     ),
-    mode="read",
-)
-_CURRENT: Final = NamedQuery(
-    id="Q-CRIT-CURRENT",
-    cypher=(
-        "MATCH (c:ServiceCriteria {status: 'current'})"
-        "-[:SUBJECT]->(:HealthcareService {id: $serviceId}) "
-        "RETURN c.id AS id ORDER BY c.id"
+    NamedQuery(
+        id="Q-CRIT-SUBJECT",
+        cypher=(
+            "MATCH (c:ServiceCriteria {key: $key, tenantId: $tenant})"
+            "-[:SUBJECT]->(s:HealthcareService {tenantId: $tenant}) "
+            "RETURN s.id AS serviceId"
+        ),
+        mode="read",
+        scenario=SUBJECT_SCENARIO,
     ),
-    mode="read",
-)
-_CURRENT_FOR: Final = NamedQuery(
-    id="Q-CRIT-CURRENT-FOR",
-    cypher=(
-        "MATCH (c:ServiceCriteria {status: 'current'})-[:SUBJECT]->(s:HealthcareService) "
-        "WHERE s.id IN $serviceIds RETURN s.id AS serviceId, c.id AS id ORDER BY s.id, c.id"
+    NamedQuery(
+        id="Q-CRIT-CURRENT",
+        cypher=(
+            "MATCH (c:ServiceCriteria {status: 'current', tenantId: $tenant})"
+            "-[:SUBJECT]->(:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+            "RETURN c.id AS id ORDER BY c.id"
+        ),
+        mode="read",
+        scenario=CURRENT_SCENARIO,
     ),
-    mode="read",
-)
-_VERSIONS: Final = NamedQuery(
-    id="Q-CRIT-VERSIONS",
-    cypher=(
-        "MATCH (c:ServiceCriteria)-[:SUBJECT]->(:HealthcareService {id: $serviceId}) "
-        "RETURN c.id AS id, c.version AS version ORDER BY c.version DESC, c.id"
+    NamedQuery(
+        id="Q-CRIT-CURRENT-FOR",
+        cypher=(
+            "MATCH (c:ServiceCriteria {status: 'current', tenantId: $tenant})"
+            "-[:SUBJECT]->(s:HealthcareService {tenantId: $tenant}) "
+            "WHERE s.id IN $serviceIds RETURN s.id AS serviceId, c.id AS id ORDER BY s.id, c.id"
+        ),
+        mode="read",
+        scenario=CURRENT_FOR_SCENARIO,
     ),
-    mode="read",
-)
-_SET_CURRENT: Final = NamedQuery(
-    id="Q-CRIT-SET-CURRENT",
-    cypher=(
-        "MATCH (s:HealthcareService {id: $serviceId}) "
-        "OPTIONAL MATCH (s)-[old:CURRENT_CRITERIA]->() "
-        "DELETE old "
-        "WITH DISTINCT s "
-        "MATCH (c:Basic {key: $key}) "
-        "MERGE (s)-[:CURRENT_CRITERIA]->(c) "
-        "RETURN count(c) AS linked"
+    NamedQuery(
+        id="Q-CRIT-VERSIONS",
+        cypher=(
+            "MATCH (c:ServiceCriteria {tenantId: $tenant})"
+            "-[:SUBJECT]->(:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+            "RETURN c.id AS id, c.version AS version ORDER BY c.version DESC, c.id"
+        ),
+        mode="read",
+        scenario=VERSIONS_SCENARIO,
     ),
-    mode="write",
-)
-_CLEAR_CURRENT: Final = NamedQuery(
-    id="Q-CRIT-CLEAR-CURRENT",
-    cypher=(
-        "MATCH (:HealthcareService {id: $serviceId})"
-        "-[link:CURRENT_CRITERIA]->(c:Basic {key: $key}) "
-        "DELETE link RETURN count(link) AS cleared"
+    NamedQuery(
+        id="Q-CRIT-SET-CURRENT",
+        cypher=(
+            "MATCH (s:HealthcareService {id: $serviceId, tenantId: $tenant}) "
+            "OPTIONAL MATCH (s)-[old:CURRENT_CRITERIA]->(o {tenantId: $tenant}) "
+            "DELETE old "
+            "WITH DISTINCT s "
+            "MATCH (c:Basic {key: $key, tenantId: $tenant}) "
+            "MERGE (s)-[:CURRENT_CRITERIA]->(c) "
+            "RETURN count(c) AS linked"
+        ),
+        mode="write",
+        scenario=SET_CURRENT_SCENARIO,
     ),
-    mode="write",
+    NamedQuery(
+        id="Q-CRIT-CLEAR-CURRENT",
+        cypher=(
+            "MATCH (:HealthcareService {id: $serviceId, tenantId: $tenant})"
+            "-[link:CURRENT_CRITERIA]->(c:Basic {key: $key, tenantId: $tenant}) "
+            "DELETE link RETURN count(link) AS cleared"
+        ),
+        mode="write",
+        scenario=CLEAR_CURRENT_SCENARIO,
+    ),
 )
 
 
@@ -135,16 +162,7 @@ def _register(query: NamedQuery) -> None:
         REGISTRY.register(query)
 
 
-for _query in (
-    _LOCK_SERVICE,
-    _LABEL,
-    _SUBJECT,
-    _CURRENT,
-    _CURRENT_FOR,
-    _VERSIONS,
-    _SET_CURRENT,
-    _CLEAR_CURRENT,
-):
+for _query in _QUERIES:
     _register(_query)
 
 

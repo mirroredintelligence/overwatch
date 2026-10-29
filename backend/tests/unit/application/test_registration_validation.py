@@ -17,6 +17,7 @@ from diucs.application.use_cases.registration_draft import (
     encode_step,
     is_full_uk_phone,
     validate_step,
+    with_protected_contacts,
 )
 
 ORG = OrganisationStep(
@@ -340,3 +341,36 @@ def test_an_unset_value_is_left_out_of_the_encoding_not_stored_as_null() -> None
     fields = encode_step(replace(SERVICE, review_by=None, age_max=None))
     assert "review_by" not in fields
     assert "age_max" not in fields
+
+
+# --- The reporting contact at submit (the protected store) ---------------------------------
+
+# The draft as a save stores it: the contact moves to the protected store, not the draft.
+STORED_REPORTING = replace(REPORTING, contact_mobile="", contact_email="")
+
+
+def test_a_stored_text_step_passes_once_its_protected_phone_is_put_back() -> None:
+    checked = with_protected_contacts(STORED_REPORTING, phone="07700 900123", email=None)
+    assert validate_step(checked) == []
+
+
+def test_a_text_step_with_no_protected_phone_is_refused_at_submit() -> None:
+    checked = with_protected_contacts(STORED_REPORTING, phone=None, email=None)
+    assert _messages(validate_step(checked)) == [
+        ("contact_mobile", "Enter a mobile number for text messages")
+    ]
+
+
+def test_an_email_step_is_checked_against_its_protected_email() -> None:
+    email_step = replace(STORED_REPORTING, channel="email")
+    ok = with_protected_contacts(email_step, phone=None, email="reports@example.org")
+    assert validate_step(ok) == []
+    missing = with_protected_contacts(email_step, phone=None, email=None)
+    assert _messages(validate_step(missing)) == [
+        ("contact_email", "Enter an email address for reports")
+    ]
+
+
+def test_putting_the_contact_back_does_not_change_the_other_fields_of_the_step() -> None:
+    checked = with_protected_contacts(STORED_REPORTING, phone="07700 900123", email=None)
+    assert replace(checked, contact_mobile="", contact_email="") == STORED_REPORTING

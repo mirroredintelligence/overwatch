@@ -520,9 +520,20 @@ async def _store_contacts(uow: UnitOfWork, role_id: str | None, step: ReportingS
         await uow.contacts.put_email(role_id, step.contact_email)
 
 
+def with_protected_contacts(
+    step: ReportingStep, *, phone: str | None, email: str | None
+) -> ReportingStep:
+    """The reporting step as submit checks it. The draft never holds the contact (the save moves it
+    to the protected store), so the stored phone and email are put back before `validate_step`
+    judges the step once, as the save did. A missing contact stays empty, so a text or email
+    channel without one is refused."""
+    return replace(step, contact_mobile=phone or "", contact_email=email or "")
+
+
 async def _completeness(uow: UnitOfWork, registration: Registration) -> list[FieldError]:
     """Every step complete, as the screens require at submit. The API step is optional: missing
-    means not wanted. The reporting contact is read from the protected store, not the draft."""
+    means not wanted. The reporting step is checked with its contact read from the protected store,
+    not the draft, so the contact is judged once, by `validate_step`."""
     draft = read_draft(registration)
     errors: list[FieldError] = []
     steps: tuple[tuple[str, object], ...] = (
@@ -537,21 +548,16 @@ async def _completeness(uow: UnitOfWork, registration: Registration) -> list[Fie
     fixed = None if draft.location is None else draft.location.fixed_site
     if draft.service is not None:
         errors.extend(validate_step(draft.service, fixed_site=fixed))
-    for step in (draft.organisation, draft.location, draft.reporting):
+    for step in (draft.organisation, draft.location):
         if step is not None:
             errors.extend(validate_step(step))
-    if draft.reporting is not None and registration.requester_role_id is not None:
-        channel = draft.reporting.channel
-        if (
-            channel in ("text", "push")
-            and await uow.contacts.get_phone(registration.requester_role_id) is None
-        ):
-            errors.append(FieldError("contact_mobile", _MOBILE_MESSAGE))
-        if (
-            channel == "email"
-            and await uow.contacts.get_email(registration.requester_role_id) is None
-        ):
-            errors.append(FieldError("contact_email", "Enter an email address for reports"))
+    if draft.reporting is not None:
+        # A registration with no requester role has no contact on record, so none is put back.
+        role_id = registration.requester_role_id
+        phone = None if role_id is None else await uow.contacts.get_phone(role_id)
+        email = None if role_id is None else await uow.contacts.get_email(role_id)
+        checked = with_protected_contacts(draft.reporting, phone=phone, email=email)
+        errors.extend(validate_step(checked))
     return errors
 
 

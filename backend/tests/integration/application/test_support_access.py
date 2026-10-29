@@ -16,6 +16,8 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.support_access import (
+    ACTION_SESSION_OPENED,
+    USE_CASE_OPEN,
     CreateSupportCode,
     CreateSupportCodeCommand,
     ListMyAccesses,
@@ -29,7 +31,7 @@ from diucs.domain.codes import PractitionerRoleCode, Role
 from diucs.domain.errors import NotAllowed
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.rules.support import hash_support_code, normalise_support_code
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -134,7 +136,9 @@ async def test_an_open_with_the_code_writes_one_access_with_an_hour_window_and_o
 
     assert result.expires_at == NOW + timedelta(hours=1)
     assert await count_nodes(neo4j_driver, "SupportAccess") == 1
-    assert await count_nodes(neo4j_driver, "AuditEntry") >= 1
+    # The open writes exactly one audit event of its own use case (the code create wrote another).
+    opened = await node_props(neo4j_driver, "AuditEvent", useCase=USE_CASE_OPEN)
+    assert opened["action"] == ACTION_SESSION_OPENED
 
 
 async def test_an_expired_or_wrong_code_is_refused_with_the_same_error(

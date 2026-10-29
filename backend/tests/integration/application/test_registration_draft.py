@@ -10,7 +10,6 @@ from datetime import UTC, date, datetime, time
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
@@ -169,9 +168,7 @@ def seed_registration(
 
 
 def _save(uow_factory: UnitOfWorkFactory, driver: AsyncDriver) -> SaveRegistrationStep:
-    return SaveRegistrationStep(
-        uow_factory, DriverIdempotencyStore(driver), SequentialIds(), FixedClock(NOW)
-    )
+    return SaveRegistrationStep(uow_factory, SequentialIds(), FixedClock(NOW))
 
 
 def _command(step: object, key: str) -> SaveRegistrationStepCommand:
@@ -236,9 +233,9 @@ async def test_submit_with_the_reporting_step_missing_returns_errors_and_stays_d
     await seed_registration()
     for n, step in enumerate((ORG, SITE, SERVICE_STEP, API)):
         await _save(uow_factory, neo4j_driver).execute(_command(step, f"m{n}"))
-    result = await SubmitRegistration(
-        uow_factory, DriverIdempotencyStore(neo4j_driver), SequentialIds(), FixedClock(NOW)
-    ).execute(SubmitRegistrationCommand("submit-1", APPLICANT, REGISTRATION))
+    result = await SubmitRegistration(uow_factory, SequentialIds(), FixedClock(NOW)).execute(
+        SubmitRegistrationCommand("submit-1", APPLICANT, REGISTRATION)
+    )
     assert any(e.field == "reporting" for e in result.errors)
     assert result.status is RegistrationStatus.DRAFT
     assert (await _registration(uow_factory)).status is RegistrationStatus.DRAFT
@@ -250,9 +247,9 @@ async def test_a_complete_submit_is_submitted_with_an_outbox_message_and_one_aud
     await seed_registration()
     for n, step in enumerate((ORG, SITE, SERVICE_STEP, REPORTING, API)):
         await _save(uow_factory, neo4j_driver).execute(_command(step, f"c{n}"))
-    result = await SubmitRegistration(
-        uow_factory, DriverIdempotencyStore(neo4j_driver), SequentialIds(), FixedClock(NOW)
-    ).execute(SubmitRegistrationCommand("submit-2", APPLICANT, REGISTRATION))
+    result = await SubmitRegistration(uow_factory, SequentialIds(), FixedClock(NOW)).execute(
+        SubmitRegistrationCommand("submit-2", APPLICANT, REGISTRATION)
+    )
     assert result.status is RegistrationStatus.SUBMITTED
     stored = await _registration(uow_factory)
     assert stored.status is RegistrationStatus.SUBMITTED
@@ -278,9 +275,7 @@ async def test_a_resubmit_from_needs_changes_works(
     async with uow_factory() as uow:
         await uow.contacts.put_phone(APPLICANT_ROLE, REPORTING.contact_mobile)
         await uow.commit()
-    submit = SubmitRegistration(
-        uow_factory, DriverIdempotencyStore(neo4j_driver), SequentialIds(), FixedClock(NOW)
-    )
+    submit = SubmitRegistration(uow_factory, SequentialIds(), FixedClock(NOW))
     result = await submit.execute(SubmitRegistrationCommand("submit-3", APPLICANT, REGISTRATION))
     assert result.status is RegistrationStatus.SUBMITTED
     assert (await _registration(uow_factory)).status is RegistrationStatus.SUBMITTED
@@ -290,9 +285,7 @@ async def test_a_submit_from_in_review_is_refused_and_changes_nothing(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_registration: Seed
 ) -> None:
     await seed_registration(status=RegistrationStatus.IN_REVIEW)
-    submit = SubmitRegistration(
-        uow_factory, DriverIdempotencyStore(neo4j_driver), SequentialIds(), FixedClock(NOW)
-    )
+    submit = SubmitRegistration(uow_factory, SequentialIds(), FixedClock(NOW))
     with pytest.raises(InvalidTransition):
         await submit.execute(SubmitRegistrationCommand("submit-4", APPLICANT, REGISTRATION))
     assert (await _registration(uow_factory)).status is RegistrationStatus.IN_REVIEW

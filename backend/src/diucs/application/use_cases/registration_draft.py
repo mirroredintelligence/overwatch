@@ -17,12 +17,12 @@ from datetime import date
 from typing import Any, Final
 
 from diucs.application.actor import Actor
-from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.outbox import outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.tenancy import ScopeId
 from diucs.domain.codes import Cadence, Measure, NeedCategory, RegistrationStatus, ServiceCategory
 from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import RegistrationSubmitted
@@ -369,6 +369,12 @@ def read_draft(registration: Registration) -> RegistrationDraft:
     )
 
 
+def _command_key(scope: ScopeId | None, key: str) -> str:
+    """The replay key with the tenant in it (lesson L160): two tenants that use one key are two
+    commands until the replay store is tenant-scoped."""
+    return f"registration:{scope}:{key}"
+
+
 def _fingerprint(*parts: object) -> str:
     return hashlib.sha256(repr(parts).encode("utf-8")).hexdigest()
 
@@ -434,12 +440,10 @@ class SaveRegistrationStep:
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
-        idempotency: IdempotencyStore,
         ids: IdGenerator,
         clock: Clock,
     ) -> None:
         self._uow_factory = uow_factory
-        self._idempotency = idempotency
         self._ids = ids
         self._clock = clock
 
@@ -450,12 +454,10 @@ class SaveRegistrationStep:
         fingerprint = _fingerprint(
             "save", command.registration_id, repr(command.step), command.actor.practitioner_id
         )
-        early = _replay(await self._idempotency.get(command.idempotency_key), fingerprint)
-        if isinstance(early, SaveStepResult):
-            return replace(early, replayed=True)
         now = self._clock.now()
         async with self._uow_factory() as uow:
-            stored = _replay(await uow.idempotency.get(command.idempotency_key), fingerprint)
+            key = _command_key(uow.unit_scope, command.idempotency_key)
+            stored = _replay(await uow.idempotency.get(key), fingerprint)
             if isinstance(stored, SaveStepResult):
                 return replace(stored, replayed=True)
             registration = await uow.registrations.get(command.registration_id)
@@ -504,7 +506,7 @@ class SaveRegistrationStep:
                 )
             )
             result = SaveStepResult(errors=tuple(errors), status=status)
-            await uow.idempotency.put(command.idempotency_key, _Stored(fingerprint, result))
+            await uow.idempotency.put(key, _Stored(fingerprint, result))
             await uow.commit()
         return result
 
@@ -559,23 +561,19 @@ class SubmitRegistration:
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
-        idempotency: IdempotencyStore,
         ids: IdGenerator,
         clock: Clock,
     ) -> None:
         self._uow_factory = uow_factory
-        self._idempotency = idempotency
         self._ids = ids
         self._clock = clock
 
     async def execute(self, command: SubmitRegistrationCommand) -> SubmitResult:
         fingerprint = _fingerprint("submit", command.registration_id, command.actor.practitioner_id)
-        early = _replay(await self._idempotency.get(command.idempotency_key), fingerprint)
-        if isinstance(early, SubmitResult):
-            return replace(early, replayed=True)
         now = self._clock.now()
         async with self._uow_factory() as uow:
-            stored = _replay(await uow.idempotency.get(command.idempotency_key), fingerprint)
+            key = _command_key(uow.unit_scope, command.idempotency_key)
+            stored = _replay(await uow.idempotency.get(key), fingerprint)
             if isinstance(stored, SubmitResult):
                 return replace(stored, replayed=True)
             registration = await uow.registrations.get(command.registration_id)
@@ -586,7 +584,7 @@ class SubmitRegistration:
             errors = await _completeness(uow, registration)
             if errors:
                 result = SubmitResult(status=registration.status, errors=tuple(errors))
-                await uow.idempotency.put(command.idempotency_key, _Stored(fingerprint, result))
+                await uow.idempotency.put(key, _Stored(fingerprint, result))
                 await uow.commit()
                 return result
             submitted = replace(
@@ -614,6 +612,6 @@ class SubmitRegistration:
                 )
             )
             result = SubmitResult(status=RegistrationStatus.SUBMITTED, errors=())
-            await uow.idempotency.put(command.idempotency_key, _Stored(fingerprint, result))
+            await uow.idempotency.put(key, _Stored(fingerprint, result))
             await uow.commit()
         return result

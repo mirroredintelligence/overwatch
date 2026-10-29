@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final, Literal
 
+from diucs.adapters.outbound.graph_store.scenario import Scenario
 from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 
 _MODES = ("read", "write")
@@ -52,15 +53,6 @@ class TenantPredicateMissing(ValueError):
 
 class ScenarioMissing(ValueError):
     """A tenant statement that has no scenario and is not on the ratchet."""
-
-
-@dataclass(frozen=True, slots=True)
-class Scenario:
-    """Placeholder until TEN-004: what the generated two-tenant test needs to run a statement
-    (the seed for two tenants that share keys, the parameters, the expected effect). TEN-004
-    replaces this type; until then a scenario only says that one exists."""
-
-    description: str
 
 
 def _validate(query_id: str, mode: object, scope: object, scenario: object) -> None:

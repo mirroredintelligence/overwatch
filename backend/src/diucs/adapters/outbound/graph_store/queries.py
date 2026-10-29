@@ -47,6 +47,9 @@ GLOBAL_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
     {"Q-NEO4J-PING": "the health ping answers RETURN 1: no data, and no tenant is known yet"}
 )
 
+# The labels a global statement may name (stub until the implementation commit).
+GLOBAL_STATEMENT_LABELS: Final[frozenset[str]] = frozenset()
+
 
 class TenantPredicateMissing(ValueError):
     """A tenant statement that never mentions `$tenant` and is not on the ratchet."""

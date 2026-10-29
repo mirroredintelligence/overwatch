@@ -274,3 +274,8 @@ async def invariant_violations(driver: AsyncDriver) -> Mapping[str, list[dict[st
 
     async with driver.session() as session:
         return await session.execute_read(read)
+
+
+# Stubs until the implementation commit (TEN-007).
+DEFAULT_TENANT_NAME: Final = ""
+ROLLBACK_0034: Final[tuple[str, ...]] = ()

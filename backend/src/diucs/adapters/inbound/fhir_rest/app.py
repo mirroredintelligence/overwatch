@@ -96,6 +96,11 @@ def create_app(
     # Wall screen pairing (R15): JSON routes outside /fhir, over the U10 use cases.
     app.include_router(routes_screens.router)
 
+    # Support codes and the support console (R18): JSON routes over the O06 and R18 use cases.
+    from diucs.adapters.inbound.fhir_rest import routes_support
+
+    app.include_router(routes_support.router)
+
     # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
     # this one module wire it in.
     from diucs.adapters.inbound.sms_webhook import routes as sms_routes

@@ -1,5 +1,5 @@
-"""The pure rules of the support console (R18): what a session event may carry, the filter names, and
-which events stand out. Routes and the Neo4j-backed reads are in tests/integration/... (not run here)."""
+"""The pure rules of the support console (R18): what a session event may carry, the filter names
+and which events stand out. Routes and the Neo4j-backed reads are in the integration suite."""
 
 from datetime import UTC, datetime
 
@@ -17,14 +17,15 @@ START = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
 
 
 def test_the_allowed_keys_are_the_spec_list_and_nothing_else() -> None:
-    assert ALLOWED_EVENT_KEYS == frozenset(
-        {"kind", "elementId", "route", "outcome", "durationMs", "status", "offsetMs"}
+    assert (
+        frozenset({"kind", "elementId", "route", "outcome", "durationMs", "status", "offsetMs"})
+        == ALLOWED_EVENT_KEYS
     )
 
 
 def test_a_public_event_keeps_the_allowed_keys_and_drops_a_field_value() -> None:
     event = public_event(
-        kind=TimelineKind.FIELD,
+        kind="field",
         name="ADV-POSTCODE-INPUT",
         at=START,
         start=START,
@@ -46,7 +47,7 @@ def test_a_public_event_keeps_the_allowed_keys_and_drops_a_field_value() -> None
 
 def test_the_offset_is_the_time_since_the_start_of_the_session_in_milliseconds() -> None:
     event = public_event(
-        kind=TimelineKind.API_CALL,
+        kind="api_call",
         name="POST /api/bff/bookings",
         at=datetime(2026, 10, 29, 9, 0, 3, tzinfo=UTC),
         start=START,
@@ -61,15 +62,15 @@ def test_the_offset_is_the_time_since_the_start_of_the_session_in_milliseconds()
 
 
 def test_the_filter_names_map_to_the_timeline_kinds() -> None:
-    assert EVENT_FILTERS["all"] == frozenset(TimelineKind)
-    assert EVENT_FILTERS["errors"] == frozenset({TimelineKind.ERROR})
-    assert EVENT_FILTERS["friction"] == frozenset({TimelineKind.FRICTION})
-    assert EVENT_FILTERS["api"] == frozenset({TimelineKind.API_CALL})
-    assert EVENT_FILTERS["navigation"] == frozenset({TimelineKind.PAGE_VIEW})
+    assert EVENT_FILTERS["all"] == frozenset(kind.value for kind in TimelineKind)
+    assert EVENT_FILTERS["errors"] == frozenset({"error"})
+    assert EVENT_FILTERS["friction"] == frozenset({"friction"})
+    assert EVENT_FILTERS["api"] == frozenset({"api_call"})
+    assert EVENT_FILTERS["navigation"] == frozenset({"page_view"})
 
 
 def test_a_filter_outside_the_list_is_refused() -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(KeyError):
         _ = EVENT_FILTERS["everything-typed"]
 
 

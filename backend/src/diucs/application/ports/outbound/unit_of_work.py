@@ -47,6 +47,7 @@ from diucs.application.ports.outbound.repositories import (
     ServiceRepository,
 )
 from diucs.application.ports.outbound.support import SupportRepository
+from diucs.application.ports.outbound.support_tickets import SupportTicketRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.tenancy import ScopeId
 
@@ -79,6 +80,7 @@ class UnitOfWork(Protocol):
     processed: ProcessedMessages
     support: SupportRepository
     aggregates: AggregateRepository
+    support_tickets: SupportTicketRepository
 
     @property
     def unit_scope(self) -> ScopeId | None:

@@ -72,6 +72,9 @@ from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScope
 from diucs.adapters.outbound.graph_store.service_move_repository import Neo4jServiceMoveRepository
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
 from diucs.adapters.outbound.graph_store.support_repository import Neo4jSupportRepository
+from diucs.adapters.outbound.graph_store.support_ticket_repository import (
+    Neo4jSupportTicketRepository,
+)
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.aggregates import AggregateRepository
 from diucs.application.ports.outbound.audit import AuditLog
@@ -101,6 +104,7 @@ from diucs.application.ports.outbound.repositories import (
     ServiceRepository,
 )
 from diucs.application.ports.outbound.support import SupportRepository
+from diucs.application.ports.outbound.support_tickets import SupportTicketRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, claim_unit, release_unit, scope_for_new_unit
@@ -138,6 +142,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "processed": lambda tx, store: Neo4jProcessedMessages(tx),
     "support": lambda tx, store: Neo4jSupportRepository(tx),
     "aggregates": lambda tx, store: Neo4jAggregateRepository(tx),
+    "support_tickets": lambda tx, store: Neo4jSupportTicketRepository(tx),
 }
 
 _NOT_OPEN = "the unit of work is not open; use it inside 'async with'"
@@ -201,6 +206,7 @@ class Neo4jUnitOfWork:
     processed: ProcessedMessages
     support: SupportRepository
     aggregates: AggregateRepository
+    support_tickets: SupportTicketRepository
 
     def __init__(
         self,

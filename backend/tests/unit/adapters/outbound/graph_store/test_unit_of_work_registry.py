@@ -60,6 +60,7 @@ REQUIRED_NAMES = {
     "processed",
     "support",
     "aggregates",
+    "support_tickets",
 }
 
 

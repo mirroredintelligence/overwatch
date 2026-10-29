@@ -95,7 +95,7 @@ def _setup_body(**overrides: Any) -> dict[str, Any]:
         "reviewBy": ("reviewBy", {"valueDate": "2026-12-12"}),
     }
     for key, value in overrides.items():
-        parts[key] = (key, value)
+        parts[key] = (key, value)  # value is the typed value dict, for example {"valueCode": "x"}
     return _parameters(*parts.values())
 
 
@@ -150,7 +150,7 @@ async def test_push_is_refused_for_a_new_service_outside_the_pilot() -> None:
     async with _client() as client:
         response = await client.post(
             SETUP,
-            json=_setup_body(channel=("channel", {"valueCode": "push"})),
+            json=_setup_body(channel={"valueCode": "push"}),
             headers={**KEY, **_bearer(Role.LEAD)},
         )
     assert response.status_code == 400
@@ -161,7 +161,7 @@ async def test_an_invalid_mobile_is_refused_with_the_example_and_without_the_inp
     async with _client() as client:
         response = await client.post(
             SETUP,
-            json=_setup_body(mobile=("mobile", {"valueString": "07700 9001x9"})),
+            json=_setup_body(mobile={"valueString": "07700 9001x9"}),
             headers={**KEY, **_bearer(Role.LEAD)},
         )
     assert response.status_code == 400

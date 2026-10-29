@@ -1,9 +1,9 @@
 """The shift lead routes (R08) against real Neo4j through the API client.
 
-WRITTEN, NOT RUN in the build wave (no Neo4j per build-wave rules). These cases need the REST edge to
-bind the lead's tenant from the verified token (TEN-018, being built in another bundle). Until that
-lands, every write here fails closed with TenantNotBound (a 500), so the cases cannot pass yet; that is
-the dependence recorded in the fragment, not a fault in these tests.
+WRITTEN, NOT RUN in the build wave (no Neo4j per build-wave rules). These cases need the REST edge
+to bind the lead's tenant from the verified token (TEN-018, built in another bundle). Until that
+lands, every write here fails closed with TenantNotBound (a 500), so the cases cannot pass yet.
+That dependence is recorded in the fragment, not a fault in these tests.
 
 The phone numbers are the prompt's sample values. No patient data.
 """
@@ -92,7 +92,7 @@ async def test_the_mobile_is_kept_in_the_protected_store_only(
         holders = [record["labels"] async for record in result]
     assert holders, "the number is stored somewhere"
     for labels in holders:
-        assert "ProtectedContact" in labels or "Contact" in labels, labels
+        assert labels == ["ProtectedContact"], labels
 
 
 async def test_an_advisor_is_not_found_and_nothing_is_stored(

@@ -10,15 +10,6 @@ export type BoardStatus =
   | 'not-updated'
   | 'out-of-hours';
 
-export const BOARD_STATUSES: readonly BoardStatus[] = [
-  'accepting',
-  'limited',
-  'not-accepting',
-  'over-capacity',
-  'not-updated',
-  'out-of-hours',
-];
-
 export type BoardEntry = {
   serviceId: string;
   name: string;

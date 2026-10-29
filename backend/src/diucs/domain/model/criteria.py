@@ -48,6 +48,9 @@ class ServiceCriteria:
     owner_role_id: str
     change_reason: str = ""
     supersedes_id: str | None = None
+    review_months: int | None = None
+    """The review period the owner chose (3, 6 or 12 months, U30). A pending version carries it so
+    that approval can set review-by from the approval date."""
 
     def __post_init__(self) -> None:
         _check_int("version", self.version, minimum=1)

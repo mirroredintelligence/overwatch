@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { isSamePathOnly, rolesFor } from '@/lib/auth/access';
+import { entraAuthorityOrigin } from '@/lib/auth/oidc';
 import { sessionFromRequest } from '@/lib/auth/session';
 import { buildCsp, securityHeaders } from '@/lib/security/csp';
 
@@ -19,6 +20,7 @@ import { buildCsp, securityHeaders } from '@/lib/security/csp';
 //    Content-Security-Policy or x-nonce the caller sent is overwritten, never trusted.
 
 const NO_STORE = 'no-store';
+const SIGN_IN_PATH = '/sign-in';
 
 function newNonce(): string {
   return Buffer.from(crypto.randomUUID()).toString('base64');
@@ -49,7 +51,12 @@ async function decide(request: NextRequest): Promise<Decision> {
 
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   const nonce = newNonce();
-  const policy = buildCsp(nonce, process.env.NODE_ENV === 'development');
+  // The sign-in page's form posts to our start route, which redirects to the provider; the browser
+  // checks that redirect against this page's form-action. Exactly this path, no other, names it.
+  const authority = request.nextUrl.pathname === SIGN_IN_PATH ? entraAuthorityOrigin() : null;
+  const policy = buildCsp(nonce, process.env.NODE_ENV === 'development', {
+    formActionOrigins: authority === null ? [] : [authority],
+  });
 
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);

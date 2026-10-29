@@ -131,6 +131,19 @@ export function loadEntraConfig(env: Env = process.env): EntraConfig {
   };
 }
 
+/**
+ * The origin the browser is sent to for sign-in, for the sign-in page's content security policy.
+ * Null (never a throw) for a setting the sign-in itself would refuse, so the page still renders
+ * and the policy then allows no extra target.
+ */
+export function entraAuthorityOrigin(env: Env = process.env): string | null {
+  try {
+    return origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST);
+  } catch {
+    return null;
+  }
+}
+
 export function bindingFor(config: EntraConfig, directoryId: string): Binding | undefined {
   const wanted = directoryId.toLowerCase();
   return config.bindings.find((binding) => binding.directoryId === wanted);

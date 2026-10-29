@@ -21,15 +21,18 @@ run when none is bound.
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Final, Protocol
+
+from diucs.domain.errors import ValidationFailed
 
 # An attribute value after the allow-list: the types the telemetry schema carries.
 AttributeValue = str | int | float | bool
 
 _SESSION_ID: Final = re.compile(r"[A-Za-z0-9_-]{1,64}")
 _TRACE_ID: Final = re.compile(r"[0-9a-f]{32}")
+MAX_SESSION_RESULTS: Final = 200
 
 
 class TimelineKind(StrEnum):
@@ -111,15 +114,42 @@ def allowed_attributes(
 ) -> dict[str, AttributeValue]:
     """Keep only the allow-listed keys whose values are plain scalars (text, whole number, number or
     boolean). Everything else is dropped: an unlisted key, a null, a list or an object."""
-    raise NotImplementedError
+    kept: dict[str, AttributeValue] = {}
+    for key, value in raw.items():
+        if key in allowed and isinstance(value, bool | int | float | str):
+            kept[key] = value
+    return kept
+
+
+def as_utc(value: object) -> datetime:
+    """A timezone-aware instant in UTC, from a datetime or an ISO 8601 text (a trailing Z allowed).
+    A naive value is refused: the console compares instants, never wall-clock times."""
+    if isinstance(value, str):
+        value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if not isinstance(value, datetime) or value.utcoffset() is None:
+        raise ValueError("a telemetry time must be a timezone-aware instant")
+    return value.astimezone(UTC)
 
 
 def check_session_id(value: str) -> str:
     """Return the session id when it is 1 to 64 letters, digits, hyphens or underscores; refuse
     anything else before it reaches a query. The field name only is in the refusal."""
-    raise NotImplementedError
+    if not isinstance(value, str) or _SESSION_ID.fullmatch(value) is None:
+        raise ValidationFailed(
+            "session_id", "must be 1 to 64 letters, digits, hyphens or underscores"
+        )
+    return value
 
 
 def check_trace_id(value: str) -> str:
     """Return the trace id when it is 32 lower-case hexadecimal characters (W3C trace id)."""
-    raise NotImplementedError
+    if not isinstance(value, str) or _TRACE_ID.fullmatch(value) is None:
+        raise ValidationFailed("trace_id", "must be 32 lower-case hexadecimal characters")
+    return value
+
+
+def check_limit(value: int) -> int:
+    """Return the result limit when it is between 1 and MAX_SESSION_RESULTS."""
+    if type(value) is not int or not 1 <= value <= MAX_SESSION_RESULTS:
+        raise ValidationFailed("limit", f"must be from 1 to {MAX_SESSION_RESULTS}")
+    return value

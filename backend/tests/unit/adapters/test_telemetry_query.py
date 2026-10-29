@@ -133,7 +133,7 @@ def _table_for_fixture(tenant: str) -> dict[str, LogsTable]:
             row["start"],
             row["duration_ms"],
             row["status"],
-            {**row["attributes"], "tenant.id": row["tenant_id"], "trace.id": row["trace_id"]},
+            {**row["attributes"], "tenant.id": row["tenant_id"]},
         )
         for row in data["spans"]
         if row["tenant_id"] == tenant and row["trace_id"] == TRACE_ID
@@ -291,7 +291,7 @@ def test_a_session_id_with_other_characters_is_refused_before_any_query(value: s
     with pytest.raises(ValidationFailed) as refused:
         check_session_id(value)
     assert refused.value.field == "session_id"
-    assert value not in str(refused.value)
+    assert value == "" or value not in str(refused.value)
 
 
 def test_a_trace_id_is_32_lower_case_hex() -> None:
@@ -524,3 +524,45 @@ async def test_the_fake_and_the_adapter_both_satisfy_the_port() -> None:
     assert query is not other
     assert isinstance(query, FixtureTelemetryQuery)
     assert isinstance(other, AzureMonitorTelemetryQuery)
+
+
+# ---- Further acceptance cases -------------------------------------------------------------
+
+
+@pytest.mark.parametrize("value", [0, 201, -1, True])
+def test_a_result_limit_outside_1_to_200_is_refused(value: int) -> None:
+    from diucs.application.ports.outbound.telemetry_query import check_limit
+
+    with pytest.raises(ValidationFailed) as refused:
+        check_limit(value)
+    assert refused.value.field == "limit"
+
+
+async def test_fixture_search_applies_filters_and_the_limit_within_the_tenant() -> None:
+    with bind_tenant("test-a"):
+        advisors = await _fake().search_sessions(SessionFilters(role="advisor"))
+        limited = await _fake().search_sessions(SessionFilters(limit=1))
+        desktop_only = await _fake().search_sessions(SessionFilters(device="desktop"))
+    assert [session.session_id for session in advisors] == [SESSION_ID]
+    assert [session.session_id for session in limited] == ["s-4c81"]
+    assert [session.session_id for session in desktop_only] == [SESSION_ID]
+
+
+async def test_fixture_reads_as_tenant_b_show_only_tenant_b() -> None:
+    with bind_tenant("test-b"):
+        sessions = await _fake().search_sessions(SessionFilters())
+        events = await _fake().session_timeline("s-b102", WINDOW_START, WINDOW_END)
+        spans = await _fake().trace(TRACE_ID)
+    assert [session.session_id for session in sessions] == ["s-b102"]
+    assert [event.name for event in events] == ["/advisor/call"]
+    assert [span.name for span in spans] == ["neo4j Q-PERSON-PHONE-FIND"]
+
+
+async def test_fixture_refuses_to_run_with_no_tenant_bound() -> None:
+    with pytest.raises(TenantNotBound):
+        await _fake().search_sessions(SessionFilters())
+
+
+async def test_fixture_refuses_a_naive_time_window() -> None:
+    with bind_tenant("test-a"), pytest.raises(ValueError):
+        await _fake().session_timeline(SESSION_ID, datetime(2026, 10, 28, 9, 0), WINDOW_END)

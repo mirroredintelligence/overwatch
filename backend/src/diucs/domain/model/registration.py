@@ -85,3 +85,18 @@ class ScopeEntry:
             raise ValidationFailed("date", "must be a calendar date")
         if not isinstance(self.reason, str):
             raise ValidationFailed("reason", "must be text")
+
+
+@dataclass(frozen=True, slots=True)
+class Invitation:
+    """STUB (U24 red): the fields only."""
+
+    id: str
+    service_id: str
+    registration_id: str
+    requester_role_id: str
+    invitee_id: str
+    role_label: str
+    created_at: datetime
+    sent_at: datetime
+    expires_at: datetime

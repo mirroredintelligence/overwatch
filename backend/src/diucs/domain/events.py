@@ -287,6 +287,23 @@ class RegistrationApproved:
 
 
 @dataclass(frozen=True, slots=True)
+class ReporterInvited:
+    """STUB (U24 red)."""
+
+    event_type: ClassVar[str] = "ReporterInvited"
+    invitation_id: str
+    service_id: str
+    at: datetime
+
+    def to_payload(self) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
 class ServiceActivated:
     """A service set up by a lead is live and takes referrals (U15, registration.events)."""
 
@@ -493,6 +510,7 @@ DomainEvent = (
     | RegistrationSubmitted
     | RegistrationApproved
     | ServiceActivated
+    | ReporterInvited
     | CriteriaApproved
     | AlertRaised
     | AlertAcknowledged
@@ -511,6 +529,7 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         RegistrationSubmitted: REGISTRATION_EVENTS,
         RegistrationApproved: REGISTRATION_EVENTS,
         ServiceActivated: REGISTRATION_EVENTS,
+        ReporterInvited: REGISTRATION_EVENTS,
         CriteriaApproved: CRITERIA_EVENTS,
         AlertRaised: ALERTS_EVENTS,
         AlertAcknowledged: ALERTS_EVENTS,
@@ -530,6 +549,7 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "RegistrationSubmitted": RegistrationSubmitted.decode,
         "RegistrationApproved": RegistrationApproved.decode,
         "ServiceActivated": ServiceActivated.decode,
+        "ReporterInvited": ReporterInvited.decode,
         "CriteriaApproved": CriteriaApproved.decode,
         "AlertRaised": AlertRaised.decode,
         "AlertAcknowledged": AlertAcknowledged.decode,

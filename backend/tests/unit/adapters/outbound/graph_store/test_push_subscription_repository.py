@@ -109,8 +109,9 @@ def test_no_push_statement_writes_the_subscription_text_into_a_log_or_an_audit_r
         assert "pushSubscriptionJson" not in REGISTRY.get(query_id).cypher, query_id
 
 
-# Device keying (orchestrator decision on P19): a Device is keyed by (tenant, deviceType, id). A push
-# subscription is a `mobile-app` device and can never address, overwrite or revoke a wall display.
+# Device keying (orchestrator decision on P19): a Device is keyed by (tenant, deviceType, id). A
+# push subscription is a `mobile-app` device and can never address, overwrite or revoke a wall
+# display.
 
 
 def test_every_push_statement_keys_the_device_by_its_type() -> None:

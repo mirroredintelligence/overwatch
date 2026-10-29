@@ -10,6 +10,7 @@ from typing import Any
 
 import pytest
 
+from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.actor import Actor
 from diucs.application.use_cases.move_service import StartServiceMove, StartServiceMoveCommand
 from diucs.domain.codes import Role
@@ -55,16 +56,21 @@ async def test_an_advisor_cannot_start_a_move() -> None:
 
 
 async def test_a_number_that_is_not_a_uk_mobile_is_refused_without_echoing_it() -> None:
+    # The input is distinctive; the example number in the message shares some digits with
+    # other inputs, so the check uses a value that appears nowhere else.
     with pytest.raises(ValidationFailed) as refused:
-        await _use_case().execute(_command(mobile="0770"))
+        await _use_case().execute(_command(mobile="07700 9001x9"))
     assert refused.value.field == "to_mobile"
-    assert "0770" not in str(refused.value)
+    assert "9001x9" not in str(refused.value)
 
 
 async def test_a_cover_that_ends_in_the_past_is_refused() -> None:
-    past = datetime(2020, 1, 1, tzinfo=UTC)
+    now = datetime(2026, 10, 26, 9, 0, tzinfo=UTC)
+    past = datetime(2026, 10, 25, 9, 0, tzinfo=UTC)
     command = StartServiceMoveCommand(
         actor=_actor(Role.LEAD), service_id="ucr-east", to_mobile="07700 900456", until=past
     )
-    with pytest.raises(ValidationFailed):
-        await _use_case().execute(command)
+    use_case = StartServiceMove(_Untouched(), _Untouched(), FixedClock(now), _Untouched())
+    with pytest.raises(ValidationFailed) as refused:
+        await use_case.execute(command)
+    assert refused.value.field == "until"

@@ -159,7 +159,7 @@ async def test_completing_before_the_call_back_is_not_allowed_and_changes_nothin
     started = await _start(uow_factory).execute(
         StartServiceMoveCommand(actor=LEAD, service_id="ucr-east", to_mobile=NEW_MOBILE, until=None)
     )
-    await VerifyServiceMoveCode(uow_factory, RecordingVerifier(), _clock()).execute(
+    await VerifyServiceMoveCode(uow_factory, RecordingVerifier(), _clock(), HASHER).execute(
         VerifyServiceMoveCodeCommand(move_id=started.move_id, mobile=NEW_MOBILE, code="123456")
     )
     with pytest.raises(NotAllowed, match="call"):

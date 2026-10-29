@@ -14,6 +14,15 @@ function without(parameters: Parameters, entryIndex: number, partName: string): 
   return copy;
 }
 
+function withCountOn(parameters: Parameters, partName: string, value: number): Parameters {
+  const copy = structuredClone(parameters);
+  const target = copy.parameter?.[0].part?.find((p) => p.name === partName);
+  if (!target) throw new Error(`the fixture has no ${partName} part`);
+  delete target.valueInteger;
+  target.valueInteger = value;
+  return copy;
+}
+
 describe('parseBoardParameters', () => {
   it('maps a two-entry Parameters fixture to a Board, entry order kept', () => {
     const full = entry({
@@ -135,6 +144,48 @@ describe('parseBoardParameters', () => {
     }
 
     expect(() => parseBoardParameters(parameters)).toThrow(BoardParseError);
+  });
+
+  // The integer reader's two guards (W05 verifier note, closed here): a count below
+  // zero, and a count that is not a whole number, must never reach a tile.
+  function withCount(partName: string, value: number): Parameters {
+    const parameters = boardParameters(BOARD_B);
+    const target = parameters.parameter?.[0].part?.find((p) => p.name === partName);
+    if (!target) throw new Error(`the fixture has no ${partName} part`);
+    target.valueInteger = value;
+    return parameters;
+  }
+
+  it.each(['effectiveAvailable', 'overBy', 'used', 'established', 'pending'])(
+    'fails closed on a negative %s, never showing a count such as -3',
+    (name) => {
+      const parameters = boardParameters(BOARD_B);
+      const part = parameters.parameter?.[0].part;
+      if (!part?.some((p) => p.name === name)) part?.push({ name, valueInteger: 1 });
+      expect(() => parseBoardParameters(withCountOn(parameters, name, -3))).toThrow(BoardParseError);
+      expect(() => parseBoardParameters(withCountOn(parameters, name, -1))).toThrow(BoardParseError);
+    },
+  );
+
+  it('keeps zero, the lowest count it accepts', () => {
+    expect(parseBoardParameters(withCount('established', 0)).entries[0].established).toBe(0);
+  });
+
+  it.each(['effectiveAvailable', 'used', 'established', 'pending'])(
+    'fails closed on a fractional %s, never rounding it',
+    (name) => {
+      const parameters = boardParameters(BOARD_B);
+      const part = parameters.parameter?.[0].part;
+      if (!part?.some((p) => p.name === name)) part?.push({ name, valueInteger: 1 });
+      expect(() => parseBoardParameters(withCountOn(parameters, name, 2.5))).toThrow(BoardParseError);
+      expect(() => parseBoardParameters(withCountOn(parameters, name, 0.1))).toThrow(BoardParseError);
+    },
+  );
+
+  it('fails closed on a count too large to be exact, and on one that is not a number', () => {
+    for (const bad of [Number.MAX_SAFE_INTEGER + 2, Number.POSITIVE_INFINITY, Number.NaN]) {
+      expect(() => parseBoardParameters(withCount('established', bad))).toThrow(BoardParseError);
+    }
   });
 
   it('fails closed on a part that appears twice, in an entry or at the top level', () => {

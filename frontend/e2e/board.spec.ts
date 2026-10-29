@@ -127,5 +127,6 @@ test('keeps the same information when the user asks for reduced motion', async (
   await openBoard(page);
 
   await expect(page.locator('[data-el="WALL-TILE"]')).toHaveCount(9);
-  await expect(page.getByText('Not updated for 4 hrs 10 min · was due 12:00')).toBeVisible();
+  // The stand-in back end builds the board now, so the was-due time is a London time of day.
+  await expect(page.getByText(/^Not updated for 4 hrs 10 min · was due \d\d:\d\d$/)).toBeVisible();
 });

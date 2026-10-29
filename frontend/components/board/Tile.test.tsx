@@ -228,3 +228,143 @@ describe('Tile: accessibility and privacy', () => {
     expect(html).not.toContain('svc-ucr-west');
   });
 });
+
+// Last known (W06): the board cannot be refreshed or is too old. The figure stays
+// where it is, but it is worded and styled as old, never as current. Artboard
+// "BoardDown" in docs/spec/ui-screens.md.
+describe('Tile: last known', () => {
+  const reported = entry({ serviceId: 'svc-lk', name: 'UCR West', reportedAt: '2026-10-23T12:58:00Z' });
+
+  it('shows the badge word Last known, the time of the figure, how old it is and the warning line', () => {
+    const { container } = render(<Tile entry={reported} now={NOW} lastKnown />);
+    const t = within(tile(container));
+
+    expect(t.getByText('Last known')).toBeInTheDocument();
+    expect(t.getByText('Last known 13:58')).toBeInTheDocument();
+    expect(t.getByText(/14 min ago/)).toBeInTheDocument();
+    expect(t.getByText('Do not rely on this. Phone to confirm.')).toBeInTheDocument();
+  });
+
+  it('keeps the number as last known, with its unit and bar', () => {
+    const { container } = render(<Tile entry={reported} now={NOW} lastKnown />);
+    const t = within(tile(container));
+
+    expect(t.getByText('4')).toBeInTheDocument();
+    expect(t.getByText('referrals in the next 2 hrs')).toBeInTheDocument();
+    expect(t.getByText('Used 4 of 8')).toBeInTheDocument();
+  });
+
+  it('is not styled or worded as current: no status word, no "Updated", no next due, no comment', () => {
+    const { container } = render(<Tile entry={{ ...reported, comment: 'Response time about 1 hr 20' }} now={NOW} lastKnown />);
+    const el = tile(container);
+
+    expect(el).toHaveAttribute('data-status', 'last-known');
+    expect(el.querySelector('[data-status="last-known"][data-shape="dashed-circle"]')).not.toBeNull();
+    expect(el.className).toMatch(/notUpdated/);
+    expect(el.textContent).not.toMatch(/Accepting|Limited|Not accepting|Over capacity|Out of hours|Not updated/);
+    expect(el.textContent).not.toMatch(/Updated|next due/);
+    expect(el.textContent).not.toContain('Response time about 1 hr 20');
+  });
+
+  it('shows the warning line in bold', () => {
+    const { container } = render(<Tile entry={reported} now={NOW} lastKnown />);
+
+    expect(within(tile(container)).getByText('Do not rely on this. Phone to confirm.').tagName).toBe('STRONG');
+  });
+
+  it.each(MAIN_ENTRIES.map((e) => [e.status, e] as const))('a %s service is shown as Last known', (_status, e) => {
+    const { container } = render(<Tile entry={e} now={NOW} lastKnown />);
+    const el = tile(container);
+
+    expect(within(el).getByText('Last known')).toBeInTheDocument();
+    expect(el).toHaveAttribute('data-status', 'last-known');
+    expect(el.textContent).toContain('Do not rely on this. Phone to confirm.');
+  });
+
+  it('keeps a zero as last known, and an over-capacity figure as +N', () => {
+    const closed = MAIN_ENTRIES.find((e) => e.status === 'not-accepting');
+    const over = MAIN_ENTRIES.find((e) => e.status === 'over-capacity');
+    if (!closed || !over) throw new Error('fixture');
+
+    const zero = render(<Tile entry={closed} now={NOW} lastKnown />);
+    expect(within(tile(zero.container)).getByText('0')).toBeInTheDocument();
+    const surge = render(<Tile entry={over} now={NOW} lastKnown />);
+    expect(within(tile(surge.container)).getByText('+2')).toBeInTheDocument();
+  });
+
+  it('shows ? and Phone to confirm for a service that was not updated, as before', () => {
+    const { container } = render(<Tile entry={VIRTUAL_WARD} now={NOW} lastKnown />);
+    const t = within(tile(container));
+
+    expect(t.getByText('?')).toBeInTheDocument();
+    expect(t.getByText('Phone to confirm')).toBeInTheDocument();
+    expect(t.queryByText('3')).toBeNull();
+  });
+
+  it('does not repeat an out-of-hours claim that may have changed: it shows ? and Phone to confirm', () => {
+    const closedHours = entry({ serviceId: 'svc-oh', name: 'Night service', status: 'out-of-hours', effectiveAvailable: null, used: null });
+    const { container } = render(<Tile entry={closedHours} now={NOW} lastKnown />);
+    const t = within(tile(container));
+
+    expect(t.getByText('?')).toBeInTheDocument();
+    expect(t.getByText('Phone to confirm')).toBeInTheDocument();
+    expect(t.queryByText('Outside opening hours')).toBeNull();
+  });
+
+  it('says No figure reported yet, and no Last known time, when the service never reported', () => {
+    const none = entry({ serviceId: 'svc-none', name: 'New service', status: 'not-updated', reportedAt: null, used: null, effectiveAvailable: null });
+    const { container } = render(<Tile entry={none} now={NOW} lastKnown />);
+    const el = tile(container);
+
+    expect(within(el).getByText('No figure reported yet')).toBeInTheDocument();
+    expect(el.textContent).not.toMatch(/Last known \d/);
+  });
+
+  it('gives the age as well as the time, so a figure from yesterday is not read as today', () => {
+    const yesterday = entry({ serviceId: 'svc-y', name: 'Old', reportedAt: '2026-10-22T12:58:00Z' });
+    const { container } = render(<Tile entry={yesterday} now={NOW} lastKnown />);
+    const el = tile(container);
+
+    expect(el.textContent).toContain('Last known 13:58');
+    expect(el.textContent).toContain('24 hrs 14 min ago');
+  });
+
+  it('measures the age on instants across the autumn clock change: 01:30 BST to 01:40 GMT is 1 hr 10 min', () => {
+    const e = entry({ serviceId: 'svc-c', name: 'Clock', reportedAt: '2026-10-25T00:30:00Z' });
+    const { container } = render(<Tile entry={e} now={new Date('2026-10-25T01:40:00Z')} lastKnown />);
+    const el = tile(container);
+
+    expect(el.textContent).toContain('Last known 01:30');
+    expect(el.textContent).toContain('1 hr 10 min ago');
+  });
+
+  it('measures the age on instants across the spring clock change: 00:58 GMT to 02:01 BST is 3 min', () => {
+    const e = entry({ serviceId: 'svc-s', name: 'Clock', reportedAt: '2026-03-29T00:58:00Z' });
+    const { container } = render(<Tile entry={e} now={new Date('2026-03-29T01:01:00Z')} lastKnown />);
+    const el = tile(container);
+
+    expect(el.textContent).toContain('Last known 00:58');
+    expect(el.textContent).toContain('3 min ago');
+  });
+
+  it('is a normal current tile when lastKnown is not set', () => {
+    const { container } = render(<Tile entry={UCR_WEST} now={NOW} />);
+
+    expect(tile(container)).toHaveAttribute('data-status', 'accepting');
+    expect(tile(container).textContent).not.toContain('Last known');
+  });
+
+  it('has no axe violations', async () => {
+    const { container } = render(
+      <ul>
+        <li>
+          <Tile entry={reported} now={NOW} lastKnown />
+        </li>
+      </ul>,
+    );
+
+    expect(container.querySelectorAll('[data-el="WALL-TILE"]')).toHaveLength(1);
+    expect(within(tile(container)).getByText('Last known')).toBeInTheDocument();
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+});

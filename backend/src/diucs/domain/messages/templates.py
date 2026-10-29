@@ -42,6 +42,9 @@ REFERENCE_FORMAT: Final = re.compile(r"[1-9][0-9]{3}")
 AGE_BANDS: Final = frozenset(band.value for band in AgeBand)
 URGENCY_WORDING: Final = frozenset({"within 2 hrs", "today", "planned"})
 NEED_CODES: Final = frozenset(need.value for need in NeedCategory)
+# C12 tells the reporter how to answer: with a number, or, on a grouped prompt, with a letter and a
+# number (U05, DEC-148). Nothing else is accepted, so no free text reaches the sentence.
+REPLY_WITH_FORMAT: Final = re.compile(r"a number|[A-H] and a number")
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +94,7 @@ _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.C9: frozenset({"reply_by", "items"}),
     MessageId.C10: frozenset({"updated", "waiting"}),
     MessageId.C11: frozenset(),
+    MessageId.C12: frozenset({"service", "value", "unit", "as_of", "reply_with", "reply_by"}),
 }
 
 _C1_TEXT: Final = (
@@ -106,6 +110,11 @@ _C8_TEXT: Final = (
 )
 _EMAIL_SUBJECT: Final = "{service}: confirm or update by {reply_by}"
 _PUSH_SUBJECT: Final = "{service}: confirm or update"
+
+_C12_TEXT: Final = (
+    "DIUCS: {service}. The figure on record, {value} {unit}, is out of date (as of {as_of}), "
+    "so Y was not used. Send {reply_with} (0 = closed). By {reply_by}."
+)
 
 _B1_TEXT: Final = (
     "DIUCS REQUEST {reference}: {service}. Age {age_band}, {need}, {urgency}. "
@@ -223,6 +232,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.C10, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C10], text="Thanks. {changes}"
     ),
+    (MessageId.C12, Channel.TEXT): _Template(required=_FIELDS[MessageId.C12], text=_C12_TEXT),
     (MessageId.C11, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C11],
         text=(
@@ -427,6 +437,10 @@ def _check_constrained_fields(fields: Mapping[str, object]) -> None:
         raise ValidationFailed("age_band", "must be a rule-book age band")
     if "urgency" in fields and fields["urgency"] not in URGENCY_WORDING:
         raise ValidationFailed("urgency", "must be a rule-book urgency wording")
+    if "reply_with" in fields and not (
+        isinstance(fields["reply_with"], str) and REPLY_WITH_FORMAT.fullmatch(fields["reply_with"])
+    ):
+        raise ValidationFailed("reply_with", "must be 'a number' or a letter and 'a number'")
     if "need" in fields and not (isinstance(fields["need"], str) and fields["need"] in NEED_CODES):
         raise ValidationFailed("need", "must be a need category code")
 

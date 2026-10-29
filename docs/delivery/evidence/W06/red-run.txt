@@ -1,0 +1,80 @@
++ 501
+
+ ❯ app/api/bff/events/route.test.ts:204:40
+    202|   it('answers 503 when the back end cannot be reached, and 502 when it…
+    203|     server.use(http.get(EVENTS, () => HttpResponse.error()));
+    204|     expect((await get('wall')).status).toBe(503);
+       |                                        ^
+    205|
+    206|     server.use(http.get(EVENTS, () => HttpResponse.json({ not: 'a stre…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[165/213]⎯
+
+ FAIL  app/api/bff/events/route.test.ts > GET /api/bff/events: who may listen > is never cached when it refuses, either
+AssertionError: expected null to be 'no-store' // Object.is equality
+
+- Expected:
+"no-store"
+
++ Received:
+null
+
+ ❯ app/api/bff/events/route.test.ts:211:60
+    209|
+    210|   it('is never cached when it refuses, either', async () => {
+    211|     expect((await get(null)).headers.get('cache-control')).toBe('no-st…
+       |                                                            ^
+    212|     expect((await get('reporter')).headers.get('cache-control')).toBe(…
+    213|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[166/213]⎯
+
+ FAIL  app/api/bff/events/route.test.ts > GET /api/bff/events: one organisation, the session’s own (DEC-130, DEC-132) > opens the back end stream with the session token, no query string and no tenant or organisation header
+AssertionError: expected [] to have a length of 1 but got +0
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ app/api/bff/events/route.test.ts:222:30
+    220|     await (await get('wall')).body?.cancel();
+    221|
+    222|     expect(upstreamRequests).toHaveLength(1);
+       |                              ^
+    223|     const request = upstreamRequests[0];
+    224|     expect(request.method).toBe('GET');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[167/213]⎯
+
+ FAIL  app/api/bff/events/route.test.ts > GET /api/bff/events: one organisation, the session’s own (DEC-130, DEC-132) > ignores a tenant, organisation, scope or network in the query string and in the request headers
+TypeError: Cannot read properties of undefined (reading 'headers')
+ ❯ app/api/bff/events/route.test.ts:247:20
+    245|
+    246|     const request = upstreamRequests[0];
+    247|     expect(request.headers.get('authorization')).toBe(`Bearer ${TOKEN_…
+       |                    ^
+    248|     expect(new URL(request.url).search).toBe('');
+    249|     expect([...request.headers.keys()].join(' ')).not.toMatch(/tenant|…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[168/213]⎯
+
+ FAIL  app/api/bff/events/route.test.ts > GET /api/bff/events: one organisation, the session’s own (DEC-130, DEC-132) > uses the token of the session it is given, so another session opens its own stream
+TypeError: Cannot read properties of undefined (reading 'headers')
+ ❯ app/api/bff/events/route.test.ts:257:32
+    255|     await (await get('wall', { token: TOKEN_ORG_B })).body?.cancel();
+    256|
+    257|     expect(upstreamRequests[0].headers.get('authorization')).toBe(`Bea…
+       |                                ^
+    258|   });
+    259| });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[169/213]⎯
+
+
+ Test Files  12 failed | 29 passed (41)
+      Tests  213 failed | 509 passed (722)
+   Start at  01:30:47
+   Duration  18.62s (transform 1.55s, setup 12.88s, import 5.18s, tests 17.96s, environment 13.24s)
+

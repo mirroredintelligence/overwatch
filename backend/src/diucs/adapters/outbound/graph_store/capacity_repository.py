@@ -8,6 +8,9 @@ the check runs first and a race that reaches the store is mapped to Conflict too
 
 "Latest" is the greatest effectiveDateTime. The FHIR `issued` instant is not on CapacityReport, so
 ties on effectiveDateTime fall back to the store's lastUpdated (the write time, whole seconds).
+A report read from the store also carries that write time as `written_at` (the record order, which
+an explicit effective time can differ from; U05, hazard H-32). The mapping to FHIR never writes it:
+the store stamps it.
 """
 
 from collections.abc import Sequence
@@ -183,6 +186,7 @@ def report_from_fhir(resource: dict[str, Any]) -> CapacityReport:
     performer = _single(resource.get("performer"), "performer")
     derived = _single(resource.get("derivedFrom"), "derivedFrom")
     quantity = resource["valueQuantity"]
+    stamp = resource.get("meta", {}).get("lastUpdated")
     return CapacityReport(
         id=resource["id"],
         service_id=_reference_id(resource["focus"]["reference"], _SERVICE, "focus"),
@@ -201,6 +205,7 @@ def report_from_fhir(resource: dict[str, Any]) -> CapacityReport:
             if derived is None
             else _reference_id(derived["reference"], _OBSERVATION, "derivedFrom")
         ),
+        written_at=None if stamp is None else datetime.fromisoformat(stamp).astimezone(UTC),
     )
 
 

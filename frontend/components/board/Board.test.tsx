@@ -109,3 +109,83 @@ describe('Board privacy and accessibility', () => {
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });
+
+describe('Board: last known (W06)', () => {
+  const lastKnown = {
+    mode: 'last-known' as const,
+    reason: 'offline' as const,
+    since: '2026-10-23T13:02:00Z',
+    asOf: '2026-10-23T13:02:00Z',
+    now: '2026-10-23T13:30:00Z',
+    ageMs: 1_680_000,
+  };
+
+  it('shows the banner and turns every tile into a Last known tile, keeping the order and the numbers', () => {
+    const { container } = render(<Board board={BOARD_A} lastKnown={lastKnown} />);
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Tool offline since 14:02');
+    expect(tiles(container)).toHaveLength(BOARD_A.entries.length);
+    expect(tiles(container).map((t) => t.getAttribute('data-service-id'))).toEqual(MAIN_ENTRIES.map((e) => e.serviceId));
+    for (const t of tiles(container)) {
+      expect(t).toHaveAttribute('data-status', 'last-known');
+      expect(within(t).getByText('Do not rely on this. Phone to confirm.')).toBeInTheDocument();
+    }
+    expect(within(tiles(container)[0]).getByText('4')).toBeInTheDocument();
+  });
+
+  it('leaves the header time at the time the board was built, not the time now', () => {
+    render(<Board board={BOARD_A} lastKnown={lastKnown} />);
+
+    expect(screen.getByText('14:12')).toBeInTheDocument();
+    expect(screen.queryByText('14:30')).toBeNull();
+  });
+
+  it('ages the figures from the time now, not from the time the board was built', () => {
+    const { container } = render(<Board board={BOARD_A} lastKnown={lastKnown} />);
+
+    // The first tile reported at 14:03 London; now is 14:30 London.
+    expect(tiles(container)[0].textContent).toContain('Last known 14:03');
+    expect(tiles(container)[0].textContent).toContain('27 min ago');
+  });
+
+  it('has no banner and no Last known word when the board is current', () => {
+    const { container } = render(<Board board={BOARD_A} />);
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(container.textContent).not.toContain('Last known');
+    expect(container.textContent).not.toContain('Live updates paused');
+  });
+
+  it('says in words that live updates are paused when the stream is down but the board is still refreshing', () => {
+    const { container } = render(<Board board={BOARD_A} streamPaused />);
+
+    expect(container.querySelector('[data-el="WALL-STREAM-NOTE"]')).toHaveTextContent(
+      'Live updates paused. This board refreshes every minute.',
+    );
+    expect(screen.queryByRole('alert')).toBeNull();
+    for (const t of tiles(container)) expect(t).not.toHaveAttribute('data-status', 'last-known');
+  });
+
+  it('does not add a second announcement: the stream note has no live role, and only the banner is an alert', () => {
+    const { container } = render(<Board board={BOARD_A} streamPaused />);
+    expect(container.querySelector('[aria-live], [role="alert"], [role="status"]')).toBeNull();
+
+    const down = render(<Board board={BOARD_A} lastKnown={lastKnown} streamPaused />);
+    expect(down.container.querySelectorAll('[role="alert"]')).toHaveLength(1);
+    expect(down.container.querySelector('[data-el="WALL-STREAM-NOTE"]')).toBeNull();
+  });
+
+  it('has no axe violations while last known', async () => {
+    const { container } = render(<Board board={BOARD_A} lastKnown={lastKnown} />);
+
+    expect(tiles(container)).toHaveLength(BOARD_A.entries.length);
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('shows the banner and no tiles for an empty board that is last known', () => {
+    const { container } = render(<Board board={{ ...BOARD_A, entries: [] }} lastKnown={lastKnown} />);
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(tiles(container)).toHaveLength(0);
+  });
+});

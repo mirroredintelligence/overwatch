@@ -2,6 +2,7 @@ import { londonDate, londonTime } from '@/lib/board/format';
 import type { Board as BoardData } from '@/lib/board/types';
 import styles from './Board.module.css';
 import { Legend } from './Legend';
+import { LastKnownBanner, type LastKnown } from './LastKnownBanner';
 import { Tile } from './Tile';
 
 // The call-centre wall board: a header, a grid of tiles in the order the back
@@ -15,8 +16,20 @@ import { Tile } from './Tile';
 
 const NO_SERVICES = 'No services are listed. Use the whiteboard and phone process.';
 
-export function Board({ board }: { board: BoardData }) {
-  const now = board.generatedAt;
+export function Board({
+  board,
+  lastKnown,
+  streamPaused = false,
+}: {
+  board: BoardData;
+  /** Set when the board must be shown as last known (W06). */
+  lastKnown?: LastKnown;
+  /** True when the live stream is down but the board is still being refreshed. */
+  streamPaused?: boolean;
+}) {
+  // Current: every age is measured from the time the board was built. Last known:
+  // from the time now, so the ages keep growing while the figures stand still.
+  const now = lastKnown ? lastKnown.now : board.generatedAt;
   const title = board.organisation
     ? `${board.organisation} urgent care capacity`
     : 'Urgent care capacity';
@@ -29,12 +42,20 @@ export function Board({ board }: { board: BoardData }) {
           <p className={styles.subtitle}>Single point of access</p>
         </div>
         <div className={styles.clock}>
-          <time className={`${styles.time} tabular-nums`} dateTime={now}>
-            {londonTime(now)}
+          <time className={`${styles.time} tabular-nums`} dateTime={board.generatedAt}>
+            {londonTime(board.generatedAt)}
           </time>
-          <p className={styles.date}>{londonDate(now)}</p>
+          <p className={styles.date}>{londonDate(board.generatedAt)}</p>
         </div>
       </header>
+
+      {lastKnown ? (
+        <LastKnownBanner lastKnown={lastKnown} />
+      ) : streamPaused ? (
+        <p className={styles.note} data-el="WALL-STREAM-NOTE">
+          Live updates paused. This board refreshes every minute.
+        </p>
+      ) : null}
 
       {board.entries.length === 0 ? (
         <p className={styles.empty} role="status">
@@ -44,7 +65,7 @@ export function Board({ board }: { board: BoardData }) {
         <ul className={styles.grid} aria-label="Services">
           {board.entries.map((entry) => (
             <li key={entry.serviceId} className={styles.cell}>
-              <Tile entry={entry} now={now} />
+              <Tile entry={entry} now={now} lastKnown={lastKnown !== undefined} />
             </li>
           ))}
         </ul>

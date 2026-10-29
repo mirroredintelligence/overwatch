@@ -40,3 +40,13 @@ def london_to_utc(d: date, t: time) -> datetime:
 def format_hhmm(dt: datetime) -> str:
     """Return the London wall-clock time as HH:MM, for messages and the wall board."""
     return to_london(dt).strftime("%H:%M")
+
+
+_MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+
+
+def format_stamp(dt: datetime) -> str:
+    """Return the London day, month and time as "23 Oct 08:15": the full date of a figure, so that
+    a figure from another day cannot read as the current one (DEC-115 item 11)."""
+    local = to_london(dt)
+    return f"{local.day} {_MONTHS[local.month - 1]} {local.strftime('%H:%M')}"

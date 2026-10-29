@@ -3,7 +3,7 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSession, type Role, type Session } from '@/lib/auth/session';
 import { runAxe } from '@/test/a11y';
-import { BOARD_A, BOARD_B } from '@/test/fixtures/board';
+import { BOARD_A, BOARD_B, GENERATED_AT } from '@/test/fixtures/board';
 import {
   BACKEND_BASE,
   BOARD_URL,
@@ -25,6 +25,8 @@ vi.mock('next/navigation', () => ({
   redirect: (url: string) => {
     throw new Redirected(url);
   },
+  // The live board (a client component) reads the router.
+  useRouter: () => ({ replace: vi.fn() }),
 }));
 
 vi.mock('@/lib/auth/session', async (importOriginal) => ({
@@ -59,9 +61,14 @@ async function redirectOf(): Promise<string> {
 beforeEach(() => {
   vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
   resetSeenBoardRequests();
+  // The wall now judges a board by the clock (W06): the sample board is the
+  // sample time, so the clock is set to it. Only Date is faked.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(GENERATED_AT));
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.unstubAllEnvs();
   vi.mocked(getSession).mockReset();
 });
@@ -146,6 +153,39 @@ describe('wall screen page: signed in', () => {
 
     expect(container.querySelectorAll('[data-el="WALL-TILE"]')).toHaveLength(BOARD_A.entries.length);
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+});
+
+describe('wall screen page: the board is judged by the clock (W06)', () => {
+  it('shows the board as current, with no banner, when it was just built', async () => {
+    as(signedIn('wall'));
+
+    const { container } = render(await WallScreenPage());
+
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(container.textContent).not.toContain('Last known');
+  });
+
+  it('shows Last known at the first paint, with the banner, when the back end serves a board that is already old', async () => {
+    as(signedIn('wall'));
+    vi.setSystemTime(new Date(Date.parse(GENERATED_AT) + 30 * 60_000));
+
+    const { container } = render(await WallScreenPage());
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Tool offline since 14:12');
+    for (const tile of container.querySelectorAll('[data-el="WALL-TILE"]')) {
+      expect(tile).toHaveAttribute('data-status', 'last-known');
+    }
+    expect(container.textContent).not.toMatch(/Updated \d+ min ago/);
+  });
+
+  it('shows Last known, not a clean board, when the back end serves a board dated in the future', async () => {
+    as(signedIn('wall'));
+    vi.setSystemTime(new Date(Date.parse(GENERATED_AT) - 30 * 60_000));
+
+    render(await WallScreenPage());
+
+    expect(screen.getByRole('alert')).toBeInTheDocument();
   });
 });
 

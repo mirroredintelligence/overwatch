@@ -68,6 +68,9 @@ class ReportCapacityCommand:
     performer_role_id: str | None = None
     replaced_value: int | None = None
     flag: ReportFlagReason | None = None
+    send_echo: bool = True
+    """False when the caller sends its own reply: U05 answers a grouped text with one C10 (DEC-148).
+    The performer is recorded either way."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -253,6 +256,7 @@ def _fingerprint(command: ReportCapacityCommand) -> str:
             flag,
             command.actor.role.value,
             command.actor.practitioner_id,
+            command.send_echo,
         )
     )
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
@@ -350,7 +354,11 @@ class ReportCapacity:
                 report_type=ReportType.NUMBER,
                 performer_role_id=command.performer_role_id,
             )
-            send_echo = command.performer_role_id if command.source is ReportSource.TEXT else None
+            send_echo = (
+                command.performer_role_id
+                if command.source is ReportSource.TEXT and command.send_echo
+                else None
+            )
             result = await record_report(
                 uow,
                 profile=profile,

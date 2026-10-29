@@ -116,6 +116,8 @@ There is no STOP, START or HELP keyword handling in the product. Messages from a
 - **Y limit**: `Y` is recorded as a `confirmed` report (derived from the latest number). At most 2 confirmations in a row. A third `Y` is refused: "Y was used twice already. Please send the number for <service>."
 - **Range check**: a number outside the usual range is not recorded the first time. Reply asking the reporter to send it again to confirm. **[ASSUMED]** If the same number is sent again within the open window, record it and raise a `ReportFlag` (reason `out-of-range-twice`).
 - Every accepted reply gets an echo with the figure, the time recorded and the next due time.
+- **A Y never makes an old figure current** (hazard H-31, DEC-148): a Y confirms the figure on record only if that figure was no more than 2 hours old when the prompt was sent (D05's stale warning). Otherwise nothing is recorded and the reporter is told the figure is out of date (C12) and asked for a number.
+- **A Y never confirms a figure the reporter was not shown** (hazard H-32, DEC-148 items 17 to 19): a Y is also refused, with C12 and nothing recorded, (a) when a number has been reported for the service later than the moment the prompt was sent (a confirmation after the prompt does not count: it repeats the figure), (b) when a report lands between the check and the write (ConfirmCapacity is told which report was judged and refuses if the latest is another), and (c) when the Y is processed more than `CONFIRM_PROCESSING_LIMIT` = 10 minutes **[ASSUMED]** after it was received, because a confirmation is stamped at the time it is processed and a Y that waited in a queue or an outage would make an old figure current now. Exactly 10 minutes is inside the limit. The reporter is asked for a number (fails closed).
 
 ### 2.3 Report flags (for the shift lead to check)
 
@@ -248,7 +250,7 @@ Every options view writes an audit snapshot: for each service shown, its status,
 - **Reporters and COO or ICB users**: text code then PIN.
 - **Text code**: 6 digits, valid 10 minutes, 5 wrong tries then a new code is needed, resend allowed after 60 seconds **[ASSUMED cooldown]**.
 - **PIN**: 6 digits, stored only as a keyed hash, bound to the device. 5 wrong tries lock it; a text code resets it. Re-verify by text code every 30 days and on any new device.
-- **Link tokens**: at least 128 bits of randomness, single use, tied to one prompt and one phone, expiring with the prompt (the reply-by time). Only a hash is stored. Opening a link (GET) changes nothing; a button press (POST with a CSRF check) does.
+- **Link tokens**: at least 128 bits of randomness, written as 23 letters (A to Z, a to z) and nothing else, so a random token can never look like a postcode or NHS number to the privacy guard (DEC-154), single use, tied to one prompt and one phone, expiring with the prompt (the reply-by time). Only a hash is stored. Opening a link (GET) changes nothing; a button press (POST with a CSRF check) does.
 - **Invitation links**: valid 48 hours.
 - **Wall screen pairing code**: 6 digits shown as "482 913", valid 10 minutes. A paired screen holds a device token (hash stored) and can read only the board. It never sees patient data.
 - **Support code**: 8 characters shown as `XXXX-XXXX` from an unambiguous alphabet, valid for a set period, created only by the person.
@@ -305,6 +307,7 @@ Message catalogue ids (stored as `Communication.topic`) **[ASSUMED numbering; th
 | C9 | Multi-service prompt |
 | C10 | Multi-service partial echo |
 | C11 | Unrecognised reply help |
+| C12 | A Y was refused: the figure on record is out of date, please send a number (U05, DEC-148) |
 | B1 | Booking request by text |
 | B2 | Booking request by email |
 | B3 | Booking request by push |

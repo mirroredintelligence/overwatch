@@ -1,5 +1,7 @@
 """Domain errors. Every error the domain or use cases raise on purpose subclasses DomainError."""
 
+from datetime import datetime
+
 
 class DomainError(Exception):
     """Base class for expected, reportable failures of a rule or a request."""
@@ -32,6 +34,18 @@ class NotAllowed(DomainError):
 
 class ConfirmLimitReached(DomainError):
     """A third confirmation in a row: the figure must be given again as a number."""
+
+
+class LatestReportChanged(Conflict):
+    """A confirmation asked to confirm one report, and the latest report of the service is another.
+    The figure the caller judged is not the figure that would be confirmed, so nothing is written
+    (DEC-148 item 18). Carries the value and effective time of the report that is now the latest, so
+    the caller can tell the reporter which figure is on record."""
+
+    def __init__(self, message: str, latest_value: int, latest_at: datetime) -> None:
+        super().__init__(message)
+        self.latest_value = latest_value
+        self.latest_at = latest_at
 
 
 class NothingToConfirm(DomainError):

@@ -236,6 +236,37 @@ async def test_a_report_that_keeps_the_status_emits_no_status_changed(
     assert len(await _events(uow_factory, "StatusChanged")) == changes_before
 
 
+async def test_the_echo_can_be_switched_off_for_a_caller_that_sends_its_own_reply(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """U05 answers a grouped reply with one C10 and so asks for no per-service C3 (DEC-148). The
+    performer is still recorded on the report."""
+    await seed_service(UCR_WEST)
+
+    await _rig(uow_factory, neo4j_driver)[0].execute(
+        dataclasses.replace(_command(4, performer_role_id="role-1"), send_echo=False)
+    )
+
+    assert await _communications(neo4j_driver) == []
+    assert await _events(uow_factory, "SendMessage") == []
+    latest = await _latest(uow_factory, "ucr-west")
+    assert latest is not None
+    assert latest.performer_role_id == "role-1"
+
+
+async def test_a_key_reused_with_the_echo_switched_is_a_different_report(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+    use_case = _rig(uow_factory, neo4j_driver)[0]
+    await use_case.execute(_command(4, performer_role_id="role-1"))
+
+    with pytest.raises(Conflict):
+        await use_case.execute(
+            dataclasses.replace(_command(4, performer_role_id="role-1"), send_echo=False)
+        )
+
+
 async def test_a_replaced_figure_is_echoed_as_c4_and_a_link_is_not_echoed(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:

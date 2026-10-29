@@ -89,3 +89,23 @@ def test_a_report_time_with_a_fraction_round_trips_without_trailing_zeros() -> N
 
     assert report_to_fhir(report)["effectiveDateTime"] == "2026-10-25T09:12:00.12Z"
     assert report_from_fhir(report_to_fhir(report)) == report
+
+
+def test_a_stored_observation_gives_the_report_its_write_time_from_meta() -> None:
+    resource = report_to_fhir(NUMBER_REPORT)
+    resource["meta"] = {"versionId": "1", "lastUpdated": "2026-10-25T09:14:03Z"}
+
+    report = report_from_fhir(resource)
+
+    assert report.written_at == datetime(2026, 10, 25, 9, 14, 3, tzinfo=UTC)
+    assert report == NUMBER_REPORT  # the write time is not part of the report's identity
+
+
+def test_an_observation_with_no_meta_has_no_write_time() -> None:
+    assert report_from_fhir(report_to_fhir(NUMBER_REPORT)).written_at is None
+
+
+def test_the_write_time_is_never_sent_to_the_store_from_the_report() -> None:
+    stamped = replace(NUMBER_REPORT, written_at=datetime(2026, 10, 25, 9, 14, 3, tzinfo=UTC))
+
+    assert "meta" not in report_to_fhir(stamped)

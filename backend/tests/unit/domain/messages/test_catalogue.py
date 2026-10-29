@@ -8,7 +8,7 @@ from diucs.domain.messages.catalogue import MessageId
 
 def test_catalogue_has_every_id_from_the_rule_book() -> None:
     expected = (
-        [f"C{n}" for n in range(1, 12)]
+        [f"C{n}" for n in range(1, 13)]
         + [f"B{n}" for n in range(1, 8)]
         + [f"I{n}" for n in range(1, 4)]
         + [f"K{n}" for n in range(1, 5)]
@@ -19,3 +19,4 @@ def test_catalogue_has_every_id_from_the_rule_book() -> None:
 def test_each_id_is_its_own_value() -> None:
     assert MessageId.C1 == "C1"
     assert MessageId("C11") is MessageId.C11
+    assert MessageId("C12") is MessageId.C12

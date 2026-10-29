@@ -124,6 +124,14 @@
   line-height: var(--type-caption-lh);
 }
 
+.meta {
+  margin: var(--space-1) 0 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+}
+
 .usage {
   display: flex;
   flex-direction: column;

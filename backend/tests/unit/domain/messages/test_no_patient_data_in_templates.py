@@ -31,6 +31,7 @@ EXPECTED_CHANNELS: dict[MessageId, frozenset[Channel]] = {
     MessageId.C9: frozenset({TEXT}),
     MessageId.C10: frozenset({TEXT}),
     MessageId.C11: frozenset({TEXT}),
+    MessageId.C12: frozenset({TEXT}),
     MessageId.B1: frozenset({TEXT}),
     MessageId.B2: frozenset({EMAIL}),
     MessageId.B3: frozenset({PUSH}),
@@ -102,6 +103,14 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
         "waiting": [("A", "UCR West")],
     },
     MessageId.C11: {},
+    MessageId.C12: {
+        "service": "UCR West",
+        "value": 3,
+        "unit": "referrals in the next 2 hrs",
+        "as_of": "22 Oct 17:00",
+        "reply_with": "a number",
+        "reply_by": "12:35",
+    },
     MessageId.B1: {
         "reference": "4821",
         "service": "UCR West",

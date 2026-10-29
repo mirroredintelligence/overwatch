@@ -211,3 +211,19 @@ export function boardParameters(board: Board): Parameters {
     ],
   };
 }
+
+/** The same board, built at another instant: every time in it moves by the same amount (W06). */
+export function boardBuiltAt(board: Board, generatedAt: string): Board {
+  const delta = Date.parse(generatedAt) - Date.parse(board.generatedAt);
+  const shift = (value: string | null) => (value === null ? null : new Date(Date.parse(value) + delta).toISOString());
+  return {
+    ...board,
+    generatedAt,
+    entries: board.entries.map((e) => ({
+      ...e,
+      reportedAt: shift(e.reportedAt),
+      nextDueAt: shift(e.nextDueAt),
+      wasDueAt: shift(e.wasDueAt),
+    })),
+  };
+}

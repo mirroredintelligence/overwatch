@@ -105,3 +105,12 @@
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-lh);
 }
+
+/* A quiet line in words (no alert) when the live stream is down but the poll still works. */
+.note {
+  margin: 0;
+  color: var(--c-ink-2);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: 700;
+}

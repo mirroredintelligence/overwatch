@@ -5,8 +5,13 @@ Rule: docs/spec/domain-rules.md section 7.
 Pure: no I/O and no clock. Randomness is a parameter (default: the secrets module, which is a
 cryptographically secure source), and every time is an argument, so tests are deterministic.
 
-- A link token is 128 bits, base64url without padding (22 characters). Only its keyed hash
-  (HMAC-SHA256, hex) is stored. A link is used once; used takes precedence over expired.
+- A link token is 128 bits written as a base-52 number of 23 letters (A to Z, a to z), with no
+  digit, no "-" or "_" and no space. Only its keyed hash (HMAC-SHA256, hex) is stored. A link is
+  used once; used takes precedence over expired. The letters-only layout is deliberate (DEC-154):
+  the token goes into an SMS link that the privacy guard (D17) reads, and no text made of 23
+  letters can have a postcode, NHS-number or titled-name shape, so a random token can never make
+  the guard refuse a capacity prompt. (With base64url, about 0.18 percent of tokens did: "-" is a
+  word boundary and the digits can complete a postcode or an NHS number.)
 - A pairing code is six digits, drawn one digit at a time from ten values, so every code is equally
   likely. It is shown as "482 913" and valid for ten minutes.
 - A support code is eight characters from SUPPORT_CODE_ALPHABET, shown as XXXX-XXXX.
@@ -16,7 +21,6 @@ for logs). Instants are compared in UTC, so the London clock change cannot make 
 item 7, lesson L52).
 """
 
-import base64
 import hashlib
 import hmac
 import re
@@ -33,6 +37,8 @@ PAIRING_CODE_VALID_FOR: Final = timedelta(minutes=10)
 SUPPORT_CODE_ALPHABET: Final = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
 
 LINK_TOKEN_BYTES: Final = 16  # 128 bits, the minimum in domain-rules 7
+LINK_TOKEN_ALPHABET: Final = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+LINK_TOKEN_LENGTH: Final = 23  # 52 ** 23 is about 2 ** 131.1, so all 128 bits fit one to one
 PAIRING_CODE_DIGITS: Final = 6
 PAIRING_DIGIT_CHOICES: Final = 10
 SUPPORT_CODE_LENGTH: Final = 8
@@ -88,7 +94,14 @@ def new_link_token(rng: Callable[[int], bytes] = secrets.token_bytes) -> str:
     raw = rng(LINK_TOKEN_BYTES)
     if not isinstance(raw, bytes) or len(raw) != LINK_TOKEN_BYTES:
         raise ValidationFailed("token", "the random source must give exactly 128 bits")
-    return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")
+    # The 128 bits as one number, written in base 52 with a fixed number of letters. Distinct
+    # inputs give distinct tokens, so no entropy is lost, and no digit or separator appears.
+    number = int.from_bytes(raw, "big")
+    letters: list[str] = []
+    for _ in range(LINK_TOKEN_LENGTH):
+        number, digit = divmod(number, len(LINK_TOKEN_ALPHABET))
+        letters.append(LINK_TOKEN_ALPHABET[digit])
+    return "".join(reversed(letters))
 
 
 def hash_token(token: str, secret: bytes) -> str:

@@ -8,7 +8,8 @@ from collections.abc import Sequence
 from datetime import datetime
 from typing import Protocol
 
-from diucs.domain.codes import RegistrationStatus
+from diucs.domain.codes import AlertKind, RegistrationStatus
+from diucs.domain.model.alerts import AlertRecord, AlertSubscription
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
@@ -327,4 +328,47 @@ class FlagRepository(Protocol):
 
     async def services_with_flag(self, code: str) -> set[str]:
         """The ids of services with an active service flag with this code."""
+        ...
+
+
+class AlertSubscriptionRepository(Protocol):
+    """Alert preferences, one per practitioner (P17). Adapter: Neo4jAlertSubscriptionRepository
+    (graph_store/alert_repository.py). Saving again replaces the practitioner's subscription."""
+
+    async def get_for_practitioner(self, practitioner_id: str) -> AlertSubscription | None:
+        """The stored subscription of this practitioner, or None."""
+        ...
+
+    async def save(self, subscription: AlertSubscription) -> None:
+        """Insert the subscription, or replace the practitioner's stored one. An unknown
+        practitioner raises NotFound and writes nothing."""
+        ...
+
+    async def subscribers_for_kind(self, kind: AlertKind) -> list[AlertSubscription]:
+        """The subscriptions of the bound tenant that have this alert kind switched on."""
+        ...
+
+
+class AlertRepository(Protocol):
+    """Alerts, stored as Task code acknowledge-alert (P17). Adapter: Neo4jAlertRepository."""
+
+    async def add(self, alert: AlertRecord) -> None:
+        """Store a new alert. An id that exists raises Conflict."""
+        ...
+
+    async def get(self, alert_id: str) -> AlertRecord | None:
+        """The stored alert, or None."""
+        ...
+
+    async def save(self, alert: AlertRecord) -> None:
+        """Replace the stored alert. An unknown id raises NotFound."""
+        ...
+
+    async def open_for_owner(self, practitioner_id: str) -> list[AlertRecord]:
+        """The alerts owned by this practitioner that are still new."""
+        ...
+
+    async def chain(self, alert_id: str) -> list[AlertRecord]:
+        """The alert and every alert it escalates from, from the root through each partOf link,
+        oldest first. An unknown id raises NotFound."""
         ...

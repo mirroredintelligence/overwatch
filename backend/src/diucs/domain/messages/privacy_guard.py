@@ -75,3 +75,21 @@ def find_patient_data(text: str) -> list[str]:
         (match.start(), match.group(0)) for pattern in _PATTERNS for match in pattern.finditer(text)
     ]
     return [fragment for _, fragment in sorted(found)]
+
+
+# ---------------------------------------------------------------- keys and values (TEN-052)
+
+
+def normalise_key(name: str) -> str:
+    raise NotImplementedError
+
+
+FORBIDDEN_KEY_FORMS: Final[frozenset[str]] = frozenset()
+
+
+def find_forbidden_keys(mapping: object) -> list[str]:
+    raise NotImplementedError
+
+
+def scan_value(value: object) -> list[str]:
+    raise NotImplementedError

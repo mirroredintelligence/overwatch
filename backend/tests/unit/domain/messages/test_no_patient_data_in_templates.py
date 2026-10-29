@@ -26,8 +26,12 @@ from diucs.domain.messages.catalogue import (
 from diucs.domain.messages.privacy_guard import (
     DEPLOYMENT_TERMS,
     FORBIDDEN_FIELDS,
+    FORBIDDEN_KEY_FORMS,
     find_deployment_terms,
+    find_forbidden_keys,
     find_patient_data,
+    normalise_key,
+    scan_value,
 )
 from diucs.domain.messages.templates import RenderedMessage, render
 from diucs.domain.rules.tenant_settings import check_tenant_text
@@ -743,3 +747,167 @@ def test_the_mapping_keys_and_names_and_the_render_fields_agree() -> None:
         frozenset({"system_name", "referral_system_name", "coordination_team_name"})
         == TENANT_TEXT_FIELD_NAMES
     )
+
+
+# ---------------------------------------------------------------- projections (TEN-052, test 25)
+#
+# The guard also reads what leaves a tenant for the network: every string and every key of a
+# projection row or body (DEC-132 item 7, hazard H-N01). The checks above are unchanged.
+
+
+def test_the_projection_sweep_finds_nothing_in_a_dto_of_each_kind() -> None:
+    from diucs.application.projection import to_body, to_rows
+    from tests.support.projection_samples import (
+        sample_capacity_projection,
+        sample_criteria_projection,
+        sample_service_projection,
+    )
+
+    for dto in (
+        sample_service_projection(),
+        sample_capacity_projection(),
+        sample_criteria_projection(),
+    ):
+        assert scan_value(to_body(dto)) == []
+        for row in to_rows(dto):
+            assert scan_value(dict(row.params)) == []
+
+
+def test_normalise_key_agrees_across_spellings() -> None:
+    assert normalise_key("Patient-Name") == "patientname"
+    assert normalise_key("patient_name") == normalise_key("patientName") == "patientname"
+    assert normalise_key(" nhs number ") == "nhsnumber"
+
+
+def test_normalise_key_refuses_a_key_that_is_not_text() -> None:
+    for bad in (None, 5, b"x", ("a",)):
+        with pytest.raises(ValidationFailed):
+            normalise_key(bad)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "mapping",
+    [
+        {"patientName": 1},
+        {"nhs-number": 1},
+        {"a": {"Postcode": 1}},
+        {"a": [{"x": 1}, {"Date_Of_Birth": 2}]},
+        {"a": ({"free text": 1},)},
+        {"PHONE": "0300 123 4567"},
+        {"phoneHash": "x"},
+        {"E-Mail": "x"},
+        {"deviceToken": "x"},
+        {"pin_hash": "x"},
+        {"performerRoleId": "x"},
+        {"change_reason": "x"},
+        {"Notes": "x"},
+        {"tenantId": "x"},
+        {"sender number": "x"},
+    ],
+)
+def test_find_forbidden_keys_returns_the_offending_key_as_written(
+    mapping: dict[str, object],
+) -> None:
+    found = find_forbidden_keys(mapping)
+
+    assert found
+    assert all(isinstance(key, str) for key in found)
+    for key in found:
+        assert normalise_key(key) in FORBIDDEN_KEY_FORMS
+
+
+def test_find_forbidden_keys_returns_the_key_as_it_was_written() -> None:
+    assert find_forbidden_keys({"Patient-Name": 1}) == ["Patient-Name"]
+    assert find_forbidden_keys({"a": {"Postcode": 1}}) == ["Postcode"]
+
+
+@pytest.mark.parametrize(
+    "mapping",
+    [{}, {"serviceName": "UCR West"}, {"serviceContactPhone": "0300 123 4567"}, {"a": {"b": [1]}}],
+)
+def test_find_forbidden_keys_is_empty_for_the_allowlisted_names(mapping: dict[str, object]) -> None:
+    assert find_forbidden_keys(mapping) == []
+
+
+def test_forbidden_key_forms_hold_the_normalised_forbidden_fields_and_the_extras() -> None:
+    assert {normalise_key(name) for name in FORBIDDEN_FIELDS} <= FORBIDDEN_KEY_FORMS
+    for extra in (
+        "phone",
+        "phonehash",
+        "mobile",
+        "email",
+        "emailhash",
+        "emaildomain",
+        "pin",
+        "pinhash",
+        "token",
+        "tokenhash",
+        "deviceid",
+        "devicetoken",
+        "practitionerid",
+        "performerroleid",
+        "reportername",
+        "comment",
+        "reason",
+        "changereason",
+        "note",
+        "notes",
+        "text",
+        "body",
+        "message",
+    ):
+        assert extra in FORBIDDEN_KEY_FORMS
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "Seen by Mrs Smith",
+        "DT4 8XX",
+        "943 476 5919",
+        ["fine", "DT4 8XX"],
+        ("fine", ("nested", "Mrs Smith")),
+        {"ok": "DT4 8XX"},
+        {"ok": {"deep": ["943 476 5919"]}},
+        {"DT4 8XX": "key is a postcode"},
+        {"patientName": "x"},
+        {"ok": [{"phone": "x"}]},
+    ],
+)
+def test_scan_value_finds_patient_shapes_in_strings_lists_tuples_mappings_and_keys(
+    value: object,
+) -> None:
+    assert scan_value(value) != []
+
+
+@pytest.mark.parametrize(
+    "value",
+    ["UCR West", 5, 5.5, True, None, [1, "UCR West"], ("DT4",), {"serviceName": "UCR West"}, set()],
+)
+def test_scan_value_is_empty_for_plain_values(value: object) -> None:
+    assert scan_value(value) == []
+
+
+def test_scan_value_reads_every_item_of_a_list_and_a_tuple() -> None:
+    assert scan_value(["fine"] * 5 + ["Mrs Smith"]) != []
+    assert scan_value(("fine",) * 5 + ("Mrs Smith",)) != []
+    assert scan_value({"a": "fine", "b": ["fine", {"c": "DT4 8XX"}]}) != []
+
+
+def test_scan_value_reads_mapping_keys_too() -> None:
+    assert scan_value({"Mrs Smith": 1}) != []
+    assert scan_value({"comment": 1}) != []
+
+
+def test_scan_value_does_not_loop_on_a_self_referencing_value() -> None:
+    cyclic: list[object] = []
+    cyclic.append(cyclic)
+
+    with pytest.raises(ValidationFailed):
+        scan_value(cyclic)
+
+
+def test_scan_value_reports_fragments_and_keys_and_never_the_whole_clean_text() -> None:
+    found = scan_value({"note": "all fine here"})
+
+    assert found == ["note"]

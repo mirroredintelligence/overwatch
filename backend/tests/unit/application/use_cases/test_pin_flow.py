@@ -168,7 +168,7 @@ async def test_a_device_never_verified_or_unknown_or_revoked_cannot_get_a_pin() 
 
 async def test_an_unknown_or_inactive_practitioner_gets_the_same_refusal() -> None:
     world = World()
-    world.device()
+    world.device(verified_ago=timedelta(minutes=1))
     world.units.people.practitioners[PERSON] = replace(
         world.units.people.practitioners[PERSON], active=False
     )
@@ -201,7 +201,7 @@ async def test_a_pin_that_is_not_exactly_six_ascii_digits_is_refused_before_anyt
 
 async def test_setting_a_pin_again_clears_a_lock_and_the_failed_count() -> None:
     world = World()
-    world.device()
+    world.device(verified_ago=timedelta(minutes=1))
     world.credential(state=PinState(failed_tries=5, locked=True, last_outcome=PinOutcome.LOCKED))
 
     await world.set(OTHER_PIN, timedelta(minutes=1))
@@ -212,7 +212,7 @@ async def test_setting_a_pin_again_clears_a_lock_and_the_failed_count() -> None:
 
 async def test_the_audit_entry_of_a_set_holds_no_pin_and_no_hash() -> None:
     world = World()
-    world.device()
+    world.device(verified_ago=timedelta(minutes=1))
 
     await world.set(PIN, timedelta(minutes=1))
 
@@ -224,7 +224,7 @@ async def test_the_audit_entry_of_a_set_holds_no_pin_and_no_hash() -> None:
 
 async def test_setting_pins_is_throttled_per_person_before_anything_is_read() -> None:
     world = World()
-    world.device()
+    world.device(verified_ago=timedelta(minutes=1))
     tries = 0
     with pytest.raises(PinRateLimited):
         for _ in range(100):
@@ -546,9 +546,9 @@ async def test_a_unit_with_no_tenant_bound_refuses_to_sign_in_or_set_a_pin() -> 
     from diucs.application.tenancy import TenantNotBound
 
     world = World()
-    world.device()
+    world.device(verified_ago=timedelta(minutes=1))
     world.credential()
-    world.units.scope_id = ScopeId.network("net-1")
+    world.units.scope_id = ScopeId.network("net-abc1")
 
     with pytest.raises(TenantNotBound):
         await world.sign(PIN)

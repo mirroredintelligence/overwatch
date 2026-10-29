@@ -22,7 +22,7 @@ Times are written by the database in UTC, or passed in as aware instants and wri
 Neo4j stores no null property (lesson L74): a cleared value is absent, and readers treat it as None.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, Final, Literal
 
 from neo4j import AsyncManagedTransaction
@@ -211,6 +211,25 @@ _REVOKE_SCENARIO: Final = Scenario(
     ),
 )
 
+_MARK_VERIFIED_SCENARIO: Final = Scenario(
+    "stamp the last text-code verification on a practitioner's device that is not revoked",
+    seed=_DEVICE_SEED,
+    params={"key": _KEY, "deviceId": _DEVICE, "at": _AT + timedelta(minutes=5)},
+    lookup=("key", "deviceId"),
+    new=("at",),
+    expect=Expect(
+        rows=({"n": 1},),
+        after=(NodeSpec(("Device",), {"id": _DEVICE, "status": _STATUS_ACTIVE}),),
+    ),
+)
+_VERIFIED_SCENARIO: Final = Scenario(
+    "read the last text-code verification of a practitioner's device that is not revoked",
+    seed=_DEVICE_SEED,
+    params={"key": _KEY, "deviceId": _DEVICE},
+    lookup=("key", "deviceId"),
+    expect=Expect(rows=({"id": _DEVICE},)),
+)
+
 # The wall screen statements (U10, DEC-160). Both tenants hold a screen with the same id, type and
 # token hash (the keys are composite since TEN-005), so a statement that forgot the tenant finds the
 # other tenant's screen.
@@ -294,6 +313,8 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-DEVICE-REGISTER": _REGISTER_SCENARIO,
     "Q-DEVICE-KNOWN": _KNOWN_SCENARIO,
     "Q-DEVICE-REVOKE": _REVOKE_SCENARIO,
+    "Q-DEVICE-MARK-VERIFIED": _MARK_VERIFIED_SCENARIO,
+    "Q-DEVICE-VERIFIED": _VERIFIED_SCENARIO,
     "Q-SCREEN-GET": _SCREEN_GET_SCENARIO,
     "Q-SCREEN-SAVE": _SCREEN_SAVE_SCENARIO,
     "Q-SCREEN-BY-TOKEN": _SCREEN_BY_TOKEN_SCENARIO,
@@ -359,6 +380,20 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
         "(d:Device {id: $deviceId, tenantId: $tenant}) "
         "WHERE d.revokedAt IS NULL RETURN count(d) AS n",
+        "read",
+    ),
+    # The last text-code verification of a device (U32): the 30-day check and the 10 minutes in
+    # which a PIN may be set both read it. A revoked device is never stamped or read.
+    "Q-DEVICE-MARK-VERIFIED": (
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
+        "(d:Device {id: $deviceId, tenantId: $tenant}) WHERE d.revokedAt IS NULL "
+        "SET d.lastVerifiedAt = $at RETURN count(d) AS n",
+        "write",
+    ),
+    "Q-DEVICE-VERIFIED": (
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
+        "(d:Device {id: $deviceId, tenantId: $tenant}) WHERE d.revokedAt IS NULL "
+        "RETURN d.id AS id, d.lastVerifiedAt AS at",
         "read",
     ),
     "Q-DEVICE-REVOKE": (
@@ -524,10 +559,22 @@ class Neo4jDeviceRegistry:
         await self._run("Q-DEVICE-REVOKE", key=_key(practitioner_id), revoked=_STATUS_REVOKED)
 
     async def mark_verified(self, practitioner_id: str, device_id: str, at: datetime) -> None:
-        raise NotImplementedError
+        """Stamp the device's last text-code verification. A device that is not the
+        practitioner's, not registered or revoked is left alone."""
+        await self._run(
+            "Q-DEVICE-MARK-VERIFIED",
+            key=_key(practitioner_id),
+            deviceId=device_id,
+            at=_utc(at, "at"),
+        )
 
     async def verified_at(self, practitioner_id: str, device_id: str) -> datetime | None:
-        raise NotImplementedError
+        rows = await self._run("Q-DEVICE-VERIFIED", key=_key(practitioner_id), deviceId=device_id)
+        if not rows or rows[0]["at"] is None:
+            return None
+        stamp = rows[0]["at"]
+        native: datetime = stamp.to_native() if hasattr(stamp, "to_native") else stamp
+        return native.astimezone(UTC)
 
     async def get(self, device_id: str) -> Device | None:
         rows = await self._run("Q-SCREEN-GET", id=device_id, type=_WALL_DISPLAY)

@@ -137,6 +137,16 @@ describe('parseBoardParameters', () => {
     expect(() => parseBoardParameters(parameters)).toThrow(BoardParseError);
   });
 
+  it('fails closed on a part that appears twice, in an entry or at the top level', () => {
+    const twiceInEntry = boardParameters(BOARD_B);
+    twiceInEntry.parameter?.[0].part?.push({ name: 'established', valueInteger: 99 });
+    expect(() => parseBoardParameters(twiceInEntry)).toThrow(BoardParseError);
+
+    const twiceAtTop = boardParameters(BOARD_B);
+    twiceAtTop.parameter?.push({ name: 'generatedAt', valueDateTime: '2026-10-23T13:30:00Z' });
+    expect(() => parseBoardParameters(twiceAtTop)).toThrow(BoardParseError);
+  });
+
   it('fails closed on something that is not a Parameters resource', () => {
     expect(() =>
       parseBoardParameters({ resourceType: 'OperationOutcome' } as unknown as Parameters),

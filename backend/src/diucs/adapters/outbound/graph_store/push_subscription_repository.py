@@ -1,10 +1,15 @@
 """Web Push subscriptions on Neo4j (P19).
 
 A subscription belongs to one installed app on one device:
-(:Resource:Device {id, key, status, pushSubscriptionJson, pushSavedAt, tenantId})-[:USED_BY]->
-(:Practitioner) and -[:TYPE]->(:Concept {system: device-type, code: mobile-app}). The Device carries
-the Resource label so later FHIR reads find it. A wall-display Device (credential_store.py) is the
-same label with a deviceType; the two are told apart by that property, not by the label.
+(:Resource:Device {id, key, status, deviceType: 'mobile-app', pushSubscriptionJson, pushSavedAt,
+tenantId})-[:USED_BY]->(:Practitioner) and -[:TYPE]->(:Concept {system: device-type,
+code: mobile-app}). The Device carries the Resource label so later FHIR reads find it.
+
+A Device is keyed by (tenant, deviceType, id). Every statement here matches the device type in its
+key, so a push subscription never addresses a wall display. The id is also unique per tenant across
+device types (the composite constraint tenant_device_id), so a save with an id that a wall display
+holds is refused by the constraint, and the refusal names neither record. A wall display's own
+statements match on their type in the same way, so the reverse holds.
 
 The subscription JSON (endpoint and the p256dh and auth keys) is a capability secret. It is stored
 on the Device and nowhere else: never logged, never in an audit row or in telemetry, and never in an
@@ -37,6 +42,8 @@ DEVICE: Final = "Device"
 PRACTITIONER: Final = "Practitioner"
 DEVICE_TYPE_SYSTEM: Final = code_system_url("device-type")
 MOBILE_APP: Final = "mobile-app"
+PUSH_DEVICE_TYPE: Final = MOBILE_APP
+"""The deviceType of every push device: part of the key of a Device (tenant, deviceType, id)."""
 _CONCEPT_KEY: Final = f"Concept|{DEVICE_TYPE_SYSTEM}|{MOBILE_APP}"
 
 # Scenarios (DEC-150). Both tenants hold the practitioner `p1` and the device `dev-1`, with the
@@ -57,6 +64,7 @@ _NODE_DEVICE: Final = SeedNode(
         "id": "dev-1",
         "key": "Device/dev-1",
         "status": "active",
+        "deviceType": PUSH_DEVICE_TYPE,
         "pushSubscriptionJson": _SUBSCRIPTION_JSON,
         "pushSavedAt": _NOW,
     },
@@ -73,6 +81,7 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
         params={
             "practitionerId": "p1",
             "deviceId": "dev-1",
+            "deviceType": PUSH_DEVICE_TYPE,
             "key": "Device/dev-1",
             "json": _SUBSCRIPTION_JSON,
             "savedAt": _NOW,
@@ -81,7 +90,7 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
             "conceptKey": _CONCEPT_KEY,
         },
         lookup=("practitionerId",),
-        new=("deviceId", "key", "json", "savedAt", "system", "code", "conceptKey"),
+        new=("deviceId", "deviceType", "key", "json", "savedAt", "system", "code", "conceptKey"),
         expect=Expect(
             rows=({"saved": 1},),
             nodes={"Resource": 1, "Device": 1, "Concept": 1},
@@ -91,15 +100,15 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-PUSH-FOR": Scenario(
         "list the push subscriptions of a practitioner's devices, newest first",
         seed=_DEVICE_SEED,
-        params={"practitionerId": "p1"},
-        lookup=("practitionerId",),
+        params={"practitionerId": "p1", "deviceType": PUSH_DEVICE_TYPE},
+        lookup=("practitionerId", "deviceType"),
         expect=Expect(rows=({"deviceId": "dev-1"},)),
     ),
     "Q-PUSH-DELETE": Scenario(
         "remove the push subscription of a device and keep the device",
         seed=_DEVICE_SEED,
-        params={"deviceId": "dev-1"},
-        lookup=("deviceId",),
+        params={"deviceId": "dev-1", "deviceType": PUSH_DEVICE_TYPE},
+        lookup=("deviceId", "deviceType"),
         expect=Expect(
             rows=({"deleted": 1},),
             after=(NodeSpec(("Device",), {"id": "dev-1", "status": "active"}),),
@@ -112,7 +121,7 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
         id="Q-PUSH-SAVE",
         cypher=(
             "MATCH (p:Practitioner {id: $practitionerId, tenantId: $tenant}) "
-            "MERGE (d:Resource:Device {id: $deviceId, tenantId: $tenant}) "
+            "MERGE (d:Resource:Device {id: $deviceId, tenantId: $tenant, deviceType: $deviceType}) "
             "ON CREATE SET d.key = $key "
             "SET d.status = 'active', d.pushSubscriptionJson = $json, d.pushSavedAt = $savedAt "
             "WITH d, p "
@@ -130,7 +139,7 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
     NamedQuery(
         id="Q-PUSH-FOR",
         cypher=(
-            "MATCH (d:Device {tenantId: $tenant})-[:USED_BY]->"
+            "MATCH (d:Device {tenantId: $tenant, deviceType: $deviceType})-[:USED_BY]->"
             "(:Practitioner {id: $practitionerId, tenantId: $tenant}) "
             "WHERE d.pushSubscriptionJson IS NOT NULL "
             "RETURN d.id AS deviceId, d.pushSubscriptionJson AS json, d.pushSavedAt AS savedAt "
@@ -142,7 +151,7 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
     NamedQuery(
         id="Q-PUSH-DELETE",
         cypher=(
-            "MATCH (d:Device {id: $deviceId, tenantId: $tenant}) "
+            "MATCH (d:Device {id: $deviceId, tenantId: $tenant, deviceType: $deviceType}) "
             "SET d.pushSubscriptionJson = null, d.pushSavedAt = null "
             "RETURN count(d) AS deleted"
         ),
@@ -211,6 +220,7 @@ class Neo4jPushSubscriptionRepository:
                 REGISTRY.get("Q-PUSH-SAVE"),
                 practitionerId=subscription.practitioner_id,
                 deviceId=subscription.device_id,
+                deviceType=PUSH_DEVICE_TYPE,
                 key=f"{DEVICE}/{subscription.device_id}",
                 json=subscription_json(subscription.subscription),
                 savedAt=subscription.saved_at.astimezone(UTC),
@@ -219,13 +229,19 @@ class Neo4jPushSubscriptionRepository:
                 conceptKey=_CONCEPT_KEY,
             )
         except ConstraintError as error:
-            # A racing first save for the same device: nothing is stored by this one.
-            raise Conflict("push subscription is being saved by another request") from error
+            # The id is taken in this tenant: by a racing save of this device, or by a device of
+            # another type. Nothing is stored by this write, and the message names neither record.
+            raise Conflict("the device id is already in use") from error
         if not rows or rows[0]["saved"] == 0:
             raise NotFound("practitioner")
 
     async def for_practitioner(self, practitioner_id: str) -> list[PushSubscription]:
-        rows = await run_query(self._tx, REGISTRY.get("Q-PUSH-FOR"), practitionerId=practitioner_id)
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-PUSH-FOR"),
+            practitionerId=practitioner_id,
+            deviceType=PUSH_DEVICE_TYPE,
+        )
         return [
             PushSubscription(
                 device_id=str(row["deviceId"]),
@@ -237,4 +253,9 @@ class Neo4jPushSubscriptionRepository:
         ]
 
     async def delete(self, device_id: str) -> None:
-        await run_query(self._tx, REGISTRY.get("Q-PUSH-DELETE"), deviceId=device_id)
+        await run_query(
+            self._tx,
+            REGISTRY.get("Q-PUSH-DELETE"),
+            deviceId=device_id,
+            deviceType=PUSH_DEVICE_TYPE,
+        )

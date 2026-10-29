@@ -11,3 +11,9 @@ class ProcessedMessages(Protocol):
     async def mark_if_new(self, message_id: str, consumer: str) -> bool:
         """True when this unit of work created the marker, False when it already existed."""
         ...
+
+    async def seen(self, message_id: str, consumer: str) -> bool:
+        """True when this consumer has already marked this message, in the bound scope. Writes
+        nothing: a consumer that cannot hold one unit of work around its work (I08) asks first,
+        works, then marks."""
+        ...

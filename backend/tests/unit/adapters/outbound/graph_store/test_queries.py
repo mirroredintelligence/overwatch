@@ -182,8 +182,9 @@ def test_a_statement_with_a_tenant_and_no_scenario_needs_conversion_but_is_not_p
 # Global statements
 
 
-def test_the_global_allowlist_is_pinned_to_the_health_ping_with_a_reason() -> None:
-    assert set(GLOBAL_QUERY_IDS) == {"Q-NEO4J-PING"}
+def test_the_global_allowlist_holds_the_health_ping_and_gives_a_reason_for_each_entry() -> None:
+    # The whole list, with each statement's text, is pinned in test_global_allowlist.py (TEN-007).
+    assert "Q-NEO4J-PING" in GLOBAL_QUERY_IDS
     assert all(isinstance(reason, str) and len(reason) > 10 for reason in GLOBAL_QUERY_IDS.values())
     with pytest.raises(TypeError):
         GLOBAL_QUERY_IDS["Q-OTHER"] = "no"  # type: ignore[index]

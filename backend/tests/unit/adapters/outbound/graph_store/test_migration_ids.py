@@ -1,7 +1,7 @@
 """Migration ids are unique, and P05's audit migrations sit after P07's (DEC-055 item 16, L68).
 
 TEN-005: the list is assembled from per-area modules, the 26 core entries are pinned by a digest so
-an applied migration cannot be edited, and the three tenant migrations follow the last core id.
+an applied migration cannot be edited, and the tenant migrations follow the last core id.
 """
 
 import hashlib
@@ -54,6 +54,8 @@ TENANT_IDS = [
     "0031_tenant_composites",
     "0032_backfill_default_tenant",
     "0033_case_open_reference",
+    "0034_tenant_registry",
+    "0035_default_tenant_record",
 ]
 
 AUDIT_MIGRATION_IDS = [
@@ -158,11 +160,11 @@ def test_the_core_entries_are_unchanged_since_main() -> None:
     assert hashlib.sha256(canonical.encode()).hexdigest() == CORE_DIGEST
 
 
-def test_the_three_tenant_migrations_follow_the_last_core_id_in_order() -> None:
+def test_the_tenant_migrations_follow_the_last_core_id_in_order() -> None:
     assert [migration.id for migration in TENANT_MIGRATIONS] == TENANT_IDS
     ids = [migration.id for migration in MIGRATIONS]
     start = ids.index("0030_processed_key") + 1
-    assert ids[start : start + 3] == TENANT_IDS
+    assert ids[start : start + len(TENANT_IDS)] == TENANT_IDS
 
 
 def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_together() -> None:

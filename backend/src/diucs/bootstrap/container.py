@@ -8,22 +8,34 @@ docs/spec/contracts.md, "Testing and persistence").
 
 Lifecycle (DEC-012): build() creates the one Neo4jConnection and connects to nothing. The
 process calls startup() before serving, which opens the driver and refuses to start if Neo4j
-cannot be reached, and shutdown() on exit.
+cannot be reached, applies the migrations and makes sure the audit head exists (TEN-007), and
+shutdown() on exit.
+
+The tenant directory (global, read-only, over the registry nodes) and the secret store are fields
+of the container (TEN-007). No secret store exists beyond the fake: `build` takes one from the
+process that serves, and without one every secret reads as not found (fail closed).
 """
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
+from diucs.adapters.outbound.graph_store.migrations import apply_migrations
+from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
+from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.tenants import TenantDirectory
+from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.bootstrap.settings import Settings
+from diucs.domain.errors import NotFound
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 
@@ -36,11 +48,26 @@ class Container:
     neo4j: Neo4jConnection
     # Units of work on that connection: one session and one transaction each (P06).
     uow_factory: UnitOfWorkFactory
+    # The platform's record of its tenants: global, read-only, no tenant bound or sent (TEN-007).
+    tenants: TenantDirectory
+    # Secrets by reference (DEC-131 item 4): the tenant record holds the reference, never the value.
+    secrets: SecretStore
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
-        """Open the Neo4j connection. Raises Neo4jConnectionError, so the process does not start."""
+        """Open the Neo4j connection, apply the migrations that are not yet recorded and make sure
+        the audit head exists. Raises Neo4jConnectionError when Neo4j cannot be reached, or the
+        failure of a migration, and closes the connection in the second case, so the process does
+        not start and leaves nothing open. TEN-017 makes the audit head per scope; the start-up
+        will then bind each active tenant in turn."""
         await self.neo4j.open()
+        try:
+            driver = self.neo4j.driver
+            await apply_migrations(driver)
+            await ensure_audit_head(driver)
+        except BaseException:
+            await self.neo4j.close()
+            raise
 
     async def shutdown(self) -> None:
         await self.neo4j.close()
@@ -60,10 +87,18 @@ def _neo4j_connection(settings: Settings) -> Neo4jConnection:
     )
 
 
-def build(settings: Settings) -> Container:
+class NoSecrets:
+    """The secret store of a process that was given none: every secret is not found, so anything
+    that needs one fails closed. A real vault adapter is not built (it needs a credential)."""
+
+    def get(self, name: str) -> bytes:
+        raise NotFound(f"secret {name}")
+
+
+def build(settings: Settings, *, secrets: SecretStore | None = None) -> Container:
     """Wire the production-facing adapters. Profiles differ only in external providers,
     which later tasks add; the clock and ids are the same in every profile. Connects to nothing:
-    call startup() to open Neo4j."""
+    call startup() to open Neo4j. `secrets` is the process's secret store, if it has one."""
     neo4j = _neo4j_connection(settings)
     clock = SystemClock()
     return Container(
@@ -71,6 +106,8 @@ def build(settings: Settings) -> Container:
         ids=UuidGenerator(),
         neo4j=neo4j,
         uow_factory=neo4j_uow_factory(neo4j, clock=clock),
+        tenants=Neo4jTenantDirectory(neo4j),
+        secrets=NoSecrets() if secrets is None else secrets,
     )
 
 
@@ -79,8 +116,10 @@ def build_for_tests(
     ids: IdGenerator | None = None,
     *,
     neo4j: Neo4jConnection,
+    secrets: SecretStore | None = None,
 ) -> Container:
-    """Wire the container for tests: a fixed clock and sequential ids unless overridden.
+    """Wire the container for tests: a fixed clock and sequential ids unless overridden, and a
+    recording fake secret store that holds nothing unless one is passed.
 
     The connection is required, so each test owns one connection (a fixture) and shares it with
     every container it builds. Nothing here creates a driver. The fixture closes the connection.
@@ -91,4 +130,6 @@ def build_for_tests(
         ids=SequentialIds() if ids is None else ids,
         neo4j=neo4j,
         uow_factory=neo4j_uow_factory(neo4j, clock=resolved_clock),
+        tenants=Neo4jTenantDirectory(neo4j),
+        secrets=FixedSecretStore({}) if secrets is None else secrets,
     )

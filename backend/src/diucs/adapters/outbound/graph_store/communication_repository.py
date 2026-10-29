@@ -22,7 +22,11 @@ from neo4j.exceptions import ClientError
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
-from diucs.application.ports.outbound.messaging import DELIVERY_STATUSES, Communication
+from diucs.application.ports.outbound.messaging import (
+    DELIVERY_STATUSES,
+    Communication,
+    statuses_before,
+)
 from diucs.domain.codes import BASE_URL, Channel
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 
@@ -92,9 +96,15 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "MATCH (c:Communication {providerMessageId: $providerMessageId}) WITH c LIMIT 1 " + _READ,
         "read",
     ),
+    # The id is set to itself first: that takes the record's write lock, and the status is read
+    # after it (lesson L73), so a receipt that waited for another sees the status the other left
+    # and not the one it read before the lock. The id never changes, so the self-SET is safe (L142).
     "Q-COMM-SET-STATUS": (
         "MATCH (c:Communication {providerMessageId: $providerMessageId}) "
-        "SET c.deliveryStatus = $status RETURN count(c) AS updated",
+        "SET c.id = c.id "
+        "WITH c WHERE c.deliveryStatus IN $movesFrom "
+        "SET c.deliveryStatus = $status, c.status = $fhirStatus "
+        "RETURN count(c) AS updated",
         "write",
     ),
     "Q-COMM-LATEST-PROMPT": (
@@ -215,7 +225,11 @@ class Neo4jCommunicationRepository:
         if status not in DELIVERY_STATUSES:
             raise ValidationFailed("deliveryStatus", "not a delivery status")
         rows = await self._run(
-            "Q-COMM-SET-STATUS", providerMessageId=provider_message_id, status=status
+            "Q-COMM-SET-STATUS",
+            providerMessageId=provider_message_id,
+            status=status,
+            fhirStatus=_FHIR_STATUS[status],
+            movesFrom=list(statuses_before(status)),
         )
         return int(rows[0]["updated"]) > 0
 

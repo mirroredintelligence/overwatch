@@ -14,6 +14,9 @@ The statements are fixed text, written out in full (no Cypher is built from piec
 1); `tests/unit/adapters/outbound/graph_store/test_migrations_tenant.py` reads each one back and
 compares it with its row.
 
+TEN-007 adds `0034_tenant_registry` (the keys of the `Tenant` and `TenantNumber` registry nodes) and
+`0035_default_tenant_record` (the record of the default tenant, when data is stamped with it).
+
 Limit, stated: Neo4j Community has no existence constraint, and a composite constraint ignores a
 node whose `tenantId` is null. A node written without a tenant is therefore not caught by the
 constraint; `invariant_violations` is the query that finds it (TEN-031 runs it at start-up).
@@ -233,8 +236,48 @@ ROLLBACK_0031: Final = (
     *(f"DROP INDEX {i.name} IF EXISTS" for i in COMPOSITE_INDEXES),
 )
 
+# Migration 0034 (TEN-007): the keys of the registry nodes. They carry no tenant, so none is
+# composite. A tenant's id, its host and its Entra directory are each unique across tenants (a
+# property that is absent is not constrained), a number is unique, and a number is found by its
+# account. One statement each, as in 0031. `DEFAULT_TENANT_NAME` is for 0035.
+_STATEMENTS_0034: Final = (
+    "CREATE CONSTRAINT tenant_id IF NOT EXISTS FOR (n:Tenant) REQUIRE n.id IS UNIQUE",
+    "CREATE CONSTRAINT tenant_host IF NOT EXISTS FOR (n:Tenant) REQUIRE n.host IS UNIQUE",
+    "CREATE CONSTRAINT tenant_entra_directory IF NOT EXISTS FOR (n:Tenant) "
+    "REQUIRE n.entraDirectoryId IS UNIQUE",
+    "CREATE CONSTRAINT tenant_number_e164 IF NOT EXISTS FOR (n:TenantNumber) "
+    "REQUIRE n.e164 IS UNIQUE",
+    "CREATE INDEX tenant_number_account IF NOT EXISTS FOR (n:TenantNumber) ON (n.accountSid)",
+)
+
+# The manual inverse of 0034, as for 0031: the runner never runs it.
+ROLLBACK_0034: Final = (
+    "DROP CONSTRAINT tenant_id IF EXISTS",
+    "DROP CONSTRAINT tenant_host IF EXISTS",
+    "DROP CONSTRAINT tenant_entra_directory IF EXISTS",
+    "DROP CONSTRAINT tenant_number_e164 IF EXISTS",
+    "DROP INDEX tenant_number_account IF EXISTS",
+)
+
+# Migration 0035 (TEN-007, DEC-134 item 11): the record that the development data stamped by 0032
+# belongs to. It is made only when a node carries the default tenant's id, so a fresh installation
+# gets no tenant it never asked for, and only on creation: a record that was renamed or changed
+# since is never written over. The tenant is active (the relay serves it, as the list of tenant ids
+# in the environment did), and its hash key version is 0: the legacy global phone-hash and token
+# keys (audit F 2.3). It names no organisation and no place. It has no number, host or directory:
+# provisioning (TEN-028) completes or retires it. The parameter is the stamp's own, never `$tenant`.
+DEFAULT_TENANT_NAME: Final = "Default tenant"
+DEFAULT_TENANT_RECORD: Final = (
+    "MATCH (d) WHERE d.tenantId = $defaultTenant WITH d LIMIT 1 "
+    "MERGE (t:Tenant {id: $defaultTenant}) "
+    "ON CREATE SET t.displayName = $displayName, t.legalName = $displayName, "
+    "t.organisationType = 'other', t.countryCode = 'GB', t.timeZone = 'Europe/London', "
+    "t.status = 'active', t.createdAt = datetime(), t.activatedAt = datetime(), "
+    "t.epoch = 1, t.hashKeyVersion = 0"
+)
+
 # Order matters: the constraints first, then the stamp, then the open-reference copy, so the new
-# constraints guard the data as it is stamped.
+# constraints guard the data as it is stamped; the registry keys and the default record follow.
 TENANT_MIGRATIONS: Final = (
     Migration("0031_tenant_composites", statements=_STATEMENTS_0031),
     Migration(
@@ -243,6 +286,12 @@ TENANT_MIGRATIONS: Final = (
         params={"registryLabels": list(REGISTRY_LABELS), "defaultTenant": DEFAULT_TENANT_ID},
     ),
     Migration("0033_case_open_reference", loops=(OPEN_REFERENCE_BACKFILL,)),
+    Migration("0034_tenant_registry", statements=_STATEMENTS_0034),
+    Migration(
+        "0035_default_tenant_record",
+        statements=(DEFAULT_TENANT_RECORD,),
+        params={"defaultTenant": DEFAULT_TENANT_ID, "displayName": DEFAULT_TENANT_NAME},
+    ),
 )
 
 

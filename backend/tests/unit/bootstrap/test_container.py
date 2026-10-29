@@ -1,6 +1,7 @@
 import dataclasses
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
+from typing import cast
 
 import pytest
 import pytest_asyncio
@@ -9,11 +10,15 @@ from neo4j import AsyncDriver, AsyncGraphDatabase
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store import connection as connection_module
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
+from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
+from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.bootstrap import container as container_module
 from diucs.bootstrap.container import build, build_for_tests
 from diucs.bootstrap.settings import Settings
+from diucs.domain.errors import NotFound
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 
@@ -117,3 +122,171 @@ async def test_build_for_tests_makes_no_driver_calls(
 def test_build_for_tests_requires_the_connection_to_be_passed_in() -> None:
     with pytest.raises(TypeError):
         build_for_tests()  # type: ignore[call-arg]
+
+
+# TEN-007: the tenant directory and the secret store on the container, and start-up
+
+
+class _FakeConnection:
+    """Stands in for Neo4jConnection: records the order of what the container does with it."""
+
+    def __init__(self, events: list[str], *, fail_open: bool = False) -> None:
+        self.events = events
+        self.fail_open = fail_open
+        self.reads = 0
+        self.the_driver = object()
+
+    async def open(self) -> None:
+        self.events.append("open")
+        if self.fail_open:
+            raise RuntimeError("cannot connect")
+
+    async def close(self) -> None:
+        self.events.append("close")
+
+    @property
+    def driver(self) -> object:
+        self.events.append("driver")
+        return self.the_driver
+
+    async def run_read(self, work: Callable[..., Awaitable[object]]) -> object:
+        self.reads += 1
+        return []
+
+
+async def test_the_container_carries_the_tenant_directory_on_its_own_connection() -> None:
+    connection = _FakeConnection([])
+    container = build_for_tests(neo4j=cast(Neo4jConnection, connection))
+    assert isinstance(container.tenants, Neo4jTenantDirectory)
+    assert await container.tenants.get("example-icb") is None
+    assert connection.reads == 1
+
+
+async def test_build_wires_the_directory_over_the_one_connection(neo4j: Neo4jConnection) -> None:
+    container = build(Settings())
+    try:
+        assert isinstance(container.tenants, Neo4jTenantDirectory)
+    finally:
+        await container.shutdown()
+
+
+async def test_build_for_tests_gives_a_recording_fake_secret_store_unless_one_is_passed(
+    neo4j: Neo4jConnection,
+) -> None:
+    container = build_for_tests(neo4j=neo4j)
+    assert isinstance(container.secrets, FixedSecretStore)
+    with pytest.raises(NotFound):
+        container.secrets.get("link-token")
+    store = FixedSecretStore({"link-token": b"x"})
+    assert build_for_tests(neo4j=neo4j, secrets=store).secrets is store
+
+
+async def test_build_has_no_secret_store_until_one_is_given_and_fails_closed() -> None:
+    container = build(Settings())
+    try:
+        with pytest.raises(NotFound, match="link-token"):
+            container.secrets.get("link-token")
+    finally:
+        await container.shutdown()
+    store = FixedSecretStore({"link-token": b"x"})
+    given = build(Settings(), secrets=store)
+    try:
+        assert given.secrets is store
+    finally:
+        await given.shutdown()
+
+
+async def test_the_container_is_still_frozen_with_the_new_fields(neo4j: Neo4jConnection) -> None:
+    container = build_for_tests(neo4j=neo4j)
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        container.tenants = None  # type: ignore[misc,assignment]
+    with pytest.raises(dataclasses.FrozenInstanceError):
+        container.secrets = None  # type: ignore[misc,assignment]
+
+
+async def test_start_up_opens_the_connection_then_migrates_then_ensures_the_audit_head(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        assert driver is connection.the_driver
+        events.append("migrate")
+        return []
+
+    async def fake_head(driver: object) -> None:
+        assert driver is connection.the_driver
+        events.append("head")
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    monkeypatch.setattr(container_module, "ensure_audit_head", fake_head)
+    container = build_for_tests(neo4j=cast(Neo4jConnection, connection))
+
+    await container.startup()
+
+    assert [e for e in events if e != "driver"] == ["open", "migrate", "head"]
+
+
+async def test_a_failed_migration_closes_the_connection_and_stops_the_start(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def failing_migrate(driver: object) -> list[str]:
+        raise RuntimeError("migration failed")
+
+    async def fake_head(driver: object) -> None:
+        events.append("head")
+
+    monkeypatch.setattr(container_module, "apply_migrations", failing_migrate)
+    monkeypatch.setattr(container_module, "ensure_audit_head", fake_head)
+    container = build_for_tests(neo4j=cast(Neo4jConnection, connection))
+
+    with pytest.raises(RuntimeError, match="migration failed"):
+        await container.startup()
+
+    assert "head" not in events
+    assert events[-1] == "close"
+
+
+async def test_a_failed_audit_head_closes_the_connection_too(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        return []
+
+    async def failing_head(driver: object) -> None:
+        raise RuntimeError("no head")
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    monkeypatch.setattr(container_module, "ensure_audit_head", failing_head)
+    container = build_for_tests(neo4j=cast(Neo4jConnection, connection))
+
+    with pytest.raises(RuntimeError, match="no head"):
+        await container.startup()
+
+    assert events[-1] == "close"
+
+
+async def test_a_connection_that_will_not_open_stops_the_start_before_any_migration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events, fail_open=True)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        events.append("migrate")
+        return []
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    container = build_for_tests(neo4j=cast(Neo4jConnection, connection))
+
+    with pytest.raises(RuntimeError, match="cannot connect"):
+        await container.startup()
+
+    assert "migrate" not in events

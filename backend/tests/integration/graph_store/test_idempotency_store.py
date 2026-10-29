@@ -363,3 +363,64 @@ async def test_a_raw_second_create_of_a_record_key_is_refused_by_the_database(
     await write_tx(neo4j_driver, lambda tx: _create_record(tx, "raw-record"))
     with pytest.raises(ConstraintError):
         await write_tx(neo4j_driver, lambda tx: _create_record(tx, "raw-record"))
+
+
+# --- seen: has this consumer marked this message? (I08, DEC-165) ---------------------------------
+
+
+async def test_a_message_is_not_seen_until_it_is_marked_and_then_it_is(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    async with uow_factory() as uow:
+        assert await uow.processed.seen("m5", "c") is False
+    async with uow_factory() as uow:
+        await uow.processed.mark_if_new("m5", "c")
+        await uow.commit()
+    async with uow_factory() as uow:
+        assert await uow.processed.seen("m5", "c") is True
+
+
+async def test_seen_is_per_consumer_and_per_message(uow_factory: UnitOfWorkFactory) -> None:
+    async with uow_factory() as uow:
+        await uow.processed.mark_if_new("m6", "c")
+        await uow.commit()
+    async with uow_factory() as uow:
+        assert await uow.processed.seen("m6", "other") is False
+        assert await uow.processed.seen("m7", "c") is False
+        assert await uow.processed.seen("m6", "c") is True
+
+
+async def test_seen_writes_nothing_and_a_mark_that_was_rolled_back_is_not_seen(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver
+) -> None:
+    async with uow_factory() as uow:
+        await uow.processed.mark_if_new("m8", "c")
+        await uow.rollback()
+    async with uow_factory() as uow:
+        assert await uow.processed.seen("m8", "c") is False
+        await uow.commit()
+    assert await count_nodes(neo4j_driver, "Processed") == 0
+
+
+async def test_a_colon_in_either_value_cannot_make_seen_answer_for_another_pair(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    async with uow_factory() as uow:
+        await uow.processed.mark_if_new("a:b", "c")
+        await uow.commit()
+    async with uow_factory() as uow:
+        assert await uow.processed.seen("a", "b:c") is False
+        assert await uow.processed.seen("a:b", "c") is True
+
+
+async def test_seen_asks_only_in_the_bound_tenant(
+    uow_factory_a: UnitOfWorkFactory, uow_factory_b: UnitOfWorkFactory
+) -> None:
+    """The same message and consumer are marked in tenant A, and are not seen by tenant B."""
+    async with uow_factory_a() as uow:
+        await uow.processed.mark_if_new("m9", "c")
+        await uow.commit()
+    async with uow_factory_b() as uow:
+        assert await uow.processed.seen("m9", "c") is False
+    async with uow_factory_a() as uow:
+        assert await uow.processed.seen("m9", "c") is True

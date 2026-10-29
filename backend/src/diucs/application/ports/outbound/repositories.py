@@ -38,6 +38,10 @@ class CapacityRepository(Protocol):
         """Store a new report. A report id that already exists raises Conflict."""
         ...
 
+    async def get(self, report_id: str) -> CapacityReport | None:
+        """The report with this id, or None. The id is the report's own id, not the service's."""
+        ...
+
     async def latest(self, service_id: str) -> CapacityReport | None:
         """The report with the greatest effective time, or None."""
         ...

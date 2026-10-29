@@ -36,7 +36,7 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import (
@@ -50,6 +50,7 @@ from diucs.application.ports.outbound.audit import (
 )
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.tenancy import scope_for_new_unit
 from diucs.domain.codes import Role, code_system_url
 from diucs.domain.errors import ValidationFailed
 
@@ -220,10 +221,18 @@ class AuditHeadMissing(RuntimeError):
 
 
 async def ensure_audit_head(driver: AsyncDriver) -> None:
-    """Create the chain head if missing. Idempotent. Call once at startup, after migrations."""
+    """Create the chain head if missing. Idempotent. Call once at startup, after migrations.
+
+    The scope is read once, before the session opens, and carried on a ScopedTx, so a retry of the
+    managed transaction uses the same one (TEN-002). TEN-017 makes the head and its genesis per
+    scope.
+    """
+    scope = scope_for_new_unit()
 
     async def work(tx: AsyncManagedTransaction) -> None:
-        await run_query(tx, REGISTRY.get("Q-AUDIT-ENSURE-HEAD"), genesis=GENESIS_HASH)
+        await run_query(
+            ScopedTx(tx, scope), REGISTRY.get("Q-AUDIT-ENSURE-HEAD"), genesis=GENESIS_HASH
+        )
 
     async with driver.session() as session:
         await session.execute_write(work)

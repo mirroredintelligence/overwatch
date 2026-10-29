@@ -272,3 +272,30 @@ async def test_latest_confirmation_at_is_the_newest_confirmed_effective_time(
     at = await _read(neo4j_driver, lambda repo: repo.latest_confirmation_at("svc-ucr-west"))
 
     assert at == datetime(2026, 10, 25, 8, 0, tzinfo=UTC)
+
+
+async def test_get_returns_the_report_with_this_id_and_none_for_another(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """R05: the confirm operation reads back the report it just wrote, by the report's own id."""
+    await _seed(neo4j_driver, UCR_WEST, UCR_EAST)
+    number = _report("obs-n", 6, ReportType.NUMBER)
+    confirmed = _report("obs-c", 8, ReportType.CONFIRMED)
+    await _add(neo4j_driver, number, confirmed)
+
+    got_confirmed = await _read(neo4j_driver, lambda repo: repo.get("obs-c"))
+    got_number = await _read(neo4j_driver, lambda repo: repo.get("obs-n"))
+    missing = await _read(neo4j_driver, lambda repo: repo.get("obs-nope"))
+
+    assert got_confirmed == confirmed
+    assert got_number == number
+    assert missing is None
+
+
+async def test_get_does_not_return_a_resource_of_another_type_with_the_same_id(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed(neo4j_driver, UCR_WEST)
+
+    # The service's own id is not a report id.
+    assert await _read(neo4j_driver, lambda repo: repo.get("svc-ucr-west")) is None

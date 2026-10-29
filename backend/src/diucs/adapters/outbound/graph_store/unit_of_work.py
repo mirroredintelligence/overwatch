@@ -8,6 +8,14 @@ Commit and rollback: commit() commits once. Leaving the block without commit(), 
 exception, rolls back and re-raises. A write that raises Conflict marks the unit of work refused,
 and a refused unit of work never commits: commit() rolls back and raises Conflict. The session is
 closed on every path.
+
+The scope (TEN-002, DEC-132 item 4): a unit of work binds exactly one scope and keeps it. It reads
+the scope bound in the context once, when it is entered, and wraps its transaction in a ScopedTx
+that carries it; every repository and the resource store run on that ScopedTx, so rebinding the
+context afterwards changes nothing for the unit. A second unit cannot be entered while one is open
+in the same context (UnitOfWorkAlreadyOpen), and a unit is entered and left in the same task. The
+claim is given back as soon as the unit finishes: commit, rollback, a refused commit, leaving the
+block, or a failed open.
 """
 
 import inspect
@@ -33,6 +41,7 @@ from diucs.adapters.outbound.graph_store.credential_store import (
     Neo4jPinStore,
 )
 from diucs.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
+from diucs.adapters.outbound.graph_store.driver import ScopedTx
 from diucs.adapters.outbound.graph_store.flag_repository import Neo4jFlagRepository
 from diucs.adapters.outbound.graph_store.idempotency_store import (
     Neo4jIdempotencyStore,
@@ -70,6 +79,7 @@ from diucs.application.ports.outbound.repositories import (
 )
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import ScopeId, claim_unit, release_unit, scope_for_new_unit
 from diucs.domain.errors import Conflict
 
 RepositoryFactory = Callable[[AsyncManagedTransaction, ResourceStore], object]
@@ -98,6 +108,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "processed": lambda tx, store: Neo4jProcessedMessages(tx),
 }
 
+_NOT_OPEN = "the unit of work is not open; use it inside 'async with'"
 _NEW = "new"
 _OPEN = "open"
 _FINISHED = "finished"
@@ -163,23 +174,41 @@ class Neo4jUnitOfWork:
         self._state = _NEW
         self._session_cm: AbstractAsyncContextManager[AsyncSession] | None = None
         self._tx: AsyncTransaction | None = None
+        self._scoped: ScopedTx | None = None
+        self._scope: ScopeId | None = None
         self._store: ResourceStore | None = None
         self._repositories: dict[str, object] = {}
         self._refused: Conflict | None = None
 
+    @property
+    def unit_scope(self) -> ScopeId | None:
+        """The scope this unit opened under: the one bound when it was entered, None if none was.
+        Fixed for the life of the unit and still readable after it has finished."""
+        if self._state == _NEW:
+            raise RuntimeError(_NOT_OPEN)
+        return self._scope
+
     async def __aenter__(self) -> Self:
         if self._state != _NEW:
             raise RuntimeError("a unit of work is used once; open a new one")
-        session_cm = self._source.session()
-        session = await session_cm.__aenter__()
+        scope = scope_for_new_unit()
+        claim_unit(self)
         try:
-            tx = await session.begin_transaction()
+            session_cm = self._source.session()
+            session = await session_cm.__aenter__()
+            try:
+                tx = await session.begin_transaction()
+            except BaseException:
+                await session_cm.__aexit__(None, None, None)
+                raise
         except BaseException:
-            await session_cm.__aexit__(None, None, None)
+            release_unit(self)
             raise
         self._session_cm = session_cm
         self._tx = tx
-        self._store = ResourceStore(cast(AsyncManagedTransaction, tx), self._clock)
+        self._scope = scope
+        self._scoped = ScopedTx(tx, scope)
+        self._store = ResourceStore(cast(AsyncManagedTransaction, self._scoped), self._clock)
         self._state = _OPEN
         return self
 
@@ -199,8 +228,11 @@ class Neo4jUnitOfWork:
                         await self._require_tx().rollback()
         finally:
             session_cm, self._session_cm = self._session_cm, None
-            if session_cm is not None:
-                await session_cm.__aexit__(exc_type, exc, tb)
+            try:
+                if session_cm is not None:
+                    await session_cm.__aexit__(exc_type, exc, tb)
+            finally:
+                release_unit(self)
 
     def __getattr__(self, name: str) -> object:
         if name.startswith("_"):
@@ -209,11 +241,13 @@ class Neo4jUnitOfWork:
         if factory is None:
             raise AttributeError(f"unit of work has no '{name}' repository registered")
         if self._state != _OPEN:
-            raise RuntimeError("the unit of work is not open; use it inside 'async with'")
+            raise RuntimeError(_NOT_OPEN)
         repository = self._repositories.get(name)
         if repository is None:
             repository = _WriteGuard(
-                factory(cast(AsyncManagedTransaction, self._require_tx()), self._require_store()),
+                factory(
+                    cast(AsyncManagedTransaction, self._require_scoped()), self._require_store()
+                ),
                 self._refuse,
             )
             self._repositories[name] = repository
@@ -224,20 +258,27 @@ class Neo4jUnitOfWork:
         refused = self._refused
         if refused is not None:
             self._state = _FINISHED
-            await self._require_tx().rollback()
+            try:
+                await self._require_tx().rollback()
+            finally:
+                release_unit(self)
             raise Conflict(
                 "a write in this unit of work was refused, so nothing was committed"
             ) from refused
         await self._require_tx().commit()
         self._state = _FINISHED
+        release_unit(self)
 
     async def rollback(self) -> None:
         if self._state == _FINISHED:
             raise RuntimeError("the unit of work is finished; open a new one")
         if self._state == _NEW:
-            raise RuntimeError("the unit of work is not open; use it inside 'async with'")
+            raise RuntimeError(_NOT_OPEN)
         self._state = _FINISHED
-        await self._require_tx().rollback()
+        try:
+            await self._require_tx().rollback()
+        finally:
+            release_unit(self)
 
     def _refuse(self, conflict: Conflict) -> None:
         if self._refused is None:
@@ -245,12 +286,17 @@ class Neo4jUnitOfWork:
 
     def _require_open(self) -> None:
         if self._state != _OPEN:
-            raise RuntimeError("the unit of work is not open; use it inside 'async with'")
+            raise RuntimeError(_NOT_OPEN)
 
     def _require_tx(self) -> AsyncTransaction:
         if self._tx is None:
             raise RuntimeError("the unit of work has no transaction; use it inside 'async with'")
         return self._tx
+
+    def _require_scoped(self) -> ScopedTx:
+        if self._scoped is None:
+            raise RuntimeError("the unit of work has no transaction; use it inside 'async with'")
+        return self._scoped
 
     def _require_store(self) -> ResourceStore:
         if self._store is None:

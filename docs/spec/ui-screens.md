@@ -926,7 +926,7 @@ D
 DIUCS capacity
 07700 900123
 Today 10:00
-DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 08:15). Confirm or update: diucs.example/k3F9a Or reply Y, or a new number. By 10:30.
+DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15). Confirm or update: diucs.example/k3F9a Or reply Y, or a new number. By 10:30.
 Message[input text value='' placeholder='Text message']
 [btn] [Send] 
 2 Response: link page
@@ -960,7 +960,7 @@ D
 DIUCS capacity
 07700 900123
 Today 12:00
-DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 08:15). Reply Y if right, or send the new number (0 = closed). By 12:30.
+DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15). Reply Y if right, or send the new number (0 = closed). By 12:30.
 5
 12:41
 Too late: the 12:30 cut-off had passed, so 5 was not used. New question: UCR West has 3 referrals recorded. Reply Y if right, or send the new number, by 13:11.

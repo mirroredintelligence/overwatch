@@ -51,6 +51,12 @@ TENANT_PARAMETER_MODULES: frozenset[str] = frozenset()
 
 BINDING_NAMES = frozenset({"bind_scope", "bind_tenant"})
 PRIVATE_SCOPE_NAME = "_SCOPE"
+# TEN-002: the kernel's second context variable, the claim that keeps one unit of work open per
+# context, and the two functions that take and give it back.
+PRIVATE_UNIT_NAME = "_UNIT"
+CLAIM_NAMES = frozenset({"claim_unit", "release_unit"})
+CLAIM_MODULES: frozenset[str] = frozenset({"diucs.adapters.outbound.graph_store.unit_of_work"})
+KERNEL_CONTEXT_VARIABLES = 2
 TENANT_PARAMETER_NAMES = frozenset({"tenant", "tenant_id"})
 
 
@@ -205,7 +211,9 @@ def test_a_context_variable_is_created_only_in_the_tenancy_kernel() -> None:
     }
     assert offenders == {}, f"a ContextVar is created outside {TENANCY_KERNEL}: {offenders}"
     kernel = (PACKAGE_ROOT / TENANCY_KERNEL).read_text(encoding="utf-8")
-    assert len(contextvar_creation_lines(kernel)) == 1, "the kernel creates exactly one ContextVar"
+    assert len(contextvar_creation_lines(kernel)) == KERNEL_CONTEXT_VARIABLES, (
+        "the kernel creates exactly two ContextVars: the scope and the unit-of-work claim"
+    )
 
 
 @pytest.mark.parametrize(
@@ -288,6 +296,51 @@ def test_the_private_scope_variable_is_not_referenced_outside_the_kernel() -> No
     assert reference_lines(kernel, {PRIVATE_SCOPE_NAME}), "the kernel no longer defines _SCOPE"
     defined = {node.name for node in ast.walk(_parse(kernel)) if isinstance(node, ast.FunctionDef)}
     assert defined >= BINDING_NAMES, "the kernel no longer defines the binders"
+
+
+def test_the_private_unit_claim_is_not_referenced_outside_the_kernel() -> None:
+    offenders = {
+        _relative(path): lines
+        for path in _source_files()
+        if _relative(path) != TENANCY_KERNEL
+        and (lines := reference_lines(path.read_text(encoding="utf-8"), {PRIVATE_UNIT_NAME}))
+    }
+    assert offenders == {}
+    kernel = (PACKAGE_ROOT / TENANCY_KERNEL).read_text(encoding="utf-8")
+    assert reference_lines(kernel, {PRIVATE_UNIT_NAME}), "the kernel no longer defines _UNIT"
+
+
+def test_the_claim_functions_are_referenced_only_in_the_kernel_and_the_unit_of_work() -> None:
+    offenders = {
+        _relative(path): lines
+        for path in _source_files()
+        if _relative(path) != TENANCY_KERNEL
+        and _module_name(_relative(path)) not in CLAIM_MODULES
+        and (lines := reference_lines(path.read_text(encoding="utf-8"), CLAIM_NAMES))
+    }
+    assert offenders == {}
+    existing = {_module_name(_relative(path)) for path in _source_files()}
+    assert existing >= CLAIM_MODULES, sorted(CLAIM_MODULES - existing)
+    kernel = (PACKAGE_ROOT / TENANCY_KERNEL).read_text(encoding="utf-8")
+    defined = {node.name for node in ast.walk(_parse(kernel)) if isinstance(node, ast.FunctionDef)}
+    assert defined >= CLAIM_NAMES, "the kernel no longer defines the claim functions"
+    unit = (PACKAGE_ROOT / "adapters/outbound/graph_store/unit_of_work.py").read_text(
+        encoding="utf-8"
+    )
+    assert reference_lines(unit, CLAIM_NAMES), "the unit of work no longer takes the claim"
+
+
+@pytest.mark.parametrize(
+    ("source", "names"),
+    [
+        ("from diucs.application.tenancy import claim_unit\n", CLAIM_NAMES),
+        ("from diucs.application import tenancy\ntenancy.release_unit(o)\n", CLAIM_NAMES),
+        ("from diucs.application.tenancy import _UNIT\n", {PRIVATE_UNIT_NAME}),
+        ("from diucs.application import tenancy\nv = tenancy._UNIT\n", {PRIVATE_UNIT_NAME}),
+    ],
+)
+def test_the_claim_scanner_finds_the_claim_names(source: str, names: Iterable[str]) -> None:
+    assert reference_lines(source, names) != []
 
 
 @pytest.mark.parametrize(

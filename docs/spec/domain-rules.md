@@ -278,7 +278,7 @@ No message (text, email or push) ever contains a patient name, a full postcode, 
 
 Template examples (exact wording to be approved by IG):
 
-- Capacity prompt: `DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 08:15). Confirm or update: diucs.example/k3F9a Or reply Y, or a new number. By 10:30.`
+- Capacity prompt: `DIUCS: UCR West. We have 3 referrals in the next 2 hrs (as of 23 Oct 08:15). Confirm or update: diucs.example/k3F9a Or reply Y, or a new number. By 10:30.`
 - First prompt: `DIUCS: UCR West. How many referrals can you take in the next 2 hrs? Send a number (0 = closed). By 08:30.`
 - Echo: `Thanks. UCR West: 4 referrals, as of 08:06. Next prompt 10:00.`
 - Correction: `Updated: UCR West 3 referrals, as of 14:14. Replaces 4.`

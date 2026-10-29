@@ -196,6 +196,10 @@ These names were added by individual task prompts. They are as binding as the re
 | `ReportCapacityCommand.flag` | `application/use_cases/report_capacity.py` | U01 |
 | `schedule_work(uow, ids, *, kind, about_id, due_at, now)`, `cancel_work(uow, work, now)` | `application/scheduling.py` | U03 |
 | Outbox event types `ScheduleWork` (payload `work_id, kind, about_id, enqueue_at`) and `CancelWork` (payload `work_id`) on topic `scheduled.work`; the relay delivers `ScheduledWorkDue` (payload `work_id, kind, about_id`) | `application/scheduling.py`, relay in I03 | U03, I03 |
+| `ContentSealer` port (`seal(content, *, message_id, tenant_id, recipient_role_id)`, `unseal(sealed, *, ...)`): seals prompt content so no token text is at rest (DEC-116) | `application/ports/outbound/sealing.py` | U03 (DEC-116) |
+| `AesGcmContentSealer(secrets)`, `derive_key(secret)`, `seal_content`, `unseal_content`: AES-256-GCM, associated data the outbox message id, tenant id and recipient role id, strict `v2.` base64url text (DEC-116) | `adapters/outbound/content_seal/aes_gcm.py` | U03 (DEC-116) |
+| `SendMessage` outbox payload from `SendPrompts`: `communication_id, message_id, channel, recipient_role_id, sealed_content` (no `text`, `subject` or `html`; I10 opens `sealed_content` with the outbox message id, the tenant and `recipient_role_id`; a U01 echo still carries `text`) (DEC-115 item 10, DEC-116 item 8) | `application/use_cases/send_prompts.py` | U03 |
+| `SendPrompts(uow_factory, clock, ids, idempotency, link_tokens: LinkTokenServiceFactory, link_base_url, sealer: ContentSealer, tenant_id)`, `SendPromptCommand`, `SendPromptResult`, the skip reasons `SKIP_*`, `split_unit_label` (DEC-115 items 1, 12, 13, 15; DEC-116 item 7) | `application/use_cases/send_prompts.py` | U03 |
 | `ScheduledWork.status` values `scheduled`, `done`, `cancelled` | `application/work.py` | P08 |
 | `WorkKind` value `not-updated-check` | `application/work.py` | U34 |
 | `DeviceRegistry.get`, `DeviceRegistry.save`; `ClaimPairingResult.status` may be `expired` | `application/ports/outbound/identity.py`, `use_cases/pair_wall_screen.py` | U10, R15 |
@@ -285,3 +289,16 @@ These names were added by individual task prompts. They are as binding as the re
 - Queue messages: `inbound.replies` carries `SmsReceived` with `{phone_hash, text, received_at, provider_message_id}`; `inbound.receipts` carries `SmsDeliveryReceived` with `{provider_message_id, status, error_code}`, id `<MessageSid>:<MessageStatus>`. Both carry the tenant.
 - Replay key: `idem:sms:<tenant>:<MessageSid>` through the cache's `cache:` family.
 
+
+## Tenancy seam, unit of work and scoped transaction (TEN-002, DEC-146)
+- `adapters/outbound/graph_store/driver.py`: `ScopedTx(tx, scope)` (frozen; a transaction and the `ScopeId | None` its unit of work opened under; it has no `run`), `type Tx = AsyncManagedTransaction | AsyncTransaction | ScopedTx` (transitional; TEN-030 narrows it to `ScopedTx`). `run_query` and `run_global_query` take a `Tx`: on a `ScopedTx` the scope is the one it carries and the ambient context is ignored; on a raw transaction it is the ambient scope, as before.
+- `application/tenancy.py`: `UnitOfWorkAlreadyOpen`, `UNIT_OF_WORK_OPEN_MESSAGE`, `claim_unit(owner)`, `release_unit(owner)` (called only by the graph store's unit of work), `scope_for_new_unit() -> ScopeId | None` (the one place that reads the scope when a unit, or any code that opens its own transaction, opens).
+- `application/ports/outbound/unit_of_work.py`: `UnitOfWork.unit_scope -> ScopeId | None` (read-only; raises `RuntimeError` before the unit is entered). `Neo4jUnitOfWork.unit_scope` implements it. (`uow.scope` stays the scope list repository.)
+- `adapters/outbound/graph_store/connection.py`: `Neo4jConnection.run_scoped_read(work)` and `run_scoped_write(work)`, where `work` takes a `ScopedTx`: the supported way for a worker to run scoped work outside a unit of work.
+- `tests/support/fake_neo4j.py`: `FakeDriver`, `FakeSession`, `FakeTx`, a recording stand-in for the driver in unit tests (not a store).
+
+## $board and $confirm-capacity (R05, DEC-145)
+- `adapters/inbound/fhir_rest/routes_board.py`: `router`, `BOARD_ROLES`, `CONFIRM_ROLES`. `GET /fhir/HealthcareService/$board` (roles wall, advisor, clinical, lead, exec, owner; `Cache-Control: no-store`) and `POST /fhir/HealthcareService/{id}/$confirm-capacity` (reporter for own service, or lead; `Idempotency-Key` required; 200 with the new Observation).
+- `adapters/inbound/fhir_rest/mapping.py`: `board_to_parameters(board) -> dict`, `report_to_fhir(report) -> dict` (valid R4B). R04 adds its functions to this file.
+- `CapacityRepository.get(report_id) -> CapacityReport | None`. Created by R05.
+- `ApiContainer` (`fhir_rest/app.py`) gains `ids`.

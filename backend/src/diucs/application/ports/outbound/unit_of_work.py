@@ -10,6 +10,9 @@ write the change, the audit entry and the outbox messages inside one unit of wor
 Leaving the block without commit(), or with an exception, rolls back and re-raises. After commit()
 or rollback() the unit of work cannot be used again. A write that raised Conflict is never
 committed (DEC-083 item 9).
+
+A unit of work binds exactly one scope, read when it is entered (TEN-002, DEC-132 item 4), and a
+second unit cannot be entered while one is open in the same context.
 """
 
 from collections.abc import Callable
@@ -35,6 +38,7 @@ from diucs.application.ports.outbound.repositories import (
     ServiceRepository,
 )
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
+from diucs.application.tenancy import ScopeId
 
 
 class UnitOfWork(Protocol):
@@ -57,6 +61,12 @@ class UnitOfWork(Protocol):
     devices: DeviceRegistry
     idempotency: IdempotencyStore
     processed: ProcessedMessages
+
+    @property
+    def unit_scope(self) -> ScopeId | None:
+        """The scope this unit opened under (DEC-132 item 4), fixed for its life; None when none
+        was bound. Raises RuntimeError before the unit is entered."""
+        ...
 
     async def __aenter__(self) -> Self: ...
 

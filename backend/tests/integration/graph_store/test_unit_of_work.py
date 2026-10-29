@@ -5,9 +5,12 @@ through a fresh session or a fresh unit of work, so it is what was really stored
 synthetic.
 """
 
-from collections.abc import AsyncIterator
+import asyncio
+import contextvars
+from collections.abc import AsyncIterator, Awaitable
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -15,11 +18,21 @@ from neo4j import AsyncDriver, AsyncSession
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
+from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.health import HealthStatus, neo4j_health
+from diucs.adapters.outbound.graph_store.migrations import apply_migrations
+from diucs.adapters.outbound.graph_store.queries import (
+    REGISTRY,
+    NamedQuery,
+    QueryRegistry,
+    Scenario,
+)
 from diucs.adapters.outbound.graph_store.unit_of_work import DEFAULT_FACTORIES, neo4j_uow_factory
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import ScopeId, TenantNotBound, UnitOfWorkAlreadyOpen, bind_tenant
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.bootstrap.container import build_for_tests
 from diucs.domain.codes import ReportSource, Role
@@ -247,3 +260,142 @@ async def test_a_committed_unit_of_work_cannot_be_rolled_back(
 
     with pytest.raises(RuntimeError):
         await uow.rollback()
+
+
+# The scope of a unit of work against the real server (TEN-002)
+
+_TENANT_ECHO = NamedQuery(
+    id="Q-TEST-UOW-ECHO",
+    cypher="RETURN $tenant AS tenant",
+    mode="read",
+    scenario=Scenario("placeholder until TEN-004"),
+)
+
+
+class _Echo:
+    """A repository of the test: it runs registered statements on the transaction it is given."""
+
+    def __init__(self, tx: Any) -> None:
+        self._tx = tx
+        self._registry = QueryRegistry()
+        self._registry.register(_TENANT_ECHO)
+
+    async def tenant(self) -> list[dict[str, Any]]:
+        return await run_query(
+            self._tx, self._registry.get(_TENANT_ECHO.id), registry=self._registry
+        )
+
+    async def active_services(self) -> list[dict[str, Any]]:
+        # A statement that is not converted yet: it receives the scope's `tenant` unused.
+        return await run_query(self._tx, REGISTRY.get("Q-SVC-LIST-ACTIVE"))
+
+
+def _echo_factory(neo4j_driver: AsyncDriver) -> UnitOfWorkFactory:
+    return neo4j_uow_factory(
+        neo4j_driver, factories={**DEFAULT_FACTORIES, "echo": lambda tx, s: _Echo(tx)}
+    )
+
+
+async def _unbound[T](work: Awaitable[T]) -> T:
+    """Run the awaitable in an empty context, so nothing is bound whatever the fixtures did."""
+    return await asyncio.create_task(_as_coroutine(work), context=contextvars.Context())
+
+
+async def _as_coroutine[T](work: Awaitable[T]) -> T:
+    return await work
+
+
+async def test_the_server_accepts_the_tenant_parameter_a_unit_sends(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    with bind_tenant("a1"):
+        async with _echo_factory(neo4j_driver)() as uow:
+            assert await uow.echo.tenant() == [{"tenant": "a1"}]  # type: ignore[attr-defined]
+            assert await uow.echo.active_services() == []  # type: ignore[attr-defined]
+            await uow.commit()
+
+
+async def test_a_unit_keeps_its_tenant_against_the_real_server_when_the_context_moves(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    with bind_tenant("a1"):
+        async with _echo_factory(neo4j_driver)() as uow:
+            with bind_tenant("b1"):
+                assert await uow.echo.tenant() == [{"tenant": "a1"}]  # type: ignore[attr-defined]
+            assert uow.unit_scope == ScopeId.tenant("a1")
+
+
+async def test_health_and_migrations_run_with_nothing_bound_and_with_a_tenant_bound(
+    harness_container: ThrowawayNeo4j, neo4j_driver: AsyncDriver
+) -> None:
+    connection = Neo4jConnection(
+        harness_container.uri, harness_container.user, harness_container.password
+    )
+    await connection.open()
+    try:
+        for bound in (False, True):
+            if bound:
+                with bind_tenant("a1"):
+                    health = await neo4j_health(connection, timeout=5)
+                    applied = await apply_migrations(neo4j_driver)
+            else:
+                health = await _unbound(neo4j_health(connection, timeout=5))
+                applied = await _unbound(apply_migrations(neo4j_driver))
+            assert health.status is HealthStatus.OK
+            assert applied == []
+        assert connection.open_session_count == 0
+    finally:
+        await connection.close()
+
+
+async def test_a_unit_opened_with_nothing_bound_refuses_a_converted_statement_and_leaks_nothing(
+    harness_container: ThrowawayNeo4j,
+) -> None:
+    connection = Neo4jConnection(
+        harness_container.uri, harness_container.user, harness_container.password
+    )
+    await connection.open()
+    try:
+        factory = neo4j_uow_factory(
+            connection, factories={**DEFAULT_FACTORIES, "echo": lambda tx, s: _Echo(tx)}
+        )
+
+        async def unbound_unit() -> None:
+            async with factory() as uow:
+                assert uow.unit_scope is None
+                with pytest.raises(TenantNotBound):
+                    await uow.echo.tenant()  # type: ignore[attr-defined]
+                assert await uow.echo.active_services() == []  # type: ignore[attr-defined]
+
+        await _unbound(unbound_unit())
+        assert connection.open_session_count == 0
+    finally:
+        await connection.close()
+
+
+async def test_a_unit_that_committed_or_raised_frees_the_next_one_in_the_same_task(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    factory = neo4j_uow_factory(neo4j_driver)
+    async with factory() as first:
+        await first.commit()
+        async with factory() as second:
+            await second.commit()
+    with pytest.raises(ValueError, match="stop"):
+        async with factory():
+            raise ValueError("stop")
+    async with factory() as third:
+        await third.commit()
+
+
+async def test_a_second_unit_cannot_open_inside_an_open_one_on_the_real_server(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    source_sessions = 0
+    factory = neo4j_uow_factory(neo4j_driver)
+    async with factory() as first:
+        with pytest.raises(UnitOfWorkAlreadyOpen):
+            async with factory():
+                source_sessions += 1
+        await first.commit()
+    assert source_sessions == 0

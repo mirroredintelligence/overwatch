@@ -19,6 +19,7 @@ derivation is out of scope (needs a decision first).
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from types import MappingProxyType
 from typing import Any, Final
@@ -91,6 +92,22 @@ def _whole_at_least(value: Any, minimum: int) -> bool:
     return isinstance(value, int) and not isinstance(value, bool) and value >= minimum
 
 
+_INSTANT: Final = re.compile(
+    r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]{1,9})?(Z|[+-][0-9]{2}:[0-9]{2})"
+)
+
+
+def _instant(value: Any) -> bool:
+    """A date and time with seconds and a zone that is a real calendar time (the mapper's rule)."""
+    if not isinstance(value, str) or _INSTANT.fullmatch(value) is None:
+        return False
+    try:
+        datetime.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
 def _capacity(resource: dict[str, Any]) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     if resource.get("status") != "final":
@@ -115,8 +132,13 @@ def _capacity(resource: dict[str, Any]) -> list[ValidationIssue]:
             issues.append(_issue("Observation.valueQuantity.code", "needs a UCUM annotation"))
     if not _one_code(resource.get("method"), code_system_url("report-source"), ReportSource):
         issues.append(_issue("Observation.method", "must be one report source"))
-    if not isinstance(resource.get("effectiveDateTime"), str):
-        issues.append(_issue("Observation.effectiveDateTime", "is required"))
+    if not _instant(resource.get("effectiveDateTime")):
+        issues.append(
+            _issue(
+                "Observation.effectiveDateTime",
+                "must be a date and time with seconds and a zone",
+            )
+        )
     return issues
 
 
@@ -267,7 +289,12 @@ class ProfileValidator:
             not isinstance(resource, dict)
             or resource.get("resourceType") != published.resource_type
         ):
-            return [_issue("resourceType", f"must be {published.resource_type} for this profile")]
+            return [
+                _issue(
+                    f"{published.resource_type}.resourceType",
+                    f"must be {published.resource_type} for this profile",
+                )
+            ]
         if published.structural:
             structural = _structure(resource, published.resource_type)
             if structural:

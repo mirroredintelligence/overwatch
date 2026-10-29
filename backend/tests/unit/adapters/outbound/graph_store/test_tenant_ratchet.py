@@ -39,27 +39,13 @@ STARTER = frozenset(
     }
 )
 
-# The single-property unique constraints each starter scenario leans on, because a value that such
-# a constraint covers cannot be shared by two tenants until TEN-005 makes the keys composite. The
-# table may only shrink: a scenario may not start leaning on a constraint that is not listed, and
-# TEN-005 empties it.
-_PRACTITIONER = frozenset({"resource_id"})
-_CREDENTIAL = frozenset({"resource_id", "credential_device_id"})
-CONSTRAINTS_LEANED_ON = {
-    "Q-CRED-CLEAR": _CREDENTIAL,
-    "Q-CRED-GET": _CREDENTIAL,
-    "Q-CRED-PRACTITIONER-EXISTS": _PRACTITIONER,
-    "Q-CRED-SAVE-STATE": _CREDENTIAL,
-    "Q-CRED-SET": _CREDENTIAL,
-    "Q-OUTBOX-ADD": frozenset({"outbox_message_id"}),
-    "Q-OUTBOX-PENDING": frozenset({"outbox_message_id"}),
-    "Q-PROCESSED-MARK": frozenset({"processed_key"}),
-}
+# The single-property unique constraints each starter scenario leans on. TEN-005 replaced them with
+# composite keys (tenantId plus the key), so the two tenants share every key a scenario uses and no
+# scenario leans on one: the table is empty, and it may not grow. A value only a global key could
+# hold (`link_token_hash`) would be a `Unique` again, and its statement is listed here.
+CONSTRAINTS_LEANED_ON: dict[str, frozenset[str]] = {}
 # The statements whose every lookup value is covered by such a constraint: the two tenants cannot
-# share the key the statement is called with. None of the starter statements is one: each is called
-# by a key the tenants share (the practitioner's key), or by none (`Q-OUTBOX-PENDING` filters by
-# status; `Q-PROCESSED-MARK` and `Q-OUTBOX-ADD` create a key no tenant holds yet). Converting a
-# statement that is looked up by a unique id (`Q-OUTBOX-LOCK`) adds it here, until TEN-005.
+# share the key the statement is called with. None.
 COLLISION_BLOCKED: frozenset[str] = frozenset()
 
 
@@ -139,6 +125,18 @@ def test_a_scenario_leans_only_on_the_constraints_pinned_for_it(
             continue
         pinned = CONSTRAINTS_LEANED_ON.get(query_id, frozenset())
         assert constraints_used(query.scenario) <= pinned, query_id
+
+
+def test_no_starter_scenario_holds_a_value_the_tenants_cannot_share(
+    statements: dict[str, NamedQuery],
+) -> None:
+    """After TEN-005 every key of every starter scenario is shared by both tenants: no `Unique`
+    anywhere in a scenario (its seed, parameters or expectations)."""
+    assert CONSTRAINTS_LEANED_ON == {}
+    for query_id in sorted(STARTER):
+        scenario = statements[query_id].scenario
+        assert scenario is not None
+        assert constraints_used(scenario) == frozenset(), query_id
 
 
 def test_the_pinned_constraints_are_what_the_starter_scenarios_use(

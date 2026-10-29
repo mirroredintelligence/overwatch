@@ -14,7 +14,6 @@ parameter) are reused from the verified earlier branch. Sections 5 to 9 are new.
 from __future__ import annotations
 
 import ast
-import fnmatch
 import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
@@ -29,7 +28,12 @@ GRAPH_STORE = "adapters/outbound/graph_store"
 # Modules that may execute Cypher. The migration runner is not application Cypher: it runs raw
 # schema statements and records Migration nodes (audit A 7.1).
 EXECUTION_POINT = f"{GRAPH_STORE}/driver.py"
-MIGRATION_RUNNER_GLOB = f"{GRAPH_STORE}/migrations*.py"
+# Named, not a glob (known issue of TEN-001, closed in TEN-005): a new `migrations_x.py` that calls
+# `tx.run` is flagged until it is listed here. `migrations_tenant.py` runs the backfill and the
+# invariant queries; `migrations_network.py` and `migration_types.py` hold data and run nothing.
+MIGRATION_RUNNER_FILES = frozenset(
+    {f"{GRAPH_STORE}/migrations.py", f"{GRAPH_STORE}/migrations_tenant.py"}
+)
 
 # Receivers whose `run` is not a database call.
 NOT_A_DATABASE_ROOTS = frozenset({"asyncio", "subprocess", "anyio", "trio"})
@@ -123,7 +127,7 @@ def executing_attribute_lines(source: str) -> list[int]:
 
 
 def _is_allowed_executor(relative: str) -> bool:
-    return relative == EXECUTION_POINT or fnmatch.fnmatch(relative, MIGRATION_RUNNER_GLOB)
+    return relative == EXECUTION_POINT or relative in MIGRATION_RUNNER_FILES
 
 
 def test_application_cypher_runs_only_in_the_execution_point_and_the_migration_runner() -> None:
@@ -143,8 +147,18 @@ def test_the_execution_point_and_the_migration_runner_are_where_the_scan_expects
         if executing_attribute_lines(path.read_text(encoding="utf-8"))
     }
     assert EXECUTION_POINT in containing
-    assert any(fnmatch.fnmatch(name, MIGRATION_RUNNER_GLOB) for name in containing)
+    assert containing >= MIGRATION_RUNNER_FILES
     assert all(_is_allowed_executor(name) for name in containing), sorted(containing)
+
+
+def test_a_migrations_module_that_is_not_listed_may_not_run_cypher() -> None:
+    source = "async def f(tx):\n    await tx.run('MATCH (n) RETURN n')\n"
+    for name in ("migrations_extra.py", "migration_types.py", "migrations_network.py"):
+        found = violations({f"{GRAPH_STORE}/{name}": source})
+        assert any(v.startswith(f"raw-run: {GRAPH_STORE}/{name}") for v in found), name
+    for name in sorted(MIGRATION_RUNNER_FILES):
+        found = violations({name: source})
+        assert not any(v.startswith("raw-run:") for v in found), name
 
 
 @pytest.mark.parametrize(

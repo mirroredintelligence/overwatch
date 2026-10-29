@@ -10,11 +10,17 @@ supports), role-based access control (one user, no roles created here) and multi
 here depends on it.
 """
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
+from typing import Final
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-MIGRATIONS: list[tuple[str, str]] = [
+from diucs.adapters.outbound.graph_store.migration_types import Migration
+from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
+from diucs.adapters.outbound.graph_store.migrations_tenant import TENANT_MIGRATIONS
+
+_CORE_MIGRATIONS: list[tuple[str, str]] = [
     (
         "0001_resource_id",
         "CREATE CONSTRAINT resource_id IF NOT EXISTS FOR (n:Resource) REQUIRE n.id IS UNIQUE",
@@ -133,6 +139,20 @@ MIGRATIONS: list[tuple[str, str]] = [
     ),
 ]
 
+CORE_MIGRATIONS: Final = tuple(
+    Migration(migration_id, (statement,)) for migration_id, statement in _CORE_MIGRATIONS
+)
+
+
+def assemble_migrations(*areas: Sequence[Migration]) -> list[Migration]:
+    """The migrations of every area, sorted by id. A duplicate id is a ValueError (stub)."""
+    return [migration for area in areas for migration in area]
+
+
+MIGRATIONS: Final[list[Migration]] = assemble_migrations(
+    CORE_MIGRATIONS, TENANT_MIGRATIONS, NETWORK_MIGRATIONS
+)
+
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"
 _RECORD = "MERGE (m:Migration {id: $id}) ON CREATE SET m.appliedAt = $appliedAt"
 
@@ -143,8 +163,6 @@ async def _applied_ids(tx: AsyncManagedTransaction) -> set[str]:
 
 
 async def _run_statement(tx: AsyncManagedTransaction, statement: str) -> None:
-    # Neo4j refuses a data write in the same transaction as a schema change, so the statement
-    # and the bookkeeping node are two transactions. Both are idempotent: IF NOT EXISTS and MERGE.
     await tx.run(statement)
 
 
@@ -152,21 +170,21 @@ async def _record(tx: AsyncManagedTransaction, migration_id: str) -> None:
     await tx.run(_RECORD, id=migration_id, appliedAt=datetime.now(UTC))
 
 
-async def apply_migrations(driver: AsyncDriver) -> list[str]:
-    """Apply every migration not yet recorded, in order. Return the ids applied by this call.
-
-    A crash between the statement and its record re-runs the statement on the next start, which
-    is a no-op because of IF NOT EXISTS.
-    """
+async def apply_migrations(
+    driver: AsyncDriver, migrations: Sequence[Migration] | None = None
+) -> list[str]:
+    """Apply every migration not yet recorded, in order. Return the ids applied by this call."""
+    plan = MIGRATIONS if migrations is None else list(migrations)
     async with driver.session() as session:
         applied = await session.execute_read(_applied_ids)
     newly_applied: list[str] = []
-    for migration_id, statement in MIGRATIONS:
-        if migration_id in applied:
+    for migration in plan:
+        if migration.id in applied:
             continue
+        for statement in migration.statements:
+            async with driver.session() as session:
+                await session.execute_write(_run_statement, statement)
         async with driver.session() as session:
-            await session.execute_write(_run_statement, statement)
-        async with driver.session() as session:
-            await session.execute_write(_record, migration_id)
-        newly_applied.append(migration_id)
+            await session.execute_write(_record, migration.id)
+        newly_applied.append(migration.id)
     return newly_applied

@@ -6,13 +6,17 @@ collide across the tenants proves nothing, so it is refused. All values are synt
 """
 
 import re
+from types import MappingProxyType
 
 import pytest
 
 from diucs.adapters.outbound.graph_store import migrations
+from diucs.adapters.outbound.graph_store import scenario as scenario_module
 from diucs.adapters.outbound.graph_store.queries import Scenario as ScenarioFromQueries
 from diucs.adapters.outbound.graph_store.scenario import (
-    SINGLE_PROPERTY_UNIQUE,
+    SINGLE_PROPERTY_UNIQUE as PRODUCTION_TABLE,
+)
+from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
     NodeSpec,
@@ -26,8 +30,26 @@ from diucs.adapters.outbound.graph_store.scenario import (
     render,
     validate_scenario,
 )
+from tests.support.tenant_seed import SUPERSEDED_CONSTRAINT_NAMES
 
 QID = "Q-X-THING"
+
+# The mechanism of `Unique` is tested against a table of its own: after TEN-005 the production table
+# holds only `link_token_hash`, and these tests need several constraints on several labels.
+_MECHANISM_TABLE = MappingProxyType(
+    {
+        "resource_id": ("Resource", "id"),
+        "device_id": ("Device", "id"),
+        "report_flag_id": ("ReportFlag", "id"),
+        "outbox_message_id": ("OutboxMessage", "id"),
+        "processed_key": ("Processed", "key"),
+    }
+)
+
+
+@pytest.fixture(autouse=True)
+def _mechanism_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(scenario_module, "SINGLE_PROPERTY_UNIQUE", _MECHANISM_TABLE)
 
 
 def _thing(**props: object) -> SeedNode:
@@ -413,15 +435,21 @@ _SINGLE = re.compile(
 )
 
 
-def test_the_constraint_table_is_the_single_property_unique_constraints_of_the_migrations() -> None:
-    """A single-property unique key is what stops two tenants sharing a value today. The table
-    names each, so a `Unique` value can only stand where a constraint really forces it. TEN-005
-    replaces them with composite keys and empties the table (the live schema is checked in
-    tests/integration/graph_store/test_tenant_isolation.py)."""
+def test_the_production_table_is_what_stays_a_single_property_key_after_the_composites() -> None:
+    """TEN-005 replaced the single-property unique keys with composite ones, so two tenants can
+    share an id, a key and a device id. What is left is `link_token_hash`: a token hash is looked
+    up without a scope (DEC-131 item 5), so it is unique across tenants by design. The live schema
+    is checked in tests/integration/graph_store/test_tenant_isolation.py."""
+    assert dict(PRODUCTION_TABLE) == {"link_token_hash": ("LinkToken", "tokenHash")}
+
+
+def test_the_production_table_is_the_core_single_property_keys_that_are_not_superseded() -> None:
     found = {
         name: (label, prop)
-        for _, statement in migrations.MIGRATIONS
+        for migration in migrations.CORE_MIGRATIONS
+        for statement in migration.statements
         for name, label, prop in _SINGLE.findall(statement)
     }
     assert found, "the scan found no constraint: it is not looking at the migrations"
-    assert dict(SINGLE_PROPERTY_UNIQUE) == found
+    left = {n: v for n, v in found.items() if n not in SUPERSEDED_CONSTRAINT_NAMES}
+    assert dict(PRODUCTION_TABLE) == left

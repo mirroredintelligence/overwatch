@@ -437,3 +437,75 @@ async def test_a_closed_case_with_residue_is_refused_on_add_and_writes_nothing(
 
     assert await count_nodes(neo4j_driver, "Patient") == 0
     assert await count_nodes(neo4j_driver, "Observation") == 0
+
+
+# TEN-005: the open reference, the property a composite constraint is unique on. It is set while a
+# case is open and removed when the case closes, so a closed case's reference blocks nobody once
+# the lifetime-unique constraint goes (TEN-032).
+
+
+async def _references(driver: AsyncDriver) -> list[dict[str, Any]]:
+    return await _rows(
+        driver,
+        "MATCH (r:ServiceRequest) RETURN r.id AS id, r.reference AS reference, "
+        "r.openReference AS open ORDER BY id",
+    )
+
+
+async def test_an_open_case_carries_its_reference_as_the_open_reference(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _write(neo4j_driver, OPEN_CASE)
+
+    assert await _references(neo4j_driver) == [
+        {"id": "case-1", "reference": "4821", "open": "4821"}
+    ]
+
+
+async def test_saving_an_open_case_keeps_its_open_reference(neo4j_driver: AsyncDriver) -> None:
+    await _write(neo4j_driver, OPEN_CASE)
+    await _write(neo4j_driver, replace(OPEN_CASE, urgency=Urgency.TODAY), save=True)
+
+    assert await _references(neo4j_driver) == [
+        {"id": "case-1", "reference": "4821", "open": "4821"}
+    ]
+
+
+async def test_closing_a_case_removes_the_open_reference_and_keeps_the_reference(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _write(neo4j_driver, OPEN_CASE)
+    closed = OPEN_CASE.close(
+        Outcome.ACCEPTED_AND_BOOKED, CLOSED, destination_service_id="svc-ucr-west"
+    )
+
+    await _write(neo4j_driver, closed, save=True)
+
+    assert await _references(neo4j_driver) == [{"id": "case-1", "reference": "4821", "open": None}]
+    assert await _load(neo4j_driver, "case-1") == closed
+
+
+async def test_two_open_cases_with_one_reference_are_still_refused_as_conflict(
+    neo4j_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Both constraints agree on this today: the lifetime-unique one (until TEN-032) and the
+    per-tenant open-only one. The statement sets both properties in one write, so either refusal
+    is a Conflict and nothing of the second case stays."""
+    await _write(neo4j_driver, OPEN_CASE)
+    real_run_query = case_repository.run_query
+
+    async def skip_the_reference_check(
+        tx: AsyncManagedTransaction, query: NamedQuery, **params: Any
+    ) -> Any:
+        if query.id == "Q-CASE-BY-REF":
+            return []
+        return await real_run_query(tx, query, **params)
+
+    monkeypatch.setattr(case_repository, "run_query", skip_the_reference_check)
+
+    with pytest.raises(Conflict):
+        await _write(neo4j_driver, replace(OPEN_CASE, id="case-3"))
+
+    assert await _references(neo4j_driver) == [
+        {"id": "case-1", "reference": "4821", "open": "4821"}
+    ]

@@ -18,8 +18,9 @@ from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
 from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry
 
-# 9 on main (0001 to 0009, 0014 to 0020; DEC-055 item 16); P10 adds 0021, so 17.
-EXPECTED_MIGRATION_COUNT = 26  # 0001-0009, 0014-0030 (P06 adds 0028; P15 adds 0029 and 0030)
+# Derived from the list (TEN-005): a later task adds its migrations in its own area module and no
+# number is edited. The unit test test_migration_ids.py pins it to 26 core + the tenant + network.
+EXPECTED_MIGRATION_COUNT = len(MIGRATIONS)
 EXPECTED_CONSTRAINTS = {"resource_id", "identifier_key", "concept_key"}
 EXPECTED_INDEXES = {
     "obs_by_service",
@@ -58,7 +59,7 @@ async def test_apply_migrations_applies_every_migration_then_none_on_the_second_
 
     first = await apply_migrations(neo4j_driver)
     assert len(first) == EXPECTED_MIGRATION_COUNT
-    assert first == [migration_id for migration_id, _ in MIGRATIONS]
+    assert first == [migration.id for migration in MIGRATIONS]
 
     second = await apply_migrations(neo4j_driver)
     assert second == []
@@ -74,7 +75,7 @@ async def test_each_applied_migration_is_recorded_with_an_id_and_a_utc_time(
             "MATCH (m:Migration) RETURN m.id AS id, m.appliedAt AS appliedAt ORDER BY m.id"
         )
         records = [record.data() async for record in result]
-    assert sorted(r["id"] for r in records) == sorted(mid for mid, _ in MIGRATIONS)
+    assert sorted(r["id"] for r in records) == sorted(m.id for m in MIGRATIONS)
     for record in records:
         assert record["appliedAt"].tzinfo is not None
 
@@ -97,12 +98,19 @@ async def test_schema_has_the_named_constraints_and_indexes(neo4j_driver: AsyncD
 async def test_every_migration_statement_runs_twice_in_separate_sessions(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    # A missing IF NOT EXISTS fails the second run against an object the first run created.
+    # A missing IF NOT EXISTS fails the second run against an object the first run created, and a
+    # loop that is not idempotent changes something on the second run.
     await apply_migrations(neo4j_driver)
-    for _, statement in MIGRATIONS:
-        for _ in range(2):
-            async with neo4j_driver.session() as session:
-                await session.run(statement)
+    for migration in MIGRATIONS:
+        for statement in migration.statements:
+            for _ in range(2):
+                async with neo4j_driver.session() as session:
+                    await session.run(statement, dict(migration.params))
+        for loop in migration.loops:
+            for _ in range(2):
+                async with neo4j_driver.session() as session:
+                    result = await session.run(loop, {**migration.params, "batch": migration.batch})
+                    assert [r["changed"] async for r in result] == [0]
 
 
 @pytest.mark.asyncio(loop_scope="session")
@@ -116,7 +124,7 @@ async def test_reapplying_over_an_existing_schema_recreates_a_dropped_index(
 
     reapplied = await apply_migrations(neo4j_driver)
 
-    assert reapplied == [migration_id for migration_id, _ in MIGRATIONS]
+    assert reapplied == [migration.id for migration in MIGRATIONS]
     async with neo4j_driver.session() as session:
         indexes = {
             r["name"] async for r in await session.run("SHOW INDEXES YIELD name RETURN name")
@@ -172,7 +180,7 @@ async def test_run_query_logs_no_cypher_text_even_at_debug(
 def test_migration_ids_are_unique_and_run_in_ascending_order() -> None:
     # P05, P07 and P08 each chose ids (lesson L68); a duplicate or out-of-order id would make one
     # migration silently skipped or applied before the one it follows.
-    ids = [migration_id for migration_id, _ in MIGRATIONS]
+    ids = [migration.id for migration in MIGRATIONS]
     assert len(ids) == len(set(ids))
     assert ids == sorted(ids)
     assert "0009_scheduled_work_id" in ids

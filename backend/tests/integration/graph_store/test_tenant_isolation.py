@@ -3,17 +3,22 @@
 For every registered statement that has a scenario, on a real Neo4j: seed tenant A alone and run
 the statement as A; seed tenant B (the same keys, other text) and run it as A again; the rows, A's
 own data and B's data must be what they were without B, and nothing anywhere may be unstamped or
-join two tenants. Then the same with B and A swapped. The run uses the real schema of the harness
-(no constraint is dropped, DEC-150), so a value a single-property unique key covers cannot be shared
-by two tenants yet; a scenario says so with `Unique` and the test also runs the statement with the
-other tenant's value (the foreign-id run).
+join two tenants. Then the same with B and A swapped. The run is on a private container with every
+migration applied and the superseded single-property keys dropped (`contracted_container`, TEN-005):
+the schema the platform has after TEN-032. The shared harness container keeps the old keys until
+then, so it cannot hold the same id for two tenants. Every key of a production scenario is shared
+by both tenants. `Unique` is kept for a key that stays globally unique (`link_token_hash`, DEC-131
+item 5): the test also runs the statement with the other tenant's value (the foreign-id run).
 
 The rest proves the test itself: sound test-only statements pass, each kind of leak is caught by a
 leaky twin, and taking `tenantId: $tenant` out of each converted statement makes the test fail for
 it. All values are synthetic.
 """
 
+from collections.abc import AsyncIterator
+
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, QueryRegistry
@@ -30,7 +35,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     validate_scenario,
 )
 from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
-from tests.support.neo4j import read_tx, write_tx
+from tests.support.neo4j import read_tx, wipe, write_tx
 from tests.support.predicate_removal import mutant_of, predicate_count
 from tests.support.query_probes import (
     Finding,
@@ -42,12 +47,34 @@ from tests.support.query_probes import (
     scenario_gaps,
     universe_problems,
 )
-from tests.support.tenant_seed import seed_tenant
+from tests.support.tenant_seed import (
+    SUPERSEDED_CONSTRAINT_NAMES,
+    SUPERSEDED_INDEX_NAMES,
+    UNSTAMPED_OK,
+    contracted_container,
+    schema_names,
+    seed_tenant,
+)
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-# Test-only statements, in a private registry. The label has no constraint, so two tenants share
-# every key; `Resource` and `Unique` are used where the real schema forbids sharing.
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def isolation_driver() -> AsyncIterator[AsyncDriver]:
+    """The contracted container: every migration applied, the superseded keys dropped."""
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def _clean_isolation_graph(isolation_driver: AsyncDriver) -> None:
+    """The harness wipes its own container before a test, not this private one."""
+    await wipe(isolation_driver)
+
+
+# Test-only statements, in a private registry. Two tenants share every key, the `Resource` id
+# included (composite key); the token hash of a `LinkToken` is the one key that stays unique across
+# tenants, so it is a `Unique`.
 THING = ("ProbeThing",)
 SEED = TenantSeed(
     nodes=(
@@ -55,12 +82,18 @@ SEED = TenantSeed(
         SeedNode("t2", THING, {"id": "thing-2", "note": Marked("two"), "rank": 2}),
         SeedNode(
             "r1",
-            ("Resource", "ProbeThing"),
-            {"id": Unique("res-1", "resource_id"), "note": Marked("res"), "rank": 3},
+            ("Resource", "LinkToken", "ProbeThing"),
+            {
+                "id": "res-1",
+                "tokenHash": Unique("tok-1", "link_token_hash"),
+                "note": Marked("res"),
+                "rank": 3,
+            },
         ),
     ),
     rels=(SeedRel("t1", "NEXT", "t2"),),
 )
+TOKEN = Unique("tok-1", "link_token_hash")
 GET_ROWS = Expect(rows=({"id": "thing-1", "note": Marked("one")},))
 
 _GET = "MATCH (n:ProbeThing {id: $id, tenantId: $tenant}) RETURN n.id AS id, n.note AS note"
@@ -96,9 +129,7 @@ SOUND: dict[str, tuple[str, str, Scenario]] = {
         _scenario(
             "list all",
             {},
-            Expect(
-                rows=({"id": "thing-1"}, {"id": "thing-2"}, {"id": Unique("res-1", "resource_id")})
-            ),
+            Expect(rows=({"id": "thing-1"}, {"id": "thing-2"}, {"id": "res-1"})),
             lookup=(),
         ),
     ),
@@ -152,12 +183,14 @@ SOUND: dict[str, tuple[str, str, Scenario]] = {
         ),
     ),
     "Q-TEST-THING-UNIQUE": (
-        "MATCH (n:ProbeThing {id: $id, tenantId: $tenant}) SET n.id = n.id RETURN n.note AS note",
+        "MATCH (n:ProbeThing {tokenHash: $token, tenantId: $tenant}) "
+        "SET n.tokenHash = n.tokenHash RETURN n.note AS note",
         "write",
         _scenario(
             "lock a thing by a value two tenants cannot share",
-            {"id": Unique("res-1", "resource_id")},
+            {"token": TOKEN},
             Expect(rows=({"note": Marked("res")},)),
+            lookup=("token",),
         ),
     ),
 }
@@ -225,27 +258,29 @@ LEAKY: dict[str, tuple[str, str, Scenario, FindingKind]] = {
         FindingKind.CROSS_SCOPE_RELATIONSHIP,
     ),
     "Q-TEST-LEAK-FOREIGN-ID": (
-        "MATCH (n:ProbeThing {id: $id}) RETURN n.note AS note",
+        "MATCH (n:ProbeThing {tokenHash: $token}) RETURN n.note AS note",
         "read",
         _scenario(
-            "read by an id the other tenant owns",
-            {"id": Unique("res-1", "resource_id")},
+            "read by a token the other tenant owns",
+            {"token": TOKEN},
             Expect(rows=({"note": Marked("res")},)),
+            lookup=("token",),
         ),
         FindingKind.FOREIGN_ID_EFFECT,
     ),
     "Q-TEST-LEAK-FOREIGN-COPY": (
-        "MATCH (n:ProbeThing {id: $id}) "
+        "MATCH (n:ProbeThing {tokenHash: $token}) "
         "MATCH (m:ProbeThing {id: 'thing-1', tenantId: $tenant}) "
         "SET m.note = n.note RETURN count(m) AS copied",
         "write",
         _scenario(
-            "copy a note from the node of an id the other tenant owns",
-            {"id": Unique("res-1", "resource_id")},
+            "copy a note from the node of a token the other tenant owns",
+            {"token": TOKEN},
             Expect(
                 rows=({"copied": 1},),
                 after=(NodeSpec(THING, {"id": "thing-1", "note": Marked("res")}),),
             ),
+            lookup=("token",),
         ),
         FindingKind.FOREIGN_ID_EFFECT,
     ),
@@ -407,18 +442,16 @@ async def _nodes(driver: AsyncDriver) -> list[dict[str, object]]:
 
 
 async def test_the_seed_gives_both_tenants_the_same_keys_and_distinct_text(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
-    await seed_tenant(neo4j_driver, tenant_id, "A", SEED)
-    await seed_tenant(neo4j_driver, other_tenant_id, "B", SEED)
-    rows = await _nodes(neo4j_driver)
+    await seed_tenant(isolation_driver, tenant_id, "A", SEED)
+    await seed_tenant(isolation_driver, other_tenant_id, "B", SEED)
+    rows = await _nodes(isolation_driver)
     mine = {r["id"]: r for r in rows if r["tenant"] == tenant_id}
     theirs = {r["id"]: r for r in rows if r["tenant"] == other_tenant_id}
     assert len(rows) == 6
-    # The key is shared, except where a unique constraint of the real schema forbids it.
-    assert {"thing-1", "thing-2"} <= set(mine) & set(theirs)
-    assert set(mine) - set(theirs) == {"res-1"}
-    assert set(theirs) - set(mine) == {"res-1-B"}
+    # Every id is shared: the composite key (tenantId, id) lets two tenants hold the same one.
+    assert set(mine) == set(theirs) == {"thing-1", "thing-2", "res-1"}
     for key in ("thing-1", "thing-2"):
         assert mine[key]["note"] != theirs[key]["note"]
     assert {r["marker"] for r in mine.values()} == {"A"}
@@ -427,49 +460,62 @@ async def test_the_seed_gives_both_tenants_the_same_keys_and_distinct_text(
     assert theirs["thing-1"]["note"] == "one-B"
 
 
-async def test_the_real_schema_refuses_a_value_two_tenants_cannot_share(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+async def test_the_contracted_schema_lets_two_tenants_hold_one_resource_id(
+    isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
-    """Why `Unique` exists: the same `Resource` id for two tenants is refused by the real schema."""
+    """What TEN-005 bought: the same `Resource` id for two tenants is accepted, and a repeat in one
+    tenant is still refused."""
     plain = TenantSeed(nodes=(SeedNode("r", ("Resource", "ProbeThing"), {"id": "res-1"}),))
-    await seed_tenant(neo4j_driver, tenant_id, "A", plain)
+    await seed_tenant(isolation_driver, tenant_id, "A", plain)
+    await seed_tenant(isolation_driver, other_tenant_id, "B", plain)
     with pytest.raises(Exception, match="already exists"):
-        await seed_tenant(neo4j_driver, other_tenant_id, "B", plain)
+        await seed_tenant(isolation_driver, tenant_id, "A", plain)
+
+
+async def test_the_contracted_schema_still_refuses_a_token_hash_two_tenants_share(
+    isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    """Why `Unique` still exists: a token hash is looked up without a scope, so it is unique
+    across tenants (DEC-131 item 5, `link_token_hash`)."""
+    plain = TenantSeed(nodes=(SeedNode("t", ("LinkToken", "ProbeThing"), {"tokenHash": "tok-1"}),))
+    await seed_tenant(isolation_driver, tenant_id, "A", plain)
+    with pytest.raises(Exception, match="already exists"):
+        await seed_tenant(isolation_driver, other_tenant_id, "B", plain)
 
 
 async def test_a_seed_that_leaves_a_node_unstamped_is_refused(
-    neo4j_driver: AsyncDriver, tenant_id: str
+    isolation_driver: AsyncDriver, tenant_id: str
 ) -> None:
     """The seeder checks its own work: every node it made carries the tenant and the marker."""
 
     async def work(tx: AsyncManagedTransaction) -> None:
         await tx.run("CREATE (:ProbeThing {id: 'stray'})")
 
-    await write_tx(neo4j_driver, work)
+    await write_tx(isolation_driver, work)
     with pytest.raises(AssertionError, match="unstamped"):
-        await seed_tenant(neo4j_driver, tenant_id, "A", SEED)
+        await seed_tenant(isolation_driver, tenant_id, "A", SEED)
 
 
 # The test accepts what is sound and catches what leaks
 
 
 async def test_the_harness_accepts_the_sound_statements(
-    neo4j_driver: AsyncDriver, private: QueryRegistry, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, private: QueryRegistry, tenant_id: str, other_tenant_id: str
 ) -> None:
-    findings = await _run(neo4j_driver, private, list(SOUND), tenant_id, other_tenant_id)
+    findings = await _run(isolation_driver, private, list(SOUND), tenant_id, other_tenant_id)
     assert findings == [], format_findings(findings)
 
 
 @pytest.mark.parametrize("query_id", sorted(LEAKY))
 async def test_the_harness_flags_each_leaky_statement(
     query_id: str,
-    neo4j_driver: AsyncDriver,
+    isolation_driver: AsyncDriver,
     private: QueryRegistry,
     tenant_id: str,
     other_tenant_id: str,
 ) -> None:
     expected = LEAKY[query_id][3]
-    findings = await _run(neo4j_driver, private, [query_id], tenant_id, other_tenant_id)
+    findings = await _run(isolation_driver, private, [query_id], tenant_id, other_tenant_id)
     assert findings, f"{query_id} leaks and the generated test found nothing"
     assert expected in {f.kind for f in findings}, format_findings(findings)
     assert {f.query_id for f in findings} == {query_id}
@@ -502,7 +548,7 @@ async def test_a_merge_that_stamps_only_on_create_is_refused_when_run_with_a_fre
 
 
 async def test_the_same_merge_with_an_id_the_seed_holds_is_caught(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     scenario = _scenario(
         "merge an id both tenants hold",
@@ -521,29 +567,29 @@ async def test_the_same_merge_with_an_id_the_seed_holds_is_caught(
         )
     )
     findings = await _run(
-        neo4j_driver, registry, ["Q-TEST-LEAK-HELD-MERGE"], tenant_id, other_tenant_id
+        isolation_driver, registry, ["Q-TEST-LEAK-HELD-MERGE"], tenant_id, other_tenant_id
     )
     assert FindingKind.OTHER_TENANT_CHANGED in {f.kind for f in findings}, format_findings(findings)
 
 
 async def test_a_leak_that_shows_in_one_direction_is_found_in_the_other_too(
-    neo4j_driver: AsyncDriver, private: QueryRegistry, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, private: QueryRegistry, tenant_id: str, other_tenant_id: str
 ) -> None:
     findings = await _run(
-        neo4j_driver, private, ["Q-TEST-LEAK-LABEL-ONLY"], tenant_id, other_tenant_id
+        isolation_driver, private, ["Q-TEST-LEAK-LABEL-ONLY"], tenant_id, other_tenant_id
     )
     assert {f.phase for f in findings} == {"A-then-B", "B-then-A"}
 
 
 async def test_a_statement_with_no_scenario_is_not_run_by_the_runner(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     """`scenario_gaps` and the ratchet refuse it; the runner has nothing to run for it."""
     registry = QueryRegistry(unconverted=frozenset({"Q-TEST-BARE"}))
     bare = NamedQuery(id="Q-TEST-BARE", cypher="MATCH (n:ProbeThing) RETURN n", mode="read")
     registry.register(bare)
     findings = await run_isolation(
-        neo4j_driver,
+        isolation_driver,
         {"Q-TEST-BARE": bare},
         registry=registry,
         tenant_a=tenant_id,
@@ -554,10 +600,10 @@ async def test_a_statement_with_no_scenario_is_not_run_by_the_runner(
 
 
 async def test_a_probe_error_names_the_exception_class_and_never_the_text_or_a_value(
-    neo4j_driver: AsyncDriver, private: QueryRegistry, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, private: QueryRegistry, tenant_id: str, other_tenant_id: str
 ) -> None:
     findings = await _run(
-        neo4j_driver, private, ["Q-TEST-LEAK-NOT-VALID"], tenant_id, other_tenant_id
+        isolation_driver, private, ["Q-TEST-LEAK-NOT-VALID"], tenant_id, other_tenant_id
     )
     assert findings
     for finding in findings:
@@ -568,9 +614,9 @@ async def test_a_probe_error_names_the_exception_class_and_never_the_text_or_a_v
 
 
 async def test_the_runner_never_prints_a_tenant_id_or_a_value(
-    neo4j_driver: AsyncDriver, private: QueryRegistry, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, private: QueryRegistry, tenant_id: str, other_tenant_id: str
 ) -> None:
-    findings = await _run(neo4j_driver, private, sorted(LEAKY), tenant_id, other_tenant_id)
+    findings = await _run(isolation_driver, private, sorted(LEAKY), tenant_id, other_tenant_id)
     text = format_findings(findings)
     assert text
     for secret in (tenant_id, other_tenant_id, "one-A", "one-B", "thing-1"):
@@ -578,7 +624,7 @@ async def test_the_runner_never_prints_a_tenant_id_or_a_value(
 
 
 async def test_a_template_scenario_runs_its_instance(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     """A template with a scenario is run through its `insert`, as the resource store will."""
     from diucs.adapters.outbound.graph_store.queries import QueryTemplate
@@ -597,7 +643,11 @@ async def test_a_template_scenario_runs_its_instance(
     statements = production_statements(registry)
     assert list(statements) == ["Q-TPL-PROBE-GET"]
     findings = await run_isolation(
-        neo4j_driver, statements, registry=registry, tenant_a=tenant_id, tenant_b=other_tenant_id
+        isolation_driver,
+        statements,
+        registry=registry,
+        tenant_a=tenant_id,
+        tenant_b=other_tenant_id,
     )
     assert findings == [], format_findings(findings)
 
@@ -606,7 +656,7 @@ async def test_a_template_scenario_runs_its_instance(
 
 
 async def test_every_converted_statement_is_isolated(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     statements = production_statements(REGISTRY)
     assert registry_problems(REGISTRY) == []
@@ -615,7 +665,7 @@ async def test_every_converted_statement_is_isolated(
     with_scenario = {i: q for i, q in statements.items() if q.scenario is not None}
     assert len(with_scenario) >= 8
     findings = await run_isolation(
-        neo4j_driver,
+        isolation_driver,
         with_scenario,
         registry=REGISTRY,
         tenant_a=tenant_id,
@@ -631,7 +681,7 @@ _SNEAK_TEXT = (
 
 
 async def test_a_leaky_statement_named_q_test_in_the_production_registry_is_caught(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     """The verifier's Q-TEST-SNEAK (round 1, B1): a name must not hide a statement from the proof.
     In a scratch copy of the production registry it is refused by the hygiene check, it is in the
@@ -649,7 +699,7 @@ async def test_a_leaky_statement_named_q_test_in_the_production_registry_is_caug
         assert statements["Q-TEST-SNEAK"] == sneak
         assert universe_problems(REGISTRY, statements) == []
         findings = await run_isolation(
-            neo4j_driver,
+            isolation_driver,
             {"Q-TEST-SNEAK": statements["Q-TEST-SNEAK"]},
             registry=REGISTRY,
             tenant_a=tenant_id,
@@ -669,7 +719,7 @@ async def test_the_converted_statements_are_exactly_those_with_a_scenario() -> N
 
 
 async def test_removing_the_tenant_predicate_makes_the_generated_test_fail(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     """The predicate-removal check, for every converted statement: a scratch copy with every
     `tenantId: $tenant` taken out is caught by the generated test, and the original is clean."""
@@ -682,7 +732,7 @@ async def test_removing_the_tenant_predicate_makes_the_generated_test_fail(
         assert predicate_count(original.cypher) >= 1, query_id
         registry, mutant = mutant_of(original)
         found = await run_isolation(
-            neo4j_driver,
+            isolation_driver,
             {query_id: mutant},
             registry=registry,
             tenant_a=tenant_id,
@@ -691,7 +741,7 @@ async def test_removing_the_tenant_predicate_makes_the_generated_test_fail(
         if not found:
             survivors.append(query_id)
         clean = await run_isolation(
-            neo4j_driver,
+            isolation_driver,
             {query_id: original},
             registry=REGISTRY,
             tenant_a=tenant_id,
@@ -704,18 +754,31 @@ async def test_removing_the_tenant_predicate_makes_the_generated_test_fail(
 # The schema the scenarios lean on
 
 
-async def test_the_constraint_table_is_the_live_schema(neo4j_driver: AsyncDriver) -> None:
-    """`Unique` is allowed only where a single-property unique constraint really exists. When
-    TEN-005 replaces one with a composite key this fails until the table loses it."""
+async def test_the_isolation_container_has_none_of_the_superseded_keys(
+    isolation_driver: AsyncDriver,
+) -> None:
+    constraints, indexes = await schema_names(isolation_driver)
+    assert constraints.isdisjoint(SUPERSEDED_CONSTRAINT_NAMES)
+    assert indexes.isdisjoint(SUPERSEDED_INDEX_NAMES)
+    assert "link_token_hash" in constraints
+    assert "location_position" in indexes
+    assert {"tenant_resource_id", "tenant_resource_key", "tenant_processed_key"} <= constraints
+
+
+async def test_the_constraint_table_is_the_live_schema(isolation_driver: AsyncDriver) -> None:
+    """`Unique` is allowed only where a single-property unique constraint really exists on the
+    schema the platform has after TEN-032. The registry node `Migration` has one (`migration_id`)
+    and carries no tenant, so it is not a key two tenants could share."""
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, object]]:
         query = (
             "SHOW CONSTRAINTS YIELD name, type, entityType, labelsOrTypes, properties "
             "WHERE type = 'UNIQUENESS' AND entityType = 'NODE' AND size(properties) = 1 "
+            "AND NOT labelsOrTypes[0] IN $registry "
             "RETURN name, labelsOrTypes[0] AS label, properties[0] AS property"
         )
-        return await (await tx.run(query)).data()
+        return await (await tx.run(query, registry=sorted(UNSTAMPED_OK))).data()
 
-    rows = await read_tx(neo4j_driver, work)
+    rows = await read_tx(isolation_driver, work)
     live = {str(r["name"]): (str(r["label"]), str(r["property"])) for r in rows}
     assert live == dict(SINGLE_PROPERTY_UNIQUE)

@@ -11,7 +11,8 @@ tenant, no relationship between two tenants.
 import hashlib
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from typing import Any, Final
@@ -19,8 +20,9 @@ from typing import Any, Final
 from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncTransaction
 from neo4j.time import Date, DateTime, Duration, Time
 
+from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.scenario import Slot, TenantSeed, render
-from tests.support.neo4j import read_tx, write_tx
+from tests.support.neo4j import read_tx, throwaway_driver, write_tx
 
 # Labels a node may carry without a tenantId: the migration record, and the registry nodes of the
 # network design (DEC-132), which are the tenants' and the network's own.
@@ -29,6 +31,44 @@ UNSTAMPED_OK: Final = frozenset(
 )
 
 _IDENTIFIER: Final = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+# The schema objects TEN-005's composite keys replace, and that TEN-032 drops from the production
+# schema (written out here and compared with `migrations_tenant.SUPERSEDED_*` by a unit test, so
+# neither list can move alone). `link_token_hash` stays: a token hash is looked up without a scope
+# (DEC-131 item 5), so it is globally unique. `location_position` is a point index, which is
+# single-property.
+SUPERSEDED_CONSTRAINT_NAMES: Final = frozenset(
+    {
+        "resource_id",
+        "identifier_key",
+        "concept_key",
+        "scheduled_work_id",
+        "communication_id",
+        "audit_event_id",
+        "audit_head_id",
+        "audit_ref_id",
+        "provenance_id",
+        "chain_seq",
+        "device_id",
+        "protected_contact_key",
+        "credential_device_id",
+        "report_flag_id",
+        "outbox_message_id",
+        "idempotency_record_key",
+        "processed_key",
+        "case_reference_id",
+    }
+)
+SUPERSEDED_INDEX_NAMES: Final = frozenset(
+    {
+        "obs_by_service",
+        "task_by_status",
+        "svc_active",
+        "phone_hash",
+        "communication_provider_id",
+        "protected_contact_role_id",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,3 +244,44 @@ async def invariant_breaks(
         [":".join(sorted(row["labels"])) for row in unstamped],
         [str(row["type"]) for row in crossing],
     )
+
+
+async def schema_names(driver: AsyncDriver) -> tuple[set[str], set[str]]:
+    """The names of the constraints and of the indexes in the database."""
+
+    async def work(tx: AsyncManagedTransaction) -> tuple[set[str], set[str]]:
+        constraints = await (await tx.run("SHOW CONSTRAINTS YIELD name RETURN name")).data()
+        indexes = await (await tx.run("SHOW INDEXES YIELD name RETURN name")).data()
+        return {str(r["name"]) for r in constraints}, {str(r["name"]) for r in indexes}
+
+    return await read_tx(driver, work)
+
+
+async def contract_schema(driver: AsyncDriver) -> None:
+    """Drop the superseded single-property constraints and indexes, each in its own transaction
+    (a schema change cannot share one with a data write, lesson L8). This is the production schema
+    after TEN-032, which is what the isolation test needs: with the old keys gone, two tenants can
+    hold the same id."""
+    for name in sorted(SUPERSEDED_CONSTRAINT_NAMES):
+        await _schema(driver, f"DROP CONSTRAINT {name} IF EXISTS")
+    for name in sorted(SUPERSEDED_INDEX_NAMES):
+        await _schema(driver, f"DROP INDEX {name} IF EXISTS")
+
+
+async def _schema(driver: AsyncDriver, statement: str) -> None:
+    async def work(tx: AsyncManagedTransaction) -> None:
+        await (await tx.run(statement)).consume()
+
+    await write_tx(driver, work)
+
+
+@asynccontextmanager
+async def contracted_container() -> AsyncIterator[AsyncDriver]:
+    """A throwaway Neo4j with every migration applied and the superseded keys dropped: the schema
+    the platform has after TEN-032. The container is private to the caller and is removed on exit.
+    The shared harness container keeps the old keys until TEN-032, so the generated two-tenant test
+    runs here instead (DEC-150, TEN-005)."""
+    async with throwaway_driver() as (_container, driver):
+        await apply_migrations(driver)
+        await contract_schema(driver)
+        yield driver

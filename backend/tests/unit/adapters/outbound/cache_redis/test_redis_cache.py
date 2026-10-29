@@ -227,15 +227,16 @@ async def test_with_no_tenant_bound_no_call_reaches_the_client(call: str) -> Non
 
 
 class RebindingClient(RecordingClient):
-    """Binds another tenant in the middle of the first call that reaches it, and leaves it bound:
-    the adapter must still use the scope it captured when the call began."""
+    """Binds another tenant, inside the named method, the first time that method reaches the client,
+    and leaves it bound: the adapter must still use the scope it captured when its call began."""
 
-    def __init__(self) -> None:
+    def __init__(self, on: str) -> None:
         super().__init__()
+        self._on = on
         self._context: Any = None
 
-    def _rebind(self) -> None:
-        if self._context is None:
+    def _rebind(self, method: str) -> None:
+        if method == self._on and self._context is None:
             self._context = bind_tenant(OTHER)
             self._context.__enter__()
 
@@ -245,29 +246,22 @@ class RebindingClient(RecordingClient):
             self._context = None
 
     async def eval(self, script: str, numkeys: int, *args: str) -> int:
-        self._rebind()
+        self._rebind("eval")
         return await super().eval(script, numkeys, *args)
 
     async def get(self, key: str) -> None:
-        self._rebind()
+        self._rebind("get")
         await super().get(key)
 
     async def publish(self, channel: str, message: str) -> int:
-        self._rebind()
+        self._rebind("publish")
         return await super().publish(channel, message)
-
-
-@pytest.fixture
-def rebinding() -> Iterator[RebindingClient]:
-    client = RebindingClient()
-    yield client
-    client.release()
 
 
 async def test_acquire_lock_keeps_the_tenant_it_began_with_when_the_scope_moves() -> None:
     # The fence script rebinds the scope to the other tenant inside the call. The holder key is
     # still written under the tenant the call began with, and the lock is issued in that tenant.
-    client = RebindingClient()
+    client = RebindingClient(on="eval")
     cache = RedisCache(client)  # type: ignore[arg-type]
     try:
         lock = await cache.acquire_lock("relay", TTL)
@@ -278,18 +272,24 @@ async def test_acquire_lock_keeps_the_tenant_it_began_with_when_the_scope_moves(
     assert not [name for name in client.names if OTHER in name]
 
 
-async def test_a_get_and_a_publish_keep_the_tenant_they_began_with() -> None:
-    client = RebindingClient()
+async def test_a_get_keeps_the_tenant_it_began_with_when_the_scope_moves() -> None:
+    client = RebindingClient(on="get")
     cache = RedisCache(client)  # type: ignore[arg-type]
     try:
         await cache.get("svc-1:status")
+    finally:
+        client.release()
+    assert client.names == [f"diucs:{TENANT}:cache:svc-1:status"]
+
+
+async def test_a_publish_keeps_the_tenant_it_began_with_when_the_scope_moves() -> None:
+    client = RebindingClient(on="publish")
+    cache = RedisCache(client)  # type: ignore[arg-type]
+    try:
         await cache.publish(BOARD_UPDATES_CHANNEL, "svc-1")
     finally:
         client.release()
-    assert client.names == [
-        f"diucs:{TENANT}:cache:svc-1:status",
-        f"diucs:{TENANT}:chan:board.updates",
-    ]
+    assert client.names == [f"diucs:{TENANT}:chan:board.updates"]
 
 
 async def test_releasing_a_lock_issued_in_another_tenant_is_refused_and_sends_nothing() -> None:

@@ -14,8 +14,8 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Final, Protocol
 
-from diucs.application.tenancy import ScopeId
-from diucs.domain.errors import DomainError
+from diucs.application.tenancy import ScopeId, ScopeKind, current_scope
+from diucs.domain.errors import DomainError, ValidationFailed
 
 BOARD_UPDATES_CHANNEL = "board.updates"
 
@@ -23,6 +23,10 @@ FAMILY_CACHE: Final = "cache"
 FAMILY_LOCK: Final = "lock"
 FAMILY_FENCE: Final = "fence"
 FAMILY_CHANNEL: Final = "chan"
+
+# A name is 1 to 512 characters with no control character (code point below 0x20, or 0x7F). Nothing
+# else is refused: the replay key's alphabet, colons and dots are all names the cache holds.
+MAX_NAME_LENGTH: Final = 512
 
 
 class CacheScopeMismatch(DomainError):
@@ -44,41 +48,58 @@ class Lock:
 
 
 def scope_segment(scope: ScopeId) -> str:
-    """STUB (TEN-019 red): the segment is always empty, so no scope is ever qualified."""
-    return ""
+    """The segment a scope's names start with: a tenant's id, or `_net-<id>` for a network. The
+    leading underscore cannot begin a tenant id, so the two kinds never share a segment, and the
+    platform segment `_` (pairing codes, the source-address limiter) is never produced here."""
+    if scope.kind is ScopeKind.NETWORK:
+        return f"_{scope.value}"
+    return scope.value
+
+
+def _checked(name: object) -> str:
+    if type(name) is not str:
+        raise ValidationFailed("name", "must be text")
+    if not 0 < len(name) <= MAX_NAME_LENGTH:
+        raise ValidationFailed("name", "must be 1 to 512 characters")
+    if any(ord(character) < 0x20 or ord(character) == 0x7F for character in name):
+        raise ValidationFailed("name", "must not hold a control character")
+    return name
 
 
 @dataclass(frozen=True, slots=True)
 class ScopedNames:
-    """STUB (TEN-019 red): builds names without the scope."""
+    """Every name the cache holds for one scope: `<segment>:<family>:<name>`. Built only here."""
 
     segment: str
 
     def key(self, name: str) -> str:
-        return f"{self.segment}:{FAMILY_CACHE}:{name}"
+        return f"{self.segment}:{FAMILY_CACHE}:{_checked(name)}"
 
     def lock(self, name: str) -> str:
-        return f"{self.segment}:{FAMILY_LOCK}:{name}"
+        return f"{self.segment}:{FAMILY_LOCK}:{_checked(name)}"
 
     def fence(self, name: str) -> str:
-        return f"{self.segment}:{FAMILY_FENCE}:{name}"
+        return f"{self.segment}:{FAMILY_FENCE}:{_checked(name)}"
 
     def channel(self, name: str) -> str:
-        return f"{self.segment}:{FAMILY_CHANNEL}:{name}"
+        return f"{self.segment}:{FAMILY_CHANNEL}:{_checked(name)}"
 
 
 def names_for(scope: ScopeId) -> ScopedNames:
+    """The names of one scope. Pure: it takes the scope, it does not read the binding."""
     return ScopedNames(scope_segment(scope))
 
 
 def scoped_names() -> ScopedNames:
-    """STUB (TEN-019 red): no scope is read, so an unbound call does not fail."""
-    return ScopedNames("")
+    """The names of the scope bound now. With no scope bound, TenantNotBound (the fixed message of
+    the tenancy kernel) propagates: there is no default scope and no global name."""
+    return names_for(current_scope())
 
 
 class Cache(Protocol):
     async def get(self, key: str) -> str | None:
-        """Return the stored value, or None when the key is absent or expired."""
+        """Return the stored value of the bound scope, or None when the key is absent or expired.
+        Logical names: the adapter qualifies each one with the bound scope (TEN-019)."""
         ...
 
     async def set(self, key: str, value: str, ttl: timedelta | None = None) -> None:

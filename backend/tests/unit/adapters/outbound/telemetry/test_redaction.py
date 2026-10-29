@@ -163,3 +163,20 @@ def test_an_exception_message_never_reaches_the_formatted_log() -> None:
     assert "DT4 8XX" not in formatted
     assert "+447700900123" not in formatted
     assert "ValueError" in formatted
+
+
+@pytest.mark.parametrize(
+    "key",
+    [
+        "db.statement",
+        "db.query.text",
+        "db.query.parameter.postcode",
+        "db.query.parameters",
+        "db.cypher",
+        "db.sql.table",
+    ],
+)
+def test_a_db_key_that_carries_query_text_or_its_parameters_is_dropped(key: str) -> None:
+    """The `db.` prefix admits the structured names only: the Cypher text and its parameters can
+    carry a value a patient or a person supplied, so they never reach telemetry."""
+    assert not is_allowed_key(key)

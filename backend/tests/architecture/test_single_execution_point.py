@@ -63,6 +63,9 @@ BINDING_MODULES: frozenset[str] = frozenset(
         # O09: the synthetic test hook binds the one tenant its configuration names, never one the
         # request sends, and is mounted only when the hook is configured.
         "diucs.adapters.inbound.fhir_rest.routes_synthetic",
+        # R15: the wall screen pairing routes have no session; like the link pages (DEC-167) they
+        # bind the tenant the request host names in the tenant directory, never one it sends.
+        "diucs.adapters.inbound.fhir_rest.routes_screens",
         # TEN-017: the start-up is an edge of its own: it binds each active tenant in turn to make
         # that tenant's audit head. No request or message is in it.
         "diucs.bootstrap.container",

@@ -105,6 +105,11 @@ DENIED_FRAGMENTS: Final[tuple[str, ...]] = (
     "text",
     "pairing",
     "support.code",
+    # `db.` is an allowed prefix, so the keys that carry the query itself are refused by word.
+    "statement",
+    "cypher",
+    "sql",
+    "parameter",
 )
 
 

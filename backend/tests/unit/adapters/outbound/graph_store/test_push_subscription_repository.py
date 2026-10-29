@@ -9,8 +9,12 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import push_subscription_repository  # noqa: F401
+from neo4j.exceptions import ConstraintError
+
+from diucs.adapters.outbound.graph_store import credential_store  # noqa: F401 (wall displays)
+from diucs.adapters.outbound.graph_store import push_subscription_repository
 from diucs.adapters.outbound.graph_store.push_subscription_repository import (
+    Neo4jPushSubscriptionRepository,
     checked_subscription,
     subscription_from_json,
     subscription_json,
@@ -19,7 +23,8 @@ from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
 from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.application.ports.outbound.messaging import PushSubscription
-from diucs.domain.errors import ValidationFailed
+from diucs.domain.errors import Conflict, ValidationFailed
+from diucs.domain.model.device import DeviceType
 
 SAVED = datetime(2026, 10, 25, 13, 12, tzinfo=UTC)
 ENDPOINT = "https://push.example/abc"
@@ -101,3 +106,46 @@ def test_no_push_statement_writes_the_subscription_text_into_a_log_or_an_audit_r
         if query_id.startswith("Q-PUSH"):
             continue
         assert "pushSubscriptionJson" not in REGISTRY.get(query_id).cypher, query_id
+
+
+# Device keying (orchestrator decision on P19): a Device is keyed by (tenant, deviceType, id). A push
+# subscription is a `mobile-app` device and can never address, overwrite or revoke a wall display.
+
+
+def test_every_push_statement_keys_the_device_by_its_type() -> None:
+    for query_id in ("Q-PUSH-SAVE", "Q-PUSH-FOR", "Q-PUSH-DELETE"):
+        assert "deviceType: $deviceType" in REGISTRY.get(query_id).cypher, query_id
+
+
+def test_a_push_device_is_not_a_wall_display() -> None:
+    assert push_subscription_repository.PUSH_DEVICE_TYPE != DeviceType.WALL_DISPLAY.value
+    for query_id in ("Q-PUSH-SAVE", "Q-PUSH-FOR", "Q-PUSH-DELETE"):
+        assert "wall-display" not in REGISTRY.get(query_id).cypher, query_id
+
+
+def test_a_wall_display_statement_keeps_its_type_in_the_match_key() -> None:
+    # The reverse direction: the wall display's own statements never address a push device.
+    for query_id in ("Q-SCREEN-GET", "Q-SCREEN-SAVE"):
+        assert "deviceType: $type" in REGISTRY.get(query_id).cypher, query_id
+
+
+async def test_an_id_held_by_another_device_is_refused_and_names_neither_record(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def refuse(tx: object, query: object, **params: object) -> list[dict[str, object]]:
+        raise ConstraintError("unique key already exists")
+
+    monkeypatch.setattr(push_subscription_repository, "run_query", refuse)
+    repo = Neo4jPushSubscriptionRepository(tx=object())  # type: ignore[arg-type]
+
+    with pytest.raises(Conflict) as refused:
+        await repo.save(
+            PushSubscription(
+                device_id="scr-1", practitioner_id="p1", subscription=SUBSCRIPTION, saved_at=SAVED
+            )
+        )
+
+    text = str(refused.value).lower()
+    assert "scr-1" not in text
+    assert "wall" not in text
+    assert ENDPOINT not in text

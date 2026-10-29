@@ -14,7 +14,9 @@ from diucs.adapters.outbound.graph_store.push_subscription_repository import (
 )
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.application.ports.outbound.messaging import PushSubscription
-from diucs.domain.errors import NotFound
+from diucs.adapters.outbound.graph_store.credential_store import Neo4jDeviceRegistry
+from diucs.domain.errors import Conflict, NotFound
+from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
 
@@ -123,3 +125,47 @@ async def test_a_subscription_for_an_unknown_practitioner_is_refused(
     with pytest.raises(NotFound):
         await _save(neo4j_driver, _sub("dev-9", "nobody", SUB_DEV_1, SAVED))
     assert await count_nodes(neo4j_driver, "Device") == 0
+
+
+async def test_a_wall_display_id_is_refused_and_the_wall_display_is_unchanged(
+    neo4j_driver: AsyncDriver, p1: None
+) -> None:
+    wall = Device(
+        id="scr-1",
+        status=DeviceStatus.PAIRED_UNCLAIMED,
+        name="Ward 3",
+        location=None,
+        device_type=DeviceType.WALL_DISPLAY,
+        token_hash=None,
+        board_scope=BoardScope.TENANT,
+    )
+    await write_tx(neo4j_driver, lambda tx: Neo4jDeviceRegistry(tx).save(wall))
+
+    with pytest.raises(Conflict):
+        await _save(neo4j_driver, _sub("scr-1", "p1", SUB_DEV_1, SAVED))
+
+    props = await node_props(neo4j_driver, "Device", id="scr-1")
+    assert props["deviceType"] == "wall-display"
+    assert props.get("pushSubscriptionJson") is None
+
+
+async def test_a_push_device_id_is_refused_by_a_wall_display_save(
+    neo4j_driver: AsyncDriver, p1: None
+) -> None:
+    await _save(neo4j_driver, _sub("dev-7", "p1", SUB_DEV_1, SAVED))
+    wall = Device(
+        id="dev-7",
+        status=DeviceStatus.PAIRED_UNCLAIMED,
+        name="Ward 3",
+        location=None,
+        device_type=DeviceType.WALL_DISPLAY,
+        token_hash=None,
+        board_scope=BoardScope.TENANT,
+    )
+
+    with pytest.raises(Conflict):
+        await write_tx(neo4j_driver, lambda tx: Neo4jDeviceRegistry(tx).save(wall))
+
+    props = await node_props(neo4j_driver, "Device", id="dev-7")
+    assert props["pushSubscriptionJson"] is not None
+    assert props.get("deviceType") is None

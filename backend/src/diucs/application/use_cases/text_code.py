@@ -227,7 +227,7 @@ class RequestTextCode:
                     id=message_id,
                     topic=CODES_TOPIC,
                     event_type=SEND_CODE if known else DISCARD_CODE,
-                    payload={"tenantId": scope.value, "sealed_code": sealed, "purpose": purpose},
+                    payload={"sealed_code": sealed, "purpose": purpose},
                     created_at=now,
                 )
             )

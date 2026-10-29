@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace, TracebackType
 from typing import Any, Self
 
-from diucs.application.ports.outbound.event_bus import BusMessage
+from diucs.application.ports.outbound.event_bus import BusMessage, to_wire
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, current_scope_or_none
 from diucs.application.use_cases.handle_inbound_text import (
@@ -175,14 +175,12 @@ class Receiver:
 
 def raw(message: BusMessage) -> Any:
     """The received form of a BusMessage, as the Azure SDK shows it to the runner."""
-    properties: dict[str, Any] = {"event_type": message.event_type}
-    if message.tenant_id is not None:
-        properties["tenantId"] = message.tenant_id
+    wire = to_wire(message)  # TEN-020: the qualified ids and the tenant property
     return SimpleNamespace(
-        message_id=message.id,
+        message_id=wire.message_id,
         body=iter([json.dumps(message.payload).encode("utf-8")]),
-        subject=message.event_type,
-        session_id=None,
-        application_properties=properties,
+        subject=wire.subject,
+        session_id=wire.session_id,
+        application_properties=dict(wire.application_properties),
         delivery_count=1,
     )

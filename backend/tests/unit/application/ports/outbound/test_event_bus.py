@@ -234,11 +234,11 @@ def test_the_same_local_id_in_two_tenants_has_two_wire_ids(a: str, b: str, local
 def test_a_local_id_that_holds_a_colon_does_not_collide_with_another_tenants_id() -> None:
     # `a` with local id `b:c` and `a:b` with local id `c` would both read `a:b:c` if the split
     # were on the last colon; a tenant id holds no colon, so the first colon is the only split.
-    first = BusMessage(id="y:z", topic="messages.outbound", event_type="X", tenant_id="x")
-    second = BusMessage(id="z", topic="messages.outbound", event_type="X", tenant_id="x")
+    first = BusMessage(id="y:z", topic="messages.outbound", event_type="X", tenant_id="xx")
+    second = BusMessage(id="z", topic="messages.outbound", event_type="X", tenant_id="xx")
 
-    assert to_wire(first).message_id == "x:y:z"
-    assert to_wire(second).message_id == "x:z"
+    assert to_wire(first).message_id == "xx:y:z"
+    assert to_wire(second).message_id == "xx:z"
     assert _round_trip(first).id == "y:z"
 
 

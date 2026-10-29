@@ -24,14 +24,20 @@ BLOCK = "block"  # a script item: receive_messages waits until the task is cance
 
 
 def _raw(message_id: str) -> Any:
+    # As the adapter sends it (TEN-020): the id is qualified and the tenant is a property.
     return SimpleNamespace(
-        message_id=message_id,
+        message_id=f"tenant-a:{message_id}",
         body=[b"{}"],
         subject="CapacityReported",
         session_id=None,
-        application_properties={},
+        application_properties={"tenantId": "tenant-a"},
         delivery_count=1,
     )
+
+
+def _local(raw: Any) -> str:
+    """The message id without its tenant: what the test named it."""
+    return str(raw.message_id).partition(":")[2]
 
 
 class _World:
@@ -81,17 +87,17 @@ class _Receiver:
         return list(item)
 
     async def complete_message(self, raw: Any) -> None:
-        self._world.log.append(("complete", raw.message_id, self.number))
+        self._world.log.append(("complete", _local(raw), self.number))
 
     async def abandon_message(self, raw: Any) -> None:
-        self._world.log.append(("abandon", raw.message_id, self.number))
+        self._world.log.append(("abandon", _local(raw), self.number))
         if self._world.redelivers:
             self._world.redeliver.append(raw)
 
     async def dead_letter_message(
         self, raw: Any, reason: str | None = None, error_description: str | None = None
     ) -> None:
-        self._world.log.append(("dead-letter", raw.message_id, self.number))
+        self._world.log.append(("dead-letter", _local(raw), self.number))
 
 
 class _Client:

@@ -5,7 +5,6 @@ time is an argument, so every test is deterministic. Errors must never echo a to
 the echo tests check that. The secret used here is a sample value, not a key.
 """
 
-import base64
 import hashlib
 import hmac
 import re
@@ -36,7 +35,7 @@ from diucs.domain.rules.tokens import (
 SECRET: Final = b"sample-server-secret"
 NOW: Final = datetime(2026, 10, 25, 14, 0, tzinfo=UTC)
 LATER: Final = NOW + timedelta(hours=2)
-URL_SAFE_TOKEN: Final = re.compile(r"[A-Za-z0-9_-]{22}")
+LINK_TOKEN: Final = re.compile(r"[A-Za-z]{23}")  # DEC-152: letters only, 23 characters
 SUPPORT_CODE: Final = re.compile(
     r"[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}"
 )
@@ -65,12 +64,12 @@ def _fixed_indexes(values: list[int]) -> Callable[[int], int]:
 # Link tokens
 
 
-def test_a_fixed_rng_gives_the_expected_base64url_token() -> None:
-    expected = base64.urlsafe_b64encode(bytes(range(16))).rstrip(b"=").decode("ascii")
+def test_a_fixed_rng_gives_the_expected_letters_only_token() -> None:
+    # The 128 bits as a base-52 number of 23 letters (A to Z then a to z), most significant first.
     token = new_link_token(lambda n: bytes(range(n)))
-    assert token == expected
-    assert len(token) == 22
-    assert URL_SAFE_TOKEN.fullmatch(token)
+    assert token == "AAANBIwkBaxtDAmhYpkjeHD"
+    assert len(token) == 23
+    assert LINK_TOKEN.fullmatch(token)
 
 
 def test_the_token_source_asks_for_sixteen_bytes() -> None:
@@ -86,7 +85,7 @@ def test_the_token_source_asks_for_sixteen_bytes() -> None:
 
 def test_two_default_tokens_differ() -> None:
     first = new_link_token()
-    assert URL_SAFE_TOKEN.fullmatch(first)
+    assert LINK_TOKEN.fullmatch(first)
     assert first != new_link_token()
 
 

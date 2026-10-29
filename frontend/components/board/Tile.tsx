@@ -1,12 +1,14 @@
 import { StatusBadge } from '@/components/ui/StatusBadge';
-import { ageLineText, categoryLabel, dataAgeText, londonTime } from '@/lib/board/format';
+import { ageLineText, categoryLabel, dataAgeText, londonTime, reopensText } from '@/lib/board/format';
 import type { BoardEntry, BoardStatus } from '@/lib/board/types';
 import styles from './Tile.module.css';
 
-// One service on the wall board (ui-screens.md, artboard "Main"). It shows only
-// what the back end sent for this service, and it shows "?" and "Phone to
-// confirm" rather than a number it cannot stand behind. The tile never shows a
-// back-end id except the one data attribute the prompt asks for.
+// One service on the wall board (ui-screens.md, artboards "Main", "TileStates",
+// "BoardSurge" and "BoardQuiet"). It shows only what the back end sent for this
+// service, and it shows "?" and "Phone to confirm" rather than a number it cannot
+// stand behind. Every status has a word and a shape as well as a colour. The tile
+// never shows a back-end id except the one data attribute the prompt asks for, and
+// never a name or id of any organisation: it is given one service's own figures.
 
 const VARIANT: Record<BoardStatus, string> = {
   accepting: styles.accepting,
@@ -18,14 +20,15 @@ const VARIANT: Record<BoardStatus, string> = {
 };
 
 type Figure = {
-  /** The big number, or null when there is none to show. */
-  big: string | null;
+  /** The big number. */
+  big: string;
   unit: string;
-  /** The "Used N of M" line, or null for no bar. */
-  bar: { label: string; percent: number } | null;
+  /** The line above the bar ("Used N of M", or the status word) and how full the bar is. */
+  bar: { label: string; percent: number };
 };
 
 const UNKNOWN_UNIT = 'Phone to confirm';
+const OUT_OF_HOURS_LABEL = 'Out of hours';
 
 function usedLabel(used: number | null, established: number): string {
   return `Used ${used === null ? '?' : used} of ${established}`;
@@ -50,7 +53,8 @@ function figureFor(entry: BoardEntry): Figure {
     return unknownFigure(established);
   }
   if (status === 'out-of-hours') {
-    return { big: null, unit: 'Outside opening hours', bar: null };
+    // Closed: no places, whatever figure the service held when it closed (W07, DEC-169 item 3).
+    return { big: '0', unit: entry.unitLabel, bar: { label: OUT_OF_HOURS_LABEL, percent: 100 } };
   }
 
   const bar = { label: usedLabel(used, established), percent: fillPercent(used, established) };
@@ -96,6 +100,11 @@ export function Tile({
   const figure = lastKnown ? lastKnownFigureFor(entry) : figureFor(entry);
   const age = ageLineText(entry, now);
   const notUpdated = entry.status === 'not-updated';
+  // Pending is a count of requests not yet answered, shown apart from the number and
+  // never taken off it (domain-rules 1.6). A last known tile shows none: the count
+  // is as old as the figures, and the tile must not look as if any of it were current.
+  const pending = lastKnown ? 0 : entry.pending;
+  const barLabel = pending > 0 ? `${figure.bar.label} · ${pending} pending` : figure.bar.label;
   const variant = lastKnown ? styles.notUpdated : VARIANT[entry.status];
 
   return (
@@ -114,11 +123,14 @@ export function Tile({
       </div>
 
       <div className={styles.figure}>
-        {figure.big === null ? null : (
-          <p className={styles.number} data-el="WALL-TILE-NUMBER">
-            {figure.big}
-          </p>
-        )}
+        <p className={styles.number} data-el="WALL-TILE-NUMBER">
+          {figure.big}
+        </p>
+        {pending > 0 ? (
+          <span className={styles.pending} data-el="WALL-TILE-PENDING">
+            {`${pending} pending`}
+          </span>
+        ) : null}
         <div className={styles.words}>
           <p className={styles.unit}>{figure.unit}</p>
           {lastKnown ? (
@@ -132,6 +144,13 @@ export function Tile({
                 </>
               )}
             </p>
+          ) : entry.status === 'out-of-hours' ? (
+            // The service's own comment is left out: it may describe hours that no longer apply.
+            entry.nextDueAt === null ? null : (
+              <p className={styles.meta} data-el="WALL-TILE-REOPENS">
+                {reopensText(entry.nextDueAt, now)}
+              </p>
+            )
           ) : entry.comment ? (
             <p className={styles.comment} data-el="WALL-TILE-COMMENT">
               {entry.comment}
@@ -140,14 +159,12 @@ export function Tile({
         </div>
       </div>
 
-      {figure.bar === null ? null : (
-        <div className={styles.usage}>
-          <p className={styles.barLabel}>{figure.bar.label}</p>
-          <div className={styles.bar} aria-hidden="true">
-            <div className={styles.fill} data-bar-fill style={{ width: `${figure.bar.percent}%` }} />
-          </div>
+      <div className={styles.usage}>
+        <p className={styles.barLabel}>{barLabel}</p>
+        <div className={styles.bar} aria-hidden="true">
+          <div className={styles.fill} data-bar-fill style={{ width: `${figure.bar.percent}%` }} />
         </div>
-      )}
+      </div>
 
       <p className={styles.age}>{lastKnown ? <strong>{LAST_KNOWN_WARNING}</strong> : notUpdated ? <strong>{age}</strong> : age}</p>
     </article>

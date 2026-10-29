@@ -166,6 +166,227 @@ export const BOARD_B: Board = {
   organisation: ORGANISATION_B,
 };
 
+// The "TileStates" artboard (docs/spec/ui-screens.md): the same service in step 1
+// (a request is pending: available stays at 4) and in step 2 (confirmed by text:
+// available drops to 3, pending clears).
+export const PENDING_TILE = entry({
+  serviceId: 'svc-ucr-west',
+  name: 'UCR West',
+  pending: 1,
+  comment: null,
+});
+
+export const CONFIRMED_TILE = entry({
+  serviceId: 'svc-ucr-west',
+  name: 'UCR West',
+  effectiveAvailable: 3,
+  used: 5,
+  pending: 0,
+  comment: 'Response time about 1 hr 20',
+  reportedAt: '2026-10-23T13:03:00Z',
+  nextDueAt: '2026-10-23T13:30:00Z',
+});
+
+// The "BoardSurge" artboard: Friday 23 October 14:12 London time, every service
+// limited or worse, so the "System under pressure" banner shows.
+export const SURGE_ENTRIES: BoardEntry[] = [
+  entry({
+    serviceId: 'svc-ucr-west',
+    name: 'UCR West',
+    status: 'limited',
+    effectiveAvailable: 1,
+    used: 7,
+    pending: 1,
+    unitLabel: 'referral in the next 2 hrs',
+    comment: 'Response time about 2 hrs 30',
+    reportedAt: '2026-10-23T13:06:00Z',
+  }),
+  entry({
+    serviceId: 'svc-ucr-east',
+    name: 'UCR East',
+    status: 'not-accepting',
+    effectiveAvailable: 0,
+    used: 8,
+    comment: 'Not accepting since 13:10',
+    reportedAt: '2026-10-23T12:50:00Z',
+  }),
+  entry({
+    serviceId: 'svc-sdec-1',
+    name: 'SDEC · Site 1',
+    category: 'same-day-emergency-care',
+    status: 'limited',
+    effectiveAvailable: 1,
+    used: 9,
+    established: 10,
+    unitLabel: 'slot left today',
+    comment: 'Referral cut-off 17:00',
+    reportedAt: '2026-10-23T12:54:00Z',
+    nextDueAt: '2026-10-23T14:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-sdec-2',
+    name: 'SDEC · Site 2',
+    category: 'same-day-emergency-care',
+    status: 'not-accepting',
+    effectiveAvailable: 0,
+    used: 8,
+    unitLabel: 'slots left today',
+    comment: 'Not accepting since 12:50',
+    reportedAt: '2026-10-23T12:47:00Z',
+    nextDueAt: '2026-10-23T14:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-ward-a',
+    name: 'Community hospital · Ward A',
+    category: 'inpatient-beds',
+    status: 'not-accepting',
+    effectiveAvailable: 0,
+    used: 12,
+    established: 12,
+    unitLabel: 'beds free',
+    comment: 'Full',
+    reportedAt: '2026-10-23T12:02:00Z',
+    nextDueAt: '2026-10-23T16:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-ward-b',
+    name: 'Community hospital · Ward B',
+    category: 'inpatient-beds',
+    status: 'limited',
+    effectiveAvailable: 1,
+    used: 11,
+    established: 12,
+    unitLabel: 'bed free',
+    comment: 'Male · no side room',
+    reportedAt: '2026-10-23T12:02:00Z',
+    nextDueAt: '2026-10-23T16:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-hospital-at-home',
+    name: 'Hospital at home',
+    category: 'hospital-at-home-or-virtual-ward',
+    status: 'over-capacity',
+    effectiveAvailable: null,
+    overBy: 4,
+    used: 16,
+    established: 12,
+    pending: 1,
+    unitLabel: 'over established capacity',
+    comment: 'Escalation in place',
+    reportedAt: '2026-10-23T13:01:00Z',
+    nextDueAt: '2026-10-23T14:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-virtual-ward',
+    name: 'Virtual ward · frailty',
+    category: 'hospital-at-home-or-virtual-ward',
+    status: 'over-capacity',
+    effectiveAvailable: null,
+    overBy: 1,
+    used: 11,
+    established: 10,
+    unitLabel: 'over established capacity',
+    comment: 'Escalation in place',
+    reportedAt: '2026-10-23T12:32:00Z',
+    nextDueAt: '2026-10-23T14:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-reablement',
+    name: 'Reablement',
+    category: 'reablement',
+    status: 'limited',
+    effectiveAvailable: 1,
+    used: 9,
+    established: 10,
+    unitLabel: 'package today',
+    comment: 'Postcode catchment applies',
+    reportedAt: '2026-10-23T11:12:00Z',
+    nextDueAt: '2026-10-24T08:00:00Z',
+  }),
+];
+
+export const BOARD_SURGE: Board = {
+  entries: SURGE_ENTRIES,
+  pressure: 'high',
+  allLimitedOrWorse: true,
+  generatedAt: GENERATED_AT,
+  organisation: ORGANISATION_A,
+};
+
+// The "BoardQuiet" artboard: Saturday 24 October 02:40 London time (01:40 UTC, still
+// British Summer Time). Six services are out of hours and reopen at 08:00; three are
+// open, so there is no pressure banner.
+export const QUIET_AT = '2026-10-24T01:40:00Z';
+
+function outOfHours(serviceId: string, name: string, category: string, unitLabel: string): BoardEntry {
+  return entry({
+    serviceId,
+    name,
+    category,
+    status: 'out-of-hours',
+    effectiveAvailable: null,
+    used: null,
+    unitLabel,
+    comment: null,
+    reportedAt: '2026-10-23T19:02:00Z',
+    nextDueAt: '2026-10-24T07:00:00Z',
+  });
+}
+
+export const QUIET_ENTRIES: BoardEntry[] = [
+  outOfHours('svc-ucr-west', 'UCR West', 'urgent-community-response', 'referrals in the next 2 hrs'),
+  outOfHours('svc-ucr-east', 'UCR East', 'urgent-community-response', 'referrals in the next 2 hrs'),
+  outOfHours('svc-sdec-1', 'SDEC · Site 1', 'same-day-emergency-care', 'slots left today'),
+  outOfHours('svc-sdec-2', 'SDEC · Site 2', 'same-day-emergency-care', 'slots left today'),
+  entry({
+    serviceId: 'svc-ward-a',
+    name: 'Community hospital · Ward A',
+    category: 'inpatient-beds',
+    effectiveAvailable: 3,
+    used: 9,
+    established: 12,
+    unitLabel: 'beds free',
+    comment: 'Women only · 1 side room',
+    reportedAt: '2026-10-24T00:20:00Z',
+    nextDueAt: '2026-10-24T05:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-ward-b',
+    name: 'Community hospital · Ward B',
+    category: 'inpatient-beds',
+    status: 'limited',
+    effectiveAvailable: 1,
+    used: 11,
+    established: 12,
+    unitLabel: 'bed free',
+    comment: 'Male · no side room',
+    reportedAt: '2026-10-24T00:20:00Z',
+    nextDueAt: '2026-10-24T05:00:00Z',
+  }),
+  entry({
+    serviceId: 'svc-hospital-at-home',
+    name: 'Hospital at home',
+    category: 'hospital-at-home-or-virtual-ward',
+    effectiveAvailable: 2,
+    used: 8,
+    established: 10,
+    unitLabel: 'virtual beds free',
+    comment: 'Admissions until 06:00',
+    reportedAt: '2026-10-24T00:58:00Z',
+    nextDueAt: '2026-10-24T05:00:00Z',
+  }),
+  outOfHours('svc-virtual-ward', 'Virtual ward · frailty', 'hospital-at-home-or-virtual-ward', 'virtual beds free'),
+  outOfHours('svc-reablement', 'Reablement', 'reablement', 'packages today'),
+];
+
+export const BOARD_QUIET: Board = {
+  entries: QUIET_ENTRIES,
+  pressure: 'normal',
+  allLimitedOrWorse: false,
+  generatedAt: QUIET_AT,
+  organisation: ORGANISATION_A,
+};
+
 function integer(name: string, value: number | null): ParametersParameter[] {
   return value === null ? [] : [{ name, valueInteger: value }];
 }
@@ -226,4 +447,15 @@ export function boardBuiltAt(board: Board, generatedAt: string): Board {
       wasDueAt: shift(e.wasDueAt),
     })),
   };
+}
+
+/**
+ * A payload that names another organisation on its first entry, which the back end
+ * must never send on a tenant's board. The wall must refuse it (W07, DEC-169 item 8).
+ */
+export function withForeignOrganisation(parameters: Parameters, name: string = ORGANISATION_B): Parameters {
+  const copy = structuredClone(parameters);
+  const first = copy.parameter?.find((p) => p.name === 'entry');
+  if (first?.part) first.part.push({ name: 'organisation', valueString: name });
+  return copy;
 }

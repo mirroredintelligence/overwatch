@@ -8,6 +8,7 @@ import {
   londonDate,
   londonTime,
   nextDueText,
+  reopensText,
 } from './format';
 
 const MINUTE = 60_000;
@@ -99,7 +100,34 @@ describe('nextDueText', () => {
   });
 });
 
+describe('reopensText (W07)', () => {
+  const FRI_1412 = new Date('2026-10-23T13:12:00Z');
+  const SAT_0240 = new Date('2026-10-24T01:40:00Z');
+
+  it('reads "Reopens 08:00" when the service reopens later the same London day', () => {
+    expect(reopensText('2026-10-24T07:00:00Z', SAT_0240)).toBe('Reopens 08:00');
+  });
+
+  it('adds "tomorrow" for the next London day and the weekday after that', () => {
+    expect(reopensText('2026-10-24T07:00:00Z', FRI_1412)).toBe('Reopens 08:00 tomorrow');
+    expect(reopensText('2026-10-26T08:00:00Z', FRI_1412)).toBe('Reopens 08:00 Monday');
+  });
+
+  it('is in London time on both sides of the autumn clock change (25 October 2026)', () => {
+    // 22:30 UTC on 24 October is 23:30 BST; 08:00 UTC on 25 October is 08:00 GMT.
+    expect(reopensText('2026-10-25T08:00:00Z', new Date('2026-10-24T22:30:00Z'))).toBe('Reopens 08:00 tomorrow');
+    // 00:30 UTC on 25 October is 01:30 BST, the same London day as 08:00 GMT.
+    expect(reopensText('2026-10-25T08:00:00Z', new Date('2026-10-25T00:30:00Z'))).toBe('Reopens 08:00');
+  });
+});
+
 describe('ageLineText', () => {
+  it('reads "Closed overnight" for a service that is out of hours, whatever it last reported (W07)', () => {
+    const closed = entry({ serviceId: 'svc-oh', name: 'Night', status: 'out-of-hours' });
+    expect(ageLineText(closed, NOW)).toBe('Closed overnight');
+    expect(ageLineText({ ...closed, reportedAt: null, nextDueAt: null }, NOW)).toBe('Closed overnight');
+  });
+
   it('reads "Updated N ago · next due" for a service that is up to date', () => {
     expect(ageLineText(UCR_WEST, NOW)).toBe('Updated 9 min ago · next due 14:30');
   });

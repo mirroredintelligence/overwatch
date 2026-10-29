@@ -46,7 +46,7 @@ test('goes to /screen/pair when no screen is signed in', async ({ page }) => {
   await expect(page).toHaveURL(/\/screen\/pair$/);
 });
 
-test('shows the same board when the address carries another organisation, and never that organisation’s data', async ({
+test('ignores an organisation named in the address, and shows the session’s own board', async ({
   page,
 }) => {
   await openBoard(page, TOKEN_ORG_A);

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BoardFetchError, type FetchedBoard } from '@/lib/board/client';
 import { runAxe } from '@/test/a11y';
 import { FakeStream } from '@/test/fakeStream';
-import { BOARD_A, boardBuiltAt, GENERATED_AT, MAIN_ENTRIES } from '@/test/fixtures/board';
+import { BOARD_A, BOARD_SURGE, boardBuiltAt, GENERATED_AT, MAIN_ENTRIES } from '@/test/fixtures/board';
 import { server } from '@/test/msw/server';
 import { LiveBoard } from './LiveBoard';
 
@@ -225,6 +225,56 @@ describe('LiveBoard: offline', () => {
     expect(screen.getByRole('alert')).toBeInTheDocument();
     vi.useRealTimers(); // axe uses timers of its own
     expect(await runAxe(m.container)).toHaveNoViolations();
+  });
+});
+
+describe('LiveBoard: the pressure banner follows the board (W07)', () => {
+  const surgeNow = (): FetchedBoard => ({ board: boardBuiltAt(BOARD_SURGE, iso(Date.now())), serverTime: Date.now() });
+
+  it('appears when a refetch says the system is under pressure and goes when it says it is not', async () => {
+    const m = mount();
+    await act(async () => m.stream.open());
+    await advance(0);
+    expect(screen.queryByText('System under pressure')).toBeNull();
+
+    m.fetchBoard.mockResolvedValueOnce(surgeNow());
+    await act(async () => m.stream.emit('board'));
+    await advance(0);
+    expect(screen.getByText('System under pressure')).toBeInTheDocument();
+    expect(screen.getByText('All 9 services are limited, not accepting or over capacity.')).toBeInTheDocument();
+
+    m.fetchBoard.mockResolvedValueOnce(builtNow());
+    await act(async () => m.stream.emit('board'));
+    await advance(0);
+    expect(screen.queryByText('System under pressure')).toBeNull();
+  });
+
+  it('is replaced by the Last known banner, never shown beside it, when the board goes offline', async () => {
+    const m = mount({ initialBoard: BOARD_SURGE });
+    expect(screen.getByText('System under pressure')).toBeInTheDocument();
+
+    await goOffline(m);
+
+    expect(screen.queryByText('System under pressure')).toBeNull();
+    expect(screen.getAllByRole('alert')).toHaveLength(1);
+    expect(screen.getByRole('alert')).toHaveTextContent('Tool offline since');
+    for (const t of tiles(m.container)) {
+      expect(t).toHaveAttribute('data-status', 'last-known');
+      // The key under the grid names every status, so look at the tiles only.
+      expect(t.textContent).not.toMatch(/pending|Over capacity/);
+    }
+  });
+
+  it('comes back with the board when the board recovers', async () => {
+    const m = mount({ initialBoard: BOARD_SURGE });
+    await goOffline(m);
+    m.fetchBoard.mockReset();
+    m.fetchBoard.mockImplementation(async () => surgeNow());
+
+    await advance(60_000);
+
+    expect(screen.getByText('System under pressure')).toBeInTheDocument();
+    expect(m.container.textContent).not.toContain('Last known');
   });
 });
 

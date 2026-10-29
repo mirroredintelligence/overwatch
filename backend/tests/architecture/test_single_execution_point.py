@@ -64,8 +64,11 @@ BINDING_MODULES: frozenset[str] = frozenset(
 
 # Modules, as dotted names, under adapters/outbound/graph_store that may define a function with a
 # `tenant` or `tenant_id` parameter. Empty in TEN-001; the tenant registry (TEN-007) names its
-# module here. This is the "callers never pass a tenant" rule made visible.
-TENANT_PARAMETER_MODULES: frozenset[str] = frozenset()
+# module here: the directory looks a tenant up by the id it is asked about, on the global path, and
+# never sends a tenant to a statement. This is the "callers never pass a tenant" rule made visible.
+TENANT_PARAMETER_MODULES: frozenset[str] = frozenset(
+    {"diucs.adapters.outbound.graph_store.tenant_directory"}
+)
 
 BINDING_NAMES = frozenset({"bind_scope", "bind_tenant"})
 PRIVATE_SCOPE_NAME = "_SCOPE"

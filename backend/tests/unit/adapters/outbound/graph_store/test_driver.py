@@ -7,6 +7,7 @@ code. The transaction is a recording stub: no Neo4j.
 """
 
 import logging
+from types import MappingProxyType
 from typing import Any
 
 import pytest
@@ -15,13 +16,19 @@ from hypothesis import strategies as st
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store import driver as driver_module
+from diucs.adapters.outbound.graph_store import queries as queries_module
 from diucs.adapters.outbound.graph_store.driver import (
     create_driver,
     run_global_query,
     run_query,
     set_query_observer,
 )
-from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
+from diucs.adapters.outbound.graph_store.queries import (
+    NamedQuery,
+    QueryRegistry,
+    Scenario,
+    statement_digest,
+)
 from diucs.application.tenancy import (
     GLOBAL_STATEMENT_MESSAGE,
     QUERY_NOT_REGISTERED_MESSAGE,
@@ -509,16 +516,31 @@ async def test_run_global_query_runs_a_global_statement_with_no_tenant_parameter
     assert tx.calls == [(GLOBAL_CYPHER, {}), (GLOBAL_CYPHER, {"extra": 3})]
 
 
-async def test_run_global_query_uses_the_given_registry(registry: QueryRegistry) -> None:
-    other = QueryRegistry()
-    other.register(
-        NamedQuery(id="Q-NEO4J-PING", cypher="RETURN 2 AS ok", mode="read", scope="global")
+async def test_run_global_query_uses_the_given_registry(
+    registry: QueryRegistry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A global statement registers only when it is pinned (TEN-007 round 2), so this test pins an
+    # id of its own, which the module registry does not hold.
+    text = "RETURN 2 AS ok"
+    monkeypatch.setattr(
+        queries_module,
+        "GLOBAL_QUERY_IDS",
+        MappingProxyType({**queries_module.GLOBAL_QUERY_IDS, "Q-TEST-OTHER": "x" * 30}),
     )
+    monkeypatch.setattr(
+        queries_module,
+        "GLOBAL_STATEMENTS",
+        MappingProxyType(
+            {**queries_module.GLOBAL_STATEMENTS, "Q-TEST-OTHER": statement_digest(text)}
+        ),
+    )
+    other = QueryRegistry()
+    other.register(NamedQuery(id="Q-TEST-OTHER", cypher=text, mode="read", scope="global"))
     tx = _stub()
-    await run_global_query(tx, other.get("Q-NEO4J-PING"), registry=other)
-    assert tx.calls == [("RETURN 2 AS ok", {})]
+    await run_global_query(tx, other.get("Q-TEST-OTHER"), registry=other)
+    assert tx.calls == [(text, {})]
     with pytest.raises(QueryNotRegistered):
-        await run_global_query(tx, other.get("Q-NEO4J-PING"))
+        await run_global_query(tx, other.get("Q-TEST-OTHER"))
     assert len(tx.calls) == 1
 
 

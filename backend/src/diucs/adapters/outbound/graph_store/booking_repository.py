@@ -23,6 +23,7 @@ from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
+from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
 from diucs.domain.codes import BASE_URL, BookingStatus, code_system_url
 from diucs.domain.errors import NotFound, ValidationFailed
 from diucs.domain.model.booking import Booking
@@ -45,6 +46,7 @@ _PENDING: Final = NamedQuery(
         "RETURN count(t) AS pending"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-PENDING"],
 )
 _OPEN_FOR: Final = NamedQuery(
     id="Q-BOOK-OPEN-FOR",
@@ -54,6 +56,7 @@ _OPEN_FOR: Final = NamedQuery(
         "ORDER BY t.authoredOn, t.id"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-OPEN-FOR"],
 )
 _CONFIRMED_FOR: Final = NamedQuery(
     id="Q-BOOK-CONFIRMED-SINCE",
@@ -62,6 +65,7 @@ _CONFIRMED_FOR: Final = NamedQuery(
         "RETURN t.id AS id ORDER BY t.id"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-CONFIRMED-SINCE"],
 )
 _CONFIRMED_FOR_SERVICES: Final = NamedQuery(
     id="Q-BOOK-CONFIRMED-FOR",
@@ -74,6 +78,7 @@ _CONFIRMED_FOR_SERVICES: Final = NamedQuery(
         "ORDER BY s.id, o.valueDateTime"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-CONFIRMED-FOR"],
 )
 _BY_REF: Final = NamedQuery(
     id="Q-BOOK-BY-REF",
@@ -82,6 +87,7 @@ _BY_REF: Final = NamedQuery(
         "ORDER BY t.authoredOn DESC, t.id LIMIT 1"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-BY-REF"],
 )
 _SET_PROPS: Final = NamedQuery(
     id="Q-BOOK-SET-PROPS",
@@ -91,6 +97,7 @@ _SET_PROPS: Final = NamedQuery(
         "RETURN count(t) AS set"
     ),
     mode="write",
+    scenario=SCENARIOS["Q-BOOK-SET-PROPS"],
 )
 
 

@@ -19,6 +19,7 @@ from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
 from diucs.domain.codes import (
     CODE_SYSTEM_NAMES,
     Cadence,
@@ -42,6 +43,7 @@ _LIST_ACTIVE: Final = NamedQuery(
     id="Q-SVC-LIST-ACTIVE",
     cypher="MATCH (s:HealthcareService {active: true}) RETURN s.id AS id ORDER BY s.name",
     mode="read",
+    scenario=SCENARIOS["Q-SVC-LIST-ACTIVE"],
 )
 
 

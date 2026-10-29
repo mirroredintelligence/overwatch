@@ -490,8 +490,9 @@ def test_the_ratchet_may_only_shrink() -> None:
     (118 left), TEN-009 the seventeen of the resource store, fifteen converted and two removed
     (101 left), and L01 the four link-token statements (97 left). A conversion bundle lowers this
     number in the same commit that removes ids from the list; nothing raises it. The ids themselves
-    are pinned against the initial list in test_tenant_ratchet.py."""
-    assert len(UNCONVERTED) <= 97
+    are pinned against the initial list in test_tenant_ratchet.py. TEN-010 converted the eighteen
+    statements of the service, capacity, booking and case repositories (79 left)."""
+    assert len(UNCONVERTED) <= 79
     assert len(UNCONVERTED) == len(set(UNCONVERTED))
 
 

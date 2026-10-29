@@ -30,6 +30,7 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
+from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
 from diucs.domain.codes import (
     AcuityMethod,
     AgeBand,
@@ -107,16 +108,19 @@ _LOOKUP_BY_REFERENCE: Final = NamedQuery(
     id="Q-CASE-BY-REF",
     cypher=("MATCH (r:ServiceRequest {reference: $reference}) RETURN r.id AS id ORDER BY r.id"),
     mode="read",
+    scenario=SCENARIOS["Q-CASE-BY-REF"],
 )
 _SET_POSTCODE: Final = NamedQuery(
     id="Q-CASE-SET-POSTCODE",
     cypher=("MATCH (p:Patient {key: $key}) SET p.postalCode = $postalCode RETURN count(p) AS set"),
     mode="write",
+    scenario=SCENARIOS["Q-CASE-SET-POSTCODE"],
 )
 _READ_POSTCODE: Final = NamedQuery(
     id="Q-CASE-READ-POSTCODE",
     cypher="MATCH (p:Patient {key: $key}) RETURN p.postalCode AS postalCode",
     mode="read",
+    scenario=SCENARIOS["Q-CASE-READ-POSTCODE"],
 )
 _SET_REFERENCE: Final = NamedQuery(
     id="Q-CASE-SET-REFERENCE",
@@ -125,6 +129,7 @@ _SET_REFERENCE: Final = NamedQuery(
         "SET r.reference = $reference, r.openReference = $openReference RETURN count(r) AS set"
     ),
     mode="write",
+    scenario=SCENARIOS["Q-CASE-SET-REFERENCE"],
 )
 
 

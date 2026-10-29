@@ -26,6 +26,7 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
+from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
 from diucs.domain.codes import (
     BASE_URL,
     Measure,
@@ -60,6 +61,7 @@ _QUERIES: Final = (
         id="Q-CAP-LATEST",
         cypher=(f"MATCH (s:HealthcareService {{key: $key}}) {_LATEST_OF_SERVICE} RETURN obs"),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-LATEST"],
     ),
     NamedQuery(
         id="Q-CAP-LATEST-FOR",
@@ -68,6 +70,7 @@ _QUERIES: Final = (
             f"{_LATEST_OF_SERVICE} RETURN s.id AS service, obs"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-LATEST-FOR"],
     ),
     NamedQuery(
         id="Q-CAP-SINCE",
@@ -77,6 +80,7 @@ _QUERIES: Final = (
             "RETURN o.id AS obs ORDER BY o.effectiveDateTime ASC, o.lastUpdated ASC"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-SINCE"],
     ),
     NamedQuery(
         id="Q-CAP-LOCK-SERVICE",
@@ -84,6 +88,7 @@ _QUERIES: Final = (
             "MATCH (s:HealthcareService {key: $key}) SET s.id = s.id RETURN count(s) AS locked"
         ),
         mode="write",
+        scenario=SCENARIOS["Q-CAP-LOCK-SERVICE"],
     ),
     NamedQuery(
         id="Q-CAP-LATEST-CONFIRMED-AT",
@@ -93,6 +98,7 @@ _QUERIES: Final = (
             "RETURN o.effectiveDateTime AS at ORDER BY o.effectiveDateTime DESC LIMIT 1"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-LATEST-CONFIRMED-AT"],
     ),
     NamedQuery(
         id="Q-CAP-TRAILING-CONFIRMS",
@@ -105,6 +111,7 @@ _QUERIES: Final = (
             "RETURN CASE WHEN size(stops) = 0 THEN size(types) ELSE stops[0] END AS trailing"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-TRAILING-CONFIRMS"],
     ),
     NamedQuery(
         id="Q-SVC-LAST-REPORT",
@@ -115,6 +122,7 @@ _QUERIES: Final = (
             "RETURN s.id AS id, last ORDER BY s.name"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-SVC-LAST-REPORT"],
     ),
 )
 for _query in _QUERIES:

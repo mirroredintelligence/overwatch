@@ -1,5 +1,6 @@
 // @vitest-environment node
-import { jwtDecrypt, jwtVerify } from 'jose';
+import { hkdfSync } from 'node:crypto';
+import { EncryptJWT, jwtDecrypt, jwtVerify } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { unsealSession, SESSION_COOKIE } from '@/lib/auth/session';
 import { cookieWrites, lastWrite, resetCookieWrites, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
@@ -149,6 +150,14 @@ describe('POST /api/bff/auth/entra/start', () => {
     );
     expect(location.toString()).not.toContain(TENANT_B);
     expect(location.toString()).not.toContain(DIRECTORY_B);
+  });
+
+  it('treats a body that is not a form as having no next', async () => {
+    const response = await start(
+      new Request(START_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"next":"/lead"}' }),
+    );
+    expect(response.status).toBe(303);
+    expect(new URL(response.headers.get('location') ?? '').pathname).toBe('/organizations/oauth2/v2.0/authorize');
   });
 
   it('answers a missing setting with the failed-sign-in page and no redirect to the provider', async () => {
@@ -310,6 +319,29 @@ describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or rep
     return { response, body: await response.text(), location: response.headers.get('location'), session: null, sessionWrite, transactionWrites: [] };
   }
 
+  it('refuses a code that is far too long, without redeeming it', async () => {
+    const begun = await start(startRequest());
+    const sealed = lastWrite(TRANSACTION_COOKIE)!.value;
+    const { location } = fake.authorize(begun.headers.get('location')!, USER);
+    const long = new URL(location);
+    long.searchParams.set('code', 'x'.repeat(3000));
+    await refused(await outcomeOf(await callback(requestWithCookies(long.toString(), { [TRANSACTION_COOKIE]: sealed }))));
+    expect(fake.recorded('token')).toHaveLength(0);
+  });
+
+  it('answers a fault (here, no session secret) as a failed sign-in, and logs only a fixed word', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const begun = await start(startRequest());
+    const sealed = lastWrite(TRANSACTION_COOKIE)!.value;
+    const { location } = fake.authorize(begun.headers.get('location')!, USER);
+    vi.stubEnv('SESSION_SECRET', '');
+    resetCookieWrites();
+    const response = await callback(requestWithCookies(location, { [TRANSACTION_COOKIE]: sealed }));
+    expect(response.headers.get('location')).toBe('/sign-in?error=failed');
+    expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
+    expect(warn.mock.calls).toEqual([['staff sign-in refused: fault']]);
+  });
+
   it('refuses a callback that comes without the transaction cookie (another browser)', async () => {
     const begun = await start(startRequest());
     const { location } = fake.authorize(begun.headers.get('location')!, USER);
@@ -326,6 +358,32 @@ describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or rep
       resetCookieWrites();
       await refused(await outcomeOf(await callback(requestWithCookies(location, { [TRANSACTION_COOKIE]: value }))));
     }
+    expect(fake.recorded('token')).toHaveLength(0);
+  });
+
+  it.each([
+    ['a state that is not text', { state: 7 }],
+    ['a state of the wrong shape', { state: 'short' }],
+    ['a nonce of the wrong shape', { nonce: 'short' }],
+    ['a verifier of the wrong shape', { verifier: 'short' }],
+    ['a next that is not a path', { next: 'https://evil.example' }],
+    ['a next that is not text', { next: 7 }],
+  ])('refuses a transaction cookie that is ours but holds %s', async (_name, change) => {
+    const begun = await start(startRequest());
+    const { location } = fake.authorize(begun.headers.get('location')!, USER);
+    const good = { state: 's'.repeat(43), nonce: 'n'.repeat(43), verifier: 'v'.repeat(43), next: '' };
+    // The same key and format as lib/auth/flow.ts, to show that a well-sealed but wrong cookie is refused.
+    const key = new Uint8Array(
+      hkdfSync('sha256', new Uint8Array(Buffer.from(TEST_SESSION_SECRET, 'base64')), 'diucs-staff-sign-in', 'transaction-cookie-v1', 32),
+    );
+    const sealed = await new EncryptJWT({ ...good, ...change })
+      .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+      .setExpirationTime('10m')
+      .encrypt(key);
+    resetCookieWrites();
+    const back = new URL(location);
+    back.searchParams.set('state', good.state);
+    await refused(await outcomeOf(await callback(requestWithCookies(back.toString(), { [TRANSACTION_COOKIE]: sealed }))));
     expect(fake.recorded('token')).toHaveLength(0);
   });
 

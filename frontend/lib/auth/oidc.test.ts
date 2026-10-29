@@ -98,6 +98,11 @@ describe('loadEntraConfig', () => {
         { directoryId: DIRECTORY_A, tenantId: TENANT_B },
       ]),
     ],
+    ['an entry that is not an object', JSON.stringify([7])],
+    ['an entry that is null', JSON.stringify([null])],
+    ['an entry that is a list', JSON.stringify([[DIRECTORY_A, TENANT_A]])],
+    ['a directory that is a number', JSON.stringify([{ directoryId: 7, tenantId: TENANT_A }])],
+    ['a key it does not know', JSON.stringify([{ directoryId: DIRECTORY_A, tenantId: TENANT_A, role: 'support' }])],
     ['a platform flag that is not a boolean', JSON.stringify([{ directoryId: DIRECTORY_A, tenantId: TENANT_A, platform: 'yes' }])],
   ])('refuses bindings with %s', (_name, bindings) => {
     expect(() => loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: bindings })).toThrow('DIUCS_ENTRA_BINDINGS');
@@ -113,6 +118,11 @@ describe('loadEntraConfig', () => {
     expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'http://127.0.0.1:4011', NODE_ENV: 'development' }).authorityHost).toBe(
       'http://127.0.0.1:4011',
     );
+  });
+
+  it('refuses addresses that are not addresses', () => {
+    expect(() => loadEntraConfig({ ...ENTRA_ENV, DIUCS_PUBLIC_URL: 'not an address' })).toThrow('DIUCS_PUBLIC_URL');
+    expect(() => loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'ftp://login.example.test' })).toThrow('ENTRA_AUTHORITY_HOST');
   });
 
   it('never puts the client secret in an error', () => {
@@ -233,6 +243,8 @@ describe('exchangeCode', () => {
     ['no id_token', { token_type: 'Bearer', access_token: 'x' }],
     ['an id_token that is not text', { id_token: 7 }],
     ['an empty id_token', { id_token: '' }],
+    ['a body that is not an object', 7],
+    ['a null body', null],
   ])('is refused when the answer has %s', async (_name, body) => {
     server.use(http.post(`${HOST}/:directory/oauth2/v2.0/token`, () => HttpResponse.json(body)));
     expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/')))).toBe('token-exchange');

@@ -3,14 +3,14 @@ import type { Role } from './session';
 // Which role may open which page, and what a safe "where to go next" is. The proxy
 // (proxy.ts) and the sign-in both read this one table, so they cannot disagree.
 
-const PREFIX_ROLES: Readonly<Record<string, readonly Role[]>> = {
-  advisor: ['advisor', 'lead'], // includes /advisor/case
-  clinical: ['clinical'],
-  lead: ['lead'],
-  owner: ['owner', 'clinical'],
-  planning: ['exec', 'lead'],
-  console: ['support'],
-};
+const PREFIX_ROLES: ReadonlyMap<string, readonly Role[]> = new Map([
+  ['advisor', ['advisor', 'lead']], // includes /advisor/case
+  ['clinical', ['clinical']],
+  ['lead', ['lead']],
+  ['owner', ['owner', 'clinical']],
+  ['planning', ['exec', 'lead']],
+  ['console', ['support']],
+]);
 
 const HOMES: Readonly<Partial<Record<Role, string>>> = {
   advisor: '/advisor',
@@ -49,9 +49,7 @@ function segmentsOf(pathname: string): string[] | null {
 export function rolesFor(pathname: string): readonly Role[] | null {
   const segments = segmentsOf(pathname);
   if (segments === null) return [];
-  const first = segments[0]?.toLowerCase();
-  if (first === undefined || !Object.hasOwn(PREFIX_ROLES, first)) return null;
-  return PREFIX_ROLES[first] ?? [];
+  return PREFIX_ROLES.get(segments[0]?.toLowerCase() ?? '') ?? null;
 }
 
 export function canAccess(role: Role, pathname: string): boolean {

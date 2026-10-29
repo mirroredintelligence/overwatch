@@ -98,7 +98,7 @@ export async function mintBackendToken(
  */
 export function safeNext(next: string | null | undefined, role: Role): string {
   if (typeof next !== 'string' || !isSamePathOnly(next)) return roleHome(role);
-  const path = next.split(/[?#]/)[0] ?? '';
+  const path = next.replace(/[?#].*$/s, '');
   if (path.replace(/\/+$/, '').toLowerCase() === '/sign-in') return roleHome(role);
   return canAccess(role, path) ? next : roleHome(role);
 }

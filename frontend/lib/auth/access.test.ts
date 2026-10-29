@@ -79,6 +79,10 @@ describe('roleHome', () => {
     expect(roleHome(role)).toBe(home);
   });
 
+  it('sends a role that has no staff page to the front page', () => {
+    for (const role of ['reporter', 'wall', 'anonymous-link', 'audit'] as Role[]) expect(roleHome(role)).toBe('/');
+  });
+
   it('can open its own home, whichever role', () => {
     for (const role of ['advisor', 'clinical', 'lead', 'owner', 'exec', 'support'] as Role[]) {
       expect(canAccess(role, roleHome(role))).toBe(true);

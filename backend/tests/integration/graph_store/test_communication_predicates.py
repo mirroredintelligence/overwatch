@@ -1,8 +1,9 @@
 """Each tenant predicate of the communication and scheduled-work statements is needed, or is
 redundant under the invariant that no relationship joins two tenants (TEN-015, DEC-132 item 8).
 
-For every occurrence of `tenantId: $tenant` in the statements of TEN_015 (thirteen from TEN-015, and the two the week
-bundle B1 added to the same module, Q-COMM-PROMPTS-DUE-BETWEEN and Q-COMM-RECORD-OUTCOME), the statement is run with
+For every occurrence of `tenantId: $tenant` in the statements of TEN_015 (thirteen from TEN-015,
+and the two that the week bundle B1 added to the same module, Q-COMM-PROMPTS-DUE-BETWEEN and
+Q-COMM-RECORD-OUTCOME), the statement is run with
 that one predicate taken out, and the generated two-tenant test (the same probe as
 test_tenant_isolation.py) runs it on a contracted container. A predicate on a node the statement
 anchors on, or on a node it creates, must be killed. A predicate on a node reached through a

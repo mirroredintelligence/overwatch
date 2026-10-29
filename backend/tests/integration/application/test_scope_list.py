@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from neo4j import AsyncDriver
+from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
@@ -29,7 +29,7 @@ from diucs.application.use_cases.scope_list import (
 from diucs.domain.codes import RegistrationStatus, Role, ScopeFlag, ServiceCategory
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.registration import Registration
-from tests.support.neo4j import count_nodes, node_props
+from tests.support.neo4j import count_nodes, node_props, read_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -205,9 +205,18 @@ async def test_the_same_key_replayed_gives_the_same_service_and_one_service(
 
 
 async def _snapshot_of(driver: AsyncDriver, use_case: str) -> dict[str, Any]:
-    """The snapshot an audit entry of this use case holds, read from its Snapshot node."""
-    audit = await node_props(driver, "AuditEvent", useCase=use_case)
-    snapshot = await node_props(driver, "Snapshot")
-    assert audit["useCase"] == use_case
-    parsed: dict[str, Any] = json.loads(snapshot["json"])
+    """The snapshot an audit entry of this use case holds, read through its SNAPSHOT link. The graph
+    holds one snapshot per entry, so a read by label alone is ambiguous."""
+
+    async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
+        result = await tx.run(
+            "MATCH (:AuditEvent {useCase: $useCase})-[:SNAPSHOT]->(s:Snapshot) "
+            "RETURN s.json AS json",
+            useCase=use_case,
+        )
+        return await result.data()
+
+    rows = await read_tx(driver, work)
+    assert len(rows) == 1, f"expected exactly 1 snapshot for {use_case}, found {len(rows)}"
+    parsed: dict[str, Any] = json.loads(rows[0]["json"])
     return parsed

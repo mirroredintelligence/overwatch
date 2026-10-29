@@ -15,16 +15,27 @@ contracted container).
 """
 
 import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
+from diucs.adapters.inbound.fhir_rest.app import create_app
+from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
+from diucs.adapters.outbound.graph_store.migrations import apply_migrations
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.adapters.testing.memory_cache import InMemoryCache
+from diucs.adapters.testing.tokens import TEST_BFF_SECRET
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.bootstrap.container import Container
+from diucs.bootstrap.container import Container, build_for_tests
 from diucs.domain.codes import Measure, ReportSource, ReportType, Role, ServiceCategory
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.service import ServiceProfile
@@ -43,8 +54,11 @@ from tests.integration.adapters.inbound.fhir_rest.test_routes_services import (
     west_reporter,
 )
 from tests.integration.application.test_query_board import WEST
-from tests.support.neo4j import count_nodes
+from tests.support.api import R01_TEST_NOW
+from tests.support.neo4j import count_nodes, throwaway_driver
 from tests.support.tenancy import as_tenant
+from tests.support.tenant_seed import contract_schema
+from tests.support.uow import tenant_uow_factory
 
 __all__ = ["services_app"]
 
@@ -195,25 +209,57 @@ async def test_a_report_by_tenant_a_changes_nothing_of_tenant_b(
     assert stored.service_id == "svc-ucr-west"
 
 
+@asynccontextmanager
+async def _b_on_its_own_chain(tenant: str) -> AsyncIterator[AsyncClient]:
+    """A private Neo4j on the schema of TEN-032, with tenant B's service and its own audit chain
+    head, and a client for an app on it. The shared harness schema keeps one AuditHead key on the
+    id alone until TEN-032, so a second tenant cannot write there (the audit head, TEN-017)."""
+    async with throwaway_driver() as (container, driver):
+        await apply_migrations(driver)
+        await contract_schema(driver)
+        connection = Neo4jConnection(container.uri, container.user, container.password)
+        await connection.open()
+        try:
+            clock = FixedClock(R01_TEST_NOW)
+            app = create_app(build_for_tests(clock=clock, neo4j=connection))
+            app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
+            app.state.cache = InMemoryCache(clock)
+            factory = tenant_uow_factory(driver, tenant, clock)
+            with as_tenant(tenant):
+                await ensure_audit_head(driver)
+            async with factory() as uow:
+                await uow.services.save(B_PROFILE)
+                await uow.capacity.add(B_PRIOR)
+                await uow.commit()
+            async with AsyncClient(
+                transport=ASGITransport(app=app, raise_app_exceptions=False),
+                base_url="http://test",
+            ) as client:
+                yield client
+        finally:
+            await connection.close()
+
+
 async def test_tenant_b_reads_and_reports_for_its_own_service(
-    both_tenants: None, api_client: AsyncClient, other_tenant_id: str, tenant_id: str
+    other_tenant_id: str, tenant_id: str
 ) -> None:
-    with as_tenant(other_tenant_id):
-        service = await api_client.get(f"{SERVICES}/{B_SERVICE}", headers=_b_lead())
-        created = await post(
-            api_client,
-            report_body(
-                5,
-                service=B_SERVICE,
-                at="2026-10-23T13:10:00Z",
-                method="advisor-phoned",
-                measure="free-slots",
-                unit="{slot}",
-            ),
-            _b_lead(),
-            key="b-key-1",
-        )
-        latest = await api_client.get(B_LATEST, headers=_b_lead())
+    async with _b_on_its_own_chain(other_tenant_id) as client:
+        with as_tenant(other_tenant_id):
+            service = await client.get(f"{SERVICES}/{B_SERVICE}", headers=_b_lead())
+            created = await post(
+                client,
+                report_body(
+                    5,
+                    service=B_SERVICE,
+                    at="2026-10-23T13:10:00Z",
+                    method="advisor-phoned",
+                    measure="free-slots",
+                    unit="{slot}",
+                ),
+                _b_lead(),
+                key="b-key-1",
+            )
+            latest = await client.get(B_LATEST, headers=_b_lead())
 
     assert service.status_code == 200
     assert created.status_code == 201

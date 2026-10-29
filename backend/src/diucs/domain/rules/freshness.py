@@ -16,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Final
 
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.schedule import REPLY_WINDOW, current_due
 
 STALE_WARNING_AFTER: Final = timedelta(hours=2)
@@ -55,6 +56,7 @@ def assess_freshness(
     profile: ServiceProfile,
     last_report_at: datetime | None,
     now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> Freshness:
     now_utc = _as_utc(now, "now")
     last_utc = None if last_report_at is None else _as_utc(last_report_at, "last_report_at")

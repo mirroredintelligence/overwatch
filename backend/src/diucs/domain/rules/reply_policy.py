@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from diucs.domain.codes import ReportFlagReason
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.reply_parser import Confirm, Number
 from diucs.domain.rules.schedule import REPLY_WINDOW
@@ -74,7 +75,12 @@ class NeedNumber:
 Decision = RecordNumber | RecordConfirm | RejectLate | RejectConfirmLimit | AskRecheck | NeedNumber
 
 
-def decide_capacity_reply(reply: Confirm | Number, state: PromptState, now: datetime) -> Decision:
+def decide_capacity_reply(
+    reply: Confirm | Number,
+    state: PromptState,
+    now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,
+) -> Decision:
     """Decide what happens to one capacity reply. Only decides; `state` is not changed.
 
     Order: the service letter is checked first (ValidationFailed on a mismatch). Then a Y is judged

@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Final
 
 from diucs.domain.codes import Cadence
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from diucs.domain.rules.london_time import london_to_utc, to_london
 
@@ -77,7 +78,9 @@ def _end(window: AvailableTime) -> time:
     return window.end
 
 
-def due_times_on(profile: ServiceProfile, london_day: date) -> list[datetime]:
+def due_times_on(
+    profile: ServiceProfile, london_day: date, policy: TenantPolicy = DEFAULT_POLICY
+) -> list[datetime]:
     """Sorted UTC due instants of windows that start on london_day, with no duplicates."""
     instants: set[datetime] = set()
     for window in profile.available_times:
@@ -88,7 +91,9 @@ def due_times_on(profile: ServiceProfile, london_day: date) -> list[datetime]:
     return sorted(instants)
 
 
-def next_due(profile: ServiceProfile, now: datetime) -> datetime | None:
+def next_due(
+    profile: ServiceProfile, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+) -> datetime | None:
     """The earliest due instant strictly after now, searching SEARCH_DAYS ahead, or None."""
     today = to_london(now).date()
     candidates = [
@@ -100,7 +105,9 @@ def next_due(profile: ServiceProfile, now: datetime) -> datetime | None:
     return min(candidates, default=None)
 
 
-def current_due(profile: ServiceProfile, now: datetime) -> datetime | None:
+def current_due(
+    profile: ServiceProfile, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+) -> datetime | None:
     """The latest due instant at or before now, searching SEARCH_DAYS back, or None (DEC-023)."""
     today = to_london(now).date()
     candidates = [
@@ -112,11 +119,13 @@ def current_due(profile: ServiceProfile, now: datetime) -> datetime | None:
     return max(candidates, default=None)
 
 
-def reply_by(due: datetime) -> datetime:
+def reply_by(due: datetime, policy: TenantPolicy = DEFAULT_POLICY) -> datetime:
     return due + REPLY_WINDOW
 
 
-def ladder_times(due: datetime) -> dict[LadderStep, datetime]:
+def ladder_times(
+    due: datetime, policy: TenantPolicy = DEFAULT_POLICY
+) -> dict[LadderStep, datetime]:
     return {
         LadderStep.PROMPT: due,
         LadderStep.REMINDER: due + REMINDER_AFTER,

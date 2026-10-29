@@ -19,6 +19,7 @@ from typing import Final
 from diucs.domain.codes import Measure, Status
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.availability import effective_available, effective_occupied
 from diucs.domain.rules.freshness import Freshness, assess_freshness
 from diucs.domain.rules.opening_hours import is_in_hours
@@ -112,6 +113,7 @@ def compute_status(
     latest: CapacityReport | None,
     confirmed_at: Sequence[datetime],
     now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> ServiceState:
     """The status, figures and freshness of one service at instant now (domain-rules 1.2, 1.3).
 

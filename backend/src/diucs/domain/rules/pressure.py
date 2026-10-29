@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Final
 
 from diucs.domain.codes import Status
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 
 
 class Pressure(StrEnum):
@@ -43,7 +44,7 @@ def limited_or_worse_count(statuses: Iterable[Status]) -> int:
     return sum(1 for status in _checked(statuses) if status in LIMITED_OR_WORSE)
 
 
-def system_pressure(statuses: Iterable[Status]) -> Pressure:
+def system_pressure(statuses: Iterable[Status], policy: TenantPolicy = DEFAULT_POLICY) -> Pressure:
     count = limited_or_worse_count(statuses)
     if count >= HIGH_FROM:
         return Pressure.HIGH

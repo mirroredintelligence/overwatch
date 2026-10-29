@@ -26,6 +26,36 @@ def _terminology() -> FixedTerminology:
     )
 
 
+# Sample values only: these are not NHS Pathways codes.
+PATHWAYS = [
+    ("DxSAMPLE02", "Breathing check (not a real code)"),
+    ("DxSAMPLE10", "Chest pain (not a real code)"),
+    ("DxSAMPLE01", "Sample disposition 1 (not a real code)"),
+]
+
+
+def _pathways_terminology() -> FixedTerminology:
+    return FixedTerminology({}, {}, pathways_dx=PATHWAYS)
+
+
+async def test_pathways_search_for_a_part_of_every_code_returns_all_in_code_order() -> None:
+    assert await _pathways_terminology().search_pathways_dx("samp") == [
+        ("DxSAMPLE01", "Sample disposition 1 (not a real code)"),
+        ("DxSAMPLE02", "Breathing check (not a real code)"),
+        ("DxSAMPLE10", "Chest pain (not a real code)"),
+    ]
+
+
+async def test_pathways_search_for_digits_returns_the_one_code_that_contains_them() -> None:
+    assert await _pathways_terminology().search_pathways_dx("01") == [
+        ("DxSAMPLE01", "Sample disposition 1 (not a real code)"),
+    ]
+
+
+async def test_pathways_search_with_no_entries_finds_nothing() -> None:
+    assert await _terminology().search_pathways_dx("samp") == []
+
+
 async def test_known_active_code_returns_its_record() -> None:
     assert await _terminology().ods_lookup("ZZ1001") == ACTIVE
 

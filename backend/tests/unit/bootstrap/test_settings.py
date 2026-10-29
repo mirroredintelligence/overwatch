@@ -95,3 +95,9 @@ def test_twilio_token_is_read_from_environment_and_hidden_from_repr(
     assert settings.twilio_auth_token.get_secret_value() == TWILIO_CANARY
     assert TWILIO_CANARY not in repr(settings)
     assert TWILIO_CANARY not in str(settings)
+
+
+def test_the_pathways_dx_file_defaults_to_the_repo_sample() -> None:
+    settings = Settings()
+    assert settings.pathways_dx_file.name == "pathways_dx_sample.json"
+    assert settings.pathways_dx_file.is_file()

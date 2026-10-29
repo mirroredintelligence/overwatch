@@ -28,6 +28,7 @@ class FixedTerminology:
         self,
         ods: Mapping[str, OdsRecord],
         displays: Mapping[tuple[str, str], str],
+        pathways_dx: Sequence[tuple[str, str]] = (),
     ) -> None:
         self._ods: dict[str, OdsRecord] = {}
         for key, record in ods.items():
@@ -35,12 +36,17 @@ class FixedTerminology:
                 raise ValidationFailed("code", "record is stored under another code")
             self._ods[_ods_key(key)] = record
         self._displays: dict[tuple[str, str], str] = dict(displays)
+        self._pathways_dx: tuple[tuple[str, str], ...] = tuple(pathways_dx)
 
     async def ods_lookup(self, code: str) -> OdsRecord | None:
         return self._ods.get(_ods_key(code))
 
     async def display(self, system: str, code: str) -> str | None:
         return self._displays.get((system, code))
+
+    async def search_pathways_dx(self, text: str, limit: int = 20) -> list[tuple[str, str]]:
+        # DEC-010 red stub.
+        return []
 
 
 class PassThroughValidator:

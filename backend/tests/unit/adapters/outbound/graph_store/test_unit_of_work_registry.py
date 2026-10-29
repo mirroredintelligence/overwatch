@@ -59,6 +59,7 @@ REQUIRED_NAMES = {
     "idempotency",
     "processed",
     "support",
+    "tenant_config",
 }
 
 

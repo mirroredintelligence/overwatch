@@ -8,11 +8,11 @@ from datetime import UTC, datetime
 
 import pytest
 
+from diucs.application.use_cases.record_outcome import build_summary, check_destination
 from diucs.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Urgency
 from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.model.case import Case
 from diucs.domain.model.scores import ClinicalFrailty, News2
-from diucs.application.use_cases.record_outcome import build_summary, check_destination
 
 OPENED = datetime(2026, 10, 23, 13, 10, tzinfo=UTC)
 UCR_WEST = "svc-ucr-west"

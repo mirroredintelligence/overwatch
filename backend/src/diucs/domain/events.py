@@ -287,6 +287,22 @@ class RegistrationApproved:
 
 
 @dataclass(frozen=True, slots=True)
+class ServiceActivated:
+    """Red stub (U15): a service set up by a lead is live. Behaviour arrives in the implement commit."""
+
+    event_type: ClassVar[str] = "ServiceActivated"
+    service_id: str
+    at: datetime
+
+    def to_payload(self) -> dict[str, Any]:
+        raise NotImplementedError
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
 class CriteriaApproved:
     event_type: ClassVar[str] = "CriteriaApproved"
     criteria_id: str

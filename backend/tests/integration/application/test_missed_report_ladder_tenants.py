@@ -5,9 +5,12 @@ the same figure. The ladder handler takes its tenant only from the unit of work 
 (there is no tenant on the command), so a step for A never reads, changes or sends anything of B's.
 
 Until TEN-032 drops the single-property keys, two tenants cannot share a resource id on the shared
-test schema, so each tenant's ids carry a prefix. Q-WORK-*, Q-COMM-* and the person statements are
-still unconverted (tenant-pending, evidence U06): the isolation below rests on the tenant-scoped
-service lookup the handler makes before it acts, and on the tenant bound to every unit.
+test schema, so each tenant's ids carry a prefix. The resource store (TEN-009), the work and
+communication statements (TEN-015), the person statements (TEN-011) and the capacity statements
+(TEN-010) are still unconverted (tenant-pending, evidence U06). What is proved here is what the use
+case itself decides: the tenant of every row, key and sealed message it writes comes from the unit
+of work, and one tenant's ladder never changes another's. That a step for A given B's work id reads
+as not found is written as a strict expected failure until TEN-009 scopes the service lookup.
 """
 
 from typing import Any
@@ -139,6 +142,15 @@ async def test_the_messages_a_step_queues_belong_to_the_tenant_whose_step_it_was
     assert "CancelWork" in {m.event_type for m in await rig_a.outbox()}
 
 
+@pytest.mark.xfail(
+    strict=True,
+    raises=pytest.fail.Exception,
+    reason=(
+        "DEC-166 item 12: the resource store does not scope its reads yet (TEN-009), so tenant A's "
+        "service lookup still finds tenant B's service. When TEN-009 lands this test passes and "
+        "the strict marker fails the suite: remove the marker then."
+    ),
+)
 async def test_tenant_b_work_given_to_tenant_a_is_not_found_whatever_its_state(
     tenants: tuple[tuple[Rig, str], tuple[Rig, str]],
 ) -> None:

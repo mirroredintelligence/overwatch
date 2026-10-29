@@ -21,6 +21,7 @@ from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkT
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.actor import Actor
+from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.ports.outbound.tokens import LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
@@ -35,7 +36,7 @@ from diucs.application.use_cases.missed_report_ladder import (
     LadderStepCommand,
 )
 from diucs.application.work import CANCELLED, DONE, SCHEDULED, WorkKind
-from diucs.domain.codes import ReportSource, Role
+from diucs.domain.codes import Channel, ReportSource, Role
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.messages.privacy_guard import find_patient_data
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
@@ -732,6 +733,38 @@ async def test_a_reporter_who_can_no_longer_be_texted_is_not_reminded_but_the_se
     assert (await rig.work(prompt, WorkKind.REMINDER)).status == DONE
 
 
+async def test_stopping_one_ladder_leaves_the_ladder_of_a_later_prompt_of_the_service(
+    rig: Rig, seed_service: Seed
+) -> None:
+    # No reporter has a phone, so each prompt's ladder is about the service itself. Stopping the
+    # 12:00 ladder must not touch the 14:00 one, which is about the same subject.
+    await seed_service(virtual_ward())
+    await seed_report(rig.factory, london(10, 5))
+    await rig.prompt(london(12, 0))
+    await rig.prompt(london(14, 0))
+    await seed_report(rig.factory, london(12, 20), report_id="late-report")
+
+    [first_reminder, _second_reminder] = await rig.works(SERVICE, WorkKind.REMINDER)
+    assert first_reminder.due_at == london(12, 30)
+
+    result = await rig.run(first_reminder, london(12, 30))
+
+    assert result.action == STOPPED
+    ladders = {
+        (w.kind, w.due_at): w.status
+        for kind in (WorkKind.REMINDER, WorkKind.PHONE_TASK, WorkKind.ESCALATE_TO_LEAD)
+        for w in await rig.works(SERVICE, kind)
+    }
+    assert ladders == {
+        (WorkKind.REMINDER, london(12, 30)): DONE,
+        (WorkKind.PHONE_TASK, london(13, 0)): CANCELLED,
+        (WorkKind.ESCALATE_TO_LEAD, london(13, 30)): CANCELLED,
+        (WorkKind.REMINDER, london(14, 30)): SCHEDULED,
+        (WorkKind.PHONE_TASK, london(15, 0)): SCHEDULED,
+        (WorkKind.ESCALATE_TO_LEAD, london(15, 30)): SCHEDULED,
+    }
+
+
 # --- Services that no longer need chasing --------------------------------------------------------
 
 
@@ -844,6 +877,40 @@ async def test_work_about_a_service_that_does_not_exist_is_not_found(
     assert await _counts(neo4j_driver) == counts
     async with uow_factory() as uow:
         assert (await uow.scheduled_work.get(orphan.id)).status == SCHEDULED
+
+
+async def test_work_about_a_message_with_no_service_is_not_found(
+    rig: Rig, neo4j_driver: AsyncDriver, uow_factory: UnitOfWorkFactory, seed_service: Seed
+) -> None:
+    await _prompted(rig, seed_service)
+    async with uow_factory() as uow:
+        await uow.communications.add(
+            Communication(
+                id="no-service-comm",
+                message_id="C1",
+                channel=Channel.TEXT,
+                recipient_role_id=None,
+                about_id=None,
+                payload_text="DIUCS: a message about nothing",
+                sent_at=london(12, 0),
+                delivery_status="queued",
+            )
+        )
+        orphan = await schedule_work(
+            uow,
+            rig.ids,
+            kind=WorkKind.REMINDER,
+            about_id="no-service-comm",
+            due_at=london(12, 30),
+            now=london(12, 0),
+        )
+        await uow.commit()
+    counts = await _counts(neo4j_driver)
+
+    with pytest.raises(NotFound):
+        await rig.run(orphan, london(12, 30))
+
+    assert await _counts(neo4j_driver) == counts
 
 
 async def test_a_failure_part_way_leaves_nothing_behind(

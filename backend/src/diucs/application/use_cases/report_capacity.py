@@ -21,6 +21,7 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.use_cases.missed_report_ladder import stop_answered_ladders
 from diucs.application.use_cases.report_flags import raise_report_flags
 from diucs.domain.codes import (
     Channel,
@@ -190,6 +191,9 @@ async def record_report(
     flag_ids = await raise_report_flags(
         uow, ids, profile=profile, report=report, extra=flag, now=now
     )
+    # A report at or after a prompt's due time answers it: the rest of its missed-report ladder is
+    # cancelled in this unit of work (U06, domain-rules 1.5). prompt-due work is left alone.
+    await stop_answered_ladders(uow, profile.id, answered_at=report.effective_at, now=now)
 
     next_prompt = next_due(profile, now)
     if send_echo is not None:

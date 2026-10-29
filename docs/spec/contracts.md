@@ -172,7 +172,7 @@ These names were added by individual task prompts. They are as binding as the re
 | `Practitioner`, `PractitionerRole` (incl. `covered_by_practitioner_id`, `covered_until`), `REPORTER_ROLE_CODES` | `domain/model/people.py` | P03 |
 | `Registration` | `domain/model/registration.py` | P04 |
 | `ReportFlag`, service flags | `domain/model/flags.py` | P04 |
-| Events `PhoneTaskRaised` (`capacity.events`), `ReportEscalated` (`alerts.events`) | `domain/events.py` | U06 |
+| Events `PhoneTaskRaised` (`capacity.events`, session id the service) and `ReportEscalated` (`alerts.events`), fields `service_id`, `due_at`, `at` (all UTC; `due_at` is the prompt's due time) | `domain/events.py` | U06 (delivered with DEC-166) |
 | Event `ReportFlagged` (`capacity.events`; fields `flag_id`, `service_id`, `report_id`, `reason: ReportFlagReason`, `at`) | `domain/events.py` | U07 (delivered) |
 | Event `DeclinedDespiteCapacity` | `domain/events.py` | U13 |
 | Event `ServiceActivated` (`registration.events`) | `domain/events.py` | U15 |
@@ -373,3 +373,9 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 
 ## Mapper tenant names (TEN-008, DEC-162)
 - `adapters/outbound/graph_store/extensions.py`: `TENANT_OWNED_NAMES = frozenset({"tenantId", "sourceTenantId"})`. `ExtensionDef` refuses a short name in it (`ValueError`). `mapper.py` imports it: `to_graph` refuses an element of either name (`ValidationFailed`, "reserved: the tenancy seam stamps this name") and refuses a fragment that would carry one, and `from_graph` drops both from every node it rebuilds from. TEN-009 adds both to the resource store's `RESERVED_PROPERTIES`; no other module writes the name `tenantId` on a node a resource owns except the writer's stamp.
+
+### Missed-report ladder (U06, DEC-166)
+
+| Name | Where | Task |
+|---|---|---|
+| `application/use_cases/missed_report_ladder.py`: `LadderStepCommand(idempotency_key, actor, work_id)`, `LadderStepResult(action, communication_id=None, replayed=False)` with `action` one of `REMINDED`, `PHONE_TASK_RAISED`, `ESCALATED`, `STOPPED`, `IGNORED` (`"reminded"`, `"phone-task"`, `"escalated"`, `"stopped"`, `"ignored"`), `MissedReportLadder(uow_factory, clock, ids, link_tokens, link_base_url, sealer)` with `async execute(command)`, `LADDER_OFFSETS`, `LADDER_KINDS`, `REMINDER_REPLY_WINDOW` (30 min, [ASSUMED]), `ladder_due(work)`, `prompt_answered(effective_at, due)`, `async stop_answered_ladders(uow, service_id, *, answered_at, now) -> tuple[str, ...]`. The tenant is the unit of work's scope, not an argument. `record_report` calls `stop_answered_ladders`. | U06 |

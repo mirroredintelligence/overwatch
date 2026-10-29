@@ -31,6 +31,7 @@ export const FRICTION_THRESHOLDS = {
 export const QUICK_ACTION_ROUTES: readonly string[] = ['/l/[token]', '/respond/[serviceId]', '/booking/[ref]'];
 
 /** The element id used for friction that belongs to the page or the live stream, not to one control. */
+export const FRICTION_EVENT = 'ui.friction' as const;
 export const PAGE_ELEMENT_ID = 'PAGE';
 export const STREAM_ELEMENT_ID = 'LIVE-STREAM';
 /** The element id used for a click that landed on no tagged element. */

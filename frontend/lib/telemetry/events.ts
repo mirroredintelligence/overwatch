@@ -82,6 +82,9 @@ type State = {
 
 let state: State | null = null;
 
+/** Events dropped because they broke their schema (O05). Read it in a test or a dashboard, never sent. */
+export let droppedEvents = 0;
+
 function randomHex(bytes: number): string {
   const buffer = new Uint8Array(bytes);
   crypto.getRandomValues(buffer);

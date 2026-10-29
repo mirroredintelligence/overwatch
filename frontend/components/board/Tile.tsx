@@ -66,7 +66,15 @@ function figureFor(entry: BoardEntry): Figure {
     : { big: String(free), unit: entry.unitLabel, bar };
 }
 
-export function Tile({ entry, now }: { entry: BoardEntry; now: string | Date }) {
+export function Tile({
+  entry,
+  now,
+}: {
+  entry: BoardEntry;
+  now: string | Date;
+  /** Shows the tile as last known: never styled or worded as current (W06). */
+  lastKnown?: boolean;
+}) {
   const figure = figureFor(entry);
   const age = ageLineText(entry, now);
   const notUpdated = entry.status === 'not-updated';

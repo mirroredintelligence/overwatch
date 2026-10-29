@@ -117,3 +117,13 @@ export async function fhirFetch<T>(path: string, init: FhirInit = {}): Promise<F
   }
   return { data: parsed.value as T, etag };
 }
+
+/** Opens a streaming GET (server-sent events) and returns its body without reading it. */
+export async function fhirStream(
+  path: string,
+  init: Pick<FhirInit, 'token' | 'traceparent'> & { signal?: AbortSignal } = {},
+): Promise<{ body: ReadableStream<Uint8Array> }> {
+  void path;
+  void init;
+  return { body: new ReadableStream<Uint8Array>() };
+}

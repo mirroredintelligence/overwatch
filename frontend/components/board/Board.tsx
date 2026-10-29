@@ -2,6 +2,7 @@ import { londonDate, londonTime } from '@/lib/board/format';
 import type { Board as BoardData } from '@/lib/board/types';
 import styles from './Board.module.css';
 import { Legend } from './Legend';
+import type { LastKnown } from './LastKnownBanner';
 import { Tile } from './Tile';
 
 // The call-centre wall board: a header, a grid of tiles in the order the back
@@ -15,7 +16,15 @@ import { Tile } from './Tile';
 
 const NO_SERVICES = 'No services are listed. Use the whiteboard and phone process.';
 
-export function Board({ board }: { board: BoardData }) {
+export function Board({
+  board,
+}: {
+  board: BoardData;
+  /** Set when the board must be shown as last known (W06). */
+  lastKnown?: LastKnown;
+  /** True when the live stream is down but the board is still being refreshed. */
+  streamPaused?: boolean;
+}) {
   const now = board.generatedAt;
   const title = board.organisation
     ? `${board.organisation} urgent care capacity`

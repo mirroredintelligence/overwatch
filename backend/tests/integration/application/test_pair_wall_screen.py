@@ -30,11 +30,9 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
 from diucs.application.use_cases.pair_wall_screen import (
     CODE_ATTEMPTS,
-    CONFIRM_FAILURE_LIMIT,
     PAIRING_PURPOSE,
     PAIRING_SECRET_PURPOSE,
     REFUSED_MESSAGE,
-    START_LIMIT,
     ClaimPairing,
     ClaimPairingCommand,
     ConfirmPairing,
@@ -919,7 +917,7 @@ async def test_five_wrong_codes_stop_the_lead_even_with_the_right_code(
     rig: Rig, neo4j_driver: AsyncDriver
 ) -> None:
     started = await rig.start.execute()
-    for n in range(CONFIRM_FAILURE_LIMIT):
+    for n in range(5):
         with pytest.raises(NotAllowed):
             await rig.confirm.execute(_command(started, code="000 000", key=f"wrong-{n}"))
     before = await _state(neo4j_driver)
@@ -932,7 +930,7 @@ async def test_five_wrong_codes_stop_the_lead_even_with_the_right_code(
 
 async def test_the_limit_ends_when_the_window_has_passed(rig: Rig) -> None:
     started = await rig.start.execute()
-    for n in range(CONFIRM_FAILURE_LIMIT):
+    for n in range(5):
         with pytest.raises(NotAllowed):
             await rig.confirm.execute(_command(started, code="000 000", key=f"wrong-{n}"))
     with pytest.raises(PairingRateLimited):
@@ -943,7 +941,7 @@ async def test_the_limit_ends_when_the_window_has_passed(rig: Rig) -> None:
 
 
 async def test_a_good_confirmation_does_not_use_up_the_failure_allowance(rig: Rig) -> None:
-    for n in range(CONFIRM_FAILURE_LIMIT + 2):
+    for n in range(7):
         started = await rig.start.execute()
         confirmed = await rig.confirm.execute(_command(started, key=f"good-{n}"))
         assert confirmed.device_id == started.pairing_id
@@ -953,7 +951,7 @@ async def test_a_good_confirmation_does_not_use_up_the_failure_allowance(rig: Ri
 async def test_a_replay_is_answered_even_when_the_lead_is_over_the_failure_limit(rig: Rig) -> None:
     started = await rig.start.execute()
     first = await rig.confirm.execute(_command(started, key="good"))
-    for n in range(CONFIRM_FAILURE_LIMIT):
+    for n in range(5):
         with pytest.raises(NotAllowed):
             await rig.confirm.execute(_command(started, code="000 000", key=f"wrong-{n}"))
     again = await rig.confirm.execute(_command(started, key="good"))
@@ -964,15 +962,142 @@ async def test_a_replay_is_answered_even_when_the_lead_is_over_the_failure_limit
 async def test_the_twenty_first_start_in_ten_minutes_is_refused_and_writes_nothing(
     rig: Rig, neo4j_driver: AsyncDriver
 ) -> None:
-    for _ in range(START_LIMIT):
+    for _ in range(20):
         await rig.start.execute()
     before = await _link_tokens(neo4j_driver)
-    assert len(before) == START_LIMIT * 2
+    assert len(before) == 40
     with pytest.raises(PairingRateLimited):
         await rig.start.execute()
     assert await _link_tokens(neo4j_driver) == before
     rig.clock.advance(timedelta(minutes=10))
     assert (await rig.start.execute()).pairing_id
+
+
+class _CountingLookups:
+    """Counts the code lookups (`get_by_hash` on the link tokens) that reach the database."""
+
+    def __init__(self, factory: UnitOfWorkFactory) -> None:
+        self._factory = factory
+        self.lookups = 0
+
+    def __call__(self) -> Any:
+        return _Counted(self._factory(), self)
+
+
+class _Counted:
+    def __init__(self, inner: Any, counter: _CountingLookups) -> None:
+        self._inner = inner
+        self._counter = counter
+
+    async def __aenter__(self) -> _Counted:
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc: Any) -> Any:
+        return await self._inner.__aexit__(*exc)
+
+    @property
+    def link_tokens(self) -> _Overriding:
+        real = self._inner.link_tokens
+
+        async def counted(token_hash: str) -> Any:
+            self._counter.lookups += 1
+            return await real.get_by_hash(token_hash)
+
+        return _Overriding(real, get_by_hash=counted)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+class _DownCache(InMemoryCache):
+    """A cache whose store is unreachable."""
+
+    async def set_if_absent(self, key: str, value: str, ttl: timedelta) -> bool:
+        raise ConnectionError("the cache is down")
+
+    async def get(self, key: str) -> str | None:
+        raise ConnectionError("the cache is down")
+
+
+async def test_a_flood_of_wrong_codes_from_one_lead_reaches_the_code_lookup_at_most_five_times(
+    rig: Rig, uow_clock: Clock
+) -> None:
+    """The failure slot is taken before the code is looked up, in one atomic step, so parallel
+    requests cannot all pass a check that none has yet counted against (verify-U10 round 1)."""
+    started = await rig.start.execute()
+    spy = _CountingLookups(rig.uow_factory)
+    flood = make_rig(cast(UnitOfWorkFactory, spy), uow_clock, cache=rig.cache)
+    outcomes = await asyncio.gather(
+        *(
+            flood.confirm.execute(_command(started, code="000 000", key=f"flood-{n}"))
+            for n in range(60)
+        ),
+        return_exceptions=True,
+    )
+    refused = [o for o in outcomes if type(o) is NotAllowed]
+    limited = [o for o in outcomes if isinstance(o, PairingRateLimited)]
+    assert len(refused) == 5
+    assert len(limited) == 55
+    assert spy.lookups == 5
+    # And the right code is still refused for this lead, until the window passes.
+    with pytest.raises(PairingRateLimited):
+        await rig.confirm.execute(_command(started, key="right"))
+
+
+async def test_twenty_five_racing_starts_from_one_tenant_give_exactly_twenty(
+    rig: Rig, neo4j_driver: AsyncDriver
+) -> None:
+    outcomes = await asyncio.gather(
+        *(rig.start.execute() for _ in range(25)), return_exceptions=True
+    )
+    assert len([o for o in outcomes if isinstance(o, StartPairingResult)]) == 20
+    assert len([o for o in outcomes if isinstance(o, PairingRateLimited)]) == 5
+    assert len(await _link_tokens(neo4j_driver)) == 40
+
+
+async def test_a_good_confirmation_after_fewer_than_five_failures_works_and_gives_its_slot_back(
+    rig: Rig,
+) -> None:
+    started = await rig.start.execute()
+    for n in range(4):
+        with pytest.raises(NotAllowed):
+            await rig.confirm.execute(_command(started, code="000 000", key=f"wrong-{n}"))
+    assert (await rig.confirm.execute(_command(started, key="good"))).device_id
+    # The success took the fifth slot and gave it back: four more failures still get the verdict,
+    # not the limit.
+    other = await rig.start.execute()
+    for n in range(4):
+        with pytest.raises(NotAllowed) as refused:
+            await rig.confirm.execute(_command(other, code="111 111", key=f"again-{n}"))
+        assert not isinstance(refused.value, PairingRateLimited)
+
+
+async def test_a_refused_confirmation_keeps_its_slot(rig: Rig) -> None:
+    started = await rig.start.execute()
+    for n in range(5):
+        with pytest.raises(NotAllowed) as refused:
+            await rig.confirm.execute(_command(started, code="000 000", key=f"wrong-{n}"))
+        assert not isinstance(refused.value, PairingRateLimited)
+    with pytest.raises(PairingRateLimited):
+        await rig.confirm.execute(_command(started, code="000 000", key="sixth"))
+
+
+async def test_with_the_cache_down_start_and_confirm_refuse_and_write_nothing(
+    uow_factory: UnitOfWorkFactory,
+    uow_clock: Clock,
+    neo4j_driver: AsyncDriver,
+    rig: Rig,
+) -> None:
+    started = await rig.start.execute()
+    down = make_rig(uow_factory, uow_clock, cache=_DownCache(cast(FixedClock, uow_clock)))
+    before = await _state(neo4j_driver)
+    with pytest.raises(ConnectionError):
+        await down.start.execute()
+    with pytest.raises(ConnectionError):
+        await down.confirm.execute(_command(started, key="down"))
+    assert await _state(neo4j_driver) == before
+    assert await count_nodes(neo4j_driver, "Device") == 0
 
 
 # -- Tenancy -----------------------------------------------------------------------------------
@@ -1091,12 +1216,12 @@ async def test_a_device_token_is_found_in_its_own_tenant_only(pair: Pair) -> Non
 
 
 async def test_the_failure_and_start_limits_are_kept_per_tenant(pair: Pair) -> None:
-    for _ in range(START_LIMIT):
+    for _ in range(20):
         await pair.a.start.execute()
     with pytest.raises(PairingRateLimited):
         await pair.a.start.execute()
     b = await pair.b.start.execute()  # B is not held up by A
-    for n in range(CONFIRM_FAILURE_LIMIT):
+    for n in range(5):
         with pytest.raises(NotAllowed):
             await pair.a.confirm.execute(_command(b, code="000 000", key=f"a-{n}"))
     with pytest.raises(PairingRateLimited):

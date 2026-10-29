@@ -162,6 +162,9 @@ class AttemptLimiter:
                 return True
         return False
 
+    async def release(self, slot: str) -> None:
+        raise NotImplementedError
+
     async def is_full(self, name: str, limit: int) -> bool:
         """True when `limit` events are inside the window. Counts nothing."""
         _check_limit(limit)

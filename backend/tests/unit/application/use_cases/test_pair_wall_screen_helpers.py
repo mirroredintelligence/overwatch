@@ -2,6 +2,7 @@
 over the in-memory cache. The use cases themselves are tested against Neo4j in
 tests/integration/application/test_pair_wall_screen.py. Values are synthetic."""
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -70,13 +71,35 @@ def test_the_digits_returned_are_exactly_the_digits_typed(typed: str) -> None:
 
 async def test_take_allows_the_limit_and_refuses_the_next() -> None:
     limiter = AttemptLimiter(InMemoryCache(FixedClock(NOW)))
-    assert [await limiter.take("k", 3, WINDOW) for _ in range(5)] == [
-        True,
-        True,
-        True,
-        False,
-        False,
-    ]
+    taken = [await limiter.take("k", 3, WINDOW) for _ in range(5)]
+    assert [slot is not None for slot in taken] == [True, True, True, False, False]
+
+
+async def test_take_names_the_slot_it_took_and_no_two_takes_share_one() -> None:
+    limiter = AttemptLimiter(InMemoryCache(FixedClock(NOW)))
+    slots = [await limiter.take("k", 3, WINDOW) for _ in range(3)]
+    assert slots == ["k#0", "k#1", "k#2"]
+
+
+async def test_release_frees_the_slot_that_was_taken_and_only_that_one() -> None:
+    limiter = AttemptLimiter(InMemoryCache(FixedClock(NOW)))
+    slots = [await limiter.take("k", 2, WINDOW) for _ in range(2)]
+    assert await limiter.take("k", 2, WINDOW) is None
+    await limiter.release(str(slots[0]))
+    assert await limiter.take("k", 2, WINDOW) == slots[0]
+    assert await limiter.take("k", 2, WINDOW) is None
+
+
+async def test_releasing_a_slot_that_is_free_or_unknown_does_nothing() -> None:
+    limiter = AttemptLimiter(InMemoryCache(FixedClock(NOW)))
+    await limiter.release("k#0")
+    assert await limiter.take("k", 1, WINDOW) == "k#0"
+
+
+async def test_sixty_racing_takes_of_three_units_give_exactly_three() -> None:
+    limiter = AttemptLimiter(InMemoryCache(FixedClock(NOW)))
+    results = await asyncio.gather(*(limiter.take("k", 3, WINDOW) for _ in range(60)))
+    assert sorted(r for r in results if r is not None) == ["k#0", "k#1", "k#2"]
 
 
 async def test_take_gives_the_units_back_when_their_window_has_passed() -> None:
@@ -108,33 +131,8 @@ async def test_names_do_not_share_units() -> None:
     assert await limiter.take("b", 1, WINDOW)
 
 
-async def test_is_full_reads_without_taking() -> None:
-    limiter = AttemptLimiter(InMemoryCache(FixedClock(NOW)))
-    assert not await limiter.is_full("k", 2)
-    assert not await limiter.is_full("k", 2)
-    await limiter.take("k", 2, WINDOW)
-    assert not await limiter.is_full("k", 2)
-    await limiter.take("k", 2, WINDOW)
-    assert await limiter.is_full("k", 2)
-    assert await limiter.is_full("k", 2)
-
-
-async def test_is_full_counts_every_unit_so_an_expired_one_leaves_room() -> None:
-    clock = FixedClock(NOW)
-    limiter = AttemptLimiter(InMemoryCache(clock))
-    await limiter.take("k", 3, WINDOW)
-    clock.advance(timedelta(minutes=6))
-    await limiter.take("k", 3, WINDOW)
-    await limiter.take("k", 3, WINDOW)
-    assert await limiter.is_full("k", 3)
-    clock.advance(timedelta(minutes=5))  # the first unit has expired, the free slot is the first
-    assert not await limiter.is_full("k", 3)
-
-
 @pytest.mark.parametrize("limit", [0, -1])
 async def test_a_limit_below_one_is_refused(limit: int) -> None:
     limiter = AttemptLimiter(InMemoryCache(FixedClock(NOW)))
     with pytest.raises(ValueError, match="limit"):
         await limiter.take("k", limit, WINDOW)
-    with pytest.raises(ValueError, match="limit"):
-        await limiter.is_full("k", limit)

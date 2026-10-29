@@ -14,6 +14,15 @@ L52). Choices the prompt leaves open are in DEC-046. Refusals: naive datetimes r
 (as london_time.py does); a status or pressure that is not an exact member raises TypeError
 (DEC-040, lessons L3 and L38); a bad field value raises ValidationFailed with the field name.
 An alert carries no free text (H-09).
+
+The defaults of a new user's alert preferences and the critical kinds are tenant policy (TEN-064):
+`default_preferences`, `alerts_for_change` and `alert_for_pressure` take a `TenantPolicy` as their
+last argument, defaulting to `DEFAULT_POLICY`, and read `alert_default_kinds`,
+`alert_default_not_updated_hours` and `critical_alert_kinds`. An alert is critical when its kind is
+in the policy's set; that rule lives in one private constructor the three functions use, because an
+`Alert` has no policy, so `Alert.__post_init__` keeps only the structural checks. The option sets
+(not-updated hours 2 or 4, acknowledge minutes, quiet hours 22:00 to 06:00) and the escalation
+ladder stay global.
 """
 
 from dataclasses import dataclass
@@ -22,12 +31,13 @@ from typing import Final
 
 from diucs.domain.codes import AlertKind, Status
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 from diucs.domain.rules.london_time import london_to_utc, to_london
 from diucs.domain.rules.pressure import Pressure
 
-# [ASSUMED] critical set, rule book section 8.
-CRITICAL_KINDS: Final = frozenset({AlertKind.SERVICE_CLOSED, AlertKind.SYSTEM_PRESSURE})
+# [ASSUMED] critical set, rule book section 8. Alias of the default policy (TEN-064): the set is
+# defined once, in tenant_policy.py.
+CRITICAL_KINDS: Final = DEFAULT_POLICY.critical_alert_kinds
 NOT_UPDATED_HOURS: Final = frozenset({2, 4})
 ACK_MINUTES: Final = frozenset({10, 15, 30})
 QUIET_START: Final = time(22, 0)
@@ -48,8 +58,8 @@ class Alert:
                 raise ValidationFailed("service_id", "a system-pressure alert names no service")
         elif not self.service_id:
             raise ValidationFailed("service_id", "a service alert needs its service id")
-        if self.critical is not (self.kind in CRITICAL_KINDS):
-            raise ValidationFailed("critical", "must follow the alert kind")
+        if type(self.critical) is not bool:
+            raise ValidationFailed("critical", "must be true or false")
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,10 +81,18 @@ class AlertPreferences:
             raise ValidationFailed("quiet_hours", "must be 22:00 to 06:00, or none")
 
 
-def default_preferences(policy: TenantPolicy = DEFAULT_POLICY) -> AlertPreferences:  # RED STUB
+def _alert(
+    kind: AlertKind, service_id: str | None, raised_at: datetime, policy: TenantPolicy
+) -> Alert:
+    """The one constructor of the three functions: critical follows the tenant's critical kinds."""
+    return Alert(kind, service_id, raised_at, kind in policy.critical_alert_kinds)
+
+
+def default_preferences(policy: TenantPolicy = DEFAULT_POLICY) -> AlertPreferences:
+    policy = require_policy(policy)
     return AlertPreferences(
-        kinds=frozenset(AlertKind),
-        not_updated_hours=2,
+        kinds=policy.alert_default_kinds,
+        not_updated_hours=policy.alert_default_not_updated_hours,
         quiet_hours=None,
         quiet_critical_only=True,
         ack_minutes=15,
@@ -105,8 +123,9 @@ def alerts_for_change(
     after: Status,
     in_hours: bool,
     now: datetime,
-    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> list[Alert]:
+    policy = require_policy(policy)
     if not service_id:
         raise ValidationFailed("service_id", "required")
     raised_at = _as_utc(now)
@@ -115,20 +134,21 @@ def alerts_for_change(
     moved = prior is not current
     alerts: list[Alert] = []
     if current is Status.NOT_ACCEPTING and in_hours and moved:
-        alerts.append(Alert(AlertKind.SERVICE_CLOSED, service_id, raised_at, True))
+        alerts.append(_alert(AlertKind.SERVICE_CLOSED, service_id, raised_at, policy))
     if current is Status.OVER_CAPACITY and moved:
-        alerts.append(Alert(AlertKind.OVER_CAPACITY, service_id, raised_at, False))
+        alerts.append(_alert(AlertKind.OVER_CAPACITY, service_id, raised_at, policy))
     return alerts
 
 
 def alert_for_pressure(
     before: Pressure, after: Pressure, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
-) -> Alert | None:  # RED STUB
+) -> Alert | None:
+    policy = require_policy(policy)
     raised_at = _as_utc(now)
     prior = _pressure(before)
     current = _pressure(after)
     if current is Pressure.HIGH and (prior is Pressure.NORMAL or prior is Pressure.WATCH):
-        return Alert(AlertKind.SYSTEM_PRESSURE, None, raised_at, True)
+        return _alert(AlertKind.SYSTEM_PRESSURE, None, raised_at, policy)
     return None
 
 

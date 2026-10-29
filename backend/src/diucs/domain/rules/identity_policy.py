@@ -19,13 +19,15 @@ from enum import StrEnum
 from typing import Final
 
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 
 CODE_VALID_FOR: Final = timedelta(minutes=10)
 CODE_MAX_TRIES: Final = 5
 CODE_RESEND_AFTER: Final = timedelta(seconds=60)  # [ASSUMED cooldown] in domain-rules 7
 PIN_MAX_TRIES: Final = 5
-REVERIFY_EVERY: Final = timedelta(days=30)
+# Alias of the default policy (TEN-064): the number is defined once, in tenant_policy.py. A tenant
+# may only shorten it (7 to 30 days).
+REVERIFY_EVERY: Final = DEFAULT_POLICY.reverify_every
 
 _ASCII_DIGITS: Final = frozenset("0123456789")
 PIN_LENGTH: Final = 6
@@ -125,13 +127,15 @@ def needs_reverification(
     last_verified_at: datetime | None,
     now: datetime,
     device_known: bool,
-    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> bool:
-    """True when the caller must ask for a text code: new device, never verified, or 30 days old."""
+    """True when the caller must ask for a text code: new device, never verified, or as old as the
+    policy's `reverify_every` (30 days by default; a tenant may only shorten it)."""
+    policy = require_policy(policy)
     now_utc = _as_utc(now, "now")
     if not device_known or last_verified_at is None:
         return True
     last_utc = _as_utc(last_verified_at, "last_verified_at")
     if last_utc > now_utc:
         return True
-    return now_utc - last_utc >= REVERIFY_EVERY
+    return now_utc - last_utc >= policy.reverify_every

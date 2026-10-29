@@ -6,18 +6,23 @@ and an unknown presence or an unknown queue state fails closed.
 
 Pure: no I/O and no clock. `now` is an argument. Every instant must be timezone-aware and is
 compared in UTC.
+
+The take timeout is tenant policy (TEN-064): `take`, `return_if_idle` and `give_advice` take a
+`TenantPolicy` as their last argument, defaulting to `DEFAULT_POLICY`, and read
+`clinical_take_timeout`. `TAKE_TIMEOUT` is an alias of the default policy.
 """
 
 from collections.abc import Iterable
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Final
 
 from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 
-TAKE_TIMEOUT: Final = timedelta(minutes=10)
+# Alias of the default policy (TEN-064): the number is defined once, in tenant_policy.py.
+TAKE_TIMEOUT: Final = DEFAULT_POLICY.clinical_take_timeout
 NOTE_MAX: Final = 280
 
 URGENCY_NOW: Final = "now"
@@ -69,22 +74,26 @@ class ClinicalRequest:
                 raise ValidationFailed("advised_at", "an advised request has a taker")
 
 
-def _is_idle(request: ClinicalRequest, now: datetime) -> bool:
-    return request.taken_at is not None and now - _utc(request.taken_at, "taken_at") >= TAKE_TIMEOUT
+def _is_idle(request: ClinicalRequest, now: datetime, policy: TenantPolicy) -> bool:
+    return (
+        request.taken_at is not None
+        and now - _utc(request.taken_at, "taken_at") >= policy.clinical_take_timeout
+    )
 
 
 def take(
     request: ClinicalRequest,
     clinician_id: str,
     now: datetime,
-    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> ClinicalRequest:
     """Lock the request to this clinician. A lock held by someone else is free once idle."""
+    policy = require_policy(policy)
     clinician = _clinician(clinician_id)
     now = _utc(now, "now")
     if request.advised_at is not None:
         raise InvalidTransition("this request has already had advice")
-    if request.taken_by is None or _is_idle(request, now):
+    if request.taken_by is None or _is_idle(request, now, policy):
         return replace(request, taken_by=clinician, taken_at=now)
     if request.taken_by == clinician:
         return request
@@ -94,11 +103,13 @@ def take(
 def return_if_idle(
     request: ClinicalRequest,
     now: datetime,
-    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> ClinicalRequest:
-    """Clear an unadvised lock once it is ten minutes old. Advised requests are never released."""
+    """Clear an unadvised lock once it is as old as the take timeout (ten minutes by default).
+    Advised requests are never released."""
+    policy = require_policy(policy)
     now = _utc(now, "now")
-    if request.advised_at is None and _is_idle(request, now):
+    if request.advised_at is None and _is_idle(request, now, policy):
         return replace(request, taken_by=None, taken_at=None)
     return request
 
@@ -107,16 +118,17 @@ def give_advice(
     request: ClinicalRequest,
     clinician_id: str,
     now: datetime,
-    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> ClinicalRequest:
     """Record advice by the taker, once, while the lock is still live."""
+    policy = require_policy(policy)
     clinician = _clinician(clinician_id)
     now = _utc(now, "now")
     if request.advised_at is not None:
         raise InvalidTransition("advice has already been given for this request")
     if request.taken_by != clinician:
         raise NotAllowed("only the clinical advisor who took the request can give advice")
-    if _is_idle(request, now):
+    if _is_idle(request, now, policy):
         raise NotAllowed("the lock has lapsed; take the request again")
     return replace(request, advised_at=now)
 

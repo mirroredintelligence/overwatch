@@ -4,20 +4,26 @@ Pure: no I/O. Dates are calendar dates, the London day. Callers derive it from a
 london_time.to_london(instant).date(); this module never receives a datetime as a date (DEC-038).
 Enum inputs are checked as members of CriteriaStatus, so another enum with the same value is
 refused (lesson L3, L38).
+
+The review reminder period is tenant policy (TEN-064): `review_reminder_due` takes a `TenantPolicy`
+as its last argument, defaulting to `DEFAULT_POLICY`, and reads `criteria_reminder_before`. The
+review periods (3, 6 or 12 months), the overdue rule and the two distinct approvers stay fixed.
 """
 
 import calendar
 from collections.abc import Mapping
 from dataclasses import replace
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from types import MappingProxyType
+from typing import Final
 
 from diucs.domain.codes import CriteriaStatus
 from diucs.domain.errors import InvalidTransition, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 
-REVIEW_REMINDER_BEFORE = timedelta(days=14)
+# Alias of the default policy (TEN-064): the number is defined once, in tenant_policy.py.
+REVIEW_REMINDER_BEFORE: Final = DEFAULT_POLICY.criteria_reminder_before
 """[ASSUMED] the reminder is due from this long before review-by, up to and including it."""
 
 REVIEW_PERIOD_MONTHS = frozenset({3, 6, 12})
@@ -66,10 +72,14 @@ def is_review_overdue(criteria: ServiceCriteria, today: date) -> bool:
 
 def review_reminder_due(
     criteria: ServiceCriteria, today: date, policy: TenantPolicy = DEFAULT_POLICY
-) -> bool:  # RED STUB
-    """True from REVIEW_REMINDER_BEFORE before review-by, up to and including review-by."""
+) -> bool:
+    """True from the policy's reminder period before review-by, up to and including review-by.
+    The period is `criteria_reminder_before` (TEN-064)."""
+    policy = require_policy(policy)
     checked_today = _calendar_date(today, "today")
-    return criteria.review_by - REVIEW_REMINDER_BEFORE <= checked_today <= criteria.review_by
+    return (
+        criteria.review_by - policy.criteria_reminder_before <= checked_today <= criteria.review_by
+    )
 
 
 def next_review_by(confirmed_on: date, months: int) -> date:

@@ -4,21 +4,27 @@ domain-rules 2.4 and the D28 prompt. Due times are aware instants; they are comp
 in UTC (lessons L52 and L53). Domain functions take every time as an argument.
 
 DEC-048 records the choices the prompt leaves open.
+
+The grouping window and the phone load limit are tenant policy (TEN-064): `group_due` and
+`phone_overloaded` take a `TenantPolicy` as their last argument, defaulting to `DEFAULT_POLICY`, and
+read `group_window` and `max_services_per_phone`. A group's `reply_by` is `reply_by(first_due,
+policy)`, so the tenant's reply window reaches a grouped prompt. The module constants are aliases
+of the default policy. The letters and their limit are wire format and stay fixed.
 """
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Final
 
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 from diucs.domain.rules.schedule import reply_by
 
-# [ASSUMED] domain-rules 2.4: the 10-minute grouping window. Owner-pending: the clinical safety
-# officer must confirm it with the other [ASSUMED] values. Not a settled rule-book value.
-GROUP_WINDOW: Final = timedelta(minutes=10)
-MAX_SERVICES_PER_PHONE: Final = 3
+# [ASSUMED] domain-rules 2.4: the 10-minute grouping window. Aliases of the default policy
+# (TEN-064): the numbers are defined once, in tenant_policy.py.
+GROUP_WINDOW: Final = DEFAULT_POLICY.group_window
+MAX_SERVICES_PER_PHONE: Final = DEFAULT_POLICY.max_services_per_phone
 # From the D28 prompt and DEC-048 item 6. NOT a rule-book value: it is the number of letters A to Z.
 MAX_LETTERED_ITEMS: Final = 26
 
@@ -54,8 +60,9 @@ def letters_for(names: Sequence[str]) -> dict[str, str]:
 
 def group_due(
     due: Sequence[tuple[str, str, datetime]],
-    policy: TenantPolicy = DEFAULT_POLICY,  # RED STUB
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> list[PromptGroup]:
+    policy = require_policy(policy)
     seen_ids: set[str] = set()
     entries: list[tuple[datetime, str, str]] = []
     for service_id, name, when in due:
@@ -67,7 +74,7 @@ def group_due(
 
     batches: list[list[tuple[datetime, str, str]]] = []
     for entry in entries:
-        if batches and entry[0] < batches[-1][0][0] + GROUP_WINDOW:
+        if batches and entry[0] < batches[-1][0][0] + policy.group_window:
             batches[-1].append(entry)
         else:
             batches.append([entry])
@@ -88,11 +95,12 @@ def group_due(
             for when, name, service_id in batch
         )
         first_due = batch[0][0]
-        groups.append(PromptGroup(items=items, due=first_due, reply_by=reply_by(first_due)))
+        groups.append(PromptGroup(items=items, due=first_due, reply_by=reply_by(first_due, policy)))
     return groups
 
 
-def phone_overloaded(count: int, policy: TenantPolicy = DEFAULT_POLICY) -> bool:  # RED STUB
+def phone_overloaded(count: int, policy: TenantPolicy = DEFAULT_POLICY) -> bool:
+    policy = require_policy(policy)
     if count < 0:
         raise ValidationFailed("count", "must not be negative")
-    return count > MAX_SERVICES_PER_PHONE
+    return count > policy.max_services_per_phone

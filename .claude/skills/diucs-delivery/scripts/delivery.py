@@ -362,6 +362,39 @@ def is_ancestor(older: str, newer: str) -> bool:
         return False
 
 
+def failing_checks(markdown: str):
+    """The labels of failing rows in the generated checks table, [] if all pass, None if there is no table.
+
+    record_checks.py writes `| label | `command` | exit | summary |` rows under a heading that starts with
+    "Checks (generated". Rows elsewhere in the file are ignored, so a red or green table cannot satisfy the gate."""
+    rows, failing, inside = 0, [], False
+    for line in markdown.splitlines():
+        if line.startswith("#"):
+            inside = "Checks (generated" in line
+            continue
+        if not (inside and line.startswith("|")):
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) >= 3 and cells[2].isdigit():
+            rows += 1
+            if int(cells[2]) != 0:
+                failing.append(cells[0])
+    return None if rows == 0 else failing
+
+
+def checks_gate(a):
+    """Refuse delivery unless the evidence file at the commit holds a generated checks table with no failures."""
+    path = f"docs/delivery/evidence/{a.task}.md"
+    shown = subprocess.run(["git", "show", f"{a.commit}:{path}"], capture_output=True, text=True)
+    if shown.returncode != 0:
+        raise Refused(f"{path} is not in commit {a.commit}; the checks table is the evidence of the checks.")
+    failing = failing_checks(shown.stdout)
+    if failing is None:
+        raise Refused(f"{path} has no generated checks table (record_checks.py) at {a.commit}.")
+    if failing:
+        raise Refused(f"checks failing at {a.commit}: {', '.join(failing)}. Fix them and re-record before delivery.")
+
+
 def cmd_deliver(a, d, now):
     with locked(d):
         task = need_task(ledger(d, now), a.task)
@@ -372,6 +405,8 @@ def cmd_deliver(a, d, now):
             raise Refused(f"{a.task} has no passing verification from a second session yet.")
         if not a.skip_git_check and not commit_exists(a.commit):
             raise Refused(f"Commit {a.commit} was not found in this repository.")
+        if not a.skip_git_check:
+            checks_gate(a)
         append(d, {"t": "deliver", "task": a.task, "session": a.session, "commit": a.commit}, now)
     print(f"{a.task} delivered at {a.commit}. Run `next`, and add a lesson if anything surprised you.")
     return 0

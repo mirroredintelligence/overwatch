@@ -227,7 +227,10 @@ def test_full_flow_delivers_and_unblocks_dependents(capsys, env):
 def test_deliver_checks_the_commit_exists_in_git(capsys, env, monkeypatch):
     repo = env["tmp"] / "repo"
     repo.mkdir()
-    for cmd in (["git", "init", "-q"], ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "x"]):
+    (repo / "docs/delivery/evidence").mkdir(parents=True)
+    (repo / "docs/delivery/evidence/A01.md").write_text(CHECKS_PASS, encoding="utf-8")
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    for cmd in (["git", "init", "-q"], git + ["add", "-A"], git + ["commit", "-q", "-m", "x"]):
         subprocess.run(cmd, cwd=repo, check=True)
     sha = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
     monkeypatch.chdir(repo)
@@ -437,3 +440,57 @@ def test_deliver_after_delivery_says_already_delivered(capsys, env):
     deliver_flow(capsys, "A01")
     code, out = run(capsys, "deliver", "A01", "--session", "s1", "--commit", "abc1234", "--skip-git-check")
     assert code == 2 and "already delivered" in out.lower()
+
+
+CHECKS_PASS = """# A01 evidence
+
+## Checks (generated)
+
+| Check | Command | Exit | Summary |
+|---|---|---|---|
+| unit | `pytest tests/unit` | 0 | 12 passed |
+| lint | `ruff check .` | 0 | All checks passed |
+"""
+
+CHECKS_FAIL = CHECKS_PASS.replace("| 12 passed", "| 1 failed").replace("| unit | `pytest tests/unit` | 0", "| unit | `pytest tests/unit` | 1")
+
+
+def test_failing_checks_reads_only_the_generated_checks_table():
+    assert delivery.failing_checks(CHECKS_PASS) == []
+    assert delivery.failing_checks(CHECKS_FAIL) == ["unit"]
+    assert delivery.failing_checks("# A01\n\n| x | `y` | 1 | red table elsewhere |\n") is None
+    assert delivery.failing_checks("## Checks (generated)\n\nno rows here\n") is None
+
+
+def test_deliver_refused_when_the_checks_table_shows_a_failure(capsys, env, monkeypatch):
+    sha = commit_evidence(env, monkeypatch, CHECKS_FAIL)
+    init(capsys, env)
+    run(capsys, "claim", "A01", "--session", "s1")
+    do_all_evidence(capsys, "A01")
+    run(capsys, "review", "A01", "--session", "s1", "--skip-git-check")
+    run(capsys, "verify", "A01", "--verifier", "s2", "--result", "pass", "--note", "ok")
+    code, out = run(capsys, "deliver", "A01", "--session", "s1", "--commit", sha)
+    assert code == 2 and "checks failing" in out and "unit" in out
+
+
+def test_deliver_accepted_when_the_checks_table_passes(capsys, env, monkeypatch):
+    sha = commit_evidence(env, monkeypatch, CHECKS_PASS)
+    init(capsys, env)
+    run(capsys, "claim", "A01", "--session", "s1")
+    do_all_evidence(capsys, "A01")
+    run(capsys, "review", "A01", "--session", "s1", "--skip-git-check")
+    run(capsys, "verify", "A01", "--verifier", "s2", "--result", "pass", "--note", "ok")
+    code, _ = run(capsys, "deliver", "A01", "--session", "s1", "--commit", sha)
+    assert code == 0
+
+
+def commit_evidence(env, monkeypatch, text):
+    repo = env["tmp"] / "gate-repo"
+    (repo / "docs/delivery/evidence").mkdir(parents=True, exist_ok=True)
+    (repo / "docs/delivery/evidence/A01.md").write_text(text, encoding="utf-8")
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(git + ["add", "-A"], cwd=repo, check=True)
+    subprocess.run(git + ["commit", "-q", "-m", "evidence"], cwd=repo, check=True)
+    monkeypatch.chdir(repo)
+    return subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()

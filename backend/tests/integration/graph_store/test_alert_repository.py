@@ -97,7 +97,7 @@ async def _add_alerts(driver: AsyncDriver, *alerts: AlertRecord) -> None:
 
 
 @pytest.fixture
-async def practitioners(neo4j_driver: AsyncDriver) -> None:
+async def practitioners(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
     await _seed_practitioner(neo4j_driver, "p1")
     await _seed_practitioner(neo4j_driver, "p-deputy")
 

@@ -461,3 +461,15 @@ def test_report_flagged_refuses_a_time_that_is_not_utc() -> None:
             datetime(2026, 10, 23, 10, 12),
         )
     assert info.value.field == "at"
+
+
+@pytest.mark.parametrize("field", ["flag_id", "service_id", "report_id"])
+@pytest.mark.parametrize("value", [7, None, ["flag-1"], b"flag-1"])
+def test_report_flagged_ids_must_be_text(field: str, value: object) -> None:
+    payload: dict[str, Any] = ReportFlagged(
+        "flag-1", SERVICE_ID, "obs-1", ReportFlagReason.MANY_CHANGES, AT
+    ).to_payload()
+    payload[field] = value
+    with pytest.raises(ValidationFailed) as info:
+        from_payload("ReportFlagged", payload)
+    assert info.value.field == field

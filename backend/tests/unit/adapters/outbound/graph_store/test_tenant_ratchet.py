@@ -251,6 +251,7 @@ def test_the_people_registration_and_scope_statements_are_converted(
         assert "tenantId: $tenant" in query.cypher, query_id
         assert query_id not in UNCONVERTED, query_id
 
+
 # The thirteen statements of the communication and scheduled-work records (TEN-015, reworks P07 and
 # P08): nine on Communication, four on ScheduledWork. Each must be off the ratchet, carry a valid
 # scenario, and name `tenantId: $tenant` on every node it matches or creates.

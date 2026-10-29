@@ -39,9 +39,10 @@ from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
 from diucs.domain.model.tenant import Tenant, TenantStatus
-from tests.support.neo4j import read_tx, write_tx
+from tests.support.neo4j import read_tx, throwaway_driver, write_tx
 from tests.support.relay_rig import NOW, SpyBus, add_messages, outbox_message
 from tests.support.tenant_samples import make_tenant
+from tests.support.tenant_seed import contract_schema
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -361,6 +362,7 @@ async def test_no_global_statement_returns_anything_from_a_graph_that_also_holds
         "Q-TENANT-ACTIVE-IDS": {},
         "Q-TENANT-BY-NUMBER": {"number": NUMBER_A, "accountSid": SID_A},
         "Q-TENANT-BY-ACCOUNT": {"accountSid": SID_A},
+        "Q-TENANT-ACTIVE-LINE": {"id": A},
         "Q-TENANT-BY-HOST": {"host": "alpha.example.org"},
         "Q-TENANT-BY-ENTRA": {"directoryId": GUID_A},
     }
@@ -436,26 +438,35 @@ async def test_the_relay_serves_the_active_tenants_of_the_directory_and_no_other
 
 
 async def test_start_up_applies_the_migrations_and_leaves_the_registry_readable(
-    neo4j_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_NEO4J_URI", os.environ["NEO4J_URI"])
-    monkeypatch.setenv("DIUCS_NEO4J_USER", os.environ["NEO4J_USER"])
-    monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", os.environ["NEO4J_PASSWORD"])
-    await seed_two_tenants(neo4j_driver)
-    await _run(neo4j_driver, "MATCH (m:Migration {id: '0035_default_tenant_record'}) DELETE m")
-    container = build(Settings())
+    # Two tenants each get an audit head (one chain per scope, TEN-017), and the heads share the
+    # id 'audit'. The shared harness schema keeps the single-property key until TEN-032, so a
+    # second head there is refused by design (DEC-159 item 2): this runs on a private container
+    # with the superseded keys dropped, as the generated two-tenant test does.
+    async with throwaway_driver() as (container, driver):
+        await apply_migrations(driver)
+        await contract_schema(driver)
+        monkeypatch.setenv("DIUCS_NEO4J_URI", container.uri)
+        monkeypatch.setenv("DIUCS_NEO4J_USER", container.user)
+        monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", container.password)
+        await seed_two_tenants(driver)
+        await _run(driver, "MATCH (m:Migration {id: '0035_default_tenant_record'}) DELETE m")
+        app = build(Settings())
 
-    await container.startup()
-    try:
-        recorded = await _rows(
-            neo4j_driver, "MATCH (m:Migration {id: '0035_default_tenant_record'}) RETURN m.id AS id"
-        )
-        assert recorded == [{"id": "0035_default_tenant_record"}]
-        heads = await _rows(neo4j_driver, "MATCH (h:AuditHead) RETURN count(h) AS n")
-        assert heads == [{"n": 1}]
-        assert list(await container.tenants.active_tenant_ids()) == [A, B]
-    finally:
-        await container.shutdown()
+        await app.startup()
+        try:
+            recorded = await _rows(
+                driver, "MATCH (m:Migration {id: '0035_default_tenant_record'}) RETURN m.id AS id"
+            )
+            assert recorded == [{"id": "0035_default_tenant_record"}]
+            heads = await _rows(
+                driver, "MATCH (h:AuditHead) RETURN h.tenantId AS tenant ORDER BY tenant"
+            )
+            assert heads == [{"tenant": A}, {"tenant": B}]
+            assert list(await app.tenants.active_tenant_ids()) == [A, B]
+        finally:
+            await app.shutdown()
 
 
 async def test_a_second_start_up_changes_nothing(
@@ -464,12 +475,15 @@ async def test_a_second_start_up_changes_nothing(
     monkeypatch.setenv("DIUCS_NEO4J_URI", os.environ["NEO4J_URI"])
     monkeypatch.setenv("DIUCS_NEO4J_USER", os.environ["NEO4J_USER"])
     monkeypatch.setenv("DIUCS_NEO4J_PASSWORD", os.environ["NEO4J_PASSWORD"])
+    # One active tenant, so one chain head (TEN-017: a head per active tenant, none for a graph with
+    # no tenant). One tenant needs no contracted schema.
+    await seed_tenant(neo4j_driver, make_tenant(id=A))
     for _ in range(2):
-        container = build(Settings())
-        await container.startup()
-        await container.shutdown()
-    heads = await _rows(neo4j_driver, "MATCH (h:AuditHead) RETURN count(h) AS n")
-    assert heads == [{"n": 1}]
+        app = build(Settings())
+        await app.startup()
+        await app.shutdown()
+    heads = await _rows(neo4j_driver, "MATCH (h:AuditHead) RETURN h.tenantId AS tenant")
+    assert heads == [{"tenant": A}]
     assert await apply_migrations(neo4j_driver) == []
 
 

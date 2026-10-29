@@ -72,3 +72,30 @@ describe('securityHeaders', () => {
     );
   });
 });
+
+describe('buildCsp with extra form targets (W09)', () => {
+  const formAction = (csp: string) => csp.split(';').map((part) => part.trim()).find((part) => part.startsWith('form-action'));
+
+  it('names only self when no extra target is given', () => {
+    expect(formAction(buildCsp('abc', false))).toBe("form-action 'self'");
+    expect(formAction(buildCsp('abc', false, { formActionOrigins: [] }))).toBe("form-action 'self'");
+  });
+
+  it('adds the origins it is given after self, for a form whose answer redirects to the sign-in provider', () => {
+    expect(formAction(buildCsp('abc', false, { formActionOrigins: ['https://login.example.test'] }))).toBe(
+      "form-action 'self' https://login.example.test",
+    );
+  });
+
+  it.each([
+    'https://login.example.test/path',
+    'https://login.example.test; script-src *',
+    "https://a.test 'unsafe-inline'",
+    'https://*.example.test',
+    'javascript:alert(1)',
+    '*',
+    '',
+  ])('refuses %j rather than writing it into the policy', (origin) => {
+    expect(() => buildCsp('abc', false, { formActionOrigins: [origin] })).toThrow('form-action');
+  });
+});

@@ -8,9 +8,27 @@
 // could end the header early, so it is refused rather than escaped.
 const NONCE_PATTERN = /^[A-Za-z0-9+/=_-]+$/;
 
-export function buildCsp(nonce: string, dev: boolean): string {
+// A scheme and host (and port) only: no path, wildcard, quote, space or semicolon, so an origin can
+// add one source to form-action and never another directive or another keyword.
+const ORIGIN_PATTERN = /^https?:\/\/[A-Za-z0-9.-]+(:\d{1,5})?$/;
+
+export interface CspOptions {
+  // Extra places a form on this page may send its answer, after 'self'. The staff sign-in page
+  // names the sign-in provider here: Chrome applies form-action to the redirect that answers the
+  // form's post, so the redirect to the provider is blocked unless the page allows it (W09).
+  formActionOrigins?: readonly string[];
+}
+
+export function buildCsp(nonce: string, dev: boolean, options: CspOptions = {}): string {
   if (!NONCE_PATTERN.test(nonce)) {
     throw new Error('the CSP nonce is not valid');
+  }
+  const formActions = ["'self'"];
+  for (const origin of options.formActionOrigins ?? []) {
+    if (!ORIGIN_PATTERN.test(origin)) {
+      throw new Error('a form-action origin is not a scheme and host');
+    }
+    formActions.push(origin);
   }
   const scriptSources = ["'self'", `'nonce-${nonce}'`, "'strict-dynamic'"];
   if (dev) {
@@ -27,7 +45,7 @@ export function buildCsp(nonce: string, dev: boolean): string {
     "manifest-src 'self'",
     "frame-ancestors 'none'",
     "base-uri 'self'",
-    "form-action 'self'",
+    `form-action ${formActions.join(' ')}`,
     "object-src 'none'",
     'upgrade-insecure-requests',
   ].join('; ');

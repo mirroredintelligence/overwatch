@@ -154,3 +154,6 @@ export async function destroySession(): Promise<void> {
   const store = await cookies();
   store.set(SESSION_COOKIE, '', { ...sessionCookieOptions(), maxAge: 0 });
 }
+
+/** The sealing key, for other BFF cookies that derive their own key from it (W09). */
+export { secretKey as sessionSecretKey };

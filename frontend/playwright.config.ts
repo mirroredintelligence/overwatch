@@ -1,5 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
-import { BACKEND_PORT, E2E_SESSION_SECRET } from './e2e/support/env';
+import { BACKEND_PORT, ENTRA_ENV } from './e2e/support/env';
 
 const PORT = 3000;
 // The synthetic checks (O09) run against a deployed test environment, or the compose stack, named by
@@ -45,7 +45,9 @@ export default defineConfig({
         // The page reads the board from a stand-in back end that global-setup starts.
         env: {
           DIUCS_FHIR_BASE_URL: `http://127.0.0.1:${BACKEND_PORT}/fhir`,
-          SESSION_SECRET: E2E_SESSION_SECRET,
+          // The staff sign-in talks to the fake Entra provider that global-setup starts (W09),
+          // and the session secret the browser tests seal their cookies with.
+          ...ENTRA_ENV,
         },
       },
 });

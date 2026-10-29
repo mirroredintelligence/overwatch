@@ -288,18 +288,21 @@ class RegistrationApproved:
 
 @dataclass(frozen=True, slots=True)
 class ServiceActivated:
-    """Red stub (U15): a service set up by a lead is live. Behaviour arrives in the implement commit."""
+    """A service set up by a lead is live and takes referrals (U15, registration.events)."""
 
     event_type: ClassVar[str] = "ServiceActivated"
     service_id: str
     at: datetime
 
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+
     def to_payload(self) -> dict[str, Any]:
-        raise NotImplementedError
+        return {"service_id": self.service_id, "at": _at_text(self.at)}
 
     @classmethod
     def decode(cls, payload: Mapping[str, Any]) -> Self:
-        raise NotImplementedError
+        return cls(service_id=_text(payload, "service_id"), at=_when(payload))
 
 
 @dataclass(frozen=True, slots=True)
@@ -489,6 +492,7 @@ DomainEvent = (
     | BookingExpired
     | RegistrationSubmitted
     | RegistrationApproved
+    | ServiceActivated
     | CriteriaApproved
     | AlertRaised
     | AlertAcknowledged
@@ -506,6 +510,7 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         BookingExpired: BOOKING_EVENTS,
         RegistrationSubmitted: REGISTRATION_EVENTS,
         RegistrationApproved: REGISTRATION_EVENTS,
+        ServiceActivated: REGISTRATION_EVENTS,
         CriteriaApproved: CRITERIA_EVENTS,
         AlertRaised: ALERTS_EVENTS,
         AlertAcknowledged: ALERTS_EVENTS,
@@ -524,6 +529,7 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "BookingExpired": BookingExpired.decode,
         "RegistrationSubmitted": RegistrationSubmitted.decode,
         "RegistrationApproved": RegistrationApproved.decode,
+        "ServiceActivated": ServiceActivated.decode,
         "CriteriaApproved": CriteriaApproved.decode,
         "AlertRaised": AlertRaised.decode,
         "AlertAcknowledged": AlertAcknowledged.decode,

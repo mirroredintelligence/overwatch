@@ -205,9 +205,7 @@ async def test_an_invalid_set_up_is_refused_naming_the_field_and_nothing_is_writ
     nodes_before = await _total_nodes(neo4j_driver)
 
     with pytest.raises(ValidationFailed) as refused:
-        await _use_case(uow_factory, neo4j_driver).execute(
-            dataclasses.replace(UCR_WEST, **changes)
-        )
+        await _use_case(uow_factory, neo4j_driver).execute(dataclasses.replace(UCR_WEST, **changes))
 
     assert refused.value.field == field
     assert await _total_nodes(neo4j_driver) == nodes_before

@@ -1,4 +1,7 @@
-"""ServiceActivated (U15): the event a lead's set-up puts on registration.events. Sample values only."""
+"""ServiceActivated (U15): the event a lead's set-up puts on registration.events.
+
+Sample values only.
+"""
 
 from datetime import UTC, datetime
 

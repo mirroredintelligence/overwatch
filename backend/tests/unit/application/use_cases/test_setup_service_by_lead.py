@@ -110,7 +110,15 @@ def test_a_uk_mobile_is_kept_as_eleven_digits_from_any_common_form(typed: str) -
 
 @pytest.mark.parametrize(
     "typed",
-    ["0123", "07700 90012", "07700 9001234", "020 7946 0000", "+44 20 7946 0000", "", "not a number"],
+    [
+        "0123",
+        "07700 90012",
+        "07700 9001234",
+        "020 7946 0000",
+        "+44 20 7946 0000",
+        "",
+        "not a number",
+    ],
 )
 def test_a_text_number_that_is_not_a_uk_mobile_is_refused_naming_phone(typed: str) -> None:
     with pytest.raises(ValidationFailed) as refused:
@@ -142,7 +150,15 @@ def test_an_email_reporter_keeps_the_role_inbox_with_a_lower_case_domain() -> No
 
 @pytest.mark.parametrize(
     "address",
-    ["", "rota.nhs.example", "rota@", "@nhs.example", "a b@nhs.example", "a@b@nhs.example", "a@localhost"],
+    [
+        "",
+        "rota.nhs.example",
+        "rota@",
+        "@nhs.example",
+        "a b@nhs.example",
+        "a@b@nhs.example",
+        "a@localhost",
+    ],
 )
 def test_an_email_reporter_refuses_what_is_not_a_role_inbox(address: str) -> None:
     with pytest.raises(ValidationFailed) as refused:
@@ -369,7 +385,9 @@ def test_the_same_command_has_the_same_fingerprint() -> None:
         dataclasses.replace(BASE, actor=dataclasses.replace(LEAD, practitioner_id="prac-lead-2")),
     ],
 )
-def test_a_different_body_or_actor_has_a_different_fingerprint(changed: SetupServiceCommand) -> None:
+def test_a_different_body_or_actor_has_a_different_fingerprint(
+    changed: SetupServiceCommand,
+) -> None:
     assert command_fingerprint(changed, "key-1") != command_fingerprint(BASE, "key-1")
 
 

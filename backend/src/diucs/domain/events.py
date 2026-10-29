@@ -405,6 +405,40 @@ class ReportFlagged:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class PhoneTaskRaised:
+    """STUB (DEC-010): U06 red commit."""
+
+    event_type: ClassVar[str] = "PhoneTaskRaised"
+    service_id: str
+    due_at: datetime
+    at: datetime
+
+    def to_payload(self) -> dict[str, Any]:
+        return {}
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(service_id="", due_at=datetime(2000, 1, 1, tzinfo=UTC), at=_when(payload))
+
+
+@dataclass(frozen=True, slots=True)
+class ReportEscalated:
+    """STUB (DEC-010): U06 red commit."""
+
+    event_type: ClassVar[str] = "ReportEscalated"
+    service_id: str
+    due_at: datetime
+    at: datetime
+
+    def to_payload(self) -> dict[str, Any]:
+        return {}
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(service_id="", due_at=datetime(2000, 1, 1, tzinfo=UTC), at=_when(payload))
+
+
 DomainEvent = (
     CapacityReported
     | StatusChanged
@@ -417,6 +451,8 @@ DomainEvent = (
     | AlertRaised
     | AlertAcknowledged
     | ReportFlagged
+    | PhoneTaskRaised
+    | ReportEscalated
 )
 
 _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
@@ -432,6 +468,8 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         AlertRaised: ALERTS_EVENTS,
         AlertAcknowledged: ALERTS_EVENTS,
         ReportFlagged: CAPACITY_EVENTS,
+        PhoneTaskRaised: CAPACITY_EVENTS,
+        ReportEscalated: ALERTS_EVENTS,
     }
 )
 
@@ -448,6 +486,8 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "AlertRaised": AlertRaised.decode,
         "AlertAcknowledged": AlertAcknowledged.decode,
         "ReportFlagged": ReportFlagged.decode,
+        "PhoneTaskRaised": PhoneTaskRaised.decode,
+        "ReportEscalated": ReportEscalated.decode,
     }
 )
 

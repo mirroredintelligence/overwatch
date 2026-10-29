@@ -29,8 +29,10 @@ from diucs.domain.events import (
     CapacityReported,
     CriteriaApproved,
     DomainEvent,
+    PhoneTaskRaised,
     RegistrationApproved,
     RegistrationSubmitted,
+    ReportEscalated,
     ReportFlagged,
     StatusChanged,
     from_payload,
@@ -41,6 +43,7 @@ from diucs.domain.events import (
 SERVICE_ID = "svc-ucr-west"
 AT = datetime(2026, 10, 23, 10, 12, tzinfo=UTC)
 AT_WITH_MICROSECONDS = datetime(2026, 10, 23, 10, 12, 30, 500000, tzinfo=UTC)
+DUE_AT = datetime(2026, 10, 23, 11, 0, tzinfo=UTC)
 
 SAMPLES: tuple[DomainEvent, ...] = (
     CapacityReported(SERVICE_ID, "obs-1", 4, ReportSource.TEXT, AT),
@@ -55,6 +58,8 @@ SAMPLES: tuple[DomainEvent, ...] = (
     AlertRaised("alert-1", AlertKind.OVER_CAPACITY, SERVICE_ID, AT),
     AlertAcknowledged("alert-1", Role.LEAD, AT),
     ReportFlagged("flag-1", SERVICE_ID, "obs-1", ReportFlagReason.MANY_CHANGES, AT),
+    PhoneTaskRaised(SERVICE_ID, DUE_AT, AT),
+    ReportEscalated(SERVICE_ID, DUE_AT, AT),
 )
 
 EXPECTED_TOPIC: dict[type, str] = {
@@ -69,6 +74,8 @@ EXPECTED_TOPIC: dict[type, str] = {
     AlertRaised: "alerts.events",
     AlertAcknowledged: "alerts.events",
     ReportFlagged: "capacity.events",
+    PhoneTaskRaised: "capacity.events",
+    ReportEscalated: "alerts.events",
 }
 
 
@@ -473,3 +480,76 @@ def test_report_flagged_ids_must_be_text(field: str, value: object) -> None:
     with pytest.raises(ValidationFailed) as info:
         from_payload("ReportFlagged", payload)
     assert info.value.field == field
+
+
+# --- PhoneTaskRaised and ReportEscalated (U06) ---------------------------------------------------
+
+LADDER_EVENTS = (PhoneTaskRaised, ReportEscalated)
+
+
+@pytest.mark.parametrize("cls", LADDER_EVENTS)
+def test_a_ladder_event_payload_matches_the_contract(cls: Any) -> None:
+    # contracts.md: {service_id, due_at, at}, both instants as UTC text ending in Z.
+    assert cls(SERVICE_ID, DUE_AT, AT).to_payload() == {
+        "service_id": "svc-ucr-west",
+        "due_at": "2026-10-23T11:00:00Z",
+        "at": "2026-10-23T10:12:00Z",
+    }
+
+
+@pytest.mark.parametrize("cls", LADDER_EVENTS)
+def test_a_ladder_event_round_trips_with_microseconds(cls: Any) -> None:
+    event = cls(SERVICE_ID, DUE_AT + timedelta(microseconds=5), AT_WITH_MICROSECONDS)
+    payload = event.to_payload()
+    assert payload["due_at"] == "2026-10-23T11:00:00.000005Z"
+    rebuilt = from_payload(cls.__name__, payload)
+    assert rebuilt == event
+    assert type(rebuilt) is cls
+
+
+def test_the_phone_task_orders_by_service_and_the_escalation_has_no_session() -> None:
+    # The phone task is on capacity.events with the other per-service events, so it is read in
+    # order with the report that stops it. An escalation goes to alerts.events, which has no
+    # session.
+    assert session_id_for(PhoneTaskRaised(SERVICE_ID, DUE_AT, AT)) == SERVICE_ID
+    assert session_id_for(ReportEscalated(SERVICE_ID, DUE_AT, AT)) is None
+
+
+@pytest.mark.parametrize("cls", LADDER_EVENTS)
+@pytest.mark.parametrize("field", ["due_at", "at"])
+def test_a_ladder_event_refuses_a_time_that_is_not_utc(cls: Any, field: str) -> None:
+    bst = timezone(timedelta(hours=1))
+    times = {"due_at": DUE_AT, "at": AT}
+    for bad in (datetime(2026, 10, 23, 11, 0), datetime(2026, 10, 23, 12, 0, tzinfo=bst)):
+        with pytest.raises(ValidationFailed) as info:
+            cls(SERVICE_ID, **{**times, field: bad})
+        assert info.value.field == field
+
+
+@pytest.mark.parametrize("cls", LADDER_EVENTS)
+@pytest.mark.parametrize("missing", ["service_id", "due_at", "at"])
+def test_a_ladder_event_needs_every_field(cls: Any, missing: str) -> None:
+    payload = cls(SERVICE_ID, DUE_AT, AT).to_payload()
+    del payload[missing]
+    with pytest.raises(ValidationFailed) as info:
+        from_payload(cls.__name__, payload)
+    assert info.value.field == missing
+
+
+@pytest.mark.parametrize("cls", LADDER_EVENTS)
+@pytest.mark.parametrize("bad", ["2026-10-23T12:00:00+01:00", "2026-10-23 11:00:00Z", "11:00", 7])
+def test_a_ladder_event_payload_due_time_must_be_utc_text(cls: Any, bad: object) -> None:
+    payload = cls(SERVICE_ID, DUE_AT, AT).to_payload()
+    payload["due_at"] = bad
+    with pytest.raises(ValidationFailed) as info:
+        from_payload(cls.__name__, payload)
+    assert info.value.field == "due_at"
+
+
+@pytest.mark.parametrize("cls", LADDER_EVENTS)
+def test_a_ladder_event_service_must_be_text(cls: Any) -> None:
+    payload = cls(SERVICE_ID, DUE_AT, AT).to_payload()
+    payload["service_id"] = ["svc-ucr-west"]
+    with pytest.raises(ValidationFailed) as info:
+        from_payload(cls.__name__, payload)
+    assert info.value.field == "service_id"

@@ -1,0 +1,35 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "status",
+  "url": "https://diucs.example/CodeSystem/status",
+  "name": "status",
+  "status": "active",
+  "content": "complete",
+  "count": 6,
+  "concept": [
+    {
+      "code": "accepting",
+      "display": "Accepting"
+    },
+    {
+      "code": "limited",
+      "display": "Limited"
+    },
+    {
+      "code": "not-accepting",
+      "display": "Not accepting"
+    },
+    {
+      "code": "not-updated",
+      "display": "Not updated"
+    },
+    {
+      "code": "out-of-hours",
+      "display": "Out of hours"
+    },
+    {
+      "code": "over-capacity",
+      "display": "Over capacity"
+    }
+  ]
+}

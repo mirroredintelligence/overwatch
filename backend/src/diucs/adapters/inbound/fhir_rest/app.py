@@ -5,6 +5,7 @@ module (the layers and independence contracts in backend/.importlinter). The pro
 it calls container.startup() before serving and container.shutdown() on exit (DEC-012).
 """
 
+from collections.abc import Callable
 from typing import Protocol, cast
 
 from fastapi import APIRouter, FastAPI, Request
@@ -35,7 +36,15 @@ class ApiContainer(Protocol):
     def ids(self) -> IdGenerator: ...
 
 
-def create_app(container: ApiContainer, synthetic: SyntheticHook | None = None) -> FastAPI:
+def create_app(
+    container: ApiContainer,
+    synthetic: SyntheticHook | None = None,
+    *,
+    instrument: Callable[[FastAPI], None] | None = None,
+) -> FastAPI:
+    """Build the app. `synthetic` is the synthetic test hook (O09; None answers 404). `instrument`,
+    when given, is called once with the finished app, so a process can add request tracing (the
+    composition root decides, from the telemetry setting; the default adds nothing)."""
     # The OpenAPI pages are off: every response is FHIR, and the surface is the FHIR API only.
     app = FastAPI(
         title="DIUCS capacity FHIR API",
@@ -84,6 +93,8 @@ def create_app(container: ApiContainer, synthetic: SyntheticHook | None = None) 
     from diucs.adapters.inbound.fhir_rest import routes_synthetic
 
     app.include_router(routes_synthetic.router)
+    if instrument is not None:
+        instrument(app)
     return app
 
 

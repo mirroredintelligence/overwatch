@@ -1,0 +1,27 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "alert-kind",
+  "url": "https://diucs.example/CodeSystem/alert-kind",
+  "name": "alert-kind",
+  "status": "active",
+  "content": "complete",
+  "count": 4,
+  "concept": [
+    {
+      "code": "not-updated",
+      "display": "Not updated"
+    },
+    {
+      "code": "over-capacity",
+      "display": "Over capacity"
+    },
+    {
+      "code": "service-closed",
+      "display": "Service closed"
+    },
+    {
+      "code": "system-pressure",
+      "display": "System pressure"
+    }
+  ]
+}

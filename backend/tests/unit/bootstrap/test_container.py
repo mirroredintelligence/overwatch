@@ -1,12 +1,15 @@
 import dataclasses
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncGraphDatabase
+from redis.asyncio import Redis
 
+from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
+from diucs.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store import connection as connection_module
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
@@ -290,3 +293,88 @@ async def test_a_connection_that_will_not_open_stops_the_start_before_any_migrat
         await container.startup()
 
     assert "migrate" not in events
+
+
+async def test_build_wires_the_redis_identity_stores_from_settings() -> None:
+    container = build(Settings())
+    try:
+        assert isinstance(container.sessions, RedisSessionStore)
+        assert isinstance(container.codes, RedisCodeStore)
+        assert isinstance(container.rate_limiter, RedisRateLimiter)
+        assert isinstance(container.redis, Redis)
+    finally:
+        await container.shutdown()
+
+
+async def test_build_wires_the_local_postcode_locator_and_the_straight_line_travel_estimate(
+    tmp_path: Any,
+) -> None:
+    from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
+    from diucs.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
+
+    fixture = tmp_path / "centroids.csv"
+    fixture.write_text("postcode,latitude,longitude\nDT4 8XX,50.6151,-2.4612\n", encoding="utf-8")
+    container = build(Settings(postcode_centroids_path=fixture))
+    try:
+        assert isinstance(container.postcodes, CsvPostcodeLocator)
+        assert isinstance(container.travel, StraightLineTravelTime)
+    finally:
+        await container.shutdown()
+
+
+async def test_build_for_tests_wires_the_redis_identity_stores_without_a_server(
+    neo4j: Neo4jConnection,
+) -> None:
+    """The stores connect lazily: building a container opens no Redis connection."""
+    container = build_for_tests(neo4j=neo4j)
+    assert isinstance(container.sessions, RedisSessionStore)
+    assert isinstance(container.codes, RedisCodeStore)
+    assert isinstance(container.rate_limiter, RedisRateLimiter)
+
+
+async def test_shutdown_closes_the_redis_client_as_well_as_neo4j() -> None:
+    container = build(Settings())
+    closed: list[str] = []
+
+    async def close_neo4j() -> None:
+        closed.append("neo4j")
+
+    async def close_redis() -> None:
+        closed.append("redis")
+
+    object.__setattr__(container.neo4j, "close", close_neo4j)
+    object.__setattr__(container.redis, "aclose", close_redis)
+    await container.shutdown()
+    assert closed == ["neo4j", "redis"]
+
+
+async def test_build_without_a_centroid_file_locates_nothing_rather_than_guessing(
+    neo4j: Neo4jConnection,
+) -> None:
+    container = build_for_tests(neo4j=neo4j)
+
+    assert container.postcodes.locate("DT4 8XX") is None
+
+
+async def test_build_wires_the_pilot_terminology_and_no_geocoder_without_a_key() -> None:
+    container = build(Settings())
+    try:
+        record = await container.terminology.ods_lookup("RDY")
+        assert record is not None
+        assert container.http is None
+        assert await container.geocoder.find_addresses("DT1 1AA") == []
+    finally:
+        await container.shutdown()
+
+
+async def test_build_wires_the_os_places_geocoder_and_closes_its_client_on_shutdown() -> None:
+    from pydantic import SecretStr
+
+    from diucs.adapters.outbound.geocoder_os_places.os_places import OsPlacesGeocoder
+
+    container = build(Settings(os_places_api_key=SecretStr("test-key")))
+    assert isinstance(container.geocoder, OsPlacesGeocoder)
+    assert container.http is not None
+    client = container.http
+    await container.shutdown()
+    assert client.is_closed

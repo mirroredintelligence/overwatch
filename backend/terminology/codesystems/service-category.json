@@ -1,0 +1,43 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "service-category",
+  "url": "https://diucs.example/CodeSystem/service-category",
+  "name": "service-category",
+  "status": "active",
+  "content": "complete",
+  "count": 8,
+  "concept": [
+    {
+      "code": "hospital-at-home-or-virtual-ward",
+      "display": "Hospital at home or virtual ward"
+    },
+    {
+      "code": "inpatient-beds",
+      "display": "Inpatient beds"
+    },
+    {
+      "code": "mental-health-crisis",
+      "display": "Mental health crisis"
+    },
+    {
+      "code": "other",
+      "display": "Other"
+    },
+    {
+      "code": "reablement",
+      "display": "Reablement"
+    },
+    {
+      "code": "same-day-emergency-care",
+      "display": "Same day emergency care"
+    },
+    {
+      "code": "urgent-community-response",
+      "display": "Urgent community response"
+    },
+    {
+      "code": "urgent-treatment",
+      "display": "Urgent treatment"
+    }
+  ]
+}

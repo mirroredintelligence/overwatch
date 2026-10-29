@@ -24,13 +24,18 @@ from azure.servicebus.exceptions import OperationTimeoutError
 from redis.asyncio import Redis
 
 from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
+from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_cache import InMemoryCache
+from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
 from diucs.adapters.testing.memory_event_bus import ManualEventBus
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS, BusMessage, EventBus
+from diucs.application.ports.outbound.identity import CodeStore
+from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.settings import Settings
+from diucs.domain.rules.identity_policy import CodeState
 from tests.contract.harness import Harness
 from tests.support.redis import flush_prefix
 from tests.support.servicebus import client as servicebus_client
@@ -113,6 +118,84 @@ async def make_redis_cache() -> Harness[Cache]:
     return Harness(
         subject=cache,
         now=lambda: datetime.now(UTC),
+        advance=advance,
+        close=close,
+    )
+
+
+# The tenant every code-store contract run binds around each call (I13: the tenant comes from the
+# bound unit of work, never from an argument).
+CONTRACT_TENANT = "contract-tenant"
+
+
+class _OffsetClock:
+    """Real time moved forward by advance(). The Redis code store reads this clock for validity, so
+    a 10-minute code expires in the contract without a 10-minute wait (DEC-075 item 4)."""
+
+    def __init__(self) -> None:
+        self._offset = timedelta(0)
+
+    def now(self) -> datetime:
+        return datetime.now(UTC) + self._offset
+
+    def advance(self, delta: timedelta) -> None:
+        self._offset += delta
+
+
+class _TenantBoundCodeStore:
+    """The contract's view of the Redis code store: each call runs with CONTRACT_TENANT bound."""
+
+    def __init__(self, inner: CodeStore, tenant: str) -> None:
+        self._inner = inner
+        self._tenant = tenant
+
+    async def save(self, purpose: str, phone_hash: str, code_hash: str, state: CodeState) -> None:
+        with bind_tenant(self._tenant):
+            await self._inner.save(purpose, phone_hash, code_hash, state)
+
+    async def get(self, purpose: str, phone_hash: str) -> tuple[str, CodeState] | None:
+        with bind_tenant(self._tenant):
+            return await self._inner.get(purpose, phone_hash)
+
+    async def clear(self, purpose: str, phone_hash: str) -> None:
+        with bind_tenant(self._tenant):
+            await self._inner.clear(purpose, phone_hash)
+
+
+async def make_memory_code_store() -> Harness[CodeStore]:
+    clock = FixedClock(START)
+    store = InMemoryCodeStore(clock)
+
+    async def advance(delta: timedelta) -> None:
+        clock.advance(delta)
+
+    return Harness(subject=store, now=clock.now, advance=advance, close=_nothing_to_close)
+
+
+async def make_redis_code_store() -> Harness[CodeStore]:
+    """A RedisCodeStore on the Redis of infra/docker-compose.yml, under a prefix this harness alone
+    uses, and bound to CONTRACT_TENANT for each call. The store reads an offset clock, so advance()
+    moves the validity window without a real wait; Redis's own key expiry is real time."""
+    url = Settings().redis_url
+    prefix = f"diucs-contract-{uuid4().hex}:"
+    cleaner = Redis.from_url(url, decode_responses=True)
+    client = Redis.from_url(url, decode_responses=True)
+    clock = _OffsetClock()
+    store = RedisCodeStore(client, clock, key_prefix=prefix)
+
+    async def advance(delta: timedelta) -> None:
+        clock.advance(delta)
+
+    async def close() -> None:
+        try:
+            await flush_prefix(cleaner, prefix)
+        finally:
+            await client.aclose()
+            await cleaner.aclose()
+
+    return Harness(
+        subject=_TenantBoundCodeStore(store, CONTRACT_TENANT),
+        now=clock.now,
         advance=advance,
         close=close,
     )
@@ -256,6 +339,10 @@ async def make_servicebus_event_bus() -> Harness[EventBus]:
     )
 
 
+CODE_STORE_FACTORIES = [
+    pytest.param(make_memory_code_store, id="memory"),
+    pytest.param(make_redis_code_store, id="redis", marks=pytest.mark.integration),
+]
 CACHE_FACTORIES = [
     pytest.param(make_memory_cache, id="memory"),
     pytest.param(make_redis_cache, id="redis", marks=pytest.mark.integration),

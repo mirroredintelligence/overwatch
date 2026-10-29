@@ -1,3 +1,4 @@
+import { withTraceparent } from '@/lib/telemetry/trace';
 import { type LinkAnswer, type LinkAnswered, type LinkView, parseLinkAnswered, parseLinkView } from './model';
 
 // The browser's calls to the link pages' BFF (`/api/bff/links/[token]`). Each answers with what the
@@ -22,7 +23,7 @@ export type LinkRead = { kind: 'open'; view: LinkView } | { kind: 'gone' } | { k
 export async function readLinkView(token: string): Promise<LinkRead> {
   let response: Response;
   try {
-    response = await fetch(base(token), { method: 'GET', cache: 'no-store', credentials: 'same-origin' });
+    response = await fetch(base(token), withTraceparent({ method: 'GET', cache: 'no-store', credentials: 'same-origin' }));
   } catch {
     return { kind: 'unavailable' };
   }
@@ -47,13 +48,13 @@ async function bodyOf(response: Response): Promise<unknown> {
 export async function sendAnswer(token: string, csrf: string, answer: LinkAnswer): Promise<AnswerOutcome> {
   let response: Response;
   try {
-    response = await fetch(base(token), {
+    response = await fetch(base(token), withTraceparent({
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
       body: JSON.stringify(answer),
       cache: 'no-store',
       credentials: 'same-origin',
-    });
+    }));
   } catch {
     return { kind: 'failed' };
   }
@@ -86,7 +87,7 @@ export async function sendAnswer(token: string, csrf: string, answer: LinkAnswer
 /** Asks for a new link to an expired link. The back end answers 202 for every token; 429 when the budget is spent. */
 export async function requestRenew(token: string): Promise<'accepted' | 'rate-limited' | 'failed'> {
   try {
-    const response = await fetch(`${base(token)}/renew`, { method: 'POST', cache: 'no-store', credentials: 'same-origin' });
+    const response = await fetch(`${base(token)}/renew`, withTraceparent({ method: 'POST', cache: 'no-store', credentials: 'same-origin' }));
     if (response.status === 202) return 'accepted';
     return response.status === 429 ? 'rate-limited' : 'failed';
   } catch {

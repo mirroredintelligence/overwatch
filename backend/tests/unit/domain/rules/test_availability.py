@@ -4,7 +4,8 @@ Rules: docs/spec/domain-rules.md section 1.6. Names: docs/spec/contracts.md, rul
 A booking confirmed at exactly effective_at counts as after the report. Sample values only.
 """
 
-from collections.abc import Iterable
+import inspect
+from collections.abc import Callable, Iterable
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
@@ -15,6 +16,7 @@ from hypothesis import strategies as st
 
 from diucs.domain.codes import BookingStatus, Measure, ReportSource, ReportType
 from diucs.domain.model.capacity import CapacityReport
+from diucs.domain.rules import availability
 from diucs.domain.rules.availability import effective_available, effective_occupied, pending_count
 
 REPORTED_AT = datetime(2026, 10, 25, 13, 3, tzinfo=UTC)
@@ -220,3 +222,30 @@ def test_pending_does_not_count_a_member_of_another_enum_with_the_same_value() -
 @given(st.lists(st.sampled_from(list(BookingStatus)), max_size=40))
 def test_pending_equals_the_number_of_requested_statuses(statuses: list[BookingStatus]) -> None:
     assert pending_count(statuses) == sum(1 for s in statuses if s is BookingStatus.REQUESTED)
+
+
+# --- Tenant policy (TEN-021) ----------------------------------------------------------------
+
+
+# Test 22. Pin: the availability formulas take no policy, and the module says they are global.
+
+
+@pytest.mark.parametrize(
+    ("function", "parameters"),
+    [
+        (effective_available, ["report", "confirmed_at"]),
+        (effective_occupied, ["report", "confirmed_at"]),
+        (pending_count, ["statuses"]),
+    ],
+    ids=["effective_available", "effective_occupied", "pending_count"],
+)
+def test_the_availability_formulas_take_exactly_today_parameters_and_no_policy(
+    function: Callable[..., object], parameters: list[str]
+) -> None:
+    assert list(inspect.signature(function).parameters) == parameters
+    assert "policy" not in inspect.signature(function).parameters
+
+
+def test_the_module_states_that_the_availability_formulas_are_global() -> None:
+    assert availability.__doc__ is not None
+    assert "global" in availability.__doc__

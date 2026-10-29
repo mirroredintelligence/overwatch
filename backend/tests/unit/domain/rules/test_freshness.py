@@ -8,21 +8,28 @@ expectation and the rule book differ (no report ever, before the first due on Mo
 """
 
 import re
-from datetime import UTC, datetime, time, timedelta, timezone
+from collections.abc import Callable
+from datetime import UTC, date, datetime, time, timedelta, timezone
 from typing import Final
 
 import pytest
-from hypothesis import given
+from hypothesis import assume, given, settings
 from hypothesis import strategies as st
 
 from diucs.domain.codes import Cadence, Channel, Measure, ServiceCategory
+from diucs.domain.model import tenant_policy
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules import freshness as freshness_rules
 from diucs.domain.rules.freshness import (
     STALE_WARNING_AFTER,
     Freshness,
     assess_freshness,
     data_age_text,
 )
+from diucs.domain.rules.london_time import london_to_utc, to_london
+from diucs.domain.rules.schedule import due_times_on
+from tests.support.policy_samples import policies, policy
 
 BST: Final = timezone(timedelta(hours=1))
 
@@ -242,3 +249,206 @@ def test_one_microsecond_after_reply_by_is_overdue() -> None:
     result = assess_freshness(UCR_WEST, utc(2026, 10, 23, 9, 15), now)
     assert result.overdue is True
     assert result.was_due == utc(2026, 10, 23, 11, 0)
+
+
+# --- Tenant policy (TEN-021) ----------------------------------------------------------------
+
+FRIDAY: Final = date(2026, 10, 23)  # British summer time: 10:00 London is 09:00Z
+ONE_MICROSECOND_DELTA: Final = timedelta(microseconds=1)
+
+
+def london(hour: int, minute: int = 0, extra: timedelta = timedelta(0)) -> datetime:
+    return london_to_utc(FRIDAY, time(hour, minute)) + extra
+
+
+def overdue_at(now: datetime, reply_window: timedelta) -> bool:
+    last = london(8, 0)  # the last report: the 08:00 due was answered
+    return assess_freshness(UCR_WEST, last, now, policy(reply_window=reply_window)).overdue
+
+
+# Test 7. Boundaries: a due at 10:00 and a last report at 08:00 (London).
+
+
+def test_default_window_10_30_exactly_is_not_overdue_and_one_microsecond_later_is() -> None:
+    assert not overdue_at(london(10, 30), DEFAULT_POLICY.reply_window)
+    assert overdue_at(london(10, 30, ONE_MICROSECOND_DELTA), DEFAULT_POLICY.reply_window)
+
+
+def test_fifteen_minute_window_10_15_exactly_is_not_overdue_and_one_microsecond_later_is() -> None:
+    fifteen = timedelta(minutes=15)
+    assert not overdue_at(london(10, 15), fifteen)
+    assert overdue_at(london(10, 15, ONE_MICROSECOND_DELTA), fifteen)
+
+
+def test_10_20_is_overdue_under_fifteen_minutes_and_not_under_thirty() -> None:
+    assert overdue_at(london(10, 20), timedelta(minutes=15))
+    assert not overdue_at(london(10, 20), timedelta(minutes=30))
+
+
+def test_with_a_fifteen_minute_window_the_10_00_due_is_missed_from_10_15_and_was_due() -> None:
+    tenant = policy(reply_window=timedelta(minutes=15))
+    result = assess_freshness(UCR_WEST, london(8, 0), london(10, 16), tenant)
+    assert result.overdue
+    assert result.was_due == london(10, 0)
+
+
+# Test 8. Oracle property, independent of the code under test.
+
+
+def oracle_overdue(
+    prof: ServiceProfile,
+    last: datetime | None,
+    now: datetime,
+    tenant: TenantPolicy,
+) -> tuple[bool, datetime | None]:
+    """Brute force: the latest due of the eight days before now that is missed and after last."""
+    today = to_london(now).date()
+    missed = [
+        due
+        for offset in range(-8, 1)
+        for due in due_times_on(prof, today + timedelta(days=offset), tenant)
+        if due + tenant.reply_window < now and (last is None or due > last)
+    ]
+    latest = max(missed, default=None)
+    return latest is not None, latest
+
+
+PROFILE_FACTORIES: Final = (
+    lambda cadence: profile(cadence),
+    lambda cadence: ServiceProfile(
+        id="svc-afternoon",
+        name="UCR West",
+        category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+        measure=Measure.REFERRALS_ACCEPTABLE,
+        unit_label="referrals in the next 2 hrs",
+        established_capacity=8,
+        can_exceed_established=False,
+        usual_range=(0, 8),
+        cadence=cadence,
+        available_times=(AvailableTime.weekdays(time(14, 30), time(20, 0)),),
+        channel=Channel.TEXT,
+    ),
+    lambda cadence: ServiceProfile(
+        id="svc-overnight",
+        name="UCR West",
+        category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+        measure=Measure.REFERRALS_ACCEPTABLE,
+        unit_label="referrals in the next 2 hrs",
+        established_capacity=8,
+        can_exceed_established=False,
+        usual_range=(0, 8),
+        cadence=cadence,
+        available_times=(AvailableTime.every_day(time(10, 0), time(6, 0)),),
+        channel=Channel.TEXT,
+    ),
+)
+
+
+JITTER: Final = st.sampled_from(
+    [-ONE_MICROSECOND_DELTA, timedelta(0), ONE_MICROSECOND_DELTA, timedelta(minutes=1)]
+)
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    tenant=policies(),
+    factory=st.sampled_from(PROFILE_FACTORIES),
+    cadence=st.sampled_from(list(Cadence)),
+    day=st.dates(min_value=date(2026, 3, 20), max_value=date(2026, 11, 2)),
+    pick=st.integers(min_value=0, max_value=12),
+    jitter=JITTER,
+    last_pick=st.one_of(st.none(), st.integers(min_value=0, max_value=12)),
+)
+def test_overdue_and_was_due_equal_the_brute_force_oracle(
+    tenant: TenantPolicy,
+    factory: Callable[[Cadence], ServiceProfile],
+    cadence: Cadence,
+    day: date,
+    pick: int,
+    jitter: timedelta,
+    last_pick: int | None,
+) -> None:
+    """`now` sits at a due time plus the policy window, plus a jitter of a microsecond either side,
+    so the boundary of every policy is exercised, not only the instants a uniform draw happens to
+    hit. The last report is None or a due time before now."""
+    prof = factory(cadence)
+    dues = due_times_on(prof, day, tenant)
+    assume(dues)
+    now = dues[pick % len(dues)] + tenant.reply_window + jitter
+    earlier = [due for due in due_times_on(prof, day, tenant) if due <= now]
+    last = None if last_pick is None or not earlier else earlier[last_pick % len(earlier)]
+    result = assess_freshness(prof, last, now, tenant)
+    expected_overdue, expected_was_due = oracle_overdue(prof, last, now, tenant)
+    assert result.overdue == expected_overdue
+    assert result.was_due == expected_was_due
+
+
+# Test 9. The stale warning: strictly older than the policy's limit.
+
+
+def test_stale_warning_default_limit_is_two_hours_as_a_literal() -> None:
+    assert timedelta(hours=2) == STALE_WARNING_AFTER
+    assert STALE_WARNING_AFTER is DEFAULT_POLICY.stale_warning_after
+
+
+def test_a_ninety_minute_old_report_warns_by_default_only_with_a_one_hour_limit() -> None:
+    last = london(8, 0)
+    now = last + timedelta(minutes=90)
+    assert not assess_freshness(UCR_WEST, last, now).stale_warning
+    tenant = policy(stale_warning_after=timedelta(hours=1))
+    assert assess_freshness(UCR_WEST, last, now, tenant).stale_warning
+
+
+@pytest.mark.parametrize("hours", [1, 2, 4])
+def test_age_exactly_at_the_limit_does_not_warn(hours: int) -> None:
+    last = london(8, 0)
+    tenant = policy(stale_warning_after=timedelta(hours=hours))
+    assert not assess_freshness(UCR_WEST, last, last + timedelta(hours=hours), tenant).stale_warning
+
+
+@pytest.mark.parametrize("hours", [1, 2, 4])
+def test_age_one_microsecond_over_the_limit_warns(hours: int) -> None:
+    last = london(8, 0)
+    tenant = policy(stale_warning_after=timedelta(hours=hours))
+    later = last + timedelta(hours=hours, microseconds=1)
+    assert assess_freshness(UCR_WEST, last, later, tenant).stale_warning
+
+
+def test_the_module_constant_is_the_default_policy_value() -> None:
+    assert freshness_rules.STALE_WARNING_AFTER is tenant_policy.DEFAULT_POLICY.stale_warning_after
+
+
+# Test 10. The policy must be exactly a TenantPolicy.
+
+
+class _SubclassedPolicy(TenantPolicy):
+    """A subclass instance looks like a policy but is not exactly one."""
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [None, {"reply_window": 15}, _SubclassedPolicy()],
+    ids=["none", "mapping", "subclass"],
+)
+def test_a_policy_that_is_not_exactly_a_tenant_policy_is_refused(bad: object) -> None:
+    with pytest.raises(TypeError, match="a TenantPolicy is required"):
+        assess_freshness(UCR_WEST, None, london(12, 0), bad)  # type: ignore[arg-type]
+
+
+# Rule 4(d): the default argument equals the explicit default policy.
+
+
+@settings(max_examples=80, deadline=None)
+@given(
+    cadence=st.sampled_from(list(Cadence)),
+    now=st.datetimes(min_value=datetime(2026, 3, 20), max_value=datetime(2026, 11, 3)).map(
+        lambda naive: naive.replace(tzinfo=UTC)
+    ),
+    age=st.timedeltas(min_value=timedelta(0), max_value=timedelta(days=5)),
+)
+def test_the_default_argument_equals_the_default_policy(
+    cadence: Cadence, now: datetime, age: timedelta
+) -> None:
+    prof = profile(cadence)
+    last = now - age
+    assert assess_freshness(prof, last, now) == assess_freshness(prof, last, now, DEFAULT_POLICY)

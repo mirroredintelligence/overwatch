@@ -155,7 +155,18 @@ _LATEST_SEED: Final = TenantSeed(
     nodes=(_ROLE_NODE, _SERVICE_NODE, _TOPIC_NODE, _MEDIUM_NODE, _LATEST_PROMPT_NODE),
     rels=(_TOPIC_EDGE, _MEDIUM_EDGE, _RECIPIENT_EDGE, _ABOUT_EDGE),
 )
-_ROW_OF_PROMPT: Final = {
+_ROW_OF_LATEST: Final[dict[str, Any]] = {
+    "messageId": "C1",
+    "channel": "text",
+    "recipientRoleId": "role-1",
+    "aboutId": "svc-1",
+    "props": {
+        "id": Marked("comm-latest"),
+        "payloadText": Marked(_MESSAGE_TEXT),
+        "deliveryStatus": "sent",
+    },
+}
+_ROW_OF_PROMPT: Final[dict[str, Any]] = {
     "messageId": "C1",
     "channel": "text",
     "recipientRoleId": "role-1",
@@ -301,17 +312,7 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
             "messageIds": ["C1"],
             "messageSystem": MESSAGE_SYSTEM,
         },
-        expect=Expect(
-            rows=(
-                {
-                    **_ROW_OF_PROMPT,
-                    "props": {
-                        **_ROW_OF_PROMPT["props"],
-                        "id": Marked("comm-latest"),
-                    },
-                },
-            )
-        ),
+        expect=Expect(rows=(_ROW_OF_LATEST,)),
     ),
 }
 

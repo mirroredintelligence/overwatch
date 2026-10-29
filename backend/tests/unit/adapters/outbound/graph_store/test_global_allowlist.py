@@ -469,6 +469,26 @@ def test_an_unterminated_string_or_comment_is_refused(
         allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
 
 
+@pytest.mark.parametrize(
+    "cypher",
+    [
+        "MATCH (t:Tenant) RETURN dbms.x(t:Tenant) AS x",
+        "MATCH (t:Tenant) RETURN foo(t:Tenant) AS x",
+        "MATCH (t:Tenant) RETURN {a: 1} AS m",
+        "MATCH (t:Tenant) RETURN t{.id} AS m",
+        "MATCH (t:Tenant) WHERE EXISTS { RETURN 1 } RETURN t.id AS id",
+        "MATCH (t:Tenant) RETURN t.id AS id; RETURN 1 AS ok",
+    ],
+)
+def test_a_function_that_is_not_listed_and_a_brace_outside_a_node_are_refused(
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
+) -> None:
+    _pin(monkeypatch, cypher)
+    with pytest.raises(ValueError, match="Q-TEST-GLOBAL") as raised:
+        allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
+    assert "pinned" not in str(raised.value)
+
+
 # Running them
 
 

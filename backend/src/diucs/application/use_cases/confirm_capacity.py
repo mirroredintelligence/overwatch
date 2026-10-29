@@ -6,7 +6,9 @@ further one is refused and nothing is written.
 
 The unit of work takes the service's write lock first, then reads the latest report and the count,
 then takes the effective time and writes (DEC-112 items 8 and 10, DEC-139; lessons L73, L99). Two
-confirmations for one service therefore run one after the other. The write itself goes through
+confirmations for one service therefore run one after the other. A caller that judged a report
+passes its id as `expected_latest_id`; the latest read under the lock must be that report, or
+nothing is written (DEC-148 item 18). The write itself goes through
 record_report (U01), which also writes the echo, status events, audit entry and idempotency record
 in the same unit of work.
 """
@@ -22,7 +24,13 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.report_capacity import check_may_report, record_report
 from diucs.domain.codes import ReportSource, ReportType, Status
-from diucs.domain.errors import ConfirmLimitReached, Conflict, NotFound, NothingToConfirm
+from diucs.domain.errors import (
+    ConfirmLimitReached,
+    Conflict,
+    LatestReportChanged,
+    NotFound,
+    NothingToConfirm,
+)
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.rules.reply_policy import MAX_CONSECUTIVE_CONFIRMS
 
@@ -42,7 +50,7 @@ class ConfirmCapacityCommand:
     expected_latest_id: str | None = None
     """The report the caller judged, or None for a caller that did not judge one. When set, the
     confirmation is refused, and nothing is written, unless the latest report of the service, read
-    under the service lock, is this one (DEC-148 item 20)."""
+    under the service lock, is this one (DEC-148 item 18)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +132,14 @@ class ConfirmCapacity:
             latest = await uow.capacity.latest(profile.id)
             if latest is None:
                 raise NothingToConfirm("this service has no report to confirm")
+            if command.expected_latest_id is not None and latest.id != command.expected_latest_id:
+                # The caller judged another report. A report landed since, so what would be
+                # confirmed is a figure nobody judged: write nothing (DEC-148 item 18).
+                raise LatestReportChanged(
+                    "the latest report is not the one that was judged",
+                    latest.value,
+                    latest.effective_at,
+                )
             trailing = await uow.capacity.trailing_confirmations(profile.id)
             if trailing >= MAX_CONSECUTIVE_CONFIRMS:
                 raise ConfirmLimitReached("confirmed twice in a row: give the figure again")

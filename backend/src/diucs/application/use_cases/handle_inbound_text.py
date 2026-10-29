@@ -42,10 +42,11 @@ from diucs.application.use_cases.report_capacity import (
     ReportCapacityResult,
 )
 from diucs.application.use_cases.send_prompts import split_unit_label
-from diucs.domain.codes import Channel, ReportFlagReason, ReportSource, Role
+from diucs.domain.codes import Channel, ReportFlagReason, ReportSource, ReportType, Role
 from diucs.domain.errors import (
     ConfirmLimitReached,
     Conflict,
+    LatestReportChanged,
     NothingToConfirm,
     ValidationFailed,
 )
@@ -104,7 +105,7 @@ CONFIRMABLE_FIGURE_AGE: Final = STALE_WARNING_AFTER
 """A Y confirms a figure only if it was no older than this when the prompt named it (DEC-148)."""
 
 CONFIRM_PROCESSING_LIMIT: Final = timedelta(minutes=10)
-"""A Y is recorded only if it is processed within this long of being received (DEC-148 item 21)."""
+"""A Y is recorded only if it is processed within this long of being received (DEC-148 item 19)."""
 
 PROMPT_MESSAGES: Final = frozenset(
     message.value
@@ -195,6 +196,9 @@ class _Reply:
     role_id: str
     service_id: str
     text: str
+    at: datetime | None = None
+    """When the reporter is told, if that is not the time the text was received (a Y that waited in
+    a queue is answered at the clock, and its reply-by counts from then)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,6 +208,9 @@ class _Write:
     value: int | None
     replaced_value: int | None
     flag: ReportFlagReason | None
+    expected_latest_id: str | None = None
+    """For a confirmation: the report that was judged, which ConfirmCapacity must still find as the
+    latest under its lock (DEC-148 item 18)."""
 
     @property
     def kind(self) -> str:
@@ -230,9 +237,14 @@ class _Plan:
     actor: Actor
     grouped: bool
     service_ids: tuple[str, ...]
+    told_at: datetime
     items: list[_Item] = field(default_factory=list)
     waiting: list[tuple[str, str]] = field(default_factory=list)
     help_reply: _Reply | None = None
+    processing_delay: timedelta = timedelta(0)
+    """How long after it was received the text is being processed: a Y is recorded only within
+    CONFIRM_PROCESSING_LIMIT of its receipt (DEC-148 item 19). `told_at` is the clock when the plan
+    was made, the time a refusal is sent."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -314,17 +326,19 @@ def _ask_again(target: _Target, value: int) -> _Reply:
     return _Reply(MessageId.C7, target.role_id, target.service_id, text)
 
 
-def _out_of_date(target: _Target, latest: CapacityReport, now: datetime) -> _Reply:
+def _out_of_date(target: _Target, value: int, as_of: datetime, told_at: datetime) -> _Reply:
+    """C12: the figure on record is not one a Y may confirm. The reply-by counts from `told_at`, the
+    time the reporter is told, and the message is stored as sent then."""
     text = _text(
         MessageId.C12,
         service=target.profile.name,
-        value=latest.value,
+        value=value,
         unit=target.profile.unit_label,
-        as_of=format_stamp(latest.effective_at),
+        as_of=format_stamp(as_of),
         reply_with="a number" if target.letter is None else f"{target.letter} and a number",
-        reply_by=format_hhmm(reply_by(now)),
+        reply_by=format_hhmm(reply_by(told_at)),
     )
-    return _Reply(MessageId.C12, target.role_id, target.service_id, text)
+    return _Reply(MessageId.C12, target.role_id, target.service_id, text, told_at)
 
 
 def _assign(
@@ -388,10 +402,11 @@ class HandleInboundText:
         if early is not None:
             return _replay(early, fingerprint)
         # The reply is judged at the time it was received, but never at a time after the clock.
-        now = min(received, self._clock.now().astimezone(UTC))
+        clock_now = self._clock.now().astimezone(UTC)
+        now = min(received, clock_now)
 
         async with self._uow_factory() as uow:
-            planned = await self._plan(uow, command, now)
+            planned = await self._plan(uow, command, now, clock_now - received, clock_now)
         if isinstance(planned, HandleInboundTextResult):
             return planned
         plan = planned
@@ -408,7 +423,12 @@ class HandleInboundText:
     # -- reading: what does this text come to? -----------------------------------------
 
     async def _plan(
-        self, uow: UnitOfWork, command: HandleInboundTextCommand, now: datetime
+        self,
+        uow: UnitOfWork,
+        command: HandleInboundTextCommand,
+        now: datetime,
+        delay: timedelta,
+        clock_now: datetime,
     ) -> HandleInboundTextResult | _Plan:
         practitioner = await uow.people.find_by_phone_hash(command.from_phone_hash)
         if practitioner is None:
@@ -468,6 +488,8 @@ class HandleInboundText:
             actor=actor,
             grouped=targets[0].letter is not None,
             service_ids=service_ids,
+            told_at=clock_now,
+            processing_delay=delay,
         )
         for target, reply in assigned:
             plan.items.append(await self._item(uow, command, plan, target, reply, now))
@@ -489,6 +511,7 @@ class HandleInboundText:
             actor=actor,
             grouped=False,
             service_ids=service_ids,
+            told_at=now,
         )
         plan.help_reply = _help(role_id, service_ids[0])
         return plan
@@ -573,7 +596,9 @@ class HandleInboundText:
             item.outcome = RECORDED
             item.write = _Write(decision.value, replaced, decision.flag)
         elif isinstance(decision, RecordConfirm):
-            self._judge_confirm(item, plan, latest, now)
+            # Hazard H-32: has a number been reported since the prompt named the figure?
+            newer = await self._number_after_prompt(uow, service_id, plan.prompt_sent_at)
+            self._judge_confirm(item, plan, latest, newer)
         elif isinstance(decision, RejectLate):
             rejected = str(reply.value) if isinstance(reply, Number) else "Y"
             item.outcome = LATE
@@ -601,17 +626,39 @@ class HandleInboundText:
         return item
 
     @staticmethod
+    async def _number_after_prompt(
+        uow: UnitOfWork, service_id: str, prompt_sent_at: datetime
+    ) -> bool:
+        """True when a number was reported for the service after the prompt was sent. A Y is an
+        answer to the figure the prompt named; a number that came in since is a figure the
+        reporter was never shown. A confirmation repeats a figure and does not count, so the
+        second of two Ys to one prompt is still a Y to that figure (hazard H-32, DEC-148)."""
+        since = await uow.capacity.reports_since(service_id, prompt_sent_at)
+        return any(
+            report.report_type is ReportType.NUMBER and report.effective_at > prompt_sent_at
+            for report in since
+        )
+
+    @staticmethod
     def _judge_confirm(
-        item: _Item, plan: _Plan, latest: CapacityReport | None, now: datetime
+        item: _Item, plan: _Plan, latest: CapacityReport | None, number_after_prompt: bool
     ) -> None:
-        """Hazard H-31. The policy has said a Y is allowed; it has not looked at the figure's age.
-        A figure older than its window when the prompt named it is not confirmed (DEC-148)."""
-        if latest is not None and figure_is_out_of_date(latest.effective_at, plan.prompt_sent_at):
+        """Hazards H-31 and H-32. The policy has said a Y is allowed; it has not looked at the
+        figure. A Y is not recorded, and the reporter is sent C12, when the figure was older than
+        its window when the prompt named it (H-31), when a number has been reported since the
+        prompt (H-32), or when the Y waited more than CONFIRM_PROCESSING_LIMIT between receipt and
+        processing, because the confirmation is stamped now and would make the figure current now
+        (H-32). Otherwise the judged report is the one ConfirmCapacity must find (DEC-148)."""
+        if latest is not None and (
+            figure_is_out_of_date(latest.effective_at, plan.prompt_sent_at)
+            or number_after_prompt
+            or plan.processing_delay > CONFIRM_PROCESSING_LIMIT
+        ):
             item.outcome = STALE_FIGURE
-            item.reply = _out_of_date(item.target, latest, now)
+            item.reply = _out_of_date(item.target, latest.value, latest.effective_at, plan.told_at)
         else:
             item.outcome = CONFIRMED
-            item.write = _Write(None, None, None)
+            item.write = _Write(None, None, None, None if latest is None else latest.id)
 
     async def _waiting(
         self,
@@ -653,6 +700,7 @@ class HandleInboundText:
                         source=ReportSource.TEXT,
                         performer_role_id=target.role_id,
                         send_echo=echo,
+                        expected_latest_id=write.expected_latest_id,
                     )
                 )
                 item.recorded_value = confirmed.confirmed_value
@@ -675,6 +723,10 @@ class HandleInboundText:
             # Two texts raced: the count under the service lock is the one that counts.
             item.outcome = CONFIRM_LIMIT
             item.reply = _confirm_limit(target)
+        except LatestReportChanged as changed:
+            # A report landed between the judgement and the write (hazard H-32).
+            item.outcome = STALE_FIGURE
+            item.reply = _out_of_date(target, changed.latest_value, changed.latest_at, plan.told_at)
         except NothingToConfirm:
             item.outcome = NEED_NUMBER
             item.reply = _need_number(target, now)
@@ -762,7 +814,7 @@ class HandleInboundText:
             recipient_role_id=reply.role_id,
             about_id=reply.service_id,
             payload_text=reply.text,
-            sent_at=now,
+            sent_at=reply.at or now,
             delivery_status="queued",
             in_response_to=plan.prompt_id or None,
         )

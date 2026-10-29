@@ -289,3 +289,53 @@ def test_the_communication_and_scheduled_work_statements_are_converted(
                 query_id,
                 match.group(0),
             )
+
+
+# The twenty-one statements of the criteria and report or service flag repositories (TEN-012,
+# reworks P04 and P14): eight on the criteria Basic and its service, thirteen on the flags. Each
+# must be off the ratchet, carry a valid scenario, and name `tenantId: $tenant` on every node it
+# matches, merges or creates.
+CRITERIA_AND_FLAGS = frozenset(
+    {
+        "Q-CRIT-CLEAR-CURRENT",
+        "Q-CRIT-CURRENT",
+        "Q-CRIT-CURRENT-FOR",
+        "Q-CRIT-LABEL",
+        "Q-CRIT-LOCK-SERVICE",
+        "Q-CRIT-SET-CURRENT",
+        "Q-CRIT-SUBJECT",
+        "Q-CRIT-VERSIONS",
+        "Q-FLAG-BASIC-STATE",
+        "Q-FLAG-LABEL",
+        "Q-FLAG-OBS-LOCK",
+        "Q-FLAG-OBS-SERVICE",
+        "Q-FLAG-REPORT-ADD",
+        "Q-FLAG-REPORT-EXISTS",
+        "Q-FLAG-REPORT-GET",
+        "Q-FLAG-REPORT-LOCK",
+        "Q-FLAG-REPORT-OPEN",
+        "Q-FLAG-REPORT-SAVE",
+        "Q-FLAG-SERVICE-ACTIVE",
+        "Q-FLAG-SERVICE-LOCK",
+        "Q-FLAG-SERVICES-WITH",
+    }
+)
+
+
+def test_the_criteria_and_flag_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert len(CRITERIA_AND_FLAGS) == 21
+    assert CRITERIA_AND_FLAGS.isdisjoint(UNCONVERTED)
+    assert set(statements) >= CRITERIA_AND_FLAGS
+    for query_id in sorted(CRITERIA_AND_FLAGS):
+        query = statements[query_id]
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query.scenario is not None, query_id
+        assert validate_scenario(query_id, query.scenario) == [], query_id
+        pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{[^}]*\})?\)")
+        for match in pattern.finditer(query.cypher):
+            assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), (
+                query_id,
+                match.group(0),
+            )

@@ -494,7 +494,7 @@ def test_the_ratchet_may_only_shrink() -> None:
     statements (47 left). A conversion bundle lowers this number in the same commit that removes ids
     from the list; nothing raises it. The ids themselves are pinned against the initial list in
     test_tenant_ratchet.py."""
-    assert len(UNCONVERTED) <= 47
+    assert len(UNCONVERTED) <= 26
     assert len(UNCONVERTED) == len(set(UNCONVERTED))
 
 

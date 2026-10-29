@@ -53,6 +53,7 @@ _KEYS: Final = frozenset(
         "ageMin",
         "ageMax",
         "reviewBy",
+        "reviewMonths",
         "postcodeDistricts",
         "acceptsNeed",
         "excludesNeed",
@@ -226,6 +227,8 @@ def criteria_to_fhir(criteria: ServiceCriteria) -> dict[str, Any]:
         resource["excludesNeed"] = [codeable_to_fhir(need) for need in sorted(criteria.excludes)]
     if criteria.change_reason:
         resource["changeReason"] = criteria.change_reason
+    if criteria.review_months is not None:
+        resource["reviewMonths"] = criteria.review_months
     if criteria.supersedes_id is not None:
         resource["supersedes"] = {"reference": f"{_BASIC}/{criteria.supersedes_id}"}
     return resource
@@ -258,6 +261,11 @@ def criteria_from_fhir(resource: dict[str, Any]) -> ServiceCriteria:
         owner_role_id=_reference(resource, "author", _PRACTITIONER_ROLE),
         change_reason=resource.get("changeReason", ""),
         supersedes_id=(None if supersedes is None else _reference(resource, "supersedes", _BASIC)),
+        review_months=(
+            None
+            if resource.get("reviewMonths") is None
+            else _int(resource, "reviewMonths", minimum=1)
+        ),
     )
 
 

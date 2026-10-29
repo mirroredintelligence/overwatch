@@ -14,7 +14,7 @@ from diucs.application.use_cases.criteria import (
     confirmed_review_by,
     pending_version,
 )
-from diucs.domain.codes import CriteriaStatus, NeedCategory, PractitionerRoleCode, Channel
+from diucs.domain.codes import Channel, CriteriaStatus, NeedCategory, PractitionerRoleCode
 from diucs.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.people import PractitionerRole
@@ -166,8 +166,12 @@ def test_a_youngest_age_above_the_oldest_is_refused_by_the_model():
 
 
 def test_the_owner_of_the_service_may_change_its_criteria():
-    check_may_change([_role(OWNER_ROLE, PractitionerRoleCode.CRITERIA_OWNER)],
-                     service_id=SERVICE, owner_role_id=OWNER_ROLE, now=NOW)
+    check_may_change(
+        [_role(OWNER_ROLE, PractitionerRoleCode.CRITERIA_OWNER)],
+        service_id=SERVICE,
+        owner_role_id=OWNER_ROLE,
+        now=NOW,
+    )
 
 
 def test_someone_who_holds_no_active_owner_role_for_the_service_may_not_change_it():
@@ -224,7 +228,7 @@ def test_a_clinical_lead_of_another_service_may_not_approve_this_one():
         check_may_approve(roles, service_id=SERVICE, author_role_id=OWNER_ROLE, now=NOW)
 
 
-def test_a_registration_first_version_has_no_author_role_to_match_so_any_clinical_lead_may_approve():
+def test_a_first_version_with_no_author_role_can_be_approved_by_any_clinical_lead():
     check_may_approve(
         [_role("role-lead", PractitionerRoleCode.CLINICAL_LEAD)],
         service_id=SERVICE,
@@ -292,8 +296,10 @@ def test_a_first_version_with_no_current_one_becomes_current_with_nothing_supers
 # --- confirmation -----------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(("months", "expected"), [(3, date(2027, 1, 23)), (6, date(2027, 4, 23)),
-                                                   (12, date(2027, 10, 23))])
+@pytest.mark.parametrize(
+    ("months", "expected"),
+    [(3, date(2027, 1, 23)), (6, date(2027, 4, 23)), (12, date(2027, 10, 23))],
+)
 def test_confirming_sets_review_by_from_today(months, expected):
     assert confirmed_review_by(date(2026, 10, 23), months) == expected
 
@@ -313,8 +319,8 @@ def test_confirming_refuses_a_period_other_than_three_six_or_twelve():
 
 
 def test_the_status_enum_is_not_matched_by_value_alone():
-    # CriteriaStatus.DRAFT and RegistrationStatus.DRAFT are both "draft" (lesson L38): a registration
-    # status must not pass as a criteria status in the pending version's history.
+    # CriteriaStatus.DRAFT and RegistrationStatus.DRAFT are both "draft" (lesson L38): a
+    # registration status must not pass as a criteria status in a version.
     from diucs.domain.codes import RegistrationStatus
 
     assert CriteriaStatus.DRAFT == RegistrationStatus.DRAFT

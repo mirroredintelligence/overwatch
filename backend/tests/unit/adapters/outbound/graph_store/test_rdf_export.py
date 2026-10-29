@@ -5,11 +5,13 @@ really holds. Sample values only. The export is a query projection and is not va
 the FHIR ShEx schemas (see the module docstring of rdf_export.py).
 """
 
+import contextvars
+from collections.abc import Iterator
 from dataclasses import replace
 from typing import Any
 
 import pytest
-from rdflib import RDF, BNode, Graph, Literal, Namespace, URIRef
+from rdflib import RDF, BNode, Graph, Literal, Namespace
 from rdflib.compare import isomorphic
 
 from diucs.adapters.outbound.graph_store.capacity_repository import report_to_fhir
@@ -20,6 +22,7 @@ from diucs.adapters.outbound.graph_store.rdf_export import (
     ontology_turtle,
     to_turtle,
 )
+from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
 from diucs.domain.codes import BASE_URL, code_system_url
 from diucs.domain.errors import ValidationFailed
 from tests.unit.adapters.outbound.graph_store.test_capacity_repository import NUMBER_REPORT
@@ -32,6 +35,13 @@ DIUCS = Namespace(f"{BASE_URL}def#")
 SKOS = Namespace("http://www.w3.org/2004/02/skos/core#")
 PROV = Namespace("http://www.w3.org/ns/prov#")
 XSD = Namespace("http://www.w3.org/2001/XMLSchema#")
+
+
+@pytest.fixture(autouse=True)
+def bound_tenant() -> Iterator[None]:
+    """The export reads the tenant bound at the edge. The test binds the sample tenant."""
+    with bind_tenant(TENANT):
+        yield
 
 
 def _res(tenant: str = TENANT) -> Namespace:
@@ -62,7 +72,9 @@ UCR_WEST: dict[str, Any] = {
         }
     ],
     "coverageArea": [{"reference": "Location/d3"}, {"reference": "Location/d4"}],
-    "referralMethod": [{"coding": [{"system": code_system_url("referral-method"), "code": "phone"}]}],
+    "referralMethod": [
+        {"coding": [{"system": code_system_url("referral-method"), "code": "phone"}]}
+    ],
 }
 
 
@@ -101,44 +113,44 @@ def _criteria_fragment(supersedes: str | None = "crit-ucr-west-v2") -> GraphFrag
     return to_graph(criteria_to_fhir(criteria))
 
 
-EXPECTED_SERVICE = f"""
+# Full IRIs, not prefixed names: a prefixed name cannot hold "/" or "#" in Turtle, so the
+# worked example's `res:Type/id` form is not valid Turtle (see the fragment's known issues).
+EXPECTED_SERVICE = """
 @prefix fhir: <http://hl7.org/fhir/> .
 @prefix diucs: <https://diucs.example/def#> .
-@prefix res: <https://diucs.example/fhir/{TENANT}/> .
-@prefix cs: <https://diucs.example/CodeSystem/{TENANT}/> .
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 
-res:HealthcareService/a1 a fhir:HealthcareService ;
+<@R@HealthcareService/a1> a fhir:HealthcareService ;
     fhir:HealthcareService.active true ;
     fhir:HealthcareService.name "UCR West" ;
-    fhir:HealthcareService.providedBy res:Organization/o1 ;
-    fhir:HealthcareService.category cs:service-category#urgent-community-response ;
-    fhir:HealthcareService.coverageArea res:Location/d3, res:Location/d4 ;
-    fhir:HealthcareService.referralMethod cs:referral-method#phone ;
-    diucs:currentCriteria res:Basic/c3 .
+    fhir:HealthcareService.providedBy <@R@Organization/o1> ;
+    fhir:HealthcareService.category <@C@service-category#urgent-community-response> ;
+    fhir:HealthcareService.coverageArea <@R@Location/d3>, <@R@Location/d4> ;
+    fhir:HealthcareService.referralMethod <@C@referral-method#phone> ;
+    diucs:currentCriteria <@R@Basic/c3> .
 
-res:Location/d3 a fhir:Location ;
+<@R@Location/d3> a fhir:Location ;
     fhir:Location.name "DT3" ;
     fhir:Location.mode "kind" ;
-    fhir:Location.type cs:location-type#postcode-district .
+    fhir:Location.type <@C@location-type#postcode-district> .
 
-res:Location/d4 a fhir:Location ;
+<@R@Location/d4> a fhir:Location ;
     fhir:Location.name "DT4" ;
     fhir:Location.mode "kind" ;
-    fhir:Location.type cs:location-type#postcode-district .
+    fhir:Location.type <@C@location-type#postcode-district> .
 
-cs:service-category#urgent-community-response a skos:Concept ;
-    skos:inScheme cs:service-category ;
+<@C@service-category#urgent-community-response> a skos:Concept ;
+    skos:inScheme <@C@service-category> ;
     skos:notation "urgent-community-response" .
 
-cs:referral-method#phone a skos:Concept ;
-    skos:inScheme cs:referral-method ;
+<@C@referral-method#phone> a skos:Concept ;
+    skos:inScheme <@C@referral-method> ;
     skos:notation "phone" .
 
-cs:location-type#postcode-district a skos:Concept ;
-    skos:inScheme cs:location-type ;
+<@C@location-type#postcode-district> a skos:Concept ;
+    skos:inScheme <@C@location-type> ;
     skos:notation "postcode-district" .
-"""
+""".replace("@R@", f"{BASE_URL}fhir/{TENANT}/").replace("@C@", f"{BASE_URL}CodeSystem/{TENANT}/")
 
 
 def _parse(text: str) -> Graph:
@@ -148,13 +160,13 @@ def _parse(text: str) -> Graph:
 
 
 def test_the_ucr_west_worked_example_is_isomorphic_to_the_export() -> None:
-    exported = fragment_to_graph(_service_fragment(), TENANT)
+    exported = fragment_to_graph(_service_fragment())
     expected = _parse(EXPECTED_SERVICE)
     assert isomorphic(exported, expected)
 
 
 def test_the_capacity_report_is_a_capacity_report_with_its_time_and_quantity() -> None:
-    graph = fragment_to_graph(to_graph(report_to_fhir(NUMBER_REPORT)), TENANT)
+    graph = fragment_to_graph(to_graph(report_to_fhir(NUMBER_REPORT)))
     subject = RES[f"Observation/{NUMBER_REPORT.id}"]
     assert (subject, RDF.type, FHIR.Observation) in graph
     assert (subject, RDF.type, DIUCS.CapacityReport) in graph
@@ -174,7 +186,7 @@ def test_the_capacity_report_is_a_capacity_report_with_its_time_and_quantity() -
 
 
 def test_the_criteria_version_has_two_accepted_needs_and_its_predecessor() -> None:
-    graph = fragment_to_graph(_criteria_fragment(), TENANT)
+    graph = fragment_to_graph(_criteria_fragment())
     criteria = RES["Basic/c3"]
     assert (criteria, RDF.type, FHIR.Basic) in graph
     assert (criteria, RDF.type, DIUCS.ServiceCriteria) in graph
@@ -188,9 +200,9 @@ def test_the_criteria_version_has_two_accepted_needs_and_its_predecessor() -> No
 
 
 def test_no_json_is_ever_a_predicate() -> None:
-    graph = fragment_to_graph(_service_fragment(), TENANT)
+    graph = fragment_to_graph(_service_fragment())
     for fragment in (_criteria_fragment(), to_graph(report_to_fhir(NUMBER_REPORT))):
-        graph += fragment_to_graph(fragment, TENANT)
+        graph += fragment_to_graph(fragment)
     predicates = {str(predicate) for predicate in graph.predicates()}
     assert not [predicate for predicate in predicates if predicate.lower().endswith("json")]
 
@@ -201,8 +213,8 @@ def test_the_ontology_parses_and_defines_the_limited_status() -> None:
 
 
 def test_a_need_is_accepted_by_the_service_whose_current_criteria_accept_it() -> None:
-    graph = fragment_to_graph(_service_fragment(), TENANT)
-    graph += fragment_to_graph(_criteria_fragment(), TENANT)
+    graph = fragment_to_graph(_service_fragment())
+    graph += fragment_to_graph(_criteria_fragment())
     derived = graph.query(
         """
         CONSTRUCT { ?need diucs:acceptedBy ?svc . }
@@ -220,24 +232,32 @@ def test_a_need_is_accepted_by_the_service_whose_current_criteria_accept_it() ->
 
 
 def test_the_same_key_in_two_tenants_is_two_iris() -> None:
-    first = fragment_to_graph(_service_fragment(), TENANT)
-    second = fragment_to_graph(_service_fragment(), OTHER)
+    first = fragment_to_graph(_service_fragment())
+    with bind_tenant(OTHER):
+        second = fragment_to_graph(_service_fragment())
     assert (RES["HealthcareService/a1"], RDF.type, FHIR.HealthcareService) in first
     assert (_res(OTHER)["HealthcareService/a1"], RDF.type, FHIR.HealthcareService) in second
     assert not set(first.subjects()) & set(second.subjects())
 
 
-def test_a_tenant_id_that_is_not_plain_text_is_refused_without_echo() -> None:
-    with pytest.raises(ValidationFailed) as refused:
-        to_turtle([_service_fragment()], "tenant/../other")
-    assert "tenant/../other" not in str(refused.value)
+def test_with_no_tenant_bound_the_export_is_refused() -> None:
+    # A fresh context has no binding, as a worker started without one has none.
+    with pytest.raises(TenantNotBound):
+        contextvars.Context().run(fragment_to_graph, _service_fragment())
+
+
+def test_a_network_scope_is_not_a_tenant_and_is_refused() -> None:
+    with bind_scope(ScopeId.network("net-sample")), pytest.raises(TenantNotBound):
+        to_turtle([_service_fragment()])
 
 
 def test_a_backbone_child_is_a_blank_node_reached_from_its_parent() -> None:
     service = dict(UCR_WEST)
     service["availableTime"] = [{"daysOfWeek": ["mon", "tue"], "availableStartTime": "08:00:00"}]
-    graph = fragment_to_graph(to_graph(service), TENANT)
-    children = list(graph.objects(RES["HealthcareService/a1"], FHIR["HealthcareService.availableTime"]))
+    graph = fragment_to_graph(to_graph(service))
+    children = list(
+        graph.objects(RES["HealthcareService/a1"], FHIR["HealthcareService.availableTime"])
+    )
     assert len(children) == 1
     assert isinstance(children[0], BNode)
     start = (children[0], FHIR["HealthcareService.availableTime.availableStartTime"], None)
@@ -257,7 +277,7 @@ def test_a_relationship_property_is_a_qualified_association() -> None:
             ),
         ),
     )
-    graph = fragment_to_graph(fragment, TENANT)
+    graph = fragment_to_graph(fragment)
     associations = list(graph.objects(RES["Task/b1"], PROV.qualifiedAssociation))
     assert len(associations) == 1
     association = associations[0]
@@ -278,4 +298,4 @@ def test_an_unknown_relationship_property_is_refused_not_dropped() -> None:
         rels=(RelSpec("APPROVED_BY", "Task/b1", "Practitioner/p1", {"mood": "calm"}),),
     )
     with pytest.raises(ValidationFailed):
-        fragment_to_graph(fragment, TENANT)
+        fragment_to_graph(fragment)

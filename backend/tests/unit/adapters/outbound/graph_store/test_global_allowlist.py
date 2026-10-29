@@ -9,6 +9,7 @@ rule. These tests are the cheap half; the behaviour on a graph that also holds d
 `tests/integration/graph_store/test_tenant_directory.py`.
 """
 
+import hashlib
 import re
 from types import MappingProxyType
 from typing import Any
@@ -84,6 +85,18 @@ def allowlisted(monkeypatch: pytest.MonkeyPatch) -> QueryRegistry:
     return QueryRegistry()
 
 
+def _pin(monkeypatch: pytest.MonkeyPatch, cypher: str, query_id: str = "Q-TEST-GLOBAL") -> None:
+    """Pin `cypher` under `query_id` by the digest the registry computes, so a test can reach the
+    structural checks that stand behind the pin."""
+    pinned = MappingProxyType(
+        {
+            **queries_module.GLOBAL_STATEMENTS,
+            query_id: hashlib.sha256(cypher.strip().encode()).hexdigest(),
+        }
+    )
+    monkeypatch.setattr(queries_module, "GLOBAL_STATEMENTS", pinned)
+
+
 # The allowlist
 
 
@@ -149,10 +162,12 @@ def test_no_global_statement_writes_or_calls_a_procedure() -> None:
 
 
 def test_a_global_statement_that_writes_is_refused_even_on_the_allowlist(
-    allowlisted: QueryRegistry,
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    text = "MATCH (t:Tenant) SET t.x = 1"
+    _pin(monkeypatch, text)
     with pytest.raises(ValueError, match="Q-TEST-GLOBAL.*read"):
-        allowlisted.register(_global("Q-TEST-GLOBAL", "MATCH (t:Tenant) SET t.x = 1", "write"))
+        allowlisted.register(_global("Q-TEST-GLOBAL", text, "write"))
 
 
 @pytest.mark.parametrize(
@@ -166,8 +181,9 @@ def test_a_global_statement_that_writes_is_refused_even_on_the_allowlist(
     ],
 )
 def test_a_read_that_contains_a_write_or_a_procedure_is_refused(
-    allowlisted: QueryRegistry, cypher: str
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
 ) -> None:
+    _pin(monkeypatch, cypher)
     with pytest.raises(ValueError, match="Q-TEST-GLOBAL.*write"):
         allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
 
@@ -180,8 +196,9 @@ def test_a_read_that_contains_a_write_or_a_procedure_is_refused(
     ],
 )
 def test_a_parenthesis_that_is_neither_a_node_nor_a_function_call_is_refused(
-    allowlisted: QueryRegistry, cypher: str
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
 ) -> None:
+    _pin(monkeypatch, cypher)
     with pytest.raises(ValueError, match="Q-TEST-GLOBAL.*parentheses"):
         allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
 
@@ -199,8 +216,9 @@ def test_a_parenthesis_that_is_neither_a_node_nor_a_function_call_is_refused(
     ],
 )
 def test_a_global_statement_that_names_a_label_outside_the_registry_is_refused(
-    allowlisted: QueryRegistry, cypher: str
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
 ) -> None:
+    _pin(monkeypatch, cypher)
     with pytest.raises(ValueError, match="Q-TEST-GLOBAL"):
         allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
 
@@ -218,8 +236,9 @@ def test_a_global_statement_that_names_a_label_outside_the_registry_is_refused(
     ],
 )
 def test_a_global_statement_with_a_node_that_has_no_label_is_refused(
-    allowlisted: QueryRegistry, cypher: str
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
 ) -> None:
+    _pin(monkeypatch, cypher)
     with pytest.raises(ValueError, match="Q-TEST-GLOBAL"):
         allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
 
@@ -236,19 +255,20 @@ def test_a_global_statement_with_a_node_that_has_no_label_is_refused(
     ],
 )
 def test_a_read_of_registry_labels_registers_when_its_id_is_on_the_allowlist(
-    allowlisted: QueryRegistry, cypher: str
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
 ) -> None:
+    _pin(monkeypatch, cypher)
     allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
     assert allowlisted.get("Q-TEST-GLOBAL").cypher == cypher
 
 
 def test_a_statement_that_mentions_the_tenant_is_still_refused_on_the_allowlist(
-    allowlisted: QueryRegistry,
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    text = "MATCH (t:Tenant {id: $tenant}) RETURN t.id AS id"
+    _pin(monkeypatch, text)
     with pytest.raises(ValueError, match="cannot mention"):
-        allowlisted.register(
-            _global("Q-TEST-GLOBAL", "MATCH (t:Tenant {id: $tenant}) RETURN t.id AS id")
-        )
+        allowlisted.register(_global("Q-TEST-GLOBAL", text))
 
 
 def test_an_id_that_is_not_on_the_allowlist_is_refused_whatever_the_statement_reads() -> None:
@@ -275,6 +295,178 @@ def test_a_template_cannot_be_global_because_its_insert_would_choose_the_label()
         QueryRegistry().register_template(template)
     for template_id in REGISTRY.template_ids():
         assert REGISTRY.template(template_id).scope == "tenant", template_id
+
+
+# Round 2: the guarantee is the pin. Each global statement is registered only when its id is in
+# GLOBAL_STATEMENTS and the SHA-256 of its text (stripped of leading and trailing space, nothing
+# else) equals the digest there. The structural checks stand behind it, as a second defence.
+
+
+def _digest(text: str) -> str:
+    return hashlib.sha256(text.strip().encode()).hexdigest()
+
+
+def test_the_pins_are_the_digests_of_the_exact_texts_of_the_eight_statements() -> None:
+    assert dict(queries_module.GLOBAL_STATEMENTS) == {
+        i: _digest(t) for i, t in EXPECTED_TEXT.items()
+    }
+    assert set(queries_module.GLOBAL_STATEMENTS) == set(GLOBAL_QUERY_IDS)
+    for digest in queries_module.GLOBAL_STATEMENTS.values():
+        assert re.fullmatch(r"[0-9a-f]{64}", digest)
+
+
+def test_the_pins_cannot_be_changed_at_run_time() -> None:
+    with pytest.raises(TypeError):
+        queries_module.GLOBAL_STATEMENTS["Q-OTHER"] = "0" * 64  # type: ignore[index]
+
+
+@pytest.mark.parametrize("query_id", sorted(EXPECTED_TEXT))
+def test_each_pinned_statement_registers_with_its_exact_text_and_with_outer_whitespace(
+    query_id: str,
+) -> None:
+    text = EXPECTED_TEXT[query_id]
+    for variant in (text, f"  {text}\n", f"\n\t{text} "):
+        registry = QueryRegistry()
+        registry.register(_global(query_id, variant))
+        assert registry.get(query_id).cypher == variant
+
+
+def _altered(text: str) -> list[str]:
+    """Changes that leave the text a valid read of registry labels, so only the pin can refuse
+    them: a trailing comment, a case change, doubled inner space, one character changed, a changed
+    literal, an extra clause."""
+    return [
+        f"{text} // note",
+        f"{text} /* note */",
+        text.replace("MATCH", "match", 1) if "MATCH" in text else text.replace("RETURN", "return"),
+        text.replace(" ", "  ", 1),
+        text[:-1] + ("d" if text[-1] != "d" else "e"),
+        text.replace("'active'", "'suspended'") if "'active'" in text else text + " LIMIT 1",
+        text + " LIMIT 1",
+    ]
+
+
+@pytest.mark.parametrize("query_id", sorted(EXPECTED_TEXT))
+def test_a_pinned_id_with_altered_text_is_refused_by_the_pin(query_id: str) -> None:
+    for variant in _altered(EXPECTED_TEXT[query_id]):
+        assert variant.strip() != EXPECTED_TEXT[query_id]
+        with pytest.raises(ValueError, match=f"{query_id}.*pinned"):
+            QueryRegistry().register(_global(query_id, variant))
+
+
+@pytest.mark.parametrize("query_id", sorted(EXPECTED_TEXT))
+def test_a_pinned_id_with_a_single_changed_character_anywhere_is_refused(query_id: str) -> None:
+    text = EXPECTED_TEXT[query_id]
+    for position in range(len(text)):
+        changed = text[:position] + ("~" if text[position] != "~" else "^") + text[position + 1 :]
+        with pytest.raises(ValueError, match=query_id):
+            QueryRegistry().register(_global(query_id, changed))
+
+
+def test_the_text_of_one_statement_under_the_id_of_another_is_refused() -> None:
+    with pytest.raises(ValueError, match="Q-TENANT-GET.*pinned"):
+        QueryRegistry().register(_global("Q-TENANT-GET", EXPECTED_TEXT["Q-TENANT-BY-HOST"]))
+
+
+def test_an_id_that_is_not_in_the_pin_mapping_is_refused_whatever_its_text(
+    allowlisted: QueryRegistry,
+) -> None:
+    """The id is on the reasons list (the fixture) but has no pin: nothing registers under it,
+    even the exact text of a pinned statement."""
+    for text in ("RETURN 1 AS ok", EXPECTED_TEXT["Q-TENANT-GET"]):
+        with pytest.raises(ValueError, match="Q-TEST-GLOBAL.*no pinned"):
+            allowlisted.register(_global("Q-TEST-GLOBAL", text))
+    with pytest.raises(ValueError, match="not on the global allowlist"):
+        QueryRegistry().register(_global("Q-NEW-GLOBAL", EXPECTED_TEXT["Q-TENANT-GET"]))
+
+
+def test_every_global_statement_in_the_loaded_registry_matches_its_pin() -> None:
+    for query_id in GLOBAL_QUERY_IDS:
+        query = REGISTRY.get(query_id)
+        assert query_id in queries_module.GLOBAL_STATEMENTS
+        assert queries_module.GLOBAL_STATEMENTS[query_id] == _digest(query.cypher), query_id
+
+
+# The structural checks, behind the pin. `MATCH(` with no space is a node pattern as much as
+# `MATCH (` is: a `(` is a function call only after a name on the short list of functions.
+
+BYPASSES = [
+    "MATCH(n:Resource) RETURN n.id AS id",
+    "MATCH(n) RETURN n",
+    "MATCH (t:Tenant) OPTIONAL MATCH(n:Patient) RETURN n.id AS id",
+    "MATCH (t:Tenant) WITH t MATCH(n:Observation) RETURN n.id AS id",
+    "MATCH (t:Tenant) RETURN t.id AS id UNION MATCH(n:Patient) RETURN n.id AS id",
+    "UNWIND [1] AS x MATCH(n:Resource) RETURN n.id AS id",
+    "MATCH (t:Tenant) WHERE EXISTS{MATCH(n:Resource)} RETURN t.id AS id",
+    "MATCH (t:Tenant) WHERE EXISTS { MATCH(n:Resource) } RETURN t.id AS id",
+    "MATCH\t(n:Resource) RETURN n.id AS id",
+    "MATCH\n(n:Resource) RETURN n.id AS id",
+    "MATCH/**/(n:Resource) RETURN n.id AS id",
+    "MATCH (t:Tenant)WHERE(t.id = 'x') MATCH(n:Resource) RETURN n.id AS id",
+    "MATCH (t:Tenant) RETURN t.id AS id UNION ALL MATCH(n:Patient) RETURN n.id AS id",
+    "MATCH (t:Tenant) WITH t WHERE t.id = 'x' MATCH(:Resource) RETURN t.id AS id",
+    "MATCH (t:Tenant) MATCH(n)-[:R]->(m:Tenant) RETURN n.id AS id",
+    "MATCH p=(t:Tenant)-[*]-(n) RETURN n.id AS id",
+    "MATCH (t:Tenant) RETURN labels(t) AS l, Foo(t) AS f",
+    "OPTIONAL MATCH(n:Person) RETURN n.id AS id",
+    "MATCH (t:Tenant) CALL{MATCH(n:Resource) RETURN n} RETURN n.id AS id",
+    "MATCH (t:Tenant) RETURN t.id AS id // fine\nUNION MATCH(n:Resource) RETURN n.id AS id",
+    "/* x */ MATCH(n:Resource) RETURN n.id AS id",
+    "MATCH (t:Tenant) RETURN t.id AS id; MATCH(n:Resource) RETURN n.id AS id",
+]
+
+
+@pytest.mark.parametrize("cypher", BYPASSES)
+def test_the_structural_check_alone_refuses_every_bypass_even_when_the_text_is_pinned(
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
+) -> None:
+    _pin(monkeypatch, cypher)
+    with pytest.raises(ValueError, match="Q-TEST-GLOBAL") as raised:
+        allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
+    assert "pinned" not in str(raised.value), "the pin let it through; the structure must refuse it"
+
+
+@pytest.mark.parametrize("cypher", BYPASSES)
+def test_the_pin_refuses_every_bypass_under_every_allowlisted_id(cypher: str) -> None:
+    for query_id in GLOBAL_QUERY_IDS:
+        with pytest.raises(ValueError, match=query_id):
+            QueryRegistry().register(_global(query_id, cypher))
+
+
+@pytest.mark.parametrize(
+    "cypher",
+    [
+        "MATCH (t:Tenant) RETURN t.id AS id // MATCH (n:Resource)",
+        "MATCH (t:Tenant) RETURN '(n:Resource)' AS text",
+        'MATCH (t:Tenant) RETURN "MATCH(n:Resource)" AS text',
+        "MATCH (t:Tenant) /* MATCH(n:Resource) */ RETURN t.id AS id",
+        "MATCH (t:Tenant) RETURN 'it\\'s (x)' AS text",
+        "MATCH(t:Tenant) RETURN t.id AS id",
+        "MATCH (t:Tenant)RETURN count(t) AS n",
+        "MATCH (t:Tenant) RETURN properties(t) AS p, size(labels(t)) AS n, "
+        "coalesce(t.host, '') AS h",
+    ],
+)
+def test_a_comment_or_string_holding_a_pattern_is_not_one_and_a_spaceless_read_is_fine(
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
+) -> None:
+    _pin(monkeypatch, cypher)
+    allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
+
+
+@pytest.mark.parametrize(
+    "cypher",
+    [
+        "MATCH (t:Tenant) RETURN 'unterminated AS text",
+        "MATCH (t:Tenant) RETURN t.id AS id /* unterminated",
+    ],
+)
+def test_an_unterminated_string_or_comment_is_refused(
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
+) -> None:
+    _pin(monkeypatch, cypher)
+    with pytest.raises(ValueError, match="Q-TEST-GLOBAL"):
+        allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
 
 
 # Running them

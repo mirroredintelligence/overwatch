@@ -81,6 +81,9 @@ GLOBAL_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
     }
 )
 
+# Stub until the implementation commit (round 2): the pins are empty and nothing checks them.
+GLOBAL_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType({})
+
 # The labels a global statement may name: the registry nodes, which carry no tenant (DEC-132,
 # `REGISTRY_LABELS` in migrations_tenant.py). A global statement runs with no tenant, so it must not
 # be able to match a node that holds a tenant's data. Adding a label here is as deliberate as adding

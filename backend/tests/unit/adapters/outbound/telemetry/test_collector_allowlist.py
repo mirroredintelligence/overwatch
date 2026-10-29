@@ -113,10 +113,30 @@ def test_the_backend_section_of_the_file_equals_the_o01_allow_list() -> None:
     assert _sections()["backend"] == set(ALLOWED_KEYS)
 
 
-def test_every_backend_key_passes_the_o01_rule_and_no_denied_word() -> None:
+# Keys on the list that contain a denied word, each reviewed by hand. O01 lets an explicit key pass by
+# name, so a denied word in one of them is a decision, and a new one must be reviewed here.
+REVIEWED_BACKEND_DENIED_WORD_KEYS: Final = frozenset(
+    {
+        "messaging.destination.name",  # a Service Bus queue or topic name
+        "db.system.name",  # the semantic-convention database name, such as neo4j
+    }
+)
+REVIEWED_BROWSER_DENIED_WORD_KEYS: Final = frozenset({"name", "value"})  # ui.web_vital (DEC-O04 item 3)
+
+
+def _with_denied_word(keys: set[str]) -> set[str]:
+    return {key for key in keys if any(fragment in key for fragment in DENIED_FRAGMENTS)}
+
+
+def test_every_backend_key_passes_the_o01_rule() -> None:
     for key in _sections()["backend"]:
         assert is_allowed_key(key), key
-        assert not any(fragment in key for fragment in DENIED_FRAGMENTS), key
+
+
+def test_only_the_reviewed_keys_contain_a_denied_word() -> None:
+    sections = _sections()
+    assert _with_denied_word(sections["backend"]) == REVIEWED_BACKEND_DENIED_WORD_KEYS
+    assert _with_denied_word(sections["browser"]) == REVIEWED_BROWSER_DENIED_WORD_KEYS
 
 
 def test_the_browser_section_is_the_spec_list_plus_trace_id() -> None:

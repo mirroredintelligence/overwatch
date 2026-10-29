@@ -1,0 +1,12 @@
+# Test profile overlay (O04). Merged over otel-collector.yaml by the collector's --config flags in
+# infra/docker-compose.yml (profile "test"). It replaces only the exporters, so the allow-list and the
+# value scan still run before the file exporter writes /tmp/otel/out.json (mounted from infra/otel-out).
+exporters:
+  file/test:
+    path: /tmp/otel/out.json
+service:
+  pipelines:
+    traces:
+      exporters: [file/test]
+    logs:
+      exporters: [file/test]

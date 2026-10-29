@@ -92,8 +92,11 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
     NamedQuery(
         id="Q-PROT-GET",
         cypher=(
+            # No LIMIT: (tenantId, handle) is unique (migration 0040), so the tenant's own node is
+            # the only row. A LIMIT would hide a second row, so the generated test could not see
+            # this statement reach another tenant's node when its tenant predicate is removed.
             "MATCH (p:Protected:ProtectedText {handle: $handle, tenantId: $tenant}) "
-            "RETURN p.text AS text LIMIT 1"
+            "RETURN p.text AS text"
         ),
         mode="read",
         scenario=_SCENARIOS["Q-PROT-GET"],

@@ -10,9 +10,9 @@ import pytest
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
-from diucs.application.actor import Actor
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
+from diucs.application.actor import Actor
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
 from diucs.application.use_cases.respond_to_booking import (

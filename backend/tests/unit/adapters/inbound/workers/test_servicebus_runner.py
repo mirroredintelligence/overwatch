@@ -227,3 +227,7 @@ async def test_a_body_that_is_plain_bytes_is_read() -> None:
     raw.body = b'{"a": 2}'
     await _runner(consumer).process(_Receiver(), raw)
     assert consumer.seen[0].payload == {"a": 2}
+
+
+def test_serve_is_the_name_the_process_entries_call_for_run() -> None:
+    assert ServiceBusRunner.serve is ServiceBusRunner.run

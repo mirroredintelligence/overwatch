@@ -52,11 +52,13 @@ TENANCY_KERNEL = "application/tenancy.py"
 # TEN-025, TEN-041 and later) add their module in their own commit. I07 adds the inbound SMS
 # webhook, which binds the tenant of a request whose Twilio signature verified (DEC-131, DEC-149).
 # I03 adds the outbox relay worker, which binds each tenant the directory lists, in turn, before it
-# opens a unit of work for that tenant (DEC-134 item 9, DEC-157).
+# opens a unit of work for that tenant (DEC-134 item 9, DEC-157). I08 adds the consumers' binder,
+# which binds the tenant a message carries once the directory lists it as active (DEC-165).
 BINDING_MODULES: frozenset[str] = frozenset(
     {
         "diucs.adapters.inbound.sms_webhook.routes",
         "diucs.adapters.inbound.workers.outbox_relay",
+        "diucs.adapters.inbound.workers.tenant_binding",
     }
 )
 

@@ -473,40 +473,46 @@ async def test_a_suspended_tenant_is_dead_lettered(
     assert use_case.commands == []
 
 
-async def test_two_tenants_with_the_same_sender_and_message_id_are_each_handled_in_their_own(
+async def test_two_tenants_with_the_same_sender_are_each_handled_in_their_own(
     uow_factory: UnitOfWorkFactory,
     tenants: StaticTenants,
     tenant_id: str,
     other_tenant_id: str,
     neo4j_driver: AsyncDriver,
 ) -> None:
-    """Tenant A and tenant B each receive a text from the same phone hash with the same provider id.
-    Each reaches the use case under its own tenant, with its own idempotency key, and is not taken
-    for the other's replay."""
+    """Tenant A and tenant B each receive a text from the same phone hash. Each reaches the use case
+    under its own tenant, with its own idempotency key, and the units of work around it open under
+    that tenant. (The shared harness schema still holds the old single-property marker key, so the
+    two provider ids differ here; the same id in both is in test_inbound_two_tenants.py.)"""
     use_case = RecordingUseCase(uow_factory)
     log = UnitLog()
     consumer = reply_consumer(use_case, logging_factory(uow_factory, log), tenants)
 
     a = await consumer.handle(reply_message(tenant_id, "SM100", text="4"))
-    b = await consumer.handle(reply_message(other_tenant_id, "SM100", text="4"))
+    b = await consumer.handle(reply_message(other_tenant_id, "SM101", text="4"))
 
     assert (a.kind, b.kind) == ("completed", "completed")
     assert use_case.tenants == [tenant_id, other_tenant_id]
     assert [c.idempotency_key for c in use_case.commands] == [
         f"sms-reply:{tenant_id}:SM100",
-        f"sms-reply:{other_tenant_id}:SM100",
+        f"sms-reply:{other_tenant_id}:SM101",
     ]
+    assert [c.from_phone_hash for c in use_case.commands] == [PHONE, PHONE]
     assert {scope.value for scope in log.scopes if scope is not None} == {
         tenant_id,
         other_tenant_id,
     }
     assert None not in log.scopes
-    assert sorted(m["tenantId"] for m in await _processed(neo4j_driver)) == sorted(
-        [tenant_id, other_tenant_id]
+    assert await _processed(neo4j_driver) == sorted(
+        [
+            {"messageId": "SM100", "consumer": "reply-processor", "tenantId": tenant_id},
+            {"messageId": "SM101", "consumer": "reply-processor", "tenantId": other_tenant_id},
+        ],
+        key=lambda row: row["tenantId"],
     )
 
     again = await consumer.handle(reply_message(tenant_id, "SM100", text="4"))
-    again_b = await consumer.handle(reply_message(other_tenant_id, "SM100", text="4"))
+    again_b = await consumer.handle(reply_message(other_tenant_id, "SM101", text="4"))
     assert (again.kind, again_b.kind) == ("duplicate", "duplicate")
     assert len(use_case.commands) == 2
 

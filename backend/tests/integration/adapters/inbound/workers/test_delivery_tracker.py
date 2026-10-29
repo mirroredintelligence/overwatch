@@ -269,28 +269,31 @@ async def test_the_unit_of_work_opens_in_the_messages_tenant(
     assert current_scope_or_none() is not None  # the harness binding is back
 
 
-async def test_two_tenants_with_the_same_receipt_id_are_each_marked_in_their_own_tenant(
+async def test_two_tenants_each_have_their_own_marker_for_their_receipts(
     uow_factory: UnitOfWorkFactory,
     tenants: StaticTenants,
     tenant_id: str,
     other_tenant_id: str,
     neo4j_driver: AsyncDriver,
 ) -> None:
-    """The same bus id and status arrive for tenant A and tenant B: neither is the other's
-    duplicate. Each tenant's marker carries its tenant."""
+    """Receipts for tenant A and tenant B each carry their tenant on the marker. (The shared harness
+    schema still holds the old single-property marker key, so the two ids differ here; the same id
+    in both is in test_inbound_two_tenants.py.)"""
     consumer = receipt_consumer(uow_factory, tenants)
 
     a = await consumer.handle(receipt_message(tenant_id, "SM1", "delivered"))
-    b = await consumer.handle(receipt_message(other_tenant_id, "SM1", "delivered"))
-    again = await consumer.handle(receipt_message(other_tenant_id, "SM1", "delivered"))
+    b = await consumer.handle(receipt_message(other_tenant_id, "SM2", "delivered"))
+    again = await consumer.handle(receipt_message(other_tenant_id, "SM2", "delivered"))
 
     assert (a.kind, b.kind, again.kind) == ("completed", "completed", "duplicate")
 
-    async def tenants_marked(tx: Any) -> list[str]:
-        result = await tx.run("MATCH (p:Processed) RETURN p.tenantId AS tenantId")
-        return sorted([record["tenantId"] async for record in result])
+    async def marked(tx: Any) -> list[tuple[str, str]]:
+        result = await tx.run("MATCH (p:Processed) RETURN p.tenantId AS t, p.messageId AS m")
+        return sorted([(record["t"], record["m"]) async for record in result])
 
-    assert await read_tx(neo4j_driver, tenants_marked) == sorted([tenant_id, other_tenant_id])
+    assert await read_tx(neo4j_driver, marked) == sorted(
+        [(tenant_id, "SM1:delivered"), (other_tenant_id, "SM2:delivered")]
+    )
 
 
 @pytest.mark.xfail(

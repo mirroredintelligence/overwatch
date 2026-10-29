@@ -124,6 +124,12 @@ class Neo4jConnection:
             await self._driver.close()
             log.info("Neo4j connection closed")
 
+    @property
+    def driver(self) -> AsyncDriver:
+        """The one driver, for the start-up steps that take a driver (migrations and the audit
+        head). Raises Neo4jConnectionError before open() and after close()."""
+        return self._require_open()
+
     def _require_open(self) -> AsyncDriver:
         if self._state is _State.OPEN and self._driver is not None:
             return self._driver

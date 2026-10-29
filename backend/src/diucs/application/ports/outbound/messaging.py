@@ -22,9 +22,22 @@ DELIVERY_STATUSES = frozenset({"queued", "sent", "delivered", "failed", "receive
 """Statuses a Communication can hold. 'received' marks an inbound message."""
 
 
+_STATUS_RANK: Final = {"queued": 0, "sent": 1, "delivered": 2, "failed": 2}
+"""The order of a sent message's delivery status. delivered and failed share the last rank: both are
+final, and neither follows the other."""
+
+
 def statuses_before(status: str) -> tuple[str, ...]:
-    """Stub."""
-    return ()
+    """The delivery statuses a Communication may move from to reach `status`: the ones of a lower
+    rank (queued, then sent, then delivered or failed). Nothing leaves delivered or failed, nothing
+    repeats itself, and 'received' and 'grouped' never move (they are reached from nothing). A
+    status the system does not know is a ValueError."""
+    if status not in DELIVERY_STATUSES:
+        raise ValueError("not a delivery status")
+    rank = _STATUS_RANK.get(status)
+    if rank is None:
+        return ()
+    return tuple(sorted(name for name, other in _STATUS_RANK.items() if other < rank))
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +109,13 @@ class CommunicationRepository(Protocol):
 
     async def by_provider_id(self, provider_message_id: str) -> Communication | None: ...
 
-    async def set_delivery_status(self, provider_message_id: str, status: str) -> bool: ...
+    async def set_delivery_status(self, provider_message_id: str, status: str) -> bool:
+        """Move the record with this provider id forward to `status` and return True; return False
+        when there is no such record or it may not move there. A status only moves forward and
+        delivered and failed are final (`statuses_before`), decided in the store under the record's
+        write lock, so two receipts handled at once cannot make it go back (I08, DEC-165). An
+        unknown status is a ValidationFailed."""
+        ...
 
     async def latest_prompt_for_phone(
         self, role_ids: Collection[str], message_ids: Collection[str]

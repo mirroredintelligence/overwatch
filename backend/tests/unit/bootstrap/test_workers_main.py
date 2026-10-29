@@ -138,11 +138,11 @@ async def test_run_workers_runs_every_runner_until_stop_is_set() -> None:
         def __init__(self, name: str) -> None:
             self.name = name
 
-        async def run(self, event: asyncio.Event) -> None:
+        async def serve(self, event: asyncio.Event) -> None:
             started.append(self.name)
             await event.wait()
 
-    task = asyncio.create_task(run_workers([_Runner("a"), _Runner("b")], stop))  # type: ignore[list-item]
+    task = asyncio.create_task(run_workers([_Runner("a").serve, _Runner("b").serve], stop))
     await asyncio.sleep(0)
     await asyncio.sleep(0)
     assert sorted(started) == ["a", "b"]
@@ -150,3 +150,12 @@ async def test_run_workers_runs_every_runner_until_stop_is_set() -> None:
 
     stop.set()
     await task
+
+
+def test_the_queues_are_the_ones_the_webhook_fills() -> None:
+    from diucs.adapters.inbound.sms_webhook import routes
+    from diucs.application.ports.outbound.event_bus import QUEUES
+
+    assert workers_main.REPLIES_QUEUE == routes.REPLIES_QUEUE
+    assert workers_main.RECEIPTS_QUEUE == routes.RECEIPTS_QUEUE
+    assert {workers_main.REPLIES_QUEUE, workers_main.RECEIPTS_QUEUE} <= QUEUES

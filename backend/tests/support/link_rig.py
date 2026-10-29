@@ -8,9 +8,11 @@ The service reports every 2 hours between 08:00 and 20:00. The figure on record 
 data, no real phone number. The host names are made up.
 """
 
+import functools
 import hashlib
 import hmac
 import re
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -23,6 +25,7 @@ from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.actor import Actor
+from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.ports.outbound.tokens import (
     LINK_TOKEN_SECRET,
     LinkTokenRepository,
@@ -63,6 +66,7 @@ from tests.support.ladder_rig import (
     virtual_ward,
 )
 from tests.support.neo4j import read_tx
+from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads
 
 CSRF_SECRET = b"link-csrf-secret-for-the-link-tests"
@@ -95,6 +99,19 @@ def token_hash_of(token: str) -> str:
     return hash_token(token, SECRET)
 
 
+def _in_own_tenant[**P, R](method: Callable[P, Awaitable[R]]) -> Callable[P, Awaitable[R]]:
+    """Run a rig method with the rig's own tenant bound, as the edge would bind it for a request.
+    The tests of the link pages run with no tenant bound, so that the route must bind one from the
+    host; the rig's reads and its direct use-case calls are the test's own work and bind here."""
+
+    @functools.wraps(method)
+    async def bound(self: Any, *args: P.args, **kwargs: P.kwargs) -> R:
+        with as_tenant(self.tenant):
+            return await method(self, *args, **kwargs)
+
+    return bound
+
+
 @dataclass(slots=True)
 class LinkRig:
     factory: UnitOfWorkFactory
@@ -116,6 +133,7 @@ class LinkRig:
 
     # -- seeding -------------------------------------------------------------------------
 
+    @_in_own_tenant
     async def seed(
         self,
         *,
@@ -154,6 +172,7 @@ class LinkRig:
                 value=figure,
             )
 
+    @_in_own_tenant
     async def prompt(self, at: datetime = PROMPT_AT) -> str:
         """Send the prompt due at `at` and return the token of its link, read from the text the
         reporter is sent (opened as the sender opens it). The clock is left at `at`."""
@@ -174,6 +193,7 @@ class LinkRig:
         assert prompt is not None, "no prompt was sent"
         return await self.issue(about_id=prompt.id, expires_at=reply_by(at))
 
+    @_in_own_tenant
     async def issue(
         self,
         *,
@@ -194,6 +214,7 @@ class LinkRig:
 
     # -- the use cases, as a client calls them ---------------------------------------------
 
+    @_in_own_tenant
     async def view(self, token: str, client: str = CLIENT) -> Any:
         return await self.view_link.execute(ViewLinkQuery(token=token, client=client))
 
@@ -203,6 +224,7 @@ class LinkRig:
             CSRF_SECRET, token_hash_of(token).encode("ascii"), hashlib.sha256
         ).hexdigest()
 
+    @_in_own_tenant
     async def respond(
         self,
         token: str,
@@ -223,6 +245,7 @@ class LinkRig:
             )
         )
 
+    @_in_own_tenant
     async def text_confirm(self, key: str, at: datetime) -> Any:
         """A Y by text for the service, at `at` (ConfirmCapacity as the reply handler calls it)."""
         self.clock.set(at)
@@ -245,6 +268,7 @@ class LinkRig:
             )
         )
 
+    @_in_own_tenant
     async def renew(self, token: str, client: str = CLIENT, base: str = BASE_URL_A) -> None:
         await self.renew_link.execute(
             RenewLinkCommand(token=token, client=client, link_base_url=base)
@@ -252,10 +276,20 @@ class LinkRig:
 
     # -- reading back ---------------------------------------------------------------------
 
+    @_in_own_tenant
+    async def events(self, event_type: str) -> list[OutboxMessage]:
+        return await self.rig.events(event_type)
+
+    def opened(self, message: OutboxMessage) -> dict[str, Any]:
+        """The rendered content of one SendMessage, opened as the sender does."""
+        return self.rig.opened(message)
+
+    @_in_own_tenant
     async def latest(self) -> Any:
         async with self.factory() as uow:
             return await uow.capacity.latest(self.service_id)
 
+    @_in_own_tenant
     async def counts(self) -> dict[str, int]:
         """The number of nodes of each kind a link request could change."""
         labels = (
@@ -277,6 +311,7 @@ class LinkRig:
 
         return await read_tx(self.driver, work)
 
+    @_in_own_tenant
     async def token_node(self, token: str) -> dict[str, Any]:
         async def work(tx: AsyncManagedTransaction) -> dict[str, Any]:
             result = await tx.run(

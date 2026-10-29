@@ -12,7 +12,10 @@ FHIR_JSON = "application/fhir+json; fhirVersion=4.3"
 
 @pytest.fixture
 def empty_registry(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No type and no profile from an earlier app build: the profiles are process-wide too, and
+    the validation routes advertise the served profiles (R14) when an app is built."""
     monkeypatch.setattr(capability, "_RESOURCES", {})
+    monkeypatch.setattr(capability, "_PROFILES", {})
 
 
 async def test_metadata_is_a_capability_statement_for_fhir_4_3(

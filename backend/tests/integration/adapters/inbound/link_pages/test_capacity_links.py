@@ -202,15 +202,15 @@ async def test_a_renew_is_202_and_queues_one_c1_in_the_outbox(
 ) -> None:
     token = await _prompted(links)
     link_clock.set(REPLY_BY + timedelta(minutes=3))
-    before = [m.id for m in await links.rig.events("SendMessage")]
+    before = [m.id for m in await links.events("SendMessage")]
 
     response = await link_client.post(f"/links/{token}/renew")
 
     assert response.status_code == 202
     assert response.json() == {"state": "accepted"}
-    queued = [m for m in await links.rig.events("SendMessage") if m.id not in before]
+    queued = [m for m in await links.events("SendMessage") if m.id not in before]
     assert [m.payload["message_id"] for m in queued] == ["C1"]
-    text = str(links.rig.opened(queued[0])["text"])
+    text = str(links.opened(queued[0])["text"])
     assert f"{BASE_URL_A}/" in text and LINK_PAGE_PATH == "/l"
 
 

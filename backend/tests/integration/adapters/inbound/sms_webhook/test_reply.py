@@ -38,6 +38,7 @@ from tests.support.sms import (
     reply_params,
     sign,
 )
+from tests.support.tenancy import as_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -310,14 +311,19 @@ async def test_the_replay_marker_is_a_day_long_and_tenant_prefixed(
 ) -> None:
     await post_signed(sms_client, reply_params(sid=SID))
 
-    assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
-    assert await sms_cache.get(f"idem:sms:tenant-b:{SID}") is None
+    # The marker is written in the tenant of the number called, so it is read in that tenant: the
+    # cache qualifies every name with the bound scope (TEN-019), and the test binds none of its own.
+    with as_tenant(TENANT_A.tenant_id):
+        assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
+    with as_tenant(TENANT_B.tenant_id):
+        assert await sms_cache.get(f"idem:sms:tenant-b:{SID}") is None
     clock = test_container.clock
     assert isinstance(clock, FixedClock)
-    clock.advance(timedelta(hours=24) - timedelta(seconds=1))
-    assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
-    clock.advance(timedelta(seconds=1))
-    assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") is None
+    with as_tenant(TENANT_A.tenant_id):
+        clock.advance(timedelta(hours=24) - timedelta(seconds=1))
+        assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
+        clock.advance(timedelta(seconds=1))
+        assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") is None
 
 
 async def test_a_failed_queue_send_gives_a_500_and_frees_the_marker_so_the_retry_is_queued(

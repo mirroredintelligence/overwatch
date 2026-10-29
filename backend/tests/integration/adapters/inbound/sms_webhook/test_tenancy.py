@@ -38,6 +38,7 @@ from tests.support.sms import (
     post_signed,
     reply_params,
 )
+from tests.support.tenancy import as_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -79,8 +80,11 @@ async def test_the_same_message_sid_in_two_tenants_is_not_a_replay_but_a_repeat_
 
     tenants = sorted(str(m.tenant_id) for m in sms_bus.enqueued_to(QUEUE))
     assert tenants == ["tenant-a", "tenant-b"]
-    assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
-    assert await sms_cache.get(f"idem:sms:tenant-b:{SID}") == "1"
+    # Each marker is read in the tenant that wrote it: the cache is scoped to the bound tenant.
+    with as_tenant(TENANT_A.tenant_id):
+        assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
+    with as_tenant(TENANT_B.tenant_id):
+        assert await sms_cache.get(f"idem:sms:tenant-b:{SID}") == "1"
 
 
 async def test_a_sender_known_only_to_the_other_tenant_is_unknown_on_this_number(

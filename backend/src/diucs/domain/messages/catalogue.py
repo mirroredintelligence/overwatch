@@ -1,22 +1,14 @@
 """Message catalogue ids (D15). The meaning of each id is in docs/spec/domain-rules.md section 9.
 
 Ids are stored as `Communication.topic`, so their values never change once a message is sent.
+
+The wording a tenant supplies (TEN-022) is named here: which fields are tenant text, and which ids
+take which. A use case loads a tenant's words for those ids with `tenant_text_fields_for`.
 """
 
 from collections.abc import Mapping
 from enum import StrEnum
 from typing import Final
-
-# The wording fields a tenant supplies (TEN-022). Each is validated by check_tenant_text.
-TENANT_TEXT_FIELD_NAMES: Final = frozenset(
-    {"system_name", "referral_system_name", "coordination_team_name"}
-)
-# Red stub (TEN-022): no id takes a tenant field yet.
-TENANT_TEXT_FIELDS: Final[Mapping[object, frozenset[str]]] = {}
-
-
-def tenant_text_fields_for(message_id: object) -> frozenset[str]:
-    return frozenset()
 
 
 class MessageId(StrEnum):
@@ -50,3 +42,23 @@ class MessageId(StrEnum):
     K2 = "K2"
     K3 = "K3"
     K4 = "K4"
+
+
+# The three wording fields a tenant supplies (TEN-022). Each is checked by check_tenant_text.
+TENANT_TEXT_FIELD_NAMES: Final = frozenset(
+    {"system_name", "referral_system_name", "coordination_team_name"}
+)
+
+# Which tenant wording field each id takes. The platform name ("DIUCS") and the sender identity
+# are not here: they are not tenant words in the body (TEN-022).
+TENANT_TEXT_FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
+    MessageId.I2: frozenset({"system_name"}),
+    MessageId.B1: frozenset({"referral_system_name"}),
+    MessageId.B2: frozenset({"referral_system_name"}),
+    MessageId.K4: frozenset({"coordination_team_name"}),
+}
+
+
+def tenant_text_fields_for(message_id: MessageId) -> frozenset[str]:
+    """The tenant wording fields a message takes; empty for every id that prints no tenant words."""
+    return TENANT_TEXT_FIELDS.get(MessageId(message_id), frozenset())

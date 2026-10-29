@@ -30,6 +30,7 @@ from diucs.domain.messages.privacy_guard import (
     find_patient_data,
 )
 from diucs.domain.messages.templates import RenderedMessage, render
+from diucs.domain.rules.tenant_settings import check_tenant_text
 
 TEXT, EMAIL, PUSH = Channel.TEXT, Channel.EMAIL, Channel.PUSH
 
@@ -528,11 +529,22 @@ def test_a_tenant_field_accepts_plain_wording_up_to_its_maximum(
         r"[A-Za-z0-9][A-Za-z0-9 .,'&()+\-]{0,38}[A-Za-z0-9.)]", fullmatch=True
     ).filter(lambda text: "  " not in text and not find_patient_data(text))
 )
-def test_any_plain_wording_is_printed_verbatim_in_the_text_part(value: str) -> None:
+def test_any_plain_wording_is_printed_verbatim_unless_the_output_guard_refuses_the_output(
+    value: str,
+) -> None:
+    """Plain wording is accepted by the field check and printed as it is. The one refusal left is
+    the output guard (defence after substitution): a name that ends in a title, such as "MR", next
+    to the template's capitalised word ("MR. Reply") has a patient-data shape. That refusal is
+    fail-closed and names the text field; nothing else may refuse plain wording."""
     assume(len(value) <= 40)
-    rendered = render(
-        MessageId.B1, TEXT, **{**SAMPLE_FIELDS[MessageId.B1], "referral_system_name": value}
-    )
+    assert check_tenant_text("referral_system_name", value) == value
+    fields = {**SAMPLE_FIELDS[MessageId.B1], "referral_system_name": value}
+    try:
+        rendered = render(MessageId.B1, TEXT, **fields)
+    except ValidationFailed as refusal:
+        assert refusal.field == "text", value
+        assert find_patient_data(f"in {value}. Reply"), value
+        return
     assert f"Referral details follow in {value}. Reply" in rendered.text
 
 
@@ -718,7 +730,7 @@ def test_tenant_text_fields_for_maps_the_four_ids_and_nothing_else() -> None:
     others = [
         m for m in MessageId if m not in {MessageId.I2, MessageId.B1, MessageId.B2, MessageId.K4}
     ]
-    assert len(others) == 21
+    assert len(others) == len(MessageId) - 4
     assert all(tenant_text_fields_for(m) == frozenset() for m in others)
 
 

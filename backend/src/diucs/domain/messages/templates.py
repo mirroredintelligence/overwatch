@@ -10,11 +10,16 @@ and the [ASSUMED] texts.
 
 Callers pass time fields already formatted as "HH:MM" strings and the unit phrase as text.
 No template holds a patient name, NHS number or postcode, and no field may add one.
+
+The words that differ between organisations are fields, never text in a template (TEN-022): the
+system name (I2), the referral system name (B1 and B2) and the coordination team name (K4) are
+validated by check_tenant_text, and the confirm limit (C6) is 1, 2 or 3. No field has a default,
+so a message that needs a tenant's words never prints a guess. "DIUCS" stays in the text.
 """
 
 import re
 from collections.abc import Iterator, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from html import escape
 from typing import Final, cast
 
@@ -138,14 +143,15 @@ _C12_TEXT: Final = (
 
 _B1_TEXT: Final = (
     "DIUCS REQUEST {reference}: {service}. Age {age_band}, {need}, {urgency}. "
-    "Referral details follow in SystmOne. Reply CONFIRMED or DECLINE, or open {link} by {reply_by}."
+    "Referral details follow in {referral_system_name}. Reply CONFIRMED or DECLINE, "
+    "or open {link} by {reply_by}."
 )
 _B2_LINES: Final = (
     "Booking request {reference} for {service}.\n"
     "Age band {age_band}\n"
     "Need: {need}\n"
     "Response wanted: {urgency}\n"
-    "Referral details follow in SystmOne.\n"
+    "Referral details follow in {referral_system_name}.\n"
     "Please review and reply by {reply_by}.\n"
 )
 _B2_NO_BOOKING: Final = (
@@ -215,7 +221,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     ),
     (MessageId.C6, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C6],
-        text="Y was used twice already. Please send the number for {service}.",
+        text="Y was used {times} already. Please send the number for {service}.",
     ),
     (MessageId.C7, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C7],
@@ -270,7 +276,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         html=(
             "<p>Booking request {reference} for {service}.</p>\n"
             "<p>Age band {age_band}<br>Need: {need}<br>Response wanted: {urgency}</p>\n"
-            "<p>Referral details follow in SystmOne.</p>\n"
+            "<p>Referral details follow in {referral_system_name}.</p>\n"
             "<p>Please review and reply by {reply_by}.</p>\n"
             f'<p><a href="{{link}}" style="{BUTTON_STYLE}">Review request</a></p>\n'
             f"<p>{_B2_NO_BOOKING}</p>"
@@ -313,7 +319,7 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.I2, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I2],
         text=(
-            "DIUCS: You are invited to see Dorset urgent care capacity on your phone. "
+            "DIUCS: You are invited to see {system_name} on your phone. "
             "Set up takes about 3 minutes: {link} Valid for 48 hrs."
         ),
     ),
@@ -349,16 +355,9 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         required=_FIELDS[MessageId.K4],
         text=(
             "DIUCS: {service} is suspended. Prompts have stopped. "
-            "The SPOA shift lead will phone you."
+            "{coordination_team_name} will phone you."
         ),
     ),
-}
-
-
-# Red stub (TEN-022): the tenant fields are accepted but not yet required by any template.
-_TEMPLATES = {
-    key: replace(template, required=template.required - TENANT_TEXT_FIELD_NAMES)
-    for key, template in _TEMPLATES.items()
 }
 
 
@@ -472,7 +471,29 @@ def _check_constrained_fields(fields: Mapping[str, object]) -> None:
         raise ValidationFailed("need", "must be a need category code")
 
 
+# The confirm limit as words for C6 (TEN-022). Only the three limits the policy allows are words.
+CONFIRM_LIMIT_WORDS: Final[Mapping[int, str]] = {1: "once", 2: "twice", 3: "3 times"}
+
+
+def _check_tenant_fields(fields: Mapping[str, object]) -> None:
+    """Each tenant wording field passes check_tenant_text; the confirm limit is exactly 1, 2 or 3.
+
+    A bool is not an int here, and a float or a string is never a limit: each is refused."""
+    for name in TENANT_TEXT_FIELD_NAMES:
+        if name in fields:
+            check_tenant_text(name, fields[name])
+    if "confirm_limit" in fields:
+        limit = fields["confirm_limit"]
+        if type(limit) is not int or limit not in CONFIRM_LIMIT_WORDS:
+            raise ValidationFailed("confirm_limit", "must be 1, 2 or 3")
+
+
 def _values(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, object]:
+    if message_id is MessageId.C6:
+        return {
+            "service": fields["service"],
+            "times": CONFIRM_LIMIT_WORDS[cast(int, fields["confirm_limit"])],
+        }
     if message_id is MessageId.C9:
         return _multi_service_values(fields["items"], fields["reply_by"])
     if message_id is MessageId.C10:
@@ -502,6 +523,7 @@ def render(message_id: MessageId, channel: Channel, **fields: object) -> Rendere
 
     _refuse_patient_data(fields)
     _check_constrained_fields(fields)
+    _check_tenant_fields(fields)
     values = _values(message_id, fields)
     html_values = {key: escape(str(value)) for key, value in values.items()}
     rendered = RenderedMessage(

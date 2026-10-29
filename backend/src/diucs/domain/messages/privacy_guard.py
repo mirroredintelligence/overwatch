@@ -33,6 +33,13 @@ FORBIDDEN_FIELDS: Final[frozenset[str]] = frozenset(
         "dob",
         "date_of_birth",
         "free_text",
+        # TEN-022: a text or email carries no tenant id, slug, subaccount sid or number.
+        "tenant",
+        "tenant_id",
+        "tenant_slug",
+        "account_sid",
+        "sender_number",
+        "from_number",
     }
 )
 
@@ -52,9 +59,14 @@ _TITLED_NAME: Final = re.compile(r"\b(?i:mr|mrs|ms|miss|dr)\.?\s[A-Z][a-z]+")
 _PATTERNS: Final = (_POSTCODE, _NHS_NUMBER, _TITLED_NAME)
 
 
+_DEPLOYMENT_TERM: Final = re.compile(
+    r"\b(?:" + "|".join(re.escape(term) for term in DEPLOYMENT_TERMS) + r")\b", re.IGNORECASE
+)
+
+
 def find_deployment_terms(text: str) -> list[str]:
-    # Red stub (TEN-022).
-    return []
+    """Each whole-word, case-insensitive deployment term in text, in the order it appears."""
+    return [match.group(0) for match in _DEPLOYMENT_TERM.finditer(text)]
 
 
 def find_patient_data(text: str) -> list[str]:

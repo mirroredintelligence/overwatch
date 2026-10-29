@@ -45,7 +45,10 @@ def test_the_registry_migrations_follow_the_three_of_ten_005_in_order() -> None:
         "0034_tenant_registry",
         "0035_default_tenant_record",
     ]
-    assert [m.id for m in MIGRATIONS][-2:] == ids[-2:]
+    # Ordering, not position: the P20 migrations (0040, 0041) are assembled after these.
+    all_ids = [m.id for m in MIGRATIONS]
+    start = all_ids.index(ids[0])
+    assert all_ids[start : start + len(ids)] == ids
 
 
 def test_0034_is_the_four_unique_keys_and_the_account_index_in_this_order() -> None:

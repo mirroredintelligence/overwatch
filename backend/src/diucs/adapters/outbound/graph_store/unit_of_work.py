@@ -28,9 +28,16 @@ from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession, AsyncTrans
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog
 from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
+from diucs.adapters.outbound.graph_store.alert_repository import (
+    Neo4jAlertRepository,
+    Neo4jAlertSubscriptionRepository,
+)
 from diucs.adapters.outbound.graph_store.booking_repository import Neo4jBookingRepository
 from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
 from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
+from diucs.adapters.outbound.graph_store.clinical_request_repository import (
+    Neo4jClinicalRequestRepository,
+)
 from diucs.adapters.outbound.graph_store.communication_repository import (
     Neo4jCommunicationRepository,
 )
@@ -49,6 +56,10 @@ from diucs.adapters.outbound.graph_store.idempotency_store import (
 )
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from diucs.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
+from diucs.adapters.outbound.graph_store.push_subscription_repository import (
+    Neo4jPushSubscriptionRepository,
+)
 from diucs.adapters.outbound.graph_store.registration_repository import (
     Neo4jRegistrationRepository,
 )
@@ -57,6 +68,7 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
     Neo4jScheduledWorkRepository,
 )
 from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
+from diucs.adapters.outbound.graph_store.service_move_repository import Neo4jServiceMoveRepository
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditLog
@@ -64,17 +76,25 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
-from diucs.application.ports.outbound.messaging import CommunicationRepository
+from diucs.application.ports.outbound.messaging import (
+    CommunicationRepository,
+    PushSubscriptionRepository,
+)
 from diucs.application.ports.outbound.outbox import Outbox
+from diucs.application.ports.outbound.protected_text import ProtectedTextStore
 from diucs.application.ports.outbound.repositories import (
+    AlertRepository,
+    AlertSubscriptionRepository,
     BookingRepository,
     CapacityRepository,
     CaseRepository,
+    ClinicalRequestRepository,
     CriteriaRepository,
     FlagRepository,
     PersonRepository,
     RegistrationRepository,
     ScopeListRepository,
+    ServiceMoveRepository,
     ServiceRepository,
 )
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
@@ -88,6 +108,12 @@ RepositoryFactory = Callable[[AsyncManagedTransaction, ResourceStore], object]
 # registers its repository by adding one entry here (P06 "Later tasks register new repositories").
 DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "services": lambda tx, store: Neo4jServiceRepository(tx, store),
+    "alert_subscriptions": lambda tx, store: Neo4jAlertSubscriptionRepository(tx),
+    "alerts": lambda tx, store: Neo4jAlertRepository(tx, store),
+    "clinical_requests": lambda tx, store: Neo4jClinicalRequestRepository(tx, store),
+    "push_subscriptions": lambda tx, store: Neo4jPushSubscriptionRepository(tx),
+    "service_moves": lambda tx, store: Neo4jServiceMoveRepository(tx),
+    "protected_text": lambda tx, store: Neo4jProtectedTextStore(tx),
     "capacity": lambda tx, store: Neo4jCapacityRepository(tx, store),
     "bookings": lambda tx, store: Neo4jBookingRepository(tx, store),
     "cases": lambda tx, store: Neo4jCaseRepository(tx, store),
@@ -143,6 +169,11 @@ class Neo4jUnitOfWork:
     """One session and one explicit transaction. Use it once: `async with uow:`, then commit."""
 
     services: ServiceRepository
+    alert_subscriptions: AlertSubscriptionRepository
+    alerts: AlertRepository
+    clinical_requests: ClinicalRequestRepository
+    service_moves: ServiceMoveRepository
+    protected_text: ProtectedTextStore
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository
@@ -152,6 +183,7 @@ class Neo4jUnitOfWork:
     scope: ScopeListRepository
     flags: FlagRepository
     communications: CommunicationRepository
+    push_subscriptions: PushSubscriptionRepository
     link_tokens: LinkTokenRepository
     scheduled_work: ScheduledWorkRepository
     audit: AuditLog

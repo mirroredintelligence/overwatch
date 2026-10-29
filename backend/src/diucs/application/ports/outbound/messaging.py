@@ -120,3 +120,33 @@ class CommunicationRepository(Protocol):
     async def latest_prompt_for_phone(
         self, role_ids: Collection[str], message_ids: Collection[str]
     ) -> Communication | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class PushSubscription:
+    """A Web Push subscription of one installed app on one device (P19). The subscription JSON
+    (endpoint and keys) is a capability secret: it is never logged, audited or sent to telemetry."""
+
+    device_id: str
+    practitioner_id: str
+    subscription: dict[str, Any]
+    saved_at: datetime
+
+
+class PushSubscriptionRepository(Protocol):
+    """Push subscriptions, one per device (P19). Adapter: Neo4jPushSubscriptionRepository
+    (graph_store/push_subscription_repository.py). Saving for a device replaces its subscription;
+    deleting removes the subscription properties and keeps the Device."""
+
+    async def save(self, subscription: PushSubscription) -> None:
+        """Store the subscription of its device, replacing any earlier one. An unknown practitioner
+        raises NotFound and writes nothing."""
+        ...
+
+    async def for_practitioner(self, practitioner_id: str) -> list[PushSubscription]:
+        """The subscriptions of this practitioner's devices, newest first."""
+        ...
+
+    async def delete(self, device_id: str) -> None:
+        """Remove the subscription of this device. The Device stays."""
+        ...

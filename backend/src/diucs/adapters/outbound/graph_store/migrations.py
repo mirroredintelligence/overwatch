@@ -30,6 +30,7 @@ from diucs.adapters.outbound.graph_store.migration_types import (
     MigrationFailed,
 )
 from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
+from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_tenant import TENANT_MIGRATIONS
 
 _CORE_MIGRATIONS: list[tuple[str, str]] = [
@@ -169,7 +170,7 @@ def assemble_migrations(*areas: Sequence[Migration]) -> list[Migration]:
 
 
 MIGRATIONS: Final[list[Migration]] = assemble_migrations(
-    CORE_MIGRATIONS, TENANT_MIGRATIONS, NETWORK_MIGRATIONS
+    CORE_MIGRATIONS, TENANT_MIGRATIONS, NETWORK_MIGRATIONS, PROTECTED_MIGRATIONS
 )
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

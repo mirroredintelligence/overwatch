@@ -24,17 +24,25 @@ from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
-from diucs.application.ports.outbound.messaging import CommunicationRepository
+from diucs.application.ports.outbound.messaging import (
+    CommunicationRepository,
+    PushSubscriptionRepository,
+)
 from diucs.application.ports.outbound.outbox import Outbox
+from diucs.application.ports.outbound.protected_text import ProtectedTextStore
 from diucs.application.ports.outbound.repositories import (
+    AlertRepository,
+    AlertSubscriptionRepository,
     BookingRepository,
     CapacityRepository,
     CaseRepository,
+    ClinicalRequestRepository,
     CriteriaRepository,
     FlagRepository,
     PersonRepository,
     RegistrationRepository,
     ScopeListRepository,
+    ServiceMoveRepository,
     ServiceRepository,
 )
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
@@ -43,6 +51,11 @@ from diucs.application.tenancy import ScopeId
 
 class UnitOfWork(Protocol):
     services: ServiceRepository
+    alert_subscriptions: AlertSubscriptionRepository
+    alerts: AlertRepository
+    clinical_requests: ClinicalRequestRepository
+    service_moves: ServiceMoveRepository
+    protected_text: ProtectedTextStore
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository
@@ -52,6 +65,7 @@ class UnitOfWork(Protocol):
     scope: ScopeListRepository
     flags: FlagRepository
     communications: CommunicationRepository
+    push_subscriptions: PushSubscriptionRepository
     link_tokens: LinkTokenRepository
     scheduled_work: ScheduledWorkRepository
     audit: AuditLog

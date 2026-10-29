@@ -328,18 +328,20 @@ async def test_a_report_from_the_future_is_refused(
     assert await count_nodes(neo4j_driver, "Observation") == 0
 
 
-async def test_a_report_flag_is_refused_until_u07_records_flags(
+async def test_a_report_flag_on_the_command_is_accepted_and_the_report_is_stored(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
+    """U07 replaces the refusal U01 made while flags were not recorded. The flag, its outbox
+    message and the audit entry are covered in test_report_flags.py."""
     await seed_service(UCR_WEST)
 
-    with pytest.raises(ValidationFailed) as refused:
-        await _rig(uow_factory, neo4j_driver)[0].execute(
-            _command(4, flag=ReportFlagReason.MANY_CHANGES)
-        )
+    result = await _rig(uow_factory, neo4j_driver)[0].execute(
+        _command(4, flag=ReportFlagReason.MANY_CHANGES)
+    )
 
-    assert refused.value.field == "flag"
-    assert await count_nodes(neo4j_driver, "Observation") == 0
+    assert len(result.flag_ids) == 1
+    assert await count_nodes(neo4j_driver, "Observation") == 1
+    assert await count_nodes(neo4j_driver, "ReportFlag") == 1
 
 
 async def test_a_reporter_without_the_service_is_refused(

@@ -579,7 +579,7 @@ async def test_an_out_of_range_figure_asks_again_and_the_same_figure_twice_is_re
 
     assert second == HandleInboundTextResult(RECORDED, ("ucr-west",))
     assert (await _latest(uow_factory)).value == 40
-    # The flag is passed to ReportCapacity (DEC-148 item 7 says what happens until U07 records it).
+    # The flag is passed to ReportCapacity, which stores it (U07).
     assert rig.reports.commands[0].flag is ReportFlagReason.OUT_OF_RANGE_TWICE
     assert await rig.cache.get(f"recheck:{PHONE}:ucr-west") is None
 
@@ -1639,17 +1639,66 @@ async def test_a_figure_recorded_in_between_clears_the_pending_out_of_range_figu
     assert (await _latest(uow_factory)).value == 5
 
 
-async def test_a_y_clears_the_pending_out_of_range_figure(
+async def test_a_y_does_not_confirm_the_old_figure_while_an_out_of_range_figure_is_pending(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
+    """DEC-161 (U07). The reporter was asked "if 40 is right, send 40 again". A Y is not that
+    answer, and it is ambiguous (yes, 40 is right, or keep the old figure), so it records nothing,
+    asks again with the same wording, and leaves the pending figure in place. Confirming the old
+    figure would put a figure on the board that the reporter has just said is wrong."""
     await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
     rig = Rig(uow_factory, neo4j_driver)
     await rig.say("40", bst(10, 12))
 
     result = await rig.say("Y", bst(10, 13))
 
-    assert result.outcome == CONFIRMED
+    assert result == HandleInboundTextResult(RECHECK, ("ucr-west",))
+    assert [r.report_type for r in await _reports(uow_factory)] == [ReportType.NUMBER]
+    assert rig.confirms.commands == []
+    assert await rig.cache.get(f"recheck:{PHONE}:ucr-west") == "40"
+    asked, asked_again = await _replies(neo4j_driver)
+    assert asked["messageId"] == asked_again["messageId"] == "C7"
+    assert asked_again["text"] == asked["text"]
+    assert asked_again["text"].endswith("send 40 again.")
+
+
+async def test_after_a_refused_y_the_same_figure_again_is_recorded_flagged(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+    await rig.say("40", bst(10, 12))
+    await rig.say("Y", bst(10, 13))
+
+    result = await rig.say("40", bst(10, 14))
+
+    assert result == HandleInboundTextResult(RECORDED, ("ucr-west",))
+    assert (await _latest(uow_factory)).value == 40
+    async with uow_factory() as uow:
+        [flag] = await uow.flags.open_report_flags("ucr-west")
+    assert flag.reason is ReportFlagReason.OUT_OF_RANGE_TWICE
     assert await rig.cache.get(f"recheck:{PHONE}:ucr-west") is None
+
+
+async def test_a_y_for_a_service_with_no_pending_figure_still_confirms_when_another_is_pending(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """A grouped plain Y: the service with a pending out-of-range figure is asked again, the other
+    is confirmed (a refusal for one service never confirms or blocks the rest)."""
+    await seed_service(UCR_WEST, UCR_EAST)
+    await _seed_group(uow_factory)
+    rig = Rig(uow_factory, neo4j_driver)
+    await rig.say("A 40", bst(10, 12))
+
+    result = await rig.say("Y", bst(10, 13))
+
+    assert result == HandleInboundTextResult(CONFIRMED, ("ucr-west",))
+    assert [r.report_type for r in await _reports(uow_factory, "ucr-east")] == [ReportType.NUMBER]
+    assert (await _latest(uow_factory, "ucr-west")).report_type is ReportType.CONFIRMED
+    assert await rig.cache.get(f"recheck:{PHONE}:ucr-east") == "40"
+    assert await rig.cache.get(f"recheck:{PHONE}:ucr-west") is None
+    texts = [row["text"] for row in await _replies(neo4j_driver)]
+    assert any("UCR East: 40 is outside the usual range" in text for text in texts)
 
 
 async def test_an_out_of_range_correction_after_the_prompt_closed_keeps_its_key_long_enough(
@@ -1894,21 +1943,22 @@ async def test_the_commands_name_the_reporter_the_text_source_and_the_role(
     assert "SM-10" in confirm.idempotency_key
 
 
-async def test_the_out_of_range_flag_is_dropped_only_while_report_capacity_cannot_record_it(
+async def test_the_out_of_range_flag_is_passed_once_and_recorded(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
-    """DEC-148 item 7. ReportCapacity refuses any flag until U07 (its own test says so). The figure
-    must still be stored, so the use case passes the flag first and, when that is refused for the
-    flag alone, passes the same figure without it. When U07 lands the first call succeeds and this
-    test is changed to expect one command."""
+    """DEC-148 item 7, as it reads once U07 records flags: one command, with the flag, and the
+    flag is stored open on the report. There is no second call without the flag."""
     await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
     rig = Rig(uow_factory, neo4j_driver)
     await rig.say("40", bst(10, 12))
     await rig.say("40", bst(10, 13))
 
-    assert [c.flag for c in rig.reports.commands] == [ReportFlagReason.OUT_OF_RANGE_TWICE, None]
-    assert rig.reports.commands[0].idempotency_key == rig.reports.commands[1].idempotency_key
-    assert (await _latest(uow_factory)).value == 40
+    assert [c.flag for c in rig.reports.commands] == [ReportFlagReason.OUT_OF_RANGE_TWICE]
+    latest = await _latest(uow_factory)
+    assert latest.value == 40
+    async with uow_factory() as uow:
+        [flag] = await uow.flags.open_report_flags("ucr-west")
+    assert (flag.report_id, flag.reason) == (latest.id, ReportFlagReason.OUT_OF_RANGE_TWICE)
 
 
 # --- what is stored and what is not --------------------------------------------------------------

@@ -3,7 +3,8 @@
 Every reporting path (text, link, app, advisor phoned) ends here. The change, its audit entry, its
 outbox messages and the idempotency record are written in one unit of work (DEC-084, DEC-090).
 Rules: domain-rules 1.2 to 1.6 through compute_status; decisions DEC-100 for the choices the
-prompt leaves open.
+prompt leaves open. A report that breaks a flag rule (domain-rules 2.3) is stored with its flags
+in the same unit of work (U07, DEC-161); the flags never change or hold back the report.
 """
 
 import hashlib
@@ -20,6 +21,7 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.use_cases.report_flags import raise_report_flags
 from diucs.domain.codes import (
     Channel,
     ReportFlagReason,
@@ -80,6 +82,8 @@ class ReportCapacityResult:
     status_changed: bool
     next_due: datetime | None
     replayed: bool = False
+    flag_ids: tuple[str, ...] = ()
+    """The report flags this report raised (U07), in the order raised; empty when none."""
 
 
 def _check_figure(field: str, value: int) -> None:
@@ -143,6 +147,7 @@ async def record_report(
     replaced_value: int | None,
     use_case: str = USE_CASE,
     audit_snapshot: dict[str, Any] | None = None,
+    flag: ReportFlagReason | None = None,
 ) -> ReportCapacityResult:
     """Store one report with its status change, echo, audit entry and outbox messages, inside the
     caller's unit of work. The caller commits. U02 reuses this function (DEC-100).
@@ -152,7 +157,9 @@ async def record_report(
     read as suspended for the status before and after the report.
 
     `use_case` names the caller in the audit entry, and `audit_snapshot` replaces the default
-    snapshot when a caller records its own (U02, DEC-112 item 1).
+    snapshot when a caller records its own (U02, DEC-112 item 1). `flag` is a reason the caller
+    has already decided (the reply policy's `out-of-range-twice`); the flag rules of D12 are
+    always applied as well (U07, DEC-161). The caller holds the service lock.
     """
     flags: Sequence[ServiceFlag] = await uow.flags.service_flags(profile.id)
     if any(flag.code == SERVICE_FLAG_SUSPENDED for flag in flags):
@@ -179,6 +186,10 @@ async def record_report(
         events.append(StatusChanged(service_id=profile.id, before=before, after=after, at=now))
     for event in events:
         await uow.outbox.add(outbox_message_for(event, id=ids.new_id(), now=now))
+
+    flag_ids = await raise_report_flags(
+        uow, ids, profile=profile, report=report, extra=flag, now=now
+    )
 
     next_prompt = next_due(profile, now)
     if send_echo is not None:
@@ -219,7 +230,7 @@ async def record_report(
             action=AUDIT_ACTION,
             use_case=use_case,
             actor=actor,
-            entity_ids=(report.id, profile.id),
+            entity_ids=(report.id, profile.id, *flag_ids),
             snapshot=(
                 audit_snapshot
                 if audit_snapshot is not None
@@ -238,6 +249,7 @@ async def record_report(
         status=after,
         status_changed=before is not after,
         next_due=next_prompt,
+        flag_ids=tuple(flag_ids),
     )
 
 
@@ -303,6 +315,8 @@ class ReportCapacity:
         self._idempotency = idempotency
 
     async def execute(self, command: ReportCapacityCommand) -> ReportCapacityResult:
+        if command.flag is not None and not isinstance(command.flag, ReportFlagReason):
+            raise ValidationFailed("flag", "must be a report flag reason")
         fingerprint = _fingerprint(command)
         # An early read outside the unit of work. The authoritative replay check is inside it.
         early = await self._idempotency.get(command.idempotency_key)
@@ -312,10 +326,6 @@ class ReportCapacity:
         _check_figure("value", command.value)
         if command.replaced_value is not None:
             _check_figure("replaced_value", command.replaced_value)
-        if command.flag is not None:
-            raise ValidationFailed(
-                "flag", "report flags are recorded by U07, not by ReportCapacity"
-            )
         explicit = _explicit_effective(command.effective_at, self._clock.now())
 
         async with self._uow_factory() as uow:
@@ -368,6 +378,7 @@ class ReportCapacity:
                 ids=self._ids,
                 send_echo=send_echo,
                 replaced_value=command.replaced_value,
+                flag=command.flag,
             )
             await uow.idempotency.put(command.idempotency_key, _StoredReport(fingerprint, result))
             await uow.commit()

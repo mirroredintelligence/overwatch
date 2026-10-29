@@ -14,6 +14,7 @@ from diucs.domain.codes import (
     AlertKind,
     BookingStatus,
     DeclineReason,
+    ReportFlagReason,
     ReportSource,
     Role,
     Status,
@@ -30,6 +31,7 @@ from diucs.domain.events import (
     DomainEvent,
     RegistrationApproved,
     RegistrationSubmitted,
+    ReportFlagged,
     StatusChanged,
     from_payload,
     session_id_for,
@@ -52,6 +54,7 @@ SAMPLES: tuple[DomainEvent, ...] = (
     CriteriaApproved("crit-1", SERVICE_ID, 2, AT),
     AlertRaised("alert-1", AlertKind.OVER_CAPACITY, SERVICE_ID, AT),
     AlertAcknowledged("alert-1", Role.LEAD, AT),
+    ReportFlagged("flag-1", SERVICE_ID, "obs-1", ReportFlagReason.MANY_CHANGES, AT),
 )
 
 EXPECTED_TOPIC: dict[type, str] = {
@@ -65,6 +68,7 @@ EXPECTED_TOPIC: dict[type, str] = {
     CriteriaApproved: "criteria.events",
     AlertRaised: "alerts.events",
     AlertAcknowledged: "alerts.events",
+    ReportFlagged: "capacity.events",
 }
 
 
@@ -110,6 +114,11 @@ def test_session_id_is_the_service_id_for_capacity_events() -> None:
         session_id_for(CapacityReported(SERVICE_ID, "obs-1", 4, ReportSource.TEXT, AT))
         == SERVICE_ID
     )
+
+
+def test_session_id_is_the_service_id_for_a_report_flag() -> None:
+    event = ReportFlagged("flag-1", SERVICE_ID, "obs-1", ReportFlagReason.MANY_CHANGES, AT)
+    assert session_id_for(event) == SERVICE_ID
 
 
 def test_session_id_is_none_for_booking_events() -> None:
@@ -380,3 +389,87 @@ def test_decoded_timestamp_that_does_not_parse_is_refused() -> None:
     with pytest.raises(ValidationFailed) as info:
         from_payload("CapacityReported", payload)
     assert info.value.field == "at"
+
+
+# --- ReportFlagged (U07) -------------------------------------------------------------------------
+
+
+def test_report_flagged_payload_matches_the_contract() -> None:
+    event = ReportFlagged("flag-1", SERVICE_ID, "obs-1", ReportFlagReason.DIFFERS_FROM_PHONED, AT)
+    assert event.to_payload() == {
+        "flag_id": "flag-1",
+        "service_id": "svc-ucr-west",
+        "report_id": "obs-1",
+        "reason": "differs-from-phoned",
+        "at": "2026-10-23T10:12:00Z",
+    }
+
+
+@pytest.mark.parametrize("reason", list(ReportFlagReason))
+def test_every_flag_reason_round_trips_as_a_flag_reason(reason: ReportFlagReason) -> None:
+    event = ReportFlagged("flag-1", SERVICE_ID, "obs-1", reason, AT)
+    rebuilt = from_payload("ReportFlagged", event.to_payload())
+    assert rebuilt == event
+    assert isinstance(rebuilt, ReportFlagged)
+    assert type(rebuilt.reason) is ReportFlagReason
+
+
+@pytest.mark.parametrize(
+    "reason",
+    ["Jane Smith", "DT4 8XX", "943 476 5919", "07700 900123", "full", "", "MANY-CHANGES"],
+)
+def test_report_flagged_reason_must_be_a_flag_reason(reason: str) -> None:
+    payload: dict[str, Any] = {
+        "flag_id": "flag-1",
+        "service_id": SERVICE_ID,
+        "report_id": "obs-1",
+        "reason": reason,
+        "at": "2026-10-23T10:12:00Z",
+    }
+    with pytest.raises(ValidationFailed) as info:
+        from_payload("ReportFlagged", payload)
+    assert info.value.field == "reason"
+
+
+def test_report_flagged_refuses_a_reason_that_is_a_plain_string_or_another_enum() -> None:
+    with pytest.raises(ValidationFailed) as info:
+        ReportFlagged("flag-1", SERVICE_ID, "obs-1", "many-changes", AT)  # type: ignore[arg-type]
+    assert info.value.field == "reason"
+    with pytest.raises(ValidationFailed) as other:
+        ReportFlagged("flag-1", SERVICE_ID, "obs-1", Status.ACCEPTING, AT)  # type: ignore[arg-type]
+    assert other.value.field == "reason"
+
+
+@pytest.mark.parametrize("missing", ["flag_id", "service_id", "report_id", "reason", "at"])
+def test_report_flagged_needs_every_field(missing: str) -> None:
+    payload: dict[str, Any] = ReportFlagged(
+        "flag-1", SERVICE_ID, "obs-1", ReportFlagReason.MANY_CHANGES, AT
+    ).to_payload()
+    del payload[missing]
+    with pytest.raises(ValidationFailed) as info:
+        from_payload("ReportFlagged", payload)
+    assert info.value.field == missing
+
+
+def test_report_flagged_refuses_a_time_that_is_not_utc() -> None:
+    with pytest.raises(ValidationFailed) as info:
+        ReportFlagged(
+            "flag-1",
+            SERVICE_ID,
+            "obs-1",
+            ReportFlagReason.MANY_CHANGES,
+            datetime(2026, 10, 23, 10, 12),
+        )
+    assert info.value.field == "at"
+
+
+@pytest.mark.parametrize("field", ["flag_id", "service_id", "report_id"])
+@pytest.mark.parametrize("value", [7, None, ["flag-1"], b"flag-1"])
+def test_report_flagged_ids_must_be_text(field: str, value: object) -> None:
+    payload: dict[str, Any] = ReportFlagged(
+        "flag-1", SERVICE_ID, "obs-1", ReportFlagReason.MANY_CHANGES, AT
+    ).to_payload()
+    payload[field] = value
+    with pytest.raises(ValidationFailed) as info:
+        from_payload("ReportFlagged", payload)
+    assert info.value.field == field

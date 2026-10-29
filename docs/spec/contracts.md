@@ -173,7 +173,7 @@ These names were added by individual task prompts. They are as binding as the re
 | `Registration` | `domain/model/registration.py` | P04 |
 | `ReportFlag`, service flags | `domain/model/flags.py` | P04 |
 | Events `PhoneTaskRaised` (`capacity.events`), `ReportEscalated` (`alerts.events`) | `domain/events.py` | U06 |
-| Event `ReportFlagged` | `domain/events.py` | U07 |
+| Event `ReportFlagged` (`capacity.events`; fields `flag_id`, `service_id`, `report_id`, `reason: ReportFlagReason`, `at`) | `domain/events.py` | U07 (delivered) |
 | Event `DeclinedDespiteCapacity` | `domain/events.py` | U13 |
 | Event `ServiceActivated` (`registration.events`) | `domain/events.py` | U15 |
 | Event `BookingPhonePrompt` | `domain/events.py` | U19 |
@@ -344,3 +344,17 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - Graph: `ServiceRequest.openReference` (the reference while the case is open, absent once it closes), constraint `tenant_case_open_reference`. Composite constraints are named `tenant_<...>`; the global constraint is `migration_id` on `Migration.id`; `link_token_hash` stays a single-property key.
 - Tests: `tests/support/tenant_seed.py` holds `SUPERSEDED_CONSTRAINT_NAMES`, `SUPERSEDED_INDEX_NAMES`, `schema_names(driver)`, `contract_schema(driver)` and `contracted_container()` (a private container with the superseded keys dropped, which the generated two-tenant test runs on until TEN-032). `tests/architecture/test_single_execution_point.py` names `MIGRATION_RUNNER_FILES` (the files that may run Cypher beside `driver.py`).
 
+## Outbox relay worker (I03, DEC-157)
+- `adapters/inbound/workers/outbox_relay.py`: `OutboxRelay(uow_factory, bus, cache, clock, tenants, batch_size=100, *, poll_interval_s=1.0, backoff_start_s=1.0)` with `async run_once() -> RelayResult` and `async run_forever(stop: asyncio.Event)`; `RelayResult(published, failed, skipped_no_lock)`; `ActiveTenants` (Protocol, `async active_tenant_ids() -> Sequence[str]`; TEN-007's `TenantDirectory` satisfies it or is wrapped); `StaticTenants(ids)`; constants `LOCK_NAME = "outbox-relay"`, `LOCK_TTL` (30 s), `LOCK_MARGIN` (5 s), `BATCH_SIZE` (100), `BACKOFF_START_SECONDS` (1), `BACKOFF_CAP_SECONDS` (60), `POLL_INTERVAL_SECONDS` (1), `SCHEDULED_WORK_DUE = "ScheduledWorkDue"`. The relay binds one tenant per round, and every `BusMessage` it sends carries `tenant_id`.
+- `bootstrap/outbox_relay_main.py`: `python -m diucs.bootstrap.outbox_relay_main`; `configured_tenants(environ)` reads `DIUCS_RELAY_TENANTS` (a stand-in for the directory), `service_bus_connection(settings)`, `serve(settings, tenants, stop)`, `RelayConfigError`.
+- Tests: `tests/support/relay_rig.py` (`SpyBus`, `InstrumentedFactory`, `TenantPrefixedCache`, `ScriptedTokenCache`, `add_messages`, `add_scheduled`).
+
+## Grouped prompts (U04, DEC-158)
+- `application/use_cases/send_prompts.py`: `prompt_key(service_id, due) -> str` (`prompt:<service_id>:<due in UTC, isoformat>`: the idempotency key of the prompt for a service at a due instant; the `prompt-due` job builds its `SendPromptCommand.idempotency_key` with it, because a grouped prompt stores the other services' results under these keys), and `SendPromptResult.grouped_service_ids: tuple[str, ...] = ()` (every service prompted in one C9 with this one, itself included, in letter order; empty when prompted alone). `SendPrompts`'s constructor and `SendPromptCommand` are unchanged.
+- `application/ports/outbound/messaging.py`: `GROUPED_STATUS = "grouped"`, a member of `DELIVERY_STATUSES`: the delivery status of the Communications of a grouped prompt other than the one that is sent (letter A's is `queued`). Its FHIR `Communication.status` is `completed`.
+- Stored form of a grouped prompt, which U05 reads (DEC-148 item 9, DEC-158 item 7): one `Communication` per grouped service, `message_id` C9, the same `sent_at` and `payload_text` (`A) <name> <figure>. B) <name> <figure>...`), `about_id` the service, `recipient_role_id` the role the phone holds for it; only letter A's has a `SendMessage` outbox message.
+
+## Report flags (U07, DEC-161)
+- `application/use_cases/report_flags.py`: `raise_report_flags(uow, ids, *, profile, report, extra: ReportFlagReason | None, now) -> list[str]` (the ids of the flags raised, in order) and `LOOKBACK` (the longer of D12's two windows). Called by `record_report`; a use case that writes a report does not call it itself.
+- `application/use_cases/report_capacity.py`: `ReportCapacityResult.flag_ids: tuple[str, ...] = ()`; `record_report(..., flag: ReportFlagReason | None = None)`; `ReportCapacity` no longer refuses `ReportCapacityCommand.flag`. The audit entry's `entity_ids` are `(report id, service id, *flag ids)`.
+- `domain/events.py`: `ReportFlagged` is in the `DomainEvent` union, on `capacity.events`, with the service id as session id.

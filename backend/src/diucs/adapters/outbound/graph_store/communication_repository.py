@@ -37,6 +37,8 @@ _FHIR_STATUS = {
     "delivered": "completed",
     "failed": "not-done",
     "received": "completed",
+    # The text of a grouped prompt went out in another service's message (U04, DEC-156 item 8).
+    "grouped": "completed",
 }
 
 _READ = (

@@ -67,6 +67,9 @@ REGISTERED_TYPES: dict[str, str] = {
     "alertKind": "string",
     "escalationDueAt": "dateTime",
     "acknowledgedAt": "dateTime",
+    "why": "string",
+    "snapshotRef": "string",
+    "takenAt": "dateTime",
 }
 
 _VALUE_KEY = {

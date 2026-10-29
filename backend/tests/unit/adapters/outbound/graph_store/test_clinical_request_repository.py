@@ -27,9 +27,14 @@ ADVISED = datetime(2026, 10, 25, 13, 16, tzinfo=UTC)
 TASK_CODE = code_system_url("task-code")
 
 
-def _record(request: ClinicalRequest, advice: ClinicalAdvice | None = None) -> ClinicalRequestRecord:
+def _record(
+    request: ClinicalRequest, advice: ClinicalAdvice | None = None
+) -> ClinicalRequestRecord:
     return ClinicalRequestRecord(
-        request=request, requester_id="adv-1", why="borderline criteria", snapshot_ref="audit-1",
+        request=request,
+        requester_id="adv-1",
+        why="borderline criteria",
+        snapshot_ref="audit-1",
         advice=advice,
     )
 
@@ -39,11 +44,13 @@ WAITING = _record(
 )
 TAKEN_BY_CLIN = _record(take(WAITING.request, "clin-1", TAKEN))
 ADVICE = ClinicalAdvice(
-    choice="go-ahead", reason="within-criteria", note_handle="h-123", clinician_id="clin-1", at=ADVISED
+    choice="go-ahead",
+    reason="within-criteria",
+    note_handle="h-123",
+    clinician_id="clin-1",
+    at=ADVISED,
 )
-ADVISED_RECORD = _record(
-    give_advice(TAKEN_BY_CLIN.request, "clin-1", ADVISED), advice=ADVICE
-)
+ADVISED_RECORD = _record(give_advice(TAKEN_BY_CLIN.request, "clin-1", ADVISED), advice=ADVICE)
 
 
 def _props_of(record: ClinicalRequestRecord) -> dict[str, object]:
@@ -89,7 +96,9 @@ def test_the_taker_is_the_owner_once_taken() -> None:
     ("record", "status"),
     [(WAITING, "waiting"), (TAKEN_BY_CLIN, "taken"), (ADVISED_RECORD, "advised")],
 )
-def test_the_business_status_follows_the_request(record: ClinicalRequestRecord, status: str) -> None:
+def test_the_business_status_follows_the_request(
+    record: ClinicalRequestRecord, status: str
+) -> None:
     assert clinical_record_to_fhir(record)["businessStatus"]["coding"][0]["code"] == status
 
 

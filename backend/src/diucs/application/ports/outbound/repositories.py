@@ -11,9 +11,9 @@ from typing import Protocol
 from diucs.domain.codes import AlertKind, RegistrationStatus
 from diucs.domain.model.alerts import AlertRecord, AlertSubscription
 from diucs.domain.model.booking import Booking
-from diucs.domain.model.clinical import ClinicalRequestRecord
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
+from diucs.domain.model.clinical import ClinicalRequestRecord
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import ReportFlag, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole

@@ -26,9 +26,14 @@ TAKEN = datetime(2026, 10, 25, 13, 14, tzinfo=UTC)
 ADVISED = datetime(2026, 10, 25, 13, 16, tzinfo=UTC)
 
 
-def _record(request: ClinicalRequest, advice: ClinicalAdvice | None = None) -> ClinicalRequestRecord:
+def _record(
+    request: ClinicalRequest, advice: ClinicalAdvice | None = None
+) -> ClinicalRequestRecord:
     return ClinicalRequestRecord(
-        request=request, requester_id="adv-1", why="borderline criteria", snapshot_ref=None,
+        request=request,
+        requester_id="adv-1",
+        why="borderline criteria",
+        snapshot_ref=None,
         advice=advice,
     )
 
@@ -45,8 +50,15 @@ async def _seed(driver: AsyncDriver) -> None:
         store = ResourceStore(tx)
         await store.put({"resourceType": "Practitioner", "id": "adv-1", "active": True}, None)
         await store.put({"resourceType": "Practitioner", "id": "clin-1", "active": True}, None)
-        await store.put({"resourceType": "ServiceRequest", "id": "case-1", "status": "active",
-                         "intent": "order"}, None)
+        await store.put(
+            {
+                "resourceType": "ServiceRequest",
+                "id": "case-1",
+                "status": "active",
+                "intent": "order",
+            },
+            None,
+        )
 
     await write_tx(driver, work)
 
@@ -64,7 +76,9 @@ async def _save(driver: AsyncDriver, *records: ClinicalRequestRecord) -> None:
 
 
 async def _read(driver: AsyncDriver, step: Any) -> Any:
-    return await read_tx(driver, lambda tx: step(Neo4jClinicalRequestRepository(tx, ResourceStore(tx))))
+    return await read_tx(
+        driver, lambda tx: step(Neo4jClinicalRequestRepository(tx, ResourceStore(tx)))
+    )
 
 
 @pytest.fixture
@@ -85,16 +99,28 @@ async def test_the_waiting_queue_is_now_first_then_oldest_first(
     neo4j_driver: AsyncDriver, seeded: None
 ) -> None:
     within = _record(
-        ClinicalRequest(id="req-a", case_id="case-1", urgency="within-15-min",
-                        requested_at=datetime(2026, 10, 25, 13, 8, tzinfo=UTC))
+        ClinicalRequest(
+            id="req-a",
+            case_id="case-1",
+            urgency="within-15-min",
+            requested_at=datetime(2026, 10, 25, 13, 8, tzinfo=UTC),
+        )
     )
     now_late = _record(
-        ClinicalRequest(id="req-b", case_id="case-1", urgency="now",
-                        requested_at=datetime(2026, 10, 25, 13, 13, tzinfo=UTC))
+        ClinicalRequest(
+            id="req-b",
+            case_id="case-1",
+            urgency="now",
+            requested_at=datetime(2026, 10, 25, 13, 13, tzinfo=UTC),
+        )
     )
     now_early = _record(
-        ClinicalRequest(id="req-c", case_id="case-1", urgency="now",
-                        requested_at=datetime(2026, 10, 25, 13, 10, tzinfo=UTC))
+        ClinicalRequest(
+            id="req-c",
+            case_id="case-1",
+            urgency="now",
+            requested_at=datetime(2026, 10, 25, 13, 10, tzinfo=UTC),
+        )
     )
     await _save(neo4j_driver, within, now_late, now_early)
 
@@ -124,8 +150,11 @@ async def test_advice_is_stored_as_a_handle_and_never_as_text(
     taken = _record(take(WAITING.request, "clin-1", TAKEN))
     await _save(neo4j_driver, taken)
     advice = ClinicalAdvice(
-        choice="go-ahead", reason="within-criteria", note_handle="h-123",
-        clinician_id="clin-1", at=ADVISED,
+        choice="go-ahead",
+        reason="within-criteria",
+        note_handle="h-123",
+        clinician_id="clin-1",
+        at=ADVISED,
     )
     advised = _record(give_advice(taken.request, "clin-1", ADVISED), advice=advice)
 

@@ -35,6 +35,9 @@ from diucs.adapters.outbound.graph_store.alert_repository import (
 from diucs.adapters.outbound.graph_store.booking_repository import Neo4jBookingRepository
 from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
 from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
+from diucs.adapters.outbound.graph_store.clinical_request_repository import (
+    Neo4jClinicalRequestRepository,
+)
 from diucs.adapters.outbound.graph_store.communication_repository import (
     Neo4jCommunicationRepository,
 )
@@ -76,6 +79,7 @@ from diucs.application.ports.outbound.repositories import (
     BookingRepository,
     CapacityRepository,
     CaseRepository,
+    ClinicalRequestRepository,
     CriteriaRepository,
     FlagRepository,
     PersonRepository,
@@ -96,6 +100,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "services": lambda tx, store: Neo4jServiceRepository(tx, store),
     "alert_subscriptions": lambda tx, store: Neo4jAlertSubscriptionRepository(tx),
     "alerts": lambda tx, store: Neo4jAlertRepository(tx, store),
+    "clinical_requests": lambda tx, store: Neo4jClinicalRequestRepository(tx, store),
     "capacity": lambda tx, store: Neo4jCapacityRepository(tx, store),
     "bookings": lambda tx, store: Neo4jBookingRepository(tx, store),
     "cases": lambda tx, store: Neo4jCaseRepository(tx, store),
@@ -153,6 +158,7 @@ class Neo4jUnitOfWork:
     services: ServiceRepository
     alert_subscriptions: AlertSubscriptionRepository
     alerts: AlertRepository
+    clinical_requests: ClinicalRequestRepository
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository

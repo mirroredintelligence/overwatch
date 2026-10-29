@@ -55,7 +55,9 @@ def test_advice_records_its_choice_reason_and_note_handle() -> None:
 @pytest.mark.parametrize("choice", ["", "   "])
 def test_advice_needs_a_choice(choice: str) -> None:
     with pytest.raises(ValidationFailed) as refused:
-        ClinicalAdvice(choice=choice, reason=None, note_handle=None, clinician_id="clin-1", at=ADVISED)
+        ClinicalAdvice(
+            choice=choice, reason=None, note_handle=None, clinician_id="clin-1", at=ADVISED
+        )
 
     assert refused.value.field == "choice"
 

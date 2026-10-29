@@ -1,0 +1,27 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "withdraw-reason",
+  "url": "https://diucs.example/CodeSystem/withdraw-reason",
+  "name": "withdraw-reason",
+  "status": "active",
+  "content": "complete",
+  "count": 4,
+  "concept": [
+    {
+      "code": "cannot-reach-patient",
+      "display": "Cannot reach patient"
+    },
+    {
+      "code": "now-full",
+      "display": "Now full"
+    },
+    {
+      "code": "other",
+      "display": "Other"
+    },
+    {
+      "code": "staffing",
+      "display": "Staffing"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+# Synthetic journey checks (O09): the reporter loop, run against a deployed test environment. The
+# checks touch only the host named in SYNTHETIC_ALLOWED_HOSTS, and only the synthetic test service
+# (the test hook issues its link; nothing real is texted). Paging the on-call person on a failure is
+# an alert rule in Azure Monitor, not this workflow. The advisor journey is not in this file yet (it
+# needs the advisor pages, W13 and W15).
+#
+# Started by hand (Actions tab, Run workflow). The owner asked that scheduled Actions runs are not
+# billed (CLAUDE.md; ci.yml), so the ten-minute schedule is commented out. To turn it on, uncomment
+# the schedule lines below and say so in the change.
+#
+# Repository variables: SYNTHETIC_BASE_URL, SYNTHETIC_BACKEND_URL, SYNTHETIC_ALLOWED_HOSTS.
+# Repository secrets: SYNTHETIC_HOOK_TOKEN, SYNTHETIC_STAFF_STORAGE_STATE (the saved session of a test
+# account, as the JSON Playwright writes). Nothing here is printed; GitHub masks the secrets.
+
+name: synthetic
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: "*/10 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: synthetic-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  reporter-loop:
+    name: synthetic reporter loop
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      SYNTHETIC_BASE_URL: ${{ vars.SYNTHETIC_BASE_URL }}
+      SYNTHETIC_BACKEND_URL: ${{ vars.SYNTHETIC_BACKEND_URL }}
+      SYNTHETIC_ALLOWED_HOSTS: ${{ vars.SYNTHETIC_ALLOWED_HOSTS }}
+      SYNTHETIC_HOOK_TOKEN: ${{ secrets.SYNTHETIC_HOOK_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Write the staff session file
+        run: |
+          umask 077
+          printf '%s' "$STAFF_STATE" > "$RUNNER_TEMP/synthetic-staff.json"
+          echo "SYNTHETIC_STAFF_STORAGE_STATE=$RUNNER_TEMP/synthetic-staff.json" >> "$GITHUB_ENV"
+        env:
+          STAFF_STATE: ${{ secrets.SYNTHETIC_STAFF_STORAGE_STATE }}
+      - name: Synthetic checks
+        run: pnpm exec playwright test --project synthetic
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: synthetic-report
+          path: frontend/playwright-report
+          if-no-files-found: ignore

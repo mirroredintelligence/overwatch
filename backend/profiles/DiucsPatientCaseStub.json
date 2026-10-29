@@ -1,0 +1,65 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "https://diucs.example/StructureDefinition/DiucsPatientCaseStub",
+  "name": "DiucsPatientCaseStub",
+  "title": "DIUCS pseudonymised case stub",
+  "status": "active",
+  "description": "A case as the platform holds it: a pseudonymised stub with an age band and no name, identifier, date of birth or contact detail. Validated by the profile rules in validator.py.",
+  "fhirVersion": "4.3.0",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Patient",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Patient",
+  "derivation": "constraint",
+  "differential": {
+    "element": [
+      {
+        "id": "Patient",
+        "path": "Patient"
+      },
+      {
+        "id": "Patient.meta.tag",
+        "path": "Patient.meta.tag",
+        "min": 1,
+        "patternCoding": {
+          "code": "pseudonymised-case-stub"
+        }
+      },
+      {
+        "id": "Patient.extension",
+        "path": "Patient.extension",
+        "sliceName": "ageBand",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": [
+              "https://diucs.example/Extension/age-band"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "Patient.name",
+        "path": "Patient.name",
+        "max": "0"
+      },
+      {
+        "id": "Patient.identifier",
+        "path": "Patient.identifier",
+        "max": "0"
+      },
+      {
+        "id": "Patient.birthDate",
+        "path": "Patient.birthDate",
+        "max": "0"
+      },
+      {
+        "id": "Patient.telecom",
+        "path": "Patient.telecom",
+        "max": "0"
+      }
+    ]
+  }
+}

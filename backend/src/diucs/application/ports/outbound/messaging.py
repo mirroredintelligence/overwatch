@@ -102,7 +102,21 @@ class Communication:
     in_response_to: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PromptDue:
+    """A capacity prompt that was sent in a period: the service it asked about and when it was sent,
+    which is its due time (U35). Ids and times only, no phone number."""
+
+    service_id: str
+    due_at: datetime
+
+
 class CommunicationRepository(Protocol):
+    async def prompts_due_between(self, start: datetime, end: datetime) -> list[PromptDue]:
+        """The capacity prompts (C1 and grouped C9) sent at or after `start` and before `end`, each
+        with the service it is about, oldest first (U35)."""
+        ...
+
     async def add(self, communication: Communication) -> None: ...
 
     async def get(self, communication_id: str) -> Communication | None: ...
@@ -120,3 +134,47 @@ class CommunicationRepository(Protocol):
     async def latest_prompt_for_phone(
         self, role_ids: Collection[str], message_ids: Collection[str]
     ) -> Communication | None: ...
+
+    async def record_send_outcome(
+        self,
+        communication_id: str,
+        *,
+        status: str,
+        provider_message_id: str | None,
+        error_code: str | None,
+    ) -> bool:
+        """Record what the send of a queued communication did (I10): move it to `sent` (with the
+        provider id) or to `failed`, and keep the reason as `error_code` (for example no-contact).
+        Only a communication still queued, with no provider id, moves; the write takes the record's
+        lock first, so two senders cannot both record a send. Returns False when nothing moved.
+        Status is 'sent' or 'failed' only: a receipt moves a sent message on (I08)."""
+
+
+@dataclass(frozen=True, slots=True)
+class PushSubscription:
+    """A Web Push subscription of one installed app on one device (P19). The subscription JSON
+    (endpoint and keys) is a capability secret: it is never logged, audited or sent to telemetry."""
+
+    device_id: str
+    practitioner_id: str
+    subscription: dict[str, Any]
+    saved_at: datetime
+
+
+class PushSubscriptionRepository(Protocol):
+    """Push subscriptions, one per device (P19). Adapter: Neo4jPushSubscriptionRepository
+    (graph_store/push_subscription_repository.py). Saving for a device replaces its subscription;
+    deleting removes the subscription properties and keeps the Device."""
+
+    async def save(self, subscription: PushSubscription) -> None:
+        """Store the subscription of its device, replacing any earlier one. An unknown practitioner
+        raises NotFound and writes nothing."""
+        ...
+
+    async def for_practitioner(self, practitioner_id: str) -> list[PushSubscription]:
+        """The subscriptions of this practitioner's devices, newest first."""
+        ...
+
+    async def delete(self, device_id: str) -> None:
+        """Remove the subscription of this device. The Device stays."""
+        ...

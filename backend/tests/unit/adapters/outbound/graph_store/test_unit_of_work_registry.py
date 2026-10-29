@@ -31,9 +31,15 @@ from diucs.domain.errors import Conflict
 from tests.support.fake_neo4j import FakeDriver
 
 # Every attribute of the UnitOfWork port, from docs/spec/contracts.md, plus the three P16 stores
-# that DEC-071 item 9 and lesson L86 ask P06 to register.
+# that DEC-071 item 9 and lesson L86 ask P06 to register, and the support store (O06).
 REQUIRED_NAMES = {
     "services",
+    "alert_subscriptions",
+    "alerts",
+    "clinical_requests",
+    "push_subscriptions",
+    "service_moves",
+    "protected_text",
     "capacity",
     "bookings",
     "cases",
@@ -52,6 +58,7 @@ REQUIRED_NAMES = {
     "devices",
     "idempotency",
     "processed",
+    "support",
 }
 
 

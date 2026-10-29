@@ -51,6 +51,8 @@ class ReportFlag:
     created_at: datetime
     resolved_at: datetime | None = None
     outcome: str | None = None
+    resolved_by: str | None = None
+    """The practitioner who resolved the flag (U39). Set with the resolution and never changed."""
 
     def __post_init__(self) -> None:
         _text("id", self.id)
@@ -72,6 +74,8 @@ class ReportFlag:
                 raise ValidationFailed("resolved_at", "is earlier than the flag's creation")
         if self.outcome is not None:
             _text("outcome", self.outcome)
+        if self.resolved_by is not None:
+            _text("resolved_by", self.resolved_by)
         object.__setattr__(self, "created_at", created)
         object.__setattr__(self, "resolved_at", resolved)
 

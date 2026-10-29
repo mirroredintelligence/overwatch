@@ -95,6 +95,17 @@ _BY_ACCOUNT = NamedQuery(
     mode="read",
     scope="global",
 )
+_ACTIVE_LINE = NamedQuery(
+    id="Q-TENANT-ACTIVE-LINE",
+    cypher=(
+        "MATCH (t:Tenant {id: $id, status: 'active'})-[:HAS_NUMBER]->(n:TenantNumber "
+        "{status: 'active'}) "
+        "RETURN properties(t) AS tenant, n.e164 AS number, n.accountSid AS accountSid, "
+        "n.secretRef AS secretRef ORDER BY n.e164"
+    ),
+    mode="read",
+    scope="global",
+)
 _BY_HOST = NamedQuery(
     id="Q-TENANT-BY-HOST",
     cypher="MATCH (t:Tenant {host: $host}) RETURN properties(t) AS tenant",
@@ -107,7 +118,16 @@ _BY_ENTRA = NamedQuery(
     mode="read",
     scope="global",
 )
-for _query in (_GET, _LIST_ACTIVE, _ACTIVE_IDS, _BY_NUMBER, _BY_ACCOUNT, _BY_HOST, _BY_ENTRA):
+for _query in (
+    _GET,
+    _LIST_ACTIVE,
+    _ACTIVE_IDS,
+    _BY_NUMBER,
+    _BY_ACCOUNT,
+    _ACTIVE_LINE,
+    _BY_HOST,
+    _BY_ENTRA,
+):
     REGISTRY.register(_query)
 
 
@@ -286,6 +306,21 @@ class Neo4jTenantDirectory:
         if not rows:
             return None
         if len(rows) > 1:  # the number is unique, so this is a registry fault
+            raise TenantRecordInvalid(RECORD_MESSAGE)
+        return _line_of(rows[0])
+
+    async def active_line(self, tenant_id: str) -> TenantLine | None:
+        """The active number of this tenant, if the tenant is active and holds exactly one active
+        number (I10). None for an unknown, suspended or number-less tenant; more than one active
+        number is a registry fault. The id is the bound tenant's (DEC-131)."""
+        try:
+            check_tenant_id(tenant_id)
+        except ValidationFailed:
+            return None
+        rows = await self._read(_ACTIVE_LINE, id=tenant_id)
+        if not rows:
+            return None
+        if len(rows) > 1:
             raise TenantRecordInvalid(RECORD_MESSAGE)
         return _line_of(rows[0])
 

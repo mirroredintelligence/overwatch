@@ -23,6 +23,7 @@ from diucs.adapters.outbound.graph_store.migrations import (
     MIGRATIONS,
     apply_migrations,
 )
+from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_tenant import (
     COMPOSITE_CONSTRAINTS,
     COMPOSITE_INDEXES,
@@ -153,7 +154,7 @@ class _CountingDriver:
 
 async def test_a_fresh_database_applies_every_migration_in_order(built: _Built) -> None:
     assert built.applied == [m.id for m in MIGRATIONS]
-    assert len(built.applied) == 26 + len(TENANT_MIGRATIONS)
+    assert len(built.applied) == 26 + len(TENANT_MIGRATIONS) + len(PROTECTED_MIGRATIONS)
 
 
 async def test_every_composite_constraint_has_the_label_the_properties_and_the_type_of_its_row(

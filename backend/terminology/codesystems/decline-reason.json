@@ -1,0 +1,27 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "decline-reason",
+  "url": "https://diucs.example/CodeSystem/decline-reason",
+  "name": "decline-reason",
+  "status": "active",
+  "content": "complete",
+  "count": 4,
+  "concept": [
+    {
+      "code": "full",
+      "display": "Full"
+    },
+    {
+      "code": "other",
+      "display": "Other"
+    },
+    {
+      "code": "outside-criteria",
+      "display": "Outside criteria"
+    },
+    {
+      "code": "staffing-or-transport",
+      "display": "Staffing or transport"
+    }
+  ]
+}

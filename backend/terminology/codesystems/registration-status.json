@@ -1,0 +1,51 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "registration-status",
+  "url": "https://diucs.example/CodeSystem/registration-status",
+  "name": "registration-status",
+  "status": "active",
+  "content": "complete",
+  "count": 10,
+  "concept": [
+    {
+      "code": "approved",
+      "display": "Approved"
+    },
+    {
+      "code": "draft",
+      "display": "Draft"
+    },
+    {
+      "code": "in-review",
+      "display": "In review"
+    },
+    {
+      "code": "invited",
+      "display": "Invited"
+    },
+    {
+      "code": "live",
+      "display": "Live"
+    },
+    {
+      "code": "needs-changes",
+      "display": "Needs changes"
+    },
+    {
+      "code": "not-approved",
+      "display": "Not approved"
+    },
+    {
+      "code": "paused",
+      "display": "Paused"
+    },
+    {
+      "code": "reverify",
+      "display": "Reverify"
+    },
+    {
+      "code": "submitted",
+      "display": "Submitted"
+    }
+  ]
+}

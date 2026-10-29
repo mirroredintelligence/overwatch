@@ -14,7 +14,7 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import GENESIS_HASH, ensure_audit_head
+from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store import connection as connection_module
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
@@ -31,13 +31,19 @@ from diucs.adapters.outbound.graph_store.queries import (
     QueryRegistry,
     Scenario,
 )
-from diucs.application.tenancy import GlobalStatementMisuse, ScopeId, bind_tenant
+from diucs.application.ports.outbound.audit import GENESIS_HASH, genesis_hash_for
+from diucs.application.tenancy import (
+    DEFAULT_TENANT_ID,
+    GlobalStatementMisuse,
+    ScopeId,
+    TenantNotBound,
+    bind_tenant,
+)
 from diucs.domain.codes import Role
 from tests.support.fake_neo4j import FakeDriver, FakeTx
 
 A1 = ScopeId.tenant("a1")
 PROBE_CYPHER = "MATCH (n:Probe {id: $id, tenantId: $tenant}) RETURN n.id AS id"
-NO_TENANT = "-"
 
 
 @contextmanager
@@ -88,13 +94,16 @@ async def test_the_idempotency_store_sends_the_bound_scope_on_get_and_put() -> N
     assert set(fake.tenants_sent()) == {"a1"}
 
 
-async def test_the_idempotency_store_with_nothing_bound_sends_no_tenant() -> None:
+async def test_the_idempotency_store_with_nothing_bound_is_refused_before_any_statement() -> None:
+    # TEN-016 converted the replay statements: with no scope bound they refuse (fail closed), so
+    # no statement reaches the driver, with or without a tenant.
     fake = FakeDriver()
     store = DriverIdempotencyStore(cast(Any, fake))
-    await store.get("key-1")
-    await store.put("key-1", Role.REPORTER)
-    assert fake.calls
-    assert set(fake.tenants_sent()) == {NO_TENANT}
+    with pytest.raises(TenantNotBound):
+        await store.get("key-1")
+    with pytest.raises(TenantNotBound):
+        await store.put("key-1", Role.REPORTER)
+    assert fake.tenants_sent() == []
 
 
 async def test_the_idempotency_store_scope_is_the_one_at_the_start_when_the_driver_retries() -> (
@@ -119,17 +128,31 @@ async def test_a_put_keeps_the_scope_at_the_start_when_the_driver_retries_it() -
 # ensure_audit_head
 
 
-async def test_ensure_audit_head_sends_the_bound_scope_and_the_unchanged_genesis() -> None:
+async def test_ensure_audit_head_sends_the_bound_scope_and_that_scopes_own_genesis() -> None:
     fake = FakeDriver()
     with bind_tenant("a1"):
         await ensure_audit_head(cast(Any, fake))
-    assert [params for _, params in fake.calls] == [{"tenant": "a1", "genesis": GENESIS_HASH}]
+    assert [params for _, params in fake.calls] == [
+        {"tenant": "a1", "genesis": genesis_hash_for("a1")}
+    ]
 
 
-async def test_ensure_audit_head_with_nothing_bound_sends_no_tenant() -> None:
+async def test_ensure_audit_head_for_the_default_tenant_keeps_the_original_genesis() -> None:
     fake = FakeDriver()
-    await ensure_audit_head(cast(Any, fake))
-    assert [params for _, params in fake.calls] == [{"genesis": GENESIS_HASH}]
+    with bind_tenant(DEFAULT_TENANT_ID):
+        await ensure_audit_head(cast(Any, fake))
+    assert [params for _, params in fake.calls] == [
+        {"tenant": DEFAULT_TENANT_ID, "genesis": GENESIS_HASH}
+    ]
+
+
+async def test_ensure_audit_head_with_nothing_bound_is_refused_before_any_statement() -> None:
+    # TEN-017: the chain head is per scope, so there is no head to make without a scope (fail
+    # closed): nothing is sent, and there is no default chain to fall back on.
+    fake = FakeDriver()
+    with pytest.raises(TenantNotBound):
+        await ensure_audit_head(cast(Any, fake))
+    assert fake.calls == []
 
 
 async def test_ensure_audit_head_scope_is_the_one_at_the_start_when_the_driver_retries() -> None:

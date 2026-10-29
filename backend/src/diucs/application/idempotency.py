@@ -34,6 +34,11 @@ _INT_MAX = 2**63 - 1
 
 
 class IdempotencyStore(Protocol):
+    """Replay of a command's first result, per key. A key belongs to the tenant bound to the unit of
+    work (TEN-016): the same key in another tenant is a different command, and reads as absent
+    there, never as a Conflict. The command fingerprint is the use case's own (it says what the
+    command was), not the store's."""
+
     async def get(self, key: str) -> object | None: ...
 
     async def put(self, key: str, result: object) -> None: ...

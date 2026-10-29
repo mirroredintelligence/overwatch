@@ -26,6 +26,8 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
+from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
 from diucs.domain.codes import (
     BASE_URL,
     Measure,
@@ -51,53 +53,66 @@ _PRACTITIONER_ROLE: Final = "PractitionerRole"
 
 # The latest observation of one service: greatest effectiveDateTime, ties by write time.
 _LATEST_OF_SERVICE: Final = (
-    "CALL { WITH s MATCH (o:Observation)-[:FOCUS]->(s) "
+    "CALL { WITH s MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->(s) "
     "RETURN o.id AS obs ORDER BY o.effectiveDateTime DESC, o.lastUpdated DESC LIMIT 1 }"
 )
 
 _QUERIES: Final = (
     NamedQuery(
         id="Q-CAP-LATEST",
-        cypher=(f"MATCH (s:HealthcareService {{key: $key}}) {_LATEST_OF_SERVICE} RETURN obs"),
+        cypher=(
+            f"MATCH (s:HealthcareService {{key: $key, tenantId: $tenant}}) "
+            f"{_LATEST_OF_SERVICE} RETURN obs"
+        ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-LATEST"],
     ),
     NamedQuery(
         id="Q-CAP-LATEST-FOR",
         cypher=(
-            "UNWIND $keys AS k MATCH (s:HealthcareService {key: k}) "
+            "UNWIND $keys AS k MATCH (s:HealthcareService {key: k, tenantId: $tenant}) "
             f"{_LATEST_OF_SERVICE} RETURN s.id AS service, obs"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-LATEST-FOR"],
     ),
     NamedQuery(
         id="Q-CAP-SINCE",
         cypher=(
-            "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
+            "MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->"
+            "(s:HealthcareService {key: $key, tenantId: $tenant}) "
             "WHERE o.effectiveDateTime >= $since "
             "RETURN o.id AS obs ORDER BY o.effectiveDateTime ASC, o.lastUpdated ASC"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-SINCE"],
     ),
     NamedQuery(
         id="Q-CAP-LOCK-SERVICE",
         cypher=(
-            "MATCH (s:HealthcareService {key: $key}) SET s.id = s.id RETURN count(s) AS locked"
+            "MATCH (s:HealthcareService {key: $key, tenantId: $tenant}) "
+            "SET s.id = s.id RETURN count(s) AS locked"
         ),
         mode="write",
+        scenario=SCENARIOS["Q-CAP-LOCK-SERVICE"],
     ),
     NamedQuery(
         id="Q-CAP-LATEST-CONFIRMED-AT",
         cypher=(
-            "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
+            "MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->"
+            "(s:HealthcareService {key: $key, tenantId: $tenant}) "
             "WHERE o.ext_reportType = 'confirmed' "
-            "RETURN o.effectiveDateTime AS at ORDER BY o.effectiveDateTime DESC LIMIT 1"
+            "RETURN o.id AS obs, o.effectiveDateTime AS at "
+            "ORDER BY o.effectiveDateTime DESC, o.id ASC LIMIT 1"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-LATEST-CONFIRMED-AT"],
     ),
     NamedQuery(
         id="Q-CAP-TRAILING-CONFIRMS",
         cypher=(
-            "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
+            "MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->"
+            "(s:HealthcareService {key: $key, tenantId: $tenant}) "
             "WITH o ORDER BY o.effectiveDateTime DESC, o.lastUpdated DESC "
             "WITH collect(o.ext_reportType) AS types "
             "WITH types, [i IN range(0, size(types) - 1) WHERE types[i] <> 'confirmed' | i] "
@@ -105,16 +120,18 @@ _QUERIES: Final = (
             "RETURN CASE WHEN size(stops) = 0 THEN size(types) ELSE stops[0] END AS trailing"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-TRAILING-CONFIRMS"],
     ),
     NamedQuery(
         id="Q-SVC-LAST-REPORT",
         cypher=(
-            "MATCH (s:HealthcareService {active: true}) "
-            "OPTIONAL MATCH (o:Observation)-[:FOCUS]->(s) "
+            "MATCH (s:HealthcareService {active: true, tenantId: $tenant}) "
+            "OPTIONAL MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->(s) "
             "WITH s, max(o.effectiveDateTime) AS last "
             "RETURN s.id AS id, last ORDER BY s.name"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-SVC-LAST-REPORT"],
     ),
 )
 for _query in _QUERIES:
@@ -139,6 +156,14 @@ def _reference_id(reference: Any, resource_type: str, field: str) -> str:
     return reference[len(prefix) :]
 
 
+def _focus_reference(resource: dict[str, Any]) -> Any:
+    """The reference of the one focus entry of a stored report (R4B Observation.focus is a list)."""
+    focus = _single(resource.get("focus"), "focus")
+    if not isinstance(focus, dict):
+        raise ValidationFailed("focus", "must name the one service reported on")
+    return focus.get("reference")
+
+
 def _single(entries: Any, field: str) -> Any:
     """The one entry of a single-valued list element, or None if the element is absent."""
     if entries is None:
@@ -156,7 +181,8 @@ def report_to_fhir(report: CapacityReport) -> dict[str, Any]:
         "id": report.id,
         "status": "final",
         "code": codeable_to_fhir(report.measure),
-        "focus": {"reference": f"{_SERVICE}/{report.service_id}"},
+        # R4B Observation.focus is a list (0..*): one entry, the service reported on.
+        "focus": [{"reference": f"{_SERVICE}/{report.service_id}"}],
         "method": codeable_to_fhir(report.source),
         "effectiveDateTime": _utc_text(report.effective_at),
         "valueQuantity": {
@@ -189,7 +215,7 @@ def report_from_fhir(resource: dict[str, Any]) -> CapacityReport:
     stamp = resource.get("meta", {}).get("lastUpdated")
     return CapacityReport(
         id=resource["id"],
-        service_id=_reference_id(resource["focus"]["reference"], _SERVICE, "focus"),
+        service_id=_reference_id(_focus_reference(resource), _SERVICE, "focus"),
         value=quantity["value"],
         measure=codeable_from_fhir(resource["code"], Measure, "code"),
         effective_at=datetime.fromisoformat(resource["effectiveDateTime"]).astimezone(UTC),
@@ -256,6 +282,15 @@ class Neo4jCapacityRepository:
         rows = await run_query(self._tx, REGISTRY.get("Q-CAP-LATEST-FOR"), keys=keys)
         return {str(row["service"]): await self._load(str(row["obs"])) for row in rows}
 
+    async def reports_between(self, start: datetime, end: datetime) -> list[CapacityReport]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-CAP-BETWEEN"),
+            start=start.astimezone(UTC),
+            end=end.astimezone(UTC),
+        )
+        return [await self._load(str(row["obs"])) for row in rows]
+
     async def reports_since(self, service_id: str, since: datetime) -> list[CapacityReport]:
         rows = await run_query(
             self._tx,
@@ -285,3 +320,18 @@ class Neo4jCapacityRepository:
             self._tx, REGISTRY.get("Q-CAP-LATEST-CONFIRMED-AT"), key=f"{_SERVICE}/{service_id}"
         )
         return _as_utc(rows[0]["at"]) if rows else None
+
+
+_BETWEEN: Final = NamedQuery(
+    id="Q-CAP-BETWEEN",
+    cypher=(
+        "MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->"
+        "(s:HealthcareService {tenantId: $tenant}) "
+        "WHERE o.effectiveDateTime >= $start AND o.effectiveDateTime < $end "
+        "RETURN o.id AS obs ORDER BY o.effectiveDateTime ASC, o.id ASC"
+    ),
+    mode="read",
+    scenario=WEEK_SCENARIOS["Q-CAP-BETWEEN"],
+)
+if _BETWEEN.id not in REGISTRY.ids():
+    REGISTRY.register(_BETWEEN)

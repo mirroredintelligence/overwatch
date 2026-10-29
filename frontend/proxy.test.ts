@@ -164,6 +164,40 @@ describe('a signed-in role', () => {
   });
 });
 
+describe('the content security policy (S01) on every guarded answer', () => {
+  const nonceOf = (response: Response) => /'nonce-([^']+)'/.exec(response.headers.get('content-security-policy') ?? '')?.[1];
+
+  it('is set on the redirect to sign-in, the 403 page and an allowed page, each with its own nonce', async () => {
+    const redirect = await proxy(await request('/lead'));
+    const forbidden = await proxy(await request('/lead', 'advisor'));
+    const allowed = await proxy(await request('/advisor', 'advisor'));
+    const nonces = [redirect, forbidden, allowed].map(nonceOf);
+    for (const [index, response] of [redirect, forbidden, allowed].entries()) {
+      expect(nonces[index]).toBeTruthy();
+      expect(response.headers.get('content-security-policy')).toContain("frame-ancestors 'none'");
+      expect(response.headers.get('strict-transport-security')).toBeTruthy();
+    }
+    expect(new Set(nonces).size).toBe(3);
+  });
+
+  it('hands the nonce to the page of a 403 and of an allowed guarded path', async () => {
+    for (const response of [await proxy(await request('/lead', 'advisor')), await proxy(await request('/advisor', 'advisor'))]) {
+      expect(response.headers.get('x-middleware-request-x-nonce')).toBe(nonceOf(response));
+    }
+  });
+
+  it('overwrites a policy or nonce sent by the caller instead of passing it on', async () => {
+    const response = await proxy(
+      await request('/advisor', 'advisor', {
+        headers: { 'x-nonce': 'attacker', 'content-security-policy': "script-src 'unsafe-inline'" },
+      }),
+    );
+    expect(response.headers.get('x-middleware-request-x-nonce')).not.toBe('attacker');
+    expect(response.headers.get('x-middleware-request-content-security-policy')).not.toContain('unsafe-inline');
+    expect(response.headers.get('content-security-policy')).not.toContain('unsafe-inline');
+  });
+});
+
 describe('matcher', () => {
   const patterns = config.matcher.map((m) => new RegExp(`^${m}$`));
   const covered = (path: string) => patterns.some((p) => p.test(path));

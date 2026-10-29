@@ -64,6 +64,12 @@ REGISTERED_TYPES: dict[str, str] = {
     "checkCallback": "boolean",
     "checkScope": "string",
     "checkCriteria": "boolean",
+    "alertKind": "string",
+    "escalationDueAt": "dateTime",
+    "acknowledgedAt": "dateTime",
+    "why": "string",
+    "snapshotRef": "string",
+    "takenAt": "dateTime",
 }
 
 _VALUE_KEY = {

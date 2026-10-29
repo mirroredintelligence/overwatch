@@ -46,6 +46,21 @@ def postcode_district(postcode: str) -> str:
     return postcode.split(" ", 1)[0]
 
 
+_PARTIAL_INWARD = re.compile(r"[0-9][A-Z]{0,2}")
+
+
+def partial_district(text: str) -> str | None:
+    """Return the district that a partial postcode ('DT4 8X') or a bare district ('DT4') names, or
+    None. A full postcode is not read here: normalise it first. The inward part of a partial
+    postcode is a digit and up to two letters, as far as the user has typed."""
+    parts = text.split()
+    if len(parts) == 1:
+        return normalise_district(parts[0])
+    if len(parts) == 2 and parts[1].isascii() and _PARTIAL_INWARD.fullmatch(parts[1].upper()):
+        return normalise_district(parts[0])
+    return None
+
+
 def normalise_district(text: str) -> str | None:
     """Return the canonical district (outward code only), or None if it is not one.
 

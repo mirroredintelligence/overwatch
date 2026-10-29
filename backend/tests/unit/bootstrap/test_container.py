@@ -1,12 +1,16 @@
 import dataclasses
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
-from typing import cast
+from pathlib import Path
+from typing import Any, cast
 
 import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncGraphDatabase
+from redis.asyncio import Redis
 
+from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
+from diucs.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store import connection as connection_module
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
@@ -15,6 +19,7 @@ from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.application.tenancy import current_scope, current_scope_or_none
 from diucs.bootstrap import container as container_module
 from diucs.bootstrap.container import build, build_for_tests
 from diucs.bootstrap.settings import Settings
@@ -204,6 +209,16 @@ async def test_the_container_is_still_frozen_with_the_new_fields(neo4j: Neo4jCon
         container.secrets = None  # type: ignore[misc,assignment]
 
 
+class _Tenants:
+    """Stands in for the tenant directory: the ids the start-up binds, in order."""
+
+    def __init__(self, ids: list[str]) -> None:
+        self._ids = ids
+
+    async def active_tenant_ids(self) -> list[str]:
+        return list(self._ids)
+
+
 async def test_start_up_opens_the_connection_then_migrates_then_ensures_the_audit_head(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -217,15 +232,67 @@ async def test_start_up_opens_the_connection_then_migrates_then_ensures_the_audi
 
     async def fake_head(driver: object) -> None:
         assert driver is connection.the_driver
+        events.append(f"head:{current_scope().value}")
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    monkeypatch.setattr(container_module, "ensure_audit_head", fake_head)
+    container = dataclasses.replace(
+        build_for_tests(neo4j=cast(Neo4jConnection, connection)),
+        tenants=cast(Any, _Tenants(["acme-icb"])),
+    )
+
+    await container.startup()
+
+    assert [e for e in events if e != "driver"] == ["open", "migrate", "head:acme-icb"]
+
+
+async def test_start_up_sets_up_each_active_tenants_head_in_turn_and_binds_nothing_after(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        return []
+
+    async def fake_head(driver: object) -> None:
+        events.append(f"head:{current_scope().value}")
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    monkeypatch.setattr(container_module, "ensure_audit_head", fake_head)
+    container = dataclasses.replace(
+        build_for_tests(neo4j=cast(Neo4jConnection, connection)),
+        tenants=cast(Any, _Tenants(["acme-icb", "bridge-ccg"])),
+    )
+
+    await container.startup()
+
+    assert [e for e in events if e.startswith("head:")] == ["head:acme-icb", "head:bridge-ccg"]
+    assert current_scope_or_none() is None
+
+
+async def test_start_up_with_no_active_tenant_makes_no_head(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        return []
+
+    async def fake_head(driver: object) -> None:
         events.append("head")
 
     monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
     monkeypatch.setattr(container_module, "ensure_audit_head", fake_head)
-    container = build_for_tests(neo4j=cast(Neo4jConnection, connection))
+    container = dataclasses.replace(
+        build_for_tests(neo4j=cast(Neo4jConnection, connection)),
+        tenants=cast(Any, _Tenants([])),
+    )
 
     await container.startup()
 
-    assert [e for e in events if e != "driver"] == ["open", "migrate", "head"]
+    assert "head" not in events
 
 
 async def test_a_failed_migration_closes_the_connection_and_stops_the_start(
@@ -265,7 +332,10 @@ async def test_a_failed_audit_head_closes_the_connection_too(
 
     monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
     monkeypatch.setattr(container_module, "ensure_audit_head", failing_head)
-    container = build_for_tests(neo4j=cast(Neo4jConnection, connection))
+    container = dataclasses.replace(
+        build_for_tests(neo4j=cast(Neo4jConnection, connection)),
+        tenants=cast(Any, _Tenants(["acme-icb"])),
+    )
 
     with pytest.raises(RuntimeError, match="no head"):
         await container.startup()
@@ -290,3 +360,166 @@ async def test_a_connection_that_will_not_open_stops_the_start_before_any_migrat
         await container.startup()
 
     assert "migrate" not in events
+
+
+async def test_build_wires_the_redis_identity_stores_from_settings() -> None:
+    container = build(Settings())
+    try:
+        assert isinstance(container.sessions, RedisSessionStore)
+        assert isinstance(container.codes, RedisCodeStore)
+        assert isinstance(container.rate_limiter, RedisRateLimiter)
+        assert isinstance(container.redis, Redis)
+    finally:
+        await container.shutdown()
+
+
+async def test_build_wires_the_local_postcode_locator_and_the_straight_line_travel_estimate(
+    tmp_path: Any,
+) -> None:
+    from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
+    from diucs.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
+
+    fixture = tmp_path / "centroids.csv"
+    fixture.write_text("postcode,latitude,longitude\nDT4 8XX,50.6151,-2.4612\n", encoding="utf-8")
+    container = build(Settings(postcode_centroids_path=fixture))
+    try:
+        assert isinstance(container.postcodes, CsvPostcodeLocator)
+        assert isinstance(container.travel, StraightLineTravelTime)
+    finally:
+        await container.shutdown()
+
+
+async def test_build_for_tests_wires_the_redis_identity_stores_without_a_server(
+    neo4j: Neo4jConnection,
+) -> None:
+    """The stores connect lazily: building a container opens no Redis connection."""
+    container = build_for_tests(neo4j=neo4j)
+    assert isinstance(container.sessions, RedisSessionStore)
+    assert isinstance(container.codes, RedisCodeStore)
+    assert isinstance(container.rate_limiter, RedisRateLimiter)
+
+
+async def test_shutdown_closes_the_redis_client_as_well_as_neo4j() -> None:
+    container = build(Settings())
+    closed: list[str] = []
+
+    async def close_neo4j() -> None:
+        closed.append("neo4j")
+
+    async def close_redis() -> None:
+        closed.append("redis")
+
+    object.__setattr__(container.neo4j, "close", close_neo4j)
+    object.__setattr__(container.redis, "aclose", close_redis)
+    await container.shutdown()
+    assert closed == ["neo4j", "redis"]
+
+
+async def test_build_without_a_centroid_file_locates_nothing_rather_than_guessing(
+    neo4j: Neo4jConnection,
+) -> None:
+    container = build_for_tests(neo4j=neo4j)
+
+    assert container.postcodes.locate("DT4 8XX") is None
+
+
+async def test_build_wires_the_pilot_terminology_and_no_geocoder_without_a_key() -> None:
+    container = build(Settings())
+    try:
+        record = await container.terminology.ods_lookup("RDY")
+        assert record is not None
+        assert container.http is None
+        assert await container.geocoder.find_addresses("DT1 1AA") == []
+    finally:
+        await container.shutdown()
+
+
+async def test_build_wires_the_os_places_geocoder_and_closes_its_client_on_shutdown() -> None:
+    from pydantic import SecretStr
+
+    from diucs.adapters.outbound.geocoder_os_places.os_places import OsPlacesGeocoder
+
+    container = build(Settings(os_places_api_key=SecretStr("test-key")))
+    assert isinstance(container.geocoder, OsPlacesGeocoder)
+    assert container.http is not None
+    client = container.http
+    await container.shutdown()
+    assert client.is_closed
+
+
+# -- the telemetry query (O07) -------------------------------------------------------------------
+
+WORKSPACE = "00000000-0000-0000-0000-000000000000"
+
+
+class _EmptyLogsClient:
+    """A stand-in logs client that records its calls and answers an empty table."""
+
+    def __init__(self) -> None:
+        self.workspaces: list[str] = []
+
+    async def query_workspace(self, workspace_id: str, query: str, **kwargs: Any) -> Any:
+        from diucs.adapters.outbound.telemetry.azure_monitor_query import LogsTable
+
+        self.workspaces.append(workspace_id)
+        return LogsTable(columns=(), rows=())
+
+
+async def test_build_for_tests_serves_the_sample_telemetry_from_the_fixture(
+    neo4j: Neo4jConnection,
+) -> None:
+    from diucs.application.ports.outbound.telemetry_query import SessionFilters
+    from diucs.application.tenancy import bind_tenant
+
+    container = build_for_tests(neo4j=neo4j)
+    with bind_tenant("test-a"):
+        sessions = await container.telemetry.search_sessions(SessionFilters())
+    assert [session.session_id for session in sessions] == ["s-4c81", "s-7f3a"]
+
+
+async def test_build_for_tests_passes_a_telemetry_query_that_is_given(
+    neo4j: Neo4jConnection,
+) -> None:
+    from diucs.adapters.outbound.telemetry.result_attributes import result_attributes
+    from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+
+    other = FixtureTelemetryQuery(Path(container_module.TELEMETRY_FIXTURE), result_attributes)
+    container = build_for_tests(neo4j=neo4j, telemetry=other)
+    assert container.telemetry is other
+
+
+async def test_build_with_no_workspace_refuses_every_telemetry_read() -> None:
+    from diucs.application.ports.outbound.telemetry_query import (
+        SessionFilters,
+        TelemetryUnavailable,
+    )
+    from diucs.application.tenancy import bind_tenant
+
+    container = build(Settings())
+    with bind_tenant("test-a"), pytest.raises(TelemetryUnavailable):
+        await container.telemetry.search_sessions(SessionFilters())
+
+
+async def test_build_with_a_workspace_but_no_client_still_refuses_every_read() -> None:
+    from diucs.application.ports.outbound.telemetry_query import (
+        SessionFilters,
+        TelemetryUnavailable,
+    )
+    from diucs.application.tenancy import bind_tenant
+
+    container = build(Settings(telemetry_workspace_id=WORKSPACE))
+    with bind_tenant("test-a"), pytest.raises(TelemetryUnavailable):
+        await container.telemetry.search_sessions(SessionFilters())
+
+
+async def test_build_with_a_workspace_and_a_client_reads_from_that_workspace() -> None:
+    from diucs.adapters.outbound.telemetry.azure_monitor_query import AzureMonitorTelemetryQuery
+    from diucs.application.ports.outbound.telemetry_query import SessionFilters
+    from diucs.application.tenancy import bind_tenant
+
+    client = _EmptyLogsClient()
+    container = build(Settings(telemetry_workspace_id=WORKSPACE), telemetry_client=client)
+    assert isinstance(container.telemetry, AzureMonitorTelemetryQuery)
+    with bind_tenant("test-a"):
+        assert await container.telemetry.search_sessions(SessionFilters()) == []
+    assert client.workspaces == [WORKSPACE]

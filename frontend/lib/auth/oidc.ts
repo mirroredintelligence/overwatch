@@ -3,7 +3,7 @@ import { createRemoteJWKSet, errors, jwtVerify } from 'jose';
 import { isGuid, isTenantId } from './staff';
 
 // OpenID Connect against Microsoft Entra ID: the authorisation code flow with PKCE (S256),
-// done here with `jose` and `fetch` and not with Auth.js (DEC-172). Nothing in this file logs,
+// done here with `jose` and `fetch` and not with Auth.js (DEC-210). Nothing in this file logs,
 // and every refusal is one of a fixed list of reasons that holds no token, code or claim.
 
 /** One Entra directory and the DIUCS tenant it is bound to (W09 tenancy amendment). */

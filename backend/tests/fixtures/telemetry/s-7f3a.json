@@ -1,0 +1,300 @@
+{
+  "_note": "Synthetic sample telemetry for the support console (O07). No patient data, no real users. Rows are stored out of time order on purpose: the fixture fake must sort them.",
+  "sessions": [
+    {
+      "session_id": "s-7f3a",
+      "tenant_id": "test-a",
+      "role": "advisor",
+      "device": "desktop",
+      "release": "2026.10.1",
+      "started": "2026-10-28T09:12:00Z",
+      "event_count": 8,
+      "friction_count": 1,
+      "error_count": 1
+    },
+    {
+      "session_id": "s-4c81",
+      "tenant_id": "test-a",
+      "role": "reporter",
+      "device": "mobile",
+      "release": "2026.10.1",
+      "started": "2026-10-28T10:02:00Z",
+      "event_count": 3,
+      "friction_count": 0,
+      "error_count": 0
+    },
+    {
+      "session_id": "s-b102",
+      "tenant_id": "test-b",
+      "role": "advisor",
+      "device": "desktop",
+      "release": "2026.10.0",
+      "started": "2026-10-28T09:30:00Z",
+      "event_count": 5,
+      "friction_count": 2,
+      "error_count": 0
+    }
+  ],
+  "timeline": [
+    {
+      "session_id": "s-7f3a",
+      "tenant_id": "test-a",
+      "at": "2026-10-28T09:13:10Z",
+      "kind": "api_call",
+      "name": "POST /api/bff/bookings",
+      "duration_ms": 480.0,
+      "status": "201",
+      "attributes": {
+        "http.route": "/api/bff/bookings",
+        "http.request.method": "POST",
+        "http.response.status_code": 201,
+        "trace.id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7"
+      }
+    },
+    {
+      "session_id": "s-7f3a",
+      "tenant_id": "test-a",
+      "at": "2026-10-28T09:12:00Z",
+      "kind": "page_view",
+      "name": "/advisor/call",
+      "duration_ms": null,
+      "status": null,
+      "attributes": {
+        "page.route": "/advisor/call",
+        "user.role": "advisor",
+        "device.type": "desktop",
+        "release": "2026.10.1"
+      }
+    },
+    {
+      "session_id": "s-7f3a",
+      "tenant_id": "test-a",
+      "at": "2026-10-28T09:12:08Z",
+      "kind": "field",
+      "name": "ADV-POSTCODE-INPUT",
+      "duration_ms": null,
+      "status": null,
+      "attributes": {
+        "element.id": "ADV-POSTCODE-INPUT",
+        "fieldValue": "sample-postcode-text"
+      }
+    },
+    {
+      "session_id": "s-7f3a",
+      "tenant_id": "test-a",
+      "at": "2026-10-28T09:12:03Z",
+      "kind": "click",
+      "name": "ADV-CALL-80-BTN",
+      "duration_ms": null,
+      "status": null,
+      "attributes": {
+        "element.id": "ADV-CALL-80-BTN"
+      }
+    },
+    {
+      "session_id": "s-7f3a",
+      "tenant_id": "test-a",
+      "at": "2026-10-28T09:12:15Z",
+      "kind": "api_call",
+      "name": "GET /api/bff/options",
+      "duration_ms": 212.4,
+      "status": "200",
+      "attributes": {
+        "http.route": "/api/bff/options",
+        "http.request.method": "GET",
+        "http.response.status_code": 200,
+        "trace.id": "0f2c6a8e1b9d4c7a8e3f5b2d6c9a1e4f"
+      }
+    },
+    {
+      "session_id": "s-7f3a",
+      "tenant_id": "test-a",
+      "at": "2026-10-28T09:12:21Z",
+      "kind": "friction",
+      "name": "ADV-OPT-REQUEST-BTN",
+      "duration_ms": null,
+      "status": null,
+      "attributes": {
+        "element.id": "ADV-OPT-REQUEST-BTN"
+      }
+    },
+    {
+      "session_id": "s-7f3a",
+      "tenant_id": "test-a",
+      "at": "2026-10-28T09:12:20Z",
+      "kind": "click",
+      "name": "ADV-OPT-REQUEST-BTN",
+      "duration_ms": null,
+      "status": null,
+      "attributes": {
+        "element.id": "ADV-OPT-REQUEST-BTN"
+      }
+    },
+    {
+      "session_id": "s-7f3a",
+      "tenant_id": "test-a",
+      "at": "2026-10-28T09:13:02Z",
+      "kind": "error",
+      "name": "BFF_TIMEOUT",
+      "duration_ms": null,
+      "status": null,
+      "attributes": {
+        "error.type": "TimeoutError",
+        "http.route": "/api/bff/options"
+      }
+    },
+    {
+      "session_id": "s-4c81",
+      "tenant_id": "test-a",
+      "at": "2026-10-28T10:02:30Z",
+      "kind": "page_view",
+      "name": "/l/[token]",
+      "duration_ms": null,
+      "status": null,
+      "attributes": {
+        "page.route": "/l/[token]",
+        "user.role": "reporter",
+        "device.type": "mobile"
+      }
+    },
+    {
+      "session_id": "s-b102",
+      "tenant_id": "test-b",
+      "at": "2026-10-28T09:30:05Z",
+      "kind": "page_view",
+      "name": "/advisor/call",
+      "duration_ms": null,
+      "status": null,
+      "attributes": {
+        "page.route": "/advisor/call",
+        "user.role": "advisor",
+        "device.type": "desktop"
+      }
+    }
+  ],
+  "spans": [
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a81",
+      "parent_span_id": null,
+      "name": "browser fetch POST /api/bff/bookings",
+      "start": "2026-10-28T09:13:10.000Z",
+      "duration_ms": 640.0,
+      "status": "ok",
+      "attributes": {
+        "http.request.method": "POST",
+        "http.response.status_code": 201
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a82",
+      "parent_span_id": "1a2b3c4d5e6f7a81",
+      "name": "bff POST /api/bff/bookings",
+      "start": "2026-10-28T09:13:10.005Z",
+      "duration_ms": 600.0,
+      "status": "ok",
+      "attributes": {
+        "http.route": "/api/bff/bookings",
+        "http.response.status_code": 201
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a83",
+      "parent_span_id": "1a2b3c4d5e6f7a82",
+      "name": "api POST /fhir/Task",
+      "start": "2026-10-28T09:13:10.020Z",
+      "duration_ms": 570.0,
+      "status": "ok",
+      "attributes": {
+        "http.request.method": "POST",
+        "http.response.status_code": 201
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a84",
+      "parent_span_id": "1a2b3c4d5e6f7a83",
+      "name": "usecase CreateBooking",
+      "start": "2026-10-28T09:13:10.025Z",
+      "duration_ms": 560.0,
+      "status": "ok",
+      "attributes": {}
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a85",
+      "parent_span_id": "1a2b3c4d5e6f7a84",
+      "name": "neo4j Q-TASK-BOOK-CREATE",
+      "start": "2026-10-28T09:13:10.040Z",
+      "duration_ms": 480.5,
+      "status": "ok",
+      "attributes": {
+        "db.query.id": "Q-TASK-BOOK-CREATE",
+        "db.access_mode": "write",
+        "db.row_count": 1,
+        "db.system.name": "neo4j"
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a86",
+      "parent_span_id": "1a2b3c4d5e6f7a84",
+      "name": "neo4j Q-CASE-LOAD",
+      "start": "2026-10-28T09:13:10.030Z",
+      "duration_ms": 12.0,
+      "status": "ok",
+      "attributes": {
+        "db.query.id": "Q-CASE-LOAD",
+        "db.access_mode": "read",
+        "db.row_count": 1,
+        "db.system.name": "neo4j"
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a87",
+      "parent_span_id": "1a2b3c4d5e6f7a84",
+      "name": "redis cache.get",
+      "start": "2026-10-28T09:13:10.026Z",
+      "duration_ms": 1.2,
+      "status": "ok",
+      "attributes": {}
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-a",
+      "span_id": "1a2b3c4d5e6f7a88",
+      "parent_span_id": "1a2b3c4d5e6f7a84",
+      "name": "servicebus publish outbox",
+      "start": "2026-10-28T09:13:10.560Z",
+      "duration_ms": 18.0,
+      "status": "ok",
+      "attributes": {
+        "messaging.destination.name": "outbox.relay"
+      }
+    },
+    {
+      "trace_id": "7c1e9a2b5d4f48e0a3b6c9d2e1f0a8b7",
+      "tenant_id": "test-b",
+      "span_id": "9f8e7d6c5b4a39b1",
+      "parent_span_id": null,
+      "name": "neo4j Q-PERSON-PHONE-FIND",
+      "start": "2026-10-28T09:13:10.000Z",
+      "duration_ms": 999.0,
+      "status": "ok",
+      "attributes": {
+        "db.query.id": "Q-PERSON-PHONE-FIND",
+        "db.system.name": "neo4j"
+      }
+    }
+  ]
+}

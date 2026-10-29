@@ -16,7 +16,7 @@ so a practitioner, a criteria-owner post and the owner's email (protected) are w
 
 The ODS result and the address result are kept on the registration as the `lookups` step of its
 draft, for the review (U28). An ODS code that is not found does not stop the registration.
-Decisions: DEC-313 to DEC-316 (fragment U27).
+Decisions: DEC-313 to DEC-315 (fragment U27).
 """
 
 import re

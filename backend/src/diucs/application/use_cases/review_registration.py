@@ -15,7 +15,7 @@ is seen. The area is the tenant's own: it comes from `area_districts_for(scope)`
 built-in default (a tenant that inherited Dorset's districts would be wrong, DEC-317).
 
 The number called is never in the graph's records: it goes to the protected contact store under a
-key of its own, and the Provenance holds only a keyed hash of it. Decisions: DEC-317 to DEC-320.
+key of its own, and the Provenance holds only a keyed hash of it. Decisions: DEC-317 to DEC-319.
 """
 
 import hashlib

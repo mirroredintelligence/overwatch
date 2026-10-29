@@ -116,7 +116,7 @@ test.describe('the quiet board', () => {
   }
 });
 
-test('a payload that names another organisation is refused, and nothing of that organisation is shown', async ({ page }) => {
+test('refuses a payload with a foreign organisation part, and shows no tile', async ({ page }) => {
   await signIn(page.context(), 'http://localhost:3000', 'wall', TOKEN_FOREIGN_ENTRY);
   await page.goto('/screen');
 

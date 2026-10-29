@@ -303,7 +303,7 @@ describe('Board: the variant tiles together (W07)', () => {
     expect(await runAxe(container)).toHaveNoViolations();
   });
 
-  it('shows no back-end id, tenant or organisation other than its own heading, on any variant board', () => {
+  it("shows no back-end service id as text, and no 'Neighbouring' name, on any variant board", () => {
     for (const board of [BOARD_SURGE, BOARD_QUIET]) {
       const { container, unmount } = render(<Board board={board} />);
       const html = container.innerHTML.replace(/data-service-id="[^"]*"/g, '');

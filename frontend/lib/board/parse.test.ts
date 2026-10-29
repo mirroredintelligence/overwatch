@@ -238,7 +238,7 @@ describe('parseBoardParameters: the variant boards (W07)', () => {
   });
 });
 
-describe('parseBoardParameters: another organisation in the payload (W07, DEC-169 item 8)', () => {
+describe('parseBoardParameters: a foreign organisation or tenant part in the payload (W07, DEC-169 item 8)', () => {
   function withEntryPart(parameters: Parameters, added: ParametersParameter): Parameters {
     const copy = structuredClone(parameters);
     copy.parameter?.find((p) => p.name === 'entry')?.part?.push(added);

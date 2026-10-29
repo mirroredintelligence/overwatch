@@ -126,7 +126,7 @@ describe('wall screen page: signed in', () => {
     expect(seenBoardRequests[0].headers.get('authorization')).toBe(`Bearer ${TOKEN_ORG_A}`);
   });
 
-  it('never renders another organisation’s services on a screen paired to this one', async () => {
+  it('renders the session’s own board only, with none of the other organisation’s sample entries', async () => {
     as(signedIn('wall', TOKEN_ORG_A));
 
     const { container } = render(await WallScreenPage());
@@ -234,7 +234,7 @@ describe('wall screen page: the board variants (W07)', () => {
     }
   });
 
-  it('shows Board unavailable, and nothing of the other organisation, when the payload names one on an entry', async () => {
+  it('shows Board unavailable, and no tile, when an entry carries a foreign organisation part', async () => {
     as(signedIn('wall', TOKEN_FOREIGN_ENTRY));
 
     const { container } = render(await WallScreenPage());

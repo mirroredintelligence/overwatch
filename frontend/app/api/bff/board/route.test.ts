@@ -114,7 +114,7 @@ describe('GET /api/bff/board', () => {
     expect([...seenBoardRequests[0].headers.keys()].filter((k) => /tenant|organi[sz]ation/i.test(k))).toEqual([]);
   });
 
-  it('never shows one organisation the other one’s services', async () => {
+  it('answers each session with the board for its own token, not the other organisation’s', async () => {
     const forA = JSON.stringify(await (await get('wall', { token: TOKEN_ORG_A })).json());
     const forB = JSON.stringify(await (await get('wall', { token: TOKEN_ORG_B })).json());
 

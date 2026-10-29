@@ -73,9 +73,12 @@ function optional<T>(parts: Map<string, ParametersParameter>, name: string, read
   return value;
 }
 
-// Parts a tenant's own board never carries. The wall shows one organisation's
-// services and never another's name or id (DEC-130, DEC-132), so an entry that names
-// an organisation other than the board's own, or carries a tenant id, is refused.
+// Parts a tenant's own board never carries. The guard checks only these structured
+// parts: an entry that carries a tenant id (tenantId, sourceTenantId), or names an
+// organisation other than the board's own in its organisation part, is refused.
+// It does not check free text (comment, name) or identifiers that embed another
+// organisation's name; those are shown as the back end sends them. The back end is
+// the control that sends only the board's own services (DEC-130, DEC-132).
 const ORGANISATION_PART = 'organisation';
 const TENANT_PARTS = ['tenantId', 'sourceTenantId'] as const;
 

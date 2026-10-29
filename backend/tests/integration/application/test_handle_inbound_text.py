@@ -7,6 +7,7 @@ assertion reads back through a fresh unit of work or a raw read. The phone hash 
 says "ph-123". No patient data: the texts are numbers and the words "hello" and "yes".
 """
 
+import asyncio
 import dataclasses
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, time, timedelta
@@ -34,6 +35,7 @@ from diucs.application.use_cases.confirm_capacity import (
 from diucs.application.use_cases.handle_inbound_text import (
     BOOKING_NOT_HANDLED,
     CONFIRM_LIMIT,
+    CONFIRM_PROCESSING_LIMIT,
     CONFIRMED,
     DROPPED,
     HELP,
@@ -283,9 +285,12 @@ class SpyConfirms:
         self._inner = inner
         self.commands: list[ConfirmCapacityCommand] = []
         self.raises: Exception | None = None
+        self.entered = asyncio.Event()
+        """Set when a command reaches ConfirmCapacity, that is, after this use case has judged."""
 
     async def execute(self, command: ConfirmCapacityCommand) -> ConfirmCapacityResult:
         self.commands.append(command)
+        self.entered.set()
         if self.raises is not None:
             raise self.raises
         return await self._inner.execute(command)
@@ -816,11 +821,13 @@ async def test_a_y_is_recorded_only_while_the_figure_is_inside_its_window(
         ]
 
 
-async def test_a_figure_reported_after_the_prompt_is_not_judged_out_of_date(
+async def test_a_y_is_refused_when_a_number_was_reported_after_the_prompt(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
-    """A figure reported after the prompt was sent (by link, say) is not out of date: its age at
-    the prompt's send time is negative."""
+    """Hazard H-32 (verify-U05-r1 finding 1). The C1 at 12:00 named the figure of 22 Oct. A number
+    of 5 came in by link at 12:03, which the reporter was never shown. A Y at 12:05 must not
+    confirm it: nothing is recorded, ConfirmCapacity is not called, and the reporter gets C12
+    naming the 5 and is asked for a number."""
     await seed_service(UCR_WEST)
     await _seed_people(uow_factory)
     await _seed_figure(uow_factory, 3, LONG_AGO)
@@ -830,8 +837,241 @@ async def test_a_figure_reported_after_the_prompt_is_not_judged_out_of_date(
 
     result = await rig.say("Y", bst(12, 5))
 
+    assert result == HandleInboundTextResult(STALE_FIGURE, ("ucr-west",))
+    assert [(r.value, r.report_type) for r in await _reports(uow_factory)] == [
+        (3, ReportType.NUMBER),
+        (5, ReportType.NUMBER),
+    ]
+    assert rig.confirms.commands == []
+    [refusal] = await _replies(neo4j_driver)
+    assert refusal["messageId"] == "C12"
+    assert refusal["text"] == (
+        "DIUCS: UCR West. The figure on record, 5 referrals in the next 2 hrs, is out of date "
+        "(as of 23 Oct 12:03), so Y was not used. Send a number (0 = closed). By 12:35."
+    )
+
+
+async def test_a_number_the_reporter_sent_after_the_prompt_is_also_not_confirmed_by_a_later_y(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The reporter's own number is a number reported after the prompt too: a Y after it is
+    refused, and the reporter is asked for a number rather than shown a confirmation of it."""
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+    assert (await rig.say("4", bst(10, 5))).outcome == RECORDED
+
+    result = await rig.say("Y", bst(10, 6))
+
+    assert result.outcome == STALE_FIGURE
+    assert [r.report_type for r in await _reports(uow_factory)] == [
+        ReportType.NUMBER,
+        ReportType.NUMBER,
+    ]
+    assert [r["messageId"] for r in await _replies(neo4j_driver)] == ["C3", "C12"]
+
+
+@pytest.mark.parametrize(
+    ("after", "expected"),
+    [(timedelta(0), CONFIRMED), (timedelta(seconds=1), STALE_FIGURE)],
+    ids=["at the prompt: not later", "one second after the prompt"],
+)
+async def test_the_newer_figure_test_is_strictly_later_than_the_prompt(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    after: timedelta,
+    expected: str,
+) -> None:
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory)
+    await _seed_figure(uow_factory, 3, bst(10, 0) + after)
+    await _seed_prompt(uow_factory, bst(10, 0))
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
+    assert result.outcome == expected
+    assert (len(rig.confirms.commands) == 1) is (expected == CONFIRMED)
+
+
+async def test_a_confirmation_after_the_prompt_is_not_a_newer_figure(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """A confirmation (by a link, by another manager) repeats the figure the prompt named. A Y
+    after it is still a Y to that figure."""
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory)
+    await _seed_figure(uow_factory, 3, bst(8, 15))
+    await _seed_prompt(uow_factory, bst(10, 0))
+    await _seed_figure(
+        uow_factory, 3, bst(10, 2), report_id="seed-confirm", report_type=ReportType.CONFIRMED
+    )
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
     assert result.outcome == CONFIRMED
-    assert (await _latest(uow_factory)).value == 5
+    assert [r.report_type for r in await _reports(uow_factory)] == [
+        ReportType.NUMBER,
+        ReportType.CONFIRMED,
+        ReportType.CONFIRMED,
+    ]
+
+
+async def test_a_confirmation_is_asked_to_confirm_the_report_that_was_judged(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+
+    await rig.say("Y", bst(10, 5))
+
+    [command] = rig.confirms.commands
+    assert command.expected_latest_id == "seed-ucr-west"
+
+
+async def test_a_report_that_lands_between_the_judgement_and_the_write_is_not_confirmed(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The race behind H-32. This use case judges the figure (3, from 08:15, inside its window).
+    The service lock is held by another unit of work, so ConfirmCapacity waits. A number of 5
+    lands and the lock is released. ConfirmCapacity reads the 5 as the latest report, which is not
+    the one judged, and refuses: the 5 is not confirmed, and the reporter is told the figure is
+    out of date and asked for a number."""
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+
+    async with uow_factory() as holder:
+        await holder.capacity.lock_service("ucr-west")
+        task = asyncio.ensure_future(rig.say("Y", bst(10, 12)))
+        await asyncio.wait_for(rig.confirms.entered.wait(), timeout=30)
+        await asyncio.sleep(1.0)
+        assert not task.done()
+        await holder.capacity.add(
+            CapacityReport(
+                id="landed-5",
+                service_id="ucr-west",
+                value=5,
+                measure=Measure.REFERRALS_ACCEPTABLE,
+                effective_at=bst(10, 11),
+                source=ReportSource.LINK,
+                report_type=ReportType.NUMBER,
+            )
+        )
+        await holder.commit()
+
+    result = await asyncio.wait_for(task, timeout=60)
+
+    assert result == HandleInboundTextResult(STALE_FIGURE, ("ucr-west",))
+    assert [(r.value, r.report_type) for r in await _reports(uow_factory)] == [
+        (3, ReportType.NUMBER),
+        (5, ReportType.NUMBER),
+    ]
+    [refusal] = await _replies(neo4j_driver)
+    assert refusal["messageId"] == "C12"
+    assert "The figure on record, 5 referrals in the next 2 hrs, is out of date" in refusal["text"]
+    assert "(as of 23 Oct 10:11)" in refusal["text"]
+
+
+# --- hazard H-32, the queue delay (verify-U05-r1 finding 2) --------------------------------------
+
+LIMIT = CONFIRM_PROCESSING_LIMIT
+# (prompt sent, Y received): an ordinary day, then the two clock-change days with the processing
+# time falling after the change, so a wall-clock subtraction would give another answer than the
+# instants do (lesson L4). Spring: 00:55Z is 00:55 GMT, and 01:05Z is 02:05 BST. Autumn: 00:50Z is
+# 01:50 BST, and 01:00Z is 01:00 GMT.
+DELAY_DAYS = {
+    "ordinary day": (
+        datetime(2026, 10, 23, 11, 0, tzinfo=UTC),
+        datetime(2026, 10, 23, 11, 5, tzinfo=UTC),
+    ),
+    "2026-03-29": (
+        datetime(2026, 3, 29, 0, 30, tzinfo=UTC),
+        datetime(2026, 3, 29, 0, 55, tzinfo=UTC),
+    ),
+    "2026-10-25": (
+        datetime(2026, 10, 25, 0, 20, tzinfo=UTC),
+        datetime(2026, 10, 25, 0, 50, tzinfo=UTC),
+    ),
+}
+
+
+@pytest.mark.parametrize("day", list(DELAY_DAYS))
+@pytest.mark.parametrize(
+    ("delay", "expected"),
+    [
+        (timedelta(0), CONFIRMED),
+        (LIMIT - timedelta(seconds=1), CONFIRMED),
+        (LIMIT, CONFIRMED),  # at the limit: inside it
+        (LIMIT + timedelta(seconds=1), STALE_FIGURE),  # one second over
+        (timedelta(hours=3, minutes=35), STALE_FIGURE),
+    ],
+    ids=["no delay", "one second under", "at the limit", "one second over", "hours over"],
+)
+async def test_a_y_is_recorded_only_if_it_is_processed_within_the_limit_of_being_received(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    seed_service: Seed,
+    day: str,
+    delay: timedelta,
+    expected: str,
+) -> None:
+    sent_at, received_at = DELAY_DAYS[day]
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory)
+    await _seed_figure(uow_factory, 3, sent_at - timedelta(hours=1))
+    await _seed_prompt(uow_factory, sent_at)
+    rig = Rig(uow_factory, neo4j_driver, now=received_at)
+
+    result = await rig.say("Y", received_at + delay, received_at=received_at)
+
+    assert result.outcome == expected
+    reports = await _reports(uow_factory)
+    if expected == CONFIRMED:
+        assert [r.report_type for r in reports] == [ReportType.NUMBER, ReportType.CONFIRMED]
+        assert reports[1].effective_at == received_at + delay
+    else:
+        assert [r.report_type for r in reports] == [ReportType.NUMBER]
+        assert rig.confirms.commands == []
+        [refusal] = await _replies(neo4j_driver)
+        assert refusal["messageId"] == "C12"
+
+
+async def test_a_y_received_at_1025_and_processed_at_1400_is_not_recorded(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The case verify-U05-r1 proved: the figure is from 08:15, the C1 went at 10:00, the Y was
+    received at 10:25 (in time) and processed at 14:00. Recorded, it would stamp a figure 5h45 old
+    as current at 14:00. It is refused, nothing is recorded, and the reporter is asked for a
+    number, with a reply-by counted from the time they are told (14:30), not from 10:25."""
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(14, 0), received_at=bst(10, 25))
+
+    assert result == HandleInboundTextResult(STALE_FIGURE, ("ucr-west",))
+    assert [(r.value, r.report_type) for r in await _reports(uow_factory)] == [
+        (3, ReportType.NUMBER)
+    ]
+    assert rig.confirms.commands == []
+    [refusal] = await _replies(neo4j_driver)
+    assert refusal["messageId"] == "C12"
+    assert refusal["text"].endswith("Send a number (0 = closed). By 14:30.")
+    # The number sent in answer is on time against the C12 as sent at 14:00.
+    assert (await rig.say("4", bst(14, 20))).outcome == RECORDED
+
+
+async def test_a_delayed_number_is_not_held_to_the_processing_limit(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The limit is for a Y, which confirms a figure by stamping it now. A number carries its own
+    value and is judged at the time it was received (existing behaviour, unchanged)."""
+    await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("4", bst(14, 0), received_at=bst(10, 25))
+
+    assert result.outcome == RECORDED
 
 
 # --- the other refusals and the help paths -------------------------------------------------------

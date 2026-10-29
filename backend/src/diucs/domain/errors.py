@@ -34,6 +34,12 @@ class ConfirmLimitReached(DomainError):
     """A third confirmation in a row: the figure must be given again as a number."""
 
 
+class LatestReportChanged(Conflict):
+    """A confirmation asked to confirm one report, and the latest report of the service is another.
+    The figure the caller judged is not the figure that would be confirmed, so nothing is written
+    (DEC-148 item 20)."""
+
+
 class NothingToConfirm(DomainError):
     """The service has no report on record, so there is no figure to confirm."""
 

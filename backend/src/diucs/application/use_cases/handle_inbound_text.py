@@ -103,6 +103,9 @@ _OUTCOME_ORDER: Final = (
 CONFIRMABLE_FIGURE_AGE: Final = STALE_WARNING_AFTER
 """A Y confirms a figure only if it was no older than this when the prompt named it (DEC-148)."""
 
+CONFIRM_PROCESSING_LIMIT: Final = timedelta(minutes=10)
+"""A Y is recorded only if it is processed within this long of being received (DEC-148 item 21)."""
+
 PROMPT_MESSAGES: Final = frozenset(
     message.value
     for message in (

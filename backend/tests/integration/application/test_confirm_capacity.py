@@ -40,6 +40,7 @@ from diucs.domain.errors import (
     ConfirmLimitReached,
     Conflict,
     EffectiveBeforeConfirmation,
+    LatestReportChanged,
     NotAllowed,
     NotFound,
     NothingToConfirm,
@@ -1103,3 +1104,149 @@ async def test_a_number_given_after_the_latest_confirmation_is_accepted_and_beco
     assert latest.report_type is ReportType.NUMBER
     assert latest.value == 5
     assert latest.effective_at == later
+
+
+# --- the judged report: a Y refuses to confirm a figure other than the one the caller judged ------
+
+
+async def _landed_number(factory: UnitOfWorkFactory, report_id: str = "landed-5") -> None:
+    """A number of 5 at 10:04, reported after the seeded 3 and before the confirmation."""
+    async with factory() as uow:
+        await uow.capacity.add(
+            CapacityReport(
+                id=report_id,
+                service_id="ucr-west",
+                value=5,
+                measure=Measure.REFERRALS_ACCEPTABLE,
+                effective_at=AT_1004,
+                source=ReportSource.LINK,
+                report_type=ReportType.NUMBER,
+            )
+        )
+        await uow.commit()
+
+
+def _confirm_of(key: str, expected: str | None) -> ConfirmCapacityCommand:
+    return ConfirmCapacityCommand(
+        key, REPORTER, "ucr-west", ReportSource.TEXT, expected_latest_id=expected
+    )
+
+
+async def test_a_confirmation_of_the_judged_report_is_written(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    rig = Rig(uow_factory, neo4j_driver)
+    rig.clock.set(AT_1005)
+
+    result = await rig.confirm.execute(_confirm_of("k-judged", SEED_REPORT_ID))
+
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert (latest.id, latest.report_type, latest.value) == (
+        result.report_id,
+        ReportType.CONFIRMED,
+        3,
+    )
+    assert latest.derived_from == SEED_REPORT_ID
+
+
+async def test_a_confirmation_of_a_report_no_longer_latest_is_refused_and_writes_nothing(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The caller judged the seeded 3. A 5 landed since. Confirming now would confirm the 5, which
+    the caller never judged, so the command is refused and nothing is written or kept."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    await _landed_number(uow_factory)
+    rig = Rig(uow_factory, neo4j_driver)
+    rig.clock.set(AT_1005)
+    outbox_before = len(await _outbox(uow_factory))
+
+    with pytest.raises(LatestReportChanged):
+        await rig.confirm.execute(_confirm_of("k-changed", SEED_REPORT_ID))
+
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert (latest.id, latest.report_type) == ("landed-5", ReportType.NUMBER)
+    assert await _confirmed_count(neo4j_driver) == 0
+    assert len(await _outbox(uow_factory)) == outbox_before
+    # The refusal kept no result for the key: the same key, now naming the report that is latest,
+    # is a fresh command and is written.
+    again = await rig.confirm.execute(_confirm_of("k-changed", "landed-5"))
+    assert again.confirmed_value == 5
+    assert again.replayed is False
+
+
+async def test_the_refusal_is_a_conflict_so_existing_handlers_treat_it_as_one() -> None:
+    assert issubclass(LatestReportChanged, Conflict)
+
+
+async def test_a_confirmation_with_no_judged_report_confirms_whatever_is_latest(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The default (no expected id) is unchanged: callers that do not judge a report, such as the
+    FHIR operation, confirm the latest."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    await _landed_number(uow_factory)
+    rig = Rig(uow_factory, neo4j_driver)
+    rig.clock.set(AT_1005)
+
+    result = await rig.confirm.execute(_confirm_of("k-default", None))
+
+    assert result.confirmed_value == 5
+    assert (
+        ConfirmCapacityCommand("k", REPORTER, "ucr-west", ReportSource.TEXT).expected_latest_id
+        is None
+    )
+
+
+async def test_nothing_to_confirm_is_still_reported_when_a_judged_report_is_named(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _seed_with_report(uow_factory, seed_service, None)
+    rig = Rig(uow_factory, neo4j_driver)
+
+    with pytest.raises(NothingToConfirm):
+        await rig.confirm.execute(_confirm_of("k-none", "gone"))
+
+
+async def test_a_report_that_lands_while_a_confirmation_waits_for_the_lock_is_not_confirmed(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """The race behind H-32. The caller judged the seeded 3. A number of 5 takes the service lock
+    and is held before it commits. The confirmation then waits for the lock. When the number is
+    released the confirmation reads the 5 as the latest report, which is not the one judged, and is
+    refused: the 5 is not confirmed."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    ids = SequentialIds()
+    store = DriverIdempotencyStore(neo4j_driver)
+    clock = FixedClock(AT_1004)
+    commit = CommitGate()
+    number = ReportCapacity(gated_factory(uow_factory, commit), clock, ids, store)
+    confirm = ConfirmCapacity(uow_factory, clock, ids, store)
+    number_command = ReportCapacityCommand(
+        idempotency_key="number-5",
+        actor=REPORTER,
+        service_id="ucr-west",
+        value=5,
+        source=ReportSource.TEXT,
+    )
+
+    commit.hold_next = True
+    number_task = asyncio.ensure_future(number.execute(number_command))
+    await asyncio.wait_for(commit.entered.wait(), timeout=30)
+    clock.set(AT_1005)
+    confirm_task = asyncio.ensure_future(confirm.execute(_confirm_of("k-race", SEED_REPORT_ID)))
+    await asyncio.sleep(1.0)
+    assert not confirm_task.done()
+    commit.release.set()
+
+    number_result = await asyncio.wait_for(number_task, timeout=60)
+    with pytest.raises(LatestReportChanged):
+        await asyncio.wait_for(confirm_task, timeout=60)
+
+    latest = await _latest(uow_factory)
+    assert latest is not None
+    assert latest.id == number_result.report_id
+    assert latest.report_type is ReportType.NUMBER
+    assert await _confirmed_count(neo4j_driver) == 0

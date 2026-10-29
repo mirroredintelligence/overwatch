@@ -39,6 +39,10 @@ class ConfirmCapacityCommand:
     send_echo: bool = True
     """False when the caller sends its own reply: U05 answers a grouped text with one C10 (DEC-148).
     The performer is recorded either way."""
+    expected_latest_id: str | None = None
+    """The report the caller judged, or None for a caller that did not judge one. When set, the
+    confirmation is refused, and nothing is written, unless the latest report of the service, read
+    under the service lock, is this one (DEC-148 item 20)."""
 
 
 @dataclass(frozen=True, slots=True)

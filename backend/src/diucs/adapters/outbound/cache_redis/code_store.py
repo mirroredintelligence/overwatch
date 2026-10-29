@@ -1,6 +1,7 @@
 """Redis adapter for the text-code store (I13, D27).
 
-One key per phone hash: `code:<phone hash>` under the bound tenant's prefix (tenant_keys.py). The
+One key per (purpose, phone hash): `code:<purpose>:<phone hash>` under the bound tenant's
+prefix (tenant_keys.py). The
 value is JSON: the code's keyed hash (never the digits), issue time, failed tries, verified flag and
 last outcome. Redis expires the key with the code; the store also judges validity by its clock, so
 a code the clock has passed is never returned (fail closed), as InMemoryCodeStore does.
@@ -22,9 +23,10 @@ from diucs.domain.rules.identity_policy import (
     CodeOutcome,
     CodeState,
     can_resend,
+    check_purpose,
 )
 
-_CODE_KEY: Final = "code:{}"
+_CODE_KEY: Final = "code:{}:{}"
 
 
 def _aware_utc(value: datetime) -> datetime:
@@ -89,12 +91,13 @@ class RedisCodeStore:
         self._clock = clock
         self._prefix = key_prefix
 
-    def _key(self, phone_hash: str) -> str:
-        return tenant_prefix(self._prefix) + _CODE_KEY.format(phone_hash)
+    def _key(self, purpose: str, phone_hash: str) -> str:
+        return tenant_prefix(self._prefix) + _CODE_KEY.format(purpose, phone_hash)
 
-    async def save(self, phone_hash: str, code_hash: str, state: CodeState) -> None:
+    async def save(self, purpose: str, phone_hash: str, code_hash: str, state: CodeState) -> None:
+        check_purpose(purpose)
         issued = _aware_utc(state.issued_at)
-        key = self._key(phone_hash)
+        key = self._key(purpose, phone_hash)
         stored = _text(await self._client.get(key))
         if stored is not None:
             current = decode_code(stored)
@@ -111,8 +114,9 @@ class RedisCodeStore:
             return
         await self._client.set(key, encode_code(code_hash, state), px=millis(remaining))
 
-    async def get(self, phone_hash: str) -> tuple[str, CodeState] | None:
-        key = self._key(phone_hash)
+    async def get(self, purpose: str, phone_hash: str) -> tuple[str, CodeState] | None:
+        check_purpose(purpose)
+        key = self._key(purpose, phone_hash)
         stored = _text(await self._client.get(key))
         if stored is None:
             return None
@@ -122,6 +126,7 @@ class RedisCodeStore:
             return None
         return record
 
-    async def clear(self, phone_hash: str) -> None:
-        key = self._key(phone_hash)
+    async def clear(self, purpose: str, phone_hash: str) -> None:
+        check_purpose(purpose)
+        key = self._key(purpose, phone_hash)
         await self._client.delete(key)

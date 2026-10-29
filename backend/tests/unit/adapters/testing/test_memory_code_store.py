@@ -61,7 +61,9 @@ async def test_a_code_saved_with_a_naive_issue_time_is_refused() -> None:
     store = InMemoryCodeStore(FixedClock(ISSUED))
 
     with pytest.raises(ValidationFailed):
-        await store.save(PURPOSE, PHONE_HASH, CODE_HASH, CodeState(issued_at=datetime(2026, 10, 25, 11, 0)))
+        await store.save(
+            PURPOSE, PHONE_HASH, CODE_HASH, CodeState(issued_at=datetime(2026, 10, 25, 11, 0))
+        )
 
     assert await store.get(PURPOSE, PHONE_HASH) is None
 

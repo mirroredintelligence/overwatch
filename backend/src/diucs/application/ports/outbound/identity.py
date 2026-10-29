@@ -87,16 +87,19 @@ class CodeResendRefused(DomainError):
 
 
 class CodeStore(Protocol):
-    """Short-lived text-code state, keyed by the phone hash and bound to the tenant of the unit of
-    work. Redis in production (I13). Only a hash of the code is stored; the caller hashes it.
-    Saving a different code less than the resend cooldown after the stored one raises
-    CodeResendRefused."""
+    """Short-lived text-code state, keyed by (tenant, purpose, phone hash). Redis in production
+    (I13). A code issued for one purpose is never found for another, and each purpose has its own
+    resend cooldown. Only a hash of the code is stored; the caller hashes it. Saving a different
+    code less than the resend cooldown after the stored one, for the same purpose and phone, raises
+    CodeResendRefused. A purpose that is not a plain name raises ValidationFailed."""
 
-    async def save(self, phone_hash: str, code_hash: str, state: CodeState) -> None: ...
+    async def save(
+        self, purpose: str, phone_hash: str, code_hash: str, state: CodeState
+    ) -> None: ...
 
-    async def get(self, phone_hash: str) -> tuple[str, CodeState] | None: ...
+    async def get(self, purpose: str, phone_hash: str) -> tuple[str, CodeState] | None: ...
 
-    async def clear(self, phone_hash: str) -> None: ...
+    async def clear(self, purpose: str, phone_hash: str) -> None: ...
 
 
 @dataclass(frozen=True, slots=True)

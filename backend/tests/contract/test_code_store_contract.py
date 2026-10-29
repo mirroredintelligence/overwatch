@@ -89,9 +89,7 @@ async def test_a_resend_inside_sixty_seconds_is_refused(
     await code_store_harness.advance(CODE_RESEND_AFTER - TEN_SECONDS)
 
     with pytest.raises(CodeResendRefused):
-        await store.save(
-            REGISTRATION, "h1", HASH_B, CodeState(issued_at=code_store_harness.now())
-        )
+        await store.save(REGISTRATION, "h1", HASH_B, CodeState(issued_at=code_store_harness.now()))
 
     stored = await store.get(REGISTRATION, "h1")
     assert stored is not None
@@ -197,9 +195,7 @@ async def test_a_resend_cooldown_is_kept_per_purpose(
 
     # A new code for the first purpose is still inside its own cooldown.
     with pytest.raises(CodeResendRefused):
-        await store.save(
-            REGISTRATION, "h1", HASH_C, CodeState(issued_at=code_store_harness.now())
-        )
+        await store.save(REGISTRATION, "h1", HASH_C, CodeState(issued_at=code_store_harness.now()))
 
 
 async def test_an_unknown_purpose_is_refused(code_store_harness: Harness[CodeStore]) -> None:

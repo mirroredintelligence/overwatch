@@ -5,6 +5,7 @@ never appear in repr. Profiles differ only in external providers; both use Neo4j
 everything Neo4j stores.
 """
 
+from pathlib import Path
 from typing import Literal
 
 from pydantic import SecretStr
@@ -40,3 +41,6 @@ class Settings(BaseSettings):
     smtp_password: SecretStr | None = None
     smtp_starttls: bool = True
     email_from: str = "DIUCS Capacity <capacity@diucs.example>"
+    # I11 (DEC-047): the local postcode-centroid CSV (postcode,latitude,longitude, WGS84). Patient
+    # postcodes are looked up in this file and never leave the Trust. Unset: nothing is located.
+    postcode_centroids_path: Path | None = None

@@ -26,10 +26,20 @@ from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
+from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
+from diucs.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
 from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.geo import (
+    LatLon,
+    Located,
+    PostcodeLocator,
+    TravelRange,
+    TravelTime,
+)
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.tokens import SecretStore
@@ -52,6 +62,11 @@ class Container:
     tenants: TenantDirectory
     # Secrets by reference (DEC-131 item 4): the tenant record holds the reference, never the value.
     secrets: SecretStore
+    # Postcode centroids for the patient's position, read from the local file (I11). A patient
+    # postcode never leaves the Trust.
+    postcodes: PostcodeLocator
+    # The travel-time estimate until a routing engine is chosen (I11, I15).
+    travel: TravelTime
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -87,6 +102,20 @@ def _neo4j_connection(settings: Settings) -> Neo4jConnection:
     )
 
 
+class NoPostcodes:
+    """The postcode locator of a process with no centroid file: nothing is located, so the advisor
+    sees no position rather than a guessed one (fail closed, I11)."""
+
+    def centroid(self, postcode: str) -> LatLon | None:
+        return None
+
+    def district_centroid(self, district: str) -> LatLon | None:
+        return None
+
+    def locate(self, postcode: str) -> Located | None:
+        return None
+
+
 class NoSecrets:
     """The secret store of a process that was given none: every secret is not found, so anything
     that needs one fails closed. A real vault adapter is not built (it needs a credential)."""
@@ -108,6 +137,12 @@ def build(settings: Settings, *, secrets: SecretStore | None = None) -> Containe
         uow_factory=neo4j_uow_factory(neo4j, clock=clock),
         tenants=Neo4jTenantDirectory(neo4j),
         secrets=NoSecrets() if secrets is None else secrets,
+        postcodes=(
+            NoPostcodes()
+            if settings.postcode_centroids_path is None
+            else CsvPostcodeLocator(settings.postcode_centroids_path)
+        ),
+        travel=StraightLineTravelTime(),
     )
 
 
@@ -132,4 +167,6 @@ def build_for_tests(
         uow_factory=neo4j_uow_factory(neo4j, clock=resolved_clock),
         tenants=Neo4jTenantDirectory(neo4j),
         secrets=FixedSecretStore({}) if secrets is None else secrets,
+        postcodes=FixedPostcodeLocator({}, {}),
+        travel=FixedTravelTime(TravelRange(low_minutes=10, high_minutes=20, source="test fixed")),
     )

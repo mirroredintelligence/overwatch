@@ -11,7 +11,12 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.postcode import normalise_district, normalise_postcode, postcode_district
+from diucs.domain.rules.postcode import (
+    normalise_district,
+    normalise_postcode,
+    partial_district,
+    postcode_district,
+)
 
 FULL_PATTERN = r"[A-Z]{1,2}[0-9][A-Z0-9]? [0-9][A-Z]{2}"
 DISTRICT_PATTERN = r"[A-Z]{1,2}[0-9][A-Z0-9]?"
@@ -106,3 +111,27 @@ def test_normalise_district_output_is_canonical_or_none(text: str) -> None:
 @given(st.from_regex(FULL_PATTERN, fullmatch=True))
 def test_full_postcode_is_never_a_district(canonical: str) -> None:
     assert normalise_district(canonical) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "district"),
+    [
+        ("DT4 8X", "DT4"),
+        ("dt4 8x", "DT4"),
+        ("DT4 8", "DT4"),
+        ("DT4 8XY", "DT4"),
+        ("DT4", "DT4"),
+        ("dt1", "DT1"),
+        ("  DT4 8X  ", "DT4"),
+    ],
+)
+def test_a_partial_postcode_or_bare_district_names_its_district(text: str, district: str) -> None:
+    assert partial_district(text) == district
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["", "   ", "DT4 8XXX", "DT4 ABC", "DT4 8 X", "DT48X", "ZZ", "1A 2B", "DT4 8\u00d8"],
+)
+def test_text_that_names_no_district_is_none(text: str) -> None:
+    assert partial_district(text) is None

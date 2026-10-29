@@ -18,7 +18,7 @@ from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
 from diucs.application.ports.outbound.geo import LatLon
 from diucs.domain.errors import ValidationFailed
 
-FIXTURE = Path(__file__).resolve().parents[5] / "fixtures" / "postcode_centroids_sample.csv"
+FIXTURE = Path(__file__).resolve().parents[4] / "fixtures" / "postcode_centroids_sample.csv"
 DT4_8XX = LatLon(50.6151, -2.4612)
 
 
@@ -146,7 +146,7 @@ def test_lookups_make_no_network_call(
         ("postcode,latitude,longitude\nDT4 8XX,-2.4,50.6\n", "latitude"),
         ("postcode,latitude,longitude\nDT4 8XX,50.6,-2.4\nDT4 8XX,50.7,-2.5\n", "postcode"),
         ("postcode,latitude,longitude\nDT4 8XX,nan,-2.4\n", "latitude"),
-        ("postcode,latitude,longitude\nDT4 8XX,50.6\n", "longitude"),
+        ("postcode,latitude,longitude\nDT4 8XX,50.6\n", "row"),
     ],
 )
 def test_a_malformed_file_is_refused_on_load_and_names_no_value(

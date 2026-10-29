@@ -44,6 +44,7 @@ from diucs.domain.messages.templates import render
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant import TenantWording
+from diucs.domain.model.tenant_policy import TenantPolicy
 from diucs.domain.rules.schedule import next_due
 from diucs.domain.rules.status import compute_status
 
@@ -143,7 +144,9 @@ def _suspended(flags: list[ServiceFlag]) -> bool:
     return any(flag.code == SERVICE_FLAG_SUSPENDED and flag.active for flag in flags)
 
 
-async def _status_now(uow: UnitOfWork, profile: ServiceProfile, now: datetime) -> Status:
+async def _status_now(
+    uow: UnitOfWork, profile: ServiceProfile, now: datetime, policy: TenantPolicy
+) -> Status:
     """The status the board shows for this service at `now`, as the status rule reads it."""
     report = await uow.capacity.latest(profile.id)
     confirmed = (
@@ -151,7 +154,7 @@ async def _status_now(uow: UnitOfWork, profile: ServiceProfile, now: datetime) -
         if report is None
         else await uow.bookings.confirmed_since(profile.id, report.effective_at)
     )
-    return compute_status(profile, report, confirmed, now).status
+    return compute_status(profile, report, confirmed, now, policy).status
 
 
 def _status_key(service_id: str, now: datetime) -> str:
@@ -167,13 +170,17 @@ class SuspendService:
         ids: IdGenerator,
         sealer: ContentSealer,
         wording_for: WordingFor,
+        policy: TenantPolicy,
     ) -> None:
+        """`policy` is the tenant's policy (TEN-021): the status rule reads it. The caller that
+        wires this use case supplies it from the tenant's configuration."""
         self._uow_factory = uow_factory
         self._idempotency = idempotency
         self._clock = clock
         self._ids = ids
         self._sealer = sealer
         self._wording_for = wording_for
+        self._policy = policy
 
     async def execute(self, command: SuspendServiceCommand) -> SuspendServiceResult:
         if not may_suspend(command.actor.role):
@@ -202,7 +209,7 @@ class SuspendService:
             wording = await self._wording_for(bound)
 
             now = self._clock.now()
-            before = await _status_now(uow, profile, now)
+            before = await _status_now(uow, profile, now, self._policy)
             await uow.flags.set_service_flag(
                 ServiceFlag(
                     service_id=profile.id,
@@ -285,11 +292,13 @@ class ResumeService:
         idempotency: IdempotencyStore,
         clock: Clock,
         ids: IdGenerator,
+        policy: TenantPolicy,
     ) -> None:
         self._uow_factory = uow_factory
         self._idempotency = idempotency
         self._clock = clock
         self._ids = ids
+        self._policy = policy
 
     async def execute(self, command: ResumeServiceCommand) -> ResumeServiceResult:
         if not may_suspend(command.actor.role):
@@ -330,8 +339,8 @@ class ResumeService:
                 )
             )
             resumed = replace(profile, suspended=False)
-            status = await _status_now(uow, resumed, now)
-            due = next_due(resumed, now)
+            status = await _status_now(uow, resumed, now, self._policy)
+            due = next_due(resumed, now, self._policy)
             if due is None:
                 raise DomainError("a profile with available times always has a next due instant")
             await schedule_work(

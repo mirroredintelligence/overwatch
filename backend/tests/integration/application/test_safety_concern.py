@@ -1,6 +1,7 @@
 """Integration tests for the safety concern and the problem report (U41), against the real Neo4j.
 
-A concern is stored as a Task with its SC- reference; its text is only in the protected store, and no
+A concern is stored as a Task with its SC- reference; its text is only in the protected store,
+and no
 other node, property, audit entry or outbox message holds any part of it. The safety officer is told
 by a K3 message that names the reference and nothing else. The counter that numbers the concerns is
 per tenant, so each tenant's first concern is SC-0001. Sample values only.
@@ -71,11 +72,7 @@ async def officer_notice_text(uow_factory: UnitOfWorkFactory, tenant: str) -> st
     """The K3 notice to the safety officer, unsealed with the message's own id and the tenant."""
     async with uow_factory() as uow:
         messages = await uow.outbox.pending(500)
-    k3 = [
-        m
-        for m in messages
-        if m.event_type == "SendMessage" and m.payload["message_id"] == "K3"
-    ]
+    k3 = [m for m in messages if m.event_type == "SendMessage" and m.payload["message_id"] == "K3"]
     assert len(k3) == 1
     body = json.loads(
         sealer().unseal(

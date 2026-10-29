@@ -21,6 +21,7 @@ from diucs.application.use_cases.suspend_service import (
     SuspendServiceCommand,
 )
 from diucs.domain.errors import NotFound
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY
 from tests.integration.application.test_suspend_service import sample_wording, seed_east
 from tests.support.booking_rig import LEAD, SECRETS, at
 from tests.support.neo4j import count_nodes
@@ -46,6 +47,7 @@ async def test_tenant_b_cannot_suspend_a_service_of_tenant_a(
         SequentialIds("tb"),
         AesGcmContentSealer(SECRETS),
         sample_wording,
+        DEFAULT_POLICY,
     )
     with pytest.raises(NotFound):
         await suspend.execute(
@@ -72,6 +74,7 @@ async def test_tenant_b_cannot_resume_a_suspended_service_of_tenant_a(
         SequentialIds("ta"),
         AesGcmContentSealer(SECRETS),
         sample_wording,
+        DEFAULT_POLICY,
     )
     await suspend_a.execute(
         SuspendServiceCommand(idempotency_key="ta-1", actor=LEAD, service_id=EAST, reason="other")
@@ -81,6 +84,7 @@ async def test_tenant_b_cannot_resume_a_suspended_service_of_tenant_a(
         DriverIdempotencyStore(neo4j_driver),
         FixedClock(at(15, 0)),
         SequentialIds("tr"),
+        DEFAULT_POLICY,
     )
     with pytest.raises(NotFound):
         await resume_b.execute(

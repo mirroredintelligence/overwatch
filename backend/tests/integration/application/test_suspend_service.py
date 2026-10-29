@@ -31,6 +31,7 @@ from diucs.domain.codes import BookingStatus, Status
 from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.tenant import TenantWording
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY
 from tests.support.booking_rig import ADVISOR, LEAD, SECRETS, at, open_case, seed_world
 from tests.support.ladder_rig import PHONE_HASH_1, reporter, seed_people
 from tests.support.link_rig import ucr_west
@@ -110,12 +111,17 @@ def suspend(
         SequentialIds("su"),
         sealer or AesGcmContentSealer(SECRETS),  # type: ignore[arg-type]
         sample_wording,
+        DEFAULT_POLICY,
     )
 
 
 def resume(uow_factory: UnitOfWorkFactory, driver: AsyncDriver, now: datetime) -> ResumeService:
     return ResumeService(
-        uow_factory, DriverIdempotencyStore(driver), FixedClock(now), SequentialIds("rs")
+        uow_factory,
+        DriverIdempotencyStore(driver),
+        FixedClock(now),
+        SequentialIds("rs"),
+        DEFAULT_POLICY,
     )
 
 

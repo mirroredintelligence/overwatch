@@ -7,12 +7,16 @@ Every instant is UTC (lesson L4). Limited uses integer arithmetic (no floats).
 DEC-029 governs no-report-ever overdue. DEC-033 governs the figures for occupied patients.
 """
 
+import ast
+import re
+from collections.abc import Callable
 from dataclasses import replace
-from datetime import UTC, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta, timezone
+from pathlib import Path
 from typing import Final
 
 import pytest
-from hypothesis import given
+from hypothesis import given, settings
 from hypothesis import strategies as st
 
 from diucs.domain.codes import (
@@ -26,8 +30,14 @@ from diucs.domain.codes import (
 )
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.rules.freshness import Freshness
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules.freshness import Freshness, assess_freshness
+from diucs.domain.rules.pressure import system_pressure
+from diucs.domain.rules.reply_parser import Number
+from diucs.domain.rules.reply_policy import PromptState, decide_capacity_reply
+from diucs.domain.rules.schedule import current_due, due_times_on, ladder_times, next_due, reply_by
 from diucs.domain.rules.status import ServiceState, compute_status
+from tests.support.policy_samples import policies, policy
 
 BST: Final = timezone(timedelta(hours=1))
 FRIDAY_NOW: Final = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
@@ -359,3 +369,195 @@ def test_accepting_is_never_shown_for_an_overdue_or_missing_figure(
         assert latest is not None
         assert result.freshness.overdue is False
         assert result.used is not None and result.used >= 0
+
+
+# --- Tenant policy (TEN-021) ----------------------------------------------------------------
+
+TEN_TO_TEN_TWENTY_NOW: Final = datetime(2026, 10, 23, 9, 20, tzinfo=UTC)  # 10:20 London
+EIGHT_O_CLOCK_REPORT: Final = datetime(2026, 10, 23, 7, 0, tzinfo=UTC)  # 08:00 London
+
+
+# Test 11. A service reporting every two hours, last report 08:00, now 10:20 London.
+
+
+def test_default_policy_is_accepting_before_the_reply_by_and_fifteen_minutes_is_not_updated() -> (
+    None
+):
+    latest = report(4, at=EIGHT_O_CLOCK_REPORT)
+    by_default = compute_status(UCR_WEST, latest, (), TEN_TO_TEN_TWENTY_NOW)
+    assert by_default.status is Status.ACCEPTING
+    assert by_default.freshness.overdue is False
+    tenant = policy(reply_window=timedelta(minutes=15))
+    shortened = compute_status(UCR_WEST, latest, (), TEN_TO_TEN_TWENTY_NOW, tenant)
+    assert shortened.status is Status.NOT_UPDATED
+    assert shortened.freshness.overdue is True
+    assert shortened.freshness.was_due == datetime(2026, 10, 23, 9, 0, tzinfo=UTC)
+
+
+def test_stale_warning_flips_with_the_policy_limit() -> None:
+    latest = report(4, at=EIGHT_O_CLOCK_REPORT)
+    assert compute_status(UCR_WEST, latest, (), TEN_TO_TEN_TWENTY_NOW).freshness.stale_warning
+    relaxed = policy(stale_warning_after=timedelta(hours=3))
+    result = compute_status(UCR_WEST, latest, (), TEN_TO_TEN_TWENTY_NOW, relaxed)
+    assert result.freshness.stale_warning is False
+
+
+def test_the_policy_reaches_assess_freshness_through_compute_status() -> None:
+    latest = report(4, at=EIGHT_O_CLOCK_REPORT)
+    tenant = policy(reply_window=timedelta(minutes=15))
+    expected = assess_freshness(UCR_WEST, latest.effective_at, TEN_TO_TEN_TWENTY_NOW, tenant)
+    assert compute_status(UCR_WEST, latest, (), TEN_TO_TEN_TWENTY_NOW, tenant).freshness == expected
+
+
+# Test 12. Property: an overdue figure is never accepting or limited; the default is the default.
+
+
+@settings(max_examples=150, deadline=None)
+@given(
+    tenant=policies(),
+    cadence=st.sampled_from(list(Cadence)),
+    now=st.datetimes(min_value=datetime(2026, 10, 19), max_value=datetime(2026, 11, 2)).map(
+        lambda naive: naive.replace(tzinfo=UTC)
+    ),
+    minutes_since_report=st.integers(min_value=0, max_value=7 * 24 * 60),
+    value=st.integers(min_value=0, max_value=8),
+    has_report=st.booleans(),
+)
+def test_an_overdue_figure_never_reads_accepting_or_limited(
+    tenant: TenantPolicy,
+    cadence: Cadence,
+    now: datetime,
+    minutes_since_report: int,
+    value: int,
+    has_report: bool,
+) -> None:
+    prof = replace(UCR_WEST, cadence=cadence)
+    latest = report(value, at=now - timedelta(minutes=minutes_since_report)) if has_report else None
+    result = compute_status(prof, latest, (), now, tenant)
+    if result.freshness.overdue:
+        assert result.status not in {Status.ACCEPTING, Status.LIMITED}
+    assert compute_status(prof, latest, (), now, DEFAULT_POLICY) == compute_status(
+        prof, latest, (), now
+    )
+
+
+# Test 10 (one per function). Each of the nine functions refuses a policy that is not exactly one.
+
+
+NINE_CALLS: Final = (
+    ("reply_by", lambda p: reply_by(TEN_TO_TEN_TWENTY_NOW, p)),
+    ("ladder_times", lambda p: ladder_times(TEN_TO_TEN_TWENTY_NOW, p)),
+    ("due_times_on", lambda p: due_times_on(UCR_WEST, date(2026, 10, 23), p)),
+    ("next_due", lambda p: next_due(UCR_WEST, TEN_TO_TEN_TWENTY_NOW, p)),
+    ("current_due", lambda p: current_due(UCR_WEST, TEN_TO_TEN_TWENTY_NOW, p)),
+    (
+        "assess_freshness",
+        lambda p: assess_freshness(UCR_WEST, None, TEN_TO_TEN_TWENTY_NOW, p),
+    ),
+    (
+        "compute_status",
+        lambda p: compute_status(UCR_WEST, None, (), TEN_TO_TEN_TWENTY_NOW, p),
+    ),
+    ("system_pressure", lambda p: system_pressure([], p)),
+    (
+        "decide_capacity_reply",
+        lambda p: decide_capacity_reply(
+            Number(4),
+            PromptState(
+                service_id="svc-ucr-west",
+                reply_by=None,
+                recorded_value=None,
+                consecutive_confirms=0,
+                last_accepted_at=None,
+                last_accepted_value=None,
+                pending_out_of_range=None,
+                usual_range=(0, 8),
+            ),
+            TEN_TO_TEN_TWENTY_NOW,
+            p,
+        ),
+    ),
+)
+
+
+@pytest.mark.parametrize(("name", "call"), NINE_CALLS, ids=[name for name, _ in NINE_CALLS])
+@pytest.mark.parametrize("bad", [None, {"reply_window": 15}], ids=["none", "mapping"])
+def test_each_of_the_nine_functions_refuses_a_policy_that_is_not_exactly_one(
+    name: str, call: Callable[[object], object], bad: object
+) -> None:
+    with pytest.raises(TypeError, match="a TenantPolicy is required"):
+        call(bad)
+
+
+# Test 13. The ratchet: every caller of the nine functions passes its policy, or is on the list.
+
+NINE_POLICY_POSITION: Final = {
+    "reply_by": 1,
+    "ladder_times": 1,
+    "due_times_on": 2,
+    "next_due": 2,
+    "current_due": 2,
+    "assess_freshness": 3,
+    "compute_status": 4,
+    "system_pressure": 1,
+    "decide_capacity_reply": 3,
+}
+SOURCE_ROOT: Final = Path(__file__).resolve().parents[4] / "src" / "diucs"
+
+# Callers that do not yet pass the tenant's policy, with the task that converts each one. Each
+# entry must still offend: a converted caller is removed, so the list can only shrink.
+POLICY_NOT_YET_THREADED: dict[str, str] = {
+    "application/use_cases/handle_inbound_text.py": "TEN-026",
+    "application/use_cases/link_access.py": "TEN-041",
+    "application/use_cases/missed_report_ladder.py": "TEN-027",
+    "application/use_cases/query_board.py": "TEN-039",
+    "application/use_cases/report_capacity.py": "TEN-024",
+    "application/use_cases/send_prompts.py": "TEN-027",
+    "domain/rules/multi_service.py": "TEN-064",
+}
+
+
+def _called_name(node: ast.Call) -> str | None:
+    if isinstance(node.func, ast.Name):
+        return node.func.id
+    if isinstance(node.func, ast.Attribute):
+        return node.func.attr
+    return None
+
+
+def _policy_missing_calls(path: Path) -> list[str]:
+    """Each call to one of the nine functions that gives neither a policy keyword nor a policy
+    argument in its position. Unpacked arguments cannot be seen, so they count as missing."""
+    found: list[str] = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if not isinstance(node, ast.Call):
+            continue
+        name = _called_name(node)
+        if name not in NINE_POLICY_POSITION:
+            continue
+        if any(keyword.arg == "policy" for keyword in node.keywords):
+            continue
+        unpacked = any(isinstance(arg, ast.Starred) for arg in node.args) or any(
+            keyword.arg is None for keyword in node.keywords
+        )
+        if not unpacked and len(node.args) > NINE_POLICY_POSITION[name]:
+            continue
+        found.append(f"{name}:{node.lineno}")
+    return found
+
+
+def test_every_caller_passes_its_policy_or_is_on_the_ratchet() -> None:
+    offending = {}
+    for path in sorted(SOURCE_ROOT.rglob("*.py")):
+        calls = _policy_missing_calls(path)
+        if calls:
+            offending[path.relative_to(SOURCE_ROOT).as_posix()] = calls
+    assert set(offending) <= set(POLICY_NOT_YET_THREADED), offending
+
+
+def test_every_allowlist_entry_still_offends_and_names_its_task() -> None:
+    for relative, owner in POLICY_NOT_YET_THREADED.items():
+        assert re.fullmatch(r"TEN-\d{3}", owner), (relative, owner)
+        path = SOURCE_ROOT / relative
+        assert path.is_file(), relative
+        assert _policy_missing_calls(path), f"{relative} passes its policy now: remove it"

@@ -7,6 +7,11 @@ shifts the instant. Two local times that map to the same instant (the spring gap
 Lesson L4 and L25: schedules are compared as instants, never as local wall-clock values.
 
 An overnight window belongs to the London day it starts. Its due times may fall on the next day.
+
+The thresholds (reply window, ladder offsets, second daily time) are tenant policy: each function
+takes a `TenantPolicy` as its last argument, defaulting to `DEFAULT_POLICY` (tenant_policy.py holds
+the defaults and their bounds). The module constants below are aliases of the default policy, kept
+so that existing importers keep working. The policy is a value passed in, never looked up.
 """
 
 from collections.abc import Iterator
@@ -16,13 +21,15 @@ from typing import Final
 
 from diucs.domain.codes import Cadence
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 from diucs.domain.rules.london_time import london_to_utc, to_london
 
-REPLY_WINDOW: Final = timedelta(minutes=30)
-REMINDER_AFTER: Final = timedelta(minutes=30)
-PHONE_TASK_AFTER: Final = timedelta(minutes=60)
-ESCALATE_AFTER: Final = timedelta(minutes=90)
-TWICE_A_DAY_SECOND: Final = time(14, 0)
+# Aliases of the default policy (TEN-021): the numbers are defined once, in tenant_policy.py.
+REPLY_WINDOW: Final = DEFAULT_POLICY.reply_window
+REMINDER_AFTER: Final = DEFAULT_POLICY.reminder_after
+PHONE_TASK_AFTER: Final = DEFAULT_POLICY.phone_task_after
+ESCALATE_AFTER: Final = DEFAULT_POLICY.escalate_after
+TWICE_A_DAY_SECOND: Final = DEFAULT_POLICY.twice_a_day_second
 
 EVERY_N_HOURS_STEP: Final = timedelta(hours=2)
 MIDNIGHT: Final = time(0, 0)
@@ -38,7 +45,9 @@ class LadderStep(StrEnum):
     ESCALATE = "escalate"
 
 
-def _window_local_times(cadence: Cadence, window: AvailableTime, day: date) -> Iterator[datetime]:
+def _window_local_times(
+    cadence: Cadence, window: AvailableTime, day: date, policy: TenantPolicy
+) -> Iterator[datetime]:
     """Yield the naive London local due times one window gives on the day it starts."""
     opening = datetime.combine(day, MIDNIGHT if window.all_day else _start(window))
 
@@ -48,9 +57,9 @@ def _window_local_times(cadence: Cadence, window: AvailableTime, day: date) -> I
 
     if cadence is Cadence.TWICE_A_DAY:
         yield opening
-        # domain-rules 1.4 and DEC-024: 14:00 is due unless the window opens after it.
-        if window.all_day or _start(window) <= TWICE_A_DAY_SECOND:
-            yield datetime.combine(day, TWICE_A_DAY_SECOND)
+        # domain-rules 1.4 and DEC-024: the second time is due unless the window opens after it.
+        if window.all_day or _start(window) <= policy.twice_a_day_second:
+            yield datetime.combine(day, policy.twice_a_day_second)
         return
 
     # every-2-hrs: from the opening, every 2 hours, up to and including the closing time.
@@ -77,49 +86,62 @@ def _end(window: AvailableTime) -> time:
     return window.end
 
 
-def due_times_on(profile: ServiceProfile, london_day: date) -> list[datetime]:
+def due_times_on(
+    profile: ServiceProfile, london_day: date, policy: TenantPolicy = DEFAULT_POLICY
+) -> list[datetime]:
     """Sorted UTC due instants of windows that start on london_day, with no duplicates."""
+    policy = require_policy(policy)
     instants: set[datetime] = set()
     for window in profile.available_times:
         if london_day.weekday() not in window.days:
             continue
-        for local in _window_local_times(profile.cadence, window, london_day):
+        for local in _window_local_times(profile.cadence, window, london_day, policy):
             instants.add(london_to_utc(local.date(), local.time()))
     return sorted(instants)
 
 
-def next_due(profile: ServiceProfile, now: datetime) -> datetime | None:
+def next_due(
+    profile: ServiceProfile, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+) -> datetime | None:
     """The earliest due instant strictly after now, searching SEARCH_DAYS ahead, or None."""
+    policy = require_policy(policy)
     today = to_london(now).date()
     candidates = [
         due
         for offset in range(-1, SEARCH_DAYS)
-        for due in due_times_on(profile, today + timedelta(days=offset))
+        for due in due_times_on(profile, today + timedelta(days=offset), policy)
         if due > now
     ]
     return min(candidates, default=None)
 
 
-def current_due(profile: ServiceProfile, now: datetime) -> datetime | None:
+def current_due(
+    profile: ServiceProfile, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+) -> datetime | None:
     """The latest due instant at or before now, searching SEARCH_DAYS back, or None (DEC-023)."""
+    policy = require_policy(policy)
     today = to_london(now).date()
     candidates = [
         due
         for offset in range(-SEARCH_DAYS, 1)
-        for due in due_times_on(profile, today + timedelta(days=offset))
+        for due in due_times_on(profile, today + timedelta(days=offset), policy)
         if due <= now
     ]
     return max(candidates, default=None)
 
 
-def reply_by(due: datetime) -> datetime:
-    return due + REPLY_WINDOW
+def reply_by(due: datetime, policy: TenantPolicy = DEFAULT_POLICY) -> datetime:
+    policy = require_policy(policy)
+    return due + policy.reply_window
 
 
-def ladder_times(due: datetime) -> dict[LadderStep, datetime]:
+def ladder_times(
+    due: datetime, policy: TenantPolicy = DEFAULT_POLICY
+) -> dict[LadderStep, datetime]:
+    policy = require_policy(policy)
     return {
         LadderStep.PROMPT: due,
-        LadderStep.REMINDER: due + REMINDER_AFTER,
-        LadderStep.PHONE_TASK: due + PHONE_TASK_AFTER,
-        LadderStep.ESCALATE: due + ESCALATE_AFTER,
+        LadderStep.REMINDER: due + policy.reminder_after,
+        LadderStep.PHONE_TASK: due + policy.phone_task_after,
+        LadderStep.ESCALATE: due + policy.escalate_after,
     }

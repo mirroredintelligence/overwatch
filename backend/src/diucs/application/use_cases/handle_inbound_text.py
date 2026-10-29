@@ -55,6 +55,7 @@ from diucs.domain.messages.templates import render
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.people import PractitionerRole
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY
 from diucs.domain.rules.freshness import STALE_WARNING_AFTER
 from diucs.domain.rules.london_time import format_hhmm, format_stamp
 from diucs.domain.rules.multi_service import letters_for
@@ -333,7 +334,13 @@ def _too_late(
 
 
 def _confirm_limit(target: _Target) -> _Reply:
-    text = _text(MessageId.C6, service=target.profile.name)
+    # C6 states the confirm limit (TEN-022). Until TEN-026 loads each tenant's policy, the default
+    # policy's limit is passed, which is what this use case has always printed.
+    text = _text(
+        MessageId.C6,
+        service=target.profile.name,
+        confirm_limit=DEFAULT_POLICY.max_consecutive_confirms,
+    )
     return _Reply(MessageId.C6, target.role_id, target.service_id, text)
 
 

@@ -39,6 +39,31 @@ STARTER = frozenset(
     }
 )
 
+# The seventeen ids of the resource store (TEN-009, DEC-164): fifteen templates converted, and the
+# two of the dead idempotency pair removed. A sixteenth template, `Q-RES-LINK-SHARED`, is new and
+# never had a place on the ratchet. None of the seventeen may be on the ratchet again.
+RESOURCE_STORE = frozenset(
+    {
+        "Q-RES-CLEAR-OWNED",
+        "Q-RES-CLEAR-ROOT-RELS",
+        "Q-RES-GET",
+        "Q-RES-HISTORY",
+        "Q-RES-IDEM-GET",
+        "Q-RES-IDEM-RECORD",
+        "Q-RES-LOAD-NODES",
+        "Q-RES-LOAD-RELS",
+        "Q-RES-LOCK",
+        "Q-RES-MERGE-NODES",
+        "Q-RES-MERGE-RELS",
+        "Q-RES-SET-POSITION",
+        "Q-RES-SHARED-CREATE",
+        "Q-RES-SHARED-FILL",
+        "Q-RES-SHARED-READ",
+        "Q-RES-UPSERT-NODE",
+        "Q-RES-UPSERT-ROOT",
+    }
+)
+
 # The single-property unique constraints each starter scenario leans on. TEN-005 replaced them with
 # composite keys (tenantId plus the key), so the two tenants share every key a scenario uses and no
 # scenario leans on one: the table is empty, and it may not grow. A value only a global key could
@@ -73,7 +98,14 @@ def test_the_ratchet_may_only_shrink() -> None:
     from it, so a statement cannot be added to the unconverted side later."""
     assert len(INITIAL_UNCONVERTED) == 126
     assert UNCONVERTED <= INITIAL_UNCONVERTED
-    assert len(UNCONVERTED) <= 126 - len(STARTER)
+    assert len(UNCONVERTED) <= 126 - len(STARTER) - len(RESOURCE_STORE)
+
+
+def test_no_resource_store_id_is_on_the_ratchet_and_the_dead_pair_is_not_registered() -> None:
+    assert not UNCONVERTED & RESOURCE_STORE
+    assert RESOURCE_STORE <= INITIAL_UNCONVERTED
+    registered = set(REGISTRY.ids()) | set(REGISTRY.template_ids())
+    assert not registered & {"Q-RES-IDEM-GET", "Q-RES-IDEM-RECORD"}
 
 
 def test_a_new_unconverted_id_is_a_problem_even_when_the_registry_agrees(

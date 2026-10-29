@@ -56,6 +56,11 @@ from tests.support.tenant_seed import (
 )
 
 _TENANT: Final = re.compile(r"\$tenant\b")
+_ID_CONVENTION: Final = re.compile(r"Q-[A-Z0-9]+(?:-[A-Z0-9]+)*")
+_INSTANCE_SEPARATOR: Final = ":"
+# Ids with this prefix belong to the private registries the tests build for their own corpus. The
+# production registry holds none (`registry_problems`), so the prefix is no way out of the proof.
+TEST_PREFIX: Final = "Q-TEST-"
 
 # The 126 ids on the ratchet when TEN-004 was built (TEN-001 measured it). Never edited again. The
 # live ratchet (graph_store/unconverted.py) may only shrink and may only hold ids from this list.
@@ -232,19 +237,23 @@ def _load_every_statement() -> None:
 def production_statements(registry: QueryRegistry = REGISTRY) -> dict[str, NamedQuery]:
     """Every tenant statement of the registry, keyed by base id: the eager statements, and one
     entry per template (the instance its scenario names, or a stand-in with the place emptied when
-    it has none). Global statements, `Q-TEST-` statements and run-time instances are left out. For
-    the module registry every statement module is imported first."""
+    it has none). Global statements and run-time instances are left out. A private registry that a
+    test builds for its own corpus also leaves out its `Q-TEST-` statements; the production
+    registry never does, whatever a statement is called. For the module registry every statement
+    module is imported first."""
     if registry is REGISTRY:
         _load_every_statement()
     universe: dict[str, NamedQuery] = {}
     for query_id in registry.ids():
         query = registry.get(query_id)
-        if ":" in query_id or query_id.startswith("Q-TEST-") or query.scope != "tenant":
+        if ":" in query_id or _private_test_statement(registry, query_id):
+            continue
+        if query.scope != "tenant":
             continue
         universe[query_id] = query
     for template_id in registry.template_ids():
         template = registry.template(template_id)
-        if template_id.startswith("Q-TEST-") or template.scope != "tenant":
+        if _private_test_statement(registry, template_id) or template.scope != "tenant":
             continue
         if template.scenario is not None:
             universe[template_id] = registry.instance(template_id, template.scenario.insert)
@@ -258,19 +267,51 @@ def production_statements(registry: QueryRegistry = REGISTRY) -> dict[str, Named
     return universe
 
 
+def _private_test_statement(registry: QueryRegistry, query_id: str) -> bool:
+    """A `Q-TEST-` statement of a private registry: the only kind the universe leaves out by name.
+    The production registry has no such thing."""
+    return registry is not REGISTRY and query_id.startswith(TEST_PREFIX)
+
+
 def registry_problems(registry: QueryRegistry) -> list[str]:
-    """Ids a registry may not hold (stub, DEC-010)."""
-    raise NotImplementedError
+    """Ids the production registry may not hold: a `Q-TEST-` id (those are for the private
+    registries of tests, and the name must never be a way out of the generated test) and an id
+    outside the naming convention. Run-time instances (`<template>:<insert>`) are judged by their
+    template. Empty means fine."""
+    problems: list[str] = []
+    for query_id in sorted({*registry.ids(), *registry.template_ids()}):
+        if _INSTANCE_SEPARATOR in query_id:
+            continue
+        if query_id.startswith(TEST_PREFIX):
+            problems.append(
+                f"{query_id}: an id starting with {TEST_PREFIX} belongs to the private registry of "
+                "a test, never the production registry; rename the statement"
+            )
+        if _ID_CONVENTION.fullmatch(query_id) is None:
+            problems.append(f"{query_id}: not in the naming convention Q-<WORD>-<WORD>")
+    return problems
 
 
 def universe_problems(registry: QueryRegistry, statements: Mapping[str, NamedQuery]) -> list[str]:
-    """Registered tenant statements the generated test does not run (stub, DEC-010)."""
-    raise NotImplementedError
+    """The registered tenant statements and templates that the generated test would not run:
+    every one of them must be in the universe, whatever its name. Empty means fine."""
+    registered = [
+        query_id
+        for query_id in registry.ids()
+        if _INSTANCE_SEPARATOR not in query_id and registry.get(query_id).scope == "tenant"
+    ]
+    registered += [t for t in registry.template_ids() if registry.template(t).scope == "tenant"]
+    return [
+        f"{query_id}: registered, and not in the universe the generated test runs"
+        for query_id in sorted(set(registered))
+        if query_id not in statements and not _private_test_statement(registry, query_id)
+    ]
 
 
 def is_vacuous(rows: list[dict[str, Any]], before: Snapshot, after: Snapshot) -> bool:
-    """A run that returns nothing and changes nothing (stub, DEC-010)."""
-    raise NotImplementedError
+    """A run that returns no rows and changes nothing in the caller's data observes nothing, so
+    its scenario proves nothing: a no-op write, or a read that never matches."""
+    return not rows and digest(before) == digest(after)
 
 
 def scenario_gaps(statements: Mapping[str, NamedQuery], unconverted: frozenset[str]) -> list[str]:
@@ -491,6 +532,12 @@ async def _phase(
     except Exception as error:
         add(FindingKind.PROBE_ERROR, type(error).__name__)
         return found
+    if is_vacuous(base.rows, base.first_before, base.first_after):
+        add(
+            FindingKind.VACUOUS_SCENARIO,
+            "the statement returns no rows and changes nothing for the caller, so the scenario "
+            "observes nothing",
+        )
     for problem in row_problems(scenario.expect.rows, base.rows, slots[0]):
         add(FindingKind.UNEXPECTED_ROWS, problem)
     for problem in effect_problems(base.first_before, base.first_after, scenario.expect, slots[0]):

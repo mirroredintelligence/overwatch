@@ -10,6 +10,10 @@ tenant A and as tenant B:
 - `params`: the parameters the statement is run with, never `tenant`.
 - `lookup`: the parameters that pick the node or nodes the statement works on. At least one must
   collide across the tenants (the seed holds that value for both), or the scenario is refused.
+- `new`: the parameters that are new data, not a key the statement finds: a value to write, a
+  limit, a time, or the key of a node the statement creates. Every other parameter must be held
+  by the seed (a fresh key that is not declared is refused: no tenant holds it, so a statement
+  that matches on it and leaks only when it matches would never be run on a match).
 - `expect`: the rows the caller gets and the change to the caller's own data.
 
 Some keys cannot be shared by two tenants yet, because the production schema has a single-property
@@ -273,9 +277,42 @@ def _check_values(scenario: Scenario, add: Callable[[str], None]) -> None:
         add("the seed has no per-tenant value, so it cannot tell the tenants apart")
 
 
+def _key_values(value: Any) -> list[Any]:
+    """The values inside a parameter that can be a key: text, numbers (not booleans), `Marked` and
+    `Unique`, looking inside mappings and sequences."""
+    return [
+        v
+        for v in _walk(value)
+        if isinstance(v, str | int | float | Marked | Unique) and not isinstance(v, bool)
+    ]
+
+
+def _check_new(scenario: Scenario, seed_values: list[Any], add: Callable[[str], None]) -> None:
+    """Every parameter is a lookup, declared new, or held by the seed: a key the seed does not hold
+    is one no tenant holds, so a statement that leaks only on a match would never be run on one."""
+    for name in scenario.new:
+        if name not in scenario.params:
+            add("`new` names something that is not a parameter")
+        elif name in scenario.lookup:
+            add(f"parameter '{name}' is a lookup, so it cannot be declared new: it must collide")
+        else:
+            keys = _key_values(scenario.params[name])
+            if keys and all(k in seed_values for k in keys):
+                add(f"parameter '{name}' is declared new, but the seed holds it")
+    for name, value in scenario.params.items():
+        if name in scenario.lookup or name in scenario.new:
+            continue
+        if any(k not in seed_values for k in _key_values(value)):
+            add(
+                f"parameter '{name}' is not held by the seed: declare it in `new` if it is new "
+                "data, or name it in `lookup` if it picks a node"
+            )
+
+
 def _check_lookup(scenario: Scenario, add: Callable[[str], None]) -> None:
     seed_values = [v for node in scenario.seed.nodes for p in node.props.values() for v in _walk(p)]
     plain = [v for v in seed_values if not isinstance(v, Marked | Unique | Mapping | list | tuple)]
+    _check_new(scenario, seed_values, add)
     if not scenario.lookup:
         if not plain:
             add("the two tenants share no value in this seed")

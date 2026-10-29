@@ -87,6 +87,7 @@ _ADD_SCENARIO: Final = Scenario(
             "createdAt": _AT,
         }
     },
+    new=("props",),
     expect=Expect(
         rows=({"written": 1},),
         nodes={"OutboxMessage": 1},
@@ -97,6 +98,7 @@ _PENDING_SCENARIO: Final = Scenario(
     "list the tenant's pending messages and no other tenant's",
     seed=_OUTBOX_SEED,
     params={"limit": 10},
+    new=("limit",),
     expect=Expect(
         rows=(
             {

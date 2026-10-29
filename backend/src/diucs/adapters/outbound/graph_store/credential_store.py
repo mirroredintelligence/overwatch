@@ -91,6 +91,7 @@ _SET_SCENARIO: Final = Scenario(
         "pinHash": "hash-new",
     },
     lookup=("key",),
+    new=("deviceId", "pinHash"),
     expect=Expect(
         rows=({"n": 1},),
         nodes={"Credential": 1},
@@ -125,6 +126,7 @@ _SAVE_STATE_SCENARIO: Final = Scenario(
         "lastOutcome": "wrong-pin",
     },
     lookup=("key", "deviceId"),
+    new=("failed", "lastOutcome"),
     expect=Expect(
         rows=({"n": 1},),
         after=(NodeSpec(("Credential",), {"deviceId": _DEVICE, "failed": 2}),),

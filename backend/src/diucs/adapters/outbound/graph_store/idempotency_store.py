@@ -72,6 +72,7 @@ _PROCESSED_SCENARIO: Final = Scenario(
         "consumer": "consumer",
         "claim": "claim-1",
     },
+    new=("key", "messageId", "claim"),
     expect=Expect(
         rows=({"created": True},),
         nodes={"Processed": 1},

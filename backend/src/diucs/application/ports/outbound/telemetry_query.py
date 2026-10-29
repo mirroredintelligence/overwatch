@@ -1,8 +1,8 @@
 """Outbound port: read raw telemetry for the support and insight console (O07).
 
-Raw traces and events live in Application Insights on a Log Analytics workspace (observability.md,
-"Where telemetry lives"). The console reads them through this port only, never through the store
-directly. Three reads:
+Raw traces and events live in Application Insights on a Log Analytics workspace
+(observability.md, "Where telemetry lives"). The console reads them through this port only,
+never through the store directly. Three reads:
 
 - `session_timeline`: what one session did, in time order (page views, clicks by element, field
   events without values, API calls with durations and statuses, friction flags, errors).
@@ -14,18 +14,19 @@ adapter drops every other attribute when it maps a row, so a field value or a qu
 reach the console (observability.md, "Scrubbing").
 
 The tenant is never an argument. Every read is for the tenant bound to the context at the edge
-(DEC-130, DEC-132); an adapter reads it with `application.tenancy.current_tenant()` and refuses to
-run when none is bound.
+(DEC-130, DEC-132); an adapter reads it with `application.tenancy.current_tenant()` and refuses
+to run when none is bound.
 """
 
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
 from typing import Any, Final, Protocol
 
 from diucs.domain.errors import DomainError, ValidationFailed
+from diucs.domain.model.telemetry_aggregates import DayAggregates
 
 # An attribute value after the allow-list: the types the telemetry schema carries.
 AttributeValue = str | int | float | bool
@@ -99,6 +100,16 @@ class SessionFilters:
 
 
 class TelemetryQuery(Protocol):
+    async def daily_aggregates(self, day: date) -> DayAggregates:
+        """One day's aggregates for the bound tenant (O08): the funnel steps, the friction, the
+        element
+        use, the route timings and the query statistics. Only counts and timings; no person, session
+        id,
+        value or text. A day with no telemetry answers empty rows, not an error.
+
+        """
+        ...
+
     async def session_timeline(
         self, session_id: str, start: datetime, end: datetime
     ) -> list[TimelineEvent]:
@@ -116,12 +127,16 @@ class TelemetryQuery(Protocol):
 
 class TelemetryUnavailable(DomainError):
     """The telemetry store cannot be read: it is not configured, or a read was refused. Carries no
-    query text, value or id."""
+    query text, value or id.
+
+    """
 
 
 def as_utc(value: object) -> datetime:
     """A timezone-aware instant in UTC, from a datetime or an ISO 8601 text (a trailing Z allowed).
-    A naive value is refused: the console compares instants, never wall-clock times."""
+    A naive value is refused: the console compares instants, never wall-clock times.
+
+    """
     if isinstance(value, str):
         value = datetime.fromisoformat(value.replace("Z", "+00:00"))
     if not isinstance(value, datetime) or value.utcoffset() is None:
@@ -131,7 +146,9 @@ def as_utc(value: object) -> datetime:
 
 def check_session_id(value: str) -> str:
     """Return the session id when it is 1 to 64 letters, digits, hyphens or underscores; refuse
-    anything else before it reaches a query. The field name only is in the refusal."""
+    anything else before it reaches a query. The field name only is in the refusal.
+
+    """
     if not isinstance(value, str) or _SESSION_ID.fullmatch(value) is None:
         raise ValidationFailed(
             "session_id", "must be 1 to 64 letters, digits, hyphens or underscores"

@@ -99,6 +99,11 @@ def create_app(
     # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.
     app.include_router(routes_lead.router)
 
+    # Support codes and the support console (R18): JSON routes over the O06 and R18 use cases.
+    from diucs.adapters.inbound.fhir_rest import routes_support
+
+    app.include_router(routes_support.router)
+
     # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
     # this one module wire it in.
     from diucs.adapters.inbound.sms_webhook import routes as sms_routes

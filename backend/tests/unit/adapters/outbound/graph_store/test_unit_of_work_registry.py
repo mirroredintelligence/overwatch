@@ -62,6 +62,8 @@ REQUIRED_NAMES = {
     "idempotency",
     "processed",
     "support",
+    "aggregates",
+    "support_tickets",
 }
 
 

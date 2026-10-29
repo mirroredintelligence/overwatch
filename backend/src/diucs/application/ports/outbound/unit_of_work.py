@@ -20,6 +20,7 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from diucs.application.idempotency import IdempotencyStore
+from diucs.application.ports.outbound.aggregates import AggregateRepository
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.consent import NotificationConsentStore
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
@@ -49,6 +50,7 @@ from diucs.application.ports.outbound.repositories import (
 )
 from diucs.application.ports.outbound.safety import SafetyReportRepository
 from diucs.application.ports.outbound.support import SupportRepository
+from diucs.application.ports.outbound.support_tickets import SupportTicketRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.tenancy import ScopeId
 
@@ -83,6 +85,8 @@ class UnitOfWork(Protocol):
     idempotency: IdempotencyStore
     processed: ProcessedMessages
     support: SupportRepository
+    aggregates: AggregateRepository
+    support_tickets: SupportTicketRepository
 
     @property
     def unit_scope(self) -> ScopeId | None:

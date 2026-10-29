@@ -1,8 +1,11 @@
 """Service moves on Neo4j (P20, U38).
 
-A move is a platform node (:ServiceMove {id, serviceId, fromPractitionerId, toPhoneHash, until,
+A move is a platform node (:ServiceMove {moveId, serviceId, fromPractitionerId, toPhoneHash, until,
 codeVerifiedAt, callbackAt, completedAt, cancelledAt, tenantId}) with -[:FOR]->(:HealthcareService)
 and -[:FROM]->(:Practitioner). Only the phone hash is stored, never the number.
+
+The move's id is the property moveId, under the composite constraint (tenantId, moveId) of migration
+0041.
 
 At most one open move per service: add takes the service's write lock first (lesson L73), then
 reads the open moves, then writes, so two adds for one service serialise and the second is refused
@@ -49,7 +52,7 @@ _NODE_MOVE: Final = SeedNode(
     "move",
     ("ServiceMove",),
     {
-        "id": "move-1",
+        "moveId": "move-1",
         "serviceId": "svc-ucr-east",
         "fromPractitionerId": "p-1",
         "toPhoneHash": "h9",
@@ -130,7 +133,7 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
         new=("until", "completedAt"),
         expect=Expect(
             rows=({"saved": 1},),
-            after=(NodeSpec(("ServiceMove",), {"id": "move-1", "completedAt": _DONE}),),
+            after=(NodeSpec(("ServiceMove",), {"moveId": "move-1", "completedAt": _DONE}),),
         ),
     ),
 }
@@ -150,7 +153,7 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
         cypher=(
             "MATCH (m:ServiceMove {serviceId: $serviceId, tenantId: $tenant}) "
             "WHERE m.completedAt IS NULL AND m.cancelledAt IS NULL "
-            "RETURN m.id AS id ORDER BY m.id"
+            "RETURN m.moveId AS id ORDER BY m.moveId"
         ),
         mode="read",
         scenario=_SCENARIOS["Q-MOVE-OPEN-FOR"],
@@ -158,8 +161,8 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
     NamedQuery(
         id="Q-MOVE-GET",
         cypher=(
-            "MATCH (m:ServiceMove {id: $id, tenantId: $tenant}) "
-            "RETURN m.id AS id, m.serviceId AS serviceId, "
+            "MATCH (m:ServiceMove {moveId: $id, tenantId: $tenant}) "
+            "RETURN m.moveId AS id, m.serviceId AS serviceId, "
             "m.fromPractitionerId AS fromPractitionerId, m.toPhoneHash AS toPhoneHash, "
             "m.until AS until, m.codeVerifiedAt AS codeVerifiedAt, "
             "m.callbackAt AS callbackAt, m.completedAt AS completedAt, "
@@ -173,7 +176,7 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
         cypher=(
             "MATCH (s:HealthcareService {id: $serviceId, tenantId: $tenant}), "
             "(p:Practitioner {id: $fromPractitionerId, tenantId: $tenant}) "
-            "CREATE (m:ServiceMove {id: $id, serviceId: $serviceId, "
+            "CREATE (m:ServiceMove {moveId: $id, serviceId: $serviceId, "
             "fromPractitionerId: $fromPractitionerId, toPhoneHash: $toPhoneHash, "
             "until: $until, codeVerifiedAt: $codeVerifiedAt, callbackAt: $callbackAt, "
             "completedAt: $completedAt, cancelledAt: $cancelledAt, tenantId: $tenant})"
@@ -186,7 +189,7 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
     NamedQuery(
         id="Q-MOVE-SAVE",
         cypher=(
-            "MATCH (m:ServiceMove {id: $id, tenantId: $tenant}) "
+            "MATCH (m:ServiceMove {moveId: $id, tenantId: $tenant}) "
             "SET m.until = $until, m.codeVerifiedAt = $codeVerifiedAt, "
             "m.callbackAt = $callbackAt, m.completedAt = $completedAt, "
             "m.cancelledAt = $cancelledAt "

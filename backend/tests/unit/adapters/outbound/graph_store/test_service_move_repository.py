@@ -55,5 +55,8 @@ def test_a_move_is_keyed_by_its_move_id_under_the_tenant() -> None:
         assert "{id: $id" not in cypher, query_id
         assert "{id: $id, tenantId" not in cypher, query_id
     assert "moveId: $id" in REGISTRY.get("Q-MOVE-ADD").cypher
-    assert "MATCH (m:ServiceMove {moveId: $id, tenantId: $tenant})" in REGISTRY.get("Q-MOVE-GET").cypher
+    assert (
+        "MATCH (m:ServiceMove {moveId: $id, tenantId: $tenant})"
+        in REGISTRY.get("Q-MOVE-GET").cypher
+    )
     assert "m.moveId AS id" in REGISTRY.get("Q-MOVE-GET").cypher

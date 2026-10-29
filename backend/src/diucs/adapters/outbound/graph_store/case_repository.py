@@ -12,7 +12,9 @@ resource store, with three deliberate departures from the FHIR form, recorded in
   item 2 pattern).
 
 Scores are Observations. The store refuses to put an existing Observation (DEC-053 item 3), so
-scores are written once, with the case, and a save never rewrites them.
+scores are written once and never rewritten: with the case on add, or by the first save of a case
+that was opened with none (U11: UpdateCase records the referrer's scores after OpenCase). A save
+that changes scores already recorded is refused.
 """
 
 import re
@@ -340,11 +342,14 @@ def case_to_fhir(case: Case) -> tuple[dict[str, Any], dict[str, Any], list[dict[
         "authoredOn": _utc_text(case.opened_at),
         "identifier": [{"system": REFERENCE_SYSTEM, "value": case.reference}],
         "subject": {"reference": f"{_PATIENT}/{patient_id}"},
-        "supportingInfo": [
+    }
+    if case.scores:
+        # Left out when empty: the resource store refuses an empty list (a case is opened before
+        # any score is known, U11).
+        request["supportingInfo"] = [
             {"reference": f"Observation/{_score_id(case.id, index)}"}
             for index in range(1, len(case.scores) + 1)
-        ],
-    }
+        ]
     if case.urgency is not None:
         request[_PRIORITY] = priority_for(case.urgency)
         extensions.append(_extension(_EXT_URGENCY, case.urgency.value))
@@ -498,19 +503,25 @@ class Neo4jCaseRepository:
         stored = await self.get(case.id)
         if stored is None:  # the request exists, so this is a broken graph
             raise NotFound(f"{_REQUEST}/{case.id}")
-        if stored.scores != case.scores:
+        first_recording = not stored.scores and bool(case.scores)
+        if stored.scores != case.scores and not first_recording:
             raise ValidationFailed("scores", "recorded scores cannot change")
         if stored.reference != case.reference:
             raise ValidationFailed("reference", "the case reference cannot change")
         if stored.closed_at is not None and case != stored:
             raise InvalidTransition("a closed case cannot change")
 
-        patient, request, _ = case_to_fhir(case)
+        patient, request, scores = case_to_fhir(case)
         patient_current = await self._store.get(_PATIENT, _patient_id(case.id))
         patient_expected = (
             None if patient_current is None else str(patient_current["meta"]["versionId"])
         )
         await self._put_patient(case, patient, expected=patient_expected)
+        if first_recording:
+            # Each Observation is new (the store refuses an existing one), written before the
+            # request that lists it, in the bound tenant like every other put.
+            for resource in scores:
+                await self._store.put(resource, None)
         await self._put_request(case, request, expected=str(current["meta"]["versionId"]))
 
     async def _put_patient(self, case: Case, patient: dict[str, Any], expected: str | None) -> None:

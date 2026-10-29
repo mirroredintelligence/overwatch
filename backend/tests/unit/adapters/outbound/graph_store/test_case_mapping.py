@@ -278,3 +278,24 @@ def test_a_need_coded_in_another_system_is_refused() -> None:
 
     with pytest.raises(ValidationFailed):
         case_from_fhir(patient, request, scores)
+
+
+def test_a_case_with_no_scores_has_no_supporting_info_element() -> None:
+    # The resource store refuses an empty list, so the element is left out, not written empty.
+    unscored = replace(OPEN_CASE, scores=())
+
+    patient, request, scores = case_to_fhir(unscored)
+
+    assert "supportingInfo" not in request
+    assert scores == []
+    assert case_from_fhir(patient, request, scores) == unscored
+
+
+def test_a_case_with_scores_lists_one_supporting_reference_per_score_in_order() -> None:
+    _, request, scores = case_to_fhir(OPEN_CASE)
+
+    assert request["supportingInfo"] == [
+        {"reference": "Observation/sc-case-1-1"},
+        {"reference": "Observation/sc-case-1-2"},
+    ]
+    assert [resource["id"] for resource in scores] == ["sc-case-1-1", "sc-case-1-2"]

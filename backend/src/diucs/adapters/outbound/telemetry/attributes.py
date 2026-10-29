@@ -19,6 +19,8 @@ INSTRUMENTATION_NAME: Final = "diucs"
 NEO4J_SYSTEM: Final = "neo4j"
 
 SPAN_NEO4J_QUERY: Final = "neo4j.query {query_id}"
+SPAN_SERVICEBUS_PROCESS: Final = "servicebus.process {topic}"
+SERVICEBUS_SYSTEM: Final = "servicebus"
 
 TENANT_ID: Final = "tenant.id"
 SESSION_ID: Final = "session.id"
@@ -44,6 +46,9 @@ HTTP_RESPONSE_STATUS_CODE: Final = "http.response.status_code"
 URL_SCHEME: Final = "url.scheme"
 SERVER_ADDRESS: Final = "server.address"
 ERROR_TYPE: Final = "error.type"
+MESSAGING_SYSTEM: Final = "messaging.system"
+MESSAGING_DESTINATION_NAME: Final = "messaging.destination.name"
+MESSAGING_MESSAGE_ID: Final = "messaging.message.id"
 
 ALLOWED_KEYS: Final[frozenset[str]] = frozenset(
     {
@@ -71,6 +76,9 @@ ALLOWED_KEYS: Final[frozenset[str]] = frozenset(
         DB_QUERY_ID,
         DB_ACCESS_MODE,
         DB_ROW_COUNT,
+        MESSAGING_SYSTEM,
+        MESSAGING_DESTINATION_NAME,
+        MESSAGING_MESSAGE_ID,
     }
 )
 ALLOWED_PREFIXES: Final[tuple[str, ...]] = ("usecase.", "db.", "messaging.")

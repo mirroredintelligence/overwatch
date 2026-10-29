@@ -21,6 +21,7 @@ import signal
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 
 from azure.servicebus.aio import ServiceBusClient
+from opentelemetry import trace as otel_trace
 
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants, StaticTenants
@@ -28,6 +29,8 @@ from diucs.adapters.inbound.workers.reply_processor import HandlesInboundText, r
 from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from diucs.adapters.outbound.telemetry.attributes import INSTRUMENTATION_NAME
+from diucs.adapters.outbound.telemetry.consumer import consumer_observer
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import is_valid_tenant_id
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
@@ -35,6 +38,7 @@ from diucs.application.use_cases.handle_inbound_text import HandleInboundText
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
+from diucs.bootstrap.telemetry import start_telemetry
 
 TENANTS_VARIABLE = "DIUCS_WORKER_TENANTS"
 TENANTS_MISSING = (
@@ -73,19 +77,21 @@ def build_runners(
     uow_factory: UnitOfWorkFactory,
     tenants: ActiveTenants,
 ) -> list[ServiceBusRunner]:
-    """One runner for each inbound queue, each over a consumer that binds the message's tenant."""
+    """One runner for each inbound queue, each over a consumer that binds the message's tenant and
+    handles the message under its trace span (O01)."""
+    observe = consumer_observer(otel_trace.get_tracer(INSTRUMENTATION_NAME))
     return [
         ServiceBusRunner(
             client,
             REPLIES_QUEUE,
             None,
-            reply_consumer(handle_inbound_text, uow_factory, tenants),
+            reply_consumer(handle_inbound_text, uow_factory, tenants, observe),
         ),
         ServiceBusRunner(
             client,
             RECEIPTS_QUEUE,
             None,
-            receipt_consumer(uow_factory, tenants),
+            receipt_consumer(uow_factory, tenants, observe),
         ),
     ]
 
@@ -129,7 +135,12 @@ async def _run(settings: Settings, tenants: ActiveTenants) -> None:
     for name in (signal.SIGINT, signal.SIGTERM):
         with contextlib.suppress(NotImplementedError):  # not available on every platform
             loop.add_signal_handler(name, stop.set)
-    await serve(settings, tenants, stop)
+    provider = start_telemetry(settings)  # O01: nothing is exported without an OTLP endpoint
+    try:
+        await serve(settings, tenants, stop)
+    finally:
+        if provider is not None:
+            provider.shutdown()  # flushes the last batch of spans
 
 
 def main() -> None:

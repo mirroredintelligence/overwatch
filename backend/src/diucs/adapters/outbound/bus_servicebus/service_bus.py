@@ -7,19 +7,36 @@ and application property. A cancel is a no-op for a number that is not pending (
 
 import json
 import re
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID
 
 from azure.servicebus import ServiceBusMessage
 from azure.servicebus.aio import ServiceBusClient, ServiceBusSender
 from azure.servicebus.exceptions import ServiceBusError
+from opentelemetry import trace as otel_trace
 
 from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS, BusMessage
+from diucs.application.tracing import format_traceparent
 from diucs.domain.errors import ValidationFailed
 
 # DEC-102 item 2: the emulator refuses a cancel of a number that is unknown, already delivered or
 # held by another queue, with this text. The number it names must be the one asked for.
 _NOT_PENDING = re.compile(r"SequenceNumber = (\d+) is already being cancelled")
+
+
+def stamped_with_current_span(message: BusMessage) -> BusMessage:
+    """A message sent from inside a span carries that span's traceparent (O01), unless it already
+    has one. Outside any span it is returned unchanged."""
+    if message.traceparent is not None:
+        return message
+    current = otel_trace.get_current_span().get_span_context()
+    if not current.is_valid:
+        return message
+    return replace(
+        message,
+        traceparent=format_traceparent(current.trace_id, current.span_id, int(current.trace_flags)),
+    )
 
 
 def to_service_bus_message(message: BusMessage) -> ServiceBusMessage:
@@ -31,6 +48,9 @@ def to_service_bus_message(message: BusMessage) -> ServiceBusMessage:
     if message.tenant_id is not None:
         # DEC-130 item 7: the consumer binds this before it opens a unit of work.
         properties["tenantId"] = message.tenant_id
+    if message.traceparent is not None:
+        # O01: the consumer opens its span under this one.
+        properties["traceparent"] = message.traceparent
     return ServiceBusMessage(
         body=json.dumps(message.payload).encode("utf-8"),
         message_id=message.id,
@@ -69,12 +89,16 @@ class ServiceBusEventBus:
     async def publish(self, message: BusMessage) -> None:
         if message.topic not in TOPICS:
             raise ValidationFailed("topic", "not a known topic")
-        await self._sender(message.topic).send_messages(to_service_bus_message(message))
+        await self._sender(message.topic).send_messages(
+            to_service_bus_message(stamped_with_current_span(message))
+        )
 
     async def enqueue(self, queue: str, message: BusMessage) -> None:
         if queue not in QUEUES:
             raise ValidationFailed("queue", "not a known queue")
-        await self._sender(queue).send_messages(to_service_bus_message(message))
+        await self._sender(queue).send_messages(
+            to_service_bus_message(stamped_with_current_span(message))
+        )
 
     async def schedule(self, queue: str, message: BusMessage, enqueue_at: datetime) -> int:
         if queue not in QUEUES:
@@ -82,7 +106,7 @@ class ServiceBusEventBus:
         if enqueue_at.tzinfo is None or enqueue_at.utcoffset() is None:
             raise ValidationFailed("enqueue_at", "must be a timezone-aware datetime")
         numbers = await self._sender(queue).schedule_messages(
-            to_service_bus_message(message), enqueue_at.astimezone(UTC)
+            to_service_bus_message(stamped_with_current_span(message)), enqueue_at.astimezone(UTC)
         )
         return numbers[0]
 

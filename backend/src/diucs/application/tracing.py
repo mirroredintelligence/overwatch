@@ -22,6 +22,12 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+def format_traceparent(trace_id: int, span_id: int, flags: int) -> str:
+    """The W3C traceparent for a span: version 00, the 128-bit trace id, the 64-bit span id and the
+    flags, all lower-case hex. Pure string work, shared by the bus adapter and the consumer span."""
+    return f"00-{trace_id:032x}-{span_id:016x}-{flags:02x}"
+
+
 class Span(Protocol):
     def set_attribute(self, key: str, value: AttrValue) -> None: ...
 

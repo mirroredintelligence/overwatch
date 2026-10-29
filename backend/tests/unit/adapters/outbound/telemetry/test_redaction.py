@@ -32,6 +32,8 @@ ALLOWED = [
     "db.access_mode",
     "db.row_count",
     "messaging.system",
+    "messaging.destination.name",
+    "messaging.message.id",
     "http.request.method",
     "http.route",
     "http.response.status_code",

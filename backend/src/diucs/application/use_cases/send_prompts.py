@@ -42,6 +42,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import PractitionerRole, role_holder
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.rules.freshness import STALE_WARNING_AFTER
 from diucs.domain.rules.london_time import format_hhmm, format_stamp
 from diucs.domain.rules.multi_service import GROUP_WINDOW, GroupedItem, group_due
 from diucs.domain.rules.opening_hours import is_in_hours
@@ -254,6 +255,13 @@ class _Group:
     rendered: RenderedMessage
 
 
+def _too_old_to_confirm(latest: CapacityReport, now: datetime) -> bool:
+    """True when a Y could not confirm this figure: it was more than STALE_WARNING_AFTER old when
+    the prompt is sent, the line U05 draws (`figure_is_out_of_date`, DEC-148 item 2, DEC-156
+    item 4). Exactly that age is still inside."""
+    return now - latest.effective_at > STALE_WARNING_AFTER
+
+
 def _grouped_ids(groups: list[_Group], service_id: str) -> tuple[str, ...]:
     """Every service prompted in a group with this one, itself included, in letter order. Empty
     when it is in no group."""
@@ -407,7 +415,11 @@ class SendPrompts:
         """The group each of this service's reporter phones is prompted in, if any. Only a text
         prompt with a figure can be grouped (DEC-156 items 2 and 3)."""
         latest = me.latest
-        if latest is None or me.profile.channel is not Channel.TEXT:
+        if (
+            latest is None
+            or me.profile.channel is not Channel.TEXT
+            or _too_old_to_confirm(latest, now)
+        ):
             return []
         groups: list[_Group] = []
         seen: set[str] = set()
@@ -478,7 +490,7 @@ class SendPrompts:
         if profile is None or profile.channel is not Channel.TEXT:
             return None
         latest = await uow.capacity.latest(service_id)
-        if latest is None:
+        if latest is None or _too_old_to_confirm(latest, now):
             return None
         suspended = any(
             flag.code == SERVICE_FLAG_SUSPENDED

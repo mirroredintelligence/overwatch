@@ -44,6 +44,7 @@ from diucs.domain.codes import (
     Role,
     ScopeFlag,
     ServiceCategory,
+    Status,
     code_system_url,
 )
 from diucs.domain.model.capacity import CapacityReport
@@ -1439,6 +1440,21 @@ async def test_the_early_replay_store_reads_and_writes_the_units_idempotency_rec
     store = UnitOfWorkIdempotency(factory)
 
     assert await store.get("early-key") is None
-    await store.put("early-key", WEST_PRIOR.id)
+    await store.put("early-key", Status.ACCEPTING)
 
-    assert await store.get("early-key") == WEST_PRIOR.id
+    assert await store.get("early-key") is Status.ACCEPTING
+
+
+async def test_a_reporter_learns_nothing_of_another_services_measure_from_a_wrong_code(
+    seeded: None, api_client: AsyncClient, neo4j_driver: AsyncDriver
+) -> None:
+    unknown = await post(
+        api_client, report_body(4, service="svc-nowhere"), west_reporter(), key="key-0"
+    )
+    # Ward A counts beds. A referrals code and unit for it would be a 400 for someone who may
+    # report for it, so for a reporter who may not it must still be the not-found answer.
+    wrong = await post(api_client, report_body(4, service="svc-ward-a"), west_reporter())
+
+    assert wrong.status_code == 404
+    assert wrong.json() == unknown.json()
+    await nothing_written(neo4j_driver)

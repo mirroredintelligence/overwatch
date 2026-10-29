@@ -311,3 +311,16 @@ def sender_runners(
         ServiceBusRunner(client, MESSAGES_TOPIC, SMS_SUBSCRIPTION, sms),
         ServiceBusRunner(client, MESSAGES_TOPIC, EMAIL_SUBSCRIPTION, email),
     ]
+
+
+# Stub (I14): the behaviour is written in the implement step.
+def push_urgency(message_id: str) -> str:
+    raise NotImplementedError
+
+
+class PushMessageSender:
+    def __init__(self, sender: object, sealer: ContentSealer, app_url: str, clock: object) -> None:
+        raise NotImplementedError
+
+    async def __call__(self, message: BusMessage, uow: UnitOfWork) -> None:
+        raise NotImplementedError

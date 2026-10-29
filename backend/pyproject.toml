@@ -22,6 +22,7 @@ dependencies = [
     "opentelemetry-sdk>=1.45.2",
     "pydantic>=2.14.1",
     "pydantic-settings>=2.16.1",
+    "pywebpush>=2.5.0",
     "rdflib>=7.6.0",
     "redis>=8.1.0",
     "tzdata>=2026.5",

@@ -201,6 +201,7 @@ class FindingKind(StrEnum):
     UNEXPECTED_ROWS = "unexpected-rows"
     UNEXPECTED_EFFECT = "unexpected-effect"
     PROBE_ERROR = "probe-error"
+    VACUOUS_SCENARIO = "vacuous-scenario"
 
 
 @dataclass(frozen=True, slots=True)
@@ -255,6 +256,21 @@ def production_statements(registry: QueryRegistry = REGISTRY) -> dict[str, Named
                 scope=template.scope,
             )
     return universe
+
+
+def registry_problems(registry: QueryRegistry) -> list[str]:
+    """Ids a registry may not hold (stub, DEC-010)."""
+    raise NotImplementedError
+
+
+def universe_problems(registry: QueryRegistry, statements: Mapping[str, NamedQuery]) -> list[str]:
+    """Registered tenant statements the generated test does not run (stub, DEC-010)."""
+    raise NotImplementedError
+
+
+def is_vacuous(rows: list[dict[str, Any]], before: Snapshot, after: Snapshot) -> bool:
+    """A run that returns nothing and changes nothing (stub, DEC-010)."""
+    raise NotImplementedError
 
 
 def scenario_gaps(statements: Mapping[str, NamedQuery], unconverted: frozenset[str]) -> list[str]:

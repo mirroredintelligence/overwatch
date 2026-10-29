@@ -4,13 +4,16 @@ the ratchet, row and effect comparison, and how findings are written. All values
 
 import subprocess
 import sys
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import pytest
 from neo4j.time import DateTime
 
 from diucs.adapters.outbound.graph_store.queries import (
+    REGISTRY,
     NamedQuery,
     QueryRegistry,
     QueryTemplate,
@@ -27,11 +30,14 @@ from tests.support.query_probes import (
     FindingKind,
     effect_problems,
     format_findings,
+    is_vacuous,
     normalised,
     production_statements,
     ratchet_problems,
+    registry_problems,
     row_problems,
     scenario_gaps,
+    universe_problems,
 )
 from tests.support.tenant_seed import Node, Rel, Snapshot
 
@@ -80,7 +86,9 @@ def test_the_universe_is_every_tenant_statement_and_one_entry_per_template() -> 
     assert sorted(statements) == ["Q-NEW", "Q-OLD", "Q-TPL-NEW", "Q-TPL-OLD"]
 
 
-def test_the_universe_leaves_out_global_statements_test_statements_and_instances() -> None:
+def test_the_universe_of_a_private_registry_leaves_out_global_test_statements_and_instances() -> (
+    None
+):
     statements = production_statements(_registry())
     assert "Q-NEO4J-PING" not in statements
     assert not any(i.startswith("Q-TEST-") for i in statements)
@@ -133,6 +141,128 @@ def test_the_universe_is_complete_in_a_fresh_interpreter() -> None:
     count, *present = done.stdout.split()
     assert int(count) >= 126
     assert present == ["True", "True", "True"]
+
+
+# The production registry may hold no test-named statement, and the universe holds all of it
+# (TEN-004 round 2, B1)
+
+LEAKY_TEXT = "MATCH (p:ProbeThing {id: $id}) WHERE p.tenantId = $tenant OR true RETURN p.id AS id"
+
+
+def _sneak() -> NamedQuery:
+    """The verifier's Q-TEST-SNEAK: a leaky statement with a scenario, named like a test one."""
+    return NamedQuery(
+        id="Q-TEST-SNEAK",
+        cypher=LEAKY_TEXT,
+        mode="read",
+        scenario=Scenario("a scenario"),
+    )
+
+
+@pytest.fixture
+def sneaked() -> Iterator[NamedQuery]:
+    """`Q-TEST-SNEAK` registered in the production registry, and taken out again afterwards."""
+    query = _sneak()
+    REGISTRY.register(query)
+    try:
+        yield query
+    finally:
+        del REGISTRY._queries[query.id]  # noqa: SLF001
+
+
+def test_a_test_named_statement_in_the_production_registry_is_in_the_universe(
+    sneaked: NamedQuery,
+) -> None:
+    """Only a private registry of the harness may hold `Q-TEST-` ids; in the production registry
+    the name is no reason to leave a statement out of the generated test."""
+    assert production_statements(REGISTRY)[sneaked.id] == sneaked
+    assert universe_problems(REGISTRY, production_statements(REGISTRY)) == []
+
+
+def test_a_test_named_template_in_the_production_registry_is_in_the_universe() -> None:
+    template = QueryTemplate(
+        id="Q-TEST-SNEAK-TPL",
+        cypher="MATCH (p{insert} {tenantId: $tenant}) RETURN p",
+        mode="read",
+        scenario=Scenario("a template", insert=":Lbl"),
+    )
+    REGISTRY.register_template(template)
+    try:
+        assert "Q-TEST-SNEAK-TPL" in production_statements(REGISTRY)
+    finally:
+        del REGISTRY._templates[template.id]  # noqa: SLF001
+        REGISTRY._queries.pop("Q-TEST-SNEAK-TPL:Lbl", None)  # noqa: SLF001
+
+
+def test_the_production_registry_holds_no_test_named_statement_and_follows_the_convention() -> None:
+    production_statements(REGISTRY)  # imports every statement module
+    assert registry_problems(REGISTRY) == []
+
+
+def test_the_hygiene_check_refuses_a_test_named_statement_in_the_production_registry(
+    sneaked: NamedQuery,
+) -> None:
+    problems = registry_problems(REGISTRY)
+    assert len(problems) == 1
+    assert "Q-TEST-SNEAK" in problems[0]
+    assert "Q-TEST-" in problems[0]
+
+
+def test_the_hygiene_check_names_a_test_named_template_and_an_id_outside_the_convention() -> None:
+    registry = QueryRegistry(unconverted=frozenset({"q-lower", "Q-TEST-TPL-OLD"}))
+    registry.register(NamedQuery(id="q-lower", cypher=OLD_CYPHER, mode="read"))
+    registry.register(NamedQuery(id="Q-FINE-ONE", cypher=TENANT_CYPHER, mode="read", scenario=SC))
+    registry.register_template(
+        QueryTemplate(id="Q-TEST-TPL-OLD", cypher="MATCH (n{insert}) RETURN n", mode="read")
+    )
+    problems = registry_problems(registry)
+    assert len(problems) == 2
+    assert any("q-lower" in p and "convention" in p for p in problems)
+    assert any("Q-TEST-TPL-OLD" in p and "Q-TEST-" in p for p in problems)
+
+
+def test_the_hygiene_check_leaves_an_instance_to_its_template() -> None:
+    registry = _registry()
+    registry.register_template(
+        QueryTemplate(
+            id="Q-TPL-ONE",
+            cypher="MATCH (n{insert} {tenantId: $tenant}) RETURN n",
+            mode="read",
+            scenario=Scenario("one", insert=":Lbl"),
+        )
+    )
+    registry.instance("Q-TPL-ONE", ":Lbl")
+    assert all("Q-TPL-ONE:Lbl" not in p for p in registry_problems(registry))
+
+
+def test_every_registered_tenant_statement_is_in_the_universe_the_generated_test_runs() -> None:
+    statements = production_statements(REGISTRY)
+    eager = {i for i in REGISTRY.ids() if ":" not in i and REGISTRY.get(i).scope == "tenant"}
+    templates = {t for t in REGISTRY.template_ids() if REGISTRY.template(t).scope == "tenant"}
+    assert (eager | templates) <= set(statements)
+    assert set(statements) == eager | templates
+    assert universe_problems(REGISTRY, statements) == []
+
+
+def test_a_registered_statement_missing_from_the_universe_is_named() -> None:
+    registry = _registry()
+    statements = production_statements(registry)
+    del statements["Q-NEW"]
+    problems = universe_problems(registry, statements)
+    assert len(problems) == 1
+    assert "Q-NEW" in problems[0]
+
+
+def test_a_template_missing_from_the_universe_is_named() -> None:
+    registry = _registry()
+    statements = production_statements(registry)
+    del statements["Q-TPL-NEW"]
+    assert any("Q-TPL-NEW" in p for p in universe_problems(registry, statements))
+
+
+def test_the_universe_check_does_not_name_global_statements_or_instances() -> None:
+    registry = _registry()
+    assert universe_problems(registry, production_statements(registry)) == []
 
 
 # Gaps and the ratchet
@@ -354,4 +484,21 @@ def test_every_finding_kind_has_its_text() -> None:
         "unexpected-rows",
         "unexpected-effect",
         "probe-error",
+        "vacuous-scenario",
     }
+
+
+# A run that observes nothing is no proof (TEN-004 round 2, B2a)
+
+
+def test_a_run_that_returns_nothing_and_changes_nothing_is_vacuous() -> None:
+    before = _snap(Node(("Thing",), {"id": "t-1"}))
+    assert is_vacuous([], before, before) is True
+
+
+def test_a_run_that_returns_a_row_or_changes_the_graph_is_not_vacuous() -> None:
+    before = _snap(Node(("Thing",), {"id": "t-1"}))
+    after = _snap(Node(("Thing",), {"id": "t-1", "note": "x"}))
+    assert is_vacuous([{"n": 0}], before, before) is False
+    assert is_vacuous([], before, after) is False
+    assert is_vacuous([], before, _snap()) is False

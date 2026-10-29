@@ -27,6 +27,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
     Unique,
+    validate_scenario,
 )
 from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from tests.support.neo4j import read_tx, write_tx
@@ -36,8 +37,10 @@ from tests.support.query_probes import (
     FindingKind,
     format_findings,
     production_statements,
+    registry_problems,
     run_isolation,
     scenario_gaps,
+    universe_problems,
 )
 from tests.support.tenant_seed import seed_tenant
 
@@ -72,9 +75,16 @@ def _scenario(
     *,
     seed: TenantSeed = SEED,
     insert: str = "",
+    new: tuple[str, ...] = (),
 ) -> Scenario:
     return Scenario(
-        description, seed=seed, params=cypher_params, lookup=lookup, expect=expect, insert=insert
+        description,
+        seed=seed,
+        params=cypher_params,
+        lookup=lookup,
+        new=new,
+        expect=expect,
+        insert=insert,
     )
 
 
@@ -109,6 +119,7 @@ SOUND: dict[str, tuple[str, str, Scenario]] = {
                 rows=({"changed": 1},),
                 after=(NodeSpec(THING, {"id": "thing-1", "note": "changed"}),),
             ),
+            new=("note",),
         ),
     ),
     "Q-TEST-THING-ADD": (
@@ -123,6 +134,8 @@ SOUND: dict[str, tuple[str, str, Scenario]] = {
                 nodes={"ProbeThing": 1},
                 after=(NodeSpec(THING, {"id": "thing-new", "note": "fresh"}),),
             ),
+            lookup=(),
+            new=("id", "note"),
         ),
     ),
     "Q-TEST-THING-DROP": (
@@ -321,6 +334,19 @@ LEAKY: dict[str, tuple[str, str, Scenario, FindingKind]] = {
         ),
         FindingKind.ROWS_DIFFER,
     ),
+    # A scenario must observe something (round 2): these two return nothing and change nothing.
+    "Q-TEST-LEAK-VACUOUS-WRITE": (
+        "MATCH (n:ProbeThing {id: $id, tenantId: $tenant}) WITH n LIMIT 0 SET n.note = 'touched'",
+        "write",
+        _scenario("a write that changes nothing", _THING_PARAMS, Expect()),
+        FindingKind.VACUOUS_SCENARIO,
+    ),
+    "Q-TEST-LEAK-VACUOUS-READ": (
+        "MATCH (n:ProbeThing {id: $id, tenantId: $tenant}) WHERE n.rank = 99 RETURN n.id AS id",
+        "read",
+        _scenario("a read that never matches", _THING_PARAMS, Expect()),
+        FindingKind.VACUOUS_SCENARIO,
+    ),
     "Q-TEST-LEAK-NEGATED": (
         "MATCH (n:ProbeThing {id: $id}) WHERE n.tenantId <> $tenant RETURN n.note AS note",
         "read",
@@ -449,6 +475,57 @@ async def test_the_harness_flags_each_leaky_statement(
     assert {f.query_id for f in findings} == {query_id}
 
 
+async def test_every_sound_scenario_of_the_corpus_is_a_valid_scenario() -> None:
+    for query_id, (_, _, scenario) in SOUND.items():
+        assert validate_scenario(query_id, scenario) == [], query_id
+
+
+_FRESH_MERGE = (
+    "MERGE (n:ProbeThing {id: $id}) ON CREATE SET n.tenantId = $tenant "
+    "ON MATCH SET n.note = $note RETURN count(n) AS merged"
+)
+
+
+async def test_a_merge_that_stamps_only_on_create_is_refused_when_run_with_a_fresh_id() -> None:
+    """The verifier's 6b. With `lookup=()` and an id the seed does not hold, the other tenant never
+    holds the id either, so the leaking branch (ON MATCH) is never reached and the runner finds
+    nothing: the validator is what refuses the scenario."""
+    scenario = _scenario(
+        "merge a fresh id",
+        {"id": "thing-fresh", "note": "changed"},
+        Expect(rows=({"merged": 1},), nodes={"ProbeThing": 1}),
+        lookup=(),
+        new=("note",),
+    )
+    problems = validate_scenario("Q-TEST-LEAK-FRESH-MERGE", scenario)
+    assert any("'id'" in problem for problem in problems), problems
+
+
+async def test_the_same_merge_with_an_id_the_seed_holds_is_caught(
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    scenario = _scenario(
+        "merge an id both tenants hold",
+        {"id": "thing-1", "note": "changed"},
+        Expect(
+            rows=({"merged": 1},),
+            after=(NodeSpec(THING, {"id": "thing-1", "note": "changed"}),),
+        ),
+        new=("note",),
+    )
+    assert validate_scenario("Q-TEST-LEAK-HELD-MERGE", scenario) == []
+    registry = QueryRegistry(unconverted=frozenset({"Q-TEST-LEAK-HELD-MERGE"}))
+    registry.register(
+        NamedQuery(
+            id="Q-TEST-LEAK-HELD-MERGE", cypher=_FRESH_MERGE, mode="write", scenario=scenario
+        )
+    )
+    findings = await _run(
+        neo4j_driver, registry, ["Q-TEST-LEAK-HELD-MERGE"], tenant_id, other_tenant_id
+    )
+    assert FindingKind.OTHER_TENANT_CHANGED in {f.kind for f in findings}, format_findings(findings)
+
+
 async def test_a_leak_that_shows_in_one_direction_is_found_in_the_other_too(
     neo4j_driver: AsyncDriver, private: QueryRegistry, tenant_id: str, other_tenant_id: str
 ) -> None:
@@ -532,6 +609,8 @@ async def test_every_converted_statement_is_isolated(
     neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     statements = production_statements(REGISTRY)
+    assert registry_problems(REGISTRY) == []
+    assert universe_problems(REGISTRY, statements) == []
     assert scenario_gaps(statements, UNCONVERTED) == []
     with_scenario = {i: q for i, q in statements.items() if q.scenario is not None}
     assert len(with_scenario) >= 8
@@ -543,6 +622,42 @@ async def test_every_converted_statement_is_isolated(
         tenant_b=other_tenant_id,
     )
     assert findings == [], "\n" + format_findings(findings)
+
+
+_SNEAK_TEXT = (
+    "MATCH (n:ProbeThing {id: $id}) WHERE n.tenantId = $tenant OR true "
+    "RETURN n.id AS id, n.note AS note"
+)
+
+
+async def test_a_leaky_statement_named_q_test_in_the_production_registry_is_caught(
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    """The verifier's Q-TEST-SNEAK (round 1, B1): a name must not hide a statement from the proof.
+    In a scratch copy of the production registry it is refused by the hygiene check, it is in the
+    universe the generated test runs, and the run finds its leak."""
+    sneak = NamedQuery(
+        id="Q-TEST-SNEAK",
+        cypher=_SNEAK_TEXT,
+        mode="read",
+        scenario=_scenario("get one", _THING_PARAMS, GET_ROWS),
+    )
+    REGISTRY.register(sneak)
+    try:
+        assert any("Q-TEST-SNEAK" in p for p in registry_problems(REGISTRY))
+        statements = production_statements(REGISTRY)
+        assert statements["Q-TEST-SNEAK"] == sneak
+        assert universe_problems(REGISTRY, statements) == []
+        findings = await run_isolation(
+            neo4j_driver,
+            {"Q-TEST-SNEAK": statements["Q-TEST-SNEAK"]},
+            registry=REGISTRY,
+            tenant_a=tenant_id,
+            tenant_b=other_tenant_id,
+        )
+    finally:
+        del REGISTRY._queries["Q-TEST-SNEAK"]  # noqa: SLF001
+    assert FindingKind.ROWS_DIFFER in {f.kind for f in findings}, format_findings(findings)
 
 
 async def test_the_converted_statements_are_exactly_those_with_a_scenario() -> None:

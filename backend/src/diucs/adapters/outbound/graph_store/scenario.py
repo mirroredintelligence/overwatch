@@ -157,6 +157,7 @@ class Scenario:
     seed: TenantSeed = TenantSeed()
     params: Mapping[str, Any] = field(default_factory=dict, hash=False)
     lookup: tuple[str, ...] = ()
+    new: tuple[str, ...] = ()
     expect: Expect = Expect()
     # For a template (`Q-RES-*`): the label chain or relationship type the statement is run with.
     insert: str = ""

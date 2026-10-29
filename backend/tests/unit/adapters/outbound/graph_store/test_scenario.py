@@ -133,6 +133,7 @@ def test_a_scenario_with_no_lookup_needs_a_value_both_tenants_share() -> None:
             )
         ),
         params={"limit": 10},
+        new=("limit",),
     )
     assert validate_scenario(QID, scenario) == []
     assert collision_blocked(scenario) is False
@@ -182,6 +183,7 @@ def _with(scenario: Scenario, **changes: object) -> Scenario:
         "seed": scenario.seed,
         "params": scenario.params,
         "lookup": scenario.lookup,
+        "new": scenario.new,
         "expect": scenario.expect,
         "insert": scenario.insert,
     }
@@ -296,6 +298,83 @@ def test_a_unique_lookup_value_that_the_seed_does_not_hold_is_refused() -> None:
         lookup=("key",),
     )
     _assert_refused(scenario, "collide")
+
+
+# A parameter that is a key must be held by the seed, or declared new (TEN-004 round 2, B2b)
+
+
+def _merge_scenario(**changes: object) -> Scenario:
+    """The verifier's 6b: `MERGE (n {id: $id}) ON CREATE SET n.tenantId = $tenant ON MATCH SET
+    n.note = $note` run with a fresh id and no lookup. Nothing in the seed holds the id, so the
+    other tenant never holds it either and a MERGE that leaks on a match is never run on one."""
+    base = Scenario(
+        "merge by an id",
+        seed=TenantSeed(nodes=(SeedNode("t", ("Thing",), {"id": "thing-1", "n": Marked("n")}),)),
+        params={"id": "fresh-1", "note": "changed"},
+        lookup=(),
+        new=("note",),
+    )
+    return _with(base, **changes)
+
+
+def test_a_fresh_key_with_no_lookup_is_refused_unless_declared_new() -> None:
+    """The statement that merges by the id passes only because no tenant holds the id."""
+    _assert_refused(_merge_scenario(), "'id'")
+    _assert_refused(_merge_scenario(), "new")
+
+
+def test_a_fresh_key_declared_new_is_accepted() -> None:
+    assert _problems(_merge_scenario(new=("id", "note"))) == []
+
+
+def test_a_key_the_seed_holds_is_not_new_data() -> None:
+    assert _problems(_merge_scenario(params={"id": "thing-1", "note": "changed"})) == []
+
+
+def test_declaring_one_parameter_new_excuses_only_that_one() -> None:
+    scenario = _merge_scenario(new=("id",))
+    _assert_refused(scenario, "'note'")
+    assert not any("'id'" in problem for problem in _problems(scenario))
+
+
+def test_a_number_a_per_tenant_value_and_a_nested_value_the_seed_does_not_hold_are_refused() -> (
+    None
+):
+    for value in (7, 1.5, Marked("x"), Unique("u-1", "resource_id"), {"deep": ["fresh"]}):
+        _assert_refused(_merge_scenario(params={"id": "thing-1", "note": value}, new=()), "'note'")
+
+
+def test_a_boolean_and_nothing_are_not_keys() -> None:
+    scenario = _merge_scenario(params={"id": "thing-1", "note": True, "other": None}, new=())
+    assert _problems(scenario) == []
+
+
+def test_a_parameter_declared_new_must_be_a_parameter() -> None:
+    _assert_refused(_merge_scenario(new=("note", "missing")), "not a parameter")
+
+
+def test_a_lookup_cannot_be_declared_new() -> None:
+    scenario = _with(_sound(), new=("key",))
+    _assert_refused(scenario, "lookup")
+
+
+def test_a_parameter_declared_new_that_the_seed_holds_is_refused() -> None:
+    """Declaring a held value new would switch the check off for a key that does collide."""
+    _assert_refused(
+        _merge_scenario(params={"id": "thing-1", "note": "x"}, new=("id", "note")), "holds"
+    )
+
+
+def test_the_verifiers_merge_is_refused_with_the_seed_and_the_parameters_it_used() -> None:
+    _assert_refused(
+        Scenario(
+            "merge stamping only on create",
+            seed=TenantSeed(nodes=(SeedNode("t", ("Thing",), {"id": "t-1", "n": Marked("n")}),)),
+            params={"id": "t-new", "note": "x"},
+            new=("note",),
+        ),
+        "'id'",
+    )
 
 
 def test_a_seed_with_no_per_tenant_value_cannot_tell_the_tenants_apart() -> None:

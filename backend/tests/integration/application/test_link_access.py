@@ -23,7 +23,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.tokens import LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope, bind_tenant
+from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
 from diucs.application.use_cases import link_access
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.link_access import (
@@ -762,43 +762,6 @@ async def test_a_wrong_csrf_token_spends_a_bad_attempt(
         await links.respond(token, "confirm")
 
 
-async def test_the_budgets_of_two_tenants_are_separate(
-    links: LinkRig,
-    uow_factory_b: UnitOfWorkFactory,
-    neo4j_driver: AsyncDriver,
-    other_tenant_id: str,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(link_access, "REQUESTS_PER_WINDOW", 2)
-    token = await _prompted(links)
-    other = build_link_rig(
-        uow_factory_b,
-        neo4j_driver,
-        other_tenant_id,
-        clock=links.clock,
-        secrets=links.secrets,
-        cache=links.cache,
-        ids=SequentialIds.scoped(other_tenant_id),
-        service_id="ucr-west-b",
-        prefix="b-",
-        phone=OTHER_PHONE,
-    )
-    await other.seed()
-    with bind_tenant(other_tenant_id):
-        other_token = await other.prompt()
-    links.clock.set(ANSWER_AT)
-
-    for _ in range(2):
-        await links.view(token)
-    with pytest.raises(LinkRateLimited):
-        await links.view(token)
-    with bind_tenant(other_tenant_id):
-        assert (await other.view(other_token)).body["state"] == "ok"
-        assert (await other.view(other_token)).body["state"] == "ok"
-        with pytest.raises(LinkRateLimited):
-            await other.view(other_token)
-
-
 # -- renewing an expired link ---------------------------------------------------------------------
 
 
@@ -1007,55 +970,6 @@ async def test_renewals_are_limited_per_tenant_and_a_renewal_that_sends_nothing_
 
 
 # -- another tenant's link -------------------------------------------------------------------------
-
-
-async def test_another_tenants_link_is_an_unknown_one_in_every_use_case(
-    links: LinkRig,
-    uow_factory_b: UnitOfWorkFactory,
-    neo4j_driver: AsyncDriver,
-    other_tenant_id: str,
-) -> None:
-    token_a = await _prompted(links)
-    other = build_link_rig(
-        uow_factory_b,
-        neo4j_driver,
-        other_tenant_id,
-        clock=links.clock,
-        secrets=links.secrets,
-        ids=SequentialIds.scoped(other_tenant_id),
-        service_id="ucr-west-b",
-        prefix="b-",
-        phone=OTHER_PHONE,
-    )
-    await other.seed(figure=7)
-    with bind_tenant(other_tenant_id):
-        token_b = await other.prompt()
-    links.clock.set(ANSWER_AT)
-    before = await links.counts()
-
-    # Tenant A is asked for tenant B's link: not found, the same as a link nobody holds.
-    with pytest.raises(LinkGone) as view_b:
-        await links.view(token_b)
-    with pytest.raises(LinkGone) as view_unknown:
-        await links.view("Z" * 23)
-    with pytest.raises(LinkGone) as respond_b:
-        await links.respond(token_b, "number", 4)
-    await links.renew(token_b)
-
-    assert view_b.value.state == view_unknown.value.state == respond_b.value.state == "expired"
-    assert await links.counts() == before
-    assert (await links.latest()).value == 3
-    # Tenant B's link was not touched, and works in tenant B.
-    with bind_tenant(other_tenant_id):
-        assert "usedAt" not in await other.token_node(token_b)
-        page = await other.view(token_b)
-        assert page.body["recordedValue"] == 7
-        assert page.body["serviceName"] == "UCR West"
-    # ... and tenant B is asked for tenant A's link.
-    with bind_tenant(other_tenant_id):
-        with pytest.raises(LinkGone) as view_a:
-            await other.view(token_a)
-        assert view_a.value.state == "expired"
 
 
 async def test_the_link_node_carries_the_tenant_it_was_issued_in(

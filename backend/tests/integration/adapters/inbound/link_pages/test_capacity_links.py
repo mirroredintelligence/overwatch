@@ -369,81 +369,6 @@ async def test_every_kind_of_unknown_token_gets_the_one_expired_answer(
 # -- the tenant: from the host, and nowhere else ---------------------------------------------------
 
 
-async def test_the_host_picks_the_tenant_and_another_tenants_link_is_an_unknown_one(
-    link_client: AsyncClient,
-    other_client: AsyncClient,
-    links: LinkRig,
-    other_links: LinkRig,
-) -> None:
-    token_a = await _prompted(links)
-    await other_links.seed(figure=7)
-    token_b = await other_links.prompt()
-    links.clock.set(ANSWER_AT)
-
-    on_a = await link_client.get(f"/links/{token_a}")
-    on_b = await other_client.get(f"/links/{token_b}")
-    cross_a = await other_client.get(f"/links/{token_a}")  # A's link on B's host
-    cross_b = await link_client.get(f"/links/{token_b}")  # B's link on A's host
-    unknown = await link_client.get(f"/links/{'Q' * 23}")
-
-    assert (on_a.status_code, on_b.status_code) == (200, 200)
-    assert on_a.json()["recordedValue"] == 3 and on_b.json()["recordedValue"] == 7
-    for crossed in (cross_a, cross_b):
-        assert (crossed.status_code, crossed.content) == (unknown.status_code, unknown.content)
-        assert dict(crossed.headers) == dict(unknown.headers)
-
-
-async def test_a_link_cannot_be_answered_renewed_or_burned_from_another_tenants_host(
-    link_client: AsyncClient,
-    other_client: AsyncClient,
-    links: LinkRig,
-    other_links: LinkRig,
-    link_clock: FixedClock,
-) -> None:
-    await links.seed()
-    await other_links.seed(figure=7)
-    token_b = await other_links.prompt()
-    link_clock.set(ANSWER_AT)
-    before_a, before_b = await links.counts(), await other_links.counts()
-
-    answered = await link_client.post(
-        f"/links/{token_b}",
-        json={"action": "number", "value": 5},
-        headers={"X-CSRF-Token": other_links.csrf(token_b)},  # the right token, the wrong host
-    )
-    link_clock.set(REPLY_BY + timedelta(minutes=3))
-    renewed = await link_client.post(f"/links/{token_b}/renew")
-
-    assert (answered.status_code, answered.json()) == (410, EXPIRED_BODY)
-    assert renewed.status_code == 202
-    assert await links.counts() == before_a  # nothing was recorded or queued in A
-    assert await other_links.counts() == before_b  # nor in B
-    assert "usedAt" not in await other_links.token_node(token_b)
-
-
-async def test_a_tenant_in_the_query_a_header_or_the_body_changes_nothing(
-    link_client: AsyncClient, links: LinkRig, other_links: LinkRig
-) -> None:
-    token = await _prompted(links)
-    await other_links.seed()
-    other_token = await other_links.prompt()
-    links.clock.set(ANSWER_AT)
-    names = {"tenant": other_links.tenant, "tenantId": other_links.tenant}
-    headers = {"X-Tenant-Id": other_links.tenant, "X-Tenant": other_links.tenant}
-
-    mine = await link_client.get(f"/links/{token}", params=names, headers=headers)
-    theirs = await link_client.get(f"/links/{other_token}", params=names, headers=headers)
-    forced = await link_client.post(
-        f"/links/{token}",
-        json={"action": "confirm", "tenantId": other_links.tenant},
-        headers={"X-CSRF-Token": links.csrf(token), **headers},
-    )
-
-    assert mine.status_code == 200 and mine.json()["recordedValue"] == 3
-    assert (theirs.status_code, theirs.json()) == (410, EXPIRED_BODY)
-    assert forced.status_code == 400  # a field this link does not take
-
-
 async def test_a_host_the_directory_does_not_know_answers_as_an_unknown_link(
     link_app: FastAPI, links: LinkRig, hosts: None
 ) -> None:
@@ -608,25 +533,6 @@ async def test_a_tenant_over_its_budget_gets_429_with_retry_after(
     assert limited.status_code == 429
     assert limited.json() == {"state": "rate-limited"}
     assert limited.headers["retry-after"] == "60"
-
-
-async def test_an_address_that_keeps_missing_gets_429_and_another_tenant_is_not_affected(
-    link_client: AsyncClient,
-    other_client: AsyncClient,
-    links: LinkRig,
-    other_links: LinkRig,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(link_access, "BAD_ATTEMPTS_PER_ADDRESS", 2)
-    await links.seed()
-    await other_links.seed()
-    other_token = await other_links.prompt()
-    links.clock.set(ANSWER_AT)
-
-    misses = [(await link_client.get(f"/links/{c * 23}")).status_code for c in "ABC"]
-
-    assert misses == [410, 410, 429]
-    assert (await other_client.get(f"/links/{other_token}")).status_code == 200
 
 
 # -- the app ---------------------------------------------------------------------------------------

@@ -78,6 +78,17 @@ PROBE_TREE: dict[str, str] = {
     ),
     "diucs_probe/adapters/outbound/sms_twilio/__init__.py": "",
     "diucs_probe/adapters/outbound/sms_twilio/twilio_sms.py": "",
+    # I05 (DEC-196): the scheduled-work consumer reuses three modules of the workers package.
+    "diucs_probe/adapters/inbound/scheduler/__init__.py": "",
+    "diucs_probe/adapters/inbound/scheduler/scheduled_work_consumer.py": (
+        "import diucs_probe.adapters.inbound.workers.consumer\n"
+        "import diucs_probe.adapters.inbound.workers.tenant_binding\n"
+        "import diucs_probe.adapters.inbound.workers.outbox_relay\n"
+    ),
+    "diucs_probe/adapters/inbound/workers/__init__.py": "",
+    "diucs_probe/adapters/inbound/workers/consumer.py": "",
+    "diucs_probe/adapters/inbound/workers/tenant_binding.py": "",
+    "diucs_probe/adapters/inbound/workers/outbox_relay.py": "",
 }
 
 

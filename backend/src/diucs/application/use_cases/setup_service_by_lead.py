@@ -47,6 +47,7 @@ from diucs.domain.model.people import (
     check_staff_text,
 )
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.postcode import normalise_district
 from diucs.domain.rules.schedule import next_due
 
@@ -224,9 +225,12 @@ def build_criteria(
     )
 
 
-def first_prompt_at(profile: ServiceProfile, now: datetime) -> datetime:
-    """The first prompt: the next due instant strictly after now (D04 next_due)."""
-    due = next_due(profile, now)
+def first_prompt_at(
+    profile: ServiceProfile, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+) -> datetime:
+    """The first prompt: the next due instant strictly after now (D04 next_due), under the tenant's
+    policy. The use case passes the default policy until the tenant's own policy is read."""
+    due = next_due(profile, now, policy=policy)
     if due is None:
         raise ValidationFailed("available_times", "no prompt falls in the next eight days")
     return due

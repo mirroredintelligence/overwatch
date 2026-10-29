@@ -26,6 +26,7 @@ from diucs.adapters.outbound.graph_store.service_repository import (
     codeable_from_fhir,
     codeable_to_fhir,
 )
+from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
 from diucs.domain.codes import (
     BASE_URL,
     Measure,
@@ -51,53 +52,66 @@ _PRACTITIONER_ROLE: Final = "PractitionerRole"
 
 # The latest observation of one service: greatest effectiveDateTime, ties by write time.
 _LATEST_OF_SERVICE: Final = (
-    "CALL { WITH s MATCH (o:Observation)-[:FOCUS]->(s) "
+    "CALL { WITH s MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->(s) "
     "RETURN o.id AS obs ORDER BY o.effectiveDateTime DESC, o.lastUpdated DESC LIMIT 1 }"
 )
 
 _QUERIES: Final = (
     NamedQuery(
         id="Q-CAP-LATEST",
-        cypher=(f"MATCH (s:HealthcareService {{key: $key}}) {_LATEST_OF_SERVICE} RETURN obs"),
+        cypher=(
+            f"MATCH (s:HealthcareService {{key: $key, tenantId: $tenant}}) "
+            f"{_LATEST_OF_SERVICE} RETURN obs"
+        ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-LATEST"],
     ),
     NamedQuery(
         id="Q-CAP-LATEST-FOR",
         cypher=(
-            "UNWIND $keys AS k MATCH (s:HealthcareService {key: k}) "
+            "UNWIND $keys AS k MATCH (s:HealthcareService {key: k, tenantId: $tenant}) "
             f"{_LATEST_OF_SERVICE} RETURN s.id AS service, obs"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-LATEST-FOR"],
     ),
     NamedQuery(
         id="Q-CAP-SINCE",
         cypher=(
-            "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
+            "MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->"
+            "(s:HealthcareService {key: $key, tenantId: $tenant}) "
             "WHERE o.effectiveDateTime >= $since "
             "RETURN o.id AS obs ORDER BY o.effectiveDateTime ASC, o.lastUpdated ASC"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-SINCE"],
     ),
     NamedQuery(
         id="Q-CAP-LOCK-SERVICE",
         cypher=(
-            "MATCH (s:HealthcareService {key: $key}) SET s.id = s.id RETURN count(s) AS locked"
+            "MATCH (s:HealthcareService {key: $key, tenantId: $tenant}) "
+            "SET s.id = s.id RETURN count(s) AS locked"
         ),
         mode="write",
+        scenario=SCENARIOS["Q-CAP-LOCK-SERVICE"],
     ),
     NamedQuery(
         id="Q-CAP-LATEST-CONFIRMED-AT",
         cypher=(
-            "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
+            "MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->"
+            "(s:HealthcareService {key: $key, tenantId: $tenant}) "
             "WHERE o.ext_reportType = 'confirmed' "
-            "RETURN o.effectiveDateTime AS at ORDER BY o.effectiveDateTime DESC LIMIT 1"
+            "RETURN o.id AS obs, o.effectiveDateTime AS at "
+            "ORDER BY o.effectiveDateTime DESC, o.id ASC LIMIT 1"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-LATEST-CONFIRMED-AT"],
     ),
     NamedQuery(
         id="Q-CAP-TRAILING-CONFIRMS",
         cypher=(
-            "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
+            "MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->"
+            "(s:HealthcareService {key: $key, tenantId: $tenant}) "
             "WITH o ORDER BY o.effectiveDateTime DESC, o.lastUpdated DESC "
             "WITH collect(o.ext_reportType) AS types "
             "WITH types, [i IN range(0, size(types) - 1) WHERE types[i] <> 'confirmed' | i] "
@@ -105,16 +119,18 @@ _QUERIES: Final = (
             "RETURN CASE WHEN size(stops) = 0 THEN size(types) ELSE stops[0] END AS trailing"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-CAP-TRAILING-CONFIRMS"],
     ),
     NamedQuery(
         id="Q-SVC-LAST-REPORT",
         cypher=(
-            "MATCH (s:HealthcareService {active: true}) "
-            "OPTIONAL MATCH (o:Observation)-[:FOCUS]->(s) "
+            "MATCH (s:HealthcareService {active: true, tenantId: $tenant}) "
+            "OPTIONAL MATCH (o:Observation {tenantId: $tenant})-[:FOCUS]->(s) "
             "WITH s, max(o.effectiveDateTime) AS last "
             "RETURN s.id AS id, last ORDER BY s.name"
         ),
         mode="read",
+        scenario=SCENARIOS["Q-SVC-LAST-REPORT"],
     ),
 )
 for _query in _QUERIES:

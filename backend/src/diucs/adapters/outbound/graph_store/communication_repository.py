@@ -157,6 +157,21 @@ _LATEST_SEED: Final = TenantSeed(
     nodes=(_ROLE_NODE, _SERVICE_NODE, _TOPIC_NODE, _MEDIUM_NODE, _LATEST_PROMPT_NODE),
     rels=(_TOPIC_EDGE, _MEDIUM_EDGE, _RECIPIENT_EDGE, _ABOUT_EDGE),
 )
+_QUEUED_NODE: Final = SeedNode(
+    "prompt",
+    ("Resource", "Communication"),
+    {
+        "id": "comm-queued",
+        "status": "in-progress",
+        "deliveryStatus": "queued",
+        "payloadText": Marked("a queued prompt"),
+        "sent": _SENT,
+    },
+)
+_QUEUED_SEED: Final = TenantSeed(
+    nodes=(_ROLE_NODE, _SERVICE_NODE, _TOPIC_NODE, _MEDIUM_NODE, _QUEUED_NODE),
+    rels=(_TOPIC_EDGE, _MEDIUM_EDGE, _RECIPIENT_EDGE, _ABOUT_EDGE),
+)
 _ROW_OF_LATEST: Final[dict[str, Any]] = {
     "messageId": "C1",
     "channel": "text",
@@ -306,6 +321,32 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
             ),
         ),
     ),
+    "Q-COMM-RECORD-OUTCOME": _scenario(
+        "record that a queued communication was sent, with its provider id",
+        _QUEUED_SEED,
+        {
+            "id": "comm-queued",
+            "status": "sent",
+            "fhirStatus": "completed",
+            "providerMessageId": "SM-9",
+            "errorCode": None,
+        },
+        lookup=("id",),
+        new=("status", "fhirStatus", "providerMessageId", "errorCode"),
+        expect=Expect(
+            rows=({"recorded": 1},),
+            after=(
+                NodeSpec(
+                    ("Communication",),
+                    {
+                        "id": "comm-queued",
+                        "deliveryStatus": "sent",
+                        "providerMessageId": "SM-9",
+                    },
+                ),
+            ),
+        ),
+    ),
     "Q-COMM-LATEST-PROMPT": _scenario(
         "find the latest prompt sent to a role for a message id",
         _LATEST_SEED,
@@ -373,6 +414,17 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "WITH c WHERE c.deliveryStatus IN $movesFrom "
         "SET c.deliveryStatus = $status, c.status = $fhirStatus "
         "RETURN count(c) AS updated",
+        "write",
+    ),
+    # The id is set to itself first, which takes the record's write lock (lesson L73). The state is
+    # read after the lock: only a queued communication with no provider id moves (I10).
+    "Q-COMM-RECORD-OUTCOME": (
+        "MATCH (c:Communication {id: $id, tenantId: $tenant}) "
+        "SET c.id = c.id "
+        "WITH c WHERE c.deliveryStatus = 'queued' AND c.providerMessageId IS NULL "
+        "SET c.deliveryStatus = $status, c.status = $fhirStatus, "
+        "c.providerMessageId = $providerMessageId, c.errorCode = $errorCode "
+        "RETURN count(c) AS recorded",
         "write",
     ),
     "Q-COMM-LATEST-PROMPT": (
@@ -526,6 +578,26 @@ class Neo4jCommunicationRepository:
             PromptDue(service_id=str(row["serviceId"]), due_at=_utc_instant(row["dueAt"]))
             for row in rows
         ]
+
+    async def record_send_outcome(
+        self,
+        communication_id: str,
+        *,
+        status: str,
+        provider_message_id: str | None,
+        error_code: str | None,
+    ) -> bool:
+        if status not in ("sent", "failed"):
+            raise ValidationFailed("deliveryStatus", "a send records sent or failed")
+        rows = await self._run(
+            "Q-COMM-RECORD-OUTCOME",
+            id=communication_id,
+            status=status,
+            fhirStatus=_FHIR_STATUS[status],
+            providerMessageId=provider_message_id,
+            errorCode=error_code,
+        )
+        return int(rows[0]["recorded"]) > 0
 
     async def latest_prompt_for_phone(
         self, role_ids: Collection[str], message_ids: Collection[str]

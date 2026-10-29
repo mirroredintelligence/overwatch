@@ -1,0 +1,23 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "report-cadence",
+  "url": "https://diucs.example/CodeSystem/report-cadence",
+  "name": "report-cadence",
+  "status": "active",
+  "content": "complete",
+  "count": 3,
+  "concept": [
+    {
+      "code": "every-2-hrs",
+      "display": "Every 2 hrs"
+    },
+    {
+      "code": "once-a-day",
+      "display": "Once a day"
+    },
+    {
+      "code": "twice-a-day",
+      "display": "Twice a day"
+    }
+  ]
+}

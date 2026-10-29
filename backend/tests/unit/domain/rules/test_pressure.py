@@ -14,6 +14,8 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from diucs.domain.codes import Status
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules import pressure as pressure_rules
 from diucs.domain.rules.pressure import (
     HIGH_FROM,
     LIMITED_OR_WORSE,
@@ -23,6 +25,7 @@ from diucs.domain.rules.pressure import (
     limited_or_worse_count,
     system_pressure,
 )
+from tests.support.policy_samples import policies, policy
 
 ACCEPTING: Final = Status.ACCEPTING
 LIMITED: Final = Status.LIMITED
@@ -224,3 +227,81 @@ def test_not_updated_never_adds_to_the_count(statuses: list[Status]) -> None:
     without = [s for s in statuses if s is not NOT_UPDATED]
     assert limited_or_worse_count(statuses) == limited_or_worse_count(without)
     assert system_pressure(statuses) is system_pressure(without)
+
+
+# --- Tenant policy (TEN-021) ----------------------------------------------------------------
+
+NORMAL: Final = Pressure.NORMAL
+WATCH: Final = Pressure.WATCH
+HIGH: Final = Pressure.HIGH
+
+
+def _limited(count: int) -> list[Status]:
+    return _board({LIMITED: count})
+
+
+# Test 14. The thresholds come from the policy, and the default keeps 3 and 5.
+
+
+def test_a_policy_with_watch_two_and_high_four_reads_one_to_four_as_normal_watch_watch_high() -> (
+    None
+):
+    tenant = policy(pressure_watch_from=2, pressure_high_from=4)
+    assert [system_pressure(_limited(n), tenant) for n in (1, 2, 3, 4)] == [
+        NORMAL,
+        WATCH,
+        WATCH,
+        HIGH,
+    ]
+
+
+def test_the_default_policy_reads_one_to_five_as_normal_normal_watch_watch_high() -> None:
+    assert [system_pressure(_limited(n)) for n in (1, 2, 3, 4, 5)] == [
+        NORMAL,
+        NORMAL,
+        WATCH,
+        WATCH,
+        HIGH,
+    ]
+
+
+# Test 15. Property: HIGH iff at least the high threshold, NORMAL iff below the watch threshold.
+
+
+@given(tenant=policies(), count=st.integers(min_value=0, max_value=60))
+def test_pressure_follows_the_policy_thresholds_and_is_monotonic(
+    tenant: TenantPolicy, count: int
+) -> None:
+    result = system_pressure(_limited(count), tenant)
+    if count >= tenant.pressure_high_from:
+        assert result is HIGH
+    if count < tenant.pressure_watch_from:
+        assert result is NORMAL
+    assert RANK[result] <= RANK[system_pressure(_limited(count + 1), tenant)]
+
+
+@pytest.mark.parametrize("bad", ["limited", _OtherEnum.LIMITED])
+def test_plain_strings_and_other_enums_are_still_refused_with_a_policy(bad: object) -> None:
+    with pytest.raises(TypeError):
+        system_pressure([bad], policy(pressure_watch_from=2, pressure_high_from=4))  # type: ignore[list-item]
+
+
+# Test 16 and test 23 (pressure part). The module constants are the default policy's values.
+
+
+def test_the_pressure_constants_are_the_literal_defaults() -> None:
+    assert WATCH_FROM == 3
+    assert HIGH_FROM == 5
+
+
+def test_the_pressure_constants_equal_the_default_policy_fields() -> None:
+    assert DEFAULT_POLICY.pressure_watch_from == pressure_rules.WATCH_FROM
+    assert DEFAULT_POLICY.pressure_high_from == pressure_rules.HIGH_FROM
+
+
+# Rule 4(d): with no policy argument, the call equals the call with DEFAULT_POLICY.
+
+
+@given(count=st.integers(min_value=0, max_value=20))
+def test_no_policy_argument_equals_the_default_policy_argument(count: int) -> None:
+    assert system_pressure(_limited(count)) == system_pressure(_limited(count), DEFAULT_POLICY)

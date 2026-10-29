@@ -1,0 +1,35 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "case-outcome",
+  "url": "https://diucs.example/CodeSystem/case-outcome",
+  "name": "case-outcome",
+  "status": "active",
+  "content": "complete",
+  "count": 6,
+  "concept": [
+    {
+      "code": "accepted-and-booked",
+      "display": "Accepted and booked"
+    },
+    {
+      "code": "caller-cancelled",
+      "display": "Caller cancelled"
+    },
+    {
+      "code": "declined",
+      "display": "Declined"
+    },
+    {
+      "code": "no-service-fits",
+      "display": "No service fits"
+    },
+    {
+      "code": "out-of-area",
+      "display": "Out of area"
+    },
+    {
+      "code": "redirected",
+      "display": "Redirected"
+    }
+  ]
+}

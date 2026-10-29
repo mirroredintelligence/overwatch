@@ -1,0 +1,47 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "booking-business-status",
+  "url": "https://diucs.example/CodeSystem/booking-business-status",
+  "name": "booking-business-status",
+  "status": "active",
+  "content": "complete",
+  "count": 9,
+  "concept": [
+    {
+      "code": "cancelled-after",
+      "display": "Cancelled after"
+    },
+    {
+      "code": "cancelled-before",
+      "display": "Cancelled before"
+    },
+    {
+      "code": "completed",
+      "display": "Completed"
+    },
+    {
+      "code": "confirmed",
+      "display": "Confirmed"
+    },
+    {
+      "code": "declined",
+      "display": "Declined"
+    },
+    {
+      "code": "expired",
+      "display": "Expired"
+    },
+    {
+      "code": "not-reached",
+      "display": "Not reached"
+    },
+    {
+      "code": "requested",
+      "display": "Requested"
+    },
+    {
+      "code": "withdrawn",
+      "display": "Withdrawn"
+    }
+  ]
+}

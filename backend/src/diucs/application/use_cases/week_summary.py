@@ -24,6 +24,7 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.domain.codes import BestFitNotUsedReason, Outcome, ReportSource, Role
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.case import Case
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.london_time import london_to_utc
 from diucs.domain.rules.schedule import reply_by
 
@@ -73,7 +74,9 @@ def median_measure(values: Sequence[float], label: str) -> Measure:
 
 
 def on_time_updates(
-    prompts: Sequence[tuple[str, datetime]], reports: Sequence[tuple[str, datetime]]
+    prompts: Sequence[tuple[str, datetime]],
+    reports: Sequence[tuple[str, datetime]],
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> int:
     """Reports that arrive at or before the reply-by of the prompt they answer. A report answers
     the latest prompt of its service that was due at or before it; a report before any prompt of
@@ -86,7 +89,7 @@ def on_time_updates(
     on_time = 0
     for service_id, at in reports:
         answered = [due for due in dues.get(service_id, []) if due <= at]
-        if answered and at <= reply_by(answered[-1]):
+        if answered and at <= reply_by(answered[-1], policy):
             on_time += 1
     return on_time
 

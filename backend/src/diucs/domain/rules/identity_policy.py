@@ -12,6 +12,7 @@ converted to UTC before it is compared or added to, because same-zone wall-clock
 is wrong across the London clock change (lesson L52).
 """
 
+import re
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -100,6 +101,17 @@ def pin_attempt(state: PinState, ok: bool, now: datetime) -> PinState:
 def reset_pin_state() -> PinState:
     """Called after a text code is verified: clears the try count and the lock."""
     return PinState()
+
+
+_PURPOSE: Final = re.compile(r"[a-z][a-z0-9-]{0,31}")
+
+
+def check_purpose(purpose: str) -> str:
+    """A text code's purpose: a plain lower-case name of up to 32 characters (letters, digits and
+    hyphen). It is part of the code's key, so a colon or a space is refused. Returns the name."""
+    if not isinstance(purpose, str) or _PURPOSE.fullmatch(purpose) is None:
+        raise ValidationFailed("purpose", "must be a lower-case name of up to 32 characters")
+    return purpose
 
 
 def validate_pin_format(pin: str) -> None:

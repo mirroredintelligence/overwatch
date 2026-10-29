@@ -1,0 +1,23 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "scope-flag",
+  "url": "https://diucs.example/CodeSystem/scope-flag",
+  "name": "scope-flag",
+  "status": "active",
+  "content": "complete",
+  "count": 3,
+  "concept": [
+    {
+      "code": "in-pilot",
+      "display": "In pilot"
+    },
+    {
+      "code": "later",
+      "display": "Later"
+    },
+    {
+      "code": "out-of-scope",
+      "display": "Out of scope"
+    }
+  ]
+}

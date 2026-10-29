@@ -3,7 +3,7 @@
 import pytest
 
 from diucs.adapters.testing.fixed_geo import FixedGeocoder, FixedPostcodeLocator, FixedTravelTime
-from diucs.application.ports.outbound.geo import AddressCandidate, LatLon, TravelRange
+from diucs.application.ports.outbound.geo import AddressCandidate, LatLon, Located, TravelRange
 from diucs.domain.errors import ValidationFailed
 
 DT4_8XX = LatLon(50.61, -2.46)
@@ -116,3 +116,14 @@ async def test_table_is_copied_at_construction() -> None:
     travel = FixedTravelTime(FIXED, table)
     table.clear()
     assert (await travel.estimate(DT4_8XX, DT4_CENTRE)).source == "table"
+
+
+def test_locate_is_exact_for_a_known_postcode_and_approximate_for_its_district() -> None:
+    locator = _locator()
+
+    assert locator.locate("dt4 8xx") == Located(DT4_8XX, approximate=False)
+    assert locator.locate("DT4 8ZQ") == Located(DT4_CENTRE, approximate=True)
+    assert locator.locate("DT4 8X") == Located(DT4_CENTRE, approximate=True)
+    assert locator.locate("DT4") == Located(DT4_CENTRE, approximate=True)
+    assert locator.locate("ZZ9 9ZZ") is None
+    assert locator.locate("DT4 8XXX") is None

@@ -34,6 +34,12 @@ from tests.support.fake_neo4j import FakeDriver
 # that DEC-071 item 9 and lesson L86 ask P06 to register.
 REQUIRED_NAMES = {
     "services",
+    "alert_subscriptions",
+    "alerts",
+    "clinical_requests",
+    "push_subscriptions",
+    "service_moves",
+    "protected_text",
     "capacity",
     "bookings",
     "cases",

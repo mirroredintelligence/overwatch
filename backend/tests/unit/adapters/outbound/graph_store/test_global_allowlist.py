@@ -54,6 +54,12 @@ EXPECTED_TEXT = {
         "RETURN properties(t) AS tenant, n.e164 AS number, n.accountSid AS accountSid, "
         "n.secretRef AS secretRef ORDER BY n.e164"
     ),
+    "Q-TENANT-ACTIVE-LINE": (
+        "MATCH (t:Tenant {id: $id, status: 'active'})-[:HAS_NUMBER]->(n:TenantNumber "
+        "{status: 'active'}) "
+        "RETURN properties(t) AS tenant, n.e164 AS number, n.accountSid AS accountSid, "
+        "n.secretRef AS secretRef ORDER BY n.e164"
+    ),
     "Q-TENANT-BY-HOST": "MATCH (t:Tenant {host: $host}) RETURN properties(t) AS tenant",
     "Q-TENANT-BY-ENTRA": (
         "MATCH (t:Tenant {entraDirectoryId: $directoryId}) RETURN properties(t) AS tenant"
@@ -66,6 +72,7 @@ EXPECTED_PARAMETERS = {
     "Q-TENANT-ACTIVE-IDS": set(),
     "Q-TENANT-BY-NUMBER": {"number", "accountSid"},
     "Q-TENANT-BY-ACCOUNT": {"accountSid"},
+    "Q-TENANT-ACTIVE-LINE": {"id"},
     "Q-TENANT-BY-HOST": {"host"},
     "Q-TENANT-BY-ENTRA": {"directoryId"},
 }
@@ -100,9 +107,9 @@ def _pin(monkeypatch: pytest.MonkeyPatch, cypher: str, query_id: str = "Q-TEST-G
 # The allowlist
 
 
-def test_the_allowlist_is_the_ping_and_the_seven_directory_statements() -> None:
+def test_the_allowlist_is_the_ping_and_the_eight_directory_statements() -> None:
     assert set(GLOBAL_QUERY_IDS) == set(EXPECTED_TEXT)
-    assert len(GLOBAL_QUERY_IDS) == 8
+    assert len(GLOBAL_QUERY_IDS) == 9
 
 
 def test_each_entry_gives_a_reason_that_says_what_it_reads() -> None:

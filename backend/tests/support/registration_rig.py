@@ -16,7 +16,7 @@ from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.tenancy import ScopeId
-from diucs.domain.codes import Role
+from diucs.domain.codes import PractitionerRoleCode, Role
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
 from diucs.domain.rules.tokens import LinkTokenRecord
@@ -60,6 +60,18 @@ class StubPeople(_Part):
             role
             for role in self.roles.values()
             if role.practitioner_id == practitioner_id and role.active
+        ]
+
+    async def reporter_roles_for_service(
+        self, service_id: str, now: datetime
+    ) -> list[PractitionerRole]:
+        return [
+            role
+            for role in self.roles.values()
+            if role.service_id == service_id
+            and role.active
+            and role.code in (PractitionerRoleCode.DUTY_MANAGER, PractitionerRoleCode.COORDINATOR)
+            and role.period_start <= now
         ]
 
     async def save_practitioner(self, practitioner: Practitioner) -> None:
@@ -118,6 +130,15 @@ class StubRegistrations(_Part):
     async def save_invitation(self, invitation: Invitation) -> None:
         self.wrote("save_invitation")
         self.invitations[invitation.id] = invitation
+
+
+class StubCriteria(_Part):
+    def __init__(self, writes: Writes) -> None:
+        super().__init__(writes, "criteria")
+        self.current: dict[str, Any] = {}
+
+    async def current_for_service(self, service_id: str) -> Any:
+        return self.current.get(service_id)
 
 
 class StubScope(_Part):
@@ -315,6 +336,7 @@ class StubUnits:
         self.people = StubPeople(self.writes)
         self.registrations = StubRegistrations(self.writes)
         self.scope = StubScope(self.writes)
+        self.criteria = StubCriteria(self.writes)
         self.contacts = StubContacts(self.writes)
         self.link_tokens = StubLinkTokens(self.writes)
         self.audit = StubAudit(self.writes)

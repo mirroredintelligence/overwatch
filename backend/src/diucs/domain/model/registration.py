@@ -10,6 +10,7 @@ Pure: no I/O. Refusals name fields only, never values.
 
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from enum import StrEnum
 from typing import Any, Final
 
 from diucs.domain.codes import RegistrationStatus, ScopeFlag, ServiceCategory, code_system_url
@@ -20,6 +21,22 @@ from diucs.domain.rules.registration import ApprovalChecks
 DISTRICT_TYPE_CODE: Final = "postcode-district"
 """The Location type of an area a visiting service covers (fhir-data-model.md, Location)."""
 LOCATION_TYPE_SYSTEM: Final = code_system_url("location-type")
+
+
+class CallBackResult(StrEnum):
+    """What a reviewer's call-back to the number on the register found (U28)."""
+
+    CONFIRMED = "confirmed"
+    NOT_CONFIRMED = "not-confirmed"
+    NO_ANSWER = "no-answer"
+
+
+class Answer(StrEnum):
+    """One of the four scope questions answered yes, no or not sure (U28)."""
+
+    YES = "yes"
+    NO = "no"
+    NOT_SURE = "not-sure"
 
 
 def _aware(name: str, value: object) -> None:

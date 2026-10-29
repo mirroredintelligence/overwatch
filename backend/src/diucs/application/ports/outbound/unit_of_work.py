@@ -46,6 +46,7 @@ from diucs.application.ports.outbound.repositories import (
     ServiceMoveRepository,
     ServiceRepository,
 )
+from diucs.application.ports.outbound.safety import SafetyReportRepository
 from diucs.application.ports.outbound.support import SupportRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.tenancy import ScopeId
@@ -59,6 +60,7 @@ class UnitOfWork(Protocol):
     clinical_requests: ClinicalRequestRepository
     service_moves: ServiceMoveRepository
     protected_text: ProtectedTextStore
+    safety_reports: SafetyReportRepository
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository

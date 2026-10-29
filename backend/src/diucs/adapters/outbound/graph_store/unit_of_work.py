@@ -64,6 +64,9 @@ from diucs.adapters.outbound.graph_store.registration_repository import (
     Neo4jRegistrationRepository,
 )
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.adapters.outbound.graph_store.safety_report_repository import (
+    Neo4jSafetyReportRepository,
+)
 from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
     Neo4jScheduledWorkRepository,
 )
@@ -100,6 +103,7 @@ from diucs.application.ports.outbound.repositories import (
     ServiceMoveRepository,
     ServiceRepository,
 )
+from diucs.application.ports.outbound.safety import SafetyReportRepository
 from diucs.application.ports.outbound.support import SupportRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
@@ -119,6 +123,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "push_subscriptions": lambda tx, store: Neo4jPushSubscriptionRepository(tx),
     "service_moves": lambda tx, store: Neo4jServiceMoveRepository(tx),
     "protected_text": lambda tx, store: Neo4jProtectedTextStore(tx),
+    "safety_reports": lambda tx, store: Neo4jSafetyReportRepository(tx),
     "capacity": lambda tx, store: Neo4jCapacityRepository(tx, store),
     "bookings": lambda tx, store: Neo4jBookingRepository(tx, store),
     "cases": lambda tx, store: Neo4jCaseRepository(tx, store),
@@ -181,6 +186,7 @@ class Neo4jUnitOfWork:
     clinical_requests: ClinicalRequestRepository
     service_moves: ServiceMoveRepository
     protected_text: ProtectedTextStore
+    safety_reports: SafetyReportRepository
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository

@@ -41,6 +41,7 @@ REQUIRED_NAMES = {
     "push_subscriptions",
     "service_moves",
     "protected_text",
+    "safety_reports",
     "capacity",
     "bookings",
     "cases",

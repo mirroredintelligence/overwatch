@@ -526,13 +526,19 @@ async def test_build_with_a_workspace_and_a_client_reads_from_that_workspace() -
     assert client.workspaces == [WORKSPACE]
 
 
-async def test_build_for_tests_exposes_the_dispatcher_with_the_three_ladder_kinds(
+async def test_build_for_tests_exposes_the_dispatcher_with_the_ladder_and_booking_kinds(
     neo4j: Neo4jConnection,
 ) -> None:
     container = build_for_tests(neo4j=neo4j)
 
     assert container.scheduled_work.kinds == frozenset(
-        {WorkKind.REMINDER, WorkKind.PHONE_TASK, WorkKind.ESCALATE_TO_LEAD}
+        {
+            WorkKind.REMINDER,
+            WorkKind.PHONE_TASK,
+            WorkKind.ESCALATE_TO_LEAD,
+            WorkKind.BOOKING_PHONE_PROMPT,
+            WorkKind.BOOKING_EXPIRE,
+        }
     )
 
 
@@ -540,7 +546,13 @@ async def test_build_exposes_the_same_dispatch_table() -> None:
     container = build(Settings())
     try:
         assert container.scheduled_work.kinds == frozenset(
-            {WorkKind.REMINDER, WorkKind.PHONE_TASK, WorkKind.ESCALATE_TO_LEAD}
+            {
+                WorkKind.REMINDER,
+                WorkKind.PHONE_TASK,
+                WorkKind.ESCALATE_TO_LEAD,
+                WorkKind.BOOKING_PHONE_PROMPT,
+                WorkKind.BOOKING_EXPIRE,
+            }
         )
     finally:
         await container.shutdown()

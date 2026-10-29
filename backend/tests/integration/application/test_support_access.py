@@ -27,8 +27,10 @@ from diucs.application.use_cases.support_access import (
 )
 from diucs.domain.codes import PractitionerRoleCode, Role
 from diucs.domain.errors import NotAllowed
+from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.rules.support import hash_support_code, normalise_support_code
-from tests.support.neo4j import count_nodes, read_tx, write_tx
+from tests.support.neo4j import count_nodes, read_tx
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -37,30 +39,33 @@ SECRET = b"support-code-integration-secret-0123"
 SECRETS = FixedSecretStore({"support-code": SECRET})
 
 
-async def _seed(driver: AsyncDriver, tenant: str) -> None:
+async def _seed(driver: AsyncDriver, factory: UnitOfWorkFactory, tenant: str) -> None:
     """Two practitioners: `p-reporter` shares a session, `p-lead` holds an active shift-lead role,
-    `p-support` is the support person. Plus the reporter's session, with no person link."""
-
-    cypher = (
-        "CREATE (:Practitioner {id: 'p-reporter', tenantId: $t, active: true, "
-        "displayName: 'Sample Reporter'}) "
-        "CREATE (:Practitioner {id: 'p-lead', tenantId: $t, active: true, "
-        "displayName: 'Sample Lead'}) "
-        "CREATE (:Practitioner {id: 'p-support', tenantId: $t, active: true, "
-        "displayName: 'Sample Support'}) "
-        "CREATE (:PractitionerRole {id: 'r-lead', tenantId: $t, practitionerId: 'p-lead', "
-        "code: $code, active: true, periodStart: $start})"
-    )
-
-    async def work(tx: object) -> None:
-        await tx.run(  # type: ignore[attr-defined]
-            cypher,
-            t=tenant,
-            code=PractitionerRoleCode.SHIFT_LEAD.value,
-            start=NOW - timedelta(days=30),
+    `p-support` is the support person. Plus the reporter's session, with no person link. The people
+    are written through the person repository: the product reads them as FHIR resources, so plain
+    nodes would not be found."""
+    await ensure_audit_heads(driver, tenant)
+    async with factory() as uow:
+        for practitioner_id, name in (
+            ("p-reporter", "Sample Reporter"),
+            ("p-lead", "Sample Lead"),
+            ("p-support", "Sample Support"),
+        ):
+            await uow.people.save_practitioner(
+                Practitioner(id=practitioner_id, active=True, display_name=name, phone_hash=None)
+            )
+        await uow.people.save_role(
+            PractitionerRole(
+                id="r-lead",
+                practitioner_id="p-lead",
+                service_id=None,
+                code=PractitionerRoleCode.SHIFT_LEAD,
+                active=True,
+                channel=None,
+                period_start=NOW - timedelta(days=30),
+            )
         )
-
-    await write_tx(driver, work)
+        await uow.commit()
 
 
 def _actor(role: Role, practitioner: str | None) -> Actor:
@@ -91,7 +96,7 @@ async def _create_code(uow_factory: UnitOfWorkFactory, session_id: str) -> str:
 async def test_creating_a_code_returns_the_xxxx_xxxx_form(
     clean_graph: None, neo4j_driver: AsyncDriver, uow_factory_a: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    await _seed(neo4j_driver, tenant_id)
+    await _seed(neo4j_driver, uow_factory_a, tenant_id)
 
     code = await _create_code(uow_factory_a, "ui-1")
 
@@ -102,7 +107,7 @@ async def test_creating_a_code_returns_the_xxxx_xxxx_form(
 async def test_the_stored_code_holds_only_its_hash(
     clean_graph: None, neo4j_driver: AsyncDriver, uow_factory_a: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    await _seed(neo4j_driver, tenant_id)
+    await _seed(neo4j_driver, uow_factory_a, tenant_id)
     code = await _create_code(uow_factory_a, "ui-1")
 
     async def props(tx: object) -> list[dict[str, object]]:
@@ -120,7 +125,7 @@ async def test_the_stored_code_holds_only_its_hash(
 async def test_an_open_with_the_code_writes_one_access_with_an_hour_window_and_one_audit_entry(
     clean_graph: None, neo4j_driver: AsyncDriver, uow_factory_a: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    await _seed(neo4j_driver, tenant_id)
+    await _seed(neo4j_driver, uow_factory_a, tenant_id)
     code = await _create_code(uow_factory_a, "ui-1")
 
     result = await OpenSessionForSupport(
@@ -135,7 +140,7 @@ async def test_an_open_with_the_code_writes_one_access_with_an_hour_window_and_o
 async def test_an_expired_or_wrong_code_is_refused_with_the_same_error(
     clean_graph: None, neo4j_driver: AsyncDriver, uow_factory_a: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    await _seed(neo4j_driver, tenant_id)
+    await _seed(neo4j_driver, uow_factory_a, tenant_id)
     code = await _create_code(uow_factory_a, "ui-1")
     wrong = "ABCD-EFGH" if code != "ABCD-EFGH" else "ABCD-EFGK"
     later = FixedClock(NOW + timedelta(hours=5))
@@ -156,7 +161,7 @@ async def test_an_expired_or_wrong_code_is_refused_with_the_same_error(
 async def test_a_ticket_without_a_lead_approval_is_refused_and_with_one_is_allowed(
     clean_graph: None, neo4j_driver: AsyncDriver, uow_factory_a: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    await _seed(neo4j_driver, tenant_id)
+    await _seed(neo4j_driver, uow_factory_a, tenant_id)
     await _create_code(uow_factory_a, "ui-1")
     open_session = OpenSessionForSupport(uow_factory_a, FixedClock(NOW), SequentialIds(), SECRETS)
     support = _actor(Role.SUPPORT, "p-support")
@@ -179,7 +184,7 @@ async def test_a_ticket_without_a_lead_approval_is_refused_and_with_one_is_allow
 async def test_an_advisor_trying_to_open_a_session_is_refused(
     clean_graph: None, neo4j_driver: AsyncDriver, uow_factory_a: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    await _seed(neo4j_driver, tenant_id)
+    await _seed(neo4j_driver, uow_factory_a, tenant_id)
     code = await _create_code(uow_factory_a, "ui-1")
 
     with pytest.raises(NotAllowed):
@@ -191,7 +196,7 @@ async def test_an_advisor_trying_to_open_a_session_is_refused(
 async def test_the_person_lists_each_open_with_the_role_and_time_and_never_a_name(
     clean_graph: None, neo4j_driver: AsyncDriver, uow_factory_a: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    await _seed(neo4j_driver, tenant_id)
+    await _seed(neo4j_driver, uow_factory_a, tenant_id)
     code = await _create_code(uow_factory_a, "ui-1")
     await OpenSessionForSupport(uow_factory_a, FixedClock(NOW), SequentialIds(), SECRETS).execute(
         OpenSessionCommand(actor=_actor(Role.SUPPORT, "p-support"), code=code)
@@ -209,7 +214,7 @@ async def test_the_person_lists_each_open_with_the_role_and_time_and_never_a_nam
 async def test_after_stop_sharing_the_code_no_longer_opens_anything(
     clean_graph: None, neo4j_driver: AsyncDriver, uow_factory_a: UnitOfWorkFactory, tenant_id: str
 ) -> None:
-    await _seed(neo4j_driver, tenant_id)
+    await _seed(neo4j_driver, uow_factory_a, tenant_id)
     code = await _create_code(uow_factory_a, "ui-1")
     await StopSharing(uow_factory_a, FixedClock(NOW)).execute(
         StopSharingCommand(actor=_actor(Role.REPORTER, "p-reporter"), session_id="ui-1")

@@ -34,4 +34,7 @@ Non-blocking findings and residual limits (DEC-141). A verifier may not hold a t
 | TEN-002 | Idempotency, outbox and audit rows written in a unit carry no tenantId until TEN-016 and TEN-017 and the conversion bundles. The evidence says so. | `adapters/outbound/` stores | TEN-016, TEN-017 (bundles B3, B4). |
 | TEN-002 | A unit entered in one task and left in another keeps its claim in the entering context. Fails closed, documented, untested. | `tenancy.py` `claim_unit` | Next change to the unit of work. |
 | TEN-002 | The evidence verification block still holds placeholders. | `docs/delivery/evidence/TEN-002.md` | None. |
+| TEN-003 | `tests/conftest.py` is not at 100 percent line coverage by itself (68 percent in a unit-only run): its Neo4j fixtures run only in the integration runs and the pytester sandbox runs a copy. Its hook behaviour is proved by the sandbox tests, the integration harness tests and mutants C1 to C9. | `backend/tests/conftest.py` | TEN-035, if the conftest gets a coverage run across unit and integration. |
+| TEN-003 | The leak guard checks the binding in the test's own context only. A binding set from a thread, or by a task that outlives the test, is not seen (DEC-147 item 8). | `backend/tests/support/tenancy.py` `guard_async_test` | TEN-018 (the reset-trap test through a request). |
+| TEN-003 | Two tests were added after green and never ran red (`parse_run_id` limits and `uow_factory_on`; the default pid and start). Their proof is the mutant table (T9, T10, T12). | `tests/unit/support/test_tenancy_fixtures.py` | None. |
 

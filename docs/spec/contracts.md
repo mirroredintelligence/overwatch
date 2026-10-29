@@ -288,6 +288,12 @@ These names were added by individual task prompts. They are as binding as the re
 - `adapters/outbound/graph_store/connection.py`: `Neo4jConnection.run_scoped_read(work)` and `run_scoped_write(work)`, where `work` takes a `ScopedTx`: the supported way for a worker to run scoped work outside a unit of work.
 - `tests/support/fake_neo4j.py`: `FakeDriver`, `FakeSession`, `FakeTx`, a recording stand-in for the driver in unit tests (not a store).
 
+## Tenant per run in the test harness (TEN-003, DEC-147)
+- `tests/support/tenancy.py`: `RunIdentity(pid, started, nonce)` with `token`, `tenant_id` (`tt-<token>`), `other_tenant_id` (`tt-<token>-b`) and `network_id` (`net-<token>`); `new_run_identity(*, pid=None, now=None, nonce=None)`, `parse_run_id(value) -> RunIdentity | None`; `TenantLeak`, `LEAK_MESSAGE`, `assert_bound_to`, `as_tenant`, `in_tenant`, `tenant_scope`, `guard_async_test`, `guard_sync_test`, `guard_test`.
+- `tests/conftest.py`: session fixtures `run_identity`, `tenant_id`, `other_tenant_id`, `network_id`; function fixtures `bound_tenant`, `uow_factory_a`, `uow_factory_b`; the `no_tenant` marker (an integration test that runs with nothing bound). Environment variables `DIUCS_TEST_TENANT`, `DIUCS_TEST_OTHER_TENANT`, `DIUCS_TEST_NETWORK`.
+- `tests/support/uow.py`: `tenant_uow_factory(driver, tenant, clock=None, *, factories=None)`.
+- `adapters/testing/fixed_ids.py`: `SequentialIds.scoped(scope, prefix="id")` (ids `<scope>-<prefix>-<n>`); `SequentialIds()` is unchanged.
+
 ## $board and $confirm-capacity (R05, DEC-145)
 - `adapters/inbound/fhir_rest/routes_board.py`: `router`, `BOARD_ROLES`, `CONFIRM_ROLES`. `GET /fhir/HealthcareService/$board` (roles wall, advisor, clinical, lead, exec, owner; `Cache-Control: no-store`) and `POST /fhir/HealthcareService/{id}/$confirm-capacity` (reporter for own service, or lead; `Idempotency-Key` required; 200 with the new Observation).
 - `adapters/inbound/fhir_rest/mapping.py`: `board_to_parameters(board) -> dict`, `report_to_fhir(report) -> dict` (valid R4B). R04 adds its functions to this file.

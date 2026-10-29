@@ -98,6 +98,7 @@ class SendPromptResult:
     communication_ids: tuple[str, ...]
     skipped_reason: str | None
     replayed: bool = False
+    grouped_service_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +121,10 @@ def _fingerprint(command: SendPromptCommand) -> str:
         )
     )
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def prompt_key(service_id: str, due: datetime) -> str:
+    return ""
 
 
 def _replay(stored: _StoredPrompt, fingerprint: str) -> SendPromptResult:

@@ -60,6 +60,11 @@ describe('backendTokenExpiresAt', () => {
     const now = new Date('2026-10-29T09:00:00Z');
     expect(backendTokenExpiresAt(now).toISOString()).toBe('2026-10-29T17:00:00.000Z');
   });
+
+  it('is to the second, the same instant as the token’s exp', () => {
+    const late = new Date('2026-10-29T09:00:00.999Z');
+    expect(backendTokenExpiresAt(late).toISOString()).toBe('2026-10-29T17:00:00.000Z');
+  });
 });
 
 describe('mintBackendToken', () => {

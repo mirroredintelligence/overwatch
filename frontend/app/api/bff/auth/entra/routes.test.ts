@@ -182,7 +182,7 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     const { payload } = await jwtVerify(outcome.session!.backendToken, BACKEND_KEY, { algorithms: ['HS256'] });
     expect(payload).toMatchObject({ sub: OID_ADVISOR, role: 'advisor', tid: TENANT_A, services: [] });
     expect(Object.keys(payload).sort()).toEqual(['exp', 'iat', 'role', 'services', 'sub', 'tid']);
-    expect(Date.parse(outcome.session!.expiresAt)).toBeCloseTo(payload.exp! * 1000, -3);
+    expect(Date.parse(outcome.session!.expiresAt)).toBe(payload.exp! * 1000);
   });
 
   it('keeps the person’s name, email, the access token and the ID token out of the session, the cookie and the response', async () => {

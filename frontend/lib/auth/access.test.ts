@@ -31,7 +31,6 @@ describe('rolesFor', () => {
 
   it.each([
     ['capitals', '/Lead'],
-    ['capitals in the middle', '/ADVISOR/case'],
     ['a trailing slash', '/lead/'],
     ['a percent-encoded letter', '/%6Cead'],
     ['an encoded slash', '/x%2F..%2Flead'],
@@ -40,6 +39,10 @@ describe('rolesFor', () => {
     ['a dot', '/./lead'],
   ])('still guards a path written with %s', (_name, path) => {
     expect(rolesFor(path)).toEqual(['lead']);
+  });
+
+  it('guards a path with capitals past the first letter', () => {
+    expect([...(rolesFor('/ADVISOR/case') ?? [])].sort()).toEqual(['advisor', 'lead']);
   });
 
   it('lets nobody in when the path cannot be decoded', () => {

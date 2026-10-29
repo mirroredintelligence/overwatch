@@ -238,6 +238,11 @@ describe('exchangeCode', () => {
     expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/')))).toBe('token-exchange');
   });
 
+  it.each([400, 401, 500])('is refused on a %s answer, whatever the body holds', async (status) => {
+    server.use(http.post(`${HOST}/:directory/oauth2/v2.0/token`, () => HttpResponse.json({ id_token: 'a.b.c' }, { status })));
+    expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/')))).toBe('token-exchange');
+  });
+
   it('is refused when the provider cannot be reached or answers with something that is not JSON', async () => {
     server.use(http.post(`${HOST}/:directory/oauth2/v2.0/token`, () => HttpResponse.error()));
     expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/')))).toBe('token-exchange');
@@ -290,6 +295,7 @@ describe('verifyIdToken', () => {
     ['an unknown key id', { kid: 'some-other-kid' }, 'bad-token'],
     ['HS256 signed with the client secret', { algorithm: 'HS256' as const }, 'bad-token'],
     ['no signature (alg none)', { algorithm: 'none' as const }, 'bad-token'],
+    ['RS384, an algorithm other than RS256', { algorithm: 'RS384' as const }, 'bad-token'],
     ['an expiry in the past', { expiresIn: -120 }, 'expired'],
     ['a start in the future', { notBefore: 600 }, 'not-yet-valid'],
     ['another audience', { aud: 'some-other-client' }, 'wrong-audience'],

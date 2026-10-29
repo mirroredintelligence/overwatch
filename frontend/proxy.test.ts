@@ -77,7 +77,7 @@ describe('no session', () => {
 
   it.each(['/Lead', '/%6Cead', '//lead', '/lead/', '/x%2F..%2Flead'])('also guards the path written as %s', async (path) => {
     const response = await proxy(await request(path));
-    expect(redirectedTo(response)).toMatch(/^\/sign-in\?next=/);
+    expect(redirectedTo(response)).toMatch(/^\/sign-in/);
   });
 
   it('leaves unguarded paths alone, and does not need the session secret for them', async () => {

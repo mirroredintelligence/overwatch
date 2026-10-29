@@ -51,7 +51,7 @@ export type Tamper = {
   /** Sign with a key the JWKS does not publish. */
   signWith?: 'unpublished-key';
   /** Sign with HS256 and the client secret (the algorithm-confusion attempt). */
-  algorithm?: 'HS256' | 'none';
+  algorithm?: 'HS256' | 'none' | 'RS384';
   /** Publish a different `kid` than the one the token names. */
   kid?: string;
 };
@@ -79,6 +79,7 @@ type Issued = {
 export type TokenResult = { status: number; body: Record<string, unknown> };
 
 const KID = 'fake-entra-key-1';
+const KID_384 = 'fake-entra-key-384';
 const SAMPLE_NAME = 'Sample Staff Member';
 const SAMPLE_ADDRESS = 'sample.staff@example.test';
 
@@ -92,12 +93,40 @@ function same(a: string, b: string): boolean {
   return timingSafeEqual(left, right);
 }
 
+// Key pairs are slow to make, so every fake in a process shares one set. A test that needs a fake of
+// its own still gets its own codes, requests and options.
+let material: Promise<{
+  signing: CryptoKey;
+  unpublished: CryptoKey;
+  signing384: CryptoKey;
+  publicJwk: JWK;
+  publicJwk384: JWK;
+}> | null = null;
+
+function keyMaterial() {
+  material ??= (async () => {
+    const pair = await generateKeyPair('RS256', { extractable: true });
+    const unpublished = await generateKeyPair('RS256', { extractable: true });
+    const other384 = await generateKeyPair('RS384', { extractable: true });
+    return {
+      signing: pair.privateKey,
+      unpublished: unpublished.privateKey,
+      signing384: other384.privateKey,
+      publicJwk: { ...(await exportJWK(pair.publicKey)), kid: KID, use: 'sig' },
+      publicJwk384: { ...(await exportJWK(other384.publicKey)), kid: KID_384, use: 'sig' },
+    };
+  })();
+  return material;
+}
+
 export class FakeEntra {
   readonly requests: Recorded[] = [];
   readonly options: FakeEntraOptions;
   private signing!: CryptoKey;
   private other!: CryptoKey;
+  private signing384!: CryptoKey;
   private publicJwk!: JWK;
+  private publicJwk384!: JWK;
   private readonly codes = new Map<string, Issued>();
 
   constructor(options: FakeEntraOptions) {
@@ -106,11 +135,13 @@ export class FakeEntra {
 
   static async create(options: FakeEntraOptions): Promise<FakeEntra> {
     const fake = new FakeEntra(options);
-    const pair = await generateKeyPair('RS256', { extractable: true });
-    const unpublished = await generateKeyPair('RS256', { extractable: true });
-    fake.signing = pair.privateKey;
-    fake.other = unpublished.privateKey;
-    fake.publicJwk = { ...(await exportJWK(pair.publicKey)), kid: KID, alg: 'RS256', use: 'sig' };
+    const keys = await keyMaterial();
+    fake.signing = keys.signing;
+    fake.other = keys.unpublished;
+    fake.signing384 = keys.signing384;
+    // Like Entra's keys: a type, a use and an id, and no algorithm.
+    fake.publicJwk = keys.publicJwk;
+    fake.publicJwk384 = keys.publicJwk384;
     return fake;
   }
 
@@ -216,7 +247,7 @@ export class FakeEntra {
   keys(directory: string): TokenResult {
     this.requests.push({ endpoint: 'keys', directory, params: {} });
     if (!this.serves(directory)) return { status: 404, body: { error: 'not_found' } };
-    return { status: 200, body: { keys: [this.publicJwk] } };
+    return { status: 200, body: { keys: [this.publicJwk, this.publicJwk384] } };
   }
 
   private async idToken(issued: Issued, now: Date): Promise<string> {
@@ -249,6 +280,10 @@ export class FakeEntra {
       return new SignJWT(claims)
         .setProtectedHeader({ alg: 'HS256', kid: KID })
         .sign(new TextEncoder().encode(this.options.clientSecret.padEnd(32, '!')));
+    }
+    if (t.algorithm === 'RS384') {
+      // Signed correctly with a key the directory does publish, but not with RS256.
+      return new SignJWT(claims).setProtectedHeader({ alg: 'RS384', kid: KID_384, typ: 'JWT' }).sign(this.signing384);
     }
     return new SignJWT(claims)
       .setProtectedHeader({ alg: 'RS256', kid: t.kid ?? KID, typ: 'JWT' })

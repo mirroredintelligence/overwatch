@@ -80,6 +80,7 @@ class ReportCapacityResult:
     status_changed: bool
     next_due: datetime | None
     replayed: bool = False
+    flag_ids: tuple[str, ...] = ()
 
 
 def _check_figure(field: str, value: int) -> None:

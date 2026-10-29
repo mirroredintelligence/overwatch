@@ -19,6 +19,7 @@ from typing import Any, ClassVar, Self
 from diucs.domain.codes import (
     AlertKind,
     BookingStatus,
+    ReportFlagReason,
     ReportSource,
     Role,
     Status,
@@ -365,6 +366,25 @@ class AlertAcknowledged:
             by=_code(payload, "by", Role),
             at=_when(payload),
         )
+
+
+@dataclass(frozen=True, slots=True)
+class ReportFlagged:
+    """Stub for the red commit (DEC-010): the real class lands with the implementation."""
+
+    event_type: ClassVar[str] = "ReportFlagged"
+    flag_id: str
+    service_id: str
+    report_id: str
+    reason: ReportFlagReason
+    at: datetime
+
+    def to_payload(self) -> dict[str, Any]:
+        return {}
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        raise NotImplementedError
 
 
 DomainEvent = (

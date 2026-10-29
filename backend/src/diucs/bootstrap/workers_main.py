@@ -22,7 +22,10 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 
 from azure.servicebus.aio import ServiceBusClient
 
-from diucs.adapters.inbound.scheduler.scheduled_work_consumer import WorkHandler
+from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
+    WorkHandler,
+    build_scheduled_work_consumer,
+)
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants, StaticTenants
 from diucs.adapters.inbound.workers.reply_processor import HandlesInboundText, reply_consumer
@@ -46,6 +49,7 @@ TENANT_NOT_VALID = f"{TENANTS_VARIABLE} holds an entry that is not a valid tenan
 SERVICE_BUS_MISSING = "DIUCS_SERVICEBUS_CONNECTION must be set for the queue workers"
 REPLIES_QUEUE = "inbound.replies"
 RECEIPTS_QUEUE = "inbound.receipts"
+SCHEDULED_WORK_QUEUE = "scheduled.work"
 
 
 class WorkersConfigError(Exception):
@@ -90,6 +94,12 @@ def build_runners(
             None,
             receipt_consumer(uow_factory, tenants),
         ),
+        ServiceBusRunner(
+            client,
+            SCHEDULED_WORK_QUEUE,
+            None,
+            build_scheduled_work_consumer(work_handlers, uow_factory, tenants),
+        ),
     ]
 
 
@@ -118,7 +128,9 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
             ReportCapacity(container.uow_factory, container.clock, container.ids, store),
             ConfirmCapacity(container.uow_factory, container.clock, container.ids, store),
         )
-        runners = build_runners(client, use_case, container.uow_factory, tenants)
+        runners = build_runners(
+            client, use_case, container.uow_factory, tenants, container.scheduled_work.handlers
+        )
         await run_workers([runner.serve for runner in runners], stop)
     finally:
         await client.close()

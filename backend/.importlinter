@@ -83,6 +83,8 @@ modules =
 # that wires the audit log and the outbox into the transaction it hands out.
 # TEN-004 (DEC-150): a statement carries a scenario, and the outbox builds its own from the
 # scenario types of the graph store.
+# I05 (DEC-196): the scheduled-work consumer reuses the I04 consumer core, the I08 tenant binding
+# and the ActiveTenants protocol of the workers package, as the reply processor does.
 # I07 (DEC-149): the FHIR app mounts the Twilio webhook router, and the webhook reuses I06's
 # mapping of a Twilio status, so the two statuses cannot disagree.
 ignore_imports =
@@ -96,3 +98,6 @@ ignore_imports =
     diucs.adapters.inbound.fhir_rest.app -> diucs.adapters.inbound.sms_webhook.routes
     diucs.adapters.inbound.fhir_rest.app -> diucs.adapters.inbound.link_pages.capacity_links
     diucs.adapters.inbound.sms_webhook.routes -> diucs.adapters.outbound.sms_twilio.twilio_sms
+    diucs.adapters.inbound.scheduler.scheduled_work_consumer -> diucs.adapters.inbound.workers.consumer
+    diucs.adapters.inbound.scheduler.scheduled_work_consumer -> diucs.adapters.inbound.workers.tenant_binding
+    diucs.adapters.inbound.scheduler.scheduled_work_consumer -> diucs.adapters.inbound.workers.outbox_relay

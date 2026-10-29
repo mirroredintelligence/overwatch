@@ -23,6 +23,7 @@ from diucs.domain.errors import ValidationFailed
 from diucs.domain.events import (
     AlertAcknowledged,
     AlertRaised,
+    BookingCancelled,
     BookingExpired,
     BookingPhonePrompt,
     BookingRequested,
@@ -55,6 +56,7 @@ SAMPLES: tuple[DomainEvent, ...] = (
     BookingResponded("bk-1", SERVICE_ID, BookingStatus.CONFIRMED, AT),
     BookingExpired("bk-1", SERVICE_ID, AT),
     BookingPhonePrompt("bk-1", SERVICE_ID, "4821", AT),
+    BookingCancelled("bk-1", SERVICE_ID, BookingStatus.CANCELLED_AFTER, AT),
     RegistrationSubmitted("reg-1", AT),
     RegistrationApproved("reg-1", SERVICE_ID, AT),
     ServiceActivated(SERVICE_ID, AT),
@@ -73,6 +75,7 @@ EXPECTED_TOPIC: dict[type, str] = {
     BookingResponded: "booking.events",
     BookingExpired: "booking.events",
     BookingPhonePrompt: "booking.events",
+    BookingCancelled: "booking.events",
     RegistrationSubmitted: "registration.events",
     RegistrationApproved: "registration.events",
     ServiceActivated: "registration.events",

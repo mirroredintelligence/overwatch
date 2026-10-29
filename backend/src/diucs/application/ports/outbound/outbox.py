@@ -6,6 +6,9 @@ publishes them later. A crash can delay a message but never lose or duplicate on
 least once, and consumers dedupe by message id (P15).
 
 The payload is the event's to_payload() output. Stored graph-native (DEC-001): no JSON text.
+
+Every call works in the tenant bound to its unit of work (DEC-130, TEN-016): a message of another
+tenant is NotFound, and a relay publishes only the messages of the tenant it has bound.
 """
 
 from dataclasses import dataclass
@@ -61,11 +64,12 @@ class Outbox(Protocol):
         ...
 
     async def pending(self, limit: int = 100) -> list[OutboxMessage]:
-        """Up to limit pending messages, oldest first."""
+        """Up to limit pending messages of the bound tenant, oldest first."""
         ...
 
     async def mark_published(self, id: str, at: datetime) -> None:
-        """Set the message published at this instant. It leaves the pending list."""
+        """Set the message published at this instant. It leaves the pending list. NotFound when the
+        bound tenant holds no message with this id."""
         ...
 
     async def mark_failed(self, id: str, error: str) -> None:

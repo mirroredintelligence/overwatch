@@ -490,13 +490,13 @@ def test_the_ratchet_may_only_shrink() -> None:
     (118 left), TEN-009 the seventeen of the resource store, fifteen converted and two removed
     (101 left), L01 the four link-token statements (97 left), TEN-011 the nineteen statements of the
     person, registration and scope-list repositories, TEN-015 the nine communication and four
-    scheduled-work statements, TEN-010 the eighteen service, capacity, booking and case
-    statements (47 left), TEN-012 the twenty-one criteria and flag statements (26 left), and
-    TEN-014 the seven contact and device statements (19 left). A conversion bundle lowers this
-    number in the same commit that removes ids
-    from the list; nothing raises it. The ids themselves are pinned against the initial list in
-    test_tenant_ratchet.py."""
-    assert len(UNCONVERTED) <= 19
+    (101 left), L01 the four link-token statements (97 left), TEN-011, TEN-015 and TEN-010 the fifty
+    person, registration, scope, communication, service, capacity, booking and case statements,
+    TEN-012 to TEN-014 the criteria, flag, contact and device statements, and TEN-016 and TEN-017 the
+    idempotency, outbox, audit and provenance statements (0 left). The ratchet is empty: a conversion
+    bundle lowered this number in the same commit that removed ids from the list, and nothing may
+    raise it. The ids themselves are pinned against the initial list in test_tenant_ratchet.py."""
+    assert len(UNCONVERTED) <= 0
     assert len(UNCONVERTED) == len(set(UNCONVERTED))
 
 

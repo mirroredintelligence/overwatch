@@ -484,13 +484,64 @@ def test_deliver_accepted_when_the_checks_table_passes(capsys, env, monkeypatch)
     assert code == 0
 
 
-def commit_evidence(env, monkeypatch, text):
+def commit_evidence(env, monkeypatch, text, message="evidence"):
     repo = env["tmp"] / "gate-repo"
     (repo / "docs/delivery/evidence").mkdir(parents=True, exist_ok=True)
     (repo / "docs/delivery/evidence/A01.md").write_text(text, encoding="utf-8")
     git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
     subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
     subprocess.run(git + ["add", "-A"], cwd=repo, check=True)
-    subprocess.run(git + ["commit", "-q", "-m", "evidence"], cwd=repo, check=True)
+    subprocess.run(git + ["commit", "-q", "-m", message], cwd=repo, check=True)
     monkeypatch.chdir(repo)
     return subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, capture_output=True, text=True, check=True).stdout.strip()
+
+
+ATTRIBUTION = [
+    "Co-Authored-By: Claude Haiku 5.5 <noreply@anthropic.com>",
+    "co-authored-by: someone",
+    "Built with claude-sonnet-5-5",
+    "Model: claude-opus-5-5",
+    "Written by Sonnet 5.5",
+    "Haiku 5.5 did the mapping",
+    "Fable 5.1 review",
+]
+
+
+@pytest.mark.parametrize("line", ATTRIBUTION)
+def test_attribution_problems_flags_trailers_and_model_names(line):
+    assert delivery.attribution_problems(f"TEN-1: subject\n\nbody\n\n{line}\n")
+
+
+def test_attribution_problems_allows_a_plain_message_and_the_product_name():
+    assert delivery.attribution_problems("TEN-1: subject\n\nClaude Code reads the ledger.\n") == []
+
+
+def test_check_messages_reports_unpushed_commits_with_attribution(capsys, tmp_path, monkeypatch):
+    repo = tmp_path / "msg-repo"
+    repo.mkdir()
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "base"], cwd=repo, check=True)
+    subprocess.run(["git", "update-ref", "refs/remotes/origin/main", "HEAD"], cwd=repo, check=True)
+    subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "clean\n\nplain body"], cwd=repo, check=True)
+    subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "bad\n\nCo-Authored-By: Claude Haiku 5.5"], cwd=repo, check=True)
+    monkeypatch.chdir(repo)
+    problems = delivery.unpushed_attribution_problems()
+    assert len(problems) == 1 and "Co-Authored-By" in problems[0][1][0]
+    code = delivery.main(["check-messages"])
+    assert code == 2 and "Co-Authored-By" in capsys.readouterr().out
+
+
+def test_deliver_refused_when_an_unpushed_commit_carries_attribution(capsys, env, monkeypatch):
+    base = commit_evidence(env, monkeypatch, CHECKS_PASS, message="base")
+    subprocess.run(["git", "update-ref", "refs/remotes/origin/main", base], check=True)
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run(git + ["commit", "-q", "--allow-empty", "-m", "A01\n\nCo-Authored-By: Claude Haiku 5.5"], check=True)
+    sha = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True).stdout.strip()
+    init(capsys, env)
+    run(capsys, "claim", "A01", "--session", "s1")
+    do_all_evidence(capsys, "A01")
+    run(capsys, "review", "A01", "--session", "s1", "--skip-git-check")
+    run(capsys, "verify", "A01", "--verifier", "s2", "--result", "pass", "--note", "ok")
+    code, out = run(capsys, "deliver", "A01", "--session", "s1", "--commit", sha)
+    assert code == 2 and "attribution" in out.lower()

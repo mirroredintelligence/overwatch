@@ -31,14 +31,25 @@ class RecordedSpan:
 
 
 class RecordingTracer:
+    """Keeps the spans it opens, and the stack of the ones still open: the tracer, not a context
+    variable of the application, says which span is current."""
+
     def __init__(self) -> None:
         self.spans: list[RecordedSpan] = []
+        self._open: list[RecordedSpan] = []
 
     @contextmanager
     def span(self, name: str, attributes: Mapping[str, Any]) -> Iterator[RecordedSpan]:
         recorded = RecordedSpan(name, attributes)
         self.spans.append(recorded)
-        yield recorded
+        self._open.append(recorded)
+        try:
+            yield recorded
+        finally:
+            self._open.pop()
+
+    def current_span(self) -> RecordedSpan:
+        return self._open[-1] if self._open else RecordedSpan("", {})
 
 
 @pytest.fixture
@@ -110,3 +121,28 @@ async def test_without_a_tracer_the_use_case_still_runs() -> None:
 
     assert await FakeReportCapacity().execute(object()) == "reported"
     assert isinstance(get_tracer(), NoopTracer)
+
+
+def test_annotation_lands_on_the_span_the_tracer_has_open(recorder: RecordingTracer) -> None:
+    # No decorator here: the span is opened by the tracer, and the annotation must find it there.
+    with recorder.span("usecase.Manual", {}):
+        annotate_usecase("usecase.idempotent_replay", True)
+
+    [span] = recorder.spans
+    assert span.attributes["usecase.idempotent_replay"] is True
+
+
+async def test_with_the_no_op_tracer_an_annotation_inside_a_use_case_raises_nothing() -> None:
+    set_tracer(NoopTracer())
+
+    assert await FakeReportCapacity().execute(object()) == "reported"
+
+
+def test_the_no_op_tracer_gives_a_span_that_takes_attributes_and_does_nothing() -> None:
+    tracer = NoopTracer()
+
+    span = tracer.current_span()
+    span.set_attribute("usecase.idempotent_replay", True)
+    span.fail("Conflict")
+
+    assert tracer.current_span() is not None

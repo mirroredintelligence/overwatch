@@ -12,8 +12,8 @@ failure names its tenant. The resource store (TEN-009), the work and
 communication statements (TEN-015), the person statements (TEN-011) and the capacity statements
 (TEN-010) are still unconverted (tenant-pending, evidence U06). What is proved here is what the use
 case itself decides: the tenant of every row, key and sealed message it writes comes from the unit
-of work, and one tenant's ladder never changes another's. That a step for A given B's work id reads as not found is proved here, since TEN-009 scopes the
-service lookup.
+of work, and one tenant's ladder never changes another's. That a step for A given B's work id
+reads as not found is proved here, since TEN-009 scopes the service lookup.
 """
 
 from collections.abc import AsyncIterator

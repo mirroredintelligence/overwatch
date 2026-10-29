@@ -3,7 +3,7 @@
 Applies one mutation at a time to a source file of this task, runs the four TEN-006 test files with
 `-x`, records the first failing test and restores the file with `git checkout`. Run from a clean
 tree: `python docs/delivery/evidence/TEN-006-mutate.py [name fragment ...]`. It was run in two
-passes at commit 9e78b93: pass one (99 mutants) mis-reported one mutant whose import failed as
+passes on the green commit (9e78b93 before the rebase onto main, aba64b6 after): pass one (99 mutants) mis-reported one mutant whose import failed as
 "survived", applied one with a stale snippet and contained one no-op; the replacements and the
 mutants for the guards whose tests were added after the red commit are the last six entries.
 """

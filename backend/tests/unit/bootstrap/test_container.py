@@ -1,7 +1,7 @@
 import dataclasses
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
-from typing import cast
+from typing import Any, cast
 
 import pytest
 import pytest_asyncio
@@ -290,3 +290,27 @@ async def test_a_connection_that_will_not_open_stops_the_start_before_any_migrat
         await container.startup()
 
     assert "migrate" not in events
+
+
+async def test_build_wires_the_local_postcode_locator_and_the_straight_line_travel_estimate(
+    tmp_path: Any,
+) -> None:
+    from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
+    from diucs.adapters.outbound.travel_time.straight_line import StraightLineTravelTime
+
+    fixture = tmp_path / "centroids.csv"
+    fixture.write_text("postcode,latitude,longitude\nDT4 8XX,50.6151,-2.4612\n", encoding="utf-8")
+    container = build(Settings(postcode_centroids_path=fixture))
+    try:
+        assert isinstance(container.postcodes, CsvPostcodeLocator)
+        assert isinstance(container.travel, StraightLineTravelTime)
+    finally:
+        await container.shutdown()
+
+
+async def test_build_without_a_centroid_file_locates_nothing_rather_than_guessing(
+    neo4j: Neo4jConnection,
+) -> None:
+    container = build_for_tests(neo4j=neo4j)
+
+    assert container.postcodes.locate("DT4 8XX") is None

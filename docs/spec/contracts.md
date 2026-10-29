@@ -391,6 +391,13 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 ## Mapper tenant names (TEN-008, DEC-162)
 - `adapters/outbound/graph_store/extensions.py`: `TENANT_OWNED_NAMES = frozenset({"tenantId", "sourceTenantId"})`. `ExtensionDef` refuses a short name in it (`ValueError`). `mapper.py` imports it: `to_graph` refuses an element of either name (`ValidationFailed`, "reserved: the tenancy seam stamps this name") and refuses a fragment that would carry one, and `from_graph` drops both from every node it rebuilds from. TEN-009 adds both to the resource store's `RESERVED_PROPERTIES`; no other module writes the name `tenantId` on a node a resource owns except the writer's stamp.
 
+## Resource store tenancy (TEN-009, DEC-164)
+- `adapters/outbound/graph_store/resource_scenarios.py`: `SCENARIOS: dict[str, Scenario]`, one per `Q-RES-*` template, read by `resource_store.py` when it registers them.
+- Templates: sixteen, all with `tenantId: $tenant` and a scenario. New: `Q-RES-LINK-SHARED` (insert `:IN_SYSTEM`; params `rows` of `{start, end}`; returns `linked`; a MERGE of the concept-to-code-system edge). Changed parameters: `Q-RES-LOAD-NODES` and `Q-RES-LOAD-RELS` take `resourceKey` (the resource's own key, also for a version), `key` and `prefix` and an insert of `:Resource` or `:ResourceVersion`; `Q-RES-CLEAR-OWNED` takes `key` and `prefix`; `Q-RES-SHARED-READ` takes no insert. Removed: `Q-RES-IDEM-GET`, `Q-RES-IDEM-RECORD`.
+- `ResourceStore.put(resource, expected_version)`: the `idempotency_key` argument is gone. `RESERVED_PROPERTIES` also holds `tenantId` and `sourceTenantId`.
+- Tests: `tests/support/predicate_removal.py::mutant_of` registers the copy of a template instance under the template's id.
+- `ResourceStore.put` refuses (`ValidationFailed`, before any write) a reference target or a resource type that is not letters only with a capital or is a registry label (`REGISTRY_LABELS`, `GLOBAL_STATEMENT_LABELS`) or a store label (DEC-164 item 11). `Q-RES-LINK-SHARED` returns `count(DISTINCT [a.key, b.key]) AS linked`.
+
 ### Missed-report ladder (U06, DEC-166)
 
 | Name | Where | Task |

@@ -21,13 +21,13 @@ is mapped to Conflict, so the unit of work that made it is refused and never com
 import json
 from collections import defaultdict
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, cast
 from uuid import uuid4
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.application.idempotency import (
     DATETIME_TAG,
@@ -36,6 +36,7 @@ from diucs.application.idempotency import (
     format_instant,
     parse_instant,
 )
+from diucs.application.tenancy import ScopeId, scope_for_new_unit
 from diucs.domain.errors import Conflict
 
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
@@ -252,6 +253,13 @@ class Neo4jProcessedMessages:
         return bool(rows[0]["created"])
 
 
+def _scoped(tx: AsyncManagedTransaction, scope: ScopeId | None) -> AsyncManagedTransaction:
+    """The managed transaction wrapped as a ScopedTx. The repository is annotated for the raw
+    transaction until its own conversion task (TEN-016) re-annotates it to `Tx`; at run time it
+    only hands the transaction to run_query."""
+    return cast(AsyncManagedTransaction, ScopedTx(tx, scope))
+
+
 class DriverIdempotencyStore:
     """The idempotency store for constructor injection: each call runs in its own transaction on
     the process's driver, and its session is always closed (DEC-012)."""
@@ -260,15 +268,21 @@ class DriverIdempotencyStore:
         self._driver = driver
 
     async def get(self, key: str) -> object | None:
+        # The scope is read once, here, before the session opens: a managed-transaction retry runs
+        # the callback again and must use the same one (TEN-002).
+        scope = scope_for_new_unit()
+
         async def read(tx: AsyncManagedTransaction) -> object | None:
-            return await Neo4jIdempotencyStore(tx).get(key)
+            return await Neo4jIdempotencyStore(_scoped(tx, scope)).get(key)
 
         async with self._driver.session() as session:
             return await session.execute_read(read)
 
     async def put(self, key: str, result: object) -> None:
+        scope = scope_for_new_unit()
+
         async def write(tx: AsyncManagedTransaction) -> None:
-            await Neo4jIdempotencyStore(tx).put(key, result)
+            await Neo4jIdempotencyStore(_scoped(tx, scope)).put(key, result)
 
         async with self._driver.session() as session:
             await session.execute_write(write)

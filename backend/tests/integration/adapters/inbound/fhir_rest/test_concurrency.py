@@ -216,16 +216,28 @@ async def test_a_put_waits_for_a_held_write_then_sees_the_new_version_and_is_ref
     # A held transaction writes version 4 and does not commit. The PUT must wait for it (the
     # version is read after the write lock, lesson L63), then see 4 and refuse 3 with 412.
     await seed(things_app, "t-held", 3)
-    held = things_app.state.things_uow()
-    await held.__aenter__()
+    # The held unit lives in a task of its own: a unit of work claims its context (TEN-002), and a
+    # request made from inside that context would be refused as a second unit. In production a
+    # request is never made from inside another unit's context.
+    holding = asyncio.Event()
+    release = asyncio.Event()
+
+    async def hold() -> None:
+        async with things_app.state.things_uow() as held:
+            await as_things(held.things).bump("t-held", 4)
+            holding.set()
+            await release.wait()
+            await held.commit()
+
+    holder = asyncio.create_task(hold())
     try:
-        await as_things(held.things).bump("t-held", 4)
+        await asyncio.wait_for(holding.wait(), timeout=30)
         put_task = asyncio.create_task(put(api_client, "t-held", "pr-1", 'W/"3"'))
         await asyncio.sleep(1)
         assert not put_task.done()
-        await held.commit()
     finally:
-        await held.__aexit__(None, None, None)
+        release.set()
+        await holder
     response = await put_task
     assert response.status_code == 412
     assert await version_of(things_app, "t-held") == 4

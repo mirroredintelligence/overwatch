@@ -33,6 +33,7 @@ from diucs.application.tenancy import (
     TENANT_ID_PATTERN,
     TENANT_NOT_BOUND_MESSAGE,
     TENANT_PARAMETER_MESSAGE,
+    UNIT_OF_WORK_OPEN_MESSAGE,
     GlobalStatementMisuse,
     QueryNotRegistered,
     ScopeId,
@@ -41,6 +42,7 @@ from diucs.application.tenancy import (
     TenancyError,
     TenantNotBound,
     TenantParameterRefused,
+    UnitOfWorkAlreadyOpen,
     bind_scope,
     bind_tenant,
     current_scope,
@@ -325,6 +327,7 @@ _ERRORS: list[tuple[type[TenancyError], str]] = [
     (TenantParameterRefused, TENANT_PARAMETER_MESSAGE),
     (QueryNotRegistered, QUERY_NOT_REGISTERED_MESSAGE),
     (GlobalStatementMisuse, GLOBAL_STATEMENT_MESSAGE),
+    (UnitOfWorkAlreadyOpen, UNIT_OF_WORK_OPEN_MESSAGE),
 ]
 
 

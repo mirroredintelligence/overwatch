@@ -12,14 +12,16 @@ migration runner aside) executes Cypher.
 import logging
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Any
 
-from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction
+from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction, AsyncTransaction
 
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, QueryRegistry
 from diucs.application.tenancy import (
     GlobalStatementMisuse,
     QueryNotRegistered,
+    ScopeId,
     TenantNotBound,
     TenantParameterRefused,
     current_scope_or_none,
@@ -71,11 +73,28 @@ def _refuse_tenant_parameter(params: dict[str, Any]) -> None:
         raise TenantParameterRefused
 
 
-async def _execute(
-    tx: AsyncManagedTransaction, query: NamedQuery, parameters: dict[str, Any]
-) -> list[dict[str, Any]]:
+@dataclass(frozen=True, slots=True)
+class ScopedTx:
+    """A transaction and the scope its unit of work opened under (DEC-132 item 4, TEN-002).
+
+    It has no `run` and no other way to execute Cypher: the only way to run a statement on it is
+    `run_query`, so a repository cannot bypass the tenant parameter. `scope` is None only for a
+    unit opened with nothing bound, which can run only statements still on the ratchet.
+    """
+
+    tx: AsyncManagedTransaction | AsyncTransaction
+    scope: ScopeId | None
+
+
+# The transitional alias (DEC-144 item 3): a raw transaction still takes the ambient scope. TEN-030
+# narrows it to ScopedTx when the ratchet is empty.
+type Tx = AsyncManagedTransaction | AsyncTransaction | ScopedTx
+
+
+async def _execute(tx: Tx, query: NamedQuery, parameters: dict[str, Any]) -> list[dict[str, Any]]:
     started = time.perf_counter()
-    result = await tx.run(query.cypher, parameters)
+    raw = tx.tx if isinstance(tx, ScopedTx) else tx
+    result = await raw.run(query.cypher, parameters)
     rows = await result.data()
     duration_ms = (time.perf_counter() - started) * 1000
     observer = _observer
@@ -85,7 +104,7 @@ async def _execute(
 
 
 async def run_query(
-    tx: AsyncManagedTransaction,
+    tx: Tx,
     query: NamedQuery,
     /,
     *,
@@ -97,11 +116,15 @@ async def run_query(
 
     The execution point of DEC-130 item 2 and DEC-142. In this order, all before any Cypher is
     sent: a string or a statement that is not the registered one is refused; a caller-supplied
-    `tenant` is refused; a global statement is refused; with no scope bound the call is refused,
+    `tenant` is refused; a global statement is refused; with no scope the call is refused,
     except for a statement on the ratchet (it does not mention `$tenant` yet: it runs with no
     `tenant` parameter, as it did before the seam, until its conversion bundle takes it off the
-    list). Otherwise the statement runs with `tenant=<the bound scope>`, written first and with
-    nothing in `params` able to replace it.
+    list). Otherwise the statement runs with `tenant=<the scope>`, written first and with nothing
+    in `params` able to replace it.
+
+    The scope is the one a `ScopedTx` carries (the unit of work took it when it opened, and no
+    rebinding of the context afterwards changes it, even to none). On a raw transaction it is the
+    one bound in the context now (the transitional case, DEC-144 item 3).
 
     The observer, if set, is called once per successful run with the query id, its mode, the row
     count and the duration in milliseconds. It never receives the Cypher text, the parameters or
@@ -113,7 +136,7 @@ async def run_query(
     _refuse_tenant_parameter(params)
     if query.scope == "global":
         raise GlobalStatementMisuse
-    scope = current_scope_or_none()
+    scope = tx.scope if isinstance(tx, ScopedTx) else current_scope_or_none()
     if scope is None:
         if lookup.is_tenant_pending(query):
             return await _execute(tx, query, params)
@@ -122,7 +145,7 @@ async def run_query(
 
 
 async def run_global_query(
-    tx: AsyncManagedTransaction,
+    tx: Tx,
     query: NamedQuery,
     /,
     *,

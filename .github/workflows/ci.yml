@@ -1,5 +1,5 @@
 # Continuous integration for the DIUCS capacity app.
-# Every push and pull request runs all checks. Nothing here deploys anything.
+# Runs all checks when started by hand (it was every push and pull request until the owner disabled it). Nothing here deploys anything.
 #
 # The back-end integration tests start their own throwaway Neo4j container per pytest session
 # (DEC-008, harness from F10). This workflow therefore does not start infra/docker-compose.yml;
@@ -7,9 +7,11 @@
 
 name: ci
 
+# DISABLED by the owner's request (billing): the workflow runs only when started by hand
+# (Actions tab, Run workflow). To turn push and pull-request runs back on, replace the line
+# below with:  push:  and  pull_request:  (each on its own line under on:).
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read

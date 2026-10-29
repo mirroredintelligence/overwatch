@@ -17,7 +17,8 @@ from urllib.parse import urlsplit
 
 from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession
 
-from diucs.adapters.outbound.graph_store.driver import create_driver
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, create_driver
+from diucs.application.tenancy import scope_for_new_unit
 
 log = logging.getLogger(__name__)
 
@@ -148,6 +149,27 @@ class Neo4jConnection:
     async def run_write[T](self, work: Callable[[AsyncManagedTransaction], Awaitable[T]]) -> T:
         async with self.session() as session:
             return await session.execute_write(work)
+
+    async def run_scoped_read[T](self, work: Callable[[ScopedTx], Awaitable[T]]) -> T:
+        """Run `work` in a read transaction on a ScopedTx carrying the scope bound now. The scope
+        is read once, before the session opens, so a managed-transaction retry uses the same one.
+        The supported way for a worker to run scoped work outside a unit of work: it claims no unit
+        of work slot."""
+        scope = scope_for_new_unit()
+
+        async def scoped(tx: AsyncManagedTransaction) -> T:
+            return await work(ScopedTx(tx, scope))
+
+        return await self.run_read(scoped)
+
+    async def run_scoped_write[T](self, work: Callable[[ScopedTx], Awaitable[T]]) -> T:
+        """As run_scoped_read, in a write transaction. A retried write must be idempotent."""
+        scope = scope_for_new_unit()
+
+        async def scoped(tx: AsyncManagedTransaction) -> T:
+            return await work(ScopedTx(tx, scope))
+
+        return await self.run_write(scoped)
 
     def pool_connection_count(self) -> int:
         """Connections the driver's pool holds, idle or in use. Zero after close().

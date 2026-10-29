@@ -45,8 +45,9 @@ from diucs.application.ports.outbound.messaging import PushSender
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.sender_resolver import SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import is_valid_tenant_id
+from diucs.application.tenancy import bind_tenant, is_valid_tenant_id
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
+from diucs.application.use_cases.criteria_reviews import ensure_daily_schedule
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.application.work import WorkKind
@@ -148,6 +149,10 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
     connection = service_bus_connection(settings)
     container = build(settings)
     await container.startup()  # refuses to start when Neo4j cannot be reached
+    for tenant_id in await tenants.active_tenant_ids():
+        # The daily criteria review run (U31) is seeded once per tenant; a restart changes nothing.
+        with bind_tenant(tenant_id):
+            await ensure_daily_schedule(container.uow_factory, container.ids, container.clock)
     cache = RedisCache.from_url(settings.redis_url)
     client = ServiceBusClient.from_connection_string(connection)
     http = httpx.AsyncClient(timeout=SENDER_HTTP_TIMEOUT_SECONDS)

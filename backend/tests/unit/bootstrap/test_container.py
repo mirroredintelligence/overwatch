@@ -532,7 +532,12 @@ async def test_build_for_tests_exposes_the_dispatcher_with_the_three_ladder_kind
     container = build_for_tests(neo4j=neo4j)
 
     assert container.scheduled_work.kinds == frozenset(
-        {WorkKind.REMINDER, WorkKind.PHONE_TASK, WorkKind.ESCALATE_TO_LEAD}
+        {
+            WorkKind.REMINDER,
+            WorkKind.PHONE_TASK,
+            WorkKind.ESCALATE_TO_LEAD,
+            WorkKind.CRITERIA_REVIEW_REMINDER,
+        }
     )
 
 
@@ -540,7 +545,12 @@ async def test_build_exposes_the_same_dispatch_table() -> None:
     container = build(Settings())
     try:
         assert container.scheduled_work.kinds == frozenset(
-            {WorkKind.REMINDER, WorkKind.PHONE_TASK, WorkKind.ESCALATE_TO_LEAD}
+            {
+                WorkKind.REMINDER,
+                WorkKind.PHONE_TASK,
+                WorkKind.ESCALATE_TO_LEAD,
+                WorkKind.CRITERIA_REVIEW_REMINDER,
+            }
         )
     finally:
         await container.shutdown()

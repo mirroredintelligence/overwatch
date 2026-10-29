@@ -18,8 +18,8 @@ from diucs.adapters.outbound.push_webpush.web_push import (
     WebPushSender,
     vapid_private_key,
 )
-from diucs.application.ports.outbound.messaging import SendFailedError, TransientSendError
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.application.ports.outbound.messaging import SendFailedError, TransientSendError
 from diucs.domain.errors import NotFound
 
 ENDPOINT = "https://push.example/sample-endpoint"
@@ -60,9 +60,7 @@ async def test_the_payload_carries_title_body_and_url_as_json() -> None:
     assert payload == {"title": "UCR West", "body": "Confirm or update", "url": "https://d/x"}
 
 
-async def test_the_message_is_sent_with_a_ten_minute_time_to_live_and_the_subject_in_the_claims() -> (
-    None
-):
+async def test_the_send_has_a_ten_minute_ttl_and_the_subject_in_its_claims() -> None:
     transport = RecordingTransport()
     await _sender(transport).send(SUBSCRIPTION, "t", "b", "https://d/x")
     call = transport.calls[0]

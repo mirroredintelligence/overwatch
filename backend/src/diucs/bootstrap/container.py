@@ -90,6 +90,10 @@ from diucs.application.ports.outbound.tokens import (
 )
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant
+from diucs.application.use_cases.criteria_reviews import (
+    RunCriteriaReviews,
+    RunCriteriaReviewsCommand,
+)
 from diucs.application.use_cases.missed_report_ladder import (
     LADDER_KINDS,
     LadderStepCommand,
@@ -201,6 +205,15 @@ def ladder_handlers(ladder: MissedReportLadder) -> dict[WorkKind, WorkHandler]:
     return {kind: step for kind in LADDER_KINDS}
 
 
+def criteria_review_handler(job: RunCriteriaReviews) -> WorkHandler:
+    """The daily criteria review run (U31), run once for each scheduled work of its kind."""
+
+    async def step(work: ScheduledWork) -> None:
+        await job.execute(RunCriteriaReviewsCommand(work_id=work.id))
+
+    return step
+
+
 def _scheduled_work(
     uow_factory: UnitOfWorkFactory,
     clock: Clock,
@@ -216,7 +229,10 @@ def _scheduled_work(
     ladder = MissedReportLadder(
         uow_factory, clock, ids, tokens, link_base_url, AesGcmContentSealer(secrets)
     )
-    return ScheduledWorkDispatcher(ladder_handlers(ladder))
+    handlers = ladder_handlers(ladder)
+    reviews = RunCriteriaReviews(uow_factory, ids, clock, AesGcmContentSealer(secrets))
+    handlers[WorkKind.CRITERIA_REVIEW_REMINDER] = criteria_review_handler(reviews)
+    return ScheduledWorkDispatcher(handlers)
 
 
 def _neo4j_connection(settings: Settings) -> Neo4jConnection:

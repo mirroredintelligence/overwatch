@@ -6,6 +6,7 @@ sender is a recording fake. Sample values only.
 """
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -21,11 +22,10 @@ from diucs.adapters.inbound.workers.message_senders import (
     push_urgency,
 )
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.recording_senders import RecordingPushSender
-from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.ports.outbound.event_bus import BusMessage
-from datetime import UTC, datetime
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
 SEALER = AesGcmContentSealer(FixedSecretStore({"link-token": SECRET}))

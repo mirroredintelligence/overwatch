@@ -20,14 +20,19 @@ import os
 import signal
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 
+import httpx
 from azure.servicebus.aio import ServiceBusClient
 
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
+from diucs.adapters.inbound.workers.message_senders import sender_runners
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants, StaticTenants
 from diucs.adapters.inbound.workers.reply_processor import HandlesInboundText, reply_consumer
 from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
+from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from diucs.application.ports.outbound.sealing import ContentSealer
+from diucs.application.ports.outbound.sender_resolver import SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import is_valid_tenant_id
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
@@ -35,6 +40,7 @@ from diucs.application.use_cases.handle_inbound_text import HandleInboundText
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
+from diucs.bootstrap.tenant_senders import TenantSenderResolver, status_callback_url
 
 TENANTS_VARIABLE = "DIUCS_WORKER_TENANTS"
 TENANTS_MISSING = (
@@ -43,6 +49,7 @@ TENANTS_MISSING = (
 TENANT_NOT_VALID = f"{TENANTS_VARIABLE} holds an entry that is not a valid tenant id"
 SERVICE_BUS_MISSING = "DIUCS_SERVICEBUS_CONNECTION must be set for the queue workers"
 REPLIES_QUEUE = "inbound.replies"
+SENDER_HTTP_TIMEOUT_SECONDS = 10.0
 RECEIPTS_QUEUE = "inbound.receipts"
 
 
@@ -72,9 +79,14 @@ def build_runners(
     handle_inbound_text: HandlesInboundText,
     uow_factory: UnitOfWorkFactory,
     tenants: ActiveTenants,
+    *,
+    senders: SenderResolver | None = None,
+    sealer: ContentSealer | None = None,
 ) -> list[ServiceBusRunner]:
-    """One runner for each inbound queue, each over a consumer that binds the message's tenant."""
-    return [
+    """One runner for each inbound queue, each over a consumer that binds the message's tenant.
+    With a sender resolver and a sealer, the two runners of `messages.outbound` (the text and email
+    senders, I10) are added; each binds the message's tenant in the same way."""
+    runners = [
         ServiceBusRunner(
             client,
             REPLIES_QUEUE,
@@ -88,6 +100,9 @@ def build_runners(
             receipt_consumer(uow_factory, tenants),
         ),
     ]
+    if senders is not None and sealer is not None:
+        runners += sender_runners(client, uow_factory, tenants, senders, sealer)
+    return runners
 
 
 async def run_workers(
@@ -104,6 +119,7 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
     await container.startup()  # refuses to start when Neo4j cannot be reached
     cache = RedisCache.from_url(settings.redis_url)
     client = ServiceBusClient.from_connection_string(connection)
+    http = httpx.AsyncClient(timeout=SENDER_HTTP_TIMEOUT_SECONDS)
     try:
         store = DriverIdempotencyStore(container.neo4j.driver)
         use_case = HandleInboundText(
@@ -115,9 +131,16 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
             ReportCapacity(container.uow_factory, container.clock, container.ids, store),
             ConfirmCapacity(container.uow_factory, container.clock, container.ids, store),
         )
-        runners = build_runners(client, use_case, container.uow_factory, tenants)
+        senders = TenantSenderResolver(
+            container.tenants, container.secrets, http, status_callback_url(settings)
+        )
+        sealer = AesGcmContentSealer(container.secrets)
+        runners = build_runners(
+            client, use_case, container.uow_factory, tenants, senders=senders, sealer=sealer
+        )
         await run_workers([runner.serve for runner in runners], stop)
     finally:
+        await http.aclose()
         await client.close()
         await cache.aclose()
         await container.shutdown()

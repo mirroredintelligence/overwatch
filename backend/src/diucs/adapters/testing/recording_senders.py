@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from diucs.application.ports.outbound.messaging import EmailSender, SendReceipt, SmsSender
+from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable
+from diucs.application.tenancy import current_tenant
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,8 +103,9 @@ class RecordingPushSender:
 
 
 class FixedSenderResolver:
-    """A SenderResolver for tests: each tenant gets its own recording sender, and a tenant that is
-    not listed (or listed with None) has no channel, so nothing is sent for it (I10)."""
+    """A SenderResolver for tests: each tenant gets its own recording sender, read from the tenant
+    bound on the unit of work (current_tenant). A tenant that is not listed has no channel, so the
+    resolver raises ChannelUnavailable and nothing is sent for it (I10)."""
 
     def __init__(
         self,
@@ -112,8 +115,16 @@ class FixedSenderResolver:
         self._sms = dict(sms or {})
         self._email = dict(email or {})
 
-    async def sms_for(self, tenant_id: str) -> SmsSender | None:
-        return self._sms.get(tenant_id)
+    async def sms_for(self) -> SmsSender:
+        tenant = current_tenant()
+        sender = self._sms.get(tenant)
+        if sender is None:
+            raise ChannelUnavailable(f"no text channel for tenant {tenant}")
+        return sender
 
-    async def email_for(self, tenant_id: str) -> EmailSender | None:
-        return self._email.get(tenant_id)
+    async def email_for(self) -> EmailSender:
+        tenant = current_tenant()
+        sender = self._email.get(tenant)
+        if sender is None:
+            raise ChannelUnavailable(f"no email channel for tenant {tenant}")
+        return sender

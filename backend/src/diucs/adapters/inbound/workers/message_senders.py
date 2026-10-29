@@ -45,7 +45,7 @@ from diucs.application.ports.outbound.messaging import (
     TransientSendError,
 )
 from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.sender_resolver import SenderResolver
+from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable, SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.domain.codes import Channel
 from diucs.domain.errors import ValidationFailed
@@ -202,7 +202,10 @@ class _OutboundSender:
             await self._settle(uow, message, communication.id, "failed", None, NO_CONTACT)
             return
         try:
-            receipt = await self._send(tenant_id, address, outbound, message.id)
+            receipt = await self._send(address, outbound, message.id)
+        except ChannelUnavailable:
+            await self._settle(uow, message, communication.id, "failed", None, NO_CHANNEL)
+            return
         except TransientSendError:
             raise
         except SendFailedError as error:
@@ -214,9 +217,7 @@ class _OutboundSender:
             )
             await self._settle(uow, message, communication.id, "failed", None, SEND_FAILED)
             return
-        if receipt is None:
-            await self._settle(uow, message, communication.id, "failed", None, NO_CHANNEL)
-        elif receipt.accepted:
+        if receipt.accepted:
             await self._settle(
                 uow, message, communication.id, "sent", receipt.provider_message_id, None
             )
@@ -250,11 +251,9 @@ class _OutboundSender:
     async def _address(self, uow: UnitOfWork, role_id: str) -> str | None:
         raise NotImplementedError
 
-    async def _send(
-        self, tenant_id: str, address: str, outbound: OutboundMessage, outbox_id: str
-    ) -> SendReceipt | None:
-        """The receipt of the send, or None when the bound tenant has no sender for this channel
-        (nothing is sent). A TransientSendError propagates: the message is retried."""
+    async def _send(self, address: str, outbound: OutboundMessage, outbox_id: str) -> SendReceipt:
+        """The receipt of the send. ChannelUnavailable means nothing is sent. A TransientSendError
+        propagates: the message is retried."""
         raise NotImplementedError
 
 
@@ -267,12 +266,8 @@ class SmsMessageSender(_OutboundSender):
     async def _address(self, uow: UnitOfWork, role_id: str) -> str | None:
         return await uow.contacts.get_phone(role_id)
 
-    async def _send(
-        self, tenant_id: str, address: str, outbound: OutboundMessage, outbox_id: str
-    ) -> SendReceipt | None:
-        sender: SmsSender | None = await self._senders.sms_for(tenant_id)
-        if sender is None:
-            return None
+    async def _send(self, address: str, outbound: OutboundMessage, outbox_id: str) -> SendReceipt:
+        sender: SmsSender = await self._senders.sms_for()
         return await sender.send(address, outbound.text, outbox_id)
 
 
@@ -285,12 +280,8 @@ class EmailMessageSender(_OutboundSender):
     async def _address(self, uow: UnitOfWork, role_id: str) -> str | None:
         return await uow.contacts.get_email(role_id)
 
-    async def _send(
-        self, tenant_id: str, address: str, outbound: OutboundMessage, outbox_id: str
-    ) -> SendReceipt | None:
-        sender: EmailSender | None = await self._senders.email_for(tenant_id)
-        if sender is None:
-            return None
+    async def _send(self, address: str, outbound: OutboundMessage, outbox_id: str) -> SendReceipt:
+        sender: EmailSender = await self._senders.email_for()
         if outbound.subject is None:
             raise PermanentError(BAD_CONTENT)
         return await sender.send(address, outbound.subject, outbound.text, outbound.html)

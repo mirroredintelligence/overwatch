@@ -73,6 +73,10 @@ GLOBAL_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
             "finds the tenant of the active TenantNumber registry nodes of a Twilio account, for "
             "delivery receipts (DEC-131 item 2): matched by account alone"
         ),
+        "Q-TENANT-ACTIVE-LINE": (
+            "reads the active number of one active Tenant (the bound tenant, I10 outbound "
+            "sender): registry data for that id only, and the caller is already bound to it"
+        ),
         "Q-TENANT-BY-HOST": (
             "finds the Tenant registry node of a host name (DEC-134 item 3): the host of an "
             "unauthenticated request is the only thing that names its tenant"
@@ -101,6 +105,7 @@ GLOBAL_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
         "Q-TENANT-ACTIVE-IDS": "230af35beaafb4e989676fe9c7dc999173adc599ee2e13a65b004b8475a7ed98",
         "Q-TENANT-BY-NUMBER": "f8b70805b9fc22b2d3e55ebcb146543528bb44e4f63251690ab60fd8c5ff65c6",
         "Q-TENANT-BY-ACCOUNT": "d835f568a9fb00629afba8db585d72d9d516d90aceea42191046fee236891550",
+        "Q-TENANT-ACTIVE-LINE": "5d63a256430a4267c7848d6f6e445759b94049a937ef9631a1d042d915182f76",
         "Q-TENANT-BY-HOST": "6d54e9494484becff85e4c68de1c95f2e070c302e575657011295042235a2d21",
         "Q-TENANT-BY-ENTRA": "cde6d057e41dba1d35ca029ef4f29e51b16d1d4e0c9dfd909d297bcaba844888",
     }

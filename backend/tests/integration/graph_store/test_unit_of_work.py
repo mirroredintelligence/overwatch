@@ -286,7 +286,7 @@ class _Echo:
         )
 
     async def active_services(self) -> list[dict[str, Any]]:
-        # A statement that is not converted yet: it receives the scope's `tenant` unused.
+        # A converted statement: it runs only under a bound tenant.
         return await run_query(self._tx, REGISTRY.get("Q-SVC-LIST-ACTIVE"))
 
 
@@ -365,7 +365,9 @@ async def test_a_unit_opened_with_nothing_bound_refuses_a_converted_statement_an
                 assert uow.unit_scope is None
                 with pytest.raises(TenantNotBound):
                     await uow.echo.tenant()  # type: ignore[attr-defined]
-                assert await uow.echo.active_services() == []  # type: ignore[attr-defined]
+                # Q-SVC-LIST-ACTIVE is converted (TEN-010): with nothing bound it refuses.
+                with pytest.raises(TenantNotBound):
+                    await uow.echo.active_services()  # type: ignore[attr-defined]
 
         await _unbound(unbound_unit())
         assert connection.open_session_count == 0

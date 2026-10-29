@@ -23,6 +23,8 @@ from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import codeable_to_fhir
+from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
+from diucs.adapters.outbound.graph_store.week_scenarios import WEEK_SCENARIOS
 from diucs.domain.codes import BASE_URL, BookingStatus, code_system_url
 from diucs.domain.errors import NotFound, ValidationFailed
 from diucs.domain.model.booking import Booking
@@ -41,56 +43,66 @@ _REFERENCE: Final = "reference"
 _PENDING: Final = NamedQuery(
     id="Q-BOOK-PENDING",
     cypher=(
-        "MATCH (t:Task {businessStatus: 'requested'})-[:OWNER]->(:HealthcareService {id: $id}) "
+        "MATCH (t:Task {businessStatus: 'requested', tenantId: $tenant})"
+        "-[:OWNER]->(:HealthcareService {id: $id, tenantId: $tenant}) "
         "RETURN count(t) AS pending"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-PENDING"],
 )
 _OPEN_FOR: Final = NamedQuery(
     id="Q-BOOK-OPEN-FOR",
     cypher=(
-        "MATCH (t:Task {businessStatus: 'requested'})-[:OWNER]->(s:HealthcareService) "
+        "MATCH (t:Task {businessStatus: 'requested', tenantId: $tenant})"
+        "-[:OWNER]->(s:HealthcareService {tenantId: $tenant}) "
         "WHERE s.id IN $ids RETURN s.id AS serviceId, t.id AS id "
         "ORDER BY t.authoredOn, t.id"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-OPEN-FOR"],
 )
 _CONFIRMED_FOR: Final = NamedQuery(
     id="Q-BOOK-CONFIRMED-SINCE",
     cypher=(
-        "MATCH (t:Task {businessStatus: 'confirmed'})-[:OWNER]->(:HealthcareService {id: $id}) "
+        "MATCH (t:Task {businessStatus: 'confirmed', tenantId: $tenant})"
+        "-[:OWNER]->(:HealthcareService {id: $id, tenantId: $tenant}) "
         "RETURN t.id AS id ORDER BY t.id"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-CONFIRMED-SINCE"],
 )
 _CONFIRMED_FOR_SERVICES: Final = NamedQuery(
     id="Q-BOOK-CONFIRMED-FOR",
     cypher=(
-        "MATCH (t:Task {businessStatus: 'confirmed'})-[:OWNER]->(s:HealthcareService) "
+        "MATCH (t:Task {businessStatus: 'confirmed', tenantId: $tenant})"
+        "-[:OWNER]->(s:HealthcareService {tenantId: $tenant}) "
         "WHERE s.id IN $ids "
-        "MATCH (t)-[:HAS_OUTPUT]->(o:Task_Output)-[:TYPE]->"
-        "(c:Concept {code: $code, system: $system}) "
+        "MATCH (t)-[:HAS_OUTPUT]->(o:Task_Output {tenantId: $tenant})-[:TYPE]->"
+        "(c:Concept {code: $code, system: $system, tenantId: $tenant}) "
         "RETURN s.id AS serviceId, o.valueDateTime AS confirmedAt "
         "ORDER BY s.id, o.valueDateTime"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-CONFIRMED-FOR"],
 )
 _BY_REF: Final = NamedQuery(
     id="Q-BOOK-BY-REF",
     cypher=(
-        "MATCH (t:Task {reference: $reference}) RETURN t.id AS id "
+        "MATCH (t:Task {reference: $reference, tenantId: $tenant}) RETURN t.id AS id "
         "ORDER BY t.authoredOn DESC, t.id LIMIT 1"
     ),
     mode="read",
+    scenario=SCENARIOS["Q-BOOK-BY-REF"],
 )
 _SET_PROPS: Final = NamedQuery(
     id="Q-BOOK-SET-PROPS",
     cypher=(
-        "MATCH (t:Task {key: $key}) "
+        "MATCH (t:Task {key: $key, tenantId: $tenant}) "
         "SET t.businessStatus = $businessStatus, t.reference = $reference "
         "RETURN count(t) AS set"
     ),
     mode="write",
+    scenario=SCENARIOS["Q-BOOK-SET-PROPS"],
 )
 
 
@@ -306,6 +318,18 @@ class Neo4jBookingRepository:
                 times.append(confirmed)
         return sorted(times)
 
+    async def confirmed_between(self, start: datetime, end: datetime) -> list[Booking]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-BOOK-CONFIRMED-BETWEEN"),
+            start=start.astimezone(UTC),
+            end=end.astimezone(UTC),
+            code=_CONFIRMED_AT,
+            system=_OUTPUT_TYPE_SYSTEM,
+        )
+        found = [await self.get(str(row["id"])) for row in rows]
+        return [booking for booking in found if booking is not None]
+
     async def confirmed_since_for_services(
         self, service_ids: Sequence[str], since: datetime
     ) -> dict[str, list[datetime]]:
@@ -347,3 +371,19 @@ class Neo4jBookingRepository:
             businessStatus=status,
             reference=booking.reference,
         )
+
+
+_CONFIRMED_BETWEEN: Final = NamedQuery(
+    id="Q-BOOK-CONFIRMED-BETWEEN",
+    cypher=(
+        "MATCH (t:Task {businessStatus: 'confirmed', tenantId: $tenant})"
+        "-[:HAS_OUTPUT]->(o:Task_Output {tenantId: $tenant})-[:TYPE]->"
+        "(c:Concept {code: $code, system: $system, tenantId: $tenant}) "
+        "WHERE o.valueDateTime >= $start AND o.valueDateTime < $end "
+        "RETURN t.id AS id ORDER BY o.valueDateTime ASC, t.id ASC"
+    ),
+    mode="read",
+    scenario=WEEK_SCENARIOS["Q-BOOK-CONFIRMED-BETWEEN"],
+)
+if _CONFIRMED_BETWEEN.id not in REGISTRY.ids():
+    REGISTRY.register(_CONFIRMED_BETWEEN)

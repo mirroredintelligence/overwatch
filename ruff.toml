@@ -1,0 +1,7 @@
+# Root ruff config. The back end has its own settings in backend/pyproject.toml and ruff uses the nearest
+# config per file, so those files are unaffected. This file only protects everything else: a `ruff format`
+# run from the repo root once rewrapped the delivery scripts, evidence scripts and a prompt at ruff's default
+# width of 88. force-exclude keeps the exclusion even when a path is named on the command line.
+line-length = 100
+force-exclude = true
+extend-exclude = [".claude", "docs", "frontend", "infra"]

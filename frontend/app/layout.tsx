@@ -3,6 +3,11 @@ import { Atkinson_Hyperlegible } from 'next/font/google';
 import type { ReactNode } from 'react';
 import './tokens.css';
 
+// Every page is rendered per request, so Next.js can put this request's nonce on its scripts (S01).
+
+// Every page is rendered per request, so Next.js can put this request's nonce on its scripts (S01).
+export const dynamic = 'force-dynamic';
+
 const atkinson = Atkinson_Hyperlegible({
   subsets: ['latin'],
   weight: ['400', '700'],

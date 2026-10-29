@@ -19,6 +19,7 @@ from diucs.adapters.outbound.graph_store import case_repository
 from diucs.adapters.outbound.graph_store.case_repository import Neo4jCaseRepository
 from diucs.adapters.outbound.graph_store.queries import NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.application.tenancy import current_tenant
 from diucs.domain.codes import AgeBand, NeedCategory, Outcome, ReferrerType, Urgency
 from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
 from diucs.domain.model.case import Case
@@ -331,7 +332,8 @@ async def test_the_case_reference_is_unique_in_the_graph(neo4j_driver: AsyncDriv
     async def duplicate(tx: AsyncManagedTransaction) -> None:
         await tx.run(
             "CREATE (:ServiceRequest {id: 'case-x', key: 'ServiceRequest/case-x', "
-            "reference: '4821'})"
+            "reference: '4821', tenantId: $tenant})",
+            tenant=current_tenant(),
         )
 
     with pytest.raises(ClientError):

@@ -31,6 +31,7 @@ from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
 from diucs.application.ports.outbound.tenants import TenantRecordInvalid
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.pair_wall_screen import (
     LIMIT_WINDOW,
     RATE_LIMITED_MESSAGE,
@@ -201,12 +202,17 @@ async def test_a_start_with_the_pairing_secrets_missing_fails_closed_with_a_500(
     assert container.tenants.asked == []
 
 
+async def _use_up(container: _Container, key: str, limit: int) -> None:
+    """Take every slot of a limit, in the tenant the routes bind (the cache scopes names to it)."""
+    limiter = AttemptLimiter(container.cache)
+    with bind_tenant(TENANT):
+        for _ in range(limit):
+            assert await limiter.take(key, limit, LIMIT_WINDOW) is not None
+
+
 async def test_the_start_limit_for_one_address_answers_429_before_any_unit_opens() -> None:
     container = _Container()
-    key = routes_screens._address_key(TENANT, "start", _request())
-    limiter = AttemptLimiter(container.cache)
-    for _ in range(routes_screens.ADDRESS_STARTS):
-        assert await limiter.take(key, routes_screens.ADDRESS_STARTS, LIMIT_WINDOW) is not None
+    await _use_up(container, routes_screens._address_key(TENANT, "start", _request()), 20)
 
     async with _client(container) as client:
         response = await client.post(_url(ACTIVE_HOST, START), json={})
@@ -236,9 +242,7 @@ async def test_a_claim_to_a_host_no_tenant_owns_is_the_one_refusal() -> None:
 async def test_the_refused_claim_limit_answers_429_for_every_claim_from_that_address() -> None:
     container = _Container()
     key = routes_screens._address_key(TENANT, "claim-refused", _request())
-    limiter = AttemptLimiter(container.cache)
-    for _ in range(routes_screens.ADDRESS_REFUSED_CLAIMS):
-        assert await limiter.take(key, routes_screens.ADDRESS_REFUSED_CLAIMS, LIMIT_WINDOW)
+    await _use_up(container, key, routes_screens.ADDRESS_REFUSED_CLAIMS)
 
     async with _client(container) as client:
         response = await client.get(

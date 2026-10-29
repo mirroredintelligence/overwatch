@@ -1,0 +1,51 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "role",
+  "url": "https://diucs.example/CodeSystem/role",
+  "name": "role",
+  "status": "active",
+  "content": "complete",
+  "count": 10,
+  "concept": [
+    {
+      "code": "advisor",
+      "display": "Advisor"
+    },
+    {
+      "code": "anonymous-link",
+      "display": "Anonymous link"
+    },
+    {
+      "code": "audit",
+      "display": "Audit"
+    },
+    {
+      "code": "clinical",
+      "display": "Clinical"
+    },
+    {
+      "code": "exec",
+      "display": "Exec"
+    },
+    {
+      "code": "lead",
+      "display": "Lead"
+    },
+    {
+      "code": "owner",
+      "display": "Owner"
+    },
+    {
+      "code": "reporter",
+      "display": "Reporter"
+    },
+    {
+      "code": "support",
+      "display": "Support"
+    },
+    {
+      "code": "wall",
+      "display": "Wall"
+    }
+  ]
+}

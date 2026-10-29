@@ -10,9 +10,14 @@ refused when the fake is built, with the field name only: the value is never ech
 
 from collections.abc import Mapping, Sequence
 
-from diucs.application.ports.outbound.geo import AddressCandidate, LatLon, TravelRange
+from diucs.application.ports.outbound.geo import AddressCandidate, LatLon, Located, TravelRange
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.postcode import normalise_district, normalise_postcode
+from diucs.domain.rules.postcode import (
+    normalise_district,
+    normalise_postcode,
+    partial_district,
+    postcode_district,
+)
 
 
 def _postcode_key(postcode: str) -> str:
@@ -62,6 +67,24 @@ class FixedPostcodeLocator:
     def district_centroid(self, district: str) -> LatLon | None:
         key = normalise_district(district)
         return None if key is None else self._districts.get(key)
+
+    def locate(self, postcode: str) -> Located | None:
+        """Exact when the full postcode is in the table; otherwise its district's position, marked
+        approximate, for a full postcode or a partial one ('DT4 8X') whose district is in the table.
+        An unknown value is None (the table holds no guess)."""
+        key = normalise_postcode(postcode)
+        if key is not None:
+            exact = self._postcodes.get(key)
+            if exact is not None:
+                return Located(exact, approximate=False)
+            district = postcode_district(key)
+        else:
+            named = partial_district(postcode)
+            if named is None:
+                return None
+            district = named
+        centre = self._districts.get(district)
+        return None if centre is None else Located(centre, approximate=True)
 
 
 class FixedTravelTime:

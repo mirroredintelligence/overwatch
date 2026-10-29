@@ -18,11 +18,10 @@ A payload that cannot be applied (no provider id, a status the system does not r
 is not text, another kind of message) is a PermanentError with a fixed text, so the bus
 dead-letters it at once and it does not hold up the queue.
 
-TENANT-PENDING (TEN-015): the two statements behind `by_provider_id` and `set_delivery_status`
-match by provider id and are not yet tenant-scoped, so until they are converted a receipt can still
-reach another tenant's Communication with the same provider id. Twilio message ids are unique
-across accounts, so only a forged callback could do it, and the test that shows the gap is a strict
-xfail (DEC-165 item 7).
+The two statements behind `by_provider_id` and `set_delivery_status` are tenant-scoped (TEN-015):
+a receipt for a provider id finds and changes only the Communication of the tenant bound on the
+message, so another tenant's Communication with the same provider id reads as no record and the
+receipt completes (DEC-165 item 9).
 """
 
 import logging

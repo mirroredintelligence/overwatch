@@ -5,10 +5,8 @@ of work. A receipt moves a Communication's delivery status forward and never bac
 failed are final, and a late sent, an out-of-order queued or a repeat changes nothing. The tenant is
 the one on the message, bound before the unit of work opens.
 
-TENANT-PENDING (TEN-015): the statements that find and change a Communication by its provider id
-are not yet tenant-scoped (no node carries tenantId yet), so one tenant's receipt can still reach
-another tenant's Communication with the same provider id. The test that shows this is strict xfail:
-it must start passing when the statements are converted, and then the marker is removed.
+The statements that find and change a Communication by its provider id are tenant-scoped (TEN-015):
+a receipt for tenant A cannot reach tenant B's Communication with the same provider id.
 """
 
 import itertools
@@ -296,10 +294,6 @@ async def test_two_tenants_each_have_their_own_marker_for_their_receipts(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="TEN-015: Q-COMM-BY-PROVIDER and Q-COMM-SET-STATUS match by provider id alone (DEC-165)",
-)
 async def test_another_tenants_message_id_reads_as_not_found_and_is_dropped(
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,

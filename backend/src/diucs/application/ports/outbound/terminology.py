@@ -9,6 +9,7 @@ An empty list from FhirValidator.validate means valid. Any issue, of any severit
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol, get_args
 
+from diucs.domain.codes import BASE_URL
 from diucs.domain.errors import ValidationFailed
 
 Severity = Literal["fatal", "error", "warning", "information"]
@@ -42,6 +43,11 @@ class Terminology(Protocol):
     async def ods_lookup(self, code: str) -> OdsRecord | None: ...
 
     async def display(self, system: str, code: str) -> str | None: ...
+
+
+def profile_url(name: str) -> str:
+    """The canonical URL of a published profile: `{BASE_URL}StructureDefinition/<Name>` (R14)."""
+    return f"{BASE_URL}StructureDefinition/{name}"
 
 
 class FhirValidator(Protocol):

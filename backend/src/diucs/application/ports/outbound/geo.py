@@ -46,12 +46,26 @@ class Geocoder(Protocol):
     async def find_addresses(self, postcode: str) -> list[AddressCandidate]: ...
 
 
+@dataclass(frozen=True, slots=True)
+class Located:
+    """A position for a postcode. `approximate` is True when it is a district's mean, not the
+    postcode's own point (I11): the advisor is then shown the district, not a house."""
+
+    lat_lon: LatLon
+    approximate: bool
+
+
 class PostcodeLocator(Protocol):
     """Local centroid lookups. Read from a file held in memory, so the methods are synchronous."""
 
     def centroid(self, postcode: str) -> LatLon | None: ...
 
     def district_centroid(self, district: str) -> LatLon | None: ...
+
+    def locate(self, postcode: str) -> Located | None:
+        """The position of a full or partial postcode, or of a district: exact when the postcode
+        is known, otherwise its district's position with approximate=True, else None."""
+        ...
 
 
 class TravelTime(Protocol):

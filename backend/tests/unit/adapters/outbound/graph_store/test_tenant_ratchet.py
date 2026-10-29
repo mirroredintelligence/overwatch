@@ -64,6 +64,33 @@ RESOURCE_STORE = frozenset(
     }
 )
 
+# The nineteen statements of the person, registration and scope-list repositories (TEN-011,
+# DEC-170): each is tenant-scoped on every node it matches, merges or creates, carries a scenario,
+# and is off the ratchet. None may be on the ratchet again.
+PEOPLE_REGISTRATION_SCOPE = frozenset(
+    {
+        "Q-PERSON-PHONE-FIND",
+        "Q-PERSON-ROLES-OF",
+        "Q-PERSON-SET-PROPS",
+        "Q-PHONE-SERVICES-AT",
+        "Q-PHONE-SERVICES-HELD",
+        "Q-ROLE-CHANNEL",
+        "Q-ROLE-COVER",
+        "Q-SERVICE-REPORTER-ROLES",
+        "Q-REG-BY-STATUS",
+        "Q-REG-DRAFT-ADD",
+        "Q-REG-DRAFT-CLEAR",
+        "Q-REG-DRAFT-FOR",
+        "Q-REG-FOR-SERVICE",
+        "Q-REG-SET-PROPS",
+        "Q-SCOPE-ENSURE-LIST",
+        "Q-SCOPE-ENTRIES",
+        "Q-SCOPE-ENTRY-FOR",
+        "Q-SCOPE-LOCK-LIST",
+        "Q-SCOPE-UPSERT-ENTRY",
+    }
+)
+
 # The single-property unique constraints each starter scenario leans on. TEN-005 replaced them with
 # composite keys (tenantId plus the key), so the two tenants share every key a scenario uses and no
 # scenario leans on one, but for the one key that stays unique across tenants by design: the hash
@@ -208,6 +235,142 @@ def test_a_converted_statement_names_its_tenant_on_every_node_it_matches_or_crea
     for query_id in sorted(STARTER):
         text = statements[query_id].cypher
         for match in pattern.finditer(text):
+            assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), (
+                query_id,
+                match.group(0),
+            )
+
+
+def test_the_people_registration_and_scope_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert len(PEOPLE_REGISTRATION_SCOPE) == 19
+    for query_id in sorted(PEOPLE_REGISTRATION_SCOPE):
+        query = statements[query_id]
+        assert query.scenario is not None, query_id
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query_id not in UNCONVERTED, query_id
+
+
+# The thirteen statements of the communication and scheduled-work records (TEN-015, reworks P07 and
+# P08): nine on Communication, four on ScheduledWork. Each must be off the ratchet, carry a valid
+# scenario, and name `tenantId: $tenant` on every node it matches or creates.
+TEN_015 = frozenset(
+    {
+        "Q-COMM-ADD",
+        "Q-COMM-BY-PROVIDER",
+        "Q-COMM-EXISTS",
+        "Q-COMM-GET",
+        "Q-COMM-LATEST-PROMPT",
+        "Q-COMM-LINK-ABOUT",
+        "Q-COMM-LINK-RECIPIENT",
+        "Q-COMM-LINK-REPLY",
+        "Q-COMM-SET-STATUS",
+        "Q-WORK-ADD",
+        "Q-WORK-FOR-ABOUT",
+        "Q-WORK-GET",
+        "Q-WORK-SAVE",
+    }
+)
+
+
+def test_the_communication_and_scheduled_work_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert set() == TEN_015 & UNCONVERTED
+    assert set(statements) >= TEN_015
+    for query_id in sorted(TEN_015):
+        query = statements[query_id]
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query.scenario is not None, query_id
+        assert validate_scenario(query_id, query.scenario) == [], query_id
+        pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{[^}]*\})?\)")
+        for match in pattern.finditer(query.cypher):
+            assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), (
+                query_id,
+                match.group(0),
+            )
+
+
+# The twenty-one statements of the criteria and report or service flag repositories (TEN-012,
+# reworks P04 and P14): eight on the criteria Basic and its service, thirteen on the flags. Each
+# must be off the ratchet, carry a valid scenario, and name `tenantId: $tenant` on every node it
+# matches, merges or creates.
+CRITERIA_AND_FLAGS = frozenset(
+    {
+        "Q-CRIT-CLEAR-CURRENT",
+        "Q-CRIT-CURRENT",
+        "Q-CRIT-CURRENT-FOR",
+        "Q-CRIT-LABEL",
+        "Q-CRIT-LOCK-SERVICE",
+        "Q-CRIT-SET-CURRENT",
+        "Q-CRIT-SUBJECT",
+        "Q-CRIT-VERSIONS",
+        "Q-FLAG-BASIC-STATE",
+        "Q-FLAG-LABEL",
+        "Q-FLAG-OBS-LOCK",
+        "Q-FLAG-OBS-SERVICE",
+        "Q-FLAG-REPORT-ADD",
+        "Q-FLAG-REPORT-EXISTS",
+        "Q-FLAG-REPORT-GET",
+        "Q-FLAG-REPORT-LOCK",
+        "Q-FLAG-REPORT-OPEN",
+        "Q-FLAG-REPORT-SAVE",
+        "Q-FLAG-SERVICE-ACTIVE",
+        "Q-FLAG-SERVICE-LOCK",
+        "Q-FLAG-SERVICES-WITH",
+    }
+)
+
+
+def test_the_criteria_and_flag_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert len(CRITERIA_AND_FLAGS) == 21
+    assert CRITERIA_AND_FLAGS.isdisjoint(UNCONVERTED)
+    assert set(statements) >= CRITERIA_AND_FLAGS
+    for query_id in sorted(CRITERIA_AND_FLAGS):
+        query = statements[query_id]
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query.scenario is not None, query_id
+        assert validate_scenario(query_id, query.scenario) == [], query_id
+        pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{[^}]*\})?\)")
+        for match in pattern.finditer(query.cypher):
+            assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), (
+                query_id,
+                match.group(0),
+            )
+
+
+# The seven statements of the contact and device stores (TEN-014, reworks P16): two on the protected
+# contact, five on the practitioner's devices. Each must be off the ratchet, carry a valid scenario,
+# and name `tenantId: $tenant` on every node it matches, merges or creates.
+CONTACT_AND_DEVICE = frozenset(
+    {
+        "Q-CONTACT-GET",
+        "Q-CONTACT-PUT",
+        "Q-DEVICE-KNOWN",
+        "Q-DEVICE-LOCK",
+        "Q-DEVICE-OWNER",
+        "Q-DEVICE-REGISTER",
+        "Q-DEVICE-REVOKE",
+    }
+)
+
+
+def test_the_contact_and_device_statements_are_converted(
+    statements: dict[str, NamedQuery],
+) -> None:
+    assert len(CONTACT_AND_DEVICE) == 7
+    assert CONTACT_AND_DEVICE.isdisjoint(UNCONVERTED)
+    assert set(statements) >= CONTACT_AND_DEVICE
+    for query_id in sorted(CONTACT_AND_DEVICE):
+        query = statements[query_id]
+        assert "tenantId: $tenant" in query.cypher, query_id
+        assert query.scenario is not None, query_id
+        assert validate_scenario(query_id, query.scenario) == [], query_id
+        pattern = re.compile(r"\((?:\w+)?(?::\w+)+\s*(\{[^}]*\})?\)")
+        for match in pattern.finditer(query.cypher):
             assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), (
                 query_id,
                 match.group(0),

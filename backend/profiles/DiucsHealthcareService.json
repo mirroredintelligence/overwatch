@@ -1,0 +1,53 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "https://diucs.example/StructureDefinition/DiucsHealthcareService",
+  "name": "DiucsHealthcareService",
+  "title": "DIUCS health care service",
+  "status": "active",
+  "description": "A service a capacity is reported for: its name, whether it is active, its category, and the organisation that provides it.",
+  "fhirVersion": "4.3.0",
+  "kind": "resource",
+  "abstract": false,
+  "type": "HealthcareService",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/HealthcareService",
+  "derivation": "constraint",
+  "differential": {
+    "element": [
+      {
+        "id": "HealthcareService",
+        "path": "HealthcareService"
+      },
+      {
+        "id": "HealthcareService.active",
+        "path": "HealthcareService.active",
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "HealthcareService.name",
+        "path": "HealthcareService.name",
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "HealthcareService.category",
+        "path": "HealthcareService.category",
+        "min": 1
+      },
+      {
+        "id": "HealthcareService.providedBy",
+        "path": "HealthcareService.providedBy",
+        "type": [
+          {
+            "code": "Reference",
+            "targetProfile": [
+              "http://hl7.org/fhir/StructureDefinition/Organization"
+            ]
+          }
+        ],
+        "min": 1,
+        "max": "1"
+      }
+    ]
+  }
+}

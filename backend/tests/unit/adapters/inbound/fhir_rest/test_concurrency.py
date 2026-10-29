@@ -5,6 +5,7 @@ FixedClock, so no Neo4j or network is needed. Synthetic values only.
 """
 
 import hashlib
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -28,7 +29,20 @@ from diucs.adapters.inbound.fhir_rest.errors import (
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.actor import Actor
+from diucs.application.tenancy import bind_tenant
 from diucs.domain.codes import Role
+
+
+@pytest.fixture(autouse=True)
+def _bound_tenant(request: pytest.FixtureRequest) -> Iterator[None]:
+    """The cache keys every value by the bound tenant (TEN-019): each test binds one. A test marked
+    `no_tenant` runs with nothing bound."""
+    if request.node.get_closest_marker("no_tenant") is not None:
+        yield
+        return
+    with bind_tenant("acme-icb"):
+        yield
+
 
 T0 = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 ACTOR = Actor(Role.LEAD, "pr-1", None, "api", frozenset())

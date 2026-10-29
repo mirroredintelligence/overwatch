@@ -1,0 +1,42 @@
+{
+  "resourceType": "StructureDefinition",
+  "url": "https://diucs.example/StructureDefinition/DiucsServiceCriteria",
+  "name": "DiucsServiceCriteria",
+  "title": "DIUCS service criteria version",
+  "status": "active",
+  "description": "One version of a service's criteria: the needs it accepts and excludes, its age range and districts, and its status. The criteria elements (ageMin, status, version and the rest) are stored as properties (DEC-001), which R4B Basic does not hold, so only the profile rules are run on it, not the R4B structure check.",
+  "fhirVersion": "4.3.0",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Basic",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Basic",
+  "derivation": "constraint",
+  "differential": {
+    "element": [
+      {
+        "id": "Basic",
+        "path": "Basic"
+      },
+      {
+        "id": "Basic.subject",
+        "path": "Basic.subject",
+        "type": [
+          {
+            "code": "Reference",
+            "targetProfile": [
+              "http://hl7.org/fhir/StructureDefinition/HealthcareService"
+            ]
+          }
+        ],
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "Basic.author",
+        "path": "Basic.author",
+        "min": 1,
+        "max": "1"
+      }
+    ]
+  }
+}

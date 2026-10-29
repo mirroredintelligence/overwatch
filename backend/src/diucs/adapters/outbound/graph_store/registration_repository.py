@@ -23,6 +23,11 @@ from neo4j import AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
+from diucs.adapters.outbound.graph_store.invitation_fhir import (
+    invitation_from_fhir,
+    invitation_to_fhir,
+    is_invitation,
+)
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.scenario import (
@@ -45,7 +50,7 @@ from diucs.domain.codes import (
     parse_code,
 )
 from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.registration import Registration
+from diucs.domain.model.registration import Invitation, Registration
 from diucs.domain.rules.registration import ApprovalChecks
 
 TASK: Final = "Task"
@@ -455,6 +460,22 @@ class Neo4jRegistrationRepository:
             code=REGISTER_SERVICE,
         )
         return await self._many(rows)
+
+    async def add_invitation(self, invitation: Invitation) -> None:
+        # The store refuses an existing Task with Conflict (expected version None).
+        await self._store.put(invitation_to_fhir(invitation), None)
+
+    async def get_invitation(self, invitation_id: str) -> Invitation | None:
+        resource = await self._store.get(TASK, invitation_id)
+        if resource is None or not is_invitation(resource):
+            return None
+        return invitation_from_fhir(resource)
+
+    async def save_invitation(self, invitation: Invitation) -> None:
+        current = await self._store.get(TASK, invitation.id)
+        if current is None or not is_invitation(current):
+            raise NotFound("invitation")
+        await self._store.put(invitation_to_fhir(invitation), str(current["meta"]["versionId"]))
 
     async def _many(self, rows: list[dict[str, Any]]) -> list[Registration]:
         found: list[Registration] = []

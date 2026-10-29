@@ -1,7 +1,9 @@
-"""InviteReporter and ResendInvitation against recording stand-ins for their ports (U24): the order of
-the calls, what is written and what is not, and that the mobile number goes only to the protected
-contact store. What is really stored, read back from Neo4j, is in tests/integration/application/
-test_invite_reporter.py. Sample values only; no patient data."""
+"""InviteReporter and ResendInvitation against recording stand-ins for their ports (U24).
+
+The order of the calls, what is written and what is not, and that the mobile number goes only to the
+protected contact store. What is really stored, read back from Neo4j, is in
+tests/integration/application/test_invite_reporter.py. Sample values only; no patient data.
+"""
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta

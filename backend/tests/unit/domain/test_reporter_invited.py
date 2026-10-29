@@ -1,4 +1,7 @@
-"""ReporterInvited (U24): the event an invitation puts on registration.events. Sample values only."""
+"""ReporterInvited (U24): the event an invitation puts on registration.events.
+
+Sample values only.
+"""
 
 from datetime import UTC, datetime
 

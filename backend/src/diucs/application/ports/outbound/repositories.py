@@ -17,7 +17,7 @@ from diucs.domain.model.clinical import ClinicalRequestRecord
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import ReportFlag, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Registration, ScopeEntry
+from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.service_move import ServiceMove
 
@@ -293,6 +293,20 @@ class RegistrationRepository(Protocol):
 
     async def for_service(self, service_id: str) -> list[Registration]:
         """Registrations for this service, newest first."""
+        ...
+
+    async def add_invitation(self, invitation: Invitation) -> None:
+        """Store a new invitation (U24), a Task with code invite-reporter. An id that exists
+        raises Conflict."""
+        ...
+
+    async def get_invitation(self, invitation_id: str) -> Invitation | None:
+        """The stored invitation, or None. A Task that is not an invitation is None."""
+        ...
+
+    async def save_invitation(self, invitation: Invitation) -> None:
+        """Replace the stored invitation (a resend moves its send time and expiry). An unknown id
+        raises NotFound."""
         ...
 
 

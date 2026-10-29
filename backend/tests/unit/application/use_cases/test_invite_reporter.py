@@ -97,8 +97,8 @@ def test_anything_that_is_not_a_uk_mobile_is_refused_with_the_screen_wording(tex
 
 def test_a_refused_number_is_never_echoed() -> None:
     with pytest.raises(ValidationFailed) as raised:
-        check_invite_mobile("07700 90012a")
-    assert "9001" not in str(raised.value)
+        check_invite_mobile("07701 777888x")
+    assert "777888" not in str(raised.value)
 
 
 def test_a_value_that_is_not_text_is_refused() -> None:

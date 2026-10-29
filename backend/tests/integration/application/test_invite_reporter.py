@@ -6,7 +6,6 @@ NOT RUN in the build wave (no Neo4j in the builder's environment, build-wave rul
 verification run proves them.
 """
 
-from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
@@ -106,9 +105,7 @@ class Rig:
 
 
 @pytest.fixture
-async def rig(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, clean_graph: None
-) -> Rig:
+async def rig(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, clean_graph: None) -> Rig:
     await ensure_audit_head(neo4j_driver)
     async with uow_factory() as uow:
         for service_id, name, flag, reason in (
@@ -145,7 +142,9 @@ async def rig(
 
 async def _every_property_value(driver: AsyncDriver) -> list[tuple[list[str], str, Any]]:
     async def work(tx: Any) -> list[dict[str, Any]]:
-        return await (await tx.run("MATCH (n) RETURN labels(n) AS labels, properties(n) AS p")).data()
+        return await (
+            await tx.run("MATCH (n) RETURN labels(n) AS labels, properties(n) AS p")
+        ).data()
 
     rows = await read_tx(driver, work)
     return [(row["labels"], name, value) for row in rows for name, value in row["p"].items()]

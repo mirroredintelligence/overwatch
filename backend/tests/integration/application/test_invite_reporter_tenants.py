@@ -35,7 +35,7 @@ from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import ScopeEntry
 from tests.support.neo4j import wipe
 from tests.support.tenant_seed import contracted_container
-from tests.support.uow import ensure_audit_heads
+from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -60,16 +60,11 @@ LEAD = Actor(
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two_tenants(
-    tenant_id: str,
-    other_tenant_id: str,
-    uow_factory_a: UnitOfWorkFactory,
-    uow_factory_b: UnitOfWorkFactory,
+    tenant_id: str, other_tenant_id: str
 ) -> AsyncIterator[tuple[AsyncDriver, UnitOfWorkFactory, UnitOfWorkFactory]]:
     async with contracted_container() as driver:
         await wipe(driver)
         await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        from tests.support.uow import tenant_uow_factory
-
         factory_a = tenant_uow_factory(driver, tenant_id)
         factory_b = tenant_uow_factory(driver, other_tenant_id)
         for factory in (factory_a, factory_b):

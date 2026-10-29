@@ -14,6 +14,7 @@ from typing import Any
 
 from diucs.domain.codes import RegistrationStatus, ScopeFlag, ServiceCategory
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.people import check_staff_text
 from diucs.domain.rules.registration import ApprovalChecks
 
 
@@ -89,7 +90,13 @@ class ScopeEntry:
 
 @dataclass(frozen=True, slots=True)
 class Invitation:
-    """STUB (U24 red): the fields only."""
+    """An invitation to report for a service (U24): a Task with code invite-reporter.
+
+    The lead's post asks, the invitee (a practitioner) is the owner, and the registration it opens
+    is `registration_id`. `sent_at` is when the latest text went out and `expires_at` is 48 hours
+    after it; a resend moves both. The link token is not here: only its hash is stored, by the link
+    adapter, and the phone number is never here (it is in the protected contact store).
+    """
 
     id: str
     service_id: str
@@ -100,3 +107,19 @@ class Invitation:
     created_at: datetime
     sent_at: datetime
     expires_at: datetime
+
+    def __post_init__(self) -> None:
+        for name in ("id", "service_id", "registration_id", "requester_role_id", "invitee_id"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ValidationFailed(name, "must not be blank")
+        if not isinstance(self.role_label, str) or not self.role_label.strip():
+            raise ValidationFailed("role_label", "must not be blank")
+        check_staff_text("role_label", self.role_label)
+        _aware("created_at", self.created_at)
+        _aware("sent_at", self.sent_at)
+        _aware("expires_at", self.expires_at)
+        if self.sent_at < self.created_at:
+            raise ValidationFailed("sent_at", "cannot be before the invitation was made")
+        if self.expires_at <= self.sent_at:
+            raise ValidationFailed("expires_at", "must be after the invitation was sent")

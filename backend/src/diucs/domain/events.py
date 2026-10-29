@@ -288,19 +288,31 @@ class RegistrationApproved:
 
 @dataclass(frozen=True, slots=True)
 class ReporterInvited:
-    """STUB (U24 red)."""
+    """A shift lead invited a person to report for a service (U24, registration.events). Ids and the
+    time only: never the number, the link or the person's name."""
 
     event_type: ClassVar[str] = "ReporterInvited"
     invitation_id: str
     service_id: str
     at: datetime
 
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+
     def to_payload(self) -> dict[str, Any]:
-        raise NotImplementedError
+        return {
+            "invitation_id": self.invitation_id,
+            "service_id": self.service_id,
+            "at": _at_text(self.at),
+        }
 
     @classmethod
     def decode(cls, payload: Mapping[str, Any]) -> Self:
-        raise NotImplementedError
+        return cls(
+            invitation_id=_text(payload, "invitation_id"),
+            service_id=_text(payload, "service_id"),
+            at=_when(payload),
+        )
 
 
 @dataclass(frozen=True, slots=True)

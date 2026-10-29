@@ -19,6 +19,7 @@ from diucs.domain.model.flags import ReportFlag, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.service_move import ServiceMove
 
 
 class ServiceRepository(Protocol):
@@ -400,4 +401,28 @@ class ClinicalRequestRepository(Protocol):
 
     async def taken_by(self, clinician_id: str) -> list[ClinicalRequestRecord]:
         """The requests this clinician has taken and not yet advised on."""
+        ...
+
+
+class ServiceMoveRepository(Protocol):
+    """Service moves (P20, U38). Adapter: Neo4jServiceMoveRepository
+    (graph_store/service_move_repository.py). Only the phone hash is stored, never the number."""
+
+    async def add(self, move: ServiceMove) -> None:
+        """Store a new move. A second open move for the service raises Conflict, an id that exists
+        raises Conflict, and a service or practitioner that is not there raises NotFound."""
+        ...
+
+    async def get(self, move_id: str) -> ServiceMove | None:
+        """The stored move, or None."""
+        ...
+
+    async def save(self, move: ServiceMove) -> None:
+        """Record the times of a move (verified, callback, completed, cancelled, until). A change
+        to its service, practitioner or phone hash raises ValidationFailed; an unknown id raises
+        NotFound."""
+        ...
+
+    async def open_for_service(self, service_id: str) -> list[ServiceMove]:
+        """The moves of this service that are not completed and not cancelled."""
         ...

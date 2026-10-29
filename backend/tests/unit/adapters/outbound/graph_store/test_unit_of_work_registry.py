@@ -38,6 +38,8 @@ REQUIRED_NAMES = {
     "alerts",
     "clinical_requests",
     "push_subscriptions",
+    "service_moves",
+    "protected_text",
     "capacity",
     "bookings",
     "cases",

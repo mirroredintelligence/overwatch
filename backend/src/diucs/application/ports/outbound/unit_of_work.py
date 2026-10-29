@@ -29,6 +29,7 @@ from diucs.application.ports.outbound.messaging import (
     PushSubscriptionRepository,
 )
 from diucs.application.ports.outbound.outbox import Outbox
+from diucs.application.ports.outbound.protected_text import ProtectedTextStore
 from diucs.application.ports.outbound.repositories import (
     AlertRepository,
     AlertSubscriptionRepository,
@@ -36,6 +37,7 @@ from diucs.application.ports.outbound.repositories import (
     CapacityRepository,
     CaseRepository,
     ClinicalRequestRepository,
+    ServiceMoveRepository,
     CriteriaRepository,
     FlagRepository,
     PersonRepository,
@@ -52,6 +54,8 @@ class UnitOfWork(Protocol):
     alert_subscriptions: AlertSubscriptionRepository
     alerts: AlertRepository
     clinical_requests: ClinicalRequestRepository
+    service_moves: ServiceMoveRepository
+    protected_text: ProtectedTextStore
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository

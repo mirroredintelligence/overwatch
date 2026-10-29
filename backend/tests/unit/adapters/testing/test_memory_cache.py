@@ -1,18 +1,38 @@
 """Pure tests of the in-memory cache fake (P09). Time is controlled by FixedClock."""
 
 import asyncio
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
+
+import pytest
 
 from diucs.adapters.testing import memory_cache
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Lock
+from diucs.application.ports.outbound.cache import (
+    BOARD_UPDATES_CHANNEL,
+    CacheScopeMismatch,
+    Lock,
+)
+from diucs.application.tenancy import TenantNotBound, bind_tenant
 
 START = datetime(2026, 10, 24, 10, 0, 0, tzinfo=UTC)
 LONDON = ZoneInfo("Europe/London")
 DELIVERY_WAIT = 1.0
+TENANT = "acme-icb"
+OTHER = "bridge-ccg"
+
+
+@pytest.fixture(autouse=True)
+def _bound_tenant(request: pytest.FixtureRequest) -> Iterator[None]:
+    """Every test here runs with one tenant bound (TEN-019): the fake keys every value, lock,
+    counter and channel by the bound scope. A test marked `no_tenant` runs with nothing bound."""
+    if request.node.get_closest_marker("no_tenant") is not None:
+        yield
+        return
+    with bind_tenant(TENANT):
+        yield
 
 
 def make_cache(at: datetime = START) -> tuple[InMemoryCache, FixedClock]:
@@ -122,19 +142,19 @@ async def test_relay_lock_tokens_follow_the_holder_and_stale_releases_do_nothing
     cache, clock = make_cache()
 
     first = await cache.acquire_lock("relay", timedelta(seconds=30))
-    assert first == Lock("relay", 1)
+    assert first == Lock("relay", 1, "acme-icb")
     assert await cache.acquire_lock("relay", timedelta(seconds=30)) is None
 
     clock.advance(timedelta(seconds=30))
     second = await cache.acquire_lock("relay", timedelta(seconds=30))
-    assert second == Lock("relay", 2)
+    assert second == Lock("relay", 2, "acme-icb")
 
-    await cache.release_lock(Lock("relay", 1))
+    await cache.release_lock(Lock("relay", 1, "acme-icb"))
     assert await cache.acquire_lock("relay", timedelta(seconds=30)) is None
 
-    await cache.release_lock(Lock("relay", 2))
+    await cache.release_lock(Lock("relay", 2, "acme-icb"))
     third = await cache.acquire_lock("relay", timedelta(seconds=30))
-    assert third == Lock("relay", 3)
+    assert third == Lock("relay", 3, "acme-icb")
 
 
 async def test_a_lock_is_still_held_one_second_before_its_ttl_ends() -> None:
@@ -147,13 +167,17 @@ async def test_a_lock_is_still_held_one_second_before_its_ttl_ends() -> None:
 async def test_lock_names_have_independent_tokens() -> None:
     cache, _ = make_cache()
     await cache.acquire_lock("relay", timedelta(seconds=30))
-    assert await cache.acquire_lock("scheduler", timedelta(seconds=30)) == Lock("scheduler", 1)
+    assert await cache.acquire_lock("scheduler", timedelta(seconds=30)) == Lock(
+        "scheduler", 1, "acme-icb"
+    )
 
 
 async def test_releasing_a_lock_for_a_name_that_was_never_held_does_nothing() -> None:
     cache, _ = make_cache()
-    await cache.release_lock(Lock("nobody", 1))
-    assert await cache.acquire_lock("nobody", timedelta(seconds=30)) == Lock("nobody", 1)
+    await cache.release_lock(Lock("nobody", 1, "acme-icb"))
+    assert await cache.acquire_lock("nobody", timedelta(seconds=30)) == Lock(
+        "nobody", 1, "acme-icb"
+    )
 
 
 def test_the_fake_is_documented_as_a_test_only_stand_in_for_redis() -> None:
@@ -208,3 +232,131 @@ async def test_set_if_absent_stores_once_and_a_later_one_fails_until_the_ttl_pas
     clock.advance(timedelta(seconds=1))
     assert await cache.set_if_absent("idem:sms:one", "4", ttl) is True
     assert await cache.get("idem:sms:one") == "4"
+
+
+# Per tenant (TEN-019, DEC-130 item 6). Each test binds the tenant it names.
+
+
+async def test_a_value_is_one_tenants_and_another_tenant_reads_none() -> None:
+    cache, _ = make_cache()
+    await cache.set("svc-1:status", "accepting")
+    with bind_tenant(OTHER):
+        assert await cache.get("svc-1:status") is None
+        await cache.delete("svc-1:status")  # deletes nothing of the other tenant
+    assert await cache.get("svc-1:status") == "accepting"
+
+
+async def test_the_keys_are_the_scoped_names_without_the_root() -> None:
+    cache, _ = make_cache()
+    await cache.set("svc-1:status", "accepting")
+    assert cache.keys() == frozenset({"acme-icb:cache:svc-1:status"})
+
+
+async def test_ttl_is_per_key_and_per_scope() -> None:
+    cache, clock = make_cache()
+    await cache.set("svc-1:status", "a", ttl=timedelta(seconds=5))
+    with bind_tenant(OTHER):
+        await cache.set("svc-1:status", "b")
+    clock.advance(timedelta(seconds=5))
+    assert await cache.get("svc-1:status") is None
+    with bind_tenant(OTHER):
+        assert await cache.get("svc-1:status") == "b"
+
+
+async def test_locks_and_fencing_counters_are_per_tenant() -> None:
+    cache, _ = make_cache()
+    first_a = await cache.acquire_lock("relay", timedelta(seconds=30))
+    assert first_a == Lock("relay", 1, "acme-icb")
+    with bind_tenant(OTHER):
+        first_b = await cache.acquire_lock("relay", timedelta(seconds=30))
+        assert first_b == Lock("relay", 1, "bridge-ccg")
+    assert await cache.acquire_lock("relay", timedelta(seconds=30)) is None
+
+    await cache.release_lock(first_a)
+    second_a = await cache.acquire_lock("relay", timedelta(seconds=30))
+    assert second_a == Lock("relay", 2, "acme-icb")
+    with bind_tenant(OTHER):
+        assert await cache.acquire_lock("relay", timedelta(seconds=30)) is None
+
+
+async def test_a_lock_issued_in_one_tenant_released_in_another_is_refused_and_keeps_its_own() -> (
+    None
+):
+    cache, _ = make_cache()
+    issued_in_a = await cache.acquire_lock("relay", timedelta(seconds=30))
+    assert issued_in_a is not None
+    with bind_tenant(OTHER):
+        held_in_b = await cache.acquire_lock("relay", timedelta(seconds=30))
+        assert held_in_b == Lock("relay", 1, "bridge-ccg")
+        with pytest.raises(CacheScopeMismatch, match="lock belongs to another scope"):
+            await cache.release_lock(issued_in_a)
+        assert await cache.acquire_lock("relay", timedelta(seconds=30)) is None
+
+
+async def test_publish_and_subscribe_are_per_tenant_and_counted_per_tenant() -> None:
+    cache, _ = make_cache()
+    in_a = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+    with bind_tenant(OTHER):
+        in_b = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+        assert cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 1
+    assert cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 1
+
+    await cache.publish(BOARD_UPDATES_CHANNEL, "a-message")
+    with bind_tenant(OTHER):
+        await cache.publish(BOARD_UPDATES_CHANNEL, "b-message")
+    assert await next_message(in_a) == "a-message"
+    assert await next_message(in_b) == "b-message"
+
+    await in_a.aclose()  # type: ignore[attr-defined]
+    assert cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 0
+    with bind_tenant(OTHER):
+        assert cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 1
+        await cache.publish(BOARD_UPDATES_CHANNEL, "still-live")
+        assert await next_message(in_b) == "still-live"
+
+
+async def test_a_subscription_keeps_the_channel_it_was_made_in() -> None:
+    cache, _ = make_cache()
+    messages = await cache.subscribe(BOARD_UPDATES_CHANNEL)
+    with bind_tenant(OTHER):
+        await cache.publish(BOARD_UPDATES_CHANNEL, "b-message")
+        # Read under another binding: the subscription still belongs to the tenant it was made in.
+        await cache.publish(BOARD_UPDATES_CHANNEL, "b-again")
+    await cache.publish(BOARD_UPDATES_CHANNEL, "a-message")
+    assert await next_message(messages) == "a-message"
+
+
+@pytest.mark.no_tenant
+@pytest.mark.parametrize(
+    "call",
+    [
+        "get",
+        "set",
+        "set_if_absent",
+        "delete",
+        "publish",
+        "subscribe",
+        "acquire_lock",
+        "release_lock",
+    ],
+)
+async def test_with_no_tenant_bound_every_method_refuses_and_stores_nothing(call: str) -> None:
+    cache, _ = make_cache()
+    ttl = timedelta(seconds=30)
+    lock = Lock("relay", 1, "acme-icb")
+    attempts = {
+        "get": lambda: cache.get("k"),
+        "set": lambda: cache.set("k", "v"),
+        "set_if_absent": lambda: cache.set_if_absent("k", "v", ttl),
+        "delete": lambda: cache.delete("k"),
+        "publish": lambda: cache.publish(BOARD_UPDATES_CHANNEL, "x"),
+        "subscribe": lambda: cache.subscribe(BOARD_UPDATES_CHANNEL),
+        "acquire_lock": lambda: cache.acquire_lock("relay", ttl),
+        "release_lock": lambda: cache.release_lock(lock),
+    }
+    with pytest.raises(TenantNotBound, match="no tenant is bound for this work"):
+        await attempts[call]()
+    with bind_tenant(TENANT):
+        assert cache.keys() == frozenset()
+        assert cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 0
+        assert await cache.acquire_lock("relay", ttl) == Lock("relay", 1, "acme-icb")

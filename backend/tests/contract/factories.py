@@ -15,7 +15,6 @@ import json
 from collections import defaultdict, deque
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
 
 import pytest
 from azure.servicebus import ServiceBusReceivedMessage, ServiceBusSessionFilter
@@ -37,7 +36,7 @@ from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.settings import Settings
 from diucs.domain.rules.identity_policy import CodeState
 from tests.contract.harness import Harness
-from tests.support.redis import flush_prefix
+from tests.support.redis import flush_run
 from tests.support.servicebus import client as servicebus_client
 
 # Every fake starts on 2026-10-25, the day of the London clock change, in UTC (the only zone a
@@ -96,13 +95,12 @@ async def make_memory_event_bus() -> Harness[EventBus]:
 
 
 async def make_redis_cache() -> Harness[Cache]:
-    """A RedisCache on the Redis of infra/docker-compose.yml, under a prefix this harness alone
-    uses. Concurrent runs on the same Redis share no keys, so one run's flush cannot delete
-    another run's keys (I01: the overlap failure in test_redis_isolation.py)."""
+    """A RedisCache on the Redis of infra/docker-compose.yml. Its keys are the keys of the run
+    tenants (TEN-019): each run has its own tenant ids, so concurrent runs on one Redis share no
+    keys, and closing a harness removes only this run's keys."""
     url = Settings().redis_url
-    prefix = f"diucs-contract-{uuid4().hex}:"
     cleaner = Redis.from_url(url, decode_responses=True)
-    cache = RedisCache.from_url(url, key_prefix=prefix)
+    cache = RedisCache.from_url(url)
 
     async def advance(delta: timedelta) -> None:
         # A real adapter waits in real time; the suites use seconds only (DEC-075 item 4).
@@ -110,7 +108,7 @@ async def make_redis_cache() -> Harness[Cache]:
 
     async def close() -> None:
         try:
-            await flush_prefix(cleaner, prefix)
+            await flush_run(cleaner)
         finally:
             await cache.aclose()
             await cleaner.aclose()

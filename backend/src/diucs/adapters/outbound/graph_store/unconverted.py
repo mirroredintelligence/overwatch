@@ -15,26 +15,4 @@ list is empty that exemption is removed from `run_query`.
 
 from typing import Final
 
-UNCONVERTED: Final[frozenset[str]] = frozenset(
-    {
-        "Q-AUDIT-APPEND",
-        "Q-AUDIT-CHAIN",
-        "Q-AUDIT-ENSURE-HEAD",
-        "Q-AUDIT-HEAD",
-        "Q-AUDIT-LINK-AGENT",
-        "Q-AUDIT-LINK-ENTITY",
-        "Q-AUDIT-LIST",
-        "Q-AUDIT-LOCK-HEAD",
-        "Q-IDEM-CREATE",
-        "Q-IDEM-EDGES",
-        "Q-IDEM-HEAD",
-        "Q-IDEM-LINK",
-        "Q-IDEM-VALUES",
-        "Q-OUTBOX-FAILED",
-        "Q-OUTBOX-LOCK",
-        "Q-OUTBOX-PUBLISHED",
-        "Q-PROV-APPEND",
-        "Q-PROV-LINK",
-        "Q-PROV-SOURCE",
-    }
-)
+UNCONVERTED: Final[frozenset[str]] = frozenset({})

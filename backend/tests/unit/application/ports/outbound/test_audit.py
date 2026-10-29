@@ -13,7 +13,10 @@ from diucs.application.ports.outbound.audit import (
     canonical_entry_json,
     canonical_json,
     chain_hash_for,
+    chain_hash_over,
+    genesis_hash_for,
 )
+from diucs.application.tenancy import DEFAULT_TENANT_ID
 from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
 
@@ -74,3 +77,38 @@ def test_a_naive_datetime_is_refused_in_the_entry() -> None:
     entry = replace(ENTRY, at=datetime(2026, 10, 25, 9, 0))
     with pytest.raises(ValidationFailed, match="at"):
         canonical_entry_json(entry)
+
+
+# The genesis of each scope's chain (TEN-017): the default tenant keeps the original genesis, every
+# other scope starts from a hash of its own id.
+
+
+def test_the_default_tenant_keeps_the_genesis_of_the_chain_the_development_data_holds() -> None:
+    assert genesis_hash_for(DEFAULT_TENANT_ID) == GENESIS_HASH
+
+
+def test_another_tenant_starts_from_a_hash_of_its_own_id() -> None:
+    expected = hashlib.sha256(b"diucs-genesis|acme-icb").hexdigest()
+    assert genesis_hash_for("acme-icb") == expected
+    assert genesis_hash_for("acme-icb") != GENESIS_HASH
+
+
+def test_a_network_scope_has_its_own_genesis() -> None:
+    assert genesis_hash_for("net-nw1") != genesis_hash_for("acme-icb")
+    assert len(genesis_hash_for("net-nw1")) == 64
+
+
+def test_no_two_scopes_share_a_genesis_and_each_is_a_hex_digest() -> None:
+    scopes = [DEFAULT_TENANT_ID, "acme-icb", "acme-icb-2", "bridge-ccg", "net-nw1"]
+    genesis = [genesis_hash_for(scope) for scope in scopes]
+    assert len(set(genesis)) == len(scopes)
+    for value in genesis:
+        assert len(value) == 64
+        int(value, 16)
+
+
+def test_a_link_hashed_from_one_scopes_genesis_does_not_verify_from_anothers() -> None:
+    text = canonical_entry_json(ENTRY)
+    from_a = chain_hash_over(genesis_hash_for("acme-icb"), text)
+    assert from_a != chain_hash_over(genesis_hash_for("bridge-ccg"), text)
+    assert from_a != chain_hash_over(GENESIS_HASH, text)

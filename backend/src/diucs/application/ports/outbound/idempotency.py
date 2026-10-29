@@ -2,6 +2,9 @@
 
 Providers and Service Bus deliver at least once. A consumer calls mark_if_new inside its own unit
 of work before it acts, so the marker commits with the work it protects.
+
+A marker belongs to the tenant bound to its unit of work (DEC-130 item 6, TEN-016): the same message
+id in two tenants is two markers, and a tenant never sees another tenant's marker.
 """
 
 from typing import Protocol

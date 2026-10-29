@@ -10,7 +10,6 @@ because a domain error can carry data. A use case adds its own `usecase.*` attri
 import functools
 from collections.abc import Awaitable, Callable, Iterator, Mapping
 from contextlib import AbstractContextManager, contextmanager
-from contextvars import ContextVar
 from typing import ParamSpec, Protocol, TypeVar
 
 AttrValue = str | bool | int | float
@@ -39,6 +38,12 @@ class Tracer(Protocol):
         self, name: str, attributes: Mapping[str, AttrValue]
     ) -> AbstractContextManager[Span]: ...
 
+    def current_span(self) -> Span:
+        """The span the tracer has open now, or a span that takes attributes and does nothing
+        when none is open. The tracer keeps this state, not the application (no context variable
+        here)."""
+        ...
+
 
 class _NoopSpan:
     def set_attribute(self, key: str, value: AttrValue) -> None:
@@ -53,9 +58,11 @@ class NoopTracer:
     def span(self, name: str, attributes: Mapping[str, AttrValue]) -> Iterator[Span]:
         yield _NoopSpan()
 
+    def current_span(self) -> Span:
+        return _NoopSpan()
+
 
 _tracer: Tracer = NoopTracer()
-_current_usecase: ContextVar[Span | None] = ContextVar("current_usecase_span", default=None)
 
 
 def set_tracer(tracer: Tracer) -> None:
@@ -72,9 +79,7 @@ def annotate_usecase(key: str, value: AttrValue) -> None:
     outside the `usecase.` namespace; does nothing when no use case span is running."""
     if not key.startswith(USECASE_NAMESPACE):
         raise ValueError("use case annotations must use the usecase. namespace")
-    span = _current_usecase.get()
-    if span is not None:
-        span.set_attribute(key, value)
+    _tracer.current_span().set_attribute(key, value)
 
 
 def traced_use_case(name: str) -> Callable[[Callable[P, Awaitable[R]]], Callable[P, Awaitable[R]]]:
@@ -85,7 +90,6 @@ def traced_use_case(name: str) -> Callable[[Callable[P, Awaitable[R]]], Callable
         @functools.wraps(fn)
         async def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
             with _tracer.span(span_name, {}) as span:
-                token = _current_usecase.set(span)
                 try:
                     result = await fn(*args, **kwargs)
                 except BaseException as error:
@@ -93,8 +97,6 @@ def traced_use_case(name: str) -> Callable[[Callable[P, Awaitable[R]]], Callable
                     span.set_attribute(USECASE_OUTCOME, outcome)
                     span.fail(outcome)
                     raise
-                finally:
-                    _current_usecase.reset(token)
                 span.set_attribute(USECASE_OUTCOME, "ok")
                 return result
 

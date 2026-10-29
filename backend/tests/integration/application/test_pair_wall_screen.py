@@ -1058,6 +1058,25 @@ async def test_another_tenants_screen_and_secret_read_as_a_wrong_secret(
     assert granted.device_token is not None
 
 
+async def test_the_same_command_key_in_two_tenants_is_two_commands(
+    pair: Pair, neo4j_driver: AsyncDriver
+) -> None:
+    """The replay store is not tenant scoped yet (its statements are unconverted), so the key the
+    use case hands it carries the tenant: tenant B using the key tenant A used is not a replay of
+    A's confirmation and not a Conflict with it."""
+    a = await pair.a.start.execute()
+    b = await pair.b.start.execute()
+    first = await pair.a.confirm.execute(_command(a, key="shared-key"))
+    second = await pair.b.confirm.execute(_command(b, key="shared-key"))
+    assert (first.device_id, second.device_id) == (a.pairing_id, b.pairing_id)
+    assert not first.replayed
+    assert not second.replayed
+    again = await pair.b.confirm.execute(_command(b, key="shared-key"))
+    assert again.device_id == b.pairing_id
+    assert again.replayed
+    assert await count_nodes(neo4j_driver, "Device") == 2
+
+
 async def test_a_device_token_is_found_in_its_own_tenant_only(pair: Pair) -> None:
     a = await pair.a.start.execute()
     await pair.a.confirm.execute(_command(a, key="a"))

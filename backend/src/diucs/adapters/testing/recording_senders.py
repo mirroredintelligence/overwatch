@@ -97,3 +97,22 @@ class RecordingPushSender:
 
     def fail_next(self) -> None:
         self._attempts.fail_next()
+
+
+class FixedSenderResolver:
+    """A SenderResolver for tests: each tenant gets its own recording sender, and a tenant that is
+    not listed (or listed with None) has no channel, so nothing is sent for it (I10)."""
+
+    def __init__(
+        self,
+        sms: dict[str, RecordingSmsSender] | None = None,
+        email: dict[str, RecordingEmailSender] | None = None,
+    ) -> None:
+        self._sms = dict(sms or {})
+        self._email = dict(email or {})
+
+    async def sms_for(self, tenant_id: str) -> RecordingSmsSender | None:
+        return self._sms.get(tenant_id)
+
+    async def email_for(self, tenant_id: str) -> RecordingEmailSender | None:
+        return self._email.get(tenant_id)

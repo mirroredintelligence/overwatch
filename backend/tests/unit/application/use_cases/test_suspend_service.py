@@ -49,9 +49,7 @@ def test_a_resume_needs_both_the_phone_check_and_the_resolved_reason() -> None:
     require_resume_checks(phoned_register_number=True, reason_resolved=True)
 
 
-@pytest.mark.parametrize(
-    ("phoned", "resolved"), [(True, False), (False, True), (False, False)]
-)
+@pytest.mark.parametrize(("phoned", "resolved"), [(True, False), (False, True), (False, False)])
 def test_a_resume_with_either_check_missing_is_a_validation_failure(
     phoned: bool, resolved: bool
 ) -> None:

@@ -13,6 +13,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+from diucs.adapters.outbound.graph_store import mapper as mapper_module
+from diucs.adapters.outbound.graph_store.extensions import TENANT_OWNED_NAMES
 from diucs.adapters.outbound.graph_store.mapper import (
     GraphFragment,
     InvalidReference,
@@ -479,3 +481,184 @@ def test_round_trip_is_exact_or_refused_for_any_generated_resource(
     except DomainError:
         return
     assert from_graph(fragment) == resource
+
+
+# 12. TEN-008 (DEC-162): `tenantId` and `sourceTenantId` belong to the tenancy seam. A resource
+# cannot carry them, so it cannot forge, move or overwrite the tenant stamp the store writes.
+
+TENANT_NAMES = ("tenantId", "sourceTenantId")
+
+
+def _stamped(fragment: GraphFragment, tenant: str = "tenant-a") -> GraphFragment:
+    """The fragment as the store hands it back: every node carries the stamp."""
+    nodes = tuple(
+        NodeSpec(node.key, node.labels, {**node.properties, "tenantId": tenant})
+        for node in fragment.nodes
+    )
+    return GraphFragment(fragment.root_key, nodes, fragment.rels)
+
+
+def _all_property_names(fragment: GraphFragment) -> set[str]:
+    return {name for node in fragment.nodes for name in node.properties} | {
+        name for rel in fragment.rels for name in rel.properties
+    }
+
+
+def test_the_tenant_owned_names_are_exactly_tenant_id_and_source_tenant_id() -> None:
+    assert frozenset(TENANT_NAMES) == TENANT_OWNED_NAMES
+
+
+@pytest.mark.parametrize("element", TENANT_NAMES)
+@pytest.mark.parametrize(
+    "value",
+    [
+        "tenant-b",
+        7,
+        True,
+        ["tenant-b"],
+        {"reference": "Organization/o1"},
+        {"coding": [{"system": "https://diucs.example/CodeSystem/x", "code": "y"}]},
+        {"start": "2026-10-25T09:00:00Z"},
+        {"value": 3, "unit": "referral"},
+        {"nested": {"tenantId": "tenant-b"}},
+    ],
+)
+def test_a_resource_with_a_tenant_element_of_any_shape_is_refused(element: str, value: Any) -> None:
+    resource = {"resourceType": "Organization", "id": ORG_ID, element: value}
+
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph(resource)
+
+    assert raised.value.field == element
+    assert "reserved" in str(raised.value)
+
+
+@pytest.mark.parametrize("element", TENANT_NAMES)
+def test_a_tenant_element_is_refused_even_when_the_rest_of_the_resource_is_valid(
+    element: str,
+) -> None:
+    resource = {**ORGANIZATION, element: "tenant-b"}
+
+    with pytest.raises(ValidationFailed):
+        to_graph(resource)
+
+
+@pytest.mark.parametrize("element", TENANT_NAMES)
+def test_a_tenant_name_inside_meta_is_refused(element: str) -> None:
+    resource = {"resourceType": "Organization", "id": ORG_ID, "meta": {element: "tenant-b"}}
+
+    with pytest.raises(UnsupportedElement):
+        to_graph(resource)
+
+
+@pytest.mark.parametrize("name", TENANT_NAMES)
+def test_a_tenant_name_is_refused_by_name_only_never_as_a_value(name: str) -> None:
+    resource = {
+        "resourceType": "Organization",
+        "id": ORG_ID,
+        "name": name,
+        "alias": [name],
+        "partOf": {"reference": "Organization/o0", "display": name},
+    }
+
+    assert from_graph(to_graph(resource)) == resource
+
+
+@pytest.mark.parametrize("element", TENANT_NAMES)
+def test_a_resource_that_would_use_a_reserved_name_via_a_configured_copy_is_refused(
+    element: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # A copied filter code writes a property of its own. Should one ever be named for the stamp,
+    # to_graph refuses the whole resource instead of letting it reach the writer.
+    monkeypatch.setitem(mapper_module.FILTER_CODE_PROPERTIES, ("Observation", "code"), element)
+    resource = {
+        "resourceType": "Observation",
+        "id": "obs-1",
+        "code": {"coding": [{"system": "https://diucs.example/CodeSystem/m", "code": "c"}]},
+    }
+
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph(resource)
+
+    assert raised.value.field == element
+
+
+@pytest.mark.parametrize("element", TENANT_NAMES)
+def test_a_relationship_property_cannot_carry_a_tenant_name_either(
+    element: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Relationships carry no tenant (DEC-130 item 1): the guard covers them too.
+    original = mapper_module._reference_rel
+
+    def forged(*args: Any, **kwargs: Any) -> RelSpec:
+        rel = original(*args, **kwargs)
+        return RelSpec(rel.type, rel.start, rel.end, {**rel.properties, element: "tenant-b"})
+
+    monkeypatch.setattr(mapper_module, "_reference_rel", forged)
+
+    with pytest.raises(ValidationFailed) as raised:
+        to_graph(LOCATION)
+
+    assert raised.value.field == element
+
+
+@pytest.mark.parametrize("element", TENANT_NAMES)
+def test_from_graph_strips_a_stored_tenant_name_so_it_is_never_a_fhir_element(
+    element: str,
+) -> None:
+    fragment = to_graph(ORGANIZATION)
+    root = fragment.nodes[0]
+    stored = GraphFragment(
+        fragment.root_key,
+        (NodeSpec(root.key, root.labels, {**root.properties, element: "tenant-a"}),),
+        fragment.rels,
+    )
+
+    assert from_graph(stored) == ORGANIZATION
+
+
+def test_a_round_trip_through_a_stamped_fragment_gives_back_the_resource_exactly() -> None:
+    for resource in (ORGANIZATION, LOCATION, HEALTHCARE_SERVICE):
+        stamped = _stamped(to_graph(resource))
+
+        assert from_graph(stamped) == resource
+        assert all(node.properties["tenantId"] == "tenant-a" for node in stamped.nodes)
+
+
+def test_stripping_the_stamp_does_not_change_the_fragment_it_was_given() -> None:
+    stamped = _stamped(to_graph(ORGANIZATION))
+    before = [dict(node.properties) for node in stamped.nodes]
+
+    from_graph(stamped)
+
+    assert [dict(node.properties) for node in stamped.nodes] == before
+
+
+def test_to_graph_gives_a_fragment_that_names_no_tenant_and_the_same_one_for_any_tenant() -> None:
+    names = _all_property_names(to_graph(HEALTHCARE_SERVICE))
+
+    assert not names & set(TENANT_NAMES)
+    assert to_graph(HEALTHCARE_SERVICE) == to_graph(dict(HEALTHCARE_SERVICE))
+
+
+_TENANT_ELEMENTS = st.sampled_from([*TENANT_NAMES, "name", "active", "alias", "status", "meta"])
+
+
+@settings(max_examples=300, deadline=None)
+@given(
+    resource_type=st.sampled_from(["Organization", "Location", "HealthcareService"]),
+    resource_id=st.from_regex(r"[a-z0-9-]{1,12}", fullmatch=True),
+    body=st.dictionaries(_TENANT_ELEMENTS, _VALUE, max_size=5),
+)
+def test_no_generated_resource_puts_a_tenant_name_on_any_node_or_relationship(
+    resource_type: str, resource_id: str, body: dict[str, Any]
+) -> None:
+    resource = {**body, "resourceType": resource_type, "id": resource_id}
+    try:
+        fragment = to_graph(resource)
+    except DomainError:
+        return
+    # A resource that carries a tenant name must have been refused above.
+    assert not set(body) & set(TENANT_NAMES)
+    assert not _all_property_names(fragment) & set(TENANT_NAMES)
+    assert from_graph(_stamped(fragment)) == resource

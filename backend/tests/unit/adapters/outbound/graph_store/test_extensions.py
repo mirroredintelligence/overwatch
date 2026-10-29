@@ -12,6 +12,7 @@ import pytest
 
 from diucs.adapters.outbound.graph_store.extensions import (
     EXTENSIONS,
+    TENANT_OWNED_NAMES,
     ExtensionDef,
     register_extension,
 )
@@ -504,3 +505,83 @@ def test_rebuild_refuses_a_property_that_is_also_a_relationship() -> None:
 
     with pytest.raises(ValidationFailed):
         from_graph(clash)
+
+
+# TEN-008 (DEC-162): an extension cannot stand in for the tenant stamp.
+
+_TENANT_NAMES = ("tenantId", "sourceTenantId")
+
+
+@pytest.mark.parametrize("short_name", _TENANT_NAMES)
+def test_an_extension_may_not_be_registered_under_a_tenant_name(short_name: str) -> None:
+    try:
+        with pytest.raises(ValueError, match="reserved"):
+            register_extension(
+                ExtensionDef(url=_url(short_name), short_name=short_name, value_type="string")
+            )
+    finally:
+        # Even a failing run must not leave the name registered for the tests that follow.
+        EXTENSIONS.pop(_url(short_name), None)
+
+
+def test_the_registry_holds_no_extension_named_for_a_tenant() -> None:
+    assert not {defn.short_name for defn in EXTENSIONS.values()} & TENANT_OWNED_NAMES
+    assert not {defn.property_name for defn in EXTENSIONS.values()} & TENANT_OWNED_NAMES
+
+
+@pytest.mark.parametrize("short_name", _TENANT_NAMES)
+@pytest.mark.parametrize(
+    ("value_key", "value"),
+    [("valueString", "tenant-b"), ("valueInteger", 7), ("valueBoolean", True)],
+)
+def test_a_resource_with_a_tenant_extension_is_refused_and_nothing_is_mapped(
+    short_name: str, value_key: str, value: Any
+) -> None:
+    resource = _service_with({"url": _url(short_name), value_key: value})
+
+    with pytest.raises(UnknownExtension) as raised:
+        to_graph(resource)
+
+    assert raised.value.url == _url(short_name)
+
+
+@pytest.mark.parametrize("short_name", _TENANT_NAMES)
+def test_a_tenant_extension_beside_valid_ones_still_refuses_the_whole_resource(
+    short_name: str,
+) -> None:
+    resource = _service_with(
+        _extension("smsShortName", "UCRW"),
+        {"url": _url(short_name), "valueString": "tenant-b"},
+    )
+
+    with pytest.raises(UnknownExtension):
+        to_graph(resource)
+
+
+@pytest.mark.parametrize("short_name", _TENANT_NAMES)
+def test_a_stored_ext_property_named_for_a_tenant_is_refused_on_rebuild(short_name: str) -> None:
+    fragment = to_graph(_service_with(_extension("smsShortName", "UCRW")))
+    root = fragment.nodes[0]
+    stored = GraphFragment(
+        fragment.root_key,
+        (NodeSpec(root.key, root.labels, {**root.properties, f"ext_{short_name}": "tenant-b"}),),
+        fragment.rels,
+    )
+
+    with pytest.raises(ValidationFailed):
+        from_graph(stored)
+
+
+def test_a_stamped_node_with_extensions_rebuilds_the_extensions_and_not_the_stamp() -> None:
+    resource = _service_with(
+        _extension("smsShortName", "UCRW"), _extension("establishedCapacity", 8)
+    )
+    fragment = to_graph(resource)
+    root = fragment.nodes[0]
+    stamped = GraphFragment(
+        fragment.root_key,
+        (NodeSpec(root.key, root.labels, {**root.properties, "tenantId": "tenant-a"}),),
+        fragment.rels,
+    )
+
+    assert from_graph(stamped) == resource

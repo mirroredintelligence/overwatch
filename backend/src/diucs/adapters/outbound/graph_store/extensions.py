@@ -22,6 +22,8 @@ VALUE_KEYS: Final[dict[ValueType, str]] = {
     "decimal": "valueDecimal",
 }
 PROPERTY_PREFIX: Final = "ext_"
+# Stub (red): the names the tenancy seam owns. Filled in by the implementation commit.
+TENANT_OWNED_NAMES: Final[frozenset[str]] = frozenset()
 
 
 @dataclass(frozen=True, slots=True)

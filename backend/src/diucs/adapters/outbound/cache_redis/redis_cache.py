@@ -162,7 +162,7 @@ class RedisCache:
         )
         if not acquired:
             return None
-        return Lock(name=name, fencing_token=token)
+        return Lock(name=name, fencing_token=token, scope="")
 
     async def release_lock(self, lock: Lock) -> None:
         await self._client.eval(

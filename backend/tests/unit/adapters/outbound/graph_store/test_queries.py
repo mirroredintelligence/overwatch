@@ -492,9 +492,9 @@ def test_the_ratchet_may_only_shrink() -> None:
     person, registration and scope-list repositories, TEN-015 the nine communication and four
     scheduled-work statements, and TEN-010 the eighteen service, capacity, booking and case
     statements (47 left), TEN-016 the five replay-record and three outbox statements (39 left), and
-    TEN-017 the eleven audit-chain and provenance statements (28 left). A conversion bundle lowers this number in the same commit that removes ids
-    from the list; nothing raises it. The ids themselves are pinned against the initial list in
-    test_tenant_ratchet.py."""
+    TEN-017 the eleven audit-chain and provenance statements (28 left). A conversion bundle lowers
+    this number in the same commit that removes ids from the list; nothing raises it. The ids
+    themselves are pinned against the initial list in test_tenant_ratchet.py."""
     assert len(UNCONVERTED) <= 28
     assert len(UNCONVERTED) == len(set(UNCONVERTED))
 

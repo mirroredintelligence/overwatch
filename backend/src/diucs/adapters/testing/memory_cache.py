@@ -64,6 +64,10 @@ class InMemoryCache:
         # Compare instants in UTC only (lesson L52); the clock is already UTC by contract.
         return self._clock.now().astimezone(UTC)
 
+    def keys(self) -> frozenset[str]:
+        """STUB (TEN-019 red): no key is reported."""
+        return frozenset()
+
     async def get(self, key: str) -> str | None:
         stored = self._values.get(key)
         if stored is None:
@@ -119,7 +123,7 @@ class InMemoryCache:
         token = self._last_token.get(name, 0) + 1
         self._last_token[name] = token
         self._holders[name] = _Holder(token=token, expires_at=now + ttl)
-        return Lock(name=name, fencing_token=token)
+        return Lock(name=name, fencing_token=token, scope="")
 
     async def release_lock(self, lock: Lock) -> None:
         holder = self._holders.get(lock.name)

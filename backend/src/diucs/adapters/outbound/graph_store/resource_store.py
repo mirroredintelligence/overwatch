@@ -43,7 +43,12 @@ from diucs.adapters.outbound.graph_store.mapper import (
     from_graph,
     to_graph,
 )
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, QueryTemplate
+from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
+from diucs.adapters.outbound.graph_store.queries import (
+    GLOBAL_STATEMENT_LABELS,
+    REGISTRY,
+    QueryTemplate,
+)
 from diucs.adapters.outbound.graph_store.resource_scenarios import SCENARIOS
 from diucs.application.ports.outbound.clock import Clock
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
@@ -62,6 +67,14 @@ RESERVED_PROPERTIES = frozenset(
 LOCAL_RELATIONSHIP_TYPES = frozenset({"CHANNEL", "COVERED_BY", "CURRENT_CRITERIA"})
 
 _TYPE = re.compile(r"[A-Z][A-Za-z0-9]{0,63}")
+# A reference makes a placeholder labelled with its type, so a type is letters only with a capital.
+_REFERENCE_TYPE = re.compile(r"[A-Z][A-Za-z]{0,63}")
+# Labels no resource or reference may take (DEC-164 item 11): the registry labels (the global
+# statements read them with no tenant bound) and the store's own labels.
+_STORE_LABELS = frozenset(
+    {"Resource", "ResourceVersion", "ResourceVersionPart", "Concept", "CodeSystem", "Identifier"}
+)
+_FORBIDDEN_TYPES = frozenset(REGISTRY_LABELS) | GLOBAL_STATEMENT_LABELS | _STORE_LABELS
 _LABEL = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,127}")
 _FHIR_ID = re.compile(r"[A-Za-z0-9.\-]{1,64}")
 _SHARED_PREFIXES = ("Concept|", "Identifier|", "CodeSystem|")
@@ -155,7 +168,7 @@ _TEMPLATES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-RES-LINK-SHARED": (
         "UNWIND $rows AS row MATCH (a:Concept {key: row.start, tenantId: $tenant}) "
         "MATCH (b:CodeSystem {key: row.end, tenantId: $tenant}) "
-        "MERGE (a)-[r{insert}]->(b) RETURN count(r) AS linked",
+        "MERGE (a)-[r{insert}]->(b) RETURN count(DISTINCT [a.key, b.key]) AS linked",
         "write",
     ),
     "Q-RES-SET-POSITION": (
@@ -229,8 +242,16 @@ def _check_type(type_: str) -> None:
         raise ValidationFailed("resourceType", "not a FHIR resource type")
 
 
+def _check_reference_type(key: str) -> None:
+    """A reference target `Type/id` must name a plain resource type that is not a label other
+    statements read. Nothing of the value is repeated in the error."""
+    target_type = key.partition("/")[0]
+    if not _REFERENCE_TYPE.fullmatch(target_type) or target_type in _FORBIDDEN_TYPES:
+        raise ValidationFailed("reference", "not a resource type this store can link to")
+
+
 def _check_identity(type_: Any, id_: Any) -> tuple[str, str]:
-    if not isinstance(type_, str) or not _TYPE.fullmatch(type_):
+    if not isinstance(type_, str) or not _TYPE.fullmatch(type_) or type_ in _FORBIDDEN_TYPES:
         raise ValidationFailed("resourceType", "not a FHIR resource type")
     if not isinstance(id_, str) or not _FHIR_ID.fullmatch(id_):
         raise ValidationFailed("id", "not a FHIR id")
@@ -463,6 +484,9 @@ class ResourceStore:
         here, before any write."""
         body = {**resource, "meta": {"versionId": version, "lastUpdated": stamp}}
         fragment = to_graph(body)
+        for rel in fragment.rels:
+            if _is_reference_key(rel.end):
+                _check_reference_type(rel.end)
         nodes = [
             NodeSpec(node.key, node.labels, _node_props_to_db(node.key, node.properties))
             for node in fragment.nodes
@@ -571,13 +595,20 @@ class ResourceStore:
 
     async def _link_shared(self, rels: list[RelSpec]) -> None:
         """Link each concept to its code system once: MERGE, so a repeat adds no second edge."""
-        groups: dict[str, list[dict[str, str]]] = {}
+        groups: dict[str, dict[tuple[str, str], dict[str, str]]] = {}
         for rel in rels:
-            groups.setdefault(rel.type, []).append({"start": rel.start, "end": rel.end})
-        for rel_type, rows in groups.items():
+            # One row per distinct pair: a concept used twice in a resource is linked once.
+            groups.setdefault(rel.type, {})[(rel.start, rel.end)] = {
+                "start": rel.start,
+                "end": rel.end,
+            }
+        for rel_type, pairs in groups.items():
+            rows = list(pairs.values())
             linked = await self._run(
                 "Q-RES-LINK-SHARED", insert=_labels_text((rel_type,)), rows=rows
             )
+            # The statement counts distinct pairs, so legacy duplicate edges (one per earlier put)
+            # are not read as a missing endpoint; a pair with a missing end has no row at all.
             if int(linked[0]["linked"]) != len(rows):
                 raise NotFound(f"an endpoint of {rel_type} is missing")
 

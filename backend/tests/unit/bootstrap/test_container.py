@@ -526,7 +526,7 @@ async def test_build_with_a_workspace_and_a_client_reads_from_that_workspace() -
     assert client.workspaces == [WORKSPACE]
 
 
-async def test_build_for_tests_exposes_the_dispatcher_with_the_three_ladder_kinds(
+async def test_build_for_tests_exposes_the_dispatcher_with_the_ladder_and_booking_kinds(
     neo4j: Neo4jConnection,
 ) -> None:
     container = build_for_tests(neo4j=neo4j)
@@ -537,6 +537,8 @@ async def test_build_for_tests_exposes_the_dispatcher_with_the_three_ladder_kind
             WorkKind.PHONE_TASK,
             WorkKind.ESCALATE_TO_LEAD,
             WorkKind.CRITERIA_REVIEW_REMINDER,
+            WorkKind.BOOKING_PHONE_PROMPT,
+            WorkKind.BOOKING_EXPIRE,
         }
     )
 
@@ -550,6 +552,8 @@ async def test_build_exposes_the_same_dispatch_table() -> None:
                 WorkKind.PHONE_TASK,
                 WorkKind.ESCALATE_TO_LEAD,
                 WorkKind.CRITERIA_REVIEW_REMINDER,
+                WorkKind.BOOKING_PHONE_PROMPT,
+                WorkKind.BOOKING_EXPIRE,
             }
         )
     finally:

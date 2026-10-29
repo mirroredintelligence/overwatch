@@ -91,6 +91,11 @@ from diucs.application.ports.outbound.tokens import (
 )
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant
+from diucs.application.use_cases.booking_timers import (
+    BookingPhonePrompt,
+    ExpireBooking,
+    booking_timer_handlers,
+)
 from diucs.application.use_cases.criteria_reviews import (
     RunCriteriaReviews,
     RunCriteriaReviewsCommand,
@@ -239,7 +244,14 @@ def _scheduled_work(
     ladder = MissedReportLadder(
         uow_factory, clock, ids, tokens, link_base_url, AesGcmContentSealer(secrets)
     )
-    handlers = ladder_handlers(ladder)
+    handlers: dict[WorkKind, WorkHandler] = dict(ladder_handlers(ladder))
+    # The booking timers (U19): the advisor's phone prompt and the expiry of a request.
+    handlers.update(
+        booking_timer_handlers(
+            BookingPhonePrompt(uow_factory, clock), ExpireBooking(uow_factory, clock)
+        )
+    )
+    # The daily criteria review run (U31).
     reviews = RunCriteriaReviews(uow_factory, ids, clock, AesGcmContentSealer(secrets))
     handlers[WorkKind.CRITERIA_REVIEW_REMINDER] = criteria_review_handler(reviews)
     return ScheduledWorkDispatcher(handlers)

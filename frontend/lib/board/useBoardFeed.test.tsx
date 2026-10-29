@@ -520,6 +520,23 @@ describe('useBoardFeed: a board that stops refreshing', () => {
   });
 });
 
+describe('useBoardFeed: the back end clock from each answer', () => {
+  it('takes the offset from the answer, not only from the page: a board built on a server clock an hour ahead is live', async () => {
+    const hourAhead = 3_600_000;
+    const { result, stream, fetchBoard } = mount();
+    fetchBoard.mockImplementation(async () => ({
+      board: boardBuiltAt(BOARD_A, iso(Date.now() + hourAhead)),
+      serverTime: Date.now() + hourAhead,
+    }));
+
+    await openStream(stream());
+
+    expect(result.current.assessment).toEqual({ mode: 'live', streamPaused: false });
+    await advance(61_000);
+    expect(result.current.assessment).toEqual({ mode: 'live', streamPaused: false });
+  });
+});
+
 describe('useBoardFeed: first render', () => {
   it('is live for a fresh board on the very first render, with no effect having run', () => {
     const { result } = mount();
@@ -600,6 +617,17 @@ describe('useBoardFeed: a screen the back end refuses', () => {
     expect(result.current.assessment).toMatchObject({ mode: 'last-known' });
   });
 
+  it('calls onUnpaired once, however many polls are refused', async () => {
+    const { stream, fetchBoard, onUnpaired } = mount();
+    await openStream(stream());
+    fetchBoard.mockRejectedValue(new BoardFetchError('refused', 401));
+
+    await advance(5 * 60_000);
+
+    expect(fetchBoard.mock.calls.length).toBeGreaterThan(3);
+    expect(onUnpaired).toHaveBeenCalledTimes(1);
+  });
+
   it('does not call onUnpaired for a server error', async () => {
     const { stream, fetchBoard, onUnpaired } = mount();
     await openStream(stream());
@@ -655,10 +683,11 @@ describe('useBoardFeed: clean-up on unmount', () => {
     await openStream(stream());
     await breakStream(stream(), true);
 
+    expect(vi.getTimerCount()).toBeGreaterThan(0);
     unmount();
+    expect(vi.getTimerCount()).toBe(0);
     await advance(60_000);
 
     expect(streams).toHaveLength(1);
-    expect(vi.getTimerCount()).toBe(0);
   });
 });

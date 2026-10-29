@@ -124,6 +124,19 @@ describe('parseBoardJson', () => {
     expect(() => parseBoardJson(withEntry((e) => (e[key] = 12)))).toThrow(BoardParseError);
   });
 
+  it.each(['effectiveAvailable', 'overBy', 'used', 'comment', 'reportedAt', 'nextDueAt', 'wasDueAt'])(
+    'fails closed when the optional %s is missing, rather than null (the BFF always sends the key)',
+    (key) => {
+      expect(() => parseBoardJson(withEntry((e) => delete e[key]))).toThrow(BoardParseError);
+    },
+  );
+
+  it('fails closed when organisation is missing, rather than null', () => {
+    const board = roundTrip(BOARD_B) as unknown as Record<string, unknown>;
+    delete board.organisation;
+    expect(() => parseBoardJson(board)).toThrow(BoardParseError);
+  });
+
   it('fails closed when comment is neither text nor null, or an optional count is neither a count nor null', () => {
     expect(() => parseBoardJson(withEntry((e) => (e.comment = 5)))).toThrow(BoardParseError);
     expect(() => parseBoardJson(withEntry((e) => (e.used = 'many')))).toThrow(BoardParseError);

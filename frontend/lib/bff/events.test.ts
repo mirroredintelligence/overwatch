@@ -114,6 +114,13 @@ describe('relayEvents: how the bytes arrive', () => {
     expect(await relay(`event: board\rdata: ${SERVICE}\r\r`)).toBe(`event: board\ndata: ${SERVICE}\n\n`);
   });
 
+  it('reads CRLF line ends split between the CR and the LF at every position', async () => {
+    const whole = `event: board\r\ndata: ${SERVICE}\r\n\r\n`;
+    for (let cut = 1; cut < whole.length; cut += 1) {
+      expect(await relay(whole.slice(0, cut), whole.slice(cut))).toBe(`event: board\ndata: ${SERVICE}\n\n`);
+    }
+  });
+
   it('reads a multi-byte character split across two chunks', async () => {
     const bytes = new TextEncoder().encode(frame('board', JSON.stringify({ serviceId: 'svc-1', note: 'é' })));
     const cut = bytes.indexOf(0xc3) + 1;
@@ -131,6 +138,14 @@ describe('relayEvents: how the bytes arrive', () => {
     const huge = `event: board\ndata: ${'x'.repeat(20_000)}`;
 
     const text = await relay(frame('board', SERVICE), huge, frame('board', SERVICE));
+
+    expect(text).toBe(`event: board\ndata: ${SERVICE}\n\n`);
+  });
+
+  it('closes, forwarding nothing more, when one frame is made of many short lines that add up past 16 KiB', async () => {
+    const lines = Array.from({ length: 400 }, () => `data: ${'x'.repeat(60)}\n`).join('');
+
+    const text = await relay(frame('board', SERVICE), `event: board\n${lines}`, '\n', frame('board', SERVICE));
 
     expect(text).toBe(`event: board\ndata: ${SERVICE}\n\n`);
   });

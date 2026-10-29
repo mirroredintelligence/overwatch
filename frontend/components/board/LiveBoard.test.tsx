@@ -1,4 +1,5 @@
 import { act, render, screen, within } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BoardFetchError, type FetchedBoard } from '@/lib/board/client';
@@ -109,6 +110,25 @@ describe('LiveBoard: online', () => {
     expect(tiles(container)).toHaveLength(MAIN_ENTRIES.length);
     vi.useRealTimers(); // axe uses timers of its own
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+});
+
+describe('LiveBoard: the first paint on the server', () => {
+  it('already says Last known in the HTML the server sends for a board that is old when served', () => {
+    const html = renderToString(
+      <LiveBoard initialBoard={boardBuiltAt(BOARD_A, iso(T0 - 20 * 60_000))} serverTime={T0} />,
+    );
+
+    expect(html).toContain('Tool offline since');
+    expect(html).toContain('Do not rely on this. Phone to confirm.');
+    expect(html).not.toMatch(/Updated \d+ min ago/);
+  });
+
+  it('sends a current board as current', () => {
+    const html = renderToString(<LiveBoard initialBoard={BOARD_A} serverTime={T0} />);
+
+    expect(html).not.toContain('Tool offline since');
+    expect(html).not.toContain('Last known');
   });
 });
 

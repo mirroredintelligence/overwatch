@@ -92,6 +92,36 @@ async def test_add_then_get_round_trips_in_a_fresh_session(neo4j_driver: AsyncDr
     await assert_round_trip(neo4j_driver, save, load, original)
 
 
+async def test_a_grouped_communication_round_trips_and_is_a_prompt_for_its_phone(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # U04: one C9 is stored for each service of a grouped prompt, and only one is sent. The others
+    # have the status "grouped" and no provider id, and U05 still finds them as the phone's prompt.
+    grouped = _comm(
+        id="comm-grouped",
+        message_id="C9",
+        delivery_status="grouped",
+        provider_message_id=None,
+        payload_text="DIUCS: 2 services need an update by 10:30. A) UCR East 1. B) UCR West 3.",
+    )
+
+    async def save(tx: AsyncManagedTransaction) -> None:
+        await Neo4jCommunicationRepository(tx).add(grouped)
+
+    async def load(tx: AsyncManagedTransaction) -> Communication | None:
+        return await Neo4jCommunicationRepository(tx).get("comm-grouped")
+
+    await assert_round_trip(neo4j_driver, save, load, grouped)
+
+    async def latest(tx: AsyncManagedTransaction) -> Communication | None:
+        return await Neo4jCommunicationRepository(tx).latest_prompt_for_phone({"role-1"}, {"C9"})
+
+    assert await read_tx(neo4j_driver, latest) == grouped
+    props = await node_props(neo4j_driver, "Communication", id="comm-grouped")
+    assert props["deliveryStatus"] == "grouped"
+    assert props["status"] == "completed"
+
+
 async def test_an_inbound_reply_round_trips_with_its_received_time(
     neo4j_driver: AsyncDriver,
 ) -> None:

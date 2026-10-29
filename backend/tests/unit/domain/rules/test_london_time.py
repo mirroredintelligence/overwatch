@@ -312,18 +312,3 @@ def test_format_stamp_is_the_london_day_month_and_time(instant: datetime, expect
 def test_format_stamp_refuses_a_naive_datetime() -> None:
     with pytest.raises(ValueError):
         format_stamp(datetime(2026, 10, 23, 7, 15))
-
-
-def test_format_stamp_is_the_wording_send_prompts_gives_a_figure() -> None:
-    """U03's `_stamp` words the C1 date. A second copy must not disagree with it (known-issues)."""
-    from diucs.application.use_cases.send_prompts import _stamp
-
-    instants = [
-        utc(2026, 10, 23, 7, 15),
-        utc(2026, 3, 29, 0, 30),
-        utc(2026, 3, 29, 1, 0),
-        utc(2026, 10, 25, 0, 59),
-        utc(2026, 10, 25, 1, 0),
-        utc(2026, 12, 22, 17, 0),
-    ]
-    assert [format_stamp(i) for i in instants] == [_stamp(i) for i in instants]

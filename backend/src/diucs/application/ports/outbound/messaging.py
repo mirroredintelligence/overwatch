@@ -9,11 +9,16 @@ recording fakes live in diucs.adapters.testing. The record store is Neo4j and ha
 from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 
 from diucs.domain.codes import Channel
 
-DELIVERY_STATUSES = frozenset({"queued", "sent", "delivered", "failed", "received"})
+GROUPED_STATUS: Final = "grouped"
+"""One C9 text covers every service of a grouped prompt (U04). It is recorded as one Communication
+for each service; the one that is sent is 'queued' and moves on as any message does, the others are
+'grouped' and never move: they have no message of their own."""
+
+DELIVERY_STATUSES = frozenset({"queued", "sent", "delivered", "failed", "received", GROUPED_STATUS})
 """Statuses a Communication can hold. 'received' marks an inbound message."""
 
 

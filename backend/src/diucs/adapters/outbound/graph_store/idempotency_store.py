@@ -87,6 +87,16 @@ _PROCESSED_SCENARIO: Final = Scenario(
     ),
 )
 
+# The read that asks whether a marker is held (I08). The scenario seeds the marker for both tenants
+# under one key, and the count is the tenant's own: a statement without the tenant would count two.
+_SEEN_SCENARIO: Final = Scenario(
+    "ask whether the tenant's own marker for a message is held",
+    seed=_PROCESSED_SCENARIO.seed,
+    params={"key": "8:consumer:m-0"},
+    lookup=("key",),
+    expect=Expect(rows=({"found": 1},)),
+)
+
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-IDEM-HEAD": (
         "MATCH (r:IdempotencyRecord {key: $key}) RETURN r.resultType AS resultType",
@@ -132,9 +142,16 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "RETURN coalesce(created, false) AS created",
         "write",
     ),
+    "Q-PROCESSED-SEEN": (
+        "MATCH (p:Processed {key: $key, tenantId: $tenant}) RETURN count(p) AS found",
+        "read",
+    ),
 }
 
-_SCENARIOS: Final[dict[str, Scenario]] = {"Q-PROCESSED-MARK": _PROCESSED_SCENARIO}
+_SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-PROCESSED-MARK": _PROCESSED_SCENARIO,
+    "Q-PROCESSED-SEEN": _SEEN_SCENARIO,
+}
 
 for _query_id, (_cypher, _mode) in _QUERIES.items():
     REGISTRY.register(
@@ -303,6 +320,14 @@ class Neo4jProcessedMessages:
         except ConstraintError as error:
             raise Conflict("this message is being processed by another unit of work") from error
         return bool(rows[0]["created"])
+
+    async def seen(self, message_id: str, consumer: str) -> bool:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-PROCESSED-SEEN"),
+            key=_processed_key(message_id, consumer),
+        )
+        return int(rows[0]["found"]) > 0
 
 
 def _scoped(tx: AsyncManagedTransaction, scope: ScopeId | None) -> AsyncManagedTransaction:

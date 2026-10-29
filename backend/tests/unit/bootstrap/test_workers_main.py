@@ -1,0 +1,161 @@
+"""The process entry of the inbound queue workers (I08): configuration that fails closed with fixed
+messages that never hold a value from the environment, and the two runners it composes. No
+Docker and no Service Bus: the runners are built with no client and never started."""
+
+import asyncio
+
+import pytest
+from pydantic import SecretStr
+
+from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
+from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
+from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
+from diucs.application.use_cases.handle_inbound_text import (
+    HandleInboundTextCommand,
+    HandleInboundTextResult,
+)
+from diucs.bootstrap import workers_main
+from diucs.bootstrap.settings import Settings
+from diucs.bootstrap.workers_main import (
+    WorkersConfigError,
+    build_runners,
+    configured_tenants,
+    run_workers,
+    service_bus_connection,
+)
+
+CONNECTION = "Endpoint=sb://example;SharedAccessKeyName=k;SharedAccessKey=SECRET-KEY-TEXT"
+
+
+class _UseCase:
+    async def execute(self, command: HandleInboundTextCommand) -> HandleInboundTextResult:
+        raise AssertionError("not used")
+
+
+def _no_unit() -> object:
+    raise AssertionError("not used")
+
+
+async def test_the_configured_tenants_are_the_comma_separated_ids_in_order() -> None:
+    tenants = configured_tenants({"DIUCS_WORKER_TENANTS": "tenant-a, tenant-b ,tenant-c"})
+
+    assert list(await tenants.active_tenant_ids()) == ["tenant-a", "tenant-b", "tenant-c"]
+
+
+@pytest.mark.parametrize("value", [None, "", " , ", "   "])
+def test_no_configured_tenant_is_refused(value: str | None) -> None:
+    environ = {} if value is None else {"DIUCS_WORKER_TENANTS": value}
+
+    with pytest.raises(WorkersConfigError, match="DIUCS_WORKER_TENANTS"):
+        configured_tenants(environ)
+
+
+@pytest.mark.parametrize("bad", ["Not A Tenant", "net-abcd1234", "q", "has:colon", "x" * 40])
+def test_an_entry_that_is_not_a_tenant_id_is_refused_without_repeating_it(bad: str) -> None:
+    with pytest.raises(WorkersConfigError) as raised:
+        configured_tenants({"DIUCS_WORKER_TENANTS": f"tenant-a,{bad}"})
+
+    assert bad not in str(raised.value)
+
+
+def test_the_service_bus_connection_is_the_setting() -> None:
+    assert service_bus_connection(Settings(servicebus_connection=SecretStr(CONNECTION))) == (
+        CONNECTION
+    )
+
+
+def test_no_service_bus_connection_is_refused_without_a_value() -> None:
+    with pytest.raises(WorkersConfigError, match="DIUCS_SERVICEBUS_CONNECTION"):
+        service_bus_connection(Settings(servicebus_connection=None))
+
+
+def test_main_stops_with_the_fixed_message_when_the_tenants_are_not_configured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("DIUCS_WORKER_TENANTS", raising=False)
+
+    with pytest.raises(SystemExit) as raised:
+        workers_main.main()
+
+    assert "DIUCS_WORKER_TENANTS" in str(raised.value)
+
+
+def test_main_stops_with_the_fixed_message_when_there_is_no_service_bus_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DIUCS_WORKER_TENANTS", "tenant-a")
+    monkeypatch.delenv("DIUCS_SERVICEBUS_CONNECTION", raising=False)
+
+    with pytest.raises(SystemExit) as raised:
+        workers_main.main()
+
+    assert "DIUCS_SERVICEBUS_CONNECTION" in str(raised.value)
+
+
+def test_main_runs_the_workers_for_the_configured_tenants(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DIUCS_WORKER_TENANTS", "tenant-a")
+    monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", CONNECTION)
+    seen: list[object] = []
+
+    async def fake_run(settings: Settings, tenants: StaticTenants) -> None:
+        seen.append((type(settings), type(tenants)))
+
+    monkeypatch.setattr(workers_main, "_run", fake_run)
+
+    workers_main.main()
+
+    assert seen == [(Settings, StaticTenants)]
+
+
+def test_there_is_one_runner_for_each_inbound_queue_and_each_binds_the_tenant() -> None:
+    runners = build_runners(
+        client=None,  # type: ignore[arg-type]
+        handle_inbound_text=_UseCase(),
+        uow_factory=_no_unit,  # type: ignore[arg-type]
+        tenants=StaticTenants(["tenant-a"]),
+    )
+
+    assert [(r._entity, r._subscription, r._sessions) for r in runners] == [
+        ("inbound.replies", None, False),
+        ("inbound.receipts", None, False),
+    ]
+    assert all(isinstance(r._consumer, TenantBoundConsumer) for r in runners)
+
+
+def test_the_receipt_consumer_is_built_from_the_same_parts() -> None:
+    consumer = receipt_consumer(_no_unit, StaticTenants(["tenant-a"]))  # type: ignore[arg-type]
+
+    assert isinstance(consumer, TenantBoundConsumer)
+
+
+async def test_run_workers_runs_every_runner_until_stop_is_set() -> None:
+    stop = asyncio.Event()
+    started: list[str] = []
+
+    class _Runner:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
+        async def serve(self, event: asyncio.Event) -> None:
+            started.append(self.name)
+            await event.wait()
+
+    task = asyncio.create_task(run_workers([_Runner("a").serve, _Runner("b").serve], stop))
+    await asyncio.sleep(0)
+    await asyncio.sleep(0)
+    assert sorted(started) == ["a", "b"]
+    assert not task.done()
+
+    stop.set()
+    await task
+
+
+def test_the_queues_are_the_ones_the_webhook_fills() -> None:
+    from diucs.adapters.inbound.sms_webhook import routes
+    from diucs.application.ports.outbound.event_bus import QUEUES
+
+    assert workers_main.REPLIES_QUEUE == routes.REPLIES_QUEUE
+    assert workers_main.RECEIPTS_QUEUE == routes.RECEIPTS_QUEUE
+    assert {workers_main.REPLIES_QUEUE, workers_main.RECEIPTS_QUEUE} <= QUEUES

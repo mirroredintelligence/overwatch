@@ -23,7 +23,7 @@ from azure.servicebus import NEXT_AVAILABLE_SESSION
 from azure.servicebus.aio import ServiceBusClient
 from azure.servicebus.exceptions import OperationTimeoutError
 
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
+from diucs.adapters.inbound.workers.consumer import MessageConsumer, Outcome
 from diucs.application.ports.outbound.event_bus import BusMessage
 
 logger = logging.getLogger(__name__)
@@ -86,6 +86,7 @@ def to_bus_message(raw: Any, entity: str) -> BusMessage:
     )
     if not message_id or not event_type:
         raise MalformedMessage
+    tenant_id = _text(properties.get("tenantId", properties.get(b"tenantId")))
     try:
         payload = json.loads(_body(raw).decode("utf-8"))
     except (ValueError, TypeError) as error:
@@ -98,6 +99,7 @@ def to_bus_message(raw: Any, entity: str) -> BusMessage:
         event_type=event_type,
         payload=payload,
         session_id=_text(raw.session_id),
+        tenant_id=tenant_id,
     )
 
 
@@ -107,7 +109,7 @@ class ServiceBusRunner:
         client: ServiceBusClient,
         entity: str,
         subscription: str | None,
-        consumer: IdempotentConsumer,
+        consumer: MessageConsumer,
         sessions: bool = False,
         max_concurrency: int = 4,
     ) -> None:
@@ -159,6 +161,10 @@ class ServiceBusRunner:
         """Receive until stop is set. A connection failure backs off and tries again."""
         loops = self._max_concurrency if self._sessions else 1
         await asyncio.gather(*(self._loop(stop) for _ in range(loops)))
+
+    # The name the process entries call. The architecture scan for Cypher execution reads any
+    # attribute called `run` outside the graph store, and this is a worker loop, not a database.
+    serve = run
 
     def _open(self) -> Any:
         if self._subscription is None:

@@ -6,6 +6,7 @@ was really stored. The sample values are synthetic: a role id, a catalogue id an
 from the prompt, never a patient name, NHS number or postcode.
 """
 
+import asyncio
 import contextlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -353,3 +354,110 @@ async def test_a_second_add_with_the_same_id_and_different_content_is_refused(
     with pytest.raises(Conflict):
         await _add(neo4j_driver, _comm(payload_text="a different text"))
     assert await _get(neo4j_driver, "comm-1") == original
+
+
+# --- the delivery status only moves forward (I08, DEC-165) ----------------------------------------
+
+
+async def _set_status(driver: AsyncDriver, provider_id: str, status: str) -> bool:
+    async def work(tx: AsyncManagedTransaction) -> bool:
+        return await Neo4jCommunicationRepository(tx).set_delivery_status(provider_id, status)
+
+    return await write_tx(driver, work)
+
+
+@pytest.mark.parametrize(
+    ("stored", "new", "expected", "moved"),
+    [
+        ("queued", "sent", "sent", True),
+        ("queued", "delivered", "delivered", True),
+        ("queued", "failed", "failed", True),
+        ("sent", "delivered", "delivered", True),
+        ("sent", "failed", "failed", True),
+        ("queued", "queued", "queued", False),
+        ("sent", "queued", "sent", False),
+        ("sent", "sent", "sent", False),
+        ("delivered", "queued", "delivered", False),
+        ("delivered", "sent", "delivered", False),
+        ("delivered", "delivered", "delivered", False),
+        ("delivered", "failed", "delivered", False),
+        ("failed", "queued", "failed", False),
+        ("failed", "sent", "failed", False),
+        ("failed", "delivered", "failed", False),
+        ("failed", "failed", "failed", False),
+        ("received", "delivered", "received", False),
+        ("grouped", "delivered", "grouped", False),
+    ],
+)
+async def test_a_status_moves_forward_only_and_delivered_and_failed_are_final(
+    neo4j_driver: AsyncDriver, stored: str, new: str, expected: str, moved: bool
+) -> None:
+    await _add(neo4j_driver, _comm(delivery_status=stored))
+
+    result = await _set_status(neo4j_driver, "sms-1", new)
+
+    assert result is moved
+    props = await node_props(neo4j_driver, "Communication", id="comm-1")
+    assert props["deliveryStatus"] == expected
+
+
+@pytest.mark.parametrize(
+    ("new", "fhir"), [("sent", "completed"), ("delivered", "completed"), ("failed", "not-done")]
+)
+async def test_the_fhir_status_follows_the_delivery_status(
+    neo4j_driver: AsyncDriver, new: str, fhir: str
+) -> None:
+    await _add(neo4j_driver, _comm(delivery_status="queued"))
+
+    await _set_status(neo4j_driver, "sms-1", new)
+
+    props = await node_props(neo4j_driver, "Communication", id="comm-1")
+    assert props["status"] == fhir
+
+
+async def test_a_refused_move_leaves_the_fhir_status_alone(neo4j_driver: AsyncDriver) -> None:
+    await _add(neo4j_driver, _comm(delivery_status="failed"))
+    before = await node_props(neo4j_driver, "Communication", id="comm-1")
+
+    await _set_status(neo4j_driver, "sms-1", "delivered")
+
+    assert await node_props(neo4j_driver, "Communication", id="comm-1") == before
+
+
+async def test_a_late_sent_waits_for_a_held_delivered_and_does_not_overwrite_it(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """Two receipts handled at once: the delivered one holds the write and has not committed. The
+    sent one must wait for it and then see delivered, not decide from the queued it read first."""
+    await _add(neo4j_driver, _comm(delivery_status="queued"))
+    async with neo4j_driver.session() as session:
+        held = await session.begin_transaction()
+        await held.run(
+            "MATCH (c:Communication {id: 'comm-1'}) "
+            "SET c.deliveryStatus = 'delivered', c.status = 'completed'"
+        )
+        late = asyncio.create_task(_set_status(neo4j_driver, "sms-1", "sent"))
+        await asyncio.sleep(1.0)
+        assert not late.done()  # it is waiting for the lock, not deciding from a stale read
+        await held.commit()
+        assert await asyncio.wait_for(late, timeout=30) is False
+
+    props = await node_props(neo4j_driver, "Communication", id="comm-1")
+    assert props["deliveryStatus"] == "delivered"
+
+
+async def test_receipts_applied_in_every_order_all_end_delivered(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _add(neo4j_driver, _comm(delivery_status="queued"))
+
+    results = await asyncio.gather(
+        *(
+            _set_status(neo4j_driver, "sms-1", status)
+            for status in ("sent", "delivered", "queued", "sent", "delivered", "sent")
+        )
+    )
+
+    props = await node_props(neo4j_driver, "Communication", id="comm-1")
+    assert props["deliveryStatus"] == "delivered"
+    assert results.count(True) <= 2  # queued to sent, then sent to delivered: never more

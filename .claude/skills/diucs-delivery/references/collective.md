@@ -97,3 +97,13 @@ If you must add or change a shared name (a port, a class, a route, a model file)
 - Ledger missing: `delivery.py init`, then `init --restore docs/delivery/ledger.jsonl` (only into an empty ledger).
 - A delivered task turns out wrong: add a correction task (`X01`, `X02`, ...) to `docs/plan/tasks.json` with the original in `deps`, run `init`, and publish a lesson. Do not rewrite history.
 - The plan changed (tasks added, removed or re-ordered): edit `docs/plan/tasks.json` and the prompt files, run `init`. Existing history is kept.
+
+## Bundles, decision blocks and batched runs
+
+Adopted 2026-10-29 after the repository conversions (TEN-010, TEN-011, TEN-015) were built as three separate chains. The cost was ratchet conflicts on every merge, a duplicate decision number, and each agent re-running the same Neo4j directories behind the lock.
+
+- **Conversion work is one bundle, one builder.** Statements that change the same ratchet file and cap test (`graph_store/unconverted.py`, `test_queries.py`) are built as a chain by one builder, in milestone order (`docs/plan/milestones.md`, bundles B3 to B6): one red commit per task, one green commit per task, one cap change per commit. Two builders never lower the cap in parallel.
+- **Decision numbers come from a block.** The orchestrator reserves a block of ten numbers per builder before it starts (for example DEC-170 to DEC-179 for one builder) and writes the block into the brief. A builder uses only its block. Two branches with the same number is a merge error the orchestrator fixes, not a reason to renumber silently.
+- **Full directories run once per merged batch.** The orchestrator merges the batch, then runs each Neo4j directory once under the lock and records the summary lines. A builder runs its own tests and the generated two-tenant test. A verifier runs the task's own tests, the generated test, and its mutants, and runs a full directory only when the task changes shared schema or a shared statement.
+- **Unit, architecture and front-end tests take no lock** and may run at any time, in parallel with the Neo4j work.
+- **Parallel limit.** Three builders at once, as before. Verifiers are not counted against the limit but each one takes the Neo4j lock for its own runs.

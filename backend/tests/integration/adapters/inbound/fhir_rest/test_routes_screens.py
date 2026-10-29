@@ -24,6 +24,7 @@ from neo4j import AsyncDriver
 
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
@@ -148,7 +149,14 @@ async def screens_container(
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def screens_app(screens_container: Container) -> FastAPI:
+async def screens_app(
+    screens_container: Container, neo4j_driver: AsyncDriver, tenant_id: str
+) -> FastAPI:
+    # screens_container ran clean_graph, so the run tenant's audit chain head is made after the
+    # wipe (lesson L133), as the start-up makes it for each active tenant (TEN-017). Some tests
+    # here run with no tenant bound, so the binding is made for this one call.
+    with as_tenant(tenant_id):
+        await ensure_audit_head(neo4j_driver)
     app = create_app(screens_container)
     app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
     return app

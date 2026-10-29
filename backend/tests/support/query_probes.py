@@ -17,6 +17,8 @@ needed between probes. A finding names the statement, the phase and the kind, an
 names in its detail: never a value, a Cypher text or a tenant id.
 """
 
+import importlib
+import pkgutil
 import re
 from collections import Counter
 from collections.abc import Mapping
@@ -26,6 +28,8 @@ from typing import Any, Final
 
 from neo4j import AsyncDriver
 
+import diucs.adapters.outbound.audit_neo4j as audit_package
+import diucs.adapters.outbound.graph_store as graph_store_package
 from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import (
     PLACEHOLDER,
@@ -216,10 +220,21 @@ def format_findings(findings: list[Finding]) -> str:
 # The statement universe, the gaps and the ratchet
 
 
+def _load_every_statement() -> None:
+    """Import every module of the two packages that register statements, so the module registry
+    holds all of them whatever the test session has imported so far."""
+    for package in (graph_store_package, audit_package):
+        for module in pkgutil.walk_packages(package.__path__, f"{package.__name__}."):
+            importlib.import_module(module.name)
+
+
 def production_statements(registry: QueryRegistry = REGISTRY) -> dict[str, NamedQuery]:
     """Every tenant statement of the registry, keyed by base id: the eager statements, and one
     entry per template (the instance its scenario names, or a stand-in with the place emptied when
-    it has none). Global statements, `Q-TEST-` statements and run-time instances are left out."""
+    it has none). Global statements, `Q-TEST-` statements and run-time instances are left out. For
+    the module registry every statement module is imported first."""
+    if registry is REGISTRY:
+        _load_every_statement()
     universe: dict[str, NamedQuery] = {}
     for query_id in registry.ids():
         query = registry.get(query_id)

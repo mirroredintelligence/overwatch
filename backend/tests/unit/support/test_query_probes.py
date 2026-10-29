@@ -2,7 +2,10 @@
 the ratchet, row and effect comparison, and how findings are written. All values are synthetic.
 """
 
+import subprocess
+import sys
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from neo4j.time import DateTime
@@ -115,6 +118,21 @@ def test_the_universe_of_the_real_registry_holds_the_eager_ids_and_the_templates
     assert len(statements) == len(eager) + len(templates)
     assert "Q-NEO4J-PING" not in statements
     assert "Q-RES-UPSERT-ROOT" in statements
+
+
+def test_the_universe_is_complete_in_a_fresh_interpreter() -> None:
+    """Nothing but this call imports the statement modules, as in a run of this one test file."""
+    code = (
+        "from tests.support.query_probes import production_statements as p; s = p(); "
+        "print(len(s), 'Q-OUTBOX-ADD' in s, 'Q-RES-UPSERT-ROOT' in s, 'Q-CRED-SET' in s)"
+    )
+    backend = Path(__file__).resolve().parents[3]
+    done = subprocess.run(
+        [sys.executable, "-c", code], cwd=backend, capture_output=True, text=True, check=True
+    )
+    count, *present = done.stdout.split()
+    assert int(count) >= 126
+    assert present == ["True", "True", "True"]
 
 
 # Gaps and the ratchet

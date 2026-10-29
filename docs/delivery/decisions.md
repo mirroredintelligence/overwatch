@@ -2010,7 +2010,6 @@ Status: accepted · Affects: `backend/tests/support/query_probes.py`, `adapters/
 3. **A key must be held by the seed, or declared new (B2b).** `Scenario.new` names the parameters that are new data (a value to write, a limit, a time, the key of a node the statement creates). Every other parameter, `lookup` or not, must hold only values the seed holds (text, numbers, `Marked`, `Unique`, looking inside maps and lists; booleans and `None` are not keys). `validate_scenario` refuses the rest, a `new` name that is not a parameter, a lookup declared `new`, and a parameter declared `new` that the seed wholly holds. Before, `lookup=()` accepted any parameter, so a MERGE that stamps only on CREATE passed with a fresh id.
 4. **Residual, stated.** A key declared `new` proves creation only: a statement that merges by it and leaks on a match is not run on a match (`known-issues.md`). The declaration is visible in the scenario for the reviewer, which is what DEC-142 item 9 relies on.
 
-<<<<<<< HEAD
 ## DEC-157 The outbox relay: one tenant per round, the lock, failure and ordering, and the choices the prompt leaves open (I03)
 Status: accepted (decided by the builder under DEC-133) · Affects: `adapters/inbound/workers/outbox_relay.py`, `bootstrap/outbox_relay_main.py`, I04, I05, TEN-007, TEN-016, TEN-C06 (Redis tenant prefix), O04, hazards H-26 and H-36. Numbered DEC-157: main holds DEC-155 and task/TEN-004 holds DEC-156; recheck before merging.
 
@@ -2032,7 +2031,7 @@ Status: accepted (decided by the builder under DEC-133) · Affects: `adapters/in
 16. **Hazards.** H-26 is updated (partial, item 6) and H-36 is added: a queued message is lost, repeated beyond what consumers absorb, or sent for the wrong tenant.
 
 Evidence: `docs/delivery/evidence/I03.md`.
-=======
+
 ## DEC-158 Grouped prompts for a phone with several services: what is grouped, what is stored, and the choices the prompt leaves open (U04)
 Status: accepted (builder build-U04, under DEC-133; no owner gate) · Affects: U04 (`application/use_cases/send_prompts.py`), U05 (reads the records stored here, DEC-148 item 9), the prompt-due job (I05 wiring: the key helper), D15 (C9 is not changed), P07 (one new delivery status), H-16 · Numbering: DEC-156 was the top number on `main` (a95fa3c), and `task/I03-outbox-relay` holds DEC-157 when this was written; checked again before the merge.
 
@@ -2051,4 +2050,3 @@ Status: accepted (builder build-U04, under DEC-133; no owner gate) · Affects: U
 13. **Not here.** The "more than 3 services" flag (W43), grouped app notifications (W38), and lettered replies and C10 (U05) are other tasks. A phone with more than 3 services is grouped up to the 26 letters.
 
 Tests: `backend/tests/integration/application/test_send_prompts_grouped.py`, `test_send_prompts_grouped_reply.py`, `backend/tests/unit/application/use_cases/test_send_prompts_key.py` and `backend/tests/integration/graph_store/test_communication_repository.py`. Evidence: `docs/delivery/evidence/U04.md`.
->>>>>>> main

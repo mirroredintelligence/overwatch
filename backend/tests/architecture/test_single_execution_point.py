@@ -60,6 +60,9 @@ BINDING_MODULES: frozenset[str] = frozenset(
         "diucs.adapters.inbound.sms_webhook.routes",
         "diucs.adapters.inbound.workers.outbox_relay",
         "diucs.adapters.inbound.workers.tenant_binding",
+        # O09: the synthetic test hook binds the one tenant its configuration names, never one the
+        # request sends, and is mounted only when the hook is configured.
+        "diucs.adapters.inbound.fhir_rest.routes_synthetic",
         # TEN-017: the start-up is an edge of its own: it binds each active tenant in turn to make
         # that tenant's audit head. No request or message is in it.
         "diucs.bootstrap.container",

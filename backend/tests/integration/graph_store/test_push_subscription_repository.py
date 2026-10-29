@@ -9,12 +9,12 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
+from diucs.adapters.outbound.graph_store.credential_store import Neo4jDeviceRegistry
 from diucs.adapters.outbound.graph_store.push_subscription_repository import (
     Neo4jPushSubscriptionRepository,
 )
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.application.ports.outbound.messaging import PushSubscription
-from diucs.adapters.outbound.graph_store.credential_store import Neo4jDeviceRegistry
 from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx

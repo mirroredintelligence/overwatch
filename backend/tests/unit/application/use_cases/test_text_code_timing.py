@@ -139,17 +139,17 @@ class _Store:
         self._calls = calls
         self._inner = inner
 
-    async def get(self, key: str) -> Any:
+    async def get(self, purpose: str, phone_hash: str) -> Any:
         self._calls.names.append("codes.get")
-        return await self._inner.get(key)
+        return await self._inner.get(purpose, phone_hash)
 
-    async def save(self, key: str, code_hash: str, state: Any) -> None:
+    async def save(self, purpose: str, phone_hash: str, code_hash: str, state: Any) -> None:
         self._calls.names.append("codes.save")
-        await self._inner.save(key, code_hash, state)
+        await self._inner.save(purpose, phone_hash, code_hash, state)
 
-    async def clear(self, key: str) -> None:
+    async def clear(self, purpose: str, phone_hash: str) -> None:
         self._calls.names.append("codes.clear")
-        await self._inner.clear(key)
+        await self._inner.clear(purpose, phone_hash)
 
 
 class _Sealer:

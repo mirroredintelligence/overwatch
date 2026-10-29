@@ -15,6 +15,7 @@ import json
 from collections import defaultdict, deque
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
+from uuid import uuid4
 
 import pytest
 from azure.servicebus import ServiceBusReceivedMessage, ServiceBusSessionFilter
@@ -36,7 +37,7 @@ from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.settings import Settings
 from diucs.domain.rules.identity_policy import CodeState
 from tests.contract.harness import Harness
-from tests.support.redis import flush_run
+from tests.support.redis import flush_prefix, flush_run
 from tests.support.servicebus import client as servicebus_client
 
 # Every fake starts on 2026-10-25, the day of the London clock change, in UTC (the only zone a

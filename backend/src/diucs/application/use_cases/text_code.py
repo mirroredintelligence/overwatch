@@ -210,7 +210,7 @@ class RequestTextCode:
             known = await _is_known(uow, phone_hash, now)
 
         key = code_key(phone_hash, purpose)
-        previous = await self._codes.get(key)
+        previous = await self._codes.get(purpose, phone_hash)
         if previous is not None:
             wait = cooldown_seconds(previous[1].issued_at, now)
             if wait > 0:
@@ -218,7 +218,9 @@ class RequestTextCode:
 
         code = new_code(self._rng)
         secret = self._secrets.get(CODE_HMAC_SECRET)
-        await self._codes.save(key, code_hash(secret, phone_hash, purpose, code), CodeState(now))
+        await self._codes.save(
+            purpose, phone_hash, code_hash(secret, phone_hash, purpose, code), CodeState(now)
+        )
 
         result = RequestTextCodeResult(sent=True, retry_after_seconds=RESEND_AFTER_SECONDS)
         async with self._uow_factory() as uow:
@@ -273,8 +275,7 @@ class VerifyTextCode:
         purpose = check_purpose(command.purpose)
         phone_hash = self._hasher.hash(command.phone)
         now = self._clock.now()
-        key = code_key(phone_hash, purpose)
-        held = await self._codes.get(key)
+        held = await self._codes.get(purpose, phone_hash)
         if held is None:
             # No code was asked for (or it has lapsed). Known and unknown numbers get this answer.
             return _refused(needs_new_code=True)
@@ -285,7 +286,7 @@ class VerifyTextCode:
             code_hash(secret, phone_hash, purpose, command.code), stored_hash
         )
         attempted = code_attempt(state, entered_ok, now)
-        await self._codes.save(key, stored_hash, attempted)
+        await self._codes.save(purpose, phone_hash, stored_hash, attempted)
 
         async with self._uow_factory() as uow:
             outcome = attempted.last_outcome

@@ -124,7 +124,7 @@ async def test_a_known_invited_phone_gets_one_code_and_the_store_holds_a_hash_no
     sent = await invited.sent_to(INVITED_MOBILE)
     assert len(sent) == 1
     code = sent[0]
-    stored = await invited.codes.get(code_key(INVITED_HASH, PURPOSE))
+    stored = await invited.codes.get(PURPOSE, INVITED_HASH)
     assert stored is not None
     stored_hash, _ = stored
     assert code not in stored_hash

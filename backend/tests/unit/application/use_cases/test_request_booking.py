@@ -94,6 +94,7 @@ def test_the_text_request_accepts_two_codes_joined_with_and() -> None:
         "urgency": "within 2 hrs",
         "link": "https://dorset.diucs.example/l/abcdef",
         "reply_by": "14:26",
+        "referral_system_name": "the referral system",
     }
     assert "fall-no-injury and frailty" in render(MessageId.B1, Channel.TEXT, **fields).text
 

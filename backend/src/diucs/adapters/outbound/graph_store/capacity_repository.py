@@ -95,7 +95,8 @@ _QUERIES: Final = (
         cypher=(
             "MATCH (o:Observation)-[:FOCUS]->(s:HealthcareService {key: $key}) "
             "WHERE o.ext_reportType = 'confirmed' "
-            "RETURN o.effectiveDateTime AS at ORDER BY o.effectiveDateTime DESC LIMIT 1"
+            "RETURN o.id AS obs, o.effectiveDateTime AS at "
+            "ORDER BY o.effectiveDateTime DESC, o.id ASC LIMIT 1"
         ),
         mode="read",
         scenario=SCENARIOS["Q-CAP-LATEST-CONFIRMED-AT"],

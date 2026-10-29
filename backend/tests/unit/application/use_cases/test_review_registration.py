@@ -206,7 +206,7 @@ def test_an_ods_code_that_is_not_found_active_and_an_nhs_organisation_fails_with
 
 
 def test_the_nhs_organisation_types_are_compared_ignoring_case_and_punctuation() -> None:
-    assert "PILOT SAMPLE" in {name_key(item) for item in NHS_ORGANISATION_TYPES}
+    assert "pilot sample" in {name_key(item) for item in NHS_ORGANISATION_TYPES}
     for written in ("pilot-sample", "NHS Trust", "Gp  practice"):
         assert _checks(lookups=replace(GOOD, ods_type=written))[CHECK_ODS].passed is True
 
@@ -311,7 +311,7 @@ def test_the_district_ranges_are_expanded_and_their_edges_are_exact() -> None:
 
 
 @pytest.mark.parametrize(
-    "bad", [("DT", 5, 4), ("dt", 1, 2), ("D", 1, 2), ("DT1", 1, 2), ("DT", 0, 2)]
+    "bad", [("DT", 5, 4), ("dt", 1, 2), ("", 1, 2), ("DT1", 1, 2), ("DT", 0, 2), ("DTX", 1, 2)]
 )
 def test_a_district_range_that_is_not_a_prefix_and_an_ordered_pair_from_one_is_refused(
     bad: tuple[str, int, int],

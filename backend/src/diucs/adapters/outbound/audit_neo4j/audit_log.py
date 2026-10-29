@@ -77,7 +77,7 @@ from diucs.domain.errors import ValidationFailed
 
 HEAD_ID = "audit"
 OUTCOME_RECORDED = "recorded"
-PROVENANCE_ACTIVITIES = frozenset({"create", "confirm", "approve", "call-back"})
+PROVENANCE_ACTIVITIES = frozenset({"create", "confirm", "approve", "call-back", "scope-decision"})
 ACTIVITY_CODE_SYSTEM = code_system_url("provenance-activity")
 
 _EXTRA_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9]{0,63}$")

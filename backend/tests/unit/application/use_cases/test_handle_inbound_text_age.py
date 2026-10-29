@@ -15,6 +15,7 @@ from hypothesis import given
 from hypothesis import strategies as st
 
 from diucs.application.use_cases.handle_inbound_text import (
+    CONFIRM_PROCESSING_LIMIT,
     CONFIRMABLE_FIGURE_AGE,
     figure_is_out_of_date,
 )
@@ -34,6 +35,12 @@ SENT_AFTER_AUTUMN_CHANGE = datetime(2026, 10, 25, 2, 30, tzinfo=UTC)  # 02:30 GM
 
 def test_the_window_is_the_stale_warning_of_the_board() -> None:
     assert CONFIRMABLE_FIGURE_AGE == STALE_WARNING_AFTER == timedelta(hours=2)
+
+
+def test_the_processing_limit_is_ten_minutes() -> None:
+    """[ASSUMED] in domain-rules.md: a Y waiting longer than this between receipt and processing is
+    not recorded (DEC-148 item 19)."""
+    assert timedelta(minutes=10) == CONFIRM_PROCESSING_LIMIT
 
 
 @pytest.mark.parametrize(
@@ -104,6 +111,9 @@ def test_london_wall_times_are_compared_as_instants(
 
 
 def test_a_figure_newer_than_the_prompt_is_not_out_of_date() -> None:
+    """Age only: the figure is not too old. A Y is still refused for it, because a number reported
+    after the prompt is a figure the reporter was never shown (H-32, tested in the integration
+    file), which is a separate test from this one."""
     assert figure_is_out_of_date(SENT_ORDINARY + timedelta(hours=5), SENT_ORDINARY) is False
 
 

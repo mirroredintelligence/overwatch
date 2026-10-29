@@ -941,24 +941,37 @@ async def test_a_report_that_lands_between_the_judgement_and_the_write_is_not_co
     await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
     rig = Rig(uow_factory, neo4j_driver)
 
-    async with uow_factory() as holder:
-        await holder.capacity.lock_service("ucr-west")
-        task = asyncio.ensure_future(rig.say("Y", bst(10, 12)))
-        await asyncio.wait_for(rig.confirms.entered.wait(), timeout=30)
-        await asyncio.sleep(1.0)
-        assert not task.done()
-        await holder.capacity.add(
-            CapacityReport(
-                id="landed-5",
-                service_id="ucr-west",
-                value=5,
-                measure=Measure.REFERRALS_ACCEPTABLE,
-                effective_at=bst(10, 11),
-                source=ReportSource.LINK,
-                report_type=ReportType.NUMBER,
+    locked = asyncio.Event()
+    land = asyncio.Event()
+
+    async def landing() -> None:
+        # In a task of its own: a unit of work claims its context (TEN-002), and a task started
+        # inside an open unit would be refused.
+        async with uow_factory() as holder:
+            await holder.capacity.lock_service("ucr-west")
+            locked.set()
+            await land.wait()
+            await holder.capacity.add(
+                CapacityReport(
+                    id="landed-5",
+                    service_id="ucr-west",
+                    value=5,
+                    measure=Measure.REFERRALS_ACCEPTABLE,
+                    effective_at=bst(10, 11),
+                    source=ReportSource.LINK,
+                    report_type=ReportType.NUMBER,
+                )
             )
-        )
-        await holder.commit()
+            await holder.commit()
+
+    lander = asyncio.ensure_future(landing())
+    await asyncio.wait_for(locked.wait(), timeout=30)
+    task = asyncio.ensure_future(rig.say("Y", bst(10, 12)))
+    await asyncio.wait_for(rig.confirms.entered.wait(), timeout=30)
+    await asyncio.sleep(1.0)
+    assert not task.done()
+    land.set()
+    await asyncio.wait_for(lander, timeout=60)
 
     result = await asyncio.wait_for(task, timeout=60)
 
@@ -1633,8 +1646,8 @@ async def test_the_commands_name_the_reporter_the_text_source_and_the_role(
 ) -> None:
     await _one_reporter_one_prompt(uow_factory, neo4j_driver, seed_service)
     rig = Rig(uow_factory, neo4j_driver)
-    await rig.say("4", bst(10, 12), key="SM-9")
-    await rig.say("Y", bst(10, 13), key="SM-10")
+    await rig.say("Y", bst(10, 12), key="SM-10")
+    await rig.say("4", bst(10, 13), key="SM-9")
 
     [report] = rig.reports.commands
     [confirm] = rig.confirms.commands

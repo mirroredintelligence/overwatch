@@ -13,6 +13,7 @@ from datetime import timedelta
 from typing import Any, cast
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
@@ -83,8 +84,8 @@ ADVISOR = Actor(
 
 
 class ScriptedRandom(random.Random):
-    """Gives the digits it is told (a list per call of the six), then counts. For the tests that
-    need a code to repeat."""
+    """Gives the digits it is told, one per draw, then goes on with a seeded source. For the tests
+    that need a code to repeat or to be the same in two tenants."""
 
     def __init__(self, digits: list[int]) -> None:
         super().__init__(0)
@@ -94,11 +95,53 @@ class ScriptedRandom(random.Random):
     def randrange(self, start: int, stop: int | None = None, step: int = 1) -> int:
         if self._digits:
             return self._digits.pop(0)
-        return 0
+        return super().randrange(start, stop, step)
 
     def randbytes(self, n: int) -> bytes:
         self._bytes += 1
         return self._bytes.to_bytes(n, "big")
+
+
+class _Overriding:
+    """A repository with some methods replaced, the rest forwarded."""
+
+    def __init__(self, target: Any, **overrides: Any) -> None:
+        self._target = target
+        self._overrides = overrides
+
+    def __getattr__(self, name: str) -> Any:
+        if name in self._overrides:
+            return self._overrides[name]
+        return getattr(self._target, name)
+
+
+class _BurnedElsewhere:
+    """A unit of work in which another request burns every link token first: `mark_used` is False.
+    The race itself cannot be forced from outside, so the answer to losing it is tested here."""
+
+    def __init__(self, inner: Any) -> None:
+        self._inner = inner
+
+    async def __aenter__(self) -> _BurnedElsewhere:
+        await self._inner.__aenter__()
+        return self
+
+    async def __aexit__(self, *exc: Any) -> Any:
+        return await self._inner.__aexit__(*exc)
+
+    @property
+    def link_tokens(self) -> _Overriding:
+        async def lost(token_hash: str, at: Any, key: str) -> bool:
+            return False
+
+        return _Overriding(self._inner.link_tokens, mark_used=lost)
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._inner, name)
+
+
+def _always_burned(factory: UnitOfWorkFactory) -> UnitOfWorkFactory:
+    return lambda: cast(Any, _BurnedElsewhere(factory()))
 
 
 @dataclass
@@ -150,8 +193,11 @@ def make_rig(
     )
 
 
-@pytest.fixture
-async def rig(uow_factory: UnitOfWorkFactory, uow_clock: Clock, neo4j_driver: AsyncDriver) -> Rig:
+@pytest_asyncio.fixture(loop_scope="session")
+async def rig(
+    uow_factory: UnitOfWorkFactory, uow_clock: Clock, neo4j_driver: AsyncDriver, clean_graph: None
+) -> Rig:
+    # After the wipe (lesson L84): clean_graph deletes the audit head with everything else.
     await ensure_audit_head(neo4j_driver)
     return make_rig(uow_factory, uow_clock)
 
@@ -192,7 +238,9 @@ async def _all_values(driver: AsyncDriver) -> list[Any]:
 
 async def _link_tokens(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        result = await tx.run("MATCH (t:LinkToken) RETURN properties(t) AS props ORDER BY t.purpose")
+        result = await tx.run(
+            "MATCH (t:LinkToken) RETURN properties(t) AS props ORDER BY t.purpose"
+        )
         return [row["props"] for row in await result.data()]
 
     return await read_tx(driver, work)
@@ -221,7 +269,9 @@ async def _state(driver: AsyncDriver) -> tuple[Any, ...]:
 
 async def _set_device_status(driver: AsyncDriver, device_id: str, status: str) -> None:
     async def work(tx: AsyncManagedTransaction) -> None:
-        await tx.run("MATCH (d:Device {id: $id}) SET d.status = $status", id=device_id, status=status)
+        await tx.run(
+            "MATCH (d:Device {id: $id}) SET d.status = $status", id=device_id, status=status
+        )
 
     await write_tx(driver, work)
 
@@ -304,7 +354,9 @@ async def test_a_claim_before_the_lead_confirms_is_waiting_and_writes_nothing(
     started = await rig.start.execute()
     before = await _state(neo4j_driver)
     for _ in range(3):
-        result = await rig.claim.execute(ClaimPairingCommand(started.pairing_id, started.screen_secret))
+        result = await rig.claim.execute(
+            ClaimPairingCommand(started.pairing_id, started.screen_secret)
+        )
         assert (result.status, result.device_token) == ("waiting", None)
     assert await _state(neo4j_driver) == before
 
@@ -537,7 +589,9 @@ async def test_every_refusal_of_a_code_is_the_same_error_with_the_same_message(
             service_ids=frozenset(),
         )
         with pytest.raises(NotAllowed) as refused:
-            await rig.confirm.execute(_command(fresh, actor=actor, code=code, key=f"refused-{label}"))
+            await rig.confirm.execute(
+                _command(fresh, actor=actor, code=code, key=f"refused-{label}")
+            )
         assert type(refused.value) is NotAllowed
         messages.add(str(refused.value))
     assert messages == {REFUSED_MESSAGE}
@@ -702,6 +756,54 @@ async def test_eight_leads_racing_for_one_code_make_exactly_one_device(
     assert await _audit_actions(rig) == [AUDIT_ACTION_PAIRED]
 
 
+async def test_a_confirmation_that_loses_the_race_for_the_code_is_refused_and_writes_nothing(
+    rig: Rig, neo4j_driver: AsyncDriver, uow_clock: Clock
+) -> None:
+    started = await rig.start.execute()
+    before = await _state(neo4j_driver)
+    losing = make_rig(_always_burned(rig.uow_factory), uow_clock, cache=rig.cache)
+    with pytest.raises(NotAllowed, match=re.escape(REFUSED_MESSAGE)):
+        await losing.confirm.execute(_command(started))
+    assert await _state(neo4j_driver) == before
+
+
+async def test_a_claim_that_loses_the_race_for_the_secret_gets_no_token_and_activates_nothing(
+    rig: Rig, neo4j_driver: AsyncDriver, uow_clock: Clock
+) -> None:
+    started, device_id = await rig.pair()
+    before = await _state(neo4j_driver)
+    losing = make_rig(_always_burned(rig.uow_factory), uow_clock, cache=rig.cache)
+    result = await losing.claim.execute(ClaimPairingCommand(device_id, started.screen_secret))
+    assert (result.status, result.device_token) == ("paired", None)
+    assert await _state(neo4j_driver) == before
+    props = await node_props(neo4j_driver, "Device", id=device_id)
+    assert props["status"] == "paired-unclaimed"
+    assert "tokenHash" not in props
+
+
+async def test_a_code_whose_screen_id_is_already_taken_is_refused_and_not_burned(
+    rig: Rig, neo4j_driver: AsyncDriver
+) -> None:
+    started = await rig.start.execute()
+    taken = Device(
+        id=started.pairing_id,
+        status=DeviceStatus.ACTIVE,
+        name="Existing screen",
+        location=None,
+        device_type=DeviceType.WALL_DISPLAY,
+        token_hash="a" * 64,
+    )
+    async with rig.uow_factory() as uow:
+        await uow.devices.save(taken)
+        await uow.commit()
+    before = await _state(neo4j_driver)
+    with pytest.raises(NotAllowed, match=re.escape(REFUSED_MESSAGE)):
+        await rig.confirm.execute(_command(started))
+    assert await _state(neo4j_driver) == before
+    assert await _device(rig, started.pairing_id) == taken
+    assert (await _link_tokens(neo4j_driver))[0].get("usedAt") is None
+
+
 # -- Input checks ------------------------------------------------------------------------------
 
 
@@ -853,9 +955,10 @@ class Pair:
     b: Rig
 
 
-@pytest.fixture
+@pytest_asyncio.fixture(loop_scope="session")
 async def pair(
     neo4j_driver: AsyncDriver,
+    clean_graph: None,
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,
     uow_clock: Clock,

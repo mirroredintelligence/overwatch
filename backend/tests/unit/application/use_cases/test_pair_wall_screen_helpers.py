@@ -33,7 +33,18 @@ def test_a_typed_code_is_its_six_digits(typed: str, digits: str) -> None:
 
 @pytest.mark.parametrize(
     "typed",
-    ["", "   ", "48291", "4829133", "abc def", "482 91x", "482.913", "٤٨٢٩١٣", "482\n913", "+482913"],
+    [
+        "",
+        "   ",
+        "48291",
+        "4829133",
+        "abc def",
+        "482 91x",
+        "482.913",
+        "٤٨٢٩١٣",
+        "482\n913",
+        "+482913",
+    ],
 )
 def test_anything_that_is_not_six_ascii_digits_is_none(typed: str) -> None:
     assert normalise_code(typed) is None
@@ -68,7 +79,7 @@ async def test_take_allows_the_limit_and_refuses_the_next() -> None:
     ]
 
 
-async def test_take_gives_a_unit_back_when_its_window_has_passed() -> None:
+async def test_take_gives_the_units_back_when_their_window_has_passed() -> None:
     clock = FixedClock(NOW)
     limiter = AttemptLimiter(InMemoryCache(clock))
     for _ in range(3):
@@ -76,8 +87,7 @@ async def test_take_gives_a_unit_back_when_its_window_has_passed() -> None:
     clock.advance(WINDOW - timedelta(seconds=1))
     assert not await limiter.take("k", 3, WINDOW)
     clock.advance(timedelta(seconds=1))
-    assert await limiter.take("k", 3, WINDOW)
-    assert not await limiter.take("k", 3, WINDOW)
+    assert [await limiter.take("k", 3, WINDOW) for _ in range(4)] == [True, True, True, False]
 
 
 async def test_the_window_is_counted_from_each_unit_not_from_the_first() -> None:
@@ -128,4 +138,3 @@ async def test_a_limit_below_one_is_refused(limit: int) -> None:
         await limiter.take("k", limit, WINDOW)
     with pytest.raises(ValueError, match="limit"):
         await limiter.is_full("k", limit)
-

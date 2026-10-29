@@ -179,8 +179,8 @@ async def test_a_screen_of_one_tenant_is_not_found_by_another(
         assert await _get(neo4j_driver, "screen-a") is None
         assert await _find(neo4j_driver, HASH) is None
         await _save(neo4j_driver, _active("screen-b", HASH, name="Ward 9 corridor"))
-        assert await _find(neo4j_driver, HASH) == _active(
-            "screen-b", HASH, name="Ward 9 corridor"
-        )
+        assert await _find(neo4j_driver, HASH) == _active("screen-b", HASH, name="Ward 9 corridor")
     assert await _find(neo4j_driver, HASH) == _active("screen-a", HASH)
-    assert (await node_props(neo4j_driver, "Device", id="screen-a"))["deviceName"] == "Ward 4 corridor"
+    assert (await node_props(neo4j_driver, "Device", id="screen-a"))[
+        "deviceName"
+    ] == "Ward 4 corridor"

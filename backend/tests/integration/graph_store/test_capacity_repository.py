@@ -13,6 +13,8 @@ import pytest
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.capacity_repository import Neo4jCapacityRepository
+from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -331,3 +333,33 @@ async def test_get_does_not_return_a_resource_of_another_type_with_the_same_id(
 
     # The service's own id is not a report id.
     assert await _read(neo4j_driver, lambda repo: repo.get("svc-ucr-west")) is None
+
+
+async def test_two_confirmations_at_one_time_name_the_same_report_every_time(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """TEN-010, DEC-170 item 8: when two confirmations share the latest effective time, the
+    statement names one report, the one with the lower id, on every run. The time it returns is
+    the same whichever is named, so the figure U05 reads does not depend on the choice."""
+    await _seed(neo4j_driver, UCR_WEST)
+    await _add(
+        neo4j_driver,
+        NUMBER_REPORT,
+        replace(CONFIRMED_REPORT, id="obs-conf-b"),
+        replace(CONFIRMED_REPORT, id="obs-conf-a"),
+    )
+
+    async def named(tx: AsyncManagedTransaction) -> tuple[list[str], list[datetime]]:
+        ids: list[str] = []
+        times: list[datetime] = []
+        for _ in range(5):
+            rows = await run_query(
+                tx, REGISTRY.get("Q-CAP-LATEST-CONFIRMED-AT"), key="HealthcareService/svc-ucr-west"
+            )
+            ids.append(str(rows[0]["obs"]))
+            times.append(rows[0]["at"].to_native())
+        return ids, times
+
+    ids, times = await read_tx(neo4j_driver, named)
+    assert set(ids) == {"obs-conf-a"}
+    assert len({time.isoformat() for time in times}) == 1

@@ -296,10 +296,6 @@ async def test_two_tenants_each_have_their_own_marker_for_their_receipts(
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="TEN-015: Q-COMM-BY-PROVIDER and Q-COMM-SET-STATUS match by provider id alone (DEC-165)",
-)
 async def test_another_tenants_message_id_reads_as_not_found_and_is_dropped(
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,

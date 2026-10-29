@@ -5,19 +5,23 @@ write is one committed transaction and each read is a new session, so the assert
 was really stored. Values are synthetic.
 """
 
+from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
     Neo4jScheduledWorkRepository,
 )
+from diucs.application.tenancy import bind_tenant
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
 from tests.support.round_trip import assert_round_trip
+from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -249,3 +253,75 @@ async def test_work_is_found_only_for_its_exact_subject_key(neo4j_driver: AsyncD
     assert await ids_for("HealthcareService/svc-10") == ["work-svc-10"]
     for variant in ("HealthcareService/svc", "HealthcareService/svc-1 ", "healthcareservice/svc-1"):
         assert await ids_for(variant) == [], variant
+
+
+# --- two tenants (TEN-015): a scheduled work item and its subject belong to one tenant -----------
+#
+# Both tenants use the same work id and the same booking key. The contracted container holds the
+# composite keys only (TEN-005, TEN-032), so the two tenants can share them.
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
+    await wipe(two_tenant_driver)
+    yield two_tenant_driver
+    await wipe(two_tenant_driver)
+
+
+async def test_another_tenants_work_reads_as_not_found_and_cannot_be_saved(
+    two: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    with bind_tenant(other_tenant_id):
+        await _add(two, _work("work-1", WorkKind.REMINDER))
+
+    async def as_a_read(tx: AsyncManagedTransaction) -> list[ScheduledWork]:
+        repo = Neo4jScheduledWorkRepository(tx)
+        with pytest.raises(NotFound):
+            await repo.get("work-1")
+        return await repo.for_about(BOOKING)
+
+    async def as_a_save(tx: AsyncManagedTransaction) -> None:
+        with pytest.raises(NotFound):
+            await Neo4jScheduledWorkRepository(tx).save(
+                _work("work-1", WorkKind.REMINDER, status="cancelled")
+            )
+
+    with bind_tenant(tenant_id):
+        assert await read_tx(two, as_a_read) == []
+        await write_tx(two, as_a_save)
+
+    with bind_tenant(other_tenant_id):
+        assert (await _get(two, "work-1")).status == "scheduled"
+
+
+async def test_the_same_work_id_in_two_tenants_is_two_records(
+    two: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    with bind_tenant(tenant_id):
+        await _add(two, _work("work-1", WorkKind.REMINDER, sequence=1))
+    with bind_tenant(other_tenant_id):
+        await _add(two, _work("work-1", WorkKind.PHONE_TASK, sequence=2))
+
+    with bind_tenant(tenant_id):
+        assert (await _get(two, "work-1")).kind is WorkKind.REMINDER
+        assert [w.kind for w in await _for_about(two, BOOKING)] == [WorkKind.REMINDER]
+    with bind_tenant(other_tenant_id):
+        assert (await _get(two, "work-1")).kind is WorkKind.PHONE_TASK
+
+    async def subjects(tx: AsyncManagedTransaction) -> list[tuple[str, int]]:
+        result = await tx.run(
+            "MATCH (s:Resource {key: $key}) RETURN s.tenantId AS tenant, count(s) AS n "
+            "ORDER BY tenant",
+            key=BOOKING,
+        )
+        return [(record["tenant"], int(record["n"])) async for record in result]
+
+    assert sorted(await read_tx(two, subjects)) == sorted(
+        [(tenant_id, 1), (other_tenant_id, 1)]
+    )

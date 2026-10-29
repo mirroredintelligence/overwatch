@@ -430,3 +430,304 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `adapters/inbound/scheduler/scheduled_work_consumer.py`: `CONSUMER_NAME = "scheduler"`, `EVENT_TYPE = "ScheduledWorkDue"`; `WorkHandler = Callable[[ScheduledWork], Awaitable[None]]`; `ScheduledWorkDispatcher(handlers: Mapping[WorkKind, WorkHandler])` with `kinds: frozenset[WorkKind]`, `handlers` (the table, read-only) and `async __call__(work: ScheduledWork) -> None` (raises `PermanentError("no handler for <kind>")` for a kind with none); `ScheduledWorkConsumer(dispatcher, uow_factory)` (a `MessageConsumer`, DEC-190); `build_scheduled_work_consumer(handlers, uow_factory, tenants, observe=untraced) -> TenantBoundConsumer`.
 - `bootstrap/container.py`: `Container.scheduled_work: ScheduledWorkDispatcher` (the ladder kinds reminder, phone-task and escalate-to-lead, DEC-192); `SCHEDULER_ACTOR` (DEC-193); `build_for_tests(..., *, link_base_url=TEST_LINK_BASE_URL)`.
 - `bootstrap/workers_main.py`: a third runner on `scheduled.work`, built by `build_runners(client, handle_inbound_text, uow_factory, tenants, dispatcher)` (DEC-194).
+
+## Criteria pre-filter and history (G11, DEC-197)
+
+- `Q-CRIT-FILTER` (NamedQuery, tenant, read, scenario): active unsuspended services' current criteria for a band, district and needs.
+- `Q-CRIT-HISTORY` (NamedQuery, tenant, read, scenario): the SUPERSEDES walk from the current criteria.
+- `CriteriaRepository.candidates(age_band: AgeBand, district: str, needs: Iterable[NeedCategory]) -> list[ServiceCriteria]` (port in application/ports/outbound/repositories.py, adapter Neo4jCriteriaRepository).
+
+## RDF export (G13, DEC-198)
+
+- `rdf_export.fragment_to_graph(fragment) -> rdflib.Graph` (tenant from the bound scope)
+- `rdf_export.to_turtle(fragments) -> str` (tenant from the bound scope)
+- `rdf_export.ontology_turtle() -> str`
+- Module namespaces `FHIR`, `DIUCS`, `SKOS`, `PROV`.
+- New dependency: `rdflib>=7.6.0` (backend/pyproject.toml, uv.lock). It is pinned by the lock file.
+
+## Outbound message senders (I10, DEC-199)
+
+- `SenderResolver` (port, `application/ports/outbound/sender_resolver.py`): `sms_for()` and `email_for()`, no tenant argument, each raising `ChannelUnavailable` when the bound tenant has no usable sender.
+- `ChannelUnavailable(Exception)` (same module).
+- `TenantDirectory.active_line(tenant_id) -> TenantLine | None` (port in `application/ports/outbound/tenants.py`; Neo4j in `graph_store/tenant_directory.py`; global statement `Q-TENANT-ACTIVE-LINE`, allowlisted in `queries.py` with its pinned hash and its text in `test_global_allowlist.py`).
+- `TenantSenderResolver(directory, secrets, http, status_url)`, `status_callback_url(settings)` (`bootstrap/tenant_senders.py`).
+- `CommunicationRepository.record_send_outcome(communication_id, *, status, provider_message_id, error_code) -> bool` (port in `application/ports/outbound/messaging.py`; Neo4j in `communication_repository.py`; query `Q-COMM-RECORD-OUTCOME` with a scenario).
+- `OutboundMessage`, `parse_outbound(payload, *, message_id, tenant_id, sealer)`, `is_handled(communication)`, `SmsMessageSender(senders, sealer)`, `EmailMessageSender(senders, sealer)`, `sender_runners(client, uow_factory, tenants, senders, sealer, observe)` (`adapters/inbound/workers/message_senders.py`).
+- `build_runners(..., *, senders=None, sealer=None)` (`bootstrap/workers_main.py`).
+- Constants: `MESSAGES_TOPIC`, `SEND_MESSAGE_EVENT`, `CONSUMER_SMS`, `CONSUMER_EMAIL`, `SMS_SUBSCRIPTION`, `EMAIL_SUBSCRIPTION`, `PUSH_SUBSCRIPTION`; reason codes `NO_CONTACT`, `NO_CHANNEL`, `REFUSED`, `SEND_FAILED`.
+- `FixedSenderResolver(sms=, email=)` (test fake; keyed by the bound tenant).
+- Config: `text-sender`, `email-sender`, `push-sender` on `messages.outbound` carry SQL rules.
+
+## Postcode centroids and straight-line travel (I11, DEC-200)
+
+- `Located(lat_lon, approximate)` (port, `application/ports/outbound/geo.py`; re-exported by the centroid module).
+- `PostcodeLocator.locate(postcode) -> Located | None` (added to the port; `FixedPostcodeLocator.locate` and `CsvPostcodeLocator.locate` implement it).
+- `partial_district(text) -> str | None` (`domain/rules/postcode.py`).
+- `CsvPostcodeLocator(path)`: `centroid`, `district_centroid`, `locate`. `adapters/outbound/postcodes_local/centroids.py`.
+- `haversine_km(a, b)`, `StraightLineTravelTime.estimate(origin, destination)`, and the constants `EARTH_RADIUS_KM`, `ROAD_DISTANCE_FACTOR`, `FAST_SPEED_KMH`, `SLOW_SPEED_KMH`, `ROUND_TO_MINUTES`, `MINIMUM_MINUTES`, `SOURCE` (`adapters/outbound/travel_time/straight_line.py`).
+- `Settings.postcode_centroids_path` (env `DIUCS_POSTCODE_CENTROIDS_PATH`).
+- `Container.postcodes`, `Container.travel`; `NoPostcodes` (`bootstrap/container.py`).
+- `FixedTravelTime` default range in the test profile: 10 to 20 minutes, source "test fixed".
+
+## OS Places geocoder and local terminology (I12, DEC-201)
+
+- `TransientLookupError`, `LookupRejected` (`application/ports/outbound/lookups.py`).
+- `OsPlacesGeocoder(client, api_key)` (`adapters/outbound/geocoder_os_places/os_places.py`), `parse_os_places(payload)`, constants `OS_PLACES_URL`, `OUTPUT_SRS`, `DATASET`, `REQUEST_TIMEOUT_SECONDS`.
+- `LocalTerminology(base_dir)` (`adapters/outbound/terminology/local_terminology.py`); `HttpOdsLookup` (`ods_http.py`).
+- `export(out_dir) -> list[Path]` (`backend/scripts/export_codesystems.py`); the committed files in `backend/terminology/codesystems/` (26) and `backend/terminology/ods_sample.json`.
+- `NoGeocoder` (`bootstrap/container.py`); `Container.geocoder`, `Container.terminology`, `Container.http`.
+- `Settings.os_places_api_key` (env `DIUCS_OS_PLACES_API_KEY`), `Settings.terminology_dir` (env `DIUCS_TERMINOLOGY_DIR`).
+
+## Redis sessions, text codes and rate limits (I13, DEC-202)
+
+- `CodeResendRefused` (`application/ports/outbound/identity.py`)
+- `check_purpose` (`domain/rules/identity_policy.py`)
+- `ReporterSession`, `SessionStore`, `RateLimiter` (`application/ports/outbound/identity.py`)
+- `RedisSessionStore`, `RedisRateLimiter`, `new_session_id`, `encode_session`, `decode_session`, `SESSION_TTL` (`adapters/outbound/cache_redis/sessions.py`)
+- `RedisCodeStore`, `encode_code`, `decode_code` (`adapters/outbound/cache_redis/code_store.py`)
+- `tenant_prefix`, `millis` (`adapters/outbound/cache_redis/tenant_keys.py`)
+- `Container.redis`, `Container.sessions`, `Container.codes`, `Container.rate_limiter` (`bootstrap/container.py`)
+- `CODE_STORE_FACTORIES`, `code_store_harness` (`tests/contract/factories.py`, `conftest.py`)
+
+## Routing travel time (I15, DEC-203)
+
+- `RoutingTravelTime` (`adapters/outbound/travel_time/routing.py`), `estimate(origin, destination)`
+- `HttpxRouteClient`, `RouteHttpClient` (`get_json(url, timeout) -> (status, body)`)
+- `RoutingFailed`, `RoutingReplyMalformed`
+- `range_from_duration(seconds, extract_date)`, `route_url(base_url, origin, destination)`, `duration_seconds(body)`
+- `ROUTING_TIMEOUT`, `TRAFFIC_SPREAD`, `ROUND_UP_TO_MINUTES`, `ROUTE_CACHE_TTL`
+- `Settings.routing_base_url`, `Settings.routing_timeout_s`, `Settings.routing_extract_date` (`bootstrap/settings.py`)
+
+## Back-end telemetry (O01, DEC-204)
+
+- diucs.application.tracing: Span, Tracer, NoopTracer, AttrValue, USECASE_OUTCOME, set_tracer, get_tracer, annotate_usecase, traced_use_case, format_traceparent
+- diucs.adapters.outbound.telemetry.attributes: the span names, attribute keys, ALLOWED_KEYS, ALLOWED_PREFIXES, DENIED_FRAGMENTS, is_allowed_key
+- diucs.adapters.outbound.telemetry.redaction: REDACTED, redact_text, redact_value, clean_attributes, RedactingLogFilter, install_log_redaction
+- diucs.adapters.outbound.telemetry.otel: TelemetrySettings, AllowListSpanProcessor, OtelTracer, neo4j_span, record_query, query_observer, build_provider, configure_telemetry, instrument_fastapi
+- diucs.adapters.outbound.telemetry.consumer: Observe, parent_context, consumer_observer
+- diucs.bootstrap.telemetry: start_telemetry
+- diucs.application.ports.outbound.event_bus.BusMessage: field traceparent (str or None)
+- Settings: release (str, default "dev"), otlp_endpoint (str, default "")
+
+## Browser telemetry (O02, DEC-205)
+
+- lib/telemetry/trace.ts: TRACEPARENT_PATTERN, newTraceparent, beginInteraction, currentTraceId, setRequestObserver, withTraceparent
+- lib/telemetry/events.ts: TELEMETRY_ENDPOINT, BATCH_SIZE, FLUSH_MS, CLICK_WINDOW_MS, ALLOWED_EVENTS, ALLOWED_ATTRIBUTES, Attributes, TelemetryInit, lengthBucket, routeTemplate, initTelemetry, stopTelemetry, track, trackPageView, noteRouteChange, flush
+- app/api/bff/telemetry/route.ts: POST (204, 400, 401, 403, 413)
+
+## Support access (O06, DEC-206)
+
+- domain/rules/support.py: SUPPORT_CODE_VALID_FOR, SUPPORT_ACCESS_VALID_FOR, SUPPORT_CODE_SECRET, LEAD_ROLE_CODES, normalise_support_code, hash_support_code, code_window, access_window, support_code_usable, is_lead, may_open_support
+- application/ports/outbound/support.py: SupportCodeRecord, SupportAccessRecord, SupportRepository
+- adapters/outbound/graph_store/support_repository.py: Neo4jSupportRepository; statements Q-SUPPORT-SESSION-ENSURE, Q-SUPPORT-SESSION-EXISTS, Q-SUPPORT-SESSION-SHARED-BY, Q-SUPPORT-CODE-ADD, Q-SUPPORT-CODE-GET, Q-SUPPORT-CODES-STOP, Q-SUPPORT-ACCESSES-END, Q-SUPPORT-ACCESS-ADD, Q-SUPPORT-ACCESS-LIST
+- adapters/outbound/graph_store/migrations_support.py: SUPPORT_MIGRATIONS (0045_support_session_id, 0046_support_code_hash), assembled in migrations.py
+- application/ports/outbound/unit_of_work.py: UnitOfWork.support; adapters/outbound/graph_store/unit_of_work.py: DEFAULT_FACTORIES["support"]
+- application/use_cases/support_access.py: CreateSupportCode, StopSharing, OpenSessionForSupport, ListMyAccesses, with their commands, results and AccessView
+
+## Telemetry query (O07, DEC-207)
+
+- Port (application/ports/outbound/telemetry_query.py): `TelemetryQuery`, `TimelineEvent`, `SpanRecord`, `SessionSummary`, `SessionFilters`, `TimelineKind`, `TelemetryUnavailable`, `AttributeCleaner`, `AttributeValue`; helpers `as_utc`, `check_session_id`, `check_trace_id`, `check_limit`, `MAX_SESSION_RESULTS`.
+- Outbound (adapters/outbound/telemetry): `AzureMonitorTelemetryQuery`, `LogsTable`, `LogsQueryClient`, `RAW_LOOKBACK`; `result_attributes`; `SdkLogsQueryClient`; `TIMELINE_QUERY`, `SPANS_QUERY`, `SESSIONS_QUERY`.
+- Testing (adapters/testing/fixture_telemetry.py): `FixtureTelemetryQuery(fixture_path, attributes)`.
+- Container (bootstrap/container.py): field `telemetry`; `NoTelemetry`; `build(settings, *, secrets=None, telemetry_client=None)`; `build_for_tests(..., telemetry=None)`; `TELEMETRY_FIXTURE`.
+- Settings: `telemetry_workspace_id` (env DIUCS_TELEMETRY_WORKSPACE_ID).
+- Dependency: `azure-monitor-query` 2.0.0 (backend/pyproject.toml, backend/uv.lock).
+
+## Synthetic journey checks (O09, DEC-208)
+
+- Backend route: `POST /test/synthetic/prompt` (adapters/inbound/fhir_rest/routes_synthetic.py); `SyntheticHook`, `SyntheticLinkIssuer`.
+- `create_app(container, synthetic=None)` (adapters/inbound/fhir_rest/app.py) sets `app.state.synthetic`.
+- Settings: `synthetic_enabled`, `synthetic_hook_token`, `synthetic_tenant_id` (env DIUCS_SYNTHETIC_*).
+- Frontend: `syntheticTarget`, `sameOrigin`, `SyntheticTarget` (frontend/test/synthetic/guard.ts); Playwright project `synthetic`; spec frontend/e2e/synthetic/reporter-loop.spec.ts.
+- Workflow: .github/workflows/synthetic.yml; variables SYNTHETIC_BASE_URL, SYNTHETIC_BACKEND_URL, SYNTHETIC_ALLOWED_HOSTS; secrets SYNTHETIC_HOOK_TOKEN, SYNTHETIC_STAFF_STORAGE_STATE.
+
+## Alert repositories (P17, DEC-209)
+
+- `AlertSubscriptionRepository`, `AlertRepository` (Protocols, `application/ports/outbound/repositories.py`)
+- `UnitOfWork.alert_subscriptions`, `UnitOfWork.alerts` (`application/ports/outbound/unit_of_work.py`, factories in `graph_store/unit_of_work.py`)
+- `AlertSubscription`, `AlertRecord`, `ALERT_STATUSES` (`domain/model/alerts.py`)
+- `Neo4jAlertSubscriptionRepository(tx)`, `Neo4jAlertRepository(tx, store)`, `alert_to_fhir`, `alert_from_fhir`, `subscription_to_props`, `subscription_from_props` (`graph_store/alert_repository.py`)
+- Statements `Q-ALERT-SUB-LOCK`, `Q-ALERT-SUB-SAVE`, `Q-ALERT-SUB-FOR`, `Q-ALERT-SUB-KIND`, `Q-ALERT-SET-STATUS`, `Q-ALERT-OPEN-FOR-OWNER`
+- Extensions `alertKind`, `escalationDueAt`, `acknowledgedAt` (`graph_store/extensions.py`)
+
+## Staff sign-in and role guard (W09, DEC-210)
+
+- `lib/auth/access.ts`: `rolesFor(pathname) -> readonly Role[] | null` (null: not guarded; `[]`: guarded for nobody), `canAccess(role, pathname)`, `roleHome(role)`, `isSamePathOnly(value)`. The one route table the proxy and the sign-in share.
+- `lib/auth/staff.ts`: `StaffRole`, `mapRoles(claim, { allowSupport? }) -> StaffRole | null`, `mintBackendToken({ oid, role, tenantId }, now?) -> Promise<string>` (HS256, claims `sub`, `role`, `services: []`, `tid` = the DIUCS tenant id, `iat`, `exp` +8 h; secret `BACKEND_JWT_SECRET`, base64, at least 32 bytes), `backendTokenExpiresAt(now)`, `BACKEND_TOKEN_LIFETIME_SECONDS`, `safeNext(next, role)`, `isTenantId`, `isGuid`.
+- `lib/auth/oidc.ts`: `loadEntraConfig(env?) -> EntraConfig`, `Binding { directoryId, tenantId, platform }`, `bindingFor`, `newTransaction`, `authorizeUrl`, `exchangeCode`, `verifyIdToken(config, idToken, nonce, now?) -> Identity { oid, directoryId, roles, binding }`, `SignInRefused(reason)`, `REFUSALS`, `resetKeyCache`. `lib/auth/flow.ts`: `startSignIn(request)`, `completeSignIn(request)`, `TRANSACTION_COOKIE` (`diucs_oidc`). `lib/auth/session.ts` also exports `sessionSecretKey`.
+- Routes: `POST /api/bff/auth/entra/start` (form field `next` only), `GET /api/bff/auth/entra/callback`. Pages: `/sign-in` (`?role=clinical` note, `?error=no-access|failed`, `?next=`), `/forbidden`. `proxy.ts` (not `middleware.ts`, Next 16) guards `/advisor`, `/clinical`, `/lead`, `/owner`, `/planning`, `/console`.
+- Settings: `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_AUTHORITY_HOST` (default `https://login.microsoftonline.com`; https in production), `DIUCS_PUBLIC_URL` (scheme and host), `DIUCS_ENTRA_BINDINGS` (JSON `[{ directoryId, tenantId, platform? }]`), `BACKEND_JWT_SECRET`, `SESSION_SECRET`. `ENTRA_TENANT_ID` is not used.
+- Tests: `test/oidc/{fake-entra,constants,harness}.ts` (the recording fake of Entra; `FakeEntra.create`, `authorize`, `token`, `keys`, `recorded`, `Tamper`), `test/msw/handlers/entra.ts` (`entraHandlers(fake)`), `e2e/support/oidc.ts` (the fake as an HTTP server on port 4011; personas by the `fake_user` cookie).
+- `lib/auth/oidc.ts`: `entraAuthorityOrigin(env?) -> string | null`. `lib/security/csp.ts`: `buildCsp(nonce, dev, { formActionOrigins? })`, `CspOptions`.
+
+## Clinical request repository (P18, DEC-220)
+
+- `ClinicalRequestRepository` (Protocol, `application/ports/outbound/repositories.py`)
+- `UnitOfWork.clinical_requests` (`application/ports/outbound/unit_of_work.py`, factory in `graph_store/unit_of_work.py`)
+- `ClinicalAdvice`, `ClinicalRequestRecord` (`domain/model/clinical.py`)
+- `Neo4jClinicalRequestRepository(tx, store)`, `clinical_record_to_fhir`, `clinical_record_from_fhir`, `clinical_record_to_props` (`graph_store/clinical_request_repository.py`)
+- Statements `Q-CLIN-WAITING`, `Q-CLIN-TAKEN-BY`, `Q-CLIN-SET-PROPS`, `Q-CLIN-PROPS`
+- Extensions `why`, `snapshotRef`, `takenAt` (`graph_store/extensions.py`)
+
+## Push subscription repository (P19, DEC-221)
+
+- `PushSubscription`, `PushSubscriptionRepository` (`application/ports/outbound/messaging.py`)
+- `UnitOfWork.push_subscriptions` (`application/ports/outbound/unit_of_work.py`, factory in `graph_store/unit_of_work.py`)
+- `Neo4jPushSubscriptionRepository(tx)`, `checked_subscription`, `subscription_json`, `subscription_from_json` (`graph_store/push_subscription_repository.py`)
+- Statements `Q-PUSH-SAVE`, `Q-PUSH-FOR`, `Q-PUSH-DELETE`
+
+## Service move and protected text stores (P20, DEC-222)
+
+- `ServiceMoveRepository` (`application/ports/outbound/repositories.py`)
+- `ProtectedTextStore` (`application/ports/outbound/protected_text.py`)
+- `UnitOfWork.service_moves`, `UnitOfWork.protected_text` (`application/ports/outbound/unit_of_work.py`; factories in `graph_store/unit_of_work.py`)
+- `ServiceMove` (`domain/model/service_move.py`)
+- `Neo4jServiceMoveRepository(tx)` (`graph_store/service_move_repository.py`)
+- `Neo4jProtectedTextStore(tx)`, `new_handle`, `checked_text`, `KINDS`, `MAX_LENGTH` (`graph_store/protected_text_store.py`)
+- Statements `Q-MOVE-LOCK-SERVICE`, `Q-MOVE-OPEN-FOR`, `Q-MOVE-GET`, `Q-MOVE-ADD`, `Q-MOVE-SAVE`, `Q-PROT-PUT`, `Q-PROT-GET`
+
+## Profile validation and $validate (R14, DEC-223)
+
+- `diucs.application.ports.outbound.terminology.profile_url(name) -> str`
+- `diucs.adapters.outbound.fhir_validator.validator.ProfileValidator` (implements FhirValidator), `PROFILES`, `PROFILE_NAMES`
+- `diucs.adapters.inbound.fhir_rest.validation`: `ProfileRejected`, `issue_outcome`, `json_body`, `validated_body(profile, element)`
+- `diucs.adapters.inbound.fhir_rest.routes_validate`: route `POST /fhir/{resource_type}/$validate` (query `profile`), `register_profiles`
+- `diucs.adapters.inbound.fhir_rest.capability.add_supported_profile(resource_type, url)`
+- `ApiContainer.validator` (app.py) and `Container.validator` (bootstrap), set to ProfileValidator in build() and build_for_tests()
+
+## Wall screen pairing endpoints (R15, DEC-224)
+
+- `routes_screens.router`, the three routes of contracts.md line 235 (`POST /screens/pairing`, `GET /screens/pairing/{pairing_id}` with header `X-Screen-Secret`, `POST /screens`), registered in `fhir_rest/app.py` outside `/fhir`.
+- `ConnectScreenBody` (pydantic, `extra="forbid"`): `code: str`, `name: str`, `location: str | None = None`, `boardScope: Literal["tenant", "network"] = "tenant"`, in `routes_screens.py`.
+- Module constants in `routes_screens.py`: `START_PATH`, `SCREENS_PATH`, `SECRET_HEADER`, `REFUSED_TEXT`, `RATE_LIMITED_TEXT`, `UNAVAILABLE_TEXT`, `RETRY_AFTER_UNAVAILABLE_SECONDS`, `ADDRESS_STARTS`, `ADDRESS_REFUSED_CLAIMS`.
+- `Container` fields `cache: Cache` and `rng: random.Random`; `build_for_tests(..., cache=, rng=)`; the constant `TEST_RNG_SEED` in `bootstrap/container.py`.
+- `ClaimPairingResult` is unchanged (it already has `expired`).
+
+## Pathways Dx lookup (R16, DEC-225)
+
+- `diucs.domain.rules.code_search`: `MIN_SEARCH_LENGTH` (2), `search_codes(entries, text, limit)`
+- `Terminology.search_pathways_dx(text, limit=20) -> list[tuple[str, str]]` (application/ports/outbound/terminology.py)
+- `FixedTerminology(ods, displays, pathways_dx=())` and its `search_pathways_dx` (adapters/testing/fixed_terminology.py)
+- `diucs.adapters.outbound.terminology.pathways_dx_file`: `load_pathways_dx(path)`, `PathwaysDxFile(path)`
+- `diucs.adapters.inbound.fhir_rest.routes_terminology`: route `GET /terminology/pathways-dx` (query `q`), `RESULT_LIMIT`, `TOO_SHORT`
+- `ApiContainer.terminology` (adapters/inbound/fhir_rest/app.py)
+- `LocalTerminology(base_dir, pathways_dx_file)` gains `search_pathways_dx` (adapters/outbound/terminology/local_terminology.py); `build()` passes `settings.pathways_dx_file`
+- Setting `pathways_dx_file` (bootstrap/settings.py), env `DIUCS_PATHWAYS_DX_FILE`
+- `backend/data/pathways_dx_sample.json`
+
+## Security headers and CSP (S01, DEC-226)
+
+- `lib/security/csp.ts`: `buildCsp(nonce: string, dev: boolean): string`, `securityHeaders(): Record<string, string>`.
+- `proxy.ts`: `proxy(request: NextRequest): NextResponse`, `config.matcher`.
+- `app/layout.tsx`: `export const dynamic = 'force-dynamic'`.
+
+## Criteria and flag statements (TEN-012, DEC-227)
+
+- `diucs.adapters.outbound.graph_store.criteria_scenarios` (new module): `CRITERIA_SCENARIOS` and the scenarios it names.
+- `diucs.adapters.outbound.graph_store.flag_scenarios` (new module): `FLAG_SCENARIOS` and the scenarios it names.
+
+## Outbox, replay and processed statements (TEN-016, DEC-230)
+
+- `Neo4jIdempotencyStore(tx: Tx)`: accepts the scoped transaction (`ScopedTx`) of a unit of work.
+- `test_idempotency_queries.py`: the pinned shape of the eight converted statements.
+
+## Audit chain per scope (TEN-017, DEC-231)
+
+- `genesis_hash_for(scope: str) -> str` and `GENESIS_LABEL` in `application/ports/outbound/audit.py`.
+- `Neo4jAuditLog(tx: Tx, ids, clock)`: takes the scoped transaction; `verify_chain` reads the bound scope.
+- `Container.startup()`: binds each active tenant in turn for `ensure_audit_head`.
+
+## Tenant-scoped cache names (TEN-019, DEC-232)
+
+- `application/ports/outbound/cache.py`: `ScopedNames(segment)` with `key`, `lock`, `fence`, `channel`; `names_for(scope)`, `scoped_names()`, `scope_segment(scope)`; `Lock(name, fencing_token, scope)`; `CacheScopeMismatch`; `FAMILY_CACHE`, `FAMILY_LOCK`, `FAMILY_FENCE`, `FAMILY_CHANNEL`, `MAX_NAME_LENGTH`.
+- `adapters/outbound/cache_redis/redis_cache.py`: `RedisCache(client)`, `RedisCache.from_url(url)`, `ROOT`.
+- `adapters/testing/memory_cache.py`: `InMemoryCache.keys()`; `subscriber_count(channel)` reads the bound scope.
+- `tests/support/redis.py`: `RUN_ID`, `RUN_PREFIX`, `run_tenant(label)`, `flush_tenant(client, tenant)`, `flush_run(client)`, `flush_prefix(client, prefix)` (the prefix must end with a colon).
+
+## Tenant policy in the rules (TEN-021, DEC-233)
+
+- `diucs.domain.rules.schedule`: `reply_by`, `ladder_times`, `due_times_on`, `next_due`, `current_due` gain an optional last parameter `policy: TenantPolicy = DEFAULT_POLICY`.
+- `diucs.domain.rules.freshness.assess_freshness` and `diucs.domain.rules.status.compute_status` gain the same optional last parameter.
+- `diucs.domain.rules.pressure.system_pressure` and `diucs.domain.rules.reply_policy.decide_capacity_reply` gain the same optional last parameter.
+- the optional `policy` parameter on the nine functions above (DEC-133 item 4); no new names.
+
+## Tenant wording in templates (TEN-022, DEC-234)
+
+- `diucs.domain.messages.templates.render`: new fields `system_name` (I2), `referral_system_name` (B1, B2), `coordination_team_name` (K4) and `confirm_limit` (C6). Each is required and has no default.
+- `diucs.domain.messages.catalogue`: `TENANT_TEXT_FIELD_NAMES`, `TENANT_TEXT_FIELDS`, `tenant_text_fields_for(message_id)`.
+- `diucs.domain.messages.privacy_guard`: `DEPLOYMENT_TERMS`, `find_deployment_terms(text)`; `FORBIDDEN_FIELDS` extended by six names.
+- one line each for the four template fields and `confirm_limit` (DEC-133 item 4).
+
+## Network domain model and rules (TEN-036, DEC-235)
+
+- `domain/model/network.py`: `NETWORK_ID_PREFIX`, `NETWORK_ID_PATTERN`, `RECORD_ID_PATTERN`, `ACCOUNT_REF_PATTERN`, `AGREEMENT_REFERENCE_PATTERN`, `NAME_MAX_LENGTH`
+- `domain/model/network.py` enums: `GrantScope`, `GrantPurpose`, `GrantStatus`, `GrantApprover`, `GrantEndReason`, `NetworkStatus`, `MembershipStatus`, `MembershipRole`, `MembershipEndReason`, `ListingStatus`, `ListingReason`, `DirectorySource`
+- `domain/model/network.py` records: `Agreement`, `Approval`, `Network`, `NetworkMembership`, `Grant`, `Listing`
+- `domain/model/network.py` functions: `check_tenant_field(value, field)`, `check_network_id(value, field="network_id")`, `transition_network`, `activate_network`, `owner_membership`, `invite_member`, `accept_membership`, `end_membership`, `was_member_at`, `is_agreement_behind`
+- `domain/rules/grant.py`: `transition_grant`, `propose_grant`, `approve_grant`, `decline_grant`, `end_grant`, `lapse_grant`, `lapse_grants_for_member`, `revise_grant`, `supersede_grant`, `is_effective`, `was_effective_at`, `effective_grant`, `may_project`, `end_reason`
+- `domain/rules/listing.py`: `ListingPresentation`, `transition_listing`, `request_listing`, `admit_listing`, `decline_listing`, `suspend_listing`, `reinstate_listing`, `withdraw_listing`, `withdraw_for_leave`, `listing_presentation`, `visible_scopes`, `shows_on_board`, `may_project_listing`
+
+## Network screens specification (TEN-063, DEC-236)
+
+- Components named in the specification (built by TEN-069 to TEN-072, TEN-080 to TEN-082): `ScopeHeader`, `ScopeSwitch`, `OrgLabel`, `NetworkBoard`, `NetworkBoardList`, `NetworkServices`, `NetworkServiceDetail`, `NetworkHistory`, `NetworkWeek`, `NetworkNotAvailable`, `NetworkPaused`, `NetworkMembershipEnded`, `NetworkSourceStopped`, `NetworkSourceDelayed`, `NetworkOffline`, `NetworkWallFallback`, `ScreenList`, `ScreenBoardChoice`, `ScreenClaim`, `ScreenUnpair`, `WallNetwork`, `ScreenDisconnected`, `NetworkMembers`, `NetworkMemberAdd`, `NetworkMemberEnd`, `NetworkAgreement`, `NetworkGrants`, `NetworkListings`, `NetworkHealth`, `NetworkAdminHistory`, `SharingOverview`, `SharingFields`, `SharingEnd`, `SharingLeave`, `SharingAgreement`, `SharingHistory`, `AllowlistFields`.
+- Routes named in the specification: `/network/board`, `/network/services`, `/network/services/[id]`, `/network/history`, `/network/week`, `/network-admin`, `/network-admin/grants`, `/network-admin/listings`, `/admin/sharing`, `/lead/screens`.
+- Element ids: the 63 new ids and 5 reused ids of section 10.
+- Test: `frontend/test/docs/network-ui-spec.test.ts` (12 tests, documentation consistency only).
+
+## OpenCase and UpdateCase (U11, DEC-237)
+
+- `diucs.application.use_cases.open_case`: `OpenCaseCommand`, `OpenCaseResult`, `OpenCase`, `UpdateCaseCommand`, `UpdateCaseResult`, `UpdateCase`, `OPEN_CASE`, `UPDATE_CASE`, `ALLOWED_ROLES`, `check_role`, `tenant_scope`, `district_for`, `new_open_case`, `missing_fields`, `apply_update`, `snapshot_of`, `free_reference`, `replay_key`, `open_fingerprint`, `update_fingerprint`.
+
+## SetupServiceByLead (U15, DEC-238)
+
+- `application/use_cases/setup_service_by_lead.py`: `SetupServiceCommand`, `SetupServiceResult`, `SetupServiceByLead(uow_factory, clock, ids, idempotency, phone_hasher)` with `execute`
+- Helpers in the same module: `ReporterContact`, `check_may_set_up`, `check_role_name`, `reporter_contact`, `international`, `build_profile`, `build_criteria`, `first_prompt_at`, `command_fingerprint`, `setup_snapshot`
+- `domain/events.py`: `ServiceActivated(service_id, at)` (`event_type` "ServiceActivated", topic `registration.events`, added to the `DomainEvent` union and the decoder map)
+- Role codes used: reporter role `PractitionerRoleCode.DUTY_MANAGER`; owner role `PractitionerRoleCode.CRITERIA_OWNER`
+
+## ChangeReporterNumber (U16, DEC-239)
+
+- `diucs.application.use_cases.change_reporter_number`: `CoverDuration`, `ChangeReporterNumberCommand`, `ChangeReporterNumberResult`, `ChangeReporterNumber`, `cover_until`, `effective_reporter_practitioner_id`, `check_new_mobile`, `command_key`.
+
+## RequestBooking (U17, DEC-240)
+
+- `diucs.application.use_cases.request_booking`: `LinkBaseUrlFor = Callable[[ScopeId], str]`, `RequestBookingCommand`, `RequestBookingResult`, `RequestBooking(uow_factory, idempotency, link_tokens, clock, ids, rng, query_board, *, link_base_url_for: LinkBaseUrlFor)`, `urgency_wording`, `need_text`, `message_for_channel`, `command_key`, `BOOKING_PURPOSE` (`booking-request`).
+
+## Scope list (U23, DEC-241)
+
+- `diucs.application.use_cases.scope_list`: `ScopeRow`, `AddScopeEntryCommand`, `AddScopeEntryResult`, `AddScopeEntry(uow_factory, idempotency, ids, clock)`, `SetScopeFlagCommand`, `SetScopeFlagResult`, `SetScopeFlag(uow_factory, idempotency, clock)`, `ListScope(uow_factory).execute(actor)`, `require_lead`, `check_reason`, `same_name`, `london_date`, `scope_sort_key`.
+
+## Text codes (U25, DEC-242)
+
+- `diucs.application.use_cases.text_code`: `RequestTextCodeCommand`, `RequestTextCodeResult`, `VerifyTextCodeCommand`, `VerifyTextCodeResult`, `RequestTextCode(code_store, phone_hasher, uow_factory, secret_store, sealer, ids, clock, rng)` (the spec's `code_sender` is replaced by `sealer` and `ids`: the send is an outbox event), `VerifyTextCode(code_store, phone_hasher, uow_factory, secret_store, clock)`, `check_purpose`, `code_key`, `new_code`, `code_hash`, `cooldown_seconds`, `verify_fields`, `CODE_HMAC_SECRET` (`code-hmac`), `INVITATION_PURPOSE` (`invite`), `PURPOSES`, `CODES_TOPIC` (`codes.dispatch`), `SEND_CODE` (`SendCode`), `DISCARD_CODE` (`DiscardCode`).
+- `LinkTokenRepository.open_for_phone(purpose, phone_hash, now) -> LinkTokenRecord | None` (tokens.py, Neo4jLinkTokenRepository).
+
+## Registration drafting (U26, DEC-243)
+
+- `OrganisationStep`, `LocationStep`, `ServiceStep`, `ReportingStep`, `ApiStep`, `RegistrationDraft`, `FieldError` (`application/use_cases/registration_draft.py`)
+- `validate_step(step, *, fixed_site=None)`, `is_full_uk_phone(text)`, `encode_step(step)`, `decode_step(kind, values)`, `read_draft(registration)`
+- `SaveRegistrationStep(uow_factory, ids, clock)`, `SaveRegistrationStepCommand(idempotency_key, actor, registration_id, step)`, `SaveStepResult(errors, status, replayed)`
+- `SubmitRegistration(uow_factory, ids, clock)`, `SubmitRegistrationCommand(idempotency_key, actor, registration_id)`, `SubmitResult(status, errors, replayed)`
+
+## Criteria change and approval (U30, DEC-244)
+
+- `CriteriaValues`, `ChangeCriteria`, `ChangeCriteriaCommand`, `ChangeCriteriaResult`, `ApproveCriteria`, `ApproveCriteriaCommand`, `ApproveCriteriaResult`, `ConfirmCriteria`, `ConfirmCriteriaCommand`, `ConfirmCriteriaResult`, `CriteriaHistory`, `CriteriaHistoryQuery`, `CriteriaVersionView` (`application/use_cases/criteria.py`)
+- `pending_version`, `check_may_change`, `check_may_approve`, `approved_versions`, `confirmed_review_by` (pure, same module)
+- `ServiceCriteria.review_months` (`domain/model/criteria.py`); the `reviewMonths` element (`adapters/outbound/graph_store/criteria_repository.py`)
+
+## Week summary (U35, DEC-245)
+
+- `Measure(value, hidden, label)`, `WeekSummary`, `GetWeekSummary(uow_factory, settings, clock)`, `GetWeekSummaryCommand(actor, week_start)`, `WeekSummarySettings` (`application/use_cases/week_summary.py`)
+- Pure: `london_week`, `count_measure`, `percent_measure`, `median_measure`, `on_time_updates`, `time_back_text`, `check_may_read`
+- `PromptDue(service_id, due_at)` and `CommunicationRepository.prompts_due_between` (`application/ports/outbound/messaging.py`)
+- `CaseRepository.opened_between`, `CapacityRepository.reports_between`, `BookingRepository.confirmed_between` (`application/ports/outbound/repositories.py`)
+- Statements `Q-CASE-OPENED-BETWEEN`, `Q-CAP-BETWEEN`, `Q-BOOK-CONFIRMED-BETWEEN`, `Q-COMM-PROMPTS-DUE-BETWEEN`; scenarios in `adapters/outbound/graph_store/week_scenarios.py`
+- `Settings.minutes_per_avoided_call` (`bootstrap/settings.py`)
+- Test support: `tests/support/seed.py` (record builders for the week-summary tests)
+
+## Resolving report flags (U39, DEC-246)
+
+- `ReportFlagView`, `ListReportFlagsQuery`, `ListReportFlags`, `ResolveReportFlagCommand`, `ResolveReportFlagResult`, `ResolveReportFlag(uow_factory, report_capacity, clock)` (`application/use_cases/resolve_report_flag.py`)
+- Pure: `check_lead`, `resolved_status`, `check_resolution`, `sequence_of`, `describe_flag`
+- `FlagRepository.report_flag(flag_id)` (`application/ports/outbound/repositories.py`; adapter `flag_repository.py`, via `Q-FLAG-REPORT-GET`)
+- `ReportFlag.resolved_by` (`domain/model/flags.py`)

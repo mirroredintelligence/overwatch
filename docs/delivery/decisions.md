@@ -2342,3 +2342,1072 @@ Status: accepted · Affects: `backend/.importlinter` (`adapters-independent`, `i
 
 1. The `adapters-independent` contract keeps the inbound adapter packages from importing one another. The prompt puts the consumer in `adapters/inbound/scheduler/`, and it must reuse the I04 consumer core (`PermanentError`, `Outcome`, `MAX_REASON_LENGTH`), the I08 tenant binding (`TenantBoundConsumer`, `Observe`, `untraced`) and the `ActiveTenants` protocol, which live in `adapters/inbound/workers/`. The prompt forbids a second binding, so the three edges are allowed by name, as DEC-084 and DEC-149 allowed theirs.
 2. Only these three edges are allowed, one line each in `.importlinter`. Any other import between the two packages still fails the build.
+
+## DEC-197 The advisor's hard pre-filter and the criteria history run in Neo4j, and the database filter is proved to agree with the domain filter (G11)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of G11.
+
+1. `Q-CRIT-FILTER` is the prompt's query with the DEC-001 adjustments. It returns `serviceId` and the criteria `id`, not `c.json`, because a stored node has no json property (DEC-001). The caller loads each candidate through `get`.
+2. Tenant: `s`, `c`, `f` (ServiceFlag) and the two Concept matches carry `tenantId: $tenant`. The statement is a registered tenant statement with a scenario, not on the ratchet.
+3. The age test is the overlap test of the domain filter (`c.ageMin <= bandMax` and `bandMin <= c.ageMax`, a null band maximum coalesced to 999). The pre-filter applies the same rules as `check_hard_criteria` for district, needs and age. The domain still decides the "Check age" warning, so the caller runs it on each candidate.
+4. Suspension comes from an active `ServiceFlag` with code `suspended`, as the prompt says. Criteria-overdue flags do not remove a service.
+5. `candidates` refuses before any query: a value that is not an `AgeBand` member, an empty or non-text district, a collection that is not iterable, and any need that is not a `NeedCategory` member (including a member of another enum with the same value, lesson L3/L38). These are caller errors and raise `ValidationFailed`. They are not read as an empty list.
+6. `history` now uses `Q-CRIT-HISTORY`, the SUPERSEDES walk from the current version, newest version first, as the prompt asks. This differs from P04, which listed every version of the service including drafts and pending versions. A service with no current version now has no history. The P04 integration test (`test_superseding_then_making_v4_current_moves_the_link_and_keeps_history`) expects the same two rows under either rule.
+7. The network variant (`Q-CRIT-FILTER` over projected criteria) is NOT built. There is no projection shape in the repo yet (`migrations_network.py` is empty; TEN-051 and TEN-053 define it). Building it now would invent that shape. It is deferred to those tasks.
+
+**Merge into integration/build.** The integration branch converted the eight Q-CRIT statements (tenant predicate and scenarios, the ratchet is empty) and moved the scenarios to `criteria_scenarios.py`. The merged file keeps that: `Q-CRIT-FILTER` and `Q-CRIT-HISTORY` are in the same `_QUERIES` tuple, and their scenarios (`FILTER_SCENARIO`, `HISTORY_SCENARIO`) are in `criteria_scenarios.py`. The eight statements the fragment listed as tenant pending are converted there.
+
+**Assumed.**
+
+- Age overlap is the pre-filter rule (the domain's `AGE_OVERLAP_WARNING` case). A band that only partly overlaps a service's limits is a candidate, and the domain adds the warning.
+- District matching is exact text, the same as the domain filter. Districts are stored normalised (D19), and the caller passes a normalised district. A raw district that does not normalise matches nothing, which fails closed.
+- A null band maximum (80+) is coalesced to 999 in the statement, so any service's `ageMin` of 999 or less passes the upper test.
+- Parity is over active services only. The domain filter does not look at `active`, so the parity test compares active services, and inactive ones are covered by their own test.
+
+## DEC-198 An RDF (Turtle) query projection of the mapper fragments, with per-tenant IRIs and no conformance claim (G13)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of G13.
+
+G13: an RDF (Turtle) query projection of the mapper fragments, in `rdf_export.py`, built and unit-tested. It is not validated against the FHIR ShEx schemas or the official FHIR RDF form, and it claims no conformance.
+
+1. The exporter takes no tenant argument. It reads the tenant bound at the edge with `current_tenant()`: `fragment_to_graph(fragment)` and `to_turtle(fragments)`. With no tenant bound, or with a network scope bound, it raises TenantNotBound. The first version took the tenant as an argument; the architecture test `test_no_graph_store_function_takes_a_tenant_parameter` refused that, so it was changed in the implement commit. The red tests' expectations did not change, only the call (they now bind the tenant with `bind_tenant`).
+2. Namespaces are per tenant, as the tenancy amendment asks: `res:` is `{BASE}fhir/<tenant>/`, `cs:` is `{BASE}CodeSystem/<tenant>/`. Concept nodes are per tenant (DEC-162), so the code-system IRIs are per tenant too. `diucs:` and `fhir:` are global. The tenant id must match `[A-Za-z0-9][A-Za-z0-9._-]{0,127}` and is never echoed in the error.
+3. Predicates come from the relationship's `fhirPath` (for example `fhir:HealthcareService.coverageArea`), so they match the FHIR element names the mapper wrote. Four relationship types take the diucs predicates of the data model: CURRENT_CRITERIA, ACCEPTS_NEED, EXCLUDES_NEED, SUPERSEDES.
+4. The mapper flattens `valueQuantity` into `valueQuantity_value`, `_unit`, `_system` and `_code` on the root. The exporter regroups them into a blank node typed `fhir:Quantity` with `fhir:Quantity.<part>` predicates (the prompt's test 2). Only `valueQuantity` is in the table. Any other `<head>_<part>` property is written as the literal predicate `fhir:<Type>.<head>_<part>`, which is lossless but not pretty.
+5. Classes come from the fragment's shape, because the profile labels (ServiceCriteria, ServiceFlag, CapacityReport) are set by the repositories after the mapper runs. Observation with `ext_reportType` is a CapacityReport; Basic with `ageMin` is a ServiceCriteria; Basic with `code` and `actor` is a ServiceFlag; Task with a CODE to `booking-request` or `register-service` is a BookingRequest or a Registration; ServiceRequest is a Case. A criteria `version` is written as `diucs:version`, as the ontology block states.
+6. Relationship properties other than the mapper's ordering keys (`fhirPath`, `order`, `conceptOrder`) are qualifiers. Only `role` and `at` are known. Any other key raises ValidationFailed, so nothing is dropped. A qualified relationship gets a `prov:qualifiedAssociation` (agent, role, time), and also the plain triple when the relationship has a `fhirPath`.
+7. Ordering is not represented. RDF sets are unordered; the graph keeps the order. Listed in the module docstring.
+8. Not built: the named graph per `ResourceVersion` (the data model's "RDF triples" table). It needs the version copies, and the exporter is per fragment. Deferred.
+9. Turtle prefixed names cannot hold an unescaped `/` or `#`. The worked examples in `docs/spec/fhir-data-model.md` (`res:HealthcareService/a1`, `cs:service-category#…`) are therefore not valid Turtle as written (checked with rdflib: BadSyntax). The test expectation uses full IRIs. The spec is not edited here; the owner or a docs task should correct it.
+
+**Tenant pending.**
+
+- None. The export runs no Cypher, reads no store and holds no statement.
+- The export runs under whatever tenant the caller binds. No route or worker calls it yet; it must be called inside a tenant binding from the edge (never a network scope).
+
+**Assumed.**
+
+- BASE_URL is the domain placeholder `https://diucs.example/` (domain.codes). The real domain changes every IRI, so it must be set before any export is published.
+- A string is typed as xsd:dateTime, xsd:date or xsd:time only when the whole string matches the pattern. A name that happens to look like a date would be typed as one.
+- A float is written as xsd:decimal from its repr.
+- The "display" of a concept is the English prefLabel; there is no other language.
+
+## DEC-199 Outbound senders take the tenant from the message and send through that tenant's sender (I10)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of I10.
+
+1. The outbox payload is the one U03 writes: `communication_id`, `message_id` (catalogue id),
+   `channel`, `recipient_role_id` and `sealed_content`. The text, subject and html are sealed
+   (DEC-116), so the sender opens them with `ContentSealer.unseal`, under the outbox message id, the
+   bound tenant and the recipient role. The prompt's plain `text`, `subject`, `html` fields do not
+   exist in the payload and are not added. Accepted by the orchestrator.
+2. The sender is chosen per tenant at send time through a `SenderResolver` port (DEC-131 item 1).
+   The resolver takes no tenant argument: it reads the tenant of the bound unit of work only. When
+   the tenant has no usable sender it raises `ChannelUnavailable`, and the message is recorded as
+   failed with `no-channel`; nothing is sent (fail closed, H-T03).
+3. The production resolver is `TenantSenderResolver` (bootstrap). It takes the tenant's one active
+   number from the directory (`TenantDirectory.active_line`, the global statement
+   `Q-TENANT-ACTIVE-LINE`, keyed by the bound tenant id), reads the subaccount's auth token through
+   the secret store by the directory's reference (a reference that is not this tenant's is refused),
+   and builds a `TwilioSms` on that subaccount, sending from that number, with the inbound status
+   callback. A suspended or quarantined number, no number, more than one active number, a missing or
+   empty secret, or another tenant's line each raise `ChannelUnavailable` naming the tenant id only.
+   Email has no sender identity in tenant configuration yet, so `email_for` always refuses.
+4. The recipient comes from `uow.contacts` inside the unit of work. No number or address is recorded
+   as failed with `no-contact` and the message completes (permanent).
+5. The send outcome is written to the Communication in the same unit of work by a new port method,
+   `CommunicationRepository.record_send_outcome`: `sent` with the provider id, or `failed` with the
+   reason (`refused`, `send-failed`, `no-contact`, `no-channel`) kept as the `errorCode` property.
+   Only a queued communication with no provider id moves. The write takes the record's lock first
+   (lesson L73).
+6. A communication with a provider id, or one that has left `queued`, is never sent again
+   (`is_handled`). A `SendFailedError` (an answer that is neither accepted nor a listed refusal) is
+   recorded as `failed` with `send-failed` and completes; it is not retried.
+7. Consumers `sender-sms` and `sender-email` are registered in `workers_main.build_runners` (keyword
+   `senders` and `sealer`), each wrapped by the I08 `TenantBoundConsumer`, so each binds the message's
+   tenant before a unit of work opens. Subscriptions keep their config names: `text-sender`,
+   `email-sender`, `push-sender`.
+8. `infra/servicebus-config.json` gets one SQL rule per sender subscription (`channel = 'text'`,
+   `channel = 'email'`, `channel = 'push'`). `channel` is an application property (the adapter sets
+   it), so the filter sees it.
+
+**Tenant pending.**
+
+- The production resolver reads the bound tenant's line and secret reference (tenancy DEC-131). The email identity (`senderLabel`, `fromAddress`) per tenant is not held yet; email is refused until it is.
+- The sender identity text (`senderLabel`) is not in the message yet: TEN-022 makes the templates tenant-aware.
+- The `Communication` statements (`Q-COMM-RECORD-OUTCOME`) are tenant-scoped (`tenantId: $tenant`) and have a scenario, so the generated two-tenant test covers them in verification.
+
+**Assumed.**
+
+- Reason codes on a failed Communication: `no-contact`, `no-channel`, `refused`, `send-failed` (the spec gives only `no-contact`).
+- A `SendFailedError` is recorded as failed and completes rather than dead-lettering: a dead letter would leave the Communication queued forever.
+- Subscription names kept from the config (`text-sender`, `email-sender`, `push-sender`), not the prompt's `sms`, `email`, `push`.
+- The resolver's errors name the tenant id and the channel only (accepted by the orchestrator as part of the fail-closed rule).
+
+## DEC-200 Local postcode centroids and the interim straight-line travel estimate (I11)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of I11.
+
+1. The travel range rounds outward. The low end (50 km/h) rounds down to the 5-minute step and the
+   high end (30 km/h) rounds up to it, each at least 5 minutes. The prompt says "rounded to 5
+   minutes" and gives 30 to 55 minutes for 20 km straight (26 km by road). Nearest-step rounding
+   gives 30 to 50 (52 rounds to 50), so the example cannot be met by one rule applied to both ends.
+   Outward rounding is the rule that reproduces the example, and it never understates the high end
+   or overstates the low end. Verifiers: check the worked example in `test_straight_line.py`.
+2. `PostcodeLocator.locate(postcode) -> Located | None` is added to the port, and `Located` moves
+   into `application/ports/outbound/geo.py` (I11 needs it; `centroids.py` re-uses it). The fixed
+   fake gets the same method, so the fake and the real locator answer the same way: a full
+   postcode in the table is exact; a full postcode outside it, or a partial one, is its district's
+   position with approximate=True; anything else is None.
+3. The partial-postcode rule is a pure D19 function, `partial_district(text)` (`DT4 8X` and `DT4`
+   name `DT4`). Both locators use it.
+4. The CSV is read once, in the constructor, and refused as a whole when a row is wrong: header
+   must be exactly `postcode,latitude,longitude`; every postcode must be a full postcode; latitude
+   and longitude must be finite numbers inside a UK box (latitude 49.5 to 61.0, longitude -8.7 to
+   2.0, which catches swapped columns); a postcode may appear once. Errors name the field and the
+   row number, never the value (DEC-047).
+5. The container gets two fields, `postcodes` and `travel`. Production wires `CsvPostcodeLocator`
+   when `DIUCS_POSTCODE_CENTROIDS_PATH` is set and `NoPostcodes` otherwise (every lookup is None:
+   no position, never a guess). Production wires `StraightLineTravelTime`. The test profile wires
+   the Fixed fakes.
+6. No network call is made by either adapter (a test blocks sockets).
+
+**Accepted by the orchestrator.** - The outward 5-minute rounding of the range (decision 1) and `PostcodeLocator.locate` on the port (decision 2) are accepted as written.
+
+**Tenant pending.**
+
+- None for the lookups: the centroid file is platform reference data (no tenant data, no tenant id in any call).
+- The advisor's position for a patient is per request, not stored: the use case that calls `locate` (U12, U28, R16) must not store a patient postcode (not this task).
+
+**Assumed.**
+
+- Latitude 49.5 to 61.0 and longitude -8.7 to 2.0 (the UK box) for the centroid file.
+- Road distance factor 1.3; speeds 50 km/h (low end) and 30 km/h (high end); 5-minute steps; minimum 5 minutes (the prompt's [ASSUMED] values).
+- Rounding: low end down, high end up, to the 5-minute step; a float tolerance of 1e-9 so an exact step does not move.
+- A district's position is the mean of its file postcodes' latitudes and longitudes.
+
+## DEC-201 The OS Places geocoder and the local ODS and CodeSystem terminology (I12)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of I12.
+
+1. Only a service's site postcode goes to OS Places, at registration (DEC-047); the adapter does not
+   decide who may call it. The caller (U27, U28, not built) must send only site postcodes.
+2. Transient lookup failures raise `TransientLookupError` (unreachable, 5xx, 429, a malformed answer,
+   a non-JSON answer). Refusals raise `LookupRejected` (any other 4xx). "No results" (a 400 whose
+   message says "No results") is an empty list. Both errors live in a new port module,
+   `application/ports/outbound/lookups.py`, so no adapter error type leaks into the application.
+3. The OS key travels as a query parameter (the OS Places API has no header form), so the request URL
+   carries it. `os_places.py` sets the `httpx` logger to WARNING at import, because httpx logs every
+   request URL at INFO. No code in the module logs a URL, a key or an error body.
+4. `LocalTerminology` reads `terminology/ods_sample.json` (role becomes `org_type`) and the CodeSystem
+   files, both once, in the constructor. An inactive record is returned as stored; the caller checks
+   `active` (lesson L71).
+5. The CodeSystem files are generated by `backend/scripts/export_codesystems.py` from
+   `diucs.domain.codes` (26 systems) and committed. The sync test compares them with a fresh export
+   byte for byte.
+6. The container gets `geocoder`, `terminology` and `http` fields. Production wires `OsPlacesGeocoder`
+   with a client when `DIUCS_OS_PLACES_API_KEY` is set, and `NoGeocoder` (returns no address) when it
+   is not; `shutdown()` closes the client. Production wires `LocalTerminology` on
+   `DIUCS_TERMINOLOGY_DIR` (default: the repo's `terminology` folder). The test profile wires
+   `FixedGeocoder` and `FixedTerminology`.
+7. The live ODS lookup (`HttpOdsLookup`) raises NotImplementedError and names the NHS ODS API (open
+   decision).
+
+**Accepted by the orchestrator.** - The httpx logger is set to WARNING at import, because the OS key travels in the request URL (decision 3, H-50). Accepted as written; the production logging config (O01) must keep it at WARNING too.
+
+**Tenant pending.**
+
+- OS Places and ODS are platform reference services; the key is platform level, not tenant data. Per-tenant usage counts (F-lifecycle, step 4) are not recorded yet.
+- The registration use cases that call the geocoder are tenant-bound (U27, U28); this adapter takes no tenant id.
+
+**Assumed.**
+
+- The DPA field names and the "No results" message text, as the prompt gives them (unverified; see known issues).
+- A 400 is "no results" only when its JSON message contains "no results" (case-insensitive); any other 400 is a LookupRejected.
+- ODS sample: `role` becomes `org_type`; a duplicate code is refused on load; `RDY` is an active sample, `RDZ` an inactive one.
+- The map of CodeSystem files: the URL is `code_system_url(name)`, and a display is looked up by (url, code).
+
+## DEC-202 Reporter sessions, text codes and rate limits live in Redis, under the tenant's prefix (I13)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of I13.
+
+1. **Ports added, as the prompt asked.** `SessionStore`, `ReporterSession` and `RateLimiter` were missing from `application/ports/outbound/identity.py`, so they are added there. `CodeResendRefused` is added there too: a new code saved within CODE_RESEND_AFTER (60 s) of the one it replaces is refused with no data in the message.
+2. **Resend cooldown is enforced by the store.** `CodeStore.save` refuses a different code while the stored code for the same purpose and phone was issued less than 60 s before the new one (`can_resend`, D27). Both `RedisCodeStore` and `InMemoryCodeStore` do this; the fake gained the guard so the shared contract suite passes on both.
+3. **Codes are keyed by purpose (orchestrator decision, I13 round 2).** `CodeStore.save`, `get` and `clear` take a required `purpose` first: the key is `(tenant, purpose, phone hash)`, Redis `diucs:<tenant>:code:<purpose>:<phone hash>`. A code issued for one purpose is never found for another, the same phone can hold one independent code per purpose, and the 60 s resend cooldown is per purpose. A purpose must be a plain lower-case name of up to 32 characters (`check_purpose` in `identity_policy.py`); anything else raises ValidationFailed before any store call. The memory fake keys the same way.
+4. **Validity is the store's clock, not Redis's.** A code is valid from its issue time for CODE_VALID_FOR (10 min) by the injected clock, and a code the clock has passed is deleted and never returned. The Redis key TTL is only a cleanup bound.
+5. **Sessions.** Id: `secrets.token_urlsafe(32)` (256 bits, 43 characters). Body: JSON of role, practitioner, device, services, created and last seen (UTC). Key `sess:<id>` with a sliding TTL of SESSION_TTL (12 h, [ASSUMED]); `touch` extends it with SET XX. Index `sess-by-person:<practitioner>` holds the ids and is kept at least as long as the longest session (EXPIRE NX then GT), so "sign out of every phone" finds them all.
+6. **Rate limit.** `allow(key, limit, window)` runs INCR and PEXPIRE NX in one MULTI transaction, so a window can never be left without an end. It is a fast throttle; the durable five-tries PIN lock stays on the Neo4j credential (P16).
+7. **Tenancy.** Every key is `<prefix><tenant>:<family>:...`, with the tenant taken only from `application.tenancy.current_tenant()`. A missing tenant, or a network scope, raises TenantNotBound before the Redis client is touched.
+8. **Production wiring.** `Container` gains `redis`, `sessions`, `codes` and `rate_limiter`. `build()` creates the client from `settings.redis_url`; `shutdown()` closes it after Neo4j. `build_for_tests()` builds the same stores on the Settings URL; the clients connect lazily, so building a container needs no Redis server.
+9. **Where the Redis tests live.** The Redis-only cases are in `tests/contract/test_redis_identity_store.py`, not `tests/integration/`: the integration hook starts the Neo4j harness for every test under that folder, and these need Redis only.
+
+**How to run the Redis cases (orchestrator accepted, round 2).** Start a private, throwaway server on a port nobody else uses, not the compose stack and not Docker: `redis-server --port 16390 --save "" --appendonly no --daemonize yes`. Then, from `backend/`: `DIUCS_REDIS_URL=redis://localhost:16390/0 uv run pytest tests/contract/test_redis_identity_store.py tests/contract/test_code_store_contract.py -m integration -q -p no:cacheprovider`. These runs take no Neo4j lock (`flock /tmp/diucs-neo4j-tests.lock` is not needed): they start no container and touch no Neo4j. Stop the server with `redis-cli -p 16390 shutdown nosave`. Each case uses its own key prefix and deletes it afterwards.
+
+**Tenant pending.**
+
+- No Cypher in this task; the tenant binding applies to Redis keys only, and is in place.
+- Callers must bind the tenant at the edge before using these stores: the sealed BFF cookie for sessions (W34), the link or number for text codes (U25), and the bound tenant for rate limits. Until those tasks exist, the stores are exercised only by tests that bind a tenant.
+- `InMemoryCodeStore` keeps one map for all tenants. It is a test fake only and is not used in any profile.
+
+**Assumed.**
+
+- SESSION_TTL = 12 hours, sliding (`sessions.py`, [ASSUMED], from the I13 prompt; not in domain-rules section 7).
+- CODE_VALID_FOR = 10 minutes, CODE_RESEND_AFTER = 60 seconds, CODE_MAX_TRIES = 5 (`identity_policy.py`, D27 values, unchanged).
+- Session id: 256 random bits, urlsafe base64 without padding.
+- Rate-limit limit and window: supplied by each caller; none is fixed here.
+
+## DEC-203 Travel time from a self-hosted routing engine that speaks the OSRM route API, behind the TravelTime port (I15)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of I15.
+
+I15 is built against a recording fake of the HTTP client. No routing engine was called, and no real engine has been checked against the reply shapes below. Verification must run a self-hosted instance before this is called done.
+
+1. **Engine (orchestrator decision, round 2).** The adapter is an HTTP client for a self-hosted engine that speaks the OSRM `/route/v1/driving/{lon,lat};{lon,lat}` API. OSRM and Valhalla's OSRM-compatible endpoint both do. Reasons: self-hosting keeps patient positions in-house, with no third-party data transfer and no per-request licence; the port keeps the choice of engine reversible; and the position sent is a postcode centroid, never an address.
+2. **Configuration.** `Settings.routing_base_url` (unset in tests; a deployment setting, not a credential), `Settings.routing_timeout_s` = 3.0 [ASSUMED], `Settings.routing_extract_date` (names the map data in the source). The adapter takes the same values as constructor arguments; the container does not wire it yet (see Known issues).
+3. **The range.** Duration `d` seconds: low = `d`, high = `d` × 1.4 [ASSUMED]. Each end is rounded up to whole minutes, then up to a multiple of five minutes, as the prompt says. Examples: 1800 s gives 30 and 45; 61 s gives 5 and 5; 301 s gives 10 and 10. Source: `Routing data, updated <extract date>`.
+4. **Any failure falls back to the TravelTime port** given at construction (the straight-line estimate, I11). A timeout (the adapter's own deadline, 3 s, and the client's), a transport error, a status other than 200, and a reply with no usable duration all fall back. A malformed reply raises `RoutingReplyMalformed`, which carries nothing, and the estimate falls back on it, so the options list never fails because routing is down. Fallback answers are not cached, so routing is asked again next time.
+5. **Cache.** The routed range is kept 24 hours under `travel:<tenant>:<sha256 of the directional pair>`. The tenant comes from `current_tenant()`; a missing tenant is an error. The pair is hashed so that no coordinate is readable in a key name. Direction is part of the hash: patient to site and site to patient are different keys (architecture F8).
+6. **No coordinates in logs or errors.** The module does not log. `RoutingFailed` and `RoutingReplyMalformed` take no arguments. `HttpxRouteClient` re-raises httpx errors without the URL, because the URL carries the coordinates.
+7. **Rounding and the wording of the prompt.** The orchestrator's "whole minutes" is the first rounding step; the prompt's rounding to five minutes is kept as the second step.
+
+**Tenant pending.**
+
+- No Cypher in this task.
+- The cache key carries the tenant from `current_tenant()`. Redis key tenancy (the adapter's own prefix) is TEN-C06, as in Known issues.
+
+**Assumed.**
+
+- Request timeout 3 seconds (`routing.py`, [ASSUMED]; the prompt said 2 s).
+- Traffic spread 1.4 (`TRAFFIC_SPREAD`, [ASSUMED], from the prompt).
+- Ranges rounded up to whole minutes, then to a multiple of 5 minutes (prompt).
+- Routed answers kept 24 hours (`ROUTE_CACHE_TTL`, prompt).
+- Coordinates in cache keys and requests to six decimal places (about 0.1 m).
+
+## DEC-204 Back-end telemetry is allow-listed, redacted and propagated over the bus (O01)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of O01.
+
+1. Dependencies added to backend/pyproject.toml and uv.lock (accepted by the coordinator). Direct, each pinned in uv.lock:
+   - opentelemetry-api 1.45.2: the tracing API the application seam and the adapters call (opentelemetry.trace). It was already in the lock at 1.45.1 as a transitive package; the bump to 1.45.2 is the resolver's choice.
+   - opentelemetry-sdk 1.45.2: TracerProvider, span processors and the in-memory exporter the tests use.
+   - opentelemetry-exporter-otlp-proto-http 1.45.2: the OTLP exporter over HTTP and protobuf, to the collector (O04). Chosen over gRPC to avoid a second transport.
+   - opentelemetry-instrumentation-fastapi 0.66b2: one server span per FHIR request under its route template (item 10).
+   Transitive, pulled by the four above: opentelemetry-instrumentation 0.66b2 and opentelemetry-instrumentation-asgi 0.66b2 (the ASGI middleware the FastAPI instrumentation wraps around the app); opentelemetry-semantic-conventions 0.66b2 (attribute names, see item 2); opentelemetry-util-http 0.66b2 (HTTP helpers the ASGI instrumentation uses); opentelemetry-exporter-http-transport 0.66b2 and opentelemetry-exporter-otlp-common 0.66b2 (the OTLP HTTP transport and shared OTLP code); opentelemetry-exporter-otlp-proto-common 1.45.2 and opentelemetry-proto 1.45.2 (the OTLP protobuf encoding); protobuf 7.36.2 (the message library opentelemetry-proto needs); wrapt 2.5.1 (the wrapper the instrumentation uses to hook the framework). The spec names OpenTelemetry as a default (DEC-003 model), so this is a replaceable default, not a mandate.
+2. Semantic conventions: opentelemetry-semantic-conventions 0.66b2. Current stable names are used for http.*, url.scheme, server.address, error.type and db.system.name. db.system is also emitted on Neo4j spans because the O01 acceptance test asserts it; the SDK marks it deprecated. db.query.id, db.access_mode and db.row_count have no semantic-convention name and are project names.
+3. Allow-list (adapters/outbound/telemetry/attributes.py): a key passes if it is in ALLOWED_KEYS (reviewed by name), or begins with usecase., db. or messaging., or ends with .id. Any other key containing token, secret, password, phone, nhs, postcode, email, name, body, payload, content, patient, value, text, pairing or support.code is refused, even with .id. The processor removes disallowed attributes from spans and from span events, and scans every surviving value.
+4. Values are scanned (redaction.py): phone and NHS numbers (10 or more digits), UK postcodes, link tokens (23 letters, DEC-154), support codes (XXXX-XXXX), pairing codes (482 913). Each becomes [redacted].
+5. Errors: a use case span records the exception class as usecase.outcome and error.type, and the status description is the class name. No exception message or stack goes into a span. Logs: install_log_redaction puts RedactingLogFilter on the root handlers; a record with an exception is logged as its class name only (lesson L111).
+6. The application layer does not import opentelemetry and holds no context variable (tests/architecture/test_single_execution_point.py allows a ContextVar only in the tenancy kernel). The Tracer protocol has current_span(): the tracer says which span is open (the OpenTelemetry adapter reads OTel's own context, the no-op tracer returns a span that does nothing). annotate_usecase calls it. application/tracing.py holds the Tracer protocol, NoopTracer, set_tracer and traced_use_case. The adapter (OtelTracer) supplies the real tracer. An import-linter forbidden rule and a unit test both enforce this.
+7. Spans built: usecase.{Name}, neo4j.query {QueryId} (from the G01 query observer, placed back in time by its duration), servicebus.process {topic}, and the FastAPI request span under its route template (instrument_fastapi). Redis and Azure SDK spans are not built.
+8. Trace over the bus: BusMessage gains traceparent. The Service Bus adapter stamps the current span's traceparent on publish, enqueue and schedule when the message has none, and sends it as an application property. The runner reads it. consumer_observer opens servicebus.process {topic} as a child of that span; a missing or malformed traceparent starts a root span and never fails the message.
+9. Start-up: bootstrap/telemetry.start_telemetry configures the provider and sets the G01 observer. workers_main calls it and shuts the provider down on exit. With no DIUCS_OTLP_ENDPOINT, nothing is installed and nothing is exported.
+10. FastAPI request spans are behind a setting, off by default. Settings.otel_instrument_http (DIUCS_OTEL_INSTRUMENT_HTTP) is False. create_app(container, instrument=...) calls the hook once with the finished app. bootstrap/telemetry.api_instrumentation(settings, provider) returns the hook when the setting is on and None when it is off, so the adapter never reads settings (the layers contract). instrument_fastapi is idempotent per app (a flag on app.state), so a second call adds no second middleware. Spans for the ASGI receive and send events are excluded, so a request gets one server span; /health is excluded on purpose (probes are not traced). The unit tests show: setting off, the app answers and records no span; hook on, one span under the route template; two calls, one span.
+11. Process note for the verifier: the first O01 red commit (60ecc5a) was made with `-c core.hooksPath=/dev/null`. That disabled git hooks for that one commit by mistake; no hook output was seen and no hook was relied on. Hooks were not bypassed on any later commit. Do not repeat this.
+
+**Tenant pending.** - None in Cypher: O01 runs no statement. tenant.id is allow-listed; no span carries it yet (see known issues).
+
+**Assumed.**
+
+- Attribute value scan patterns (phone 10 or more digits, postcode, 23-letter token, support code, 3+3 pairing code) are a starting list. The collector scrub (O04) is the second layer.
+- Span export uses the SDK's BatchSpanProcessor defaults. The FastAPI instrumentation excludes the /health path.
+
+## DEC-205 The browser records ui.* events by element id, sends a traceparent on every BFF request, and never records what was typed (O02)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of O02.
+
+1. Events in scope (lib/telemetry/events.ts): ui.page_view, ui.click (result navigation, network, dom or none within 1 s), ui.input (valid and length_bucket only), ui.toggle and ui.chip (state), ui.submit (form.id, error_count, time_to_submit_ms) and ui.error_shown (error.code, element.id, from a role=alert node). Friction rules, web vitals and the collector are not in this task.
+2. Nothing typed is recorded. A text field contributes a length bucket (0, 1-5, 6-20, 21+) and a validity flag. A password field is skipped entirely, not even its length. No DOM, text or screenshot is read into an event.
+3. Browser allow-list (ALLOWED_ATTRIBUTES) is exported from events.ts. The BFF route keeps only those keys and the events in ALLOWED_EVENTS, caps a batch at 50 events and a body at 16 KiB, and drops any other value type.
+4. Trace context (lib/telemetry/trace.ts): withTraceparent adds a W3C traceparent to a request. The requests of one interaction share a trace id for 5 s (beginInteraction on each click), so the ui.click event and the BFF requests it caused have one trace id. The board client and the link pages call withTraceparent for every request they make to /api/bff/*.
+5. Transport: events are queued and sent by navigator.sendBeacon as a text body (text/plain, so no CORS preflight) at 20 queued events, every 5 s, and when the page is hidden or closed. A keep-alive fetch is the fallback when the beacon is refused.
+6. The ingest route (app/api/bff/telemetry/route.ts) requires a session (401 without one), refuses a cross-origin Origin (403), and takes no CSRF header: sendBeacon cannot set one, and the endpoint changes no state. It writes tenant.id from the session when the session carries one, and drops any tenant.id the browser sent. It forwards to OTEL_HTTP_ENDPOINT when set and answers 204 either way.
+7. Result classifier: the first of navigation (pushState, replaceState or popstate), network (a BFF request started), or dom (a DOM mutation) within 1 s wins and the click is recorded then; with none, the click is recorded as none at 1 s. Queued DOM changes from before the click are discarded.
+
+**Tenant pending.** - No Cypher. tenant.id is read from the session's tenantId when the session has one; the session does not carry it yet (known issue).
+
+**Assumed.**
+
+- Interaction trace window 5 s; click result window 1 s; batch 20 events; flush every 5 s.
+- Device class: phone under 600 px, tablet under 1024 px, desktop otherwise.
+- Ingest limits: 16 KiB body, 50 events, 100 characters for a text attribute.
+
+## DEC-206 Support access is consented, audited and tenant-scoped, and the role guard comes first (O06)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of O06.
+
+1. Support code: eight characters of SUPPORT_CODE_ALPHABET, shown XXXX-XXXX (tokens.new_support_code). Only its keyed hash is stored (hash_token with the secret "support-code"). A typed code may carry spaces, hyphens and lower case. A code is usable until its expiry (4 hours [ASSUMED]) and not after the person stops sharing.
+2. Opening: the role must be support. That is checked before any unit of work opens, so an advisor or any other role is refused with no lookup and no write. Path one: a usable code. Path two: the session id, a ticket reference (A-Z, a-z, 0-9 and hyphen, at most 32 characters), and approved_by, a practitioner who is active and holds an active shift-lead or clinical-lead role. An expired, stopped, wrong or malformed code gives one refusal, and a bad ticket or approval gives the same one.
+3. Each open writes one SupportAccess (OPENED_BY the support practitioner, OPENED the session, open for 1 hour [ASSUMED]) and one audit entry, support-session-opened, in one unit of work.
+4. Stop sharing expires the person's live codes for the session at once and ends the opens in progress (expiresAt set to now). It writes one audit entry, support-sharing-stopped. With no live code it writes nothing.
+5. The person lists the opens of a session they shared: when, until when, and by "support". No name is returned.
+6. Tenancy (DEC-130, DEC-132; coordinator decision): a support code resolves only inside a tenant. The tenant comes from the request host through the tenant directory, as the link pages do (DEC-167), or from the signed-in staff session's verified tenant. The use cases take the tenant from the unit of work only, so a code of another tenant is not found, stopped or listed, and reads as an unknown code with the same response. There is no global statement and no cross-tenant lookup. A platform-wide support role that searches all tenants is not built; it would need its own decision.
+7. Nine statements Q-SUPPORT-* are registered, each with tenantId on every node it matches or writes. Their scenarios are checked by tests/unit/adapters/outbound/graph_store/test_support_statements.py, because the registry does not run validate_scenario when a statement is registered.
+8. Migrations 0045 (UiSession: tenantId and id unique) and 0046 (SupportCode: tenantId and codeHash unique) are in migrations_support.py, one idempotent statement each (IF NOT EXISTS). The constraints make a racing first write of a session or a code fail, and add_code maps that refusal to Conflict. Tests: tests/unit/adapters/outbound/graph_store/test_migrations_support.py.
+9. UnitOfWork gains `support`. tests/unit/adapters/outbound/graph_store/test_unit_of_work_registry.py pins the set of unit-of-work names, so `support` is added there.
+
+**Tenant pending.** - None. All nine Q-SUPPORT-* statements write or match tenantId on every node. No statement is global. A code resolves through the request host or the verified staff session, at the edge (item 6).
+
+**Assumed.** - SUPPORT_CODE_VALID_FOR 4 hours; SUPPORT_ACCESS_VALID_FOR 1 hour; LEAD_ROLE_CODES = shift-lead and clinical-lead; a ticket reference is A-Z, a-z, 0-9 and hyphen, at most 32 characters.
+
+## DEC-207 The TelemetryQuery port and the Azure Monitor adapter, built on O01's allow-list and failing closed until a logs client is wired (O07)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of O07.
+
+TelemetryQuery port and Azure Monitor adapter (O07, build-A2), built on O01's allow-list and wired into the container. A production read needs a process that passes a logs client, and none does yet; until one does, every read is refused (fail closed).
+
+1. The port is `application/ports/outbound/telemetry_query.py`: `session_timeline`, `trace`, `search_sessions`, with `TimelineEvent`, `SpanRecord`, `SessionSummary`, `SessionFilters`, `TimelineKind`, and `TelemetryUnavailable`. No method takes a tenant. Each adapter reads the bound tenant with `application.tenancy.current_tenant()` and refuses to run when none is bound.
+2. Attributes come from O01: `adapters/outbound/telemetry/result_attributes.py` calls O01's `clean_attributes` (`redaction.py`, which uses `is_allowed_key` from `attributes.py` and scans values), then drops `tenant.id` and `session.id` and keeps scalars only. Both the Azure adapter and the fixture fake use it. The port has no allow-list of its own, and the fixture fake receives the cleaner from the composition root (an adapter package may not import another, so `adapters/testing` takes it as an argument).
+3. The Azure adapter sends the tenant, session id, trace id and filters as query parameters, never in the KQL text (`adapters/outbound/telemetry/kql.py`). Session and trace ids are checked before any query. After the query, a row whose `customDimensions["tenant.id"]` is not the bound tenant is dropped, and so is a row with an unknown kind.
+4. Container: a new `Container.telemetry` field. `build(settings, *, telemetry_client=None)` wires `AzureMonitorTelemetryQuery` only when `DIUCS_TELEMETRY_WORKSPACE_ID` is set and a client is passed; otherwise `NoTelemetry`, which raises `TelemetryUnavailable` on every read. `build_for_tests(..., telemetry=None)` wires `FixtureTelemetryQuery` over `tests/fixtures/telemetry/s-7f3a.json`.
+5. Dependency: `azure-monitor-query` 2.0.0 added to `backend/pyproject.toml` and `backend/uv.lock`. The lock diff is additions only (the package and its metadata; its dependencies azure-core, isodate and typing-extensions were already locked).
+6. `SdkLogsQueryClient` (`adapters/outbound/telemetry/sdk_logs_client.py`) adapts the SDK to the adapter's client shape. It refuses a query with parameters (the SDK takes none), refuses a partial result and a result with other than one table, and maps the table it gets.
+7. The raw lookback for a trace or a search is `RAW_LOOKBACK` (90 days, [ASSUMED]).
+
+**Tenant pending.**
+
+- None in Cypher: O07 adds no graph statement.
+- The telemetry store is not a graph store. Its tenant rule (the bound tenant as a parameter, the tenant.id filter in KQL, the row check) is complete for the fixture and the stub. The live read is unverified (known issues).
+
+**Assumed.**
+
+- RAW_LOOKBACK = 90 days [ASSUMED] (observability.md gives 30 to 90 days for raw events; IG to set).
+- MAX_SESSION_RESULTS = 200 and the default search limit of 50 (not in any spec).
+- Session ids match `[A-Za-z0-9_-]{1,64}`; trace ids are 32 lower-case hex (W3C).
+
+## DEC-208 Synthetic journey checks, built partly: the back-end hook gate, the guard, the reporter loop and the workflow (O09)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of O09.
+
+Synthetic journey checks, built partly (O09, build-A2): the back-end hook gate, the reporter-loop spec, the guard, the Playwright project and the workflow are in. The advisor journey spec is deferred: finish after W13/W15, because its pages are not built.
+
+1. The hook is `POST /test/synthetic/prompt`, in `adapters/inbound/fhir_rest/routes_synthetic.py`. It is always mounted and answers a uniform 404 `{"error": "not found"}` unless all three hold: the hook is configured and switched on, the Authorization header is `Bearer <token>` with the configured token (compared with hmac.compare_digest), and an issuer is wired. The request names no tenant: the tenant is `synthetic_tenant_id` from the settings, bound with bind_tenant at the edge; a tenant in the body is ignored.
+2. Settings: `synthetic_enabled` (False), `synthetic_hook_token` (SecretStr, not in repr), `synthetic_tenant_id`. The container does not read them yet, because no issuer exists. With no issuer the hook answers 404 whatever is sent.
+3. The hook returns 201 with `{"link": ...}`. The issuer is an application-level port (`SyntheticLinkIssuer.issue`) that a later step implements over the existing SendPrompts / link-token path. It is not built here.
+4. Frontend guard (`frontend/test/synthetic/guard.ts`): the checks run only against SYNTHETIC_BASE_URL and SYNTHETIC_BACKEND_URL when each host is in SYNTHETIC_ALLOWED_HOSTS, over https (http only for localhost), with a hook token and a staff session file. Anything else skips with a reason that names the variable and no secret. The reporter loop opens only links on the target's origin.
+5. The `synthetic` Playwright project exists only when SYNTHETIC_BASE_URL is set, and its tests carry the `@synthetic` tag; the chromium project excludes that tag. With the variable set, no dev server or stand-in back end starts.
+6. The workflow `.github/workflows/synthetic.yml` is started by hand. The ten-minute schedule is commented out, because the owner asked that scheduled Actions runs not be billed (CLAUDE.md; ci.yml). Enabling it is a one-line change the owner must approve.
+
+**Tenant pending.**
+
+- None in Cypher: O07 and O09 add no graph statement.
+- O07: the telemetry store is not a graph store. Its tenant rule (the bound tenant, the tenant.id filter in KQL) is complete for the fixture and the stub; the live workspace read is unverified.
+- O09: the hook binds the configured synthetic tenant. The issuer, when built, must run its unit of work under that tenant and create the synthetic service there (TEN-G04 seed).
+
+**Assumed.**
+
+- PROMPT_TO_BOARD_MS = 3000 (the prompt's budget; taken from the prompt, not from domain-rules).
+- RAW_LOOKBACK = 90 days [ASSUMED] (observability.md gives 30 to 90 days for raw events; IG to set).
+- MAX_SESSION_RESULTS = 200 and the default search limit of 50 (not in any spec).
+- Session ids match `[A-Za-z0-9_-]{1,64}`; trace ids are 32 lower-case hex (W3C).
+- The staff storage state can read the wall board at /screen (assumed, not verified).
+
+## DEC-209 Alert subscriptions and alert repositories on Neo4j (P17)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of P17.
+
+1. An alert is a Task with code `acknowledge-alert` (CodeSystem `task-code`), written through the G05 resource store. Its business status is a `businessStatus` property on the Task, as the registration Task's is (P13): the repository moves the CodeableConcept out before the put and rebuilds it on read.
+2. Alert extensions `alertKind` (string), `escalationDueAt` and `acknowledgedAt` (dateTime) are registered in `extensions.py`. The escalation chain is the Task `partOf` link; `owner` is the practitioner alerted; `focus` is absent for system pressure.
+3. An alert's Task `status` is `requested` while the alert is open (new, escalated) and `completed` once acknowledged or closed. Not in the prompt; the rule is in the mapping and is an assumption.
+4. A subscription is a platform node `AlertSubscription` (one per practitioner, `tenantId` stamped) that CONTACTs the practitioner. Quiet hours are stored as `HH:MM` text; no quiet hours is a missing key. Saving takes the practitioner's write lock first, then merges, so two saves for one practitioner leave one node. An unknown practitioner raises NotFound and writes nothing.
+5. `chain(alert_id)` follows `part_of_id` in Python, oldest first; a loop of links raises ValidationFailed and an unknown link raises NotFound.
+6. Domain records refuse naive datetimes, an unknown status, a kind that is only text (lesson L3, L38), a service alert without a service, a system-pressure alert with one, and an alert that escalates from itself.
+
+**Tenant pending.** None. Every Q-ALERT statement names `$tenant` on each node it matches or creates and carries a scenario (not on the UNCONVERTED ratchet). The generated two-tenant test runs them in verification.
+
+**Assumed.**
+
+- Task `status` for an alert: `requested` while new or escalated, `completed` when acknowledged or closed.
+- CodeSystem for alert business statuses: `code_system_url("alert-status")`.
+- `ALERT_STATUSES` = new, acknowledged, escalated, closed (the prompt's list).
+
+## DEC-210 Staff sign-in with Entra ID and the role guard as built: our own code flow on `jose`, the tenant from the verified directory, `proxy.ts`, and the choices the prompt leaves open (W09)
+
+Status: accepted (builder build-W09, under DEC-133; no owner gate) · Numbered DEC-210, from the orchestrator's block of ten numbers starting at DEC-210. Affects: W09 (`lib/auth/{access,staff,oidc,flow}.ts`, `proxy.ts`, `app/sign-in`, `app/forbidden`, `app/api/bff/auth/entra/*`), `lib/auth/session.ts` (one export added), every later page behind a staff prefix (W10 onward), TEN-018 and TEN-043 (the back end's tenant claim and the token exchange), TEN-A01, hazard H-65. Overrides the W09 prompt where stated; builds on DEC-130, DEC-132, DEC-134 and the W02 session (DEC-125).
+
+1. **Our own authorisation code flow, not Auth.js (overrides "Rules you need", first bullet).** The prompt asks for `next-auth` v5 and says to use it only for the handshake and to discard its cookie. v5 is still a beta, it adds a session cookie and callbacks that would have to be switched off, and the checks this task has to prove (issuer from the token's own directory, a directory-to-tenant table, state, nonce, PKCE) are the part Auth.js would hide. The flow is about 250 lines on `jose` (already a pinned dependency) and `fetch`, with each check a named refusal and a test that fails when the check is removed (mutants in the evidence). The cost is that the protocol is ours to keep right: it is tested against a recording fake of Entra, not against Entra (item 13).
+2. **The flow.** `POST /api/bff/auth/entra/start` (the sign-in page's form) makes a new state, nonce and PKCE verifier (32 random bytes each), seals them with `next` into one cookie and redirects (303) to the authorize endpoint with `response_type=code`, `scope=openid` only (no name, email or profile is asked for, so none arrives), the fixed redirect address, `code_challenge_method=S256` and `prompt=select_account` (a shared workstation must not sign the next person in as the last). `GET /api/bff/auth/entra/callback` unseals the cookie, clears it, refuses a provider `error`, compares `state`, redeems the code with the verifier and the client secret (`redirect: 'error'`, 10 s timeout, `no-store`), reads only `id_token` from the answer (the access token is never read, kept or sent), verifies it, and only then creates our session. The redirect address comes from `DIUCS_PUBLIC_URL`, never from the request's host or a forwarded header. The start route reads only `next` from its body; a tenant, directory, hint or role in the body or query is never read.
+3. **The transaction cookie.** `diucs_oidc`: encrypted (`dir` + `A256GCM`) with a key derived by HKDF from `SESSION_SECRET` for this purpose alone (a sealed session cannot pass as a transaction), HttpOnly, Secure (not in development), **SameSite=Lax** and `Path=/api/bff/auth/entra`, ten minutes, cleared on every callback. Lax and not Strict because the browser returns from Entra on a cross-site navigation, which does not carry a Strict cookie; the session cookie, set after the checks, stays Strict (W02).
+4. **What is checked on the ID token** (`verifyIdToken`; each is a fixed refusal reason, none holds a token or claim): RS256 only; signature against the keys published by the directory (`<host>/<directory>/discovery/v2.0/keys`, the one bound directory when one is bound, `organizations` when several are); audience equals `ENTRA_CLIENT_ID`; expiry and not-before with 60 seconds of clock tolerance; `iss` equals `<host>/<tid>/v2.0` for the token's own `tid`; `tid` and `oid` are GUIDs; the directory is bound to a tenant (item 5); when exactly one directory is bound, the token must be from it; the nonce equals the one this sign-in sent (constant-time). The name, email and every other claim are never read. The endpoints are the fixed Microsoft v2.0 paths, not discovered, so a discovery document cannot redirect the checks.
+5. **The tenant comes from the verified directory and nowhere else (the amendment).** `DIUCS_ENTRA_BINDINGS` is a JSON list of `{ directoryId, tenantId, platform? }`. The directory is the token's verified `tid`; the tenant is its row. One directory is one tenant: a repeated directory, a non-GUID directory, a tenant id the back end would not accept (`TENANT_ID_PATTERN`, not a `net-` scope) or an unknown key refuses the whole setting at load. A verified token from a directory with no row gets no session and the `/forbidden` page. The old `ENTRA_TENANT_ID` is gone (it named a directory and collided with the DIUCS tenant): the directory is `directoryId`. **The table is configuration for now** because the front end cannot reach Neo4j and the back end has no endpoint for it; the back end already holds the same fact as `Tenant.entraDirectoryId` with `TenantDirectory.by_entra_directory` (TEN-007), and TEN-043 (token exchange) or TEN-A01 replaces the table with that lookup, keeping this function's shape. Two tenants that share one Entra directory are not supported (the sign-in would need a group or role to pick one); the setting refuses it rather than guess.
+6. **The back-end token** (`mintBackendToken`): HS256 with `BACKEND_JWT_SECRET` (base64 of at least 32 bytes, the same convention as `SESSION_SECRET`; the back end holds the same bytes as its `bff-jwt` secret); claims exactly `sub` (the Entra object id), `role`, `services` (`[]`: R02 gives lead, advisor, clinical and audit every service of the tenant by role and the other staff roles act for none), `tid` and `iat`/`exp` eight hours on. **`tid` here is the DIUCS tenant id** (the name the W09 amendment gives), not Entra's `tid`; R02 ignores unknown claims today (a token minted here decodes with `decode_bff_token`: checked once, see the evidence) and TEN-018 makes it required. The session's `expiresAt` equals the token's `exp` to the second, so the session never outlives its token. The session shape is unchanged (W02): the tenant is in the signed token and not copied beside it.
+7. **Roles.** `DIUCS.Advisor` advisor, `DIUCS.Clinical` clinical, `DIUCS.Lead` lead, `DIUCS.Owner` owner, `DIUCS.Planning` exec, `DIUCS.Support` support; priority lead, clinical, advisor, owner, exec, support; matching is exact (a wrong case or a padded name maps to nothing). **`DIUCS.Support` is honoured only for a binding marked `platform: true`** (the operator's own directory, the audit's finding in `D-frontend-ui.md` and `C-adapters-infra.md` 3.6): a customer's directory administrator can assign any app role in their own enterprise application, so the role must not be creatable there. No mapped role: no session cookie, a 303 to `/sign-in?error=no-access`, and the page shows the prompt's message. Reporter, wall, link and audit sessions are never created here.
+8. **`proxy.ts`, not `middleware.ts` (overrides the file name).** Next 16.3.8 deprecates the `middleware` file and function for `proxy` (the version guide, "`middleware` to `proxy`"), and the proxy runs on Node, where the session code (`Buffer`, `next/headers`) is at home. Behaviour is as the prompt says.
+9. **The guard** (`lib/auth/access.ts`, read by the proxy and by the sign-in). `/advisor` (so `/advisor/case`) advisor or lead; `/clinical` clinical; `/lead` lead; `/owner` owner or clinical; `/planning` exec or lead; `/console` support. The match is on the first path segment of the decoded path with dot segments resolved, ignoring case, so `/Lead`, `/%6Cead`, `//lead` and `/x/../lead` are guarded as `/lead`; a path that cannot be decoded is guarded for nobody; `/advisors` is not `/advisor`. The matcher covers every path except Next's static files, so an odd spelling reaches the guard. The role is read from the sealed cookie only: a query string, a header or a client value cannot raise it. No session (none, expired, not ours, sealed with another key) redirects (307) to `/sign-in?next=<path and query>` (omitted when it is not a safe same-site path); a wrong role is rewritten to `/forbidden` with status 403; every answer for a guarded path carries `Cache-Control: no-store`, so Back after sign-out shows nothing. A missing `SESSION_SECRET` on a guarded path is an error, never a pass; unguarded paths do not read it. Pages are guarded here; the BFF routes keep their own `withBff` checks (W02) and are not behind the proxy.
+10. **After sign-in** go to `next` when it is a same-site path of URL-safe characters (no `//`, backslash, quote, angle bracket, space or control character) that the role may open and that is not the sign-in page, otherwise the role's home: advisor `/advisor`, clinical `/clinical`, lead `/lead`, owner `/owner/criteria` (the prompt's four) and, decided here, exec `/planning` and support `/console`. The callback answers 200 with a small page that moves the browser on (`<meta http-equiv="refresh">` and a link) and not with a redirect: a redirect from a response that itself ends a cross-site visit is treated as cross-site by browsers that count the whole chain, and would not carry the Strict session cookie just set. The browser test passes with a plain 303 in Chromium as well (tried), so this is a precaution for Firefox and WebKit, which could not be run here (not verified).
+11. **Wording and pages.** The sign-in page has the prompt's lines; its heading stays "Sign in" also for `?role=clinical` (the prompt, not the ClinicalAdvisor artboard's "Clinical advisor sign in", which is a canvas difference for the v1.1 pass); `role` changes the note only and is never sent anywhere. `?error=no-access` shows the prompt's message; `?error=failed` shows "We could not sign you in. Try again, or ask your shift lead to check your access." (decided; it never says why); any other error value shows nothing. `/forbidden` shows "You do not have access to this page." and "Ask your shift lead to check your access." and names no page, role or organisation. The sign-in button is a real submit button in a POST form (a link prefetch cannot start a sign-in).
+12. **Logging.** A refusal writes one line, `staff sign-in refused: <reason>`, where the reason is one of the fixed words in `REFUSALS` or `fault` or `could not start`. No token, code, state, nonce, verifier, secret, object id, name, email or cookie value is logged or put in an error, a response body or a header; a test spies on every `console` method over good and refused sign-ins and checks that none of more than ten secret values appears.
+13. **What is faked and what is still needed.** Entra is an external service with no credential here, so the flow is built and proven against a recording fake (`test/oidc/fake-entra.ts`: the authorize, token and keys endpoints, PKCE S256, one-time codes, the client secret and redirect address, a published key set without `alg` like Entra's, and tamper options for each refusal). It is not Entra and is not evidence that Microsoft behaves so. Needed from a real tenant at deploy: an app registration (with the redirect address `<DIUCS_PUBLIC_URL>/api/bff/auth/entra/callback`, a client secret, app roles `DIUCS.*` assigned to people, `roles` present in the ID token), one directory per tenant row (a multi-directory deployment needs a multi-tenant app registration, since `organizations` is asked), the operator's directory for `platform: true`, and `BACKEND_JWT_SECRET` equal to the back end's `bff-jwt`. Not built: Entra sign-out (the session ends here only; `prompt=select_account` is the shared-workstation control), a server-side session list to end a session before its eight hours (I13), a rate limit on the start route (the provider and the tenant limits are the controls until O-tasks), the tenant chooser for a person in several tenants (TEN-A01), the `admin` role (audit C, owner decision pending).
+14. **Files outside the prompt's list**: `lib/auth/{access,oidc,flow}.ts`, `app/api/bff/auth/entra/{start,callback}/route.ts`, `app/forbidden`, `proxy.ts` (for `middleware.ts`), `app/sign-in/page.module.css`, `test/oidc/*`, `test/msw/handlers/entra.ts`, `e2e/support/{env,oidc}.ts`, `e2e/global-setup.ts`, `playwright.config.ts`, `docs/spec/contracts.md`.
+15. **One proxy for the guard and the policy (merge with S01).** `proxy.ts` makes the guard's decision first (pass, redirect to sign-in, or 403 rewrite to /forbidden) and then puts the fresh nonce, the content security policy and the security headers on every one of those answers, so the sign-in redirect and the 403 page carry the policy too; a `Content-Security-Policy` or `x-nonce` sent by the caller is overwritten. Guarded answers keep `Cache-Control: no-store`. **The sign-in page's form-action names the provider.** Chrome applies `form-action` to the redirect that answers a form post, so with S01's `form-action 'self'` the 303 from `/api/bff/auth/entra/start` to the provider would be blocked. On exactly `/sign-in`, `buildCsp` gets `formActionOrigins: [entraAuthorityOrigin()]` (the configured authority host, an origin only; null, so `'self'` alone, when the setting is one the sign-in would refuse). Every other path keeps `'self'` alone. Each origin is matched against a strict scheme-host-port pattern before it is written into the policy. Found by reading the merged policy against the flow, not by a browser run: the browser test (`e2e/sign-in.spec.ts`) was written before the merge and has not been run since (see the report).
+
+## DEC-220 The clinical request repository on Neo4j (P18)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of P18.
+
+1. A clinical advice request is a Task with code `clinical-advice-request` in CodeSystem `task-code` (the prompt's [ASSUMED] code), written through the G05 resource store. Focus is the case ServiceRequest, requester the advisor who asked, owner the clinical advisor once taken. Priority is `stat` for urgency `now` and `asap` for `within-15-min`.
+2. Advice is NOT stored as Task.output, as the prompt asks. It is stored as Task node properties `adviceChoice`, `adviceReason`, `noteHandle` and `advisedAt`, written after each put (the way the registration store writes businessStatus). The FHIR backbone for a coded output was not verified in the build wave. The record holds only the protected-text handle, never the note text.
+3. The business status (`waiting`, `taken`, `advised`) is a property `businessStatus`, and the CodeableConcept is rebuilt on read. Extensions `why`, `snapshotRef` (string) and `takenAt` (dateTime) are registered.
+4. `waiting()` returns the untaken requests in `queue_order` (D23): now before within-15-min, oldest first. It does not release a lapsed lock: a request taken and not advised stays `taken` until the use case saves `return_if_idle` (lesson L47).
+5. `ClinicalRequestRecord` refuses advice that does not match the request it answers (a different clinician, or a different time, or advice on a request that is not advised).
+
+**Tenant pending.** None. Every Q-CLIN statement names `$tenant` on each node it matches or creates and carries a scenario. The Task is written through the resource store, which stamps the tenant.
+
+**Assumed.**
+
+- Task `status`: `requested` while waiting, `in-progress` when taken, `completed` when advised.
+- Business status CodeSystem: `code_system_url("clinical-request-status")`.
+- Priority values: `now` maps to `stat`, `within-15-min` to `asap`.
+
+## DEC-221 The push subscription repository on Neo4j (P19)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of P19.
+
+1. A push subscription is stored on a Device node labelled `Resource:Device` (key `Device/<id>`, so the store's uniqueness and later FHIR reads find it): properties `deviceType` (`mobile-app`), `status` (`active` on each save), `pushSubscriptionJson` and `pushSavedAt`. A Device is keyed by (tenant, deviceType, id). Every push statement matches `deviceType` in its key, so a push subscription never addresses, overwrites or revokes a wall display. `USED_BY` links the device to its practitioner; `TYPE` links it to a Concept `mobile-app` in CodeSystem `device-type`.
+2. The port is `PushSubscriptionRepository` and the value `PushSubscription(device_id, practitioner_id, subscription, saved_at)` in `application/ports/outbound/messaging.py`, as the contract names. One device has one subscription; saving again replaces the JSON and the save time; a second `USED_BY` is removed on save, so a device has one practitioner.
+3. The subscription JSON is stored as canonical text (sorted keys, no spaces). A subscription without an endpoint, or without both the p256dh and auth keys, is refused with ValidationFailed on the field `subscription`; the message names no value.
+4. The id is unique per tenant across device types (constraint `tenant_device_id`). A save whose id a wall display, or any other device, already holds is refused by the constraint with Conflict `the device id is already in use`, which names neither record, and writes nothing. The wall-display side refuses the reverse the same way (credential_store maps ConstraintError to Conflict). Saving for an unknown practitioner raises NotFound.
+5. Delete removes `pushSubscriptionJson` and `pushSavedAt` and keeps the Device. Deleting an unknown device does nothing.
+6. No statement outside Q-PUSH-* names the JSON property, and nothing in this module logs.
+7. Decision of the orchestrator on the P19 clash (replaces the known issue of the first report): a push id never addresses, overwrites or revokes a wall display, and the reverse.
+
+**Tenant pending.** None. Each Q-PUSH statement names `$tenant` on every node it matches or creates and carries a scenario. Device uniqueness is the tenant-composite constraint `tenant_device_id`, already in the schema.
+
+**Assumed.**
+
+- Device `status` is `active` after every save.
+- CodeSystem for the device type: `code_system_url("device-type")`; concept `mobile-app`.
+- The Device has no `deviceName`: the port carries none.
+
+## DEC-222 Service move and protected text stores on Neo4j (P20)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of P20.
+
+0. Uniqueness is enforced by migrations in their own area module `migrations_protected.py` (orchestrator decision 2): `0040_protected_text_handle` (composite `(tenantId, handle)` on `ProtectedText`) and `0041_service_move_id` (composite `(tenantId, moveId)` on `ServiceMove`). Each is one idempotent schema statement. The move's id property is `moveId`, not `id`, so the constraint names what it constrains. Migration ids 0040 and 0041 only. The core list is not edited; the existing tests that pin the tail of the assembled list now check ordering.
+
+1. A service move is a platform node `ServiceMove` (tenant-stamped, no Resource label) with `FOR` to the HealthcareService and `FROM` to the Practitioner. Only `toPhoneHash` is stored, never the number.
+2. At most one open move per service. `add` takes the service's write lock first (`SET s.id = s.id`, lesson L73), then reads the open moves, then writes; a second open move raises Conflict and nothing is written. Moves are open while both `completedAt` and `cancelledAt` are absent.
+3. `FROM` is a Cypher keyword, so the relationship is written as `` [:`FROM`] ``. Seeds in the scenarios do not carry it (the seeder writes plain type names).
+4. `save` records the times only (until, codeVerifiedAt, callbackAt, completedAt, cancelledAt). A change to the service, the practitioner or the phone hash raises ValidationFailed.
+5. Protected text is a node `Protected:ProtectedText {handle, kind, aboutId, text, createdAt, tenantId}` with no relationships. `createdAt` is written by the database (`datetime({timezone: 'UTC'})`), so the adapter reads no clock. The handle is `secrets.token_urlsafe(16)`: 128 random bits, 22 characters.
+6. Text is refused when blank or longer than 280 characters (ValidationFailed on `text`); the refusal does not echo the text. An unknown kind is refused on `kind`, before anything is written.
+7. The port `ProtectedTextStore` is in `application/ports/outbound/protected_text.py`, as the prompt says, not in `repositories.py` as the contracts table lists. The prompt is followed.
+8. Only `Q-PROT-*` may name the `Protected` label. A unit test scans every registered statement for `:Protected` and `:ProtectedText` (and not `ProtectedContact`).
+
+**Tenant pending.** None. Each Q-MOVE and Q-PROT statement names `$tenant` on every node it matches or creates and carries a scenario. Protected-text handles are looked up inside the bound tenant only. The generated two-tenant test runs them in verification.
+
+**Assumed.**
+
+- The text may not be blank (the prompt sets only the 280-character limit).
+- A move id that already exists is a Conflict (the prompt does not say).
+- `save` refuses a change to the service, practitioner or phone hash (the prompt does not say).
+
+## DEC-223 Profile StructureDefinitions, the pure-Python validator and `$validate`, and refusing a body that breaks its profile before it reaches a use case (R14)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of R14.
+
+1. Two layers. Structure is parsed with fhir.resources.R4B (each error becomes an issue at the element it names, with a fixed message). Then one rule function per profile runs. Each issue names an element path and a fixed message, never a value.
+2. DiucsServiceCriteria skips the structure layer. Its elements (ageMin, status, version, reviewBy and the rest) are stored as properties (DEC-001) and R4B Basic does not hold them, so an R4B parse would refuse every criteria. Only its rules run. The profile file says so in its description.
+3. `$validate` answers 200 with an OperationOutcome whether or not the resource conforms, as the FHIR operation returns findings in the body. A conforming resource gets one `information` issue, "Valid". Owner to confirm 200 against 422.
+4. `$validate` requires a signed-in actor of any role. It reads nothing from the store, but an open validator would be an open service on the platform's own rules.
+5. `POST /fhir/Observation` now runs the capacity profile check before its own mapping (`validated_body`, placed after the role check so an unauthenticated request gets 401 first). Every profile issue is returned together, status 400.
+6. `profile_url(name)` lives in application/ports/outbound/terminology.py, next to FhirValidator, so the inbound route can build the URL without importing an outbound adapter (the adapters-independent contract).
+7. The CapabilityStatement lists the profile of each served type: Observation (DiucsCapacityReport) and HealthcareService (DiucsHealthcareService). Patient, Basic and Task are not served types, so their profiles are validated by `$validate` but not advertised.
+8. `POST /fhir/ServiceRequest` does not exist on this branch, so the validated_body dependency is not applied to it. The prompt asked for it. The case route (a later task) must apply `validated_body(profile_url("DiucsPatientCaseStub")...)` or the case profile when it lands.
+
+**Changes made after the first handback (orchestrator instruction).**
+
+- Observation.focus fix: red tests (c4d12dd), implementation (fc77f67). The mapper writes focus as a one-entry list and the reader takes the entry. Round trip checked: report -> graph fragment -> from_graph -> report_from_fhir returns the same report, and the resource validates as R4B Observation.
+- R14 profile alignment: red (ef9c826), implementation (c52465f). The time must have seconds and a zone and be a real date (the mapper's rule). The wrong-type path is `Observation.resourceType`.
+- Every other Observation.focus builder or reader was checked by grep: booking_repository, registration_repository and the Task focus are single references in R4B (0..1), so they stay as they are. The board's focus (test_routes_board) is already a list.
+- The R14-1 test-fixture workaround (wrapping focus in a list) was removed from test_validator.py and test_validate_route.py.
+
+**Tenant pending.** - None. The validator and `$validate` read no store and name no tenant. The POST /fhir/Observation use case is tenant-pending as it was before R14.
+
+**Assumed.**
+
+- The age band extension URL is `{BASE_URL}Extension/age-band` and the case tag is `pseudonymised-case-stub`. Both are placeholders until the owner publishes the real ones.
+- UCUM is `http://unitsofmeasure.org`, as the data model states.
+- A capacity figure is a JSON integer, zero or more. A JSON float such as 4.0 is refused, because the figure is a whole number and the mapper refuses a non-integer too.
+- The structure layer's issue code is `structure`, the rule layer's is `invalid`, an unknown profile is `not-supported`.
+
+## DEC-224 Wall screen pairing over HTTP: the routes, the tenant from the host, the per-address limits and what a cache outage answers (R15, refines DEC-160 and DEC-134 item 3)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of R15. Refines DEC-160 items 1, 3, 4, 6 and 7 (U10, tenant from the edge, one refusal, limits, device token, claim states) and DEC-134 item 3 (the tenant of an unauthenticated request comes from the host). Affects: R15 (`adapters/inbound/fhir_rest/routes_screens.py`), W08 (the pages that call these routes), U37 (revoke and retention), TEN-018 (the REST edge that binds the lead's tenant).
+
+1. **Paths and media type.** `POST /screens/pairing` (no token, 201), `GET /screens/pairing/{pairingId}` (no token, 200), `POST /screens` (role `lead`, 201). They sit at the root, not under `/fhir`, because they are JSON, not FHIR, as the prompt says. The app-wide `BodyTypeMiddleware` refuses a POST with no media type (415), so a display sends `Content-Type: application/json` with `{}`.
+2. **Start.** Answers `{pairingId, code, expiresAt, screenSecret}`. `code` is the six digits without the space the use case displays (`482913`). `expiresAt` is the UTC instant in ISO form, ten minutes after the clock. The secret is returned once, here.
+3. **Claim.** The secret is read only from the `X-Screen-Secret` header; a missing header is the same wrong secret. The body is `{status}`, plus `deviceToken` only on the claim that collects it. The states `waiting`, `paired` and `expired` are the ones `ClaimPairingResult` already reports (U10). U10 is not edited.
+4. **Connect.** The body is `{code, name, location?, boardScope?}`. `boardScope` is `tenant` (the default) or `network`. Any other field, a tenant among them, is a 400 (`extra="forbid"`), and the body is never echoed. The 201 is `{deviceId, name, status: "online"}`. The device is stored `paired-unclaimed` until the display claims it; the response does not say so.
+5. **One refusal.** Every refusal the use case makes (a wrong, malformed, expired, used or other-tenant code or secret, and the lead-only refusal inside the use case) answers 404 with the diagnostics "That code is not valid or has expired.". The role refusal of `require_role` stays the app's generic 404 (`NotAllowed("role")`), so a non-lead learns nothing about codes. A wrong and an expired code get byte-identical bodies (tested).
+6. **Other answers.** 429 `throttled` with `Retry-After: 600` for a pairing limit (the use case's `PairingRateLimited`, or the per-address limit of item 9). 503 `transient` with `Retry-After: 30` for a cache that raises `OSError` (item 11). 400 for a missing `Idempotency-Key` or a bad body. 500 for a missing pairing secret (item 13) or an unbound tenant (item 8). Every response carries `Cache-Control: no-store`.
+7. **Start and claim bind the tenant from the host, and from nothing else.** `TenantDirectory.by_host(hostname)` names the tenant. Only an `active` tenant counts. A damaged tenant record is logged by reason and answers as unknown. The use case then runs inside `bind_tenant(tenant)`. The tenant is never read from the path, the query, the body or any header but the host. A start to a host no tenant owns answers 404 not-found, the generic text, so it cannot be told apart from any other unknown path. A claim with an unknown or inactive host answers the refusal text.
+8. **Connect binds no tenant in the route, on purpose.** DEC-160 item 1 says the lead's tenant comes from the signed token. The BFF token carries no tenant today (`BffClaims` in `domain/rules/bff_token.py` has `sub`, `role`, `services`, `expires_at` and `device`). The route therefore binds nothing, `ConfirmPairing` raises `TenantNotBound`, and the request fails closed with a 500. Consequence: the connect endpoint is not usable in production until TEN-018 adds the tenant claim and binds it. The prompt's "POST /screens binds the lead's tenant" is met by TEN-018, not by this task. The tests bind the lead's tenant with `as_tenant`, which stands for what the edge will do. `test_a_connect_with_no_tenant_bound_fails_closed` is kept when TEN-018 lands: TEN-018 changes how the binding is made, not what an unbound request does.
+9. **Per-address limits in front of the routes (DEC-160 item 4 asks for this; U10 had none).** Starts: at most `ADDRESS_STARTS` = 20 per address and tenant in `LIMIT_WINDOW` (10 minutes), counted before the use case runs. The 21st is 429. The number equals the tenant's own allowance (START_LIMIT), so one address cannot take a tenant's codes alone. Claims: at most `ADDRESS_REFUSED_CLAIMS` = 20 refused claims per address and tenant in the window. The slot is taken before the claim runs. A refused claim keeps its slot for the window. An answered claim (`waiting`, `paired`, `expired`) gives its slot back, so a display that polls is never throttled by its own polling. While the refusal count is at the limit, every claim from that address is 429, including a correct one, until the window passes. The lead's confirm keeps its own five-failure limit (U10) and gets no address limit: a lead's address is shared with the whole ward.
+10. **Keys.** The address is the socket peer (`request.client.host`), hashed with SHA-256 and kept to 32 hex characters, so no address is held in the cache. `X-Forwarded-For` is never read, because a caller can set it. The tenant is part of every key (`pairing-address:<tenant>:<kind>:<hash>`), so one tenant's counts never touch another's.
+11. **Trade-off, accepted.** Displays that share one public address (a hospital's network address) share these limits. A burst of refused claims from that address can hold back the legitimate claims of that address for up to ten minutes. No per-address limit leaves the claim route open to any address. Recorded as H-81.
+12. **A cache that is down.** Any `OSError` from the cache on a pairing route answers 503 `transient` with a fixed text. The builtin `ConnectionError` and `TimeoutError` are both `OSError`. The use case has written nothing when this happens: start and claim take their slot before any write, and `ConfirmPairing` releases its slot before the device write and before the commit. The 503 is safe to retry.
+13. **Secrets are read first, and a missing one fails closed.** Each route reads both pairing secrets (`LINK_TOKEN_SECRET`, which hashes codes and screen secrets, and `DEVICE_TOKEN_SECRET`) before anything else. A missing secret answers 500 and is logged by class name. Without this check the use case's own `NotFound` would answer 404 to every request, and a process started without its secrets would look like a working pairing with every code refused.
+14. **A release that fails after a claim has committed does not lose the token.** The claim has stored the device as `active` and burned the secret; only then is the slot released. If that release raises, the route logs the class name and still answers 200 with the token, and the slot is left to expire with its window. Losing the token here would leave an active screen with no way to get its token.
+15. **Known gap: the Redis adapter does not translate its errors.** `RedisCache` lets the `redis` library's exceptions through. `redis.exceptions.ConnectionError` derives from `RedisError`, not from `OSError` (checked against the installed library), so a live Redis outage reaches these routes as an unhandled exception and answers 500, not 503. It still fails closed and writes nothing. The fix belongs in the Redis adapter (translate to a port-level unavailable error, then map that here): a follow-up, because `adapters/outbound/cache_redis` is I01's file. The U10 known-issues row "a cache error at the limiter's release ... surfaces as a raw ConnectionError" is closed for the builtin errors; the Redis case is the open part.
+16. **Wiring: the container gains two fields; the use cases are built in the routes.** `Container` gains `cache: Cache` and `rng: random.Random`. `build()` sets `cache=RedisCache(redis)` on the one Redis client the container already owns (integration/build's container; the cache takes no second connection) and `rng=random.SystemRandom()`. `build_for_tests()` takes `cache=` and `rng=` as keywords, defaults to an `InMemoryCache` on the test clock and a `random.Random` with the fixed seed `TEST_RNG_SEED`. The three use cases are constructed inside the routes, as R04 and L01 build theirs: adapters may not import `bootstrap` (layers contract), so a container field typed with the use cases could not be read by the route. This deviates from the prompt's "wire the three use cases in bootstrap/container.py"; the composition root still decides which ports and which random source and cache a process uses.
+17. **Shutdown and the cache.** `Container.shutdown()` closes the Redis client, which the cache shares, so no separate close is needed. The cache port scopes every name to the bound tenant (`scoped_names()`, integration/build), so a pairing limit key is tenant-scoped at the port as well as by its `<tenant>` part. A pairing route called with no tenant bound fails with `TenantNotBound` (a 500), which is the fail-closed answer of item 8.
+18. **Behind a proxy, the peer is the proxy.** Then every request shares one address and the per-address limits become one limit for the whole platform: 20 starts in ten minutes for every display of every tenant. The serving process must trust the proxy's forwarded address, and only from the proxy (for uvicorn, `--proxy-headers` with `--forwarded-allow-ips` set to the proxy's address). This is a deployment item, recorded as H-81's residual, because no serving entry point exists yet.
+19. **Test clock and secrets.** The tests use the prompt's clock, 14:02 London on 23 October 2026 (13:02Z). Expiry tests move the clock with `FixedClock.advance`. The tests use their own pairing secret pair, because the link-page test secret set (`tests/support/link_rig.py`) holds `LINK_TOKEN_SECRET` and `LINK_CSRF_SECRET` only, and a missing device-token secret now fails closed (item 13).
+20. **A screen confirmed in the ten-minute window and first claimed after it.** A lead can connect a screen in the window, and the display can first claim it after the window. The claim then answers `expired`, because the secret's life is the same ten minutes (U10 item 7: the device is never activated after the expiry). The device stays `paired-unclaimed`. The display must claim promptly: the page (W08) must poll the claim at least every few seconds from the moment it shows the code, and a display that reports `expired` must ask for a new code. Revoking such a device and any retention sweep are U37's. Not changed here: the rule is U10's.
+21. **What R15 leaves open.** (a) Connect is not usable in production until TEN-018 (item 8). (b) Redis errors reach the routes untranslated (item 15). (c) No serving entry point sets `app.state.secrets` (nothing in `src` sets it; `auth.py` says the serving process does) or trusts the proxy's forwarded address (items 17 and 18). (d) The confirm timing difference that the U10 known-issues row names (a live code and a miss take different times) is not closed: a lead's timing shows whether a code was live. The lead is authenticated and rate-limited, so the exposure is small; recorded, not changed. (e) H-37's residual (a wrong secret at claim is not throttled) is answered by item 9; H-37's row now points at H-79 and at the per-address limit of item 9.
+
+**Tenant pending.** The routes add no Cypher. The Neo4j statements behind them are U10's use cases, through the device, link-token and audit repositories, and their tenancy is whatever the merged TEN-0xx conversions leave them at. That was not re-verified by this build: the generated two-tenant tests run in the verification stage. The cache names are tenant-scoped at the port (item 17), so the per-address keys need no statement of their own. Pending, named by this task: connect has no tenant binding until TEN-018 (item 8).
+
+**Assumed.**
+
+- `ADDRESS_STARTS` = 20 starts per address and tenant in `LIMIT_WINDOW` (10 minutes). Equal to the tenant's `START_LIMIT`. Not an [ASSUMED] constant in domain-rules.md: a value chosen here (item 9).
+- `ADDRESS_REFUSED_CLAIMS` = 20 refused claims per address and tenant in the window (item 9).
+- `RETRY_AFTER_UNAVAILABLE_SECONDS` = 30 for a 503 (item 6). `Retry-After` on a 429 is `LIMIT_WINDOW` in seconds, 600.
+- The address key is SHA-256 of the socket peer, the first 32 hex characters (item 10).
+
+## DEC-225 The Pathways Dx lookup: a search over a sample file through the Terminology port, for the advisor and clinical roles only (R16)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of R16.
+
+1. Matching is a substring match, not a prefix match. The text is trimmed and compared case-insensitively against the code and the display. The prompt's rule says "match the code prefix", but its own test 1 needs `"samp"` and `"01"` to match inside codes (`DxSAMPLE01`), so the substring rule follows the test. Owner to confirm.
+2. Text under two characters, once trimmed, is refused with 400 `invalid`, diagnostics "Type at least 2 characters". The domain rule also finds nothing under that length, so no search can return the whole list.
+3. At most 20 results, in code order (Python string order of the code). The domain rule sorts and cuts; the port's default limit is 20.
+4. The route is at the root, `/terminology/pathways-dx`, not under `/fhir`, as contracts.md names it. Its 200 body is a plain JSON list of `{code, display}` and nothing else. Its errors come from the shared handlers, so they are OperationOutcome bodies like every other error on the API.
+5. The role check runs before the text is read. Roles other than advisor and clinical get the non-revealing 404, even when the text is too short, so a reporter cannot tell a short search from a refused role. No token gets 401.
+6. The sample file is a JSON object whose first field, `notice`, says the codes are not real, and whose `codes` list holds ten `{code, display}` entries. The prompt says "the file's first entry says the codes are not real". A notice inside the list would be selectable on the score picker, so the notice sits outside the list. Owner may prefer the other shape.
+7. The loader refuses any file of the wrong shape when the adapter is built: not an object, no notice, a code or display that is not text, or a repeated code. A refusal names the field, never a value (DEC-047). The file is read once; a change to it needs a restart.
+8. `pathways_dx_file` defaults to the repo sample (`backend/data/pathways_dx_sample.json`), found from the settings module as `terminology_dir` is. Production must set `DIUCS_PATHWAYS_DX_FILE` to the licensed list. Open question for the owner, see below.
+9. The route reads no tenant record and opens no unit of work. The codes are reference data shared by every tenant, the same reading as the tenancy audit's R16 row (NO-CHANGE). It has no Cypher.
+
+Open question for the owner: if a production deployment starts without the licensed list, advisors are offered sample codes. A guard that refuses to start the production profile on the sample file is not built; it needs the owner's decision on whether a pilot may run on the sample.
+
+**Tenant pending.** None. No statement touches a tenant node. The codes are global reference data, as the tenancy audit's R16 row says (NO-CHANGE).
+
+**Assumed.**
+
+- `MIN_SEARCH_LENGTH = 2` and the 20-result limit come from the R16 prompt, not from a marked [ASSUMED] constant in domain-rules.md.
+- The sample file has ten entries, which is "about 10" in the prompt.
+
+## DEC-226 A per-request nonce content security policy and the standard security headers on every page response (S01)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of S01.
+
+1. The file is `frontend/proxy.ts`, not `middleware.ts` as the prompt says. Next.js 16 renames `middleware` to `proxy` and deprecates the old name (the bundled docs say so, and the agent rules ask us to heed deprecations). The build reports `ƒ Proxy (Middleware)` for it. The W09 design already names proxy.ts.
+2. The nonce is generated per request and reaches Next.js through the request's `Content-Security-Policy` header, which Next.js reads to put the nonce on its own scripts (the bundled CSP guide's method), and through the `x-nonce` request header for any page that reads it. The response carries the same policy.
+3. The layout is marked `export const dynamic = 'force-dynamic'`. Measured with `next build`: without it `/` and `/_not-found` are prerendered (`○`) and would carry no nonce. With it every route is `ƒ`. The root layout stays synchronous, so layout.test.tsx is unchanged.
+4. The matcher skips `_next/static`, `_next/image` and `favicon.ico`. Those are static build assets, rendered without a request.
+5. `buildCsp` refuses a nonce that is not base64 or URL-safe characters (so a quote, a semicolon or a space can never end the header early). It allows `'unsafe-eval'` only when `dev` is true.
+6. Fonts: `app/layout.tsx` already loads Atkinson Hyperlegible through `next/font/google`, which self-hosts it at build time. No `<link>` to a font host exists in app/ (checked by grep).
+7. Cookies (checked, not changed): the session cookie is HTTP-only and SameSite=Strict, and Secure outside development (lib/auth/session.ts). The CSRF cookie is deliberately readable by script (double-submit), and is not the session cookie.
+
+**Tenant pending.** - None. The proxy and the policy read no tenant and no data.
+
+**Assumed.**
+
+- `'strict-dynamic'` makes 'self' redundant for scripts in current browsers; both are kept, as the prompt lists them.
+- Dev mode is `process.env.NODE_ENV === 'development'`, as the Next.js guide uses.
+- The e2e check treats any console message that mentions a content security policy violation as a failure.
+
+## DEC-227 Criteria and flag statements are tenant-scoped, each with a scenario (TEN-012, reworks P04 and P14)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-012.
+
+1. **Every node a statement matches, merges or creates carries the tenant.** The 21 statements of `criteria_repository.py` (8) and `flag_repository.py` (13) write `tenantId: $tenant` on each `HealthcareService`, `Basic`, `ServiceCriteria`, `ServiceFlag`, `Observation` and `ReportFlag` node they name. The one anonymous node pattern, the old-link target of Q-CRIT-SET-CURRENT, is written in map form `(o {tenantId: $tenant})`, so it cannot be left unscoped.
+2. **The report flag is stamped in its CREATE and kept by `SET f += $props`.** A `SET f = $props` would erase the stamp (lesson L155, item 4). The props are built from fixed names in `_report_props` and never carry the tenant.
+3. **Scenarios are data in `criteria_scenarios.py` and `flag_scenarios.py`.** Both tenants get the same service, criteria versions, report, report flag and service flags, with the same ids and keys. The text that differs is `Marked`. No `Unique` is used, because the composite keys of TEN-005 let both tenants share every key here.
+4. **One current criteria version per service per tenant is kept by the existing service lock and the tenant match, not by a new constraint.** Nothing new is added to the schema.
+5. **The ratchet shrinks by twenty-one.** The ids leave `graph_store/unconverted.py` in the commit that converts them, and the cap in `test_queries.py::test_the_ratchet_may_only_shrink` falls from 47 to 26.
+
+**Tenant pending.** None for the 21 statements of this task. The statements still on the ratchet after it (26) are the contact and device statements (TEN-014), the audit, provenance, outbox and idempotency statements (TEN-016, TEN-017 and later).
+
+## DEC-228 Link tokens and pairing codes carry the tenant without a global hash resolver or a tenant on the record (TEN-013, reworks D26 and P10)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-013.
+
+1. **Nothing new was needed in the statements.** The four `Q-LINK-*` statements were converted by L01 (DEC-167 item 2): each writes or matches `tenantId: $tenant` and has a scenario, and none is on the ratchet. The pairing-code and screen-secret hashes were keyed by tenant by U10 (DEC-160, `pair_wall_screen._keyed`). TEN-013 adds the unit tests that pin that keying (`tests/unit/application/use_cases/test_pairing_keys_per_tenant.py`). Those tests passed on their first run, because the behaviour already existed, so this task has no red run.
+2. **The global token-hash resolver is not built.** The plan summary and the audit (A-graph-store, `Q-LINK-TENANT-OF`) asked for a global statement that returns the tenant of a token hash (DEC-131 item 5). DEC-167 item 1 and DEC-134 item 3 resolve the tenant from the request host instead, and a link is found only inside that tenant. No global statement is added, which keeps the allowlist of DEC-163 item 2 unchanged.
+3. **`LinkTokenRecord` does not carry a tenant.** The domain record stays pure, as DEC-162 keeps the mapper pure: the store stamps `tenantId` from the bound unit of work, and every statement that reads a record matches it. A record therefore never says which tenant it belongs to, and nothing outside the store needs to know.
+4. **`link_token_hash` stays globally unique** (DEC-131 item 5, TEN-005). A second tenant that stores a hash the first holds is refused.
+
+**Tenant pending.** None. Every `LinkToken` statement is converted, and the pairing and screen-secret hashes are keyed by tenant.
+
+## DEC-229 Contact and device statements are tenant-scoped, each with a scenario (TEN-014, reworks P16)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-014.
+
+1. **Seven statements, every node named.** `Q-CONTACT-PUT` and `Q-CONTACT-GET` (the `ProtectedContact` of a role and kind, keyed by `tenantId` and `key` through migration 0031) and `Q-DEVICE-LOCK`, `-OWNER`, `-REGISTER`, `-KNOWN` and `-REVOKE` (a practitioner's `Device`, created with `tenantId: $tenant` in its CREATE) write `tenantId: $tenant` on each `Practitioner`, `Device` and `ProtectedContact` node they match, merge or create.
+2. **A device id is looked up inside the tenant.** `Q-DEVICE-OWNER` finds the practitioner of a device of this tenant only. Another tenant's device with the same id is therefore not "registered to another practitioner" here. The wall screens of U10 are not touched: a screen has no `HAS_DEVICE` from a practitioner, so no practitioner statement matches it.
+3. **The contact scenario is an update.** A lookup must be a value the seed holds (`validate_scenario`), so a create cannot be proved with a key of its own. The update keeps the tenant's own key, and a MERGE without the tenant would match the other tenant's node and show as a changed count.
+4. **The ratchet shrinks by seven.** The ids leave `graph_store/unconverted.py` in the commit that converts them, and the cap in `test_queries.py::test_the_ratchet_may_only_shrink` falls from 26 to 19. The nineteen that remain are the audit, provenance, outbox and idempotency statements (TEN-016, TEN-017 and later).
+
+**Tenant pending.** None for the seven statements of this task. The nineteen still on the ratchet are the audit, provenance, outbox and idempotency statements (TEN-016, TEN-017 and later).
+
+## DEC-230 Outbox, replay records and processed markers are tenant-scoped on the statement (TEN-016)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-016.
+
+1. The replay-record statements `Q-IDEM-HEAD`, `Q-IDEM-VALUES`, `Q-IDEM-EDGES`, `Q-IDEM-CREATE` and `Q-IDEM-LINK` match and create the record and every value node with `tenantId: $tenant`. The record key is composite `(tenantId, key)` (migration 0029, composite from 0031). The same key in two tenants is two records; a read of another tenant's key is absent, never a Conflict.
+2. The outbox statements `Q-OUTBOX-LOCK`, `Q-OUTBOX-PUBLISHED` and `Q-OUTBOX-FAILED` match the message on `(id, tenantId)`. A message of another tenant is NotFound. `Q-OUTBOX-ADD` and `Q-OUTBOX-PENDING` were converted by TEN-004 and are unchanged.
+3. The tenant is not part of the command fingerprint. A fingerprint says what the command was and is the use case's own; the store keys on the tenant the unit of work opened with. TEN-024 adds the tenant to the ReportCapacity fingerprint in its own use case.
+4. A converted statement with no tenant bound is refused with `TenantNotBound` before any Cypher is sent (DEC-144 item 1). `Neo4jIdempotencyStore` now takes the scoped transaction (`Tx`), the wrapper the `_scoped` helper docstring promised. Its existing test with nothing bound (`test_scope_at_open.py`) asserted the old ratchet exemption and now asserts the refusal.
+5. Eight ids leave the ratchet (`UNCONVERTED`, 47 to 39). The cap is lowered in its own commit.
+
+**Tenant pending.** - none. The eight statements are converted; `Q-PROCESSED-MARK` and `Q-PROCESSED-SEEN` were converted by TEN-004; `Q-AUDIT-*` and `Q-PROV-*` remain on the ratchet for TEN-017.
+
+**Assumed.**
+
+- [ASSUMED] the replay record and its value nodes take the same tenant as the record (one tenant per tree).
+- [ASSUMED] the outbox message's `payload_*` properties never carry `tenantId` (the add statement's `props` cannot replace the stamp; `_payload_properties` already prefixes them).
+
+## DEC-231 The audit chain is one chain per scope (TEN-017)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-017. Refines DEC-055, DEC-130 item 7 and DEC-132 item 4.
+
+1. The eleven audit and provenance statements (`Q-AUDIT-ENSURE-HEAD`, `Q-AUDIT-LOCK-HEAD`, `Q-AUDIT-APPEND`, `Q-AUDIT-LINK-AGENT`, `Q-AUDIT-LINK-ENTITY`, `Q-AUDIT-LIST`, `Q-AUDIT-HEAD`, `Q-AUDIT-CHAIN`, `Q-PROV-APPEND`, `Q-PROV-LINK`, `Q-PROV-SOURCE`) match or create every node with `tenantId: $tenant`: the AuditHead, each ChainLink (AuditEvent and Provenance), the Snapshot, each AuditRef and each Concept. Sequence numbers, heads and agent or target references are therefore per scope (composite keys from migrations 0016 to 0020, TEN-005).
+2. Genesis per scope (`genesis_hash_for`): the default tenant keeps `GENESIS_HASH`, so the chain the development data holds verifies unchanged; every other tenant or network scope starts from `sha256("diucs-genesis|" + scope id)`. A link hashed under one scope's genesis never verifies under another's, so a chain cannot be grafted onto another scope's head.
+3. The hashed text of a link is unchanged. The tenant is the chain's own (the node's `tenantId`), not part of the canonical entry, so entries written before TEN-017 parse and verify as they did, and the Actor is not changed here (TEN-018 adds `Actor.tenant_id`).
+4. `tenantId` is a reserved name for provenance extras (`SET p += $extra` would overwrite the stamp), so `append_provenance` refuses it before any Cypher.
+5. `verify_chain` checks the bound scope's chain only. Verifying every scope on a schedule is the daily invariant job (TEN-031).
+6. `ensure_audit_head` with no scope bound raises `TenantNotBound` before a session opens. `Container.startup()` runs `ensure_audit_head` for each active tenant, binding each in turn (the start-up is an edge: `diucs.bootstrap.container` joins `BINDING_MODULES`). A tenant with no head fails closed at its first append (`AuditHeadMissing`); the start-up does not create heads for tenants it does not know. Provisioning makes a tenant's head (TEN-028).
+7. `.importlinter`: `audit_log` may import the scenario types, as `outbox` already does (a statement carries its scenario). `test_import_rules.py`'s probe tree mirrors that one allowed import.
+8. Eleven ids leave the ratchet (`UNCONVERTED`, 39 to 28); the cap is lowered in its own commit.
+
+**Tenant pending.** - none: the eleven audit and provenance statements are converted and off the ratchet.
+
+**Assumed.**
+
+- [ASSUMED] genesis label `diucs-genesis|` followed by the scope id, hashed with SHA-256 and written as 64 hex characters.
+- [ASSUMED] the tenant is not part of the hashed link text; an entry's scope is the chain it sits in.
+- [ASSUMED] a tenant with no active record and no head is not given one at start-up; it fails closed until provisioned.
+
+## DEC-232 The cache's names are tenant-scoped in one place (TEN-019)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-019. Refines DEC-130 item 7 and DEC-132 items 1 and 4 (audit C section 4); amends DEC-089 item 7 and DEC-058 items 2 and 4.
+
+1. Every name the cache holds is `<segment>:<family>:<name>` in the port, and the Redis key is `diucs:` plus that. The segment is the bound tenant id, or `_net-<id>` for a network scope. Families are `cache`, `lock`, `fence` and `chan`. The one builder is `ScopedNames` (`key`, `lock`, `fence`, `channel`), reached through `names_for(scope)` and `scoped_names()`; no other module in `src` builds a name (an architecture test enforces it).
+2. Every method of the Cache port (the seven the port lists, and `set_if_absent`, which is also a key) reads `scoped_names()` as its first statement and uses only that object for the whole call. A call uses the scope it began with, even if the binding moves during it. `subscribe` computes the channel when it is called and keeps it for the life of the subscription.
+3. No scope bound is an error: `TenantNotBound` (the fixed message of the tenancy kernel) is raised before any I/O, and the Redis client is not touched. There is no default tenant and no global key, whatever `TENANCY_MODE` says.
+4. `Lock` gains `scope`, the segment it was issued in. Releasing it in another scope raises `CacheScopeMismatch` ("lock belongs to another scope") and releases nothing. Within a scope, only the holder's token releases (DEC-058 item 4).
+5. The fencing counter is per (scope, name). The platform segment `_` (pairing codes, the source-address limiter) is never produced here; TEN-040 and TEN-041 add that explicit path. A name is 1 to 512 characters with no control character; anything else is `ValidationFailed` with a fixed message that never echoes the name.
+6. `RedisCache` loses its `key_prefix` parameter and `DEFAULT_KEY_PREFIX`; the root is the constant `ROOT = "diucs:"`. Isolation between test runs is by a unique run tenant per process (`tests/support/redis.py`), not by a second root.
+7. This amends DEC-089 item 7 (the four families sit under `diucs:<scope>:`, not `diucs:`) and DEC-058 items 2 and 4 (the fencing counter and the lock are per scope).
+8. The board keeps the logical names `board:v1` and `board.updates`. The per-filter board keys and the stream's channel choice are TEN-039's.
+9. Callers: `BoardProjector`, `routes_events` and `ReplayCache` are unchanged. The integration tests need no edit, because the integration conftest binds the run tenant around every test (TEN-003). Two unit modules that use an unbound `InMemoryCache` got one binding fixture each (`tests/unit/adapters/inbound/fhir_rest/test_concurrency.py`, `tests/unit/application/use_cases/test_pair_wall_screen_helpers.py`). `tests/support/relay_rig.py`'s scripted-lock fake keys its holders by the scoped name.
+
+**Tenant pending.** - none: the cache runs no Cypher.
+
+**Assumed.**
+
+- [ASSUMED] a name is 1 to 512 characters; a control character is a code point below 0x20 or 0x7F (the prompt's values).
+- [ASSUMED] `set_if_absent` is a key operation and is scoped with the seven methods (the prompt named seven; the port has eight).
+- [ASSUMED] the run tenant label is at most 20 characters of `a-z0-9-`, so a run tenant id is at most 31 characters.
+
+## DEC-233 Tenant policy is an explicit argument of the nine board and prompt rules (TEN-021)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-021.
+
+1. The nine functions `reply_by`, `ladder_times`, `due_times_on`, `next_due`, `current_due`, `assess_freshness`, `compute_status`, `system_pressure` and `decide_capacity_reply` take `policy: TenantPolicy = DEFAULT_POLICY` as their last parameter. Each begins with `require_policy`, so a dict, `None` or a subclass raises `TypeError("a TenantPolicy is required")`. The rules never look a policy up; the default argument keeps every delivered caller's behaviour.
+2. The ten module names `REPLY_WINDOW`, `REMINDER_AFTER`, `PHONE_TASK_AFTER`, `ESCALATE_AFTER`, `TWICE_A_DAY_SECOND`, `STALE_WARNING_AFTER`, `WATCH_FROM`, `HIGH_FROM`, `CORRECTION_WINDOW` and `MAX_CONSECUTIVE_CONFIRMS` stay importable and are `Final = DEFAULT_POLICY.<field>`, so each is the default policy's own object. The numbers are written once, in `tenant_policy.py` (TEN-006). `freshness.py` and `reply_policy.py` no longer import `REPLY_WINDOW` from `schedule.py`; `schedule.REPLY_WINDOW` remains the importable name.
+3. `status.py`, `pressure.py`, `reply_policy.py` and `availability.py` keep their global constants and orders (`PERCENT`, `LIMITED_OR_WORSE`, the status rule order, the reply decision order, `EVERY_N_HOURS_STEP`, `SEARCH_DAYS`). `availability.py` gains a docstring sentence only: its formulas are global and take no policy (pinned by a test).
+4. Ratchet. The rule that the policy is passed, not forgotten, is a test in `test_status.py`: an AST walk over `backend/src/diucs` finds each call to the nine functions that gives neither a `policy` keyword nor a policy argument in its position. The offending files must be a subset of `POLICY_NOT_YET_THREADED`, and every entry must still offend. The walk covers the six rule modules too, so a rule that forgets to forward its policy fails the same test (stricter than "excluding the defining modules"). Owners of the entries: `report_capacity.py` TEN-024, `query_board.py` TEN-039, `multi_service.py` TEN-064, `send_prompts.py` TEN-027 (given by the prompt). Three entries are the builder's choice, because the prompt does not name them and the tenancy plan's tags point to the owner: `handle_inbound_text.py` TEN-026 (U05, tag TENCFG), `link_access.py` TEN-041 (L01, tag EDGE_TOKENS), `missed_report_ladder.py` TEN-027 (U06 has only the GEN tag; it drives the same ladder steps as `send_prompts.py`, so it migrates with that caller).
+5. Test 21 in the prompt says "the four fields used" and lists three (`correction_window`, `max_consecutive_confirms`, `reply_window`). The decision reads those three and nothing else, and the test checks that.
+6. Test correction after the red commit (L88 pattern): the oracle property of `test_freshness.py` (test 8) first drew `now` uniformly, so it rarely hit a boundary where the policy's window mattered. It now places `now` at a due time plus the policy's window, plus a microsecond either side, and the last report is None or an earlier due. Mutants of the 30-minute constant and of the strict comparison are caught by it.
+7. Properties 12 and 21 and the default-argument properties pass at red, because the red stub ignores the policy and they compare the stub with itself. They are regression properties; the red failures are the default-versus-policy tests.
+8. The six modules and their existing assertions are unchanged. The only deleted lines in the six test files are import statements that gained names.
+
+**Tenant pending.**
+
+- `application/use_cases/report_capacity.py` (`compute_status` twice, `next_due`): TEN-024 passes the loaded policy.
+- `application/use_cases/query_board.py` (`compute_status`, `system_pressure`, `next_due`): TEN-039.
+- `application/use_cases/send_prompts.py` (`reply_by`, `ladder_times`, `next_due`, `current_due`): TEN-027.
+- `application/use_cases/missed_report_ladder.py` (`reply_by`, `compute_status`): TEN-027 (builder's choice, see Decision item 4).
+- `application/use_cases/handle_inbound_text.py` (`reply_by`, `decide_capacity_reply`): TEN-026 (builder's choice).
+- `application/use_cases/link_access.py` (`decide_capacity_reply`, `next_due`, `reply_by`): TEN-041 (builder's choice).
+- `domain/rules/multi_service.py` (`reply_by`): TEN-064. Until then a non-default tenant's grouped prompts keep the default reply-by window.
+- Scheduled rows keep the `due_at` they were stored with (audit B section 6); TEN-027 and TEN-024 decide when to recompute them.
+- The configuration version stamped on decisions is not in these rules (TEN-024, TEN-026).
+
+**Assumed.**
+
+- No new constant. Every number is an existing `DEFAULT_POLICY` field from TEN-006.
+- Ratchet owners for `handle_inbound_text.py` (TEN-026), `link_access.py` (TEN-041) and `missed_report_ladder.py` (TEN-027) are the builder's reading of `tenancy-plan.md` section 3 tags, not a task statement.
+- Hypothesis draws in `tests/support/policy_samples.py` (new, shared by the rule tests) are valid by construction; the bounds are TEN-006's.
+
+## DEC-234 Tenant wording is a validated field of four messages; no place or system name is in a template (TEN-022)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-022.
+
+1. The platform name "DIUCS" stays in the templates, as do the button colour and the footer. It is the platform's name, not a tenant's (audit B section 7). The per-tenant SMS sender identity is channel configuration (TenantChannel, TEN-026 and TEN-042), so no `sender_label` field is added and nothing about the sender appears in a body.
+2. Four fields, one per message, with no default in `render`: `system_name` (I2 text), `referral_system_name` (B1 text, B2 email text and HTML), `coordination_team_name` (K4 text), and `confirm_limit` (C6 text). The default tenant's values exist only in test fixtures; no source file holds them.
+3. `render` checks each tenant text field with `check_tenant_text` (TEN-006), so the field rules are the ones TEN-006 set: plain text of 1 to 60 characters (40 for the referral name), no leading, trailing or doubled space, the allowed alphabet, no patient-data shape. `confirm_limit` must be an `int` that is exactly 1, 2 or 3 (a `bool` is refused). Every refusal is `ValidationFailed` with the field name and a fixed message.
+4. C6 states the limit in words: 1 is "once", 2 is "twice", 3 is "3 times". `MessageId` values do not change.
+5. The output check after substitution is unchanged: `text`, `subject` and `html` are scanned with `find_patient_data`. It is the second line of defence (test 14 removes the first and then the second, and each is still refused).
+6. Catalogue: `TENANT_TEXT_FIELD_NAMES`, `TENANT_TEXT_FIELDS` (I2, B1, B2, K4) and `tenant_text_fields_for(message_id)`, which is empty for the other 22 ids. The prompt says 21; the count of ids is 26, so the other ids number 22.
+7. Privacy guard: `FORBIDDEN_FIELDS` gains `tenant`, `tenant_id`, `tenant_slug`, `account_sid`, `sender_number` and `from_number`. `DEPLOYMENT_TERMS` holds the nine first-deployment names. `find_deployment_terms` returns each whole-word, case-insensitive match in order. It runs on raw template strings only, never on rendered output, because a tenant legitimately chooses its own words. `find_patient_data` and its patterns are unchanged.
+8. The template sweep has two independent checks: `find_deployment_terms` on each raw template (HTML tags and placeholders removed), and a plain regex per term, so the sweep fails if either one is weakened. The proper-noun sweep is the backstop for names outside the list. Its allowed capitalised words are "DIUCS", "REQUEST", "CONFIRMED" and "DECLINE". Any other word of three or more letters that is capitalised mid-sentence, or all capitals, is refused.
+9. A tenant's name that ends in a title (for example "MR") next to the template's capitalised word ("MR. Reply") has a patient-data shape in the output, and the output guard refuses it. That refusal is fail-closed and names the text field. The field check accepts such a name, because `check_tenant_text` is TEN-006's and this task does not change it. The property test records the refusal rather than hiding it.
+10. `backend/src` still contains "Dorset", "SPOA" and "SystmOne", in `privacy_guard.py` only, as the `DEPLOYMENT_TERMS` list the guard needs. The done-when search of `backend/src` therefore finds those three names there and nowhere else. No template and no other source file holds them.
+11. The C6 call in `application/use_cases/handle_inbound_text.py` (U05, delivered) now passes `confirm_limit=DEFAULT_POLICY.max_consecutive_confirms`. That keeps the printed text for the default tenant. TEN-026 replaces it with the tenant's loaded limit. This is the one caller outside this task's files; it changed by one argument.
+
+**Tenant pending.**
+
+- Use cases that send I2, B1, B2, K4 and C6 load the tenant's words and limit, and pass them: TEN-026 (stores them), then the senders that use them (U17 to U24, U33, U34, U40, U41; I07 and I10 through the invitation path). `handle_inbound_text.py` passes the default limit until TEN-026.
+- The front-end copy of the same wording: TEN-049.
+- The network projection allowlist and its use of this guard: TEN-052, which edits `privacy_guard.py` after this task and keeps `find_patient_data`, `FORBIDDEN_FIELDS` and `find_deployment_terms` as named here.
+- Frontend tests and fixtures still carry the first deployment's words (`frontend/components/board/*.test.tsx`, `frontend/test/fixtures/board.ts`, `frontend/e2e/board.spec.ts`). They are not in `backend/src` and not in this task's files.
+
+**Assumed.**
+
+- Maximum lengths 60 (system name and coordination team name) and 40 (referral name) are TEN-006's [ASSUMED] values. The segment figures in the tests (I2 default 1 segment, 2 with the longest name; B1 default 2, 2 with the longest name) are measured with `sms_length.sms_segments`.
+- "3 times" is the words for 3, as the prompt states.
+- The proper-noun sweep's allowed set is the prompt's four words; no other capitalised word appears in any template today.
+
+## DEC-235 Network, membership, grant and listing rules are pure domain code (TEN-036)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-036. Under DEC-132, DEC-134 item 6 and DEC-136 items 3 and 4.
+
+1. The network records, their enums and the membership and network functions are in `domain/model/network.py`; the grant rules are in `domain/rules/grant.py`, the listing rules in `domain/rules/listing.py`. The enums live in `network.py`, not `codes.py`: they are not stored on tokens and this task does not own `codes.py`. `DirectorySource` lives in `network.py` (DEC-132 item 7).
+2. No `effective` status is stored. `is_effective(grant, now)` is the only definition of "effective" (approved, both approvals, not ended, start inclusive and end exclusive, compared in UTC). `was_effective_at` is the history form: it ends at the earlier of the end date and the end moment.
+3. Rejoining is a new membership row with a new id. A closed row (`left` or `removed`) is never reopened or edited, so its leave date stays (DEC-132 item 6).
+4. No `suspended` membership status. A suspended tenant stops reporting and its projections turn Not updated by staleness (TEN-073 stops the relay, TEN-057 degrades the read). No `leaving` notice state: a leave takes effect at the commit, and TEN-077 may schedule the call.
+5. The scope and purpose are fixed for a grant lineage: `revise_grant` keeps them; a different scope is a different grant. `proposed` is kept so a drafter need not approve.
+6. `lapse_grants_for_member`, `withdraw_for_leave` return only the changed copies (lapsed or withdrawn). The caller persists those; unchanged rows are not returned.
+7. Approvals: the two approvals may come in either order. Approving twice as the same party with the same account returns the grant unchanged; a different account for that party is `Conflict`. The same account may not give both approvals, whether or not the grantor and the owner are one tenant (the check is general, which is stricter than the prompt's one-tenant case and changes nothing for two tenants).
+8. Refusals: `Conflict` for a state clash (network not active, already a member, agreement version not current, successor not following, successor not started, gap, duplicate live listing); `NotAllowed` for the wrong party (owner-only, grantor-only, source-only, owner's membership may not leave, a non-active member requesting); `InvalidTransition` for a move the table does not allow; `ValidationFailed` for a wrong type, a wrong field, a naive datetime, a backdated start, or a wrong lineage.
+9. A listing's withdrawal may name no decider (`decided_by_account_ref` None), because the source tenant or the system withdraws it (prompt, listing record).
+10. Decline checks the state before the party: an approved grant is `InvalidTransition` for any party. End checks the party before the state: a non-grantor is `NotAllowed` even on an ended grant; an ended grant returns unchanged for the grantor.
+11. Record invariants beyond the prompt, all refused in `__post_init__`: an active network needs an agreement; a closed network needs `closed_at` and only a closed one has it; a left membership needs `joined_at`; an invitation has no accepted agreement; a grantor approval's tenant is the grantor; only an `ended` grant names who ended it; a listing's decision fields follow its status (a withdrawn listing may have no decider).
+12. Owner membership: `invited_at` is the network's creation time and `joined_at` is the time asked; the owner row is always active.
+13. Activation (`activate_network`) accepts any non-closed network (draft to active, or suspended back to active) and sets the agreement it is given.
+14. Enum checks compare the exact type, so a plain string and a member of another enum with the same value are refused (lessons L3, L38).
+
+**Tenant pending.** None. The task is pure: no statement, key, channel, queue or message. Every tenant id is an explicit argument checked by `check_tenant_field`; the rules take already-loaded records. Loading them in one scope each is TEN-051, TEN-054 and TEN-077.
+
+**Assumed.**
+
+- `NAME_MAX_LENGTH` = 80 (prompt: a network name is 1 to 80 characters).
+- Record ids: `[A-Za-z0-9][A-Za-z0-9_-]{0,63}` (the prompt does not fix record ids).
+- Account reference: `[A-Za-z0-9_-]{8,128}` (prompt).
+- Agreement reference: `[A-Za-z0-9][A-Za-z0-9._/-]{0,63}` and no patient-data shape (prompt).
+- Network refusals for "not active" are `Conflict` (the prompt names the refusal for the owner case only).
+- `supersede_grant`: a successor that is not approved, or has the wrong version or `supersedes_id`, is `Conflict`; a successor for another scope, network or grantor is `ValidationFailed`.
+- `withdraw_for_leave` refuses a membership that has not left with `ValidationFailed` (the prompt says "a member that has left").
+
+## DEC-236 The network screens are specified in docs/design/network-ui.md (TEN-063)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of TEN-063. Under DEC-129, DEC-132, DEC-134 and DEC-136.
+
+The network screens are specified in `docs/design/network-ui.md` (TEN-063; DEC-129, DEC-132, DEC-134, DEC-136). The ledger row named `network-views.md`; the brief settled on `network-ui.md`.
+
+1. The specification has the fourteen sections in the brief's order, the five N headings, and an artboard per screen in the `ui-screens.md` style. Every control line ends with an element id from section 10.
+2. Element kinds that are not controls (banners, labels, tiles, rows, panels, tables, cards, lists, sections, dialogs) carry ids too, so every element a builder must find has one. The catalogue holds 63 new ids and 5 reused ids.
+3. Every refusal reads `Network view not available`, one wording for all, so a viewer cannot tell from it whether the network exists.
+4. Status is a word, a shape and a colour. No status word, Banner tone, colour, token or motion is added (DEC-019, DEC-122).
+5. A wall never falls back silently: `NetworkWallFallback` shows the banner and the header change, and the banner stays until the administrator changes the board.
+6. Artboard wording the brief did not fix, added for the screens to read: `Try again` (NET-STATE-RETRY-BTN, section 5), `No per-member breakdown is shown.` (section 4), `Shared with {Network name} since {date}` (section 8), `Code shown on the screen: {pairing code}` (section 6), and the plain labels `Organisation: {Organisation name}` and the options line of the Listings artboard. All other fixed wording comes from the brief.
+7. The reused ids are the five that keep their meaning and are found in `docs/plan/prompts` or `docs/spec`: WALL-TILE (W05, contracts.md), ADV-CRIT-DIALOG (W14), ADV-MAP-TOGGLE-LIST and ADV-MAP-TOGGLE-MAP (W50), EXEC-ALERT (W39, W40).
+8. The network routes are a separate family (`/network/...`, `/network-admin`, `/admin/sharing`, `/lead/screens`). No tenant, network or scope identifier is in a URL, query, header, cookie, DOM attribute or local storage. A service is identified by `data-service-ref`, an organisation by `data-org-ref`, a row by `data-row-ref`.
+9. Owner pages show membership and grant facts, never a member's private data (DEC-132 item 2), and no per-member breakdown (DEC-136 item 14).
+10. Decisions in section 13: no Unavailable status word; a fall-back rather than a blank wall; one refusal wording; an Organisation code for inviting a member; the pairing confirm step; no per-member breakdown; no comment line on network rows. Audit D questions Q9 to Q13, Q16 and Q17 are settled in section 13.
+
+**Tenant pending.** None. A documentation task: no statement, key, channel, queue or message is added.
+
+**Assumed.**
+
+- The wording of decision 6 above, which the brief did not fix.
+- The status line of a tile reads `Status: Accepting` in the artboard text; the status badge itself is the existing component.
+- Example values in the artboards (`UCR West`, `DT4`, the counts) are the sample values of the brief; no real organisation, place or number appears.
+
+## DEC-237 OpenCase and UpdateCase: the rules the prompt leaves open, and the constructor signatures (U11)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U11.
+
+1. Signatures follow the prompt: `OpenCase(uow_factory, clock, ids, idempotency, rng)` and `UpdateCase(uow_factory, clock, idempotency)`. `rng` is a `random.Random`. The pure rules are module functions, so the unit tests cover them without a store.
+2. The reference is four digits, unique among every case of the tenant, closed ones included. The prompt says "unique among open cases", but the `ServiceRequest.reference` constraint (migration 0022) and the P21 pre-check hold a reference for the life of the case (DEC-067 item 7). `free_reference` therefore skips any held reference, and the retry uses `uow.cases.get_by_reference`.
+3. Only the postcode district is stored (DEC-067 item 1). A full postcode in any spacing or case is normalised, then reduced to its district. Anything else, including a partial postcode and full-width digits, is `ValidationFailed("postcode")`, and the message does not repeat the value.
+4. Needs: an update gives at least one need. An empty list is refused (`ValidationFailed("needs")`), because closing a case is the only thing that clears needs. A repeated need is refused.
+5. Scores are recorded once. A repeat of the recorded scores is accepted and changes nothing. Any other change, including clearing them, is `ValidationFailed("scores")`, checked before the case is rebuilt.
+6. An update of a closed case is `Conflict`, as the prompt says. Updating a case that does not exist is `NotFound`. A role other than advisor or clinical is `NotAllowed`, checked before any read.
+7. Replay: a key is stored as `<use case>:<tenant>:<key>` with a fingerprint of the body. The same key with the same body returns the first result. The same key with another body is `Conflict` (DEC-104). The early read goes through the injected `IdempotencyStore`, the same as RequestBooking. The authoritative read and the write are inside the unit of work, so the replay record commits with the change.
+8. Audit: `OpenCase` is action `C`, `UpdateCase` is action `U`. Both snapshots hold the same five fields: reference, referrer type, age band, needs and urgency. No postcode and no free text. No outbox message is written.
+9. The tenant comes from `uow.unit_scope` (inside the unit) and from `current_scope_or_none()` (for the early read). Neither a parameter nor a command field carries it. No scope, or a network scope, is `TenantNotBound`.
+10. Two integration test comments cited decision numbers that were never issued. They now cite DEC-067 item 1 and the CaseRepository port.
+
+**Tenant pending.**
+
+- `Q-CASE-BY-REF` (the P21 `add` pre-check and `get_by_reference`) is unscoped. It is converted by TEN-010. Until then the reference is checked across tenants, so the two-tenant reference test is `xfail` (`test_the_same_reference_in_two_tenants_does_not_collide`).
+- Migration 0022 (`case_reference_id`) is a global unique constraint on `ServiceRequest.reference`. It is converted to a composite key by TEN-032.
+- Replay statements (`Q-IDEM-*`) are not tenant-scoped yet (lesson L160). The tenant is part of the replay key, so two tenants with one key do not share a result.
+- No production Cypher is added. The statements used are P21's registered `NamedQuery` statements. The integration file reads every property with one raw read in the test code, not in production.
+
+**Assumed.**
+
+- [ASSUMED] Four-digit case reference, 1000 to 9999, no leading zero, `REFERENCE_ATTEMPTS = 50` (`domain/rules/booking_rules.py`, DEC-007).
+- Required for complete: age band, postcode district, at least one need, urgency (the prompt's rule).
+- Role: advisor and clinical only, as the prompt says. A practitioner id is not required (the prompt is silent; RequestBooking requires one).
+
+## DEC-238 Set-up of a service by a lead: what is stored, what is reused, and the choices the prompt leaves open (U15)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U15.
+
+1. Only a `lead` acting as a named practitioner may set up a service. Any other role is `NotAllowed` before anything is read. The lead's practitioner must be in the tenant; a practitioner of another tenant is `NotFound` (DEC-130 item 3).
+2. The reporter's number is normalised to eleven digits from `07` (`normalise_uk_mobile`). The stored form `+44…` goes only to the protected contact store (`put_phone` keyed by the reporter role). The graph keeps the HMAC phone hash only. An email reporter gives a role inbox; the address goes to `put_email`, and the practitioner keeps only its bare domain.
+3. The reporter's practitioner is reused when `find_by_phone_hash` finds an active practitioner of this tenant with the same hash. Nothing is written for a reused practitioner. Otherwise a practitioner is created with the reporter role name as its display name (the only name field a practitioner has).
+4. Criteria version 1 is `current` (`CURRENT_CRITERIA` is set by `criteria.add`). Its districts are normalised to upper case and must be one or more district codes; its accepted needs must be one or more; an excluded need may not also be accepted; the review date must be a calendar date, not a datetime.
+5. The first prompt-due job is `next_due(profile, now)`, scheduled through `schedule_work`. A service with no prompt in eight days is refused with `ValidationFailed` on `available_times`.
+6. Outbox: `ServiceActivated {service_id, at}` on `registration.events`, written with `outbox_message_for`.
+7. Audit `use_case="SetupServiceByLead"`, action `C`. The entity ids are the service, practitioner, reporter role, owner role and criteria. The snapshot holds no number and no address.
+8. Replay: the command fingerprint is a hash of the body, the actor and the contact key (phone hash or digest of the address). A replay with the same key and fingerprint returns the stored result; a different body is `Conflict`.
+9. Validation runs before the unit of work. Nothing is written for a refused set-up.
+
+**Tenant pending.**
+
+- Service, practitioner and role reads and writes use the converted person and service statements (TEN-010, TEN-011). The lead lookup, the phone-hash reuse and the reporter's roles are tenant-scoped there.
+- `uow.criteria.add` and `uow.criteria.current_for_service` reach Q-CRIT-* (unconverted). The criteria version is in the run tenant only once those statements convert (their own bundle).
+- `uow.contacts.put_phone` / `put_email` reach Q-CONTACT-PUT (unconverted). The protected contact is not yet tenant-stamped.
+- `uow.audit.append` reaches Q-AUDIT-* and `uow.idempotency` reaches Q-IDEM-* (both unconverted, their own bundles).
+- Tenant policy: `first_prompt_at` takes a `TenantPolicy` and the use case passes `DEFAULT_POLICY`; the tenant's own policy swaps in when it is read from the tenant record (added at the I05/E1 merge, to pass the policy ratchet in `test_status.py`).
+- Area districts: the district list is accepted as given. When the Tenant node carries an area list, build_criteria checks each district against it (one line).
+- The two-tenant test covers the lead lookup and the phone-hash reuse only; the criteria, contact, audit and idempotency statements are isolated by the generated test once they convert.
+
+**Assumed.**
+
+- `CAN_EXCEED_ESTABLISHED = False`: a set-up service does not report above its established capacity (the prompt lists no field for it).
+- Reporter post `PractitionerRoleCode.DUTY_MANAGER` for every pilot reporter role; the owner post `CRITERIA_OWNER` held by the acting lead's practitioner (the owner role name is in the audit snapshot only).
+- The lead must be a named practitioner (`NotAllowed` otherwise).
+- At least one accepted need and at least one district code are required (`ValidationFailed` on `accepts` and `districts`).
+- Email channel: the address must be a role inbox with a dotted domain; the domain is lower-cased. Text channel: an email given with a text service is ignored.
+- Push is outside the MVP and is refused on `channel`.
+- Criteria version 1 has no change reason and no superseded version.
+- First prompt: `next_due` strictly after the set-up time (domain-rules 1.4, D04). A set-up at exactly a slot time schedules the following slot.
+
+## DEC-239 Change reporter number: the cover, the new practitioner and the replay key (U16)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U16.
+
+1. Cover is stored on the reporter role the way P03 already holds it (`covered_by_practitioner_id`, `covered_until`, the COVERED_BY relationship with `until`). No schema or repository change was needed: P03 has the fields, `save_role` writes them and `services_for_phone_hash` already leaves a covered-out phone out of the service.
+2. `today` ends at 23:59 London on the London date of the clock; `this-week` ends at 23:59 London on the Sunday of the Monday-to-Sunday week. The end is converted from London wall clock to an instant on the London date, so the clock change is handled (lesson L4).
+3. A cover whose end is not after now is refused as `ValidationFailed("duration")` before any write.
+4. `until-changed` ends the old role (`active=False`, `period_end=now`) and creates a successor role for the new number's practitioner, with the same code, channel and service. A practitioner already holding the new number in the tenant is reused; otherwise one is created.
+5. A new number that is already this service's reporter number is refused as `ValidationFailed("new_mobile")` and nothing is written.
+6. The replay key is `change-reporter:<tenant>:<key>`. Replay statements are not tenant-scoped yet (lesson L160), so two tenants using one key cannot share a result. A replayed key with another body is `Conflict` (DEC-104).
+7. Only `lead` may change a number. Any other role is `NotAllowed` before any read.
+
+**Tenant pending.**
+
+- No new Cypher. Statements used: Q-PERSON-PHONE-FIND, Q-PHONE-SERVICES-HELD, Q-PHONE-SERVICES-AT, Q-SERVICE-REPORTER-ROLES, Q-ROLE-COVER, Q-PERSON-SET-PROPS and the person reads (all tenant-scoped by TEN-011, DEC-170).
+- Idempotency (Q-IDEM-*) is still unconverted; the tenant is put in the replay key instead.
+- The tenant comes from `uow.unit_scope` only; the command carries no tenant.
+
+**Assumed.**
+
+- Accepted by the coordinator (on the U16, U17, U23 and U25 reports): this week ends Sunday 23:59 London; the scope list is lead-only; duplicate scope names are refused; purposes are `invite` and `booking-request`.
+- this-week ends Sunday 23:59 London ([ASSUMED] in the prompt, kept).
+- A cover is over at its end instant: `now >= end` is no cover (the prompt's 00:01 Saturday test).
+- A service with several in-effect reporter roles changes the one with the lowest role id; the others keep their numbers.
+- A practitioner created for a new mobile is named "Reporter" (the name is not known; set later).
+
+## DEC-240 RequestBooking: the reference, the link, the board snapshot and the reporter channel (U17)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U17.
+
+1. The reference is four digits (D14, `new_reference`) and is accepted only if no open booking of the tenant holds it. The most recent booking with a candidate's reference is the only one that can still be open, so `get_by_reference` decides it; a candidate that is open is added to `taken` and drawn again (lesson L29). Closed bookings' references may be reused.
+2. The request link is `<tenant link base>/l/<token>` with purpose `booking-request` (the L01 naming for booking purposes), about the booking id, expiring at reply-by. The phone hash is set for text only; email and push links carry none. Push has no link (B3 has none).
+3. The board snapshot is read through QueryBoard before the unit opens: QueryBoard opens its own unit, and a unit may not be nested (DEC-146). A service that is not active, or is another tenant's, is not on that board and is refused as NotFound before any write.
+4. The channel is the reporter role's channel (text B1, email B2, push B3); a role with none is text. The reporter is the in-effect reporter role with the lowest id.
+5. Needs: the first one, or the first two joined with " and" (U17). The B1 and B2 templates accepted one need code only; they now accept one or two codes joined with " and" (`_is_need_text`). A free word such as "fall and frailty" is still refused (the existing test).
+6. Only advisor and clinical may request (NotAllowed otherwise). The requester is the actor's practitioner.
+7. The replay key is `request-booking:<tenant>:<key>` (lesson L160). A replay with another body is Conflict.
+8. The link host comes from a callable given at construction, typed `LinkBaseUrlFor = Callable[[ScopeId], str]`. The Tenant record on this branch has no host field; the TenantDirectory adapter holds it, so the composition root backs the callable with the directory (DEC-134 item 3).
+
+**Tenant pending.**
+
+- Statements used: the booking, case, service, people and communication statements (converted by TEN-010, TEN-011 and TEN-015); the link token add (Q-LINK-ADD, converted); the scheduled work add (TEN-015).
+- Idempotency (Q-IDEM-*) is still unconverted; the tenant is put in the replay key.
+- The tenant comes only from `uow.unit_scope`; the command carries none.
+
+**Assumed.**
+
+- Accepted by the coordinator (on the U16, U17, U23 and U25 reports): this week ends Sunday 23:59 London; the scope list is lead-only; duplicate scope names are refused; purposes are `invite` and `booking-request`.
+- The request names at most two needs (the prompt's "first need, or two joined").
+- A case must have an age band, at least one need and an urgency; a closed case is refused as ValidationFailed.
+- Reply-by is now plus ten minutes and the phone prompt now plus five (D14 constants, unchanged).
+
+## DEC-241 Scope list management: the placeholder, the reason, the duplicate name and who reads the list (U23)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U23.
+
+1. Adding an entry goes through `ScopeListRepository.save_entry`, which creates the minimal inactive HealthcareService placeholder (name and category only, DEC-082 item 4). The use case never writes a service node, so no profile defaults are invented here: the placeholder has no profile until registration writes one (lesson L104).
+2. A reason is required for any flag other than in-pilot. The reason is trimmed; a blank reason counts as none, and nothing is written when it is refused.
+3. A name that is already on the list (compared ignoring case and spacing) is refused as Conflict before any write. The prompt did not ask for this; without it, adding the same name twice creates two placeholders for one service.
+4. Every change stamps the London date of the change and writes one audit entry with the before and after flags (`C` for an add with before null, `U` for a flag change).
+5. A replayed key with the same body returns the first result; a different body is Conflict (DEC-104). The replay key names the operation and the tenant (lesson L160).
+6. Only the lead reads or changes the list. `ListScope` is lead-only too (the prompt names no other reader).
+
+**Tenant pending.**
+
+- Statements used: the scope list statements (TEN-011, converted), the service get (TEN-010), the registration reads (TEN-011), the audit append (unconverted audit statements, `Q-AUDIT-*`, governed by the audit bundle).
+- Idempotency (Q-IDEM-*) is unconverted; the tenant is in the replay key.
+- The tenant comes only from `uow.unit_scope`; one scope list per tenant (DEC-170 item 5).
+
+**Assumed.**
+
+- Accepted by the coordinator (on the U16, U17, U23 and U25 reports): this week ends Sunday 23:59 London; the scope list is lead-only; duplicate scope names are refused; purposes are `invite` and `booking-request`.
+- ListScope is lead-only (the prompt names no other reader; an advisor is refused).
+- A flag change away from in-pilot leaves a live service alone; it only stops new invitations (U23 [ASSUMED], kept).
+- The registration status shown is the newest registration of the service; None when it has none.
+
+## DEC-242 Text codes: what makes a number known, the stored key, the send, and the audit (U25)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U25.
+
+1. A number is known when a registered practitioner holds its hash (`find_by_phone_hash`, active only) or an invitation is open for it: a link token of purpose `invite` (U24's shape), unused and not expired at now. The open-invitation lookup is a new port method, `LinkTokenRepository.open_for_phone`, with one new converted statement `Q-LINK-OPEN-FOR-PHONE` (phoneHash, purpose, tenant; the latest to expire). Its scenario marks the token hash, so it needs no shared constraint and the ratchet table does not grow.
+2. The request makes the same calls, in the same order, whether the number is known or not (H-96): both lookups always run (practitioner and open invitation); the code is generated and stored under the key; the code is sealed (`ContentSealer`, AES-256-GCM, bound to the outbox message, the tenant and the code key); one outbox message is written; one audit row is written; the replay record is written; then the result returns. Nothing is sent before the response.
+3. Only the outbox event differs: `SendCode` for a known number, `DiscardCode` for an unknown one, both on topic `codes.dispatch`. The sender acts on `SendCode` alone. The message payload carries the tenant id (`tenantId`), the sealed code and the purpose. No number is in the payload.
+4. The result is the same for both: `sent` true and 60 seconds. A cooldown (a code asked for within 60 seconds) returns `sent` false and the remaining whole seconds (rounded up), from the stored state, which both kinds of number have.
+5. The store key is `code:<phone hash>:<purpose>`. The `CodeStore` port's first parameter is documented as the phone hash; it now receives this key, so the tenant prefix (I13) keeps purposes apart. Stores take the key as given.
+6. A request is replayed by its key under a tenant-named key; the replay returns the first result and writes nothing again.
+7. Every verify that finds a stored code writes one audit entry with the purpose and the outcome. The actor is anonymous (role anonymous-link, channel text-code). Neither the code, the number nor the hash is in the audit. A verify with no stored code gets one refusal for both kinds of number.
+8. A correct code marks its state verified, so a second use is refused until the ten minutes end. A correct code for a number that is no longer known is refused (needs a new code).
+
+**Tenant pending.**
+
+- Statements used: `Q-PERSON-PHONE-FIND` (converted, TEN-011), `Q-LINK-OPEN-FOR-PHONE` (new, converted, scenario), the audit append (unconverted audit statements, the audit bundle), the idempotency statements (Q-IDEM-*, unconverted: the tenant is in the replay key), the outbox add (the relay binds the tenant from the row, DEC-157).
+- The code store's tenant prefix is the store's (I13). The fake store does not prefix, so two tenants share it in tests: an open risk until I13.
+- The tenant comes only from `uow.unit_scope`; unauthenticated flows bind the tenant at the edge (DEC-134 item 3).
+
+**Assumed.**
+
+- The actor of an unauthenticated request is anonymous (no practitioner).
+- The invitation purpose is `invite` (U24's purpose; U24 is not on this branch, so the lookup is tested on a link seeded as U24 would write it).
+- The K1 wording is rendered by the code sender that consumes `SendCode`; this use case passes the sealed code only.
+- Accepted by the coordinator: the assumptions in U16, U17 and U23 (this week ends Sunday 23:59 London; scope list lead-only; duplicate scope names refused; purposes `invite` and `booking-request`).
+
+## DEC-243 Registration drafting and submission: the choices the prompt leaves open (U26)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U26.
+
+1. Each wizard step is stored as typed fields on `Registration.draft` under its step key (`organisation`, `location`, `service`, `reporting`, `api`). A list is comma-separated text, a flag is a boolean, and an unset value is left out, never stored as null (lesson L74).
+2. Contact numbers and addresses for reporting never enter the draft. `encode_step` leaves them out, and a valid reporting step writes them to the contact store (P16) under the registration's requester role id.
+3. The invitation is valid for 48 hours (`invitation_valid`, D22), counted from `created_at`, which stands for the time the invitation was sent. A save on an invited registration after that is refused with NotAllowed. The first valid save moves `invited` to `draft`.
+4. The applicant is the practitioner who holds the registration's requester role. Any other actor is refused with NotAllowed.
+5. The service name is fixed by the scope-list entry. A service step that names another service is refused with ValidationFailed on `service_name`, and nothing is saved.
+6. A step with errors is still saved, and its errors are returned, so the form can show its error summary.
+7. Opening and accepting windows may run overnight (end before start), because the rule book's windows do (DEC-024). A window that starts and ends at the same time is refused. Built before its test: the red commit held a test that refused an end before the start; that test was changed to this rule in the implement commit, before any implementation of it existed. The verifier should look harder at this test.
+8. A UK phone is eleven digits starting with 0, or +44 followed by the ten digits after the 0. Spaces and hyphens are ignored. Ten and twelve digits are refused.
+9. Submit first checks the transition (`transition_registration`), so a registration in review or invited is refused with InvalidTransition before anything is read for writing. It then checks completeness: every step but API is present (a missing API step means not wanted), every step validates (the service step with the location's fixed-site answer), and the reporting contact is in the contact store for text, push or email. Any error returns the errors and writes nothing, and the status stays as it was.
+10. A complete submit moves the registration to `submitted`, records `submitted_at`, adds one `RegistrationSubmitted` outbox message and one audit entry.
+11. The replay key carries the tenant (lesson L160): `registration:<scope>:<key>`. The early replay read outside the unit of work is removed, because the scope is only known inside it. The constructors of both commands no longer take an idempotency store.
+
+**Tenant pending.**
+
+- Registration statements (`Q-REG-*`, `Q-SCOPE-ENTRY-FOR`): converted by TEN-011. Nothing pending for the registration itself.
+- `Q-CONTACT-GET`, `Q-CONTACT-PUT`: converted by TEN-014 (on integration/build, merged here).
+- `Q-IDEM-CREATE`, `Q-IDEM-EDGES`, `Q-IDEM-HEAD`, `Q-IDEM-LINK`, `Q-IDEM-VALUES`: on the ratchet (TEN-016). The replay key carries the tenant until then.
+- `Q-AUDIT-APPEND`, `Q-AUDIT-HEAD` and the audit chain: on the ratchet (TEN-017).
+- Cross-scope reads: none.
+
+**Assumed.**
+
+- Invitation valid for 48 hours from `created_at` (`INVITATION_VALID_FOR`, D22).
+- Usual numbers are whole numbers from 0 to 999 (`MAX_USUAL`).
+- A text or push channel needs a full UK mobile; an email channel needs an address.
+- Districts are valid when `normalise_district` returns them unchanged; they are required only for a visiting service.
+- The review-by date is required, with no range check, because validation takes no clock.
+- Error wording: the four messages the prompt names are used exactly. Every other message is the author's wording and is not yet checked against `docs/spec/ui-screens.md`.
+
+## DEC-244 Criteria change, approval, confirmation and history: the choices the prompt leaves open (U30)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U30.
+
+1. The review period the owner chose is stored on the version (`ServiceCriteria.review_months`, one of 3, 6 or 12; None for versions written before it existed). It is persisted as the `reviewMonths` element of the criteria Basic. The mapper refuses unknown elements, so the element is added to its allowed set.
+2. Change: only the holder of the criteria-owner role for the service, where that role is the current version's owner role, may change it. The new version is `current.version + 1`, copies the owner's values, is `pending-approval`, supersedes the current version, and has review-by = the London day of the change plus the chosen period. One pending version per service: a second change is a Conflict and nothing is written.
+3. Approval: a practitioner holding an active `clinical-lead` role, either for this service or for the organisation (no service), may decide. The author may not: the author is the holder of the pending version's owner role. Approve makes the old current version `superseded` (kept, never deleted) and the new version `current`. Review-by = the London day of the approval plus the chosen period. The outbox gets `CriteriaApproved`. Send-back moves the version `pending-approval` to `draft` and adds no event.
+4. Confirmation: the owner only. No new version: the current version's review-by becomes the London day plus 3, 6 or 12 months (`next_review_by`, clamped to the month end). The `criteria-overdue` service flag is lifted by a `ServiceFlag` with `active=False`. The audit entry records the role and the date.
+5. History: roles owner, clinical and lead may read it. Each entry gives the version, status, review-by and author role. A version has no stored change date, so review-by stands in for the date (known issue).
+6. Every decision takes the service's write lock (`Q-CAP-LOCK-SERVICE`) before the reads that decide it (lesson L99). Approve reads the version first only to learn its service, then locks, then reads again.
+7. The replay key carries the tenant (lesson L160): `criteria:<scope>:<key>`. The replay check is inside the unit, and the idempotency store is no longer a constructor argument.
+
+**Built before its test.** The `review_months` element of the criteria mapper (`criteria_repository.py`) was written in the implement commit, with its round-trip test (`test_criteria_review_months.py`), not in a red commit before it. The verifier should check the round trip (a value survives, an absent value reads back absent) by reading the mapper, not only the test.
+
+**Tenant pending.**
+
+- `Q-CRIT-*` (eight statements) and `Q-FLAG-*` (the flag statements used): converted by TEN-012 (merged from integration/build).
+- `Q-AUDIT-APPEND`: on the ratchet (TEN-017).
+- `Q-IDEM-*`: on the ratchet (TEN-016); the replay key carries the tenant until then.
+- Converted and tenant-scoped: `Q-CAP-LOCK-SERVICE` (TEN-010), `Q-SVC-*` (TEN-010), the person and role reads (TEN-011), `Q-CRIT-*` (TEN-012), `Q-FLAG-*` (TEN-012, TEN-014).
+- Cross-scope reads: none.
+
+**Assumed.**
+
+- The author of a version is the holder of its owner role (the FHIR `author` element).
+- A clinical lead may be organisation-wide (no service) or for this service.
+- The review periods are 3, 6 and 12 months (`REVIEW_PERIOD_MONTHS`).
+- Confirmation clears the criteria-overdue flag whatever the flag's reason.
+- History is readable by owner, clinical and lead roles.
+- A registration's first version is approved through the same command (U27 creates it; not built here).
+
+## DEC-245 The week summary for the COO and the ICB: the choices the prompt leaves open (U35)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U35.
+
+1. A week runs from Monday 00:00 London to the following Monday 00:00 London, as UTC instants. A week that crosses the clock change has 169 hours. The week must start on a Monday.
+2. Referrals are the cases opened in the week (`ServiceRequest.authoredOn`). The best-fit-not-available share is the referrals whose outcome is `no-service-fits`, or whose best-fit-not-used reason is `full`, `declined` or `data-too-old`, as a share of referrals (the prompt's [ASSUMED] definition).
+3. On time: a report answers the latest prompt of its own service that was due at or before the report. It is on time when it arrives at or before that prompt's reply-by (due plus 30 minutes, inclusive). The denominator is the prompts due in the week. A prompt's due time is the time it was sent. Prompts are the C1 and grouped C9 messages. A report before any prompt of its service answers none. The numerator counts reports, as the prompt's example does (412 of 448).
+4. The median time to a confirmed booking is the minutes from `requested_at` to `confirmed_at` over the bookings confirmed in the week.
+5. Updates by channel count the reports of the week by source: `text`, `app`, and `email/link` (email and link together). Advisor-phoned and feed reports are not counted in these keys.
+6. Small groups are hidden. A count under 10 carries no value. A percentage or median whose base is under 10 is hidden. The time-back text does not state a count under 10 and says "Fewer than 10 updates by text, app or email".
+7. Minutes per avoided call come from `Settings.minutes_per_avoided_call` (env `DIUCS_MINUTES_PER_AVOIDED_CALL`). Unset, the text shows `[x]`. Nothing is guessed. The time-back figure is labelled "Estimate".
+8. Only the `exec` and `lead` roles may read the summary. Every other role is refused with NotAllowed.
+9. The summary reads only. No unit of work writes.
+10. The rounding of a percentage is half up, to a whole per cent: 115 of 640 is 18 per cent.
+
+**Built before its test.** The repository range reads, their statements and their scenarios (`week_scenarios.py`, the four `prompts_due_between`, `opened_between`, `reports_between` and `confirmed_between` methods) were written before any red test existed for them. The verifier should look harder at them: the statement-shape unit test (`test_week_statements.py`) and the scenario validation are the only checks run in the build wave.
+
+**Tenant pending.**
+
+- The four new statements are tenant statements, registered with scenarios. They are not on the ratchet.
+- The reads that follow them are converted: `Q-SVC-*` (TEN-010) and `Q-CAP-*` (TEN-010), `Q-CASE-*` (TEN-010), `Q-BOOK-*` (TEN-010), `Q-COMM-*` (TEN-015).
+- `uow.services.get` and `uow.cases.get` and their loaders: converted. Nothing unconverted is read.
+- Cross-scope reads: none. A network view is not built (DEC-132).
+
+**Assumed.**
+
+- The best-fit-not-available reasons are `no-service-fits` (outcome) and `full`, `declined`, `data-too-old` (best-fit-not-used), as the prompt gives them.
+- Median is the statistics median of the minutes (a mean of the middle pair for an even count).
+- Percentages round half up to a whole per cent.
+- The on-time prompt set is the C1 and C9 messages sent in the week.
+- The summary is read by the `exec` and `lead` roles only.
+- The text of the time-back estimate follows the prompt's wording. The minutes and count fill it.
+
+## DEC-246 Resolving report flags: the choices the prompt leaves open (U39)
+
+Status: accepted (build wave 1, under DEC-133; no owner gate). Folded from the fragment of U39.
+
+Partly built, finish after U13: `RecordAdvisorPhoned` (U13) does not exist yet. E1 builds U13 after U11 lands. Until then the phoned outcome records its figure through `ReportCapacity`, and the list cannot show the "told" choice. When U13 lands, route the phoned path through it and close the known issue below.
+
+1. Only the shift lead (`Role.LEAD`) lists and resolves report flags. Every other role is refused with NotAllowed.
+2. Outcomes: `checked` leaves the flag `checked` with no action. `accepted` leaves it `accepted`. `phoned` leaves it `checked` with outcome `phoned`, and first records the figure the lead was told as a new advisor-phoned report (source `advisor-phoned`, no echo), through `ReportCapacity`.
+3. A resolved flag records its outcome, the time, and the practitioner who resolved it. The practitioner is a new field, `ReportFlag.resolved_by`, stored as `resolvedBy` by `Q-FLAG-REPORT-SAVE`. The audit entry also records the flag, its report, its service and the outcome.
+4. A flag already resolved cannot be resolved again: Conflict, and nothing is written. The capacity report, its Observation, is never changed.
+5. The `phoned` path has two units of work: the advisor-phoned report first (its own unit, with a replay key derived from the command's, so a retry replays it), then the flag under the service's lock. The flag's status is checked again inside the second unit.
+6. The description is built from the flagged report and the reports of the same service in the rules' look-back (`LOOKBACK`, from U07). Times are London times. Out-of-range: "reported N, twice" when the two figures are equal, otherwise "reported N, then M". Many changes: the reports in the five-minute window before the flag's report, the number and the span in whole minutes (at least one), then their figures, a confirmation written as Y, with a leading run of Y written "All Y". Differs from phoned: the flagged figure, and the figure the advisor phoned before it.
+7. `RecordAdvisorPhoned` (U13) is not built. The phoned path uses `ReportCapacity` directly with the figure. The "told" choice (accepting, limited, not accepting) is not recorded, and the description names only the figure. When U13 lands, the phoned path should go through it.
+8. The replay key of the phoned report carries the tenant: `resolve-flag:<scope>:<key>:phoned` (lesson L160).
+
+**Built before its test.** The `resolved_by` field and its storage in `Q-FLAG-REPORT-SAVE` were written in the implement commit. Its round-trip unit test (`test_report_flag_resolution_mapping.py`) was added after that commit, not before it.
+
+**Tenant pending.**
+
+- `Q-FLAG-REPORT-GET`, `Q-FLAG-REPORT-OPEN`, `Q-FLAG-REPORT-SAVE`, `Q-FLAG-REPORT-LOCK`: converted (TEN-012 and TEN-014, merged from integration/build).
+- `Q-AUDIT-APPEND`: on the ratchet (TEN-017).
+- The `ReportCapacity` path: as U01 (its replay statements on the ratchet, TEN-016).
+- Converted and tenant-scoped: `uow.services.get`, `uow.capacity.get`, `uow.capacity.reports_since`, `uow.capacity.lock_service` (TEN-010).
+- Cross-scope reads: none.
+
+**Assumed.**
+
+- The description's look-back is the report-flag look-back (`LOOKBACK`, the longer of the two rule windows).
+- A flag's reason gives the sentence: out-of-range-twice, many-changes, differs-from-phoned. Any other reason raises ValidationFailed.
+- The phoned figure is 0 to 999, as a report is.
+- A phoned outcome is recorded as status `checked`, because the flag statuses are open, checked and accepted.

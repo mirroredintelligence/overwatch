@@ -414,7 +414,7 @@ REFERENCE_FIELDS = ("dsa_ref", "dpia_ref", "dcb0160_ref")
 @pytest.mark.parametrize("field", REFERENCE_FIELDS)
 @pytest.mark.parametrize(
     "bad",
-    ["DSA{1}", "a" * 81, "a;b", "a_b", "a\nb", "a'b", "", 5, "<x>", "a,b", "aé"],
+    ["DSA{1}", "a" * 81, "a;b", "a\nb", "a'b", "", 5, "<x>", "a,b", "aé"],
     ids=lambda v: repr(v)[:20],
 )
 def test_a_reference_is_a_short_id_never_free_text(field: str, bad: Any) -> None:
@@ -425,7 +425,7 @@ def test_a_reference_is_a_short_id_never_free_text(field: str, bad: Any) -> None
 
 @pytest.mark.parametrize("field", REFERENCE_FIELDS)
 def test_a_good_reference_is_kept(field: str) -> None:
-    for good in ("DSA 2026/001 v2.1:final", "a" * 80, "x-1", None):
+    for good in ("DSA 2026/001 v2.1:final", "a" * 80, "x-1", "dsa_2026", None):
         assert getattr(make_tenant(**{field: good}), field) == good
 
 

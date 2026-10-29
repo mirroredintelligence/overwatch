@@ -7,7 +7,7 @@ below is typed out from the prompt, not read from the registry, so a changed bou
 import contextlib
 import dataclasses
 import types
-from datetime import time, timedelta
+from datetime import UTC, time, timedelta
 from typing import Any
 
 import pytest
@@ -419,8 +419,6 @@ def test_a_value_of_the_wrong_type_or_outside_its_choices_is_refused(key: str, v
 
 
 def test_an_aware_time_is_refused() -> None:
-    from datetime import UTC
-
     with pytest.raises(ValidationFailed):
         policy_from_settings({"twiceADaySecondTime": time(14, 0, tzinfo=UTC)})
 
@@ -540,6 +538,26 @@ def test_the_policy_checks_a_value_that_does_not_come_through_the_registry() -> 
         dataclasses.replace(DEFAULT_POLICY, alert_default_kinds=frozenset())
     with pytest.raises(ValidationFailed):
         dataclasses.replace(DEFAULT_POLICY, alert_default_not_updated_hours=3)
+
+
+@pytest.mark.parametrize(
+    ("field", "bad"),
+    [
+        ("twice_a_day_second", "14:00"),
+        ("twice_a_day_second", 14),
+        ("twice_a_day_second", time(14, 0, tzinfo=UTC)),
+        ("alert_default_not_updated_hours", True),
+        ("alert_default_not_updated_hours", 2.0),
+        ("alert_default_not_updated_hours", "2"),
+    ],
+)
+def test_the_policy_refuses_a_time_or_a_choice_of_the_wrong_exact_type(
+    field: str, bad: Any
+) -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        dataclasses.replace(DEFAULT_POLICY, **{field: bad})
+    assert refused.value.field == field
+    assert refused.value.message == "has the wrong type"
 
 
 def test_a_policy_is_frozen_and_hashable() -> None:

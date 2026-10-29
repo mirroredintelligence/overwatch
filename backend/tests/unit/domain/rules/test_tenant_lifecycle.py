@@ -376,7 +376,6 @@ def test_purge_applies_only_to_an_offboarded_tenant(status: TenantStatus) -> Non
 @pytest.mark.parametrize("status", [S.OFFBOARDING, S.OFFBOARDED])
 def test_reopening_before_purge_makes_the_tenant_active_again(status: TenantStatus) -> None:
     tenant = make_tenant(status)
-    now = T0 + 100 * DAY
     reopened = reopen_tenant(tenant)
     assert reopened.status is S.ACTIVE
     assert reopened.offboarding_started_at is None and reopened.offboarded_at is None

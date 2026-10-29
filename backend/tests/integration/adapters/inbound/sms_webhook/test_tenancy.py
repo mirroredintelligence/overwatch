@@ -198,9 +198,12 @@ async def test_no_unit_of_work_is_opened_for_a_request_that_is_refused(
     assert opened == [ScopeId.tenant("tenant-a")]
 
 
-async def test_the_tenant_is_bound_for_the_allow_list_read_and_unbound_afterwards(
+async def test_the_tenant_is_bound_for_the_allow_list_read_and_the_scope_is_restored_afterwards(
     sms_app: FastAPI, sms_client: AsyncClient, test_container: Container, reporter: None
 ) -> None:
+    # The harness may bind a run tenant for the whole test (TEN-003); what must hold is that the
+    # webhook's own binding does not leak, so the scope after is the scope before.
+    before = current_scope_or_none()
     bound: list[ScopeId | None] = []
 
     def watching() -> UnitOfWork:
@@ -213,7 +216,7 @@ async def test_the_tenant_is_bound_for_the_allow_list_read_and_unbound_afterward
     await post_signed(sms_client, reply_params(TENANT_B, sid=SID), token=TENANT_B.token)
 
     assert bound == [ScopeId.tenant("tenant-a"), ScopeId.tenant("tenant-b")]
-    assert current_scope_or_none() is None
+    assert current_scope_or_none() == before
 
 
 async def test_a_line_whose_tenant_id_is_not_valid_is_refused_like_an_unknown_number(

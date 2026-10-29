@@ -438,3 +438,32 @@ async def test_two_rows_for_a_key_that_is_unique_are_a_registry_fault() -> None:
         await directory.by_entra_directory(GUID)
     with pytest.raises(TenantRecordInvalid):
         await directory.by_inbound_number(NUMBER, SID)
+
+
+async def test_the_active_line_of_a_tenant_is_its_own_active_number() -> None:
+    tenant = make_tenant(TenantStatus.ACTIVE)
+    connection = RecordingConnection({"Q-TENANT-ACTIVE-LINE": [_line_row(tenant)]})
+    line = await _directory(connection).active_line(tenant.id)
+    assert line is not None
+    assert line.tenant == tenant and line.number == NUMBER and line.account_sid == SID
+    assert connection.calls[0][1] == {"id": tenant.id}
+
+
+async def test_a_tenant_with_no_active_number_or_not_active_has_no_line() -> None:
+    tenant = make_tenant(TenantStatus.ACTIVE)
+    connection = RecordingConnection({"Q-TENANT-ACTIVE-LINE": []})
+    assert await _directory(connection).active_line(tenant.id) is None
+
+
+async def test_a_tenant_with_two_active_numbers_is_a_record_fault() -> None:
+    tenant = make_tenant(TenantStatus.ACTIVE)
+    rows = [_line_row(tenant, number=NUMBER), _line_row(tenant, number="+447700900124")]
+    connection = RecordingConnection({"Q-TENANT-ACTIVE-LINE": rows})
+    with pytest.raises(TenantRecordInvalid):
+        await _directory(connection).active_line(tenant.id)
+
+
+async def test_a_tenant_id_that_is_not_a_tenant_id_is_not_looked_up() -> None:
+    connection = RecordingConnection({})
+    assert await _directory(connection).active_line("Not A Tenant!") is None
+    assert connection.calls == []

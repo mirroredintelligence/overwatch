@@ -121,6 +121,20 @@ class CommunicationRepository(Protocol):
         self, role_ids: Collection[str], message_ids: Collection[str]
     ) -> Communication | None: ...
 
+    async def record_send_outcome(
+        self,
+        communication_id: str,
+        *,
+        status: str,
+        provider_message_id: str | None,
+        error_code: str | None,
+    ) -> bool:
+        """Record what the send of a queued communication did (I10): move it to `sent` (with the
+        provider id) or to `failed`, and keep the reason as `error_code` (for example no-contact).
+        Only a communication still queued, with no provider id, moves; the write takes the record's
+        lock first, so two senders cannot both record a send. Returns False when nothing moved.
+        Status is 'sent' or 'failed' only: a receipt moves a sent message on (I08)."""
+
 
 @dataclass(frozen=True, slots=True)
 class PushSubscription:

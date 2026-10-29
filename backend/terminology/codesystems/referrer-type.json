@@ -1,0 +1,31 @@
+{
+  "resourceType": "CodeSystem",
+  "id": "referrer-type",
+  "url": "https://diucs.example/CodeSystem/referrer-type",
+  "name": "referrer-type",
+  "status": "active",
+  "content": "complete",
+  "count": 5,
+  "concept": [
+    {
+      "code": "ambulance-crew",
+      "display": "Ambulance crew"
+    },
+    {
+      "code": "care-home",
+      "display": "Care home"
+    },
+    {
+      "code": "gp",
+      "display": "GP"
+    },
+    {
+      "code": "nhs-111",
+      "display": "NHS 111"
+    },
+    {
+      "code": "other",
+      "display": "Other"
+    }
+  ]
+}

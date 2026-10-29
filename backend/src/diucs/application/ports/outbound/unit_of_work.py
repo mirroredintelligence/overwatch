@@ -20,6 +20,7 @@ from types import TracebackType
 from typing import Protocol, Self
 
 from diucs.application.idempotency import IdempotencyStore
+from diucs.application.ports.outbound.aggregates import AggregateRepository
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
@@ -77,6 +78,7 @@ class UnitOfWork(Protocol):
     idempotency: IdempotencyStore
     processed: ProcessedMessages
     support: SupportRepository
+    aggregates: AggregateRepository
 
     @property
     def unit_scope(self) -> ScopeId | None:

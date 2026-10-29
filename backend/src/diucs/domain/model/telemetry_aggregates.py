@@ -1,8 +1,8 @@
 """The daily telemetry aggregate rows (O08, docs/spec/fhir-data-model.md "Platform nodes").
 
-Plain values: no person, no session id, no field value, no page text, no query text. A row is what the
-daily job writes and what the read side reads back. Domain rules (domain/rules/telemetry_insights.py) turn
-them into figures; the Neo4j adapter stores them.
+Plain values: no person, no session id, no field value, no page text, no query text. A row is
+what the daily job writes and what the read side reads back. Domain rules
+(domain/rules/telemetry_insights.py) turn them into figures; the Neo4j adapter stores them.
 """
 
 from dataclasses import dataclass, field

@@ -1,4 +1,5 @@
-"""The collector's allow-list, run for real (O04). Needs the test profile of infra/docker-compose.yml.
+"""The collector's allow-list, run for real (O04). Needs the test profile of
+infra/docker-compose.yml.
 
 Start the collector first:
     docker compose -f infra/docker-compose.yml --profile test up -d --wait otel-collector
@@ -44,7 +45,7 @@ def _send_span(name: str, attributes: dict[str, str | int], *, error: bool = Fal
 
 
 def _exported_span(name: str) -> tuple[dict[str, Any], str] | None:
-    """The first exported span with this name, as its attribute map and the raw line that carried it."""
+    """The first exported span with this name: its attributes and the raw line that carried it."""
     if not OUT_FILE.exists():
         return None
     for line in OUT_FILE.read_text(encoding="utf-8").splitlines():
@@ -85,7 +86,14 @@ def test_the_allowed_key_is_kept_and_the_postcode_is_removed() -> None:
 
 def test_query_text_and_parameters_never_leave_the_collector() -> None:
     name = f"collector-query-{uuid.uuid4().hex}"
-    _send_span(name, {"db.system": "neo4j", "db.statement": "MATCH (n:Patient) RETURN n", "db.query.text": "MATCH"})
+    _send_span(
+        name,
+        {
+            "db.system": "neo4j",
+            "db.statement": "MATCH (n:Patient) RETURN n",
+            "db.query.text": "MATCH",
+        },
+    )
 
     attributes, raw = _wait_for_span(name)
 

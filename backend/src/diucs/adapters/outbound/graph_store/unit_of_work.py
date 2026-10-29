@@ -28,6 +28,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession, AsyncTrans
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog
 from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
+from diucs.adapters.outbound.graph_store.aggregate_repository import Neo4jAggregateRepository
 from diucs.adapters.outbound.graph_store.alert_repository import (
     Neo4jAlertRepository,
     Neo4jAlertSubscriptionRepository,
@@ -72,6 +73,7 @@ from diucs.adapters.outbound.graph_store.service_move_repository import Neo4jSer
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
 from diucs.adapters.outbound.graph_store.support_repository import Neo4jSupportRepository
 from diucs.application.idempotency import IdempotencyStore
+from diucs.application.ports.outbound.aggregates import AggregateRepository
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
@@ -135,6 +137,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "idempotency": lambda tx, store: Neo4jIdempotencyStore(tx),
     "processed": lambda tx, store: Neo4jProcessedMessages(tx),
     "support": lambda tx, store: Neo4jSupportRepository(tx),
+    "aggregates": lambda tx, store: Neo4jAggregateRepository(tx),
 }
 
 _NOT_OPEN = "the unit of work is not open; use it inside 'async with'"
@@ -197,6 +200,7 @@ class Neo4jUnitOfWork:
     idempotency: IdempotencyStore
     processed: ProcessedMessages
     support: SupportRepository
+    aggregates: AggregateRepository
 
     def __init__(
         self,

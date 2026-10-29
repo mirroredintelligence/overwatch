@@ -18,7 +18,7 @@ process that serves, and without one every secret reads as not found (fail close
 
 import random
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import httpx
@@ -99,6 +99,7 @@ from diucs.application.work import ScheduledWork, WorkKind
 from diucs.bootstrap.settings import Settings
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotFound
+from diucs.domain.model.telemetry_aggregates import DayAggregates
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 # The sample telemetry the test container serves (O07). Sample values only.
@@ -259,6 +260,9 @@ class NoTelemetry:
     """The telemetry query of a process with no workspace or no client: every read is refused, so
     the console says it cannot show telemetry rather than showing an empty timeline (fail closed,
     O07)."""
+
+    async def daily_aggregates(self, day: date) -> DayAggregates:
+        raise TelemetryUnavailable
 
     async def session_timeline(
         self, session_id: str, start: datetime, end: datetime

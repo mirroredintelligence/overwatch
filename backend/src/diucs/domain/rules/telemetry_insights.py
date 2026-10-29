@@ -1,25 +1,30 @@
 """Telemetry aggregates: the funnels, the suppression floor and the friction rate (O08).
 
 Pure rules, no I/O. Thresholds are named constants; the two marked [ASSUMED] are starting values
-from
-docs/spec/observability.md ("Funnels by role", "Rolling friction into a score", "Privacy and
-governance").
+from docs/spec/observability.md ("Funnels by role", "Rolling friction into a score", "Privacy
+and governance").
 
 Each funnel is a fixed list of steps (observability.md). A step is defined by one UI or domain
-event, so
-it has one meaning everywhere. The event names below are the names the telemetry and the domain use
-for
-that step; a step whose event is not yet emitted counts zero until it is (no fabricated numbers).
-Branches (an expired booking, a call that is phoned) are steps too, but they are not in the
-order of the
-funnel: `branch=True`.
+event, so it has one meaning everywhere. The event names below are the names the telemetry and
+the domain use for that step; a step whose event is not yet emitted counts zero until it is (no
+fabricated numbers). Branches (an expired booking, a call that is phoned) are steps too, but
+they are not in the order of the funnel: `branch=True`.
 """
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, timedelta
+from statistics import median
 from types import MappingProxyType
 from typing import Final
+
+from diucs.domain.model.telemetry_aggregates import (
+    ElementUsageDailyRow,
+    FrictionDailyRow,
+    FunnelDailyRow,
+    QueryStatDailyRow,
+    RouteDailyRow,
+)
 
 # Groups under this many sessions are not reported as numbers (observability.md, "Privacy and
 # governance").
@@ -136,7 +141,9 @@ def friction_rate(events: int, interactions: int) -> float | None:
 
 def for_review(events: int, interactions: int) -> bool:
     """True when the rate is strictly over FRICTION_REVIEW_RATE. Exactly on the line is not
-    over it."""
+    over it.
+
+    """
     rate = friction_rate(events, interactions)
     return rate is not None and rate > FRICTION_REVIEW_RATE
 
@@ -199,17 +206,124 @@ class QueryFigure:
     errors: int
 
 
-def funnel_figures(rows: object) -> list[FunnelFigure]:
-    return []
+def _step_position(funnel: str, step: str) -> int:
+    for position, candidate in enumerate(FUNNELS.get(funnel, ())):
+        if candidate.step == step:
+            return position
+    return len(FUNNELS.get(funnel, ()))
 
 
-def friction_figures(friction: object, usage: object) -> list[FrictionFigure]:
-    return []
+def funnel_figures(rows: Sequence[FunnelDailyRow]) -> list[FunnelFigure]:
+    """One figure per step, role, channel, device and branch, summed over the rows given. A group
+    whose
+    entered count is under the floor has no numbers: the figure says it is suppressed.
+
+    """
+    totals: dict[tuple[str, str, str, str, str, bool], list[float]] = {}
+    medians: dict[tuple[str, str, str, str, str, bool], list[float]] = {}
+    for row in rows:
+        key = (row.funnel, row.step, row.role, row.channel, row.device, row.branch)
+        totals.setdefault(key, [0, 0])
+        totals[key][0] += row.entered
+        totals[key][1] += row.completed
+        if row.median_ms is not None:
+            medians.setdefault(key, []).append(row.median_ms)
+    figures: list[FunnelFigure] = []
+    for key in sorted(totals, key=lambda k: (k[0], _step_position(k[0], k[1]), k[2], k[3], k[4])):
+        funnel, step, role, channel, device, branch = key
+        entered, completed = int(totals[key][0]), int(totals[key][1])
+        suppressed = is_suppressed(entered)
+        figures.append(
+            FunnelFigure(
+                step=step,
+                branch=branch,
+                role=role,
+                channel=channel,
+                device=device,
+                entered=None if suppressed else entered,
+                completed=None if suppressed else completed,
+                conversion=None if suppressed or entered == 0 else completed / entered,
+                median_ms=None if suppressed or key not in medians else median(medians[key]),
+                suppressed=suppressed,
+            )
+        )
+    return figures
 
 
-def route_figures(rows: object) -> list[RouteFigure]:
-    return []
+def friction_figures(
+    friction: Sequence[FrictionDailyRow], usage: Sequence[ElementUsageDailyRow]
+) -> list[FrictionFigure]:
+    """Friction per element, role and device: the events of every kind over the interactions, with
+    the
+    review flag. The sessions behind a group are the sum of its daily session counts (a session that
+    spans two days is counted twice, which only makes the floor easier to pass; see the decision).
+
+    """
+    events: dict[tuple[str, str, str], int] = {}
+    for row in friction:
+        key = (row.element_id, row.role, row.device)
+        events[key] = events.get(key, 0) + row.events
+    interactions: dict[tuple[str, str, str], int] = {}
+    sessions: dict[tuple[str, str, str], int] = {}
+    for usage_row in usage:
+        key = (usage_row.element_id, usage_row.role, usage_row.device)
+        interactions[key] = interactions.get(key, 0) + usage_row.interactions
+        sessions[key] = sessions.get(key, 0) + usage_row.sessions
+    figures: list[FrictionFigure] = []
+    for key in sorted(set(events) | set(interactions)):
+        element_id, role, device = key
+        group_sessions = sessions.get(key, 0)
+        if is_suppressed(group_sessions):
+            figures.append(FrictionFigure(element_id, role, device, None, None, None, False, True))
+            continue
+        count, seen = events.get(key, 0), interactions.get(key, 0)
+        figures.append(
+            FrictionFigure(
+                element_id=element_id,
+                role=role,
+                device=device,
+                events=count,
+                interactions=seen,
+                rate=friction_rate(count, seen),
+                for_review=for_review(count, seen),
+                suppressed=False,
+            )
+        )
+    return figures
 
 
-def query_figures(rows: object) -> list[QueryFigure]:
-    return []
+def route_figures(rows: Sequence[RouteDailyRow]) -> list[RouteFigure]:
+    """One figure per route row. A row under the floor shows no timing and no error count."""
+    figures: list[RouteFigure] = []
+    for row in rows:
+        suppressed = is_suppressed(row.sessions)
+        figures.append(
+            RouteFigure(
+                route=row.route,
+                role=row.role,
+                device=row.device,
+                p50=None if suppressed else row.p50,
+                p75=None if suppressed else row.p75,
+                p95=None if suppressed else row.p95,
+                lcp75=None if suppressed else row.lcp75,
+                inp75=None if suppressed else row.inp75,
+                cls75=None if suppressed else row.cls75,
+                errors=None if suppressed else row.errors,
+                suppressed=suppressed,
+            )
+        )
+    return figures
+
+
+def query_figures(rows: Sequence[QueryStatDailyRow]) -> list[QueryFigure]:
+    """One figure per query and day. Query statistics name a query by its registered id only."""
+    return [
+        QueryFigure(
+            query_id=row.query_id,
+            calls=row.calls,
+            p50=row.p50,
+            p95=row.p95,
+            errors=row.errors,
+        )
+        for row in rows
+    ]

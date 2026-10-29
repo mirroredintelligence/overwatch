@@ -25,7 +25,8 @@ COLLECTOR_CONFIG: Final = REPO_ROOT / "infra" / "otel-collector.yaml"
 COMPOSE_FILE: Final = REPO_ROOT / "infra" / "docker-compose.yml"
 TEST_OVERLAY: Final = REPO_ROOT / "infra" / "otel-collector.test.yaml"
 
-# The browser attributes from docs/spec/observability.md (O04 "Allowed keys"), plus trace_id, which the
+# The browser attributes from docs/spec/observability.md (O04 "Allowed keys"), plus trace_id,
+# which the
 # browser sends on every ui.* event so the event joins the back-end spans of the same interaction.
 BROWSER_KEYS_FROM_SPEC: Final = frozenset(
     {
@@ -104,7 +105,9 @@ def _keep_key_lists(config: dict) -> list[tuple[str, str, set[str]]]:
                     match = pattern.match(statement.strip())
                     if match is None:
                         continue
-                    keys = {key.strip().strip('"') for key in match.group(2).split(",") if key.strip()}
+                    keys = {
+                        key.strip().strip('"') for key in match.group(2).split(",") if key.strip()
+                    }
                     found.append((block["context"], match.group(1), keys))
     return found
 
@@ -113,7 +116,8 @@ def test_the_backend_section_of_the_file_equals_the_o01_allow_list() -> None:
     assert _sections()["backend"] == set(ALLOWED_KEYS)
 
 
-# Keys on the list that contain a denied word, each reviewed by hand. O01 lets an explicit key pass by
+# Keys on the list that contain a denied word, each reviewed by hand. O01 lets an explicit key
+# pass by
 # name, so a denied word in one of them is a decision, and a new one must be reviewed here.
 REVIEWED_BACKEND_DENIED_WORD_KEYS: Final = frozenset(
     {
@@ -121,7 +125,9 @@ REVIEWED_BACKEND_DENIED_WORD_KEYS: Final = frozenset(
         "db.system.name",  # the semantic-convention database name, such as neo4j
     }
 )
-REVIEWED_BROWSER_DENIED_WORD_KEYS: Final = frozenset({"name", "value"})  # ui.web_vital (DEC-O04 item 3)
+REVIEWED_BROWSER_DENIED_WORD_KEYS: Final = frozenset(
+    {"name", "value"}
+)  # ui.web_vital (DEC-O04 item 3)
 
 
 def _with_denied_word(keys: set[str]) -> set[str]:
@@ -154,7 +160,8 @@ def test_the_collector_keep_keys_statements_equal_the_file() -> None:
 
     assert statements, "the transform processor has no keep_keys statements"
     for context, _target, keys in statements:
-        # The resource context keeps the resource keys; span, span event and log contexts keep the rest.
+        # The resource context keeps the resource keys; span, span event and log contexts keep the
+        # rest.
         if context == "resource":
             assert keys == sections["resource"], context
         else:
@@ -177,7 +184,8 @@ def test_privacy_keys_are_refused_by_the_back_end_and_absent_from_the_collector(
 
 
 def test_no_prefix_family_is_listed_as_a_wildcard() -> None:
-    # The collector matches exact keys only: a prefix in the file would be a pattern it does not read.
+    # The collector matches exact keys only: a prefix in the file would be a pattern it does not
+    # read.
     listed = set().union(*_sections().values())
     for key in listed:
         assert not key.endswith("*"), key
@@ -187,7 +195,12 @@ def test_no_prefix_family_is_listed_as_a_wildcard() -> None:
 
 def test_the_pipelines_run_the_processors_in_order_and_sample_only_traces() -> None:
     service = _config()["service"]["pipelines"]
-    assert service["traces"]["processors"] == ["memory_limiter", "transform/allowlist", "tail_sampling", "batch"]
+    assert service["traces"]["processors"] == [
+        "memory_limiter",
+        "transform/allowlist",
+        "tail_sampling",
+        "batch",
+    ]
     assert service["logs"]["processors"] == ["memory_limiter", "transform/allowlist", "batch"]
     assert "tail_sampling" not in service["logs"]["processors"]
 

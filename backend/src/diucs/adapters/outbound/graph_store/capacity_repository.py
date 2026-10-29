@@ -155,6 +155,14 @@ def _reference_id(reference: Any, resource_type: str, field: str) -> str:
     return reference[len(prefix) :]
 
 
+def _focus_reference(resource: dict[str, Any]) -> Any:
+    """The reference of the one focus entry of a stored report (R4B Observation.focus is a list)."""
+    focus = _single(resource.get("focus"), "focus")
+    if not isinstance(focus, dict):
+        raise ValidationFailed("focus", "must name the one service reported on")
+    return focus.get("reference")
+
+
 def _single(entries: Any, field: str) -> Any:
     """The one entry of a single-valued list element, or None if the element is absent."""
     if entries is None:
@@ -172,7 +180,8 @@ def report_to_fhir(report: CapacityReport) -> dict[str, Any]:
         "id": report.id,
         "status": "final",
         "code": codeable_to_fhir(report.measure),
-        "focus": {"reference": f"{_SERVICE}/{report.service_id}"},
+        # R4B Observation.focus is a list (0..*): one entry, the service reported on.
+        "focus": [{"reference": f"{_SERVICE}/{report.service_id}"}],
         "method": codeable_to_fhir(report.source),
         "effectiveDateTime": _utc_text(report.effective_at),
         "valueQuantity": {
@@ -205,7 +214,7 @@ def report_from_fhir(resource: dict[str, Any]) -> CapacityReport:
     stamp = resource.get("meta", {}).get("lastUpdated")
     return CapacityReport(
         id=resource["id"],
-        service_id=_reference_id(resource["focus"]["reference"], _SERVICE, "focus"),
+        service_id=_reference_id(_focus_reference(resource), _SERVICE, "focus"),
         value=quantity["value"],
         measure=codeable_from_fhir(resource["code"], Measure, "code"),
         effective_at=datetime.fromisoformat(resource["effectiveDateTime"]).astimezone(UTC),

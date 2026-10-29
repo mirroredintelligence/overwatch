@@ -27,6 +27,7 @@ from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.cache_redis.code_store import RedisCodeStore
 from diucs.adapters.outbound.cache_redis.sessions import RedisRateLimiter, RedisSessionStore
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
+from diucs.adapters.outbound.fhir_validator.validator import ProfileValidator
 from diucs.adapters.outbound.geocoder_os_places.os_places import (
     REQUEST_TIMEOUT_SECONDS,
     OsPlacesGeocoder,
@@ -71,7 +72,7 @@ from diucs.application.ports.outbound.telemetry_query import (
     TimelineEvent,
 )
 from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.ports.outbound.terminology import Terminology
+from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant
@@ -97,6 +98,8 @@ class Container:
     tenants: TenantDirectory
     # Secrets by reference (DEC-131 item 4): the tenant record holds the reference, never the value.
     secrets: SecretStore
+    # The FHIR profile validator (R14): pure Python, no store and no external provider.
+    validator: FhirValidator
     # Short-lived identity state in Redis (I13): sessions, text codes and rate limits. Each store
     # takes the tenant from the bound unit of work, and connects lazily, so losing Redis signs
     # people out and loses no record. The client is owned here and closed on shutdown.
@@ -236,6 +239,7 @@ def build(
         uow_factory=neo4j_uow_factory(neo4j, clock=clock),
         tenants=Neo4jTenantDirectory(neo4j),
         secrets=NoSecrets() if secrets is None else secrets,
+        validator=ProfileValidator(),
         redis=redis,
         sessions=RedisSessionStore(redis),
         codes=RedisCodeStore(redis, clock),
@@ -288,6 +292,7 @@ def build_for_tests(
         uow_factory=neo4j_uow_factory(neo4j, clock=resolved_clock),
         tenants=Neo4jTenantDirectory(neo4j),
         secrets=FixedSecretStore({}) if secrets is None else secrets,
+        validator=ProfileValidator(),
         redis=resolved_redis,
         sessions=RedisSessionStore(resolved_redis),
         codes=RedisCodeStore(resolved_redis, resolved_clock),

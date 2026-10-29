@@ -40,6 +40,8 @@ class FhirJSONResponse(JSONResponse):
 
 # type -> (interactions, operations). Module-level, so the tests reset it with monkeypatch.
 _RESOURCES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {}
+# type -> the canonical URLs of the profiles the server publishes for it (R14).
+_PROFILES: dict[str, list[str]] = {}
 
 router = APIRouter()
 
@@ -61,6 +63,15 @@ def register_resource(
     _RESOURCES[resource_type] = (tuple(interactions), tuple(operations))
 
 
+def add_supported_profile(resource_type: str, url: str) -> None:
+    """Advertise a published profile for a registered type (R14). Adding one twice is harmless."""
+    if not url.startswith("https://") and not url.startswith("http://"):
+        raise ValueError("a profile URL is required")
+    urls = _PROFILES.setdefault(resource_type, [])
+    if url not in urls:
+        urls.append(url)
+
+
 def is_registered(resource_type: str) -> bool:
     """True when the type is already advertised, so a route module can register once per process
     however many apps are built."""
@@ -78,6 +89,8 @@ def build_capability_statement(now: datetime) -> dict[str, Any]:
             entry["operation"] = [
                 {"name": url.rsplit("/", 1)[-1], "definition": url} for url in operations
             ]
+        if _PROFILES.get(resource_type):
+            entry["supportedProfile"] = list(_PROFILES[resource_type])
         resources.append(entry)
     statement = CapabilityStatement.model_validate(
         {

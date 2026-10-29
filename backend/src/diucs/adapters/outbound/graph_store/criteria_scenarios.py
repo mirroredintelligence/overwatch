@@ -24,6 +24,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
+from diucs.domain.codes import code_system_url
 
 _SERVICE_KEY: Final = "HealthcareService/svc-1"
 _CURRENT_KEY: Final = "Basic/crit-1"
@@ -152,6 +153,103 @@ CLEAR_CURRENT_SCENARIO: Final = Scenario(
     expect=Expect(rows=({"cleared": 1},), rels={"CURRENT_CRITERIA": -1}),
 )
 
+
+# G11: the advisor's hard pre-filter (Q-CRIT-FILTER, domain-rules 4.1) and the criteria history
+# (Q-CRIT-HISTORY, the SUPERSEDES walk from the current version). Both tenants hold the same service
+# and criteria keys; the ids that differ are Marked.
+_NEED_SYSTEM: Final = code_system_url("need-category")
+_FILTER_SERVICE: Final = SeedNode(
+    "service",
+    ("Resource", "HealthcareService"),
+    {"id": Marked("svc-1"), "key": "HealthcareService/svc-1", "active": True},
+)
+_FILTER_CRITERIA: Final = SeedNode(
+    "criteria",
+    ("Resource", "Basic", "ServiceCriteria"),
+    {
+        "id": Marked("crit-1"),
+        "key": "Basic/crit-1",
+        "status": "current",
+        "version": 1,
+        "ageMin": 18,
+        "postcodeDistricts": ["DT4"],
+    },
+)
+_FRAILTY: Final = SeedNode(
+    "frailty",
+    ("Concept",),
+    {"key": f"Concept|{_NEED_SYSTEM}|frailty", "system": _NEED_SYSTEM, "code": "frailty"},
+)
+_FRACTURE: Final = SeedNode(
+    "fracture",
+    ("Concept",),
+    {
+        "key": f"Concept|{_NEED_SYSTEM}|suspected-fracture",
+        "system": _NEED_SYSTEM,
+        "code": "suspected-fracture",
+    },
+)
+_FILTER_SEED: Final = TenantSeed(
+    nodes=(_FILTER_SERVICE, _FILTER_CRITERIA, _FRAILTY, _FRACTURE),
+    rels=(
+        SeedRel("service", "CURRENT_CRITERIA", "criteria"),
+        SeedRel("criteria", "SUBJECT", "service"),
+        SeedRel("criteria", "ACCEPTS_NEED", "frailty"),
+        SeedRel("criteria", "EXCLUDES_NEED", "fracture"),
+    ),
+)
+_HISTORY_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "service",
+            ("Resource", "HealthcareService"),
+            {"id": "svc-1", "key": "HealthcareService/svc-1", "active": True},
+        ),
+        SeedNode(
+            "v1",
+            ("Resource", "Basic", "ServiceCriteria"),
+            {
+                "id": Marked("crit-1"),
+                "key": "Basic/crit-1",
+                "status": "superseded",
+                "version": 1,
+            },
+        ),
+        SeedNode(
+            "v2",
+            ("Resource", "Basic", "ServiceCriteria"),
+            {
+                "id": Marked("crit-2"),
+                "key": "Basic/crit-2",
+                "status": "current",
+                "version": 2,
+            },
+        ),
+    ),
+    rels=(
+        SeedRel("service", "CURRENT_CRITERIA", "v2"),
+        SeedRel("v1", "SUBJECT", "service"),
+        SeedRel("v2", "SUBJECT", "service"),
+        SeedRel("v2", "SUPERSEDES", "v1"),
+    ),
+)
+FILTER_SCENARIO: Final = Scenario(
+    "the criteria that pass the hard filter for a band, a district and a need, of the "
+    "tenant's active, unsuspended services",
+    seed=_FILTER_SEED,
+    params={"bandMin": 16, "bandMax": 64, "district": "DT4", "needs": ["frailty"]},
+    new=("bandMin", "bandMax"),
+    expect=Expect(rows=({"serviceId": Marked("svc-1"), "id": Marked("crit-1")},)),
+)
+HISTORY_SCENARIO: Final = Scenario(
+    "the criteria versions of one of the tenant's services, reached from the current one "
+    "by SUPERSEDES, newest first",
+    seed=_HISTORY_SEED,
+    params={"serviceId": "svc-1"},
+    lookup=("serviceId",),
+    expect=Expect(rows=({"id": Marked("crit-2")}, {"id": Marked("crit-1")})),
+)
+
 CRITERIA_SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-CRIT-LOCK-SERVICE": LOCK_SERVICE_SCENARIO,
     "Q-CRIT-LABEL": LABEL_SCENARIO,
@@ -161,4 +259,6 @@ CRITERIA_SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-CRIT-VERSIONS": VERSIONS_SCENARIO,
     "Q-CRIT-SET-CURRENT": SET_CURRENT_SCENARIO,
     "Q-CRIT-CLEAR-CURRENT": CLEAR_CURRENT_SCENARIO,
+    "Q-CRIT-FILTER": FILTER_SCENARIO,
+    "Q-CRIT-HISTORY": HISTORY_SCENARIO,
 }

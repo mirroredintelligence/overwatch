@@ -10,14 +10,19 @@ own form of the same report (`focus` as one reference), so the two are separate 
 is valid R4B for a client.
 """
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Final
 
+from diucs.application.actor import Actor
 from diucs.application.idempotency import format_instant
 from diucs.application.use_cases.query_board import Board, BoardEntry
-from diucs.domain.codes import BASE_URL, Measure, coding_for
+from diucs.application.use_cases.report_capacity import ReportCapacityCommand
+from diucs.domain.codes import BASE_URL, Measure, ReportSource, coding_for
 from diucs.domain.model.capacity import CapacityReport
+from diucs.domain.model.service import ServiceProfile
 
 _UCUM_SYSTEM: Final = "http://unitsofmeasure.org"
 _UCUM_UNITS: Final[dict[Measure, str]] = {
@@ -111,3 +116,40 @@ def report_to_fhir(report: CapacityReport) -> dict[str, Any]:
 def _codeable(member: StrEnum) -> dict[str, Any]:
     coding = coding_for(member)
     return {"coding": [{"system": coding.system, "code": coding.code, "display": coding.display}]}
+
+
+# R04 stubs (red commit): the names exist and answer wrongly, so the tests fail on their assertions.
+API_SOURCES: Final[frozenset[ReportSource]] = frozenset()
+
+
+@dataclass(frozen=True, slots=True)
+class ReportRequest:
+    command: ReportCapacityCommand
+    measure: Measure
+    unit: str
+
+
+def ucum_unit(measure: Measure) -> str:
+    return ""
+
+
+def service_to_fhir(profile: ServiceProfile) -> dict[str, Any]:
+    return {}
+
+
+def search_bundle(
+    resources: Sequence[dict[str, Any]],
+    *,
+    total: int,
+    self_url: str,
+    next_url: str | None = None,
+) -> dict[str, Any]:
+    return {}
+
+
+def report_request_from_fhir(resource: object, actor: Actor, key: str) -> ReportRequest:
+    raise NotImplementedError
+
+
+def validate_outbound(resource: dict[str, Any]) -> dict[str, Any]:
+    return dict(resource)

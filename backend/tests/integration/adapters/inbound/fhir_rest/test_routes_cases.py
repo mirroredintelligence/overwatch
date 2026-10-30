@@ -245,7 +245,7 @@ async def test_a_put_needs_if_match_and_a_closed_case_is_a_conflict(
         headers={
             **token_headers(role=Role.ADVISOR),
             "Idempotency-Key": "put-2",
-            "If-Match": 'W/"case"',
+            "If-Match": 'W/"1"',
         },
     )
     assert after.status_code == 409

@@ -78,7 +78,7 @@ PATIENT_REFUSED: Final = "No patient names or identifiers are stored."
 NO_SUCH_CASE: Final = "no case with this id"
 URGENT: Final = "urgent"
 ROUTINE: Final = "routine"
-ETAG_OPEN: Final = 'W/"case"'
+ETAG_OPEN: Final = 'W/"1"'
 
 router = APIRouter(prefix="/fhir")
 capability.register_resource(

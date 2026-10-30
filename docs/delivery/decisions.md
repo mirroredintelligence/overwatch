@@ -4112,3 +4112,455 @@ Status: accepted (build wave 2, bundle W2G, under DEC-133; no owner gate). Folde
 **Assumed.**
 
 - Owner role name default "Criteria owner" [ASSUMED].
+
+## DEC-350 Each tenant has its own key for each hash and token purpose, derived with HKDF from the platform secret, and the default tenant keeps the platform secret itself (TEN-023, refines DEC-130 item 3 and DEC-134)
+
+Status: accepted (build wave 3, bundle W3A, under DEC-133; no owner gate). Affects: `domain/rules/tenant_keys.py` (new), `application/ports/outbound/identity.py` (`TenantKeyedSecrets`, `secret_is_configured`), `bootstrap/container.py` (`build` and `startup`), `adapters/inbound/fhir_rest/routes_screens.py` and `routes_support.py` (the configuration probes).
+
+1. **Derivation.** `derive_tenant_key(platform_key, tenant_id, purpose)` is HKDF (RFC 5869, HMAC-SHA256, hand-written in the pure domain and pinned to RFC test cases 1 and 3 and to the `cryptography` library's HKDF): salt `diucs/tenant-key/v1`, info `<purpose> NUL <tenant id>`, 32 bytes. The tenant is the context, so one number hashes differently in each tenant and a hash made with one tenant's key never verifies under another's. The purpose is the secret's name, so no two purposes of a tenant share a key. A tenant that is not a plain tenant id (a network id, `platform`, uppercase, a colon) and a purpose that is not one of the seven are refused, as is an empty or non-bytes platform key; no refusal holds a value.
+2. **Which secrets.** `PER_TENANT_KEY_NAMES` is exactly `phone-hash`, `link-token`, `link-csrf`, `code-hmac`, `pin-hmac`, `device-token` and `support-code`. A parity test pins each application constant to it. Everything else in the store (a Twilio token reference, the BFF secret, the push key) is read as it is.
+3. **Where it is applied: one wrapper, no call site changes.** `TenantKeyedSecrets(platform)` is a `SecretStore`: `get(name)` returns the bound tenant's derived key for a keyed name and the plain secret for any other. A keyed name with no tenant bound, or a network scope bound, raises `TenantNotBound` (fail closed, never the platform key); a name the platform does not hold is `NotFound` whatever is bound. `Container.build` wraps the process's store in it, so every use case that reads one of the seven names (`HmacPhoneHasher`, `LinkTokenService`, the link, pairing, PIN, text-code and support use cases, the content sealer) gets the tenant's own key with no change to its code. `build_for_tests` keeps the plain store a test hands it, so existing tests that compute a hash with a raw secret are unchanged.
+4. **Hash key version.** The default tenant (`default`, the development data that TEN-005 stamped) keeps the platform secret as its key (`hashKeyVersion` 0), so every hash already stored stays valid; every other tenant is on derived keys (version 1). `check_key_version` refuses a tenant record whose version disagrees with its id, and `Container.startup` runs it over the active tenants before it makes any audit head: a mismatch stops the process with `KeyVersionMismatch` (fixed text). No hash is re-computed: link tokens expire, and there is no production data to migrate.
+5. **Configuration probes.** The pairing and support routes checked at the top of a request that their secret exists, before the tenant is known. They now ask `secret_is_configured(store, name)`, which asks the platform and reads no key.
+6. **Secrets.** Nothing derived is stored, logged or put in an error; `TenantKeyedSecrets` shows no key in its `repr` or `vars()`. No secret enters git: the tests use values that are plainly fake.
+7. **Mutants run by hand** (each fails a named test): tenant ignored in the derivation (`test_two_tenants_never_share_a_key`), purpose ignored (`test_two_purposes_of_one_tenant_never_share_a_key`), the legacy exception for any tenant (`test_only_the_default_tenant_keeps_the_legacy_key`, `test_a_keyed_secret_is_the_tenants_derived_key_not_the_platform_secret`), fall back to the platform key with no tenant bound (`test_a_keyed_secret_with_no_tenant_bound_fails_closed`), wrapper not applied in `build` (`test_the_production_container_never_hands_out_the_platform_key_to_a_tenant`), the version check removed from start-up (`test_start_up_refuses_a_tenant_whose_hash_key_version_does_not_match_its_id`).
+
+**Tenant pending.**
+
+- No Cypher is added or changed.
+- Cross-scope reads: none.
+
+## DEC-351 ReportCapacity checks the tenant before it reads, validates the performer, puts the tenant in the fingerprint and reads the tenant's policy (TEN-024; keeps DEC-100, DEC-104, DEC-106, DEC-139 and DEC-140)
+
+Status: accepted (build wave 3, bundle W3A, under DEC-133; no owner gate). Affects: `application/use_cases/report_capacity.py` (`ReportCapacity.execute`, `record_report`, `check_performer`, `_fingerprint`), `application/use_cases/report_flags.py` (`raise_report_flags`, `report_lookback`), the performer fixtures of `tests/integration/application/test_report_capacity.py`.
+
+1. **The tenant guard.** `execute` begins with `require_actor_in_bound_tenant`: the actor's tenant must be the bound one, and one must be bound (`TenantMismatch` or `TenantNotBound`, fixed messages, answered 500: a wiring fault, never an access decision). It runs before the early replay read, so nothing is read for a mismatched actor. Inside the unit of work, before the service lock, the unit's scope must be a tenant scope equal to the actor's tenant, so a unit of another scope takes no lock and reads nothing.
+2. **Order kept.** Inside the unit: lock, then the stored-key check (DEC-106), then the service load (`NotFound("no active service with this id")`), then the permission check, and only then the new performer check, the DEC-140 back-dating check and the write. A service id that exists only in another tenant is the same `NotFound` as an id nobody has (the statements are tenant-bound, TEN-010), takes no lock, and writes nothing in either tenant.
+3. **The performer.** `check_performer(role, service_id, actor, now)`: the role comes from the tenant-bound `uow.people.get_role`, and every wrong role is the one `NotFound("no practitioner role with this id")` (`PERFORMER_NOT_FOUND`): unknown or another tenant's, inactive, another service's (or none), not a reporter role (`REPORTER_ROLE_CODES`), not yet started, the actor not being a person, or the actor being neither the owner nor the practitioner covering it. The owner of a covered role is still accepted after the cover ends and the cover is accepted after it ends: a text reply is judged at its received time (DEC-148), so a reply sent in the cover and processed after it must not be refused. The role's end is not checked, for the same reason. The check runs after the permission check, so a caller who may not report learns nothing about which roles exist. The audit's finding that the performer is the echo recipient is why: a role of another person can no longer receive an echo.
+4. **The fingerprint** names the tenant first (belt and braces: the replay store is already tenant-scoped, TEN-016). A key stored by an earlier build has a fingerprint without it and now reads as a different command; there is no production data, so nothing is migrated.
+5. **The tenant's policy.** Inside the unit, after the checks, `uow.tenant_config.current_version()` gives the policy in force (`DEFAULT_POLICY` when none). `record_report` takes `policy` and `config_version`: the status before and after, the next prompt and the flag windows (`report_lookback(policy)`, the longer of the many-changes and phoned windows) read it. With the default policy nothing changes. The default audit snapshot adds `config_version` when a version is in force and leaves the key out otherwise (absent means the built-in defaults); a caller that passes its own snapshot (U02) is unchanged.
+6. **Not changed.** Every U01 rule and its tests: the figure range, the effective time after now, the replay and conflict rules, the echo recipient and text, the suspended read, the flag rules, the ladder cancellation, the audit entry.
+7. **Mutants run by hand** (each fails a named test): the guard removed (`test_an_actor_of_another_tenant_than_the_bound_one_is_refused_before_any_read`), the unit-scope check removed (`test_a_unit_opened_under_another_tenant_than_the_actors_takes_no_lock`), the tenant out of the fingerprint (`test_the_fingerprint_names_the_tenant`), the performer check removed (`test_a_performer_that_is_not_found_refuses_the_report_and_writes_nothing`), the holder check removed (`test_a_performer_of_another_person_refuses_the_report_and_writes_nothing`), the performer read before the permission check (`test_a_reporter_for_another_service_is_refused_before_the_role_is_read`), the policy not passed to `compute_status` (`test_the_tenants_configuration_reaches_the_status_and_the_audit_records_its_version`), the lookback fixed (`test_the_flag_lookback_is_the_longer_of_the_tenants_two_windows`).
+
+**Tenant pending.**
+
+- No Cypher is added. The statements used (`Q-CAP-LOCK-SERVICE`, the capacity, flag, booking, outbox, communication, audit, idempotency and tenant configuration statements) are the converted ones from TEN-010, TEN-011, TEN-015, TEN-016, TEN-017 and TEN-026.
+- Cross-scope reads: none.
+
+## DEC-352 A queue consumer is bound to the tenant its message names only after the directory has listed that tenant; the bus tenant property is unsigned, so this and two repeated scope checks are the control (TEN-025, refines DEC-130 item 7, DEC-165 and the TEN-020 decision DEC-251)
+
+Status: accepted (build wave 3, bundle W3A, under DEC-133; no owner gate). Affects: `adapters/inbound/workers/consumer.py`, `servicebus_runner.py`, `tenant_binding.py`, `message_senders.py` (one constant), `bootstrap/workers_main.py`.
+
+1. **What was already there.** I08 built `TenantBoundConsumer` (DEC-165): it reads the message's tenant, refuses a missing, invalid or unlisted one, binds the scope for the whole handling and restores it. TEN-025 completes the framework around it; it does not build a second binder.
+2. **The four fixed reasons.** A dead letter holds one of `tenant-missing`, `tenant-malformed`, `tenant-mismatch` (all from `from_wire`, TEN-020) or `tenant-unknown` (the directory does not list the tenant as active; a suspended tenant reads the same as an unknown one). `NO_TENANT`, `BAD_TENANT` and `UNKNOWN_TENANT` now hold those words, as does the sender's own `NO_TENANT`. The runner dead-letters a message with no usable tenant with that reason instead of `malformed message`; a message with no id, an unreadable body or no event type stays `malformed message` (it says nothing about a tenant). No reason holds a tenant id or payload text.
+3. **The property is unsigned.** A signed tenant property needs a secret in every publisher and was declined in TEN-020. The controls are therefore: the directory check (`TenantBoundConsumer`, every message, no cache: a tenant suspended a second ago is refused); the message id must carry the property's tenant (`from_wire`); the scope is bound for the work; and `IdempotentConsumer` checks twice more that the work is bound to the message's tenant: before it opens a unit (the bound scope is the tenant's, else `tenant-mismatch`) and after (the unit's own scope is, before the message is marked processed or the handler runs). With every statement tenant-bound (TEN-009 to TEN-017) a forged property can at worst make a consumer act inside the tenant it names, on records that tenant owns, and only while that tenant is active. The body is never read for a tenant (`tests/architecture/test_no_tenant_from_payload.py`).
+4. **The runner serves only a consumer that binds the tenant.** `TenantBoundConsumer.binds_tenant` is `True`; `ServiceBusRunner` refuses any consumer without exactly that marker (`ConsumerNotTenantBound`, a `TypeError`, fixed text) when it is built, so a wiring that forgot the binding (the trap of lesson L165) stops the process at start-up, not at the first message.
+5. **The workers serve the directory.** `workers_main` no longer reads `DIUCS_WORKER_TENANTS`; `configured_tenants` and the variable are gone and the consumers take `container.tenants` (TEN-007), as the outbox relay already did. `serve(settings, stop)` and `_run(settings)` lost their `tenants` argument. A tenant that is not active has its messages dead-lettered as `tenant-unknown`.
+6. **"Tenant of the loaded node".** No stored node the consumers load carries a tenant the use case could compare (`ScheduledWork` has none), and every statement that loads one is bound to the scope, so a node of another tenant is not found. The comparison that is possible is the unit's scope against the message's, item 3.
+7. **Tests.** Unit: `test_consumer_tenant.py` (new), `test_servicebus_runner.py`, `test_servicebus_runner_loop.py`, `test_tenant_binding.py`, `test_workers_main.py`. Integration: `test_consumer.py` (a message of another tenant, a unit of another tenant, none bound) and `test_servicebus_runner.py` (now through `TenantBoundConsumer`, holding `take_emulator_lock()`).
+8. **Mutants run by hand** (each fails a named test): the bound-scope check removed (`test_a_message_for_another_tenant_than_the_bound_one_opens_no_unit`), the unit-scope check removed (`test_a_unit_that_opened_under_another_scope_marks_nothing_and_runs_nothing`), the marker check removed from the runner (`test_a_consumer_that_does_not_bind_the_tenant_is_refused_when_the_runner_is_built`), the tenant reason replaced by `malformed message` (`test_a_tenant_property_that_is_not_a_tenant_dead_letters_the_message_with_its_reason`), a truthy marker accepted (`test_the_marker_cannot_be_claimed_by_a_truthy_value`).
+
+**Tenant pending.**
+
+- No Cypher is added. The processed-message statements are the converted ones (TEN-016).
+- Cross-scope reads: none (the projector's two-scope consumer is TEN-055).
+
+## DEC-353 The time zone is an explicit argument of the time rules; the allow-list is enforced where a zone is made from a name (TEN-065, refines DEC-136 item 13)
+
+Status: accepted (build wave 3, bundle W3A, under DEC-133; no owner gate). Affects: `domain/rules/london_time.py`, `opening_hours.py`, `schedule.py`, `freshness.py`, `status.py`, `alerts.py`, and the tests `test_london_time.py`, `test_opening_hours.py`, `test_zone_threading.py` (new).
+
+1. **The helpers.** `to_local(dt, zone=LONDON)`, `local_to_utc(d, t, zone=LONDON)`, `format_hhmm(dt, zone=LONDON)`, `format_stamp(dt, zone=LONDON)`, `zone_named(name)` and `require_zone(zone)`. `to_london` and `london_to_utc` are the London case, kept for callers that have no zone yet. The gap and fold rule is the same in every zone.
+2. **Where the allow-list is.** `zone_named` makes a `ZoneInfo` from a stored name and refuses a name that is not on the tenant allow-list (`Europe/London` only, `check_time_zone`); the tenant record checks the same list. The rules themselves accept any `ZoneInfo` (`require_zone`: exactly a `ZoneInfo`, else `TypeError("a ZoneInfo is required")`), which is what lets the tests prove the zone is used with zones that are not London. A zone name, `None` or `timezone.utc` is refused.
+3. **The rules.** `is_in_hours`, `next_opening`, `due_times_on` (the first parameter is now `local_day`), `next_due`, `current_due`, `assess_freshness`, `compute_status` and `should_notify` take `zone` as their last parameter, default London, and pass it down (`compute_status` to `assess_freshness` and the opening hours; `assess_freshness` to `current_due`). Quiet hours are the night of the tenant's zone. No rule module names `to_london` or `london_to_utc` any more (a test reads the sources). Every delivered caller is unchanged.
+4. **The ratchet.** `ZONE_NOT_YET_THREADED` in `test_zone_threading.py` lists the 13 callers that do not pass a zone yet, each with the task that does; it can only shrink. The use cases cannot pass the tenant's zone until they can read it: the zone is on the tenant record (a global registry statement), not in the unit of work, so TEN-026's configuration read port is the way in.
+5. **Day count.** The re-verification interval is bounded to 7 to 30 days by TEN-064 (`REVERIFY_MAX`); this task adds nothing there and its test is `test_tenant_settings.py` and `test_policy_threading.py`.
+6. **Mutants run by hand** (each fails a named test): zone ignored in `local_to_utc` (`test_a_local_time_in_another_zone_is_converted_with_that_zone`), in `due_times_on` (`test_the_due_time_is_in_the_zone_given`), in `is_in_hours` (`test_the_window_is_read_in_the_zone_given`), in `assess_freshness` (`test_a_missed_prompt_is_judged_in_the_zone_given`), in the opening hours of `compute_status` (`test_the_opening_hours_in_the_status_follow_the_zone`), in the quiet hours (`test_quiet_hours_are_the_tenants_night`), a string accepted as a zone (the `bad` cases).
+
+**Tenant pending.**
+
+- No Cypher is added or changed.
+- The tenant's zone reaches the use cases through the configuration read port (TEN-026) or the tenant record; until then they use the London default.
+
+## DEC-370 Routes with no token take their tenant from the request host, through one resolver and one binder; an unresolved host is a missing resource (TEN-040)
+
+Status: accepted (build wave 3, bundle W3B, under DEC-133; no owner gate). Refines DEC-134 items 3 and 9 and DEC-167 item 1. Affects: `application/edge_tenant.py` (new), `adapters/inbound/fhir_rest/host_tenant.py` (new), `routes_public.py` (new), `routes_screens.py` and `link_pages/capacity_links.py` (their private `_tenant_of` now calls the resolver), `fhir_rest/app.py`, `fhir_rest/errors.py`, `application/use_cases/public_profile.py` (new), the architecture test `BINDING_MODULES`.
+
+1. **One resolver.** `resolve_active_tenant(directory, host)` normalises the host (`normalise_host`: lower case, no final dot, ASCII hostname labels only), asks `TenantDirectory.by_host`, and returns the tenant only when it is exactly a `Tenant` whose status is `active`. A host that is not a host name is not looked up at all. A host no tenant owns, a tenant that is provisioning, suspended, offboarding, offboarded or purged, and a record the directory refuses (`TenantRecordInvalid`, logged as the reason word `tenant-record`) all give `None`. Any other directory failure is raised, so a route with no tenant never opens because the directory was down. The two copies of this rule in the pairing routes and the link pages are gone.
+2. **One binder.** `bind_host_tenant` (an async dependency, so it runs in the request's task, L151) resolves the host and binds the tenant for the request with `bind_tenant`, restoring the previous binding when the request ends. It reads only the `Host` header (port and final dot removed). `X-Forwarded-Host`, `Forwarded`, `X-Tenant`, any other header, the query string, a cookie and the body are never read for a tenant; a proxy in front must pass the original `Host` on. The module joins `BINDING_MODULES`. A test walks every route under `/public/` and requires `bind_host_tenant` and no actor dependency; the routes already on the pairing and link paths keep their own binding (item 6).
+3. **One answer.** An unresolved host raises `HostNotResolved`, a `NotFound`, so the route does not run and the answer is the 404 OperationOutcome of a resource that is not there: the same status and bytes as an unknown path (a test compares them), for an unknown host, a suspended tenant, a damaged record and an unusable `Host`.
+4. **The public tenant profile.** `GET /public/tenant-profile` (not FHIR) answers `{displayName, timeZone, locale, wording, coordinationPhone}` for the tenant the host names: the display name and time zone of the record, `en-GB` as the locale ([ASSUMED], audit D 8), the three wording fields of the current configuration or `null` when none is in force, and the coordination phone (an organisational role number) or `null`. Nothing else of the record or its contacts is public: no id, legal name, status, epoch, ODS code, references, support email, shift-lead or safety-officer contact. `ReadPublicProfile` reads it in one unit of work bound to the tenant and refuses a unit that is not the tenant's own tenant scope. Every answer is `Cache-Control: no-store`, `Vary: Host`, `X-Content-Type-Options: nosniff`. TEN-049's front-end profile layer reads this per host.
+5. **Order.** The source-address limit (DEC-371) runs before the host is looked at, so a flood of unknown hosts costs the same as a flood of known ones and an unknown host is not distinguishable by its limit. A limiter whose cache cannot be reached answers a fixed 503 (`transient`, `Retry-After: 30`) and never lets the request through; a container with no platform namespace is a 500.
+6. **Not changed.** The pairing routes (R15) and the link pages (L01) still bind inside their handlers, after the body checks and the CSRF test that must answer before any lookup (DEC-167 item 3); they use the shared resolver and keep their answers. Moving them onto the dependency would change when their refusals happen; this is a known issue with a trigger.
+
+**Tenant pending.**
+
+None. No Cypher is added: the tenant directory's `by_host` is the existing global statement (DEC-163), and the profile is read through the existing tenant-scoped configuration repository. Cross-scope reads this task would need: none. The platform namespace holds counters only (no record, no tenant data).
+
+## DEC-371 The platform namespace of the cache and the source-address limiter of unauthenticated routes (TEN-040, refines DEC-130 item 7, DEC-251)
+
+Status: accepted (build wave 3, bundle W3B, under DEC-133). Affects: `application/ports/outbound/cache.py` (`PLATFORM_SEGMENT`, `platform_names()`, `PlatformSlots`), `adapters/testing/memory_cache.py`, `adapters/outbound/cache_redis/redis_cache.py`, `application/rate_limits.py` (new), `bootstrap/container.py` (`Container.platform_slots`), `fhir_rest/errors.py` (`RateLimited`, `TemporarilyUnavailable`).
+
+1. **A namespace that belongs to no tenant.** The cache port gained one explicit path for names counted before any tenant is known: the platform segment `_` (`diucs:_:cache:<name>`). It is the segment the cache docstring has reserved since TEN-019; no tenant id can be `_` (a tenant id has at least two characters) and `scope_segment` never produces it. Two calls use it and no other: `platform_take(name, ttl)` (one atomic set-if-absent with an expiry; True when taken) and `platform_release(name)`. They read no scope, so they need none; a tenant's `get`, `set`, `delete`, `publish`, `subscribe` and locks are unchanged and still refuse an unbound scope. The `PlatformSlots` protocol is separate from `Cache`, so no existing fake had to change; `Container.platform_slots` is the Redis cache (production) or the in-memory cache (tests).
+2. **The limiter.** `PlatformRateLimiter(slots).take(kind, address, limit, window)` takes the first free slot `rl:<kind>:<sha256(address)[:32]>#<n>` written with the window as its lifetime, as the pairing limiter does (a window counted from each event, atomic per slot, a slot given back by `release`). The address is hashed before it reaches the cache; `kind` is a short lower-case word; a limit below one is refused. For the public routes: 60 requests a minute for one address (`PUBLIC_REQUESTS_PER_ADDRESS`, [ASSUMED], domain-rules 7), over which the answer is 429 `throttled` with `Retry-After: 60`.
+3. **Address.** The address is `request.client.host`. Behind a proxy the serving process must be started so that this is the client's (uvicorn `--proxy-headers` with the proxy trusted), or one address is shared (deployment note, as for the link pages, DEC-167 item 8).
+4. **Per-tenant API limits** (audit C TEN-C25's second half) are not added here: the link pages and the pairing routes already carry their per-tenant limits, and the authenticated API has none; adding one is a decision about numbers that no task asks for yet.
+
+## DEC-372 Network domain events, the `network.events` topic and the projection message (TEN-038)
+
+Status: accepted (build wave 3, bundle W3B, under DEC-133; no owner gate). Follows `docs/plan/prompts/TEN-038.md` except where an item says so. Refines DEC-132 items 4 and 7. Affects: `domain/events.py`, `application/ports/outbound/event_bus.py` (one line in `TOPICS`, owned by TEN-020), `application/projection.py` (imports `ProjectionValue`), `tests/unit/domain/test_events.py`, `test_network_events.py` (new).
+
+1. **Eleven classes.** `NetworkCreated`, `MemberAdded`, `MemberRemoved`, `AgreementRecorded`, `GrantProposed`, `GrantApproved`, `GrantEffective`, `GrantEnded`, `ProjectionApplied`, `ProjectionRejected` and `ServiceDirectoryChanged`, with the fields, order and validation of the prompt (frozen, UTC `at`, `to_payload`, `decode`, enum fields checked by exact type, ids by pattern, network and tenant ids by the TEN-036 checks so a tenant id in a network field is refused, versions whole numbers of at least one and not `bool`, the agreement reference by the TEN-036 pattern and the privacy guard). They join `DomainEvent`, the topic map and the decoder map; there are now 29 event classes. The grant events carry the five-field identity block (`grant_id`, `network_id`, `grantor_tenant_id`, `scope`, `version`) so a handler in another scope need not read the grant to learn what an event concerns.
+2. **`GrantEffective` means both approvals now exist.** It carries `effective_from`; the gate for projecting stays `is_effective(grant, now)` (TEN-036), so a future `effective_from` projects nothing until then (the periodic reprojection, TEN-056, picks it up).
+3. **Topics.** The ten network events go to `network.events` (`NETWORK_EVENTS`, added to `TOPICS`); `ServiceDirectoryChanged` goes to `registration.events`, with the registration events the projector subscribes to (the audit's sketch put all eleven on `network.events`). `session_id_for` is `None` for all eleven: governance events are not ordered by session and every transition is checked by the TEN-036 state machine. The scope of an event is the message's tenant, never a payload field. `infra/servicebus-config.json`, the subscriptions and `ManualEventBus` are not touched (TEN-055).
+4. **The projection message is not an event.** `ProjectionRequested` is deliberately outside `DomainEvent`, the topic map and `from_payload` (`from_payload("ProjectionRequested", ...)` is refused like any unknown type); it decodes only through `ProjectionRequested.decode`. It is the one message in the module whose payload carries more than identifiers, counts and codes: its `body` holds the allowlisted projection fields. `PAYLOAD_EXCEPTIONS == {"ProjectionRequested"}`, and a test over every dataclass of the module requires each field to be a time, a count, a code or an id (a `str` named `*_id` or `reference`), and a mapping field to be `body` of a class named there. The module docstring states the exception and a test pins it. `PROJECTION_WORK` (`projection.work`) is named here and registered in `QUEUES` by TEN-055.
+5. **The body floor.** Whatever the allowlist says: at most 40 keys; each key a lower-case snake name (`[a-z][a-z0-9_]{0,39}`) whose normalised form (`normalise_key`: lower case, underscores, hyphens and white space removed) is not in `FORBIDDEN_KEY_FORMS`; each value a scalar, `None` or a flat tuple of at most 50 scalars (no nesting, no bytes, no datetime object, floats finite); every string at most 200 characters and free of a patient shape. The set of forbidden forms is the privacy guard's own, which TEN-052 added (it contains the prompt's `FORBIDDEN_FIELDS` and more: `phone`, `email`, `comment`, `note`, `text`, `body`, `message`, `reason`, ...), so there is one list and not two; no key of the projection allowlist falls in it (checked). The body is copied into a read-only mapping when the message is built. `decode` turns a top-level list into a tuple, and a nested list is refused. The refusal names the field `body` and never a key or a value. The key allowlist itself stays in `application/projection.py` (TEN-052), checked before publishing and again before applying.
+6. **`ProjectionValue`** is defined once, in `events.py` (`str | int | float | bool | None | tuple[str | int | float | bool, ...]`); `application/projection.py` imports it instead of its own narrower alias (TEN-052's decision DEC-270 item 2f allowed this).
+7. **Audits disagree on the producer**: audit B puts the DTO in the message body, audits A and C send ids only and let the consumer rebuild it in two units of work. This interface fits both; TEN-054 and TEN-055 choose.
+
+**Tenant pending.**
+
+None. The events add no statement, key, channel or queue. The scope of an event is the message's tenant (TEN-020's `tenantId` property), never the payload; tenant and network ids in payloads are kind-checked. Cross-scope reads needed: none (the saga hand-offs are TEN-077 and TEN-078). The body floor is the first of two layers keeping a non-allowlisted field out of a projection (the second is TEN-052's key allowlist, then TEN-062).
+
+## DEC-373 The board, its cache key, its channel and its stream are the bound scope's, and the board projector has a tenant-bound consumer (TEN-039, reworks U08, U09, R06)
+
+Status: accepted (build wave 3, bundle W3B, under DEC-133; no owner gate). Refines DEC-099 item 7, DEC-251 and the audit's board rows (B section 8, C section 4). Affects: `application/use_cases/board_projector.py`, `query_board.py`, `adapters/inbound/workers/board_consumer.py` (new), `bootstrap/workers_main.py`, `adapters/inbound/fhir_rest/routes_events.py`, the unit and integration tests.
+
+1. **Wall actor and system actor.** Already per tenant from TEN-018 and TEN-019: the projector's rebuild reads the board as `wall_actor(current_tenant())`, and the cache qualifies every key and channel by the bound scope. This task adds the checks and the consumer that were missing.
+2. **Board audience key.** `board_cache_key(audience)` gives `board:v1:<audience>`; `BoardAudience.ALL` is the only audience (every role that may read the board sees the same board, DEC-099 item 7), so the key is `board:v1:all` (`BOARD_CACHE_KEY`). An audience that is not exactly a `BoardAudience` is refused. A view that differs by role, service or flag adds an audience member and so its own key (L130). The cache already prefixes the scope (`<tenant>:cache:board:v1:all`, `_net-<id>:...` for a network), so the key never crosses scopes whatever the audience. The grant revision the audit suggested for the audience belongs to the network board (TEN-058).
+3. **Guards.** `BoardProjector.get_board` and `QueryBoard.execute` refuse, before anything is read, stored or opened, an actor of another tenant than the bound one (`TenantMismatch`), a network scope and no scope (`TenantNotBound`); the anonymous link is still refused first (`NotAllowed`). `handle` takes no tenant: it runs in the bound scope (no scope or a network scope is `TenantNotBound` and publishes nothing). The board that one tenant caches is not read by another (tested with one cache and two tenants).
+4. **The stream.** `GET /events` already subscribes after the token binds the tenant, and the subscription keeps the channel of that scope; the handler now also takes the actor and calls `require_actor_in_bound_tenant`. A message published in tenant B's scope never reaches tenant A's stream and the reverse (integration test with two tokens and two open streams); a stream holds one subscription, in its own tenant's scope. The announcement still holds the service id and a time and no tenant.
+5. **The consumer.** `BoardUpdateConsumer` is the consumer of the `board-projector` subscriptions of `capacity.events` (read through sessions, as the subscription requires) and `booking.events`. `board_consumer(projector, tenants, observe)` wraps it in `TenantBoundConsumer`, so the tenant is the message's `tenantId` property, checked against the directory and bound before the projector runs; the payload is never read for a tenant. The consumer itself dead-letters a message when no tenant is bound or the bound tenant is not the message's (`message is not bound to its tenant`), retries a failed rebuild with the error class name only, and completes an event the board does not show. A rebuild is idempotent, so there is no processed marker and no unit of work around it. `build_runners` takes `board_projector` and adds the two runners; `serve` builds `BoardProjector(QueryBoard(...), cache, clock)` on the Redis cache.
+6. **Not done.** `CriteriaApproved` is in `REBUILD_EVENTS` but `criteria.events` has no `board-projector` subscription in `infra/servicebus-config.json`, so it does not rebuild the board until TEN-055 adds one; the 60 s TTL is the backstop. The network board's projector, key and channel are TEN-058. The `view` selector (tenant or network) on `$board` and `/events` is TEN-057 and TEN-058.
+
+**Tenant pending.**
+
+None. No Cypher is added; the statements `QueryBoard` runs are all converted (the ratchet is empty). The cache key and channel names are built by the port's one builder. Cross-scope reads this task would need: none (the network board is TEN-057 and TEN-058).
+
+## DEC-374 Per-tenant email identity and credentials from the secret store, and no global Twilio or SMTP credential (TEN-042, reworks I06 and I09; DEC-131 items 1 and 4)
+
+Status: accepted (build wave 3, bundle W3B, under DEC-133; no owner gate). Affects: `application/ports/outbound/sender_resolver.py`, `bootstrap/tenant_senders.py`, `adapters/outbound/email_smtp/smtp_email.py`, `adapters/inbound/workers/message_senders.py`, `adapters/testing/recording_senders.py`, `bootstrap/settings.py`, their tests. The text path (the number and subaccount from the directory, the token from the secret store) was built in I10; this task completes it for email and closes the global settings.
+
+1. **Credentials are network secrets, by reference.** A tenant's Twilio auth token and SMTP password are read from the secret store (`SecretStore`, the seam TEN-007 and TEN-026 built) by the reference its own record holds, of the shape `<kind>/<own tenant>/<name>` (`twilio/<tenant>/auth-token`, `smtp/<tenant>/<name>`). The resolver checks the shape and the tenant of every reference it reads (`check_secret_ref`) at the point it reads it, besides the directory's and the record's own checks; a reference of another tenant, or a malformed one, is never read. The settings of the process no longer hold any: `twilio_account_sid`, `twilio_auth_token`, `twilio_from`, `smtp_user`, `smtp_password` and `email_from` are removed (an environment variable that once set one changes nothing; a test pins this). Nothing is in git. A real vault adapter is not built (it needs a credential): the production secret store is `NoSecrets` until one is given, so every secret reads as not found and every send fails closed.
+2. **The relay is the platform's; the identity is the tenant's.** `Settings` keeps only `smtp_host`, `smtp_port` and `smtp_starttls`: where mail is handed in (`SmtpRelay`, built by `smtp_relay_from`). The sender address, display name and login are the tenant's channel record's (`TenantChannel`, kind email, provider SMTP): the From header is `"<display name>" <address>`, the Message-ID domain is the address's own, the login is the address ([ASSUMED]: a relay that needs another login name needs a field on the channel record), and the password is the secret the channel's reference names. A channel with no reference sends with no login. `SmtpIdentity` validates the address (a domain with a dot, no white space, comma or angle bracket), the display name (plain text, 80 characters) and hides the password from `repr` and `str`; `SmtpRelay` validates the port.
+3. **The channel record reaches the resolver from the unit of work.** The resolver is called inside the sender consumer's unit of work, where a second unit may not be opened, so the email sender reads `uow.tenant_config.channels()` and hands the one active email channel to `SenderResolver.email_for(channel)` (the port changed from `email_for()`); none, or more than one, active email channel is `None`. `email_for` raises `ChannelUnavailable` (whose text names the tenant id and the channel, never an address or a reference) for `None`, a channel that is not email, not active (retired, quarantined), with no address, a reference that is not the tenant's own, a missing or empty secret, an identity `SmtpIdentity` refuses, or a relay with no host; the message is then recorded `failed` with `no-channel` and nothing is sent. No tenant bound is a tenancy error, never a default.
+4. **Recording senders record the tenant.** `RecordedSms` and `RecordedEmail` carry `tenant` (the scope bound at the send, `None` when none) and `identity` (what the sender was built to stand for), so a test can say which tenant's number or address a message left from. `FixedSenderResolver.email_for(channel=None)` ignores the channel. No real send happens in any test: the SMTP call is a captured `aiosmtplib.send`, the Twilio calls an httpx `MockTransport`.
+5. **Receipts.** The status-callback receipt is matched by `AccountSid` and message id in the inbound webhook (I07, DEC-149); `parse_status_callback` returns only the provider id, status and error code, and carries no account. Nothing changes there.
+
+**Tenant pending.**
+
+None. No Cypher is added (the channel read is the existing `Q-TCFG` channels statement through the tenant-scoped repository, inside the sender's own unit of work). Cross-scope reads: none. Needs a real credential at deploy: Twilio subaccounts and numbers, a sender registration and an SMTP relay login for each tenant, and a vault adapter for `SecretStore`.
+
+## DEC-390 The audit replay is for lead and audit roles, shows the last options display, and writes one audit entry (U42)
+
+the replay is for the lead and audit roles only. The options shown are the last FilterOptions display before the first booking request (or the last display when nothing was requested). The timeline is the case's audit records and its bookings' records, in time order; a record that names both is shown once. Opening a replay appends one audit entry (use_case AuditReplay, action R, entity the case); the replay's own entries are not timeline items.
+
+**Tenant pending.**
+
+- Q-AUDIT-FOR-ENTITY carries $tenant on AuditEvent and AuditRef and is scenario-tested. records_for reads the bound scope's chain only (_chain_tenant refuses a network scope).
+- verify_chain covers the bound tenant's whole chain (chain_ok). A tenant-pending item: the replay reads case and booking ids inside the tenant; nothing crosses to a network scope.
+
+**Tenant isolation.**
+
+- tests/integration/application/test_audit_replay.py: a tenant B case reference answers not found to tenant A; tenant A's replay counts five entries of its own (B's five are not in A's timeline).
+
+## DEC-391 Service names in a replay are the current names, and the over-capacity figure is not in the snapshot (U42)
+
+service names are the current names (the snapshot holds ids only). The snapshot holds the number as U12 wrote it: for an occupied-patients service that is the used count, so an over-capacity row shows the used count, not the over-capacity figure the prompt's artboard shows ("+2"). The over-by figure is not in U12's snapshot; the fix belongs to U12 (hazard H-190).
+
+## DEC-392 Planning reads the audit log in two bounded statements, joined per case in Python (U43)
+
+the audit log reads for planning are bounded: Q-PLAN-WINDOW (entries of named use cases recorded in a window) and Q-PLAN-FOR-CASES (entries of one use case naming any of the given entities, distinct). Both carry $tenant and have scenarios. Cases are joined to their decision in Python, from the entries.
+
+**Tenant pending.**
+
+- Q-PLAN-WINDOW and Q-PLAN-FOR-CASES carry $tenant. Planning reads the bound tenant's decisions only; network projections are not read (decision snapshots are not shared).
+
+**Tenant isolation.**
+
+- tests/integration/application/test_planning_analysis.py::test_tenant_a_sees_none_of_tenant_bs_decisions: tenant B's 12 unavailable best fits and a decline are not in tenant A's result.
+
+## DEC-393 The planning cohort, best-fit, went-elsewhere and small-number rules (U43)
+
+the default cohort is age 65-79 or 80+, urgency within-2-hrs, referrer ambulance-crew or care-home; a need group (all, falls-and-frailty, iv-therapy, palliative) narrows it. The referrer comes from the case's OpenCase entry (the outcome snapshot does not hold it). A referral is a cohort case with a decision (a FilterOptions display at or before its outcome). Best fit is the first option row of the decision (board order, see H-193). Best fit unavailable: status not-accepting, over-capacity or not-updated, or number 0. Went elsewhere: unavailable best fit, destination a listed option other than the best fit. Counts under 10 are hidden; a share with base under 10 is hidden; share rounds half up. The heat grid uses the case's arrival time (London weekday, six-hour band). Declines are not cohort-filtered (the decline snapshot holds no age). Lead and exec only; one audit entry (PlanningAnalysis, action R, no entities) holds the query parameters only.
+- DEC-393 also: the result holds no case id, reference, postcode or patient value.
+
+## DEC-394 Clinical advisors are the holders of an active clinical-lead role (U40)
+
+clinical advisors are the holders of an active clinical-lead role in effect now (PractitionerRoleCode.CLINICAL_LEAD). The model has no other clinical directory. Query: Q-PERSON-ACTIVE-ROLES (tenant, scenario); the role code and period are applied in Python.
+
+**Tenant pending.**
+
+- Q-CLIN-OPEN, Q-PERSON-ACTIVE-ROLES carry $tenant. The clinical queue is per tenant; a shared clinical pool across tenants is out of scope (DEC-130 item 8).
+- Presence keys: tenant prefix from the Redis adapter (pending on TEN-C06); see H-194.
+
+**Tenant isolation.**
+
+- test_clinical_advice.py::test_tenant_b_request_id_is_not_found_to_tenant_a: tenant B's request id given to tenant A's take answers not found; tenant A's queue is empty.
+
+## DEC-395 Presence is a 120-second cache key, and going away returns the taken requests to the queue (U40)
+
+presence is a cache key `presence:clinical:<practitioner_id>` with a 120-second lifetime, refreshed by the client; an unknown or missing value is not available. Going away returns the taken, unadvised requests to the queue (audited). Advisors see only the count (AvailableClinicians returns an int). The clinician list comes from the directory, so no presence index is kept in the cache.
+
+## DEC-396 The advice note goes to the protected text store; no event, audit entry or notice holds it (U40)
+
+the advice note goes to the protected text store (kind clinical-note, 280-character limit enforced again by the store); the request holds only its handle; the audit entry holds the choice, reason and snapshot ref, never the text. The K3 notice names urgency, age band and need only. Advice raises ClinicalAdviceGiven (alerts.events, request id, choice, time); the event carries no note. Advice cancels the clinical-return work.
+- Queue: the queue is built from open requests (waiting and taken, Q-CLIN-OPEN), with idle locks released first (queue_now), then queue_order. Clinical advisors only.
+- A request is accepted only for an open case (Conflict on a closed one); only advisors request; only clinicians take and advise.
+
+## DEC-397 POST /fhir/ServiceRequest opens a case in two units, with the roles and priority mapping (R07)
+
+POST /fhir/ServiceRequest runs two use cases in two units: OpenCase (referrer) and then UpdateCase (age band, district, needs, urgency), with idempotency keys `<key>` and `<key>:details`. Priority maps urgent to within-2-hrs and routine to today; planned is answered as routine. Roles: advisor and clinical only (require_role); any other role gets the NotAllowed 404.
+
+**Tenant pending.**
+
+- The routes read no tenant; the edge binds it from the token. Case, service and report reads and writes are the use cases' (tenant-scoped statements).
+
+**Tenant isolation.**
+
+- test_routes_cases.py: an unknown case or service answers 404; the exec role gets the same 404 (NotAllowed). Two-tenant route tests are not yet written for R07 (pending, see known issues).
+
+## DEC-398 Cases carry no version, so If-Match is required but not compared; stored patient data is minimal (R07)
+
+cases carry no version, so PUT needs If-Match (428 when absent) but its value is not compared: last write wins within an open case; the ETag returned is constant. Stored patient data is the postcode district and age band only; a Patient with name, identifier, birthDate or telecom is refused 400 invalid before anything is read or written; the message names the element and not the value. A closed case answers its ServiceRequest without postal code, needs or reasonCode.
+
+## DEC-399 The case and advisor routes hold no rule and answer what their use cases return (R07)
+
+The $filter-options, $advisor-phoned, $declined and $close answers: Parameters (filter, declined), an Observation (advisor-phoned, 201), a closed ServiceRequest (close, 200). The routes hold no rule.
+
+## DEC-400 A booking withdrawal has its own escalation work kind (U21)
+
+- Items: 1. The escalation is WorkKind.WITHDRAWAL_ESCALATE, not ESCALATE_TO_LEAD as the prompt says: the missed-report ladder owns ESCALATE_TO_LEAD and the scheduled-work dispatcher routes by kind, so a booking id would be sent to the ladder. 2. Due time is now + the tenant policy's withdrawal_escalate_after (DEFAULT_POLICY, 10 minutes; the tenant's own policy is not read yet). 3. The dispatcher runs EscalateWithdrawal once per work item; a done or cancelled work does nothing.
+
+**Tenant pending.**
+
+- Tenant-scoped statements used: the booking Task reads and writes (Q-BOOK-* through BookingRepository), ScheduledWork for_about and save (TEN-016 pending), the outbox and audit. Nothing new in Cypher.
+- Booking lookups by id (bookings.get) are not yet tenant-filtered in the store; the unit's scope check happens at the unit (TEN-010/011 pending). Tenant isolation test: integration two-tenant test not written in this bundle (see the report).
+
+**Assumed.**
+
+- [ASSUMED] The withdrawal escalation window is DEFAULT_POLICY.withdrawal_escalate_after = 10 minutes (domain-rules 3.2 "10 minutes").
+- [ASSUMED] A reported not-reached has no timer (prompt U21).
+
+**Tenant isolation.**
+
+- test_tenant_b_cannot_withdraw_or_time_out_a_booking_and_a_is_unchanged (test_withdraw_booking_tenants.py, contracted container): B's withdrawal and B's escalation timer on A's booking read as not found; A's booking stays confirmed with no escalation. Run status: see the report.
+
+## DEC-401 Acknowledging a withdrawal cancels its escalation (U21)
+
+- Items: 1. AcknowledgeWithdrawal (advisor or clinician) cancels the scheduled escalation through cancel_work and is audited; it emits no event and changes no booking state. 2. Acknowledging after the escalation has run is accepted, cancels nothing, and is audited with cancelled_escalation false. 3. Acknowledging a booking that is not withdrawn is a ValidationFailed.
+
+## DEC-402 A booking reply by text is read from the phone's own services, and only there (U22)
+
+- Items: 1. The phone's reporter services are the scope: open bookings come from open_for_services and the latest booking per service from the new Q-BOOK-LATEST-FOR; a booking of another service or tenant is never matched. 2. The booking records no responding phone, so "declined by this phone" means "the phone's service, its latest booking, declined with no reason"; a decline by another reporter of the same service is attributed to this phone. 3. The reply uses RespondToBooking and SetDeclineReason in their own units, with keys derived from the inbound message id; the inbound text is recorded once (its idempotency key) after them.
+
+**Tenant pending.**
+
+- Q-BOOK-LATEST-FOR is registered with tenantId on both nodes and a scenario; the store's booking Task writes are not stamped yet (TEN-009 pending), so the scenario relies on the seed.
+- BookingRepository.open_for_services, get and the people lookups are as they were (TEN-010/011 pending).
+
+**Assumed.**
+
+- [ASSUMED] Reply wording B8, B9 (DEC-403).
+- [ASSUMED] Decline reason window 10 minutes (DEC-404).
+
+**Tenant isolation.**
+
+- test_a_confirmed_text_in_tenant_b_cannot_confirm_tenant_as_booking_by_its_reference (test_handle_inbound_text_booking_tenants.py, contracted container): B's reply with A's reference sees no open booking of its own and leaves A's booking requested. Run status: see the report.
+
+## DEC-403 B8 and B9 are new text ids for replies the rule book does not word (U22)
+
+- Items: 1. B8 "No booking is waiting for a reply." and B9 "That booking has expired, so nothing was booked." are [ASSUMED] wording, text channel only, owner-pending like the rest of the D16 wording. 2. The catalogue pin (rule-book ids) is widened to B1 to B9 in the same change. 3. B7 is used as the rule book has it.
+
+## DEC-404 A digit sets the reason of a decline within ten minutes (U22)
+
+- Items: 1. Digit 1 is full, 2 outside criteria, 3 other (the rule book's reasons; staffing or transport is not texted). 2. The window is ten minutes from the decline, inclusive [ASSUMED]. 3. Any other digit, a digit after the window, or a decline that already has a reason goes to the capacity path unchanged.
+
+## DEC-405 Approval rules (U29)
+
+- Items: 1. The approver must differ from the requester (DEC-032 default, owner to confirm); an unknown requester is refused (fail closed). 2. A test answer counts only from the registered phone hash or the registered app device; with neither registered it never counts. 3. A service goes live only from approved with a test answer; any other state is refused. 4. A send-back or refusal note is required, at most 280 characters, with no run of nine or more digits. 5. Approval re-runs the automatic checks and the criteria check from what is stored now (H-144), and keeps the call-back flag as RecordCallBack stored it.
+
+**Tenant pending.**
+
+- The decisions read and write the registration (Task), the service, the contacts and the people tables through the unit of work; the Task and Practitioner reads are the existing unscoped ones (TEN-009/010/011 pending). set_active reads HealthcareService, Location and Organization through the resource store (TEN-008 stamps them).
+- Two-tenant test for U29 NOT written in this bundle.
+
+**Assumed.**
+
+- [ASSUMED] Note length 280 characters; a nine-digit run is treated as an identifier.
+- [ASSUMED] DEC-032 default: the approver differs from the requester (owner to confirm).
+
+## DEC-406 Activation changes three flags and nothing else (U29)
+
+- Items: 1. ServiceRepository.set_active sets HealthcareService.active, the Location.status of each location reference and Organization.active of each providedBy reference, each as a new version, writing back the rest of each resource as read. 2. This closes the U24/U27 loss for activation only; a later profile save still rewrites the service from the profile (known issue kept).
+
+## DEC-407 The registration record is typed draft fields (U29)
+
+- Items: 1. Each approval step writes `<step>_at` (ISO instant with zone) and `<step>_by` (practitioner or role id) into the registration's draft under the step `record`, as text fields (DEC-001: no JSON). 2. Steps: approved, sent_back, not_approved, test_prompt (I3 queued), test_answered, live. 3. GetRegistrationRecord lists submission first, then the timed steps in time order, then the untimed call-back, scope and criteria with no time. 4. The draft is replaced as a whole on save, so each decision reads the draft and writes it back with its step.
+
+## DEC-408 The not-updated check keys and the escalation chain (U34)
+
+- Items: 1. A change to not-updated schedules two NOT_UPDATED_CHECK works about `<service id>:2` and `<service id>:4`, at two and four hours (domain-rules 4). 2. Each check alerts only the subscribers whose not_updated_hours equals its age, and only while the service's latest report is older than that age (or there is none). 3. Acknowledging closes the whole chain of the alert (every member new or escalated becomes acknowledged, every escalation timer of the chain is cancelled). 4. An escalation on a first alert with a deputy creates the deputy's alert PART_OF it; any other unacknowledged escalation emits AlertEscalatedToLead once for the chain (id `alert-lead-<first alert>`).
+
+**Tenant pending.**
+
+- The alert, subscription, service, capacity, scheduled-work and outbox statements go through the unit of work (TEN-009/010/011/015/016 pending, as for the rest of the store).
+- The consumer must bind the tenant from the StatusChanged message before the evaluator runs (TEN-018 consumer wrapping, I08's TenantBoundConsumer).
+- Two-tenant test for U34 NOT written in this bundle.
+
+**Assumed.**
+
+- [ASSUMED] The snooze is one hour (the prompt's rule).
+- [ASSUMED] A deputy's alert uses the deputy's own acknowledgement window, or the default preferences when the deputy has no subscription.
+
+## DEC-410 Removing a person: what ends, who is told, and the departures from the prompt (U37)
+
+Status: accepted (build wave 3, bundle W3E, under DEC-133; no owner gate).
+
+1. `RemovePerson` (lead only, with a practitioner id; reasons `left-service`, `changed-role`, `lost-phone`, `other`) ends every active post of the person (`active` false, `period_end` now, any cover on it cleared), revokes every device, deletes every PIN credential, removes every push subscription and withdraws its consent, ends the sessions, and makes the person inactive. Past reports are untouched. The prompt does not say the person becomes inactive; it is done because U25 reads active people only, so a removed person's number stops being a known number and cannot ask for a text code and set up again by themself (fail closed).
+2. A lead cannot remove themself (NotAllowed): the last lead could lock the tenant out. Another lead does it.
+3. Services. For each reporter post that ended: if a cover was in force (`covered_until` after now, the covering person active and not the removed one), the covering person is given a post of their own on the service, same code and channel, from now to the cover's end, so the prompts go on to the cover (the way U16's until-changed ends one post and starts another; the prompt says "prompts go to the cover number"). Otherwise, if no other active reporter post in effect has a holder who can be texted, the service gets the service flag `no-reporter` (new code, set by the lead's id) and the result names it. The lead sees it on the lead page (W42, not built).
+4. Roles the person was covering (`covered_by` the removed person) go back to their own holder (the cover is cleared), because a cover who has left would leave the post with a holder who cannot be texted. Found through `services_for_phone_hash` of the person's hash.
+5. The result: `roles_ended`, `devices_revoked`, `push_removed`, `covers_released`, `services_without_reporter`, `services_covered`. The audit entry holds the reason, those counts and the service ids as text: no number, no hash, no subscription.
+6. Replay: the key is `people-access:remove:<tenant>:<key>` inside the unit (lesson L160); a replay returns the first result and writes nothing, but ends the sessions again (DEC-412 item 3). The same key for another person or reason is a Conflict.
+
+**Tenant pending.**
+
+- Statements used are all converted and tenant-scoped (credential, device, person, flag, push, consent, resource store). The two new device statements have scenarios and `tenantId: $tenant` on every node. The audit append follows the audit ratchet. Redis keys carry the tenant prefix.
+- Cross-scope reads: none.
+
+**Assumed.**
+
+- The service flag code `no-reporter` (the prompt's [ASSUMED] code).
+- Epoch key lifetime: twice the session TTL (24 h).
+- The `new-device` verification must be within 10 minutes (PIN_SET_WINDOW) of the call.
+
+## DEC-411 Lost phone: a device that waits for the lead's call-back (U37)
+
+Status: accepted (build wave 3, bundle W3E, under DEC-133; no owner gate).
+
+1. `StartNewPhone` (called by the edge straight after a `new-device` text code verified; its command carries the verification time, which must be within 10 minutes and not in the future) revokes every old device, deletes their PIN credentials, removes their push subscriptions, ends the sessions, and stores the new device `pending-callback`. The device is registered with status `pending-callback` and stamped with the time of the verification, so the person can set a PIN on it while they wait.
+2. A device is "known" (it may sign in) only when its status is `active`: `Q-DEVICE-KNOWN` now says `status = $active`. A pending device is not known, so sign-in answers `needs_text_code` like any other unusable device (DEC-323).
+3. `ConfirmNewPhone` (lead only; not for the lead's own phone) makes the person's pending devices active (`Q-DEVICE-CONFIRM-PENDING`) and says how many; none waiting, or a person who has left, is NotFound. Replay by key.
+4. Until confirmed no prompt is texted to the person: `send_prompts._phone_hash` (also used by the missed-report ladder) returns no number for a holder who has a device waiting for a call-back (`DeviceRegistry.awaiting_callback`), so the prompt is skipped as "no reporter can be texted" and the ladder tells the lead. A cover is the holder while a cover is in force, so the cover is still texted. This is the prompt's "prompts go to the cover number or the SPOA". It edits U03's helper by two lines (cross-task edit, reported).
+5. Every person or device that cannot start a new phone (unknown or removed person, stale verification, a device id any practitioner already holds, active, revoked or another person's) gets the one answer `started` false and nothing is written. The same new device sent again is a no-op that keeps the device (a retry must not revoke it).
+
+## DEC-412 Sessions end through a per-person epoch (U37, I13)
+
+Status: accepted (build wave 3, bundle W3E, under DEC-133; no owner gate).
+
+1. `SessionStore.delete_all_for_person` raises the person's epoch (`sess-epoch:<person>`, an integer under the tenant's prefix, lifetime twice the session TTL) in the same transaction as the deletes. A session carries the epoch it began under; `get` and `touch` treat a session whose epoch is not the person's current one as dead, and a dead session is not extended.
+2. `create` takes the epoch the caller read (`epoch()`) before it checked the PIN, and one Lua script refuses it (`SessionEpochChanged`) when the person's epoch has moved. A session being created while the person is signed out everywhere is therefore dead on arrival, not left behind because it was not yet in the index.
+3. The use cases call `delete_all_for_person` before the Neo4j change and again after it commits, and on a replay. A session store that cannot be reached is an error: nothing is reported as signed out that was not, and the same command key finishes the job.
+4. The port changed: `ReporterSession.epoch` (default 0), `SessionStore.epoch`, `create(..., *, epoch)` (required keyword), `SessionEpochChanged`. Old session bodies with no epoch read as epoch 0.
+
+## DEC-413 The identity routes: a device, not a person; the tenant is the host; one answer (R11)
+
+Status: accepted (build wave 3, bundle W3E, under DEC-133; no owner gate).
+
+1. The routes name a DEVICE. The person is read from the device's record (`DeviceRegistry.owner_of`), so a person's id is never shown to a signed-out client (the U32 known issue). A device id must match `^[A-Za-z0-9_-]{22,56}$` (a random secret of at least 128 bits), travels in the body or the `X-Device-Id` header, never in a URL, and is never logged. A device nobody holds is read as a stand-in person named from a digest of the device id (`unknown-<24 hex>`), so it makes the same calls and gets the same answer as a known device that cannot sign in (DEC-323).
+2. The tenant of an unauthenticated route is the host the request was addressed to, through the tenant directory (as the pairing and link routes do, DEC-134 item 3); a host no active tenant owns answers the one 404 and does nothing. A body that names a tenant, a person or a role is refused as an unknown field. The push routes take the tenant from the verified token (TEN-018).
+3. `POST /identity/code` always answers 202 `{"accepted": true, "resendAfterSeconds": 60}`: for a known number, an unknown one and a resend inside the cooldown (the use case's `sent`/`retry_after` are not shown). Purpose: `setup` (default), `reverify`, `pin-reset`, `new-device`; `register` is not a device purpose. The replay key of the request is a fresh id.
+4. `POST /identity/code/verify` answers 200 `{"verified": true}` (plus `"callbackRequired": true` after a `new-device` code), 400 `invalid` "That code is not right", 400 `invalid` "Ask for a new code" (five wrong tries, a lapsed code, no code held, a number that stopped being known), and 409 `conflict` when the code was right but the device cannot be set up with it (a revoked device id, a person who has left): the person proved the number, so telling them to start again on a new device id leaks nothing.
+5. `POST /identity/pin` sets a PIN: 200 `{"pinSet": true}`, or 403 `forbidden` "Get a code by text first." for every reason it was not (no verification in the last 10 minutes, unknown or revoked device, person who left). `POST /identity/pin/verify`: 200 `{"signedIn": true, "sessionId", "role": "reporter", "services": [...]}`; 403 `forbidden` "That PIN is not right" with `triesLeft`; 403 `forbidden` with `needsTextCode: true` for every identity that cannot sign in; 423 `lock-error` "Your PIN is locked. Get a code by text to set a new PIN." `GET /identity/status` (device in `X-Device-Id`): `{"reverifyDue", "daysLeft"}`; every device that cannot sign in is due with 0 days left. A person with no reporter post is refused the same way (no session carries a role nobody derived).
+6. Every attempt is counted against the caller's address before anything is read, under a key made of a kind and a digest (`identity-<kind>` and the address): 10 code requests, 30 code checks, 30 PIN attempts and 60 status reads per 10 minutes [ASSUMED], inside the tenant's Redis prefix. Over the limit: 429 with `Retry-After`. A cache or session store that cannot be reached: 503, nothing changed. Behind a proxy the address is the proxy's until the server trusts it (DEC-224 item 18). Responses are `no-store`.
+7. A missing secret (`phone-hash`, `code-hmac`, `pin-hmac`) is a 500 (RuntimeError), never an open route or a refusal that looks like a wrong code.
+8. No number, code, PIN, device id, session id or push subscription is in a log line, an error body or an audit entry (tests scan the log and the bodies).
+
+**Tenant pending.**
+
+- No new statement in R11. The routes bind the host's tenant (or the token's); every statement the use cases reach is converted (person, device, credential, link token, push, consent, flag, audit, idempotency).
+- The code store, session store and rate limiter are Redis, under `diucs:<tenant>:`; the tenant comes only from the bound scope.
+- Cross-scope reads: none.
+
+**Assumed.**
+
+- Address throttle limits: 10 code requests, 30 code checks, 30 PIN attempts, 60 status reads per address per 10 minutes.
+- Device id shape: 22 to 56 characters of `A-Za-z0-9_-`.
+- Purposes the identity routes take: `setup` (default), `reverify`, `pin-reset`, `new-device`.
+- A reporter session role is `reporter` only; an exec has no session here (staff sign in with Entra, W09).
+
+## DEC-414 The edge always records a verified code, and a session carries the epoch read before the PIN was checked (R11, U25, U32, U37)
+
+Status: accepted (build wave 3, bundle W3E, under DEC-133; no owner gate).
+
+1. The U32 known issue "the edge has to call `RecordTextCodeVerified` after every successful `VerifyTextCode`" is closed by construction: `ConfirmDeviceByTextCode(verify, record, start, clock)` is the only thing the route runs, and it verifies, then records (or, for `new-device`, starts the new phone) in the same call. A test fails if the record is missed. A number with only an invitation verifies and records no device (no person yet).
+2. `ReporterSignIn` reads the person's session epoch, runs `PinSignIn`, and creates the session with that epoch (DEC-412). Only `Role.REPORTER` gets a session; a person with no reporter post, or a sign-in that raced a sign out everywhere, is answered as needing a text code.
+3. `SetPinCommand.verified_at` is now optional: the edge holds no verification time (it names the device), so only the device's stored verification counts. A claimed time still can never make a stale verification fresh.
+4. `CheckReporterAccess`: the push routes check on every call that the person is active and, for a reporter, that the device the token was made for is still known (not revoked, not waiting). A token cannot be recalled (DEC-094 item 4), so without this a signed-out or removed reporter would keep acting until the token expired. Failure is the 401 of any bad token. A reporter may subscribe only the device they are signed in on; an exec names theirs.
+
+## DEC-415 Push subscriptions at the edge: the app's device id, and the endpoint is checked (R11, I14)
+
+Status: accepted (build wave 3, bundle W3E, under DEC-133; no owner gate).
+
+1. A push subscription is stored as a `Device` of its own kind (P19), and device ids are unique in a tenant across kinds, so a push subscription saved under the id of the signed-in device would be refused by the constraint. The route stores it under `app-<device id>` (`PUSH_DEVICE_PREFIX`); the consent is `notif-app-<device id>` (DEC-340 item 3). The id limit (56) keeps it inside the 64 the push store allows, and a phone's device id may not start with `app-` (a 400 everywhere), so no client can choose an id that is another device's push name.
+2. The endpoint is a URL the client chose and the server posts to, so `SavePushSubscription` refuses, before anything is stored, one that is not https, carries credentials or a fragment, uses a port other than 443, is an IP address in any form, is a single label, or ends in a local-by-convention suffix (`domain/rules/push_endpoint.py`, `check_push_endpoint`). The check is structural; it does no lookup.
+3. `POST` and `DELETE /identity/push-subscription` need role reporter or exec and an `Idempotency-Key` (R03); the answer is replayed from the cache and the durable key. The body is `{subscription: {endpoint, keys: {p256dh, auth}, expirationTime?}, wordingVersion, deviceId}`; an unknown field is refused. DELETE reads the device from `X-Device-Id` (exec) or the token (reporter). Neither answer echoes the subscription.
+
+## DEC-416 The composition root supplies the sealer, the tenant area and a submit that persists (R11, closes known issues of U27 and U28)
+
+Status: accepted (build wave 3, bundle W3E, under DEC-133; no owner gate).
+
+1. `Container` gains `sealer` (AES-GCM over the link secret, for the text code) and `area_districts_for`. `bootstrap/wiring.py` has `submit_registration(container)`: `SubmitRegistration` built with `persist=PersistRegistration(...)` (U27: the persist is optional on the use case, so a submit built without it writes nothing).
+2. `bootstrap/areas.py`: the area of a tenant (U28, DEC-317) is the setting `tenant_areas` (`DIUCS_TENANT_AREAS='{"example-icb": "DT1-DT11,BH1-BH31"}'`), districts and runs with one prefix; parsed once at start-up, so a typo stops the process. No default: a tenant with no entry, and a network scope, have an empty area, which fails every address check.
+3. Nothing in the app calls `submit_registration` yet: R10's routes compose it (known issue).
+
+## DEC-440 Tenancy is enforced: the ratchet and every transitional path are gone, and from now on the full tenancy rules apply to every task (TEN-030; closes DEC-134 item 12, DEC-144 item 3 and DEC-146 items 2 and 3)
+
+Status: accepted (build wave 4, bundle W4A, under DEC-133; no owner gate). Affects: `adapters/outbound/graph_store/queries.py`, `driver.py`, `unconverted.py` (deleted), `connection.py` (no change; its scoped helpers now refuse with nothing bound through `scope_for_new_unit`), `application/tenancy.py`, `audit_neo4j/audit_log.py`, the constructor annotation of every repository (`ScopedTx`), `unit_of_work.py`, `tests/support/` (`leaky_registry.py`, `scoped.py`, `neo4j.py`, `query_probes.py`, `predicate_removal.py`), the architecture tests, `backend/scripts/guard_mutants.py`. This is the decision DEC-134 item 12 asks for: **tenancy is enforced**. From this commit `references/multi-tenancy.md`, "Testing and evidence (once enforced)", applies to every task, and the section "The transitional rule" is history.
+
+1. **No ratchet.** `UNCONVERTED` and `unconverted.py` are deleted. `QueryRegistry()` takes no argument; `ratchet_ids`, `needs_conversion` and `is_tenant_pending` do not exist. Every tenant statement registers only with a `tenantId: $tenant` map entry (looked for after comments and the inside of strings are blanked, so `$tenant` in a `RETURN`, a comparison or a comment is not one, and neither are `$tenantId`, `tenant: $tenant` or `tenantId <> $tenant`) and a `Scenario`: `TenantPredicateMissing` and `ScenarioMissing`, naming the id and never the text. The old check was "mentions `$tenant`"; it is now the entry. The 211 statements registered at the time all had it (measured before the change), so nothing needed converting; the work was in making the rule unconditional.
+2. **One path in `run_query`, in this order, all before any Cypher:** not the registered statement, `QueryNotRegistered`; a `tenant` or `parameters` keyword, `TenantParameterRefused`; a global statement, `GlobalStatementMisuse`; a transaction that is not a `ScopedTx`, `RawTransactionRefused` (new, in `application/tenancy.py`, fixed message). The unbound exemption for a statement with no `$tenant` is deleted with the ratchet. The tenant sent is the one the `ScopedTx` carries, never the ambient one.
+3. **`Tx` is `ScopedTx` and nothing else.** `type Tx = ScopedTx`; `run_global_query` takes `GlobalTx` (a raw transaction too: the health ping, the tenant directory and the invariant check run before any scope exists). The 28 repository and store modules' constructors that were annotated `AsyncManagedTransaction` (and received a `ScopedTx` through a `cast`) are annotated `ScopedTx`, so mypy refuses to hand a raw transaction to `run_query` anywhere in `src`; the two casts in `unit_of_work.py` are gone. `ScopedTx.scope` is no longer optional: building one with `None` raises `TenantNotBound`.
+4. **Nothing opens with no scope bound.** `scope_for_new_unit()` raises `TenantNotBound` (it is `current_scope()`), so a unit of work, `Neo4jConnection.run_scoped_read/_write`, `DriverIdempotencyStore` and `ensure_audit_head` refuse before a session opens and before the place for a unit is claimed. `UnitOfWork.unit_scope` keeps its `ScopeId | None` type on the port (the in-memory test adapters and the use cases' own guards); the graph store's value is never `None` now.
+5. **Test-only escape hatches live in `tests/`, never `src`.** `tests/support/leaky_registry.py::LeakyRegistry` registers any statement (the generated test must run a leaky twin and a statement with its predicate removed, which the production registry refuses); `tests/support/scoped.py::OpenTx` is a `ScopedTx` that also forwards `run`, `commit` and the rest to the transaction it wraps, and `scoped(tx)` / `scoped_stub(tx, tenant)` hand a test the transaction a unit of work would. `write_tx` and `read_tx` hand the callback an `OpenTx` when a tenant is bound (the raw transaction when none is), and the 10 test modules that held a transaction open with `begin_transaction` wrap it. An architecture rule keeps `tests` and every ratchet name (`UNCONVERTED`, `unconverted`, `is_tenant_pending`, `needs_conversion`, `ratchet_ids`) out of `src`, and keeps `QueryRegistry(...)` out of every module but `queries.py`, where it is built once with no argument.
+6. **A lint over every registered statement.** `tests/unit/adapters/outbound/graph_store/test_tenant_predicate.py` reads every node pattern of every production statement and fails unless it carries `tenantId: $tenant` or is a reference to a variable an earlier pattern scoped. Four statements have unanchored ends and are listed with the reason, pinned by count: `Q-RES-CLEAR-OWNED` (2), `Q-RES-LOAD-NODES` (2), `Q-RES-LOAD-RELS` (3) and `Q-RES-CLEAR-ROOT-RELS` (1). Each starts at a `Resource` root that carries the predicate and reaches its other nodes through a path from it (the `()` steps of a quantified path, or the far end of a relationship it deletes or reads); the generated test proves each, and the cross-scope relationship check of TEN-031 (DEC-442) is what would reveal a relationship that joined two scopes, the only way such an end could reach another tenant. A new entry in the table is a deliberate, reviewed change. No statement was found that is not tenant-scoped: nothing was converted in this task, and no write path outside the registry exists (the architecture rule allows `.run` only in `driver.py` and the migration runner).
+7. **The built-cypher ratchet stays** (7 statements splice a module constant, by file and count). It is a different control (no Cypher built from pieces), not an exemption from the tenant rule: those statements are registered and linted like the rest.
+8. **Mutant evidence.** `backend/scripts/guard_mutants.py` removes one guard at a time in a scratch copy of `src` and runs the test named for it; each is killed with its named test failing and passes with the guard in place. The table (id, guard, test) is in the script. The predicate removal of every registered statement (the entry taken out, the generated two-tenant test must fail for it, and the original must be clean) is `test_removing_the_tenant_predicate_makes_the_generated_test_fail`, which ran with no survivor over all 211 statements.
+9. **Not built, on purpose.** No `TENANCY_MODE` setting: the mode was withdrawn in DEC-142 item 7 and DEC-144 item 8, so `settings.py` is not touched. The `UNCONVERTED` ratchet's pinned list of 126 initial ids (`INITIAL_UNCONVERTED`) is deleted with it.
+
+**Tenant pending.**
+
+- None. No statement is unconverted, no ratchet remains, and the unbound exemption is deleted. A statement added by a later task is refused at import until it has the predicate entry and a scenario.
+- A branch that still holds `from ...graph_store.unconverted import UNCONVERTED`, `QueryRegistry(unconverted=...)`, a repository built on a raw `begin_transaction()`, or a unit of work opened with nothing bound will fail after merging this: use `LeakyRegistry` (tests only), `scoped(await session.begin_transaction())` and a bound tenant.
+
+## DEC-441 Two whole-graph counts join the global allowlist: what they may read and why the label rule yields to a shape rule for them (TEN-031; extends DEC-163 items 2 and 3)
+
+Status: accepted (build wave 4, bundle W4A, under DEC-133; no owner gate). Affects: `graph_store/queries.py` (`GLOBAL_QUERY_IDS`, `GLOBAL_STATEMENTS`, `GLOBAL_WHOLE_GRAPH_IDS`, `_check_global_text`), `graph_store/invariants.py` (new), `tests/unit/adapters/outbound/graph_store/test_global_allowlist.py`, `tests/architecture/test_tenant_registry_access.py`. Exactly two statements are added and no more.
+
+1. **`Q-INVARIANT-UNSTAMPED`** is `MATCH (n) WHERE n.tenantId IS NULL AND none(l IN labels(n) WHERE l IN $registryLabels) RETURN labels(n) AS labels, count(*) AS n`: the nodes that carry no `tenantId` and are not registry nodes, by label set. `$registryLabels` is `REGISTRY_LABELS` of the tenant migrations (`Migration`, `Tenant`, `TenantNumber`, `Network`, `NetworkMembership`, `Grant`), the one list. **`Q-INVARIANT-CROSS-SCOPE`** is `MATCH (a)-[r]->(b) WHERE a.tenantId IS NOT NULL AND b.tenantId IS NOT NULL AND a.tenantId <> b.tenantId RETURN type(r) AS type, count(*) AS n`: the relationships that join two scopes, by type. Both are the text of the queries `invariant_violations` (TEN-005) already ran, so the helper and the check cannot drift apart (a test compares them). Both are read-only, on `GLOBAL_QUERY_IDS` with a reason that says "count", and pinned in `GLOBAL_STATEMENTS` by the SHA-256 of the exact text (DEC-163 item 2): `795489a314b9d937367c5d30b530ded1f438ece68ffc863bcb3bcb013ed90f3f` and `bbd3e4db80928a1d8dba2bf3991dc4c840acd649e682b3b0961f04ed9e55a179`.
+2. **The label rule cannot hold for a scan of every node**, so for these two ids only (`GLOBAL_WHOLE_GRAPH_IDS`, pinned by a test) the structural check, which stays behind the pin, is changed in three ways: a node may be named by variable alone (`(n)`, never with a property map), `none` and `type` are allowed functions, and the text must end in exactly one `RETURN` of a label set or a relationship type and a count (`RETURN labels(n) AS x, count(*) AS y` or `RETURN type(r) AS x, count(*) AS y`), so no property value can leave the graph whatever the pin says. The write, procedure, `;`, brace and parenthesis checks are unchanged. An id on the allowlist that is not a whole-graph id keeps the label rule (`(n)` is refused under it).
+3. **Run through `run_global_query` in one read transaction, with no scope bound and none sent** (`Neo4jTenantInvariants.check`): the check is the platform's. It raises what the driver raises when Neo4j does not answer; it never reports a clean graph it did not read. Rows are read by name (`KeyError` on a malformed row), groups are sorted, and the report (`InvariantReport`: `UnstampedNodes(labels, count)`, `CrossScope(type, count)`) holds label names, types and counts only: never an id, a property value or a tenant. The architecture rules: only `invariants.py` (with the driver, the ping and the directory) runs a global statement, it binds nothing and runs no tenant statement, it names no registry label in Cypher, and only the composition root builds it.
+
+**Tenant pending.**
+
+- None. The two statements are global by design and scenario-free (the generated two-tenant test has no tenant for a global statement); the integration test on a graph that also holds two tenants' data is their proof, as for the directory's statements (DEC-163).
+
+## DEC-442 The invariant check runs at start-up, where a violation stops the process, and daily as scheduled work, where it raises a flag (TEN-031; DEC-134 item 11, audit F H-T19)
+
+Status: accepted (build wave 4, bundle W4A, under DEC-133; no owner gate). Affects: `application/ports/outbound/invariants.py` (new: `InvariantReport`, `TenantInvariants`, `TenantInvariantViolated`), `application/use_cases/tenant_invariants.py` (new), `application/work.py` (`WorkKind.INVARIANT_CHECK`), `bootstrap/container.py`, `graph_store/health.py` (`invariant_health`), `tests/unit/bootstrap/test_container.py`.
+
+1. **Start-up refuses.** `Container.startup()` runs the check after the migrations (which stamp what they stamp) and the audit heads. Any unstamped node or any relationship between two scopes records the report on the process's `InvariantMonitor` and raises `TenantInvariantViolated`; the connection is closed and the process does not start (the same path as a failed migration). The message is the report's summary: `3 nodes have no tenantId (Observation:Resource x2, Person x1); 1 relationship joins two scopes (ABOUT x1)`.
+2. **Daily, by the scheduled-work seam, as the criteria review (U31) does.** `WorkKind.INVARIANT_CHECK`; `RunInvariantCheck` runs at 03:30 London (`INVARIANT_RUN_AT`, [ASSUMED]), marks its work id processed first (so a second delivery checks nothing and schedules no second run), checks, records the report on the monitor, schedules its own next run at 03:30 on the next London date through `schedule_work` and commits, all in one unit of work: a check that fails (Neo4j did not answer) leaves no mark and no next run, so the delivery is retried. `ensure_invariant_schedule` seeds the first run for each tenant at start-up with the deterministic id `invariant-check:<tenant>:<london date>` (a second writer is a `Conflict`, which means it is already scheduled); `Container.seed_daily_schedules` calls it beside the criteria review, and the worker's `serve` already calls that. The dispatch table has the new kind (`invariant_check_handler`). A violation does not stop the job: the flag stays raised and the next run clears it after a repair.
+3. **The flag is `InvariantMonitor.raised`, the log and `invariant_health`.** The monitor logs the counts and label names at ERROR once on each change (`tenant invariant violated: ...`) and at INFO when it clears; `invariant_health(monitor)` returns `Health(DEGRADED, summary)` while the last check found a violation and OK otherwise. The summary carries label names, relationship types and counts only.
+4. **One check for each tenant, not one for the platform.** The seam is tenant-bound (a `ScheduledWork` row belongs to a tenant), so each active tenant runs the platform-wide check daily; it is two reads of the graph, and the flag is idempotent. A platform-level scheduler that is not a tenant's does not exist yet.
+5. **Not built, and said so:** the per-tenant service-count reconciliation of the audit's H-T19 (the board count against the services stored for the tenant) is not built: it needs the board read path of the network tasks and has no statement of its own here; and the board is not degraded by the flag (see the known issues). Neither is in the orchestrator's text for this task.
+
+## DEC-450 The contract step as built: one migration that drops constraints only, behind a precondition (TEN-032, refines DEC-134 items 10 and 13 and DEC-159 items 1 and 2)
+
+Status: accepted (build wave 4, bundle W4B, under DEC-133; no owner gate). Affects: `adapters/outbound/graph_store/migrations_contract.py` (new), `migration_types.py` (`Migration.requires`), `migrations.py` (the area is assembled, the precondition is checked), `backend/tests/support/things.py`, and the tests `test_migrations_contract.py` (new), `test_migration_runner.py`, `test_migration_ids.py`, `test_tenant_contract.py` (new), `test_tenant_migrations.py`, `test_tenant_directory.py`.
+
+1. **One migration, `0105_drop_superseded_keys`** (the first of the block 0105 to 0109; 0106 to 0109 are unused). It is `DROP CONSTRAINT <name> IF EXISTS` for each of the eighteen names in `SUPERSEDED_CONSTRAINTS`, one statement per transaction (lesson L8), and nothing else: no index, no data step, no parameter. It sorts after every other migration, so an expanded database applies it alone and a fresh one applies it last.
+2. **The indexes stay.** The prompt text said "constraints and indexes"; the owner's instruction for this task was DROP CONSTRAINT only. The six superseded single-property range indexes (`obs_by_service`, `task_by_status`, `svc_active`, `phone_hash`, `communication_provider_id`, `protected_contact_role_id`) change no answer, only a plan; the composite indexes serve the same lookups. They are not dropped here. A later migration may drop them once a plan review shows nothing leans on them (known issue below). `location_position` is a point index and stays.
+3. **A key is never dropped without its replacement.** `Migration` has a new field `requires` (constraint names). The runner reads the constraint names once, before the first statement, and raises `MigrationFailed("migration <id> failed at precondition: constraint <name> is missing, ...")` if any is absent: nothing is dropped and the migration is not recorded. `0105` requires the eighteen composite names (taken from the `replaces` column of `COMPOSITE_CONSTRAINTS`, one source). A migration with no requirement does not look at the schema.
+4. **What stays global.** `link_token_hash` (a hash is looked up with no scope, DEC-131 item 5), `migration_id`, and the keys of the `Tenant` and `TenantNumber` registry nodes. A unit test replays every migration's statements in id order and asserts that the only unique key on a tenant label that does not lead with `tenantId` is `link_token_hash`.
+5. **The shared schema is the contracted schema.** The harness applies every migration, so it now allows a second tenant to hold the same Concept, Communication, AuditHead, Device, Resource and every other keyed id. `ensure_audit_head` for a second tenant works on it, and `Container.startup` for two active tenants is tested on the shared harness container (it ran on a private contracted one). `contracted_container()` and `contract_schema()` are kept and still pass (they now drop nothing that exists); no test was deleted.
+6. **Lifetime-unique case references are gone.** `case_reference_id` is dropped; the per-tenant constraint is on `openReference`, which is set only while a case is open (migration 0033). A closed case's reference no longer blocks a new case in the same tenant. Whether a reference may be reused is the reference generator's rule, not the schema's.
+7. **The fresh and the contracted database are identical.** A test applies every migration but `0105` on one private container, then the rest, and compares name, type, entity type, label, properties and owning constraint of every constraint and index with a database that applied everything at once. The contract is safe to run again: with its record deleted it drops nothing, creates nothing and records itself again.
+8. **Repair of a TEN-030 leftover.** `tests/support/things.py` still built `QueryRegistry(unconverted=...)`, which TEN-030 removed, so `tests/integration/adapters/inbound/fhir_rest/test_concurrency.py` failed at collection and interrupted a whole directory run. Its five test-only statements now name `tenantId: $tenant` and carry a placeholder scenario. TEN-033 lists that file; this is the minimum that lets the suite collect.
+
+9. **Tests that pinned a key were rewritten, none deleted.** Nine tests wrote a raw duplicate with no tenant and expected the single-property key to refuse it (`test_contact_store`, `test_credential_store` x2, `test_flag_repository`, `test_idempotency_store` x2, `test_case_repository` lifetime reference); they now stamp the tenant and the composite key refuses the repeat. A raw node with no `tenantId` is not covered by a composite key (Neo4j Community ignores a null): the registry stops a statement that omits the tenant and `invariant_violations` finds a node that has none (TEN-031). `test_driver` expects the composite names and the absence of the old ones, `test_neo4j_harness` looks for `tenant_resource_id`, `test_resource_store` now asserts that a second tenant holds the id (it was a `Conflict`), and `test_case_repository` gains a test that a closed case's reference can be held again.
+10. **A leak in a TEN-031 test.** `test_tenant_invariants.py::test_a_registry_node_with_no_tenant_is_not_a_violation[Migration]` left a `:Migration` node `registry-1` that the clean-graph wipe keeps, so `test_neo4j_harness.py::test_migration_nodes_survive_clean_graph` counted 39 for 38 later in a full run (it passed alone). The probe is now deleted in a `finally`.
+
+**Tenant pending.**
+
+- None. No statement was added or changed; the registry and the ratchet are untouched.

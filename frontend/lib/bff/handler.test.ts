@@ -4,7 +4,7 @@ import { FhirError } from '@/lib/fhir/client';
 import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Session } from '@/lib/auth/session';
 import { cookieWrites, lastWrite, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
-import { requestAs, sessionFor } from '@/test/requests';
+import { csrfFor, requestAs, sessionFor } from '@/test/requests';
 import { TENANTS } from '@/test/tenants';
 import { withBff } from './handler';
 
@@ -13,7 +13,9 @@ vi.mock('next/headers', async () => {
   return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-const TOKEN = 'A'.repeat(43);
+// The CSRF token issued to the sample session. (SESSION_SECRET is set here, before the first test.)
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const TOKEN = csrfFor(sessionFor(TENANTS.A, 'advisor'));
 const URL_ = `https://${TENANTS.A.host}/api/bff/thing`;
 
 function sample(role: Session['role']): Session {
@@ -452,5 +454,38 @@ describe('an id that is not in this tenant looks like an id that is nowhere (TEN
       throw new FhirError(403, outcome('forbidden'));
     });
     expect((await wrapped(await request('GET'), undefined)).status).toBe(403);
+  });
+});
+
+describe('the CSRF token is the session’s own (TEN-046)', () => {
+  const run = async (csrf: string) => {
+    const handler = vi.fn(() => new Response('done'));
+    const response = await withBff(handler)(await requestAs(TENANTS.A, 'advisor', { method: 'POST', csrf }), undefined);
+    return { response, handler };
+  };
+
+  it('runs the handler for the token issued to the session', async () => {
+    const { response, handler } = await run(TOKEN);
+    expect(response.status).toBe(200);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('answers 403 csrf for a matching cookie and header that were issued to another tenant’s session', async () => {
+    const forB = csrfFor(sessionFor(TENANTS.B, 'advisor'));
+    const { response, handler } = await run(forB);
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ code: 'csrf' });
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('answers 403 csrf for a planted matching pair of the old unbound shape', async () => {
+    const { response, handler } = await run('A'.repeat(43));
+    expect(response.status).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('answers 403 csrf for a token issued to another person of the same tenant', async () => {
+    const { response } = await run(csrfFor(sessionFor(TENANTS.A, 'advisor', { sub: 'stf-another-person' })));
+    expect(response.status).toBe(403);
   });
 });

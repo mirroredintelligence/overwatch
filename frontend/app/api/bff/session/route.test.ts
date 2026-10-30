@@ -10,7 +10,7 @@ import {
   resetCookieWrites,
   TEST_SESSION_SECRET,
 } from '@/test/cookies';
-import { sessionFor } from '@/test/requests';
+import { csrfFor, sessionFor } from '@/test/requests';
 import { TENANTS } from '@/test/tenants';
 import { DELETE, GET } from './route';
 
@@ -21,7 +21,7 @@ vi.mock('next/headers', async () => {
 
 const BACKEND_TOKEN = 'backend-token-sample-value';
 const URL_ = `https://${TENANTS.A.host}/api/bff/session`;
-const TOKEN = 'A'.repeat(43);
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
 
 const session: Session = sessionFor(TENANTS.A, 'advisor', {
   services: ['svc-1', 'svc-2'],
@@ -29,6 +29,8 @@ const session: Session = sessionFor(TENANTS.A, 'advisor', {
   device: 'dev-1',
   backendToken: BACKEND_TOKEN,
 });
+// The CSRF token the session was issued: bound to its person, tenant, host and expiry.
+const TOKEN = csrfFor(session);
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
@@ -52,7 +54,7 @@ describe('GET /api/bff/session', () => {
     expect(body).toEqual({
       role: 'advisor',
       services: ['svc-1', 'svc-2'],
-      csrfToken: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      csrfToken: expect.stringMatching(/^[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/),
     });
     expect(text).not.toContain(BACKEND_TOKEN);
     expect(text).not.toContain('backendToken');
@@ -80,14 +82,25 @@ describe('GET /api/bff/session', () => {
     expect(cookieWrites.filter((w) => w.name === CSRF_COOKIE)).toHaveLength(0);
   });
 
-  it('replaces a csrf cookie that is not a 32-byte token', async () => {
+  it('replaces a csrf cookie that is not a token of this session: too short, the old unbound shape, or another tenant’s', async () => {
     const cookie = await sealSession(session);
-    const response = await GET(
-      requestWithCookies(URL_, { [SESSION_COOKIE]: cookie, [CSRF_COOKIE]: 'short' }),
-    );
-    const body = await response.json();
-    expect(body.csrfToken).not.toBe('short');
-    expect(lastWrite(CSRF_COOKIE)?.value).toBe(body.csrfToken);
+    const other = csrfFor(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host, expiresAt: session.expiresAt }));
+    for (const stale of ['short', 'A'.repeat(43), other]) {
+      resetCookieWrites();
+      const response = await GET(requestWithCookies(URL_, { [SESSION_COOKIE]: cookie, [CSRF_COOKIE]: stale }));
+      const body = await response.json();
+      expect(body.csrfToken).not.toBe(stale);
+      expect(body.csrfToken).toMatch(/^[A-Za-z0-9_-]{43}\.[A-Za-z0-9_-]{43}$/);
+      expect(lastWrite(CSRF_COOKIE)?.value).toBe(body.csrfToken);
+    }
+  });
+
+  it('returns a csrf token that the checks accept for this session and refuse for another tenant’s', async () => {
+    const cookie = await sealSession(session);
+    const body = await (await GET(requestWithCookies(URL_, { [SESSION_COOKIE]: cookie }))).json();
+    const { verifyCsrfToken } = await import('@/lib/auth/csrf');
+    expect(verifyCsrfToken(session, body.csrfToken)).toBe(true);
+    expect(verifyCsrfToken(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host, expiresAt: session.expiresAt }), body.csrfToken)).toBe(false);
   });
 
   it('returns 401 no-session with no cookie, and sets no cookie', async () => {

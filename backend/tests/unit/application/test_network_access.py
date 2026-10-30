@@ -205,7 +205,7 @@ async def test_the_view_holds_the_admitted_listings_with_the_scopes_of_effective
 
     b = view.listing_for(MEMBER_B, "svc-1")
     assert b is not None
-    assert (b.row_ref, b.organisation_name) == ("lst-b-1", "B Trust")
+    assert (b.row_ref, b.organisation_name) == (make_listing().id, "B Trust")
     assert b.scopes == {GrantScope.CAPACITY, GrantScope.DIRECTORY}  # a pending grant is no scope
     c = view.listing_for(MEMBER_C, "svc-9")
     assert c is not None and c.scopes == {GrantScope.CAPACITY}

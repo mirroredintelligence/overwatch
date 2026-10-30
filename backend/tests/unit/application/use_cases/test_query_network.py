@@ -287,7 +287,7 @@ async def test_no_entry_names_a_tenant_a_grant_or_a_source_service() -> None:
     text = repr(result.board)
     for hidden in (MEMBER_B, MEMBER_C, "g-b-capacity", "g-x", "svc-9"):
         assert hidden not in text
-    assert {e.row_ref for e in result.board.entries} == {"lst-b-1", "lst-c-1"}
+    assert {e.row_ref for e in result.board.entries} == {make_listing().id, "lst-c-1"}
 
 
 async def test_the_pressure_is_over_the_shown_entries_with_the_default_thresholds() -> None:

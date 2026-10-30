@@ -33,6 +33,8 @@ from tests.support.booking_rig import CASE_ID, SERVICE_ID, at, request, seed_wor
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads
 
+EMPTY_PARAMETERS = {"resourceType": "Parameters"}
+
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 LINK_SECRET = b"link-token-test-secret-0123456789abcdef"
@@ -325,7 +327,7 @@ async def test_the_advisor_acknowledges_a_withdrawal_and_the_escalation_is_cance
     assert withdrawn.status_code == 200, withdrawn.text
     test_container.clock.set(at(14, 45))
     response = await api_client.post(
-        f"/fhir/Task/{booking_id}/$acknowledge",
+        f"/fhir/Task/{booking_id}/$acknowledge", json=EMPTY_PARAMETERS,
         headers=_keyed(_advisor(), "r17-cancel-3"),
     )
     assert response.status_code == 200, response.text
@@ -355,10 +357,10 @@ async def test_a_second_acknowledgement_is_200_and_writes_no_second_audit_entry(
     )
     test_container.clock.set(at(14, 45))
     first = await api_client.post(
-        f"/fhir/Task/{booking_id}/$acknowledge", headers=_keyed(_advisor(), "r17-twice-3")
+        f"/fhir/Task/{booking_id}/$acknowledge", json=EMPTY_PARAMETERS, headers=_keyed(_advisor(), "r17-twice-3")
     )
     second = await api_client.post(
-        f"/fhir/Task/{booking_id}/$acknowledge", headers=_keyed(_advisor(), "r17-twice-4")
+        f"/fhir/Task/{booking_id}/$acknowledge", json=EMPTY_PARAMETERS, headers=_keyed(_advisor(), "r17-twice-4")
     )
     assert first.status_code == 200 and second.status_code == 200
     async with uow_factory_a() as uow:
@@ -384,7 +386,7 @@ async def test_a_not_reached_booking_is_acknowledged_with_nothing_cancelled(
     )
     assert reported.status_code == 200, reported.text
     response = await api_client.post(
-        f"/fhir/Task/{booking_id}/$acknowledge", headers=_keyed(_advisor(), "r17-reached-3")
+        f"/fhir/Task/{booking_id}/$acknowledge", json=EMPTY_PARAMETERS, headers=_keyed(_advisor(), "r17-reached-3")
     )
     assert response.status_code == 200
     assert response.json()["parameter"][0] == {"name": "acknowledged", "valueBoolean": True}
@@ -402,7 +404,7 @@ async def test_a_confirmed_booking_cannot_be_acknowledged(
     booking_id = await _seed_requested(uow_factory_a, neo4j_driver, "r17-confirmed")
     await _confirm(api_client, booking_id, "r17-confirmed-1")
     response = await api_client.post(
-        f"/fhir/Task/{booking_id}/$acknowledge", headers=_keyed(_advisor(), "r17-confirmed-2")
+        f"/fhir/Task/{booking_id}/$acknowledge", json=EMPTY_PARAMETERS, headers=_keyed(_advisor(), "r17-confirmed-2")
     )
     assert response.status_code == 409
     assert response.json()["issue"][0]["code"] == "business-rule"
@@ -418,7 +420,7 @@ async def test_a_reporter_gets_404_for_an_acknowledgement(
 ) -> None:
     booking_id = await _seed_requested(uow_factory_a, neo4j_driver, "r17-role")
     response = await api_client.post(
-        f"/fhir/Task/{booking_id}/$acknowledge", headers=_keyed(_reporter(), "r17-role-1")
+        f"/fhir/Task/{booking_id}/$acknowledge", json=EMPTY_PARAMETERS, headers=_keyed(_reporter(), "r17-role-1")
     )
     assert response.status_code == 404
 
@@ -431,7 +433,7 @@ async def test_an_acknowledgement_without_an_idempotency_key_is_400(
     uow_factory_a: UnitOfWorkFactory,
 ) -> None:
     booking_id = await _seed_requested(uow_factory_a, neo4j_driver, "r17-nokey")
-    response = await api_client.post(f"/fhir/Task/{booking_id}/$acknowledge", headers=_advisor())
+    response = await api_client.post(f"/fhir/Task/{booking_id}/$acknowledge", json=EMPTY_PARAMETERS, headers=_advisor())
     assert response.status_code == 400
 
 

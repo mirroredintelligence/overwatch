@@ -32,6 +32,8 @@ from tests.support.api import R01_TEST_NOW, token_headers
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads
 
+EMPTY_PARAMETERS = {"resourceType": "Parameters"}
+
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 LEAD = "prac-lead"
@@ -181,7 +183,7 @@ async def test_acknowledging_an_own_alert_marks_it_and_leaves_the_board_alone(
     api_client: AsyncClient, alert_world: None, tenant_id: str, uow_factory_a: UnitOfWorkFactory
 ) -> None:
     acknowledged = await api_client.post(
-        "/fhir/Task/alert-own/$acknowledge",
+        "/fhir/Task/alert-own/$acknowledge", json=EMPTY_PARAMETERS,
         headers={
             "Idempotency-Key": "acknowledge-0001",
             **token_headers(tenant_id, Role.LEAD, sub=LEAD),
@@ -200,7 +202,7 @@ async def test_acknowledging_another_owners_alert_is_not_found(
     api_client: AsyncClient, alert_world: None, tenant_id: str
 ) -> None:
     refused = await api_client.post(
-        "/fhir/Task/alert-other/$acknowledge",
+        "/fhir/Task/alert-other/$acknowledge", json=EMPTY_PARAMETERS,
         headers={
             "Idempotency-Key": "acknowledge-0002",
             **token_headers(tenant_id, Role.LEAD, sub=LEAD),
@@ -214,7 +216,7 @@ async def test_snoozing_moves_the_next_escalation_one_hour_later(
     api_client: AsyncClient, alert_world: None, tenant_id: str
 ) -> None:
     snoozed = await api_client.post(
-        "/fhir/Task/alert-own/$snooze",
+        "/fhir/Task/alert-own/$snooze", json=EMPTY_PARAMETERS,
         headers={
             "Idempotency-Key": "snooze-0001",
             **token_headers(tenant_id, Role.LEAD, sub=LEAD),
@@ -254,7 +256,7 @@ async def test_tenant_b_cannot_acknowledge_an_alert_of_tenant_a(
     uow_factory_a: UnitOfWorkFactory,
 ) -> None:
     refused = await api_client.post(
-        "/fhir/Task/alert-own/$acknowledge",
+        "/fhir/Task/alert-own/$acknowledge", json=EMPTY_PARAMETERS,
         headers={
             "Idempotency-Key": "acknowledge-0003",
             **token_headers(other_tenant_id, Role.LEAD, sub=LEAD),

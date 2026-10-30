@@ -30,6 +30,8 @@ from tests.support.api import R01_TEST_NOW, token_headers
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads
 
+EMPTY_PARAMETERS = {"resourceType": "Parameters"}
+
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 PRESENCE = "/clinical/presence"
@@ -122,7 +124,7 @@ async def test_taking_a_request_that_does_not_exist_is_not_found(
     api_client: AsyncClient, clinical_world: None, tenant_id: str
 ) -> None:
     response = await api_client.post(
-        "/fhir/Task/req-missing/$take",
+        "/fhir/Task/req-missing/$take", json=EMPTY_PARAMETERS,
         headers={
             "Idempotency-Key": "take-0001",
             **token_headers(tenant_id, Role.CLINICAL, sub="clin-1"),

@@ -519,6 +519,11 @@ TENANT_FREE = {
 BINDS_ITSELF = {
     ("POST", "/screens/pairing"): "tenant from the host (R15)",
     ("GET", "/screens/pairing/{pairing_id}"): "tenant from the host (R15)",
+    ("POST", "/identity/code"): "tenant from the host (R11)",
+    ("POST", "/identity/code/verify"): "tenant from the host (R11)",
+    ("POST", "/identity/pin"): "tenant from the host (R11)",
+    ("POST", "/identity/pin/verify"): "tenant from the host (R11)",
+    ("GET", "/identity/status"): "tenant from the host (R11)",
     ("POST", "/webhooks/sms/twilio"): "tenant from the number called and the account (I07)",
     ("POST", "/webhooks/sms/twilio/status"): "tenant from the account and the message (I07)",
     ("GET", "/links/{token}"): "tenant from the link token record (L01)",

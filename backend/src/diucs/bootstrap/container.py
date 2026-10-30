@@ -17,7 +17,7 @@ process that serves, and without one every secret reads as not found (fail close
 """
 
 import random
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -79,6 +79,7 @@ from diucs.application.ports.outbound.identity import (
     TenantKeyedSecrets,
 )
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.telemetry_query import (
     SessionFilters,
     SessionSummary,
@@ -111,7 +112,9 @@ from diucs.application.use_cases.missed_report_ladder import (
     LadderStepCommand,
     MissedReportLadder,
 )
+from diucs.application.use_cases.review_registration import AreaDistrictsFor
 from diucs.application.work import ScheduledWork, WorkKind
+from diucs.bootstrap.areas import area_districts_for
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
 from diucs.domain.model.telemetry_aggregates import DayAggregates
@@ -172,6 +175,12 @@ class Container:
     telemetry: TelemetryQuery
     # The dispatch table of the scheduled.work queue: the missed-report ladder steps (I05, DEC-192).
     scheduled_work: ScheduledWorkDispatcher
+    # Seals the text code (and any other secret content) before it is written to the outbox, so
+    # only the sender that opens it ever sees it (U25, R11).
+    sealer: ContentSealer
+    # The area of each tenant for the registration review (U28, DEC-317): no default, so a tenant
+    # with no entry in the settings has an empty area (R11 wiring, bootstrap/wiring.py).
+    area_districts_for: AreaDistrictsFor
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -388,6 +397,8 @@ def build(
             )
         ),
         scheduled_work=_scheduled_work(uow_factory, clock, ids, store, settings.base_url),
+        sealer=AesGcmContentSealer(store),
+        area_districts_for=area_districts_for(settings.tenant_areas),
     )
 
 
@@ -402,6 +413,7 @@ def build_for_tests(
     rng: random.Random | None = None,
     telemetry: TelemetryQuery | None = None,
     link_base_url: str = TEST_LINK_BASE_URL,
+    areas: Mapping[str, str] | None = None,
 ) -> Container:
     """Wire the container for tests: a fixed clock and sequential ids unless overridden, and a
     recording fake secret store that holds nothing unless one is passed.
@@ -444,4 +456,6 @@ def build_for_tests(
         scheduled_work=_scheduled_work(
             uow_factory, resolved_clock, resolved_ids, store, link_base_url
         ),
+        sealer=AesGcmContentSealer(store),
+        area_districts_for=area_districts_for({} if areas is None else areas),
     )

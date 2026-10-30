@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     os_places_api_key: SecretStr | None = None
     # I12: the pilot ODS sample and the local CodeSystem files. The default is the repo's folder.
     terminology_dir: Path = Path(__file__).resolve().parents[3] / "terminology"
+    # U28 (DEC-317): the area of each tenant, for the registration review's address check, as the
+    # tenant id and its districts and runs: {"example-icb": "DT1-DT11,BH1-BH31"}. No default: a
+    # tenant with no entry has an empty area, which fails every address check.
+    tenant_areas: dict[str, str] = {}
     # O07: the Log Analytics workspace the support console reads raw telemetry from. Unset: the
     # telemetry query refuses every read (fail closed). The workspace id is not a secret.
     telemetry_workspace_id: str | None = None

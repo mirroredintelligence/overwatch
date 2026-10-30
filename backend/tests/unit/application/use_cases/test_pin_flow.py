@@ -628,3 +628,19 @@ async def test_a_naive_verification_time_is_refused() -> None:
         await world.record.execute(
             RecordTextCodeVerifiedCommand(PERSON, DEVICE, datetime(2026, 10, 29, 14, 0), "setup")
         )
+
+
+async def test_a_pin_is_set_from_the_stored_verification_when_no_time_is_claimed() -> None:
+    world = World()
+    world.device(verified_ago=timedelta(minutes=2))
+    result = await world.set_pin.execute(SetPinCommand(PERSON, DEVICE, PIN))
+    assert result.ok is True
+    assert world.state() == PinState()
+
+
+async def test_a_pin_is_refused_with_no_claim_and_no_recent_stored_verification() -> None:
+    world = World()
+    world.device(verified_ago=timedelta(minutes=11))
+    assert (await world.set_pin.execute(SetPinCommand(PERSON, DEVICE, PIN))).ok is False
+    world.device(verified_ago=None)
+    assert (await world.set_pin.execute(SetPinCommand(PERSON, DEVICE, PIN))).ok is False

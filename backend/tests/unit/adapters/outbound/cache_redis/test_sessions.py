@@ -2,6 +2,8 @@
 refusals that come before any Redis call. No Docker; the Redis client is never reached here."""
 
 import base64
+import json
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -70,11 +72,28 @@ def test_text_that_is_not_a_session_body_decodes_to_none(text: str) -> None:
 async def test_create_without_a_tenant_is_refused_before_redis() -> None:
     store = RedisSessionStore(NO_CLIENT)
     with pytest.raises(TenantNotBound):
-        await store.create(Role.REPORTER, "prac-1", "device-1", (), NOW)
+        await store.create(Role.REPORTER, "prac-1", "device-1", (), NOW, epoch=0)
+
+
+async def test_a_session_body_keeps_its_epoch_and_an_old_body_reads_as_epoch_zero() -> None:
+    session = replace(_session(), epoch=3)
+    assert decode_session(session.session_id, encode_session(session)) == session
+    old = json.loads(encode_session(_session()))
+    del old["epoch"]
+    assert decode_session("a-session-id", json.dumps(old)) == _session()
+
+
+@pytest.mark.parametrize("epoch", ["3", -1, True, None, 1.5])
+def test_a_body_with_a_bad_epoch_decodes_to_none(epoch: object) -> None:
+    body = json.loads(encode_session(_session()))
+    body["epoch"] = epoch
+    assert decode_session("a-session-id", json.dumps(body)) is None
 
 
 async def test_get_touch_delete_and_delete_all_without_a_tenant_are_refused() -> None:
     store = RedisSessionStore(NO_CLIENT)
+    with pytest.raises(TenantNotBound):
+        await store.epoch("prac-1")
     with pytest.raises(TenantNotBound):
         await store.get("a-session-id")
     with pytest.raises(TenantNotBound):

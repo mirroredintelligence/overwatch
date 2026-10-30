@@ -672,8 +672,13 @@ class SendPrompts:
 
 async def _phone_hash(uow: UnitOfWork, role: PractitionerRole, now: datetime) -> str | None:
     """The phone hash of whoever holds the role now (cover honoured). A holder who is missing,
-    inactive or has no phone cannot be texted: that role is left out."""
+    inactive or has no phone cannot be texted: that role is left out. So is a holder whose new
+    phone waits for the lead's call-back (U37): the old one may be lost, so nothing is texted to the
+    number until the lead has phoned the register number. The cover is the holder while a cover is
+    in force, and with no one to text the ladder tells the lead."""
     holder = await uow.people.get_practitioner(role_holder(role, now))
     if holder is None or not holder.active:
+        return None
+    if await uow.devices.awaiting_callback(holder.id):
         return None
     return holder.phone_hash

@@ -74,3 +74,15 @@
   color: var(--c-muted);
   font-size: var(--type-caption-size);
 }
+
+.banner {
+  padding: var(--space-3) var(--space-4);
+  color: var(--c-bg);
+  background: var(--c-ink);
+  border-radius: var(--radius-card);
+}
+
+.bannerTitle {
+  margin: 0 0 var(--space-1);
+  font-size: var(--type-title-size);
+}

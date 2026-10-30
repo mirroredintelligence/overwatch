@@ -31,6 +31,8 @@ type Props = {
   /** False after the back end refused a second confirm: only a number can be sent then. */
   confirmAllowed: boolean;
   onAnswer: (answer: Answer) => void;
+  /** Set when the phone holds several services and one is being changed (W38). */
+  serviceBanner?: { name: string; position: number; total: number };
 };
 
 const MIN = 0;
@@ -40,7 +42,7 @@ function capitalise(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-export function CapacityResponseForm({ prompt, busy, notice, confirmAllowed, onAnswer }: Props) {
+export function CapacityResponseForm({ prompt, busy, notice, confirmAllowed, onAnswer, serviceBanner }: Props) {
   const { noun, window: windowText } = splitUnitLabel(prompt.unitLabel);
   const [value, setValue] = useState<number | null>(null);
   const recorded = prompt.recordedValue;
@@ -48,6 +50,13 @@ export function CapacityResponseForm({ prompt, busy, notice, confirmAllowed, onA
 
   return (
     <main className={styles.page}>
+      {serviceBanner !== undefined ? (
+        <section className={styles.banner} aria-label="Service being updated">
+          <h2 className={styles.bannerTitle}>{`Updating ${serviceBanner.name}`}</h2>
+          <p>{`${serviceBanner.name} · ${serviceBanner.position} of ${serviceBanner.total}`}</p>
+          <a href="/app/update">Back to both</a>
+        </section>
+      ) : null}
       <p className={styles.eyebrow}>Capacity update</p>
       <h1 className={styles.title}>{prompt.service}</h1>
 

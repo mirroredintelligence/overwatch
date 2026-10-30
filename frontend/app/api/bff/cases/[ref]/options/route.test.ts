@@ -101,4 +101,16 @@ describe('GET /api/bff/cases/[ref]/options (W13)', () => {
   it('is never cached', async () => {
     expect((await get('advisor')).headers.get('cache-control')).toBe('no-store');
   });
+
+  it('a tenant named in the address is ignored: the back end sees the session token and the case only (DEC-130)', async () => {
+    const cookies = { [SESSION_COOKIE]: await sealSession(session('advisor')) };
+    await GET(
+      requestWithCookies('https://app.test/api/bff/cases/4821/options?tenantId=tenant-b&organisation=other', cookies),
+      { params: Promise.resolve({ ref: '4821' }) },
+    );
+
+    expect(seen).toHaveLength(1);
+    expect(seen[0].token).toBe('Bearer token-for-advisor');
+    expect(JSON.stringify(seen[0].body)).not.toMatch(/tenant|organisation|other/);
+  });
 });

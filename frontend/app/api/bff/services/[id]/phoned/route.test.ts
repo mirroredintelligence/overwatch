@@ -105,6 +105,13 @@ describe('POST /api/bff/services/[id]/phoned (W14)', () => {
     expect(seen).toHaveLength(0);
   });
 
+  it('a tenant sent in the body is not forwarded: the back end sees the case, the answer and the value only (DEC-130)', async () => {
+    await post('advisor', { caseRef: '4821', said: 'limited', value: 1, tenantId: 'tenant-b', organisation: 'other' });
+
+    expect(JSON.stringify(seen[0].body)).not.toMatch(/tenant|organisation|other/);
+    expect(seen[0].token).toBe('Bearer token-for-advisor');
+  });
+
   it('refuses a missing Idempotency-Key with 400', async () => {
     expect((await post('advisor', { caseRef: '4821', said: 'limited', value: 1 }, null)).status).toBe(400);
     expect(seen).toHaveLength(0);

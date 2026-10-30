@@ -52,7 +52,9 @@ describe('BookingDecision', () => {
 
   it('disables both buttons while the decision is sent, so a second press sends nothing', async () => {
     server.use(
-      http.post(RESPOND, async () => {
+      http.post(RESPOND, async ({ request }) => {
+        // The override replaces the default handler, so it records the send itself.
+        seenBffRequests.push({ path: RESPOND, method: 'POST', body: await request.json() });
         await delay(150);
         return HttpResponse.json({ status: 'confirmed', confirmedAt: '14:19' });
       }),

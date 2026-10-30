@@ -30,14 +30,17 @@ async function token(): Promise<string | null> {
   return csrf;
 }
 
-export async function bffRequest(path: string, options: { method?: 'GET' | 'POST'; body?: unknown } = {}): Promise<Reply> {
+export async function bffRequest(
+  path: string,
+  options: { method?: 'GET' | 'POST'; body?: unknown; headers?: Record<string, string> } = {},
+): Promise<Reply> {
   const method = options.method ?? 'GET';
   if (method === 'GET') return fetchJson(path, { method: 'GET' });
   const send = async () => {
     const header = await token();
     return fetchJson(path, {
       method,
-      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': header ?? '' },
+      headers: { ...options.headers, 'Content-Type': 'application/json', 'X-CSRF-Token': header ?? '' },
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
     });
   };

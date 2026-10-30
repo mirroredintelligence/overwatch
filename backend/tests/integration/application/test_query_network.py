@@ -18,18 +18,18 @@ from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-from diucs.application.network_access import NetworkAccess
-from diucs.application.use_cases.query_network_board import QueryNetworkBoard
-from diucs.application.use_cases.query_network_directory import (
-    QueryNetworkCriteria,
-    QueryNetworkDirectory,
-)
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.actor import Actor
+from diucs.application.network_access import NetworkAccess
+from diucs.application.use_cases.query_network_board import QueryNetworkBoard
+from diucs.application.use_cases.query_network_directory import (
+    QueryNetworkCriteria,
+    QueryNetworkDirectory,
+)
 from diucs.domain.codes import Role, Status
 from diucs.domain.errors import NotFound
 from diucs.domain.model.network import GrantScope

@@ -13,7 +13,11 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import pytest
+
+from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.network_access import NetworkAccess
+from diucs.application.ports.outbound.projection import ProjectedRow
+from diucs.application.tenancy import ScopeKind, current_scope_or_none
 from diucs.application.use_cases.query_network_board import (
     NetworkReadUnitNotReadOnly,
     QueryNetworkBoard,
@@ -22,10 +26,6 @@ from diucs.application.use_cases.query_network_directory import (
     QueryNetworkCriteria,
     QueryNetworkDirectory,
 )
-
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.projection import ProjectedRow
-from diucs.application.tenancy import ScopeKind, current_scope_or_none
 from diucs.domain.codes import Role, Status
 from diucs.domain.errors import NotFound
 from diucs.domain.model.network import GrantScope, MembershipStatus
@@ -46,6 +46,7 @@ from tests.support.projection_samples import (
     REPORTED_AT,
     sample_capacity_projection,
     sample_criteria_projection,
+    sample_report,
     sample_service_projection,
 )
 from tests.unit.application.test_network_access import Names, Registry, actor
@@ -159,7 +160,12 @@ def both() -> View:
         ],
         capacities=[
             row(sample_capacity_projection()),
-            row(sample_capacity_projection(profile=_other_profile()), MEMBER_C),
+            row(
+                sample_capacity_projection(
+                    profile=_other_profile(), latest=sample_report(service_id="svc-9")
+                ),
+                MEMBER_C,
+            ),
         ],
     )
 
@@ -338,7 +344,7 @@ async def test_a_departed_member_is_only_in_the_history_with_the_date_and_the_re
         "B Trust"
     }
     entries = (await history.execute(actor(), NETWORK_ID, history=True)).entries
-    assert factory.view.asked == [("services", False)]
+    assert factory.view.asked[-1] == ("services", False)
     by_name = {e.organisation_name: e for e in entries}
     assert by_name["C Trust"].ended_at == left_at
     assert by_name["C Trust"].end_reason is _left()

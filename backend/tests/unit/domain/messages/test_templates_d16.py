@@ -45,6 +45,8 @@ BOOKING_FIELDS: dict[MessageId, dict[str, object]] = {
     MessageId.B5: {"reference": "4821"},
     MessageId.B6: {"reference": "4821", "cancelled_at": "14:40"},
     MessageId.B7: {"references": ["4821", "4830"]},
+    MessageId.B8: {},
+    MessageId.B9: {},
     MessageId.I1: {"service": "UCR West", "link": "diucs.example/i/Qx82"},
     MessageId.I2: {"link": "diucs.example/i/Ab41", "system_name": DEFAULT_SYSTEM_NAME},
     MessageId.I3: {"service": "UCR West"},

@@ -101,6 +101,8 @@ _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.B5: frozenset({"reference"}),
     MessageId.B6: frozenset({"reference", "cancelled_at"}),
     MessageId.B7: frozenset({"references"}),
+    MessageId.B8: frozenset(),
+    MessageId.B9: frozenset(),
     MessageId.I1: frozenset({"service", "link"}),
     MessageId.I2: frozenset({"link", "system_name"}),
     MessageId.I3: frozenset({"service"}),
@@ -162,6 +164,9 @@ _B7_TEXT: Final = (
     "You have more than one open request: {references}. Reply CONFIRMED or DECLINE "
     "with the reference, for example CONFIRMED {first_reference}."
 )
+# [ASSUMED] (DEC-403): a reply that names no open booking, and a reply to an expired one.
+_B8_TEXT: Final = "No booking is waiting for a reply."
+_B9_TEXT: Final = "That booking has expired, so nothing was booked."
 _K2_TEXT: Final = "Due {review_by}. Confirm or update in 2 minutes."
 
 _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
@@ -307,6 +312,8 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         text="Booking {reference} was cancelled at {cancelled_at}. No action needed.",
     ),
     (MessageId.B7, Channel.TEXT): _Template(required=_FIELDS[MessageId.B7], text=_B7_TEXT),
+    (MessageId.B8, Channel.TEXT): _Template(required=_FIELDS[MessageId.B8], text=_B8_TEXT),
+    (MessageId.B9, Channel.TEXT): _Template(required=_FIELDS[MessageId.B9], text=_B9_TEXT),
     # IG-pending (DEC-037 item 3): rule-book example, awaiting IG approval.
     (MessageId.I1, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.I1],

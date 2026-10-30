@@ -115,6 +115,11 @@ class BookingRepository(Protocol):
         """The open bookings per service. Every requested service id is a key, with [] if none."""
         ...
 
+    async def latest_for_services(self, service_ids: Sequence[str]) -> list[Booking]:
+        """The most recent booking of each of these services that has one, in any state (U22).
+        Q-BOOK-LATEST-FOR: one booking per service, by its authored time."""
+        ...
+
     async def confirmed_since(self, service_id: str, since: datetime) -> list[datetime]:
         """confirmed_at of bookings whose status is exactly confirmed, at or after `since`."""
         ...

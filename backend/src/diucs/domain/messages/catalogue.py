@@ -33,6 +33,9 @@ class MessageId(StrEnum):
     B5 = "B5"
     B6 = "B6"
     B7 = "B7"
+    # Booking replies by text (U22, DEC-403): [ASSUMED] wording, not in the rule book.
+    B8 = "B8"
+    B9 = "B9"
     # Invitations (D16)
     I1 = "I1"
     I2 = "I2"

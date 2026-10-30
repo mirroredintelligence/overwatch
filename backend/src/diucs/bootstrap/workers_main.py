@@ -49,6 +49,7 @@ from diucs.application.tenancy import is_valid_tenant_id
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
 from diucs.application.use_cases.report_capacity import ReportCapacity
+from diucs.application.use_cases.respond_to_booking import RespondToBooking, SetDeclineReason
 from diucs.application.work import WorkKind
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
@@ -155,6 +156,7 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
     http = httpx.AsyncClient(timeout=SENDER_HTTP_TIMEOUT_SECONDS)
     try:
         store = DriverIdempotencyStore(container.neo4j.driver)
+        booking_sealer = AesGcmContentSealer(container.secrets)
         use_case = HandleInboundText(
             container.uow_factory,
             container.clock,
@@ -163,6 +165,14 @@ async def serve(settings: Settings, tenants: ActiveTenants, stop: asyncio.Event)
             cache,
             ReportCapacity(container.uow_factory, container.clock, container.ids, store),
             ConfirmCapacity(container.uow_factory, container.clock, container.ids, store),
+            respond_to_booking=RespondToBooking(
+                container.uow_factory,
+                store,
+                container.clock,
+                container.ids,
+                booking_sealer,
+            ),
+            set_decline_reason=SetDeclineReason(container.uow_factory, store, container.clock),
         )
         senders = TenantSenderResolver(
             container.tenants, container.secrets, http, status_callback_url(settings)

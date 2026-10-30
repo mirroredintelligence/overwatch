@@ -42,8 +42,20 @@ from diucs.application.use_cases.report_capacity import (
     ReportCapacityCommand,
     ReportCapacityResult,
 )
+from diucs.application.use_cases.respond_to_booking import (
+    RespondToBookingCommand,
+    RespondToBookingResult,
+    SetDeclineReasonCommand,
+)
 from diucs.application.use_cases.send_prompts import split_unit_label
-from diucs.domain.codes import Channel, ReportFlagReason, ReportSource, ReportType, Role
+from diucs.domain.codes import (
+    BookingStatus,
+    Channel,
+    ReportFlagReason,
+    ReportSource,
+    ReportType,
+    Role,
+)
 from diucs.domain.errors import (
     ConfirmLimitReached,
     Conflict,
@@ -53,10 +65,21 @@ from diucs.domain.errors import (
 )
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
+from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.people import PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY
+from diucs.domain.rules.booking_reply_text import (
+    AskReference,
+    BookingTextPlan,
+    Expired,
+    NothingWaiting,
+    RespondTo,
+    SetReason,
+    plan_booking_text,
+)
+from diucs.domain.rules.booking_rules import OpenBookingRef
 from diucs.domain.rules.freshness import STALE_WARNING_AFTER
 from diucs.domain.rules.london_time import format_hhmm, format_stamp
 from diucs.domain.rules.multi_service import letters_for
@@ -88,6 +111,12 @@ RECHECK: Final = "recheck"
 HELP: Final = "help"
 DROPPED: Final = "dropped"
 BOOKING_NOT_HANDLED: Final = "booking-not-handled"
+BOOKING_CONFIRMED: Final = "booking-confirmed"
+BOOKING_DECLINED: Final = "booking-declined"
+BOOKING_ASK: Final = "booking-ask-reference"
+BOOKING_NONE: Final = "booking-none"
+BOOKING_EXPIRED: Final = "booking-expired"
+BOOKING_REASON_SET: Final = "booking-reason-set"
 STALE_FIGURE: Final = "stale-figure"
 NEED_NUMBER: Final = "need-number"
 
@@ -152,6 +181,27 @@ class _ReportsCapacity(Protocol):
 
 class _ConfirmsCapacity(Protocol):
     async def execute(self, command: ConfirmCapacityCommand) -> ConfirmCapacityResult: ...
+
+
+class _RespondsToBooking(Protocol):
+    async def execute(self, command: RespondToBookingCommand) -> RespondToBookingResult: ...
+
+
+class _SetsDeclineReason(Protocol):
+    async def execute(self, command: SetDeclineReasonCommand) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class _BookingRead:
+    """What a booking reply reads from the phone's services: the reporter (the actor), the services,
+    the reporter role each service's replies go to, the open bookings and the latest one per
+    service."""
+
+    actor: Actor
+    service_ids: tuple[str, ...]
+    role_ids: dict[str, str]
+    open_refs: tuple[OpenBookingRef, ...]
+    latest: tuple[Booking, ...]
 
 
 def _instant(name: str, value: datetime) -> datetime:
@@ -410,7 +460,12 @@ class HandleInboundText:
         cache: Cache,
         report_capacity: _ReportsCapacity,
         confirm_capacity: _ConfirmsCapacity,
+        *,
+        respond_to_booking: _RespondsToBooking | None = None,
+        set_decline_reason: _SetsDeclineReason | None = None,
     ) -> None:
+        """`respond_to_booking` and `set_decline_reason` make a booking reply by text (U22). Without
+        them a booking word is answered as before: not handled, no reply."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
@@ -418,6 +473,8 @@ class HandleInboundText:
         self._cache = cache
         self._report_capacity = report_capacity
         self._confirm_capacity = confirm_capacity
+        self._respond = respond_to_booking
+        self._set_reason = set_decline_reason
 
     async def execute(self, command: HandleInboundTextCommand) -> HandleInboundTextResult:
         received = _instant("received_at", command.received_at)
@@ -429,6 +486,10 @@ class HandleInboundText:
         # The reply is judged at the time it was received, but never at a time after the clock.
         clock_now = self._clock.now().astimezone(UTC)
         now = min(received, clock_now)
+
+        booking = await self._booking_reply(command, now)
+        if booking is not None:
+            return booking
 
         async with self._uow_factory() as uow:
             planned = await self._plan(uow, command, now, clock_now - received, clock_now)
@@ -443,6 +504,174 @@ class HandleInboundText:
             return result
         for item in plan.items:
             await self._tidy_cache(command, item)
+        return result
+
+    # -- booking replies (U22) -----------------------------------------------------------
+
+    async def _booking_reply(
+        self, command: HandleInboundTextCommand, now: datetime
+    ) -> HandleInboundTextResult | None:
+        """A booking word, or a digit that may set a decline reason, read from the phone's services.
+        None when the text is not a booking reply: the capacity path takes it as before."""
+        if self._respond is None or self._set_reason is None:
+            return None
+        parsed = parse_reply(command.text)
+        if not any(isinstance(item, BookingConfirm | BookingDecline | Number) for item in parsed):
+            return None
+        async with self._uow_factory() as uow:
+            read = await self._read_bookings(uow, command, now)
+        if isinstance(read, HandleInboundTextResult):
+            return read
+        plan = plan_booking_text(
+            parsed,
+            read.open_refs,
+            read.latest,
+            now,
+            default_service_id=read.service_ids[0],
+        )
+        if plan is None:
+            return None
+        return await self._act_on_booking(command, read, plan, now)
+
+    async def _read_bookings(
+        self, uow: UnitOfWork, command: HandleInboundTextCommand, now: datetime
+    ) -> _BookingRead | HandleInboundTextResult:
+        """The phone's reporter services and their bookings. An unknown phone, or one with no
+        reporter role, is dropped with no reply (as for a capacity text)."""
+        practitioner = await uow.people.find_by_phone_hash(command.from_phone_hash)
+        if practitioner is None:
+            return HandleInboundTextResult(DROPPED, ())
+        holdings = await uow.people.services_for_phone_hash(command.from_phone_hash, now)
+        role_ids: dict[str, str] = {}
+        for role, _name in holdings:
+            if role.service_id and role.service_id not in role_ids:
+                role_ids[role.service_id] = role.id
+        if not role_ids:
+            return HandleInboundTextResult(DROPPED, ())
+        service_ids = tuple(role_ids)
+        open_by_service = await uow.bookings.open_for_services(service_ids)
+        open_refs = tuple(
+            OpenBookingRef(booking.id, booking.reference, service_id)
+            for service_id in service_ids
+            for booking in open_by_service[service_id]
+        )
+        latest = tuple(await uow.bookings.latest_for_services(service_ids))
+        actor = Actor(
+            role=Role.REPORTER,
+            practitioner_id=practitioner.id,
+            device_id=None,
+            channel="text",
+            service_ids=frozenset(service_ids),
+            tenant_id=current_tenant(),
+        )
+        return _BookingRead(actor, service_ids, role_ids, open_refs, latest)
+
+    async def _act_on_booking(
+        self,
+        command: HandleInboundTextCommand,
+        read: _BookingRead,
+        plan: BookingTextPlan,
+        now: datetime,
+    ) -> HandleInboundTextResult:
+        """Carry out the plan through the booking use cases (their own units of work), then record
+        the reply and the audit entry of this text. The echo of a confirmation or decline to the
+        service is queued by RespondToBooking (B4 or B5), so the reporter gets no separate text."""
+        assert self._respond is not None and self._set_reason is not None
+        default_service = read.service_ids[0]
+        service_id = default_service
+        replies: list[_Reply] = []
+        if isinstance(plan, RespondTo):
+            service_id = plan.service_id
+            responded = await self._respond.execute(
+                RespondToBookingCommand(
+                    idempotency_key=f"{command.idempotency_key}:{plan.booking_id}",
+                    actor=read.actor,
+                    booking_id=plan.booking_id,
+                    decision=plan.decision,
+                    channel=ReportSource.TEXT,
+                )
+            )
+            if responded.already_final and responded.status is BookingStatus.EXPIRED:
+                outcome = BOOKING_EXPIRED
+                replies.append(self._booking_text(MessageId.B9, read, service_id))
+            elif responded.already_final:
+                outcome = BOOKING_NONE
+                replies.append(self._booking_text(MessageId.B8, read, service_id))
+            else:
+                outcome = BOOKING_CONFIRMED if plan.decision == "confirm" else BOOKING_DECLINED
+        elif isinstance(plan, SetReason):
+            service_id = plan.service_id
+            await self._set_reason.execute(
+                SetDeclineReasonCommand(
+                    idempotency_key=f"{command.idempotency_key}:{plan.booking_id}",
+                    actor=read.actor,
+                    booking_id=plan.booking_id,
+                    reason=plan.reason,
+                )
+            )
+            outcome = BOOKING_REASON_SET
+        elif isinstance(plan, AskReference):
+            outcome = BOOKING_ASK
+            replies.append(
+                _Reply(
+                    MessageId.B7,
+                    read.role_ids[default_service],
+                    default_service,
+                    _text(MessageId.B7, references=list(plan.references)),
+                )
+            )
+        elif isinstance(plan, Expired):
+            outcome = BOOKING_EXPIRED
+            replies.append(
+                self._booking_text(MessageId.B9, read, plan.service_id or default_service)
+            )
+        else:
+            assert isinstance(plan, NothingWaiting)
+            outcome = BOOKING_NONE
+            replies.append(self._booking_text(MessageId.B8, read, default_service))
+        return await self._record_booking(command, read, outcome, service_id, replies, now)
+
+    @staticmethod
+    def _booking_text(message_id: MessageId, read: _BookingRead, service_id: str) -> _Reply:
+        """A booking reply with no fields (B8, B9): the service's reporter role is the recipient."""
+        return _Reply(message_id, read.role_ids[service_id], service_id, _text(message_id))
+
+    async def _record_booking(
+        self,
+        command: HandleInboundTextCommand,
+        read: _BookingRead,
+        outcome: str,
+        service_id: str,
+        replies: list[_Reply],
+        now: datetime,
+    ) -> HandleInboundTextResult:
+        fingerprint = _fingerprint(command)
+        result = HandleInboundTextResult(outcome, (service_id,))
+        carrier = self._help_plan(
+            None, read.actor, read.service_ids, read.role_ids[service_id], now
+        )
+        async with self._uow_factory() as uow:
+            stored = await uow.idempotency.get(command.idempotency_key)
+            if stored is not None:
+                return _replay(stored, fingerprint)
+            communication_ids: list[str] = []
+            for reply in replies:
+                communication_ids.append(await self._send(uow, carrier, reply, now))
+            await uow.audit.append(
+                AuditEntry(
+                    action=AUDIT_ACTION,
+                    use_case=USE_CASE,
+                    actor=read.actor,
+                    entity_ids=(*communication_ids, service_id),
+                    snapshot={
+                        "outcome": outcome,
+                        "messages": [reply.message_id.value for reply in replies],
+                    },
+                    at=now,
+                )
+            )
+            await uow.idempotency.put(command.idempotency_key, _StoredInbound(fingerprint, result))
+            await uow.commit()
         return result
 
     # -- reading: what does this text come to? -----------------------------------------

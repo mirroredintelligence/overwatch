@@ -6,7 +6,7 @@ Rules: docs/spec/domain-rules.md 2.1 and 3.2. Pure: no I/O and no clock.
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Final
+from typing import Final, Literal
 
 from diucs.domain.codes import BookingStatus, DeclineReason
 from diucs.domain.model.booking import Booking
@@ -27,11 +27,14 @@ _DECLINE_REASON_BY_DIGIT: Final = {
 }
 
 
+Decision = Literal["confirm", "decline"]
+
+
 @dataclass(frozen=True, slots=True)
 class RespondTo:
     booking_id: str
     service_id: str
-    decision: str
+    decision: Decision
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,7 +81,7 @@ def plan_booking_text(
     booking_words = [item for item in parsed if isinstance(item, BookingConfirm | BookingDecline)]
     if booking_words:
         word = booking_words[0]
-        decision = "confirm" if isinstance(word, BookingConfirm) else "decline"
+        decision: Decision = "confirm" if isinstance(word, BookingConfirm) else "decline"
         return _respond(word.reference, decision, open_refs, latest, default_service_id)
     if len(parsed) == 1 and isinstance(parsed[0], Number):
         return _set_reason(parsed[0].value, latest, now)
@@ -87,7 +90,7 @@ def plan_booking_text(
 
 def _respond(
     reference: str | None,
-    decision: str,
+    decision: Decision,
     open_refs: Sequence[OpenBookingRef],
     latest: Sequence[Booking],
     default_service_id: str,

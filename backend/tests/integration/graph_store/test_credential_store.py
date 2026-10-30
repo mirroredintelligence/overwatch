@@ -404,3 +404,46 @@ async def test_a_pin_for_a_device_of_another_practitioner_is_a_conflict(
         PIN_HASH,
         PinState(),
     )
+
+
+async def _practitioner(driver: AsyncDriver, practitioner_id: str) -> Practitioner | None:
+    async def work(tx: AsyncManagedTransaction) -> Practitioner | None:
+        return await Neo4jPersonRepository(tx, ResourceStore(tx)).get_practitioner(practitioner_id)
+
+    return await write_tx(driver, work)
+
+
+async def test_a_practitioner_with_a_credential_and_a_device_still_reads_back(
+    neo4j_driver: AsyncDriver, practitioners: None
+) -> None:
+    """The credential and the device hang from the practitioner by relationships that are not
+    FHIR elements; the resource store must not mistake them for one (U32)."""
+    await _run(neo4j_driver, lambda pins, _: pins.set_pin("p1", "dev-1", PIN_HASH))
+    await _run(neo4j_driver, lambda _, devices: devices.register("p1", "dev-1", AT))
+
+    got = await _practitioner(neo4j_driver, "p1")
+
+    assert got is not None
+    assert got.display_name == "Duty Manager One"
+
+
+async def test_saving_the_practitioner_again_keeps_its_credential_and_device(
+    neo4j_driver: AsyncDriver, practitioners: None
+) -> None:
+    """A save rewrites the resource's own relationships; it must not delete the PIN credential
+    (with its lock) or the registered device that hang from the same node."""
+    await _run(neo4j_driver, lambda pins, _: pins.set_pin("p1", "dev-1", PIN_HASH))
+    await _run(neo4j_driver, lambda _, devices: devices.register("p1", "dev-1", AT))
+    locked = PinState(failed_tries=5, locked=True, last_outcome=PinOutcome.LOCKED)
+    await _run(neo4j_driver, lambda pins, _: pins.save_state("p1", "dev-1", locked))
+
+    async def resave(tx: AsyncManagedTransaction) -> None:
+        repo = Neo4jPersonRepository(tx, ResourceStore(tx))
+        current = await repo.get_practitioner("p1")
+        assert current is not None
+        await repo.save_practitioner(current)
+
+    await write_tx(neo4j_driver, resave)
+
+    assert await _read(neo4j_driver, lambda pins, _: pins.get("p1", "dev-1")) == (PIN_HASH, locked)
+    assert await _read(neo4j_driver, lambda _, devices: devices.known("p1", "dev-1")) is True

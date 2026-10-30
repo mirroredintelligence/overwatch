@@ -63,8 +63,12 @@ RESERVED_PROPERTIES = frozenset(
     {"key", "placeholder", "lockStamp", "position", *TENANT_OWNED_NAMES}
 )
 # Local relationships that are not FHIR elements, so they have no fhirPath (DEC-065 item 5,
-# DEC-076 item 2 for CURRENT_CRITERIA).
-LOCAL_RELATIONSHIP_TYPES = frozenset({"CHANNEL", "COVERED_BY", "CURRENT_CRITERIA"})
+# DEC-076 item 2 for CURRENT_CRITERIA). HAS_CREDENTIAL and HAS_DEVICE hang a practitioner's PIN
+# credential and registered devices from it (P16, U32): the credential store writes them, the
+# resource is not made of them, so a read leaves them out and a save leaves them in place.
+LOCAL_RELATIONSHIP_TYPES = frozenset(
+    {"CHANNEL", "COVERED_BY", "CURRENT_CRITERIA", "HAS_CREDENTIAL", "HAS_DEVICE"}
+)
 
 _TYPE = re.compile(r"[A-Z][A-Za-z0-9]{0,63}")
 # A reference makes a placeholder labelled with its type, so a type is letters only with a capital.
@@ -156,7 +160,8 @@ _TEMPLATES: dict[str, tuple[str, Literal["read", "write"]]] = {
     ),
     "Q-RES-CLEAR-ROOT-RELS": (
         "MATCH (r:Resource {key: $key, tenantId: $tenant})-[rel]->() "
-        "WHERE type(rel) <> 'HAS_VERSION' DELETE rel RETURN count(*) AS cleared",
+        "WHERE NOT type(rel) IN ['HAS_VERSION', 'HAS_CREDENTIAL', 'HAS_DEVICE'] "
+        "DELETE rel RETURN count(*) AS cleared",
         "write",
     ),
     "Q-RES-MERGE-RELS": (

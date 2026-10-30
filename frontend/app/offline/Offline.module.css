@@ -1,0 +1,18 @@
+.page {
+  box-sizing: border-box;
+  max-width: 32rem;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+  color: var(--c-ink);
+  background: var(--c-bg);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.title {
+  margin: 0 0 var(--space-3);
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+}

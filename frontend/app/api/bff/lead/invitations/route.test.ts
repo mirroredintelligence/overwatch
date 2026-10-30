@@ -77,8 +77,36 @@ describe('POST /api/bff/lead/invitations', () => {
 });
 
 describe('GET /api/bff/lead/invitations', () => {
-  it('answers 501 until the back end lists the invitations, and never an empty list', async () => {
+  it('passes the invitations and their steps on, with the service id, and never the number', async () => {
+    server.use(
+      http.get(`${BACKEND_BASE.replace(/\/fhir$/, '')}/lead/invitations`, () =>
+        HttpResponse.json({
+          items: [
+            {
+              id: 'inv-1',
+              serviceId: 's-ucr-east',
+              serviceName: 'UCR East',
+              role: 'Duty manager',
+              steps: { invited: true, numberChecked: true, channelChosen: true, installed: false, notificationsOn: false, pinSet: false, firstReport: false },
+              invitedAt: '2026-10-30T09:00:00Z',
+              lastSeen: '2026-10-30T09:21:00Z',
+              firstReportAt: null,
+            },
+          ],
+        }),
+      ),
+    );
     const response = await GET(await leadRequest(URL_, 'lead'));
-    expect(response.status).toBe(501);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.items).toHaveLength(1);
+    expect(body.items[0]).toMatchObject({ id: 'inv-1', serviceId: 's-ucr-east', serviceName: 'UCR East', role: 'Duty manager' });
+    expect(JSON.stringify(body)).not.toMatch(/07700/);
+  });
+
+  it('answers 503 when the list cannot be read, and never an empty list', async () => {
+    server.use(http.get(`${BACKEND_BASE.replace(/\/fhir$/, '')}/lead/invitations`, () => HttpResponse.json({}, { status: 503 })));
+    const response = await GET(await leadRequest(URL_, 'lead'));
+    expect(response.status).toBe(503);
   });
 });

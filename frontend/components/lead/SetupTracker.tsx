@@ -108,7 +108,7 @@ function TrackedInvitation({ item, onNotice }: { item: Invitation; onNotice: (te
         </p>
       )}
       {text !== null ? <p className={styles.muted}>{text}</p> : null}
-      <LeadPhonedDialog open={phoned} serviceName={item.serviceName} onClose={() => setPhoned(false)} />
+      <LeadPhonedDialog open={phoned} serviceId={item.serviceId} serviceName={item.serviceName} onClose={() => setPhoned(false)} />
     </section>
   );
 }

@@ -185,7 +185,7 @@ export function SuspendService({ serviceId }: { serviceId: string }) {
             Resume service
           </Button>
         </div>
-        <LeadPhonedDialog open={phonedDialog} serviceName={label} onClose={() => setPhonedDialog(false)} />
+        <LeadPhonedDialog open={phonedDialog} serviceId={serviceId} serviceName={label} onClose={() => setPhonedDialog(false)} />
       </main>
     );
   }

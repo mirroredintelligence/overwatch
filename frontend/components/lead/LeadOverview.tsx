@@ -33,7 +33,7 @@ export function LeadOverview() {
   const [now, setNow] = useState<number>(() => Date.now());
   const [notice, setNotice] = useState<string>('');
   const [noticeFailed, setNoticeFailed] = useState(false);
-  const [phoned, setPhoned] = useState<{ serviceName: string } | null>(null);
+  const [phoned, setPhoned] = useState<{ serviceId: string; serviceName: string } | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -113,7 +113,7 @@ export function LeadOverview() {
                     <ChaseCard
                       key={item.serviceId}
                       item={item}
-                      onEnterPhoned={() => setPhoned({ serviceName: item.name })}
+                      onEnterPhoned={() => setPhoned({ serviceId: item.serviceId, serviceName: item.name })}
                       onRemind={() => void remind(item.serviceId)}
                     />
                   ))}
@@ -151,6 +151,7 @@ export function LeadOverview() {
 
       <LeadPhonedDialog
         open={phoned !== null}
+        serviceId={phoned?.serviceId ?? ''}
         serviceName={phoned?.serviceName ?? ''}
         onClose={() => setPhoned(null)}
       />

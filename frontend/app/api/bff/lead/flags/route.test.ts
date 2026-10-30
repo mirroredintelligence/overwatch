@@ -63,9 +63,26 @@ describe('GET /api/bff/lead/flags', () => {
     });
   });
 
-  it('answers 501 for the checked list, which the back end does not list yet', async () => {
+  it('answers the checked flags from the back end list of closed flags, with their count', async () => {
+    let asked: string | null = null;
+    server.use(
+      http.get(`${BACKEND_ROOT}/admin/report-flags`, ({ request }) => {
+        asked = new URL(request.url).searchParams.get('status');
+        return HttpResponse.json({ ...BUNDLE, total: 1, entry: [{ resource: { ...BUNDLE.entry[0].resource, status: 'inactive', outcome: 'accepted' } }] });
+      }),
+    );
     const response = await GET(await leadRequest('https://app.test/api/bff/lead/flags?state=checked', 'lead'));
-    expect(response.status).toBe(501);
+    expect(response.status).toBe(200);
+    expect(asked).toBe('closed');
+    const body = (await response.json()) as { counts: unknown; items: { id: string }[] };
+    expect(body.counts).toEqual({ toCheck: null, checked: 1 });
+    expect(body.items.map((item) => item.id)).toEqual(['flag-1']);
+  });
+
+  it('answers 503 when the checked list cannot be read, and never an empty list', async () => {
+    server.use(http.get(`${BACKEND_ROOT}/admin/report-flags`, () => HttpResponse.json({}, { status: 503 })));
+    const response = await GET(await leadRequest('https://app.test/api/bff/lead/flags?state=checked', 'lead'));
+    expect(response.status).toBe(503);
   });
 
   it('answers 400 for a state it does not know', async () => {

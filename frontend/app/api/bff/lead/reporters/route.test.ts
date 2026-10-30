@@ -25,7 +25,7 @@ describe('GET /api/bff/lead/reporters', () => {
     expect((await GET(await leadRequest(URL_, 'advisor'))).status).toBe(403);
   });
 
-  it('gives each post with its last four digits, and never the role id or a whole number', async () => {
+  it('gives each post with its role id (to remove or change it), its last four digits and any cover end, and never a whole number', async () => {
     let service: string | null = null;
     server.use(
       http.get(`${ROOT}/lead/reporters`, ({ request }) => {
@@ -43,9 +43,9 @@ describe('GET /api/bff/lead/reporters', () => {
     const text = await response.text();
     expect(JSON.parse(text)).toEqual({
       reporters: [
-        { serviceId: 's-ucr-east', serviceName: 'UCR East', role: 'Duty manager', channel: 'text', numberEnding: '4821', coveredUntil: '2026-10-30T20:00:00Z' },
+        { serviceId: 's-ucr-east', serviceName: 'UCR East', roleId: 'role-ucr-east', role: 'Duty manager', channel: 'text', numberEnding: '4821', coveredUntil: '2026-10-30T20:00:00Z' },
       ],
     });
-    expect(text).not.toContain('role-ucr-east');
+    expect(text).not.toMatch(/07700\s?900/);
   });
 });

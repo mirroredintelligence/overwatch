@@ -8,6 +8,7 @@ so a change aimed at the other tenant's role must read as not found.
 The phone numbers are the prompt's sample values. No patient data.
 """
 
+from collections.abc import AsyncIterator
 from dataclasses import replace
 
 import pytest
@@ -17,17 +18,20 @@ from httpx import AsyncClient
 from neo4j import AsyncDriver
 
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
+from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET
+from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.bootstrap.container import Container
+from diucs.bootstrap.container import Container, build_for_tests
 from diucs.domain.codes import Channel, Measure, PractitionerRoleCode, Role, ServiceCategory
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
-from tests.support.api import token_headers
+from tests.support.api import R01_TEST_NOW, token_headers
 from tests.support.ladder_rig import reporter, seed_people, virtual_ward
-from tests.support.neo4j import count_nodes
+from tests.support.neo4j import ThrowawayNeo4j, count_nodes
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -79,6 +83,30 @@ def _change(mobile: str = NEW_NUMBER, duration: str = "today") -> dict:
             _p("duration", {"valueCode": duration}),
         ],
     }
+
+
+PHONE_SECRET = b"phone-hash-test-secret-0123456789ab"
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def test_container(
+    harness_container: ThrowawayNeo4j, neo4j_driver: AsyncDriver, clean_graph: None
+) -> AsyncIterator[Container]:
+    """The route tests' container (tests/support/api.py), with the phone-hash secret the lead routes
+    hash a mobile with. The shared one holds no secrets, and a missing secret is a NotFound, which
+    answers 404 (the lead routes read the container's secrets, not the app's)."""
+    connection = Neo4jConnection(
+        harness_container.uri, harness_container.user, harness_container.password
+    )
+    await connection.open()
+    try:
+        yield build_for_tests(
+            clock=FixedClock(R01_TEST_NOW),
+            neo4j=connection,
+            secrets=FixedSecretStore({PHONE_HASH_SECRET: PHONE_SECRET}),
+        )
+    finally:
+        await connection.close()
 
 
 async def _seed_tenant(

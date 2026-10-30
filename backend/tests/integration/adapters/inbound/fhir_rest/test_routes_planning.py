@@ -44,21 +44,57 @@ def _actor(tenant: str) -> Actor:
 
 def _rows() -> list[dict[str, Any]]:
     return [
-        {"id": BEST, "status": "not-accepting", "number": 0, "data_age_seconds": 60, "criteria_version": 1, "shown_as": "option"},
-        {"id": OTHER, "status": "accepting", "number": 5, "data_age_seconds": 60, "criteria_version": 1, "shown_as": "option"},
+        {
+            "id": BEST,
+            "status": "not-accepting",
+            "number": 0,
+            "data_age_seconds": 60,
+            "criteria_version": 1,
+            "shown_as": "option",
+        },
+        {
+            "id": OTHER,
+            "status": "accepting",
+            "number": 5,
+            "data_age_seconds": 60,
+            "criteria_version": 1,
+            "shown_as": "option",
+        },
     ]
 
 
 def _case(key: str, opened: datetime, actor: Actor) -> list[AuditEntry]:
     snapshot = {"age_band": "80+", "needs": NEEDS, "urgency": "within-2-hrs"}
     return [
-        AuditEntry(action="C", use_case="OpenCase", actor=actor, entity_ids=(key,),
-                   snapshot={"reference": key[-4:], "referrer_type": "ambulance-crew", **snapshot}, at=opened),
-        AuditEntry(action="R", use_case="FilterOptions", actor=actor, entity_ids=(key, BEST, OTHER),
-                   snapshot={"reference": key[-4:], "services": _rows()}, at=opened + timedelta(minutes=1)),
-        AuditEntry(action="U", use_case="RecordOutcome", actor=actor, entity_ids=(key, OTHER),
-                   snapshot={"reference": key[-4:], **snapshot, "opened_at": opened.isoformat(), "destination_service_id": OTHER},
-                   at=opened + timedelta(minutes=10)),
+        AuditEntry(
+            action="C",
+            use_case="OpenCase",
+            actor=actor,
+            entity_ids=(key,),
+            snapshot={"reference": key[-4:], "referrer_type": "ambulance-crew", **snapshot},
+            at=opened,
+        ),
+        AuditEntry(
+            action="R",
+            use_case="FilterOptions",
+            actor=actor,
+            entity_ids=(key, BEST, OTHER),
+            snapshot={"reference": key[-4:], "services": _rows()},
+            at=opened + timedelta(minutes=1),
+        ),
+        AuditEntry(
+            action="U",
+            use_case="RecordOutcome",
+            actor=actor,
+            entity_ids=(key, OTHER),
+            snapshot={
+                "reference": key[-4:],
+                **snapshot,
+                "opened_at": opened.isoformat(),
+                "destination_service_id": OTHER,
+            },
+            at=opened + timedelta(minutes=10),
+        ),
     ]
 
 
@@ -66,7 +102,9 @@ async def _seed(factory: UnitOfWorkFactory, tenant: str, cases: int) -> None:
     actor = _actor(tenant)
     async with factory() as uow:
         for number in range(cases):
-            for entry in _case(f"case-{tenant[-4:]}{number:04d}", THURSDAY + timedelta(minutes=number), actor):
+            for entry in _case(
+                f"case-{tenant[-4:]}{number:04d}", THURSDAY + timedelta(minutes=number), actor
+            ):
                 await uow.audit.append(entry)
         await uow.commit()
 

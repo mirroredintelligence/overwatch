@@ -182,6 +182,11 @@ def create_app(
 
     app.include_router(routes_support.router)
 
+    # The planning analysis (W51, U43): aggregates from the decision log, for a lead or an executive.
+    from diucs.adapters.inbound.fhir_rest import routes_planning
+
+    app.include_router(routes_planning.router)
+
     # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
     # this one module wire it in.
     from diucs.adapters.inbound.sms_webhook import routes as sms_routes

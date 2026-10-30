@@ -54,7 +54,9 @@ async def test_the_planning_analysis_is_for_a_shift_lead_or_an_executive_only() 
 async def test_a_period_or_need_that_is_not_listed_is_a_400_that_names_it() -> None:
     async with route_client() as client:
         bad_period = await client.get("/planning?period=7d&need=all", headers=bearer(Role.LEAD))
-        bad_need = await client.get("/planning?period=30d&need=everything", headers=bearer(Role.LEAD))
+        bad_need = await client.get(
+            "/planning?period=30d&need=everything", headers=bearer(Role.LEAD)
+        )
 
     assert bad_period.status_code == 400
     assert "period" in bad_period.text

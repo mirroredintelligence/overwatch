@@ -25,3 +25,27 @@ export async function openEmptyCase(token: string, idempotencyKey: string): Prom
   }
   return { id: data.id };
 }
+
+export type ServiceRequestReply = { data: unknown; etag: string | null };
+
+/** Reads a case (GET ServiceRequest). The ETag is the one the save must send as If-Match. */
+export async function readCase(token: string, id: string): Promise<ServiceRequestReply> {
+  const { data, etag } = await fhirFetch<unknown>(`/ServiceRequest/${encodeURIComponent(id)}`, { token });
+  return { data, etag: etag ?? null };
+}
+
+/** Saves a case (PUT ServiceRequest). A stale ETag answers 412 (FhirError), which the route maps. */
+export async function updateCase(
+  token: string,
+  id: string,
+  body: Record<string, unknown>,
+  ifMatch: string,
+): Promise<ServiceRequestReply> {
+  const { data, etag } = await fhirFetch<unknown>(`/ServiceRequest/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    token,
+    body,
+    ifMatch,
+  });
+  return { data, etag: etag ?? null };
+}

@@ -48,7 +48,7 @@ describe('NeedsForm (W11)', () => {
     render(<NeedsForm caseId="4821" openedAt={OPENED} />);
 
     expect(await screen.findByText('This case could not be loaded.')).toBeInTheDocument();
-    expect(byEl('ADV-NEEDS-CONTINUE-BTN', document.body)).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'See options' })).toBeNull();
   });
 
   it('choosing 80+ sets aria-pressed on it and clears the other age chips', async () => {

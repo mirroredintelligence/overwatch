@@ -32,6 +32,8 @@ from diucs.domain.messages.templates import render
 
 TEST_TITLE: Final = "Test notification"
 TEST_BODY: Final = "Capacity notifications are working on this phone."
+EXEC_TEST_BODY: Final = "Alerts are working on this phone."
+"""An executive gets alerts, not capacity requests, so the words of their test say so."""
 USE_CASE: Final = "SendPushTest"
 
 
@@ -103,7 +105,7 @@ class SendPushTest:
             if not await uow.push_subscriptions.for_practitioner(person):
                 raise NoPushSubscription
             # A render, so the words pass the same checks as any K3 (no link, no patient data).
-            render(MessageId.K3, Channel.PUSH, title=TEST_TITLE, body=TEST_BODY)
+            render(MessageId.K3, Channel.PUSH, title=TEST_TITLE, body=EXEC_TEST_BODY)
             message_id = self._ids.new_id()
             await uow.outbox.add(
                 OutboxMessage(
@@ -115,7 +117,7 @@ class SendPushTest:
                         "channel": Channel.PUSH.value,
                         "recipient_practitioner_id": person,
                         "title": TEST_TITLE,
-                        "body": TEST_BODY,
+                        "body": EXEC_TEST_BODY,
                     },
                     created_at=now,
                 )

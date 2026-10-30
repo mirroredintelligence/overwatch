@@ -16,7 +16,7 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.messaging import PushSubscription
 from diucs.application.tenancy import ScopeId
 from diucs.application.use_cases.reporter_push import (
-    TEST_BODY,
+    EXEC_TEST_BODY,
     TEST_TITLE,
     NoPushSubscription,
     SendPushTest,
@@ -76,9 +76,9 @@ async def test_an_executives_test_is_one_person_push_with_no_post_and_no_link() 
         "channel": "push",
         "recipient_practitioner_id": SUBJECT,
         "title": TEST_TITLE,
-        "body": TEST_BODY,
+        "body": EXEC_TEST_BODY,
     }
-    assert "http" not in TEST_BODY
+    assert "http" not in EXEC_TEST_BODY
     assert units.communications.sent == []
     assert units.commits == 1
     assert [(e.use_case, e.entity_ids) for e in units.audit.entries] == [

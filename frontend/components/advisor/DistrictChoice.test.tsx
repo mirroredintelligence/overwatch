@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
+import { MAP_VIEW } from '@/test/fixtures/map';
 import { OPTIONS_VIEW } from '@/test/fixtures/options';
 import { server } from '@/test/msw/server';
 import { MapScreen } from './MapScreen';
@@ -17,6 +18,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
 
 const CASE = { id: '4821', referrerType: 'gp', ageBand: '80+', postcode: 'ZZ9', needs: ['frailty'], urgency: 'within-2-hrs', scores: [], openedAt: null, etag: null };
 const FLAGGED = { shownAt: OPTIONS_VIEW.shownAt, options: [], notSuitable: [], patientArea: null, notFound: true, outOfArea: false, districts: ['DT1', 'DT3'] };
+const FOUND = { ...MAP_VIEW, notFound: false, outOfArea: false, districts: [] };
 const OUT_OF_AREA = { ...FLAGGED, notFound: false, outOfArea: true, districts: ['DT2'] };
 
 type Chosen = { body: unknown; key: string | null; csrf: string | null };
@@ -45,7 +47,7 @@ beforeEach(() => {
 
 describe('choosing a district on the map', () => {
   it('saves the district pressed with this press’s key and the session’s token, then reads the options again and shows the map', async () => {
-    serve(FLAGGED);
+    serve(FLAGGED, FOUND);
     render(<MapScreen caseId="4821" />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'DT3' }));
@@ -59,7 +61,7 @@ describe('choosing a district on the map', () => {
   });
 
   it('reads the options again for the area no service covers too', async () => {
-    serve(OUT_OF_AREA);
+    serve(OUT_OF_AREA, FOUND);
     render(<MapScreen caseId="4821" />);
 
     await userEvent.click(await screen.findByRole('button', { name: 'DT2' }));

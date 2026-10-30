@@ -218,3 +218,22 @@
   font-size: var(--type-body-size);
   line-height: var(--type-body-lh);
 }
+
+.exportLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  min-height: var(--btn-h);
+  padding: 0 22px;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius);
+  color: var(--c-primary);
+  font-size: 19px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.exportLink:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

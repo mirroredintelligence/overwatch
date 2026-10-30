@@ -50,3 +50,20 @@ export function agoText(iso: string, now: number): string {
 export function servicesWord(count: number): string {
   return count === 1 ? 'service' : 'services';
 }
+
+const replayStamp = new Intl.DateTimeFormat('en-GB', {
+  timeZone: LONDON,
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hourCycle: 'h23',
+});
+
+/** "23 Oct 14:13:20", in London time, for the audit replay's reference line. */
+export function replayStampText(iso: string): string {
+  const parts: Record<string, string> = {};
+  for (const part of replayStamp.formatToParts(new Date(iso))) parts[part.type] = part.value;
+  return `${parts.day} ${parts.month} ${parts.hour}:${parts.minute}:${parts.second}`;
+}

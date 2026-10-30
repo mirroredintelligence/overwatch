@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { OVERVIEW_SHIFT_LEAD, SERVICE_REABLEMENT, SERVICE_UCR_EAST, SERVICE_VIRTUAL_WARD } from '@/test/fixtures/lead';
+import { AUDIT_4821, OVERVIEW_SHIFT_LEAD, SERVICE_REABLEMENT, SERVICE_UCR_EAST, SERVICE_VIRTUAL_WARD } from '@/test/fixtures/lead';
 
 // The shift lead's BFF routes, for component tests (W17, W18). The default answers are the "ShiftLead"
 // sample. A test that needs another answer uses server.use(...) in the test itself.
@@ -97,6 +97,11 @@ export const INVITATION_CHOICES = [
 ];
 
 export const leadHandlers = [
+  http.get('/api/bff/lead/audit/:ref', ({ params }) =>
+    params.ref === AUDIT_4821.reference
+      ? HttpResponse.json(AUDIT_4821, { headers: NO_STORE })
+      : HttpResponse.json({ code: 'not-found' }, { status: 404, headers: NO_STORE }),
+  ),
   http.get('/api/bff/lead/overview', () => HttpResponse.json(OVERVIEW_SHIFT_LEAD, { headers: NO_STORE })),
   http.get('/api/bff/lead/services', () => HttpResponse.json({ services: SERVICE_CHOICES }, { headers: NO_STORE })),
   http.post('/api/bff/lead/services', async ({ request }) => {

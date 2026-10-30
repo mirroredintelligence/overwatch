@@ -16,6 +16,8 @@ export type FhirInit = {
   ifMatch?: string;
   /** Passed through unchanged; otherwise a new one is generated. */
   traceparent?: string;
+  /** Passed to fetch. The audit replay asks for no-store, so no copy is kept (W47). */
+  cache?: RequestCache;
 };
 
 export type FhirResult<T> = { data: T; etag?: string };
@@ -114,6 +116,7 @@ async function sendRequest<T>(url: string, init: FhirInit): Promise<FhirResult<T
       method: init.method ?? (hasBody ? 'POST' : 'GET'),
       headers,
       body: hasBody ? JSON.stringify(init.body) : undefined,
+      cache: init.cache,
     });
     text = await response.text();
   } catch {

@@ -6,6 +6,7 @@ or the harness helpers. Sample values only: the phone is a hash, no number is st
 """
 
 import dataclasses
+import re
 from datetime import datetime
 
 import pytest
@@ -39,6 +40,7 @@ from tests.support.booking_rig import (
     REQUESTED_AT,
     SERVICE_ID,
     at,
+    open_case,
     request,
     request_use_case,
     sealer,
@@ -56,23 +58,25 @@ PROMPT_ROLE_WEST = "role-1"
 
 
 def handler(
-    uow_factory: UnitOfWorkFactory, driver: AsyncDriver, now: datetime
+    uow_factory: UnitOfWorkFactory, driver: AsyncDriver, now: datetime, tag: str
 ) -> HandleInboundText:
+    """`tag` names this text's id generators: FHIR ids take letters, digits, dots and hyphens only,
+    so a timestamp cannot be used, and each text has its own tag so no id repeats across texts."""
     clock = FixedClock(now)
     store = DriverIdempotencyStore(driver)
     return HandleInboundText(
         uow_factory,
         clock,
-        SequentialIds(f"in-{now.isoformat()}"),
+        SequentialIds(f"in{tag}"),
         store,
         InMemoryCache(FixedClock(now)),
-        ReportCapacity(uow_factory, clock, SequentialIds(f"rc-{now.isoformat()}"), store),
-        ConfirmCapacity(uow_factory, clock, SequentialIds(f"cc-{now.isoformat()}"), store),
+        ReportCapacity(uow_factory, clock, SequentialIds(f"rc{tag}"), store),
+        ConfirmCapacity(uow_factory, clock, SequentialIds(f"cc{tag}"), store),
         respond_to_booking=RespondToBooking(
             uow_factory,
             store,
             clock,
-            SequentialIds(f"rp-{now.isoformat()}"),
+            SequentialIds(f"rp{tag}"),
             sealer(),
         ),
         set_decline_reason=SetDeclineReason(uow_factory, store, clock),
@@ -86,7 +90,8 @@ async def say(
     at_time: datetime,
     key: str,
 ) -> HandleInboundTextResult:
-    return await handler(uow_factory, driver, at_time).execute(
+    tag = re.sub(r"[^A-Za-z0-9]", "", key)
+    return await handler(uow_factory, driver, at_time, tag).execute(
         HandleInboundTextCommand(
             idempotency_key=key,
             from_phone_hash=PHONE_HASH,
@@ -121,12 +126,13 @@ async def _request_for(
 
 
 async def _seed_phone_on_east(uow_factory: UnitOfWorkFactory) -> None:
-    """The same phone is also a reporter of UCR East, which has its own figure."""
+    """The same phone is also a reporter of UCR East, which has its own figure and open case."""
     west = await _west_role(uow_factory)
     east = dataclasses.replace(west, id="role-east", service_id=EAST)
     async with uow_factory() as uow:
         await uow.services.save(ucr_west(EAST, name="UCR East"))
         await uow.people.save_role(east)
+        await uow.cases.add(open_case("case-1002"))
         await uow.commit()
     await seed_report(uow_factory, at(13, 0), service_id=EAST, value=4, report_id="seed-east")
 
@@ -252,7 +258,8 @@ async def test_a_text_from_an_unknown_phone_gets_no_reply_and_writes_nothing(
 ) -> None:
     await seed_world(uow_factory, neo4j_driver)
     booked = await request(uow_factory, neo4j_driver, "u22-8")
-    result = await handler(uow_factory, neo4j_driver, at(14, 19)).execute(
+    before = await sent_message_ids(uow_factory)
+    result = await handler(uow_factory, neo4j_driver, at(14, 19), "unknown").execute(
         HandleInboundTextCommand(
             idempotency_key="in-u22-8",
             from_phone_hash="ef" * 32,
@@ -261,7 +268,7 @@ async def test_a_text_from_an_unknown_phone_gets_no_reply_and_writes_nothing(
         )
     )
     assert result.outcome == "dropped"
-    assert await sent_message_ids(uow_factory) == []
+    assert await sent_message_ids(uow_factory) == before
     assert (await booking_of(uow_factory, booked.booking_id)).status is BookingStatus.REQUESTED
 
 

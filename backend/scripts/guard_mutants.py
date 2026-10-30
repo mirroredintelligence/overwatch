@@ -172,7 +172,7 @@ MUTANTS: tuple[Mutant, ...] = (
         ),
     ),
     Mutant(
-        "M15",
+        "M14",
         "a whole-graph count may return only a label set or a type and a count",
         f"{GRAPH}/queries.py",
         "        or _WHOLE_GRAPH_RETURN.search(text) is None",
@@ -183,7 +183,7 @@ MUTANTS: tuple[Mutant, ...] = (
         ),
     ),
     Mutant(
-        "M16",
+        "M15",
         "the process does not start while a node has no tenantId",
         "diucs/bootstrap/container.py",
         "            if not report.ok:\n                raise TenantInvariantViolated(report)\n",
@@ -194,7 +194,7 @@ MUTANTS: tuple[Mutant, ...] = (
         ),
     ),
     Mutant(
-        "M17",
+        "M16",
         "the unstamped count leaves out the registry labels and no others",
         f"{GRAPH}/invariants.py",
         "registryLabels=list(REGISTRY_LABELS)",

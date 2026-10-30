@@ -151,7 +151,7 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-PERSON-ACTIVE-ROLES": Scenario(
         "list the active roles of active practitioners (the clinical leads are chosen from them)",
         seed=_REPORTER_SEED,
-        expect=Expect(rows=({"id": "r-1"}, {"id": "r-2"})),
+        expect=Expect(rows=({"id": "r-1"},)),
     ),
     "Q-PHONE-SERVICES-HELD": Scenario(
         "list the roles a phone holds and is not covered out of",

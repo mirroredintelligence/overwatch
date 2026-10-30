@@ -14,6 +14,10 @@ import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
+from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.adapters.testing.memory_cache import InMemoryCache
+from diucs.adapters.testing.tokens import TEST_BFF_SECRET
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.domain.codes import (
     Cadence,
@@ -309,6 +313,13 @@ async def test_close_leaves_no_postcode_and_no_needs(
         stored = await uow.cases.get(case_id)
     assert stored is not None
     assert stored.postcode is None and stored.needs == ()
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def route_state(api_app: Any, test_container: Any) -> None:
+    """The BFF secret for the tokens and the cache the idempotent writes replay from (DEC-096)."""
+    api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
+    api_app.state.cache = InMemoryCache(test_container.clock)
 
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")

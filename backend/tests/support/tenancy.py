@@ -16,7 +16,7 @@ import os
 import re
 import secrets
 import time
-from collections.abc import Awaitable, Callable, Iterator, Mapping
+from collections.abc import Awaitable, Callable, Iterator, Mapping, MutableMapping
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -186,6 +186,66 @@ def identity_from_workerinput(received: Mapping[str, object]) -> RunIdentity:
         return RunIdentity(pid, started, nonce).for_worker(int(named.group(1)))
     except ValueError as error:
         raise ValueError(f"workerinput does not hold a valid run identity: {error}") from error
+
+
+RUN_ENV: Final = "DIUCS_TEST_RUN"
+WORKER_ENV: Final = "PYTEST_XDIST_WORKER"
+_PROCESS_IDENTITY: RunIdentity | None = None
+
+
+def derive_process_identity(environ: Mapping[str, str]) -> RunIdentity:
+    """The identity of the process that holds `environ`. A pytest-xdist worker
+    (`PYTEST_XDIST_WORKER` is `gw<n>`, set before any conftest is read) takes its controller's run
+    from `DIUCS_TEST_RUN` (inherited from the controller, which exported it when it started) and
+    its own number; any other process makes a new one. A worker with no run from its controller
+    raises: it must not guess a tenant."""
+    worker = environ.get(WORKER_ENV)
+    if worker is None:
+        return new_run_identity()
+    controller = parse_run_token(environ.get(RUN_ENV, ""))
+    if controller is None:
+        raise ValueError(
+            f"workerinput: a worker has no run identity from its controller ({RUN_ENV})"
+        )
+    return identity_from_workerinput({WORKERINPUT_KEY: _as_list(controller), "workerid": worker})
+
+
+def _as_list(identity: RunIdentity) -> list[object]:
+    return [identity.pid, identity.started, identity.nonce]
+
+
+def parse_run_token(text: str) -> RunIdentity | None:
+    """`<pid>.<started>.<nonce>` as `export_process_identity` writes it, or None."""
+    parts = text.split(".")
+    if len(parts) != 3 or not (parts[0].isdecimal() and parts[1].isdecimal()):
+        return None
+    try:
+        return RunIdentity(int(parts[0]), int(parts[1]), parts[2])
+    except ValueError:
+        return None
+
+
+def export_identity(identity: RunIdentity, environ: MutableMapping[str, str]) -> None:
+    """Write the three scope ids of `identity` to `environ` (child processes and the front end's
+    end-to-end run read them). A process with no worker number also writes its run token, so the
+    workers it starts, which inherit the environment, derive their identities from it."""
+    environ["DIUCS_TEST_TENANT"] = identity.tenant_id
+    environ["DIUCS_TEST_OTHER_TENANT"] = identity.other_tenant_id
+    environ["DIUCS_TEST_NETWORK"] = identity.network_id
+    if identity.worker is None:
+        environ[RUN_ENV] = f"{identity.pid}.{identity.started}.{identity.nonce}"
+
+
+def process_identity() -> RunIdentity:
+    """This process's run identity, made once and exported at once. The root conftest calls it
+    when it is imported, so a module that reads the run's tenant while it is imported (a support
+    module that a directory's conftest imports) finds it, however the tests were named on the
+    command line."""
+    global _PROCESS_IDENTITY
+    if _PROCESS_IDENTITY is None:
+        _PROCESS_IDENTITY = derive_process_identity(os.environ)
+        export_identity(_PROCESS_IDENTITY, os.environ)
+    return _PROCESS_IDENTITY
 
 
 def run_host(label: str) -> str:

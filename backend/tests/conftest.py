@@ -46,9 +46,10 @@ from tests.support.neo4j import (
 from tests.support.neo4j_locks import apply_migrations_once
 from tests.support.tenancy import (
     RunIdentity,
+    export_identity,
     guard_test,
     identity_from_workerinput,
-    new_run_identity,
+    process_identity,
     workerinput_for,
 )
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory, uow_factory_on
@@ -65,23 +66,27 @@ _EXCLUSIVE_RUN: pytest.StashKey[bool] = pytest.StashKey()
 _SESSION_ENV = ("NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD")
 
 
+_PROCESS_IDENTITY = process_identity()
+
+
 def pytest_configure(config: pytest.Config) -> None:
-    """One run identity per pytest session. Under pytest-xdist the controller makes it and sends it
-    to every worker (`pytest_configure_node`); a worker takes the identity of its own number, so
-    each worker has a tenant, a second tenant and a network scope of its own (TEN-035). The three
-    ids are exported for child processes: the front end's end-to-end run reads them later."""
+    """One run identity per pytest session. The process made it when this file was imported (see
+    `process_identity`: a worker derives its own from its controller's run and its number). Under
+    pytest-xdist the controller also sends it to each worker (`pytest_configure_node`), and the
+    worker takes the identity of its own number from that (`workerinput`), which is the same one
+    by construction. Each worker therefore has a tenant, a second tenant and a network scope of its
+    own (TEN-035). The three ids are exported for child processes: the front end's end-to-end run
+    reads them later."""
     received = getattr(config, "workerinput", None)
     if received is None:
-        identity = new_run_identity()
+        identity = process_identity()
     else:
         try:
             identity = identity_from_workerinput(received)
         except ValueError as error:
             raise pytest.UsageError(str(error)) from error
     config.stash[_RUN_IDENTITY] = identity
-    os.environ["DIUCS_TEST_TENANT"] = identity.tenant_id
-    os.environ["DIUCS_TEST_OTHER_TENANT"] = identity.other_tenant_id
-    os.environ["DIUCS_TEST_NETWORK"] = identity.network_id
+    export_identity(identity, os.environ)
 
 
 @pytest.hookimpl(optionalhook=True)

@@ -160,3 +160,63 @@ def test_a_run_host_label_must_be_short_and_lower_case(
     monkeypatch.setenv("DIUCS_TEST_TENANT", CONTROLLER.tenant_id)
     with pytest.raises(ValueError, match="run_host"):
         run_host(label)
+
+
+# the identity of a process, before any conftest but the root one has been read
+
+
+def _controller_env() -> dict[str, str]:
+    environment: dict[str, str] = {}
+    from tests.support.tenancy import export_identity
+
+    export_identity(CONTROLLER, environment)
+    return environment
+
+
+def test_a_controller_exports_its_run_so_the_workers_it_starts_can_find_it() -> None:
+    environment = _controller_env()
+
+    assert environment["DIUCS_TEST_RUN"] == "4242.1800000000.ab12"
+    assert environment["DIUCS_TEST_TENANT"] == CONTROLLER.tenant_id
+
+
+def test_a_worker_derives_its_identity_from_its_environment_at_import_time() -> None:
+    from tests.support.tenancy import derive_process_identity
+
+    environment = {**_controller_env(), "PYTEST_XDIST_WORKER": "gw2"}
+
+    assert derive_process_identity(environment) == CONTROLLER.for_worker(2)
+
+
+def test_a_worker_exports_its_own_ids_and_never_replaces_the_controllers_run() -> None:
+    from tests.support.tenancy import export_identity
+
+    environment = _controller_env()
+    export_identity(CONTROLLER.for_worker(1), environment)
+
+    assert environment["DIUCS_TEST_TENANT"] == CONTROLLER.for_worker(1).tenant_id
+    assert environment["DIUCS_TEST_RUN"] == "4242.1800000000.ab12"
+
+
+@pytest.mark.parametrize("run", ["", "x", "1.2", "a.b.c", "4242.1800000000.zzzz", "1.2.3.4"])
+def test_a_worker_with_no_usable_run_from_its_controller_refuses_to_guess(run: str) -> None:
+    from tests.support.tenancy import derive_process_identity
+
+    with pytest.raises(ValueError, match="workerinput"):
+        derive_process_identity({"PYTEST_XDIST_WORKER": "gw0", "DIUCS_TEST_RUN": run})
+
+
+def test_a_process_that_is_not_a_worker_makes_an_identity_of_its_own() -> None:
+    from tests.support.tenancy import derive_process_identity
+
+    first = derive_process_identity({})
+    assert first.worker is None
+    assert first.pid > 0
+
+
+def test_the_identity_this_process_exported_is_the_one_its_tests_see() -> None:
+    import os
+
+    from tests.support.tenancy import process_identity
+
+    assert os.environ["DIUCS_TEST_TENANT"] == process_identity().tenant_id

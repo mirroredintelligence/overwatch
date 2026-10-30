@@ -85,8 +85,10 @@ describe('POST /api/bff/cases (W10)', () => {
     expect(seen[0].token).toBe('Bearer token-for-advisor');
   });
 
-  it('answers for a lead as the proxy guard allows', async () => {
-    expect((await post('lead')).status).toBe(201);
+  it('refuses a shift lead, the page guard and the back end agreeing that a lead does not work a call (DEC-860)', async () => {
+    expect((await post('lead')).status).toBe(403);
+    expect((await post('clinical')).status).toBe(403);
+    expect(seen).toHaveLength(0);
   });
 
   it('refuses a request with no CSRF header', async () => {

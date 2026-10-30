@@ -77,15 +77,8 @@ function kindOf(file: string): Kind | undefined {
  * list only shrinks.
  */
 const ID_ROUTES_NOT_YET_SCOPED: string[] = [
-  'app/api/bff/bookings/[id]/acknowledge/route.ts',
-  'app/api/bff/bookings/[id]/cancel/route.ts',
-  'app/api/bff/bookings/[id]/route.ts',
   'app/api/bff/cases/[ref]/clinical-requests/[id]/route.ts',
   'app/api/bff/cases/[ref]/clinical-requests/route.ts',
-  'app/api/bff/cases/[ref]/options/route.ts',
-  'app/api/bff/cases/[ref]/outcome/route.ts',
-  'app/api/bff/cases/[ref]/route.ts',
-  'app/api/bff/cases/[ref]/summary/route.ts',
   'app/api/bff/clinical/requests/[id]/advice/route.ts',
   'app/api/bff/clinical/requests/[id]/take/route.ts',
   'app/api/bff/console/insight/[tab]/route.ts',
@@ -96,9 +89,6 @@ const ID_ROUTES_NOT_YET_SCOPED: string[] = [
   'app/api/bff/exec/alerts/[id]/acknowledge/route.ts',
   'app/api/bff/exec/alerts/[id]/snooze/route.ts',
   'app/api/bff/exec/services/[id]/route.ts',
-  'app/api/bff/services/[id]/criteria/route.ts',
-  'app/api/bff/services/[id]/declined/route.ts',
-  'app/api/bff/services/[id]/phoned/route.ts',
 ];
 
 const VERBS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];

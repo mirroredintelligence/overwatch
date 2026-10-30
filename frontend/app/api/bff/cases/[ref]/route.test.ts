@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
-import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
-import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { ADVISOR_TOKEN, advisorRequest } from '@/test/advisor-session';
+import { TEST_SESSION_SECRET } from '@/test/cookies';
+import { CASE_FULL } from '@/test/fixtures/backend-shapes';
 import { BACKEND_BASE } from '@/test/msw/handlers/board';
 import { server } from '@/test/msw/server';
 import { GET, PUT } from './route';
@@ -13,75 +13,60 @@ vi.mock('next/headers', async () => {
   return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
-vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'advisor-1' }, 'N'.repeat(43));
-const URL_ = 'https://app.test/api/bff/cases/4821';
-const SR_URL = `${BACKEND_BASE}/ServiceRequest/4821`;
+// The case routes against the back end's real answers (routes_cases.py, case_mapping.py): the answer
+// is the JSON the back end's own mapping wrote (test/fixtures/backend-shapes.ts).
 
-type Seen = { method: string; ifMatch: string | null; token: string | null; body: unknown };
-const seen: Seen[] = [];
-
-const SAVED_SR = {
-  resourceType: 'ServiceRequest',
-  id: '4821',
-  status: 'active',
-  intent: 'plan',
-  subject: { reference: '#p' },
-  contained: [
-    {
-      resourceType: 'Patient',
-      id: 'p',
-      address: [{ postalCode: 'DT4 8XX' }],
-      extension: [{ url: 'https://diucs.example/StructureDefinition/age-band', valueCode: '80+' }],
-    },
-  ],
-  extension: [{ url: 'https://diucs.example/StructureDefinition/referrer-type', valueCode: 'ambulance-crew' }],
-  priority: 'urgent',
-  reasonCode: [
-    { coding: [{ system: 'https://diucs.example/CodeSystem/need-category', code: 'fall-no-injury' }] },
-    { coding: [{ system: 'https://diucs.example/CodeSystem/need-category', code: 'frailty' }] },
-  ],
-};
-
-function session(role: Role): Session {
-  return {
-    role,
-    tenantId: 'trust-a',
-    host: 'app.test',
-    services: [],
-    sub: 'advisor-1',
-    backendToken: 'token-for-advisor',
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-  };
-}
-
-async function cookies(role: Role | null): Promise<Record<string, string>> {
-  const jar: Record<string, string> = { [CSRF_COOKIE]: CSRF };
-  if (role !== null) jar[SESSION_COOKIE] = await sealSession(session(role));
-  return jar;
-}
-
+const SR_URL = `${BACKEND_BASE}/ServiceRequest/case-1`;
+const URL_ = 'https://app.test/api/bff/cases/case-1';
+const KEY = 'save-key-0001';
 const context = (ref: string) => ({ params: Promise.resolve({ ref }) });
 
-async function get(role: Role | null, ref = '4821'): Promise<Response> {
-  return GET(requestWithCookies(`https://app.test/api/bff/cases/${ref}`, await cookies(role)), context(ref));
-}
+type Seen = { method: string; ifMatch: string | null; key: string | null; token: string | null; body: unknown };
+const seen: Seen[] = [];
+
+beforeEach(() => {
+  seen.length = 0;
+  vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('NODE_ENV', 'production');
+  server.use(
+    http.get(SR_URL, ({ request }) => {
+      seen.push({ method: 'GET', ifMatch: null, key: null, token: request.headers.get('authorization'), body: null });
+      return HttpResponse.json(CASE_FULL, { headers: { ETag: 'W/"1"' } });
+    }),
+    http.put(SR_URL, async ({ request }) => {
+      seen.push({
+        method: 'PUT',
+        ifMatch: request.headers.get('if-match'),
+        key: request.headers.get('idempotency-key'),
+        token: request.headers.get('authorization'),
+        body: await request.json(),
+      });
+      return HttpResponse.json(CASE_FULL, { headers: { ETag: 'W/"1"' } });
+    }),
+  );
+});
+
+afterEach(() => vi.unstubAllEnvs());
+
+const get = async (role: 'advisor' | 'reporter' | 'lead' | 'clinical' | null, ref = 'case-1') =>
+  GET(await advisorRequest(`https://app.test/api/bff/cases/${ref}`, role), context(ref));
 
 async function put(
-  role: Role | null,
+  role: 'advisor' | 'reporter' | 'lead' | 'clinical',
   body: unknown,
-  options: { ifMatch?: string | null; csrf?: string | null } = {},
-): Promise<Response> {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (options.ifMatch !== null) headers['If-Match'] = options.ifMatch ?? 'W/"1"';
-  if (options.csrf !== null) headers[CSRF_HEADER] = options.csrf ?? CSRF;
-  const request = requestWithCookies(URL_, await cookies(role), {
-    method: 'PUT',
-    headers,
-    body: JSON.stringify(body),
-  });
-  return PUT(request, context('4821'));
+  options: { ifMatch?: string | null; key?: string | null; csrf?: boolean } = {},
+) {
+  return PUT(
+    await advisorRequest(URL_, role, {
+      method: 'PUT',
+      csrf: options.csrf ?? true,
+      key: options.key === undefined ? KEY : options.key,
+      ifMatch: options.ifMatch === undefined ? 'W/"1"' : options.ifMatch,
+      body,
+    }),
+    context('case-1'),
+  );
 }
 
 const VALID = {
@@ -93,59 +78,56 @@ const VALID = {
   scores: [],
 };
 
-beforeEach(() => {
-  seen.length = 0;
-  vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
-  vi.stubEnv('NODE_ENV', 'production');
-  server.use(
-    http.get(SR_URL, ({ request }) => {
-      seen.push({ method: 'GET', ifMatch: null, token: request.headers.get('authorization'), body: null });
-      return HttpResponse.json(SAVED_SR, { headers: { ETag: 'W/"1"' } });
-    }),
-    http.put(SR_URL, async ({ request }) => {
-      seen.push({
-        method: 'PUT',
-        ifMatch: request.headers.get('if-match'),
-        token: request.headers.get('authorization'),
-        body: await request.json(),
-      });
-      return HttpResponse.json(SAVED_SR, { headers: { ETag: 'W/"1"' } });
-    }),
-  );
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
-
 describe('GET /api/bff/cases/[ref] (W11)', () => {
-  it('answers the case in coded form with its ETag, and no patient detail beyond the district and age band', async () => {
+  it('answers the case the back end holds in coded form, with its case number, open time and ETag', async () => {
     const response = await get('advisor');
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      id: '4821',
+      id: 'case-1',
+      reference: '4821',
       referrerType: 'ambulance-crew',
       ageBand: '80+',
-      postcode: 'DT4 8XX',
+      postcode: 'DT4',
       needs: ['fall-no-injury', 'frailty'],
       urgency: 'within-2-hrs',
-      scores: [],
-      openedAt: null,
+      scores: [{ method: 'news2', value: 2 }],
+      openedAt: '2026-10-30T14:00:00Z',
+      closed: false,
+      closedAt: null,
+      outcome: null,
       etag: 'W/"1"',
     });
-    expect(seen[0].token).toBe('Bearer token-for-advisor');
+    expect(seen[0]?.token).toBe(`Bearer ${ADVISOR_TOKEN}`);
   });
 
-  it('answers 403 for a reporter and reads nothing', async () => {
-    expect((await get('reporter')).status).toBe(403);
+  it.each(['reporter', 'lead', 'clinical'] as const)('answers 403 for a %s and reads nothing (DEC-860)', async (role) => {
+    expect((await get(role)).status).toBe(403);
     expect(seen).toHaveLength(0);
+  });
+
+  it('answers 404 with the one not-found code when the back end does not know the case, so another tenant\'s id reads as an id nobody holds', async () => {
+    server.use(http.get(SR_URL, () => HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-found' }] }, { status: 404 })));
+    const unknown = await get('advisor');
+    expect(unknown.status).toBe(404);
+    expect(await unknown.json()).toEqual({ code: 'not-found', message: 'We could not find that.' });
+  });
+
+  it('answers a back-end refusal (403) on an id route as the same 404 (idScoped, DEC-130 item 7)', async () => {
+    server.use(http.get(SR_URL, () => HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'forbidden' }] }, { status: 403 })));
+    const response = await get('advisor');
+    expect(response.status).toBe(404);
+    expect(await response.json()).toMatchObject({ code: 'not-found' });
   });
 
   it('refuses a reference that cannot be a case id, before any read', async () => {
     expect((await get('advisor', 'a%20b')).status).toBe(400);
     expect(seen).toHaveLength(0);
+  });
+
+  it('answers 502 when the back end answers something that is not a case', async () => {
+    server.use(http.get(SR_URL, () => HttpResponse.json({ resourceType: 'Patient', id: 'x' })));
+    expect((await get('advisor')).status).toBe(502);
   });
 
   it('is never cached', async () => {
@@ -154,17 +136,15 @@ describe('GET /api/bff/cases/[ref] (W11)', () => {
 });
 
 describe('PUT /api/bff/cases/[ref] (W11)', () => {
-  it('maps the coded body to a ServiceRequest with If-Match and the bearer token', async () => {
+  it('maps the coded body to the ServiceRequest the back end reads, with If-Match, the key and the bearer token', async () => {
     const response = await put('advisor', VALID);
 
     expect(response.status).toBe(200);
     expect(seen).toHaveLength(1);
-    expect(seen[0].method).toBe('PUT');
-    expect(seen[0].ifMatch).toBe('W/"1"');
-    expect(seen[0].token).toBe('Bearer token-for-advisor');
-    expect(seen[0].body).toMatchObject({
+    expect(seen[0]).toMatchObject({ method: 'PUT', ifMatch: 'W/"1"', key: KEY, token: `Bearer ${ADVISOR_TOKEN}` });
+    expect(seen[0]?.body).toMatchObject({
       resourceType: 'ServiceRequest',
-      id: '4821',
+      id: 'case-1',
       priority: 'urgent',
       reasonCode: [
         { coding: [{ system: 'https://diucs.example/CodeSystem/need-category', code: 'fall-no-injury' }] },
@@ -173,11 +153,27 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
     });
   });
 
-  it('maps today and planned to routine, the back end having no planned priority (DEC-397)', async () => {
-    await put('advisor', { ...VALID, urgency: 'today' });
-    await put('advisor', { ...VALID, urgency: 'planned' });
+  it('writes the urgency extension the back end reads, so planned is kept as planned (DEC-773)', async () => {
+    await put('advisor', { ...VALID, urgency: 'planned' }, { key: 'save-key-0002' });
 
-    expect(seen.map((s) => (s.body as { priority: string }).priority)).toEqual(['routine', 'routine']);
+    const extensions = (seen[0]?.body as { extension: { url: string; valueCode?: string }[] }).extension;
+    expect(extensions).toContainEqual({ url: 'https://diucs.example/StructureDefinition/urgency', valueCode: 'planned' });
+    expect((seen[0]?.body as { priority: string }).priority).toBe('routine');
+  });
+
+  it('sends no postcode when the stored district is to stay, and none of the Patient address', async () => {
+    const { postcode: _kept, ...withoutPostcode } = VALID;
+    const response = await put('advisor', withoutPostcode);
+
+    expect(response.status).toBe(200);
+    expect(JSON.stringify(seen[0]?.body)).not.toContain('postalCode');
+  });
+
+  it('refuses a save with no Idempotency-Key, before any back-end call: the back end requires one', async () => {
+    const response = await put('advisor', VALID, { key: null });
+
+    expect(response.status).toBe(400);
+    expect(seen).toHaveLength(0);
   });
 
   it('a 412 from the back end answers 412 with the conflict code', async () => {
@@ -187,6 +183,15 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
 
     expect(response.status).toBe(412);
     expect(await response.json()).toMatchObject({ code: 'conflict' });
+  });
+
+  it('a 400 for recorded scores that cannot change is passed on as invalid, not as a server fault', async () => {
+    server.use(
+      http.put(SR_URL, () =>
+        HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid' }] }, { status: 400 }),
+      ),
+    );
+    expect((await put('advisor', VALID)).status).toBe(400);
   });
 
   it('refuses a save with no If-Match, before any back-end call', async () => {
@@ -201,6 +206,7 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
     ['a need outside the list', { ...VALID, needs: ['fall'] }],
     ['a referrer outside the list', { ...VALID, referrerType: 'friend' }],
     ['a postcode that is not full', { ...VALID, postcode: 'DT4 8X' }],
+    ['a postcode that is only a district', { ...VALID, postcode: 'DT4' }],
     ['no needs', { ...VALID, needs: [] }],
   ])('refuses %s with 400 and calls nothing', async (_label, body) => {
     expect((await put('advisor', body)).status).toBe(400);
@@ -210,7 +216,7 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
   it('drops any field it does not know, such as a name', async () => {
     await put('advisor', { ...VALID, patientName: 'Sample Patient' });
 
-    expect(JSON.stringify(seen[0].body)).not.toContain('Sample Patient');
+    expect(JSON.stringify(seen[0]?.body)).not.toContain('Sample Patient');
   });
 
   it('refuses a body that names a tenant with 400, and calls nothing (TEN-044)', async () => {
@@ -218,9 +224,9 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
     expect(seen).toHaveLength(0);
   });
 
-  it('refuses a reporter with 403 and a missing CSRF header with 403', async () => {
-    expect((await put('reporter', VALID)).status).toBe(403);
-    expect((await put('advisor', VALID, { csrf: null })).status).toBe(403);
+  it.each(['reporter', 'lead', 'clinical'] as const)('refuses a %s with 403, and a missing CSRF header with 403', async (role) => {
+    expect((await put(role, VALID)).status).toBe(403);
+    expect((await put('advisor', VALID, { csrf: false })).status).toBe(403);
     expect(seen).toHaveLength(0);
   });
 });

@@ -6,9 +6,9 @@ import { ROLES, type Role } from './session';
 // sign-in's "where to go next" both read this one table.
 
 const TABLE: [string, Role[]][] = [
-  ['/advisor', ['advisor', 'lead']],
-  ['/advisor/case', ['advisor', 'lead']],
-  ['/advisor/case/4821', ['advisor', 'lead']],
+  ['/advisor', ['advisor']],
+  ['/advisor/case', ['advisor']],
+  ['/advisor/case/4821', ['advisor']],
   ['/clinical', ['clinical']],
   ['/lead', ['lead']],
   ['/owner', ['owner', 'clinical']],
@@ -46,7 +46,7 @@ describe('rolesFor', () => {
   });
 
   it('guards a path with capitals past the first letter', () => {
-    expect([...(rolesFor('/ADVISOR/case') ?? [])].sort()).toEqual(['advisor', 'lead']);
+    expect([...(rolesFor('/ADVISOR/case') ?? [])].sort()).toEqual(['advisor']);
   });
 
   it('lets nobody in when the path cannot be decoded', () => {

@@ -26,6 +26,66 @@ export type LinkView = {
   csrfToken: string;
 };
 
+/**
+ * A booking link's page (L02): a request for the service to answer, or a confirmed booking's change
+ * link. The back end sends no time for the confirmation and no SPOA name, only what is here.
+ */
+export type BookingView = {
+  state: 'ok';
+  purpose: 'booking-request' | 'booking-change';
+  csrfToken: string;
+  reference: string;
+  serviceName: string;
+  ageBand: string | null;
+  /** The needs as the back end words them (a code list joined with "and"), shown as sent. */
+  need: string | null;
+  urgency: string | null;
+  replyBy: string | null;
+  bookingStatus: string;
+  /** The SPOA's coordination phone from the tenant's configuration, or null when none is set. */
+  coordinationPhone: string | null;
+};
+
+/** The page a link opens: a capacity link, or a booking link, by the purpose the back end names. */
+export type OpenLink = { kind: 'capacity'; view: LinkView } | { kind: 'booking'; view: BookingView };
+
+const BOOKING_PURPOSES = ['booking-request', 'booking-change'] as const;
+
+function nullableText(value: unknown, max = MAX_NAME_LENGTH): string | null {
+  return value === null || value === undefined ? null : text(value, max);
+}
+
+/** A booking link's page: only the fields the booking pages read. Anything else in the answer is dropped. */
+export function parseBookingView(value: unknown): BookingView {
+  const body = record(value);
+  if (body.state !== 'ok') throw new LinkShapeError();
+  if (typeof body.purpose !== 'string' || !(BOOKING_PURPOSES as readonly string[]).includes(body.purpose)) {
+    throw new LinkShapeError();
+  }
+  return {
+    state: 'ok',
+    purpose: body.purpose as BookingView['purpose'],
+    csrfToken: text(body.csrfToken, MAX_TOKEN_TEXT),
+    reference: text(body.reference, MAX_TOKEN_TEXT),
+    serviceName: text(body.serviceName),
+    ageBand: nullableText(body.ageBand, MAX_TOKEN_TEXT),
+    need: nullableText(body.need, MAX_TOKEN_TEXT),
+    urgency: nullableText(body.urgency, MAX_TOKEN_TEXT),
+    replyBy: body.replyBy === undefined ? null : instantOrNull(body.replyBy),
+    bookingStatus: text(body.bookingStatus, MAX_TOKEN_TEXT),
+    coordinationPhone: nullableText(body.coordinationPhone, MAX_TOKEN_TEXT),
+  };
+}
+
+/** The page of an open link, by its purpose: a booking purpose reads as a booking, anything else as a capacity link. */
+export function parseOpenLink(value: unknown): OpenLink {
+  const purpose = record(value).purpose;
+  if (typeof purpose === 'string' && purpose.startsWith('booking')) {
+    return { kind: 'booking', view: parseBookingView(value) };
+  }
+  return { kind: 'capacity', view: parseLinkView(value) };
+}
+
 export type LinkAnswered = {
   serviceName: string;
   value: number;

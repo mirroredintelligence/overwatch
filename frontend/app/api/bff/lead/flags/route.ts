@@ -1,5 +1,5 @@
 import { withBff } from '@/lib/bff/handler';
-import { backendFetch } from '@/lib/fhir/client';
+import { fhirFetch } from '@/lib/fhir/client';
 import { invalidRequest } from '@/lib/lead/bffInput';
 import { flagItemsFrom } from '@/lib/lead/flags';
 import { notBuilt } from '@/lib/lead/notBuilt';
@@ -12,7 +12,7 @@ const get = withBff(
     const state = new URL(request.url).searchParams.get('state') ?? 'to-check';
     if (state === 'checked') return notBuilt();
     if (state !== 'to-check') throw invalidRequest();
-    const { data } = await backendFetch<unknown>('/admin/report-flags?status=open', { token: session.backendToken });
+    const { data } = await fhirFetch<unknown>('/admin/report-flags?status=open', { token: session.backendToken, root: true });
     const items = flagItemsFrom(data);
     return Response.json(
       { counts: { toCheck: items.length, checked: null }, items },

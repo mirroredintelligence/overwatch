@@ -16,7 +16,11 @@ export type FhirInit = {
   ifMatch?: string;
   /** Passed through unchanged; otherwise a new one is generated. */
   traceparent?: string;
-  /** Passed to fetch. The audit replay asks for no-store, so no copy is kept (W47). */
+  /**
+   * Calls the back end's root, outside /fhir: the support and console routes (W48). Off by default,
+   * so every FHIR call keeps its path.
+   */
+  root?: boolean;  /** Passed to fetch. The audit replay asks for no-store, so no copy is kept (W47). */
   cache?: RequestCache;
 };
 
@@ -37,14 +41,16 @@ export class FhirError extends Error {
 const FHIR_MEDIA_TYPE = 'application/fhir+json; fhirVersion=4.3';
 const BASE_URL_VARIABLE = 'DIUCS_FHIR_BASE_URL';
 
-function baseUrl(): string {
+function baseUrl(root = false): string {
   // Read at call time, so a missing value fails the request that needs it.
   // The message names the variable only, never a URL.
   const value = process.env[BASE_URL_VARIABLE];
   if (!value) {
     throw new Error(`${BASE_URL_VARIABLE} is not set, so the back end cannot be called.`);
   }
-  return value.replace(/\/+$/, '');
+  const trimmed = value.replace(/\/+$/, '');
+  // The variable names the FHIR base (…/fhir). The root is the same origin without that segment.
+  return root ? trimmed.replace(/\/fhir$/, '') : trimmed;
 }
 
 function outcomeFor(code: string, diagnostics: string): OperationOutcome {
@@ -75,29 +81,7 @@ function failureOutcome(status: number, text: string): OperationOutcome {
 }
 
 export async function fhirFetch<T>(path: string, init: FhirInit = {}): Promise<FhirResult<T>> {
-  const url = `${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
-  return sendRequest<T>(url, init);
-}
-
-/**
- * The origin of the back end, for the routes that sit beside the FHIR base (the admin and identity
- * routes, DEC-087). The base must end in /fhir; the name of the variable is in the message, never its value.
- */
-function rootBase(): string {
-  const trimmed = baseUrl();
-  if (!trimmed.endsWith('/fhir')) {
-    throw new Error(`${BASE_URL_VARIABLE} must end in /fhir, because the admin routes sit beside it.`);
-  }
-  return trimmed.slice(0, -'/fhir'.length);
-}
-
-/** A call to a route beside the FHIR base. Same rules and same answers as fhirFetch. */
-export async function backendFetch<T>(path: string, init: FhirInit = {}): Promise<FhirResult<T>> {
-  const url = `${rootBase()}${path.startsWith('/') ? path : `/${path}`}`;
-  return sendRequest<T>(url, init);
-}
-
-async function sendRequest<T>(url: string, init: FhirInit): Promise<FhirResult<T>> {
+  const url = `${baseUrl(init.root === true)}${path.startsWith('/') ? path : `/${path}`}`;
   const hasBody = init.body !== undefined;
 
   const headers = new Headers({
@@ -188,4 +172,3 @@ export async function fhirStream(
   }
   return { body: response.body };
 }
-

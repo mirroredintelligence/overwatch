@@ -1,5 +1,5 @@
 import { withBff } from '@/lib/bff/handler';
-import { backendFetch } from '@/lib/fhir/client';
+import { fhirFetch } from '@/lib/fhir/client';
 import { idempotencyKeyOf, invalidRequest, jsonBody, routeId } from '@/lib/lead/bffInput';
 import { parametersOf, partValue } from '@/lib/lead/parameters';
 
@@ -18,7 +18,8 @@ const post = withBff<Context>(
     const outcome = typeof body?.action === 'string' ? OUTCOMES[body.action] : undefined;
     if (outcome === undefined || !Object.hasOwn(OUTCOMES, body?.action as string)) throw invalidRequest();
 
-    const { data } = await backendFetch<unknown>(`/admin/report-flags/${encodeURIComponent(id)}/$resolve`, {
+    const { data } = await fhirFetch<unknown>(`/admin/report-flags/${encodeURIComponent(id)}/$resolve`, {
+      root: true,
       method: 'POST',
       body: parametersOf([{ name: 'outcome', valueString: outcome }]),
       token: session.backendToken,

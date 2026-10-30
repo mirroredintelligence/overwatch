@@ -20,7 +20,8 @@ const ID = 'REG-SAMPLE-1';
 
 async function open() {
   const view = render(<OrganisationForm registrationId={ID} />);
-  await screen.findByRole('heading', { level: 1, name: 'Your organisation' });
+  // The header renders while the registration loads; wait for the loaded controls, not the heading.
+  await screen.findByLabelText('Your name');
   return view;
 }
 

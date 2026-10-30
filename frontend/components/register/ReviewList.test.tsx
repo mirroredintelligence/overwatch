@@ -17,7 +17,8 @@ const ID = 'REG-SAMPLE-1';
 
 async function open() {
   const view = render(<ReviewList registrationId={ID} />);
-  await screen.findByRole('heading', { level: 1, name: 'Check your details' });
+  // The header renders while the review loads; wait for the first section's Change link.
+  await screen.findByRole('link', { name: 'Change Organisation' });
   return view;
 }
 

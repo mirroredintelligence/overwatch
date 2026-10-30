@@ -18,7 +18,8 @@ const ID = 'REG-SAMPLE-1';
 
 async function open() {
   const view = render(<ServiceForm registrationId={ID} />);
-  await screen.findByRole('heading', { level: 1, name: 'Describe the service' });
+  // The header renders while the registration loads; wait for the loaded controls, not the heading.
+  await screen.findByRole('group', { name: 'Category' });
   return view;
 }
 

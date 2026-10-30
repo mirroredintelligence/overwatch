@@ -79,13 +79,13 @@ describe('parseProfile', () => {
     ['no time zone', { timeZone: undefined }],
     ['a locale that is not a locale', { locale: 'English (UK)' }],
     ['no locale', { locale: undefined }],
-    ['wording that is a text', { wording: 'words' }],
-    ['wording that is a list', { wording: [] }],
   ])('refuses a profile with %s', (_name, change) => {
     expect(parseProfile({ ...GOOD, ...change })).toBeNull();
   });
 
   it.each([
+    ['wording that is a text', { wording: 'words' }],
+    ['wording that is a list', { wording: [] }],
     ['a missing word', { wording: { systemName: 'Capacity A', referralSystemName: 'Referral system A' } }],
     ['a word that is not text', { wording: { ...GOOD.wording, systemName: 5 } }],
     ['an empty word', { wording: { ...GOOD.wording, referralSystemName: '' } }],
@@ -213,10 +213,14 @@ describe('readTenantProfile: the cache', () => {
 
   it('remembers a failure only briefly, so a back end that comes back is used again', async () => {
     const now = new Date('2026-10-30T10:00:00Z');
-    server.use(http.get(PROFILE_URL, () => HttpResponse.json({}, { status: 503 })));
+    let calls = 0;
+    server.use(http.get(PROFILE_URL, () => {
+      calls += 1;
+      return HttpResponse.json({}, { status: 503 });
+    }));
     expect(await readTenantProfile(A.host, now)).toBeNull();
     expect(await readTenantProfile(A.host, new Date(now.getTime() + UNAVAILABLE_TTL_MS - 1))).toBeNull();
-    expect(seenProfileRequests).toHaveLength(1);
+    expect(calls).toBe(1);
     server.resetHandlers();
     expect((await readTenantProfile(A.host, new Date(now.getTime() + UNAVAILABLE_TTL_MS)))?.displayName).toBe('Sample Area A');
     expect(UNAVAILABLE_TTL_MS).toBeLessThan(UNKNOWN_HOST_TTL_MS);

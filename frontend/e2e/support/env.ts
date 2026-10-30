@@ -44,4 +44,4 @@ export const ENTRA_ENV = {
 };
 
 // The one tenant the e2e stand-in back end serves: its host, id and the directory it has bound.
-export const E2E_TENANT = { id: TENANT_A, host: new URL(SITE_URL).host, directoryId: DIRECTORY_A };
+export const E2E_TENANT = { id: TENANT_A, host: new URL(SITE_URL).host, directoryId: DIRECTORY_A, displayName: 'Sample Area A' };

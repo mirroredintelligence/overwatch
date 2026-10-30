@@ -174,13 +174,30 @@ async function handleExchange(request: IncomingMessage, response: ServerResponse
   send(200, { token, expiresAt: new Date(exp * 1000).toISOString(), role });
 }
 
+// The back end's public tenant profile (TEN-040) for the one e2e tenant: no token, the tenant is the
+// Host. Any other host is a host nobody owns.
+function handleProfile(request: IncomingMessage, response: ServerResponse) {
+  if (request.headers.host?.toLowerCase() !== E2E_TENANT.host) {
+    return json(response, 404, { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-found' }] });
+  }
+  json(response, 200, {
+    displayName: E2E_TENANT.displayName,
+    timeZone: 'Europe/London',
+    locale: 'en-GB',
+    wording: { systemName: 'Capacity A', referralSystemName: 'Referral system A', coordinationTeamName: 'Access team A' },
+    coordinationPhone: '01632 960001',
+  });
+}
+
 export function startMockBackend(): Promise<Server> {
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '/', 'http://localhost');
     const control = /^\/__control\/(.+)$/.exec(url.pathname);
     const stateRoute = /^\/__state\/(.+)$/.exec(url.pathname);
 
-    if (request.method === 'POST' && url.pathname === '/auth/token') {
+    if (request.method === 'GET' && url.pathname === '/public/tenant-profile') {
+      handleProfile(request, response);
+    } else if (request.method === 'POST' && url.pathname === '/auth/token') {
       void handleExchange(request, response);
     } else if (url.pathname.startsWith('/links/')) {
       void handleLinkRoute(request, response, url.pathname).then((handled) => {

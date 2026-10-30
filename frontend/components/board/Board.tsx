@@ -21,8 +21,11 @@ export function Board({
   board,
   lastKnown,
   streamPaused = false,
+  subtitle = null,
 }: {
   board: BoardData;
+  /** The tenant's own line under the heading (its coordination team name, TEN-049), or none. */
+  subtitle?: string | null;
   /** Set when the board must be shown as last known (W06). */
   lastKnown?: LastKnown;
   /** True when the live stream is down but the board is still being refreshed. */
@@ -40,7 +43,7 @@ export function Board({
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>{title}</h1>
-          <p className={styles.subtitle}>Single point of access</p>
+          {subtitle !== null ? <p className={styles.subtitle}>{subtitle}</p> : null}
         </div>
         <div className={styles.clock}>
           <time className={`${styles.time} tabular-nums`} dateTime={board.generatedAt}>

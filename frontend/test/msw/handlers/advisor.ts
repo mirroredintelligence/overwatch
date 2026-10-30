@@ -7,14 +7,45 @@ import { BOARD_A } from '@/test/fixtures/board';
 export const CSRF_TOKEN = 'csrf-token-for-tests-only-0000000000000000000';
 export const CASE_ID = '4821';
 
+// A case as the BFF reads it before anything is recorded (W11). The ETag is the one the back end
+// sends for a case (DEC-398): If-Match is required on a PUT, and its value is not compared.
+export const CASE_ETAG = 'W/"1"';
+export const BLANK_CASE = {
+  id: CASE_ID,
+  referrerType: null,
+  ageBand: null,
+  postcode: null,
+  needs: [],
+  urgency: null,
+  scores: [],
+  openedAt: null,
+  etag: CASE_ETAG,
+};
+
 /** Every POST /api/bff/cases this file's handlers saw, newest last. */
 export const seenCaseCreates: Request[] = [];
+/** Every PUT /api/bff/cases/[ref] this file's handlers saw. */
+export const seenCasePuts: { url: string; ifMatch: string | null; body: unknown }[] = [];
 
 export function resetSeenAdvisorRequests() {
   seenCaseCreates.length = 0;
+  seenCasePuts.length = 0;
 }
 
+const caseHandlers = [
+  http.get('/api/bff/cases/:ref', () => HttpResponse.json(BLANK_CASE)),
+  http.put('/api/bff/cases/:ref', async ({ request }) => {
+    seenCasePuts.push({
+      url: request.url,
+      ifMatch: request.headers.get('if-match'),
+      body: await request.json(),
+    });
+    return HttpResponse.json({ ...BLANK_CASE, etag: CASE_ETAG });
+  }),
+];
+
 export const advisorHandlers = [
+  ...caseHandlers,
   http.get('/api/bff/board', () => HttpResponse.json(BOARD_A)),
   http.get('/api/bff/session', () =>
     HttpResponse.json({ role: 'advisor', services: [], sub: 'advisor-1', csrfToken: CSRF_TOKEN }),

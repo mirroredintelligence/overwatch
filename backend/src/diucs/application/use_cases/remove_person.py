@@ -48,6 +48,8 @@ SIGN_OUT_USE_CASE: Final = "SignOutEverywhere"
 START_USE_CASE: Final = "StartNewPhone"
 CONFIRM_USE_CASE: Final = "ConfirmNewPhone"
 MAX_ID_LENGTH: Final = 128
+NEW_DEVICE_PURPOSE: Final = "new-device"
+"""The text-code purpose of a lost-phone move (U25): the edge starts a new phone for it."""
 NO_REPORTER_REASON: Final = (
     "the reporter was removed and no one else can be texted for this service"
 )

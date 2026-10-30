@@ -4,7 +4,7 @@ check of the push routes. Recording stand-ins for the ports; what is really stor
 tests/integration/application/test_reporter_identity.py. Sample values only.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 

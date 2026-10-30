@@ -35,7 +35,10 @@ from diucs.domain.rules.london_time import to_london
 
 AUDIT_CHANGE: str = "C"
 AUDIT_UPDATE: str = "U"
-_HISTORY_ROLES: frozenset[Role] = frozenset({Role.OWNER, Role.CLINICAL, Role.LEAD})
+_HISTORY_ROLES: frozenset[Role] = frozenset({Role.OWNER, Role.ADVISOR, Role.CLINICAL, Role.LEAD})
+_CURRENT_ONLY_ROLES: frozenset[Role] = frozenset({Role.ADVISOR})
+"""Roles that read the version in force and nothing else: an advisor reads what a service takes, not
+the changes waiting for approval or the old versions (DEC-771)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +197,10 @@ class CriteriaVersionView:
     status: CriteriaStatus
     review_by: date
     author_role_id: str
+    age_min: int = 0
+    age_max: int | None = None
+    accepts: frozenset[NeedCategory] = frozenset()
+    excludes: frozenset[NeedCategory] = frozenset()
 
 
 def _command_key(scope: ScopeId | None, key: str) -> str:
@@ -464,6 +471,8 @@ class CriteriaHistory:
             raise NotAllowed("this role may not read criteria history")
         async with self._uow_factory() as uow:
             versions = await uow.criteria.history(query.service_id)
+        if query.actor.role in _CURRENT_ONLY_ROLES:
+            versions = [v for v in versions if v.status is CriteriaStatus.CURRENT]
         return [
             CriteriaVersionView(
                 criteria_id=version.id,
@@ -471,6 +480,10 @@ class CriteriaHistory:
                 status=version.status,
                 review_by=version.review_by,
                 author_role_id=version.owner_role_id,
+                age_min=version.age_min,
+                age_max=version.age_max,
+                accepts=version.accepts,
+                excludes=version.excludes,
             )
             for version in versions
         ]

@@ -18,8 +18,10 @@ from neo4j import AsyncDriver
 
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.bootstrap.container import Container
 from diucs.domain.codes import Channel, Measure, PractitionerRoleCode, Role, ServiceCategory
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
@@ -102,6 +104,7 @@ def _other_code(
 @pytest_asyncio.fixture(loop_scope="session")
 async def lead_world(
     api_app: FastAPI,
+    test_container: Container,
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,
     neo4j_driver: AsyncDriver,
@@ -116,6 +119,8 @@ async def lead_world(
     depends on edge_tenants and the container, so clean_graph has already wiped the graph (L84).
     The BFF secret store is set here, as the other route tests do (lesson L131)."""
     api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
+    # The writes are replayed through the cache (fail closed without one, lesson L131).
+    api_app.state.cache = InMemoryCache(test_container.clock)
     await ensure_audit_heads(neo4j_driver, tenant_id)
     await _seed_tenant(uow_factory_a, virtual_ward(SERVICE_A), reporter(1, None))
     await _seed_tenant(
@@ -152,7 +157,8 @@ async def test_the_mobile_is_kept_in_the_protected_store_only(
     )
     async with neo4j_driver.session() as session:
         result = await session.run(
-            "MATCH (n) WHERE any(k IN keys(n) WHERE toString(n[k]) CONTAINS '07700') "
+            "MATCH (n) WHERE any(k IN keys(n) WHERE valueType(n[k]) STARTS WITH 'STRING' "
+            "AND n[k] CONTAINS '07700') "
             "RETURN labels(n) AS labels"
         )
         holders = [record["labels"] async for record in result]

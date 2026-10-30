@@ -27,7 +27,7 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, default_token_tenant, issue_test_token
-from diucs.domain.codes import Role
+from diucs.domain.codes import Role, code_system_url
 from tests.support.edge import active_tenants
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
@@ -85,10 +85,10 @@ def _subscription(**overrides: Any) -> dict[str, Any]:
         "channel": {"type": "message"},
         "extension": [
             {
-                "url": "alert-preferences/not-updated-hours",
+                "url": code_system_url("alert-preferences/not-updated-hours"),
                 "valueInteger": 4,
             },
-            {"url": "alert-preferences/ack-minutes", "valueInteger": 15},
+            {"url": code_system_url("alert-preferences/ack-minutes"), "valueInteger": 15},
         ],
     }
     body.update(overrides)
@@ -166,7 +166,9 @@ async def test_another_practitioners_subscription_is_not_found_and_own_is_a_rout
 
 async def test_a_not_updated_threshold_of_three_hours_is_a_bad_request_naming_the_setting() -> None:
     body = _subscription(
-        extension=[{"url": "alert-preferences/not-updated-hours", "valueInteger": 3}]
+        extension=[
+            {"url": code_system_url("alert-preferences/not-updated-hours"), "valueInteger": 3}
+        ]
     )
     async with _client() as client:
         response = await client.put(

@@ -127,7 +127,9 @@ def test_a_not_updated_threshold_other_than_two_or_four_hours_is_refused(hours: 
     body = {
         "resourceType": "Subscription",
         "id": "prac-lead",
-        "extension": [{"url": "alert-preferences/not-updated-hours", "valueInteger": hours}],
+        "extension": [
+            {"url": code_system_url("alert-preferences/not-updated-hours"), "valueInteger": hours}
+        ],
     }
 
     with pytest.raises(ValidationFailed) as refused:
@@ -143,7 +145,9 @@ def test_an_acknowledgement_window_other_than_ten_fifteen_or_thirty_is_refused(
     body = {
         "resourceType": "Subscription",
         "id": "prac-lead",
-        "extension": [{"url": "alert-preferences/ack-minutes", "valueInteger": minutes}],
+        "extension": [
+            {"url": code_system_url("alert-preferences/ack-minutes"), "valueInteger": minutes}
+        ],
     }
 
     with pytest.raises(ValidationFailed) as refused:
@@ -156,7 +160,9 @@ def test_quiet_hours_are_none_or_ten_pm_to_six_am_only() -> None:
     body = {
         "resourceType": "Subscription",
         "id": "prac-lead",
-        "extension": [{"url": "alert-preferences/quiet-hours", "valueString": "23:00-07:00"}],
+        "extension": [
+            {"url": code_system_url("alert-preferences/quiet-hours"), "valueString": "23:00-07:00"}
+        ],
     }
 
     with pytest.raises(ValidationFailed) as refused:

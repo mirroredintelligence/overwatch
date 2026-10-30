@@ -16,7 +16,7 @@ function countsByStatus(board: Board): Record<string, number> {
   return counts;
 }
 
-export function ExecHome({ board, name }: { board: Board; name: string }) {
+export function ExecHome({ board, name, phoneAlerts = false }: { board: Board; name: string; phoneAlerts?: boolean }) {
   const chip = pressureChip(board.pressure);
   const { limited, inHours } = limitedOrWorse(board);
   const attention: BoardEntry[] = needsAttention(board);
@@ -65,6 +65,11 @@ export function ExecHome({ board, name }: { board: Board; name: string }) {
         <Button variant="secondary" href="/planning/flows" dataEl="EXEC-HOME-FLOWS-BTN">
           See planning flows
         </Button>
+        {phoneAlerts ? (
+          <Button variant="secondary" href="/planning/phone" dataEl="EXEC-HOME-PHONE-BTN">
+            Alerts on this phone
+          </Button>
+        ) : null}
       </div>
     </div>
   );

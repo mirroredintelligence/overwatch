@@ -12,12 +12,12 @@ import styles from './Exec.module.css';
 
 // The executive's set-up after verification (W39): the welcome, the alerts, then escalation. The alerts
 // step holds its choice; the one save is at the end, because the back end takes the whole state and
-// refuses an alert without a deputy. Saving lands on the executive home; the home-screen step (W34) is
-// not built yet, so there is no step after this one.
+// refuses an alert without a deputy. Saving goes where the page says: an executive goes on to switch on
+// alerts on their phone (W9H, DEC-1040), a lead to the home screen.
 
 type Step = 'welcome' | 'alerts' | 'escalation';
 
-export function SetupFlow({ initial, leaders }: { initial: AlertPreferences; leaders?: Leader[] | null }) {
+export function SetupFlow({ initial, leaders, next: after = '/planning' }: { initial: AlertPreferences; leaders?: Leader[] | null; next?: string }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>('welcome');
   const [prefs, setPrefs] = useState(initial);
@@ -38,7 +38,7 @@ export function SetupFlow({ initial, leaders }: { initial: AlertPreferences; lea
       setError(SAVE_FAILED);
       return;
     }
-    router.push('/planning');
+    router.push(after);
   };
 
   if (step === 'welcome') {

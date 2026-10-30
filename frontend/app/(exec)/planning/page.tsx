@@ -30,7 +30,7 @@ export default async function ExecHomePage() {
   }
   return (
     <main>
-      <ExecHome board={board} name={board.organisation ?? 'Your system'} />
+      <ExecHome board={board} name={board.organisation ?? 'Your system'} phoneAlerts={session.role === 'exec'} />
     </main>
   );
 }

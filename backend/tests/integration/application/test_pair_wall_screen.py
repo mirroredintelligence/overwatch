@@ -47,7 +47,15 @@ from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.neo4j import (
+    count_nodes,
+    count_nodes_run,
+    node_props,
+    read_tx,
+    run_scope_ids,
+    write_tx,
+)
+from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -267,12 +275,17 @@ async def _audit_actions(rig: Rig) -> list[str]:
 
 
 async def _state(driver: AsyncDriver) -> tuple[Any, ...]:
-    """What a refusal must leave untouched: the device nodes, the link tokens and the audit."""
+    """What a refusal must leave untouched, in both run tenants: the device nodes, the link tokens
+    and the audit."""
+    tokens: list[Any] = []
+    for tenant in run_scope_ids()[:2]:
+        with as_tenant(tenant):
+            tokens.append(await _link_tokens(driver))
     return (
-        await count_nodes(driver, "Device"),
-        await _link_tokens(driver),
-        await count_nodes(driver, "AuditEvent"),
-        await count_nodes(driver, "IdempotencyRecord"),
+        await count_nodes_run(driver, "Device"),
+        tokens,
+        await count_nodes_run(driver, "AuditEvent"),
+        await count_nodes_run(driver, "IdempotencyRecord"),
     )
 
 
@@ -1175,8 +1188,8 @@ async def test_two_tenants_can_hold_the_same_six_digits_at_once_and_each_pairs_i
     await pair.a.confirm.execute(_command(a, key="a"))
     await pair.b.confirm.execute(_command(b, key="b"))
     owners = {
-        (await node_props(neo4j_driver, "Device", id=i))["tenantId"]: i
-        for i in (a.pairing_id, b.pairing_id)
+        (await node_props(neo4j_driver, "Device", scope=tenant, id=i))["tenantId"]: i
+        for tenant, i in ((tenant_id, a.pairing_id), (other_tenant_id, b.pairing_id))
     }
     assert owners == {tenant_id: a.pairing_id, other_tenant_id: b.pairing_id}
 
@@ -1225,7 +1238,7 @@ async def test_the_same_command_key_in_two_tenants_is_two_commands(
     again = await pair.b.confirm.execute(_command(b, key="shared-key"))
     assert again.device_id == b.pairing_id
     assert again.replayed
-    assert await count_nodes(neo4j_driver, "Device") == 2
+    assert await count_nodes_run(neo4j_driver, "Device") == 2
 
 
 async def test_a_device_token_is_found_in_its_own_tenant_only(pair: Pair) -> None:

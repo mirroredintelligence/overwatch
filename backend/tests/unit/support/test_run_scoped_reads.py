@@ -91,3 +91,19 @@ async def test_a_tenant_the_caller_names_is_kept_so_another_tenants_nodes_can_be
         )
 
     assert log[0][1] == {"tenant": "tt-a1-b2-0001-b"}
+
+
+async def test_count_nodes_run_counts_the_scopes_of_the_run_and_nothing_else(
+    run_ids: tuple[str, str, str],
+) -> None:
+    from tests.support.fake_neo4j import FakeDriver
+    from tests.support.neo4j import count_nodes_run
+
+    driver = FakeDriver()
+    driver.rows = [{"total": 2}]
+
+    assert await count_nodes_run(driver, "Location") == 2  # type: ignore[arg-type]
+
+    cypher, params = driver.calls[0]
+    assert "n:`Location`" in cypher and "n.tenantId IN $scopes" in cypher
+    assert params["scopes"] == list(run_ids)

@@ -55,7 +55,7 @@ from tests.integration.adapters.inbound.fhir_rest.test_routes_services import (
 )
 from tests.integration.application.test_query_board import WEST
 from tests.support.api import R01_TEST_NOW, seed_edge_tenants, token_headers
-from tests.support.neo4j import ThrowawayNeo4j, count_nodes
+from tests.support.neo4j import ThrowawayNeo4j, count_nodes_run
 from tests.support.tenancy import as_tenant
 from tests.support.uow import tenant_uow_factory
 
@@ -171,7 +171,7 @@ async def test_a_report_for_tenant_bs_service_is_the_same_404_and_changes_nothin
     async with uow_factory_b() as uow:
         latest = await uow.capacity.latest(B_SERVICE)
     assert latest == B_PRIOR
-    assert await count_nodes(neo4j_driver, "Observation") == 2  # A's and B's prior reports only
+    assert await count_nodes_run(neo4j_driver, "Observation") == 2  # A's and B's prior reports only
 
 
 async def test_tenant_as_service_is_not_found_for_tenant_b(

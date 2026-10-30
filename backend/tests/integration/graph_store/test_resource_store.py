@@ -520,13 +520,14 @@ async def test_the_store_refuses_and_strips_the_tenant_names(name: str) -> None:
 
 
 async def _labels_and_tenants(driver: AsyncDriver) -> list[tuple[str, Any]]:
+    """The labels and the tenant of every node of the run's scopes that the store wrote: the audit
+    chain heads that `clean_graph` gives both run tenants are the harness's, not the store's."""
+
     async def work(tx: Any) -> list[tuple[str, Any]]:
-        rows = await (
-            await tx.run(
-                "MATCH (n) WHERE NOT n:Migration RETURN labels(n) AS labels, n.tenantId AS t"
-            )
-        ).data()
-        return [(":".join(sorted(r["labels"])), r["t"]) for r in rows]
+        rows = await (await run_nodes(tx, "labels(n) AS labels, n.tenantId AS t")).data()
+        return [
+            (":".join(sorted(r["labels"])), r["t"]) for r in rows if "AuditHead" not in r["labels"]
+        ]
 
     return await read_tx(driver, work)
 
@@ -651,6 +652,7 @@ async def test_a_repeated_put_leaves_one_in_system_edge_per_concept(
 @pytest.mark.no_tenant
 async def test_with_no_tenant_bound_every_operation_is_refused_before_any_cypher(
     neo4j_driver: AsyncDriver,
+    tenant_id: str,
 ) -> None:
     async def put(tx: Any) -> str:
         return await ResourceStore(tx, FixedClock(AT)).put(_org(), None)
@@ -671,7 +673,7 @@ async def test_with_no_tenant_bound_every_operation_is_refused_before_any_cypher
     for read in (get, exists, history):
         with pytest.raises(RawTransactionRefused):
             await read_tx(neo4j_driver, read)
-    assert await count_nodes(neo4j_driver, "Resource") == 0
+    assert await count_nodes(neo4j_driver, "Resource", tenant=tenant_id) == 0
 
 
 # Two tenants with the same ids, on a private container with the superseded keys dropped.
@@ -1136,7 +1138,7 @@ async def test_a_reference_to_a_registry_label_or_a_non_type_is_refused_and_writ
 
     async def everything(tx: Any) -> int:
         record = await (
-            await tx.run("MATCH (n {tenantId: $tenant}) WHERE NOT n:Migration RETURN count(n) AS c")
+            await tx.run("MATCH (n {tenantId: $tenant}) WHERE NOT n:AuditHead RETURN count(n) AS c")
         ).single()
         assert record is not None
         return int(record["c"])

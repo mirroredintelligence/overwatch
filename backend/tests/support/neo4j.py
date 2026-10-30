@@ -610,6 +610,16 @@ async def count_nodes(driver: AsyncDriver, label: str, *, tenant: str | None = N
     return await _total(driver, query, tenant=scope)
 
 
+async def count_nodes_run(driver: AsyncDriver, label: str) -> int:
+    """The nodes with this label in every scope of this run (its tenant, its second tenant and its
+    network scope): for a test that works in two tenants and counts what both hold. Other runs'
+    nodes on the same Neo4j are not counted."""
+    query = (
+        f"MATCH (n:`{_checked_name(label)}`) WHERE n.tenantId IN $scopes RETURN count(n) AS total"
+    )
+    return await _total(driver, query, scopes=run_scope_ids())
+
+
 async def count_nodes_all(driver: AsyncDriver, label: str) -> int:
     """The nodes with this label in every tenant, and those with none. For the registry labels
     (`Migration`, `Tenant`) and for a test that means the whole database."""

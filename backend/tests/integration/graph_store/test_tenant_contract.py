@@ -233,6 +233,12 @@ async def test_two_tenants_share_a_key_on_the_shared_schema_and_one_tenant_canno
     other_tenant_id: str,
 ) -> None:
     props = _props(row.label, row.properties)
+    # clean_graph gave both run tenants their audit chain heads, and a head is a keyed node too.
+    await _run(
+        neo4j_driver,
+        f"MATCH (n:{row.label}) WHERE n.tenantId IN $scopes DETACH DELETE n",
+        scopes=run_scope_ids(),
+    )
     await _create(neo4j_driver, row.label, tenant_id, props)
     await _create(neo4j_driver, row.label, other_tenant_id, props)
     with pytest.raises(ConstraintError):

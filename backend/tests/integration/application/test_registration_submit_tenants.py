@@ -38,7 +38,7 @@ from diucs.domain.codes import PractitionerRoleCode, RegistrationStatus, ScopeFl
 from diucs.domain.errors import NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
-from tests.support.neo4j import count_nodes
+from tests.support.neo4j import count_nodes, count_nodes_run
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -176,7 +176,7 @@ async def test_the_same_district_in_two_tenants_is_two_locations_and_each_reuses
     await _persist(factory_a).execute(PersistRegistrationCommand(REGISTRATION_ID))
     await _persist(factory_b).execute(PersistRegistrationCommand(REGISTRATION_ID))
 
-    assert await count_nodes(driver, "Location") == 2
+    assert await count_nodes_run(driver, "Location") == 2
     async with factory_a() as uow_a:
         found_a = await uow_a.registrations.district_locations(["DT3"])
     async with factory_b() as uow_b:

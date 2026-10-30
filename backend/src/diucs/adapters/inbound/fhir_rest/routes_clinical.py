@@ -36,6 +36,7 @@ from typing import Annotated, Any, Final, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
+from diucs.adapters.inbound.fhir_rest import routes_bookings
 from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.adapters.inbound.fhir_rest.auth import current_actor, require_role
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
@@ -136,6 +137,15 @@ def _input(task: dict[str, Any], name: str, value_key: str) -> object | None:
         return None
     value: object | None = found[0].get(value_key)
     return value
+
+
+def _is_clinical_or_safety(task: object) -> bool:
+    """True when the Task is one of the two codes this module takes (the rest is a booking)."""
+    if not isinstance(task, dict):
+        return False
+    codings = (task.get("code") or {}).get("coding") or []
+    code = codings[0].get("code") if codings and isinstance(codings[0], dict) else None
+    return code in (CLINICAL_CODE, SAFETY_CODE)
 
 
 def _task_code(task: object) -> str:
@@ -350,6 +360,12 @@ async def post_task(
     the Task's shape are checked first; each use case then refuses a role that may not act."""
     key = idempotency_key(request)
     task = await _body(request)
+    if not _is_clinical_or_safety(task):
+        # A booking request is the same path (R09, routes_bookings.create_booking): hand it over
+        # with the role that route takes, so the role check is not lost in the dispatch.
+        if actor.role not in routes_bookings.CREATE_ROLES:
+            raise NotAllowed("only an advisor or a clinical advisor may request a booking")
+        return await routes_bookings.create_booking(request, actor)
     code = _task_code(task)
     container = _container(request)
     if code == CLINICAL_CODE:

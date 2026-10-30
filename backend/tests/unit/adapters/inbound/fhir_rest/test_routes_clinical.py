@@ -291,9 +291,10 @@ async def test_a_safety_concern_names_a_known_category() -> None:
     assert response.json()["issue"][0]["expression"] == ["category"]
 
 
-async def test_a_task_with_an_unknown_code_is_a_bad_request() -> None:
+async def test_a_booking_task_from_a_role_that_may_not_create_one_is_not_found() -> None:
+    # Any other Task code is a booking request (R09) on this same path: a role that may not make a
+    # booking is refused before the booking's own use case runs.
     task = {"resourceType": "Task", "code": {"coding": [{"code": "booking"}]}}
     async with _client() as client:
-        response = await client.post(TASK, json=task, headers={**KEY, **_bearer(Role.ADVISOR)})
-    assert response.status_code == 400
-    assert response.json()["issue"][0]["expression"] == ["code"]
+        response = await client.post(TASK, json=task, headers={**KEY, **_bearer(Role.EXEC)})
+    assert response.status_code == 404

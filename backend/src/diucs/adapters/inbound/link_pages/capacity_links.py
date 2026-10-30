@@ -33,6 +33,7 @@ from typing import Any, Final, Protocol
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
+from diucs.adapters.inbound.link_pages.booking_links import booking_purposes
 from diucs.application.edge_tenant import resolve_active_tenant
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
@@ -52,6 +53,7 @@ from diucs.application.use_cases.link_access import (
     CapacityLinkHandler,
     CsrfRejected,
     LinkAction,
+    LinkConflict,
     LinkGone,
     LinkOutOfRange,
     LinkPurposes,
@@ -66,6 +68,8 @@ from diucs.application.use_cases.link_access import (
     ViewLinkQuery,
 )
 from diucs.application.use_cases.report_capacity import ReportCapacity
+from diucs.application.use_cases.respond_to_booking import RespondToBooking
+from diucs.application.use_cases.withdraw_booking import ReportNotReached, WithdrawBooking
 from diucs.domain.errors import ValidationFailed
 
 log = logging.getLogger(__name__)
@@ -78,7 +82,7 @@ LINK_SCHEME: Final = "https"
 MAX_BODY_BYTES: Final = 1024
 SEND_THE_NUMBER_TEXT: Final = "Please send the number"
 
-_FIELDS: Final = frozenset({"action", "value", "confirmOutOfRange"})
+_FIELDS: Final = frozenset({"action", "value", "confirmOutOfRange", "reason"})
 _NO_STORE: Final = {
     "Cache-Control": "no-store",
     "Referrer-Policy": "no-referrer",
@@ -187,7 +191,17 @@ def _purposes(container: _Container, deps: LinkPagesDeps) -> LinkPurposes:
             deps.sealer,
             ReportCapacity(container.uow_factory, container.clock, container.ids, idempotency),
             ConfirmCapacity(container.uow_factory, container.clock, container.ids, idempotency),
-        )
+        ),
+        **booking_purposes(
+            container.uow_factory,
+            container.clock,
+            tokens,
+            RespondToBooking(
+                container.uow_factory, idempotency, container.clock, container.ids, deps.sealer
+            ),
+            WithdrawBooking(container.uow_factory, idempotency, container.clock, container.ids),
+            ReportNotReached(container.uow_factory, idempotency, container.clock),
+        ),
     }
 
 
@@ -227,6 +241,7 @@ def _action_of(body: dict[str, Any] | None) -> LinkAction:
         action=action,
         value=body.get("value"),
         confirm_out_of_range=body.get("confirmOutOfRange", False),
+        reason=body.get("reason"),
     )
 
 
@@ -239,6 +254,8 @@ async def _guarded(run: Callable[[], Awaitable[Response]]) -> Response:
         return _gone(error.state)
     except CsrfRejected:
         return _json(403, {"state": "forbidden"})
+    except LinkConflict as error:
+        return _json(409, {"state": error.state})
     except LinkOutOfRange as error:
         return _json(
             422,

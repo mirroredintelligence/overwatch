@@ -35,8 +35,9 @@ from typing import Annotated, Any, Final, Protocol, cast
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 
+from diucs.adapters.inbound.fhir_rest import routes_bookings
 from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import require_role
+from diucs.adapters.inbound.fhir_rest.auth import current_actor, require_role
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
 from diucs.adapters.inbound.fhir_rest.concurrency import (
     check_version,
@@ -197,8 +198,16 @@ async def alert_list(request: Request, actor: Actor) -> Response:
 async def acknowledge_alert(
     alert_id: str,
     request: Request,
-    actor: Annotated[Actor, Depends(require_role(*SUBSCRIBERS))],
+    actor: Annotated[Actor, Depends(current_actor)],
 ) -> Response:
+    """An executive's or a lead's acknowledgement of an alert. The same path is an advisor's
+    acknowledgement of a booking's withdrawal (R17, routes_bookings.acknowledge), whose roles do not
+    overlap with these: an advisor or a clinical advisor is handed over to it, with the role that
+    route takes checked here."""
+    if actor.role not in SUBSCRIBERS:
+        if actor.role not in routes_bookings.CREATE_ROLES:
+            raise NotAllowed("the acknowledgement is for an executive, a lead or an advisor")
+        return await routes_bookings.acknowledge(alert_id, request, actor)
     key = idempotency_key(request)
     container = _container(request)
 

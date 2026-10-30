@@ -82,6 +82,7 @@ from diucs.application.use_cases.invite_reporter import (
     NOT_IN_PILOT_MESSAGE,
     InviteReporter,
     InviteReporterCommand,
+    LinkBaseUrlFor,
 )
 from diucs.application.use_cases.registration_draft import (
     ApiStep,
@@ -158,7 +159,7 @@ class _Container(Protocol):
     @property
     def area_districts_for(self) -> AreaDistrictsFor: ...
     @property
-    def link_base_url(self) -> str: ...
+    def link_base_url_for(self) -> LinkBaseUrlFor: ...
 
 
 def _container(request: Request) -> _Container:
@@ -409,7 +410,7 @@ async def invite_reporter(
                 HmacPhoneHasher(container.secrets),
                 container.clock,
                 container.ids,
-                link_base_url_for=lambda _scope: container.link_base_url,
+                link_base_url_for=container.link_base_url_for,
             ).execute(command)
         except NotAllowed as error:
             refused = refusal_outcome(error)

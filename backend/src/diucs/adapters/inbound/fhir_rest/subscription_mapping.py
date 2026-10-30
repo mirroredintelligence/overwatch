@@ -37,7 +37,6 @@ from diucs.domain.rules.alerts import (
     QUIET_END,
     QUIET_START,
     AlertPreferences,
-    default_preferences,
 )
 
 SUBSCRIPTION: Final = "Subscription"
@@ -140,11 +139,13 @@ def _kinds(body: dict[str, Any]) -> frozenset[AlertKind]:
 
 
 def preferences_from_fhir(body: object) -> AlertPreferences:
-    """The alert preferences a Subscription body sets. A setting the body leaves out keeps the
-    default. A value out of range is refused, named by the setting's element (camel case)."""
+    """The alert preferences a Subscription body sets. The two windows (not-updated hours and the
+    acknowledgement minutes) are required: a PUT carries the whole state, and no default is applied
+    here (the rule book's default is not read by the edge, so no policy is needed). Quiet hours
+    default to none and critical-only to false. A value out of range is refused first, named by the
+    setting's element (camel case); a missing window is refused after every value has been read."""
     if not isinstance(body, dict) or body.get("resourceType") != SUBSCRIPTION:
         raise ValidationFailed(SUBSCRIPTION, "the body must be a FHIR Subscription")
-    defaults = default_preferences()
     quiet_item = _one(body, "quiet-hours")
     quiet: tuple[time, time] | None = None
     if quiet_item is not None:
@@ -153,12 +154,16 @@ def preferences_from_fhir(body: object) -> AlertPreferences:
         quiet = (QUIET_START, QUIET_END)
     not_updated = _whole_in(body, "not-updated-hours", "notUpdatedHours", NOT_UPDATED_HOURS)
     ack = _whole_in(body, "ack-minutes", "ackMinutes", ACK_MINUTES)
+    if not_updated is None:
+        raise ValidationFailed("notUpdatedHours", "is required")
+    if ack is None:
+        raise ValidationFailed("ackMinutes", "is required")
     return AlertPreferences(
         kinds=_kinds(body),
-        not_updated_hours=defaults.not_updated_hours if not_updated is None else not_updated,
+        not_updated_hours=not_updated,
         quiet_hours=quiet,
         quiet_critical_only=_flag(body, "quiet-critical-only", False, "quietCriticalOnly"),
-        ack_minutes=defaults.ack_minutes if ack is None else ack,
+        ack_minutes=ack,
     )
 
 

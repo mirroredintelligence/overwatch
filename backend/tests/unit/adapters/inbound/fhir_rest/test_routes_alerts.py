@@ -102,7 +102,6 @@ def _subscription(**overrides: Any) -> dict[str, Any]:
     ("method", "path", "body"),
     [
         ("PUT", f"{SUBSCRIPTION}/prac-lead", _subscription()),
-        ("POST", ACK, None),
         ("POST", SNOOZE, None),
     ],
 )
@@ -120,6 +119,24 @@ async def test_each_keyed_route_takes_exec_and_lead_and_refuses_the_rest(
                 headers={**headers, "Content-Type": "application/json"},
             )
             if role in SUBSCRIBERS:
+                assert response.status_code == 400, role
+                assert response.json()["issue"][0]["code"] == "required", role
+            elif role in EDGE_REFUSED:
+                assert response.status_code == 401, role
+            else:
+                assert response.status_code == 404, role
+
+
+async def test_the_acknowledgement_path_is_shared_by_role_with_the_booking_withdrawal() -> None:
+    # The same path is an executive's or a lead's alert acknowledgement and an advisor's booking
+    # withdrawal acknowledgement (R17). An executive or a lead gets this route's own key check; an
+    # advisor or a clinical advisor gets the booking route's key check, which is the same 400.
+    async with _client() as client:
+        for role in Role:
+            response = await client.post(
+                ACK, content=b"", headers={"Content-Type": "application/json", **_bearer(role)}
+            )
+            if role in SUBSCRIBERS or role in {Role.ADVISOR, Role.CLINICAL}:
                 assert response.status_code == 400, role
                 assert response.json()["issue"][0]["code"] == "required", role
             elif role in EDGE_REFUSED:

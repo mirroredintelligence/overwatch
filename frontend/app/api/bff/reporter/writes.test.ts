@@ -198,9 +198,10 @@ describe.each([
     answer(backendAnswers('post', backendPath, 200, OK));
     const response = await call(body);
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual(OK);
+    const text = await response.text();
+    expect(JSON.parse(text)).toEqual(OK);
     expect(seenBackend[0]).toMatchObject({ path: backendPath, authorization: `Bearer ${REPORTER_TOKEN}`, body });
-    expect(JSON.stringify(await response.clone().json())).not.toContain('07700');
+    expect(text).not.toContain('07700');
   });
 
   it.each([

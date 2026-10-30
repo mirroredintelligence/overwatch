@@ -57,5 +57,8 @@ export function toBffError(error: unknown, options: BffErrorOptions = {}): Respo
         : 'exception';
   const body: BffErrorBody = { code, message: messageFor(status) };
 
-  return Response.json(body, { status, headers: { 'Content-Type': 'application/json' } });
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  // A wait the back end named for a limited or unavailable route is passed on, whole seconds only.
+  if (error instanceof FhirError && error.retryAfter !== undefined && (status === 429 || status === 503)) headers['Retry-After'] = error.retryAfter;
+  return Response.json(body, { status, headers });
 }

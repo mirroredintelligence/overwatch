@@ -1,26 +1,19 @@
 import { withBff } from '@/lib/bff/handler';
-import { notBuilt, ownService, refuse } from '@/lib/reporter/bff';
-import { isUkMobile } from '@/lib/forms/ukMobile';
+import { SERVICE_ID, parseCover } from '@/lib/reporter/answers';
+import { plain, readJson, reporterCall } from '@/lib/reporter/backend';
+import { coverBody } from '@/lib/reporter/cover';
 
-// POST /api/bff/reporter/services/[serviceId]/cover (W38). Ownership, the mobile number's shape, and
-// the until choice are checked here. The back end has no reporter cover route yet: not-built.
+// POST /api/bff/reporter/services/[serviceId]/cover (W38, W8E). The same for one service (DEC-820): only
+// that post moves. A post the reporter only covers cannot be passed on (the back end's 404, H-456).
 type Context = { params: Promise<{ serviceId: string }> };
-type Body = { phone?: unknown; until?: unknown; date?: unknown };
-
-const UNTIL = ['tonight', 'this-week', 'date'];
 
 export const POST = withBff(
   async (request, session, context: Context) => {
-    const { serviceId } = await (context as unknown as Context).params;
-    const owned = ownService(session, serviceId);
-    if (owned !== null) return owned;
-    const body = (await request.json().catch(() => undefined)) as Body | undefined;
-    if (typeof body?.phone !== 'string' || !isUkMobile(body.phone)) return refuse(400, 'invalid');
-    if (typeof body.until !== 'string' || !UNTIL.includes(body.until)) return refuse(400, 'invalid');
-    if (body.until === 'date' && (typeof body.date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(body.date))) {
-      return refuse(400, 'invalid');
-    }
-    return notBuilt();
+    const { serviceId } = await context.params;
+    if (!SERVICE_ID.test(serviceId)) return plain(404, 'not-found');
+    const body = coverBody(await readJson(request));
+    if (body === null) return plain(400, 'invalid');
+    return reporterCall(session, `/reporter/services/${serviceId}/cover`, { body, parse: parseCover });
   },
   { idScoped: true, roles: ['reporter'] },
 );

@@ -54,6 +54,11 @@ const NAMED: Record<string, Kind> = {
   'app/api/bff/identity/new-phone/verify/route.ts': 'pre-session',
   'app/api/bff/identity/pin/route.ts': 'pre-session',
   'app/api/bff/identity/pin/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/invitation-code/route.ts': 'pre-session',
+  'app/api/bff/identity/invitation-code/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/device-code/route.ts': 'pre-session',
+  'app/api/bff/identity/device-code/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/channel/route.ts': 'pre-session',
   'app/api/bff/invitations/[token]/route.ts': 'pre-session',
   'app/api/bff/push/key/route.ts': 'pre-session',
 };

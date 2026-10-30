@@ -1,14 +1,17 @@
 import { withBff } from '@/lib/bff/handler';
-import { notBuilt, refuse } from '@/lib/reporter/bff';
-import { isUkMobile } from '@/lib/forms/ukMobile';
+import { parseCover } from '@/lib/reporter/answers';
+import { plain, readJson, reporterCall } from '@/lib/reporter/backend';
+import { coverBody } from '@/lib/reporter/cover';
 
-// POST /api/bff/reporter/cover (W37). The phone number's shape is checked here; the back end has no
-// reporter cover route (the lead's change-number route is for leads), so a valid cover is not-built.
+// POST /api/bff/reporter/cover (W37, W8E). Hands every post the reporter owns to a cover number, for
+// tonight, this week or a date (DEC-820). The back end finds or makes the cover practitioner, keeps the
+// number as the post's cover contact and audits only its hash; the answer says when the cover ends and
+// how many services moved, never the number.
 export const POST = withBff(
-  async (request) => {
-    const body = (await request.json().catch(() => undefined)) as { phone?: unknown } | undefined;
-    if (typeof body?.phone !== 'string' || !isUkMobile(body.phone)) return refuse(400, 'invalid');
-    return notBuilt();
+  async (request, session) => {
+    const body = coverBody(await readJson(request));
+    if (body === null) return plain(400, 'invalid');
+    return reporterCall(session, '/reporter/cover', { body, parse: parseCover });
   },
   { roles: ['reporter'] },
 );

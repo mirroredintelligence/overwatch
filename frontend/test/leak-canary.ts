@@ -32,7 +32,7 @@ const LINK_PATH = /^\/links(\/|$)/;
 // Host the request was addressed to and takes no token; `push-subscription` and `sign-out-everywhere`
 // are not here because they carry the signed-in person's token like every other route.
 const PRE_SESSION_PATH =
-  /^\/identity\/(?:code|pin|new-phone|device\/code|registration\/code|registration\/session|invitation|session-token|invitations\/[^/]+\/code)(?:\/verify)?$|^\/identity\/status$|^\/invitations\/[^/]+$/;
+  /^\/identity\/(?:code|pin|new-phone|device\/code|registration\/code|registration\/session|invitation|session-token|channel|invitations\/[^/]+\/code)(?:\/verify)?$|^\/identity\/status$|^\/invitations\/[^/]+$/;
 const NETWORK_PATH = /^\/(?:fhir\/)?network\/([^/]+)(?:\/|$)/;
 const STAFF_AUDIENCE = 'diucs-api';
 

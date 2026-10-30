@@ -25,7 +25,13 @@ from diucs.application.use_cases.criteria_reviews import (
     ensure_daily_schedule,
 )
 from diucs.application.work import WorkKind
-from diucs.domain.codes import Channel, CriteriaStatus, PractitionerRoleCode
+from diucs.domain.codes import (
+    Channel,
+    CriteriaStatus,
+    Measure,
+    PractitionerRoleCode,
+    ServiceCategory,
+)
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from tests.support.ladder_rig import virtual_ward
@@ -209,7 +215,14 @@ async def test_a_run_for_tenant_a_never_reminds_or_flags_tenant_b(
     # Tenant B's seed writes no audit entry, so it needs no audit head. On the shared schema a
     # second head collides with tenant A's (lesson L157).
     async with uow_factory_b() as uow:
-        await uow.services.save(virtual_ward("ucr-east", name="UCR East"))
+        await uow.services.save(
+            virtual_ward(
+                "ucr-east",
+                name="UCR East",
+                category=ServiceCategory.REABLEMENT,
+                measure=Measure.FREE_BEDS,
+            )
+        )
         await uow.criteria.add(_criteria("ucr-east", date(2026, 12, 1), role="none"))
         await uow.commit()
 

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { STATE_CONFIRMED, STATE_DECLINED, STATE_REQUESTED, TASK_CONFIRMED, TASK_DECLINED, TASK_EXPIRED, TASK_REQUESTED, CASE_REF, SERVICE_ID } from '@/test/fixtures/bookings';
-import { bookingFromTask, bookingRequestTask, BookingShapeError, declineReasonWording, parseBookingState, PHONE_PROMPT_AFTER_MS } from './bookings';
+import { bookingFromTask, bookingRequestTask, BookingShapeError, declineReasonWording, parseBookingState, PHONE_PROMPT_AFTER_MS, withdrawReasonWording, CANCEL_REASONS } from './bookings';
+import { STATE_WITHDRAWN, STATE_NOT_REACHED, TASK_WITHDRAWN, TASK_NOT_REACHED } from '@/test/fixtures/bookings';
 
 describe('bookingFromTask', () => {
   it('maps a requested Task to the advisor state, with the phone prompt five minutes after the request', () => {
@@ -60,5 +61,33 @@ describe('parseBookingState', () => {
 
   it('refuses an answer with no id', () => {
     expect(() => parseBookingState({ ...STATE_CONFIRMED, id: undefined })).toThrow(BookingShapeError);
+  });
+});
+
+describe('bookingFromTask for a withdrawal and a not-reached report', () => {
+  it('maps a withdrawn Task with its time and reason', () => {
+    expect(bookingFromTask(TASK_WITHDRAWN)).toEqual(STATE_WITHDRAWN);
+  });
+
+  it('maps a not-reached Task with its time and reason', () => {
+    expect(bookingFromTask(TASK_NOT_REACHED)).toEqual(STATE_NOT_REACHED);
+  });
+});
+
+describe('withdrawReasonWording', () => {
+  it.each([
+    ['now-full', 'now full'],
+    ['staffing', 'staffing'],
+    ['cannot-reach-patient', 'cannot reach the patient'],
+    ['other', 'other'],
+    ['no-answer', 'No answer at the door'],
+    ['not-at-address', 'Not at the address'],
+    ['gone-to-hospital', 'Gone to hospital'],
+  ])('reads %s as %s', (code, words) => {
+    expect(withdrawReasonWording(code)).toBe(words);
+  });
+
+  it('offers the four cancel reasons in the order of the artboard', () => {
+    expect(CANCEL_REASONS.map((reason) => reason.code)).toEqual(['caller-declined', 'no-longer-needed', 'other-route-found', 'entered-in-error']);
   });
 });

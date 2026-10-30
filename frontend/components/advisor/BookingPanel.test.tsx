@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FakeStream } from '@/test/fakeStream';
 import { runAxe } from '@/test/a11y';
-import { BOOKING_ID, CASE_REF, SERVICE_ID, SERVICE_PHONE, SERVICE_WITH_OPEN_REQUEST, STATE_CONFIRMED } from '@/test/fixtures/bookings';
-import { bookingStore, resetBookingRequests, seenBookingPosts, seenBookingReads } from '@/test/msw/handlers/bookings';
+import { BOOKING_ID, CASE_REF, SERVICE_ID, SERVICE_PHONE, SERVICE_WITH_OPEN_REQUEST, STATE_CONFIRMED, STATE_NOT_REACHED, STATE_REQUESTED, STATE_WITHDRAWN } from '@/test/fixtures/bookings';
+import { bookingStore, resetBookingRequests, seenAcknowledgements, seenBookingCancels, seenBookingPosts, seenBookingReads } from '@/test/msw/handlers/bookings';
 import { BookingPanel } from './BookingPanel';
 
 // The "Request booking" control and the booking card it opens (W20). The live stream and the
@@ -18,6 +18,8 @@ function setCsrfCookie() {
 
 let stream: FakeStream;
 
+const onSeeOptions = vi.fn();
+
 function renderPanel(serviceId = SERVICE_ID) {
   return render(
     <BookingPanel
@@ -25,6 +27,7 @@ function renderPanel(serviceId = SERVICE_ID) {
       serviceId={serviceId}
       serviceName="UCR West"
       servicePhone={SERVICE_PHONE}
+      onSeeOptions={onSeeOptions}
       openStream={() => {
         stream = new FakeStream();
         return stream;
@@ -33,10 +36,20 @@ function renderPanel(serviceId = SERVICE_ID) {
   );
 }
 
+/** Requests a booking, then makes the back end hold `next` and tells the card so with an event. */
+async function requestThenMove(next: Record<string, unknown>) {
+  renderPanel();
+  await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+  await screen.findByText('Requested');
+  bookingStore.current = next as typeof bookingStore.current;
+  stream.emit('booking.updated', JSON.stringify({ serviceId: SERVICE_ID, kind: 'booking', changedAt: '2026-10-30T14:41:00Z' }));
+}
+
 beforeEach(() => {
   resetBookingRequests();
   setCsrfCookie();
   vi.useRealTimers();
+  onSeeOptions.mockClear();
 });
 
 describe('BookingPanel: Request booking', () => {
@@ -95,5 +108,79 @@ describe('BookingPanel: live updates', () => {
     await screen.findByText('Requested');
     unmount();
     expect(stream.closed).toBe(true);
+  });
+});
+
+describe('BookingPanel: cancelling (W21)', () => {
+  it('cancels a confirmed booking with the reason chosen, posts once with CSRF, and shows Cancelled', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+    await screen.findByText('Requested');
+    bookingStore.current = STATE_CONFIRMED;
+    stream.emit('booking.updated', JSON.stringify({ serviceId: SERVICE_ID, kind: 'booking', changedAt: '2026-10-30T14:19:00Z' }));
+    await screen.findByText('Booked');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel booking' }));
+    const confirm = screen.getByRole('button', { name: 'Cancel booking', hidden: false });
+    expect(confirm).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'No longer needed' }));
+    await userEvent.click(confirm);
+    expect(await screen.findByText('Cancelled')).toBeInTheDocument();
+    expect(seenBookingCancels).toEqual([
+      { id: BOOKING_ID, body: { reason: 'no-longer-needed' }, csrf: CSRF, idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/) },
+    ]);
+    await userEvent.click(screen.getByRole('button', { name: 'Choose another option' }));
+    expect(onSeeOptions).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks about the request on a request not yet answered, and Keep request posts nothing', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+    await screen.findByText('Requested');
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel request' }));
+    expect(screen.getByText('Cancel the request to UCR West?')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Keep request' }));
+    expect(seenBookingCancels).toHaveLength(0);
+    expect(screen.getByText('Requested')).toBeInTheDocument();
+  });
+
+  it('shows the state-changed message when the booking moved on before the cancel', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+    await screen.findByText('Requested');
+    bookingStore.refuseCancel = true;
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel request' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Caller declined' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel request' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('This booking changed before you cancelled. Check its status.');
+  });
+});
+
+describe('BookingPanel: withdrawal and not-reached alerts (W21)', () => {
+  it('opens the withdrawal alert on booking.updated with focus on its heading, and says why', async () => {
+    await requestThenMove(STATE_WITHDRAWN);
+    expect(await screen.findByRole('alertdialog', { name: 'UCR West withdrew' })).toBeInTheDocument();
+    expect(screen.getByText('Reason: staffing. Withdrawn 14:41.')).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'UCR West can no longer take this patient' }));
+  });
+
+  it('acknowledges through the BFF, then goes to the options', async () => {
+    await requestThenMove(STATE_WITHDRAWN);
+    await userEvent.click(await screen.findByRole('button', { name: 'See options again' }));
+    await vi.waitFor(() => expect(onSeeOptions).toHaveBeenCalledTimes(1));
+    expect(seenAcknowledgements).toEqual([{ id: BOOKING_ID, csrf: CSRF, idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/) }]);
+  });
+
+  it('opens the not-reached alert for a not-reached booking', async () => {
+    await requestThenMove(STATE_NOT_REACHED);
+    expect(await screen.findByRole('alertdialog', { name: 'UCR West could not reach the patient' })).toBeInTheDocument();
+    expect(screen.getByText('Reason: No answer at the door. Reported 14:41.')).toBeInTheDocument();
+  });
+
+  it('ignores the withdrawal alert when the booking is still only requested', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+    await screen.findByText('Requested');
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(STATE_REQUESTED.status).toBe('requested');
   });
 });

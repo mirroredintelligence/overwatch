@@ -43,11 +43,15 @@ describe('BookingCard: requested', () => {
     expect(screen.getByRole('link', { name: SERVICE_PHONE })).toHaveAttribute('href', 'tel:0300 123 4567');
   });
 
-  it('calls onCancel when the request is cancelled', async () => {
-    const onCancel = vi.fn();
-    renderCard(STATE_REQUESTED, { onCancel });
+  it('opens the cancel dialog for a request, and cancels only when a reason is chosen and confirmed', async () => {
+    const onCancelBooking = vi.fn();
+    renderCard(STATE_REQUESTED, { onCancelBooking });
     await userEvent.click(screen.getByRole('button', { name: 'Cancel request' }));
-    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('dialog', { name: 'Cancel request' })).toBeInTheDocument();
+    expect(onCancelBooking).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Caller declined' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel request' }));
+    expect(onCancelBooking).toHaveBeenCalledWith('caller-declined');
   });
 
   it('says so with an alert at the phone prompt time, and not before', () => {

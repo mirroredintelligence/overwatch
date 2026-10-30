@@ -49,6 +49,22 @@ export const TASK_DECLINED = task(BOOKING_ID, 'declined', {
 
 export const TASK_EXPIRED = task(BOOKING_ID, 'expired');
 
+export const TASK_WITHDRAWN = task(BOOKING_ID, 'withdrawn', {
+  executionPeriod: { start: requestedAt, end: '2026-10-30T14:41:00Z' },
+  output: [
+    { type: { coding: [{ code: 'decision' }] }, valueCodeableConcept: { coding: [{ code: 'confirmed' }] } },
+    { type: { coding: [{ code: 'confirmed-at' }] }, valueDateTime: '2026-10-30T14:19:00Z' },
+    { type: { coding: [{ code: 'reason' }] }, valueString: 'staffing' },
+  ],
+});
+
+export const TASK_NOT_REACHED = task(BOOKING_ID, 'not-reached', {
+  executionPeriod: { start: requestedAt, end: '2026-10-30T14:41:00Z' },
+  output: [
+    { type: { coding: [{ code: 'reason' }] }, valueString: 'no-answer' },
+  ],
+});
+
 /** The advisor-side state of a booking, as the BFF answers it (lib/advisor/bookings.ts). */
 export const STATE_REQUESTED = {
   id: BOOKING_ID,
@@ -61,6 +77,8 @@ export const STATE_REQUESTED = {
   declinedAt: null,
   declineReason: null,
   expiredAt: null,
+  withdrawnAt: null,
+  withdrawReason: null,
 } as const;
 
 export const STATE_CONFIRMED = {
@@ -79,6 +97,25 @@ export const STATE_DECLINED = {
 export const STATE_DECLINED_NO_REASON = { ...STATE_DECLINED, declineReason: null } as const;
 
 export const STATE_EXPIRED = { ...STATE_REQUESTED, status: 'expired', expiredAt: '2026-10-30T14:26:00Z' } as const;
+
+/** A confirmed booking the service withdrew at 14:41 for staffing (W21). */
+export const STATE_WITHDRAWN = {
+  ...STATE_CONFIRMED,
+  status: 'withdrawn',
+  withdrawnAt: '2026-10-30T14:41:00Z',
+  withdrawReason: 'staffing',
+} as const;
+
+/** A confirmed booking the service could not reach the patient for (W21). */
+export const STATE_NOT_REACHED = {
+  ...STATE_CONFIRMED,
+  status: 'not-reached',
+  withdrawnAt: '2026-10-30T14:41:00Z',
+  withdrawReason: 'no-answer',
+} as const;
+
+/** A booking the advisor cancelled before the service answered (W21). */
+export const STATE_CANCELLED = { ...STATE_REQUESTED, status: 'cancelled-before' } as const;
 
 /** A service whose request is already waiting: the back end answers 409 for it. */
 export const SERVICE_WITH_OPEN_REQUEST = 'ucr-busy';

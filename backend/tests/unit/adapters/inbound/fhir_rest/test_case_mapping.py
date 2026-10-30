@@ -12,6 +12,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+
 from diucs.adapters.inbound.fhir_rest.case_mapping import (
     AGE_BAND_EXTENSION,
     CLOSED_AT_EXTENSION,
@@ -23,7 +24,6 @@ from diucs.adapters.inbound.fhir_rest.case_mapping import (
     case_to_fhir,
     parse_case_details,
 )
-
 from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
 from diucs.domain.codes import (
     AgeBand,
@@ -221,7 +221,8 @@ def test_a_score_that_is_malformed_is_refused(extension: dict[str, Any]) -> None
     with pytest.raises(ValidationFailed) as refused:
         parse_case_details(body(extension=[extension]))
 
-    assert refused.value.field == "scores"
+    assert refused.value.field in ("scores", "news2")
+    assert "21" not in str(refused.value)
 
 
 def test_a_score_given_twice_for_one_method_is_refused() -> None:

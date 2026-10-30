@@ -366,7 +366,9 @@ def case_to_fhir(case: Case) -> tuple[dict[str, Any], dict[str, Any], list[dict[
         extensions.append(_extension(_EXT_OUTCOME, case.outcome.value))
     if case.best_fit_not_used is not None:
         extensions.append(_extension(_EXT_BEST_FIT, case.best_fit_not_used.value))
-    request["extension"] = extensions
+    if extensions:
+        # Left out when empty, as the store refuses an empty list (a case with no referrer yet).
+        request["extension"] = extensions
 
     scores = [
         _score_to_fhir(case.id, patient_id, index, score)

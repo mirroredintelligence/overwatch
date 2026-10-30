@@ -20,6 +20,7 @@ version: If-Match is required but its value is not compared; the answers are the
 """
 
 import json
+from dataclasses import replace
 from typing import Annotated, Any, Final, cast
 
 from fastapi import APIRouter, Depends, Request
@@ -29,6 +30,12 @@ from diucs.adapters.inbound.fhir_rest import capability
 from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.adapters.inbound.fhir_rest.auth import require_role
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from diucs.adapters.inbound.fhir_rest.case_mapping import (
+    CaseDetails,
+    case_to_fhir,
+    parse_case_details,
+    refuse_patient_details,
+)
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, require_if_match
 from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
 from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
@@ -57,27 +64,16 @@ from diucs.application.use_cases.record_outcome import RecordOutcome, RecordOutc
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.domain.codes import (
     BASE_URL,
-    AgeBand,
     BestFitNotUsedReason,
     DeclineReason,
-    NeedCategory,
     Outcome,
-    ReferrerType,
     Role,
-    Urgency,
-    code_system_url,
 )
 from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.case import Case, priority_for
+from diucs.domain.model.case import Case
 
 CASE_ROLES: Final = (Role.ADVISOR, Role.CLINICAL)
-AGE_BAND_EXTENSION: Final = f"{BASE_URL}StructureDefinition/age-band"
-REFERRER_EXTENSION: Final = f"{BASE_URL}StructureDefinition/referrer-type"
-REFUSED_PATIENT_ELEMENTS: Final = ("name", "identifier", "birthDate", "telecom")
-PATIENT_REFUSED: Final = "No patient names or identifiers are stored."
 NO_SUCH_CASE: Final = "no case with this id"
-URGENT: Final = "urgent"
-ROUTINE: Final = "routine"
 ETAG_OPEN: Final = 'W/"1"'
 
 router = APIRouter(prefix="/fhir")
@@ -128,92 +124,6 @@ async def _json(request: Request) -> Any:
         raise ValidationFailed("body", "is not valid JSON") from None
 
 
-def _refuse_patient_details(service_request: dict[str, Any]) -> None:
-    """A stub Patient carries an age band and a postcode only (R07)."""
-    for contained in service_request.get("contained", []):
-        if contained.get("resourceType") != "Patient":
-            continue
-        for element in REFUSED_PATIENT_ELEMENTS:
-            if element in contained:
-                raise ValidationFailed(element, PATIENT_REFUSED)
-
-
-def _postcode(service_request: dict[str, Any]) -> str | None:
-    for contained in service_request.get("contained", []):
-        if contained.get("resourceType") == "Patient":
-            for address in contained.get("address", []):
-                postal = address.get("postalCode")
-                if isinstance(postal, str):
-                    return postal
-    return None
-
-
-def _age_band(service_request: dict[str, Any]) -> AgeBand | None:
-    for contained in service_request.get("contained", []):
-        if contained.get("resourceType") != "Patient":
-            continue
-        for extension in contained.get("extension", []):
-            if extension.get("url") == AGE_BAND_EXTENSION:
-                return AgeBand(extension["valueCode"])
-    return None
-
-
-def _referrer(service_request: dict[str, Any]) -> ReferrerType:
-    for extension in service_request.get("extension", []):
-        if extension.get("url") == REFERRER_EXTENSION:
-            return ReferrerType(extension["valueCode"])
-    raise ValidationFailed("referrer-type", "is required")
-
-
-def _needs(service_request: dict[str, Any]) -> tuple[NeedCategory, ...]:
-    needs: list[NeedCategory] = []
-    system = code_system_url("need-category")
-    for concept in service_request.get("reasonCode", []):
-        for coding in concept.get("coding", []):
-            if coding.get("system") == system:
-                needs.append(NeedCategory(coding["code"]))
-    return tuple(needs)
-
-
-def _urgency(service_request: dict[str, Any]) -> Urgency | None:
-    priority = service_request.get("priority")
-    if priority is None:
-        return None
-    if priority == URGENT:
-        return Urgency.WITHIN_2_HRS
-    if priority == ROUTINE:
-        return Urgency.TODAY
-    raise ValidationFailed("priority", "must be urgent or routine")
-
-
-def _case_to_fhir(case: Case) -> dict[str, Any]:
-    """The ServiceRequest of a case. Open: the district and age band and needs are shown. Closed:
-    the stored case holds none of them, so none are shown (DEC-398)."""
-    patient: dict[str, Any] = {"resourceType": "Patient", "id": "p"}
-    if case.postcode is not None:
-        patient["address"] = [{"postalCode": case.postcode}]
-    if case.age_band is not None:
-        patient["extension"] = [{"url": AGE_BAND_EXTENSION, "valueCode": case.age_band.value}]
-    request: dict[str, Any] = {
-        "resourceType": "ServiceRequest",
-        "id": case.id,
-        "status": "active" if case.closed_at is None else "completed",
-        "intent": "plan",
-        "subject": {"reference": "#p"},
-        "contained": [patient],
-    }
-    if case.referrer_type is not None:
-        request["extension"] = [{"url": REFERRER_EXTENSION, "valueCode": case.referrer_type.value}]
-    if case.urgency is not None:
-        request["priority"] = priority_for(case.urgency)
-    if case.needs:
-        system = code_system_url("need-category")
-        request["reasonCode"] = [
-            {"coding": [{"system": system, "code": need.value}]} for need in case.needs
-        ]
-    return request
-
-
 async def _case_or_404(factory: UnitOfWorkFactory, case_id: str) -> Case:
     async with factory() as uow:
         case = await uow.cases.get(case_id)
@@ -222,16 +132,40 @@ async def _case_or_404(factory: UnitOfWorkFactory, case_id: str) -> Case:
     return case
 
 
+def _update_command(
+    key: str, actor: Actor, case_id: str, details: CaseDetails
+) -> UpdateCaseCommand:
+    return UpdateCaseCommand(
+        idempotency_key=key,
+        actor=actor,
+        case_id=case_id,
+        referrer_type=details.referrer_type,
+        age_band=details.age_band,
+        postcode=details.postcode,
+        needs=details.needs,
+        urgency=details.urgency,
+        scores=details.scores,
+    )
+
+
+async def _service_request(request: Request) -> tuple[dict[str, Any], CaseDetails]:
+    """The body of an open or a PUT, checked before anything is read or written."""
+    body = await _json(request)
+    if not isinstance(body, dict) or body.get("resourceType") != "ServiceRequest":
+        raise ValidationFailed("body", "must be a ServiceRequest resource")
+    refuse_patient_details(body)
+    return body, parse_case_details(body)
+
+
 @router.post("/ServiceRequest")
 async def open_case(
     request: Request,
     actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
 ) -> Response:
+    """Open a case. The body may be empty of details: the call screen opens the case before
+    anything is known (DEC-770), and every detail comes by a later PUT."""
     key = idempotency_key(request)
-    body = await _json(request)
-    if not isinstance(body, dict) or body.get("resourceType") != "ServiceRequest":
-        raise ValidationFailed("body", "must be a ServiceRequest resource")
-    _refuse_patient_details(body)
+    _, details = await _service_request(request)
     container = get_container(request)
     opened = await OpenCase(
         container.uow_factory,
@@ -239,25 +173,31 @@ async def open_case(
         container.ids,
         UnitOfWorkIdempotency(container.uow_factory),
         container.rng,
-    ).execute(OpenCaseCommand(key, actor, _referrer(body)))
-    await UpdateCase(
-        container.uow_factory, container.clock, UnitOfWorkIdempotency(container.uow_factory)
-    ).execute(
-        UpdateCaseCommand(
-            idempotency_key=f"{key}:details",
-            actor=actor,
-            case_id=opened.case_id,
-            age_band=_age_band(body),
-            postcode=_postcode(body),
-            needs=_needs(body),
-            urgency=_urgency(body),
-        )
-    )
+    ).execute(OpenCaseCommand(key, actor, details.referrer_type))
+    rest = replace(details, referrer_type=None)
+    if not rest.is_empty:
+        await UpdateCase(
+            container.uow_factory, container.clock, UnitOfWorkIdempotency(container.uow_factory)
+        ).execute(_update_command(f"{key}:details", actor, opened.case_id, rest))
     case = await _case_or_404(container.uow_factory, opened.case_id)
     return FhirJSONResponse(
-        content=validate_outbound(_case_to_fhir(case)),
+        content=validate_outbound(case_to_fhir(case)),
         status_code=201,
         headers={"Location": f"/fhir/ServiceRequest/{case.id}", "ETag": ETAG_OPEN},
+    )
+
+
+@router.get("/ServiceRequest/{case_id}")
+async def read_case(
+    case_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
+) -> Response:
+    """One case, open or closed. Another tenant's id is the same 404 as an unknown id."""
+    case = await _case_or_404(get_container(request).uow_factory, case_id)
+    return FhirJSONResponse(
+        content=validate_outbound(case_to_fhir(case)),
+        headers={"ETag": ETAG_OPEN, "Cache-Control": "no-store"},
     )
 
 
@@ -269,26 +209,14 @@ async def update_case(
 ) -> Response:
     key = idempotency_key(request)
     require_if_match(request)
-    body = await _json(request)
-    if not isinstance(body, dict) or body.get("resourceType") != "ServiceRequest":
-        raise ValidationFailed("body", "must be a ServiceRequest resource")
-    _refuse_patient_details(body)
+    _, details = await _service_request(request)
     container = get_container(request)
     await UpdateCase(
         container.uow_factory, container.clock, UnitOfWorkIdempotency(container.uow_factory)
-    ).execute(
-        UpdateCaseCommand(
-            idempotency_key=key,
-            actor=actor,
-            case_id=case_id,
-            postcode=_postcode(body),
-            needs=_needs(body),
-            urgency=_urgency(body),
-        )
-    )
+    ).execute(_update_command(key, actor, case_id, details))
     case = await _case_or_404(container.uow_factory, case_id)
     return FhirJSONResponse(
-        content=validate_outbound(_case_to_fhir(case)),
+        content=validate_outbound(case_to_fhir(case)),
         status_code=200,
         headers={"ETag": ETAG_OPEN},
     )
@@ -333,7 +261,7 @@ async def close_case(
         )
     )
     case = await _case_or_404(container.uow_factory, case_id)
-    return FhirJSONResponse(content=validate_outbound(_case_to_fhir(case)), status_code=200)
+    return FhirJSONResponse(content=validate_outbound(case_to_fhir(case)), status_code=200)
 
 
 def _option_to_part(option: Any) -> dict[str, Any]:

@@ -28,7 +28,7 @@ from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import ServiceFlag
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.rules.criteria_filter import check_hard_criteria
-from tests.support.neo4j import read_tx, wipe, write_tx
+from tests.support.neo4j import read_tx, wipe_all, write_tx
 from tests.support.tenancy import as_tenant
 from tests.support.tenant_seed import contracted_container
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST
@@ -305,7 +305,7 @@ async def _read_as(driver: AsyncDriver, tenant: str, step: Work) -> Any:
 async def test_another_tenants_criteria_are_not_candidates_or_history(
     two_tenant_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     await _write_as(two_tenant_driver, tenant_id)
     await _write_as(two_tenant_driver, other_tenant_id)
 

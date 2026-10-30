@@ -40,7 +40,7 @@ from diucs.domain.model.case import Case
 from diucs.domain.model.scores import ClinicalFrailty, News2
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe
+from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_all
 from tests.support.tenant_seed import contracted_container
 
 Seed = Callable[..., Awaitable[None]]
@@ -66,7 +66,7 @@ async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
     """Wipes the module's own container before each test (clean_graph wipes only the harness)."""
-    await wipe(neo4j_driver)
+    await wipe_all(neo4j_driver)
 
 
 OPENED = datetime(2026, 10, 23, 13, 10, tzinfo=UTC)

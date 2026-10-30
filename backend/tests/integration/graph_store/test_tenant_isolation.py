@@ -35,7 +35,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     validate_scenario,
 )
 from tests.support.leaky_registry import LeakyRegistry
-from tests.support.neo4j import read_tx, wipe, write_tx
+from tests.support.neo4j import read_tx, wipe_all, write_tx
 from tests.support.predicate_removal import mutant_of, predicate_count
 from tests.support.query_probes import (
     Finding,
@@ -70,7 +70,7 @@ async def isolation_driver() -> AsyncIterator[AsyncDriver]:
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def _clean_isolation_graph(isolation_driver: AsyncDriver) -> None:
     """The harness wipes its own container before a test, not this private one."""
-    await wipe(isolation_driver)
+    await wipe_all(isolation_driver)
 
 
 # Test-only statements, in a private registry. Two tenants share every key, the `Resource` id

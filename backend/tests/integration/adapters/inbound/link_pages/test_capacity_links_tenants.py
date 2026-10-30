@@ -32,7 +32,7 @@ from tests.support.link_rig import (
     LinkRig,
     new_secrets,
 )
-from tests.support.neo4j import ThrowawayNeo4j, throwaway_driver, wipe
+from tests.support.neo4j import ThrowawayNeo4j, throwaway_driver, wipe_all
 from tests.support.tenant_seed import contract_schema
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.no_tenant]
@@ -59,7 +59,7 @@ async def link_container(
     two_tenant: tuple[ThrowawayNeo4j, AsyncDriver],
 ) -> AsyncIterator[Container]:
     container, driver = two_tenant
-    await wipe(driver)
+    await wipe_all(driver)
     connection = Neo4jConnection(container.uri, container.user, container.password)
     await connection.open()
     try:
@@ -71,7 +71,7 @@ async def link_container(
         )
     finally:
         await connection.close()
-        await wipe(driver)
+        await wipe_all(driver)
 
 
 async def _prompted(links: LinkRig) -> str:

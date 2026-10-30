@@ -34,7 +34,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.api import token_headers
-from tests.support.neo4j import count_nodes, wipe
+from tests.support.neo4j import count_nodes, wipe_all
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -325,5 +325,5 @@ async def route_state(api_app: Any, test_container: Any) -> None:
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def fresh_cases(neo4j_driver: AsyncDriver) -> AsyncIterator[None]:
     """Each case test starts from a wiped graph, so the case counts are its own."""
-    await wipe(neo4j_driver)
+    await wipe_all(neo4j_driver)
     yield

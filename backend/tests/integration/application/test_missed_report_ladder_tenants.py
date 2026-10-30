@@ -46,7 +46,7 @@ from tests.support.ladder_rig import (
     seed_report,
     virtual_ward,
 )
-from tests.support.neo4j import read_tx, wipe
+from tests.support.neo4j import read_tx, wipe_all
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
 
@@ -108,9 +108,9 @@ async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[None]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     yield
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")

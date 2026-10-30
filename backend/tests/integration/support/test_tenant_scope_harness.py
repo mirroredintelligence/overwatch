@@ -13,7 +13,7 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.application.tenancy import TenantNotBound
+from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
 from tests.support.neo4j import (
     WipeRefused,
     count_nodes,
@@ -43,7 +43,7 @@ async def _probe(tx: object, probe_id: str = "a") -> None:
 
 
 async def _probe_in(driver: AsyncDriver, tenant: str, probe_id: str = "a") -> None:
-    with as_tenant(tenant):
+    with bind_scope(ScopeId.parse(tenant)):  # a tenant, or a network scope
         await write_tx(driver, lambda tx: _probe(tx, probe_id))
 
 
@@ -239,6 +239,7 @@ async def test_wipe_all_is_refused_on_a_database_the_run_did_not_start(
     assert await count_nodes(neo4j_driver, "Probe", tenant=stranger) == 1
 
 
+@pytest.mark.schema
 async def test_wipe_all_on_a_private_container_removes_every_tenant_and_keeps_the_schema() -> None:
     async with throwaway_driver() as (_container, driver):
         from diucs.adapters.outbound.graph_store.migrations import apply_migrations

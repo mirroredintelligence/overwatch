@@ -47,7 +47,7 @@ from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import wipe
+from tests.support.neo4j import wipe_all
 from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -181,11 +181,11 @@ async def tenants(
     uow_factory_b: UnitOfWorkFactory,
     two_tenant_driver: AsyncDriver,
 ) -> AsyncIterator[None]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     await _seed_a(uow_factory_a)
     await _seed_b(uow_factory_b)
     yield
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 async def test_tenant_b_cannot_change_a_service_it_does_not_hold(

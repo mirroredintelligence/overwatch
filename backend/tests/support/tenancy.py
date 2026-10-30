@@ -99,6 +99,11 @@ class RunIdentity:
     def network_id(self) -> str:
         return f"net-{self.token}"
 
+    @property
+    def scope_ids(self) -> tuple[str, str, str]:
+        """Every scope this run may write to: the tenant, the second tenant and the network."""
+        return (self.tenant_id, self.other_tenant_id, self.network_id)
+
 
 def new_run_identity(
     *, pid: int | None = None, now: int | None = None, nonce: str | None = None

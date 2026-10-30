@@ -38,7 +38,7 @@ from diucs.domain.codes import PractitionerRoleCode, RegistrationStatus, ScopeFl
 from diucs.domain.errors import NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
-from tests.support.neo4j import count_nodes, wipe
+from tests.support.neo4j import count_nodes, wipe_all
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
@@ -144,7 +144,7 @@ async def two_tenants(
     tenant_id: str, other_tenant_id: str
 ) -> AsyncIterator[tuple[AsyncDriver, UnitOfWorkFactory, UnitOfWorkFactory]]:
     async with contracted_container() as driver:
-        await wipe(driver)
+        await wipe_all(driver)
         await ensure_audit_heads(driver, tenant_id, other_tenant_id)
         factory_a = tenant_uow_factory(driver, tenant_id)
         factory_b = tenant_uow_factory(driver, other_tenant_id)

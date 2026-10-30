@@ -47,7 +47,7 @@ from tests.integration.adapters.inbound.fhir_rest.test_routes_identity import (
 )
 from tests.integration.adapters.inbound.link_pages.conftest import seed_tenant_host
 from tests.support.link_rig import HOST_A, HOST_B
-from tests.support.neo4j import ThrowawayNeo4j, read_tx, throwaway_driver, wipe
+from tests.support.neo4j import ThrowawayNeo4j, read_tx, throwaway_driver, wipe_all
 from tests.support.redis import flush_prefix
 from tests.support.tenant_seed import contract_schema
 from tests.support.uow import ensure_audit_heads
@@ -71,7 +71,7 @@ async def two_container(
     two_tenant: tuple[ThrowawayNeo4j, AsyncDriver], tenant_id: str, other_tenant_id: str
 ) -> AsyncIterator[Container]:
     server, driver = two_tenant
-    await wipe(driver)
+    await wipe_all(driver)
     connection = Neo4jConnection(server.uri, server.user, server.password)
     await connection.open()
     container = build_for_tests(
@@ -89,7 +89,7 @@ async def two_container(
             await flush_prefix(container.redis, f"diucs:{tenant}:")
         await container.redis.aclose()
         await connection.close()
-        await wipe(driver)
+        await wipe_all(driver)
 
 
 async def _seed_tenant(container: Container, tenant: str, mobile: str) -> None:

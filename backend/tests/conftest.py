@@ -30,10 +30,10 @@ from tests.support.neo4j import (
     apply_session_env,
     reap_stale_test_containers,
     throwaway_driver,
-    wipe,
+    wipe_tenant,
 )
 from tests.support.tenancy import RunIdentity, guard_test, new_run_identity
-from tests.support.uow import tenant_uow_factory, uow_factory_on
+from tests.support.uow import ensure_audit_heads, tenant_uow_factory, uow_factory_on
 from tests.support.watchdog import configured_timeout_s, setup_timeout_s, time_limit
 
 _INTEGRATION_ROOT = Path(__file__).resolve().parent / "integration"
@@ -158,12 +158,17 @@ async def neo4j_driver(harness_driver: AsyncDriver) -> AsyncDriver:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def clean_graph() -> None:
-    """Delete every node and relationship in the harness container before an integration test.
-    Constraints, indexes and :Migration nodes stay. If no test has needed Neo4j yet, the container
-    does not exist and there is nothing to clean, so this starts nothing."""
+async def clean_graph(run_identity: RunIdentity) -> None:
+    """Delete what this run owns in the harness database before an integration test: every node of
+    the run tenant, the second tenant and the run network scope (and the directory records of
+    those), and nothing else, so other runs on a shared Neo4j are untouched. Constraints, indexes
+    and :Migration nodes stay. The run tenant and the second tenant then get their audit chain
+    heads again, as the product's start-up makes them (a use case that appends to the chain needs
+    one). If no test has needed Neo4j yet, the container does not exist and there is nothing to
+    clean, so this starts nothing."""
     for driver in _active:
-        await wipe(driver)
+        await wipe_tenant(driver, *run_identity.scope_ids)
+        await ensure_audit_heads(driver, run_identity.tenant_id, run_identity.other_tenant_id)
 
 
 @pytest.fixture(scope="session")

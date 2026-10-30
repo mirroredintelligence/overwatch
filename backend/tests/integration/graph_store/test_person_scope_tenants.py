@@ -36,7 +36,7 @@ from diucs.domain.errors import NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.rules.registration import ApprovalChecks
-from tests.support.neo4j import read_tx, wipe, write_tx
+from tests.support.neo4j import read_tx, wipe_all, write_tx
 from tests.support.tenant_seed import contracted_container, invariant_breaks, seed_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -56,9 +56,9 @@ async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     yield two_tenant_driver
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 def _repo(tx: AsyncManagedTransaction) -> Neo4jPersonRepository:

@@ -27,7 +27,7 @@ from diucs.application.ports.outbound.invariants import (
 )
 from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.container import build_for_tests
-from tests.support.neo4j import count_nodes, wipe, write_tx
+from tests.support.neo4j import count_nodes, wipe_all, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -50,7 +50,7 @@ async def connection(harness_driver: AsyncDriver) -> AsyncIterator[Neo4jConnecti
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def _empty_graph(clean_graph: None, harness_driver: AsyncDriver) -> AsyncIterator[None]:
     yield
-    await wipe(harness_driver)
+    await wipe_all(harness_driver)
 
 
 async def _run(driver: AsyncDriver, cypher: str, **params: Any) -> None:

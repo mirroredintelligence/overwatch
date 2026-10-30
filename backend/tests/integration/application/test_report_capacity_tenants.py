@@ -57,7 +57,7 @@ from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import read_tx, wipe
+from tests.support.neo4j import read_tx, wipe_all
 from tests.support.tenancy import as_tenant
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
@@ -139,7 +139,7 @@ async def _seed(factory: UnitOfWorkFactory) -> None:
 @pytest_asyncio.fixture(loop_scope="session")
 async def tenants(tenant_id: str, other_tenant_id: str) -> AsyncIterator[Tenants]:
     async with contracted_container() as driver:
-        await wipe(driver)
+        await wipe_all(driver)
         await ensure_audit_heads(driver, tenant_id, other_tenant_id)
         factory_a = tenant_uow_factory(driver, tenant_id)
         factory_b = tenant_uow_factory(driver, other_tenant_id)

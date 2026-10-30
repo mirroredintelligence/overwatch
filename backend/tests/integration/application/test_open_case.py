@@ -39,7 +39,7 @@ from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.case import Case
 from diucs.domain.model.scores import ClinicalFrailty, News2
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe
+from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_all
 from tests.support.tenancy import as_tenant
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
@@ -122,10 +122,10 @@ async def fresh_graph(
     heads are made per tenant, bound in turn, so a test with no tenant bound still has them."""
     global _DRIVER
     _DRIVER = neo4j_driver
-    await wipe(neo4j_driver)
+    await wipe_all(neo4j_driver)
     await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
     yield
-    await wipe(neo4j_driver)
+    await wipe_all(neo4j_driver)
 
 
 def _clock(at: datetime = NOW) -> FixedClock:

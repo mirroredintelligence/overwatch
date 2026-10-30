@@ -439,10 +439,10 @@ async def test_a_device_id_another_person_holds_is_not_a_new_phone(rig: Rig) -> 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two_tenants(tenant_id: str, other_tenant_id: str):  # type: ignore[no-untyped-def]
-    from tests.support.neo4j import wipe
+    from tests.support.neo4j import wipe_all
 
     async with contracted_container() as driver:
-        await wipe(driver)
+        await wipe_all(driver)
         await ensure_audit_heads(driver, tenant_id, other_tenant_id)
         factory_a = tenant_uow_factory(driver, tenant_id)
         factory_b = tenant_uow_factory(driver, other_tenant_id)

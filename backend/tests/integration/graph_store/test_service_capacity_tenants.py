@@ -25,7 +25,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.service import ServiceProfile
 from tests.integration.graph_store.test_booking_repository import BOOKING_4821
 from tests.integration.graph_store.test_case_repository import OPEN_CASE
-from tests.support.neo4j import read_tx, wipe, write_tx
+from tests.support.neo4j import read_tx, wipe_all, write_tx
 from tests.support.tenancy import as_tenant
 from tests.support.tenant_seed import contracted_container
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST
@@ -60,9 +60,9 @@ async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     yield two_tenant_driver
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 Work = Callable[[AsyncManagedTransaction], Awaitable[Any]]

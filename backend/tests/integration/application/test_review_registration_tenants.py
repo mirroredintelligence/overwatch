@@ -51,7 +51,7 @@ from tests.integration.application.test_review_registration import (
     STEPS,
 )
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import wipe
+from tests.support.neo4j import wipe_all
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
@@ -130,7 +130,7 @@ async def two_tenants(
     tenant_id: str, other_tenant_id: str
 ) -> AsyncIterator[tuple[UnitOfWorkFactory, UnitOfWorkFactory, str, str]]:
     async with contracted_container() as driver:
-        await wipe(driver)
+        await wipe_all(driver)
         await ensure_audit_heads(driver, tenant_id, other_tenant_id)
         factory_a = tenant_uow_factory(driver, tenant_id)
         factory_b = tenant_uow_factory(driver, other_tenant_id)

@@ -28,7 +28,7 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.tenancy import RawTransactionRefused, bind_tenant
 from diucs.domain.codes import BASE_URL
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_all, write_tx
 from tests.support.scoped import scoped, scoped_stub
 from tests.support.tenant_seed import contracted_container, invariant_breaks
 from tests.unit.adapters.outbound.graph_store.test_mapper_backbone import (
@@ -671,9 +671,9 @@ async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     yield two_tenant_driver
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 async def _put_as(

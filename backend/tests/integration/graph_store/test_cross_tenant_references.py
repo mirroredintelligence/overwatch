@@ -51,7 +51,7 @@ from diucs.domain.model.flags import (
 from diucs.domain.model.people import PractitionerRole
 from diucs.domain.model.registration import ScopeEntry
 from diucs.domain.model.service_move import ServiceMove
-from tests.support.neo4j import read_tx, wipe, write_tx
+from tests.support.neo4j import read_tx, wipe_all, write_tx
 from tests.support.relationship_matrix import checked_cases, shape
 from tests.support.tenant_seed import (
     Snapshot,
@@ -212,9 +212,9 @@ async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     yield two_tenant_driver
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 async def _as(driver: AsyncDriver, tenant: str, step: Callable[..., Awaitable[None]]) -> None:

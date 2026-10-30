@@ -19,7 +19,7 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
 from diucs.application.tenancy import bind_tenant
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_all, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.support.tenant_seed import contracted_container
 
@@ -269,9 +269,9 @@ async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     yield two_tenant_driver
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 async def test_another_tenants_work_reads_as_not_found_and_cannot_be_saved(

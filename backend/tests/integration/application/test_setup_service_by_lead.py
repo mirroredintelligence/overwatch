@@ -44,7 +44,7 @@ from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.people import Practitioner
 from diucs.domain.model.service import AvailableTime
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, read_tx, wipe
+from tests.support.neo4j import count_nodes, read_tx, wipe_all
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
 
@@ -70,7 +70,7 @@ async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
 async def audit_heads(neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str) -> None:
     """A fresh container, then each tenant's audit chain head: set-up writes an audit entry, and
     the cross-tenant test reads back in the other tenant."""
-    await wipe(neo4j_driver)
+    await wipe_all(neo4j_driver)
     await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
 
 

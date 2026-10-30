@@ -23,7 +23,7 @@ from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.tenancy import bind_tenant
 from diucs.domain.codes import Channel
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_all, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.support.scoped import scoped
 from tests.support.tenant_seed import contracted_container
@@ -482,9 +482,9 @@ async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     yield two_tenant_driver
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 async def _add_as(driver: AsyncDriver, tenant: str, communication: Communication) -> None:

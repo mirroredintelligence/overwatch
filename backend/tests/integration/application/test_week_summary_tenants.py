@@ -24,7 +24,7 @@ from diucs.domain.codes import Cadence, Channel, Measure, ReportSource, Role, Se
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support import seed
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import wipe
+from tests.support.neo4j import wipe_all
 from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -90,9 +90,9 @@ async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[None]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     yield
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")

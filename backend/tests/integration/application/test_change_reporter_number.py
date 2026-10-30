@@ -35,7 +35,7 @@ from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole, role_holder
 from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import reporter, seed_people, virtual_ward
-from tests.support.neo4j import count_nodes, node_props, wipe
+from tests.support.neo4j import count_nodes, node_props, wipe_all
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
 
@@ -117,7 +117,7 @@ async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
     """Wipes the module's own container before each test (clean_graph wipes only the harness)."""
-    await wipe(neo4j_driver)
+    await wipe_all(neo4j_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")

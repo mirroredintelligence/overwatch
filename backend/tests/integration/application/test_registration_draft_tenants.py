@@ -43,7 +43,7 @@ from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import wipe
+from tests.support.neo4j import wipe_all
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
 
@@ -191,12 +191,12 @@ async def tenants(
     tenant_id: str,
     other_tenant_id: str,
 ) -> AsyncIterator[None]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     await ensure_audit_heads(two_tenant_driver, tenant_id, other_tenant_id)
     await _seed_tenant(uow_factory_a, "a", A_REGISTRATION, A_ROLE)
     await _seed_tenant(uow_factory_b, "b", B_REGISTRATION, B_ROLE)
     yield
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 def _save(factory: UnitOfWorkFactory) -> SaveRegistrationStep:

@@ -28,7 +28,7 @@ from diucs.application.use_cases import link_access
 from diucs.application.use_cases.link_access import LinkGone, LinkRateLimited
 from tests.support.ladder_rig import PHONE_HASH_2
 from tests.support.link_rig import ANSWER_AT, LinkRig, build_link_rig, new_secrets
-from tests.support.neo4j import wipe
+from tests.support.neo4j import wipe_all
 from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -52,9 +52,9 @@ async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[None]:
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
     yield
-    await wipe(two_tenant_driver)
+    await wipe_all(two_tenant_driver)
 
 
 @pytest.fixture

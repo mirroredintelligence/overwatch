@@ -46,7 +46,7 @@ from diucs.domain.model.case import Case
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, read_tx, wipe, write_tx
+from tests.support.neo4j import count_nodes, read_tx, wipe_all, write_tx
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
@@ -349,7 +349,7 @@ async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
-    await wipe(neo4j_driver)
+    await wipe_all(neo4j_driver)
 
 
 async def test_another_tenants_case_reference_is_not_found(

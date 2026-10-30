@@ -57,8 +57,9 @@ async def test_wipe_tenant_deletes_only_nodes_that_carry_one_of_the_named_scopes
     deletes = [(c, p) for c, p in driver.calls if "DELETE" in c]
     assert deletes, "nothing was deleted"
     for cypher, params in deletes:
-        assert "tenantId" in cypher
+        assert "IN $scopes" in cypher
         assert params["scopes"] == [TENANT, OTHER]
+    assert any("n.tenantId IN $scopes" in cypher for cypher, _ in deletes)
     # No statement may delete by anything but a scope (a bare `MATCH (n)` delete is the old wipe).
     assert not any("MATCH (n) WHERE NOT n:Migration" in c for c in _statements(driver))
 

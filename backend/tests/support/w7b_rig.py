@@ -36,12 +36,15 @@ from diucs.application.use_cases.review_registration import districts_in_ranges
 from diucs.application.use_cases.text_code import CODE_HMAC_SECRET, INVITATION_PURPOSE
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.codes import (
+    CriteriaStatus,
+    NeedCategory,
     PractitionerRoleCode,
     RegistrationStatus,
     Role,
     ScopeFlag,
     ServiceCategory,
 )
+from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
 from diucs.domain.model.tenant import ConfigStatus, TenantConfig, TenantContact, TenantStatus
@@ -75,6 +78,10 @@ REGISTRATION = "reg-1"
 INVITATION = "inv-1"
 APPLICANT_ROLE = "role-applicant"
 LEAD_ROLE = "role-lead"
+OWNER = "prac-owner"
+OWNER_ROLE = "role-owner"
+CLINICAL = "prac-clinical"
+CLINICAL_ROLE = "role-clinical"
 JSON = {"Content-Type": "application/json"}
 
 
@@ -173,6 +180,34 @@ class StubTenantConfig:
         )
 
 
+class W7BCriteria:
+    """Criteria versions of every service, by id."""
+
+    def __init__(self) -> None:
+        self.versions: dict[str, ServiceCriteria] = {}
+
+    async def current_for_service(self, service_id: str) -> ServiceCriteria | None:
+        current = [
+            version
+            for version in self.versions.values()
+            if version.service_id == service_id and version.status is CriteriaStatus.CURRENT
+        ]
+        return current[0] if current else None
+
+    async def get(self, criteria_id: str) -> ServiceCriteria | None:
+        return self.versions.get(criteria_id)
+
+    async def history(self, service_id: str) -> list[ServiceCriteria]:
+        found = [v for v in self.versions.values() if v.service_id == service_id]
+        return sorted(found, key=lambda version: version.version, reverse=True)
+
+    async def save(self, criteria: ServiceCriteria) -> None:
+        self.versions[criteria.id] = criteria
+
+    async def add(self, criteria: ServiceCriteria) -> None:
+        self.versions[criteria.id] = criteria
+
+
 class _Directory:
     def __init__(self) -> None:
         self._by_host = {
@@ -216,6 +251,7 @@ class Rig:
         self.rng = random.Random(7)
         self.units = StubUnits(ScopeId.tenant(TENANT))
         self.units.people = W7BPeople(self.units.writes, self.units.calls)
+        self.units.criteria = W7BCriteria()
         self.units.scheduled_work = StubScheduledWork()
         self.units.tenant_config = StubTenantConfig()
         self.uow_factory = self.units
@@ -292,6 +328,70 @@ class Rig:
         )
         self.link(INVITE_TOKEN, phone_hash)
         return INVITE_TOKEN
+
+    def criteria_world(self, *, review_by: date = date(2027, 1, 15)) -> None:
+        """The service's criteria: a current version 2 owned by the criteria owner (a practitioner
+        with the criteria-owner post for the service), and a clinical lead of the organisation."""
+        units = self.units
+        units.scope.entries_by_service[SERVICE] = ScopeEntry(
+            SERVICE,
+            SERVICE_NAME,
+            ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+            ScopeFlag.IN_PILOT,
+            date(2026, 10, 1),
+        )
+        for person, label in ((OWNER, "Clinical lead, UCR"), (CLINICAL, "Clinical lead")):
+            units.people.practitioners[person] = Practitioner(
+                id=person, active=True, display_name=label, phone_hash=None
+            )
+        units.people.roles[OWNER_ROLE] = PractitionerRole(
+            id=OWNER_ROLE,
+            practitioner_id=OWNER,
+            service_id=SERVICE,
+            code=PractitionerRoleCode.CRITERIA_OWNER,
+            active=True,
+            channel=None,
+            period_start=NOW - timedelta(days=90),
+        )
+        units.people.roles[CLINICAL_ROLE] = PractitionerRole(
+            id=CLINICAL_ROLE,
+            practitioner_id=CLINICAL,
+            service_id=None,
+            code=PractitionerRoleCode.CLINICAL_LEAD,
+            active=True,
+            channel=None,
+            period_start=NOW - timedelta(days=90),
+        )
+        units.criteria.versions["crit-1"] = ServiceCriteria(
+            id="crit-1",
+            service_id=SERVICE,
+            version=1,
+            status=CriteriaStatus.SUPERSEDED,
+            age_min=18,
+            age_max=None,
+            districts=frozenset({"DT4"}),
+            accepts=frozenset({NeedCategory.FRAILTY}),
+            excludes=frozenset(),
+            review_by=date(2026, 7, 1),
+            owner_role_id=OWNER_ROLE,
+            changed_on=date(2026, 1, 10),
+        )
+        units.criteria.versions["crit-2"] = ServiceCriteria(
+            id="crit-2",
+            service_id=SERVICE,
+            version=2,
+            status=CriteriaStatus.CURRENT,
+            age_min=18,
+            age_max=None,
+            districts=frozenset({"DT4", "DT5"}),
+            accepts=frozenset({NeedCategory.FRAILTY, NeedCategory.WOUND_CARE}),
+            excludes=frozenset({NeedCategory.IV_THERAPY}),
+            review_by=review_by,
+            owner_role_id=OWNER_ROLE,
+            supersedes_id="crit-1",
+            review_months=6,
+            changed_on=date(2026, 9, 12),
+        )
 
     def fill(
         self,

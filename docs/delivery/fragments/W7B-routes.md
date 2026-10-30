@@ -15,6 +15,12 @@ body that names a tenant, a role or a person is a 400 on the sign-in routes. Sam
 | `POST /identity/registration/session` | `{"invitation" \| "mobile", "code", "deviceId"}` (exactly one of invitation and mobile) | `200 {"token","expiresAt","role":"reporter"}` plus `"registrationId","serviceId","serviceName"` for an invitation; wrong code `400 "That code is not right"`; five wrong tries or lapsed `400 "Ask for a new code"`; a refused device `409`; an unknown or dead invitation `404` |
 | `POST /identity/session-token` | `{"sessionId"}` (a live PIN session from `/identity/pin/verify`) | `200 {"token","expiresAt","role"}` (30 minutes); unknown, ended or signed-out session: `404` |
 
+For the reporter app (W7C): after `POST /identity/pin/verify` the BFF sends the `sessionId` to
+`POST /identity/session-token` and uses the token it gets as the bearer for the `/reporter/...`
+routes (the issue of that token was left to this bundle by W7C). The registration flow's
+invitation lookup and code request here are the registration sign-in; W7C's `GET /invitations/{token}`
+and `/identity/invitations/{token}/code` are the reporter set-up. Both run the same machinery.
+
 The token is a back-end token (`Authorization: Bearer`): role `reporter`, `sub` = the invited
 person (the invitation's, or the holder of the number), `services` = the services that person holds
 a reporter post for, `device` = the device the code was checked on, tenant = the Host's, epoch = the

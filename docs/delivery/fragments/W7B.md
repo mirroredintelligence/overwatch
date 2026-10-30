@@ -124,6 +124,13 @@ one named), to the post's own number. [ASSUMED] one a minute per service (a proc
 DEC-809 (C) · Switch to text sets the invited person's post to text when a mobile number is held;
 resend is routed to `ResendInvitation` (U24).
 
+Note on W7C (merged): W7C's reporter routes assume a reporter bearer token and leave its issue to
+this bundle (W7C-K4). It is issued two ways: `POST /identity/registration/session` (a right code, for
+the registration flow and a returning applicant) and `POST /identity/session-token` (a PIN session,
+for the reporter app). W7C's invitation lookup and invitation code routes are the reporter set-up;
+`POST /identity/invitation` and `/identity/registration/code` are the same idea for the registration
+sign-in, with the 404 and 200-with-state answers its page needs.
+
 ## Hazards
 
 | id | hazard | source | control | tasks | verified by | status |

@@ -44,7 +44,7 @@ def test_the_untimed_steps_come_last_with_no_time() -> None:
 
 
 def test_a_step_that_was_never_recorded_is_not_listed_as_done() -> None:
-    steps = registration_steps(None, None, {"set_live_at": at(16, 0).isoformat()})
+    steps = registration_steps(None, None, {"live_at": at(16, 0).isoformat()})
     names = [s.step for s in steps]
     assert "approved" not in names
     assert "set-live" in names

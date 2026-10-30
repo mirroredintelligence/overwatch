@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
-import { CASE_ETAG, resetSeenAdvisorRequests, seenCasePuts } from '@/test/msw/handlers/advisor';
+import { CASE_ETAG, PATHWAYS_RESULTS, resetSeenAdvisorRequests, seenCasePuts } from '@/test/msw/handlers/advisor';
 import { server } from '@/test/msw/server';
 import { NeedsForm } from './NeedsForm';
 
@@ -136,6 +136,35 @@ describe('NeedsForm (W11)', () => {
       urgency: 'within-2-hrs',
       scores: [],
     });
+  });
+
+  it('the save carries the scores in the shape the BFF expects (W12)', async () => {
+    const user = userEvent.setup();
+    await renderForm();
+    await fillEverything(user);
+
+    await user.click(byEl('ADV-SCORE-NEWS2-CHIP'));
+    await user.type(screen.getByLabelText('NEWS2 score (0 to 20)'), '2');
+    await user.click(byEl('ADV-SCORE-CFS-CHIP'));
+    await user.click(byEl('ADV-SCORE-CFS-6'));
+    await user.click(byEl('ADV-SCORE-AMBULANCE-CHIP'));
+    await user.click(screen.getByRole('button', { name: /Category 2/ }));
+    await user.click(byEl('ADV-SCORE-MANCHESTER-CHIP'));
+    await user.click(screen.getByRole('button', { name: /Very urgent/ }));
+    await user.click(byEl('ADV-SCORE-PATHWAYS-CHIP'));
+    await user.type(screen.getByRole('searchbox', { name: 'Search Dx code or description' }), 'fa');
+    await user.click(await screen.findByRole('button', { name: `${PATHWAYS_RESULTS[0].code} · ${PATHWAYS_RESULTS[0].display}` }));
+
+    await user.click(byEl('ADV-NEEDS-CONTINUE-BTN'));
+
+    await waitFor(() => expect(seenCasePuts).toHaveLength(1));
+    expect((seenCasePuts[0].body as { scores: unknown }).scores).toEqual([
+      { method: 'news2', value: 2 },
+      { method: 'cfs', value: 6 },
+      { method: 'ambulance-category', value: 2 },
+      { method: 'manchester', value: 'very-urgent' },
+      { method: 'pathways-dx', value: PATHWAYS_RESULTS[0].code },
+    ]);
   });
 
   it('never puts the postcode in the URL of the save', async () => {

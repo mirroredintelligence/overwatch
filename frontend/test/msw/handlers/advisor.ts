@@ -30,6 +30,7 @@ export const seenCasePuts: { url: string; ifMatch: string | null; body: unknown 
 export function resetSeenAdvisorRequests() {
   seenCaseCreates.length = 0;
   seenCasePuts.length = 0;
+  PATHWAYS_BACKEND_CALLS.length = 0;
 }
 
 const caseHandlers = [
@@ -44,8 +45,25 @@ const caseHandlers = [
   }),
 ];
 
+// The Pathways Dx lookup (R16 through the BFF). Codes are fixture values, not clinical text.
+export const PATHWAYS_RESULTS = [
+  { code: 'PD-101', display: 'Sample Dx one' },
+  { code: 'PD-102', display: 'Sample Dx two' },
+];
+/** The query of every BFF lookup this file saw, in order. */
+export const PATHWAYS_BACKEND_CALLS: string[] = [];
+
+const pathwaysHandlers = [
+  http.get('/api/bff/terminology/pathways-dx', ({ request }) => {
+    const q = new URL(request.url).searchParams.get('q') ?? '';
+    PATHWAYS_BACKEND_CALLS.push(q);
+    return HttpResponse.json(PATHWAYS_RESULTS);
+  }),
+];
+
 export const advisorHandlers = [
   ...caseHandlers,
+  ...pathwaysHandlers,
   http.get('/api/bff/board', () => HttpResponse.json(BOARD_A)),
   http.get('/api/bff/session', () =>
     HttpResponse.json({ role: 'advisor', services: [], sub: 'advisor-1', csrfToken: CSRF_TOKEN }),

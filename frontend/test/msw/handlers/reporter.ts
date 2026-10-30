@@ -128,5 +128,27 @@ export const reporterHandlers: RequestHandler[] = [
     await record(request);
     return HttpResponse.json({ ok: true });
   }),
+  http.get('/api/bff/reporter/services', () =>
+    HttpResponse.json({
+      services: [
+        { id: 'svc-west', name: 'UCR West', letter: 'A', state: 'due', recordedValue: 3, unitLabel: 'referrals', at: '08:15', nextDue: '12:00', replyBy: '10:30', pendingAcceptance: false },
+        { id: 'svc-east', name: 'UCR East', letter: 'B', state: 'due', recordedValue: 1, unitLabel: 'referral', at: '08:15', nextDue: '12:00', replyBy: '10:30', pendingAcceptance: false },
+      ],
+    }),
+  ),
+  http.post('/api/bff/reporter/reports/batch', async ({ request }) => {
+    const body = (await record(request)) as { items?: { serviceId: string; kind: string }[] } | undefined;
+    return HttpResponse.json({
+      results: (body?.items ?? []).map((item) => ({ serviceId: item.serviceId, result: 'recorded', at: '10:12' })),
+    });
+  }),
+  http.post('/api/bff/reporter/services/:serviceId/accept', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ ok: true });
+  }),
+  http.post('/api/bff/reporter/services/:serviceId/cover', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ ok: true });
+  }),
   http.get('/api/bff/reporter/start', () => HttpResponse.json({ csrfToken: 'T'.repeat(43) })),
 ];

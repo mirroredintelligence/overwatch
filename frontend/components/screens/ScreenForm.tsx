@@ -13,6 +13,7 @@ export type ConnectApi = {
 
 const SCREEN_API: ConnectApi = { connect: connectScreen };
 const LEAD_HOME = '/lead';
+const SCREENS_LIST = '/lead/screens';
 const SIGN_IN_AGAIN = '/sign-in?next=%2Flead%2Fscreens%2Fnew';
 const NOT_FOUND = 'That code is not valid or has expired. Check the screen for a new code.';
 const THROTTLED = 'Too many attempts. Wait a few minutes and try again.';
@@ -128,6 +129,9 @@ export function ScreenForm({ api = SCREEN_API }: { api?: ConnectApi }) {
               <Button variant="secondary" onClick={another} dataEl="LEAD-SCREEN-ADD-ANOTHER-BTN">
                 Add another screen
               </Button>
+              <Button variant="secondary" href={SCREENS_LIST} dataEl="LEAD-SCREEN-LIST-BTN">
+                See all screens
+              </Button>
               <Button variant="primary" href={LEAD_HOME} dataEl="LEAD-SCREEN-DONE-BTN">
                 Done
               </Button>
@@ -201,6 +205,9 @@ export function ScreenForm({ api = SCREEN_API }: { api?: ConnectApi }) {
               {error('location')}
             </div>
             <p className={styles.note}>This screen will show capacity only. It never shows patient information.</p>
+            <p className={styles.note}>
+              <a href={SCREENS_LIST}>See the screens already connected</a>
+            </p>
             <div className={styles.actions}>
               <Button variant="primary" type="submit" busy={busy} dataEl="LEAD-SCREEN-CONNECT-BTN">
                 Connect screen

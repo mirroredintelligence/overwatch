@@ -39,6 +39,11 @@ describe('ScreenForm: the form', () => {
     expect(screen.getByRole('link', { name: 'Cancel' })).toHaveAttribute('href', '/lead');
   });
 
+  it('links to the list of screens already connected (W9I)', () => {
+    setup();
+    expect(screen.getByRole('link', { name: 'See the screens already connected' })).toHaveAttribute('href', '/lead/screens');
+  });
+
   it('has the element ids', () => {
     const { container } = setup();
     for (const id of ['LEAD-SCREEN-CODE-FIELD', 'LEAD-SCREEN-NAME-FIELD', 'LEAD-SCREEN-LOCATION-FIELD', 'LEAD-SCREEN-CONNECT-BTN']) {
@@ -230,6 +235,14 @@ describe('ScreenForm: connected', () => {
   it('moves the focus to the confirmation, so a screen reader hears it', async () => {
     await connected();
     expect(screen.getByRole('heading', { level: 1, name: 'Screen connected' })).toHaveFocus();
+  });
+
+  it('links the confirmation to the list of screens, where the screen can be disconnected (W9I)', async () => {
+    const { user } = setup();
+    await user.type(code(), '482 913');
+    await user.type(name(), 'Control room');
+    await user.click(submit());
+    expect(await screen.findByRole('link', { name: 'See all screens' })).toHaveAttribute('href', '/lead/screens');
   });
 
   it('offers Add another screen, which shows an empty form again, and Done, which goes to the lead page', async () => {

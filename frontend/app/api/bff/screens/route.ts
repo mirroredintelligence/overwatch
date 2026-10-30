@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { withBff } from '@/lib/bff/handler';
+import { fhirFetch } from '@/lib/fhir/client';
 import { hostOf } from '@/lib/links/server';
+import { screenListFrom } from '@/lib/screens/admin';
 import { json, screenFailure } from '@/lib/screens/answers';
 import { parseCode, parseLocation, parseName } from '@/lib/screens/model';
 import { connectScreen } from '@/lib/screens/server';
@@ -52,5 +54,18 @@ const post = withBff(
   { roles: ['lead'] },
 );
 
+// The lead's list of the organisation's wall screens (W9I, TEN-072): GET /screens at the back end's root.
+// Lead only. It takes no input (no tenant, scope or network comes from the query, a header or a body), and
+// what the page gets is the list checked and cut to the fields it shows: never a token, hash or secret. A
+// malformed answer is an error, never an empty list.
+const get = withBff(
+  async (_request, session) => {
+    const { data } = await fhirFetch<unknown>('/screens', { root: true, token: session.backendToken, cache: 'no-store' });
+    return json(200, screenListFrom(data));
+  },
+  { roles: ['lead'] },
+);
+
 // Route handlers receive a context this route does not use.
+export const GET = (request: Request) => get(request, undefined);
 export const POST = (request: Request) => post(request, undefined);

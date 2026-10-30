@@ -77,6 +77,17 @@ describe('PairingScreen', () => {
     expect(replace).toHaveBeenCalledWith('/screen');
   });
 
+  it('tells a screen a lead disconnected that it was, and still shows the new code to pair it again (W9I)', async () => {
+    await show(api({ renew: vi.fn(async () => { throw Object.assign(new ScreenClientError('not-found'), { disconnected: true }); }) }));
+    expect(screen.getByText('This screen was disconnected.')).toBeInTheDocument();
+    expect(screen.getByText('482 913')).toBeInTheDocument();
+  });
+
+  it('says nothing about a disconnection on a screen that was never paired', async () => {
+    await show(api());
+    expect(screen.queryByText('This screen was disconnected.')).toBeNull();
+  });
+
   it('goes to the board at once when it already has a session', async () => {
     await show(api({ renew: vi.fn(async () => undefined) }));
     expect(replace).toHaveBeenCalledWith('/screen');

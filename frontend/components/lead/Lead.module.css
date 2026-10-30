@@ -237,3 +237,48 @@
   outline: var(--focus);
   outline-offset: 2px;
 }
+
+/* The wall screen list (W9I, TEN-072). Status is a word and a shape, never a colour alone. */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.screenName {
+  font-weight: 700;
+}
+
+.screenPlace {
+  display: block;
+  color: var(--c-muted, inherit);
+}
+
+.screenStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+.screenShape {
+  inline-size: 1em;
+  block-size: 1em;
+  flex: none;
+}
+
+.notice {
+  margin: 0;
+  font-weight: 700;
+}
+
+.signInLink {
+  margin-inline-start: var(--space-1);
+}

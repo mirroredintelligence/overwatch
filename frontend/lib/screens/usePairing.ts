@@ -21,11 +21,13 @@ export type PairingApi = {
   poll: (pairingId: string, signal?: AbortSignal) => Promise<PairingStatus>;
 };
 
-export type PairingView =
+/** `disconnected` is present (true) only on a screen a lead disconnected: its renewal was refused. */
+export type PairingView = (
   | { kind: 'connecting' }
   | { kind: 'code'; code: string; expiresAt: string }
   | { kind: 'throttled' }
-  | { kind: 'unavailable' };
+  | { kind: 'unavailable' }
+) & { disconnected?: true };
 
 function kindOf(error: unknown): string | null {
   return typeof error === 'object' && error !== null && 'kind' in error ? String((error as { kind: unknown }).kind) : null;
@@ -36,8 +38,14 @@ function waitOf(error: unknown): number | null {
   return typeof wait === 'number' && wait > 0 ? wait : null;
 }
 
+function wasDisconnected(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && 'disconnected' in error && (error as { disconnected: unknown }).disconnected === true;
+}
+
 export function usePairing({ api, onPaired }: { api: PairingApi; onPaired: () => void }): PairingView {
-  const [view, setView] = useState<PairingView>({ kind: 'connecting' });
+  const [shown, setView] = useState<PairingView>({ kind: 'connecting' });
+  const [disconnected, setDisconnected] = useState(false);
+  const view: PairingView = disconnected ? { ...shown, disconnected: true } : shown;
   const done = useRef(onPaired);
   useEffect(() => {
     done.current = onPaired;
@@ -70,6 +78,7 @@ export function usePairing({ api, onPaired }: { api: PairingApi; onPaired: () =>
           } catch (error) {
             if (signal.aborted) return;
             if (kindOf(error) === 'not-found') {
+              if (wasDisconnected(error)) setDisconnected(true);
               phase = 'start';
             } else {
               setView({ kind: 'connecting' });

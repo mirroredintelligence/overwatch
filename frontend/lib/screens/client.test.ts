@@ -36,6 +36,19 @@ describe('renewSession', () => {
     expect((await kindOf(renewSession())).kind).toBe(kind);
   });
 
+  it('says the screen was disconnected when the BFF says so, and not for any other 404 (W9I)', async () => {
+    server.use(http.post('*/api/bff/screens/session', () => HttpResponse.json({ code: 'disconnected', message: 'This screen was disconnected.' }, { status: 404 })));
+    const gone = await kindOf(renewSession());
+    expect(gone.kind).toBe('not-found');
+    expect(gone.disconnected).toBe(true);
+    server.use(http.post('*/api/bff/screens/session', () => HttpResponse.json({ code: 'not-found' }, { status: 404 })));
+    const never = await kindOf(renewSession());
+    expect(never.kind).toBe('not-found');
+    expect(never.disconnected).toBeFalsy();
+    server.use(http.post('*/api/bff/screens/session', () => HttpResponse.json({ code: 'disconnected' }, { status: 503 })));
+    expect((await kindOf(renewSession())).disconnected).toBeFalsy();
+  });
+
   it('is unavailable when the answer is not paired, or the network fails', async () => {
     server.use(http.post('*/api/bff/screens/session', () => HttpResponse.json({ status: 'waiting' })));
     expect((await kindOf(renewSession())).kind).toBe('unavailable');

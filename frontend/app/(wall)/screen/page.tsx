@@ -19,6 +19,9 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic';
 
 const PAIR = '/screen/pair';
+// Where a screen the back end no longer lets read goes. Not PAIR: the pairing page sends a display that
+// still holds a wall session back here, so the two would loop (W9I).
+const RECONNECT = '/screen/reconnect';
 
 // The page takes no input. Which organisation's board this is comes from the
 // paired screen's own session and its back-end token, never from the address,
@@ -35,8 +38,9 @@ export default async function WallScreenPage() {
     // board's age against it, not against its own clock (DEC-152).
     serverTime = serverNow();
   } catch (error) {
-    // The back end does not know this screen (or no longer lets it read the board): pair again.
-    if (error instanceof FhirError && [401, 403, 404].includes(error.status)) redirect(PAIR);
+    // The back end does not know this screen (or no longer lets it read the board, as when a lead has
+    // disconnected it): ask for a new session, or pair again.
+    if (error instanceof FhirError && [401, 403, 404].includes(error.status)) redirect(RECONNECT);
     // Anything else: show no figure at all, and say what to do.
     return <BoardUnavailable />;
   }

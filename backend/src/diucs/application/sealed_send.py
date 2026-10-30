@@ -31,7 +31,7 @@ async def queue_message(
     scope: ScopeId,
     rendered: RenderedMessage,
     recipient_role_id: str,
-    about_id: str,
+    about_id: str | None,
     now: datetime,
     link: str | None = None,
 ) -> str:

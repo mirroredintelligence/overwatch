@@ -120,7 +120,11 @@ async def seed_world(uow_factory: UnitOfWorkFactory, driver: AsyncDriver) -> Non
 
 
 def request_use_case(
-    uow_factory: UnitOfWorkFactory, driver: AsyncDriver, now: datetime = REQUESTED_AT
+    uow_factory: UnitOfWorkFactory,
+    driver: AsyncDriver,
+    now: datetime = REQUESTED_AT,
+    *,
+    prefix: str = "bk",
 ) -> RequestBooking:
     clock = FixedClock(now)
 
@@ -132,7 +136,7 @@ def request_use_case(
         DriverIdempotencyStore(driver),
         tokens,
         clock,
-        SequentialIds("bk"),
+        SequentialIds(prefix),
         random.Random(7),
         QueryBoard(uow_factory, clock),
         sealer(),
@@ -152,7 +156,8 @@ async def request(
     command = RequestBookingCommand(
         idempotency_key=key, actor=ADVISOR, case_id=case_id, service_id=SERVICE_ID
     )
-    return await request_use_case(uow_factory, driver, now).execute(command)
+    # Booking ids are unique per key: a fresh generator with the key as prefix never repeats one.
+    return await request_use_case(uow_factory, driver, now, prefix=f"bk-{key}").execute(command)
 
 
 async def set_reporter_channel(uow_factory: UnitOfWorkFactory, channel: Channel) -> None:

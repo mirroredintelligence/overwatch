@@ -31,6 +31,7 @@ from tests.support.booking_rig import (
     REPORTER,
     SERVICE_ID,
     at,
+    open_case,
     request,
     sealer,
     seed_world,
@@ -187,14 +188,19 @@ async def test_a_reply_to_a_confirmed_booking_is_invalid_and_an_expired_one_is_a
         await respond_use_case(uow_factory, neo4j_driver, at(14, 20)).execute(
             reply("rp-5b", confirmed.booking_id, "decline")
         )
+    # The service has no open request now, so a second one can be made and left to expire.
     async with uow_factory() as uow:
-        expired = await uow.bookings.get(confirmed.booking_id)
-        assert expired is not None
-        await uow.bookings.save(expired.with_status(BookingStatus.EXPIRED, at(14, 26)))
+        await uow.cases.add(open_case("case-1002"))
+        await uow.commit()
+    second = await request(uow_factory, neo4j_driver, "rq-5c", now=at(14, 30), case_id="case-1002")
+    async with uow_factory() as uow:
+        waiting = await uow.bookings.get(second.booking_id)
+        assert waiting is not None
+        await uow.bookings.save(waiting.with_status(BookingStatus.EXPIRED, at(14, 40)))
         await uow.commit()
     before = await count_nodes(neo4j_driver, "AuditEvent")
-    result = await respond_use_case(uow_factory, neo4j_driver, at(14, 27)).execute(
-        reply("rp-5c", confirmed.booking_id, "confirm")
+    result = await respond_use_case(uow_factory, neo4j_driver, at(14, 41)).execute(
+        reply("rp-5d", second.booking_id, "confirm")
     )
     assert result.already_final is True
     assert result.status is BookingStatus.EXPIRED

@@ -191,7 +191,9 @@ class ReportSafetyConcern:
                 scope=scope,
                 rendered=notice,
                 recipient_role_id=SAFETY_OFFICER_ROLE_ID,
-                about_id=report_id,
+                # The notice is about no service: a null about id is not linked (the store links a
+                # non-null id to a HealthcareService, so the report id would clash).
+                about_id=None,
                 now=now,
             )
             await uow.audit.append(

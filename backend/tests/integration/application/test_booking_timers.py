@@ -44,6 +44,12 @@ async def work_for(uow_factory: UnitOfWorkFactory, booking_id: str, kind: WorkKi
     return found[0].id
 
 
+async def outbox_events(uow_factory: UnitOfWorkFactory, event_type: str) -> int:
+    """How many pending outbox messages have this event type (events are outbox rows)."""
+    async with uow_factory() as uow:
+        return sum(1 for m in await uow.outbox.pending(500) if m.event_type == event_type)
+
+
 async def set_status(
     uow_factory: UnitOfWorkFactory, booking_id: str, target: BookingStatus
 ) -> None:
@@ -64,7 +70,7 @@ async def test_the_phone_prompt_on_a_requested_booking_emits_the_prompt_and_mark
         BookingPhonePromptCommand(work_id=work_id, booking_id=booked.booking_id)
     )
     assert result.acted is True
-    assert await count_nodes(neo4j_driver, "BookingPhonePrompt") == 1
+    assert await outbox_events(uow_factory, "BookingPhonePrompt") == 1
     work = await node_props(neo4j_driver, "ScheduledWork", id=work_id)
     assert work["status"] == "done"
 
@@ -80,7 +86,7 @@ async def test_the_phone_prompt_on_a_confirmed_booking_emits_nothing(
         BookingPhonePromptCommand(work_id=work_id, booking_id=booked.booking_id)
     )
     assert result.acted is False
-    assert await count_nodes(neo4j_driver, "BookingPhonePrompt") == 0
+    assert await outbox_events(uow_factory, "BookingPhonePrompt") == 0
 
 
 async def test_the_expiry_of_a_requested_booking_is_stored_expired_with_its_event_and_audit(
@@ -101,7 +107,7 @@ async def test_the_expiry_of_a_requested_booking_is_stored_expired_with_its_even
     task = await node_props(neo4j_driver, "Task", id=booked.booking_id)
     assert task["status"] == "cancelled"
     assert task["businessStatus"] == "expired"
-    assert await count_nodes(neo4j_driver, "BookingExpired") == 1
+    assert await outbox_events(uow_factory, "BookingExpired") == 1
     assert await count_nodes(neo4j_driver, "AuditEvent") == audit_before + 1
     board = await QueryBoard(uow_factory, FixedClock(EXPIRY_AT)).execute(
         QueryBoardQuery(actor=ADVISOR)
@@ -124,7 +130,7 @@ async def test_the_expiry_of_a_declined_booking_changes_nothing(
         booking = await uow.bookings.get(booked.booking_id)
     assert booking is not None
     assert booking.status is BookingStatus.DECLINED
-    assert await count_nodes(neo4j_driver, "BookingExpired") == 0
+    assert await outbox_events(uow_factory, "BookingExpired") == 0
 
 
 async def test_the_same_work_delivered_twice_emits_one_event(
@@ -141,7 +147,7 @@ async def test_the_same_work_delivered_twice_emits_one_event(
         ExpireBookingCommand(work_id=work_id, booking_id=booked.booking_id)
     )
     assert (first.acted, second.acted) == (True, False)
-    assert await count_nodes(neo4j_driver, "BookingExpired") == 1
+    assert await outbox_events(uow_factory, "BookingExpired") == 1
 
 
 async def test_after_an_expiry_a_new_request_for_the_service_succeeds(
@@ -174,7 +180,7 @@ async def test_the_consumer_dispatch_routes_booking_expire_work_to_expire_bookin
     dispatcher = ScheduledWorkDispatcher(handlers)
     assert WorkKind.BOOKING_EXPIRE in dispatcher.kinds
     await dispatcher(work)
-    assert await count_nodes(neo4j_driver, "BookingExpired") == 1
+    assert await outbox_events(uow_factory, "BookingExpired") == 1
     async with uow_factory() as uow:
         stored = await uow.bookings.get(booked.booking_id)
     assert stored is not None

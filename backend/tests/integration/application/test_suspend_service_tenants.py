@@ -6,7 +6,10 @@ a B id given as input answers as not found. Runs on the run's two tenants (the u
 uow_factory_b fixtures of tests/conftest.py).
 """
 
+from collections.abc import AsyncIterator
+
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
@@ -24,9 +27,30 @@ from diucs.domain.errors import NotFound
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY
 from tests.integration.application.test_suspend_service import sample_wording, seed_east
 from tests.support.booking_rig import LEAD, SECRETS, at
-from tests.support.neo4j import count_nodes
+from tests.support.neo4j import count_nodes, wipe
+from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
+    """The contracted schema (superseded global keys dropped, DEC-159): the two-tenant tests run on
+    it, not on the root driver, which still holds the global Concept and Communication keys."""
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def neo4j_driver(
+    two_tenant_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> AsyncDriver:
+    """Wiped per test, and each tenant's audit chain head made again: a wipe removes the heads."""
+    await wipe(two_tenant_driver)
+    await ensure_audit_heads(two_tenant_driver, tenant_id, other_tenant_id)
+    return two_tenant_driver
+
 
 EAST = "ucr-east"
 

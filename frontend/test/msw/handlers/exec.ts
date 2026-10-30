@@ -72,6 +72,8 @@ export const OPEN_ALERT_TASKS = [
 export const execBackendHandlers = [
   http.get(`${EXEC_BACKEND}/Task`, (({ request }) => {
     const url = new URL(request.url);
+    // Another code is another stand-in's (clinical.ts): let it answer.
+    if (url.searchParams.get('code') !== 'acknowledge-alert') return undefined;
     seenBackend.push({ method: 'GET', path: `/Task?${url.search.slice(1)}`, ifMatch: null, idempotencyKey: null, body: undefined });
     return HttpResponse.json({ resourceType: 'Bundle', type: 'searchset', total: OPEN_ALERT_TASKS.length, entry: OPEN_ALERT_TASKS.map((resource) => ({ resource })) });
   }) as HttpResponseResolver),

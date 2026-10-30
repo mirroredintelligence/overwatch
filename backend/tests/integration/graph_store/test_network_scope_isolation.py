@@ -147,8 +147,9 @@ async def test_every_invariant_of_a_network_scope_holds_after_the_projector_ran(
     findings = await world.invariants()
     assert set(findings) == set(NETWORK_INVARIANTS)
     assert {name: rows for name, rows in findings.items() if rows} == {}
-    report = await world.global_invariants()
-    assert report.unstamped == () and report.cross_scope == ()
+    # The whole-database check (no node without a tenant, no relationship between scopes) reads
+    # every run's nodes, so on the shared Neo4j it is made on a private container:
+    # `test_network_scope_global_invariants.py`.
 
 
 async def test_deleting_a_members_tenant_data_leaves_the_network_rows_and_history_untouched(

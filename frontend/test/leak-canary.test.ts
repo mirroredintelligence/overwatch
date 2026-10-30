@@ -86,12 +86,18 @@ describe('inspectUpstream: what is a leak', () => {
       '/identity/invitations/SampleInvitationToken1/code/verify',
       '/identity/device/code',
       '/identity/device/code/verify',
+      // The channel a phone records before it has a session (W7C, W8E): the device proves itself, not a bearer.
+      '/identity/channel',
     ];
     const host = { Host: A.host };
 
     it.each(PATHS)('is nothing for POST %s with the tenant’s host and no bearer', (path) => {
       expect(inspectUpstream(upstream(path, { method: 'POST', headers: host }), new Set([A.id]))).toEqual([]);
       expect(inspectUpstream(upstream(path, { method: 'POST', headers: host }), new Set())).toEqual([]);
+    });
+
+    it('is a leak when a signed-in call to the channel route (reporter/channel) goes without a bearer', () => {
+      expect(rules(inspectUpstream(upstream('/reporter/channel', { method: 'POST', headers: host }), new Set([A.id])))).toEqual(['no-token']);
     });
 
     it('is a leak when the call carries a bearer: the tenant is the host’s, a token would be a second source', () => {

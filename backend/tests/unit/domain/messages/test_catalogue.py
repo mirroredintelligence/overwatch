@@ -12,6 +12,7 @@ def test_catalogue_has_every_id_from_the_rule_book() -> None:
         + [f"B{n}" for n in range(1, 10)]
         + [f"I{n}" for n in range(1, 4)]
         + [f"K{n}" for n in range(1, 5)]
+        + ["T1"]
     )
     assert [m.value for m in MessageId] == expected
 

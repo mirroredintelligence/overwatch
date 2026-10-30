@@ -3,7 +3,7 @@ of one invited registration, built the way `InviteReporter` writes it (U24). Tes
 tests of routes and use cases, not stores of record (DEC-004). Sample values only."""
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
@@ -23,7 +23,17 @@ from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET, HmacPho
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
 from diucs.application.tenancy import ScopeId
 from diucs.application.use_cases.pin import PIN_HMAC_SECRET
+from diucs.application.use_cases.registration_draft import (
+    ApiStep,
+    LocationStep,
+    OrganisationStep,
+    ReportingStep,
+    ServiceStep,
+    encode_step,
+)
+from diucs.application.use_cases.registration_submit import Lookups, encode_lookups
 from diucs.application.use_cases.text_code import CODE_HMAC_SECRET, INVITATION_PURPOSE
+from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.codes import (
     PractitionerRoleCode,
     RegistrationStatus,
@@ -33,9 +43,9 @@ from diucs.domain.codes import (
 )
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
-from diucs.domain.model.tenant import TenantStatus
+from diucs.domain.model.tenant import ConfigStatus, TenantConfig, TenantContact, TenantStatus
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
-from tests.support.registration_rig import StubLimiter, StubUnits
+from tests.support.registration_rig import StubLimiter, StubPeople, StubUnits
 from tests.support.session_rig import StubSessions
 from tests.support.tenant_samples import make_tenant
 
@@ -65,6 +75,101 @@ INVITATION = "inv-1"
 APPLICANT_ROLE = "role-applicant"
 LEAD_ROLE = "role-lead"
 JSON = {"Content-Type": "application/json"}
+
+
+ORG = OrganisationStep(
+    name="Community Response Ltd",
+    ods_code="RXX01",
+    org_type="nhs-trust",
+    contact_name="Sam Patel",
+    contact_email="sam.patel@example.org",
+    contact_phone="01305 000111",
+)
+SITE = LocationStep(
+    fixed_site=True,
+    postcode="DT4 8XX",
+    address="1 Sample Road, Weymouth",
+    site_name="Sample Ward",
+    site_type="ward",
+    open_24h=True,
+)
+SERVICE_STEP = ServiceStep(
+    service_name=SERVICE_NAME,
+    category="urgent-community-response",
+    referral_methods="phone",
+    spoa_phone="01305 123400",
+    accepting_days="mon,tue",
+    accepting_start="08:00",
+    accepting_end="20:00",
+    needs="frailty",
+    age_min=18,
+    no_age_limit=True,
+    no_exclusions=True,
+    owner_role="Clinical lead, UCR",
+    owner_email="owner@example.org",
+    review_by=date(2027, 1, 1),
+    districts="DT4",
+)
+REPORTING = ReportingStep(
+    measure="referrals-acceptable",
+    usual_low=0,
+    usual_high=8,
+    cadence="every-2-hrs",
+    channel="text",
+    holder_name="Duty coordinator",
+)
+REPORTING_MOBILE = "07700 900456"
+LOOKUPS = Lookups(True, True, "COMMUNITY RESPONSE LTD", "PILOT-SAMPLE", True, "DT4", NOW)
+
+
+class W7BPeople(StubPeople):
+    """The people stub with the one read the views add: a role by id."""
+
+    async def get_role(self, role_id: str) -> PractitionerRole | None:
+        return self.roles.get(role_id)
+
+
+class StubScheduledWork:
+    """Scheduled work by about id."""
+
+    def __init__(self) -> None:
+        self.held: list[ScheduledWork] = []
+
+    async def for_about(self, about_id: str, kind: WorkKind | None = None) -> list[ScheduledWork]:
+        return [
+            work
+            for work in self.held
+            if work.about_id == about_id and (kind is None or work.kind is kind)
+        ]
+
+
+class StubTenantConfig:
+    """The tenant configuration: only the current version, with its wording."""
+
+    def __init__(self) -> None:
+        self.config: TenantConfig | None = None
+        self.contact_list: tuple[TenantContact, ...] = ()
+
+    async def current_version(self) -> TenantConfig | None:
+        return self.config
+
+    async def contacts(self) -> tuple[TenantContact, ...]:
+        return self.contact_list
+
+    def give_wording(self) -> None:
+        self.config = TenantConfig(
+            version=1,
+            status=ConfigStatus.CURRENT,
+            values={
+                "systemName": "Sample urgent care",
+                "referralSystemName": "Sample directory",
+                "coordinationTeamName": "The sample SPOA team",
+            },
+            created_at=NOW,
+            created_by_ref="person-a",
+            effective_from=NOW,
+            approved_by_refs=("person-b", "person-c"),
+        )
 
 
 class _Directory:
@@ -105,6 +210,9 @@ class Rig:
         self.ids = SequentialIds()
         self.rng = random.Random(7)
         self.units = StubUnits(ScopeId.tenant(TENANT))
+        self.units.people = W7BPeople(self.units.writes, self.units.calls)
+        self.units.scheduled_work = StubScheduledWork()
+        self.units.tenant_config = StubTenantConfig()
         self.uow_factory = self.units
         self.tenants = _Directory()
         self.secrets = FixedSecretStore(SECRETS)
@@ -178,6 +286,35 @@ class Rig:
         )
         self.link(INVITE_TOKEN, phone_hash)
         return INVITE_TOKEN
+
+    def fill(
+        self,
+        status: RegistrationStatus = RegistrationStatus.SUBMITTED,
+        *,
+        steps: tuple[str, ...] = ("organisation", "location", "service", "reporting", "api"),
+        **changes: Any,
+    ) -> None:
+        """Fill the registration's draft with a complete, sample application and move it to
+        `status`. The reporting contact is the applicant's own number (held by the contact store,
+        not the draft), which is not the number the invitation holds."""
+        registration = self.units.registrations.held[REGISTRATION]
+        every = {
+            "organisation": ORG,
+            "location": SITE,
+            "service": SERVICE_STEP,
+            "reporting": REPORTING,
+            "api": ApiStep(wanted=False),
+        }
+        draft = {name: encode_step(every[name]) for name in steps}
+        draft["lookups"] = encode_lookups(LOOKUPS)
+        self.units.contacts.phones[APPLICANT_ROLE] = REPORTING_MOBILE
+        self.units.registrations.held[REGISTRATION] = replace(
+            registration,
+            status=status,
+            draft=draft,
+            submitted_at=NOW - timedelta(minutes=30),
+            **changes,
+        )
 
     def link(
         self,

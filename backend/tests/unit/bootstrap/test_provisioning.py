@@ -21,7 +21,7 @@ from diucs.bootstrap.provisioning import (
     run_command,
 )
 from diucs.domain.codes import Role
-from diucs.domain.model.tenant import OrganisationType
+from diucs.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason
 from tests.support.provisioning_fakes import TENANT, provisioning_tenant
 
 MOBILE = "07700 900123"
@@ -52,6 +52,8 @@ def _fakes() -> Any:
         directory=_Recorder(),
         invite=_Recorder(SimpleNamespace(expires_at=EXPIRES, communication_id="comm-1")),
         activate=_Recorder(SimpleNamespace(tenant_id=TENANT, epoch=1)),
+        suspend=_Recorder(SimpleNamespace(tenant_id=TENANT, epoch=2, mode=SuspendMode.BLOCKED)),
+        resume=_Recorder(SimpleNamespace(tenant_id=TENANT, epoch=3, services_prompted=4)),
         container=SimpleNamespace(tenants=_Tenants()),
     )
 
@@ -68,7 +70,7 @@ def _args(*argv: str) -> Any:
 # -- the command line ----------------------------------------------------------------------------
 
 
-def test_the_operator_is_required_and_the_command_is_one_of_the_nine() -> None:
+def test_the_operator_is_required_and_the_command_is_one_of_the_eleven() -> None:
     with pytest.raises(SystemExit):
         parse_args(["create", TENANT])
     with pytest.raises(SystemExit):
@@ -83,6 +85,8 @@ def test_the_operator_is_required_and_the_command_is_one_of_the_nine() -> None:
         "invite",
         "activate",
         "status",
+        "suspend",
+        "resume",
     }
 
 
@@ -144,6 +148,12 @@ async def test_a_command_runs_bound_to_the_tenant_it_names_and_to_nothing_after(
             "directory verified",
         ),
         (("activate", TENANT), "activate", "active, epoch 1"),
+        (
+            ("suspend", TENANT, "--mode", "blocked", "--reason", "security-incident"),
+            "suspend",
+            "suspended blocked, epoch 2",
+        ),
+        (("resume", TENANT), "resume", "active again, epoch 3, 4 services prompted"),
     ],
 )
 async def test_each_command_calls_its_use_case_for_the_named_tenant_and_prints_fixed_words(
@@ -225,3 +235,24 @@ def test_every_command_has_a_branch_in_the_runner() -> None:
     source = inspect.getsource(run_command)
     for command in COMMANDS:
         assert f'case "{command}"' in source, command
+
+
+def test_suspend_takes_only_the_fixed_modes_and_reasons() -> None:
+    parsed = _args("suspend", TENANT, "--mode", "read-only", "--reason", "contract")
+    assert (parsed.mode, parsed.reason) == ("read-only", "contract")
+    with pytest.raises(SystemExit):
+        _args("suspend", TENANT, "--mode", "sleepy", "--reason", "contract")
+    with pytest.raises(SystemExit):
+        _args("suspend", TENANT, "--mode", "blocked", "--reason", "because I said so")
+    with pytest.raises(SystemExit):
+        _args("suspend", TENANT, "--mode", "blocked")  # a reason is required
+
+
+async def test_the_suspend_command_carries_the_mode_and_reason_it_was_given() -> None:
+    fakes = _fakes()
+    await run_command(
+        fakes, _args("suspend", TENANT, "--mode", "read-only", "--reason", "clinical-safety")
+    )
+    [command] = fakes.suspend.commands
+    assert (command.mode, command.reason) == (SuspendMode.READ_ONLY, SuspendReason.CLINICAL_SAFETY)
+    assert fakes.suspend.scopes[0].value == TENANT

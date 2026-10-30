@@ -65,6 +65,7 @@ def _setup(mobile: str = NUMBER, channel: str = "text") -> dict:
             _p("availableTo", {"valueString": "20:00"}),
             _p("ageMin", {"valueInteger": 18}),
             _p("district", {"valueString": "DT4"}),
+            _p("accepts", {"valueCode": "frailty"}),
             _p("reviewBy", {"valueDate": "2026-12-12"}),
         ],
     }

@@ -28,6 +28,7 @@ from diucs.application.ports.outbound.identity import PhoneHasher, normalise_uk_
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
+from diucs.application.use_cases.setup_service_by_lead import international
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole, is_in_effect, role_holder
@@ -40,6 +41,9 @@ WEEK_LAST_DAY: Final = 6
 AUDIT_ACTION: Final = "U"
 USE_CASE: Final = "ChangeReporterNumber"
 NEW_REPORTER_NAME: Final = "Reporter"
+COVER_KEY_PREFIX: Final = "cover-"
+"""The contact-store key of a cover's number: `cover-<role id>`. A cover keeps the covered post, so
+its number cannot be the post's own (W7B C)."""
 """The name of a practitioner created for a new mobile. The number is the only thing known about
 them; the name is set later by the person (U16 choice, recorded in the fragment)."""
 
@@ -234,11 +238,15 @@ class ChangeReporterNumber:
                     period_start=now,
                 )
                 await uow.people.save_role(successor)
+                await uow.contacts.put_phone(successor.id, international(new_mobile))
                 role_id = successor.id
             else:
                 # today or this-week: the role is covered by the new practitioner until `until`.
                 await uow.people.save_role(
                     replace(role, covered_by_practitioner_id=new.id, covered_until=until)
+                )
+                await uow.contacts.put_phone(
+                    f"{COVER_KEY_PREFIX}{role.id}", international(new_mobile)
                 )
                 role_id = role.id
 

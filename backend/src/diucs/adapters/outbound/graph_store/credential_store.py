@@ -38,6 +38,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     SeedRel,
     TenantSeed,
 )
+from diucs.application.ports.outbound.identity import DeviceFacts
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from diucs.domain.rules.identity_policy import PinOutcome, PinState
@@ -244,6 +245,28 @@ _AWAITING_SCENARIO: Final = Scenario(
     expect=Expect(rows=({"id": _DEVICE},)),
 )
 
+# The list of a practitioner's devices (W7B C). The device's status text differs between the tenants
+# (`Marked`), so a row that came from the other tenant looks different.
+_LISTED_DEVICE_NODE: Final = SeedNode(
+    "device",
+    ("Device",),
+    {
+        "id": _DEVICE,
+        "status": Marked("active"),
+        "registeredAt": _AT,
+        "lastVerifiedAt": _AT + timedelta(minutes=5),
+    },
+)
+_LIST_SCENARIO: Final = Scenario(
+    "list the devices of a practitioner that are not revoked",
+    seed=TenantSeed(
+        nodes=(_PRACTITIONER, _LISTED_DEVICE_NODE),
+        rels=(SeedRel("practitioner", "HAS_DEVICE", "device"),),
+    ),
+    params={"key": _KEY},
+    lookup=("key",),
+    expect=Expect(rows=({"id": _DEVICE, "status": Marked("active")},)),
+)
 _MARK_VERIFIED_SCENARIO: Final = Scenario(
     "stamp the last text-code verification on a practitioner's device that is not revoked",
     seed=_DEVICE_SEED,
@@ -348,6 +371,7 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-DEVICE-REVOKE": _REVOKE_SCENARIO,
     "Q-DEVICE-CONFIRM-PENDING": _CONFIRM_SCENARIO,
     "Q-DEVICE-AWAITING": _AWAITING_SCENARIO,
+    "Q-DEVICE-LIST": _LIST_SCENARIO,
     "Q-DEVICE-MARK-VERIFIED": _MARK_VERIFIED_SCENARIO,
     "Q-DEVICE-VERIFIED": _VERIFIED_SCENARIO,
     "Q-SCREEN-GET": _SCREEN_GET_SCENARIO,
@@ -431,6 +455,13 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "RETURN d.id AS id ORDER BY d.id",
         "read",
     ),
+    "Q-DEVICE-LIST": (
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
+        "(d:Device {tenantId: $tenant}) WHERE d.revokedAt IS NULL "
+        "RETURN d.id AS id, d.status AS status, d.registeredAt AS registeredAt, "
+        "d.lastVerifiedAt AS verifiedAt ORDER BY d.registeredAt, d.id",
+        "read",
+    ),
     # The last text-code verification of a device (U32): the 30-day check and the 10 minutes in
     # which a PIN may be set both read it. A revoked device is never stamped or read.
     "Q-DEVICE-MARK-VERIFIED": (
@@ -497,6 +528,12 @@ def _utc(value: datetime, field: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValidationFailed(field, "must be a timezone-aware datetime")
     return value.astimezone(UTC)
+
+
+def _native(stamp: Any) -> datetime:
+    """A stored Neo4j datetime as an aware UTC datetime."""
+    native: datetime = stamp.to_native() if hasattr(stamp, "to_native") else stamp
+    return native.astimezone(UTC)
 
 
 def _pin_state(row: dict[str, Any]) -> PinState:
@@ -637,6 +674,18 @@ class Neo4jDeviceRegistry:
             "Q-DEVICE-AWAITING", key=_key(practitioner_id), pending=_STATUS_PENDING
         )
         return [str(row["id"]) for row in rows]
+
+    async def devices_of(self, practitioner_id: str) -> list[DeviceFacts]:
+        rows = await self._run("Q-DEVICE-LIST", key=_key(practitioner_id))
+        return [
+            DeviceFacts(
+                device_id=str(row["id"]),
+                status=str(row["status"]),
+                registered_at=_native(row["registeredAt"]),
+                last_verified_at=None if row["verifiedAt"] is None else _native(row["verifiedAt"]),
+            )
+            for row in rows
+        ]
 
     async def owner_of(self, device_id: str) -> str | None:
         rows = await self._run("Q-DEVICE-OWNER", deviceId=device_id)

@@ -187,6 +187,9 @@ class ReportFlagView:
     reason: ReportFlagReason
     description: str
     raised_at: datetime
+    status: str = "open"
+    resolved_at: datetime | None = None
+    outcome: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,6 +212,9 @@ class ResolveReportFlagResult:
 @dataclass(frozen=True, slots=True)
 class ListReportFlagsQuery:
     actor: Actor
+    closed: bool = False
+    """The flags the shift lead has checked or accepted, newest closed first (W7B C), instead of the
+    open ones."""
 
 
 class ListReportFlags:
@@ -221,7 +227,18 @@ class ListReportFlags:
         check_lead(query.actor)
         views: list[ReportFlagView] = []
         async with self._uow_factory() as uow:
-            for flag in await uow.flags.open_report_flags():
+            if query.closed:
+                found = [
+                    flag
+                    for status in (REPORT_FLAG_CHECKED, REPORT_FLAG_ACCEPTED)
+                    for flag in await uow.flags.report_flags_with_status(status)
+                ]
+                found.sort(
+                    key=lambda flag: (flag.resolved_at or flag.created_at, flag.id), reverse=True
+                )
+            else:
+                found = await uow.flags.open_report_flags()
+            for flag in found:
                 profile = await uow.services.get(flag.service_id)
                 report = await uow.capacity.get(flag.report_id)
                 if profile is None or report is None:
@@ -243,9 +260,13 @@ class ListReportFlags:
                             window=window,
                         ),
                         raised_at=flag.created_at,
+                        status=flag.status,
+                        resolved_at=flag.resolved_at,
+                        outcome=flag.outcome,
                     )
                 )
-        views.sort(key=lambda view: (view.raised_at, view.flag_id), reverse=True)
+        if not query.closed:
+            views.sort(key=lambda view: (view.raised_at, view.flag_id), reverse=True)
         return views
 
 

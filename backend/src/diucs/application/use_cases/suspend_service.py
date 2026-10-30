@@ -210,6 +210,7 @@ class SuspendService:
 
             now = self._clock.now()
             before = await _status_now(uow, profile, now, self._policy)
+            requests = await uow.bookings.open_for_service(profile.id)
             await uow.flags.set_service_flag(
                 ServiceFlag(
                     service_id=profile.id,
@@ -218,12 +219,12 @@ class SuspendService:
                     reason=reason.value,
                     actor_id=command.actor.practitioner_id,
                     at=now,
+                    expired_count=len(requests),
                 )
             )
             for work in await uow.scheduled_work.for_about(profile.id):
                 if work.kind in SUSPENDED_WORK_KINDS and work.status == SCHEDULED:
                     await cancel_work(uow, work, now)
-            requests = await uow.bookings.open_for_service(profile.id)
             for booking in requests:
                 await uow.bookings.save(expired(booking, now))
                 await cancel_booking_timers(uow, booking.id, now)

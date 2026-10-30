@@ -26,6 +26,7 @@ from diucs.domain.codes import ReportFlagReason, parse_code
 from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
 from diucs.domain.model.flags import (
     REPORT_FLAG_OPEN,
+    REPORT_FLAG_STATUSES,
     SERVICE_FLAG_CODES,
     ReportFlag,
     ServiceFlag,
@@ -39,7 +40,18 @@ _INACTIVE: Final = "inactive"
 
 # The elements a service flag Basic holds. Anything else is refused, never dropped (DEC-053).
 _KEYS: Final = frozenset(
-    {"resourceType", "id", "meta", "subject", "code", "status", "reason", "actor", "at"}
+    {
+        "resourceType",
+        "id",
+        "meta",
+        "subject",
+        "code",
+        "status",
+        "reason",
+        "actor",
+        "at",
+        "expiredCount",
+    }
 )
 
 
@@ -176,7 +188,7 @@ def _reference_id(resource: dict[str, Any], element: str, target: str) -> str:
 
 def service_flag_to_fhir(flag: ServiceFlag) -> dict[str, Any]:
     """The Basic for a service flag. No meta: the store sets it."""
-    return {
+    resource: dict[str, Any] = {
         "resourceType": _BASIC,
         "id": service_flag_id(flag.service_id, flag.code),
         "subject": {"reference": f"{_SERVICE}/{flag.service_id}"},
@@ -186,6 +198,9 @@ def service_flag_to_fhir(flag: ServiceFlag) -> dict[str, Any]:
         "actor": flag.actor_id,
         "at": _instant_text(flag.at),
     }
+    if flag.expired_count is not None:
+        resource["expiredCount"] = flag.expired_count
+    return resource
 
 
 def service_flag_from_fhir(resource: dict[str, Any]) -> ServiceFlag:
@@ -216,6 +231,7 @@ def service_flag_from_fhir(resource: dict[str, Any]) -> ServiceFlag:
         reason=str(resource.get("reason", "")),
         actor_id=str(resource.get("actor", "")),
         at=instant,
+        expired_count=resource.get("expiredCount"),
     )
 
 
@@ -295,6 +311,16 @@ class Neo4jFlagRepository:
             REGISTRY.get("Q-FLAG-REPORT-OPEN"),
             status=REPORT_FLAG_OPEN,
             serviceId=service_id,
+        )
+        return [_report_flag(row["props"], str(row["reportId"])) for row in rows]
+
+    async def report_flags_with_status(self, status: str) -> list[ReportFlag]:
+        """The report flags of one status, oldest first: the open ones, or the checked or accepted
+        ones the shift lead has closed (W7B C)."""
+        if status not in REPORT_FLAG_STATUSES:
+            raise ValidationFailed("status", "must be open, checked or accepted")
+        rows = await run_query(
+            self._tx, REGISTRY.get("Q-FLAG-REPORT-OPEN"), status=status, serviceId=None
         )
         return [_report_flag(row["props"], str(row["reportId"])) for row in rows]
 

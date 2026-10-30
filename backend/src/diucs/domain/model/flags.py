@@ -103,9 +103,16 @@ class ServiceFlag:
     reason: str
     actor_id: str
     at: datetime
+    expired_count: int | None = None
+    """How many open requests a suspension expired (W7B C), so the lead's page can say so later.
+    None for any other flag, and for a suspension made before the count was kept."""
 
     def __post_init__(self) -> None:
         _text("service_id", self.service_id)
+        if self.expired_count is not None and (
+            type(self.expired_count) is not int or self.expired_count < 0
+        ):
+            raise ValidationFailed("expired_count", "must be a whole number of zero or more")
         if not isinstance(self.code, str) or self.code not in SERVICE_FLAG_CODES:
             raise ValidationFailed("code", "not a known service flag code")
         if not isinstance(self.active, bool):

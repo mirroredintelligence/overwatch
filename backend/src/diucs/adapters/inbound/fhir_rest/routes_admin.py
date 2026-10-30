@@ -104,6 +104,7 @@ AUDIT_OR_LEAD: Final = (Role.AUDIT, Role.LEAD)
 SIGN_OUT: Final = (Role.REPORTER, Role.LEAD)
 NO_STORE: Final = {"Cache-Control": "no-store"}
 OPEN: Final = "open"
+CLOSED: Final = "closed"
 SUSPENDED_OUTCOME: Final = "suspended"
 FLAG_OUTCOMES: Final[dict[str, Literal["checked", "accepted", "phoned"]]] = {
     "checked": "checked",
@@ -394,37 +395,43 @@ async def confirm_new_phone(
 # --------------------------------------------------------------------- the report flags (U39)
 
 
+def _flag_resource(flag: Any) -> dict[str, Any]:
+    """One flag as a FHIR Flag: active while open; inactive once checked or accepted, with how it
+    was closed and when. The person who closed it is not shown."""
+    period = {"start": format_instant(flag.raised_at)}
+    resource: dict[str, Any] = {
+        "resourceType": "Flag",
+        "id": flag.flag_id,
+        "status": "active" if flag.resolved_at is None else "inactive",
+        "code": {"coding": [{"code": flag.reason.value}]},
+        "subject": {
+            "reference": f"HealthcareService/{flag.service_id}",
+            "display": flag.service_name,
+        },
+        "period": period,
+    }
+    if flag.resolved_at is not None:
+        period["end"] = format_instant(flag.resolved_at)
+        resource["outcome"] = flag.outcome
+    return resource
+
+
 @router.get("/admin/report-flags")
 async def read_report_flags(
     request: Request,
     actor: Annotated[Actor, Depends(require_role(*LEAD))],
 ) -> Response:
     status = request.query_params.get("status")
-    if status != OPEN:
-        raise ValidationFailed("status", "must be open: the closed flags are not listed here")
+    if status not in (OPEN, CLOSED):
+        raise ValidationFailed("status", "must be open or closed")
     flags = await ListReportFlags(_container(request).uow_factory).execute(
-        ListReportFlagsQuery(actor=actor)
+        ListReportFlagsQuery(actor=actor, closed=status == CLOSED)
     )
     bundle: dict[str, Any] = {
         "resourceType": "Bundle",
         "type": "searchset",
         "total": len(flags),
-        "entry": [
-            {
-                "resource": {
-                    "resourceType": "Flag",
-                    "id": flag.flag_id,
-                    "status": "active",
-                    "code": {"coding": [{"code": flag.reason.value}]},
-                    "subject": {
-                        "reference": f"HealthcareService/{flag.service_id}",
-                        "display": flag.service_name,
-                    },
-                    "period": {"start": format_instant(flag.raised_at)},
-                }
-            }
-            for flag in flags
-        ],
+        "entry": [{"resource": _flag_resource(flag)} for flag in flags],
     }
     return FhirJSONResponse(content=bundle, headers=NO_STORE)
 

@@ -38,6 +38,11 @@ class ServiceRepository(Protocol):
         """Every active service, sorted by name."""
         ...
 
+    async def work_phone(self, service_id: str) -> str | None:
+        """The telephone the service is listed with (its work phone), or None when it has none or
+        the service is not there. The number the shift lead phones to check a service (W7B C)."""
+        ...
+
     async def set_active(self, service_id: str) -> None:
         """Make a registered service active (U29): HealthcareService.active, its Location.status and
         its Organization.active, each as a new resource version. Only those flags change, so the
@@ -329,6 +334,10 @@ class RegistrationRepository(Protocol):
         left out. When more than one carries a name, the lowest id."""
         ...
 
+    async def list_invitations(self) -> list[Invitation]:
+        """Every invitation of the tenant, newest first (W7B C: the lead's set-up tracker)."""
+        ...
+
     async def add_invitation(self, invitation: Invitation) -> None:
         """Store a new invitation (U24), a Task with code invite-reporter. An id that exists
         raises Conflict."""
@@ -391,6 +400,10 @@ class FlagRepository(Protocol):
 
     async def open_report_flags(self, service_id: str | None = None) -> list[ReportFlag]:
         """Open report flags, oldest first, for one service or for all services."""
+        ...
+
+    async def report_flags_with_status(self, status: str) -> list[ReportFlag]:
+        """The report flags of one status (open, checked or accepted), oldest first (W7B C)."""
         ...
 
     async def save_report_flag(self, flag: ReportFlag) -> None:

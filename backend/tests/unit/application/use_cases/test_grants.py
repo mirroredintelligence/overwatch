@@ -606,3 +606,49 @@ async def test_the_reads_refuse_other_roles_and_other_networks(rig: _Rig) -> Non
             await rig.query.for_network(_tenant_admin(), NETWORK_ID)
         with pytest.raises(NotFound):
             await rig.query.for_network(person(MEMBER_B, Role.NETWORK_ADMIN), NETWORK_ID)
+
+
+async def test_two_approvals_that_race_both_land_because_the_loser_reads_again(rig: _Rig) -> None:
+    """The grantor and the owner approve at the same moment: each reads the proposed grant, and the
+    registry lets one write win. The other finds the status moved, reads again and adds its own
+    approval to the new state, so neither is lost and no one has to try again."""
+    _proposed(rig)
+    original = rig.registry.save_grant
+    raced = False
+
+    async def racing(grant: Any, *, expected_status: Any) -> None:
+        nonlocal raced
+        if not raced:
+            raced = True
+            # the other party's approval lands first
+            other = make_grant(id=GRANT_ID, tenant=MEMBER_B, approved=False)
+            from diucs.domain.model.network import GrantApprover
+            from diucs.domain.rules.grant import approve_grant
+
+            rig.registry.grant_rows[GRANT_ID] = approve_grant(
+                other,
+                approver=GrantApprover.OWNER,
+                approver_tenant_id=OWNER,
+                network_owner_tenant_id=OWNER,
+                account_ref="acct-owner-0001",
+                now=AT,
+            )
+        await original(grant, expected_status=expected_status)
+
+    rig.registry.save_grant = racing  # type: ignore[method-assign]
+    with bind_tenant(MEMBER_B):
+        result = await rig.approve.execute(ApproveGrantCommand(_tenant_admin(), GRANT_ID))
+    assert result.effective and rig.registry.grant_rows[GRANT_ID].status is GrantStatus.APPROVED
+    assert rig.events()[-1] == (MEMBER_B, "GrantEffective")
+
+
+async def test_an_approval_that_loses_the_race_three_times_is_a_conflict(rig: _Rig) -> None:
+    _proposed(rig)
+
+    async def always(grant: Any, *, expected_status: Any) -> None:
+        raise Conflict("the registry row is not as expected, so nothing was written")
+
+    rig.registry.save_grant = always  # type: ignore[method-assign]
+    with bind_tenant(MEMBER_B), pytest.raises(Conflict):
+        await rig.approve.execute(ApproveGrantCommand(_tenant_admin(), GRANT_ID))
+    assert rig.world.outbox == []

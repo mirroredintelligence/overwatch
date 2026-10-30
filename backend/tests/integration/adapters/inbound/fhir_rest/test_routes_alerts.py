@@ -26,8 +26,9 @@ from diucs.adapters.testing.tokens import TEST_BFF_SECRET
 from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import AlertKind, Role, code_system_url
+from diucs.domain.codes import AlertKind, PractitionerRoleCode, Role, code_system_url
 from diucs.domain.model.alerts import AlertRecord
+from diucs.domain.model.people import Practitioner, PractitionerRole
 from tests.support.api import R01_TEST_NOW, token_headers
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads
@@ -37,6 +38,7 @@ EMPTY_PARAMETERS = {"resourceType": "Parameters"}
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 LEAD = "prac-lead"
+DEPUTY = "prac-deputy"
 NOW = R01_TEST_NOW
 DUE = NOW + timedelta(hours=2)
 SUBSCRIPTION = "/fhir/Subscription"
@@ -58,6 +60,12 @@ def _subscription(hours: int = 4) -> dict:
                 "valueInteger": hours,
             },
             {"url": code_system_url("alert-preferences/ack-minutes"), "valueInteger": 15},
+            # An alert kind is on, so a deputy is required (SaveAlertPreferences). alert_world
+            # seeds the deputy as an active shift lead.
+            {
+                "url": code_system_url("alert-preferences/deputy"),
+                "valueReference": {"reference": f"Practitioner/{DEPUTY}"},
+            },
         ],
     }
 
@@ -114,6 +122,22 @@ async def alert_world(
     api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
     api_app.state.cache = InMemoryCache(test_container.clock)
     await ensure_audit_heads(neo4j_driver, tenant_id)
+    async with uow_factory_a() as uow:
+        await uow.people.save_practitioner(
+            Practitioner(id=DEPUTY, active=True, display_name="Deputy", phone_hash=None)
+        )
+        await uow.people.save_role(
+            PractitionerRole(
+                id="role-deputy",
+                practitioner_id=DEPUTY,
+                service_id=None,
+                code=PractitionerRoleCode.SHIFT_LEAD,
+                active=True,
+                channel=None,
+                period_start=R01_TEST_NOW,
+            )
+        )
+        await uow.commit()
     await _alert(uow_factory_a, "alert-own", LEAD)
     await _alert(uow_factory_a, "alert-other", "prac-someone-else")
     await _alert(uow_factory_b, "alert-b", "prac-lead")

@@ -96,3 +96,13 @@ describe('root layout back-forward cache guard (TEN-050)', () => {
     expect(children.some((child) => (child as { type?: unknown })?.type === BfcacheGuard)).toBe(true);
   });
 });
+
+describe('root layout telemetry (W9F)', () => {
+  it('mounts the telemetry on every page: it decides for itself whether a person is signed in', async () => {
+    const { Telemetry } = await import('@/components/telemetry/Telemetry');
+    const tree = RootLayout({ children: null });
+    const body = tree.props.children as { props: { children: unknown[] } };
+    const children = ([] as unknown[]).concat(body.props.children);
+    expect(children.some((child) => (child as { type?: unknown })?.type === Telemetry)).toBe(true);
+  });
+});

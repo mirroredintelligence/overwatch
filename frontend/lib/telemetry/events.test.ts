@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { withTraceparent } from './trace';
+import { TRACEPARENT_PATTERN, withTraceparent } from './trace';
 import {
   BATCH_SIZE,
   FLUSH_MS,
@@ -181,5 +181,25 @@ describe('batching', () => {
     await vi.advanceTimersByTimeAsync(FLUSH_MS);
 
     expect(beacon).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the fallback when the beacon is refused', () => {
+  it('sends the batch by fetch with a traceparent of its own', async () => {
+    beacon.mockReturnValue(false);
+    const fetchSpy = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })));
+    vi.stubGlobal('fetch', fetchSpy);
+    try {
+      track('ui.chip', { 'element.id': 'FILTER-CHIP', state: 'true' });
+      flush();
+      await settle();
+
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+      const headers = new Headers(init.headers);
+      expect(headers.get('traceparent')).toMatch(TRACEPARENT_PATTERN);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

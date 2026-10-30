@@ -61,3 +61,27 @@ export const OVERVIEW_NOTHING_TO_CHASE: LeadOverview = {
   chasing: [],
   gettingOld: [],
 };
+
+/** The audit replay of case 4821 as the BFF gives it (W47). Decided 23 Oct 2026 at 14:13:20 London time (BST). */
+export const AUDIT_4821 = {
+  reference: '4821',
+  decisionAt: '2026-10-23T13:13:20Z',
+  chainOk: true,
+  shown: [
+    { serviceName: 'UCR West', status: 'Accepting', value: '4', age: '9 min old' },
+    { serviceName: 'UCR East', status: 'Limited', value: '2', age: '20 min old' },
+    { serviceName: 'Reablement', status: 'Not updated', value: 'No figure', age: '2 hrs 10 min old' },
+  ],
+  criteriaVersions: [
+    { serviceName: 'UCR West', version: 3 },
+    { serviceName: 'UCR East', version: 3 },
+    { serviceName: 'Reablement', version: 3 },
+  ],
+  // Out of time order on purpose: the screen must show them in order.
+  timeline: [
+    { at: '2026-10-23T13:16:00Z', label: 'Booking request sent to UCR West' },
+    { at: '2026-10-23T13:12:00Z', label: 'Case 4821 opened' },
+    { at: '2026-10-23T13:19:00Z', label: 'Confirmed by text' },
+    { at: '2026-10-23T13:13:00Z', label: 'Three options shown' },
+  ],
+};

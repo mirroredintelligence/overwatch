@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { CRITERIA_OVERVIEW_WAITING } from '@/test/fixtures/criteria';
 import { http, HttpResponse } from 'msw';
+import { handlers } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { CriteriaOverview } from './CriteriaOverview';
 import { CRITERIA_OVERVIEW } from '@/test/fixtures/criteria';
@@ -43,6 +44,7 @@ describe('CriteriaOverview', () => {
     expect(screen.getByText('Shift lead: Duty manager, 01202 000 333. No message is sent.')).toBeInTheDocument();
     unmount();
 
+    server.resetHandlers(...handlers);
     render(<CriteriaOverview serviceId="s1" />);
     expect(await screen.findByRole('heading', { level: 1, name: 'UCR West criteria' })).toBeInTheDocument();
     expect(screen.queryByText(/Criteria not reviewed since/)).not.toBeInTheDocument();

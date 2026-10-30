@@ -159,6 +159,8 @@ export function parseCriteriaOverview(value: unknown): CriteriaOverview {
   const body = record(value);
   const current = record(body.current);
   const overdueSince = body.overdueSince === undefined || body.overdueSince === null ? undefined : str(body.overdueSince);
+  const shiftLeadBody = body.shiftLead === undefined || body.shiftLead === null ? undefined : record(body.shiftLead);
+  const shiftLead = shiftLeadBody === undefined ? undefined : { role: str(shiftLeadBody.role), phone: str(shiftLeadBody.phone) };
   let draft: CriteriaOverview['draft'];
   if (body.draft !== undefined && body.draft !== null) {
     const d = record(body.draft);
@@ -180,5 +182,6 @@ export function parseCriteriaOverview(value: unknown): CriteriaOverview {
     current: { ...valuesFrom(current), version: whole(current.version), reviewBy: str(current.reviewBy) },
     ...(draft !== undefined ? { draft } : {}),
     ...(overdueSince !== undefined ? { overdueSince } : {}),
+    ...(shiftLead !== undefined ? { shiftLead } : {}),
   };
 }

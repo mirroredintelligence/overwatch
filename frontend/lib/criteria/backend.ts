@@ -1,6 +1,7 @@
 import { FhirError, fhirFetch } from '@/lib/fhir/client';
 import { notServed } from '@/lib/registration/backend';
-import type { CriteriaValues, ReviewPeriod } from './types';
+import { mapHistory, waitingVersion } from './history';
+import type { CriteriaValues, HistoryVersion, ReviewPeriod } from './types';
 
 // Server-only. The owner's criteria calls to the back end's FHIR API (R10, U30), mapped to the
 // browser's shapes. A criteria version is a Basic resource; a change is written straight into
@@ -72,6 +73,49 @@ export async function confirmReview(token: string, serviceId: string, months: Re
   const reviewBy = isRecord(reviewPart) ? reviewPart.valueDate : undefined;
   if (typeof reviewBy !== 'string') badBody();
   return { reviewBy: reviewBy as string };
+}
+
+/** The versions of one service, newest first (U30, `GET /Basic?subject=`). */
+export async function readHistory(token: string, serviceId: string): Promise<HistoryVersion[]> {
+  const { data } = await fhirFetch<unknown>(`/Basic?subject=${encodeURIComponent(`HealthcareService/${serviceId}`)}`, { token });
+  return mapHistory(data);
+}
+
+/**
+ * The approver's decision on the version waiting for approval (U30): approve it, or send it back with
+ * a note. The waiting version is found in the history; the back end refuses the approver who wrote it.
+ */
+export async function decidePending(
+  token: string,
+  serviceId: string,
+  decision: 'approve' | 'send-back',
+  note: string | undefined,
+  key: string,
+): Promise<{ status: string; version: number }> {
+  const waiting = waitingVersion(await readHistory(token, serviceId));
+  if (waiting === null) {
+    throw new FhirError(404, {
+      resourceType: 'OperationOutcome',
+      issue: [{ severity: 'error', code: 'not-found', diagnostics: 'There is no version waiting for approval.' }],
+    });
+  }
+  const operation = decision === 'approve' ? '$approve' : '$send-back';
+  const body = note === undefined ? undefined : { resourceType: 'Parameters', parameter: [{ name: 'note', valueString: note }] };
+  const { data } = await fhirFetch<unknown>(`/Basic/${encodeURIComponent(waiting.criteriaId)}/${operation}`, {
+    method: 'POST',
+    token,
+    idempotencyKey: key,
+    body,
+  });
+  if (!isRecord(data) || typeof data.status !== 'string' || typeof data.meta !== 'object' || data.meta === null) badBody();
+  const version = Number((data.meta as Json).versionId);
+  if (!Number.isInteger(version)) badBody();
+  return { status: data.status as string, version };
+}
+
+/** The approver's read of the waiting change. The back end does not serve the change's words, its author or its reason yet (R10). */
+export function readPending(): never {
+  return notServed();
 }
 
 /** The current version and any draft, as the owner's overview. Not served by the back end yet (R10). */

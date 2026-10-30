@@ -1,7 +1,11 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { CriteriaHistory } from './CriteriaHistory';
+
+const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }));
 
 describe('CriteriaHistory', () => {
   it('lists the versions newest first, marks the waiting one, and offers a new draft from version 3', async () => {
@@ -18,6 +22,8 @@ describe('CriteriaHistory', () => {
     expect(screen.getByText('Every version stays in the audit record.')).toBeInTheDocument();
     const draft = screen.getByRole('button', { name: 'Start a new draft from version 3' });
     expect(draft).toHaveAttribute('data-el', 'OWN-HISTORY-NEWDRAFT-BTN');
+    await userEvent.setup().click(draft);
+    expect(push).toHaveBeenCalledWith('/criteria/s1?step=edit');
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });

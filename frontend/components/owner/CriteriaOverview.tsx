@@ -6,6 +6,7 @@ import { acceptsLine, doesNotAcceptLine, parseCriteriaOverview, shortDate, value
 import type { CriteriaOverview as Overview, CriteriaStep } from '@/lib/criteria/types';
 import { useRead } from '@/lib/bff/useRead';
 import styles from '@/components/lead/lead.module.css';
+import { OverdueNotice } from './OverdueNotice';
 
 // The owner's overview of one service's criteria (W30, ui-screens CriteriaOwner screen 2). Advisors
 // rely on these words, so the page says which version they see and that a new one is waiting.
@@ -15,11 +16,19 @@ export function CriteriaOverview({ serviceId, onNext }: { serviceId: string; onN
   if (read.status === 'failed') return <main className={styles.page}><Banner tone="warning" title="These criteria could not be loaded. Try again shortly." /></main>;
   if (read.status === 'loading') return <main className={styles.page}><p>Loading…</p></main>;
 
-  const { serviceName, current, draft } = read.data;
+  const { serviceName, current, draft, overdueSince, shiftLead } = read.data;
   const values = valuesOf(current);
   return (
     <main className={styles.page}>
       <h1 className={styles.heading}>{serviceName} criteria</h1>
+      {overdueSince !== undefined ? (
+        <OverdueNotice
+          serviceName={serviceName}
+          overdueSince={overdueSince}
+          shiftLead={shiftLead}
+          onReview={() => onNext?.('confirm')}
+        />
+      ) : null}
       <p className={styles.meta}>{`Version ${current.version} · review by ${shortDate(current.reviewBy)}`}</p>
       <p className={styles.lede}>{acceptsLine(values)}</p>
       <p className={styles.lede}>{doesNotAcceptLine(values)}</p>

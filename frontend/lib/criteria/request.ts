@@ -6,6 +6,7 @@ import { ageError, districtShape, isNeedCode, REASON_MAX_LENGTH, REVIEW_PERIODS 
 import type { NeedCode, ReviewPeriod } from './types';
 
 const DISTRICT_LIMIT = 20;
+const NOTE_LIMIT = 280;
 
 function needsOf(value: unknown): NeedCode[] {
   if (!Array.isArray(value) || !value.every(isNeedCode)) badRequest();
@@ -44,4 +45,17 @@ export function changeBody(value: unknown): ChangeInput {
 /** The review period alone: the confirmation of the current version. */
 export function confirmBody(value: unknown): ReviewPeriod {
   return reviewPeriodOf(recordOf(value).reviewInMonths);
+}
+
+export type PendingDecisionInput = { decision: 'approve' | 'send-back'; note?: string };
+
+/** The second approval's decision. A send back needs a note to the owner; an approval needs none. */
+export function pendingDecisionBody(value: unknown): PendingDecisionInput {
+  const body = recordOf(value);
+  const decision = body.decision;
+  if (decision !== 'approve' && decision !== 'send-back') badRequest();
+  const note = typeof body.note === 'string' ? body.note.trim() : '';
+  if (note.length > NOTE_LIMIT) badRequest();
+  if (decision === 'send-back' && note === '') badRequest();
+  return note === '' ? { decision } : { decision, note };
 }

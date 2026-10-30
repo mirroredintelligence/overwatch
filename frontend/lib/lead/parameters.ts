@@ -6,6 +6,7 @@ export type ParameterValue =
   | { name: string; valueCode: string }
   | { name: string; valueInteger: number }
   | { name: string; valueDate: string }
+  | { name: string; valueDateTime: string }
   | { name: string; valueBoolean: boolean };
 
 export type Parameters = { resourceType: 'Parameters'; parameter: ParameterValue[] };

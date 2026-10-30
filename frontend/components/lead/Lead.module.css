@@ -173,3 +173,48 @@
   outline: var(--focus);
   outline-offset: 2px;
 }
+
+.scrollBox {
+  box-sizing: border-box;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--type-body-size);
+}
+
+.table th,
+.table td {
+  padding: var(--space-2);
+  text-align: left;
+  border-bottom: 1px solid var(--c-line);
+  vertical-align: top;
+}
+
+.caption {
+  padding: var(--space-2);
+  text-align: left;
+  font-weight: 700;
+}
+
+.steps {
+  margin: var(--space-2) 0;
+  padding-left: 1.25em;
+}
+
+.steps li {
+  margin: 0 0 var(--space-1);
+}
+
+.preview {
+  margin: 0;
+  padding: var(--space-3);
+  border-left: 4px solid var(--c-line);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}

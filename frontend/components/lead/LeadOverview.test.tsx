@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor, within } from '@testing-library/react';
+import { act, configure, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,10 @@ import { LeadOverview } from './LeadOverview';
 
 // The shift lead's main page (W17). The overview and the reminder go through the BFF, which the
 // tests answer with MSW. The live stream is a stand-in that the test can send an event on.
+
+// The first read of this page is one tick after mount; under a full parallel run that can pass the 1 s
+// default of findBy, so this file waits longer for an answer (not a change to what is expected).
+configure({ asyncUtilTimeout: 4000 });
 
 class FakeEventSource {
   static instances: FakeEventSource[] = [];

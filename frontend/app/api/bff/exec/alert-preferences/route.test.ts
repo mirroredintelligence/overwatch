@@ -3,8 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { DEFAULT_ALERT_PREFERENCES } from '@/lib/exec/alertPrefs';
+import { server } from '@/test/msw/server';
 import {
   EXEC_BACKEND,
+  execBackendHandlers,
   resetExecBackend,
   seenBackend,
   SUBSCRIBER_ID,
@@ -34,7 +36,7 @@ async function call(method: 'GET' | 'PUT', role: Role | null, payload?: unknown,
     headers,
     body: payload === undefined ? undefined : JSON.stringify(payload),
   });
-  return method === 'GET' ? GET(request, undefined as never) : PUT(request, undefined as never);
+  return method === 'GET' ? GET(request) : PUT(request);
 }
 
 beforeEach(() => {
@@ -42,6 +44,7 @@ beforeEach(() => {
   vi.stubEnv('DIUCS_FHIR_BASE_URL', EXEC_BACKEND);
   vi.stubEnv('NODE_ENV', 'production');
   resetExecBackend();
+  server.use(...execBackendHandlers);
 });
 
 afterEach(() => {

@@ -17,7 +17,7 @@ processed, makes sure the member's source is open, writes the row, appends one a
 versions, never a value) and commits. A rejected message opens no unit and is not retried.
 
 The source is opened by the first projection under an effective grant. An ended source is reopened
-only by a grant approved after it ended: a message that was in flight when a member left or a grant
+only by a grant that began after it ended (approved, or started, after: TEN-056): a message that was in flight when a member left or a grant
 ended carries an older grant and cannot reopen it (a grant that ends between the gate and the write
 may let one projection through, DEC-132 item 3, and the end marks that row when it runs).
 
@@ -101,9 +101,11 @@ def _version(dto: Projection) -> int:
     return dto.version if isinstance(dto, CriteriaProjection) else dto.source_version
 
 
-def _approved_at(grant: Grant) -> datetime:
+def _in_force_from(grant: Grant) -> datetime:
+    """The instant this grant began to allow sharing: its last approval or its start, whichever is
+    later. A grant approved before an end but starting after it is a new grant for the source."""
     approvals = [a.at for a in (grant.grantor_approval, grant.owner_approval) if a is not None]
-    return max(approvals)
+    return max(*approvals, grant.effective_from)
 
 
 class ApplyProjection:
@@ -240,9 +242,9 @@ class ApplyProjection:
         if (
             state is not None
             and state.ended_at is not None
-            and _approved_at(grant) <= state.ended_at
+            and _in_force_from(grant) <= state.ended_at
         ):
-            return False  # an older grant than the end: it cannot reopen the source
+            return False  # a grant that began before the end: it cannot reopen the source
         await uow.projections.open_source(request.source_tenant_id, request.kind, ref)
         return True
 

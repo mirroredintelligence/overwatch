@@ -18,6 +18,9 @@ from diucs.application.tenancy import ScopeId, ScopeKind, current_scope
 from diucs.domain.errors import DomainError, ValidationFailed
 
 BOARD_UPDATES_CHANNEL = "board.updates"
+# The channel of a network board (TEN-058). Its name is qualified by the network scope, so it is
+# never the tenant board channel; the distinct logical name keeps a grep and a test honest.
+NETWORK_BOARD_UPDATES_CHANNEL = "network-board.updates"
 
 FAMILY_CACHE: Final = "cache"
 FAMILY_LOCK: Final = "lock"

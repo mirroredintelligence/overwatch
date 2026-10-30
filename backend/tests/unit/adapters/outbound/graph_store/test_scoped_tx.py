@@ -18,7 +18,12 @@ from diucs.adapters.outbound.graph_store.driver import (
     run_query,
     set_query_observer,
 )
-from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
+from diucs.adapters.outbound.graph_store.queries import (
+    BOTH_KINDS,
+    NamedQuery,
+    QueryRegistry,
+    Scenario,
+)
 from diucs.application.tenancy import (
     GlobalStatementMisuse,
     RawTransactionRefused,
@@ -72,7 +77,7 @@ def _no_observer() -> Any:
 
 def test_a_scoped_transaction_is_a_frozen_pair_with_no_way_to_run_cypher() -> None:
     scoped = ScopedTx(_StubTx(), A1)  # type: ignore[arg-type]
-    assert [field.name for field in dataclasses.fields(ScopedTx)] == ["tx", "scope"]
+    assert [field.name for field in dataclasses.fields(ScopedTx)] == ["tx", "scope", "read_only"]
     with pytest.raises(dataclasses.FrozenInstanceError):
         scoped.scope = B1  # type: ignore[misc]
     with pytest.raises(dataclasses.FrozenInstanceError):
@@ -119,8 +124,14 @@ async def test_the_scope_carried_by_a_scoped_transaction_survives_every_rebindin
 async def test_a_network_scope_reaches_the_statement_as_the_same_parameter(
     registry: QueryRegistry,
 ) -> None:
+    generic = "MATCH (h:AuditHead {id: $id, tenantId: $tenant}) RETURN h.id AS id"
+    registry.register(
+        NamedQuery(
+            id="Q-GENERIC", cypher=generic, mode="read", scenario=SCENARIO, scope_kinds=BOTH_KINDS
+        )
+    )
     stub = _StubTx()
-    await run_query(ScopedTx(stub, NETWORK), registry.get("Q-SCOPED"), id="x")  # type: ignore[arg-type]
+    await run_query(ScopedTx(stub, NETWORK), registry.get("Q-GENERIC"), id="x")  # type: ignore[arg-type]
     assert stub.calls[0][1]["tenant"] == "net-pilot"
 
 

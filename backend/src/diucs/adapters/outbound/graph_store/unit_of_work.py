@@ -60,6 +60,7 @@ from diucs.adapters.outbound.graph_store.notification_consent_store import (
     Neo4jNotificationConsentStore,
 )
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from diucs.adapters.outbound.graph_store.projection_repository import Neo4jProjectionRepository
 from diucs.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
 from diucs.adapters.outbound.graph_store.push_subscription_repository import (
     Neo4jPushSubscriptionRepository,
@@ -99,6 +100,7 @@ from diucs.application.ports.outbound.messaging import (
     PushSubscriptionRepository,
 )
 from diucs.application.ports.outbound.outbox import Outbox
+from diucs.application.ports.outbound.projection import NetworkView, ProjectionWriter
 from diucs.application.ports.outbound.protected_text import ProtectedTextStore
 from diucs.application.ports.outbound.repositories import (
     AlertRepository,
@@ -120,7 +122,10 @@ from diucs.application.ports.outbound.support import SupportRepository
 from diucs.application.ports.outbound.support_tickets import SupportTicketRepository
 from diucs.application.ports.outbound.tenant_config import TenantConfigRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.ports.outbound.unit_of_work import (
+    NetworkUnitOfWorkFactory,
+    UnitOfWorkFactory,
+)
 from diucs.application.tenancy import ScopeId, claim_unit, release_unit, scope_for_new_unit
 from diucs.domain.errors import Conflict
 
@@ -161,6 +166,11 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "aggregates": lambda tx, store: Neo4jAggregateRepository(tx),
     "support_tickets": lambda tx, store: Neo4jSupportTicketRepository(tx),
     "tenant_config": lambda tx, store: Neo4jTenantConfigRepository(tx),
+    # The network scope's writer and reader (TEN-053). They sit in the same mapping because a unit
+    # of work is the same class in either kind of scope; their statements are network-only, so a
+    # tenant unit that reaches for one is refused by `run_query` (`ScopeKindMismatch`).
+    "projections": lambda tx, store: Neo4jProjectionRepository(tx),
+    "network_view": lambda tx, store: Neo4jProjectionRepository(tx),
 }
 
 _NOT_OPEN = "the unit of work is not open; use it inside 'async with'"
@@ -229,16 +239,21 @@ class Neo4jUnitOfWork:
     aggregates: AggregateRepository
     support_tickets: SupportTicketRepository
     tenant_config: TenantConfigRepository
+    projections: ProjectionWriter
+    network_view: NetworkView
 
     def __init__(
         self,
         driver: AsyncDriver | Neo4jConnection,
         factories: dict[str, RepositoryFactory] = DEFAULT_FACTORIES,
         clock: Clock | None = None,
+        *,
+        read_only: bool = False,
     ) -> None:
         self._source = driver
         self._factories = factories
         self._clock = clock
+        self._read_only = read_only
         self._state = _NEW
         self._session_cm: AbstractAsyncContextManager[AsyncSession] | None = None
         self._tx: AsyncTransaction | None = None
@@ -247,6 +262,12 @@ class Neo4jUnitOfWork:
         self._store: ResourceStore | None = None
         self._repositories: dict[str, object] = {}
         self._refused: Conflict | None = None
+
+    @property
+    def read_only(self) -> bool:
+        """True for a unit that cannot write (TEN-037): every statement that writes is refused
+        before any Cypher is sent, and `commit()` rolls back."""
+        return self._read_only
 
     @property
     def unit_scope(self) -> ScopeId | None:
@@ -275,7 +296,7 @@ class Neo4jUnitOfWork:
         self._session_cm = session_cm
         self._tx = tx
         self._scope = scope
-        self._scoped = ScopedTx(tx, scope)
+        self._scoped = ScopedTx(tx, scope, self._read_only)
         self._store = ResourceStore(self._scoped, self._clock)
         self._state = _OPEN
         return self
@@ -331,6 +352,14 @@ class Neo4jUnitOfWork:
             raise Conflict(
                 "a write in this unit of work was refused, so nothing was committed"
             ) from refused
+        if self._read_only:
+            # Nothing was written, so there is nothing to commit: end the transaction as a rollback.
+            self._state = _FINISHED
+            try:
+                await self._require_tx().rollback()
+            finally:
+                release_unit(self)
+            return
         await self._require_tx().commit()
         self._state = _FINISHED
         release_unit(self)
@@ -374,6 +403,21 @@ def neo4j_uow_factory(
     driver: AsyncDriver | Neo4jConnection,
     factories: dict[str, RepositoryFactory] = DEFAULT_FACTORIES,
     clock: Clock | None = None,
+    *,
+    read_only: bool = False,
 ) -> UnitOfWorkFactory:
-    """A factory that makes a fresh Neo4jUnitOfWork on each call."""
-    return lambda: Neo4jUnitOfWork(driver, factories, clock)
+    """A factory that makes a fresh Neo4jUnitOfWork on each call. With `read_only` every unit it
+    makes refuses a write (TEN-037): the factory of the network read use cases."""
+    return lambda: Neo4jUnitOfWork(driver, factories, clock, read_only=read_only)
+
+
+def neo4j_network_uow_factory(
+    driver: AsyncDriver | Neo4jConnection,
+    factories: dict[str, RepositoryFactory] = DEFAULT_FACTORIES,
+    clock: Clock | None = None,
+    *,
+    read_only: bool = False,
+) -> NetworkUnitOfWorkFactory:
+    """The same units, typed as the network scope's unit of work (TEN-055): the apply step takes
+    this, so it cannot be handed a factory of tenant units by mistake."""
+    return lambda: Neo4jUnitOfWork(driver, factories, clock, read_only=read_only)

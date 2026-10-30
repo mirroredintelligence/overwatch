@@ -122,6 +122,7 @@ def test_the_universe_of_the_real_registry_holds_the_eager_ids_and_the_templates
         if ":" not in i
         and not i.startswith("Q-TEST-")
         and REGISTRY.get(i).scope == "tenant"
+        and "tenant" in REGISTRY.get(i).scope_kinds
         and i not in templates
     ]
     assert len(statements) == len(eager) + len(templates)
@@ -242,8 +243,18 @@ def test_the_hygiene_check_leaves_an_instance_to_its_template() -> None:
 
 def test_every_registered_tenant_statement_is_in_the_universe_the_generated_test_runs() -> None:
     statements = production_statements(REGISTRY)
-    eager = {i for i in REGISTRY.ids() if ":" not in i and REGISTRY.get(i).scope == "tenant"}
-    templates = {t for t in REGISTRY.template_ids() if REGISTRY.template(t).scope == "tenant"}
+    eager = {
+        i
+        for i in REGISTRY.ids()
+        if ":" not in i
+        and REGISTRY.get(i).scope == "tenant"
+        and "tenant" in REGISTRY.get(i).scope_kinds
+    }
+    templates = {
+        t
+        for t in REGISTRY.template_ids()
+        if REGISTRY.template(t).scope == "tenant" and "tenant" in REGISTRY.template(t).scope_kinds
+    }
     assert (eager | templates) <= set(statements)
     assert set(statements) == eager | templates
     assert universe_problems(REGISTRY, statements) == []

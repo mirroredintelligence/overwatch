@@ -48,6 +48,7 @@ def mutant_of(query: NamedQuery, occurrence: int | None = None) -> tuple[LeakyRe
         mode=query.mode,
         scope=query.scope,
         scenario=query.scenario,
+        scope_kinds=query.scope_kinds,
     )
     registry = LeakyRegistry()
     registry.register(mutant)

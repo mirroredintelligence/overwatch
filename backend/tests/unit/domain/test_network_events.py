@@ -496,10 +496,10 @@ def test_the_module_says_what_the_exception_is() -> None:
 # 12. the topic and the queue name
 
 
-def test_the_network_topic_is_registered_and_the_projection_queue_is_not_yet() -> None:
+def test_the_network_topic_and_the_projection_queue_are_registered() -> None:
     assert "network.events" in TOPICS
     assert PROJECTION_WORK == "projection.work"
-    assert PROJECTION_WORK not in QUEUES
+    assert PROJECTION_WORK in QUEUES  # TEN-055
 
 
 # ProjectionRequested

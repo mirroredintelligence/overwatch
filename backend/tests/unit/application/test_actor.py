@@ -181,3 +181,40 @@ def test_the_scope_invalid_error_is_not_what_an_actor_raises() -> None:
     with pytest.raises(ValidationFailed):
         make(tenant_id="platform")
     assert not issubclass(ValidationFailed, ScopeInvalid)
+
+
+# ---------------------------------------------------------------- the network hint (TEN-059)
+
+
+def test_an_actor_has_no_network_ids_unless_told() -> None:
+    assert wall_actor("tenant-a").network_ids == frozenset()
+    assert Actor(Role.ADVISOR, "p", None, "api", frozenset(), "tenant-a").network_ids == frozenset()
+
+
+def test_the_network_ids_are_a_keyword_so_the_tenant_stays_the_last_positional_field() -> None:
+    actor = Actor(
+        Role.ADVISOR,
+        "p",
+        None,
+        "api",
+        frozenset(),
+        "tenant-a",
+        network_ids=frozenset({"net-pilot"}),
+    )
+    assert actor.network_ids == frozenset({"net-pilot"})
+    with pytest.raises(TypeError):
+        Actor(Role.ADVISOR, "p", None, "api", frozenset(), "tenant-a", frozenset({"net-pilot"}))  # type: ignore[misc]
+
+
+@pytest.mark.parametrize("bad", ["net-pilot", {"tenant-a"}, {"net-"}, {7}, {"net-pilot", "x"}])
+def test_network_ids_that_are_not_a_frozenset_of_network_ids_are_refused(bad: object) -> None:
+    with pytest.raises(ValidationFailed):
+        Actor(Role.ADVISOR, "p", None, "api", frozenset(), "tenant-a", network_ids=bad)  # type: ignore[arg-type]
+
+
+def test_two_actors_that_differ_only_in_the_hint_are_not_equal() -> None:
+    a = Actor(Role.ADVISOR, "p", None, "api", frozenset(), "tenant-a")
+    b = Actor(
+        Role.ADVISOR, "p", None, "api", frozenset(), "tenant-a", network_ids=frozenset({"net-xx"})
+    )
+    assert a != b

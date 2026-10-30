@@ -60,6 +60,10 @@ BINDING_MODULES: frozenset[str] = frozenset(
         "diucs.adapters.inbound.sms_webhook.routes",
         "diucs.adapters.inbound.workers.outbox_relay",
         "diucs.adapters.inbound.workers.tenant_binding",
+        # TEN-054: the network apply consumer binds the network scope its message names, for the
+        # handling of that one message, and only after the directory has listed the source tenant
+        # and the registry has said the network exists and is active.
+        "diucs.adapters.inbound.workers.network_projector",
         # O09: the synthetic test hook binds the one tenant its configuration names, never one the
         # request sends, and is mounted only when the hook is configured.
         "diucs.adapters.inbound.fhir_rest.routes_synthetic",
@@ -94,9 +98,13 @@ BINDING_MODULES: frozenset[str] = frozenset(
 # `tenant` or `tenant_id` parameter. Empty in TEN-001; the tenant registry (TEN-007) names its
 # module here: the directory looks a tenant up by the id it is asked about, on the global path, and
 # never sends a tenant to a statement. This is the "callers never pass a tenant" rule made visible.
+# TEN-051: the network registry is the same kind of module. It reads and writes registry rows by
+# the tenant id of the row (`memberTenantId`, `grantorTenantId`), on the global path, and sends no
+# tenant to a statement.
 TENANT_PARAMETER_MODULES: frozenset[str] = frozenset(
     {
         "diucs.adapters.outbound.graph_store.tenant_directory",
+        "diucs.adapters.outbound.graph_store.network_registry",
         # TEN-028: the registry's writes take the id of the tenant they work on (a platform
         # statement has no `$tenant`), exactly as the directory does.
         "diucs.adapters.outbound.graph_store.tenant_registry",

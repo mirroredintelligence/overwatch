@@ -58,6 +58,7 @@ def actor_from_claims(claims: BffClaims) -> Actor:
             channel="api",
             service_ids=claims.services,
             tenant_id=claims.tenant,
+            network_ids=claims.networks,
         )
     return Actor(
         role=claims.role,
@@ -66,6 +67,7 @@ def actor_from_claims(claims: BffClaims) -> Actor:
         channel="api",
         service_ids=claims.services,
         tenant_id=claims.tenant,
+        network_ids=claims.networks,
     )
 
 

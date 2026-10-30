@@ -25,7 +25,7 @@ from tests.support.neo4j import read_tx, write_tx
 # Labels a node may carry without a tenantId: the migration record, and the registry nodes of the
 # network design (DEC-132), which are the tenants' and the network's own.
 UNSTAMPED_OK: Final = frozenset(
-    {"Migration", "Tenant", "TenantNumber", "Network", "NetworkMembership", "Grant"}
+    {"Migration", "Tenant", "TenantNumber", "Network", "NetworkMembership", "Grant", "Listing"}
 )
 
 _IDENTIFIER: Final = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")

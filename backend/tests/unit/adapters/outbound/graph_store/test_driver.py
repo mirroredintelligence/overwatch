@@ -24,6 +24,9 @@ from diucs.adapters.outbound.graph_store.driver import (
     set_query_observer,
 )
 from diucs.adapters.outbound.graph_store.queries import (
+    BOTH_KINDS as BOTH,
+)
+from diucs.adapters.outbound.graph_store.queries import (
     NamedQuery,
     QueryRegistry,
     Scenario,
@@ -353,10 +356,15 @@ async def test_the_scope_a_transaction_carries_wins_over_the_ambient_scope(
 async def test_a_network_binding_is_a_binding_for_the_execution_point(
     registry: QueryRegistry,
 ) -> None:
+    # A statement for both kinds of scope (TEN-037): a tenant statement is refused in a network one.
+    generic = "MATCH (h:AuditHead {id: $id, tenantId: $tenant}) RETURN h.id AS id"
+    registry.register(
+        NamedQuery(id="Q-GENERIC", cypher=generic, mode="read", scenario=SCENARIO, scope_kinds=BOTH)
+    )
     tx = _stub(scope=ScopeId.network("net-pilot"))
     with bind_scope(ScopeId.network("net-pilot")):
-        await run_query(tx, _q(registry, "Q-SCOPED"), id="x")
-    assert tx.calls == [(SCOPED_CYPHER, {"tenant": "net-pilot", "id": "x"})]
+        await run_query(tx, _q(registry, "Q-GENERIC"), id="x")
+    assert tx.calls == [(generic, {"tenant": "net-pilot", "id": "x"})]
 
 
 # Bound: the tenant is added from the bound scope and nothing else changes

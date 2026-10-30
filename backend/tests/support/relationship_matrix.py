@@ -93,10 +93,17 @@ RELATIONSHIPS: Final = (
     _local("FOR_SESSION", "a support ticket to the session it is about, both on the tenant"),
     _local("HAS_CREDENTIAL"),
     _local("HAS_DEVICE"),
+    _local(
+        "HAS_LOCATION", "a projected service to its location, both in one network scope (TEN-053)"
+    ),
     Relationship(
         "HAS_NUMBER",
         Handling.REGISTRY,
         note="a Tenant registry node to its TenantNumber, neither carries a tenantId (DEC-132)",
+    ),
+    _local(
+        "HAS_OPENING_HOUR",
+        "a projected service to each opening window, both in one network scope (TEN-053)",
     ),
     _local("HAS_OUTPUT"),
     _local("HAS_SETTING"),

@@ -16,12 +16,14 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.outbound.graph_store import health, tenant_directory  # noqa: F401
+from diucs.adapters.outbound.graph_store import health, network_registry, tenant_directory  # noqa: F401
 from diucs.adapters.outbound.graph_store import queries as queries_module
 from diucs.adapters.outbound.graph_store.driver import run_global_query, run_query
 from diucs.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
     GLOBAL_STATEMENT_LABELS,
+    GLOBAL_WRITE_IDS,
+    NETWORK_REGISTRY_LABELS,
     REGISTRY,
     NamedQuery,
     QueryRegistry,
@@ -32,6 +34,7 @@ from diucs.application.tenancy import (
     TenantParameterRefused,
     bind_tenant,
 )
+from tests.unit.adapters.outbound.graph_store.network_registry_pins import NETWORK_DIGESTS
 
 # The only global statements, with the exact text of each. A change to a line here is a change to
 # what runs before a tenant is known: it needs a reason on GLOBAL_QUERY_IDS and a reviewer's eye.
@@ -124,8 +127,11 @@ def _pin(monkeypatch: pytest.MonkeyPatch, cypher: str, query_id: str = "Q-TEST-G
 
 
 def test_the_allowlist_is_the_ping_the_directory_and_the_two_invariant_counts() -> None:
-    assert set(GLOBAL_QUERY_IDS) == set(EXPECTED_TEXT)
-    assert len(GLOBAL_QUERY_IDS) == 11
+    # Eleven of the ping, the directory and the counts, and the nineteen of the network registry
+    # (TEN-051), which `test_network_registry_statements.py` and `network_registry_pins.py` pin.
+    assert set(GLOBAL_QUERY_IDS) == set(EXPECTED_TEXT) | set(NETWORK_DIGESTS)
+    assert len(GLOBAL_QUERY_IDS) == 11 + 19
+    assert set(GLOBAL_WRITE_IDS) <= set(NETWORK_DIGESTS)
     assert queries_module.GLOBAL_WHOLE_GRAPH_IDS == WHOLE_GRAPH
 
 
@@ -160,7 +166,7 @@ def test_the_text_of_each_global_statement_is_exactly_what_was_reviewed() -> Non
 def test_every_global_statement_reads_never_mentions_the_tenant_and_takes_known_parameters() -> (
     None
 ):
-    for query_id in GLOBAL_QUERY_IDS:
+    for query_id in set(GLOBAL_QUERY_IDS) - set(NETWORK_DIGESTS):
         query = REGISTRY.get(query_id)
         assert query.scope == "global" and query.mode == "read", query_id
         assert query.scenario is None, query_id
@@ -171,7 +177,9 @@ def test_every_global_statement_reads_never_mentions_the_tenant_and_takes_known_
 
 
 def test_every_global_statement_names_registry_labels_only() -> None:
-    assert frozenset({"Tenant", "TenantNumber"}) == GLOBAL_STATEMENT_LABELS
+    assert (
+        frozenset({"Tenant", "TenantNumber"}) | NETWORK_REGISTRY_LABELS == GLOBAL_STATEMENT_LABELS
+    )
     for query_id in GLOBAL_QUERY_IDS:
         labels = set(re.findall(r"\(\w*:(\w+)", REGISTRY.get(query_id).cypher))
         assert labels <= GLOBAL_STATEMENT_LABELS, query_id
@@ -181,7 +189,7 @@ def test_no_global_statement_writes_or_calls_a_procedure() -> None:
     forbidden = re.compile(
         r"\b(CREATE|MERGE|SET|DELETE|DETACH|REMOVE|CALL|LOAD|FOREACH|DROP)\b", re.IGNORECASE
     )
-    for query_id in GLOBAL_QUERY_IDS:
+    for query_id in set(GLOBAL_QUERY_IDS) - set(GLOBAL_WRITE_IDS):
         assert forbidden.search(REGISTRY.get(query_id).cypher) is None, query_id
 
 
@@ -335,7 +343,8 @@ def _digest(text: str) -> str:
 
 def test_the_pins_are_the_digests_of_the_exact_texts_of_the_statements() -> None:
     assert dict(queries_module.GLOBAL_STATEMENTS) == {
-        i: _digest(t) for i, t in EXPECTED_TEXT.items()
+        **{i: _digest(t) for i, t in EXPECTED_TEXT.items()},
+        **NETWORK_DIGESTS,
     }
     assert set(queries_module.GLOBAL_STATEMENTS) == set(GLOBAL_QUERY_IDS)
     for digest in queries_module.GLOBAL_STATEMENTS.values():

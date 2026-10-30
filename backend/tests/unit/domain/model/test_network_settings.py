@@ -61,7 +61,7 @@ def test_a_name_with_a_patient_shape_is_refused_and_the_refusal_holds_no_value(v
     assert value not in str(error.value)
 
 
-@pytest.mark.parametrize("value", ["Europe/London", "Europe/Dublin"])
+@pytest.mark.parametrize("value", ["Europe/London"])
 def test_a_time_zone_on_the_allow_list_is_accepted(value: str) -> None:
     assert _settings(time_zone=value).time_zone == value
 

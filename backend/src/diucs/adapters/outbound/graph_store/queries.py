@@ -115,6 +115,81 @@ GLOBAL_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
             "counts, by relationship type, the relationships that join two scopes (TEN-031): it "
             "scans the whole graph and returns a type and a count, never a value"
         ),
+        "Q-NETWORK-GET": (
+            "reads one Network registry node by id (its settings included): registry data only, "
+            "and the caller needs it before a network scope is bound"
+        ),
+        "Q-NETWORK-MEMBERSHIPS": (
+            "lists every NetworkMembership registry row of one network, history included: "
+            "registry data only, for network administration"
+        ),
+        "Q-NETWORK-MEMBERSHIPS-OF": (
+            "lists every NetworkMembership registry row of one tenant in every network: registry "
+            "data only, so a sign-in can learn which networks a tenant is in"
+        ),
+        "Q-NETWORK-MEMBERSHIP-ACTIVE": (
+            "reads the active NetworkMembership registry row of one tenant in one network: the "
+            "membership check of every network read, made before a network scope is bound"
+        ),
+        "Q-NETWORK-GRANT-GET": (
+            "reads one Grant registry node by id: registry data only, for the grant use cases"
+        ),
+        "Q-NETWORK-GRANTS": (
+            "lists the Grant registry nodes of one network: registry data only, for network "
+            "administration"
+        ),
+        "Q-NETWORK-GRANTS-OF": (
+            "lists the Grant registry nodes a tenant has given: registry data only, for the "
+            "grantor's own administration"
+        ),
+        "Q-NETWORK-GRANT-ACTIVE-FOR": (
+            "reads the approved Grant registry nodes of one grantor and scope with their active "
+            "Network and NetworkMembership registry rows: the projector's gate, read before any "
+            "scope is bound"
+        ),
+        "Q-NETWORK-LISTING-GET": (
+            "reads one Listing registry node by id: registry data only, for the listing use cases"
+        ),
+        "Q-NETWORK-LISTINGS": (
+            "lists the Listing registry nodes of one network: registry data only, for the owner's "
+            "admission queue and the network directory"
+        ),
+        "Q-NETWORK-LISTINGS-OF": (
+            "lists the Listing registry nodes of one member in one network: registry data only, "
+            "for the member's own view of its listings"
+        ),
+        "Q-NETWORK-CREATE": (
+            "creates one Network registry node; the registry is global and a unique key refuses a "
+            "second network with the same id"
+        ),
+        "Q-NETWORK-SAVE": (
+            "changes one Network registry node when it is in the status the caller expects: the "
+            "only write on a registry node that matches by id and status"
+        ),
+        "Q-NETWORK-MEMBER-CREATE": (
+            "creates one NetworkMembership registry node when the tenant has no invited or active "
+            "row in the network, after taking the Network registry node's lock"
+        ),
+        "Q-NETWORK-MEMBER-SAVE": (
+            "changes one NetworkMembership registry node when it is in the status the caller "
+            "expects, matched by id, network and member"
+        ),
+        "Q-NETWORK-GRANT-CREATE": (
+            "creates one Grant registry node; a unique key on network, grantor, scope and version "
+            "refuses a second row"
+        ),
+        "Q-NETWORK-GRANT-SAVE": (
+            "changes the approvals, window and end of one Grant registry node when it is in the "
+            "status the caller expects, matched by id, network and grantor"
+        ),
+        "Q-NETWORK-LISTING-CREATE": (
+            "creates one Listing registry node when the service has no live listing in the "
+            "network, after taking the Network registry node's lock"
+        ),
+        "Q-NETWORK-LISTING-SAVE": (
+            "changes the decision of one Listing registry node when it is in the status the "
+            "caller expects, matched by id, network, source and service"
+        ),
     }
 )
 
@@ -124,8 +199,26 @@ GLOBAL_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
 # a relationship type and a count and nothing else, so no property value can leave the graph. The
 # digest pin is still the guarantee. Adding an id here is as deliberate as adding one to the
 # allowlist, and test_global_allowlist.py pins the set.
-GLOBAL_WRITE_IDS: Final[frozenset[str]] = frozenset()
-NETWORK_REGISTRY_LABELS: Final[frozenset[str]] = frozenset()
+# The only global statements that may write (TEN-051): the guarded creates and compare-and-sets of
+# the network registry. A global write is a `CREATE` or a `SET` on a network registry label
+# (`NETWORK_REGISTRY_LABELS`) and nothing else: no delete, no procedure, no map or label assignment.
+# It is on GLOBAL_QUERY_IDS and pinned by digest like every global statement. Adding an id here is
+# as deliberate as adding one to the allowlist, and test_global_allowlist.py pins the set.
+GLOBAL_WRITE_IDS: Final[frozenset[str]] = frozenset(
+    {
+        "Q-NETWORK-CREATE",
+        "Q-NETWORK-SAVE",
+        "Q-NETWORK-MEMBER-CREATE",
+        "Q-NETWORK-MEMBER-SAVE",
+        "Q-NETWORK-GRANT-CREATE",
+        "Q-NETWORK-GRANT-SAVE",
+        "Q-NETWORK-LISTING-CREATE",
+        "Q-NETWORK-LISTING-SAVE",
+    }
+)
+NETWORK_REGISTRY_LABELS: Final[frozenset[str]] = frozenset(
+    {"Network", "NetworkMembership", "Grant", "Listing"}
+)
 
 GLOBAL_WHOLE_GRAPH_IDS: Final[frozenset[str]] = frozenset(
     {"Q-INVARIANT-UNSTAMPED", "Q-INVARIANT-CROSS-SCOPE"}
@@ -155,6 +248,49 @@ GLOBAL_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
         "Q-INVARIANT-CROSS-SCOPE": (
             "bbd3e4db80928a1d8dba2bf3991dc4c840acd649e682b3b0961f04ed9e55a179"
         ),
+        "Q-NETWORK-GET": ("ff1b798a243eaa94d749d8b5a139f0982b27d3cd2ac06cf2cd75caf36277a08a"),
+        "Q-NETWORK-MEMBERSHIPS": (
+            "cf92e1d41dd751757ebd3e335cb2e62626eb945ed2876bc24e3ca61fbb3eb214"
+        ),
+        "Q-NETWORK-MEMBERSHIPS-OF": (
+            "1100de69d690b2e2a4968ad121edec6e1cdc2314410cb37a055665d2ff8c9a70"
+        ),
+        "Q-NETWORK-MEMBERSHIP-ACTIVE": (
+            "17a281a087580bb9b9a8478e5da681907fe0406b80ecec2f5618e75c6aac1397"
+        ),
+        "Q-NETWORK-GRANT-GET": ("f05af3f980f16e2cfa85ae16f255baff496a037ae8e31f1a3c26822925ca1fa2"),
+        "Q-NETWORK-GRANTS": ("aa91b805e94484416c56359dcb1ef3da190b1a32643a722b4adf9b1c1056064e"),
+        "Q-NETWORK-GRANTS-OF": ("b78b32896edb14f2f2e911589b63921132f9909c652df6b5cc49ab4e8f4e1672"),
+        "Q-NETWORK-GRANT-ACTIVE-FOR": (
+            "0a6e6f512ff465e7938b8f45da1d41ce8ab2fb005c0ac1ca058af47e489b4b1b"
+        ),
+        "Q-NETWORK-LISTING-GET": (
+            "5b4b13d3cd3a3dcecba20e96263461ee5a1710b765705f5d6334bc07dcb9f2f6"
+        ),
+        "Q-NETWORK-LISTINGS": ("5f7d8ca16ae152b94c7b81cb163e4ef0fc92d01c777ec2533df570b704317a57"),
+        "Q-NETWORK-LISTINGS-OF": (
+            "30e09997dd51efc743e928f49d37dfcdb923d5d5f9d63e552373570f85057e8c"
+        ),
+        "Q-NETWORK-CREATE": ("8732644ba94620e596d76bd7bc82f1506427eaa5aec83f36289684d403f5866d"),
+        "Q-NETWORK-SAVE": ("e6295bff855065317509834639d601ea030a0cb0de9693b3aab2efc30cb58dfc"),
+        "Q-NETWORK-MEMBER-CREATE": (
+            "1b53050ab54e6ffd5b92f88e0057d923f1a1dc6c157fa89d777b4c022b7a1416"
+        ),
+        "Q-NETWORK-MEMBER-SAVE": (
+            "6d5dd5a7849237358e0f88eab5891c94f657d8fd44b6abe5c16b39f476ec5e65"
+        ),
+        "Q-NETWORK-GRANT-CREATE": (
+            "7810b92b84614a07ce88d4859534c9401545bdece5cfcdaba63aa474552c7d93"
+        ),
+        "Q-NETWORK-GRANT-SAVE": (
+            "49ce209d320428c2231e6e763932dced25f8336f1d5cb890ce76ec0b23aaca6c"
+        ),
+        "Q-NETWORK-LISTING-CREATE": (
+            "5facf39c4da9be8e85618bf69dafe60e4766b0997e750801bbafb31e57007509"
+        ),
+        "Q-NETWORK-LISTING-SAVE": (
+            "9e65052c9ff7532bdf1b3334be13c1da9f5051ba04b8f0d10ffde4f80b35a2bd"
+        ),
     }
 )
 
@@ -169,7 +305,9 @@ def statement_digest(cypher: str) -> str:
 # `REGISTRY_LABELS` in migrations_tenant.py). A global statement runs with no tenant, so it must not
 # be able to match a node that holds a tenant's data. Adding a label here is as deliberate as adding
 # an id to the allowlist, and the pinned test names both.
-GLOBAL_STATEMENT_LABELS: Final[frozenset[str]] = frozenset({"Tenant", "TenantNumber"})
+GLOBAL_STATEMENT_LABELS: Final[frozenset[str]] = frozenset(
+    {"Tenant", "TenantNumber"} | NETWORK_REGISTRY_LABELS
+)
 
 _IDENT = r"(?:[A-Za-z_]\w*|`[^`]*`)"
 # A node pattern in its simple form, matched where a `(` stands: `(x:Label:Label {key: value})`,
@@ -179,6 +317,10 @@ _LABEL = re.compile(rf":\s*({_IDENT})")
 _NAME_BEFORE = re.compile(r"(?:[\w.]+|`[^`]*`)$")
 _WRITES = re.compile(
     r"\b(?:CREATE|MERGE|SET|DELETE|DETACH|REMOVE|CALL|LOAD|FOREACH|DROP)\b", re.IGNORECASE
+)
+# What a global write may not contain: everything of `_WRITES` except CREATE and SET.
+_WRITES_BEYOND_CREATE_AND_SET = re.compile(
+    r"\b(?:MERGE|DELETE|DETACH|REMOVE|CALL|LOAD|FOREACH|DROP)\b", re.IGNORECASE
 )
 # A `(` that follows a name with no space is a function call only when the name is on the short
 # list of functions (`properties(t)`); after a clause keyword (`MATCH(n:X)`, `WHERE(...)`) it is
@@ -281,7 +423,7 @@ class ScenarioMissing(ValueError):
     """A tenant statement that has no scenario."""
 
 
-def _check_global_text(query_id: str, cypher: str) -> None:
+def _check_global_text(query_id: str, cypher: str, *, writes: bool = False) -> None:
     """The structural checks of a global statement's text: DEFENCE IN DEPTH behind the digest pin,
     not a parser and not the guarantee (see GLOBAL_STATEMENTS). They refuse a write or procedure
     word, a `;`, a `(` after a name that is not an allowed function (so `MATCH(n:X)` is read as a
@@ -289,7 +431,9 @@ def _check_global_text(query_id: str, cypher: str) -> None:
     parenthesis that is neither a node nor a function call, and a brace outside a node's property
     map. Comments and the inside of strings are removed first. The two whole-graph counts
     (GLOBAL_WHOLE_GRAPH_IDS) may name a node by variable alone and call `none` and `type`, and must
-    return a label set or a relationship type and a count and nothing else."""
+    return a label set or a relationship type and a count and nothing else. A global write
+    (`GLOBAL_WRITE_IDS`, TEN-051) may use `CREATE` and `SET` and nothing else that writes, may name
+    the network registry labels only, and may not assign a map (`+=`) or a label (`SET n:X`)."""
     text = _blank(query_id, cypher)
     whole_graph = query_id in GLOBAL_WHOLE_GRAPH_IDS
     functions = _WHOLE_GRAPH_FUNCTIONS if whole_graph else _FUNCTIONS
@@ -301,8 +445,12 @@ def _check_global_text(query_id: str, cypher: str) -> None:
             f"query {query_id}: a whole-graph count may return only a label set or a "
             "relationship type and a count"
         )
-    if _WRITES.search(text) is not None:
+    forbidden = _WRITES_BEYOND_CREATE_AND_SET if writes else _WRITES
+    if forbidden.search(text) is not None:
         raise ValueError(f"query {query_id}: a global statement cannot write or call a procedure")
+    if writes and "+=" in text:
+        raise ValueError(f"query {query_id}: a global write cannot assign a map")
+    allowed_labels = NETWORK_REGISTRY_LABELS if writes else GLOBAL_STATEMENT_LABELS
     if ";" in text:
         raise ValueError(f"query {query_id}: a global statement is one statement")
     remaining = text
@@ -329,13 +477,15 @@ def _check_global_text(query_id: str, cypher: str) -> None:
             continue
         if not labels:
             raise ValueError(f"query {query_id}: every node in a global statement needs a label")
-        if not set(labels) <= GLOBAL_STATEMENT_LABELS:
+        if not set(labels) <= allowed_labels:
             raise ValueError(f"query {query_id}: a global statement may name registry labels only")
         remaining = remaining.replace(node.group(0), " ", 1)
     if "{" in remaining or "}" in remaining:
         raise ValueError(
             f"query {query_id}: a global statement may use braces only in a node's properties"
         )
+    if writes and ":" in remaining:
+        raise ValueError(f"query {query_id}: a global write cannot assign a label")
 
 
 def _validate(
@@ -537,9 +687,12 @@ class QueryRegistry:
                 raise ValueError(f"query {query_id}: not on the global allowlist")
             if _mentions_tenant(cypher):
                 raise ValueError(f"query {query_id}: a global statement cannot mention $tenant")
-            if mode != "read":
-                raise ValueError(f"query {query_id}: a global statement must be read-only")
-            _check_global_text(query_id, cypher)
+            if (mode == "write") != (query_id in GLOBAL_WRITE_IDS):
+                raise ValueError(
+                    f"query {query_id}: a global statement must be read-only, except the "
+                    "registry writes of GLOBAL_WRITE_IDS, which must be writes"
+                )
+            _check_global_text(query_id, cypher, writes=mode == "write")
             pinned = GLOBAL_STATEMENTS.get(query_id)
             if pinned is None:
                 raise ValueError(f"query {query_id}: this global statement has no pinned digest")

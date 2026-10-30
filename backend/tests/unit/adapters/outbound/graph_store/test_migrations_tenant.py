@@ -74,7 +74,15 @@ INDEX_ROWS: Final = (
         "protected_contact_role_id",
     ),
 )
-REGISTRY: Final = ("Migration", "Tenant", "TenantNumber", "Network", "NetworkMembership", "Grant")
+REGISTRY: Final = (
+    "Migration",
+    "Tenant",
+    "TenantNumber",
+    "Network",
+    "NetworkMembership",
+    "Grant",
+    "Listing",
+)
 
 _CONSTRAINT = re.compile(
     r"CREATE CONSTRAINT (\w+) IF NOT EXISTS FOR \(n:(\w+)\) REQUIRE \(?([\w., n]+?)\)? IS UNIQUE"
@@ -249,9 +257,9 @@ def test_the_rollback_drops_exactly_what_0031_creates_and_each_with_if_exists() 
 # The backfill and the open reference
 
 
-def test_the_registry_labels_are_the_six_nodes_that_carry_no_tenant() -> None:
+def test_the_registry_labels_are_the_seven_nodes_that_carry_no_tenant() -> None:
     assert set(tenant.REGISTRY_LABELS) == set(REGISTRY)
-    assert len(tenant.REGISTRY_LABELS) == 6
+    assert len(tenant.REGISTRY_LABELS) == 7
 
 
 def test_the_seeder_and_the_migration_agree_on_which_labels_carry_no_tenant() -> None:
@@ -313,5 +321,5 @@ def test_the_tenant_migrations_are_in_the_order_constraints_stamp_open_reference
     assert reference.loops == (tenant.OPEN_REFERENCE_BACKFILL,)
 
 
-def test_the_network_list_is_empty_until_the_network_tasks() -> None:
-    assert NETWORK_MIGRATIONS == ()
+def test_the_network_list_starts_with_the_registry_migration_of_ten_051() -> None:
+    assert [m.id for m in NETWORK_MIGRATIONS][:1] == ["0110_network_registry"]

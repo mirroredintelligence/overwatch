@@ -99,7 +99,7 @@ GRANT_PARAMS = {
     "endedAt", "endedByAccountRef", "supersedesId",
 }  # fmt: skip
 LISTING_PARAMS = {
-    "id", "networkId", "sourceTenantId", "sourceServiceId", "status", "requestedAt", "decidedAt",
+    "id", "networkId", "sourceTenantId", "serviceId", "status", "requestedAt", "decidedAt",
     "decidedByAccountRef", "reason",
 }  # fmt: skip
 WRITE_IDS = {
@@ -154,7 +154,12 @@ def test_each_statement_is_registered_global_pinned_and_free_of_the_tenant(query
     assert re.search(r"\$tenant\b", query.cypher) is None
     assert re.search(r"\btenantId\b", query.cypher, re.IGNORECASE) is None
     expected = {**READ_IDS, **WRITE_IDS}[query_id]
-    assert set(re.findall(r"\$(\w+)", query.cypher)) == expected
+    used = set(re.findall(r"\$(\w+)", query.cypher))
+    # A save changes only the mutable fields of a record, so it names fewer parameters than the
+    # record has (the others are ignored by the server); every other statement names its set.
+    assert (used <= expected) if query_id.endswith("SAVE") else (used == expected)
+    if query_id.endswith("SAVE"):
+        assert {"id", "expectedStatus", "status"} <= used
     assert set(statement_labels(query.cypher)) <= REGISTRY_LABELS
 
 

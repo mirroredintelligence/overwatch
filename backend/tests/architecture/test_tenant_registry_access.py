@@ -22,10 +22,19 @@ DIRECTORY = f"{GRAPH_STORE}/tenant_directory.py"
 # and the default record of the tenant migrations.
 REGISTRY_CYPHER_FILES = frozenset({DIRECTORY, f"{GRAPH_STORE}/migrations_tenant.py"})
 INVARIANTS = f"{GRAPH_STORE}/invariants.py"
+# TEN-051: the network registry (`Network`, `NetworkMembership`, `Grant`, `Listing`) is the second
+# module that runs global statements, and the only one that runs global writes (GLOBAL_WRITE_IDS).
+NETWORK_REGISTRY = f"{GRAPH_STORE}/network_registry.py"
 # The files that run a global statement (the ping, the directory, and the invariant check of
 # TEN-031, which counts over the whole graph and returns label names and counts only).
 GLOBAL_RUNNERS = frozenset(
-    {f"{GRAPH_STORE}/driver.py", f"{GRAPH_STORE}/health.py", DIRECTORY, INVARIANTS}
+    {
+        f"{GRAPH_STORE}/driver.py",
+        f"{GRAPH_STORE}/health.py",
+        DIRECTORY,
+        INVARIANTS,
+        NETWORK_REGISTRY,
+    }
 )
 BINDING_NAMES = frozenset({"bind_scope", "bind_tenant", "run_query"})
 
@@ -87,6 +96,12 @@ def test_only_the_ping_the_directory_and_the_invariant_check_run_a_global_statem
         and "run_global_query" in referenced_names(path.read_text(encoding="utf-8"))
     ]
     assert offenders == []
+
+
+def test_the_network_registry_binds_nothing_and_runs_no_tenant_statement() -> None:
+    names = referenced_names((PACKAGE_ROOT / NETWORK_REGISTRY).read_text(encoding="utf-8"))
+    assert names.isdisjoint(BINDING_NAMES)
+    assert "run_global_query" in names
 
 
 def test_the_directory_binds_nothing_and_runs_no_tenant_statement() -> None:

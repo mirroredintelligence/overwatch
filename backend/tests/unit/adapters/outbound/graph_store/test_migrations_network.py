@@ -66,7 +66,7 @@ def test_the_lookups_the_gate_and_the_membership_check_make_have_an_index() -> N
         "FOR (n:NetworkMembership) ON (n.networkId, n.memberTenantId)",
         "FOR (n:Grant) ON (n.grantorTenantId, n.scope, n.status)",
         "FOR (n:Grant) ON (n.networkId)",
-        "FOR (n:Listing) ON (n.networkId, n.sourceTenantId, n.sourceServiceId)",
+        "FOR (n:Listing) ON (n.networkId, n.sourceTenantId, n.serviceId)",
     ):
         assert needle in text, needle
 

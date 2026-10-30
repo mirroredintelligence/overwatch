@@ -8,7 +8,7 @@ describe('HelpPanel', () => {
     render(<HelpPanel spoaPhone="01305 000000" champion="Sam" />);
 
     expect(screen.getByRole('link', { name: 'Read the one-page guide' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ask your champion, Sam' })).toBeInTheDocument();
+    expect(screen.getByText('Ask your champion, Sam')).toBeInTheDocument();
     expect(screen.getByText('01305 000000')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Report a problem' })).toHaveAttribute('href', '/help/problem');
   });

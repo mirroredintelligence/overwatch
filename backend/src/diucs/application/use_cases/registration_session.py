@@ -66,7 +66,10 @@ REPORTER_POSTS: Final = frozenset(
 one of these for."""
 SESSION_PURPOSE: Final = "setup"
 """The text-code purpose of a first sign-in on a device (DEC-413)."""
-SESSION_ROLES: Final = frozenset({Role.REPORTER, Role.EXEC})
+SESSION_ROLES: Final = frozenset({Role.REPORTER})
+"""The roles a code sign-in or a PIN session may carry a token for: a reporter's, and nobody
+else's (W9H, DEC-1041). An executive signs in through the organisation's directory and holds no
+post or PIN, so a session that names another role is one nobody derived: it gets no token."""
 NUMBER_ENDING_DIGITS: Final = 3
 
 
@@ -115,7 +118,7 @@ def issue_reporter_token(
     lifetime: timedelta,
     secrets: SecretStore,
 ) -> IssuedToken:
-    """A tenant-bound token for a reporter or an exec, signed with the platform secret. A tenant the
+    """A tenant-bound token for a reporter, signed with the platform secret. A tenant the
     edge would not accept, or a role that is not a reporter's, gets none: the one `EntryRefused`. A
     missing secret is a configuration fault, never a refusal."""
     if role not in SESSION_ROLES or not may_issue(tenant, role):

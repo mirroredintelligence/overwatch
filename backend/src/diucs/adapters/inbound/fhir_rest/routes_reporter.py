@@ -16,8 +16,8 @@ GET   /reporter/bookings/{reference}              a booking by its 4-digit refer
 POST  /reporter/bookings/{reference}/respond      confirm or decline it (Idempotency-Key)
 
 The token names a person and a device, and is checked on every use (`CheckReporterAccess`): a phone
-that was signed out stops working at once, not at the token's expiry. Only role `reporter` passes
-(any other role is the 404 of every refused role, DEC-086). The services a reporter holds are read
+that was signed out stops working at once, not at the token's expiry. Only role `reporter` passes, except the test notification, which an executive may ask for too
+(DEC-1040; any other role is the 404 of every refused role, DEC-086). The services a reporter holds are read
 from the graph at the time of the request, never from the token's claim, and a service the reporter
 does not hold is the same 404 as an unknown one and as another tenant's (H-452). The routes hold no
 business rule: they bind nothing themselves (the token's tenant is bound by `current_actor`), run
@@ -80,6 +80,9 @@ the button on the All-set page, not a way to buzz a phone."""
 
 router = APIRouter(prefix="/reporter")
 _Reporter = Annotated[Actor, Depends(require_role(Role.REPORTER))]
+_Notified = Annotated[Actor, Depends(require_role(Role.REPORTER, Role.EXEC))]
+"""Who may ask for a test notification: a reporter, and an executive, who holds no post and uses
+the notification part of the app only (DEC-1040, DEC-1043). Every other route here is a reporter's."""
 
 
 class ReportBody(_Body):
@@ -376,7 +379,7 @@ async def accept(service_id: str, body: AcceptBody, request: Request, actor: _Re
 
 
 @router.post("/push-test")
-async def push_test(body: PushTestBody, request: Request, actor: _Reporter) -> Response:
+async def push_test(body: PushTestBody, request: Request, actor: _Notified) -> Response:
     container = await _reporter(request, actor)
 
     async def run() -> Response:

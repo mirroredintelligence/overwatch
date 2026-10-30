@@ -13,13 +13,25 @@ from typing import Any
 
 import pytest
 
+from diucs.adapters.testing.tokens import issue_test_token
 from diucs.domain.codes import Role
-from tests.support.w7b_roles import EDGE_REFUSED, headers_for, roles_client
+from tests.support.w7b_roles import EDGE_REFUSED, roles_client
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SERVICE = "svc-1"
 EXEC_ROUTES = frozenset({("POST", "/reporter/push-test")})
+
+DEVICE = "device-aaaaaaaaaaaaaaaaaaaaaa"
+
+
+def headers_for(role: Role) -> dict[str, str]:
+    """A token of the role that names a device, as a reporter's does, so a role that passes the
+    gate is stopped later (by the person check, which opens a store the double refuses) and not at
+    the gate for want of a device."""
+    token = issue_test_token(role, [], "prac-1", device=DEVICE)
+    return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+
 
 ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ("GET", "/reporter/services", None),
@@ -67,5 +79,5 @@ async def test_each_route_takes_its_roles_and_refuses_every_other_one_the_same_w
     assert set(refusals) == set(Role) - admitted - EDGE_REFUSED
 
 
-def test_there_are_thirteen_roles_and_the_matrix_covers_every_one() -> None:
+async def test_there_are_thirteen_roles_and_the_matrix_covers_every_one() -> None:
     assert len(list(Role)) == 13

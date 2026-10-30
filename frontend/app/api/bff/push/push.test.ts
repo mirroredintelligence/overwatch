@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { createHash } from 'node:crypto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { A, BACKEND, DEVICE, PIN_SESSION } from '@/test/fixtures/reporter';
 import { cookiesMock, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
@@ -148,6 +149,60 @@ describe('POST /api/bff/push/subscriptions', () => {
     expect(text).not.toContain(SUBSCRIPTION.endpoint);
     expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
+  });
+});
+
+// An executive holds no post and no phone session: their session is the directory's, with no device. They
+// may save a subscription for their phone and ask for a test notification, nothing else of the reporter's
+// app (W9H, DEC-1040). The device the back end keeps the subscription under is derived from the
+// subscription's endpoint (a stable id for this browser, 43 base64url characters, never sent by the page),
+// and the consent wording is the executive's own (`exec-v1`).
+describe('an executive on the push routes', () => {
+  const asExec = (route: Parameters<typeof asReporter>[0], options: Parameters<typeof asReporter>[1] = {}) =>
+    asReporter(route, { method: 'POST', role: 'exec', session: { device: undefined, pinSession: undefined, tokenExpiresAt: undefined, services: [] }, ...options });
+  const BODY = { subscription: SUBSCRIPTION, consentWordingVersion: 'exec-v1' };
+  const PATH = '/identity/push-subscription';
+  const derived = createHash('sha256').update(SUBSCRIPTION.endpoint).digest('base64url');
+
+  it('saves the subscription under a device derived from its endpoint, with the executive wording and their token', async () => {
+    answer(backendAnswers('post', PATH, 200, { saved: true, consentAt: '2026-10-30T10:00:00+00:00' }));
+    const response = await asExec(subscribe, { body: BODY });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ saved: true });
+    expect(derived).toHaveLength(43);
+    expect(seenBackend[0]).toMatchObject({ path: PATH, authorization: `Bearer ${REPORTER_TOKEN}`, body: { subscription: SUBSCRIPTION, wordingVersion: 'exec-v1', deviceId: derived } });
+  });
+
+  it('derives the same device for the same endpoint and another for another browser', async () => {
+    answer(backendAnswers('post', PATH, 200, { saved: true }));
+    await asExec(subscribe, { body: BODY });
+    await asExec(subscribe, { body: BODY });
+    await asExec(subscribe, { body: { ...BODY, subscription: { ...SUBSCRIPTION, endpoint: 'https://push.example.test/send/other' } } });
+    const ids = seenBackend.map((call) => (call.body as { deviceId: string }).deviceId);
+    expect(ids[0]).toBe(ids[1]);
+    expect(ids[2]).not.toBe(ids[0]);
+  });
+
+  it('still refuses a body that names a device, and each role its own wording', async () => {
+    expect((await asExec(subscribe, { body: { ...BODY, deviceId: 'E'.repeat(22) } })).status).toBe(400);
+    expect((await asExec(subscribe, { body: { ...BODY, consentWordingVersion: 'v1' } })).status).toBe(400);
+    expect((await asReporter(subscribe, { method: 'POST', body: { ...BODY } })).status).toBe(400);
+    expect(seenBackend).toEqual([]);
+  });
+
+  it('asks for a test notification with the executive token', async () => {
+    answer(backendAnswers('post', '/reporter/push-test', 200, { queued: true }));
+    const response = await asExec(pushTest, { body: {} });
+    expect(response.status).toBe(200);
+    expect(seenBackend[0]).toMatchObject({ path: '/reporter/push-test', authorization: `Bearer ${REPORTER_TOKEN}` });
+  });
+
+  it('refuses every other role on both routes, before the back end (a lead, an advisor)', async () => {
+    for (const role of ['lead', 'advisor'] as const) {
+      expect((await asReporter(subscribe, { method: 'POST', body: BODY, role })).status).toBe(403);
+      expect((await asReporter(pushTest, { method: 'POST', body: {}, role })).status).toBe(403);
+    }
+    expect(seenBackend).toEqual([]);
   });
 });
 

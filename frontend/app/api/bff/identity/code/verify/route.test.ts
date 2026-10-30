@@ -7,6 +7,8 @@ import { PENDING_COOKIE, sealPending } from '@/lib/register/pending';
 import { BACKEND_ROOT, TENANT_HOST } from '@/test/fixtures/links';
 import { cookieWrites, cookiesMock, lastWrite, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
 import { backendIdentity, seenBackendIdentity } from '@/test/msw/handlers/registration';
+import { sessionFor } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 import { server } from '@/test/msw/server';
 import { POST } from './route';
 import { withApplicantHandlers } from '@/test/msw/applicant';
@@ -54,13 +56,7 @@ beforeEach(() => {
   signIn.mockReset();
   signIn.mockResolvedValue({
     registrationId: 'REG-SAMPLE-1',
-    session: {
-      role: 'reporter',
-      services: [],
-      sub: 'person-sample-1',
-      backendToken: 'backend-token-sample-value',
-      expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-    },
+    session: sessionFor(TENANTS.A, 'reporter', { sub: 'person-sample-1', backendToken: 'backend-token-sample-value' }),
   });
 });
 
@@ -85,10 +81,19 @@ describe('POST /api/bff/identity/code/verify', () => {
 
     const session = lastWrite(SESSION_COOKIE);
     expect(session).toMatchObject({ options: { httpOnly: true, sameSite: 'strict', path: '/' } });
-    expect(await unsealSession(session?.value ?? '')).toMatchObject({ role: 'reporter', services: [] });
+    // The session is the tenant's and the host's the code came to: it is read on that host only.
+    expect(await unsealSession(session?.value ?? '')).toMatchObject({ role: 'reporter', services: [], tenantId: TENANTS.A.id, host: TENANTS.A.host });
 
     expect(lastWrite(PENDING_COOKIE)).toMatchObject({ value: '', options: { maxAge: 0 } });
-    expect(signIn).toHaveBeenCalledWith(expect.objectContaining({ mobile: '07700900456', deviceId: DEVICE, inviteToken: INVITE }));
+    expect(signIn).toHaveBeenCalledWith(expect.objectContaining({ mobile: '07700900456', deviceId: DEVICE, inviteToken: INVITE, host: TENANTS.A.host }));
+  });
+
+  it('writes no session when the sign-in answers a session for another host than the one the code came to', async () => {
+    signIn.mockResolvedValue({ registrationId: 'REG-SAMPLE-1', session: sessionFor(TENANTS.B, 'reporter') });
+    const response = await POST(post({ phone: '07700900456', code: '123456' }, { [PENDING_COOKIE]: await withPending() }));
+    expect(response.status).toBe(503);
+    expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
+    expect(JSON.stringify(await response.json())).not.toContain(TENANTS.B.id);
   });
 
   it('answers 410 expired when there is no pending code request, and does not call the back end', async () => {

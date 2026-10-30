@@ -1,5 +1,7 @@
 import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { sealSession, SESSION_COOKIE, type Role, type Session } from '@/lib/auth/session';
+import { preSessionSubject } from '@/lib/reporter/bff';
+import { DEVICE_COOKIE } from '@/lib/reporter/device';
 import { fakeBackendToken } from '@/test/backendToken';
 import { requestWithCookies } from '@/test/cookies';
 import { canary } from '@/test/leak-canary';
@@ -68,4 +70,50 @@ export async function requestAs(tenant: TestTenant, role: Role, options: Request
   }
   const url = `https://${options.host ?? tenant.host}${options.path ?? '/api/bff/session'}`;
   return requestWithCookies(url, cookies, { method: options.method ?? 'GET', headers, body: options.body });
+}
+
+// ---------------------------------------------------------------------------------------------
+// A phone that has no session yet (the reporter's set-up and PIN routes, `preSession`). Its CSRF token
+// is bound to the host and the phone's device id (`GET /api/bff/reporter/start` issues it), and the
+// tenant is whatever the back end knows from the host: the request carries no tenant and no bearer.
+
+/** A device id as the phone holds it (22 base64url characters). */
+export const SAMPLE_DEVICE = 'D'.repeat(22);
+
+/** The CSRF token issued to a phone on a host. Needs SESSION_SECRET. */
+export function preSessionCsrfFor(host: string, device: string = SAMPLE_DEVICE): string {
+  return csrfTokenFor(preSessionSubject(host, device), CSRF_NONCE);
+}
+
+export type PreSessionOptions = {
+  method?: string;
+  path?: string;
+  headers?: Record<string, string>;
+  body?: BodyInit;
+  cookies?: Record<string, string>;
+  /** The host the phone is talking to. Defaults to tenant A's. */
+  host?: string;
+  device?: string;
+  /** `true` for the token issued to this phone on this host, a string to send that text, `false` to send none. */
+  csrf?: boolean | string;
+};
+
+/** A request from a phone with no session, as the reporter's pages send it. */
+export function requestPreSession(options: PreSessionOptions = {}): Request {
+  const host = options.host ?? 'tenant-a.example.test';
+  const device = options.device ?? SAMPLE_DEVICE;
+  const cookies: Record<string, string> = { [DEVICE_COOKIE]: device, ...options.cookies };
+  const headers = new Headers(options.headers);
+  headers.set('Host', host);
+  const csrf = options.csrf ?? true;
+  if (csrf !== false) {
+    const value = csrf === true ? preSessionCsrfFor(host, device) : csrf;
+    cookies[CSRF_COOKIE] = value;
+    headers.set(CSRF_HEADER, value);
+  }
+  return requestWithCookies(`https://${host}${options.path ?? '/api/bff/x'}`, cookies, {
+    method: options.method ?? 'POST',
+    headers,
+    body: options.body,
+  });
 }

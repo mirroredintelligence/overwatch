@@ -1,3 +1,4 @@
+import { requestHost } from '@/lib/auth/host';
 import { createSession } from '@/lib/auth/session';
 import { toBffError } from '@/lib/bff/errors';
 import { signInRegistrant, verifyIdentityCode } from '@/lib/register/backend';
@@ -52,11 +53,17 @@ export async function POST(request: Request): Promise<Response> {
     if (reply.status === 429) return refuse(429, 'throttled', 'Too many attempts. Try again later.');
     if (reply.status !== 200) return refuse(503, 'unavailable', 'Sign-in is not available right now. Try again shortly.');
 
+    // The session is for the host the code came to, the tenant the back end signed the applicant in
+    // for; the seam is given the host, and a session for any other host is not kept (fail closed).
+    const host = requestHost(request);
+    if (host === null) return refuse(503, 'unavailable', UNAVAILABLE);
     const { registrationId, session } = await signInRegistrant({
+      host,
       mobile,
       deviceId: pending.deviceId,
       inviteToken: pending.inviteToken,
     });
+    if (session.host !== host) return refuse(503, 'unavailable', UNAVAILABLE);
     await createSession(session);
     await clearPending();
     return bffJson(200, { registrationId });

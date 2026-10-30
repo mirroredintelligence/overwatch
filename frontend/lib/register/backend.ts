@@ -14,6 +14,8 @@ import type { RegistrationView, StepName } from './types';
 // reporter's bearer token. The browser never names a tenant (DEC-130, DEC-132).
 
 export type RegistrantSignIn = {
+  /** The host the code came to: the session is for it and for the tenant the back end signs the applicant in for. */
+  host: string;
   mobile: string;
   deviceId: string;
   inviteToken: string | undefined;

@@ -38,6 +38,7 @@ import hashlib
 import json
 import re
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -192,6 +193,42 @@ _FOR_ENTITY_SCENARIO: Final = Scenario(
     seed=_ENTITY_SEED,
     params={"entityId": "ent-1"},
     lookup=("entityId",),
+    expect=Expect(
+        rows=(
+            {
+                "id": "e-1",
+                "entryJson": Marked("entry-1"),
+                "chainHash": Marked("chain-1"),
+                "previousHash": "genesis-seed",
+            },
+        )
+    ),
+)
+_PLAN_FOR_CASES_SCENARIO: Final = Scenario(
+    "list the tenant's own entries of one use case that name one of the entities",
+    seed=_ENTITY_SEED,
+    params={"entityIds": ["ent-1"], "useCase": "ReportCapacity"},
+    lookup=("entityIds",),
+    expect=Expect(
+        rows=(
+            {
+                "id": "e-1",
+                "entryJson": Marked("entry-1"),
+                "chainHash": Marked("chain-1"),
+                "previousHash": "genesis-seed",
+            },
+        )
+    ),
+)
+_PLAN_WINDOW_SCENARIO: Final = Scenario(
+    "list the tenant's own entries of the named use cases within the window",
+    seed=_CHAIN_SEED,
+    params={
+        "useCases": ["ReportCapacity"],
+        "start": datetime(2026, 10, 24, 9, 0, tzinfo=UTC),
+        "end": datetime(2026, 10, 26, 9, 0, tzinfo=UTC),
+    },
+    lookup=("useCases",),
     expect=Expect(
         rows=(
             {
@@ -419,6 +456,31 @@ _QUERIES: tuple[NamedQuery, ...] = (
         scenario=_FOR_ENTITY_SCENARIO,
     ),
     NamedQuery(
+        id="Q-PLAN-FOR-CASES",
+        cypher=(
+            "MATCH (r:AuditRef {tenantId: $tenant}) WHERE r.id IN $entityIds "
+            "MATCH (r)<-[:ENTITY]-(e:AuditEvent {tenantId: $tenant, useCase: $useCase}) "
+            "WITH DISTINCT e "
+            "RETURN e.id AS id, e.entryJson AS entryJson, e.chainHash AS chainHash, "
+            "e.previousHash AS previousHash "
+            "ORDER BY e.seq"
+        ),
+        mode="read",
+        scenario=_PLAN_FOR_CASES_SCENARIO,
+    ),
+    NamedQuery(
+        id="Q-PLAN-WINDOW",
+        cypher=(
+            "MATCH (e:AuditEvent {tenantId: $tenant}) "
+            "WHERE e.useCase IN $useCases AND e.recorded >= $start AND e.recorded <= $end "
+            "RETURN e.id AS id, e.entryJson AS entryJson, e.chainHash AS chainHash, "
+            "e.previousHash AS previousHash "
+            "ORDER BY e.seq"
+        ),
+        mode="read",
+        scenario=_PLAN_WINDOW_SCENARIO,
+    ),
+    NamedQuery(
         id="Q-AUDIT-HEAD",
         cypher=(
             "MATCH (h:AuditHead {id: 'audit', tenantId: $tenant}) "
@@ -641,6 +703,18 @@ def _stored_node_matches(row: dict[str, Any], tenant_id: str) -> bool:
     )
 
 
+def _records_of(rows: list[dict[str, Any]], tenant_id: str) -> list[AuditRecord]:
+    return [
+        AuditRecord(
+            id=str(row["id"]),
+            entry=_parse_entry(str(row["entryJson"]), tenant_id),
+            chain_hash=str(row["chainHash"]),
+            previous_hash=str(row["previousHash"]),
+        )
+        for row in rows
+    ]
+
+
 class Neo4jAuditLog:
     """The audit log on the caller's transaction. Append-only: there is no update, delete or remove.
 
@@ -761,6 +835,33 @@ class Neo4jAuditLog:
             )
             for row in rows
         ]
+
+    async def records_for_many(self, entity_ids: Sequence[str], use_case: str) -> list[AuditRecord]:
+        """Entries of one use case that name any of these ids, in chain order (U43). Read only."""
+        tenant_id = _chain_tenant(self._tx)
+        if not entity_ids:
+            return []
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-PLAN-FOR-CASES"),
+            entityIds=list(entity_ids),
+            useCase=use_case,
+        )
+        return _records_of(rows, tenant_id)
+
+    async def records_between(
+        self, start: datetime, end: datetime, use_cases: frozenset[str]
+    ) -> list[AuditRecord]:
+        """Entries of these use cases recorded in [start, end], in chain order (U43). Read only."""
+        tenant_id = _chain_tenant(self._tx)
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-PLAN-WINDOW"),
+            useCases=sorted(use_cases),
+            start=start,
+            end=end,
+        )
+        return _records_of(rows, tenant_id)
 
     async def verify_chain(self) -> bool:
         """True when every link of the bound scope's chain is intact, in order, and its head points

@@ -109,15 +109,25 @@ def test_the_need_groups_match_on_their_needs() -> None:
 
 
 def test_the_decision_is_the_last_display_at_or_before_the_outcome() -> None:
-    early = _display("c1", [_row("a", "accepting", 2)], at=datetime(2026, 10, 22, 12, 5, tzinfo=UTC))
-    late = _display("c1", [_row("b", "accepting", 3)], at=datetime(2026, 10, 22, 12, 20, tzinfo=UTC))
-    after = _display("c1", [_row("c", "accepting", 1)], at=datetime(2026, 10, 22, 13, 0, tzinfo=UTC))
-    chosen = decision_for(_outcome(closed=datetime(2026, 10, 22, 12, 30, tzinfo=UTC)), [early, late, after])
+    early = _display(
+        "c1", [_row("a", "accepting", 2)], at=datetime(2026, 10, 22, 12, 5, tzinfo=UTC)
+    )
+    late = _display(
+        "c1", [_row("b", "accepting", 3)], at=datetime(2026, 10, 22, 12, 20, tzinfo=UTC)
+    )
+    after = _display(
+        "c1", [_row("c", "accepting", 1)], at=datetime(2026, 10, 22, 13, 0, tzinfo=UTC)
+    )
+    chosen = decision_for(
+        _outcome(closed=datetime(2026, 10, 22, 12, 30, tzinfo=UTC)), [early, late, after]
+    )
     assert chosen is late
 
 
 def test_no_display_before_the_outcome_gives_no_decision() -> None:
-    later = _display("c1", [_row("a", "accepting", 2)], at=datetime(2026, 10, 22, 13, 0, tzinfo=UTC))
+    later = _display(
+        "c1", [_row("a", "accepting", 2)], at=datetime(2026, 10, 22, 13, 0, tzinfo=UTC)
+    )
     assert decision_for(_outcome(), [later]) is None
 
 
@@ -163,9 +173,9 @@ def test_the_heat_cell_is_the_london_weekday_and_six_hour_band_of_the_arrival() 
     assert heat_cell(datetime(2026, 10, 22, 4, 0, tzinfo=UTC)) == (3, "00-06")  # 05:00 BST
 
 
-def _case_set(n: int, status: str, destination: str | None = None) -> tuple[
-    list[OutcomeFact], list[DisplayFact]
-]:
+def _case_set(
+    n: int, status: str, destination: str | None = None
+) -> tuple[list[OutcomeFact], list[DisplayFact]]:
     outcomes: list[OutcomeFact] = []
     displays: list[DisplayFact] = []
     for index in range(n):
@@ -203,7 +213,9 @@ def test_a_flow_under_ten_is_hidden_and_one_over_ten_is_shown() -> None:
             fact.case_key, fact.at, (_row("home", "over-capacity", 14),)
         )
     for index, fact in enumerate(ed_displays):
-        ed_displays[index] = DisplayFact(fact.case_key, fact.at, (_row("home", "over-capacity", 14),))
+        ed_displays[index] = DisplayFact(
+            fact.case_key, fact.at, (_row("home", "over-capacity", 14),)
+        )
     result = build_planning(
         PlanningQuery(period_days=30, need_group="all"),
         [*home_outcomes, *ed_outcomes],
@@ -258,7 +270,5 @@ def test_declined_despite_capacity_is_grouped_by_service_and_hidden_under_ten() 
 
 def test_a_case_with_no_display_is_not_counted_as_a_referral() -> None:
     outcomes, _ = _case_set(3, "accepting")
-    result = build_planning(
-        PlanningQuery(period_days=30, need_group="all"), outcomes, [], [], {}
-    )
+    result = build_planning(PlanningQuery(period_days=30, need_group="all"), outcomes, [], [], {})
     assert result.referrals == HiddenCount(None, True)

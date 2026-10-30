@@ -158,13 +158,15 @@ _CODE_GET: Final = Scenario(
     lookup=("codeHash",),
     expect=Expect(rows=({"sessionId": Marked("ui"), "practitionerId": "p-1"},)),
 )
+# No LIMIT: the rows come latest first and the caller reads the first, so a leak shows as a second
+# row. The row carries the session's device, which differs between the tenants (`Marked`).
 _CODE_LIVE: Final = Scenario(
     "read when the practitioner's live code for the tenant's session ends",
-    seed=_CODE_SEED,
+    seed=_SESSION_SEED,
     params={"sessionId": "ui-1", "practitionerId": "p-1", "at": _NOW},
     lookup=("sessionId", "practitionerId"),
     new=("at",),
-    expect=Expect(rows=({"sessionId": Marked("ui"), "expiresAt": _LATER},)),
+    expect=Expect(rows=({"deviceType": Marked("device"), "expiresAt": _LATER},)),
 )
 _CODES_STOP: Final = Scenario(
     "stop the tenant's live codes for the session at once",
@@ -262,8 +264,8 @@ _QUERIES: Final[dict[str, tuple[str, Literal["read", "write"], Scenario]]] = {
         "-[:SHARED_VIA]->(c:SupportCode {tenantId: $tenant})"
         "-[:SHARED_BY]->(p:Practitioner {id: $practitionerId, tenantId: $tenant}) "
         "WHERE c.expiresAt > $at AND c.stoppedAt IS NULL "
-        "RETURN s.id AS sessionId, c.expiresAt AS expiresAt "
-        "ORDER BY c.createdAt DESC LIMIT 1",
+        "RETURN s.deviceType AS deviceType, c.expiresAt AS expiresAt "
+        "ORDER BY c.createdAt DESC",
         "read",
         _CODE_LIVE,
     ),

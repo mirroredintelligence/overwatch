@@ -191,6 +191,16 @@ class NetworkBoardProjector:
         """The cached board, or a computed one that is then cached for the backstop time, for a
         viewer the registry has just confirmed (NotFound or NotAllowed otherwise)."""
         await self._access.require_member(actor, network_id)
+        return await self._serve(network_id)
+
+    async def get_wall_board(self, actor: Actor) -> NetworkBoardView:
+        """The board of the network a wall screen is set to (TEN-067): the screen's own record
+        names it and the registry confirms the membership, on every call, cached or not. A screen
+        set to its own board, a revoked one and one whose tenant left are NotFound."""
+        member = await self._access.require_wall(actor)
+        return await self._serve(member.network.id)
+
+    async def _serve(self, network_id: str) -> NetworkBoardView:
         with bind_network(network_id):
             cached = await self._read_cached()
             if cached is not None:

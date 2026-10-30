@@ -8,6 +8,8 @@ so a change aimed at the other tenant's role must read as not found.
 The phone numbers are the prompt's sample values. No patient data.
 """
 
+from dataclasses import replace
+
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
@@ -18,7 +20,7 @@ from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Measure, Role, ServiceCategory
+from diucs.domain.codes import Measure, PractitionerRoleCode, Role, ServiceCategory
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 from tests.support.api import token_headers
@@ -87,6 +89,15 @@ async def _seed_tenant(
     await seed_people(factory, person)
 
 
+def _other_code(
+    person: tuple[Practitioner, PractitionerRole],
+) -> tuple[Practitioner, PractitionerRole]:
+    """Tenant B's reporter role uses another practitioner-role code: the shared schema keeps one
+    Concept per code (lesson L169), and tenant A's role already holds duty-manager."""
+    practitioner, role = person
+    return practitioner, replace(role, code=PractitionerRoleCode.COORDINATOR)
+
+
 @pytest_asyncio.fixture(loop_scope="session")
 async def lead_world(
     api_app: FastAPI,
@@ -97,7 +108,8 @@ async def lead_world(
 ) -> None:
     """One service and one reporter role in each tenant, written through that tenant's own unit
     of work. The ids differ between the tenants because the shared harness schema keeps
-    single-property keys until TEN-032, so tenant B's service uses other codes (lesson L169). Only the run tenant gets an audit head: a setup writes an
+    single-property keys until TEN-032, so tenant B uses other codes (lesson L169). Only the run
+    tenant gets an audit head: a setup writes an
     audit entry there, and the other tenant's seed writes none. Two heads on the shared schema
     collide on the old single-property AuditHead key (lesson L157). It depends on api_app, which
     depends on edge_tenants and the container, so clean_graph has already wiped the graph (L84).
@@ -108,7 +120,7 @@ async def lead_world(
     await _seed_tenant(
         uow_factory_b,
         virtual_ward(SERVICE_B, category=ServiceCategory.REABLEMENT, measure=Measure.FREE_BEDS),
-        reporter(1, None, SERVICE_B, prefix="b-"),
+        _other_code(reporter(1, None, SERVICE_B, prefix="b-")),
     )
 
 

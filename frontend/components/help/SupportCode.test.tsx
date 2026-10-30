@@ -148,8 +148,10 @@ describe('SupportCode with a code made in this visit', () => {
   it('keeps the code out of local storage and session storage', async () => {
     render(<SupportCode />);
     await makeCode();
+    // The telemetry session id may be in session storage; the code never is, in either store.
     expect(localStorage.length).toBe(0);
-    expect(sessionStorage.length).toBe(0);
+    const stored = Array.from({ length: sessionStorage.length }, (_, i) => `${sessionStorage.key(i)}=${sessionStorage.getItem(sessionStorage.key(i) ?? '')}`).join('|');
+    expect(stored).not.toContain(CODE);
   });
 
   it('has no accessibility violations', async () => {

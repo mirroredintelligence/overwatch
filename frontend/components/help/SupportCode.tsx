@@ -10,9 +10,12 @@ import { roleLabel, type AppMode, type DeviceType } from '@/lib/support/share';
 import exec from '@/components/exec/Exec.module.css';
 import styles from './SupportCode.module.css';
 
-// "Your support code" (W56, SafetyConcern screen 5). The code is made when the page opens and shown here
-// only: it is not stored in the browser, not sent to telemetry, and not written to the console. Support
-// sees the pages used, the buttons pressed and any errors; never what was typed.
+// "Your support code" (W56, SafetyConcern screen 5). The page reads whether a code is live for this session
+// and until when (W7A, DEC-772): the back end keeps only a keyed hash of the code, so it can say that sharing
+// is on but can never give the code back. The code is made on request, shown here once and held only in this
+// page's memory: not in browser storage, not in telemetry, not in the console. After a reload the page says a
+// code is live and until when, and that the code is shown only once. Support sees the pages used, the buttons
+// pressed and any errors; never what was typed.
 
 export const POLL_MS = 15_000;
 const BASE = '/api/bff/support/code';
@@ -32,7 +35,10 @@ function appMode(): AppMode {
 }
 
 export function SupportCode() {
+  // The code is held in memory only, from the moment it is made until the page goes.
   const [code, setCode] = useState<{ code: string; expiresAt: string } | null>(null);
+  // Whether a code is live, as the back end says: undefined while reading, null when it could not be read.
+  const [live, setLive] = useState<{ active: boolean; expiresAt?: string } | null | undefined>(undefined);
   const [accesses, setAccesses] = useState<Access[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [copied, setCopied] = useState<'copied' | 'by-hand' | null>(null);
@@ -41,6 +47,12 @@ export function SupportCode() {
   const [busy, setBusy] = useState(false);
   const codeRef = useRef<HTMLParagraphElement>(null);
   const sessionId = useRef<string | null>(null);
+
+  const readState = useCallback(async () => {
+    sessionId.current ??= currentSessionId();
+    const result = await bffRequest<{ active: boolean; expiresAt?: string }>(`${BASE}?sessionId=${encodeURIComponent(sessionId.current)}`);
+    setLive(result.ok ? result.data : null);
+  }, []);
 
   const makeCode = useCallback(async () => {
     setFailed(false);
@@ -51,11 +63,14 @@ export function SupportCode() {
       body: { sessionId: sessionId.current, deviceType: deviceType(), appMode: appMode(), release: RELEASE },
     });
     if (!result.ok) {
-      setFailed(true);
+      // A second code is refused while one is live: read the state again so the page says so.
+      if (result.status === 409) void readState();
+      else setFailed(true);
       return;
     }
     setCode(result.data);
-  }, []);
+    setLive({ active: true, expiresAt: result.data.expiresAt });
+  }, [readState]);
 
   const readAccesses = useCallback(async () => {
     if (sessionId.current === null) return;
@@ -64,16 +79,19 @@ export function SupportCode() {
   }, []);
 
   useEffect(() => {
-    // The code is made once when the page opens; who has opened the session is read on the same beat.
+    // Whether sharing is on is read when the page opens; no code is made by opening the page.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    void makeCode();
+    void readState();
+  }, [readState]);
+
+  const active = live?.active === true;
+  useEffect(() => {
+    // Who has opened the session is read while sharing is on, and every 15 seconds.
+    if (!active) return undefined;
+    void readAccesses();
     const timer = setInterval(() => void readAccesses(), POLL_MS);
     return () => clearInterval(timer);
-  }, [makeCode, readAccesses]);
-
-  useEffect(() => {
-    if (code !== null) void readAccesses();
-  }, [code, readAccesses]);
+  }, [active, readAccesses]);
 
   const copy = async () => {
     if (code === null) return;
@@ -100,6 +118,8 @@ export function SupportCode() {
       return;
     }
     setCode(null);
+    setLive({ active: false });
+    setAccesses(null);
     setStopped(true);
   };
 
@@ -108,12 +128,25 @@ export function SupportCode() {
       <h1 className={exec.heading}>Your support code</h1>
 
       {failed ? <p role="alert" className={exec.error}>We could not make a code. Try again.</p> : null}
+      {live === null ? (
+        <div role="alert" className={exec.error}>
+          <p>We could not tell whether a code is live. Try again.</p>
+          <Button variant="secondary" onClick={() => void readState()} dataEl="HELP-SHARE-CHECK-BTN">Check again</Button>
+        </div>
+      ) : null}
       {code !== null ? (
         <section className={styles.codeBox} aria-label="Your code">
           <p ref={codeRef} className={styles.code} data-el="HELP-SHARE-CODE">{code.code}</p>
           <p>{`Valid until ${londonTime(code.expiresAt)}`}</p>
         </section>
       ) : null}
+      {code === null && live?.active === true && live.expiresAt !== undefined ? (
+        <section className={styles.codeBox} aria-label="Sharing is on">
+          <p>{`A code is live until ${londonTime(live.expiresAt)}.`}</p>
+          <p>The code is shown only once, when it is made. If you no longer have it, stop sharing and make a new one.</p>
+        </section>
+      ) : null}
+      {live?.active === false && !stopped ? <p>Support cannot see your session.</p> : null}
       {stopped ? <p role="status">Sharing stopped.</p> : null}
 
       <p>Support can see the pages you used, the buttons you pressed and any errors. They cannot see what you typed or any patient information.</p>
@@ -132,8 +165,13 @@ export function SupportCode() {
       </section>
 
       <div className={exec.actions}>
-        <Button variant="secondary" onClick={copy} dataEl="HELP-SHARE-COPY-BTN">Copy code</Button>
-        <Button variant="secondary" onClick={() => setConfirming(true)} dataEl="HELP-SHARE-STOP-BTN">Stop sharing now</Button>
+        {live?.active === false ? (
+          <Button variant="primary" onClick={() => void makeCode()} dataEl="HELP-SHARE-MAKE-BTN">Make a support code</Button>
+        ) : null}
+        {code !== null ? <Button variant="secondary" onClick={copy} dataEl="HELP-SHARE-COPY-BTN">Copy code</Button> : null}
+        {live?.active === true ? (
+          <Button variant="secondary" onClick={() => setConfirming(true)} dataEl="HELP-SHARE-STOP-BTN">Stop sharing now</Button>
+        ) : null}
       </div>
       {copied === 'copied' ? <p role="status">Copied.</p> : null}
       {copied === 'by-hand' ? <p role="status">Press Ctrl+C to copy</p> : null}

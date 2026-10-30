@@ -72,7 +72,12 @@ from diucs.application.ports.outbound.geo import (
     TravelRange,
     TravelTime,
 )
-from diucs.application.ports.outbound.identity import CodeStore, RateLimiter, SessionStore
+from diucs.application.ports.outbound.identity import (
+    CodeStore,
+    RateLimiter,
+    SessionStore,
+    TenantKeyedSecrets,
+)
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.telemetry_query import (
     SessionFilters,
@@ -110,6 +115,7 @@ from diucs.application.work import ScheduledWork, WorkKind
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
 from diucs.domain.model.telemetry_aggregates import DayAggregates
+from diucs.domain.rules.tenant_keys import check_key_version
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 # The sample telemetry the test container serves (O07). Sample values only.
@@ -180,6 +186,10 @@ class Container:
             await apply_migrations(driver)
             # One chain per scope (TEN-017): each active tenant gets its head, bound in turn. A
             # tenant with no head fails closed at its first append (AuditHeadMissing).
+            # A tenant record whose hash key version disagrees with its id would hash with a key its
+            # stored hashes were not made with (TEN-023): the process does not start.
+            for tenant in await self.tenants.list_active():
+                check_key_version(tenant.id, tenant.hash_key_version)
             for tenant_id in await self.tenants.active_tenant_ids():
                 with bind_tenant(tenant_id):
                     await ensure_audit_head(driver)
@@ -341,7 +351,9 @@ def build(
     key = settings.os_places_api_key
     http = None if key is None else httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS)
     ids = UuidGenerator()
-    store: SecretStore = NoSecrets() if secrets is None else secrets
+    # Every hash and token key is the bound tenant's own (TEN-023, DEC-350): the process's store is
+    # seen through TenantKeyedSecrets, and nothing outside it holds the platform key.
+    store: SecretStore = TenantKeyedSecrets(NoSecrets() if secrets is None else secrets)
     uow_factory = neo4j_uow_factory(neo4j, clock=clock)
     return Container(
         clock=clock,

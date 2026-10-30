@@ -3,6 +3,10 @@
 The hash is HMAC-SHA256 with the secret `phone-hash`, over the normalised UK mobile number (eleven
 digits starting 07), so "+44 7700 900123" and "07700 900123" are the same subscriber. A number is
 never echoed in an error. Decisions: DEC-057.
+
+The key is the secret store's `phone-hash`. In the running process the store is a
+`TenantKeyedSecrets` (TEN-023, DEC-350), so the key is the bound tenant's own: the same number is
+one hash in a tenant and another in the next, and `hash()` needs a tenant bound.
 """
 
 import hashlib
@@ -13,10 +17,12 @@ from datetime import datetime, timedelta
 from typing import Final, Protocol
 
 from diucs.application.ports.outbound.tokens import SecretStore
+from diucs.application.tenancy import current_tenant
 from diucs.domain.codes import Role
-from diucs.domain.errors import DomainError, ValidationFailed
+from diucs.domain.errors import DomainError, NotFound, ValidationFailed
 from diucs.domain.model.device import Device
 from diucs.domain.rules.identity_policy import CodeState, PinState
+from diucs.domain.rules.tenant_keys import PER_TENANT_KEY_NAMES, derive_tenant_key, uses_legacy_key
 
 PHONE_HASH_SECRET: Final = "phone-hash"
 DEVICE_TOKEN_SECRET: Final = "device-token"
@@ -26,20 +32,52 @@ _UK_MOBILE: Final = re.compile(r"07[0-9]{9}")
 
 
 class TenantKeyedSecrets:
-    """Stub for the red commit (TEN-023)."""
+    """The process's secret store seen by one tenant at a time (TEN-023, DEC-350).
+
+    A name that is a hash or token key (`PER_TENANT_KEY_NAMES`) is returned as the bound tenant's
+    own key, derived from the platform secret with the tenant as context, so every use case that
+    reads `phone-hash`, `link-token`, `link-csrf`, `code-hmac`, `pin-hmac`, `device-token` or
+    `support-code` gets a key that opens that tenant's hashes and no other's. The default tenant
+    keeps the platform secret itself (hash key version 0). Any other name is read as it is.
+
+    A keyed name read with no tenant bound (or a network scope bound) raises TenantNotBound: it
+    fails closed, and never falls back to the platform key. A name the platform does not hold is
+    NotFound whatever is bound. No derived key is kept, shown or logged."""
 
     def __init__(self, platform: SecretStore) -> None:
         self._platform = platform
 
     def get(self, name: str) -> bytes:
-        return self._platform.get(name)
+        platform_key = self._platform.get(name)
+        if name not in PER_TENANT_KEY_NAMES:
+            return platform_key
+        tenant = current_tenant()
+        if uses_legacy_key(tenant):
+            return platform_key
+        return derive_tenant_key(platform_key, tenant, name)
 
     def is_configured(self, name: str) -> bool:
-        raise NotImplementedError
+        """Whether the platform holds this secret. Reads no key and needs no tenant, so a route can
+        check its configuration before it knows whose request it is."""
+        try:
+            self._platform.get(name)
+        except NotFound:
+            return False
+        return True
+
+    def __repr__(self) -> str:
+        return "TenantKeyedSecrets()"
 
 
 def secret_is_configured(store: SecretStore, name: str) -> bool:
-    raise NotImplementedError
+    """Whether the store holds a secret, without needing a tenant for a keyed one."""
+    if isinstance(store, TenantKeyedSecrets):
+        return store.is_configured(name)
+    try:
+        store.get(name)
+    except NotFound:
+        return False
+    return True
 
 
 class PhoneHasher(Protocol):

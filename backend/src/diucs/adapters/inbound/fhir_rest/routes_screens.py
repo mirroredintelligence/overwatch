@@ -43,7 +43,7 @@ from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, operation_ou
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, secret_is_configured
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.tenants import TenantDirectory, TenantRecordInvalid
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
@@ -61,7 +61,7 @@ from diucs.application.use_cases.pair_wall_screen import (
     StartPairing,
 )
 from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound
+from diucs.domain.errors import NotAllowed
 from diucs.domain.model.device import BoardScope
 from diucs.domain.model.tenant import TenantStatus
 
@@ -135,11 +135,11 @@ def _container(request: Request) -> _Container:
 def _check_secrets(container: _Container) -> None:
     """Fail closed: a missing pairing secret is a configuration error (a 500), never an open route
     and never a refusal that looks like a wrong code."""
-    try:
-        container.secrets.get(LINK_TOKEN_SECRET)
-        container.secrets.get(DEVICE_TOKEN_SECRET)
-    except NotFound:
-        raise RuntimeError("the pairing secrets are not configured") from None
+    if not (
+        secret_is_configured(container.secrets, LINK_TOKEN_SECRET)
+        and secret_is_configured(container.secrets, DEVICE_TOKEN_SECRET)
+    ):
+        raise RuntimeError("the pairing secrets are not configured")
 
 
 async def _tenant_of(request: Request, container: _Container) -> str | None:

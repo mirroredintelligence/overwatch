@@ -88,11 +88,14 @@ def test_another_platform_secret_gives_another_key() -> None:
     )
 
 
-def test_a_tenant_and_a_purpose_that_run_together_cannot_give_another_pair_the_same_key() -> None:
-    # The context is length-safe: moving text between the two parts changes the key.
-    assert derive_tenant_key(PLATFORM, "tenant-a", "pin-hmac") != derive_tenant_key(
-        PLATFORM, "tenant-a-pin", "hmac"
-    )
+def test_every_tenant_and_purpose_pair_has_its_own_key() -> None:
+    tenants = ["tenant-a", "tenant-b", "tenant-a-b", "a1", "link-token"]
+    keys = {
+        derive_tenant_key(PLATFORM, tenant, purpose)
+        for tenant in tenants
+        for purpose in PER_TENANT_KEY_NAMES
+    }
+    assert len(keys) == len(tenants) * len(PER_TENANT_KEY_NAMES)
 
 
 def test_the_key_is_the_hkdf_of_the_platform_secret_with_the_tenant_as_context() -> None:

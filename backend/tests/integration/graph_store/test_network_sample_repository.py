@@ -262,6 +262,7 @@ async def test_the_samples_hold_nothing_of_a_member_or_a_service(
     async def relationships(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
             "MATCH (s:NetworkSample {tenantId: $tenant}) OPTIONAL MATCH (s)-[r]-() "
+            "WHERE s.tenantId = $tenant "
             "RETURN count(r) AS n, [k IN keys(s) WHERE k CONTAINS 'ource' OR k CONTAINS 'ervice' "
             "OR k CONTAINS 'rant'] AS keys",
             tenant=net_a,

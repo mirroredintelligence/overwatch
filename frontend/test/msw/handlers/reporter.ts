@@ -17,11 +17,12 @@ async function record(request: Request) {
   } catch {
     body = text;
   }
+  const key = request.headers.get('Idempotency-Key');
   seenBffRequests.push({
     path: new URL(request.url).pathname,
     method: request.method,
     body,
-    idempotencyKey: request.headers.get('Idempotency-Key'),
+    ...(key !== null ? { idempotencyKey: key } : {}),
   });
   return body;
 }
@@ -122,6 +123,10 @@ export const reporterHandlers: RequestHandler[] = [
         ? { status: 'declined', at: '14:19' }
         : { status: 'confirmed', confirmedAt: '14:19' },
     );
+  }),
+  http.post('/api/bff/reporter/cover', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ ok: true });
   }),
   http.get('/api/bff/reporter/start', () => HttpResponse.json({ csrfToken: 'T'.repeat(43) })),
 ];

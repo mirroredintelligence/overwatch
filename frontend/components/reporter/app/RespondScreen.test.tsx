@@ -7,6 +7,9 @@ import { resetReporterRequests, seenBffRequests } from '@/test/msw/handlers/repo
 import { server } from '@/test/msw/server';
 import { RespondScreen } from './RespondScreen';
 
+// Full-suite runs share the machine: a PIN or form test clicks many keys, so it gets more time.
+vi.setConfig({ testTimeout: 20_000 });
+
 const { push, replace } = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }));
 

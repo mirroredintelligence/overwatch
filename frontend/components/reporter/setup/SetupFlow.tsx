@@ -1,8 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, type FormEvent } from 'react';
-import { CodeInput } from '@/components/reporter/CodeInput';
+import { useEffect, useState } from 'react';
+import { type CheckResult, CodeEntry } from '@/components/reporter/CodeEntry';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/reporter/browser';
@@ -15,9 +15,6 @@ import styles from './Setup.module.css';
 
 export type SetupStep = 'welcome' | 'number' | 'code' | 'channel';
 export type Channel = 'app' | 'text' | 'email';
-
-const RESEND_SECONDS = 60;
-const CODE_LENGTH = 6;
 
 const CHANNELS: { value: Channel; label: string; hint: string }[] = [
   { value: 'app', label: 'App notification', hint: 'Recommended. A notification opens the app. Needs adding to your home screen.' },
@@ -128,71 +125,20 @@ function NumberStep({ masked, invite, onSent }: { masked: string; invite: string
 }
 
 function CodeStep({ invite, onVerified }: { invite: string; onVerified: () => void }) {
-  const [code, setCode] = useState('');
-  const [left, setLeft] = useState(RESEND_SECONDS);
-  const [triesLeft, setTriesLeft] = useState<number | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
+  const sendCode = async () => (await bffRequest('/api/bff/identity/code', { method: 'POST', body: { invite } })).status === 202;
 
-  // One interval for the whole step: a chained timeout would fall behind the clock when several
-  // ticks land in one render, and the count must reach zero exactly once per minute.
-  useEffect(() => {
-    const timer = setInterval(() => setLeft((s) => Math.max(0, s - 1)), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const exhausted = triesLeft === 0;
-
-  const check = async (event?: FormEvent) => {
-    event?.preventDefault();
-    setBusy(true);
-    setNotice(null);
+  const checkCode = async (code: string): Promise<CheckResult> => {
     const reply = await bffRequest('/api/bff/identity/code/verify', { method: 'POST', body: { invite, code } });
-    setBusy(false);
     const body = reply.body as { ok?: boolean; triesLeft?: number } | undefined;
-    if (reply.status === 200 && body?.ok === true) return onVerified();
-    if (typeof body?.triesLeft === 'number') {
-      setTriesLeft(body.triesLeft);
-      setNotice(
-        body.triesLeft === 0
-          ? 'Too many tries. Send a new code.'
-          : `That code is not right. You have ${body.triesLeft} ${body.triesLeft === 1 ? 'try' : 'tries'} left.`,
-      );
-      return undefined;
-    }
-    setNotice('We could not check that code. Try again shortly.');
-    return undefined;
-  };
-
-  const resend = async () => {
-    const reply = await bffRequest('/api/bff/identity/code', { method: 'POST', body: { invite } });
-    if (reply.status === 202) {
-      setLeft(RESEND_SECONDS);
-      setTriesLeft(null);
-      setCode('');
-      setNotice(null);
-    }
+    if (reply.status === 200 && body?.ok === true) return { ok: true };
+    return { ok: false, triesLeft: typeof body?.triesLeft === 'number' ? body.triesLeft : null };
   };
 
   return (
     <main className={styles.page}>
       <p className={styles.caption}>Step 1 of 5</p>
       <h1 className={styles.title}>Enter the code</h1>
-      <form onSubmit={check} className={styles.page}>
-        <CodeInput value={code} onChange={setCode} disabled={exhausted} dataEl="ONB-CODE-INPUT" />
-        <p>The code works for 10 minutes. After 5 wrong tries you must ask for a new code.</p>
-        {notice !== null ? <Banner tone="warning" title={notice} /> : null}
-        <Button variant="primary" type="submit" busy={busy} disabled={exhausted || code.length !== CODE_LENGTH} dataEl="ONB-CODE-CHECK-BTN">
-          Check code
-        </Button>
-      </form>
-      {left > 0 ? (
-        <p>{`Send a new code in 0:${String(left).padStart(2, '0')}`}</p>
-      ) : (
-        <Button variant="neutral" dataEl="ONB-CODE-RESEND-BTN" onClick={resend}>
-          Send a new code
-        </Button>
-      )}
+      <CodeEntry sendCode={sendCode} checkCode={checkCode} onVerified={onVerified} />
     </main>
   );
 }

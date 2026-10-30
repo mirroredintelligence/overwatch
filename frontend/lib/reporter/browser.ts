@@ -32,10 +32,14 @@ async function token(): Promise<string | null> {
 
 export async function bffRequest(
   path: string,
-  options: { method?: 'GET' | 'POST'; body?: unknown; headers?: Record<string, string> } = {},
+  options: { method?: 'GET' | 'POST' | 'DELETE'; body?: unknown; headers?: Record<string, string> } = {},
 ): Promise<Reply> {
   const method = options.method ?? 'GET';
   if (method === 'GET') return fetchJson(path, { method: 'GET' });
+  if (method === 'DELETE') {
+    const header = await token();
+    return fetchJson(path, { method: 'DELETE', headers: { 'X-CSRF-Token': header ?? '' } });
+  }
   const send = async () => {
     const header = await token();
     return fetchJson(path, {

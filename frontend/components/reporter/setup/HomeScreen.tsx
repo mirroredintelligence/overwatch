@@ -53,7 +53,7 @@ export function HomeScreen() {
     setNotInstalled(true);
   };
 
-  const useText = async () => {
+  const chooseText = async () => {
     const reply = await bffRequest('/api/bff/reporter/channel', { method: 'POST', body: { channel: 'text' } });
     if (reply.status === 200 || reply.status === 204) router.push('/setup/done?channel=text');
   };
@@ -104,7 +104,7 @@ export function HomeScreen() {
       <Button variant="primary" dataEl="ONB-HOME-ADDED-BTN" onClick={added}>
         I have added it
       </Button>
-      <Button variant="neutral" dataEl="ONB-HOME-USETEXT-BTN" onClick={useText}>
+      <Button variant="neutral" dataEl="ONB-HOME-USETEXT-BTN" onClick={chooseText}>
         I cannot do this. Use text instead
       </Button>
     </main>

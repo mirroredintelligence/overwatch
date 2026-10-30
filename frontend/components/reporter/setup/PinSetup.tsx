@@ -12,7 +12,7 @@ import styles from './Setup.module.css';
 
 const MISMATCH = 'The PINs do not match. Try again.';
 
-export function PinSetup() {
+export function PinSetup({ doneHref = '/setup/all-set' }: { doneHref?: string }) {
   const router = useRouter();
   const [stage, setStage] = useState<'create' | 'confirm'>('create');
   const [first, setFirst] = useState('');
@@ -38,7 +38,7 @@ export function PinSetup() {
     }
     const signIn = await bffRequest('/api/bff/identity/pin/verify', { method: 'POST', body: { pin } });
     if (signIn.status === 200) {
-      router.push('/setup/all-set');
+      router.push(doneHref);
       return;
     }
     sending.current = false;

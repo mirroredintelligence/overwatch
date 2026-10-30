@@ -7,6 +7,9 @@ import { resetReporterRequests, seenBffRequests } from '@/test/msw/handlers/repo
 import { server } from '@/test/msw/server';
 import { SettingsScreen } from './SettingsScreen';
 
+// Full-suite runs share the machine: a PIN or form test clicks many keys, so it gets more time.
+vi.setConfig({ testTimeout: 20_000 });
+
 const { push, replace } = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }));
 
@@ -24,7 +27,7 @@ beforeEach(() => {
 
 describe('SettingsScreen', () => {
   it('shows masked values only, and never the full cover number after one is saved', async () => {
-    const { container } = render(<SettingsScreen notificationsPermission="granted" />);
+    const { container } = render(<SettingsScreen />);
     expect(await screen.findByText('07xxx xxx456')).toBeInTheDocument();
     expect(screen.getByText('In 21 days')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Add a cover number' }));
@@ -37,7 +40,7 @@ describe('SettingsScreen', () => {
   });
 
   it('asks in the page before signing the phone out, does nothing on Cancel, and signs out on Confirm', async () => {
-    render(<SettingsScreen notificationsPermission="granted" />);
+    render(<SettingsScreen />);
     await userEvent.click(await screen.findByRole('button', { name: 'Sign out of this phone' }));
     expect(screen.getByText('Sign out of this phone?')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));

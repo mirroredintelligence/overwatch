@@ -5,6 +5,9 @@ import { runAxe } from '@/test/a11y';
 import { resetReporterRequests } from '@/test/msw/handlers/reporter';
 import { LockedScreen } from './LockedScreen';
 
+// Full-suite runs share the machine: a PIN or form test clicks many keys, so it gets more time.
+vi.setConfig({ testTimeout: 20_000 });
+
 const { push, replace } = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }));
 

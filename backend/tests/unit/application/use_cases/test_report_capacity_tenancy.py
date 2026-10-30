@@ -388,9 +388,11 @@ def test_any_other_performer_is_one_fixed_not_found(
 
 def test_the_flag_lookback_is_the_longer_of_the_tenants_two_windows() -> None:
     assert report_lookback() == LOOKBACK == max(MANY_CHANGES_WINDOW, PHONED_WINDOW)
-    wide = replace(DEFAULT_POLICY, many_changes_window=timedelta(hours=6))
-    assert report_lookback(wide) == timedelta(hours=6)
-    phoned = replace(
-        DEFAULT_POLICY, many_changes_window=timedelta(hours=1), phoned_window=timedelta(hours=5)
+    wide = replace(DEFAULT_POLICY, phoned_window=timedelta(hours=4))
+    assert report_lookback(wide) == timedelta(hours=4)
+    many = replace(
+        DEFAULT_POLICY,
+        many_changes_window=timedelta(minutes=30),
+        phoned_window=timedelta(minutes=15),
     )
-    assert report_lookback(phoned) == timedelta(hours=5)
+    assert report_lookback(many) == timedelta(minutes=30)

@@ -825,6 +825,7 @@ def test_no_tenant_source_file_names_the_original_deployment() -> None:
         "tenant_records.py",
         "tenant_lifecycle.py",
         "tenant_settings.py",
+        "tenant_keys.py",
     }
     pattern = re.compile("dorset|spoa|systmone", re.IGNORECASE)
     for file in files:

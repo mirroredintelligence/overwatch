@@ -822,6 +822,7 @@ def test_no_tenant_source_file_names_the_original_deployment() -> None:
     assert {f.name for f in files} == {
         "tenant.py",
         "tenant_policy.py",
+        "tenant_records.py",
         "tenant_lifecycle.py",
         "tenant_settings.py",
     }

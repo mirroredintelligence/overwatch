@@ -18,6 +18,7 @@ import pytest
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
+from diucs.application.tenancy import ScopeId, TenantNotBound
 from diucs.application.use_cases import tenant_config as use_cases
 from diucs.application.use_cases.tenant_config import (
     CONFIGURATION_ROLES,
@@ -30,6 +31,7 @@ from diucs.application.use_cases.tenant_config import (
     DraftTenantConfig,
     MapEntraGroup,
     MapGroupCommand,
+    ReadTenantConfig,
     RecordChannelCommand,
     RecordContactCommand,
     RecordTenantChannel,
@@ -43,6 +45,7 @@ from diucs.application.use_cases.tenant_config import (
     plan_channel,
     plan_draft,
     plan_mapping,
+    plan_moves,
     plan_retention,
     supersede,
 )
@@ -657,7 +660,7 @@ def test_a_revoked_binding_is_not_revoked_twice() -> None:
     )
 
 
-@pytest.mark.parametrize("bad", ["", "not-a-guid", GUID.upper(), None, 5])
+@pytest.mark.parametrize("bad", ["", "not-a-guid", OTHER_GUID.upper(), None, 5])
 def test_a_directory_id_that_is_not_a_guid_is_refused(bad: Any) -> None:
     with pytest.raises(ValidationFailed):
         plan_binding((), bad)
@@ -813,3 +816,115 @@ def test_the_module_names_the_use_cases_the_plan_lists() -> None:
         "ReadTenantConfig",
     ):
         assert hasattr(use_cases, name)
+
+
+# ---------------------------------------------------------------- the moves of an approval
+
+
+def test_a_change_completed_by_its_first_approver_passes_through_pending() -> None:
+    draft = draft_of({**WINDOW, "alertDefaultNotUpdatedHours": 4})
+    approved = apply_approval(draft, current_config(), "prac-owner-1", LATER)
+
+    moves = plan_moves(draft, approved)
+
+    assert [(m.status, expected) for m, expected in moves] == [
+        (ConfigStatus.PENDING_APPROVAL, ConfigStatus.DRAFT),
+        (ConfigStatus.CURRENT, ConfigStatus.PENDING_APPROVAL),
+    ]
+    assert moves[0][0].effective_from is None
+    assert moves[1][0] == approved
+
+
+def test_the_second_approver_of_a_clinical_change_is_one_move_from_pending() -> None:
+    draft = draft_of({**WINDOW, "staleWarningHours": 3})
+    pending = apply_approval(draft, current_config(), "prac-owner-1", NOW)
+    approved = apply_approval(pending, current_config(), "prac-owner-2", LATER)
+
+    assert plan_moves(pending, approved) == [(approved, ConfigStatus.PENDING_APPROVAL)]
+
+
+def test_the_first_approver_of_a_clinical_change_is_one_move_from_draft() -> None:
+    draft = draft_of({**WINDOW, "staleWarningHours": 3})
+    pending = apply_approval(draft, current_config(), "prac-owner-1", NOW)
+
+    assert plan_moves(draft, pending) == [(pending, ConfigStatus.DRAFT)]
+
+
+# ---------------------------------------------------------------- the scope of a unit of work
+
+
+class _UowOnScope:
+    """A unit of work that has a scope and nothing else: reading a repository fails the test, so
+    a refusal that comes first is proved by the test passing."""
+
+    def __init__(self, scope: ScopeId | None) -> None:
+        self._scope = scope
+
+    @property
+    def unit_scope(self) -> ScopeId | None:
+        return self._scope
+
+    @property
+    def tenant_config(self) -> Any:
+        raise AssertionError("the configuration was read before the scope was checked")
+
+    async def __aenter__(self) -> _UowOnScope:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+
+def _on_scope(scope: ScopeId | None) -> Any:
+    return lambda: _UowOnScope(scope)
+
+
+def _scoped_use_cases(scope: ScopeId | None) -> list[tuple[Any, Any]]:
+    uow = _on_scope(scope)
+    clock = FixedClock(NOW)
+    ids = SequentialIds()
+    named = actor()
+    return [
+        (DraftTenantConfig(uow, clock, ADMIN_ROLES), DraftConfigCommand(named, 0, dict(WINDOW))),
+        (ApproveTenantConfig(uow, clock, ADMIN_ROLES), ApproveConfigCommand(named, 2)),
+        (
+            RecordTenantContact(uow, clock, ADMIN_ROLES),
+            RecordContactCommand(named, ContactKind.COORDINATION_PHONE, "Desk", "0300 123 4567"),
+        ),
+        (
+            RecordTenantChannel(uow, clock, ids, ADMIN_ROLES),
+            RecordChannelCommand(named, ChannelKind.EMAIL, "Desk", from_address="a@b.example"),
+        ),
+        (
+            SetTenantRetention(uow, clock, ADMIN_ROLES),
+            SetRetentionCommand(named, use_defaults=True),
+        ),
+        (BindEntraDirectory(uow, clock, ADMIN_ROLES), BindDirectoryCommand(named, GUID)),
+        (MapEntraGroup(uow, clock, ADMIN_ROLES), MapGroupCommand(named, GUID, Role.LEAD)),
+    ]
+
+
+@pytest.mark.parametrize("index", range(7))
+@pytest.mark.parametrize(
+    "scope", [None, ScopeId.network("net-test")], ids=["no-scope", "network-scope"]
+)
+async def test_every_change_is_refused_in_no_scope_and_in_a_network_scope(
+    index: int, scope: ScopeId | None
+) -> None:
+    use_case, cmd = _scoped_use_cases(scope)[index]
+
+    with pytest.raises(TenantNotBound):
+        await use_case.execute(cmd)
+
+
+@pytest.mark.parametrize("read", ["policy", "wording", "contacts", "facts"])
+@pytest.mark.parametrize(
+    "scope", [None, ScopeId.network("net-test")], ids=["no-scope", "network-scope"]
+)
+async def test_every_read_is_refused_in_no_scope_and_in_a_network_scope(
+    read: str, scope: ScopeId | None
+) -> None:
+    reader = ReadTenantConfig(_on_scope(scope))
+
+    with pytest.raises(TenantNotBound):
+        await getattr(reader, read)()

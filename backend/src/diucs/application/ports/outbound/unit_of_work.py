@@ -46,6 +46,7 @@ from diucs.application.ports.outbound.repositories import (
     ServiceRepository,
 )
 from diucs.application.ports.outbound.support import SupportRepository
+from diucs.application.ports.outbound.tenant_config import TenantConfigRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.tenancy import ScopeId
 
@@ -77,6 +78,7 @@ class UnitOfWork(Protocol):
     idempotency: IdempotencyStore
     processed: ProcessedMessages
     support: SupportRepository
+    tenant_config: TenantConfigRepository
 
     @property
     def unit_scope(self) -> ScopeId | None:

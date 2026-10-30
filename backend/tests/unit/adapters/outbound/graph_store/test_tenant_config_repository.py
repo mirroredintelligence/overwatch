@@ -103,7 +103,18 @@ def test_each_statement_is_a_tenant_statement_with_a_scenario(query_id: str) -> 
 @pytest.mark.parametrize("query_id", sorted(EXPECTED_IDS))
 def test_every_node_of_every_statement_carries_the_tenant(query_id: str) -> None:
     cypher = REGISTRY.get(query_id).cypher
-    nodes = list(_NODE_PATTERN.finditer(cypher))
+    # `properties(v)` and `count(c)` read as a node pattern; a name right before the bracket is a
+    # function call, not a node. A bare `(v)` is a reference to a node matched earlier in the
+    # statement, whose own pattern is checked.
+    nodes = [
+        node
+        for node in _NODE_PATTERN.finditer(cypher)
+        if (
+            node.start() == 0
+            or not (cypher[node.start() - 1].isalnum() or cypher[node.start() - 1] == "_")
+        )
+        and re.fullmatch(r"\(\s*\w+\s*\)", node.group(0)) is None
+    ]
 
     assert nodes, query_id
     for node in nodes:
@@ -171,7 +182,7 @@ def test_a_status_move_locks_the_version_before_it_reads_the_status() -> None:
 def test_an_old_version_is_never_edited_by_any_statement() -> None:
     """Only the move statement sets anything on a version, and it sets its status and approvals."""
     for query_id, cypher in ((i, REGISTRY.get(i).cypher) for i in CONFIG_QUERY_IDS):
-        if "TenantConfigVersion" not in cypher or "SET" not in cypher:
+        if "TenantConfigVersion" not in cypher or re.search(r"\bSET\b", cypher) is None:
             continue
         assert query_id == "Q-TCFG-MOVE"
         assigned = set(re.findall(r"SET (?:v\.\w+ = [^,]+(?:, )?)+", cypher))

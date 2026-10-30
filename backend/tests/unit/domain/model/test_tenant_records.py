@@ -308,7 +308,7 @@ def test_a_binding_whose_status_and_verifier_disagree_is_refused(args: tuple[Any
     [
         "",
         "not-a-guid",
-        GUID.upper(),
+        OTHER_GUID.upper(),
         GUID + "0",
         GUID[:-1],
         "11111111-2222-3333-4444-55555555555g",

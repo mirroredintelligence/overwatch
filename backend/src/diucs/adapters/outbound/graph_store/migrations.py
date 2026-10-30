@@ -4,8 +4,9 @@ Every statement uses IF NOT EXISTS, and each applied migration is recorded as (:
 appliedAt}) so it is skipped next time. Never edit an applied migration (a unit test pins a digest
 of the core list). The list is assembled from per-area modules, so a later task adds its own ids to
 its own module and never edits the core list: `migrations_tenant.py` (the tenant schema, TEN-005,
-TEN-007, TEN-031, TEN-032) and `migrations_network.py` (the network registry and projections,
-TEN-051, TEN-053). Ids stay unique and ascending across all areas.
+TEN-007, TEN-031, TEN-032), `migrations_tenant_config.py` (the tenant configuration records,
+TEN-026) and `migrations_network.py` (the network registry and projections, TEN-051,
+TEN-053). Ids stay unique and ascending across all areas.
 
 Migrations run on the global path: raw transactions, outside `run_query`, the registry and any
 bound tenant.
@@ -33,6 +34,7 @@ from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRA
 from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_tenant import TENANT_MIGRATIONS
+from diucs.adapters.outbound.graph_store.migrations_tenant_config import TENANT_CONFIG_MIGRATIONS
 
 _CORE_MIGRATIONS: list[tuple[str, str]] = [
     (
@@ -171,7 +173,12 @@ def assemble_migrations(*areas: Sequence[Migration]) -> list[Migration]:
 
 
 MIGRATIONS: Final[list[Migration]] = assemble_migrations(
-    CORE_MIGRATIONS, TENANT_MIGRATIONS, NETWORK_MIGRATIONS, PROTECTED_MIGRATIONS, SUPPORT_MIGRATIONS
+    CORE_MIGRATIONS,
+    TENANT_MIGRATIONS,
+    TENANT_CONFIG_MIGRATIONS,
+    NETWORK_MIGRATIONS,
+    PROTECTED_MIGRATIONS,
+    SUPPORT_MIGRATIONS,
 )
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

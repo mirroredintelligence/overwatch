@@ -16,7 +16,8 @@ from diucs.application.ports.outbound.messaging import (
     SmsSender,
 )
 from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable
-from diucs.application.tenancy import current_tenant
+from diucs.application.tenancy import current_scope_or_none, current_tenant
+from diucs.domain.model.tenant_records import TenantChannel
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +25,8 @@ class RecordedSms:
     to: str
     text: str
     message_id: str
+    tenant: str | None = None
+    identity: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +35,8 @@ class RecordedEmail:
     subject: str
     text: str
     html: str | None
+    tenant: str | None = None
+    identity: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +46,11 @@ class RecordedPush:
     body: str
     url: str
     urgency: str = "normal"
+
+
+def _bound_tenant() -> str | None:
+    scope = current_scope_or_none()
+    return None if scope is None else scope.value
 
 
 class _Attempts:
@@ -62,14 +72,19 @@ class _Attempts:
 
 
 class RecordingSmsSender:
-    def __init__(self) -> None:
+    """`identity` names what the sender stands for (a number, say) and is recorded with each send,
+    with the tenant bound at the time (None when nothing is bound), so a test can say which
+    tenant's sender a text left from."""
+
+    def __init__(self, identity: str | None = None) -> None:
         self.sent: list[RecordedSms] = []
         self._attempts = _Attempts("sms")
+        self._identity = identity
 
     async def send(self, to: str, text: str, message_id: str) -> SendReceipt:
         receipt = self._attempts.next_receipt()
         if receipt.accepted:
-            self.sent.append(RecordedSms(to, text, message_id))
+            self.sent.append(RecordedSms(to, text, message_id, _bound_tenant(), self._identity))
         return receipt
 
     def fail_next(self) -> None:
@@ -77,14 +92,19 @@ class RecordingSmsSender:
 
 
 class RecordingEmailSender:
-    def __init__(self) -> None:
+    """As `RecordingSmsSender`: the identity (an address, say) and the tenant bound are recorded."""
+
+    def __init__(self, identity: str | None = None) -> None:
         self.sent: list[RecordedEmail] = []
         self._attempts = _Attempts("email")
+        self._identity = identity
 
     async def send(self, to: str, subject: str, text: str, html: str | None) -> SendReceipt:
         receipt = self._attempts.next_receipt()
         if receipt.accepted:
-            self.sent.append(RecordedEmail(to, subject, text, html))
+            self.sent.append(
+                RecordedEmail(to, subject, text, html, _bound_tenant(), self._identity)
+            )
         return receipt
 
     def fail_next(self) -> None:
@@ -143,7 +163,7 @@ class FixedSenderResolver:
             raise ChannelUnavailable(f"no text channel for tenant {tenant}")
         return sender
 
-    async def email_for(self) -> EmailSender:
+    async def email_for(self, channel: TenantChannel | None = None) -> EmailSender:
         tenant = current_tenant()
         sender = self._email.get(tenant)
         if sender is None:

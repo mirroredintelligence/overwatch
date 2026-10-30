@@ -180,3 +180,27 @@ def test_without_a_sender_resolver_only_the_three_inbound_runners_are_built() ->
     )
 
     assert len(runners) == 3
+
+
+def test_with_a_board_projector_the_two_board_runners_are_added_and_each_binds_the_tenant() -> None:
+    class _Projector:
+        async def handle(self, event_type: str, payload: object) -> bool:
+            raise AssertionError("not used")
+
+    runners = build_runners(
+        client=None,  # type: ignore[arg-type]
+        handle_inbound_text=_UseCase(),
+        uow_factory=_no_unit,  # type: ignore[arg-type]
+        tenants=StaticTenants(["tenant-a"]),
+        work_handlers={WorkKind.REMINDER: _no_work},
+        board_projector=_Projector(),  # type: ignore[arg-type]
+    )
+
+    assert [(r._entity, r._subscription) for r in runners] == [
+        ("inbound.replies", None),
+        ("inbound.receipts", None),
+        ("scheduled.work", None),
+        ("capacity.events", "board-projector"),
+        ("booking.events", "board-projector"),
+    ]
+    assert all(isinstance(r._consumer, TenantBoundConsumer) for r in runners)

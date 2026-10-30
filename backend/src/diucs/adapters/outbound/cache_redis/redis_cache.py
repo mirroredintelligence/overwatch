@@ -19,6 +19,7 @@ from redis.asyncio import Redis
 from diucs.application.ports.outbound.cache import (
     CacheScopeMismatch,
     Lock,
+    platform_names,
     scoped_names,
 )
 
@@ -139,6 +140,18 @@ class RedisCache:
     async def delete(self, key: str) -> None:
         names = scoped_names()
         await self._client.delete(ROOT + names.key(key))
+
+    async def platform_take(self, name: str, ttl: timedelta) -> bool:
+        if ttl <= timedelta(0):
+            raise ValueError("ttl must be positive")
+        # The platform namespace: no scope is read. One SET NX PX, as set_if_absent.
+        stored = await self._client.set(
+            ROOT + platform_names().key(name), "1", nx=True, px=_millis(ttl)
+        )
+        return bool(stored)
+
+    async def platform_release(self, name: str) -> None:
+        await self._client.delete(ROOT + platform_names().key(name))
 
     async def publish(self, channel: str, message: str) -> None:
         names = scoped_names()

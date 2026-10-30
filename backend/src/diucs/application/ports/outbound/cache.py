@@ -12,7 +12,7 @@ bound to (DEC-130 item 7, DEC-132 items 1 and 4, TEN-019). Callers pass logical 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Final, Protocol
+from typing import Final, Protocol, runtime_checkable
 
 from diucs.application.tenancy import ScopeId, ScopeKind, current_scope
 from diucs.domain.errors import DomainError, ValidationFailed
@@ -85,6 +85,19 @@ class ScopedNames:
         return f"{self.segment}:{FAMILY_CHANNEL}:{_checked(name)}"
 
 
+# The platform namespace (TEN-040): names that belong to no tenant, because they are counted before
+# any tenant is known (the source-address limiter of the unauthenticated routes). One segment, and
+# a tenant id cannot be it (a tenant id has two or more characters), so no tenant's name can fall
+# in it and no platform name in a tenant's.
+PLATFORM_SEGMENT: Final = "_"
+
+
+def platform_names() -> ScopedNames:
+    """The names of the platform namespace. Pure: it reads no binding, so a platform name can be
+    built before any tenant is known and is the same whichever tenant is bound."""
+    return ScopedNames(PLATFORM_SEGMENT)
+
+
 def names_for(scope: ScopeId) -> ScopedNames:
     """The names of one scope. Pure: it takes the scope, it does not read the binding."""
     return ScopedNames(scope_segment(scope))
@@ -140,4 +153,19 @@ class Cache(Protocol):
     async def release_lock(self, lock: Lock) -> None:
         """Release the lock only when its token is the current holder's. Otherwise do nothing. A
         lock issued in another scope is refused with CacheScopeMismatch and nothing is released."""
+        ...
+
+
+@runtime_checkable
+class PlatformSlots(Protocol):
+    """The cache's platform namespace (TEN-040): expiring markers that belong to no tenant. The
+    only calls that do not read the bound scope, and the only ones that use the platform segment: a
+    name here is a name of this namespace and nothing else, and no tenant's name reaches it."""
+
+    async def platform_take(self, name: str, ttl: timedelta) -> bool:
+        """Store the marker when it is absent or expired, in one step; True when stored."""
+        ...
+
+    async def platform_release(self, name: str) -> None:
+        """Remove a marker. Removing a missing one is not an error."""
         ...

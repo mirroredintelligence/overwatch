@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
 
-from diucs.application.actor import Actor
+from diucs.application.actor import Actor, require_actor_in_bound_tenant
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.domain.codes import Role, ServiceCategory, Status
@@ -69,6 +69,9 @@ class QueryBoard:
     async def execute(self, query: QueryBoardQuery) -> Board:
         if query.actor.role is Role.ANONYMOUS_LINK:
             raise NotAllowed("the anonymous link cannot read the board")
+        # The board is the bound tenant's (TEN-039): an actor of another tenant, a network scope
+        # and no scope are refused before a unit of work opens.
+        require_actor_in_bound_tenant(query.actor)
         now = self._clock.now()
 
         async with self._uow_factory() as uow:

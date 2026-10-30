@@ -1161,7 +1161,7 @@ _plain_name = (
     supersedes=_planted,
     derived=_planted,
     name=_plain_name,
-    unit=_plain_name,
+    unit=_plain_name.filter(lambda text: len(text) <= 40),
     value=st.integers(0, 40),
     confirmed=st.integers(0, 5),
     capacity=st.integers(1, 40),

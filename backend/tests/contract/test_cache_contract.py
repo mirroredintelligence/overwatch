@@ -523,3 +523,58 @@ async def test_a_network_scope_and_a_tenant_hold_their_own_values_and_messages(
         assert await cache.get("board:v1") == "network-board"
     with bind_tenant(tenant):
         assert await cache.get("board:v1") == "tenant-board"
+
+
+# The platform namespace (TEN-040): markers that belong to no tenant, for the limiter of the routes
+# with no token. Each test uses names of its own, which expire on their own (the harness removes
+# only the keys of its run tenants).
+
+
+def _platform_name(label: str) -> str:
+    return f"rl:contract:{label}-{uuid4().hex[:12]}"
+
+
+async def test_a_platform_marker_is_taken_once(cache_harness: Harness[Cache]) -> None:
+    name = _platform_name("once")
+    assert await cache_harness.subject.platform_take(name, LONG_TTL) is True  # type: ignore[attr-defined]
+    assert await cache_harness.subject.platform_take(name, LONG_TTL) is False  # type: ignore[attr-defined]
+    await cache_harness.subject.platform_release(name)  # type: ignore[attr-defined]
+
+
+async def test_a_released_platform_marker_is_free_and_a_missing_one_is_no_error(
+    cache_harness: Harness[Cache],
+) -> None:
+    name = _platform_name("release")
+    await cache_harness.subject.platform_take(name, LONG_TTL)  # type: ignore[attr-defined]
+    await cache_harness.subject.platform_release(name)  # type: ignore[attr-defined]
+    await cache_harness.subject.platform_release(_platform_name("never"))  # type: ignore[attr-defined]
+    assert await cache_harness.subject.platform_take(name, LONG_TTL) is True  # type: ignore[attr-defined]
+    await cache_harness.subject.platform_release(name)  # type: ignore[attr-defined]
+
+
+async def test_a_platform_marker_expires(cache_harness: Harness[Cache]) -> None:
+    name = _platform_name("expiry")
+    assert await cache_harness.subject.platform_take(name, ONE_SECOND) is True  # type: ignore[attr-defined]
+    await cache_harness.advance(ONE_SECOND + ONE_SECOND)
+    assert await cache_harness.subject.platform_take(name, ONE_SECOND) is True  # type: ignore[attr-defined]
+    await cache_harness.subject.platform_release(name)  # type: ignore[attr-defined]
+
+
+async def test_a_platform_marker_is_one_whichever_tenant_is_bound(
+    cache_harness: Harness[Cache],
+) -> None:
+    name = _platform_name("shared")
+    assert await cache_harness.subject.platform_take(name, LONG_TTL) is True  # type: ignore[attr-defined]
+    with bind_tenant(_fresh_tenant("b")):
+        assert await cache_harness.subject.platform_take(name, LONG_TTL) is False  # type: ignore[attr-defined]
+    await cache_harness.subject.platform_release(name)  # type: ignore[attr-defined]
+
+
+async def test_a_platform_marker_and_a_tenant_value_of_one_name_do_not_meet(
+    cache_harness: Harness[Cache],
+) -> None:
+    name = _platform_name("apart")
+    await cache_harness.subject.set(name, "tenant-value")
+    assert await cache_harness.subject.platform_take(name, LONG_TTL) is True  # type: ignore[attr-defined]
+    assert await cache_harness.subject.get(name) == "tenant-value"
+    await cache_harness.subject.platform_release(name)  # type: ignore[attr-defined]

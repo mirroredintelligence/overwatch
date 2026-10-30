@@ -6,15 +6,29 @@ reads the clock: `at` is always passed in.
 
 Topic names come from docs/spec/architecture.md. Session id is the service id for
 `capacity.events` (per-service ordering), and None for every other topic.
+
+Network events (TEN-038, DEC-132): network, membership, agreement, grant and projection events and
+the directory change, on `network.events` (the directory change on `registration.events`). Their
+scope is the message's tenant, never a payload field, and none carries a name, text or figure.
+
+Exception to the ids, counts and codes rule. `ProjectionRequested` is the only message in this
+module whose payload carries more than identifiers, counts and codes: its `body` holds the
+allowlisted projection fields (service name, category, location district, opening hours,
+service-level contact, capacity figures, criteria). The allowlist is
+`diucs.domain.rules.projection.ALLOWLIST`; this module checks the shape of the body (a floor,
+whatever the allowlist says), `diucs.application.projection` checks its keys against the allowlist
+before the message is published and again before it is applied. It is not a domain event: it is
+outside `DomainEvent` and `from_payload`.
 """
 
+import math
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar, Final, Self
 
 from diucs.domain.codes import (
     AlertKind,
@@ -26,6 +40,21 @@ from diucs.domain.codes import (
     parse_code,
 )
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.messages.privacy_guard import (
+    FORBIDDEN_KEY_FORMS,
+    find_patient_data,
+    normalise_key,
+)
+from diucs.domain.model.network import (
+    AGREEMENT_REFERENCE_PATTERN,
+    DirectorySource,
+    GrantApprover,
+    GrantEndReason,
+    GrantScope,
+    MembershipEndReason,
+    check_network_id,
+    check_tenant_field,
+)
 
 CAPACITY_EVENTS = "capacity.events"
 BOOKING_EVENTS = "booking.events"
@@ -610,6 +639,550 @@ class ReportEscalated:
         )
 
 
+# ---------------------------------------------------------------- network events (TEN-038)
+#
+# The scope an event belongs to is the message's tenant (`BusMessage.tenant_id`), a tenant id or a
+# `net-` network scope id, and never a payload field. The payload names the entities the event is
+# about, so a handler in another scope need not read across scopes; a consumer compares the payload
+# with the property and treats a mismatch as a permanent error (TEN-025).
+
+NETWORK_EVENTS = "network.events"
+PROJECTION_WORK = "projection.work"
+PAYLOAD_EXCEPTIONS: Final[frozenset[str]] = frozenset({"ProjectionRequested"})
+
+type ProjectionValue = str | int | float | bool | None | tuple[str | int | float | bool, ...]
+
+_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,63}")
+ID_MESSAGE: Final = "is not a valid id"
+VERSION_MESSAGE: Final = "must be a whole number of at least 1"
+ENUM_MESSAGE: Final = "is not a valid value for this field"
+REFERENCE_MESSAGE: Final = "is not a valid agreement reference"
+BODY_MESSAGE: Final = "is not a valid projection body"
+
+
+class ProjectionRejectReason(StrEnum):
+    """Why the apply step refused a projection message (the older of two versions is ignored and
+    produces no event)."""
+
+    GRANT_NOT_EFFECTIVE = "grant-not-effective"
+    MEMBER_NOT_ACTIVE = "member-not-active"
+    LISTING_NOT_ADMITTED = "listing-not-admitted"
+    ALLOWLIST_MISMATCH = "allowlist-mismatch"
+    INVALID_BODY = "invalid-body"
+
+
+def _check_id(value: object, field: str) -> None:
+    if type(value) is not str or _ID.fullmatch(value) is None:
+        raise ValidationFailed(field, ID_MESSAGE)
+
+
+def _check_version(value: object, field: str) -> None:
+    if type(value) is not int or value < 1:
+        raise ValidationFailed(field, VERSION_MESSAGE)
+
+
+def _check_enum(value: object, enum_cls: type[StrEnum], field: str) -> None:
+    # `type(...) is` refuses a plain string and a member of another enum with the same value (L3).
+    if type(value) is not enum_cls:
+        raise ValidationFailed(field, ENUM_MESSAGE)
+
+
+def _check_reference(value: object) -> None:
+    if (
+        type(value) is not str
+        or AGREEMENT_REFERENCE_PATTERN.fullmatch(value) is None
+        or find_patient_data(value)
+    ):
+        raise ValidationFailed("reference", REFERENCE_MESSAGE)
+
+
+def _check_grant_identity(event: Any) -> None:
+    _check_id(event.grant_id, "grant_id")
+    check_network_id(event.network_id, "network_id")
+    check_tenant_field(event.grantor_tenant_id, "grantor_tenant_id")
+    _check_enum(event.scope, GrantScope, "scope")
+    _check_version(event.version, "version")
+
+
+def _grant_identity(event: Any) -> dict[str, Any]:
+    return {
+        "grant_id": event.grant_id,
+        "network_id": event.network_id,
+        "grantor_tenant_id": event.grantor_tenant_id,
+        "scope": event.scope.value,
+        "version": event.version,
+    }
+
+
+def _decode_grant_identity(payload: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "grant_id": _text(payload, "grant_id"),
+        "network_id": _text(payload, "network_id"),
+        "grantor_tenant_id": _text(payload, "grantor_tenant_id"),
+        "scope": _code(payload, "scope", GrantScope),
+        "version": _count(payload, "version"),
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkCreated:
+    event_type: ClassVar[str] = "NetworkCreated"
+    network_id: str
+    owner_tenant_id: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        check_network_id(self.network_id, "network_id")
+        check_tenant_field(self.owner_tenant_id, "owner_tenant_id")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "network_id": self.network_id,
+            "owner_tenant_id": self.owner_tenant_id,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            network_id=_text(payload, "network_id"),
+            owner_tenant_id=_text(payload, "owner_tenant_id"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MemberAdded:
+    event_type: ClassVar[str] = "MemberAdded"
+    network_id: str
+    member_tenant_id: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        check_network_id(self.network_id, "network_id")
+        check_tenant_field(self.member_tenant_id, "member_tenant_id")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "network_id": self.network_id,
+            "member_tenant_id": self.member_tenant_id,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            network_id=_text(payload, "network_id"),
+            member_tenant_id=_text(payload, "member_tenant_id"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class MemberRemoved:
+    event_type: ClassVar[str] = "MemberRemoved"
+    network_id: str
+    member_tenant_id: str
+    reason: MembershipEndReason
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        check_network_id(self.network_id, "network_id")
+        check_tenant_field(self.member_tenant_id, "member_tenant_id")
+        _check_enum(self.reason, MembershipEndReason, "reason")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "network_id": self.network_id,
+            "member_tenant_id": self.member_tenant_id,
+            "reason": self.reason.value,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            network_id=_text(payload, "network_id"),
+            member_tenant_id=_text(payload, "member_tenant_id"),
+            reason=_code(payload, "reason", MembershipEndReason),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AgreementRecorded:
+    event_type: ClassVar[str] = "AgreementRecorded"
+    network_id: str
+    reference: str
+    version: int
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        check_network_id(self.network_id, "network_id")
+        _check_reference(self.reference)
+        _check_version(self.version, "version")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "network_id": self.network_id,
+            "reference": self.reference,
+            "version": self.version,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            network_id=_text(payload, "network_id"),
+            reference=_text(payload, "reference"),
+            version=_count(payload, "version"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class GrantProposed:
+    event_type: ClassVar[str] = "GrantProposed"
+    grant_id: str
+    network_id: str
+    grantor_tenant_id: str
+    scope: GrantScope
+    version: int
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        _check_grant_identity(self)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {**_grant_identity(self), "at": _at_text(self.at)}
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(**_decode_grant_identity(payload), at=_when(payload))
+
+
+@dataclass(frozen=True, slots=True)
+class GrantApproved:
+    event_type: ClassVar[str] = "GrantApproved"
+    grant_id: str
+    network_id: str
+    grantor_tenant_id: str
+    scope: GrantScope
+    version: int
+    by: GrantApprover
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        _check_grant_identity(self)
+        _check_enum(self.by, GrantApprover, "by")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {**_grant_identity(self), "by": self.by.value, "at": _at_text(self.at)}
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            **_decode_grant_identity(payload),
+            by=_code(payload, "by", GrantApprover),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class GrantEffective:
+    """Both approvals now exist. `effective_from` is when the grant takes effect; the gate for
+    projecting is still `is_effective(grant, now)` (TEN-036), so a future `effective_from` projects
+    nothing until then."""
+
+    event_type: ClassVar[str] = "GrantEffective"
+    grant_id: str
+    network_id: str
+    grantor_tenant_id: str
+    scope: GrantScope
+    version: int
+    effective_from: datetime
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        _require_utc(self.effective_from, "effective_from")
+        _check_grant_identity(self)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            **_grant_identity(self),
+            "effective_from": _at_text(self.effective_from),
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            **_decode_grant_identity(payload),
+            effective_from=_when(payload, "effective_from"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class GrantEnded:
+    event_type: ClassVar[str] = "GrantEnded"
+    grant_id: str
+    network_id: str
+    grantor_tenant_id: str
+    scope: GrantScope
+    version: int
+    reason: GrantEndReason
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        _check_grant_identity(self)
+        _check_enum(self.reason, GrantEndReason, "reason")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {**_grant_identity(self), "reason": self.reason.value, "at": _at_text(self.at)}
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            **_decode_grant_identity(payload),
+            reason=_code(payload, "reason", GrantEndReason),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectionApplied:
+    event_type: ClassVar[str] = "ProjectionApplied"
+    network_id: str
+    source_tenant_id: str
+    kind: GrantScope
+    item_id: str
+    source_version: int
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        check_network_id(self.network_id, "network_id")
+        check_tenant_field(self.source_tenant_id, "source_tenant_id")
+        _check_enum(self.kind, GrantScope, "kind")
+        _check_id(self.item_id, "item_id")
+        _check_version(self.source_version, "source_version")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "network_id": self.network_id,
+            "source_tenant_id": self.source_tenant_id,
+            "kind": self.kind.value,
+            "item_id": self.item_id,
+            "source_version": self.source_version,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            network_id=_text(payload, "network_id"),
+            source_tenant_id=_text(payload, "source_tenant_id"),
+            kind=_code(payload, "kind", GrantScope),
+            item_id=_text(payload, "item_id"),
+            source_version=_count(payload, "source_version"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectionRejected:
+    event_type: ClassVar[str] = "ProjectionRejected"
+    network_id: str
+    source_tenant_id: str
+    kind: GrantScope
+    reason: ProjectionRejectReason
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        check_network_id(self.network_id, "network_id")
+        check_tenant_field(self.source_tenant_id, "source_tenant_id")
+        _check_enum(self.kind, GrantScope, "kind")
+        _check_enum(self.reason, ProjectionRejectReason, "reason")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "network_id": self.network_id,
+            "source_tenant_id": self.source_tenant_id,
+            "kind": self.kind.value,
+            "reason": self.reason.value,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            network_id=_text(payload, "network_id"),
+            source_tenant_id=_text(payload, "source_tenant_id"),
+            kind=_code(payload, "kind", GrantScope),
+            reason=_code(payload, "reason", ProjectionRejectReason),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceDirectoryChanged:
+    """A service's directory entry changed in a tenant scope (DEC-132 item 7): `source` says where
+    the change came from, so the Directory of Services integration changes nothing else. It is
+    produced in a tenant scope and triggers a directory projection, so it travels on
+    `registration.events` with the registration events the projector subscribes to."""
+
+    event_type: ClassVar[str] = "ServiceDirectoryChanged"
+    service_id: str
+    source: DirectorySource
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        _check_id(self.service_id, "service_id")
+        _check_enum(self.source, DirectorySource, "source")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "service_id": self.service_id,
+            "source": self.source.value,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            service_id=_text(payload, "service_id"),
+            source=_code(payload, "source", DirectorySource),
+            at=_when(payload),
+        )
+
+
+# ---------------------------------------------------------------- the projection message
+#
+# Not an event: it is deliberately outside `DomainEvent`, the topic map and `from_payload`.
+
+MAX_BODY_KEYS: Final = 40
+MAX_BODY_TUPLE: Final = 50
+MAX_BODY_TEXT: Final = 200
+_BODY_KEY = re.compile(r"[a-z][a-z0-9_]{0,39}")
+
+
+def _scalar_ok(value: object, *, allow_none: bool) -> bool:
+    if value is None:
+        return allow_none
+    if type(value) is str:
+        return len(value) <= MAX_BODY_TEXT and not find_patient_data(value)
+    if type(value) is float:
+        return math.isfinite(value)
+    return type(value) in (bool, int)
+
+
+def _check_scalar(value: object, *, allow_none: bool) -> None:
+    if not _scalar_ok(value, allow_none=allow_none):
+        raise ValidationFailed("body", BODY_MESSAGE)
+
+
+def _flat_body(body: object) -> Mapping[str, ProjectionValue]:
+    """The body, checked as a floor whatever the allowlist says: at most 40 keys, each a lower case
+    snake name that is not a forbidden form of a patient or identity field, each value a scalar,
+    `None` or a flat tuple of at most 50 scalars, no text over 200 characters or with a patient
+    shape. Returns a read-only copy. The refusal names the field and never the key or the value."""
+    if not isinstance(body, Mapping) or len(body) > MAX_BODY_KEYS:
+        raise ValidationFailed("body", BODY_MESSAGE)
+    copy: dict[str, ProjectionValue] = {}
+    for key, value in body.items():
+        if (
+            type(key) is not str
+            or _BODY_KEY.fullmatch(key) is None
+            or normalise_key(key) in FORBIDDEN_KEY_FORMS
+        ):
+            raise ValidationFailed("body", BODY_MESSAGE)
+        if isinstance(value, tuple):
+            if len(value) > MAX_BODY_TUPLE:
+                raise ValidationFailed("body", BODY_MESSAGE)
+            for item in value:
+                _check_scalar(item, allow_none=False)
+        else:
+            _check_scalar(value, allow_none=True)
+        copy[key] = value
+    return MappingProxyType(copy)
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectionRequested:
+    message_type: ClassVar[str] = "ProjectionRequested"
+    network_id: str
+    source_tenant_id: str
+    grant_id: str
+    grant_version: int
+    kind: GrantScope
+    source_service_id: str
+    source_version: int
+    allowlist_version: int
+    body: Mapping[str, ProjectionValue]
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        check_network_id(self.network_id, "network_id")
+        check_tenant_field(self.source_tenant_id, "source_tenant_id")
+        _check_id(self.grant_id, "grant_id")
+        _check_version(self.grant_version, "grant_version")
+        _check_enum(self.kind, GrantScope, "kind")
+        _check_id(self.source_service_id, "source_service_id")
+        _check_version(self.source_version, "source_version")
+        _check_version(self.allowlist_version, "allowlist_version")
+        object.__setattr__(self, "body", _flat_body(self.body))
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "network_id": self.network_id,
+            "source_tenant_id": self.source_tenant_id,
+            "grant_id": self.grant_id,
+            "grant_version": self.grant_version,
+            "kind": self.kind.value,
+            "source_service_id": self.source_service_id,
+            "source_version": self.source_version,
+            "allowlist_version": self.allowlist_version,
+            "body": {
+                key: list(value) if isinstance(value, tuple) else value
+                for key, value in self.body.items()
+            },
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        raw = _field(payload, "body")
+        if not isinstance(raw, Mapping):
+            raise ValidationFailed("body", BODY_MESSAGE)
+        return cls(
+            network_id=_text(payload, "network_id"),
+            source_tenant_id=_text(payload, "source_tenant_id"),
+            grant_id=_text(payload, "grant_id"),
+            grant_version=_count(payload, "grant_version"),
+            kind=_code(payload, "kind", GrantScope),
+            source_service_id=_text(payload, "source_service_id"),
+            source_version=_count(payload, "source_version"),
+            allowlist_version=_count(payload, "allowlist_version"),
+            body={
+                key: tuple(value) if isinstance(value, list) else value
+                for key, value in raw.items()
+            },
+            at=_when(payload),
+        )
+
+
 DomainEvent = (
     CapacityReported
     | StatusChanged
@@ -629,6 +1202,17 @@ DomainEvent = (
     | ReportFlagged
     | PhoneTaskRaised
     | ReportEscalated
+    | NetworkCreated
+    | MemberAdded
+    | MemberRemoved
+    | AgreementRecorded
+    | GrantProposed
+    | GrantApproved
+    | GrantEffective
+    | GrantEnded
+    | ProjectionApplied
+    | ProjectionRejected
+    | ServiceDirectoryChanged
 )
 
 _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
@@ -651,6 +1235,17 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         ReportFlagged: CAPACITY_EVENTS,
         PhoneTaskRaised: CAPACITY_EVENTS,
         ReportEscalated: ALERTS_EVENTS,
+        NetworkCreated: NETWORK_EVENTS,
+        MemberAdded: NETWORK_EVENTS,
+        MemberRemoved: NETWORK_EVENTS,
+        AgreementRecorded: NETWORK_EVENTS,
+        GrantProposed: NETWORK_EVENTS,
+        GrantApproved: NETWORK_EVENTS,
+        GrantEffective: NETWORK_EVENTS,
+        GrantEnded: NETWORK_EVENTS,
+        ProjectionApplied: NETWORK_EVENTS,
+        ProjectionRejected: NETWORK_EVENTS,
+        ServiceDirectoryChanged: REGISTRATION_EVENTS,
     }
 )
 
@@ -674,6 +1269,17 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "ReportFlagged": ReportFlagged.decode,
         "PhoneTaskRaised": PhoneTaskRaised.decode,
         "ReportEscalated": ReportEscalated.decode,
+        "NetworkCreated": NetworkCreated.decode,
+        "MemberAdded": MemberAdded.decode,
+        "MemberRemoved": MemberRemoved.decode,
+        "AgreementRecorded": AgreementRecorded.decode,
+        "GrantProposed": GrantProposed.decode,
+        "GrantApproved": GrantApproved.decode,
+        "GrantEffective": GrantEffective.decode,
+        "GrantEnded": GrantEnded.decode,
+        "ProjectionApplied": ProjectionApplied.decode,
+        "ProjectionRejected": ProjectionRejected.decode,
+        "ServiceDirectoryChanged": ServiceDirectoryChanged.decode,
     }
 )
 

@@ -54,6 +54,8 @@ from diucs.domain.codes import Channel
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.model.people import role_holder
+from diucs.domain.model.tenant import NumberStatus
+from diucs.domain.model.tenant_records import ChannelKind
 
 logger = logging.getLogger(__name__)
 
@@ -207,7 +209,7 @@ class _OutboundSender:
             await self._settle(uow, message, communication.id, "failed", None, NO_CONTACT)
             return
         try:
-            receipt = await self._send(address, outbound, message.id)
+            receipt = await self._send(uow, address, outbound, message.id)
         except ChannelUnavailable:
             await self._settle(uow, message, communication.id, "failed", None, NO_CHANNEL)
             return
@@ -256,7 +258,9 @@ class _OutboundSender:
     async def _address(self, uow: UnitOfWork, role_id: str) -> str | None:
         raise NotImplementedError
 
-    async def _send(self, address: str, outbound: OutboundMessage, outbox_id: str) -> SendReceipt:
+    async def _send(
+        self, uow: UnitOfWork, address: str, outbound: OutboundMessage, outbox_id: str
+    ) -> SendReceipt:
         """The receipt of the send. ChannelUnavailable means nothing is sent. A TransientSendError
         propagates: the message is retried."""
         raise NotImplementedError
@@ -271,7 +275,9 @@ class SmsMessageSender(_OutboundSender):
     async def _address(self, uow: UnitOfWork, role_id: str) -> str | None:
         return await uow.contacts.get_phone(role_id)
 
-    async def _send(self, address: str, outbound: OutboundMessage, outbox_id: str) -> SendReceipt:
+    async def _send(
+        self, uow: UnitOfWork, address: str, outbound: OutboundMessage, outbox_id: str
+    ) -> SendReceipt:
         sender: SmsSender = await self._senders.sms_for()
         return await sender.send(address, outbound.text, outbox_id)
 
@@ -285,8 +291,20 @@ class EmailMessageSender(_OutboundSender):
     async def _address(self, uow: UnitOfWork, role_id: str) -> str | None:
         return await uow.contacts.get_email(role_id)
 
-    async def _send(self, address: str, outbound: OutboundMessage, outbox_id: str) -> SendReceipt:
-        sender: EmailSender = await self._senders.email_for()
+    async def _send(
+        self, uow: UnitOfWork, address: str, outbound: OutboundMessage, outbox_id: str
+    ) -> SendReceipt:
+        # The tenant's email channel is read here, in the unit of work this message is handled in
+        # (a second unit may not be opened inside it), and handed to the resolver (TEN-042). Exactly
+        # one active email channel is the tenant's sender; none, or more than one, is no channel.
+        channels = [
+            channel
+            for channel in await uow.tenant_config.channels()
+            if channel.kind is ChannelKind.EMAIL and channel.status is NumberStatus.ACTIVE
+        ]
+        sender: EmailSender = await self._senders.email_for(
+            channels[0] if len(channels) == 1 else None
+        )
         if outbound.subject is None:
             raise PermanentError(BAD_CONTENT)
         return await sender.send(address, outbound.subject, outbound.text, outbound.html)

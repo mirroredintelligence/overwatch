@@ -44,6 +44,7 @@ from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4
 from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
+from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
@@ -93,6 +94,7 @@ from diucs.application.ports.outbound.telemetry_query import (
     TelemetryUnavailable,
     TimelineEvent,
 )
+from diucs.application.ports.outbound.tenant_registry import TenantRegistry
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
 from diucs.application.ports.outbound.tokens import (
@@ -101,7 +103,13 @@ from diucs.application.ports.outbound.tokens import (
     SecretStore,
 )
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant, current_tenant
+from diucs.application.tenancy import ScopeId, bind_tenant, current_tenant
+from diucs.application.tenant_settings import (
+    DirectoryLinkBase,
+    DirectoryZones,
+    LinkBases,
+    TenantZones,
+)
 from diucs.application.use_cases.alerts import (
     EscalateAlert,
     EscalateAlertCommand,
@@ -123,7 +131,9 @@ from diucs.application.use_cases.missed_report_ladder import (
     LadderStepCommand,
     MissedReportLadder,
 )
+from diucs.application.use_cases.request_booking import LinkBaseUrlFor
 from diucs.application.use_cases.review_registration import AreaDistrictsFor
+from diucs.application.use_cases.suspend_service import WordingFor
 from diucs.application.use_cases.tenant_invariants import (
     InvariantMonitor,
     RunInvariantCheck,
@@ -139,6 +149,7 @@ from diucs.bootstrap.areas import area_districts_for
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
 from diucs.domain.model.telemetry_aggregates import DayAggregates
+from diucs.domain.model.tenant import TenantWording
 from diucs.domain.rules.tenant_keys import check_key_version
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -164,6 +175,9 @@ class Container:
     uow_factory: UnitOfWorkFactory
     # The platform's record of its tenants: global, read-only, no tenant bound or sent (TEN-007).
     tenants: TenantDirectory
+    # The registry's writes (TEN-028, DEC-503): the platform operator's door, held only by the
+    # operator use cases (`bootstrap/provisioning.py`) and never by a tenant's own code.
+    tenant_registry: TenantRegistry
     # Secrets by reference (DEC-131 item 4): the tenant record holds the reference, never the value.
     secrets: SecretStore
     # The FHIR profile validator (R14): pure Python, no store and no external provider.
@@ -210,6 +224,11 @@ class Container:
     # The area of each tenant for the registration review (U28, DEC-317): no default, so a tenant
     # with no entry in the settings has an empty area (R11 wiring, bootstrap/wiring.py).
     area_districts_for: AreaDistrictsFor
+    # The link host of a tenant and the wording its booking messages print (R09, L02). Neither has a
+    # source in production yet (tenant configuration: TEN-022, TEN-028), so the production profile
+    # fails closed: no host is an error, no wording a refused request (H-T15).
+    link_base_url_for: LinkBaseUrlFor
+    wording_for: WordingFor
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -260,6 +279,31 @@ class Container:
             await self.redis.aclose()
 
 
+def _no_link_host(scope: ScopeId) -> str:
+    """Production has no link host for a tenant yet (TEN-028): a booking request is refused."""
+    raise RuntimeError("no link host is configured for this tenant")
+
+
+async def _no_wording(scope: ScopeId) -> TenantWording | None:
+    """Production has no wording for a tenant yet (TEN-022): a booking request is refused."""
+    return None
+
+
+async def _test_wording(scope: ScopeId) -> TenantWording | None:
+    return TenantWording(
+        system_name="Test system",
+        referral_system_name="Test referral system",
+        coordination_team_name="The SPOA shift lead",
+    )
+
+
+def _test_link_host(link_base_url: str) -> LinkBaseUrlFor:
+    def link_host(scope: ScopeId) -> str:
+        return link_base_url
+
+    return link_host
+
+
 def ladder_handlers(ladder: MissedReportLadder) -> dict[WorkKind, WorkHandler]:
     """The three ladder kinds, each run as one ladder step keyed by the work's id (DEC-193)."""
 
@@ -294,12 +338,15 @@ def invariant_check_handler(job: RunInvariantCheck) -> WorkHandler:
 
 
 def alert_timer_handlers(
-    uow_factory: UnitOfWorkFactory, ids: IdGenerator, clock: Clock
+    uow_factory: UnitOfWorkFactory,
+    ids: IdGenerator,
+    clock: Clock,
+    zones: TenantZones | None = None,
 ) -> dict[WorkKind, WorkHandler]:
     """The escalation of an unacknowledged alert and the not-updated checks (U34), each run once for
     each scheduled work of its kind."""
     escalate = EscalateAlert(uow_factory, ids, clock)
-    checks = NotUpdatedCheck(uow_factory, ids, clock)
+    checks = NotUpdatedCheck(uow_factory, ids, clock, zones)
 
     async def on_escalation(work: ScheduledWork) -> None:
         await escalate.execute(EscalateAlertCommand(work_id=work.id, alert_id=work.about_id))
@@ -325,17 +372,21 @@ def _scheduled_work(
     clock: Clock,
     ids: IdGenerator,
     secrets: SecretStore,
-    link_base_url: str,
+    link_base_url: str | LinkBases,
     invariants: TenantInvariants,
     monitor: InvariantMonitor,
+    zones: TenantZones | None = None,
 ) -> ScheduledWorkDispatcher:
-    """The dispatch table, built on the same clock, ids and secrets as the rest of the container."""
+    """The dispatch table, built on the same clock, ids and secrets as the rest of the container.
+    `link_base_url` is the tenant source of the reminder's link and `zones` of the tenant's time
+    zone: the serving process passes the directory's (TEN-027), the test container a fixed base
+    and London."""
 
     def tokens(repo: LinkTokenRepository) -> LinkTokenService:
         return LinkTokenService(repo, secrets, clock)
 
     ladder = MissedReportLadder(
-        uow_factory, clock, ids, tokens, link_base_url, AesGcmContentSealer(secrets)
+        uow_factory, clock, ids, tokens, link_base_url, AesGcmContentSealer(secrets), zones
     )
     handlers: dict[WorkKind, WorkHandler] = dict(ladder_handlers(ladder))
     # The booking timers (U19): the advisor's phone prompt and the expiry of a request.
@@ -356,7 +407,7 @@ def _scheduled_work(
         EscalateWithdrawal(uow_factory, clock)
     )
     # The alert escalation and the not-updated checks (U34).
-    handlers.update(alert_timer_handlers(uow_factory, ids, clock))
+    handlers.update(alert_timer_handlers(uow_factory, ids, clock, zones))
     return ScheduledWorkDispatcher(handlers)
 
 
@@ -452,12 +503,14 @@ def build(
     invariants = Neo4jTenantInvariants(neo4j)
     monitor = InvariantMonitor()
     redis_cache = RedisCache(redis)
+    directory = Neo4jTenantDirectory(neo4j)
     return Container(
         clock=clock,
         ids=ids,
         neo4j=neo4j,
         uow_factory=uow_factory,
-        tenants=Neo4jTenantDirectory(neo4j),
+        tenants=directory,
+        tenant_registry=Neo4jTenantRegistry(neo4j),
         secrets=store,
         validator=ProfileValidator(),
         redis=redis,
@@ -488,10 +541,21 @@ def build(
         invariants=invariants,
         invariant_monitor=monitor,
         scheduled_work=_scheduled_work(
-            uow_factory, clock, ids, store, settings.base_url, invariants, monitor
+            uow_factory,
+            clock,
+            ids,
+            store,
+            # Each tenant's links are on its own host (DEC-134 item 3); only the default tenant,
+            # which has no host of its own, falls back to the platform's base URL.
+            DirectoryLinkBase(directory, fallback=settings.base_url),
+            invariants,
+            monitor,
+            DirectoryZones(directory),
         ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for(settings.tenant_areas),
+        link_base_url_for=_no_link_host,
+        wording_for=_no_wording,
     )
 
 
@@ -532,6 +596,7 @@ def build_for_tests(
         neo4j=neo4j,
         uow_factory=uow_factory,
         tenants=Neo4jTenantDirectory(neo4j),
+        tenant_registry=Neo4jTenantRegistry(neo4j),
         secrets=store,
         validator=ProfileValidator(),
         redis=resolved_redis,
@@ -558,4 +623,6 @@ def build_for_tests(
         ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for({} if areas is None else areas),
+        link_base_url_for=_test_link_host(link_base_url),
+        wording_for=_test_wording,
     )

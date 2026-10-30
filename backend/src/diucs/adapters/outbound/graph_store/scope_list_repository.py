@@ -194,6 +194,9 @@ class Neo4jScopeListRepository:
             return None
         return await self._entry(rows[0])
 
+    async def ensure_list(self) -> None:
+        await self._ensure_list()
+
     async def save_entry(self, entry: ScopeEntry) -> None:
         await self._ensure_list()
         await self._lock_list()

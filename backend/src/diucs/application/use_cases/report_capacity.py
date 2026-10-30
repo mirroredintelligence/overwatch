@@ -238,7 +238,9 @@ async def record_report(
     )
     # A report at or after a prompt's due time answers it: the rest of its missed-report ladder is
     # cancelled in this unit of work (U06, domain-rules 1.5). prompt-due work is left alone.
-    await stop_answered_ladders(uow, profile.id, answered_at=report.effective_at, now=now)
+    await stop_answered_ladders(
+        uow, profile.id, answered_at=report.effective_at, now=now, policy=policy
+    )
 
     next_prompt = next_due(profile, now, policy)
     if send_echo is not None:

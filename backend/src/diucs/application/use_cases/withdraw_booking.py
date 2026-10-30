@@ -330,16 +330,18 @@ class AcknowledgeWithdrawal:
                 if work.status == SCHEDULED:
                     await cancel_work(uow, work, now)
                     cancelled = True
-            await uow.audit.append(
-                AuditEntry(
-                    action=AUDIT_ACTION,
-                    use_case=ACKNOWLEDGE_USE_CASE,
-                    actor=command.actor,
-                    entity_ids=(booking.id, booking.service_id),
-                    snapshot={"cancelled_escalation": cancelled},
-                    at=now,
+            # R17: a repeat acknowledgement (a new key) changes nothing and is not audited again.
+            if not await _already_acknowledged(uow, booking.id):
+                await uow.audit.append(
+                    AuditEntry(
+                        action=AUDIT_ACTION,
+                        use_case=ACKNOWLEDGE_USE_CASE,
+                        actor=command.actor,
+                        entity_ids=(booking.id, booking.service_id),
+                        snapshot={"cancelled_escalation": cancelled},
+                        at=now,
+                    )
                 )
-            )
             result = AcknowledgeWithdrawalResult(booking.id, cancelled)
             await uow.idempotency.put(key, _Stored(fingerprint, result))
             await uow.commit()
@@ -389,6 +391,14 @@ class EscalateWithdrawal:
             )
             await uow.commit()
         return EscalateWithdrawalResult(acted=True)
+
+
+async def _already_acknowledged(uow: UnitOfWork, booking_id: str) -> bool:
+    """True when the audit log already holds an acknowledgement of this booking (R17)."""
+    return any(
+        record.entry.use_case == ACKNOWLEDGE_USE_CASE
+        for record in await uow.audit.records_for(booking_id)
+    )
 
 
 async def _escalation_work(uow: UnitOfWork, work_id: str, booking_id: str) -> ScheduledWork | None:

@@ -352,6 +352,11 @@ class ScopeListRepository(Protocol):
     changes an existing service's name, category or active flag.
     """
 
+    async def ensure_list(self) -> None:
+        """Make sure the tenant's scope list exists, empty if it has no entries yet (provisioning,
+        TEN-028). Idempotent."""
+        ...
+
     async def entries(self) -> list[ScopeEntry]:
         """Every entry, sorted by service name, then service id."""
         ...

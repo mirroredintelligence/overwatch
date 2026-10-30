@@ -12,10 +12,9 @@ patient data. Each test starts from a graph the harness wiped and Redis keys of 
 """
 
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import UTC, datetime, time, timedelta
-from typing import Any
 
-import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
@@ -56,7 +55,7 @@ from tests.support.redis import flush_prefix
 
 NOW = datetime(2026, 10, 29, 14, 0, tzinfo=UTC)
 MOBILE = "07700 900123"
-MOBILE_INTERNATIONAL = "+447700900123"
+INVITEE_MOBILE = "07700 900321"
 COVER_MOBILE = "07700 900456"
 UNKNOWN_MOBILE = "07700 900789"
 CODE = "482913"
@@ -185,8 +184,9 @@ async def seed_world(
                         period_start=NOW - timedelta(days=30),
                     )
                 )
-            await uow.contacts.put_phone("role-west", MOBILE_INTERNATIONAL)
-            await uow.contacts.put_phone("role-east", MOBILE_INTERNATIONAL)
+            international = "+44" + mobile.replace(" ", "")[1:]
+            await uow.contacts.put_phone("role-west", international)
+            await uow.contacts.put_phone("role-east", international)
             await uow.devices.register(PERSON, DEVICE, NOW - timedelta(days=3))
             await uow.devices.mark_verified(PERSON, DEVICE, NOW - timedelta(days=3))
             await uow.commit()
@@ -205,7 +205,7 @@ async def seed_invitation(
     container: Container,
     tenant: str,
     *,
-    mobile: str = MOBILE,
+    mobile: str = INVITEE_MOBILE,
     service_id: str = "ucr-new",
     service_name: str = "UCR New",
     expires_at: datetime | None = None,
@@ -220,14 +220,7 @@ async def seed_invitation(
     expiry = expires_at if expires_at is not None else NOW + timedelta(hours=40)
     with bind_tenant(tenant):
         async with container.uow_factory() as uow:
-            await uow.services.save(
-                ServiceProfile(
-                    **{
-                        **profile(service_id, service_name).__dict__,  # type: ignore[arg-type]
-                        "active": False,
-                    }
-                )
-            )
+            await uow.services.save(replace(profile(service_id, service_name), active=False))
             await uow.people.save_practitioner(
                 Practitioner(
                     id="invitee-1", active=True, display_name="Reporter", phone_hash=phone_hash

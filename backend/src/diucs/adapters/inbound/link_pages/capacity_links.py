@@ -91,7 +91,7 @@ _NO_STORE: Final = {
     "X-Content-Type-Options": "nosniff",
 }
 _ACCESS_LOGGER: Final = "uvicorn.access"
-_LINK_IN_TEXT: Final = re.compile(r"(/links/)[^/?#\s\"']+")
+_LINK_IN_TEXT: Final = re.compile(r"(/(?:links|invitations)/)[^/?#\s\"']+")
 
 
 class RedactLinkTokens(logging.Filter):

@@ -960,9 +960,13 @@ async def test_the_set_up_summary_of_a_new_reporter_names_a_service_that_is_not_
     api: AsyncClient, world: Container, tenant_id: str
 ) -> None:
     token = await seed_invitation(world, tenant_id)
-    from tests.integration.adapters.inbound.fhir_rest.reporter_rig import CODE, hold_code
+    from tests.integration.adapters.inbound.fhir_rest.reporter_rig import (
+        CODE,
+        INVITEE_MOBILE,
+        hold_code,
+    )
 
-    await hold_code(world, tenant_id)
+    await hold_code(world, tenant_id, INVITEE_MOBILE)
     new_device = "device-cccccccccccccccccccccc"
     await api.post(
         f"/identity/invitations/{token}/code/verify", json={"code": CODE, "deviceId": new_device}
@@ -975,7 +979,7 @@ async def test_the_set_up_summary_of_a_new_reporter_names_a_service_that_is_not_
 
     assert response.status_code == 200
     assert response.json()["service"] == "UCR New"
-    assert response.json()["maskedPhone"] == "07xxx xxx123"
+    assert response.json()["maskedPhone"] == "07xxx xxx321"
     assert response.json()["textCodeInDays"] == 30
 
 
@@ -1017,11 +1021,13 @@ async def test_a_test_push_is_queued_for_the_reporters_phone_with_no_link_and_no
     assert pushes[0].event_type == "SendMessage"
     assert pushes[0].payload["recipient_role_id"] in {"role-east", "role-west"}
     assert "sealed_content" in pushes[0].payload
-    communication = await node_props(
-        neo4j_driver, "Communication", id=pushes[0].payload["communication_id"]
-    )
-    assert communication["channel"] == "push"
-    assert "http" not in communication["payloadText"]
+    with bind_tenant(tenant_id):
+        async with world.uow_factory() as uow:
+            communication = await uow.communications.get(pushes[0].payload["communication_id"])
+    assert communication is not None
+    assert communication.channel is Channel.PUSH
+    assert communication.about_id in {WEST, EAST}
+    assert "http" not in communication.payload_text
 
 
 async def test_a_test_push_is_limited_to_three_in_ten_minutes(

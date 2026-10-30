@@ -122,6 +122,8 @@ def create_app(
         routes_network_events,
         routes_public,
         routes_registration,
+        routes_reporter,
+        routes_reporter_setup,
         routes_screens,
         routes_services,
         routes_terminology,
@@ -153,6 +155,10 @@ def create_app(
     app.include_router(routes_screens.router)
     # Reporter identity: text code, PIN, the 30-day check and push subscriptions (R11).
     app.include_router(routes_identity.router)
+    # Reporter set-up behind a link or a device, and the reporter app's routes behind a reporter's
+    # bearer token (W7C).
+    app.include_router(routes_reporter_setup.router)
+    app.include_router(routes_reporter.router)
     # The public tenant profile (TEN-040): no token, the tenant is the request host.
     app.include_router(routes_public.router)
     # The token exchange (TEN-043): the back end issues the tenant-bound token.

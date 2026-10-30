@@ -254,6 +254,11 @@ class DeviceRegistry(Protocol):
 
     async def known(self, practitioner_id: str, device_id: str) -> bool: ...
 
+    async def count_active(self, practitioner_id: str) -> int:
+        """How many of the practitioner's devices are active: registered, not revoked and not
+        waiting for the lead's call-back (W7C: the settings count the other phones)."""
+        ...
+
     async def revoke_all(self, practitioner_id: str) -> int:
         """Revoke every device of the practitioner that is not revoked already, pending ones
         included, and return how many were revoked (U37)."""

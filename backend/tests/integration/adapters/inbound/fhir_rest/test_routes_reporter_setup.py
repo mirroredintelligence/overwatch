@@ -27,6 +27,7 @@ from diucs.domain.codes import Channel
 from tests.integration.adapters.inbound.fhir_rest.reporter_rig import (
     CODE,
     DEVICE,
+    INVITEE_MOBILE,
     MOBILE,
     NOW,
     OTHER_DEVICE,
@@ -99,12 +100,12 @@ async def test_an_open_invitation_shows_the_service_the_post_the_expiry_and_the_
         "state": "valid",
         "service": "UCR New",
         "role": "Duty manager",
-        "maskedPhone": "07xxx xxx123",
+        "maskedPhone": "07xxx xxx321",
         "expiresAt": "2026-10-31T06:00:00Z",
     }
     assert response.headers["cache-control"] == "no-store"
     assert response.headers["referrer-policy"] == "no-referrer"
-    for secret in (MOBILE, MOBILE.replace(" ", ""), "7700900123", token):
+    for secret in (INVITEE_MOBILE, INVITEE_MOBILE.replace(" ", ""), "7700900321", token):
         assert secret not in response.text
 
 
@@ -165,7 +166,7 @@ async def test_the_invitation_lookup_is_throttled_per_address(
 # ----------------------------------------------------------------------- code for an invitation
 
 
-async def test_a_code_for_an_invitation_is_kept_and_queued_and_an_unusable_one_is_kept_and_discarded(
+async def test_a_code_for_an_invitation_is_queued_and_for_an_unusable_one_is_discarded(
     api: AsyncClient, world: Container, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
     token = await seed_invitation(world, tenant_id)
@@ -178,7 +179,7 @@ async def test_a_code_for_an_invitation_is_kept_and_queued_and_an_unusable_one_i
     assert known.json() == {"accepted": True, "resendAfterSeconds": 60}
     assert await outbox_count(neo4j_driver, "SendCode") == 1
     assert await outbox_count(neo4j_driver, "DiscardCode") == 1
-    phone_hash = HmacPhoneHasher(world.secrets).hash(MOBILE)
+    phone_hash = HmacPhoneHasher(world.secrets).hash(INVITEE_MOBILE)
     with bind_tenant(tenant_id):
         held = await world.codes.get("setup", phone_hash)
     assert held is not None
@@ -202,7 +203,7 @@ async def test_a_right_code_for_an_invitation_registers_the_device_and_the_pin_a
     api: AsyncClient, world: Container, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
     token = await seed_invitation(world, tenant_id)
-    await hold_code(world, tenant_id)
+    await hold_code(world, tenant_id, INVITEE_MOBILE)
 
     verified = await api.post(
         f"/identity/invitations/{token}/code/verify", json={"code": CODE, "deviceId": NEW_DEVICE}
@@ -230,7 +231,7 @@ async def test_a_wrong_code_names_the_tries_left_and_five_ask_for_a_new_code(
     api: AsyncClient, world: Container, tenant_id: str
 ) -> None:
     token = await seed_invitation(world, tenant_id)
-    await hold_code(world, tenant_id)
+    await hold_code(world, tenant_id, INVITEE_MOBILE)
 
     answers = [
         await api.post(
@@ -270,7 +271,7 @@ async def test_an_expired_invitation_cannot_be_verified_even_with_the_code_that_
     api: AsyncClient, world: Container, tenant_id: str
 ) -> None:
     token = await seed_invitation(world, tenant_id)
-    await hold_code(world, tenant_id)
+    await hold_code(world, tenant_id, INVITEE_MOBILE)
     world.clock.advance(timedelta(hours=41))  # type: ignore[attr-defined]
     try:
         late = await api.post(
@@ -436,7 +437,7 @@ async def test_no_log_line_or_body_holds_a_token_a_number_a_code_or_a_device_id(
 ) -> None:
     caplog.set_level(logging.DEBUG)
     token = await seed_invitation(world, tenant_id)
-    await hold_code(world, tenant_id)
+    await hold_code(world, tenant_id, INVITEE_MOBILE)
     answers = [
         await api.get(f"/invitations/{token}"),
         await api.post(f"/identity/invitations/{token}/code", json={}),
@@ -447,7 +448,16 @@ async def test_no_log_line_or_body_holds_a_token_a_number_a_code_or_a_device_id(
         await api.post("/identity/device/code", json={"deviceId": DEVICE, "purpose": "reverify"}),
     ]
 
-    for secret in (token, MOBILE, MOBILE.replace(" ", ""), CODE, OTHER_DEVICE, DEVICE, PERSON):
+    for secret in (
+        token,
+        INVITEE_MOBILE,
+        INVITEE_MOBILE.replace(" ", ""),
+        MOBILE,
+        CODE,
+        OTHER_DEVICE,
+        DEVICE,
+        PERSON,
+    ):
         assert secret not in caplog.text
         for answer in answers:
             assert secret not in answer.text

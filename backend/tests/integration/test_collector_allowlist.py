@@ -5,6 +5,10 @@ Start the collector first:
     docker compose -f infra/docker-compose.yml --profile test up -d --wait otel-collector
 The collector writes what it exports to infra/otel-out/out.json (container path /tmp/otel/out.json).
 The collector waits up to 10 s for tail sampling, so each test polls the file for a while.
+
+Tail sampling keeps an error trace every time, but keeps only 10 per cent of the others. The
+allow-list tests therefore send error spans: the attribute rules run before sampling, so the span
+is still tested, and it is certain to be exported. A plain span would be dropped 9 times in 10.
 """
 
 import json
@@ -75,7 +79,7 @@ def _wait_for_span(name: str) -> tuple[dict[str, Any], str]:
 
 def test_the_allowed_key_is_kept_and_the_postcode_is_removed() -> None:
     name = f"collector-allow-{uuid.uuid4().hex}"
-    _send_span(name, {"service.id": "svc-1", "patient.postcode": "DT4 8XX"})
+    _send_span(name, {"service.id": "svc-1", "patient.postcode": "DT4 8XX"}, error=True)
 
     attributes, raw = _wait_for_span(name)
 
@@ -93,6 +97,7 @@ def test_query_text_and_parameters_never_leave_the_collector() -> None:
             "db.statement": "MATCH (n:Patient) RETURN n",
             "db.query.text": "MATCH",
         },
+        error=True,
     )
 
     attributes, raw = _wait_for_span(name)
@@ -101,6 +106,23 @@ def test_query_text_and_parameters_never_leave_the_collector() -> None:
     assert "db.statement" not in attributes
     assert "db.query.text" not in attributes
     assert "MATCH (n:Patient)" not in raw
+
+
+def test_free_text_under_name_and_value_never_leaves_the_collector() -> None:
+    # `name` and `value` can carry a typed word; the collector keeps neither (O04 integration).
+    span = f"collector-freetext-{uuid.uuid4().hex}"
+    _send_span(
+        span,
+        {"service.id": "svc-1", "name": "Sample Patient", "value": "Sample Patient DT4 8XX"},
+        error=True,
+    )
+
+    attributes, raw = _wait_for_span(span)
+
+    assert attributes.get("service.id") == "svc-1"
+    assert "name" not in attributes
+    assert "value" not in attributes
+    assert "Sample Patient" not in raw
 
 
 def test_an_error_span_is_kept_by_sampling() -> None:

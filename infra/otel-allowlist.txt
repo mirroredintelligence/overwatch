@@ -36,6 +36,9 @@ usecase.idempotent_replay
 usecase.outcome
 user.role
 
+# name and value are refused everywhere (O04 fragment decision 3, superseded at integration): free text
+# words in DENIED_FRAGMENTS, no browser event carries them (the BFF allow-list and the O05 schema do not),
+# and the collector has no event name to limit them to ui.web_vital. Re-admit them only with a reviewed rule.
 [browser]
 from.route
 load.type
@@ -53,8 +56,6 @@ error.code
 kind
 count
 window_ms
-name
-value
 rating
 duration_ms
 gap_ms

@@ -25,11 +25,13 @@ from diucs.adapters.outbound.telemetry.redaction import clean_attributes
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.bootstrap.container import build_for_tests
 from diucs.domain.codes import PractitionerRoleCode, Role
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.rules.support import SUPPORT_CODE_SECRET
+from tests.support.api import seed_edge_tenants
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads
 
@@ -44,7 +46,9 @@ CODE_PATTERN = re.compile(r"[A-Z0-9]{4}-[A-Z0-9]{4}")
 
 
 def _headers(role: Role, sub: str, key: str) -> dict[str, str]:
-    token = issue_test_token(role, (), sub)
+    # The route tests run on NOW (a fixed clock), so the token must outlive it. The shared default
+    # (TEST_TOKEN_EXPIRES_AT, 24 Oct) is already past that clock and every call got 401.
+    token = issue_test_token(role, (), sub, expires_at=NOW + timedelta(hours=8))
     return {"Authorization": f"Bearer {token}", "Idempotency-Key": key}
 
 
@@ -105,6 +109,9 @@ async def support_app(
     tmp_path: Path,
     run_identity: Any,
 ) -> Any:
+    # clean_graph wipes the tenant record the migrations wrote; the REST edge refuses a token whose
+    # tenant has no active record (401), so the run tenant is seeded again after the wipe.
+    await seed_edge_tenants(neo4j_driver, run_identity.tenant_id)
     connection = Neo4jConnection(
         harness_container.uri, harness_container.user, harness_container.password
     )
@@ -122,21 +129,31 @@ async def support_app(
         await _seed_lead(container)
         app = create_app(container)
         app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
+        # The open and the approval are idempotent writes: they need the replay cache (fail closed
+        # without one, a 500). The other route tests set the same in-memory cache.
+        app.state.cache = InMemoryCache(container.clock)
         yield app
     finally:
         await connection.close()
 
 
 async def _seed_lead(container: Any) -> None:
-    """One shift lead (active, with an active shift-lead role) who may approve a ticket.
+    """The people the routes act for: a reporter (who shares a code), a support person (who opens
+    one) and one shift lead (active, with an active shift-lead role) who may approve a ticket.
 
-    Written through the
-    person repository, so the product reads it the way it reads any practitioner.
+    The code and the open match the practitioner by id in the graph, so each one must exist; a
+    missing practitioner is a refusal (the non-revealing 404). Written through the person
+    repository, so the product reads them the way it reads any practitioner.
     """
     async with container.uow_factory() as uow:
-        await uow.people.save_practitioner(
-            Practitioner(id="p-lead", active=True, display_name="Sample Lead", phone_hash=None)
-        )
+        for practitioner_id, name in (
+            ("prac-reporter", "Sample Reporter"),
+            ("prac-support", "Sample Support"),
+            ("p-lead", "Sample Lead"),
+        ):
+            await uow.people.save_practitioner(
+                Practitioner(id=practitioner_id, active=True, display_name=name, phone_hash=None)
+            )
         await uow.people.save_role(
             PractitionerRole(
                 id="r-lead",
@@ -254,6 +271,8 @@ async def test_events_are_refused_before_an_open_and_read_after_it_with_allow_li
 async def test_a_ticket_is_pending_until_a_lead_approves_it_and_then_opens_the_session(
     client: AsyncClient,
 ) -> None:
+    # A ticket is requested on a session that exists: the reporter's code creates the session.
+    await _create_code(client, key="k-ticket-session")
     requested = await client.post(
         f"/support/sessions/{SESSION}/ticket",
         json={"ticket": "INC-100"},
@@ -265,6 +284,7 @@ async def test_a_ticket_is_pending_until_a_lead_approves_it_and_then_opens_the_s
     )
     approved = await client.post(
         "/support/tickets/INC-100/approve",
+        json={},  # every POST needs a JSON or FHIR body type (FHIR R4B); the approval has no fields
         headers=_headers(Role.LEAD, "p-lead", "k-approve"),
     )
     opened = await client.post(

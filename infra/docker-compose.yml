@@ -94,6 +94,10 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.162.0
     profiles: ["test"]
+    # The image runs as 10001, and `up` creates the ./otel-out bind mount as root (mode 755), so the
+    # file exporter could not write it (permission denied at start). The test profile runs as root;
+    # it holds no secret and exports to a file only.
+    user: "0:0"
     command:
       - "--config=/etc/otelcol/config.yaml"
       - "--config=/etc/otelcol/otel-collector.test.yaml"

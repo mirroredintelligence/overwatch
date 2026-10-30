@@ -88,7 +88,12 @@ async def test_a_registry_node_with_no_tenant_is_not_a_violation(
     connection: Neo4jConnection, harness_driver: AsyncDriver, label: str
 ) -> None:
     await _run(harness_driver, f"CREATE (:`{label}` {{id: 'registry-1', note: $m}})", m=MARKER)
-    assert (await Neo4jTenantInvariants(connection).check()).ok
+    try:
+        assert (await Neo4jTenantInvariants(connection).check()).ok
+    finally:
+        # The clean-graph wipe keeps every :Migration node, so a probe of that label would count
+        # as a recorded migration for every later test on the shared harness.
+        await _run(harness_driver, "MATCH (n:Migration {id: 'registry-1'}) DETACH DELETE n")
 
 
 async def test_a_node_with_no_tenant_is_counted_by_its_labels_and_leaks_no_value(

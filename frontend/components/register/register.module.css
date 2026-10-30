@@ -144,3 +144,10 @@
   outline: var(--focus);
   outline-offset: 2px;
 }
+
+.subheading {
+  margin: var(--space-4) 0 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}

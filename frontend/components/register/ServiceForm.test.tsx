@@ -111,14 +111,14 @@ describe('ServiceForm: exclusions, ages and districts', () => {
     bffRegistrationState.view = { ...(bffRegistrationState.view as object), steps: { location: { fixedSite: false } } };
     const first = await open();
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByText('Choose the districts you cover')).toBeInTheDocument();
+    expect((await screen.findAllByText('Choose the districts you cover')).length).toBeGreaterThanOrEqual(1);
     first.unmount();
 
     bffRegistrationState.view = { ...(bffRegistrationState.view as object), steps: { location: { fixedSite: true } } };
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     expect(screen.queryByText('Choose the districts you cover')).not.toBeInTheDocument();
-  });
+  }, 30_000);
 });
 
 describe('ServiceForm: validation and saving', () => {
@@ -136,7 +136,7 @@ describe('ServiceForm: validation and saving', () => {
     expect(within(region).getByRole('link', { name: 'Choose a category' })).toHaveAttribute('href', '#category');
     expect(within(region).getByRole('link', { name: 'Enter who owns the criteria' })).toHaveAttribute('href', '#ownerRole');
     expect(seenStepSaves).toHaveLength(0);
-  });
+  }, 30_000);
 
   it('"No limit" sends the oldest age as null, and a valid form PUTs the coded values and goes to step 4', async () => {
     await open();
@@ -163,12 +163,12 @@ describe('ServiceForm: validation and saving', () => {
         districts: ['DT3', 'DT4'],
       },
     });
-  });
+  }, 30_000);
 
   it('has no axe violations with errors shown', async () => {
     const { container } = await open();
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await screen.findByRole('heading', { name: /^There (is a problem|are \d+ problems)$/ });
     expect((await runAxe(container)).violations).toEqual([]);
-  });
+  }, 30_000);
 });

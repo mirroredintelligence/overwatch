@@ -12,11 +12,16 @@ type Context = { params: Promise<{ id: string }> };
 
 const ID = /^[A-Za-z0-9-]{1,64}$/;
 
-/** The page's view of one saved step. Only the organisation step has a mapping so far (W54). */
+/**
+ * The page's view of the saved steps. The organisation's answers (W54) and the location's fixed-site
+ * answer (W25 needs it for the districts rule) are passed on; nothing else of a step is.
+ */
 function pageSteps(view: RegistrationView): Record<string, StepValues> {
   const steps: Record<string, StepValues> = {};
   const organisation = view.steps?.organisation;
   if (organisation !== undefined) steps.organisation = organisationAnswers(organisation);
+  const location = view.steps?.location;
+  if (location !== undefined && typeof location.fixedSite === 'boolean') steps.location = { fixedSite: location.fixedSite };
   return steps;
 }
 

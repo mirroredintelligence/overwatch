@@ -4,7 +4,8 @@ Every statement uses IF NOT EXISTS, and each applied migration is recorded as (:
 appliedAt}) so it is skipped next time. Never edit an applied migration (a unit test pins a digest
 of the core list). The list is assembled from per-area modules, so a later task adds its own ids to
 its own module and never edits the core list: `migrations_tenant.py` (the tenant schema, TEN-005,
-TEN-007, TEN-031, TEN-032), `migrations_tenant_config.py` (the tenant configuration records,
+TEN-007, TEN-031), `migrations_contract.py` (the contract step that drops the superseded
+single-property keys, TEN-032), `migrations_tenant_config.py` (the tenant configuration records,
 TEN-026) and `migrations_network.py` (the network registry and projections, TEN-051,
 TEN-053). Ids stay unique and ascending across all areas.
 
@@ -30,6 +31,7 @@ from diucs.adapters.outbound.graph_store.migration_types import (
     Migration,
     MigrationFailed,
 )
+from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS
@@ -181,9 +183,11 @@ MIGRATIONS: Final[list[Migration]] = assemble_migrations(
     PROTECTED_MIGRATIONS,
     SUPPORT_MIGRATIONS,
     SAFETY_MIGRATIONS,
+    CONTRACT_MIGRATIONS,
 )
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"
+_CONSTRAINT_NAMES = "SHOW CONSTRAINTS YIELD name RETURN name"
 _RECORD = "MERGE (m:Migration {id: $id}) ON CREATE SET m.appliedAt = $appliedAt"
 
 
@@ -222,7 +226,26 @@ async def _record(driver: AsyncDriver, migration_id: str) -> None:
         await session.execute_write(work)
 
 
+async def _constraint_names(tx: AsyncManagedTransaction) -> set[str]:
+    result = await tx.run(_CONSTRAINT_NAMES)
+    return {row["name"] for row in await result.data()}
+
+
+async def _check_requires(driver: AsyncDriver, migration: Migration) -> None:
+    """Refuse a migration whose required constraints are not all there, before it changes anything.
+    The message names the missing constraints (schema names, never a statement or a value)."""
+    if not migration.requires:
+        return
+    async with driver.session() as session:
+        present = await session.execute_read(_constraint_names)
+    missing = [name for name in migration.requires if name not in present]
+    if missing:
+        listed = ", ".join(f"constraint {name} is missing" for name in missing)
+        raise MigrationFailed(f"migration {migration.id} failed at precondition: {listed}")
+
+
 async def _apply_one(driver: AsyncDriver, migration: Migration) -> None:
+    await _check_requires(driver, migration)
     params = dict(migration.params)
     for number, statement in enumerate(migration.statements, start=1):
         await _step(migration, f"statement {number}", _run_statement(driver, statement, params))

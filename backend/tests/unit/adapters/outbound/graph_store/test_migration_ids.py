@@ -8,7 +8,6 @@ import hashlib
 import json
 
 import pytest
-from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
 
 from diucs.adapters.outbound.graph_store.migration_types import Migration
 from diucs.adapters.outbound.graph_store.migrations import (
@@ -16,6 +15,7 @@ from diucs.adapters.outbound.graph_store.migrations import (
     MIGRATIONS,
     assemble_migrations,
 )
+from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS

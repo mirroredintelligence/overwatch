@@ -359,7 +359,7 @@ async def test_without_a_second_argument_the_runner_uses_the_module_list(
     world = _World()
 
     assert await runner.apply_migrations(world) == ["0090_a"]  # type: ignore[arg-type]
-    assert _statements(world) == ["S1"]
+    assert [s for s in _statements(world) if s != _CONSTRAINT_NAMES] == ["S1"]
 
 
 async def test_with_a_list_the_runner_uses_that_list_and_not_the_module_list(
@@ -383,7 +383,7 @@ async def test_a_migration_runs_when_every_required_constraint_exists() -> None:
     plan = [Migration("0090_a", ("S1",), requires=("keep_a", "keep_b"))]
 
     assert await runner.apply_migrations(world, plan) == ["0090_a"]  # type: ignore[arg-type]
-    assert _statements(world) == ["S1"]
+    assert [s for s in _statements(world) if s != _CONSTRAINT_NAMES] == ["S1"]
 
 
 async def test_a_missing_required_constraint_stops_the_migration_before_any_statement() -> None:
@@ -400,7 +400,7 @@ async def test_a_missing_required_constraint_stops_the_migration_before_any_stat
     assert (
         str(caught.value) == "migration 0090_a failed at precondition: constraint keep_b is missing"
     )
-    assert _statements(world) == []
+    assert [s for s in _statements(world) if s != _CONSTRAINT_NAMES] == []
     assert world.applied == set()
 
 

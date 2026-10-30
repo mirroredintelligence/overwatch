@@ -27,6 +27,9 @@ class Migration:
     loops: tuple[str, ...] = ()
     params: Mapping[str, Any] = field(default_factory=dict, hash=False)
     batch: int = 10_000
+    # Names of constraints that must exist before the first statement runs (TEN-032: a key is
+    # dropped only when its replacement is there). A missing one stops the migration untouched.
+    requires: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if self.batch < 1:

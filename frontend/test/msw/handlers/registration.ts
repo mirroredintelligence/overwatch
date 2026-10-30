@@ -97,4 +97,45 @@ export const bffRegistrationHandlers = [
   }) as HttpResponseResolver),
 ];
 
-export const registrationHandlers = [...backendIdentityHandlers, ...bffRegistrationHandlers];
+/** The BFF's session answer (CSRF token included) that the registration pages read before a save. */
+export const sessionAnswer = { role: 'reporter', services: [] as string[], sub: 'person-sample-1', csrfToken: 'csrf-sample-token' };
+
+/** The registration the BFF reads at its GET and the answer to a step save (W54 and later). */
+export const bffRegistrationState: { view: unknown; read: BackendReply; step: BackendReply } = {
+  view: {
+    id: 'REG-SAMPLE-1',
+    status: 'draft',
+    invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
+    steps: {},
+  },
+  read: { status: 200, body: {} },
+  step: { status: 200, body: { status: 'draft' } },
+};
+
+/** Every step save the browser made, newest last. */
+export const seenStepSaves: { id: string; step: string; body: unknown; csrf: string | null }[] = [];
+
+export function resetStepSaves() {
+  seenStepSaves.length = 0;
+  bffRegistrationState.step = { status: 200, body: { status: 'draft' } };
+}
+
+export const bffRegistrationStepHandlers = [
+  http.get('/api/bff/session', (() =>
+    HttpResponse.json(sessionAnswer, { headers: { 'Cache-Control': 'no-store' } })) as HttpResponseResolver),
+  http.get('/api/bff/registrations/:id', (({ params }) => {
+    if (bffRegistrationState.read.status !== 200) return reply(bffRegistrationState.read);
+    return HttpResponse.json({ ...(bffRegistrationState.view as object), id: String(params.id) }, { headers: { 'Cache-Control': 'no-store' } });
+  }) as HttpResponseResolver),
+  http.put('/api/bff/registrations/:id/steps/:step', (async ({ request, params }) => {
+    seenStepSaves.push({
+      id: String(params.id),
+      step: String(params.step),
+      body: await jsonBody(request),
+      csrf: request.headers.get('x-csrf-token'),
+    });
+    return reply(bffRegistrationState.step);
+  }) as HttpResponseResolver),
+];
+
+export const registrationHandlers = [...backendIdentityHandlers, ...bffRegistrationHandlers, ...bffRegistrationStepHandlers];

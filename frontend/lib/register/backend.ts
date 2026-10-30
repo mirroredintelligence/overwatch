@@ -59,3 +59,14 @@ export async function signInRegistrant(input: RegistrantSignIn): Promise<{ regis
   void input;
   throw notBuilt('The registration sign-in');
 }
+
+// Stubs (red commit) for the registration reads and the step save (W54).
+import type { RegistrationView, StepName } from './types';
+
+export async function readRegistration(_token: string, _id: string): Promise<RegistrationView> {
+  throw notBuilt('The registration read');
+}
+
+export async function saveStep(_token: string, _id: string, _step: StepName, _values: Record<string, unknown>): Promise<{ status: string }> {
+  throw new Error('not implemented');
+}

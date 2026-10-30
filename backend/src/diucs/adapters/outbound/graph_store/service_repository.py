@@ -13,6 +13,7 @@ from datetime import time
 from enum import StrEnum
 from typing import Any, Final
 
+from diucs.adapters.fhir_shared.booking_task import codeable_to_fhir as codeable_to_fhir
 from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
@@ -22,11 +23,9 @@ from diucs.domain.codes import (
     CODE_SYSTEM_NAMES,
     Cadence,
     Channel,
-    Coding,
     Measure,
     ServiceCategory,
     code_system_url,
-    coding_for,
     parse_code,
 )
 from diucs.domain.errors import NotFound, ValidationFailed
@@ -52,13 +51,6 @@ def _register(query: NamedQuery) -> None:
 
 
 _register(_LIST_ACTIVE)
-
-
-def codeable_to_fhir(member: StrEnum) -> dict[str, Any]:
-    """A CodeableConcept with one coding for a local code (the coding's system comes from its enum
-    class)."""
-    coding: Coding = coding_for(member)
-    return {"coding": [{"system": coding.system, "code": coding.code, "display": coding.display}]}
 
 
 def codeable_from_fhir[E: StrEnum](concept: Any, enum_cls: type[E], field: str) -> E:

@@ -103,7 +103,7 @@ from diucs.application.ports.outbound.tokens import (
     SecretStore,
 )
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant, current_tenant
+from diucs.application.tenancy import ScopeId, bind_tenant, current_tenant
 from diucs.application.tenant_settings import (
     DirectoryLinkBase,
     DirectoryZones,
@@ -131,7 +131,9 @@ from diucs.application.use_cases.missed_report_ladder import (
     LadderStepCommand,
     MissedReportLadder,
 )
+from diucs.application.use_cases.request_booking import LinkBaseUrlFor
 from diucs.application.use_cases.review_registration import AreaDistrictsFor
+from diucs.application.use_cases.suspend_service import WordingFor
 from diucs.application.use_cases.tenant_invariants import (
     InvariantMonitor,
     RunInvariantCheck,
@@ -147,6 +149,7 @@ from diucs.bootstrap.areas import area_districts_for
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
 from diucs.domain.model.telemetry_aggregates import DayAggregates
+from diucs.domain.model.tenant import TenantWording
 from diucs.domain.rules.tenant_keys import check_key_version
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -221,6 +224,11 @@ class Container:
     # The area of each tenant for the registration review (U28, DEC-317): no default, so a tenant
     # with no entry in the settings has an empty area (R11 wiring, bootstrap/wiring.py).
     area_districts_for: AreaDistrictsFor
+    # The link host of a tenant and the wording its booking messages print (R09, L02). Neither has a
+    # source in production yet (tenant configuration: TEN-022, TEN-028), so the production profile
+    # fails closed: no host is an error, no wording a refused request (H-T15).
+    link_base_url_for: LinkBaseUrlFor
+    wording_for: WordingFor
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -269,6 +277,31 @@ class Container:
             await self.neo4j.close()
         finally:
             await self.redis.aclose()
+
+
+def _no_link_host(scope: ScopeId) -> str:
+    """Production has no link host for a tenant yet (TEN-028): a booking request is refused."""
+    raise RuntimeError("no link host is configured for this tenant")
+
+
+async def _no_wording(scope: ScopeId) -> TenantWording | None:
+    """Production has no wording for a tenant yet (TEN-022): a booking request is refused."""
+    return None
+
+
+async def _test_wording(scope: ScopeId) -> TenantWording | None:
+    return TenantWording(
+        system_name="Test system",
+        referral_system_name="Test referral system",
+        coordination_team_name="The SPOA shift lead",
+    )
+
+
+def _test_link_host(link_base_url: str) -> LinkBaseUrlFor:
+    def link_host(scope: ScopeId) -> str:
+        return link_base_url
+
+    return link_host
 
 
 def ladder_handlers(ladder: MissedReportLadder) -> dict[WorkKind, WorkHandler]:
@@ -521,6 +554,8 @@ def build(
         ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for(settings.tenant_areas),
+        link_base_url_for=_no_link_host,
+        wording_for=_no_wording,
     )
 
 
@@ -588,4 +623,6 @@ def build_for_tests(
         ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for({} if areas is None else areas),
+        link_base_url_for=_test_link_host(link_base_url),
+        wording_for=_test_wording,
     )

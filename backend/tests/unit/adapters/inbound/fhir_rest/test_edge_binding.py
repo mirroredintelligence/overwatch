@@ -525,6 +525,8 @@ BINDS_ITSELF = {
     ("POST", "/identity/code/verify"): "tenant from the host (R11)",
     ("POST", "/identity/pin"): "tenant from the host (R11)",
     ("POST", "/identity/pin/verify"): "tenant from the host (R11)",
+    ("POST", "/identity/new-phone"): "tenant from the host, the code edge of R11 (R13, DEC-411)",
+    ("POST", "/identity/new-phone/verify"): "tenant from the host, the code edge of R11 (R13)",
     ("GET", "/identity/status"): "tenant from the host (R11)",
     ("POST", "/webhooks/sms/twilio"): "tenant from the number called and the account (I07)",
     ("POST", "/webhooks/sms/twilio/status"): "tenant from the account and the message (I07)",

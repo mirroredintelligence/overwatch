@@ -120,6 +120,9 @@ LINK_PROMPT_MESSAGES: Final = frozenset(
 these."""
 
 ACTIONS: Final = frozenset({"confirm", "number", "closed"})
+BOOKING_ACTIONS: Final = frozenset({"decline", "withdraw", "not-reached"})
+"""The answers of the booking links (L02). The shared gate only checks their shape; the booking
+purpose checks the reason and the state (booking_links.py)."""
 CLOSED_VALUE: Final = 0
 MAX_VALUE: Final = 999
 
@@ -164,6 +167,15 @@ class CsrfRejected(DomainError):
     """The CSRF token is missing or wrong. Nothing was read or written."""
 
 
+class LinkConflict(DomainError):
+    """The booking a link is for is no longer open for this answer (L02): `state` is its state word
+    (expired, cancelled, declined, ...), and the page answers 409 with that word."""
+
+    def __init__(self, state: str) -> None:
+        super().__init__(state)
+        self.state = state
+
+
 class LinkOutOfRange(DomainError):
     """The figure is outside the service's usual range and was not confirmed. Carries the range."""
 
@@ -200,6 +212,8 @@ class LinkAction:
     action: str
     value: int | None = None
     confirm_out_of_range: bool = False
+    reason: str | None = None
+    """The reason a booking answer gives (L02): a decline, a withdrawal or a not-reached reason."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -498,8 +512,14 @@ def check_action(action: LinkAction) -> None:
     """The shape of the answer, before anything is read: an action the page knows, a figure only
     for `number`, a whole number from 0 to 999, and `confirmOutOfRange` only where a figure is
     sent. Field names only in the refusals."""
+    if action.action in BOOKING_ACTIONS:
+        if action.value is not None or action.confirm_out_of_range:
+            raise ValidationFailed("value", "a booking answer takes no figure")
+        return
     if action.action not in ACTIONS:
         raise ValidationFailed("action", "is not one of confirm, number, closed")
+    if action.reason is not None:
+        raise ValidationFailed("reason", "is not a field of this link")
     if action.action == "number":
         value = action.value
         if isinstance(value, bool) or not isinstance(value, int):
@@ -677,6 +697,8 @@ class CapacityLinkHandler:
         }
 
     async def respond(self, link: LinkRequest, action: LinkAction) -> Body:
+        if action.action not in ACTIONS:
+            raise ValidationFailed("action", "is not one of confirm, number, closed")
         async with self._uow_factory() as uow:
             target = await self._target(uow, link)
             profile = target.profile

@@ -280,3 +280,36 @@ async def test_a_reporter_of_another_service_cannot_withdraw_the_booking(
 async def _works(uow_factory: UnitOfWorkFactory, booking_id: str) -> list[ScheduledWork]:
     async with uow_factory() as uow:
         return await uow.scheduled_work.for_about(booking_id, WorkKind.WITHDRAWAL_ESCALATE)
+
+
+async def test_a_second_acknowledgement_with_a_new_key_writes_no_second_audit_entry(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, clean_graph: None
+) -> None:
+    """R17: the advisor acknowledges again (a new key): 200 with nothing cancelled, and one
+    acknowledgement in the audit log, not two."""
+    await seed_world(uow_factory, neo4j_driver)
+    booking_id = await _confirmed(uow_factory, neo4j_driver, "wd-3", at_time=at(14, 19))
+    await withdraw_use_case(uow_factory, neo4j_driver, at(14, 41)).execute(
+        WithdrawBookingCommand(
+            idempotency_key="wd-3",
+            actor=REPORTER,
+            booking_id=booking_id,
+            reason=WithdrawReason.STAFFING,
+        )
+    )
+    first = await AcknowledgeWithdrawal(
+        uow_factory, _driver_idem(neo4j_driver), FixedClock(at(14, 45))
+    ).execute(
+        AcknowledgeWithdrawalCommand(idempotency_key="ack-3a", actor=ADVISOR, booking_id=booking_id)
+    )
+    second = await AcknowledgeWithdrawal(
+        uow_factory, _driver_idem(neo4j_driver), FixedClock(at(14, 46))
+    ).execute(
+        AcknowledgeWithdrawalCommand(idempotency_key="ack-3b", actor=ADVISOR, booking_id=booking_id)
+    )
+    assert first.cancelled_escalation is True
+    assert second.cancelled_escalation is False
+    async with uow_factory() as uow:
+        records = await uow.audit.records_for(booking_id)
+    acknowledgements = [r for r in records if r.entry.use_case == "AcknowledgeWithdrawal"]
+    assert len(acknowledgements) == 1

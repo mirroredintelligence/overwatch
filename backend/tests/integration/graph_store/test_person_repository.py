@@ -20,6 +20,7 @@ from diucs.domain.codes import Channel, PractitionerRoleCode
 from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole, role_holder
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.races import ReadBarrier, write_once
 from tests.support.round_trip import assert_round_trip
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -304,18 +305,59 @@ async def test_a_cover_by_an_unknown_practitioner_is_refused_and_writes_nothing(
     assert await _count_rels(neo4j_driver, "COVERED_BY") == 0
 
 
-async def test_sixteen_racing_saves_of_one_new_practitioner_let_exactly_one_win(
-    neo4j_driver: AsyncDriver,
-) -> None:
+class _RacingStore(ResourceStore):
+    """A store that holds each racer after its first read, until all of them have read."""
+
+    def __init__(self, tx: AsyncManagedTransaction, barrier: ReadBarrier) -> None:
+        super().__init__(tx)
+        self._barrier = barrier
+
+    async def get(self, type: str, id: str) -> dict[str, Any] | None:
+        found = await super().get(type, id)
+        await self._barrier.hold(self)
+        return found
+
+
+async def _race_sixteen_saves(driver: AsyncDriver) -> list[str]:
+    barrier = ReadBarrier(16)
+
     async def save_once() -> str:
+        async def work(tx: AsyncManagedTransaction) -> None:
+            await Neo4jPersonRepository(tx, _RacingStore(tx, barrier)).save_practitioner(P1)
+
         try:
-            await write_tx(neo4j_driver, lambda tx: _repo(tx).save_practitioner(P1))
+            await write_once(driver, work)
         except Conflict:
             return "conflict"
         return "saved"
 
-    outcomes = await asyncio.gather(*(save_once() for _ in range(16)))
+    return list(await asyncio.gather(*(save_once() for _ in range(16))))
+
+
+async def test_sixteen_racing_saves_of_one_new_practitioner_let_exactly_one_win(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # Every racer reads "no practitioner" before any writes (the barrier), and none is re-run
+    # after a deadlock (F6B): the one that saves is the only one that may.
+    outcomes = await _race_sixteen_saves(neo4j_driver)
 
     assert outcomes.count("saved") == 1
     assert outcomes.count("conflict") == 15
     assert await count_nodes(neo4j_driver, "Practitioner") == 1
+
+
+async def test_sixteen_racing_saves_over_one_stored_practitioner_let_exactly_one_win(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # All sixteen read version 1 and replace it. They wait for the root one after another and
+    # none may deadlock with the writer that holds it (F6B: the root's unique key entry).
+    await _write(neo4j_driver, P1)
+
+    outcomes = await _race_sixteen_saves(neo4j_driver)
+
+    assert outcomes.count("saved") == 1
+    assert outcomes.count("conflict") == 15
+    assert await count_nodes(neo4j_driver, "Practitioner") == 1
+    stored = await write_tx(neo4j_driver, lambda tx: ResourceStore(tx).get("Practitioner", "p1"))
+    assert stored is not None
+    assert stored["meta"]["versionId"] == "2"

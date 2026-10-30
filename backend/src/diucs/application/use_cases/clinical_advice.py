@@ -37,6 +37,7 @@ from diucs.domain.events import ClinicalAdviceGiven
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
 from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY
 from diucs.domain.rules.clinical_queue import (
     TAKE_TIMEOUT,
     ClinicalRequest,
@@ -107,7 +108,9 @@ def queue_now(
     so the release must come before it; DEC-039 item 8), then the order of queue_order."""
     released: dict[str, ClinicalRequestRecord] = {}
     for record in records:
-        released[record.request.id] = replace(record, request=return_if_idle(record.request, now))
+        released[record.request.id] = replace(
+            record, request=return_if_idle(record.request, now, DEFAULT_POLICY)
+        )
     ordered = queue_order([r.request for r in released.values()])
     return [released[request.id] for request in ordered]
 
@@ -318,7 +321,7 @@ class TakeClinicalRequest:
             if record is None:
                 raise NotFound(NO_REQUEST)
             now = self._clock.now()
-            taken = take(record.request, clinician, now)
+            taken = take(record.request, clinician, now, DEFAULT_POLICY)
             if taken == record.request:
                 return
             await uow.clinical_requests.save(replace(record, request=taken))
@@ -361,7 +364,7 @@ class ReturnIdleRequest:
             if record is None:
                 return
             now = self.clock.now()
-            returned = return_if_idle(record.request, now)
+            returned = return_if_idle(record.request, now, DEFAULT_POLICY)
             if returned == record.request:
                 return
             await uow.clinical_requests.save(replace(record, request=returned))
@@ -415,7 +418,7 @@ class GiveClinicalAdvice:
             if record is None:
                 raise NotFound(NO_REQUEST)
             now = self._clock.now()
-            advised = give_advice(record.request, clinician, now)
+            advised = give_advice(record.request, clinician, now, DEFAULT_POLICY)
             handle = None
             if command.note is not None:
                 handle = await uow.protected_text.put(

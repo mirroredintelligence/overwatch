@@ -29,6 +29,7 @@ from diucs.domain.events import (
     BookingRequested,
     BookingResponded,
     CapacityReported,
+    ClinicalAdviceGiven,
     CriteriaApproved,
     DomainEvent,
     PhoneTaskRaised,
@@ -70,6 +71,7 @@ SAMPLES: tuple[DomainEvent, ...] = (
     ReportFlagged("flag-1", SERVICE_ID, "obs-1", ReportFlagReason.MANY_CHANGES, AT),
     PhoneTaskRaised(SERVICE_ID, DUE_AT, AT),
     ReportEscalated(SERVICE_ID, DUE_AT, AT),
+    ClinicalAdviceGiven("clin-req-1", "go-ahead", AT),
 )
 
 EXPECTED_TOPIC: dict[type, str] = {
@@ -91,6 +93,7 @@ EXPECTED_TOPIC: dict[type, str] = {
     ReportFlagged: "capacity.events",
     PhoneTaskRaised: "capacity.events",
     ReportEscalated: "alerts.events",
+    ClinicalAdviceGiven: "alerts.events",
 }
 
 

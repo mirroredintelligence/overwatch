@@ -39,6 +39,7 @@ from diucs.adapters.outbound.graph_store.migrations_tenant import (
     backfill_default_tenant,
     invariant_violations,
 )
+from diucs.adapters.outbound.graph_store.migrations_tenant_config import TENANT_CONFIG_MIGRATIONS
 from diucs.application.tenancy import DEFAULT_TENANT_ID
 from tests.support.neo4j import read_tx, throwaway_driver, wipe, write_tx
 from tests.support.tenant_seed import (
@@ -190,6 +191,7 @@ PINNED_MIGRATION_IDS = [
     "0041_service_move_id",
     "0045_support_session_id",
     "0046_support_code_hash",
+    "0055_tenant_config_records",
     "0070_safety_counter_id",
 ]
 
@@ -204,6 +206,7 @@ async def test_a_fresh_database_applies_every_migration_in_order(built: _Built) 
         PROTECTED_MIGRATIONS,
         SUPPORT_MIGRATIONS,
         SAFETY_MIGRATIONS,
+        TENANT_CONFIG_MIGRATIONS,
     )
     assert len(built.applied) == sum(len(area) for area in areas)
     # ...and the ids are pinned, so adding, removing or renaming one is a change to this list made

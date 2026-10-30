@@ -124,3 +124,31 @@ export async function readMine(token: string): Promise<{ id: string; serviceName
   void token;
   throw notBuilt('The list of my services');
 }
+
+/** NOT BUILT: no route serves a registration's status for its applicant yet. */
+export async function readStatus(token: string, id: string): Promise<Record<string, unknown>> {
+  void token;
+  void id;
+  throw notBuilt('The registration status');
+}
+
+/** NOT BUILT: no route sends the applicant's test notification yet. */
+export async function sendTestNotification(token: string, id: string): Promise<void> {
+  void token;
+  void id;
+  throw notBuilt('The test notification');
+}
+
+/** NOT BUILT: no route asks the shift lead to look again yet. */
+export async function askForReview(token: string, id: string): Promise<void> {
+  void token;
+  void id;
+  throw notBuilt('The review request');
+}
+
+/** NOT BUILT: no route records that the applicant's details are still right yet. */
+export async function confirmDetails(token: string, id: string): Promise<void> {
+  void token;
+  void id;
+  throw notBuilt('The details confirmation');
+}

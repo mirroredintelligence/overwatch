@@ -207,7 +207,43 @@ export const bffRegistrationReviewHandlers = [
 
 // The BFF's fixed paths (mine, review, submit) come before the registration's /:id read, so a path
 // such as /registrations/mine is answered by its own handler, not as an id.
+/** The status the applicant's page reads (W27). A test sets `statusState.reply` for the state it shows. */
+export const statusState: { reply: BackendReply } = {
+  reply: {
+    status: 200,
+    body: { status: 'in-review', serviceName: 'UCR West', submittedAt: '2026-10-23T13:30:00Z' },
+  },
+};
+
+/** The applicant's actions on the status page (W27), newest last. */
+export const seenStatusActions: { action: string; csrf: string | null }[] = [];
+
+export function resetStatusState() {
+  seenStatusActions.length = 0;
+  statusState.reply = {
+    status: 200,
+    body: { status: 'in-review', serviceName: 'UCR West', submittedAt: '2026-10-23T13:30:00Z' },
+  };
+}
+
+export const bffStatusHandlers = [
+  http.get('/api/bff/registrations/:id/status', (() => reply(statusState.reply)) as HttpResponseResolver),
+  http.post('/api/bff/registrations/:id/test', ((({ request }) => {
+    seenStatusActions.push({ action: 'test', csrf: request.headers.get('x-csrf-token') });
+    return HttpResponse.json({ sent: true }, { status: 200 });
+  })) as HttpResponseResolver),
+  http.post('/api/bff/registrations/:id/review-request', ((({ request }) => {
+    seenStatusActions.push({ action: 'review-request', csrf: request.headers.get('x-csrf-token') });
+    return HttpResponse.json({ asked: true }, { status: 202 });
+  })) as HttpResponseResolver),
+  http.post('/api/bff/registrations/:id/confirm-details', ((({ request }) => {
+    seenStatusActions.push({ action: 'confirm-details', csrf: request.headers.get('x-csrf-token') });
+    return HttpResponse.json({ confirmed: true }, { status: 200 });
+  })) as HttpResponseResolver),
+];
+
 export const registrationHandlers = [
+  ...bffStatusHandlers,
   ...backendIdentityHandlers,
   ...bffRegistrationHandlers,
   ...bffRegistrationReviewHandlers,

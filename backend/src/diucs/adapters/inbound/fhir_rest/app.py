@@ -92,6 +92,7 @@ def create_app(
     # Imported here: the route modules depend on auth, which imports this module (DEC-111).
     from diucs.adapters.inbound.fhir_rest import (
         routes_board,
+        routes_cases,
         routes_events,
         routes_lead,
         routes_screens,
@@ -104,6 +105,7 @@ def create_app(
     # $board must be routed before any HealthcareService/{id} route, or {id} would take it.
     app.include_router(routes_board.router)
     app.include_router(routes_services.router)
+    app.include_router(routes_cases.router)
     routes_services.register_capabilities()
     # The Pathways Dx lookup (R16) is not FHIR: a plain list for the score picker.
     app.include_router(routes_terminology.router)

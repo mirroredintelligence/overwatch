@@ -29,7 +29,8 @@ export type ScopeEntry = {
 
 export type ScopeList = { entries: ScopeEntry[] };
 
-export type QueueTab = 'to-review' | 'waiting' | 'go-live' | 'done';
+/** The back end's own tabs (routes_registration_views.py QUEUE_TABS); the counts come with them. */
+export type QueueTab = 'waiting' | 'sent-back' | 'approved' | 'live' | 'not-approved';
 
 export type QueueItem = {
   id: string;
@@ -38,11 +39,13 @@ export type QueueItem = {
   /** ISO 8601 instant. */
   submittedAt: string;
   submittedByRole: string;
-  firstIssue?: string;
+  category?: string;
 };
 
 export type QueueResponse = {
-  counts: { toReview: number; waiting: number; goLive: number };
+  tab: QueueTab;
+  counts: Partial<Record<QueueTab, number>>;
+  tabs: { key: string; label: string; count: number }[];
   items: QueueItem[];
 };
 
@@ -65,8 +68,8 @@ export type Overview = {
 };
 
 export type CallBackDetails = {
-  /** The number from the NHS register or the directory. The only number the call-back may use. */
-  numberToCall: string;
+  /** The number from the NHS register or the directory, when the back end holds one (K-W8C-2: it does not yet). */
+  numberToCall?: string;
   /** The number on the registration. Shown for comparison; never called. */
   numberGiven?: string;
   /** The directory's name, from tenant configuration (for example "the area directory"). */

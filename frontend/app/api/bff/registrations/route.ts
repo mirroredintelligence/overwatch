@@ -1,22 +1,26 @@
 import { withBff } from '@/lib/bff/handler';
-import { notServed } from '@/lib/registration/backend';
+import { readQueue } from '@/lib/register/backend';
 import { badRequest } from '@/lib/registration/request';
 import { QUEUE_TABS } from '@/lib/registration/model';
+import { queueFromBackend } from '@/lib/registration/mapping';
+import { bffJson, refuse } from '@/lib/register/requests';
 import type { QueueTab } from '@/lib/registration/types';
 
-// The registrations queue (W28): the counts and one tab's items. Lead only.
-// The back end does not serve the queue yet (R10), so this answers 503 `not-supported` until it does.
+// The registrations queue (W28): the back end's tabs with their counts, and one tab's rows. Lead only.
+// The default tab is waiting. A tab the back end does not have is a 400 and nothing is asked.
 
 function tabOf(request: Request): QueueTab {
-  const tab = new URL(request.url).searchParams.get('tab') ?? 'to-review';
+  const tab = new URL(request.url).searchParams.get('tab') ?? 'waiting';
   if (!(QUEUE_TABS as readonly string[]).includes(tab)) badRequest();
   return tab as QueueTab;
 }
 
 const get = withBff(
-  async (request) => {
-    tabOf(request);
-    notServed();
+  async (request, session) => {
+    const tab = tabOf(request);
+    const queue = queueFromBackend(await readQueue(session.backendToken, tab));
+    if (queue === null) return refuse(503, 'unavailable', 'We could not load the registrations. Try again later.');
+    return bffJson(200, queue);
   },
   { roles: ['lead'] },
 );

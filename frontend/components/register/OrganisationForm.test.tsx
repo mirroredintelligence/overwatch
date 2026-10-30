@@ -13,8 +13,8 @@ withApplicantHandlers();
 // These flows type through a whole form in one test: the suite's default five seconds is too little on a loaded machine.
 vi.setConfig({ testTimeout: 20_000 });
 
-// Registration step 1 (W54, artboard RegisterFlow1 panel 3). The invitation's values are shown as
-// text and cannot be changed; the answers are the organisation's own.
+// Registration step 1 (W54, artboard RegisterFlow1 panel 3). The service is shown as text; the
+// organisation's name and ODS code are typed by the applicant (DEC-910).
 
 const push = vi.hoisted(() => vi.fn());
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }));
@@ -41,19 +41,19 @@ beforeEach(() => {
   bffRegistrationState.view = {
     id: ID,
     status: 'draft',
-    invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
+    serviceName: 'UCR West',
     steps: {},
   };
 });
 
-describe('OrganisationForm: the invitation and the screen', () => {
-  it('shows the invitation values as text, with no input for any of them', async () => {
+describe('OrganisationForm: the service and the screen', () => {
+  it('shows the service as text, and the organisation name and ODS code as inputs the applicant types', async () => {
     await open();
     expect(screen.getByText('UCR West')).toBeInTheDocument();
-    expect(screen.getByText('Sample Community Trust')).toBeInTheDocument();
-    expect(screen.getByText('RSA01')).toBeInTheDocument();
-    expect(screen.getByText('From your invitation. It cannot be changed.')).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: /^(service|organisation|ODS code)$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Organisation name' })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'ODS code' })).toBeInTheDocument();
+    expect(screen.queryByText('From your invitation. It cannot be changed.')).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /^service$/i })).not.toBeInTheDocument();
   });
 
   it('shows the step label, the organisation type chips, and the fields with Required or Optional as words', async () => {
@@ -105,7 +105,7 @@ describe('OrganisationForm: validation', () => {
   it('shows "There are 4 problems" for an empty Continue, focused, with each message as a link and inline', async () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    const summary = await screen.findByRole('heading', { name: 'There are 4 problems' });
+    const summary = await screen.findByRole('heading', { name: 'There are 6 problems' });
     const region = summary.closest('[role="alert"]') as HTMLElement;
     expect(region).toHaveFocus();
     for (const message of [
@@ -123,7 +123,7 @@ describe('OrganisationForm: validation', () => {
   it('moves focus to the field when its summary link is pressed', async () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    const region = (await screen.findByRole('heading', { name: 'There are 4 problems' })).closest('[role="alert"]') as HTMLElement;
+    const region = (await screen.findByRole('heading', { name: 'There are 6 problems' })).closest('[role="alert"]') as HTMLElement;
     await userEvent.click(within(region).getByRole('link', { name: 'Enter your name' }));
     expect(screen.getByLabelText('Your name')).toHaveFocus();
   });
@@ -133,7 +133,7 @@ describe('OrganisationForm: validation', () => {
     await userEvent.type(screen.getByLabelText('Your name'), 'Sample Person');
     await userEvent.click(screen.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(seenStepSaves).toHaveLength(1));
-    expect(seenStepSaves[0]).toMatchObject({ id: ID, step: 'organisation', body: { contactName: 'Sample Person' } });
+    expect(seenStepSaves[0]).toMatchObject({ id: ID, step: 'organisation', body: { contactName: 'Sample Person', partial: true } });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText(/problem/)).not.toBeInTheDocument();
   });
@@ -144,6 +144,8 @@ describe('OrganisationForm: validation', () => {
     });
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'GP practice' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Organisation name' }), 'Sample Community Trust');
+    await userEvent.type(screen.getByRole('textbox', { name: 'ODS code' }), 'SAM01');
     await userEvent.type(screen.getByLabelText('Your name'), 'Sample Person');
     await userEvent.type(screen.getByLabelText('Your role'), 'Lead');
     await userEvent.type(screen.getByLabelText('Contact email or phone'), 'contact@example.test');
@@ -158,6 +160,8 @@ describe('OrganisationForm: saving', () => {
   it('a valid Continue PUTs the answers with the CSRF header, then goes to step 2', async () => {
     await open();
     await userEvent.click(screen.getByRole('button', { name: 'NHS trust' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Organisation name' }), 'Sample Community Trust');
+    await userEvent.type(screen.getByRole('textbox', { name: 'ODS code' }), 'SAM01');
     await userEvent.type(screen.getByLabelText('Your name'), 'Sample Person');
     await userEvent.type(screen.getByLabelText('Your role'), 'Lead');
     await userEvent.type(screen.getByLabelText('Contact email or phone'), 'contact@example.test');
@@ -166,15 +170,17 @@ describe('OrganisationForm: saving', () => {
     expect(seenStepSaves[0]).toMatchObject({
       step: 'organisation',
       csrf: 'csrf-sample-token',
-      body: { orgType: 'nhs-trust', contactName: 'Sample Person', contactRole: 'Lead', contact: 'contact@example.test' },
+      // The role is on screen but the back end cannot keep it, so it is never sent (DEC-906).
+      body: { name: 'Sample Community Trust', odsCode: 'SAM01', orgType: 'nhs-trust', contactName: 'Sample Person', contact: 'contact@example.test' },
     });
+    expect(seenStepSaves[0]?.body).not.toHaveProperty('contactRole');
   });
 
   it('has no axe violations with and without errors shown', async () => {
     const first = await open();
     expect((await runAxe(first.container)).violations).toEqual([]);
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await screen.findByRole('heading', { name: 'There are 4 problems' });
+    await screen.findByRole('heading', { name: 'There are 6 problems' });
     expect((await runAxe(first.container)).violations).toEqual([]);
   });
 });

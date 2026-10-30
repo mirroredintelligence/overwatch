@@ -133,7 +133,7 @@ export function LocationForm({ registrationId }: LocationFormProps) {
     }
     setBusy(mode);
     setNotice(null);
-    const outcome: StepOutcome = await saveStep(registrationId, 'location', bodyFrom(answers), csrf);
+    const outcome: StepOutcome = await saveStep(registrationId, 'location', bodyFrom(answers), csrf, mode === 'save');
     setBusy(null);
     if (outcome.kind === 'saved') {
       setErrors([]);

@@ -2,20 +2,19 @@
 
 import { useEffect, useId, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { maskMobile } from '@/lib/register/phone';
 import { TextField } from './TextField';
 import styles from './CodeEntry.module.css';
 
-// The text code screen (W23, artboard OnboardReporter1 panel 4). It shows the number masked to its
-// last three digits and never the whole of it. The resend is offered after one minute: until then
+// The text code screen (W23, artboard OnboardReporter1 panel 4). It shows the number as its last three
+// digits only: the page is given no more than that (DEC-900). The resend is offered after one minute: until then
 // a countdown runs, so a second code cannot be asked for by impatience.
 
 export const RESEND_SECONDS = 60;
 const CODE = /^\d{6}$/;
 
 export type CodeEntryProps = {
-  /** The full UK mobile. Only its last three digits are ever shown. */
-  mobile: string;
+  /** The last three digits of the number the code went to (DEC-900). The page never holds more. */
+  ending: string;
   error?: string | null;
   busy?: boolean;
   onCheck: (code: string) => void;
@@ -26,7 +25,7 @@ function countdownLabel(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-export function CodeEntry({ mobile, error = null, busy = false, onCheck, onResend }: CodeEntryProps) {
+export function CodeEntry({ ending, error = null, busy = false, onCheck, onResend }: CodeEntryProps) {
   const id = useId();
   const [code, setCode] = useState('');
   const [remaining, setRemaining] = useState(RESEND_SECONDS);
@@ -45,7 +44,7 @@ export function CodeEntry({ mobile, error = null, busy = false, onCheck, onResen
       <h2 id={`${id}-heading`} className={styles.heading}>
         Enter your code
       </h2>
-      <p className={styles.text}>We sent a code to {maskMobile(mobile)}.</p>
+      <p className={styles.text}>We sent a code to 07xxx xxx{ending}.</p>
       <TextField
         id={`${id}-code`}
         label="6-digit code"

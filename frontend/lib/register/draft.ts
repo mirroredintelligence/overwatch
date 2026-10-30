@@ -8,7 +8,9 @@ import type { FieldIssue, StepName, StepValues } from './types';
 const DAY_CODES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 export const STEP_FIELDS: Record<StepName, readonly string[]> = {
-  organisation: ['orgType', 'contactName', 'contactRole', 'contact'],
+  // The organisation's name and ODS code are typed by the applicant (DEC-910); the reviewer's automatic
+  // checks confirm them. The contact role is taken from the screen and never sent (DEC-906).
+  organisation: ['name', 'odsCode', 'orgType', 'contactName', 'contactRole', 'contact'],
   location: ['fixedSite', 'postcode', 'addressId', 'address', 'siteName', 'siteType', 'hours', 'siteOdsCode'],
   service: [
     'category',
@@ -35,6 +37,8 @@ const CONTACT_FIELDS = new Set(['contact', 'contactEmail', 'contactPhone']);
 
 /** The text of a back-end refusal that only says a value is missing, by the page's field. */
 const MISSING: Record<string, string> = {
+  name: 'Enter the organisation name',
+  odsCode: 'Enter the ODS code',
   orgType: 'Choose the organisation type',
   contactName: 'Enter your name',
   contact: 'Enter an email address or phone number',
@@ -44,11 +48,12 @@ function text(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : undefined;
 }
 
-export function organisationValues(
-  body: Record<string, unknown>,
-  locked: { organisationName: string; odsCode: string },
-): Record<string, unknown> {
-  const values: Record<string, unknown> = { name: locked.organisationName, odsCode: locked.odsCode };
+export function organisationValues(body: Record<string, unknown>): Record<string, unknown> {
+  const values: Record<string, unknown> = {};
+  const name = text(body.name);
+  if (name !== undefined) values.name = name;
+  const odsCode = text(body.odsCode);
+  if (odsCode !== undefined) values.odsCode = odsCode;
   const orgType = text(body.orgType);
   if (orgType !== undefined) values.orgType = orgType;
   const contactName = text(body.contactName);
@@ -61,15 +66,17 @@ export function organisationValues(
   return values;
 }
 
-/** The page's answers for a saved organisation step, from the back end's stored values. */
+/**
+ * The page's answers for a saved organisation step, from the back end's stored values. A stored phone
+ * number is never sent back to the page: the page is told its last three digits only (DEC-904).
+ */
 export function organisationAnswers(stored: StepValues): Record<string, string> {
   const answers: Record<string, string> = {};
-  if (typeof stored.orgType === 'string') answers.orgType = stored.orgType;
-  if (typeof stored.contactName === 'string') answers.contactName = stored.contactName;
-  const contact = typeof stored.contactEmail === 'string' && stored.contactEmail !== ''
-    ? stored.contactEmail
-    : typeof stored.contactPhone === 'string' ? stored.contactPhone : undefined;
-  if (contact !== undefined) answers.contact = contact;
+  for (const key of ['name', 'odsCode', 'orgType', 'contactName', 'contactEmail'] as const) {
+    const value = stored[key];
+    if (typeof value === 'string' && value !== '') answers[key] = value;
+  }
+  if (typeof stored.contactPhoneEnding === 'string') answers.contactPhoneEnding = stored.contactPhoneEnding;
   return answers;
 }
 

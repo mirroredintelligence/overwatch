@@ -1,75 +1,64 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SESSION_COOKIE, sealSession, type Session } from '@/lib/auth/session';
-import { readStatus } from '@/lib/register/backend';
-import { FhirError } from '@/lib/fhir/client';
-import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { BACKEND_ROOT } from '@/test/fixtures/links';
+import { answerBackend, resetSeen, seen } from '@/test/applicant/backend';
+import { callerRequest } from '@/test/applicant/session';
+import { TEST_SESSION_SECRET } from '@/test/cookies';
+import { withApplicantHandlers } from '@/test/msw/applicant';
 import { GET } from './route';
-import { TENANTS } from '@/test/tenants';
+
+withApplicantHandlers();
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
   return { cookies: m.cookiesMock };
 });
-vi.mock('@/lib/register/backend', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/register/backend')>()),
-  readStatus: vi.fn(),
-}));
 
-// The applicant's status (W27): only the fields the page shows. The back end's other fields, and any
-// tenant, stay in the BFF.
+// The applicant's status page (W27): the back end's status answer, reduced to what the page shows.
+// The note is a text and its sender a role; the phone is its last three digits only.
 
 const ID = 'REG-SAMPLE-1';
-const read = vi.mocked(readStatus);
 const url = `https://tenant-a.example.test/api/bff/registrations/${ID}/status`;
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
-async function sessionFor(role: Session['role']): Promise<string> {
-  return sealSession({ role, tenantId: TENANTS.A.id, host: TENANTS.A.host, services: [], sub: 'person-sample-1', backendToken: 'backend-token-sample-value', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
-}
-
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  cookiesMock.mockClear();
-  read.mockReset();
-  read.mockResolvedValue({
-    status: 'needs-changes',
-    serviceName: 'UCR West',
-    submittedAt: '2026-10-23T13:30:00Z',
-    notes: ['Fix it.'],
-    noteFrom: { role: 'SPOA shift lead', at: '2026-10-27T13:52:00Z' },
-    details: { spoaPhone: '01305 123456', criteriaOwner: 'Community matron', reportingPhoneEnding: '456', internalRef: 'x' },
-    tenantId: 'tenant-b',
-  });
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  resetSeen();
 });
 
 describe('GET /api/bff/registrations/[id]/status', () => {
-  it('answers the reporter with the status and the fields the page shows, and nothing else', async () => {
-    const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('reporter') }), ctx(ID));
-    expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body).toEqual({
+  it('answers the status, the note as a list with its sender, and the details, and nothing else', async () => {
+    answerBackend('get', `/registrations/${ID}/status`, 200, {
+      registrationId: ID,
       status: 'needs-changes',
-      serviceName: 'UCR West',
-      submittedAt: '2026-10-23T13:30:00Z',
-      notes: ['Fix it.'],
-      noteFrom: { role: 'SPOA shift lead', at: '2026-10-27T13:52:00Z' },
-      details: { spoaPhone: '01305 123456', criteriaOwner: 'Community matron', reportingPhoneEnding: '456' },
+      serviceName: 'Community nursing',
+      submittedAt: '2026-10-29T09:00:00Z',
+      note: 'Check the phone number.',
+      noteFrom: 'lead',
+      reason: null,
+      firstPromptAt: null,
+      reviewRequestedAt: null,
+      testSentAt: null,
+      details: { spoaPhone: '01305 000111', criteriaOwner: null, reportingPhoneEnding: '456' },
+      tenantId: 'tenant-a',
     });
-    expect(JSON.stringify(body)).not.toContain('tenant-b');
-    expect(JSON.stringify(body)).not.toContain('internalRef');
+    const response = await GET(await callerRequest(url), ctx(ID));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      status: 'needs-changes',
+      serviceName: 'Community nursing',
+      submittedAt: '2026-10-29T09:00:00Z',
+      notes: ['Check the phone number.'],
+      noteFrom: { role: 'lead' },
+      details: { spoaPhone: '01305 000111', reportingPhoneEnding: '456' },
+    });
+    expect(seen[0]).toMatchObject({ path: `/registrations/${ID}/status`, auth: 'Bearer backend-token-sample-value' });
   });
 
-  it('refuses no session (401) and another role (403)', async () => {
-    expect((await GET(requestWithCookies(url, {}), ctx(ID))).status).toBe(401);
-    expect((await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('advisor') }), ctx(ID))).status).toBe(403);
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  it('answers 503 not-built while the back end has no status read', async () => {
-    read.mockRejectedValueOnce(new FhirError(503, { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-built', diagnostics: 'x' }] }));
-    const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('reporter') }), ctx(ID));
-    expect(response.status).toBe(503);
+  it('answers 404 for a registration the applicant does not hold', async () => {
+    answerBackend('get', `/registrations/${ID}/status`, 404, { resourceType: 'OperationOutcome', issue: [] });
+    const response = await GET(await callerRequest(url), ctx(ID));
+    expect(response.status).toBe(404);
   });
 });

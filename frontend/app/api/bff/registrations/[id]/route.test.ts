@@ -1,120 +1,133 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SESSION_COOKIE, sealSession, type Session } from '@/lib/auth/session';
-import { readRegistration } from '@/lib/register/backend';
-import { FhirError } from '@/lib/fhir/client';
-import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { BACKEND_ROOT } from '@/test/fixtures/links';
+import { answerBackend, breakBackend, resetSeen, seen } from '@/test/applicant/backend';
+import { callerRequest } from '@/test/applicant/session';
+import { TEST_SESSION_SECRET } from '@/test/cookies';
+import { withApplicantHandlers } from '@/test/msw/applicant';
 import { GET } from './route';
-import { TENANTS } from '@/test/tenants';
+
+// The applicant's record and the lead's overview share this path; each role has its own describe below.
+
+withApplicantHandlers();
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
   return { cookies: m.cookiesMock };
 });
-vi.mock('@/lib/register/backend', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/register/backend')>()),
-  readRegistration: vi.fn(),
-}));
 
-// The registration read the applicant's pages use (W54). The BFF passes on the registration's
-// status, the invitation's values and the saved steps, and nothing else the back end holds.
+// The applicant's own registration (W54 to W26): the back end's record, mapped to what the steps
+// show. The record holds no invitation, so the view names the service and the saved answers only.
+// Another person's registration and an unknown one are the same 404.
 
 const ID = 'REG-SAMPLE-1';
-const read = vi.mocked(readRegistration);
 const url = `https://tenant-a.example.test/api/bff/registrations/${ID}`;
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
-async function sessionFor(role: Session['role']): Promise<string> {
-  return sealSession({
-    role,
-    tenantId: TENANTS.A.id,
-    host: TENANTS.A.host,
-    services: [],
-    sub: 'person-sample-1',
-    backendToken: 'backend-token-sample-value',
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-  });
-}
+const RECORD = {
+  registrationId: ID,
+  status: 'draft',
+  serviceId: 'SVC-SAMPLE-1',
+  serviceName: 'Community nursing',
+  submittedAt: null,
+  lastModified: '2026-10-30T09:00:00Z',
+  invitationExpiresAt: '2026-11-01T18:00:00Z',
+  note: '',
+  noteFrom: null,
+  steps: {
+    organisation: { state: 'complete', values: { name: 'Sample Community Trust', odsCode: 'SAM01', orgType: 'nhs-trust', contactName: 'Sam Sample', contactEmail: 'sam@example.test', contactPhone: '07700900456' }, problems: [] },
+    location: { state: 'not-started', values: {}, problems: [] },
+    service: { state: 'not-started', values: {}, problems: [] },
+    reporting: { state: 'not-started', values: {}, problems: [] },
+    api: { state: 'not-started', values: {}, problems: [] },
+  },
+};
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  cookiesMock.mockClear();
-  read.mockReset();
-  read.mockResolvedValue({
-    id: ID,
-    status: 'draft',
-    invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
-    steps: { organisation: { orgType: 'nhs-trust', contactName: 'Sample Person' } },
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  resetSeen();
+});
+
+describe('GET /api/bff/registrations/[id] (the applicant’s record)', () => {
+  it('reads the record with the reporter’s bearer token and answers the service and the saved steps, with no invitation', async () => {
+    answerBackend('get', `/registrations/${ID}/record`, 200, RECORD);
+    const response = await GET(await callerRequest(url), ctx(ID));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({ id: ID, status: 'draft', serviceName: 'Community nursing' });
+    expect(body).not.toHaveProperty('invitation');
+    expect(body.steps).toMatchObject({
+      organisation: { name: 'Sample Community Trust', odsCode: 'SAM01', orgType: 'nhs-trust', contactName: 'Sam Sample', contactEmail: 'sam@example.test', contactPhoneEnding: '456' },
+    });
+    expect(JSON.stringify(body)).not.toContain('07700900456');
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ path: `/registrations/${ID}/record`, auth: 'Bearer backend-token-sample-value' });
+  });
+
+  it('answers the same 404 for an unknown registration and for another person’s', async () => {
+    answerBackend('get', `/registrations/${ID}/record`, 404, { resourceType: 'OperationOutcome', issue: [] });
+    const response = await GET(await callerRequest(url), ctx(ID));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ code: 'not-found', message: 'We could not find that.' });
+  });
+
+  it('answers 503 when the back end answers a record the screens cannot use', async () => {
+    answerBackend('get', `/registrations/${ID}/record`, 200, { registrationId: ID, status: 'nonsense' });
+    const response = await GET(await callerRequest(url), ctx(ID));
+    expect(response.status).toBe(503);
+  });
+
+  it('answers 503 with no detail when the back end cannot be reached', async () => {
+    breakBackend('get', `/registrations/${ID}/record`);
+    const response = await GET(await callerRequest(url), ctx(ID));
+    expect(response.status).toBe(503);
+    expect(await response.text()).not.toMatch(/fetch|ECONN/i);
+  });
+
+  it('refuses a caller with no session, and an advisor, without calling the back end', async () => {
+    const noSession = new Request(url);
+    expect((await GET(noSession, ctx(ID))).status).toBe(401);
+    expect((await GET(await callerRequest(url, 'advisor'), ctx(ID))).status).toBe(403);
+    expect(seen).toHaveLength(0);
   });
 });
 
-describe('GET /api/bff/registrations/[id]', () => {
-  it('answers a reporter with the status, the invitation and the saved steps, and no back-end token', async () => {
-    const cookie = await sessionFor('reporter');
-    const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: cookie }), ctx(ID));
+describe('GET /api/bff/registrations/[id] (the lead’s review overview)', () => {
+  it('reads the overview with the lead’s token and answers the checks, the manual checks and the words of the call-back', async () => {
+    answerBackend('get', `/registrations/${ID}/overview`, 200, {
+      registrationId: ID,
+      status: 'in-review',
+      serviceId: 'SVC-SAMPLE-1',
+      serviceName: 'Community nursing',
+      category: 'urgent-community-response',
+      checks: [{ name: 'ods', passed: true, ok: true, message: 'The ODS code is on the register', explainedNote: null }],
+      automaticOk: true,
+      callbackConfirmed: false,
+      scope: null,
+      criteriaApproved: false,
+      missing: ['The call-back is not confirmed'],
+      registeredBy: { role: 'Duty manager', contactName: 'Sam Sample', organisationName: 'Sample Community Trust' },
+      applicantNumbers: [{ label: 'Reporting', ending: '456' }],
+      callBack: { numberToCall: null, directoryName: 'the area directory', pathwayName: 'Urgent community response pathway' },
+    });
+    const response = await GET(await callerRequest(url, 'lead'), ctx(ID));
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     const body = (await response.json()) as Record<string, unknown>;
-    expect(body).toEqual({
+    expect(body).toMatchObject({
       id: ID,
-      status: 'draft',
-      invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
-      steps: { organisation: { orgType: 'nhs-trust', contactName: 'Sample Person' } },
+      serviceName: 'Community nursing',
+      registeredBy: { name: 'Sam Sample', role: 'Duty manager' },
+      manualChecks: { callback: 'not-done', scope: 'not-done', criteria: 'not-done' },
+      pathwayName: 'Urgent community response pathway',
     });
-    expect(JSON.stringify(body)).not.toContain('backend-token');
-    expect(read).toHaveBeenCalledWith('backend-token-sample-value', ID);
+    expect(JSON.stringify(body)).not.toContain('Sample Community Trust');
+    expect(JSON.stringify(body)).not.toContain('456');
   });
 
-  it('drops anything the back end sends beyond the fields the page may read', async () => {
-    read.mockResolvedValueOnce({
-      id: ID,
-      status: 'draft',
-      invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01', tenantId: 'tenant-b' },
-      steps: {},
-      tenantId: 'tenant-b',
-      patientName: 'Not a field',
-    } as never);
-    const cookie = await sessionFor('reporter');
-    const body = (await (await GET(requestWithCookies(url, { [SESSION_COOKIE]: cookie }), ctx(ID))).json()) as Record<string, unknown>;
-    expect(Object.keys(body).sort()).toEqual(['id', 'invitation', 'status', 'steps']);
-    expect(JSON.stringify(body)).not.toContain('tenant-b');
-    expect(JSON.stringify(body)).not.toContain('patientName');
-  });
-
-  it('refuses a request with no session (401) and one from another role (403), without reading the back end', async () => {
-    const none = await GET(requestWithCookies(url, {}), ctx(ID));
-    expect(none.status).toBe(401);
-    const advisor = await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('advisor') }), ctx(ID));
-    expect(advisor.status).toBe(403);
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  it('answers 404 for an id that cannot be a registration, without reading the back end', async () => {
-    const cookie = await sessionFor('reporter');
-    const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: cookie }), ctx('../x'));
-    expect(response.status).toBe(404);
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  it('answers 503 with the code not-built while the back end has no registration read', async () => {
-    read.mockRejectedValueOnce(
-      new FhirError(503, { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-built', diagnostics: 'x' }] }),
-    );
-    const cookie = await sessionFor('reporter');
-    const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: cookie }), ctx(ID));
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ code: 'not-built' });
-  });
-
-  it('gives the fixed-site answer of the location step, and none of the other location answers', async () => {
-    read.mockResolvedValueOnce({
-      id: ID,
-      status: 'draft',
-      invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
-      steps: { location: { fixedSite: false, postcode: 'DT4 8XX', siteName: 'Sample Ward' } },
-    });
-    const cookie = await sessionFor('reporter');
-    const body = (await (await GET(requestWithCookies(url, { [SESSION_COOKIE]: cookie }), ctx(ID))).json()) as { steps: object };
-    expect(body.steps).toEqual({ location: { fixedSite: false } });
+  it('answers 404 for a registration the lead cannot see', async () => {
+    answerBackend('get', `/registrations/${ID}/overview`, 404, { resourceType: 'OperationOutcome', issue: [] });
+    expect((await GET(await callerRequest(url, 'lead'), ctx(ID))).status).toBe(404);
   });
 });

@@ -1,7 +1,7 @@
 import { FhirError, fhirFetch } from '@/lib/fhir/client';
-import { notServed } from '@/lib/registration/backend';
-import { mapHistory, waitingVersion } from './history';
-import type { CriteriaValues, HistoryVersion, ReviewPeriod } from './types';
+import { mapHistory } from './history';
+import { criteriaOverviewFromBackend, pendingFromBackend } from './mapping';
+import type { CriteriaOverview, CriteriaValues, HistoryVersion, PendingChange, ReviewPeriod } from './types';
 
 // Server-only. The owner's criteria calls to the back end's FHIR API (R10, U30), mapped to the
 // browser's shapes. A criteria version is a Basic resource; a change is written straight into
@@ -81,9 +81,37 @@ export async function readHistory(token: string, serviceId: string): Promise<His
   return mapHistory(data);
 }
 
+/** The criteria root read: the same bearer token, outside /fhir (W7B A4). */
+async function criteriaRead(token: string, path: string): Promise<unknown> {
+  const { data } = await fhirFetch<unknown>(path, { token, root: true });
+  return data;
+}
+
+/** The owner's view of one service's criteria (W30). A read the page cannot use is a 503, never an empty page. */
+export async function readCriteria(token: string, serviceId: string): Promise<CriteriaOverview> {
+  const view = criteriaOverviewFromBackend(await criteriaRead(token, `/criteria/${encodeURIComponent(serviceId)}`));
+  if (view === null) throw unreadableCriteria();
+  return view;
+}
+
+/** The change waiting for the second approval (W31). 404 when none is waiting. */
+export async function readPending(token: string, serviceId: string): Promise<PendingChange> {
+  const view = pendingFromBackend(await criteriaRead(token, `/criteria/${encodeURIComponent(serviceId)}/pending`));
+  if (view === null) throw unreadableCriteria();
+  return view;
+}
+
+function unreadableCriteria(): FhirError {
+  return new FhirError(503, {
+    resourceType: 'OperationOutcome',
+    issue: [{ severity: 'error', code: 'exception', diagnostics: 'The criteria answer could not be read.' }],
+  });
+}
+
 /**
  * The approver's decision on the version waiting for approval (U30): approve it, or send it back with
- * a note. The waiting version is found in the history; the back end refuses the approver who wrote it.
+ * a note. The waiting version is the one the back end's pending read names; the back end refuses the
+ * approver who wrote it. Nothing is decided when no change is waiting (404 from the read).
  */
 export async function decidePending(
   token: string,
@@ -92,16 +120,10 @@ export async function decidePending(
   note: string | undefined,
   key: string,
 ): Promise<{ status: string; version: number }> {
-  const waiting = waitingVersion(await readHistory(token, serviceId));
-  if (waiting === null) {
-    throw new FhirError(404, {
-      resourceType: 'OperationOutcome',
-      issue: [{ severity: 'error', code: 'not-found', diagnostics: 'There is no version waiting for approval.' }],
-    });
-  }
+  const waiting = await readPending(token, serviceId);
   const operation = decision === 'approve' ? '$approve' : '$send-back';
   const body = note === undefined ? undefined : { resourceType: 'Parameters', parameter: [{ name: 'note', valueString: note }] };
-  const { data } = await fhirFetch<unknown>(`/Basic/${encodeURIComponent(waiting.criteriaId)}/${operation}`, {
+  const { data } = await fhirFetch<unknown>(`/Basic/${encodeURIComponent(waiting.taskId)}/${operation}`, {
     method: 'POST',
     token,
     idempotencyKey: key,
@@ -111,14 +133,4 @@ export async function decidePending(
   const version = Number((data.meta as Json).versionId);
   if (!Number.isInteger(version)) badBody();
   return { status: data.status as string, version };
-}
-
-/** The approver's read of the waiting change. The back end does not serve the change's words, its author or its reason yet (R10). */
-export function readPending(): never {
-  return notServed();
-}
-
-/** The current version and any draft, as the owner's overview. Not served by the back end yet (R10). */
-export function readCriteria(): never {
-  return notServed();
 }

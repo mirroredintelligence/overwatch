@@ -1,57 +1,54 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SESSION_COOKIE, sealSession, type Session } from '@/lib/auth/session';
-import { readMine } from '@/lib/register/backend';
-import { FhirError } from '@/lib/fhir/client';
-import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { BACKEND_ROOT } from '@/test/fixtures/links';
+import { answerBackend, breakBackend, resetSeen, seen } from '@/test/applicant/backend';
+import { callerRequest } from '@/test/applicant/session';
+import { TEST_SESSION_SECRET } from '@/test/cookies';
+import { withApplicantHandlers } from '@/test/msw/applicant';
 import { GET } from './route';
-import { TENANTS } from '@/test/tenants';
+
+withApplicantHandlers();
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
   return { cookies: m.cookiesMock };
 });
-vi.mock('@/lib/register/backend', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/register/backend')>()),
-  readMine: vi.fn(),
-}));
 
-// My services (W26): the reporter's own services and where each stands, in the words the page shows.
+// My services (W26): the applicant's own registrations from the back end's /my/registrations, with
+// the state and the detail the screen words. A registration nobody has sent is not listed here.
 
-const read = vi.mocked(readMine);
 const url = 'https://tenant-a.example.test/api/bff/registrations/mine';
-
-async function sessionFor(role: Session['role']): Promise<string> {
-  return sealSession({ role, tenantId: TENANTS.A.id, host: TENANTS.A.host, services: [], sub: 'person-sample-1', backendToken: 'backend-token-sample-value', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
-}
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  cookiesMock.mockClear();
-  read.mockReset();
-  read.mockResolvedValue([
-    { id: 'REG-SAMPLE-1', serviceName: 'UCR West', state: 'active', detail: 'Reporting every 2 hrs by text', tenantId: 'tenant-b' },
-  ] as never);
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  resetSeen();
 });
 
 describe('GET /api/bff/registrations/mine', () => {
-  it('answers the reporter’s services with their state and detail, and no other field', async () => {
-    const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('reporter') }));
+  it('reads my registrations with the bearer token and answers the rows the screen words', async () => {
+    answerBackend('get', '/my/registrations', 200, {
+      registrations: [
+        { registrationId: 'REG-1', serviceId: 'SVC-1', serviceName: 'Community nursing', status: 'live', submittedAt: '2026-10-01T09:00:00Z' },
+        { registrationId: 'REG-2', serviceId: 'SVC-2', serviceName: 'Virtual ward', status: 'draft', submittedAt: null },
+      ],
+    });
+    const response = await GET(await callerRequest(url));
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
-      services: [{ id: 'REG-SAMPLE-1', serviceName: 'UCR West', state: 'active', detail: 'Reporting every 2 hrs by text' }],
+      services: [{ id: 'REG-1', serviceName: 'Community nursing', state: 'active', detail: 'Live' }],
     });
-    expect(read).toHaveBeenCalledWith('backend-token-sample-value');
+    expect(seen[0]).toMatchObject({ path: '/my/registrations', auth: 'Bearer backend-token-sample-value' });
   });
 
-  it('refuses no session (401) and another role (403)', async () => {
-    expect((await GET(requestWithCookies(url, {}))).status).toBe(401);
-    expect((await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('exec') }))).status).toBe(403);
-  });
-
-  it('answers 503 not-built while the back end has no list of a reporter’s services', async () => {
-    read.mockRejectedValueOnce(new FhirError(503, { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-built', diagnostics: 'x' }] }));
-    const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('reporter') }));
+  it('answers 503 when the back end cannot be reached', async () => {
+    breakBackend('get', '/my/registrations');
+    const response = await GET(await callerRequest(url));
     expect(response.status).toBe(503);
+  });
+
+  it('refuses a lead', async () => {
+    expect((await GET(await callerRequest(url, 'lead'))).status).toBe(403);
+    expect(seen).toHaveLength(0);
   });
 });

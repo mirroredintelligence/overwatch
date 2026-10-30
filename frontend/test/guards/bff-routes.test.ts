@@ -50,6 +50,7 @@ const NAMED: Record<string, Kind> = {
   'app/api/bff/reporter/start/route.ts': 'pre-session',
   'app/api/bff/identity/code/route.ts': 'pre-session',
   'app/api/bff/identity/code/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/invitation/route.ts': 'pre-session',
   'app/api/bff/identity/new-phone/route.ts': 'pre-session',
   'app/api/bff/identity/new-phone/verify/route.ts': 'pre-session',
   'app/api/bff/identity/pin/route.ts': 'pre-session',

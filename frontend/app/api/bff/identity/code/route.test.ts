@@ -1,13 +1,11 @@
 // @vitest-environment node
-import { http, HttpResponse, type HttpResponseResolver } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PENDING_COOKIE } from '@/lib/register/pending';
+import { PENDING_COOKIE, readPending } from '@/lib/register/pending';
 import { BACKEND_ROOT, TENANT_HOST } from '@/test/fixtures/links';
 import { cookieWrites, cookiesMock, lastWrite, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
-import { backendIdentity, seenBackendIdentity } from '@/test/msw/handlers/registration';
-import { server } from '@/test/msw/server';
-import { POST } from './route';
+import { answerBackend, breakBackend, resetSeen, seen } from '@/test/applicant/backend';
 import { withApplicantHandlers } from '@/test/msw/applicant';
+import { POST } from './route';
 
 withApplicantHandlers();
 
@@ -16,93 +14,103 @@ vi.mock('next/headers', async () => {
   return { cookies: m.cookiesMock };
 });
 
-// The BFF's code request (W23). No session: the phone is the only thing that says who this is.
-// The back end answers 202 for every number; the BFF keeps the invitation and a device id in a
-// sealed cookie the browser cannot read, and never forwards a field it does not name.
+// The registration code request (W23, DEC-900). No session and no number: the invitation says whose
+// number the code goes to, and the back end sends it there. The browser's body never carries a
+// number, a tenant or a person. The back end answers 202 for every open link, and the BFF keeps the
+// invitation and a device id in a sealed cookie the browser cannot read.
 
 const URL_ = `https://${TENANT_HOST}/api/bff/identity/code`;
 const INVITE = 'InviteTokenSampleValue1';
 
-function post(body: unknown, headers: Record<string, string> = {}) {
+function post(body: unknown) {
   return requestWithCookies(URL_, {}, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Host: TENANT_HOST, ...headers },
+    headers: { 'Content-Type': 'application/json', Host: TENANT_HOST },
     body: typeof body === 'string' ? body : JSON.stringify(body),
   });
 }
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetCookieWrites();
   cookiesMock.mockClear();
-  seenBackendIdentity.length = 0;
-  backendIdentity.code = { status: 202, body: { accepted: true, resendAfterSeconds: 60 } };
+  resetSeen();
 });
 
 describe('POST /api/bff/identity/code', () => {
-  it('asks the back end for a registration code for the digits of the number, with the tenant host', async () => {
-    const response = await POST(post({ phone: '07700900456', purpose: 'registration', inviteToken: INVITE }));
+  it('asks the back end for a code for the open invitation, with the request host and no number', async () => {
+    answerBackend('post', '/identity/registration/code', 202, { accepted: true, resendAfterSeconds: 60 });
+    const response = await POST(post({ purpose: 'registration', inviteToken: INVITE }));
     expect(response.status).toBe(202);
     expect(await response.json()).toEqual({ accepted: true, resendAfterSeconds: 60 });
-    expect(seenBackendIdentity).toHaveLength(1);
-    expect(seenBackendIdentity[0]).toMatchObject({
-      path: '/identity/code',
-      host: TENANT_HOST,
-      body: { mobile: '07700900456', purpose: 'setup' },
-    });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({ path: '/identity/registration/code', host: TENANT_HOST, body: { invitation: INVITE } });
   });
 
-  it('keeps the invitation and a device id in a sealed cookie the browser cannot read, and no tenant in it', async () => {
-    await POST(post({ phone: '07700 900456', purpose: 'registration', inviteToken: INVITE }));
-    const write = lastWrite(PENDING_COOKIE);
-    expect(write).toBeDefined();
-    expect(write?.value).not.toContain(INVITE);
-    expect(write?.value).not.toContain('07700');
-    expect(write?.options).toMatchObject({ httpOnly: true, sameSite: 'strict', path: '/api/bff/identity' });
-    expect(cookieWrites.map((w) => w.name)).toEqual([PENDING_COOKIE]);
+  it('keeps the invitation and a new device id in the sealed pending cookie, which holds no tenant', async () => {
+    answerBackend('post', '/identity/registration/code', 202, { accepted: true, resendAfterSeconds: 60 });
+    await POST(post({ purpose: 'registration', inviteToken: INVITE }));
+    const written = lastWrite(PENDING_COOKIE);
+    expect(written?.value).toBeTruthy();
+    expect(written?.value).not.toContain(INVITE);
+    expect(written?.value).not.toContain(TENANT_HOST);
+    const pending = await readPending(requestWithCookies(URL_, { [PENDING_COOKIE]: written?.value ?? '' }));
+    expect(pending?.inviteToken).toBe(INVITE);
+    expect(pending?.deviceId).toMatch(/^[A-Za-z0-9_-]{22}$/);
   });
 
-  it('refuses a body that names a tenant, a role or anything else, without calling the back end', async () => {
-    for (const extra of [{ tenantId: 'tenant-b' }, { role: 'lead' }, { host: 'other.example.test' }]) {
-      const response = await POST(post({ phone: '07700900456', purpose: 'registration', inviteToken: INVITE, ...extra }));
-      expect(response.status).toBe(400);
-      expect(await response.json()).toMatchObject({ code: 'invalid' });
-    }
-    expect(seenBackendIdentity).toHaveLength(0);
+  it('keeps the device id of an earlier request, so a resend is for the same device', async () => {
+    answerBackend('post', '/identity/registration/code', 202, { accepted: true, resendAfterSeconds: 60 });
+    await POST(post({ purpose: 'registration', inviteToken: INVITE }));
+    const first = await readPending(requestWithCookies(URL_, { [PENDING_COOKIE]: lastWrite(PENDING_COOKIE)?.value ?? '' }));
+    await POST(
+      requestWithCookies(URL_, { [PENDING_COOKIE]: lastWrite(PENDING_COOKIE)?.value ?? '' }, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Host: TENANT_HOST },
+        body: JSON.stringify({ purpose: 'registration', inviteToken: INVITE }),
+      }),
+    );
+    const second = await readPending(requestWithCookies(URL_, { [PENDING_COOKIE]: lastWrite(PENDING_COOKIE)?.value ?? '' }));
+    expect(second?.deviceId).toBe(first?.deviceId);
   });
 
-  it('refuses a number that is not a UK mobile, an unknown purpose or a bad invitation shape, without calling the back end', async () => {
-    const bad = [
-      { phone: '01305 123456', purpose: 'registration', inviteToken: INVITE },
-      { phone: '07700900456', purpose: 'setup', inviteToken: INVITE },
-      { phone: '07700900456', purpose: 'registration', inviteToken: 'not a token!' },
-      'not json',
-    ];
-    for (const body of bad) {
+  it('refuses a body that names a number, a tenant, a person or any other field, and a bad link, without calling the back end', async () => {
+    for (const body of [
+      { purpose: 'registration', inviteToken: INVITE, phone: '07700900456' },
+      { purpose: 'registration', inviteToken: INVITE, tenantId: 'other' },
+      { purpose: 'registration', inviteToken: INVITE, person: 'x' },
+      { purpose: 'other', inviteToken: INVITE },
+      { purpose: 'registration', inviteToken: 'short' },
+      { purpose: 'registration' },
+    ]) {
       const response = await POST(post(body));
       expect(response.status).toBe(400);
     }
-    expect(seenBackendIdentity).toHaveLength(0);
+    expect(seen).toHaveLength(0);
+    expect(cookieWrites).toHaveLength(0);
   });
 
-  it('passes the back end’s 429 on, with its Retry-After, and writes no cookie for a refused request', async () => {
-    backendIdentity.code = { status: 429, body: { issue: [] }, headers: { 'Retry-After': '600' } };
-    server.use(
-      http.post(`${BACKEND_ROOT}/identity/code`, (() => HttpResponse.json({}, { status: 429, headers: { 'Retry-After': '600' } })) as HttpResponseResolver),
-    );
-    const response = await POST(post({ phone: '07700900456', purpose: 'registration', inviteToken: INVITE }));
+  it('answers 404 for a link that is not open, and writes no pending cookie', async () => {
+    answerBackend('post', '/identity/registration/code', 404, { resourceType: 'OperationOutcome', issue: [] });
+    const response = await POST(post({ purpose: 'registration', inviteToken: INVITE }));
+    expect(response.status).toBe(404);
+    expect(await response.json()).toEqual({ code: 'not-found', message: 'We could not find an invitation for this link.' });
+    expect(lastWrite(PENDING_COOKIE)).toBeUndefined();
+  });
+
+  it('passes the back end’s 429 on with its Retry-After, and writes no cookie', async () => {
+    answerBackend('post', '/identity/registration/code', 429, { resourceType: 'OperationOutcome', issue: [] }, { 'Retry-After': '300' });
+    const response = await POST(post({ purpose: 'registration', inviteToken: INVITE }));
     expect(response.status).toBe(429);
-    expect(response.headers.get('Retry-After')).toBe('600');
-    expect(await response.json()).toMatchObject({ code: 'throttled' });
+    expect(response.headers.get('retry-after')).toBe('300');
+    expect(lastWrite(PENDING_COOKIE)).toBeUndefined();
   });
 
-  it('answers 503 when the back end cannot be reached, with no detail', async () => {
-    server.use(http.post(`${BACKEND_ROOT}/identity/code`, (() => HttpResponse.error()) as HttpResponseResolver));
-    const response = await POST(post({ phone: '07700900456', purpose: 'registration', inviteToken: INVITE }));
+  it('answers 503 with no detail when the back end cannot be reached', async () => {
+    breakBackend('post', '/identity/registration/code');
+    const response = await POST(post({ purpose: 'registration', inviteToken: INVITE }));
     expect(response.status).toBe(503);
-    const text = await response.text();
-    expect(text).not.toContain('07700');
-    expect(text).not.toContain(INVITE);
+    expect(await response.text()).not.toMatch(/fetch|ECONN/i);
   });
 });

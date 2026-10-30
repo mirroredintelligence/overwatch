@@ -105,7 +105,7 @@ export const bffRegistrationState: { view: unknown; read: BackendReply; step: Ba
   view: {
     id: 'REG-SAMPLE-1',
     status: 'draft',
-    invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
+    serviceName: 'UCR West',
     steps: {},
   },
   read: { status: 200, body: {} },
@@ -242,7 +242,17 @@ export const bffStatusHandlers = [
   })) as HttpResponseResolver),
 ];
 
+/** The applicant's invitation read (DEC-900): an open link to a number ending 456, for a test that signs in. */
+export const invitationState: { reply: BackendReply } = {
+  reply: { status: 200, body: { state: 'open', serviceName: 'UCR West', numberEnding: '456', expiresAt: '2026-11-01T18:00:00Z' } },
+};
+
+export const bffInvitationHandlers = [
+  http.post('/api/bff/identity/invitation', (() => reply(invitationState.reply)) as HttpResponseResolver),
+];
+
 export const registrationHandlers = [
+  ...bffInvitationHandlers,
   ...bffStatusHandlers,
   ...backendIdentityHandlers,
   ...bffRegistrationHandlers,

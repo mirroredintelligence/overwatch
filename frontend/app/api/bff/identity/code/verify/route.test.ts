@@ -1,17 +1,13 @@
 // @vitest-environment node
-import { http, HttpResponse, type HttpResponseResolver } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, unsealSession } from '@/lib/auth/session';
-import { notBuilt, signInRegistrant } from '@/lib/register/backend';
 import { PENDING_COOKIE, sealPending } from '@/lib/register/pending';
-import { BACKEND_ROOT, TENANT_HOST } from '@/test/fixtures/links';
+import { TENANT_HOST } from '@/test/fixtures/links';
 import { cookieWrites, cookiesMock, lastWrite, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
-import { backendIdentity, seenBackendIdentity } from '@/test/msw/handlers/registration';
-import { sessionFor } from '@/test/requests';
-import { TENANTS } from '@/test/tenants';
-import { server } from '@/test/msw/server';
-import { POST } from './route';
+import { answerBackend, breakBackend, resetSeen, seen, unsignedToken } from '@/test/applicant/backend';
 import { withApplicantHandlers } from '@/test/msw/applicant';
+import { TENANTS } from '@/test/tenants';
+import { POST } from './route';
 
 withApplicantHandlers();
 
@@ -20,135 +16,223 @@ vi.mock('next/headers', async () => {
   return { cookies: m.cookiesMock };
 });
 
-// The mobile is not built into the back end's sign-in yet (lib/register/backend.ts): the sign-in is
-// the seam, mocked here. Everything before it (the back end's code check, the pending cookie, the
-// refusals and the cookie the BFF writes) is tested against the real call.
-vi.mock('@/lib/register/backend', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/register/backend')>()),
-  signInRegistrant: vi.fn(),
-}));
+// The registration code check (W23, DEC-900 to DEC-902). A right code ends in a reporter session the
+// BFF seals. The tenant is the one the back end bound from the host (answered as `tenant`), the host
+// is the request's, and the back end's token is kept in the sealed cookie only. Every negative case
+// writes no session: a tenant or host the BFF cannot vouch for fails closed with a 503.
 
 const URL_ = `https://${TENANT_HOST}/api/bff/identity/code/verify`;
 const INVITE = 'InviteTokenSampleValue1';
 const DEVICE = 'Dev1ceIdSampleValue_ab';
+const SUB = 'person-sample-1';
+const EXPIRES = new Date(Date.now() + 2 * 3600_000).toISOString();
+const EXP_SECONDS = Math.floor(Date.parse(EXPIRES) / 1000);
+const TOKEN = unsignedToken(SUB, EXP_SECONDS);
+const TENANT = TENANTS.A.id;
 
-const signIn = vi.mocked(signInRegistrant);
+function signedIn(overrides: Record<string, unknown> = {}) {
+  return {
+    token: TOKEN,
+    expiresAt: EXPIRES,
+    role: 'reporter',
+    tenant: TENANT,
+    registrationId: 'REG-SAMPLE-1',
+    serviceId: 'SVC-SAMPLE-1',
+    serviceName: 'Community nursing',
+    ...overrides,
+  };
+}
 
 async function withPending(): Promise<string> {
   return sealPending({ deviceId: DEVICE, inviteToken: INVITE });
 }
 
-function post(body: unknown, cookies: Record<string, string> = {}) {
-  return requestWithCookies(URL_, cookies, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Host: TENANT_HOST },
-    body: typeof body === 'string' ? body : JSON.stringify(body),
-  });
+async function post(body: unknown, cookies: Record<string, string> = {}) {
+  return POST(
+    requestWithCookies(URL_, { [PENDING_COOKIE]: cookies[PENDING_COOKIE] ?? (await withPending()), ...cookies }, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Host: TENANT_HOST },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    }),
+  );
+}
+
+async function sessionWritten() {
+  const written = lastWrite(SESSION_COOKIE);
+  return written?.value ? unsealSession(written.value) : null;
 }
 
 beforeEach(() => {
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   resetCookieWrites();
   cookiesMock.mockClear();
-  seenBackendIdentity.length = 0;
-  backendIdentity.verify = { status: 200, body: { verified: true } };
-  signIn.mockReset();
-  signIn.mockResolvedValue({
-    registrationId: 'REG-SAMPLE-1',
-    session: sessionFor(TENANTS.A, 'reporter', { sub: 'person-sample-1', backendToken: 'backend-token-sample-value' }),
-  });
+  resetSeen();
 });
 
-describe('POST /api/bff/identity/code/verify', () => {
-  it('checks the code with the back end for the device and the number the code request kept', async () => {
-    const pending = await withPending();
-    await POST(post({ phone: '07700 900456', code: '123456' }, { [PENDING_COOKIE]: pending }));
-    expect(seenBackendIdentity).toHaveLength(1);
-    expect(seenBackendIdentity[0]).toMatchObject({
-      path: '/identity/code/verify',
+describe('POST /api/bff/identity/code/verify: a right code', () => {
+  it('signs in: checks the code with the invitation, the device and the host, and answers the registration id only', async () => {
+    answerBackend('post', '/identity/registration/session', 200, signedIn());
+    const response = await post({ code: '482913' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ registrationId: 'REG-SAMPLE-1' });
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toMatchObject({
+      path: '/identity/registration/session',
       host: TENANT_HOST,
-      body: { mobile: '07700900456', code: '123456', deviceId: DEVICE, purpose: 'setup' },
+      body: { invitation: INVITE, code: '482913', deviceId: DEVICE },
     });
   });
 
-  it('signs in on a right code: the session cookie is HTTP-only, the JSON carries no token, and the pending cookie is cleared', async () => {
-    const response = await POST(post({ phone: '07700900456', code: '123456' }, { [PENDING_COOKIE]: await withPending() }));
-    expect(response.status).toBe(200);
-    const body = (await response.json()) as Record<string, unknown>;
-    expect(body).toEqual({ registrationId: 'REG-SAMPLE-1' });
-    expect(JSON.stringify(body)).not.toContain('backend-token');
-
-    const session = lastWrite(SESSION_COOKIE);
-    expect(session).toMatchObject({ options: { httpOnly: true, sameSite: 'strict', path: '/' } });
-    // The session is the tenant's and the host's the code came to: it is read on that host only.
-    expect(await unsealSession(session?.value ?? '')).toMatchObject({ role: 'reporter', services: [], tenantId: TENANTS.A.id, host: TENANTS.A.host });
-
-    expect(lastWrite(PENDING_COOKIE)).toMatchObject({ value: '', options: { maxAge: 0 } });
-    expect(signIn).toHaveBeenCalledWith(expect.objectContaining({ mobile: '07700900456', deviceId: DEVICE, inviteToken: INVITE, host: TENANTS.A.host }));
+  it('seals a reporter session that carries the tenant and the host, and never a token in the answer', async () => {
+    answerBackend('post', '/identity/registration/session', 200, signedIn());
+    const response = await post({ code: '482913' });
+    expect(JSON.stringify(await response.json())).not.toContain(TOKEN);
+    const session = await sessionWritten();
+    expect(session).toMatchObject({
+      role: 'reporter',
+      tenantId: TENANT,
+      host: TENANT_HOST,
+      sub: SUB,
+      services: ['SVC-SAMPLE-1'],
+      device: DEVICE,
+      backendToken: TOKEN,
+      expiresAt: EXPIRES,
+    });
+    expect(lastWrite(SESSION_COOKIE)?.options).toMatchObject({ httpOnly: true, sameSite: 'strict' });
   });
 
-  it('writes no session when the sign-in answers a session for another host than the one the code came to', async () => {
-    signIn.mockResolvedValue({ registrationId: 'REG-SAMPLE-1', session: sessionFor(TENANTS.B, 'reporter') });
-    const response = await POST(post({ phone: '07700900456', code: '123456' }, { [PENDING_COOKIE]: await withPending() }));
+  it('clears the pending cookie once the session is written', async () => {
+    answerBackend('post', '/identity/registration/session', 200, signedIn());
+    await post({ code: '482913' });
+    expect(lastWrite(PENDING_COOKIE)?.value ?? '').toBe('');
+    expect(cookieWrites.some((w) => w.name === SESSION_COOKIE)).toBe(true);
+  });
+});
+
+describe('POST /api/bff/identity/code/verify: a session the BFF cannot vouch for is refused, and no session is written', () => {
+  it('answers 503 when the back end does not say which tenant it signed the applicant in for', async () => {
+    const { tenant: _omitted, ...withoutTenant } = signedIn();
+    answerBackend('post', '/identity/registration/session', 200, withoutTenant);
+    const response = await post({ code: '482913' });
     expect(response.status).toBe(503);
-    expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
-    expect(JSON.stringify(await response.json())).not.toContain(TENANTS.B.id);
+    expect(await sessionWritten()).toBeNull();
   });
 
-  it('answers 410 expired when there is no pending code request, and does not call the back end', async () => {
-    const response = await POST(post({ phone: '07700900456', code: '123456' }));
-    expect(response.status).toBe(410);
-    expect(await response.json()).toMatchObject({ code: 'expired' });
-    expect(seenBackendIdentity).toHaveLength(0);
-    expect(cookieWrites).toHaveLength(0);
+  it('answers 503 when the tenant is not a tenant id', async () => {
+    answerBackend('post', '/identity/registration/session', 200, signedIn({ tenant: 'Not A Tenant!' }));
+    expect((await post({ code: '482913' })).status).toBe(503);
+    expect(await sessionWritten()).toBeNull();
   });
 
-  it('answers 400 wrong-code for a wrong code, and writes no session', async () => {
-    backendIdentity.verify = {
-      status: 400,
-      body: { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid', diagnostics: 'That code is not right' }] },
-    };
-    server.use(
-      http.post(`${BACKEND_ROOT}/identity/code/verify`, (() =>
-        HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid', diagnostics: 'That code is not right' }] }, { status: 400 })) as HttpResponseResolver),
+  it('answers 503 when the token is not one the BFF can read a person from', async () => {
+    answerBackend('post', '/identity/registration/session', 200, signedIn({ token: 'not-a-token' }));
+    expect((await post({ code: '482913' })).status).toBe(503);
+    expect(await sessionWritten()).toBeNull();
+  });
+
+  it('answers 503 when the expiry is not a future instant within twelve hours', async () => {
+    for (const expiresAt of [new Date(Date.now() - 60_000).toISOString(), new Date(Date.now() + 13 * 3600_000).toISOString(), 'soon']) {
+      answerBackend('post', '/identity/registration/session', 200, signedIn({ expiresAt }));
+      expect((await post({ code: '482913' })).status).toBe(503);
+    }
+    expect(await sessionWritten()).toBeNull();
+  });
+
+  it('answers 503 when the request has no host, and writes no session', async () => {
+    answerBackend('post', '/identity/registration/session', 200, signedIn());
+    const response = await POST(
+      requestWithCookies(URL_, { [PENDING_COOKIE]: await withPending() }, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Host: '' },
+        body: JSON.stringify({ code: '482913' }),
+      }),
     );
-    const response = await POST(post({ phone: '07700900456', code: '000000' }, { [PENDING_COOKIE]: await withPending() }));
+    expect(response.status).toBe(503);
+    expect(await sessionWritten()).toBeNull();
+  });
+});
+
+describe('POST /api/bff/identity/code/verify: the answers the back end gives for a code that is not right', () => {
+  it('answers 400 wrong-code for a wrong code, and writes no session or pending clear', async () => {
+    answerBackend('post', '/identity/registration/session', 400, {
+      resourceType: 'OperationOutcome',
+      issue: [{ severity: 'error', code: 'invalid', diagnostics: 'That code is not right' }],
+    });
+    const response = await post({ code: '000000' });
     expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ code: 'wrong-code' });
-    expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
-    expect(signIn).not.toHaveBeenCalled();
+    expect(await response.json()).toEqual({ code: 'wrong-code', message: 'That code is not right. Check it and try again.' });
+    expect(await sessionWritten()).toBeNull();
+    expect(lastWrite(PENDING_COOKIE)).toBeUndefined();
   });
 
   it('answers 410 expired when the back end says to ask for a new code (a lapsed code or five wrong tries)', async () => {
-    server.use(
-      http.post(`${BACKEND_ROOT}/identity/code/verify`, (() =>
-        HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid', diagnostics: 'Ask for a new code' }] }, { status: 400 })) as HttpResponseResolver),
-    );
-    const response = await POST(post({ phone: '07700900456', code: '000000' }, { [PENDING_COOKIE]: await withPending() }));
+    answerBackend('post', '/identity/registration/session', 400, {
+      resourceType: 'OperationOutcome',
+      issue: [{ severity: 'error', code: 'invalid', diagnostics: 'Ask for a new code' }],
+    });
+    const response = await post({ code: '000000' });
     expect(response.status).toBe(410);
-    expect(await response.json()).toMatchObject({ code: 'expired' });
+    expect(await response.json()).toEqual({ code: 'expired', message: 'That code has expired. Ask for a new code.' });
+    expect(await sessionWritten()).toBeNull();
   });
 
-  it('answers 503 not-built when the registration sign-in is not built yet, and writes no session', async () => {
-    signIn.mockRejectedValueOnce(notBuilt('The registration sign-in'));
-    const response = await POST(post({ phone: '07700900456', code: '123456' }, { [PENDING_COOKIE]: await withPending() }));
+  it('answers 403 no-invitation when the back end does not know the link (404)', async () => {
+    answerBackend('post', '/identity/registration/session', 404, { resourceType: 'OperationOutcome', issue: [] });
+    const response = await post({ code: '482913' });
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: 'no-invitation' });
+    expect(await sessionWritten()).toBeNull();
+  });
+
+  it('answers 409 device-refused when the code is right but this phone cannot be set up with it', async () => {
+    answerBackend('post', '/identity/registration/session', 409, { resourceType: 'OperationOutcome', issue: [] });
+    const response = await post({ code: '482913' });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'device-refused' });
+    expect(await sessionWritten()).toBeNull();
+  });
+
+  it('answers 429 throttled when the back end refuses more tries', async () => {
+    answerBackend('post', '/identity/registration/session', 429, { resourceType: 'OperationOutcome', issue: [] });
+    const response = await post({ code: '482913' });
+    expect(response.status).toBe(429);
+    expect(await response.json()).toMatchObject({ code: 'throttled' });
+  });
+
+  it('answers 410 expired, and calls nothing, when there is no pending request for this phone', async () => {
+    const response = await POST(
+      requestWithCookies(URL_, {}, { method: 'POST', headers: { 'Content-Type': 'application/json', Host: TENANT_HOST }, body: JSON.stringify({ code: '482913' }) }),
+    );
+    expect(response.status).toBe(410);
+    expect(seen).toHaveLength(0);
+  });
+
+  it('answers 503 with no detail when the back end cannot be reached, and writes no session', async () => {
+    breakBackend('post', '/identity/registration/session');
+    const response = await post({ code: '482913' });
     expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ code: 'not-built' });
-    expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
+    expect(await response.text()).not.toMatch(/fetch|ECONN/i);
+    expect(await sessionWritten()).toBeNull();
   });
+});
 
-  it('refuses a body that names a tenant or any field other than the number and the code', async () => {
-    const response = await POST(post({ phone: '07700900456', code: '123456', tenantId: 'tenant-b' }, { [PENDING_COOKIE]: await withPending() }));
-    expect(response.status).toBe(400);
-    expect(seenBackendIdentity).toHaveLength(0);
+describe('POST /api/bff/identity/code/verify: the body', () => {
+  it('refuses a body that names a number, a tenant, an invitation or any field but the code, without calling the back end', async () => {
+    for (const body of [
+      { code: '482913', phone: '07700900456' },
+      { code: '482913', tenantId: 'other' },
+      { code: '482913', inviteToken: 'OtherInviteToken123456' },
+      { code: '482913', mobile: '07700900456' },
+    ]) {
+      expect((await post(body)).status).toBe(400);
+    }
+    expect(seen).toHaveLength(0);
   });
 
   it('refuses a code that is not six digits, without calling the back end', async () => {
     for (const code of ['12345', '1234567', 'abcdef', '']) {
-      const response = await POST(post({ phone: '07700900456', code }, { [PENDING_COOKIE]: await withPending() }));
-      expect(response.status).toBe(400);
+      expect((await post({ code })).status).toBe(400);
     }
-    expect(seenBackendIdentity).toHaveLength(0);
+    expect(seen).toHaveLength(0);
   });
 });

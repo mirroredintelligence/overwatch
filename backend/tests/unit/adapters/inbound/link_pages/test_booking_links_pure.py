@@ -9,7 +9,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from diucs.application.use_cases.link_access import LinkAction
 from diucs.adapters.inbound.link_pages.booking_links import (
     CHANGE_PURPOSE,
     CHANGE_TOKEN_LIFETIME,
@@ -19,6 +18,7 @@ from diucs.adapters.inbound.link_pages.booking_links import (
     gone_state,
     view_body,
 )
+from diucs.application.use_cases.link_access import LinkAction
 from diucs.domain.codes import (
     AgeBand,
     BookingStatus,
@@ -68,15 +68,16 @@ def _case() -> Case:
 def test_the_purposes_and_the_change_lifetime_are_the_prompt_values() -> None:
     assert REQUEST_PURPOSE == "booking-request"
     assert CHANGE_PURPOSE == "booking-change"
-    assert CHANGE_TOKEN_LIFETIME == timedelta(hours=24)
+    assert timedelta(hours=24) == CHANGE_TOKEN_LIFETIME
 
 
 def test_confirm_takes_no_reason_and_decline_takes_a_decline_reason() -> None:
     assert check_request_action(LinkAction(action="confirm")) is None
     assert check_request_action(LinkAction(action="decline")) is None
-    assert check_request_action(
-        LinkAction(action="decline", reason="outside-criteria")
-    ) is DeclineReason.OUTSIDE_CRITERIA
+    assert (
+        check_request_action(LinkAction(action="decline", reason="outside-criteria"))
+        is DeclineReason.OUTSIDE_CRITERIA
+    )
 
 
 @pytest.mark.parametrize(

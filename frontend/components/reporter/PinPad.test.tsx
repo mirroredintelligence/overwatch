@@ -13,7 +13,8 @@ describe('PinPad', () => {
     await userEvent.click(screen.getByRole('button', { name: '3' }));
     expect(screen.getByRole('status')).toHaveTextContent('3 of 6 digits entered');
     expect(screen.getByRole('status').textContent).not.toContain('123');
-    expect(container.querySelector('[data-el="PIN-DISPLAY"]')?.textContent ?? '').toBe('');
+    // The dots are hidden from assistive technology and hold no digit.
+    expect(container.querySelector('[aria-hidden="true"]')?.textContent).toBe('');
     expect(onComplete).not.toHaveBeenCalled();
   });
 

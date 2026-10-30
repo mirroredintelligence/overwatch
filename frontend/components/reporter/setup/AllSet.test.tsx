@@ -19,6 +19,7 @@ beforeEach(() => {
   subscribeToPush.mockReset();
   subscribeToPush.mockResolvedValue({ endpoint: 'https://push.example/x', keys: { p256dh: 'p', auth: 'a' } });
   vi.stubGlobal('Notification', Object.assign(function () {}, { permission: 'granted' }));
+  Object.defineProperty(navigator, 'serviceWorker', { configurable: true, value: { ready: Promise.resolve({}) } });
 });
 
 describe('AllSet', () => {

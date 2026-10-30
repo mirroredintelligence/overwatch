@@ -55,11 +55,19 @@ export const reporterHandlers: RequestHandler[] = [
   }),
   http.post('/api/bff/identity/pin/verify', async ({ request }) => {
     await record(request);
-    return HttpResponse.json({ signedIn: true, role: 'reporter', services: ['svc-1'] });
+    return HttpResponse.json({ ok: true });
   }),
   http.post('/api/bff/push/subscriptions', async ({ request }) => {
     await record(request);
     return HttpResponse.json({ saved: true });
+  }),
+  http.get('/api/bff/push/key', () => HttpResponse.json({ publicKey: 'BPublicKeyValueSample' })),
+  http.get('/api/bff/reporter/setup-summary', () =>
+    HttpResponse.json({ service: 'UCR West', contactBy: 'App notification', maskedPhone: '07xxx xxx456', nextUpdateDue: '12:00', textCodeInDays: 30 }),
+  ),
+  http.post('/api/bff/push/test', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ sent: true });
   }),
   http.get('/api/bff/reporter/start', () => HttpResponse.json({ csrfToken: 'T'.repeat(43) })),
 ];

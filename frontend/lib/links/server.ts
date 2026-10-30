@@ -62,6 +62,8 @@ export type LinkCall = {
   host: string | null;
   body?: unknown;
   csrf?: string;
+  /** Extra headers (the reporter BFF sends X-Device-Id and a bearer token this way). */
+  headers?: Record<string, string>;
 };
 
 function jsonOrUndefined(text: string): unknown {
@@ -80,7 +82,7 @@ export async function callLinkApi(call: LinkCall): Promise<LinkReply> {
   if (call.host === null || !HOST_SHAPE.test(call.host)) throw new LinkApiError('unavailable');
   const url = new URL(call.path, backendRoot(process.env[BASE_URL_VARIABLE]));
   const payload = call.body === undefined ? undefined : JSON.stringify(call.body);
-  const headers: Record<string, string | number> = { Host: call.host, Accept: 'application/json' };
+  const headers: Record<string, string | number> = { ...call.headers, Host: call.host, Accept: 'application/json' };
   if (payload !== undefined) {
     headers['Content-Type'] = 'application/json';
     headers['Content-Length'] = Buffer.byteLength(payload);

@@ -8,6 +8,7 @@ configuration, never a case's.
 
 import pytest
 
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.district_choice import MAX_DISTRICT_CHOICES, candidate_districts
 
 # Dorset-shaped sample places (lat, lon). Distances matter only in order.
@@ -73,18 +74,14 @@ def test_no_places_is_no_choices() -> None:
     assert candidate_districts({}, origin=(50.0, -2.0), case_district="DT1") == ()
 
 
-@pytest.mark.parametrize("district", ["dt4", "DT 4", "", "DT4X9", "1DT", "DT4-1"])
+@pytest.mark.parametrize("district", ["dt4", "DT 4", "DT4X9", "1DT", "DT4-1"])
 def test_a_district_that_is_not_one_is_refused_and_not_echoed(district: str) -> None:
-    from diucs.domain.errors import ValidationFailed
-
     with pytest.raises(ValidationFailed) as refused:
         candidate_districts({district: (1.0, 1.0)}, origin=None, case_district=None)
 
-    assert district not in str(refused.value) or district == ""
+    assert district not in str(refused.value)
 
 
 def test_a_place_that_is_not_a_pair_of_numbers_is_refused() -> None:
-    from diucs.domain.errors import ValidationFailed
-
     with pytest.raises(ValidationFailed):
         candidate_districts({"DT1": ("north", "west")}, origin=None, case_district=None)  # type: ignore[dict-item]

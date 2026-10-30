@@ -18,11 +18,12 @@ from collections.abc import Iterator
 from datetime import date, datetime, time, timedelta
 from enum import StrEnum
 from typing import Final
+from zoneinfo import ZoneInfo
 
 from diucs.domain.codes import Cadence
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.london_time import london_to_utc, to_london
+from diucs.domain.rules.london_time import LONDON, local_to_utc, require_zone, to_local
 
 # Aliases of the default policy (TEN-021): the numbers are defined once, in tenant_policy.py.
 REPLY_WINDOW: Final = DEFAULT_POLICY.reply_window
@@ -87,44 +88,56 @@ def _end(window: AvailableTime) -> time:
 
 
 def due_times_on(
-    profile: ServiceProfile, london_day: date, policy: TenantPolicy = DEFAULT_POLICY
+    profile: ServiceProfile,
+    local_day: date,
+    policy: TenantPolicy = DEFAULT_POLICY,
+    zone: ZoneInfo = LONDON,
 ) -> list[datetime]:
-    """Sorted UTC due instants of windows that start on london_day, with no duplicates."""
+    """Sorted UTC due instants of windows that start on local_day in `zone`, with no duplicates."""
     policy = require_policy(policy)
+    zone = require_zone(zone)
     instants: set[datetime] = set()
     for window in profile.available_times:
-        if london_day.weekday() not in window.days:
+        if local_day.weekday() not in window.days:
             continue
-        for local in _window_local_times(profile.cadence, window, london_day, policy):
-            instants.add(london_to_utc(local.date(), local.time()))
+        for local in _window_local_times(profile.cadence, window, local_day, policy):
+            instants.add(local_to_utc(local.date(), local.time(), zone))
     return sorted(instants)
 
 
 def next_due(
-    profile: ServiceProfile, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+    profile: ServiceProfile,
+    now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,
+    zone: ZoneInfo = LONDON,
 ) -> datetime | None:
     """The earliest due instant strictly after now, searching SEARCH_DAYS ahead, or None."""
     policy = require_policy(policy)
-    today = to_london(now).date()
+    zone = require_zone(zone)
+    today = to_local(now, zone).date()
     candidates = [
         due
         for offset in range(-1, SEARCH_DAYS)
-        for due in due_times_on(profile, today + timedelta(days=offset), policy)
+        for due in due_times_on(profile, today + timedelta(days=offset), policy, zone)
         if due > now
     ]
     return min(candidates, default=None)
 
 
 def current_due(
-    profile: ServiceProfile, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+    profile: ServiceProfile,
+    now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,
+    zone: ZoneInfo = LONDON,
 ) -> datetime | None:
     """The latest due instant at or before now, searching SEARCH_DAYS back, or None (DEC-023)."""
     policy = require_policy(policy)
-    today = to_london(now).date()
+    zone = require_zone(zone)
+    today = to_local(now, zone).date()
     candidates = [
         due
         for offset in range(-SEARCH_DAYS, 1)
-        for due in due_times_on(profile, today + timedelta(days=offset), policy)
+        for due in due_times_on(profile, today + timedelta(days=offset), policy, zone)
         if due <= now
     ]
     return max(candidates, default=None)

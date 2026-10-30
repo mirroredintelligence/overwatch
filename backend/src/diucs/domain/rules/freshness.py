@@ -11,16 +11,19 @@ the latest due that is at or before now minus the reply window is the latest mis
 has been answered, every earlier due has been answered too.
 
 The reply window and the stale limit are tenant policy (TEN-021): `assess_freshness` takes a
-`TenantPolicy` as its last argument, defaulting to `DEFAULT_POLICY` (tenant_policy.py holds the
-defaults and bounds). STALE_WARNING_AFTER below is an alias of the default policy's value.
+`TenantPolicy` after its instants, defaulting to `DEFAULT_POLICY` (tenant_policy.py holds the
+defaults and bounds). STALE_WARNING_AFTER below is an alias of the default policy's value. The due
+times are read in the `zone` of the tenant (TEN-065), London by default.
 """
 
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final
+from zoneinfo import ZoneInfo
 
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
+from diucs.domain.rules.london_time import LONDON, require_zone
 from diucs.domain.rules.schedule import current_due
 
 # Alias of the default policy (TEN-021): the number is defined once, in tenant_policy.py.
@@ -49,10 +52,11 @@ def _latest_missed_due(
     last_report_at: datetime | None,
     now: datetime,
     policy: TenantPolicy,
+    zone: ZoneInfo,
 ) -> datetime | None:
     # Missed means reply-by < now, that is due < now - reply window.
     # A valid profile always has a due within the look-back, so None here means no miss.
-    latest = current_due(profile, now - policy.reply_window - ONE_MICROSECOND, policy)
+    latest = current_due(profile, now - policy.reply_window - ONE_MICROSECOND, policy, zone)
     if latest is None or (last_report_at is not None and latest <= last_report_at):
         return None
     return latest
@@ -63,15 +67,17 @@ def assess_freshness(
     last_report_at: datetime | None,
     now: datetime,
     policy: TenantPolicy = DEFAULT_POLICY,
+    zone: ZoneInfo = LONDON,
 ) -> Freshness:
     policy = require_policy(policy)
+    zone = require_zone(zone)
     now_utc = _as_utc(now, "now")
     last_utc = None if last_report_at is None else _as_utc(last_report_at, "last_report_at")
     if last_utc is not None and last_utc > now_utc:
         raise ValueError("last_report_at must not be after now")
 
     age = None if last_utc is None else now_utc - last_utc
-    was_due = _latest_missed_due(profile, last_utc, now_utc, policy)
+    was_due = _latest_missed_due(profile, last_utc, now_utc, policy, zone)
     return Freshness(
         overdue=was_due is not None,
         age=age,

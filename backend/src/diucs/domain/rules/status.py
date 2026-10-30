@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Final
+from zoneinfo import ZoneInfo
 
 from diucs.domain.codes import Measure, Status
 from diucs.domain.model.capacity import CapacityReport
@@ -22,6 +23,7 @@ from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 from diucs.domain.rules.availability import effective_available, effective_occupied
 from diucs.domain.rules.freshness import Freshness, assess_freshness
+from diucs.domain.rules.london_time import LONDON, require_zone
 from diucs.domain.rules.opening_hours import is_in_hours
 
 PERCENT: Final = 100
@@ -96,10 +98,11 @@ def _status(
     freshness: Freshness,
     figures: _Figures | None,
     now: datetime,
+    zone: ZoneInfo,
 ) -> Status:
     if profile.suspended:
         return Status.NOT_UPDATED
-    if not is_in_hours(profile.available_times, now):
+    if not is_in_hours(profile.available_times, now, zone):
         return Status.OUT_OF_HOURS
     if figures is None or freshness.overdue:
         return Status.NOT_UPDATED
@@ -114,21 +117,24 @@ def compute_status(
     confirmed_at: Sequence[datetime],
     now: datetime,
     policy: TenantPolicy = DEFAULT_POLICY,
+    zone: ZoneInfo = LONDON,
 ) -> ServiceState:
     """The status, figures and freshness of one service at instant now (domain-rules 1.2, 1.3).
 
     confirmed_at holds the instants of bookings confirmed for this service. Only those at or after
     the report's effective time are subtracted (1.6). A report later than now, or a naive now, is
-    refused by assess_freshness. The tenant's policy (TEN-021) reaches assess_freshness; the rule
-    order is unchanged.
+    refused by assess_freshness. The tenant's policy (TEN-021) reaches assess_freshness, and the
+    tenant's `zone` (TEN-065, London by default) reaches it and the opening hours; the rule order
+    is unchanged.
     """
     policy = require_policy(policy)
+    zone = require_zone(zone)
     _check_report_matches(profile, latest)
     freshness = assess_freshness(
-        profile, None if latest is None else latest.effective_at, now, policy
+        profile, None if latest is None else latest.effective_at, now, policy, zone
     )
     figures = None if latest is None else _figures(profile, latest, confirmed_at)
-    status = _status(profile, freshness, figures, now)
+    status = _status(profile, freshness, figures, now, zone)
     return ServiceState(
         status=status,
         effective_available=None if figures is None else figures.available,

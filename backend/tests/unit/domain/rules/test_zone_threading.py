@@ -152,7 +152,7 @@ def test_quiet_hours_are_the_tenants_night() -> None:
         quiet_critical_only=True,
         ack_minutes=15,
     )
-    alert = Alert(AlertKind.SERVICE_NOT_UPDATED, "svc-daily", utc(2026, 7, 1, 23, 0), False)
+    alert = Alert(AlertKind.NOT_UPDATED, "svc-daily", utc(2026, 7, 1, 23, 0), False)
     now = utc(2026, 7, 1, 23, 0)  # 00:00 in London (night), 19:00 in New York (evening)
     assert should_notify(prefs, alert, now) is False
     assert should_notify(prefs, alert, now, LONDON) is False
@@ -176,10 +176,26 @@ ZONE_POSITION: Final = {
 }
 SOURCE_ROOT: Final = Path(__file__).resolve().parents[4] / "src" / "diucs"
 
-# Callers that do not yet pass the tenant's zone, each with the task that does. Every entry must
-# still offend: a converted caller is removed, so the list only shrinks. The domain rules are not
-# on it: they pass the zone on or are the default's own definition.
-ZONE_NOT_YET_THREADED: dict[str, str] = {}
+# Callers that do not yet pass the tenant's zone, each with the task that does (the builder's
+# reading of the tenancy plan: TEN-026 gives the use cases the configuration read port that carries
+# the tenant's zone). Every entry must still offend: a converted caller is removed, so the list only
+# shrinks. The rules that take a zone pass it on; `network_board` has no zone to pass because a
+# projection holds none (the source tenant's zone would join the projection allowlist, TEN-057).
+ZONE_NOT_YET_THREADED: dict[str, str] = {
+    "application/use_cases/cancel_booking.py": "TEN-026",
+    "application/use_cases/handle_inbound_text.py": "TEN-026",
+    "application/use_cases/link_access.py": "TEN-041",
+    "application/use_cases/missed_report_ladder.py": "TEN-027",
+    "application/use_cases/query_board.py": "TEN-039",
+    "application/use_cases/report_capacity.py": "TEN-026",
+    "application/use_cases/request_booking.py": "TEN-026",
+    "application/use_cases/resolve_report_flag.py": "TEN-026",
+    "application/use_cases/respond_to_booking.py": "TEN-026",
+    "application/use_cases/send_prompts.py": "TEN-027",
+    "application/use_cases/setup_service_by_lead.py": "TEN-026",
+    "application/use_cases/suspend_service.py": "TEN-026",
+    "domain/rules/network_board.py": "TEN-057",
+}
 
 
 def _called_name(node: ast.Call) -> str | None:

@@ -28,11 +28,12 @@ ladder stay global.
 from dataclasses import dataclass
 from datetime import UTC, datetime, time, timedelta
 from typing import Final
+from zoneinfo import ZoneInfo
 
 from diucs.domain.codes import AlertKind, Status
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
-from diucs.domain.rules.london_time import london_to_utc, to_london
+from diucs.domain.rules.london_time import LONDON, local_to_utc, require_zone, to_local
 from diucs.domain.rules.pressure import Pressure
 
 # [ASSUMED] critical set, rule book section 8. Alias of the default policy (TEN-064): the set is
@@ -159,26 +160,32 @@ def not_updated_alert_due(not_updated_since: datetime, hours: int, now: datetime
     return _as_utc(now) - since >= timedelta(hours=hours)
 
 
-def _in_quiet_hours(now: datetime, start: time, end: time) -> bool:
-    """True when the UTC instant falls in the London window that wraps midnight (start > end).
+def _in_quiet_hours(now: datetime, start: time, end: time, zone: ZoneInfo) -> bool:
+    """True when the UTC instant falls in the window, in the tenant's zone, that wraps midnight
+    (start > end).
 
-    The window for each London date on either side of `now` is built as two UTC instants, and the
+    The window for each local date on either side of `now` is built as two UTC instants, and the
     instant is compared with them. Validation allows only 22:00 to 06:00, so start is after end.
     """
-    local_date = to_london(now).date()
+    local_date = to_local(now, zone).date()
     for day in (local_date - timedelta(days=1), local_date):
-        window_start = london_to_utc(day, start)
-        window_end = london_to_utc(day + timedelta(days=1), end)
+        window_start = local_to_utc(day, start, zone)
+        window_end = local_to_utc(day + timedelta(days=1), end, zone)
         if window_start <= now < window_end:
             return True
     return False
 
 
-def should_notify(prefs: AlertPreferences, alert: Alert, now: datetime) -> bool:
+def should_notify(
+    prefs: AlertPreferences, alert: Alert, now: datetime, zone: ZoneInfo = LONDON
+) -> bool:
+    """Whether the alert goes out now. Quiet hours are the night of the tenant's `zone` (TEN-065,
+    London by default)."""
+    zone = require_zone(zone)
     current = _as_utc(now)
     if alert.kind not in prefs.kinds:
         return False
-    if prefs.quiet_hours is None or not _in_quiet_hours(current, *prefs.quiet_hours):
+    if prefs.quiet_hours is None or not _in_quiet_hours(current, *prefs.quiet_hours, zone):
         return True
     return alert.critical or not prefs.quiet_critical_only
 

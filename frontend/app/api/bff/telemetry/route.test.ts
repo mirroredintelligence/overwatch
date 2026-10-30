@@ -106,8 +106,11 @@ describe('POST /api/bff/telemetry', () => {
 
     await post(batch({ 'element.id': 'ADV-REF-INPUT', 'tenant.id': 'tenant-b' }));
 
-    const [sent] = forwarded as Array<{ events: Array<{ attributes: Record<string, unknown> }> }>;
-    expect(sent?.events[0]?.attributes['tenant.id']).toBe('tenant-a');
+    const [sent] = forwarded as Array<{
+      resourceLogs: Array<{ scopeLogs: Array<{ logRecords: Array<{ attributes: Array<{ key: string; value: unknown }> }> }> }>;
+    }>;
+    const attributes = sent?.resourceLogs[0]?.scopeLogs[0]?.logRecords[0]?.attributes ?? [];
+    expect(attributes).toContainEqual({ key: 'tenant.id', value: { stringValue: 'tenant-a' } });
     expect(JSON.stringify(forwarded)).not.toContain('tenant-b');
   });
 

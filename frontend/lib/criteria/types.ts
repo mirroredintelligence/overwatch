@@ -40,3 +40,6 @@ export type CriteriaOverview = {
 };
 
 export type ReviewPeriod = 3 | 6 | 12;
+
+/** The steps of the owner's flow. `status` is the tracker after a send, reached from the overview. */
+export type CriteriaStep = 'overview' | 'confirm' | 'edit' | 'preview' | 'send';

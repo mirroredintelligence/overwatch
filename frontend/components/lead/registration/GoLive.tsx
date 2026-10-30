@@ -9,7 +9,7 @@ import { bffPost } from '@/lib/bff/client';
 import { parseDecision, parseOverview, setLiveEnabled } from '@/lib/registration/model';
 import type { Decision, Overview } from '@/lib/registration/types';
 import styles from '../lead.module.css';
-import { useRead } from './useRead';
+import { useRead } from '@/lib/bff/useRead';
 
 // Go live (W29, ui-screens ApprovalWeb2 screen 8). Set live is offered only once the test notification
 // has been answered from the registered phone. The board preview is a status, not a figure: a figure is

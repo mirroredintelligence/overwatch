@@ -8,7 +8,7 @@ import { bffPost } from '@/lib/bff/client';
 import { callbackFormError, parseOverview } from '@/lib/registration/model';
 import type { CallBackResult } from '@/lib/registration/types';
 import styles from '../lead.module.css';
-import { useRead } from './useRead';
+import { useRead } from '@/lib/bff/useRead';
 
 // Check 1 of 4: call the service back (W29, ui-screens ApprovalWeb1 screen 4). The number to call is
 // the one from the register, and only that one. The directory's name comes from tenant configuration,

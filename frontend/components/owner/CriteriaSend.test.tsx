@@ -3,12 +3,13 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { resetCriteriaRequests, seenCriteriaRequests } from '@/test/msw/handlers/criteria';
+import type { CriteriaValues } from '@/lib/criteria/types';
 import { CriteriaSend } from './CriteriaSend';
 
 const SUBMIT = '/api/bff/criteria/s1/submit';
 beforeEach(() => resetCriteriaRequests());
 const posts = () => seenCriteriaRequests.filter((r) => r.method === 'POST' && r.path === SUBMIT);
-const VALUES = { accepts: ['fall-no-injury'], excludes: [], ageMin: 16, ageMax: null, districts: ['DT1'] };
+const VALUES: CriteriaValues = { accepts: ['fall-no-injury'], excludes: [], ageMin: 16, ageMax: null, districts: ['DT1'] };
 
 describe('CriteriaSend', () => {
   it('asks for a reason, sends it with the review period, and shows the status with "Waiting for approval"', async () => {
@@ -26,7 +27,7 @@ describe('CriteriaSend', () => {
     await user.click(screen.getByRole('button', { name: 'Send for approval' }));
     expect(await screen.findByText('Waiting for approval')).toBeInTheDocument();
     await waitFor(() => expect(posts()).toHaveLength(1));
-    expect(posts()[0]?.body).toEqual({ reason: 'Younger patients can be seen', reviewInMonths: 6 });
+    expect(posts()[0]?.body).toMatchObject({ reason: 'Younger patients can be seen', reviewInMonths: 6, ageMin: 16 });
     expect(screen.getByText('Advisors see version 4')).toBeInTheDocument();
     expect(await runAxe(screen.getByRole('status'))).toHaveNoViolations();
   });

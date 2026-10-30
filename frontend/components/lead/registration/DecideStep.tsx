@@ -7,7 +7,7 @@ import { bffPost } from '@/lib/bff/client';
 import { canApprove, decisionNoteError, missingText, NOTE_MAX_LENGTH, parseDecision } from '@/lib/registration/model';
 import type { DecisionAction } from '@/lib/registration/types';
 import styles from '../lead.module.css';
-import { useRead } from './useRead';
+import { useRead } from '@/lib/bff/useRead';
 
 // Check 4 of 4: decide (W29, ui-screens ApprovalWeb2 screen 6). Approve is unavailable until the back
 // end lists nothing missing. The missing list is read from the back end and never worked out here.

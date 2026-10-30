@@ -50,6 +50,7 @@ const conflict = () =>
   );
 
 export const clinicalBackendHandlers = [
+  // The advice request is a POST /Task; the queue is a GET. Both are on this stand-in.
   http.get(`${EXEC_BACKEND}/Task`, (({ request }) => {
     const url = new URL(request.url);
     if (url.searchParams.get('code') !== 'clinical-advice') return undefined;
@@ -116,3 +117,14 @@ export const clinicalBffHandlers = [
     return HttpResponse.json({ id: String(params.id), status: 'completed' });
   }) as HttpResponseResolver),
 ];
+
+/** The back end's `POST /fhir/Task` for a clinical advice request (R13), recorded for the route tests. */
+export const requestBodies: unknown[] = [];
+export const clinicalRequestHandler = http.post(`${EXEC_BACKEND}/Task`, (async ({ request }) => {
+  const body = await request.json().catch(() => undefined);
+  requestBodies.push(body);
+  return HttpResponse.json(
+    { resourceType: 'Task', id: 'req-9001', businessStatus: { coding: [{ code: 'requested' }] }, output: [{ valueInteger: 2 }] },
+    { status: 201 },
+  );
+}) as HttpResponseResolver);

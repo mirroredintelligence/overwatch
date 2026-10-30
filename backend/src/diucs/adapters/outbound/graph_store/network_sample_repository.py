@@ -35,12 +35,6 @@ _LATER_HOUR: Final = datetime(2026, 10, 26, 10, 0, tzinfo=UTC)
 _AT: Final = datetime(2026, 10, 26, 9, 40, tzinfo=UTC)
 _OUTSIDE: Final = datetime(2026, 10, 27, 9, 0, tzinfo=UTC)
 
-_COLUMNS: Final = (
-    "s.hour AS hour, s.lastAt AS lastAt, s.accepting AS accepting, s.limited AS limited, "
-    "s.notAccepting AS notAccepting, s.overCapacity AS overCapacity, "
-    "s.notUpdated AS notUpdated, s.outOfHours AS outOfHours, s.unavailable AS unavailable, "
-    "s.organisations AS organisations, s.peak AS peak"
-)
 _COUNT_PROPERTIES: Final = {
     Status.ACCEPTING: "accepting",
     Status.LIMITED: "limited",
@@ -153,7 +147,10 @@ _STATEMENTS: Final[dict[str, tuple[str, str, Scenario]]] = {
     "Q-NETSAMPLE-RANGE": (
         "read",
         "MATCH (s:NetworkSample {tenantId: $tenant}) WHERE s.hour >= $from AND s.hour < $to "
-        f"RETURN {_COLUMNS} ORDER BY s.hour",
+        "RETURN s.hour AS hour, s.lastAt AS lastAt, s.accepting AS accepting, "
+        "s.limited AS limited, s.notAccepting AS notAccepting, s.overCapacity AS overCapacity, "
+        "s.notUpdated AS notUpdated, s.outOfHours AS outOfHours, s.unavailable AS unavailable, "
+        "s.organisations AS organisations, s.peak AS peak ORDER BY s.hour",
         _RANGE_SCENARIO,
     ),
 }

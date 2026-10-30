@@ -7,11 +7,12 @@ is held as the district only (DEC-067). The full postcode DT4 8XX must never rea
 """
 
 import dataclasses
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
@@ -39,11 +40,34 @@ from diucs.domain.model.case import Case
 from diucs.domain.model.scores import ClinicalFrailty, News2
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, node_props, read_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, wipe
+from tests.support.tenant_seed import contracted_container
 
 Seed = Callable[..., Awaitable[None]]
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
+    """A private Neo4j with every migration applied and the superseded single-property keys dropped
+    (DEC-159). The cross-tenant test saves a service in tenant B with the same category Concept
+    that tenant A holds, which the shared schema refuses until TEN-032."""
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
+    """Overrides the session driver for this module."""
+    return two_tenant_driver
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
+    """Wipes the module's own container before each test (clean_graph wipes only the harness)."""
+    await wipe(neo4j_driver)
+
 
 OPENED = datetime(2026, 10, 23, 13, 10, tzinfo=UTC)
 NOW = datetime(2026, 10, 23, 13, 19, tzinfo=UTC)  # 14:19 BST

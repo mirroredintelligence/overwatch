@@ -29,6 +29,8 @@ import { ReleasesTab } from './ReleasesTab';
 
 type Data = Record<string, unknown>;
 
+const NOT_SERVED = 'Insight is not available yet: the back end does not serve it.';
+
 // The back end's answer for each tab, as the page reads it. A missing list is an empty one.
 function list<T>(value: unknown): T[] {
   return Array.isArray(value) ? (value as T[]) : [];
@@ -45,14 +47,17 @@ export function InsightTabs({ initialTab }: { initialTab: InsightTab }) {
     let cancelled = false;
     fetch(`/api/bff/console/insight/${tab}?range=${range}`, { credentials: 'same-origin' })
       .then(async (response) => {
+        if (response.status === 404) throw new Error('not-served');
         if (!response.ok) throw new Error('status');
         return (await response.json()) as Data;
       })
       .then((body) => {
         if (!cancelled) setResult({ key: requestKey, data: body, error: null });
       })
-      .catch(() => {
-        if (!cancelled) setResult({ key: requestKey, data: null, error: 'This view could not be loaded. Try again.' });
+      .catch((error: Error) => {
+        // A 404 is the back end having no insight route (O08 is not served over HTTP yet): said, not hidden.
+        const message = error.message === 'not-served' ? NOT_SERVED : 'This view could not be loaded. Try again.';
+        if (!cancelled) setResult({ key: requestKey, data: null, error: message });
       });
     return () => {
       cancelled = true;

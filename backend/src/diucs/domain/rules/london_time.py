@@ -50,3 +50,19 @@ def format_stamp(dt: datetime) -> str:
     a figure from another day cannot read as the current one (DEC-115 item 11)."""
     local = to_london(dt)
     return f"{local.day} {_MONTHS[local.month - 1]} {local.strftime('%H:%M')}"
+
+
+def zone_named(name: object) -> ZoneInfo:
+    raise NotImplementedError
+
+
+def require_zone(zone: object) -> ZoneInfo:
+    raise NotImplementedError
+
+
+def to_local(dt: datetime, zone: ZoneInfo = LONDON) -> datetime:
+    raise NotImplementedError
+
+
+def local_to_utc(d: date, t: time, zone: ZoneInfo = LONDON) -> datetime:
+    raise NotImplementedError

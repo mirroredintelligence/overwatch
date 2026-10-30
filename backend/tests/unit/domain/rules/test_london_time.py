@@ -7,12 +7,17 @@ import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
+from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.london_time import (
     LONDON,
     format_hhmm,
     format_stamp,
+    local_to_utc,
     london_to_utc,
+    require_zone,
+    to_local,
     to_london,
+    zone_named,
 )
 
 SPRING_CHANGE = date(2026, 3, 29)
@@ -312,3 +317,59 @@ def test_format_stamp_is_the_london_day_month_and_time(instant: datetime, expect
 def test_format_stamp_refuses_a_naive_datetime() -> None:
     with pytest.raises(ValueError):
         format_stamp(datetime(2026, 10, 23, 7, 15))
+
+
+# -- the zone is a value (TEN-065) ----------------------------------------------------------------
+
+NEW_YORK = ZoneInfo("America/New_York")
+
+
+def test_a_local_time_in_another_zone_is_converted_with_that_zone() -> None:
+    assert local_to_utc(date(2026, 7, 1), time(10, 0), NEW_YORK) == utc(2026, 7, 1, 14, 0)
+    assert local_to_utc(date(2026, 1, 1), time(10, 0), NEW_YORK) == utc(2026, 1, 1, 15, 0)
+
+
+def test_london_is_the_default_zone_and_the_london_names_are_that_default() -> None:
+    d, t = date(2026, 10, 23), time(10, 0)
+    assert local_to_utc(d, t) == local_to_utc(d, t, LONDON) == london_to_utc(d, t)
+    now = utc(2026, 10, 23, 9, 0)
+    assert to_local(now) == to_local(now, LONDON) == to_london(now)
+
+
+def test_the_spring_gap_of_another_zone_shifts_forward_as_londons_does() -> None:
+    # New York, 2026-03-08: 02:30 does not exist; the pre-change offset is kept (03:30 EDT).
+    assert local_to_utc(date(2026, 3, 8), time(2, 30), NEW_YORK) == utc(2026, 3, 8, 7, 30)
+
+
+def test_a_time_of_day_with_a_zone_attached_is_refused_in_any_zone() -> None:
+    with pytest.raises(ValueError, match="naive"):
+        local_to_utc(date(2026, 7, 1), time(10, 0, tzinfo=UTC), NEW_YORK)
+
+
+def test_an_instant_is_shown_in_the_zone_given() -> None:
+    assert to_local(utc(2026, 7, 1, 14, 0), NEW_YORK).hour == 10
+    assert format_hhmm(utc(2026, 7, 1, 14, 0), NEW_YORK) == "10:00"
+    assert format_hhmm(utc(2026, 7, 1, 14, 0)) == "15:00"
+    assert format_stamp(utc(2026, 7, 1, 14, 0), NEW_YORK) == "1 Jul 10:00"
+    assert format_stamp(utc(2026, 7, 1, 14, 0)) == "1 Jul 15:00"
+
+
+def test_a_naive_instant_is_refused_in_any_zone() -> None:
+    with pytest.raises(ValueError, match="timezone-aware"):
+        to_local(datetime(2026, 7, 1, 14, 0), NEW_YORK)
+
+
+def test_a_zone_is_made_from_a_name_on_the_allow_list_only() -> None:
+    assert zone_named("Europe/London") == LONDON
+    for bad in ("America/New_York", "UTC", "", "europe/london", None, 7, b"Europe/London"):
+        with pytest.raises(ValidationFailed) as refused:
+            zone_named(bad)
+        assert refused.value.field == "time_zone"
+
+
+def test_a_zone_the_rules_take_is_exactly_a_zoneinfo() -> None:
+    assert require_zone(LONDON) is LONDON
+    assert require_zone(NEW_YORK) is NEW_YORK
+    for bad in (None, "Europe/London", UTC, 0):
+        with pytest.raises(TypeError, match="a ZoneInfo is required"):
+            require_zone(bad)

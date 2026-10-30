@@ -8,13 +8,14 @@ Days are 0 = Monday to 6 = Sunday. The clock changes are 2026-03-29 and 2026-10-
 """
 
 from datetime import UTC, date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
 
 from diucs.domain.model.service import AvailableTime
-from diucs.domain.rules.london_time import london_to_utc, to_london
+from diucs.domain.rules.london_time import LONDON, london_to_utc, to_london
 from diucs.domain.rules.opening_hours import is_in_hours, next_opening
 
 ALL_DAYS = frozenset(range(7))
@@ -270,3 +271,36 @@ def test_next_opening_is_a_real_opening_strictly_after_now(
     assert opening.tzinfo is not None and opening.utcoffset() == timedelta(0)
     assert is_in_hours(times, opening) is True
     assert is_in_hours(times, opening - timedelta(microseconds=1)) is False
+
+
+# -- the zone is an argument (TEN-065) -------------------------------------------------------------
+
+NEW_YORK = ZoneInfo("America/New_York")
+NINE_TO_FIVE = [AvailableTime.every_day(time(9, 0), time(17, 0))]
+
+
+def test_the_window_is_read_in_the_zone_given() -> None:
+    now = utc(2026, 7, 1, 8, 30)  # 09:30 in London, 04:30 in New York
+    assert is_in_hours(NINE_TO_FIVE, now, LONDON) is True
+    assert is_in_hours(NINE_TO_FIVE, now, NEW_YORK) is False
+    assert is_in_hours(NINE_TO_FIVE, utc(2026, 7, 1, 14, 0), NEW_YORK) is True  # 10:00 there
+
+
+def test_the_next_opening_is_in_the_zone_given() -> None:
+    now = utc(2026, 7, 1, 8, 30)
+    assert next_opening(NINE_TO_FIVE, now, NEW_YORK) == utc(2026, 7, 1, 13, 0)  # 09:00 EDT
+    assert next_opening(NINE_TO_FIVE, now, LONDON) == utc(2026, 7, 2, 8, 0)  # tomorrow 09:00 BST
+
+
+def test_without_a_zone_the_hours_are_londons() -> None:
+    now = utc(2026, 7, 1, 8, 30)
+    assert is_in_hours(NINE_TO_FIVE, now) == is_in_hours(NINE_TO_FIVE, now, LONDON)
+    assert next_opening(NINE_TO_FIVE, now) == next_opening(NINE_TO_FIVE, now, LONDON)
+
+
+@pytest.mark.parametrize("bad", [None, "Europe/London", 0])
+def test_a_zone_that_is_not_a_zoneinfo_is_refused(bad: object) -> None:
+    with pytest.raises(TypeError, match="a ZoneInfo is required"):
+        is_in_hours(NINE_TO_FIVE, utc(2026, 7, 1, 8, 30), bad)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="a ZoneInfo is required"):
+        next_opening(NINE_TO_FIVE, utc(2026, 7, 1, 8, 30), bad)  # type: ignore[arg-type]

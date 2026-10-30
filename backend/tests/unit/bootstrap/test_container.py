@@ -601,6 +601,9 @@ async def test_build_for_tests_exposes_the_dispatcher_with_the_ladder_and_bookin
             WorkKind.BOOKING_PHONE_PROMPT,
             WorkKind.BOOKING_EXPIRE,
             WorkKind.INVARIANT_CHECK,
+            WorkKind.WITHDRAWAL_ESCALATE,
+            WorkKind.ALERT_ESCALATE,
+            WorkKind.NOT_UPDATED_CHECK,
         }
     )
 
@@ -617,6 +620,9 @@ async def test_build_exposes_the_same_dispatch_table() -> None:
                 WorkKind.BOOKING_PHONE_PROMPT,
                 WorkKind.BOOKING_EXPIRE,
                 WorkKind.INVARIANT_CHECK,
+                WorkKind.WITHDRAWAL_ESCALATE,
+                WorkKind.ALERT_ESCALATE,
+                WorkKind.NOT_UPDATED_CHECK,
             }
         )
     finally:

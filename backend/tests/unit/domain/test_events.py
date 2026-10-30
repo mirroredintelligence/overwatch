@@ -24,12 +24,15 @@ from diucs.domain.errors import ValidationFailed
 from diucs.domain.events import (
     AgreementRecorded,
     AlertAcknowledged,
+    AlertEscalatedToLead,
     AlertRaised,
     BookingCancelled,
     BookingExpired,
+    BookingNotReached,
     BookingPhonePrompt,
     BookingRequested,
     BookingResponded,
+    BookingWithdrawn,
     CapacityReported,
     ClinicalAdviceGiven,
     CriteriaApproved,
@@ -54,6 +57,7 @@ from diucs.domain.events import (
     ServiceActivated,
     ServiceDirectoryChanged,
     StatusChanged,
+    WithdrawalEscalated,
     from_payload,
     session_id_for,
     topic_for,
@@ -142,6 +146,11 @@ EXPECTED_TOPIC: dict[type, str] = {
     ProjectionApplied: "network.events",
     ProjectionRejected: "network.events",
     ServiceDirectoryChanged: "registration.events",
+    # U21 (DEC-400): the booking exceptions and the withdrawal escalation.
+    BookingWithdrawn: "booking.events",
+    BookingNotReached: "booking.events",
+    WithdrawalEscalated: "alerts.events",
+    AlertEscalatedToLead: "alerts.events",
 }
 
 

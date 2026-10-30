@@ -29,7 +29,7 @@ from diucs.domain.codes import (
     coding_for,
     parse_code,
 )
-from diucs.domain.errors import ValidationFailed
+from diucs.domain.errors import NotFound, ValidationFailed
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 
 _DAY_CODES: Final = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
@@ -186,6 +186,25 @@ def profile_from_fhir(resource: dict[str, Any]) -> ServiceProfile:
     )
 
 
+def _references(resource: dict[str, Any], element: str) -> list[str]:
+    """The reference strings of a single or a list element of a resource, in order."""
+    value = resource.get(element)
+    entries = value if isinstance(value, list) else [] if value is None else [value]
+    return [
+        str(entry["reference"])
+        for entry in entries
+        if isinstance(entry, dict) and "reference" in entry
+    ]
+
+
+def _split(reference: str) -> tuple[str, str]:
+    """`Type/id` as the type and the id; anything else is NotFound (never a guess)."""
+    kind, sep, identifier = reference.partition("/")
+    if not sep or not kind or not identifier:
+        raise NotFound("a reference of the service cannot be followed")
+    return kind, identifier
+
+
 class Neo4jServiceRepository:
     """Services as HealthcareService resources. Built per transaction (DEC-012)."""
 
@@ -211,6 +230,36 @@ class Neo4jServiceRepository:
             if profile is not None:
                 profiles.append(profile)
         return profiles
+
+    async def set_active(self, service_id: str) -> None:
+        """Flip the three activation flags on the stored resources, one new version each. The rest
+        of each resource is written back as it was read, so providedBy, location and coverage are
+        not lost (U29; known issue U24/U27: save() rewrites the whole service from the profile)."""
+        service = await self._store.get(_RESOURCE_TYPE, service_id)
+        if service is None:
+            raise NotFound("no service with this id")
+        service["active"] = True
+        await self._put_with_current(service)
+        for reference in _references(service, "location"):
+            location = await self._store.get(*_split(reference))
+            if location is None:
+                raise NotFound("a location of the service is missing")
+            location["status"] = "active"
+            await self._put_with_current(location)
+        for reference in _references(service, "providedBy"):
+            organisation = await self._store.get(*_split(reference))
+            if organisation is None:
+                raise NotFound("the organisation of the service is missing")
+            organisation["active"] = True
+            await self._put_with_current(organisation)
+
+    async def _put_with_current(self, resource: dict[str, Any]) -> None:
+        """Write the resource as a new version. The store sets `meta` itself and refuses a resource
+        that carries it, so the stored meta is left out of the write."""
+        current = await self._store.get(resource["resourceType"], resource["id"])
+        expected = None if current is None else str(current["meta"]["versionId"])
+        body = {key: value for key, value in resource.items() if key != "meta"}
+        await self._store.put(body, expected)
 
     async def save(self, profile: ServiceProfile) -> None:
         # Replace the stored version, or create it. The store checks the version after its lock,

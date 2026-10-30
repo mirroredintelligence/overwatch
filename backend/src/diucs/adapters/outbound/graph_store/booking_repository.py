@@ -83,6 +83,20 @@ _CONFIRMED_FOR_SERVICES: Final = NamedQuery(
     mode="read",
     scenario=SCENARIOS["Q-BOOK-CONFIRMED-FOR"],
 )
+# The most recent booking of each service, by its authored time. Booking Tasks are the ones that
+# carry a reference; the order is kept by collect after an ORDER BY in the same WITH (U22).
+_LATEST_FOR: Final = NamedQuery(
+    id="Q-BOOK-LATEST-FOR",
+    cypher=(
+        "MATCH (t:Task {tenantId: $tenant})-[:OWNER]->(s:HealthcareService {tenantId: $tenant}) "
+        "WHERE s.id IN $ids AND t.reference IS NOT NULL "
+        "WITH s.id AS serviceId, t ORDER BY t.authoredOn DESC, t.id "
+        "WITH serviceId, collect(t.id)[0] AS id "
+        "RETURN serviceId, id ORDER BY serviceId"
+    ),
+    mode="read",
+    scenario=SCENARIOS["Q-BOOK-LATEST-FOR"],
+)
 _BY_REF: Final = NamedQuery(
     id="Q-BOOK-BY-REF",
     cypher=(
@@ -109,7 +123,15 @@ def _register(query: NamedQuery) -> None:
         REGISTRY.register(query)
 
 
-for _query in (_PENDING, _OPEN_FOR, _CONFIRMED_FOR, _CONFIRMED_FOR_SERVICES, _BY_REF, _SET_PROPS):
+for _query in (
+    _PENDING,
+    _OPEN_FOR,
+    _LATEST_FOR,
+    _CONFIRMED_FOR,
+    _CONFIRMED_FOR_SERVICES,
+    _BY_REF,
+    _SET_PROPS,
+):
     _register(_query)
 
 
@@ -305,6 +327,18 @@ class Neo4jBookingRepository:
             if booking is not None:
                 grouped[str(row["serviceId"])].append(booking)
         return grouped
+
+    async def latest_for_services(self, service_ids: Sequence[str]) -> list[Booking]:
+        """The most recent booking of each of these services that has one (U22)."""
+        if not service_ids:
+            return []
+        rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-LATEST-FOR"), ids=list(service_ids))
+        found: list[Booking] = []
+        for row in rows:
+            booking = await self.get(str(row["id"]))
+            if booking is not None:
+                found.append(booking)
+        return found
 
     async def confirmed_since(self, service_id: str, since: datetime) -> list[datetime]:
         rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-CONFIRMED-SINCE"), id=service_id)

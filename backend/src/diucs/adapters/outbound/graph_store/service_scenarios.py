@@ -118,6 +118,37 @@ _CONFIRMED_CONCEPT: Final = SeedNode(
         "code": _CONFIRMED_AT,
     },
 )
+# The latest booking of each service (U22): the requested booking is the newer one, the confirmed
+# booking the older, so the query must name bk-1 for svc-1.
+_DATED_REQUESTED: Final = SeedNode(
+    "booking-requested",
+    ("Resource", "Task"),
+    {
+        "id": "bk-1",
+        "key": "Task/bk-1",
+        "businessStatus": "requested",
+        "reference": "4821",
+        "authoredOn": "2026-10-29T14:16:00Z",
+    },
+)
+_DATED_CONFIRMED: Final = SeedNode(
+    "booking-confirmed",
+    ("Resource", "Task"),
+    {
+        "id": Marked("bk-2"),
+        "key": "Task/bk-2",
+        "businessStatus": "confirmed",
+        "reference": "4822",
+        "authoredOn": "2026-10-29T10:00:00Z",
+    },
+)
+_LATEST_SEED: Final = TenantSeed(
+    nodes=(_WARD, _HUB, _DATED_REQUESTED, _DATED_CONFIRMED),
+    rels=(
+        SeedRel("booking-requested", "OWNER", "ward"),
+        SeedRel("booking-confirmed", "OWNER", "ward"),
+    ),
+)
 _BOOKING_SEED: Final = TenantSeed(
     nodes=(
         _WARD,
@@ -239,6 +270,12 @@ SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-BOOK-OPEN-FOR": Scenario(
         "the requested bookings of a list of the tenant's services",
         seed=_BOOKING_SEED,
+        params={"ids": ["svc-1"]},
+        expect=Expect(rows=({"serviceId": "svc-1", "id": "bk-1"},)),
+    ),
+    "Q-BOOK-LATEST-FOR": Scenario(
+        "the most recent booking of each of a list of the tenant's services",
+        seed=_LATEST_SEED,
         params={"ids": ["svc-1"]},
         expect=Expect(rows=({"serviceId": "svc-1", "id": "bk-1"},)),
     ),

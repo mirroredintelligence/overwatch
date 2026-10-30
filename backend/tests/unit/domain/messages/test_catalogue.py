@@ -9,7 +9,7 @@ from diucs.domain.messages.catalogue import MessageId
 def test_catalogue_has_every_id_from_the_rule_book() -> None:
     expected = (
         [f"C{n}" for n in range(1, 13)]
-        + [f"B{n}" for n in range(1, 8)]
+        + [f"B{n}" for n in range(1, 10)]
         + [f"I{n}" for n in range(1, 4)]
         + [f"K{n}" for n in range(1, 5)]
     )

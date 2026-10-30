@@ -38,6 +38,13 @@ class ServiceRepository(Protocol):
         """Every active service, sorted by name."""
         ...
 
+    async def set_active(self, service_id: str) -> None:
+        """Make a registered service active (U29): HealthcareService.active, its Location.status and
+        its Organization.active, each as a new resource version. Only those flags change, so the
+        provider, location and coverage the registration wrote are kept. An unknown service or a
+        referenced resource that is missing raises NotFound."""
+        ...
+
     async def save(self, profile: ServiceProfile) -> None:
         """Insert the profile, or replace the stored one."""
         ...
@@ -113,6 +120,11 @@ class BookingRepository(Protocol):
 
     async def open_for_services(self, service_ids: Sequence[str]) -> dict[str, list[Booking]]:
         """The open bookings per service. Every requested service id is a key, with [] if none."""
+        ...
+
+    async def latest_for_services(self, service_ids: Sequence[str]) -> list[Booking]:
+        """The most recent booking of each of these services that has one, in any state (U22).
+        Q-BOOK-LATEST-FOR: one booking per service, by its authored time."""
         ...
 
     async def confirmed_since(self, service_id: str, since: datetime) -> list[datetime]:

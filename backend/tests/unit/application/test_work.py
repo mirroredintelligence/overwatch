@@ -22,6 +22,8 @@ def test_the_twelve_work_kinds_are_named_as_the_spec_names_them() -> None:
         "reverify",
         "not-updated-check",
         "invariant-check",
+        # Added by U21 (DEC-400): the withdrawal escalation has its own kind.
+        "withdrawal-escalate",
     }
 
 

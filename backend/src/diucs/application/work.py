@@ -25,6 +25,9 @@ class WorkKind(StrEnum):
     REVERIFY = "reverify"
     NOT_UPDATED_CHECK = "not-updated-check"
     INVARIANT_CHECK = "invariant-check"
+    # The escalation of an unacknowledged booking withdrawal (U21). Its own kind, not
+    # ESCALATE_TO_LEAD: the missed-report ladder owns that kind and the dispatcher routes by kind.
+    WITHDRAWAL_ESCALATE = "withdrawal-escalate"
 
 
 SCHEDULED = "scheduled"

@@ -34,10 +34,12 @@ from diucs.domain.codes import (
     AdviceChoice,
     AlertKind,
     BookingStatus,
+    NotReachedReason,
     ReportFlagReason,
     ReportSource,
     Role,
     Status,
+    WithdrawReason,
     parse_code,
 )
 from diucs.domain.errors import ValidationFailed
@@ -1214,6 +1216,132 @@ class ClinicalAdviceGiven:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class BookingWithdrawn:
+    """A service withdrew a confirmed booking (U21). The advisor is alerted at once; if nobody
+    acknowledges it, WithdrawalEscalated follows. `reason` is a WithdrawReason."""
+
+    event_type: ClassVar[str] = "BookingWithdrawn"
+    booking_id: str
+    service_id: str
+    reason: WithdrawReason
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        if type(self.reason) is not WithdrawReason:
+            raise ValidationFailed("reason", "must be a withdraw reason")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "booking_id": self.booking_id,
+            "service_id": self.service_id,
+            "reason": self.reason.value,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            booking_id=_text(payload, "booking_id"),
+            service_id=_text(payload, "service_id"),
+            reason=_code(payload, "reason", WithdrawReason),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class BookingNotReached:
+    """The service's confirmed patient could not be reached (U21). `reason` is a
+    NotReachedReason."""
+
+    event_type: ClassVar[str] = "BookingNotReached"
+    booking_id: str
+    service_id: str
+    reason: NotReachedReason
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        if type(self.reason) is not NotReachedReason:
+            raise ValidationFailed("reason", "must be a not-reached reason")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "booking_id": self.booking_id,
+            "service_id": self.service_id,
+            "reason": self.reason.value,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            booking_id=_text(payload, "booking_id"),
+            service_id=_text(payload, "service_id"),
+            reason=_code(payload, "reason", NotReachedReason),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class WithdrawalEscalated:
+    """A withdrawal nobody acknowledged within the window: the shift lead is told (U21)."""
+
+    event_type: ClassVar[str] = "WithdrawalEscalated"
+    booking_id: str
+    service_id: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "booking_id": self.booking_id,
+            "service_id": self.service_id,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            booking_id=_text(payload, "booking_id"),
+            service_id=_text(payload, "service_id"),
+            at=_when(payload),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AlertEscalatedToLead:
+    """An alert nobody acknowledged went to the deputy and the deputy did not act either: the shift
+    lead is told (U34). `alert_id` is the first alert of the chain."""
+
+    event_type: ClassVar[str] = "AlertEscalatedToLead"
+    alert_id: str
+    service_id: str | None
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "alert_id": self.alert_id,
+            "service_id": self.service_id,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        service = payload.get("service_id")
+        return cls(
+            alert_id=_text(payload, "alert_id"),
+            service_id=None if service is None else _text(payload, "service_id"),
+            at=_when(payload),
+        )
+
+
 DomainEvent = (
     CapacityReported
     | StatusChanged
@@ -1233,6 +1361,10 @@ DomainEvent = (
     | ReportFlagged
     | PhoneTaskRaised
     | ReportEscalated
+    | BookingWithdrawn
+    | BookingNotReached
+    | WithdrawalEscalated
+    | AlertEscalatedToLead
     | NetworkCreated
     | MemberAdded
     | MemberRemoved
@@ -1268,6 +1400,10 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         ReportFlagged: CAPACITY_EVENTS,
         PhoneTaskRaised: CAPACITY_EVENTS,
         ReportEscalated: ALERTS_EVENTS,
+        BookingWithdrawn: BOOKING_EVENTS,
+        BookingNotReached: BOOKING_EVENTS,
+        WithdrawalEscalated: ALERTS_EVENTS,
+        AlertEscalatedToLead: ALERTS_EVENTS,
         NetworkCreated: NETWORK_EVENTS,
         MemberAdded: NETWORK_EVENTS,
         MemberRemoved: NETWORK_EVENTS,
@@ -1303,6 +1439,10 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "ReportFlagged": ReportFlagged.decode,
         "PhoneTaskRaised": PhoneTaskRaised.decode,
         "ReportEscalated": ReportEscalated.decode,
+        "BookingWithdrawn": BookingWithdrawn.decode,
+        "BookingNotReached": BookingNotReached.decode,
+        "WithdrawalEscalated": WithdrawalEscalated.decode,
+        "AlertEscalatedToLead": AlertEscalatedToLead.decode,
         "NetworkCreated": NetworkCreated.decode,
         "MemberAdded": MemberAdded.decode,
         "MemberRemoved": MemberRemoved.decode,

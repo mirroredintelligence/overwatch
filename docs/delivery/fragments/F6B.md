@@ -39,8 +39,10 @@ no migration; no new statement.
   properties. The generated tenant-isolation test (`test_tenant_isolation.py`, 44) passes for the
   changed statement.
 
-**Other racing tests**: every integration test with `racing` in its name, and the three named
-`concurrent`, was run 10 times each (results in the report of the task). None other is flaky: the
+**Other racing tests**: every integration test with `racing` in its name (18 files, 160 file runs),
+and the 7 named `concurrent` (audit log, link token, credential store), was run 10 times each, serially,
+all green; the 38 racing and concurrent tests of all 19 files together were also run 6 times under
+`-n 4 --dist loadfile` beside other runs, all green. None other is flaky: the
 create-only `add` repositories (cases, bookings, flags, link tokens, idempotency, contacts,
 credentials) raise `Conflict` for an existing id whatever the timing, so a late racer cannot win.
 

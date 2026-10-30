@@ -210,6 +210,9 @@ class Container:
     # The area of each tenant for the registration review (U28, DEC-317): no default, so a tenant
     # with no entry in the settings has an empty area (R11 wiring, bootstrap/wiring.py).
     area_districts_for: AreaDistrictsFor
+    # The base address of the one-tap links (R10: an invitation's link). One value for the
+    # platform until a tenant's own link host is in its configuration (TEN-026 owns that).
+    link_base_url: str
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -492,6 +495,7 @@ def build(
         ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for(settings.tenant_areas),
+        link_base_url=settings.base_url,
     )
 
 
@@ -558,4 +562,5 @@ def build_for_tests(
         ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for({} if areas is None else areas),
+        link_base_url=link_base_url,
     )

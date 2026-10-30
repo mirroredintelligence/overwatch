@@ -27,13 +27,16 @@ from tests.support.edge import active_tenants
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-NOW = datetime(2026, 10, 30, 9, 0, tzinfo=UTC)
+NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 CREATE = "/fhir/Basic"
 HISTORY = "/fhir/Basic?subject=HealthcareService/svc-1"
 SUBMIT = "/fhir/Basic/basic-1/$submit-for-approval"
 APPROVE = "/fhir/Basic/basic-1/$approve"
 SEND_BACK = "/fhir/Basic/basic-1/$send-back"
 CONFIRM = "/fhir/HealthcareService/svc-1/$confirm-criteria"
+EDGE_REFUSED: frozenset[Role] = frozenset({Role.PLATFORM_OPERATOR})
+"""A role the token edge refuses on every FHIR route: the platform operator runs tenant lifecycle
+only and has no data access (DEC-134), so its token is a 401 before any route is reached."""
 KEY = {"Idempotency-Key": "criteria-route-key-0001"}
 NOTE_LIMIT = 280
 OWNER_ROLES = frozenset({Role.OWNER})
@@ -100,6 +103,18 @@ def _confirm_body(months: dict[str, Any] | None) -> dict[str, Any]:
     return _parameters(*parts)
 
 
+async def _send(
+    client: AsyncClient, method: str, path: str, body: Any, headers: dict[str, str]
+) -> Any:
+    """One request. A request with no body still declares a JSON body type: the body-type check
+    of the app refuses a POST or PUT with no media type before any route runs (415)."""
+    if body is None:
+        return await client.request(
+            method, path, content=b"", headers={**headers, "Content-Type": "application/json"}
+        )
+    return await client.request(method, path, json=body, headers=headers)
+
+
 # ----------------------------------------------------------------- the role boundary of each route
 
 _KEYED_ROUTES: list[tuple[str, str, dict[str, Any] | None, frozenset[Role]]] = [
@@ -127,10 +142,12 @@ async def test_each_keyed_criteria_route_takes_its_roles_and_refuses_the_rest(
 ) -> None:
     async with _client() as client:
         for role in Role:
-            response = await client.request(method, path, json=body, headers=_bearer(role))
+            response = await _send(client, method, path, body, _bearer(role))
             if role in permitted:
                 assert response.status_code == 400, role
                 assert response.json()["issue"][0]["code"] == "required", role
+            elif role in EDGE_REFUSED:
+                assert response.status_code == 401, role
             else:
                 assert response.status_code == 404, role
 
@@ -146,6 +163,8 @@ async def test_the_history_is_for_the_owner_clinical_lead_and_lead_only() -> Non
                 # A permitted role reaches the store, which this test does not open: anything but
                 # the not-found of a refused role or an unknown path.
                 assert response.status_code != 404, role
+            elif role in EDGE_REFUSED:
+                assert response.status_code == 401, role
             else:
                 assert response.status_code == 404, role
 

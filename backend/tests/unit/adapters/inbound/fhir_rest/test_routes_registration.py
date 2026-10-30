@@ -28,15 +28,13 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, default_token_tenant, issue_test_token
-from diucs.application.use_cases.invite_reporter import NOT_IN_PILOT_MESSAGE
+from diucs.application.use_cases.invite_reporter import MOBILE_MESSAGE, NOT_IN_PILOT_MESSAGE
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed
 from diucs.domain.rules.registration import ApprovalChecks, missing_for_approval
 from tests.support.edge import active_tenants
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
-
-NOW = datetime(2026, 10, 30, 9, 0, tzinfo=UTC)
+NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 SCOPE_LIST = "/fhir/List/scope-list"
 SCOPE_ENTRY = "/fhir/List/scope-list/$entry"
 INVITE = "/fhir/Task/$invite-reporter"
@@ -48,10 +46,12 @@ APPROVE = "/fhir/Task/reg-1/$approve"
 SEND_BACK = "/fhir/Task/reg-1/$send-back"
 NOT_APPROVE = "/fhir/Task/reg-1/$not-approve"
 SET_LIVE = "/fhir/Task/reg-1/$set-live"
+EDGE_REFUSED: frozenset[Role] = frozenset({Role.PLATFORM_OPERATOR})
+"""A role the token edge refuses on every FHIR route: the platform operator runs tenant lifecycle
+only and has no data access (DEC-134), so its token is a 401 before any route is reached."""
 KEY = {"Idempotency-Key": "reg-route-key-0001"}
 NOTE_LIMIT = 280
 EXAMPLE_MOBILE = "07700 900123"
-MOBILE_REFUSAL = "Enter a UK mobile number, for example 07700 900123"
 
 
 @dataclass(frozen=True)
@@ -143,6 +143,18 @@ def _decision_parts(**overrides: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return parts
 
 
+async def _send(
+    client: AsyncClient, method: str, path: str, body: Any, headers: dict[str, str]
+) -> Any:
+    """One request. A request with no body still declares a JSON body type: the body-type check
+    of the app refuses a POST or PUT with no media type before any route runs (415)."""
+    if body is None:
+        return await client.request(
+            method, path, content=b"", headers={**headers, "Content-Type": "application/json"}
+        )
+    return await client.request(method, path, json=body, headers=headers)
+
+
 # ----------------------------------------------------------------- the role boundary of each route
 
 # Route, method, body, the roles that may reach it. Every other role is refused with the same 404
@@ -191,11 +203,13 @@ async def test_each_keyed_route_takes_its_roles_and_refuses_the_rest(
 ) -> None:
     async with _client() as client:
         for role in Role:
-            response = await client.request(method, path, json=body, headers={**_bearer(role)})
+            response = await _send(client, method, path, body, _bearer(role))
             if role in permitted:
                 # No key: the route's own refusal, before any store is touched.
                 assert response.status_code == 400, role
                 assert response.json()["issue"][0]["code"] == "required", role
+            elif role in EDGE_REFUSED:
+                assert response.status_code == 401, role
             else:
                 assert response.status_code == 404, role
 
@@ -203,15 +217,16 @@ async def test_each_keyed_route_takes_its_roles_and_refuses_the_rest(
 async def test_the_scope_list_is_for_the_lead_only() -> None:
     async with _client() as client:
         lead = await client.get(SCOPE_LIST, headers=_bearer(Role.LEAD))
-        others = [
-            (await client.get(SCOPE_LIST, headers=_bearer(role))).status_code
+        refused = {
+            role: (await client.get(SCOPE_LIST, headers=_bearer(role))).status_code
             for role in Role
             if role is not Role.LEAD
-        ]
+        }
     # The lead reaches the list, so the route answers something other than an unknown path: the
     # shared store is not opened in this test, so the answer is the failure of the empty store.
     assert lead.status_code != 404
-    assert others == [404] * (len(list(Role)) - 1)
+    for role, status in refused.items():
+        assert status == (401 if role in EDGE_REFUSED else 404), role
 
 
 # ---------------------------------------------------------------- refusals that need no store
@@ -266,7 +281,7 @@ async def test_a_bad_mobile_is_refused_with_the_example_and_without_the_number()
             headers={**KEY, **_bearer(Role.LEAD)},
         )
     assert response.status_code == 400
-    assert response.json()["issue"][0]["diagnostics"] == MOBILE_REFUSAL
+    assert response.json()["issue"][0]["diagnostics"] == MOBILE_MESSAGE
     assert typed not in response.text
 
 

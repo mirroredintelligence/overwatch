@@ -1,10 +1,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { resetReporterRequests, seenBffRequests } from '@/test/msw/handlers/reporter';
-import { server } from '@/test/msw/server';
 import { GroupedUpdate } from './GroupedUpdate';
 
 vi.setConfig({ testTimeout: 20_000 });

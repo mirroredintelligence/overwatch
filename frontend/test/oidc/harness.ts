@@ -3,7 +3,7 @@ import { vi } from 'vitest';
 import { entraHandlers } from '@/test/msw/handlers/entra';
 import { server } from '@/test/msw/server';
 import { resetKeyCache } from '@/lib/auth/oidc';
-import { CLIENT_ID, CLIENT_SECRET, ENTRA_ENV, HOST, REDIRECT_URI, DIRECTORY_A, DIRECTORY_B, DIRECTORY_PLATFORM } from './constants';
+import { CLIENT_ID, CLIENT_SECRET, ENTRA_ENV, HOST, REDIRECT_URI, REDIRECT_URI_B, REDIRECT_URI_C, DIRECTORY_A, DIRECTORY_B } from './constants';
 import { FakeEntra, type FakeUser, type Tamper } from './fake-entra';
 
 // Shared set-up for the staff sign-in tests: the environment the sign-in reads,
@@ -16,7 +16,8 @@ export async function startFakeEntra(): Promise<FakeEntra> {
     clientId: CLIENT_ID,
     clientSecret: CLIENT_SECRET,
     redirectUri: REDIRECT_URI,
-    directories: [DIRECTORY_A, DIRECTORY_B, DIRECTORY_PLATFORM, '33333333-3333-4333-8333-333333333333'],
+    moreRedirectUris: [REDIRECT_URI_B, REDIRECT_URI_C],
+    directories: [DIRECTORY_A, DIRECTORY_B, '33333333-3333-4333-8333-333333333333'],
   });
   server.use(...entraHandlers(fake));
   resetKeyCache();

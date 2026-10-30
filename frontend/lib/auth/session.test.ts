@@ -7,8 +7,11 @@ import {
   lastWrite,
   requestWithCookies,
   resetCookieWrites,
+  seedCookies,
+  setRequestHost,
   TEST_SESSION_SECRET,
 } from '@/test/cookies';
+import { TENANTS } from '@/test/tenants';
 import {
   createSession,
   destroySession,
@@ -23,7 +26,7 @@ import {
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const NOW = new Date('2026-10-23T13:12:00.000Z');
@@ -39,6 +42,8 @@ function sample(overrides: Partial<Session> = {}): Session {
   return {
     role: 'advisor',
     services: ['svc-1', 'svc-2'],
+    tenantId: TENANTS.A.id,
+    host: TENANTS.A.host,
     sub: 'user-1',
     backendToken: TOKEN,
     expiresAt: '2026-10-23T21:12:00.000Z',
@@ -176,6 +181,16 @@ describe('sealSession and unsealSession', () => {
     const good = { ...sample() };
     expect(await unsealSession(await seal(good), NOW)).toEqual(sample());
     for (const bad of [
+      { ...good, tenantId: undefined },
+      { ...good, tenantId: '' },
+      { ...good, tenantId: 7 },
+      { ...good, tenantId: 'net-capacity' },
+      { ...good, tenantId: 'Trust A' },
+      { ...good, tenantId: ['trust-a'] },
+      { ...good, host: undefined },
+      { ...good, host: '' },
+      { ...good, host: 'tenant-a.example.test/evil' },
+      { ...good, host: 7 },
       { ...good, role: 'admin' },
       { ...good, role: undefined },
       { ...good, services: 'svc-1' },
@@ -225,6 +240,8 @@ describe('sealSession and unsealSession', () => {
       'anonymous-link',
       'support',
       'audit',
+      'tenant-admin',
+      'network-admin',
     ]);
     for (const role of ROLES) {
       const back = await unsealSession(await sealSession(sample({ role }), NOW), NOW);
@@ -251,7 +268,7 @@ describe('sealSession and unsealSession', () => {
 describe('sessionFromRequest', () => {
   it('reads the session from the Cookie header', async () => {
     const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
-    const request = requestWithCookies('https://app.test/x', {
+    const request = requestWithCookies(`https://${TENANTS.A.host}/x`, {
       other: '1',
       [SESSION_COOKIE]: sealed,
     });
@@ -259,12 +276,12 @@ describe('sessionFromRequest', () => {
   });
 
   it('returns null with no cookie, an empty cookie or a bad cookie', async () => {
-    expect(await sessionFromRequest(new Request('https://app.test/x'))).toBeNull();
+    expect(await sessionFromRequest(new Request(`https://${TENANTS.A.host}/x`))).toBeNull();
     expect(
-      await sessionFromRequest(requestWithCookies('https://app.test/x', { [SESSION_COOKIE]: '' })),
+      await sessionFromRequest(requestWithCookies(`https://${TENANTS.A.host}/x`, { [SESSION_COOKIE]: '' })),
     ).toBeNull();
     expect(
-      await sessionFromRequest(requestWithCookies('https://app.test/x', { [SESSION_COOKIE]: 'x.y' })),
+      await sessionFromRequest(requestWithCookies(`https://${TENANTS.A.host}/x`, { [SESSION_COOKIE]: 'x.y' })),
     ).toBeNull();
   });
 });
@@ -356,5 +373,93 @@ describe('logging', () => {
     await destroySession();
     expect(cookieWrites.length).toBeGreaterThan(0);
     for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('the tenant in the session (TEN-044)', () => {
+  it('round-trips the tenant and the host the session was made on', async () => {
+    const back = await unsealSession(await sealSession(sample({ tenantId: TENANTS.B.id, host: TENANTS.B.host }), NOW), NOW);
+    expect(back).toMatchObject({ tenantId: TENANTS.B.id, host: TENANTS.B.host });
+  });
+
+  it('refuses to seal a session with no tenant, a network id or a malformed tenant id', async () => {
+    for (const tenantId of ['', 'net-capacity', 'UPPER', 'a', 'has space', 'x'.repeat(40)]) {
+      await expect(sealSession(sample({ tenantId }), NOW)).rejects.toThrow(/tenant/i);
+    }
+  });
+
+  it('refuses to seal a session with no host or a host that is not a host name', async () => {
+    for (const host of ['', 'a.test/path', 'a.test?x=1', 'user@a.test', ' a.test', 'a b.test']) {
+      await expect(sealSession(sample({ host }), NOW)).rejects.toThrow(/host/i);
+    }
+  });
+
+  it('does not show the tenant id in the sealed string', async () => {
+    const sealed = await sealSession(sample(), NOW);
+    expect(sealed).not.toContain(TENANTS.A.id);
+    expect(sealed).not.toContain(TENANTS.A.host);
+  });
+
+  it('returns null for a session from before the tenant was in it, sealed with the real key', async () => {
+    const key = Buffer.from(TEST_SESSION_SECRET, 'base64');
+    const { tenantId: _tenant, host: _host, ...old } = sample();
+    void _tenant;
+    void _host;
+    const sealed = await new EncryptJWT({ ...old })
+      .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+      .setExpirationTime(Math.floor(NOW.getTime() / 1000) + 600)
+      .encrypt(key);
+    expect(await unsealSession(sealed, NOW)).toBeNull();
+  });
+});
+
+describe('a session is for the host it was made on (TEN-044)', () => {
+  const URL_A = `https://${TENANTS.A.host}/x`;
+  const URL_B = `https://${TENANTS.B.host}/x`;
+
+  it('is read on its own host', async () => {
+    const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
+    const request = requestWithCookies(URL_A, { [SESSION_COOKIE]: sealed }, { headers: { Host: TENANTS.A.host } });
+    expect(await sessionFromRequest(request)).toMatchObject({ tenantId: TENANTS.A.id });
+  });
+
+  it('is not read on another tenant host, even when the browser sent the cookie there (a cookie set from a sibling sub-domain)', async () => {
+    const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
+    const request = requestWithCookies(URL_B, { [SESSION_COOKIE]: sealed }, { headers: { Host: TENANTS.B.host } });
+    expect(await sessionFromRequest(request)).toBeNull();
+  });
+
+  it('compares the host without case, and with the port it was made on', async () => {
+    const sealed = await sealSession(sample({ host: 'tenant-a.example.test:3000', expiresAt: soon() }), new Date());
+    const ok = requestWithCookies(URL_A, { [SESSION_COOKIE]: sealed }, { headers: { Host: 'Tenant-A.Example.Test:3000' } });
+    expect(await sessionFromRequest(ok)).not.toBeNull();
+    const otherPort = requestWithCookies(URL_A, { [SESSION_COOKIE]: sealed }, { headers: { Host: 'tenant-a.example.test:3001' } });
+    expect(await sessionFromRequest(otherPort)).toBeNull();
+  });
+
+  it('is not read when the request has a host that is not a host name', async () => {
+    const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
+    const request = requestWithCookies(URL_A, { [SESSION_COOKIE]: sealed }, { headers: { Host: `${TENANTS.A.host}/evil` } });
+    expect(await sessionFromRequest(request)).toBeNull();
+  });
+
+  it('is read from the Next cookie store only on its own host', async () => {
+    const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
+    seedCookies({ [SESSION_COOKIE]: sealed });
+    setRequestHost(TENANTS.A.host);
+    expect(await getSession()).toMatchObject({ tenantId: TENANTS.A.id });
+    setRequestHost(TENANTS.B.host);
+    expect(await getSession()).toBeNull();
+  });
+
+  it('is never read through a header that names a tenant', async () => {
+    const sealed = await sealSession(sample({ expiresAt: soon() }), new Date());
+    const request = requestWithCookies(
+      URL_B,
+      { [SESSION_COOKIE]: sealed },
+      { headers: { Host: TENANTS.B.host, 'X-Tenant-Id': TENANTS.A.id, 'X-Forwarded-Host': TENANTS.A.host } },
+    );
+    expect(await sessionFromRequest(request)).toBeNull();
   });
 });

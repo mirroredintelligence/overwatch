@@ -10,7 +10,7 @@ import { GET, POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 // The link page's own API. No session: the token is the only thing that identifies the link.

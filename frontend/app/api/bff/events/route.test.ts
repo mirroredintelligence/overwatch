@@ -3,6 +3,8 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { sessionFor } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 import { BACKEND_BASE, TOKEN_ORG_A, TOKEN_ORG_B } from '@/test/msw/handlers/board';
 import { server } from '@/test/msw/server';
 import { frame, readAll, streamOf } from '@/test/sse';
@@ -10,22 +12,16 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-const URL_ = 'https://app.test/api/bff/events';
+const URL_ = `https://${TENANTS.A.host}/api/bff/events`;
 const EVENTS = `${BACKEND_BASE}/events`;
 const SSE = 'text/event-stream';
 const SERVICE = '{"serviceId":"a1","changedAt":"2026-10-23T13:12:00Z"}';
 
 function session(role: Role, backendToken: string = TOKEN_ORG_A): Session {
-  return {
-    role,
-    services: [],
-    sub: 'screen-1',
-    backendToken,
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-  };
+  return sessionFor(TENANTS.A, role, { sub: 'screen-1', backendToken });
 }
 
 async function get(

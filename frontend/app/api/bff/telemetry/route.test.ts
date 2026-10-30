@@ -1,34 +1,23 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { sessionFromRequest, SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
+import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { sessionFor } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 import { server } from '@/test/msw/server';
 import { POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-// The session seals a fixed set of claims and carries no tenant yet. The tenant test below supplies
-// one through this spy, so the route's own rule (the tenant comes from the session) is still tested.
-vi.mock('@/lib/auth/session', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/auth/session')>();
-  return { ...actual, sessionFromRequest: vi.fn(actual.sessionFromRequest) };
-});
-
-const URL_ = 'https://app.test/api/bff/telemetry';
+const URL_ = `https://${TENANTS.A.host}/api/bff/telemetry`;
 const COLLECTOR = 'https://collector.test/v1/events';
 
 function session(role: Role): Session {
-  return {
-    role,
-    services: [],
-    sub: 'user-1',
-    backendToken: 'backend-token',
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-  };
+  return sessionFor(TENANTS.A, role, { sub: 'user-1', backendToken: 'backend-token' });
 }
 
 async function post(body: unknown, role: Role | null = 'advisor', options: { origin?: string } = {}) {
@@ -86,7 +75,6 @@ describe('POST /api/bff/telemetry', () => {
   });
 
   it('takes the tenant from the session, never from the browser', async () => {
-    vi.mocked(sessionFromRequest).mockResolvedValueOnce({ ...session('advisor'), tenantId: 'tenant-a' } as Session);
 
     await post(batch({ 'element.id': 'ADV-REF-INPUT', 'tenant.id': 'tenant-b' }));
 

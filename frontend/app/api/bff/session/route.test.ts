@@ -10,25 +10,25 @@ import {
   resetCookieWrites,
   TEST_SESSION_SECRET,
 } from '@/test/cookies';
+import { sessionFor } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 import { DELETE, GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const BACKEND_TOKEN = 'backend-token-sample-value';
-const URL_ = 'https://app.test/api/bff/session';
+const URL_ = `https://${TENANTS.A.host}/api/bff/session`;
 const TOKEN = 'A'.repeat(43);
 
-const session: Session = {
-  role: 'advisor',
+const session: Session = sessionFor(TENANTS.A, 'advisor', {
   services: ['svc-1', 'svc-2'],
   sub: 'user-1',
   device: 'dev-1',
   backendToken: BACKEND_TOKEN,
-  expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-};
+});
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
@@ -43,7 +43,7 @@ afterEach(() => {
 });
 
 describe('GET /api/bff/session', () => {
-  it('returns 200 with role, services, sub and a csrfToken, and no backendToken', async () => {
+  it('returns 200 with role, services and a csrfToken only: no backendToken, no sub, no tenant id', async () => {
     const cookie = await sealSession(session);
     const response = await GET(requestWithCookies(URL_, { [SESSION_COOKIE]: cookie }));
     expect(response.status).toBe(200);
@@ -52,13 +52,16 @@ describe('GET /api/bff/session', () => {
     expect(body).toEqual({
       role: 'advisor',
       services: ['svc-1', 'svc-2'],
-      sub: 'user-1',
       csrfToken: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
     });
     expect(text).not.toContain(BACKEND_TOKEN);
     expect(text).not.toContain('backendToken');
     expect(text).not.toContain('device');
     expect(text).not.toContain('expiresAt');
+    expect(text).not.toContain('user-1');
+    expect(text).not.toContain(TENANTS.A.id);
+    expect(text).not.toContain(TENANTS.A.host);
+    expect(text).not.toMatch(/tenant/i);
   });
 
   it('issues the csrf cookie that matches the token it returns', async () => {
@@ -108,12 +111,28 @@ describe('GET /api/bff/session', () => {
     expect(await expired.json()).toEqual({ code: 'no-session' });
   });
 
-  it('sets Cache-Control: no-store', async () => {
+  it('sets Cache-Control: private, no-store and varies by cookie and host, on every answer', async () => {
     const cookie = await sealSession(session);
     const ok = await GET(requestWithCookies(URL_, { [SESSION_COOKIE]: cookie }));
-    expect(ok.headers.get('Cache-Control')).toBe('no-store');
+    expect(ok.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(ok.headers.get('Vary')).toMatch(/Cookie/i);
+    expect(ok.headers.get('Vary')).toMatch(/Host/i);
     const none = await GET(new Request(URL_));
-    expect(none.headers.get('Cache-Control')).toBe('no-store');
+    expect(none.headers.get('Cache-Control')).toBe('private, no-store');
+  });
+
+  it('shows another tenant host no session at all, though the cookie was sent there', async () => {
+    const cookie = await sealSession(session);
+    const other = `https://${TENANTS.B.host}/api/bff/session`;
+    const response = await GET(requestWithCookies(other, { [SESSION_COOKIE]: cookie }));
+    expect(response.status).toBe(401);
+    expect(await response.json()).toEqual({ code: 'no-session' });
+  });
+
+  it('refuses a request that names a tenant', async () => {
+    const cookie = await sealSession(session);
+    const response = await GET(requestWithCookies(`${URL_}?tenant=${TENANTS.B.id}`, { [SESSION_COOKIE]: cookie }));
+    expect(response.status).toBe(400);
   });
 
   it('writes nothing to the console', async () => {
@@ -128,6 +147,14 @@ describe('GET /api/bff/session', () => {
 });
 
 describe('DELETE /api/bff/session', () => {
+  it('has no-store on the 204 too', async () => {
+    const cookie = await sealSession(session);
+    const response = await DELETE(
+      requestWithCookies(URL_, { [SESSION_COOKIE]: cookie, [CSRF_COOKIE]: TOKEN }, { method: 'DELETE', headers: { [CSRF_HEADER]: TOKEN } }),
+    );
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+  });
+
   async function del(csrf: 'ok' | 'none') {
     const cookie = await sealSession(session);
     const headers = new Headers();

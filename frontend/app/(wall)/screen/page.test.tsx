@@ -3,6 +3,8 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSession, type Role, type Session } from '@/lib/auth/session';
 import { runAxe } from '@/test/a11y';
+import { sessionFor } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 import { BOARD_A, BOARD_B, BOARD_SURGE, GENERATED_AT, QUIET_AT } from '@/test/fixtures/board';
 import {
   BACKEND_BASE,
@@ -38,13 +40,7 @@ vi.mock('@/lib/auth/session', async (importOriginal) => ({
 }));
 
 function signedIn(role: Role, backendToken: string = TOKEN_ORG_A): Session {
-  return {
-    role,
-    services: [],
-    sub: 'screen-1',
-    backendToken,
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-  };
+  return sessionFor(TENANTS.A, role, { sub: 'screen-1', backendToken });
 }
 
 function as(session: Session | null) {

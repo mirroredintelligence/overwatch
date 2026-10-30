@@ -12,7 +12,7 @@ const timingSafeEqual = vi.hoisted(() => vi.fn());
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 vi.mock('node:crypto', async (importOriginal) => {

@@ -3,6 +3,8 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { sessionFor } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 import { BOARD_A, BOARD_B } from '@/test/fixtures/board';
 import {
   BACKEND_BASE,
@@ -17,19 +19,13 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-const URL_ = 'https://app.test/api/bff/board';
+const URL_ = `https://${TENANTS.A.host}/api/bff/board`;
 
 function session(role: Role, backendToken: string = TOKEN_ORG_A): Session {
-  return {
-    role,
-    services: [],
-    sub: 'user-1',
-    backendToken,
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-  };
+  return sessionFor(TENANTS.A, role, { sub: 'user-1', backendToken });
 }
 
 async function get(role: Role | null, options: { token?: string; url?: string; headers?: HeadersInit } = {}) {

@@ -17,6 +17,8 @@ afterEach(() => vi.unstubAllEnvs());
 function sessionFor(role: Role, overrides: Partial<Session> = {}): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: new URL(BASE).host,
     services: [],
     sub: 'aaaaaaaa-0000-4000-8000-000000000001',
     backendToken: 'backend-token-sample-value',

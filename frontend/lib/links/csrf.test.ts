@@ -4,7 +4,7 @@ import { checkLinkCsrf, issueLinkCsrf, LINK_CSRF_COOKIE, linkCsrfPath } from './
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const TOKEN = 'RecordedLinkTokenAbcdef';

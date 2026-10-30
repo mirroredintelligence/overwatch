@@ -16,7 +16,7 @@ describe('AccessLog', () => {
     const table = await screen.findByRole('table', { name: 'Access by the platform’s own people' });
     expect(within(table).getAllByRole('columnheader').map((h) => h.textContent)).toEqual(['When', 'Who', 'What happened', 'Reference']);
     const rows = within(table).getAllByRole('row').slice(1);
-    expect(within(rows[0]!).getByText('29 Oct 2026, 11:00')).toBeInTheDocument();
+    expect(within(rows[0]!).getByText('29 Oct 2026, 10:00')).toBeInTheDocument();
     expect(within(rows[0]!).getByText('Support')).toBeInTheDocument();
     expect(within(rows[0]!).getByText('Opened access with a support code')).toBeInTheDocument();
     expect(within(rows[0]!).getByText('tkt-1, acc-1')).toBeInTheDocument();

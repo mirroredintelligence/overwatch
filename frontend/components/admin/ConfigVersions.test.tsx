@@ -97,7 +97,7 @@ describe('drafting a change', () => {
     const [write] = seenAdminWrites;
     expect(write).toMatchObject({ method: 'POST', path: '/api/bff/tenant/config/drafts', csrf: SAMPLE_CSRF });
     expect(write?.key).toMatch(/^[\x21-\x7e]{1,200}$/);
-    expect(write?.body).toEqual({ basedOn: 2, changes: { pressureWatchFrom: 6, alertDefaultKinds: ['not-updated', 'service-closed'] }, removals: [] });
+    expect(write?.body).toEqual({ basedOn: 2, changes: { pressureWatchFrom: 6, alertDefaultKinds: ['not-updated', 'over-capacity', 'service-closed'] }, removals: [] });
   });
 
   it('says what happens next: the version, how many approvals, and that they are not the author’s', async () => {

@@ -46,8 +46,8 @@ describe('the email channel', () => {
 
   it('has no field for a secret, and none for the kind: only the sender', async () => {
     await open();
-    const labels = screen.getAllByRole('textbox').map((t) => t.getAttribute('name'));
-    expect(labels.every((name) => ['senderLabel', 'fromAddress', 'fromDisplayName'].includes(name ?? ''))).toBe(true);
+    const labels = screen.getAllByRole('textbox').map((t) => (t as HTMLInputElement).labels?.[0]?.textContent);
+    expect(labels.every((name) => ['Sender name', 'From address', 'From display name'].includes(name ?? ''))).toBe(true);
     expect(screen.queryByLabelText(/secret|password|reference/i)).not.toBeInTheDocument();
   });
 

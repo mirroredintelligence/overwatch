@@ -38,8 +38,9 @@ describe('RetentionForm', () => {
   it('will not save until every class has an action, and says which is missing', async () => {
     const user = await open();
     await user.click(screen.getByRole('button', { name: 'Save retention rules' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('There is 1 problem');
+    expect(await screen.findByRole('alert')).toHaveTextContent('There are 6 problems');
     expect(screen.getByText('Choose what happens to Bookings.', { selector: 'p' })).toBeInTheDocument();
+    expect(screen.getByText('Choose what happens to Safety concerns.', { selector: 'p' })).toBeInTheDocument();
     expect(seenAdminWrites).toEqual([]);
   });
 

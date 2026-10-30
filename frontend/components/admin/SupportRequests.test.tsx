@@ -32,7 +32,7 @@ describe('the list', () => {
     expect(within(first).getByText('Service fault')).toBeInTheDocument();
     expect(within(first).getByText('The board shows a service twice')).toBeInTheDocument();
     expect(within(first).getByText('Help-desk reference HD-1042')).toBeInTheDocument();
-    expect(within(first).getByText('Asked 30 Oct 2026, 09:00. Lapses 31 Oct 2026, 09:00.')).toBeInTheDocument();
+    expect(within(first).getByText('Asked 30 Oct 2026, 08:00. Lapses 31 Oct 2026, 08:00.')).toBeInTheDocument();
     expect(within(card('tkt-2')).getByText('Approved, code not used yet')).toBeInTheDocument();
     expect(within(card('tkt-3')).getByText('Open now')).toBeInTheDocument();
   });

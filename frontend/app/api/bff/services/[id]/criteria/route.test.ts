@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { BACKEND_BASE } from '@/test/msw/handlers/board';
+import { CRITERIA_HISTORY } from '@/test/fixtures/backend-shapes';
 import { server } from '@/test/msw/server';
 import { GET } from './route';
 
@@ -77,6 +78,15 @@ describe('GET /api/bff/services/[id]/criteria (W14)', () => {
     expect(response.status).toBe(200);
     expect(seenQueries).toEqual(['HealthcareService/svc-ucr-west']);
     expect(await response.json()).toMatchObject({ version: 3, reviewBy: '2099-12-12', overdue: false });
+  });
+
+  it('words what the current version accepts and excludes, from the history the back end sends an advisor (W14)', async () => {
+    server.use(http.get(HISTORY_URL, () => HttpResponse.json(CRITERIA_HISTORY)));
+
+    expect(await (await get('advisor')).json()).toMatchObject({
+      accepts: 'Fall, no injury · Frailty · Age 18+',
+      excludes: 'Suspected fracture',
+    });
   });
 
   it('flags criteria whose review date has passed', async () => {

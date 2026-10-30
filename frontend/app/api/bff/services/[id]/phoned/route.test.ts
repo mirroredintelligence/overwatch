@@ -86,10 +86,16 @@ describe('POST /api/bff/services/[id]/phoned (W14)', () => {
     expect(seen[0].token).toBe('Bearer token-for-advisor');
   });
 
-  it('a not-accepting answer is sent with the value 0', async () => {
+  it('a not-accepting answer is sent with no value: the back end refuses one and stores 0 itself (DEC-861)', async () => {
     await post('advisor', { caseRef: '4821', said: 'not-accepting', value: 7 });
 
-    expect(seen[0].body).toMatchObject({ parameter: expect.arrayContaining([{ name: 'value', valueInteger: 0 }]) });
+    expect(seen[0].body).toEqual({
+      resourceType: 'Parameters',
+      parameter: [
+        { name: 'case', valueReference: { reference: 'ServiceRequest/4821' } },
+        { name: 'status', valueCode: 'not-accepting' },
+      ],
+    });
   });
 
   it('answers 403 for a reporter and calls nothing', async () => {

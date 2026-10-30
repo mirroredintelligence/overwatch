@@ -32,6 +32,18 @@ describe('FinishScreen (W15)', () => {
     expect(screen.queryByRole('button', { name: 'Copy summary' })).toBeNull();
   });
 
+  it('names the case by the four-digit number the back end holds, not by the id in the address (DEC-631)', async () => {
+    const user = userEvent.setup();
+    render(<FinishScreen caseId="case-1" preselect={null} />);
+
+    expect(await screen.findByText('Case 4821')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Declined' }));
+    await user.click(byEl('ADV-FIN-SAVE-BTN'));
+
+    expect(await screen.findByText('Case 4821 is saved. The postcode has been cleared from this screen.')).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain('case-1');
+  });
+
   it('"Start next call" goes to the advisor home', async () => {
     const user = userEvent.setup();
     render(<FinishScreen caseId="4821" preselect={null} />);

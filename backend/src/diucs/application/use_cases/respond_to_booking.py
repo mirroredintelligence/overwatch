@@ -15,7 +15,7 @@ from datetime import datetime
 from typing import Final, Literal
 
 from diucs.application.actor import Actor
-from diucs.application.booking_effects import cancel_booking_timers, text_reporter_role
+from diucs.application.booking_effects import cancel_booking_timers, queue_echo, text_reporter_role
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
@@ -23,7 +23,6 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.outbox import outbox_message_for
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
 from diucs.domain.codes import BookingStatus, Channel, DeclineReason, ReportSource, Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
@@ -197,14 +196,14 @@ class RespondToBooking:
                 if profile is None:
                     raise NotFound(NO_BOOKING)
                 rendered = _rendered_echo(echo_message(target), booking, profile.name, now)
-                await queue_message(
+                await queue_echo(
                     uow,
                     self._ids,
                     self._sealer,
                     scope=scope,
                     rendered=rendered,
+                    booking=booking,
                     recipient_role_id=role.id,
-                    about_id=booking.id,
                     now=now,
                 )
             await uow.audit.append(

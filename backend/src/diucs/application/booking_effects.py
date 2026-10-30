@@ -8,10 +8,15 @@ the CancelWork message the relay (I03) delivers.
 from datetime import datetime
 from typing import Final
 
+from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork
 from diucs.application.scheduling import cancel_work
+from diucs.application.sealed_send import queue_message
+from diucs.application.tenancy import ScopeId
 from diucs.application.work import SCHEDULED, WorkKind
 from diucs.domain.codes import BookingStatus, Channel
+from diucs.domain.messages.templates import RenderedMessage
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.people import PractitionerRole
 
@@ -46,3 +51,32 @@ def expired(booking: Booking, at: datetime) -> Booking:
     """The booking after its reply window has passed. The Task is `cancelled` with businessStatus
     `expired` (D13); the move is checked by the state machine."""
     return booking.with_status(BookingStatus.EXPIRED, at)
+
+
+async def queue_echo(
+    uow: UnitOfWork,
+    ids: IdGenerator,
+    sealer: ContentSealer,
+    *,
+    scope: ScopeId,
+    rendered: RenderedMessage,
+    booking: Booking,
+    recipient_role_id: str,
+    now: datetime,
+) -> str:
+    """Queue the echo of a booking reply or cancellation to the service's reporter.
+
+    The Communication is about the SERVICE: the store links a Communication's about id to a
+    HealthcareService with that id, so a booking id here would create a placeholder service and
+    clash on the unique Resource id (fixD, U17-1). The booking is named in the text only.
+    """
+    return await queue_message(
+        uow,
+        ids,
+        sealer,
+        scope=scope,
+        rendered=rendered,
+        recipient_role_id=recipient_role_id,
+        about_id=booking.service_id,
+        now=now,
+    )

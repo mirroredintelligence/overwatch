@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from diucs.application.actor import Actor
-from diucs.application.booking_effects import cancel_booking_timers, text_reporter_role
+from diucs.application.booking_effects import cancel_booking_timers, queue_echo, text_reporter_role
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
@@ -23,7 +23,6 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.outbox import outbox_message_for
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
 from diucs.domain.codes import BookingStatus, CancelReason, Channel
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
@@ -149,14 +148,14 @@ class CancelBooking:
                     reference=booking.reference,
                     cancelled_at=format_hhmm(now),
                 )
-                await queue_message(
+                await queue_echo(
                     uow,
                     self._ids,
                     self._sealer,
                     scope=scope,
                     rendered=rendered,
+                    booking=booking,
                     recipient_role_id=role.id,
-                    about_id=booking.id,
                     now=now,
                 )
             await uow.audit.append(

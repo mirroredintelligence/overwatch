@@ -5,6 +5,7 @@ import { readAddresses } from '@/lib/register/backend';
 import { FhirError } from '@/lib/fhir/client';
 import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { GET } from './route';
+import { TENANTS } from '@/test/tenants';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -24,6 +25,8 @@ const url = (query: string) => `https://tenant-a.example.test/api/bff/addresses$
 async function sessionFor(role: Session['role']): Promise<string> {
   return sealSession({
     role,
+    tenantId: TENANTS.A.id,
+    host: TENANTS.A.host,
     services: [],
     sub: 'person-sample-1',
     backendToken: 'backend-token-sample-value',
@@ -45,7 +48,7 @@ describe('GET /api/bff/addresses', () => {
   it('looks up the normalised postcode with the reporter’s token and returns the id and label of each address', async () => {
     const response = await GET(requestWithCookies(url('?postcode=dt4%208xx'), { [SESSION_COOKIE]: await sessionFor('reporter') }));
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(lookup).toHaveBeenCalledWith('backend-token-sample-value', 'DT4 8XX');
     expect(await response.json()).toEqual([
       { id: 'addr-1', label: 'Sample House, Dorchester, DT4 8XX' },

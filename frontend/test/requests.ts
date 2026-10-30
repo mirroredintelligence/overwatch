@@ -22,6 +22,15 @@ export function csrfFor(session: Session): string {
   return csrfTokenFor(session, CSRF_NONCE);
 }
 
+/**
+ * The CSRF token issued to a person of `tenant` (by subject) on the tenant's own host. Needs
+ * SESSION_SECRET stubbed before the call, so a test file that keeps one token for its whole run
+ * stubs it first (`vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET)` at the top of the file).
+ */
+export function csrfOf(tenant: TestTenant, sub: string): string {
+  return csrfTokenFor({ tenantId: tenant.id, host: tenant.host, sub }, CSRF_NONCE);
+}
+
 export function sessionFor(tenant: TestTenant, role: Role, overrides: Partial<Session> = {}): Session {
   // The leak canary now knows this test signs in as this tenant (test/leak-canary.ts).
   canary.expect(tenant.id);

@@ -6,17 +6,23 @@ import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Session } from '@/lib/auth/session';
 import { cookiesMock, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
 import { POST } from './route';
+import { csrfOf } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
   return { cookies: m.cookiesMock };
 });
 
-const CSRF = 'C'.repeat(43);
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfOf(TENANTS.A, 'sess-1');
 const BACKEND = 'http://backend.test/fhir';
 
 const session: Session = {
   role: 'reporter',
+  tenantId: TENANTS.A.id,
+  host: TENANTS.A.host,
   services: ['svc-1'],
   sub: 'sess-1',
   backendToken: 'sess-1',
@@ -34,7 +40,7 @@ async function call(body: string, withSession = true, key = 'key-abcdefgh') {
   const cookies: Record<string, string> = { [CSRF_COOKIE]: CSRF };
   if (withSession) cookies[SESSION_COOKIE] = await sealSession(session);
   return POST(
-    requestWithCookies('https://app.test/api/bff/reporter/bookings/4821/respond', cookies, {
+    requestWithCookies(`https://${TENANTS.A.host}/api/bff/reporter/bookings/4821/respond`, cookies, {
       method: 'POST',
       headers: { [CSRF_HEADER]: CSRF, 'Idempotency-Key': key },
       body,

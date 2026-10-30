@@ -5,6 +5,7 @@ import { readRegistration } from '@/lib/register/backend';
 import { FhirError } from '@/lib/fhir/client';
 import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { GET } from './route';
+import { TENANTS } from '@/test/tenants';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -26,6 +27,8 @@ const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 async function sessionFor(role: Session['role']): Promise<string> {
   return sealSession({
     role,
+    tenantId: TENANTS.A.id,
+    host: TENANTS.A.host,
     services: [],
     sub: 'person-sample-1',
     backendToken: 'backend-token-sample-value',
@@ -50,7 +53,7 @@ describe('GET /api/bff/registrations/[id]', () => {
     const cookie = await sessionFor('reporter');
     const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: cookie }), ctx(ID));
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toEqual({
       id: ID,

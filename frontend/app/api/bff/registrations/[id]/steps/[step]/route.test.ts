@@ -8,6 +8,8 @@ import { BACKEND_ROOT } from '@/test/fixtures/links';
 import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { server } from '@/test/msw/server';
 import { PUT } from './route';
+import { csrfOf } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -22,7 +24,9 @@ vi.mock('@/lib/register/backend', async (importOriginal) => ({
 // read from the back end here, and the back end's own checks answer the save.
 
 const ID = 'REG-SAMPLE-1';
-const CSRF = 'csrf-sample-token';
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfOf(TENANTS.A, 'person-sample-1');
 const read = vi.mocked(readRegistration);
 const url = (step = 'organisation') => `https://tenant-a.example.test/api/bff/registrations/${ID}/steps/${step}`;
 const ctx = (step = 'organisation', id = ID) => ({ params: Promise.resolve({ id, step }) });
@@ -32,6 +36,8 @@ let upstream: { path: string; method: string; body: unknown; auth: string | null
 async function sessionFor(role: Session['role']): Promise<string> {
   return sealSession({
     role,
+    tenantId: TENANTS.A.id,
+    host: TENANTS.A.host,
     services: [],
     sub: 'person-sample-1',
     backendToken: 'backend-token-sample-value',

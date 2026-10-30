@@ -3,6 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { sealSession } from '@/lib/auth/session';
 import { POST } from './route';
+import { csrfOf } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
+
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfOf(TENANTS.A, 'sample-sub');
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -21,6 +27,8 @@ afterEach(() => {
 const lead = () =>
   sealSession({
     role: 'lead',
+    tenantId: TENANTS.A.id,
+    host: TENANTS.A.host,
     services: [],
     sub: 'sample-sub',
     backendToken: 'sample-token',
@@ -34,7 +42,7 @@ describe('POST /api/bff/registrations/[id]/callback', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const cookie = await lead();
     const request = requestWithCookies(
-      'https://app.test/api/bff/registrations/r1/callback',
+      `https://${TENANTS.A.host}/api/bff/registrations/r1/callback`,
       { diucs_session: cookie },
       { method: 'POST', body: body({ result: 'no-answer', numberCalled: '01202 000 111' }), headers: { 'Content-Type': 'application/json' } },
     );
@@ -49,12 +57,12 @@ describe('POST /api/bff/registrations/[id]/callback', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');
     const cookie = await lead();
     const request = requestWithCookies(
-      'https://app.test/api/bff/registrations/r1/callback',
-      { diucs_session: cookie, diucs_csrf: 'csrf-sample' },
+      `https://${TENANTS.A.host}/api/bff/registrations/r1/callback`,
+      { diucs_session: cookie, diucs_csrf: CSRF },
       {
         method: 'POST',
         body: body({ result: 'maybe', numberCalled: '01202 000 111' }),
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': 'csrf-sample', 'Idempotency-Key': 'key-cb-1' },
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': CSRF, 'Idempotency-Key': 'key-cb-1' },
       },
     );
     const response = await POST(request, { params: Promise.resolve({ id: 'r1' }) });

@@ -4,18 +4,24 @@ import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { POST } from './route';
+import { csrfOf } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
   return { cookies: m.cookiesMock };
 });
 
-const CSRF = 'csrf-token-for-the-test-0123456789abcdefghij';
-const URL_ = 'https://app.test/api/bff/lead/services/s-virtual-ward/remind';
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfOf(TENANTS.A, 'user-1');
+const URL_ = `https://${TENANTS.A.host}/api/bff/lead/services/s-virtual-ward/remind`;
 
 function session(role: Role): Session {
   return {
     role,
+    tenantId: TENANTS.A.id,
+    host: TENANTS.A.host,
     services: [],
     sub: 'user-1',
     backendToken: 'token-for-the-lead',

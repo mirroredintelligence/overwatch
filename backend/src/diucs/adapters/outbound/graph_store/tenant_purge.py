@@ -138,7 +138,11 @@ _PURGE_DATA = NamedQuery(
         seed=_SEED,
         params={"limit": 10},
         new=("limit",),
-        expect=Expect(rows=({"deleted": 2},), nodes={"HealthcareService": -2, "Resource": -2}),
+        expect=Expect(
+            rows=({"deleted": 2},),
+            nodes={"HealthcareService": -2, "Resource": -2},
+            rels={"HAS_VERSION": -1},  # detached with its node
+        ),
     ),
 )
 _PURGE_AUDIT = NamedQuery(

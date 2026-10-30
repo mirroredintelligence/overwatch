@@ -163,3 +163,10 @@ export async function fhirStream(
   }
   return { body: response.body };
 }
+
+// Red stub (DEC-010): the root-relative call for admin and identity routes (W42).
+export async function backendFetch<T>(path: string, init: FhirInit = {}): Promise<FhirResult<T>> {
+  void path;
+  void init;
+  return { data: undefined as T };
+}

@@ -91,9 +91,11 @@ def create_app(
     app.include_router(fhir)
     # Imported here: the route modules depend on auth, which imports this module (DEC-111).
     from diucs.adapters.inbound.fhir_rest import (
+        routes_admin,
         routes_alerts,
         routes_board,
         routes_cases,
+        routes_clinical,
         routes_criteria,
         routes_events,
         routes_identity,
@@ -112,6 +114,9 @@ def create_app(
     # The alert and summary routes (R12) read `/HealthcareService/$week-summary`: they are mounted
     # before the service routes, or `{service_id}` would take the summary.
     app.include_router(routes_alerts.router)
+    # The lead, identity, audit (R13) and clinical advice and safety routes (R13).
+    app.include_router(routes_admin.router)
+    app.include_router(routes_clinical.router)
     app.include_router(routes_services.router)
     app.include_router(routes_cases.router)
     routes_services.register_capabilities()

@@ -21,7 +21,13 @@ from types import TracebackType
 from typing import Any, Self
 
 import pytest
+
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.fixed_ids import SequentialIds
+from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.recording_platform_audit import RecordingPlatformAudit
+from diucs.application.actor import Actor
 from diucs.application.cross_tenant_guard import (
     ACCESS_VALID_FOR,
     CODE_VALID_FOR,
@@ -34,12 +40,6 @@ from diucs.application.cross_tenant_guard import (
     PlatformPrincipal,
     RevokeAccessCommand,
 )
-
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.identity import TenantKeyedSecrets
 from diucs.application.tenancy import ScopeId, TenantMismatch, bind_tenant, current_scope_or_none

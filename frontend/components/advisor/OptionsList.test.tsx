@@ -6,20 +6,25 @@ import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
 import { OPTIONS_EMPTY_VIEW, OPTIONS_VIEW } from '@/test/fixtures/options';
 import { resetSeenAdvisorRequests, seenOptionsReads } from '@/test/msw/handlers/advisor';
+import { resetBookingRequests, seenBookingPosts } from '@/test/msw/handlers/bookings';
 import { server } from '@/test/msw/server';
 import { http, HttpResponse } from 'msw';
 import { OptionsList } from './OptionsList';
 
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+const push = vi.fn();
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
 beforeEach(() => {
   resetCsrfCache();
   resetSeenAdvisorRequests();
+  resetBookingRequests();
+  push.mockReset();
+  document.cookie = 'diucs_csrf=csrf-value-for-the-list; path=/';
 });
 
 describe('OptionsList (W13)', () => {
   it('renders the count heading and the sort line, from the options the back end sent', async () => {
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
 
     expect(await screen.findByRole('heading', { name: "3 services meet this patient's criteria" })).toBeInTheDocument();
     expect(screen.getByText('Sorted by travel time. Not ranked.')).toBeInTheDocument();
@@ -28,13 +33,13 @@ describe('OptionsList (W13)', () => {
   it('says "1 service" in the singular', async () => {
     const one = OPTIONS_VIEW.options[0];
     server.use(http.get('/api/bff/cases/:ref/options', () => HttpResponse.json({ ...OPTIONS_VIEW, options: [one], notSuitable: [] })));
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
 
     expect(await screen.findByRole('heading', { name: "1 service meets this patient's criteria" })).toBeInTheDocument();
   });
 
   it('cards appear in the order received, with no rank or "best" label', async () => {
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
 
     const names = screen.getAllByRole('article').map((card) => card.getAttribute('aria-label'));
@@ -44,31 +49,28 @@ describe('OptionsList (W13)', () => {
 
   it('with no service that fits, says so and shows the placeholder heading (W16 replaces it)', async () => {
     server.use(http.get('/api/bff/cases/:ref/options', () => HttpResponse.json(OPTIONS_EMPTY_VIEW)));
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
 
     expect(await screen.findByRole('heading', { name: 'No service fits right now' })).toBeInTheDocument();
   });
 
   it('the card buttons reach the page through their props with the service id', async () => {
     const user = userEvent.setup();
-    const onRequest = vi.fn();
     const onCriteria = vi.fn();
     const onPhoned = vi.fn();
-    render(<OptionsList caseId="4821" onRequest={onRequest} onCriteria={onCriteria} onPhoned={onPhoned} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={onCriteria} onPhoned={onPhoned} onAskClinical={vi.fn()} />);
     await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
     const ucr = screen.getByRole('article', { name: 'UCR West' });
 
-    await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
     await user.click(within(ucr).getByRole('button', { name: 'I phoned' }));
     await user.click(within(ucr).getByRole('button', { name: 'Criteria' }));
 
-    expect(onRequest).toHaveBeenCalledWith('svc-ucr-west');
     expect(onPhoned).toHaveBeenCalledWith('svc-ucr-west');
     expect(onCriteria).toHaveBeenCalledWith('svc-ucr-west');
   });
 
   it('shows the footer note and the three next steps', async () => {
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
 
     expect(
@@ -109,7 +111,7 @@ describe('OptionsList (W13)', () => {
         }),
       ),
     );
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     const card = await screen.findByRole('article', { name: 'Other unit' });
 
     expect(screen.getAllByText('You cannot book or change these services from here. Phone the service to check.')).toHaveLength(1);
@@ -118,7 +120,7 @@ describe('OptionsList (W13)', () => {
   });
 
   it('reads the options once per page load, not again on focus', async () => {
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
 
     await act(async () => {
@@ -132,7 +134,7 @@ describe('OptionsList (W13)', () => {
   });
 
   it('shows the loading line before the options arrive, and has no axe violations once they have', async () => {
-    const { container } = render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    const { container } = render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     expect(screen.getByText('Loading the options.')).toBeInTheDocument();
     await waitFor(() => expect(byEl('ADV-OPT-NUMBER', container)).toBeInTheDocument());
 
@@ -148,7 +150,7 @@ describe('OptionsList dialogs (W14)', () => {
       ),
     );
     const user = userEvent.setup();
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
     const button = within(screen.getByRole('article', { name: 'UCR West' })).getByRole('button', { name: 'Criteria' });
 
@@ -162,7 +164,7 @@ describe('OptionsList dialogs (W14)', () => {
 
   it('"I phoned" and "They declined" open their dialogs for that service', async () => {
     const user = userEvent.setup();
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
     const card = screen.getByRole('article', { name: 'UCR West' });
 
@@ -176,7 +178,7 @@ describe('OptionsList dialogs (W14)', () => {
 
   it('after a saved answer the options are read again, once', async () => {
     const user = userEvent.setup();
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
     await user.click(within(screen.getByRole('article', { name: 'UCR West' })).getByRole('button', { name: 'I phoned' }));
     await user.click(screen.getByRole('button', { name: 'Accepting' }));
@@ -199,7 +201,7 @@ describe('OptionsList with no service that fits (W16)', () => {
       }),
     );
     const user = userEvent.setup();
-    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
 
     const widen = await screen.findByRole('button', { name: 'Widen the time: today instead of within 2 hrs' });
     expect(screen.getByRole('heading', { name: 'No service fits right now' })).toBeInTheDocument();
@@ -207,5 +209,66 @@ describe('OptionsList with no service that fits (W16)', () => {
     await user.click(widen);
 
     await waitFor(() => expect(seenOptionsReads).toHaveLength(2));
+  });
+});
+
+
+describe('the booking control on each card (W13, W20)', () => {
+  it('mounts one booking panel per service of the viewer\'s own organisation, and posts the case and the service, once', async () => {
+    const user = userEvent.setup();
+    render(<OptionsList caseId="case-1" />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+    expect(screen.getAllByRole('button', { name: 'Request booking' })).toHaveLength(3);
+    const ward = screen.getByRole('article', { name: 'Community hospital · Ward B' });
+
+    await user.click(within(ward).getByRole('button', { name: 'Request booking' }));
+
+    expect(await within(ward).findByText('Requested')).toBeInTheDocument();
+    expect(seenBookingPosts).toHaveLength(1);
+    expect(seenBookingPosts[0]?.body).toEqual({ caseRef: 'case-1', serviceId: 'svc-ward-b' });
+    expect(seenBookingPosts[0]?.csrf).toBe('csrf-value-for-the-list');
+    // The other two cards still offer the control: a request is one service's.
+    expect(screen.getAllByRole('button', { name: 'Request booking' })).toHaveLength(2);
+  });
+
+  it('says the service has a request waiting, on its own card, when the back end refuses a second (409)', async () => {
+    server.use(http.post('/api/bff/bookings', () => HttpResponse.json({ code: 'open-request' }, { status: 409 })));
+    const user = userEvent.setup();
+    render(<OptionsList caseId="case-1" />);
+    const ucr = await screen.findByRole('article', { name: 'UCR West' });
+
+    await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
+
+    expect(await within(ucr).findByText('UCR West already has a request waiting. Phone them instead.')).toBeInTheDocument();
+  });
+
+  it('takes a confirmed booking to the outcome and to the summary on the finish screen', async () => {
+    const { bookingStore } = await import('@/test/msw/handlers/bookings');
+    const { STATE_CONFIRMED } = await import('@/test/fixtures/bookings');
+    server.use(http.post('/api/bff/bookings', () => HttpResponse.json(STATE_CONFIRMED, { status: 201 })));
+    void bookingStore;
+    const user = userEvent.setup();
+    render(<OptionsList caseId="case-1" />);
+    const ucr = await screen.findByRole('article', { name: 'UCR West' });
+    await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
+
+    await user.click(await within(ucr).findByRole('button', { name: 'Record outcome' }));
+    expect(push).toHaveBeenLastCalledWith('/advisor/case/case-1/finish');
+    await user.click(within(ucr).getByRole('button', { name: 'Copy summary for SystmOne' }));
+    expect(push).toHaveBeenLastCalledWith('/advisor/case/case-1/finish#summary');
+  });
+
+  it('"Back to options" after a decline brings the advisor to the list again, and reads nothing new (DEC-636)', async () => {
+    const { STATE_DECLINED } = await import('@/test/fixtures/bookings');
+    server.use(http.post('/api/bff/bookings', () => HttpResponse.json(STATE_DECLINED, { status: 201 })));
+    const user = userEvent.setup();
+    render(<OptionsList caseId="case-1" />);
+    const ucr = await screen.findByRole('article', { name: 'UCR West' });
+    await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
+
+    await user.click(await within(ucr).findByRole('button', { name: 'Back to options' }));
+
+    expect(document.activeElement).toBe(screen.getByRole('heading', { name: "3 services meet this patient's criteria" }));
+    expect(seenOptionsReads).toHaveLength(1);
   });
 });

@@ -96,6 +96,26 @@ describe('BookingPanel: live updates', () => {
     expect(seenBookingReads).toEqual([BOOKING_ID]);
   });
 
+  it('refetches on a board event that names this service: the back end sends `board`, not `booking.updated` (routes_events.py)', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+    await screen.findByText('Requested');
+    bookingStore.current = STATE_CONFIRMED;
+    stream.emit('board', JSON.stringify({ serviceId: SERVICE_ID, kind: 'capacity', changedAt: '2026-10-30T14:19:00Z' }));
+
+    expect(await screen.findByText('Booked')).toBeInTheDocument();
+    expect(seenBookingReads).toEqual([BOOKING_ID]);
+  });
+
+  it('ignores a board event for another service', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+    await screen.findByText('Requested');
+    stream.emit('board', JSON.stringify({ serviceId: 'ucr-other', kind: 'capacity', changedAt: '2026-10-30T14:19:00Z' }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(seenBookingReads).toHaveLength(0);
+  });
+
   it('ignores a booking.updated event for another service', async () => {
     renderPanel();
     await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));

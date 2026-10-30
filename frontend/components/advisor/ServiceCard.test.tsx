@@ -1,18 +1,26 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { categoryLabel, durationText } from '@/lib/board/format';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
 import { OPTIONS_VIEW } from '@/test/fixtures/options';
 import type { OptionView } from '@/lib/advisor/options';
+import { resetBookingRequests, seenBookingPosts } from '@/test/msw/handlers/bookings';
 import { ServiceCard } from './ServiceCard';
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
+beforeEach(() => {
+  resetBookingRequests();
+  document.cookie = 'diucs_csrf=csrf-value-for-the-card; path=/';
+});
 
 const [UCR_WEST, WARD_B, HAH] = OPTIONS_VIEW.options as unknown as OptionView[];
 
 function renderCard(option: OptionView, handlers = {}) {
-  const props = { onRequest: vi.fn(), onCriteria: vi.fn(), onPhoned: vi.fn(), ...handlers };
-  render(<ServiceCard option={option} {...props} />);
+  const props = { onCriteria: vi.fn(), onPhoned: vi.fn(), ...handlers };
+  render(<ServiceCard caseId="case-1" option={option} {...props} />);
   return props;
 }
 
@@ -56,15 +64,16 @@ describe('ServiceCard (W13)', () => {
     expect(within(card).getByText('Response or travel: Not recorded')).toBeInTheDocument();
   });
 
-  it('the three buttons call their props with the service id', async () => {
+  it('the booking control is the booking panel of this case and service, and the other buttons call their props with the service id', async () => {
     const user = userEvent.setup();
     const props = renderCard(UCR_WEST);
 
     await user.click(byEl('ADV-OPT-REQUEST-BTN'));
+    expect(await screen.findByText('Requested')).toBeInTheDocument();
+    expect(seenBookingPosts[0]?.body).toEqual({ caseRef: 'case-1', serviceId: 'svc-ucr-west' });
     await user.click(byEl('ADV-OPT-CRITERIA-BTN'));
     await user.click(byEl('ADV-OPT-PHONED-BTN'));
 
-    expect(props.onRequest).toHaveBeenCalledWith('svc-ucr-west');
     expect(props.onCriteria).toHaveBeenCalledWith('svc-ucr-west');
     expect(props.onPhoned).toHaveBeenCalledWith('svc-ucr-west');
   });
@@ -90,7 +99,7 @@ describe('ServiceCard (W13)', () => {
   });
 
   it('has no axe violations', async () => {
-    const { container } = render(<ServiceCard option={WARD_B} onRequest={() => {}} onCriteria={() => {}} onPhoned={() => {}} />);
+    const { container } = render(<ServiceCard caseId="case-1" option={WARD_B} onCriteria={() => {}} onPhoned={() => {}} />);
     expect((await runAxe(container)).violations).toEqual([]);
   });
 });

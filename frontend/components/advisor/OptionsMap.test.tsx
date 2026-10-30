@@ -21,7 +21,6 @@ function renderMap(onSelect = vi.fn()) {
       options={MAP_OPTIONS}
       selectedId={null}
       onSelect={onSelect}
-      onRequest={vi.fn()}
       onCriteria={vi.fn()}
     />,
   );
@@ -38,7 +37,6 @@ describe('OptionsMap (W50)', () => {
         options={MAP_OPTIONS}
         selectedId={null}
         onSelect={vi.fn()}
-        onRequest={vi.fn()}
         onCriteria={vi.fn()}
       />,
     );
@@ -61,7 +59,6 @@ describe('OptionsMap (W50)', () => {
         options={MAP_OPTIONS}
         selectedId={null}
         onSelect={vi.fn()}
-        onRequest={vi.fn()}
         onCriteria={vi.fn()}
       />,
     );
@@ -91,7 +88,6 @@ describe('OptionsMap (W50)', () => {
         options={MAP_OPTIONS}
         selectedId="svc-ucr-west"
         onSelect={vi.fn()}
-        onRequest={vi.fn()}
         onCriteria={vi.fn()}
       />,
     );
@@ -115,7 +111,6 @@ describe('OptionsMap (W50)', () => {
         options={MAP_OPTIONS}
         selectedId="svc-other-unit"
         onSelect={vi.fn()}
-        onRequest={vi.fn()}
         onCriteria={vi.fn()}
       />,
     );
@@ -135,11 +130,33 @@ describe('OptionsMap (W50)', () => {
           options={MAP_OPTIONS}
           selectedId="svc-ucr-west"
           onSelect={vi.fn()}
-          onRequest={vi.fn()}
           onCriteria={vi.fn()}
         />
       </main>,
     );
     expect((await runAxe(container)).violations).toEqual([]);
+  });
+});
+
+
+describe('the booking control on a pin card (W20, W50)', () => {
+  it('is the booking panel of this case and the selected service', async () => {
+    document.cookie = 'diucs_csrf=csrf-value-for-the-map; path=/';
+    const user = userEvent.setup();
+    render(
+      <OptionsMap
+        caseId="case-1"
+        postcode="DT4"
+        patientArea={MAP_VIEW.patientArea}
+        options={MAP_OPTIONS}
+        selectedId="svc-ucr-west"
+        onSelect={vi.fn()}
+      />,
+    );
+    const card = screen.getByRole('region', { name: 'UCR West' });
+
+    await user.click(within(card).getByRole('button', { name: 'Request booking' }));
+
+    expect(await within(card).findByText('Requested')).toBeInTheDocument();
   });
 });

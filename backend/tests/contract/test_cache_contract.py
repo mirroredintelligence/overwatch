@@ -555,7 +555,7 @@ async def test_a_released_platform_marker_is_free_and_a_missing_one_is_no_error(
 async def test_a_platform_marker_expires(cache_harness: Harness[Cache]) -> None:
     name = _platform_name("expiry")
     assert await cache_harness.subject.platform_take(name, ONE_SECOND) is True  # type: ignore[attr-defined]
-    await asyncio.sleep(1.2)
+    await cache_harness.advance(ONE_SECOND + ONE_SECOND)
     assert await cache_harness.subject.platform_take(name, ONE_SECOND) is True  # type: ignore[attr-defined]
     await cache_harness.subject.platform_release(name)  # type: ignore[attr-defined]
 

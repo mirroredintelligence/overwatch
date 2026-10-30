@@ -8,27 +8,36 @@ channel sends nothing and records the message as failed. The SMTP call is a reco
 leaves the machine. Written in the build wave; run in the verification stage. Synthetic values.
 """
 
+import json
 from typing import Any
 
 import httpx
 import pytest
 
-from diucs.adapters.inbound.workers.message_senders import NO_CHANNEL
+from diucs.adapters.inbound.workers.message_senders import (
+    MESSAGES_TOPIC,
+    NO_CHANNEL,
+    SEND_MESSAGE_EVENT,
+)
 from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
 from diucs.adapters.outbound.email_smtp.smtp_email import SmtpRelay
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.application.ports.outbound.event_bus import BusMessage
+from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.tenants import secret_ref
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.bootstrap.tenant_senders import TenantSenderResolver
+from diucs.domain.codes import Channel
 from diucs.domain.model.tenant import NumberStatus
 from diucs.domain.model.tenant_records import ChannelKind, ChannelProvider, TenantChannel
 from tests.integration.adapters.inbound.workers.test_message_senders import (
     EMAIL,
     HTML,
+    SEALER,
+    SENT,
     SUBJECT,
+    TEXT,
     _email_consumer,
-    _message,
-    _seed,
     _stored,
 )
 from tests.support.neo4j import node_props
@@ -36,6 +45,67 @@ from tests.support.neo4j import node_props
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 RELAY = SmtpRelay(host="relay.example.test", port=2525, starttls=True)
+
+
+# Until TEN-032 two tenants cannot hold one protected-contact key, one communication id or one
+# concept (a catalogue message id, a channel) on the shared test schema (lesson L169), so each
+# tenant's role, communication, outbox id, catalogue message and stored channel differ. The channel
+# stored on a Communication does not decide how it is sent: the payload's channel does.
+def _ids(tenant_label: str) -> dict[str, str]:
+    return {
+        "role": f"role-{tenant_label}",
+        "communication": f"comm-{tenant_label}",
+        "outbox": f"outbox-{tenant_label}",
+        "message": {"a": "C1", "b": "C2"}[tenant_label],
+        "stored_channel": {"a": "text", "b": "push"}[tenant_label],
+    }
+
+
+async def _seed_for(factory: UnitOfWorkFactory, tenant_label: str) -> None:
+    ids = _ids(tenant_label)
+    async with factory() as uow:
+        await uow.contacts.put_email(ids["role"], EMAIL)
+        await uow.communications.add(
+            Communication(
+                id=ids["communication"],
+                message_id=ids["message"],
+                channel=Channel(ids["stored_channel"]),
+                recipient_role_id=ids["role"],
+                about_id=None,
+                payload_text=TEXT,
+                sent_at=SENT,
+                delivery_status="queued",
+            )
+        )
+        await uow.commit()
+
+
+def _email_message(tenant: str, tenant_label: str) -> BusMessage:
+    ids = _ids(tenant_label)
+    content = json.dumps(
+        {"text": TEXT, "subject": SUBJECT, "html": HTML},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return BusMessage(
+        id=ids["outbox"],
+        topic=MESSAGES_TOPIC,
+        event_type=SEND_MESSAGE_EVENT,
+        payload={
+            "communication_id": ids["communication"],
+            "message_id": ids["message"],
+            "channel": "email",
+            "recipient_role_id": ids["role"],
+            "sealed_content": SEALER.seal(
+                content,
+                message_id=ids["outbox"],
+                tenant_id=tenant,
+                recipient_role_id=ids["role"],
+            ),
+        },
+        tenant_id=tenant,
+    )
 
 
 class _Captured:
@@ -99,18 +169,18 @@ async def test_each_tenants_email_leaves_from_its_own_address_with_its_own_secre
     other_tenant_id: str,
     captured: _Captured,
 ) -> None:
-    await _seed(uow_factory_a)
-    await _seed(uow_factory_b)
+    await _seed_for(uow_factory_a, "a")
+    await _seed_for(uow_factory_b, "b")
     await _put(uow_factory_a, _channel(tenant_id, "capacity@alpha.example.test"))
     await _put(uow_factory_b, _channel(other_tenant_id, "capacity@bravo.example.test"))
     tenants = StaticTenants([tenant_id, other_tenant_id])
     resolver = _resolver(tenant_id, other_tenant_id)
 
     first = await _email_consumer(uow_factory_a, tenants, resolver).handle(  # type: ignore[arg-type]
-        _message(tenant_id, channel="email", subject=SUBJECT, html=HTML)
+        _email_message(tenant_id, "a")
     )
     second = await _email_consumer(uow_factory_b, tenants, resolver).handle(  # type: ignore[arg-type]
-        _message(other_tenant_id, channel="email", subject=SUBJECT, html=HTML)
+        _email_message(other_tenant_id, "b")
     )
 
     assert first.kind == second.kind == "completed"
@@ -120,8 +190,8 @@ async def test_each_tenants_email_leaves_from_its_own_address_with_its_own_secre
     assert two["from"] == "Capacity bravo <capacity@bravo.example.test>"
     assert (two["username"], two["password"]) == ("capacity@bravo.example.test", "password-of-b")
     assert one["to"] == two["to"] == EMAIL
-    assert (await _stored(uow_factory_a)).delivery_status == "sent"
-    assert (await _stored(uow_factory_b)).delivery_status == "sent"
+    assert (await _stored(uow_factory_a, "comm-a")).delivery_status == "sent"
+    assert (await _stored(uow_factory_b, "comm-b")).delivery_status == "sent"
 
 
 async def test_a_tenant_with_no_email_channel_sends_nothing_and_records_no_channel(
@@ -133,18 +203,18 @@ async def test_a_tenant_with_no_email_channel_sends_nothing_and_records_no_chann
     captured: _Captured,
     neo4j_driver: Any,
 ) -> None:
-    await _seed(uow_factory_a)
+    await _seed_for(uow_factory_a, "a")
     await _put(uow_factory_b, _channel(other_tenant_id, "capacity@bravo.example.test"))
     tenants = StaticTenants([tenant_id, other_tenant_id])
 
     outcome = await _email_consumer(  # type: ignore[arg-type]
         uow_factory_a, tenants, _resolver(tenant_id, other_tenant_id)
-    ).handle(_message(tenant_id, channel="email", subject=SUBJECT, html=HTML))
+    ).handle(_email_message(tenant_id, "a"))
 
     assert outcome.kind == "completed"
     assert captured.calls == []
-    assert (await _stored(uow_factory_a)).delivery_status == "failed"
-    assert (await node_props(neo4j_driver, "Communication", id="comm-1"))["errorCode"] == NO_CHANNEL
+    assert (await _stored(uow_factory_a, "comm-a")).delivery_status == "failed"
+    assert (await node_props(neo4j_driver, "Communication", id="comm-a"))["errorCode"] == NO_CHANNEL
 
 
 async def test_a_retired_channel_is_not_a_sender(
@@ -154,7 +224,7 @@ async def test_a_retired_channel_is_not_a_sender(
     other_tenant_id: str,
     captured: _Captured,
 ) -> None:
-    await _seed(uow_factory_a)
+    await _seed_for(uow_factory_a, "a")
     await _put(
         uow_factory_a,
         _channel(tenant_id, "capacity@alpha.example.test", NumberStatus.RETIRED),
@@ -164,8 +234,8 @@ async def test_a_retired_channel_is_not_a_sender(
         uow_factory_a,
         StaticTenants([tenant_id]),
         _resolver(tenant_id, other_tenant_id),
-    ).handle(_message(tenant_id, channel="email", subject=SUBJECT, html=HTML))
+    ).handle(_email_message(tenant_id, "a"))
 
     assert outcome.kind == "completed"
     assert captured.calls == []
-    assert (await _stored(uow_factory_a)).delivery_status == "failed"
+    assert (await _stored(uow_factory_a, "comm-a")).delivery_status == "failed"

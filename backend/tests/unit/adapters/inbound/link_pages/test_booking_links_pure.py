@@ -13,6 +13,7 @@ from diucs.adapters.inbound.link_pages.booking_links import (
     CHANGE_PURPOSE,
     CHANGE_TOKEN_LIFETIME,
     REQUEST_PURPOSE,
+    change_view_body,
     check_change_action,
     check_request_action,
     gone_state,
@@ -135,7 +136,7 @@ def test_a_closed_booking_shows_its_state_word(status: BookingStatus, state: str
 
 
 def test_the_request_page_names_the_booking_and_no_postcode_name_or_case() -> None:
-    body = view_body(_booking(), "UCR West", _case())
+    body = view_body(_booking(), "UCR West", _case(), "0300 123 4567")
     assert set(body) == {
         "reference",
         "serviceName",
@@ -144,7 +145,9 @@ def test_the_request_page_names_the_booking_and_no_postcode_name_or_case() -> No
         "urgency",
         "replyBy",
         "bookingStatus",
+        "coordinationPhone",
     }
+    assert body["coordinationPhone"] == "0300 123 4567"
     assert body["reference"] == "4821"
     assert body["serviceName"] == "UCR West"
     assert body["ageBand"] == "80+"
@@ -152,6 +155,25 @@ def test_the_request_page_names_the_booking_and_no_postcode_name_or_case() -> No
     assert body["urgency"] == "within 2 hrs"
     assert "14:26" in body["replyBy"]
     assert body["bookingStatus"] == "requested"
+    text = json.dumps(body)
+    assert "DT4" not in text
+    assert "case-1001" not in text
+
+
+def test_the_change_page_names_the_booking_and_no_postcode_name_or_case() -> None:
+    body = change_view_body(_booking(BookingStatus.CONFIRMED), "UCR West", _case(), "0300 123 4567")
+    assert set(body) == {
+        "reference",
+        "serviceName",
+        "ageBand",
+        "need",
+        "urgency",
+        "bookingStatus",
+        "coordinationPhone",
+    }
+    assert body["reference"] == "4821"
+    assert body["bookingStatus"] == "confirmed"
+    assert body["coordinationPhone"] == "0300 123 4567"
     text = json.dumps(body)
     assert "DT4" not in text
     assert "case-1001" not in text

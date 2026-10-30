@@ -1,6 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
-import { parseLinkView, type LinkView, LinkShapeError } from './model';
+import { parseOpenLink, type OpenLink, LinkShapeError } from './model';
 
 // Server-only. The link pages' route handlers and Server Components call the back end's
 // link API (`/links/...`, beside `/fhir`) through this module, never the browser.
@@ -118,15 +118,27 @@ export async function callLinkApi(call: LinkCall): Promise<LinkReply> {
   });
 }
 
-export type LinkState = { kind: 'open'; view: LinkView } | { kind: 'gone' };
+export type LinkState = { kind: 'open'; link: OpenLink } | { kind: 'gone'; state: ClosedState };
+
+/**
+ * The words a closed link may say on GET (L01, L02). A holder of the link may learn why it is closed
+ * (a change link shows a cancelled booking); anything else the back end sends is `expired`.
+ */
+export const CLOSED_STATES = ['expired', 'used', 'declined', 'cancelled', 'withdrawn', 'not-reached'] as const;
+export type ClosedState = (typeof CLOSED_STATES)[number];
+
+export function closedStateOf(body: unknown): ClosedState {
+  const state = typeof body === 'object' && body !== null ? (body as { state?: unknown }).state : undefined;
+  return CLOSED_STATES.find((known) => known === state) ?? 'expired';
+}
 
 /** The link as the back end sees it for this host: open with its view, or gone (expired, used or unknown). */
 export async function readLink(token: string, host: string | null): Promise<LinkState> {
   const reply = await callLinkApi({ method: 'GET', path: `/links/${encodeURIComponent(token)}`, host });
-  if (reply.status === 410) return { kind: 'gone' };
+  if (reply.status === 410) return { kind: 'gone', state: closedStateOf(reply.body) };
   if (reply.status !== 200) throw new LinkApiError('unavailable');
   try {
-    return { kind: 'open', view: parseLinkView(reply.body) };
+    return { kind: 'open', link: parseOpenLink(reply.body) };
   } catch (error) {
     if (error instanceof LinkShapeError) throw new LinkApiError('bad-answer');
     throw error;
@@ -138,6 +150,8 @@ const STATE_WORD = /^[a-z-]{1,24}$/;
 /** The fields a page may read, per status. Anything else the back end sent is dropped. */
 const FIELDS_BY_STATUS: Record<number, readonly string[]> = {
   200: [
+    'bookingStatus',
+    'changeToken',
     'serviceName',
     'value',
     'unitLabel',

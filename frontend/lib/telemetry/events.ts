@@ -5,7 +5,7 @@
 //
 // Nothing here runs on the server: every entry point touches window or document when it is called.
 
-import { beginInteraction, currentTraceId, setRequestObserver } from './trace';
+import { beginInteraction, currentTraceId, newTraceparent, setRequestObserver } from './trace';
 import { UI_EVENT_NAMES, validateEvent } from './schema';
 
 export const TELEMETRY_ENDPOINT = '/api/bff/telemetry';
@@ -205,7 +205,8 @@ export function flush(): void {
     void fetch(TELEMETRY_ENDPOINT, {
       method: 'POST',
       body,
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      // A fetch can carry a header, so the fallback sends the traceparent the beacon cannot (O02).
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8', traceparent: newTraceparent() },
       keepalive: true,
       credentials: 'same-origin',
     }).catch(() => undefined);

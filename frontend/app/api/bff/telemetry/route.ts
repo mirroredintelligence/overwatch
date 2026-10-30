@@ -2,7 +2,8 @@ import { sessionFromRequest, type Session } from '@/lib/auth/session';
 import { ALLOWED_ATTRIBUTES, ALLOWED_EVENTS } from '@/lib/telemetry/events';
 
 // The ingest of the browser's ui.* events (O02). It keeps only what the allow-list names, forwards the
-// batch to the OpenTelemetry collector when OTEL_HTTP_ENDPOINT is set, and otherwise discards it. It
+// batch to the OpenTelemetry collector's logs receiver when OTEL_HTTP_ENDPOINT is set (the collector's
+// base address), and otherwise discards it. It
 // answers 204 for a batch it accepts, and never says what it kept or dropped.
 //
 // Tenancy: the browser never sends a tenant. The tenant.id attribute is written here, from the
@@ -52,14 +53,57 @@ function eventsOf(body: unknown, tenantId: string | undefined): Event[] {
   return events;
 }
 
+// The batch goes to the collector's OTLP logs receiver as OTLP/JSON. ui.* events are log records
+// (DEC-331 item 5 keeps them in the logs pipeline), and the collector's receivers accept OTLP only
+// (known issue O04). Each event becomes one log record: its name is the body, and its allow-listed
+// attributes, plus the event name, are the attributes.
+const OTLP_LOGS_PATH = '/v1/logs';
+const NANOSECONDS_PER_MILLISECOND = BigInt(1_000_000);
+
+type OtlpValue = { stringValue: string } | { doubleValue: number } | { boolValue: boolean };
+
+function otlpValue(value: Attribute): OtlpValue {
+  if (typeof value === 'number') return { doubleValue: value };
+  if (typeof value === 'boolean') return { boolValue: value };
+  return { stringValue: value };
+}
+
+/** The batch as one OTLP/JSON request to the logs receiver. */
+export function otlpLogs(events: Event[]): unknown {
+  return {
+    resourceLogs: [
+      {
+        resource: { attributes: [{ key: 'service.name', value: { stringValue: 'diucs-browser' } }] },
+        scopeLogs: [
+          {
+            scope: { name: 'diucs.ui' },
+            logRecords: events.map((event) => {
+              const time = (BigInt(Math.round(event.at)) * NANOSECONDS_PER_MILLISECOND).toString();
+              return {
+                timeUnixNano: time,
+                observedTimeUnixNano: time,
+                body: { stringValue: event.name },
+                attributes: [
+                  { key: 'event.name', value: { stringValue: event.name } },
+                  ...Object.entries(event.attributes).map(([key, value]) => ({ key, value: otlpValue(value) })),
+                ],
+              };
+            }),
+          },
+        ],
+      },
+    ],
+  };
+}
+
 async function forward(events: Event[]): Promise<void> {
-  const endpoint = process.env.OTEL_HTTP_ENDPOINT;
-  if (!endpoint || events.length === 0) return;
+  const base = process.env.OTEL_HTTP_ENDPOINT;
+  if (!base || events.length === 0) return;
   try {
-    await fetch(endpoint, {
+    await fetch(`${base.replace(/\/+$/, '')}${OTLP_LOGS_PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ events }),
+      body: JSON.stringify(otlpLogs(events)),
       cache: 'no-store',
     });
   } catch {

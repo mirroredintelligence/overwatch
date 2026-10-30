@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useState, type FormEvent } from 'react';
-import { PhonedDialog } from '@/components/advisor/PhonedDialog';
+import { LeadPhonedDialog } from './LeadPhonedDialog';
 import { Button } from '@/components/ui/Button';
 import { CANNOT_DO, leadPost, leadRead } from '@/lib/lead/browser';
 import { clockTime } from '@/lib/lead/format';
@@ -185,7 +185,7 @@ export function SuspendService({ serviceId }: { serviceId: string }) {
             Resume service
           </Button>
         </div>
-        <PhonedDialog open={phonedDialog} serviceName={label} onClose={() => setPhonedDialog(false)} />
+        <LeadPhonedDialog open={phonedDialog} serviceName={label} onClose={() => setPhonedDialog(false)} />
       </main>
     );
   }

@@ -20,7 +20,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncTransaction
 from neo4j.time import Date, DateTime, Duration, Time
 
 from diucs.adapters.outbound.graph_store.scenario import Slot, TenantSeed, render
-from tests.support.neo4j import read_tx, write_tx
+from tests.support.neo4j import is_owned, read_tx, write_tx
 
 # Labels a node may carry without a tenantId: the migration record, and the registry nodes of the
 # network design (DEC-132), which are the tenants' and the network's own.
@@ -159,15 +159,39 @@ def seed_statement(seed: TenantSeed, slot: Slot) -> tuple[str, dict[str, Any]]:
 
 
 async def seed_tenant(driver: AsyncDriver, tenant: str, slot: Slot, seed: TenantSeed) -> None:
-    """Write one tenant's copy of the seed in one committed transaction, then check that no node in
-    the graph is unstamped (the seed's own work, and anything it was written beside)."""
+    """Write one tenant's copy of the seed in one committed transaction, and check that the seed
+    itself created no unstamped node.
+
+    The check is on the seed's own work: the statement that creates the nodes also counts them and
+    counts how many carry a `tenantId`, in the same transaction, so a node the seed made without a
+    tenant is found whatever else the database holds. It is not a whole-database scan on a Neo4j
+    that other runs share (TEN-035): another run's, or an earlier run's, node with no tenant is not
+    this seed's doing and must not fail it (a pre-TEN-035 `TestMark` left on the shared database did
+    exactly that). On a database this run owns the whole database is checked too, as before."""
     cypher, params = seed_statement(seed, slot)
+    if seed.nodes:
+        made = ", ".join(f"n{position}" for position in range(len(seed.nodes)))
+        cypher += (
+            f" WITH [{made}] AS made UNWIND made AS m "
+            "RETURN count(m) AS created, count(m.tenantId) AS stamped"
+        )
 
-    async def write(tx: AsyncManagedTransaction) -> None:
+    async def write(tx: AsyncManagedTransaction) -> tuple[int, int]:
         result = await tx.run(cypher, tenant=tenant, **params)
+        rows = await result.data()
         await result.consume()
+        if not rows:
+            return 0, 0
+        return int(rows[0]["created"]), int(rows[0]["stamped"])
 
-    await write_tx(driver, write)
+    created, stamped = await write_tx(driver, write)
+    if created != len(seed.nodes) or stamped != created:
+        raise AssertionError(
+            f"the seed created {created} nodes of {len(seed.nodes)} and stamped {stamped}: "
+            "a seeded node must carry its tenant"
+        )
+    if not is_owned(driver):
+        return
 
     async def check(tx: AsyncManagedTransaction) -> list[str]:
         return (await invariant_breaks(tx))[0]

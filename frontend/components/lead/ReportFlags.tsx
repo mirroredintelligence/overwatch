@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PhonedDialog } from '@/components/advisor/PhonedDialog';
+import { LeadPhonedDialog } from './LeadPhonedDialog';
 import { Button } from '@/components/ui/Button';
 import { CANNOT_DO, leadPost, leadRead } from '@/lib/lead/browser';
 import type { FlagItem } from '@/lib/lead/flags';
@@ -157,7 +157,7 @@ export function ReportFlags() {
       </p>
       <p className={styles.muted}>{FOOTNOTE}</p>
 
-      <PhonedDialog
+      <LeadPhonedDialog
         open={phoned !== null}
         serviceName={phoned?.serviceName ?? ''}
         onClose={() => setPhoned(null)}

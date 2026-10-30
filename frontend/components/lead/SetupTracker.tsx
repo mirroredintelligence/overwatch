@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { PhonedDialog } from '@/components/advisor/PhonedDialog';
+import { LeadPhonedDialog } from './LeadPhonedDialog';
 import { Button } from '@/components/ui/Button';
 import { ShapeIcon } from '@/components/ui/StatusBadge';
 import { CANNOT_DO, leadPost, leadRead } from '@/lib/lead/browser';
@@ -108,7 +108,7 @@ function TrackedInvitation({ item, onNotice }: { item: Invitation; onNotice: (te
         </p>
       )}
       {text !== null ? <p className={styles.muted}>{text}</p> : null}
-      <PhonedDialog open={phoned} serviceName={item.serviceName} onClose={() => setPhoned(false)} />
+      <LeadPhonedDialog open={phoned} serviceName={item.serviceName} onClose={() => setPhoned(false)} />
     </section>
   );
 }

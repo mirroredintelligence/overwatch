@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { PhonedDialog } from '@/components/advisor/PhonedDialog';
+import { LeadPhonedDialog } from './LeadPhonedDialog';
 import { REFRESH_EVENTS } from '@/lib/board/useBoardFeed';
 import { dateTimeLine, servicesWord } from '@/lib/lead/format';
 import { leadGet, leadPost } from '@/lib/lead/browser';
@@ -149,7 +149,7 @@ export function LeadOverview() {
         {notice}
       </p>
 
-      <PhonedDialog
+      <LeadPhonedDialog
         open={phoned !== null}
         serviceName={phoned?.serviceName ?? ''}
         onClose={() => setPhoned(null)}

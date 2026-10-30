@@ -88,3 +88,18 @@ async def test_the_support_code_state_is_for_a_named_person_and_not_support() ->
             "/support/codes/current?sessionId=a1b2c3d4e5f60718",
             permitted,
         )
+
+
+# B6: the acknowledged and closed alert lists.
+
+
+async def test_the_alert_lists_are_for_an_executive_or_a_lead() -> None:
+    permitted = frozenset({Role.EXEC, Role.LEAD})
+    async with route_client() as client:
+        for status in ("new", "acknowledged", "closed"):
+            await assert_role_matrix(
+                client,
+                "GET",
+                f"/fhir/Task?code=acknowledge-alert&owner=me&status={status}",
+                permitted,
+            )

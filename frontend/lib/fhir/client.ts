@@ -37,12 +37,22 @@ export type FhirResult<T> = { data: T; etag?: string };
 export class FhirError extends Error {
   readonly status: number;
   readonly outcome: OperationOutcome;
+  /**
+   * The JSON body of a refusal that is not an OperationOutcome (the reporter routes answer their own
+   * `{result}` and `{code}` bodies on a 409), so a route can read what the back end said. Never shown
+   * as it is: a route picks the fields it knows.
+   */
+  readonly payload?: unknown;
+  /** The back end's `Retry-After` of a 429 or 503, whole seconds as text, or undefined. */
+  readonly retryAfter?: string;
 
-  constructor(status: number, outcome: OperationOutcome) {
+  constructor(status: number, outcome: OperationOutcome, extra: { payload?: unknown; retryAfter?: string } = {}) {
     super(`FHIR request failed with status ${status}`);
     this.name = 'FhirError';
     this.status = status;
     this.outcome = outcome;
+    if (extra.payload !== undefined) this.payload = extra.payload;
+    if (extra.retryAfter !== undefined) this.retryAfter = extra.retryAfter;
   }
 }
 
@@ -133,6 +143,12 @@ function failureOutcome(status: number, text: string): OperationOutcome {
   return parsed.ok && isOperationOutcome(parsed.value) ? parsed.value : outcomeFor('exception', `HTTP ${status}`);
 }
 
+/** The parsed body of a failed answer when it is JSON and not an OperationOutcome; otherwise undefined. */
+function plainPayload(text: string): unknown {
+  const parsed = text ? tryParseJson(text) : { ok: false as const };
+  return parsed.ok && !isOperationOutcome(parsed.value) ? parsed.value : undefined;
+}
+
 export async function fhirFetch<T>(path: string, init: FhirInit): Promise<FhirResult<T>> {
   const token = checkedToken(init?.token);
   const url = `${baseUrl(init?.root === true)}${checkedPath(path)}`;
@@ -164,7 +180,13 @@ export async function fhirFetch<T>(path: string, init: FhirInit): Promise<FhirRe
     throw new FhirError(503, outcomeFor('transient', 'The back end could not be reached.'));
   }
 
-  if (!response.ok) throw new FhirError(response.status, failureOutcome(response.status, text));
+  if (!response.ok) {
+    const retry = response.headers.get('Retry-After');
+    throw new FhirError(response.status, failureOutcome(response.status, text), {
+      payload: plainPayload(text),
+      retryAfter: retry !== null && /^\d{1,6}$/.test(retry) ? retry : undefined,
+    });
+  }
 
   const etag = response.headers.get('ETag') ?? undefined;
   if (response.status === 204 || text === '') {

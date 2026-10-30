@@ -1,8 +1,9 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { CodeEntry, type CheckResult } from '@/components/reporter/CodeEntry';
+import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/reporter/browser';
 import styles from '@/components/reporter/Reporter.module.css';
@@ -12,24 +13,13 @@ import styles from '@/components/reporter/Reporter.module.css';
 
 export function VerifyScreen() {
   const router = useRouter();
-  const [masked, setMasked] = useState<string | null>(null);
   const [started, setStarted] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
 
-  useEffect(() => {
-    let live = true;
-    void bffRequest('/api/bff/reporter/settings').then((reply) => {
-      const body = reply.body as { maskedPhone?: unknown } | undefined;
-      if (live && reply.status === 200 && typeof body?.maskedPhone === 'string') setMasked(body.maskedPhone);
-    });
-    return () => {
-      live = false;
-    };
-  }, []);
-
-  const sendCode = async () => (await bffRequest('/api/bff/identity/code', { method: 'POST', body: { purpose: 'reverify' } })).status === 202;
+  const sendCode = async () => (await bffRequest('/api/bff/identity/device-code', { method: 'POST', body: { purpose: 'reverify' } })).status === 202;
 
   const checkCode = async (code: string): Promise<CheckResult> => {
-    const reply = await bffRequest('/api/bff/identity/code/verify', { method: 'POST', body: { purpose: 'reverify', code } });
+    const reply = await bffRequest('/api/bff/identity/device-code/verify', { method: 'POST', body: { purpose: 'reverify', code } });
     const body = reply.body as { ok?: boolean; triesLeft?: number } | undefined;
     if (reply.status === 200 && body?.ok === true) return { ok: true };
     return { ok: false, triesLeft: typeof body?.triesLeft === 'number' ? body.triesLeft : null };
@@ -40,13 +30,16 @@ export function VerifyScreen() {
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Check it is you</h1>
-      <p>{masked === null ? 'It has been 30 days. We will text a code to your number.' : `It has been 30 days. We will text a code to ${masked}.`}</p>
+      <p>It has been 30 days. We will text a code to the number we have for you.</p>
       <p>You do not need to do this again for another 30 days.</p>
+      {notice !== null ? <Banner tone="warning" title={notice} /> : null}
       <Button
         variant="primary"
         dataEl="REP-VERIFY-SEND-BTN"
         onClick={async () => {
+          setNotice(null);
           if (await sendCode()) setStarted(true);
+          else setNotice('We could not send a code. Try again shortly.');
         }}
       >
         Send code

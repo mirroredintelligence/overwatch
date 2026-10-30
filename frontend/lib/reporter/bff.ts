@@ -1,21 +1,13 @@
 import { checkCsrf, type CsrfSubject } from '@/lib/auth/csrf';
 import { requestHost } from '@/lib/auth/host';
-import type { Session } from '@/lib/auth/session';
 import { toBffError } from '@/lib/bff/errors';
 import { deviceIdFromRequest } from './device';
 
-// Shared shape of the reporter BFF routes (W33 to W55). A route either answers from the back end
-// or, where the back end has no route for it yet, answers `not-built` (503). It never answers with
-// a made-up value, and it never says a thing is valid when it has not been checked.
+// Shared shape of the reporter's pre-session BFF routes (W33 to W55, W8E): a phone with no session
+// yet. They answer from the back end, and never say a thing is valid when it has not been checked.
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
-
-export const NOT_BUILT = { code: 'not-built', message: 'This is not available yet.' } as const;
-
-export function notBuilt(): Response {
-  return Response.json(NOT_BUILT, { status: 503, headers: NO_STORE });
-}
 
 export function refuse(status: number, code: string): Response {
   return Response.json({ code }, { status, headers: NO_STORE });
@@ -59,12 +51,4 @@ export function preSession<C>(
       return toBffError(error);
     }
   };
-}
-
-/**
- * The 404 a service the caller does not act for gets, the same as an unknown service (W35). Null
- * when the service is the caller's own, so the route goes on.
- */
-export function ownService(session: Session, serviceId: string): Response | null {
-  return session.services.includes(serviceId) ? null : refuse(404, 'not-found');
 }

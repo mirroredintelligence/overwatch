@@ -7,6 +7,7 @@ import { BOARDS_BY_TOKEN, LIVE_SURGE_PREFIX, LIVE_TOKEN_PREFIX, TOKEN_FOREIGN_EN
 import { handleAuthRoute } from './exchange';
 import { handleAdvisorRoute } from './advisor';
 import { handleLinkRoute } from './links';
+import { handleReporterRoute } from './reporter';
 import { handlePairingRoute, isWallToken } from './pairing';
 
 // A stand-in for the back end, for the browser tests. Like the real one it answers
@@ -172,6 +173,10 @@ export function startMockBackend(): Promise<Server> {
       });
     } else if (url.pathname.startsWith('/screens')) {
       void handlePairingRoute(request, response, url.pathname).then((handled) => {
+        if (!handled) response.writeHead(404).end();
+      });
+    } else if (/^\/(invitations|reporter|identity|public\/push-key)(\/|$)/.test(url.pathname)) {
+      void handleReporterRoute(request, response, url.pathname).then((handled) => {
         if (!handled) response.writeHead(404).end();
       });
     } else if (url.pathname.startsWith('/links/')) {

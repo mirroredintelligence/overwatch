@@ -20,6 +20,8 @@ export function InvitationLoader({ token }: { token: string }) {
     let live = true;
     void bffRequest(`/api/bff/invitations/${encodeURIComponent(token)}`).then((reply) => {
       if (!live) return;
+      // 410 is the back end's one answer for an invitation it will not use; a failed check is not that.
+      if (reply.status === 410) return setState('expired');
       const invitation = reply.status === 200 ? parseInvitation(reply.body) : null;
       if (invitation === null) return setState('failed');
       if (invitation.state !== 'valid') return setState('expired');

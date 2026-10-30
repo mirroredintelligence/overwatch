@@ -55,6 +55,11 @@ const NAMED: Record<string, Kind> = {
   'app/api/bff/identity/new-phone/verify/route.ts': 'pre-session',
   'app/api/bff/identity/pin/route.ts': 'pre-session',
   'app/api/bff/identity/pin/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/invitation-code/route.ts': 'pre-session',
+  'app/api/bff/identity/invitation-code/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/device-code/route.ts': 'pre-session',
+  'app/api/bff/identity/device-code/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/channel/route.ts': 'pre-session',
   'app/api/bff/invitations/[token]/route.ts': 'pre-session',
   'app/api/bff/push/key/route.ts': 'pre-session',
 };
@@ -128,7 +133,7 @@ describe('the routes on disk', () => {
 
   it('use withBff or a named kind, never a bare session read: a route that reads the session itself is named and says why', () => {
     const bare = files.filter((f) => !WITH_BFF.test(textOf(f)) && /\bsessionFromRequest\b|\bgetSession\b/.test(textOf(f)));
-    expect(bare).toEqual(['app/api/bff/telemetry/route.ts']);
+    expect(bare).toEqual(['app/api/bff/reporter/start/route.ts', 'app/api/bff/telemetry/route.ts']);
   });
 
   it('say idScoped on every route that takes an id from the caller, beyond the list of those that do not yet', () => {

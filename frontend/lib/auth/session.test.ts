@@ -463,3 +463,58 @@ describe('a session is for the host it was made on (TEN-044)', () => {
     expect(await sessionFromRequest(request)).toBeNull();
   });
 });
+
+describe('the reporter’s PIN session and token expiry in the session (W8E, DEC-792)', () => {
+  const PIN = 'ps-sample-0123456789abcdefghijklmnopqrstuvw';
+  const reporter = (overrides: Partial<Session> = {}) =>
+    sample({ role: 'reporter', device: 'D'.repeat(22), pinSession: PIN, tokenExpiresAt: '2026-10-23T13:42:00.000Z', ...overrides });
+  const seal = (claims: Record<string, unknown>) =>
+    new EncryptJWT(claims)
+      .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
+      .setExpirationTime(Math.floor(NOW.getTime() / 1000) + 600)
+      .encrypt(Buffer.from(TEST_SESSION_SECRET, 'base64'));
+
+  it('round-trips the PIN session and the token’s expiry', async () => {
+    const session = reporter();
+    expect(await unsealSession(await sealSession(session, NOW), NOW)).toEqual(session);
+  });
+
+  it('does not show the PIN session id in the sealed string', async () => {
+    expect(await sealSession(reporter(), NOW)).not.toContain(PIN);
+  });
+
+  it('is unchanged for a session with neither (a staff session, or a registrant’s token)', async () => {
+    const session = sample();
+    const read = await unsealSession(await sealSession(session, NOW), NOW);
+    expect(read).toEqual(session);
+    expect(read).not.toHaveProperty('pinSession');
+    expect(read).not.toHaveProperty('tokenExpiresAt');
+  });
+
+  it('refuses to seal one of the two without the other', async () => {
+    await expect(sealSession(reporter({ tokenExpiresAt: undefined }), NOW)).rejects.toThrow();
+    await expect(sealSession(reporter({ pinSession: undefined }), NOW)).rejects.toThrow();
+  });
+
+  it('refuses to seal a token expiry that is not a date or a PIN session id that cannot be one', async () => {
+    await expect(sealSession(reporter({ tokenExpiresAt: 'soon' }), NOW)).rejects.toThrow();
+    await expect(sealSession(reporter({ pinSession: '' }), NOW)).rejects.toThrow();
+    await expect(sealSession(reporter({ pinSession: 'x'.repeat(129) }), NOW)).rejects.toThrow();
+  });
+
+  it('returns null for a sealed payload with one of the two, or with either of the wrong shape', async () => {
+    const good = { ...reporter() };
+    expect(await unsealSession(await seal(good), NOW)).toEqual(reporter());
+    for (const bad of [
+      { ...good, tokenExpiresAt: undefined },
+      { ...good, pinSession: undefined },
+      { ...good, pinSession: '' },
+      { ...good, pinSession: 5 },
+      { ...good, pinSession: 'x'.repeat(129) },
+      { ...good, tokenExpiresAt: 'soon' },
+      { ...good, tokenExpiresAt: 5 },
+    ]) {
+      expect(await unsealSession(await seal(bad), NOW)).toBeNull();
+    }
+  });
+});

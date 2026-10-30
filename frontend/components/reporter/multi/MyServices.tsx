@@ -5,26 +5,31 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { bffRequest } from '@/lib/reporter/browser';
 import styles from '@/components/reporter/Reporter.module.css';
-import { type ServiceRow, stateText } from './serviceState';
+import { type ServiceRow, readRows, stateText } from './serviceState';
 
 // My services (W38): each service on the phone with its state, and how a new one is added.
 
 export function MyServices() {
   const router = useRouter();
   const [rows, setRows] = useState<ServiceRow[] | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let live = true;
     void bffRequest('/api/bff/reporter/services').then((reply) => {
       if (!live) return;
       if (reply.status === 401) return router.replace('/app/pin');
-      const list = (reply.body as { services?: ServiceRow[] } | undefined)?.services;
-      setRows(reply.status === 200 && Array.isArray(list) ? list : []);
+      const list = reply.status === 200 ? readRows(reply.body) : null;
+      if (list === null) setFailed(true);
+      else setRows(list);
+      return undefined;
     });
     return () => {
       live = false;
     };
   }, [router]);
+
+  if (failed) return <main className={styles.page}><p>We could not load your services. Try again shortly.</p></main>;
 
   return (
     <main className={styles.page}>

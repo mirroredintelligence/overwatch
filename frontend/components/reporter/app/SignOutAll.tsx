@@ -32,8 +32,8 @@ export function SignOutAll() {
   const confirm = async () => {
     setBusy(true);
     const reply = await bffRequest('/api/bff/identity/sign-out-everywhere', { method: 'POST', body: {} });
-    if (reply.status === 200) {
-      await bffRequest('/api/bff/session', { method: 'DELETE' });
+    // The BFF ended this phone's session with the sign-out, so nothing more is asked of the session route.
+    if (reply.status === 200 || reply.status === 401) {
       router.push('/app/pin');
       return;
     }

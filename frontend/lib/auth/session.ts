@@ -40,11 +40,32 @@ export type Session = {
   sub: string;
   device?: string;
   backendToken: string;
+  /**
+   * The reporter's PIN session at the back end (W8E, DEC-792): the credential the short token is
+   * renewed from. It is a secret of the sealed cookie only and is never sent to the browser or the
+   * back end except to the exchange. Present with `tokenExpiresAt`, or neither.
+   */
+  pinSession?: string;
+  /** ISO 8601 instant: when `backendToken` stops being good, so when it must be renewed. */
+  tokenExpiresAt?: string;
   /** ISO 8601 instant. At or after this instant the session is void. */
   expiresAt: string;
 };
 
 export const SESSION_COOKIE = 'diucs_session';
+
+/** A PIN session id as the back end makes it (256 bits, urlsafe) with room to spare; anything else is not one. */
+export const PIN_SESSION_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;
+
+function validRenewal(pinSession: unknown, tokenExpiresAt: unknown): boolean {
+  if (pinSession === undefined && tokenExpiresAt === undefined) return true;
+  return (
+    typeof pinSession === 'string' &&
+    PIN_SESSION_PATTERN.test(pinSession) &&
+    typeof tokenExpiresAt === 'string' &&
+    !Number.isNaN(Date.parse(tokenExpiresAt))
+  );
+}
 
 const SECRET_VARIABLE = 'SESSION_SECRET';
 // 32 bytes in base64 are 43 characters and one '='.
@@ -81,6 +102,7 @@ export async function sealSession(session: Session, now: Date = new Date()): Pro
   if (expiresMs <= now.getTime()) throw new Error('Session has already expired');
   if (!isTenantId(session.tenantId)) throw new Error('Session has no valid tenant');
   if (normaliseHost(session.host) !== session.host) throw new Error('Session has no valid host');
+  if (!validRenewal(session.pinSession, session.tokenExpiresAt)) throw new Error('Session has no valid renewal');
 
   const claims: Record<string, unknown> = {
     role: session.role,
@@ -92,6 +114,8 @@ export async function sealSession(session: Session, now: Date = new Date()): Pro
     expiresAt: session.expiresAt,
   };
   if (session.device !== undefined) claims.device = session.device;
+  if (session.pinSession !== undefined) claims.pinSession = session.pinSession;
+  if (session.tokenExpiresAt !== undefined) claims.tokenExpiresAt = session.tokenExpiresAt;
 
   return new EncryptJWT(claims)
     .setProtectedHeader(ENCRYPTION)
@@ -118,19 +142,24 @@ export async function unsealSession(value: string, now: Date = new Date()): Prom
       contentEncryptionAlgorithms: ['A256GCM'],
       currentDate: now,
     });
-    const { role, tenantId, host, services, sub, device, backendToken, expiresAt } = payload;
+    const { role, tenantId, host, services, sub, device, backendToken, expiresAt, pinSession, tokenExpiresAt } = payload;
     if (!isRole(role)) return null;
     if (!isTenantId(tenantId)) return null;
     if (typeof host !== 'string' || normaliseHost(host) !== host) return null;
     if (!Array.isArray(services) || !services.every((s) => typeof s === 'string')) return null;
     if (!nonEmptyString(sub) || !nonEmptyString(backendToken)) return null;
     if (device !== undefined && typeof device !== 'string') return null;
+    if (!validRenewal(pinSession, tokenExpiresAt)) return null;
     if (typeof expiresAt !== 'string') return null;
     const expiresMs = Date.parse(expiresAt);
     if (Number.isNaN(expiresMs) || expiresMs <= now.getTime()) return null;
 
     const session: Session = { role, tenantId, host, services: [...services], sub, backendToken, expiresAt };
     if (device !== undefined) session.device = device;
+    if (typeof pinSession === 'string' && typeof tokenExpiresAt === 'string') {
+      session.pinSession = pinSession;
+      session.tokenExpiresAt = tokenExpiresAt;
+    }
     return session;
   } catch {
     return null;

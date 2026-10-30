@@ -8,7 +8,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace }) }));
 
 describe('ThanksScreen', () => {
   it('thanks the reporter, gives the next update time, and lists today newest first', async () => {
-    const { container } = render(<ThanksScreen serviceId="svc-1" service="UCR West" value={3} at="10:12" nextDue="12:00" />);
+    const { container } = render(<ThanksScreen serviceId="svc-1" service="UCR West" value={3} at="2026-10-30T10:12:00Z" nextDue="2026-10-30T12:00:00Z" />);
     expect(screen.getByRole('heading', { name: 'Thank you' })).toBeInTheDocument();
     expect(screen.getByText('UCR West: 3 referrals recorded at 10:12.')).toBeInTheDocument();
     expect(screen.getByText('Next update due 12:00')).toBeInTheDocument();
@@ -17,5 +17,21 @@ describe('ThanksScreen', () => {
     expect(screen.getByRole('link', { name: 'Change it' })).toHaveAttribute('href', '/app/respond/svc-1');
     expect(await runAxe(container)).toHaveNoViolations();
     expect(within(container).queryByText(/\d{7,}/)).toBeNull();
+  });
+
+  it('shows the instants as London clock time, and says nothing of a next update the back end did not give', async () => {
+    render(<ThanksScreen serviceId="svc-1" service="UCR West" value={3} at="2026-07-01T10:12:00Z" nextDue="" />);
+    expect(screen.getByText('UCR West: 3 referrals recorded at 11:12.')).toBeInTheDocument();
+    expect(screen.queryByText(/Next update due/)).toBeNull();
+    await screen.findAllByRole('listitem');
+  });
+
+  it('lists nothing, and does not fail, when today’s reports cannot be read', async () => {
+    const { http, HttpResponse } = await import('msw');
+    const { server } = await import('@/test/msw/server');
+    server.use(http.get('/api/bff/reporter/services/:serviceId/history', () => HttpResponse.json({ code: 'exception' }, { status: 502 })));
+    render(<ThanksScreen serviceId="svc-1" service="UCR West" value={3} at="2026-10-30T10:12:00Z" nextDue="" />);
+    expect(screen.getByRole('heading', { name: 'Thank you' })).toBeInTheDocument();
+    expect(screen.queryAllByRole('listitem')).toHaveLength(0);
   });
 });

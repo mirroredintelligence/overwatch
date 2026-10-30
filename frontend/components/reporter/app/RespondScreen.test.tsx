@@ -80,4 +80,73 @@ describe('RespondScreen', () => {
     render(<RespondScreen serviceId={SERVICE} />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/pin'));
   });
+
+  it('says when the figure on record is from, in London clock time', async () => {
+    render(<RespondScreen serviceId={SERVICE} />);
+    expect(await screen.findByText('We have 3 referrals in the next 2 hrs, as of 08:15. Still right?')).toBeInTheDocument();
+  });
+
+  it('sends each answer with its own Idempotency-Key', async () => {
+    render(<RespondScreen serviceId={SERVICE} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Yes, still 3' }));
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    const key = seenBffRequests.find((r) => r.path.endsWith('/report'))?.idempotencyKey;
+    expect(key).toMatch(/^[A-Za-z0-9-]{8,64}$/);
+  });
+
+  it('carries the recorded figure to the thanks page as the back end gave it: the service, the figure and the instants', async () => {
+    render(<RespondScreen serviceId={SERVICE} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Yes, still 3' }));
+    await waitFor(() => expect(push).toHaveBeenCalled());
+    const query = new URLSearchParams(String(push.mock.calls[0][0]).split('?')[1]);
+    expect(Object.fromEntries(query)).toEqual({ service: 'UCR West', unit: 'referrals', value: '3', at: '2026-10-30T10:12:00Z', next: '2026-10-30T12:00:00Z' });
+  });
+
+  it('uses the range the back end names for a figure out of range, and confirms it with the next send of the same figure', async () => {
+    render(<RespondScreen serviceId={SERVICE} />);
+    const stepper = await screen.findByRole('textbox');
+    await userEvent.clear(stepper);
+    await userEvent.type(stepper, '9');
+    await userEvent.click(screen.getByRole('button', { name: 'Send new number' }));
+    await screen.findByText('That is outside your usual range (0 to 8). Send it again to confirm.');
+    await userEvent.click(screen.getByRole('button', { name: 'Send new number' }));
+    await waitFor(() => expect(seenBffRequests.filter((r) => r.path.endsWith('/report'))).toHaveLength(2));
+    expect(seenBffRequests.filter((r) => r.path.endsWith('/report')).map((r) => r.body)).toEqual([
+      { kind: 'number', value: 9 },
+      { kind: 'number', value: 9, confirmOutOfRange: true },
+    ]);
+  });
+
+  it('asks for the number, and hides the confirm, when the back end says a confirm cannot stand (409 sendNumber)', async () => {
+    server.use(
+      http.post('/api/bff/reporter/services/:serviceId/report', () => HttpResponse.json({ result: 'sendNumber', serviceName: 'UCR West', reason: 'stale' }, { status: 409 })),
+    );
+    render(<RespondScreen serviceId={SERVICE} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Yes, still 3' }));
+    expect(await screen.findByText('We cannot confirm that figure now. Please send the number.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Yes, still 3' })).toBeNull();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('never goes to the thanks page for an answer that is not recorded', async () => {
+    server.use(http.post('/api/bff/reporter/services/:serviceId/report', () => HttpResponse.json({ code: 'exception' }, { status: 502 })));
+    render(<RespondScreen serviceId={SERVICE} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Yes, still 3' }));
+    expect(await screen.findByText('We could not record that. Try again.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('says the service could not be loaded for a 404 or a failure, and goes to the PIN only for a 401', async () => {
+    server.use(http.get('/api/bff/reporter/services/:serviceId/prompt', () => HttpResponse.json({ code: 'not-found' }, { status: 404 })));
+    render(<RespondScreen serviceId={SERVICE} />);
+    expect(await screen.findByText('We could not load this service. Try again shortly.')).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
+
+  it('goes to the PIN when a write finds the session has ended', async () => {
+    server.use(http.post('/api/bff/reporter/services/:serviceId/report', () => HttpResponse.json({ code: 'session-ended' }, { status: 401 })));
+    render(<RespondScreen serviceId={SERVICE} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Yes, still 3' }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/pin'));
+  });
 });

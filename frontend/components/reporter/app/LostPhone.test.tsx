@@ -76,4 +76,58 @@ describe('SignOutAll', () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith('/app/pin'));
     expect(seenBffRequests.some((r) => r.path === '/api/bff/identity/sign-out-everywhere')).toBe(true);
   });
+
+  it('does not ask the session route to end the session again: the BFF ended it with the sign-out', async () => {
+    const { SignOutAll } = await import('./SignOutAll');
+    let deletes = 0;
+    server.use(http.delete('/api/bff/session', () => ((deletes += 1), new HttpResponse(null, { status: 204 }))));
+    render(<SignOutAll />);
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Sign out of all phones' }))[0]);
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/pin'));
+    expect(deletes).toBe(0);
+  });
+
+  it('says it could not sign out the phones, and stays, when the back end fails', async () => {
+    const { SignOutAll } = await import('./SignOutAll');
+    server.use(http.post('/api/bff/identity/sign-out-everywhere', () => HttpResponse.json({ code: 'exception' }, { status: 502 })));
+    push.mockClear();
+    render(<SignOutAll />);
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Sign out of all phones' }))[0]);
+    expect(await screen.findByText('We could not sign out your phones. Try again.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('goes to the PIN when the session had already ended (a 401)', async () => {
+    const { SignOutAll } = await import('./SignOutAll');
+    server.use(http.post('/api/bff/identity/sign-out-everywhere', () => HttpResponse.json({ code: 'session-ended' }, { status: 401 })));
+    render(<SignOutAll />);
+    await userEvent.click((await screen.findAllByRole('button', { name: 'Sign out of all phones' }))[0]);
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/pin'));
+  });
+
+  it('shows the SPOA number the back end gives on the call-back wait, as a link to phone it', async () => {
+    render(<LostPhone />);
+    await userEvent.type(screen.getByLabelText('Mobile number'), '07700 900123');
+    await userEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    const boxes = await screen.findAllByRole('textbox');
+    await userEvent.click(boxes[0]);
+    await userEvent.paste('482913');
+    await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
+    await screen.findByRole('heading', { name: 'Waiting for a call-back' });
+    expect(screen.getByRole('link', { name: '01632 960001' })).toHaveAttribute('href', 'tel:01632960001');
+  });
+
+  it('says to phone the coordination team, with no number, when the tenant has set none', async () => {
+    server.use(http.post('/api/bff/identity/new-phone/verify', () => HttpResponse.json({ status: 'pending-callback', spoaPhone: null })));
+    render(<LostPhone />);
+    await userEvent.type(screen.getByLabelText('Mobile number'), '07700 900123');
+    await userEvent.click(screen.getByRole('button', { name: 'Send code' }));
+    const boxes = await screen.findAllByRole('textbox');
+    await userEvent.click(boxes[0]);
+    await userEvent.paste('482913');
+    await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
+    await screen.findByRole('heading', { name: 'Waiting for a call-back' });
+    expect(screen.getByText('Phone the coordination team.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /\d/ })).toBeNull();
+  });
 });

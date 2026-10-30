@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { server } from '@/test/msw/server';
 import { runAxe } from '@/test/a11y';
+import { resetReporterRequests, seenBffRequests } from '@/test/msw/handlers/reporter';
 import { HomeScreen } from './HomeScreen';
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
@@ -14,7 +17,10 @@ function setAgent(agent: string) {
   Object.defineProperty(navigator, 'userAgent', { configurable: true, value: agent });
 }
 
-beforeEach(() => push.mockClear());
+beforeEach(() => {
+  push.mockClear();
+  resetReporterRequests();
+});
 afterEach(() => setAgent(navigator.userAgent));
 
 describe('HomeScreen', () => {
@@ -48,5 +54,17 @@ describe('HomeScreen', () => {
     render(<HomeScreen />);
     await userEvent.click(screen.getByRole('button', { name: 'I cannot do this. Use text instead' }));
     expect(push).toHaveBeenCalledWith('/setup/done?channel=text');
+    // Before sign-in: recorded for the phone's device, not behind a session (W8E).
+    expect(seenBffRequests.find((r) => r.path === '/api/bff/identity/channel')?.body).toEqual({ channel: 'text' });
+    expect(seenBffRequests.some((r) => r.path === '/api/bff/reporter/channel')).toBe(false);
+  });
+
+  it('stays on the guide and says so when the channel could not be saved', async () => {
+    setAgent(IPHONE);
+    server.use(http.post('/api/bff/identity/channel', () => HttpResponse.json({ code: 'needs-code' }, { status: 403 })));
+    render(<HomeScreen />);
+    await userEvent.click(screen.getByRole('button', { name: 'I cannot do this. Use text instead' }));
+    expect(await screen.findByText('We could not save that. Check your number again, then try once more.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
   });
 });

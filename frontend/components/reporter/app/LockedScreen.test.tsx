@@ -43,4 +43,36 @@ describe('LockedScreen', () => {
     expect(screen.getByRole('heading', { name: 'Forgot your PIN?' })).toBeInTheDocument();
     expect(screen.queryByText(/That was 5 wrong tries/)).toBeNull();
   });
+
+  it('asks for a PIN-reset code for the phone’s device, and checks it for that purpose, with no number', async () => {
+    const { seenBffRequests } = await import('@/test/msw/handlers/reporter');
+    render(<LockedScreen reason={null} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Text me a code' }));
+    const boxes = await screen.findAllByRole('textbox');
+    await userEvent.click(boxes[0]);
+    await userEvent.paste('482913');
+    await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
+    await screen.findByRole('heading', { name: 'Create a 6-digit PIN' });
+    expect(seenBffRequests.find((r) => r.path === '/api/bff/identity/device-code')?.body).toEqual({ purpose: 'pin-reset' });
+    expect(seenBffRequests.find((r) => r.path === '/api/bff/identity/device-code/verify')?.body).toEqual({ purpose: 'pin-reset', code: '482913' });
+  });
+
+  it('records text for the phone’s device before sign-in on “Use text or email instead”', async () => {
+    const { seenBffRequests } = await import('@/test/msw/handlers/reporter');
+    render(<LockedScreen reason={null} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Use text or email instead' }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/setup/done?channel=text'));
+    expect(seenBffRequests.find((r) => r.path === '/api/bff/identity/channel')?.body).toEqual({ channel: 'text' });
+    expect(seenBffRequests.some((r) => r.path === '/api/bff/reporter/channel')).toBe(false);
+  });
+
+  it('says to get a code first when the phone’s code has timed out', async () => {
+    const { http, HttpResponse } = await import('msw');
+    const { server } = await import('@/test/msw/server');
+    server.use(http.post('/api/bff/identity/channel', () => HttpResponse.json({ code: 'needs-code' }, { status: 403 })));
+    render(<LockedScreen reason={null} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Use text or email instead' }));
+    expect(await screen.findByText('Get a code by text first, then choose text or email.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
 });

@@ -2,11 +2,14 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { CoverUntil, NEEDS_DATE, type Until, untilBody } from '@/components/reporter/CoverUntil';
 import { MOBILE_ERROR, MobileNumberField } from '@/components/reporter/MobileNumberField';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { isUkMobile } from '@/lib/forms/ukMobile';
 import { bffRequest } from '@/lib/reporter/browser';
+import { type ChannelWord, recordChannelForSession } from '@/lib/reporter/channel';
+import { inDays } from '@/lib/reporter/times';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // Settings (W37). Every value is shown masked, from the back end. Signing out of this phone asks
@@ -32,6 +35,10 @@ export function SettingsScreen() {
   const [failed, setFailed] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
   const [cover, setCover] = useState('');
+  const [until, setUntil] = useState<Until>('this-week');
+  const [date, setDate] = useState('');
+  const [channelOpen, setChannelOpen] = useState(false);
+  const [channelChoice, setChannelChoice] = useState<ChannelWord>('app');
   const [coverError, setCoverError] = useState<string | null>(null);
   const [signOutAsk, setSignOutAsk] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -51,16 +58,31 @@ export function SettingsScreen() {
 
   const saveCover = async () => {
     if (!isUkMobile(cover)) return setCoverError(MOBILE_ERROR);
+    const choice = untilBody(until, date);
+    if (choice === null) return setCoverError(NEEDS_DATE);
     setCoverError(null);
-    const reply = await bffRequest('/api/bff/reporter/cover', { method: 'POST', body: { phone: cover } });
+    const reply = await bffRequest('/api/bff/reporter/cover', { method: 'POST', body: { phone: cover, ...choice } });
+    // The number is not kept: the page holds it only until it is sent.
     setCover('');
-    if (reply.status === 200 || reply.status === 201) {
+    if (reply.status === 401) return router.replace('/app/pin');
+    if (reply.status === 200) {
       setCoverOpen(false);
       const fresh = await bffRequest('/api/bff/reporter/settings');
       if (fresh.status === 200) setSettings(fresh.body as Settings);
       return undefined;
     }
     return setNotice('We could not save the cover number. Try again.');
+  };
+
+  const saveChannel = async () => {
+    setNotice(null);
+    const result = await recordChannelForSession(channelChoice);
+    if (result === 'no-session') return router.replace('/app/pin');
+    if (result !== 'ok') return setNotice('We could not change how we contact you. Try again.');
+    setChannelOpen(false);
+    const fresh = await bffRequest('/api/bff/reporter/settings');
+    if (fresh.status === 200) setSettings(fresh.body as Settings);
+    return undefined;
   };
 
   const signOut = async () => {
@@ -85,17 +107,33 @@ export function SettingsScreen() {
         <dt>Cover number</dt>
         <dd>{settings.maskedCover ?? 'Not set'}</dd>
         <dt>Text code needed again</dt>
-        <dd>{`In ${settings.reverifyInDays} days`}</dd>
+        <dd>{inDays(settings.reverifyInDays)}</dd>
       </dl>
       {notice !== null ? <Banner tone="warning" title={notice} /> : null}
 
-      <Button variant="neutral" dataEl="REP-SET-CHANNEL-BTN" onClick={() => router.push('/app/settings#contact')}>
-        Change how we contact me
-      </Button>
+      {channelOpen ? (
+        <fieldset>
+          <legend>How we contact you</legend>
+          {(['app', 'text', 'email'] as const).map((word) => (
+            <label key={word} className={styles.question}>
+              <input type="radio" name="channel" value={word} checked={channelChoice === word} onChange={() => setChannelChoice(word)} />
+              {` ${CHANNEL_LABEL[word]}`}
+            </label>
+          ))}
+          <Button variant="primary" dataEl="REP-SET-CHANNEL-SAVE-BTN" onClick={() => void saveChannel()}>
+            Save how we contact me
+          </Button>
+        </fieldset>
+      ) : (
+        <Button variant="neutral" dataEl="REP-SET-CHANNEL-BTN" onClick={() => setChannelOpen(true)}>
+          Change how we contact me
+        </Button>
+      )}
 
       {coverOpen ? (
         <div>
           <MobileNumberField label="Cover mobile number" value={cover} onChange={setCover} error={coverError} required dataEl="REP-SET-COVER-FIELD" />
+          <CoverUntil until={until} date={date} onUntil={setUntil} onDate={setDate} name="cover-until" />
           <Button variant="primary" dataEl="REP-SET-COVER-SAVE-BTN" onClick={() => void saveCover()}>
             Save cover number
           </Button>

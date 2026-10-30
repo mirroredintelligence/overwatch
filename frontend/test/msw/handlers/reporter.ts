@@ -38,22 +38,35 @@ const INVITATION = {
 export const reporterHandlers: RequestHandler[] = [
   http.get('/api/bff/invitations/:token', async ({ request, params }) => {
     await record(request);
-    return HttpResponse.json(params.token === 'expired-token' ? { ...INVITATION, state: 'expired' } : INVITATION);
+    // The BFF's answers (W8E): a valid invitation with its fields, or the one 410 for anything unusable.
+    return params.token === 'expired-token' ? HttpResponse.json({ state: 'expired' }, { status: 410 }) : HttpResponse.json(INVITATION);
   }),
-  http.post('/api/bff/identity/code', async ({ request }) => {
+  // The text codes of set-up, the 30-day check and a PIN reset (W8E): the browser holds a link's token or
+  // the phone's device cookie, never a number.
+  http.post('/api/bff/identity/invitation-code', async ({ request }) => {
     await record(request);
-    return HttpResponse.json({ resendAfterSeconds: 60 }, { status: 202 });
+    return HttpResponse.json({ accepted: true, resendAfterSeconds: 60 }, { status: 202 });
   }),
-  http.post('/api/bff/identity/code/verify', async ({ request }) => {
-    const body = (await record(request)) as { code?: string } | undefined;
-    if (body?.code === '000000' || body?.code === '000001' || body?.code === '000002') {
-      return HttpResponse.json({ ok: false, triesLeft: body.code === '000002' ? 0 : 4 });
-    }
-    return HttpResponse.json({ ok: true });
+  http.post('/api/bff/identity/device-code', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ accepted: true, resendAfterSeconds: 60 }, { status: 202 });
+  }),
+  ...['/api/bff/identity/invitation-code/verify', '/api/bff/identity/device-code/verify'].map((path) =>
+    http.post(path, async ({ request }) => {
+      const body = (await record(request)) as { code?: string } | undefined;
+      if (body?.code === '000000' || body?.code === '000001' || body?.code === '000002') {
+        return HttpResponse.json({ ok: false, triesLeft: body.code === '000002' ? 0 : 4 });
+      }
+      return HttpResponse.json({ ok: true });
+    }),
+  ),
+  http.post('/api/bff/identity/channel', async ({ request }) => {
+    const body = (await record(request)) as { channel?: string } | undefined;
+    return HttpResponse.json({ ok: true, channel: body?.channel });
   }),
   http.post('/api/bff/reporter/channel', async ({ request }) => {
-    await record(request);
-    return HttpResponse.json({ ok: true });
+    const body = (await record(request)) as { channel?: string } | undefined;
+    return HttpResponse.json({ ok: true, channel: body?.channel });
   }),
   http.post('/api/bff/identity/pin', async ({ request }) => {
     await record(request);
@@ -69,37 +82,37 @@ export const reporterHandlers: RequestHandler[] = [
   }),
   http.get('/api/bff/push/key', () => HttpResponse.json({ publicKey: 'BPublicKeyValueSample' })),
   http.get('/api/bff/reporter/setup-summary', () =>
-    HttpResponse.json({ service: 'UCR West', contactBy: 'App notification', maskedPhone: '07xxx xxx456', nextUpdateDue: '12:00', textCodeInDays: 30 }),
+    HttpResponse.json({ service: 'UCR West', contactBy: 'app', maskedPhone: '07xxx xxx456', nextUpdateDue: '2026-10-30T12:00:00Z', textCodeInDays: 30 }),
   ),
   http.post('/api/bff/push/test', async ({ request }) => {
     await record(request);
-    return HttpResponse.json({ sent: true });
+    return HttpResponse.json({ queued: true });
   }),
   http.get('/api/bff/reporter/services/:serviceId/prompt', () =>
     HttpResponse.json({
       service: 'UCR West',
       unitLabel: 'referrals in the next 2 hrs',
       recordedValue: 3,
-      asOf: '08:15',
+      asOf: '2026-10-30T08:15:00Z',
       low: 0,
       high: 8,
-      replyBy: '10:30',
-      nextDue: '12:00',
+      replyBy: '2026-10-30T10:30:00Z',
+      nextDue: '2026-10-30T12:00:00Z',
     }),
   ),
   http.post('/api/bff/reporter/services/:serviceId/report', async ({ request }) => {
     const body = (await record(request)) as { kind?: string; value?: number } | undefined;
     if (body?.kind === 'number' && typeof body.value === 'number' && body.value > 8) {
-      return HttpResponse.json({ result: 'outOfRange', value: body.value });
+      return HttpResponse.json({ result: 'outOfRange', serviceName: 'UCR West', value: body.value, low: 0, high: 8 });
     }
     const value = body?.kind === 'number' ? body.value : 3;
-    return HttpResponse.json({ result: 'recorded', value, recordedAt: '10:12', nextDue: '12:00' });
+    return HttpResponse.json({ result: 'recorded', serviceName: 'UCR West', value, recordedAt: '2026-10-30T10:12:00Z', nextDue: '2026-10-30T12:00:00Z' });
   }),
   http.get('/api/bff/reporter/services/:serviceId/history', () =>
     HttpResponse.json({
       items: [
-        { at: '08:15', value: 2 },
-        { at: '10:12', value: 3 },
+        { at: '2026-10-30T08:15:00Z', value: 2, kind: 'confirm' },
+        { at: '2026-10-30T10:12:00Z', value: 3, kind: 'number' },
       ],
     }),
   ),
@@ -110,8 +123,9 @@ export const reporterHandlers: RequestHandler[] = [
       ageBand: '80+',
       need: 'Fall and frailty',
       urgency: 'Wanted Within 2 hrs',
-      replyBy: '14:26',
+      replyBy: '2026-10-30T14:26:00Z',
       status: 'requested',
+      bookingStatus: 'requested',
       multiService: false,
       spoaPhone: '0300 000 0000',
     }),
@@ -120,35 +134,35 @@ export const reporterHandlers: RequestHandler[] = [
     const body = (await record(request)) as { decision?: string } | undefined;
     return HttpResponse.json(
       body?.decision === 'decline'
-        ? { status: 'declined', at: '14:19' }
-        : { status: 'confirmed', confirmedAt: '14:19' },
+        ? { status: 'declined' }
+        : { status: 'confirmed', confirmedAt: '2026-10-30T14:19:00Z' },
     );
   }),
   http.post('/api/bff/reporter/cover', async ({ request }) => {
     await record(request);
-    return HttpResponse.json({ ok: true });
+    return HttpResponse.json({ coveredUntil: '2026-11-06T23:59:00Z', services: 2 });
   }),
   http.get('/api/bff/reporter/services', () =>
     HttpResponse.json({
       services: [
-        { id: 'svc-west', name: 'UCR West', letter: 'A', state: 'due', recordedValue: 3, unitLabel: 'referrals', at: '08:15', nextDue: '12:00', replyBy: '10:30', pendingAcceptance: false },
-        { id: 'svc-east', name: 'UCR East', letter: 'B', state: 'due', recordedValue: 1, unitLabel: 'referral', at: '08:15', nextDue: '12:00', replyBy: '10:30', pendingAcceptance: false },
+        { id: 'svc-west', name: 'UCR West', letter: 'A', state: 'due', recordedValue: 3, unitLabel: 'referrals', at: '2026-10-30T08:15:00Z', nextDue: '2026-10-30T12:00:00Z', replyBy: '2026-10-30T10:30:00Z', pendingAcceptance: false },
+        { id: 'svc-east', name: 'UCR East', letter: 'B', state: 'due', recordedValue: 1, unitLabel: 'referral', at: '2026-10-30T08:15:00Z', nextDue: '2026-10-30T12:00:00Z', replyBy: '2026-10-30T10:30:00Z', pendingAcceptance: false },
       ],
     }),
   ),
   http.post('/api/bff/reporter/reports/batch', async ({ request }) => {
     const body = (await record(request)) as { items?: { serviceId: string; kind: string }[] } | undefined;
     return HttpResponse.json({
-      results: (body?.items ?? []).map((item) => ({ serviceId: item.serviceId, result: 'recorded', at: '10:12' })),
+      results: (body?.items ?? []).map((item) => ({ serviceId: item.serviceId, result: 'recorded', at: '2026-10-30T10:12:00Z' })),
     });
   }),
   http.post('/api/bff/reporter/services/:serviceId/accept', async ({ request }) => {
-    await record(request);
-    return HttpResponse.json({ ok: true });
+    const body = (await record(request)) as { accept?: boolean } | undefined;
+    return HttpResponse.json({ accepted: body?.accept === true });
   }),
   http.post('/api/bff/reporter/services/:serviceId/cover', async ({ request }) => {
     await record(request);
-    return HttpResponse.json({ ok: true });
+    return HttpResponse.json({ coveredUntil: '2026-10-30T23:59:00Z', services: 1 });
   }),
   http.post('/api/bff/identity/new-phone', async ({ request }) => {
     await record(request);
@@ -156,7 +170,7 @@ export const reporterHandlers: RequestHandler[] = [
   }),
   http.post('/api/bff/identity/new-phone/verify', async ({ request }) => {
     await record(request);
-    return HttpResponse.json({ status: 'pending-callback' });
+    return HttpResponse.json({ status: 'pending-callback', spoaPhone: '01632 960001' });
   }),
   http.get('/api/bff/reporter/settings', () =>
     HttpResponse.json({ channel: 'text', maskedPhone: '07xxx xxx456', maskedCover: null, reverifyInDays: 21, otherDevices: 1 }),

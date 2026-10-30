@@ -59,7 +59,7 @@ describe('BookingDecision', () => {
         // The override replaces the default handler, so it records the send itself.
         seenBffRequests.push({ path: RESPOND, method: 'POST', body: await request.json() });
         await delay(150);
-        return HttpResponse.json({ status: 'confirmed', confirmedAt: '14:19' });
+        return HttpResponse.json({ status: 'confirmed', confirmedAt: '2026-10-30T14:19:00Z' });
       }),
     );
     render(<BookingDecision reference="4821" />);
@@ -75,7 +75,7 @@ describe('BookingDecision', () => {
   it('says the request expired, with no buttons, and names the service when the phone holds several', async () => {
     server.use(
       http.get('/api/bff/reporter/bookings/:ref', () =>
-        HttpResponse.json({ reference: '4821', service: 'UCR East', ageBand: '80+', need: 'Fall and frailty', urgency: 'Wanted Within 2 hrs', replyBy: '14:26', status: 'expired', multiService: true, spoaPhone: '0300 000 0000' }),
+        HttpResponse.json({ reference: '4821', service: 'UCR East', ageBand: '80+', need: 'Fall and frailty', urgency: 'Wanted Within 2 hrs', replyBy: '2026-10-30T14:26:00Z', status: 'expired', bookingStatus: 'expired', multiService: true, spoaPhone: '0300 000 0000' }),
       ),
     );
     render(<BookingDecision reference="4821" />);
@@ -86,11 +86,56 @@ describe('BookingDecision', () => {
   it('names the service on the confirm button when the phone holds several services', async () => {
     server.use(
       http.get('/api/bff/reporter/bookings/:ref', () =>
-        HttpResponse.json({ reference: '4821', service: 'UCR East', ageBand: '80+', need: 'Fall and frailty', urgency: 'Wanted Within 2 hrs', replyBy: '14:26', status: 'requested', multiService: true, spoaPhone: '0300 000 0000' }),
+        HttpResponse.json({ reference: '4821', service: 'UCR East', ageBand: '80+', need: 'Fall and frailty', urgency: 'Wanted Within 2 hrs', replyBy: '2026-10-30T14:26:00Z', status: 'requested', bookingStatus: 'requested', multiService: true, spoaPhone: '0300 000 0000' }),
       ),
     );
     render(<BookingDecision reference="4821" />);
     expect(await screen.findByRole('button', { name: 'Confirm booking for UCR East' })).toBeInTheDocument();
     expect(screen.getByText('UCR East only')).toBeInTheDocument();
+  });
+
+  it('shows the SPOA number only when the tenant has one, and says to phone the team without a number otherwise', async () => {
+    server.use(
+      http.get('/api/bff/reporter/bookings/:ref', () =>
+        HttpResponse.json({ reference: '4821', service: 'UCR West', ageBand: null, need: 'Fall and frailty', urgency: null, replyBy: '2026-10-30T14:26:00Z', status: 'confirmed', bookingStatus: 'confirmed', multiService: false, spoaPhone: null, confirmedAt: '2026-10-30T14:19:00Z' }),
+      ),
+    );
+    render(<BookingDecision reference="4821" />);
+    expect(await screen.findByRole('heading', { name: 'Booked' })).toBeInTheDocument();
+    expect(screen.getByText('Reference 4821, UCR West. Confirmed 14:19. The advisor has been told.')).toBeInTheDocument();
+    expect(screen.getByText('Something changed? Phone the coordination team.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /\d/ })).toBeNull();
+  });
+
+  it('leaves out an age band and an urgency the back end did not give', async () => {
+    server.use(
+      http.get('/api/bff/reporter/bookings/:ref', () =>
+        HttpResponse.json({ reference: '4821', service: 'UCR West', ageBand: null, need: 'Fall and frailty', urgency: null, replyBy: '2026-10-30T14:26:00Z', status: 'requested', bookingStatus: 'requested', multiService: false, spoaPhone: null }),
+      ),
+    );
+    render(<BookingDecision reference="4821" />);
+    expect(await screen.findByText('Need Fall and frailty')).toBeInTheDocument();
+    expect(screen.queryByText(/Age band/)).toBeNull();
+  });
+
+  it('shows what the back end holds when the booking was answered meanwhile (409), and does not call it done by us', async () => {
+    let reads = 0;
+    server.use(
+      http.get('/api/bff/reporter/bookings/:ref', () => {
+        reads += 1;
+        return HttpResponse.json({ reference: '4821', service: 'UCR West', ageBand: '80+', need: 'Fall and frailty', urgency: null, replyBy: '2026-10-30T14:26:00Z', status: reads === 1 ? 'requested' : 'declined', bookingStatus: reads === 1 ? 'requested' : 'declined', multiService: false, spoaPhone: null });
+      }),
+      http.post(RESPOND, () => HttpResponse.json({ code: 'conflict' }, { status: 409 })),
+    );
+    render(<BookingDecision reference="4821" />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Confirm booking' }));
+    expect(await screen.findByText('Declined. The advisor has been told.')).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Booked' })).toBeNull();
+  });
+
+  it('goes to the PIN when the session has ended, from the read or from the answer', async () => {
+    server.use(http.get('/api/bff/reporter/bookings/:ref', () => HttpResponse.json({ code: 'session-ended' }, { status: 401 })));
+    render(<BookingDecision reference="4821" />);
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app/pin'));
   });
 });

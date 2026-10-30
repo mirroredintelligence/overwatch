@@ -28,6 +28,7 @@ export function LostPhone() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [codeNotice, setCodeNotice] = useState<string | null>(null);
+  const [spoaPhone, setSpoaPhone] = useState<string | null>(null);
 
   const sendCode = async () => (await bffRequest('/api/bff/identity/new-phone', { method: 'POST', body: { phone } })).status === 202;
 
@@ -43,7 +44,12 @@ export function LostPhone() {
 
   const checkCode = async (code: string): Promise<CheckResult> => {
     const reply = await bffRequest('/api/bff/identity/new-phone/verify', { method: 'POST', body: { phone, code } });
-    if (reply.status === 200) return { ok: true };
+    if (reply.status === 200) {
+      // The tenant's coordination number, or none (never a default): shown on the wait.
+      const number = (reply.body as { spoaPhone?: unknown } | undefined)?.spoaPhone;
+      setSpoaPhone(typeof number === 'string' && number !== '' ? number : null);
+      return { ok: true };
+    }
     const coded = (reply.body as { code?: string } | undefined)?.code;
     setCodeNotice(MESSAGES[coded ?? ''] ?? 'We could not check that code. Try again shortly.');
     return { ok: false, triesLeft: null };
@@ -64,8 +70,15 @@ export function LostPhone() {
       <main className={styles.page}>
         <h1 className={styles.title}>Waiting for a call-back</h1>
         <p>The shift lead will phone your service on the number on the register. Until then, prompts go to your cover number or the coordination team.</p>
+        {spoaPhone === null ? (
+          <p>Phone the coordination team.</p>
+        ) : (
+          <p>
+            Phone the coordination team on <a href={`tel:${spoaPhone.replace(/\s+/g, '')}`}>{spoaPhone}</a>.
+          </p>
+        )}
         <Button variant="neutral" dataEl="REP-LOST-CALLBACK-BTN" onClick={() => router.push('/app/pin')}>
-          Phone the shift lead
+          Back to sign in
         </Button>
       </main>
     );

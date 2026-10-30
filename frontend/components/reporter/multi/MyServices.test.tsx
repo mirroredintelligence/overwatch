@@ -23,9 +23,9 @@ describe('MyServices', () => {
       http.get('/api/bff/reporter/services', () =>
         HttpResponse.json({
           services: [
-            { id: 'a', name: 'UCR West', state: 'confirmed', recordedValue: 3, unitLabel: 'referrals', at: '10:12', nextDue: '12:00', pendingAcceptance: false },
-            { id: 'b', name: 'UCR East', state: 'due', recordedValue: 1, unitLabel: 'referral', at: '08:15', nextDue: '12:00', replyBy: '10:30', pendingAcceptance: false },
-            { id: 'c', name: 'UCR North', state: 'paused', recordedValue: 0, unitLabel: 'referrals', at: '08:00', nextDue: '08:00', pausedUntil: '08:00 tomorrow', pendingAcceptance: false },
+            { id: 'a', name: 'UCR West', state: 'confirmed', recordedValue: 3, unitLabel: 'referrals', at: '2026-10-30T10:12:00Z', nextDue: '2026-10-30T12:00:00Z', pendingAcceptance: false },
+            { id: 'b', name: 'UCR East', state: 'due', recordedValue: 1, unitLabel: 'referral', at: '2026-10-30T08:15:00Z', nextDue: '2026-10-30T12:00:00Z', replyBy: '2026-10-30T10:30:00Z', pendingAcceptance: false },
+            { id: 'c', name: 'UCR North', state: 'paused', recordedValue: 0, unitLabel: 'referrals', at: '2026-10-30T08:00:00Z', nextDue: null, pendingAcceptance: false },
           ],
         }),
       ),
@@ -33,6 +33,32 @@ describe('MyServices', () => {
     render(<MyServices />);
     expect(await screen.findByText('Confirmed 10:12 · Next due 12:00')).toBeInTheDocument();
     expect(screen.getByText('Due now · By 10:30')).toBeInTheDocument();
-    expect(screen.getByText('Paused · Until 08:00 tomorrow')).toBeInTheDocument();
+    expect(screen.getByText('Paused')).toBeInTheDocument();
+  });
+
+  it('shows nothing that is not on record: a service never reported has no clock time', async () => {
+    server.use(
+      http.get('/api/bff/reporter/services', () =>
+        HttpResponse.json({ services: [{ id: 'a', name: 'UCR West', state: 'confirmed', recordedValue: null, unitLabel: 'referrals', at: null, nextDue: null, pendingAcceptance: false }] }),
+      ),
+    );
+    render(<MyServices />);
+    expect(await screen.findByText('Confirmed')).toBeInTheDocument();
+  });
+
+  it('says the services could not be loaded when the back end fails, and not that there are none', async () => {
+    server.use(http.get('/api/bff/reporter/services', () => HttpResponse.json({ code: 'exception' }, { status: 502 })));
+    render(<MyServices />);
+    expect(await screen.findByText('We could not load your services. Try again shortly.')).toBeInTheDocument();
+  });
+
+  it('links a service the lead added to the page that asks the reporter, by its id and name', async () => {
+    server.use(
+      http.get('/api/bff/reporter/services', () =>
+        HttpResponse.json({ services: [{ id: 'a b', name: 'UCR West', state: 'confirmed', recordedValue: 1, unitLabel: 'referral', at: null, nextDue: null, pendingAcceptance: true }] }),
+      ),
+    );
+    render(<MyServices />);
+    expect(await screen.findByRole('link', { name: 'Check the new service' })).toHaveAttribute('href', '/app/services/a%20b/added');
   });
 });

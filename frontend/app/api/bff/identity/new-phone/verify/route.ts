@@ -24,7 +24,12 @@ export const POST = preSession(async (request) => {
     path: '/identity/new-phone/verify',
     body: { phone: body.phone, code: body.code, deviceId },
   });
-  if (reply.status === 200) return Response.json({ status: 'pending-callback' }, { headers: NO_STORE });
+  if (reply.status === 200) {
+    // The tenant's coordination number for the wait (DEC-825), or null when it has set none.
+    const number = (reply.body as { spoaPhone?: unknown } | undefined)?.spoaPhone;
+    const spoaPhone = typeof number === 'string' && number.length > 0 && number.length <= 32 ? number : null;
+    return Response.json({ status: 'pending-callback', spoaPhone }, { headers: NO_STORE });
+  }
   if (reply.status === 429) return Response.json({ code: 'throttled' }, { status: 429, headers: NO_STORE });
   if (reply.status === 400) {
     const expired = JSON.stringify(reply.body ?? {}).includes('Ask for a new code');

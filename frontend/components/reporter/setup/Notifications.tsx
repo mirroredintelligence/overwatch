@@ -3,7 +3,8 @@
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { bffRequest } from '@/lib/reporter/browser';
+import { Banner } from '@/components/ui/Banner';
+import { recordChannelForDevice } from '@/lib/reporter/channel';
 import styles from './Setup.module.css';
 
 // Step 4 of 5 (W34). Nothing is asked of the browser until Allow is pressed: consent first, then
@@ -14,6 +15,7 @@ export function Notifications({ service }: { service: string }) {
   const router = useRouter();
   const [denied, setDenied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [textFailed, setTextFailed] = useState(false);
 
   const allow = async () => {
     setBusy(true);
@@ -26,9 +28,11 @@ export function Notifications({ service }: { service: string }) {
     setDenied(true);
   };
 
+  // No one is signed in yet in set-up: the choice is recorded for this phone's device.
   const useText = async () => {
-    const reply = await bffRequest('/api/bff/reporter/channel', { method: 'POST', body: { channel: 'text' } });
-    if (reply.status === 200 || reply.status === 204) router.push('/setup/done?channel=text');
+    setTextFailed(false);
+    if ((await recordChannelForDevice('text')) === 'ok') router.push('/setup/done?channel=text');
+    else setTextFailed(true);
   };
 
   return (
@@ -44,6 +48,7 @@ export function Notifications({ service }: { service: string }) {
           <a href="/app/notifications-off">Notifications are off. See how to turn them on.</a>
         </p>
       ) : null}
+      {textFailed ? <Banner tone="warning" title="We could not save that. Check your number again, then try once more." /> : null}
       <Button variant="primary" busy={busy} dataEl="ONB-NOTIF-ALLOW-BTN" onClick={allow}>
         Allow notifications
       </Button>

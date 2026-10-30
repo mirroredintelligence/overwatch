@@ -1,4 +1,5 @@
 import type { StatusCode } from '@/components/ui/StatusBadge';
+import type { LatLon } from '@/lib/map/project';
 
 // The options of a case as the browser reads them (W13): the back end's `$filter-options` Parameters
 // (routes_cases.py `_filter_to_fhir`) turned into plain data. Pure. Only the parts named here are
@@ -20,6 +21,12 @@ const KNOWN_STATUS: readonly StatusCode[] = [
 /** The organisation that owns a network service, and where its figures come from (network-ui.md). */
 export type NetworkTag = { organisation: string; source: string };
 
+/** One leg of a travel estimate: a range in minutes, how it was measured, and its source (W50). */
+export type TravelLeg = { label: string; low: number; high: number; how: string; source: string };
+export type Travel = { low: number; high: number; source: string; legs: TravelLeg[] };
+/** A visiting service's coverage: a circle around its base, in kilometres. */
+export type Coverage = LatLon & { radiusKm: number };
+
 export type OptionView = {
   serviceId: string;
   name: string;
@@ -37,13 +44,36 @@ export type OptionView = {
   phone: string | null;
   /** Null for the viewer's own organisation. */
   network: NetworkTag | null;
+  /** A fixed site's place on the map (W50). Null for a visiting service and when none was sent. */
+  position: LatLon | null;
+  /** A visiting service's area (W50). Null for a fixed site. */
+  coverage: Coverage | null;
+  /** The travel estimate from the patient (W50). Null when no range was sent. */
+  travel: Travel | null;
 };
 
 export type NotSuitableView = { serviceId: string; name: string; reason: string };
 
-export type OptionsParts = { options: OptionView[]; notSuitable: NotSuitableView[] };
+export type OptionsParts = {
+  options: OptionView[];
+  notSuitable: NotSuitableView[];
+  /** The patient's point, from the postcode centre (W50). Null when none was sent. */
+  patientArea: LatLon | null;
+  /** The postcode is not found: the map shows the not-found state (W50). */
+  notFound: boolean;
+  /** The postcode is outside the areas the services cover (W50). */
+  outOfArea: boolean;
+};
 
-type Part = { name?: unknown; valueString?: unknown; valueCode?: unknown; valueInteger?: unknown; part?: unknown };
+type Part = {
+  name?: unknown;
+  valueString?: unknown;
+  valueCode?: unknown;
+  valueInteger?: unknown;
+  valueDecimal?: unknown;
+  valueBoolean?: unknown;
+  part?: unknown;
+};
 
 const asParts = (value: unknown): Part[] => (Array.isArray(value) ? (value as Part[]) : []);
 
@@ -65,6 +95,42 @@ function list(parts: Part[], name: string): string[] {
     .map((part) => part.valueString as string);
 }
 
+function decimal(parts: Part[], name: string): number | null {
+  const found = parts.find((part) => part.name === name);
+  return typeof found?.valueDecimal === 'number' && Number.isFinite(found.valueDecimal) ? found.valueDecimal : null;
+}
+
+function flag(parts: Part[], name: string): boolean {
+  return parts.find((part) => part.name === name)?.valueBoolean === true;
+}
+
+/** A place on the earth, or null when the numbers cannot be one (a coordinate out of range is refused). */
+function placeOf(lat: number | null, lon: number | null): LatLon | null {
+  if (lat === null || lon === null) return null;
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat, lon };
+}
+
+function legsOf(parts: Part[]): TravelLeg[] {
+  const legs: TravelLeg[] = [];
+  for (const item of parts) {
+    if (item.name !== 'leg') continue;
+    const inner = asParts(item.part);
+    const label = text(inner, 'label');
+    const low = whole(inner, 'low');
+    const high = whole(inner, 'high');
+    if (label === null || low === null || high === null) continue;
+    legs.push({
+      label,
+      low,
+      high,
+      how: text(inner, 'how') ?? '',
+      source: text(inner, 'source') ?? '',
+    });
+  }
+  return legs;
+}
+
 function travelText(low: number | null, high: number | null): string | null {
   if (low === null || high === null) return null;
   return low === high ? `about ${low} min` : `about ${low} to ${high} min`;
@@ -80,6 +146,13 @@ function optionOf(parts: Part[]): OptionView | null {
       ? (rawStatus as StatusCode)
       : 'not-updated';
   const dataAgeSeconds = whole(parts, 'dataAgeSeconds');
+  const low = whole(parts, 'travelLow');
+  const high = whole(parts, 'travelHigh');
+  const place = placeOf(decimal(parts, 'lat'), decimal(parts, 'lon'));
+  const radiusKm = decimal(parts, 'coverageRadiusKm');
+  const organisation = text(parts, 'organisation');
+  // A visiting service has a coverage area and no fixed place; a fixed site has a place.
+  const coverage = radiusKm !== null && place !== null && radiusKm > 0 ? { ...place, radiusKm } : null;
   return {
     serviceId,
     name,
@@ -88,14 +161,18 @@ function optionOf(parts: Part[]): OptionView | null {
     effectiveAvailable: whole(parts, 'effectiveAvailable'),
     overBy: whole(parts, 'overBy'),
     unitLabel: text(parts, 'unitLabel'),
-    travelText: travelText(whole(parts, 'travelLow'), whole(parts, 'travelHigh')),
+    travelText: travelText(low, high),
     dataAgeSeconds,
     staleWarning: dataAgeSeconds !== null && dataAgeSeconds > STALE_AFTER_SECONDS,
     criteriaVersion: whole(parts, 'criteriaVersion'),
     fits: list(parts, 'fits'),
     checks: list(parts, 'checks'),
     phone: null,
-    network: null,
+    network:
+      organisation === null ? null : { organisation, source: text(parts, 'organisationSource') ?? '' },
+    position: coverage === null ? place : null,
+    coverage,
+    travel: low !== null && high !== null ? { low, high, source: text(parts, 'travelSource') ?? '', legs: legsOf(parts) } : null,
   };
 }
 
@@ -110,7 +187,12 @@ export function optionsFromParameters(value: unknown): OptionsParts | null {
 
   const options: OptionView[] = [];
   const notSuitable: NotSuitableView[] = [];
-  for (const item of asParts(resource.parameter)) {
+  const top = asParts(resource.parameter);
+  const patientArea = placeOf(
+    decimal(top, 'patientLat'),
+    decimal(top, 'patientLon'),
+  );
+  for (const item of top) {
     const parts = asParts(item.part);
     if (item.name === 'option') {
       const option = optionOf(parts);
@@ -122,5 +204,11 @@ export function optionsFromParameters(value: unknown): OptionsParts | null {
       if (serviceId !== null && name !== null && reason !== null) notSuitable.push({ serviceId, name, reason });
     }
   }
-  return { options, notSuitable };
+  return {
+    options,
+    notSuitable,
+    patientArea,
+    notFound: flag(top, 'notFound'),
+    outOfArea: flag(top, 'outOfArea'),
+  };
 }

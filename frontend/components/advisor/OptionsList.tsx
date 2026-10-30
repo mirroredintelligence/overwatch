@@ -8,6 +8,7 @@ import type { OptionsParts } from '@/lib/advisor/options';
 import { CriteriaDialog } from './CriteriaDialog';
 import { DeclinedDialog } from './DeclinedDialog';
 import { NoServiceFits } from './NoServiceFits';
+import { ViewToggle } from './ViewToggle';
 import { NotSuitableList } from './NotSuitableList';
 import { PhonedDialog } from './PhonedDialog';
 import { ServiceCard } from './ServiceCard';
@@ -68,6 +69,7 @@ export function OptionsList({ caseId, onRequest, onCriteria, onPhoned, onAskClin
 
   return (
     <section className={styles.list} aria-label="Options">
+      <ViewToggle caseId={caseId} current="list" />
       {options.length === 0 ? (
         <NoServiceFits caseId={caseId} onWidened={() => void readOptions()} onAskClinical={() => onAskClinical?.()} />
       ) : (

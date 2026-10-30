@@ -3,10 +3,10 @@ import { project, projectFit } from './project';
 
 describe('project (W50)', () => {
   it('maps the corners of a box that fills the picture to the picture corners', () => {
-    // A box one degree of latitude by two of longitude at the equator: 2:1, as the picture is.
+    // A box one degree of latitude by two of longitude, centred on the equator (cos 0 = 1): 2:1.
     const box = [
-      { lat: 0, lon: 0 },
-      { lat: 1, lon: 2 },
+      { lat: -0.5, lon: 0 },
+      { lat: 0.5, lon: 2 },
     ];
     const [bottomLeft, topRight] = project(box, 200, 100);
 

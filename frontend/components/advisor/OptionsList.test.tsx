@@ -10,6 +10,8 @@ import { server } from '@/test/msw/server';
 import { http, HttpResponse } from 'msw';
 import { OptionsList } from './OptionsList';
 
+vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
+
 beforeEach(() => {
   resetCsrfCache();
   resetSeenAdvisorRequests();

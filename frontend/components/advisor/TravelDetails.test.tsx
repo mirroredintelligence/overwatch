@@ -2,10 +2,14 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { MAP_VIEW } from '@/test/fixtures/map';
+import type { OptionView } from '@/lib/advisor/options';
+
+// The fixture is plain JSON; the view type is the one the BFF answers (W13, W50).
+const MAP_OPTIONS = MAP_VIEW.options as unknown as OptionView[];
 import { TravelDetails } from './TravelDetails';
 
-const UCR = MAP_VIEW.options[0];
-const HAH = MAP_VIEW.options[2];
+const UCR = MAP_OPTIONS[0];
+const HAH = MAP_OPTIONS[2];
 
 describe('TravelDetails (W50)', () => {
   it('is a table of Leg, Range, How and Source, one row per leg', () => {

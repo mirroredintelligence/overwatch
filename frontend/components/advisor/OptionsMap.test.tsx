@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
 import { MAP_VIEW } from '@/test/fixtures/map';
+import type { OptionView } from '@/lib/advisor/options';
+
+// The fixture is plain JSON; the view type is the one the BFF answers (W13, W50).
+const MAP_OPTIONS = MAP_VIEW.options as unknown as OptionView[];
 import { OptionsMap } from './OptionsMap';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -14,7 +18,7 @@ function renderMap(onSelect = vi.fn()) {
       caseId="4821"
       postcode="DT4 8XX"
       patientArea={MAP_VIEW.patientArea}
-      options={MAP_VIEW.options}
+      options={MAP_OPTIONS}
       selectedId={null}
       onSelect={onSelect}
       onRequest={vi.fn()}
@@ -31,7 +35,7 @@ describe('OptionsMap (W50)', () => {
         caseId="4821"
         postcode="DT4 8XX"
         patientArea={MAP_VIEW.patientArea}
-        options={MAP_VIEW.options}
+        options={MAP_OPTIONS}
         selectedId={null}
         onSelect={vi.fn()}
         onRequest={vi.fn()}
@@ -40,7 +44,7 @@ describe('OptionsMap (W50)', () => {
     );
     expect(screen.getByText('Patient area')).toBeInTheDocument();
     const pins = container.querySelectorAll('[data-el^="ADV-MAP-PIN-"]');
-    expect(pins).toHaveLength(MAP_VIEW.options.filter((option) => option.position !== null).length);
+    expect(pins).toHaveLength(MAP_OPTIONS.filter((option) => option.position !== null).length);
     for (const pin of Array.from(pins)) {
       expect(pin.tagName).toBe('BUTTON');
       expect(pin.getAttribute('aria-label')).toBeTruthy();
@@ -54,7 +58,7 @@ describe('OptionsMap (W50)', () => {
         caseId="4821"
         postcode="DT4 8XX"
         patientArea={MAP_VIEW.patientArea}
-        options={MAP_VIEW.options}
+        options={MAP_OPTIONS}
         selectedId={null}
         onSelect={vi.fn()}
         onRequest={vi.fn()}
@@ -62,7 +66,7 @@ describe('OptionsMap (W50)', () => {
       />,
     );
     expect(container.querySelectorAll('circle[stroke-dasharray]')).toHaveLength(
-      MAP_VIEW.options.filter((option) => option.coverage !== null).length,
+      MAP_OPTIONS.filter((option) => option.coverage !== null).length,
     );
     expect(
       screen.getByText('Patient shown at postcode centre. Dashed areas are where a visiting service can attend.'),
@@ -84,7 +88,7 @@ describe('OptionsMap (W50)', () => {
         caseId="4821"
         postcode="DT4 8XX"
         patientArea={MAP_VIEW.patientArea}
-        options={MAP_VIEW.options}
+        options={MAP_OPTIONS}
         selectedId="svc-ucr-west"
         onSelect={vi.fn()}
         onRequest={vi.fn()}
@@ -108,7 +112,7 @@ describe('OptionsMap (W50)', () => {
         caseId="4821"
         postcode="DT4 8XX"
         patientArea={MAP_VIEW.patientArea}
-        options={MAP_VIEW.options}
+        options={MAP_OPTIONS}
         selectedId="svc-other-unit"
         onSelect={vi.fn()}
         onRequest={vi.fn()}
@@ -128,7 +132,7 @@ describe('OptionsMap (W50)', () => {
           caseId="4821"
           postcode="DT4 8XX"
           patientArea={MAP_VIEW.patientArea}
-          options={MAP_VIEW.options}
+          options={MAP_OPTIONS}
           selectedId="svc-ucr-west"
           onSelect={vi.fn()}
           onRequest={vi.fn()}

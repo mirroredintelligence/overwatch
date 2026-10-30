@@ -187,7 +187,9 @@ describe('batching', () => {
 describe('the fallback when the beacon is refused', () => {
   it('sends the batch by fetch with a traceparent of its own', async () => {
     beacon.mockReturnValue(false);
-    const fetchSpy = vi.fn(() => Promise.resolve(new Response(null, { status: 204 })));
+    const fetchSpy = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() =>
+      Promise.resolve(new Response(null, { status: 204 })),
+    );
     vi.stubGlobal('fetch', fetchSpy);
     try {
       track('ui.chip', { 'element.id': 'FILTER-CHIP', state: 'true' });
@@ -195,8 +197,8 @@ describe('the fallback when the beacon is refused', () => {
       await settle();
 
       expect(fetchSpy).toHaveBeenCalledTimes(1);
-      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
-      const headers = new Headers(init.headers);
+      const init = fetchSpy.mock.calls[0]?.[1];
+      const headers = new Headers(init?.headers);
       expect(headers.get('traceparent')).toMatch(TRACEPARENT_PATTERN);
     } finally {
       vi.unstubAllGlobals();

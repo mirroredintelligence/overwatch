@@ -48,7 +48,7 @@ describe('SessionTimeline', () => {
   });
 
   it('says so, and does not make a link, when an API row has no trace id', () => {
-    const { traceId: _traceId, ...withoutTrace } = EVENTS[3] ?? {};
+    const withoutTrace = { kind: 'api', offsetMs: 46500, route: '/api/bff/bookings', durationMs: 812, status: '201' };
     render(<SessionTimeline sessionId={SESSION} initialEvents={[withoutTrace]} initialStandout={[]} />);
 
     expect(screen.queryByRole('link', { name: /view trace/i })).toBeNull();

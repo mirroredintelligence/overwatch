@@ -49,6 +49,12 @@ describe('ChangeNumberForm', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows the number the service reports to now, by its last four digits, once a service is chosen', async () => {
+    render(<ChangeNumberForm serviceId={SERVICE_REABLEMENT} />);
+    expect(await screen.findByText('Current number ends 0377')).toBeInTheDocument();
+    expect(document.body.textContent ?? '').not.toMatch(/07700\s?9\d{5}/);
+  });
+
   it('offers a test text only after the number is saved', async () => {
     const user = userEvent.setup();
     render(<ChangeNumberForm serviceId={SERVICE_REABLEMENT} />);

@@ -108,6 +108,17 @@ export const leadHandlers = [
     await recorded(request, '/api/bff/lead/services');
     return HttpResponse.json({ serviceId: 's-new-1' }, { status: 201, headers: NO_STORE });
   }),
+  http.get('/api/bff/lead/reporters', ({ request }) => {
+    const service = new URL(request.url).searchParams.get('service');
+    const reporters = service === SERVICE_REABLEMENT
+      ? [{ serviceId: SERVICE_REABLEMENT, serviceName: 'Reablement', role: 'Duty manager', channel: 'text', numberEnding: '0377', coveredUntil: null }]
+      : [];
+    return HttpResponse.json({ reporters }, { headers: NO_STORE });
+  }),
+  http.post('/api/bff/lead/services/:id/phoned', async ({ request, params }) => {
+    await recorded(request, `/api/bff/lead/services/${String(params.id)}/phoned`);
+    return HttpResponse.json({ recorded: true, value: null }, { status: 201, headers: NO_STORE });
+  }),
   http.post('/api/bff/lead/reporters/number', async ({ request }) => {
     await recorded(request, '/api/bff/lead/reporters/number');
     return HttpResponse.json({ numberEnding: '0456' }, { status: 200, headers: NO_STORE });

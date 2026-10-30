@@ -32,6 +32,7 @@ from diucs.application.ports.outbound.messaging import (
     PushSubscriptionRepository,
 )
 from diucs.application.ports.outbound.outbox import Outbox
+from diucs.application.ports.outbound.projection import NetworkView, ProjectionWriter
 from diucs.application.ports.outbound.protected_text import ProtectedTextStore
 from diucs.application.ports.outbound.repositories import (
     AlertRepository,
@@ -122,3 +123,39 @@ class UnitOfWork(Protocol):
 
 
 UnitOfWorkFactory = Callable[[], UnitOfWork]
+
+
+class NetworkUnitOfWork(Protocol):
+    """The unit of work of a network scope (TEN-053, DEC-132 item 4): the same unit, with only the
+    repositories that mean something there. The projection writer needs a unit that is not
+    read-only; the network read use cases open a read-only one and use `network_view` alone. A
+    tenant repository is not on this port, and its statements are tenant-only, so a tenant
+    repository reached on a network unit is refused by `run_query` as well."""
+
+    projections: ProjectionWriter
+    network_view: NetworkView
+    audit: AuditLog
+    idempotency: IdempotencyStore
+    processed: ProcessedMessages
+
+    @property
+    def read_only(self) -> bool: ...
+
+    @property
+    def unit_scope(self) -> ScopeId | None: ...
+
+    async def __aenter__(self) -> Self: ...
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None: ...
+
+    async def commit(self) -> None: ...
+
+    async def rollback(self) -> None: ...
+
+
+NetworkUnitOfWorkFactory = Callable[[], NetworkUnitOfWork]

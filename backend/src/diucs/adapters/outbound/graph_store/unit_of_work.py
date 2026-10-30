@@ -60,6 +60,7 @@ from diucs.adapters.outbound.graph_store.notification_consent_store import (
     Neo4jNotificationConsentStore,
 )
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
+from diucs.adapters.outbound.graph_store.projection_repository import Neo4jProjectionRepository
 from diucs.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
 from diucs.adapters.outbound.graph_store.push_subscription_repository import (
     Neo4jPushSubscriptionRepository,
@@ -99,6 +100,7 @@ from diucs.application.ports.outbound.messaging import (
     PushSubscriptionRepository,
 )
 from diucs.application.ports.outbound.outbox import Outbox
+from diucs.application.ports.outbound.projection import NetworkView, ProjectionWriter
 from diucs.application.ports.outbound.protected_text import ProtectedTextStore
 from diucs.application.ports.outbound.repositories import (
     AlertRepository,
@@ -161,6 +163,11 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "aggregates": lambda tx, store: Neo4jAggregateRepository(tx),
     "support_tickets": lambda tx, store: Neo4jSupportTicketRepository(tx),
     "tenant_config": lambda tx, store: Neo4jTenantConfigRepository(tx),
+    # The network scope's writer and reader (TEN-053). They sit in the same mapping because a unit
+    # of work is the same class in either kind of scope; their statements are network-only, so a
+    # tenant unit that reaches for one is refused by `run_query` (`ScopeKindMismatch`).
+    "projections": lambda tx, store: Neo4jProjectionRepository(tx),
+    "network_view": lambda tx, store: Neo4jProjectionRepository(tx),
 }
 
 _NOT_OPEN = "the unit of work is not open; use it inside 'async with'"
@@ -229,6 +236,8 @@ class Neo4jUnitOfWork:
     aggregates: AggregateRepository
     support_tickets: SupportTicketRepository
     tenant_config: TenantConfigRepository
+    projections: ProjectionWriter
+    network_view: NetworkView
 
     def __init__(
         self,

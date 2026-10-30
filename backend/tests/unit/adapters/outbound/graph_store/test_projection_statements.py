@@ -47,6 +47,9 @@ WRITES = (
     "Q-PROJ-MARK-CRITERIA",
 )
 ALL = (*READS, *WRITES)
+# The statements that list a whole scope: they name no member.
+LIST_ALL = ("Q-PROJ-SOURCES", "Q-NETVIEW-SERVICES", "Q-NETVIEW-CAPACITIES", "Q-NETVIEW-CRITERIA")
+BY_MEMBER = tuple(query_id for query_id in ALL if query_id not in LIST_ALL)
 # The kind of grant scope whose source an upsert needs to be active.
 KIND = {
     "Q-PROJ-SERVICE-UPSERT": "directory",
@@ -103,8 +106,9 @@ def test_a_scenario_tells_two_networks_apart_and_collides_on_the_source_and_the_
         set(node.labels) <= (set(allowlist.ALLOWLIST) | {"ProjectionSource", "ProjectionCursor"})
         for node in scenario.seed.nodes
     )
-    assert scenario.params["sourceTenant"] == "tenant-x"
-    assert "sourceTenant" in scenario.lookup
+    if query_id in BY_MEMBER:
+        assert scenario.params["sourceTenant"] == "tenant-x"
+        assert "sourceTenant" in scenario.lookup
 
 
 @pytest.mark.parametrize("query_id", ALL)
@@ -115,7 +119,7 @@ def test_a_statement_names_network_labels_the_scope_and_the_source_tenant(query_
         "ProjectionCursor",
     }
     assert "tenantId: $tenant" in text
-    assert "$sourceTenant" in text
+    assert ("$sourceTenant" in text) == (query_id in BY_MEMBER)
     # The source tenant is a value of a row, never the predicate that picks the scope.
     assert re.search(r"tenantId: \$sourceTenant", text) is None
 
@@ -219,8 +223,8 @@ def test_a_mark_ended_statement_marks_the_live_rows_of_one_member_and_deletes_no
     text = REGISTRY.get(query_id).cypher
     assert f":{label} {{tenantId: $tenant, sourceTenantId: $sourceTenant}}" in text
     assert "endedAt IS NULL" in text
-    assert "endedAt = $at" in text
-    assert "endReason = $reason" in text
+    assert "endedAt = $endedAt" in text
+    assert "endReason = $endReason" in text
 
 
 def test_ending_a_source_is_a_move_from_active_and_a_second_end_changes_nothing() -> None:

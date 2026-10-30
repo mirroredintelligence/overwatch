@@ -19,6 +19,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 
+from diucs.domain.events import ProjectionApplied, ProjectionRejected, ProjectionRequested
 from diucs.domain.model.network import GrantScope
 from diucs.domain.rules.projection import CapacityProjection, CriteriaProjection, ServiceProjection
 
@@ -76,9 +77,7 @@ class ProjectedRow[T]:
 
 
 class ProjectionWriter(Protocol):
-    async def open_source(
-        self, source_tenant_id: str, kind: GrantScope, grant: GrantRef
-    ) -> None:
+    async def open_source(self, source_tenant_id: str, kind: GrantScope, grant: GrantRef) -> None:
         """Open (or reopen after an end) the source of this member and kind under this grant. The
         caller checked the grant and the membership in the registry first."""
         ...
@@ -157,3 +156,21 @@ class NetworkView(Protocol):
     async def criteria(
         self, *, live_only: bool = True
     ) -> Sequence[ProjectedRow[CriteriaProjection]]: ...
+
+
+class ProjectionPublisher(Protocol):
+    """Where a producer sends what it built (TEN-054). The production adapter publishes the message
+    to the projection work queue with the source tenant as its tenant (TEN-055); a test records it.
+    The message carries the allowlisted body and identifiers, and nothing else."""
+
+    async def publish(self, request: ProjectionRequested) -> None: ...
+
+
+class ProjectionNotifier(Protocol):
+    """Told after the apply step has committed (TEN-054, TEN-058): the network board rebuilds and
+    announces itself. A notifier that fails must not undo or fail the projection, which is already
+    committed: the apply step logs the class of the error and carries on."""
+
+    async def applied(self, event: ProjectionApplied) -> None: ...
+
+    async def rejected(self, event: ProjectionRejected) -> None: ...

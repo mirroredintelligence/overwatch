@@ -163,6 +163,11 @@ _STAMPED: Final = frozenset(
 SYSTEM_PROPERTIES: Final[Mapping[str, frozenset[str]]] = MappingProxyType(
     {
         **dict.fromkeys(ALLOWLIST, _STAMPED),
+        # A location and an opening window are keyed by their service (TEN-053): the service id is
+        # a key the statement stamps, not a field of the child's DTO. It is the id the service
+        # row already carries, so nothing new crosses.
+        "ProjectedLocation": _STAMPED | {"sourceServiceId"},
+        "ProjectedOpeningHour": _STAMPED | {"sourceServiceId"},
         "ProjectionSource": frozenset(
             {"tenantId", "sourceTenantId", "kind", "status", "endedAt", "endReason", "grantId"}
         ),
@@ -170,9 +175,9 @@ SYSTEM_PROPERTIES: Final[Mapping[str, frozenset[str]]] = MappingProxyType(
     }
 )
 
-# Relationship types a network write may create. None yet: TEN-053 adds what it needs, with a
-# test for each.
-NETWORK_RELATIONSHIPS: Final[frozenset[str]] = frozenset()
+# Relationship types a network write may create: a service to its location and to each of its
+# opening windows (TEN-053), each with a test. A relationship carries no property.
+NETWORK_RELATIONSHIPS: Final[frozenset[str]] = frozenset({"HAS_LOCATION", "HAS_OPENING_HOUR"})
 
 # What is never copied. The sentinel test and TEN-062's scan of the network scope iterate this
 # list: a name added here adds a check everywhere.

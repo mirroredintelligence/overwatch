@@ -92,8 +92,8 @@ async def test_ending_a_source_says_whether_it_was_active() -> None:
         "tenant": "net-pilot",
         "sourceTenant": SOURCE,
         "kind": "capacity",
-        "at": LEFT,
-        "reason": "left",
+        "endedAt": LEFT,
+        "endReason": "left",
     }
     quiet, _ = _repository({"Q-PROJ-SOURCE-END": []})
     assert not await quiet.end_source(
@@ -183,18 +183,25 @@ async def test_a_service_row_that_is_not_written_stops_the_children() -> None:
 
 
 async def test_a_service_with_no_location_ends_the_old_one_and_writes_no_new_one() -> None:
-    service = replace(sample_service_projection(), location=None, opening_hours=())
+    one_hour = sample_service_projection().opening_hours[:1]
+    service = replace(sample_service_projection(), location=None, opening_hours=one_hour)
     repository, tx = _repository(
         {
             "Q-PROJ-SERVICE-UPSERT": _written(),
             "Q-PROJ-LOCATION-END": _written(0),
+            "Q-PROJ-HOUR-UPSERT": _written(),
             "Q-PROJ-HOURS-END": _written(0),
         }
     )
     assert await repository.upsert_service(SOURCE, service, grant=GRANT, projected_at=AT)
-    assert _ids(tx) == ["Q-PROJ-SERVICE-UPSERT", "Q-PROJ-LOCATION-END", "Q-PROJ-HOURS-END"]
-    assert tx.calls[1][1]["reason"] == "replaced"
-    assert tx.calls[2][1]["fromPosition"] == 0
+    assert _ids(tx) == [
+        "Q-PROJ-SERVICE-UPSERT",
+        "Q-PROJ-LOCATION-END",
+        "Q-PROJ-HOUR-UPSERT",
+        "Q-PROJ-HOURS-END",
+    ]
+    assert tx.calls[1][1]["endReason"] == "replaced"
+    assert tx.calls[3][1]["fromPosition"] == 1
 
 
 async def test_every_parameter_sent_is_an_allowlisted_property_or_a_stamp() -> None:
@@ -220,8 +227,8 @@ async def test_every_parameter_sent_is_an_allowlisted_property_or_a_stamp() -> N
         "sourceServiceId",
         "sourceVersion",
         "fromPosition",
-        "at",
-        "reason",
+        "endedAt",
+        "endReason",
     }
     assert sent <= stored | stamps
 
@@ -314,8 +321,8 @@ async def test_marking_a_kind_as_ended_runs_the_statements_of_that_kind_and_sums
         assert params == {
             "tenant": "net-pilot",
             "sourceTenant": SOURCE,
-            "at": LEFT,
-            "reason": "left",
+            "endedAt": LEFT,
+            "endReason": "left",
         }
 
 
@@ -377,8 +384,13 @@ async def test_a_service_comes_back_from_its_nodes_equal_with_its_marks() -> Non
     assert tx.calls[1][1]["liveOnly"] is False
 
 
-async def test_a_service_with_no_location_and_no_hours_comes_back_without_them() -> None:
-    service = replace(sample_service_projection(), location=None, opening_hours=())
+async def test_a_service_with_no_location_comes_back_without_one_and_with_its_end_marks() -> None:
+    service = replace(
+        sample_service_projection(),
+        location=None,
+        opening_hours=sample_service_projection().opening_hours[:1],
+    )
+    hour = to_rows(service)[-1]
     repository, _ = _repository(
         {
             "Q-NETVIEW-SERVICES": [
@@ -389,7 +401,7 @@ async def test_a_service_with_no_location_and_no_hours_comes_back_without_them()
                         endReason="left",
                     ),
                     "location": None,
-                    "hours": [],
+                    "hours": [_stamped(hour.params)],
                 }
             ]
         }

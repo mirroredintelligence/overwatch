@@ -450,6 +450,13 @@ class AlertRepository(Protocol):
         """The alerts owned by this practitioner that are still new."""
         ...
 
+    async def for_owner_with_status(
+        self, practitioner_id: str, status: str, limit: int
+    ) -> list[AlertRecord]:
+        """The alerts owned by this practitioner in this status (acknowledged, closed or
+        escalated), the latest raised first, at most `limit` (W7A, R12)."""
+        ...
+
     async def chain(self, alert_id: str) -> list[AlertRecord]:
         """The alert and every alert it escalates from, from the root through each partOf link,
         oldest first. An unknown id raises NotFound."""

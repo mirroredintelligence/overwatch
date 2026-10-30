@@ -93,7 +93,7 @@ async def test_acknowledged_lists_the_callers_acknowledged_alerts_latest_first(
     assert task["status"] == "completed"
     assert task["businessStatus"]["coding"][0]["code"] == "acknowledged"
     acknowledged = [e for e in task["extension"] if e["url"] == ACKNOWLEDGED_AT]
-    assert acknowledged == [{"url": ACKNOWLEDGED_AT, "valueDateTime": "2026-10-23T12:32:00Z"}]
+    assert acknowledged == [{"url": ACKNOWLEDGED_AT, "valueDateTime": "2026-10-23T12:32:00+00:00"}]
     assert response.headers["cache-control"] == "no-store"
 
 

@@ -48,7 +48,7 @@ from diucs.adapters.inbound.fhir_rest.concurrency import (
 )
 from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.adapters.inbound.fhir_rest.subscription_mapping import (
-    OPEN_STATUSES,
+    LISTED_STATUSES,
     alert_to_task,
     save_command,
     subscription_to_fhir,
@@ -81,6 +81,9 @@ NO_STORE: Final = {"Cache-Control": "no-store"}
 SCOPE_TENANT: Final = "tenant"
 """The one scope the summary answers for. The network variant (DEC-132) is reserved."""
 ME: Final = "me"
+FINISHED_STATUSES: Final = frozenset({"acknowledged", "closed"})
+LIST_LIMIT: Final = 50
+"""The most alerts an acknowledged or closed list shows (W7A, DEC-775)."""
 
 
 class _Container(Protocol):
@@ -179,11 +182,16 @@ async def alert_list(request: Request, actor: Actor) -> Response:
     if query.get("owner") != ME:
         raise ValidationFailed("owner", "must be me")
     status = query.get("status")
-    if status is not None and status not in OPEN_STATUSES:
-        raise ValidationFailed("status", "must be new or escalated")
+    if status is not None and status not in LISTED_STATUSES:
+        raise ValidationFailed("status", "must be new, escalated, acknowledged or closed")
     async with _container(request).uow_factory() as uow:
-        records = await uow.alerts.open_for_owner(actor.practitioner_id or "")
-    if status is not None:
+        if status in FINISHED_STATUSES:
+            records = await uow.alerts.for_owner_with_status(
+                actor.practitioner_id or "", status, LIST_LIMIT
+            )
+        else:
+            records = await uow.alerts.open_for_owner(actor.practitioner_id or "")
+    if status is not None and status not in FINISHED_STATUSES:
         records = [record for record in records if record.status == status]
     bundle: dict[str, Any] = {
         "resourceType": "Bundle",

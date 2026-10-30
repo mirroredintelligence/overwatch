@@ -47,6 +47,9 @@ ALERT_CODE: Final = "acknowledge-alert"
 ALERT_STATUS_SYSTEM: Final = code_system_url("alert-status")
 ALERT_KIND_SYSTEM: Final = code_system_url("alert-kind")
 OPEN_STATUSES: Final = frozenset({"new", "escalated"})
+LISTED_STATUSES: Final = frozenset({"new", "escalated", "acknowledged", "closed"})
+"""The alert statuses a list can be asked for: the open ones and, since W7A, the finished ones."""
+ACKNOWLEDGED_AT_URL: Final = code_system_url("alert-acknowledged-at")
 QUIET_TEXT: Final = "22:00-06:00"
 """The one quiet-hours window the preferences allow (D24)."""
 
@@ -205,6 +208,10 @@ def alert_to_task(alert: AlertRecord) -> dict[str, Any]:
         "authoredOn": alert.raised_at.isoformat(),
         "extension": [{"url": ALERT_KIND_SYSTEM, "valueCode": alert.kind.value}],
     }
+    if alert.acknowledged_at is not None:
+        task["extension"].append(
+            {"url": ACKNOWLEDGED_AT_URL, "valueDateTime": alert.acknowledged_at.isoformat()}
+        )
     if alert.service_id is not None:
         task["focus"] = {"reference": f"HealthcareService/{alert.service_id}"}
     if alert.escalation_due_at is not None:

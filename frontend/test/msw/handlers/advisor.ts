@@ -1,5 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { BOARD_A } from '@/test/fixtures/board';
+import { OPTIONS_VIEW } from '@/test/fixtures/options';
 
 // Browser-facing stubs for the advisor screens (W10 to W16, W50): the BFF routes a client component
 // calls, answered from fixtures. Every request a test makes must match a handler (test/setup.ts).
@@ -31,6 +32,7 @@ export function resetSeenAdvisorRequests() {
   seenCaseCreates.length = 0;
   seenCasePuts.length = 0;
   PATHWAYS_BACKEND_CALLS.length = 0;
+  seenOptionsReads.length = 0;
 }
 
 const caseHandlers = [
@@ -61,9 +63,20 @@ const pathwaysHandlers = [
   }),
 ];
 
+/** Every GET /api/bff/cases/[ref]/options this file's handlers saw (one per page load, W13). */
+export const seenOptionsReads: string[] = [];
+
+const optionsHandlers = [
+  http.get('/api/bff/cases/:ref/options', ({ params }) => {
+    seenOptionsReads.push(String(params.ref));
+    return HttpResponse.json(OPTIONS_VIEW);
+  }),
+];
+
 export const advisorHandlers = [
   ...caseHandlers,
   ...pathwaysHandlers,
+  ...optionsHandlers,
   http.get('/api/bff/board', () => HttpResponse.json(BOARD_A)),
   http.get('/api/bff/session', () =>
     HttpResponse.json({ role: 'advisor', services: [], sub: 'advisor-1', csrfToken: CSRF_TOKEN }),

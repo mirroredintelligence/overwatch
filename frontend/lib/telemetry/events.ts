@@ -48,6 +48,10 @@ export const ALLOWED_ATTRIBUTES: readonly string[] = [
   'kind',
   'count',
   'window_ms',
+  // ui.web_vital (W9F).
+  'metric',
+  'reading',
+  'rating',
 ];
 
 export type Attributes = Record<string, string | number | boolean>;

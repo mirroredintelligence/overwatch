@@ -188,6 +188,12 @@ def create_app(
 
     app.include_router(routes_planning.router)
 
+    # The insight console's routes (W9F): the browser's ui.* events counted into the tenant's
+    # daily aggregates, and the five tabs of the insight page read back for the support role.
+    from diucs.adapters.inbound.fhir_rest import routes_insight
+
+    app.include_router(routes_insight.router)
+
     # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
     # this one module wire it in.
     from diucs.adapters.inbound.sms_webhook import routes as sms_routes

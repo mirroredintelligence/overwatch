@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from diucs.application.use_cases.browser_insight import ReadInsightTab, RecordBrowserEvents
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -15,6 +14,8 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.outbox import PENDING, OutboxMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import bind_tenant
+from diucs.application.use_cases.browser_insight import ReadInsightTab, RecordBrowserEvents
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
 from diucs.domain.rules.browser_insight import MARKER_SECRET
@@ -157,7 +158,7 @@ async def test_the_graph_holds_no_session_id_only_a_keyed_marker(
             click(),
             ui("ui.friction", kind="rage", **{"element.id": "ADV-X-BTN", "count": 3}),
             ui("ui.page_view", **{"page.route": "/setup"}),
-            ui("ui.web_vital", metric="lcp", metric_value=2400, **{"page.route": "/setup"}),
+            ui("ui.web_vital", metric="lcp", reading=2400, **{"page.route": "/setup"}),
         ],
     )
 
@@ -324,7 +325,7 @@ async def test_web_vitals_add_to_the_histogram_of_the_route_device_and_release(
 ) -> None:
     record = recorder(uow_factory)
     caller = actor(Role.ADVISOR, run_identity.tenant_id)
-    vital = ui("ui.web_vital", metric="lcp", metric_value=2400, **{"page.route": "/advisor/board"})
+    vital = ui("ui.web_vital", metric="lcp", reading=2400, **{"page.route": "/advisor/board"})
 
     await record.execute(caller, [vital, vital])
     await record.execute(caller, [vital])
@@ -335,7 +336,7 @@ async def test_web_vitals_add_to_the_histogram_of_the_route_device_and_release(
                 "ui.web_vital",
                 session_id(3),
                 metric="lcp",
-                metric_value=900,
+                reading=900,
                 **{"page.route": "/advisor/board"},
             )
         ],
@@ -363,7 +364,8 @@ async def test_the_other_tenant_counts_the_same_session_and_element_separately(
     theirs = actor(Role.ADVISOR, run_identity.other_tenant_id)
 
     await recorder(uow_factory).execute(mine, [click(), click()])
-    await recorder(other_factory).execute(theirs, [click()])
+    with bind_tenant(run_identity.other_tenant_id):
+        await recorder(other_factory).execute(theirs, [click()])
 
     assert (await usage(neo4j_driver))["interactions"] == 2
     other = await usage(neo4j_driver, scope=run_identity.other_tenant_id)
@@ -461,7 +463,7 @@ async def test_the_vitals_and_the_release_comparison_read_back_from_the_histogra
                     sid,
                     release=release,
                     metric="lcp",
-                    metric_value=lcp,
+                    reading=lcp,
                     **{"page.route": "/advisor/board"},
                 ),
             ]

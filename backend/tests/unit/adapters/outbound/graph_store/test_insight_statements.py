@@ -7,11 +7,11 @@ one on a real Neo4j; this file checks the parts that can be checked without it.
 
 import re
 
-import diucs.adapters.outbound.graph_store.insight_repository  # noqa: F401  (registers them)
 import pytest
-from diucs.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
 
+import diucs.adapters.outbound.graph_store.insight_repository  # noqa: F401  (registers them)
 from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS
+from diucs.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
 

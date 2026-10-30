@@ -3,6 +3,7 @@ import { Atkinson_Hyperlegible } from 'next/font/google';
 import type { ReactNode } from 'react';
 import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
 import { BfcacheGuard } from '@/components/session/BfcacheGuard';
+import { Telemetry } from '@/components/telemetry/Telemetry';
 import { PRODUCT_NAME } from '@/lib/product';
 import { currentProfile } from '@/lib/tenant/profile';
 import './tokens.css';
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en-GB" className={atkinson.variable}>
       <body>
         <BfcacheGuard />
+        <Telemetry />
         {children}
         <RegisterServiceWorker />
       </body>

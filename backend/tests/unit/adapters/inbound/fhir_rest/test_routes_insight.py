@@ -5,6 +5,7 @@ reads. The stored answers and the tenant boundary are in tests/integration/.
 """
 
 import pytest
+
 from diucs.adapters.inbound.fhir_rest.routes_insight import (
     TABS,
     friction_json,
@@ -14,7 +15,6 @@ from diucs.adapters.inbound.fhir_rest.routes_insight import (
     releases_json,
 )
 from diucs.application.use_cases.browser_insight import ReleasesView
-
 from diucs.domain.codes import Role
 from diucs.domain.rules.insight_views import (
     FrictionTable,

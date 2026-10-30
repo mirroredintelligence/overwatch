@@ -38,3 +38,75 @@ class PipelineRow:
     active: int
     dead: int
     oldest_pending: datetime | None
+
+
+# What one batch adds to a day's counters. `sessions` is the number of sessions new to the group
+# today (a marker not seen before), `count` the events. The repository adds both to the node.
+
+
+@dataclass(frozen=True, slots=True)
+class UsageAdd:
+    element_id: str
+    role: str
+    device: str
+    count: int
+    sessions: int
+
+
+@dataclass(frozen=True, slots=True)
+class FrictionAdd:
+    element_id: str
+    kind: str
+    route: str
+    role: str
+    device: str
+    count: int
+    sessions: int
+
+
+@dataclass(frozen=True, slots=True)
+class RouteAdd:
+    route: str
+    role: str
+    device: str
+    errors: int
+    sessions: int
+
+
+@dataclass(frozen=True, slots=True)
+class FunnelAdd:
+    funnel: str
+    step: str
+    role: str
+    channel: str
+    device: str
+    count: int
+
+
+@dataclass(frozen=True, slots=True)
+class MeasureAdd:
+    measure: str
+    route: str
+    device: str
+    release: str
+    buckets: tuple[int, ...]
+    samples: int
+    sessions: int
+
+
+@dataclass(frozen=True, slots=True)
+class ReleaseAdd:
+    release: str
+    interactions: int
+    friction: int
+    errors: int
+    views: int
+    sessions: int
+
+
+@dataclass(frozen=True, slots=True)
+class FunnelMark:
+    """A session's furthest step so far in one funnel group: `marker` is the pseudonymous key."""
+
+    marker: str
+    top: int

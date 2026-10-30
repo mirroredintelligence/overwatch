@@ -74,12 +74,12 @@ def test_a_click_with_an_element_id_is_read_and_carries_no_free_text() -> None:
         ("ui.page_view", {}),
         ("ui.friction", {"kind": "rage-quit", "element.id": "ADV-X"}),
         ("ui.friction", {"kind": "rage"}),
-        ("ui.web_vital", {"metric": "fid", "metric_value": 10}),
-        ("ui.web_vital", {"metric": "lcp", "metric_value": -1}),
-        ("ui.web_vital", {"metric": "lcp", "metric_value": True}),
-        ("ui.web_vital", {"metric": "lcp", "metric_value": math.nan}),
-        ("ui.web_vital", {"metric": "lcp", "metric_value": math.inf}),
-        ("ui.web_vital", {"metric": "lcp", "metric_value": "2500"}),
+        ("ui.web_vital", {"metric": "fid", "reading": 10}),
+        ("ui.web_vital", {"metric": "lcp", "reading": -1}),
+        ("ui.web_vital", {"metric": "lcp", "reading": True}),
+        ("ui.web_vital", {"metric": "lcp", "reading": math.nan}),
+        ("ui.web_vital", {"metric": "lcp", "reading": math.inf}),
+        ("ui.web_vital", {"metric": "lcp", "reading": "2500"}),
         ("ui.unknown", {"element.id": "ADV-X"}),
     ],
 )
@@ -270,15 +270,9 @@ def test_a_web_vital_lands_in_one_bucket_of_its_measure_route_device_and_release
     batch = fold(
         "advisor",
         [
-            event(
-                "ui.web_vital", metric="lcp", metric_value=2400, **{"page.route": "/advisor/board"}
-            ),
-            event(
-                "ui.web_vital", metric="lcp", metric_value=2400, **{"page.route": "/advisor/board"}
-            ),
-            event(
-                "ui.web_vital", metric="cls", metric_value=0.04, **{"page.route": "/advisor/board"}
-            ),
+            event("ui.web_vital", metric="lcp", reading=2400, **{"page.route": "/advisor/board"}),
+            event("ui.web_vital", metric="lcp", reading=2400, **{"page.route": "/advisor/board"}),
+            event("ui.web_vital", metric="cls", reading=0.04, **{"page.route": "/advisor/board"}),
         ],
     )
 
@@ -297,7 +291,7 @@ def test_a_web_vital_lands_in_one_bucket_of_its_measure_route_device_and_release
 
 
 def test_a_web_vital_with_no_route_is_filed_under_the_unknown_route() -> None:
-    batch = fold("advisor", [event("ui.web_vital", metric="inp", metric_value=120)])
+    batch = fold("advisor", [event("ui.web_vital", metric="inp", reading=120)])
 
     assert batch.measures[0].route == UNKNOWN_ROUTE
 

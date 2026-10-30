@@ -26,6 +26,11 @@ from datetime import date
 from types import MappingProxyType
 from typing import Final
 
+# The secret that keys the session markers (the secret-store seam; never in code or logs).
+MARKER_SECRET: Final = "telemetry-markers"
+# The markers of the day before are kept, older ones are removed (a marker is only ever asked for
+# on its own day; the spare day is for a clock that is a little behind).
+MARKER_KEEP_DAYS: Final = 1
 # A batch is at most this many events (the BFF keeps the same ceiling).
 MAX_BATCH_EVENTS: Final = 50
 # A route a page-level event could not name.
@@ -103,7 +108,7 @@ class UiEvent:
     element_id: str | None = None
     kind: str | None = None
     metric: str | None = None
-    metric_value: float | None = None
+    reading: float | None = None
 
 
 def _text(attributes: Mapping[str, object], key: str) -> str | None:
@@ -151,7 +156,7 @@ def parse_event(name: str, attributes: Mapping[str, object]) -> UiEvent | None:
             return None
     kind: str | None = None
     metric: str | None = None
-    metric_value: float | None = None
+    reading: float | None = None
     if name == "ui.page_view" and route is None:
         return None
     if (name in _ELEMENT_EVENTS or name in {"ui.submit", "ui.friction"}) and element is None:
@@ -168,8 +173,8 @@ def parse_event(name: str, attributes: Mapping[str, object]) -> UiEvent | None:
             return None
     if name == "ui.web_vital":
         metric = _text(attributes, "metric")
-        metric_value = _number(attributes.get("metric_value"))
-        if metric not in METRICS or metric_value is None:
+        reading = _number(attributes.get("reading"))
+        if metric not in METRICS or reading is None:
             return None
     return UiEvent(
         name=name,
@@ -181,7 +186,7 @@ def parse_event(name: str, attributes: Mapping[str, object]) -> UiEvent | None:
         element_id=element,
         kind=kind,
         metric=metric,
-        metric_value=metric_value,
+        reading=reading,
     )
 
 
@@ -393,11 +398,7 @@ def fold(role: str, events: Sequence[UiEvent]) -> BatchTally:
             for funnel, index in _STEP_OF_ROUTE.get(item.route, ()):
                 fnkey = (funnel, channel, item.device, item.session_id)
                 funnels[fnkey] = max(funnels.get(fnkey, -1), index)
-        elif (
-            item.name == "ui.web_vital"
-            and item.metric is not None
-            and item.metric_value is not None
-        ):
+        elif item.name == "ui.web_vital" and item.metric is not None and item.reading is not None:
             mkey = (
                 item.metric,
                 item.route or UNKNOWN_ROUTE,
@@ -406,7 +407,7 @@ def fold(role: str, events: Sequence[UiEvent]) -> BatchTally:
                 item.session_id,
             )
             buckets, samples = measures.get(mkey, ([0] * BUCKET_COUNT, 0))
-            buckets[bucket_of(item.metric, item.metric_value)] += 1
+            buckets[bucket_of(item.metric, item.reading)] += 1
             measures[mkey] = (buckets, samples + 1)
 
     return BatchTally(

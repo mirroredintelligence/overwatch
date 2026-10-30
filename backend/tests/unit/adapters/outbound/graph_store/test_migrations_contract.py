@@ -19,6 +19,7 @@ from diucs.adapters.outbound.graph_store.migrations_contract import (
     CONTRACT_MIGRATION_ID,
     CONTRACT_MIGRATIONS,
 )
+from diucs.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_tenant import (
     COMPOSITE_CONSTRAINTS,
@@ -45,9 +46,10 @@ def test_it_is_assembled_after_every_other_migration() -> None:
     assert ids.count(CONTRACT_MIGRATION_ID) == 1
     # Only the migrations of the network area, whose block starts at 0110 (build wave 5, bundle
     # W5E), follow it: they are expand steps on labels that did not exist before, so they replace
-    # no key and need not wait for the contract step.
+    # no key and need not wait for the contract step. The browser-insight area (0195, 0196, W9F)
+    # is the same: composite keys and indexes on labels that carry no superseded key.
     later = ids[ids.index(CONTRACT_MIGRATION_ID) + 1 :]
-    assert later == [m.id for m in NETWORK_MIGRATIONS]
+    assert later == [m.id for m in NETWORK_MIGRATIONS] + [m.id for m in INSIGHT_MIGRATIONS]
     assert all(int(i[:4]) >= 110 for i in later)
 
 

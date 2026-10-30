@@ -14,6 +14,7 @@ their values, sets as sorted lists, tuples as lists.
 
 import hashlib
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -141,5 +142,22 @@ class AuditLog(Protocol):
         ...
 
     async def records(self, since: str | None = None) -> list[AuditRecord]: ...
+
+    async def records_for(self, entity_id: str) -> list[AuditRecord]:
+        """Audit entries (not provenance) that name this entity id, in chain order (U42). Reads
+        the bound tenant's chain only."""
+        ...
+
+    async def records_for_many(self, entity_ids: Sequence[str], use_case: str) -> list[AuditRecord]:
+        """Audit entries of one use case that name any of these entity ids, in chain order (U43).
+        Reads the bound tenant's chain only."""
+        ...
+
+    async def records_between(
+        self, start: datetime, end: datetime, use_cases: frozenset[str]
+    ) -> list[AuditRecord]:
+        """Audit entries of these use cases recorded from start up to and including end, in chain
+        order (U43). Reads the bound tenant's chain only."""
+        ...
 
     async def verify_chain(self) -> bool: ...

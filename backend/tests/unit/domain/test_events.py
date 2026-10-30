@@ -11,6 +11,7 @@ from typing import Any, get_args
 import pytest
 
 from diucs.domain.codes import (
+    AdviceChoice,
     AlertKind,
     BookingStatus,
     DeclineReason,
@@ -30,6 +31,7 @@ from diucs.domain.events import (
     BookingRequested,
     BookingResponded,
     CapacityReported,
+    ClinicalAdviceGiven,
     CriteriaApproved,
     DomainEvent,
     GrantApproved,
@@ -89,6 +91,7 @@ SAMPLES: tuple[DomainEvent, ...] = (
     ReportFlagged("flag-1", SERVICE_ID, "obs-1", ReportFlagReason.MANY_CHANGES, AT),
     PhoneTaskRaised(SERVICE_ID, DUE_AT, AT),
     ReportEscalated(SERVICE_ID, DUE_AT, AT),
+    ClinicalAdviceGiven("clin-req-1", AdviceChoice.GO_AHEAD, AT),
     NetworkCreated("net-test", "tenant-a", AT),
     MemberAdded("net-test", "tenant-b", AT),
     MemberRemoved("net-test", "tenant-b", MembershipEndReason.LEFT, AT),
@@ -127,6 +130,7 @@ EXPECTED_TOPIC: dict[type, str] = {
     ReportFlagged: "capacity.events",
     PhoneTaskRaised: "capacity.events",
     ReportEscalated: "alerts.events",
+    ClinicalAdviceGiven: "alerts.events",
     NetworkCreated: "network.events",
     MemberAdded: "network.events",
     MemberRemoved: "network.events",

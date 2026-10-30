@@ -5,6 +5,7 @@ module (the layers and independence contracts in backend/.importlinter). The pro
 it calls container.startup() before serving and container.shutdown() on exit (DEC-012).
 """
 
+import random
 from collections.abc import Callable
 from typing import Protocol, cast
 
@@ -18,6 +19,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
 )
 from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.geo import PostcodeLocator, TravelTime
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
@@ -45,6 +47,15 @@ class ApiContainer(Protocol):
 
     @property
     def validator(self) -> FhirValidator: ...
+
+    @property
+    def postcodes(self) -> PostcodeLocator: ...
+
+    @property
+    def travel(self) -> TravelTime: ...
+
+    @property
+    def rng(self) -> random.Random: ...
 
 
 def create_app(
@@ -81,6 +92,7 @@ def create_app(
     # Imported here: the route modules depend on auth, which imports this module (DEC-111).
     from diucs.adapters.inbound.fhir_rest import (
         routes_board,
+        routes_cases,
         routes_events,
         routes_identity,
         routes_lead,
@@ -95,6 +107,7 @@ def create_app(
     # $board must be routed before any HealthcareService/{id} route, or {id} would take it.
     app.include_router(routes_board.router)
     app.include_router(routes_services.router)
+    app.include_router(routes_cases.router)
     routes_services.register_capabilities()
     # The Pathways Dx lookup (R16) is not FHIR: a plain list for the score picker.
     app.include_router(routes_terminology.router)

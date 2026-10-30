@@ -31,6 +31,7 @@ from types import MappingProxyType
 from typing import Any, ClassVar, Final, Self
 
 from diucs.domain.codes import (
+    AdviceChoice,
     AlertKind,
     BookingStatus,
     ReportFlagReason,
@@ -1183,6 +1184,36 @@ class ProjectionRequested:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class ClinicalAdviceGiven:
+    """A clinical advisor gave advice on a request (U40). Topic alerts.events. Carries the request
+    id and the choice only: never the note (it is in the protected text store) and no patient
+    value."""
+
+    event_type: ClassVar[str] = "ClinicalAdviceGiven"
+    request_id: str
+    choice: AdviceChoice
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        if not self.request_id.strip():
+            raise ValidationFailed("request_id", "is required")
+        if not isinstance(self.choice, AdviceChoice):
+            raise ValidationFailed("choice", "is not a known advice choice")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {"request_id": self.request_id, "choice": self.choice.value, "at": _at_text(self.at)}
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            request_id=_text(payload, "request_id"),
+            choice=_code(payload, "choice", AdviceChoice),
+            at=_when(payload),
+        )
+
+
 DomainEvent = (
     CapacityReported
     | StatusChanged
@@ -1213,10 +1244,12 @@ DomainEvent = (
     | ProjectionApplied
     | ProjectionRejected
     | ServiceDirectoryChanged
+    | ClinicalAdviceGiven
 )
 
 _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
     {
+        ClinicalAdviceGiven: ALERTS_EVENTS,
         CapacityReported: CAPACITY_EVENTS,
         StatusChanged: CAPACITY_EVENTS,
         BookingRequested: BOOKING_EVENTS,
@@ -1251,6 +1284,7 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
 
 _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = MappingProxyType(
     {
+        "ClinicalAdviceGiven": ClinicalAdviceGiven.decode,
         "CapacityReported": CapacityReported.decode,
         "StatusChanged": StatusChanged.decode,
         "BookingRequested": BookingRequested.decode,

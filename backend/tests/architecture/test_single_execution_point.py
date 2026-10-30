@@ -79,6 +79,10 @@ BINDING_MODULES: frozenset[str] = frozenset(
         # TEN-017: the start-up is an edge of its own: it binds each active tenant in turn to make
         # that tenant's audit head. No request or message is in it.
         "diucs.bootstrap.container",
+        # TEN-028: the platform operator's provisioning script binds the one tenant its command
+        # names, for that command only. It is run by a person with the platform's own access, never
+        # by a request, and the operator it acts as has no standing in any other scope.
+        "diucs.bootstrap.provisioning",
     }
 )
 
@@ -87,7 +91,12 @@ BINDING_MODULES: frozenset[str] = frozenset(
 # module here: the directory looks a tenant up by the id it is asked about, on the global path, and
 # never sends a tenant to a statement. This is the "callers never pass a tenant" rule made visible.
 TENANT_PARAMETER_MODULES: frozenset[str] = frozenset(
-    {"diucs.adapters.outbound.graph_store.tenant_directory"}
+    {
+        "diucs.adapters.outbound.graph_store.tenant_directory",
+        # TEN-028: the registry's writes take the id of the tenant they work on (a platform
+        # statement has no `$tenant`), exactly as the directory does.
+        "diucs.adapters.outbound.graph_store.tenant_registry",
+    }
 )
 
 BINDING_NAMES = frozenset({"bind_scope", "bind_tenant"})

@@ -1,5 +1,5 @@
 import { http, HttpResponse, type HttpResponseResolver } from 'msw';
-import { QUEUE, OVERVIEW, SCOPE_ENTRIES } from '@/test/fixtures/registration';
+import { DECISION_OPEN, OVERVIEW, QUEUE, SCOPE_ENTRIES } from '@/test/fixtures/registration';
 import type { ScopeEntry } from '@/lib/registration/types';
 
 // The BFF's registration routes, as the browser sees them (W28). Each request the browser makes is
@@ -78,5 +78,35 @@ export const registrationHandlers = [
   http.get('/api/bff/registrations/:id', (async ({ request }) => {
     await record(request);
     return json(OVERVIEW);
+  }) as HttpResponseResolver),
+];
+
+// W29: the check steps. The decision read is what the Decide and Go live steps show; a test that
+// needs another answer overrides it with server.use().
+
+export const registrationStepHandlers = [
+  http.post('/api/bff/registrations/:id/callback', (async ({ request }) => {
+    await record(request);
+    return json({ result: 'confirmed', callbackConfirmed: true });
+  }) as HttpResponseResolver),
+
+  http.post('/api/bff/registrations/:id/scope', (async ({ request }) => {
+    await record(request);
+    return json({ flag: 'in-pilot' });
+  }) as HttpResponseResolver),
+
+  http.get('/api/bff/registrations/:id/decision', (async ({ request }) => {
+    await record(request);
+    return json(DECISION_OPEN);
+  }) as HttpResponseResolver),
+
+  http.post('/api/bff/registrations/:id/decision', (async ({ request }) => {
+    await record(request);
+    return json({ status: 'approved' });
+  }) as HttpResponseResolver),
+
+  http.post('/api/bff/registrations/:id/go-live', (async ({ request }) => {
+    await record(request);
+    return json({ status: 'live' });
   }) as HttpResponseResolver),
 ];

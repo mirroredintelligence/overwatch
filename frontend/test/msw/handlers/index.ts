@@ -1,7 +1,7 @@
 import type { RequestHandler } from 'msw';
 import { boardHandlers } from './board';
 import { linkHandlers } from './links';
-import { registrationHandlers } from './registrations';
+import { registrationHandlers, registrationStepHandlers } from './registrations';
 import { staffHandlers } from './staff';
 
 // Default handlers for every test. Feature tasks add their handlers in
@@ -11,4 +11,5 @@ export const handlers: RequestHandler[] = [
   ...linkHandlers,
   ...staffHandlers,
   ...registrationHandlers,
+  ...registrationStepHandlers,
 ];

@@ -2,11 +2,14 @@
 // BFF call these, so the wording and the gates are decided in one place.
 import { londonTime } from '@/lib/board/format';
 import type {
+  CallBackResult,
+  DecisionAction,
   Decision,
   Overview,
   QueueItem,
   QueueResponse,
   QueueTab,
+  ScopeAnswers,
   ScopeEntry,
   ScopeFlag,
   ScopeList,
@@ -110,6 +113,27 @@ export function submittedText(item: QueueItem): string {
   return `Submitted ${londonTime(item.submittedAt)} by ${item.submittedByRole}`;
 }
 
+// W29 rules (red stubs, see the implement commit)
+export const CALLBACK_RESULTS: readonly CallBackResult[] = ['confirmed', 'not-confirmed', 'no-answer'];
+export function callbackFormError(_result: CallBackResult, _spokeToRole: string): string | null {
+  return null;
+}
+export function missingText(_missing: readonly string[]): string {
+  return '';
+}
+export function canApprove(_missing: readonly string[]): boolean {
+  return false;
+}
+export function decisionNoteError(_action: DecisionAction, _note: string): string | null {
+  return null;
+}
+export function scopeFormError(_answers: Partial<ScopeAnswers>, _decision: ScopeFlag | null, _reason: string): string | null {
+  return null;
+}
+export function setLiveEnabled(_decision: Decision): boolean {
+  return false;
+}
+
 // ------------------------------------------------------------------------------- parsers
 
 type Json = Record<string, unknown>;
@@ -200,7 +224,8 @@ export function parseOverview(value: unknown): Overview {
   const body = record(value);
   const by = record(body.registeredBy);
   const manual = record(body.manualChecks);
-  const callBackNumber = optionalStr(body.callBackNumber);
+  const pathwayName = optionalStr(body.pathwayName);
+  const callBack = body.callBack === undefined ? undefined : record(body.callBack);
   return {
     id: str(body.id),
     serviceName: str(body.serviceName),
@@ -216,7 +241,16 @@ export function parseOverview(value: unknown): Overview {
       scope: oneOf(manual.scope, ['not-done', 'done']),
       criteria: oneOf(manual.criteria, MANUAL),
     },
-    ...(callBackNumber ? { callBackNumber } : {}),
+    ...(pathwayName ? { pathwayName } : {}),
+    ...(callBack
+      ? {
+          callBack: {
+            numberToCall: str(callBack.numberToCall),
+            ...(optionalStr(callBack.numberGiven) ? { numberGiven: optionalStr(callBack.numberGiven) } : {}),
+            ...(optionalStr(callBack.directoryName) ? { directoryName: optionalStr(callBack.directoryName) } : {}),
+          },
+        }
+      : {}),
   };
 }
 

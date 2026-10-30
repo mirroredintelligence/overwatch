@@ -58,8 +58,19 @@ export type Overview = {
   registeredBy: { name: string; role: string };
   automaticChecks: AutomaticCheck[];
   manualChecks: { callback: CallBackState; scope: ScopeState; criteria: CriteriaState };
-  /** The number on the register, the only number the call-back may use. */
-  callBackNumber?: string;
+  /** The call-back: the number from the register, the number the applicant gave, and the directory's name. */
+  callBack?: CallBackDetails;
+  /** The pathway's name, as tenant configuration words it (for example the Dorset urgent care pathway). */
+  pathwayName?: string;
+};
+
+export type CallBackDetails = {
+  /** The number from the NHS register or the directory. The only number the call-back may use. */
+  numberToCall: string;
+  /** The number on the registration. Shown for comparison; never called. */
+  numberGiven?: string;
+  /** The directory's name, from tenant configuration (for example "Dorset directory"). */
+  directoryName?: string;
 };
 
 export type TimelineItem = { at: string; label: string };
@@ -73,3 +84,14 @@ export type Decision = {
 };
 
 export type CallBackResult = 'confirmed' | 'not-confirmed' | 'no-answer';
+
+export type DecisionAction = 'approve' | 'send-back' | 'not-approve';
+
+export type ScopeAnswer = 'yes' | 'no' | 'not-sure';
+
+export type ScopeAnswers = {
+  pathway: ScopeAnswer;
+  spoaReferrals: ScopeAnswer;
+  canReport: ScopeAnswer;
+  categoryOnList: ScopeAnswer;
+};

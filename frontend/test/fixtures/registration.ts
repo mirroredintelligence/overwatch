@@ -37,7 +37,8 @@ export const OVERVIEW: Overview = {
     },
   ],
   manualChecks: { callback: 'not-done', scope: 'not-done', criteria: 'waiting' },
-  callBackNumber: '01202 000 111',
+  callBack: { numberToCall: '01202 000 111', numberGiven: '01202 000 999', directoryName: 'Dorset directory' },
+  pathwayName: 'Dorset urgent care',
 };
 
 export const DECISION_OPEN: Decision = {
@@ -47,4 +48,12 @@ export const DECISION_OPEN: Decision = {
   timeline: [{ at: '2026-10-30T14:30:00Z', label: 'Submitted by Duty manager' }],
 };
 
-export const DECISION_READY: Decision = { missing: [], approvedBy: ['Service manager', 'Clinical lead'], test: { sentAt: '2026-10-30T15:02:00Z', answeredAt: '2026-10-30T15:03:00Z' }, timeline: [] };
+export const DECISION_READY: Decision = {
+  missing: [],
+  approvedBy: ['Service manager', 'Clinical lead'],
+  test: { sentAt: '2026-10-30T15:02:00Z', answeredAt: '2026-10-30T15:03:00Z' },
+  timeline: [
+    { at: '2026-10-30T14:30:00Z', label: 'Submitted by Duty manager' },
+    { at: '2026-10-30T15:03:00Z', label: 'Test answered' },
+  ],
+};

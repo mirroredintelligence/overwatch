@@ -181,7 +181,8 @@ async def test_a_lead_sets_up_a_service_and_a_fresh_read_finds_it(
 async def test_the_mobile_is_kept_in_the_protected_store_only(
     api_client: AsyncClient, neo4j_driver: AsyncDriver, lead_world: None, tenant_id: str
 ) -> None:
-    """The number is held by the ProtectedContact node and by no other node (DEC-070 item 2).
+    """The number is held by the ProtectedContact node and by no other node (DEC-070 item 2). The
+    stored form is +44 and the subscriber digits, so the scan looks for those digits.
     That node holds it as plain text by recorded design; encryption at rest is not built (DEC-072
     item 4, pending information governance)."""
     await api_client.post(
@@ -192,7 +193,7 @@ async def test_the_mobile_is_kept_in_the_protected_store_only(
     async with neo4j_driver.session() as session:
         result = await session.run(
             "MATCH (n) WHERE any(k IN keys(n) WHERE valueType(n[k]) STARTS WITH 'STRING' "
-            "AND n[k] CONTAINS '07700') "
+            "AND n[k] CONTAINS '7700900123') "
             "RETURN labels(n) AS labels"
         )
         holders = [record["labels"] async for record in result]

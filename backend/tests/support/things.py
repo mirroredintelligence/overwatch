@@ -11,42 +11,51 @@ from typing import cast
 from neo4j import AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.driver import run_query
-from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry
+from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.unit_of_work import DEFAULT_FACTORIES, RepositoryFactory
 
 # A unit of work hands its repositories a ScopedTx, which has no `run` (TEN-002): the statements of
-# this test-only repository are registered in a registry of its own and run through run_query. The
-# nodes carry no tenantId, so each id is on this registry's ratchet and the statements run whether
-# or not a scope is bound.
+# this test-only repository are registered in a registry of its own and run through run_query. Since
+# TEN-030 the registry has no ratchet: each statement names `tenantId: $tenant` and has a scenario
+# (a placeholder: this registry is not the product's and the generated test never reads it).
+_SCENARIO = Scenario("test-only statement of the concurrency tests")
 _STATEMENTS = (
     NamedQuery(
         id="Q-TEST-THING-CREATE",
-        cypher="CREATE (:TestThing {id: $id, versionId: 1})",
+        cypher="CREATE (:TestThing {id: $id, versionId: 1, tenantId: $tenant})",
         mode="write",
+        scenario=_SCENARIO,
     ),
     NamedQuery(
         id="Q-TEST-THING-LOCK",
-        cypher="MATCH (t:TestThing {id: $id}) SET t.lockStamp = $stamp RETURN count(t) AS locked",
+        cypher=(
+            "MATCH (t:TestThing {id: $id, tenantId: $tenant}) SET t.lockStamp = $stamp "
+            "RETURN count(t) AS locked"
+        ),
         mode="write",
+        scenario=_SCENARIO,
     ),
     NamedQuery(
         id="Q-TEST-THING-VERSION",
-        cypher="MATCH (t:TestThing {id: $id}) RETURN t.versionId AS version",
+        cypher="MATCH (t:TestThing {id: $id, tenantId: $tenant}) RETURN t.versionId AS version",
         mode="read",
+        scenario=_SCENARIO,
     ),
     NamedQuery(
         id="Q-TEST-THING-BUMP",
-        cypher="MATCH (t:TestThing {id: $id}) SET t.versionId = $version",
+        cypher="MATCH (t:TestThing {id: $id, tenantId: $tenant}) SET t.versionId = $version",
         mode="write",
+        scenario=_SCENARIO,
     ),
     NamedQuery(
         id="Q-TEST-THING-COUNT",
-        cypher="MATCH (t:TestThing) RETURN count(t) AS n",
+        cypher="MATCH (t:TestThing {tenantId: $tenant}) RETURN count(t) AS n",
         mode="read",
+        scenario=_SCENARIO,
     ),
 )
-_REGISTRY = QueryRegistry(unconverted=frozenset(query.id for query in _STATEMENTS))
+_REGISTRY = QueryRegistry()
 for _query in _STATEMENTS:
     _REGISTRY.register(_query)
 

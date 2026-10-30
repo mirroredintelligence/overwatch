@@ -11,21 +11,21 @@ from zoneinfo import ZoneInfo
 
 import pytest
 import pytest_asyncio
+from neo4j import AsyncDriver
+
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.ports.outbound.invariants import (
     InvariantReport,
     UnstampedNodes,
 )
+from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.tenant_invariants import (
     InvariantMonitor,
     RunInvariantCheck,
     RunInvariantCheckCommand,
     ensure_invariant_schedule,
 )
-from neo4j import AsyncDriver
-
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.fixed_ids import SequentialIds
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.work import SCHEDULED, WorkKind
 from tests.support.uow import ensure_audit_heads
 

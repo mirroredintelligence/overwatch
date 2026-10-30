@@ -6,13 +6,6 @@ from typing import Any, cast
 
 import pytest
 import pytest_asyncio
-from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
-from diucs.application.ports.outbound.invariants import (
-    InvariantReport,
-    TenantInvariantViolated,
-    UnstampedNodes,
-)
-from diucs.application.use_cases.tenant_invariants import InvariantMonitor
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from redis.asyncio import Redis
 
@@ -21,18 +14,25 @@ from diucs.adapters.outbound.cache_redis.sessions import RedisRateLimiter, Redis
 from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.graph_store import connection as connection_module
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
+from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
 from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.identity import TenantKeyedSecrets
+from diucs.application.ports.outbound.invariants import (
+    InvariantReport,
+    TenantInvariantViolated,
+    UnstampedNodes,
+)
 from diucs.application.tenancy import (
     DEFAULT_TENANT_ID,
     bind_tenant,
     current_scope,
     current_scope_or_none,
 )
+from diucs.application.use_cases.tenant_invariants import InvariantMonitor
 from diucs.application.work import WorkKind
 from diucs.bootstrap import container as container_module
 from diucs.bootstrap.container import build, build_for_tests

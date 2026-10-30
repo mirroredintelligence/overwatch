@@ -14,7 +14,6 @@ from diucs.application.use_cases.tenant_invariants import (
     invariant_work_id,
     next_run_due,
 )
-
 from diucs.application.work import WorkKind
 
 LONDON = ZoneInfo("Europe/London")

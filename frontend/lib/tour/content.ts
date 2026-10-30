@@ -7,8 +7,8 @@ export type TourRole = (typeof TOUR_ROLES)[number];
 
 export const ROLE_CHOICES: Record<TourRole, string> = {
   reporter: 'I report capacity for a service',
-  advisor: 'I take calls as an SPOA advisor',
-  lead: 'I am an SPOA shift lead',
+  advisor: 'I take calls as an advisor',
+  lead: 'I am a shift lead',
   clinical: 'I am a clinical advisor',
   exec: 'I am a COO or ICB lead',
 };
@@ -26,7 +26,7 @@ export const ROLE_SCREENS: Record<TourRole, RoleScreen> = {
   reporter: {
     heading: 'Your day, before and after',
     today: [
-      'Phone calls from the SPOA asking for beds',
+      'Phone calls from the coordination team asking for beds',
       'Whiteboards and emails at set times',
       'Chased when a report is late',
     ],
@@ -75,7 +75,7 @@ export const ROLE_SCREENS: Record<TourRole, RoleScreen> = {
 export const HOW_IT_WORKS = [
   { title: 'We ask', body: 'A notification arrives at your usual time' },
   { title: 'You tap', body: 'Yes, still right. Or send a new number.' },
-  { title: 'The SPOA sees it at once', body: 'The board updates. No call needed.' },
+  { title: 'The coordination team sees it at once', body: 'The board updates. No call needed.' },
 ] as const;
 
 export const FIRST_WEEK = [

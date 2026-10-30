@@ -23,7 +23,7 @@ describe('InvitationLoader (/i/[token])', () => {
     );
     render(<InvitationLoader token="tok" />);
     expect(
-      await screen.findByText('This invitation has expired. Ask the SPOA shift lead to send a new one.'),
+      await screen.findByText('This invitation has expired. Ask the shift lead to send a new one.'),
     ).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });

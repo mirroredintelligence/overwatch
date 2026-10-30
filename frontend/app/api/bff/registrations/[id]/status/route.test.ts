@@ -5,6 +5,7 @@ import { readStatus } from '@/lib/register/backend';
 import { FhirError } from '@/lib/fhir/client';
 import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { GET } from './route';
+import { TENANTS } from '@/test/tenants';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -24,7 +25,7 @@ const url = `https://tenant-a.example.test/api/bff/registrations/${ID}/status`;
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
 async function sessionFor(role: Session['role']): Promise<string> {
-  return sealSession({ role, services: [], sub: 'person-sample-1', backendToken: 'backend-token-sample-value', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
+  return sealSession({ role, tenantId: TENANTS.A.id, host: TENANTS.A.host, services: [], sub: 'person-sample-1', backendToken: 'backend-token-sample-value', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
 }
 
 beforeEach(() => {
@@ -46,7 +47,7 @@ describe('GET /api/bff/registrations/[id]/status', () => {
   it('answers the reporter with the status and the fields the page shows, and nothing else', async () => {
     const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('reporter') }), ctx(ID));
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toEqual({
       status: 'needs-changes',

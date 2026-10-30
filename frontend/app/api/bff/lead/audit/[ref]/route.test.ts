@@ -39,7 +39,7 @@ describe('GET /api/bff/lead/audit/[ref]', () => {
     server.use(http.get(`${BACKEND_ROOT}/admin/audit/4821`, () => HttpResponse.json(BACK_END_REPLAY)));
     const response = await GET(await leadRequest('https://app.test/api/bff/lead/audit/4821', 'lead'), ctx('4821'));
     expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
     expect(await response.json()).toEqual({
       reference: '4821',
       decisionAt: '2026-10-23T13:13:20Z',

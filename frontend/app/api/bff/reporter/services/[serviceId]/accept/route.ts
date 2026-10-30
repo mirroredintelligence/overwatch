@@ -14,5 +14,5 @@ export const POST = withBff(
     if (typeof body?.accept !== 'boolean') return refuse(400, 'invalid');
     return notBuilt();
   },
-  { roles: ['reporter'] },
+  { idScoped: true, roles: ['reporter'] },
 );

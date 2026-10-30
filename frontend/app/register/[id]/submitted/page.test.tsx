@@ -8,7 +8,7 @@ describe('submitted page', () => {
     const { container } = render(await SubmittedPage({ params: Promise.resolve({ id: 'REG-SAMPLE-1' }) }));
     expect(screen.getByRole('heading', { level: 1, name: 'Submitted for approval' })).toBeInTheDocument();
     expect(
-      screen.getByText(/The SPOA shift lead will check your details and send a test text to the number you gave\./),
+      screen.getByText(/The shift lead will check your details and send a test text to the number you gave\./),
     ).toBeInTheDocument();
     expect(screen.getByText('You will get an email when it is approved, or if something needs changing.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to my services' })).toHaveAttribute('href', '/register/services');

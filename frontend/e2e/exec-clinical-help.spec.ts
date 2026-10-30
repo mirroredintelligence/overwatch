@@ -28,7 +28,7 @@ test('Help offers the safety concern and the problem report, and the share link 
 test('the safety concern form shows its warning and its categories (W46)', async ({ page }) => {
   await signIn(page.context(), BASE_URL, 'advisor', TOKEN_ORG_A);
   await page.goto('/help/safety');
-  await expect(page.getByText('If someone is at risk now, phone the SPOA or follow local procedure first.')).toBeVisible();
+  await expect(page.getByText('If someone is at risk now, phone the coordination team or follow local procedure first.')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Wrong service shown' })).toBeVisible();
   await accessible(page);
 });

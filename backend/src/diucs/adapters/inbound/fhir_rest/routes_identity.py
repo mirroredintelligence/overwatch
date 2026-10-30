@@ -9,7 +9,8 @@ POST   /identity/code/verify            check a code. 200 {"verified": true}; a 
                                         on the device in the same call (RecordTextCodeVerified).
 POST   /identity/pin                    set the six-digit PIN of a device that was verified in the
                                         last 10 minutes.
-POST   /identity/pin/verify             sign in with the PIN. 200 with the session; 403 for a wrong
+POST   /identity/pin/verify             sign in with the PIN. 200 with the session and the tenant
+                                        (the host's, for the front end's session); 403 for a wrong
                                         PIN (with the tries left) or when a text code is needed;
                                         423 `lock-error` when five wrong tries have locked it.
 GET    /identity/status                 {"reverifyDue", "daysLeft"} for the 30-day text-code check.
@@ -67,7 +68,7 @@ from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.tenants import TenantDirectory, TenantRecordInvalid
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
+from diucs.application.tenancy import bind_tenant, current_tenant
 from diucs.application.use_cases.pin import (
     PIN_HMAC_SECRET,
     RATE_WINDOW,
@@ -524,6 +525,7 @@ async def sign_in(body: PinBody, request: Request) -> Response:
                 {
                     "signedIn": True,
                     "sessionId": result.session_id,
+                    "tenant": current_tenant(),
                     "role": Role.REPORTER.value,
                     "services": list(result.service_ids),
                 },

@@ -28,7 +28,7 @@ export type LinkView = {
 
 /**
  * A booking link's page (L02): a request for the service to answer, or a confirmed booking's change
- * link. The back end sends no time for the confirmation and no SPOA name, only what is here.
+ * link. The back end sends no time for the confirmation and no team name, only what is here.
  */
 export type BookingView = {
   state: 'ok';
@@ -42,7 +42,7 @@ export type BookingView = {
   urgency: string | null;
   replyBy: string | null;
   bookingStatus: string;
-  /** The SPOA's coordination phone from the tenant's configuration, or null when none is set. */
+  /** The coordination team's phone from the tenant's configuration, or null when none is set. */
   coordinationPhone: string | null;
 };
 

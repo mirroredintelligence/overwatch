@@ -12,8 +12,8 @@ export function Live({ serviceName, firstPromptAt }: { serviceName: string; firs
       <h1 className={styles.heading}>You are live</h1>
       <p className={styles.text}>
         {firstPromptAt === undefined
-          ? `The SPOA can now see ${serviceName} on the board.`
-          : `The SPOA can now see ${serviceName} on the board. Your first prompt arrives at ${londonHourMinute(firstPromptAt)}.`}
+          ? `The coordination team can now see ${serviceName} on the board.`
+          : `The coordination team can now see ${serviceName} on the board. Your first prompt arrives at ${londonHourMinute(firstPromptAt)}.`}
       </p>
       <div className={styles.tile} role="group" aria-label="How it looks on the board">
         <p className={styles.tileTitle}>How it looks on the board</p>

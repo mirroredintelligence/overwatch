@@ -6,7 +6,7 @@ import { loadMine, type MyService } from '@/lib/register/browser';
 import styles from './register.module.css';
 
 // My services (W26): one row per service the reporter has, its state as a word, and an Edit link to
-// its status page. A new service comes by invitation from the SPOA shift lead, never from here.
+// its status page. A new service comes by invitation from the shift lead, never from here.
 
 const STATE_WORDS: Record<MyService['state'], string> = {
   active: 'Active',
@@ -56,7 +56,7 @@ export function MyServices() {
           ))}
         </ul>
       ) : null}
-      <p className={styles.note}>To add a service, ask the SPOA shift lead. New services are added by invitation and checked.</p>
+      <p className={styles.note}>To add a service, ask the shift lead. New services are added by invitation and checked.</p>
     </div>
   );
 }

@@ -29,7 +29,7 @@ export function Reverify({ registrationId, serviceName, details }: { registratio
 
   const rows: [string, string | undefined][] = [
     ['Service', serviceName],
-    ['Phone for the SPOA', details.spoaPhone],
+    ['Phone for the coordination team', details.spoaPhone],
     ['Criteria owner', details.criteriaOwner],
     ['Reporting phone', details.reportingPhoneEnding === undefined ? undefined : maskMobile(`07xxxxxxxx${details.reportingPhoneEnding}`)],
   ];
@@ -48,7 +48,7 @@ export function Reverify({ registrationId, serviceName, details }: { registratio
           ),
         )}
       </dl>
-      <p className={styles.note}>If the reporting phone changes, the SPOA shift lead phones your service before the new phone goes live.</p>
+      <p className={styles.note}>If the reporting phone changes, the shift lead phones your service before the new phone goes live.</p>
       <div className={styles.actions}>
         <Button variant="primary" busy={busy} dataEl="REG-STATUS-CONFIRM-BTN" onClick={() => void confirm()}>
           All correct

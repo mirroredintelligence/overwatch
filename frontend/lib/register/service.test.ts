@@ -33,14 +33,14 @@ describe('validateService', () => {
     );
     expect(issues).toEqual([
       { field: 'category', message: 'Choose a category' },
-      { field: 'spoaPhone', message: 'Enter a full phone number, for example 01305 123456' },
+      { field: 'spoaPhone', message: 'Enter a full phone number, for example 01632 960123' },
       { field: 'ownerRole', message: 'Enter who owns the criteria' },
     ]);
   });
 
   it('has an empty phone message that differs from the invalid one', () => {
     expect(validateService({ ...FULL, spoaPhone: '  ' }, { fixedSite: true, today: TODAY })).toEqual([
-      { field: 'spoaPhone', message: 'Enter a phone number the SPOA can call' },
+      { field: 'spoaPhone', message: 'Enter a phone number the coordination team can call' },
     ]);
   });
 
@@ -86,7 +86,7 @@ describe('validateService', () => {
 
   it('asks for a referral method and at least one need', () => {
     const issues = validateService({ ...FULL, referralMethods: [], needs: [] }, { fixedSite: true, today: TODAY });
-    expect(issues.map((issue) => issue.message)).toEqual(['Choose how the SPOA can refer', 'Choose at least one need you accept']);
+    expect(issues.map((issue) => issue.message)).toEqual(['Choose how the coordination team can refer', 'Choose at least one need you accept']);
   });
 
   it('asks for the accepting days and times, as the screen words them', () => {

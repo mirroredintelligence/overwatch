@@ -38,7 +38,7 @@ describe('LostPhone', () => {
     await userEvent.paste('482913');
     await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
     expect(await screen.findByRole('heading', { name: 'Waiting for a call-back' })).toBeInTheDocument();
-    expect(screen.getByText('The shift lead will phone your service on the number on the register. Until then, prompts go to your cover number or the SPOA.')).toBeInTheDocument();
+    expect(screen.getByText('The shift lead will phone your service on the number on the register. Until then, prompts go to your cover number or the coordination team.')).toBeInTheDocument();
   });
 
   it('says what went wrong for a wrong code, an expired code and too many tries', async () => {

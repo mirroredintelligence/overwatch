@@ -12,7 +12,7 @@ const post = withBff<Context>(
     idempotencyKeyOf(request);
     return notBuilt();
   },
-  { roles: ['lead'] },
+  { idScoped: true, roles: ['lead'] },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

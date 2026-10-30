@@ -40,7 +40,7 @@ export function MyServices() {
           </li>
         ))}
       </ul>
-      <p>To add a service, ask the SPOA shift lead. New services are added by invitation and checked.</p>
+      <p>To add a service, ask the shift lead. New services are added by invitation and checked.</p>
     </main>
   );
 }

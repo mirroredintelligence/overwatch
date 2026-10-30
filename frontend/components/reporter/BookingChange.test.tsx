@@ -25,7 +25,7 @@ describe('BookingChange: the booked view', () => {
     expect(screen.getByText('Referral details follow in SystmOne.')).toBeInTheDocument();
     expect(screen.getByText('Age band 80+')).toBeInTheDocument();
     expect(screen.getByText('Wanted Within 2 hrs')).toBeInTheDocument();
-    expect(screen.getByText('Something changed? Tell us here so the SPOA can act at once.')).toBeInTheDocument();
+    expect(screen.getByText('Something changed? Tell us here so the coordination team can act at once.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'We cannot take this patient now' })).toHaveAttribute('data-el', 'SVC-CHANGE-WITHDRAW-BTN');
     expect(screen.getByRole('button', { name: 'Patient not found or not there' })).toHaveAttribute('data-el', 'SVC-CHANGE-NOTREACHED-BTN');
     expect(seenBffPosts).toHaveLength(0);
@@ -38,13 +38,13 @@ describe('BookingChange: withdrawing', () => {
     render(<BookingChange token={LINK.bookingChange} />);
     await userEvent.click(await screen.findByRole('button', { name: 'We cannot take this patient now' }));
     expect(screen.getByRole('heading', { level: 2, name: 'Why can you no longer take this patient?' })).toBeInTheDocument();
-    expect(screen.getByText('The SPOA is told at once and will find another service. The patient will not be left without a plan.')).toBeInTheDocument();
+    expect(screen.getByText('The coordination team is told at once and will find another service. The patient will not be left without a plan.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Withdraw booking' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Withdraw booking' })).toHaveAttribute('data-el', 'SVC-WITHDRAW-SUBMIT-BTN');
     expect(seenBffPosts).toHaveLength(0);
   });
 
-  it('withdraws for staffing with the CSRF header and shows Withdrawn with the SPOA number', async () => {
+  it('withdraws for staffing with the CSRF header and shows Withdrawn with the coordination team number', async () => {
     const { container } = render(<BookingChange token={LINK.bookingChange} />);
     await userEvent.click(await screen.findByRole('button', { name: 'We cannot take this patient now' }));
     await userEvent.click(screen.getByRole('button', { name: 'Staffing' }));
@@ -53,7 +53,7 @@ describe('BookingChange: withdrawing', () => {
     expect(seenBffPosts).toEqual([
       { token: LINK.bookingChange, body: { action: 'withdraw', reason: 'staffing' }, csrf: csrfFor(LINK.bookingChange) },
     ]);
-    expect(screen.getByText('The SPOA has been told and is finding another service.')).toBeInTheDocument();
+    expect(screen.getByText('The coordination team has been told and is finding another service.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: '0300 123 4567' })).toHaveAttribute('href', 'tel:0300 123 4567');
     expect(await runAxe(container)).toHaveNoViolations();
   });
@@ -63,7 +63,7 @@ describe('BookingChange: withdrawing', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'We cannot take this patient now' }));
     await userEvent.click(screen.getByRole('button', { name: 'Back' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'UCR West' })).toBeInTheDocument();
-    expect(screen.getByText('Something changed? Tell us here so the SPOA can act at once.')).toBeInTheDocument();
+    expect(screen.getByText('Something changed? Tell us here so the coordination team can act at once.')).toBeInTheDocument();
     expect(seenBffPosts).toHaveLength(0);
   });
 
@@ -81,13 +81,13 @@ describe('BookingChange: patient not reached', () => {
     const { container } = render(<BookingChange token={LINK.bookingChange} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Patient not found or not there' }));
     expect(screen.getByRole('heading', { level: 2, name: 'Patient not found or not there' })).toBeInTheDocument();
-    expect(screen.getByText('The SPOA is told and will phone the caller.')).toBeInTheDocument();
+    expect(screen.getByText('The coordination team is told and will phone the caller.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save' })).toHaveAttribute('data-el', 'SVC-NOTREACHED-SAVE-BTN');
     await userEvent.click(screen.getByRole('button', { name: 'No answer at the door' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Thank you' })).toBeInTheDocument();
-    expect(screen.getByText('The SPOA has been told.')).toBeInTheDocument();
+    expect(screen.getByText('The coordination team has been told.')).toBeInTheDocument();
     expect(seenBffPosts).toEqual([
       { token: LINK.bookingChange, body: { action: 'not-reached', reason: 'no-answer' }, csrf: csrfFor(LINK.bookingChange) },
     ]);
@@ -103,11 +103,11 @@ describe('BookingChange: patient not reached', () => {
   });
 });
 
-describe('BookingChange: a booking the SPOA cancelled', () => {
+describe('BookingChange: a booking the coordination team cancelled', () => {
   it('shows the cancelled view with no action needed, and posts nothing', async () => {
     const { container } = render(<BookingChange token={LINK.bookingCancelled} />);
-    expect(await screen.findByRole('heading', { level: 1, name: 'Cancelled by the SPOA' })).toBeInTheDocument();
-    expect(screen.getByText('The booking was cancelled by the SPOA. No action needed.')).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Cancelled by the coordination team' })).toBeInTheDocument();
+    expect(screen.getByText('The booking was cancelled by the coordination team. No action needed.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
     expect(seenBffPosts).toHaveLength(0);
     expect(await runAxe(container)).toHaveNoViolations();

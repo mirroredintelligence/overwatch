@@ -94,7 +94,7 @@ describe('BookingDecision: closed and taken links', () => {
   it('shows the closed page when the link is closed on opening, and posts nothing', async () => {
     const { container } = render(<BookingDecision token={LINK.bookingDeclined} />);
     expect(await screen.findByRole('heading', { level: 1, name: 'This request has closed' })).toBeInTheDocument();
-    expect(screen.getByText('If you can still take this patient, phone the SPOA.')).toBeInTheDocument();
+    expect(screen.getByText('If you can still take this patient, phone the coordination team.')).toBeInTheDocument();
     expect(seenBffPosts).toHaveLength(0);
     expect(await runAxe(container)).toHaveNoViolations();
   });

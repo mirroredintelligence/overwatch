@@ -3,7 +3,7 @@ import { CATEGORY_CODES, SCOPE_FLAGS } from './model';
 import type { ScopeEntry, ScopeFlag, ScopeList, ScopeRegistrationState } from './types';
 
 // Server-only. The registration calls to the back end's FHIR API (R10), mapped to the browser's
-// shapes. Every path is relative to DIUCS_FHIR_BASE_URL, as lib/board/read.ts does. The token is the
+// shapes. Every path is relative to the FHIR base URL, as lib/board/read.ts does. The token is the
 // only thing that says whose registrations these are: no organisation is sent or read (DEC-130).
 
 const SCOPE_EXTENSION = /\/scope-list\/([a-z-]+)$/;

@@ -16,7 +16,7 @@ const post = withBff<Context>(
     const key = idempotencyKeyOf(request);
     return Response.json(await confirmReview(session.backendToken, serviceId, months, key), { headers: NO_STORE });
   },
-  { roles: ['owner', 'lead'] },
+  { idScoped: true, roles: ['owner', 'lead'] },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

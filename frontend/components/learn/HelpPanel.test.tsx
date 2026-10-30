@@ -4,7 +4,7 @@ import { runAxe } from '@/test/a11y';
 import { HelpPanel } from './HelpPanel';
 
 describe('HelpPanel', () => {
-  it('offers the four ways to get help, and the SPOA number as selectable text', () => {
+  it('offers the four ways to get help, and the coordination team number as selectable text', () => {
     render(<HelpPanel spoaPhone="01305 000000" champion="Sam" />);
 
     expect(screen.getByRole('link', { name: 'Read the one-page guide' })).toBeInTheDocument();

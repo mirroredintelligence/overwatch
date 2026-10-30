@@ -20,7 +20,7 @@ describe('Tour: picking a role and what changes', () => {
     const continueButton = screen.getByRole('button', { name: 'Continue' });
     expect(continueButton).toBeDisabled();
 
-    await userEvent.click(screen.getByRole('button', { name: 'I take calls as an SPOA advisor' }));
+    await userEvent.click(screen.getByRole('button', { name: 'I take calls as an advisor' }));
     expect(screen.getByRole('button', { name: 'Continue' })).toBeEnabled();
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
 

@@ -17,7 +17,7 @@ const post = withBff<Context>(
     const { version, status } = await submitChange(session.backendToken, serviceId, input, key);
     return Response.json({ version, status }, { status: 201, headers: NO_STORE });
   },
-  { roles: ['owner'] },
+  { idScoped: true, roles: ['owner'] },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

@@ -49,8 +49,8 @@ describe('SignInForm: asking for the code', () => {
     const field = screen.getByLabelText('Mobile number');
     expect(field).toHaveAccessibleDescription('Use the number your invitation was sent to');
     expect(screen.getByRole('button', { name: 'Send code' })).toBeInTheDocument();
-    expect(screen.getByText('You need an invitation from the SPOA shift lead to register. Check your texts or email for the link.')).toBeInTheDocument();
-    expect(screen.getByText('Having trouble? Ask the SPOA shift lead to check your invitation.')).toBeInTheDocument();
+    expect(screen.getByText('You need an invitation from the shift lead to register. Check your texts or email for the link.')).toBeInTheDocument();
+    expect(screen.getByText('Having trouble? Ask the shift lead to check your invitation.')).toBeInTheDocument();
   });
 
   it('sends the number as digits, the purpose and the invitation, and nothing else', async () => {
@@ -131,7 +131,7 @@ describe('SignInForm: checking the code', () => {
     await sendCode();
     await checkCode();
     expect(
-      await screen.findByText('We could not find an invitation for this number. Ask the SPOA shift lead to check it.'),
+      await screen.findByText('We could not find an invitation for this number. Ask the shift lead to check it.'),
     ).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });

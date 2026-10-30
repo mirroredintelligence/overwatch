@@ -42,7 +42,7 @@ export function PlanningView() {
 
   return (
     <div className={styles.page}>
-      <p className={styles.help}>Managers and ICB · sign in with Trust account</p>
+      <p className={styles.help}>Managers and ICB · sign in with your staff account</p>
       <h1 className={styles.heading}>Right-sizing: where capacity ran out</h1>
 
       <div className={styles.chips} role="group" aria-label="Period">
@@ -111,7 +111,7 @@ export function PlanningView() {
           <section aria-labelledby="reading-heading" className={styles.section}>
             <h2 id="reading-heading" className={styles.heading}>How to read this</h2>
             <p>
-              These are referral and acceptance counts from the SPOA decision log. They do not show what happened to patients
+              These are referral and acceptance counts from the coordination team decision log. They do not show what happened to patients
               afterwards. Outcomes need linked data and come in phase 2.
             </p>
           </section>

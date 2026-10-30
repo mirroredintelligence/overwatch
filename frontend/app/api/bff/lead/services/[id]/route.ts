@@ -22,7 +22,7 @@ const get = withBff<Context>(
     }
     return Response.json({ name: data.name }, { headers: { 'Cache-Control': 'no-store' } });
   },
-  { roles: ['lead'] },
+  { idScoped: true, roles: ['lead'] },
 );
 
 export const GET = (request: Request, context: Context) => get(request, context);

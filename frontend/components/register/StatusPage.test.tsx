@@ -48,7 +48,7 @@ describe('StatusPage: in review', () => {
       'Live',
     ]);
     expect(within(steps[0]!).getByText('23 Oct 14:30')).toBeInTheDocument();
-    expect(within(steps[1]!).getByText('In progress. The SPOA shift lead may phone your service.')).toBeInTheDocument();
+    expect(within(steps[1]!).getByText('In progress. The shift lead may phone your service.')).toBeInTheDocument();
     expect(steps[1]).toHaveAttribute('aria-current', 'step');
     expect(steps[0]).not.toHaveAttribute('aria-current');
     expect(screen.getByText('We will tell you by notification.')).toBeInTheDocument();
@@ -98,7 +98,7 @@ describe('StatusPage: live', () => {
     await open();
     expect(screen.getByText('Live')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1, name: 'You are live' })).toBeInTheDocument();
-    expect(screen.getByText('The SPOA can now see UCR East on the board. Your first prompt arrives at 16:00.')).toBeInTheDocument();
+    expect(screen.getByText('The coordination team can now see UCR East on the board. Your first prompt arrives at 16:00.')).toBeInTheDocument();
     const tile = screen.getByRole('group', { name: 'How it looks on the board' });
     expect(within(tile).getByText('UCR East')).toBeInTheDocument();
     expect(within(tile).getByText('Accepting')).toBeInTheDocument();
@@ -133,7 +133,7 @@ describe('StatusPage: reverify', () => {
     expect(screen.getByText('We ask every 30 days, and whenever your reporting phone changes.')).toBeInTheDocument();
     expect(screen.getByText('07xxx xxx456')).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/07\d{2}\s?\d{3}\s?\d{3}/);
-    expect(screen.getByText('If the reporting phone changes, the SPOA shift lead phones your service before the new phone goes live.')).toBeInTheDocument();
+    expect(screen.getByText('If the reporting phone changes, the shift lead phones your service before the new phone goes live.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Something changed' })).toHaveAttribute('href', `/register/${ID}/review`);
     await userEvent.click(screen.getByRole('button', { name: 'All correct' }));
     expect(await screen.findByText('Your details are confirmed.')).toBeInTheDocument();

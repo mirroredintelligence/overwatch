@@ -17,7 +17,7 @@ const get = withBff<Context>(
       { headers: NO_STORE },
     );
   },
-  { roles: ['owner', 'clinical', 'lead'] },
+  { idScoped: true, roles: ['owner', 'clinical', 'lead'] },
 );
 
 export const GET = (request: Request, context: Context) => get(request, context);

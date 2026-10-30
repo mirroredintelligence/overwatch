@@ -9,7 +9,7 @@ import { bffRequest } from '@/lib/reporter/browser';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // One booking request in the app (W36): confirm it, or decline it with a reason. A booking shows
-// only the age band, the need and the urgency: the rest of the referral follows in SystmOne. The
+// only the age band, the need and the urgency: the rest of the referral follows in the referral system. The
 // decision is sent once per press; both buttons wait while it is in flight.
 
 type Reason = 'full' | 'outside-criteria' | 'staffing-or-transport' | 'other';
@@ -90,7 +90,7 @@ export function BookingDecision({ reference }: { reference: string }) {
   if (current === 'expired') {
     return (
       <main className={styles.page}>
-        <p>{`This request expired at ${booking.replyBy}. The SPOA will phone you if they still need you.`}</p>
+        <p>{`This request expired at ${booking.replyBy}. The coordination team will phone you if they still need you.`}</p>
       </main>
     );
   }
@@ -99,9 +99,9 @@ export function BookingDecision({ reference }: { reference: string }) {
       <main className={styles.page}>
         <h1 className={styles.title}>Booked</h1>
         <p>{`Reference ${booking.reference}, ${booking.service}. Confirmed ${confirmedAt ?? booking.confirmedAt ?? ''}. The advisor has been told.`}</p>
-        <p>Referral details follow in SystmOne.</p>
+        <p>Referral details follow in the referral system.</p>
         <p>
-          Something changed? Phone the SPOA on{' '}
+          Something changed? Phone the coordination team on{' '}
           <a href={`tel:${phone}`}>{booking.spoaPhone}</a>.
         </p>
       </main>
@@ -124,7 +124,7 @@ export function BookingDecision({ reference }: { reference: string }) {
       <p>{`Age band ${booking.ageBand}`}</p>
       <p>{`Need ${booking.need}`}</p>
       <p>{booking.urgency}</p>
-      <p>Referral details follow in SystmOne.</p>
+      <p>Referral details follow in the referral system.</p>
       <p className={styles.question}>Reply by {`${booking.replyBy}.`}</p>
       <Button variant="primary" busy={busy} dataEl="REP-BOOK-CONFIRM-BTN" onClick={() => void decide('confirm')}>
         {confirmLabel}

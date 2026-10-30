@@ -22,13 +22,20 @@ import { TENANTS } from '@/test/tenants';
 //            staff session in the browser changes nothing.
 //   sign-in  the staff sign-in: its answers are never stored.
 //   beacon   the telemetry ingest: no session is a 401, never stored.
+//   pairing  the wall screen's pairing routes (no person: a screen's secret).
+//   pre-session  the routes a phone calls before it has a session (the reporter's set-up and PIN
+//            sign-in, the registration code, the invitation read, the push key). The tenant is the
+//            host (the back end resolves it; no token is sent), so such a route must never take a
+//            tenant from the request, is never stored, and a write that needs the phone's CSRF token
+//            (`preSession`) is refused without it, before any work. A route that signs a person in
+//            makes a session for the tenant the back end names (its own test).
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
   return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-type Kind = 'session' | 'link' | 'sign-in' | 'beacon' | 'pairing';
+type Kind = 'session' | 'link' | 'sign-in' | 'beacon' | 'pairing' | 'pre-session';
 
 /** The routes that are not `withBff` routes, and what each is. */
 const NAMED: Record<string, Kind> = {
@@ -40,6 +47,15 @@ const NAMED: Record<string, Kind> = {
   'app/api/bff/screens/pairing/route.ts': 'pairing',
   'app/api/bff/screens/pairing/[id]/route.ts': 'pairing',
   'app/api/bff/screens/session/route.ts': 'pairing',
+  'app/api/bff/reporter/start/route.ts': 'pre-session',
+  'app/api/bff/identity/code/route.ts': 'pre-session',
+  'app/api/bff/identity/code/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/new-phone/route.ts': 'pre-session',
+  'app/api/bff/identity/new-phone/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/pin/route.ts': 'pre-session',
+  'app/api/bff/identity/pin/verify/route.ts': 'pre-session',
+  'app/api/bff/invitations/[token]/route.ts': 'pre-session',
+  'app/api/bff/push/key/route.ts': 'pre-session',
 };
 
 const WITH_BFF = /\bwithBff(<[^>]*>)?\(/;
@@ -315,4 +331,77 @@ describe.each(files.filter((f) => kindOf(f) === 'beacon'))('%s (beacon)', (file)
       privateNoStore(response);
     }
   });
+});
+
+describe.each(files.filter((f) => kindOf(f) === 'pre-session'))('%s (pre-session)', (file) => {
+  const ctx = (token: string) => ({ params: Promise.resolve({ token }) });
+  const url = () => `https://${A.host}/${file.replace('app/', '').replace('/route.ts', '').replace('[token]', 'SampleInvitationToken1')}`;
+
+  async function ask(verb: string, handler: Handler, extra: { query?: string; headers?: Record<string, string> } = {}) {
+    const headers: Record<string, string> = { Host: A.host, 'Content-Type': 'application/json', ...extra.headers };
+    return handler(
+      new Request(`${url()}${extra.query ?? ''}`, { method: verb, headers, body: UNSAFE.has(verb) ? '{}' : undefined }),
+      ctx('SampleInvitationToken1'),
+    );
+  }
+
+  it('is never stored by a cache, whatever it answers', async () => {
+    for (const { verb, handler } of await load(file)) privateNoStore(await ask(verb, handler));
+  });
+
+  it('takes no tenant from the request: a query key or a header that names one changes nothing and is not echoed', async () => {
+    for (const { verb, handler } of await load(file)) {
+      const plain = await ask(verb, handler);
+      const named = await ask(verb, handler, { query: `?tenant=${B.id}&scope=network`, headers: { 'X-Tenant-Id': B.id } });
+      expect(named.status, verb).toBe(plain.status);
+      expect(await named.text(), verb).not.toMatch(/trust-b|tenant-b|Sample Area B|net-sample/);
+    }
+  });
+
+  it('reads no session: a session of tenant A in the browser changes nothing for a phone on tenant B’s host', async () => {
+    for (const { verb, handler } of await load(file)) {
+      const plain = await handler(
+        new Request(`https://${B.host}/x`, { method: verb, headers: { Host: B.host, 'Content-Type': 'application/json' }, body: UNSAFE.has(verb) ? '{}' : undefined }),
+        ctx('SampleInvitationToken1'),
+      );
+      const staff = await requestAs(A, 'advisor', { method: verb, host: B.host, headers: { 'Content-Type': 'application/json' }, body: UNSAFE.has(verb) ? '{}' : undefined });
+      const crossed = await handler(staff, ctx('SampleInvitationToken1'));
+      expect(crossed.status, verb).toBe(plain.status);
+    }
+  });
+});
+
+const WRITES_NEED_PHONE_CSRF = files.filter((f) => kindOf(f) === 'pre-session' && /\bpreSession\(/.test(textOf(f)));
+const WRITES_TAKE_JSON_ONLY = files.filter((f) => kindOf(f) === 'pre-session' && !/\bpreSession\(/.test(textOf(f)) && /\bjsonBody\(/.test(textOf(f)));
+
+describe.each(WRITES_NEED_PHONE_CSRF)('%s (pre-session write with the phone’s CSRF token)', (file) => {
+  it('refuses a write with no CSRF token of this phone, 403 before any work', async () => {
+    for (const { verb, handler } of await load(file)) {
+      if (!UNSAFE.has(verb)) continue;
+      const response = await handler(
+        new Request(`https://${A.host}/x`, { method: verb, headers: { Host: A.host, 'Content-Type': 'application/json' }, body: '{}' }),
+        undefined,
+      );
+      expect(response.status, verb).toBe(403);
+      expect(await response.json()).toEqual({ code: 'csrf' });
+    }
+  });
+});
+
+describe.each(WRITES_TAKE_JSON_ONLY)('%s (pre-session write, JSON only)', (file) => {
+  it('refuses a write in another content type with 400, before any work', async () => {
+    for (const { verb, handler } of await load(file)) {
+      if (!UNSAFE.has(verb)) continue;
+      const response = await handler(
+        new Request(`https://${A.host}/x`, { method: verb, headers: { Host: A.host, 'Content-Type': 'application/x-www-form-urlencoded' }, body: 'phone=07700900123' }),
+        undefined,
+      );
+      expect(response.status, verb).toBe(400);
+    }
+  });
+});
+
+it('has at least one pre-session write of each kind (the generated checks are not vacuous)', () => {
+  expect(WRITES_NEED_PHONE_CSRF.length).toBeGreaterThan(0);
+  expect(WRITES_TAKE_JSON_ONLY.length).toBeGreaterThan(0);
 });

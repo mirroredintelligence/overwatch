@@ -48,7 +48,7 @@ export function SetupFlow({ step, invite }: Props) {
     return (
       <main className={styles.page}>
         <h1 className={styles.title}>This invitation has expired</h1>
-        <p>This invitation has expired. Ask the SPOA shift lead to send a new one.</p>
+        <p>This invitation has expired. Ask the shift lead to send a new one.</p>
       </main>
     );
   }
@@ -115,7 +115,7 @@ function NumberStep({ masked, invite, onSent }: { masked: string; invite: string
       <p>
         We will text a code to <strong>{masked}</strong>.
       </p>
-      <p>Not your number? Ask the SPOA shift lead to send a new invitation.</p>
+      <p>Not your number? Ask the shift lead to send a new invitation.</p>
       {failed ? <Banner tone="warning" title="We could not send a code. Try again shortly." /> : null}
       <Button variant="primary" busy={busy} dataEl="ONB-CODE-SEND-BTN" onClick={send}>
         Send code

@@ -139,7 +139,8 @@ describe('the repository', () => {
 
   it('owes only for words: never for browser storage, a cache, a secret, a header, a log or a back-end call', () => {
     const owed = new Set(Object.values(DEBT).flatMap((rules) => Object.keys(rules)));
-    expect([...owed].sort()).toEqual(['epr-name', 'spoa', 'trust-wording']);
+    const WORD_RULES = ['epr-name', 'spoa', 'trust-wording'];
+    expect([...owed].filter((rule) => !WORD_RULES.includes(rule))).toEqual([]);
   });
 
   it('has the one client that may call the back end', () => {

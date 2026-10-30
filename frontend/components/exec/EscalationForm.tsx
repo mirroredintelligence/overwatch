@@ -8,7 +8,7 @@ import { DEPUTY_REQUIRED, hasDeputy } from '@/lib/exec/savePreferences';
 import styles from './Exec.module.css';
 
 // Quiet hours, the acknowledgement window and the deputy (W39, ExecApp2 screen 6). The ladder is you,
-// then your deputy, then the SPOA shift lead by phone (U34 sends it; this screen only names it).
+// then your deputy, then the shift lead by phone (U34 sends it; this screen only names it).
 
 export type EscalationValues = Pick<AlertPreferences, 'quietHours' | 'quietCriticalOnly' | 'ackMinutes' | 'deputy'>;
 
@@ -106,7 +106,7 @@ export function EscalationForm({ initial, busy, onSave, error = null }: Props) {
         {deputyError ? (
           <p id={errorId} className={styles.error} role="alert">{DEPUTY_REQUIRED}</p>
         ) : null}
-        <p className={styles.footer}>The ladder: you, then your deputy, then the SPOA shift lead by phone.</p>
+        <p className={styles.footer}>The ladder: you, then your deputy, then the shift lead by phone.</p>
       </div>
 
       {error ? <p className={styles.error} role="alert">{error}</p> : null}

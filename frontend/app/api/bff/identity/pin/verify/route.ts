@@ -1,3 +1,5 @@
+import { requestHost } from '@/lib/auth/host';
+import { isTenantId } from '@/lib/auth/ids';
 import { preSession } from '@/lib/reporter/bff';
 import { ensureDevice } from '@/lib/reporter/device';
 import { identityCall } from '@/lib/reporter/identity';
@@ -6,12 +8,21 @@ import { startReporterSession } from '@/lib/reporter/session';
 // POST /api/bff/identity/pin/verify (W34, W35): sign the reporter in with the PIN. On success the
 // BFF seals a reporter session and answers {ok:true} only: the back end's session id never reaches
 // the browser. A wrong PIN answers the tries left; five wrong tries answer locked; a PIN that needs
-// a text code first answers reverify.
+// a text code first answers reverify. The session is for the tenant the back end answers with (a
+// valid tenant id, never a network id) and for the host the phone came to; an answer with no tenant
+// signs nobody in (fail closed: the session has no guessed tenant).
 
 const PIN = /^\d{6}$/;
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
-type BackEnd = { signedIn?: boolean; sessionId?: string; services?: string[]; triesLeft?: number; needsTextCode?: boolean };
+type BackEnd = {
+  signedIn?: boolean;
+  sessionId?: string;
+  tenant?: unknown;
+  services?: string[];
+  triesLeft?: number;
+  needsTextCode?: boolean;
+};
 
 export const POST = preSession(async (request) => {
   const body = (await request.json().catch(() => undefined)) as { pin?: unknown } | undefined;
@@ -23,7 +34,17 @@ export const POST = preSession(async (request) => {
   const answer = (reply.body ?? {}) as BackEnd;
 
   if (reply.status === 200 && answer.signedIn === true && typeof answer.sessionId === 'string') {
-    await startReporterSession({ sessionId: answer.sessionId, services: answer.services ?? [], device: deviceId });
+    const host = requestHost(request);
+    if (host === null || !isTenantId(answer.tenant)) {
+      return Response.json({ code: 'unavailable' }, { status: 503, headers: NO_STORE });
+    }
+    await startReporterSession({
+      sessionId: answer.sessionId,
+      tenantId: answer.tenant,
+      host,
+      services: answer.services ?? [],
+      device: deviceId,
+    });
     return Response.json({ ok: true }, { headers: NO_STORE });
   }
   if (reply.status === 423) return Response.json({ locked: true }, { headers: NO_STORE });

@@ -94,7 +94,7 @@ export function CriteriaSend({
         {errors.months !== undefined ? <p role="alert" className={styles.error}>{errors.months}</p> : null}
       </fieldset>
 
-      <p className={styles.hint}>{`A SPOA clinical lead approves it too. Until then, advisors still see version ${currentVersion}.`}</p>
+      <p className={styles.hint}>{`A clinical lead approves it too. Until then, advisors still see version ${currentVersion}.`}</p>
       {failure !== null ? <p role="alert" className={styles.error}>{failure}</p> : null}
 
       <div className={styles.actions}>

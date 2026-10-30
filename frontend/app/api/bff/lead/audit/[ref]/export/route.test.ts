@@ -37,7 +37,7 @@ describe('GET /api/bff/lead/audit/[ref]/export', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('text/csv; charset=utf-8');
     expect(response.headers.get('content-disposition')).toBe('attachment; filename="audit-4821.csv"');
-    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
     const text = await response.text();
     expect(text.split('\r\n')[0]).toBe('Type,Time,Service,Status,Figure,Data age,Criteria version,Event');
     expect(text).toContain('"UCR West, Reablement"');

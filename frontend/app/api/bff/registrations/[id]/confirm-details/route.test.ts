@@ -6,6 +6,8 @@ import { confirmDetails } from '@/lib/register/backend';
 import { FhirError } from '@/lib/fhir/client';
 import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { POST } from './route';
+import { csrfOf } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -20,13 +22,15 @@ vi.mock('@/lib/register/backend', async (importOriginal) => ({
 // back end's own answer for the action is not built yet, so it is a 503 not-built here.
 
 const ID = 'REG-SAMPLE-1';
-const CSRF = 'csrf-sample-token';
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfOf(TENANTS.A, 'person-sample-1');
 const action = vi.mocked(confirmDetails);
 const url = `https://tenant-a.example.test/api/bff/registrations/${ID}/confirm-details`;
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
 async function sessionFor(role: Session['role']): Promise<string> {
-  return sealSession({ role, services: [], sub: 'person-sample-1', backendToken: 'backend-token-sample-value', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
+  return sealSession({ role, tenantId: TENANTS.A.id, host: TENANTS.A.host, services: [], sub: 'person-sample-1', backendToken: 'backend-token-sample-value', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
 }
 
 function call(role: Session['role'] = 'reporter', csrf: string | null = CSRF) {

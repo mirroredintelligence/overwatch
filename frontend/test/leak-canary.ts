@@ -12,6 +12,9 @@ import { namesTenantInput } from '@/lib/tenant/inputNames';
 //   link-bearer         a link call carries an Authorization header (a link has no session)
 //   network-non-member  a network route is called with a token of a tenant that is not a member
 //   no-token            a call to the tenant API with no token
+//   pre-session-bearer  a pre-session identity call (a phone with no session: text code, PIN, new
+//                       phone) carries an Authorization header: its tenant is the host's, nothing else
+//   pre-session-host    such a call does not carry a Host that names a tenant (none, or the back end's own)
 //   bad-audience        a token for another audience (an operator token at the tenant API)
 //
 // A test says which tenants it signs in as by building a session or request with `sessionFor` and
@@ -25,6 +28,11 @@ const HEADER_NAME = /^(x-)?(tenant|scope|network|source-tenant)/i;
 // wall screen's pairing (the screen has no session yet; its secret is a header).
 const TOKENLESS_PATH = /^\/(auth|public|links)(\/|$)|^\/screens\/pairing(\/|$)/;
 const LINK_PATH = /^\/links(\/|$)/;
+// The identity routes a phone calls before it has a session. The back end reads the tenant from the
+// Host the request was addressed to and takes no token; `push-subscription` and `sign-out-everywhere`
+// are not here because they carry the signed-in person's token like every other route.
+const PRE_SESSION_PATH =
+  /^\/identity\/(?:code|pin|new-phone|device\/code|registration\/code|registration\/session|invitation|session-token|invitations\/[^/]+\/code)(?:\/verify)?$|^\/identity\/status$|^\/invitations\/[^/]+$/;
 const NETWORK_PATH = /^\/(?:fhir\/)?network\/([^/]+)(?:\/|$)/;
 const STAFF_AUDIENCE = 'diucs-api';
 
@@ -35,6 +43,8 @@ export type LeakRule =
   | 'link-bearer'
   | 'network-non-member'
   | 'no-token'
+  | 'pre-session-bearer'
+  | 'pre-session-host'
   | 'bad-audience';
 
 export type Leak = { rule: LeakRule; method: string; url: string };
@@ -86,6 +96,10 @@ export function inspectUpstream(request: UpstreamRequest, expected: ReadonlySet<
   const token = bearerOf(request.headers);
   if (LINK_PATH.test(url.pathname)) {
     if (token !== null) found.push('link-bearer');
+  } else if (PRE_SESSION_PATH.test(url.pathname)) {
+    if (request.headers.has('authorization')) found.push('pre-session-bearer');
+    const host = request.headers.get('host');
+    if (host === null || host.toLowerCase() === url.host.toLowerCase()) found.push('pre-session-host');
   } else if (!TOKENLESS_PATH.test(url.pathname)) {
     if (token === null) {
       found.push('no-token');

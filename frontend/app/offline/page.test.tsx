@@ -9,7 +9,7 @@ describe('offline page', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'No connection' })).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Capacity cannot be shown without a connection. Use the phone process: phone the SPOA on the number your service has on record.',
+        'Capacity cannot be shown without a connection. Use the phone process: phone the coordination team on the number your service has on record.',
       ),
     ).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();

@@ -13,7 +13,7 @@ export default async function InvitationPage({ params }: { params: Promise<{ tok
     return (
       <main>
         <h1>This invitation has expired</h1>
-        <p>This invitation has expired. Ask the SPOA shift lead to send a new one.</p>
+        <p>This invitation has expired. Ask the shift lead to send a new one.</p>
       </main>
     );
   }

@@ -58,7 +58,7 @@ export function SafetyConcernForm() {
       <section className={exec.stack} aria-labelledby="concern-sent">
         <h2 id="concern-sent" className={exec.heading}>{`Concern ${sent} sent`}</h2>
         <p>A clinical safety officer will review it. You will be told when it has been looked at.</p>
-        <p>If someone is at risk now, phone the SPOA or follow local procedure.</p>
+        <p>If someone is at risk now, phone the coordination team or follow local procedure.</p>
       </section>
     );
   }
@@ -114,7 +114,7 @@ export function SafetyConcernForm() {
       </div>
 
       <section className={styles.warning} aria-label="Before you send">
-        If someone is at risk now, phone the SPOA or follow local procedure first.
+        If someone is at risk now, phone the coordination team or follow local procedure first.
       </section>
 
       {failed ? <p role="alert" className={exec.error}>{failed}</p> : null}

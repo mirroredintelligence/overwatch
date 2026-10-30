@@ -7,9 +7,21 @@ import { createSession, type Session } from '@/lib/auth/session';
 /** [ASSUMED] DEC-660: a reporter's session lasts at most this many hours. */
 export const REPORTER_SESSION_HOURS = 8;
 
-export async function startReporterSession(input: { sessionId: string; services: string[]; device: string }): Promise<void> {
+export type ReporterSessionInput = {
+  sessionId: string;
+  /** The tenant the back end signed the reporter in for (its answer), never a value from the request. */
+  tenantId: string;
+  /** The host the sign-in came to (the session is read on that host only). */
+  host: string;
+  services: string[];
+  device: string;
+};
+
+export async function startReporterSession(input: ReporterSessionInput): Promise<void> {
   const session: Session = {
     role: 'reporter',
+    tenantId: input.tenantId,
+    host: input.host,
     services: input.services,
     sub: input.sessionId,
     device: input.device,

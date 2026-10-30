@@ -119,7 +119,7 @@ export function ReviewList({ registrationId }: ReviewListProps) {
           );
         })}
       </ul>
-      <p className={styles.note}>The SPOA shift lead checks your details and sends a test text. You will not appear on the board until approved.</p>
+      <p className={styles.note}>The shift lead checks your details and sends a test text. You will not appear on the board until approved.</p>
       {notice !== null ? <p className={styles.notice} role="status">{notice}</p> : null}
       <div className={styles.actions}>
         <Button variant="primary" busy={busy} dataEl="REG-REVIEW-SUBMIT-BTN" onClick={() => void submit()}>

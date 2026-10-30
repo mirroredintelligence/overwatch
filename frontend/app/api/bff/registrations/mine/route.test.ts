@@ -5,6 +5,7 @@ import { readMine } from '@/lib/register/backend';
 import { FhirError } from '@/lib/fhir/client';
 import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { GET } from './route';
+import { TENANTS } from '@/test/tenants';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -21,7 +22,7 @@ const read = vi.mocked(readMine);
 const url = 'https://tenant-a.example.test/api/bff/registrations/mine';
 
 async function sessionFor(role: Session['role']): Promise<string> {
-  return sealSession({ role, services: [], sub: 'person-sample-1', backendToken: 'backend-token-sample-value', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
+  return sealSession({ role, tenantId: TENANTS.A.id, host: TENANTS.A.host, services: [], sub: 'person-sample-1', backendToken: 'backend-token-sample-value', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
 }
 
 beforeEach(() => {

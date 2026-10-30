@@ -10,7 +10,10 @@ import { NETWORK, TENANTS } from '@/test/tenants';
 // every test, and fails the test that makes a call that could leak a tenant: a token of another tenant
 // than the session's, a header, query key or body that names a tenant, a bearer on a link call, a
 // network route reached by a tenant that is not a member, a call with no token, a token for another
-// audience. These tests make each of those calls and show the canary sees it.
+// audience. These tests make each of those calls and show the canary sees it. A phone that has no
+// session yet (the identity routes: text code, PIN, new phone) is the one other pre-session caller: it
+// has no token by design and its tenant is the HOST the call was addressed to, so the canary requires
+// no bearer and a Host that names a tenant, and still sees every other rule.
 
 const A = TENANTS.A;
 const B = TENANTS.B;
@@ -66,6 +69,54 @@ describe('inspectUpstream: what is a leak', () => {
     }
   });
 
+  describe('a pre-session call to the identity routes (host-resolved tenant, no bearer)', () => {
+    const PATHS = [
+      '/identity/code',
+      '/identity/code/verify',
+      '/identity/pin',
+      '/identity/pin/verify',
+      '/identity/new-phone',
+      '/identity/new-phone/verify',
+      // The back end's registration and device routes (W7B, W7C): the same kind of caller.
+      '/identity/invitation',
+      '/identity/registration/code',
+      '/identity/registration/session',
+      '/identity/session-token',
+      '/identity/invitations/SampleInvitationToken1/code',
+      '/identity/invitations/SampleInvitationToken1/code/verify',
+      '/identity/device/code',
+      '/identity/device/code/verify',
+    ];
+    const host = { Host: A.host };
+
+    it.each(PATHS)('is nothing for POST %s with the tenant’s host and no bearer', (path) => {
+      expect(inspectUpstream(upstream(path, { method: 'POST', headers: host }), new Set([A.id]))).toEqual([]);
+      expect(inspectUpstream(upstream(path, { method: 'POST', headers: host }), new Set())).toEqual([]);
+    });
+
+    it('is a leak when the call carries a bearer: the tenant is the host’s, a token would be a second source', () => {
+      const leaks = inspectUpstream(upstream('/identity/pin/verify', { method: 'POST', headers: host, token: token(A.id) }), new Set([A.id]));
+      expect(rules(leaks)).toEqual(['pre-session-bearer']);
+    });
+
+    it('is a leak when no host names the tenant: no Host, or the back end’s own host', () => {
+      expect(rules(inspectUpstream(upstream('/identity/code', { method: 'POST' }), new Set([A.id])))).toEqual(['pre-session-host']);
+      const own = inspectUpstream(upstream('/identity/code', { method: 'POST', headers: { Host: 'backend.test' } }), new Set([A.id]));
+      expect(rules(own)).toEqual(['pre-session-host']);
+    });
+
+    it('still sees a tenant header or query key', () => {
+      const leaks = inspectUpstream(upstream('/identity/code?tenant=b', { method: 'POST', headers: { ...host, 'X-Tenant-Id': B.id } }), new Set([A.id]));
+      expect(rules(leaks).sort()).toEqual(['tenant-header', 'tenant-query']);
+    });
+
+    it('does not make the routes that need a token tokenless', () => {
+      for (const path of ['/identity/push-subscription', '/identity/sign-out-everywhere']) {
+        expect(rules(inspectUpstream(upstream(path, { method: 'POST', headers: host }), new Set([A.id])))).toEqual(['no-token']);
+      }
+    });
+  });
+
   it('is a leak when a call to the FHIR API has no token', () => {
     expect(rules(inspectUpstream(upstream('/fhir/HealthcareService/s1'), new Set([A.id])))).toEqual(['no-token']);
   });
@@ -99,6 +150,25 @@ describe('inspectUpstream: what is a leak', () => {
 });
 
 describe('the installed canary', () => {
+  it('sees the Host header of a call made with node:http, as the pre-session routes make it', async () => {
+    const { callBackend } = await import('@/lib/fhir/hostCall');
+    const seen: (string | null)[] = [];
+    server.use(
+      http.post(`${BACKEND}/identity/code`, ({ request }) => {
+        seen.push(request.headers.get('host'));
+        return HttpResponse.json({}, { status: 202 });
+      }),
+    );
+    process.env.DIUCS_FHIR_BASE_URL = `${BACKEND}/fhir`;
+    try {
+      await callBackend({ method: 'POST', path: '/identity/code', host: A.host, body: {} });
+    } finally {
+      delete process.env.DIUCS_FHIR_BASE_URL;
+    }
+    expect(seen).toEqual([A.host]);
+    expect(canary.leaks()).toEqual([]);
+  });
+
   it('sees a real call the code under test makes, and fails the test that made it', async () => {
     server.use(http.get(`${BACKEND}/fhir/Probe/1`, () => HttpResponse.json({})));
     canary.expect(A.id);

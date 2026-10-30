@@ -13,7 +13,7 @@ const get = withBff<Context>(
     const replay = await fetchReplay(session.backendToken, reference);
     return Response.json(replay, { headers: { 'Cache-Control': 'no-store' } });
   },
-  { roles: ['lead'] },
+  { idScoped: true, roles: ['lead'] },
 );
 
 export const GET = (request: Request, context: Context) => get(request, context);

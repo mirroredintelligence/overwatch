@@ -30,7 +30,7 @@ async function open() {
 async function fillValid() {
   await userEvent.click(screen.getByRole('button', { name: 'Urgent community response' }));
   await userEvent.click(screen.getByRole('button', { name: 'Phone' }));
-  await userEvent.type(screen.getByLabelText('Phone number for the SPOA to call'), '01305 123456');
+  await userEvent.type(screen.getByLabelText('Phone number for the coordination team to call'), '01305 123456');
   for (const day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']) await userEvent.click(screen.getByRole('button', { name: day }));
   await userEvent.type(screen.getByLabelText('From'), '08:00');
   await userEvent.type(screen.getByLabelText('To'), '18:00');
@@ -65,18 +65,18 @@ describe('ServiceForm: the screen', () => {
     expect(name).toHaveAccessibleDescription('The name advisors see, for example “UCR West”');
   });
 
-  it('shows the categories, the referral methods and the SPOA number with its hint', async () => {
+  it('shows the categories, the referral methods and the coordination team number with its hint', async () => {
     await open();
     const categories = screen.getByRole('group', { name: 'Category' });
     expect(within(categories).getAllByRole('button')).toHaveLength(8);
     expect(screen.getByRole('button', { name: 'Hospital at home or virtual ward' })).toBeInTheDocument();
-    expect(within(screen.getByRole('group', { name: 'How can the SPOA refer?' })).getAllByRole('button').map((b) => b.textContent)).toEqual([
+    expect(within(screen.getByRole('group', { name: 'How can the coordination team refer?' })).getAllByRole('button').map((b) => b.textContent)).toEqual([
       'Phone',
-      'SystmOne',
+      'Clinical record system',
       'Email',
       'e-Referral',
     ]);
-    expect(screen.getByLabelText('Phone number for the SPOA to call')).toHaveAccessibleDescription('Staffed while you accept referrals');
+    expect(screen.getByLabelText('Phone number for the coordination team to call')).toHaveAccessibleDescription('Staffed while you accept referrals');
   });
 
   it('shows the "Who it is for" section with its fields and the criteria owner', async () => {
@@ -133,8 +133,8 @@ describe('ServiceForm: validation and saving', () => {
     await open();
     await fillValid();
     await userEvent.click(screen.getByRole('button', { name: 'Urgent community response' }));
-    await userEvent.clear(screen.getByLabelText('Phone number for the SPOA to call'));
-    await userEvent.type(screen.getByLabelText('Phone number for the SPOA to call'), '0123');
+    await userEvent.clear(screen.getByLabelText('Phone number for the coordination team to call'));
+    await userEvent.type(screen.getByLabelText('Phone number for the coordination team to call'), '0123');
     await userEvent.clear(screen.getByLabelText('Criteria owner (role)'));
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     const heading = await screen.findByRole('heading', { name: 'There are 3 problems' });

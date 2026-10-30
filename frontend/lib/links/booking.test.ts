@@ -6,7 +6,7 @@ const requestView = { ...BOOKING_REQUEST_VIEW, csrfToken: csrfFor(LINK.booking) 
 const changeView = { ...BOOKING_CHANGE_VIEW, csrfToken: csrfFor(LINK.bookingChange) };
 
 describe('parseBookingView', () => {
-  it('reads a booking request as L02 answers it, with the reference, the rows and the SPOA phone', () => {
+  it('reads a booking request as L02 answers it, with the reference, the rows and the coordination team phone', () => {
     expect(parseBookingView(requestView)).toEqual({
       state: 'ok',
       purpose: 'booking-request',

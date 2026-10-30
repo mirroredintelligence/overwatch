@@ -15,7 +15,7 @@ const post = withBff<Context>(
     await askForReview(session.backendToken, id);
     return bffJson(202, { done: true });
   },
-  { roles: ['reporter'] },
+  { idScoped: true, roles: ['reporter'] },
 );
 
 export async function POST(request: Request, context: Context): Promise<Response> {

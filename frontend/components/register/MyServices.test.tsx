@@ -22,7 +22,7 @@ describe('MyServices', () => {
     expect(within(rows[2]!).getByText('Review due')).toBeInTheDocument();
     expect(within(rows[2]!).getByText('Criteria review due 30 Oct')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Edit UCR West' })).toHaveAttribute('href', '/register/REG-SAMPLE-1/status');
-    expect(screen.getByText('To add a service, ask the SPOA shift lead. New services are added by invitation and checked.')).toBeInTheDocument();
+    expect(screen.getByText('To add a service, ask the shift lead. New services are added by invitation and checked.')).toBeInTheDocument();
   });
 
   it('has no axe violations', async () => {

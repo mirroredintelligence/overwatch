@@ -13,7 +13,7 @@ describe('MyServices', () => {
     const { container } = render(<MyServices />);
     expect(await screen.findByRole('heading', { name: 'My services' })).toBeInTheDocument();
     expect(
-      screen.getByText('To add a service, ask the SPOA shift lead. New services are added by invitation and checked.'),
+      screen.getByText('To add a service, ask the shift lead. New services are added by invitation and checked.'),
     ).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
   });

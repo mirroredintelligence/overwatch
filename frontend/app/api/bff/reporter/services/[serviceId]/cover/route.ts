@@ -22,5 +22,5 @@ export const POST = withBff(
     }
     return notBuilt();
   },
-  { roles: ['reporter'] },
+  { idScoped: true, roles: ['reporter'] },
 );

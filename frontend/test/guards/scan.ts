@@ -132,6 +132,10 @@ export const FETCH_ALLOWLIST: Record<string, string> = {
   'lib/telemetry/events.ts': 'the browser sends interface events to its own BFF telemetry route',
   'lib/links/browser.ts': 'the link page calls its own BFF link routes',
   'lib/session/signOut.ts': 'sign-out calls the BFF session route',
+  'lib/bff/client.ts': 'the browser helper for the BFF JSON routes (the CSRF token from the BFF session route; its callers pass /api/bff paths)',
+  'lib/lead/browser.ts': 'the shift lead pages\' browser helper: its callers pass /api/bff/lead paths',
+  'lib/register/browser.ts': 'the registration pages\' browser helper: every path is built from /api/bff/registrations or the BFF session route',
+  'lib/reporter/browser.ts': 'the reporter app\'s browser helper: its callers pass /api/bff paths',
 };
 
 // A `fetch(` whose first argument is written out as an /api/bff path is a call to the app's own BFF
@@ -219,16 +223,13 @@ export const DEBT: Record<string, Record<string, number>> = {
   'components/advisor/BookingCard.tsx': { 'epr-name': 2 },
   'components/advisor/OptionsList.tsx': { 'epr-name': 1 },
   'components/advisor/SummaryCopy.tsx': { 'epr-name': 2 },
-  'components/advisor/WithdrawalAlert.tsx': { 'spoa': 1 },
-  'components/exec/EscalationForm.tsx': { 'spoa': 2 },
-  'components/help/SafetyConcernForm.tsx': { 'spoa': 2 },
-  'components/learn/HelpPanel.tsx': { 'spoa': 2 },
-  'components/planning/PlanningView.tsx': { 'spoa': 1, 'trust-wording': 1 },
-  'components/reporter/BookingChange.tsx': { 'epr-name': 1, 'spoa': 9 },
-  'components/reporter/BookingDecision.tsx': { 'epr-name': 2, 'spoa': 4 },
+  'components/reporter/BookingChange.tsx': { 'epr-name': 1 },
+  'components/reporter/BookingDecision.tsx': { 'epr-name': 2 },
   'lib/advisor/summary.ts': { 'epr-name': 1 },
-  'lib/links/model.ts': { 'spoa': 2 },
-  'lib/tour/content.ts': { 'epr-name': 1, 'spoa': 4 },
+  // The back end's own code for a referral method is `systmone` (registration_draft.REFERRAL_METHODS):
+  // the label no longer names it, the code still does, until the back end's vocabulary is tenant-neutral.
+  'lib/register/options.ts': { 'epr-name': 1 },
+  'lib/tour/content.ts': { 'epr-name': 1 },
 };
 
 export type RatchetResult = { unlisted: Violation[]; stale: string[] };

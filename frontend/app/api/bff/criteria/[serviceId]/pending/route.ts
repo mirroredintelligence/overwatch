@@ -6,6 +6,6 @@ import { readPending } from '@/lib/criteria/backend';
 
 type Context = { params: Promise<{ serviceId: string }> };
 
-const get = withBff<Context>(async () => readPending(), { roles: ['owner', 'clinical', 'lead'] });
+const get = withBff<Context>(async () => readPending(), { idScoped: true, roles: ['owner', 'clinical', 'lead'] });
 
 export const GET = (request: Request, context: Context) => get(request, context);

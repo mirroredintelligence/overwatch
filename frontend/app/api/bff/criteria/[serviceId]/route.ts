@@ -8,7 +8,7 @@ type Context = { params: Promise<{ serviceId: string }> };
 
 const get = withBff<Context>(
   async () => readCriteria(),
-  { roles: ['owner', 'clinical', 'lead'] },
+  { idScoped: true, roles: ['owner', 'clinical', 'lead'] },
 );
 
 export const GET = (request: Request, context: Context) => get(request, context);

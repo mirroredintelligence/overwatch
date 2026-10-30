@@ -79,7 +79,7 @@ describe('BookingDecision', () => {
       ),
     );
     render(<BookingDecision reference="4821" />);
-    expect(await screen.findByText('This request expired at 14:26. The SPOA will phone you if they still need you.')).toBeInTheDocument();
+    expect(await screen.findByText('This request expired at 14:26. The coordination team will phone you if they still need you.')).toBeInTheDocument();
     expect(screen.queryByRole('button')).toBeNull();
   });
 

@@ -20,7 +20,7 @@ const get = withBff<Context>(
       },
     });
   },
-  { roles: ['lead'] },
+  { idScoped: true, roles: ['lead'] },
 );
 
 export const GET = (request: Request, context: Context) => get(request, context);

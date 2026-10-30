@@ -63,7 +63,7 @@ export function LostPhone() {
     return (
       <main className={styles.page}>
         <h1 className={styles.title}>Waiting for a call-back</h1>
-        <p>The shift lead will phone your service on the number on the register. Until then, prompts go to your cover number or the SPOA.</p>
+        <p>The shift lead will phone your service on the number on the register. Until then, prompts go to your cover number or the coordination team.</p>
         <Button variant="neutral" dataEl="REP-LOST-CALLBACK-BTN" onClick={() => router.push('/app/pin')}>
           Phone the shift lead
         </Button>
@@ -76,7 +76,7 @@ export function LostPhone() {
       <h1 className={styles.title}>Lost your phone?</h1>
       <p>Use your new phone. We text a code to the number we have for you.</p>
       <MobileNumberField label="Mobile number" value={phone} onChange={setPhone} error={error} required dataEl="REP-LOST-PHONE" />
-      <p>Your old phone is signed out as soon as you verify. The SPOA shift lead phones your service before your new phone goes live.</p>
+      <p>Your old phone is signed out as soon as you verify. The shift lead phones your service before your new phone goes live.</p>
       <Button variant="primary" busy={busy} dataEl="REP-LOST-SEND-BTN" onClick={() => void send()}>
         Send code
       </Button>

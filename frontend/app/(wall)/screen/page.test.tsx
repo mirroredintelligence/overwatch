@@ -18,7 +18,7 @@ import {
   TOKEN_SURGE,
 } from '@/test/msw/handlers/board';
 import { server } from '@/test/msw/server';
-import WallScreenPage from './page';
+import WallScreenPage, { dynamic, metadata } from './page';
 
 class Redirected extends Error {
   constructor(readonly url: string) {
@@ -295,6 +295,35 @@ describe('wall screen page: the board cannot be read', () => {
     const { container } = render(await WallScreenPage());
 
     expect(within(container).getByRole('alert')).toHaveTextContent('Board unavailable');
+    expect(container.querySelector('[data-el="WALL-TILE"]')).toBeNull();
+  });
+});
+
+
+// TEN-045: the wall page's own title names the page and not an organisation; the layout's template
+// adds the product. The board's heading is the organisation's own name from the back end.
+describe('wall screen page: metadata and rendering mode (TEN-045)', () => {
+  it('has a title that names the page and no place or organisation', () => {
+    expect(metadata.title).toBe('Wall screen');
+    expect(JSON.stringify(metadata)).not.toMatch(/dorset|trust|spoa|nhs/i);
+  });
+
+  it('is read at every request, never prerendered or cached', () => {
+    expect(dynamic).toBe('force-dynamic');
+  });
+
+  it('sends a signed-out or non-board role to pairing and reads nothing', async () => {
+    as(null);
+    expect(await redirectOf()).toBe('/screen/pair');
+    as(signedIn('reporter'));
+    expect(await redirectOf()).toBe('/screen/pair');
+  });
+
+  it('shows no figure and no organisation when the back end cannot be read', async () => {
+    server.use(http.get(BOARD_URL, () => HttpResponse.json({}, { status: 503 })));
+    as(signedIn('wall'));
+    const { container } = render(await WallScreenPage());
+    expect(container.textContent).not.toMatch(/dorset|\d+ (beds|referrals|packages)/i);
     expect(container.querySelector('[data-el="WALL-TILE"]')).toBeNull();
   });
 });

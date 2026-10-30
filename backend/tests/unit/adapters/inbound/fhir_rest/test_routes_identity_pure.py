@@ -801,3 +801,51 @@ async def test_a_reporter_removes_their_push_subscription_and_the_consent_is_wit
     assert container.units.push_subscriptions.held == {}
     assert container.units.notification_consents.withdrawn == [(PERSON, "app-" + DEVICE)]
     assert again.status_code == 404
+
+
+# ------------------------------------------------------------------ an executive's push (W9H, DEC-1042)
+
+STAFF = "stf-0123456789abcdef0123456789abcdef"
+
+
+async def test_an_executive_with_no_person_record_gets_one_made_and_the_subscription_saved() -> None:
+    container = _Container()
+    assert STAFF not in container.units.people.practitioners
+    async with client(container) as http:
+        response = await http.post(
+            "/identity/push-subscription",
+            json=push_body(deviceId=OTHER_DEVICE),
+            headers={**bearer(Role.EXEC, device=None, sub=STAFF), **key()},
+        )
+    assert response.status_code == 200
+    person = container.units.people.practitioners[STAFF]
+    assert (person.active, person.phone_hash) == (True, None)
+    assert container.units.push_subscriptions.held["app-" + OTHER_DEVICE].practitioner_id == STAFF
+
+
+async def test_a_removed_executive_saves_nothing_and_is_not_brought_back() -> None:
+    container = _Container()
+    container.units.people.practitioners[STAFF] = Practitioner(
+        id=STAFF, active=False, display_name="Executive", phone_hash=None
+    )
+    async with client(container) as http:
+        response = await http.post(
+            "/identity/push-subscription",
+            json=push_body(deviceId=OTHER_DEVICE),
+            headers={**bearer(Role.EXEC, device=None, sub=STAFF), **key()},
+        )
+    assert response.status_code == 401
+    assert container.units.people.practitioners[STAFF].active is False
+    assert container.units.push_subscriptions.held == {}
+
+
+async def test_a_reporter_with_no_record_is_not_given_one() -> None:
+    container = _Container()
+    async with client(container) as http:
+        response = await http.post(
+            "/identity/push-subscription",
+            json=push_body(),
+            headers={**bearer(Role.REPORTER, sub=STAFF), **key()},
+        )
+    assert response.status_code == 401
+    assert STAFF not in container.units.people.practitioners

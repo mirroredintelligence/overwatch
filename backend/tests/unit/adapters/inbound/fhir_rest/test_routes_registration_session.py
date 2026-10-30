@@ -429,13 +429,19 @@ async def test_an_unknown_ended_or_signed_out_session_is_the_one_404() -> None:
     assert len({a.content for a in answers}) == 1
 
 
-async def test_a_session_of_a_role_that_is_not_a_reporter_gets_no_token() -> None:
+@pytest.mark.parametrize("role", [role for role in Role if role is not Role.REPORTER])
+async def test_a_session_of_a_role_that_is_not_a_reporter_gets_no_token(role: Role) -> None:
+    # The token of a PIN session is a reporter's and nobody else's (W9H, DEC-1041): an executive
+    # signs in through the directory, so a session that names the role is one nobody derived, and
+    # it gets the one 404 of any session that cannot be exchanged. All thirteen roles, one answer.
     rig = Rig()
     rig.invite()
-    session_id = await _session(rig, Role.LEAD)
+    session_id = await _session(rig, role)
     async with client(rig) as http:
         response = await http.post(SESSION_TOKEN, json={"sessionId": session_id})
+        unknown = await http.post(SESSION_TOKEN, json={"sessionId": "never-existed"})
     assert response.status_code == 404
+    assert response.content == unknown.content
 
 
 async def test_the_exchange_takes_nothing_but_the_session_and_not_a_suspended_tenants_host() -> (

@@ -141,7 +141,9 @@ async def scope_world(
             ScopeEntry(
                 service_id="svc-other-tenant",
                 name="Other tenant service",
-                category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+                # Another code from tenant A's: the shared schema keeps one Concept per code until
+                # TEN-032 (lesson L169).
+                category=ServiceCategory.REABLEMENT,
                 flag=ScopeFlag.IN_PILOT,
                 date=date(2026, 10, 23),
                 reason="",

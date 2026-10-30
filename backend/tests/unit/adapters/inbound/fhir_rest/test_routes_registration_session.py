@@ -178,7 +178,15 @@ async def test_a_right_code_ends_in_a_reporter_token_for_the_invited_person() ->
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert set(body) == {"token", "expiresAt", "role", "tenant", "registrationId", "serviceId", "serviceName"}
+    assert set(body) == {
+        "token",
+        "expiresAt",
+        "role",
+        "tenant",
+        "registrationId",
+        "serviceId",
+        "serviceName",
+    }
     assert body["role"] == "reporter"
     # The tenant the host bound, so the BFF can keep it in its sealed session (DEC-900 item 2).
     assert body["tenant"] == TENANT

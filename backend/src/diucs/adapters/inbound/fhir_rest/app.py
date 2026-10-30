@@ -182,7 +182,8 @@ def create_app(
 
     app.include_router(routes_support.router)
 
-    # The planning analysis (W51, U43): aggregates from the decision log, for a lead or an executive.
+    # The planning analysis (W51, U43): aggregates from the decision log, for a lead or an
+    # executive.
     from diucs.adapters.inbound.fhir_rest import routes_planning
 
     app.include_router(routes_planning.router)

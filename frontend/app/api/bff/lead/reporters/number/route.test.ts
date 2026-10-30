@@ -76,7 +76,7 @@ describe('POST /api/bff/lead/reporters/number', () => {
     expect(changed?.body).toEqual({
       resourceType: 'Parameters',
       parameter: [
-        { name: 'mobile', valueString: '07700900456' },
+        { name: 'mobile', valueString: NEW_NUMBER },
         { name: 'duration', valueCode: 'this-week' },
       ],
     });

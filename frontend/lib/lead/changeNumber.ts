@@ -10,10 +10,12 @@ export type CoverChoice = (typeof COVER_CHOICES)[number];
 export type ChangeNumber = { serviceId: string; newNumber: string; until: CoverChoice };
 
 const SERVICE_ID = /^[A-Za-z0-9.-]{1,64}$/;
+const CHANGE_KEYS = ['serviceId', 'newNumber', 'until'];
 
 export function readChangeNumber(value: unknown): ChangeNumber {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw invalidRequest();
   const body = value as Record<string, unknown>;
+  if (Object.keys(body).some((key) => !CHANGE_KEYS.includes(key))) throw invalidRequest();
   const serviceId = body.serviceId;
   const newNumber = body.newNumber;
   const until = body.until;

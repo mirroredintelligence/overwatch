@@ -15,7 +15,8 @@ import { namesTenantInput } from '@/lib/tenant/inputNames';
 //   pre-session-bearer  a pre-session identity call (a phone with no session: text code, PIN, new
 //                       phone) carries an Authorization header: its tenant is the host's, nothing else
 //   pre-session-host    such a call does not carry a Host that names a tenant (none, or the back end's own)
-//   bad-audience        a token for another audience (an operator token at the tenant API)
+//   bad-audience        a token for another audience (an operator token at the tenant API, a tenant's at /platform)
+//   operator-names-tenant  a token sent to /platform that names a tenant (an operator's names none)
 //
 // A test says which tenants it signs in as by building a session or request with `sessionFor` and
 // `requestAs` (test/requests.ts), which call `canary.expect`. A token the canary cannot read (the
@@ -35,6 +36,9 @@ const PRE_SESSION_PATH =
   /^\/identity\/(?:code|pin|new-phone|device\/code|registration\/code|registration\/session|invitation|session-token|channel|invitations\/[^/]+\/code)(?:\/verify)?$|^\/identity\/status$|^\/invitations\/[^/]+$/;
 const NETWORK_PATH = /^\/(?:fhir\/)?network\/([^/]+)(?:\/|$)/;
 const STAFF_AUDIENCE = 'diucs-api';
+// The operator door (TEN-075, TEN-083): `/platform/**` takes an operator's token (audience `diucs-ops`, no tenant).
+const OPERATOR_PATH = /^\/platform(\/|$)/;
+const OPERATOR_AUDIENCE = 'diucs-ops';
 
 export type LeakRule =
   | 'tenant-mismatch'
@@ -45,7 +49,8 @@ export type LeakRule =
   | 'no-token'
   | 'pre-session-bearer'
   | 'pre-session-host'
-  | 'bad-audience';
+  | 'bad-audience'
+  | 'operator-names-tenant';
 
 export type Leak = { rule: LeakRule; method: string; url: string };
 export type UpstreamRequest = { method: string; url: string; headers: Headers };
@@ -105,7 +110,10 @@ export function inspectUpstream(request: UpstreamRequest, expected: ReadonlySet<
       found.push('no-token');
     } else {
       const claims = readable(token);
-      if (claims !== null) {
+      if (claims !== null && OPERATOR_PATH.test(url.pathname)) {
+        if (claims.aud !== OPERATOR_AUDIENCE) found.push('bad-audience');
+        else if (claims.tenant !== undefined) found.push('operator-names-tenant');
+      } else if (claims !== null) {
         if (claims.aud !== STAFF_AUDIENCE) found.push('bad-audience');
         if (claims.tenant !== undefined && expected.size > 0 && !expected.has(claims.tenant)) found.push('tenant-mismatch');
         const network = NETWORK_PATH.exec(url.pathname);

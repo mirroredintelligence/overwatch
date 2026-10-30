@@ -273,7 +273,6 @@ describe.each(files.filter((f) => kindOf(f) === 'operator'))('%s (operator)', (f
     }
     throw new Error(`no operator role is let in by ${file}`);
   }
-  const none = () => new Request(`https://${OPERATOR_HOST}/x`, { headers: { Host: OPERATOR_HOST } });
 
   it('answers 401 no-session, private and not stored, to a request with no session', async () => {
     for (const { verb, handler } of await load(file)) {
@@ -287,13 +286,13 @@ describe.each(files.filter((f) => kindOf(f) === 'operator'))('%s (operator)', (f
   it('answers a tenant’s person, of every tenant role, exactly as no session', async () => {
     for (const { verb, handler } of await load(file)) {
       const empty = await handler(new Request(`https://${OPERATOR_HOST}/x`, { method: verb, headers: { Host: OPERATOR_HOST } }), undefined);
+      const emptyText = await empty.text();
       for (const role of ROLES) {
         const crossed = await handler(await requestAs(A, role, { method: verb, csrf: UNSAFE.has(verb) ? true : undefined }), undefined);
         expect(crossed.status, `${verb} ${role}`).toBe(401);
-        expect(await crossed.text(), `${verb} ${role}`).toBe(await empty.text());
+        expect(await crossed.text(), `${verb} ${role}`).toBe(emptyText);
       }
     }
-    void none;
   });
 
   it('answers an operator session sent to a tenant’s host exactly as no session', async () => {

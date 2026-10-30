@@ -48,7 +48,7 @@ function tenantSession(): Session {
     services: [],
     sub: 'stf-0123456789abcdef0123456789abcdef',
     backendToken: 'tenant-token-sample-value',
-    expiresAt: '2026-10-30T10:00:00.000Z',
+    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
   };
 }
 
@@ -140,7 +140,7 @@ describe('sealOperatorSession and unsealOperatorSession', () => {
 
 describe('operatorSessionFromRequest', () => {
   it('reads the session only on the host it was made on', async () => {
-    const sealed = await sealOperatorSession(sample(), new Date());
+    const sealed = await sealOperatorSession(sample({ expiresAt: new Date(Date.now() + 3_600_000).toISOString() }), new Date());
     const ok = requestWithCookies(`https://${OPERATOR_HOST}/x`, { [OPERATOR_COOKIE]: sealed }, { headers: { Host: OPERATOR_HOST } });
     expect((await operatorSessionFromRequest(ok))?.role).toBe('platform-operator');
     const other = requestWithCookies(`https://${TENANTS.A.host}/x`, { [OPERATOR_COOKIE]: sealed }, { headers: { Host: TENANTS.A.host } });

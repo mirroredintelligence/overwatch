@@ -11,9 +11,9 @@ import type { Role } from './session';
 // person's groups. Nothing here logs, and no error holds a token, a subject or a claim.
 
 /** The roles the staff exchange gives that this front end has pages for. */
-export const STAFF_ROLES: readonly Role[] = ['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit'];
-/** Roles the back end can give that no page of this front end is for yet (a tenant or network administrator). */
-const NO_PAGES_YET: readonly string[] = ['tenant-admin', 'network-admin'];
+export const STAFF_ROLES: readonly Role[] = ['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'tenant-admin'];
+/** Roles the back end can give that no page of this front end is for yet (a network administrator). */
+const NO_PAGES_YET: readonly string[] = ['network-admin'];
 
 const ID_TOKEN_MAX_LENGTH = 8192; // the back end refuses more (routes_auth.py)
 const TOKEN_MAX_LENGTH = 4096;

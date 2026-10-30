@@ -56,11 +56,12 @@ describe('withOperatorBff', () => {
 
   it('answers a tenant session of every tenant role exactly as no session: a tenant person is not an operator', async () => {
     const none = await get(new Request(`https://${OPERATOR_HOST}/x`, { headers: { Host: OPERATOR_HOST } }), undefined);
+    const noneText = await none.text();
     for (const role of ['advisor', 'clinical', 'lead', 'owner', 'exec', 'support', 'audit', 'tenant-admin', 'network-admin'] as const) {
       const request = await requestAs(TENANTS.A, role);
       const crossed = await get(request, undefined);
       expect(crossed.status, role).toBe(401);
-      expect(await crossed.text(), role).toBe(await none.text());
+      expect(await crossed.text(), role).toBe(noneText);
     }
   });
 

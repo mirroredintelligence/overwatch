@@ -197,7 +197,6 @@ describe('GET /api/bff/platform/auth/callback', () => {
 
   it('gives no session and the one access message for a person the back end refuses (a customer’s directory, no operator role)', async () => {
     for (const user of [
-      { oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_A },
       { oid: OID_OPERATOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_PLATFORM },
       { oid: OID_OPERATOR, roles: ['DIUCS.TenantAdmin'], tid: DIRECTORY_PLATFORM },
       { oid: OID_OPERATOR, roles: undefined, tid: DIRECTORY_PLATFORM },
@@ -207,6 +206,13 @@ describe('GET /api/bff/platform/auth/callback', () => {
       expect(outcome.write).toBeUndefined();
       expect(outcome.location).toBe('/operator/sign-in?error=no-access');
     }
+  });
+
+  it('sends a person of a customer’s directory away as a failed sign-in: the app registration is for the operator directory only', async () => {
+    const outcome = await signIn({ oid: OID_OPERATOR, roles: ['DIUCS.PlatformOperator'], tid: DIRECTORY_A });
+    expect(outcome.session).toBeNull();
+    expect(outcome.location).toBe('/operator/sign-in?error=failed');
+    expect(seenExchanges).toHaveLength(0);
   });
 
   it('is a failed sign-in, not the access message, when the back end fails, answers a tenant role or a token that is no operator’s', async () => {

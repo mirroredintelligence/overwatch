@@ -39,8 +39,9 @@ const ROLE_BY_APP_ROLE: Record<string, string> = {
   'DIUCS.Planning': 'exec',
   'DIUCS.Audit': 'audit',
   'DIUCS.TenantAdmin': 'tenant-admin',
+  'DIUCS.NetworkAdmin': 'network-admin',
 };
-const PRIORITY = ['tenant-admin', 'lead', 'clinical', 'advisor', 'owner', 'exec', 'audit'];
+const PRIORITY = ['tenant-admin', 'network-admin', 'lead', 'clinical', 'advisor', 'owner', 'exec', 'audit'];
 
 export type ExchangeReply = { status: number; body: unknown };
 

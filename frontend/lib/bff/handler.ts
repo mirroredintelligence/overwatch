@@ -35,7 +35,7 @@ export type BffHandler<C = unknown> = (
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-function refuse(status: number, code: string): Response {
+export function refuse(status: number, code: string): Response {
   return Response.json({ code }, { status });
 }
 
@@ -44,7 +44,7 @@ function refuse(status: number, code: string): Response {
 const CACHING_DIRECTIVE = /^(public|private|no-store|max-age|s-maxage|stale-while-revalidate|stale-if-error|immutable|must-revalidate|proxy-revalidate)(=|$)/;
 const VARY_ALWAYS = ['Cookie', 'Host'];
 
-function privateNoStore(response: Response): Response {
+export function privateNoStore(response: Response): Response {
   try {
     const headers = new Headers(response.headers);
     const kept = (headers.get('Cache-Control') ?? '')

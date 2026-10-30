@@ -396,6 +396,7 @@ async def test_an_invitation_says_how_far_the_set_up_has_got() -> None:
         "items": [
             {
                 "id": INVITATION,
+                "serviceId": SERVICE,
                 "serviceName": SERVICE_NAME,
                 "role": "Duty manager",
                 "steps": {

@@ -40,6 +40,7 @@ from diucs.domain.codes import Channel
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
+from diucs.domain.model.people import cover_in_force, phone_contact_key
 
 AUDIT_ACTION: Final = "U"
 USE_CASE_TEST: Final = "SendLeadTestPrompt"
@@ -153,10 +154,14 @@ class SendLeadTestPrompt:
                 raise Conflict("this service has no reporter to send to")
             role = min(roles, key=lambda item: item.id)
             chosen = channel or role.channel or Channel.TEXT
-            phone = await uow.contacts.get_phone(role.id)
+            # The message goes to whoever holds the post now (F6B): the cover's number while a
+            # cover runs, and a cover has no email address, so the original's is not used.
+            phone = await uow.contacts.get_phone(phone_contact_key(role, now))
             if chosen is Channel.TEXT and not phone:
                 raise ValidationFailed("contact", "no mobile number is held for this channel")
-            if chosen is Channel.EMAIL and not await uow.contacts.get_email(role.id):
+            if chosen is Channel.EMAIL and (
+                cover_in_force(role, now) or not await uow.contacts.get_email(role.id)
+            ):
                 raise ValidationFailed("contact", "no email address is held for this channel")
             bucket = f"lead-test:{service_id}:{int(now.timestamp()) // ONE_MINUTE}"
             if not await uow.processed.mark_if_new(bucket, TEST_CONSUMER):

@@ -551,6 +551,44 @@ async def test_a_test_prompt_goes_to_the_services_reporter_by_their_channel() ->
     assert "7700900421" not in str(rig.units.outbox.messages[0].payload)
 
 
+async def test_a_test_prompt_for_a_covered_post_names_the_covers_number_not_the_original() -> None:
+    # F6B: the text goes to whoever holds the post now, so the lead is shown the cover's ending
+    # (0777) and the check is on the cover's number.
+    rig = _world()
+    async with client(rig) as http:
+        response = await http.post("/lead/services/svc-a/test-prompt", headers={**KEY, **LEAD_AUTH})
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"channel": "text", "numberEnding": "0777"}
+    assert [c.recipient_role_id for c in rig.units.communications.sent] == ["role-rep-a"]
+
+
+async def test_a_test_prompt_for_a_covered_post_with_no_cover_number_is_refused() -> None:
+    rig = _world()
+    del rig.units.contacts.phones["cover-role-rep-a"]
+    async with client(rig) as http:
+        response = await http.post("/lead/services/svc-a/test-prompt", headers={**KEY, **LEAD_AUTH})
+
+    assert response.status_code == 400, response.text
+    assert rig.units.communications.sent == []
+
+
+async def test_an_email_test_prompt_for_a_covered_post_is_refused_not_sent_to_the_original() -> (
+    None
+):
+    rig = _world()
+    rig.units.contacts.emails["role-rep-a"] = "post.holder@example.test"
+    async with client(rig) as http:
+        response = await http.post(
+            "/lead/services/svc-a/test-prompt",
+            json={"channel": "email"},
+            headers={**KEY, **LEAD_AUTH},
+        )
+
+    assert response.status_code == 400, response.text
+    assert rig.units.communications.sent == []
+
+
 async def test_a_second_test_prompt_in_one_minute_is_a_409_and_the_next_minute_is_not() -> None:
     rig = _world()
     async with client(rig) as http:

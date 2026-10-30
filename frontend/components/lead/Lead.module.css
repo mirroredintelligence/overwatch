@@ -1,0 +1,122 @@
+.page {
+  box-sizing: border-box;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: var(--space-5) 16px;
+  color: var(--c-ink);
+  font-family: var(--font-atkinson), system-ui, sans-serif;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.muted {
+  margin: 0;
+  color: var(--c-ink-2);
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.section {
+  margin-top: var(--space-5);
+}
+
+.sectionHeading {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+}
+
+.line {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.ladder {
+  margin: var(--space-2) 0;
+  padding-left: 1.25em;
+}
+
+.ladder li {
+  margin: 0 0 var(--space-1);
+}
+
+.done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.count {
+  display: grid;
+  gap: 2px;
+  padding: var(--space-2);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+}
+
+.count dt {
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}
+
+.count dd {
+  margin: 0;
+  font-size: var(--type-title-size);
+  font-weight: 700;
+}
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--c-line);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page * {
+    transition: none;
+  }
+}

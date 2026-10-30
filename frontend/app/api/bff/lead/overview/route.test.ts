@@ -24,7 +24,7 @@ function session(role: Role): Session {
 async function get(role: Role | null) {
   const cookies: Record<string, string> = {};
   if (role !== null) cookies[SESSION_COOKIE] = await sealSession(session(role));
-  return GET(requestWithCookies(URL_, cookies), { params: Promise.resolve({}) });
+  return GET(requestWithCookies(URL_, cookies));
 }
 
 beforeEach(() => {

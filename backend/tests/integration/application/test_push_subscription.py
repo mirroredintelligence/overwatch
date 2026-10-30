@@ -7,6 +7,7 @@ Each assertion reads back through a fresh unit of work or the harness helpers. S
 from datetime import UTC, datetime
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
@@ -59,7 +60,7 @@ def _actor(practitioner_id: str) -> Actor:
     )
 
 
-@pytest.fixture(loop_scope="session")
+@pytest_asyncio.fixture(loop_scope="session")
 async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
     """One reporter, prac-1, with no device yet. The audit head exists for the run tenant."""
     await ensure_audit_heads(neo4j_driver, tenant_id)

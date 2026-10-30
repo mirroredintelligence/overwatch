@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -88,7 +89,7 @@ def _start(uow_factory: UnitOfWorkFactory) -> StartServiceMove:
     return StartServiceMove(uow_factory, SequentialIds("move"), _clock(), HASHER)
 
 
-@pytest.fixture(loop_scope="session")
+@pytest_asyncio.fixture(loop_scope="session")
 async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
     """One phone (prac-1, OLD_MOBILE) holding UCR West and UCR East; a second phone (prac-2,
     NEW_MOBILE) that is a registered reporter for UCR South; UCR North and UCR Park exist."""

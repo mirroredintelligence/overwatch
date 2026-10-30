@@ -9,6 +9,7 @@ from datetime import UTC, datetime, time
 from typing import Any
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
@@ -70,7 +71,7 @@ def _save(uow_factory: UnitOfWorkFactory, driver: AsyncDriver) -> SaveAlertPrefe
     return SaveAlertPreferences(uow_factory, DriverIdempotencyStore(driver), FixedClock(AT))
 
 
-@pytest.fixture(loop_scope="session")
+@pytest_asyncio.fixture(loop_scope="session")
 async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
     """An exec (exec-1), a deputy with a shift-lead role (deputy-1), a reporter (prac-1)."""
     await ensure_audit_heads(neo4j_driver, tenant_id)

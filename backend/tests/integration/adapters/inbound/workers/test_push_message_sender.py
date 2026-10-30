@@ -8,6 +8,7 @@ import json
 from datetime import UTC, datetime
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.inbound.workers.message_senders import (
@@ -72,7 +73,7 @@ def _message(tenant: str) -> BusMessage:
     )
 
 
-@pytest.fixture(loop_scope="session")
+@pytest_asyncio.fixture(loop_scope="session")
 async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
     await ensure_audit_heads(neo4j_driver, tenant_id)
     await seed_people(uow_factory, reporter(1, None))

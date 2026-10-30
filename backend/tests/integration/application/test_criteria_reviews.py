@@ -10,6 +10,7 @@ from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
@@ -81,7 +82,7 @@ async def _scheduled(uow_factory: UnitOfWorkFactory, tenant: str) -> list:
         return await uow.scheduled_work.for_about(tenant, WorkKind.CRITERIA_REVIEW_REMINDER)
 
 
-@pytest.fixture(loop_scope="session")
+@pytest_asyncio.fixture(loop_scope="session")
 async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
     """UCR West with a current criteria version reviewed 12 December 2026, owned by an email
     criteria owner. Its audit head exists for the run tenant."""

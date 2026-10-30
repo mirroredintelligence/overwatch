@@ -38,6 +38,7 @@ from diucs.domain.codes import Channel, Role
 from diucs.domain.errors import DomainError, ValidationFailed
 from diucs.domain.model.people import REPORTER_ROLE_CODES
 from diucs.domain.model.registration import Invitation
+from diucs.domain.model.tenant import ContactKind
 from diucs.domain.rules.reporter_app import MASKED_NOTHING, mask_mobile
 from diucs.domain.rules.tokens import LinkCheck, LinkTokenRecord, check_link
 
@@ -220,3 +221,18 @@ class SetDeviceChannel:
             )
             await uow.commit()
         return True
+
+
+class CoordinationPhone:
+    """The SPOA's number, for the screen of a reporter who is waiting for the lead's call-back: the
+    coordination phone of the bound tenant, or None when the tenant has set none. Never a default
+    and never another tenant's number (W7C, H-459)."""
+
+    def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
+        self._uow_factory = uow_factory
+
+    async def read(self) -> str | None:
+        async with self._uow_factory() as uow:
+            _tenant_bound(uow)
+            contacts = await uow.tenant_config.contacts()
+        return next((c.value for c in contacts if c.kind is ContactKind.COORDINATION_PHONE), None)

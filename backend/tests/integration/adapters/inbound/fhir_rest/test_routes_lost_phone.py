@@ -126,11 +126,10 @@ async def test_a_code_that_is_not_right_carries_no_number(
     await hold_code(two_container, tenant_id, MOBILE, purpose="new-device")
 
     async with client_for(app, HOST_A) as on_a:
-        response: object = await on_a.post(
+        response = await on_a.post(
             "/identity/new-phone/verify",
             json={"phone": MOBILE, "code": "000000", "deviceId": OTHER_DEVICE},
         )
 
-    assert isinstance(response, object)
-    assert response.status_code == 400  # type: ignore[attr-defined]
-    assert SPOA_A not in response.text  # type: ignore[attr-defined]
+    assert response.status_code == 400
+    assert SPOA_A not in response.text

@@ -178,14 +178,18 @@ async def test_count_nodes_with_an_explicit_tenant_ignores_the_bound_one(
     assert await count_nodes(neo4j_driver, "Probe", tenant=other_tenant_id) == 1
 
 
+@pytest.mark.schema
 async def test_count_nodes_all_counts_every_tenant_and_a_node_with_none(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    tenant_id: str, other_tenant_id: str
 ) -> None:
-    before = await count_nodes_all(neo4j_driver, "Probe")
-    await _probe_in(neo4j_driver, tenant_id)
-    await _probe_in(neo4j_driver, other_tenant_id)
+    """A whole-database count is exact only on a database nobody else writes to, so it runs on a
+    private container (`schema`): on the shared one another module's probes would be counted."""
+    async with throwaway_driver() as (_container, driver):
+        assert await count_nodes_all(driver, "Probe") == 0
+        await _probe_in(driver, tenant_id)
+        await _probe_in(driver, other_tenant_id)
 
-    assert await count_nodes_all(neo4j_driver, "Probe") == before + 2
+        assert await count_nodes_all(driver, "Probe") == 2
 
 
 @pytest.mark.no_tenant

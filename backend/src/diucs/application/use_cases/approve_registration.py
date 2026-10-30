@@ -120,20 +120,11 @@ async def _requester_practitioner(uow: UnitOfWork, registration: Registration) -
 
 
 class _Decide:
-    """What the lead's decisions share: the phone hasher, the area and the clock."""
+    """What the lead's moves share: the unit of work factory and the clock."""
 
-    def __init__(
-        self,
-        uow_factory: UnitOfWorkFactory,
-        clock: Clock,
-        *,
-        phone_hasher: PhoneHasher,
-        area_districts_for: AreaDistrictsFor,
-    ) -> None:
+    def __init__(self, uow_factory: UnitOfWorkFactory, clock: Clock) -> None:
         self._uow_factory = uow_factory
         self._clock = clock
-        self._hasher = phone_hasher
-        self._area_districts_for = area_districts_for
 
 
 class ApproveRegistration(_Decide):
@@ -150,9 +141,9 @@ class ApproveRegistration(_Decide):
         phone_hasher: PhoneHasher,
         area_districts_for: AreaDistrictsFor,
     ) -> None:
-        super().__init__(
-            uow_factory, clock, phone_hasher=phone_hasher, area_districts_for=area_districts_for
-        )
+        super().__init__(uow_factory, clock)
+        self._hasher = phone_hasher
+        self._area_districts_for = area_districts_for
         self._ids = ids
         self._sealer = sealer
 

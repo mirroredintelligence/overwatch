@@ -318,7 +318,9 @@ async def test_channels_round_trip_and_a_retired_channel_stays_as_history(
 
     channels = await _read(neo4j_driver, tenant_id, lambda repo: repo.channels())
 
-    assert channels == (retired, mail)
+    # The list is ordered by channel id ("ch-mail-1" before "ch-sms-1"), the second write of
+    # "ch-sms-1" replaced the first.
+    assert channels == (mail, retired)
     props = await node_props(neo4j_driver, "TenantChannel", id="ch-sms-1")
     assert "token" not in {key.lower() for key in props}
     assert props["secretRef"] == f"twilio/{tenant_id}/auth-token"

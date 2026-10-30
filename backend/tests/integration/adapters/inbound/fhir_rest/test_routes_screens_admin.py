@@ -100,6 +100,16 @@ async def hosts(
 
         await write_tx(neo4j_driver, work)
 
+    async def no_seeded_screens(tx: AsyncManagedTransaction) -> None:
+        # The shared route-test seed gives each tenant a few active screens for wall tokens; this
+        # file counts screens, so it starts with none.
+        await tx.run(
+            "MATCH (d:Device {tenantId: $tenant, deviceType: 'wall-display'}) DETACH DELETE d"
+        )
+
+    for tenant in (tenant_id, other_tenant_id):
+        with as_tenant(tenant):
+            await write_tx(neo4j_driver, no_seeded_screens)
     await host(tenant_id, host_a)
     await host(other_tenant_id, host_b)
     await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)

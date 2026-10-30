@@ -28,7 +28,7 @@ Service Bus earns its place for four things: durable scheduled messages without 
 | `inbound.replies` | Queue | Webhook adapter | Reply processor | The webhook acknowledges the provider at once and queues the text. Duplicate detection on the provider message id. |
 | `inbound.receipts` | Queue | Webhook adapter | Delivery tracker | Delivery receipts update the Communication |
 | `scheduled.work` | Queue | Use cases | Scheduler consumer | Scheduled messages: prompts, reminders, expiries, re-verification, reviews |
-| `capacity.events` | Topic | Outbox relay | Board projector, alert evaluator, analytics aggregator | Session id is the service id, so one service's events arrive in order |
+| `capacity.events` | Topic | Outbox relay | Board projector, alert evaluator, analytics aggregator | Session id is the service id (on the wire `<tenant>:<service id>`, TEN-020, DEC-251), so one service's events arrive in order |
 | `booking.events` | Topic | Outbox relay | Notifier, board projector, advisor stream, analytics | Filter on event type |
 | `registration.events` | Topic | Outbox relay | Notifier, lead queue projector, analytics |  |
 | `criteria.events` | Topic | Outbox relay | Notifier, flag maintainer |  |

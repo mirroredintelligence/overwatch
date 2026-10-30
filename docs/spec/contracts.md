@@ -70,13 +70,13 @@ Neo4j in Docker is the only implementation of everything Neo4j stores. There are
 - Errors: `diucs.domain.errors.DomainError` base; subclasses `InvalidTransition`, `ValidationFailed(field, message)`, `NotFound`, `Conflict`, `NotAllowed`.
 - Ports are `typing.Protocol` classes. Neo4j-backed ports have no fake; the external-provider fakes listed under "Testing and persistence" live in `diucs.adapters.testing`.
 - Use cases: class named after the use case, constructor-injected ports, one public method `async def execute(self, command: <Name>Command) -> <Name>Result`. Commands carry `idempotency_key: str` and `actor: Actor`.
-- `Actor` (in `application/actor.py`, created by P05): `Actor(role: Role, practitioner_id: str | None, device_id: str | None, channel: str, service_ids: frozenset[str])`.
+- `Actor` (in `application/actor.py`, created by P05): `Actor(role: Role, practitioner_id: str | None, device_id: str | None, channel: str, service_ids: frozenset[str], tenant_id: str)`. `tenant_id` is required (the last field, checked with `check_tenant_id` when built, TEN-018, DEC-250 item 7); it is a copy of what the REST edge bound, never an access decision. Factories: `wall_actor(tenant_id, device_id=None)`, `system_actor(tenant_id, channel)`, `anonymous_actor(tenant_id, channel)`, `timer_actor(tenant_id)`; they replace the module constants `WALL_ACTOR`, `SYSTEM_ACTOR`, `text_code.ANONYMOUS`, `pin._ANONYMOUS` and `SCHEDULER_ACTOR`.
 - pytest with `asyncio_mode = "auto"`.
 
 ## Domain (created in S1)
 
 `diucs/domain/codes.py` (F07): `BASE_URL = "https://diucs.example/"`; `code_system_url(name: str) -> str` returns `f"{BASE_URL}CodeSystem/{name}"`; `Coding(system: str, code: str, display: str)`.
-StrEnums: `Status` (accepting, limited, not-accepting, over-capacity, not-updated, out-of-hours); `Measure` (free-slots, free-beds, referrals-acceptable, occupied-patients, packages-free); `ReportSource` (text, link, app, email, advisor-phoned, feed); `ReportType` (number, confirmed); `ServiceCategory` (urgent-community-response, same-day-emergency-care, inpatient-beds, hospital-at-home-or-virtual-ward, reablement, urgent-treatment, mental-health-crisis, other); `NeedCategory` (fall-no-injury, frailty, wound-care, iv-therapy, palliative, dementia, suspected-fracture, head-injury-anticoagulants, infection-isolation); `Urgency` (within-2-hrs, today, planned); `AgeBand` ("0-15", "16-64", "65-79", "80+"); `AcuityMethod` (pathways-dx, ambulance-category, manchester, news2, cfs); `BookingStatus` (requested, confirmed, declined, expired, cancelled-before, cancelled-after, withdrawn, not-reached, completed); `DeclineReason` (full, outside-criteria, staffing-or-transport, other); `WithdrawReason` (now-full, staffing, cannot-reach-patient, other); `NotReachedReason` (not-at-address, no-answer, gone-to-hospital, other); `CancelReason` (caller-declined, no-longer-needed, other-route-found, entered-in-error); `RegistrationStatus` (invited, draft, submitted, in-review, needs-changes, approved, live, not-approved, paused, reverify); `CriteriaStatus` (draft, pending-approval, current, superseded, retired); `Channel` (text, email, push); `AlertKind` (service-closed, over-capacity, not-updated, system-pressure); `Cadence` (every-2-hrs, twice-a-day, once-a-day); `Role` (reporter, advisor, clinical, lead, owner, exec, wall, anonymous-link, support, audit); `ScopeFlag` (in-pilot, later, out-of-scope); `ReportFlagReason` (out-of-range-twice, many-changes, differs-from-phoned); `Outcome` (accepted-and-booked, declined, redirected, caller-cancelled, no-service-fits, out-of-area); `BestFitNotUsedReason` (full, declined, data-too-old, caller-preference, clinical-override); `ReferrerType` (ambulance-crew, care-home, gp, nhs-111, other).
+StrEnums: `Status` (accepting, limited, not-accepting, over-capacity, not-updated, out-of-hours); `Measure` (free-slots, free-beds, referrals-acceptable, occupied-patients, packages-free); `ReportSource` (text, link, app, email, advisor-phoned, feed); `ReportType` (number, confirmed); `ServiceCategory` (urgent-community-response, same-day-emergency-care, inpatient-beds, hospital-at-home-or-virtual-ward, reablement, urgent-treatment, mental-health-crisis, other); `NeedCategory` (fall-no-injury, frailty, wound-care, iv-therapy, palliative, dementia, suspected-fracture, head-injury-anticoagulants, infection-isolation); `Urgency` (within-2-hrs, today, planned); `AgeBand` ("0-15", "16-64", "65-79", "80+"); `AcuityMethod` (pathways-dx, ambulance-category, manchester, news2, cfs); `BookingStatus` (requested, confirmed, declined, expired, cancelled-before, cancelled-after, withdrawn, not-reached, completed); `DeclineReason` (full, outside-criteria, staffing-or-transport, other); `WithdrawReason` (now-full, staffing, cannot-reach-patient, other); `NotReachedReason` (not-at-address, no-answer, gone-to-hospital, other); `CancelReason` (caller-declined, no-longer-needed, other-route-found, entered-in-error); `RegistrationStatus` (invited, draft, submitted, in-review, needs-changes, approved, live, not-approved, paused, reverify); `CriteriaStatus` (draft, pending-approval, current, superseded, retired); `Channel` (text, email, push); `AlertKind` (service-closed, over-capacity, not-updated, system-pressure); `Cadence` (every-2-hrs, twice-a-day, once-a-day); `Role` (reporter, advisor, clinical, lead, owner, exec, wall, anonymous-link, support, audit, tenant-admin, network-admin, platform-operator; the last three are the administration roles of DEC-134 item 4, added by TEN-018, so there are thirteen values); `ScopeFlag` (in-pilot, later, out-of-scope); `ReportFlagReason` (out-of-range-twice, many-changes, differs-from-phoned); `Outcome` (accepted-and-booked, declined, redirected, caller-cancelled, no-service-fits, out-of-area); `BestFitNotUsedReason` (full, declined, data-too-old, caller-preference, clinical-override); `ReferrerType` (ambulance-crew, care-home, gp, nhs-111, other).
 
 `model/service.py` (D01): `AvailableTime(days: frozenset[int] /*0=Mon*/, all_day: bool, start: time | None, end: time | None)`; `ServiceProfile(id, name, category: ServiceCategory, measure: Measure, unit_label: str, established_capacity: int, can_exceed_established: bool, usual_range: tuple[int, int], cadence: Cadence, available_times: tuple[AvailableTime, ...], channel: Channel, limited_level_percent: int = 80, active: bool = True, suspended: bool = False, comment: str = "")`.
 
@@ -118,7 +118,7 @@ Outbound ports (file → Protocols):
 - `audit.py` (P05): `AuditEntry(action: str, use_case: str, actor: Actor, entity_ids: tuple[str, ...], snapshot: dict | None, at: datetime)`; `AuditRecord(id, entry, chain_hash, previous_hash)`; `AuditLog` (append, records, verify_chain). No update or delete methods.
 - `outbox.py` + `unit_of_work.py` (P06): `OutboxMessage(id, topic: str, event_type: str, payload: dict, created_at, status="pending", attempts=0, session_id: str | None = None)`; `Outbox` (add, pending, mark_published, mark_failed); `UnitOfWork` async context manager with attributes `services, capacity, bookings, cases, people, criteria, registrations, scope, flags, communications, link_tokens, scheduled_work, audit, outbox` and `async commit()` / `async rollback()`; `UnitOfWorkFactory = Callable[[], UnitOfWork]`. Use cases write the change, the audit entry and outbox messages inside one `async with uow_factory() as uow: ...; await uow.commit()`.
 - `messaging.py` (P07): `SmsSender.send(to: str, text: str, message_id: str) -> SendReceipt`; `EmailSender.send(to, subject, text, html) -> SendReceipt`; `PushSender.send(subscription: dict, title, body, url) -> SendReceipt`; `SendReceipt(provider_message_id, accepted: bool)`; `Communication(id, message_id: MessageId, channel, recipient_role_id, about_id, payload_text, sent_at, delivery_status, provider_message_id, in_response_to: str | None)`; `CommunicationRepository` (add, get, by_provider_id, set_delivery_status, latest_prompt_for_phone).
-- `event_bus.py` (P08): `BusMessage(id, topic, event_type, payload, session_id=None)`; `EventBus.publish(message)`, `EventBus.schedule(queue: str, message, enqueue_at) -> int`, `EventBus.cancel(queue, sequence_number)`; `ScheduledWorkRepository` (add, get, for_about, save). Topic and queue names exactly as `docs/spec/architecture.md`: `inbound.replies`, `inbound.receipts`, `scheduled.work`, `capacity.events`, `booking.events`, `registration.events`, `criteria.events`, `alerts.events`, `messages.outbound`.
+- `event_bus.py` (P08): `BusMessage(id, topic, event_type, payload, session_id=None, traceparent=None, *, tenant_id)` (`tenant_id` is required and keyword-only since TEN-020, DEC-251; on the wire the message id is `<tenant>:<id>` and the session id `<tenant>:<session id>`, and the tenant is the application property `tenantId`); `EventBus.publish(message)`, `EventBus.schedule(queue: str, message, enqueue_at) -> int`, `EventBus.cancel(queue, sequence_number)`; `ScheduledWorkRepository` (add, get, for_about, save). Topic and queue names exactly as `docs/spec/architecture.md`: `inbound.replies`, `inbound.receipts`, `scheduled.work`, `capacity.events`, `booking.events`, `registration.events`, `criteria.events`, `alerts.events`, `messages.outbound`.
 - `cache.py` (P09): `Cache` (get, set(key, value, ttl), delete, publish(channel, message), `async` subscribe(channel) -> AsyncIterator (DEC-092: await it; it returns once the server confirms the subscription; DEC-058), acquire_lock(name, ttl) -> Lock | None, release_lock(lock)); `Lock(name, fencing_token: int)`. Channel `board.updates`.
 - `tokens.py` + `identity.py` (P10): `LinkTokenRepository` (add, get_by_hash, mark_used); `LinkTokenService(repo, secret_store, clock)` with `issue(purpose, about_id, phone_hash, expires_at) -> str`, `resolve(token) -> LinkTokenRecord | None`, `burn(token)`; `SecretStore.get(name) -> bytes`; `PhoneHasher.hash(number) -> str`; `ContactStore` (protected numbers/emails: put_phone, get_phone, put_email, get_email); `CodeSender.send_code(phone) -> None`, `CodeStore`; `PinStore` (set_pin, verify_pin, attempts, lock); `DeviceRegistry`.
   P10 additions (DEC-060): `HmacPhoneHasher(secrets)` and `normalise_uk_mobile(number) -> str` (eleven digits from 07) in `identity.py`; secret names `link-token` and `phone-hash` (`LINK_TOKEN_SECRET`, `PHONE_HASH_SECRET`); `Neo4jLinkTokenRepository(tx)` (`adapters/outbound/graph_store/link_token_repository.py`, queries `Q-LINK-ADD`, `Q-LINK-GET`, `Q-LINK-MARK-USED`); `FixedSecretStore(secrets: dict[str, bytes])`; migration `0021_link_token_hash` (unique `LinkToken.tokenHash`).
@@ -186,7 +186,7 @@ These names were added by individual task prompts. They are as binding as the re
 
 | Name | File | Created by |
 |---|---|---|
-| `Actor` (moved from P06), `SYSTEM_ACTOR` (added by U19 if missing) | `application/actor.py` | P05 |
+| `Actor` (moved from P06; `tenant_id` required since TEN-018), `SYSTEM_ACTOR` (added by U19 if missing; replaced by `timer_actor(tenant_id)` and `system_actor(tenant_id, channel)`, TEN-018) | `application/actor.py` | P05 |
 | `outbox_message_for(event, id, ...)` | `application/ports/outbound/outbox.py` | P06 |
 | `UnitOfWork.scheduled_work` typed as `ScheduledWorkRepository` | `application/ports/outbound/unit_of_work.py` | P06, tightened by P08 |
 | `UnitOfWork.contacts`, `UnitOfWork.pins`, `UnitOfWork.devices` (the P16 stores: `ContactStore`, `PinStore`, `DeviceRegistry`) | `application/ports/outbound/unit_of_work.py` | P06 (DEC-071 item 9, lesson L86) |
@@ -265,7 +265,7 @@ These names were added by individual task prompts. They are as binding as the re
 
 | Name | Created by |
 |---|---|
-| `application/use_cases/board_projector.py`: `BOARD_CACHE_KEY = "board:v1"`, `BOARD_CACHE_TTL` (60 s, [ASSUMED]), `BOARD_CHANGED = "board-changed"`, `REBUILD_EVENTS` (the seven event names that rebuild the board), `WALL_ACTOR`, `board_to_dict(board) -> dict`, `board_from_dict(data) -> Board`, `BoardProjector(query_board, cache, clock)` with `async handle(event_type, payload) -> bool` and `async get_board(actor) -> Board`. Message on `board.updates`: `{"type": "board-changed", "service_id": str or null, "at": ISO 8601 UTC}`, no figures. The cache holds the board as JSON under `board:v1`. | U09 |
+| `application/use_cases/board_projector.py`: `BOARD_CACHE_KEY = "board:v1"`, `BOARD_CACHE_TTL` (60 s, [ASSUMED]), `BOARD_CHANGED = "board-changed"`, `REBUILD_EVENTS` (the seven event names that rebuild the board), `wall_actor(tenant_id, device_id=None)` in `application/actor.py` (replaces the `WALL_ACTOR` constant, TEN-018), `board_to_dict(board) -> dict`, `board_from_dict(data) -> Board`, `BoardProjector(query_board, cache, clock)` with `async handle(event_type, payload) -> bool` and `async get_board(actor) -> Board`. Message on `board.updates`: `{"type": "board-changed", "service_id": str or null, "at": ISO 8601 UTC}`, no figures. The cache holds the board as JSON under `board:v1`. | U09 |
 
 ## Email adapter (I09, DEC-110)
 - `adapters/outbound/email_smtp/smtp_email.py`: `SmtpEmail(settings)` implements `EmailSender`. `SmtpSettings` is the structural Protocol it reads (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_password`, `smtp_starttls`, `email_from`). `build_message(to, subject, text, html, from_addr, message_id) -> EmailMessage` and `text_to_html(text, link_label) -> str` are module functions. The settings are read by `bootstrap/settings.py` as `Settings` fields with the same names.
@@ -297,7 +297,7 @@ These names were added by individual task prompts. They are as binding as the re
 - `adapters/inbound/sms_webhook/routes.py`: `router` with `POST /webhooks/sms/twilio` and `POST /webhooks/sms/twilio/status` (`REPLY_PATH`, `STATUS_PATH`), `SmsWebhookDeps(cache, event_bus, hasher, secrets, lines, public_base_url)` (set on `app.state.sms_webhook`), `twilio_signature(url, params, token) -> str`, `replay_key(message_sid) -> str`, `REPLAY_TTL` (24 h), `MAX_TEXT_CHARS` (1600), `MAX_FORM_BYTES`, `MAX_FORM_FIELDS`. Mounted by `create_app`.
 - `application/ports/outbound/tenant_lines.py`: `InboundLine(tenant_id, token_secret)` and `InboundLineDirectory` (`for_number(to_number, account_sid)`, `for_account(account_sid)`), each `-> InboundLine | None`. Fake: `adapters/testing/fixed_inbound_lines.py` `FixedInboundLines(lines)`. The real directory is TEN-007 and TEN-041.
 - `Cache.set_if_absent(key, value, ttl) -> bool` (`application/ports/outbound/cache.py`), on `RedisCache` and `InMemoryCache`.
-- `EventBus.enqueue(queue, message) -> None` (`application/ports/outbound/event_bus.py`), on `ServiceBusEventBus` and `ManualEventBus` (which also has `enqueued_to(queue)` and `take_enqueued()`); `BusMessage.tenant_id: str | None = None`, sent as the application property `tenantId`.
+- `EventBus.enqueue(queue, message) -> None` (`application/ports/outbound/event_bus.py`), on `ServiceBusEventBus` and `ManualEventBus` (which also has `enqueued_to(queue)` and `take_enqueued()`); `BusMessage.tenant_id` (required and keyword-only since TEN-020, DEC-251; it was `str | None = None`), sent as the application property `tenantId`.
 - Queue messages: `inbound.replies` carries `SmsReceived` with `{phone_hash, text, received_at, provider_message_id}`; `inbound.receipts` carries `SmsDeliveryReceived` with `{provider_message_id, status, error_code}`, id `<MessageSid>:<MessageStatus>`. Both carry the tenant.
 - Replay key: `idem:sms:<tenant>:<MessageSid>` through the cache's `cache:` family.
 
@@ -369,7 +369,7 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - Tests: `tests/support/relay_rig.py` (`SpyBus`, `InstrumentedFactory`, `TenantPrefixedCache`, `ScriptedTokenCache`, `add_messages`, `add_scheduled`).
 
 ## Inbound queue consumers (I08, DEC-165)
-- `adapters/inbound/workers/consumer.py`: `MessageConsumer` (Protocol, `async handle(message: BusMessage) -> Outcome`); `ServiceBusRunner` takes one. `servicebus_runner.to_bus_message` copies the `tenantId` application property into `BusMessage.tenant_id`; `ServiceBusRunner.serve` is an alias of `run` (the entry points call it).
+- `adapters/inbound/workers/consumer.py`: `MessageConsumer` (Protocol, `async handle(message: BusMessage) -> Outcome`); `ServiceBusRunner` takes one. `servicebus_runner.to_bus_message` builds the message with `from_wire`, the one reader of the `tenantId` property and the qualified ids (TEN-020, DEC-251); `ServiceBusRunner.serve` is an alias of `run` (the entry points call it).
 - `adapters/inbound/workers/tenant_binding.py`: `TenantBoundConsumer(inner: MessageConsumer, tenants: ActiveTenants, observe=untraced)`, `NO_TENANT`, `BAD_TENANT`, `UNKNOWN_TENANT` (the fixed dead-letter reasons), `Observe`, `untraced`. Every consumer of a message that belongs to a tenant is wrapped in it: it dead-letters a message with no tenant, an invalid one, a network id or one the directory does not list as active, and binds the tenant while the inner consumer runs.
 - `adapters/inbound/workers/reply_processor.py`: `ReplyProcessor(handle_inbound_text, uow_factory)` with `async handle(message) -> Outcome` (not an I04 handler: it holds no unit of work around the use case, DEC-165 item 3), `reply_consumer(handle_inbound_text, uow_factory, tenants, observe=untraced) -> TenantBoundConsumer`, `reply_key(provider_message_id)` (`sms-reply:<tenant>:<id>`, from the bound tenant), `CONSUMER_NAME = "reply-processor"`, `REPLY_EVENT = "SmsReceived"`, `HandlesInboundText` (Protocol).
 - `adapters/inbound/workers/delivery_tracker.py`: `DeliveryTracker` (an I04 handler, `await tracker(message, uow)`), `receipt_consumer(uow_factory, tenants, observe=untraced) -> TenantBoundConsumer`, `CONSUMER_NAME = "delivery-tracker"`, `RECEIPT_EVENT = "SmsDeliveryReceived"`, `RECEIPT_STATUSES`.
@@ -428,7 +428,7 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 ## Scheduled work consumer (I05, DEC-190 to DEC-195)
 
 - `adapters/inbound/scheduler/scheduled_work_consumer.py`: `CONSUMER_NAME = "scheduler"`, `EVENT_TYPE = "ScheduledWorkDue"`; `WorkHandler = Callable[[ScheduledWork], Awaitable[None]]`; `ScheduledWorkDispatcher(handlers: Mapping[WorkKind, WorkHandler])` with `kinds: frozenset[WorkKind]`, `handlers` (the table, read-only) and `async __call__(work: ScheduledWork) -> None` (raises `PermanentError("no handler for <kind>")` for a kind with none); `ScheduledWorkConsumer(dispatcher, uow_factory)` (a `MessageConsumer`, DEC-190); `build_scheduled_work_consumer(handlers, uow_factory, tenants, observe=untraced) -> TenantBoundConsumer`.
-- `bootstrap/container.py`: `Container.scheduled_work: ScheduledWorkDispatcher` (the ladder kinds reminder, phone-task and escalate-to-lead, DEC-192); `SCHEDULER_ACTOR` (DEC-193); `build_for_tests(..., *, link_base_url=TEST_LINK_BASE_URL)`.
+- `bootstrap/container.py`: `Container.scheduled_work: ScheduledWorkDispatcher` (the ladder kinds reminder, phone-task and escalate-to-lead, DEC-192); `SCHEDULER_CHANNEL` (DEC-193; the scheduler's actor is `system_actor(current_tenant(), SCHEDULER_CHANNEL)` per step since TEN-018, replacing the `SCHEDULER_ACTOR` constant); `build_for_tests(..., *, link_base_url=TEST_LINK_BASE_URL)`.
 - `bootstrap/workers_main.py`: a third runner on `scheduled.work`, built by `build_runners(client, handle_inbound_text, uow_factory, tenants, dispatcher)` (DEC-194).
 
 ## Criteria pre-filter and history (G11, DEC-197)
@@ -731,3 +731,217 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - Pure: `check_lead`, `resolved_status`, `check_resolution`, `sequence_of`, `describe_flag`
 - `FlagRepository.report_flag(flag_id)` (`application/ports/outbound/repositories.py`; adapter `flag_repository.py`, via `Q-FLAG-REPORT-GET`)
 - `ReportFlag.resolved_by` (`domain/model/flags.py`)
+
+## REST edge tenant binding (TEN-018, DEC-250)
+
+- `application/actor.py`: `Actor(role, practitioner_id, device_id, channel, service_ids, tenant_id)` (tenant required, last); `wall_actor(tenant_id, device_id=None)`, `system_actor(tenant_id, channel)`, `anonymous_actor(tenant_id, channel)`, `timer_actor(tenant_id)` (replaces `SYSTEM_ACTOR` of U19), `require_actor_in_bound_tenant(actor)`; `SYSTEM_CHANNEL = "system"`.
+- `application/tenancy.py`: `TenantMismatch`, `TENANT_MISMATCH_MESSAGE`.
+- `domain/codes.py`: `Role.TENANT_ADMIN = "tenant-admin"`, `Role.NETWORK_ADMIN = "network-admin"`, `Role.PLATFORM_OPERATOR = "platform-operator"`.
+- `domain/rules/bff_token.py`: `BffClaims(sub, role, services, expires_at, tenant, epoch, device=None)`; token claims `tenant` and `epoch`; `EPOCH_MAX`.
+- `domain/rules/edge_access.py`: `EdgeVerdict` (`allowed`, `refused`, `record-behind`), `edge_verdict(tenant, *, claimed_tenant, token_epoch, role, method)`.
+- `adapters/inbound/fhir_rest/tenant_gate.py`: `TenantGate(directory, clock).verdict(claims, method)`, `RECORD_TTL` (60 s), `MAX_RECORDS`.
+- `adapters/inbound/fhir_rest/auth.py`: `current_actor` (async generator dependency that binds the scope), `actor_from_claims` (copies the tenant); `ApiContainer.tenants`.
+- `adapters/testing/tokens.py`: `issue_test_token(role, services, sub, *, device, expires_at, tenant, epoch)`, `default_token_tenant()`, `SAMPLE_TENANT`, `TEST_TENANT_ENV`.
+- Removed names: `board_projector.WALL_ACTOR`, `text_code.ANONYMOUS`, `container.SCHEDULER_ACTOR` (now `SCHEDULER_CHANNEL`), `pin._ANONYMOUS` (now `ACTOR_CHANNEL`), `actor.SYSTEM_ACTOR`.
+- Tests: `tests/support/edge.py`, `tests/support/actors.py`, `tests/unit/application/test_actor.py`, `tests/unit/domain/rules/test_edge_access.py`, `tests/unit/adapters/inbound/fhir_rest/test_edge_binding.py`, `tests/unit/adapters/testing/test_tokens.py`, `tests/integration/adapters/inbound/fhir_rest/test_edge_tenants.py`.
+
+## Bus messages carry their tenant (TEN-020, DEC-251)
+
+- `application/ports/outbound/event_bus.py`: `BusMessage(id, topic, event_type, payload={}, session_id=None, traceparent=None, *, tenant_id)`; `WireView(message_id, session_id, subject, application_properties)`; `to_wire(message)`, `from_wire(topic, *, message_id, session_id, subject, properties, payload)`, `check_publishable(message)`; `MessageTenantError(reason)`; `TENANT_PROPERTY = "tenantId"`, `TENANT_SEPARATOR = ":"`, `MAX_WIRE_ID_LENGTH = 128`, `REASON_TENANT_MISSING`, `REASON_TENANT_MALFORMED`, `REASON_TENANT_MISMATCH`, `TENANT_REJECTION_REASONS`.
+- `adapters/outbound/bus_servicebus/service_bus.py`: `to_service_bus_message` is built on `to_wire` and is the only writer of the property.
+- `adapters/testing/memory_event_bus.py`: `ManualEventBus.wire(message)`, `published_to(topic, tenant_id=None)`.
+- Topic and queue messages on the wire: property `tenantId`; message id `<tenant>:<id>`; session id `<tenant>:<service id>`.
+- `application/use_cases/text_code.py`: the `SendCode` and `DiscardCode` payload is `{sealed_code, purpose}`.
+- Tests: `tests/unit/application/ports/outbound/test_event_bus.py`, `tests/support/bus.py` (`message_with_tenant`, `unvalidated_tenant`), `tests/support/servicebus.py` (`run_tenant`, `unique_id`), `tests/architecture/test_no_tenant_from_payload.py`.
+
+## Tenant policy in thirteen more rules (TEN-064, DEC-252)
+
+- The thirteen signatures of Decision item 1, each with the trailing `policy: TenantPolicy = DEFAULT_POLICY`; `alerts._alert` (private); `Alert(kind, service_id, raised_at, critical)` no longer compares `critical` with the kind.
+- Tests: `tests/unit/domain/rules/test_policy_threading.py` (new; defaults, non-default, bounds, wrong argument, ambient state, properties, mutant-style cases), the ratchet in `test_booking_rules.py`, one line removed from `test_status.py`, one case removed from `test_alerts.py`.
+
+## Projection allowlist, DTOs and privacy guard (TEN-052, DEC-270)
+
+- `diucs.domain.rules.projection`: `PROJECTION_ALLOWLIST_VERSION`, `FieldSpec(dto_field, prop, source)`, `ALLOWLIST`, `SYSTEM_PROPERTIES`, `NETWORK_RELATIONSHIPS`, `NEVER_SHARED`, `allowlist_digest()`, `supersedes(stored, incoming)`, `check_projection_text(field, value, maximum)`, `check_projection_id(field, value)`, `LocationInputs(name, postcode, city, latitude, longitude)`, `ServiceContactInputs(label, phone)`, `LocationProjection`, `OpeningHourProjection`, `ServiceProjection`, `CapacityProjection`, `CriteriaProjection` (each with `label`), `build_service_projection(profile, *, source_version, location, contact, source=MANUAL)`, `build_capacity_projection(profile, latest, *, confirmed_since, policy, source_version, valid_until)`, `build_criteria_projection(criteria)`.
+- `diucs.domain.rules.network_board`: `StatusInputs`, `status_inputs(capacity, service)`, `compute_network_state(inputs, now)`, `NetworkServiceInput(row_ref, organisation_name, service, capacity, listing, visible_scopes)`, `NetworkBoardEntry` (15 fields), `NetworkBoard(entries, pressure, all_limited_or_worse, generated_at)`, `assemble_network_board(inputs, now, *, watch_from, high_from)`, `network_pressure(entries, *, watch_from, high_from)`.
+- `diucs.application.projection`: `ProjectionRow(label, params)`, `ProjectionValue`, `to_rows`, `to_body`, `from_body(kind, body)`, `body_keys(kind)`, `format_window(hour)`, `parse_window(text, position)`, `check_network_write_statement(cypher) -> list[str]`, `assert_network_write_statement(cypher)`.
+- `diucs.domain.messages.privacy_guard`: `normalise_key`, `FORBIDDEN_KEY_FORMS`, `find_forbidden_keys`, `scan_value`, `MAX_SCAN_DEPTH`.
+- Test support: `tests/support/projection_samples.py`.
+
+## Tenant configuration records (TEN-026, DEC-271)
+
+- Domain (`diucs.domain.model.tenant_records`): `ChannelKind`, `ChannelProvider`, `RetentionAction`, `BindingStatus`, `MappingStatus`, `CHANNEL_PROVIDER`, `ENTRA_MAPPABLE_ROLES`, `KEPT_UNTIL_PURGE`, `MAX_KEEP_DAYS`, `TenantChannel`, `TenantRetention`, `default_retention()`, `EntraBinding`, `RoleMapping`. Existing `TenantConfig`, `TenantContact`, `TenantWording` (TEN-006) are used as they are.
+- Port (`diucs.application.ports.outbound.tenant_config`): `TenantConfigRepository` with `add_version`, `get_version`, `current_version`, `latest_version_number`, `move_version(config, expected)`, `put_contact`, `contacts`, `put_channel`, `channels`, `put_retention`, `retention`, `put_binding`, `bindings`, `put_role_mapping`, `role_mappings`. The unit of work has `tenant_config` (port `UnitOfWork`, `DEFAULT_FACTORIES`).
+- Adapter (`diucs.adapters.outbound.graph_store.tenant_config_repository`): `Neo4jTenantConfigRepository`, `CONFIG_QUERY_IDS`, and the pure mapping `setting_row`, `values_from_rows`, `version_props`, `version_from_props`, `contact_params`, `contact_from_props`, `channel_params`, `channel_from_props`, `retention_params`, `retention_from_props`, `binding_params`, `binding_from_props`, `mapping_params`, `mapping_from_props`. Statement ids: `Q-TCFG-ADD-VERSION`, `-ADD-SETTINGS`, `-GET`, `-CURRENT`, `-SETTINGS`, `-LATEST`, `-MOVE`; `Q-TCONTACT-PUT`, `-LIST`; `Q-TCHANNEL-PUT`, `-LIST`; `Q-TRETENTION-PUT`, `-LIST`; `Q-TBINDING-PUT`, `-LIST`; `Q-TMAPPING-PUT`, `-LIST`. Migration `0055_tenant_config_records` (`TENANT_CONFIG_MIGRATIONS`).
+- Use cases (`diucs.application.use_cases.tenant_config`): `CONFIGURATION_ROLES` (empty), `DraftTenantConfig`, `ApproveTenantConfig`, `RecordTenantContact`, `RecordTenantChannel`, `SetTenantRetention`, `BindEntraDirectory`, `MapEntraGroup`, `ReadTenantConfig` and their commands and results; the pure rules `check_configuration_role`, `plan_draft`, `apply_approval`, `plan_moves`, `supersede`, `configuration_facts`, `plan_channel`, `plan_retention`, `plan_binding`, `plan_mapping`; `ConfigDiff`, `ConfigurationFacts`.
+
+## Cross-tenant reference matrix (TEN-029, DEC-272)
+
+- Test support (`tests/support/relationship_matrix.py`): `Handling`, `Relationship`, `RELATIONSHIPS`, `written_types()`, `checked_cases()`, `shape(error, *ids)`. No production code and no migration is added by this task.
+
+## Filter options (U12, DEC-290)
+
+- `application/use_cases/filter_options.py`: `FilterOptions(uow_factory, clock, query_board, postcodes, travel_time)`, `execute(FilterOptionsCommand) -> FilterOptionsResult`; `FilterOptionsCommand(idempotency_key, actor, case_id)`; `Option(service_id, name, status, effective_available, over_by, unit_label, data_age, travel, fits, warnings, criteria_id, criteria_version)`; `NotSuitable(service_id, name, reason)`; `FilterOptionsResult(options, not_suitable, generated_at)`.
+- Pure: `status_reason`, `status_warnings`, `data_age_warnings`, `criteria_warnings`, `fits_for`, `option_order_key`, `need_phrase`, `NEED_PHRASES`.
+- `application/ports/outbound/geo.py`: `ServicePositions` Protocol, `get_many(service_ids) -> dict[str, LatLon]`.
+- `application/ports/outbound/unit_of_work.py`: `UnitOfWork.positions: ServicePositions`.
+- `adapters/outbound/graph_store/service_positions.py`: `Neo4jServicePositions(tx)`; named query `Q-SVC-POSITIONS` (HealthcareService `-[:LOCATION]->` Location, `tenantId: $tenant` on both nodes), registered with a scenario in `service_scenarios.py`.
+- `adapters/outbound/graph_store/unit_of_work.py`: factory entry `positions`.
+
+## Advisor phoned and decline (U13, DEC-292 and DEC-293)
+
+- `application/use_cases/advisor_phoned.py`: `RecordAdvisorPhonedCommand(idempotency_key, actor, service_id, told, value, case_id=None)`; `RecordAdvisorPhoned(report_capacity, uow_factory).execute(command) -> ReportCapacityResult`; `phoned_figure(told, value) -> int`; `PhonedAnswer`.
+- `application/use_cases/record_decline.py`: `RecordDeclineCommand(idempotency_key, actor, case_id, service_id, reason)`; `RecordDecline(uow_factory, clock, ids, idempotency, query_board).execute(command) -> RecordDeclineResult(case_id, service_id, reason, at)`; `ListDeclinesSince(uow_factory).execute(since) -> list[DeclineRecord]`; `DeclineRecord(service_id, reason, at)`; `number_seen`, `decline_snapshot`, `declines_from`; `DECLINE_USE_CASE = "RecordDecline"`.
+- `application/use_cases/report_capacity.py` (U01, additive): `ReportCapacityCommand.audit_detail: tuple[tuple[str, str], ...] = ()`; `record_report(..., audit_detail=())`.
+
+## Record outcome (U14, DEC-294 and DEC-295)
+
+- `application/use_cases/record_outcome.py`: `RecordOutcome(uow_factory, clock, idempotency).execute(RecordOutcomeCommand) -> RecordOutcomeResult(case_id, reference, closed_at)`; `RecordOutcomeCommand(idempotency_key, actor, case_id, outcome, destination_service_id=None, best_fit_not_used=None)`.
+- Pure: `check_destination(outcome, destination_service_id)`, `build_summary(case, *, destination_name, booking_line, data_age_line) -> list[tuple[str, str]]`, `needs_text`, `score_text`, `score_snapshot`, `close_snapshot`.
+- `RECORD_OUTCOME = "RecordOutcome"`, `CLOSE_ACTION = "U"`.
+
+## Respond to booking and decline reason (U18, DEC-300 and DEC-305)
+
+- `RespondToBookingCommand(idempotency_key, actor, booking_id, decision: "confirm" | "decline", reason: DeclineReason | None, channel: ReportSource)`, `RespondToBookingResult(booking_id, status, responded_at, already_final)`, `RespondToBooking(uow_factory, idempotency, clock, ids, sealer)`
+- `SetDeclineReasonCommand(idempotency_key, actor, booking_id, reason)`, `SetDeclineReason(uow_factory, idempotency, clock)`, `execute` returns None
+- `domain/rules/booking_response.py`: `plan_response`, `may_set_decline_reason`, `echo_message`, `responder_may_act`, `cancel_target`, `advisor_may_cancel`, `DECISIONS`
+- `application/sealed_send.py`: `queue_message(uow, ids, sealer, *, scope, rendered, recipient_role_id, about_id, now, link=None) -> communication id`, `MESSAGES_TOPIC`, `SEND_MESSAGE`
+- `application/booking_effects.py`: `cancel_booking_timers(uow, booking_id, now, *, keep=None)`, `text_reporter_role(uow, service_id, now)`, `expired(booking, at)`, `BOOKING_TIMER_KINDS`
+- `application/booking_effects.py`: `queue_echo(uow, ids, sealer, *, scope, rendered, booking, recipient_role_id, now) -> str` (added at integration, commit 97f314c: the echo Communication is about the booking's service, never the booking)
+
+## Booking timers (U19, DEC-301)
+
+- `BookingPhonePromptCommand(work_id, booking_id)`, `ExpireBookingCommand(work_id, booking_id)`, `TimerResult(acted: bool)`
+- `BookingPhonePrompt(uow_factory, clock).execute(command) -> TimerResult`, `ExpireBooking(uow_factory, clock).execute(command) -> TimerResult`
+- `booking_timer_handlers(phone_prompt, expire) -> Mapping[WorkKind, WorkHandler]`, `WorkHandler`
+- `domain/events.py`: `BookingPhonePrompt(booking_id, service_id, reference, at)`, event type `BookingPhonePrompt`, topic booking.events
+- `domain/rules/booking_timers.py`: `TimerEffect`, `phone_prompt_effect`, `expiry_effect`
+- `application/actor.py`: `timer_actor(tenant_id)` (this fragment named `SYSTEM_ACTOR`; TEN-018 replaced it, DEC-250 item 7)
+
+## Cancel booking (U20, DEC-302)
+
+- `CancelBookingCommand(idempotency_key, actor, booking_id, reason: CancelReason)`, `CancelBookingResult(booking_id, status)`, `CancelBooking(uow_factory, idempotency, clock, ids, sealer)`
+- `domain/events.py`: `BookingCancelled(booking_id, service_id, status: BookingStatus, at)`, event type `BookingCancelled`, topic booking.events
+
+## Suspend and resume a service (U36, DEC-303)
+
+- `SuspendReason` (StrEnum): `suspected-false-reports`, `closed-unexpectedly`, `contact-unreachable`, `other`
+- `SuspendServiceCommand(idempotency_key, actor, service_id, reason: str)`, `SuspendServiceResult(expired_requests: int, notified: bool = False)`
+- `SuspendService(uow_factory, idempotency, clock, ids, sealer, wording_for, policy)`, `WordingFor = Callable[[ScopeId], Awaitable[TenantWording | None]]`
+- `ResumeServiceCommand(idempotency_key, actor, service_id, phoned_register_number, reason_resolved)`, `ResumeServiceResult(status, next_due_at)`, `ResumeService(uow_factory, idempotency, clock, ids, policy)`
+- `may_suspend`, `suspend_reason_of`, `require_resume_checks`
+
+## Safety concerns and problem reports (U41, DEC-304)
+
+- `ReportSafetyConcernCommand(idempotency_key, actor, category: SafetyConcernCategory, reference: str | None, text: str)`, `ReportSafetyConcernResult(reference)`, `ReportSafetyConcern(uow_factory, idempotency, ids, clock, sealer)`
+- `ReportProblemCommand(idempotency_key, actor, category: ProblemCategory, text: str | None, session_shared: bool)`, `ReportProblemResult(report_id)`, `ReportProblem(uow_factory, idempotency, ids, clock)`
+- `SAFETY_OFFICER_ROLE_ID`
+- Port `SafetyReportRepository` (`next_concern_reference`, `add`, `get`), `UnitOfWork.safety_reports`; adapter `Neo4jSafetyReportRepository` (graph_store/safety_report_repository.py)
+- Statements `Q-SAFETY-NEXT-REF`, `Q-SAFETY-ADD`, `Q-SAFETY-GET`; node `SafetyCounter {tenantId, counterId, value, label}`; Task `{id, key, tenantId, code, category, requesterId, createdAt, reference, focusId, textHandle, ownerRoleId, sessionShared}`
+- Migration `0070_safety_counter_id` (migrations_safety.py, assembled in migrations.py)
+- `domain/rules/safety_report.py`: `SafetyConcernCategory`, `ProblemCategory`, `MAX_TEXT_LENGTH`, `checked_concern_text`, `checked_problem_text`, `safety_reference`, `concern_notice`
+- `domain/model/safety.py`: `SafetyReport`
+
+## RequestBooking sealing (U17-1, DEC-307)
+
+- `RequestBooking(..., sealer: ContentSealer, wording_for: WordingFor, *, link_base_url_for)`
+- `tests/support/booking_rig.py`: `sample_wording`
+
+## Invite a reporter (U24, DEC-310 to DEC-312)
+
+- `diucs.application.use_cases.invite_reporter`: `InviteReporterCommand(idempotency_key, actor, service_id, role_label, mobile, suggested_channel)`, `InviteReporterResult(invitation_id, registration_id, expires_at)`, `ResendInvitationCommand(idempotency_key, actor, invitation_id)`, `InviteReporter(uow_factory, link_tokens, phone_hasher, clock, ids, *, link_base_url_for)`, `ResendInvitation(uow_factory, link_tokens, clock, ids, *, link_base_url_for)` (result is `InviteReporterResult`), `check_may_invite`, `check_invite_mobile`, `check_in_pilot`, `invitation_expiry`, `invitation_link`, `redacted_invitation_link`, `lead_post`, `command_key`, `INVITE_LINK_PATH` (`/i/`), `LinkBaseUrlFor`.
+- `diucs.domain.model.registration.Invitation(id, service_id, registration_id, requester_role_id, invitee_id, role_label, created_at, sent_at, expires_at)`.
+- `diucs.domain.events.ReporterInvited(invitation_id, service_id, at)` (topic `registration.events`, in the `DomainEvent` union and the decoder map).
+- `RegistrationRepository.add_invitation / get_invitation / save_invitation`; `graph_store/invitation_fhir.py`: `invitation_to_fhir`, `invitation_from_fhir`, `is_invitation`, `INVITE_REPORTER`.
+- `LinkTokenRepository.open_for_about(purpose, about_id, now)` and statement `Q-LINK-OPEN-FOR-ABOUT` (converted, with a scenario).
+- Outbox: I1 as `SendMessage` on `messages.outbound` (payload as RequestBooking's); `ReporterInvited` on `registration.events`.
+- Test support: `tests/support/registration_rig.py` (`StubUnits` and stubs for the ports the registration use cases touch).
+
+## Registration persistence (U27, DEC-313 to DEC-315)
+
+- `diucs.application.use_cases.registration_submit`: `Lookups`, `PersistRegistrationCommand(registration_id)`, `PersistRegistrationResult(persisted, service_id)`, `PersistRegistration(uow_factory, geocoder, terminology, ids, clock)` with `execute` and `persist_registration`, `build_registration_bundle(draft, ids, now, address, *, service_id, owner_role_id, existing_districts=None)`, `choose_address`, `unit_label`, `encode_lookups`, `decode_lookups`, `lookups_of`, `LOOKUPS_STEP` (`lookups`), `UNIT_LABELS`, `ODS_ORG_SYSTEM`, `UPRN_SYSTEM`, `GEOCODE_SOURCE`.
+- `diucs.application.use_cases.registration_draft`: `RegistrationPersister` (Protocol), `SubmitRegistration(uow_factory, ids, clock, *, persist=None)`.
+- `RegistrationRepository.write_bundle(bundle) -> {fullUrl: "Type/id"}` and `district_locations(districts) -> {name: id}` (`Neo4jRegistrationRepository`); `graph_store/bundle_writer.py`: `BundleEntry`, `resolve_bundle`, `write_bundle`.
+- `diucs.domain.events.RegistrationPersisted(registration_id, service_id, at)` (topic `registration.events`).
+- `diucs.domain.model.registration`: `DISTRICT_TYPE_CODE`, `LOCATION_TYPE_SYSTEM`.
+- Statement `Q-REG-DISTRICT-LOCATIONS` (converted, with a scenario). The criteria label statement `Q-CRIT-LABEL` is also run by `write_bundle` for a Basic entry.
+- Draft key `lookups`: `ods_found`, `ods_active`, `ods_name`, `ods_type`, `address_found`, `address_district`, `checked_at`.
+
+## Registration review (U28, DEC-317 to DEC-319)
+
+- `diucs.application.use_cases.review_registration`: `AutomaticCheck(name, passed, message, explained_note)` (+ `ok`), `ScopeAnswers`, `ReviewStatus`, `StartReviewCommand` / `StartReviewResult`, `ExplainCheckCommand` / `ExplainCheckResult`, `RecordCallBackCommand` / `RecordCallBackResult`, `RecordScopeDecisionCommand` / `RecordScopeDecisionResult`, `GetReviewStatusQuery`; `StartReview`, `ExplainCheck`, `RecordScopeDecision`, `GetReviewStatus` each `(uow_factory, phone_hasher, clock, *, area_districts_for)` and `RecordCallBack(uow_factory, phone_hasher, secret_store, ids, clock, *, area_districts_for)`, all with `execute`.
+- Pure: `run_automatic_checks(registration, *, lookups, invited_phone_hash, reporting_phone_hash, area_districts, notes=None)`, `automatic_ok`, `check_may_review`, `name_key`, `organisation_email_ok`, `number_digits`, `callback_number_hash`, `districts_in_ranges`; constants `CHECK_ODS`, `CHECK_NAME`, `CHECK_ADDRESS`, `CHECK_PHONE`, `CHECK_EMAIL`, `CHECK_ORDER`, `NOTES_STEP` (`check_notes`), `FREE_MAIL_DOMAINS`, `NHS_MAIL_DOMAIN`, `NHS_ORGANISATION_TYPES`, `CALLBACK_KEY_PREFIX`; `AreaDistrictsFor`.
+- `diucs.domain.model.registration`: `CallBackResult` (confirmed, not-confirmed, no-answer), `Answer` (yes, no, not-sure).
+- `AuditLog.append_provenance(target_type, target_id, activity, agent_id, agent_role, source_communication_id=None, extra=None, agent_type="Practitioner") -> str` on the port; provenance activity `scope-decision`.
+- Provenance `call-back` extras: `callbackId`, `numberHash`, `result`, `roleSpokenTo`; `scope-decision` extras: `onDorsetPathway`, `takesSpoaReferrals`, `canReport`, `categoryOnPilotList`, `decision`, `reason`. Draft key `check_notes`.
+
+## PIN set-up and sign-in (U32, DEC-321 to DEC-324)
+
+- `diucs.application.use_cases.pin`: `SetPinCommand(practitioner_id, device_id, pin, verified_at)`, `SetPinResult(ok)`, `SetPin(uow_factory, secret_store, clock, rate_limiter)`; `PinSignInCommand(practitioner_id, device_id, pin)`, `PinSignInResult(ok, locked, tries_left, needs_text_code, practitioner_id, role, service_ids)`, `PinSignIn(uow_factory, secret_store, clock, rate_limiter)`; `RecordTextCodeVerifiedCommand(practitioner_id, device_id, verified_at, purpose)`, `RecordTextCodeVerifiedResult(device_known)`, `RecordTextCodeVerified(uow_factory, clock)`; `PinRateLimited(retry_after_seconds)` (answer 429); pure `pin_hash`, `verification_is_fresh`, `session_role`, `reporter_service_ids`, `limiter_key`; constants `PIN_HMAC_SECRET` (`pin-hmac`), `PIN_SET_WINDOW`, `VERIFIED_PURPOSES`, `RATE_WINDOW`, `SIGN_IN_PER_DEVICE`, `SIGN_IN_PER_PERSON`, `SET_PIN_PER_PERSON`, `NEEDS_TEXT_CODE`.
+- `DeviceRegistry.mark_verified(practitioner_id, device_id, at)` and `verified_at(practitioner_id, device_id) -> datetime | None` (`Neo4jDeviceRegistry`); statements `Q-DEVICE-MARK-VERIFIED` (write) and `Q-DEVICE-VERIFIED` (read), both converted with scenarios; property `lastVerifiedAt` on the practitioner's `Device` node.
+- Test support: `StubPins`, `StubDevices`, `StubLimiter` in `tests/support/registration_rig.py`.
+
+## Friction rules engine (O03, DEC-330)
+
+- `FRICTION_THRESHOLDS`, `QUICK_ACTION_ROUTES`, `PAGE_ELEMENT_ID`, `STREAM_ELEMENT_ID`, `UNTAGGED_ELEMENT_ID`, `FRICTION_EVENT` (`'ui.friction'`), `FrictionKind`, `FrictionEvent`, `ClickInput`, `ClickResult`, `FrictionEngineInit`, `FrictionEngine`, `FrictionHandle`
+- `createFrictionEngine(init)`: `onClick`, `onClickResult`, `onNetwork` (added), `onRequestStart`, `onRequestEnd`, `onError`, `onRoute`, `onValidation`, `onFocus`, `onSubmit`, `onLeave`, `onInteraction`, `onScroll`, `onStream`, `tick`
+- `attachFriction(now?) -> FrictionHandle | null`: `route(template)`, `stream(state)`, `detach()`
+- `frontend/lib/telemetry/trace.ts`: `addRequestObserver(observer) -> remove`
+- `frontend/lib/telemetry/events.ts`: `ALLOWED_EVENTS` gains `ui.friction`; `ALLOWED_ATTRIBUTES` gains `kind`, `count`, `window_ms`
+
+## OpenTelemetry Collector allow-list (O04, DEC-331 and DEC-332)
+
+- `infra/otel-allowlist.txt`, `infra/otel-collector.yaml`, `infra/otel-collector.test.yaml`, service `otel-collector` in `infra/docker-compose.yml` (profile `test`)
+- Pipelines: traces (`memory_limiter`, `transform/allowlist`, `tail_sampling`, `batch`), logs (`memory_limiter`, `transform/allowlist`, `batch`)
+
+## Telemetry schema scan (O05, DEC-333)
+
+- `AttrSpec`, `UI_EVENT_NAMES`, `UiEventName`, `ROLE_VALUES`, `COMMON_SCHEMA`, `EVENT_SCHEMAS`, `isFreeText`, `validateEvent`
+- `frontend/lib/telemetry/events.ts`: `droppedEvents` (exported, live binding), `ALLOWED_EVENTS` now `UI_EVENT_NAMES`
+
+## Daily telemetry aggregates (O08, DEC-334)
+
+- `application/ports/outbound/aggregates.py`: `AggregateRepository` (`replace_day`, `funnel_rows`, `friction_rows`, `usage_rows`, `route_rows`, `query_rows`), `check_one_day`
+- `application/ports/outbound/telemetry_query.py`: `TelemetryQuery.daily_aggregates(day) -> DayAggregates`
+- `domain/rules/telemetry_insights.py`: `FunnelStep`, `FUNNELS`, `SUPPRESS_BELOW_SESSIONS`, `FRICTION_REVIEW_RATE`, `RATE_WINDOW_DAYS`, `is_suppressed`, `friction_rate`, `for_review`, `rate_window_start`, `FunnelFigure`, `FrictionFigure`, `RouteFigure`, `QueryFigure`, `funnel_figures`, `friction_figures`, `route_figures`, `query_figures`
+- `adapters/outbound/graph_store/aggregate_repository.py`: `Neo4jAggregateRepository`, statements `Q-AGG-*`
+- `application/use_cases/telemetry_aggregates.py`: `BuildDailyAggregates`, `BuildDailyAggregatesResult`, `ReadInsights`
+- `UnitOfWork.aggregates`; `DEFAULT_FACTORIES["aggregates"]`
+- Fixture: `tests/fixtures/telemetry/s-7f3a.json` gains a `daily` list (synthetic); `FixtureTelemetryQuery.daily_aggregates`
+
+## Support codes and console routes (R18, DEC-335)
+
+- Routes (`adapters/inbound/fhir_rest/routes_support.py`, prefix `/support`, registered in `app.py`): `POST /codes`, `DELETE /codes/current`, `GET /accesses`, `POST /sessions/open`, `GET /sessions`, `POST /sessions/{id}/ticket`, `GET /sessions/{id}/events`, `DELETE /sessions/{id}`, `GET /traces/{traceId}`, `POST /tickets/{id}/approve`
+- `application/use_cases/support_console.py`: `RequestSupportTicket`, `ApproveSupportTicket`, `OpenSupportSession`, `ReadSessionEvents`, `ReadTrace`, `SearchSessions`, `EndSupportAccess`, `SessionEvents`, `TraceView`, `RAW_LOOKBACK`
+- `domain/rules/support_console.py`: `ALLOWED_EVENT_KEYS`, `TIMELINE_KINDS`, `EVENT_FILTERS`, `public_event`, `standout_events`
+- `application/ports/outbound/support_tickets.py`: `SupportTicketRecord`, `SupportTicketRepository`, `TicketState`; `adapters/outbound/graph_store/support_ticket_repository.py`: `Neo4jSupportTicketRepository`
+- `UnitOfWork.support_tickets`; `DEFAULT_FACTORIES["support_tickets"]`
+
+## Web Push and notification consent (I14, DEC-340)
+
+- `diucs.adapters.outbound.push_webpush.web_push`: `WebPushSender(vapid_private_key, vapid_subject, *, transport=webpush)`, `send(subscription, title, body, url, *, urgency)`, `vapid_private_key(secrets)`, `configured_push_sender(secrets, subject)`, `VAPID_PRIVATE_KEY_SECRET`, `PUSH_TTL_SECONDS`, `GONE`.
+- `diucs.application.ports.outbound.messaging`: `PUSH_GONE`; `SendReceipt.reason`; `PushSender.send(..., *, urgency="normal")`.
+- `diucs.application.ports.outbound.consent`: `NotificationConsent`, `NotificationConsentStore` (`record`, `withdraw`, `get`).
+- `diucs.adapters.outbound.graph_store.notification_consent_store`: `consent_id`, `consent_resource`, `Neo4jNotificationConsentStore(store)`, `CONSENT_CATEGORY_CODE`, `CONSENT_WORDING_SYSTEM`.
+- `diucs.application.use_cases.push_subscription`: `SavePushSubscriptionCommand(idempotency_key, actor, device_id, subscription, wording_version)`, `SavePushSubscriptionResult(device_id, consent_at)`, `SavePushSubscription(uow_factory, clock, ids, idempotency).execute`, `RemovePushSubscriptionCommand(idempotency_key, actor, device_id)`, `RemovePushSubscriptionResult(device_id)`, `RemovePushSubscription(...).execute`.
+- `diucs.adapters.inbound.workers.message_senders`: `PushMessageSender(sender, sealer, app_url, clock)`, `push_urgency(message_id)`, `push_runner(...)`, `CONSUMER_PUSH = "sender-push"`, `PUSH_URGENT_IDS`.
+- Unit of work: `notification_consents` (factory key `notification_consents`); `PersonRepository.get_role(role_id)`.
+- Settings: `webpush_subject`.
+
+## Alert preferences (U33, DEC-341)
+
+- `diucs.application.use_cases.subscribe_alert`: `SaveAlertPreferencesCommand(idempotency_key, actor, kinds, not_updated_hours, quiet_hours, quiet_critical_only, ack_minutes, deputy_id, daily_summary, weekly_summary)`, `SaveAlertPreferences(uow_factory, idempotency, clock).execute -> AlertSubscription`, `GetAlertPreferences(uow_factory).execute(actor) -> AlertSubscription`, `NEVER_SAVED`, `DEPUTY_CODES`, `ALLOWED_ROLES`, `SavedAlertPreferences`.
+
+## Criteria review reminders (U31, DEC-342)
+
+- `diucs.application.use_cases.criteria_reviews`: `RunCriteriaReviews(uow_factory, ids, clock, sealer).execute(RunCriteriaReviewsCommand(work_id)) -> CriteriaReviewsResult(reminders_sent, flags_set)`; `ensure_daily_schedule(uow_factory, ids, clock) -> bool`; `next_run_due(now)`, `first_run_due(now)`, `reminder_marker(criteria_id, review_by)`; `REVIEW_RUN_AT`, `CONSUMER`, `REMINDER_CONSUMER`, `SYSTEM_ACTOR`.
+- `diucs.bootstrap.container`: `criteria_review_handler(job)`; `_scheduled_work` registers it.
+
+## Service moves and additions (U38, DEC-343)
+
+- `diucs.application.use_cases.move_service`: `StartServiceMove(uow_factory, ids, clock, hasher).execute(StartServiceMoveCommand(actor, service_id, to_mobile, until)) -> MoveResult(move_id)`; `VerifyServiceMoveCode(uow_factory, verifier, clock, hasher).execute(VerifyServiceMoveCodeCommand(move_id, mobile, code))`; `RecordMoveCallBack(uow_factory, clock).execute(RecordMoveCallBackCommand(actor, move_id))`; `CompleteServiceMove(uow_factory, ids, clock, hasher).execute(CompleteServiceMoveCommand(actor, move_id))`; `AddServiceToPhone(uow_factory, ids, clock, hasher).execute(AddServiceToPhoneCommand(actor, service_id, mobile)) -> AddServiceToPhoneResult(role_id)`; `AnswerServiceAddition(uow_factory, clock).execute(AnswerServiceAdditionCommand(actor, role_id, accept))`; `CodeVerifier`; `MOVE_CODE_PURPOSE`.
+- `diucs.domain.model.flags`: `SERVICE_FLAG_HOLDS_MANY`.
+
+## Lead routes (R08, DEC-344)
+
+- `diucs.adapters.inbound.fhir_rest.routes_lead`: `router` (prefix `/fhir`), `set_up_service` (`POST /HealthcareService/$setup`), `change_reporter_number` (`POST /PractitionerRole/{role_id}/$change-number`), `setup_command(body, actor, key)`, `change_parameters(body)`, `number_ending(mobile)`, `MOBILE_REFUSAL`, `PILOT_CHANNELS`, `OWNER_ROLE_DEFAULT`.
+- `diucs.adapters.inbound.fhir_rest.app`: `routes_lead.router` included.

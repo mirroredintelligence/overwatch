@@ -124,6 +124,9 @@ GLOBAL_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
 # a relationship type and a count and nothing else, so no property value can leave the graph. The
 # digest pin is still the guarantee. Adding an id here is as deliberate as adding one to the
 # allowlist, and test_global_allowlist.py pins the set.
+GLOBAL_WRITE_IDS: Final[frozenset[str]] = frozenset()
+NETWORK_REGISTRY_LABELS: Final[frozenset[str]] = frozenset()
+
 GLOBAL_WHOLE_GRAPH_IDS: Final[frozenset[str]] = frozenset(
     {"Q-INVARIANT-UNSTAMPED", "Q-INVARIANT-CROSS-SCOPE"}
 )

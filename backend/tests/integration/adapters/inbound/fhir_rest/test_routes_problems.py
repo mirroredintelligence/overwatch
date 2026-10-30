@@ -78,7 +78,7 @@ async def test_a_report_without_text_is_stored_without_a_handle(
     assert stored.session_shared is False
 
 
-async def test_a_repeat_with_the_same_key_is_the_same_report_and_another_body_is_a_conflict(
+async def test_a_repeat_with_the_same_key_is_the_same_report_and_another_body_is_refused(
     api_client: AsyncClient, clinical_world: None, tenant_id: str
 ) -> None:
     first = await _post(api_client, tenant_id, "problem-0003")

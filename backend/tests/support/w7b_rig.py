@@ -166,6 +166,12 @@ class StubScheduledWork:
             if work.about_id == about_id and (kind is None or work.kind is kind)
         ]
 
+    async def get(self, work_id: str) -> ScheduledWork | None:
+        return next((work for work in self.held if work.id == work_id), None)
+
+    async def save(self, work: ScheduledWork) -> None:
+        self.held = [held for held in self.held if held.id != work.id] + [work]
+
 
 class StubTenantConfig:
     """The tenant configuration: only the current version, with its wording."""
@@ -262,8 +268,21 @@ class W7BCapacity:
     async def last_report_times(self) -> dict[str, datetime | None]:
         return {sid: report.effective_at for sid, report in self.reports.items()}
 
+    async def add(self, report: CapacityReport) -> None:
+        """The latest report of its service is the one kept (a report the routes write, W8D)."""
+        self.reports[report.service_id] = report
+
+    async def lock_service(self, service_id: str) -> None:
+        """A single-process stub: nothing to lock."""
+
+    async def latest_confirmation_at(self, service_id: str) -> datetime | None:
+        return None
+
 
 class W7BBookings:
+    async def confirmed_since(self, service_id: str, since: datetime) -> list[datetime]:
+        return []
+
     async def open_for_services(self, service_ids: Sequence[str]) -> dict[str, list[Any]]:
         return {}
 

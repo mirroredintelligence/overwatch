@@ -651,7 +651,7 @@ async def test_a_lead_records_what_a_service_said_by_phone_with_no_case() -> Non
     assert stored.value == 3
     assert stored.source is ReportSource.ADVISOR_PHONED
     entry = rig.units.audit.entries[-1]
-    assert entry.use_case == "RecordAdvisorPhoned"
+    assert entry.use_case == "ReportCapacity"  # the one unit that writes the report and its audit
     assert entry.snapshot is not None
     assert entry.snapshot["told"] == "limited"
     assert "case_id" not in entry.snapshot

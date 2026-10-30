@@ -12,6 +12,9 @@ GET  /lead/services/{id}/suspension    suspended, since, reason, expiredRequests
 GET  /lead/reporters[?service=]        the reporter posts with roleId (for change-number, remove)
 GET  /lead/phones                      the phones and the services each holds now
 GET  /lead/invitations                 each invitation with the steps of the set-up
+POST /lead/services/{id}/phoned        Idempotency-Key; {"told", "value"}; what the service said by
+                                       phone, with no case (RecordAdvisorPhoned, U13, DEC-920); 201
+                                       {reportId, value}
 POST /lead/invitations/{id}/resend     Idempotency-Key; the invitation text again (U24)
 POST /lead/invitations/{id}/switch-to-text   Idempotency-Key; 200 {channel: "text"}
 
@@ -31,6 +34,7 @@ from diucs.adapters.inbound.fhir_rest.auth import require_role
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from diucs.adapters.inbound.fhir_rest.routes_registration import NO_STORE
+from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.clock import Clock
@@ -39,6 +43,12 @@ from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.tokens import LinkTokenService, SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId
+from diucs.application.use_cases.advisor_phoned import (
+    PHONED_ANSWERS,
+    PhonedAnswer,
+    RecordAdvisorPhoned,
+    RecordAdvisorPhonedCommand,
+)
 from diucs.application.use_cases.invite_reporter import (
     LinkBaseUrlFor,
     ResendInvitation,
@@ -57,6 +67,7 @@ from diucs.application.use_cases.lead_views import (
     ListReporters,
 )
 from diucs.application.use_cases.missed_report_ladder import MissedReportLadder
+from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.domain.codes import Channel, Role, Status
 from diucs.domain.errors import ValidationFailed
 
@@ -279,6 +290,9 @@ async def read_invitations(
 # ---------------------------------------------------------------------------------- actions
 
 
+_PHONED_KEYS: Final = frozenset({"told", "value"})
+
+
 @router.post("/services/{service_id}/remind")
 async def remind(
     service_id: str, request: Request, actor: Annotated[Actor, Depends(require_role(*LEAD))]
@@ -318,6 +332,53 @@ async def test_prompt(
         return _answer({"channel": sent.channel.value, "numberEnding": sent.number_ending})
 
     return await replay_or_run(request, actor, f"lead-test-prompt:{service_id}:{key}", run)
+
+
+@router.post("/services/{service_id}/phoned", status_code=201)
+async def record_phoned(
+    service_id: str, request: Request, actor: Annotated[Actor, Depends(require_role(*LEAD))]
+) -> Response:
+    key = idempotency_key(request)
+    body = await _optional_json(request)
+    if set(body) - _PHONED_KEYS:
+        raise ValidationFailed("body", "names a value this route does not take")
+    told = body.get("told")
+    if not isinstance(told, str) or told not in PHONED_ANSWERS:
+        raise ValidationFailed("told", "must be accepting, limited or not-accepting")
+    value = body.get("value")
+    container = _container(request)
+
+    async def run() -> Response:
+        # The lead's answer has no case, so the report carries no case id (DEC-920). The use case
+        # refuses a value that does not match the answer, before anything is written.
+        result = await RecordAdvisorPhoned(
+            ReportCapacity(
+                container.uow_factory,
+                container.clock,
+                container.ids,
+                UnitOfWorkIdempotency(container.uow_factory),
+            ),
+            container.uow_factory,
+        ).execute(
+            RecordAdvisorPhonedCommand(
+                idempotency_key=key,
+                actor=actor,
+                service_id=service_id,
+                told=cast(PhonedAnswer, told),
+                value=value if isinstance(value, int) and not isinstance(value, bool) else None,
+            )
+        )
+        async with container.uow_factory() as uow:
+            stored = await uow.capacity.get(result.report_id)
+        if stored is None:
+            raise RuntimeError("the report that was just stored cannot be read")
+        return FhirJSONResponse(
+            content={"reportId": stored.id, "value": stored.value},
+            status_code=201,
+            headers=NO_STORE,
+        )
+
+    return await replay_or_run(request, actor, f"lead-phoned:{service_id}:{key}", run)
 
 
 @router.post("/invitations/{invitation_id}/resend")

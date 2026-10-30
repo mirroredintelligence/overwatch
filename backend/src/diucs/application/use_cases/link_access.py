@@ -40,6 +40,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final, Protocol
+from zoneinfo import ZoneInfo
 
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
@@ -91,6 +92,8 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import PractitionerRole
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules.london_time import LONDON
 from diucs.domain.rules.reply_parser import Confirm, Number
 from diucs.domain.rules.reply_policy import (
     AskRecheck,
@@ -284,8 +287,12 @@ def iso_utc(moment: datetime | None) -> str | None:
     return moment.astimezone(UTC).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def next_due_iso(profile: object, now: datetime, policy: object, zone: object) -> str | None:
-    raise NotImplementedError
+def next_due_iso(
+    profile: ServiceProfile, now: datetime, policy: TenantPolicy, zone: ZoneInfo
+) -> str | None:
+    """The next prompt of the service after `now`, as the page shows it: in the tenant's zone and
+    under the tenant's policy (TEN-041), written in UTC. None when the service has none."""
+    return iso_utc(next_due(profile, now, policy, zone))
 
 
 def command_key(scope: ScopeId, record: LinkTokenRecord) -> str:
@@ -621,7 +628,12 @@ class CapacityLinkHandler:
         sealer: ContentSealer,
         reports: _Reports,
         confirms: _Confirms,
+        *,
+        zone: ZoneInfo = LONDON,
     ) -> None:
+        """`zone` is the tenant's time zone, read by the route from the host's tenant record
+        (TEN-041). The default is the one zone the allow-list holds today (DEC-353): a caller that
+        knows no tenant, a test rig, gets London's."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
@@ -629,6 +641,7 @@ class CapacityLinkHandler:
         self._sealer = sealer
         self._reports = reports
         self._confirms = confirms
+        self._zone = zone
 
     @staticmethod
     async def _target(uow: UnitOfWork, link: LinkRequest) -> _Target:
@@ -668,6 +681,8 @@ class CapacityLinkHandler:
         async with self._uow_factory() as uow:
             target = await self._target(uow, link)
             latest = await uow.capacity.latest(target.profile.id)
+            config = await uow.tenant_config.current_version()
+        policy = DEFAULT_POLICY if config is None else config.policy
         profile = target.profile
         return {
             "serviceName": profile.name,
@@ -677,7 +692,7 @@ class CapacityLinkHandler:
             "usualMin": profile.usual_range[0],
             "usualMax": profile.usual_range[1],
             "replyBy": iso_utc(link.record.expires_at),
-            "nextDue": iso_utc(next_due(profile, link.now)),
+            "nextDue": next_due_iso(profile, link.now, policy, self._zone),
         }
 
     async def respond(self, link: LinkRequest, action: LinkAction) -> Body:

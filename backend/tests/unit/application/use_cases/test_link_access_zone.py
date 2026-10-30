@@ -159,12 +159,12 @@ def test_the_next_prompt_is_worked_out_in_the_zone_given() -> None:
     assert next_due_iso(DAILY, NOW, DEFAULT_POLICY, NEW_YORK) == "2026-07-01T13:00:00Z"
 
 
-def test_a_service_with_no_next_prompt_has_none() -> None:
-    from dataclasses import replace
+def test_a_service_with_no_next_prompt_has_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    from diucs.application.use_cases import link_access
 
-    never = replace(DAILY, available_times=())
+    monkeypatch.setattr(link_access, "next_due", lambda *args, **kwargs: None)
 
-    assert next_due_iso(never, NOW, DEFAULT_POLICY, LONDON) is None
+    assert next_due_iso(DAILY, NOW, DEFAULT_POLICY, LONDON) is None
 
 
 async def test_the_page_shows_the_next_prompt_in_the_zone_the_route_passed() -> None:

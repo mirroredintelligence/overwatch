@@ -46,7 +46,7 @@ from diucs.domain.codes import (
 )
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -250,7 +250,10 @@ async def test_the_reporters_mobile_is_found_only_on_the_protected_contact_node(
 
     await _persist(uow_factory).execute(PersistRegistrationCommand(registration_id))
 
-    nodes = await _rows(neo4j_driver, "MATCH (n) RETURN labels(n) AS labels, properties(n) AS p")
+    async def read_nodes(tx: Any) -> list[dict[str, Any]]:
+        return await (await run_nodes(tx, "labels(n) AS labels, properties(n) AS p")).data()
+
+    nodes = await read_tx(neo4j_driver, read_nodes)
     holding = {
         tuple(row["labels"])
         for row in nodes

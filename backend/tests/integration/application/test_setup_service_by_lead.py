@@ -43,7 +43,7 @@ from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.people import Practitioner
 from diucs.domain.model.service import AvailableTime
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, run_nodes
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -120,7 +120,7 @@ async def _seed_lead(factory: UnitOfWorkFactory) -> None:
 
 async def _total_nodes(driver: AsyncDriver) -> int:
     async def work(tx: AsyncManagedTransaction) -> int:
-        record = await (await tx.run("MATCH (n) RETURN count(n) AS total")).single()
+        record = await (await run_nodes(tx, "count(n) AS total")).single()
         assert record is not None
         return int(record["total"])
 
@@ -131,9 +131,7 @@ async def _labels_holding(driver: AsyncDriver, needle: str) -> set[tuple[str, ..
     """The label sets of every node with a string property that contains `needle`, by a raw read."""
 
     async def work(tx: AsyncManagedTransaction) -> set[tuple[str, ...]]:
-        rows = await (
-            await tx.run("MATCH (n) RETURN labels(n) AS labels, properties(n) AS props")
-        ).data()
+        rows = await (await run_nodes(tx, "labels(n) AS labels, properties(n) AS props")).data()
         return {
             tuple(row["labels"])
             for row in rows

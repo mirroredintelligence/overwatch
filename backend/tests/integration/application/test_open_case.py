@@ -39,7 +39,7 @@ from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.case import Case
 from diucs.domain.model.scores import ClinicalFrailty, News2
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, node_props, read_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, run_nodes
 from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads
 
@@ -133,7 +133,7 @@ async def _every_property_text(driver: AsyncDriver) -> list[str]:
     """The text of every property of every node in the graph."""
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        return await (await tx.run("MATCH (n) RETURN properties(n) AS props")).data()
+        return await (await run_nodes(tx, "properties(n) AS props")).data()
 
     rows = await read_tx(driver, work)
     return [str(value) for row in rows for value in row["props"].values()]

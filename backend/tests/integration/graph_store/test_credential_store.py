@@ -26,7 +26,7 @@ from diucs.application.tenancy import current_tenant
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.people import Practitioner
 from diucs.domain.rules.identity_policy import PinOutcome, PinState, pin_attempt
-from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, run_nodes, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -71,10 +71,9 @@ async def _read(driver: AsyncDriver, step: Any) -> Any:
 
 async def _nodes_holding(driver: AsyncDriver, text: str) -> int:
     """How many nodes hold `text` in one of their properties (a string, or a list of strings)."""
-    query = "MATCH (n) RETURN properties(n) AS props"
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        return await (await tx.run(query)).data()
+        return await (await run_nodes(tx, "properties(n) AS props")).data()
 
     holding = 0
     for row in await read_tx(driver, work):

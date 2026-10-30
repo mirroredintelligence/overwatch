@@ -40,7 +40,7 @@ from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from diucs.domain.rules.pressure import Pressure
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import read_tx
+from tests.support.neo4j import read_tx, run_nodes
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -180,7 +180,7 @@ async def _board(
 
 async def _node_count(driver: AsyncDriver) -> int:
     async def count(tx: AsyncManagedTransaction) -> int:
-        result = await tx.run("MATCH (n) RETURN count(n) AS nodes")
+        result = await run_nodes(tx, "count(n) AS nodes")
         record = await result.single()
         assert record is not None
         return int(record["nodes"])

@@ -569,6 +569,39 @@ async def tx_run(tx: Any, cypher: str, /, **params: Any) -> Any:
     return await tx.run(cypher, **params, tenant=_bound_or_given(None))
 
 
+def run_scope_ids() -> list[str]:
+    """The scope ids of this process's run (tenant, second tenant, network scope), as the conftest
+    exported them (`DIUCS_TEST_TENANT`, `_OTHER_TENANT`, `_NETWORK`): the only scopes a test of this
+    run may write to, and so the only ones a whole-graph scan of a test needs to read."""
+    names = ("DIUCS_TEST_TENANT", "DIUCS_TEST_OTHER_TENANT", "DIUCS_TEST_NETWORK")
+    values = [os.environ.get(name, "") for name in names]
+    if not all(values):
+        raise RuntimeError("the run's scope ids are not set: the tests conftest sets them")
+    return values
+
+
+# Every node of this run's scopes: those that carry one of its ids as `tenantId`, and the registry
+# records (`Tenant`, `Network`) that carry it as `id`. The graph holds other runs' data too (one
+# shared Neo4j, DEC-461), so a test that reads "every node" means this run's, never the database's.
+RUN_NODES = (
+    "MATCH (n) WHERE n.tenantId IN $scopes OR ((n:Tenant OR n:Network) AND n.id IN $scopes) "
+)
+
+
+async def run_nodes(tx: Any, returning: str) -> Any:
+    """Run `MATCH <every node of the run's scopes> RETURN <returning>` (the node is `n`)."""
+    return await tx.run(f"{RUN_NODES}RETURN {returning}", scopes=run_scope_ids())
+
+
+async def run_relationships(tx: Any, returning: str) -> Any:
+    """The relationships (`r`) that leave a node of the run's scopes."""
+    return await tx.run(
+        f"MATCH (a)-[r]->() WHERE a.tenantId IN $scopes OR "
+        f"((a:Tenant OR a:Network) AND a.id IN $scopes) RETURN {returning}",
+        scopes=run_scope_ids(),
+    )
+
+
 async def count_nodes(driver: AsyncDriver, label: str, *, tenant: str | None = None) -> int:
     """The nodes with this label in the tenant bound now (or in `tenant`). With nothing bound and
     no tenant given it raises TenantNotBound: a global count is `count_nodes_all`."""

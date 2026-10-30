@@ -39,7 +39,7 @@ from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import ScopeEntry
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -144,9 +144,7 @@ async def rig(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, clean_g
 
 async def _every_property_value(driver: AsyncDriver) -> list[tuple[list[str], str, Any]]:
     async def work(tx: Any) -> list[dict[str, Any]]:
-        return await (
-            await tx.run("MATCH (n) RETURN labels(n) AS labels, properties(n) AS p")
-        ).data()
+        return await (await run_nodes(tx, "labels(n) AS labels, properties(n) AS p")).data()
 
     rows = await read_tx(driver, work)
     return [(row["labels"], name, value) for row in rows for name, value in row["p"].items()]

@@ -56,7 +56,7 @@ from tests.support.ladder_rig import (
     seed_report,
     virtual_ward,
 )
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
 Seed = Callable[..., Awaitable[None]]
 
@@ -117,7 +117,7 @@ async def _reminders(driver: AsyncDriver) -> list[dict[str, Any]]:
 
 async def _every_node_property(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        result = await tx.run("MATCH (n) RETURN properties(n) AS props")
+        result = await run_nodes(tx, "properties(n) AS props")
         return await result.data()
 
     return [row["props"] for row in await read_tx(driver, work)]

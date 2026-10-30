@@ -14,7 +14,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.tokens import LinkTokenService
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
-from tests.support.neo4j import count_nodes, read_tx, write_tx
+from tests.support.neo4j import count_nodes, read_tx, run_nodes, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -69,7 +69,7 @@ async def _burn(driver: AsyncDriver, clock: FixedClock, token: str, key: str = "
 
 async def _every_node_text(driver: AsyncDriver) -> str:
     async def work(tx: AsyncManagedTransaction) -> str:
-        rows = await (await tx.run("MATCH (n) RETURN properties(n) AS props")).data()
+        rows = await (await run_nodes(tx, "properties(n) AS props")).data()
         return " ".join(str(row["props"]) for row in rows)
 
     return await read_tx(driver, work)

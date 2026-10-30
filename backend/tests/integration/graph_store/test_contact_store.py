@@ -17,7 +17,7 @@ from diucs.adapters.outbound.graph_store.contact_store import Neo4jContactStore
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.application.tenancy import current_tenant
 from diucs.domain.errors import Conflict, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, run_nodes, write_tx
 from tests.support.scoped import scoped
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -45,11 +45,10 @@ async def _get_phone(driver: AsyncDriver, role_id: str) -> str | None:
 
 async def _nodes_holding(driver: AsyncDriver, text: str) -> list[list[str]]:
     """The labels of every node that holds `text` in one of its properties (a string, or a list
-    of strings). Scans every node, so a copy anywhere in the graph is found."""
-    query = "MATCH (n) RETURN labels(n) AS labels, properties(n) AS props"
+    of strings). Scans every node of the run's scopes, so a copy anywhere the run wrote is found."""
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        return await (await tx.run(query)).data()
+        return await (await run_nodes(tx, "labels(n) AS labels, properties(n) AS props")).data()
 
     rows = await read_tx(driver, work)
     holding: list[list[str]] = []

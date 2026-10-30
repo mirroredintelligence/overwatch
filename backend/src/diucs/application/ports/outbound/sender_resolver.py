@@ -12,6 +12,7 @@ references held by the adapter; the sender port never sees a tenant id or a secr
 from typing import Protocol
 
 from diucs.application.ports.outbound.messaging import EmailSender, SmsSender
+from diucs.domain.model.tenant_records import TenantChannel
 
 
 class ChannelUnavailable(Exception):
@@ -24,6 +25,7 @@ class SenderResolver(Protocol):
         """The text sender of the bound tenant. Raises ChannelUnavailable when there is none."""
         ...
 
-    async def email_for(self) -> EmailSender:
-        """The email sender of the bound tenant. Raises ChannelUnavailable when there is none."""
+    async def email_for(self, channel: TenantChannel | None) -> EmailSender:
+        """The email sender of the bound tenant, from the tenant's active email channel record (the
+        caller reads it in its own unit of work). Raises ChannelUnavailable when there is none."""
         ...

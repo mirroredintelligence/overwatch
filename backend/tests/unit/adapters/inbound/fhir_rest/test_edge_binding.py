@@ -26,6 +26,7 @@ from httpx import ASGITransport, AsyncClient
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, current_actor, require_role
 from diucs.adapters.inbound.fhir_rest.errors import LOGIN_TEXT
+from diucs.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.application.actor import Actor
@@ -517,6 +518,7 @@ TENANT_FREE = {
     ): "refuses every write with 405, reads nothing (R04)",
 }
 BINDS_ITSELF = {
+    ("GET", "/public/tenant-profile"): "tenant from the host, by bind_host_tenant (TEN-040)",
     ("POST", "/screens/pairing"): "tenant from the host (R15)",
     ("GET", "/screens/pairing/{pairing_id}"): "tenant from the host (R15)",
     ("POST", "/identity/code"): "tenant from the host (R11)",
@@ -531,6 +533,12 @@ BINDS_ITSELF = {
     ("POST", "/links/{token}/renew"): "tenant from the link token record (L01)",
     ("POST", "/test/synthetic/prompt"): "the synthetic hook's own configured tenant (O09)",
 }
+
+
+def _depends_on(dependant: Any, target: Any) -> bool:
+    if dependant.call is target:
+        return True
+    return any(_depends_on(child, target) for child in dependant.dependencies)
 
 
 def _depends_on_actor(dependant: Any) -> bool:
@@ -627,3 +635,14 @@ async def test_the_live_stream_refuses_a_token_for_a_tenant_with_no_record() -> 
         response = await client.get("/events", headers=bearer(TENANT_A, Role.ADVISOR))
 
     assert response.status_code == 401
+
+
+async def test_every_public_route_binds_the_tenant_of_its_host_through_the_one_binder() -> None:
+    app = build(active_tenants(TENANT_A))
+
+    public = {key: route for key, route in _routes(app).items() if key[1].startswith("/public/")}
+
+    assert public
+    for key, route in public.items():
+        assert _depends_on(route.dependant, bind_host_tenant), key
+        assert not _depends_on_actor(route.dependant), key

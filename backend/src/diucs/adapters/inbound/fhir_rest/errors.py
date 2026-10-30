@@ -40,6 +40,23 @@ class HeaderRefused(Exception):
         self.message = message
 
 
+class RateLimited(Exception):
+    """A limit on a route with no token is used up (TEN-040): 429 with Retry-After."""
+
+    def __init__(self, retry_after_seconds: int) -> None:
+        super().__init__("rate limited")
+        self.retry_after_seconds = retry_after_seconds
+
+
+class TemporarilyUnavailable(Exception):
+    """A store a route with no token needs cannot be reached (TEN-040): 503 with Retry-After. The
+    cause is logged by class name by the raiser and never reaches the body."""
+
+    def __init__(self, retry_after_seconds: int) -> None:
+        super().__init__("temporarily unavailable")
+        self.retry_after_seconds = retry_after_seconds
+
+
 NOT_FOUND_TEXT = "The requested resource was not found."
 CONFLICT_TEXT = "The change conflicts with the current state of the record."
 TRANSITION_TEXT = "This change is not allowed in the current state of the record."
@@ -50,6 +67,8 @@ UNSUPPORTED_MEDIA_TEXT = (
 INTERNAL_TEXT = "Internal error"
 METHOD_TEXT = "The HTTP method is not allowed for this resource."
 LOGIN_TEXT = "The bearer token is missing, expired or not valid."
+RATE_LIMITED_TEXT = "Too many requests. Try again shortly."
+UNAVAILABLE_TEXT = "This is not available right now. Try again shortly."
 PRECONDITION_FAILED_TEXT = "The If-Match version does not match the current version of the record."
 PRECONDITION_REQUIRED_TEXT = (
     "A write without a version is refused. Send If-Match with the version you read."
@@ -141,6 +160,26 @@ def _header_refused(request: Request, exc: Any) -> Response:
     return operation_outcome(exc.status_code, exc.code, exc.message)
 
 
+def _rate_limited(request: Request, exc: Any) -> Response:
+    assert isinstance(exc, RateLimited)
+    return operation_outcome(
+        429,
+        "throttled",
+        RATE_LIMITED_TEXT,
+        headers={"Retry-After": str(exc.retry_after_seconds), "Cache-Control": "no-store"},
+    )
+
+
+def _unavailable(request: Request, exc: Any) -> Response:
+    assert isinstance(exc, TemporarilyUnavailable)
+    return operation_outcome(
+        503,
+        "transient",
+        UNAVAILABLE_TEXT,
+        headers={"Retry-After": str(exc.retry_after_seconds), "Cache-Control": "no-store"},
+    )
+
+
 def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ValidationFailed, _validation_failed)
     app.add_exception_handler(ProfileRejected, _profile_rejected)
@@ -153,6 +192,8 @@ def install_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(PreconditionFailed, _precondition_failed)
     app.add_exception_handler(PreconditionRequired, _precondition_required)
     app.add_exception_handler(HeaderRefused, _header_refused)
+    app.add_exception_handler(RateLimited, _rate_limited)
+    app.add_exception_handler(TemporarilyUnavailable, _unavailable)
 
 
 class BodyTypeMiddleware:

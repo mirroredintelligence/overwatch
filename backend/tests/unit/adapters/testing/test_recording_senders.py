@@ -75,3 +75,57 @@ async def test_fail_next_on_push_refuses_the_next_push_only() -> None:
     sender.fail_next()
     assert (await sender.send(SAMPLE_SUBSCRIPTION, "t", "b", "u")).accepted is False
     assert (await sender.send(SAMPLE_SUBSCRIPTION, "t", "b", "u")).accepted is True
+
+
+# Which tenant and which identity sent (TEN-042)
+
+from diucs.adapters.testing.recording_senders import FixedSenderResolver  # noqa: E402
+from diucs.application.tenancy import bind_tenant  # noqa: E402
+
+
+async def test_a_text_records_the_tenant_bound_when_it_was_sent_and_the_identity_it_left_from() -> (
+    None
+):
+    sender = RecordingSmsSender(identity="+447700900001")
+
+    with bind_tenant("tenant-a"):
+        await sender.send(SAMPLE_MOBILE, "hello", "C1")
+
+    [recorded] = sender.sent
+    assert recorded.tenant == "tenant-a"
+    assert recorded.identity == "+447700900001"
+
+
+async def test_an_email_records_the_tenant_bound_and_the_identity() -> None:
+    sender = RecordingEmailSender(identity="ops@alpha.example.test")
+
+    with bind_tenant("tenant-b"):
+        await sender.send("ops@example.test", "subject", "text", None)
+
+    [recorded] = sender.sent
+    assert recorded.tenant == "tenant-b"
+    assert recorded.identity == "ops@alpha.example.test"
+
+
+async def test_a_send_with_no_tenant_bound_records_none_and_is_not_refused() -> None:
+    sender = RecordingSmsSender()
+
+    await sender.send(SAMPLE_MOBILE, "hello", "C1")
+
+    assert sender.sent[0].tenant is None
+    assert sender.sent[0].identity is None
+
+
+async def test_the_fixed_resolver_gives_each_tenant_its_own_recording_sender() -> None:
+    first, second = RecordingEmailSender(identity="a"), RecordingEmailSender(identity="b")
+    resolver = FixedSenderResolver(email={"tenant-a": first, "tenant-b": second})
+
+    with bind_tenant("tenant-a"):
+        sender_a = await resolver.email_for(None)
+        await sender_a.send("x@example.test", "s", "t", None)
+    with bind_tenant("tenant-b"):
+        sender_b = await resolver.email_for(None)
+        await sender_b.send("x@example.test", "s", "t", None)
+
+    assert [m.tenant for m in first.sent] == ["tenant-a"]
+    assert [m.tenant for m in second.sent] == ["tenant-b"]

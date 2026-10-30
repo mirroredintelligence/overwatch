@@ -324,3 +324,47 @@ async def test_a_capacity_report_written_through_the_board_projector_streams_one
     assert set(data) == {"serviceId", "changedAt"}
     assert data["serviceId"] == "svc-ucr-west"
     assert datetime.fromisoformat(data["changedAt"].replace("Z", "+00:00")) == R01_TEST_NOW
+
+
+# Two tenants (TEN-039, DEC-132): a stream is the caller's scope only.
+
+
+def _headers_of(tenant: str) -> dict[str, str]:
+    token = issue_test_token(Role.WALL, [], "device-wall-x", tenant=tenant)
+    return {"authorization": f"Bearer {token}"}
+
+
+async def test_a_tenants_stream_gets_its_own_tenants_events_and_never_the_others(
+    stream_app: FastAPI, stream_cache: InMemoryCache, tenant_id: str, other_tenant_id: str
+) -> None:
+    from tests.support.tenancy import as_tenant
+
+    async with (
+        _Stream(stream_app, _headers_of(tenant_id)) as first,
+        _Stream(stream_app, _headers_of(other_tenant_id)) as second,
+    ):
+        with as_tenant(other_tenant_id):
+            await stream_cache.publish(BOARD_UPDATES_CHANNEL, PUBLISHED_PROJECTOR)
+        await second.read_until(PROJECTOR_EVENT_TEXT)
+        await asyncio.sleep(0.2)
+        assert first.text() == ""
+
+        with as_tenant(tenant_id):
+            await stream_cache.publish(BOARD_UPDATES_CHANNEL, PUBLISHED_BOARD)
+        await first.read_until(EVENT_TEXT)
+        await asyncio.sleep(0.2)
+
+    assert first.text() == EVENT_TEXT
+    assert second.text() == PROJECTOR_EVENT_TEXT
+
+
+async def test_a_stream_holds_one_subscription_in_its_own_tenants_scope(
+    stream_app: FastAPI, stream_cache: InMemoryCache, tenant_id: str, other_tenant_id: str
+) -> None:
+    from tests.support.tenancy import as_tenant
+
+    async with _Stream(stream_app, _headers_of(other_tenant_id)):
+        with as_tenant(other_tenant_id):
+            assert stream_cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 1
+        with as_tenant(tenant_id):
+            assert stream_cache.subscriber_count(BOARD_UPDATES_CHANNEL) == 0

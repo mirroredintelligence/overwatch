@@ -61,7 +61,7 @@ from diucs.adapters.testing.fixed_terminology import FixedTerminology
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.actor import system_actor
-from diucs.application.ports.outbound.cache import Cache
+from diucs.application.ports.outbound.cache import Cache, PlatformSlots
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.geo import (
     AddressCandidate,
@@ -157,6 +157,9 @@ class Container:
     # The Cache port on the same Redis client (DEC-003: short-lived counts and keys only). The
     # pairing limits of the wall screen routes (R15) are kept here.
     cache: Cache
+    # The cache's platform namespace (TEN-040): the source-address limiter of the routes with no
+    # token counts here, before any tenant is known. The same Redis client as `cache`.
+    platform_slots: PlatformSlots
     # The random source of pairing codes and device tokens (U10): cryptographic in production.
     rng: random.Random
     # Postcode centroids for the patient's position, read from the local file (I11). A patient
@@ -364,6 +367,7 @@ def build(
     # seen through TenantKeyedSecrets, and nothing outside it holds the platform key.
     store: SecretStore = TenantKeyedSecrets(NoSecrets() if secrets is None else secrets)
     uow_factory = neo4j_uow_factory(neo4j, clock=clock)
+    redis_cache = RedisCache(redis)
     return Container(
         clock=clock,
         ids=ids,
@@ -376,7 +380,8 @@ def build(
         sessions=RedisSessionStore(redis),
         codes=RedisCodeStore(redis, clock),
         rate_limiter=RedisRateLimiter(redis),
-        cache=RedisCache(redis),
+        cache=redis_cache,
+        platform_slots=redis_cache,
         rng=random.SystemRandom(),
         postcodes=(
             NoPostcodes()
@@ -429,6 +434,8 @@ def build_for_tests(
     resolved_ids = SequentialIds() if ids is None else ids
     store: SecretStore = FixedSecretStore({}) if secrets is None else secrets
     uow_factory = neo4j_uow_factory(neo4j, clock=resolved_clock)
+    memory = InMemoryCache(resolved_clock)
+    resolved_cache = memory if cache is None else cache
     return Container(
         clock=resolved_clock,
         ids=resolved_ids,
@@ -441,7 +448,8 @@ def build_for_tests(
         sessions=RedisSessionStore(resolved_redis),
         codes=RedisCodeStore(resolved_redis, resolved_clock),
         rate_limiter=RedisRateLimiter(resolved_redis),
-        cache=InMemoryCache(resolved_clock) if cache is None else cache,
+        cache=resolved_cache,
+        platform_slots=resolved_cache if isinstance(resolved_cache, PlatformSlots) else memory,
         rng=random.Random(TEST_RNG_SEED) if rng is None else rng,
         postcodes=FixedPostcodeLocator({}, {}),
         travel=FixedTravelTime(TravelRange(low_minutes=10, high_minutes=20, source="test fixed")),

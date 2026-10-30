@@ -28,6 +28,7 @@ from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
     WorkHandler,
     build_scheduled_work_consumer,
 )
+from diucs.adapters.inbound.workers.board_consumer import BoardRebuilder, board_runners
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.message_senders import push_runner, sender_runners
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
@@ -44,8 +45,10 @@ from diucs.application.ports.outbound.messaging import PushSender
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.sender_resolver import SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.use_cases.board_projector import BoardProjector
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
+from diucs.application.use_cases.query_board import QueryBoard
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.application.work import WorkKind
 from diucs.bootstrap.container import build
@@ -83,6 +86,7 @@ def build_runners(
     push: PushSender | None = None,
     clock: Clock | None = None,
     app_url: str = "",
+    board_projector: BoardRebuilder | None = None,
 ) -> list[ServiceBusRunner]:
     """One runner for each inbound queue, each over a consumer that binds the message's tenant and
     handles the message under its trace span (O01): the replies, the receipts and, with the
@@ -116,6 +120,8 @@ def build_runners(
         runners.append(
             push_runner(client, uow_factory, tenants, push, sealer, clock, app_url, observe)
         )
+    if board_projector is not None:
+        runners += board_runners(client, board_projector, tenants, observe)
     return runners
 
 
@@ -164,6 +170,9 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
             push=push,
             clock=container.clock,
             app_url=settings.base_url,
+            board_projector=BoardProjector(
+                QueryBoard(container.uow_factory, container.clock), cache, container.clock
+            ),
         )
         await run_workers([runner.serve for runner in runners], stop)
     finally:

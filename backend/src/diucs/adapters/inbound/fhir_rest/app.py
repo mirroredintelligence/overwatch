@@ -84,6 +84,7 @@ def create_app(
         routes_events,
         routes_identity,
         routes_lead,
+        routes_public,
         routes_screens,
         routes_services,
         routes_terminology,
@@ -103,6 +104,8 @@ def create_app(
     app.include_router(routes_screens.router)
     # Reporter identity: text code, PIN, the 30-day check and push subscriptions (R11).
     app.include_router(routes_identity.router)
+    # The public tenant profile (TEN-040): no token, the tenant is the request host.
+    app.include_router(routes_public.router)
     # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.
     app.include_router(routes_lead.router)
 

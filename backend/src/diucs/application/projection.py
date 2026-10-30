@@ -24,6 +24,7 @@ from typing import Any, Final
 
 from diucs.domain.codes import Cadence, Measure, NeedCategory, ServiceCategory
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.events import ProjectionValue
 from diucs.domain.model.network import DirectorySource, GrantScope
 from diucs.domain.rules import projection as allowlist
 from diucs.domain.rules.projection import (
@@ -34,7 +35,6 @@ from diucs.domain.rules.projection import (
     ServiceProjection,
 )
 
-type ProjectionValue = str | int | float | bool | None | tuple[str, ...]
 type Projection = ServiceProjection | CapacityProjection | CriteriaProjection
 type RowValue = str | int | float | bool | None | list[Any] | datetime | date | time
 

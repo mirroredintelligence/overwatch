@@ -34,11 +34,14 @@ from diucs.application.cross_tenant_guard import (
     AuthoriseCommand,
     CrossTenantDenied,
     CrossTenantGuard,
+    DecisionNoteCommand,
     EndAccessCommand,
     IssueCodeCommand,
     OpenAccessCommand,
     PlatformPrincipal,
     RevokeAccessCommand,
+    TicketNoteCommand,
+    WithdrawCodeCommand,
 )
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.identity import TenantKeyedSecrets
@@ -695,3 +698,265 @@ async def test_no_other_role_can_revoke(role: Role) -> None:
         await r.guard.revoke(
             RevokeAccessCommand(actor=admin(role=role), access_id=elevation.access_id)
         )
+
+
+# ----------------------------------------------------------------------- the ticket flow (TEN-075)
+
+
+async def test_an_issued_code_carries_the_hash_it_is_held_under_and_never_prints_it() -> None:
+    r = rig()
+
+    with bind_tenant("tenant-a"):
+        issued = await r.guard.issue_code(IssueCodeCommand(actor=admin()))
+        names = r.cache.keys()
+        stored = [await r.cache.get(key.split(":cache:", 1)[1]) for key in names]
+
+    assert len(issued.code_hash) == 64 and set(issued.code_hash) <= set("0123456789abcdef")
+    assert issued.code_hash in stored[0]  # type: ignore[operator]
+    assert issued.code_hash not in repr(issued) and issued.code not in repr(issued)
+
+
+async def test_a_withdrawn_code_opens_nothing_and_the_withdrawal_is_in_the_tenants_chain() -> None:
+    r = rig()
+    with bind_tenant("tenant-a"):
+        issued = await r.guard.issue_code(IssueCodeCommand(actor=admin()))
+        await r.guard.withdraw_code(WithdrawCodeCommand(actor=admin(), code_hash=issued.code_hash))
+
+    with pytest.raises(CrossTenantDenied):
+        await open_access(r, issued.code)
+
+    assert actions(r.world.chain("tenant-a")) == [
+        "support-access-code-issued",
+        "support-access-code-withdrawn",
+    ]
+    withdrawn = r.world.chain("tenant-a")[-1]
+    assert (withdrawn.use_case, withdrawn.actor.role) == (
+        "WithdrawSupportAccessCode",
+        Role.TENANT_ADMIN,
+    )
+    assert issued.code_hash not in repr(withdrawn) and issued.code not in repr(withdrawn)
+
+
+async def test_withdrawing_a_code_of_one_tenant_does_not_touch_the_others() -> None:
+    r = rig()
+    with bind_tenant("tenant-a"):
+        a = await r.guard.issue_code(IssueCodeCommand(actor=admin()))
+    with bind_tenant("tenant-b"):
+        b = await r.guard.issue_code(IssueCodeCommand(actor=admin("tenant-b")))
+        await r.guard.withdraw_code(
+            WithdrawCodeCommand(actor=admin("tenant-b"), code_hash=a.code_hash)
+        )
+
+    assert (await open_access(r, a.code)).tenant_id == "tenant-a"
+    assert (await open_access(r, b.code, "tenant-b")).tenant_id == "tenant-b"
+
+
+@pytest.mark.parametrize("role", [r for r in Role if r is not Role.TENANT_ADMIN])
+async def test_only_the_tenants_administrator_withdraws_a_code(role: Role) -> None:
+    r = rig()
+    with bind_tenant("tenant-a"):
+        issued = await r.guard.issue_code(IssueCodeCommand(actor=admin()))
+        with pytest.raises(CrossTenantDenied):
+            await r.guard.withdraw_code(
+                WithdrawCodeCommand(actor=admin(role=role), code_hash=issued.code_hash)
+            )
+
+    assert (await open_access(r, issued.code)).tenant_id == "tenant-a"
+
+
+@pytest.mark.parametrize("bad", ["", "abc", "Z" * 64, "a" * 63, None, 5])
+async def test_a_hash_that_is_not_a_hash_is_refused_and_nothing_is_written(bad: object) -> None:
+    r = rig()
+
+    with bind_tenant("tenant-a"), pytest.raises(CrossTenantDenied):
+        await r.guard.withdraw_code(WithdrawCodeCommand(actor=admin(), code_hash=bad))  # type: ignore[arg-type]
+
+    assert r.world.chain("tenant-a") == []
+
+
+async def test_a_ticket_step_is_written_to_the_platform_chain_then_the_tenants() -> None:
+    r = rig()
+
+    await r.guard.note_ticket(
+        TicketNoteCommand(
+            principal=PRINCIPAL,
+            tenant_id="tenant-a",
+            action="support-ticket-requested",
+            ticket_id="st-1",
+            snapshot={"reason": "service-fault"},
+        )
+    )
+
+    (platform,) = r.platform.entries
+    assert (platform.action, platform.principal_ref, platform.tenant_id) == (
+        "support-ticket-requested",
+        REF,
+        "tenant-a",
+    )
+    assert platform.snapshot == {"ticket": "st-1", "reason": "service-fault"}
+    (entry,) = r.world.chain("tenant-a")
+    assert (entry.use_case, entry.action, entry.entity_ids) == (
+        "SupportAccessTicket",
+        "support-ticket-requested",
+        ("st-1",),
+    )
+    assert (entry.actor.role, entry.actor.practitioner_id, entry.actor.tenant_id) == (
+        Role.SUPPORT,
+        REF,
+        "tenant-a",
+    )
+    assert r.world.chain("tenant-b") == []
+    assert current_scope_or_none() is None
+
+
+async def test_a_ticket_step_can_name_the_access_it_opened() -> None:
+    r = rig()
+
+    await r.guard.note_ticket(
+        TicketNoteCommand(
+            principal=PRINCIPAL,
+            tenant_id="tenant-a",
+            action="support-ticket-opened",
+            ticket_id="st-1",
+            access_id="access-1",
+        )
+    )
+
+    assert r.platform.entries[0].access_id == "access-1"
+
+
+async def test_a_ticket_step_for_a_tenant_the_directory_does_not_know_writes_nothing() -> None:
+    r = rig()
+
+    with pytest.raises(CrossTenantDenied):
+        await r.guard.note_ticket(
+            TicketNoteCommand(
+                principal=PRINCIPAL,
+                tenant_id="tenant-zz",
+                action="support-ticket-requested",
+                ticket_id="st-1",
+            )
+        )
+
+    assert r.platform.entries == [] and r.world.chains == {}
+
+
+@pytest.mark.parametrize(
+    "field",
+    ["principal", "tenant_id", "action", "ticket_id", "access_id"],
+)
+async def test_a_ticket_step_with_a_bad_field_writes_nothing(field: str) -> None:
+    r = rig()
+    good: dict[str, Any] = {
+        "principal": PRINCIPAL,
+        "tenant_id": "tenant-a",
+        "action": "support-ticket-requested",
+        "ticket_id": "st-1",
+        "access_id": "access-1",
+    }
+    bad = {
+        "principal": admin(),  # a tenant's actor is no principal
+        "tenant_id": "net-alliance",
+        "action": "Not A Word",
+        "ticket_id": "has space",
+        "access_id": "has space",
+    }
+
+    with pytest.raises((CrossTenantDenied, Exception)) as refused:
+        await r.guard.note_ticket(TicketNoteCommand(**{**good, field: bad[field]}))
+
+    assert refused.type.__name__ in {"CrossTenantDenied", "ValidationFailed"}
+    assert r.platform.entries == [] and r.world.chains == {}
+
+
+async def test_a_ticket_step_the_platform_cannot_record_is_not_written_to_the_tenant() -> None:
+    r = rig()
+    r.platform.fail_next = True
+
+    with pytest.raises(ConnectionError):
+        await r.guard.note_ticket(
+            TicketNoteCommand(
+                principal=PRINCIPAL,
+                tenant_id="tenant-a",
+                action="support-ticket-requested",
+                ticket_id="st-1",
+            )
+        )
+
+    assert r.world.chains == {}
+
+
+async def test_a_ticket_step_the_tenants_chain_cannot_record_raises() -> None:
+    r = rig()
+    r.world.fail_tenant_audit = True
+
+    with pytest.raises(ConnectionError):
+        await r.guard.note_ticket(
+            TicketNoteCommand(
+                principal=PRINCIPAL,
+                tenant_id="tenant-a",
+                action="support-ticket-requested",
+                ticket_id="st-1",
+            )
+        )
+
+    assert current_scope_or_none() is None
+
+
+async def test_the_administrators_decision_is_written_to_both_chains() -> None:
+    r = rig()
+
+    with bind_tenant("tenant-a"):
+        await r.guard.note_decision(
+            DecisionNoteCommand(
+                actor=admin(),
+                action="support-ticket-approved",
+                ticket_id="st-1",
+                snapshot={"expires_at": NOW + CODE_VALID_FOR},
+            )
+        )
+
+    (platform,) = r.platform.entries
+    assert (platform.action, platform.principal_ref, platform.tenant_id) == (
+        "support-ticket-approved",
+        "admin-1",
+        "tenant-a",
+    )
+    assert platform.snapshot == {
+        "ticket": "st-1",
+        "by": "tenant-admin",
+        "expires_at": NOW + CODE_VALID_FOR,
+    }
+    (entry,) = r.world.chain("tenant-a")
+    assert (entry.use_case, entry.actor.role, entry.entity_ids) == (
+        "SupportAccessTicket",
+        Role.TENANT_ADMIN,
+        ("st-1",),
+    )
+
+
+@pytest.mark.parametrize("role", [r for r in Role if r is not Role.TENANT_ADMIN])
+async def test_only_the_tenants_administrator_writes_a_decision(role: Role) -> None:
+    r = rig()
+
+    with bind_tenant("tenant-a"), pytest.raises(CrossTenantDenied):
+        await r.guard.note_decision(
+            DecisionNoteCommand(
+                actor=admin(role=role), action="support-ticket-approved", ticket_id="st-1"
+            )
+        )
+
+    assert r.platform.entries == [] and r.world.chains == {}
+
+
+async def test_a_decision_by_an_administrator_of_another_tenant_is_a_wiring_fault() -> None:
+    r = rig()
+
+    with bind_tenant("tenant-a"), pytest.raises(TenantMismatch):
+        await r.guard.note_decision(
+            DecisionNoteCommand(
+                actor=admin("tenant-b"), action="support-ticket-approved", ticket_id="st-1"
+            )
+        )
+
+    assert r.platform.entries == []

@@ -1,9 +1,10 @@
 import { FhirError } from '@/lib/fhir/client';
 import { withBff } from '@/lib/bff/handler';
 import { readRegistration, saveStep } from '@/lib/register/backend';
-import { issuesFromOutcome, organisationValues, STEP_FIELDS } from '@/lib/register/draft';
+import { issuesFromOutcome, locationValues, organisationValues, STEP_FIELDS } from '@/lib/register/draft';
 import { bffJson, jsonBody, refuse } from '@/lib/register/requests';
 import { isStepName } from '@/lib/register/steps';
+import type { StepName } from '@/lib/register/types';
 
 // Saves one registration step (W54: the organisation step; W24 to W26 add the others). The browser
 // sends its answers only. The invitation's values come from the back end, the back end checks the
@@ -13,7 +14,17 @@ type Context = { params: Promise<{ id: string; step: string }> };
 
 const ID = /^[A-Za-z0-9-]{1,64}$/;
 /** The steps this route saves. The others are built with their own tasks. */
-const BUILT_STEPS: readonly string[] = ['organisation'];
+const BUILT_STEPS: readonly string[] = ['organisation', 'location'];
+
+/** The values one step sends. The organisation's locked values are read from the back end, never the browser. */
+async function valuesFor(step: StepName, body: Record<string, unknown>, token: string, id: string): Promise<Record<string, unknown>> {
+  if (step === 'location') return locationValues(body);
+  const registration = await readRegistration(token, id);
+  return organisationValues(body, {
+    organisationName: registration.invitation.organisationName,
+    odsCode: registration.invitation.odsCode,
+  });
+}
 
 const put = withBff<Context>(
   async (request, session, context) => {
@@ -24,11 +35,7 @@ const put = withBff<Context>(
     const body = await jsonBody(request, STEP_FIELDS[step]);
     if (body === null) return refuse(400, 'invalid', 'The request was not valid.');
 
-    const registration = await readRegistration(session.backendToken, id);
-    const values = organisationValues(body, {
-      organisationName: registration.invitation.organisationName,
-      odsCode: registration.invitation.odsCode,
-    });
+    const values = await valuesFor(step, body, session.backendToken, id);
 
     try {
       const saved = await saveStep(session.backendToken, id, step, values);

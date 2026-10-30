@@ -35,17 +35,19 @@ describe('validateLocation', () => {
       { field: 'siteName', message: 'Enter the site name' },
       { field: 'siteType', message: 'Choose a site type' },
       { field: 'opening', message: 'Choose the opening days, or 24 hours' },
+      { field: 'opens', message: 'Enter a time like 08:00' },
+      { field: 'closes', message: 'Enter a time like 08:00' },
     ]);
   });
 
   it('refuses a postcode that is not one, with the postcode message', () => {
-    expect(validateLocation({ fixedSite: true, postcode: 'DT4', addressId: 'a1', siteName: 'x', siteType: 'ward', allDay: true })).toEqual([
+    expect(validateLocation({ fixedSite: true, postcode: 'DT4', address: 'Sample House, DT4 8XX', siteName: 'x', siteType: 'ward', allDay: true })).toEqual([
       { field: 'postcode', message: 'Enter a full postcode' },
     ]);
   });
 
   it('accepts a time only in the form 08:00, and wants the closing time after the opening time', () => {
-    const base = { fixedSite: true, postcode: 'DT4 8XX', addressId: 'a1', siteName: 'x', siteType: 'ward', days: [0] };
+    const base = { fixedSite: true, postcode: 'DT4 8XX', address: 'Sample House, DT4 8XX', siteName: 'x', siteType: 'ward', days: [0] };
     expect(validateLocation({ ...base, opens: '8:00', closes: '20:00' })).toEqual([
       { field: 'opens', message: 'Enter a time like 08:00' },
     ]);
@@ -63,7 +65,7 @@ describe('validateLocation', () => {
 
   it('needs no days or times for a 24-hour service', () => {
     expect(
-      validateLocation({ fixedSite: true, postcode: 'DT4 8XX', addressId: 'a1', siteName: 'x', siteType: 'clinic', allDay: true }),
+      validateLocation({ fixedSite: true, postcode: 'DT4 8XX', address: 'Sample House, DT4 8XX', siteName: 'x', siteType: 'clinic', allDay: true }),
     ).toEqual([]);
   });
 });

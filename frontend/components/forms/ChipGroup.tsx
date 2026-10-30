@@ -16,12 +16,14 @@ export type ChipGroupProps = {
   /** One choice (the chip pressed last) or several. */
   multiple?: boolean;
   requirement?: 'required' | 'optional';
+  /** Text under the legend, for a question that needs a sentence of help. */
+  hint?: string;
   onChange: (next: string[]) => void;
   error?: string | null;
   dataEl?: string;
 };
 
-export function ChipGroup({ id, legend, options, selected, multiple = false, requirement, onChange, error = null, dataEl }: ChipGroupProps) {
+export function ChipGroup({ id, legend, options, selected, multiple = false, requirement, hint, onChange, error = null, dataEl }: ChipGroupProps) {
   const errorId = `${id}-error`;
   const toggle = (value: string, pressed: boolean) => {
     if (multiple) {
@@ -42,6 +44,7 @@ export function ChipGroup({ id, legend, options, selected, multiple = false, req
       {requirement !== undefined ? (
         <span className={styles.word}>{requirement === 'required' ? 'Required' : 'Optional'}</span>
       ) : null}
+      {hint ? <p className={styles.hint}>{hint}</p> : null}
       <div className={styles.chips}>
         {options.map((option) => (
           <Chip

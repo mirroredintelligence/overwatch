@@ -2,6 +2,7 @@
 // back end checks the same answers again on every save (R10 validate_step); a refusal from it is
 // shown with the same field names, so the two never disagree about where a problem is.
 
+import { normalisePostcode } from './postcode';
 import { ORGANISATION_TYPES } from './options';
 import type { FieldIssue } from './types';
 
@@ -43,11 +44,12 @@ export function validateOrganisation(answers: OrganisationAnswers): FieldIssue[]
   return issues;
 }
 
-// Stub (red commit): the location step's checks.
 export type LocationAnswers = {
   fixedSite?: boolean;
   postcode?: string;
+  /** The id of the address the lookup offered (screen state only). */
   addressId?: string;
+  /** The label of the chosen address, which the back end stores (R10 LocationStep.address). */
   address?: string;
   siteName?: string;
   siteType?: string;
@@ -58,6 +60,45 @@ export type LocationAnswers = {
   siteOdsCode?: string;
 };
 
-export function validateLocation(_answers: LocationAnswers): FieldIssue[] {
-  throw new Error('not implemented');
+const SITE_TYPES: readonly string[] = ['ward', 'community-hospital', 'hub-or-base', 'clinic', 'other'];
+const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Minutes since midnight for a valid HH:MM, or null. */
+function minutes(value: string | undefined): number | null {
+  if (value === undefined || !TIME.test(value)) return null;
+  const [hours, mins] = value.split(':').map(Number) as [number, number];
+  return hours * 60 + mins;
+}
+
+/** The location step's checks, in screen order. A visiting service needs only its answer. */
+export function validateLocation(answers: LocationAnswers): FieldIssue[] {
+  if (answers.fixedSite === undefined) {
+    return [{ field: 'fixedSite', message: 'Choose whether you have a fixed site' }];
+  }
+  if (answers.fixedSite === false) return [];
+
+  const issues: FieldIssue[] = [];
+  if (blank(answers.postcode)) {
+    issues.push({ field: 'postcode', message: 'Enter a postcode' });
+  } else if (normalisePostcode(answers.postcode ?? '') === null) {
+    issues.push({ field: 'postcode', message: 'Enter a full postcode' });
+  }
+  if (blank(answers.address)) issues.push({ field: 'address', message: 'Choose the address' });
+  if (blank(answers.siteName)) issues.push({ field: 'siteName', message: 'Enter the site name' });
+  if (answers.siteType === undefined || !SITE_TYPES.includes(answers.siteType)) {
+    issues.push({ field: 'siteType', message: 'Choose a site type' });
+  }
+  if (answers.allDay !== true) {
+    if ((answers.days ?? []).length === 0) {
+      issues.push({ field: 'opening', message: 'Choose the opening days, or 24 hours' });
+    }
+    const opens = minutes(answers.opens);
+    const closes = minutes(answers.closes);
+    if (opens === null) issues.push({ field: 'opens', message: 'Enter a time like 08:00' });
+    if (closes === null) issues.push({ field: 'closes', message: 'Enter a time like 08:00' });
+    if (opens !== null && closes !== null && closes <= opens) {
+      issues.push({ field: 'closes', message: 'The closing time must be after the opening time' });
+    }
+  }
+  return issues;
 }

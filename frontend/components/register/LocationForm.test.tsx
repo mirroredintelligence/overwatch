@@ -1,10 +1,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse, type HttpResponseResolver } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { addressState, resetAddressRequests, seenAddressRequests, seenStepSaves, resetStepSaves } from '@/test/msw/handlers/registration';
-import { server } from '@/test/msw/server';
 import { LocationForm } from './LocationForm';
 
 // Registration step 2, where the service is (W24, artboards RegisterFlow1 panel 4 and RegisterMobile
@@ -126,7 +124,8 @@ describe('LocationForm: opening hours', () => {
     await userEvent.type(screen.getByLabelText('Opens'), '20:00');
     await userEvent.type(screen.getByLabelText('Closes'), '08:00');
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    expect(await screen.findByText('The closing time must be after the opening time')).toBeInTheDocument();
+    expect((await screen.findAllByText('The closing time must be after the opening time')).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByLabelText('Closes')).toHaveAttribute('aria-invalid', 'true');
     expect(seenStepSaves).toHaveLength(0);
   });
 });
@@ -154,6 +153,7 @@ describe('LocationForm: validation and saving', () => {
         fixedSite: true,
         postcode: 'DT4 8XX',
         addressId: 'addr-1',
+        address: 'Sample House, Dorchester, DT4 8XX',
         siteName: 'Sample Ward',
         siteType: 'ward',
         hours: { days: [0], allDay: false, opens: '08:00', closes: '20:00' },

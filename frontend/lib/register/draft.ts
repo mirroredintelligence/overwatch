@@ -2,7 +2,10 @@
 // back to the screen's field names. The invitation's values (organisation name, ODS code, service
 // name) are read from the back end and never taken from the browser.
 
+import { normalisePostcode } from './postcode';
 import type { FieldIssue, StepName, StepValues } from './types';
+
+const DAY_CODES = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
 
 export const STEP_FIELDS: Record<StepName, readonly string[]> = {
   organisation: ['orgType', 'contactName', 'contactRole', 'contact'],
@@ -54,11 +57,39 @@ export function organisationAnswers(stored: StepValues): Record<string, string> 
   return answers;
 }
 
-/** The page's field a back-end field belongs to. Either contact field is the one contact box. */
-export function locationValues(_body: Record<string, unknown>): Record<string, unknown> {
-  throw new Error('not implemented');
+/**
+ * The location step's values as the back end takes them (R10 LocationStep). Hours are text: the day
+ * numbers become `mon,tue,…` (0 is Monday). A 24-hour service is `open24h` (see H-355: the back end
+ * does not read that name yet, so the save is refused until it does).
+ */
+export function locationValues(body: Record<string, unknown>): Record<string, unknown> {
+  const values: Record<string, unknown> = { fixedSite: body.fixedSite === true };
+  if (body.fixedSite !== true) return values;
+
+  const postcode = typeof body.postcode === 'string' ? normalisePostcode(body.postcode) : null;
+  if (postcode !== null) values.postcode = postcode;
+  const address = text(body.address);
+  if (address !== undefined) values.address = address;
+  const siteName = text(body.siteName);
+  if (siteName !== undefined) values.siteName = siteName;
+  const siteType = text(body.siteType);
+  if (siteType !== undefined) values.siteType = siteType;
+
+  const hours = typeof body.hours === 'object' && body.hours !== null ? (body.hours as Record<string, unknown>) : {};
+  if (hours.allDay === true) {
+    values.open24h = true;
+  } else {
+    const days = Array.isArray(hours.days) ? hours.days.filter((day): day is number => Number.isInteger(day) && day >= 0 && day <= 6) : [];
+    if (days.length > 0) values.openingDays = [...new Set(days)].sort((a, b) => a - b).map((day) => DAY_CODES[day]).join(',');
+    const opens = text(hours.opens);
+    if (opens !== undefined) values.openingStart = opens;
+    const closes = text(hours.closes);
+    if (closes !== undefined) values.openingEnd = closes;
+  }
+  return values;
 }
 
+/** The page's field a back-end field belongs to. Either contact field is the one contact box. */
 export function pageFieldFor(backendField: string): string {
   return CONTACT_FIELDS.has(backendField) ? 'contact' : backendField;
 }

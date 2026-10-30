@@ -16,6 +16,9 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.grants import (
     ApproveGrant,
     ApproveGrantCommand,
@@ -30,9 +33,6 @@ from diucs.application.use_cases.grants import (
     ReviseGrantCommand,
     SupersedeDueGrants,
 )
-
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.network_admin import GovernanceRecorder
 from diucs.application.use_cases.network_leave import EndResult
 from diucs.domain.codes import Role
@@ -210,7 +210,6 @@ async def test_a_scope_with_an_open_grant_must_be_revised_not_proposed_again(rig
 
 
 async def test_a_new_grant_after_an_ended_one_takes_the_next_version(rig: _Rig) -> None:
-    rig.grant(status=GrantStatus.ENDED) if False else None
     first = make_grant(id=rid("grant-old"), tenant=MEMBER_B)
     ended = replace(
         first, status=GrantStatus.ENDED, ended_at=NOW, ended_by_account_ref="acct-member-b-01"
@@ -538,7 +537,9 @@ async def test_only_an_approved_grant_is_revised_and_only_once_at_a_time(rig: _R
         await _revise(rig)
 
 
-async def test_widening_the_allowlist_needs_a_newer_agreement(rig: _Rig) -> None:
+async def test_a_revision_keeps_the_allowlist_version_it_was_given_when_nothing_widened(
+    rig: _Rig,
+) -> None:
     rig.grant(tenant=MEMBER_B)
     rig.registry.grant_rows[GRANT_ID] = replace(
         rig.registry.grant_rows[GRANT_ID], allowlist_version=0 + 1

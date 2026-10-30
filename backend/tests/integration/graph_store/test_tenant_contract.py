@@ -38,7 +38,7 @@ from tests.support.neo4j import read_tx, throwaway_driver, write_tx
 from tests.support.tenant_seed import schema_names
 from tests.support.uow import ensure_audit_heads
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
 EXPANDED = [m for m in MIGRATIONS if m.id != CONTRACT_MIGRATION_ID]
 CONTRACT = next(m for m in MIGRATIONS if m.id == CONTRACT_MIGRATION_ID)

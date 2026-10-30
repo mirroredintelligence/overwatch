@@ -8,7 +8,6 @@ through a fresh unit of work or the harness helpers. Values are synthetic: no pa
 import asyncio
 import random
 import re
-from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, cast
@@ -48,8 +47,7 @@ from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_all, write_tx
-from tests.support.tenant_seed import contracted_container
+from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -198,25 +196,9 @@ def make_rig(
     )
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """A private Neo4j with every migration applied and the superseded single-property keys dropped
-    (DEC-159). The tenancy tests give each tenant its own audit chain head, and the shared schema
-    keeps one AuditHead per id until TEN-032."""
-    async with contracted_container() as driver:
-        yield driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    """Overrides the session driver for this module."""
-    return two_tenant_driver
-
-
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
+async def fresh_graph(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
     """Wipes the module's own container before each test (clean_graph wipes only the harness)."""
-    await wipe_all(neo4j_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")

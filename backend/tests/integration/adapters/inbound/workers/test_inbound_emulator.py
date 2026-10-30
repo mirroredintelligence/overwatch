@@ -27,7 +27,12 @@ from diucs.domain.codes import Channel
 from tests.support.inbound_rig import RecordingUseCase, receipt_message, reply_message
 from tests.support.servicebus import client
 
-pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.servicebus,
+    pytest.mark.exclusive,
+]
 
 
 @pytest_asyncio.fixture

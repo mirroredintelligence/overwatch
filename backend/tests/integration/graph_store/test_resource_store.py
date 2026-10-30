@@ -28,9 +28,9 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.tenancy import RawTransactionRefused, bind_tenant
 from diucs.domain.codes import BASE_URL
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_all, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.scoped import scoped, scoped_stub
-from tests.support.tenant_seed import contracted_container, invariant_breaks
+from tests.support.tenant_seed import invariant_breaks
 from tests.unit.adapters.outbound.graph_store.test_mapper_backbone import (
     AREA_A_ID,
     SVC_ID,
@@ -663,17 +663,9 @@ async def test_with_no_tenant_bound_every_operation_is_refused_before_any_cypher
 # Two tenants with the same ids, on a private container with the superseded keys dropped.
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
-async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe_all(two_tenant_driver)
-    yield two_tenant_driver
-    await wipe_all(two_tenant_driver)
+async def two(neo4j_driver: AsyncDriver, clean_graph: None) -> AsyncIterator[AsyncDriver]:
+    yield neo4j_driver
 
 
 async def _put_as(

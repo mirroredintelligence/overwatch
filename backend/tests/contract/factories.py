@@ -364,13 +364,19 @@ async def _open_servicebus_event_bus(release: Callable[[], None]) -> Harness[Eve
 
 CODE_STORE_FACTORIES = [
     pytest.param(make_memory_code_store, id="memory"),
-    pytest.param(make_redis_code_store, id="redis", marks=pytest.mark.integration),
+    pytest.param(
+        make_redis_code_store, id="redis", marks=[pytest.mark.integration, pytest.mark.redis]
+    ),
 ]
 CACHE_FACTORIES = [
     pytest.param(make_memory_cache, id="memory"),
-    pytest.param(make_redis_cache, id="redis", marks=pytest.mark.integration),
+    pytest.param(make_redis_cache, id="redis", marks=[pytest.mark.integration, pytest.mark.redis]),
 ]
 EVENT_BUS_FACTORIES = [
     pytest.param(make_memory_event_bus, id="memory"),
-    pytest.param(make_servicebus_event_bus, id="servicebus", marks=pytest.mark.integration),
+    pytest.param(
+        make_servicebus_event_bus,
+        id="servicebus",
+        marks=[pytest.mark.integration, pytest.mark.servicebus, pytest.mark.exclusive],
+    ),
 ]

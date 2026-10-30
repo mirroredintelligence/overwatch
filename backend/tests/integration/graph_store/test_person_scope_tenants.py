@@ -3,7 +3,7 @@
 Both tenants hold a practitioner `p-1` with the same phone hash, a role `r-1`, a service `svc-1`,
 a registration `reg-1` and a scope list. The keys are composite with the tenant (TEN-005), so both
 can be written; every read and every write must stay in the bound tenant. These tests run on a
-private container with the superseded single-property keys dropped (`contracted_container`), the
+shared harness database (the contracted schema, DEC-159), the
 schema the platform has after TEN-032. All values are synthetic.
 """
 
@@ -36,8 +36,8 @@ from diucs.domain.errors import NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.rules.registration import ApprovalChecks
-from tests.support.neo4j import read_tx, wipe_all, write_tx
-from tests.support.tenant_seed import contracted_container, invariant_breaks, seed_tenant
+from tests.support.neo4j import read_tx, write_tx
+from tests.support.tenant_seed import invariant_breaks, seed_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -48,17 +48,9 @@ CREATED = datetime(2026, 10, 25, 12, 40, tzinfo=UTC)
 DAY = date(2026, 10, 25)
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
-async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe_all(two_tenant_driver)
-    yield two_tenant_driver
-    await wipe_all(two_tenant_driver)
+async def two(neo4j_driver: AsyncDriver, clean_graph: None) -> AsyncIterator[AsyncDriver]:
+    yield neo4j_driver
 
 
 def _repo(tx: AsyncManagedTransaction) -> Neo4jPersonRepository:

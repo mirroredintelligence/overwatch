@@ -225,7 +225,7 @@ class FakeDocker:
     def __call__(self, *args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
         self.calls.append(args)
         ok, out = True, ""
-        if args[:2] == ("image", "inspect"):
+        if args[:2] == ("image", "inspect") or args[0] == "pull":
             ok = self.image_ok
         elif args[0] == "inspect":
             ok = self.state is not None

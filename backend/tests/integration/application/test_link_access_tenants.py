@@ -28,33 +28,15 @@ from diucs.application.use_cases import link_access
 from diucs.application.use_cases.link_access import LinkGone, LinkRateLimited
 from tests.support.ladder_rig import PHONE_HASH_2
 from tests.support.link_rig import ANSWER_AT, LinkRig, build_link_rig, new_secrets
-from tests.support.neo4j import wipe_all
-from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 OTHER_PHONE = PHONE_HASH_2
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """A private Neo4j with every migration applied and the superseded single-property keys
-    dropped (DEC-159)."""
-    async with contracted_container() as driver:
-        yield driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    """Overrides the session driver for this module: every test here runs two tenants."""
-    return two_tenant_driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[None]:
-    await wipe_all(two_tenant_driver)
+async def two(neo4j_driver: AsyncDriver, clean_graph: None) -> AsyncIterator[None]:
     yield
-    await wipe_all(two_tenant_driver)
 
 
 @pytest.fixture

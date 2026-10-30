@@ -7,12 +7,11 @@ of these tests appears in any result, and the result is checked for that.
 """
 
 import dataclasses
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -36,8 +35,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import NotAllowed
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, wipe_all
-from tests.support.tenant_seed import contracted_container
+from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -324,33 +322,15 @@ async def test_an_exec_runs_it_and_one_audit_entry_is_added_and_an_advisor_is_re
     assert await count_nodes(neo4j_driver, "AuditEvent") == before + 1
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """A private Neo4j with the superseded single-property keys dropped (DEC-159)."""
-    async with contracted_container() as driver:
-        yield driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    """Overrides the session driver for this module."""
-    return two_tenant_driver
-
-
-@pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
-    await wipe_all(neo4j_driver)
-
-
 async def test_tenant_a_sees_none_of_tenant_bs_decisions(
-    two_tenant_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     """Tenant B holds 12 unavailable best fits and a decline; tenant A's analysis counts none of
     them (DEC-130, planning is tenant-only)."""
-    factory_b = tenant_uow_factory(two_tenant_driver, other_tenant_id)
-    factory_a = tenant_uow_factory(two_tenant_driver, tenant_id)
-    await ensure_audit_heads(two_tenant_driver, other_tenant_id)
-    await ensure_audit_heads(two_tenant_driver, tenant_id)
+    factory_b = tenant_uow_factory(neo4j_driver, other_tenant_id)
+    factory_a = tenant_uow_factory(neo4j_driver, tenant_id)
+    await ensure_audit_heads(neo4j_driver, other_tenant_id)
+    await ensure_audit_heads(neo4j_driver, tenant_id)
     await _seed_services(factory_b)
     entries: list[AuditEntry] = []
     for index in range(12):

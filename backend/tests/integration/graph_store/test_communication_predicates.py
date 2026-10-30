@@ -21,11 +21,11 @@ from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from tests.support.leaky_registry import LeakyRegistry
+from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.predicate_removal import predicate_count, without_predicate
 from tests.support.query_probes import production_statements, run_isolation
-from tests.support.tenant_seed import contracted_container
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
 # The occurrences that are redundant: (statement, occurrence counted from 0 in the text). The
 # optional matches of `_READ` reach the topic, medium, role and service of a communication through
@@ -63,9 +63,12 @@ TEN_015 = (
 
 
 @pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def predicate_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
+async def predicate_driver(
+    own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver],
+) -> AsyncIterator[AsyncDriver]:
+    """A private container: the isolation runner empties the database between statements."""
+    _, driver = own_neo4j
+    yield driver
 
 
 async def test_each_predicate_is_killed_or_redundant_as_pinned(

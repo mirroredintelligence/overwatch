@@ -21,6 +21,10 @@ from azure.servicebus import ServiceBusClient, ServiceBusMessage
 from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncSession
 from redis.asyncio import Redis
 
+# The compose stack of the owner: one set of ports and fixed ids, so these tests never share the
+# machine with another run (TEN-034).
+pytestmark = [pytest.mark.infra, pytest.mark.exclusive]
+
 NEO4J_URI = os.environ.get("NEO4J_URI", "bolt://localhost:7687")
 NEO4J_USER = os.environ.get("NEO4J_USER", "neo4j")
 NEO4J_PASSWORD = os.environ.get("NEO4J_PASSWORD", "diucs-test-password")

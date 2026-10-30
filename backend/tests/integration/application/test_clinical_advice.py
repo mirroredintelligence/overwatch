@@ -5,7 +5,6 @@ Friday 23 October 2026 (BST is UTC+1): 14:12 London is 13:12 UTC. Synthetic valu
 postcode DT4 8XX never reaches storage, and the advice note is text the protected store holds.
 """
 
-from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
 
@@ -48,8 +47,7 @@ from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.rules.clinical_queue import Presence
 from tests.support.actors import ACTOR_TENANT
 from tests.support.booking_rig import SECRETS
-from tests.support.neo4j import count_nodes, read_tx, wipe_all
-from tests.support.tenant_seed import contracted_container
+from tests.support.neo4j import count_nodes, read_tx
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -165,7 +163,9 @@ async def _set_available(cache: InMemoryCache, *practitioners: str) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
+async def seeded(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str, clean_graph: None
+) -> None:
     await _seed(uow_factory, neo4j_driver, tenant_id)
 
 
@@ -322,31 +322,13 @@ async def _rows(driver: AsyncDriver, query: str, **params: Any) -> list[dict[str
     return await read_tx(driver, work)
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """A private Neo4j with the superseded single-property keys dropped (DEC-159)."""
-    async with contracted_container() as driver:
-        yield driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    """Overrides the session driver for this module."""
-    return two_tenant_driver
-
-
-@pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
-    await wipe_all(neo4j_driver)
-
-
 async def test_tenant_b_request_id_is_not_found_to_tenant_a(
-    two_tenant_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     """A request of tenant B, given to tenant A's take, answers not found (DEC-130)."""
-    factory_b = tenant_uow_factory(two_tenant_driver, other_tenant_id)
-    factory_a = tenant_uow_factory(two_tenant_driver, tenant_id)
-    await _seed(factory_b, two_tenant_driver, other_tenant_id)
+    factory_b = tenant_uow_factory(neo4j_driver, other_tenant_id)
+    factory_a = tenant_uow_factory(neo4j_driver, tenant_id)
+    await _seed(factory_b, neo4j_driver, other_tenant_id)
     cache = InMemoryCache(FixedClock(REQUESTED_AT))
     await cache.set(presence_key(CLIN_1), Presence.AVAILABLE.value)
     await RequestClinicalAdvice(

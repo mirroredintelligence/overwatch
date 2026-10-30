@@ -11,8 +11,7 @@ tenant, no relationship between two tenants.
 import hashlib
 import json
 import re
-from collections.abc import AsyncIterator, Mapping
-from contextlib import asynccontextmanager
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime, time
 from typing import Any, Final
@@ -20,9 +19,8 @@ from typing import Any, Final
 from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncTransaction
 from neo4j.time import Date, DateTime, Duration, Time
 
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.scenario import Slot, TenantSeed, render
-from tests.support.neo4j import read_tx, throwaway_driver, write_tx
+from tests.support.neo4j import read_tx, write_tx
 
 # Labels a node may carry without a tenantId: the migration record, and the registry nodes of the
 # network design (DEC-132), which are the tenants' and the network's own.
@@ -263,33 +261,3 @@ async def schema_names(driver: AsyncDriver) -> tuple[set[str], set[str]]:
         return {str(r["name"]) for r in constraints}, {str(r["name"]) for r in indexes}
 
     return await read_tx(driver, work)
-
-
-async def contract_schema(driver: AsyncDriver) -> None:
-    """Drop the superseded single-property constraints and indexes, each in its own transaction
-    (a schema change cannot share one with a data write, lesson L8). This is the production schema
-    after TEN-032, which is what the isolation test needs: with the old keys gone, two tenants can
-    hold the same id."""
-    for name in sorted(SUPERSEDED_CONSTRAINT_NAMES):
-        await _schema(driver, f"DROP CONSTRAINT {name} IF EXISTS")
-    for name in sorted(SUPERSEDED_INDEX_NAMES):
-        await _schema(driver, f"DROP INDEX {name} IF EXISTS")
-
-
-async def _schema(driver: AsyncDriver, statement: str) -> None:
-    async def work(tx: AsyncManagedTransaction) -> None:
-        await (await tx.run(statement)).consume()
-
-    await write_tx(driver, work)
-
-
-@asynccontextmanager
-async def contracted_container() -> AsyncIterator[AsyncDriver]:
-    """A throwaway Neo4j with every migration applied and the superseded keys dropped: the schema
-    the platform has after TEN-032. The container is private to the caller and is removed on exit.
-    The shared harness container keeps the old keys until TEN-032, so the generated two-tenant test
-    runs here instead (DEC-150, TEN-005)."""
-    async with throwaway_driver() as (_container, driver):
-        await apply_migrations(driver)
-        await contract_schema(driver)
-        yield driver

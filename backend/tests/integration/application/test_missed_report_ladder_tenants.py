@@ -46,8 +46,7 @@ from tests.support.ladder_rig import (
     seed_report,
     virtual_ward,
 )
-from tests.support.neo4j import read_tx, wipe_all
-from tests.support.tenant_seed import contracted_container
+from tests.support.neo4j import read_tx
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -91,26 +90,9 @@ async def _owners(driver: AsyncDriver, label: str) -> list[Any]:
     return await read_tx(driver, work)
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """A private Neo4j with every migration applied and the superseded single-property keys
-    dropped (DEC-159). The shared harness keeps them until TEN-032, which refuses a second
-    tenant's Concept or resource with the same key."""
-    async with contracted_container() as driver:
-        yield driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    """Overrides the session driver for this module: every test here runs two tenants."""
-    return two_tenant_driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[None]:
-    await wipe_all(two_tenant_driver)
+async def two(neo4j_driver: AsyncDriver, clean_graph: None) -> AsyncIterator[None]:
     yield
-    await wipe_all(two_tenant_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -121,6 +103,7 @@ async def tenants(
     tenant_id: str,
     other_tenant_id: str,
     two: None,
+    clean_graph: None,
 ) -> tuple[tuple[Rig, str], tuple[Rig, str]]:
     a = await _tenant_rig(uow_factory_a, neo4j_driver, tenant_id, "a")
     b = await _tenant_rig(uow_factory_b, neo4j_driver, other_tenant_id, "b")

@@ -49,6 +49,12 @@ testpaths = ["tests"]
 markers = [
     "integration: needs the Docker services in infra/",
     "emulator_limit: a case where the emulator refuses what the port allows; names the case, the emulator and the error (DEC-102)",
+    "schema: the test changes or asserts the Neo4j schema, so it runs on a private container (own_neo4j), never on the shared one (TEN-034)",
+    "lifecycle: the test stops, starts or removes a Neo4j container, so it runs on a private container (own_neo4j) (TEN-034)",
+    "exclusive: the test cannot share the machine with another run (it asserts about the whole database, or needs the compose stack or the Service Bus emulator); it runs in a session of its own, after the parallel one (TEN-034)",
+    "servicebus: the test uses the Service Bus emulator, one for the whole machine (TEN-035)",
+    "redis: the test uses the Redis of the compose project, which runs are separated on by key prefix (TEN-035)",
+    "infra: the test needs the compose stack of the owner (Neo4j on 7687, the collector on 4318) (TEN-035)",
     "no_tenant: an integration test that runs with no tenant bound; the conftest binds the run tenant around every other one (TEN-003)",
 ]
 

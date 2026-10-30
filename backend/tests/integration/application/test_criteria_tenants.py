@@ -7,8 +7,8 @@ id, nor read A's history.
 
 The criteria statements (Q-CRIT-*) are tenant-scoped (TEN-012, on integration/build), so all three
 tests run as ordinary tests. Only tenant A seeds criteria: B holds no criteria of its own, so B's
-reads of A's service must come back empty rather than borrow A's rows. Runs on
-contracted_container() (DEC-159, lesson L168).
+reads of A's service must come back empty rather than borrow A's rows. Runs on the shared
+harness database (DEC-159).
 """
 
 from collections.abc import AsyncIterator
@@ -47,8 +47,6 @@ from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import wipe_all
-from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -164,28 +162,16 @@ async def _seed_b(factory: UnitOfWorkFactory) -> None:
         await uow.commit()
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    return two_tenant_driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
 async def tenants(
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,
-    two_tenant_driver: AsyncDriver,
+    neo4j_driver: AsyncDriver,
+    clean_graph: None,
 ) -> AsyncIterator[None]:
-    await wipe_all(two_tenant_driver)
     await _seed_a(uow_factory_a)
     await _seed_b(uow_factory_b)
     yield
-    await wipe_all(two_tenant_driver)
 
 
 async def test_tenant_b_cannot_change_a_service_it_does_not_hold(

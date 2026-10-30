@@ -21,7 +21,6 @@ from httpx import AsyncClient
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.use_cases import link_access
@@ -32,8 +31,7 @@ from tests.support.link_rig import (
     LinkRig,
     new_secrets,
 )
-from tests.support.neo4j import ThrowawayNeo4j, throwaway_driver, wipe_all
-from tests.support.tenant_seed import contract_schema
+from tests.support.neo4j import ThrowawayNeo4j
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.no_tenant]
 
@@ -41,25 +39,18 @@ EXPIRED_BODY = {"state": "expired"}
 
 
 @pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant() -> AsyncIterator[tuple[ThrowawayNeo4j, AsyncDriver]]:
-    """A private Neo4j with every migration applied and the superseded keys dropped (DEC-159)."""
-    async with throwaway_driver() as (container, driver):
-        await apply_migrations(driver)
-        await contract_schema(driver)
-        yield container, driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant: tuple[ThrowawayNeo4j, AsyncDriver]) -> AsyncDriver:
-    return two_tenant[1]
+async def two_tenant(
+    harness_container: ThrowawayNeo4j, harness_driver: AsyncDriver
+) -> tuple[ThrowawayNeo4j, AsyncDriver]:
+    """The shared harness database, which has the contracted schema (DEC-159)."""
+    return harness_container, harness_driver
 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def link_container(
-    two_tenant: tuple[ThrowawayNeo4j, AsyncDriver],
+    two_tenant: tuple[ThrowawayNeo4j, AsyncDriver], clean_graph: None
 ) -> AsyncIterator[Container]:
     container, driver = two_tenant
-    await wipe_all(driver)
     connection = Neo4jConnection(container.uri, container.user, container.password)
     await connection.open()
     try:
@@ -71,7 +62,6 @@ async def link_container(
         )
     finally:
         await connection.close()
-        await wipe_all(driver)
 
 
 async def _prompted(links: LinkRig) -> str:

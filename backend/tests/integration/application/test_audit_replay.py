@@ -9,7 +9,7 @@ test seeds committed units of work and reads back through a fresh one (DEC-004).
 
 import dataclasses
 import json
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -46,8 +46,7 @@ from diucs.domain.model.case import Case
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, read_tx, wipe_all, write_tx
-from tests.support.tenant_seed import contracted_container
+from tests.support.neo4j import count_nodes, read_tx, write_tx
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -241,7 +240,7 @@ def replay(uow_factory: UnitOfWorkFactory) -> GetAuditReplay:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def seed_trail(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str, clean_graph: None
 ) -> Seed:
     async def seed() -> None:
         await _seed_trail(uow_factory, neo4j_driver, tenant_id)
@@ -333,49 +332,28 @@ async def test_the_export_is_plain_data_with_no_postcode(
     assert len(data["timeline"]) == 5
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """A private Neo4j with the superseded single-property keys dropped (DEC-159): both tenants
-    hold a service with the same category and the same audit head shape."""
-    async with contracted_container() as driver:
-        yield driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    """Overrides the session driver for this module."""
-    return two_tenant_driver
-
-
-@pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
-    await wipe_all(neo4j_driver)
-
-
 async def test_another_tenants_case_reference_is_not_found(
-    two_tenant_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
     """Tenant B holds the case with reference 4821; a replay run as tenant A answers not found and
     sees none of B's entries (DEC-130)."""
     await _seed_trail(
-        tenant_uow_factory(two_tenant_driver, other_tenant_id), two_tenant_driver, other_tenant_id
+        tenant_uow_factory(neo4j_driver, other_tenant_id), neo4j_driver, other_tenant_id
     )
-    replay_a = GetAuditReplay(tenant_uow_factory(two_tenant_driver, tenant_id), FixedClock(NOW))
+    replay_a = GetAuditReplay(tenant_uow_factory(neo4j_driver, tenant_id), FixedClock(NOW))
     with pytest.raises(NotFound):
         await replay_a.execute(GetAuditReplayCommand(ACTOR, REFERENCE))
-    assert await count_nodes(two_tenant_driver, "AuditEvent") == 5
+    assert await count_nodes(neo4j_driver, "AuditEvent") == 5
 
 
 async def test_tenant_a_replay_sees_only_tenant_a_entries(
-    two_tenant_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
+    await _seed_trail(tenant_uow_factory(neo4j_driver, tenant_id), neo4j_driver, tenant_id)
     await _seed_trail(
-        tenant_uow_factory(two_tenant_driver, tenant_id), two_tenant_driver, tenant_id
+        tenant_uow_factory(neo4j_driver, other_tenant_id), neo4j_driver, other_tenant_id
     )
-    await _seed_trail(
-        tenant_uow_factory(two_tenant_driver, other_tenant_id), two_tenant_driver, other_tenant_id
-    )
-    replay_a = GetAuditReplay(tenant_uow_factory(two_tenant_driver, tenant_id), FixedClock(NOW))
+    replay_a = GetAuditReplay(tenant_uow_factory(neo4j_driver, tenant_id), FixedClock(NOW))
     result = await replay_a.execute(GetAuditReplayCommand(ACTOR, REFERENCE))
     assert len(result.timeline) == 5
     assert result.chain_ok is True

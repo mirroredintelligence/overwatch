@@ -58,7 +58,6 @@ from diucs.domain.model.tenant_records import (
 )
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -358,24 +357,28 @@ async def test_a_draft_is_not_read_as_the_policy(
 
 
 async def test_two_tenants_have_their_own_configuration(
-    tenant_id: str, other_tenant_id: str, uow_clock: Clock
+    tenant_id: str,
+    other_tenant_id: str,
+    uow_clock: Clock,
+    neo4j_driver: AsyncDriver,
+    clean_graph: None,
 ) -> None:
     # The shared harness schema still has single-property keys (until TEN-032), so two tenants can
     # not hold the same version number there: this runs on the contracted schema (DEC-159).
-    async with contracted_container() as driver:
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id, uow_clock)
-        factory_b = tenant_uow_factory(driver, other_tenant_id, uow_clock)
-        await _in_force(factory_a, {**WINDOW, **WORDING})
+    driver = neo4j_driver
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id, uow_clock)
+    factory_b = tenant_uow_factory(driver, other_tenant_id, uow_clock)
+    await _in_force(factory_a, {**WINDOW, **WORDING})
 
-        assert (await ReadTenantConfig(factory_b).policy()) == DEFAULT_POLICY
-        assert await ReadTenantConfig(factory_b).wording() is None
-        version_b = await _draft(factory_b, 0, {"staleWarningHours": 3})
-        assert version_b == 1
-        with pytest.raises(NotFound):
-            await approve_use_case(factory_b).execute(ApproveConfigCommand(OWNER_1, 2))
-        # and A's version 1 is still the one in force, with its own approvals
-        assert (await ReadTenantConfig(factory_a).wording()) is not None
+    assert (await ReadTenantConfig(factory_b).policy()) == DEFAULT_POLICY
+    assert await ReadTenantConfig(factory_b).wording() is None
+    version_b = await _draft(factory_b, 0, {"staleWarningHours": 3})
+    assert version_b == 1
+    with pytest.raises(NotFound):
+        await approve_use_case(factory_b).execute(ApproveConfigCommand(OWNER_1, 2))
+    # and A's version 1 is still the one in force, with its own approvals
+    assert (await ReadTenantConfig(factory_a).wording()) is not None
 
 
 # ----------------------------------------------- contacts, channels, retention, the directory

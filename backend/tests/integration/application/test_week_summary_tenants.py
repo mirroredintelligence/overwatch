@@ -4,8 +4,8 @@ Tenant A and tenant B hold the same service id, the same case, report, booking a
 the same week. A's summary counts A's records only, B's counts B's only, and a B case id given to
 A's unit of work reads as not found. Every statement the summary reads is tenant-scoped
 (Q-CASE-OPENED-BETWEEN and the other three range reads, and the converted reads behind them), so
-these tests are not marked: they are expected to pass. Runs on contracted_container() (DEC-159,
-lesson L168) because the superseded single-property keys would refuse a shared key.
+these tests are not marked: they are expected to pass. Runs on the shared harness database
+(DEC-159).
 """
 
 from collections.abc import AsyncIterator
@@ -24,8 +24,6 @@ from diucs.domain.codes import Cadence, Channel, Measure, ReportSource, Role, Se
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support import seed
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import wipe_all
-from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -77,22 +75,9 @@ async def _seed_tenant(factory: UnitOfWorkFactory, cases: int, reports: int, pro
         await uow.commit()
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    return two_tenant_driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[None]:
-    await wipe_all(two_tenant_driver)
+async def two(neo4j_driver: AsyncDriver, clean_graph: None) -> AsyncIterator[None]:
     yield
-    await wipe_all(two_tenant_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -100,6 +85,7 @@ async def tenants(
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,
     two: None,
+    clean_graph: None,
 ) -> None:
     # A: twelve cases, twelve reports, twelve prompts. B: three cases, nothing else.
     await _seed_tenant(uow_factory_a, cases=12, reports=12, prompts=12)

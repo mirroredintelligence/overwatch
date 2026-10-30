@@ -50,7 +50,7 @@ from tests.support.tenant_seed import (
     schema_names,
 )
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
 _OLD_INDEXES = SUPERSEDED_INDEX_NAMES | {"location_position"}
 

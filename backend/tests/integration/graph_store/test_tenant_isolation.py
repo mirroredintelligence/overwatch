@@ -4,11 +4,11 @@ For every registered statement that has a scenario, on a real Neo4j: seed tenant
 the statement as A; seed tenant B (the same keys, other text) and run it as A again; the rows, A's
 own data and B's data must be what they were without B, and nothing anywhere may be unstamped or
 join two tenants. Then the same with B and A swapped. The run is on a private container with every
-migration applied and the superseded single-property keys dropped (`contracted_container`, TEN-005):
-the schema the platform has after TEN-032. The shared harness container keeps the old keys until
-then, so it cannot hold the same id for two tenants. Every key of a production scenario is shared
-by both tenants. `Unique` is kept for a key that stays globally unique (`link_token_hash`, DEC-131
-item 5): the test also runs the statement with the other tenant's value (the foreign-id run).
+migration applied (DEC-159, TEN-005), because its invariants are about the
+whole database: no node anywhere may lack a tenant, so no other run may be on it. Every key of a
+production scenario is shared by both tenants. `Unique` is kept for a key that stays globally
+unique (`link_token_hash`, DEC-131 item 5): the test also runs the statement with the other
+tenant's value (the foreign-id run).
 
 The rest proves the test itself: sound test-only statements pass, each kind of leak is caught by a
 leaky twin, and taking `tenantId: $tenant` out of each converted statement makes the test fail for
@@ -35,7 +35,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     validate_scenario,
 )
 from tests.support.leaky_registry import LeakyRegistry
-from tests.support.neo4j import read_tx, wipe_all, write_tx
+from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all, write_tx
 from tests.support.predicate_removal import mutant_of, predicate_count
 from tests.support.query_probes import (
     Finding,
@@ -52,19 +52,21 @@ from tests.support.tenant_seed import (
     SUPERSEDED_CONSTRAINT_NAMES,
     SUPERSEDED_INDEX_NAMES,
     UNSTAMPED_OK,
-    contracted_container,
     schema_names,
     seed_tenant,
 )
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
 
 @pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def isolation_driver() -> AsyncIterator[AsyncDriver]:
-    """The contracted container: every migration applied, the superseded keys dropped."""
-    async with contracted_container() as driver:
-        yield driver
+async def isolation_driver(
+    own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver],
+) -> AsyncIterator[AsyncDriver]:
+    """A private container with every migration applied (the contracted schema, since TEN-032):
+    the invariants this test checks are about the whole database, so no other run may be on it."""
+    _, driver = own_neo4j
+    yield driver
 
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")

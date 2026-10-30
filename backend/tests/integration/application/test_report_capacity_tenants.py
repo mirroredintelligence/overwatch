@@ -12,7 +12,7 @@ both:
 - an actor of B in work bound to A is refused before anything is read (`TenantMismatch`);
 - the tenant's own configuration reaches the status and the audit snapshot records its version.
 
-Runs on contracted_container() (DEC-159). Synthetic values only.
+Runs on the shared harness database (the contracted schema, DEC-159). Synthetic values only.
 """
 
 import asyncio
@@ -57,9 +57,8 @@ from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import read_tx, wipe_all
+from tests.support.neo4j import read_tx
 from tests.support.tenancy import as_tenant
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -137,15 +136,16 @@ async def _seed(factory: UnitOfWorkFactory) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def tenants(tenant_id: str, other_tenant_id: str) -> AsyncIterator[Tenants]:
-    async with contracted_container() as driver:
-        await wipe_all(driver)
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id)
-        factory_b = tenant_uow_factory(driver, other_tenant_id)
-        await _seed(factory_a)
-        await _seed(factory_b)
-        yield Tenants(driver, tenant_id, other_tenant_id, factory_a, factory_b)
+async def tenants(
+    tenant_id: str, other_tenant_id: str, neo4j_driver: AsyncDriver, clean_graph: None
+) -> AsyncIterator[Tenants]:
+    driver = neo4j_driver
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id)
+    factory_b = tenant_uow_factory(driver, other_tenant_id)
+    await _seed(factory_a)
+    await _seed(factory_b)
+    yield Tenants(driver, tenant_id, other_tenant_id, factory_a, factory_b)
 
 
 async def _written(tenants: Tenants, tenant: str) -> dict[str, int]:

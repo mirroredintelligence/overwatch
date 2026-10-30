@@ -21,7 +21,7 @@ from tests.support.servicebus import client, run_tenant, unique_id
 # These suites send as tenants of their own on the shared emulator, with nothing bound: the way the
 # outbox relay publishes, where the message's own tenant is the declaration (`check_publishable`).
 # A bound tenant that is not the message's is refused, which the unit tests pin.
-pytestmark = pytest.mark.no_tenant
+pytestmark = [pytest.mark.no_tenant, pytest.mark.servicebus, pytest.mark.exclusive]
 
 TENANT_A = run_tenant("integ-a")
 TENANT_B = run_tenant("integ-b")

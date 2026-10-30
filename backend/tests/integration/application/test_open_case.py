@@ -39,9 +39,8 @@ from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.case import Case
 from diucs.domain.model.scores import ClinicalFrailty, News2
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_all
+from tests.support.neo4j import count_nodes, node_props, read_tx
 from tests.support.tenancy import as_tenant
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -90,14 +89,6 @@ class ScriptedRng(random.Random):
         return self._fallback.randint(low, high)
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """A private Neo4j with every migration applied and the superseded single-property keys
-    dropped (DEC-159)."""
-    async with contracted_container() as driver:
-        yield driver
-
-
 _DRIVER: AsyncDriver | None = None
 """The driver of this module's private container, set by fresh_graph, for the constructor helpers
 below (the replay store is the process's driver store, DEC-012)."""
@@ -108,24 +99,16 @@ def _idempotency() -> DriverIdempotencyStore:
     return DriverIdempotencyStore(_DRIVER)
 
 
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    """Overrides the session driver for this module."""
-    return two_tenant_driver
-
-
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def fresh_graph(
-    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str, clean_graph: None
 ) -> AsyncIterator[None]:
     """An empty graph with the audit chain head of each tenant, before and after every test. The
     heads are made per tenant, bound in turn, so a test with no tenant bound still has them."""
     global _DRIVER
     _DRIVER = neo4j_driver
-    await wipe_all(neo4j_driver)
     await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
     yield
-    await wipe_all(neo4j_driver)
 
 
 def _clock(at: datetime = NOW) -> FixedClock:

@@ -3,7 +3,7 @@
 Tenant A and tenant B hold a submitted registration with the same registration and service ids and
 the same ODS code, and both cover the district DT3. Persisting A's registration writes A's
 resources only, reuses A's district Location and never B's, and a B registration id given to A's
-unit of work reads as not found. Runs on contracted_container() (DEC-159, lesson L168).
+unit of work reads as not found. Runs on the shared harness database (DEC-159).
 
 NOT RUN in the build wave: the batch verification run proves it.
 """
@@ -38,8 +38,7 @@ from diucs.domain.codes import PractitionerRoleCode, RegistrationStatus, ScopeFl
 from diucs.domain.errors import NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
-from tests.support.neo4j import count_nodes, wipe_all
-from tests.support.tenant_seed import contracted_container
+from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -141,16 +140,15 @@ def _persist(factory: UnitOfWorkFactory) -> PersistRegistration:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two_tenants(
-    tenant_id: str, other_tenant_id: str
+    tenant_id: str, other_tenant_id: str, neo4j_driver: AsyncDriver, clean_graph: None
 ) -> AsyncIterator[tuple[AsyncDriver, UnitOfWorkFactory, UnitOfWorkFactory]]:
-    async with contracted_container() as driver:
-        await wipe_all(driver)
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id)
-        factory_b = tenant_uow_factory(driver, other_tenant_id)
-        await _seed(factory_a)
-        await _seed(factory_b)
-        yield driver, factory_a, factory_b
+    driver = neo4j_driver
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id)
+    factory_b = tenant_uow_factory(driver, other_tenant_id)
+    await _seed(factory_a)
+    await _seed(factory_b)
+    yield driver, factory_a, factory_b
 
 
 async def test_persisting_in_a_changes_a_only_and_b_keeps_its_own_registration_unwritten(

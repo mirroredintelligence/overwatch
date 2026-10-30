@@ -31,7 +31,6 @@ from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.memory_cache import InMemoryCache
@@ -56,9 +55,8 @@ from tests.integration.adapters.inbound.fhir_rest.test_routes_services import (
 )
 from tests.integration.application.test_query_board import WEST
 from tests.support.api import R01_TEST_NOW, seed_edge_tenants, token_headers
-from tests.support.neo4j import count_nodes, throwaway_driver
+from tests.support.neo4j import ThrowawayNeo4j, count_nodes
 from tests.support.tenancy import as_tenant
-from tests.support.tenant_seed import contract_schema
 from tests.support.uow import tenant_uow_factory
 
 __all__ = ["services_app"]
@@ -212,41 +210,44 @@ async def test_a_report_by_tenant_a_changes_nothing_of_tenant_b(
 
 
 @asynccontextmanager
-async def _b_on_its_own_chain(tenant: str) -> AsyncIterator[AsyncClient]:
-    """A private Neo4j on the schema of TEN-032, with tenant B's service and its own audit chain
-    head, and a client for an app on it. The shared harness schema keeps one AuditHead key on the
-    id alone until TEN-032, so a second tenant cannot write there (the audit head, TEN-017)."""
-    async with throwaway_driver() as (container, driver):
-        await apply_migrations(driver)
-        await contract_schema(driver)
-        connection = Neo4jConnection(container.uri, container.user, container.password)
-        await connection.open()
-        try:
-            clock = FixedClock(R01_TEST_NOW)
-            app = create_app(build_for_tests(clock=clock, neo4j=connection))
-            app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
-            app.state.cache = InMemoryCache(clock)
-            factory = tenant_uow_factory(driver, tenant, clock)
-            with as_tenant(tenant):
-                await ensure_audit_head(driver)
-            await seed_edge_tenants(driver, tenant)
-            async with factory() as uow:
-                await uow.services.save(B_PROFILE)
-                await uow.capacity.add(B_PRIOR)
-                await uow.commit()
-            async with AsyncClient(
-                transport=ASGITransport(app=app, raise_app_exceptions=False),
-                base_url="http://test",
-            ) as client:
-                yield client
-        finally:
-            await connection.close()
+async def _b_on_its_own_chain(
+    tenant: str, container: ThrowawayNeo4j, driver: AsyncDriver
+) -> AsyncIterator[AsyncClient]:
+    """The harness database with tenant B's service and its own audit chain head, and a client for
+    an app on it (the head, TEN-017). The shared schema is the contracted one (DEC-159), so a
+    second tenant writes beside the run tenant."""
+    connection = Neo4jConnection(container.uri, container.user, container.password)
+    await connection.open()
+    try:
+        clock = FixedClock(R01_TEST_NOW)
+        app = create_app(build_for_tests(clock=clock, neo4j=connection))
+        app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
+        app.state.cache = InMemoryCache(clock)
+        factory = tenant_uow_factory(driver, tenant, clock)
+        with as_tenant(tenant):
+            await ensure_audit_head(driver)
+        await seed_edge_tenants(driver, tenant)
+        async with factory() as uow:
+            await uow.services.save(B_PROFILE)
+            await uow.capacity.add(B_PRIOR)
+            await uow.commit()
+        async with AsyncClient(
+            transport=ASGITransport(app=app, raise_app_exceptions=False),
+            base_url="http://test",
+        ) as client:
+            yield client
+    finally:
+        await connection.close()
 
 
 async def test_tenant_b_reads_and_reports_for_its_own_service(
-    other_tenant_id: str, tenant_id: str
+    other_tenant_id: str,
+    tenant_id: str,
+    harness_container: ThrowawayNeo4j,
+    neo4j_driver: AsyncDriver,
+    clean_graph: None,
 ) -> None:
-    async with _b_on_its_own_chain(other_tenant_id) as client:
+    async with _b_on_its_own_chain(other_tenant_id, harness_container, neo4j_driver) as client:
         with as_tenant(other_tenant_id):
             service = await client.get(f"{SERVICES}/{B_SERVICE}", headers=_b_lead())
             created = await post(

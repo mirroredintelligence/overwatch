@@ -9,7 +9,6 @@ The routing of a reply is checked where the handler decides it: `services_for_ph
 """
 
 import json
-from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
@@ -35,8 +34,7 @@ from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole, role_holder
 from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import reporter, seed_people, virtual_ward
-from tests.support.neo4j import count_nodes, node_props, wipe_all
-from tests.support.tenant_seed import contracted_container
+from tests.support.neo4j import count_nodes, node_props
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -99,25 +97,9 @@ def command(
     )
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """A private Neo4j with every migration applied and the superseded single-property keys dropped
-    (DEC-159). The cross-tenant test writes practitioner prac-1 in both tenants, which the shared
-    schema refuses until TEN-032."""
-    async with contracted_container() as driver:
-        yield driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    """Overrides the session driver for this module."""
-    return two_tenant_driver
-
-
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
+async def fresh_graph(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
     """Wipes the module's own container before each test (clean_graph wipes only the harness)."""
-    await wipe_all(neo4j_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -126,6 +108,7 @@ async def seeded(
     neo4j_driver: AsyncDriver,
     tenant_id: str,
     other_tenant_id: str,
+    clean_graph: None,
 ) -> None:
     """The service and its reporter: practitioner prac-1 on the old mobile, role role-1 for it.
     Both tenants' audit heads exist, so the cross-tenant test can read and write in tenant B."""

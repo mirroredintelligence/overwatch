@@ -19,9 +19,8 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
 from diucs.application.tenancy import bind_tenant
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe_all, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
-from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -261,17 +260,9 @@ async def test_work_is_found_only_for_its_exact_subject_key(neo4j_driver: AsyncD
 # composite keys only (TEN-005, TEN-032), so the two tenants can share them.
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
-async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe_all(two_tenant_driver)
-    yield two_tenant_driver
-    await wipe_all(two_tenant_driver)
+async def two(neo4j_driver: AsyncDriver, clean_graph: None) -> AsyncIterator[AsyncDriver]:
+    yield neo4j_driver
 
 
 async def test_another_tenants_work_reads_as_not_found_and_cannot_be_saved(

@@ -6,6 +6,10 @@ nodes (outside the registry labels), and the relationships that join two scopes,
 statements. It reads the whole graph and returns label names and counts, never a value: the data
 carries a marker text that must not appear in any report. Registry nodes are seeded with raw
 Cypher (test code). The start-up refusal is shown end to end on a container.
+
+The check reads the whole graph, and the tests seed nodes with no tenant on purpose, so the module
+runs on a private container (`own_neo4j`, marker `schema`, TEN-034): on a database that other runs
+share it would count their nodes, and they would count these.
 """
 
 import os
@@ -27,12 +31,18 @@ from diucs.application.ports.outbound.invariants import (
 )
 from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.container import build_for_tests
-from tests.support.neo4j import count_nodes, wipe_all, write_tx
+from tests.support.neo4j import ThrowawayNeo4j, count_nodes_all, wipe_all, write_tx
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
 A, B = "alpha-icb", "bravo-trust"
 MARKER = "DATA-MARKER-must-never-leave-the-graph"
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def harness_driver(own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver]) -> AsyncDriver:
+    """This module's database is its own container, whatever the session's mode."""
+    return own_neo4j[1]
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -48,7 +58,8 @@ async def connection(harness_driver: AsyncDriver) -> AsyncIterator[Neo4jConnecti
 
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def _empty_graph(clean_graph: None, harness_driver: AsyncDriver) -> AsyncIterator[None]:
+async def _empty_graph(harness_driver: AsyncDriver) -> AsyncIterator[None]:
+    await wipe_all(harness_driver)
     yield
     await wipe_all(harness_driver)
 
@@ -187,7 +198,7 @@ async def test_the_check_changes_nothing_and_runs_only_the_two_registered_statem
         set_query_observer(None)
 
     assert seen == [("Q-INVARIANT-UNSTAMPED", "read"), ("Q-INVARIANT-CROSS-SCOPE", "read")]
-    assert await count_nodes(harness_driver, "Person") == 2
+    assert await count_nodes_all(harness_driver, "Person") == 2
 
 
 async def test_the_check_does_not_scan_less_than_the_whole_graph(

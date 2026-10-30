@@ -9,14 +9,13 @@ Build-wave note: written in the build wave, not run there (build-wave-rules.md).
 them. All values are synthetic.
 """
 
-from collections.abc import AsyncIterator, Awaitable, Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from itertools import product
 from typing import Any
 
 import pytest
-import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
@@ -28,9 +27,8 @@ from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import ServiceFlag
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.rules.criteria_filter import check_hard_criteria
-from tests.support.neo4j import read_tx, wipe_all, write_tx
+from tests.support.neo4j import read_tx, write_tx
 from tests.support.tenancy import as_tenant
-from tests.support.tenant_seed import contracted_container
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -279,10 +277,6 @@ async def test_an_inactive_service_is_never_a_candidate(neo4j_driver: AsyncDrive
 
 
 # Two tenants on a private contracted container: the same service and criteria ids in both.
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
 
 
 async def _write_as(driver: AsyncDriver, tenant: str) -> None:
@@ -303,11 +297,10 @@ async def _read_as(driver: AsyncDriver, tenant: str, step: Work) -> Any:
 
 
 async def test_another_tenants_criteria_are_not_candidates_or_history(
-    two_tenant_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
-    await wipe_all(two_tenant_driver)
-    await _write_as(two_tenant_driver, tenant_id)
-    await _write_as(two_tenant_driver, other_tenant_id)
+    await _write_as(neo4j_driver, tenant_id)
+    await _write_as(neo4j_driver, other_tenant_id)
 
     async def candidates(repo: Neo4jCriteriaRepository) -> list[str]:
         found = await repo.candidates(AgeBand.A16_64, "DT1", (NeedCategory.FRAILTY,))
@@ -318,6 +311,6 @@ async def test_another_tenants_criteria_are_not_candidates_or_history(
 
     # Both tenants hold the same criteria id, so a leak shows as a second entry in the list.
     own = ACTIVE_CRITERIA["svc-a"].id
-    assert await _read_as(two_tenant_driver, tenant_id, candidates) == [own]
-    assert await _read_as(two_tenant_driver, other_tenant_id, candidates) == [own]
-    assert await _read_as(two_tenant_driver, tenant_id, history) == [own]
+    assert await _read_as(neo4j_driver, tenant_id, candidates) == [own]
+    assert await _read_as(neo4j_driver, other_tenant_id, candidates) == [own]
+    assert await _read_as(neo4j_driver, tenant_id, history) == [own]

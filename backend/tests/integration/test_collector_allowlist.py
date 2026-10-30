@@ -28,7 +28,7 @@ from opentelemetry.trace import Status, StatusCode
 
 from diucs.adapters.outbound.telemetry.attributes import SERVICE_NAME
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.infra, pytest.mark.exclusive]
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[3]
 INFRA: Final = REPO_ROOT / "infra"

@@ -1,5 +1,5 @@
-"""Real-Docker checks of the F10b load protection (DEC-135). Run under the manual lock:
-`flock /tmp/diucs-neo4j-tests.lock <command>`.
+"""Real-Docker checks of the F10b load protection (DEC-135). They start private containers, so
+they carry the `lifecycle` marker (TEN-034).
 
 Two things only a real container can prove: the memory limit and the Neo4j settings were accepted
 (a misspelt NEO4J_ variable would be ignored or would stop the container), and a run that dies
@@ -21,6 +21,8 @@ from tests.support.neo4j import (
     throwaway_driver,
 )
 from tests.support.proc import process_start_marker
+
+pytestmark = pytest.mark.lifecycle
 
 BACKEND = Path(__file__).resolve().parents[3]
 

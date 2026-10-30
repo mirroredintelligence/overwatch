@@ -391,6 +391,11 @@ def wait_until_ready(
 def stop_throwaway_neo4j(container: ThrowawayNeo4j, *, run: DockerRunner | None = None) -> None:
     """Remove the container and its anonymous volumes (DEC-128), then free its hold on the harness
     lock. The lock is freed even if the removal fails: the next session's reaper finishes it."""
+    if not container.name.startswith(NAME_PREFIX):
+        raise ValueError(
+            f"{container.name} is not a private test container; only a container this session "
+            f"started (a name starting {NAME_PREFIX}) is removed here (the shared one is kept)."
+        )
     try:
         result = (run or _docker)("rm", "-f", "-v", container.name)
     finally:

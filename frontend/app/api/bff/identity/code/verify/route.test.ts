@@ -2,7 +2,7 @@
 import { http, HttpResponse, type HttpResponseResolver } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, unsealSession } from '@/lib/auth/session';
-import { signInRegistrant } from '@/lib/register/backend';
+import { notBuilt, signInRegistrant } from '@/lib/register/backend';
 import { PENDING_COOKIE, sealPending } from '@/lib/register/pending';
 import { BACKEND_ROOT, TENANT_HOST } from '@/test/fixtures/links';
 import { cookieWrites, cookiesMock, lastWrite, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
@@ -123,11 +123,10 @@ describe('POST /api/bff/identity/code/verify', () => {
   });
 
   it('answers 503 not-built when the registration sign-in is not built yet, and writes no session', async () => {
-    signIn.mockRejectedValueOnce(
-      Object.assign(new Error('not built'), { name: 'FhirError', status: 503, outcome: { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-built', diagnostics: 'x' }] } }),
-    );
+    signIn.mockRejectedValueOnce(notBuilt('The registration sign-in'));
     const response = await POST(post({ phone: '07700900456', code: '123456' }, { [PENDING_COOKIE]: await withPending() }));
     expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: 'not-built' });
     expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
   });
 

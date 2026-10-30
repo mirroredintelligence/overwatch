@@ -1,0 +1,83 @@
+/* The registration pages (W23 to W27). Tokens only; the page is a single column at phone width. */
+
+.main {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-6) var(--space-4);
+  background: var(--c-bg);
+  min-height: 100vh;
+  box-sizing: border-box;
+  color: var(--c-ink);
+}
+
+.panel {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.product {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+  color: var(--c-primary-dark);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+  letter-spacing: var(--type-heading-tracking);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: Canvas;
+  color: CanvasText;
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-card);
+}
+
+.text {
+  margin: 0;
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.notice {
+  margin: 0;
+  font-weight: 700;
+  color: var(--c-ink-2);
+}
+
+.list {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}

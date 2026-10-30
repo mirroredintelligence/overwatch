@@ -1,6 +1,6 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { CodeEntry } from './CodeEntry';
 
@@ -14,9 +14,6 @@ function setup(overrides: Partial<Parameters<typeof CodeEntry>[0]> = {}) {
 }
 
 describe('CodeEntry', () => {
-  beforeEach(() => {
-    vi.useFakeTimers({ shouldAdvanceTime: false });
-  });
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -38,6 +35,7 @@ describe('CodeEntry', () => {
   });
 
   it('counts the resend down from one minute, then offers a new code', () => {
+    vi.useFakeTimers();
     setup();
     expect(screen.getByText('Send a new code in 1:00')).toBeInTheDocument();
     act(() => {
@@ -52,12 +50,13 @@ describe('CodeEntry', () => {
     expect(screen.getByRole('button', { name: 'Send a new code' })).toBeInTheDocument();
   });
 
-  it('restarts the countdown and calls onResend when the new code is asked for', async () => {
+  it('restarts the countdown and calls onResend when the new code is asked for', () => {
+    vi.useFakeTimers();
     const { onResend } = setup();
     act(() => {
       vi.advanceTimersByTime(60_000);
     });
-    await userEvent.click(screen.getByRole('button', { name: 'Send a new code' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send a new code' }));
     expect(onResend).toHaveBeenCalledTimes(1);
     expect(screen.getByText('Send a new code in 1:00')).toBeInTheDocument();
   });

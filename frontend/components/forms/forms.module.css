@@ -1,0 +1,73 @@
+/* Form controls shared by the registration steps and the forms (W23, W54). Sizes follow the
+   design tokens: controls at least 52px high, touch targets at least 44px. */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.labelRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.label {
+  font-size: var(--type-label-size);
+  line-height: var(--type-label-lh);
+  font-weight: var(--type-label-weight);
+  letter-spacing: var(--type-label-tracking);
+}
+
+.word {
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.hint {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+}
+
+.input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: var(--btn-h);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-closed);
+  border-radius: var(--radius);
+  background: Canvas;
+  color: CanvasText;
+  font: inherit;
+  font-size: var(--type-body-size);
+}
+
+.input:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.input[readonly] {
+  border-color: var(--c-line);
+  background: var(--c-bg);
+  color: var(--c-ink-2);
+}
+
+.invalid {
+  border-color: var(--c-limited);
+  box-shadow: inset 0 0 0 1px var(--c-limited);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  font-weight: 700;
+  color: var(--c-limited);
+}

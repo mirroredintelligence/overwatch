@@ -31,6 +31,7 @@ async function checkCode(code = '123456') {
 
 beforeEach(() => {
   push.mockClear();
+  seenBffRegistration.length = 0;
   bffRegistration.codeSend = { status: 202, body: { accepted: true, resendAfterSeconds: 60 } };
   bffRegistration.verify = { status: 200, body: { registrationId: 'REG-SAMPLE-1' } };
 });

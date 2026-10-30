@@ -90,6 +90,7 @@ RELATIONSHIPS: Final = (
     _checked("FOCUS", "capacity.add.service"),
     _checked("FOR", "move.add.service"),
     _checked("FROM", "move.add.practitioner"),
+    _local("FOR_SESSION", "a support ticket to the session it is about, both on the tenant"),
     _local("HAS_CREDENTIAL"),
     _local("HAS_DEVICE"),
     Relationship(
@@ -103,6 +104,10 @@ RELATIONSHIPS: Final = (
     _local("HAS_VERSION"),
     _checked("HEALTHCARE_SERVICE", "person.save_role.service"),
     _local("IN_RESPONSE_TO", "a reply checks the communication it answers (NotFound)"),
+    _local(
+        "LOCATION",
+        "a read of a service position: the service and its place are both matched on the tenant",
+    ),
     _shared("MEDIUM"),
     _local("MEMBER"),
     _checked("ON", "flag.add_report_flag.report"),

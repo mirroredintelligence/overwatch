@@ -63,7 +63,10 @@ async def connection(harness_driver: AsyncDriver) -> AsyncIterator[Neo4jConnecti
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def world(
-    harness_driver: AsyncDriver, connection: Neo4jConnection, run_identity: RunIdentity
+    harness_driver: AsyncDriver,
+    connection: Neo4jConnection,
+    run_identity: RunIdentity,
+    clean_graph: None,
 ) -> AsyncIterator[NetworkWorld]:
     built = await NetworkWorld.build(harness_driver, connection, world_ids(run_identity))
     await built.run_projector()
@@ -73,7 +76,7 @@ async def world(
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def cache() -> AsyncIterator[RedisCache]:
-    store = RedisCache.from_url(os.environ["REDIS_URL"])
+    store = RedisCache.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
     try:
         yield store
     finally:

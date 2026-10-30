@@ -39,7 +39,7 @@ from diucs.domain.model.network import (
 )
 from diucs.domain.rules import projection as allowlist
 from diucs.domain.rules.grant import end_grant
-from tests.support.neo4j import read_tx, write_tx
+from tests.support.neo4j import read_tx, wipe_tenant
 from tests.support.network_samples import (
     ACCOUNT_B,
     SETTINGS,
@@ -78,14 +78,8 @@ async def connection(harness_driver: AsyncDriver) -> AsyncIterator[Neo4jConnecti
 
 
 async def _clean(driver: AsyncDriver, network: str) -> None:
-    async def work(tx: AsyncManagedTransaction) -> None:
-        await tx.run("MATCH (n) WHERE n.tenantId = $net DETACH DELETE n", net=network)
-        await tx.run(
-            "MATCH (n) WHERE n:Network OR n:NetworkMembership OR n:Grant OR n:Listing "
-            "DETACH DELETE n"
-        )
-
-    await write_tx(driver, work)
+    """The network scope's nodes and the registry records of the network, and no other run's."""
+    await wipe_tenant(driver, network)
 
 
 class World:
@@ -131,7 +125,7 @@ class World:
         async with factory() as uow:
             await uow.services.save(sample_profile())
             await uow.capacity.add(sample_report())
-            await uow.criteria.add(sample_criteria())
+            await uow.criteria.add(sample_criteria(supersedes_id=None))
             await uow.commit()
 
     async def project(self) -> list[Any]:
@@ -164,6 +158,7 @@ async def world(
     tenant_id: str,
     other_tenant_id: str,
     network_id: str,
+    clean_graph: None,
 ) -> AsyncIterator[World]:
     await _clean(harness_driver, network_id)
     built = World(harness_driver, connection, tenant_id, other_tenant_id, network_id)

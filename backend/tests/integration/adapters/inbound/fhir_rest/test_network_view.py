@@ -18,13 +18,13 @@ from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
@@ -70,7 +70,10 @@ async def connection(harness_driver: AsyncDriver) -> AsyncIterator[Neo4jConnecti
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def world(
-    harness_driver: AsyncDriver, connection: Neo4jConnection, run_identity: RunIdentity
+    harness_driver: AsyncDriver,
+    connection: Neo4jConnection,
+    run_identity: RunIdentity,
+    clean_graph: None,
 ) -> AsyncIterator[NetworkWorld]:
     built = await NetworkWorld.build(harness_driver, connection, world_ids(run_identity))
     await built.run_projector()
@@ -80,7 +83,7 @@ async def world(
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def app(world: NetworkWorld) -> AsyncIterator[FastAPI]:
-    cache = RedisCache.from_url(os.environ["REDIS_URL"])
+    cache = RedisCache.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
     clock = FixedClock(NOW + timedelta(minutes=2))
     container = EdgeContainer(
         tenants=active_tenants(*world.ids.members, world.ids.outsider), clock=clock

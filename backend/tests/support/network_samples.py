@@ -5,6 +5,7 @@ Every value is invented: `net-pilot`, `tenant-a` (the owner), `tenant-b` and `te
 are built through the domain's own functions, so a sample is always a record the domain accepts.
 """
 
+import os
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
@@ -31,12 +32,17 @@ from diucs.domain.rules.listing import admit_listing, request_listing
 
 T0 = datetime(2026, 10, 1, 9, 0, tzinfo=UTC)
 NOW = T0 + timedelta(days=30)
-NETWORK_ID = "net-pilot"
-OTHER_NETWORK_ID = "net-other"
-OWNER = "tenant-a"
-MEMBER_B = "tenant-b"
-MEMBER_C = "tenant-c"
-OUTSIDER = "tenant-z"
+# Under pytest the ids are derived from the run (the conftest exports the run's tenant and network
+# scope), so two runs on one shared Neo4j never meet in the registry, which carries no tenant:
+# `net-pilot` and `tenant-a` are the readable names of a process with no run.
+_RUN_TENANT = os.environ.get("DIUCS_TEST_TENANT")
+_RUN_NETWORK = os.environ.get("DIUCS_TEST_NETWORK")
+NETWORK_ID = _RUN_NETWORK or "net-pilot"
+OTHER_NETWORK_ID = f"{_RUN_NETWORK}-b" if _RUN_NETWORK else "net-other"
+OWNER = f"{_RUN_TENANT}-o" if _RUN_TENANT else "tenant-a"
+MEMBER_B = f"{_RUN_TENANT}-m1" if _RUN_TENANT else "tenant-b"
+MEMBER_C = f"{_RUN_TENANT}-m2" if _RUN_TENANT else "tenant-c"
+OUTSIDER = f"{_RUN_TENANT}-x" if _RUN_TENANT else "tenant-z"
 AGREEMENT = Agreement("DSA-2026-1", 1)
 ACCOUNT_OWNER = "acct-owner-0001"
 ACCOUNT_B = "acct-member-b-01"

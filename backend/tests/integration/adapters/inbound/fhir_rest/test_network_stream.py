@@ -15,12 +15,12 @@ from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
+
+from diucs.adapters.inbound.fhir_rest import routes_network_events as module
 from diucs.adapters.inbound.fhir_rest.routes_network_events import (
     SCOPE_ENDED_EVENT,
     network_events,
 )
-
-from diucs.adapters.inbound.fhir_rest import routes_network_events as module
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.cache import (
@@ -39,7 +39,7 @@ CHANGED = "2026-10-23T13:12:00+00:00"
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def cache() -> AsyncIterator[RedisCache]:
-    store = RedisCache.from_url(os.environ["REDIS_URL"])
+    store = RedisCache.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
     try:
         yield store
     finally:

@@ -63,6 +63,7 @@ from diucs.domain.rules.grant import (
 )
 from diucs.domain.rules.listing import admit_listing, request_listing
 from diucs.domain.rules.projection import PROJECTION_ALLOWLIST_VERSION
+from tests.support.neo4j import wipe_tenant
 from tests.support.network_samples import (
     ACCOUNT_B,
     ACCOUNT_OWNER,
@@ -185,6 +186,11 @@ class NetworkWorld:
             await ensure_audit_head(driver)
         return world
 
+    def listing_id(self, member: str) -> str:
+        """A listing's id names the run and the member's number, never the tenant: a result shows
+        the listing's reference to the viewer, and no tenant id may be in it."""
+        return f"lst-{self.ids.network.removeprefix('net-')}-{member.rsplit('-', 1)[1]}"
+
     def service_name(self, member: str) -> str:
         return f"Service {member.rsplit('-', 1)[1]}"
 
@@ -240,7 +246,7 @@ class NetworkWorld:
         listing = request_listing(
             [],
             self._active_membership(member),
-            id=f"lst-{member}",
+            id=self.listing_id(member),
             network_id=self.ids.network,
             source_service_id=SERVICE_ID,
             now=T0 + timedelta(hours=5),
@@ -262,7 +268,7 @@ class NetworkWorld:
                     sample_profile(name=self.service_name(member), comment=marks[0])
                 )
                 await uow.capacity.add(sample_report(performer_role_id=marks[1]))
-                await uow.criteria.add(sample_criteria(change_reason=marks[2]))
+                await uow.criteria.add(sample_criteria(change_reason=marks[2], supersedes_id=None))
                 await uow.commit()
 
     # ---- driving
@@ -385,15 +391,7 @@ class NetworkWorld:
             *self.ids.members,
         ]
 
-        async def work(tx: AsyncManagedTransaction) -> None:
-            await tx.run("MATCH (n) WHERE n.tenantId IN $scopes DETACH DELETE n", scopes=scopes)
-            await tx.run(
-                "MATCH (n) WHERE n:Network OR n:NetworkMembership OR n:Grant OR n:Listing "
-                "DETACH DELETE n"
-            )
-
-        async with self.driver.session() as session:
-            await session.execute_write(work)
+        await wipe_tenant(self.driver, *scopes)
 
 
 def _network(ids: WorldIds) -> Network:

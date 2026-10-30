@@ -15,13 +15,13 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+
+from diucs.adapters.inbound.fhir_rest import routes_network_events as module
 from diucs.adapters.inbound.fhir_rest.routes_network_events import (
     SCOPE_ENDED_EVENT,
     network_events,
     to_network_sse,
 )
-
-from diucs.adapters.inbound.fhir_rest import routes_network_events as module
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.actor import Actor

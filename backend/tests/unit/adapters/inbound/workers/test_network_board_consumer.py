@@ -10,6 +10,8 @@ acknowledged and builds nothing. No outcome reason holds a payload value.
 from typing import Any
 
 import pytest
+
+from diucs.adapters.inbound.workers.consumer import Outcome
 from diucs.adapters.inbound.workers.network_board_consumer import (
     NETWORK_BOARD_SUBSCRIPTION,
     NETWORK_EVENTS_TOPIC,
@@ -17,8 +19,6 @@ from diucs.adapters.inbound.workers.network_board_consumer import (
     network_board_consumer,
     network_board_runners,
 )
-
-from diucs.adapters.inbound.workers.consumer import Outcome
 from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.tenancy import current_scope_or_none

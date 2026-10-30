@@ -510,6 +510,12 @@ _WIPE_REGISTRY = (
 _WIPE_NETWORK_REGISTRY = (
     "MATCH (n:Network) WHERE n.id IN $scopes DETACH DELETE n RETURN count(n) AS deleted"
 )
+# A network's membership, grant and listing records carry no `tenantId`; they name the network as
+# `networkId`, so a network scope's wipe takes them too.
+_WIPE_NETWORK_RECORDS = (
+    "MATCH (n) WHERE (n:NetworkMembership OR n:Grant OR n:Listing) AND n.networkId IN $scopes "
+    "DETACH DELETE n RETURN count(n) AS deleted"
+)
 _WIPE_BATCH = (
     f"MATCH (n) WHERE n.tenantId IN $scopes WITH n LIMIT {DELETE_BATCH} "
     "DETACH DELETE n RETURN count(*) AS deleted"
@@ -532,6 +538,7 @@ async def wipe_tenant(driver: AsyncDriver, *scopes: str | ScopeId) -> None:
     values = _scope_values(scopes)
     await _delete(driver, _WIPE_REGISTRY, scopes=values)
     await _delete(driver, _WIPE_NETWORK_REGISTRY, scopes=values)
+    await _delete(driver, _WIPE_NETWORK_RECORDS, scopes=values)
     while await _delete(driver, _WIPE_BATCH, scopes=values):
         pass
 

@@ -36,7 +36,7 @@ from diucs.domain.model.network import (
     NetworkStatus,
 )
 from diucs.domain.rules.grant import end_grant
-from tests.support.neo4j import read_tx, write_tx
+from tests.support.neo4j import read_tx, wipe_tenant, write_tx
 from tests.support.network_samples import (
     ACCOUNT_B,
     MEMBER_B,
@@ -56,10 +56,6 @@ from tests.support.tenancy import RunIdentity
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-REGISTRY_CLEAN = (
-    "MATCH (n) WHERE n:Network OR n:NetworkMembership OR n:Grant OR n:Listing DETACH DELETE n"
-)
-
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def connection(harness_driver: AsyncDriver) -> AsyncIterator[Neo4jConnection]:
@@ -75,11 +71,12 @@ async def connection(harness_driver: AsyncDriver) -> AsyncIterator[Neo4jConnecti
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
 async def _clean_registry(harness_driver: AsyncDriver) -> AsyncIterator[None]:
-    """The registry carries no tenant, so the harness's tenant wipe does not touch it: these tests
-    clear their own nodes, before and after."""
-    await _run(harness_driver, REGISTRY_CLEAN)
+    """The registry carries no tenant, and these tests use two networks of the run's (`NETWORK_ID`
+    and `OTHER_NETWORK_ID`, derived from the run), so they clear the records of those two, before
+    and after, and never another run's."""
+    await wipe_tenant(harness_driver, NETWORK_ID, OTHER_NETWORK_ID)
     yield
-    await _run(harness_driver, REGISTRY_CLEAN)
+    await wipe_tenant(harness_driver, NETWORK_ID, OTHER_NETWORK_ID)
 
 
 @pytest.fixture

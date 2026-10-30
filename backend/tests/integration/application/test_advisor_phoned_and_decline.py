@@ -51,6 +51,7 @@ from diucs.domain.model.case import Case
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
+from tests.support.tenancy import as_tenant
 
 Seed = Callable[..., Awaitable[None]]
 
@@ -291,14 +292,20 @@ async def test_tenant_b_cannot_phone_or_decline_a_service_it_does_not_hold(
     uow_factory_b: UnitOfWorkFactory,
     neo4j_driver: AsyncDriver,
     seed_service: Seed,
+    other_tenant_id: str,
 ) -> None:
     await _seed(uow_factory, seed_service)
 
-    with pytest.raises(NotFound):
-        await _phoned(uow_factory_b, neo4j_driver).execute(
-            RecordAdvisorPhonedCommand("b-phoned", ADVISOR, WEST, "accepting", 3)
-        )
-    with pytest.raises(NotFound):
-        await _decliner(uow_factory_b, neo4j_driver).execute(
-            RecordDeclineCommand("b-decline", ADVISOR, CASE_ID, WEST, DeclineReason.FULL)
-        )
+    # Tenant B's advisor, bound as B: the use cases check the actor's tenant against the bound one
+    # and the unit's scope (TEN-024), so a tenant A actor on B's unit is a wiring fault, not a
+    # NotFound. What is proved here is that B, working properly, cannot reach A's service.
+    advisor_b = dataclasses.replace(ADVISOR, tenant_id=other_tenant_id)
+    with as_tenant(other_tenant_id):
+        with pytest.raises(NotFound):
+            await _phoned(uow_factory_b, neo4j_driver).execute(
+                RecordAdvisorPhonedCommand("b-phoned", advisor_b, WEST, "accepting", 3)
+            )
+        with pytest.raises(NotFound):
+            await _decliner(uow_factory_b, neo4j_driver).execute(
+                RecordDeclineCommand("b-decline", advisor_b, CASE_ID, WEST, DeclineReason.FULL)
+            )

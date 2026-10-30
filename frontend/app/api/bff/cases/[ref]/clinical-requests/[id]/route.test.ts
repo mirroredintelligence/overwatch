@@ -22,7 +22,7 @@ afterEach(() => vi.unstubAllEnvs());
 describe('GET /api/bff/cases/[ref]/clinical-requests/[id]', () => {
   it('answers unavailable: the back end has no read an advisor can make of one request yet', async () => {
     const s: Session = { role: 'advisor', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
-    const response = await GET(requestWithCookies('https://app.test/api/bff/cases/case-4821/clinical-requests/req-9001', { [SESSION_COOKIE]: await sealSession(s) }), { params: Promise.resolve({ ref: 'case-4821', id: 'req-9001' }) });
+    const response = await GET(requestWithCookies('https://app.test/api/bff/cases/case-4821/clinical-requests/req-9001', { [SESSION_COOKIE]: await sealSession(s) }));
     expect(response.status).toBe(503);
   });
 });

@@ -20,10 +20,13 @@ export type BookingPanelProps = {
   /** Back to the options list: after a cancel, a decline, an expiry or a withdrawal acknowledged. */
   onSeeOptions?: () => void;
   onAskClinical?: () => void;
+  /** "Record outcome" and "Copy summary for SystmOne" on a confirmed booking. */
+  onRecordOutcome?: () => void;
+  onCopySummary?: () => void;
 };
 
 export function BookingPanel(props: BookingPanelProps) {
-  const { caseRef, serviceId, serviceName, servicePhone, openStream, fetcher, now, onSeeOptions, onAskClinical } = props;
+  const { caseRef, serviceId, serviceName, servicePhone, openStream, fetcher, now, onSeeOptions, onAskClinical, onRecordOutcome, onCopySummary } = props;
   const { booking, busy, conflict, failed, request, cancelBusy, cancelConflict, cancel, acknowledge } = useBooking({
     caseRef,
     serviceId,
@@ -46,6 +49,8 @@ export function BookingPanel(props: BookingPanelProps) {
         onBackToOptions={onSeeOptions}
         onNextOption={onSeeOptions}
         onAskClinical={onAskClinical}
+        onRecordOutcome={onRecordOutcome}
+        onCopySummary={onCopySummary}
       />
     );
   }

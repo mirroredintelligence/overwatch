@@ -20,7 +20,6 @@ import styles from './OptionsList.module.css';
 
 export type OptionsListProps = {
   caseId: string;
-  onRequest?: (serviceId: string) => void;
   onCriteria?: (serviceId: string) => void;
   onPhoned?: (serviceId: string) => void;
   /** Wired by the clinical escalation task (W45). Until then the button does nothing. */
@@ -37,10 +36,11 @@ function headingFor(count: number): string {
 
 type Open = { kind: 'criteria' | 'phoned' | 'declined'; serviceId: string; serviceName: string };
 
-export function OptionsList({ caseId, onRequest, onCriteria, onPhoned, onAskClinical }: OptionsListProps) {
+export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: OptionsListProps) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [open, setOpen] = useState<Open | null>(null);
   const requested = useRef<string | null>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
 
   // Reads the options. Called once per case on mount, and again only after a saved answer, so the
   // list shows what the answer changed. Never on focus.
@@ -74,15 +74,19 @@ export function OptionsList({ caseId, onRequest, onCriteria, onPhoned, onAskClin
         <NoServiceFits caseId={caseId} onWidened={() => void readOptions()} onAskClinical={() => onAskClinical?.()} />
       ) : (
         <>
-          <h2 className={styles.heading}>{headingFor(options.length)}</h2>
+          <h2 className={styles.heading} ref={heading} tabIndex={-1}>
+            {headingFor(options.length)}
+          </h2>
           <p className={styles.sub}>Sorted by travel time. Not ranked.</p>
           {hasNetwork ? <Banner tone="info" title="Read only">{READ_ONLY_BODY}</Banner> : null}
           <div className={styles.cards}>
             {options.map((option) => (
               <ServiceCard
                 key={option.serviceId}
+                caseId={caseId}
                 option={option}
-                onRequest={onRequest}
+                onSeeOptions={() => heading.current?.focus()}
+                onAskClinical={onAskClinical}
                 onCriteria={(id) => {
                   opener('criteria')(id);
                   onCriteria?.(id);

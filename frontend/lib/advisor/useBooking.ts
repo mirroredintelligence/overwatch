@@ -5,7 +5,7 @@ import { readCsrfCookie } from './csrf';
 import { type BookingState, type CancelReason, parseBookingState } from './bookings';
 
 // One booking for one service, as the advisor's card keeps it (W20). The card never patches its state
-// from an event: a `booking.updated` for this service means "read it again". A request is posted once
+// from an event: a `board` or `booking.updated` for this service means "read it again". A request is posted once
 // per press, with an Idempotency-Key, and a second press while one is in flight does nothing.
 
 /** The part of the browser's EventSource this hook uses. */
@@ -47,7 +47,10 @@ export type BookingController = {
 };
 
 export const POLL_INTERVAL_MS = 30_000;
-const BOOKING_EVENT = 'booking.updated';
+// The back end's stream sends `board` events (routes_events.py) naming the service whose capacity, status
+// or bookings changed; `booking.updated` is the name the relay also forwards (DEC-152). Either one for this
+// service means "read the booking again". Neither carries the booking's state.
+const BOOKING_EVENTS = ['board', 'booking.updated'] as const;
 const REQUEST_PATH = '/api/bff/bookings';
 
 function keyForRequest(): string {
@@ -171,17 +174,19 @@ export function useBooking(options: UseBookingOptions): BookingController {
   useEffect(() => {
     if (bookingId === null) return;
     const stream = openStream?.() ?? null;
-    stream?.addEventListener(BOOKING_EVENT, (event) => {
-      let named: unknown;
-      try {
-        named = JSON.parse(String(event.data)) as unknown;
-      } catch {
-        return;
-      }
-      if (typeof named === 'object' && named !== null && (named as { serviceId?: unknown }).serviceId === serviceId) {
-        void read();
-      }
-    });
+    for (const name of BOOKING_EVENTS) {
+      stream?.addEventListener(name, (event) => {
+        let named: unknown;
+        try {
+          named = JSON.parse(String(event.data)) as unknown;
+        } catch {
+          return;
+        }
+        if (typeof named === 'object' && named !== null && (named as { serviceId?: unknown }).serviceId === serviceId) {
+          void read();
+        }
+      });
+    }
     const timer = setInterval(() => void read(), pollMs);
     return () => {
       clearInterval(timer);

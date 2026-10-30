@@ -332,7 +332,11 @@ def case_to_fhir(case: Case) -> tuple[dict[str, Any], dict[str, Any], list[dict[
     if case.postcode is not None:
         patient["address"] = [{"postalCode": case.postcode}]
 
-    extensions = [_extension(_EXT_REFERRER_TYPE, case.referrer_type.value)]
+    extensions = (
+        []
+        if case.referrer_type is None
+        else [_extension(_EXT_REFERRER_TYPE, case.referrer_type.value)]
+    )
     request: dict[str, Any] = {
         "resourceType": _REQUEST,
         "id": case.id,
@@ -419,7 +423,11 @@ def case_from_fhir(
     return Case(
         id=case_id,
         reference=str(identifiers[0]["value"]),
-        referrer_type=parse_code(ReferrerType, _required(values, _EXT_REFERRER_TYPE)),
+        referrer_type=(
+            None
+            if values.get(_EXT_REFERRER_TYPE) is None
+            else parse_code(ReferrerType, values[_EXT_REFERRER_TYPE])
+        ),
         age_band=None if age_text is None else parse_code(AgeBand, age_text),
         postcode=postcode,
         needs=tuple(

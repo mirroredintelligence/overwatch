@@ -201,8 +201,9 @@ def _case_to_fhir(case: Case) -> dict[str, Any]:
         "intent": "plan",
         "subject": {"reference": "#p"},
         "contained": [patient],
-        "extension": [{"url": REFERRER_EXTENSION, "valueCode": case.referrer_type.value}],
     }
+    if case.referrer_type is not None:
+        request["extension"] = [{"url": REFERRER_EXTENSION, "valueCode": case.referrer_type.value}]
     if case.urgency is not None:
         request["priority"] = priority_for(case.urgency)
     if case.needs:

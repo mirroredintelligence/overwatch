@@ -2,6 +2,9 @@ import { render, screen, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { MyServices } from './MyServices';
+import { withApplicantHandlers } from '@/test/msw/applicant';
+
+withApplicantHandlers();
 
 // My services (W26): one row per service, its status as a word, and an Edit link to its status page.
 

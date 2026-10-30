@@ -6,6 +6,9 @@ import { runAxe } from '@/test/a11y';
 import { resetStepSaves, reviewState, seenSubmits } from '@/test/msw/handlers/registration';
 import { server } from '@/test/msw/server';
 import { ReviewList } from './ReviewList';
+import { withApplicantHandlers } from '@/test/msw/applicant';
+
+withApplicantHandlers();
 
 // Registration step 5, the review (W26, artboard RegisterFlow3 panel 9). Submit goes only when every
 // section is complete; otherwise the summary lists the sections that need attention, and nothing is sent.

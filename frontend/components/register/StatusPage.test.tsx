@@ -6,6 +6,9 @@ import { runAxe } from '@/test/a11y';
 import { resetStatusState, seenStatusActions, statusState } from '@/test/msw/handlers/registration';
 import { server } from '@/test/msw/server';
 import { StatusPage } from './StatusPage';
+import { withApplicantHandlers } from '@/test/msw/applicant';
+
+withApplicantHandlers();
 
 // The applicant's status page after submitting (W27, artboards ApprovalApplicant panels 2 to 7 and
 // ApprovalStates). Each state has its own words; the page shows only what the BFF passes on.

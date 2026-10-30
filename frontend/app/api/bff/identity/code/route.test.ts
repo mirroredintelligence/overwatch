@@ -7,6 +7,9 @@ import { cookieWrites, cookiesMock, lastWrite, requestWithCookies, resetCookieWr
 import { backendIdentity, seenBackendIdentity } from '@/test/msw/handlers/registration';
 import { server } from '@/test/msw/server';
 import { POST } from './route';
+import { withApplicantHandlers } from '@/test/msw/applicant';
+
+withApplicantHandlers();
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');

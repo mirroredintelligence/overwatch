@@ -6,6 +6,9 @@ import { runAxe } from '@/test/a11y';
 import { bffRegistration, seenBffRegistration } from '@/test/msw/handlers/registration';
 import { server } from '@/test/msw/server';
 import { SignInForm } from './SignInForm';
+import { withApplicantHandlers } from '@/test/msw/applicant';
+
+withApplicantHandlers();
 
 // These flows type through a whole form in one test: the suite's default five seconds is too little on a loaded machine.
 vi.setConfig({ testTimeout: 20_000 });

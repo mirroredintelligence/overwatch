@@ -4,6 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { addressState, resetAddressRequests, seenAddressRequests, seenStepSaves, resetStepSaves } from '@/test/msw/handlers/registration';
 import { LocationForm } from './LocationForm';
+import { withApplicantHandlers } from '@/test/msw/applicant';
+
+withApplicantHandlers();
 
 // These flows type through a whole form in one test: the suite's default five seconds is too little on a loaded machine.
 vi.setConfig({ testTimeout: 20_000 });

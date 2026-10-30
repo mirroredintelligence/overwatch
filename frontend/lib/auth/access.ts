@@ -8,6 +8,9 @@ const PREFIX_ROLES: ReadonlyMap<string, readonly Role[]> = new Map([
   ['clinical', ['clinical']],
   ['lead', ['lead']],
   ['owner', ['owner', 'clinical']],
+  // The criteria pages sit at /criteria/<service> (route group (owner)). The back end decides, per call,
+  // which of these roles may approve or change; the page may be opened by all three (DEC-700).
+  ['criteria', ['owner', 'clinical', 'lead']],
   ['planning', ['exec', 'lead']],
   ['console', ['support']],
 ]);

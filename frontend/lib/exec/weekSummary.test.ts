@@ -74,12 +74,22 @@ describe('summaryFromParameters', () => {
   });
 });
 
+describe('summaryFromParameters time back text', () => {
+  it('keeps the back end\'s own sentence when it sends one, and null when it sends none', () => {
+    expect(summaryFromParameters(parameters()).timeBackText).toBeNull();
+    const withText = parameters();
+    (withText.parameter as unknown[]).push({ name: 'timeBackText', valueString: 'About 20 hours of phone calls.' });
+    expect(summaryFromParameters(withText).timeBackText).toBe('About 20 hours of phone calls.');
+  });
+});
+
 describe('timeBack', () => {
-  it('keeps [x] and says the baseline is not measured while the minutes are unset', () => {
+  it('says the time saved is not measured while the minutes are unset, and shows no placeholder', () => {
     expect(timeBack(shown(412), null)).toEqual({
-      sentence: '412 updates by text, app or email. Each replaces about one phone call of [x] minutes.',
-      estimate: 'Estimate until we measure the baseline.',
+      sentence: '412 updates by text, app or email.',
+      estimate: 'The time this saved is not measured yet.',
     });
+    expect(JSON.stringify(timeBack(shown(412), null))).not.toContain('[x]');
   });
 
   it('shows the sum behind the estimate when the minutes are set', () => {

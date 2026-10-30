@@ -20,9 +20,24 @@ const summary: WeekSummary = {
   medianMinutesToConfirmed: { value: 4, suppressed: false },
   updates: { value: 412, suppressed: false },
   minutesPerCall: null,
+  timeBackText: null,
 };
 
 const prefs: AlertPreferences = { ...DEFAULT_ALERT_PREFERENCES, deputy: 'pr-0042' };
+
+describe('WeekSummary time back', () => {
+  it('shows no placeholder: it says how many updates and that the time saved is not measured yet', () => {
+    render(<WeekSummaryView summary={summary} prefs={prefs} />);
+    expect(screen.getByText('412 updates by text, app or email.')).toBeInTheDocument();
+    expect(screen.getByText(/The time this saved is not measured yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/\[x\]/)).not.toBeInTheDocument();
+  });
+
+  it('shows the back end\'s own sentence when it sends one', () => {
+    render(<WeekSummaryView summary={{ ...summary, timeBackText: 'About 20 hours of phone calls.' }} prefs={prefs} />);
+    expect(screen.getByText('About 20 hours of phone calls.')).toBeInTheDocument();
+  });
+});
 
 describe('WeekSummary', () => {
   it('shows the four figures with their words, and the footnote', () => {

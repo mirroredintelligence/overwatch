@@ -336,12 +336,6 @@ async def test_the_advisor_acknowledges_a_withdrawal_and_the_escalation_is_cance
     assert escalations[0].status == CANCELLED
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="U21 AcknowledgeWithdrawal writes an audit entry for each acknowledgement with a new "
-    "key; the prompt asks for none on a second one. Known issue: remove the marker when U21 "
-    "guards it (the fix belongs to withdraw_booking.py).",
-)
 async def test_a_second_acknowledgement_is_200_and_writes_no_second_audit_entry(
     api_client: AsyncClient,
     api: Any,

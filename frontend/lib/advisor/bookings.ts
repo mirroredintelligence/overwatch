@@ -34,7 +34,20 @@ export type BookingState = {
   declinedAt: string | null;
   declineReason: string | null;
   expiredAt: string | null;
+  /** When the service withdrew or reported the patient not reached (the back end's ended time). */
+  withdrawnAt: string | null;
+  /** The withdrawal or not-reached reason, as the service gave it. */
+  withdrawReason: string | null;
 };
+
+/** The reasons an advisor may give for cancelling (U20, the artboard order). */
+export const CANCEL_REASONS = [
+  { code: 'caller-declined', label: 'Caller declined', dataEl: 'ADV-CANCEL-REASON-DECLINED' },
+  { code: 'no-longer-needed', label: 'No longer needed', dataEl: 'ADV-CANCEL-REASON-NEEDLESS' },
+  { code: 'other-route-found', label: 'Other route found', dataEl: 'ADV-CANCEL-REASON-ROUTE' },
+  { code: 'entered-in-error', label: 'Entered in error', dataEl: 'ADV-CANCEL-REASON-ERROR' },
+] as const;
+export type CancelReason = (typeof CANCEL_REASONS)[number]['code'];
 
 /** A value the card cannot read. The message never names the value. */
 export class BookingShapeError extends Error {
@@ -99,7 +112,9 @@ export function bookingFromTask(value: unknown): BookingState {
   const period = record(task.executionPeriod ?? {});
   const ended = instantOrNull(period.end);
   const declined = status === 'declined';
+  const ending = status === 'withdrawn' || status === 'not-reached';
   const confirmed = outputOf(task, 'confirmed-at');
+  const reason = outputOf(task, 'reason');
   return {
     id: text(task.id, 64),
     reference: text(reference, 80),
@@ -111,6 +126,8 @@ export function bookingFromTask(value: unknown): BookingState {
     declinedAt: declined ? ended : null,
     declineReason: declined ? ((outputOf(task, 'reason') as string | undefined) ?? null) : null,
     expiredAt: status === 'expired' ? (ended ?? replyBy) : null,
+    withdrawnAt: ending ? ended : null,
+    withdrawReason: ending ? ((reason as string | undefined) ?? null) : null,
   };
 }
 
@@ -122,6 +139,21 @@ export function bookingRequestTask(caseRef: string, serviceId: string) {
     focus: { reference: `ServiceRequest/${caseRef}` },
     owner: { reference: `HealthcareService/${serviceId}` },
   };
+}
+
+const WITHDRAW_WORDS: Readonly<Record<string, string>> = {
+  'now-full': 'now full',
+  staffing: 'staffing',
+  'cannot-reach-patient': 'cannot reach the patient',
+  other: 'other',
+  'not-at-address': 'Not at the address',
+  'no-answer': 'No answer at the door',
+  'gone-to-hospital': 'Gone to hospital',
+};
+
+/** The words a withdrawal or not-reached reason reads as on the alert. */
+export function withdrawReasonWording(code: string): string {
+  return WITHDRAW_WORDS[code] ?? code.replace(/-/g, ' ');
 }
 
 const DECLINE_WORDS: Readonly<Record<string, string>> = {
@@ -153,6 +185,8 @@ export function parseBookingState(value: unknown): BookingState {
     declinedAt: instantOrNull(body.declinedAt),
     declineReason: body.declineReason === null || body.declineReason === undefined ? null : text(body.declineReason, 80),
     expiredAt: instantOrNull(body.expiredAt),
+    withdrawnAt: instantOrNull(body.withdrawnAt),
+    withdrawReason: body.withdrawReason === null || body.withdrawReason === undefined ? null : text(body.withdrawReason, 80),
   };
 }
 

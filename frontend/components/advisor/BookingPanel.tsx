@@ -17,14 +17,39 @@ export type BookingPanelProps = {
   openStream?: () => BookingStream | null;
   fetcher?: BookingFetch;
   now?: () => number;
+  /** Back to the options list: after a cancel, a decline, an expiry or a withdrawal acknowledged. */
+  onSeeOptions?: () => void;
+  onAskClinical?: () => void;
+  onPhoneCaller?: () => void;
 };
 
 export function BookingPanel(props: BookingPanelProps) {
-  const { caseRef, serviceId, serviceName, servicePhone, openStream, fetcher, now } = props;
-  const { booking, busy, conflict, failed, request } = useBooking({ caseRef, serviceId, openStream, fetcher });
+  const { caseRef, serviceId, serviceName, servicePhone, openStream, fetcher, now, onSeeOptions, onAskClinical, onPhoneCaller } = props;
+  const { booking, busy, conflict, failed, request, cancelBusy, cancelConflict, cancel, acknowledge } = useBooking({
+    caseRef,
+    serviceId,
+    openStream,
+    fetcher,
+  });
 
   if (booking !== null) {
-    return <BookingCard booking={booking} serviceName={serviceName} servicePhone={servicePhone} now={now} />;
+    return (
+      <BookingCard
+        booking={booking}
+        serviceName={serviceName}
+        servicePhone={servicePhone}
+        now={now}
+        cancelBusy={cancelBusy}
+        cancelConflict={cancelConflict}
+        onCancelBooking={(reason) => void cancel(reason)}
+        onAcknowledge={acknowledge}
+        onSeeOptions={onSeeOptions}
+        onBackToOptions={onSeeOptions}
+        onNextOption={onSeeOptions}
+        onAskClinical={onAskClinical}
+        onPhoneCaller={onPhoneCaller}
+      />
+    );
   }
 
   return (

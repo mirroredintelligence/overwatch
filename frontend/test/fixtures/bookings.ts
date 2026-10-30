@@ -61,6 +61,8 @@ export const TASK_WITHDRAWN = task(BOOKING_ID, 'withdrawn', {
 export const TASK_NOT_REACHED = task(BOOKING_ID, 'not-reached', {
   executionPeriod: { start: requestedAt, end: '2026-10-30T14:41:00Z' },
   output: [
+    { type: { coding: [{ code: 'decision' }] }, valueCodeableConcept: { coding: [{ code: 'confirmed' }] } },
+    { type: { coding: [{ code: 'confirmed-at' }] }, valueDateTime: '2026-10-30T14:19:00Z' },
     { type: { coding: [{ code: 'reason' }] }, valueString: 'no-answer' },
   ],
 });

@@ -28,6 +28,7 @@ function renderPanel(serviceId = SERVICE_ID) {
       serviceName="UCR West"
       servicePhone={SERVICE_PHONE}
       onSeeOptions={onSeeOptions}
+      now={() => Date.parse('2026-10-30T14:16:30Z')}
       openStream={() => {
         stream = new FakeStream();
         return stream;

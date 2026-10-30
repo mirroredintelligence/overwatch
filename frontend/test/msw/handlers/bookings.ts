@@ -3,7 +3,6 @@ import {
   BOOKING_ID,
   SERVICE_WITH_OPEN_REQUEST,
   STATE_CANCELLED,
-  STATE_CONFIRMED,
   STATE_REQUESTED,
   TASK_CONFIRMED,
   TASK_REQUESTED,
@@ -90,6 +89,7 @@ export const BACKEND_TASK_HANDLERS = (root: string) => [
   }) as HttpResponseResolver),
   http.post(`${root}/Task/:id/$cancel`, (({ params }) => {
     if (params.id === 'missing') return HttpResponse.json({ resourceType: 'OperationOutcome', issue: [] }, { status: 404 });
+    if (params.id === 'taken') return HttpResponse.json({ resourceType: 'OperationOutcome', issue: [] }, { status: 409 });
     return HttpResponse.json({ ...TASK_REQUESTED, businessStatus: { coding: [{ code: 'cancelled-before' }] } });
   }) as HttpResponseResolver),
   http.post(`${root}/Task/:id/$acknowledge`, (() =>

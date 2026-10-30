@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { readCsrfCookie } from './csrf';
-import { type BookingState, parseBookingState } from './bookings';
+import { type BookingState, type CancelReason, parseBookingState } from './bookings';
 
 // One booking for one service, as the advisor's card keeps it (W20). The card never patches its state
 // from an event: a `booking.updated` for this service means "read it again". A request is posted once
@@ -34,6 +34,13 @@ export type BookingController = {
   /** The request could not be sent, for a reason other than a waiting request. */
   failed: boolean;
   request: () => Promise<void>;
+  /** A cancel is in flight. */
+  cancelBusy: boolean;
+  /** The booking moved on before the cancel (409): the card says so and reads the state again. */
+  cancelConflict: boolean;
+  cancel: (reason: CancelReason) => Promise<void>;
+  /** The advisor has seen a withdrawal or not-reached report (R17). Posting twice is fine. */
+  acknowledge: () => Promise<void>;
 };
 
 export const POLL_INTERVAL_MS = 30_000;
@@ -51,6 +58,8 @@ export function useBooking(options: UseBookingOptions): BookingController {
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelConflict, setCancelConflict] = useState(false);
   const inFlight = useRef(false);
   const latest = useRef<BookingState | null>(null);
   useEffect(() => {
@@ -105,6 +114,53 @@ export function useBooking(options: UseBookingOptions): BookingController {
     }
   }, [caseRef, serviceId, fetcher]);
 
+  const cancel = useCallback(
+    async (reason: CancelReason) => {
+      const current = latest.current;
+      if (current === null || cancelBusy) return;
+      setCancelBusy(true);
+      setCancelConflict(false);
+      try {
+        const response = await fetcher(`${REQUEST_PATH}/${encodeURIComponent(current.id)}/cancel`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Idempotency-Key': keyForRequest(),
+            'X-CSRF-Token': readCsrfCookie() ?? '',
+          },
+          body: JSON.stringify({ reason }),
+          cache: 'no-store',
+          credentials: 'same-origin',
+        });
+        if (response.status === 409) setCancelConflict(true);
+        await read();
+      } catch {
+        // The cancel did not reach an answer: read the booking, so the card shows what the back end holds.
+        setCancelConflict(true);
+        await read();
+      } finally {
+        setCancelBusy(false);
+      }
+    },
+    [cancelBusy, fetcher, read],
+  );
+
+  const acknowledge = useCallback(async () => {
+    const current = latest.current;
+    if (current === null) return;
+    try {
+      await fetcher(`${REQUEST_PATH}/${encodeURIComponent(current.id)}/acknowledge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': keyForRequest(), 'X-CSRF-Token': readCsrfCookie() ?? '' },
+        body: '{}',
+        cache: 'no-store',
+        credentials: 'same-origin',
+      });
+    } catch {
+      // The alert closes either way; the back end keeps the escalation until it is acknowledged.
+    }
+  }, [fetcher]);
+
   // Live updates and the fallback poll run only while there is a booking to watch.
   const bookingId = booking?.id ?? null;
   useEffect(() => {
@@ -130,5 +186,5 @@ export function useBooking(options: UseBookingOptions): BookingController {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookingId, serviceId, pollMs]);
 
-  return { booking, busy, conflict, failed, request };
+  return { booking, busy, conflict, failed, request, cancelBusy, cancelConflict, cancel, acknowledge };
 }

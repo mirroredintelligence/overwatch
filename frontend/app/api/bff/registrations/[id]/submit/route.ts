@@ -25,7 +25,7 @@ const post = withBff<Context>(
       throw error;
     }
   },
-  { roles: ['reporter'] },
+  { idScoped: true, roles: ['reporter'] },
 );
 
 export async function POST(request: Request, context: Context): Promise<Response> {

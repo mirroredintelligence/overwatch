@@ -25,7 +25,7 @@ const post = withBff<Context>(
     await sendTestNotification(session.backendToken, id);
     return bffJson(200, { done: true });
   },
-  { roles: ['reporter', 'lead'] },
+  { idScoped: true, roles: ['reporter', 'lead'] },
 );
 
 export async function POST(request: Request, context: Context): Promise<Response> {

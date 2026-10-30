@@ -44,5 +44,5 @@ export const POST = withBff(
     }
     return Response.json({ status: decision === 'confirm' ? 'confirmed' : 'declined' }, { headers: NO_STORE });
   },
-  { roles: ['reporter'] },
+  { idScoped: true, roles: ['reporter'] },
 );

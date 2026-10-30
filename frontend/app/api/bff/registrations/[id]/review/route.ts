@@ -21,7 +21,7 @@ const get = withBff<Context>(
         .map((row) => ({ key: row.key, status: row.status, summary: row.summary })),
     });
   },
-  { roles: ['reporter'] },
+  { idScoped: true, roles: ['reporter'] },
 );
 
 export async function GET(request: Request, context: Context): Promise<Response> {

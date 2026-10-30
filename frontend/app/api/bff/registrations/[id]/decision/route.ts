@@ -14,7 +14,7 @@ const get = withBff<Context>(
     idOf((await context.params).id);
     notServed();
   },
-  { roles: ['lead'] },
+  { idScoped: true, roles: ['lead'] },
 );
 
 const post = withBff<Context>(
@@ -24,7 +24,7 @@ const post = withBff<Context>(
     const key = idempotencyKeyOf(request);
     return Response.json(await decideRegistration(session.backendToken, id, action, note, key), { headers: NO_STORE });
   },
-  { roles: ['lead'] },
+  { idScoped: true, roles: ['lead'] },
 );
 
 export const GET = (request: Request, context: Context) => get(request, context);

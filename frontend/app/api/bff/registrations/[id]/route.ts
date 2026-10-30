@@ -51,7 +51,7 @@ const get = withBff<Context>(
       steps: pageSteps(view),
     });
   },
-  { roles: ['reporter', 'lead'] },
+  { idScoped: true, roles: ['reporter', 'lead'] },
 );
 
 export async function GET(request: Request, context: Context): Promise<Response> {

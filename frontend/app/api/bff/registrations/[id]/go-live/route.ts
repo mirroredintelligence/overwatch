@@ -13,7 +13,7 @@ const post = withBff<Context>(
     const key = idempotencyKeyOf(request);
     return Response.json(await setServiceLive(session.backendToken, id, key), { headers: NO_STORE });
   },
-  { roles: ['lead'] },
+  { idScoped: true, roles: ['lead'] },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

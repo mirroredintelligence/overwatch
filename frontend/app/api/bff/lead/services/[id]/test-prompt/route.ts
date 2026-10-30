@@ -5,6 +5,6 @@ import { notBuilt } from '@/lib/lead/notBuilt';
 // hook is a test route for the reporter loop, not for a lead, so this answers 501 and sends nothing
 // (DEC-651).
 
-const post = withBff(async () => notBuilt(), { roles: ['lead'] });
+const post = withBff(async () => notBuilt(), { idScoped: true, roles: ['lead'] });
 
 export const POST = (request: Request, context: { params: Promise<{ id: string }> }) => post(request, context);

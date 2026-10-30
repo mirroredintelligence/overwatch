@@ -39,7 +39,7 @@ const get = withBff<Context>(
     }
     return bffJson(200, body);
   },
-  { roles: ['reporter'] },
+  { idScoped: true, roles: ['reporter'] },
 );
 
 export async function GET(request: Request, context: Context): Promise<Response> {

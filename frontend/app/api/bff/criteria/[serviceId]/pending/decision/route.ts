@@ -17,7 +17,7 @@ const post = withBff<Context>(
     const key = idempotencyKeyOf(request);
     return Response.json(await decidePending(session.backendToken, serviceId, decision, note, key), { headers: NO_STORE });
   },
-  { roles: ['owner', 'clinical', 'lead'] },
+  { idScoped: true, roles: ['owner', 'clinical', 'lead'] },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

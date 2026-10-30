@@ -57,7 +57,7 @@ const put = withBff<Context>(
       throw error;
     }
   },
-  { roles: ['reporter'] },
+  { idScoped: true, roles: ['reporter'] },
 );
 
 export async function PUT(request: Request, context: Context): Promise<Response> {

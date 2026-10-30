@@ -8,4 +8,4 @@ type Context = { params: Promise<{ serviceId: string }> };
 export const GET = withBff(async (_request, session, context: Context) => {
   const { serviceId } = await (context as unknown as Context).params;
   return ownService(session, serviceId) ?? notBuilt();
-}, { roles: ['reporter'] });
+}, { idScoped: true, roles: ['reporter'] });

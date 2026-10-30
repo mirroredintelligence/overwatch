@@ -32,7 +32,7 @@ const post = withBff<Context>(
       { headers: { 'Cache-Control': 'no-store' } },
     );
   },
-  { roles: ['lead'] },
+  { idScoped: true, roles: ['lead'] },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

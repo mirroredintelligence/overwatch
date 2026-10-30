@@ -23,7 +23,11 @@ const CATEGORIES: readonly { value: SafetyCategory; label: string }[] = [
 export const SEND_FAILED = 'Could not send your concern. Try again.';
 const ERRORS_TITLE = 'Please fix these before sending';
 
-export function SafetyConcernForm() {
+/**
+ * `coordinationLine` is the tenant's own sentence ("Phone Access team A on 01632 960001."), or null when it
+ * has neither a team name nor a number: nothing is made up for a tenant that has not said (H-T15).
+ */
+export function SafetyConcernForm({ coordinationLine = null }: { coordinationLine?: string | null }) {
   const [category, setCategory] = useState<SafetyCategory | null>(null);
   const [reference, setReference] = useState('');
   const [text, setText] = useState('');
@@ -59,6 +63,7 @@ export function SafetyConcernForm() {
         <h2 id="concern-sent" className={exec.heading}>{`Concern ${sent} sent`}</h2>
         <p>A clinical safety officer will review it. You will be told when it has been looked at.</p>
         <p>If someone is at risk now, phone the coordination team or follow local procedure.</p>
+        {coordinationLine !== null ? <p>{coordinationLine}</p> : null}
       </section>
     );
   }
@@ -114,7 +119,8 @@ export function SafetyConcernForm() {
       </div>
 
       <section className={styles.warning} aria-label="Before you send">
-        If someone is at risk now, phone the coordination team or follow local procedure first.
+        <p>If someone is at risk now, phone the coordination team or follow local procedure first.</p>
+        {coordinationLine !== null ? <p>{coordinationLine}</p> : null}
       </section>
 
       {failed ? <p role="alert" className={exec.error}>{failed}</p> : null}

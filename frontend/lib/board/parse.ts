@@ -129,7 +129,20 @@ function parseEntry(parameter: ParametersParameter, organisation: string | null)
   };
 }
 
-const TOP_LEVEL = ['pressure', 'allLimitedOrWorse', 'generatedAt', 'organisation'] as const;
+const TOP_LEVEL = ['pressure', 'allLimitedOrWorse', 'generatedAt', 'organisation', 'coordinationPhone'] as const;
+
+const PHONE = /^[0-9+()\s-]{3,20}$/;
+
+/** The duty coordinator's number (DEC-777), or null: anything that is not a phone number is dropped, never shown. */
+function coordinationPhoneOf(top: Map<string, ParametersParameter>): string | null {
+  const part = top.get('coordinationPhone');
+  const value = part === undefined ? undefined : string(part);
+  if (value === undefined) return null;
+  const phone = value.trim();
+  return PHONE.test(phone) && (phone.match(/\d/g) ?? []).length >= 3 ? phone : null;
+}
+
+const phoneKey = (phone: string | null) => (phone === null ? {} : { coordinationPhone: phone });
 
 export function parseBoardParameters(parameters: Parameters): Board {
   if (typeof parameters !== 'object' || parameters === null || parameters.resourceType !== 'Parameters') {
@@ -144,5 +157,7 @@ export function parseBoardParameters(parameters: Parameters): Board {
     allLimitedOrWorse: required(top, 'allLimitedOrWorse', boolean),
     generatedAt: required(top, 'generatedAt', instant),
     organisation,
+    // Only when the back end sends a number: a board with none has no such key.
+    ...phoneKey(coordinationPhoneOf(top)),
   };
 }

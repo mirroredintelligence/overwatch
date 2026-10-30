@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { SettingsForm } from '@/components/exec/SettingsForm';
 import { Banner } from '@/components/ui/Banner';
 import { getSession } from '@/lib/auth/session';
+import { readLeaders } from '@/lib/exec/leaders';
 import { readAlertPreferences } from '@/lib/exec/subscriptions';
 
 export const metadata: Metadata = { title: 'Alert settings - DIUCS capacity' };
@@ -25,7 +26,7 @@ export default async function ExecSettingsPage() {
   return (
     <main>
       <h1>Alert settings</h1>
-      <SettingsForm initial={stored.preferences} />
+      <SettingsForm initial={stored.preferences} leaders={await readLeaders(session)} />
     </main>
   );
 }

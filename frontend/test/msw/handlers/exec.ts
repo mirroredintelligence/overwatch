@@ -69,13 +69,47 @@ export const OPEN_ALERT_TASKS = [
   },
 ];
 
+const ACKNOWLEDGED_AT = 'https://diucs.example/CodeSystem/alert-acknowledged-at';
+const finished = (id: string, status: string, kind: string, extra: unknown[] = []) => ({
+  resourceType: 'Task',
+  id,
+  status: 'completed',
+  code: { coding: [{ system: TASK_CODE, code: 'acknowledge-alert' }] },
+  businessStatus: { coding: [{ system: ALERT_STATUS, code: status }] },
+  owner: { reference: `Practitioner/${SUBSCRIBER_ID}` },
+  authoredOn: '2026-10-23T12:30:00+00:00',
+  focus: { reference: 'HealthcareService/svc-ucr-west' },
+  extension: [{ url: ALERT_KIND, valueCode: kind }, ...extra],
+});
+
+/** The caller's acknowledged alerts (W7A, DEC-775): each carries when it was acknowledged. */
+export const ACKNOWLEDGED_ALERT_TASKS = [finished('al-7', 'acknowledged', 'service-closed', [{ url: ACKNOWLEDGED_AT, valueDateTime: '2026-10-23T13:40:00+00:00' }])];
+/** The caller's closed alerts. */
+export const CLOSED_ALERT_TASKS = [finished('al-8', 'closed', 'not-updated')];
+
+/** The leaders a deputy can be chosen from (W7A, DEC-776): an id and a display name, nothing else. */
+export const LEADER_PRACTITIONERS = [
+  { resourceType: 'Practitioner', id: 'pr-0101', name: [{ text: 'Sample Lead One' }] },
+  { resourceType: 'Practitioner', id: 'pr-0102', name: [{ text: 'Sample Lead Two' }] },
+];
+
+const alertList = (status: string | null) =>
+  status === 'acknowledged' ? ACKNOWLEDGED_ALERT_TASKS : status === 'closed' ? CLOSED_ALERT_TASKS : OPEN_ALERT_TASKS;
+
 export const execBackendHandlers = [
   http.get(`${EXEC_BACKEND}/Task`, (({ request }) => {
     const url = new URL(request.url);
     // Another code is another stand-in's (clinical.ts): let it answer.
     if (url.searchParams.get('code') !== 'acknowledge-alert') return undefined;
     seenBackend.push({ method: 'GET', path: `/Task?${url.search.slice(1)}`, ifMatch: null, idempotencyKey: null, body: undefined });
-    return HttpResponse.json({ resourceType: 'Bundle', type: 'searchset', total: OPEN_ALERT_TASKS.length, entry: OPEN_ALERT_TASKS.map((resource) => ({ resource })) });
+    const tasks = alertList(url.searchParams.get('status'));
+    return HttpResponse.json({ resourceType: 'Bundle', type: 'searchset', total: tasks.length, entry: tasks.map((resource) => ({ resource })) });
+  }) as HttpResponseResolver),
+  http.get(`${EXEC_BACKEND}/Practitioner`, (({ request }) => {
+    const url = new URL(request.url);
+    seenBackend.push({ method: 'GET', path: `/Practitioner?${url.search.slice(1)}`, ifMatch: null, idempotencyKey: null, body: undefined });
+    if (url.searchParams.get('role') !== 'leadership') return HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'invalid', diagnostics: 'role' }] }, { status: 400 });
+    return HttpResponse.json({ resourceType: 'Bundle', type: 'searchset', total: LEADER_PRACTITIONERS.length, entry: LEADER_PRACTITIONERS.map((resource) => ({ resource })) });
   }) as HttpResponseResolver),
   http.post(`${EXEC_BACKEND}/Task/:id/$acknowledge`, (async ({ request, params }) => {
     seenBackend.push({

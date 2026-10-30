@@ -49,16 +49,27 @@ describe('GET /api/bff/exec/alerts', () => {
           state: 'new',
           escalatesAt: '2026-10-23T13:19:00Z',
           escalatesTo: 'deputy',
+          acknowledgedAt: null,
         },
       ],
     });
     expect(seenBackend[0]?.path).toBe('/Task?code=acknowledge-alert&owner=me');
   });
 
-  it('answers unavailable for the acknowledged and closed tabs, which the back end does not list', async () => {
+  it('lists the acknowledged alerts, each with when it was acknowledged, from the back end\'s own list', async () => {
     const response = await get('exec', '?state=acknowledged');
-    expect(response.status).toBe(503);
-    expect(seenBackend).toHaveLength(0);
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { items: { id: string; state: string; acknowledgedAt: string; serviceName: string }[] };
+    expect(body.items).toEqual([expect.objectContaining({ id: 'al-7', state: 'acknowledged', acknowledgedAt: '2026-10-23T13:40:00Z', serviceName: 'UCR West' })]);
+    expect(seenBackend[0]?.path).toBe('/Task?code=acknowledge-alert&owner=me&status=acknowledged');
+  });
+
+  it('lists the closed alerts', async () => {
+    const response = await get('exec', '?state=closed');
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { items: { id: string; state: string; acknowledgedAt: string | null }[] };
+    expect(body.items).toEqual([expect.objectContaining({ id: 'al-8', state: 'closed', acknowledgedAt: null })]);
+    expect(seenBackend[0]?.path).toBe('/Task?code=acknowledge-alert&owner=me&status=closed');
   });
 
   it('refuses a state it does not know with 400', async () => {

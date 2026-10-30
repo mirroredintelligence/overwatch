@@ -11,6 +11,7 @@ import styles from '@/components/exec/Exec.module.css';
 // note are optional. The note is checked here and again by the back end: it names no patient.
 
 export const SEND_FAILED = 'Could not send advice. Try again.';
+export const NO_LONGER_YOURS = 'This request is no longer yours. It may have returned to the queue.';
 
 export function AdviceForm({ requestId, onSent }: { requestId: string; onSent: () => void }) {
   const [advice, setAdvice] = useState<string | null>(null);
@@ -37,7 +38,7 @@ export function AdviceForm({ requestId, onSent }: { requestId: string; onSent: (
     });
     setBusy(false);
     if (!result.ok) {
-      setFailed(SEND_FAILED);
+      setFailed(result.status === 409 || result.status === 404 ? NO_LONGER_YOURS : SEND_FAILED);
       return;
     }
     onSent();

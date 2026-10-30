@@ -26,6 +26,16 @@ describe('ServiceDetail', () => {
     expect(screen.getByText('16 of 12 virtual beds')).toBeInTheDocument();
   });
 
+  it('offers a call to the duty coordinator when the board holds the number, and nothing when it holds none', () => {
+    const { unmount } = render(<ServiceDetail entry={entry} now={NOW.toISOString()} coordinationPhone="01632 960001" />);
+    const call = screen.getByRole('link', { name: 'Call the duty coordinator' });
+    expect(call).toHaveAttribute('href', 'tel:01632960001');
+    expect(screen.getByText('01632 960001')).toBeInTheDocument();
+    unmount();
+    render(<ServiceDetail entry={entry} now={NOW.toISOString()} coordinationPhone={null} />);
+    expect(screen.queryByRole('link', { name: 'Call the duty coordinator' })).not.toBeInTheDocument();
+  });
+
   it('links back to the alerts', () => {
     render(<ServiceDetail entry={entry} now={NOW.toISOString()} />);
     expect(screen.getByRole('link', { name: 'Back to alerts' })).toHaveAttribute('href', '/planning/alerts');

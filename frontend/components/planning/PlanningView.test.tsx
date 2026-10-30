@@ -6,22 +6,23 @@ import { runAxe } from '@/test/a11y';
 import { server } from '@/test/msw/server';
 import { PlanningView } from './PlanningView';
 
+// The answer as `GET /planning` gives it (routes_planning.py): a count under 10 is null and suppressed.
 const PLANNING = {
   cohort: 'Cohort: age 65+, falls and frailty, within 2 hrs, ambulance crew or care home referrers. Groups under 10 are hidden.',
-  referrals: 640,
-  bestFitUnavailable: { count: 112, pct: 18 },
-  wentElsewhere: 62,
+  referrals: { count: 640, suppressed: false },
+  bestFitUnavailable: { count: 112, pct: 18, suppressed: false },
+  wentElsewhere: { count: 62, suppressed: false },
   flows: [{ bestFit: 'Falls team, Weymouth', state: 'full', wentTo: 'Community beds', count: 41, suppressed: false }],
   grid: [
-    [0, 0, 0, 0],
-    [0, 0, 0, 0],
-    [0, 0, 0, 0],
-    [0, 0, 9, 0],
-    [0, 0, 0, 0],
-    [0, 0, 0, 0],
-    [0, 0, 0, 0],
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, 12, null],
+    [null, null, null, null],
+    [null, null, null, null],
+    [null, null, null, null],
   ],
-  busiest: { day: 'Thursday', band: '12:00 to 18:00', count: 9 },
+  busiest: { day: 3, band: 2, count: 12 },
   declinedDespite: [{ service: 'Frailty ward', count: null, suppressed: true }],
 };
 
@@ -33,6 +34,41 @@ function answer(seen: string[]) {
     }),
   );
 }
+
+describe('PlanningView with small counts hidden', () => {
+  it('says fewer than 10 for a headline the back end withheld, and shows no share for it', async () => {
+    server.use(http.get('/api/bff/planning', () => HttpResponse.json({
+      ...PLANNING,
+      referrals: { count: null, suppressed: true },
+      bestFitUnavailable: { count: null, pct: null, suppressed: true },
+      wentElsewhere: { count: null, suppressed: true },
+      grid: PLANNING.grid.map((row) => row.map(() => null)),
+      busiest: null,
+      flows: [],
+    })));
+    render(<PlanningView />);
+
+    expect(await screen.findByText('Fewer than 10 referrals')).toBeInTheDocument();
+    expect(screen.getByText(/Fewer than 10 best fit unavailable/)).not.toHaveTextContent('%');
+    expect(screen.getByText('Fewer than 10 went to another suitable service')).toBeInTheDocument();
+    expect(screen.getByText('No day or time had 10 or more unavailable referrals.')).toBeInTheDocument();
+  });
+
+  it('says it could not load, and shows no figure, when the back end fails', async () => {
+    server.use(http.get('/api/bff/planning', () => HttpResponse.json({ code: 'exception' }, { status: 503 })));
+    render(<PlanningView />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The planning view could not be loaded. Try again.');
+    expect(screen.queryByText(/referrals/)).toBeNull();
+  });
+
+  it('reads the busiest cell from the back end\'s answer', async () => {
+    answer([]);
+    render(<PlanningView />);
+
+    expect(await screen.findByText('Busiest: Thursday 12:00 to 18:00 (12)')).toBeInTheDocument();
+  });
+});
 
 describe('PlanningView', () => {
   it('asks for the 30-day period when it is chosen', async () => {

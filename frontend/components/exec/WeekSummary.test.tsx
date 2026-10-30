@@ -20,9 +20,24 @@ const summary: WeekSummary = {
   medianMinutesToConfirmed: { value: 4, suppressed: false },
   updates: { value: 412, suppressed: false },
   minutesPerCall: null,
+  timeBackText: null,
 };
 
 const prefs: AlertPreferences = { ...DEFAULT_ALERT_PREFERENCES, deputy: 'pr-0042' };
+
+describe('WeekSummary time back', () => {
+  it('shows no placeholder: it says how many updates and that the time saved is not measured yet', () => {
+    render(<WeekSummaryView summary={summary} prefs={prefs} />);
+    expect(screen.getByText('412 updates by text, app or email.')).toBeInTheDocument();
+    expect(screen.getByText(/The time this saved is not measured yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/\[x\]/)).not.toBeInTheDocument();
+  });
+
+  it('shows the back end\'s own sentence when it sends one', () => {
+    render(<WeekSummaryView summary={{ ...summary, timeBackText: 'About 20 hours of phone calls.' }} prefs={prefs} />);
+    expect(screen.getByText('About 20 hours of phone calls.')).toBeInTheDocument();
+  });
+});
 
 describe('WeekSummary', () => {
   it('shows the four figures with their words, and the footnote', () => {
@@ -33,13 +48,6 @@ describe('WeekSummary', () => {
     expect(screen.getByText('92% capacity updates on time')).toBeInTheDocument();
     expect(screen.getByText('4 min median time to a confirmed booking')).toBeInTheDocument();
     expect(screen.getByText('Counts under 10 are hidden. Outcomes are not shown yet.')).toBeInTheDocument();
-  });
-
-  it('keeps the minutes placeholder and says the estimate is not yet measured', () => {
-    render(<WeekSummaryView summary={summary} prefs={prefs} />);
-    expect(screen.getByText(/about one phone call of \[x\] minutes/)).toBeInTheDocument();
-    expect(screen.getByText('Estimate until we measure the baseline.')).toBeInTheDocument();
-    expect(screen.getByText('Estimate')).toBeInTheDocument();
   });
 
   it('shows the sum behind the estimate once the minutes are set', () => {

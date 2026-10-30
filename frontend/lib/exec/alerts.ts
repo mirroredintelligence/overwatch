@@ -13,9 +13,11 @@ export type AlertItem = {
   detail: string | null;
   /** ISO 8601 UTC, to the second, as the back end sent it. */
   raisedAt: string;
-  state: 'new' | 'escalated';
+  state: 'new' | 'escalated' | 'acknowledged' | 'closed';
   escalatesAt: string | null;
   escalatesTo: 'deputy' | null;
+  /** When the owner acknowledged it (ISO 8601 UTC); null while open, and for a closed alert never acknowledged. */
+  acknowledgedAt: string | null;
 };
 
 const TASK_INPUT_KIND = 'alert-kind';
@@ -42,6 +44,14 @@ function kindOf(task: Task): AlertKind {
   return kind as AlertKind;
 }
 
+const ACKNOWLEDGED_AT = 'alert-acknowledged-at';
+
+function acknowledgedAtOf(task: Task): string | null {
+  const extensions = Array.isArray(task.extension) ? (task.extension as Record<string, unknown>[]) : [];
+  const value = extensions.find((item) => typeof item.url === 'string' && item.url.endsWith(`/${ACKNOWLEDGED_AT}`))?.valueDateTime;
+  return typeof value === 'string' ? instantText(value) : null;
+}
+
 function serviceIdOf(task: Task): string | null {
   const focus = task.focus as { reference?: unknown } | undefined;
   const reference = typeof focus?.reference === 'string' ? focus.reference : '';
@@ -57,7 +67,9 @@ export function alertItemFromTask(task: unknown, entryFor: (serviceId: string) =
   const serviceId = serviceIdOf(record);
   const entry = serviceId === null ? undefined : entryFor(serviceId);
   const status = (((record.businessStatus as { coding?: { code?: unknown }[] } | undefined)?.coding ?? [])[0]?.code);
-  if (status !== 'new' && status !== 'escalated') throw new Error('an alert has an unknown state');
+  if (status !== 'new' && status !== 'escalated' && status !== 'acknowledged' && status !== 'closed') {
+    throw new Error('an alert has an unknown state');
+  }
   const raised = typeof record.authoredOn === 'string' ? instantText(record.authoredOn) : null;
   if (raised === null) throw new Error('an alert has no time');
   const due = (record.executionPeriod as { end?: unknown } | undefined)?.end;
@@ -72,6 +84,7 @@ export function alertItemFromTask(task: unknown, entryFor: (serviceId: string) =
     state: status,
     escalatesAt,
     escalatesTo: escalatesAt === null ? null : 'deputy',
+    acknowledgedAt: acknowledgedAtOf(record),
   };
 }
 

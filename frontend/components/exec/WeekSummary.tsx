@@ -65,8 +65,8 @@ export function WeekSummary({ summary, prefs }: { summary: Summary; prefs: Alert
 
       <section className={styles.section} aria-labelledby="week-time-back">
         <h2 id="week-time-back" className={styles.heading}>Time back (estimate)</h2>
-        <p>{time.sentence}</p>
-        {time.estimate !== null ? (
+        <p>{summary.timeBackText ?? time.sentence}</p>
+        {summary.timeBackText === null && time.estimate !== null ? (
           <p>
             <span className={styles.estimateLabel}>Estimate</span>
             {` ${time.estimate}`}

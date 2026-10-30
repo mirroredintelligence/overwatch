@@ -114,6 +114,21 @@ describe('parseBoardParameters', () => {
     expect(parseBoardParameters(boardParameters({ ...BOARD_A, organisation: null })).organisation).toBeNull();
   });
 
+  it('reads the duty coordinator number when the back end sends it (DEC-777), and null when it sends none', () => {
+    const parameters = boardParameters(BOARD_A);
+    parameters.parameter?.push({ name: 'coordinationPhone', valueString: '01632 960001' });
+    expect(parseBoardParameters(parameters).coordinationPhone).toBe('01632 960001');
+    expect(parseBoardParameters(boardParameters(BOARD_A)).coordinationPhone ?? null).toBeNull();
+  });
+
+  it('keeps no number that is not a phone number: text, markup or a link is dropped, never shown', () => {
+    for (const value of ['call me', '<b>999</b>', 'javascript:alert(1)', 'tel:01632 960001']) {
+      const parameters = boardParameters(BOARD_A);
+      parameters.parameter?.push({ name: 'coordinationPhone', valueString: value });
+      expect(parseBoardParameters(parameters).coordinationPhone ?? null).toBeNull();
+    }
+  });
+
   it('ignores a part or a top-level parameter it does not know', () => {
     const parameters = boardParameters(BOARD_B);
     parameters.parameter?.[0].part?.push({ name: 'somethingNew', valueString: 'x' });

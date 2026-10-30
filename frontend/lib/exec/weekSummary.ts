@@ -17,6 +17,8 @@ export type WeekSummary = {
   updates: Figure;
   /** The tenant's minutes per avoided call. The back end does not hold it yet (TEN-026), so this is null. */
   minutesPerCall: number | null;
+  /** The back end's own time-back sentence, when it sends one (it does once the tenant's baseline is set). */
+  timeBackText: string | null;
 };
 
 const DAY_MS = 86_400_000;
@@ -45,7 +47,7 @@ export function weekStartFor(ending: string): string {
   return addDays(ending, -6);
 }
 
-type Part = { name?: unknown; valueBoolean?: unknown; valueInteger?: unknown; valueDecimal?: unknown; part?: Part[]; valueDate?: unknown };
+type Part = { name?: unknown; valueString?: unknown; valueBoolean?: unknown; valueInteger?: unknown; valueDecimal?: unknown; part?: Part[]; valueDate?: unknown };
 
 function partsOf(parameter: Part | undefined, name: string): Part[] {
   if (!parameter) throw new Error(`the back end sent no ${name}`);
@@ -74,6 +76,7 @@ export function summaryFromParameters(body: unknown, minutesPerCall: number | nu
   const parameters = resource.parameter as Part[];
   const weekStart = findParameter(parameters, 'weekStart')?.valueDate;
   if (typeof weekStart !== 'string') throw new Error('the back end sent no week start');
+  const timeBackText = findParameter(parameters, 'timeBackText')?.valueString;
   const channels = findParameter(parameters, 'updatesByChannel');
   const channelFigures = partsOf(channels, 'updates').map((channel) => figureOf(channel, 'channel'));
   const updates: Figure = channelFigures.some((f) => f.suppressed)
@@ -88,12 +91,14 @@ export function summaryFromParameters(body: unknown, minutesPerCall: number | nu
     medianMinutesToConfirmed: figureOf(findParameter(parameters, 'medianMinutesToConfirmed'), 'medianMinutesToConfirmed'),
     updates,
     minutesPerCall,
+    timeBackText: typeof timeBackText === 'string' && timeBackText.trim() !== '' ? timeBackText.trim() : null,
   };
 }
 
 /**
- * The time-back line (W41). While the minutes per call are unset the line keeps "[x]" and says the
- * baseline is not measured; once they are set the estimate shows its sum. A withheld count has no estimate.
+ * The time-back line (W41). While the minutes per call are unset the line says how many updates there
+ * were and that the time they saved is not measured yet (no placeholder is shown); once they are set the
+ * estimate shows its sum. A withheld count has no estimate.
  */
 export function timeBack(updates: Figure, minutesPerCall: number | null): { sentence: string; estimate: string | null } {
   if (updates.suppressed || updates.value === null) {
@@ -101,8 +106,8 @@ export function timeBack(updates: Figure, minutesPerCall: number | null): { sent
   }
   if (minutesPerCall === null) {
     return {
-      sentence: `${updates.value} updates by text, app or email. Each replaces about one phone call of [x] minutes.`,
-      estimate: 'Estimate until we measure the baseline.',
+      sentence: `${updates.value} updates by text, app or email.`,
+      estimate: 'The time this saved is not measured yet.',
     };
   }
   const total = updates.value * minutesPerCall;

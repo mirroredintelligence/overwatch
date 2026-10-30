@@ -6,24 +6,7 @@ import styles from '../console/Console.module.css';
 export const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] as const;
 export const BANDS = ['00:00 to 06:00', '06:00 to 12:00', '12:00 to 18:00', '18:00 to 24:00'] as const;
 
-export function busiestOf(grid: readonly number[][]): { day: string; band: string; count: number } | null {
-  let best: { day: string; band: string; count: number } | null = null;
-  for (let dayIndex = 0; dayIndex < grid.length; dayIndex += 1) {
-    const row = grid[dayIndex] ?? [];
-    for (let bandIndex = 0; bandIndex < row.length; bandIndex += 1) {
-      const count = row[bandIndex] ?? 0;
-      const day = DAYS[dayIndex];
-      const band = BANDS[bandIndex];
-      if (day !== undefined && band !== undefined && (best === null || count > best.count)) {
-        best = { day, band, count };
-      }
-    }
-  }
-  return best !== null && best.count > 0 ? best : null;
-}
-
-export function HeatGrid({ grid }: { grid: readonly number[][] }) {
-  const busiest = busiestOf(grid);
+export function HeatGrid({ grid, busiest }: { grid: readonly (number | null)[][]; busiest: { day: number; band: number; count: number } | null }) {
   const max = busiest?.count ?? 0;
   return (
     <section aria-labelledby="heat-heading">
@@ -42,11 +25,11 @@ export function HeatGrid({ grid }: { grid: readonly number[][] }) {
             <tr key={day}>
               <th scope="row">{day}</th>
               {BANDS.map((band, bandIndex) => {
-                const count = grid[dayIndex]?.[bandIndex] ?? 0;
-                const opacity = max > 0 ? 0.15 + (0.85 * count) / max : 0.15;
+                const count = grid[dayIndex]?.[bandIndex] ?? null;
+                const opacity = count === null || max === 0 ? 0.08 : 0.15 + (0.85 * count) / max;
                 return (
                   <td key={band} style={{ background: `color-mix(in srgb, var(--c-primary) ${Math.round(opacity * 100)}%, transparent)` }}>
-                    {count}
+                    {count === null ? 'fewer than 10' : count}
                   </td>
                 );
               })}
@@ -56,8 +39,8 @@ export function HeatGrid({ grid }: { grid: readonly number[][] }) {
       </table>
       <p className={styles.help}>
         {busiest === null
-          ? 'No unavailable referrals in this period.'
-          : `Busiest: ${busiest.day} ${busiest.band} (${busiest.count})`}
+          ? 'No day or time had 10 or more unavailable referrals.'
+          : `Busiest: ${DAYS[busiest.day] ?? ''} ${BANDS[busiest.band] ?? ''} (${busiest.count})`}
       </p>
     </section>
   );

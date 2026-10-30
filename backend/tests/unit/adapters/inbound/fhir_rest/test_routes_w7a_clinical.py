@@ -71,3 +71,17 @@ async def test_a_problem_report_that_is_not_valid_is_a_400_and_never_echoes_the_
 
             assert response.status_code == 400, body
             assert long_text not in response.text
+
+
+# B5: the state of the person's support code.
+
+
+async def test_the_support_code_state_is_for_every_role_but_support_and_the_edge_refusal() -> None:
+    permitted = frozenset(role for role in Role if role is not Role.SUPPORT)
+    async with route_client() as client:
+        await assert_role_matrix(
+            client,
+            "GET",
+            "/support/codes/current?sessionId=a1b2c3d4e5f60718",
+            permitted,
+        )

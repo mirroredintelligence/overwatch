@@ -12,13 +12,13 @@ from dataclasses import replace
 from datetime import datetime
 
 import pytest
+
+from diucs.application.actor import Actor
 from diucs.application.network_access import (
     NETWORK_NOT_FOUND,
     NETWORK_VIEW_ROLES,
     NetworkAccess,
 )
-
-from diucs.application.actor import Actor
 from diucs.application.ports.outbound.network import RegisteredNetwork
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed, NotFound
@@ -247,3 +247,32 @@ def _before(moment: datetime) -> datetime:
     from datetime import timedelta
 
     return moment - timedelta(hours=1)
+
+
+# the list of a viewer's networks
+
+
+async def test_the_networks_of_a_viewer_are_those_where_the_registry_has_an_active_row() -> None:
+    registry = Registry([make_member(MEMBER_B)])
+    gate = access(registry)
+    found = await gate.networks_of(actor())
+    assert [c.network.id for c in found] == [NETWORK_ID]
+    assert found[0].settings == SETTINGS
+
+
+async def test_a_member_who_left_has_no_networks_and_an_outsider_has_none() -> None:
+    left = Registry([make_member(MEMBER_B, status=MembershipStatus.LEFT)])
+    assert await access(left).networks_of(actor()) == []
+    assert await access(Registry([make_member(MEMBER_B)])).networks_of(actor(OUTSIDER)) == []
+
+
+async def test_a_network_that_is_not_active_is_not_listed() -> None:
+    registry = Registry([make_member(MEMBER_B)], status=NetworkStatus.SUSPENDED)
+    assert await access(registry).networks_of(actor()) == []
+
+
+async def test_a_role_that_never_sees_a_network_is_refused_the_list_with_no_read() -> None:
+    registry = Registry([make_member(MEMBER_B)])
+    with pytest.raises(NotAllowed):
+        await access(registry).networks_of(actor(role=Role.WALL))
+    assert registry.calls == []

@@ -67,3 +67,13 @@ def test_a_device_still_rides_along() -> None:
     token = issue_test_token(Role.REPORTER, [], "prac-1", device="phone-1", tenant="tenant-a")
 
     assert decode_bff_token(token, TEST_BFF_SECRET, NOW).device == "phone-1"
+
+
+def test_a_test_token_can_carry_the_networks_claim() -> None:
+    from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+    from diucs.domain.codes import Role
+    from diucs.domain.rules.bff_token import decode_bff_token
+
+    token = issue_test_token(Role.ADVISOR, [], "prac-1", tenant="tenant-a", networks=("net-pilot",))
+    claims = decode_bff_token(token, TEST_BFF_SECRET, datetime(2026, 10, 23, 13, 12, tzinfo=UTC))
+    assert claims.networks == frozenset({"net-pilot"})

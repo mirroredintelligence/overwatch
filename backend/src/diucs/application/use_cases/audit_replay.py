@@ -186,7 +186,10 @@ class GetAuditReplay:
             booking_records: list[AuditRecord] = []
             for booking_id in booking_ids:
                 booking_records.extend(await uow.audit.records_for(booking_id))
-            timeline_records = sorted([*case_records, *booking_records], key=lambda r: r.entry.at)
+            # A record that names both the case and its booking (RequestBooking) is read twice: keep
+            # one copy of each record, then order by time.
+            unique = {record.id: record for record in [*case_records, *booking_records]}
+            timeline_records = sorted(unique.values(), key=lambda r: r.entry.at)
             chosen = options_display(case_records)
             rows: tuple[ReplayRow, ...] = ()
             shown_at: datetime | None = None

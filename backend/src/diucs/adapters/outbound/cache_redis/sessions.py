@@ -4,6 +4,12 @@ Keys, all under the bound tenant's prefix (tenant_keys.py):
 - `sess:<id>`: one session, a JSON body, with a sliding TTL (SESSION_TTL).
 - `sess-by-person:<practitioner id>`: the set of one practitioner's session ids, so "sign out of
   every phone" deletes them all.
+- `sess-epoch:<practitioner id>`: the person's session epoch, a counter that "sign out of every
+  phone" raises in the same transaction as the deletes (U37). A session carries the epoch it began
+  under and is dead once the person's epoch is any other value, so a session that was being created
+  at the moment of the delete (it is not in the index yet) can never outlive the sign-out: `create`
+  takes the epoch the caller read before it checked the PIN and refuses, in one script, when it has
+  moved. The epoch key lives longer than any session it can kill (EPOCH_TTL).
 - `rate:<key>`: a fixed-window counter (INCR, with its TTL set once by EXPIRE NX).
 
 Losing Redis signs people out; that is acceptable. Nothing here is a record, and no session id,
@@ -21,14 +27,19 @@ from redis.asyncio.client import Pipeline
 
 from diucs.adapters.outbound.cache_redis.redis_cache import ROOT
 from diucs.adapters.outbound.cache_redis.tenant_keys import millis, tenant_prefix
-from diucs.application.ports.outbound.identity import ReporterSession
+from diucs.application.ports.outbound.identity import ReporterSession, SessionEpochChanged
 from diucs.domain.codes import Role
 
 # [ASSUMED] Sliding lifetime of a reporter session (I13 prompt: 12 hours). A named constant so the
 # owner can change it without touching logic.
 SESSION_TTL: Final = timedelta(hours=12)
 
+# The epoch outlives the longest session it can kill, with a margin: a session is alive at most
+# SESSION_TTL after its last touch, and a dead session is never touched again.
+EPOCH_TTL: Final = SESSION_TTL * 2
+
 _SESSION_KEY: Final = "sess:{}"
+_EPOCH_KEY: Final = "sess-epoch:{}"
 _PERSON_INDEX_KEY: Final = "sess-by-person:{}"
 _RATE_KEY: Final = "rate:{}"
 # 256 random bits, urlsafe base64 without padding: 43 characters.
@@ -61,6 +72,7 @@ def encode_session(session: ReporterSession) -> str:
             "services": list(session.services),
             "created": session.created.astimezone(UTC).isoformat(),
             "lastSeen": session.last_seen.astimezone(UTC).isoformat(),
+            "epoch": session.epoch,
         },
         sort_keys=True,
     )
@@ -73,6 +85,9 @@ def decode_session(session_id: str, text: str) -> ReporterSession | None:
         services = body["services"]
         if not isinstance(services, list) or not all(isinstance(s, str) for s in services):
             return None
+        epoch = body.get("epoch", 0)
+        if not isinstance(epoch, int) or isinstance(epoch, bool) or epoch < 0:
+            return None
         return ReporterSession(
             session_id=session_id,
             role=Role(body["role"]),
@@ -81,6 +96,7 @@ def decode_session(session_id: str, text: str) -> ReporterSession | None:
             services=tuple(services),
             created=_instant(body["created"]),
             last_seen=_instant(body["lastSeen"]),
+            epoch=epoch,
         )
     except ValueError, KeyError, TypeError:
         return None
@@ -88,6 +104,23 @@ def decode_session(session_id: str, text: str) -> ReporterSession | None:
 
 def _text(value: object) -> str | None:
     return cast("str | None", value)
+
+
+# Create the session only when the person's epoch is still the one the caller read. One script, so
+# no sign out everywhere can run between the check and the write. KEYS: session, index, epoch.
+# ARGV: the epoch read, the body, the ttl in ms, the session id, the epoch ttl in ms.
+_CREATE_IF_EPOCH = """
+local current = tonumber(redis.call('GET', KEYS[3]) or '0')
+if current ~= tonumber(ARGV[1]) then
+  return 0
+end
+redis.call('SET', KEYS[1], ARGV[2], 'PX', ARGV[3])
+redis.call('SADD', KEYS[2], ARGV[4])
+redis.call('PEXPIRE', KEYS[2], ARGV[3], 'NX')
+redis.call('PEXPIRE', KEYS[2], ARGV[3], 'GT')
+redis.call('PEXPIRE', KEYS[3], ARGV[5], 'GT')
+return 1
+"""
 
 
 class RedisSessionStore:
@@ -104,6 +137,17 @@ class RedisSessionStore:
     def _index_key(self, practitioner_id: str) -> str:
         return tenant_prefix(self._prefix) + _PERSON_INDEX_KEY.format(practitioner_id)
 
+    def _epoch_key(self, practitioner_id: str) -> str:
+        return tenant_prefix(self._prefix) + _EPOCH_KEY.format(practitioner_id)
+
+    async def epoch(self, practitioner_id: str) -> int:
+        return await self._current_epoch(practitioner_id)
+
+    async def _current_epoch(self, practitioner_id: str) -> int:
+        key = self._epoch_key(practitioner_id)
+        raw = _text(await self._client.get(key))
+        return 0 if raw is None else int(raw)
+
     async def create(
         self,
         role: Role,
@@ -111,6 +155,8 @@ class RedisSessionStore:
         device_id: str,
         services: tuple[str, ...],
         now: datetime,
+        *,
+        epoch: int,
     ) -> str:
         session_id = new_session_id()
         session = ReporterSession(
@@ -121,14 +167,25 @@ class RedisSessionStore:
             services=tuple(services),
             created=now,
             last_seen=now,
+            epoch=epoch,
         )
-        key = self._session_key(session_id)
-        index = self._index_key(practitioner_id)
-        async with self._client.pipeline(transaction=True) as pipe:
-            pipe.set(key, encode_session(session), px=millis(self._ttl))
-            pipe.sadd(index, session_id)
-            _extend_index(pipe, index, self._ttl)
-            await pipe.execute()
+        keys = (
+            self._session_key(session_id),
+            self._index_key(practitioner_id),
+            self._epoch_key(practitioner_id),
+        )
+        created = await self._client.eval(
+            _CREATE_IF_EPOCH,
+            3,
+            *keys,
+            str(epoch),
+            encode_session(session),
+            str(millis(self._ttl)),
+            session_id,
+            str(millis(EPOCH_TTL)),
+        )
+        if int(created) != 1:
+            raise SessionEpochChanged
         return session_id
 
     async def get(self, session_id: str) -> ReporterSession | None:
@@ -136,7 +193,10 @@ class RedisSessionStore:
         raw = _text(await self._client.get(key))
         if raw is None:
             return None
-        return decode_session(session_id, raw)
+        session = decode_session(session_id, raw)
+        if session is None or session.epoch != await self._current_epoch(session.practitioner_id):
+            return None
+        return session
 
     async def touch(self, session_id: str, now: datetime) -> bool:
         key = self._session_key(session_id)
@@ -144,14 +204,17 @@ class RedisSessionStore:
         if raw is None:
             return False
         session = decode_session(session_id, raw)
-        if session is None:
+        if session is None or session.epoch != await self._current_epoch(session.practitioner_id):
+            # A session of an earlier epoch is dead: it is not extended, so it simply expires.
             return False
         renewed = replace(session, last_seen=now)
         index = self._index_key(session.practitioner_id)
+        epoch_key = self._epoch_key(session.practitioner_id)
         async with self._client.pipeline(transaction=True) as pipe:
             # XX: a session that expired between the read and this write is not brought back.
             pipe.set(key, encode_session(renewed), px=millis(self._ttl), xx=True)
             _extend_index(pipe, index, self._ttl)
+            pipe.pexpire(epoch_key, millis(EPOCH_TTL), gt=True)
             results = await pipe.execute()
         # SET ... XX answers True when it wrote, None when the key had gone.
         return bool(results[0])
@@ -170,9 +233,15 @@ class RedisSessionStore:
 
     async def delete_all_for_person(self, practitioner_id: str) -> None:
         index = self._index_key(practitioner_id)
+        epoch_key = self._epoch_key(practitioner_id)
         members = cast("set[str]", await self._client.smembers(index))
         keys = [self._session_key(str(session_id)) for session_id in members]
         async with self._client.pipeline(transaction=True) as pipe:
+            # The epoch goes up first and in the same transaction as the deletes: a session made
+            # in the moment after the index was read carries the old epoch and is dead on arrival.
+            pipe.incr(epoch_key)
+            pipe.pexpire(epoch_key, millis(EPOCH_TTL), nx=True)
+            pipe.pexpire(epoch_key, millis(EPOCH_TTL), gt=True)
             if keys:
                 pipe.delete(*keys)
             pipe.delete(index)

@@ -90,9 +90,11 @@ class SetPinCommand:
     practitioner_id: str
     device_id: str
     pin: str = field(repr=False)
-    verified_at: datetime
+    verified_at: datetime | None = None
     """When the text code was verified, as VerifyTextCodeResult gave it. Checked against the
-    device's stored verification and the clock; it can never make a stale verification fresh."""
+    device's stored verification and the clock; it can never make a stale verification fresh. An
+    edge that holds no such value (R11 names the device, not the time) leaves it out, and only the
+    device's stored verification counts."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -269,10 +271,13 @@ class SetPin:
             _tenant_scope(uow.unit_scope)
             practitioner = await uow.people.get_practitioner(person)
             verified = await uow.devices.verified_at(person, device)
+            claimed = verified if command.verified_at is None else command.verified_at
             if (
                 practitioner is None
                 or not practitioner.active
-                or not verification_is_fresh(verified, command.verified_at, now)
+                or verified is None
+                or claimed is None
+                or not verification_is_fresh(verified, claimed, now)
             ):
                 return SetPinResult(ok=False)
             await uow.pins.set_pin(person, device, stored_hash)

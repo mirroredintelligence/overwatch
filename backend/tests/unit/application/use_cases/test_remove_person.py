@@ -582,3 +582,31 @@ async def test_a_lead_cannot_confirm_their_own_new_phone() -> None:
     }
     with pytest.raises(NotAllowed):
         await world.confirm.execute(ConfirmNewPhoneCommand("k1", LEAD_ACTOR, LEAD))
+
+
+# Prompts are not texted to a person whose new phone waits for the call-back
+
+
+async def test_nothing_is_texted_to_a_person_whose_new_phone_waits_for_the_callback() -> None:
+    from diucs.application.use_cases.send_prompts import _phone_hash
+
+    world = World()
+    role = world.units.people.roles["role-west"]
+    assert await _phone_hash(world.units, role, NOW) == HASH  # type: ignore[arg-type]
+    await _start(world)
+    assert await _phone_hash(world.units, role, NOW) is None  # type: ignore[arg-type]
+    await world.confirm.execute(ConfirmNewPhoneCommand("k1", LEAD_ACTOR, PERSON))
+    assert await _phone_hash(world.units, role, NOW) == HASH  # type: ignore[arg-type]
+
+
+async def test_a_cover_is_still_texted_while_the_person_waits_for_the_callback() -> None:
+    from diucs.application.use_cases.send_prompts import _phone_hash
+
+    world = World()
+    world.units.people.practitioners[COVER] = replace(
+        world.units.people.practitioners[COVER], phone_hash="b" * 64
+    )
+    world.cover_east()
+    await _start(world)
+    role = world.units.people.roles["role-east"]
+    assert await _phone_hash(world.units, role, NOW) == "b" * 64  # type: ignore[arg-type]

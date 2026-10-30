@@ -231,7 +231,7 @@ _CONFIRM_SCENARIO: Final = Scenario(
         "at": _AT + timedelta(minutes=5),
     },
     lookup=("key",),
-    new=("at",),
+    new=("at", "active"),
     expect=Expect(
         rows=({"n": 1},),
         after=(NodeSpec(("Device",), {"id": _DEVICE, "status": _STATUS_ACTIVE}),),

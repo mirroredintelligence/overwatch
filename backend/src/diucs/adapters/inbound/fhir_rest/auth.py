@@ -23,7 +23,7 @@ serves the app (DEC-096). No token or secret value is logged, returned or put in
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Annotated, Any, Final
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Path, Request
 from fhir.resources.R4B.coding import Coding
 from fhir.resources.R4B.meta import Meta
 from fhir.resources.R4B.resource import Resource
@@ -35,8 +35,15 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.tenancy import ScopeId, bind_scope
 from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound
-from diucs.domain.rules.bff_token import BffClaims, TokenRejected, decode_bff_token
+from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
+from diucs.domain.model.tenant import check_tenant_id
+from diucs.domain.rules.bff_token import (
+    BffClaims,
+    OperatorClaims,
+    TokenRejected,
+    decode_bff_token,
+    decode_operator_token,
+)
 from diucs.domain.rules.edge_access import EdgeVerdict
 
 BFF_SECRET_NAME: Final = "bff-jwt"
@@ -134,6 +141,73 @@ async def current_actor(request: Request) -> AsyncIterator[Actor]:
         raise _unauthorised()
     with bind_scope(ScopeId.tenant(claims.tenant)):
         yield actor_from_claims(claims)
+
+
+async def current_operator(request: Request) -> OperatorClaims:
+    """The operator or support person an operator-audience token names (TEN-043, TEN-075).
+
+    The operator door is the other audience: only a token for `diucs-ops` signed by this back end
+    passes, so a tenant token is refused here and an operator token is refused by `current_actor`.
+    The token names no tenant, so none is bound and nothing of a tenant is read. Every refusal is
+    the same 401 as the tenant door's."""
+    token = _bearer_token(request)
+    secret = _secret(request)
+    now = get_container(request).clock.now()
+    try:
+        return decode_operator_token(token, secret, now)
+    except TokenRejected:
+        raise _unauthorised() from None
+
+
+def require_operator(*roles: Role) -> Callable[[OperatorClaims], Awaitable[OperatorClaims]]:
+    """`current_operator`, and the role must be one of these: another operator role is the
+    non-revealing 404 of a route that is not there for it."""
+    allowed = frozenset(roles)
+
+    async def dependency(
+        claims: Annotated[OperatorClaims, Depends(current_operator)],
+    ) -> OperatorClaims:
+        if claims.role not in allowed:
+            raise NotAllowed("role")
+        return claims
+
+    return dependency
+
+
+def operator_actor(claims: OperatorClaims, tenant_id: str) -> Actor:
+    """The platform operator as an actor of the one tenant a route names (no service, no device).
+    Built only for the `platform-operator` role: the operator has no standing in any scope but the
+    one it acts on, and no data access (DEC-134 item 4)."""
+    if claims.role is not Role.PLATFORM_OPERATOR:
+        raise NotAllowed("role")
+    return Actor(
+        role=Role.PLATFORM_OPERATOR,
+        practitioner_id=claims.sub,
+        device_id=None,
+        channel="api",
+        service_ids=frozenset(),
+        tenant_id=tenant_id,
+    )
+
+
+async def operator_in_tenant(
+    tenant_id: Annotated[str, Path(max_length=64)],
+    claims: Annotated[OperatorClaims, Depends(require_operator(Role.PLATFORM_OPERATOR))],
+) -> AsyncIterator[Actor]:
+    """The platform operator, acting on the one tenant the path names (TEN-075).
+
+    The operator's token names no tenant, so the tenant is the target of the act: it comes from the
+    path of an operator-only route and is bound for that request alone, after the token and the
+    role have been checked (an operator has no data access: what its use cases touch in a tenant is
+    the tenant's structure and audit chain). A path that is not a tenant id is the 404 of a route
+    that is not there; a tenant the registry does not know is refused by the use case before it
+    writes. Binds in the request's own task, like `current_actor`, and is reset when it ends."""
+    try:
+        check_tenant_id(tenant_id)
+    except ValidationFailed:
+        raise NotFound("no such tenant") from None
+    with bind_scope(ScopeId.tenant(tenant_id)):
+        yield operator_actor(claims, tenant_id)
 
 
 def require_role(*roles: Role) -> Callable[[Actor], Awaitable[Actor]]:

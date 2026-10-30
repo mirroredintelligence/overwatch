@@ -24,7 +24,7 @@ export default async function ExecSetupPage() {
   const leaders = await readLeaders(session);
   return (
     <main>
-      <SetupFlow initial={initial} leaders={leaders} />
+      <SetupFlow initial={initial} leaders={leaders} next={session.role === 'exec' ? '/planning/phone' : '/planning'} />
     </main>
   );
 }

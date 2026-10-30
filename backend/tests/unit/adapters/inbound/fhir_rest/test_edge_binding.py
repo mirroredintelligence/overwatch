@@ -24,7 +24,13 @@ from fastapi.routing import APIRoute, _IncludedRouter
 from httpx import ASGITransport, AsyncClient
 
 from diucs.adapters.inbound.fhir_rest.app import create_app
-from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, current_actor, require_role
+from diucs.adapters.inbound.fhir_rest.auth import (
+    BFF_SECRET_NAME,
+    current_actor,
+    current_operator,
+    operator_in_tenant,
+    require_role,
+)
 from diucs.adapters.inbound.fhir_rest.errors import LOGIN_TEXT
 from diucs.adapters.inbound.fhir_rest.host_tenant import bind_host_tenant
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
@@ -590,10 +596,14 @@ async def test_every_route_binds_the_scope_or_is_on_the_reviewed_list() -> None:
     app = build(active_tenants(TENANT_A))
     exempt = set(TENANT_FREE) | set(BINDS_ITSELF)
 
+    # A route on the operator door (TEN-075) binds no tenant of its own token: the operator's token
+    # names none. It is judged by the tests below, not exempted here.
     unbound = {
         key
         for key, route in _routes(app).items()
-        if not key[1].startswith(PROBE) and not _depends_on_actor(route.dependant)
+        if not key[1].startswith(PROBE)
+        and not _depends_on_actor(route.dependant)
+        and not _depends_on(route.dependant, current_operator)
     }
 
     assert unbound == exempt
@@ -679,3 +689,51 @@ async def test_the_operator_exchange_route_binds_no_tenant_at_all() -> None:
 
     assert not _depends_on(route.dependant, bind_host_tenant)
     assert not _depends_on_actor(route.dependant)
+
+
+# ---------------------------------------------------------------- the operator door (TEN-075)
+
+
+async def test_every_platform_route_is_on_the_operator_door_and_never_the_tenant_door() -> None:
+    app = build(active_tenants(TENANT_A))
+
+    platform = {key: r for key, r in _routes(app).items() if key[1].startswith("/platform")}
+
+    assert len(platform) >= 20
+    for key, route in platform.items():
+        assert _depends_on(route.dependant, current_operator), key
+        assert not _depends_on_actor(route.dependant), key
+
+
+async def test_a_platform_route_binds_the_tenant_its_path_names_only_through_the_one_binder() -> (
+    None
+):
+    """A route that acts on one tenant as the operator is `/platform/tenants/{id}...` and takes the
+    `operator_in_tenant` dependency, which binds after the token and the role are checked. The
+    support person's ticket routes bind none: the guard binds the tenant of a ticket after it has
+    checked the principal."""
+    app = build(active_tenants(TENANT_A))
+
+    for (method, path), route in _routes(app).items():
+        if not path.startswith("/platform"):
+            continue
+        binds = _depends_on(route.dependant, operator_in_tenant)
+        support_side = "support-tickets" in path
+        reads_only = path in ("/platform/tenants", "/platform/session") or path.startswith(
+            "/platform/audit"
+        )
+        if support_side or reads_only:
+            assert not binds, (method, path)
+        else:
+            assert binds, (method, path)
+
+
+async def test_every_tenant_route_takes_the_actor_dependency_and_no_operator_token() -> None:
+    app = build(active_tenants(TENANT_A))
+
+    tenant = {key: r for key, r in _routes(app).items() if key[1].startswith("/tenant")}
+
+    assert len(tenant) >= 15
+    for key, route in tenant.items():
+        assert _depends_on_actor(route.dependant), key
+        assert not _depends_on(route.dependant, current_operator), key

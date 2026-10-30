@@ -16,6 +16,7 @@ import pytest
 from diucs.adapters.inbound.fhir_rest.case_mapping import (
     AGE_BAND_EXTENSION,
     CLOSED_AT_EXTENSION,
+    DISTRICT_EXTENSION,
     OUTCOME_EXTENSION,
     REFERRER_EXTENSION,
     SCORE_EXTENSION,
@@ -86,6 +87,44 @@ def test_an_empty_body_carries_nothing() -> None:
 
     assert details == CaseDetails(None, None, None, None, None, None)
     assert details.is_empty
+
+
+def test_a_chosen_district_is_read_from_its_extension_on_the_patient() -> None:
+    details = parse_case_details(
+        body(
+            contained=[
+                {
+                    "resourceType": "Patient",
+                    "id": "p",
+                    "extension": [{"url": DISTRICT_EXTENSION, "valueCode": "BH1"}],
+                }
+            ]
+        )
+    )
+
+    assert details.district == "BH1"
+    assert details.postcode is None
+    assert not details.is_empty
+
+
+@pytest.mark.parametrize(
+    "extension",
+    [
+        [{"url": DISTRICT_EXTENSION}],
+        [{"url": DISTRICT_EXTENSION, "valueCode": ""}],
+        [
+            {"url": DISTRICT_EXTENSION, "valueCode": "BH1"},
+            {"url": DISTRICT_EXTENSION, "valueCode": "DT1"},
+        ],
+    ],
+)
+def test_a_district_extension_that_is_empty_or_given_twice_is_refused(
+    extension: list[dict[str, Any]],
+) -> None:
+    with pytest.raises(ValidationFailed):
+        parse_case_details(
+            body(contained=[{"resourceType": "Patient", "id": "p", "extension": extension}])
+        )
 
 
 def test_a_full_body_carries_every_detail() -> None:

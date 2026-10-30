@@ -144,11 +144,22 @@ def test_only_the_composition_root_builds_the_directory() -> None:
 
 # The platform statements write the registry (TEN-028, DEC-503). They run through one function, from
 # one module, and only the operator use cases hold that module's port.
-PLATFORM_RUNNERS = frozenset({f"{GRAPH_STORE}/driver.py", REGISTRY_WRITES})
+# TEN-075: the platform's own records (the platform audit chain and the support-access tickets) are
+# platform statements too, each run from a module of its own that binds nothing.
+PLATFORM_AUDIT = f"{GRAPH_STORE}/platform_audit.py"
+SUPPORT_TICKETS = f"{GRAPH_STORE}/support_ticket_store.py"
+PLATFORM_RECORD_MODULES = frozenset({PLATFORM_AUDIT, SUPPORT_TICKETS})
+PLATFORM_RUNNERS = frozenset(
+    {f"{GRAPH_STORE}/driver.py", REGISTRY_WRITES, *PLATFORM_RECORD_MODULES}
+)
 OPERATOR_USE_CASES = frozenset(
     {
         "application/use_cases/tenant_admin.py",
         "application/use_cases/tenant_suspend.py",
+        # TEN-075: starting an offboarding and the operator's tenant list and detail are operator
+        # use cases too, and the services of the operator's routes hold them.
+        "application/use_cases/tenant_offboarding.py",
+        "application/use_cases/platform_tenants.py",
         "application/ports/outbound/tenant_registry.py",
         "bootstrap/container.py",
         "bootstrap/provisioning.py",
@@ -172,6 +183,34 @@ def test_the_registry_writes_bind_nothing_run_no_tenant_or_global_statement() ->
     assert names.isdisjoint(BINDING_NAMES)
     assert "run_global_query" not in names
     assert "run_platform_query" in names
+
+
+def test_the_platform_record_modules_bind_nothing_and_run_only_platform_statements() -> None:
+    for relative in PLATFORM_RECORD_MODULES:
+        names = referenced_names((PACKAGE_ROOT / relative).read_text(encoding="utf-8"))
+        assert names.isdisjoint(BINDING_NAMES), relative
+        assert "run_global_query" not in names, relative
+        assert "run_platform_query" in names, relative
+
+
+def test_the_platform_record_modules_name_no_tenant_registry_label() -> None:
+    for relative in PLATFORM_RECORD_MODULES:
+        source = (PACKAGE_ROOT / relative).read_text(encoding="utf-8")
+        assert not names_registry_label(source), relative
+
+
+def test_only_the_composition_root_builds_the_platform_record_adapters() -> None:
+    for name, home in (
+        ("Neo4jPlatformAudit", PLATFORM_AUDIT),
+        ("Neo4jSupportTickets", SUPPORT_TICKETS),
+    ):
+        offenders = [
+            _relative(path)
+            for path in _files()
+            if _relative(path) not in {home, "bootstrap/container.py"}
+            and name in referenced_names(path.read_text(encoding="utf-8"))
+        ]
+        assert offenders == [], name
 
 
 def test_only_the_composition_root_builds_the_registry_writes() -> None:

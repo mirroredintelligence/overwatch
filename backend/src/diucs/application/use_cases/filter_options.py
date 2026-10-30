@@ -16,7 +16,7 @@ Decisions: DEC-290 (roles, the read and its audit, no replay; its Assumed list h
 and warning texts).
 """
 
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from types import MappingProxyType
@@ -25,7 +25,13 @@ from typing import Any, Final
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.geo import LatLon, PostcodeLocator, TravelRange, TravelTime
+from diucs.application.ports.outbound.geo import (
+    LatLon,
+    Located,
+    PostcodeLocator,
+    TravelRange,
+    TravelTime,
+)
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.open_case import check_role, missing_fields
 from diucs.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
@@ -35,6 +41,7 @@ from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.rules.criteria_filter import check_hard_criteria
 from diucs.domain.rules.criteria_workflow import is_review_overdue
+from diucs.domain.rules.district_choice import candidate_districts
 from diucs.domain.rules.freshness import STALE_WARNING_AFTER, data_age_text
 from diucs.domain.rules.london_time import to_london
 
@@ -140,6 +147,11 @@ class FilterOptionsResult:
     """The locator does not know the case's district."""
     out_of_area: bool = False
     """No service with current criteria covers the case's district."""
+    districts: tuple[str, ...] = ()
+    """The districts to offer as chips when `not_found` or `out_of_area` is true, and none otherwise
+    (W50, W9H DEC-1045): the districts this tenant's unsuspended services cover that the locator can
+    place, nearest first (or the case's own postcode area first when it has no place). They are the
+    services' configuration, never anything about the case."""
 
 
 def status_reason(status: Status, data_age: timedelta | None) -> str | None:
@@ -353,12 +365,40 @@ class FilterOptions:
             )
             await uow.commit()
 
+        not_found = patient is None
+        out_of_area = bool(criteria) and all(
+            district not in item.districts for item in criteria.values()
+        )
         return FilterOptionsResult(
             options=tuple(sorted(options, key=option_order_key)),
             not_suitable=tuple(sorted(not_suitable, key=lambda item: (item.name, item.service_id))),
             generated_at=now,
             patient=None if patient is None else patient.lat_lon,
-            not_found=patient is None,
-            out_of_area=bool(criteria)
-            and all(district not in item.districts for item in criteria.values()),
+            not_found=not_found,
+            out_of_area=out_of_area,
+            districts=(
+                self._district_choices(criteria, suspended, patient, district)
+                if not_found or out_of_area
+                else ()
+            ),
         )
+
+    def _district_choices(
+        self,
+        criteria: Mapping[str, ServiceCriteria],
+        suspended: Collection[str],
+        patient: Located | None,
+        district: str,
+    ) -> tuple[str, ...]:
+        """The districts to offer: the unsuspended services' districts that the locator can place.
+        A district it cannot place would only lead back to the same screen."""
+        places: dict[str, tuple[float, float]] = {}
+        for service_id, item in criteria.items():
+            if service_id in suspended:
+                continue
+            for covered in item.districts:
+                centre = self._postcodes.district_centroid(covered)
+                if centre is not None:
+                    places[covered] = (centre.lat, centre.lon)
+        origin = None if patient is None else (patient.lat_lon.lat, patient.lat_lon.lon)
+        return candidate_districts(places, origin=origin, case_district=district)

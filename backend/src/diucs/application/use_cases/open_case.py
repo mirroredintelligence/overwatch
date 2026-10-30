@@ -37,7 +37,7 @@ from diucs.domain.model.scores import (
     Score,
 )
 from diucs.domain.rules.booking_rules import REFERENCE_ATTEMPTS, new_reference
-from diucs.domain.rules.postcode import normalise_postcode, postcode_district
+from diucs.domain.rules.postcode import normalise_district, normalise_postcode, postcode_district
 
 OPEN_CASE: Final = "OpenCase"
 UPDATE_CASE: Final = "UpdateCase"
@@ -71,6 +71,11 @@ class UpdateCaseCommand:
     needs: tuple[NeedCategory, ...] | None = None
     urgency: Urgency | None = None
     scores: tuple[Score, ...] | None = None
+    district: str | None = None
+    """A postcode district chosen on its own (W50, W9H DEC-1045): the advisor's pick from the chips
+    the options screen offers when the postcode was not found or is out of area. It is the only way
+    a district alone is kept; `postcode` still takes a full postcode and nothing less. Not with a
+    `postcode`."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,6 +122,15 @@ def district_for(text: object) -> str:
     if full is None:
         raise ValidationFailed("postcode", "must be a full postcode")
     return postcode_district(full)
+
+
+def chosen_district(text: object) -> str:
+    """The canonical postcode district of a district chosen on its own. Anything that is not a
+    district is refused, and the message does not repeat the value."""
+    district = normalise_district(text) if isinstance(text, str) else None
+    if district is None:
+        raise ValidationFailed("district", "must be a postcode district")
+    return district
 
 
 def new_open_case(
@@ -167,6 +181,10 @@ def apply_update(case: Case, command: UpdateCaseCommand) -> Case:
         changes["age_band"] = command.age_band
     if command.postcode is not None:
         changes["postcode"] = district_for(command.postcode)
+    if command.district is not None:
+        if command.postcode is not None:
+            raise ValidationFailed("district", "give a full postcode or a district, not both")
+        changes["postcode"] = chosen_district(command.district)
     if command.needs is not None:
         changes["needs"] = _needs(command.needs)
     if command.urgency is not None:
@@ -254,6 +272,7 @@ def update_fingerprint(command: UpdateCaseCommand) -> str:
             command.needs,
             command.urgency,
             command.scores,
+            command.district,
         )
     )
     return hashlib.sha256(body.encode("utf-8")).hexdigest()

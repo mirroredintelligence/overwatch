@@ -63,7 +63,17 @@ export type OptionsParts = {
   notFound: boolean;
   /** The postcode is outside the areas the services cover (W50). */
   outOfArea: boolean;
+  /**
+   * The districts the advisor can choose from when the postcode was not found or is outside the area
+   * (W50, W9H DEC-1045): the ones the services cover, in the order to show them. Empty otherwise.
+   */
+  districts: string[];
 };
+
+/** A postcode district as the back end keeps it: one or two capital letters, a digit, then a digit or a capital. */
+export const DISTRICT_PATTERN = /^[A-Z]{1,2}[0-9][A-Z0-9]?$/;
+/** At most this many chips (the back end sends twelve at most). */
+export const MAX_DISTRICT_CHIPS = 12;
 
 type Part = {
   name?: unknown;
@@ -204,11 +214,26 @@ export function optionsFromParameters(value: unknown): OptionsParts | null {
       if (serviceId !== null && name !== null && reason !== null) notSuitable.push({ serviceId, name, reason });
     }
   }
+  const notFound = flag(top, 'notFound');
+  const outOfArea = flag(top, 'outOfArea');
   return {
     options,
     notSuitable,
     patientArea,
-    notFound: flag(top, 'notFound'),
-    outOfArea: flag(top, 'outOfArea'),
+    notFound,
+    outOfArea,
+    districts: notFound || outOfArea ? districtsOf(top) : [],
   };
+}
+
+/** The `district` parts in the order sent: only what is a district, once each, at most the chips the screen shows. */
+function districtsOf(top: Part[]): string[] {
+  const seen = new Set<string>();
+  for (const part of top) {
+    if (part.name !== 'district') continue;
+    const value = part.valueString;
+    if (typeof value === 'string' && DISTRICT_PATTERN.test(value)) seen.add(value);
+    if (seen.size === MAX_DISTRICT_CHIPS) break;
+  }
+  return [...seen];
 }

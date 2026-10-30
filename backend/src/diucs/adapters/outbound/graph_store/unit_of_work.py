@@ -56,6 +56,9 @@ from diucs.adapters.outbound.graph_store.idempotency_store import (
     Neo4jProcessedMessages,
 )
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
+from diucs.adapters.outbound.graph_store.network_sample_repository import (
+    Neo4jNetworkSampleRepository,
+)
 from diucs.adapters.outbound.graph_store.notification_consent_store import (
     Neo4jNotificationConsentStore,
 )
@@ -99,6 +102,7 @@ from diucs.application.ports.outbound.messaging import (
     CommunicationRepository,
     PushSubscriptionRepository,
 )
+from diucs.application.ports.outbound.network_samples import NetworkSamples
 from diucs.application.ports.outbound.outbox import Outbox
 from diucs.application.ports.outbound.projection import NetworkView, ProjectionWriter
 from diucs.application.ports.outbound.protected_text import ProtectedTextStore
@@ -171,6 +175,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     # tenant unit that reaches for one is refused by `run_query` (`ScopeKindMismatch`).
     "projections": lambda tx, store: Neo4jProjectionRepository(tx),
     "network_view": lambda tx, store: Neo4jProjectionRepository(tx),
+    "network_samples": lambda tx, store: Neo4jNetworkSampleRepository(tx),
 }
 
 _NOT_OPEN = "the unit of work is not open; use it inside 'async with'"
@@ -241,6 +246,7 @@ class Neo4jUnitOfWork:
     tenant_config: TenantConfigRepository
     projections: ProjectionWriter
     network_view: NetworkView
+    network_samples: NetworkSamples
 
     def __init__(
         self,

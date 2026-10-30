@@ -22,10 +22,22 @@ from neo4j.time import Date, DateTime, Duration, Time
 from diucs.adapters.outbound.graph_store.scenario import Slot, TenantSeed, render
 from tests.support.neo4j import is_owned, read_tx, write_tx
 
-# Labels a node may carry without a tenantId: the migration record, and the registry nodes of the
-# network design (DEC-132), which are the tenants' and the network's own.
+# Labels a node may carry without a tenantId: the migration record, the registry nodes of the
+# network design (DEC-132), which are the tenants' and the network's own, and the platform's own
+# records (TEN-075: the platform audit chain and the support-access tickets).
 UNSTAMPED_OK: Final = frozenset(
-    {"Migration", "Tenant", "TenantNumber", "Network", "NetworkMembership", "Grant", "Listing"}
+    {
+        "Migration",
+        "Tenant",
+        "TenantNumber",
+        "Network",
+        "NetworkMembership",
+        "Grant",
+        "Listing",
+        "PlatformAuditHead",
+        "PlatformAuditEntry",
+        "SupportAccessTicket",
+    }
 )
 
 _IDENTIFIER: Final = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")

@@ -95,7 +95,7 @@ class RecordingPushSender:
     def __init__(self) -> None:
         self.sent: list[RecordedPush] = []
         self._attempts = _Attempts("push")
-        self._gone_next = False
+        self._gone_next = 0
 
     async def send(
         self,
@@ -106,8 +106,8 @@ class RecordingPushSender:
         *,
         urgency: str = "normal",
     ) -> SendReceipt:
-        if self._gone_next:
-            self._gone_next = False
+        if self._gone_next > 0:
+            self._gone_next -= 1
             return SendReceipt(provider_message_id="", accepted=False, reason=PUSH_GONE)
         receipt = self._attempts.next_receipt()
         if receipt.accepted:
@@ -118,8 +118,9 @@ class RecordingPushSender:
         self._attempts.fail_next()
 
     def gone_next(self) -> None:
-        """The next subscription is gone (the provider answered 410): refused, reason `gone`."""
-        self._gone_next = True
+        """The next subscription is gone (the provider answered 410): refused, reason `gone`. Each
+        call marks one more send, so two calls make the next two sends gone."""
+        self._gone_next += 1
 
 
 class FixedSenderResolver:

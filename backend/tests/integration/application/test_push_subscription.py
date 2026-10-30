@@ -7,6 +7,7 @@ Each assertion reads back through a fresh unit of work or the harness helpers. S
 from datetime import UTC, datetime
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
@@ -24,7 +25,7 @@ from diucs.application.use_cases.push_subscription import (
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound
 from tests.support.actors import ACTOR_TENANT
-from tests.support.ladder_rig import reporter, seed_people
+from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads
 
@@ -59,10 +60,18 @@ def _actor(practitioner_id: str) -> Actor:
     )
 
 
-@pytest.fixture(loop_scope="session")
-async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
+@pytest_asyncio.fixture(loop_scope="session")
+async def seeded(
+    clean_graph: None,
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+) -> None:
     """One reporter, prac-1, with no device yet. The audit head exists for the run tenant."""
     await ensure_audit_heads(neo4j_driver, tenant_id)
+    async with uow_factory() as uow:
+        await uow.services.save(virtual_ward())
+        await uow.commit()
     await seed_people(uow_factory, reporter(1, None))
 
 
@@ -107,7 +116,7 @@ async def test_saving_writes_the_subscription_an_active_consent_and_one_audit_re
     assert [s.device_id for s in subscriptions] == [DEVICE]
     assert consent is not None
     assert (consent.status, consent.wording_version, consent.at) == ("active", WORDING, AT)
-    assert await count_nodes(neo4j_driver, "AuditRecord") == 1
+    assert await count_nodes(neo4j_driver, "AuditEvent") == 1
 
 
 async def test_saving_again_for_the_same_device_leaves_one_subscription(
@@ -143,12 +152,12 @@ async def test_a_replayed_save_with_the_same_key_writes_nothing_new(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seeded: None
 ) -> None:
     first = await _save(uow_factory, neo4j_driver, "save-1")
-    audits = await count_nodes(neo4j_driver, "AuditRecord")
+    audits = await count_nodes(neo4j_driver, "AuditEvent")
 
     replay = await _save(uow_factory, neo4j_driver, "save-1")
 
     assert replay == first
-    assert await count_nodes(neo4j_driver, "AuditRecord") == audits
+    assert await count_nodes(neo4j_driver, "AuditEvent") == audits
 
 
 async def test_a_device_of_another_practitioner_is_not_found_and_nothing_changes(

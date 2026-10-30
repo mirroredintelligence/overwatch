@@ -5,11 +5,13 @@ The "after ConfirmCriteria" case moves review-by forward directly, standing in f
 (U30 clears the flag itself; this job only sets it). Sample values only; service "UCR West".
 """
 
+import itertools
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
@@ -23,7 +25,13 @@ from diucs.application.use_cases.criteria_reviews import (
     ensure_daily_schedule,
 )
 from diucs.application.work import WorkKind
-from diucs.domain.codes import Channel, CriteriaStatus, PractitionerRoleCode
+from diucs.domain.codes import (
+    Channel,
+    CriteriaStatus,
+    Measure,
+    PractitionerRoleCode,
+    ServiceCategory,
+)
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from tests.support.ladder_rig import virtual_ward
@@ -34,6 +42,8 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 LONDON = ZoneInfo("Europe/London")
 SERVICE = "ucr-west"
 OWNER_ROLE = "owner-role-1"
+# Each job gets its own id prefix, so two jobs at one time never reuse an outbox id (lesson L134).
+_RUN_IDS = itertools.count(1)
 SECRETS = FixedSecretStore({"link-token": b"link-token-test-secret-0123456789abcdef"})
 
 
@@ -60,7 +70,7 @@ def _criteria(service: str, review_by: date, role: str = OWNER_ROLE) -> ServiceC
 def _job(uow_factory: UnitOfWorkFactory, at: datetime) -> RunCriteriaReviews:
     return RunCriteriaReviews(
         uow_factory,
-        SequentialIds(f"run-{at:%d%H%M}"),
+        SequentialIds(f"run-{at:%d%H%M}-{next(_RUN_IDS)}"),
         FixedClock(at),
         AesGcmContentSealer(SECRETS),
     )
@@ -81,8 +91,13 @@ async def _scheduled(uow_factory: UnitOfWorkFactory, tenant: str) -> list:
         return await uow.scheduled_work.for_about(tenant, WorkKind.CRITERIA_REVIEW_REMINDER)
 
 
-@pytest.fixture(loop_scope="session")
-async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
+@pytest_asyncio.fixture(loop_scope="session")
+async def seeded(
+    clean_graph: None,
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+) -> None:
     """UCR West with a current criteria version reviewed 12 December 2026, owned by an email
     criteria owner. Its audit head exists for the run tenant."""
     await ensure_audit_heads(neo4j_driver, tenant_id)
@@ -197,9 +212,17 @@ async def test_a_run_for_tenant_a_never_reminds_or_flags_tenant_b(
     tenant_id: str,
     seeded: None,
 ) -> None:
-    await ensure_audit_heads(neo4j_driver, other_tenant_id)
+    # Tenant B's seed writes no audit entry, so it needs no audit head. On the shared schema a
+    # second head collides with tenant A's (lesson L157).
     async with uow_factory_b() as uow:
-        await uow.services.save(virtual_ward("ucr-east", name="UCR East"))
+        await uow.services.save(
+            virtual_ward(
+                "ucr-east",
+                name="UCR East",
+                category=ServiceCategory.REABLEMENT,
+                measure=Measure.FREE_BEDS,
+            )
+        )
         await uow.criteria.add(_criteria("ucr-east", date(2026, 12, 1), role="none"))
         await uow.commit()
 

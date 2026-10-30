@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from zoneinfo import ZoneInfo
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -88,8 +89,13 @@ def _start(uow_factory: UnitOfWorkFactory) -> StartServiceMove:
     return StartServiceMove(uow_factory, SequentialIds("move"), _clock(), HASHER)
 
 
-@pytest.fixture(loop_scope="session")
-async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
+@pytest_asyncio.fixture(loop_scope="session")
+async def seeded(
+    clean_graph: None,
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+) -> None:
     """One phone (prac-1, OLD_MOBILE) holding UCR West and UCR East; a second phone (prac-2,
     NEW_MOBILE) that is a registered reporter for UCR South; UCR North and UCR Park exist."""
     await ensure_audit_heads(neo4j_driver, tenant_id)
@@ -127,7 +133,9 @@ async def _move_to_completion(
     started = await _start(uow_factory).execute(
         StartServiceMoveCommand(actor=LEAD, service_id=service, to_mobile=NEW_MOBILE, until=until)
     )
-    await VerifyServiceMoveCode(uow_factory, verifier or RecordingVerifier(), _clock()).execute(
+    await VerifyServiceMoveCode(
+        uow_factory, verifier or RecordingVerifier(), _clock(), HASHER
+    ).execute(
         VerifyServiceMoveCodeCommand(move_id=started.move_id, mobile=NEW_MOBILE, code="123456")
     )
     await RecordMoveCallBack(uow_factory, _clock()).execute(

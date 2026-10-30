@@ -38,7 +38,7 @@ async function post(
   const headers: Record<string, string> = {};
   if (options.csrf !== null) headers[CSRF_HEADER] = options.csrf ?? CSRF;
   if (options.key !== null) headers['Idempotency-Key'] = options.key ?? KEY;
-  return POST(requestWithCookies(URL_, cookies, { method: 'POST', headers }), undefined as never);
+  return POST(requestWithCookies(URL_, cookies, { method: 'POST', headers }));
 }
 
 beforeEach(() => {

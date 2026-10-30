@@ -51,6 +51,51 @@ export const FLAG_CHOICES = [
   { id: 'flag-2', serviceId: SERVICE_REABLEMENT, serviceName: 'Reablement', reason: 'many-changes', summary: 'The figure changed many times in a short time.' },
 ];
 
+/** The phones the lead's services report from, as the BFF maps them (W43). Last digits only. */
+export const PHONE_CHOICES = [
+  {
+    phoneEnding: '777',
+    role: 'Duty manager',
+    services: [
+      { id: SERVICE_VIRTUAL_WARD, name: 'Virtual ward' },
+      { id: SERVICE_UCR_EAST, name: 'UCR East' },
+      { id: SERVICE_REABLEMENT, name: 'Reablement' },
+      { id: 's-other', name: 'Community beds' },
+    ],
+    channel: 'text',
+    lastSeen: '2026-10-30T09:21:00Z',
+  },
+  {
+    phoneEnding: '456',
+    role: 'Team lead',
+    services: [{ id: SERVICE_REABLEMENT, name: 'Reablement' }],
+    channel: 'email',
+    lastSeen: '2026-10-30T08:02:00Z',
+  },
+];
+
+/** The reporter invitations and their set-up steps, as the BFF maps them (W43). */
+export const INVITATION_CHOICES = [
+  {
+    id: 'inv-1',
+    serviceName: 'UCR West',
+    role: 'Duty manager',
+    steps: { invited: true, numberChecked: true, channelChosen: true, installed: true, notificationsOn: false, pinSet: false, firstReport: false },
+    invitedAt: '2026-10-30T09:00:00Z',
+    lastSeen: '2026-10-30T09:21:00Z',
+    firstReportAt: null,
+  },
+  {
+    id: 'inv-2',
+    serviceName: 'Reablement',
+    role: 'Team lead',
+    steps: { invited: true, numberChecked: true, channelChosen: true, installed: true, notificationsOn: true, pinSet: true, firstReport: true },
+    invitedAt: '2026-10-29T16:00:00Z',
+    lastSeen: '2026-10-30T10:12:00Z',
+    firstReportAt: '2026-10-30T10:12:00Z',
+  },
+];
+
 export const leadHandlers = [
   http.get('/api/bff/lead/overview', () => HttpResponse.json(OVERVIEW_SHIFT_LEAD, { headers: NO_STORE })),
   http.get('/api/bff/lead/services', () => HttpResponse.json({ services: SERVICE_CHOICES }, { headers: NO_STORE })),
@@ -90,6 +135,24 @@ export const leadHandlers = [
   http.post('/api/bff/lead/flags/:id', async ({ request, params }) => {
     await recorded(request, `/api/bff/lead/flags/${String(params.id)}`);
     return HttpResponse.json({ flagId: String(params.id), outcome: 'accepted' }, { status: 200, headers: NO_STORE });
+  }),
+  http.get('/api/bff/lead/phones', () => HttpResponse.json({ phones: PHONE_CHOICES }, { headers: NO_STORE })),
+  http.get('/api/bff/lead/invitations', () => HttpResponse.json({ items: INVITATION_CHOICES }, { headers: NO_STORE })),
+  http.post('/api/bff/lead/invitations', async ({ request }) => {
+    await recorded(request, '/api/bff/lead/invitations');
+    return HttpResponse.json({ invitationId: 'inv-3', numberEnding: '0123', expiresAt: '2026-11-01T09:00:00Z' }, { status: 201, headers: NO_STORE });
+  }),
+  http.post('/api/bff/lead/invitations/:id/resend', async ({ request, params }) => {
+    await recorded(request, `/api/bff/lead/invitations/${String(params.id)}/resend`);
+    return HttpResponse.json({ state: 'sent' }, { status: 202, headers: NO_STORE });
+  }),
+  http.post('/api/bff/lead/invitations/:id/switch-to-text', async ({ request, params }) => {
+    await recorded(request, `/api/bff/lead/invitations/${String(params.id)}/switch-to-text`);
+    return HttpResponse.json({ state: 'switched' }, { status: 200, headers: NO_STORE });
+  }),
+  http.post('/api/bff/lead/services/:id/move', async ({ request, params }) => {
+    await recorded(request, `/api/bff/lead/services/${String(params.id)}/move`);
+    return HttpResponse.json({ moveId: 'move-1' }, { status: 201, headers: NO_STORE });
   }),
   http.post('/api/bff/lead/services/:id/remind', async ({ request, params }) => {
     await recorded(request, `/api/bff/lead/services/${String(params.id)}/remind`);

@@ -3,10 +3,12 @@
 Only this module imports the Azure SDK. It converts each received message to a BusMessage, calls
 the consumer and settles the message: complete, abandon or dead-letter. A message that cannot be
 read (no id, no type, a body that is not a JSON object) is dead-lettered without reaching the
-consumer; so is a message with no usable tenant (TEN-020: `from_wire` is the one reader, and the
-existing fixed reason `malformed message` is its dead letter until TEN-025 gives it the four
-reasons and binds the tenant). A failure to settle is logged by class name and the message is left
-for redelivery, where the consumer finds its marker and answers duplicate.
+consumer; so is a message with no usable tenant (TEN-020: `from_wire` is the one reader), with the
+fixed reason `tenant-missing`, `tenant-malformed` or `tenant-mismatch` (TEN-025), and the consumer
+never runs. The runner serves only a consumer that binds the tenant of each message
+(`binds_tenant`, TEN-025): a wiring that forgot the binding stops at start-up. A failure to settle
+is logged by class name and the message is left for redelivery, where the consumer finds its marker
+and answers duplicate.
 
 A session-enabled entity (the capacity.events subscriptions) is read through session receivers,
 so one session's messages are handled in order. The loop never exits on a connection failure: it
@@ -20,7 +22,7 @@ import json
 import logging
 from collections.abc import Sequence
 from dataclasses import replace
-from typing import Any, Protocol
+from typing import Any, Final, Protocol
 
 from azure.servicebus import NEXT_AVAILABLE_SESSION
 from azure.servicebus.aio import ServiceBusClient
@@ -65,12 +67,24 @@ class Receiver(Protocol):
     ) -> None: ...
 
 
+CONSUMER_NOT_TENANT_BOUND: Final = (
+    "a queue runner needs a consumer that binds the tenant of each message"
+)
+
+
 class ConsumerNotTenantBound(TypeError):
-    """Stub for the red commit."""
+    """A runner was given a consumer that does not declare `binds_tenant`: it would open units of
+    work with no scope (TEN-025). Raised when the runner is built, so the wiring fault stops the
+    process at start-up and not at the first message."""
 
 
 class MalformedMessage(Exception):
-    """The received message cannot be turned into a BusMessage."""
+    """The received message cannot be turned into a BusMessage. `reason` is the fixed word to
+    dead-letter it with: a tenant reason of the bus contract, or None for the generic one."""
+
+    def __init__(self, reason: str | None = None) -> None:
+        super().__init__(reason)
+        self.reason = reason
 
 
 def _text(value: object) -> str | None:
@@ -101,7 +115,12 @@ def to_bus_message(raw: Any, entity: str) -> BusMessage:
             properties=properties,
             payload=payload,
         )
-    except (MessageTenantError, ValidationFailed) as error:
+    except MessageTenantError as error:
+        # A message with no id says nothing about its tenant: it is malformed, not mismatched.
+        if not _text(raw.message_id):
+            raise MalformedMessage from error
+        raise MalformedMessage(error.reason) from error
+    except ValidationFailed as error:
         raise MalformedMessage from error
     traceparent = _text(properties.get("traceparent", properties.get(b"traceparent")))
     return message if traceparent is None else replace(message, traceparent=traceparent)
@@ -119,6 +138,8 @@ class ServiceBusRunner:
     ) -> None:
         if max_concurrency < 1:
             raise ValueError("max_concurrency must be at least 1")
+        if getattr(consumer, "binds_tenant", False) is not True:
+            raise ConsumerNotTenantBound(CONSUMER_NOT_TENANT_BOUND)
         self._client = client
         self._entity = entity
         self._subscription = subscription
@@ -146,8 +167,8 @@ class ServiceBusRunner:
     async def _outcome(self, raw: Any) -> Outcome:
         try:
             message = to_bus_message(raw, self._entity)
-        except MalformedMessage:
-            return Outcome("dead-letter", MALFORMED_REASON)
+        except MalformedMessage as malformed:
+            return Outcome("dead-letter", malformed.reason or MALFORMED_REASON)
         return await self._consumer.handle(message)
 
     async def _settle(self, receiver: Receiver, raw: Any, outcome: Outcome) -> None:

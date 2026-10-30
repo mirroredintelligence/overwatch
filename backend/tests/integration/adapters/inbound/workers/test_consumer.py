@@ -5,21 +5,29 @@ from typing import Any, cast
 
 import pytest
 
-from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
+from diucs.adapters.inbound.workers.consumer import (
+    TENANT_MISMATCH,
+    IdempotentConsumer,
+    PermanentError,
+)
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props
+from tests.support.uow import tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 
-def _message(message_id: str = "m-1") -> BusMessage:
+def _message(message_id: str = "m-1", tenant: str = ACTOR_TENANT) -> BusMessage:
+    """A message of the run tenant, the scope the harness binds around each test (TEN-025: a
+    message whose tenant is not the bound scope is dead-lettered)."""
     return BusMessage(
         id=message_id,
         topic="capacity.events",
         event_type="CapacityReported",
         payload={},
-        tenant_id="tenant-a",
+        tenant_id=tenant,
     )
 
 
@@ -125,3 +133,51 @@ async def test_a_long_permanent_reason_is_cut_short(
     assert outcome.kind == "dead-letter"
     assert outcome.reason is not None
     assert len(outcome.reason) <= 100
+
+
+# -- the tenant (TEN-025) ------------------------------------------------------------------------
+
+
+async def test_a_message_of_another_tenant_than_the_bound_one_is_dead_lettered_and_marks_nothing(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: Any, other_tenant_id: str
+) -> None:
+    handler = _Recorder()
+    outcome = await IdempotentConsumer("c", handler, uow_factory).handle(
+        _message(tenant=other_tenant_id)
+    )
+
+    assert outcome.kind == "dead-letter"
+    assert outcome.reason == TENANT_MISMATCH
+    assert handler.calls == 0
+    assert await count_nodes(neo4j_driver, "Processed") == 0
+    assert await count_nodes(neo4j_driver, "TestMark") == 0
+
+
+async def test_a_unit_that_opens_under_another_tenant_than_the_message_marks_nothing(
+    neo4j_driver: Any, tenant_id: str, other_tenant_id: str
+) -> None:
+    """The scope bound for the work and the scope of the unit disagree (a wiring fault): the
+    message is refused before it is marked, and the handler never runs in the other tenant."""
+    handler = _Recorder()
+    consumer = IdempotentConsumer("c", handler, tenant_uow_factory(neo4j_driver, other_tenant_id))
+
+    outcome = await consumer.handle(_message(tenant=tenant_id))
+
+    assert outcome.kind == "dead-letter"
+    assert outcome.reason == TENANT_MISMATCH
+    assert handler.calls == 0
+    assert await count_nodes(neo4j_driver, "Processed") == 0
+
+
+@pytest.mark.no_tenant
+async def test_with_no_tenant_bound_a_message_is_dead_lettered_and_no_unit_opens(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: Any
+) -> None:
+    handler = _Recorder()
+
+    outcome = await IdempotentConsumer("c", handler, uow_factory).handle(_message())
+
+    assert outcome.kind == "dead-letter"
+    assert outcome.reason == TENANT_MISMATCH
+    assert handler.calls == 0
+    assert await count_nodes(neo4j_driver, "Processed") == 0

@@ -12,6 +12,14 @@ dead-lettered by the bus after its max delivery count. This module does not impo
 No payload text leaves this module: a retry reason is the exception class name, and a dead-letter
 reason is the PermanentError text cut to MAX_REASON_LENGTH. A handler must not put payload text
 in a PermanentError.
+
+The tenant (TEN-025, DEC-130 item 7). The tenant property of a bus message is unsigned, so it is
+never trusted on its own: `TenantBoundConsumer` has already checked it against the tenant directory
+and bound it, and this consumer checks the binding again before it opens a unit of work, and the
+scope the unit opened under before it marks the message processed or runs the handler. A message
+whose tenant is not the bound scope, or a unit that opened under another scope, is dead-lettered
+with `tenant-mismatch` and nothing is written, so a consumer that is wired without the binding
+cannot process a message unscoped.
 """
 
 import logging
@@ -21,6 +29,7 @@ from typing import Literal, Protocol
 
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.tenancy import ScopeId, ScopeKind, current_scope_or_none
 from diucs.domain.errors import DomainError
 
 logger = logging.getLogger(__name__)
@@ -50,6 +59,10 @@ class MessageConsumer(Protocol):
     async def handle(self, message: BusMessage) -> Outcome: ...
 
 
+def _is_the_tenant_of(scope: ScopeId | None, message: BusMessage) -> bool:
+    return scope is not None and scope.kind is ScopeKind.TENANT and scope.value == message.tenant_id
+
+
 class IdempotentConsumer:
     def __init__(self, name: str, handler: Handler, uow_factory: UnitOfWorkFactory) -> None:
         self.name = name
@@ -58,7 +71,11 @@ class IdempotentConsumer:
 
     async def handle(self, message: BusMessage) -> Outcome:
         try:
+            if not _is_the_tenant_of(current_scope_or_none(), message):
+                raise PermanentError(TENANT_MISMATCH)
             async with self._uow_factory() as uow:
+                if not _is_the_tenant_of(uow.unit_scope, message):
+                    raise PermanentError(TENANT_MISMATCH)
                 if not await uow.processed.mark_if_new(message.id, self.name):
                     return Outcome("duplicate")
                 await self._handler(message, uow)

@@ -66,7 +66,7 @@ SMS_SUBSCRIPTION: Final = "text-sender"
 EMAIL_SUBSCRIPTION: Final = "email-sender"
 PUSH_SUBSCRIPTION: Final = "push-sender"
 
-NO_TENANT: Final = "message has no tenant"
+NO_TENANT: Final = "tenant-missing"
 NOT_A_SEND: Final = "message is not a send"
 BAD_PAYLOAD: Final = "outbound payload is not one this system sends"
 BAD_CHANNEL: Final = "outbound message is for another channel"

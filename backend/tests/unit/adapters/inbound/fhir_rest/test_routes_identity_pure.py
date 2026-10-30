@@ -334,6 +334,15 @@ async def test_a_device_id_that_is_not_a_long_random_id_is_a_400(device: str) ->
     assert device not in response.text
 
 
+async def test_a_device_id_that_looks_like_a_push_name_is_a_400() -> None:
+    container = _Container()
+    async with client(container) as http:
+        response = await http.post(
+            "/identity/pin/verify", json={"deviceId": "app-" + DEVICE, "pin": PIN}
+        )
+    assert response.status_code == 400
+
+
 # ------------------------------------------------------------------ set a PIN and sign in
 
 

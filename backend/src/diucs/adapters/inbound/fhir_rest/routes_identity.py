@@ -85,6 +85,7 @@ from diucs.application.use_cases.push_subscription import (
 )
 from diucs.application.use_cases.remove_person import StartNewPhone
 from diucs.application.use_cases.reporter_identity import (
+    PUSH_DEVICE_PREFIX,
     CheckReporterAccess,
     ConfirmDeviceByTextCode,
     ConfirmDeviceCommand,
@@ -113,9 +114,6 @@ DEVICE_ID_PATTERN: Final = r"^[A-Za-z0-9_-]{22,56}$"
 (U32 known issue: a person's id and device id must never be guessable). At most 56, so the push
 device id built from it (`app-` and the id) stays inside the 64 the push store allows."""
 DEVICE_HEADER: Final = "x-device-id"
-PUSH_DEVICE_PREFIX: Final = "app-"
-"""A push subscription is a device record of its own kind (P19), and device ids are unique in a
-tenant across kinds, so the app's push device is named from the signed-in device, not the same."""
 
 ADDRESS_CODE_REQUESTS: Final = 10
 ADDRESS_CODE_CHECKS: Final = 30

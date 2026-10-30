@@ -51,6 +51,10 @@ from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.identity_policy import REVERIFY_EVERY, needs_reverification
 
 UNKNOWN_PREFIX: Final = "unknown-"
+PUSH_DEVICE_PREFIX: Final = "app-"
+"""The edge names the installed app's push device `app-<device id>` (R11), and device ids are unique
+in a tenant across kinds. A device id of the phone never starts with it, so a client cannot choose
+an id that is another device's push name."""
 MAX_DEVICE_ID_LENGTH: Final = 128
 _ONE_DAY: Final = timedelta(days=1)
 
@@ -69,6 +73,7 @@ def _device(value: object) -> str:
         or not value
         or len(value) > MAX_DEVICE_ID_LENGTH
         or not value.isprintable()
+        or value.startswith(PUSH_DEVICE_PREFIX)
     ):
         raise ValidationFailed("device_id", "is not a valid identifier")
     return value

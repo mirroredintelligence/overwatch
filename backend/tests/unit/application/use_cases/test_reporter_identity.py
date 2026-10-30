@@ -474,3 +474,21 @@ async def test_a_wall_screen_or_a_person_less_actor_has_no_access() -> None:
     assert await world.access.execute(_actor(Role.WALL, person=None, device=None)) is False
     assert await world.access.execute(_actor(Role.REPORTER, person=None)) is False
     assert await world.access.execute(_actor(Role.LEAD)) is False
+
+
+# A device id never starts with the push device prefix
+
+
+async def test_a_device_id_that_looks_like_a_push_device_name_is_refused_everywhere() -> None:
+    world = World()
+    name = "app-" + DEVICE
+    with pytest.raises(ValidationFailed):
+        await world.sign_in.execute(ReporterSignInCommand(name, PIN))
+    with pytest.raises(ValidationFailed):
+        await world.set_device_pin.execute(SetDevicePinCommand(name, PIN))
+    with pytest.raises(ValidationFailed):
+        await world.status.execute(name)
+    use, record, _ = _confirm(FakeVerify(_verified()))
+    with pytest.raises(ValidationFailed):
+        await use.execute(ConfirmDeviceCommand(PHONE, "123456", "setup", name))
+    assert record.commands == []

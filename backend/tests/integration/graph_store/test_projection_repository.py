@@ -297,12 +297,13 @@ async def test_every_property_of_every_node_in_the_scope_is_on_the_allowlist(
         permitted = {spec.prop for spec in allowlist.ALLOWLIST.get(label, ())}
         permitted |= allowlist.SYSTEM_PROPERTIES[label]
         assert set(row["props"]) <= permitted, label
-        assert (
-            scan_value(
-                {k: v for k, v in row["props"].items() if isinstance(v, str | int | float | bool)}
-            )
-            == []
-        )
+        scalars = {k: v for k, v in row["props"].items() if isinstance(v, str | int | float | bool)}
+        system = allowlist.SYSTEM_PROPERTIES[label]
+        # The scope stamp and the bookkeeping keys (`tenantId`, `sourceTenantId`) are the store's
+        # own and are on the permitted list above: a forbidden-key scan of a message does not apply
+        # to them, but their values are still scanned for patient-like text.
+        assert scan_value({k: v for k, v in scalars.items() if k not in system}) == []
+        assert scan_value([v for k, v in scalars.items() if k in system]) == []
 
 
 async def test_a_duplicate_key_is_refused_by_the_schema(

@@ -51,3 +51,13 @@ describe('root layout metadata (TEN-045)', () => {
     expect(RootLayout({ children: null }).props.lang).toBe('en-GB');
   });
 });
+
+describe('root layout back-forward cache guard (TEN-050)', () => {
+  it('mounts the guard on every page, so a page restored after sign-out is reloaded', async () => {
+    const { BfcacheGuard } = await import('@/components/session/BfcacheGuard');
+    const tree = RootLayout({ children: null });
+    const body = tree.props.children as { props: { children: unknown[] } };
+    const children = ([] as unknown[]).concat(body.props.children);
+    expect(children.some((child) => (child as { type?: unknown })?.type === BfcacheGuard)).toBe(true);
+  });
+});

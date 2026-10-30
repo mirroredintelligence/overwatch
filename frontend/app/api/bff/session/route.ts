@@ -13,11 +13,15 @@ const get = withBff(async (request, session) => {
   return Response.json({ role: session.role, services: session.services, csrfToken });
 });
 
+// For the browsers that act on it (Chromium; Safari ignores it, so the page clears its own state too,
+// lib/session/signOut.ts): the HTTP cache and every kind of storage of this origin.
+const CLEAR_SITE_DATA = '"cache", "storage"';
+
 const del = withBff(
   async () => {
     await destroySession();
     await clearCsrf();
-    return new Response(null, { status: 204 });
+    return new Response(null, { status: 204, headers: { 'Clear-Site-Data': CLEAR_SITE_DATA } });
   },
   { csrf: true },
 );

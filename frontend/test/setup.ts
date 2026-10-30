@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, expect } from 'vitest';
 import * as axeMatchers from 'vitest-axe/matchers';
+import { canary, installLeakCanary } from './leak-canary';
 import { handlers } from './msw/handlers';
 import { server } from './msw/server';
 
@@ -14,11 +15,22 @@ beforeAll(() => {
   // The default handlers are in place for the first test too, not only after
   // the first afterEach (W05: the first test of a file saw none).
   server.resetHandlers(...handlers);
+  // Every call to the back end is watched for a tenant leak (test/leak-canary.ts).
+  installLeakCanary(server);
 });
 
 // Each test starts with the default handlers only.
 afterEach(() => {
   server.resetHandlers(...handlers);
+});
+
+// A test that made a call that could cross a tenant fails here, whatever it was checking.
+afterEach(() => {
+  try {
+    canary.assertClean();
+  } finally {
+    canary.reset();
+  }
 });
 
 afterAll(() => {

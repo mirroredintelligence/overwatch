@@ -91,10 +91,14 @@ def _entry(entry: BoardEntry) -> dict[str, Any]:
     return {"name": "entry", "part": parts}
 
 
-def board_to_parameters(board: Board) -> dict[str, Any]:
+def board_to_parameters(board: Board, coordination_phone: str | None = None) -> dict[str, Any]:
+    """The board as Parameters. The tenant's coordination phone, when it has one, is a
+    `coordinationPhone` string part (W7A): the number the duty coordinator is called on."""
     parameters = [_entry(entry) for entry in board.entries]
     parameters.append(_code("pressure", board.pressure.value))
     parameters.append({"name": "allLimitedOrWorse", "valueBoolean": board.all_limited_or_worse})
+    if coordination_phone is not None:
+        parameters.append(_string("coordinationPhone", coordination_phone))
     parameters.append(_date_time("generatedAt", board.generated_at))
     return {"resourceType": "Parameters", "parameter": parameters}
 

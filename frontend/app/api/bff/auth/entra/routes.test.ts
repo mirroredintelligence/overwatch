@@ -23,6 +23,7 @@ import {
 } from '@/test/oidc/constants';
 import type { FakeEntra, FakeUser, Tamper } from '@/test/oidc/fake-entra';
 import { startFakeEntra, stubEntraEnv } from '@/test/oidc/harness';
+import { standInToken, tenantOfHost } from '@/test/fixtures/exchange';
 import { GET as callback } from './callback/route';
 import { POST as start } from './start/route';
 
@@ -176,7 +177,7 @@ describe('POST /api/bff/auth/entra/start', () => {
 describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
   it('creates our own session cookie and no other session cookie, and clears the transaction cookie', async () => {
     const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
-    expect(outcome.session).toMatchObject({ role: 'advisor', services: [] });
+    expect(outcome.session).toMatchObject({ role: 'advisor', services: [], host: SIGN_IN_HOST, tenantId: tenantOfHost(SIGN_IN_HOST) });
     expect(outcome.session?.sub).toMatch(/^stf-[0-9a-f]{32}$/);
     expect(new Set(cookieWrites.map((w) => w.name))).toEqual(new Set([SESSION_COOKIE, TRANSACTION_COOKIE]));
     expect(outcome.transactionWrites).toHaveLength(1);
@@ -212,7 +213,7 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     const { payload } = await jwtDecrypt(outcome.sessionWrite!.value, new Uint8Array(Buffer.from(TEST_SESSION_SECRET, 'base64')));
     const everything = JSON.stringify([payload, outcome.body, [...outcome.response.headers.entries()], cookieWrites.map((w) => w.options)]);
     expect(everything).not.toMatch(/Sample Staff|sample\.staff@example\.test|fake-access-token|id_token|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]/);
-    expect(Object.keys(payload).sort()).toEqual(['backendToken', 'exp', 'expiresAt', 'iat', 'role', 'services', 'sub']);
+    expect(Object.keys(payload).sort()).toEqual(['backendToken', 'exp', 'expiresAt', 'host', 'iat', 'role', 'services', 'sub', 'tenantId']);
   });
 
   it('answers with a page that moves the browser on, not a redirect, so the strict cookie is sent on the next request', async () => {
@@ -496,6 +497,31 @@ describe('tenant: it is the host the browser came to, decided by the back end, a
     const b = await callbackOn(OTHER_HOST, as(OID_B_USER, DIRECTORY_B));
     expect(b.session?.role).toBe('advisor');
     expect(b.session?.backendToken).not.toBe(a.session?.backendToken);
+  });
+
+  it('makes the session for the tenant the back end signed the token for, and for the host the callback came to (TEN-044)', async () => {
+    const a = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
+    const b = await callbackOn(OTHER_HOST, as(OID_B_USER, DIRECTORY_B));
+    expect(a.session).toMatchObject({ tenantId: tenantOfHost(SIGN_IN_HOST), host: SIGN_IN_HOST });
+    expect(b.session).toMatchObject({ tenantId: tenantOfHost(OTHER_HOST), host: OTHER_HOST });
+    expect(a.session?.tenantId).not.toBe(b.session?.tenantId);
+    expect(decodeJwt(a.session!.backendToken).tenant).toBe(a.session?.tenantId);
+  });
+
+  it('makes no session from a token that names no tenant, a network or a malformed tenant, and says the sign-in failed', async () => {
+    for (const tenant of [undefined, '', 'net-capacity', 'Trust A', 7]) {
+      resetCookieWrites();
+      server.use(
+        http.post(`${BACKEND_ROOT}/auth/token`, () => {
+          const exp = Math.floor(Date.now() / 1000) + 3600;
+          const token = standInToken({ sub: 'stf-0123456789abcdef0123456789abcdef', role: 'advisor', services: [], tenant, epoch: 1, aud: 'diucs-api', iat: exp - 3600, exp });
+          return HttpResponse.json({ token, expiresAt: new Date(exp * 1000).toISOString(), role: 'advisor' });
+        }),
+      );
+      const outcome = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
+      expect(outcome.session, String(tenant)).toBeNull();
+      expect(outcome.response.headers.get('location')).toBe('/sign-in?error=failed');
+    }
   });
 
   it('keeps the same person apart on two hosts: the subject the back end derives differs', async () => {

@@ -51,7 +51,7 @@ _SCORE_TYPES: Final = (News2, ClinicalFrailty, AmbulanceCategory, ManchesterTria
 class OpenCaseCommand:
     idempotency_key: str
     actor: Actor
-    referrer_type: ReferrerType
+    referrer_type: ReferrerType | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +65,7 @@ class UpdateCaseCommand:
     idempotency_key: str
     actor: Actor
     case_id: str
+    referrer_type: ReferrerType | None = None
     age_band: AgeBand | None = None
     postcode: str | None = None
     needs: tuple[NeedCategory, ...] | None = None
@@ -119,7 +120,7 @@ def district_for(text: object) -> str:
 
 
 def new_open_case(
-    case_id: str, reference: str, referrer_type: ReferrerType, opened_at: datetime
+    case_id: str, reference: str, referrer_type: ReferrerType | None, opened_at: datetime
 ) -> Case:
     return Case(
         id=case_id,
@@ -145,6 +146,8 @@ def missing_fields(case: Case) -> tuple[str, ...]:
         missing.append("needs")
     if case.urgency is None:
         missing.append("urgency")
+    if case.referrer_type is None:
+        missing.append("referrer_type")
     return tuple(missing)
 
 
@@ -154,6 +157,10 @@ def apply_update(case: Case, command: UpdateCaseCommand) -> Case:
     if case.closed_at is not None:
         raise Conflict("the case is closed and cannot change")
     changes: dict[str, Any] = {}
+    if command.referrer_type is not None:
+        if not isinstance(command.referrer_type, ReferrerType):
+            raise ValidationFailed("referrer_type", "must be a referrer type")
+        changes["referrer_type"] = command.referrer_type
     if command.age_band is not None:
         if not isinstance(command.age_band, AgeBand):
             raise ValidationFailed("age_band", "must be an age band")
@@ -226,7 +233,11 @@ def replay_key(use_case: str, scope: ScopeId, key: str) -> str:
 
 def open_fingerprint(command: OpenCaseCommand) -> str:
     body = repr(
-        (command.actor.role.value, command.actor.practitioner_id, command.referrer_type.value)
+        (
+            command.actor.role.value,
+            command.actor.practitioner_id,
+            None if command.referrer_type is None else command.referrer_type.value,
+        )
     )
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
 
@@ -237,6 +248,7 @@ def update_fingerprint(command: UpdateCaseCommand) -> str:
             command.case_id,
             command.actor.role.value,
             command.actor.practitioner_id,
+            command.referrer_type,
             command.age_band,
             command.postcode,
             command.needs,

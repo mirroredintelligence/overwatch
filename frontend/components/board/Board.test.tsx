@@ -9,13 +9,27 @@ function tiles(container: HTMLElement): HTMLElement[] {
 }
 
 describe('Board header', () => {
-  it('shows the organisation heading, the line, the London time and the date', () => {
-    render(<Board board={BOARD_A} />);
+  it('shows the organisation heading, the tenant’s own line, the London time and the date', () => {
+    render(<Board board={BOARD_A} subtitle="Access team A" />);
 
     expect(screen.getByRole('heading', { level: 1, name: 'Dorset urgent care capacity' })).toBeInTheDocument();
-    expect(screen.getByText('Single point of access')).toBeInTheDocument();
+    expect(screen.getByText('Access team A')).toBeInTheDocument();
     expect(screen.getByText('14:12')).toBeInTheDocument();
     expect(screen.getByText('Friday 23 October')).toBeInTheDocument();
+  });
+
+  it('shows no line under the heading when the tenant has none, and never a line of its own (TEN-049)', () => {
+    const { container } = render(<Board board={BOARD_A} />);
+
+    expect(container.querySelector('p[class*="subtitle"]')).toBeNull();
+    expect(container.textContent).not.toMatch(/single point of access/i);
+  });
+
+  it('prints the line as text, never as markup', () => {
+    const { container } = render(<Board board={BOARD_A} subtitle="<i>Access</i> team" />);
+
+    expect(container.querySelector('i')).toBeNull();
+    expect(screen.getByText('<i>Access</i> team')).toBeInTheDocument();
   });
 
   it('takes the organisation name from the board it was given, never from a constant', () => {

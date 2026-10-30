@@ -1,0 +1,11 @@
+.header {
+  display: block;
+}
+
+.name {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  font-weight: 700;
+  color: var(--c-ink);
+}

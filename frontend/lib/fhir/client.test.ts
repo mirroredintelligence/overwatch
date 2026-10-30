@@ -5,6 +5,7 @@ import { FhirError, fhirFetch } from './client';
 import type { OperationOutcome, Resource } from './types';
 
 const BASE = 'http://backend.test/fhir';
+const TEST_TOKEN = 'token-for-tests';
 const FHIR_JSON = 'application/fhir+json; fhirVersion=4.3';
 
 beforeEach(() => {
@@ -37,7 +38,7 @@ describe('fhirFetch', () => {
       }),
     );
 
-    const result = await fhirFetch<Resource>('/HealthcareService/a1');
+    const result = await fhirFetch<Resource>('/HealthcareService/a1', { token: TEST_TOKEN });
 
     expect(result.data.id).toBe('a1');
     expect(result.etag).toBe('W/"2"');
@@ -83,7 +84,7 @@ describe('fhirFetch', () => {
       }),
     );
 
-    await fhirFetch<Resource>('/Patient/x');
+    await fhirFetch<Resource>('/Patient/x', { token: TEST_TOKEN });
 
     expect(seen[0]).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
   });
@@ -98,7 +99,7 @@ describe('fhirFetch', () => {
       }),
     );
 
-    await fhirFetch<Resource>('/Patient/y', { traceparent: supplied });
+    await fhirFetch<Resource>('/Patient/y', { token: TEST_TOKEN, traceparent: supplied });
 
     expect(seen).toEqual([supplied]);
   });
@@ -114,7 +115,7 @@ describe('fhirFetch', () => {
       ),
     );
 
-    const error = await failureOf(fhirFetch('/HealthcareService/missing'));
+    const error = await failureOf(fhirFetch('/HealthcareService/missing', { token: TEST_TOKEN }));
 
     expect(error).toBeInstanceOf(FhirError);
     expect((error as FhirError).status).toBe(404);
@@ -128,7 +129,7 @@ describe('fhirFetch', () => {
       ),
     );
 
-    const error = await failureOf(fhirFetch('/Observation'));
+    const error = await failureOf(fhirFetch('/Observation', { token: TEST_TOKEN }));
 
     expect(error).toBeInstanceOf(FhirError);
     expect((error as FhirError).status).toBe(500);
@@ -142,7 +143,7 @@ describe('fhirFetch', () => {
   it('throws FhirError 503 with a transient issue when the network request fails', async () => {
     server.use(http.get(`${BASE}/HealthcareService`, () => HttpResponse.error()));
 
-    const error = await failureOf(fhirFetch('/HealthcareService'));
+    const error = await failureOf(fhirFetch('/HealthcareService', { token: TEST_TOKEN }));
 
     expect(error).toBeInstanceOf(FhirError);
     expect((error as FhirError).status).toBe(503);
@@ -154,7 +155,7 @@ describe('fhirFetch', () => {
       http.post(`${BASE}/Task/t1/$cancel`, () => new HttpResponse(null, { status: 204 })),
     );
 
-    const result = await fhirFetch<undefined>('/Task/t1/$cancel', { method: 'POST' });
+    const result = await fhirFetch<undefined>('/Task/t1/$cancel', { token: TEST_TOKEN, method: 'POST' });
 
     expect(result.data).toBeUndefined();
   });
@@ -163,7 +164,7 @@ describe('fhirFetch', () => {
     vi.unstubAllEnvs();
     delete process.env.DIUCS_FHIR_BASE_URL;
 
-    const error = await failureOf(fhirFetch('/HealthcareService'));
+    const error = await failureOf(fhirFetch('/HealthcareService', { token: TEST_TOKEN }));
 
     expect(error).toBeInstanceOf(Error);
     expect((error as Error).message).toContain('DIUCS_FHIR_BASE_URL');
@@ -172,7 +173,7 @@ describe('fhirFetch', () => {
   it('treats an empty DIUCS_FHIR_BASE_URL as missing', async () => {
     vi.stubEnv('DIUCS_FHIR_BASE_URL', '');
 
-    const error = await failureOf(fhirFetch('/HealthcareService'));
+    const error = await failureOf(fhirFetch('/HealthcareService', { token: TEST_TOKEN }));
 
     expect((error as Error).message).toContain('DIUCS_FHIR_BASE_URL');
   });

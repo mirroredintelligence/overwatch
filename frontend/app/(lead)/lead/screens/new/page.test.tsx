@@ -21,7 +21,7 @@ vi.mock('@/lib/auth/session', async (importOriginal) => ({
 }));
 
 function session(role: Role): Session {
-  return { role, services: [], sub: 'stf-1', backendToken: 'a.b.c', expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+  return { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'stf-1', backendToken: 'a.b.c', expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
 }
 
 beforeEach(() => {

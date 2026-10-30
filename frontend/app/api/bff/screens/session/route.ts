@@ -16,7 +16,8 @@ export async function POST(request: Request): Promise<Response> {
     const device = await deviceFrom(request);
     if (device === null) return notFound();
     try {
-      await createWallSession(await exchangeDeviceToken(hostOf(request), device));
+      const host = hostOf(request);
+      await createWallSession(await exchangeDeviceToken(host, device), host);
     } catch (error) {
       if (error instanceof ScreenApiError && error.kind === 'not-found') await forgetDevice();
       throw error;

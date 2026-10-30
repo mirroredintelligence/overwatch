@@ -9,11 +9,11 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 function session(role: Role): Session {
-  return { role, services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+  return { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
 }
 
 async function get(role: Role | null, query = '?state=open') {

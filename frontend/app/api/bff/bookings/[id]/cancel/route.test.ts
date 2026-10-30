@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
+import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { BACKEND_TASK_HANDLERS } from '@/test/msw/handlers/bookings';
@@ -9,15 +9,18 @@ import { POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const BACKEND = 'http://backend.test/fhir';
 const KEY = '5b7e9c1d-2a3f-4b5c-8d9e-0f1a2b3c4d5e';
 const TOKEN = 'token-for-advisor-one';
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF_VALUE = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'advisor-1' }, 'N'.repeat(43));
 
 function session(role: Role): Session {
-  return { role, services: [], sub: 'advisor-1', backendToken: TOKEN, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+  return { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'advisor-1', backendToken: TOKEN, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
 }
 
 type Options = { id?: string; role?: Role | null; key?: string | null; csrf?: string | null; body?: unknown };
@@ -26,7 +29,7 @@ async function post(options: Options = {}) {
   const role = options.role === undefined ? 'advisor' : options.role;
   const cookies: Record<string, string> = {};
   if (role !== null) cookies[SESSION_COOKIE] = await sealSession(session(role));
-  const csrf = options.csrf === undefined ? 'csrf-value' : options.csrf;
+  const csrf = options.csrf === undefined ? CSRF_VALUE : options.csrf;
   if (csrf !== null) cookies[CSRF_COOKIE] = csrf;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (options.key !== null) headers['Idempotency-Key'] = options.key ?? KEY;

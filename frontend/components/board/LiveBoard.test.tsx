@@ -65,6 +65,16 @@ async function goOffline(m: ReturnType<typeof mount>) {
   await advance(61_000);
 }
 
+describe('LiveBoard: the tenant’s own line (TEN-049)', () => {
+  it('passes the line the page read from the profile on to the board, and has none of its own', () => {
+    const { rerender } = render(<LiveBoard initialBoard={BOARD_A} serverTime={Date.parse(GENERATED_AT)} subtitle="Access team A" createEventSource={() => null} />);
+    expect(screen.getByText('Access team A')).toBeInTheDocument();
+    rerender(<LiveBoard initialBoard={BOARD_A} serverTime={Date.parse(GENERATED_AT)} createEventSource={() => null} />);
+    expect(screen.queryByText('Access team A')).toBeNull();
+    expect(document.body.textContent).not.toMatch(/single point of access/i);
+  });
+});
+
 describe('LiveBoard: online', () => {
   it('shows the board it was given, as current, with no banner and nothing announced', () => {
     const { container } = mount();

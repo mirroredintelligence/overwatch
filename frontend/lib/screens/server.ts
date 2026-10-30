@@ -1,4 +1,5 @@
 import { readToken, sessionEnd } from '@/lib/auth/exchange';
+import { readIssuedToken } from '@/lib/auth/tokenClaims';
 import { callLinkApi, LinkApiError, type LinkReply } from '@/lib/links/server';
 
 // Server-only. The BFF's calls to the back end's wall screen routes (R15, DEC-224) and to the token
@@ -98,7 +99,8 @@ export async function claimPairing(host: string | null, pairingId: string, scree
   return { status, deviceToken };
 }
 
-export type WallGrant = { token: string; expiresAt: string; sub: string };
+/** `tenant` is the tenant the back end signed the token for, read from the token (never from a request). */
+export type WallGrant = { token: string; expiresAt: string; sub: string; tenant: string };
 
 /** A paired screen trades its device token for the one-hour wall token the back end signs. */
 export async function exchangeDeviceToken(host: string | null, deviceToken: string, now: Date = new Date()): Promise<WallGrant> {
@@ -116,8 +118,9 @@ export async function exchangeDeviceToken(host: string | null, deviceToken: stri
   if (role !== 'wall' || typeof token !== 'string' || typeof expiresAt !== 'string') throw new ScreenApiError('bad-answer');
   const claims = readToken(token);
   const ends = claims === null ? null : sessionEnd(expiresAt, claims.expiresAtMs, now);
-  if (claims === null || ends === null) throw new ScreenApiError('bad-answer');
-  return { token, expiresAt: ends, sub: claims.sub };
+  const issued = readIssuedToken(token, now);
+  if (claims === null || ends === null || issued === null) throw new ScreenApiError('bad-answer');
+  return { token, expiresAt: ends, sub: claims.sub, tenant: issued.tenant };
 }
 
 export type ConnectInput = { code: string; name: string; location: string | null };

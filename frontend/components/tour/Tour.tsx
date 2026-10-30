@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
+import { tenantStore } from '@/lib/storage/tenantStore';
 import {
   FIRST_WEEK,
   FIRST_WEEK_NOTE,
@@ -16,32 +17,26 @@ import {
 import styles from './Tour.module.css';
 
 // The one-minute product tour (W52). The steps are in the query string (?step=), and the last step
-// and the chosen role are remembered in localStorage when the browser allows it. The practice step
+// and the chosen role are remembered in browser storage when the browser allows it. The practice step
 // sends nothing and makes no request: its answers only change what the screen says.
 
 export type TourStep = 'welcome' | 'role' | 'changes' | 'how' | 'practice' | 'week';
 const STEPS: readonly TourStep[] = ['welcome', 'role', 'changes', 'how', 'practice', 'week'];
-const STORAGE_KEY = 'diucs-tour';
+const STORAGE_NAME = 'tour.state';
 
 type Stored = { step?: TourStep; role?: TourRole };
 
+const isStored = (value: unknown): value is Stored =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+// Kept through the one browser-storage helper (TEN-050): per host, interface state only, wiped on
+// sign-out. Storage can be blocked: the tour still works; it just does not remember the step.
 function readStored(): Stored {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Stored;
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  } catch {
-    return {};
-  }
+  return tenantStore.get(STORAGE_NAME, isStored) ?? {};
 }
 
 function writeStored(value: Stored): void {
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-  } catch {
-    // Storage can be blocked. The tour still works; it just does not remember the step.
-  }
+  tenantStore.set(STORAGE_NAME, value);
 }
 
 // The stored step is read through the store hook, so the server's answer (none) and the browser's

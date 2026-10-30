@@ -8,7 +8,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 beforeEach(() => {
@@ -21,7 +21,7 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe('GET /api/bff/cases/[ref]/clinical-requests/[id]', () => {
   it('answers unavailable: the back end has no read an advisor can make of one request yet', async () => {
-    const s: Session = { role: 'advisor', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+    const s: Session = { role: 'advisor', tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
     const response = await GET(requestWithCookies('https://app.test/api/bff/cases/case-4821/clinical-requests/req-9001', { [SESSION_COOKIE]: await sealSession(s) }));
     expect(response.status).toBe(503);
   });

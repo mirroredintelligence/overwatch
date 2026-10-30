@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
+import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { BACKEND_BASE } from '@/test/msw/handlers/board';
@@ -10,16 +10,20 @@ import { POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-const CSRF = 'csrf-token-for-tests-only-0000000000000000000';
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'advisor-1' }, 'N'.repeat(43));
 const DECLINED_URL = `${BACKEND_BASE}/HealthcareService/svc-ucr-west/$declined`;
 const seen: { body: unknown; token: string | null }[] = [];
 
 function session(role: Role): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: 'app.test',
     services: [],
     sub: 'advisor-1',
     backendToken: 'token-for-advisor',

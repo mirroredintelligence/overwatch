@@ -15,7 +15,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 // GET /api/bff/screens/pairing/[id]: the display asks whether a lead has connected it. When the

@@ -125,3 +125,25 @@ describe('fhirStream', () => {
     await expect(fhirStream('/events', { token: 't' })).rejects.toThrow(/DIUCS_FHIR_BASE_URL/);
   });
 });
+
+
+describe('fhirStream: no cache, a token, a path under the base (TEN-045)', () => {
+  it('asks fetch not to use the cache', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch');
+    server.use(
+      http.get(EVENTS, () => new HttpResponse(streamOf([': keep-alive\n\n']), { headers: { 'Content-Type': SSE } })),
+    );
+    const { body } = await fhirStream('/events', { token: 't' });
+    await readAll(body);
+    expect((spy.mock.calls[0]?.[1] as RequestInit | undefined)?.cache).toBe('no-store');
+    spy.mockRestore();
+  });
+
+  it('opens no stream without a token or for a path outside the base', async () => {
+    const seen = vi.fn();
+    server.use(http.all('*', () => { seen(); return new HttpResponse(null, { status: 204 }); }));
+    await expect(fhirStream('/events', { token: '' })).rejects.toThrow(/token/i);
+    await expect(fhirStream('/../events', { token: 't' })).rejects.toThrow(/path/i);
+    expect(seen).not.toHaveBeenCalled();
+  });
+});

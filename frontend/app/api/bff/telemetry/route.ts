@@ -1,5 +1,6 @@
-import { sessionFromRequest, type Session } from '@/lib/auth/session';
+import { sessionFromRequest } from '@/lib/auth/session';
 import { ALLOWED_ATTRIBUTES, ALLOWED_EVENTS } from '@/lib/telemetry/events';
+import { OTLP_LOGS_PATH, otlpLogs, type Attribute, type TelemetryEvent as Event } from '@/lib/telemetry/otlp';
 
 // The ingest of the browser's ui.* events (O02). It keeps only what the allow-list names, forwards the
 // batch to the OpenTelemetry collector's logs receiver when OTEL_HTTP_ENDPOINT is set (the collector's
@@ -15,15 +16,7 @@ const MAX_BODY_CHARS = 16 * 1024;
 const MAX_EVENTS = 50;
 const MAX_TEXT_CHARS = 100;
 
-type Attribute = string | number | boolean;
-type Event = { name: string; at: number; attributes: Record<string, Attribute> };
-
-function tenantIdOf(session: Session): string | undefined {
-  const { tenantId } = session as Session & { tenantId?: unknown };
-  return typeof tenantId === 'string' && tenantId !== '' ? tenantId : undefined;
-}
-
-function attributesOf(value: unknown, tenantId: string | undefined): Record<string, Attribute> {
+function attributesOf(value: unknown, tenantId: string): Record<string, Attribute> {
   const kept: Record<string, Attribute> = {};
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
     for (const [key, item] of Object.entries(value)) {
@@ -33,12 +26,12 @@ function attributesOf(value: unknown, tenantId: string | undefined): Record<stri
       else if (typeof item === 'string' && item.length <= MAX_TEXT_CHARS) kept[key] = item;
     }
   }
-  if (tenantId !== undefined) kept['tenant.id'] = tenantId;
+  kept['tenant.id'] = tenantId;
   return kept;
 }
 
 /** The events of a batch that are in scope, each with only its allowed attributes. */
-function eventsOf(body: unknown, tenantId: string | undefined): Event[] {
+function eventsOf(body: unknown, tenantId: string): Event[] {
   if (typeof body !== 'object' || body === null || !Array.isArray((body as { events?: unknown }).events)) {
     return [];
   }
@@ -51,49 +44,6 @@ function eventsOf(body: unknown, tenantId: string | undefined): Event[] {
     events.push({ name, at, attributes: attributesOf(attributes, tenantId) });
   }
   return events;
-}
-
-// The batch goes to the collector's OTLP logs receiver as OTLP/JSON. ui.* events are log records
-// (DEC-331 item 5 keeps them in the logs pipeline), and the collector's receivers accept OTLP only
-// (known issue O04). Each event becomes one log record: its name is the body, and its allow-listed
-// attributes, plus the event name, are the attributes.
-const OTLP_LOGS_PATH = '/v1/logs';
-const NANOSECONDS_PER_MILLISECOND = BigInt(1_000_000);
-
-type OtlpValue = { stringValue: string } | { doubleValue: number } | { boolValue: boolean };
-
-function otlpValue(value: Attribute): OtlpValue {
-  if (typeof value === 'number') return { doubleValue: value };
-  if (typeof value === 'boolean') return { boolValue: value };
-  return { stringValue: value };
-}
-
-/** The batch as one OTLP/JSON request to the logs receiver. */
-export function otlpLogs(events: Event[]): unknown {
-  return {
-    resourceLogs: [
-      {
-        resource: { attributes: [{ key: 'service.name', value: { stringValue: 'diucs-browser' } }] },
-        scopeLogs: [
-          {
-            scope: { name: 'diucs.ui' },
-            logRecords: events.map((event) => {
-              const time = (BigInt(Math.round(event.at)) * NANOSECONDS_PER_MILLISECOND).toString();
-              return {
-                timeUnixNano: time,
-                observedTimeUnixNano: time,
-                body: { stringValue: event.name },
-                attributes: [
-                  { key: 'event.name', value: { stringValue: event.name } },
-                  ...Object.entries(event.attributes).map(([key, value]) => ({ key, value: otlpValue(value) })),
-                ],
-              };
-            }),
-          },
-        ],
-      },
-    ],
-  };
 }
 
 async function forward(events: Event[]): Promise<void> {
@@ -128,6 +78,6 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(null, { status: 400, headers: NO_STORE });
   }
 
-  await forward(eventsOf(body, tenantIdOf(session)));
+  await forward(eventsOf(body, session.tenantId));
   return new Response(null, { status: 204, headers: NO_STORE });
 }

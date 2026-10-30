@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { standInToken, DEVICES } from '@/test/fixtures/exchange';
+import { standInToken, DEVICES, tenantOfHost } from '@/test/fixtures/exchange';
 import { authHandlers, resetExchanges, seenExchanges } from '@/test/msw/handlers/auth';
 import { pairingBackend, screenHandlers } from '@/test/msw/handlers/screens';
 import { server } from '@/test/msw/server';
@@ -158,7 +158,8 @@ describe('exchangeDeviceToken', () => {
       { path: '/auth/device-token', host: SIGN_IN_HOST, authorization: 'Bearer device-token-for-screen-one', body: {} },
     ]);
     expect(grant).toMatchObject({ sub: DEVICES['device-token-for-screen-one'], expiresAt: '2026-10-30T10:00:00.000Z' });
-    expect(Object.keys(grant).sort()).toEqual(['expiresAt', 'sub', 'token']);
+    expect(Object.keys(grant).sort()).toEqual(['expiresAt', 'sub', 'tenant', 'token']);
+    expect(grant.tenant).toBe(tenantOfHost(SIGN_IN_HOST));
   });
 
   it('is the not-found answer for a screen the back end does not know, has revoked or cannot place on this host', async () => {

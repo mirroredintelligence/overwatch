@@ -86,6 +86,22 @@ _TAKEN_SEED: Final = TenantSeed(
     nodes=(_NODE_CONCEPT, _NODE_CLIN, _NODE_TAKEN),
     rels=(SeedRel("req", "CODE", "concept"), SeedRel("req", "OWNER", "clin")),
 )
+_NODE_ADVISED: Final = SeedNode(
+    "req",
+    ("Resource", "Task"),
+    {
+        "id": "req-1",
+        "key": "Task/req-1",
+        "businessStatus": ADVISED,
+        "priority": "stat",
+        "adviceChoice": Marked("choice"),
+        "advisedAt": _AT,
+    },
+)
+_ADVISED_SEED: Final = TenantSeed(
+    nodes=(_NODE_CONCEPT, _NODE_CLIN, _NODE_ADVISED),
+    rels=(SeedRel("req", "CODE", "concept"), SeedRel("req", "OWNER", "clin")),
+)
 _CODE_PARAMS: Final = {"system": TASK_CODE_SYSTEM, "code": CLINICAL_CODE}
 _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-CLIN-WAITING": Scenario(
@@ -108,6 +124,14 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
         params={"clinicianId": "clin-1", **_CODE_PARAMS},
         lookup=("clinicianId", "system", "code"),
         expect=Expect(rows=({"id": "req-1"},)),
+    ),
+    "Q-CLIN-ADVISED-BY": Scenario(
+        "list the clinical advice requests a clinical advisor advised on, latest first",
+        seed=_ADVISED_SEED,
+        params={"clinicianId": "clin-1", "limit": 50, **_CODE_PARAMS},
+        lookup=("clinicianId", "system", "code"),
+        new=("limit",),
+        expect=Expect(rows=({"id": "req-1", "adviceChoice": Marked("choice")},)),
     ),
     "Q-CLIN-SET-PROPS": Scenario(
         "set the business status and the advice properties of a request",
@@ -168,6 +192,18 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
         ),
         mode="read",
         scenario=_SCENARIOS["Q-CLIN-TAKEN-BY"],
+    ),
+    NamedQuery(
+        id="Q-CLIN-ADVISED-BY",
+        cypher=(
+            "MATCH (t:Task {businessStatus: 'advised', tenantId: $tenant})"
+            "-[:OWNER]->(:Practitioner {id: $clinicianId, tenantId: $tenant}), "
+            "(t)-[:CODE]->(:Concept {system: $system, code: $code, tenantId: $tenant}) "
+            "RETURN t.id AS id, t.adviceChoice AS adviceChoice "
+            "ORDER BY t.advisedAt DESC, t.id LIMIT $limit"
+        ),
+        mode="read",
+        scenario=_SCENARIOS["Q-CLIN-ADVISED-BY"],
     ),
     NamedQuery(
         id="Q-CLIN-SET-PROPS",
@@ -407,6 +443,17 @@ class Neo4jClinicalRequestRepository:
             clinicianId=clinician_id,
             system=TASK_CODE_SYSTEM,
             code=CLINICAL_CODE,
+        )
+        return await self._many(rows)
+
+    async def advised_by(self, clinician_id: str, limit: int) -> list[ClinicalRequestRecord]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-CLIN-ADVISED-BY"),
+            clinicianId=clinician_id,
+            system=TASK_CODE_SYSTEM,
+            code=CLINICAL_CODE,
+            limit=limit,
         )
         return await self._many(rows)
 

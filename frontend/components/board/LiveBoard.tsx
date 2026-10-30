@@ -14,6 +14,8 @@ import { Board } from './Board';
 
 export type LiveBoardProps = {
   initialBoard: BoardData;
+  /** The tenant's own line under the heading, read by the page from the profile (TEN-049). */
+  subtitle?: string | null;
   /** The web server's clock (epoch ms) when it read `initialBoard`. */
   serverTime: number;
   // Seams for tests. Production uses the defaults.
@@ -32,6 +34,7 @@ function openStream(): StreamSource | null {
 
 export function LiveBoard({
   initialBoard,
+  subtitle = null,
   serverTime,
   fetchBoard,
   createEventSource = openStream,
@@ -49,8 +52,8 @@ export function LiveBoard({
     onUnpaired: onUnpaired ?? (() => router.replace(PAIR)),
   });
   return assessment.mode === 'last-known' ? (
-    <Board board={board} lastKnown={assessment} />
+    <Board board={board} lastKnown={assessment} subtitle={subtitle} />
   ) : (
-    <Board board={board} streamPaused={assessment.streamPaused} />
+    <Board board={board} streamPaused={assessment.streamPaused} subtitle={subtitle} />
   );
 }

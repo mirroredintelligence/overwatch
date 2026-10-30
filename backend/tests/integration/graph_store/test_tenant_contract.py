@@ -28,6 +28,7 @@ from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIG
 from diucs.adapters.outbound.graph_store.migrations_tenant import (
     COMPOSITE_CONSTRAINTS,
     COMPOSITE_INDEXES,
+    REGISTRY_LABELS,
     SUPERSEDED_CONSTRAINTS,
     SUPERSEDED_INDEXES,
 )
@@ -167,7 +168,7 @@ async def test_the_single_property_indexes_are_left_alone_and_no_old_key_remains
         "SHOW CONSTRAINTS YIELD name, type, labelsOrTypes, properties "
         "WHERE type = 'UNIQUENESS' RETURN name, labelsOrTypes[0] AS label, properties",
     )
-    registry = {"Migration", "Tenant", "TenantNumber", "Network", "NetworkMembership", "Grant"}
+    registry = set(REGISTRY_LABELS) | {"Migration"}
     single = {
         r["name"] for r in rows if r["label"] not in registry and r["properties"][0] != "tenantId"
     }
@@ -189,7 +190,11 @@ async def test_the_contract_migration_is_the_only_thing_the_second_run_does(
     await _run(fresh, "MATCH (m:Migration) DETACH DELETE m")
     again = await apply_migrations(fresh)
     assert again == [m.id for m in MIGRATIONS]
-    assert again[-1] == CONTRACT_MIGRATION_ID
+    # The contract step comes after every migration that made a key it supersedes, and only the
+    # network migrations (new labels, which replace no key) sort after it.
+    later = again[again.index(CONTRACT_MIGRATION_ID) + 1 :]
+    assert later == [m.id for m in MIGRATIONS if m.id > CONTRACT_MIGRATION_ID]
+    assert later == ["0110_network_registry", "0111_projection_keys"]
 
 
 async def test_a_bare_migration_that_requires_a_present_constraint_runs(

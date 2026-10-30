@@ -188,6 +188,10 @@ PINNED_MIGRATION_IDS = [
     "0055_tenant_config_records",
     "0070_safety_counter_id",
     "0105_drop_superseded_keys",
+    # the network registry and the network scope's projection keys: new labels, they replace no key
+    # and so sort after the contract step (block 0110 to 0129, TEN-051, TEN-053)
+    "0110_network_registry",
+    "0111_projection_keys",
 ]
 
 

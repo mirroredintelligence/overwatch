@@ -41,6 +41,8 @@ afterEach(() => {
 // The CSRF token is tied to the session it was issued for (TEN-046, audit D 3.6): the person, the
 // tenant, the host and the life of the session. A cookie and a header that merely match prove nothing.
 const URL_ = `https://${TENANTS.A.host}/api/bff/x`;
+// SESSION_SECRET is set here as well, so the token below can be made before the first test starts.
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
 const NONCE = 'N'.repeat(43);
 const SESSION: Session = sessionFor(TENANTS.A, 'advisor', { sub: 'stf-person-1', expiresAt: '2026-10-30T20:00:00.000Z' });
 const TOKEN = csrfTokenFor(SESSION, NONCE);

@@ -13,14 +13,15 @@ vi.mock('next/headers', async () => {
   return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-// The CSRF token issued to the sample session. (SESSION_SECRET is set here, before the first test.)
-vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const TOKEN = csrfFor(sessionFor(TENANTS.A, 'advisor'));
 const URL_ = `https://${TENANTS.A.host}/api/bff/thing`;
 
 function sample(role: Session['role']): Session {
   return sessionFor(TENANTS.A, role, { services: ['svc-1'], sub: 'user-1', backendToken: 'backend-token-sample-value' });
 }
+
+// The CSRF token issued to the sample session. (SESSION_SECRET is set here, before the first test.)
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const TOKEN = csrfFor(sample('advisor'));
 
 async function request(
   method: string,
@@ -314,7 +315,7 @@ describe('inputs that name a tenant, a scope or a network are refused (TEN-044)'
     await refused(
       await requestAs(TENANTS.A, 'advisor', {
         method: 'POST',
-        csrf: TOKEN,
+        csrf: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       }),
@@ -325,7 +326,7 @@ describe('inputs that name a tenant, a scope or a network are refused (TEN-044)'
     await refused(
       await requestAs(TENANTS.A, 'advisor', {
         method: 'POST',
-        csrf: TOKEN,
+        csrf: true,
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: 'next=%2Flead&tenant=trust-b',
       }),
@@ -336,12 +337,12 @@ describe('inputs that name a tenant, a scope or a network are refused (TEN-044)'
     let deep: unknown = { x: 1 };
     for (let i = 0; i < 30; i += 1) deep = { n: deep };
     await refused(
-      await requestAs(TENANTS.A, 'advisor', { method: 'POST', csrf: TOKEN, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(deep) }),
+      await requestAs(TENANTS.A, 'advisor', { method: 'POST', csrf: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(deep) }),
     );
     await refused(
       await requestAs(TENANTS.A, 'advisor', {
         method: 'POST',
-        csrf: TOKEN,
+        csrf: true,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: 'x'.repeat(300_000) }),
       }),
@@ -353,7 +354,7 @@ describe('inputs that name a tenant, a scope or a network are refused (TEN-044)'
     const response = await withBff(inner)(
       await requestAs(TENANTS.A, 'advisor', {
         method: 'POST',
-        csrf: TOKEN,
+        csrf: true,
         path: '/api/bff/x?page=2&filter=late',
         headers: { 'Content-Type': 'application/json', 'X-Request-Id': 'abc' },
         body: JSON.stringify({ value: 4, note: 'tenanted is not a tenant key' }),
@@ -458,6 +459,7 @@ describe('an id that is not in this tenant looks like an id that is nowhere (TEN
 });
 
 describe('the CSRF token is the session’s own (TEN-046)', () => {
+  const OWN = csrfFor(sessionFor(TENANTS.A, 'advisor'));
   const run = async (csrf: string) => {
     const handler = vi.fn(() => new Response('done'));
     const response = await withBff(handler)(await requestAs(TENANTS.A, 'advisor', { method: 'POST', csrf }), undefined);
@@ -465,7 +467,7 @@ describe('the CSRF token is the session’s own (TEN-046)', () => {
   };
 
   it('runs the handler for the token issued to the session', async () => {
-    const { response, handler } = await run(TOKEN);
+    const { response, handler } = await run(OWN);
     expect(response.status).toBe(200);
     expect(handler).toHaveBeenCalledOnce();
   });

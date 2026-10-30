@@ -83,7 +83,7 @@ export function withBff<C = unknown>(
       }
 
       const check = UNSAFE_METHODS.has(request.method.toUpperCase()) || options.csrf === true;
-      if (check && !checkCsrf(request)) return refuse(403, 'csrf');
+      if (check && !checkCsrf(request, session)) return refuse(403, 'csrf');
 
       if (await refusesTenantInput(request)) return refuse(400, 'invalid');
 

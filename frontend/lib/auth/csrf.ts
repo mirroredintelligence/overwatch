@@ -1,20 +1,67 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, hkdfSync, timingSafeEqual } from 'node:crypto';
 import { cookies } from 'next/headers';
-import { baseCookieOptions, readRequestCookie } from './session';
+import { baseCookieOptions, readRequestCookie, sessionSecretKey, type Session } from './session';
 
-// Double-submit CSRF. The token is in a cookie the page script can read; every
-// state-changing request must repeat it in a header. A forged cross-site
-// request cannot read the cookie, so it cannot set the header.
+// Double-submit CSRF, bound to the session (TEN-046, audit D 3.6). The token is a random nonce and a
+// MAC of the nonce and of the session it was issued for (the person, the tenant, the host and the
+// life of the session), as `<nonce>.<mac>`. It is in a cookie the page script can read; every
+// state-changing request must repeat it in a header. A forged cross-site request cannot read the
+// cookie, so it cannot set the header; and a script on a sibling sub-domain that can plant a cookie
+// still cannot make a token that verifies for this session, so a planted matching pair fails. A token
+// issued for tenant A's session does not verify in tenant B's, and a token from one sign-in does not
+// verify in the next.
+//
+// The link page has its own cookie, name, path and check (lib/links/csrf.ts): opening a link never
+// touches this cookie.
 
 export const CSRF_COOKIE = 'diucs_csrf';
 export const CSRF_HEADER = 'X-CSRF-Token';
 
-const TOKEN_BYTES = 32;
+const NONCE_BYTES = 32;
+const PART = /^[A-Za-z0-9_-]{43}$/;
+const TOKEN = /^([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})$/;
 
-export async function issueCsrf(): Promise<string> {
-  const bytes = new Uint8Array(TOKEN_BYTES);
+/** What a token is bound to. */
+export type CsrfSubject = Pick<Session, 'tenantId' | 'host' | 'sub' | 'expiresAt'>;
+
+// The MAC key is derived from the session secret for this one purpose, so a sealed session or a
+// sign-in transaction can never be passed off as a CSRF MAC. Read at call time: a missing secret is a
+// fault (an error, so a 500), never a pass.
+function macKey(): Uint8Array {
+  return new Uint8Array(hkdfSync('sha256', sessionSecretKey(), 'diucs-csrf', 'csrf-token-v1', 32));
+}
+
+function macOf(subject: CsrfSubject, nonce: string): string {
+  const material = ['csrf', subject.tenantId, subject.host, subject.sub, subject.expiresAt, nonce].join('\n');
+  return createHmac('sha256', macKey()).update(material).digest('base64url');
+}
+
+function digest(value: string): Buffer {
+  return createHash('sha256').update(value).digest();
+}
+
+/** The token for a session and a nonce (32 random bytes, base64url). Pure; `issueCsrf` supplies the nonce. */
+export function csrfTokenFor(subject: CsrfSubject, nonce: string): string {
+  if (!PART.test(nonce)) throw new Error('The CSRF nonce is not 32 bytes of base64url');
+  return `${nonce}.${macOf(subject, nonce)}`;
+}
+
+/** True only for a token made for this session. Constant-time. */
+export function verifyCsrfToken(subject: CsrfSubject, token: unknown): boolean {
+  const key = macKey(); // a missing secret throws, it is not "no match"
+  void key;
+  if (typeof token !== 'string') return false;
+  const parts = TOKEN.exec(token);
+  if (parts === null) return false;
+  const [, nonce = '', mac = ''] = parts;
+  // Hashing gives equal-length inputs, so the comparison never branches on length.
+  return timingSafeEqual(digest(mac), digest(macOf(subject, nonce)));
+}
+
+export async function issueCsrf(subject: CsrfSubject): Promise<string> {
+  const bytes = new Uint8Array(NONCE_BYTES);
   globalThis.crypto.getRandomValues(bytes);
-  const token = Buffer.from(bytes).toString('base64url');
+  const token = csrfTokenFor(subject, Buffer.from(bytes).toString('base64url'));
   const store = await cookies();
   // Not HttpOnly: the page must read it to send the header.
   store.set(CSRF_COOKIE, token, { ...baseCookieOptions(), httpOnly: false });
@@ -26,15 +73,16 @@ export async function clearCsrf(): Promise<void> {
   store.set(CSRF_COOKIE, '', { ...baseCookieOptions(), httpOnly: false, maxAge: 0 });
 }
 
-function digest(value: string): Buffer {
-  return createHash('sha256').update(value).digest();
-}
-
-/** True only when the header equals the cookie. Constant-time. */
-export function checkCsrf(request: Request): boolean {
+/**
+ * True only when the header equals the cookie AND the token is the one issued for this session.
+ * Constant-time.
+ */
+export function checkCsrf(request: Request, subject: CsrfSubject): boolean {
   const header = request.headers.get(CSRF_HEADER);
   const cookie = readRequestCookie(request, CSRF_COOKIE);
+  const bound = verifyCsrfToken(subject, cookie);
   if (!header || !cookie) return false;
   // Hashing gives equal-length inputs, so the comparison never branches on length.
-  return timingSafeEqual(digest(header), digest(cookie));
+  const same = timingSafeEqual(digest(header), digest(cookie));
+  return same && bound;
 }

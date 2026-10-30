@@ -122,7 +122,10 @@ from diucs.application.ports.outbound.support import SupportRepository
 from diucs.application.ports.outbound.support_tickets import SupportTicketRepository
 from diucs.application.ports.outbound.tenant_config import TenantConfigRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.ports.outbound.unit_of_work import (
+    NetworkUnitOfWorkFactory,
+    UnitOfWorkFactory,
+)
 from diucs.application.tenancy import ScopeId, claim_unit, release_unit, scope_for_new_unit
 from diucs.domain.errors import Conflict
 
@@ -405,4 +408,16 @@ def neo4j_uow_factory(
 ) -> UnitOfWorkFactory:
     """A factory that makes a fresh Neo4jUnitOfWork on each call. With `read_only` every unit it
     makes refuses a write (TEN-037): the factory of the network read use cases."""
+    return lambda: Neo4jUnitOfWork(driver, factories, clock, read_only=read_only)
+
+
+def neo4j_network_uow_factory(
+    driver: AsyncDriver | Neo4jConnection,
+    factories: dict[str, RepositoryFactory] = DEFAULT_FACTORIES,
+    clock: Clock | None = None,
+    *,
+    read_only: bool = False,
+) -> NetworkUnitOfWorkFactory:
+    """The same units, typed as the network scope's unit of work (TEN-055): the apply step takes
+    this, so it cannot be handed a factory of tenant units by mistake."""
     return lambda: Neo4jUnitOfWork(driver, factories, clock, read_only=read_only)

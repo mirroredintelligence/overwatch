@@ -26,6 +26,23 @@ docker compose -f infra/docker-compose.yml up -d --wait
 
 To change the SQL password, copy `infra/.env.example` to `infra/.env` and edit it. Compose reads that file automatically. Keep it out of git.
 
+## Service Bus entities of the network projector (TEN-055)
+
+A tenant's capacity, criteria and directory reach a network through two steps (DEC-132 item 4), and
+the entities for them are in `servicebus-config.json`:
+
+| Entity | Kind | Sessions | Who reads it |
+|---|---|---|---|
+| `network-projector` on `capacity.events` | subscription | yes (one session per service, as `board-projector`) | the producer: binds the message's tenant, reads in a read-only unit, sends `ProjectionRequested` |
+| `network-projector` on `booking.events`, `criteria.events`, `registration.events` | subscription | no | the same producer |
+| `projection.work` | queue | no | the apply step: the message's tenant is the source member, the network is in the body, and the consumer binds the network after the registry confirms it |
+| `network-projector` on `network.events` | subscription | no | nothing yet: the reconciliation sweep (TEN-056) reads the governance events |
+
+A message on `projection.work` has the application property `tenantId` (the source tenant) and a
+message id `<tenant>:proj-<digest>` that is the same for the same request, so a repeat is dropped by
+the apply step. The queue does not use duplicate detection: the apply step's processed marker is
+the guard, and the in-memory bus behaves the same way.
+
 ## Stop
 
 ```

@@ -12,12 +12,22 @@ from typing import Any
 
 import pytest
 
-from diucs.adapters.inbound.workers.network_projector import NETWORK_SUBSCRIPTION, network_runners
+from diucs.adapters.inbound.workers.network_projector import (
+    NETWORK_SUBSCRIPTION,
+    NetworkApplyConsumer,
+    network_runners,
+)
 from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS
 from diucs.domain.events import PROJECTION_WORK
 
-CONFIG = Path(__file__).resolve().parents[5] / "infra" / "servicebus-config.json"
-README = Path(__file__).resolve().parents[5] / "infra" / "README.md"
+
+class _Apply(NetworkApplyConsumer):
+    def __init__(self) -> None:
+        pass
+
+
+CONFIG = Path(__file__).resolve().parents[6] / "infra" / "servicebus-config.json"
+README = Path(__file__).resolve().parents[6] / "infra" / "README.md"
 
 
 def _namespace() -> dict[str, Any]:
@@ -73,7 +83,7 @@ def test_the_network_projector_subscribes_to_each_producer_topic(
 
 def test_the_config_and_the_runners_name_the_same_entities() -> None:
     """A runner over an entity the emulator does not declare would fail at the first receive."""
-    for runner in network_runners(None, None, None, None):  # type: ignore[arg-type]
+    for runner in network_runners(None, None, _Apply(), None):  # type: ignore[arg-type]
         if runner._subscription is None:
             assert runner._entity in _queues()
         else:

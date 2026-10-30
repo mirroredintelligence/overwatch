@@ -19,6 +19,7 @@ import asyncio
 import contextlib
 import signal
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from dataclasses import dataclass
 
 import httpx
 from azure.servicebus.aio import ServiceBusClient
@@ -31,12 +32,23 @@ from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
 from diucs.adapters.inbound.workers.board_consumer import BoardRebuilder, board_runners
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.message_senders import push_runner, sender_runners
+from diucs.adapters.inbound.workers.network_projector import (
+    NetworkApplyConsumer,
+    network_runners,
+)
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
 from diucs.adapters.inbound.workers.reply_processor import HandlesInboundText, reply_consumer
 from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
+from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from diucs.adapters.outbound.graph_store.unit_of_work import (
+    neo4j_network_uow_factory,
+    neo4j_uow_factory,
+)
+from diucs.adapters.outbound.projection_queue import BusProjectionPublisher
 from diucs.adapters.outbound.push_webpush.web_push import configured_push_sender
 from diucs.adapters.outbound.telemetry.attributes import INSTRUMENTATION_NAME
 from diucs.adapters.outbound.telemetry.consumer import consumer_observer
@@ -45,9 +57,11 @@ from diucs.application.ports.outbound.messaging import PushSender
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.sender_resolver import SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.use_cases.apply_projection import ApplyProjection
 from diucs.application.use_cases.board_projector import BoardProjector
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
+from diucs.application.use_cases.project_network import ProjectNetwork
 from diucs.application.use_cases.query_board import QueryBoard
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.application.use_cases.respond_to_booking import RespondToBooking, SetDeclineReason
@@ -66,6 +80,16 @@ SCHEDULED_WORK_QUEUE = "scheduled.work"
 
 class WorkersConfigError(Exception):
     """The workers cannot start with this configuration. The text is fixed and holds no value."""
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkProjectorWiring:
+    """What the network projector's runners need (TEN-055): the producer, which reads in a tenant's
+    read-only unit and publishes to the projection queue, and the apply consumer, which binds a
+    network scope for each message."""
+
+    producer: ProjectNetwork
+    apply: NetworkApplyConsumer
 
 
 def service_bus_connection(settings: Settings) -> str:
@@ -88,6 +112,7 @@ def build_runners(
     clock: Clock | None = None,
     app_url: str = "",
     board_projector: BoardRebuilder | None = None,
+    network_projector: NetworkProjectorWiring | None = None,
 ) -> list[ServiceBusRunner]:
     """One runner for each inbound queue, each over a consumer that binds the message's tenant and
     handles the message under its trace span (O01): the replies, the receipts and, with the
@@ -123,6 +148,10 @@ def build_runners(
         )
     if board_projector is not None:
         runners += board_runners(client, board_projector, tenants, observe)
+    if network_projector is not None:
+        runners += network_runners(
+            client, network_projector.producer, network_projector.apply, tenants, observe
+        )
     return runners
 
 
@@ -143,6 +172,7 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
     await container.seed_daily_schedules(await tenants.active_tenant_ids())
     cache = RedisCache.from_url(settings.redis_url)
     client = ServiceBusClient.from_connection_string(connection)
+    bus = ServiceBusEventBus(client)
     http = httpx.AsyncClient(timeout=SENDER_HTTP_TIMEOUT_SECONDS)
     try:
         store = DriverIdempotencyStore(container.neo4j.driver)
@@ -168,6 +198,25 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
             container.tenants, container.secrets, http, status_callback_url(settings)
         )
         sealer = AesGcmContentSealer(container.secrets)
+        registry = Neo4jNetworkRegistry(container.neo4j)
+        projection_producer = ProjectNetwork(
+            neo4j_uow_factory(container.neo4j, clock=container.clock, read_only=True),
+            registry,
+            BusProjectionPublisher(bus),
+            container.clock,
+        )
+        network_projector = NetworkProjectorWiring(
+            producer=projection_producer,
+            apply=NetworkApplyConsumer(
+                ApplyProjection(
+                    neo4j_network_uow_factory(container.neo4j, clock=container.clock),
+                    registry,
+                    container.clock,
+                ),
+                registry,
+                tenants,
+            ),
+        )
         push = configured_push_sender(container.secrets, settings.webpush_subject)
         runners = build_runners(
             client,
@@ -183,10 +232,12 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
             board_projector=BoardProjector(
                 QueryBoard(container.uow_factory, container.clock), cache, container.clock
             ),
+            network_projector=network_projector,
         )
         await run_workers([runner.serve for runner in runners], stop)
     finally:
         await http.aclose()
+        await bus.close()
         await client.close()
         await cache.aclose()
         await container.shutdown()

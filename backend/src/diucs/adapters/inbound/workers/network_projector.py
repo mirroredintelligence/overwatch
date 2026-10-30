@@ -20,10 +20,13 @@ never its text. No reason holds a payload value.
 import logging
 from collections.abc import Mapping
 from types import MappingProxyType
-from typing import Final
+from typing import ClassVar, Final
+
+from azure.servicebus.aio import ServiceBusClient
 
 from diucs.adapters.inbound.workers.consumer import Outcome
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
+from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
 from diucs.adapters.inbound.workers.tenant_binding import Observe, TenantBoundConsumer, untraced
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.network import NetworkRegistry
@@ -31,12 +34,18 @@ from diucs.application.tenancy import ScopeId, bind_scope, current_scope_or_none
 from diucs.application.use_cases.apply_projection import ApplyProjection, ProjectionMismatch
 from diucs.application.use_cases.project_network import ProjectNetwork
 from diucs.domain.errors import DomainError
-from diucs.domain.events import ProjectionRequested
+from diucs.domain.events import PROJECTION_WORK, ProjectionRequested
 from diucs.domain.model.network import GrantScope, NetworkStatus
 
 logger = logging.getLogger(__name__)
 
 PRODUCER_CONSUMER_NAME: Final = "network-projector"
+NETWORK_SUBSCRIPTION: Final = PRODUCER_CONSUMER_NAME
+APPLY_QUEUE: Final = PROJECTION_WORK
+CAPACITY_TOPIC: Final = "capacity.events"
+BOOKING_TOPIC: Final = "booking.events"
+CRITERIA_TOPIC: Final = "criteria.events"
+REGISTRATION_TOPIC: Final = "registration.events"
 NOT_BOUND_REASON: Final = "message is not bound to its tenant"
 SERVICE_MISSING: Final = "service-missing"
 MESSAGE_INVALID: Final = "message-invalid"
@@ -97,6 +106,10 @@ def producer_consumer(
 
 
 class NetworkApplyConsumer:
+    binds_network: ClassVar[bool] = True
+    """The marker the runner looks for (besides `binds_tenant`): this consumer binds a network scope
+    for the handling of one message, after the registry has confirmed the network."""
+
     def __init__(
         self, apply: ApplyProjection, registry: NetworkRegistry, tenants: ActiveTenants
     ) -> None:
@@ -130,3 +143,35 @@ class NetworkApplyConsumer:
             logger.warning("projection message %s will retry: %s", message.id, type(error).__name__)
             return Outcome("retry", type(error).__name__)
         return Outcome("completed")
+
+
+def network_runners(
+    client: ServiceBusClient,
+    producer: ProjectNetwork,
+    apply: NetworkApplyConsumer,
+    tenants: ActiveTenants,
+    observe: Observe = untraced,
+) -> list[ServiceBusRunner]:
+    """The runners of the network projector (TEN-055): the `network-projector` subscription of the
+    four topics whose events change what a network shows (`capacity.events` through sessions, one
+    per service; the subscription requires them), each bound to the message's tenant, and the
+    projection queue, whose consumer binds the network of each message."""
+    return [
+        ServiceBusRunner(
+            client,
+            CAPACITY_TOPIC,
+            NETWORK_SUBSCRIPTION,
+            producer_consumer(producer, tenants, observe),
+            sessions=True,
+        ),
+        *(
+            ServiceBusRunner(
+                client,
+                topic,
+                NETWORK_SUBSCRIPTION,
+                producer_consumer(producer, tenants, observe),
+            )
+            for topic in (BOOKING_TOPIC, CRITERIA_TOPIC, REGISTRATION_TOPIC)
+        ),
+        ServiceBusRunner(client, APPLY_QUEUE, None, apply),
+    ]

@@ -25,6 +25,7 @@ from diucs.adapters.outbound.graph_store.flag_repository import (
 )
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
+from diucs.application.tenancy import current_tenant
 from diucs.domain.codes import ReportFlagReason
 from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
 from diucs.domain.model.flags import (
@@ -490,16 +491,17 @@ async def test_sixteen_racing_sets_for_one_service_and_code_all_succeed_and_leav
 async def test_the_database_refuses_a_second_report_flag_node_with_one_id(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    # Not the repository: a raw CREATE, so the unique key on ReportFlag.id is what is tested.
+    # Not the repository: a raw CREATE, so the unique key on (tenantId, ReportFlag.id) is tested.
     await _seed(neo4j_driver)
 
     async def create(tx: AsyncManagedTransaction) -> None:
         result = await tx.run(
             "MATCH (o:Observation {key: $key}) "
-            "CREATE (f:ReportFlag {id: $id, serviceId: $service})-[:ON]->(o)",
+            "CREATE (f:ReportFlag {id: $id, serviceId: $service, tenantId: $tenant})-[:ON]->(o)",
             key=f"Observation/{WEST_REPORT}",
             id="rf-raw-duplicate",
             service=WEST,
+            tenant=current_tenant(),
         )
         await result.consume()
 

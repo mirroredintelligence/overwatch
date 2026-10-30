@@ -113,11 +113,11 @@ async def test_constraint_from_migrations_survives_wipe(neo4j_driver: AsyncDrive
 
     async def constraint_names(tx: object) -> list[str]:
         result = await tx.run(  # type: ignore[attr-defined]
-            "SHOW CONSTRAINTS YIELD name WHERE name = 'resource_id' RETURN name"
+            "SHOW CONSTRAINTS YIELD name WHERE name = 'tenant_resource_id' RETURN name"
         )
         return [record["name"] async for record in result]
 
-    assert await read_tx(neo4j_driver, constraint_names) == ["resource_id"]
+    assert await read_tx(neo4j_driver, constraint_names) == ["tenant_resource_id"]
     assert await count_nodes(neo4j_driver, "Probe") == 0
 
 

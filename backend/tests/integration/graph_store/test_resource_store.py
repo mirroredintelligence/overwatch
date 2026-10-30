@@ -946,18 +946,20 @@ async def test_loading_a_resource_that_is_not_there_is_not_found(neo4j_driver: A
     await read_tx(neo4j_driver, work)
 
 
-async def test_on_the_production_schema_a_second_tenants_same_id_is_a_conflict(
-    neo4j_driver: AsyncDriver, other_tenant_id: str
+async def test_on_the_production_schema_a_second_tenants_same_id_is_its_own_resource(
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
-    """The single-property key `resource_id` stays until TEN-032, so the second tenant cannot take
-    an id the first holds there (DEC-164 item 10): `Conflict`, and the first one's is unchanged."""
+    """The single-property key `resource_id` went with TEN-032 (it was a `Conflict` here before, and
+    told the second tenant that the id exists, DEC-164 item 10): both tenants hold the id."""
     await _put(neo4j_driver, _org("Of the run tenant"), None)
 
-    with pytest.raises(Conflict):
-        await _put_as(neo4j_driver, other_tenant_id, _org("Of the other"), None)
+    await _put_as(neo4j_driver, other_tenant_id, _org("Of the other"), None)
 
     assert await _get(neo4j_driver, "Organization", ORG_ID) == _with_meta(
         _org("Of the run tenant"), "1"
+    )
+    assert await _get_as(neo4j_driver, other_tenant_id, "Organization", ORG_ID) == _with_meta(
+        _org("Of the other"), "1"
     )
 
 

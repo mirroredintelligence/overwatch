@@ -16,7 +16,6 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
-from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATION_ID
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
@@ -25,6 +24,7 @@ from diucs.adapters.outbound.graph_store.communication_repository import (
 )
 from diucs.adapters.outbound.graph_store.migration_types import Migration, MigrationFailed
 from diucs.adapters.outbound.graph_store.migrations import MIGRATIONS, apply_migrations
+from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATION_ID
 from diucs.adapters.outbound.graph_store.migrations_tenant import (
     COMPOSITE_CONSTRAINTS,
     COMPOSITE_INDEXES,

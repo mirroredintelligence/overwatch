@@ -23,7 +23,9 @@ from tests.support.scoped import scoped
 # Derived from the list (TEN-005): a later task adds its migrations in its own area module and no
 # number is edited. The unit test test_migration_ids.py pins it to 26 core + the tenant + network.
 EXPECTED_MIGRATION_COUNT = len(MIGRATIONS)
-EXPECTED_CONSTRAINTS = {"resource_id", "identifier_key", "concept_key"}
+EXPECTED_CONSTRAINTS = {"tenant_resource_id", "tenant_identifier_key", "tenant_concept_key"}
+# The single-property keys they replaced went with TEN-032.
+DROPPED_CONSTRAINTS = {"resource_id", "identifier_key", "concept_key"}
 EXPECTED_INDEXES = {
     "obs_by_service",
     "task_by_status",
@@ -95,6 +97,7 @@ async def test_schema_has_the_named_constraints_and_indexes(neo4j_driver: AsyncD
             r["name"] async for r in await session.run("SHOW INDEXES YIELD name RETURN name")
         }
     assert constraints >= EXPECTED_CONSTRAINTS
+    assert constraints.isdisjoint(DROPPED_CONSTRAINTS)
     assert indexes >= EXPECTED_INDEXES
 
 

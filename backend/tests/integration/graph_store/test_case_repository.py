@@ -326,18 +326,43 @@ async def test_a_second_case_with_the_same_reference_is_refused_and_writes_nothi
     assert await _load(neo4j_driver, "case-1") == OPEN_CASE
 
 
-async def test_the_case_reference_is_unique_in_the_graph(neo4j_driver: AsyncDriver) -> None:
+async def test_the_open_case_reference_is_unique_in_the_tenant(neo4j_driver: AsyncDriver) -> None:
+    """The lifetime-unique key `case_reference_id` went with TEN-032: the composite constraint is on
+    the open reference, which only an open case carries."""
     await _write(neo4j_driver, OPEN_CASE)
 
     async def duplicate(tx: AsyncManagedTransaction) -> None:
         await tx.run(
             "CREATE (:ServiceRequest {id: 'case-x', key: 'ServiceRequest/case-x', "
-            "reference: '4821', tenantId: $tenant})",
+            "reference: '4821', openReference: '4821', tenantId: $tenant})",
             tenant=current_tenant(),
         )
 
     with pytest.raises(ClientError):
         await write_tx(neo4j_driver, duplicate)
+
+
+async def test_a_reference_of_a_closed_case_can_be_held_again_in_the_tenant(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    """With the lifetime-unique key gone (TEN-032), a closed case's reference blocks nobody."""
+    await _write(neo4j_driver, OPEN_CASE)
+    closed = OPEN_CASE.close(
+        Outcome.ACCEPTED_AND_BOOKED, CLOSED, destination_service_id="svc-ucr-west"
+    )
+    await _write(neo4j_driver, closed, save=True)
+
+    async def reuse(tx: AsyncManagedTransaction) -> None:
+        await tx.run(
+            "CREATE (:ServiceRequest {id: 'case-y', key: 'ServiceRequest/case-y', "
+            "reference: '4821', openReference: '4821', tenantId: $tenant})",
+            tenant=current_tenant(),
+        )
+
+    await write_tx(neo4j_driver, reuse)
+
+    rows = await _references(neo4j_driver)
+    assert {(r["id"], r["open"]) for r in rows} == {("case-1", None), ("case-y", "4821")}
 
 
 @pytest.mark.parametrize(
@@ -443,7 +468,7 @@ async def test_a_closed_case_with_residue_is_refused_on_add_and_writes_nothing(
 
 # TEN-005: the open reference, the property a composite constraint is unique on. It is set while a
 # case is open and removed when the case closes, so a closed case's reference blocks nobody once
-# the lifetime-unique constraint goes (TEN-032).
+# the lifetime-unique constraint went (TEN-032).
 
 
 async def _references(driver: AsyncDriver) -> list[dict[str, Any]]:
@@ -490,9 +515,9 @@ async def test_closing_a_case_removes_the_open_reference_and_keeps_the_reference
 async def test_two_open_cases_with_one_reference_are_still_refused_as_conflict(
     neo4j_driver: AsyncDriver, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Both constraints agree on this today: the lifetime-unique one (until TEN-032) and the
-    per-tenant open-only one. The statement sets both properties in one write, so either refusal
-    is a Conflict and nothing of the second case stays."""
+    """The per-tenant open-only constraint refuses it (the lifetime-unique one went with TEN-032).
+    The statement sets both properties in one write, so the refusal is a Conflict and nothing of
+    the second case stays."""
     await _write(neo4j_driver, OPEN_CASE)
     real_run_query = case_repository.run_query
 

@@ -15,6 +15,7 @@ from neo4j.time import DateTime
 
 from diucs.adapters.outbound.graph_store.contact_store import Neo4jContactStore
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
+from diucs.application.tenancy import current_tenant
 from diucs.domain.errors import Conflict, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.scoped import scoped
@@ -187,11 +188,16 @@ async def test_a_racing_first_put_is_refused_while_the_first_write_is_uncommitte
 async def test_a_second_protected_contact_for_one_role_and_kind_is_refused_by_the_schema(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    """Deterministic: a second raw CREATE with the same key raises ConstraintError (lesson L92)."""
+    """Deterministic: a second raw CREATE with the same key in the same tenant raises
+    ConstraintError (lesson L92). The key is composite since TEN-032: a node with no tenant is
+    not covered (Neo4j Community ignores a null), which the invariant check finds instead."""
     await apply_migrations(neo4j_driver)
 
     async def create(tx: AsyncManagedTransaction) -> None:
-        await tx.run("CREATE (:ProtectedContact {key: 'r-west-duty|phone', value: 'x'})")
+        await tx.run(
+            "CREATE (:ProtectedContact {key: 'r-west-duty|phone', value: 'x', tenantId: $tenant})",
+            tenant=current_tenant(),
+        )
 
     await write_tx(neo4j_driver, create)
     with pytest.raises(ConstraintError):

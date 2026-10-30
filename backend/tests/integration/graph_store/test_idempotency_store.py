@@ -21,6 +21,7 @@ from diucs.adapters.outbound.graph_store.idempotency_store import (
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import current_tenant
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict
 from tests.support.actors import ACTOR_TENANT
@@ -343,12 +344,18 @@ async def test_pairs_whose_unprefixed_text_is_equal_keep_separate_markers(
 
 
 async def _create_processed(tx: AsyncManagedTransaction, key: str) -> None:
-    result = await tx.run("CREATE (:Processed {key: $key})", key=key)
+    result = await tx.run(
+        "CREATE (:Processed {key: $key, tenantId: $tenant})", key=key, tenant=current_tenant()
+    )
     await result.consume()
 
 
 async def _create_record(tx: AsyncManagedTransaction, key: str) -> None:
-    result = await tx.run("CREATE (:IdempotencyRecord {key: $key})", key=key)
+    result = await tx.run(
+        "CREATE (:IdempotencyRecord {key: $key, tenantId: $tenant})",
+        key=key,
+        tenant=current_tenant(),
+    )
     await result.consume()
 
 

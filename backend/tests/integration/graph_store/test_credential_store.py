@@ -22,6 +22,7 @@ from diucs.adapters.outbound.graph_store.credential_store import (
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.application.tenancy import current_tenant
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.people import Practitioner
 from diucs.domain.rules.identity_policy import PinOutcome, PinState, pin_attempt
@@ -280,7 +281,10 @@ async def test_device_id_is_unique_in_the_graph(
     await _run(neo4j_driver, lambda _, devices: devices.register("p1", "dev-1", AT))
 
     async def duplicate(tx: AsyncManagedTransaction) -> None:
-        await tx.run("CREATE (:Device {id: 'dev-1', status: 'active'})")
+        await tx.run(
+            "CREATE (:Device {id: 'dev-1', status: 'active', tenantId: $tenant})",
+            tenant=current_tenant(),
+        )
 
     with pytest.raises(ClientError):
         await write_tx(neo4j_driver, duplicate)
@@ -378,7 +382,10 @@ async def test_a_second_credential_for_one_device_is_refused_by_the_schema(
     await apply_migrations(neo4j_driver)
 
     async def create(tx: AsyncManagedTransaction) -> None:
-        await tx.run("CREATE (:Credential {deviceId: 'dev-1', pinHash: 'x'})")
+        await tx.run(
+            "CREATE (:Credential {deviceId: 'dev-1', pinHash: 'x', tenantId: $tenant})",
+            tenant=current_tenant(),
+        )
 
     await write_tx(neo4j_driver, create)
     with pytest.raises(ConstraintError):

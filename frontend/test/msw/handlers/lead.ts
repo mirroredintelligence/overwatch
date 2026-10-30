@@ -45,6 +45,12 @@ async function recorded(request: Request, path: string) {
   });
 }
 
+/** The reporter posts, as the BFF gives them to the lead's pages (W18, W42). The role id is the post's own id. */
+export const REPORTER_CHOICES = [
+  { serviceId: SERVICE_UCR_EAST, serviceName: 'UCR East', roleId: 'role-ucr-east', role: 'Duty manager', channel: 'text', numberEnding: '4821', coveredUntil: null },
+  { serviceId: SERVICE_REABLEMENT, serviceName: 'Reablement', roleId: 'role-reablement', role: 'Duty manager', channel: 'text', numberEnding: '0377', coveredUntil: null },
+];
+
 /** The flags on the open list, as the BFF maps them (W42). */
 export const FLAG_CHOICES = [
   { id: 'flag-1', serviceId: SERVICE_UCR_EAST, serviceName: 'UCR East', reason: 'out-of-range-twice', summary: 'The figure was out of its usual range twice.' },
@@ -110,9 +116,7 @@ export const leadHandlers = [
   }),
   http.get('/api/bff/lead/reporters', ({ request }) => {
     const service = new URL(request.url).searchParams.get('service');
-    const reporters = service === SERVICE_REABLEMENT
-      ? [{ serviceId: SERVICE_REABLEMENT, serviceName: 'Reablement', role: 'Duty manager', channel: 'text', numberEnding: '0377', coveredUntil: null }]
-      : [];
+    const reporters = REPORTER_CHOICES.filter((post) => service === null || post.serviceId === service);
     return HttpResponse.json({ reporters }, { headers: NO_STORE });
   }),
   http.post('/api/bff/lead/services/:id/phoned', async ({ request, params }) => {

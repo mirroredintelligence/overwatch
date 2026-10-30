@@ -104,10 +104,13 @@ def _load_every_statement() -> None:
 def production_statements(
     registry: QueryRegistry = REGISTRY, kind: ScopeKind = ScopeKind.TENANT
 ) -> dict[str, NamedQuery]:
-    """Every tenant statement of the registry, keyed by base id: the eager statements, and one
-    entry per template (the instance its scenario names, or a stand-in with the place emptied when
-    it has none). Global statements and run-time instances are left out. A private registry that a
-    test builds for its own corpus also leaves out its `Q-TEST-` statements; the production
+    """Every statement of the registry that runs in a scope of this kind (TEN-060: the tenant
+    statements and the statements for both kinds by default, the network-only ones and the
+    statements for both kinds for `ScopeKind.NETWORK`), keyed by base id: the eager
+    statements, and one entry per template (the instance its scenario names, or a stand-in
+    with the place emptied when it has none). Global statements and run-time instances are
+    left out. A private registry that a test builds for its own corpus also leaves out its
+    `Q-TEST-` statements; the production
     registry never does, whatever a statement is called. For the module registry every statement
     module is imported first."""
     if registry is REGISTRY:
@@ -117,12 +120,16 @@ def production_statements(
         query = registry.get(query_id)
         if ":" in query_id or _private_test_statement(registry, query_id):
             continue
-        if query.scope != "tenant":
+        if query.scope != "tenant" or kind.value not in query.scope_kinds:
             continue
         universe[query_id] = query
     for template_id in registry.template_ids():
         template = registry.template(template_id)
-        if _private_test_statement(registry, template_id) or template.scope != "tenant":
+        if (
+            _private_test_statement(registry, template_id)
+            or template.scope != "tenant"
+            or kind.value not in template.scope_kinds
+        ):
             continue
         if template.scenario is not None:
             universe[template_id] = registry.instance(template_id, template.scenario.insert)
@@ -132,6 +139,7 @@ def production_statements(
                 cypher=template.cypher.replace(PLACEHOLDER, ""),
                 mode=template.mode,
                 scope=template.scope,
+                scope_kinds=template.scope_kinds,
             )
     return universe
 
@@ -171,9 +179,15 @@ def universe_problems(
     registered = [
         query_id
         for query_id in registry.ids()
-        if _INSTANCE_SEPARATOR not in query_id and registry.get(query_id).scope == "tenant"
+        if _INSTANCE_SEPARATOR not in query_id
+        and registry.get(query_id).scope == "tenant"
+        and kind.value in registry.get(query_id).scope_kinds
     ]
-    registered += [t for t in registry.template_ids() if registry.template(t).scope == "tenant"]
+    registered += [
+        t
+        for t in registry.template_ids()
+        if registry.template(t).scope == "tenant" and kind.value in registry.template(t).scope_kinds
+    ]
     return [
         f"{query_id}: registered, and not in the universe the generated test runs"
         for query_id in sorted(set(registered))
@@ -315,6 +329,7 @@ async def _probe(
     first: str,
     second: str,
     params: dict[str, Any],
+    kind: ScopeKind = ScopeKind.TENANT,
 ) -> _Outcome:
     """Run the statement once as `first`, in a transaction that is rolled back."""
     async with driver.session() as session:
@@ -323,7 +338,7 @@ async def _probe(
             first_before = await snapshot(tx, first)
             second_before = await snapshot(tx, second)
             rows = await run_query(
-                ScopedTx(tx, ScopeId.tenant(first)), query, registry=registry, **params
+                ScopedTx(tx, ScopeId(first, kind)), query, registry=registry, **params
             )
             first_after = await snapshot(tx, first)
             second_after = await snapshot(tx, second)
@@ -357,6 +372,7 @@ async def _phase(
     registry: QueryRegistry,
     tenants: tuple[str, str],
     slots: tuple[Slot, Slot],
+    kind: ScopeKind = ScopeKind.TENANT,
 ) -> list[Finding]:
     first, second = tenants
     phase = f"{slots[0]}-then-{slots[1]}"
@@ -370,14 +386,18 @@ async def _phase(
     await wipe(driver)
     await seed_tenant(driver, first, slots[0], scenario.seed)
     try:
-        base = await _probe(driver, query, registry, first, second, own)
+        base = await _probe(driver, query, registry, first, second, own, kind)
         foreign_base = (
-            await _probe(driver, query, registry, first, second, other) if other != own else None
+            await _probe(driver, query, registry, first, second, other, kind)
+            if other != own
+            else None
         )
         await seed_tenant(driver, second, slots[1], scenario.seed)
-        again = await _probe(driver, query, registry, first, second, own)
+        again = await _probe(driver, query, registry, first, second, own, kind)
         foreign = (
-            await _probe(driver, query, registry, first, second, other) if other != own else None
+            await _probe(driver, query, registry, first, second, other, kind)
+            if other != own
+            else None
         )
     except Exception as error:
         add(FindingKind.PROBE_ERROR, type(error).__name__)
@@ -439,5 +459,7 @@ async def run_isolation(
             ((tenant_a, tenant_b), ("A", "B")),
             ((tenant_b, tenant_a), ("B", "A")),
         ):
-            findings += await _phase(driver, query_id, query, scenario, registry, tenants, slots)
+            findings += await _phase(
+                driver, query_id, query, scenario, registry, tenants, slots, kind
+            )
     return findings

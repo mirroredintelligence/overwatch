@@ -18,7 +18,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, TENANT_KINDS
 from diucs.application.ports.outbound.projection import ProjectionEndReason
 from diucs.application.tenancy import (
     ScopeId,
@@ -31,6 +31,7 @@ from diucs.domain.events import ProjectionRejectReason
 from diucs.domain.model.network import GrantScope
 from tests.support.neo4j import read_tx, write_tx
 from tests.support.network_world import NETWORK_INVARIANTS, NetworkWorld, world_ids
+from tests.support.query_probes import production_statements
 from tests.support.tenancy import RunIdentity
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -183,8 +184,8 @@ async def test_a_member_who_leaves_ends_its_rows_and_only_its_rows_and_history_s
 async def test_a_statement_for_one_kind_of_scope_is_refused_in_the_other_on_a_real_transaction(
     harness_driver: AsyncDriver, world: NetworkWorld
 ) -> None:
-    tenant_statement = (
-        REGISTRY.get("Q-SERVICE-LIST-ACTIVE") if "Q-SERVICE-LIST-ACTIVE" in REGISTRY.ids() else None
+    tenant_statement = next(
+        q for q in production_statements(REGISTRY).values() if q.scope_kinds == TENANT_KINDS
     )
     network_statement = REGISTRY.get("Q-PROJ-SOURCES")
     async with harness_driver.session() as session:
@@ -194,11 +195,8 @@ async def test_a_statement_for_one_kind_of_scope_is_refused_in_the_other_on_a_re
                 await run_query(
                     ScopedTx(tx, ScopeId.tenant(world.ids.members[0])), network_statement
                 )
-            if tenant_statement is not None:
-                with pytest.raises(ScopeKindMismatch):
-                    await run_query(
-                        ScopedTx(tx, ScopeId.network(world.ids.network)), tenant_statement
-                    )
+            with pytest.raises(ScopeKindMismatch):
+                await run_query(ScopedTx(tx, ScopeId.network(world.ids.network)), tenant_statement)
         finally:
             await tx.rollback()
 

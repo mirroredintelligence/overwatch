@@ -63,7 +63,9 @@ JSON_TYPE = {"Content-Type": "application/fhir+json"}
 NOT_EDITED = "Reports are not edited. Send a new report."
 MEASURE_SYSTEM = code_system_url("capacity-measure")
 SOURCE_SYSTEM = code_system_url("report-source")
-ALL_ROLES = tuple(Role)
+# The platform operator has no data access at the REST edge (TEN-018): its token is the one 401,
+# which test_edge_tenants.py pins, so it is not a role that reads a service.
+ALL_ROLES = tuple(role for role in Role if role is not Role.PLATFORM_OPERATOR)
 SEARCH_ROLES = (Role.WALL, Role.ADVISOR, Role.CLINICAL, Role.LEAD, Role.EXEC, Role.OWNER)
 NOT_SEARCH_ROLES = (Role.ANONYMOUS_LINK, Role.SUPPORT, Role.AUDIT)
 NOT_REPORT_ROLES = (

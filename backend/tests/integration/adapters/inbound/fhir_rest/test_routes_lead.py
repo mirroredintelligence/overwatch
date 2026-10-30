@@ -9,14 +9,23 @@ The phone numbers are the prompt's sample values. No patient data.
 """
 
 import pytest
+from fastapi import FastAPI
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.tokens import issue_test_token
+from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.domain.codes import Role
 from tests.support.neo4j import count_nodes
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+
+@pytest.fixture(autouse=True)
+def _bff_secret(api_app: FastAPI) -> None:
+    """The API checks bearer tokens against the BFF secret (R02)."""
+    api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
 
 SETUP = "/fhir/HealthcareService/$setup"
 CHANGE = "/fhir/PractitionerRole/{role}/$change-number"

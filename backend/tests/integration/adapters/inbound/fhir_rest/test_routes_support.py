@@ -30,6 +30,7 @@ from diucs.bootstrap.container import build_for_tests
 from diucs.domain.codes import PractitionerRoleCode, Role
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.rules.support import SUPPORT_CODE_SECRET
+from tests.support.api import seed_edge_tenants
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads
 
@@ -119,6 +120,7 @@ async def support_app(
             telemetry=_fixture(tmp_path, run_identity.tenant_id),
         )
         await ensure_audit_heads(neo4j_driver, run_identity.tenant_id)
+        await seed_edge_tenants(neo4j_driver, run_identity.tenant_id)
         await _seed_lead(container)
         app = create_app(container)
         app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})

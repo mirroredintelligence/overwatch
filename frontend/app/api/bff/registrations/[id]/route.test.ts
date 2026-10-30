@@ -7,6 +7,8 @@ import { TEST_SESSION_SECRET } from '@/test/cookies';
 import { withApplicantHandlers } from '@/test/msw/applicant';
 import { GET } from './route';
 
+// The applicant's record and the lead's overview share this path; each role has its own describe below.
+
 withApplicantHandlers();
 
 vi.mock('next/headers', async () => {
@@ -89,5 +91,43 @@ describe('GET /api/bff/registrations/[id] (the applicant’s record)', () => {
     expect((await GET(noSession, ctx(ID))).status).toBe(401);
     expect((await GET(await callerRequest(url, 'advisor'), ctx(ID))).status).toBe(403);
     expect(seen).toHaveLength(0);
+  });
+});
+
+describe('GET /api/bff/registrations/[id] (the lead’s review overview)', () => {
+  it('reads the overview with the lead’s token and answers the checks, the manual checks and the words of the call-back', async () => {
+    answerBackend('get', `/registrations/${ID}/overview`, 200, {
+      registrationId: ID,
+      status: 'in-review',
+      serviceId: 'SVC-SAMPLE-1',
+      serviceName: 'Community nursing',
+      category: 'urgent-community-response',
+      checks: [{ name: 'ods', passed: true, ok: true, message: 'The ODS code is on the register', explainedNote: null }],
+      automaticOk: true,
+      callbackConfirmed: false,
+      scope: null,
+      criteriaApproved: false,
+      missing: ['The call-back is not confirmed'],
+      registeredBy: { role: 'Duty manager', contactName: 'Sam Sample', organisationName: 'Sample Community Trust' },
+      applicantNumbers: [{ label: 'Reporting', ending: '456' }],
+      callBack: { numberToCall: null, directoryName: 'the area directory', pathwayName: 'Urgent community response pathway' },
+    });
+    const response = await GET(await callerRequest(url, 'lead'), ctx(ID));
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as Record<string, unknown>;
+    expect(body).toMatchObject({
+      id: ID,
+      serviceName: 'Community nursing',
+      registeredBy: { name: 'Sam Sample', role: 'Duty manager' },
+      manualChecks: { callback: 'not-done', scope: 'not-done', criteria: 'not-done' },
+      pathwayName: 'Urgent community response pathway',
+    });
+    expect(JSON.stringify(body)).not.toContain('Sample Community Trust');
+    expect(JSON.stringify(body)).not.toContain('456');
+  });
+
+  it('answers 404 for a registration the lead cannot see', async () => {
+    answerBackend('get', `/registrations/${ID}/overview`, 404, { resourceType: 'OperationOutcome', issue: [] });
+    expect((await GET(await callerRequest(url, 'lead'), ctx(ID))).status).toBe(404);
   });
 });

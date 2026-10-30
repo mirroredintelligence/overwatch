@@ -144,3 +144,22 @@ export async function confirmDetails(token: string, id: string): Promise<void> {
 }
 
 export { unreadable };
+
+async function leadGet(token: string, path: string): Promise<unknown> {
+  return bearerGet(token, path);
+}
+
+/** The queue of one tab for the shift lead (W7B A4). The route maps it with queueFromBackend. */
+export async function readQueue(token: string, tab: string): Promise<unknown> {
+  return leadGet(token, `/registrations?tab=${encodeURIComponent(tab)}`);
+}
+
+/** The review overview of one registration for the shift lead. The route maps it with overviewFromBackend. */
+export async function readOverview(token: string, id: string): Promise<unknown> {
+  return leadGet(token, `/registrations/${encodeURIComponent(id)}/overview`);
+}
+
+/** The decision read of one registration for the shift lead. The route maps it with decisionFromBackend. */
+export async function readDecision(token: string, id: string): Promise<unknown> {
+  return leadGet(token, `/registrations/${encodeURIComponent(id)}/decision`);
+}

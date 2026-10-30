@@ -1,13 +1,13 @@
 import { withBff } from '@/lib/bff/handler';
-import { notServed } from '@/lib/registration/backend';
 import { idOf } from '@/lib/registration/request';
-import { readRegistration } from '@/lib/register/backend';
+import { overviewFromBackend } from '@/lib/registration/mapping';
+import { readOverview, readRegistration } from '@/lib/register/backend';
 import { bffJson, refuse } from '@/lib/register/requests';
 import type { RecordView, RecordStep } from '@/lib/register/applicant';
 import type { StepValues } from '@/lib/register/types';
 
 // Two readers share this path: the applicant (reporter) reads the registration they are working on (W54);
-// a lead reads its review overview (W28), which is the reviewer's own group. The role decides which.
+// a lead reads its review overview (W28), mapped by overviewFromBackend. The role decides which.
 //
 // The BFF passes on the service name and the saved answers of each step, in the screen's own field
 // names, and nothing else the back end holds. The browser never sees the back-end token (DEC-904).
@@ -35,8 +35,9 @@ const get = withBff<Context>(
   async (_request, session, context) => {
     const { id } = await context.params;
     if (session.role === 'lead') {
-      idOf(id);
-      notServed();
+      const overview = overviewFromBackend(await readOverview(session.backendToken, idOf(id)));
+      if (overview === null) return refuse(503, 'unavailable', 'We could not load the review. Try again later.');
+      return bffJson(200, overview);
     }
     if (!ID.test(id)) return refuse(404, 'not-found', 'We could not find that.');
     const view = await readRegistration(session.backendToken, id);

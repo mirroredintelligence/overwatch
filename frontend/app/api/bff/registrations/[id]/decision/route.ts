@@ -1,18 +1,23 @@
 import { withBff } from '@/lib/bff/handler';
-import { decideRegistration, notServed } from '@/lib/registration/backend';
+import { decideRegistration } from '@/lib/registration/backend';
+import { readDecision } from '@/lib/register/backend';
+import { decisionFromBackend } from '@/lib/registration/mapping';
 import { decisionBody, idempotencyKeyOf, idOf } from '@/lib/registration/request';
+import { bffJson, refuse } from '@/lib/register/requests';
 
-// The decision on one registration (W29, check 4 of 4). Lead only. The read of what is missing is not
-// served by the back end yet (R10), so GET answers 503 until it is. The approval gate itself is the
-// back end's: approve before every check is done is refused there, never here.
+// The decision on one registration (W29, check 4 of 4). Lead only. The read of what is missing comes
+// from the back end's decision read, mapped for the page. The approval gate itself is the back end's:
+// approve before every check is done is refused there, never here.
 
 type Context = { params: Promise<{ id: string }> };
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
 const get = withBff<Context>(
-  async (_request, _session, context) => {
-    idOf((await context.params).id);
-    notServed();
+  async (_request, session, context) => {
+    const id = idOf((await context.params).id);
+    const decision = decisionFromBackend(await readDecision(session.backendToken, id));
+    if (decision === null) return refuse(503, 'unavailable', 'We could not load the decision. Try again later.');
+    return bffJson(200, decision);
   },
   { idScoped: true, roles: ['lead'] },
 );

@@ -105,7 +105,10 @@ def _case() -> Case:
 
 def _phoned(factory: UnitOfWorkFactory, driver: AsyncDriver) -> RecordAdvisorPhoned:
     capacity = ReportCapacity(
-        factory, FixedClock(NOW), SequentialIds.scoped("a"), DriverIdempotencyStore(driver)
+        factory,
+        FixedClock(NOW),
+        SequentialIds.scoped(ACTOR_TENANT, "a"),
+        DriverIdempotencyStore(driver),
     )
     return RecordAdvisorPhoned(capacity, factory)
 
@@ -115,7 +118,7 @@ def _decliner(factory: UnitOfWorkFactory, driver: AsyncDriver) -> RecordDecline:
     return RecordDecline(
         factory,
         clock,
-        SequentialIds.scoped("d"),
+        SequentialIds.scoped(ACTOR_TENANT, "d"),
         DriverIdempotencyStore(driver),
         QueryBoard(factory, clock),
     )

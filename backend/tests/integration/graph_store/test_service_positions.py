@@ -41,11 +41,12 @@ async def _seed(factory: UnitOfWorkFactory, driver: AsyncDriver, tenant: str) ->
         await uow.commit()
 
     async def locate(tx: AsyncManagedTransaction) -> None:
+        # The resource store's shape for HealthcareService.location (see test_filter_options.py).
         await tx.run(
             "MATCH (s:HealthcareService {id: 'svc-west', tenantId: $tenant}) "
-            "CREATE (l:Location {id: 'loc-west', tenantId: $tenant, "
-            "positionLatitude: 50.73, positionLongitude: -2.45}) "
-            "CREATE (s)-[:LOCATION]->(l)",
+            "CREATE (l:Resource:Location {key: 'Location/loc-west', id: 'loc-west', "
+            "tenantId: $tenant, positionLatitude: 50.73, positionLongitude: -2.45}) "
+            "CREATE (s)-[:LOCATION {fhirPath: 'HealthcareService.location'}]->(l)",
             tenant=tenant,
         )
 

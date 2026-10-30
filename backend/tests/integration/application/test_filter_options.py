@@ -49,6 +49,7 @@ from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, write_tx
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -136,10 +137,14 @@ def _criteria(service_id: str, accepts: frozenset[NeedCategory] | None = None) -
     )
 
 
-def _case(urgency: Urgency | None = Urgency.WITHIN_2_HRS, case_id: str = CASE_ID) -> Case:
+def _case(
+    urgency: Urgency | None = Urgency.WITHIN_2_HRS,
+    case_id: str = CASE_ID,
+    reference: str = "4821",
+) -> Case:
     return Case(
         id=case_id,
-        reference="4821",
+        reference=reference,
         referrer_type=ReferrerType.AMBULANCE_CREW,
         age_band=AgeBand.A80_PLUS,
         postcode=DISTRICT,
@@ -167,6 +172,7 @@ def _services() -> dict[str, ServiceProfile]:
 
 async def _seed(factory: UnitOfWorkFactory, driver: AsyncDriver, tenant: str) -> None:
     """Services with their criteria and reports, one case, and a position for UCR West."""
+    await ensure_audit_heads(driver, tenant)
     services = _services()
     west, east, sdec, home = (
         services[key] for key in ("ucr-west", "ucr-east", "sdec-2", "hospital-at-home")
@@ -191,11 +197,14 @@ async def _seed(factory: UnitOfWorkFactory, driver: AsyncDriver, tenant: str) ->
         await uow.commit()
 
     async def locate(tx: AsyncManagedTransaction) -> None:
+        # The shape the resource store writes for HealthcareService.location: the Location is its
+        # own Resource with a key, and the reference carries its fhirPath (from_graph refuses a
+        # reference without one).
         await tx.run(
             "MATCH (s:HealthcareService {id: $service, tenantId: $tenant}) "
-            "CREATE (l:Location {id: 'loc-west', tenantId: $tenant, "
-            "positionLatitude: $lat, positionLongitude: $lon}) "
-            "CREATE (s)-[:LOCATION]->(l)",
+            "CREATE (l:Resource:Location {key: 'Location/loc-west', id: 'loc-west', "
+            "tenantId: $tenant, positionLatitude: $lat, positionLongitude: $lon}) "
+            "CREATE (s)-[:LOCATION {fhirPath: 'HealthcareService.location'}]->(l)",
             service=UCR_WEST,
             tenant=tenant,
             lat=WEST_SITE.lat,
@@ -313,7 +322,7 @@ async def test_a_case_without_urgency_is_refused_and_the_missing_field_is_named(
 ) -> None:
     await _seed(uow_factory, neo4j_driver, tenant_id)
     async with uow_factory() as uow:
-        await uow.cases.add(_case(urgency=None, case_id="case-no-urgency"))
+        await uow.cases.add(_case(urgency=None, case_id="case-no-urgency", reference="4822"))
         await uow.commit()
 
     with pytest.raises(ValidationFailed) as refused:

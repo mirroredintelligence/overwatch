@@ -1,20 +1,26 @@
 """The shift lead routes (R08) against real Neo4j through the API client.
 
-WRITTEN, NOT RUN in the build wave (no Neo4j per build-wave rules). These cases need the REST edge
-to bind the lead's tenant from the verified token (TEN-018, built in another bundle). Until that
-lands, every write here fails closed with TenantNotBound (a 500), so the cases cannot pass yet.
-That dependence is recorded in the fragment, not a fault in these tests.
+The REST edge binds the lead's tenant from the signed token (TEN-018). Every request here sends a
+token that names its tenant (tests/support/api.py token_headers), so the tenant is never ambient.
+Each tenant has its own service and reporter role, written through that tenant's own unit of work,
+so a change aimed at the other tenant's role must read as not found.
 
 The phone numbers are the prompt's sample values. No patient data.
 """
 
 import pytest
+import pytest_asyncio
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
-from diucs.adapters.testing.tokens import issue_test_token
+from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.domain.codes import Role
+from diucs.domain.model.people import Practitioner, PractitionerRole
+from diucs.domain.model.service import ServiceProfile
+from tests.support.api import token_headers
+from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.neo4j import count_nodes
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -22,10 +28,10 @@ SETUP = "/fhir/HealthcareService/$setup"
 CHANGE = "/fhir/PractitionerRole/{role}/$change-number"
 NUMBER = "07700 900123"
 NEW_NUMBER = "07700 900456"
-
-
-def _bearer(role: Role, sub: str = "lead-1") -> dict[str, str]:
-    return {"Authorization": f"Bearer {issue_test_token(role, [], sub)}"}
+SERVICE_A = "vw-frailty"
+SERVICE_B = "vw-frailty-b"
+ROLE_A = "role-1"
+ROLE_B = "b-role-1"
 
 
 def _p(name: str, value: dict) -> dict:
@@ -66,11 +72,46 @@ def _change(mobile: str = NEW_NUMBER, duration: str = "today") -> dict:
     }
 
 
+async def _seed_tenant(
+    factory: UnitOfWorkFactory,
+    service: ServiceProfile,
+    person: tuple[Practitioner, PractitionerRole],
+) -> None:
+    async with factory() as uow:
+        await uow.services.save(service)
+        await uow.commit()
+    await seed_people(factory, person)
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def lead_world(
+    edge_tenants: None,
+    uow_factory_a: UnitOfWorkFactory,
+    uow_factory_b: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+    other_tenant_id: str,
+) -> None:
+    """One service and one reporter role in each tenant, written through that tenant's own unit
+    of work. The ids differ between the tenants because the shared harness schema keeps
+    single-property keys until TEN-032. It depends on edge_tenants, which depends on the container,
+    so clean_graph has already wiped the graph (lesson L84)."""
+    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
+    await _seed_tenant(uow_factory_a, virtual_ward(SERVICE_A), reporter(1, None))
+    await _seed_tenant(
+        uow_factory_b,
+        virtual_ward(SERVICE_B),
+        reporter(1, None, SERVICE_B, prefix="b-"),
+    )
+
+
 async def test_a_lead_sets_up_a_service_and_a_fresh_read_finds_it(
-    api_client: AsyncClient, neo4j_driver: AsyncDriver
+    api_client: AsyncClient, lead_world: None, tenant_id: str
 ) -> None:
     response = await api_client.post(
-        SETUP, json=_setup(), headers={"Idempotency-Key": "setup-0001", **_bearer(Role.LEAD)}
+        SETUP,
+        json=_setup(),
+        headers={"Idempotency-Key": "setup-0001", **token_headers(tenant_id, Role.LEAD)},
     )
 
     assert response.status_code == 201
@@ -79,10 +120,15 @@ async def test_a_lead_sets_up_a_service_and_a_fresh_read_finds_it(
 
 
 async def test_the_mobile_is_kept_in_the_protected_store_only(
-    api_client: AsyncClient, neo4j_driver: AsyncDriver
+    api_client: AsyncClient, neo4j_driver: AsyncDriver, lead_world: None, tenant_id: str
 ) -> None:
+    """The number is held by the ProtectedContact node and by no other node (DEC-070 item 2).
+    That node holds it as plain text by recorded design; encryption at rest is not built (DEC-072
+    item 4, pending information governance)."""
     await api_client.post(
-        SETUP, json=_setup(), headers={"Idempotency-Key": "setup-0002", **_bearer(Role.LEAD)}
+        SETUP,
+        json=_setup(),
+        headers={"Idempotency-Key": "setup-0002", **token_headers(tenant_id, Role.LEAD)},
     )
     async with neo4j_driver.session() as session:
         result = await session.run(
@@ -96,65 +142,74 @@ async def test_the_mobile_is_kept_in_the_protected_store_only(
 
 
 async def test_an_advisor_is_not_found_and_nothing_is_stored(
-    api_client: AsyncClient, neo4j_driver: AsyncDriver
+    api_client: AsyncClient, neo4j_driver: AsyncDriver, lead_world: None, tenant_id: str
 ) -> None:
+    before = await count_nodes(neo4j_driver, "HealthcareService")
     response = await api_client.post(
-        SETUP, json=_setup(), headers={"Idempotency-Key": "setup-0003", **_bearer(Role.ADVISOR)}
+        SETUP,
+        json=_setup(),
+        headers={"Idempotency-Key": "setup-0003", **token_headers(tenant_id, Role.ADVISOR)},
     )
     assert response.status_code == 404
-    assert await count_nodes(neo4j_driver, "HealthcareService") == 0
+    assert await count_nodes(neo4j_driver, "HealthcareService") == before
 
 
-async def test_push_is_refused_outside_the_pilot(api_client: AsyncClient) -> None:
+async def test_push_is_refused_outside_the_pilot(api_client: AsyncClient, tenant_id: str) -> None:
     response = await api_client.post(
         SETUP,
         json=_setup(channel="push"),
-        headers={"Idempotency-Key": "setup-0004", **_bearer(Role.LEAD)},
+        headers={"Idempotency-Key": "setup-0004", **token_headers(tenant_id, Role.LEAD)},
     )
     assert response.status_code == 400
 
 
 async def test_an_invalid_mobile_is_refused_and_the_input_is_not_echoed(
-    api_client: AsyncClient,
+    api_client: AsyncClient, tenant_id: str
 ) -> None:
     response = await api_client.post(
         SETUP,
         json=_setup(mobile="0770"),
-        headers={"Idempotency-Key": "setup-0005", **_bearer(Role.LEAD)},
+        headers={"Idempotency-Key": "setup-0005", **token_headers(tenant_id, Role.LEAD)},
     )
     assert response.status_code == 400
-    # The prompt's example number contains the characters "0770", so the check is on the input as
-    # a value: the refusal must not repeat it as the number that was sent.
+    # The refusal text is the prompt's example number, "07700 900123", which contains the
+    # characters "0770". So the check is on the input as a quoted value: the refusal must not
+    # repeat the number that was sent.
     assert '"0770"' not in response.text
 
 
 async def test_a_number_change_for_today_reports_the_last_four_digits(
-    api_client: AsyncClient, neo4j_driver: AsyncDriver
+    api_client: AsyncClient, lead_world: None, tenant_id: str
 ) -> None:
     response = await api_client.post(
-        CHANGE.format(role="role-1"),
+        CHANGE.format(role=ROLE_A),
         json=_change(),
-        headers={"Idempotency-Key": "change-0001", **_bearer(Role.LEAD)},
+        headers={"Idempotency-Key": "change-0001", **token_headers(tenant_id, Role.LEAD)},
     )
     assert response.status_code == 200
     values = {p["name"]: p.get("valueString") for p in response.json()["parameter"]}
     assert values["numberEnding"] == "0456"
 
 
-async def test_a_change_without_an_idempotency_key_is_refused(api_client: AsyncClient) -> None:
+async def test_a_change_without_an_idempotency_key_is_refused(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
     response = await api_client.post(
-        CHANGE.format(role="role-1"), json=_change(), headers=_bearer(Role.LEAD)
+        CHANGE.format(role=ROLE_A),
+        json=_change(),
+        headers=token_headers(tenant_id, Role.LEAD),
     )
     assert response.status_code == 400
 
 
 async def test_another_tenants_reporter_role_reads_as_not_found(
-    api_client: AsyncClient,
+    api_client: AsyncClient, lead_world: None, tenant_id: str
 ) -> None:
-    """Needs the lead's tenant bound at the edge (TEN-018) and a role of the other tenant."""
+    """The lead of the run tenant names the other tenant's real role. It must read as not found,
+    so the other tenant's role is never reached."""
     response = await api_client.post(
-        CHANGE.format(role="role-of-tenant-b"),
+        CHANGE.format(role=ROLE_B),
         json=_change(),
-        headers={"Idempotency-Key": "change-0002", **_bearer(Role.LEAD)},
+        headers={"Idempotency-Key": "change-0002", **token_headers(tenant_id, Role.LEAD)},
     )
     assert response.status_code == 404

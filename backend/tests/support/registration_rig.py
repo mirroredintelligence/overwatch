@@ -13,10 +13,11 @@ from types import TracebackType
 from typing import Any, Self
 
 from diucs.application.ports.outbound.audit import AuditEntry
-from diucs.application.ports.outbound.messaging import Communication
+from diucs.application.ports.outbound.messaging import Communication, PushSubscription
 from diucs.application.ports.outbound.outbox import OutboxMessage
 from diucs.application.tenancy import ScopeId
 from diucs.domain.codes import PractitionerRoleCode, Role
+from diucs.domain.model.flags import ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
 from diucs.domain.rules.identity_policy import PinState
@@ -75,7 +76,36 @@ class StubPeople(_Part):
             and role.active
             and role.code in (PractitionerRoleCode.DUTY_MANAGER, PractitionerRoleCode.COORDINATOR)
             and role.period_start <= now
+            and (role.period_end is None or now < role.period_end)
         ]
+
+    async def services_for_phone_hash(
+        self, phone_hash: str, now: datetime
+    ) -> list[tuple[PractitionerRole, str]]:
+        """The active reporter roles the phone holds or covers at `now` (names are the ids)."""
+        holders = {
+            person.id for person in self.practitioners.values() if person.phone_hash == phone_hash
+        }
+        found: list[tuple[PractitionerRole, str]] = []
+        for role in self.roles.values():
+            if not role.active or role.code not in (
+                PractitionerRoleCode.DUTY_MANAGER,
+                PractitionerRoleCode.COORDINATOR,
+            ):
+                continue
+            covering = (
+                role.covered_by_practitioner_id in holders
+                and role.covered_until is not None
+                and now < role.covered_until
+            )
+            covered_out = (
+                role.practitioner_id in holders
+                and role.covered_until is not None
+                and now < role.covered_until
+            )
+            if covering or (role.practitioner_id in holders and not covered_out):
+                found.append((role, role.service_id or ""))
+        return found
 
     async def save_practitioner(self, practitioner: Practitioner) -> None:
         self.wrote("save_practitioner")
@@ -318,10 +348,13 @@ class StubPins(_Part):
 
     async def clear_all(self, practitioner_id: str) -> None:
         self.wrote("clear_all")
+        for held in [key for key in self.held if key[0] == practitioner_id]:
+            del self.held[held]
 
 
 class StubDevices(_Part):
-    """Devices by (practitioner, device): revoked flag and the last text-code verification."""
+    """Devices by (practitioner, device): revoked flag, pending call-back and the last text-code
+    verification."""
 
     def __init__(self, writes: Writes, calls: list[str]) -> None:
         super().__init__(writes, "devices")
@@ -331,13 +364,43 @@ class StubDevices(_Part):
     async def register(self, practitioner_id: str, device_id: str, at: datetime) -> None:
         self.wrote("register")
         self.held.setdefault(
-            (practitioner_id, device_id), {"revoked": False, "verified_at": None, "at": at}
+            (practitioner_id, device_id),
+            {"revoked": False, "pending": False, "verified_at": None, "at": at},
         )
+
+    async def register_pending(self, practitioner_id: str, device_id: str, at: datetime) -> None:
+        self.wrote("register_pending")
+        self.held.setdefault(
+            (practitioner_id, device_id),
+            {"revoked": False, "pending": True, "verified_at": None, "at": at},
+        )
+
+    async def confirm_pending(self, practitioner_id: str, at: datetime) -> int:
+        self.wrote("confirm_pending")
+        count = 0
+        for (person, _device), device in self.held.items():
+            if person == practitioner_id and device["pending"] and not device["revoked"]:
+                device["pending"] = False
+                count += 1
+        return count
+
+    async def awaiting_callback(self, practitioner_id: str) -> list[str]:
+        self._calls.append("devices.awaiting_callback")
+        return sorted(
+            device_id
+            for (person, device_id), device in self.held.items()
+            if person == practitioner_id and device["pending"] and not device["revoked"]
+        )
+
+    async def owner_of(self, device_id: str) -> str | None:
+        self._calls.append("devices.owner_of")
+        owners = [person for (person, held_id) in self.held if held_id == device_id]
+        return owners[0] if owners else None
 
     async def known(self, practitioner_id: str, device_id: str) -> bool:
         self._calls.append("devices.known")
         device = self.held.get((practitioner_id, device_id))
-        return device is not None and not device["revoked"]
+        return device is not None and not device["revoked"] and not device.get("pending", False)
 
     async def verified_at(self, practitioner_id: str, device_id: str) -> datetime | None:
         self._calls.append("devices.verified_at")
@@ -351,8 +414,58 @@ class StubDevices(_Part):
         self.wrote("mark_verified")
         self.held[(practitioner_id, device_id)]["verified_at"] = at
 
-    async def revoke_all(self, practitioner_id: str) -> None:
+    async def revoke_all(self, practitioner_id: str) -> int:
         self.wrote("revoke_all")
+        count = 0
+        for (person, _device), device in self.held.items():
+            if person == practitioner_id and not device["revoked"]:
+                device["revoked"] = True
+                count += 1
+        return count
+
+
+class StubFlags(_Part):
+    """Service flags by (service, code)."""
+
+    def __init__(self, writes: Writes) -> None:
+        super().__init__(writes, "flags")
+        self.held: dict[tuple[str, str], ServiceFlag] = {}
+
+    async def service_flags(self, service_id: str) -> list[ServiceFlag]:
+        return [
+            flag for (service, _), flag in self.held.items() if service == service_id and flag.active
+        ]
+
+    async def set_service_flag(self, flag: ServiceFlag) -> None:
+        self.wrote("set_service_flag")
+        self.held[(flag.service_id, flag.code)] = flag
+
+
+class StubPush(_Part):
+    """Push subscriptions by device id."""
+
+    def __init__(self, writes: Writes) -> None:
+        super().__init__(writes, "push_subscriptions")
+        self.held: dict[str, PushSubscription] = {}
+
+    async def for_practitioner(self, practitioner_id: str) -> list[PushSubscription]:
+        return [sub for sub in self.held.values() if sub.practitioner_id == practitioner_id]
+
+    async def delete(self, device_id: str) -> None:
+        self.wrote("delete")
+        self.held.pop(device_id, None)
+
+
+class StubConsents(_Part):
+    """Notification consents: the devices whose consent was withdrawn."""
+
+    def __init__(self, writes: Writes) -> None:
+        super().__init__(writes, "notification_consents")
+        self.withdrawn: list[tuple[str, str]] = []
+
+    async def withdraw(self, practitioner_id: str, device_id: str, at: datetime) -> None:
+        self.wrote("withdraw")
+        self.withdrawn.append((practitioner_id, device_id))
 
 
 class StubLimiter:
@@ -398,6 +511,7 @@ class StubUnit:
     async def commit(self) -> None:
         self.committed = True
         self._shared.commits += 1
+        self._shared.events.append("commit")
 
     async def rollback(self) -> None:
         return None
@@ -410,6 +524,9 @@ class StubUnits:
         self.scope_id = scope or ScopeId.tenant("tenant-a")
         self.writes = Writes()
         self.commits = 0
+        self.events: list[str] = []
+        """Cross-port order of what matters to a test: `commit` and, from a stub session store that
+        was given this list, `sessions.revoke`."""
         self.calls: list[str] = []
         self.people = StubPeople(self.writes, self.calls)
         self.registrations = StubRegistrations(self.writes)
@@ -423,6 +540,9 @@ class StubUnits:
         self.idempotency = StubIdempotency(self.writes)
         self.pins = StubPins(self.writes, self.calls)
         self.devices = StubDevices(self.writes, self.calls)
+        self.flags = StubFlags(self.writes)
+        self.push_subscriptions = StubPush(self.writes)
+        self.notification_consents = StubConsents(self.writes)
 
     def __call__(self) -> StubUnit:
         return StubUnit(self)

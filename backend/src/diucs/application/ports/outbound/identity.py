@@ -113,11 +113,27 @@ class ReporterSession:
     services: tuple[str, ...]
     created: datetime
     last_seen: datetime
+    epoch: int = 0
+    """The person's session epoch when this session began. A session whose epoch is not the
+    person's current epoch is dead (U37: sign out everywhere raises the epoch)."""
+
+
+class SessionEpochChanged(DomainError):
+    """A session could not be created because the person's epoch moved after the caller read it:
+    they were signed out everywhere in between. Carries no data (U37)."""
+
+    def __init__(self) -> None:
+        super().__init__("the person was signed out in the meantime")
 
 
 class SessionStore(Protocol):
     """Reporter sessions, bound to the tenant of the unit of work (I13). Losing them signs people
     out. A session id is never logged."""
+
+    async def epoch(self, practitioner_id: str) -> int:
+        """The person's current session epoch in the bound tenant: 0 until they are first signed
+        out everywhere. A sign-in reads it before it checks the PIN and passes it to `create`."""
+        ...
 
     async def create(
         self,
@@ -126,12 +142,18 @@ class SessionStore(Protocol):
         device_id: str,
         services: tuple[str, ...],
         now: datetime,
+        *,
+        epoch: int,
     ) -> str:
-        """Start a session and return its new random id (256 bits, urlsafe)."""
+        """Start a session and return its new random id (256 bits, urlsafe). `epoch` is the value
+        `epoch()` gave before the sign-in checked anything; when the person's epoch has moved since
+        (a sign out everywhere, a removal), nothing is created and SessionEpochChanged is raised, so
+        a sign-in that raced a revoke can never leave a live session behind (U37)."""
         ...
 
     async def get(self, session_id: str) -> ReporterSession | None:
-        """The session while it is live in the bound tenant, or None. Does not extend it."""
+        """The session while it is live in the bound tenant, or None (also None when its epoch is
+        not the person's current one). Does not extend it."""
         ...
 
     async def touch(self, session_id: str, now: datetime) -> bool:
@@ -143,7 +165,9 @@ class SessionStore(Protocol):
         ...
 
     async def delete_all_for_person(self, practitioner_id: str) -> None:
-        """End every session of one practitioner in the bound tenant ("sign out of every phone")."""
+        """End every session of one practitioner in the bound tenant ("sign out of every phone")
+        and raise the person's epoch, in one step: a session that was being created at the same
+        moment carries the old epoch and is dead on arrival (U37)."""
         ...
 
 
@@ -175,7 +199,33 @@ class DeviceRegistry(Protocol):
 
     async def known(self, practitioner_id: str, device_id: str) -> bool: ...
 
-    async def revoke_all(self, practitioner_id: str) -> None: ...
+    async def revoke_all(self, practitioner_id: str) -> int:
+        """Revoke every device of the practitioner that is not revoked already, pending ones
+        included, and return how many were revoked (U37)."""
+        ...
+
+    async def register_pending(self, practitioner_id: str, device_id: str, at: datetime) -> None:
+        """Register a device that waits for the lead's call-back (U37 lost phone): it is not
+        `known`, so it cannot sign in, until `confirm_pending`. Registering a device id that is
+        already registered for the practitioner changes nothing (a revoked device stays revoked);
+        one held by another practitioner is Conflict."""
+        ...
+
+    async def confirm_pending(self, practitioner_id: str, at: datetime) -> int:
+        """Make the practitioner's devices that wait for a call-back active, and return how many
+        (U37). Zero when none waits."""
+        ...
+
+    async def awaiting_callback(self, practitioner_id: str) -> list[str]:
+        """The ids of the practitioner's devices that wait for the lead's call-back and are not
+        revoked (U37)."""
+        ...
+
+    async def owner_of(self, device_id: str) -> str | None:
+        """The practitioner who holds this device id in the bound tenant, whether it is revoked or
+        not, or None. Another tenant's device is None (R11: the edge names a device, never a
+        person)."""
+        ...
 
     async def mark_verified(self, practitioner_id: str, device_id: str, at: datetime) -> None:
         """Record that a text code was verified for this practitioner's device at `at` (U32: the

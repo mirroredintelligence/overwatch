@@ -290,6 +290,15 @@ def _device_header(request: Request) -> str:
     return value
 
 
+def _is_store_outage(error: Exception) -> bool:
+    """An error of the cache or session store being unreachable: an OSError (a dropped socket) or
+    an error class of the Redis client, which is not an OSError. Found by module name, so this
+    adapter imports no outbound adapter and no client library (the independence contract)."""
+    return isinstance(error, OSError) or any(
+        base.__module__.split(".")[0] == "redis" for base in type(error).__mro__
+    )
+
+
 async def _answer(run: Callable[[], Awaitable[Response]]) -> Response:
     """Run one request and map what it can answer. Nothing the caller sent reaches a body; a cache
     or session store that cannot be reached is a fixed 503 that names no detail."""
@@ -299,7 +308,9 @@ async def _answer(run: Callable[[], Awaitable[Response]]) -> Response:
         return operation_outcome(
             429, "throttled", RATE_LIMITED_TEXT, headers={**_NO_STORE, **_RETRY_AFTER_WINDOW}
         )
-    except OSError as error:
+    except Exception as error:
+        if not _is_store_outage(error):
+            raise
         log.error("identity store unavailable: %s", type(error).__name__)
         return operation_outcome(
             503,

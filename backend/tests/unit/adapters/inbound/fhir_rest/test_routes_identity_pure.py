@@ -471,6 +471,42 @@ async def test_a_session_store_that_cannot_be_reached_is_a_503_and_nothing_is_ch
     assert container.units.writes.names == []
 
 
+class _RedisDown(Exception):
+    """Stands in for redis.exceptions.ConnectionError, which is not an OSError."""
+
+
+_RedisDown.__module__ = "redis.exceptions"
+
+
+async def test_a_redis_client_error_is_a_503_like_a_dropped_socket() -> None:
+    container = _Container()
+    container.register_device(verified_ago=timedelta(days=2))
+    container.give_pin()
+
+    async def down(practitioner_id: str) -> int:
+        raise _RedisDown("redis 10.0.0.5 refused the connection")
+
+    container.sessions.epoch = down  # type: ignore[method-assign]
+    async with client(container) as http:
+        response = await http.post("/identity/pin/verify", json={"deviceId": DEVICE, "pin": PIN})
+    assert response.status_code == 503
+    assert "10.0.0.5" not in response.text
+
+
+async def test_any_other_error_is_not_turned_into_a_503() -> None:
+    container = _Container()
+    container.register_device(verified_ago=timedelta(days=2))
+    container.give_pin()
+
+    async def broken(practitioner_id: str) -> int:
+        raise KeyError("a bug")
+
+    container.sessions.epoch = broken  # type: ignore[method-assign]
+    async with client(container) as http:
+        response = await http.post("/identity/pin/verify", json={"deviceId": DEVICE, "pin": PIN})
+    assert response.status_code == 500
+
+
 # ------------------------------------------------------------------ the 30-day check
 
 

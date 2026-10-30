@@ -218,8 +218,8 @@ async def test_the_suspended_outcome_is_not_a_flag_outcome_so_it_is_refused() ->
     assert response.json()["issue"][0]["expression"] == ["outcome"]
 
 
-async def test_the_flag_list_takes_only_open_flags() -> None:
+async def test_the_flag_list_takes_only_open_or_closed_flags() -> None:
     async with _client() as client:
-        response = await client.get(f"{FLAGS}?status=closed", headers=_bearer(Role.LEAD))
+        response = await client.get(f"{FLAGS}?status=everything", headers=_bearer(Role.LEAD))
     assert response.status_code == 400
     assert response.json()["issue"][0]["expression"] == ["status"]

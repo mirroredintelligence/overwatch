@@ -18,7 +18,7 @@ import type {
 } from './types';
 
 export const SCOPE_FLAGS: readonly ScopeFlag[] = ['in-pilot', 'later', 'out-of-scope'];
-export const QUEUE_TABS: readonly QueueTab[] = ['to-review', 'waiting', 'go-live', 'done'];
+export const QUEUE_TABS: readonly QueueTab[] = ['waiting', 'sent-back', 'approved', 'live', 'not-approved'];
 export const NOTE_MAX_LENGTH = 280;
 export const NAME_MAX_LENGTH = 200;
 
@@ -97,17 +97,15 @@ export function scopeReasonError(flag: ScopeFlag, reason: string): string | null
 }
 
 export function queueTabLabel(tab: QueueTab, counts: QueueResponse['counts'] | null): string {
-  const count = (n: number | undefined) => (n === undefined ? '' : ` (${n})`);
-  switch (tab) {
-    case 'to-review':
-      return `To review${count(counts?.toReview)}`;
-    case 'waiting':
-      return `Waiting${count(counts?.waiting)}`;
-    case 'go-live':
-      return `Go live${count(counts?.goLive)}`;
-    case 'done':
-      return 'Done';
-  }
+  const count = counts?.[tab];
+  const words: Record<QueueTab, string> = {
+    waiting: 'Waiting',
+    'sent-back': 'Sent back',
+    approved: 'Approved',
+    live: 'Live',
+    'not-approved': 'Not approved',
+  };
+  return count === undefined ? words[tab] : `${words[tab]} (${count})`;
 }
 
 export function submittedText(item: QueueItem): string {
@@ -215,23 +213,31 @@ export function parseScopeList(value: unknown): ScopeList {
 
 export function parseQueue(value: unknown): QueueResponse {
   const body = record(value);
-  const counts = record(body.counts);
-  const number = (v: unknown) => {
-    if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) throw new Error('expected a count');
-    return v;
-  };
+  const counts: QueueResponse['counts'] = {};
+  for (const tab of QUEUE_TABS) {
+    const n = record(body.counts)[tab];
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) throw new Error('expected a count');
+    counts[tab] = n;
+  }
+  const tab = str(body.tab);
+  if (!(QUEUE_TABS as readonly string[]).includes(tab)) throw new Error('expected a tab');
   return {
-    counts: { toReview: number(counts.toReview), waiting: number(counts.waiting), goLive: number(counts.goLive) },
+    tab: tab as QueueTab,
+    counts,
+    tabs: list(body.tabs, (item) => {
+      const t = record(item);
+      return { key: str(t.key), label: str(t.label), count: Number(t.count) };
+    }),
     items: list(body.items, (item) => {
       const i = record(item);
-      const firstIssue = optionalStr(i.firstIssue);
+      const category = optionalStr(i.category);
       return {
         id: str(i.id),
         serviceName: str(i.serviceName),
         state: str(i.state),
         submittedAt: str(i.submittedAt),
         submittedByRole: str(i.submittedByRole),
-        ...(firstIssue ? { firstIssue } : {}),
+        ...(category ? { category } : {}),
       };
     }),
   };

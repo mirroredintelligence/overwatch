@@ -10,11 +10,18 @@ or not. The cache is not a store of record: a failing read or write falls back t
 query and the registry gate are fakes here; the cache is the in-memory one.
 """
 
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.memory_cache import InMemoryCache
+from diucs.application.actor import Actor
+from diucs.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL
+from diucs.application.tenancy import ScopeKind, bind_network, bind_tenant, current_scope_or_none
 from diucs.application.use_cases.network_board_projector import (
     NETWORK_BOARD_CACHE_KEY,
     NETWORK_BOARD_CACHE_TTL,
@@ -26,12 +33,6 @@ from diucs.application.use_cases.network_board_projector import (
     network_board_from_dict,
     network_board_to_dict,
 )
-
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
-from diucs.application.ports.outbound.cache import NETWORK_BOARD_UPDATES_CHANNEL
-from diucs.application.tenancy import ScopeKind, bind_network, current_scope_or_none
 from diucs.application.use_cases.query_network_board import NetworkBoardView
 from diucs.domain.codes import Role, ServiceCategory, Status
 from diucs.domain.errors import NotFound, ValidationFailed
@@ -137,6 +138,15 @@ def projector(
     return built, query, access, store
 
 
+def keys_in(cache: InMemoryCache, network: str) -> frozenset[str]:
+    with bind_network(network):
+        return cache.keys()
+
+
+KEY_A = f"{NET_A.replace('net-', '_net-')}:cache:{NETWORK_BOARD_CACHE_KEY}"
+KEY_B = f"{NET_B.replace('net-', '_net-')}:cache:{NETWORK_BOARD_CACHE_KEY}"
+
+
 # the key
 
 
@@ -190,42 +200,39 @@ def test_the_events_that_rebuild_the_board_are_the_ones_that_change_what_it_show
 async def test_an_event_the_board_does_not_show_builds_nothing() -> None:
     built, query, _, cache = projector()
     assert await built.handle("GrantProposed", {"network_id": NET_A}) is False
-    assert query.built == [] and cache.keys() == frozenset()
+    assert query.built == [] and keys_in(cache, NET_A) == frozenset()
 
 
 async def test_a_rebuild_runs_in_the_network_scope_and_caches_and_announces_there() -> None:
     built, query, _, cache = projector()
-    received: list[str] = []
-    import asyncio
-
-    async def listen() -> None:
-        with bind_network(NET_A):
-            async for message in cache.subscribe(NETWORK_BOARD_UPDATES_CHANNEL):
-                received.append(message)
-                return
-
-    task = asyncio.create_task(listen())
-    await asyncio.sleep(0)
+    with bind_network(NET_A):
+        stream = await cache.subscribe(NETWORK_BOARD_UPDATES_CHANNEL)
+    with bind_network(NET_B):
+        other = await cache.subscribe(NETWORK_BOARD_UPDATES_CHANNEL)
     assert await built.handle("ProjectionApplied", {"network_id": NET_A, "service_id": "x"}) is True
-    await asyncio.wait_for(task, 1)
+    received = await asyncio.wait_for(stream.__anext__(), 1)
+    await stream.aclose()  # type: ignore[attr-defined]
 
     [(network, scope)] = query.built
     assert network == NET_A and scope.kind is ScopeKind.NETWORK and scope.value == NET_A
-    keys = cache.keys()
-    assert keys and all(NET_A in key for key in keys)
+    assert keys_in(cache, NET_A) == {KEY_A}
     assert current_scope_or_none() is None
-    message = json.loads(received[0])
+    message = json.loads(received)
     assert set(message) == {"type", "at"}
     assert message["type"] == NETWORK_BOARD_CHANGED
+    with pytest.raises(TimeoutError):  # the other network's stream heard nothing
+        await asyncio.wait_for(other.__anext__(), 0.05)
+    await other.aclose()  # type: ignore[attr-defined]
 
 
 async def test_two_networks_never_share_a_key_or_a_channel() -> None:
     built, _, _, cache = projector()
     await built.handle("MemberAdded", {"network_id": NET_A})
     await built.handle("MemberAdded", {"network_id": NET_B})
-    keys = cache.keys()
-    assert len(keys) == 2
-    assert {NET_A in key for key in keys} == {NET_B in key for key in keys} == {True, False}
+    assert keys_in(cache, NET_A) == {KEY_A}
+    assert keys_in(cache, NET_B) == {KEY_B}
+    with bind_tenant("tenant-b"):
+        assert cache.keys() == frozenset()
 
 
 @pytest.mark.parametrize("network_id", [None, "", "tenant-a", "net-", 7, "net-bad id"])
@@ -233,7 +240,7 @@ async def test_a_payload_without_a_valid_network_id_builds_nothing(network_id: A
     built, query, _, cache = projector()
     with pytest.raises(ValidationFailed):
         await built.handle("GrantEnded", {"network_id": network_id})
-    assert query.built == [] and cache.keys() == frozenset()
+    assert query.built == [] and keys_in(cache, NET_A) == frozenset()
 
 
 async def test_a_network_the_registry_does_not_know_is_raised_not_cached() -> None:
@@ -241,7 +248,7 @@ async def test_a_network_the_registry_does_not_know_is_raised_not_cached() -> No
     query.error = NotFound("the network was not found")
     with pytest.raises(NotFound):
         await built.handle("GrantEnded", {"network_id": NET_A})
-    assert cache.keys() == frozenset()
+    assert keys_in(cache, NET_A) == frozenset()
 
 
 async def test_an_applied_projection_rebuilds_its_network_and_a_rejected_one_does_not() -> None:
@@ -280,7 +287,7 @@ async def test_a_member_who_left_is_refused_although_the_board_is_cached() -> No
 async def test_a_miss_builds_and_stores_the_board_for_the_backstop_time() -> None:
     built, query, _, cache = projector()
     assert await built.get_board(staff(), NET_A) == view(NET_A)
-    assert len(query.built) == 1 and cache.keys()
+    assert len(query.built) == 1 and keys_in(cache, NET_A) == {KEY_A}
     assert await built.get_board(staff(), NET_A) == view(NET_A)
     assert len(query.built) == 1
 
@@ -304,4 +311,4 @@ async def test_a_non_member_reads_nothing_and_stores_nothing() -> None:
     built, query, _, cache = projector()
     with pytest.raises(NotFound):
         await built.get_board(staff("tenant-z"), NET_A)
-    assert query.built == [] and cache.keys() == frozenset()
+    assert query.built == [] and keys_in(cache, NET_A) == frozenset()

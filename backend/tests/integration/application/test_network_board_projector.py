@@ -16,10 +16,6 @@ from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-from diucs.application.use_cases.network_board_projector import (
-    NETWORK_BOARD_CACHE_KEY,
-    NetworkBoardProjector,
-)
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
@@ -29,6 +25,10 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.actor import Actor
 from diucs.application.network_access import NetworkAccess
 from diucs.application.tenancy import bind_network, bind_tenant
+from diucs.application.use_cases.network_board_projector import (
+    NETWORK_BOARD_CACHE_KEY,
+    NetworkBoardProjector,
+)
 from diucs.application.use_cases.query_network_board import QueryNetworkBoard
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotFound

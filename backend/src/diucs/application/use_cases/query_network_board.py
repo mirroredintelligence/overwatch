@@ -18,7 +18,7 @@ travel with the result; no row names the member's tenant, a grant or the member'
 from dataclasses import dataclass
 
 from diucs.application.actor import Actor
-from diucs.application.network_access import NetworkAccess
+from diucs.application.network_access import NetworkAccess, NetworkContext
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import NetworkUnitOfWorkFactory
 from diucs.application.tenancy import bind_network
@@ -53,6 +53,15 @@ class QueryNetworkBoard:
 
     async def execute(self, actor: Actor, network_id: str) -> NetworkBoardView:
         member = await self._access.require_member(actor, network_id)
+        return await self._board(member)
+
+    async def build(self, network_id: str) -> NetworkBoardView:
+        """The board of a network for system work (the projector's rebuild): no viewer, so no
+        membership check, but the network must exist and be active (NotFound otherwise). Never
+        reached from a request: a request goes through `execute`."""
+        return await self._board(await self._access.open_network(network_id))
+
+    async def _board(self, member: NetworkContext) -> NetworkBoardView:
         now = self._clock.now()
         registry = await self._access.view(member, now)
         with bind_network(member.network.id):

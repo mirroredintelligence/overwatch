@@ -53,11 +53,18 @@ NETWORK_VIEW_ROLES: Final[frozenset[Role]] = frozenset(
 
 
 @dataclass(frozen=True, slots=True)
-class NetworkMemberAccess:
-    """A viewer the registry has confirmed: an active member of an active network."""
+class NetworkContext:
+    """An active network and its settings: what a read needs once the network is known to exist.
+    The board projector builds from this, with no viewer (its work is system work)."""
 
     network: Network
     settings: NetworkSettings
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkMemberAccess(NetworkContext):
+    """A viewer the registry has confirmed: an active member of an active network."""
+
     membership: NetworkMembership
 
 
@@ -105,12 +112,18 @@ class NetworkAccess:
         membership = await self._registry.active_membership(network_id, actor.tenant_id)
         if membership is None:
             raise NotFound(NETWORK_NOT_FOUND)
+        context = await self.open_network(network_id)
+        return NetworkMemberAccess(context.network, context.settings, membership)
+
+    async def open_network(self, network_id: str) -> NetworkContext:
+        """The network, if it exists and is active, else NotFound. For system work (the board
+        projector) and the second step of `require_member`: it checks no viewer."""
         registered = await self._registry.get_network(network_id)
         if registered is None or registered.network.status is not NetworkStatus.ACTIVE:
             raise NotFound(NETWORK_NOT_FOUND)
-        return NetworkMemberAccess(registered.network, registered.settings, membership)
+        return NetworkContext(registered.network, registered.settings)
 
-    async def view(self, access: NetworkMemberAccess, now: datetime) -> RegistryView:
+    async def view(self, access: NetworkContext, now: datetime) -> RegistryView:
         network_id = access.network.id
         listings = await self._registry.listings(network_id)
         grants = await self._registry.grants(network_id)

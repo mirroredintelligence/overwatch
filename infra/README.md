@@ -37,6 +37,7 @@ the entities for them are in `servicebus-config.json`:
 | `network-projector` on `booking.events`, `criteria.events`, `registration.events` | subscription | no | the same producer |
 | `projection.work` | queue | no | the apply step: the message's tenant is the source member, the network is in the body, and the consumer binds the network after the registry confirms it |
 | `network-projector` on `network.events` | subscription | no | nothing yet: the reconciliation sweep (TEN-056) reads the governance events |
+| `network-board-projector` on `network.events` | subscription | no | the network board projector (TEN-058): rebuilds a network's cached board when a grant becomes effective or ends, or a member is added or removed |
 
 A message on `projection.work` has the application property `tenantId` (the source tenant) and a
 message id `<tenant>:proj-<digest>` that is the same for the same request, so a repeat is dropped by

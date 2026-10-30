@@ -32,6 +32,10 @@ from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
 from diucs.adapters.inbound.workers.board_consumer import BoardRebuilder, board_runners
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.message_senders import push_runner, sender_runners
+from diucs.adapters.inbound.workers.network_board_consumer import (
+    NetworkBoardRebuilder,
+    network_board_runners,
+)
 from diucs.adapters.inbound.workers.network_projector import (
     NetworkApplyConsumer,
     network_runners,
@@ -52,6 +56,7 @@ from diucs.adapters.outbound.projection_queue import BusProjectionPublisher
 from diucs.adapters.outbound.push_webpush.web_push import configured_push_sender
 from diucs.adapters.outbound.telemetry.attributes import INSTRUMENTATION_NAME
 from diucs.adapters.outbound.telemetry.consumer import consumer_observer
+from diucs.application.network_access import NetworkAccess
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.messaging import PushSender
 from diucs.application.ports.outbound.sealing import ContentSealer
@@ -61,8 +66,10 @@ from diucs.application.use_cases.apply_projection import ApplyProjection
 from diucs.application.use_cases.board_projector import BoardProjector
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
+from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
 from diucs.application.use_cases.project_network import ProjectNetwork
 from diucs.application.use_cases.query_board import QueryBoard
+from diucs.application.use_cases.query_network_board import QueryNetworkBoard
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.application.use_cases.respond_to_booking import RespondToBooking, SetDeclineReason
 from diucs.application.work import WorkKind
@@ -113,6 +120,7 @@ def build_runners(
     app_url: str = "",
     board_projector: BoardRebuilder | None = None,
     network_projector: NetworkProjectorWiring | None = None,
+    network_board_projector: NetworkBoardRebuilder | None = None,
 ) -> list[ServiceBusRunner]:
     """One runner for each inbound queue, each over a consumer that binds the message's tenant and
     handles the message under its trace span (O01): the replies, the receipts and, with the
@@ -152,6 +160,8 @@ def build_runners(
         runners += network_runners(
             client, network_projector.producer, network_projector.apply, tenants, observe
         )
+    if network_board_projector is not None:
+        runners += network_board_runners(client, network_board_projector, tenants, observe)
     return runners
 
 
@@ -199,6 +209,17 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
         )
         sealer = AesGcmContentSealer(container.secrets)
         registry = Neo4jNetworkRegistry(container.neo4j)
+        network_access = NetworkAccess(registry, container.tenants)
+        network_board_projector = NetworkBoardProjector(
+            QueryNetworkBoard(
+                neo4j_network_uow_factory(container.neo4j, clock=container.clock, read_only=True),
+                network_access,
+                container.clock,
+            ),
+            network_access,
+            cache,
+            container.clock,
+        )
         projection_producer = ProjectNetwork(
             neo4j_uow_factory(container.neo4j, clock=container.clock, read_only=True),
             registry,
@@ -212,6 +233,7 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
                     neo4j_network_uow_factory(container.neo4j, clock=container.clock),
                     registry,
                     container.clock,
+                    notifier=network_board_projector,
                 ),
                 registry,
                 tenants,
@@ -233,6 +255,7 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
                 QueryBoard(container.uow_factory, container.clock), cache, container.clock
             ),
             network_projector=network_projector,
+            network_board_projector=network_board_projector,
         )
         await run_workers([runner.serve for runner in runners], stop)
     finally:

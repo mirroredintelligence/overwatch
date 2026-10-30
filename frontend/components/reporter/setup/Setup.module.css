@@ -1,0 +1,64 @@
+/* The reporter's set-up screens (W33, W34): one column, phone first, buttons 52px high. */
+
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  max-width: 32rem;
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: var(--space-5) var(--space-4);
+  color: var(--c-ink);
+  background: var(--c-bg);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+}
+
+.caption {
+  margin: 0;
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+}
+
+.steps {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  min-height: 52px;
+  padding: var(--space-3);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius-card);
+}
+
+.option input {
+  width: 1.5rem;
+  height: 1.5rem;
+  margin-top: 0.25rem;
+}
+
+.hint {
+  display: block;
+  margin-top: var(--space-1);
+  color: var(--c-muted);
+  font-size: var(--type-caption-size);
+}
+
+.notice {
+  padding: var(--space-3);
+  border-left: 4px solid var(--c-amber-tint);
+  background: var(--c-tint);
+}

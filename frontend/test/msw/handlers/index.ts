@@ -6,6 +6,7 @@ import { criteriaHandlers } from './criteria';
 import { leadHandlers } from './lead';
 import { linkHandlers } from './links';
 import { registrationHandlers as reviewerRegistrationHandlers, registrationStepHandlers } from './registrations';
+import { reporterHandlers } from './reporter';
 import { staffHandlers } from './staff';
 
 // Default handlers for every test. Feature tasks add their handlers in
@@ -21,4 +22,5 @@ export const handlers: RequestHandler[] = [
   ...registrationStepHandlers,
   ...criteriaHandlers,
   ...leadHandlers,
+  ...reporterHandlers,
 ];

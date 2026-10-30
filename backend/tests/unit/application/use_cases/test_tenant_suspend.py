@@ -18,6 +18,7 @@ import pytest
 from diucs.adapters.inbound.fhir_rest.tenant_gate import RECORD_TTL, TenantGate
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
+from diucs.application.idempotency import encode_result
 from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
 from diucs.application.use_cases.tenant_suspend import (
     ResumeTenant,
@@ -375,6 +376,10 @@ class _Idempotency:
         return self.stored.get(key)
 
     async def put(self, key: str, value: object) -> None:
+        # The real store refuses a result it could not decode again (a bare string, a local class):
+        # the fake does too, so a marker of a kind the store refuses fails here and not only on a
+        # database (TEN-073 integration finding).
+        encode_result(value)
         self.stored[key] = value
 
 

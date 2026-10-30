@@ -75,6 +75,14 @@ about it (`auth.forget_tenant`). The use case never waits on it and a failing on
 DONE_MARK: Final = "tenant-resume"
 
 
+@dataclass(frozen=True, slots=True)
+class ResumeDone:
+    """What the resume marker stores: the instant the tenant-scope work was done. A dataclass,
+    because the idempotency store keeps only results it can decode again."""
+
+    at: str
+
+
 def resume_marker(scope: ScopeId, epoch: int) -> str:
     """The key under which a resume's tenant-scope work is recorded: the tenant and the epoch the
     record was at when the work was done, so a run repeated after a partial failure sees it."""
@@ -245,7 +253,7 @@ class ResumeTenant(OperatorUseCase):
                         )
                     )
                     announced += 1
-                await uow.idempotency.put(marker, format_instant(now))
+                await uow.idempotency.put(marker, ResumeDone(format_instant(now)))
                 await _audit(
                     uow,
                     self._clock,

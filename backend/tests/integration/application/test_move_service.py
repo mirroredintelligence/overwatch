@@ -90,7 +90,12 @@ def _start(uow_factory: UnitOfWorkFactory) -> StartServiceMove:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
+async def seeded(
+    clean_graph: None,
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+) -> None:
     """One phone (prac-1, OLD_MOBILE) holding UCR West and UCR East; a second phone (prac-2,
     NEW_MOBILE) that is a registered reporter for UCR South; UCR North and UCR Park exist."""
     await ensure_audit_heads(neo4j_driver, tenant_id)

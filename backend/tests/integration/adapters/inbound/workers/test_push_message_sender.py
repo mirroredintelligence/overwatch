@@ -24,7 +24,7 @@ from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.messaging import Communication, PushSubscription
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.domain.codes import Channel
-from tests.support.ladder_rig import reporter, seed_people
+from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -74,8 +74,16 @@ def _message(tenant: str) -> BusMessage:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
+async def seeded(
+    clean_graph: None,
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+) -> None:
     await ensure_audit_heads(neo4j_driver, tenant_id)
+    async with uow_factory() as uow:
+        await uow.services.save(virtual_ward())
+        await uow.commit()
     await seed_people(uow_factory, reporter(1, None))
     async with uow_factory() as uow:
         await uow.communications.add(

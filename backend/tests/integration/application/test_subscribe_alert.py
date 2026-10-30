@@ -25,7 +25,7 @@ from diucs.domain.codes import AlertKind, Role
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole, PractitionerRoleCode
 from tests.support.actors import ACTOR_TENANT
-from tests.support.ladder_rig import reporter, seed_people
+from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads
 
@@ -72,7 +72,12 @@ def _save(uow_factory: UnitOfWorkFactory, driver: AsyncDriver) -> SaveAlertPrefe
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
+async def seeded(
+    clean_graph: None,
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+) -> None:
     """An exec (exec-1), a deputy with a shift-lead role (deputy-1), a reporter (prac-1)."""
     await ensure_audit_heads(neo4j_driver, tenant_id)
     deputy_role = PractitionerRole(
@@ -92,6 +97,9 @@ async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tena
         ):
             await uow.people.save_practitioner(person)
         await uow.people.save_role(deputy_role)
+        await uow.commit()
+    async with uow_factory() as uow:
+        await uow.services.save(virtual_ward())
         await uow.commit()
     await seed_people(uow_factory, reporter(1, None))
 

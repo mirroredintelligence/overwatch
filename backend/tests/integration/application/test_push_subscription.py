@@ -25,7 +25,7 @@ from diucs.application.use_cases.push_subscription import (
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound
 from tests.support.actors import ACTOR_TENANT
-from tests.support.ladder_rig import reporter, seed_people
+from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads
 
@@ -61,9 +61,17 @@ def _actor(practitioner_id: str) -> Actor:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def seeded(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str) -> None:
+async def seeded(
+    clean_graph: None,
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+) -> None:
     """One reporter, prac-1, with no device yet. The audit head exists for the run tenant."""
     await ensure_audit_heads(neo4j_driver, tenant_id)
+    async with uow_factory() as uow:
+        await uow.services.save(virtual_ward())
+        await uow.commit()
     await seed_people(uow_factory, reporter(1, None))
 
 

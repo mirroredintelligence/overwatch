@@ -239,7 +239,10 @@ async def _configure(world: World, tenant: str) -> None:
         drafted = await DraftTenantConfig(factory, world.clock, roles).execute(
             DraftConfigCommand(_admin(tenant, "admin-1"), 0, dict(WORDING))
         )
-        for approver in ("admin-2", "admin-3"):
+        # The wording keys are not clinical: one approver completes the version, and a further
+        # approval of a version that is already current is refused (InvalidTransition).
+        assert drafted.diff.approvals_required == 1
+        for approver in ("admin-2", "admin-3")[: drafted.diff.approvals_required]:
             await ApproveTenantConfig(factory, world.clock, roles).execute(
                 ApproveConfigCommand(_admin(tenant, approver), drafted.version)
             )
@@ -501,15 +504,25 @@ async def test_the_invitation_holds_no_token_number_or_link_at_rest(world: World
     with as_tenant(NEW):
         await _invite_use_case(world, NEW).execute(InviteTenantAdminCommand(_operator(NEW), MOBILE))
 
-    async def everything(tx: AsyncManagedTransaction) -> str:
-        rows = await (
-            await tx.run("MATCH (n {tenantId: $t}) RETURN properties(n) AS p", t=NEW)
+    async def everything(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
+        return await (
+            await tx.run(
+                "MATCH (n {tenantId: $t}) RETURN labels(n) AS labels, properties(n) AS p", t=NEW
+            )
         ).data()
-        return json.dumps(rows, default=str)
 
-    dump = await read_tx(world.driver, everything)
-    for secret in ("07700900123", "+447700900123", "07700 900123", "/i/"):
+    rows = await read_tx(world.driver, everything)
+    secrets = ("07700900123", "+447700900123", "07700 900123", "/i/")
+    # The number lives in one place, the protected contact store; no other node holds it, and no
+    # node of any kind holds the national form, the spaced form or a link path.
+    holders = [
+        r["labels"] for r in rows if any(x in json.dumps(r["p"], default=str) for x in secrets)
+    ]
+    assert holders == [["ProtectedContact"]]
+    dump = json.dumps([r["p"] for r in rows if "ProtectedContact" not in r["labels"]], default=str)
+    for secret in secrets:
         assert secret not in dump
+    assert "07700900123" not in json.dumps(rows, default=str).replace("+447700900123", "")
     # The link token is the tenant's own purpose, by hash only; the contact is under its key.
     assert TENANT_ADMIN_INVITE in dump
     async with world.factory(NEW)() as uow:

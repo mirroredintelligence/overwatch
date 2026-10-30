@@ -16,7 +16,7 @@ import os
 import re
 import secrets
 import time
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Awaitable, Callable, Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, Final
 
@@ -35,15 +35,21 @@ LEAK_MESSAGE: Final = (
 _DIGITS: Final = "0123456789abcdefghijklmnopqrstuvwxyz"
 _NONCE: Final = re.compile(r"[0-9a-f]{4}")
 # `tt-<token>`, `tt-<token>-b` or `net-<token>`, where the token is `<pid>-<start>-<nonce>` with
-# the pid and the start in base 36.
+# the pid and the start in base 36, and `-w<n>` (n in base 36) after the nonce for the identity of
+# a pytest-xdist worker (TEN-035).
 _RUN_ID: Final = re.compile(
-    r"(?:tt-(?P<tp>[0-9a-z]+)-(?P<ts>[0-9a-z]+)-(?P<tn>[0-9a-f]{4})(?P<other>-b)?"
-    r"|net-(?P<np>[0-9a-z]+)-(?P<ns>[0-9a-z]+)-(?P<nn>[0-9a-f]{4}))"
+    r"(?:tt-(?P<tp>[0-9a-z]+)-(?P<ts>[0-9a-z]+)-(?P<tn>[0-9a-f]{4})(?:-w(?P<tw>[0-9a-z]{1,3}))?"
+    r"(?P<other>-b)?"
+    r"|net-(?P<np>[0-9a-z]+)-(?P<ns>[0-9a-z]+)-(?P<nn>[0-9a-f]{4})(?:-w(?P<nw>[0-9a-z]{1,3}))?)"
 )
 # The largest values that keep every id within the 31 characters of a scope id: Linux pids stop at
 # 2**22, and 2**36 seconds after the epoch is the year 4147.
 MAX_PID: Final = 2**22
 MAX_STARTED: Final = 2**36 - 1
+# At most this many parallel workers (`-w` and three base-36 digits keep a scope id within 31).
+MAX_WORKERS: Final = 4096
+WORKERINPUT_KEY: Final = "diucs_run"
+_WORKER_ID: Final = re.compile(r"gw(0|[1-9][0-9]*)")
 
 
 class TenantLeak(AssertionError):
@@ -74,6 +80,10 @@ class RunIdentity:
     pid: int
     started: int
     nonce: str
+    # The number of the pytest-xdist worker this identity is for, or None for a session that has
+    # no workers (and for the controller). A worker shares its controller's pid and start, so the
+    # orphan sweeper finds the tenants of every worker when the controller dies (TEN-035).
+    worker: int | None = None
 
     def __post_init__(self) -> None:
         if not _is_whole(self.pid, MAX_PID):
@@ -82,10 +92,22 @@ class RunIdentity:
             raise ValueError("the run start must be a whole number of seconds from 0 to 2**36 - 1")
         if not isinstance(self.nonce, str) or _NONCE.fullmatch(self.nonce) is None:
             raise ValueError("the run nonce must be four lower-case hexadecimal characters")
+        if self.worker is not None and not _is_whole(self.worker, MAX_WORKERS - 1):
+            raise ValueError("the worker must be a whole number below 4096")
 
     @property
     def token(self) -> str:
-        return f"{_base36(self.pid)}-{_base36(self.started)}-{self.nonce}"
+        base = f"{_base36(self.pid)}-{_base36(self.started)}-{self.nonce}"
+        return base if self.worker is None else f"{base}-w{_base36(self.worker)}"
+
+    def for_worker(self, index: int) -> RunIdentity:
+        """The identity of worker number `index` of this run: its own tenant, second tenant and
+        network scope, and the owner (pid, start) of the run."""
+        if self.worker is not None or not _is_whole(index, MAX_WORKERS - 1):
+            raise ValueError(
+                "the worker must be a whole number below 4096, of a run with no worker"
+            )
+        return RunIdentity(self.pid, self.started, self.nonce, index)
 
     @property
     def tenant_id(self) -> str:
@@ -128,13 +150,42 @@ def parse_run_id(scope_value: str) -> RunIdentity | None:
     pid_text = found["tp"] or found["np"]
     started_text = found["ts"] or found["ns"]
     nonce = found["tn"] or found["nn"]
+    worker_text = found["tw"] or found["nw"]
     try:
-        identity = RunIdentity(int(pid_text, 36), int(started_text, 36), nonce)
+        identity = RunIdentity(
+            int(pid_text, 36),
+            int(started_text, 36),
+            nonce,
+            None if worker_text is None else int(worker_text, 36),
+        )
     except ValueError:
         return None
     if scope_value not in (identity.tenant_id, identity.other_tenant_id, identity.network_id):
         return None
     return identity
+
+
+def workerinput_for(identity: RunIdentity) -> dict[str, object]:
+    """What the controller sends each xdist worker (in `workerinput`): its own run identity, as
+    plain values. The worker adds its number to it (`identity_from_workerinput`)."""
+    return {WORKERINPUT_KEY: [identity.pid, identity.started, identity.nonce]}
+
+
+def identity_from_workerinput(received: Mapping[str, object]) -> RunIdentity:
+    """The identity of this worker, from the controller's `workerinput`: the controller's run and
+    the number in `workerid` (`gw0`, `gw1`, ...). Anything else raises ValueError naming
+    `workerinput`: a worker that cannot tell whose run it is must not guess a tenant."""
+    run = received.get(WORKERINPUT_KEY)
+    worker = received.get("workerid")
+    if not isinstance(run, list | tuple) or len(run) != 3:
+        raise ValueError("workerinput has no run identity from the controller")
+    if not isinstance(worker, str) or (named := _WORKER_ID.fullmatch(worker)) is None:
+        raise ValueError(f"workerinput has no usable worker id: {worker!r}")
+    pid, started, nonce = run
+    try:
+        return RunIdentity(pid, started, nonce).for_worker(int(named.group(1)))
+    except ValueError as error:
+        raise ValueError(f"workerinput does not hold a valid run identity: {error}") from error
 
 
 def tenant_scope(tenant: str | ScopeId) -> ScopeId:

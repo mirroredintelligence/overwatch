@@ -51,7 +51,7 @@ Once the seam is delivered and "tenancy enforced" is recorded, the full rules ap
 - **Harness:** each run uses a unique tenant and `clean_graph` deletes only that tenant's nodes. Runs share one Neo4j. Schema-changing tests and container-lifecycle tests still run alone.
 - **Evidence:** a "Tenant isolation" section in the evidence file (see the template). Register it with `delivery.py evidence <ID> --kind other --ref <section> --summary "tenant-isolation: <result>"` until the ledger has a dedicated kind.
 
-Until the tenant-per-run harness exists, run tests that need Neo4j one at a time (a machine-wide lock). Parallel runs each started their own Neo4j, overloaded the machine and filled the disk; unit, architecture and front-end tests are unaffected. Since DEC-135 the harness also takes its own lock (`/tmp/diucs-neo4j-harness.lock`) before it starts a container, so two sessions can no longer run two containers at once; the manual `flock /tmp/diucs-neo4j-tests.lock` is a different file and still queues whole runs.
+The tenant-per-run harness exists (TEN-033 to TEN-035): each run works in its own tenants on one shared Neo4j and runs go in parallel. Every test that writes to the graph writes in the run's tenant (`tenant_id`, `other_tenant_id`; never a fixed tenant id), every raw statement in a test carries `tenantId: $tenant`, and the wipe between tests deletes only the run's own tenants. How to run, and which tests run alone, is in `/CLAUDE.md`.
 
 ## Hazards multi-tenancy adds
 

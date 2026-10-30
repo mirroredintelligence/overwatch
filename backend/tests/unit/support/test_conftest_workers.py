@@ -76,3 +76,23 @@ def test_a_worker_with_a_broken_workerinput_stops_with_a_clear_message() -> None
 
     with pytest.raises(pytest.UsageError, match="workerinput"):
         root_conftest.pytest_configure(config)
+
+
+def _item(workers: int | None, *, exclusive: bool) -> Any:
+    received = None if workers is None else {"workercount": workers}
+    marker = object() if exclusive else None
+    return SimpleNamespace(
+        config=SimpleNamespace(workerinput=received) if received else SimpleNamespace(),
+        get_closest_marker=lambda name: marker if name == "exclusive" else None,
+    )
+
+
+def test_an_exclusive_test_fails_on_a_worker_with_the_commands_to_use_instead() -> None:
+    with pytest.raises(pytest.fail.Exception, match="make test-parallel"):
+        root_conftest._refuse_exclusive_on_a_worker(_item(4, exclusive=True))
+
+
+def test_an_ordinary_test_on_a_worker_and_an_exclusive_one_in_a_serial_run_are_left_alone() -> None:
+    root_conftest._refuse_exclusive_on_a_worker(_item(4, exclusive=False))
+    root_conftest._refuse_exclusive_on_a_worker(_item(None, exclusive=True))
+    root_conftest._refuse_exclusive_on_a_worker(_item(1, exclusive=True))

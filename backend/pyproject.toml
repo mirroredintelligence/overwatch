@@ -36,6 +36,7 @@ dev = [
     "mypy>=2.4.0",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
+    "pytest-xdist>=3.8.0",
     "pyyaml>=6.0.3",
     "ruff>=0.17.2",
 ]
@@ -46,6 +47,9 @@ asyncio_default_fixture_loop_scope = "session"
 asyncio_default_test_loop_scope = "session"
 pythonpath = ["."]
 testpaths = ["tests"]
+# Under pytest-xdist (-n) every test of a file runs on one worker: several modules depend on the order
+# of their own tests, their module fixtures and the probes they leave behind (TEN-035).
+addopts = "--dist loadfile"
 markers = [
     "integration: needs the Docker services in infra/",
     "emulator_limit: a case where the emulator refuses what the port allows; names the case, the emulator and the error (DEC-102)",

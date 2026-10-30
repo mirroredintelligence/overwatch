@@ -17,6 +17,7 @@ runs share one Neo4j, and under pytest-xdist each worker has tenants of its own 
 import os
 from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 import pytest_asyncio
@@ -28,9 +29,11 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, bind_tenant
 from diucs.bootstrap.container import TEST_NOW
 from tests.support.harness_mode import (
+    ExclusiveUnderParallel,
     Mode,
     exclusive_selected,
     open_harness_database,
+    refuse_exclusive_under_parallel,
     select_mode,
 )
 from tests.support.neo4j import (
@@ -41,7 +44,13 @@ from tests.support.neo4j import (
     wipe_tenant,
 )
 from tests.support.neo4j_locks import apply_migrations_once
-from tests.support.tenancy import RunIdentity, guard_test, new_run_identity
+from tests.support.tenancy import (
+    RunIdentity,
+    guard_test,
+    identity_from_workerinput,
+    new_run_identity,
+    workerinput_for,
+)
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory, uow_factory_on
 from tests.support.watchdog import configured_timeout_s, setup_timeout_s, time_limit
 
@@ -57,18 +66,34 @@ _SESSION_ENV = ("NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD")
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """One run identity per pytest session (worker identities under xdist are TEN-035). The three
+    """One run identity per pytest session. Under pytest-xdist the controller makes it and sends it
+    to every worker (`pytest_configure_node`); a worker takes the identity of its own number, so
+    each worker has a tenant, a second tenant and a network scope of its own (TEN-035). The three
     ids are exported for child processes: the front end's end-to-end run reads them later."""
-    identity = new_run_identity()
+    received = getattr(config, "workerinput", None)
+    if received is None:
+        identity = new_run_identity()
+    else:
+        try:
+            identity = identity_from_workerinput(received)
+        except ValueError as error:
+            raise pytest.UsageError(str(error)) from error
     config.stash[_RUN_IDENTITY] = identity
     os.environ["DIUCS_TEST_TENANT"] = identity.tenant_id
     os.environ["DIUCS_TEST_OTHER_TENANT"] = identity.other_tenant_id
     os.environ["DIUCS_TEST_NETWORK"] = identity.network_id
 
 
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node: Any) -> None:
+    """xdist hook, in the controller: tell the worker which run it belongs to. The worker's number
+    is added on its side, from its `workerid`."""
+    node.workerinput.update(workerinput_for(node.config.stash[_RUN_IDENTITY]))
+
+
 def pytest_collection_finish(session: pytest.Session) -> None:
-    """After the selection (`-m`, `-k`) is applied: is this an exclusive run? With parallel workers
-    an exclusive test is refused, with the commands to use instead."""
+    """After the selection (`-m`, `-k`) is applied: is this an exclusive run? The session then holds
+    the shared Neo4j's use lock exclusively (`harness_neo4j`)."""
     session.config.stash[_EXCLUSIVE_RUN] = exclusive_selected(session.items)
 
 
@@ -86,10 +111,23 @@ def _capture_release(item: pytest.Item) -> Callable[[], None] | None:
     return lambda: manager.suspend_global_capture(in_=False)
 
 
+def _refuse_exclusive_on_a_worker(item: pytest.Item) -> None:
+    """An exclusive test cannot run beside another test, so it fails, naming the commands to use,
+    when the session has parallel workers (xdist). It fails before any fixture runs: a worker that
+    refused at collection would crash and the controller would report an internal error."""
+    received = getattr(item.config, "workerinput", None)
+    workers = None if received is None else received.get("workercount")
+    try:
+        refuse_exclusive_under_parallel([item], workers)
+    except ExclusiveUnderParallel as error:
+        pytest.fail(str(error), pytrace=False)
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
     """Fail a test whose fixture set-up runs past DIUCS_TEST_SETUP_TIMEOUT seconds (default 900,
     0 turns it off). The harness pauses this clock for its lock wait and image pull (F10b)."""
+    _refuse_exclusive_on_a_worker(item)
     with time_limit(
         setup_timeout_s(), f"{item.nodeid} (set-up)", release_capture=_capture_release(item)
     ):

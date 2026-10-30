@@ -11,9 +11,9 @@ machine to load 15 on 4 cores. So:
   /tmp/diucs-neo4j-harness.lock (environment DIUCS_NEO4J_LOCK overrides the path) and holds it until
   stop_throwaway_neo4j, or until the process dies (the operating system frees it). A second session
   waits up to DIUCS_NEO4J_LOCK_TIMEOUT seconds (default 3600), then fails naming the holder's pid.
-  Agents also wrap pytest in `flock /tmp/diucs-neo4j-tests.lock <command>`. That is a different
-  file, deliberately: the manual lock queues whole runs, this one guards the container, and a
-  process that takes the manual lock first and this one second can never deadlock.
+  Since TEN-034 this lock matters only for private containers (owned mode, `own_neo4j`): runs on
+  the shared Neo4j (tests/support/harness_mode.py) need no lock to queue on, and agents no longer
+  wrap pytest in a manual flock.
 * Memory limits. The container gets --memory (DIUCS_NEO4J_MEMORY, default 1g) and Neo4j heap
   (DIUCS_NEO4J_HEAP, 256m) and page cache (DIUCS_NEO4J_PAGECACHE, 128m) settings.
 * Owner labels. The container is labelled with the owning pid, that process's start time and the

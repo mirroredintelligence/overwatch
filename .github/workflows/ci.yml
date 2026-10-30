@@ -1,9 +1,13 @@
 # Continuous integration for the DIUCS capacity app.
 # Runs all checks when started by hand (it was every push and pull request until the owner disabled it). Nothing here deploys anything.
 #
-# The back-end integration tests start their own throwaway Neo4j container per pytest session
-# (DEC-008, harness from F10). This workflow therefore does not start infra/docker-compose.yml;
-# it relies on the Docker daemon that GitHub-hosted ubuntu runners provide.
+# The back-end integration tests run on one shared Neo4j (TEN-034, TEN-035): the job starts a Neo4j
+# service container and a Redis service container, and the harness attaches to the Neo4j through
+# DIUCS_TEST_NEO4J_URI, each pytest worker working in tenants of its own. The job does not start
+# infra/docker-compose.yml. The schema and lifecycle tests start private containers on the Docker
+# daemon that GitHub-hosted ubuntu runners provide. The Service Bus emulator and the compose stack
+# are not available here, so the tests marked servicebus and infra are left out of the second phase
+# and run on a machine that has the compose stack (backend/Makefile, make test-integration).
 
 name: ci
 
@@ -54,10 +58,38 @@ jobs:
         run: uv run pytest tests/unit
 
   backend:
-    name: backend (full suite, Neo4j in Docker)
+    name: backend (full suite, shared Neo4j service)
     runs-on: ubuntu-latest
     env:
       UV_PYTHON: "3.14"
+      # The harness attaches to the Neo4j service below (never to a port-7687 stack by accident).
+      DIUCS_TEST_NEO4J_URI: bolt://localhost:7690
+      DIUCS_TEST_NEO4J_USER: neo4j
+      DIUCS_TEST_NEO4J_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+    services:
+      neo4j:
+        image: neo4j:5.26.32-community
+        env:
+          NEO4J_AUTH: neo4j/ci-${{ github.run_id }}-${{ github.run_attempt }}
+          NEO4J_server_memory_heap_initial__size: 768m
+          NEO4J_server_memory_heap_max__size: 768m
+          NEO4J_server_memory_pagecache_size: 384m
+        ports:
+          - 7690:7687
+        options: >-
+          --health-cmd "cypher-shell -u neo4j -p ci-${{ github.run_id }}-${{ github.run_attempt }} 'RETURN 1'"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 12
+      redis:
+        image: redis:7.4.11-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -68,8 +100,14 @@ jobs:
         run: uv sync --frozen
       - name: Docker available
         run: docker version
-      - name: Full test suite, including integration
-        run: uv run pytest
+      - name: Parallel phase (workers share the Neo4j, each in its own tenants)
+        run: uv run pytest -n 4 --dist loadfile -m "not exclusive" tests/unit tests/architecture tests/integration tests/contract
+      - name: Exclusive phase (alone; the Service Bus emulator and the compose stack are not in CI)
+        run: |
+          # Exit code 5 is "no test selected": nothing left to run alone is not a failure.
+          code=0
+          uv run pytest -m "exclusive and not servicebus and not infra" tests/integration tests/contract || code=$?
+          if [ "$code" -ne 0 ] && [ "$code" -ne 5 ]; then exit "$code"; fi
 
   frontend:
     name: frontend

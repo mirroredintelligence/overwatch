@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { BACKEND_PORT } from './support/env';
+import { BACKEND_PORT, SITE_URL } from './support/env';
 import { signIn } from './support/session';
 import { LIVE_TOKEN_PREFIX } from './support/tokens';
 
@@ -63,7 +63,7 @@ async function openLiveBoard(
   token: string,
   options: { fakeClock?: boolean } = {},
 ) {
-  await signIn(page.context(), 'http://localhost:3000', 'wall', token);
+  await signIn(page.context(), SITE_URL, 'wall', token);
   if (options.fakeClock) await page.clock.install();
   await page.goto('/screen');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
@@ -203,7 +203,7 @@ test('goes to /screen/pair when the back end stops knowing this screen', async (
   await openLiveBoard(page, request, token, { fakeClock: true });
   await expectCurrent(page);
   // A fresh session whose token the back end refuses: the next refetch is a 401.
-  await signIn(page.context(), 'http://localhost:3000', 'wall', 'a-token-the-back-end-no-longer-knows');
+  await signIn(page.context(), SITE_URL, 'wall', 'a-token-the-back-end-no-longer-knows');
 
   await page.clock.fastForward(65_000);
 
@@ -217,7 +217,7 @@ test('the BFF stream takes no tenant from the address, a query string or a heade
   const cookies = await page.context().cookies();
   const header = cookies.map((c) => `${c.name}=${c.value}`).join('; ');
 
-  const response = await request.get('http://localhost:3000/api/bff/events?tenant=other&scope=network', {
+  const response = await request.get(`${SITE_URL}/api/bff/events?tenant=other&scope=network`, {
     headers: { Cookie: header, 'X-Tenant-Id': 'other', 'X-Scope': 'network' },
     timeout: 3_000,
     failOnStatusCode: false,

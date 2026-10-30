@@ -111,18 +111,17 @@ def test_the_default_lock_is_not_the_manual_pytest_lock_and_the_environment_over
 ) -> None:
     monkeypatch.delenv("DIUCS_NEO4J_LOCK", raising=False)
     assert lock_path() == "/tmp/diucs-neo4j-harness.lock" == DEFAULT_LOCK_PATH
-    # Agents also wrap pytest in `flock /tmp/diucs-neo4j-tests.lock`. A different file, so the two
-    # can nest in that order and never deadlock.
-    assert lock_path() != "/tmp/diucs-neo4j-tests.lock"
+    # The manual whole-run lock of the serial era is gone (TEN-035); nothing else may use this file.
+    assert lock_path().endswith("harness.lock")
 
     monkeypatch.setenv("DIUCS_NEO4J_LOCK", str(tmp_path / "other.lock"))
     assert lock_path() == str(tmp_path / "other.lock")
 
 
-def test_the_module_documentation_names_both_locks() -> None:
+def test_the_module_documentation_names_the_container_lock() -> None:
     assert harness.__doc__ is not None
     assert "/tmp/diucs-neo4j-harness.lock" in harness.__doc__
-    assert "/tmp/diucs-neo4j-tests.lock" in harness.__doc__
+    assert "manual flock" in harness.__doc__
     assert "DIUCS_NEO4J_LOCK" in harness.__doc__
 
 

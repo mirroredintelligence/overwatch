@@ -6,6 +6,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { BOARD_A, BOARD_B } from '@/test/fixtures/board';
 import { TOKEN_ORG_A, TOKEN_ORG_B } from './support/tokens';
 import { signIn } from './support/session';
+import { SITE_URL } from './support/env';
 
 // The wall board in a real browser: layout at the sizes the prompt names, axe
 // including colour contrast, and the rule that the board is the session's own.
@@ -25,7 +26,7 @@ const SIZES = [
 ] as const;
 
 async function openBoard(page: Page, token = TOKEN_ORG_A, role = 'wall') {
-  await signIn(page.context(), 'http://localhost:3000', role, token);
+  await signIn(page.context(), SITE_URL, role, token);
   await page.goto('/screen');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 }
@@ -67,11 +68,11 @@ test('a screen paired to the other organisation shows that board only', async ({
 });
 
 test('a reporter session is sent to /screen/pair, and so is a token the back end does not know', async ({ page }) => {
-  await signIn(page.context(), 'http://localhost:3000', 'reporter', TOKEN_ORG_A);
+  await signIn(page.context(), SITE_URL, 'reporter', TOKEN_ORG_A);
   await page.goto('/screen');
   await expect(page).toHaveURL(/\/screen\/pair$/);
 
-  await signIn(page.context(), 'http://localhost:3000', 'wall', 'not-a-token-the-back-end-knows');
+  await signIn(page.context(), SITE_URL, 'wall', 'not-a-token-the-back-end-knows');
   await page.goto('/screen');
   await expect(page).toHaveURL(/\/screen\/pair$/);
 });

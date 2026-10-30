@@ -1,9 +1,10 @@
-"""The expand step of the tenant schema on a real Neo4j (TEN-005, tests 12 to 19).
+"""The tenant schema on a real Neo4j: the expand step (TEN-005, tests 12 to 19) and its contract
+(TEN-032, which has its own file, `test_tenant_contract.py`).
 
 The tests run on a private container with every migration applied (`throwaway_driver`), not on the
-harness container: the first tests look at the schema as it is, one drops the superseded keys and
-puts them back, and the schema belongs to this module while it runs. The harness container is not
-started by this module. Every value is synthetic.
+harness container: the first tests look at the schema as it is, and the schema belongs to this
+module while it runs. After TEN-032 that schema has none of the superseded single-property keys.
+The harness container is not started by this module. Every value is synthetic.
 """
 
 import dataclasses
@@ -14,6 +15,7 @@ from typing import Any
 
 import pytest
 import pytest_asyncio
+from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
 from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
@@ -45,13 +47,11 @@ from tests.support.neo4j import read_tx, throwaway_driver, wipe, write_tx
 from tests.support.tenant_seed import (
     SUPERSEDED_CONSTRAINT_NAMES,
     SUPERSEDED_INDEX_NAMES,
-    contract_schema,
     schema_names,
 )
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-_OLD_CONSTRAINTS = SUPERSEDED_CONSTRAINT_NAMES | {"link_token_hash"}
 _OLD_INDEXES = SUPERSEDED_INDEX_NAMES | {"location_position"}
 
 
@@ -79,17 +79,11 @@ async def private(built: _Built) -> AsyncIterator[AsyncDriver]:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def contracted(built: _Built) -> AsyncIterator[AsyncDriver]:
-    """The superseded single-property keys dropped on the private container and put back, from the
-    core migration statements, whatever the test did."""
+    """The private driver with no data in it. Since TEN-032 the migrated schema is the contracted
+    one, so nothing is dropped here and nothing is put back."""
     await wipe(built.driver)
-    await contract_schema(built.driver)
-    try:
-        yield built.driver
-    finally:
-        await wipe(built.driver)
-        for migration in CORE_MIGRATIONS:
-            for statement in migration.statements:
-                await _schema(built.driver, statement)
+    yield built.driver
+    await wipe(built.driver)
 
 
 async def _schema(driver: AsyncDriver, statement: str) -> None:
@@ -193,6 +187,7 @@ PINNED_MIGRATION_IDS = [
     "0046_support_code_hash",
     "0055_tenant_config_records",
     "0070_safety_counter_id",
+    "0105_drop_superseded_keys",
 ]
 
 
@@ -207,6 +202,7 @@ async def test_a_fresh_database_applies_every_migration_in_order(built: _Built) 
         SUPPORT_MIGRATIONS,
         SAFETY_MIGRATIONS,
         TENANT_CONFIG_MIGRATIONS,
+        CONTRACT_MIGRATIONS,
     )
     assert len(built.applied) == sum(len(area) for area in areas)
     # ...and the ids are pinned, so adding, removing or renaming one is a change to this list made
@@ -251,10 +247,14 @@ async def test_the_six_composite_indexes_exist(built: _Built) -> None:
         assert tuple(found["properties"]) == row.properties, row.name
 
 
-async def test_nothing_was_dropped_the_old_keys_and_indexes_all_still_exist(built: _Built) -> None:
+async def test_the_superseded_keys_are_gone_and_the_single_property_indexes_stay(
+    built: _Built,
+) -> None:
     constraints, indexes = await schema_names(built.driver)
-    assert len(_OLD_CONSTRAINTS) == 19
-    assert constraints >= _OLD_CONSTRAINTS
+    assert len(SUPERSEDED_CONSTRAINT_NAMES) == 18
+    assert constraints.isdisjoint(SUPERSEDED_CONSTRAINT_NAMES)
+    assert "link_token_hash" in constraints
+    # TEN-032 drops constraints only: the six range indexes and the point index stay.
     assert len(_OLD_INDEXES) == 7
     assert indexes >= _OLD_INDEXES
 
@@ -276,9 +276,11 @@ async def test_the_link_token_hash_and_the_point_index_are_unchanged(built: _Bui
     assert indexes == [{"type": "POINT", "labelsOrTypes": ["Location"], "properties": ["position"]}]
 
 
-async def test_the_superseded_lists_name_old_objects_that_exist(built: _Built) -> None:
+async def test_the_superseded_lists_name_objects_the_contract_dropped_or_left(
+    built: _Built,
+) -> None:
     constraints, indexes = await schema_names(built.driver)
-    assert constraints >= SUPERSEDED_CONSTRAINTS
+    assert constraints.isdisjoint(SUPERSEDED_CONSTRAINTS)
     assert indexes >= SUPERSEDED_INDEXES
 
 
@@ -548,18 +550,18 @@ async def test_each_composite_key_lets_two_tenants_share_and_refuses_a_repeat_in
     assert refused == []
 
 
-async def test_the_old_keys_are_back_after_the_contracted_schema_was_used(built: _Built) -> None:
-    constraints, indexes = await schema_names(built.driver)
-    assert constraints >= _OLD_CONSTRAINTS
-    assert indexes >= _OLD_INDEXES
+async def test_the_migrated_schema_has_no_superseded_constraint_whatever_ran_before(
+    built: _Built,
+) -> None:
+    constraints, _ = await schema_names(built.driver)
+    assert constraints.isdisjoint(SUPERSEDED_CONSTRAINT_NAMES)
 
 
-async def test_the_contracted_schema_has_none_of_the_superseded_keys_and_keeps_two_objects(
+async def test_the_migrated_schema_has_none_of_the_superseded_keys_and_keeps_two_objects(
     built: _Built, contracted: AsyncDriver
 ) -> None:
     constraints, indexes = await schema_names(contracted)
     assert constraints.isdisjoint(SUPERSEDED_CONSTRAINT_NAMES)
-    assert indexes.isdisjoint(SUPERSEDED_INDEX_NAMES)
     assert "link_token_hash" in constraints
     assert "location_position" in indexes
     assert {c.name for c in COMPOSITE_CONSTRAINTS} <= constraints
@@ -597,7 +599,7 @@ async def test_the_rollback_statements_undo_0031_and_nothing_the_old_schema_owns
         # A unique constraint owns an index of its own name, so it goes with the constraint.
         owned = {i.name for i in COMPOSITE_INDEXES} | {c.name for c in COMPOSITE_CONSTRAINTS}
         assert indexes == before_indexes - owned - {"migration_id"}
-        assert constraints >= _OLD_CONSTRAINTS
+        assert "link_token_hash" in constraints
         assert indexes >= _OLD_INDEXES
     finally:
         for statement in TENANT_MIGRATIONS[0].statements:

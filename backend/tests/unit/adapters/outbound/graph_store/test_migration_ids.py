@@ -8,6 +8,7 @@ import hashlib
 import json
 
 import pytest
+from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
 
 from diucs.adapters.outbound.graph_store.migration_types import Migration
 from diucs.adapters.outbound.graph_store.migrations import (
@@ -181,6 +182,7 @@ def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_togethe
         + len(PROTECTED_MIGRATIONS)
         + len(SUPPORT_MIGRATIONS)
         + len(SAFETY_MIGRATIONS)
+        + len(CONTRACT_MIGRATIONS)
     )
     assert {m.id for m in MIGRATIONS} == (
         {m.id for m in CORE_MIGRATIONS}
@@ -190,6 +192,7 @@ def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_togethe
         | {m.id for m in PROTECTED_MIGRATIONS}
         | {m.id for m in SUPPORT_MIGRATIONS}
         | {m.id for m in SAFETY_MIGRATIONS}
+        | {m.id for m in CONTRACT_MIGRATIONS}
     )
 
 

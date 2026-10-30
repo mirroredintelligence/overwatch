@@ -370,3 +370,61 @@ async def test_with_a_list_the_runner_uses_that_list_and_not_the_module_list(
 
     assert await runner.apply_migrations(world, [Migration("0091_b", ("S2",))]) == ["0091_b"]  # type: ignore[arg-type]
     assert _statements(world) == ["S2"]
+
+
+# A precondition (TEN-032): a migration that drops a key names the constraints it needs first
+
+_CONSTRAINT_NAMES = "SHOW CONSTRAINTS YIELD name RETURN name"
+
+
+async def test_a_migration_runs_when_every_required_constraint_exists() -> None:
+    world = _World()
+    world.handlers[_CONSTRAINT_NAMES] = lambda _: [{"name": "keep_a"}, {"name": "keep_b"}]
+    plan = [Migration("0090_a", ("S1",), requires=("keep_a", "keep_b"))]
+
+    assert await runner.apply_migrations(world, plan) == ["0090_a"]  # type: ignore[arg-type]
+    assert _statements(world) == ["S1"]
+
+
+async def test_a_missing_required_constraint_stops_the_migration_before_any_statement() -> None:
+    world = _World()
+    world.handlers[_CONSTRAINT_NAMES] = lambda _: [{"name": "keep_a"}]
+    plan = [
+        Migration("0090_a", ("S1",), requires=("keep_a", "keep_b")),
+        Migration("0091_b", ("S2",)),
+    ]
+
+    with pytest.raises(MigrationFailed) as caught:
+        await runner.apply_migrations(world, plan)  # type: ignore[arg-type]
+
+    assert (
+        str(caught.value) == "migration 0090_a failed at precondition: constraint keep_b is missing"
+    )
+    assert _statements(world) == []
+    assert world.applied == set()
+
+
+async def test_every_missing_constraint_is_named_in_order() -> None:
+    world = _World()
+    plan = [Migration("0090_a", ("S1",), requires=("z_key", "a_key"))]
+
+    with pytest.raises(MigrationFailed) as caught:
+        await runner.apply_migrations(world, plan)  # type: ignore[arg-type]
+
+    assert str(caught.value) == (
+        "migration 0090_a failed at precondition: constraint z_key is missing, "
+        "constraint a_key is missing"
+    )
+
+
+async def test_a_migration_with_no_requirement_does_not_look_at_the_schema() -> None:
+    world = _World()
+    await runner.apply_migrations(world, [Migration("0090_a", ("S1",))])  # type: ignore[arg-type]
+    assert _CONSTRAINT_NAMES not in world.statements()
+
+
+async def test_an_already_recorded_migration_is_not_checked() -> None:
+    world = _World(applied={"0090_a"})
+    plan = [Migration("0090_a", ("S1",), requires=("gone",))]
+
+    assert await runner.apply_migrations(world, plan) == []  # type: ignore[arg-type]

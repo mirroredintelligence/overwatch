@@ -194,10 +194,6 @@ def _camel(field: str) -> str:
     return head + "".join(part.capitalize() for part in rest)
 
 
-def _snake(camel: str) -> str:
-    return "".join(f"_{char.lower()}" if char.isupper() else char for char in camel)
-
-
 def _issues(errors: list[FieldError] | tuple[FieldError, ...]) -> Response:
     """One OperationOutcome with an issue for every field that failed, each with its expression."""
     issues = [
@@ -321,10 +317,20 @@ def _mobile(value: object) -> str:
 Step = OrganisationStep | LocationStep | ServiceStep | ReportingStep | ApiStep
 
 
-def parse_draft(body: object) -> tuple[Step | None, list[FieldError]]:
+def _blank(item: dataclasses.Field[Any]) -> Any:
+    """What a draft holds for a value the applicant has not given yet: nothing (empty text, no
+    number, no date). A yes-or-no answer has no blank: the step hangs on it."""
+    if item.type is bool:
+        return dataclasses.MISSING
+    return "" if item.type is str else None
+
+
+def parse_draft(body: object, *, partial: bool = False) -> tuple[Step | None, list[FieldError]]:
     """The step a $draft body names, built from its values. A required value that is missing comes
     back as an error of its own, since the step cannot be built without it. An unknown step or an
-    unknown value is refused outright, naming only the part."""
+    unknown value is refused outright, naming only the part. A `partial` draft (Save draft) fills
+    what is not given with blanks, so a part-filled step can be saved; the step's own checks then
+    say what is left (W7B A3). A yes-or-no answer is still needed."""
     if not isinstance(body, dict):
         raise ValidationFailed("step", "must be a JSON object")
     name = body.get("step")
@@ -335,22 +341,44 @@ def parse_draft(body: object) -> tuple[Step | None, list[FieldError]]:
     if not isinstance(values, dict):
         raise ValidationFailed("values", "is required")
     declared = {item.name: item for item in dataclasses.fields(kind)}
+    names = {_camel(name): name for name in declared}
     kwargs: dict[str, Any] = {}
     for camel, value in values.items():
-        field_name = _snake(camel)
-        if field_name not in declared:
+        field_name = names.get(camel)
+        if field_name is None:
             raise ValidationFailed("values", "has a value this step does not take")
         kwargs[field_name] = value
-    missing = [
-        FieldError(item.name, "is required")
-        for item in declared.values()
-        if item.default is dataclasses.MISSING
-        and item.default_factory is dataclasses.MISSING
-        and item.name not in kwargs
-    ]
+    missing: list[FieldError] = []
+    for item in declared.values():
+        if item.name in kwargs or (
+            item.default is not dataclasses.MISSING
+            or item.default_factory is not dataclasses.MISSING
+        ):
+            continue
+        blank = _blank(item) if partial else dataclasses.MISSING
+        if blank is dataclasses.MISSING:
+            missing.append(FieldError(item.name, "is required"))
+        else:
+            kwargs[item.name] = blank
     if missing:
         return None, missing
     return kind(**kwargs), []
+
+
+def callback_command(
+    body: object, actor: Actor, key: str, registration_id: str
+) -> RecordCallBackCommand:
+    """The command of one $callback body. The role spoken to is optional here: the use case needs
+    it only when the call confirmed the number (a lead may not know who answered otherwise)."""
+    index = index_parameters(body)
+    return RecordCallBackCommand(
+        idempotency_key=key,
+        actor=actor,
+        registration_id=registration_id,
+        number_called=text(single(index, "numberCalled", required=True), "numberCalled"),
+        role_spoken_to=optional_text(single(index, "spokeToRole", required=False), "spokeToRole"),
+        result=enum_value(CallBackResult, single(index, "result", required=True), "result"),
+    )
 
 
 # ---------------------------------------------------------------------------------------- routes
@@ -441,12 +469,14 @@ async def save_draft_step(
     actor: Annotated[Actor, Depends(require_role(Role.REPORTER))],
 ) -> Response:
     key = idempotency_key(request)
-    step, shape = parse_draft(await _body(request))
+    body = await _body(request)
+    partial = isinstance(body, dict) and body.get("partial") is True
+    step, shape = parse_draft(body, partial=partial)
     if shape:
         return _issues(shape)
     if step is None:
         raise ValidationFailed("step", "is not a registration step")
-    if not isinstance(step, _SERVICE_STEP):
+    if not partial and not isinstance(step, _SERVICE_STEP):
         errors = validate_step(step)
         if errors:
             return _issues(errors)
@@ -461,8 +491,21 @@ async def save_draft_step(
                 actor=actor,
                 registration_id=registration_id,
                 step=step,
+                partial=partial,
             )
         )
+        if partial:
+            # A draft is saved whatever is left to do: the page is told what that is.
+            return FhirJSONResponse(
+                content={
+                    **_task(registration_id, result.status.value),
+                    "incomplete": [
+                        {"field": _camel(error.field), "message": error.message}
+                        for error in result.errors
+                    ],
+                },
+                headers=NO_STORE,
+            )
         if result.errors:
             return _issues(result.errors)
         return _task_response(registration_id, result.status.value)
@@ -513,18 +556,7 @@ async def record_call_back(
     actor: Annotated[Actor, Depends(require_role(Role.LEAD))],
 ) -> Response:
     key = idempotency_key(request)
-    index = index_parameters(await _body(request))
-    number = text(single(index, "numberCalled", required=True), "numberCalled")
-    spoke = text(single(index, "spokeToRole", required=True), "spokeToRole")
-    outcome = enum_value(CallBackResult, single(index, "result", required=True), "result")
-    command = RecordCallBackCommand(
-        idempotency_key=key,
-        actor=actor,
-        registration_id=registration_id,
-        number_called=number,
-        role_spoken_to=spoke,
-        result=outcome,
-    )
+    command = callback_command(await _body(request), actor, key, registration_id)
     container = _container(request)
 
     async def run() -> Response:
@@ -701,6 +733,7 @@ async def set_service_live(
 __all__ = [
     "APPROVAL_BLOCKED",
     "NOTE_LIMIT",
+    "callback_command",
     "invite_command",
     "parse_draft",
     "refusal_outcome",

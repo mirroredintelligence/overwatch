@@ -98,7 +98,9 @@ def test_a_part_filled_step_is_built_when_it_is_a_draft() -> None:
 
 
 def test_a_draft_still_needs_the_yes_or_no_answers_the_step_hangs_on() -> None:
-    step, errors = parse_draft({"step": "location", "values": {"postcode": "DT4 8XX"}}, partial=True)
+    step, errors = parse_draft(
+        {"step": "location", "values": {"postcode": "DT4 8XX"}}, partial=True
+    )
     assert step is None
     assert [error.field for error in errors] == ["fixed_site"]
 
@@ -108,9 +110,7 @@ def test_a_draft_still_needs_the_yes_or_no_answers_the_step_hangs_on() -> None:
 
 
 def test_a_draft_of_the_reporting_step_may_have_no_numbers_yet() -> None:
-    step, errors = parse_draft(
-        {"step": "reporting", "values": {"measure": "other"}}, partial=True
-    )
+    step, errors = parse_draft({"step": "reporting", "values": {"measure": "other"}}, partial=True)
 
     assert errors == []
     assert isinstance(step, ReportingStep)

@@ -88,6 +88,7 @@ UNIT_LABELS: Final[Mapping[Measure, str]] = {
     Measure.REFERRALS_ACCEPTABLE: "referrals",
     Measure.OCCUPIED_PATIENTS: "patients",
     Measure.PACKAGES_FREE: "packages",
+    Measure.OTHER: "places",
 }
 """The words shown after a figure, by measure [ASSUMED]: the draft does not ask for them."""
 CAN_EXCEED_ESTABLISHED: Final = False

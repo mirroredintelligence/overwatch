@@ -5,7 +5,7 @@
   "name": "capacity-measure",
   "status": "active",
   "content": "complete",
-  "count": 5,
+  "count": 6,
   "concept": [
     {
       "code": "free-beds",
@@ -18,6 +18,10 @@
     {
       "code": "occupied-patients",
       "display": "Occupied patients"
+    },
+    {
+      "code": "other",
+      "display": "Other"
     },
     {
       "code": "packages-free",

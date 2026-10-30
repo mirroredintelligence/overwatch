@@ -49,5 +49,17 @@ export const reporterHandlers: RequestHandler[] = [
     await record(request);
     return HttpResponse.json({ ok: true });
   }),
+  http.post('/api/bff/identity/pin', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ pinSet: true });
+  }),
+  http.post('/api/bff/identity/pin/verify', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ signedIn: true, role: 'reporter', services: ['svc-1'] });
+  }),
+  http.post('/api/bff/push/subscriptions', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ saved: true });
+  }),
   http.get('/api/bff/reporter/start', () => HttpResponse.json({ csrfToken: 'T'.repeat(43) })),
 ];

@@ -243,7 +243,14 @@ class AdminRig:
             await self.accept.execute(AcceptMembershipCommand(admin, invited.membership_id, 1))
         return invited.membership_id
 
-    async def share(self, member: str, admin: Actor, *scopes: GrantScope) -> list[str]:
+    async def share(
+        self,
+        member: str,
+        admin: Actor,
+        *scopes: GrantScope,
+        effective_from: datetime | None = None,
+        effective_to: datetime | None = None,
+    ) -> list[str]:
         """Propose, approve on both sides and (when a service is listed) leave it ready to project:
         the grants of these scopes are effective."""
         from diucs.application.use_cases.grants import ApproveGrantCommand, ProposeGrantCommand
@@ -252,7 +259,9 @@ class AdminRig:
         for scope in scopes:
             with bind_tenant(member):
                 gid = await self.propose.execute(
-                    ProposeGrantCommand(admin, self.ids.network, scope)
+                    ProposeGrantCommand(
+                        admin, self.ids.network, scope, effective_from, effective_to
+                    )
                 )
                 await self.approve.execute(ApproveGrantCommand(admin, gid))
             with bind_tenant(self.ids.owner):
@@ -278,6 +287,19 @@ class AdminRig:
                 )
             )
         return lid
+
+    async def add_report(self, member: str, at: datetime, *, value: int = 4) -> None:
+        """A fresh figure from the member's reporter, in the member's own scope."""
+        from tests.support.projection_samples import sample_report
+
+        with bind_tenant(member):
+            async with self.tenant_factory() as uow:
+                await uow.capacity.add(
+                    sample_report(
+                        id=f"rep-{self.token}-{int(at.timestamp())}", effective_at=at, value=value
+                    )
+                )
+                await uow.commit()
 
     # ---- the workers' halves
 

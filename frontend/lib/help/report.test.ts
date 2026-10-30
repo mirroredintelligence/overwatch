@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { checkProblem, checkSafetyConcern, PROBLEM_KINDS, REPORT_LIMIT, SAFETY_CATEGORIES, supportSharingOn } from './report';
+import { describe, expect, it } from 'vitest';
+import { checkProblem, checkSafetyConcern, PROBLEM_KINDS, REPORT_LIMIT, SAFETY_CATEGORIES } from './report';
 
 describe('checkSafetyConcern', () => {
   it('needs a category and the text', () => {
@@ -39,16 +39,5 @@ describe('checkProblem', () => {
   it('refuses a kind it does not know, and a route that is not a page path', () => {
     expect(checkProblem({ kind: 'button-not-working', route: '/help' }).ok).toBe(false);
     expect(checkProblem({ kind: 'screen-slow', route: 'https://elsewhere.example/x' }).ok).toBe(false);
-  });
-});
-
-describe('supportSharingOn', () => {
-  it('is on only when the flag is exactly "on"', () => {
-    vi.stubEnv('NEXT_PUBLIC_SUPPORT_SHARING', 'on');
-    expect(supportSharingOn()).toBe(true);
-    vi.stubEnv('NEXT_PUBLIC_SUPPORT_SHARING', 'yes');
-    expect(supportSharingOn()).toBe(false);
-    vi.unstubAllEnvs();
-    expect(supportSharingOn()).toBe(false);
   });
 });

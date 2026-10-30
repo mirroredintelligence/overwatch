@@ -1,6 +1,6 @@
 // The Help screens' reports (W46): the safety concern and the problem report, checked as the back end
 // checks them (domain/rules/safety_report.py, U41). A refusal is a plain sentence the screen can show.
-// Pure, except `supportSharingOn`, which reads the one flag the build sets.
+// Pure.
 
 export const SAFETY_CATEGORIES = [
   'wrong-service-shown',
@@ -62,9 +62,4 @@ export function checkProblem(input: unknown): Checked<Problem> {
 /** The page the person came from, if it is a page path; otherwise the help page. */
 export function pagePath(value: string | undefined): string {
   return value !== undefined && PAGE_PATH.test(value) && !value.startsWith('//') ? value : '/help';
-}
-
-/** The support-sharing flag: on only when the build says exactly "on" (W46, removed by W56). */
-export function supportSharingOn(): boolean {
-  return process.env.NEXT_PUBLIC_SUPPORT_SHARING === 'on';
 }

@@ -44,19 +44,15 @@ class Settings(BaseSettings):
     routing_extract_date: str | None = None
     servicebus_connection: SecretStr | None = None
     sms_provider: Literal["twilio", "govuk-notify", "none"] = "none"
-    # DEC-002, I06: Twilio credentials and sender. Unset in tests; real values come from the
-    # environment or a secret manager and are never committed.
-    twilio_account_sid: str | None = None
-    twilio_auth_token: SecretStr | None = None
-    twilio_from: str | None = None
-    # I09 (DEC-110): SMTP relay for role-inbox email. Unset in tests; real values come from the
-    # environment or a secret manager and are never committed.
+    # TEN-042 (DEC-131 item 4): no Twilio credential, SMTP login or sender identity is a process
+    # setting. A tenant's text number and account come from the tenant directory, its email sender
+    # address from its channel record, and every credential is a network secret the secret store
+    # holds under the reference of the tenant's own record (`<kind>/<tenant>/<name>`, TEN-026).
+    # Only the SMTP relay's endpoint is shared by the platform (I09, DEC-110): where mail is handed
+    # in. It is unset in tests, and with no host nothing is sent.
     smtp_host: str | None = None
     smtp_port: int = 587
-    smtp_user: str | None = None
-    smtp_password: SecretStr | None = None
     smtp_starttls: bool = True
-    email_from: str = "DIUCS Capacity <capacity@diucs.example>"
     # I14: the VAPID subject (a mailto: address) that push services may contact about the platform's
     # key. A placeholder here; the operations inbox is set in the environment at deploy.
     webpush_subject: str = "mailto:operations@diucs.example"

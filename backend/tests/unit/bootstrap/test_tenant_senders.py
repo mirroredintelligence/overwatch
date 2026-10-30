@@ -290,9 +290,13 @@ async def test_a_text_channel_is_not_an_email_channel() -> None:
 async def test_a_reference_that_is_not_this_tenants_own_is_never_read(reference: str) -> None:
     secrets = FixedSecretStore({reference: b"other-tenants-password"})
     resolver = _email_resolver(secrets)
+    # The record's own checks refuse some of these shapes, so the reference is set directly: the
+    # resolver must not trust that the record was validated (defence in depth).
+    channel = _channel()
+    object.__setattr__(channel, "secret_ref", reference)
 
     with bind_tenant(SAMPLE_ID), pytest.raises(ChannelUnavailable) as refused:
-        await resolver.email_for(_channel(secret_ref=reference))
+        await resolver.email_for(channel)
 
     assert secrets.requested == ()
     assert "other-tenants-password" not in str(refused.value)

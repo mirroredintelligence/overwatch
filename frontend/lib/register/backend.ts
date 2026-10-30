@@ -1,28 +1,12 @@
-import type { Session } from '@/lib/auth/session';
 import { fhirFetch, FhirError, type FhirResult } from '@/lib/fhir/client';
 import type { OperationOutcome } from '@/lib/fhir/types';
 import { callLinkApi, type LinkReply } from '@/lib/links/server';
 import type { RegistrationView, StepName } from './types';
 
-// The registration seam: the only place the registration BFF routes call the back end (R10, U25).
-// A route the back end does not serve yet throws a 503 with the code `not-built`, so the page shows
-// its "could not load" state and nothing is invented. Each such route is named in the W-fragments
-// with the back-end route it waits for.
-//
+// The registration seam: the only place the registration BFF routes call the back end.
 // Identity routes sit beside /fhir and are tenant-bound from the Host header, so they go through
 // lib/links/server (node:http keeps the Host). The FHIR routes go through lib/fhir/client with the
 // reporter's bearer token. The browser never names a tenant (DEC-130, DEC-132).
-
-export type RegistrantSignIn = {
-  /** The host the code came to: the session is for it and for the tenant the back end signs the applicant in for. */
-  host: string;
-  mobile: string;
-  deviceId: string;
-  inviteToken: string | undefined;
-};
-
-/** The back end's purposes for a code: `setup` is a new device's first sign-in (U25, DEC-413). */
-const CODE_PURPOSE_SETUP = 'setup';
 
 /** A route the back end does not serve yet: a 503 the BFF answers with the code `not-built`. */
 export function notBuilt(what: string): FhirError {
@@ -33,35 +17,29 @@ export function notBuilt(what: string): FhirError {
   return new FhirError(503, outcome);
 }
 
-/** Asks the back end for a registration code for this mobile. The back end answers 202 for every number. */
-export async function sendIdentityCode(host: string | null, mobile: string): Promise<LinkReply> {
-  return callLinkApi({ method: 'POST', path: '/identity/code', host, body: { mobile, purpose: CODE_PURPOSE_SETUP } });
+/** The link as the back end reads it, for the applicant's sign-in (W7B A2, DEC-900). Host-bound, no token. */
+export async function readInvitation(host: string | null, invitation: string): Promise<LinkReply> {
+  return callLinkApi({ method: 'POST', path: '/identity/invitation', host, body: { invitation } });
 }
 
-/** Checks a code for this mobile and device. A right code is recorded on the device by the back end. */
-export async function verifyIdentityCode(input: {
+/** Asks for a code to the number the open invitation holds. The back end answers 202 whether or not a code went. */
+export async function requestRegistrationCode(host: string | null, invitation: string): Promise<LinkReply> {
+  return callLinkApi({ method: 'POST', path: '/identity/registration/code', host, body: { invitation } });
+}
+
+/** Checks a code for the invitation and the device. A right code ends in a reporter token and the registration. */
+export async function verifyRegistrationCode(input: {
   host: string | null;
-  mobile: string;
+  invitation: string;
   code: string;
   deviceId: string;
 }): Promise<LinkReply> {
   return callLinkApi({
     method: 'POST',
-    path: '/identity/code/verify',
+    path: '/identity/registration/session',
     host: input.host,
-    body: { mobile: input.mobile, code: input.code, deviceId: input.deviceId, purpose: CODE_PURPOSE_SETUP },
+    body: { invitation: input.invitation, code: input.code, deviceId: input.deviceId },
   });
-}
-
-/**
- * Signs a verified applicant in: the registration the invitation names, and a reporter session.
- * NOT BUILT: the back end has no reporter token after a text code (the PIN sign-in answers a
- * device session, and the registration routes need a bearer token). Until it does, this throws
- * `not-built`. See docs/delivery/fragments/W23.md.
- */
-export async function signInRegistrant(input: RegistrantSignIn): Promise<{ registrationId: string; session: Session }> {
-  void input;
-  throw notBuilt('The registration sign-in');
 }
 
 /**

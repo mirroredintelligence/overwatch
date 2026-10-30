@@ -69,7 +69,10 @@ describe('reporterSessionFor', () => {
   it('is null when the expiry is in the past, is not a date, or is more than twelve hours away', () => {
     expect(reporterSessionFor(answer({ expiresAt: '2026-10-30T09:59:00Z' }), input)).toBeNull();
     expect(reporterSessionFor(answer({ expiresAt: 'soon' }), input)).toBeNull();
-    expect(reporterSessionFor(answer({ expiresAt: '2026-10-31T11:00:00Z' }), input)).toBeNull();
+    // A token that lasts two days, so the twelve-hour ceiling on the answer is the one under test.
+    const longToken = unsignedToken(SUB, Date.parse('2026-11-01T12:00:00Z') / 1000);
+    expect(reporterSessionFor(answer({ token: longToken, expiresAt: '2026-10-31T11:00:00Z' }), input)).toBeNull();
+    expect(reporterSessionFor(answer({ token: longToken, expiresAt: '2026-10-30T21:59:00Z' }), input)).not.toBeNull();
   });
 
   it('never keeps a service the answer does not name, and keeps none when the registration is not given', () => {

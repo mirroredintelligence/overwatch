@@ -2,7 +2,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, unsealSession } from '@/lib/auth/session';
 import { PENDING_COOKIE, sealPending } from '@/lib/register/pending';
-import { TENANT_HOST } from '@/test/fixtures/links';
+import { BACKEND_ROOT, TENANT_HOST } from '@/test/fixtures/links';
 import { cookieWrites, cookiesMock, lastWrite, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
 import { answerBackend, breakBackend, resetSeen, seen, unsignedToken } from '@/test/applicant/backend';
 import { withApplicantHandlers } from '@/test/msw/applicant';
@@ -25,7 +25,8 @@ const URL_ = `https://${TENANT_HOST}/api/bff/identity/code/verify`;
 const INVITE = 'InviteTokenSampleValue1';
 const DEVICE = 'Dev1ceIdSampleValue_ab';
 const SUB = 'person-sample-1';
-const EXPIRES = new Date(Date.now() + 2 * 3600_000).toISOString();
+// Whole seconds, as the back end writes an expiry (the session ends to the second).
+const EXPIRES = new Date(Math.floor((Date.now() + 2 * 3600_000) / 1000) * 1000).toISOString();
 const EXP_SECONDS = Math.floor(Date.parse(EXPIRES) / 1000);
 const TOKEN = unsignedToken(SUB, EXP_SECONDS);
 const TENANT = TENANTS.A.id;
@@ -64,6 +65,7 @@ async function sessionWritten() {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetCookieWrites();
   cookiesMock.mockClear();
   resetSeen();
@@ -131,8 +133,10 @@ describe('POST /api/bff/identity/code/verify: a session the BFF cannot vouch for
   });
 
   it('answers 503 when the expiry is not a future instant within twelve hours', async () => {
+    // A token that lasts longer than the answer, so the answer's expiry is the one under test.
+    const longToken = unsignedToken(SUB, Math.floor(Date.now() / 1000) + 2 * 86400);
     for (const expiresAt of [new Date(Date.now() - 60_000).toISOString(), new Date(Date.now() + 13 * 3600_000).toISOString(), 'soon']) {
-      answerBackend('post', '/identity/registration/session', 200, signedIn({ expiresAt }));
+      answerBackend('post', '/identity/registration/session', 200, signedIn({ expiresAt, token: longToken }));
       expect((await post({ code: '482913' })).status).toBe(503);
     }
     expect(await sessionWritten()).toBeNull();

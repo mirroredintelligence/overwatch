@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TENANT_HOST } from '@/test/fixtures/links';
+import { BACKEND_ROOT, TENANT_HOST } from '@/test/fixtures/links';
 import { requestWithCookies, resetCookieWrites } from '@/test/cookies';
 import { answerBackend, breakBackend, resetSeen, seen } from '@/test/applicant/backend';
 import { withApplicantHandlers } from '@/test/msw/applicant';
@@ -30,6 +30,7 @@ function post(body: unknown, headers: Record<string, string> = { Host: TENANT_HO
 }
 
 beforeEach(() => {
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetCookieWrites();
   resetSeen();
 });
@@ -39,7 +40,7 @@ describe('POST /api/bff/identity/invitation', () => {
     answerBackend('post', '/identity/invitation', 200, { state: 'open', serviceName: 'Community nursing', numberEnding: '456', expiresAt: EXPIRES });
     const response = await POST(post({ inviteToken: INVITE }));
     expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('private, no-store');
+    expect(response.headers.get('cache-control')).toBe('no-store');
     expect(await response.json()).toEqual({ state: 'open', serviceName: 'Community nursing', numberEnding: '456', expiresAt: EXPIRES });
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatchObject({ path: '/identity/invitation', host: TENANT_HOST, body: { invitation: INVITE } });

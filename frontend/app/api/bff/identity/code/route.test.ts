@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PENDING_COOKIE, readPending } from '@/lib/register/pending';
-import { TENANT_HOST } from '@/test/fixtures/links';
+import { BACKEND_ROOT, TENANT_HOST } from '@/test/fixtures/links';
 import { cookieWrites, cookiesMock, lastWrite, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
 import { answerBackend, breakBackend, resetSeen, seen } from '@/test/applicant/backend';
 import { withApplicantHandlers } from '@/test/msw/applicant';
@@ -32,6 +32,7 @@ function post(body: unknown) {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetCookieWrites();
   cookiesMock.mockClear();
   resetSeen();

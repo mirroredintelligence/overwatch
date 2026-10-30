@@ -76,6 +76,10 @@ BINDING_MODULES: frozenset[str] = frozenset(
         # TEN-040: the host-bound binder of every route that carries no token. It binds the tenant
         # the request host names in the tenant directory (an active tenant only), and nothing else.
         "diucs.adapters.inbound.fhir_rest.host_tenant",
+        # TEN-084: the cross-tenant support guard binds the ONE tenant a support person names, only
+        # after the principal (an operator token's claims) is checked and the tenant is active, to
+        # write that tenant's audit chain and read its cache. It reads no tenant data.
+        "diucs.application.cross_tenant_guard",
         # TEN-017: the start-up is an edge of its own: it binds each active tenant in turn to make
         # that tenant's audit head. No request or message is in it.
         "diucs.bootstrap.container",

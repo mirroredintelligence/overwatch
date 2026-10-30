@@ -109,6 +109,7 @@ def create_app(
     from diucs.adapters.inbound.fhir_rest import (
         routes_admin,
         routes_alerts,
+        routes_auth,
         routes_board,
         routes_bookings,
         routes_cases,
@@ -149,6 +150,8 @@ def create_app(
     app.include_router(routes_identity.router)
     # The public tenant profile (TEN-040): no token, the tenant is the request host.
     app.include_router(routes_public.router)
+    # The token exchange (TEN-043): the back end issues the tenant-bound token.
+    app.include_router(routes_auth.router)
     # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.
     app.include_router(routes_lead.router)
     # Registration, scope list and criteria (R10): FHIR operations over the S6 use cases.

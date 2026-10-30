@@ -231,8 +231,10 @@ async def _every_node_property(driver: AsyncDriver) -> list[dict[str, Any]]:
 async def _communication_rows(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (c:Communication) OPTIONAL MATCH (c)-[:TOPIC]->(t:Concept) "
-            "OPTIONAL MATCH (c)-[:RECIPIENT]->(r:PractitionerRole) "
+            "MATCH (c:Communication {tenantId: $tenant}) OPTIONAL MATCH (c {tenantId: "
+            "$tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:RECIPIENT]->(r:PractitionerRole {tenantId: "
+            "$tenant}) "
             "RETURN c.id AS id, c.payloadText AS text, c.deliveryStatus AS status, "
             "t.code AS messageId, r.id AS role ORDER BY c.id"
         )
@@ -1208,7 +1210,9 @@ async def _outbox_node_values(driver: AsyncDriver) -> list[str]:
     """Every property value of every OutboxMessage node, as stored, as text."""
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        result = await tx.run("MATCH (o:OutboxMessage) RETURN properties(o) AS props")
+        result = await tx.run(
+            "MATCH (o:OutboxMessage {tenantId: $tenant}) RETURN properties(o) AS props"
+        )
         return await result.data()
 
     return [repr(row["props"]) for row in await read_tx(driver, work)]

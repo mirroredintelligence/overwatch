@@ -268,7 +268,8 @@ async def test_a_note_of_300_characters_is_refused_and_one_of_120_is_held_by_han
         assert await uow.protected_text.get(handle) == NOTE_120
     rows = await _rows(
         neo4j_driver,
-        "MATCH (e:AuditEvent) WHERE e.entryJson CONTAINS $note RETURN count(e) AS n",
+        "MATCH (e:AuditEvent {tenantId: $tenant}) WHERE e.entryJson CONTAINS $note RETURN "
+        "count(e) AS n",
         note=NOTE_120,
     )
     assert rows[0]["n"] == 0

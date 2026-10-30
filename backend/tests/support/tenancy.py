@@ -188,6 +188,17 @@ def identity_from_workerinput(received: Mapping[str, object]) -> RunIdentity:
         raise ValueError(f"workerinput does not hold a valid run identity: {error}") from error
 
 
+def run_host(label: str) -> str:
+    """A host name that belongs to this run alone: `<label>-<run token>.example.org`. A tenant's
+    host is looked up across the whole directory, so two runs that register `alpha.example.org`
+    for their own tenants on one Neo4j would make it ambiguous (TEN-035). Lower case, one DNS
+    label of at most 63 characters before the domain."""
+    run_tenant = os.environ.get("DIUCS_TEST_TENANT", "")
+    if not run_tenant.startswith("tt-") or not re.fullmatch(r"[a-z0-9]{1,20}", label):
+        raise ValueError("run_host needs the run's tenant in the environment and a short label")
+    return f"{label}-{run_tenant.removeprefix('tt-')}.example.org"
+
+
 def tenant_scope(tenant: str | ScopeId) -> ScopeId:
     """A tenant scope from an id or a ScopeId. A network scope, or an invalid id, is refused."""
     if isinstance(tenant, ScopeId):

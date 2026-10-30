@@ -192,7 +192,8 @@ async def test_the_mobile_is_kept_in_the_protected_store_only(
     )
     async with neo4j_driver.session() as session:
         result = await session.run(
-            "MATCH (n) WHERE any(k IN keys(n) WHERE valueType(n[k]) STARTS WITH 'STRING' "
+            "MATCH (n {tenantId: $tenant}) WHERE any(k IN keys(n) WHERE valueType(n[k]) STARTS "
+            "WITH 'STRING' "
             "AND n[k] CONTAINS '7700900123') "
             "RETURN labels(n) AS labels"
         )

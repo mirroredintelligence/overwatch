@@ -80,7 +80,8 @@ def tenants(tenant_id: str, other_tenant_id: str) -> StaticTenants:
 async def _processed(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: Any) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (p:Processed) RETURN p.messageId AS messageId, p.consumer AS consumer, "
+            "MATCH (p:Processed {tenantId: $tenant}) RETURN p.messageId AS messageId, p.consumer "
+            "AS consumer, "
             "p.tenantId AS tenantId ORDER BY p.tenantId, p.messageId"
         )
         return [dict(record) async for record in result]

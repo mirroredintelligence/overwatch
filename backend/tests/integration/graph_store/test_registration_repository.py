@@ -186,7 +186,8 @@ async def test_a_registration_task_is_coded_register_service(neo4j_driver: Async
 
     rows = await _rows(
         neo4j_driver,
-        "MATCH (:Task {id: $id})-[:CODE]->(c:Concept) RETURN c.code AS code",
+        "MATCH (:Task {id: $id, tenantId: $tenant})-[:CODE]->(c:Concept {tenantId: $tenant}) "
+        "RETURN c.code AS code",
         id="reg-ucr-east-1",
     )
 
@@ -202,7 +203,8 @@ async def test_the_stored_nodes_hold_no_map_no_json_and_no_list_of_maps(
 
     async def nodes(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (n) WHERE n:Task OR n:RegistrationDraftField RETURN properties(n) AS props"
+            "MATCH (n {tenantId: $tenant}) WHERE n:Task OR n:RegistrationDraftField RETURN "
+            "properties(n) AS props"
         )
         return [dict(row["props"]) for row in await result.data()]
 

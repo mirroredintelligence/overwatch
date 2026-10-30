@@ -14,7 +14,9 @@ FIXED_NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 
 
 async def stored_outbox_ids(tx: AsyncManagedTransaction) -> list[str]:
-    result = await tx.run("MATCH (m:OutboxMessage) RETURN m.id AS id ORDER BY id")
+    result = await tx.run(
+        "MATCH (m:OutboxMessage {tenantId: $tenant}) RETURN m.id AS id ORDER BY id"
+    )
     return [record["id"] for record in await result.data()]
 
 

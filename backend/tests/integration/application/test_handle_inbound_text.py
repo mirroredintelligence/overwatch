@@ -421,10 +421,13 @@ async def _latest(factory: UnitOfWorkFactory, service_id: str = "ucr-west") -> C
 async def _communications(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (c:Communication)-[:TOPIC]->(t:Concept) "
-            "OPTIONAL MATCH (c)-[:RECIPIENT]->(r:PractitionerRole) "
-            "OPTIONAL MATCH (c)-[:ABOUT]->(s:HealthcareService) "
-            "OPTIONAL MATCH (c)-[:IN_RESPONSE_TO]->(p:Communication) "
+            "MATCH (c:Communication {tenantId: $tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:RECIPIENT]->(r:PractitionerRole {tenantId: "
+            "$tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:ABOUT]->(s:HealthcareService {tenantId: "
+            "$tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:IN_RESPONSE_TO]->(p:Communication "
+            "{tenantId: $tenant}) "
             "RETURN c.id AS id, c.payloadText AS text, c.deliveryStatus AS status, "
             "t.code AS messageId, r.id AS role, s.id AS about, p.id AS inResponseTo "
             "ORDER BY c.id"
@@ -1994,7 +1997,7 @@ async def test_no_audit_entry_or_message_record_holds_the_phone_hash_or_the_text
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (n) WHERE any(l IN labels(n) WHERE l IN "
+            "MATCH (n {tenantId: $tenant}) WHERE any(l IN labels(n) WHERE l IN "
             "['AuditEvent', 'Snapshot', 'Communication', 'OutboxMessage']) "
             "RETURN properties(n) AS props"
         )

@@ -190,7 +190,8 @@ async def _confirm(
 async def _derived_from(driver: AsyncDriver, report_id: str) -> list[str]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (o:Observation)-[:DERIVED_FROM]->(:Observation {id: $id}) RETURN o.id AS id",
+            "MATCH (o:Observation {tenantId: $tenant})-[:DERIVED_FROM]->(:Observation {id: $id, "
+            "tenantId: $tenant}) RETURN o.id AS id",
             id=report_id,
         )
         return await result.data()

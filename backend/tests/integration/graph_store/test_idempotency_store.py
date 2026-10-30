@@ -187,7 +187,8 @@ async def test_no_stored_node_holds_a_map_a_list_of_maps_or_a_json_string(
 
     async def values(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (n) WHERE n:IdempotencyRecord OR n:IdempotencyValue OR n:Processed "
+            "MATCH (n {tenantId: $tenant}) WHERE n:IdempotencyRecord OR n:IdempotencyValue OR "
+            "n:Processed "
             "RETURN properties(n) AS props"
         )
         return [dict(row["props"]) for row in await result.data()]
@@ -313,7 +314,8 @@ async def test_an_instant_in_a_result_is_stored_as_a_neo4j_datetime(
 
     async def instants(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (v:IdempotencyValue {kind: 'instant'}) RETURN properties(v) AS props"
+            "MATCH (v:IdempotencyValue {kind: 'instant', tenantId: $tenant}) RETURN properties(v) "
+            "AS props"
         )
         return [dict(row["props"]) for row in await result.data()]
 

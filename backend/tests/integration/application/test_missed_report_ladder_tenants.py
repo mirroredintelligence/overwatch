@@ -46,7 +46,7 @@ from tests.support.ladder_rig import (
     seed_report,
     virtual_ward,
 )
-from tests.support.neo4j import read_tx
+from tests.support.neo4j import read_tx, run_scope_ids
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -84,7 +84,10 @@ async def _tenant_rig(
 
 async def _owners(driver: AsyncDriver, label: str) -> list[Any]:
     async def work(tx: AsyncManagedTransaction) -> list[Any]:
-        result = await tx.run(f"MATCH (n:{label}) RETURN n.tenantId AS tenant")
+        result = await tx.run(
+            f"MATCH (n:{label}) WHERE n.tenantId IN $scopes RETURN n.tenantId AS tenant",
+            scopes=run_scope_ids(),
+        )
         return [row["tenant"] for row in await result.data()]
 
     return await read_tx(driver, work)

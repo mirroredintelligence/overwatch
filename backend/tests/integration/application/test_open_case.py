@@ -512,7 +512,7 @@ async def test_with_no_tenant_bound_nothing_is_opened_or_updated(
         await _open(uow_factory, tenant_id)
     with pytest.raises(TenantNotBound):
         await _update(uow_factory, "case-1", **FILL)
-    assert await count_nodes(neo4j_driver, "ServiceRequest") == 0
+    assert await count_nodes(neo4j_driver, "ServiceRequest", tenant=tenant_id) == 0
 
 
 async def test_a_unit_of_work_bound_to_a_network_scope_opens_nothing(

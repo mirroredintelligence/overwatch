@@ -94,18 +94,23 @@ async def test_a_relay_for_tenant_a_never_publishes_tenant_b_rows(
     uow_factory_b: UnitOfWorkFactory,
     neo4j_driver: AsyncDriver,
     tenant_id: str,
+    other_tenant_id: str,
 ) -> None:
     await _seed_two_tenants(uow_factory_a, uow_factory_b)
-    b_before = [await outbox_node(neo4j_driver, "b-1"), await outbox_node(neo4j_driver, "b-2")]
+    b_before = [
+        await outbox_node(neo4j_driver, "b-1", scope=other_tenant_id),
+        await outbox_node(neo4j_driver, "b-2", scope=other_tenant_id),
+    ]
 
     result = await relay_for(tenant_id).run_once()
 
     assert result == RelayResult(published=2, failed=0, skipped_no_lock=False)
     assert [message.id for message in bus.published] == ["a-1", "a-2"]
     assert {message.tenant_id for message in bus.published} == {tenant_id}
-    assert [await outbox_node(neo4j_driver, "b-1"), await outbox_node(neo4j_driver, "b-2")] == (
-        b_before
-    )
+    assert [
+        await outbox_node(neo4j_driver, "b-1", scope=other_tenant_id),
+        await outbox_node(neo4j_driver, "b-2", scope=other_tenant_id),
+    ] == (b_before)
     assert b_before[0]["status"] == "pending"
     assert b_before[0]["attempts"] == 0
     assert (await outbox_node(neo4j_driver, "a-1"))["status"] == "published"
@@ -213,7 +218,7 @@ async def test_one_tenant_failing_does_not_stop_or_slow_another(
     # The next round, with no time passed, leaves tenant A to wait and still serves tenant B.
     assert second == RelayResult(published=1, failed=0, skipped_no_lock=False)
     assert len([call for call in bus.calls if call[1] in ("a-1", "a-2")]) == tried_a
-    assert (await outbox_node(neo4j_driver, "b-3"))["status"] == "published"
+    assert (await outbox_node(neo4j_driver, "b-3", scope=other_tenant_id))["status"] == "published"
     assert (await outbox_node(neo4j_driver, "a-1"))["attempts"] == 1
 
 
@@ -273,13 +278,15 @@ async def test_scheduled_work_is_scheduled_with_its_tenant_and_the_number_is_sav
     assert only_a == RelayResult(published=1, failed=0, skipped_no_lock=False)
     assert bus.calls == [("schedule", "out-wa1", 1)]
     assert (await work_node(neo4j_driver, "wa1"))["sequenceNumber"] == 1
-    assert "sequenceNumber" not in await work_node(neo4j_driver, "wb1")
-    assert (await outbox_node(neo4j_driver, "out-wb1"))["status"] == "pending"
+    assert "sequenceNumber" not in await work_node(neo4j_driver, "wb1", scope=other_tenant_id)
+    assert (await outbox_node(neo4j_driver, "out-wb1", scope=other_tenant_id))[
+        "status"
+    ] == "pending"
 
     both = await relay_for(tenant_id, other_tenant_id).run_once()
 
     assert both == RelayResult(published=1, failed=0, skipped_no_lock=False)
-    assert (await work_node(neo4j_driver, "wb1"))["sequenceNumber"] == 2
+    assert (await work_node(neo4j_driver, "wb1", scope=other_tenant_id))["sequenceNumber"] == 2
     delivered = {message.id: message.tenant_id for _, message in bus.inner.due(DUE)}
     assert delivered == {"out-wa1": tenant_id, "out-wb1": other_tenant_id}
 
@@ -306,7 +313,7 @@ async def test_a_cancel_in_tenant_a_cancels_only_tenant_as_scheduled_message(
     assert [(message.id, message.tenant_id) for _, message in bus.inner.due(DUE)] == [
         ("out-wb1", other_tenant_id)
     ]
-    assert (await work_node(neo4j_driver, "wb1"))["status"] == "scheduled"
+    assert (await work_node(neo4j_driver, "wb1", scope=other_tenant_id))["status"] == "scheduled"
 
 
 async def test_a_cache_that_cannot_give_one_tenants_lock_costs_that_tenant_a_wait_only(

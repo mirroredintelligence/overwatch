@@ -213,7 +213,8 @@ async def _snapshot_of(driver: AsyncDriver, use_case: str) -> dict[str, Any]:
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (:AuditEvent {useCase: $useCase})-[:SNAPSHOT]->(s:Snapshot) "
+            "MATCH (:AuditEvent {useCase: $useCase, tenantId: $tenant})-[:SNAPSHOT]->(s:Snapshot "
+            "{tenantId: $tenant}) "
             "RETURN s.json AS json",
             useCase=use_case,
         )

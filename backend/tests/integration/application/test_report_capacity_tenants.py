@@ -469,7 +469,7 @@ async def test_the_tenants_configuration_reaches_the_status_and_the_audit_record
     async def snapshots(tx: AsyncManagedTransaction) -> dict[str, Any]:
         rows = await (
             await tx.run(
-                "MATCH (e:AuditEvent) WHERE e.useCase = 'ReportCapacity' "
+                "MATCH (e:AuditEvent {tenantId: $tenant}) WHERE e.useCase = 'ReportCapacity' "
                 "RETURN e.tenantId AS tenant, e.entryJson AS entry"
             )
         ).data()

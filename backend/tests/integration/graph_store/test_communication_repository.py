@@ -157,17 +157,20 @@ async def test_topic_and_medium_are_shared_concepts_and_the_recipient_is_a_role(
     await _add(neo4j_driver, _comm(id="comm-2", provider_message_id="sms-2"))
     topic_count = await _count(
         neo4j_driver,
-        "MATCH (t:Concept {system: $system, code: 'C1'}) RETURN count(t) AS total",
+        "MATCH (t:Concept {system: $system, code: 'C1', tenantId: $tenant}) RETURN count(t) AS "
+        "total",
         system=MESSAGE_SYSTEM,
     )
     medium_count = await _count(
         neo4j_driver,
-        "MATCH (m:Concept {system: $system, code: 'text'}) RETURN count(m) AS total",
+        "MATCH (m:Concept {system: $system, code: 'text', tenantId: $tenant}) RETURN count(m) AS "
+        "total",
         system=CHANNEL_SYSTEM,
     )
     recipient_links = await _count(
         neo4j_driver,
-        "MATCH (:Communication)-[:RECIPIENT]->(:PractitionerRole {id: 'role-1'}) "
+        "MATCH (:Communication {tenantId: $tenant})-[:RECIPIENT]->(:PractitionerRole {id: "
+        "'role-1', tenantId: $tenant}) "
         "RETURN count(*) AS total",
     )
     assert topic_count == 1
@@ -276,8 +279,8 @@ async def test_a_reply_threads_to_its_prompt_through_in_response_to(
     await _add(neo4j_driver, _reply(id="comm-reply", in_response_to="comm-1"))
     threads = await _count(
         neo4j_driver,
-        "MATCH (:Communication {id: 'comm-reply'})-[:IN_RESPONSE_TO]->"
-        "(:Communication {id: 'comm-1'}) RETURN count(*) AS total",
+        "MATCH (:Communication {id: 'comm-reply', tenantId: $tenant})-[:IN_RESPONSE_TO]->"
+        "(:Communication {id: 'comm-1', tenantId: $tenant}) RETURN count(*) AS total",
     )
     assert threads == 1
 
@@ -437,7 +440,7 @@ async def test_a_late_sent_waits_for_a_held_delivered_and_does_not_overwrite_it(
     async with neo4j_driver.session() as session:
         held = scoped(await session.begin_transaction())
         await held.run(
-            "MATCH (c:Communication {id: 'comm-1'}) "
+            "MATCH (c:Communication {id: 'comm-1', tenantId: $tenant}) "
             "SET c.deliveryStatus = 'delivered', c.status = 'completed'"
         )
         late = asyncio.create_task(_set_status(neo4j_driver, "sms-1", "sent"))

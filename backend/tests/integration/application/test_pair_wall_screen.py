@@ -234,7 +234,7 @@ async def _all_values(driver: AsyncDriver) -> list[Any]:
     """Every property value of every node, and every list element of a list property."""
 
     async def work(tx: AsyncManagedTransaction) -> list[Any]:
-        result = await tx.run("MATCH (n) UNWIND keys(n) AS k RETURN n[k] AS v")
+        result = await tx.run("MATCH (n {tenantId: $tenant}) UNWIND keys(n) AS k RETURN n[k] AS v")
         values: list[Any] = []
         for row in await result.data():
             value = row["v"]
@@ -247,7 +247,8 @@ async def _all_values(driver: AsyncDriver) -> list[Any]:
 async def _link_tokens(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (t:LinkToken) RETURN properties(t) AS props ORDER BY t.purpose"
+            "MATCH (t:LinkToken {tenantId: $tenant}) RETURN properties(t) AS props ORDER BY "
+            "t.purpose"
         )
         return [row["props"] for row in await result.data()]
 
@@ -278,7 +279,9 @@ async def _state(driver: AsyncDriver) -> tuple[Any, ...]:
 async def _set_device_status(driver: AsyncDriver, device_id: str, status: str) -> None:
     async def work(tx: AsyncManagedTransaction) -> None:
         await tx.run(
-            "MATCH (d:Device {id: $id}) SET d.status = $status", id=device_id, status=status
+            "MATCH (d:Device {id: $id, tenantId: $tenant}) SET d.status = $status",
+            id=device_id,
+            status=status,
         )
 
     await write_tx(driver, work)
@@ -1269,7 +1272,7 @@ async def test_a_unit_of_work_bound_to_a_network_scope_pairs_nothing(
 
 @pytest.mark.no_tenant
 async def test_with_no_tenant_bound_nothing_starts_confirms_or_claims(
-    uow_factory: UnitOfWorkFactory, uow_clock: Clock, neo4j_driver: AsyncDriver
+    uow_factory: UnitOfWorkFactory, uow_clock: Clock, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
     rig = make_rig(uow_factory, uow_clock)
     with pytest.raises(TenantNotBound):
@@ -1279,7 +1282,7 @@ async def test_with_no_tenant_bound_nothing_starts_confirms_or_claims(
         await rig.confirm.execute(_command(started))
     with pytest.raises(TenantNotBound):
         await rig.claim.execute(ClaimPairingCommand("p", "A" * 23))
-    assert await count_nodes(neo4j_driver, "LinkToken") == 0
+    assert await count_nodes(neo4j_driver, "LinkToken", tenant=tenant_id) == 0
 
 
 def test_no_command_carries_a_tenant() -> None:

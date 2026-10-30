@@ -58,7 +58,7 @@ def concern(key: str, text: str = CONCERN_TEXT) -> ReportSafetyConcernCommand:
 async def mentions_outside_protected_text(driver: AsyncDriver, probe: str) -> int:
     """How many properties of nodes that are not protected text contain the probe."""
     query = (
-        "MATCH (n) WHERE NOT n:ProtectedText UNWIND keys(n) AS k "
+        "MATCH (n {tenantId: $tenant}) WHERE NOT n:ProtectedText UNWIND keys(n) AS k "
         "WITH n[k] AS value WHERE valueType(value) STARTS WITH 'STRING' "
         "AND value CONTAINS $probe "
         "RETURN count(*) AS total"

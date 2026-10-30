@@ -59,9 +59,9 @@ async def test_the_number_called_decides_the_tenant_of_the_queue_message(
 
     assert (to_a.status_code, to_b.status_code) == (200, 200)
     queued = {message.tenant_id: message for message in sms_bus.enqueued_to(QUEUE)}
-    assert set(queued) == {"tenant-a", "tenant-b"}
-    assert queued["tenant-a"].payload["provider_message_id"] == SID
-    assert queued["tenant-b"].payload["provider_message_id"] == SID
+    assert set(queued) == {TENANT_A.tenant_id, TENANT_B.tenant_id}
+    assert queued[TENANT_A.tenant_id].payload["provider_message_id"] == SID
+    assert queued[TENANT_B.tenant_id].payload["provider_message_id"] == SID
 
 
 async def test_the_same_message_sid_in_two_tenants_is_not_a_replay_but_a_repeat_is(
@@ -79,12 +79,12 @@ async def test_the_same_message_sid_in_two_tenants_is_not_a_replay_but_a_repeat_
     await post_signed(sms_client, params_b, token=TENANT_B.token)
 
     tenants = sorted(str(m.tenant_id) for m in sms_bus.enqueued_to(QUEUE))
-    assert tenants == ["tenant-a", "tenant-b"]
+    assert tenants == [TENANT_A.tenant_id, TENANT_B.tenant_id]
     # Each marker is read in the tenant that wrote it: the cache is scoped to the bound tenant.
     with as_tenant(TENANT_A.tenant_id):
-        assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
+        assert await sms_cache.get(f"idem:sms:{TENANT_A.tenant_id}:{SID}") == "1"
     with as_tenant(TENANT_B.tenant_id):
-        assert await sms_cache.get(f"idem:sms:tenant-b:{SID}") == "1"
+        assert await sms_cache.get(f"idem:sms:{TENANT_B.tenant_id}:{SID}") == "1"
 
 
 async def test_a_sender_known_only_to_the_other_tenant_is_unknown_on_this_number(
@@ -107,25 +107,25 @@ async def test_a_tenant_in_the_body_a_header_or_the_host_changes_nothing(
 ) -> None:
     params = {
         **reply_params(TENANT_A, sid=SID),
-        "tenantId": "tenant-b",
-        "tenant": "tenant-b",
-        "TenantId": "tenant-b",
+        "tenantId": TENANT_B.tenant_id,
+        "tenant": TENANT_B.tenant_id,
+        "TenantId": TENANT_B.tenant_id,
     }
     response = await post_signed(
         sms_client,
         params,
         headers={
-            "X-Tenant-Id": "tenant-b",
-            "X-Tenant": "tenant-b",
-            "X-Forwarded-Host": "tenant-b.diucs.example",
-            "Host": "tenant-b.diucs.example",
-            "Authorization": "Bearer tenant-b",
+            "X-Tenant-Id": TENANT_B.tenant_id,
+            "X-Tenant": TENANT_B.tenant_id,
+            "X-Forwarded-Host": f"{TENANT_B.tenant_id}.diucs.example",
+            "Host": f"{TENANT_B.tenant_id}.diucs.example",
+            "Authorization": f"Bearer {TENANT_B.tenant_id}",
         },
     )
 
     assert response.status_code == 200
     [queued] = sms_bus.enqueued_to(QUEUE)
-    assert queued.tenant_id == "tenant-a"
+    assert queued.tenant_id == TENANT_A.tenant_id
     assert "tenantId" not in queued.payload
 
 
@@ -227,7 +227,7 @@ async def test_no_unit_of_work_is_opened_for_a_request_that_is_refused(
     assert opened == []
 
     await post_signed(sms_client, reply_params(TENANT_A, sid=SID))
-    assert opened == [ScopeId.tenant("tenant-a")]
+    assert opened == [ScopeId.tenant(TENANT_A.tenant_id)]
 
 
 async def test_the_tenant_is_bound_for_the_allow_list_read_and_the_scope_is_restored_afterwards(
@@ -247,7 +247,7 @@ async def test_the_tenant_is_bound_for_the_allow_list_read_and_the_scope_is_rest
     await post_signed(sms_client, reply_params(TENANT_A, sid=SID))
     await post_signed(sms_client, reply_params(TENANT_B, sid=SID), token=TENANT_B.token)
 
-    assert bound == [ScopeId.tenant("tenant-a"), ScopeId.tenant("tenant-b")]
+    assert bound == [ScopeId.tenant(TENANT_A.tenant_id), ScopeId.tenant(TENANT_B.tenant_id)]
     assert current_scope_or_none() == before
 
 
@@ -290,4 +290,4 @@ async def test_the_sender_number_is_not_what_picks_the_tenant(
 
     params = reply_params(TENANT_A, sid="SM" + "5" * 32, sender=SENDER_E164)
     await post_signed(sms_client, params)
-    assert [m.tenant_id for m in sms_bus.enqueued_to(QUEUE)] == ["tenant-a"]
+    assert [m.tenant_id for m in sms_bus.enqueued_to(QUEUE)] == [TENANT_A.tenant_id]

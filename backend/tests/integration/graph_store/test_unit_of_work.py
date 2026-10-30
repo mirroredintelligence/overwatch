@@ -300,27 +300,27 @@ async def _as_coroutine[T](work: Awaitable[T]) -> T:
 
 
 async def test_the_server_accepts_the_tenant_parameter_a_unit_sends(
-    neo4j_driver: AsyncDriver,
+    neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
-    with bind_tenant("a1"):
+    with bind_tenant(tenant_id):
         async with _echo_factory(neo4j_driver)() as uow:
-            assert await uow.echo.tenant() == [{"tenant": "a1"}]  # type: ignore[attr-defined]
+            assert await uow.echo.tenant() == [{"tenant": tenant_id}]  # type: ignore[attr-defined]
             assert await uow.echo.active_services() == []  # type: ignore[attr-defined]
             await uow.commit()
 
 
 async def test_a_unit_keeps_its_tenant_against_the_real_server_when_the_context_moves(
-    neo4j_driver: AsyncDriver,
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
-    with bind_tenant("a1"):
+    with bind_tenant(tenant_id):
         async with _echo_factory(neo4j_driver)() as uow:
-            with bind_tenant("b1"):
-                assert await uow.echo.tenant() == [{"tenant": "a1"}]  # type: ignore[attr-defined]
-            assert uow.unit_scope == ScopeId.tenant("a1")
+            with bind_tenant(other_tenant_id):
+                assert await uow.echo.tenant() == [{"tenant": tenant_id}]  # type: ignore[attr-defined]
+            assert uow.unit_scope == ScopeId.tenant(tenant_id)
 
 
 async def test_health_and_migrations_run_with_nothing_bound_and_with_a_tenant_bound(
-    harness_container: ThrowawayNeo4j, neo4j_driver: AsyncDriver
+    harness_container: ThrowawayNeo4j, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
     connection = Neo4jConnection(
         harness_container.uri, harness_container.user, harness_container.password
@@ -329,7 +329,7 @@ async def test_health_and_migrations_run_with_nothing_bound_and_with_a_tenant_bo
     try:
         for bound in (False, True):
             if bound:
-                with bind_tenant("a1"):
+                with bind_tenant(tenant_id):
                     health = await neo4j_health(connection, timeout=5)
                     applied = await apply_migrations(neo4j_driver)
             else:
@@ -343,7 +343,7 @@ async def test_health_and_migrations_run_with_nothing_bound_and_with_a_tenant_bo
 
 
 async def test_a_unit_opened_with_nothing_bound_is_refused_and_leaks_nothing(
-    harness_container: ThrowawayNeo4j,
+    harness_container: ThrowawayNeo4j, tenant_id: str
 ) -> None:
     connection = Neo4jConnection(
         harness_container.uri, harness_container.user, harness_container.password
@@ -361,9 +361,9 @@ async def test_a_unit_opened_with_nothing_bound_is_refused_and_leaks_nothing(
                 async with factory():
                     pytest.fail("the unit must not open")
             assert connection.open_session_count == 0
-            with bind_tenant("a1"):
+            with bind_tenant(tenant_id):
                 async with factory() as uow:
-                    assert uow.unit_scope == ScopeId.tenant("a1")
+                    assert uow.unit_scope == ScopeId.tenant(tenant_id)
 
         await _unbound(unbound_unit())
         assert connection.open_session_count == 0

@@ -285,7 +285,8 @@ async def test_opening_the_replay_appends_exactly_one_replay_entry(
     assert await count_nodes(neo4j_driver, "AuditEvent") == 6
     rows = await _rows(
         neo4j_driver,
-        "MATCH (e:AuditEvent {useCase: 'AuditReplay', action: 'R'}) RETURN e.id AS id",
+        "MATCH (e:AuditEvent {useCase: 'AuditReplay', action: 'R', tenantId: $tenant}) RETURN "
+        "e.id AS id",
     )
     assert len(rows) == 1
 
@@ -307,7 +308,8 @@ async def test_a_tampered_snapshot_makes_the_chain_fail(
     assert first.chain_ok is True
     await _run(
         neo4j_driver,
-        "MATCH (s:Snapshot) WHERE s.json CONTAINS 'svc-hospital-at-home' SET s.json = '{}'",
+        "MATCH (s:Snapshot {tenantId: $tenant}) WHERE s.json CONTAINS 'svc-hospital-at-home' SET "
+        "s.json = '{}'",
     )
     second = await replay.execute(GetAuditReplayCommand(ACTOR, REFERENCE))
     assert second.chain_ok is False
@@ -343,7 +345,7 @@ async def test_another_tenants_case_reference_is_not_found(
     replay_a = GetAuditReplay(tenant_uow_factory(neo4j_driver, tenant_id), FixedClock(NOW))
     with pytest.raises(NotFound):
         await replay_a.execute(GetAuditReplayCommand(ACTOR, REFERENCE))
-    assert await count_nodes(neo4j_driver, "AuditEvent") == 5
+    assert await count_nodes(neo4j_driver, "AuditEvent", tenant=other_tenant_id) == 5
 
 
 async def test_tenant_a_replay_sees_only_tenant_a_entries(

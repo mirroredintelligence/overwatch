@@ -36,10 +36,13 @@ from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
 from diucs.bootstrap.container import Container, build_for_tests
 from diucs.domain.codes import Role
 from diucs.domain.model.tenant import TenantStatus
-from tests.integration.adapters.inbound.link_pages.conftest import seed_tenant_host
+from tests.integration.adapters.inbound.link_pages.conftest import (
+    change_tenant_record,
+    seed_tenant_host,
+)
 from tests.support.link_rig import HOST_A, HOST_B
 from tests.support.neo4j import ThrowawayNeo4j, count_nodes, node_props
-from tests.support.tenancy import as_tenant
+from tests.support.tenancy import as_tenant, run_host
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -322,45 +325,54 @@ async def owner_starts(app: FastAPI) -> None:
 
 @pytest.mark.no_tenant
 async def test_a_host_no_tenant_owns_is_not_found_and_nothing_is_written(
-    neo4j_driver: AsyncDriver, screens_app: FastAPI, hosts: None
+    neo4j_driver: AsyncDriver, screens_app: FastAPI, hosts: None, tenant_id: str
 ) -> None:
     await owner_starts(screens_app)
-    before = await count_nodes(neo4j_driver, "LinkToken")
+    before = await count_nodes(neo4j_driver, "LinkToken", tenant=tenant_id)
     async with client_for(screens_app, "nobody.example.org") as stranger:
         response = await stranger.post(START, json={})
     assert response.status_code == 404
     assert response.json()["issue"][0]["diagnostics"] == NOT_FOUND
-    assert await count_nodes(neo4j_driver, "LinkToken") == before
+    assert await count_nodes(neo4j_driver, "LinkToken", tenant=tenant_id) == before
 
 
 @pytest.mark.no_tenant
 async def test_a_suspended_tenant_cannot_start_a_pairing(
-    neo4j_driver: AsyncDriver, screens_app: FastAPI, hosts: None
+    neo4j_driver: AsyncDriver,
+    screens_app: FastAPI,
+    hosts: None,
+    tenant_id: str,
+    other_tenant_id: str,
 ) -> None:
     await owner_starts(screens_app)
-    await seed_tenant_host(
-        neo4j_driver, "suspended-tenant", "suspended.example.org", TenantStatus.SUSPENDED
+    # The second tenant (made by `hosts`) is suspended and takes a host of its own.
+    host = run_host("suspended")
+    await change_tenant_record(
+        neo4j_driver, other_tenant_id, host=host, status=TenantStatus.SUSPENDED.value
     )
-    before = await count_nodes(neo4j_driver, "LinkToken")
-    async with client_for(screens_app, "suspended.example.org") as client:
+    before = await count_nodes(neo4j_driver, "LinkToken", tenant=tenant_id)
+    async with client_for(screens_app, host) as client:
         response = await client.post(START, json={})
     assert response.status_code == 404
-    assert await count_nodes(neo4j_driver, "LinkToken") == before
+    assert await count_nodes(neo4j_driver, "LinkToken", tenant=tenant_id) == before
 
 
 @pytest.mark.no_tenant
 async def test_a_damaged_tenant_record_is_refused_not_guessed(
-    neo4j_driver: AsyncDriver, screens_app: FastAPI, hosts: None
+    neo4j_driver: AsyncDriver,
+    screens_app: FastAPI,
+    hosts: None,
+    tenant_id: str,
+    other_tenant_id: str,
 ) -> None:
     await owner_starts(screens_app)
-    await seed_tenant_host(
-        neo4j_driver, "damaged-tenant", "damaged.example.org", damage={"status": "bogus"}
-    )
-    before = await count_nodes(neo4j_driver, "LinkToken")
-    async with client_for(screens_app, "damaged.example.org") as client:
+    host = run_host("damaged")
+    await change_tenant_record(neo4j_driver, other_tenant_id, host=host, status="bogus")
+    before = await count_nodes(neo4j_driver, "LinkToken", tenant=tenant_id)
+    async with client_for(screens_app, host) as client:
         response = await client.post(START, json={})
     assert response.status_code == 404
-    assert await count_nodes(neo4j_driver, "LinkToken") == before
+    assert await count_nodes(neo4j_driver, "LinkToken", tenant=tenant_id) == before
 
 
 async def test_a_second_tenant_cannot_connect_or_claim_another_tenants_screen(
@@ -381,14 +393,14 @@ async def test_a_second_tenant_cannot_connect_or_claim_another_tenants_screen(
 
 @pytest.mark.no_tenant
 async def test_a_connect_binds_the_leads_tenant_from_the_token_with_nothing_else_bound(
-    screens: AsyncClient, neo4j_driver: AsyncDriver
+    screens: AsyncClient, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
     # R15's known issue, closed by TEN-018: the connect used to fail closed (500) because nothing
     # bound the lead's tenant. The REST edge now binds it from the signed token.
     started = await start(screens)
     response = await connect(screens, spaced(started["code"]))
     assert response.status_code == 201
-    assert await count_nodes(neo4j_driver, "Device") == 1
+    assert await count_nodes(neo4j_driver, "Device", tenant=tenant_id) == 1
 
 
 async def test_missing_pairing_secrets_fail_closed_before_anything_is_written(

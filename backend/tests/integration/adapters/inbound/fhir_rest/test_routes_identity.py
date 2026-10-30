@@ -186,7 +186,8 @@ async def sent_codes(driver: AsyncDriver, event_type: str) -> int:
 
     async def work(tx: Any) -> int:
         result = await tx.run(
-            "MATCH (m:OutboxMessage {eventType: $type}) RETURN count(m) AS n", type=event_type
+            "MATCH (m:OutboxMessage {eventType: $type, tenantId: $tenant}) RETURN count(m) AS n",
+            type=event_type,
         )
         return int((await result.single())["n"])
 

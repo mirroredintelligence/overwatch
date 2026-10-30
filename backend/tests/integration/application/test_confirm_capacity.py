@@ -256,7 +256,10 @@ async def _latest(factory: UnitOfWorkFactory) -> CapacityReport | None:
 async def _confirmed_count(driver: AsyncDriver) -> int:
     async def work(tx: AsyncManagedTransaction) -> int:
         row = await (
-            await tx.run("MATCH (o:Observation {ext_reportType: 'confirmed'}) RETURN count(o) AS n")
+            await tx.run(
+                "MATCH (o:Observation {ext_reportType: 'confirmed', tenantId: $tenant}) RETURN "
+                "count(o) AS n"
+            )
         ).single()
         assert row is not None
         return int(row["n"])
@@ -272,7 +275,8 @@ async def _outbox(factory: UnitOfWorkFactory) -> list[OutboxMessage]:
 async def _derived_from(driver: AsyncDriver, report_id: str) -> list[str]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (:Observation {id: $id})-[:DERIVED_FROM]->(t:Observation) RETURN t.id AS id",
+            "MATCH (:Observation {id: $id, tenantId: $tenant})-[:DERIVED_FROM]->(t:Observation "
+            "{tenantId: $tenant}) RETURN t.id AS id",
             id=report_id,
         )
         return await result.data()
@@ -379,7 +383,8 @@ async def test_a_text_confirmation_gets_the_c3_echo_with_the_confirmed_value(
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (c:Communication) OPTIONAL MATCH (c)-[:TOPIC]->(t:Concept) "
+            "MATCH (c:Communication {tenantId: $tenant}) OPTIONAL MATCH (c {tenantId: "
+            "$tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
             "RETURN c.payloadText AS text, t.code AS messageId"
         )
         return await result.data()

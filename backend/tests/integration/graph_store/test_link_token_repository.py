@@ -148,8 +148,12 @@ async def test_the_database_itself_refuses_two_nodes_with_one_hash(
     token_hash = hash_token(TOKEN, SECRET)
 
     async def create_twice(tx: AsyncManagedTransaction) -> None:
-        await tx.run("CREATE (:LinkToken {id: 'first', tokenHash: $h})", h=token_hash)
-        await tx.run("CREATE (:LinkToken {id: 'second', tokenHash: $h})", h=token_hash)
+        await tx.run(
+            "CREATE (:LinkToken {id: 'first', tokenHash: $h, tenantId: $tenant})", h=token_hash
+        )
+        await tx.run(
+            "CREATE (:LinkToken {id: 'second', tokenHash: $h, tenantId: $tenant})", h=token_hash
+        )
 
     with pytest.raises(ClientError):
         await write_tx(neo4j_driver, create_twice)
@@ -265,11 +269,11 @@ async def test_a_token_hash_is_unique_across_tenants_so_a_second_tenant_cannot_s
 
 @pytest.mark.no_tenant
 async def test_a_link_token_statement_refuses_to_run_with_no_tenant_bound(
-    neo4j_driver: AsyncDriver,
+    neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
     # With nothing bound there is no scoped transaction to run on (TEN-030): the raw one is refused.
     with pytest.raises(RawTransactionRefused):
         await _get(neo4j_driver, "a" * 64)
     with pytest.raises(RawTransactionRefused):
         await _add(neo4j_driver, _record())
-    assert await count_nodes(neo4j_driver, "LinkToken") == 0
+    assert await count_nodes(neo4j_driver, "LinkToken", tenant=tenant_id) == 0

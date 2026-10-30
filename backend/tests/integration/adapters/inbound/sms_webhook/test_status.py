@@ -39,7 +39,7 @@ async def test_a_delivered_receipt_is_queued_with_the_sid_and_status_as_its_id(
     assert queued.id == "SM1:delivered"
     assert queued.topic == QUEUE
     assert queued.event_type == "SmsDeliveryReceived"
-    assert queued.tenant_id == "tenant-a"
+    assert queued.tenant_id == TENANT_A.tenant_id
     assert queued.payload == {
         "provider_message_id": "SM1",
         "status": "delivered",
@@ -133,7 +133,7 @@ async def test_a_receipt_of_the_other_tenant_is_queued_for_that_tenant_only(
 
     assert wrong.status_code == 403
     [queued] = sms_bus.enqueued_to(QUEUE)
-    assert queued.tenant_id == "tenant-b"
+    assert queued.tenant_id == TENANT_B.tenant_id
 
 
 @pytest.mark.parametrize("status", ["accepted", "scheduled", "received", "read", ""])

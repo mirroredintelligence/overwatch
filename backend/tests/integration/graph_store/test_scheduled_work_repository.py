@@ -178,7 +178,10 @@ async def _count_subjects(driver: AsyncDriver, key: str) -> int:
 
     async def work(tx: AsyncManagedTransaction) -> int:
         record = await (
-            await tx.run("MATCH (s:Resource {key: $key}) RETURN count(s) AS total", key=key)
+            await tx.run(
+                "MATCH (s:Resource {key: $key, tenantId: $tenant}) RETURN count(s) AS total",
+                key=key,
+            )
         ).single()
         assert record is not None
         return int(record["total"])

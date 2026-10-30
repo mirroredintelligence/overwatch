@@ -131,3 +131,32 @@ def test_a_workerinput_that_does_not_name_a_run_and_a_worker_is_refused(
 ) -> None:
     with pytest.raises(ValueError, match="workerinput"):
         identity_from_workerinput(received)
+
+
+# per-run host names
+
+
+def test_a_run_host_carries_the_run_token_and_differs_between_workers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from tests.support.tenancy import run_host
+
+    hosts = set()
+    for index in range(3):
+        monkeypatch.setenv("DIUCS_TEST_TENANT", CONTROLLER.for_worker(index).tenant_id)
+        host = run_host("alpha")
+        hosts.add(host)
+        assert host == f"alpha-{CONTROLLER.for_worker(index).token}.example.org"
+        assert all(len(label) <= 63 for label in host.split("."))
+    assert len(hosts) == 3
+
+
+@pytest.mark.parametrize("label", ["", "Alpha", "a b", "x" * 21])
+def test_a_run_host_label_must_be_short_and_lower_case(
+    monkeypatch: pytest.MonkeyPatch, label: str
+) -> None:
+    from tests.support.tenancy import run_host
+
+    monkeypatch.setenv("DIUCS_TEST_TENANT", CONTROLLER.tenant_id)
+    with pytest.raises(ValueError, match="run_host"):
+        run_host(label)

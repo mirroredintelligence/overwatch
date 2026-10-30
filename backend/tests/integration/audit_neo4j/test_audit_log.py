@@ -85,7 +85,7 @@ async def test_verify_chain_is_true_then_false_after_an_entry_is_edited(
 
     async def edit(tx: AsyncManagedTransaction) -> None:
         result = await tx.run(
-            "MATCH (e:AuditEvent {seq: 2}) "
+            "MATCH (e:AuditEvent {seq: 2, tenantId: $tenant}) "
             "SET e.entryJson = replace(e.entryJson, 'svc-ucr-west', 'svc-other')"
         )
         await result.consume()
@@ -121,7 +121,9 @@ async def test_a_snapshot_is_stored_with_the_sha256_of_its_canonical_json(
     stored = await node_props(neo4j_driver, "Snapshot", hash=expected_hash)
     assert stored["json"] == canonical
     linked = await scalar(
-        neo4j_driver, "MATCH (:AuditEvent)-[r:SNAPSHOT]->(:Snapshot) RETURN count(r) AS total"
+        neo4j_driver,
+        "MATCH (:AuditEvent {tenantId: $tenant})-[r:SNAPSHOT]->(:Snapshot {tenantId: $tenant}) "
+        "RETURN count(r) AS total",
     )
     assert linked == 1
 
@@ -181,7 +183,8 @@ async def test_an_edited_provenance_property_is_detected(neo4j_driver: AsyncDriv
 
     async def edit(tx: AsyncManagedTransaction) -> None:
         result = await tx.run(
-            "MATCH (p:Provenance {id: $id}) SET p.numberCalled = 'switchboard-ref-2'",
+            "MATCH (p:Provenance {id: $id, tenantId: $tenant}) SET p.numberCalled = "
+            "'switchboard-ref-2'",
             id=prov_id,
         )
         await result.consume()
@@ -207,7 +210,8 @@ async def test_provenance_links_its_target_agent_and_source(neo4j_driver: AsyncD
     assert (
         await scalar(
             neo4j_driver,
-            "MATCH (:Provenance)-[r:AGENT {role: 'advisor'}]->(:AuditRef {id: 'prac-1'}) "
+            "MATCH (:Provenance {tenantId: $tenant})-[r:AGENT {role: 'advisor'}]->(:AuditRef {id: "
+            "'prac-1', tenantId: $tenant}) "
             "RETURN count(r) AS total",
         )
         == 1
@@ -215,14 +219,16 @@ async def test_provenance_links_its_target_agent_and_source(neo4j_driver: AsyncD
     assert (
         await scalar(
             neo4j_driver,
-            "MATCH (:Provenance)-[:TARGET]->(:AuditRef {id: 'bk-1'}) RETURN count(*) AS total",
+            "MATCH (:Provenance {tenantId: $tenant})-[:TARGET]->(:AuditRef {id: 'bk-1', tenantId: "
+            "$tenant}) RETURN count(*) AS total",
         )
         == 1
     )
     assert (
         await scalar(
             neo4j_driver,
-            "MATCH (:Provenance)-[:ENTITY {role: 'source'}]->(:AuditRef {id: 'comm-1'}) "
+            "MATCH (:Provenance {tenantId: $tenant})-[:ENTITY {role: 'source'}]->(:AuditRef {id: "
+            "'comm-1', tenantId: $tenant}) "
             "RETURN count(*) AS total",
         )
         == 1
@@ -230,7 +236,8 @@ async def test_provenance_links_its_target_agent_and_source(neo4j_driver: AsyncD
     assert (
         await scalar(
             neo4j_driver,
-            "MATCH (:Provenance)-[:ACTIVITY]->(c:Concept {code: 'confirm'}) "
+            "MATCH (:Provenance {tenantId: $tenant})-[:ACTIVITY]->(c:Concept {code: 'confirm', "
+            "tenantId: $tenant}) "
             "RETURN count(c) AS total",
         )
         == 1
@@ -252,8 +259,8 @@ async def test_an_agent_is_linked_on_the_audit_event(neo4j_driver: AsyncDriver) 
     assert (
         await scalar(
             neo4j_driver,
-            "MATCH (:AuditEvent)-[r:AGENT {role: 'advisor', requestor: true}]->"
-            "(:AuditRef {id: 'prac-1'}) RETURN count(r) AS total",
+            "MATCH (:AuditEvent {tenantId: $tenant})-[r:AGENT {role: 'advisor', requestor: true}]->"
+            "(:AuditRef {id: 'prac-1', tenantId: $tenant}) RETURN count(r) AS total",
         )
         == 1
     )
@@ -347,7 +354,8 @@ async def test_a_retyped_activity_concept_system_is_detected(neo4j_driver: Async
 
     await _run_tamper(
         neo4j_driver,
-        "MATCH (:Provenance)-[:ACTIVITY]->(c:Concept {code: 'confirm'}) "
+        "MATCH (:Provenance {tenantId: $tenant})-[:ACTIVITY]->(c:Concept {code: 'confirm', "
+        "tenantId: $tenant}) "
         "SET c.system = 'https://diucs.example/CodeSystem/other'",
     )
 
@@ -372,7 +380,8 @@ async def test_an_edited_audit_event_recorded_time_is_detected(neo4j_driver: Asy
 
     await _run_tamper(
         neo4j_driver,
-        "MATCH (e:AuditEvent {seq: 1}) SET e.recorded = datetime('2026-10-25T10:00:00Z')",
+        "MATCH (e:AuditEvent {seq: 1, tenantId: $tenant}) SET e.recorded = "
+        "datetime('2026-10-25T10:00:00Z')",
     )
 
     assert await _verifies(neo4j_driver) is False
@@ -393,7 +402,8 @@ async def test_an_edited_provenance_recorded_time_is_detected(neo4j_driver: Asyn
 
     await _run_tamper(
         neo4j_driver,
-        "MATCH (p:Provenance {id: $id}) SET p.recorded = datetime('2026-10-25T10:00:00Z')",
+        "MATCH (p:Provenance {id: $id, tenantId: $tenant}) SET p.recorded = "
+        "datetime('2026-10-25T10:00:00Z')",
         id=prov_id,
     )
 
@@ -415,7 +425,8 @@ async def test_a_retargeted_provenance_target_is_detected(neo4j_driver: AsyncDri
 
     await _run_tamper(
         neo4j_driver,
-        "MATCH (:Provenance {id: $id})-[:TARGET]->(t:AuditRef) SET t.id = 'bk-9'",
+        "MATCH (:Provenance {id: $id, tenantId: $tenant})-[:TARGET]->(t:AuditRef {tenantId: "
+        "$tenant}) SET t.id = 'bk-9'",
         id=prov_id,
     )
 
@@ -439,7 +450,8 @@ async def test_an_edited_audit_agent_edge_is_detected(neo4j_driver: AsyncDriver)
 
     await _run_tamper(
         neo4j_driver,
-        "MATCH (:AuditEvent)-[r:AGENT]->(:AuditRef {id: 'prac-1'}) SET r.role = 'lead'",
+        "MATCH (:AuditEvent {tenantId: $tenant})-[r:AGENT]->(:AuditRef {id: 'prac-1', tenantId: "
+        "$tenant}) SET r.role = 'lead'",
     )
 
     assert await _verifies(neo4j_driver) is False

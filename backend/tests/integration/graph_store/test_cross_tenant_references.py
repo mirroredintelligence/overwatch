@@ -14,6 +14,7 @@ W2B build (no Neo4j there).
 
 from collections.abc import AsyncIterator, Awaitable, Callable
 from datetime import UTC, date, datetime
+from functools import partial
 
 import pytest
 import pytest_asyncio
@@ -51,7 +52,7 @@ from diucs.domain.model.flags import (
 from diucs.domain.model.people import PractitionerRole
 from diucs.domain.model.registration import ScopeEntry
 from diucs.domain.model.service_move import ServiceMove
-from tests.support.neo4j import read_tx, write_tx
+from tests.support.neo4j import read_tx, run_scope_ids, write_tx
 from tests.support.relationship_matrix import checked_cases, shape
 from tests.support.tenant_seed import (
     Snapshot,
@@ -304,7 +305,7 @@ async def test_a_foreign_record_is_refused_like_a_missing_one_and_nothing_is_wri
     assert shape(foreign, *FOREIGN.values()) == shape(missing, *MISSING.values())
     assert await _snapshots(two, tenant_id, other_tenant_id) == before
 
-    assert await read_tx(two, invariant_breaks) == ([], [])
+    assert await read_tx(two, partial(invariant_breaks, scopes=run_scope_ids())) == ([], [])
 
 
 @pytest.mark.parametrize("case", sorted(CASES))
@@ -360,7 +361,7 @@ async def test_a_scope_entry_for_a_service_only_the_other_tenant_holds_makes_the
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, object]]:
         result = await tx.run(
-            "MATCH (:List {tenantId: $tenant})-[:ENTRY]->(s:HealthcareService) "
+            "MATCH (:List {tenantId: $tenant})-[:ENTRY]->(s:HealthcareService {tenantId: $tenant}) "
             "RETURN s.id AS id, s.tenantId AS tenant",
             tenant=tenant_id,
         )
@@ -369,4 +370,4 @@ async def test_a_scope_entry_for_a_service_only_the_other_tenant_holds_makes_the
     assert await read_tx(two, work) == [{"id": FOREIGN_SERVICE, "tenant": tenant_id}]
     assert (await _snapshots(two, tenant_id, other_tenant_id))[1] == before_b
 
-    assert await read_tx(two, invariant_breaks) == ([], [])
+    assert await read_tx(two, partial(invariant_breaks, scopes=run_scope_ids())) == ([], [])

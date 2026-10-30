@@ -766,7 +766,9 @@ async def test_the_isolation_container_has_none_of_the_superseded_keys(
 ) -> None:
     constraints, indexes = await schema_names(isolation_driver)
     assert constraints.isdisjoint(SUPERSEDED_CONSTRAINT_NAMES)
-    assert indexes.isdisjoint(SUPERSEDED_INDEX_NAMES)
+    # The contract migration drops constraints only (DEC-450 item 2): the six superseded range
+    # indexes stay, because they change a plan and no answer.
+    assert indexes >= SUPERSEDED_INDEX_NAMES
     assert "link_token_hash" in constraints
     assert "location_position" in indexes
     assert {"tenant_resource_id", "tenant_resource_key", "tenant_processed_key"} <= constraints

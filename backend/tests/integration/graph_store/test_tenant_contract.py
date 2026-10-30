@@ -34,7 +34,7 @@ from diucs.adapters.outbound.graph_store.migrations_tenant import (
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.tenancy import bind_tenant
 from diucs.domain.codes import Channel
-from tests.support.neo4j import read_tx, throwaway_driver, write_tx
+from tests.support.neo4j import read_tx, run_scope_ids, throwaway_driver, write_tx
 from tests.support.tenant_seed import schema_names
 from tests.support.uow import ensure_audit_heads
 
@@ -226,14 +226,22 @@ async def _create(
 
 @pytest.mark.parametrize("row", REPLACED, ids=lambda row: row.name)
 async def test_two_tenants_share_a_key_on_the_shared_schema_and_one_tenant_cannot_repeat_it(
-    neo4j_driver: AsyncDriver, clean_graph: None, row: Any
+    neo4j_driver: AsyncDriver,
+    clean_graph: None,
+    row: Any,
+    tenant_id: str,
+    other_tenant_id: str,
 ) -> None:
     props = _props(row.label, row.properties)
-    await _create(neo4j_driver, row.label, "a", props)
-    await _create(neo4j_driver, row.label, "b", props)
+    await _create(neo4j_driver, row.label, tenant_id, props)
+    await _create(neo4j_driver, row.label, other_tenant_id, props)
     with pytest.raises(ConstraintError):
-        await _create(neo4j_driver, row.label, "a", props)
-    count = await _rows(neo4j_driver, f"MATCH (n:{row.label}) RETURN count(n) AS n")
+        await _create(neo4j_driver, row.label, tenant_id, props)
+    count = await _rows(
+        neo4j_driver,
+        f"MATCH (n:{row.label}) WHERE n.tenantId IN $scopes RETURN count(n) AS n",
+        scopes=run_scope_ids(),
+    )
     assert count == [{"n": 2}]
 
 
@@ -244,7 +252,10 @@ async def test_a_second_tenant_gets_its_own_audit_head_on_the_shared_schema(
     await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)  # idempotent for both
 
     heads = await _rows(
-        neo4j_driver, "MATCH (h:AuditHead) RETURN h.id AS id, h.tenantId AS tenant ORDER BY tenant"
+        neo4j_driver,
+        "MATCH (h:AuditHead) WHERE h.tenantId IN $scopes "
+        "RETURN h.id AS id, h.tenantId AS tenant ORDER BY tenant",
+        scopes=run_scope_ids(),
     )
     assert heads == sorted(
         [{"id": "audit", "tenant": tenant_id}, {"id": "audit", "tenant": other_tenant_id}],
@@ -279,13 +290,17 @@ async def test_a_second_tenant_holds_the_same_communication_and_concept_ids_on_t
 
     comms = await _rows(
         neo4j_driver,
-        "MATCH (c:Communication {id: 'comm-1'}) RETURN c.tenantId AS tenant ORDER BY tenant",
+        "MATCH (c:Communication {id: 'comm-1'}) WHERE c.tenantId IN $scopes "
+        "RETURN c.tenantId AS tenant ORDER BY tenant",
+        scopes=run_scope_ids(),
     )
     assert [r["tenant"] for r in comms] == sorted([tenant_id, other_tenant_id])
     concepts = await _rows(
         neo4j_driver,
-        "MATCH (c:Concept) RETURN c.tenantId AS tenant, c.system AS system, c.code AS code, "
+        "MATCH (c:Concept) WHERE c.tenantId IN $scopes "
+        "RETURN c.tenantId AS tenant, c.system AS system, c.code AS code, "
         "count(*) AS n ORDER BY tenant, system, code",
+        scopes=run_scope_ids(),
     )
     assert concepts
     assert all(r["n"] == 1 for r in concepts)

@@ -380,7 +380,10 @@ async def test_each_tenant_runs_its_own_work_under_its_own_scope(
     assert [a.kind, b.kind] == ["completed", "completed"]
     assert [w.id for w in handler.works] == ["work-a", "work-b"]
     assert handler.scopes == [tenant_scope(tenant_id), tenant_scope(other_tenant_id)]
-    assert await count_nodes(driver, "ScheduledWork") == 2
+    assert (
+        await count_nodes(driver, "ScheduledWork", tenant=tenant_id)
+        + await count_nodes(driver, "ScheduledWork", tenant=other_tenant_id)
+    ) == 2
 
 
 async def test_a_message_for_tenant_a_naming_tenant_bs_work_is_not_found(

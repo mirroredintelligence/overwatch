@@ -124,7 +124,8 @@ async def _reason_code_count(driver: AsyncDriver, request_id: str) -> int:
     async def work(tx: Any) -> int:
         record = await (
             await tx.run(
-                "MATCH (r:ServiceRequest {id: $id})-[rel:REASON_CODE]->() "
+                "MATCH (r:ServiceRequest {id: $id, tenantId: "
+                "$tenant})-[rel:REASON_CODE]->({tenantId: $tenant}) "
                 "RETURN count(rel) AS total",
                 id=request_id,
             )

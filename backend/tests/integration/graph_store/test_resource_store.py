@@ -8,9 +8,11 @@ fresh session, so what the tests assert is what was really stored. All values ar
 import asyncio
 import inspect
 import json
+import os
 import re
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 
 import pytest
@@ -28,7 +30,16 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.tenancy import RawTransactionRefused, bind_tenant
 from diucs.domain.codes import BASE_URL
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.neo4j import (
+    ThrowawayNeo4j,
+    count_nodes,
+    node_props,
+    read_tx,
+    run_nodes,
+    run_relationships,
+    run_scope_ids,
+    write_tx,
+)
 from tests.support.scoped import scoped, scoped_stub
 from tests.support.tenant_seed import invariant_breaks
 from tests.unit.adapters.outbound.graph_store.test_mapper_backbone import (
@@ -81,11 +92,11 @@ async def _history(driver: AsyncDriver, type_: str, id_: str) -> list[dict[str, 
 
 
 async def _every_property_value(driver: AsyncDriver) -> list[Any]:
-    """Every node and relationship property value in the graph, read in a fresh session."""
+    """Every node and relationship property value of the run's scopes, read in a fresh session."""
 
     async def work(tx: Any) -> list[Any]:
-        nodes = await (await tx.run("MATCH (n) RETURN properties(n) AS p")).data()
-        rels = await (await tx.run("MATCH ()-[r]->() RETURN properties(r) AS p")).data()
+        nodes = await (await run_nodes(tx, "properties(n) AS p")).data()
+        rels = await (await run_relationships(tx, "properties(r) AS p")).data()
         return [value for row in [*nodes, *rels] for value in row["p"].values()]
 
     return await read_tx(driver, work)
@@ -435,8 +446,10 @@ RES_TEMPLATES = frozenset(
         "Q-RES-UPSERT-ROOT",
     }
 )
-TENANT_A = "tenant-a"
-TENANT_B = "tenant-b"
+# The run's own two tenants: a fixed id would not be removed by the wipe between tests, and two
+# runs on one Neo4j would write to the same tenant (TEN-035).
+TENANT_A = os.environ["DIUCS_TEST_TENANT"]
+TENANT_B = os.environ["DIUCS_TEST_OTHER_TENANT"]
 # A node pattern: `(`, an optional variable, optional labels (a label expression may use `|`), an
 # optional property map, `)`; not a function call (no word character before the parenthesis).
 _NODE_PATTERN = re.compile(r"(?<![\w`])\(\s*\w*\s*(?::[\w|:]+)?\s*(?:\{[^}]*\})?\s*\)")
@@ -622,7 +635,8 @@ async def test_a_repeated_put_leaves_one_in_system_edge_per_concept(
     async def work(tx: Any) -> list[dict[str, Any]]:
         return await (
             await tx.run(
-                "MATCH (c:Concept)-[r:IN_SYSTEM]->(s:CodeSystem) "
+                "MATCH (c:Concept {tenantId: $tenant})-[r:IN_SYSTEM]->(s:CodeSystem {tenantId: "
+                "$tenant}) "
                 "RETURN c.key AS concept, count(r) AS edges"
             )
         ).data()
@@ -724,7 +738,7 @@ async def test_another_tenants_resource_reads_as_absent_and_the_same_id_is_its_o
 
 
 async def invariant_breaks_of(driver: AsyncDriver) -> tuple[list[str], list[str]]:
-    return await read_tx(driver, invariant_breaks)
+    return await read_tx(driver, partial(invariant_breaks, scopes=run_scope_ids()))
 
 
 async def test_one_tenant_cannot_update_or_conflict_with_the_others_version(
@@ -854,9 +868,13 @@ async def _fill_tenants(driver: AsyncDriver, tenants: range) -> None:
     await write_tx(driver, work)
 
 
+@pytest.mark.schema
 async def test_key_lookups_of_one_resource_do_not_grow_with_the_number_of_tenants(
-    two: AsyncDriver,
+    own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver],
 ) -> None:
+    """Fifty tenants of data in the graph, so it runs on a private container (`schema`): they are
+    not the run's scopes, and the shared Neo4j must not keep them."""
+    _, two = own_neo4j
     probes: dict[str, dict[str, Any]] = {
         "Q-RES-GET": {"key": "Organization/o3", "type": "Organization"},
         "Q-RES-HISTORY": {"key": "Organization/o3"},
@@ -994,7 +1012,8 @@ async def _concept_links(driver: AsyncDriver) -> list[tuple[str, str, int]]:
     async def work(tx: Any) -> list[tuple[str, str, int]]:
         rows = await (
             await tx.run(
-                "MATCH (c:Concept)-[r:IN_SYSTEM]->(s:CodeSystem) "
+                "MATCH (c:Concept {tenantId: $tenant})-[r:IN_SYSTEM]->(s:CodeSystem {tenantId: "
+                "$tenant}) "
                 "RETURN c.key AS c, s.key AS s, count(r) AS edges ORDER BY c, s"
             )
         ).data()
@@ -1007,7 +1026,8 @@ async def _duplicate_every_edge(driver: AsyncDriver, extra: int) -> None:
     async def work(tx: Any) -> None:
         await (
             await tx.run(
-                "UNWIND range(1, $extra) AS i MATCH (c:Concept)-[:IN_SYSTEM]->(s:CodeSystem) "
+                "UNWIND range(1, $extra) AS i MATCH (c:Concept {tenantId: "
+                "$tenant})-[:IN_SYSTEM]->(s:CodeSystem {tenantId: $tenant}) "
                 "CREATE (c)-[:IN_SYSTEM]->(s)",
                 extra=extra,
             )
@@ -1043,7 +1063,7 @@ async def test_a_concept_whose_code_system_is_missing_is_still_not_found(
     await _put(neo4j_driver, _observation(), None)
 
     async def drop_systems(tx: Any) -> None:
-        await (await tx.run("MATCH (s:CodeSystem) DETACH DELETE s")).consume()
+        await (await tx.run("MATCH (s:CodeSystem {tenantId: $tenant}) DETACH DELETE s")).consume()
 
     await write_tx(neo4j_driver, drop_systems)
 
@@ -1116,7 +1136,7 @@ async def test_a_reference_to_a_registry_label_or_a_non_type_is_refused_and_writ
 
     async def everything(tx: Any) -> int:
         record = await (
-            await tx.run("MATCH (n) WHERE NOT n:Migration RETURN count(n) AS c")
+            await tx.run("MATCH (n {tenantId: $tenant}) WHERE NOT n:Migration RETURN count(n) AS c")
         ).single()
         assert record is not None
         return int(record["c"])

@@ -44,6 +44,12 @@ async def _lead_app(
     # Only the run tenant has a chain head: the second tenant's head needs a contracted container
     # (DEC-159), and no case here writes as tenant B.
     await ensure_audit_heads(neo4j_driver, tenant_id)
+    # The lead who sets a service up is a practitioner of the tenant (its owner role is theirs).
+    async with test_container.uow_factory() as uow:
+        await uow.people.save_practitioner(
+            Practitioner(id="lead-1", active=True, display_name="Sample Lead", phone_hash=None)
+        )
+        await uow.commit()
 
 
 B_SERVICE = "svc-b-ward"
@@ -92,6 +98,7 @@ def _setup(mobile: str = NUMBER, channel: str = "text") -> dict:
             _p("availableTo", {"valueString": "20:00"}),
             _p("ageMin", {"valueInteger": 18}),
             _p("district", {"valueString": "DT4"}),
+            _p("accepts", {"valueCode": "frailty"}),
             _p("reviewBy", {"valueDate": "2026-12-12"}),
         ],
     }
@@ -125,9 +132,11 @@ async def test_the_mobile_is_kept_in_the_protected_store_only(
     await api_client.post(
         SETUP, json=_setup(), headers={"Idempotency-Key": "setup-0002", **_bearer(Role.LEAD)}
     )
+    # The number is kept in its international form, so the search is for its subscriber digits.
     async with neo4j_driver.session() as session:
         result = await session.run(
-            "MATCH (n) WHERE any(k IN keys(n) WHERE toString(n[k]) CONTAINS '07700') "
+            "MATCH (n) WHERE any(k IN keys(n) "
+            "WHERE n[k] IS :: STRING AND n[k] CONTAINS '7700900123') "
             "RETURN labels(n) AS labels"
         )
         holders = [record["labels"] async for record in result]

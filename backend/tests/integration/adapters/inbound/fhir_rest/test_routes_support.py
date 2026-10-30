@@ -25,6 +25,7 @@ from diucs.adapters.outbound.telemetry.redaction import clean_attributes
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
+from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.bootstrap.container import build_for_tests
 from diucs.domain.codes import PractitionerRoleCode, Role
@@ -124,6 +125,7 @@ async def support_app(
         await _seed_lead(container)
         app = create_app(container)
         app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
+        app.state.cache = InMemoryCache(container.clock)  # the replay guard of every write (R03)
         yield app
     finally:
         await connection.close()
@@ -138,6 +140,19 @@ async def _seed_lead(container: Any) -> None:
     async with container.uow_factory() as uow:
         await uow.people.save_practitioner(
             Practitioner(id="p-lead", active=True, display_name="Sample Lead", phone_hash=None)
+        )
+        # Support staff and the person who shares a session are practitioners of the tenant (a
+        # code and an access link to them), and the session a ticket asks for exists.
+        await uow.people.save_practitioner(
+            Practitioner(
+                id="prac-support", active=True, display_name="Sample Support", phone_hash=None
+            )
+        )
+        await uow.support.ensure_session(SESSION, "phone", "browser", "1.4.2", NOW)
+        await uow.people.save_practitioner(
+            Practitioner(
+                id="prac-reporter", active=True, display_name="Sample Reporter", phone_hash=None
+            )
         )
         await uow.people.save_role(
             PractitionerRole(
@@ -267,6 +282,7 @@ async def test_a_ticket_is_pending_until_a_lead_approves_it_and_then_opens_the_s
     )
     approved = await client.post(
         "/support/tickets/INC-100/approve",
+        json={},  # the media-type check of the API refuses a POST with no body type
         headers=_headers(Role.LEAD, "p-lead", "k-approve"),
     )
     opened = await client.post(

@@ -200,6 +200,8 @@ class LinkAction:
     action: str
     value: int | None = None
     confirm_out_of_range: bool = False
+    reason: str | None = None
+    """The reason a booking answer gives (L02): a decline, a withdrawal or a not-reached reason."""
 
 
 @dataclass(frozen=True, slots=True)

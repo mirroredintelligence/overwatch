@@ -2,8 +2,11 @@ import { hkdfSync } from 'node:crypto';
 import { cookies } from 'next/headers';
 import { EncryptJWT, jwtDecrypt } from 'jose';
 import { isSamePathOnly } from './access';
+import { ExchangeFailed, exchangeStaffToken } from './exchange';
+import { normaliseHost, requestHost } from './host';
 import {
   authorizeUrl,
+  callbackAddress,
   exchangeCode,
   loadEntraConfig,
   newTransaction,
@@ -17,11 +20,14 @@ import {
   readRequestCookie,
   sessionSecretKey,
 } from './session';
-import { backendTokenExpiresAt, mapRoles, mintBackendToken, safeNext } from './staff';
+import { safeNext } from './staff';
 
 // The two halves of staff sign-in: start (send the browser to Entra) and complete (the browser
-// comes back with a code). The tenant is never read from the request: it comes from the directory
-// of the verified ID token and from nothing else. Nothing here logs a token, code or claim.
+// comes back with a code). The tenant is the host the person signed in on, and the back end decides
+// everything about it: this code sends the verified identity token to the back end with the host and
+// keeps the tenant-bound token the back end answers with (lib/auth/exchange.ts). It mints no token,
+// holds no signing secret and reads no tenant, directory or role from the request, the identity
+// token or its own settings. Nothing here logs a token, code or claim.
 
 export const TRANSACTION_COOKIE = 'diucs_oidc';
 const TRANSACTION_PATH = '/api/bff/auth/entra';
@@ -30,7 +36,6 @@ const ENCRYPTION = { alg: 'dir', enc: 'A256GCM' } as const;
 
 const FAILED = '/sign-in?error=failed';
 const NO_ACCESS = '/sign-in?error=no-access';
-const FORBIDDEN = '/forbidden';
 
 const BASE64URL_43 = /^[A-Za-z0-9_-]{43}$/;
 const CODE_MAX_LENGTH = 2048;
@@ -64,12 +69,13 @@ async function unsealTransaction(value: string, now: Date): Promise<Transaction 
       contentEncryptionAlgorithms: ['A256GCM'],
       currentDate: now,
     });
-    const { state, nonce, verifier, next } = payload;
+    const { state, nonce, verifier, next, host } = payload;
+    if (typeof host !== 'string' || host !== normaliseHost(host)) return null;
     if (typeof state !== 'string' || !BASE64URL_43.test(state)) return null;
     if (typeof nonce !== 'string' || !BASE64URL_43.test(nonce)) return null;
     if (typeof verifier !== 'string' || !BASE64URL_43.test(verifier)) return null;
     if (typeof next !== 'string' || (next !== '' && !isSamePathOnly(next))) return null;
-    return { state, nonce, verifier, next };
+    return { state, nonce, verifier, next, host };
   } catch {
     return null;
   }
@@ -100,11 +106,14 @@ async function nextFrom(request: Request): Promise<string> {
 export async function startSignIn(request: Request): Promise<Response> {
   try {
     const config = loadEntraConfig();
-    const transaction = newTransaction(await nextFrom(request));
+    const host = requestHost(request);
+    const address = callbackAddress(request);
+    if (host === null || address === null) throw new SignInRefused('transaction');
+    const transaction = newTransaction(await nextFrom(request), host);
     const sealed = await sealTransaction(transaction, new Date());
     const store = await cookies();
     store.set(TRANSACTION_COOKIE, sealed, transactionCookie(TRANSACTION_SECONDS));
-    return see(authorizeUrl(config, transaction).toString());
+    return see(authorizeUrl(config, transaction, address).toString());
   } catch {
     note('could not start');
     return see(FAILED);
@@ -138,6 +147,10 @@ export async function completeSignIn(request: Request): Promise<Response> {
 
     const transaction = await unsealTransaction(readRequestCookie(request, TRANSACTION_COOKIE) ?? '', now);
     if (!transaction) throw new SignInRefused('transaction');
+    // The sign-in must end on the host it began on.
+    const host = requestHost(request);
+    const address = callbackAddress(request);
+    if (host === null || address === null || transaction.host !== host) throw new SignInRefused('transaction');
 
     const query = new URL(request.url).searchParams;
     if (query.has('error')) throw new SignInRefused('provider-error');
@@ -146,28 +159,32 @@ export async function completeSignIn(request: Request): Promise<Response> {
     if (state !== transaction.state) throw new SignInRefused('state');
     if (!code || code.length > CODE_MAX_LENGTH) throw new SignInRefused('state');
 
-    const idToken = await exchangeCode(config, code, transaction);
-    const identity = await verifyIdToken(config, idToken, transaction.nonce, now);
+    const idToken = await exchangeCode(config, code, transaction, address);
+    await verifyIdToken(config, idToken, transaction.nonce, now);
 
-    const role = mapRoles(identity.roles, { allowSupport: identity.binding.platform });
-    if (role === null) return see(NO_ACCESS);
-
-    const backendToken = await mintBackendToken(
-      { oid: identity.oid, role, tenantId: identity.binding.tenantId },
-      now,
-    );
+    // The back end takes the tenant from the host, checks the directory and gives the role.
+    const grant = await exchangeStaffToken(idToken, host, now);
     await createSession({
-      role,
-      services: [],
-      sub: identity.oid,
-      backendToken,
-      expiresAt: backendTokenExpiresAt(now).toISOString(),
+      role: grant.role,
+      tenantId: grant.tenantId,
+      host,
+      services: grant.services,
+      sub: grant.sub,
+      backendToken: grant.backendToken,
+      expiresAt: grant.expiresAt,
     });
+    const role = grant.role;
     return moveOn(safeNext(transaction.next, role));
   } catch (error) {
+    if (error instanceof ExchangeFailed) {
+      note(`exchange ${error.reason}`);
+      // One refusal for a directory the tenant has not bound, a group with no role and a person of
+      // another tenant: the page does not say which.
+      return see(error.reason === 'refused' ? NO_ACCESS : FAILED);
+    }
     if (error instanceof SignInRefused) {
       note(error.reason);
-      return see(error.reason === 'unbound-directory' ? FORBIDDEN : FAILED);
+      return see(FAILED);
     }
     note('fault');
     return see(FAILED);

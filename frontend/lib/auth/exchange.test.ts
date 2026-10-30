@@ -61,7 +61,7 @@ describe('exchangeStaffToken: what is sent', () => {
   });
 
   it('sends no tenant, role, audience, directory or signing material of its own', async () => {
-    await exchangeStaffToken(identity(), TENANTS.B.host, NOW);
+    await exchangeStaffToken(identity({ tid: DIRECTORY_B }), TENANTS.B.host, NOW);
     expect(Object.keys(seenExchanges[0]?.body as object)).toEqual(['idToken']);
   });
 

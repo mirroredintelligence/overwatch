@@ -1,6 +1,6 @@
 import type { BrowserContext } from '@playwright/test';
 import { EncryptJWT } from 'jose';
-import { E2E_SESSION_SECRET } from './env';
+import { E2E_SESSION_SECRET, E2E_TENANT } from './env';
 
 // Seals a BFF session cookie the way lib/auth/session.ts does (dir + A256GCM,
 // the claims it reads). It does not import that module: Playwright cannot load
@@ -13,6 +13,8 @@ export async function signIn(context: BrowserContext, baseURL: string, role: str
   const expiresAt = new Date(Date.now() + 3_600_000);
   const value = await new EncryptJWT({
     role,
+    tenantId: E2E_TENANT.id,
+    host: new URL(baseURL).host,
     services: [],
     sub: 'e2e-screen',
     backendToken,

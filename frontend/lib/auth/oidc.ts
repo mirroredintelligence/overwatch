@@ -1,36 +1,33 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, errors, jwtVerify } from 'jose';
-import { isGuid, isTenantId } from './staff';
+import { requestHost } from './host';
+import { isGuid } from './ids';
 
 // OpenID Connect against Microsoft Entra ID: the authorisation code flow with PKCE (S256),
 // done here with `jose` and `fetch` and not with Auth.js (DEC-210). Nothing in this file logs,
 // and every refusal is one of a fixed list of reasons that holds no token, code or claim.
-
-/** One Entra directory and the DIUCS tenant it is bound to (W09 tenancy amendment). */
-export type Binding = {
-  directoryId: string;
-  tenantId: string;
-  /** The operator's own directory: the only one whose `DIUCS.Support` role is honoured. */
-  platform: boolean;
-};
+//
+// This code proves who the person is and nothing about which organisation or role: it knows no
+// tenant, no directory binding and no role (TEN-044). The identity token goes on to the back end,
+// which takes the tenant from the host, checks the directory against the tenant's verified binding
+// and gives the role the tenant's own mapping says (lib/auth/exchange.ts, TEN-043).
 
 export type EntraConfig = {
   clientId: string;
   clientSecret: string;
   /** Scheme and host of the Entra authority, no path. */
   authorityHost: string;
-  /** This site's own address, from configuration, never from a request. */
-  publicUrl: string;
-  bindings: Binding[];
 };
 
-export type Transaction = { state: string; nonce: string; verifier: string; next: string };
+/**
+ * `host` is the host the sign-in began on: the transaction is for that host only, so a sign-in
+ * begun on one tenant's host cannot be finished on another's.
+ */
+export type Transaction = { state: string; nonce: string; verifier: string; next: string; host: string };
 
 export type Identity = {
   oid: string;
   directoryId: string;
-  roles: unknown;
-  binding: Binding;
 };
 
 export const REFUSALS = [
@@ -46,7 +43,6 @@ export const REFUSALS = [
   'wrong-issuer',
   'nonce',
   'bad-claims',
-  'unbound-directory',
 ] as const;
 export type Refusal = (typeof REFUSALS)[number];
 
@@ -68,7 +64,6 @@ const KEYS_TIMEOUT_MS = 5_000;
 const KEYS_COOLDOWN_MS = 30_000;
 const KEYS_MAX_AGE_MS = 3_600_000;
 const ID_TOKEN_MAX_LENGTH = 8192;
-const SHARED_AUTHORITY = 'organizations';
 
 type Env = Record<string, string | undefined>;
 
@@ -95,39 +90,12 @@ function origin(env: Env, name: string, value: string): string {
   return url.origin;
 }
 
-function parseBindings(text: string): Binding[] {
-  const fail = () => new Error('DIUCS_ENTRA_BINDINGS must be a list of { directoryId, tenantId, platform? }');
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw fail();
-  }
-  if (!Array.isArray(parsed) || parsed.length === 0) throw fail();
-  const seen = new Set<string>();
-  return parsed.map((entry: unknown): Binding => {
-    if (typeof entry !== 'object' || entry === null || Array.isArray(entry)) throw fail();
-    const { directoryId, tenantId, platform, ...rest } = entry as Record<string, unknown>;
-    if (Object.keys(rest).length > 0) throw fail();
-    if (typeof directoryId !== 'string' || !isGuid(directoryId)) throw fail();
-    if (typeof tenantId !== 'string' || !isTenantId(tenantId)) throw fail();
-    if (platform !== undefined && typeof platform !== 'boolean') throw fail();
-    const id = directoryId.toLowerCase();
-    // One directory is one tenant: a second row for it would make the tenant ambiguous.
-    if (seen.has(id)) throw fail();
-    seen.add(id);
-    return { directoryId: id, tenantId, platform: platform === true };
-  });
-}
-
 /** Reads the settings at call time, so a missing value fails the request that needs it. */
 export function loadEntraConfig(env: Env = process.env): EntraConfig {
   return {
     clientId: setting(env, 'ENTRA_CLIENT_ID'),
     clientSecret: setting(env, 'ENTRA_CLIENT_SECRET'),
     authorityHost: origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST),
-    publicUrl: origin(env, 'DIUCS_PUBLIC_URL', setting(env, 'DIUCS_PUBLIC_URL')),
-    bindings: parseBindings(setting(env, 'DIUCS_ENTRA_BINDINGS')),
   };
 }
 
@@ -144,36 +112,45 @@ export function entraAuthorityOrigin(env: Env = process.env): string | null {
   }
 }
 
-export function bindingFor(config: EntraConfig, directoryId: string): Binding | undefined {
-  const wanted = directoryId.toLowerCase();
-  return config.bindings.find((binding) => binding.directoryId === wanted);
-}
+// One app registration serves every tenant, so the shared `organizations` endpoint is always asked and
+// the person's own directory is named by the token.
+const AUTHORITY = 'organizations';
 
-// With one directory bound the sign-in asks that directory directly; with several it asks the
-// shared `organizations` endpoint and the token's own directory is then checked against the list.
-function authority(config: EntraConfig): string {
-  const [only] = config.bindings;
-  return config.bindings.length === 1 && only ? only.directoryId : SHARED_AUTHORITY;
-}
-
-function redirectUri(config: EntraConfig): string {
-  return `${config.publicUrl}${CALLBACK_PATH}`;
+/**
+ * The address Entra sends the browser back to: the callback on the host the request was addressed to,
+ * because each tenant has its own host (DEC-134 item 3) and its own registered redirect address. The
+ * host is the Host header only. In production the scheme is https whatever the request URL shows (a
+ * proxy ends TLS); elsewhere it is the request's own. Null when the host is not a host name.
+ */
+export function callbackAddress(request: Request, env: Env = process.env): string | null {
+  const host = requestHost(request);
+  if (host === null) return null;
+  let scheme = 'https:';
+  if (env.NODE_ENV !== 'production') {
+    try {
+      scheme = new URL(request.url).protocol;
+    } catch {
+      return null;
+    }
+    if (scheme !== 'https:' && scheme !== 'http:') return null;
+  }
+  return `${scheme}//${host}${CALLBACK_PATH}`;
 }
 
 function random(): string {
   return randomBytes(32).toString('base64url');
 }
 
-export function newTransaction(next: string): Transaction {
-  return { state: random(), nonce: random(), verifier: random(), next };
+export function newTransaction(next: string, host: string): Transaction {
+  return { state: random(), nonce: random(), verifier: random(), next, host };
 }
 
-export function authorizeUrl(config: EntraConfig, transaction: Transaction): URL {
-  const url = new URL(`${config.authorityHost}/${authority(config)}/oauth2/v2.0/authorize`);
+export function authorizeUrl(config: EntraConfig, transaction: Transaction, redirectUri: string): URL {
+  const url = new URL(`${config.authorityHost}/${AUTHORITY}/oauth2/v2.0/authorize`);
   const query = url.searchParams;
   query.set('client_id', config.clientId);
   query.set('response_type', 'code');
-  query.set('redirect_uri', redirectUri(config));
+  query.set('redirect_uri', redirectUri);
   query.set('response_mode', 'query');
   // Only openid: no name, email or profile is asked for, so none is sent.
   query.set('scope', 'openid');
@@ -187,17 +164,22 @@ export function authorizeUrl(config: EntraConfig, transaction: Transaction): URL
 }
 
 /** Redeems the code at the token endpoint and returns the ID token. Nothing else in the answer is read. */
-export async function exchangeCode(config: EntraConfig, code: string, transaction: Transaction): Promise<string> {
+export async function exchangeCode(
+  config: EntraConfig,
+  code: string,
+  transaction: Transaction,
+  redirectUri: string,
+): Promise<string> {
   const refused = new SignInRefused('token-exchange');
   let body: unknown;
   try {
-    const response = await fetch(`${config.authorityHost}/${authority(config)}/oauth2/v2.0/token`, {
+    const response = await fetch(`${config.authorityHost}/${AUTHORITY}/oauth2/v2.0/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: redirectUri(config),
+        redirect_uri: redirectUri,
         client_id: config.clientId,
         client_secret: config.clientSecret,
         code_verifier: transaction.verifier,
@@ -219,7 +201,7 @@ export async function exchangeCode(config: EntraConfig, code: string, transactio
 const keySets = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
 
 function keysFor(config: EntraConfig) {
-  const address = `${config.authorityHost}/${authority(config)}/discovery/v2.0/keys`;
+  const address = `${config.authorityHost}/${AUTHORITY}/discovery/v2.0/keys`;
   let keys = keySets.get(address);
   if (!keys) {
     keys = createRemoteJWKSet(new URL(address), {
@@ -262,9 +244,9 @@ function refusalFor(error: unknown): SignInRefused {
 /**
  * Checks an ID token and returns who it says the person is. Signature (RS256 only, against the
  * directory's published keys), audience (our client id), expiry and start time are checked by
- * `jose`. Then: the issuer must be the issuer of the token's own directory, that directory must be
- * bound to a tenant (and, when only one directory is bound, be that one), and the nonce must be the
- * one this sign-in sent. The name and email in the token are never read.
+ * `jose`. Then: the issuer must be the issuer of the token's own directory, and the nonce must be
+ * the one this sign-in sent. Whether a tenant has bound the directory is not asked here: that is the
+ * back end's answer. The name, email and roles in the token are never read.
  */
 export async function verifyIdToken(
   config: EntraConfig,
@@ -295,13 +277,7 @@ export async function verifyIdToken(
   }
   const directoryId = tid.toLowerCase();
   if (iss !== `${config.authorityHost}/${tid}/v2.0`) throw new SignInRefused('wrong-issuer');
-  const [only] = config.bindings;
-  if (config.bindings.length === 1 && only && only.directoryId !== directoryId) {
-    throw new SignInRefused('wrong-issuer');
-  }
-  const binding = bindingFor(config, directoryId);
-  if (!binding) throw new SignInRefused('unbound-directory');
   if (typeof claims.nonce !== 'string' || !sameText(claims.nonce, nonce)) throw new SignInRefused('nonce');
 
-  return { oid: oid.toLowerCase(), directoryId, roles: claims.roles, binding };
+  return { oid: oid.toLowerCase(), directoryId };
 }

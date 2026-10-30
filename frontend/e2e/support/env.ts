@@ -1,14 +1,4 @@
-import {
-  BACKEND_JWT_SECRET,
-  CLIENT_ID,
-  CLIENT_SECRET,
-  DIRECTORY_A,
-  DIRECTORY_B,
-  DIRECTORY_PLATFORM,
-  TENANT_A,
-  TENANT_B,
-  TENANT_PLATFORM,
-} from '../../test/oidc/constants';
+import { CLIENT_ID, CLIENT_SECRET, DIRECTORY_A, TENANT_A } from '../../test/oidc/constants';
 
 // Values shared by playwright.config.ts and the support files. Plain constants,
 // so the config loads nothing heavy.
@@ -41,18 +31,17 @@ export const ENTRA_PORT = SITE_PORT + 2;
 export const ENTRA_HOST = `http://127.0.0.1:${ENTRA_PORT}`;
 export const SITE_URL = `http://localhost:${SITE_PORT}`;
 
-// What the dev server is given for the staff sign-in. Two directories bound to two tenants, and the
-// operator's own. Relative import: the config loads this file before the path aliases are known.
+// What the dev server is given for the staff sign-in: the provider and this app's registration, and
+// the session secret. No tenant, no directory list and no signing secret: the tenant is the host the
+// site is served on (here `localhost:<port>`, the e2e tenant's own host, which the stand-in back end
+// binds to directory A), and the back end issues the token. Relative import: the config loads this
+// file before the path aliases are known.
 export const ENTRA_ENV = {
   ENTRA_CLIENT_ID: CLIENT_ID,
   ENTRA_CLIENT_SECRET: CLIENT_SECRET,
   ENTRA_AUTHORITY_HOST: ENTRA_HOST,
-  DIUCS_PUBLIC_URL: SITE_URL,
-  DIUCS_ENTRA_BINDINGS: JSON.stringify([
-    { directoryId: DIRECTORY_A, tenantId: TENANT_A },
-    { directoryId: DIRECTORY_B, tenantId: TENANT_B },
-    { directoryId: DIRECTORY_PLATFORM, tenantId: TENANT_PLATFORM, platform: true },
-  ]),
-  BACKEND_JWT_SECRET,
   SESSION_SECRET: E2E_SESSION_SECRET,
 };
+
+// The one tenant the e2e stand-in back end serves: its host, id and the directory it has bound.
+export const E2E_TENANT = { id: TENANT_A, host: new URL(SITE_URL).host, directoryId: DIRECTORY_A };

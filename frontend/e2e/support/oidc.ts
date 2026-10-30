@@ -4,7 +4,6 @@ import {
   CLIENT_SECRET,
   DIRECTORY_A,
   DIRECTORY_B,
-  DIRECTORY_PLATFORM,
   DIRECTORY_UNBOUND,
   OID_ADVISOR,
   OID_B,
@@ -23,6 +22,7 @@ export const PERSONAS: Record<string, { user: FakeUser; tamper?: Tamper }> = {
   advisor: { user: { oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A } },
   lead: { user: { oid: OID_LEAD, roles: ['DIUCS.Advisor', 'DIUCS.Lead'], tid: DIRECTORY_A } },
   clinical: { user: { oid: OID_LEAD, roles: ['DIUCS.Clinical'], tid: DIRECTORY_A } },
+  // A person of another tenant's directory, signing in on this tenant's host: refused, like no role.
   'other-organisation': { user: { oid: OID_B, roles: ['DIUCS.Advisor'], tid: DIRECTORY_B } },
   'no-role': { user: { oid: OID_ADVISOR, roles: ['Some.Other.Role'], tid: DIRECTORY_A } },
   'support-from-a-customer': { user: { oid: OID_ADVISOR, roles: ['DIUCS.Support'], tid: DIRECTORY_A } },
@@ -59,7 +59,7 @@ export async function startFakeEntraServer(): Promise<Server> {
     clientId: CLIENT_ID,
     clientSecret: CLIENT_SECRET,
     redirectUri: `${SITE_URL}/api/bff/auth/entra/callback`,
-    directories: [DIRECTORY_A, DIRECTORY_B, DIRECTORY_PLATFORM, DIRECTORY_UNBOUND],
+    directories: [DIRECTORY_A, DIRECTORY_B, DIRECTORY_UNBOUND],
   });
 
   const server = createServer(async (request, response) => {

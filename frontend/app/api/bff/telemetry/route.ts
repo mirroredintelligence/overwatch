@@ -1,4 +1,4 @@
-import { sessionFromRequest, type Session } from '@/lib/auth/session';
+import { sessionFromRequest } from '@/lib/auth/session';
 import { ALLOWED_ATTRIBUTES, ALLOWED_EVENTS } from '@/lib/telemetry/events';
 
 // The ingest of the browser's ui.* events (O02). It keeps only what the allow-list names, forwards the
@@ -17,12 +17,7 @@ const MAX_TEXT_CHARS = 100;
 type Attribute = string | number | boolean;
 type Event = { name: string; at: number; attributes: Record<string, Attribute> };
 
-function tenantIdOf(session: Session): string | undefined {
-  const { tenantId } = session as Session & { tenantId?: unknown };
-  return typeof tenantId === 'string' && tenantId !== '' ? tenantId : undefined;
-}
-
-function attributesOf(value: unknown, tenantId: string | undefined): Record<string, Attribute> {
+function attributesOf(value: unknown, tenantId: string): Record<string, Attribute> {
   const kept: Record<string, Attribute> = {};
   if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
     for (const [key, item] of Object.entries(value)) {
@@ -32,12 +27,12 @@ function attributesOf(value: unknown, tenantId: string | undefined): Record<stri
       else if (typeof item === 'string' && item.length <= MAX_TEXT_CHARS) kept[key] = item;
     }
   }
-  if (tenantId !== undefined) kept['tenant.id'] = tenantId;
+  kept['tenant.id'] = tenantId;
   return kept;
 }
 
 /** The events of a batch that are in scope, each with only its allowed attributes. */
-function eventsOf(body: unknown, tenantId: string | undefined): Event[] {
+function eventsOf(body: unknown, tenantId: string): Event[] {
   if (typeof body !== 'object' || body === null || !Array.isArray((body as { events?: unknown }).events)) {
     return [];
   }
@@ -84,6 +79,6 @@ export async function POST(request: Request): Promise<Response> {
     return new Response(null, { status: 400, headers: NO_STORE });
   }
 
-  await forward(eventsOf(body, tenantIdOf(session)));
+  await forward(eventsOf(body, session.tenantId));
   return new Response(null, { status: 204, headers: NO_STORE });
 }

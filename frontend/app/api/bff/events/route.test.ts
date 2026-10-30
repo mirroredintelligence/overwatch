@@ -206,8 +206,8 @@ describe('GET /api/bff/events: who may listen', () => {
   });
 
   it('is never cached when it refuses, either', async () => {
-    expect((await get(null)).headers.get('cache-control')).toBe('no-store');
-    expect((await get('reporter')).headers.get('cache-control')).toBe('no-store');
+    expect((await get(null)).headers.get('cache-control')).toBe('private, no-store');
+    expect((await get('reporter')).headers.get('cache-control')).toBe('private, no-store');
   });
 });
 
@@ -226,16 +226,31 @@ describe('GET /api/bff/events: one organisation, the session’s own (DEC-130, D
     for (const name of request.headers.keys()) expect(name).not.toMatch(/tenant|organi[sz]ation|scope|network/i);
   });
 
-  it('ignores a tenant, organisation, scope or network in the query string and in the request headers', async () => {
+  it('refuses a request that names a tenant, a scope or a network, and opens no stream upstream', async () => {
+    backend([]);
+
+    for (const [url, headers] of [
+      [`${URL_}?tenant=${TOKEN_ORG_B}`, {}],
+      [`${URL_}?scope=network`, {}],
+      [`${URL_}?network=n1`, {}],
+      [URL_, { 'X-Tenant-Id': TOKEN_ORG_B }],
+      [URL_, { 'X-Network': 'n1' }],
+    ] as [string, Record<string, string>][]) {
+      const response = await get('wall', { url, headers });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ code: 'invalid' });
+    }
+    expect(upstreamRequests).toHaveLength(0);
+  });
+
+  it('ignores an organisation in the query string and in the request headers', async () => {
     backend([]);
 
     await (
       await get('wall', {
-        url: `${URL_}?tenant=${TOKEN_ORG_B}&organisation=Other&scope=network&network=n1`,
+        url: `${URL_}?organisation=Other`,
         headers: {
-          'X-Tenant-Id': TOKEN_ORG_B,
           'X-Organisation': 'Other',
-          'X-Scope': 'network',
           Authorization: `Bearer ${TOKEN_ORG_B}`,
         },
       })

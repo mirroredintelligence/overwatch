@@ -1,19 +1,13 @@
-import http from 'node:http';
-import https from 'node:https';
+import { BackendCallError, backendRoot, callBackend, type BackendCall, type BackendReply } from '@/lib/fhir/hostCall';
 import { parseLinkView, type LinkView, LinkShapeError } from './model';
 
 // Server-only. The link pages' route handlers and Server Components call the back end's
 // link API (`/links/...`, beside `/fhir`) through this module, never the browser.
 //
-// The tenant is the host a request was addressed to (DEC-134 item 3, DEC-167 item 1), so this
-// module sends the browser's host to the back end as its Host header. The global fetch of
-// Node ignores a Host header, so the request is made with node:http.
+// The tenant is the host a request was addressed to (DEC-134 item 3, DEC-167 item 1), so the call
+// sends the browser's host to the back end as its Host header (lib/fhir/hostCall.ts).
 
-const BASE_URL_VARIABLE = 'DIUCS_FHIR_BASE_URL';
-const FHIR_SUFFIX = '/fhir';
-const HOST_SHAPE = /^[A-Za-z0-9.-]{1,253}(:\d{1,5})?$/;
-const TIMEOUT_MS = 10_000;
-const MAX_ANSWER_BYTES = 64 * 1024;
+export { backendRoot };
 
 export class LinkApiError extends Error {
   readonly kind: 'unavailable' | 'bad-answer';
@@ -23,19 +17,6 @@ export class LinkApiError extends Error {
     this.name = 'LinkApiError';
     this.kind = kind;
   }
-}
-
-/**
- * The origin of the back end: the FHIR base URL without its `/fhir`, because the link routes
- * are not under the FHIR base. The message names the variable, never its value.
- */
-export function backendRoot(value: string | undefined): string {
-  if (!value) throw new Error(`${BASE_URL_VARIABLE} is not set, so the link pages cannot reach the back end.`);
-  const trimmed = value.replace(/\/+$/, '');
-  if (!trimmed.endsWith(FHIR_SUFFIX)) {
-    throw new Error(`${BASE_URL_VARIABLE} must end in /fhir, because the link routes sit beside it.`);
-  }
-  return trimmed.slice(0, -FHIR_SUFFIX.length);
 }
 
 /**
@@ -52,70 +33,20 @@ export function hostOf(request: Request): string | null {
   }
 }
 
-export type LinkReply = { status: number; body: unknown; retryAfter?: string };
-
-export type LinkCall = {
-  method: 'GET' | 'POST';
-  /** A path under the back end's origin, already encoded. */
-  path: string;
-  /** The host the request was addressed to: the tenant's own host. */
-  host: string | null;
-  body?: unknown;
-  csrf?: string;
-};
-
-function jsonOrUndefined(text: string): unknown {
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return undefined;
-  }
-}
+export type LinkReply = BackendReply;
+export type LinkCall = BackendCall;
 
 /**
  * One call to the back end's link API. Rejects with LinkApiError when the back end cannot be
  * reached, or the host is not a host name; a missing base URL rejects too.
  */
 export async function callLinkApi(call: LinkCall): Promise<LinkReply> {
-  if (call.host === null || !HOST_SHAPE.test(call.host)) throw new LinkApiError('unavailable');
-  const url = new URL(call.path, backendRoot(process.env[BASE_URL_VARIABLE]));
-  const payload = call.body === undefined ? undefined : JSON.stringify(call.body);
-  const headers: Record<string, string | number> = { Host: call.host, Accept: 'application/json' };
-  if (payload !== undefined) {
-    headers['Content-Type'] = 'application/json';
-    headers['Content-Length'] = Buffer.byteLength(payload);
+  try {
+    return await callBackend(call);
+  } catch (error) {
+    if (error instanceof BackendCallError) throw new LinkApiError(error.kind);
+    throw error;
   }
-  if (call.csrf !== undefined) headers['X-CSRF-Token'] = call.csrf;
-
-  // Read at call time from the module object, so a test double of the transport is the one used.
-  const transport = url.protocol === 'https:' ? https : http;
-  return new Promise<LinkReply>((resolve, reject) => {
-    const request = transport.request(
-      url,
-      { method: call.method, headers, timeout: TIMEOUT_MS },
-      (response) => {
-        const chunks: Buffer[] = [];
-        let size = 0;
-        response.on('data', (chunk: Buffer) => {
-          size += chunk.length;
-          if (size <= MAX_ANSWER_BYTES) chunks.push(chunk);
-        });
-        response.on('end', () => {
-          const retry = response.headers['retry-after'];
-          resolve({
-            status: response.statusCode ?? 0,
-            body: jsonOrUndefined(Buffer.concat(chunks).toString('utf8')),
-            retryAfter: typeof retry === 'string' ? retry : undefined,
-          });
-        });
-        response.on('error', () => reject(new LinkApiError('unavailable')));
-      },
-    );
-    request.on('timeout', () => request.destroy(new LinkApiError('unavailable')));
-    request.on('error', () => reject(new LinkApiError('unavailable')));
-    if (payload !== undefined) request.write(payload);
-    request.end();
-  });
 }
 
 export type LinkState = { kind: 'open'; view: LinkView } | { kind: 'gone' };

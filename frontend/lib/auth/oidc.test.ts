@@ -195,8 +195,8 @@ describe('authorizeUrl', () => {
     expect(text).not.toContain(CLIENT_SECRET);
     expect(text).not.toContain(transaction.verifier);
     expect(text).not.toContain('lead');
-    expect(text).not.toMatch(/login_hint|domain_hint/);
-    expect(text).not.toContain('tenant-a.example.test%2F');
+    // No parameter names a tenant, a directory hint or a login hint (the redirect address is a value).
+    expect([...authorizeUrl(config, transaction, ADDRESS).searchParams.keys()].join(' ')).not.toMatch(/tenant|login_hint|domain_hint|directory/);
   });
 
   it('sends the address it is given, so each tenant host has its own', () => {

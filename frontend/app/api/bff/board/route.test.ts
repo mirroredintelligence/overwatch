@@ -77,8 +77,8 @@ describe('GET /api/bff/board', () => {
   });
 
   it('is never cached', async () => {
-    expect((await get('advisor')).headers.get('cache-control')).toBe('no-store');
-    expect((await get('reporter')).headers.get('cache-control')).toBe('no-store');
+    expect((await get('advisor')).headers.get('cache-control')).toBe('private, no-store');
+    expect((await get('reporter')).headers.get('cache-control')).toBe('private, no-store');
   });
 
   it('calls the back end with the session token and nothing else that names an organisation', async () => {
@@ -93,11 +93,25 @@ describe('GET /api/bff/board', () => {
     expect([...sent.headers.keys()].filter((k) => /tenant|organi[sz]ation|scope/i.test(k))).toEqual([]);
   });
 
+  it('refuses a request that names a tenant, a scope or a network, and does not call the back end', async () => {
+    for (const [url, headers] of [
+      [`${URL_}?tenant=${TOKEN_ORG_B}`, {}],
+      [`${URL_}?scope=network`, {}],
+      [`${URL_}?network=n1`, {}],
+      [URL_, { 'X-Tenant-Id': TOKEN_ORG_B }],
+      [URL_, { 'X-Scope': 'network' }],
+    ] as [string, Record<string, string>][]) {
+      const response = await get('advisor', { url, headers });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ code: 'invalid' });
+    }
+    expect(seenBoardRequests).toHaveLength(0);
+  });
+
   it('takes no organisation from the query string or a header: it answers for the session only', async () => {
     const response = await get('advisor', {
-      url: `${URL_}?tenant=${TOKEN_ORG_B}&organisation=Neighbouring&scope=network`,
+      url: `${URL_}?organisation=Neighbouring`,
       headers: {
-        'X-Tenant-Id': TOKEN_ORG_B,
         'X-Organisation': 'Neighbouring',
         Authorization: `Bearer ${TOKEN_ORG_B}`,
       },

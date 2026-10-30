@@ -381,6 +381,7 @@ SETUP_STEPS: Final = (
 @dataclass(frozen=True, slots=True)
 class InvitationView:
     invitation_id: str
+    service_id: str
     service_name: str
     role: str
     steps: dict[str, bool]
@@ -429,6 +430,7 @@ class ListInvitations:
         }
         return InvitationView(
             invitation_id=invitation.id,
+            service_id=invitation.service_id,
             service_name="" if entry is None else entry.name,
             role=invitation.role_label,
             steps=steps,

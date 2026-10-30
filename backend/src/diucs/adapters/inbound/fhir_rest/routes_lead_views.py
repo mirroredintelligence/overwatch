@@ -274,6 +274,7 @@ async def read_invitations(
             "items": [
                 {
                     "id": row.invitation_id,
+                    "serviceId": row.service_id,
                     "serviceName": row.service_name,
                     "role": row.role,
                     "steps": row.steps,

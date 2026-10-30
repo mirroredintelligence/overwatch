@@ -113,7 +113,8 @@ describe('POST /api/bff/identity/code/verify: a right code', () => {
 
 describe('POST /api/bff/identity/code/verify: a session the BFF cannot vouch for is refused, and no session is written', () => {
   it('answers 503 when the back end does not say which tenant it signed the applicant in for', async () => {
-    const { tenant: _omitted, ...withoutTenant } = signedIn();
+    const withoutTenant = signedIn();
+    delete (withoutTenant as { tenant?: string }).tenant;
     answerBackend('post', '/identity/registration/session', 200, withoutTenant);
     const response = await post({ code: '482913' });
     expect(response.status).toBe(503);

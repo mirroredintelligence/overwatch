@@ -55,7 +55,10 @@ const JSON_POST = (body: unknown): RequestInit => ({
 export function SignInForm({ inviteToken }: SignInFormProps) {
   const router = useRouter();
   const formId = useId();
-  const [invitation, setInvitation] = useState<Invitation>({ kind: 'loading' });
+  // No invitation in the link is known at once; with one, the page reads it before it offers a code.
+  const [invitation, setInvitation] = useState<Invitation>(() =>
+    inviteToken === undefined ? { kind: 'closed', message: NOT_AN_INVITATION } : { kind: 'loading' },
+  );
   const [stage, setStage] = useState<Stage>('invitation');
   const [ending, setEnding] = useState<string>('');
   const [notice, setNotice] = useState<string | null>(null);
@@ -63,10 +66,7 @@ export function SignInForm({ inviteToken }: SignInFormProps) {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (inviteToken === undefined) {
-      setInvitation({ kind: 'closed', message: NOT_AN_INVITATION });
-      return;
-    }
+    if (inviteToken === undefined) return undefined;
     let live = true;
     (async () => {
       try {

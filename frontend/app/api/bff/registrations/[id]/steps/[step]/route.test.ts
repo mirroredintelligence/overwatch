@@ -23,8 +23,6 @@ const ID = 'REG-SAMPLE-1';
 const ctx = (id: string, step: string) => ({ params: Promise.resolve({ id, step }) });
 const url = (step: string) => `https://tenant-a.example.test/api/bff/registrations/${ID}/steps/${step}`;
 
-const DRAFT = `${BACKEND_ROOT}/fhir/Task/${ID}/$draft`;
-
 function draftAnswer(status: number, body: unknown) {
   answerBackend('put', `/fhir/Task/${ID}/$draft`, status, body);
 }

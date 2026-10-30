@@ -46,7 +46,8 @@ describe('reporterSessionFor', () => {
   });
 
   it('is null when the answer names no tenant, or a tenant that is not a tenant id', () => {
-    const { tenant: _omitted, ...withoutTenant } = answer();
+    const withoutTenant = answer();
+    delete withoutTenant.tenant;
     expect(reporterSessionFor(withoutTenant, input)).toBeNull();
     expect(reporterSessionFor(answer({ tenant: 'NOT A TENANT' }), input)).toBeNull();
     expect(reporterSessionFor(answer({ tenant: 42 }), input)).toBeNull();

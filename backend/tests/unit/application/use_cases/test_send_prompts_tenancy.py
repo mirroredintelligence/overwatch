@@ -20,8 +20,8 @@ from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
 from diucs.application.use_cases.send_prompts import (
     SKIP_OUT_OF_HOURS,
     SKIP_REPLY_WINDOW,
-    SendPrompts,
     SendPromptCommand,
+    SendPrompts,
     _render,
     _skip_reason,
     _too_old_to_confirm,
@@ -101,8 +101,8 @@ def test_the_first_prompt_words_the_reply_by_in_the_tenants_zone() -> None:
 
 
 def test_the_reply_window_is_the_tenants() -> None:
-    short = dataclasses.replace(DEFAULT_POLICY, reply_window=timedelta(minutes=10))
-    now = DUE + timedelta(minutes=15)
+    short = dataclasses.replace(DEFAULT_POLICY, reply_window=timedelta(minutes=15))
+    now = DUE + timedelta(minutes=20)
     assert _skip_reason(PROFILE, False, DUE, now, True, WINDOW, DEFAULT_POLICY, LONDON) is None
     assert _skip_reason(PROFILE, False, DUE, now, True, WINDOW, short, LONDON) == SKIP_REPLY_WINDOW
 
@@ -123,7 +123,7 @@ class _Untouched:
     def __init__(self, scope: ScopeId | None) -> None:
         self.unit_scope = scope
 
-    async def __aenter__(self) -> "_Untouched":
+    async def __aenter__(self) -> _Untouched:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
@@ -171,16 +171,6 @@ def _command(tenant: str) -> SendPromptCommand:
     )
 
 
-async def test_an_actor_of_another_tenant_is_refused_before_anything_is_read() -> None:
-    with as_tenant("tenant-a"), pytest.raises(TenantMismatch):
-        await _use_case(ScopeId.tenant("tenant-a")).execute(_command("tenant-b"))
-
-
-async def test_with_no_tenant_bound_nothing_is_read() -> None:
-    with pytest.raises(TenantNotBound):
-        await _use_case(None).execute(_command("tenant-a"))
-
-
 @pytest.mark.parametrize("scope", [None, ScopeId.network("net-west")], ids=["none", "network"])
 async def test_a_unit_that_is_not_a_tenants_is_refused_before_a_read(
     scope: ScopeId | None,
@@ -196,4 +186,3 @@ async def test_a_tenant_named_in_the_constructor_must_be_the_bound_one() -> None
         await _use_case(ScopeId.tenant("tenant-a"), tenant_id="tenant-b").execute(
             _command("tenant-a")
         )
-

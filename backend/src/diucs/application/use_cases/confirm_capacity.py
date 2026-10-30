@@ -4,6 +4,12 @@ A confirmation is a new CapacityReport of type confirmed, with the value of the 
 derived_from set to that report. At most MAX_CONSECUTIVE_CONFIRMS may follow one number report; a
 further one is refused and nothing is written.
 
+Tenancy (TEN-027, DEC-500): the actor's tenant must be the tenant the unit is bound to, checked
+before anything is read; a service of another tenant reads as an id nobody has (the store is
+tenant-scoped); the performer role is validated as ReportCapacity's is (it becomes the echo
+recipient); the limit of consecutive confirmations and the policy that judges the status are the
+tenant's own, and the audit entry names the configuration version they came from.
+
 The unit of work takes the service's write lock first, then reads the latest report and the count,
 then takes the effective time and writes (DEC-112 items 8 and 10, DEC-139; lessons L73, L99). Two
 confirmations for one service therefore run one after the other. A caller that judged a report
@@ -17,12 +23,16 @@ import hashlib
 from dataclasses import dataclass, replace
 from datetime import datetime
 
-from diucs.application.actor import Actor
+from diucs.application.actor import Actor, require_actor_in_bound_tenant, tenant_scope_of_unit
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.use_cases.report_capacity import check_may_report, record_report
+from diucs.application.use_cases.report_capacity import (
+    check_may_report,
+    check_performer,
+    record_report,
+)
 from diucs.domain.codes import ReportSource, ReportType, Status
 from diucs.domain.errors import (
     ConfirmLimitReached,
@@ -32,7 +42,7 @@ from diucs.domain.errors import (
     NothingToConfirm,
 )
 from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.rules.reply_policy import MAX_CONSECUTIVE_CONFIRMS
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 
 USE_CASE = "ConfirmCapacity"
 
@@ -75,6 +85,7 @@ def _fingerprint(command: ConfirmCapacityCommand) -> str:
     body = repr(
         (
             USE_CASE,
+            command.actor.tenant_id,
             command.service_id,
             command.source.value,
             command.performer_role_id,
@@ -84,6 +95,13 @@ def _fingerprint(command: ConfirmCapacityCommand) -> str:
         )
     )
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
+
+
+def check_confirm_limit(trailing: int, policy: TenantPolicy) -> None:
+    """Refuse a confirmation when `trailing` confirmations already follow the last number report
+    and the tenant's limit has been reached (the default is two, domain-rules 1.2)."""
+    if trailing >= policy.max_consecutive_confirms:
+        raise ConfirmLimitReached("confirmed twice in a row: give the figure again")
 
 
 def _replay(stored: object, fingerprint: str) -> ConfirmCapacityResult:
@@ -108,6 +126,9 @@ class ConfirmCapacity:
         self._idempotency = idempotency
 
     async def execute(self, command: ConfirmCapacityCommand) -> ConfirmCapacityResult:
+        # Before anything is read, the early replay included: the actor's tenant is the bound one
+        # (a wiring fault otherwise, never an access decision) and a tenant is bound at all.
+        require_actor_in_bound_tenant(command.actor)
         fingerprint = _fingerprint(command)
         # An early read outside the unit of work. The authoritative check is inside it.
         early = await self._idempotency.get(command.idempotency_key)
@@ -115,6 +136,9 @@ class ConfirmCapacity:
             return _replay(early, fingerprint)
 
         async with self._uow_factory() as uow:
+            # The unit opened under the actor's tenant, and under a tenant at all. Checked before
+            # the lock, so a unit of another scope takes none.
+            tenant_scope_of_unit(uow.unit_scope, command.actor)
             # The service lock comes before every read that decides the count, and before the
             # effective time is taken (DEC-139): a confirmation that waits behind a report is timed
             # after it.
@@ -128,6 +152,15 @@ class ConfirmCapacity:
             if profile is None or not profile.active:
                 raise NotFound("no active service with this id")
             check_may_report(command.actor, command.source, profile.id)
+            if command.performer_role_id is not None:
+                # After the permission check, so a caller who may not confirm learns nothing about
+                # which roles exist; the store answers None for another tenant's role (TEN-024).
+                check_performer(
+                    await uow.people.get_role(command.performer_role_id),
+                    service_id=profile.id,
+                    actor=command.actor,
+                    now=now,
+                )
 
             latest = await uow.capacity.latest(profile.id)
             if latest is None:
@@ -140,9 +173,10 @@ class ConfirmCapacity:
                     latest.value,
                     latest.effective_at,
                 )
+            config = await uow.tenant_config.current_version()
+            policy = DEFAULT_POLICY if config is None else config.policy
             trailing = await uow.capacity.trailing_confirmations(profile.id)
-            if trailing >= MAX_CONSECUTIVE_CONFIRMS:
-                raise ConfirmLimitReached("confirmed twice in a row: give the figure again")
+            check_confirm_limit(trailing, policy)
 
             report = CapacityReport(
                 id=self._ids.new_id(),
@@ -174,7 +208,10 @@ class ConfirmCapacity:
                     "value": report.value,
                     "derived_from": latest.id,
                     "consecutive": trailing + 1,
+                    **({} if config is None else {"config_version": config.version}),
                 },
+                policy=policy,
+                config_version=None if config is None else config.version,
             )
             result = ConfirmCapacityResult(
                 report_id=recorded.report_id,

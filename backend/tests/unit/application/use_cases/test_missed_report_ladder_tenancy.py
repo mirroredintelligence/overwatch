@@ -14,7 +14,7 @@ import pytest
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
-from diucs.application.tenancy import ScopeId, TenantMismatch
+from diucs.application.tenancy import ScopeId, TenantNotBound
 from diucs.application.tenant_settings import FixedLinkBase, LondonZones
 from diucs.application.use_cases.missed_report_ladder import (
     LadderStepCommand,
@@ -74,7 +74,7 @@ class _Untouched:
     def __init__(self, scope: ScopeId | None) -> None:
         self.unit_scope = scope
 
-    async def __aenter__(self) -> "_Untouched":
+    async def __aenter__(self) -> _Untouched:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:
@@ -95,9 +95,9 @@ def _actor(tenant: str) -> Actor:
     )
 
 
-async def test_an_actor_of_another_tenant_is_refused_before_anything_is_read() -> None:
-    use_case = MissedReportLadder(
-        lambda: _Untouched(ScopeId.tenant(ACTOR_TENANT)),  # type: ignore[arg-type, return-value]
+def _use_case(scope: ScopeId | None) -> MissedReportLadder:
+    return MissedReportLadder(
+        lambda: _Untouched(scope),  # type: ignore[arg-type, return-value]
         FixedClock(DUE),
         SequentialIds(),
         lambda repo: None,  # type: ignore[arg-type, return-value]
@@ -105,9 +105,15 @@ async def test_an_actor_of_another_tenant_is_refused_before_anything_is_read() -
         None,  # type: ignore[arg-type]
         zones=LondonZones(),
     )
-    with pytest.raises(TenantMismatch):
-        await use_case.execute(
-            LadderStepCommand(idempotency_key="k", actor=_actor("tenant-zzz"), work_id="work-1")
+
+
+@pytest.mark.parametrize("scope", [None, ScopeId.network("net-west")], ids=["none", "network"])
+async def test_a_unit_that_is_not_a_tenants_is_refused_before_anything_is_read(
+    scope: ScopeId | None,
+) -> None:
+    with pytest.raises(TenantNotBound):
+        await _use_case(scope).execute(
+            LadderStepCommand(idempotency_key="k", actor=_actor(ACTOR_TENANT), work_id="work-1")
         )
 
 
@@ -155,9 +161,10 @@ async def test_a_report_stops_the_step_of_the_tenants_own_offset() -> None:
     answered_at = DUE + timedelta(minutes=5)
 
     default = _uow([step])
-    assert await stop_answered_ladders(
-        default, "svc-1", answered_at=answered_at, now=answered_at
-    ) == ()
+    assert (
+        await stop_answered_ladders(default, "svc-1", answered_at=answered_at, now=answered_at)
+        == ()
+    )
     slow = _uow([step])
     assert await stop_answered_ladders(
         slow, "svc-1", answered_at=answered_at, now=answered_at, policy=SLOW

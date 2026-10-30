@@ -345,6 +345,20 @@ class Neo4jTenantDirectory:
             return None
         return self._one_tenant(await self._read(_BY_HOST, host=name))
 
+    async def host_of(self, tenant_id: str) -> str | None:
+        """The host property of the tenant's node, read with the same statement as `get`. The
+        property is not part of the domain record, so it is read from the row."""
+        try:
+            check_tenant_id(tenant_id)
+        except ValidationFailed:
+            return None
+        rows = await self._read(_GET, id=tenant_id)
+        if not rows:
+            return None
+        if len(rows) > 1:
+            raise TenantRecordInvalid(RECORD_MESSAGE)
+        return normalise_host(rows[0]["tenant"].get("host"))
+
     async def by_entra_directory(self, directory_id: str) -> Tenant | None:
         guid = normalise_directory_id(directory_id)
         if guid is None:

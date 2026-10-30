@@ -13,6 +13,12 @@ for each grouped service (all C9, one send time, one text), and only letter A's 
 U05 can tell which service a letter means. Each grouped service keeps its own ladder and next
 prompt, and the result of its own job is stored in the same unit of work, so that job does nothing
 when it runs.
+
+Tenancy (TEN-027, DEC-500): the actor's tenant must be the tenant the unit is bound to, checked
+before anything is read, and the unit's scope (never a constructor argument) is the tenant of the
+sealed content. The reply window, the ladder offsets, the grouping window, the stale limit and the
+next due time are the tenant's policy, and every time of day (hours, due times, the times in the
+text) is read in the tenant's zone. The link is on the tenant's own host.
 """
 
 import hashlib
@@ -21,8 +27,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from typing import Final
+from zoneinfo import ZoneInfo
 
-from diucs.application.actor import Actor
+from diucs.application.actor import Actor, unit_tenant_scope
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
@@ -33,6 +40,15 @@ from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.scheduling import schedule_work
+from diucs.application.tenancy import ScopeId, TenantMismatch
+from diucs.application.tenant_settings import (
+    LinkBases,
+    TenantSettings,
+    TenantZones,
+    as_link_base,
+    as_zones,
+    read_settings,
+)
 from diucs.application.work import WorkKind
 from diucs.domain.codes import Channel
 from diucs.domain.errors import Conflict, DomainError, NotFound, ValidationFailed
@@ -42,9 +58,9 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import PractitionerRole, role_holder
 from diucs.domain.model.service import ServiceProfile
-from diucs.domain.rules.freshness import STALE_WARNING_AFTER
-from diucs.domain.rules.london_time import format_hhmm, format_stamp
-from diucs.domain.rules.multi_service import GROUP_WINDOW, GroupedItem, group_due
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules.london_time import LONDON, format_hhmm, format_stamp
+from diucs.domain.rules.multi_service import GroupedItem, group_due
 from diucs.domain.rules.opening_hours import is_in_hours
 from diucs.domain.rules.schedule import LadderStep, current_due, ladder_times, next_due, reply_by
 
@@ -152,7 +168,9 @@ def _render(
     window: tuple[str, str],
     link: str,
     reply: datetime,
+    zone: ZoneInfo = LONDON,
 ) -> tuple[MessageId, RenderedMessage]:
+    """The prompt's text. The times in it are the tenant's local times, in `zone`."""
     if latest is not None:
         return MessageId.C1, render(
             MessageId.C1,
@@ -160,9 +178,9 @@ def _render(
             service=profile.name,
             value=latest.value,
             unit=profile.unit_label,
-            as_of=format_stamp(latest.effective_at),
+            as_of=format_stamp(latest.effective_at, zone=zone),
             link=link,
-            reply_by=format_hhmm(reply),
+            reply_by=format_hhmm(reply, zone=zone),
         )
     unit, window_text = window
     return MessageId.C2, render(
@@ -171,7 +189,7 @@ def _render(
         service=profile.name,
         unit=unit,
         window=window_text,
-        reply_by=format_hhmm(reply),
+        reply_by=format_hhmm(reply, zone=zone),
         link=link,
     )
 
@@ -183,14 +201,16 @@ def _skip_reason(
     now: datetime,
     has_report: bool,
     window: tuple[str, str],
+    policy: TenantPolicy = DEFAULT_POLICY,
+    zone: ZoneInfo = LONDON,
 ) -> str | None:
     if not profile.active:
         return SKIP_INACTIVE
     if suspended:
         return SKIP_SUSPENDED
-    if not is_in_hours(profile.available_times, due):
+    if not is_in_hours(profile.available_times, due, zone=zone):
         return SKIP_OUT_OF_HOURS
-    if now >= reply_by(due):
+    if now >= reply_by(due, policy):
         return SKIP_REPLY_WINDOW
     if not has_report and not window[1]:
         return SKIP_NO_WINDOW
@@ -255,11 +275,13 @@ class _Group:
     rendered: RenderedMessage
 
 
-def _too_old_to_confirm(latest: CapacityReport, now: datetime) -> bool:
-    """True when a Y could not confirm this figure: it was more than STALE_WARNING_AFTER old when
-    the prompt is sent, the line U05 draws (`figure_is_out_of_date`, DEC-148 item 2, DEC-156
+def _too_old_to_confirm(
+    latest: CapacityReport, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+) -> bool:
+    """True when a Y could not confirm this figure: it was more than the tenant's stale limit old
+    when the prompt is sent, the line U05 draws (`figure_is_out_of_date`, DEC-148 item 2, DEC-156
     item 4). Exactly that age is still inside."""
-    return now - latest.effective_at > STALE_WARNING_AFTER
+    return now - latest.effective_at > policy.stale_warning_after
 
 
 def _grouped_ids(groups: list[_Group], service_id: str) -> tuple[str, ...]:
@@ -286,6 +308,23 @@ async def _reporters(
     return found
 
 
+@dataclass(frozen=True, slots=True)
+class _Run:
+    """What one command needs about its tenant: the scope its unit is bound to and the tenant's
+    policy and zone, read once inside the unit."""
+
+    scope: ScopeId
+    settings: TenantSettings
+
+    @property
+    def policy(self) -> TenantPolicy:
+        return self.settings.policy
+
+    @property
+    def zone(self) -> ZoneInfo:
+        return self.settings.zone
+
+
 class SendPrompts:
     def __init__(
         self,
@@ -294,18 +333,25 @@ class SendPrompts:
         ids: IdGenerator,
         idempotency: IdempotencyStore,
         link_tokens: LinkTokenServiceFactory,
-        link_base_url: str,
+        link_base_url: str | LinkBases,
         sealer: ContentSealer,
-        tenant_id: str,
+        tenant_id: str | None = None,
+        zones: TenantZones | None = None,
     ) -> None:
+        """`link_base_url` is the tenant source of the link (`DirectoryLinkBase` in the serving
+        process); a plain string is one base for every tenant, for a test or a one-host
+        deployment. `tenant_id` is kept for the callers that pass it: it is checked against the
+        bound tenant and never chooses one. `zones` is the tenant's time zone source; None is
+        London, the one zone on the allow-list."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
         self._idempotency = idempotency
         self._link_tokens = link_tokens
-        self._link_base_url = link_base_url.rstrip("/")
+        self._links = as_link_base(link_base_url)
         self._sealer = sealer
         self._tenant_id = tenant_id
+        self._zones = as_zones(zones)
 
     async def execute(self, command: SendPromptCommand) -> SendPromptResult:
         if command.due_at.tzinfo is None or command.due_at.utcoffset() is None:
@@ -319,15 +365,21 @@ class SendPrompts:
         now = self._clock.now().astimezone(UTC)
 
         async with self._uow_factory() as uow:
+            # The command's actor is recorded, not authorised (a job no person started): the tenant
+            # is the unit's scope, checked before anything is read.
+            scope = unit_tenant_scope(uow.unit_scope)
+            if self._tenant_id is not None and self._tenant_id != scope.value:
+                raise TenantMismatch
             stored = await uow.idempotency.get(command.idempotency_key)
             if isinstance(stored, _StoredPrompt):
                 return _replay(stored, fingerprint)
             profile = await uow.services.get(command.service_id)
             if profile is None:
                 raise NotFound("no service with this id")
+            run = _Run(scope, await read_settings(uow, self._zones))
             flags = await uow.flags.service_flags(profile.id)
             suspended = any(flag.code == SERVICE_FLAG_SUSPENDED for flag in flags)
-            result = await self._decide(uow, command, profile, due, now, suspended)
+            result = await self._decide(uow, command, profile, due, now, suspended, run)
             await uow.idempotency.put(command.idempotency_key, _StoredPrompt(fingerprint, result))
             await uow.commit()
         return result
@@ -340,19 +392,22 @@ class SendPrompts:
         due: datetime,
         now: datetime,
         suspended: bool,
+        run: _Run,
     ) -> SendPromptResult:
         latest = await uow.capacity.latest(profile.id)
         window = split_unit_label(profile.unit_label)
-        reason = _skip_reason(profile, suspended, due, now, latest is not None, window)
+        reason = _skip_reason(
+            profile, suspended, due, now, latest is not None, window, run.policy, run.zone
+        )
         if reason is not None:
             # A skip sends nothing, but the chain goes on (DEC-115 item 12).
-            await self._rearm(uow, profile, due, now)
+            await self._rearm(uow, profile, due, now, run)
             await self._audit(uow, command, profile.id, due, now, (), (), reason)
             return SendPromptResult(False, (), reason)
 
         me = _Prompted(profile, latest, due)
         reporters = await _reporters(uow, profile.id, now)
-        groups = await self._groups(uow, me, reporters, now)
+        groups = await self._groups(uow, me, reporters, now, run)
         # Every service this command prompts: the one asked for, and the others in its groups. Their
         # own jobs will do nothing, so each must be fully served here (DEC-156 item 5).
         prompted: dict[str, _Prompted] = {profile.id: me}
@@ -367,7 +422,7 @@ class SendPrompts:
 
         recorded: dict[str, list[str]] = {service_id: [] for service_id in prompted}
         for group in groups:
-            await self._send_group(uow, group, now, recorded)
+            await self._send_group(uow, group, now, recorded, run)
         for service_id, one in prompted.items():
             roles = (
                 reporters if service_id == profile.id else await _reporters(uow, service_id, now)
@@ -375,17 +430,17 @@ class SendPrompts:
             singles = [
                 (role, phone) for role, phone in roles if (service_id, phone) not in sent_by_group
             ]
-            await self._send_singles(uow, one, singles, now, recorded[service_id])
+            await self._send_singles(uow, one, singles, now, recorded[service_id], run)
 
         for service_id, one in prompted.items():
             ids = recorded[service_id]
             if ids:
                 for communication_id in ids:
-                    await self._ladder(uow, communication_id, one.due, now)
+                    await self._ladder(uow, communication_id, one.due, now, run)
             else:
                 # Nobody can be texted: the chase is about the service (DEC-115 item 15).
-                await self._ladder(uow, service_id, one.due, now)
-            await self._rearm(uow, one.profile, one.due, now)
+                await self._ladder(uow, service_id, one.due, now, run)
+            await self._rearm(uow, one.profile, one.due, now, run)
             if service_id != profile.id:
                 await self._store_for_member(
                     uow, command, one, tuple(ids), _grouped_ids(groups, service_id)
@@ -411,6 +466,7 @@ class SendPrompts:
         me: _Prompted,
         reporters: list[tuple[PractitionerRole, str]],
         now: datetime,
+        run: _Run,
     ) -> list[_Group]:
         """The group each of this service's reporter phones is prompted in, if any. Only a text
         prompt with a figure can be grouped (DEC-156 items 2 and 3)."""
@@ -418,7 +474,7 @@ class SendPrompts:
         if (
             latest is None
             or me.profile.channel is not Channel.TEXT
-            or _too_old_to_confirm(latest, now)
+            or _too_old_to_confirm(latest, now, run.policy)
         ):
             return []
         groups: list[_Group] = []
@@ -427,7 +483,7 @@ class SendPrompts:
             if phone_hash in seen:
                 continue
             seen.add(phone_hash)
-            group = await self._group_for_phone(uow, me, latest.value, role, phone_hash, now)
+            group = await self._group_for_phone(uow, me, latest.value, role, phone_hash, now, run)
             if group is not None:
                 groups.append(group)
         return groups
@@ -440,6 +496,7 @@ class SendPrompts:
         my_role: PractitionerRole,
         phone_hash: str,
         now: datetime,
+        run: _Run,
     ) -> _Group | None:
         """The services this phone is prompted for together with `me`, or None when it is alone.
         The other services are looked up through the unit of work, so only this tenant's are seen
@@ -450,14 +507,14 @@ class SendPrompts:
                 held.setdefault(role.service_id, role)
         members: list[tuple[_Prompted, PractitionerRole, int]] = [(me, my_role, my_figure)]
         for service_id, role in held.items():
-            other = await self._eligible(uow, service_id, me.due, now)
+            other = await self._eligible(uow, service_id, me.due, now, run)
             if other is not None:
                 members.append((other[0], role, other[1]))
         if len(members) < 2:
             return None
         try:
             batches = group_due(
-                [(one.profile.id, one.profile.name, one.due) for one, _, _ in members]
+                [(one.profile.id, one.profile.name, one.due) for one, _, _ in members], run.policy
             )
         except ValidationFailed:
             # Names that letters cannot tell apart, or too many services for the alphabet: nobody is
@@ -473,7 +530,7 @@ class SendPrompts:
             rendered = render(
                 MessageId.C9,
                 Channel.TEXT,
-                reply_by=format_hhmm(batch.reply_by),
+                reply_by=format_hhmm(batch.reply_by, zone=run.zone),
                 items=[(str(m.item.letter), m.prompted.profile.name, m.figure) for m in chosen],
             )
         except ValidationFailed:
@@ -481,7 +538,7 @@ class SendPrompts:
         return _Group(phone_hash, tuple(chosen), rendered)
 
     async def _eligible(
-        self, uow: UnitOfWork, service_id: str, near: datetime, now: datetime
+        self, uow: UnitOfWork, service_id: str, near: datetime, now: datetime, run: _Run
     ) -> tuple[_Prompted, int] | None:
         """Another service of the phone, as it can be grouped: a text service with a figure, active,
         not suspended and in hours at a due time within GROUP_WINDOW of `near` whose own prompt has
@@ -490,27 +547,38 @@ class SendPrompts:
         if profile is None or profile.channel is not Channel.TEXT:
             return None
         latest = await uow.capacity.latest(service_id)
-        if latest is None or _too_old_to_confirm(latest, now):
+        if latest is None or _too_old_to_confirm(latest, now, run.policy):
             return None
         suspended = any(
             flag.code == SERVICE_FLAG_SUSPENDED
             for flag in await uow.flags.service_flags(service_id)
         )
-        times = [current_due(profile, near), next_due(profile, near)]
+        times = [
+            current_due(profile, near, run.policy, run.zone),
+            next_due(profile, near, run.policy, run.zone),
+        ]
         close = sorted(
-            (t for t in times if t is not None and abs(t - near) < GROUP_WINDOW),
+            (t for t in times if t is not None and abs(t - near) < run.policy.group_window),
             key=lambda t: abs(t - near),
         )
         for due in close:
             if await uow.idempotency.get(prompt_key(service_id, due)) is not None:
                 continue
             window = split_unit_label(profile.unit_label)
-            if _skip_reason(profile, suspended, due, now, True, window) is None:
+            if (
+                _skip_reason(profile, suspended, due, now, True, window, run.policy, run.zone)
+                is None
+            ):
                 return _Prompted(profile, latest, due), latest.value
         return None
 
     async def _send_group(
-        self, uow: UnitOfWork, group: _Group, now: datetime, recorded: dict[str, list[str]]
+        self,
+        uow: UnitOfWork,
+        group: _Group,
+        now: datetime,
+        recorded: dict[str, list[str]],
+        run: _Run,
     ) -> None:
         """One C9 Communication for each service of the group, in letter order. Only letter A's is
         queued and has an outbox message; the others are 'grouped' (DEC-156 item 7)."""
@@ -531,7 +599,7 @@ class SendPrompts:
             )
             if first:
                 await self._enqueue(
-                    uow, communication_id, MessageId.C9, member.role, group.rendered, now
+                    uow, communication_id, MessageId.C9, member.role, group.rendered, now, run
                 )
             recorded[member.prompted.profile.id].append(communication_id)
 
@@ -542,16 +610,20 @@ class SendPrompts:
         reporters: list[tuple[PractitionerRole, str]],
         now: datetime,
         recorded: list[str],
+        run: _Run,
     ) -> None:
         """The prompt for one service on its own to each reporter, as before grouping (U03)."""
-        reply = reply_by(one.due)
+        reply = reply_by(one.due, run.policy)
         window = split_unit_label(one.profile.unit_label)
         tokens = self._link_tokens(uow.link_tokens)
+        # The tenant's own host: read only when there is someone to send a link to, so a tenant
+        # whose host is missing still skips and re-arms its chain.
+        base = await self._links.link_base_url(run.scope) if reporters else ""
         for role, phone_hash in reporters:
             communication_id = self._ids.new_id()
             token = await tokens.issue(LINK_PURPOSE, communication_id, phone_hash, reply)
-            link = f"{self._link_base_url}/{token}"
-            message_id, rendered = _render(one.profile, one.latest, window, link, reply)
+            link = f"{base}/{token}"
+            message_id, rendered = _render(one.profile, one.latest, window, link, reply, run.zone)
             await uow.communications.add(
                 Communication(
                     id=communication_id,
@@ -564,7 +636,7 @@ class SendPrompts:
                     delivery_status="queued",
                 )
             )
-            await self._enqueue(uow, communication_id, message_id, role, rendered, now)
+            await self._enqueue(uow, communication_id, message_id, role, rendered, now, run)
             recorded.append(communication_id)
 
     async def _enqueue(
@@ -575,6 +647,7 @@ class SendPrompts:
         role: PractitionerRole,
         rendered: RenderedMessage,
         now: datetime,
+        run: _Run,
     ) -> None:
         outbox_id = self._ids.new_id()
         await uow.outbox.add(
@@ -589,7 +662,7 @@ class SendPrompts:
                     role,
                     rendered,
                     self._sealer,
-                    self._tenant_id,
+                    run.scope.value,
                 ),
                 created_at=now,
             )
@@ -617,17 +690,19 @@ class SendPrompts:
             prompt_key(one.profile.id, one.due), _StoredPrompt(_fingerprint(own), result)
         )
 
-    async def _ladder(self, uow: UnitOfWork, about_id: str, due: datetime, now: datetime) -> None:
-        times = ladder_times(due)
+    async def _ladder(
+        self, uow: UnitOfWork, about_id: str, due: datetime, now: datetime, run: _Run
+    ) -> None:
+        times = ladder_times(due, run.policy)
         for step, kind in _LADDER:
             await schedule_work(
                 uow, self._ids, kind=kind, about_id=about_id, due_at=times[step], now=now
             )
 
     async def _rearm(
-        self, uow: UnitOfWork, profile: ServiceProfile, due: datetime, now: datetime
+        self, uow: UnitOfWork, profile: ServiceProfile, due: datetime, now: datetime, run: _Run
     ) -> None:
-        following = next_due(profile, due + ONE_SECOND)
+        following = next_due(profile, due + ONE_SECOND, run.policy, run.zone)
         if following is None:
             # A valid profile always has one (every window yields due times). Refuse rather than
             # send this prompt and drop the chain (DEC-115 item 29).

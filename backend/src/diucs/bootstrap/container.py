@@ -102,6 +102,12 @@ from diucs.application.ports.outbound.tokens import (
 )
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant, current_tenant
+from diucs.application.tenant_settings import (
+    DirectoryLinkBase,
+    DirectoryZones,
+    LinkBases,
+    TenantZones,
+)
 from diucs.application.use_cases.alerts import (
     EscalateAlert,
     EscalateAlertCommand,
@@ -294,12 +300,15 @@ def invariant_check_handler(job: RunInvariantCheck) -> WorkHandler:
 
 
 def alert_timer_handlers(
-    uow_factory: UnitOfWorkFactory, ids: IdGenerator, clock: Clock
+    uow_factory: UnitOfWorkFactory,
+    ids: IdGenerator,
+    clock: Clock,
+    zones: TenantZones | None = None,
 ) -> dict[WorkKind, WorkHandler]:
     """The escalation of an unacknowledged alert and the not-updated checks (U34), each run once for
     each scheduled work of its kind."""
     escalate = EscalateAlert(uow_factory, ids, clock)
-    checks = NotUpdatedCheck(uow_factory, ids, clock)
+    checks = NotUpdatedCheck(uow_factory, ids, clock, zones)
 
     async def on_escalation(work: ScheduledWork) -> None:
         await escalate.execute(EscalateAlertCommand(work_id=work.id, alert_id=work.about_id))
@@ -325,17 +334,21 @@ def _scheduled_work(
     clock: Clock,
     ids: IdGenerator,
     secrets: SecretStore,
-    link_base_url: str,
+    link_base_url: str | LinkBases,
     invariants: TenantInvariants,
     monitor: InvariantMonitor,
+    zones: TenantZones | None = None,
 ) -> ScheduledWorkDispatcher:
-    """The dispatch table, built on the same clock, ids and secrets as the rest of the container."""
+    """The dispatch table, built on the same clock, ids and secrets as the rest of the container.
+    `link_base_url` is the tenant source of the reminder's link and `zones` of the tenant's time
+    zone: the serving process passes the directory's (TEN-027), the test container a fixed base
+    and London."""
 
     def tokens(repo: LinkTokenRepository) -> LinkTokenService:
         return LinkTokenService(repo, secrets, clock)
 
     ladder = MissedReportLadder(
-        uow_factory, clock, ids, tokens, link_base_url, AesGcmContentSealer(secrets)
+        uow_factory, clock, ids, tokens, link_base_url, AesGcmContentSealer(secrets), zones
     )
     handlers: dict[WorkKind, WorkHandler] = dict(ladder_handlers(ladder))
     # The booking timers (U19): the advisor's phone prompt and the expiry of a request.
@@ -356,7 +369,7 @@ def _scheduled_work(
         EscalateWithdrawal(uow_factory, clock)
     )
     # The alert escalation and the not-updated checks (U34).
-    handlers.update(alert_timer_handlers(uow_factory, ids, clock))
+    handlers.update(alert_timer_handlers(uow_factory, ids, clock, zones))
     return ScheduledWorkDispatcher(handlers)
 
 
@@ -452,12 +465,13 @@ def build(
     invariants = Neo4jTenantInvariants(neo4j)
     monitor = InvariantMonitor()
     redis_cache = RedisCache(redis)
+    directory = Neo4jTenantDirectory(neo4j)
     return Container(
         clock=clock,
         ids=ids,
         neo4j=neo4j,
         uow_factory=uow_factory,
-        tenants=Neo4jTenantDirectory(neo4j),
+        tenants=directory,
         secrets=store,
         validator=ProfileValidator(),
         redis=redis,
@@ -488,7 +502,16 @@ def build(
         invariants=invariants,
         invariant_monitor=monitor,
         scheduled_work=_scheduled_work(
-            uow_factory, clock, ids, store, settings.base_url, invariants, monitor
+            uow_factory,
+            clock,
+            ids,
+            store,
+            # Each tenant's links are on its own host (DEC-134 item 3); only the default tenant,
+            # which has no host of its own, falls back to the platform's base URL.
+            DirectoryLinkBase(directory, fallback=settings.base_url),
+            invariants,
+            monitor,
+            DirectoryZones(directory),
         ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for(settings.tenant_areas),

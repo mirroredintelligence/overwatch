@@ -56,7 +56,7 @@ class _Untouched:
     def __init__(self, scope: ScopeId | None) -> None:
         self.unit_scope = scope
 
-    async def __aenter__(self) -> "_Untouched":
+    async def __aenter__(self) -> _Untouched:
         return self
 
     async def __aexit__(self, *exc: Any) -> None:

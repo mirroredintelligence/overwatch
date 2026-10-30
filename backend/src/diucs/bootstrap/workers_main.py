@@ -67,7 +67,6 @@ from diucs.application.ports.outbound.messaging import PushSender
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.sender_resolver import SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import current_tenant
 from diucs.application.use_cases.apply_projection import ApplyProjection
 from diucs.application.use_cases.board_projector import BoardProjector
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
@@ -301,7 +300,7 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
         )
 
         async def supersede_due() -> int:
-            return await supersede.execute(current_tenant())
+            return await supersede.execute()
 
         work_handlers = dict(container.scheduled_work.handlers)
         work_handlers[WorkKind.PROJECTION_HEARTBEAT] = projection_heartbeat_handler(

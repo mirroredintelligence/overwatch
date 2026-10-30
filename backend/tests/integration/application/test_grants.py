@@ -228,7 +228,8 @@ async def test_a_revision_replaces_its_predecessor_when_it_starts_with_no_gap(
     now = rig.clock.now()
     assert is_effective(old, now) and not is_effective(new, now)
     rig.tick(timedelta(days=2))
-    assert await rig.supersede.execute(member) == 1
+    with bind_tenant(member):
+        assert await rig.supersede.execute() == 1
     old = await rig.registry.get_grant(gid)
     assert old is not None and old.status is GrantStatus.SUPERSEDED and old.effective_to == start
     now = rig.clock.now()

@@ -14,6 +14,9 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.membership import (
     AcceptMembership,
     AcceptMembershipCommand,
@@ -24,9 +27,6 @@ from diucs.application.use_cases.membership import (
     RemoveMember,
     RemoveMemberCommand,
 )
-
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.network_admin import GovernanceRecorder
 from diucs.application.use_cases.network_leave import EndResult
 from diucs.domain.codes import Role

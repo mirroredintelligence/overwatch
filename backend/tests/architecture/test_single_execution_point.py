@@ -94,6 +94,12 @@ BINDING_MODULES: frozenset[str] = frozenset(
         # names, for that command only. It is run by a person with the platform's own access, never
         # by a request, and the operator it acts as has no standing in any other scope.
         "diucs.bootstrap.provisioning",
+        # TEN-056: the projector's handler of `GrantEffective` binds the GRANTOR tenant (the sender
+        # of the message may be the network owner), to start that tenant's heartbeat and backfill
+        # its projection. It acts only after the registry has named the grant and the sender as a
+        # party and the directory has listed the grantor as active; the producer's own gate is the
+        # registry again.
+        "diucs.application.use_cases.network_governance",
     }
 )
 

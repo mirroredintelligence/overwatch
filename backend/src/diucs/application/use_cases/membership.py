@@ -241,7 +241,7 @@ class _Ending:
         self._recorder = recorder
         self._clock = clock
 
-    async def run(
+    async def finish(
         self,
         actor: Actor,
         network: Network,
@@ -348,7 +348,9 @@ class LeaveNetwork:
             row = max(closed, key=lambda r: str(r.left_at), default=None)
         if row is None:
             raise NotFound(MEMBERSHIP_NOT_FOUND)
-        return await self._ending.run(actor, network, row, MembershipEndReason.LEFT, "LeaveNetwork")
+        return await self._ending.finish(
+            actor, network, row, MembershipEndReason.LEFT, "LeaveNetwork"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -387,6 +389,6 @@ class RemoveMember:
         )
         if row is None:
             raise NotFound(MEMBERSHIP_NOT_FOUND)
-        return await self._ending.run(
+        return await self._ending.finish(
             actor, network, row, MembershipEndReason.REMOVED, "RemoveMember"
         )

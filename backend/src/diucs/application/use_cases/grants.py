@@ -41,7 +41,7 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.network import NetworkRegistry
 from diucs.application.ports.outbound.tenants import TenantDirectory
-from diucs.application.tenancy import bind_tenant
+from diucs.application.tenancy import current_tenant
 from diucs.application.use_cases.network_admin import (
     AUDIT_CREATE,
     GovernanceRecorder,
@@ -516,19 +516,19 @@ class SupersedeDueGrants:
         self._recorder = recorder
         self._clock = clock
 
-    async def execute(self, tenant_id: str) -> int:
+    async def execute(self) -> int:
+        """Run for the tenant bound now (the heartbeat's): the number of grants superseded."""
+        tenant_id = current_tenant()
         now = self._clock.now()
         done = 0
-        with bind_tenant(tenant_id):
-            actor = system_actor(tenant_id, "grants")
-            grants = list(await self._registry.grants_of(tenant_id))
-            for successor in grants:
-                if (
-                    successor.status is GrantStatus.APPROVED
-                    and successor.supersedes_id is not None
-                    and await self.supersede_one(actor, successor, now)
-                ):
-                    done += 1
+        actor = system_actor(tenant_id, "grants")
+        for successor in await self._registry.grants_of(tenant_id):
+            if (
+                successor.status is GrantStatus.APPROVED
+                and successor.supersedes_id is not None
+                and await self.supersede_one(actor, successor, now)
+            ):
+                done += 1
         return done
 
     async def supersede_one(self, actor: Actor, successor: Grant, now: datetime) -> bool:

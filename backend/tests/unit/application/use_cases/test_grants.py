@@ -487,6 +487,11 @@ async def _revise(rig: _Rig, **over: Any) -> str:
         return await rig.revise.execute(ReviseGrantCommand(_tenant_admin(), GRANT_ID, **over))
 
 
+async def _supersede(rig: _Rig) -> int:
+    with bind_tenant(MEMBER_B):
+        return await rig.supersede.execute()
+
+
 async def _approve_both(rig: _Rig, gid: str) -> None:
     with bind_tenant(MEMBER_B):
         await rig.approve.execute(ApproveGrantCommand(_tenant_admin(), gid))
@@ -519,12 +524,12 @@ async def test_a_revision_that_starts_later_leaves_the_old_grant_until_then(rig:
     new_id = await _revise(rig, effective_from=start)
     await _approve_both(rig, new_id)
     assert rig.registry.grant_rows[GRANT_ID].status is GrantStatus.APPROVED
-    assert await rig.supersede.execute(MEMBER_B) == 0
+    assert await _supersede(rig) == 0
     rig.clock.set(start)
-    assert await rig.supersede.execute(MEMBER_B) == 1
+    assert await _supersede(rig) == 1
     old = rig.registry.grant_rows[GRANT_ID]
     assert old.status is GrantStatus.SUPERSEDED and old.effective_to == start
-    assert await rig.supersede.execute(MEMBER_B) == 0  # a repeat changes nothing
+    assert await _supersede(rig) == 0  # a repeat changes nothing
 
 
 async def test_only_an_approved_grant_is_revised_and_only_once_at_a_time(rig: _Rig) -> None:

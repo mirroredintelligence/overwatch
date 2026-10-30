@@ -13,9 +13,13 @@ const EXPECTED =
 
 const writeText = vi.fn();
 
+// user-event's setup() installs its own clipboard on navigator, so the mock goes in after it.
+function useClipboard() {
+  Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+}
+
 beforeEach(() => {
   writeText.mockReset();
-  Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
 });
 
 describe('SummaryCopy (W15)', () => {
@@ -43,6 +47,7 @@ describe('SummaryCopy (W15)', () => {
   it('"Copy summary" writes one row per line, and says so in a status region', async () => {
     writeText.mockResolvedValue(undefined);
     const user = userEvent.setup();
+    useClipboard();
     render(<SummaryCopy summary={SUMMARY_VIEW} />);
 
     await user.click(byEl('ADV-FIN-COPY-BTN'));
@@ -54,6 +59,7 @@ describe('SummaryCopy (W15)', () => {
   it('when the clipboard refuses, the summary is selected and the user is told to press Ctrl+C', async () => {
     writeText.mockRejectedValue(new Error('refused'));
     const user = userEvent.setup();
+    useClipboard();
     render(<SummaryCopy summary={SUMMARY_VIEW} />);
 
     await user.click(byEl('ADV-FIN-COPY-BTN'));

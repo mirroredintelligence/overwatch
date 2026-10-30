@@ -67,7 +67,11 @@ describe('OutcomeForm (W15)', () => {
   });
 
   it('has no axe violations', async () => {
-    render(<OutcomeForm caseId="4821" preselect={null} onClosed={vi.fn()} />);
+    render(
+      <main>
+        <OutcomeForm caseId="4821" preselect={null} onClosed={vi.fn()} />
+      </main>,
+    );
     expect((await runAxe(document.body)).violations).toEqual([]);
   });
 });

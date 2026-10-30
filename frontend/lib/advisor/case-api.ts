@@ -66,3 +66,26 @@ export async function filterOptions(token: string, caseId: string, idempotencyKe
   });
   return data;
 }
+
+/** Closes a case with its outcome (R07 $close). The answer carries no close time, so the caller stamps it. */
+export async function closeCase(
+  token: string,
+  id: string,
+  input: { outcome: string; bestFitNotUsed?: string; destinationServiceId?: string },
+  idempotencyKey: string,
+): Promise<void> {
+  const parameter: Record<string, unknown>[] = [{ name: 'outcome', valueCode: input.outcome }];
+  if (input.bestFitNotUsed !== undefined) parameter.push({ name: 'bestFitNotUsed', valueCode: input.bestFitNotUsed });
+  if (input.destinationServiceId !== undefined) {
+    parameter.push({
+      name: 'destination',
+      valueReference: { reference: `HealthcareService/${input.destinationServiceId}` },
+    });
+  }
+  await fhirFetch<unknown>(`/ServiceRequest/${encodeURIComponent(id)}/$close`, {
+    method: 'POST',
+    token,
+    idempotencyKey,
+    body: { resourceType: 'Parameters', parameter },
+  });
+}

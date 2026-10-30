@@ -24,6 +24,7 @@ class WorkKind(StrEnum):
     CLINICAL_RETURN = "clinical-return"
     REVERIFY = "reverify"
     NOT_UPDATED_CHECK = "not-updated-check"
+    INVARIANT_CHECK = "invariant-check"
 
 
 SCHEDULED = "scheduled"

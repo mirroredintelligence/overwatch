@@ -9,6 +9,7 @@ from neo4j import AsyncManagedTransaction
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.driver import run_global_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.application.use_cases.tenant_invariants import InvariantMonitor
 
 PING_QUERY_ID = "Q-NEO4J-PING"
 # A global statement (DEC-130 item 3): it answers RETURN 1 before any tenant is known, so it runs
@@ -49,3 +50,13 @@ async def neo4j_health(conn: Neo4jConnection, timeout: float) -> Health:
     if rows != [{"ok": 1}]:
         return Health(HealthStatus.DEGRADED, "Neo4j returned an unexpected reply")
     return Health(HealthStatus.OK, "Neo4j answered")
+
+
+def invariant_health(monitor: InvariantMonitor) -> Health:
+    """Degraded while the last tenant invariant check (TEN-031) found a node with no tenant or a
+    relationship between two scopes, and ok otherwise (including before any check). The reason is
+    the report's summary: label names, relationship types and counts, never a value."""
+    report = monitor.report
+    if report is None or report.ok:
+        return Health(HealthStatus.OK, "the tenant invariants hold")
+    return Health(HealthStatus.DEGRADED, report.summary())

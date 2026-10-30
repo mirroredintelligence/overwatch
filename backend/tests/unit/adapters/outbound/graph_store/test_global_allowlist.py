@@ -362,14 +362,21 @@ def _altered(text: str) -> list[str]:
     """Changes that leave the text a valid read of registry labels, so only the pin can refuse
     them: a trailing comment, a case change, doubled inner space, one character changed, a changed
     literal, an extra clause."""
+    # A whole-graph count must end in its RETURN, so a clause after it is refused by the structure
+    # and not by the pin: its extra variant changes the clause before the RETURN instead.
+    whole = "count(*)" in text
     return [
         f"{text} // note",
         f"{text} /* note */",
         text.replace("MATCH", "match", 1) if "MATCH" in text else text.replace("RETURN", "return"),
         text.replace(" ", "  ", 1),
         text[:-1] + ("d" if text[-1] != "d" else "e"),
-        text.replace("'active'", "'suspended'") if "'active'" in text else text + " LIMIT 1",
-        text + " LIMIT 1",
+        text.replace("'active'", "'suspended'")
+        if "'active'" in text
+        else text.replace("tenantId", "tenantid", 1)
+        if whole
+        else text + " LIMIT 1",
+        text.replace("WHERE", "WHERE 1 = 1 AND", 1) if whole else text + " LIMIT 1",
     ]
 
 

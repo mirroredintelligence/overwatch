@@ -87,7 +87,26 @@ GLOBAL_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
             "finds the Tenant registry node bound to an Entra directory id (DEC-134 item 14): "
             "sign-in maps a verified directory to exactly one tenant"
         ),
+        "Q-INVARIANT-UNSTAMPED": (
+            "counts, by label set, the nodes that carry no tenantId and are not registry nodes "
+            "(TEN-031): Community cannot require the property, so this is the control; it scans "
+            "the whole graph and returns label names and a count, never a value"
+        ),
+        "Q-INVARIANT-CROSS-SCOPE": (
+            "counts, by relationship type, the relationships that join two scopes (TEN-031): it "
+            "scans the whole graph and returns a type and a count, never a value"
+        ),
     }
+)
+
+# The two statements that count over the whole graph (TEN-031, the start-up and daily invariant
+# check). A scan of every node names no label, so the label rule of `_check_global_text` cannot hold
+# for them; what stands in its place, for these ids only, is that the text returns a label set or
+# a relationship type and a count and nothing else, so no property value can leave the graph. The
+# digest pin is still the guarantee. Adding an id here is as deliberate as adding one to the
+# allowlist, and test_global_allowlist.py pins the set.
+GLOBAL_WHOLE_GRAPH_IDS: Final[frozenset[str]] = frozenset(
+    {"Q-INVARIANT-UNSTAMPED", "Q-INVARIANT-CROSS-SCOPE"}
 )
 
 # THE GUARANTEE (TEN-007 round 2, DEC-163 item 2): every global statement is pinned by the SHA-256
@@ -110,6 +129,10 @@ GLOBAL_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
         "Q-TENANT-ACTIVE-LINE": "5d63a256430a4267c7848d6f6e445759b94049a937ef9631a1d042d915182f76",
         "Q-TENANT-BY-HOST": "6d54e9494484becff85e4c68de1c95f2e070c302e575657011295042235a2d21",
         "Q-TENANT-BY-ENTRA": "cde6d057e41dba1d35ca029ef4f29e51b16d1d4e0c9dfd909d297bcaba844888",
+        "Q-INVARIANT-UNSTAMPED": "795489a314b9d937367c5d30b530ded1f438ece68ffc863bcb3bcb013ed90f3f",
+        "Q-INVARIANT-CROSS-SCOPE": (
+            "bbd3e4db80928a1d8dba2bf3991dc4c840acd649e682b3b0961f04ed9e55a179"
+        ),
     }
 )
 
@@ -140,6 +163,13 @@ _WRITES = re.compile(
 # a node pattern or an expression, read exactly as it would be with a space; after any other name
 # it is refused. So a keyword cannot hide a node pattern.
 _FUNCTIONS = frozenset({"properties", "count", "coalesce", "tolower", "toupper", "size", "labels"})
+# The functions a whole-graph count adds: `none(l IN labels(n) WHERE ...)` and `type(r)`.
+_WHOLE_GRAPH_FUNCTIONS = _FUNCTIONS | {"none", "type"}
+# What a whole-graph count may return: a label set or a relationship type, and a count.
+_WHOLE_GRAPH_RETURN = re.compile(
+    r"\bRETURN\s+(?:labels\(\s*\w+\s*\)|type\(\s*\w+\s*\))\s+AS\s+\w+\s*,"
+    r"\s*count\(\s*\*\s*\)\s+AS\s+\w+\s*$"
+)
 _KEYWORDS = frozenset(
     [
         "match",
@@ -235,8 +265,20 @@ def _check_global_text(query_id: str, cypher: str) -> None:
     word, a `;`, a `(` after a name that is not an allowed function (so `MATCH(n:X)` is read as a
     node pattern, as `MATCH (n:X)` is), a node with no label, a label outside the registry, a
     parenthesis that is neither a node nor a function call, and a brace outside a node's property
-    map. Comments and the inside of strings are removed first."""
+    map. Comments and the inside of strings are removed first. The two whole-graph counts
+    (GLOBAL_WHOLE_GRAPH_IDS) may name a node by variable alone and call `none` and `type`, and must
+    return a label set or a relationship type and a count and nothing else."""
     text = _blank(query_id, cypher)
+    whole_graph = query_id in GLOBAL_WHOLE_GRAPH_IDS
+    functions = _WHOLE_GRAPH_FUNCTIONS if whole_graph else _FUNCTIONS
+    if whole_graph and (
+        len(re.findall(r"\bRETURN\b", text, re.IGNORECASE)) != 1
+        or _WHOLE_GRAPH_RETURN.search(text) is None
+    ):
+        raise ValueError(
+            f"query {query_id}: a whole-graph count may return only a label set or a "
+            "relationship type and a count"
+        )
     if _WRITES.search(text) is not None:
         raise ValueError(f"query {query_id}: a global statement cannot write or call a procedure")
     if ";" in text:
@@ -245,7 +287,7 @@ def _check_global_text(query_id: str, cypher: str) -> None:
     for position in (m.start() for m in re.finditer(r"\(", text)):
         before = _NAME_BEFORE.search(text[:position])
         name = None if before is None or before.end() != position else before.group(0).lower()
-        if name in _FUNCTIONS:
+        if name in functions:
             continue
         if name is not None and name not in _KEYWORDS:
             raise ValueError(
@@ -259,6 +301,10 @@ def _check_global_text(query_id: str, cypher: str) -> None:
                 "patterns and function calls"
             )
         labels = [label.strip("`") for label in _LABEL.findall(node.group(1))]
+        if not labels and whole_graph and "{" not in node.group(0):
+            # A scan names its nodes by variable only: `(n)`, `(a)`. No label, no property map.
+            remaining = remaining.replace(node.group(0), " ", 1)
+            continue
         if not labels:
             raise ValueError(f"query {query_id}: every node in a global statement needs a label")
         if not set(labels) <= GLOBAL_STATEMENT_LABELS:

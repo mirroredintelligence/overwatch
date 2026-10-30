@@ -41,6 +41,7 @@ from diucs.adapters.outbound.geocoder_os_places.os_places import (
     OsPlacesGeocoder,
 )
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
+from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
@@ -79,6 +80,10 @@ from diucs.application.ports.outbound.identity import (
     TenantKeyedSecrets,
 )
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.invariants import (
+    TenantInvariants,
+    TenantInvariantViolated,
+)
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.telemetry_query import (
     SessionFilters,
@@ -113,6 +118,12 @@ from diucs.application.use_cases.missed_report_ladder import (
     MissedReportLadder,
 )
 from diucs.application.use_cases.review_registration import AreaDistrictsFor
+from diucs.application.use_cases.tenant_invariants import (
+    InvariantMonitor,
+    RunInvariantCheck,
+    RunInvariantCheckCommand,
+    ensure_invariant_schedule,
+)
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.bootstrap.areas import area_districts_for
 from diucs.bootstrap.settings import Settings
@@ -173,6 +184,11 @@ class Container:
     # The support console's raw telemetry (O07): Azure Monitor in a process that has a workspace and
     # a client, otherwise NoTelemetry, which refuses every read.
     telemetry: TelemetryQuery
+    # The tenant invariant check (TEN-031): nodes with no tenantId and relationships between two
+    # scopes. Global statements on the one connection; the start-up refuses on a violation and the
+    # daily job (scheduled work) raises the monitor's flag.
+    invariants: TenantInvariants
+    invariant_monitor: InvariantMonitor
     # The dispatch table of the scheduled.work queue: the missed-report ladder steps (I05, DEC-192).
     scheduled_work: ScheduledWorkDispatcher
     # Seals the text code (and any other secret content) before it is written to the outbox, so
@@ -184,11 +200,11 @@ class Container:
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
-        """Open the Neo4j connection, apply the migrations that are not yet recorded and make sure
-        the audit head exists. Raises Neo4jConnectionError when Neo4j cannot be reached, or the
-        failure of a migration, and closes the connection in the second case, so the process does
-        not start and leaves nothing open. TEN-017 makes the audit head per scope; the start-up
-        will then bind each active tenant in turn."""
+        """Open the Neo4j connection, apply the migrations that are not yet recorded, make sure each
+        active tenant's audit head exists and check the tenant invariants. Raises
+        Neo4jConnectionError when Neo4j cannot be reached, the failure of a migration, or
+        TenantInvariantViolated when a node has no tenant (TEN-031), and closes the connection in
+        every case after the first, so the process does not start and leaves nothing open."""
         await self.neo4j.open()
         try:
             driver = self.neo4j.driver
@@ -202,17 +218,25 @@ class Container:
             for tenant_id in await self.tenants.active_tenant_ids():
                 with bind_tenant(tenant_id):
                     await ensure_audit_head(driver)
+            # Neo4j Community cannot require a tenant on a node (TEN-031): count the nodes that
+            # have none, after the migrations have stamped what they stamp, and do not start on
+            # any. The same check runs daily as scheduled work.
+            report = await self.invariants.check()
+            self.invariant_monitor.record(report)
+            if not report.ok:
+                raise TenantInvariantViolated(report)
         except BaseException:
             await self.neo4j.close()
             raise
 
     async def seed_daily_schedules(self, tenant_ids: Sequence[str]) -> None:
-        """Seed the daily criteria review run (U31) for each tenant, once. Each tenant is bound in
-        turn, as the start-up does for the audit heads (TEN-017). Idempotent: a second start writes
-        nothing."""
+        """Seed the daily criteria review run (U31) and the daily tenant invariant check (TEN-031)
+        for each tenant, once. Each tenant is bound in turn, as the start-up does for the audit
+        heads (TEN-017). Idempotent: a second start writes nothing."""
         for tenant_id in tenant_ids:
             with bind_tenant(tenant_id):
                 await ensure_daily_schedule(self.uow_factory, self.ids, self.clock)
+                await ensure_invariant_schedule(self.uow_factory, self.ids, self.clock)
 
     async def shutdown(self) -> None:
         if self.http is not None:
@@ -247,12 +271,23 @@ def criteria_review_handler(job: RunCriteriaReviews) -> WorkHandler:
     return step
 
 
+def invariant_check_handler(job: RunInvariantCheck) -> WorkHandler:
+    """The daily tenant invariant check (TEN-031), run once for each scheduled work of its kind."""
+
+    async def step(work: ScheduledWork) -> None:
+        await job.execute(RunInvariantCheckCommand(work_id=work.id))
+
+    return step
+
+
 def _scheduled_work(
     uow_factory: UnitOfWorkFactory,
     clock: Clock,
     ids: IdGenerator,
     secrets: SecretStore,
     link_base_url: str,
+    invariants: TenantInvariants,
+    monitor: InvariantMonitor,
 ) -> ScheduledWorkDispatcher:
     """The dispatch table, built on the same clock, ids and secrets as the rest of the container."""
 
@@ -272,6 +307,10 @@ def _scheduled_work(
     # The daily criteria review run (U31).
     reviews = RunCriteriaReviews(uow_factory, ids, clock, AesGcmContentSealer(secrets))
     handlers[WorkKind.CRITERIA_REVIEW_REMINDER] = criteria_review_handler(reviews)
+    # The daily tenant invariant check (TEN-031).
+    handlers[WorkKind.INVARIANT_CHECK] = invariant_check_handler(
+        RunInvariantCheck(uow_factory, ids, clock, invariants, monitor)
+    )
     return ScheduledWorkDispatcher(handlers)
 
 
@@ -364,6 +403,8 @@ def build(
     # seen through TenantKeyedSecrets, and nothing outside it holds the platform key.
     store: SecretStore = TenantKeyedSecrets(NoSecrets() if secrets is None else secrets)
     uow_factory = neo4j_uow_factory(neo4j, clock=clock)
+    invariants = Neo4jTenantInvariants(neo4j)
+    monitor = InvariantMonitor()
     return Container(
         clock=clock,
         ids=ids,
@@ -396,7 +437,11 @@ def build(
                 telemetry_client, settings.telemetry_workspace_id, clock
             )
         ),
-        scheduled_work=_scheduled_work(uow_factory, clock, ids, store, settings.base_url),
+        invariants=invariants,
+        invariant_monitor=monitor,
+        scheduled_work=_scheduled_work(
+            uow_factory, clock, ids, store, settings.base_url, invariants, monitor
+        ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for(settings.tenant_areas),
     )
@@ -429,6 +474,8 @@ def build_for_tests(
     resolved_ids = SequentialIds() if ids is None else ids
     store: SecretStore = FixedSecretStore({}) if secrets is None else secrets
     uow_factory = neo4j_uow_factory(neo4j, clock=resolved_clock)
+    invariants = Neo4jTenantInvariants(neo4j)
+    monitor = InvariantMonitor()
     return Container(
         clock=resolved_clock,
         ids=resolved_ids,
@@ -453,8 +500,10 @@ def build_for_tests(
             if telemetry is None
             else telemetry
         ),
+        invariants=invariants,
+        invariant_monitor=monitor,
         scheduled_work=_scheduled_work(
-            uow_factory, resolved_clock, resolved_ids, store, link_base_url
+            uow_factory, resolved_clock, resolved_ids, store, link_base_url, invariants, monitor
         ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for({} if areas is None else areas),

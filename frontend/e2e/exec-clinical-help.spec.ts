@@ -7,7 +7,9 @@ import { SITE_URL } from './support/env';
 // The Help pages (W46, W56), the executive set-up welcome (W39) and the clinical on-duty page (W44), as a
 // browser sees them. None of these needs a back-end answer to render its first screen: the stand-in back
 // end has no alert or clinical routes, and the pages hold their first screen without one.
-// Written in the build wave and not run there; the verification run executes it (pnpm e2e).
+// Wiring wave (W8B): the screens now read the real back end's routes, so the first screens below are the
+// ones that render whatever the stand-in back end answers; the flows that need a seeded request (take,
+// advise, the advisor's dialog) are left to the live back-end run. Written, not run (pnpm e2e).
 
 const BASE_URL = SITE_URL;
 
@@ -52,5 +54,29 @@ test('the clinical on-duty page asks whether the advisor is taking requests (W44
   await signIn(page.context(), BASE_URL, 'clinical', TOKEN_ORG_A);
   await page.goto('/clinical');
   await expect(page.getByRole('heading', { level: 1, name: 'Are you taking requests?' })).toBeVisible();
+  await accessible(page);
+});
+
+test('the clinical queue offers Waiting, Mine and Done, and says when it could not read the queue (W44)', async ({ page }) => {
+  await signIn(page.context(), BASE_URL, 'clinical', TOKEN_ORG_A);
+  await page.goto('/clinical/requests');
+  await expect(page.getByRole('tab', { name: /^Waiting/ })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Mine' })).toBeVisible();
+  await expect(page.getByRole('tab', { name: 'Done' })).toBeVisible();
+  await accessible(page);
+});
+
+test('a request that cannot be read offers no advice form (W44, DEC-855)', async ({ page }) => {
+  await signIn(page.context(), BASE_URL, 'clinical', TOKEN_ORG_A);
+  await page.goto('/clinical/requests/req-does-not-exist');
+  await expect(page.getByRole('alert')).toContainText('could not be read');
+  await expect(page.getByRole('button', { name: 'Send advice' })).toHaveCount(0);
+});
+
+test('the share page makes no code by itself, and says whether sharing is on (W56)', async ({ page }) => {
+  await signIn(page.context(), BASE_URL, 'advisor', TOKEN_ORG_A);
+  await page.goto('/help/share');
+  await expect(page.getByRole('heading', { level: 1, name: 'Your support code' })).toBeVisible();
+  await expect(page.locator('[data-el="HELP-SHARE-CODE"]')).toHaveCount(0);
   await accessible(page);
 });

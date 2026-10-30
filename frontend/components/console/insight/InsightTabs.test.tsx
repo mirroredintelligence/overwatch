@@ -40,6 +40,14 @@ describe('InsightTabs', () => {
     expect(screen.getByRole('tab', { name: 'Friction' })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('says insight is not available yet when the back end has no such route, and never an empty chart', async () => {
+    server.use(http.get('/api/bff/console/insight/:tab', () => HttpResponse.json({ code: 'not-found' }, { status: 404 })));
+    render(<InsightTabs initialTab="funnels" />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Insight is not available yet: the back end does not serve it.');
+    expect(screen.queryByText('No funnel data for this range.')).not.toBeInTheDocument();
+  });
+
   it('passes vitest-axe on the page', async () => {
     answerEveryTab();
     const { container } = render(<InsightTabs initialTab="funnels" />);

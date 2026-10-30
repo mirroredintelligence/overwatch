@@ -8,6 +8,7 @@ import { server } from '@/test/msw/server';
 import { AskClinicalDialog } from './AskClinicalDialog';
 
 const SUMMARY = { ageBand: '80+', district: 'DT4 8XX', needs: ['Fall', 'Frailty'], within: 'Within 2 hrs', news2: 2, frailtyScale: 6 };
+const PARTIAL = { ageBand: null, district: null, needs: [], within: null, news2: null, frailtyScale: null };
 const CASE = 'case-4821';
 
 type Call = { method: string; path: string; body?: unknown };
@@ -31,9 +32,10 @@ function handlers(states: string[] = ['waiting']) {
       poll += 1;
       polls.push(state);
       calls.push({ method: 'GET', path: `/api/bff/cases/${CASE}/clinical-requests/req-9001` });
-      if (state === 'taken') return HttpResponse.json({ state, takenByRole: 'Clinical advisor', takenAt: '2026-10-23T13:15:00Z' });
+      if (state === 'failed') return HttpResponse.json({ code: 'exception' }, { status: 503 });
+      if (state === 'taken') return HttpResponse.json({ state, returnsAt: '2026-10-23T13:29:30Z' });
       if (state === 'advised') {
-        return HttpResponse.json({ state, takenByRole: 'Clinical advisor', takenAt: '2026-10-23T13:15:00Z', advice: 'go-ahead', reason: 'within-criteria-on-judgement' });
+        return HttpResponse.json({ state, advice: 'go-ahead', reason: 'within-criteria-on-judgement', note: 'Phone the family first.', advisedAt: '2026-10-23T13:15:00Z' });
       }
       return HttpResponse.json({ state: 'waiting' });
     }),
@@ -102,6 +104,21 @@ describe('AskClinicalDialog before sending', () => {
   });
 });
 
+describe('AskClinicalDialog summary', () => {
+  it('shows only what the case holds: nothing is made up for a part that is not recorded', () => {
+    render(<AskClinicalDialog caseRef={CASE} summary={PARTIAL} optionsShown={0} onClose={() => undefined} />);
+    expect(screen.getByRole('region', { name: 'Case summary' })).toHaveTextContent('Options shown: 0');
+    expect(screen.queryByText(/NEWS2/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Frailty scale/)).not.toBeInTheDocument();
+  });
+
+  it('says the summary could not be read, and still lets the advisor ask', async () => {
+    render(<AskClinicalDialog caseRef={CASE} summary={null} optionsShown={0} onClose={() => undefined} />);
+    expect(screen.getByText('The case summary could not be read.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Call clinical advisor' })).toBeEnabled());
+  });
+});
+
 describe('AskClinicalDialog while waiting', () => {
   it('polls every 5 seconds: waiting, taken, then advised, and then stops', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
@@ -113,12 +130,61 @@ describe('AskClinicalDialog while waiting', () => {
     await act(async () => { vi.advanceTimersByTime(5_000); });
     await waitFor(() => expect(polls).toEqual(['waiting']));
     await act(async () => { vi.advanceTimersByTime(5_000); });
-    await waitFor(() => expect(screen.getByText('Taken by Clinical advisor at 14:15')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('A clinical advisor has taken your request. It returns to the queue at 14:29 if they do not act.')).toBeInTheDocument());
     await act(async () => { vi.advanceTimersByTime(5_000); });
     await waitFor(() => expect(screen.getByText('Advice: Go ahead with the service. Reason: within criteria on my judgement.')).toBeInTheDocument());
+    expect(screen.getByText('Note from the clinical advisor: Phone the family first.')).toBeInTheDocument();
+    expect(screen.queryByText('Waiting for a clinical advisor')).not.toBeInTheDocument();
     const seen = polls.length;
     await act(async () => { vi.advanceTimersByTime(20_000); });
     expect(polls.length).toBe(seen);
+  });
+
+  it('says it could not read the answer when the read fails, and never goes on saying it is waiting for one it cannot see (DEC-855)', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    server.use(...handlers(['failed']));
+    render(<Harness />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Call clinical advisor' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Borderline criteria' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Call clinical advisor' }));
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    expect(await screen.findByRole('alert')).toHaveTextContent('The answer could not be read. Check again, or use the escalation route under local protocol.');
+    expect(screen.queryByText('Waiting for a clinical advisor')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check again' })).toBeInTheDocument();
+  });
+
+  it('reads again on Check again, and shows the advice once the read works', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    server.use(...handlers(['failed', 'advised']));
+    render(<Harness />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Call clinical advisor' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Borderline criteria' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Call clinical advisor' }));
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    await userEvent.click(await screen.findByRole('button', { name: 'Check again' }));
+    expect(await screen.findByText('Advice: Go ahead with the service. Reason: within criteria on my judgement.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('says the request went back to the queue when a taken request reads as waiting again, and goes on waiting', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    server.use(...handlers(['taken', 'waiting']));
+    render(<Harness />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Call clinical advisor' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Borderline criteria' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Call clinical advisor' }));
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    await screen.findByText(/has taken your request/);
+    await act(async () => { vi.advanceTimersByTime(5_000); });
+    expect(await screen.findByText('The clinical advisor did not act in time. Your request is back in the queue.')).toBeInTheDocument();
+  });
+
+  it('tells the advisor to keep the dialog open until the advice arrives', async () => {
+    render(<Harness />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Call clinical advisor' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Borderline criteria' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Call clinical advisor' }));
+    expect(await screen.findByText('Keep this open until the advice arrives. It is not kept if you close it.')).toBeInTheDocument();
   });
 
   it('closes on Escape, stops polling, and returns focus to the button that opened it', async () => {

@@ -22,7 +22,7 @@ const post = withBff<Context>(
     const status = data.businessStatus?.coding?.[0]?.code;
     return Response.json({ id, status: typeof status === 'string' ? status : 'in-progress' }, { headers: NO_STORE });
   },
-  { roles: ['clinical'] },
+  { roles: ['clinical'], idScoped: true },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

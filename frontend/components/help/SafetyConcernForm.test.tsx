@@ -19,6 +19,22 @@ beforeEach(() => {
   }));
 });
 
+describe('SafetyConcernForm coordination line', () => {
+  it('says who to phone, from the tenant\'s own words and number, on the warning and on the confirmation', async () => {
+    render(<SafetyConcernForm coordinationLine="Phone Access team A on 01632 960001." />);
+    expect(screen.getByRole('region', { name: 'Before you send' })).toHaveTextContent('Phone Access team A on 01632 960001.');
+    await userEvent.click(screen.getByRole('button', { name: 'Wrong service shown' }));
+    await userEvent.type(screen.getByLabelText('What happened?'), 'Showed a closed unit');
+    await userEvent.click(screen.getByRole('button', { name: 'Send to the clinical safety officer' }));
+    expect(await screen.findByText('Phone Access team A on 01632 960001.')).toBeInTheDocument();
+  });
+
+  it('makes up no number when the tenant has none: the generic sentence stands alone', async () => {
+    render(<SafetyConcernForm coordinationLine={null} />);
+    expect(screen.getByRole('region', { name: 'Before you send' })).not.toHaveTextContent(/\d{3}/);
+  });
+});
+
 describe('SafetyConcernForm', () => {
   it('shows both required errors together in an error summary, and sends nothing', async () => {
     render(<SafetyConcernForm />);

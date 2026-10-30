@@ -77,6 +77,25 @@ describe('FindSession: search', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('You do not have access to the console.');
   });
 
+  it('says that a search by trace id or reference is not available when the back end refuses it as not supported', async () => {
+    server.use(http.get('/api/bff/console/sessions', () => HttpResponse.json({ code: 'not-supported' }, { status: 400 })));
+    render(<FindSession />);
+
+    await userEvent.type(screen.getByLabelText('Trace id'), 'a'.repeat(32));
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Search by trace id or reference is not available yet. Search by session id, role or release.');
+  });
+
+  it('says a search found no session when the back end answers an empty list', async () => {
+    server.use(http.get('/api/bff/console/sessions', () => HttpResponse.json({ items: [] })));
+    render(<FindSession />);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Search' }));
+
+    expect(await screen.findByText('No sessions found.')).toBeInTheDocument();
+  });
+
   it('passes vitest-axe', async () => {
     const { container } = render(<FindSession />);
 

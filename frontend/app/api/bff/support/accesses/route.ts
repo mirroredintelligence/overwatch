@@ -17,6 +17,7 @@ const get = withBff(
     }
     const { data } = await fhirFetch<{ openedAt: string; role: string }[]>(`/support/accesses?sessionId=${sessionId}`, {
       token: session.backendToken,
+      root: true,
     });
     const accesses = (Array.isArray(data) ? data : []).map((view) => ({ openedAt: view.openedAt, role: view.role }));
     return Response.json(accesses, { headers: NO_STORE });

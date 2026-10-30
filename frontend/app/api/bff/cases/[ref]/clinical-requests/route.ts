@@ -51,7 +51,7 @@ const post = withBff<Context>(
     if (typeof data.id !== 'string') throw new Error('The back end sent no request id.');
     return Response.json({ requestId: data.id }, { status: 201, headers: NO_STORE });
   },
-  { roles: ROLES },
+  { roles: ROLES, idScoped: true },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

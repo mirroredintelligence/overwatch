@@ -38,7 +38,7 @@ const post = withBff<Context>(
     });
     return Response.json({ id, status: 'completed' }, { headers: NO_STORE });
   },
-  { roles: ['clinical'] },
+  { roles: ['clinical'], idScoped: true },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

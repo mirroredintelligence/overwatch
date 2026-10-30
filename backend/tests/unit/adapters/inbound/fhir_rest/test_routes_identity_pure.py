@@ -400,6 +400,8 @@ async def test_the_right_pin_signs_in_and_makes_a_session() -> None:
     assert body["role"] == "reporter"
     assert body["services"] == ["svc-west"]
     assert body["sessionId"] in container.sessions.sessions
+    # The tenant the host named, so the front end's session can say whose it is (it never guesses).
+    assert body["tenant"] == TENANT
     assert PERSON not in response.text
     assert response.headers["cache-control"] == "no-store"
 

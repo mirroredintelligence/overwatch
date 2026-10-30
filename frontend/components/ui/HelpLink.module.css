@@ -1,0 +1,14 @@
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  color: inherit;
+  font-weight: var(--type-label-weight);
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

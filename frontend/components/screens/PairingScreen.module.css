@@ -1,0 +1,76 @@
+/* The wall display while it waits to be connected (the ScreenPairing artboard, step 1). It is read
+   from across a room: the code is the largest thing on the screen. Nobody types on it, so there is
+   no control. */
+.page {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 100dvh;
+  padding: var(--space-6) var(--space-4);
+  background: var(--c-bg);
+  color: var(--c-ink);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-display-size);
+  line-height: var(--type-display-lh);
+  font-weight: var(--type-display-weight);
+  letter-spacing: var(--type-display-tracking);
+  color: var(--c-primary-dark);
+}
+
+.stage {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  text-align: center;
+}
+
+.code {
+  margin: 0;
+  font-size: 8rem;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--c-ink);
+}
+
+.instruction {
+  margin: 0;
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.waiting {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-muted);
+}
+
+.message {
+  width: 100%;
+  max-width: 40rem;
+  text-align: left;
+}
+
+.footer {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-muted);
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .code {
+    font-size: 4.5rem;
+  }
+}

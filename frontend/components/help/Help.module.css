@@ -1,0 +1,18 @@
+.warning {
+  margin: 0;
+  padding: var(--space-3);
+  border: 2px solid var(--c-ink);
+  border-radius: var(--radius-card);
+  font-weight: var(--type-label-weight);
+}
+
+.hint {
+  margin: 0;
+  font-weight: var(--type-label-weight);
+}
+
+.counter {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-ink-2);
+}

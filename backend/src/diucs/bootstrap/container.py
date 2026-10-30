@@ -101,6 +101,10 @@ from diucs.application.use_cases.criteria_reviews import (
     RunCriteriaReviewsCommand,
     ensure_daily_schedule,
 )
+from diucs.application.use_cases.withdraw_booking import (
+    EscalateWithdrawal,
+    EscalateWithdrawalCommand,
+)
 from diucs.application.use_cases.missed_report_ladder import (
     LADDER_KINDS,
     LadderStepCommand,
@@ -228,6 +232,15 @@ def criteria_review_handler(job: RunCriteriaReviews) -> WorkHandler:
     return step
 
 
+def withdrawal_escalation_handler(job: EscalateWithdrawal) -> WorkHandler:
+    """The escalation of a booking withdrawal (U21), run once for each scheduled work of its kind."""
+
+    async def step(work: ScheduledWork) -> None:
+        await job.execute(EscalateWithdrawalCommand(work_id=work.id, booking_id=work.about_id))
+
+    return step
+
+
 def _scheduled_work(
     uow_factory: UnitOfWorkFactory,
     clock: Clock,
@@ -253,6 +266,10 @@ def _scheduled_work(
     # The daily criteria review run (U31).
     reviews = RunCriteriaReviews(uow_factory, ids, clock, AesGcmContentSealer(secrets))
     handlers[WorkKind.CRITERIA_REVIEW_REMINDER] = criteria_review_handler(reviews)
+    # The escalation of an unacknowledged booking withdrawal (U21).
+    handlers[WorkKind.WITHDRAWAL_ESCALATE] = withdrawal_escalation_handler(
+        EscalateWithdrawal(uow_factory, clock)
+    )
     return ScheduledWorkDispatcher(handlers)
 
 

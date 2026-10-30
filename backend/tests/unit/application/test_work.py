@@ -8,7 +8,7 @@ from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.errors import ValidationFailed
 
 
-def test_the_eleven_work_kinds_are_named_as_the_spec_names_them() -> None:
+def test_the_twelve_work_kinds_are_named_as_the_spec_names_them() -> None:
     assert {kind.value for kind in WorkKind} == {
         "prompt-due",
         "reminder",
@@ -21,6 +21,8 @@ def test_the_eleven_work_kinds_are_named_as_the_spec_names_them() -> None:
         "clinical-return",
         "reverify",
         "not-updated-check",
+        # Added by U21 (DEC-400): the withdrawal escalation has its own kind.
+        "withdrawal-escalate",
     }
 
 

@@ -5,38 +5,34 @@ import { issuesFromOutcome, organisationValues, pageFieldFor, STEP_FIELDS } from
 // back to the screen's field names. The locked invitation values come from the back end, never from
 // the browser.
 
-const LOCKED = { organisationName: 'Sample Community Trust', odsCode: 'RSA01' };
-
 describe('STEP_FIELDS', () => {
   it('names the organisation step fields, and nothing else', () => {
-    expect(STEP_FIELDS.organisation).toEqual(['orgType', 'contactName', 'contactRole', 'contact']);
+    expect(STEP_FIELDS.organisation).toEqual(['name', 'odsCode', 'orgType', 'contactName', 'contactRole', 'contact']);
   });
 });
 
 describe('organisationValues', () => {
-  it('takes the organisation name and ODS code from the invitation, and only the answers the back end takes', () => {
+  it('sends the typed name and ODS code, the organisation type and the contact, and only the answers the back end takes', () => {
     expect(
-      organisationValues({ orgType: 'nhs-trust', contactName: 'Sample Person', contactRole: 'Lead', contact: 'contact@example.test' }, LOCKED),
+      organisationValues({ name: 'Sample Community Trust', odsCode: 'SAM01', orgType: 'nhs-trust', contactName: 'Sample Person', contactRole: 'Lead', contact: 'contact@example.test' }),
     ).toEqual({
       name: 'Sample Community Trust',
-      odsCode: 'RSA01',
+      odsCode: 'SAM01',
       orgType: 'nhs-trust',
       contactName: 'Sample Person',
       contactEmail: 'contact@example.test',
     });
   });
 
-  it('sends a phone number as the contact phone, and leaves out what is not given', () => {
-    const values = organisationValues({ contactName: 'Sample Person', contact: '01305 123456' }, LOCKED);
-    expect(values).toEqual({ name: 'Sample Community Trust', odsCode: 'RSA01', contactName: 'Sample Person', contactPhone: '01305 123456' });
-    expect(values).not.toHaveProperty('orgType');
-    expect(values).not.toHaveProperty('contactEmail');
+  it('never sends the contact role, which the back end cannot keep (DEC-906)', () => {
+    expect(organisationValues({ contactRole: 'Practice manager' })).toEqual({});
   });
 
-  it('never takes a value the browser sent for a locked field', () => {
-    const values = organisationValues({ name: 'Other Trust', odsCode: 'ZZZ99', contactName: 'Sample Person' }, LOCKED);
-    expect(values.name).toBe('Sample Community Trust');
-    expect(values.odsCode).toBe('RSA01');
+  it('sends a phone number as the contact phone, and leaves out what is not given', () => {
+    const values = organisationValues({ name: 'Sample Community Trust', contactName: 'Sample Person', contact: '01305 123456' });
+    expect(values).toEqual({ name: 'Sample Community Trust', contactName: 'Sample Person', contactPhone: '01305 123456' });
+    expect(values).not.toHaveProperty('orgType');
+    expect(values).not.toHaveProperty('contactEmail');
   });
 });
 

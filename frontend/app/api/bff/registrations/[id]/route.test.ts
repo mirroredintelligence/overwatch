@@ -52,7 +52,7 @@ describe('GET /api/bff/registrations/[id] (the applicant’s record)', () => {
     answerBackend('get', `/registrations/${ID}/record`, 200, RECORD);
     const response = await GET(await callerRequest(url), ctx(ID));
     expect(response.status).toBe(200);
-    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
     const body = (await response.json()) as Record<string, unknown>;
     expect(body).toMatchObject({ id: ID, status: 'draft', serviceName: 'Community nursing' });
     expect(body).not.toHaveProperty('invitation');

@@ -1,18 +1,20 @@
 import { fhirFetch, FhirError, type FhirResult } from '@/lib/fhir/client';
 import type { OperationOutcome } from '@/lib/fhir/types';
 import { callLinkApi, type LinkReply } from '@/lib/links/server';
-import type { RegistrationView, StepName } from './types';
+import { addressesFrom, viewFromRecord, type RecordView } from './applicant';
+import type { StepName } from './types';
 
 // The registration seam: the only place the registration BFF routes call the back end.
 // Identity routes sit beside /fhir and are tenant-bound from the Host header, so they go through
 // lib/links/server (node:http keeps the Host). The FHIR routes go through lib/fhir/client with the
-// reporter's bearer token. The browser never names a tenant (DEC-130, DEC-132).
+// reporter's bearer token. The applicant's own reads and actions (W7B A1) sit at the back end's
+// root with the same bearer token (fhirFetch with root). The browser never names a tenant (DEC-130).
 
-/** A route the back end does not serve yet: a 503 the BFF answers with the code `not-built`. */
-export function notBuilt(what: string): FhirError {
+/** The applicant's answer from the back end that the screens cannot use: a 503 that names nothing. */
+function unreadable(what: string): FhirError {
   const outcome: OperationOutcome = {
     resourceType: 'OperationOutcome',
-    issue: [{ severity: 'error', code: 'not-built', diagnostics: `${what} is not built in the back end yet` }],
+    issue: [{ severity: 'error', code: 'exception', diagnostics: `${what} could not be read` }],
   };
   return new FhirError(503, outcome);
 }
@@ -42,28 +44,42 @@ export async function verifyRegistrationCode(input: {
   });
 }
 
-/**
- * The registration as the back end holds it. NOT BUILT: no route serves a registration read yet
- * (R10 has the draft and the submit only). A 503 `not-built` until one does (W54 fragment).
- */
-export async function readRegistration(token: string, id: string): Promise<RegistrationView> {
-  void token;
-  void id;
-  throw notBuilt('The registration read');
+async function bearerGet(token: string, path: string): Promise<unknown> {
+  const result = await fhirFetch<unknown>(path, { token, root: true });
+  return result.data;
+}
+
+async function bearerPost(token: string, path: string): Promise<unknown> {
+  const result = await fhirFetch<unknown>(path, { method: 'POST', token, root: true, idempotencyKey: crypto.randomUUID() });
+  return result.data;
+}
+
+/** The applicant's registration: its record, mapped for the screens (W7B A1). Another person's is a 404. */
+export async function readRegistration(token: string, id: string): Promise<RecordView> {
+  const view = viewFromRecord(await bearerGet(token, `/registrations/${encodeURIComponent(id)}/record`));
+  if (view === null) throw unreadable('The registration');
+  return view;
 }
 
 /**
- * Saves one step's answers as the back end's draft (R10 `PUT /fhir/Task/{id}/$draft`). A refusal
- * is a 400 OperationOutcome, which surfaces as a FhirError for the route to map.
+ * Saves one step's answers as the back end's draft (R10 `PUT /fhir/Task/{id}/$draft`). A partial save
+ * is a "Save draft" (DEC-905): the back end keeps what is there and says what is still missing. A
+ * refusal is a 400 OperationOutcome, which surfaces as a FhirError for the route to map.
  */
-export async function saveStep(token: string, id: string, step: StepName, values: Record<string, unknown>): Promise<{ status: string }> {
+export async function saveStep(
+  token: string,
+  id: string,
+  step: StepName,
+  values: Record<string, unknown>,
+  partial = false,
+): Promise<{ status: string; incomplete: { field: string; message: string }[] }> {
   const result: FhirResult<unknown> = await fhirFetch<unknown>(`/Task/${encodeURIComponent(id)}/$draft`, {
     method: 'PUT',
     token,
-    body: { step, values },
+    body: partial ? { step, values, partial: true } : { step, values },
     idempotencyKey: crypto.randomUUID(),
   });
-  return { status: businessStatusOf(result.data) };
+  return { status: businessStatusOf(result.data), incomplete: incompleteOf(result.data) };
 }
 
 function businessStatusOf(task: unknown): string {
@@ -72,11 +88,21 @@ function businessStatusOf(task: unknown): string {
   return typeof code === 'string' ? code : 'draft';
 }
 
-/** NOT BUILT: no address lookup route in the back end (I12 is an adapter; no REST route calls it). */
+function incompleteOf(task: unknown): { field: string; message: string }[] {
+  const list = (task as { incomplete?: unknown } | undefined)?.incomplete;
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((item): { field: string; message: string }[] => {
+    const field = (item as { field?: unknown })?.field;
+    const message = (item as { message?: unknown })?.message;
+    return typeof field === 'string' && typeof message === 'string' ? [{ field, message }] : [];
+  });
+}
+
+/** The addresses for a postcode, at most twenty: the id and the label (W7B A1). A lookup that cannot answer is a 503. */
 export async function readAddresses(token: string, postcode: string): Promise<{ id: string; label: string }[]> {
-  void token;
-  void postcode;
-  throw notBuilt('The address lookup');
+  const list = addressesFrom(await bearerGet(token, `/addresses?postcode=${encodeURIComponent(postcode)}`));
+  if (list === null) throw unreadable('The address lookup');
+  return list;
 }
 
 /**
@@ -92,43 +118,29 @@ export async function submitRegistration(token: string, id: string): Promise<{ s
   return { status: businessStatusOf(result.data) };
 }
 
-/** NOT BUILT: no route serves the review yet (the back end has the review's use case, not its read). */
-export async function readReview(token: string, id: string): Promise<{ key: string; status: string; summary: string }[]> {
-  void token;
-  void id;
-  throw notBuilt('The registration review');
+/** My registrations, as the back end gives them (mapped by the route with myServicesFrom). */
+export async function readMine(token: string): Promise<unknown> {
+  return bearerGet(token, '/my/registrations');
 }
 
-/** NOT BUILT: no route lists a reporter's services yet. */
-export async function readMine(token: string): Promise<{ id: string; serviceName: string; state: string; detail: string }[]> {
-  void token;
-  throw notBuilt('The list of my services');
+/** The status answer of one registration, as the back end gives it (mapped by the route with statusFrom). */
+export async function readStatus(token: string, id: string): Promise<unknown> {
+  return bearerGet(token, `/registrations/${encodeURIComponent(id)}/status`);
 }
 
-/** NOT BUILT: no route serves a registration's status for its applicant yet. */
-export async function readStatus(token: string, id: string): Promise<Record<string, unknown>> {
-  void token;
-  void id;
-  throw notBuilt('The registration status');
-}
-
-/** NOT BUILT: no route sends the applicant's test notification yet. */
+/** Sends the applicant's test notification (W27; the lead, W29). The back end answers 409 inside a minute. */
 export async function sendTestNotification(token: string, id: string): Promise<void> {
-  void token;
-  void id;
-  throw notBuilt('The test notification');
+  await bearerPost(token, `/registrations/${encodeURIComponent(id)}/test-notification`);
 }
 
-/** NOT BUILT: no route asks the shift lead to look again yet. */
+/** Asks the shift lead to look again (W27). The back end answers 409 unless submitted or in review. */
 export async function askForReview(token: string, id: string): Promise<void> {
-  void token;
-  void id;
-  throw notBuilt('The review request');
+  await bearerPost(token, `/registrations/${encodeURIComponent(id)}/review-request`);
 }
 
-/** NOT BUILT: no route records that the applicant's details are still right yet. */
+/** Records that the applicant's details are still right (W27). The back end answers 409 unless a re-check is due. */
 export async function confirmDetails(token: string, id: string): Promise<void> {
-  void token;
-  void id;
-  throw notBuilt('The details confirmation');
+  await bearerPost(token, `/registrations/${encodeURIComponent(id)}/confirm-details`);
 }
+
+export { unreadable };

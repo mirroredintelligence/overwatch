@@ -5,10 +5,8 @@ import { sendTestNotification } from '@/lib/register/backend';
 import { bffJson, refuse } from '@/lib/register/requests';
 
 // Two callers share this path: the applicant sends the test notification from the status page (W27); a
-// lead sends it again at go live (W29), which the back end has no route for yet (R10), so that answers
-// 503 `not-supported`. The role decides which.
-//
-// One of the applicant's actions on the status page (W27). The browser sends CSRF with it (a POST).
+// lead sends it again at go live (W29), which is the reviewer's own group and stays not served until it
+// is wired. The role decides which. The back end answers 409 inside a minute.
 
 type Context = { params: Promise<{ id: string }> };
 

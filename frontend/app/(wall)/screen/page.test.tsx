@@ -2,7 +2,9 @@ import { render, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getSession, type Role, type Session } from '@/lib/auth/session';
+import { resetProfileCache } from '@/lib/tenant/profile';
 import { runAxe } from '@/test/a11y';
+import { PROFILE_URL } from '@/test/msw/handlers/profile';
 import { sessionFor } from '@/test/requests';
 import { TENANTS } from '@/test/tenants';
 import { BOARD_A, BOARD_B, BOARD_SURGE, GENERATED_AT, QUIET_AT } from '@/test/fixtures/board';
@@ -58,6 +60,7 @@ async function redirectOf(): Promise<string> {
 }
 
 beforeEach(() => {
+  resetProfileCache();
   vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
   resetSeenBoardRequests();
   // The wall now judges a board by the clock (W06): the sample board is the
@@ -325,5 +328,47 @@ describe('wall screen page: metadata and rendering mode (TEN-045)', () => {
     const { container } = render(await WallScreenPage());
     expect(container.textContent).not.toMatch(/dorset|\d+ (beds|referrals|packages)/i);
     expect(container.querySelector('[data-el="WALL-TILE"]')).toBeNull();
+  });
+});
+
+
+// TEN-049: the line under the heading is the tenant's own coordination team name, from the profile of
+// the host the screen's session was made on; with no profile or no wording there is no line.
+describe('wall screen page: the tenant’s own line (TEN-049)', () => {
+  it('shows the coordination team name of the session’s host', async () => {
+    as(signedIn('wall'));
+    render(await WallScreenPage());
+    expect(screen.getByText('Access team A')).toBeInTheDocument();
+  });
+
+  it('shows the line of the host the session was made on, not of another tenant', async () => {
+    as(sessionFor(TENANTS.B, 'wall', { backendToken: TOKEN_ORG_A }));
+    render(await WallScreenPage());
+    expect(screen.getByText('Access team B')).toBeInTheDocument();
+    expect(screen.queryByText('Access team A')).toBeNull();
+  });
+
+  it('shows no line for a tenant with no wording', async () => {
+    as(sessionFor(TENANTS.C, 'wall', { backendToken: TOKEN_ORG_A }));
+    const { container } = render(await WallScreenPage());
+    expect(container.querySelector('p[class*="subtitle"]')).toBeNull();
+    expect(container.textContent).not.toMatch(/single point of access/i);
+  });
+
+  it('still shows the board, with no line, when the profile cannot be read', async () => {
+    server.use(http.get(PROFILE_URL, () => HttpResponse.error()));
+    as(signedIn('wall'));
+    const { container } = render(await WallScreenPage());
+    expect(container.querySelectorAll('[data-el="WALL-TILE"]')).toHaveLength(BOARD_A.entries.length);
+    expect(screen.queryByText('Access team A')).toBeNull();
+  });
+
+  it('reads the profile for the session’s host and sends no token to the profile route', async () => {
+    const { seenProfileRequests, resetProfileRequests } = await import('@/test/msw/handlers/profile');
+    resetProfileRequests();
+    as(signedIn('wall'));
+    await WallScreenPage();
+    expect(seenProfileRequests.map((r) => r.host)).toEqual([TENANTS.A.host]);
+    expect(seenProfileRequests[0]?.headerNames).not.toContain('authorization');
   });
 });

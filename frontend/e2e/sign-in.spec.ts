@@ -15,7 +15,7 @@ async function signInAs(page: Page, persona: keyof typeof PERSONAS, from = '/sig
   await choose(page.context(), persona);
   await page.goto(from);
   if (new URL(page.url()).pathname !== '/sign-in') return;
-  await page.getByRole('button', { name: 'Sign in with your Trust account' }).click();
+  await page.getByRole('button', { name: 'Sign in with your staff account' }).click();
 }
 
 async function sessionRole(page: Page): Promise<string | null> {
@@ -90,7 +90,7 @@ test('goes back to the page asked for after signing in', async ({ page }) => {
   await page.goto('/lead');
   await expect(page).toHaveURL(/\/sign-in\?next=%2Flead$/);
 
-  await page.getByRole('button', { name: 'Sign in with your Trust account' }).click();
+  await page.getByRole('button', { name: 'Sign in with your staff account' }).click();
 
   await expect(page).toHaveURL(/\/lead$/);
   expect(await sessionRole(page)).toBe('lead');

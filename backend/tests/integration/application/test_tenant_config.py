@@ -16,6 +16,7 @@ from neo4j import AsyncDriver
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
+from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.tenant_config import (
     ApproveConfigCommand,
@@ -57,7 +58,8 @@ from diucs.domain.model.tenant_records import (
 )
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes
-from tests.support.uow import ensure_audit_heads
+from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -96,10 +98,11 @@ OWNER_2 = person("prac-owner-2")
 
 
 @pytest.fixture
-async def heads(
-    neo4j_driver: AsyncDriver, clean_graph: None, tenant_id: str, other_tenant_id: str
-) -> None:
-    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
+async def heads(neo4j_driver: AsyncDriver, clean_graph: None, tenant_id: str) -> None:
+    """The run tenant's audit chain head, created after the wipe. The shared harness schema keeps
+    single-property keys until TEN-032, so it holds one tenant's head only; the two-tenant test
+    runs on its own contracted container (DEC-159)."""
+    await ensure_audit_heads(neo4j_driver, tenant_id)
 
 
 def draft_use_case(factory: UnitOfWorkFactory) -> DraftTenantConfig:
@@ -355,16 +358,24 @@ async def test_a_draft_is_not_read_as_the_policy(
 
 
 async def test_two_tenants_have_their_own_configuration(
-    heads: None, uow_factory_a: UnitOfWorkFactory, uow_factory_b: UnitOfWorkFactory
+    tenant_id: str, other_tenant_id: str, uow_clock: Clock
 ) -> None:
-    await _in_force(uow_factory_a, {**WINDOW, **WORDING})
+    # The shared harness schema still has single-property keys (until TEN-032), so two tenants can
+    # not hold the same version number there: this runs on the contracted schema (DEC-159).
+    async with contracted_container() as driver:
+        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+        factory_a = tenant_uow_factory(driver, tenant_id, uow_clock)
+        factory_b = tenant_uow_factory(driver, other_tenant_id, uow_clock)
+        await _in_force(factory_a, {**WINDOW, **WORDING})
 
-    assert (await ReadTenantConfig(uow_factory_b).policy()) == DEFAULT_POLICY
-    assert await ReadTenantConfig(uow_factory_b).wording() is None
-    version_b = await _draft(uow_factory_b, 0, {"staleWarningHours": 3})
-    assert version_b == 1
-    with pytest.raises(NotFound):
-        await approve_use_case(uow_factory_b).execute(ApproveConfigCommand(OWNER_1, 2))
+        assert (await ReadTenantConfig(factory_b).policy()) == DEFAULT_POLICY
+        assert await ReadTenantConfig(factory_b).wording() is None
+        version_b = await _draft(factory_b, 0, {"staleWarningHours": 3})
+        assert version_b == 1
+        with pytest.raises(NotFound):
+            await approve_use_case(factory_b).execute(ApproveConfigCommand(OWNER_1, 2))
+        # and A's version 1 is still the one in force, with its own approvals
+        assert (await ReadTenantConfig(factory_a).wording()) is not None
 
 
 # ----------------------------------------------- contacts, channels, retention, the directory
@@ -489,7 +500,7 @@ async def test_the_facts_of_a_ready_tenant_are_all_true(
     clock = FixedClock(NOW)
     for kind, label, value in (
         (ContactKind.COORDINATION_PHONE, "Desk", "0300 123 4567"),
-        (ContactKind.CLINICAL_SAFETY_OFFICER, "Safety desk", "0300 123 4568"),
+        (ContactKind.CLINICAL_SAFETY_OFFICER, "Safety desk", "safety@example.test"),
     ):
         await RecordTenantContact(uow_factory_a, clock, ROLES).execute(
             RecordContactCommand(LEAD, kind, label, value)

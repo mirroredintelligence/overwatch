@@ -352,6 +352,23 @@ class _View:
     async def sources(self) -> Sequence[SourceState]:
         return list(self._unit.world.sources)
 
+    def _rows(self, kind: GrantScope) -> list[Any]:
+        return [
+            SimpleNamespace(source_tenant_id=member, ended_at=None)
+            for (member, scope), count in sorted(self._unit.world.live_rows.items())
+            if scope is kind
+            for _ in range(count)
+        ]
+
+    async def services(self, *, live_only: bool = True) -> list[Any]:
+        return self._rows(GrantScope.DIRECTORY)
+
+    async def capacities(self, *, live_only: bool = True) -> list[Any]:
+        return self._rows(GrantScope.CAPACITY)
+
+    async def criteria(self, *, live_only: bool = True) -> list[Any]:
+        return self._rows(GrantScope.CRITERIA)
+
     async def source(self, source: str, kind: GrantScope) -> SourceState | None:
         return next(
             (

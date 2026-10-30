@@ -638,7 +638,11 @@ async def test_the_support_person_ends_the_access_and_it_stops_standing() -> Non
     with pytest.raises(CrossTenantDenied):
         await authorise(r, elevation.access_id)
     assert r.world.chain("tenant-a")[-1].action == "support-access-ended"
-    assert r.platform.entries[-1].action == "support-access-ended"
+    assert actions(r.platform.entries) == [
+        "support-access-opened",
+        "support-access-ended",
+        "support-access-refused",
+    ]
 
 
 async def test_another_support_person_cannot_end_the_access() -> None:
@@ -666,8 +670,8 @@ async def test_the_tenants_administrator_can_end_an_access_to_their_own_tenant()
         await authorise(r, elevation.access_id)
     ended = r.world.chain("tenant-a")[-1]
     assert (ended.action, ended.actor.role) == ("support-access-revoked", Role.TENANT_ADMIN)
-    assert r.platform.entries[-1].action == "support-access-revoked"
-    assert r.platform.entries[-1].principal_ref == REF
+    revoked = r.platform.entries[1]
+    assert (revoked.action, revoked.principal_ref) == ("support-access-revoked", REF)
 
 
 async def test_another_tenants_administrator_cannot_end_the_access() -> None:

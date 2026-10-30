@@ -24,6 +24,7 @@ from typing import Any, Final
 
 from diucs.domain.codes import Role
 from diucs.domain.errors import DomainError, ValidationFailed
+from diucs.domain.model.network import check_network_id
 from diucs.domain.model.tenant import check_tenant_id
 
 BFF_TOKEN_ALGORITHM: Final = "HS256"
@@ -35,6 +36,10 @@ BFF_TOKEN_MAX_LENGTH: Final = (
 # An epoch counts suspends, resumes and role-mapping changes: far below this, and a bound keeps the
 # claim a number every JSON reader holds exactly.
 EPOCH_MAX: Final = 10**9
+
+# The `networks` claim (TEN-059): a hint that routes, never the authority. A short list, because a
+# signed claim that is longer than a person could belong to is wrong, not generous.
+NETWORKS_MAX: Final = 16
 
 _BASE64URL: Final = re.compile(r"[A-Za-z0-9_-]*")
 
@@ -48,6 +53,10 @@ class BffClaims:
     tenant: str
     epoch: int
     device: str | None = None
+    # The networks the signed-in person's tenant belonged to when the token was issued. It only
+    # tells the edge and the page that a network view exists; every network request is checked
+    # against the registry (`NetworkAccess`), so a stale claim reads nothing.
+    networks: frozenset[str] = frozenset()
 
 
 class TokenRejected(DomainError):
@@ -74,6 +83,8 @@ def encode_bff_token(claims: BffClaims, secret: bytes) -> str:
     }
     if claims.device is not None:
         body["device"] = claims.device
+    if claims.networks:
+        body["networks"] = sorted(_checked_networks(claims.networks))
     signing_input = f"{_json_b64(_header())}.{_json_b64(body)}"
     return f"{signing_input}.{_b64url_encode(_sign(signing_input, secret))}"
 
@@ -99,6 +110,26 @@ def decode_bff_token(token: str, secret: bytes, now: datetime) -> BffClaims:
 
 def _header() -> dict[str, str]:
     return {"alg": BFF_TOKEN_ALGORITHM, "typ": "JWT"}
+
+
+def _checked_networks(networks: frozenset[str]) -> frozenset[str]:
+    if len(networks) > NETWORKS_MAX:
+        raise ValidationFailed("networks", "has too many networks")
+    for network_id in networks:
+        check_network_id(network_id, "networks")
+    return networks
+
+
+def _decoded_networks(value: object) -> frozenset[str]:
+    """The `networks` claim: absent or null is none; otherwise a short list of network ids."""
+    if value is None:
+        return frozenset()
+    if not isinstance(value, list) or len(value) > NETWORKS_MAX:
+        raise TokenRejected()
+    try:
+        return frozenset(check_network_id(item, "networks") for item in value)
+    except ValidationFailed:
+        raise TokenRejected() from None
 
 
 def _is_epoch(value: object) -> bool:
@@ -189,4 +220,5 @@ def _claims(body: dict[str, Any], now: datetime) -> BffClaims:
         tenant=str(tenant),
         epoch=epoch,
         device=device,
+        networks=_decoded_networks(body.get("networks")),
     )

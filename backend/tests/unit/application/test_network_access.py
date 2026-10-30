@@ -77,6 +77,10 @@ class Registry:
                 return row
         return None
 
+    async def memberships_of(self, tenant_id: str) -> Sequence[NetworkMembership]:
+        self.calls.append("memberships_of")
+        return [m for m in self._memberships if m.member_tenant_id == tenant_id]
+
     async def memberships(self, network_id: str) -> Sequence[NetworkMembership]:
         self.calls.append("memberships")
         return [m for m in self._memberships if m.network_id == network_id]

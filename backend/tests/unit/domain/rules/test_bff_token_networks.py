@@ -105,7 +105,7 @@ def test_the_claim_is_signed_with_the_rest() -> None:
         [None],
         [["net-pilot"]],
         ["net-pilot", "tenant-a"],
-        [f"net-{index}" for index in range(NETWORKS_MAX + 1)],
+        [f"net-n{index}" for index in range(NETWORKS_MAX + 1)],
     ],
 )
 def test_a_networks_claim_that_is_not_a_short_list_of_network_ids_is_refused(value: Any) -> None:
@@ -114,7 +114,7 @@ def test_a_networks_claim_that_is_not_a_short_list_of_network_ids_is_refused(val
 
 
 def test_the_largest_allowed_list_is_accepted() -> None:
-    ids = [f"net-{index}" for index in range(NETWORKS_MAX)]
+    ids = [f"net-n{index}" for index in range(NETWORKS_MAX)]
     assert len(decode_bff_token(_token(networks=ids), SECRET, NOW).networks) == NETWORKS_MAX
 
 

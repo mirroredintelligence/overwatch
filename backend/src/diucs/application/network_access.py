@@ -115,6 +115,21 @@ class NetworkAccess:
         context = await self.open_network(network_id)
         return NetworkMemberAccess(context.network, context.settings, membership)
 
+    async def networks_of(self, actor: Actor) -> list[NetworkContext]:
+        """The active networks the viewer's tenant is an active member of, from the registry (the
+        token's claim is not read): what a page lists, and the only list that can be trusted after
+        a member has left. A role that never sees a network is refused with no read."""
+        if actor.role not in NETWORK_VIEW_ROLES:
+            raise NotAllowed(ROLE_REFUSED)
+        found: list[NetworkContext] = []
+        for membership in await self._registry.memberships_of(actor.tenant_id):
+            if membership.status is not MembershipStatus.ACTIVE:
+                continue
+            registered = await self._registry.get_network(membership.network_id)
+            if registered is not None and registered.network.status is NetworkStatus.ACTIVE:
+                found.append(NetworkContext(registered.network, registered.settings))
+        return found
+
     async def open_network(self, network_id: str) -> NetworkContext:
         """The network, if it exists and is active, else NotFound. For system work (the board
         projector) and the second step of `require_member`: it checks no viewer."""

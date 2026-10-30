@@ -13,12 +13,12 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 import pytest
-from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.application.actor import Actor
@@ -253,14 +253,7 @@ async def test_no_token_is_401() -> None:
 async def test_a_path_that_is_not_a_network_id_runs_nothing(network_id: str) -> None:
     app, services = build()
     async with client_for(app) as client:
-        response = await client.get(
-            f"/network/{network_id}/board",
-            headers=bearer(
-                networks=(network_id,)
-                if network_id.startswith("net-") and len(network_id) < 30
-                else ()
-            ),
-        )
+        response = await client.get(f"/network/{network_id}/board", headers=bearer(networks=()))
     assert response.status_code in (400, 404, 422)
     assert calls(services) == 0
 
@@ -380,3 +373,10 @@ async def test_the_stream_route_gives_the_same_refusals_as_the_other_network_rou
         anonymous = await client.get(f"/network/{NET}/events")
     assert (outside.status_code, wrong_role.status_code, anonymous.status_code) == (404, 404, 401)
     assert outside.text == wrong_role.text and calls(services) == 0
+
+
+async def test_the_path_pattern_is_the_domains_network_id_pattern() -> None:
+    from diucs.adapters.inbound.fhir_rest.routes_network import NETWORK_ID_PATTERN
+    from diucs.domain.model.network import NETWORK_ID_PATTERN as DOMAIN
+
+    assert f"^{DOMAIN.pattern}$" == NETWORK_ID_PATTERN

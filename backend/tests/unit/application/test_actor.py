@@ -215,6 +215,6 @@ def test_network_ids_that_are_not_a_frozenset_of_network_ids_are_refused(bad: ob
 def test_two_actors_that_differ_only_in_the_hint_are_not_equal() -> None:
     a = Actor(Role.ADVISOR, "p", None, "api", frozenset(), "tenant-a")
     b = Actor(
-        Role.ADVISOR, "p", None, "api", frozenset(), "tenant-a", network_ids=frozenset({"net-x"})
+        Role.ADVISOR, "p", None, "api", frozenset(), "tenant-a", network_ids=frozenset({"net-xx"})
     )
     assert a != b

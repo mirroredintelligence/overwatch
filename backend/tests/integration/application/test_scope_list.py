@@ -29,6 +29,7 @@ from diucs.application.use_cases.scope_list import (
 from diucs.domain.codes import RegistrationStatus, Role, ScopeFlag, ServiceCategory
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.registration import Registration
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -40,6 +41,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ADVISOR = Actor(
     role=Role.ADVISOR,
@@ -47,6 +49,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 

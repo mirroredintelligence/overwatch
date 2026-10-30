@@ -22,8 +22,9 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.fixed_terminology import FixedTerminology
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from diucs.adapters.testing.tokens import TEST_BFF_SECRET, default_token_tenant, issue_test_token
 from diucs.domain.codes import Role
+from tests.support.edge import active_tenants
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -43,6 +44,7 @@ class _RouteContainer:
     ids: SequentialIds
     uow_factory: Any
     terminology: FixedTerminology
+    tenants: Any
 
 
 def _no_unit_of_work() -> Any:
@@ -56,6 +58,7 @@ async def _client(entries: list[tuple[str, str]]) -> AsyncIterator[AsyncClient]:
         ids=SequentialIds(),
         uow_factory=_no_unit_of_work,
         terminology=FixedTerminology({}, {}, pathways_dx=entries),
+        tenants=active_tenants(default_token_tenant()),
     )
     app: FastAPI = create_app(container)
     app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
@@ -121,7 +124,8 @@ async def test_at_most_twenty_matches_are_returned_in_code_order() -> None:
 
 
 @pytest.mark.parametrize(
-    "role", [role for role in Role if role not in (Role.ADVISOR, Role.CLINICAL)]
+    "role",
+    [role for role in Role if role not in (Role.ADVISOR, Role.CLINICAL, Role.PLATFORM_OPERATOR)],
 )
 async def test_a_role_other_than_advisor_or_clinical_gets_a_not_found(role: Role) -> None:
     async with _client(ENTRIES) as client:
@@ -129,6 +133,16 @@ async def test_a_role_other_than_advisor_or_clinical_gets_a_not_found(role: Role
 
     assert response.status_code == 404
     assert response.json()["issue"][0]["code"] == "not-found"
+
+
+async def test_the_platform_operator_is_refused_at_the_edge_before_any_role_rule() -> None:
+    # The operator has no data access (DEC-134 item 4): a 401, the same as any refused token.
+    async with _client(ENTRIES) as client:
+        response = await client.get(
+            ROUTE, params={"q": "sa"}, headers=_bearer(Role.PLATFORM_OPERATOR)
+        )
+
+    assert response.status_code == 401
 
 
 async def test_a_reporter_with_too_short_text_still_gets_a_not_found() -> None:

@@ -23,6 +23,7 @@ from diucs.application.use_cases.week_summary import GetWeekSummary, GetWeekSumm
 from diucs.domain.codes import Cadence, Channel, Measure, ReportSource, Role, ServiceCategory
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support import seed
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import wipe
 from tests.support.tenant_seed import contracted_container
 
@@ -37,6 +38,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 

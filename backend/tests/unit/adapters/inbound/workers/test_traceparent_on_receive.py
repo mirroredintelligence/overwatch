@@ -11,12 +11,14 @@ TRACEPARENT = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01"
 
 
 def _raw(properties: dict[Any, Any]) -> Any:
+    # As the adapter sends it (TEN-020): a qualified id and the tenant property, plus what the
+    # test adds.
     return SimpleNamespace(
-        message_id="m-1",
+        message_id="tenant-a:m-1",
         body=iter([b'{"service": "svc-1"}']),
         subject="CapacityReported",
         session_id=None,
-        application_properties=properties,
+        application_properties={"tenantId": "tenant-a", **properties},
     )
 
 
@@ -27,7 +29,9 @@ def test_the_traceparent_property_becomes_the_message_traceparent() -> None:
 
 
 def test_a_bytes_keyed_traceparent_property_is_read_too() -> None:
-    message = to_bus_message(_raw({b"traceparent": TRACEPARENT.encode()}), "capacity.events")
+    raw = _raw({b"traceparent": TRACEPARENT.encode()})
+
+    message = to_bus_message(raw, "capacity.events")
 
     assert message.traceparent == TRACEPARENT
 

@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final
 
-from diucs.application.actor import Actor
+from diucs.application.actor import anonymous_actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.identity import CodeStore, PhoneHasher
@@ -29,7 +29,6 @@ from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
-from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.rules.identity_policy import (
     CODE_MAX_TRIES,
@@ -57,13 +56,7 @@ VERIFY_USE_CASE: Final = "VerifyTextCode"
 REQUEST_ACTION: Final = "C"
 VERIFY_ACTION: Final = "U"
 OUTCOME_REQUESTED: Final = "requested"
-ANONYMOUS: Final = Actor(
-    role=Role.ANONYMOUS_LINK,
-    practitioner_id=None,
-    device_id=None,
-    channel="text-code",
-    service_ids=frozenset(),
-)
+ACTOR_CHANNEL: Final = "text-code"
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,7 +227,7 @@ class RequestTextCode:
                     id=message_id,
                     topic=CODES_TOPIC,
                     event_type=SEND_CODE if known else DISCARD_CODE,
-                    payload={"tenantId": scope.value, "sealed_code": sealed, "purpose": purpose},
+                    payload={"sealed_code": sealed, "purpose": purpose},
                     created_at=now,
                 )
             )
@@ -242,7 +235,7 @@ class RequestTextCode:
                 AuditEntry(
                     action=REQUEST_ACTION,
                     use_case=REQUEST_USE_CASE,
-                    actor=ANONYMOUS,
+                    actor=anonymous_actor(scope.value, ACTOR_CHANNEL),
                     entity_ids=(),
                     snapshot={"purpose": purpose, "outcome": OUTCOME_REQUESTED},
                     at=now,
@@ -329,7 +322,7 @@ class VerifyTextCode:
             AuditEntry(
                 action=VERIFY_ACTION,
                 use_case=VERIFY_USE_CASE,
-                actor=ANONYMOUS,
+                actor=anonymous_actor(_tenant_scope(uow.unit_scope).value, ACTOR_CHANNEL),
                 entity_ids=(),
                 snapshot={"purpose": purpose, "outcome": outcome},
                 at=now,

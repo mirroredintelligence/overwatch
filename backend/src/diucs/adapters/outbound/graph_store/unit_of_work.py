@@ -28,6 +28,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession, AsyncTrans
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog
 from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
+from diucs.adapters.outbound.graph_store.aggregate_repository import Neo4jAggregateRepository
 from diucs.adapters.outbound.graph_store.alert_repository import (
     Neo4jAlertRepository,
     Neo4jAlertSubscriptionRepository,
@@ -55,6 +56,9 @@ from diucs.adapters.outbound.graph_store.idempotency_store import (
     Neo4jProcessedMessages,
 )
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
+from diucs.adapters.outbound.graph_store.notification_consent_store import (
+    Neo4jNotificationConsentStore,
+)
 from diucs.adapters.outbound.graph_store.person_repository import Neo4jPersonRepository
 from diucs.adapters.outbound.graph_store.protected_text_store import Neo4jProtectedTextStore
 from diucs.adapters.outbound.graph_store.push_subscription_repository import (
@@ -64,20 +68,30 @@ from diucs.adapters.outbound.graph_store.registration_repository import (
     Neo4jRegistrationRepository,
 )
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
+from diucs.adapters.outbound.graph_store.safety_report_repository import (
+    Neo4jSafetyReportRepository,
+)
 from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
     Neo4jScheduledWorkRepository,
 )
 from diucs.adapters.outbound.graph_store.scope_list_repository import Neo4jScopeListRepository
 from diucs.adapters.outbound.graph_store.service_move_repository import Neo4jServiceMoveRepository
+from diucs.adapters.outbound.graph_store.service_positions import Neo4jServicePositions
 from diucs.adapters.outbound.graph_store.service_repository import Neo4jServiceRepository
 from diucs.adapters.outbound.graph_store.support_repository import Neo4jSupportRepository
+from diucs.adapters.outbound.graph_store.support_ticket_repository import (
+    Neo4jSupportTicketRepository,
+)
 from diucs.adapters.outbound.graph_store.tenant_config_repository import (
     Neo4jTenantConfigRepository,
 )
 from diucs.application.idempotency import IdempotencyStore
+from diucs.application.ports.outbound.aggregates import AggregateRepository
 from diucs.application.ports.outbound.audit import AuditLog
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.consent import NotificationConsentStore
 from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
+from diucs.application.ports.outbound.geo import ServicePositions
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
 from diucs.application.ports.outbound.messaging import (
@@ -101,7 +115,9 @@ from diucs.application.ports.outbound.repositories import (
     ServiceMoveRepository,
     ServiceRepository,
 )
+from diucs.application.ports.outbound.safety import SafetyReportRepository
 from diucs.application.ports.outbound.support import SupportRepository
+from diucs.application.ports.outbound.support_tickets import SupportTicketRepository
 from diucs.application.ports.outbound.tenant_config import TenantConfigRepository
 from diucs.application.ports.outbound.tokens import LinkTokenRepository
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
@@ -114,12 +130,15 @@ RepositoryFactory = Callable[[AsyncManagedTransaction, ResourceStore], object]
 # registers its repository by adding one entry here (P06 "Later tasks register new repositories").
 DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "services": lambda tx, store: Neo4jServiceRepository(tx, store),
+    "positions": lambda tx, store: Neo4jServicePositions(tx),
     "alert_subscriptions": lambda tx, store: Neo4jAlertSubscriptionRepository(tx),
     "alerts": lambda tx, store: Neo4jAlertRepository(tx, store),
     "clinical_requests": lambda tx, store: Neo4jClinicalRequestRepository(tx, store),
     "push_subscriptions": lambda tx, store: Neo4jPushSubscriptionRepository(tx),
+    "notification_consents": lambda tx, store: Neo4jNotificationConsentStore(store),
     "service_moves": lambda tx, store: Neo4jServiceMoveRepository(tx),
     "protected_text": lambda tx, store: Neo4jProtectedTextStore(tx),
+    "safety_reports": lambda tx, store: Neo4jSafetyReportRepository(tx),
     "capacity": lambda tx, store: Neo4jCapacityRepository(tx, store),
     "bookings": lambda tx, store: Neo4jBookingRepository(tx, store),
     "cases": lambda tx, store: Neo4jCaseRepository(tx, store),
@@ -139,6 +158,8 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "idempotency": lambda tx, store: Neo4jIdempotencyStore(tx),
     "processed": lambda tx, store: Neo4jProcessedMessages(tx),
     "support": lambda tx, store: Neo4jSupportRepository(tx),
+    "aggregates": lambda tx, store: Neo4jAggregateRepository(tx),
+    "support_tickets": lambda tx, store: Neo4jSupportTicketRepository(tx),
     "tenant_config": lambda tx, store: Neo4jTenantConfigRepository(tx),
 }
 
@@ -177,11 +198,13 @@ class Neo4jUnitOfWork:
     """One session and one explicit transaction. Use it once: `async with uow:`, then commit."""
 
     services: ServiceRepository
+    positions: ServicePositions
     alert_subscriptions: AlertSubscriptionRepository
     alerts: AlertRepository
     clinical_requests: ClinicalRequestRepository
     service_moves: ServiceMoveRepository
     protected_text: ProtectedTextStore
+    safety_reports: SafetyReportRepository
     capacity: CapacityRepository
     bookings: BookingRepository
     cases: CaseRepository
@@ -192,6 +215,7 @@ class Neo4jUnitOfWork:
     flags: FlagRepository
     communications: CommunicationRepository
     push_subscriptions: PushSubscriptionRepository
+    notification_consents: NotificationConsentStore
     link_tokens: LinkTokenRepository
     scheduled_work: ScheduledWorkRepository
     audit: AuditLog
@@ -202,6 +226,8 @@ class Neo4jUnitOfWork:
     idempotency: IdempotencyStore
     processed: ProcessedMessages
     support: SupportRepository
+    aggregates: AggregateRepository
+    support_tickets: SupportTicketRepository
     tenant_config: TenantConfigRepository
 
     def __init__(

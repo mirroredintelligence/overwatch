@@ -31,7 +31,7 @@ from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
 from diucs.application.ports.outbound.tenants import TenantRecordInvalid
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
-from diucs.application.tenancy import bind_tenant
+from diucs.application.tenancy import ScopeId, bind_tenant, current_scope_or_none
 from diucs.application.use_cases.pair_wall_screen import (
     LIMIT_WINDOW,
     RATE_LIMITED_MESSAGE,
@@ -73,6 +73,10 @@ class _Directory:
             SUSPENDED_HOST: make_tenant(TenantStatus.SUSPENDED),
             DAMAGED_HOST: TenantRecordInvalid("damaged tenant record"),
         }
+
+    async def get(self, tenant_id: str) -> Any:
+        """The record the bearer check reads (TEN-018): every tenant signed for here is active."""
+        return make_tenant(id=tenant_id)
 
     async def by_host(self, host: str) -> Any:
         self.asked.append(host)
@@ -283,6 +287,35 @@ async def test_a_connect_by_an_advisor_is_the_non_revealing_not_found() -> None:
 
     assert response.status_code == 404
     assert _diagnostics(response) == NOT_FOUND_TEXT
+
+
+async def test_a_connect_runs_bound_to_the_leads_tenant_from_the_token() -> None:
+    # R15 known issue closed by TEN-018: the lead's tenant is the signed claim, and the body, the
+    # query, a header and the host (all naming another tenant here) are not read for it.
+    seen: list[object] = []
+
+    def record_scope_then_stop() -> Any:
+        seen.append(current_scope_or_none())
+        raise RuntimeError("stop here: the scope was recorded")
+
+    container = _Container()
+    container.uow_factory = record_scope_then_stop
+    token = issue_test_token(Role.LEAD, [], "lead-1", tenant="tenant-lead")
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Idempotency-Key": "r15-connect-0002",
+        "X-Tenant": "tenant-other",
+    }
+    async with _client(container) as client:
+        response = await client.post(
+            _url(ACTIVE_HOST, SCREENS),
+            json={"code": "482913", "name": "Ward A wall"},
+            headers=headers,
+            params={"tenant": "tenant-other"},
+        )
+
+    assert response.status_code == 500
+    assert seen == [ScopeId.tenant("tenant-lead")]
 
 
 async def test_a_connect_without_an_idempotency_key_is_refused_as_required() -> None:

@@ -27,6 +27,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 
@@ -50,6 +51,7 @@ REPORTER = Actor(
     device_id="device-1",
     channel="text",
     service_ids=frozenset({"ucr-west"}),
+    tenant_id=ACTOR_TENANT,
 )
 
 

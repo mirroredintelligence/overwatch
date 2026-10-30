@@ -3,8 +3,10 @@
 Only this module imports the Azure SDK. It converts each received message to a BusMessage, calls
 the consumer and settles the message: complete, abandon or dead-letter. A message that cannot be
 read (no id, no type, a body that is not a JSON object) is dead-lettered without reaching the
-consumer. A failure to settle is logged by class name and the message is left for redelivery,
-where the consumer finds its marker and answers duplicate.
+consumer; so is a message with no usable tenant (TEN-020: `from_wire` is the one reader, and the
+existing fixed reason `malformed message` is its dead letter until TEN-025 gives it the four
+reasons and binds the tenant). A failure to settle is logged by class name and the message is left
+for redelivery, where the consumer finds its marker and answers duplicate.
 
 A session-enabled entity (the capacity.events subscriptions) is read through session receivers,
 so one session's messages are handled in order. The loop never exits on a connection failure: it
@@ -17,6 +19,7 @@ import contextlib
 import json
 import logging
 from collections.abc import Sequence
+from dataclasses import replace
 from typing import Any, Protocol
 
 from azure.servicebus import NEXT_AVAILABLE_SESSION
@@ -24,7 +27,8 @@ from azure.servicebus.aio import ServiceBusClient
 from azure.servicebus.exceptions import OperationTimeoutError
 
 from diucs.adapters.inbound.workers.consumer import MessageConsumer, Outcome
-from diucs.application.ports.outbound.event_bus import BusMessage
+from diucs.application.ports.outbound.event_bus import BusMessage, MessageTenantError, from_wire
+from diucs.domain.errors import ValidationFailed
 
 logger = logging.getLogger(__name__)
 
@@ -79,30 +83,24 @@ def _body(raw: Any) -> bytes:
 
 
 def to_bus_message(raw: Any, entity: str) -> BusMessage:
-    message_id = _text(raw.message_id)
     properties = raw.application_properties or {}
-    event_type = _text(raw.subject) or _text(
-        properties.get("event_type", properties.get(b"event_type"))
-    )
-    if not message_id or not event_type:
-        raise MalformedMessage
-    tenant_id = _text(properties.get("tenantId", properties.get(b"tenantId")))
-    traceparent = _text(properties.get("traceparent", properties.get(b"traceparent")))
     try:
         payload = json.loads(_body(raw).decode("utf-8"))
     except (ValueError, TypeError) as error:
         raise MalformedMessage from error
-    if not isinstance(payload, dict):
-        raise MalformedMessage
-    return BusMessage(
-        id=message_id,
-        topic=entity,
-        event_type=event_type,
-        payload=payload,
-        session_id=_text(raw.session_id),
-        tenant_id=tenant_id,
-        traceparent=traceparent,
-    )
+    try:
+        message = from_wire(
+            entity,
+            message_id=_text(raw.message_id),
+            session_id=_text(raw.session_id),
+            subject=_text(raw.subject),
+            properties=properties,
+            payload=payload,
+        )
+    except (MessageTenantError, ValidationFailed) as error:
+        raise MalformedMessage from error
+    traceparent = _text(properties.get("traceparent", properties.get(b"traceparent")))
+    return message if traceparent is None else replace(message, traceparent=traceparent)
 
 
 class ServiceBusRunner:

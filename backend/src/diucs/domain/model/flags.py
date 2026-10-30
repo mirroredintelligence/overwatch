@@ -23,7 +23,11 @@ REPORT_FLAG_STATUSES = frozenset({REPORT_FLAG_OPEN, REPORT_FLAG_CHECKED, REPORT_
 
 SERVICE_FLAG_SUSPENDED = "suspended"
 SERVICE_FLAG_CRITERIA_OVERDUE = "criteria-overdue"
-SERVICE_FLAG_CODES = frozenset({SERVICE_FLAG_SUSPENDED, SERVICE_FLAG_CRITERIA_OVERDUE})
+SERVICE_FLAG_HOLDS_MANY = "holds-many-services"
+"""Set on each service of a phone that holds more than three services (U38, D28)."""
+SERVICE_FLAG_CODES = frozenset(
+    {SERVICE_FLAG_SUSPENDED, SERVICE_FLAG_CRITERIA_OVERDUE, SERVICE_FLAG_HOLDS_MANY}
+)
 
 
 def _text(field: str, value: Any) -> None:

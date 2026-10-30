@@ -16,13 +16,20 @@ same transaction (DEC-080):
 Decisions: DEC-080 (the draft and the derived copies), DEC-081 (the Task status and the checks).
 """
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
 from neo4j import AsyncManagedTransaction
 
+from diucs.adapters.outbound.graph_store.bundle_writer import write_bundle as write_resources
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
+from diucs.adapters.outbound.graph_store.invitation_fhir import (
+    invitation_from_fhir,
+    invitation_to_fhir,
+    is_invitation,
+)
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.scenario import (
@@ -45,12 +52,18 @@ from diucs.domain.codes import (
     parse_code,
 )
 from diucs.domain.errors import NotFound, ValidationFailed
-from diucs.domain.model.registration import Registration
+from diucs.domain.model.registration import (
+    DISTRICT_TYPE_CODE,
+    LOCATION_TYPE_SYSTEM,
+    Invitation,
+    Registration,
+)
 from diucs.domain.rules.registration import ApprovalChecks
 
 TASK: Final = "Task"
 SERVICE: Final = "HealthcareService"
 ROLE: Final = "PractitionerRole"
+_BASIC: Final = "Basic"
 REGISTER_SERVICE: Final = "register-service"
 TASK_CODE_SYSTEM: Final = code_system_url("task-code")
 _CHECK_NAMES: Final = ("checkAutomatic", "checkCallback", "checkScope", "checkCriteria")
@@ -111,7 +124,45 @@ _DRAFT_SEED: Final = TenantSeed(
         SeedRel("draft", "DRAFT_OF", "task"),
     ),
 )
+# The district Locations of a tenant (U27): both tenants hold a "kind" Location named DT3 of the
+# postcode-district type, with the same name, type and key; only the id differs, so a row from the
+# other tenant looks different (`Marked`).
+_NODE_DISTRICT_TYPE: Final = SeedNode(
+    "district-type",
+    ("Concept",),
+    {
+        "system": LOCATION_TYPE_SYSTEM,
+        "code": DISTRICT_TYPE_CODE,
+        "key": f"Concept|{LOCATION_TYPE_SYSTEM}|{DISTRICT_TYPE_CODE}",
+        "display": Marked("Postcode district"),
+    },
+)
+_NODE_AREA: Final = SeedNode(
+    "area",
+    ("Resource", "Location"),
+    {
+        "id": Marked("loc-dt3"),
+        "key": "Location/loc-dt3",
+        "name": "DT3",
+        "mode": "kind",
+        "status": "active",
+    },
+)
+_DISTRICT_SEED: Final = TenantSeed(
+    nodes=(_NODE_AREA, _NODE_DISTRICT_TYPE), rels=(SeedRel("area", "TYPE", "district-type"),)
+)
 _SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-REG-DISTRICT-LOCATIONS": Scenario(
+        "find the tenant's postcode-district Locations by name",
+        seed=_DISTRICT_SEED,
+        params={
+            "names": ["DT3"],
+            "system": LOCATION_TYPE_SYSTEM,
+            "code": DISTRICT_TYPE_CODE,
+        },
+        lookup=("system", "code"),
+        expect=Expect(rows=({"name": "DT3", "id": Marked("loc-dt3")},)),
+    ),
     "Q-REG-BY-STATUS": Scenario(
         "list the registrations of a status, for the registration code",
         seed=_TASK_SEED,
@@ -223,6 +274,16 @@ _DRAFT_ADD: Final = NamedQuery(
     mode="write",
     scenario=_SCENARIOS["Q-REG-DRAFT-ADD"],
 )
+_DISTRICT_LOCATIONS: Final = NamedQuery(
+    id="Q-REG-DISTRICT-LOCATIONS",
+    cypher=(
+        "MATCH (l:Location {mode: 'kind', tenantId: $tenant})-[:TYPE]->"
+        "(:Concept {system: $system, code: $code, tenantId: $tenant}) "
+        "WHERE l.name IN $names RETURN l.name AS name, l.id AS id ORDER BY l.id"
+    ),
+    mode="read",
+    scenario=_SCENARIOS["Q-REG-DISTRICT-LOCATIONS"],
+)
 _DRAFT_FOR: Final = NamedQuery(
     id="Q-REG-DRAFT-FOR",
     cypher=(
@@ -240,7 +301,15 @@ def _register(query: NamedQuery) -> None:
         REGISTRY.register(query)
 
 
-for _query in (_BY_STATUS, _FOR_SERVICE, _SET_PROPS, _DRAFT_CLEAR, _DRAFT_ADD, _DRAFT_FOR):
+for _query in (
+    _BY_STATUS,
+    _FOR_SERVICE,
+    _SET_PROPS,
+    _DRAFT_CLEAR,
+    _DRAFT_ADD,
+    _DRAFT_FOR,
+    _DISTRICT_LOCATIONS,
+):
     _register(_query)
 
 
@@ -455,6 +524,49 @@ class Neo4jRegistrationRepository:
             code=REGISTER_SERVICE,
         )
         return await self._many(rows)
+
+    async def write_bundle(self, bundle: dict[str, Any]) -> dict[str, str]:
+        written = await write_resources(self._store, bundle)
+        for target in written.values():
+            if target.startswith(f"{_BASIC}/"):
+                # A criteria version carries the ServiceCriteria label the criteria statements
+                # match on, which the criteria repository adds after its own put.
+                labelled = await run_query(self._tx, REGISTRY.get("Q-CRIT-LABEL"), key=target)
+                if not labelled or int(labelled[0]["labelled"]) != 1:
+                    raise NotFound("criteria version")
+        return written
+
+    async def district_locations(self, districts: Sequence[str]) -> dict[str, str]:
+        names = sorted(set(districts))
+        if not names:
+            return {}
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-REG-DISTRICT-LOCATIONS"),
+            names=names,
+            system=LOCATION_TYPE_SYSTEM,
+            code=DISTRICT_TYPE_CODE,
+        )
+        found: dict[str, str] = {}
+        for row in rows:  # ordered by id, so the first of a name is the lowest
+            found.setdefault(str(row["name"]), str(row["id"]))
+        return found
+
+    async def add_invitation(self, invitation: Invitation) -> None:
+        # The store refuses an existing Task with Conflict (expected version None).
+        await self._store.put(invitation_to_fhir(invitation), None)
+
+    async def get_invitation(self, invitation_id: str) -> Invitation | None:
+        resource = await self._store.get(TASK, invitation_id)
+        if resource is None or not is_invitation(resource):
+            return None
+        return invitation_from_fhir(resource)
+
+    async def save_invitation(self, invitation: Invitation) -> None:
+        current = await self._store.get(TASK, invitation.id)
+        if current is None or not is_invitation(current):
+            raise NotFound("invitation")
+        await self._store.put(invitation_to_fhir(invitation), str(current["meta"]["versionId"]))
 
     async def _many(self, rows: list[dict[str, Any]]) -> list[Registration]:
         found: list[Registration] = []

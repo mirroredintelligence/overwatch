@@ -35,6 +35,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.domain.codes import Channel
+from tests.support.bus import message_with_tenant
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
 SEALER = AesGcmContentSealer(FixedSecretStore({"link-token": SECRET}))
@@ -87,12 +88,14 @@ def _open(payload: dict[str, Any], *, message_id: str = OUTBOX_ID, tenant: str =
 
 
 def _message(payload: dict[str, Any], tenant_id: str | None = TENANT) -> BusMessage:
-    return BusMessage(
+    # The tenant is set without the constructor's check, so a test can hand the sender a message
+    # with none (defence in depth: TEN-020 made that unreachable with a validated message).
+    return message_with_tenant(
+        tenant_id,
         id=OUTBOX_ID,
         topic=MESSAGES_TOPIC,
         event_type=SEND_MESSAGE_EVENT,
         payload=payload,
-        tenant_id=tenant_id,
     )
 
 

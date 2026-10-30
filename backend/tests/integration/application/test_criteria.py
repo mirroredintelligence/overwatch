@@ -42,6 +42,7 @@ from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import SERVICE_FLAG_CRITERIA_OVERDUE, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 
 Seed = Callable[..., Awaitable[None]]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -69,6 +70,7 @@ OWNER = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset({SERVICE}),
+    tenant_id=ACTOR_TENANT,
 )
 LEAD = Actor(
     role=Role.CLINICAL,
@@ -76,6 +78,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 

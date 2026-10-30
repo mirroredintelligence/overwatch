@@ -1,14 +1,20 @@
 """Azure Service Bus adapter for the event bus port (I02, DEC-003, DEC-102).
 
-Topics take publish. Queues take schedule and cancel. Every message carries the BusMessage id as
-its Service Bus message id, the session id when there is one, and the event type as its subject
-and application property. A cancel is a no-op for a number that is not pending (DEC-102 item 2).
+Topics take publish. Queues take enqueue, schedule and cancel. The wire form of a message is
+`to_wire` (the port module): the message id and the session id are qualified with the tenant
+(`<tenant>:<local id>`), the event type is the subject and an application property, and the tenant
+is the application property `tenantId` (TEN-020, DEC-130 item 7). `to_service_bus_message` is the
+only place that writes it. A send is refused before the first network call if the message is for
+another tenant than the bound one, is too long once qualified, or carries a live link or token.
+Nothing from the body is copied into a property or a log line. A cancel is a no-op for a number
+that is not pending (DEC-102 item 2).
 """
 
 import json
 import re
 from dataclasses import replace
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 from azure.servicebus import ServiceBusMessage
@@ -16,7 +22,13 @@ from azure.servicebus.aio import ServiceBusClient, ServiceBusSender
 from azure.servicebus.exceptions import ServiceBusError
 from opentelemetry import trace as otel_trace
 
-from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS, BusMessage
+from diucs.application.ports.outbound.event_bus import (
+    QUEUES,
+    TOPICS,
+    BusMessage,
+    check_publishable,
+    to_wire,
+)
 from diucs.application.tracing import format_traceparent
 from diucs.domain.errors import ValidationFailed
 
@@ -40,23 +52,16 @@ def stamped_with_current_span(message: BusMessage) -> BusMessage:
 
 
 def to_service_bus_message(message: BusMessage) -> ServiceBusMessage:
-    properties: dict[str | bytes, int | float | bytes | bool | str | UUID] = {
-        "event_type": message.event_type
-    }
-    if "channel" in message.payload:
-        properties["channel"] = message.payload["channel"]
-    if message.tenant_id is not None:
-        # DEC-130 item 7: the consumer binds this before it opens a unit of work.
-        properties["tenantId"] = message.tenant_id
-    if message.traceparent is not None:
-        # O01: the consumer opens its span under this one.
-        properties["traceparent"] = message.traceparent
+    wire = to_wire(message)
     return ServiceBusMessage(
         body=json.dumps(message.payload).encode("utf-8"),
-        message_id=message.id,
-        session_id=message.session_id,
-        subject=message.event_type,
-        application_properties=properties,
+        message_id=wire.message_id,
+        session_id=wire.session_id,
+        subject=wire.subject,
+        application_properties=cast(
+            "dict[str | bytes, int | float | bytes | bool | str | UUID]",
+            dict(wire.application_properties),
+        ),
         content_type="application/json",
     )
 
@@ -89,6 +94,7 @@ class ServiceBusEventBus:
     async def publish(self, message: BusMessage) -> None:
         if message.topic not in TOPICS:
             raise ValidationFailed("topic", "not a known topic")
+        check_publishable(message)
         await self._sender(message.topic).send_messages(
             to_service_bus_message(stamped_with_current_span(message))
         )
@@ -96,6 +102,7 @@ class ServiceBusEventBus:
     async def enqueue(self, queue: str, message: BusMessage) -> None:
         if queue not in QUEUES:
             raise ValidationFailed("queue", "not a known queue")
+        check_publishable(message)
         await self._sender(queue).send_messages(
             to_service_bus_message(stamped_with_current_span(message))
         )
@@ -105,6 +112,7 @@ class ServiceBusEventBus:
             raise ValidationFailed("queue", "not a known queue")
         if enqueue_at.tzinfo is None or enqueue_at.utcoffset() is None:
             raise ValidationFailed("enqueue_at", "must be a timezone-aware datetime")
+        check_publishable(message)
         numbers = await self._sender(queue).schedule_messages(
             to_service_bus_message(stamped_with_current_span(message)), enqueue_at.astimezone(UTC)
         )

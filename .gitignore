@@ -4,3 +4,4 @@ __pycache__/
 .claude/scheduled_tasks.lock
 
 infra/.env
+infra/otel-out/

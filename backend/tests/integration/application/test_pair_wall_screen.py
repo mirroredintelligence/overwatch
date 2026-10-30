@@ -47,6 +47,7 @@ from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
@@ -67,6 +68,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 OTHER_LEAD = Actor(
     role=Role.LEAD,
@@ -74,6 +76,7 @@ OTHER_LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ADVISOR = Actor(
     role=Role.ADVISOR,
@@ -81,6 +84,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 
@@ -609,6 +613,7 @@ async def test_every_refusal_of_a_code_is_the_same_error_with_the_same_message(
             device_id=None,
             channel="web",
             service_ids=frozenset(),
+            tenant_id=ACTOR_TENANT,
         )
         with pytest.raises(NotAllowed) as refused:
             await rig.confirm.execute(
@@ -638,7 +643,12 @@ async def test_only_a_lead_may_confirm_and_nothing_is_written_otherwise(
     started = await rig.start.execute()
     before = await _state(neo4j_driver)
     actor = Actor(
-        role=role, practitioner_id="prac-x", device_id=None, channel="web", service_ids=frozenset()
+        role=role,
+        practitioner_id="prac-x",
+        device_id=None,
+        channel="web",
+        service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
     with pytest.raises(NotAllowed):
         await rig.confirm.execute(_command(started, actor=actor))
@@ -650,7 +660,12 @@ async def test_only_a_lead_may_confirm_and_nothing_is_written_otherwise(
 async def test_a_lead_with_no_practitioner_is_refused(rig: Rig, neo4j_driver: AsyncDriver) -> None:
     started = await rig.start.execute()
     actor = Actor(
-        role=Role.LEAD, practitioner_id=None, device_id=None, channel="web", service_ids=frozenset()
+        role=Role.LEAD,
+        practitioner_id=None,
+        device_id=None,
+        channel="web",
+        service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
     with pytest.raises(NotAllowed):
         await rig.confirm.execute(_command(started, actor=actor))
@@ -760,6 +775,7 @@ async def test_eight_leads_racing_for_one_code_make_exactly_one_device(
             device_id=None,
             channel="web",
             service_ids=frozenset(),
+            tenant_id=ACTOR_TENANT,
         )
         for n in range(8)
     ]

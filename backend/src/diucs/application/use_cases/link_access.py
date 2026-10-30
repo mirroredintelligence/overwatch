@@ -728,6 +728,7 @@ class CapacityLinkHandler:
             device_id=None,
             channel=_LINK_CHANNEL,
             service_ids=frozenset({target.profile.id}),
+            tenant_id=current_tenant(),
         )
         try:
             if isinstance(decision, RecordNumber):
@@ -840,6 +841,7 @@ class CapacityLinkHandler:
                         device_id=None,
                         channel=_LINK_CHANNEL,
                         service_ids=frozenset({profile.id}),
+                        tenant_id=_tenant_scope(uow).value,
                     ),
                     entity_ids=(communication_id, profile.id),
                     snapshot={"message_id": message_id.value},

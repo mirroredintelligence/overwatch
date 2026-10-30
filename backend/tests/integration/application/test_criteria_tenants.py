@@ -46,6 +46,7 @@ from diucs.domain.errors import NotFound
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import wipe
 from tests.support.tenant_seed import contracted_container
 
@@ -63,6 +64,7 @@ B_LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 A_OWNER = Actor(
     role=Role.OWNER,
@@ -70,6 +72,7 @@ A_OWNER = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset({A_SERVICE}),
+    tenant_id=ACTOR_TENANT,
 )
 
 

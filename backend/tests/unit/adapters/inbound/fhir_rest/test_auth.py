@@ -27,10 +27,25 @@ EXPIRES = datetime(2026, 10, 24, 13, 12, tzinfo=UTC)
 REDACTED_SYSTEM = "http://terminology.hl7.org/CodeSystem/v3-ObservationValue"
 
 
+TENANT = "tenant-a"
+
+
 def claims(
-    role: Role, sub: str, services: frozenset[str] = frozenset({"svc-1"}), device: str | None = None
+    role: Role,
+    sub: str,
+    services: frozenset[str] = frozenset({"svc-1"}),
+    device: str | None = None,
+    tenant: str = TENANT,
 ) -> BffClaims:
-    return BffClaims(sub=sub, role=role, services=services, expires_at=EXPIRES, device=device)
+    return BffClaims(
+        sub=sub,
+        role=role,
+        services=services,
+        expires_at=EXPIRES,
+        tenant=tenant,
+        epoch=1,
+        device=device,
+    )
 
 
 def actor(role: Role, services: frozenset[str] = frozenset({"svc-1"})) -> Actor:
@@ -40,6 +55,7 @@ def actor(role: Role, services: frozenset[str] = frozenset({"svc-1"})) -> Actor:
         device_id=None,
         channel="api",
         service_ids=services,
+        tenant_id=TENANT,
     )
 
 
@@ -52,6 +68,7 @@ def test_a_reporter_claim_gives_its_practitioner_and_services() -> None:
         device_id=None,
         channel="api",
         service_ids=frozenset({"svc-1"}),
+        tenant_id=TENANT,
     )
 
 
@@ -61,6 +78,17 @@ def test_a_wall_claim_sets_the_device_and_not_the_practitioner() -> None:
     assert result.practitioner_id is None
     assert result.device_id == "dev-1"
     assert result.role is Role.WALL
+
+
+@pytest.mark.parametrize("role", list(Role))
+def test_every_role_carries_the_claims_tenant_into_the_actor(role: Role) -> None:
+    assert actor_from_claims(claims(role, "sub-1", tenant="tenant-b")).tenant_id == "tenant-b"
+
+
+def test_a_wall_actor_carries_the_tenant_of_its_claim() -> None:
+    wall = actor_from_claims(claims(Role.WALL, "dev-1", frozenset(), tenant="tenant-b"))
+
+    assert wall.tenant_id == "tenant-b"
 
 
 def test_a_device_claim_is_kept_for_a_person() -> None:

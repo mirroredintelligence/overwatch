@@ -1,0 +1,99 @@
+# OpenTelemetry Collector (O04). The second scrub layer after the back end's own allow-list (O01).
+# It receives OTLP from the back end and from the browser BFF, keeps only the attribute keys on
+# infra/otel-allowlist.txt, scans every value for patient data and tokens, samples traces and exports
+# to Azure Monitor. The key lists below must equal that file: backend/tests/unit/adapters/outbound/
+# telemetry/test_collector_allowlist.py fails when they differ. The collector matches exact keys only.
+#
+# Image: otel/opentelemetry-collector-contrib:0.162.0 (pinned in infra/docker-compose.yml). Tag pushed
+# 2026-10-05, at least two weeks before this file was written.
+#
+# Privacy rule: db.statement, db.query.text and every query parameter are refused. Keep it that way.
+# Secrets: the Azure connection string comes from the environment, never from this file.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_percentage: 80
+    spike_limit_percentage: 25
+
+  # Allow-list on every span, span event, log and resource attribute, then the value scan.
+  transform/allowlist:
+    error_mode: ignore
+    trace_statements:
+      - context: resource
+        statements:
+          - 'keep_keys(attributes, ["service.name", "service.version", "deployment.environment"])'
+      - context: span
+        statements:
+          - 'keep_keys(attributes, ["app.mode", "component.id", "db.access_mode", "db.query.id", "db.row_count", "db.system", "db.system.name", "device.type", "element.id", "error.type", "http.request.method", "http.response.status_code", "http.route", "messaging.destination.name", "messaging.message.id", "messaging.system", "net.effective_type", "page.route", "release", "server.address", "service.id", "session.id", "tenant.id", "url.scheme", "usecase.idempotent_replay", "usecase.outcome", "user.role", "from.route", "load.type", "ttfb_ms", "lcp_ms", "dwell_ms", "result", "valid", "length_bucket", "state", "form.id", "error_count", "time_to_submit_ms", "error.code", "kind", "count", "window_ms", "name", "value", "rating", "duration_ms", "gap_ms", "standalone", "session_code_shared", "trace_id"])'
+          - 'replace_all_patterns(attributes, "value", "\\+?\\d(?:[ -]?\\d){9,}", "[redacted]")'  # phone_or_nhs
+          - 'replace_all_patterns(attributes, "value", "(?i)\\b[a-z]{1,2}\\d[a-z\\d]?\\s?\\d[a-z]{2}\\b", "[redacted]")'  # postcode
+          - 'replace_all_patterns(attributes, "value", "\\b[A-Za-z]{23}\\b", "[redacted]")'  # link_token
+          - 'replace_all_patterns(attributes, "value", "\\b[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}\\b", "[redacted]")'  # support_code
+          - 'replace_all_patterns(attributes, "value", "\\b\\d{3} \\d{3}\\b", "[redacted]")'  # pairing_code
+      - context: spanevent
+        statements:
+          - 'keep_keys(attributes, ["app.mode", "component.id", "db.access_mode", "db.query.id", "db.row_count", "db.system", "db.system.name", "device.type", "element.id", "error.type", "http.request.method", "http.response.status_code", "http.route", "messaging.destination.name", "messaging.message.id", "messaging.system", "net.effective_type", "page.route", "release", "server.address", "service.id", "session.id", "tenant.id", "url.scheme", "usecase.idempotent_replay", "usecase.outcome", "user.role", "from.route", "load.type", "ttfb_ms", "lcp_ms", "dwell_ms", "result", "valid", "length_bucket", "state", "form.id", "error_count", "time_to_submit_ms", "error.code", "kind", "count", "window_ms", "name", "value", "rating", "duration_ms", "gap_ms", "standalone", "session_code_shared", "trace_id"])'
+    log_statements:
+      - context: resource
+        statements:
+          - 'keep_keys(attributes, ["service.name", "service.version", "deployment.environment"])'
+      - context: log
+        statements:
+          - 'keep_keys(attributes, ["app.mode", "component.id", "db.access_mode", "db.query.id", "db.row_count", "db.system", "db.system.name", "device.type", "element.id", "error.type", "http.request.method", "http.response.status_code", "http.route", "messaging.destination.name", "messaging.message.id", "messaging.system", "net.effective_type", "page.route", "release", "server.address", "service.id", "session.id", "tenant.id", "url.scheme", "usecase.idempotent_replay", "usecase.outcome", "user.role", "from.route", "load.type", "ttfb_ms", "lcp_ms", "dwell_ms", "result", "valid", "length_bucket", "state", "form.id", "error_count", "time_to_submit_ms", "error.code", "kind", "count", "window_ms", "name", "value", "rating", "duration_ms", "gap_ms", "standalone", "session_code_shared", "trace_id"])'
+          - 'replace_all_patterns(attributes, "value", "\\+?\\d(?:[ -]?\\d){9,}", "[redacted]")'  # phone_or_nhs
+          - 'replace_all_patterns(attributes, "value", "(?i)\\b[a-z]{1,2}\\d[a-z\\d]?\\s?\\d[a-z]{2}\\b", "[redacted]")'  # postcode
+          - 'replace_all_patterns(attributes, "value", "\\b[A-Za-z]{23}\\b", "[redacted]")'  # link_token
+          - 'replace_all_patterns(attributes, "value", "\\b[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}-[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{4}\\b", "[redacted]")'  # support_code
+          - 'replace_all_patterns(attributes, "value", "\\b\\d{3} \\d{3}\\b", "[redacted]")'  # pairing_code
+
+  # Keeps every trace that has an error or takes over a second, and 10 per cent of the rest [ASSUMED].
+  # The logs pipeline is not sampled: during the pilot every ui.* event is kept.
+  tail_sampling:
+    decision_wait: 10s
+    num_traces: 50000
+    expected_new_traces_per_sec: 100
+    policies:
+      - name: keep-errors
+        type: status_code
+        status_code:
+          status_codes: [ERROR]
+      - name: keep-slow
+        type: latency
+        latency:
+          threshold_ms: 1000
+      - name: keep-sample
+        type: probabilistic
+        probabilistic:
+          sampling_percentage: 10
+
+  batch:
+    send_batch_size: 8192
+    timeout: 5s
+
+exporters:
+  azuremonitor:
+    connection_string: ${env:APPLICATIONINSIGHTS_CONNECTION_STRING}
+
+  # Off by default: defined so that a developer can add it to a pipeline; no pipeline names it.
+  zipkin:
+    endpoint: http://zipkin:9411/api/v2/spans
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/allowlist, tail_sampling, batch]
+      exporters: [azuremonitor]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, transform/allowlist, batch]
+      exporters: [azuremonitor]

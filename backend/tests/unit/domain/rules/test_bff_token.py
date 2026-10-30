@@ -31,8 +31,14 @@ SECRET = b"synthetic-secret-for-unit-tests-zyxwvutsrqabcdef"
 OTHER_SECRET = b"another-synthetic-secret-for-unit-tests-zyxwvutsrq"
 NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
 EXPIRES = datetime(2026, 10, 24, 13, 12, tzinfo=UTC)
+TENANT = "tenant-a"
 CLAIMS = BffClaims(
-    sub="prac-1", role=Role.REPORTER, services=frozenset({"svc-1"}), expires_at=EXPIRES
+    sub="prac-1",
+    role=Role.REPORTER,
+    services=frozenset({"svc-1"}),
+    expires_at=EXPIRES,
+    tenant=TENANT,
+    epoch=1,
 )
 HEADER: dict[str, Any] = {"alg": "HS256", "typ": "JWT"}
 
@@ -53,6 +59,8 @@ def payload(**changes: Any) -> dict[str, Any]:
         "sub": "prac-1",
         "role": "reporter",
         "services": ["svc-1"],
+        "tenant": TENANT,
+        "epoch": 1,
         "exp": int(EXPIRES.timestamp()),
     }
     for key, value in changes.items():
@@ -75,7 +83,13 @@ def test_a_token_gives_back_its_claims() -> None:
 
 def test_a_wall_token_keeps_its_device_claim() -> None:
     claims = BffClaims(
-        sub="dev-1", role=Role.WALL, services=frozenset(), expires_at=EXPIRES, device="dev-1"
+        sub="dev-1",
+        role=Role.WALL,
+        services=frozenset(),
+        expires_at=EXPIRES,
+        tenant=TENANT,
+        epoch=1,
+        device="dev-1",
     )
 
     assert decode_bff_token(encode_bff_token(claims, SECRET), SECRET, NOW) == claims
@@ -164,6 +178,28 @@ MALFORMED = [
     pytest.param(valid_token(exp=True), id="expiry-is-a-boolean"),
     pytest.param(valid_token(exp=1.5), id="expiry-is-a-fraction"),
     pytest.param(valid_token(exp=10**20), id="expiry-beyond-any-date"),
+    pytest.param(valid_token(tenant=...), id="tenant-missing"),
+    pytest.param(valid_token(tenant=None), id="tenant-null"),
+    pytest.param(valid_token(tenant=""), id="tenant-empty"),
+    pytest.param(valid_token(tenant=7), id="tenant-not-text"),
+    pytest.param(valid_token(tenant=["tenant-a"]), id="tenant-a-list"),
+    pytest.param(valid_token(tenant="Tenant-A"), id="tenant-upper-case"),
+    pytest.param(valid_token(tenant="t"), id="tenant-one-character"),
+    pytest.param(valid_token(tenant="t" * 32), id="tenant-too-long"),
+    pytest.param(valid_token(tenant="tenant a"), id="tenant-with-a-space"),
+    pytest.param(valid_token(tenant="tenant:a"), id="tenant-with-a-colon"),
+    pytest.param(valid_token(tenant="tenant/a"), id="tenant-with-a-slash"),
+    pytest.param(valid_token(tenant="tenant-a\n"), id="tenant-with-a-newline"),
+    pytest.param(valid_token(tenant="net-dorset"), id="tenant-is-a-network-id"),
+    pytest.param(valid_token(tenant="platform"), id="tenant-is-the-platform-scope"),
+    pytest.param(valid_token(epoch=...), id="epoch-missing"),
+    pytest.param(valid_token(epoch=None), id="epoch-null"),
+    pytest.param(valid_token(epoch=True), id="epoch-is-a-boolean"),
+    pytest.param(valid_token(epoch=0), id="epoch-zero"),
+    pytest.param(valid_token(epoch=-1), id="epoch-negative"),
+    pytest.param(valid_token(epoch=1.5), id="epoch-is-a-fraction"),
+    pytest.param(valid_token(epoch="1"), id="epoch-is-text"),
+    pytest.param(valid_token(epoch=10**12), id="epoch-beyond-any-count"),
 ]
 
 
@@ -274,16 +310,36 @@ def test_a_short_secret_is_refused_when_decoding() -> None:
 _TEXT = st.text(alphabet="abcdefghijklmnopqrstuvwxyzzyxwvutsrq-", min_size=1, max_size=12)
 
 
+_TENANTS = st.from_regex(r"[a-z0-9][a-z0-9-]{1,30}", fullmatch=True).filter(
+    lambda text: not text.startswith("net-") and text != "platform"
+)
+
+
 @given(
     sub=_TEXT,
     role=st.sampled_from(list(Role)),
     services=st.frozensets(_TEXT, max_size=5),
     device=st.none() | _TEXT,
+    tenant=_TENANTS,
+    epoch=st.integers(min_value=1, max_value=10**9),
 )
 def test_any_claims_come_back_unchanged(
-    sub: str, role: Role, services: frozenset[str], device: str | None
+    sub: str,
+    role: Role,
+    services: frozenset[str],
+    device: str | None,
+    tenant: str,
+    epoch: int,
 ) -> None:
-    claims = BffClaims(sub=sub, role=role, services=services, expires_at=EXPIRES, device=device)
+    claims = BffClaims(
+        sub=sub,
+        role=role,
+        services=services,
+        expires_at=EXPIRES,
+        tenant=tenant,
+        epoch=epoch,
+        device=device,
+    )
 
     assert decode_bff_token(encode_bff_token(claims, SECRET), SECRET, NOW) == claims
 
@@ -292,3 +348,70 @@ def test_any_claims_come_back_unchanged(
 def test_any_text_is_refused_with_the_one_rejection(junk: str) -> None:
     with pytest.raises(TokenRejected):
         decode_bff_token(junk, SECRET, NOW)
+
+
+# ---------------------------------------------------------------- the tenant claim (TEN-018)
+
+
+def test_a_token_gives_back_its_tenant_and_epoch() -> None:
+    claims = decode_bff_token(valid_token(tenant="example-icb", epoch=7), SECRET, NOW)
+
+    assert claims.tenant == "example-icb"
+    assert claims.epoch == 7
+
+
+def test_the_encoded_token_carries_the_tenant_and_epoch_as_claims() -> None:
+    token = encode_bff_token(replace(CLAIMS, tenant="example-icb", epoch=3), SECRET)
+
+    body = json.loads(base64.urlsafe_b64decode(token.split(".")[1] + "=="))
+    assert body["tenant"] == "example-icb"
+    assert body["epoch"] == 3
+
+
+def test_a_changed_tenant_under_the_old_signature_is_refused() -> None:
+    head, _, signature = valid_token().split(".")
+    moved = b64(json.dumps(payload(tenant="tenant-b"), separators=(",", ":")).encode())
+
+    with pytest.raises(TokenRejected):
+        decode_bff_token(f"{head}.{moved}.{signature}", SECRET, NOW)
+
+
+def test_a_token_names_exactly_one_tenant() -> None:
+    # A list, a second claim under another name, or a network claim is no tenant at all.
+    with pytest.raises(TokenRejected):
+        decode_bff_token(valid_token(tenant=["tenant-a", "tenant-b"]), SECRET, NOW)
+    claims = decode_bff_token(valid_token(networks=["net-dorset"], tid="tenant-b"), SECRET, NOW)
+    assert claims.tenant == TENANT
+
+
+@pytest.mark.parametrize("role", ["tenant-admin", "network-admin", "platform-operator"])
+def test_the_administration_roles_are_carried(role: str) -> None:
+    claims = decode_bff_token(valid_token(role=role), SECRET, NOW)
+
+    assert claims.role.value == role
+
+
+@pytest.mark.parametrize(
+    "tenant", ["", "Tenant-A", "t", "net-dorset", "platform", "tenant a", "t" * 32, "a:b"]
+)
+def test_encoding_refuses_a_tenant_that_decoding_would_refuse(tenant: str) -> None:
+    with pytest.raises(ValidationFailed):
+        encode_bff_token(replace(CLAIMS, tenant=tenant), SECRET)
+
+
+@pytest.mark.parametrize("epoch", [0, -1, 10**12])
+def test_encoding_refuses_an_epoch_that_decoding_would_refuse(epoch: int) -> None:
+    with pytest.raises(ValidationFailed):
+        encode_bff_token(replace(CLAIMS, epoch=epoch), SECRET)
+
+
+def test_encoding_refuses_a_boolean_epoch() -> None:
+    with pytest.raises(ValidationFailed):
+        encode_bff_token(replace(CLAIMS, epoch=True), SECRET)
+
+
+def test_a_tenant_refusal_is_the_one_fixed_rejection_with_no_value() -> None:
+    with pytest.raises(TokenRejected) as refused:
+        decode_bff_token(valid_token(tenant="Secret-Tenant"), SECRET, NOW)
+
+    assert str(refused.value) == "bearer token is not valid"

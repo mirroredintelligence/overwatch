@@ -15,7 +15,11 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 def _message(message_id: str = "m-1") -> BusMessage:
     return BusMessage(
-        id=message_id, topic="capacity.events", event_type="CapacityReported", payload={}
+        id=message_id,
+        topic="capacity.events",
+        event_type="CapacityReported",
+        payload={},
+        tenant_id="tenant-a",
     )
 
 

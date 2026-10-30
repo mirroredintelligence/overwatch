@@ -41,6 +41,7 @@ from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.messages.privacy_guard import find_patient_data
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.service import AvailableTime
+from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import (
     LINK_BASE,
     PHONE_HASH_1,
@@ -423,6 +424,7 @@ async def test_a_confirmed_figure_stops_the_ladder_as_a_number_does(
                 device_id=None,
                 channel="sms",
                 service_ids=frozenset({SERVICE}),
+                tenant_id=ACTOR_TENANT,
             ),
             service_id=SERVICE,
             source=ReportSource.TEXT,

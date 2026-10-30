@@ -74,6 +74,10 @@ class ReportCapacityCommand:
     send_echo: bool = True
     """False when the caller sends its own reply: U05 answers a grouped text with one C10 (DEC-148).
     The performer is recorded either way."""
+    audit_detail: tuple[tuple[str, str], ...] = ()
+    """Extra text keys added to the audit snapshot, as sorted-by-caller (name, value) pairs. The
+    advisor's answer to a phone call is recorded this way (U13, DEC-292). Empty for every other
+    caller, so their snapshots do not change."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,6 +153,7 @@ async def record_report(
     use_case: str = USE_CASE,
     audit_snapshot: dict[str, Any] | None = None,
     flag: ReportFlagReason | None = None,
+    audit_detail: tuple[tuple[str, str], ...] = (),
 ) -> ReportCapacityResult:
     """Store one report with its status change, echo, audit entry and outbox messages, inside the
     caller's unit of work. The caller commits. U02 reuses this function (DEC-100).
@@ -229,22 +234,24 @@ async def record_report(
             )
         )
 
+    snapshot: dict[str, Any] = (
+        audit_snapshot
+        if audit_snapshot is not None
+        else {
+            "value": report.value,
+            "source": report.source.value,
+            "status_before": before.value,
+            "status_after": after.value,
+        }
+    )
+    snapshot = {**snapshot, **dict(audit_detail)}
     await uow.audit.append(
         AuditEntry(
             action=AUDIT_ACTION,
             use_case=use_case,
             actor=actor,
             entity_ids=(report.id, profile.id, *flag_ids),
-            snapshot=(
-                audit_snapshot
-                if audit_snapshot is not None
-                else {
-                    "value": report.value,
-                    "source": report.source.value,
-                    "status_before": before.value,
-                    "status_after": after.value,
-                }
-            ),
+            snapshot=snapshot,
             at=now,
         )
     )
@@ -273,6 +280,7 @@ def _fingerprint(command: ReportCapacityCommand) -> str:
             command.actor.role.value,
             command.actor.practitioner_id,
             command.send_echo,
+            command.audit_detail,
         )
     )
     return hashlib.sha256(body.encode("utf-8")).hexdigest()
@@ -383,6 +391,7 @@ class ReportCapacity:
                 send_echo=send_echo,
                 replaced_value=command.replaced_value,
                 flag=command.flag,
+                audit_detail=command.audit_detail,
             )
             await uow.idempotency.put(command.idempotency_key, _StoredReport(fingerprint, result))
             await uow.commit()

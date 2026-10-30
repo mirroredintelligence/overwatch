@@ -14,6 +14,7 @@ from diucs.application.actor import Actor
 from diucs.application.use_cases.support_access import OpenSessionCommand, OpenSessionForSupport
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed
+from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
 
@@ -30,6 +31,7 @@ def _actor(role: Role) -> Actor:
         device_id=None,
         channel="web",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
 
 

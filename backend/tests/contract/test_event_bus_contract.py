@@ -9,9 +9,15 @@ from datetime import timedelta
 import pytest
 
 from diucs.application.ports.outbound.event_bus import BusMessage, EventBus
+from diucs.application.tenancy import bind_tenant
 from diucs.domain.errors import ValidationFailed
 from tests.contract.harness import Harness
+from tests.support.servicebus import run_tenant, unique_id
 
+# Every test sends as tenants of this run (TEN-020): the emulator and its entities are shared with
+# other runs, and a message carries the tenant it belongs to.
+TENANT_A = run_tenant("contract-a")
+TENANT_B = run_tenant("contract-b")
 QUEUE = "scheduled.work"
 OTHER_QUEUE = "inbound.receipts"
 DELAY = timedelta(seconds=2)
@@ -22,7 +28,9 @@ PATIENCE = timedelta(seconds=2)
 
 
 def _work(message_id: str) -> BusMessage:
-    return BusMessage(id=message_id, topic="messages.outbound", event_type="prompt-due")
+    return BusMessage(
+        id=message_id, topic="messages.outbound", event_type="prompt-due", tenant_id=TENANT_A
+    )
 
 
 def _capacity(message_id: str) -> BusMessage:
@@ -31,6 +39,7 @@ def _capacity(message_id: str) -> BusMessage:
         topic="capacity.events",
         event_type="CapacityReported",
         session_id="svc-1",
+        tenant_id=TENANT_A,
     )
 
 
@@ -165,7 +174,7 @@ async def test_a_published_message_is_received_on_its_topic(
 async def test_publishing_to_an_unknown_topic_is_refused(bus_harness: Harness[EventBus]) -> None:
     with pytest.raises(ValidationFailed):
         await bus_harness.subject.publish(
-            BusMessage(id="x-1", topic="not.a.topic", event_type="Anything")
+            BusMessage(id="x-1", topic="not.a.topic", event_type="Anything", tenant_id=TENANT_A)
         )
 
 
@@ -175,7 +184,7 @@ def _inbound(message_id: str) -> BusMessage:
         topic=OTHER_QUEUE,
         event_type="SmsDeliveryReceived",
         payload={"provider_message_id": "SM1", "status": "delivered"},
-        tenant_id="tenant-a",
+        tenant_id=TENANT_A,
     )
 
 
@@ -223,3 +232,130 @@ async def test_scheduling_to_an_unknown_queue_or_to_a_topic_is_refused(
 ) -> None:
     with pytest.raises(ValidationFailed):
         await bus_harness.subject.schedule(name, _work("w-1"), bus_harness.now() + DELAY)
+
+
+# ---------------------------------------------------------------- TEN-020: the tenant on the wire
+
+
+async def test_a_published_message_comes_back_with_its_tenant_id_and_session(
+    bus_harness: Harness[EventBus],
+) -> None:
+    harness = _receiver(bus_harness)
+    assert harness.receive is not None
+    local = unique_id("c")
+    await harness.subject.publish(
+        BusMessage(
+            id=local,
+            topic="capacity.events",
+            event_type="CapacityReported",
+            session_id="svc-1",
+            tenant_id=TENANT_A,
+        )
+    )
+
+    received = await harness.receive("capacity.events", PATIENCE)
+
+    assert received is not None
+    assert (received.tenant_id, received.id, received.session_id) == (TENANT_A, local, "svc-1")
+
+
+async def test_a_scheduled_message_comes_back_with_its_tenant_and_local_id(
+    bus_harness: Harness[EventBus],
+) -> None:
+    harness = _receiver(bus_harness)
+    assert harness.receive is not None
+    local = unique_id("w")
+    await harness.subject.schedule(
+        QUEUE,
+        BusMessage(id=local, topic=QUEUE, event_type="prompt-due", tenant_id=TENANT_B),
+        harness.now() + DELAY,
+    )
+    await harness.advance(PAST_DELAY)
+
+    received = await harness.receive(QUEUE, PATIENCE)
+
+    assert received is not None
+    assert (received.tenant_id, received.id, received.session_id) == (TENANT_B, local, None)
+
+
+async def test_two_tenants_with_the_same_local_id_are_both_received_on_a_queue(
+    bus_harness: Harness[EventBus],
+) -> None:
+    harness = _receiver(bus_harness)
+    assert harness.receive is not None
+    local = unique_id("same")
+    for tenant in (TENANT_A, TENANT_B):
+        await harness.subject.schedule(
+            QUEUE,
+            BusMessage(id=local, topic=QUEUE, event_type="prompt-due", tenant_id=tenant),
+            harness.now() + DELAY,
+        )
+    await harness.advance(PAST_DELAY)
+
+    first = await harness.receive(QUEUE, PATIENCE)
+    second = await harness.receive(QUEUE, PATIENCE)
+
+    assert first is not None and second is not None
+    assert {first.tenant_id, second.tenant_id} == {TENANT_A, TENANT_B}
+    assert first.id == second.id == local
+
+
+async def test_two_tenants_with_the_same_local_id_and_session_are_both_received_on_a_topic(
+    bus_harness: Harness[EventBus],
+) -> None:
+    harness = _receiver(bus_harness)
+    assert harness.receive is not None
+    local = unique_id("same")
+    for tenant in (TENANT_A, TENANT_B):
+        await harness.subject.publish(
+            BusMessage(
+                id=local,
+                topic="capacity.events",
+                event_type="CapacityReported",
+                session_id="svc-1",
+                tenant_id=tenant,
+            )
+        )
+
+    first = await harness.receive("capacity.events", PATIENCE)
+    second = await harness.receive("capacity.events", PATIENCE)
+
+    assert first is not None and second is not None
+    assert {first.tenant_id, second.tenant_id} == {TENANT_A, TENANT_B}
+    assert first.session_id == second.session_id == "svc-1"
+
+
+async def test_a_send_for_another_tenant_than_the_bound_one_is_refused(
+    bus_harness: Harness[EventBus],
+) -> None:
+    bus = bus_harness.subject
+    message = BusMessage(
+        id=unique_id("x"), topic="messages.outbound", event_type="SendMessage", tenant_id=TENANT_A
+    )
+
+    with bind_tenant(TENANT_B), pytest.raises(ValidationFailed, match="tenant_id"):
+        await bus.publish(message)
+
+
+async def test_a_message_that_carries_a_live_link_is_refused(
+    bus_harness: Harness[EventBus],
+) -> None:
+    with pytest.raises(ValidationFailed, match="payload"):
+        await bus_harness.subject.publish(
+            BusMessage(
+                id=unique_id("x"),
+                topic="messages.outbound",
+                event_type="SendMessage",
+                payload={"url": "https://example.test/l/abc"},
+                tenant_id=TENANT_A,
+            )
+        )
+
+
+async def test_an_id_too_long_for_the_wire_is_refused(bus_harness: Harness[EventBus]) -> None:
+    with pytest.raises(ValidationFailed, match="id"):
+        await bus_harness.subject.schedule(
+            QUEUE,
+            BusMessage(id="x" * 120, topic=QUEUE, event_type="prompt-due", tenant_id=TENANT_A),
+            bus_harness.now() + DELAY,
+        )

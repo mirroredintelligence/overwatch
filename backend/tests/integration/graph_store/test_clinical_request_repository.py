@@ -82,7 +82,10 @@ async def _read(driver: AsyncDriver, step: Any) -> Any:
 
 
 @pytest.fixture
-async def seeded(neo4j_driver: AsyncDriver) -> None:
+async def seeded(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
+    """Asks for `clean_graph` by name, so the wipe runs before the seed. The conftest adds the wipe
+    to a test's fixtures last, which would put the seed first and meet what an earlier module
+    left (a case with the same id, refused as existing)."""
     await _seed(neo4j_driver)
 
 

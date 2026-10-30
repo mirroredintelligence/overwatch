@@ -43,6 +43,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.people import Practitioner
 from diucs.domain.model.service import AvailableTime
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx, wipe
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
@@ -85,6 +86,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ADVISOR = dataclasses.replace(LEAD, role=Role.ADVISOR, practitioner_id="prac-advisor-1")
 

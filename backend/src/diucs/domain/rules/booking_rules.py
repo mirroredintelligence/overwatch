@@ -4,19 +4,27 @@ Rules: docs/spec/domain-rules.md section 3.2 (timers, one open request, referenc
 Decisions: DEC-016 (references are matched exactly, never by prefix), DEC-021 (statusReason).
 Pure: no I/O. Times are passed in as timezone-aware UTC datetimes; timers are instant offsets,
 so they are unaffected by the London clock change (lesson L4).
+
+The two timers are tenant policy (TEN-064): each takes a `TenantPolicy` as its last argument,
+defaulting to `DEFAULT_POLICY`, and reads `booking_reply_window` and `booking_phone_prompt_after`.
+The module constants are aliases of the default policy, kept so existing importers keep working.
+The reference format and the other functions read no policy.
 """
 
 import random
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Final
 
 from diucs.domain.codes import BookingStatus
 from diucs.domain.errors import Conflict
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy, require_policy
 from diucs.domain.rules.booking_state import is_open
 
-BOOKING_REPLY_WINDOW = timedelta(minutes=10)
-PHONE_PROMPT_AFTER = timedelta(minutes=5)
+# Aliases of the default policy (TEN-064): the numbers are defined once, in tenant_policy.py.
+BOOKING_REPLY_WINDOW: Final = DEFAULT_POLICY.booking_reply_window
+PHONE_PROMPT_AFTER: Final = DEFAULT_POLICY.booking_phone_prompt_after
 REFERENCE_ATTEMPTS = 50
 
 _REFERENCE_LOWEST = 1000
@@ -40,12 +48,14 @@ class NoOpenBooking:
     pass
 
 
-def booking_reply_by(requested_at: datetime) -> datetime:
-    return requested_at + BOOKING_REPLY_WINDOW
+def booking_reply_by(requested_at: datetime, policy: TenantPolicy = DEFAULT_POLICY) -> datetime:
+    policy = require_policy(policy)  # reads booking_reply_window
+    return requested_at + policy.booking_reply_window
 
 
-def phone_prompt_at(requested_at: datetime) -> datetime:
-    return requested_at + PHONE_PROMPT_AFTER
+def phone_prompt_at(requested_at: datetime, policy: TenantPolicy = DEFAULT_POLICY) -> datetime:
+    policy = require_policy(policy)  # reads booking_phone_prompt_after
+    return requested_at + policy.booking_phone_prompt_after
 
 
 def can_request(open_statuses_for_service: Iterable[BookingStatus]) -> bool:

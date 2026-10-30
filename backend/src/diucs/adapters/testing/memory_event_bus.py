@@ -3,13 +3,27 @@
 Times are compared as UTC instants. A naive time is refused, so a wall-clock comparison cannot
 happen by accident on the London change days (lessons L4 and L52). Sequence numbers start at 1
 and are never reused. A delivered or cancelled message is removed, so cancelling it does nothing.
+
+The fake enforces the same tenant rules as the Service Bus adapter (TEN-020; DEC-004: a fake for an
+external provider only): every send is checked by `check_publishable` (a bound tenant that differs,
+a network binding, a live link or token in the body) and by `to_wire` (the 128-character limit on
+the qualified message id and session id), so a message the adapter would refuse the fake refuses
+too. `wire(message)` is the wire form the adapter would send, and `published_to` can filter by
+tenant.
 """
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS, BusMessage
+from diucs.application.ports.outbound.event_bus import (
+    QUEUES,
+    TOPICS,
+    BusMessage,
+    WireView,
+    check_publishable,
+    to_wire,
+)
 from diucs.domain.errors import ValidationFailed
 
 _SESSIONED_TOPICS = frozenset({"capacity.events"})
@@ -41,19 +55,35 @@ class ManualEventBus:
     def published(self) -> list[BusMessage]:
         return list(self._published)
 
-    def published_to(self, topic: str) -> list[BusMessage]:
-        return [message for message in self._published if message.topic == topic]
+    def published_to(self, topic: str, tenant_id: str | None = None) -> list[BusMessage]:
+        return [
+            message
+            for message in self._published
+            if message.topic == topic and (tenant_id is None or message.tenant_id == tenant_id)
+        ]
+
+    def wire(self, message: BusMessage) -> WireView:
+        """What the Service Bus adapter would put on the wire for this message."""
+        return to_wire(message)
+
+    @staticmethod
+    def _check(message: BusMessage) -> None:
+        # The adapter's refusals, in its order: the wire form (the length limit) and the rest.
+        to_wire(message)
+        check_publishable(message)
 
     async def publish(self, message: BusMessage) -> None:
         if message.topic not in TOPICS:
             raise ValidationFailed("topic", "not a known topic")
         if message.topic in _SESSIONED_TOPICS and message.session_id is None:
             raise ValidationFailed("session_id", "capacity events carry the service id")
+        self._check(message)
         self._published.append(message)
 
     async def enqueue(self, queue: str, message: BusMessage) -> None:
         if queue not in QUEUES:
             raise ValidationFailed("queue", "not a known queue")
+        self._check(message)
         self._enqueued.append((queue, message))
 
     def enqueued_to(self, queue: str) -> list[BusMessage]:
@@ -72,6 +102,7 @@ class ManualEventBus:
         if queue not in QUEUES:
             raise ValidationFailed("queue", "not a known queue")
         due = _aware_utc(enqueue_at, "enqueue_at")
+        self._check(message)
         number = self._next_number
         self._next_number += 1
         self._pending.append(_Pending(number, queue, message, due))

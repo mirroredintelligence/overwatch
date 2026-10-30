@@ -78,8 +78,10 @@ def screen_secrets() -> FixedSecretStore:
     return FixedSecretStore({LINK_TOKEN_SECRET: LINK_SECRET, DEVICE_TOKEN_SECRET: DEVICE_SECRET})
 
 
-def lead_headers(key: str = "key-1") -> dict[str, str]:
-    token = issue_test_token(Role.LEAD, (), "prac-lead-1")
+def lead_headers(key: str = "key-1", tenant: str | None = None) -> dict[str, str]:
+    """A lead's token and key. The token names the run tenant unless another is given: the REST edge
+    binds the lead's tenant from it (TEN-018)."""
+    token = issue_test_token(Role.LEAD, (), "prac-lead-1", tenant=tenant)
     return {"Authorization": f"Bearer {token}", "Idempotency-Key": key}
 
 
@@ -368,8 +370,8 @@ async def test_a_second_tenant_cannot_connect_or_claim_another_tenants_screen(
     neo4j_driver: AsyncDriver,
 ) -> None:
     started = await start(screens)
-    with as_tenant(other_tenant_id):
-        refusal(await connect(screens, spaced(started["code"])))
+    # A lead of the other tenant: the token names it, and that is the tenant the edge binds.
+    refusal(await connect(screens, spaced(started["code"]), lead_headers(tenant=other_tenant_id)))
     refusal(await claim(other_screens, started["pairingId"], started["screenSecret"]))
 
     connected = await connect(screens, spaced(started["code"]))
@@ -378,13 +380,15 @@ async def test_a_second_tenant_cannot_connect_or_claim_another_tenants_screen(
 
 
 @pytest.mark.no_tenant
-async def test_a_connect_with_no_tenant_bound_fails_closed(
+async def test_a_connect_binds_the_leads_tenant_from_the_token_with_nothing_else_bound(
     screens: AsyncClient, neo4j_driver: AsyncDriver
 ) -> None:
+    # R15's known issue, closed by TEN-018: the connect used to fail closed (500) because nothing
+    # bound the lead's tenant. The REST edge now binds it from the signed token.
     started = await start(screens)
     response = await connect(screens, spaced(started["code"]))
-    assert response.status_code == 500
-    assert await count_nodes(neo4j_driver, "Device") == 0
+    assert response.status_code == 201
+    assert await count_nodes(neo4j_driver, "Device") == 1
 
 
 async def test_missing_pairing_secrets_fail_closed_before_anything_is_written(

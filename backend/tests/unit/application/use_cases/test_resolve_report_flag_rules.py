@@ -22,6 +22,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import REPORT_FLAG_ACCEPTED, REPORT_FLAG_CHECKED, ReportFlag
+from tests.support.actors import ACTOR_TENANT
 
 
 def _actor(role: Role) -> Actor:
@@ -31,6 +32,7 @@ def _actor(role: Role) -> Actor:
         device_id=None,
         channel="web",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
 
 

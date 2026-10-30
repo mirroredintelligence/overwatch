@@ -43,6 +43,7 @@ from diucs.domain.errors import Conflict, DomainError, NotAllowed, NotFound, Val
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
 
 Seed = Callable[..., Awaitable[None]]
@@ -59,6 +60,7 @@ REPORTER = Actor(
     device_id="device-1",
     channel="text",
     service_ids=frozenset({"ucr-west"}),
+    tenant_id=ACTOR_TENANT,
 )
 LINK_REPORTER = dataclasses.replace(REPORTER, channel="link")
 ADVISOR = Actor(
@@ -67,6 +69,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 LEAD = dataclasses.replace(ADVISOR, role=Role.LEAD, practitioner_id="prac-lead-1")
 

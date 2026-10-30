@@ -36,10 +36,16 @@ from diucs.domain.rules.schedule import (
     LadderStep,
     ladder_times,
 )
+from tests.support.actors import ACTOR_TENANT
 
 DUE = datetime(2026, 10, 23, 11, 0, tzinfo=UTC)
 ACTOR = Actor(
-    role=Role.OWNER, practitioner_id=None, device_id=None, channel="worker", service_ids=frozenset()
+    role=Role.OWNER,
+    practitioner_id=None,
+    device_id=None,
+    channel="worker",
+    service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 STEP_OF_KIND = {
     WorkKind.REMINDER: LadderStep.REMINDER,

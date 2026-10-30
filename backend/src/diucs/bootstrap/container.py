@@ -17,8 +17,9 @@ process that serves, and without one every secret reads as not found (fail close
 """
 
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import httpx
@@ -59,7 +60,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.fixed_terminology import FixedTerminology
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
 from diucs.adapters.testing.memory_cache import InMemoryCache
-from diucs.application.actor import Actor
+from diucs.application.actor import system_actor
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.geo import (
@@ -89,7 +90,17 @@ from diucs.application.ports.outbound.tokens import (
     SecretStore,
 )
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import bind_tenant
+from diucs.application.tenancy import bind_tenant, current_tenant
+from diucs.application.use_cases.booking_timers import (
+    BookingPhonePrompt,
+    ExpireBooking,
+    booking_timer_handlers,
+)
+from diucs.application.use_cases.criteria_reviews import (
+    RunCriteriaReviews,
+    RunCriteriaReviewsCommand,
+    ensure_daily_schedule,
+)
 from diucs.application.use_cases.missed_report_ladder import (
     LADDER_KINDS,
     LadderStepCommand,
@@ -97,8 +108,8 @@ from diucs.application.use_cases.missed_report_ladder import (
 )
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.bootstrap.settings import Settings
-from diucs.domain.codes import Role
 from diucs.domain.errors import NotFound
+from diucs.domain.model.telemetry_aggregates import DayAggregates
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 # The sample telemetry the test container serves (O07). Sample values only.
@@ -108,14 +119,9 @@ TELEMETRY_FIXTURE = (
 TEST_LINK_BASE_URL = "https://diucs.example"
 TEST_RNG_SEED = 20261023
 
-SCHEDULER_ACTOR = Actor(
-    role=Role.OWNER,
-    practitioner_id=None,
-    device_id=None,
-    channel="scheduler",
-    service_ids=frozenset(),
-)
-"""The actor of the scheduled-work queue's steps (DEC-193): the role enum has no system role."""
+SCHEDULER_CHANNEL = "scheduler"
+"""The channel of the scheduled-work queue's steps (DEC-193). Its actor is a system actor of the
+tenant the step runs in, built per step: there is no platform-wide actor (TEN-018)."""
 
 
 @dataclass(frozen=True)
@@ -181,6 +187,14 @@ class Container:
             await self.neo4j.close()
             raise
 
+    async def seed_daily_schedules(self, tenant_ids: Sequence[str]) -> None:
+        """Seed the daily criteria review run (U31) for each tenant, once. Each tenant is bound in
+        turn, as the start-up does for the audit heads (TEN-017). Idempotent: a second start writes
+        nothing."""
+        for tenant_id in tenant_ids:
+            with bind_tenant(tenant_id):
+                await ensure_daily_schedule(self.uow_factory, self.ids, self.clock)
+
     async def shutdown(self) -> None:
         if self.http is not None:
             await self.http.aclose()
@@ -195,10 +209,23 @@ def ladder_handlers(ladder: MissedReportLadder) -> dict[WorkKind, WorkHandler]:
 
     async def step(work: ScheduledWork) -> None:
         await ladder.execute(
-            LadderStepCommand(idempotency_key=work.id, actor=SCHEDULER_ACTOR, work_id=work.id)
+            LadderStepCommand(
+                idempotency_key=work.id,
+                actor=system_actor(current_tenant(), SCHEDULER_CHANNEL),
+                work_id=work.id,
+            )
         )
 
     return {kind: step for kind in LADDER_KINDS}
+
+
+def criteria_review_handler(job: RunCriteriaReviews) -> WorkHandler:
+    """The daily criteria review run (U31), run once for each scheduled work of its kind."""
+
+    async def step(work: ScheduledWork) -> None:
+        await job.execute(RunCriteriaReviewsCommand(work_id=work.id))
+
+    return step
 
 
 def _scheduled_work(
@@ -216,7 +243,17 @@ def _scheduled_work(
     ladder = MissedReportLadder(
         uow_factory, clock, ids, tokens, link_base_url, AesGcmContentSealer(secrets)
     )
-    return ScheduledWorkDispatcher(ladder_handlers(ladder))
+    handlers: dict[WorkKind, WorkHandler] = dict(ladder_handlers(ladder))
+    # The booking timers (U19): the advisor's phone prompt and the expiry of a request.
+    handlers.update(
+        booking_timer_handlers(
+            BookingPhonePrompt(uow_factory, clock), ExpireBooking(uow_factory, clock)
+        )
+    )
+    # The daily criteria review run (U31).
+    reviews = RunCriteriaReviews(uow_factory, ids, clock, AesGcmContentSealer(secrets))
+    handlers[WorkKind.CRITERIA_REVIEW_REMINDER] = criteria_review_handler(reviews)
+    return ScheduledWorkDispatcher(handlers)
 
 
 def _neo4j_connection(settings: Settings) -> Neo4jConnection:
@@ -259,6 +296,9 @@ class NoTelemetry:
     """The telemetry query of a process with no workspace or no client: every read is refused, so
     the console says it cannot show telemetry rather than showing an empty timeline (fail closed,
     O07)."""
+
+    async def daily_aggregates(self, day: date) -> DayAggregates:
+        raise TelemetryUnavailable
 
     async def session_timeline(
         self, session_id: str, start: datetime, end: datetime

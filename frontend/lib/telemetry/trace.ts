@@ -8,6 +8,7 @@ const INTERACTION_MS = 5000;
 
 let interaction: { traceId: string; startedAt: number } | null = null;
 let requestObserver: ((traceId: string) => void) | null = null;
+const requestObservers = new Set<(traceId: string) => void>();
 
 function randomHex(bytes: number): string {
   const buffer = new Uint8Array(bytes);
@@ -47,6 +48,14 @@ export function setRequestObserver(observer: ((traceId: string) => void) | null)
   requestObserver = observer;
 }
 
+/** Adds a second observer of every BFF request (the friction engine uses it). Returns the way to remove it. */
+export function addRequestObserver(observer: (traceId: string) => void): () => void {
+  requestObservers.add(observer);
+  return () => {
+    requestObservers.delete(observer);
+  };
+}
+
 function traceIdOf(traceparent: string): string {
   return traceparent.split('-')[1] ?? '';
 }
@@ -62,6 +71,8 @@ export function withTraceparent(init: RequestInit = {}): RequestInit {
     headers.set('traceparent', `00-${traceId}-${nonZeroHex(8)}-${SAMPLED}`);
   }
   const traceparent = headers.get('traceparent') ?? '';
-  requestObserver?.(traceIdOf(traceparent));
+  const traceId = traceIdOf(traceparent);
+  requestObserver?.(traceId);
+  for (const observer of requestObservers) observer(traceId);
   return { ...init, headers };
 }

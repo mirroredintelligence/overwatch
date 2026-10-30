@@ -17,9 +17,10 @@ from diucs.adapters.outbound.graph_store.capacity_repository import report_to_fh
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from diucs.adapters.testing.tokens import TEST_BFF_SECRET, default_token_tenant, issue_test_token
 from diucs.bootstrap.container import TEST_NOW
 from diucs.domain.codes import Role
+from tests.support.edge import active_tenants
 from tests.unit.adapters.outbound.graph_store.test_capacity_repository import NUMBER_REPORT
 
 CAPACITY = profile_url("DiucsCapacityReport")
@@ -34,6 +35,7 @@ class _NoStoreContainer:
         self.ids = SequentialIds()
         self.uow_factory: Any = None
         self.validator = ProfileValidator()
+        self.tenants = active_tenants(default_token_tenant())
 
 
 @pytest.fixture

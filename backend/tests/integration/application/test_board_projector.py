@@ -32,6 +32,7 @@ from diucs.domain.codes import ServiceCategory as Category
 from diucs.domain.errors import NotAllowed
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -45,6 +46,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ANONYMOUS = Actor(
     role=Role.ANONYMOUS_LINK,
@@ -52,6 +54,7 @@ ANONYMOUS = Actor(
     device_id=None,
     channel="link",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 

@@ -8,6 +8,7 @@ or patient text may appear in a response or a log line.
 
 import json
 import logging
+import os
 from datetime import timedelta
 from typing import Annotated, Any
 
@@ -26,7 +27,7 @@ from diucs.adapters.inbound.fhir_rest.auth import (
     require_role,
 )
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from diucs.adapters.testing.tokens import TEST_BFF_SECRET, default_token_tenant, issue_test_token
 from diucs.application.actor import Actor
 from diucs.domain.codes import Role
 from diucs.domain.rules.bff_token import BffClaims, encode_bff_token
@@ -51,6 +52,7 @@ def auth_app(api_app: FastAPI) -> FastAPI:
             "device_id": actor.device_id,
             "channel": actor.channel,
             "service_ids": sorted(actor.service_ids),
+            "tenant_id": actor.tenant_id,
         }
 
     @api_app.get("/fhir/test/lead-only", dependencies=[Depends(require_role(Role.LEAD))])
@@ -134,6 +136,8 @@ async def test_a_token_with_a_wrong_signature_is_a_login_error(
         role=Role.REPORTER,
         services=frozenset({"svc-1"}),
         expires_at=ONE_SECOND,
+        tenant=default_token_tenant(),
+        epoch=1,
     )
     token = encode_bff_token(claims, OTHER_SECRET)
 
@@ -178,6 +182,7 @@ async def test_a_reporter_token_gives_its_practitioner_and_its_service(
         "device_id": None,
         "channel": "api",
         "service_ids": ["svc-1"],
+        "tenant_id": os.environ["DIUCS_TEST_TENANT"],
     }
 
 

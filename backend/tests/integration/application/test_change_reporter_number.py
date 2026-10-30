@@ -33,6 +33,7 @@ from diucs.application.use_cases.change_reporter_number import (
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole, role_holder
+from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.neo4j import count_nodes, node_props, wipe
 from tests.support.tenant_seed import contracted_container
@@ -55,6 +56,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ADVISOR = Actor(
     role=Role.ADVISOR,
@@ -62,6 +64,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 

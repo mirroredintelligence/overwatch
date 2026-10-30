@@ -47,7 +47,7 @@ beforeEach(() => {
   document.body.innerHTML = '';
   beacon = vi.fn(() => true);
   Object.defineProperty(navigator, 'sendBeacon', { value: beacon, configurable: true, writable: true });
-  initTelemetry({ role: 'advisor', release: 'test-release-1' });
+  initTelemetry({ role: 'advisor', release: '1.4.2' });
 });
 
 afterEach(() => {
@@ -138,12 +138,12 @@ describe('ui.input', () => {
 
 describe('common attributes', () => {
   it('carry the role, the release, a session id kept in sessionStorage, and the device class', async () => {
-    track('ui.chip', { 'element.id': 'FILTER-CHIP', state: 'on' });
+    track('ui.chip', { 'element.id': 'FILTER-CHIP', state: 'true' });
     const events = await sentEvents();
 
     const [chip] = events;
     expect(chip?.attributes['user.role']).toBe('advisor');
-    expect(chip?.attributes.release).toBe('test-release-1');
+    expect(chip?.attributes.release).toBe('1.4.2');
     expect(chip?.attributes['session.id']).toBe(sessionStorage.getItem('diucs.session.id'));
     expect(String(chip?.attributes['session.id'])).toMatch(/^[A-Za-z0-9-]{16,64}$/);
     expect(chip?.attributes['device.type']).toBe('desktop');
@@ -165,7 +165,7 @@ describe('ui.page_view', () => {
 describe('batching', () => {
   it('sends one beacon when the twentieth event is queued', () => {
     for (let i = 0; i < BATCH_SIZE; i += 1) {
-      track('ui.chip', { 'element.id': 'FILTER-CHIP', state: 'on' });
+      track('ui.chip', { 'element.id': 'FILTER-CHIP', state: 'true' });
     }
 
     expect(beacon).toHaveBeenCalledTimes(1);
@@ -174,7 +174,7 @@ describe('batching', () => {
 
   it('sends three queued events after five seconds', async () => {
     for (let i = 0; i < 3; i += 1) {
-      track('ui.chip', { 'element.id': 'FILTER-CHIP', state: 'on' });
+      track('ui.chip', { 'element.id': 'FILTER-CHIP', state: 'true' });
     }
     expect(beacon).not.toHaveBeenCalled();
 

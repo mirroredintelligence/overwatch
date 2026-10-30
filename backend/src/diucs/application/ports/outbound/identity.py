@@ -177,6 +177,17 @@ class DeviceRegistry(Protocol):
 
     async def revoke_all(self, practitioner_id: str) -> None: ...
 
+    async def mark_verified(self, practitioner_id: str, device_id: str, at: datetime) -> None:
+        """Record that a text code was verified for this practitioner's device at `at` (U32: the
+        30-day check and the 10 minutes in which a PIN may be set both read it). A device that is
+        not registered, or is revoked, or is another practitioner's, is left alone."""
+        ...
+
+    async def verified_at(self, practitioner_id: str, device_id: str) -> datetime | None:
+        """When a text code was last verified for this practitioner's device, or None: never
+        verified, not registered, revoked, or another practitioner's device."""
+        ...
+
     async def get(self, device_id: str) -> Device | None:
         """The wall screen of the bound tenant with this id, or None. Takes the screen's write lock
         first, so a read that decides a single-use change cannot interleave with another (L85): use

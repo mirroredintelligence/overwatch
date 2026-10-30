@@ -36,6 +36,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.service import AvailableTime
+from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 29, 9, 10, tzinfo=UTC)  # London is on GMT: local time equals UTC
 
@@ -45,6 +46,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 BASE = SetupServiceCommand(

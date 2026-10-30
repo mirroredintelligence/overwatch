@@ -513,7 +513,6 @@ POLICY_NOT_YET_THREADED: dict[str, str] = {
     "application/use_cases/query_board.py": "TEN-039",
     "application/use_cases/report_capacity.py": "TEN-024",
     "application/use_cases/send_prompts.py": "TEN-027",
-    "domain/rules/multi_service.py": "TEN-064",
 }
 
 

@@ -1,22 +1,31 @@
-"""API test support (R01): the test container and the HTTP client every route test uses.
+"""API test support (R01, TEN-018): the test container and the HTTP client every route test uses.
 
 The app runs on the composition root's test profile, on the Docker Neo4j of the F10 harness, with
 fakes only for external providers. Route tests add their own test-only routes to api_app.
+
+The REST edge binds the tenant from the verified token and checks it against the tenant directory
+(TEN-018), so the harness seeds an active tenant record for the run's tenant and for its second
+tenant (`edge_tenants`, which `api_app` depends on), and a request is sent for a tenant with a token
+that names it (`token_headers`). A test token with no tenant argument names the run tenant.
 """
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime
 
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from neo4j import AsyncDriver
+from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
+from diucs.adapters.outbound.graph_store.tenant_directory import tenant_properties
 from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.tokens import issue_test_token
 from diucs.bootstrap.container import Container, build_for_tests
-from tests.support.neo4j import ThrowawayNeo4j
+from diucs.domain.codes import Role
+from tests.support.neo4j import ThrowawayNeo4j, write_tx
+from tests.support.tenant_samples import make_tenant
 
 # The clock of the R01 route tests (DEC-070 item 4): 14:12 London, passed explicitly. F08's
 # TEST_NOW (13:00Z) is left unchanged.
@@ -39,8 +48,41 @@ async def test_container(
         await connection.close()
 
 
+async def seed_edge_tenants(driver: AsyncDriver, *tenant_ids: str, epoch: int = 1) -> None:
+    """An active tenant record for each id (merged, so a second call changes nothing but the
+    epoch), as the REST edge reads it from the directory."""
+
+    async def work(tx: AsyncManagedTransaction) -> None:
+        for tenant_id in tenant_ids:
+            props = tenant_properties(make_tenant(id=tenant_id, epoch=epoch))
+            await tx.run("MERGE (t:Tenant {id: $id}) SET t += $props", id=tenant_id, props=props)
+
+    await write_tx(driver, work)
+
+
+def token_headers(
+    tenant: str | None = None,
+    role: Role = Role.LEAD,
+    services: Sequence[str] = (),
+    sub: str = "prac-1",
+    *,
+    epoch: int = 1,
+) -> dict[str, str]:
+    """A bearer header for a token that names this tenant (the run tenant when none is given)."""
+    token = issue_test_token(role, services, sub, tenant=tenant, epoch=epoch)
+    return {"Authorization": f"Bearer {token}"}
+
+
 @pytest_asyncio.fixture(loop_scope="session")
-async def api_app(test_container: Container) -> FastAPI:
+async def edge_tenants(
+    test_container: Container, neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> None:
+    """The run tenant and the second tenant exist and are active, after clean_graph has wiped."""
+    await seed_edge_tenants(neo4j_driver, tenant_id, other_tenant_id)
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def api_app(test_container: Container, edge_tenants: None) -> FastAPI:
     return create_app(test_container)
 
 

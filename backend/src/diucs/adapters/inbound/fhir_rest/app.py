@@ -19,6 +19,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
 from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 
@@ -35,6 +36,9 @@ class ApiContainer(Protocol):
 
     @property
     def ids(self) -> IdGenerator: ...
+
+    @property
+    def tenants(self) -> TenantDirectory: ...
 
     @property
     def terminology(self) -> Terminology: ...
@@ -78,6 +82,7 @@ def create_app(
     from diucs.adapters.inbound.fhir_rest import (
         routes_board,
         routes_events,
+        routes_lead,
         routes_screens,
         routes_services,
         routes_terminology,
@@ -95,6 +100,13 @@ def create_app(
     routes_validate.register_profiles()
     # Wall screen pairing (R15): JSON routes outside /fhir, over the U10 use cases.
     app.include_router(routes_screens.router)
+    # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.
+    app.include_router(routes_lead.router)
+
+    # Support codes and the support console (R18): JSON routes over the O06 and R18 use cases.
+    from diucs.adapters.inbound.fhir_rest import routes_support
+
+    app.include_router(routes_support.router)
 
     # The Twilio webhook (I07). It imports no FHIR module; the named ignore in .importlinter lets
     # this one module wire it in.

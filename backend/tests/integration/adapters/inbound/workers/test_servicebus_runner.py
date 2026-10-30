@@ -6,10 +6,10 @@ import uuid
 from typing import Any
 
 import pytest
-from azure.servicebus import ServiceBusMessage
 
 from diucs.adapters.inbound.workers.consumer import IdempotentConsumer
 from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from diucs.adapters.outbound.bus_servicebus.service_bus import to_service_bus_message
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from tests.support.neo4j import count_nodes
@@ -19,7 +19,7 @@ pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")
 
 
 async def test_a_message_sent_twice_with_one_id_is_processed_once(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: Any
+    uow_factory: UnitOfWorkFactory, neo4j_driver: Any, tenant_id: str
 ) -> None:
     calls: list[str] = []
 
@@ -31,9 +31,16 @@ async def test_a_message_sent_twice_with_one_id_is_processed_once(
     async with client() as sb:
         async with sb.get_queue_sender("inbound.receipts") as sender:
             for _ in range(2):
+                # As the adapter sends it (TEN-020): qualified id, tenant property.
                 await sender.send_messages(
-                    ServiceBusMessage(
-                        b'{"status": "delivered"}', message_id=message_id, subject="DeliveryReceipt"
+                    to_service_bus_message(
+                        BusMessage(
+                            id=message_id,
+                            topic="inbound.receipts",
+                            event_type="DeliveryReceipt",
+                            payload={"status": "delivered"},
+                            tenant_id=tenant_id,
+                        )
                     )
                 )
         runner = ServiceBusRunner(sb, "inbound.receipts", None, consumer)

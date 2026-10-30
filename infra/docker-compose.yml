@@ -88,6 +88,26 @@ services:
       retries: 60
       start_period: 10s
 
+  # OpenTelemetry Collector (O04). Test profile only: the stack does not start it by default. It runs the
+  # production config with the test overlay, which writes what it exports to infra/otel-out/out.json.
+  # Start:  docker compose -f infra/docker-compose.yml --profile test up -d --wait otel-collector
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.162.0
+    profiles: ["test"]
+    command:
+      - "--config=/etc/otelcol/config.yaml"
+      - "--config=/etc/otelcol/otel-collector.test.yaml"
+    environment:
+      # Empty on purpose: the test profile exports to a file, never to Azure.
+      APPLICATIONINSIGHTS_CONNECTION_STRING: ""
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    volumes:
+      - ./otel-collector.yaml:/etc/otelcol/config.yaml:ro
+      - ./otel-collector.test.yaml:/etc/otelcol/otel-collector.test.yaml:ro
+      - ./otel-out:/tmp/otel
+
 volumes:
   neo4j-data:
   redis-data:

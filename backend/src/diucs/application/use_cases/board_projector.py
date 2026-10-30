@@ -20,9 +20,10 @@ from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from diucs.application.actor import Actor
+from diucs.application.actor import Actor, wall_actor
 from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.tenancy import current_tenant
 from diucs.application.use_cases.query_board import Board, BoardEntry, QueryBoard, QueryBoardQuery
 from diucs.domain.codes import Role, ServiceCategory, Status
 from diucs.domain.errors import NotAllowed
@@ -42,9 +43,6 @@ REBUILD_EVENTS = frozenset(
         "CriteriaApproved",
         "PhoneTaskRaised",
     }
-)
-WALL_ACTOR = Actor(
-    role=Role.WALL, practitioner_id=None, device_id=None, channel="system", service_ids=frozenset()
 )
 
 _LOG = logging.getLogger(__name__)
@@ -130,7 +128,7 @@ class BoardProjector:
         """Rebuild and publish for an event the board shows. Return False for any other event."""
         if event_type not in REBUILD_EVENTS:
             return False
-        board = await self._query_board.execute(QueryBoardQuery(actor=WALL_ACTOR))
+        board = await self._query_board.execute(QueryBoardQuery(actor=wall_actor(current_tenant())))
         # Store before publishing: a page that refetches on the message must find the new board.
         await self._cache.set(BOARD_CACHE_KEY, json.dumps(board_to_dict(board)), BOARD_CACHE_TTL)
         service_id = payload.get("service_id")

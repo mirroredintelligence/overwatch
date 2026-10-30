@@ -38,6 +38,7 @@ from diucs.bootstrap.container import build_for_tests
 from diucs.domain.codes import ReportSource, Role
 from diucs.domain.errors import Conflict
 from diucs.domain.events import CapacityReported
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import ThrowawayNeo4j, count_nodes
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST
 
@@ -62,6 +63,7 @@ def _entry() -> AuditEntry:
             device_id="dev-sms-1",
             channel="text",
             service_ids=frozenset({"svc-ucr-west"}),
+            tenant_id=ACTOR_TENANT,
         ),
         entity_ids=("obs-1",),
         snapshot=None,

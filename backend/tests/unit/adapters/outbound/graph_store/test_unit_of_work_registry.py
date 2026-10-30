@@ -34,12 +34,15 @@ from tests.support.fake_neo4j import FakeDriver
 # that DEC-071 item 9 and lesson L86 ask P06 to register, and the support store (O06).
 REQUIRED_NAMES = {
     "services",
+    "positions",  # U12: the service positions read through the unit of work
     "alert_subscriptions",
     "alerts",
     "clinical_requests",
     "push_subscriptions",
+    "notification_consents",
     "service_moves",
     "protected_text",
+    "safety_reports",
     "capacity",
     "bookings",
     "cases",
@@ -59,6 +62,8 @@ REQUIRED_NAMES = {
     "idempotency",
     "processed",
     "support",
+    "aggregates",
+    "support_tickets",
     "tenant_config",
 }
 

@@ -33,6 +33,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.case import Case
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support import seed
+from tests.support.actors import ACTOR_TENANT
 
 Seed = Callable[..., Awaitable[None]]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -45,6 +46,7 @@ LEAD = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 REPORTER = Actor(
     role=Role.REPORTER,
@@ -52,6 +54,7 @@ REPORTER = Actor(
     device_id=None,
     channel="text",
     service_ids=frozenset({SERVICE}),
+    tenant_id=ACTOR_TENANT,
 )
 UCR_WEST = ServiceProfile(
     id=SERVICE,

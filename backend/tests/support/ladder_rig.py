@@ -53,6 +53,7 @@ from diucs.domain.codes import (
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
 LINK_BASE = "diucs.example"
@@ -60,7 +61,12 @@ PHONE_HASH_1 = "ab" * 32
 PHONE_HASH_2 = "cd" * 32
 
 SYSTEM_ACTOR = Actor(
-    role=Role.OWNER, practitioner_id=None, device_id=None, channel="worker", service_ids=frozenset()
+    role=Role.OWNER,
+    practitioner_id=None,
+    device_id=None,
+    channel="worker",
+    service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ADVISOR = Actor(
     role=Role.ADVISOR,
@@ -68,6 +74,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 
@@ -199,6 +206,7 @@ class Rig:
                 device_id=None,
                 channel="sms",
                 service_ids=frozenset({self.service_id}),
+                tenant_id=ACTOR_TENANT,
             )
         )
         return await self.reports.execute(

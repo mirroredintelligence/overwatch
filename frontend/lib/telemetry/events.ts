@@ -6,6 +6,7 @@
 // Nothing here runs on the server: every entry point touches window or document when it is called.
 
 import { beginInteraction, currentTraceId, setRequestObserver } from './trace';
+import { UI_EVENT_NAMES, validateEvent } from './schema';
 
 export const TELEMETRY_ENDPOINT = '/api/bff/telemetry';
 export const BATCH_SIZE = 20;
@@ -15,16 +16,8 @@ export const CLICK_WINDOW_MS = 1000;
 
 const SESSION_KEY = 'diucs.session.id';
 
-/** The events this module sends. Anything else is refused by the BFF route. */
-export const ALLOWED_EVENTS: readonly string[] = [
-  'ui.page_view',
-  'ui.click',
-  'ui.input',
-  'ui.toggle',
-  'ui.chip',
-  'ui.submit',
-  'ui.error_shown',
-];
+/** The events this module sends (the names are fixed in schema.ts). Anything else is refused by the BFF route. */
+export const ALLOWED_EVENTS: readonly string[] = UI_EVENT_NAMES;
 
 /** The attribute keys the browser sends. The BFF route adds tenant.id from the session itself. */
 export const ALLOWED_ATTRIBUTES: readonly string[] = [
@@ -51,6 +44,10 @@ export const ALLOWED_ATTRIBUTES: readonly string[] = [
   'error_count',
   'time_to_submit_ms',
   'error.code',
+  // ui.friction (O03).
+  'kind',
+  'count',
+  'window_ms',
 ];
 
 export type Attributes = Record<string, string | number | boolean>;
@@ -77,6 +74,9 @@ type State = {
 
 let state: State | null = null;
 
+/** Events dropped because they broke their schema (O05). Read it in a test or a dashboard, never sent. */
+export let droppedEvents = 0;
+
 function randomHex(bytes: number): string {
   const buffer = new Uint8Array(bytes);
   crypto.getRandomValues(buffer);
@@ -87,7 +87,7 @@ function randomHex(bytes: number): string {
 function sessionIdentifier(): string {
   try {
     const stored = sessionStorage.getItem(SESSION_KEY);
-    if (stored && /^[A-Za-z0-9-]{16,64}$/.test(stored)) return stored;
+    if (stored && /^[a-f0-9]{16,32}$/.test(stored)) return stored;
     const fresh = randomHex(16);
     sessionStorage.setItem(SESSION_KEY, fresh);
     return fresh;
@@ -108,9 +108,13 @@ function appMode(): 'browser' | 'installed' {
   return window.matchMedia?.('(display-mode: standalone)').matches ? 'installed' : 'browser';
 }
 
+const NETWORK_TYPES: readonly string[] = ['slow-2g', '2g', '3g', '4g'];
+
+/** The connection type, only when it is one the schema names (anything else is left out, not sent). */
 function effectiveType(): string | undefined {
   const connection = (navigator as Navigator & { connection?: { effectiveType?: unknown } }).connection;
-  return typeof connection?.effectiveType === 'string' ? connection.effectiveType : undefined;
+  const value = connection?.effectiveType;
+  return typeof value === 'string' && NETWORK_TYPES.includes(value) ? value : undefined;
 }
 
 function commonAttributes(current: State): Attributes {
@@ -166,14 +170,24 @@ function allowed(attributes: Attributes): Attributes {
   return kept;
 }
 
+/**
+ * Queues one ui.* event after its schema check. An event that breaks its schema is refused: in
+ * development `track` throws, so the mistake is seen; elsewhere it is dropped and counted in
+ * droppedEvents. The error names the event and the attributes, never their values.
+ */
 export function track(name: string, attributes: Attributes = {}): void {
   if (state === null) return;
   const current = state;
-  current.queue.push({
-    name,
-    at: Date.now(),
-    attributes: allowed({ ...commonAttributes(current), ...attributes }),
-  });
+  const merged: Attributes = { ...commonAttributes(current), ...attributes };
+  const problems = validateEvent(name, merged);
+  if (problems.length > 0) {
+    if (process.env.NODE_ENV === 'development') {
+      throw new Error(`telemetry: ${name} breaks its schema: ${problems.join('; ')}`);
+    }
+    droppedEvents += 1;
+    return;
+  }
+  current.queue.push({ name, at: Date.now(), attributes: allowed(merged) });
   if (current.queue.length >= BATCH_SIZE) flush();
 }
 
@@ -296,7 +310,7 @@ function onSubmit(event: Event): void {
   const started = state.formStart.get(form) ?? Date.now();
   state.formStart.delete(form);
   track('ui.submit', {
-    'form.id': form.getAttribute('data-el') ?? form.id,
+    'form.id': form.getAttribute('data-el') ?? 'FORM-UNNAMED',
     error_count: form.querySelectorAll('[aria-invalid="true"]').length,
     time_to_submit_ms: Math.max(0, Date.now() - started),
   });
@@ -309,7 +323,7 @@ function onMutations(records: MutationRecord[]): void {
     for (const node of Array.from(record.addedNodes)) {
       if (!(node instanceof HTMLElement) || node.getAttribute('role') !== 'alert') continue;
       track('ui.error_shown', {
-        'error.code': node.getAttribute('data-error-code') ?? 'unspecified',
+        'error.code': node.getAttribute('data-error-code') ?? 'UNSPECIFIED',
         ...(node.getAttribute('data-el') ? { 'element.id': node.getAttribute('data-el') ?? '' } : {}),
       });
     }

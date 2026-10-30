@@ -6,7 +6,7 @@ Reports are never updated or deleted: a correction is a new report.
 
 from collections.abc import Iterable, Sequence
 from datetime import datetime
-from typing import Protocol
+from typing import Any, Protocol
 
 from diucs.domain.codes import AgeBand, AlertKind, NeedCategory, RegistrationStatus
 from diucs.domain.model.alerts import AlertRecord, AlertSubscription
@@ -17,7 +17,7 @@ from diucs.domain.model.clinical import ClinicalRequestRecord
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import ReportFlag, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Registration, ScopeEntry
+from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.service_move import ServiceMove
 
@@ -145,6 +145,10 @@ class PersonRepository(Protocol):
     Saves refuse an unknown practitioner, service or cover practitioner with NotFound, checked
     before anything is written.
     """
+
+    async def get_role(self, role_id: str) -> PractitionerRole | None:
+        """The stored role with this id, or None (I14: the holder of a push's recipient role)."""
+        ...
 
     async def get_practitioner(self, practitioner_id: str) -> Practitioner | None:
         """The stored practitioner, or None."""
@@ -293,6 +297,34 @@ class RegistrationRepository(Protocol):
 
     async def for_service(self, service_id: str) -> list[Registration]:
         """Registrations for this service, newest first."""
+        ...
+
+    async def write_bundle(self, bundle: dict[str, Any]) -> dict[str, str]:
+        """Write a FHIR transaction bundle (U27) inside this unit of work's transaction: each entry
+        through the resource store, in the order given, with `urn:uuid:` references resolved to the
+        ids the entries carry. A POST is a new resource; a PUT replaces the stored one. Returns each
+        entry's full URL against `<Type>/<id>`. Nothing is committed here: a failure anywhere leaves
+        nothing, because the unit of work rolls back."""
+        ...
+
+    async def district_locations(self, districts: Sequence[str]) -> dict[str, str]:
+        """The ids of the postcode-district Locations (mode kind, type postcode-district) of the
+        bound tenant that carry these district names, by name (U27). A district that has none is
+        left out. When more than one carries a name, the lowest id."""
+        ...
+
+    async def add_invitation(self, invitation: Invitation) -> None:
+        """Store a new invitation (U24), a Task with code invite-reporter. An id that exists
+        raises Conflict."""
+        ...
+
+    async def get_invitation(self, invitation_id: str) -> Invitation | None:
+        """The stored invitation, or None. A Task that is not an invitation is None."""
+        ...
+
+    async def save_invitation(self, invitation: Invitation) -> None:
+        """Replace the stored invitation (a resend moves its send time and expiry). An unknown id
+        raises NotFound."""
         ...
 
 

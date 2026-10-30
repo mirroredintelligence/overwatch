@@ -38,6 +38,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import InvalidTransition, ValidationFailed
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
+from tests.support.actors import ACTOR_TENANT
 
 Seed = Callable[..., Awaitable[None]]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -53,6 +54,7 @@ APPLICANT = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ORG = OrganisationStep(
     name="Community Response Ltd",

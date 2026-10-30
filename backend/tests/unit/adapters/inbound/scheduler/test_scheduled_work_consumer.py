@@ -21,6 +21,7 @@ from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
 from diucs.adapters.inbound.workers.tenant_binding import NO_TENANT, TenantBoundConsumer
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
+from tests.support.bus import message_with_tenant
 
 DUE = datetime(2026, 10, 23, 11, 0, tzinfo=UTC)
 
@@ -48,12 +49,14 @@ def _message(
     tenant_id: str | None = "tenant-a",
     event_type: str = EVENT_TYPE,
 ) -> BusMessage:
-    return BusMessage(
+    # The tenant is set without the constructor's check, so a test can hand the consumer a message
+    # with none (defence in depth; a validated BusMessage always has one, TEN-020).
+    return message_with_tenant(
+        tenant_id,
         id="m-1",
         topic="scheduled.work",
         event_type=event_type,
         payload=dict(_payload() if payload is None else payload),
-        tenant_id=tenant_id,
     )
 
 

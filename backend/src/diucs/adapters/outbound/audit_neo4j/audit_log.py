@@ -68,6 +68,7 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.tenancy import (
     ScopeId,
+    ScopeKind,
     TenantNotBound,
     current_scope_or_none,
     scope_for_new_unit,
@@ -77,7 +78,7 @@ from diucs.domain.errors import ValidationFailed
 
 HEAD_ID = "audit"
 OUTCOME_RECORDED = "recorded"
-PROVENANCE_ACTIVITIES = frozenset({"create", "confirm", "approve", "call-back"})
+PROVENANCE_ACTIVITIES = frozenset({"create", "confirm", "approve", "call-back", "scope-decision"})
 ACTIVITY_CODE_SYSTEM = code_system_url("provenance-activity")
 
 _EXTRA_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9]{0,63}$")
@@ -493,7 +494,16 @@ def _bound_scope(tx: Tx) -> ScopeId:
     return scope
 
 
-def _parse_entry(text: str) -> AuditEntry:
+def _chain_tenant(tx: Tx) -> str:
+    """The tenant of the chain being read: the bound scope's, which is the tenant of every entry in
+    it (the hashed text names none, DEC-231 item 3). A network chain has no tenant: refused."""
+    scope = _bound_scope(tx)
+    if scope.kind is not ScopeKind.TENANT:
+        raise TenantNotBound
+    return scope.value
+
+
+def _parse_entry(text: str, tenant_id: str) -> AuditEntry:
     data: dict[str, Any] = json.loads(text)
     actor: dict[str, Any] = data["actor"]
     return AuditEntry(
@@ -505,6 +515,7 @@ def _parse_entry(text: str) -> AuditEntry:
             device_id=actor["device_id"],
             channel=str(actor["channel"]),
             service_ids=frozenset(actor["service_ids"]),
+            tenant_id=tenant_id,
         ),
         entity_ids=tuple(data["entity_ids"]),
         snapshot=data["snapshot"],
@@ -560,7 +571,7 @@ def _expected_provenance_edges(payload: dict[str, Any]) -> list[_Edge]:
     return edges
 
 
-def _stored_node_matches(row: dict[str, Any]) -> bool:
+def _stored_node_matches(row: dict[str, Any], tenant_id: str) -> bool:
     """A chain node must agree with its hashed text in every stored part: its own properties
     (including recorded), and its outgoing edges with their properties and targets. Anything the
     text does not account for is refused."""
@@ -568,7 +579,7 @@ def _stored_node_matches(row: dict[str, Any]) -> bool:
     props: dict[str, Any] = row["props"]
     try:
         if "AuditEvent" in row["labels"]:
-            entry = _parse_entry(text)
+            entry = _parse_entry(text, tenant_id)
             expected = {
                 "action": entry.action,
                 "useCase": entry.use_case,
@@ -687,10 +698,11 @@ class Neo4jAuditLog:
     async def records(self, since: str | None = None) -> list[AuditRecord]:
         """Audit records in chain order. With since, only the records after that record's id."""
         rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-LIST"))
+        tenant_id = _chain_tenant(self._tx)
         found = [
             AuditRecord(
                 id=str(row["id"]),
-                entry=_parse_entry(str(row["entryJson"])),
+                entry=_parse_entry(str(row["entryJson"]), tenant_id),
                 chain_hash=str(row["chainHash"]),
                 previous_hash=str(row["previousHash"]),
             )
@@ -707,6 +719,7 @@ class Neo4jAuditLog:
         """True when every link of the bound scope's chain is intact, in order, and its head points
         at the last link. Another scope's chain is not read, so it is not checked here."""
         genesis = genesis_hash_for(_bound_scope(self._tx).value)
+        tenant_id = _chain_tenant(self._tx)
         rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-CHAIN"))
         head_rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-HEAD"))
         if not head_rows:
@@ -717,7 +730,7 @@ class Neo4jAuditLog:
                 return False
             if chain_hash_over(previous, str(row["entryJson"])) != row["chainHash"]:
                 return False
-            if not _stored_node_matches(row):
+            if not _stored_node_matches(row, tenant_id):
                 return False
             previous = str(row["chainHash"])
         head = head_rows[0]

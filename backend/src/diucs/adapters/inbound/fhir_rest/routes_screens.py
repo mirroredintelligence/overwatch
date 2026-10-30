@@ -7,11 +7,10 @@ GET  /screens/pairing/{pairingId}    claim: the display asks whether a lead has 
                                      in the X-Screen-Secret header, never in the URL; the tenant is
                                      the host's.
 POST /screens                        connect: a shift lead types the code and a screen name. Role
-                                     lead, Idempotency-Key required. The tenant is the lead's. The
-                                     REST edge binds it from the verified token only with TEN-018;
-                                     until then nothing is bound here, the use case refuses with
-                                     TenantNotBound, and the request fails closed (500). The route
-                                     never reads a tenant from the body, the query or a header.
+                                     lead, Idempotency-Key required. The tenant is the lead's: the
+                                     role dependency binds it from the verified token (TEN-018,
+                                     `auth.current_actor`) and the route never reads a tenant from
+                                     the body, the query or a header.
 
 Refusals: every wrong, expired, used or other-tenant code or secret answers 404 with one body (the
 use case raises one NotAllowed, DEC-160 item 3). Pairing limits answer 429. A cache that cannot be

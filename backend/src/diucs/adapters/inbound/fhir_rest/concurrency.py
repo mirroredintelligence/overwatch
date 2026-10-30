@@ -27,7 +27,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
     PreconditionFailed,
     PreconditionRequired,
 )
-from diucs.application.actor import Actor
+from diucs.application.actor import Actor, require_actor_in_bound_tenant
 from diucs.application.ports.outbound.cache import Cache
 
 REPLAY_TTL: Final = timedelta(hours=24)
@@ -124,6 +124,9 @@ class ReplayCache:
         self._cache = cache
 
     async def lookup(self, actor: Actor, key: str, body_hash: str) -> StoredResponse | None:
+        # The cache qualifies every name with the bound scope (TEN-019), so a replay is found only
+        # in the tenant that stored it; an actor of another tenant than the bound one is a fault.
+        require_actor_in_bound_tenant(actor)
         text = await self._cache.get(scoped_key(subject_of(actor), key))
         if text is None:
             return None
@@ -141,6 +144,7 @@ class ReplayCache:
         return StoredResponse(status_code=status_code, headers=headers, body=body)
 
     async def save(self, actor: Actor, key: str, body_hash: str, response: StoredResponse) -> None:
+        require_actor_in_bound_tenant(actor)
         text = json.dumps(
             {
                 "digest": body_hash,

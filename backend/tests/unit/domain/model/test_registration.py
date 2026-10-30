@@ -118,3 +118,74 @@ def test_a_scope_date_given_as_text_is_refused() -> None:
     # A date that arrives as text is not a calendar date, whatever it looks like.
     with pytest.raises(ValidationFailed):
         _entry(date="2026-10-25")
+
+
+# Invitation (U24)
+
+
+def _invitation(**overrides: Any) -> Any:
+    from diucs.domain.model.registration import Invitation
+
+    values: dict[str, Any] = {
+        "id": "inv-1",
+        "service_id": "svc-ucr-east",
+        "registration_id": "reg-ucr-east-1",
+        "requester_role_id": "role-lead-1",
+        "invitee_id": "prac-invitee-1",
+        "role_label": "Duty manager",
+        "created_at": CREATED,
+        "sent_at": CREATED,
+        "expires_at": datetime(2026, 10, 27, 12, 50, tzinfo=UTC),
+    }
+    values.update(overrides)
+    return Invitation(**values)
+
+
+def test_an_invitation_with_its_ids_label_and_times_is_accepted() -> None:
+    invitation = _invitation()
+    assert invitation.role_label == "Duty manager"
+
+
+@pytest.mark.parametrize("name", ["created_at", "sent_at", "expires_at"])
+def test_every_invitation_time_must_be_timezone_aware(name: str) -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        _invitation(**{name: datetime(2026, 10, 27, 12, 50)})
+    assert raised.value.field == name
+
+
+def test_an_invitation_must_expire_after_it_was_sent() -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        _invitation(expires_at=CREATED)
+    assert raised.value.field == "expires_at"
+
+
+def test_an_invitation_cannot_be_sent_before_it_was_made() -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        _invitation(sent_at=datetime(2026, 10, 25, 12, 49, tzinfo=UTC))
+    assert raised.value.field == "sent_at"
+
+
+@pytest.mark.parametrize("name", ["id", "service_id", "registration_id", "requester_role_id"])
+def test_an_invitation_id_must_not_be_blank(name: str) -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        _invitation(**{name: " "})
+    assert raised.value.field == name
+
+
+def test_an_invitee_must_be_named() -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        _invitation(invitee_id="")
+    assert raised.value.field == "invitee_id"
+
+
+def test_a_role_label_must_not_carry_a_phone_number_or_a_postcode() -> None:
+    for label in ("Ring 07700 900123 0123456", "Ward DT4 8XX"):
+        with pytest.raises(ValidationFailed) as raised:
+            _invitation(role_label=label)
+        assert raised.value.field == "role_label"
+
+
+def test_a_role_label_must_not_be_blank() -> None:
+    with pytest.raises(ValidationFailed) as raised:
+        _invitation(role_label="  ")
+    assert raised.value.field == "role_label"

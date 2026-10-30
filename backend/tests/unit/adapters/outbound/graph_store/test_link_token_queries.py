@@ -15,6 +15,7 @@ LINK_IDS = [
     "Q-LINK-MARK-USED",
     "Q-LINK-BURN-KEY",
     "Q-LINK-OPEN-FOR-PHONE",
+    "Q-LINK-OPEN-FOR-ABOUT",
 ]
 
 

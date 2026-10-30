@@ -23,6 +23,7 @@ from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -40,6 +41,7 @@ def _result(action: str = "report-capacity") -> AuditEntry:
             device_id="dev-sms-1",
             channel="text",
             service_ids=frozenset({"svc-ucr-west"}),
+            tenant_id=ACTOR_TENANT,
         ),
         entity_ids=("obs-1",),
         snapshot=None,

@@ -13,6 +13,7 @@ change another test's result.
 import asyncio
 import json
 from collections import defaultdict, deque
+from collections.abc import Callable
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -31,7 +32,13 @@ from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.memory_code_store import InMemoryCodeStore
 from diucs.adapters.testing.memory_event_bus import ManualEventBus
 from diucs.application.ports.outbound.cache import Cache
-from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS, BusMessage, EventBus
+from diucs.application.ports.outbound.event_bus import (
+    QUEUES,
+    TOPICS,
+    BusMessage,
+    EventBus,
+    from_wire,
+)
 from diucs.application.ports.outbound.identity import CodeStore
 from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.settings import Settings
@@ -39,6 +46,7 @@ from diucs.domain.rules.identity_policy import CodeState
 from tests.contract.harness import Harness
 from tests.support.redis import flush_prefix, flush_run
 from tests.support.servicebus import client as servicebus_client
+from tests.support.servicebus import take_emulator_lock
 
 # Every fake starts on 2026-10-25, the day of the London clock change, in UTC (the only zone a
 # contract may depend on). Durations are relative, so no test depends on the start instant.
@@ -217,13 +225,15 @@ def session_open_window(wait: timedelta) -> float:
 
 
 def _as_bus_message(message: ServiceBusReceivedMessage, name: str) -> BusMessage:
-    payload = json.loads(b"".join(message.body))
-    return BusMessage(
-        id=message.message_id or "",
-        topic=name,
-        event_type=message.subject or "",
-        payload=payload,
+    """The received message through the one reader of the tenant (TEN-020): a message with no
+    usable tenant fails here, as it would be dead-lettered by a consumer."""
+    return from_wire(
+        name,
+        message_id=message.message_id,
         session_id=message.session_id,
+        subject=message.subject,
+        properties=message.application_properties,
+        payload=json.loads(b"".join(message.body)),
     )
 
 
@@ -300,7 +310,18 @@ class _RecordingBus:
 
 
 async def make_servicebus_event_bus() -> Harness[EventBus]:
-    """The Service Bus emulator (I02, DEC-008 pattern: no state carries between tests)."""
+    """The Service Bus emulator (I02, DEC-008 pattern: no state carries between tests). The
+    emulator lock is held from here until close(): another run that receives from the same queues
+    takes this test's due message (tests/support/servicebus.py)."""
+    release = await take_emulator_lock()
+    try:
+        return await _open_servicebus_event_bus(release)
+    except BaseException:
+        release()
+        raise
+
+
+async def _open_servicebus_event_bus(release: Callable[[], None]) -> Harness[EventBus]:
     sb = servicebus_client()
     # A timed-out session open is the normal empty case, so it fails at once instead of retrying
     # for about 40 s per call (DEC-102 item 4).
@@ -325,9 +346,12 @@ async def make_servicebus_event_bus() -> Harness[EventBus]:
                 await bus.cancel(queue, number)
             await _drain(sb, sessions, _CONTRACT_QUEUES)
         finally:
-            await bus.close()
-            await sessions.close()
-            await sb.close()
+            try:
+                await bus.close()
+                await sessions.close()
+                await sb.close()
+            finally:
+                release()
 
     return Harness(
         subject=recorder,

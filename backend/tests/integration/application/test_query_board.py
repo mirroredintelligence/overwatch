@@ -39,6 +39,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from diucs.domain.rules.pressure import Pressure
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import read_tx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -60,6 +61,7 @@ ACTOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ANONYMOUS = dataclasses.replace(ACTOR, role=Role.ANONYMOUS_LINK, practitioner_id=None)
 

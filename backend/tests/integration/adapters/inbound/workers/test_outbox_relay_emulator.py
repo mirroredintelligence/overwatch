@@ -47,6 +47,7 @@ def _relay(uow_factory: UnitOfWorkFactory, bus: ServiceBusEventBus, tenant_id: s
 
 async def _receive_until(
     message_id: str,
+    tenant_id: str,
     *,
     topic: str | None = None,
     subscription: str | None = None,
@@ -68,7 +69,8 @@ async def _receive_until(
                     max_message_count=20, max_wait_time=3
                 ):
                     await receiver.complete_message(received)
-                    if received.message_id == message_id:
+                    # On the wire the id is qualified with the tenant (TEN-020).
+                    if received.message_id == f"{tenant_id}:{message_id}":
                         return received
     raise AssertionError("the message did not arrive")
 
@@ -86,7 +88,9 @@ async def test_a_pending_message_is_published_to_the_bus_and_marked_published(
 
     assert result == RelayResult(published=1, failed=0, skipped_no_lock=False)
     assert (await outbox_node(neo4j_driver, message_id))["status"] == "published"
-    received = await _receive_until(message_id, topic="booking.events", subscription="notifier")
+    received = await _receive_until(
+        message_id, tenant_id, topic="booking.events", subscription="notifier"
+    )
     assert received.subject == "BookingRequested"
     assert (received.application_properties or {}).get(b"tenantId") == tenant_id.encode()
 
@@ -108,6 +112,6 @@ async def test_scheduled_work_is_scheduled_on_the_bus_and_its_number_is_stored(
     stored = await work_node(neo4j_driver, work_id)
     assert isinstance(stored["sequenceNumber"], int)
     assert (await outbox_node(neo4j_driver, message_id))["status"] == "published"
-    received = await _receive_until(message_id, queue="scheduled.work")
+    received = await _receive_until(message_id, tenant_id, queue="scheduled.work")
     assert received.subject == "ScheduledWorkDue"
     assert (received.application_properties or {}).get(b"tenantId") == tenant_id.encode()

@@ -55,6 +55,7 @@ from diucs.domain.model.tenant_records import (
     MappingStatus,
     default_retention,
 )
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads
 
@@ -85,6 +86,7 @@ def person(ref: str) -> Actor:
         device_id=None,
         channel="web",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
 
 
@@ -524,7 +526,7 @@ async def test_the_facts_of_a_ready_tenant_are_all_true(
 async def test_every_change_by_a_role_off_the_list_leaves_the_graph_untouched(
     heads: None, uow_factory_a: UnitOfWorkFactory, neo4j_driver: AsyncDriver
 ) -> None:
-    advisor = Actor(Role.ADVISOR, "prac-advisor-1", None, "web", frozenset())
+    advisor = Actor(Role.ADVISOR, "prac-advisor-1", None, "web", frozenset(), ACTOR_TENANT)
 
     with pytest.raises(NotAllowed):
         await DraftTenantConfig(uow_factory_a, FixedClock(NOW), ROLES).execute(

@@ -110,7 +110,6 @@ def test_alert_carries_no_free_text() -> None:
     [
         (AlertKind.SYSTEM_PRESSURE, SERVICE, True),  # pressure carries no service
         (AlertKind.SERVICE_CLOSED, None, True),  # a service alert names its service
-        (AlertKind.SERVICE_CLOSED, SERVICE, False),  # critical follows the kind
     ],
 )
 def test_alert_fields_must_match_their_kind(

@@ -5,7 +5,7 @@
   "name": "role",
   "status": "active",
   "content": "complete",
-  "count": 10,
+  "count": 13,
   "concept": [
     {
       "code": "advisor",
@@ -32,8 +32,16 @@
       "display": "Lead"
     },
     {
+      "code": "network-admin",
+      "display": "Network admin"
+    },
+    {
       "code": "owner",
       "display": "Owner"
+    },
+    {
+      "code": "platform-operator",
+      "display": "Platform operator"
     },
     {
       "code": "reporter",
@@ -42,6 +50,10 @@
     {
       "code": "support",
       "display": "Support"
+    },
+    {
+      "code": "tenant-admin",
+      "display": "Tenant admin"
     },
     {
       "code": "wall",

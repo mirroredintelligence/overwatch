@@ -19,18 +19,21 @@ from diucs.adapters.inbound.workers.tenant_binding import (
 )
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.tenancy import current_scope_or_none
+from tests.support.bus import message_with_tenant
 
 TENANT_A = "tenant-a"
 TENANT_B = "tenant-b"
 
 
 def _message(tenant_id: str | None, message_id: str = "SM1") -> BusMessage:
-    return BusMessage(
+    # The tenant is set without the constructor's check: a message built by a path that bypasses
+    # validation must still not be handled (defence in depth; TEN-020 made it unreachable).
+    return message_with_tenant(
+        tenant_id,
         id=message_id,
         topic="inbound.replies",
         event_type="SmsReceived",
         payload={"text": "SECRET-PAYLOAD-TEXT"},
-        tenant_id=tenant_id,
     )
 
 

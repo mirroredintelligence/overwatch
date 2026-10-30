@@ -35,6 +35,7 @@ def _message(traceparent: str | None) -> BusMessage:
         topic="inbound.replies",
         event_type="SmsReceived",
         traceparent=traceparent,
+        tenant_id="tenant-a",
     )
 
 

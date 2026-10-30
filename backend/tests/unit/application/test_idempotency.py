@@ -11,6 +11,7 @@ from diucs.application.idempotency import decode_result, encode_result
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.use_cases.criteria import ConfirmCriteriaResult
 from diucs.domain.codes import Role
+from tests.support.actors import ACTOR_TENANT
 
 AT = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 
@@ -25,6 +26,7 @@ def _entry(at: datetime = AT) -> AuditEntry:
             device_id="dev-sms-1",
             channel="text",
             service_ids=frozenset({"svc-ucr-west"}),
+            tenant_id=ACTOR_TENANT,
         ),
         entity_ids=("obs-1", "obs-2"),
         snapshot=None,

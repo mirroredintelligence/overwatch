@@ -71,6 +71,7 @@ from diucs.domain.model.tenant_records import (
     TenantRetention,
     default_retention,
 )
+from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
 LATER = datetime(2026, 10, 29, 9, 30, tzinfo=UTC)
@@ -94,6 +95,7 @@ def actor(role: Role = Role.OWNER, practitioner_id: str | None = "prac-owner-1")
         device_id=None,
         channel="web",
         service_ids=frozenset(),
+        tenant_id=ACTOR_TENANT,
     )
 
 

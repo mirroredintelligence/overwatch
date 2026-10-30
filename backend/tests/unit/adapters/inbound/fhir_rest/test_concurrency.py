@@ -29,7 +29,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.actor import Actor
-from diucs.application.tenancy import bind_tenant
+from diucs.application.tenancy import TenantMismatch, bind_tenant
 from diucs.domain.codes import Role
 
 
@@ -40,13 +40,14 @@ def _bound_tenant(request: pytest.FixtureRequest) -> Iterator[None]:
     if request.node.get_closest_marker("no_tenant") is not None:
         yield
         return
-    with bind_tenant("acme-icb"):
+    with bind_tenant(TENANT):
         yield
 
 
 T0 = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
-ACTOR = Actor(Role.LEAD, "pr-1", None, "api", frozenset())
-OTHER_ACTOR = Actor(Role.LEAD, "pr-2", None, "api", frozenset())
+TENANT = "acme-icb"
+ACTOR = Actor(Role.LEAD, "pr-1", None, "api", frozenset(), TENANT)
+OTHER_ACTOR = Actor(Role.LEAD, "pr-2", None, "api", frozenset(), TENANT)
 REQUEST_BODY = b'{"resourceType":"TestThing","note":"synthetic request body text"}'
 STORED = StoredResponse(
     status_code=201,
@@ -117,17 +118,17 @@ def test_different_bodies_have_different_hashes() -> None:
 
 
 def test_a_practitioner_is_its_own_subject() -> None:
-    actor = Actor(Role.LEAD, "pr-1", None, "api", frozenset())
+    actor = Actor(Role.LEAD, "pr-1", None, "api", frozenset(), TENANT)
     assert subject_of(actor) == "pr-1"
 
 
 def test_a_wall_device_is_its_own_subject() -> None:
-    actor = Actor(Role.WALL, None, "dev-7", "api", frozenset())
+    actor = Actor(Role.WALL, None, "dev-7", "api", frozenset(), TENANT)
     assert subject_of(actor) == "dev-7"
 
 
 def test_an_actor_with_no_subject_is_refused() -> None:
-    actor = Actor(Role.LEAD, None, None, "api", frozenset())
+    actor = Actor(Role.LEAD, None, None, "api", frozenset(), TENANT)
     with pytest.raises(ValueError):
         subject_of(actor)
 
@@ -212,3 +213,61 @@ async def test_an_unreadable_cached_entry_is_a_miss_not_an_answer(
     assert await cache.lookup(ACTOR, "key-1", digest) == STORED
     await raw.set("idem:pr-1:key-1", "not json at all")
     assert await cache.lookup(ACTOR, "key-1", digest) is None
+
+
+# ---------------------------------------------------------------- replay guard per tenant (TEN-018)
+
+
+async def test_the_same_subject_key_and_body_in_another_tenant_is_not_a_replay(
+    replay: tuple[ReplayCache, InMemoryCache],
+) -> None:
+    # R04's known issue: tenant B reusing tenant A's subject and key replayed A's cached 201.
+    cache, _ = replay
+    digest = body_hash(REQUEST_BODY)
+    other_tenant_actor = Actor(Role.LEAD, "pr-1", None, "api", frozenset(), "other-icb")
+    await cache.save(ACTOR, "key-1", digest, STORED)
+
+    with bind_tenant("other-icb"):
+        assert await cache.lookup(other_tenant_actor, "key-1", digest) is None
+        await cache.save(
+            other_tenant_actor, "key-1", digest, StoredResponse(200, {}, b'{"other":true}')
+        )
+        again = await cache.lookup(other_tenant_actor, "key-1", digest)
+
+    assert again == StoredResponse(200, {}, b'{"other":true}')
+    assert await cache.lookup(ACTOR, "key-1", digest) == STORED
+
+
+async def test_the_other_tenants_entry_is_not_kept_under_the_first_tenants_name(
+    replay: tuple[ReplayCache, InMemoryCache],
+) -> None:
+    cache, raw = replay
+    digest = body_hash(REQUEST_BODY)
+    with bind_tenant("other-icb"):
+        await cache.save(
+            Actor(Role.LEAD, "pr-1", None, "api", frozenset(), "other-icb"), "key-1", digest, STORED
+        )
+
+    assert await raw.get("idem:pr-1:key-1") is None
+
+
+async def test_an_actor_of_another_tenant_than_the_bound_one_cannot_look_up_a_replay(
+    replay: tuple[ReplayCache, InMemoryCache],
+) -> None:
+    cache, _ = replay
+    stranger = Actor(Role.LEAD, "pr-1", None, "api", frozenset(), "other-icb")
+
+    with pytest.raises(TenantMismatch):
+        await cache.lookup(stranger, "key-1", body_hash(REQUEST_BODY))
+
+
+async def test_an_actor_of_another_tenant_than_the_bound_one_cannot_save_a_replay(
+    replay: tuple[ReplayCache, InMemoryCache],
+) -> None:
+    cache, raw = replay
+    stranger = Actor(Role.LEAD, "pr-1", None, "api", frozenset(), "other-icb")
+
+    with pytest.raises(TenantMismatch):
+        await cache.save(stranger, "key-1", body_hash(REQUEST_BODY), STORED)
+
+    assert await raw.get("idem:pr-1:key-1") is None

@@ -9,17 +9,19 @@ Contact numbers and addresses for reporting never enter the draft: they are writ
 contact store (P16) for the registration's requester role. Decisions: DEC-243.
 """
 
+import contextlib
 import hashlib
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, fields, replace
 from datetime import date
-from typing import Any, Final
+from typing import Any, Final, Protocol
 
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.lookups import TransientLookupError
 from diucs.application.ports.outbound.outbox import outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId
@@ -561,20 +563,46 @@ async def _completeness(uow: UnitOfWork, registration: Registration) -> list[Fie
     return errors
 
 
+class RegistrationPersister(Protocol):
+    """What a submit calls after it commits to write the registration's resources (U27,
+    PersistRegistration). It is idempotent: a registration already written is left alone."""
+
+    async def persist_registration(self, registration_id: str) -> object: ...
+
+
 class SubmitRegistration:
-    """Submit a complete registration for approval. Only from draft or needs-changes."""
+    """Submit a complete registration for approval. Only from draft or needs-changes.
+
+    With a `persist`, a submit that succeeds then writes the registration's resources (U27). That
+    is a second unit of work after the submit has committed, so a lookup that cannot answer
+    (TransientLookupError) leaves the submit standing; the same submit sent again is a replay, and
+    the replay tries the write again."""
 
     def __init__(
         self,
         uow_factory: UnitOfWorkFactory,
         ids: IdGenerator,
         clock: Clock,
+        *,
+        persist: RegistrationPersister | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._ids = ids
         self._clock = clock
+        self._persist = persist
 
     async def execute(self, command: SubmitRegistrationCommand) -> SubmitResult:
+        result = await self._submit(command)
+        if (
+            self._persist is not None
+            and result.status is RegistrationStatus.SUBMITTED
+            and not result.errors
+        ):
+            with contextlib.suppress(TransientLookupError):
+                await self._persist.persist_registration(command.registration_id)
+        return result
+
+    async def _submit(self, command: SubmitRegistrationCommand) -> SubmitResult:
         fingerprint = _fingerprint("submit", command.registration_id, command.actor.practitioner_id)
         now = self._clock.now()
         async with self._uow_factory() as uow:

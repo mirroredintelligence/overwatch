@@ -42,6 +42,7 @@ from diucs.domain.model.flags import (
     ReportFlag,
 )
 from diucs.domain.model.service import AvailableTime, ServiceProfile
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes
 
 Seed = Callable[..., Awaitable[None]]
@@ -63,6 +64,7 @@ REPORTER = Actor(
     device_id="device-1",
     channel="link",
     service_ids=frozenset({"ucr-west", "ward-a"}),
+    tenant_id=ACTOR_TENANT,
 )
 ADVISOR = Actor(
     role=Role.ADVISOR,
@@ -70,6 +72,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 
 UCR_WEST = ServiceProfile(

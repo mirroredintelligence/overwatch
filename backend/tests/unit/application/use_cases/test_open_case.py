@@ -43,6 +43,7 @@ from diucs.domain.model.scores import (
     PathwaysDx,
 )
 from diucs.domain.rules.booking_rules import REFERENCE_ATTEMPTS
+from tests.support.actors import ACTOR_TENANT
 
 OPENED = datetime(2026, 10, 29, 9, 30, tzinfo=UTC)
 LATER = datetime(2026, 10, 29, 10, 10, tzinfo=UTC)
@@ -55,6 +56,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 ALLOWED_ROLES = (Role.ADVISOR, Role.CLINICAL)
 REFUSED_ROLES = tuple(role for role in Role if role not in ALLOWED_ROLES)

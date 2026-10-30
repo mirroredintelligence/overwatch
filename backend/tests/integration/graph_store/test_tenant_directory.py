@@ -11,6 +11,7 @@ directory has no write statement, which is the point.
 """
 
 import os
+import sys
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -24,7 +25,12 @@ from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.driver import run_global_query
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS, TENANT_MIGRATIONS
-from diucs.adapters.outbound.graph_store.queries import GLOBAL_QUERY_IDS, REGISTRY
+from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
+from diucs.adapters.outbound.graph_store.queries import (
+    GLOBAL_QUERY_IDS,
+    GLOBAL_WRITE_IDS,
+    REGISTRY,
+)
 from diucs.adapters.outbound.graph_store.tenant_directory import (
     Neo4jTenantDirectory,
     tenant_properties,
@@ -40,6 +46,16 @@ from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
 from diucs.domain.model.tenant import Tenant, TenantStatus
 from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all, write_tx
+from tests.support.network_samples import (
+    MEMBER_B,
+    NETWORK_ID,
+    SETTINGS,
+    make_grant,
+    make_listing,
+    make_member,
+    make_network,
+    make_owner_membership,
+)
 from tests.support.relay_rig import NOW, SpyBus, add_messages, outbox_message
 from tests.support.tenant_samples import make_tenant
 
@@ -354,6 +370,107 @@ async def test_a_damaged_record_is_a_fault_and_does_not_hide_the_other_tenants_i
 
 # What a global statement can reach
 
+# The global statements, and which test answers for each (every one must be in exactly one place):
+#
+# * the exercised statements run in the test below against a graph that also holds data, with the
+#   parameters written here, and each must answer a row and nothing from a data node;
+# * the whole-graph counts (the invariant check) read every node, so the test below holds them to a
+#   stricter test of their own;
+# * the health ping answers `RETURN 1` and names no node at all;
+# * the network registry's writes need a world of their own (a network to take the lock of, a row
+#   in the status the caller expects, a lookalike beside it to show that nothing else changes):
+#   `test_network_registry.py::test_a_write_statement_changes_no_node_that_is_not_a_registry_node`
+#   runs every id on `GLOBAL_WRITE_IDS` in such a world, and round trips, races and conflicts of
+#   each are tested there too. A write has no answer to compare, so it is accounted for by id.
+TENANT_ANSWERS: dict[str, dict[str, Any]] = {
+    "Q-TENANT-GET": {"id": A},
+    "Q-TENANT-LIST-ACTIVE": {},
+    "Q-TENANT-ACTIVE-IDS": {},
+    "Q-TENANT-BY-NUMBER": {"number": NUMBER_A, "accountSid": SID_A},
+    "Q-TENANT-BY-ACCOUNT": {"accountSid": SID_A},
+    "Q-TENANT-ACTIVE-LINE": {"id": A},
+    "Q-TENANT-BY-HOST": {"host": "alpha.example.org"},
+    "Q-TENANT-BY-ENTRA": {"directoryId": GUID_A},
+}
+NETWORK_ANSWERS: dict[str, dict[str, Any]] = {
+    "Q-NETWORK-GET": {"id": NETWORK_ID},
+    "Q-NETWORK-MEMBERSHIPS": {"networkId": NETWORK_ID},
+    "Q-NETWORK-MEMBERSHIPS-OF": {"memberTenantId": MEMBER_B},
+    "Q-NETWORK-MEMBERSHIP-ACTIVE": {"networkId": NETWORK_ID, "memberTenantId": MEMBER_B},
+    "Q-NETWORK-GRANT-GET": {"id": make_grant().id},
+    "Q-NETWORK-GRANTS": {"networkId": NETWORK_ID},
+    "Q-NETWORK-GRANTS-OF": {"grantorTenantId": MEMBER_B},
+    "Q-NETWORK-GRANT-ACTIVE-FOR": {"grantorTenantId": MEMBER_B, "scope": "capacity"},
+    "Q-NETWORK-LISTING-GET": {"id": make_listing().id},
+    "Q-NETWORK-LISTINGS": {"networkId": NETWORK_ID},
+    "Q-NETWORK-LISTINGS-OF": {"networkId": NETWORK_ID, "sourceTenantId": MEMBER_B},
+}
+WHOLE_GRAPH_COUNTS = frozenset({"Q-INVARIANT-UNSTAMPED", "Q-INVARIANT-CROSS-SCOPE"})
+NO_DATA_AT_ALL = frozenset({"Q-NEO4J-PING"})
+WRITES_TESTED_IN_THEIR_OWN_WORLD = frozenset(
+    {
+        "Q-NETWORK-CREATE",
+        "Q-NETWORK-SAVE",
+        "Q-NETWORK-MEMBER-CREATE",
+        "Q-NETWORK-MEMBER-SAVE",
+        "Q-NETWORK-GRANT-CREATE",
+        "Q-NETWORK-GRANT-SAVE",
+        "Q-NETWORK-LISTING-CREATE",
+        "Q-NETWORK-LISTING-SAVE",
+    }
+)
+
+
+def assert_every_global_statement_is_accounted_for(exercised: set[str]) -> None:
+    """Each id on the global allowlist is in exactly one of the sets above. A new global statement
+    is in none of them until its author exercises it here or names it where it is tested, so this
+    fails for it, naming the id."""
+    groups = {
+        "exercised": exercised,
+        "whole-graph counts": set(WHOLE_GRAPH_COUNTS),
+        "ping": set(NO_DATA_AT_ALL),
+        "registry writes": set(WRITES_TESTED_IN_THEIR_OWN_WORLD),
+    }
+    accounted = set().union(*groups.values())
+    assert set(GLOBAL_QUERY_IDS) - accounted == set(), "global statements nothing here covers"
+    assert accounted - set(GLOBAL_QUERY_IDS) == set(), "a covered id that is not a global statement"
+    names = list(groups)
+    for position, left in enumerate(names):
+        for right in names[position + 1 :]:
+            both = groups[left] & groups[right]
+            assert both == set(), f"{sorted(both)} is in both '{left}' and '{right}'"
+    # The writes are named, not derived: a new global write is a deliberate addition here, next to
+    # the test that runs it in its own world, and does not slip in with the allowlist.
+    assert set(GLOBAL_WRITE_IDS) == set(WRITES_TESTED_IN_THEIR_OWN_WORLD)
+
+
+async def _seed_network_registry(connection: Neo4jConnection) -> None:
+    """A network with an owner and two members, an approved grant and an admitted listing of one
+    member: every row a registry read can return."""
+    registry = Neo4jNetworkRegistry(connection)
+    await registry.create_network(make_network(), SETTINGS)
+    await registry.create_membership(make_owner_membership())
+    await registry.create_membership(make_member(MEMBER_B))
+    await registry.create_grant(make_grant())
+    await registry.create_listing(make_listing())
+
+
+async def test_a_global_statement_that_nothing_covers_fails_the_accounting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The accounting is itself tested: a statement added to the allowlist and to none of the sets,
+    and an id in two of them, are each refused."""
+    assert_every_global_statement_is_accounted_for(set(TENANT_ANSWERS) | set(NETWORK_ANSWERS))
+    grown = {**GLOBAL_QUERY_IDS, "Q-NEW-GLOBAL": "a statement added without a test"}
+    monkeypatch.setattr(sys.modules[__name__], "GLOBAL_QUERY_IDS", grown)
+    with pytest.raises(AssertionError, match="nothing here covers"):
+        assert_every_global_statement_is_accounted_for(set(TENANT_ANSWERS) | set(NETWORK_ANSWERS))
+    monkeypatch.undo()
+    with pytest.raises(AssertionError, match="both"):
+        assert_every_global_statement_is_accounted_for(
+            set(TENANT_ANSWERS) | set(NETWORK_ANSWERS) | {"Q-NEO4J-PING"}
+        )
+
 
 async def test_no_global_statement_returns_anything_from_a_graph_that_also_holds_data(
     neo4j_driver: AsyncDriver, connection: Neo4jConnection, tenant_id: str, other_tenant_id: str
@@ -376,18 +493,29 @@ async def test_no_global_statement_returns_anything_from_a_graph_that_also_holds
             sid=SID_A,
             guid=GUID_A,
         )
-    answers = {
-        "Q-TENANT-GET": {"id": A},
-        "Q-TENANT-LIST-ACTIVE": {},
-        "Q-TENANT-ACTIVE-IDS": {},
-        "Q-TENANT-BY-NUMBER": {"number": NUMBER_A, "accountSid": SID_A},
-        "Q-TENANT-BY-ACCOUNT": {"accountSid": SID_A},
-        "Q-TENANT-ACTIVE-LINE": {"id": A},
-        "Q-TENANT-BY-HOST": {"host": "alpha.example.org"},
-        "Q-TENANT-BY-ENTRA": {"directoryId": GUID_A},
-    }
-    whole_graph = {"Q-INVARIANT-UNSTAMPED", "Q-INVARIANT-CROSS-SCOPE"}
-    assert set(answers) | {"Q-NEO4J-PING"} | whole_graph == set(GLOBAL_QUERY_IDS)
+    await _seed_network_registry(connection)
+    for scope in (tenant_id, other_tenant_id):
+        # Tenant data that looks like the registry's rows: the same ids, keys and words, on nodes
+        # of the data's labels, with the marker. A registry statement names its labels, so none of
+        # these can be returned.
+        await _run(
+            neo4j_driver,
+            "CREATE (:Observation {id: $network, networkId: $network, status: 'active', "
+            "memberTenantId: $member, grantorTenantId: $member, sourceTenantId: $member, "
+            "scope: 'capacity', serviceId: 'svc-1', note: $marker, tenantId: $scope}) "
+            "CREATE (:Observation {id: $grant, networkId: $network, status: 'approved', "
+            "grantorTenantId: $member, scope: 'capacity', note: $marker, tenantId: $scope}) "
+            "CREATE (:Observation {id: $listing, networkId: $network, status: 'admitted', "
+            "sourceTenantId: $member, serviceId: 'svc-1', note: $marker, tenantId: $scope})",
+            network=NETWORK_ID,
+            grant=make_grant().id,
+            listing=make_listing().id,
+            member=MEMBER_B,
+            marker=DATA_MARKER,
+            scope=scope,
+        )
+    answers = {**TENANT_ANSWERS, **NETWORK_ANSWERS}
+    assert_every_global_statement_is_accounted_for(set(answers))
 
     for query_id in answers:
 
@@ -397,6 +525,7 @@ async def test_no_global_statement_returns_anything_from_a_graph_that_also_holds
         rows = await connection.run_read(work)
         assert rows, query_id
         assert DATA_MARKER not in repr(rows), query_id
+        assert "tenantId" not in repr(rows), query_id
         assert f"data-{tenant_id}" not in repr(rows), query_id
         assert f"data-{other_tenant_id}" not in repr(rows), query_id
 

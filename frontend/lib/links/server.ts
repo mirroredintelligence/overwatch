@@ -1,6 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
-import { parseLinkView, type LinkView, LinkShapeError } from './model';
+import { parseOpenLink, type OpenLink, LinkShapeError } from './model';
 
 // Server-only. The link pages' route handlers and Server Components call the back end's
 // link API (`/links/...`, beside `/fhir`) through this module, never the browser.
@@ -62,7 +62,7 @@ export type LinkCall = {
   host: string | null;
   body?: unknown;
   csrf?: string;
-  /** Extra headers (the reporter BFF sends X-Device-Id and a bearer token this way). */
+  /** Further request headers, such as `Authorization` or `X-Screen-Secret` (the screen and token routes). */
   headers?: Record<string, string>;
 };
 
@@ -82,12 +82,16 @@ export async function callLinkApi(call: LinkCall): Promise<LinkReply> {
   if (call.host === null || !HOST_SHAPE.test(call.host)) throw new LinkApiError('unavailable');
   const url = new URL(call.path, backendRoot(process.env[BASE_URL_VARIABLE]));
   const payload = call.body === undefined ? undefined : JSON.stringify(call.body);
-  const headers: Record<string, string | number> = { ...call.headers, Host: call.host, Accept: 'application/json' };
+  const headers: Record<string, string | number> = { Host: call.host, Accept: 'application/json' };
   if (payload !== undefined) {
     headers['Content-Type'] = 'application/json';
     headers['Content-Length'] = Buffer.byteLength(payload);
   }
   if (call.csrf !== undefined) headers['X-CSRF-Token'] = call.csrf;
+  // Applied last, but never over the host that names the tenant or the length of the body.
+  for (const [name, value] of Object.entries(call.headers ?? {})) {
+    if (!['host', 'content-length'].includes(name.toLowerCase())) headers[name] = value;
+  }
 
   // Read at call time from the module object, so a test double of the transport is the one used.
   const transport = url.protocol === 'https:' ? https : http;
@@ -120,15 +124,27 @@ export async function callLinkApi(call: LinkCall): Promise<LinkReply> {
   });
 }
 
-export type LinkState = { kind: 'open'; view: LinkView } | { kind: 'gone' };
+export type LinkState = { kind: 'open'; link: OpenLink } | { kind: 'gone'; state: ClosedState };
+
+/**
+ * The words a closed link may say on GET (L01, L02). A holder of the link may learn why it is closed
+ * (a change link shows a cancelled booking); anything else the back end sends is `expired`.
+ */
+export const CLOSED_STATES = ['expired', 'used', 'declined', 'cancelled', 'withdrawn', 'not-reached'] as const;
+export type ClosedState = (typeof CLOSED_STATES)[number];
+
+export function closedStateOf(body: unknown): ClosedState {
+  const state = typeof body === 'object' && body !== null ? (body as { state?: unknown }).state : undefined;
+  return CLOSED_STATES.find((known) => known === state) ?? 'expired';
+}
 
 /** The link as the back end sees it for this host: open with its view, or gone (expired, used or unknown). */
 export async function readLink(token: string, host: string | null): Promise<LinkState> {
   const reply = await callLinkApi({ method: 'GET', path: `/links/${encodeURIComponent(token)}`, host });
-  if (reply.status === 410) return { kind: 'gone' };
+  if (reply.status === 410) return { kind: 'gone', state: closedStateOf(reply.body) };
   if (reply.status !== 200) throw new LinkApiError('unavailable');
   try {
-    return { kind: 'open', view: parseLinkView(reply.body) };
+    return { kind: 'open', link: parseOpenLink(reply.body) };
   } catch (error) {
     if (error instanceof LinkShapeError) throw new LinkApiError('bad-answer');
     throw error;
@@ -140,6 +156,8 @@ const STATE_WORD = /^[a-z-]{1,24}$/;
 /** The fields a page may read, per status. Anything else the back end sent is dropped. */
 const FIELDS_BY_STATUS: Record<number, readonly string[]> = {
   200: [
+    'bookingStatus',
+    'changeToken',
     'serviceName',
     'value',
     'unitLabel',

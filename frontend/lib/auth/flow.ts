@@ -11,17 +11,21 @@ import {
   verifyIdToken,
   type Transaction,
 } from './oidc';
+import { exchangeStaffToken } from './exchange';
 import {
   baseCookieOptions,
   createSession,
   readRequestCookie,
   sessionSecretKey,
 } from './session';
-import { backendTokenExpiresAt, mapRoles, mintBackendToken, safeNext } from './staff';
+import { safeNext } from './staff';
+import { hostOf } from '@/lib/links/server';
 
 // The two halves of staff sign-in: start (send the browser to Entra) and complete (the browser
-// comes back with a code). The tenant is never read from the request: it comes from the directory
-// of the verified ID token and from nothing else. Nothing here logs a token, code or claim.
+// comes back with a code). The tenant is never read from the request's body, query or a header but
+// Host: it is the host the browser came to, and the back end decides from that host and its own
+// records whether this person may sign in and as what (TEN-043). Nothing here logs a token, code or
+// claim.
 
 export const TRANSACTION_COOKIE = 'diucs_oidc';
 const TRANSACTION_PATH = '/api/bff/auth/entra';
@@ -30,7 +34,6 @@ const ENCRYPTION = { alg: 'dir', enc: 'A256GCM' } as const;
 
 const FAILED = '/sign-in?error=failed';
 const NO_ACCESS = '/sign-in?error=no-access';
-const FORBIDDEN = '/forbidden';
 
 const BASE64URL_43 = /^[A-Za-z0-9_-]{43}$/;
 const CODE_MAX_LENGTH = 2048;
@@ -147,27 +150,24 @@ export async function completeSignIn(request: Request): Promise<Response> {
     if (!code || code.length > CODE_MAX_LENGTH) throw new SignInRefused('state');
 
     const idToken = await exchangeCode(config, code, transaction);
-    const identity = await verifyIdToken(config, idToken, transaction.nonce, now);
+    await verifyIdToken(config, idToken, transaction.nonce, now);
 
-    const role = mapRoles(identity.roles, { allowSupport: identity.binding.platform });
-    if (role === null) return see(NO_ACCESS);
-
-    const backendToken = await mintBackendToken(
-      { oid: identity.oid, role, tenantId: identity.binding.tenantId },
-      now,
-    );
+    // The back end signs the token and says the role. The Host is the one this request came to.
+    const result = await exchangeStaffToken(idToken, hostOf(request), now);
+    if (result.kind === 'refused') return see(NO_ACCESS);
+    const { grant } = result;
     await createSession({
-      role,
+      role: grant.role,
       services: [],
-      sub: identity.oid,
-      backendToken,
-      expiresAt: backendTokenExpiresAt(now).toISOString(),
+      sub: grant.sub,
+      backendToken: grant.token,
+      expiresAt: grant.expiresAt,
     });
-    return moveOn(safeNext(transaction.next, role));
+    return moveOn(safeNext(transaction.next, grant.role));
   } catch (error) {
     if (error instanceof SignInRefused) {
       note(error.reason);
-      return see(error.reason === 'unbound-directory' ? FORBIDDEN : FAILED);
+      return see(FAILED);
     }
     note('fault');
     return see(FAILED);

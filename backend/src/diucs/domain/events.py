@@ -610,6 +610,34 @@ class ReportEscalated:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class ClinicalAdviceGiven:
+    """A clinical advisor gave advice on a request (U40). Topic alerts.events. Carries the request
+    id and the choice only: never the note (it is in the protected text store) and no patient
+    value."""
+
+    event_type: ClassVar[str] = "ClinicalAdviceGiven"
+    request_id: str
+    choice: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+        if not self.request_id.strip() or not self.choice.strip():
+            raise ValidationFailed("request_id", "and the choice are required")
+
+    def to_payload(self) -> dict[str, Any]:
+        return {"request_id": self.request_id, "choice": self.choice, "at": _at_text(self.at)}
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        return cls(
+            request_id=_text(payload, "request_id"),
+            choice=_text(payload, "choice"),
+            at=_when(payload),
+        )
+
+
 DomainEvent = (
     CapacityReported
     | StatusChanged
@@ -629,6 +657,7 @@ DomainEvent = (
     | ReportFlagged
     | PhoneTaskRaised
     | ReportEscalated
+    | ClinicalAdviceGiven
 )
 
 _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
@@ -647,6 +676,7 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         RegistrationPersisted: REGISTRATION_EVENTS,
         CriteriaApproved: CRITERIA_EVENTS,
         AlertRaised: ALERTS_EVENTS,
+        ClinicalAdviceGiven: ALERTS_EVENTS,
         AlertAcknowledged: ALERTS_EVENTS,
         ReportFlagged: CAPACITY_EVENTS,
         PhoneTaskRaised: CAPACITY_EVENTS,
@@ -670,6 +700,7 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "RegistrationPersisted": RegistrationPersisted.decode,
         "CriteriaApproved": CriteriaApproved.decode,
         "AlertRaised": AlertRaised.decode,
+        "ClinicalAdviceGiven": ClinicalAdviceGiven.decode,
         "AlertAcknowledged": AlertAcknowledged.decode,
         "ReportFlagged": ReportFlagged.decode,
         "PhoneTaskRaised": PhoneTaskRaised.decode,

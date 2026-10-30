@@ -160,6 +160,10 @@ class PersonRepository(Protocol):
         (DEC-065 item 1). A malformed hash raises ValidationFailed."""
         ...
 
+    async def active_clinical_leads(self, now: datetime) -> list[PractitionerRole]:
+        """Active clinical-lead roles in effect at now (U40, DEC-394). The clinical advisors."""
+        ...
+
     async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:
         """The active roles this practitioner owns, whatever their code."""
         ...
@@ -456,6 +460,11 @@ class ClinicalRequestRepository(Protocol):
 
     async def waiting(self) -> list[ClinicalRequestRecord]:
         """The requests nobody has taken, in queue order."""
+        ...
+
+    async def open_requests(self) -> list[ClinicalRequestRecord]:
+        """The requests not yet advised: waiting and taken, in no particular order (U40). The
+        queue is built from these with release of idle locks (queue_now)."""
         ...
 
     async def taken_by(self, clinician_id: str) -> list[ClinicalRequestRecord]:

@@ -148,6 +148,11 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
         lookup=("key",),
         expect=Expect(rows=({"id": "r-1"},)),
     ),
+    "Q-PERSON-ACTIVE-ROLES": Scenario(
+        "list the active roles of active practitioners (the clinical leads are chosen from them)",
+        seed=_REPORTER_SEED,
+        expect=Expect(rows=({"id": "r-1"}, {"id": "r-2"})),
+    ),
     "Q-PHONE-SERVICES-HELD": Scenario(
         "list the roles a phone holds and is not covered out of",
         seed=_REPORTER_SEED,
@@ -242,6 +247,16 @@ _PERSON_ROLES_OF: Final = NamedQuery(
     mode="read",
     scenario=_SCENARIOS["Q-PERSON-ROLES-OF"],
 )
+_ACTIVE_ROLES: Final = NamedQuery(
+    id="Q-PERSON-ACTIVE-ROLES",
+    cypher=(
+        "MATCH (r:PractitionerRole {active: true, tenantId: $tenant})"
+        "-[:PRACTITIONER]->(:Practitioner {active: true, tenantId: $tenant}) "
+        "RETURN r.id AS id ORDER BY r.id"
+    ),
+    mode="read",
+    scenario=_SCENARIOS["Q-PERSON-ACTIVE-ROLES"],
+)
 # Query #3 (fhir-data-model): the roles a phone holds and is not covered out of at $now.
 _PHONE_SERVICES_HELD: Final = NamedQuery(
     id="Q-PHONE-SERVICES-HELD",
@@ -314,6 +329,7 @@ _ROLE_COVER: Final = NamedQuery(
 for _query in (
     _PERSON_PHONE_FIND,
     _PERSON_ROLES_OF,
+    _ACTIVE_ROLES,
     _PHONE_SERVICES_HELD,
     _PHONE_SERVICES_AT,
     _SERVICE_ROLES,
@@ -518,6 +534,15 @@ class Neo4jPersonRepository:
 
     async def get_role(self, role_id: str) -> PractitionerRole | None:
         return await self._role(role_id)
+
+    async def active_clinical_leads(self, now: datetime) -> list[PractitionerRole]:
+        rows = await run_query(self._tx, REGISTRY.get("Q-PERSON-ACTIVE-ROLES"))
+        roles = await self._roles(str(row["id"]) for row in rows)
+        return [
+            role
+            for role in roles
+            if role.code is PractitionerRoleCode.CLINICAL_LEAD and is_in_effect(role, now)
+        ]
 
     async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:
         rows = await run_query(

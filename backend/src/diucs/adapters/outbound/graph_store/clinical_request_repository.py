@@ -97,6 +97,13 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
         lookup=("system", "code"),
         expect=Expect(rows=({"id": "req-1"},)),
     ),
+    "Q-CLIN-OPEN": Scenario(
+        "list the clinical advice requests not yet advised, waiting or taken",
+        seed=_WAITING_SEED,
+        params=_CODE_PARAMS,
+        lookup=("system", "code"),
+        expect=Expect(rows=({"id": "req-1"},)),
+    ),
     "Q-CLIN-TAKEN-BY": Scenario(
         "list the clinical advice requests a clinical advisor has taken",
         seed=_TAKEN_SEED,
@@ -141,6 +148,17 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
         ),
         mode="read",
         scenario=_SCENARIOS["Q-CLIN-WAITING"],
+    ),
+    NamedQuery(
+        id="Q-CLIN-OPEN",
+        cypher=(
+            "MATCH (t:Task {tenantId: $tenant}) "
+            "WHERE t.businessStatus IN ['waiting', 'taken'] "
+            "MATCH (t)-[:CODE]->(:Concept {system: $system, code: $code, tenantId: $tenant}) "
+            "RETURN t.id AS id ORDER BY t.authoredOn, t.id"
+        ),
+        mode="read",
+        scenario=_SCENARIOS["Q-CLIN-OPEN"],
     ),
     NamedQuery(
         id="Q-CLIN-TAKEN-BY",
@@ -374,6 +392,15 @@ class Neo4jClinicalRequestRepository:
         found = await self._many(rows)
         by_id = {record.request.id: record for record in found}
         return [by_id[request.id] for request in queue_order(r.request for r in found)]
+
+    async def open_requests(self) -> list[ClinicalRequestRecord]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-CLIN-OPEN"),
+            system=TASK_CODE_SYSTEM,
+            code=CLINICAL_CODE,
+        )
+        return await self._many(rows)
 
     async def taken_by(self, clinician_id: str) -> list[ClinicalRequestRecord]:
         rows = await run_query(

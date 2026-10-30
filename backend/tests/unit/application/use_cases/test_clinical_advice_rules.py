@@ -18,7 +18,7 @@ from diucs.application.use_cases.clinical_advice import (
     validate_request,
 )
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.clinical import ClinicalRequestRecord
+from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
 from diucs.domain.rules.clinical_queue import ClinicalRequest, Presence
 
 T0 = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
@@ -50,7 +50,7 @@ def _record(
 
 def test_the_presence_key_and_its_lifetime_are_as_the_architecture_says() -> None:
     assert presence_key("prac-clin-1") == "presence:clinical:prac-clin-1"
-    assert PRESENCE_TTL == timedelta(seconds=120)
+    assert timedelta(seconds=120) == PRESENCE_TTL
 
 
 def test_an_empty_clinician_has_no_presence_key() -> None:
@@ -101,14 +101,36 @@ def test_advice_needs_a_known_choice_and_a_known_reason_when_given() -> None:
 
 def test_an_idle_lock_is_released_into_the_queue() -> None:
     idle = _record("a", "now", T0, taken_by="clin-1", taken_at=T0)
-    fresh = _record("b", "now", T0 + timedelta(minutes=1), taken_by="clin-2", taken_at=T0)
+    fresh = _record(
+        "b", "now", T0 + timedelta(minutes=1), taken_by="clin-2", taken_at=T0 + timedelta(minutes=5)
+    )
     now = T0 + timedelta(minutes=10)
     keys = [r.request.id for r in queue_now([idle, fresh], now)]
     assert keys == ["a"]
 
 
 def test_an_advised_request_never_returns_to_the_queue() -> None:
-    advised = _record("a", "now", T0, taken_by="clin-1", taken_at=T0, advised_at=T0)
+    advised = ClinicalRequestRecord(
+        request=ClinicalRequest(
+            id="a",
+            case_id="case-a",
+            urgency="now",
+            requested_at=T0,
+            taken_by="clin-1",
+            taken_at=T0,
+            advised_at=T0,
+        ),
+        requester_id="prac-advisor-1",
+        why="other",
+        snapshot_ref=None,
+        advice=ClinicalAdvice(
+            choice="go-ahead",
+            reason=None,
+            note_handle=None,
+            clinician_id="clin-1",
+            at=T0,
+        ),
+    )
     assert queue_now([advised], T0 + timedelta(minutes=30)) == []
 
 

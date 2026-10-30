@@ -31,7 +31,8 @@ from typing import Final, Literal
 from diucs.adapters.outbound.graph_store.scenario import Scenario
 
 _MODES = ("read", "write")
-_SCOPES = ("tenant", "global")
+_SCOPES = ("tenant", "global", "platform")
+Scope = Literal["tenant", "global", "platform"]
 
 # `$tenant` and not `$tenantId`, `$tenants` or `$tenant_x`.
 _TENANT_PARAMETER = re.compile(r"\$tenant\b")
@@ -109,6 +110,46 @@ GLOBAL_WHOLE_GRAPH_IDS: Final[frozenset[str]] = frozenset(
     {"Q-INVARIANT-UNSTAMPED", "Q-INVARIANT-CROSS-SCOPE"}
 )
 
+# The platform statements (TEN-028, DEC-503): the few statements that write the tenant registry.
+# The registry nodes carry no tenant (DEC-132), so a tenant statement cannot write them, and a
+# global statement is read-only (DEC-163 item 3). Creating a tenant, moving it through its
+# lifecycle and recording its numbers, host and directory are the platform operator's work, so
+# they have a scope of their own: `scope="platform"`, an id on this list with a reason, the
+# SHA-256 pin of its exact text in PLATFORM_STATEMENTS, registry labels only, CREATE, MERGE and SET
+# only (never a delete, a procedure call or a loop), no `$tenant`. They run only through
+# `run_platform_query`, only from `graph_store/tenant_registry.py` (an architecture test), which
+# only the composition root builds. Adding one is as deliberate as adding a global statement.
+PLATFORM_QUERY_IDS: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "Q-TENANT-REG-CREATE": (
+            "creates one Tenant registry node, in provisioning, with a new id: the tenant exists "
+            "nowhere else yet, so no tenant is bound"
+        ),
+        "Q-TENANT-REG-SAVE": (
+            "writes the lifecycle fields of one Tenant registry node when its epoch and status "
+            "are still the ones the operator read (compare and set): activation, suspension, "
+            "resume and the references of a tenant"
+        ),
+        "Q-TENANT-REG-SET-HOST": (
+            "sets the host of one Tenant registry node: unique across tenants by constraint"
+        ),
+        "Q-TENANT-REG-SET-DIRECTORY": (
+            "sets the Entra directory id of one Tenant registry node: unique across tenants by "
+            "constraint"
+        ),
+        "Q-TENANT-REG-PUT-NUMBER": (
+            "records one TenantNumber registry node of a Tenant: the number is unique across "
+            "tenants by constraint, so another tenant's number is refused, never moved"
+        ),
+        "Q-TENANT-REG-MARK-TESTED": (
+            "records that a test text was delivered from one TenantNumber registry node"
+        ),
+        "Q-TENANT-REG-NUMBERS": (
+            "reads the TenantNumber registry nodes of one Tenant, for its activation facts"
+        ),
+    }
+)
+
 # THE GUARANTEE (TEN-007 round 2, DEC-163 item 2): every global statement is pinned by the SHA-256
 # of its exact text, stripped of leading and trailing whitespace and nothing else. A global
 # statement registers only when its id is in this mapping AND the digest of its text equals the one
@@ -137,6 +178,30 @@ GLOBAL_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
 )
 
 
+# The pin of each platform statement, as for the global ones (see GLOBAL_STATEMENTS).
+PLATFORM_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "Q-TENANT-REG-CREATE": ("e16c9163a9fb8d58cc0956502926eb28780534514897f52767d7957196dc85db"),
+        "Q-TENANT-REG-SAVE": ("3c91de7d4e95ffc373d5a925b99dead381fc377f9c5494b0f33a209e7042da6c"),
+        "Q-TENANT-REG-SET-HOST": (
+            "81f488eb7dd2f5efe7122a0b1c6a748d4ad0fec42bb58b078999ebb39584ca5c"
+        ),
+        "Q-TENANT-REG-SET-DIRECTORY": (
+            "fd9b8905e44244f759edf96b65ce531e34334512301596ec84977e29b28b1e1c"
+        ),
+        "Q-TENANT-REG-PUT-NUMBER": (
+            "dfc4def5a3d9af616f9898d1c9967a606adb070005984e503e0820d9d5efbf85"
+        ),
+        "Q-TENANT-REG-MARK-TESTED": (
+            "797ca905a9d0a4b6b990edc1c33e5848283852dadc98899b386d95a732f470dd"
+        ),
+        "Q-TENANT-REG-NUMBERS": (
+            "4d79b14ddb793344cadceda9973790d53551f1e8e1730e8bba2e13b69853c6eb"
+        ),
+    }
+)
+
+
 def statement_digest(cypher: str) -> str:
     """The SHA-256 hex digest of a statement's text, stripped of leading and trailing whitespace
     and otherwise unchanged: the value pinned in GLOBAL_STATEMENTS."""
@@ -158,6 +223,14 @@ _NAME_BEFORE = re.compile(r"(?:[\w.]+|`[^`]*`)$")
 _WRITES = re.compile(
     r"\b(?:CREATE|MERGE|SET|DELETE|DETACH|REMOVE|CALL|LOAD|FOREACH|DROP)\b", re.IGNORECASE
 )
+# What a platform write may not contain: it may CREATE, MERGE and SET, and nothing that removes,
+# calls, loads or loops. `SET x:Label` and `SET x = ...` are not seen here: the digest pin is the
+# guarantee, and the labels of a platform statement are checked as for a global one.
+_PLATFORM_FORBIDDEN = re.compile(
+    r"\b(?:DELETE|DETACH|REMOVE|CALL|LOAD|FOREACH|DROP)\b", re.IGNORECASE
+)
+_BARE_NODE = re.compile(r"\(\s*(\w+)\s*\)$")
+_NODE_VARIABLE = re.compile(r"\(\s*(\w+)")
 # A `(` that follows a name with no space is a function call only when the name is on the short
 # list of functions (`properties(t)`); after a clause keyword (`MATCH(n:X)`, `WHERE(...)`) it is
 # a node pattern or an expression, read exactly as it would be with a space; after any other name
@@ -259,7 +332,7 @@ class ScenarioMissing(ValueError):
     """A tenant statement that has no scenario."""
 
 
-def _check_global_text(query_id: str, cypher: str) -> None:
+def _check_global_text(query_id: str, cypher: str, *, writes: bool = False) -> None:
     """The structural checks of a global statement's text: DEFENCE IN DEPTH behind the digest pin,
     not a parser and not the guarantee (see GLOBAL_STATEMENTS). They refuse a write or procedure
     word, a `;`, a `(` after a name that is not an allowed function (so `MATCH(n:X)` is read as a
@@ -267,7 +340,11 @@ def _check_global_text(query_id: str, cypher: str) -> None:
     parenthesis that is neither a node nor a function call, and a brace outside a node's property
     map. Comments and the inside of strings are removed first. The two whole-graph counts
     (GLOBAL_WHOLE_GRAPH_IDS) may name a node by variable alone and call `none` and `type`, and must
-    return a label set or a relationship type and a count and nothing else."""
+    return a label set or a relationship type and a count and nothing else.
+
+    A platform statement that writes (`writes=True`, TEN-028) is checked the same way, except that
+    it may CREATE, MERGE and SET, and may name a node it has already declared with a registry label
+    by its variable alone (a relationship merged between two nodes that an earlier MATCH bound)."""
     text = _blank(query_id, cypher)
     whole_graph = query_id in GLOBAL_WHOLE_GRAPH_IDS
     functions = _WHOLE_GRAPH_FUNCTIONS if whole_graph else _FUNCTIONS
@@ -279,11 +356,17 @@ def _check_global_text(query_id: str, cypher: str) -> None:
             f"query {query_id}: a whole-graph count may return only a label set or a "
             "relationship type and a count"
         )
-    if _WRITES.search(text) is not None:
+    if writes:
+        if _PLATFORM_FORBIDDEN.search(text) is not None:
+            raise ValueError(
+                f"query {query_id}: a platform statement may only create, merge and set"
+            )
+    elif _WRITES.search(text) is not None:
         raise ValueError(f"query {query_id}: a global statement cannot write or call a procedure")
     if ";" in text:
         raise ValueError(f"query {query_id}: a global statement is one statement")
     remaining = text
+    declared: set[str] = set()
     for position in (m.start() for m in re.finditer(r"\(", text)):
         before = _NAME_BEFORE.search(text[:position])
         name = None if before is None or before.end() != position else before.group(0).lower()
@@ -305,10 +388,17 @@ def _check_global_text(query_id: str, cypher: str) -> None:
             # A scan names its nodes by variable only: `(n)`, `(a)`. No label, no property map.
             remaining = remaining.replace(node.group(0), " ", 1)
             continue
+        bare = _BARE_NODE.match(node.group(0))
+        if not labels and writes and bare is not None and bare.group(1) in declared:
+            remaining = remaining.replace(node.group(0), " ", 1)
+            continue
         if not labels:
             raise ValueError(f"query {query_id}: every node in a global statement needs a label")
         if not set(labels) <= GLOBAL_STATEMENT_LABELS:
             raise ValueError(f"query {query_id}: a global statement may name registry labels only")
+        variable = _NODE_VARIABLE.match(node.group(0))
+        if variable is not None:
+            declared.add(variable.group(1))
         remaining = remaining.replace(node.group(0), " ", 1)
     if "{" in remaining or "}" in remaining:
         raise ValueError(
@@ -320,7 +410,9 @@ def _validate(query_id: str, mode: object, scope: object, scenario: object) -> N
     if mode not in _MODES:
         raise ValueError(f"query {query_id}: mode must be 'read' or 'write', not {mode!r}")
     if scope not in _SCOPES:
-        raise ValueError(f"query {query_id}: scope must be 'tenant' or 'global', not {scope!r}")
+        raise ValueError(
+            f"query {query_id}: scope must be 'tenant', 'global' or 'platform', not {scope!r}"
+        )
     if scenario is not None and not isinstance(scenario, Scenario):
         raise ValueError(f"query {query_id}: scenario must be a Scenario or None")
 
@@ -330,7 +422,7 @@ class NamedQuery:
     id: str
     cypher: str
     mode: Literal["read", "write"]
-    scope: Literal["tenant", "global"] = "tenant"
+    scope: Scope = "tenant"
     scenario: Scenario | None = None
 
     def __post_init__(self) -> None:
@@ -344,7 +436,7 @@ class QueryTemplate:
     id: str
     cypher: str
     mode: Literal["read", "write"]
-    scope: Literal["tenant", "global"] = "tenant"
+    scope: Scope = "tenant"
     scenario: Scenario | None = None
 
     def __post_init__(self) -> None:
@@ -370,8 +462,10 @@ class QueryRegistry:
     def register_template(self, template: QueryTemplate) -> None:
         if _INSTANCE_SEPARATOR in template.id:
             raise ValueError(f"template {template.id}: a statement id cannot contain a colon")
-        if template.scope == "global":
-            raise ValueError(f"template {template.id}: a template cannot be a global statement")
+        if template.scope != "tenant":
+            raise ValueError(
+                f"template {template.id}: a template cannot be a global or platform statement"
+            )
         self._refuse_taken(template.id)
         self._check(template.id, template.cypher, template.mode, template.scope, template.scenario)
         self._templates[template.id] = template
@@ -439,6 +533,25 @@ class QueryRegistry:
                 f"query {query_id}: this id is on the global allowlist, so it must be registered "
                 "with scope='global'"
             )
+        if scope != "platform" and query_id in PLATFORM_QUERY_IDS:
+            raise ValueError(
+                f"query {query_id}: this id is on the platform allowlist, so it must be "
+                "registered with scope='platform'"
+            )
+        if scope == "platform":
+            if query_id not in PLATFORM_QUERY_IDS:
+                raise ValueError(f"query {query_id}: not on the platform allowlist")
+            if _mentions_tenant(cypher):
+                raise ValueError(f"query {query_id}: a platform statement cannot mention $tenant")
+            _check_global_text(query_id, cypher, writes=mode == "write")
+            pinned = PLATFORM_STATEMENTS.get(query_id)
+            if pinned is None:
+                raise ValueError(f"query {query_id}: this platform statement has no pinned digest")
+            if statement_digest(cypher) != pinned:
+                raise ValueError(
+                    f"query {query_id}: the text is not the pinned text of this platform statement"
+                )
+            return
         if scope == "global":
             if query_id not in GLOBAL_QUERY_IDS:
                 raise ValueError(f"query {query_id}: not on the global allowlist")

@@ -15,8 +15,8 @@ from typing import Any
 
 import pytest
 
+from diucs.adapters.outbound.graph_store import health, tenant_directory, tenant_registry  # noqa: F401
 from diucs.adapters.outbound.graph_store import queries as queries_module
-from diucs.adapters.outbound.graph_store import tenant_registry  # noqa: F401
 from diucs.adapters.outbound.graph_store.driver import (
     run_global_query,
     run_platform_query,

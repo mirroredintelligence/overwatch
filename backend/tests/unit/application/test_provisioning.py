@@ -14,13 +14,13 @@ from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
 from diucs.application.provisioning import (
     MISSING_HOST,
     activation_facts,
+    count_tested_numbers,
     extra_blockers,
     new_tenant,
     provision_scope,
     references_recorded,
     same_creation,
     seed_recurring_work,
-    count_tested_numbers,
 )
 from diucs.application.tenancy import ScopeId, TenantNotBound, bind_scope
 from diucs.application.use_cases.tenant_config import ConfigurationFacts

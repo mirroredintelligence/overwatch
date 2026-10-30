@@ -44,6 +44,7 @@ from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4
 from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
+from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
 from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.outbound.postcodes_local.centroids import CsvPostcodeLocator
@@ -93,6 +94,7 @@ from diucs.application.ports.outbound.telemetry_query import (
     TelemetryUnavailable,
     TimelineEvent,
 )
+from diucs.application.ports.outbound.tenant_registry import TenantRegistry
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
 from diucs.application.ports.outbound.tokens import (
@@ -170,6 +172,9 @@ class Container:
     uow_factory: UnitOfWorkFactory
     # The platform's record of its tenants: global, read-only, no tenant bound or sent (TEN-007).
     tenants: TenantDirectory
+    # The registry's writes (TEN-028, DEC-503): the platform operator's door, held only by the
+    # operator use cases (`bootstrap/provisioning.py`) and never by a tenant's own code.
+    tenant_registry: TenantRegistry
     # Secrets by reference (DEC-131 item 4): the tenant record holds the reference, never the value.
     secrets: SecretStore
     # The FHIR profile validator (R14): pure Python, no store and no external provider.
@@ -472,6 +477,7 @@ def build(
         neo4j=neo4j,
         uow_factory=uow_factory,
         tenants=directory,
+        tenant_registry=Neo4jTenantRegistry(neo4j),
         secrets=store,
         validator=ProfileValidator(),
         redis=redis,
@@ -555,6 +561,7 @@ def build_for_tests(
         neo4j=neo4j,
         uow_factory=uow_factory,
         tenants=Neo4jTenantDirectory(neo4j),
+        tenant_registry=Neo4jTenantRegistry(neo4j),
         secrets=store,
         validator=ProfileValidator(),
         redis=resolved_redis,

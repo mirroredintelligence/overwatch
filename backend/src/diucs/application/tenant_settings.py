@@ -107,6 +107,28 @@ class DirectoryLinkBase:
         raise TenantRecordInvalid(HOST_MESSAGE)
 
 
+class HostUrls(Protocol):
+    async def host_url(self, scope: ScopeId) -> str:
+        """`https://<the tenant's host>`: the root of the pages that are not the capacity link
+        pages (the invitation page of the first administrator, `/i/<token>`)."""
+        ...
+
+
+class DirectoryHostUrl:
+    """The tenant's own host as a URL root. No fallback: an invitation on another host would not
+    open (and a tenant with no host cannot be activated)."""
+
+    def __init__(self, directory: TenantDirectory) -> None:
+        self._directory = directory
+
+    async def host_url(self, scope: ScopeId) -> str:
+        tenant_scope = _tenant_scope(scope)
+        host = await self._directory.host_of(tenant_scope.value)
+        if host is None:
+            raise TenantRecordInvalid(HOST_MESSAGE)
+        return f"{LINK_SCHEME_TEXT}://{host}"
+
+
 def as_link_base(source: str | LinkBases) -> LinkBases:
     return FixedLinkBase(source) if isinstance(source, str) else source
 

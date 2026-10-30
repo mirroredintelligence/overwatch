@@ -73,28 +73,46 @@ def test_neo4j_password_from_environment_is_hidden_from_repr_and_str(
 
 
 TWILIO_CANARY = "canary-twilio-token-5b2c"
+SMTP_CANARY = "canary-smtp-password-7d1e"
+
+# TEN-042 (DEC-131 item 4): a tenant's Twilio and email credentials are network secrets read from
+# the secret store by the reference its own channel record holds. No process-wide setting holds one.
+GONE = (
+    "twilio_account_sid",
+    "twilio_auth_token",
+    "twilio_from",
+    "smtp_user",
+    "smtp_password",
+    "email_from",
+)
 
 
-def test_twilio_settings_are_unset_by_default() -> None:
-    settings = Settings()
-    assert settings.twilio_account_sid is None
-    assert settings.twilio_auth_token is None
-    assert settings.twilio_from is None
+@pytest.mark.parametrize("name", GONE)
+def test_no_global_twilio_or_email_credential_or_identity_is_a_setting(name: str) -> None:
+    assert name not in Settings.model_fields
+    assert not hasattr(Settings(), name)
 
 
-def test_twilio_token_is_read_from_environment_and_hidden_from_repr(
+def test_an_environment_variable_that_once_set_a_global_credential_changes_nothing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_TWILIO_ACCOUNT_SID", "ACplaceholder")
     monkeypatch.setenv("DIUCS_TWILIO_AUTH_TOKEN", TWILIO_CANARY)
-    monkeypatch.setenv("DIUCS_TWILIO_FROM", "DIUCS-TEST")
+    monkeypatch.setenv("DIUCS_SMTP_PASSWORD", SMTP_CANARY)
+    monkeypatch.setenv("DIUCS_EMAIL_FROM", "someone@example.test")
+
     settings = Settings()
-    assert settings.twilio_account_sid == "ACplaceholder"
-    assert settings.twilio_from == "DIUCS-TEST"
-    assert isinstance(settings.twilio_auth_token, SecretStr)
-    assert settings.twilio_auth_token.get_secret_value() == TWILIO_CANARY
-    assert TWILIO_CANARY not in repr(settings)
-    assert TWILIO_CANARY not in str(settings)
+
+    assert TWILIO_CANARY not in repr(settings) + str(settings.model_dump())
+    assert SMTP_CANARY not in repr(settings) + str(settings.model_dump())
+    assert "someone@example.test" not in str(settings.model_dump())
+
+
+def test_the_email_relay_endpoint_is_still_a_platform_setting() -> None:
+    settings = Settings()
+
+    assert settings.smtp_host is None
+    assert settings.smtp_port == 587
+    assert settings.smtp_starttls is True
 
 
 def test_the_pathways_dx_file_defaults_to_the_repo_sample() -> None:

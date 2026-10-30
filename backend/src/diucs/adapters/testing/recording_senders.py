@@ -17,6 +17,7 @@ from diucs.application.ports.outbound.messaging import (
 )
 from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable
 from diucs.application.tenancy import current_tenant
+from diucs.domain.model.tenant_records import TenantChannel
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,6 +25,8 @@ class RecordedSms:
     to: str
     text: str
     message_id: str
+    tenant: str | None = None
+    identity: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,6 +35,8 @@ class RecordedEmail:
     subject: str
     text: str
     html: str | None
+    tenant: str | None = None
+    identity: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,7 +67,7 @@ class _Attempts:
 
 
 class RecordingSmsSender:
-    def __init__(self) -> None:
+    def __init__(self, identity: str | None = None) -> None:
         self.sent: list[RecordedSms] = []
         self._attempts = _Attempts("sms")
 
@@ -77,7 +82,7 @@ class RecordingSmsSender:
 
 
 class RecordingEmailSender:
-    def __init__(self) -> None:
+    def __init__(self, identity: str | None = None) -> None:
         self.sent: list[RecordedEmail] = []
         self._attempts = _Attempts("email")
 
@@ -143,7 +148,7 @@ class FixedSenderResolver:
             raise ChannelUnavailable(f"no text channel for tenant {tenant}")
         return sender
 
-    async def email_for(self) -> EmailSender:
+    async def email_for(self, channel: TenantChannel | None = None) -> EmailSender:
         tenant = current_tenant()
         sender = self._email.get(tenant)
         if sender is None:

@@ -17,6 +17,7 @@ from typing import Final
 import httpx
 
 from diucs.adapters.inbound.sms_webhook.routes import STATUS_PATH
+from diucs.adapters.outbound.email_smtp.smtp_email import SmtpRelay
 from diucs.adapters.outbound.sms_twilio.twilio_sms import TwilioSms
 from diucs.application.ports.outbound.messaging import EmailSender, SmsSender
 from diucs.application.ports.outbound.sender_resolver import ChannelUnavailable
@@ -29,9 +30,14 @@ from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.tenancy import current_tenant
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
+from diucs.domain.model.tenant_records import TenantChannel
 
 TEXT_CHANNEL: Final = "text"
 EMAIL_CHANNEL: Final = "email"
+
+
+def smtp_relay_from(settings: Settings) -> SmtpRelay:
+    raise NotImplementedError
 
 
 def status_callback_url(settings: Settings) -> str:
@@ -49,6 +55,7 @@ class TenantSenderResolver:
         secrets: SecretStore,
         http: httpx.AsyncClient,
         status_url: str,
+        smtp_relay: SmtpRelay | None = None,
     ) -> None:
         self._directory = directory
         self._secrets = secrets
@@ -61,7 +68,7 @@ class TenantSenderResolver:
         token = self._token(tenant, line)
         return TwilioSms(self._http, line.account_sid, token, line.number, self._status_url)
 
-    async def email_for(self) -> EmailSender:
+    async def email_for(self, channel: TenantChannel | None) -> EmailSender:
         # No email identity is held in tenant configuration yet (TEN-007 holds the text number
         # only), so no tenant has an email channel: every email is refused, not sent by default.
         raise ChannelUnavailable(f"no {EMAIL_CHANNEL} channel for tenant {current_tenant()}")

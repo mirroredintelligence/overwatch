@@ -9,8 +9,9 @@ import html as _html
 import logging
 import re
 import uuid
+from dataclasses import dataclass
 from email.message import EmailMessage
-from typing import Final, Protocol
+from typing import Final
 
 import aiosmtplib
 from pydantic import SecretStr
@@ -39,13 +40,23 @@ _HTML_FRAME: Final = (
 )
 
 
-class SmtpSettings(Protocol):
-    smtp_host: str | None
-    smtp_port: int
-    smtp_user: str | None
-    smtp_password: SecretStr | None
-    smtp_starttls: bool
-    email_from: str
+@dataclass(frozen=True, slots=True)
+class SmtpRelay:
+    """Stub for the red commit."""
+
+    host: str | None
+    port: int = 587
+    starttls: bool = True
+
+
+@dataclass(frozen=True, slots=True, repr=False)
+class SmtpIdentity:
+    """Stub for the red commit."""
+
+    from_address: str
+    display_name: str | None = None
+    username: str | None = None
+    password: SecretStr | None = None
 
 
 def build_message(
@@ -112,13 +123,8 @@ class SmtpEmail:
     retries). A 5xx answer to the recipient is a refusal (accepted False, no provider id). Any
     other 5xx answer is a configuration or contract fault and is not retried."""
 
-    def __init__(self, settings: SmtpSettings) -> None:
-        self._host = settings.smtp_host
-        self._port = settings.smtp_port
-        self._user = settings.smtp_user
-        self._password = settings.smtp_password
-        self._starttls = settings.smtp_starttls
-        self._from = settings.email_from
+    def __init__(self, relay: SmtpRelay, identity: SmtpIdentity) -> None:
+        raise NotImplementedError
 
     async def send(self, to: str, subject: str, text: str, html: str | None) -> SendReceipt:
         if self._host is None:

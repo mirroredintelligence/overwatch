@@ -46,6 +46,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction, GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
 
 from diucs.adapters.outbound.graph_store.driver import create_driver
+from diucs.application.tenancy import ScopeId
 from tests.support import harness_lock
 from tests.support.proc import (
     ProcessUnreadable,
@@ -453,7 +454,35 @@ def _checked_name(name: str) -> str:
     return name
 
 
-async def count_nodes(driver: AsyncDriver, label: str) -> int:
+class WipeRefused(Exception):
+    """A global wipe was asked of a database this process does not own."""
+
+
+def mark_owned(driver: AsyncDriver) -> None:
+    raise NotImplementedError
+
+
+def forget_owned(driver: AsyncDriver) -> None:
+    raise NotImplementedError
+
+
+async def wipe_tenant(driver: AsyncDriver, *scopes: str | ScopeId) -> None:
+    raise NotImplementedError
+
+
+async def wipe_all(driver: AsyncDriver) -> None:
+    raise NotImplementedError
+
+
+async def count_nodes_all(driver: AsyncDriver, label: str) -> int:
+    raise NotImplementedError
+
+
+async def tx_run(tx: Any, cypher: str, /, **params: Any) -> Any:
+    raise NotImplementedError
+
+
+async def count_nodes(driver: AsyncDriver, label: str, *, tenant: str | None = None) -> int:
     query = f"MATCH (n:`{_checked_name(label)}`) RETURN count(n) AS total"
 
     async def work(tx: AsyncManagedTransaction) -> int:
@@ -464,7 +493,9 @@ async def count_nodes(driver: AsyncDriver, label: str) -> int:
     return await read_tx(driver, work)
 
 
-async def node_props(driver: AsyncDriver, label: str, **match: Any) -> dict[str, Any]:
+async def node_props(
+    driver: AsyncDriver, label: str, *, scope: str | None = None, **match: Any
+) -> dict[str, Any]:
     """Properties of the single node with this label and these property values. Fails unless
     exactly one node matches, and the message names how many did."""
     conditions = " AND ".join(f"n.`{_checked_name(key)}` = ${key}" for key in match)

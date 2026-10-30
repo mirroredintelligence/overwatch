@@ -2,7 +2,10 @@
 test seeds through the ports (the repositories), never through raw Cypher. Values are synthetic:
 no names, no phone numbers, no patient data."""
 
+from dataclasses import dataclass
 from datetime import datetime
+
+from neo4j import AsyncDriver
 
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.domain.codes import (
@@ -88,3 +91,12 @@ def prompt(number: int, service_id: str, sent: datetime) -> Communication:
         sent_at=sent,
         delivery_status="sent",
     )
+
+
+@dataclass(frozen=True, slots=True)
+class SeededWorld:
+    service_ids: tuple[str, ...]
+
+
+async def seed_world(driver: AsyncDriver, tenant: str) -> SeededWorld:
+    raise NotImplementedError

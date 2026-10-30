@@ -268,9 +268,11 @@ async def test_a_visiting_service_gets_district_locations_and_a_second_one_reuse
     )
     _, second = await _seed(uow_factory, 2, VISITING, replace(SERVICE, districts="DT3"), "UCR East")
 
-    await _persist(uow_factory).execute(PersistRegistrationCommand(first))
+    # One id generator for both: a fresh one would hand out the first one's ids a second time.
+    ids = SequentialIds("gen")
+    await _persist(uow_factory, ids).execute(PersistRegistrationCommand(first))
     assert await count_nodes(neo4j_driver, "Location") == 2
-    await _persist(uow_factory).execute(PersistRegistrationCommand(second))
+    await _persist(uow_factory, ids).execute(PersistRegistrationCommand(second))
 
     assert await count_nodes(neo4j_driver, "Location") == 2
     areas = await _rows(

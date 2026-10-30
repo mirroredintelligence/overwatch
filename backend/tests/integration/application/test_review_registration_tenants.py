@@ -11,6 +11,7 @@ NOT RUN in the build wave: the batch verification run proves it.
 
 from collections.abc import AsyncIterator
 from dataclasses import replace
+from datetime import date
 from typing import Any
 
 import pytest
@@ -32,10 +33,16 @@ from diucs.application.use_cases.review_registration import (
     StartReviewCommand,
     districts_in_ranges,
 )
-from diucs.domain.codes import PractitionerRoleCode, RegistrationStatus, Role
+from diucs.domain.codes import (
+    PractitionerRoleCode,
+    RegistrationStatus,
+    Role,
+    ScopeFlag,
+    ServiceCategory,
+)
 from diucs.domain.errors import NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
-from diucs.domain.model.registration import Registration
+from diucs.domain.model.registration import Registration, ScopeEntry
 from tests.integration.application.test_review_registration import (
     APPLICANT_ROLE,
     INVITED_MOBILE,
@@ -61,6 +68,15 @@ async def _seed(factory: UnitOfWorkFactory) -> None:
     draft: dict[str, Any] = {key: encode_step(step) for key, step in STEPS.items()}
     draft[LOOKUPS_STEP] = encode_lookups(GOOD)
     async with factory() as uow:
+        await uow.scope.save_entry(
+            ScopeEntry(
+                service_id=SERVICE_ID,
+                name="UCR West",
+                category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+                flag=ScopeFlag.IN_PILOT,
+                date=date(2026, 10, 29),
+            )
+        )
         for practitioner_id, phone_hash in (
             ("prac-applicant", HASHER.hash(INVITED_MOBILE)),
             ("prac-lead", None),

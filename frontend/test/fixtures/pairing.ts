@@ -125,7 +125,7 @@ export class PairingStandIn {
     if (fields === null || Object.keys(fields).some((k) => !allowed.includes(k)) || typeof fields.code !== 'string' || typeof fields.name !== 'string') {
       return outcome(400, 'invalid', 'The request was not valid.');
     }
-    if (this.failWith?.status === 429) return this.failure() as StandInReply;
+    if (this.failWith !== null) return this.failure() as StandInReply;
     const pairing = this.pairings.find((p) => p.code === fields.code && p.deviceToken === null && now.getTime() < p.expiresAt);
     if (pairing === undefined) return refused();
     const n = this.pairings.filter((p) => p.deviceToken !== null).length;

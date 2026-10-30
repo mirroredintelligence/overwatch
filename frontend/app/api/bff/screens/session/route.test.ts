@@ -38,6 +38,7 @@ beforeEach(() => {
   vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   vi.stubEnv('NODE_ENV', 'production');
   resetExchanges();
+  resetCookieWrites();
   server.use(...authHandlers);
 });
 afterEach(() => vi.unstubAllEnvs());

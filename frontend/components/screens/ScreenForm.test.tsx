@@ -259,26 +259,32 @@ describe('ScreenForm: connected', () => {
 });
 
 describe('ScreenForm: accessibility', () => {
-  it('has no axe violations in the form, with errors, with an alert, and when connected', async () => {
-    const { user, container, unmount } = setup();
+  it('has no axe violations in the empty form', async () => {
+    const { container } = setup();
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('has no axe violations with the errors showing', async () => {
+    const { user, container } = setup();
     await user.click(submit());
     expect(await runAxe(container)).toHaveNoViolations();
-    unmount();
+  });
 
-    const alerting = setup(vi.fn(async () => { throw failure('unavailable'); }));
-    await alerting.user.type(code(), '482913');
-    await alerting.user.type(name(), 'Control room');
-    await alerting.user.click(submit());
+  it('has no axe violations with an alert above the form', async () => {
+    const view = setup(vi.fn(async () => { throw failure('unavailable'); }));
+    await view.user.type(code(), '482913');
+    await view.user.type(name(), 'Control room');
+    await view.user.click(submit());
     await screen.findByRole('alert');
-    expect(await runAxe(alerting.container)).toHaveNoViolations();
-    alerting.unmount();
+    expect(await runAxe(view.container)).toHaveNoViolations();
+  });
 
-    const done = setup();
-    await done.user.type(code(), '482913');
-    await done.user.type(name(), 'Control room');
-    await done.user.click(submit());
+  it('has no axe violations when connected', async () => {
+    const view = setup();
+    await view.user.type(code(), '482913');
+    await view.user.type(name(), 'Control room');
+    await view.user.click(submit());
     await waitFor(() => expect(screen.getByText('Screen connected')).toBeInTheDocument());
-    expect(await runAxe(done.container)).toHaveNoViolations();
+    expect(await runAxe(view.container)).toHaveNoViolations();
   });
 });

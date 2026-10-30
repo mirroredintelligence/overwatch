@@ -72,12 +72,23 @@ export async function exchangeStaffToken(
   if (!isStaffRole(role)) throw new SignInRefused('exchange-answer');
 
   const claims = readToken(token);
+  if (claims === null) throw new SignInRefused('exchange-answer');
+  const ends = sessionEnd(expiresAt, claims.expiresAtMs, now);
+  if (ends === null) throw new SignInRefused('exchange-answer');
+  return { kind: 'issued', grant: { token, expiresAt: ends, role, sub: claims.sub } };
+}
+
+/**
+ * When a session made from a token must end: the answer's expiry or the token's own, whichever is
+ * first (a session never outlives its token), to the second. Null when that is not a future instant
+ * within twelve hours, which is not an answer this side believes.
+ */
+export function sessionEnd(expiresAt: string, tokenExpiresAtMs: number, now: Date): string | null {
   const answered = Date.parse(expiresAt);
-  if (claims === null || Number.isNaN(answered)) throw new SignInRefused('exchange-answer');
-  // The session never outlives the token, even if the answer says it may.
-  const ends = Math.floor(Math.min(answered, claims.expiresAtMs) / 1000) * 1000;
-  if (ends <= now.getTime() || ends - now.getTime() > MAX_LIFETIME_MS) throw new SignInRefused('exchange-answer');
-  return { kind: 'issued', grant: { token, expiresAt: new Date(ends).toISOString(), role, sub: claims.sub } };
+  if (Number.isNaN(answered)) return null;
+  const ends = Math.floor(Math.min(answered, tokenExpiresAtMs) / 1000) * 1000;
+  if (ends <= now.getTime() || ends - now.getTime() > MAX_LIFETIME_MS) return null;
+  return new Date(ends).toISOString();
 }
 
 /**

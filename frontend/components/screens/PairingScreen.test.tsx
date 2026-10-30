@@ -54,7 +54,8 @@ describe('PairingScreen', () => {
 
   it('shows the code in very large digits (at least the wall board’s big number size)', async () => {
     const { readFileSync } = await import('node:fs');
-    const css = readFileSync(new URL('./PairingScreen.module.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const { resolve } = await import('node:path');
+    const css = readFileSync(resolve(__dirname, 'PairingScreen.module.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
     const rule = /\.code\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
     const size = /font-size:\s*([\d.]+)rem/.exec(rule);
     expect(size).not.toBeNull();
@@ -119,15 +120,23 @@ describe('PairingScreen', () => {
     expect(container.querySelectorAll('button, a, input, select, textarea')).toHaveLength(0);
   });
 
-  it('has no axe violations, with the code, while connecting and with a message', async () => {
-    const withCode = await show(api());
-    expect(await runAxe(withCode.container)).toHaveNoViolations();
-    withCode.unmount();
-    const connecting = render(<PairingScreen api={api({ start: vi.fn(() => new Promise<never>(() => {})) })} />);
-    expect(await runAxe(connecting.container)).toHaveNoViolations();
-    connecting.unmount();
-    const message = await show(api({ start: vi.fn(async () => { throw new ScreenClientError('unavailable'); }) }));
-    expect(await runAxe(message.container)).toHaveNoViolations();
+  it('has no axe violations with the code', async () => {
+    const view = await show(api());
+    vi.useRealTimers(); // axe uses timers of its own
+    expect(await runAxe(view.container)).toHaveNoViolations();
+  });
+
+  it('has no axe violations while connecting', async () => {
+    vi.useRealTimers();
+    const view = render(<PairingScreen api={api({ start: vi.fn(() => new Promise<never>(() => {})) })} />);
+    expect(await runAxe(view.container)).toHaveNoViolations();
+  });
+
+  it('has no axe violations with a message', async () => {
+    vi.useRealTimers();
+    const view = render(<PairingScreen api={api({ start: vi.fn(async () => { throw new ScreenClientError('unavailable'); }) })} />);
+    await screen.findByRole('alert');
+    expect(await runAxe(view.container)).toHaveNoViolations();
   });
 
   it('puts the code in no title, no address and no storage', async () => {

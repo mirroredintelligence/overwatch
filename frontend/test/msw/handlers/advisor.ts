@@ -66,6 +66,22 @@ const pathwaysHandlers = [
 /** Every GET /api/bff/cases/[ref]/options this file's handlers saw (one per page load, W13). */
 export const seenOptionsReads: string[] = [];
 
+export const CRITERIA_VIEW = {
+  accepts: 'Falls without injury · Frailty · Age 18+ · Postcodes DT1 to DT4 · 08:00 to 20:00',
+  excludes: 'Suspected fracture · Head injury on anticoagulants · Needs IV therapy',
+  version: 3,
+  reviewedOn: '2026-09-12',
+  reviewBy: '2026-12-12',
+  owner: 'UCR clinical lead',
+  overdue: false,
+};
+
+const serviceHandlers = [
+  http.get('/api/bff/services/:id/criteria', () => HttpResponse.json(CRITERIA_VIEW)),
+  http.post('/api/bff/services/:id/phoned', () => HttpResponse.json({ recorded: true }, { status: 201 })),
+  http.post('/api/bff/services/:id/declined', () => HttpResponse.json({ recorded: true }, { status: 201 })),
+];
+
 const optionsHandlers = [
   http.get('/api/bff/cases/:ref/options', ({ params }) => {
     seenOptionsReads.push(String(params.ref));
@@ -77,6 +93,7 @@ export const advisorHandlers = [
   ...caseHandlers,
   ...pathwaysHandlers,
   ...optionsHandlers,
+  ...serviceHandlers,
   http.get('/api/bff/board', () => HttpResponse.json(BOARD_A)),
   http.get('/api/bff/session', () =>
     HttpResponse.json({ role: 'advisor', services: [], sub: 'advisor-1', csrfToken: CSRF_TOKEN }),

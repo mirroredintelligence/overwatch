@@ -137,3 +137,50 @@ describe('OptionsList (W13)', () => {
     expect((await runAxe(container)).violations).toEqual([]);
   });
 });
+
+describe('OptionsList dialogs (W14)', () => {
+  it('"Criteria" opens the criteria dialog; Escape closes it and returns focus to the button', async () => {
+    server.use(
+      http.get('/api/bff/services/:id/criteria', () =>
+        HttpResponse.json({ accepts: 'A', excludes: 'B', version: 1, reviewedOn: null, reviewBy: '2099-01-01', owner: null, overdue: false }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+    const button = within(screen.getByRole('article', { name: 'UCR West' })).getByRole('button', { name: 'Criteria' });
+
+    await user.click(button);
+    expect(await screen.findByRole('dialog', { name: 'Criteria: UCR West' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(button).toHaveFocus();
+  });
+
+  it('"I phoned" and "They declined" open their dialogs for that service', async () => {
+    const user = userEvent.setup();
+    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+    const card = screen.getByRole('article', { name: 'UCR West' });
+
+    await user.click(within(card).getByRole('button', { name: 'I phoned' }));
+    expect(screen.getByRole('dialog', { name: 'I phoned' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await user.click(within(card).getByRole('button', { name: 'They declined' }));
+    expect(screen.getByRole('dialog', { name: 'They declined' })).toBeInTheDocument();
+  });
+
+  it('after a saved answer the options are read again, once', async () => {
+    const user = userEvent.setup();
+    render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+    await user.click(within(screen.getByRole('article', { name: 'UCR West' })).getByRole('button', { name: 'I phoned' }));
+    await user.click(screen.getByRole('button', { name: 'Accepting' }));
+    await user.type(screen.getByLabelText('How many can they take?'), '2');
+    await user.click(byEl('ADV-PHONED-SAVE-BTN'));
+
+    await waitFor(() => expect(seenOptionsReads).toHaveLength(2));
+  });
+});

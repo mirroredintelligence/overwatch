@@ -18,13 +18,13 @@ from datetime import timedelta
 
 import pytest
 import pytest_asyncio
-from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 from neo4j import AsyncDriver
 
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.inbound.fhir_rest.routes_network import NetworkServices
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory

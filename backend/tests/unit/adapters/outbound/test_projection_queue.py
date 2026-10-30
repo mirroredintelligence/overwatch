@@ -12,12 +12,12 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+
 from diucs.adapters.outbound.projection_queue import (
     BusProjectionPublisher,
     projection_message,
     projection_message_id,
 )
-
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_event_bus import ManualEventBus
 from diucs.application.ports.outbound.event_bus import MAX_WIRE_ID_LENGTH, QUEUES, to_wire

@@ -15,12 +15,12 @@ from collections.abc import AsyncIterator
 
 import pytest
 import pytest_asyncio
+
+from diucs.adapters.inbound.fhir_rest import routes_network_events as module
 from diucs.adapters.inbound.fhir_rest.routes_network_events import (
     SCOPE_ENDED_EVENT,
     network_events,
 )
-
-from diucs.adapters.inbound.fhir_rest import routes_network_events as module
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.cache import (

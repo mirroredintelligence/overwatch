@@ -8,8 +8,10 @@ per tenant, so each tenant's first concern is SC-0001. Sample values only.
 """
 
 import json
+from collections.abc import AsyncIterator
 
 import pytest
+import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
@@ -26,9 +28,25 @@ from diucs.application.use_cases.safety_concern import (
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.safety_report import ProblemCategory, SafetyConcernCategory
 from tests.support.booking_rig import ADVISOR, at, sealer, seed_world
-from tests.support.neo4j import count_nodes, node_props
+from tests.support.neo4j import count_nodes, node_props, wipe
+from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
+    """The contracted schema (superseded global keys dropped, DEC-159): the two-tenant tests run on
+    it, not on the root driver, which still holds the global Concept and Communication keys."""
+    async with contracted_container() as driver:
+        yield driver
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
+    await wipe(two_tenant_driver)
+    return two_tenant_driver
+
 
 CONCERN_TEXT = "The board showed accepting for the day, but the service had closed at noon."
 NOW = at(14, 20)
@@ -58,7 +76,8 @@ async def mentions_outside_protected_text(driver: AsyncDriver, probe: str) -> in
     """How many properties of nodes that are not protected text contain the probe."""
     query = (
         "MATCH (n) WHERE NOT n:ProtectedText UNWIND keys(n) AS k "
-        "WITH n[k] AS value WHERE toString(value) CONTAINS $probe "
+        "WITH n[k] AS value WHERE valueType(value) STARTS WITH 'STRING' "
+        "AND value CONTAINS $probe "
         "RETURN count(*) AS total"
     )
     async with driver.session() as session:

@@ -33,7 +33,7 @@ from diucs.domain.model.booking import Booking
 from diucs.domain.model.tenant import TenantWording
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY
 from tests.support.booking_rig import ADVISOR, LEAD, SECRETS, at, open_case, seed_world
-from tests.support.ladder_rig import PHONE_HASH_1, reporter, seed_people
+from tests.support.ladder_rig import PHONE_HASH_1, reporter, seed_people, seed_report
 from tests.support.link_rig import ucr_west
 from tests.support.neo4j import count_nodes
 
@@ -56,12 +56,16 @@ async def sample_wording(_: object) -> TenantWording:
 
 async def seed_east(uow_factory: UnitOfWorkFactory, driver: AsyncDriver, tenant: str) -> list[str]:
     """UCR East with a report and a text reporter, two requested bookings with their timers, and
-    a prompt-due job. Returns the two booking ids. The tenant's wording is seeded too."""
+    a prompt-due job. Returns the two booking ids."""
     await seed_world(uow_factory, driver)
-    await seed_people(uow_factory, reporter(2, PHONE_HASH_1, service_id=EAST))
-    ids: list[str] = []
+    # The service must exist before anything refers to it: the reporter role and the report do.
     async with uow_factory() as uow:
         await uow.services.save(ucr_west(EAST))
+        await uow.commit()
+    await seed_people(uow_factory, reporter(2, PHONE_HASH_1, service_id=EAST))
+    await seed_report(uow_factory, at(13, 0), service_id=EAST, value=4)
+    ids: list[str] = []
+    async with uow_factory() as uow:
         for number in (1, 2):
             case_id = f"case-{2000 + number}"
             await uow.cases.add(open_case(case_id, reference=f"{2000 + number}"))

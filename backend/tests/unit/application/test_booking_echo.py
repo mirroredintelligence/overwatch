@@ -13,14 +13,14 @@ import pytest
 from diucs.application import booking_effects
 from diucs.application.booking_effects import queue_echo
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork
-from diucs.application.tenancy import ScopeId
+from diucs.application.tenancy import ScopeId, ScopeKind
 from diucs.domain.codes import BookingStatus, Channel
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
 from diucs.domain.model.booking import Booking
 
 AT = datetime(2026, 10, 29, 14, 19, tzinfo=UTC)
-SCOPE = ScopeId("tenant-a")
+SCOPE = ScopeId("tenant-a", ScopeKind.TENANT)
 
 
 def _booking() -> Booking:
@@ -45,7 +45,9 @@ class _Recorder:
         return "comm-1"
 
 
-async def test_the_echo_is_about_the_service_not_the_booking(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_the_echo_is_about_the_service_not_the_booking(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     recorder = _Recorder()
     monkeypatch.setattr(booking_effects, "queue_message", recorder)
     booking = _booking()

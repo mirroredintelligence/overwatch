@@ -17,9 +17,9 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.tenancy import ScopeId
 from diucs.application.use_cases.link_access import (
     ACTIONS,
-    BOOKING_ACTIONS,
     BAD_ATTEMPT_WINDOW,
     BAD_ATTEMPTS_PER_ADDRESS,
+    BOOKING_ACTIONS,
     CAPACITY_PURPOSE,
     LINK_CSRF_SECRET,
     LINK_PROMPT_MESSAGES,

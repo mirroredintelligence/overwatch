@@ -41,6 +41,7 @@ from diucs.adapters.outbound.graph_store.unit_of_work import (
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from diucs.application.actor import Actor
 from diucs.application.network_access import NetworkAccess
 from diucs.application.tenancy import bind_network, bind_tenant
 from diucs.application.use_cases.network_board_projector import (
@@ -52,12 +53,18 @@ from diucs.application.use_cases.query_network_directory import (
     QueryNetworkCriteria,
     QueryNetworkDirectory,
 )
-from diucs.application.use_cases.wall_board_scope import UowScreens
+from diucs.application.use_cases.wall_board_scope import (
+    ScreenSettingChanged,
+    SetBoardScopeCommand,
+    SetScreenBoardScope,
+    UowScreens,
+)
 from diucs.domain.codes import Role
+from diucs.domain.errors import Conflict
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from tests.support.edge import EdgeContainer, active_tenants
-from tests.support.network_world import NOW, NetworkWorld, world_ids
 from tests.support.neo4j import node_props
+from tests.support.network_world import NOW, NetworkWorld, world_ids
 from tests.support.tenancy import RunIdentity
 from tests.support.uow import ensure_audit_heads
 
@@ -475,6 +482,42 @@ async def test_two_tenants_with_one_screen_id_change_independently(
     assert (await _stored(world, second))["boardScopeVersion"] == 1
 
 
+async def test_the_durable_replay_answers_a_repeat_after_the_cache_has_forgotten_it(
+    world: NetworkWorld,
+) -> None:
+    """The route's cache is only the fast guard: the use case's own record in the tenant's
+    idempotency store answers a repeat of the same command, and refuses the key for another one."""
+    member = world.ids.members[0]
+    await _seed_screen(world, member)
+    clock = FixedClock(NOW + timedelta(minutes=2))
+    case = SetScreenBoardScope(
+        neo4j_uow_factory(world.driver),
+        NetworkAccess(world.registry, _Names(), None),  # type: ignore[arg-type]
+        clock,
+    )
+
+    def command(board: BoardScope, network: str | None, key: str = "key-1") -> SetBoardScopeCommand:
+        return SetBoardScopeCommand(
+            actor=Actor(Role.LEAD, "prac-1", None, "api", frozenset(), member),
+            device_id=SCREEN,
+            board_scope=board,
+            network_id=network,
+            expected_version=1,
+            idempotency_key=key,
+        )
+
+    with bind_tenant(member):
+        first = await case.execute(command(BoardScope.NETWORK, world.ids.network))
+        again = await case.execute(command(BoardScope.NETWORK, world.ids.network))
+        with pytest.raises(Conflict):
+            await case.execute(command(BoardScope.TENANT, None))
+        stale = command(BoardScope.NETWORK, world.ids.network, "key-2")
+        with pytest.raises(ScreenSettingChanged):
+            await case.execute(stale)
+    assert again == first and first.scope_version == 2
+    assert (await _stored(world, member))["boardScopeVersion"] == 2
+
+
 # ------------------------------------------------------------------ the screen
 
 
@@ -520,7 +563,9 @@ async def test_the_screen_follows_the_setting_back_to_its_own_board(
     await _seed_screen(world, member)
     async with _client(app) as client:
         await _set(client, member, "network", world.ids.network)
-        assert (await client.get("/screens/me/network-board", headers=_wall(member))).status_code == 200
+        assert (
+            await client.get("/screens/me/network-board", headers=_wall(member))
+        ).status_code == 200
         await _set(client, member, "tenant", None, version=2)
         board = await client.get("/screens/me/network-board", headers=_wall(member))
         scope = await client.get("/screens/me/board-scope", headers=_wall(member))
@@ -535,7 +580,9 @@ async def test_a_screen_whose_tenant_left_falls_back_to_its_own_board_with_the_f
     await _seed_screen(world, leaver)
     async with _client(app) as client:
         await _set(client, leaver, "network", world.ids.network)
-        assert (await client.get("/screens/me/network-board", headers=_wall(leaver))).status_code == 200
+        assert (
+            await client.get("/screens/me/network-board", headers=_wall(leaver))
+        ).status_code == 200
         await world.leave(leaver)
         board = await client.get("/screens/me/network-board", headers=_wall(leaver))
         scope = await client.get("/screens/me/board-scope", headers=_wall(leaver))

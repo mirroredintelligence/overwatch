@@ -15,6 +15,7 @@ import styles from './Lead.module.css';
 
 export type Invitation = {
   id: string;
+  serviceId: string;
   serviceName: string;
   role: string;
   steps: SetupSteps;
@@ -34,6 +35,7 @@ function invitationsFrom(body: unknown): Invitation[] {
     }
     return {
       id: textOf(row.id),
+      serviceId: textOf(row.serviceId),
       serviceName: textOf(row.serviceName),
       role: textOf(row.role),
       steps: flags,

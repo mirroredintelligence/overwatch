@@ -54,6 +54,12 @@ class TenantGate:
             return verdict
         return EdgeVerdict.REFUSED
 
+    def forget(self, tenant_id: str) -> None:
+        """Drop the cached record of this tenant, so the next token is judged on a fresh read. A
+        suspension or a resume tells the serving process this at once (`auth.forget_tenant`); every
+        other process reads the record again within `RECORD_TTL` anyway (TEN-073)."""
+        self._records.pop(tenant_id, None)
+
     @staticmethod
     def _judge(record: Tenant | None, claims: BffClaims, method: str) -> EdgeVerdict:
         return edge_verdict(

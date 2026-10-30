@@ -21,6 +21,12 @@ command that hashes a mobile (`invite`): a process that has none refuses it, clo
     provision_tenant.py --operator NAME invite TENANT MOBILE
     provision_tenant.py --operator NAME activate TENANT
     provision_tenant.py --operator NAME status TENANT
+    provision_tenant.py --operator NAME suspend TENANT --mode blocked --reason security-incident
+    provision_tenant.py --operator NAME resume TENANT
+
+A suspension takes effect within the edge's cache interval (60 seconds, TEN-073): this process is
+not the serving one, so it cannot make the serving process forget the tenant; the interval is the
+bound.
 """
 
 import argparse
@@ -36,7 +42,7 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.identity import HmacPhoneHasher
 from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from diucs.application.tenancy import bind_tenant
-from diucs.application.tenant_settings import DirectoryHostUrl
+from diucs.application.tenant_settings import DirectoryHostUrl, DirectoryZones
 from diucs.application.use_cases.tenant_access import InviteTenantAdmin, InviteTenantAdminCommand
 from diucs.application.use_cases.tenant_admin import (
     ActivateTenant,
@@ -54,11 +60,17 @@ from diucs.application.use_cases.tenant_admin import (
     VerifyDirectoryCommand,
     VerifyEntraBinding,
 )
+from diucs.application.use_cases.tenant_suspend import (
+    ResumeTenant,
+    ResumeTenantCommand,
+    SuspendTenant,
+    SuspendTenantCommand,
+)
 from diucs.bootstrap.container import Container, build
 from diucs.bootstrap.settings import Settings
 from diucs.domain.codes import Role
 from diucs.domain.errors import DomainError
-from diucs.domain.model.tenant import OrganisationType, TenantStatus
+from diucs.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason, TenantStatus
 
 OPERATOR_CHANNEL: Final = "script"
 COMMANDS: Final = (
@@ -71,6 +83,8 @@ COMMANDS: Final = (
     "invite",
     "activate",
     "status",
+    "suspend",
+    "resume",
 )
 
 
@@ -96,6 +110,8 @@ class Provisioning:
     directory: VerifyEntraBinding
     invite: InviteTenantAdmin
     activate: ActivateTenant
+    suspend: SuspendTenant
+    resume: ResumeTenant
     container: Container
 
 
@@ -129,6 +145,10 @@ def build_provisioning(container: Container) -> Provisioning:
         ),
         activate=ActivateTenant(
             tenants, registry, factory, container.ids, clock, container.area_districts_for
+        ),
+        suspend=SuspendTenant(tenants, registry, factory, clock),
+        resume=ResumeTenant(
+            tenants, registry, factory, container.ids, clock, DirectoryZones(tenants)
         ),
         container=container,
     )
@@ -196,6 +216,14 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     status = commands.add_parser("status", help="show the tenant's state and what is missing")
     status.add_argument("tenant_id")
+
+    suspend = commands.add_parser("suspend", help="suspend an active tenant")
+    suspend.add_argument("tenant_id")
+    suspend.add_argument("--mode", required=True, choices=[m.value for m in SuspendMode])
+    suspend.add_argument("--reason", required=True, choices=[r.value for r in SuspendReason])
+
+    resume = commands.add_parser("resume", help="resume a suspended tenant")
+    resume.add_argument("tenant_id")
     return parser.parse_args(list(argv))
 
 
@@ -261,6 +289,20 @@ async def run_command(provisioning: Provisioning, args: argparse.Namespace) -> l
                 return [f"tenant {done.tenant_id}: active, epoch {done.epoch}"]
             case "status":
                 return await _status(provisioning, actor, tenant_id)
+            case "suspend":
+                suspended = await provisioning.suspend.execute(
+                    SuspendTenantCommand(actor, SuspendMode(args.mode), SuspendReason(args.reason))
+                )
+                return [
+                    f"tenant {suspended.tenant_id}: suspended {suspended.mode.value}, "
+                    f"epoch {suspended.epoch}"
+                ]
+            case "resume":
+                resumed = await provisioning.resume.execute(ResumeTenantCommand(actor))
+                return [
+                    f"tenant {resumed.tenant_id}: active again, epoch {resumed.epoch}, "
+                    f"{resumed.services_prompted} services prompted"
+                ]
     raise ValueError("unknown command")
 
 

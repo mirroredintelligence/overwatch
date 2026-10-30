@@ -146,7 +146,7 @@ async def _audit(
     )
 
 
-class _Operator:
+class OperatorUseCase:
     def __init__(
         self, tenants: TenantDirectory, uow_factory: UnitOfWorkFactory, clock: Clock
     ) -> None:
@@ -196,7 +196,7 @@ class CreateTenantResult:
     was finished."""
 
 
-class CreateTenant(_Operator):
+class CreateTenant(OperatorUseCase):
     def __init__(
         self,
         tenants: TenantDirectory,
@@ -262,7 +262,7 @@ class RecordNumberCommand:
     sender_label: str
 
 
-class RecordTenantNumber(_Operator):
+class RecordTenantNumber(OperatorUseCase):
     """Record the tenant's text number: the registry node first (a number another tenant holds is a
     `Conflict` and nothing of the tenant's changes), then the tenant's own channel record, which the
     activation facts and the tenant's administrator read."""
@@ -321,7 +321,7 @@ class MarkNumberTestedCommand:
     e164: str
 
 
-class MarkNumberTested(_Operator):
+class MarkNumberTested(OperatorUseCase):
     """Record that a test text was delivered from the tenant's number (an activation fact). The
     operator sends the text and reads the delivery; this records that it happened."""
 
@@ -359,7 +359,7 @@ class SetHostCommand:
     host: str
 
 
-class SetTenantHost(_Operator):
+class SetTenantHost(OperatorUseCase):
     """The tenant's one host: its capacity links and its sign-in are on it (DEC-134 item 3)."""
 
     def __init__(
@@ -397,7 +397,7 @@ class RecordReferencesCommand:
     dcb0160_ref: str | None = None
 
 
-class RecordTenantReferences(_Operator):
+class RecordTenantReferences(OperatorUseCase):
     def __init__(
         self,
         tenants: TenantDirectory,
@@ -460,7 +460,7 @@ class VerifyDirectoryCommand:
     directory_id: str
 
 
-class VerifyEntraBinding(_Operator):
+class VerifyEntraBinding(OperatorUseCase):
     """Verify the Entra directory the tenant's administrator bound (`BindEntraDirectory`, TEN-026):
     only a binding that is waiting (`pending`) can be verified, and the directory becomes the
     tenant's one in the registry (a directory another tenant holds is a `Conflict`), which is how
@@ -540,7 +540,7 @@ class ActivationAssessment:
     tenant)."""
 
 
-class ActivateTenant(_Operator):
+class ActivateTenant(OperatorUseCase):
     def __init__(
         self,
         tenants: TenantDirectory,

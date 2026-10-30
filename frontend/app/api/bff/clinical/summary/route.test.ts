@@ -10,7 +10,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 beforeEach(() => {
@@ -25,7 +25,7 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe('GET /api/bff/clinical/summary', () => {
   it('answers the waiting count and the number of advisors available, as counts only', async () => {
-    const s: Session = { role: 'clinical', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+    const s: Session = { role: 'clinical', tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
     const response = await GET(requestWithCookies('https://app.test/api/bff/clinical/summary', { [SESSION_COOKIE]: await sealSession(s) }));
     expect(await response.json()).toEqual({ waiting: 2, available: 2 });
   });

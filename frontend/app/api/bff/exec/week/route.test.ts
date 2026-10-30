@@ -10,7 +10,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const WEEK = `${EXEC_BACKEND}/HealthcareService/$week-summary`;
@@ -21,7 +21,7 @@ function figure(name: string, value: number | null, suppressed = false) {
 }
 
 async function get(role: Role, query: string) {
-  const s: Session = { role, services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+  const s: Session = { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
   return GET(requestWithCookies(`https://app.test/api/bff/exec/week${query}`, { [SESSION_COOKIE]: await sealSession(s) }));
 }
 

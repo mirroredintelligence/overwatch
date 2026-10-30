@@ -32,7 +32,7 @@ vi.mock('@/lib/screens/client', async (importOriginal) => ({
 }));
 
 function session(role: Role): Session {
-  return { role, services: [], sub: 'dev-1', backendToken: 'a.b.c', expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+  return { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'dev-1', backendToken: 'a.b.c', expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
 }
 
 beforeEach(() => {

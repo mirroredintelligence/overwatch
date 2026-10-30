@@ -1,30 +1,26 @@
-// Which lessons this browser has finished (W53). It is kept in localStorage, inside try/catch: a
-// browser that blocks storage still runs the lessons, and simply remembers nothing. The interface
-// (getDone, markDone, subscribeProgress, doneSnapshot) is the one a back-end progress store would
-// replace later, so no page reads localStorage directly.
+import { tenantStore } from '@/lib/storage/tenantStore';
 
-const KEY = 'diucs-learn-done';
+// Which lessons this browser has finished (W53). It is kept through the one browser-storage helper
+// (lib/storage/tenantStore, TEN-050): per host, interface state only, wiped on sign-out, and nothing
+// when the browser blocks storage (the lessons still run and simply remember nothing). The interface
+// (getDone, markDone, subscribeProgress, doneSnapshot) is the one a back-end progress store would
+// replace later, so no page reads storage directly.
+
+const NAME = 'learn.done';
 const listeners = new Set<() => void>();
 
+const isIds = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
 export function getDone(): Set<string> {
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return new Set();
-    const parsed: unknown = JSON.parse(raw);
-    return new Set(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []);
-  } catch {
-    return new Set();
-  }
+  return new Set(tenantStore.get(NAME, isIds) ?? []);
 }
 
 export function markDone(id: string): void {
   const done = getDone();
   done.add(id);
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify([...done]));
-  } catch {
-    // Blocked storage: the lesson is still finished for this page, and nothing is kept.
-  }
+  // Blocked storage: the lesson is still finished for this page, and nothing is kept.
+  tenantStore.set(NAME, [...done]);
   for (const listener of listeners) listener();
 }
 

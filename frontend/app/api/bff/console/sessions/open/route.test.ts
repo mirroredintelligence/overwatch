@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
+import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { server } from '@/test/msw/server';
@@ -9,16 +9,20 @@ import { POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const BACKEND_ROOT = 'http://backend.test';
 const URL_ = 'https://app.test/api/bff/console/sessions/open';
-const CSRF = 'csrf-token-for-the-test-0123456789abcdefghijklmnop';
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'user-1' }, 'N'.repeat(43));
 
 function session(role: Role): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: 'app.test',
     services: [],
     sub: 'user-1',
     backendToken: 'token-for-the-support-user',
@@ -95,7 +99,7 @@ describe('POST /api/bff/console/sessions/open', () => {
     expect((await post('support', {})).status).toBe(400);
   });
 
-  it('never forwards a tenant the browser sent', async () => {
+  it('refuses a request that names a tenant with 400, and calls nothing (TEN-044)', async () => {
     const seen: { body: unknown } = { body: null };
     server.use(
       http.post(`${BACKEND_ROOT}/support/sessions/open`, async ({ request }) => {
@@ -104,7 +108,22 @@ describe('POST /api/bff/console/sessions/open', () => {
       }),
     );
 
-    await post('support' as Role, { supportCode: 'ABC123', tenantId: 'tenant-b' });
+    const response = await post('support' as Role, { supportCode: 'ABC123', tenantId: 'tenant-b' });
+
+    expect(response.status).toBe(400);
+    expect(seen.body).toBeNull();
+  });
+
+  it('forwards the support code alone', async () => {
+    const seen: { body: unknown } = { body: null };
+    server.use(
+      http.post(`${BACKEND_ROOT}/support/sessions/open`, async ({ request }) => {
+        seen.body = await request.json();
+        return HttpResponse.json({ sessionId: 's-7f3a9c2e1b', expiresAt: '2026-10-30T14:30:00Z' });
+      }),
+    );
+
+    await post('support' as Role, { supportCode: 'ABC123', note: 'extra' });
 
     expect(seen.body).toEqual({ supportCode: 'ABC123' });
   });

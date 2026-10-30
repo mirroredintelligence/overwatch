@@ -13,7 +13,7 @@ type Context = { params: Promise<{ id: string }> };
 
 async function startSession(host: string | null, deviceToken: string): Promise<Response> {
   try {
-    await createWallSession(await exchangeDeviceToken(host, deviceToken));
+    await createWallSession(await exchangeDeviceToken(host, deviceToken), host);
     return json(200, { status: 'paired' });
   } catch (error) {
     if (!(error instanceof ScreenApiError)) throw error;

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
+import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { BACKEND_BASE } from '@/test/msw/handlers/board';
@@ -10,10 +10,12 @@ import { GET, PUT } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-const CSRF = 'csrf-token-for-tests-only-0000000000000000000';
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'advisor-1' }, 'N'.repeat(43));
 const URL_ = 'https://app.test/api/bff/cases/4821';
 const SR_URL = `${BACKEND_BASE}/ServiceRequest/4821`;
 
@@ -45,6 +47,8 @@ const SAVED_SR = {
 function session(role: Role): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: 'app.test',
     services: [],
     sub: 'advisor-1',
     backendToken: 'token-for-advisor',
@@ -145,7 +149,7 @@ describe('GET /api/bff/cases/[ref] (W11)', () => {
   });
 
   it('is never cached', async () => {
-    expect((await get('advisor')).headers.get('cache-control')).toBe('no-store');
+    expect((await get('advisor')).headers.get('cache-control')).toBe('private, no-store');
   });
 });
 
@@ -203,12 +207,15 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
     expect(seen).toHaveLength(0);
   });
 
-  it('drops any field it does not know, such as a name or a tenant', async () => {
-    await put('advisor', { ...VALID, patientName: 'Sample Patient', tenantId: 'tenant-b' });
+  it('drops any field it does not know, such as a name', async () => {
+    await put('advisor', { ...VALID, patientName: 'Sample Patient' });
 
-    const sent = JSON.stringify(seen[0].body);
-    expect(sent).not.toContain('Sample Patient');
-    expect(sent).not.toContain('tenant-b');
+    expect(JSON.stringify(seen[0].body)).not.toContain('Sample Patient');
+  });
+
+  it('refuses a body that names a tenant with 400, and calls nothing (TEN-044)', async () => {
+    expect((await put('advisor', { ...VALID, tenantId: 'tenant-b' })).status).toBe(400);
+    expect(seen).toHaveLength(0);
   });
 
   it('refuses a reporter with 403 and a missing CSRF header with 403', async () => {

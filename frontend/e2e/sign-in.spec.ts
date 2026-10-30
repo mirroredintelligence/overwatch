@@ -15,7 +15,7 @@ async function signInAs(page: Page, persona: keyof typeof PERSONAS, from = '/sig
   await choose(page.context(), persona);
   await page.goto(from);
   if (new URL(page.url()).pathname !== '/sign-in') return;
-  await page.getByRole('button', { name: 'Sign in with your Trust account' }).click();
+  await page.getByRole('button', { name: 'Sign in with your staff account' }).click();
 }
 
 async function sessionRole(page: Page): Promise<string | null> {
@@ -62,12 +62,35 @@ test('asks the provider with PKCE and sends no tenant, and the browser never hol
   expect(await page.content()).not.toMatch(/eyJ[A-Za-z0-9_-]{10,}\./);
 });
 
+test('shows the browser display fields only: no token, no subject, no tenant, and nothing a cache may keep', async ({ page }) => {
+  await signInAs(page, 'advisor');
+  await expect(page).toHaveURL(/\/advisor$/);
+
+  const response = await page.request.get('/api/bff/session');
+  const body = await response.json();
+
+  expect(Object.keys(body).sort()).toEqual(['csrfToken', 'role', 'services']);
+  expect(JSON.stringify(body)).not.toMatch(/tenant|trust-a|eyJ/i);
+  expect(response.headers()['cache-control']).toBe('private, no-store');
+  expect(response.headers()['vary']).toMatch(/cookie/i);
+});
+
+test('refuses a request that names a tenant, a scope or a network, even when signed in', async ({ page }) => {
+  await signInAs(page, 'advisor');
+  await expect(page).toHaveURL(/\/advisor$/);
+
+  for (const query of ['tenant=trust-b', 'scope=network', 'networkId=net-x']) {
+    expect((await page.request.get(`/api/bff/session?${query}`)).status()).toBe(400);
+  }
+  expect((await page.request.get('/api/bff/session', { headers: { 'X-Tenant-Id': 'trust-b' } })).status()).toBe(400);
+});
+
 test('goes back to the page asked for after signing in', async ({ page }) => {
   await choose(page.context(), 'lead');
   await page.goto('/lead');
   await expect(page).toHaveURL(/\/sign-in\?next=%2Flead$/);
 
-  await page.getByRole('button', { name: 'Sign in with your Trust account' }).click();
+  await page.getByRole('button', { name: 'Sign in with your staff account' }).click();
 
   await expect(page).toHaveURL(/\/lead$/);
   expect(await sessionRole(page)).toBe('lead');

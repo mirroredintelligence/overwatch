@@ -10,7 +10,7 @@ import { pairingFrom } from '@/lib/screens/cookies';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 // POST /api/bff/screens/pairing: the wall display asks for a code. No session, no body, no input:

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
+import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { BACKEND_BASE } from '@/test/msw/handlers/board';
@@ -10,10 +10,12 @@ import { POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-const CSRF = 'csrf-token-for-tests-only-0000000000000000000';
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'advisor-1' }, 'N'.repeat(43));
 const PHONED_URL = `${BACKEND_BASE}/HealthcareService/svc-ucr-west/$advisor-phoned`;
 type Seen = { body: unknown; key: string | null; token: string | null };
 const seen: Seen[] = [];
@@ -21,6 +23,8 @@ const seen: Seen[] = [];
 function session(role: Role): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: 'app.test',
     services: [],
     sub: 'advisor-1',
     backendToken: 'token-for-advisor',
@@ -105,8 +109,16 @@ describe('POST /api/bff/services/[id]/phoned (W14)', () => {
     expect(seen).toHaveLength(0);
   });
 
-  it('a tenant sent in the body is not forwarded: the back end sees the case, the answer and the value only (DEC-130)', async () => {
-    await post('advisor', { caseRef: '4821', said: 'limited', value: 1, tenantId: 'tenant-b', organisation: 'other' });
+  it('refuses a body that names a tenant, a scope or a network with 400, and calls nothing (DEC-130, TEN-044)', async () => {
+    for (const field of ['tenantId', 'scope', 'network']) {
+      const response = await post('advisor', { caseRef: '4821', said: 'limited', value: 1, [field]: 'tenant-b' });
+      expect(response.status, field).toBe(400);
+    }
+    expect(seen).toHaveLength(0);
+  });
+
+  it('forwards the case, the answer and the value only: any other field of the body is dropped (DEC-130)', async () => {
+    await post('advisor', { caseRef: '4821', said: 'limited', value: 1, organisation: 'other' });
 
     expect(JSON.stringify(seen[0].body)).not.toMatch(/tenant|organisation|other/);
     expect(seen[0].token).toBe('Bearer token-for-advisor');

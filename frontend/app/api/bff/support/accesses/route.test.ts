@@ -10,7 +10,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const SESSION = 'a1b2c3d4e5f60718';
@@ -26,7 +26,7 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllEnvs());
 
 async function get(query: string) {
-  const s: Session = { role: 'exec', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+  const s: Session = { role: 'exec', tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: TOKEN_ORG_A, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
   return GET(requestWithCookies(`https://app.test/api/bff/support/accesses${query}`, { [SESSION_COOKIE]: await sealSession(s) }));
 }
 

@@ -15,7 +15,7 @@ import {
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 // The pairing secret and the device token live in two sealed cookies the browser cannot read or
@@ -58,7 +58,7 @@ describe('the pairing cookie', () => {
     expect(await pairingFrom(requestWithCookies(URL_, {}))).toBeNull();
     expect(await pairingFrom(requestWithCookies(URL_, { [PAIRING_COOKIE]: value.slice(0, -4) + 'AAAA' }))).toBeNull();
     expect(await pairingFrom(requestWithCookies(URL_, { [PAIRING_COOKIE]: 'garbage' }))).toBeNull();
-    const session = await sealSession({ role: 'wall', services: [], sub: 'dev-1', backendToken: 'a.b.c', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
+    const session = await sealSession({ role: 'wall', tenantId: 'trust-a', host: 'tenant-a.example.test', services: [], sub: 'dev-1', backendToken: 'a.b.c', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
     expect(await pairingFrom(requestWithCookies(URL_, { [PAIRING_COOKIE]: session }))).toBeNull();
     await rememberDevice('device-token-for-screen-one');
     const device = lastWrite(DEVICE_COOKIE)!.value;

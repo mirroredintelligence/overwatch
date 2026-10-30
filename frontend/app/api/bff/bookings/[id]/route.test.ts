@@ -9,14 +9,14 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const BACKEND = 'http://backend.test/fhir';
 const TOKEN = 'token-for-advisor-one';
 
 function session(role: Role): Session {
-  return { role, services: [], sub: 'advisor-1', backendToken: TOKEN, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+  return { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'advisor-1', backendToken: TOKEN, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
 }
 
 async function get(id: string, role: Role | null = 'advisor') {

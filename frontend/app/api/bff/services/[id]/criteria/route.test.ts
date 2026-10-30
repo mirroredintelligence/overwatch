@@ -9,7 +9,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const HISTORY_URL = `${BACKEND_BASE}/Basic`;
@@ -18,6 +18,8 @@ const seenQueries: (string | null)[] = [];
 function session(role: Role): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: 'app.test',
     services: [],
     sub: 'advisor-1',
     backendToken: 'token-for-advisor',
@@ -96,6 +98,6 @@ describe('GET /api/bff/services/[id]/criteria (W14)', () => {
   });
 
   it('is never cached', async () => {
-    expect((await get('advisor')).headers.get('cache-control')).toBe('no-store');
+    expect((await get('advisor')).headers.get('cache-control')).toBe('private, no-store');
   });
 });

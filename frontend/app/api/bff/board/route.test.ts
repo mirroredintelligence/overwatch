@@ -3,6 +3,8 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { sessionFor } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 import { BOARD_A, BOARD_B } from '@/test/fixtures/board';
 import {
   BACKEND_BASE,
@@ -17,19 +19,13 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-const URL_ = 'https://app.test/api/bff/board';
+const URL_ = `https://${TENANTS.A.host}/api/bff/board`;
 
 function session(role: Role, backendToken: string = TOKEN_ORG_A): Session {
-  return {
-    role,
-    services: [],
-    sub: 'user-1',
-    backendToken,
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-  };
+  return sessionFor(TENANTS.A, role, { sub: 'user-1', backendToken });
 }
 
 async function get(role: Role | null, options: { token?: string; url?: string; headers?: HeadersInit } = {}) {
@@ -81,8 +77,8 @@ describe('GET /api/bff/board', () => {
   });
 
   it('is never cached', async () => {
-    expect((await get('advisor')).headers.get('cache-control')).toBe('no-store');
-    expect((await get('reporter')).headers.get('cache-control')).toBe('no-store');
+    expect((await get('advisor')).headers.get('cache-control')).toBe('private, no-store');
+    expect((await get('reporter')).headers.get('cache-control')).toBe('private, no-store');
   });
 
   it('calls the back end with the session token and nothing else that names an organisation', async () => {
@@ -97,11 +93,25 @@ describe('GET /api/bff/board', () => {
     expect([...sent.headers.keys()].filter((k) => /tenant|organi[sz]ation|scope/i.test(k))).toEqual([]);
   });
 
+  it('refuses a request that names a tenant, a scope or a network, and does not call the back end', async () => {
+    for (const [url, headers] of [
+      [`${URL_}?tenant=${TOKEN_ORG_B}`, {}],
+      [`${URL_}?scope=network`, {}],
+      [`${URL_}?network=n1`, {}],
+      [URL_, { 'X-Tenant-Id': TOKEN_ORG_B }],
+      [URL_, { 'X-Scope': 'network' }],
+    ] as [string, Record<string, string>][]) {
+      const response = await get('advisor', { url, headers });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ code: 'invalid' });
+    }
+    expect(seenBoardRequests).toHaveLength(0);
+  });
+
   it('takes no organisation from the query string or a header: it answers for the session only', async () => {
     const response = await get('advisor', {
-      url: `${URL_}?tenant=${TOKEN_ORG_B}&organisation=Neighbouring&scope=network`,
+      url: `${URL_}?organisation=Neighbouring`,
       headers: {
-        'X-Tenant-Id': TOKEN_ORG_B,
         'X-Organisation': 'Neighbouring',
         Authorization: `Bearer ${TOKEN_ORG_B}`,
       },

@@ -12,6 +12,7 @@ import {
   type Transaction,
 } from './oidc';
 import { exchangeStaffToken } from './exchange';
+import { requestHost } from './host';
 import {
   baseCookieOptions,
   createSession,
@@ -19,6 +20,7 @@ import {
   sessionSecretKey,
 } from './session';
 import { safeNext } from './staff';
+import { readIssuedToken } from './tokenClaims';
 import { hostOf } from '@/lib/links/server';
 
 // The two halves of staff sign-in: start (send the browser to Entra) and complete (the browser
@@ -156,8 +158,16 @@ export async function completeSignIn(request: Request): Promise<Response> {
     const result = await exchangeStaffToken(idToken, hostOf(request), now);
     if (result.kind === 'refused') return see(NO_ACCESS);
     const { grant } = result;
+    // The session is for one tenant and one host (DEC-600): the tenant is the one the back end signed
+    // the token for, read from the token it answered with, and the host is the one this request came
+    // to (the host the back end took the tenant from). A token that names no tenant is no session.
+    const claims = readIssuedToken(grant.token, now);
+    const host = requestHost(request);
+    if (claims === null || host === null) throw new SignInRefused('exchange-answer');
     await createSession({
       role: grant.role,
+      tenantId: claims.tenant,
+      host,
       services: [],
       sub: grant.sub,
       backendToken: grant.token,

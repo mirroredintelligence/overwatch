@@ -26,6 +26,7 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.recording_senders import RecordingPushSender
 from diucs.application.ports.outbound.event_bus import BusMessage
+from tests.support.bus import message_with_tenant
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
 SEALER = AesGcmContentSealer(FixedSecretStore({"link-token": SECRET}))
@@ -99,12 +100,14 @@ async def test_a_push_without_a_title_is_refused_as_bad_content() -> None:
 
 
 async def test_a_push_message_without_a_tenant_is_refused_before_the_unit_of_work() -> None:
-    message = BusMessage(
+    # Set without the constructor's check: a message built by a path that bypasses validation
+    # must still not be handled (defence in depth; a validated BusMessage always has a tenant).
+    message = message_with_tenant(
+        None,
         id=OUTBOX_ID,
         topic=MESSAGES_TOPIC,
         event_type=SEND_MESSAGE_EVENT,
         payload=_payload(),
-        tenant_id=None,
     )
     with pytest.raises(PermanentError):
         await _sender()(message, _Untouched())  # type: ignore[arg-type]

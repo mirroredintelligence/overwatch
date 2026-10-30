@@ -3,6 +3,7 @@
 terminology are the specs' fixed-table fakes (external providers). What is really stored, read back
 from Neo4j, is in tests/integration/application/test_registration_submit.py. Sample values only."""
 
+from collections.abc import Iterator
 from dataclasses import replace
 from datetime import UTC, date, datetime
 from typing import Any
@@ -17,6 +18,7 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.geo import AddressCandidate, LatLon
 from diucs.application.ports.outbound.lookups import TransientLookupError
 from diucs.application.ports.outbound.terminology import OdsRecord
+from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.registration_draft import (
     ApiStep,
     LocationStep,
@@ -42,6 +44,16 @@ from tests.support.actors import ACTOR_TENANT
 from tests.support.registration_rig import StubUnits
 
 NOW = datetime(2026, 10, 29, 10, 0, tzinfo=UTC)
+
+
+@pytest.fixture(autouse=True)
+def _bound_tenant() -> Iterator[None]:
+    """The use case runs inside a tenant the edge or the consumer bound, and its audit entry names
+    that tenant (TEN-018)."""
+    with bind_tenant(ACTOR_TENANT):
+        yield
+
+
 SERVICE_ID = "svc-ucr-west"
 APPLICANT_ROLE = "role-applicant"
 OWNER_EMAIL = "owner@example.org"

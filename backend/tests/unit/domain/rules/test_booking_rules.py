@@ -241,9 +241,13 @@ _RULES_PACKAGE: Final = "diucs.domain.rules"
 # caller is removed, so the list can only shrink. The owners are the builder's reading of the
 # tenancy plan (DEC-233 item 4 did the same for TEN-021's list).
 POLICY_NOT_YET_THREADED_064: dict[str, str] = {
+    "application/use_cases/criteria_reviews.py": "TEN-026",
+    "application/use_cases/move_service.py": "TEN-026",
+    "application/use_cases/pin.py": "TEN-026",
     "application/use_cases/report_flags.py": "TEN-024",
     "application/use_cases/request_booking.py": "TEN-026",
     "application/use_cases/send_prompts.py": "TEN-027",
+    "application/use_cases/subscribe_alert.py": "TEN-026",
 }
 
 

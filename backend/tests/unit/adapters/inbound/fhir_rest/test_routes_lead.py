@@ -22,9 +22,10 @@ from diucs.adapters.inbound.fhir_rest.routes_lead import number_ending
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
+from diucs.adapters.testing.tokens import TEST_BFF_SECRET, default_token_tenant, issue_test_token
 from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
 from diucs.domain.codes import Role
+from tests.support.edge import active_tenants
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -42,6 +43,7 @@ class _RouteContainer:
     ids: SequentialIds
     uow_factory: Any
     secrets: FixedSecretStore
+    tenants: Any
 
 
 def _no_unit_of_work() -> Any:
@@ -57,6 +59,7 @@ async def _client() -> AsyncIterator[AsyncClient]:
         secrets=FixedSecretStore(
             {BFF_SECRET_NAME: TEST_BFF_SECRET, PHONE_HASH_SECRET: b"phone-test-secret-0123456789ab"}
         ),
+        tenants=active_tenants(default_token_tenant()),
     )
     app: FastAPI = create_app(container)
     app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})

@@ -282,3 +282,7 @@
   font-size: var(--type-label-size);
   font-weight: var(--type-label-weight);
 }
+
+.estimateLabel {
+  font-weight: var(--type-label-weight);
+}

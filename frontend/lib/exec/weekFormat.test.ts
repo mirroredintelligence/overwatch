@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatCount, formatMinutes, formatPct } from './weekFormat';
+import { formatCount, formatMinutes, formatMinutesFigure, formatPct } from './weekFormat';
 
 describe('formatCount', () => {
   it('says "fewer than 10" for a withheld count, and never a number', () => {
@@ -30,5 +30,13 @@ describe('formatPct', () => {
 describe('formatMinutes', () => {
   it('shows whole minutes with the unit', () => {
     expect(formatMinutes(4)).toBe('4 min');
+  });
+});
+
+describe('formatMinutesFigure', () => {
+  it('never shows a missing median as zero', () => {
+    expect(formatMinutesFigure({ value: null })).toBe('No figure yet');
+    expect(formatMinutesFigure({ value: null, suppressed: true })).toBe('fewer than 10');
+    expect(formatMinutesFigure({ value: 4 })).toBe('4 min');
   });
 });

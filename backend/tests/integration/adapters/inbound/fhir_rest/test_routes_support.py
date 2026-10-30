@@ -45,7 +45,7 @@ CODE_PATTERN = re.compile(r"[A-Z0-9]{4}-[A-Z0-9]{4}")
 
 
 def _headers(role: Role, sub: str, key: str) -> dict[str, str]:
-    token = issue_test_token(role, (), sub)
+    token = issue_test_token(role, (), sub, expires_at=NOW + timedelta(hours=1))
     return {"Authorization": f"Bearer {token}", "Idempotency-Key": key}
 
 

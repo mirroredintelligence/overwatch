@@ -1,36 +1,70 @@
 """The shift lead routes (R08) against real Neo4j through the API client.
 
-WRITTEN, NOT RUN in the build wave (no Neo4j per build-wave rules). These cases need the REST edge
-to bind the lead's tenant from the verified token (TEN-018, built in another bundle). Until that
-lands, every write here fails closed with TenantNotBound (a 500), so the cases cannot pass yet.
-That dependence is recorded in the fragment, not a fault in these tests.
+The REST edge binds the lead's tenant from the verified token (TEN-018). Tenant A is the run tenant;
+tenant B's role is seeded through its own unit of work, and a request from A's lead must read it as
+not found and leave it as it was (B uses its own service category: until TEN-032 the shared schema
+keeps one Concept per code).
 
 The phone numbers are the prompt's sample values. No patient data.
 """
 
+import os
+
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
-from diucs.domain.codes import Role
+from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.bootstrap.container import Container
+from diucs.domain.codes import Role, ServiceCategory
+from diucs.domain.model.people import Practitioner, PractitionerRole
+from diucs.domain.model.service import ServiceProfile
+from tests.support.api import token_headers
+from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.neo4j import count_nodes
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 
-@pytest.fixture(autouse=True)
-def _bff_secret(api_app: FastAPI) -> None:
-    """The API checks bearer tokens against the BFF secret (R02)."""
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def _lead_app(
+    api_app: FastAPI,
+    test_container: Container,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+    other_tenant_id: str,
+) -> None:
+    """The API with the BFF secret (R02), the replay cache that every write needs (R03) and the
+    audit chain heads of both tenants, made after the wipe."""
     api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
+    api_app.state.cache = InMemoryCache(test_container.clock)
+    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
+
+
+B_SERVICE = "svc-b-ward"
 
 SETUP = "/fhir/HealthcareService/$setup"
 CHANGE = "/fhir/PractitionerRole/{role}/$change-number"
 NUMBER = "07700 900123"
 NEW_NUMBER = "07700 900456"
+
+
+async def _seed_reporter(
+    factory: UnitOfWorkFactory,
+    profile: ServiceProfile,
+    person: tuple[Practitioner, PractitionerRole],
+) -> None:
+    async with factory() as uow:
+        await uow.services.save(profile)
+        await uow.commit()
+    await seed_people(factory, person)
 
 
 def _bearer(role: Role, sub: str = "lead-1") -> dict[str, str]:
@@ -138,8 +172,9 @@ async def test_an_invalid_mobile_is_refused_and_the_input_is_not_echoed(
 
 
 async def test_a_number_change_for_today_reports_the_last_four_digits(
-    api_client: AsyncClient, neo4j_driver: AsyncDriver
+    api_client: AsyncClient, neo4j_driver: AsyncDriver, test_container: Container
 ) -> None:
+    await _seed_reporter(test_container.uow_factory, virtual_ward(), reporter(1, None))
     response = await api_client.post(
         CHANGE.format(role="role-1"),
         json=_change(),
@@ -159,11 +194,40 @@ async def test_a_change_without_an_idempotency_key_is_refused(api_client: AsyncC
 
 async def test_another_tenants_reporter_role_reads_as_not_found(
     api_client: AsyncClient,
+    uow_factory_b: UnitOfWorkFactory,
+    test_container: Container,
 ) -> None:
-    """Needs the lead's tenant bound at the edge (TEN-018) and a role of the other tenant."""
-    response = await api_client.post(
-        CHANGE.format(role="role-of-tenant-b"),
+    """A role that exists in tenant B is the same 404 as a role that exists nowhere, and the
+    request changes nothing of B's."""
+    await _seed_reporter(
+        uow_factory_b,
+        virtual_ward(B_SERVICE, category=ServiceCategory.SAME_DAY_EMERGENCY_CARE),
+        reporter(7, None, service_id=B_SERVICE, prefix="b-"),
+    )
+    unknown = await api_client.post(
+        CHANGE.format(role="role-nowhere"),
         json=_change(),
         headers={"Idempotency-Key": "change-0002", **_bearer(Role.LEAD)},
     )
+    response = await api_client.post(
+        CHANGE.format(role="b-role-7"),
+        json=_change(),
+        headers={"Idempotency-Key": "change-0003", **_bearer(Role.LEAD)},
+    )
     assert response.status_code == 404
+    assert response.json() == unknown.json()
+    async with uow_factory_b() as uow:
+        role = await uow.people.get_role("b-role-7")
+    assert role is not None
+    assert role.covered_by_practitioner_id is None
+    assert role.covered_until is None
+    # B's own lead does reach it: the 404 above is the tenant, not a missing role.
+    own = await api_client.post(
+        CHANGE.format(role="b-role-7"),
+        json=_change(),
+        headers={
+            "Idempotency-Key": "change-0004",
+            **token_headers(os.environ["DIUCS_TEST_OTHER_TENANT"], Role.LEAD, (), "lead-b"),
+        },
+    )
+    assert own.status_code == 200

@@ -1,4 +1,5 @@
 import { checkCsrf } from '@/lib/auth/csrf';
+import type { Session } from '@/lib/auth/session';
 import { toBffError } from '@/lib/bff/errors';
 
 // Shared shape of the reporter BFF routes (W33 to W55). A route either answers from the back end
@@ -33,4 +34,12 @@ export function preSession<C>(
       return toBffError(error);
     }
   };
+}
+
+/**
+ * The 404 a service the caller does not act for gets, the same as an unknown service (W35). Null
+ * when the service is the caller's own, so the route goes on.
+ */
+export function ownService(session: Session, serviceId: string): Response | null {
+  return session.services.includes(serviceId) ? null : refuse(404, 'not-found');
 }

@@ -13,14 +13,24 @@ from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABEL
 
 IDS = ["0110_network_registry"]
 BLOCK = range(110, 130)
+WEEK_BLOCK = range(185, 190)  # build wave 9, bundle W9B (TEN-082)
 
 
 def test_the_network_migrations_are_these_ids_in_this_block() -> None:
     assert [m.id for m in NETWORK_MIGRATIONS][: len(IDS)] == IDS
     for migration in NETWORK_MIGRATIONS:
-        assert int(migration.id[:4]) in BLOCK
+        assert int(migration.id[:4]) in BLOCK or int(migration.id[:4]) in WEEK_BLOCK
     positions = [MIGRATIONS.index(m) for m in NETWORK_MIGRATIONS]
     assert positions == sorted(positions)
+
+
+def test_the_sample_migration_makes_one_key_composite_with_the_scope() -> None:
+    sample = [m for m in NETWORK_MIGRATIONS if m.id == "0185_network_samples"]
+    assert len(sample) == 1 and sample[0].loops == ()
+    assert sample[0].statements == (
+        "CREATE CONSTRAINT network_sample_hour IF NOT EXISTS FOR (n:NetworkSample) "
+        "REQUIRE (n.tenantId, n.hour) IS UNIQUE",
+    )
 
 
 def test_every_statement_is_a_single_idempotent_expand_step() -> None:

@@ -194,7 +194,7 @@ async def test_the_contract_migration_is_the_only_thing_the_second_run_does(
     # network migrations (new labels, which replace no key) sort after it.
     later = again[again.index(CONTRACT_MIGRATION_ID) + 1 :]
     assert later == [m.id for m in MIGRATIONS if m.id > CONTRACT_MIGRATION_ID]
-    assert later == ["0110_network_registry", "0111_projection_keys"]
+    assert later == ["0110_network_registry", "0111_projection_keys", "0185_network_samples"]
 
 
 async def test_a_bare_migration_that_requires_a_present_constraint_runs(

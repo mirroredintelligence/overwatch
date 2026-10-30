@@ -8,8 +8,9 @@ import { canReadBoard, readBoard } from '@/lib/board/read';
 import type { Board as BoardData } from '@/lib/board/types';
 import { FhirError } from '@/lib/fhir/client';
 
+// The layout's template adds the product name; no organisation is named here.
 export const metadata: Metadata = {
-  title: 'DIUCS capacity wall screen',
+  title: 'Wall screen',
 };
 
 // Read at every request: a wall board is never cached.

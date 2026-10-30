@@ -1,9 +1,8 @@
 import type { Metadata } from 'next';
 import { Atkinson_Hyperlegible } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { PRODUCT_NAME } from '@/lib/product';
 import './tokens.css';
-
-// Every page is rendered per request, so Next.js can put this request's nonce on its scripts (S01).
 
 // Every page is rendered per request, so Next.js can put this request's nonce on its scripts (S01).
 export const dynamic = 'force-dynamic';
@@ -15,9 +14,11 @@ const atkinson = Atkinson_Hyperlegible({
   display: 'swap',
 });
 
+// The head names the product and no place (TEN-045): a page's own title is put in the template, and an
+// organisation's own name comes from its profile (TEN-049).
 export const metadata: Metadata = {
-  title: 'DIUCS capacity',
-  description: 'Urgent-care capacity for the single point of access',
+  title: { default: PRODUCT_NAME, template: `%s | ${PRODUCT_NAME}` },
+  description: 'Urgent-care capacity',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

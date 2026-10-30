@@ -1,27 +1,16 @@
+import { namesTenantInput } from '@/lib/tenant/inputNames';
+
 // Inputs that name a tenant, a scope or a network are refused (TEN-044, DEC-130 item 3, DEC-132).
 //
 // The tenant of a BFF request is the session's, and the scope is the route (`/api/bff/network/...`),
 // so nothing a caller sends may choose either. A query parameter, a header or a JSON or form body key
 // that names one is a sign of a client that is wrong or hostile, and is refused with a 400 before the
-// handler runs. The check is on KEY NAMES only (a value such as `?q=network` is data), and the names
-// are compared without case, dashes, underscores, dots or brackets, so `tenant_id`, `Tenant-Id`,
-// `tenant.id` and `tenant[id]` are one name.
+// handler runs. The check is on KEY NAMES only (a value such as `?q=network` is data); the names are
+// compared as lib/tenant/inputNames.ts says.
 
 const MAX_BODY_BYTES = 128 * 1024;
 const MAX_DEPTH = 12;
 const MAX_NODES = 5000;
-const SEPARATORS = /[-_.[\]\s]/g;
-
-function normalise(name: string): string {
-  return name.toLowerCase().replace(SEPARATORS, '');
-}
-
-/** True for a key that chooses a tenant, a scope or a network. */
-export function namesTenantInput(name: string): boolean {
-  const key = normalise(name);
-  return key === 'source' || key.startsWith('tenant') || key.startsWith('scope') || key.startsWith('network') || key.startsWith('sourcetenant');
-}
-
 const HEADER_NAME = /^(x-)?(tenant|scope|network|source-tenant)/i;
 
 function headersName(request: Request): boolean {

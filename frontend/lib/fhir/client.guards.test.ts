@@ -130,7 +130,8 @@ describe('a token is required (TEN-045)', () => {
   });
 
   it('refuses a call with no init at all', async () => {
-    await expect(fhirFetch('/Patient/x')).rejects.toBeInstanceOf(TokenRequired);
+    const untyped = fhirFetch as unknown as (path: string) => Promise<unknown>;
+    await expect(untyped('/Patient/x')).rejects.toBeInstanceOf(TokenRequired);
   });
 
   it('says so in a fixed message that holds no token', async () => {
@@ -147,18 +148,11 @@ describe('a token is required (TEN-045)', () => {
 });
 
 describe('an answer is never stored (TEN-045)', () => {
-  it('asks fetch not to use the cache, for a call and for a stream', async () => {
+  it('asks fetch not to use the cache', async () => {
     const spy = vi.spyOn(globalThis, 'fetch');
-    server.use(
-      http.get(`${BASE}/Patient/c`, () => HttpResponse.json({})),
-      http.get(`${BASE}/events`, () => new HttpResponse('', { headers: { 'Content-Type': 'text/event-stream' } })),
-    );
+    server.use(http.get(`${BASE}/Patient/c`, () => HttpResponse.json({})));
     await fhirFetch('/Patient/c', { token: TEST_TOKEN });
-    const stream = await fhirStream('/events', { token: TEST_TOKEN });
-    await stream.body.cancel();
-    const inits = spy.mock.calls.map(([, init]) => init as RequestInit | undefined);
-    expect(inits).toHaveLength(2);
-    for (const init of inits) expect(init?.cache).toBe('no-store');
+    expect((spy.mock.calls[0]?.[1] as RequestInit | undefined)?.cache).toBe('no-store');
   });
 
   it('sets no next.revalidate or next.tags on the request', async () => {

@@ -44,9 +44,9 @@ from diucs.domain.model.tenant import (
     TenantStatus,
 )
 from diucs.domain.rules.tenant_lifecycle import resume_tenant, suspend_tenant
-from tests.support.neo4j import read_tx, write_tx
+from tests.support.neo4j import ThrowawayNeo4j, read_tx, write_tx
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
 A, B = "reg-alpha", "reg-bravo"
 SID = "AC" + "a" * 32
@@ -75,6 +75,19 @@ def _number(tenant_id: str, e164: str, **fields: Any) -> TenantNumberRecord:
         "secret_ref": twilio_token_ref(tenant_id),
     }
     return TenantNumberRecord(**{**base, **fields})
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def harness_driver(own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver]) -> AsyncDriver:
+    """The registry holds the whole database's tenants, and a host, a number or a directory is
+    unique across it, so this module runs on a container of its own, whatever the session's mode
+    (`schema`)."""
+    return own_neo4j[1]
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def neo4j_driver(harness_driver: AsyncDriver) -> AsyncDriver:
+    return harness_driver
 
 
 @pytest_asyncio.fixture(loop_scope="session")

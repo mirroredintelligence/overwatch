@@ -32,7 +32,6 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.inbound.fhir_rest.tenant_gate import RECORD_TTL, TenantGate
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
 from diucs.adapters.testing.fixed_clock import FixedClock
@@ -62,12 +61,11 @@ from diucs.domain.model.tenant import (
 )
 from diucs.domain.rules.bff_token import BffClaims
 from diucs.domain.rules.edge_access import EdgeVerdict
-from tests.support.neo4j import read_tx, throwaway_driver
+from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all
 from tests.support.tenancy import as_tenant
-from tests.support.tenant_seed import contract_schema
 from tests.support.uow import tenant_uow_factory
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
 A, B = "susp-alpha", "susp-bravo"
 NOW = datetime(2026, 10, 30, 9, 0, tzinfo=UTC)
@@ -132,16 +130,21 @@ def _profile(service_id: str) -> ServiceProfile:
 
 
 @asynccontextmanager
-async def _private_graph() -> AsyncIterator[tuple[AsyncDriver, Neo4jConnection]]:
-    async with throwaway_driver() as (container, driver):
-        await apply_migrations(driver)
-        await contract_schema(driver)
-        connection = Neo4jConnection(container.uri, container.user, container.password)
-        await connection.open()
-        try:
-            yield driver, connection
-        finally:
-            await connection.close()
+async def _private_graph(
+    own: tuple[ThrowawayNeo4j, AsyncDriver],
+) -> AsyncIterator[tuple[AsyncDriver, Neo4jConnection]]:
+    """The module's private container (`own_neo4j`: every migration applied, the registry is the
+    whole database's, so it cannot share a Neo4j with other runs), emptied for each test, and a
+    connection to it for the directory and the registry."""
+    container, driver = own
+    await wipe_all(driver)
+    connection = Neo4jConnection(container.uri, container.user, container.password)
+    await connection.open()
+    try:
+        yield driver, connection
+    finally:
+        await connection.close()
+        await wipe_all(driver)
 
 
 async def _make_active(world: World, tenant_id: str) -> None:
@@ -195,8 +198,8 @@ def _activated(created: Tenant) -> Tenant:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def world() -> AsyncIterator[World]:
-    async with _private_graph() as (driver, connection):
+async def world(own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver]) -> AsyncIterator[World]:
+    async with _private_graph(own_neo4j) as (driver, connection):
         built = World(
             driver,
             connection,

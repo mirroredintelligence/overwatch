@@ -10,7 +10,8 @@ on A's own record does (the control, so the timing test can tell a lock from non
 The use cases: ReportCapacity (U01), ConfirmCapacity (U02), SendPrompts (U03), MissedReportLadder
 (U06), SuspendService and ResumeService (U36). A use case added later joins `CASES`.
 
-Runs on contracted_container() (DEC-159). Synthetic values only. Written in build wave 5 and not run
+Runs on the harness database (the shared schema is the contracted schema since TEN-032).
+Synthetic values only. Written in build wave 5 and not run
 there: the full integration run follows on the merged tip.
 """
 
@@ -56,9 +57,8 @@ from tests.support.ladder_rig import (
     seed_report,
     virtual_ward,
 )
-from tests.support.neo4j import read_tx, wipe
+from tests.support.neo4j import read_tx
 from tests.support.tenancy import as_tenant
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -127,37 +127,38 @@ def _tokens(clock: FixedClock) -> Callable[[LinkTokenRepository], LinkTokenServi
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def world(tenant_id: str, other_tenant_id: str) -> AsyncIterator[World]:
-    async with contracted_container() as driver:
-        await wipe(driver)
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id)
-        factory_b = tenant_uow_factory(driver, other_tenant_id)
-        await _seed(factory_a, OWN)
-        await _seed(factory_b, ONLY_B)
-        clock = FixedClock(DUE)
-        # A ladder step of B: a prompt for B's service, so B holds a scheduled reminder.
-        with as_tenant(other_tenant_id):
-            sent = await SendPrompts(
-                factory_b,
-                clock,
-                SequentialIds.scoped(other_tenant_id),
-                DriverIdempotencyStore(driver),
-                _tokens(clock),
-                "diucs.example",
-                AesGcmContentSealer(FixedSecretStore({"link-token": SECRET})),
-            ).execute(
-                SendPromptCommand(
-                    idempotency_key=prompt_key(ONLY_B, DUE),
-                    actor=system_actor(other_tenant_id, "scheduler"),
-                    service_id=ONLY_B,
-                    due_at=DUE,
-                )
+async def world(
+    neo4j_driver: AsyncDriver, clean_graph: None, tenant_id: str, other_tenant_id: str
+) -> AsyncIterator[World]:
+    driver = neo4j_driver  # the run's scopes were wiped, and both tenants have audit heads
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id)
+    factory_b = tenant_uow_factory(driver, other_tenant_id)
+    await _seed(factory_a, OWN)
+    await _seed(factory_b, ONLY_B)
+    clock = FixedClock(DUE)
+    # A ladder step of B: a prompt for B's service, so B holds a scheduled reminder.
+    with as_tenant(other_tenant_id):
+        sent = await SendPrompts(
+            factory_b,
+            clock,
+            SequentialIds.scoped(other_tenant_id),
+            DriverIdempotencyStore(driver),
+            _tokens(clock),
+            "diucs.example",
+            AesGcmContentSealer(FixedSecretStore({"link-token": SECRET})),
+        ).execute(
+            SendPromptCommand(
+                idempotency_key=prompt_key(ONLY_B, DUE),
+                actor=system_actor(other_tenant_id, "scheduler"),
+                service_id=ONLY_B,
+                due_at=DUE,
             )
-        [communication] = sent.communication_ids
-        async with factory_b() as uow:
-            [reminder] = await uow.scheduled_work.for_about(communication, WorkKind.REMINDER)
-        yield World(driver, tenant_id, other_tenant_id, factory_a, factory_b, clock, reminder.id)
+        )
+    [communication] = sent.communication_ids
+    async with factory_b() as uow:
+        [reminder] = await uow.scheduled_work.for_about(communication, WorkKind.REMINDER)
+    yield World(driver, tenant_id, other_tenant_id, factory_a, factory_b, clock, reminder.id)
 
 
 # -- the use cases, each as a call with one id --------------------------------------------------

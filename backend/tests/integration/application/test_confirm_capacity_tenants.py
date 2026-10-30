@@ -14,7 +14,8 @@ a graph that holds both:
 - the limit of consecutive confirmations is the tenant's own (A's configuration allows one, B keeps
   two) and the audit entry records the configuration version.
 
-Runs on contracted_container() (DEC-159). Synthetic values only. Written in build wave 5 and not run
+Runs on the harness database (the shared schema is the contracted schema since TEN-032).
+Synthetic values only. Written in build wave 5 and not run
 there: the full integration run follows on the merged tip.
 """
 
@@ -56,9 +57,8 @@ from diucs.domain.errors import ConfirmLimitReached, Conflict, NotFound
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
-from tests.support.neo4j import read_tx, wipe
+from tests.support.neo4j import read_tx, run_scope_ids
 from tests.support.tenancy import as_tenant
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -148,15 +148,16 @@ async def _seed(factory: UnitOfWorkFactory, tenant: str) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def tenants(tenant_id: str, other_tenant_id: str) -> AsyncIterator[Tenants]:
-    async with contracted_container() as driver:
-        await wipe(driver)
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id)
-        factory_b = tenant_uow_factory(driver, other_tenant_id)
-        await _seed(factory_a, tenant_id)
-        await _seed(factory_b, other_tenant_id)
-        yield Tenants(driver, tenant_id, other_tenant_id, factory_a, factory_b)
+async def tenants(
+    neo4j_driver: AsyncDriver, clean_graph: None, tenant_id: str, other_tenant_id: str
+) -> AsyncIterator[Tenants]:
+    driver = neo4j_driver  # the run's scopes were wiped, and both tenants have audit heads
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id)
+    factory_b = tenant_uow_factory(driver, other_tenant_id)
+    await _seed(factory_a, tenant_id)
+    await _seed(factory_b, other_tenant_id)
+    yield Tenants(driver, tenant_id, other_tenant_id, factory_a, factory_b)
 
 
 async def _written(tenants: Tenants, tenant: str) -> dict[str, int]:
@@ -437,8 +438,10 @@ async def test_the_limit_of_confirmations_in_a_row_is_the_tenants_own(tenants: T
     async def snapshots(tx: AsyncManagedTransaction) -> dict[str, list[str]]:
         rows = await (
             await tx.run(
-                "MATCH (e:AuditEvent) WHERE e.useCase = 'ConfirmCapacity' "
-                "RETURN e.tenantId AS tenant, e.entryJson AS entry"
+                "MATCH (e:AuditEvent) WHERE e.tenantId IN $scopes "
+                "AND e.useCase = 'ConfirmCapacity' "
+                "RETURN e.tenantId AS tenant, e.entryJson AS entry",
+                scopes=run_scope_ids(),
             )
         ).data()
         found: dict[str, list[str]] = {}

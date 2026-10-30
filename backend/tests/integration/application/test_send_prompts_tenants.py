@@ -15,7 +15,8 @@ time. What is proved, on a graph that holds both:
   first result;
 - a tenant named in the constructor that is not the bound one is refused before anything is read.
 
-Runs on contracted_container() (DEC-159). Synthetic values only. Written in build wave 5 and not run
+Runs on the harness database (the shared schema is the contracted schema since TEN-032).
+Synthetic values only. Written in build wave 5 and not run
 there: the full integration run follows on the merged tip.
 """
 
@@ -59,9 +60,8 @@ from tests.support.ladder_rig import (
     seed_report,
     virtual_ward,
 )
-from tests.support.neo4j import read_tx, wipe
+from tests.support.neo4j import read_tx
 from tests.support.tenancy import as_tenant
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -164,29 +164,30 @@ async def _seed(factory: UnitOfWorkFactory) -> None:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def tenants(tenant_id: str, other_tenant_id: str) -> AsyncIterator[Tenants]:
-    async with contracted_container() as driver:
-        await wipe(driver)
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id)
-        factory_b = tenant_uow_factory(driver, other_tenant_id)
-        await _seed(factory_a)
-        await _seed(factory_b)
-        yield Tenants(
-            driver,
-            tenant_id,
-            other_tenant_id,
-            factory_a,
-            factory_b,
-            _Bases(
-                {
-                    tenant_id: "https://a.example.org/l",
-                    other_tenant_id: "https://b.example.org/l",
-                }
-            ),
-            _Zones({tenant_id: NEW_YORK, other_tenant_id: LONDON_ZONE}),
-            FixedClock(DUE),
-        )
+async def tenants(
+    neo4j_driver: AsyncDriver, clean_graph: None, tenant_id: str, other_tenant_id: str
+) -> AsyncIterator[Tenants]:
+    driver = neo4j_driver  # the run's scopes were wiped, and both tenants have audit heads
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id)
+    factory_b = tenant_uow_factory(driver, other_tenant_id)
+    await _seed(factory_a)
+    await _seed(factory_b)
+    yield Tenants(
+        driver,
+        tenant_id,
+        other_tenant_id,
+        factory_a,
+        factory_b,
+        _Bases(
+            {
+                tenant_id: "https://a.example.org/l",
+                other_tenant_id: "https://b.example.org/l",
+            }
+        ),
+        _Zones({tenant_id: NEW_YORK, other_tenant_id: LONDON_ZONE}),
+        FixedClock(DUE),
+    )
 
 
 async def _count(tenants: Tenants, tenant: str, label: str) -> int:

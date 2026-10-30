@@ -195,7 +195,7 @@ async def test_an_advisor_cannot_add_a_scope_entry_and_nothing_is_stored(
     assert refused.status_code == 404
     async with neo4j_driver.session() as session:
         result = await session.run(
-            "MATCH (:List {id: 'scope-list', tenantId: $tenant})-[:ENTRY]->() "
+            "MATCH (:List {id: 'scope-list', tenantId: $tenant})-[:ENTRY]->({tenantId: $tenant}) "
             "RETURN count(*) AS entries",
             tenant=tenant_id,
         )

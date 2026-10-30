@@ -1,311 +1,124 @@
 // @vitest-environment node
-import { http, HttpResponse, type HttpResponseResolver } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SESSION_COOKIE, sealSession, type Session } from '@/lib/auth/session';
-import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
-import { readRegistration } from '@/lib/register/backend';
 import { BACKEND_ROOT } from '@/test/fixtures/links';
-import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
-import { server } from '@/test/msw/server';
+import { answerBackend, resetSeen, seen } from '@/test/applicant/backend';
+import { callerRequest } from '@/test/applicant/session';
+import { TEST_SESSION_SECRET } from '@/test/cookies';
+import { withApplicantHandlers } from '@/test/msw/applicant';
 import { PUT } from './route';
-import { csrfOf } from '@/test/requests';
-import { TENANTS } from '@/test/tenants';
+
+withApplicantHandlers();
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
   return { cookies: m.cookiesMock };
 });
-vi.mock('@/lib/register/backend', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/register/backend')>()),
-  readRegistration: vi.fn(),
-}));
 
-// The organisation step save (W54). The browser sends only its answers; the invitation's values are
-// read from the back end here, and the back end's own checks answer the save.
+// Saving one step (W54 to W26). The browser sends its answers; the BFF maps them to the back end's
+// step values. The organisation's name and ODS code are typed by the applicant (DEC-910): the review
+// checks them. A field the back end cannot keep is never sent (DEC-906). "Save draft" is a partial
+// $draft (DEC-905). A refusal comes back as the errors each field shows.
 
 const ID = 'REG-SAMPLE-1';
-// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
-vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF = csrfOf(TENANTS.A, 'person-sample-1');
-const read = vi.mocked(readRegistration);
-const url = (step = 'organisation') => `https://tenant-a.example.test/api/bff/registrations/${ID}/steps/${step}`;
-const ctx = (step = 'organisation', id = ID) => ({ params: Promise.resolve({ id, step }) });
+const ctx = (id: string, step: string) => ({ params: Promise.resolve({ id, step }) });
+const url = (step: string) => `https://tenant-a.example.test/api/bff/registrations/${ID}/steps/${step}`;
 
-let upstream: { path: string; method: string; body: unknown; auth: string | null; idem: string | null } | null = null;
+const DRAFT = `${BACKEND_ROOT}/fhir/Task/${ID}/$draft`;
 
-async function sessionFor(role: Session['role']): Promise<string> {
-  return sealSession({
-    role,
-    tenantId: TENANTS.A.id,
-    host: TENANTS.A.host,
-    services: [],
-    sub: 'person-sample-1',
-    backendToken: 'backend-token-sample-value',
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-  });
+function draftAnswer(status: number, body: unknown) {
+  answerBackend('put', `/fhir/Task/${ID}/$draft`, status, body);
 }
 
-function answerWith(status: number, body: unknown) {
-  server.use(
-    http.put(`${BACKEND_ROOT}/fhir/Task/${ID}/$draft`, (async ({ request }) => {
-      upstream = {
-        path: new URL(request.url).pathname,
-        method: request.method,
-        body: await request.json(),
-        auth: request.headers.get('authorization'),
-        idem: request.headers.get('idempotency-key'),
-      };
-      return HttpResponse.json(body as Record<string, unknown>, { status });
-    }) as HttpResponseResolver),
-  );
-}
-
-async function save(body: unknown, role: Session['role'] = 'reporter', csrf: string | null = CSRF, step = 'organisation') {
-  const cookies = { [SESSION_COOKIE]: await sessionFor(role), [CSRF_COOKIE]: CSRF };
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (csrf !== null) headers[CSRF_HEADER] = csrf;
-  return PUT(
-    requestWithCookies(url(step), cookies, { method: 'PUT', headers, body: typeof body === 'string' ? body : JSON.stringify(body) }),
-    ctx(step),
-  );
-}
+const TASK = { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'draft' }] } };
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
-  cookiesMock.mockClear();
-  upstream = null;
-  read.mockReset();
-  read.mockResolvedValue({
-    id: ID,
-    status: 'draft',
-    invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
-    steps: {},
-  });
-  answerWith(200, { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'draft' }] } });
+  resetSeen();
+  draftAnswer(200, TASK);
 });
 
-describe('PUT /api/bff/registrations/[id]/steps/organisation', () => {
-  it('saves the answers with the invitation’s values, as the back end’s step, with the bearer token and an idempotency key', async () => {
-    const response = await save({ orgType: 'nhs-trust', contactName: 'Sample Person', contactRole: 'Lead', contact: 'contact@example.test' });
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: 'draft' });
-    expect(upstream).toMatchObject({
-      path: `/fhir/Task/${ID}/$draft`,
-      method: 'PUT',
-      auth: 'Bearer backend-token-sample-value',
-    });
-    expect(upstream?.idem).toMatch(/^[0-9a-f-]{36}$/);
-    expect(upstream?.body).toEqual({
-      step: 'organisation',
-      values: {
-        name: 'Sample Community Trust',
-        odsCode: 'RSA01',
-        orgType: 'nhs-trust',
-        contactName: 'Sample Person',
-        contactEmail: 'contact@example.test',
-      },
-    });
-  });
-
-  it('sends nothing for the role line, which the back end does not take yet', async () => {
-    await save({ contactName: 'Sample Person', contactRole: 'Lead' });
-    expect(upstream?.body).not.toHaveProperty('values.contactRole');
-    expect((upstream?.body as { values: object }).values).not.toHaveProperty('contactRole');
-  });
-
-  it('answers the back end’s refusals as 422 with the errors on the page’s fields, and no value', async () => {
-    answerWith(400, {
-      resourceType: 'OperationOutcome',
-      issue: [
-        { severity: 'error', code: 'invalid', diagnostics: 'Enter a contact email or phone number', expression: ['contactEmail'] },
-        { severity: 'error', code: 'invalid', diagnostics: 'Choose an organisation type', expression: ['orgType'] },
-      ],
-    });
-    const response = await save({ contactName: 'Sample Person', contact: 'contact@example.test' });
-    expect(response.status).toBe(422);
-    const body = (await response.json()) as { errors: { field: string; message: string }[] };
-    expect(body.errors).toEqual([
-      { field: 'contact', message: 'Enter a contact email or phone number' },
-      { field: 'orgType', message: 'Choose an organisation type' },
-    ]);
-    expect(JSON.stringify(body)).not.toContain('Sample Person');
-  });
-
-  it('refuses a save with no CSRF header (403) and writes nothing upstream', async () => {
-    const response = await save({ contactName: 'Sample Person' }, 'reporter', null);
-    expect(response.status).toBe(403);
-    expect(upstream).toBeNull();
-  });
-
-  it('refuses a body that names a tenant, a locked field or any other field, without calling the back end', async () => {
-    for (const extra of [{ tenantId: 'tenant-b' }, { name: 'Other Trust' }, { odsCode: 'ZZZ99' }, { orgRole: 'x' }]) {
-      const response = await save({ contactName: 'Sample Person', ...extra });
-      expect(response.status).toBe(400);
-    }
-    expect(upstream).toBeNull();
-  });
-
-  it('answers 404 for a step the registration does not have, and 403 for another role', async () => {
-    expect((await save({}, 'reporter', CSRF, 'payments')).status).toBe(404);
-    expect((await save({ contactName: 'x' }, 'advisor')).status).toBe(403);
-    expect(upstream).toBeNull();
-  });
-
-  it('answers 503 not-built while the back end has no registration read, and saves nothing', async () => {
-    const { FhirError } = await import('@/lib/fhir/client');
-    read.mockRejectedValueOnce(new FhirError(503, { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-built', diagnostics: 'x' }] }));
-    const response = await save({ contactName: 'Sample Person' });
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ code: 'not-built' });
-    expect(upstream).toBeNull();
-  });
-});
-
-// The location step (W24): the fixed-site answers, in the back end's names. The organisation's
-// invitation is not read for this step.
-describe('PUT /api/bff/registrations/[id]/steps/location', () => {
-  const locationSave = (body: unknown, role: Session['role'] = 'reporter') => save(body, role, CSRF, 'location');
-
-  beforeEach(() => {
-    read.mockClear();
-    answerLocation(200, { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'draft' }] } });
-  });
-
-  it('saves a visiting service as fixedSite false only, with no read of the invitation', async () => {
-    const response = await locationSave({ fixedSite: false });
-    expect(response.status).toBe(200);
-    expect(upstream).toMatchObject({ path: `/fhir/Task/${ID}/$draft`, method: 'PUT' });
-    expect(upstream?.body).toEqual({ step: 'location', values: { fixedSite: false } });
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  it('saves a fixed site in the back end’s names, and refuses a body with a field the location step does not take', async () => {
-    const response = await locationSave({
-      fixedSite: true,
-      postcode: 'DT4 8XX',
-      addressId: 'addr-1',
-      address: 'Sample House, Dorchester, DT4 8XX',
-      siteName: 'Sample Ward',
-      siteType: 'ward',
-      hours: { days: [0], allDay: false, opens: '08:00', closes: '20:00' },
-    });
-    expect(response.status).toBe(200);
-    expect(upstream?.body).toEqual({
-      step: 'location',
-      values: {
-        fixedSite: true,
-        postcode: 'DT4 8XX',
-        address: 'Sample House, Dorchester, DT4 8XX',
-        siteName: 'Sample Ward',
-        siteType: 'ward',
-        openingDays: 'mon',
-        openingStart: '08:00',
-        openingEnd: '20:00',
-      },
-    });
-    expect((await locationSave({ fixedSite: false, tenantId: 'tenant-b' })).status).toBe(400);
-  });
-
-  it('answers the back end’s refusal of a location as 422 on the fields it names', async () => {
-    answerLocation(400, {
-      resourceType: 'OperationOutcome',
-      issue: [{ severity: 'error', code: 'invalid', diagnostics: 'Enter the opening days and times, or choose 24 hours', expression: ['opening'] }],
-    });
-    const response = await locationSave({ fixedSite: true, postcode: 'DT4 8XX', address: 'x', siteName: 'x', siteType: 'ward' });
-    expect(response.status).toBe(422);
-    expect(await response.json()).toEqual({ errors: [{ field: 'opening', message: 'Enter the opening days and times, or choose 24 hours' }] });
-  });
-});
-
-function answerLocation(status: number, body: unknown) {
-  server.use(
-    http.put(`${BACKEND_ROOT}/fhir/Task/${ID}/$draft`, (async ({ request }) => {
-      upstream = {
-        path: new URL(request.url).pathname,
-        method: request.method,
-        body: await request.json(),
-        auth: request.headers.get('authorization'),
-        idem: request.headers.get('idempotency-key'),
-      };
-      return HttpResponse.json(body as Record<string, unknown>, { status });
-    }) as HttpResponseResolver),
-  );
+async function save(step: string, body: unknown) {
+  return PUT(await callerRequest(url(step), 'reporter', { method: 'PUT', body }), ctx(ID, step));
 }
 
-// The service step (W25): the invitation's service name is read from the back end, never the browser.
-describe('PUT /api/bff/registrations/[id]/steps/service', () => {
-  beforeEach(() => {
-    read.mockClear();
-    answerLocation(200, { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'draft' }] } });
+describe('PUT /api/bff/registrations/[id]/steps/organisation', () => {
+  it('sends the typed name and ODS code, the organisation type and the contact, and answers the status', async () => {
+    const response = await save('organisation', { name: 'Sample Community Trust', odsCode: 'SAM01', orgType: 'nhs-trust', contactName: 'Sam Sample', contact: 'sam@example.test' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ status: 'draft' });
+    const sent = seen.find((call) => call.path === `/fhir/Task/${ID}/$draft`);
+    expect(sent?.body).toEqual({
+      step: 'organisation',
+      values: { name: 'Sample Community Trust', odsCode: 'SAM01', orgType: 'nhs-trust', contactName: 'Sam Sample', contactEmail: 'sam@example.test' },
+    });
+    expect(sent?.auth).toBe('Bearer backend-token-sample-value');
   });
 
-  it('saves the coded values with the service name from the invitation', async () => {
-    const response = await save(
-      {
-        category: 'urgent-community-response',
-        referralMethods: ['phone'],
-        spoaPhone: '01305 123456',
-        acceptingDays: ['mon'],
-        acceptingStart: '08:00',
-        acceptingEnd: '18:00',
-        needs: ['frailty'],
-        ageMin: 65,
-        ageMax: null,
-        noExclusions: true,
-        ownerRole: 'Community matron',
-        ownerEmail: 'owner@example.test',
-        reviewBy: '2027-01-31',
-        districts: ['DT3', 'DT4'],
-      },
-      'reporter',
-      CSRF,
-      'service',
-    );
+  it('never sends the contact role, which the back end cannot keep', async () => {
+    const response = await save('organisation', { name: 'Sample Community Trust', odsCode: 'SAM01', orgType: 'nhs-trust', contactName: 'Sam Sample', contactRole: 'Practice manager', contact: '07700900456' });
     expect(response.status).toBe(200);
-    expect(read).toHaveBeenCalledWith('backend-token-sample-value', ID);
-    expect(upstream?.body).toMatchObject({
-      step: 'service',
-      values: { serviceName: 'UCR West', category: 'urgent-community-response', noAgeLimit: true, ageMin: 65, districts: 'DT3,DT4' },
+    const sent = seen.find((call) => call.path === `/fhir/Task/${ID}/$draft`);
+    expect(JSON.stringify(sent?.body)).not.toContain('Practice manager');
+    expect(sent?.body).toMatchObject({ values: { contactPhone: '07700900456' } });
+  });
+
+  it('sends a partial save as partial, and answers what is still missing', async () => {
+    draftAnswer(200, { ...TASK, incomplete: [{ field: 'odsCode', message: 'Enter the ODS code' }] });
+    const response = await save('organisation', { name: 'Sample Community Trust', partial: true });
+    expect(response.status).toBe(200);
+    expect(seen.find((call) => call.path === `/fhir/Task/${ID}/$draft`)?.body).toMatchObject({ step: 'organisation', partial: true });
+    expect(await response.json()).toEqual({ status: 'draft', incomplete: [{ field: 'odsCode', message: 'Enter the ODS code' }] });
+  });
+
+  it('answers the back end’s refusal as 422 with the errors on the fields it names, in the page’s names', async () => {
+    draftAnswer(400, {
+      resourceType: 'OperationOutcome',
+      issue: [
+        { severity: 'error', code: 'invalid', diagnostics: 'Enter the ODS code', expression: ['odsCode'] },
+        { severity: 'error', code: 'invalid', diagnostics: 'Enter an email address or phone number', expression: ['contactEmail'] },
+      ],
+    });
+    const response = await save('organisation', { name: 'Sample Community Trust', odsCode: 'bad' });
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({
+      errors: [
+        { field: 'odsCode', message: 'Enter the ODS code' },
+        { field: 'contact', message: 'Enter an email address or phone number' },
+      ],
     });
   });
 
-  it('refuses a service field the back end does not take, and an unknown referral or need', async () => {
-    expect((await save({ category: 'other', specialty: 'x' }, 'reporter', CSRF, 'service')).status).toBe(400);
-    expect((await save({ needs: ['not-a-need'] }, 'reporter', CSRF, 'service')).status).toBe(400);
-    expect(upstream).toBeNull();
+  it('refuses a body with a field the step does not take, without calling the back end', async () => {
+    const response = await save('organisation', { name: 'Sample Community Trust', tenantId: 'other' });
+    expect(response.status).toBe(400);
+    expect(seen.some((call) => call.path.includes('$draft'))).toBe(false);
   });
 });
 
-// The reporting and API steps (W26): the coded values the back end takes.
-describe('PUT /api/bff/registrations/[id]/steps/reporting and api', () => {
-  beforeEach(() => {
-    answerLocation(200, { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'draft' }] } });
-  });
-
-  it('saves the reporting answers as the back end’s values', async () => {
-    const response = await save(
-      { measure: 'free-beds', usualRange: [0, 8], cadence: 'every-2-hrs', channel: 'text', holderName: 'Sample Ward team', contactMobile: '07700900456' },
-      'reporter',
-      CSRF,
-      'reporting',
-    );
-    expect(response.status).toBe(200);
-    expect(upstream?.body).toEqual({
-      step: 'reporting',
-      values: { measure: 'free-beds', usualLow: 0, usualHigh: 8, cadence: 'every-2-hrs', channel: 'text', holderName: 'Sample Ward team', contactMobile: '07700900456' },
+describe('PUT /api/bff/registrations/[id]/steps/location', () => {
+  it('sends the fixed site in the back end’s names, and never the UPRN or the site’s ODS code', async () => {
+    const response = await save('location', {
+      fixedSite: true,
+      postcode: 'dt48xx',
+      addressId: '100090001',
+      address: '1 High Street, Dorchester',
+      siteName: 'Sample Clinic',
+      siteType: 'clinic',
+      siteOdsCode: 'SAM02',
+      hours: { days: [0, 1, 2, 3, 4], allDay: false, opens: '08:00', closes: '18:00' },
     });
-  });
-
-  it('refuses a count the back end does not have, without calling it', async () => {
-    expect((await save({ measure: 'other', usualRange: [0, 8] }, 'reporter', CSRF, 'reporting')).status).toBe(400);
-    expect(upstream).toBeNull();
-  });
-
-  it('saves the API answer, and only "wanted" when there is none', async () => {
-    expect((await save({ wanted: false }, 'reporter', CSRF, 'api')).status).toBe(200);
-    expect(upstream?.body).toEqual({ step: 'api', values: { wanted: false } });
-    expect((await save({ wanted: true, name: 'Sample API', address: 'https://api.example.test', connection: 'REST', dataType: 'Referrals' }, 'reporter', CSRF, 'api')).status).toBe(200);
-    expect(upstream?.body).toEqual({ step: 'api', values: { wanted: true, name: 'Sample API', address: 'https://api.example.test', connection: 'REST', dataType: 'Referrals' } });
+    expect(response.status).toBe(200);
+    const values = (seen.find((call) => call.path === `/fhir/Task/${ID}/$draft`)?.body as { values: Record<string, unknown> }).values;
+    expect(values).toEqual({
+      fixedSite: true,
+      postcode: 'DT4 8XX',
+      address: '1 High Street, Dorchester',
+      siteName: 'Sample Clinic',
+      siteType: 'clinic',
+      openingDays: 'mon,tue,wed,thu,fri',
+      openingStart: '08:00',
+      openingEnd: '18:00',
+    });
   });
 });

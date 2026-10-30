@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -27,7 +27,7 @@ describe('SettingsForm', () => {
   it('sends the whole state, with the chosen window and deputy, and confirms the save', async () => {
     render(<SettingsForm initial={{ ...DEFAULT_ALERT_PREFERENCES, deputy: '' }} />);
     await userEvent.click(screen.getByRole('button', { name: '30 min' }));
-    await userEvent.type(screen.getByLabelText('Then alert'), 'Deputy COO');
+    fireEvent.change(screen.getByLabelText('Then alert'), { target: { value: 'Deputy COO' } });
     await userEvent.click(screen.getByRole('button', { name: 'Save' }));
 
     await waitFor(() => expect(sent).toHaveLength(1));

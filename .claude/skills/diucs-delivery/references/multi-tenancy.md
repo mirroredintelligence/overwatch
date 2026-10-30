@@ -1,6 +1,6 @@
 # Multi-tenancy and networks
 
-Contents: the requirement, the model, the rules every task follows, the transitional rule, what is never shared, testing and evidence, hazards, the decisions that are yours and what can leave you stuck, where the detail lives.
+Contents: the requirement, the model, the rules every task follows, what is never shared, the superseded transitional rule (history only), testing and evidence, hazards, the decisions that are yours and what can leave you stuck, where the detail lives.
 
 The original specifications describe one deployment for one organisation. The owner has ruled that the platform is multi-tenant, with organisations collaborating in a network. The repo specs, plan and prompts are updated to match as the tenancy tasks land (they are yours to keep current, DEC-133). Until each is updated, these decisions override it:
 
@@ -16,7 +16,7 @@ Read all three in `docs/delivery/decisions.md` before any task that reads or wri
 2. **Every node carries `tenantId`.** This includes the nodes the mapper writes as fragments and version copies. A relationship belongs to the tenant of the nodes it joins and never joins nodes of two scopes.
 3. **One binding point.** The tenant is bound once per unit of work, from a verified source only: the signed bearer token or BFF session for requests; validated message properties for workers; the number called (and `AccountSid`) for inbound SMS (DEC-131); the token hash for a link; the pairing for a wall screen. Never from a request body, a query string or any header the caller controls.
 4. **`run_query`** (`adapters/outbound/graph_store/driver.py`) is the only place application Cypher runs. It adds `tenant` to every call from the bound context, refuses to run when none is bound (fixed message, fails closed), and a caller cannot pass or override it.
-5. **The predicate cannot be injected into Cypher text.** Every statement writes `tenantId: $tenant` on each node it matches, merges or creates. Registering a statement that does not mention `$tenant` is refused, except for a short explicit allowlist of global statements (migrations, the health ping, shared reference data).
+5. **The predicate cannot be injected into Cypher text.** Every statement writes `tenantId: $tenant` on each node it matches, merges or creates. Registering a statement that does not name `tenantId: $tenant` on each node it matches, merges or creates is refused (DEC-440). The only statements without it are the global ones of `GLOBAL_QUERY_IDS` (the health ping, the tenant directory and the two whole-graph invariant counts of DEC-441), run through `run_global_query` and pinned by digest; migrations run through the migration runner.
 6. **Uniqueness is composite** (`tenantId` plus the key). Booking references (four digits) are unique within a tenant. Idempotency keys, link-token hashes, outbox ids, the audit hash chain, Redis keys (`diucs:<tenant>:...`) and Service Bus messages are tenant-scoped.
 7. **A service, person or record from another tenant reads as NotFound,** never Forbidden. Existence must not leak.
 8. **Network and sharing (DEC-132).** A `Network` (owned by a lead organisation that is itself a tenant) groups member tenants through `NetworkMembership`. Data is shared only through a `Grant` (grantor tenant, network, scope, purpose, dates, approved by the grantor's admin and by the network owner). A projector reads a member's data inside the member's scope and writes an allowlisted copy into the network scope, recording `sourceTenantId`. Members read the network capacity view through a read-only use case bound to the network scope. A unit of work binds **exactly one scope**. No query ever spans two scopes.
@@ -28,9 +28,9 @@ Read all three in `docs/delivery/decisions.md` before any task that reads or wri
 
 Reporters' names, phone numbers, devices, PINs, link tokens, communications, bookings, cases, audit entries, and any patient-level data. Today a projection may hold only: capacity status and figures with the as-of time and not-updated flag; service name, category, location, district coverage, opening hours and service-level contact; the current criteria version. The allowlist is enforced by the privacy guard (D17) and by a test, so no other field can enter a projection. A shared patient record and care coordination is a possible far-future purpose; it would need its own scope, purpose, data sharing agreement, sign-off and decision. Do not build toward it beyond the `scope` and `purpose` on a Grant.
 
-## The transitional rule (while the seam is not yet delivered)
+## History: the transitional rule (superseded by TEN-030, DEC-440)
 
-The seam (tenant context, `run_query` binding, the registration-time check, the generated two-tenant test, the tenant-per-run harness) is a task in the tenancy plan. Until a decision in `decisions.md` records "tenancy enforced", the checks below that depend on the seam cannot run. Until then every new task still follows these rules, so the sweep that migrates existing code stays small:
+Superseded. Tenancy has been enforced since TEN-030 (DEC-440): the seam is delivered, the ratchet and every transitional path are gone, and the full rules of the model above and the testing section below apply to every task. The six items below are kept as history, so that older evidence and decisions that cite them can be read. They are not rules any more:
 
 1. All Cypher is a registered `NamedQuery` run through `run_query`. No f-string Cypher except constant fragments. No Cypher outside `run_query` (migrations, health and the test wipe are the only exceptions).
 2. Match by the entity's own key, never by label alone and never by a global id that two tenants could share (an `id` the application generates, a four-digit reference, a message id, a token hash). Where a statement does match that way, list it in the evidence under "Tenant-pending statements" with the query id.
@@ -41,7 +41,7 @@ The seam (tenant context, `run_query` binding, the registration-time check, the 
 
 Once the seam is delivered and "tenancy enforced" is recorded, the full rules apply to every task: items 4 to 7 of the model, and the tests below.
 
-## Testing and evidence (once enforced)
+## Testing and evidence (enforced since TEN-030, DEC-440)
 
 - **Registration check:** a statement without `$tenant` cannot be registered (allowlist aside).
 - **Generated two-tenant test** over the query registry: seed two tenants, run every statement as tenant A, assert it reads and changes nothing of tenant B's. A new statement is covered automatically.

@@ -17,7 +17,7 @@ from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
 from diucs.adapters.outbound.graph_store.unit_of_work import DEFAULT_FACTORIES, neo4j_uow_factory
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, current_scope_or_none, current_tenant
+from diucs.application.tenancy import ScopeId, TenantNotBound, current_scope_or_none, current_tenant
 from tests.support.tenancy import as_tenant
 from tests.support.uow import tenant_uow_factory
 
@@ -144,5 +144,7 @@ async def test_a_test_marked_no_tenant_runs_with_nothing_bound(
     uow_factory: UnitOfWorkFactory,
 ) -> None:
     assert current_scope_or_none() is None
-    async with uow_factory() as uow:
-        assert uow.unit_scope is None
+    # Nothing opens with no scope bound (TEN-030).
+    with pytest.raises(TenantNotBound):
+        async with uow_factory():
+            pytest.fail("the unit must not open")

@@ -17,7 +17,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
-from diucs.application.tenancy import TenantNotBound
+from diucs.application.tenancy import RawTransactionRefused
 from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token, new_link_token
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
@@ -267,8 +267,9 @@ async def test_a_token_hash_is_unique_across_tenants_so_a_second_tenant_cannot_s
 async def test_a_link_token_statement_refuses_to_run_with_no_tenant_bound(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    with pytest.raises(TenantNotBound):
+    # With nothing bound there is no scoped transaction to run on (TEN-030): the raw one is refused.
+    with pytest.raises(RawTransactionRefused):
         await _get(neo4j_driver, "a" * 64)
-    with pytest.raises(TenantNotBound):
+    with pytest.raises(RawTransactionRefused):
         await _add(neo4j_driver, _record())
     assert await count_nodes(neo4j_driver, "LinkToken") == 0

@@ -268,7 +268,7 @@ async def test_a_committed_unit_of_work_cannot_be_rolled_back(
 
 _TENANT_ECHO = NamedQuery(
     id="Q-TEST-UOW-ECHO",
-    cypher="RETURN $tenant AS tenant",
+    cypher="OPTIONAL MATCH (n:EchoProbe {tenantId: $tenant}) RETURN $tenant AS tenant LIMIT 1",
     mode="read",
     scenario=Scenario("placeholder until TEN-004"),
 )
@@ -350,7 +350,7 @@ async def test_health_and_migrations_run_with_nothing_bound_and_with_a_tenant_bo
         await connection.close()
 
 
-async def test_a_unit_opened_with_nothing_bound_refuses_a_converted_statement_and_leaks_nothing(
+async def test_a_unit_opened_with_nothing_bound_is_refused_and_leaks_nothing(
     harness_container: ThrowawayNeo4j,
 ) -> None:
     connection = Neo4jConnection(
@@ -363,13 +363,15 @@ async def test_a_unit_opened_with_nothing_bound_refuses_a_converted_statement_an
         )
 
         async def unbound_unit() -> None:
-            async with factory() as uow:
-                assert uow.unit_scope is None
-                with pytest.raises(TenantNotBound):
-                    await uow.echo.tenant()  # type: ignore[attr-defined]
-                # Q-SVC-LIST-ACTIVE is converted (TEN-010): with nothing bound it refuses.
-                with pytest.raises(TenantNotBound):
-                    await uow.echo.active_services()  # type: ignore[attr-defined]
+            # TEN-030: nothing opens with no scope bound, so there is no unit to run a statement
+            # on: no session is opened and no place for a unit is claimed.
+            with pytest.raises(TenantNotBound):
+                async with factory():
+                    pytest.fail("the unit must not open")
+            assert connection.open_session_count == 0
+            with bind_tenant("a1"):
+                async with factory() as uow:
+                    assert uow.unit_scope == ScopeId.tenant("a1")
 
         await _unbound(unbound_unit())
         assert connection.open_session_count == 0

@@ -23,7 +23,7 @@ from diucs.adapters.inbound.workers.outbox_relay import OutboxRelay, RelayResult
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.driver import run_global_query
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
-from diucs.adapters.outbound.graph_store.migrations_tenant import TENANT_MIGRATIONS
+from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS, TENANT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.queries import GLOBAL_QUERY_IDS, REGISTRY
 from diucs.adapters.outbound.graph_store.tenant_directory import (
     Neo4jTenantDirectory,
@@ -366,7 +366,8 @@ async def test_no_global_statement_returns_anything_from_a_graph_that_also_holds
         "Q-TENANT-BY-HOST": {"host": "alpha.example.org"},
         "Q-TENANT-BY-ENTRA": {"directoryId": GUID_A},
     }
-    assert set(answers) | {"Q-NEO4J-PING"} == set(GLOBAL_QUERY_IDS)
+    whole_graph = {"Q-INVARIANT-UNSTAMPED", "Q-INVARIANT-CROSS-SCOPE"}
+    assert set(answers) | {"Q-NEO4J-PING"} | whole_graph == set(GLOBAL_QUERY_IDS)
 
     for query_id in answers:
 
@@ -378,6 +379,28 @@ async def test_no_global_statement_returns_anything_from_a_graph_that_also_holds
         assert DATA_MARKER not in repr(rows), query_id
         assert f"data-{tenant_id}" not in repr(rows), query_id
         assert f"data-{other_tenant_id}" not in repr(rows), query_id
+
+    # The two whole-graph counts of the invariant check (TEN-031) read every node, so they are held
+    # to a stricter test: a node with no tenant, carrying the marker and an id, is counted by its
+    # labels and its text never leaves the graph.
+    await _run(neo4j_driver, "CREATE (:Observation {id: 'lost-node', note: $m})", m=DATA_MARKER)
+
+    async def count_unstamped(tx: AsyncManagedTransaction) -> Any:
+        return await run_global_query(
+            tx, REGISTRY.get("Q-INVARIANT-UNSTAMPED"), registryLabels=list(REGISTRY_LABELS)
+        )
+
+    async def count_crossing(tx: AsyncManagedTransaction) -> Any:
+        return await run_global_query(tx, REGISTRY.get("Q-INVARIANT-CROSS-SCOPE"))
+
+    unstamped = await connection.run_read(count_unstamped)
+    assert unstamped == [{"labels": ["Observation"], "n": 1}]
+    crossing = await connection.run_read(count_crossing)
+    assert crossing == []
+    for rows in (unstamped, crossing):
+        assert DATA_MARKER not in repr(rows)
+        assert "lost-node" not in repr(rows)
+        assert f"data-{tenant_id}" not in repr(rows)
 
 
 async def test_the_directory_holds_references_to_secrets_and_never_a_secret(

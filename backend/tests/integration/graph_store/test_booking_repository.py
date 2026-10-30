@@ -24,6 +24,7 @@ from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.model.booking import Booking
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
+from tests.support.scoped import OpenTx
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -258,10 +259,11 @@ async def test_confirmed_since_for_services_with_no_ids_issues_no_query(
     since = datetime(2026, 10, 25, 13, 0, tzinfo=UTC)
 
     async def work(tx: AsyncManagedTransaction) -> tuple[dict[str, list[datetime]], int]:
-        counting = _CountingTx(tx)
+        raw = _CountingTx(tx.tx)  # type: ignore[attr-defined]
+        counting = OpenTx(raw, tx.scope)  # type: ignore[attr-defined]
         repo = Neo4jBookingRepository(counting, ResourceStore(counting))  # type: ignore[arg-type]
         grouped = await repo.confirmed_since_for_services([], since)
-        return grouped, counting.runs
+        return grouped, raw.runs
 
     grouped, runs = await read_tx(neo4j_driver, work)
 
@@ -283,10 +285,11 @@ async def test_confirmed_since_for_services_reads_every_service_in_one_query(
     await _write(neo4j_driver, west_after, west_before, east_after)
 
     async def work(tx: AsyncManagedTransaction) -> tuple[dict[str, list[datetime]], int]:
-        counting = _CountingTx(tx)
+        raw = _CountingTx(tx.tx)  # type: ignore[attr-defined]
+        counting = OpenTx(raw, tx.scope)  # type: ignore[attr-defined]
         repo = Neo4jBookingRepository(counting, ResourceStore(counting))  # type: ignore[arg-type]
         grouped = await repo.confirmed_since_for_services(["svc-ucr-west", "svc-ucr-east"], since)
-        return grouped, counting.runs
+        return grouped, raw.runs
 
     grouped, runs = await read_tx(neo4j_driver, work)
 

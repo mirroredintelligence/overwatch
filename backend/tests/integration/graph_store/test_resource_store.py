@@ -25,11 +25,11 @@ from diucs.adapters.outbound.graph_store.mapper import RelSpec, UnknownExtension
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import TenantNotBound, bind_tenant
+from diucs.application.tenancy import RawTransactionRefused, bind_tenant
 from diucs.domain.codes import BASE_URL
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
-from tests.support.scoped import scoped
+from tests.support.scoped import scoped, scoped_stub
 from tests.support.tenant_seed import contracted_container, invariant_breaks
 from tests.unit.adapters.outbound.graph_store.test_mapper_backbone import (
     AREA_A_ID,
@@ -650,10 +650,12 @@ async def test_with_no_tenant_bound_every_operation_is_refused_before_any_cypher
     async def history(tx: Any) -> Any:
         return await ResourceStore(tx, FixedClock(AT)).history("Organization", ORG_ID)
 
-    with pytest.raises(TenantNotBound):
+    # With nothing bound `write_tx` hands the callback the raw transaction (a scoped one cannot be
+    # made), and a raw transaction is refused before any Cypher (TEN-030).
+    with pytest.raises(RawTransactionRefused):
         await write_tx(neo4j_driver, put)
     for read in (get, exists, history):
-        with pytest.raises(TenantNotBound):
+        with pytest.raises(RawTransactionRefused):
             await read_tx(neo4j_driver, read)
     assert await count_nodes(neo4j_driver, "Resource") == 0
 
@@ -965,7 +967,7 @@ async def test_a_database_error_that_is_not_a_constraint_passes_through() -> Non
             raise ClientError("a statement failure that is not a constraint")
 
     with pytest.raises(ClientError):
-        await ResourceStore(Failing(), FixedClock(AT)).put(_org(), None)  # type: ignore[arg-type]
+        await ResourceStore(scoped_stub(Failing(), "a1"), FixedClock(AT)).put(_org(), None)
 
 
 async def test_a_local_relationship_of_the_tenant_is_not_an_element_of_the_resource(

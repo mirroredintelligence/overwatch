@@ -171,6 +171,38 @@ MUTANTS: tuple[Mutant, ...] = (
             "::test_the_structural_check_alone_refuses_every_bypass_even_when_the_text_is_pinned",
         ),
     ),
+    Mutant(
+        "M15",
+        "a whole-graph count may return only a label set or a type and a count",
+        f"{GRAPH}/queries.py",
+        "        or _WHOLE_GRAPH_RETURN.search(text) is None",
+        "        or False",
+        (
+            f"{UNIT}/test_global_allowlist.py"
+            "::test_a_whole_graph_statement_that_could_return_a_value_or_write_is_refused",
+        ),
+    ),
+    Mutant(
+        "M16",
+        "the process does not start while a node has no tenantId",
+        "diucs/bootstrap/container.py",
+        "            if not report.ok:\n                raise TenantInvariantViolated(report)\n",
+        "",
+        (
+            "tests/unit/bootstrap/test_container.py"
+            "::test_start_up_refuses_to_start_when_a_node_has_no_tenant_and_closes_the_connection",
+        ),
+    ),
+    Mutant(
+        "M17",
+        "the unstamped count leaves out the registry labels and no others",
+        f"{GRAPH}/invariants.py",
+        "registryLabels=list(REGISTRY_LABELS)",
+        "registryLabels=[]",
+        (
+            f"{UNIT}/test_tenant_invariants.py::test_the_unstamped_count_is_sent_the_registry_labels_and_nothing_else",
+        ),
+    ),
 )
 
 

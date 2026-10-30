@@ -37,6 +37,29 @@ export type CriteriaOverview = {
   };
   /** The day the review date passed, when it has (W31). */
   overdueSince?: string;
+  /** The shift lead who can change the owner, as tenant configuration gives it (W31). */
+  shiftLead?: { role: string; phone: string };
+};
+
+/** The version waiting for the second approval, as the approver reads it (W31). */
+export type PendingChange = {
+  serviceName: string;
+  taskId: string;
+  isAuthor: boolean;
+  /** The change as words, or null when there is no earlier version (the registration case). */
+  changes: string[] | null;
+  /** The whole of the criteria, shown when there is no earlier version to compare. */
+  full?: CriteriaValues & { version: number; reviewBy: string; ownerRole: string };
+  reason: string;
+  authorRole: string;
+};
+
+/** One line of the version history (W31). The back end gives the review date, not when a version was made. */
+export type HistoryVersion = {
+  version: number;
+  status: 'waiting' | 'current' | 'replaced' | 'retired';
+  reviewBy: string;
+  criteriaId: string;
 };
 
 export type ReviewPeriod = 3 | 6 | 12;

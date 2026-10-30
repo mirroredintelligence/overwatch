@@ -5,6 +5,8 @@ import { CRITERIA_OVERVIEW_WAITING } from '@/test/fixtures/criteria';
 import { http, HttpResponse } from 'msw';
 import { server } from '@/test/msw/server';
 import { CriteriaOverview } from './CriteriaOverview';
+import { CRITERIA_OVERVIEW } from '@/test/fixtures/criteria';
+import userEvent from '@testing-library/user-event';
 
 describe('CriteriaOverview', () => {
   it('shows the version, its review date, the accepts and does-not-accept lists, and the warning', async () => {
@@ -23,5 +25,26 @@ describe('CriteriaOverview', () => {
     server.use(http.get('/api/bff/criteria/:serviceId', () => HttpResponse.json(CRITERIA_OVERVIEW_WAITING)));
     render(<CriteriaOverview serviceId="s1" />);
     expect(await screen.findByText('Version 4 is waiting for approval. Advisors still see version 3.')).toBeInTheDocument();
+  });
+
+  it('shows the overdue notice, with the shift lead to ask, only when the review date has passed', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/bff/criteria/:serviceId', () =>
+        HttpResponse.json({ ...CRITERIA_OVERVIEW, overdueSince: '2026-09-12', shiftLead: { role: 'Duty manager', phone: '01202 000 333' } }),
+      ),
+    );
+    const { unmount } = render(<CriteriaOverview serviceId="s1" />);
+    expect(await screen.findByRole('heading', { name: 'Criteria not reviewed since 12 Sep' })).toBeInTheDocument();
+    expect(screen.getByText('Advisors see a flag on UCR West: “criteria not reviewed”.')).toBeInTheDocument();
+    expect(screen.getByText('Not your service any more? Ask the shift lead to change the owner.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review now' })).toHaveAttribute('data-el', 'OWN-OVERDUE-REVIEW-BTN');
+    await user.click(screen.getByRole('button', { name: 'Ask to change the owner' }));
+    expect(screen.getByText('Shift lead: Duty manager, 01202 000 333. No message is sent.')).toBeInTheDocument();
+    unmount();
+
+    render(<CriteriaOverview serviceId="s1" />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'UCR West criteria' })).toBeInTheDocument();
+    expect(screen.queryByText(/Criteria not reviewed since/)).not.toBeInTheDocument();
   });
 });

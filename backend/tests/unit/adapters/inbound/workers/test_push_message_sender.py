@@ -184,7 +184,9 @@ async def test_a_person_push_goes_to_every_app_of_the_person_at_high_urgency() -
         "https://diucs.example/reporter",
         FixedClock(datetime(2026, 10, 30, 9, 0, tzinfo=UTC)),
     )
-    unit = _PersonUnit([_held(device="app-1"), _held(device="app-2"), _held("someone-else", "app-3")])
+    unit = _PersonUnit(
+        [_held(device="app-1"), _held(device="app-2"), _held("someone-else", "app-3")]
+    )
 
     await runner(_message(_person_payload()), unit)  # type: ignore[arg-type]
 
@@ -199,7 +201,10 @@ async def test_a_person_push_goes_to_every_app_of_the_person_at_high_urgency() -
 async def test_a_person_with_no_subscription_is_not_an_error_and_sends_nothing() -> None:
     sender = RecordingPushSender()
     runner = PushMessageSender(
-        sender, SEALER, "https://diucs.example/reporter", FixedClock(datetime(2026, 10, 30, tzinfo=UTC))
+        sender,
+        SEALER,
+        "https://diucs.example/reporter",
+        FixedClock(datetime(2026, 10, 30, tzinfo=UTC)),
     )
 
     await runner(_message(_person_payload()), _PersonUnit([]))  # type: ignore[arg-type]
@@ -211,7 +216,10 @@ async def test_a_subscription_the_provider_reports_gone_is_deleted() -> None:
     sender = RecordingPushSender()
     sender.gone_next()
     runner = PushMessageSender(
-        sender, SEALER, "https://diucs.example/reporter", FixedClock(datetime(2026, 10, 30, tzinfo=UTC))
+        sender,
+        SEALER,
+        "https://diucs.example/reporter",
+        FixedClock(datetime(2026, 10, 30, tzinfo=UTC)),
     )
     unit = _PersonUnit([_held(device="app-1")])
 

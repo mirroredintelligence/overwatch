@@ -176,7 +176,9 @@ FAR_SITE = LatLon(lat=51.2, lon=-1.8)
 CASE_UNKNOWN = "case-unknown-district"
 
 
-async def _add_case(factory: UnitOfWorkFactory, case_id: str, reference: str, district: str) -> None:
+async def _add_case(
+    factory: UnitOfWorkFactory, case_id: str, reference: str, district: str
+) -> None:
     async with factory() as uow:
         await uow.cases.add(
             dataclasses.replace(_case(case_id=case_id, reference=reference), postcode=district)
@@ -259,9 +261,7 @@ async def test_a_suspended_services_districts_are_not_offered(
         await uow.commit()
     await _add_case(uow_factory, CASE_UNKNOWN, "4825", "DT99")
 
-    result = await _run(
-        uow_factory, {"DT7": PATIENT_SITE, "DT1": WEST_SITE}, CASE_UNKNOWN
-    )
+    result = await _run(uow_factory, {"DT7": PATIENT_SITE, "DT1": WEST_SITE}, CASE_UNKNOWN)
 
     assert result.districts == ("DT1",)
 

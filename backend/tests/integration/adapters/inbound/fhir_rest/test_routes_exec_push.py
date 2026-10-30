@@ -179,14 +179,18 @@ async def test_a_test_notification_is_one_person_push_queued_in_the_executives_t
     assert (sent.status_code, sent.json()) == (200, {"queued": True})
     with bind_tenant(tenant_id):
         async with two_container.uow_factory() as uow:
-            pending = [m for m in await uow.outbox.pending(20) if m.payload.get("channel") == "push"]
+            pending = [
+                m for m in await uow.outbox.pending(20) if m.payload.get("channel") == "push"
+            ]
     assert len(pending) == 1
     assert pending[0].payload["recipient_practitioner_id"] == STAFF
     assert pending[0].payload["message_id"] == "K3"
     assert "sealed_content" not in pending[0].payload
     with bind_tenant(other_tenant_id):
         async with two_container.uow_factory() as uow:
-            assert [m for m in await uow.outbox.pending(20) if m.payload.get("channel") == "push"] == []
+            assert [
+                m for m in await uow.outbox.pending(20) if m.payload.get("channel") == "push"
+            ] == []
 
 
 async def test_the_queued_test_reaches_the_executives_phone_through_the_push_sender(
@@ -196,7 +200,9 @@ async def test_the_queued_test_reaches_the_executives_phone_through_the_push_sen
     await api.post("/reporter/push-test", json={}, headers=exec_headers(tenant_id, None))
     with bind_tenant(tenant_id):
         async with two_container.uow_factory() as uow:
-            [queued] = [m for m in await uow.outbox.pending(20) if m.payload.get("channel") == "push"]
+            [queued] = [
+                m for m in await uow.outbox.pending(20) if m.payload.get("channel") == "push"
+            ]
     sender = RecordingPushSender()
     handler = PushMessageSender(sender, _Sealer(), "https://diucs.example/app", FixedClock(NOW))  # type: ignore[arg-type]
 

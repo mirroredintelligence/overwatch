@@ -105,9 +105,7 @@ async def test_another_persons_subscription_is_not_the_executives() -> None:
     assert units.outbox.messages == []
 
 
-@pytest.mark.parametrize(
-    "role", [role for role in Role if role not in (Role.EXEC, Role.REPORTER)]
-)
+@pytest.mark.parametrize("role", [role for role in Role if role not in (Role.EXEC, Role.REPORTER)])
 async def test_no_other_role_has_a_test_push_made(role: Role) -> None:
     units, use = _world()
 

@@ -808,7 +808,9 @@ async def test_a_reporter_removes_their_push_subscription_and_the_consent_is_wit
 STAFF = "stf-0123456789abcdef0123456789abcdef"
 
 
-async def test_an_executive_with_no_person_record_gets_one_made_and_the_subscription_saved() -> None:
+async def test_an_executive_with_no_person_record_gets_one_made_and_the_subscription_saved() -> (
+    None
+):
     container = _Container()
     assert STAFF not in container.units.people.practitioners
     async with client(container) as http:

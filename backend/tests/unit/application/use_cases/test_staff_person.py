@@ -109,4 +109,4 @@ async def test_an_actor_with_no_person_gets_nothing_made() -> None:
 
 
 def test_only_the_executive_role_is_a_staff_person() -> None:
-    assert STAFF_PERSON_ROLES == frozenset({Role.EXEC})
+    assert frozenset({Role.EXEC}) == STAFF_PERSON_ROLES

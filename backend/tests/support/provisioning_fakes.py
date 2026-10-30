@@ -13,7 +13,7 @@ from types import SimpleNamespace
 from typing import Any, Self
 
 from diucs.application.actor import Actor
-from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
+from diucs.application.ports.outbound.tenant_registry import RegistryTenant, TenantNumberRecord
 from diucs.application.ports.outbound.tenants import TenantRecordInvalid, normalise_host
 from diucs.application.tenancy import ScopeId, current_scope_or_none
 from diucs.domain.codes import Role
@@ -144,6 +144,18 @@ class FakePlatform:
 
     async def numbers(self, tenant_id: str) -> tuple[TenantNumberRecord, ...]:
         return tuple(self.numbers_by_tenant.get(tenant_id, {}).values())
+
+    async def list_all(self) -> tuple[RegistryTenant, ...]:
+        return tuple(
+            RegistryTenant(t, self.hosts.get(t.id), self.directories.get(t.id))
+            for t in sorted(self.tenants.values(), key=lambda t: t.id)
+        )
+
+    async def detail(self, tenant_id: str) -> RegistryTenant | None:
+        found = self.tenants.get(tenant_id)
+        if found is None:
+            return None
+        return RegistryTenant(found, self.hosts.get(tenant_id), self.directories.get(tenant_id))
 
 
 class FakeConfig:

@@ -27,6 +27,7 @@ store refuses and strips it too (`RESERVED_PROPERTIES`).
 
 import re
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Literal
 
@@ -118,9 +119,13 @@ _TEMPLATES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "RETURN properties(n) AS props",
         "read",
     ),
+    # The root is changed with `+=`, never `=`: `=` replaces every property, the unique-key ones
+    # (key, id, tenantId) too, and that takes the key entries exclusively while each writer that
+    # waits for the root holds them shared, so concurrent writers of one stored resource deadlock
+    # (F6B). A property the new version lacks arrives as null, which `+=` removes.
     "Q-RES-UPSERT-ROOT": (
         "UNWIND $rows AS row MERGE (n{insert} {key: row.key, tenantId: $tenant}) "
-        "SET n = row.props, n.tenantId = $tenant RETURN count(n) AS written",
+        "SET n += row.props RETURN count(n) AS written",
         "write",
     ),
     "Q-RES-UPSERT-NODE": (
@@ -371,6 +376,22 @@ def _props_from_db(props: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _not_placeholder(props: dict[str, Any] | None) -> dict[str, Any] | None:
+    """The stored root, or None when there is none or it is only a placeholder for a reference."""
+    if props is None or "placeholder" in props:
+        return None
+    return props
+
+
+def _gone_from(stored: dict[str, Any] | None, owned: list[NodeSpec], root_key: str) -> list[str]:
+    """The properties of the stored root that the new root does not carry, other than its key and
+    its tenant, which never change (the lock stamp and the placeholder mark are among them)."""
+    if stored is None:
+        return []
+    kept = {name for node in owned if node.key == root_key for name in node.properties}
+    return sorted(set(stored) - kept - {"key", "tenantId"})
+
+
 class ResourceStore:
     def __init__(self, tx: ScopedTx, clock: Clock | None = None) -> None:
         self._tx = tx
@@ -439,7 +460,8 @@ class ResourceStore:
             id=resource_id,
             stamp=uuid.uuid4().hex,
         )
-        current = await self._root_props(resource_type, key)
+        stored = await self._stored_root(resource_type, key)
+        current = _not_placeholder(stored)
         new_version = self._next_version(resource_type, key, current, expected_version)
         nodes, rels = self._fragment(resource, key, new_version, stamp)
         owned = [node for node in nodes if _is_owned(node.key, key)]
@@ -455,7 +477,7 @@ class ResourceStore:
             await self._write_snapshot(key, str(current["versionId"]), old)
         await self._run("Q-RES-CLEAR-OWNED", key=key, prefix=f"{key}#")
         await self._run("Q-RES-CLEAR-ROOT-RELS", key=key)
-        await self._write_nodes(owned)
+        await self._write_nodes(owned, key, _gone_from(stored, owned, key))
         await self._apply_shared(plan)
         await self._write_placeholders(placeholders)
         await self._write_rels([rel for rel in rels if not _is_shared_key(rel.start)])
@@ -529,10 +551,17 @@ class ResourceStore:
         await self._write_nodes(nodes)
         await self._write_rels(rels)
 
-    async def _write_nodes(self, nodes: list[NodeSpec]) -> None:
+    async def _write_nodes(
+        self, nodes: list[NodeSpec], root_key: str | None = None, gone: Sequence[str] = ()
+    ) -> None:
+        """Write the owned nodes. `gone` names the properties the stored root has and the new one
+        lacks: the root is written with `+=`, so each is sent as null to be removed."""
         groups: dict[tuple[str, ...], list[dict[str, Any]]] = {}
         for node in nodes:
-            groups.setdefault(node.labels, []).append({"key": node.key, "props": node.properties})
+            props = node.properties
+            if node.key == root_key:
+                props = {**props, **dict.fromkeys(gone)}
+            groups.setdefault(node.labels, []).append({"key": node.key, "props": props})
         for labels, rows in groups.items():
             template = "Q-RES-UPSERT-ROOT" if labels[0] == "Resource" else "Q-RES-UPSERT-NODE"
             await self._run(template, insert=_labels_text(labels), rows=rows)
@@ -623,12 +652,16 @@ class ResourceStore:
         the instance; the registry checks that the insert is a chain of label names."""
         return await run_query(self._tx, REGISTRY.instance(template, insert), **params)
 
-    async def _root_props(self, resource_type: str, key: str) -> dict[str, Any] | None:
+    async def _stored_root(self, resource_type: str, key: str) -> dict[str, Any] | None:
+        """The properties of the root node, placeholder or not, or None when there is no node."""
         rows = await self._run("Q-RES-GET", key=key, type=resource_type)
-        if not rows or "placeholder" in rows[0]["props"]:
+        if not rows:
             return None
         props: dict[str, Any] = rows[0]["props"]
         return props
+
+    async def _root_props(self, resource_type: str, key: str) -> dict[str, Any] | None:
+        return _not_placeholder(await self._stored_root(resource_type, key))
 
     async def _load(self, key: str, root_type: str, *, version: bool = False) -> GraphFragment:
         """The owned nodes and relationships of one stored resource (or of one of its versions),

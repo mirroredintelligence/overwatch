@@ -1159,3 +1159,31 @@ async def test_a_reference_to_an_ordinary_type_is_still_accepted(neo4j_driver: A
     await _put(neo4j_driver, {**_org(), "partOf": {"reference": "Organization/parent"}}, None)
 
     assert await _get(neo4j_driver, "Organization", ORG_ID) is not None
+
+
+async def test_a_replacement_leaves_the_root_with_exactly_the_new_properties(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    # The root is written with `+=` (F6B), so a property the new version lacks must be sent as null
+    # and removed: one that a repository set outside the mapper, and the lock marks. The key, the
+    # id and the tenant stay.
+    await _put(neo4j_driver, _org("First"), None)
+
+    async def add_outside_property(tx: Any) -> None:
+        result = await tx.run(
+            "MATCH (n:Organization {key: $key, tenantId: $tenant}) SET n.addedElsewhere = 'x' "
+            "RETURN count(n) AS found",
+            key=f"Organization/{ORG_ID}",
+        )
+        assert (await result.single())["found"] == 1
+
+    await write_tx(neo4j_driver, add_outside_property)
+
+    await _put(neo4j_driver, _org("Second"), "1")
+
+    props = await node_props(neo4j_driver, "Organization", key=f"Organization/{ORG_ID}")
+    assert props["name"] == "Second"
+    assert props["versionId"] == "2"
+    assert props["id"] == ORG_ID
+    for gone in ("addedElsewhere", "lockStamp", "placeholder"):
+        assert gone not in props

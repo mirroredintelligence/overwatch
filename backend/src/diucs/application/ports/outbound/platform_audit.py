@@ -63,3 +63,8 @@ class PlatformAuditReader(Protocol):
         """Walk the whole chain and recompute every hash: False when a link was edited, removed,
         reordered or inserted, or the head does not name the last link."""
         ...
+
+
+class PlatformAuditLog(PlatformAudit, PlatformAuditReader, Protocol):
+    """The platform chain as the composition root holds it: written by the guard and the routes,
+    read and verified by the operator's access log."""

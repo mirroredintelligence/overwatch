@@ -182,6 +182,13 @@ def create_app(
 
     app.include_router(routes_support.router)
 
+    # The platform operator's and the support person's routes (TEN-075), on the operator door
+    # (audience diucs-ops), and the tenant administrator's own (TEN-075), on the tenant door.
+    from diucs.adapters.inbound.fhir_rest import routes_platform, routes_tenant
+
+    app.include_router(routes_platform.router)
+    app.include_router(routes_tenant.router)
+
     # The planning analysis (W51, U43): aggregates from the decision log, for a lead or an
     # executive.
     from diucs.adapters.inbound.fhir_rest import routes_planning

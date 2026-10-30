@@ -13,8 +13,8 @@ import pytest
 
 from diucs.domain.rules.browser_insight import (
     BROWSER_FUNNELS,
-    BUDGETS,
     BUCKET_COUNT,
+    BUDGETS,
     EDGES,
     MAX_BATCH_EVENTS,
     UNKNOWN_ROUTE,
@@ -48,7 +48,9 @@ def event(name: str, **extra: object) -> UiEvent:
 
 
 def test_a_click_with_an_element_id_is_read_and_carries_no_free_text() -> None:
-    parsed = parse_event("ui.click", {**COMMON, "element.id": "ADV-OPT-REQUEST-BTN", "dwell_ms": 40})
+    parsed = parse_event(
+        "ui.click", {**COMMON, "element.id": "ADV-OPT-REQUEST-BTN", "dwell_ms": 40}
+    )
 
     assert parsed is not None
     assert parsed.element_id == "ADV-OPT-REQUEST-BTN"
@@ -67,6 +69,8 @@ def test_a_click_with_an_element_id_is_read_and_carries_no_free_text() -> None:
         ("ui.submit", {"form.id": "DT4 8XX"}),
         ("ui.page_view", {"page.route": "/advisor/case/DT4 8XX"}),
         ("ui.page_view", {"page.route": "advisor"}),
+        ("ui.page_view", {"page.route": "/Advisor/board"}),
+        ("ui.page_view", {"page.route": "/advisor/[ref"}),
         ("ui.page_view", {}),
         ("ui.friction", {"kind": "rage-quit", "element.id": "ADV-X"}),
         ("ui.friction", {"kind": "rage"}),
@@ -79,7 +83,9 @@ def test_a_click_with_an_element_id_is_read_and_carries_no_free_text() -> None:
         ("ui.unknown", {"element.id": "ADV-X"}),
     ],
 )
-def test_an_event_that_breaks_the_schema_is_not_read(name: str, attributes: dict[str, object]) -> None:
+def test_an_event_that_breaks_the_schema_is_not_read(
+    name: str, attributes: dict[str, object]
+) -> None:
     assert parse_event(name, {**COMMON, **attributes}) is None
 
 
@@ -264,9 +270,15 @@ def test_a_web_vital_lands_in_one_bucket_of_its_measure_route_device_and_release
     batch = fold(
         "advisor",
         [
-            event("ui.web_vital", metric="lcp", metric_value=2400, **{"page.route": "/advisor/board"}),
-            event("ui.web_vital", metric="lcp", metric_value=2400, **{"page.route": "/advisor/board"}),
-            event("ui.web_vital", metric="cls", metric_value=0.04, **{"page.route": "/advisor/board"}),
+            event(
+                "ui.web_vital", metric="lcp", metric_value=2400, **{"page.route": "/advisor/board"}
+            ),
+            event(
+                "ui.web_vital", metric="lcp", metric_value=2400, **{"page.route": "/advisor/board"}
+            ),
+            event(
+                "ui.web_vital", metric="cls", metric_value=0.04, **{"page.route": "/advisor/board"}
+            ),
         ],
     )
 
@@ -301,9 +313,7 @@ def test_two_sessions_in_one_batch_stay_two_rows_so_each_is_counted_once() -> No
 
 
 def test_a_different_device_is_a_different_row() -> None:
-    phone = parse_event(
-        "ui.click", {**COMMON, "device.type": "phone", "element.id": "ADV-X-BTN"}
-    )
+    phone = parse_event("ui.click", {**COMMON, "device.type": "phone", "element.id": "ADV-X-BTN"})
     assert phone is not None
     batch = fold("advisor", [event("ui.click", **{"element.id": "ADV-X-BTN"}), phone])
 
@@ -313,9 +323,7 @@ def test_a_different_device_is_a_different_row() -> None:
 def test_an_empty_batch_folds_to_nothing() -> None:
     batch = fold("advisor", [])
 
-    assert not (
-        batch.usage or batch.friction or batch.routes or batch.funnels or batch.measures
-    )
+    assert not (batch.usage or batch.friction or batch.routes or batch.funnels or batch.measures)
     assert batch.releases == ()
 
 
@@ -329,7 +337,7 @@ def test_the_folded_rows_come_out_in_a_fixed_order() -> None:
     assert [row.element_id for row in fold("advisor", events).usage] == ["ADV-A-BTN", "ADV-B-BTN"]
 
 
-# ---- the funnels the browser can see ---------------------------------------------------------------
+# ---- the funnels the browser can see -------------------------------------------------------------
 
 
 def test_every_browser_funnel_is_one_of_the_spec_funnels_with_two_or_more_steps() -> None:
@@ -341,7 +349,7 @@ def test_every_browser_funnel_is_one_of_the_spec_funnels_with_two_or_more_steps(
         for step in steps:
             assert step.routes
             for route in step.routes:
-                assert re.fullmatch(r"/[a-z0-9\-/\[\]]*", route), route
+                assert re.fullmatch(r"/(?:[a-z0-9\-]|/|\[[A-Za-z0-9]+\])*", route), route
 
 
 def test_a_route_belongs_to_at_most_one_step_of_a_funnel() -> None:
@@ -395,11 +403,13 @@ def test_a_page_that_is_in_no_funnel_adds_no_funnel_row() -> None:
     assert batch.funnels == ()
 
 
-# ---- the pseudonymous session marker ---------------------------------------------------------------
+# ---- the pseudonymous session marker -------------------------------------------------------------
 
 
 def test_the_marker_is_a_keyed_hash_that_does_not_contain_the_session_id() -> None:
-    key = marker_key(b"k" * 32, "tenant-a", date(2026, 10, 29), "usage", ("ADV-X", "advisor"), SESSION)
+    key = marker_key(
+        b"k" * 32, "tenant-a", date(2026, 10, 29), "usage", ("ADV-X", "advisor"), SESSION
+    )
 
     assert re.fullmatch(r"[0-9a-f]{32}", key)
     assert SESSION not in key

@@ -119,7 +119,7 @@ def test_a_funnel_whose_first_step_is_under_ten_shows_nothing_at_all() -> None:
     view = funnel_views({"reporter-set-up": reporter_rows(9, 8, 7)})[0]
 
     assert all(step.suppressed and step.count is None and step.pct is None for step in view.steps)
-    assert view.split == []
+    assert view.split == ()
 
 
 def test_a_funnel_with_no_rows_lists_its_steps_as_hidden_not_as_zero() -> None:
@@ -147,7 +147,9 @@ def test_the_days_of_the_range_add_up() -> None:
 
 def test_roles_and_devices_of_one_step_add_up() -> None:
     rows = reporter_rows(8) + [
-        FunnelDailyRow(DAY, "reporter-set-up", "Set-up opened", "reporter", "browser", "tablet", 8, 0, None)
+        FunnelDailyRow(
+            DAY, "reporter-set-up", "Set-up opened", "reporter", "browser", "tablet", 8, 0, None
+        )
     ]
 
     view = funnel_views({"reporter-set-up": rows})[0]
@@ -155,7 +157,9 @@ def test_roles_and_devices_of_one_step_add_up() -> None:
     assert view.steps[0].count == 16
 
 
-def test_the_split_is_the_share_of_first_step_sessions_by_channel_and_hides_small_channels() -> None:
+def test_the_split_is_the_share_of_first_step_sessions_by_channel_and_hides_small_channels() -> (
+    None
+):
     rows = [
         *reporter_rows(30, 20, channel="browser"),
         *reporter_rows(10, 5, channel="app"),
@@ -185,7 +189,9 @@ def friction_row(
     return FrictionDailyRow(day, element, kind, "advisor", "desktop", 0, events, sessions, route)
 
 
-def usage_row(element: str, interactions: int, sessions: int, day: date = DAY) -> ElementUsageDailyRow:
+def usage_row(
+    element: str, interactions: int, sessions: int, day: date = DAY
+) -> ElementUsageDailyRow:
     return ElementUsageDailyRow(day, element, "advisor", "desktop", interactions, sessions)
 
 
@@ -206,7 +212,9 @@ def test_41_in_312_is_13_percent_and_for_review_and_3_percent_is_not() -> None:
 
 
 def test_exactly_five_percent_is_not_for_review() -> None:
-    table = friction_table([friction_row("ADV-X-BTN", "dead", 5, 12)], [usage_row("ADV-X-BTN", 100, 12)])
+    table = friction_table(
+        [friction_row("ADV-X-BTN", "dead", 5, 12)], [usage_row("ADV-X-BTN", 100, 12)]
+    )
 
     assert table.rows[0].review is False
 
@@ -257,7 +265,11 @@ def test_the_table_is_ordered_by_rate_then_events_and_names_no_person() -> None:
             friction_row("ADV-B-BTN", "rage", 30, 12),
             friction_row("ADV-C-BTN", "dead", 9, 12),
         ],
-        [usage_row("ADV-A-BTN", 100, 12), usage_row("ADV-B-BTN", 100, 12), usage_row("ADV-C-BTN", 100, 12)],
+        [
+            usage_row("ADV-A-BTN", 100, 12),
+            usage_row("ADV-B-BTN", 100, 12),
+            usage_row("ADV-C-BTN", 100, 12),
+        ],
     )
 
     assert [row.element_id for row in table.rows] == ["ADV-B-BTN", "ADV-C-BTN", "ADV-A-BTN"]
@@ -267,8 +279,12 @@ def test_the_table_is_ordered_by_rate_then_events_and_names_no_person() -> None:
 # ---- paths ---------------------------------------------------------------------------------------
 
 
-def route_row(route: str, sessions: int, *, role: str = "advisor", day: date = DAY) -> RouteDailyRow:
-    return RouteDailyRow(day, route, role, "desktop", None, None, None, None, None, None, 0, sessions)
+def route_row(
+    route: str, sessions: int, *, role: str = "advisor", day: date = DAY
+) -> RouteDailyRow:
+    return RouteDailyRow(
+        day, route, role, "desktop", None, None, None, None, None, None, 0, sessions
+    )
 
 
 def test_routes_are_listed_by_sessions_and_a_small_one_has_no_number() -> None:
@@ -457,7 +473,12 @@ def release_row(
 
 def test_the_two_newest_releases_with_ten_sessions_each_are_compared() -> None:
     view = release_view(
-        [release_row("1.4.0", 50), release_row("1.4.2", 30), release_row("1.4.10", 20), release_row("1.3.9", 40)],
+        [
+            release_row("1.4.0", 50),
+            release_row("1.4.2", 30),
+            release_row("1.4.10", 20),
+            release_row("1.3.9", 40),
+        ],
         [],
     )
 
@@ -527,7 +548,12 @@ def test_friction_is_events_per_hundred_interactions_and_two_points_more_is_held
 
     assert view is not None
     friction = next(m for m in view.measures if m.measure == "Friction events per 100 interactions")
-    assert (friction.old, friction.new, friction.unit, friction.review) == (3.0, 5.1, "percent", True)
+    assert (friction.old, friction.new, friction.unit, friction.review) == (
+        3.0,
+        5.1,
+        "percent",
+        True,
+    )
 
 
 def test_a_rise_of_exactly_two_points_is_not_held() -> None:
@@ -546,7 +572,10 @@ def test_a_rise_of_exactly_two_points_is_not_held() -> None:
 
 def test_errors_are_per_hundred_page_views() -> None:
     view = release_view(
-        [release_row("1.4.2", 30, errors=5, views=500), release_row("1.4.3", 30, errors=20, views=500)],
+        [
+            release_row("1.4.2", 30, errors=5, views=500),
+            release_row("1.4.3", 30, errors=20, views=500),
+        ],
         [],
     )
 
@@ -583,22 +612,22 @@ def test_a_release_with_no_interactions_has_no_friction_rate() -> None:
 def test_the_pipeline_is_pending_dead_and_the_age_of_the_oldest_pending_message() -> None:
     views = pipeline_views(
         [
-            PipelineRow("messages", 3, 1, NOW - timedelta(seconds=95)),
-            PipelineRow("capacity", 0, 0, None),
+            PipelineRow("messages.outbound", 3, 1, NOW - timedelta(seconds=95)),
+            PipelineRow("capacity.events", 0, 0, None),
         ],
         NOW,
     )
 
     assert [(v.name, v.active, v.dead_lettered, v.oldest_seconds) for v in views] == [
-        ("messages", 3, 1, 95),
-        ("capacity", 0, 0, None),
+        ("messages.outbound", 3, 1, 95),
+        ("capacity.events", 0, 0, None),
     ]
 
 
 def test_a_topic_that_is_not_a_known_one_is_listed_as_other_and_added_up() -> None:
     views = pipeline_views(
         [
-            PipelineRow("messages", 1, 0, NOW - timedelta(seconds=10)),
+            PipelineRow("messages.outbound", 1, 0, NOW - timedelta(seconds=10)),
             PipelineRow("sample-patient-topic", 2, 1, NOW - timedelta(seconds=50)),
             PipelineRow("another-topic", 4, 0, NOW - timedelta(seconds=20)),
         ],
@@ -611,6 +640,16 @@ def test_a_topic_that_is_not_a_known_one_is_listed_as_other_and_added_up() -> No
 
 
 def test_an_age_in_the_future_is_zero() -> None:
-    views = pipeline_views([PipelineRow("messages", 1, 0, NOW + timedelta(seconds=30))], NOW)
+    views = pipeline_views(
+        [PipelineRow("messages.outbound", 1, 0, NOW + timedelta(seconds=30))], NOW
+    )
 
     assert views[0].oldest_seconds == 0
+
+
+def test_the_known_topics_hold_every_event_bus_topic_and_queue_and_the_code_topic() -> None:
+    from diucs.application.ports.outbound.event_bus import QUEUES, TOPICS
+    from diucs.domain.rules.insight_views import PIPELINE_TOPICS
+
+    assert PIPELINE_TOPICS >= TOPICS | QUEUES
+    assert "codes.dispatch" in PIPELINE_TOPICS

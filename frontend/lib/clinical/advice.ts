@@ -1,6 +1,6 @@
 // The clinical advice choices, reasons and the note's limit (W44; domain/use_cases clinical_advice.py).
 // The values are the back end's. Where the prompt named a reason the back end does not take
-// ("within-criteria"), the back end's value is used (DEC-716).
+// ("within-criteria"), the back end's value is used (DEC-718).
 
 export const REQUEST_URGENCIES = ['now', 'within-15-min'] as const;
 export const REQUEST_WHYS = ['borderline-criteria', 'unsure-of-urgency', 'other'] as const;

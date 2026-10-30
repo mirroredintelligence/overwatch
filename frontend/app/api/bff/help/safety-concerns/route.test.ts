@@ -23,7 +23,7 @@ async function post(body: unknown, role: Session['role'] = 'advisor', csrf = tru
   return POST(requestWithCookies('https://app.test/api/bff/help/safety-concerns', {
     [SESSION_COOKIE]: await sealSession(s),
     diucs_csrf: CSRF,
-  }, { method: 'POST', headers, body: JSON.stringify(body) }), undefined as never);
+  }, { method: 'POST', headers, body: JSON.stringify(body) }));
 }
 
 beforeEach(() => {

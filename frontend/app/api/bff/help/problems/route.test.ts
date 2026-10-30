@@ -17,7 +17,7 @@ async function post(body: unknown) {
   return POST(requestWithCookies('https://app.test/api/bff/help/problems', {
     [SESSION_COOKIE]: await sealSession(s),
     diucs_csrf: CSRF,
-  }, { method: 'POST', headers: { 'X-CSRF-Token': CSRF, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }), undefined as never);
+  }, { method: 'POST', headers: { 'X-CSRF-Token': CSRF, 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
 }
 
 beforeEach(() => {

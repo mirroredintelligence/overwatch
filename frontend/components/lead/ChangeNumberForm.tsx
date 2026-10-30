@@ -31,9 +31,20 @@ function choicesFrom(value: unknown): Choice[] {
   );
 }
 
+/** The last four digits of the service's current number, read for the service it was read for. */
+type Reading = { service: string; ending: string | null };
+
+function endingOf(value: unknown): string | null {
+  const posts = (value as { reporters?: unknown } | undefined)?.reporters;
+  if (!Array.isArray(posts) || posts.length === 0) return null;
+  const ending = (posts[0] as { numberEnding?: unknown } | undefined)?.numberEnding;
+  return typeof ending === 'string' ? ending : null;
+}
+
 export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
   const [services, setServices] = useState<Choice[]>([]);
   const [service, setService] = useState<string>(serviceId ?? '');
+  const [reading, setReading] = useState<Reading | null>(null);
   const [mobile, setMobile] = useState('');
   const [until, setUntil] = useState<string | null>(null);
   const [mobileError, setMobileError] = useState<string | null>(null);
@@ -58,6 +69,23 @@ export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (service === '') return;
+    let cancelled = false;
+    leadGet(`/api/bff/lead/reporters?service=${encodeURIComponent(service)}`)
+      .then((value) => {
+        if (!cancelled) setReading({ service, ending: endingOf(value) });
+      })
+      .catch(() => {
+        if (!cancelled) setReading({ service, ending: null });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [service]);
+
+  const currentEnding = reading?.service === service ? reading.ending : null;
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -87,6 +115,7 @@ export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
     keyRef.current = null;
     const ending = (result.body as { numberEnding?: unknown } | undefined)?.numberEnding;
     setSaved(typeof ending === 'string' ? ending : '');
+    if (typeof ending === 'string') setReading({ service, ending });
     setMobile('');
   }
 
@@ -141,6 +170,8 @@ export function ChangeNumberForm({ serviceId }: { serviceId?: string }) {
             onChange={(event) => setMobile(event.target.value)}
           />
         </div>
+
+        {currentEnding !== null ? <p className={styles.muted}>{`Current number ends ${currentEnding}`}</p> : null}
 
         <div role="group" aria-labelledby={groupId} className={styles.choices}>
           <p id={groupId} className={styles.fieldLabel}>

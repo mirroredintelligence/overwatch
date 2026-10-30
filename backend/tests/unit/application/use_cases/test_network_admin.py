@@ -332,3 +332,107 @@ async def test_a_lost_race_is_a_conflict_and_records_nothing(rig: _Rig) -> None:
     with pytest.raises(Conflict):
         await rig.agreement.execute(RecordAgreementCommand(_admin(), NETWORK_ID, "DSA-2", 2))
     assert rig.world.outbox == [] and rig.world.audits == []
+
+
+# the administrator's reads
+
+
+def _reads(rig: _Rig) -> Any:
+    from diucs.application.use_cases.network_admin import QueryNetworkAdmin
+    from tests.support.network_samples import MEMBER_B, MEMBER_C, make_member, rid
+
+    rig.registry.seed(
+        make_network(),
+        members=[make_owner_membership(), make_member(MEMBER_B, id=rid("mem-opaque-b"))],
+    )
+    rig.directory.tenants[MEMBER_B] = active_tenant(MEMBER_B, "Member Bee")
+    return (
+        QueryNetworkAdmin(
+            rig.registry,  # type: ignore[arg-type]
+            rig.directory,  # type: ignore[arg-type]
+            UnitFactories(rig.world).network_read_only,  # type: ignore[arg-type]
+        ),
+        MEMBER_B,
+        MEMBER_C,
+    )
+
+
+async def test_the_owner_reads_every_membership_by_its_id_and_the_organisation_by_name(
+    rig: _Rig,
+) -> None:
+    query, member, _ = _reads(rig)
+    rows = await query.members(person(OWNER, Role.NETWORK_ADMIN), NETWORK_ID)
+    assert [r.organisation_name for r in rows] == [active_tenant(OWNER).display_name, "Member Bee"]
+    assert member not in repr(rows) and OWNER not in repr(rows)
+    assert [r.role for r in rows] == [MembershipRole.OWNER, MembershipRole.MEMBER]
+
+
+async def test_a_member_behind_on_the_agreement_is_flagged(rig: _Rig) -> None:
+    query, _, _ = _reads(rig)
+    network, settings = rig.registry.networks[NETWORK_ID]
+    rig.registry.networks[NETWORK_ID] = (
+        replace(network, agreement=Agreement("DSA-2026-2", 2)),
+        settings,
+    )
+    rows = await query.members(person(OWNER, Role.NETWORK_ADMIN), NETWORK_ID)
+    assert [r.agreement_behind for r in rows] == [True, True]
+
+
+async def test_only_the_owners_network_administrator_reads_the_members(rig: _Rig) -> None:
+    query, member, _ = _reads(rig)
+    for role in (Role.TENANT_ADMIN, Role.LEAD, Role.OWNER):
+        with pytest.raises(NotAllowed):
+            await query.members(person(OWNER, role), NETWORK_ID)
+        with pytest.raises(NotAllowed):
+            await query.projection_status(person(OWNER, role), NETWORK_ID)
+    with pytest.raises(NotFound):
+        await query.members(person(member, Role.NETWORK_ADMIN), NETWORK_ID)
+
+
+async def test_an_organisation_reads_the_networks_it_belongs_to_with_its_own_membership(
+    rig: _Rig,
+) -> None:
+    query, member, other = _reads(rig)
+    [view] = await query.networks(person(member, Role.TENANT_ADMIN))
+    assert (view.network_id, view.is_owner, view.membership_status) == (
+        NETWORK_ID,
+        False,
+        MembershipStatus.ACTIVE,
+    )
+    assert view.agreement_version == 1 and not view.agreement_behind
+    assert await query.networks(person(other, Role.TENANT_ADMIN)) == []
+    with pytest.raises(NotAllowed):
+        await query.networks(person(member, Role.ADVISOR))
+
+
+async def test_the_projection_status_shows_states_and_dates_and_never_a_row(rig: _Rig) -> None:
+    from diucs.application.ports.outbound.projection import (
+        ProjectionEndReason,
+        SourceState,
+        SourceStatus,
+    )
+    from diucs.domain.model.network import GrantScope
+
+    query, member, _ = _reads(rig)
+    rig.world.sources += [
+        SourceState(member, GrantScope.CAPACITY, SourceStatus.ACTIVE, "g-1", None, None),
+        SourceState(
+            member,
+            GrantScope.DIRECTORY,
+            SourceStatus.ENDED,
+            "g-2",
+            NOW,
+            ProjectionEndReason.GRANT_ENDED,
+        ),
+        SourceState(
+            "tt-unknown-member", GrantScope.CAPACITY, SourceStatus.ACTIVE, "g-3", None, None
+        ),
+    ]
+    [row] = await query.projection_status(person(OWNER, Role.NETWORK_ADMIN), NETWORK_ID)
+    assert row.organisation_name == "Member Bee"
+    assert [(k.kind.value, k.status.value) for k in row.kinds] == [
+        ("capacity", "active"),
+        ("directory", "ended"),
+    ]
+    assert member not in repr(row)
+    assert rig.world.max_open == 1 and rig.world.commits == 0

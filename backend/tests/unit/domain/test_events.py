@@ -22,6 +22,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.events import (
     AlertAcknowledged,
+    AlertEscalatedToLead,
     AlertRaised,
     BookingCancelled,
     BookingExpired,
@@ -43,7 +44,6 @@ from diucs.domain.events import (
     ServiceActivated,
     StatusChanged,
     WithdrawalEscalated,
-    AlertEscalatedToLead,
     from_payload,
     session_id_for,
     topic_for,

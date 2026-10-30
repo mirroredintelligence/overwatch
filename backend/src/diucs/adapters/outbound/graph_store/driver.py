@@ -84,6 +84,7 @@ class ScopedTx:
 
     tx: AsyncManagedTransaction | AsyncTransaction
     scope: ScopeId
+    read_only: bool = False
 
     def __post_init__(self) -> None:
         if self.scope is None:

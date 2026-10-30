@@ -235,6 +235,8 @@ class Neo4jUnitOfWork:
         driver: AsyncDriver | Neo4jConnection,
         factories: dict[str, RepositoryFactory] = DEFAULT_FACTORIES,
         clock: Clock | None = None,
+        *,
+        read_only: bool = False,
     ) -> None:
         self._source = driver
         self._factories = factories

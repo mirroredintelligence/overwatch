@@ -69,6 +69,10 @@ UNIT_OF_WORK_OPEN_MESSAGE: Final = (
 TENANT_MISMATCH_MESSAGE: Final = (
     "the actor belongs to another tenant than the one bound for this work"
 )
+NETWORK_NOT_BOUND_MESSAGE: Final = ""
+SCOPE_KIND_MESSAGE: Final = ""
+READ_ONLY_MESSAGE: Final = ""
+SOURCE_TENANT_MESSAGE: Final = ""
 _TENANCY_ERROR_MESSAGE: Final = "a tenancy error"
 
 
@@ -132,6 +136,22 @@ class TenantMismatch(TenancyError):
     MESSAGE = TENANT_MISMATCH_MESSAGE
 
 
+class NetworkNotBound(TenancyError):
+    MESSAGE = NETWORK_NOT_BOUND_MESSAGE
+
+
+class ScopeKindMismatch(TenancyError):
+    MESSAGE = SCOPE_KIND_MESSAGE
+
+
+class ReadOnlyUnitWrite(TenancyError):
+    MESSAGE = READ_ONLY_MESSAGE
+
+
+class SourceTenantRefused(TenancyError):
+    MESSAGE = SOURCE_TENANT_MESSAGE
+
+
 @dataclass(frozen=True, slots=True)
 class ScopeId:
     """A tenant or a network, validated when it is built. Compares by value and kind."""
@@ -188,6 +208,14 @@ def bind_scope(scope: ScopeId) -> Iterator[ScopeId]:
 def bind_tenant(tenant_id: str) -> contextlib.AbstractContextManager[ScopeId]:
     """`bind_scope` for a tenant id."""
     return bind_scope(ScopeId.tenant(tenant_id))
+
+
+def bind_network(network_id: str) -> contextlib.AbstractContextManager[ScopeId]:
+    raise NotImplementedError
+
+
+def current_network() -> str:
+    raise NotImplementedError
 
 
 def current_scope_or_none() -> ScopeId | None:

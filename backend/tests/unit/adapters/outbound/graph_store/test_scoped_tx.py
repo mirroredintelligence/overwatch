@@ -72,7 +72,7 @@ def _no_observer() -> Any:
 
 def test_a_scoped_transaction_is_a_frozen_pair_with_no_way_to_run_cypher() -> None:
     scoped = ScopedTx(_StubTx(), A1)  # type: ignore[arg-type]
-    assert [field.name for field in dataclasses.fields(ScopedTx)] == ["tx", "scope"]
+    assert [field.name for field in dataclasses.fields(ScopedTx)] == ["tx", "scope", "read_only"]
     with pytest.raises(dataclasses.FrozenInstanceError):
         scoped.scope = B1  # type: ignore[misc]
     with pytest.raises(dataclasses.FrozenInstanceError):

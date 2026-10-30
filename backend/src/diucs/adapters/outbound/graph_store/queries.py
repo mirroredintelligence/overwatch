@@ -39,6 +39,15 @@ _TENANT_PARAMETER = re.compile(r"\$tenant\b")
 # comment is not one (a comment and the inside of a string are blanked before the look).
 _TENANT_ENTRY = re.compile(r"\btenantId\s*:\s*\$tenant\b")
 
+TENANT_KINDS: Final = frozenset({"tenant"})
+NETWORK_KINDS: Final = frozenset({"network"})
+BOTH_KINDS: Final = frozenset({"tenant", "network"})
+
+
+def statement_labels(cypher: str) -> list[str]:
+    raise NotImplementedError
+
+
 PLACEHOLDER: Final = "{insert}"
 # `:Label` or `:Label:Other` or `:HAS_X`: ASCII identifiers only. fullmatch, so no trailing text.
 _INSERT = re.compile(r"(?::[A-Za-z_][A-Za-z0-9_]*)+")
@@ -332,6 +341,7 @@ class NamedQuery:
     mode: Literal["read", "write"]
     scope: Literal["tenant", "global"] = "tenant"
     scenario: Scenario | None = None
+    scope_kinds: frozenset[str] = TENANT_KINDS
 
     def __post_init__(self) -> None:
         _validate(self.id, self.mode, self.scope, self.scenario)
@@ -346,6 +356,7 @@ class QueryTemplate:
     mode: Literal["read", "write"]
     scope: Literal["tenant", "global"] = "tenant"
     scenario: Scenario | None = None
+    scope_kinds: frozenset[str] = TENANT_KINDS
 
     def __post_init__(self) -> None:
         _validate(self.id, self.mode, self.scope, self.scenario)

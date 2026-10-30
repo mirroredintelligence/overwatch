@@ -128,3 +128,20 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+.tab {
+  min-height: var(--chip-h);
+  padding: 0 var(--space-3);
+  border: 2px solid var(--c-ink-2);
+  border-radius: var(--radius-chip);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  font: inherit;
+  font-weight: var(--type-label-weight);
+  cursor: pointer;
+}
+
+.tab[aria-selected='true'] {
+  background: var(--c-primary);
+  color: var(--c-bg);
+}

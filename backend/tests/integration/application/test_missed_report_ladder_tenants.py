@@ -27,6 +27,7 @@ from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import TenantMismatch
 from diucs.application.use_cases.missed_report_ladder import (
     IGNORED,
     REMINDED,
@@ -47,6 +48,7 @@ from tests.support.ladder_rig import (
     virtual_ward,
 )
 from tests.support.neo4j import read_tx, run_scope_ids
+from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -243,3 +245,34 @@ async def test_both_tenants_run_their_whole_ladders_side_by_side(
         assert len(await rig.events("PhoneTaskRaised")) == 1
         assert len(await rig.events("ReportEscalated")) == 1
         assert len(await rig.events("StatusChanged")) == 1
+
+
+async def test_a_step_with_an_actor_of_the_other_tenant_is_refused_and_changes_nothing(
+    tenants: tuple[tuple[Rig, str], tuple[Rig, str]],
+) -> None:
+    # The unit is A's (the rig's factory) and the command's actor is B's: a wiring fault the use
+    # case refuses before it reads or locks anything, whatever the work id.
+    (rig_a, prompt_a), (rig_b, prompt_b) = tenants
+    work_a = await rig_a.work(prompt_a, WorkKind.REMINDER)
+    before = (
+        await rig_a.outbox(),
+        await rig_a.works(prompt_a, WorkKind.REMINDER),
+        await rig_b.outbox(),
+    )
+    rig_a.clock.set(london(12, 30))
+
+    with as_tenant(rig_a.tenant), pytest.raises(TenantMismatch):
+        await rig_a.ladder.execute(
+            LadderStepCommand(
+                idempotency_key="k-wrong-actor", actor=rig_b.system_actor, work_id=work_a.id
+            )
+        )
+
+    assert (
+        await rig_a.outbox(),
+        await rig_a.works(prompt_a, WorkKind.REMINDER),
+        await rig_b.outbox(),
+    ) == before
+    assert (await rig_a.work(prompt_a, WorkKind.REMINDER)).status == SCHEDULED
+    # The same step with the right actor still runs: the refusal was the actor's.
+    assert (await rig_a.run(work_a, london(12, 30), key="k-wrong-actor")).action == REMINDED

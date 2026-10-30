@@ -54,6 +54,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
+from tests.support.tenancy import as_tenant
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
 LINK_BASE = "diucs.example"
@@ -183,14 +184,15 @@ class Rig:
     async def prompt(self, at: datetime) -> SendPromptResult:
         """Send the prompt that is due at `at`, with the clock at `at`."""
         self.clock.set(at)
-        return await self.sender.execute(
-            SendPromptCommand(
-                idempotency_key=prompt_key(self.service_id, at),
-                actor=self.system_actor,
-                service_id=self.service_id,
-                due_at=at,
+        with as_tenant(self.tenant):
+            return await self.sender.execute(
+                SendPromptCommand(
+                    idempotency_key=prompt_key(self.service_id, at),
+                    actor=self.system_actor,
+                    service_id=self.service_id,
+                    due_at=at,
+                )
             )
-        )
 
     async def report(
         self,
@@ -218,17 +220,20 @@ class Rig:
                 tenant_id=self.tenant,
             )
         )
-        return await self.reports.execute(
-            ReportCapacityCommand(
-                idempotency_key=key or f"report:{self.service_id}:{at.isoformat()}",
-                actor=actor,
-                service_id=self.service_id,
-                value=value,
-                source=ReportSource.ADVISOR_PHONED if back_dated else ReportSource.TEXT,
-                effective_at=effective_at,
-                performer_role_id=None if back_dated or not performer else f"{self.prefix}role-1",
+        with as_tenant(self.tenant):
+            return await self.reports.execute(
+                ReportCapacityCommand(
+                    idempotency_key=key or f"report:{self.service_id}:{at.isoformat()}",
+                    actor=actor,
+                    service_id=self.service_id,
+                    value=value,
+                    source=ReportSource.ADVISOR_PHONED if back_dated else ReportSource.TEXT,
+                    effective_at=effective_at,
+                    performer_role_id=(
+                        None if back_dated or not performer else f"{self.prefix}role-1"
+                    ),
+                )
             )
-        )
 
     async def works(self, about_id: str, kind: WorkKind) -> list[ScheduledWork]:
         async with self.factory() as uow:
@@ -243,11 +248,12 @@ class Rig:
     ) -> LadderStepResult:
         """Run one ladder step with the clock at `at`."""
         self.clock.set(at)
-        return await self.ladder.execute(
-            LadderStepCommand(
-                idempotency_key=key or work.id, actor=self.system_actor, work_id=work.id
+        with as_tenant(self.tenant):
+            return await self.ladder.execute(
+                LadderStepCommand(
+                    idempotency_key=key or work.id, actor=self.system_actor, work_id=work.id
+                )
             )
-        )
 
     async def step(self, about_id: str, kind: WorkKind, at: datetime) -> LadderStepResult:
         return await self.run(await self.work(about_id, kind), at)

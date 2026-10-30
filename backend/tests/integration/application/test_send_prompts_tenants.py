@@ -39,7 +39,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.actor import Actor, system_actor
 from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.application.tenancy import ScopeId, TenantMismatch
+from diucs.application.tenancy import ScopeId, TenantMismatch, TenantNotBound
 from diucs.application.use_cases.send_prompts import SendPromptCommand, SendPrompts, prompt_key
 from diucs.application.use_cases.tenant_config import (
     ApproveConfigCommand,
@@ -403,3 +403,44 @@ async def test_a_constructor_tenant_that_is_not_the_bound_one_is_refused_before_
             )
         )
     assert await _written(tenants, tenants.a) == before
+
+
+async def test_an_actor_of_the_other_tenant_is_refused_before_any_read_or_write(
+    tenants: Tenants,
+) -> None:
+    before_a = await _written(tenants, tenants.a)
+    before_b = await _written(tenants, tenants.b)
+
+    with pytest.raises(TenantMismatch):
+        await tenants.prompt(tenants.a, actor=system_actor(tenants.b, "scheduler"))
+
+    assert await _written(tenants, tenants.a) == before_a
+    assert await _written(tenants, tenants.b) == before_b
+
+
+async def test_an_actor_of_the_other_tenant_does_not_get_the_stored_result_of_a_replay(
+    tenants: Tenants,
+) -> None:
+    # The early replay read is outside the unit of work: the actor is compared before it, so a
+    # command of another tenant's actor never reads the first result back.
+    first = await tenants.prompt(tenants.a)
+    assert first.communication_ids
+    before = await _written(tenants, tenants.a)
+
+    with pytest.raises(TenantMismatch):
+        await tenants.prompt(tenants.a, actor=system_actor(tenants.b, "scheduler"))
+
+    assert await _written(tenants, tenants.a) == before
+
+
+@pytest.mark.no_tenant
+async def test_a_command_with_no_tenant_bound_is_refused(tenants: Tenants) -> None:
+    with pytest.raises(TenantNotBound):
+        await tenants.sender(tenants.a).execute(
+            SendPromptCommand(
+                idempotency_key="k-unbound",
+                actor=system_actor(tenants.a, "scheduler"),
+                service_id=SERVICE,
+                due_at=DUE,
+            )
+        )

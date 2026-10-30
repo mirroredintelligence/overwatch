@@ -118,6 +118,7 @@ class _Client:
 
 class _Consumer:
     name = "board-projector"
+    binds_tenant = True  # the runner serves only a consumer that binds the tenant (TEN-025)
 
     def __init__(self, world: _World, outcomes: dict[str, list[Outcome]] | None = None) -> None:
         self._world = world

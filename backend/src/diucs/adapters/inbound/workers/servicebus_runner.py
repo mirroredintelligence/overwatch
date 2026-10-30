@@ -65,6 +65,10 @@ class Receiver(Protocol):
     ) -> None: ...
 
 
+class ConsumerNotTenantBound(TypeError):
+    """Stub for the red commit."""
+
+
 class MalformedMessage(Exception):
     """The received message cannot be turned into a BusMessage."""
 

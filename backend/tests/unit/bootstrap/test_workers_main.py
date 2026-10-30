@@ -3,6 +3,7 @@ messages that never hold a value from the environment, and the two runners it co
 Docker and no Service Bus: the runners are built with no client and never started."""
 
 import asyncio
+from pathlib import Path
 
 import pytest
 from pydantic import SecretStr
@@ -20,7 +21,6 @@ from diucs.bootstrap.settings import Settings
 from diucs.bootstrap.workers_main import (
     WorkersConfigError,
     build_runners,
-    configured_tenants,
     run_workers,
     service_bus_connection,
 )
@@ -41,26 +41,12 @@ def _no_unit() -> object:
     raise AssertionError("not used")
 
 
-async def test_the_configured_tenants_are_the_comma_separated_ids_in_order() -> None:
-    tenants = configured_tenants({"DIUCS_WORKER_TENANTS": "tenant-a, tenant-b ,tenant-c"})
-
-    assert list(await tenants.active_tenant_ids()) == ["tenant-a", "tenant-b", "tenant-c"]
-
-
-@pytest.mark.parametrize("value", [None, "", " , ", "   "])
-def test_no_configured_tenant_is_refused(value: str | None) -> None:
-    environ = {} if value is None else {"DIUCS_WORKER_TENANTS": value}
-
-    with pytest.raises(WorkersConfigError, match="DIUCS_WORKER_TENANTS"):
-        configured_tenants(environ)
-
-
-@pytest.mark.parametrize("bad", ["Not A Tenant", "net-abcd1234", "q", "has:colon", "x" * 40])
-def test_an_entry_that_is_not_a_tenant_id_is_refused_without_repeating_it(bad: str) -> None:
-    with pytest.raises(WorkersConfigError) as raised:
-        configured_tenants({"DIUCS_WORKER_TENANTS": f"tenant-a,{bad}"})
-
-    assert bad not in str(raised.value)
+def test_the_environment_no_longer_lists_the_tenants_the_workers_serve() -> None:
+    # TEN-025: the tenants are the active tenants of the directory (TEN-007), read for each message.
+    # The list in the environment that stood in for it is gone, and so is its loader.
+    assert not hasattr(workers_main, "configured_tenants")
+    assert not hasattr(workers_main, "TENANTS_VARIABLE")
+    assert "DIUCS_WORKER_TENANTS" not in Path(workers_main.__file__).read_text(encoding="utf-8")
 
 
 def test_the_service_bus_connection_is_the_setting() -> None:
@@ -74,21 +60,9 @@ def test_no_service_bus_connection_is_refused_without_a_value() -> None:
         service_bus_connection(Settings(servicebus_connection=None))
 
 
-def test_main_stops_with_the_fixed_message_when_the_tenants_are_not_configured(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("DIUCS_WORKER_TENANTS", raising=False)
-
-    with pytest.raises(SystemExit) as raised:
-        workers_main.main()
-
-    assert "DIUCS_WORKER_TENANTS" in str(raised.value)
-
-
 def test_main_stops_with_the_fixed_message_when_there_is_no_service_bus_connection(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_WORKER_TENANTS", "tenant-a")
     monkeypatch.delenv("DIUCS_SERVICEBUS_CONNECTION", raising=False)
 
     with pytest.raises(SystemExit) as raised:
@@ -97,21 +71,20 @@ def test_main_stops_with_the_fixed_message_when_there_is_no_service_bus_connecti
     assert "DIUCS_SERVICEBUS_CONNECTION" in str(raised.value)
 
 
-def test_main_runs_the_workers_for_the_configured_tenants(
+def test_main_runs_the_workers_on_the_settings_alone(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("DIUCS_WORKER_TENANTS", "tenant-a")
     monkeypatch.setenv("DIUCS_SERVICEBUS_CONNECTION", CONNECTION)
     seen: list[object] = []
 
-    async def fake_run(settings: Settings, tenants: StaticTenants) -> None:
-        seen.append((type(settings), type(tenants)))
+    async def fake_run(settings: Settings) -> None:
+        seen.append(type(settings))
 
     monkeypatch.setattr(workers_main, "_run", fake_run)
 
     workers_main.main()
 
-    assert seen == [(Settings, StaticTenants)]
+    assert seen == [Settings]
 
 
 def test_there_is_one_runner_for_each_queue_and_each_binds_the_tenant() -> None:

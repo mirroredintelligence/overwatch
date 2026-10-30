@@ -11,8 +11,13 @@ from typing import Any
 import pytest
 
 from diucs.adapters.inbound.workers import consumer as consumer_module
-from diucs.adapters.inbound.workers.consumer import Outcome
-from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
+from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, Outcome
+from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
+from diucs.adapters.inbound.workers.servicebus_runner import (
+    ConsumerNotTenantBound,
+    ServiceBusRunner,
+)
+from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
 from diucs.application.ports.outbound.event_bus import BusMessage
 
 
@@ -34,6 +39,7 @@ class _Receiver:
 
 class _Consumer:
     name = "board-projector"
+    binds_tenant = True  # as TenantBoundConsumer does: the runner refuses a consumer that does not
 
     def __init__(self, outcome: Outcome) -> None:
         self.outcome = outcome
@@ -140,17 +146,29 @@ async def test_the_tenant_comes_from_the_tenant_id_application_property(
     assert consumer.seen[0].tenant_id == "tenant-a"
 
 
-@pytest.mark.parametrize("value", [None, "", 7, True, b"\xff", "Tenant-A", "a:b"])
-async def test_a_tenant_property_that_is_not_a_tenant_dead_letters_the_message(value: Any) -> None:
-    # TEN-020 (rule 9): the reader is `from_wire`, and a message with no usable tenant is the
-    # existing "malformed message" dead letter; TEN-025 gives it the four fixed reasons.
+@pytest.mark.parametrize(
+    ("value", "reason"),
+    [
+        (None, "tenant-missing"),
+        ("", "tenant-missing"),
+        (7, "tenant-malformed"),
+        (True, "tenant-malformed"),
+        (b"\xff", "tenant-malformed"),
+        ("Tenant-A", "tenant-malformed"),
+        ("a:b", "tenant-malformed"),
+    ],
+)
+async def test_a_tenant_property_that_is_not_a_tenant_dead_letters_the_message_with_its_reason(
+    value: Any, reason: str
+) -> None:
+    # TEN-025: the reader is `from_wire`, and the dead letter says which of the fixed reasons it is.
     receiver, consumer = _Receiver(), _Consumer(Outcome("completed"))
     raw = _raw(application_properties={"tenantId": value})
 
     await _runner(consumer).process(receiver, raw)
 
     assert consumer.seen == []
-    assert receiver.calls == [("dead-letter", ("malformed message", "malformed message"))]
+    assert receiver.calls == [("dead-letter", (reason, reason))]
 
 
 async def test_a_message_with_no_tenant_property_is_dead_lettered_before_the_consumer() -> None:
@@ -159,7 +177,7 @@ async def test_a_message_with_no_tenant_property_is_dead_lettered_before_the_con
     await _runner(consumer).process(receiver, _raw(application_properties={}))
 
     assert consumer.seen == []
-    assert receiver.calls == [("dead-letter", ("malformed message", "malformed message"))]
+    assert receiver.calls == [("dead-letter", ("tenant-missing", "tenant-missing"))]
 
 
 @pytest.mark.parametrize(
@@ -180,7 +198,7 @@ async def test_ids_that_do_not_belong_to_the_property_tenant_dead_letter_the_mes
     await _runner(consumer).process(receiver, _raw(**overrides))
 
     assert consumer.seen == []
-    assert receiver.calls == [("dead-letter", ("malformed message", "malformed message"))]
+    assert receiver.calls == [("dead-letter", ("tenant-mismatch", "tenant-mismatch"))]
 
 
 @pytest.mark.parametrize(
@@ -265,3 +283,45 @@ async def test_a_body_that_is_plain_bytes_is_read() -> None:
 
 def test_serve_is_the_name_the_process_entries_call_for_run() -> None:
     assert ServiceBusRunner.serve is ServiceBusRunner.run
+
+
+# --- the runner serves only a consumer that binds the tenant (TEN-025) --------------------------
+
+
+class _Unbound:
+    async def handle(self, message: BusMessage) -> Outcome:
+        raise AssertionError("an unbound consumer must never be asked")
+
+
+def test_a_consumer_that_does_not_bind_the_tenant_is_refused_when_the_runner_is_built() -> None:
+    with pytest.raises(ConsumerNotTenantBound) as refused:
+        _runner(_Unbound())
+    assert str(refused.value) == (
+        "a queue runner needs a consumer that binds the tenant of each message"
+    )
+
+
+def test_an_idempotent_consumer_alone_is_not_enough() -> None:
+    consumer = IdempotentConsumer("board-projector", _never, lambda: None)  # type: ignore[arg-type, return-value]
+    with pytest.raises(ConsumerNotTenantBound):
+        _runner(consumer)
+
+
+def test_a_tenant_bound_consumer_is_accepted() -> None:
+    inner = IdempotentConsumer("board-projector", _never, lambda: None)  # type: ignore[arg-type, return-value]
+    _runner(TenantBoundConsumer(inner, StaticTenants(["tenant-a"])))
+
+
+def test_the_marker_cannot_be_claimed_by_a_truthy_value() -> None:
+    class Claims:
+        binds_tenant = "yes"
+
+        async def handle(self, message: BusMessage) -> Outcome:
+            raise AssertionError
+
+    with pytest.raises(ConsumerNotTenantBound):
+        _runner(Claims())
+
+
+async def _never(message: BusMessage, uow: Any) -> None:
+    raise AssertionError("the handler must not run")

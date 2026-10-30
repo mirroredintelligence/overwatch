@@ -26,6 +26,7 @@ from diucs.domain.errors import DomainError
 logger = logging.getLogger(__name__)
 
 MAX_REASON_LENGTH = 100
+TENANT_MISMATCH = "tenant-mismatch"
 
 OutcomeKind = Literal["completed", "duplicate", "dead-letter", "retry"]
 Handler = Callable[[BusMessage, UnitOfWork], Awaitable[None]]

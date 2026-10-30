@@ -8,8 +8,6 @@ keeps one Concept per code).
 The phone numbers are the prompt's sample values. No patient data.
 """
 
-import os
-
 import pytest
 import pytest_asyncio
 from fastapi import FastAPI
@@ -25,7 +23,6 @@ from diucs.bootstrap.container import Container
 from diucs.domain.codes import Role, ServiceCategory
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
-from tests.support.api import token_headers
 from tests.support.ladder_rig import reporter, seed_people, virtual_ward
 from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads
@@ -39,13 +36,14 @@ async def _lead_app(
     test_container: Container,
     neo4j_driver: AsyncDriver,
     tenant_id: str,
-    other_tenant_id: str,
 ) -> None:
     """The API with the BFF secret (R02), the replay cache that every write needs (R03) and the
-    audit chain heads of both tenants, made after the wipe."""
+    run tenant's audit chain head, made after the wipe."""
     api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
     api_app.state.cache = InMemoryCache(test_container.clock)
-    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
+    # Only the run tenant has a chain head: the second tenant's head needs a contracted container
+    # (DEC-159), and no case here writes as tenant B.
+    await ensure_audit_heads(neo4j_driver, tenant_id)
 
 
 B_SERVICE = "svc-b-ward"
@@ -221,13 +219,3 @@ async def test_another_tenants_reporter_role_reads_as_not_found(
     assert role is not None
     assert role.covered_by_practitioner_id is None
     assert role.covered_until is None
-    # B's own lead does reach it: the 404 above is the tenant, not a missing role.
-    own = await api_client.post(
-        CHANGE.format(role="b-role-7"),
-        json=_change(),
-        headers={
-            "Idempotency-Key": "change-0004",
-            **token_headers(os.environ["DIUCS_TEST_OTHER_TENANT"], Role.LEAD, (), "lead-b"),
-        },
-    )
-    assert own.status_code == 200

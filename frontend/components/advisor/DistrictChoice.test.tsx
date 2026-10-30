@@ -25,7 +25,7 @@ type Chosen = { body: unknown; key: string | null; csrf: string | null };
 let reads: number;
 let chosen: Chosen[];
 
-function serve(first: unknown, then: unknown = OPTIONS_VIEW, save: () => Response = () => HttpResponse.json(CASE)) {
+function serve(first: object, then: object = OPTIONS_VIEW, save: () => Response = () => HttpResponse.json(CASE)) {
   reads = 0;
   chosen = [];
   server.use(

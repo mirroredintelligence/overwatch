@@ -19,7 +19,6 @@ vi.mock('next/headers', async () => {
 // with the ETag and a key. Only a district is taken: no postcode, no tenant, nothing else.
 
 const SR_URL = `${BACKEND_BASE}/ServiceRequest/case-1`;
-const URL_ = 'https://app.test/api/bff/cases/case-1/district';
 const KEY = 'district-key-0001';
 const EXTENSION = 'https://diucs.example/StructureDefinition/postcode-district';
 const context = (ref: string) => ({ params: Promise.resolve({ ref }) });

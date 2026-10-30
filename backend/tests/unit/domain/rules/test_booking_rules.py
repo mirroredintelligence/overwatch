@@ -245,7 +245,6 @@ POLICY_NOT_YET_THREADED_064: dict[str, str] = {
     "application/use_cases/move_service.py": "TEN-026",
     "application/use_cases/pin.py": "TEN-026",
     "application/use_cases/request_booking.py": "TEN-026",
-    "application/use_cases/send_prompts.py": "TEN-027",
     "application/use_cases/subscribe_alert.py": "TEN-026",
 }
 

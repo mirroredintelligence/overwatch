@@ -51,7 +51,7 @@ CASE_BODY: dict[str, Any] = {
         {
             "resourceType": "Patient",
             "id": "p",
-            "address": [{"postalCode": "DT4"}],
+            "address": [{"postalCode": "DT4 8XX"}],
             "extension": [
                 {
                     "url": "https://diucs.example/StructureDefinition/age-band",

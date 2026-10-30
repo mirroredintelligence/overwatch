@@ -84,9 +84,10 @@ describe('readLink', () => {
     });
   });
 
-  it('reads a 410 as gone, whatever state word it carries', async () => {
-    await expect(readLink(LINK.expired, TENANT_HOST)).resolves.toEqual({ kind: 'gone' });
-    await expect(readLink(LINK.used, TENANT_HOST)).resolves.toEqual({ kind: 'gone' });
+  it('reads a 410 as gone, with its closed state word', async () => {
+    await expect(readLink(LINK.expired, TENANT_HOST)).resolves.toEqual({ kind: 'gone', state: 'expired' });
+    await expect(readLink(LINK.used, TENANT_HOST)).resolves.toEqual({ kind: 'gone', state: 'used' });
+    await expect(readLink(LINK.bookingCancelled, TENANT_HOST)).resolves.toEqual({ kind: 'gone', state: 'cancelled' });
   });
 
   it('answers a 503 as unavailable, not as gone', async () => {

@@ -54,3 +54,23 @@ test.describe('booking request at phone width (390 CSS px)', () => {
     await expect(page.getByRole('heading', { level: 1, name: 'Declined' })).toBeVisible();
   });
 });
+
+test.describe('booking change at phone width (390 CSS px)', () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test('withdraws a confirmed booking with a reason, and is clean for axe on each view', async ({ page }) => {
+    const elsewhere = watchRequests(page);
+    await page.goto(`/l/${LINK.bookingChange}/booking/change`);
+    await expect(page.getByRole('heading', { level: 1, name: 'UCR West' })).toBeVisible();
+    await noHorizontalScroll(page);
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+
+    await page.getByRole('button', { name: 'We cannot take this patient now' }).click();
+    await expect(page.getByRole('button', { name: 'Withdraw booking' })).toBeDisabled();
+    await page.getByRole('button', { name: 'Staffing' }).click();
+    await page.getByRole('button', { name: 'Withdraw booking' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Withdrawn' })).toBeVisible();
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    expect(elsewhere).toEqual([]);
+  });
+});

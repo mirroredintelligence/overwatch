@@ -19,7 +19,7 @@ const base = (token: string) => `/api/bff/links/${encodeURIComponent(token)}`;
 export type LinkRead =
   | { kind: 'open'; view: LinkView }
   | { kind: 'booking'; view: BookingView }
-  | { kind: 'gone' }
+  | { kind: 'gone'; state: string }
   | { kind: 'unavailable' };
 
 /** A booking answer (L02): a confirm or a decline, or a withdrawal or not-reached report with its reason. */
@@ -48,7 +48,7 @@ export async function readLinkView(token: string): Promise<LinkRead> {
   } catch {
     return { kind: 'unavailable' };
   }
-  if (response.status === 410) return { kind: 'gone' };
+  if (response.status === 410) return { kind: 'gone', state: stateOf(await bodyOf(response)) };
   if (!response.ok) return { kind: 'unavailable' };
   try {
     const page = parseOpenLink(await response.json());

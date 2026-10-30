@@ -118,12 +118,24 @@ export async function callLinkApi(call: LinkCall): Promise<LinkReply> {
   });
 }
 
-export type LinkState = { kind: 'open'; link: OpenLink } | { kind: 'gone' };
+export type LinkState = { kind: 'open'; link: OpenLink } | { kind: 'gone'; state: ClosedState };
+
+/**
+ * The words a closed link may say on GET (L01, L02). A holder of the link may learn why it is closed
+ * (a change link shows a cancelled booking); anything else the back end sends is `expired`.
+ */
+export const CLOSED_STATES = ['expired', 'used', 'declined', 'cancelled', 'withdrawn', 'not-reached'] as const;
+export type ClosedState = (typeof CLOSED_STATES)[number];
+
+export function closedStateOf(body: unknown): ClosedState {
+  const state = typeof body === 'object' && body !== null ? (body as { state?: unknown }).state : undefined;
+  return CLOSED_STATES.find((known) => known === state) ?? 'expired';
+}
 
 /** The link as the back end sees it for this host: open with its view, or gone (expired, used or unknown). */
 export async function readLink(token: string, host: string | null): Promise<LinkState> {
   const reply = await callLinkApi({ method: 'GET', path: `/links/${encodeURIComponent(token)}`, host });
-  if (reply.status === 410) return { kind: 'gone' };
+  if (reply.status === 410) return { kind: 'gone', state: closedStateOf(reply.body) };
   if (reply.status !== 200) throw new LinkApiError('unavailable');
   try {
     return { kind: 'open', link: parseOpenLink(reply.body) };

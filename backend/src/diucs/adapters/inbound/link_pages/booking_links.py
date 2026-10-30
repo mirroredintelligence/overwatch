@@ -117,6 +117,22 @@ def coordination_phone(contacts: Iterable[Any]) -> str | None:
     )
 
 
+def change_view_body(
+    booking: Booking, service_name: str, case: Case, phone: str | None
+) -> dict[str, Any]:
+    """The change page of a confirmed booking: the reference, service, age band, needs, urgency,
+    status and the SPOA's phone. No postcode, name or case id, as for the request page."""
+    return {
+        "reference": booking.reference,
+        "serviceName": service_name,
+        "ageBand": None if case.age_band is None else case.age_band.value,
+        "need": need_text(case),
+        "urgency": None if case.urgency is None else urgency_wording(case.urgency),
+        "bookingStatus": booking.status.value,
+        "coordinationPhone": phone,
+    }
+
+
 def view_body(booking: Booking, service_name: str, case: Case, phone: str | None) -> dict[str, Any]:
     """The request page: the reference, service, age band, needs, urgency, reply-by, status and the
     SPOA's phone. No postcode, name or case id (the page is open to anyone holding the link)."""
@@ -273,11 +289,11 @@ class BookingChangeLink:
             if booking.status is not BookingStatus.CONFIRMED:
                 raise LinkGone(gone_state(booking.status))
             profile, _ = await _holder(uow, link, booking)
-        return {
-            "reference": booking.reference,
-            "serviceName": profile.name,
-            "bookingStatus": booking.status.value,
-        }
+            case = await uow.cases.get(booking.case_id)
+            if case is None:
+                raise LinkGone("expired")
+            phone = coordination_phone(await uow.tenant_config.contacts())
+        return change_view_body(booking, profile.name, case, phone)
 
     async def respond(self, link: LinkRequest, action: LinkAction) -> Body:
         reason = check_change_action(action)

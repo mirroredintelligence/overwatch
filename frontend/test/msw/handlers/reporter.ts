@@ -150,5 +150,21 @@ export const reporterHandlers: RequestHandler[] = [
     await record(request);
     return HttpResponse.json({ ok: true });
   }),
+  http.post('/api/bff/identity/new-phone', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ accepted: true, resendAfterSeconds: 60 }, { status: 202 });
+  }),
+  http.post('/api/bff/identity/new-phone/verify', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ status: 'pending-callback' });
+  }),
+  http.get('/api/bff/reporter/settings', () =>
+    HttpResponse.json({ channel: 'text', maskedPhone: '07xxx xxx456', maskedCover: null, reverifyInDays: 21, otherDevices: 1 }),
+  ),
+  http.post('/api/bff/identity/sign-out-everywhere', async ({ request }) => {
+    await record(request);
+    return HttpResponse.json({ signedOut: 2 });
+  }),
+  http.delete('/api/bff/session', () => new HttpResponse(null, { status: 204 })),
   http.get('/api/bff/reporter/start', () => HttpResponse.json({ csrfToken: 'T'.repeat(43) })),
 ];

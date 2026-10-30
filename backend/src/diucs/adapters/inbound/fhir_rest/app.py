@@ -21,9 +21,13 @@ from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.geo import PostcodeLocator, TravelTime
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
+from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.use_cases.request_booking import LinkBaseUrlFor
+from diucs.application.use_cases.suspend_service import WordingFor
 
 
 class ApiContainer(Protocol):
@@ -56,6 +60,18 @@ class ApiContainer(Protocol):
 
     @property
     def rng(self) -> random.Random: ...
+
+    @property
+    def secrets(self) -> SecretStore: ...
+
+    @property
+    def sealer(self) -> ContentSealer: ...
+
+    @property
+    def link_base_url_for(self) -> LinkBaseUrlFor: ...
+
+    @property
+    def wording_for(self) -> WordingFor: ...
 
 
 def create_app(
@@ -92,6 +108,7 @@ def create_app(
     # Imported here: the route modules depend on auth, which imports this module (DEC-111).
     from diucs.adapters.inbound.fhir_rest import (
         routes_board,
+        routes_bookings,
         routes_cases,
         routes_events,
         routes_identity,
@@ -108,6 +125,8 @@ def create_app(
     app.include_router(routes_board.router)
     app.include_router(routes_services.router)
     app.include_router(routes_cases.router)
+    # Booking Tasks (R09) and the advisor's acknowledgement of a withdrawal (R17).
+    app.include_router(routes_bookings.router)
     routes_services.register_capabilities()
     # The Pathways Dx lookup (R16) is not FHIR: a plain list for the score picker.
     app.include_router(routes_terminology.router)

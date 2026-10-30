@@ -10,6 +10,7 @@ from typing import Any
 import pytest
 from fhir.resources.R4B.task import Task
 
+from diucs.adapters.fhir_shared.booking_task import booking_to_fhir
 from diucs.adapters.inbound.fhir_rest.auth import PROJECTIONS
 from diucs.adapters.inbound.fhir_rest.routes_bookings import (
     BookingRequestBody,
@@ -23,7 +24,6 @@ from diucs.adapters.inbound.fhir_rest.routes_bookings import (
     parse_booking_request,
     withdraw_reason_of,
 )
-from diucs.adapters.outbound.graph_store.booking_repository import booking_to_fhir
 from diucs.application.actor import Actor
 from diucs.domain.codes import (
     BookingStatus,
@@ -199,9 +199,13 @@ def test_not_reached_needs_a_not_reached_reason() -> None:
 
 def test_an_acknowledgement_takes_no_body_or_an_empty_parameters_resource() -> None:
     check_acknowledgement_body(None)
-    check_acknowledgement_body({})
     check_acknowledgement_body({"resourceType": "Parameters"})
     check_acknowledgement_body(_parameters())
+
+
+def test_an_acknowledgement_refuses_an_empty_object_that_is_not_a_parameters_resource() -> None:
+    with pytest.raises(ValidationFailed):
+        check_acknowledgement_body({})
 
 
 def test_an_acknowledgement_refuses_a_parameter_it_does_not_take() -> None:

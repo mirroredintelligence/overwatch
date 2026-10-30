@@ -1,8 +1,410 @@
-"""Clinical advice, the safety concern and the clinical queue over HTTP (R13). Stub: built in the
-implement commit of R13."""
+"""Clinical advice, the safety concern and the clinical queue over HTTP (R13).
 
-from fastapi import APIRouter
+Thin: each route reads its request, checks its shape, runs one use case and maps the result. The
+use cases hold the rules (who may ask, take or advise; the lock; the protected text).
+
+PUT  /clinical/presence
+         clinical; {"presence": available, busy or away} (SetPresence, U40)
+GET  /clinical/available
+         advisor, clinical or lead; {"available": n}, a count only, never a name
+GET  /fhir/Task?code=clinical-advice&status=requested
+         clinical; the queue (ListClinicalQueue)
+GET  /fhir/Task?code=acknowledge-alert&owner=me
+         executive or lead; the alert list (R12). This one path dispatches the two codes
+POST /fhir/Task/{id}/$take
+         clinical; Idempotency-Key; a request taken by another clinician is a 409
+         (TakeClinicalRequest)
+POST /fhir/Task/{id}/$advise
+         clinical; Idempotency-Key; Parameters advice, reason, note (at most 280)
+         (GiveClinicalAdvice)
+POST /fhir/Task
+         Idempotency-Key; a Task whose code is clinical-advice (an advisor asks: focus is
+         the case; extensions urgency and why) or safety-concern (any signed-in role:
+         extensions category, text, and an optional reference)
+
+The free text of a safety concern is held in the protected store by its use case. It is never in
+a response or a log; the response carries the reference only (for example SC-0192). A note or a
+text of more than 280 characters is refused by name and never echoed.
+
+Tenancy: the tenant is bound at the REST edge from the verified token (TEN-018), by current_actor.
+Nothing here reads a tenant from the body, the query or a header.
+"""
+
+import json
+from typing import Annotated, Any, Final, Protocol, cast
+
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import Response
+
+from diucs.adapters.inbound.fhir_rest.app import get_container
+from diucs.adapters.inbound.fhir_rest.auth import current_actor, require_role
+from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
+from diucs.adapters.inbound.fhir_rest.parameters import (
+    PARAMETERS,
+    enum_value,
+    index_parameters,
+    optional_text,
+    reference_id,
+    single,
+    text,
+)
+from diucs.adapters.inbound.fhir_rest.routes_alerts import alert_list
+from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
+from diucs.adapters.inbound.fhir_rest.subscription_mapping import ALERT_CODE
+from diucs.application.actor import Actor
+from diucs.application.idempotency import format_instant
+from diucs.application.ports.outbound.cache import Cache
+from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.sealing import ContentSealer
+from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.use_cases.clinical_advice import (
+    ADVICE_CHOICES,
+    ADVICE_REASONS,
+    REQUEST_URGENCIES,
+    REQUEST_WHYS,
+    AvailableClinicians,
+    GiveClinicalAdvice,
+    GiveClinicalAdviceCommand,
+    ListClinicalQueue,
+    RequestClinicalAdvice,
+    RequestClinicalAdviceCommand,
+    SetPresence,
+    SetPresenceCommand,
+    TakeClinicalRequest,
+    TakeClinicalRequestCommand,
+)
+from diucs.application.use_cases.safety_concern import (
+    ReportSafetyConcern,
+    ReportSafetyConcernCommand,
+)
+from diucs.domain.codes import Role, code_system_url
+from diucs.domain.errors import NotAllowed, ValidationFailed
+from diucs.domain.model.clinical import ClinicalRequestRecord
+from diucs.domain.rules.clinical_queue import Presence
+from diucs.domain.rules.safety_report import SafetyConcernCategory, checked_concern_text
 
 router = APIRouter()
 
-__all__ = ["router"]
+CLINICAL_CODE: Final = "clinical-advice"
+SAFETY_CODE: Final = "safety-concern"
+REQUESTED: Final = "requested"
+NOTE_LIMIT: Final = 280
+ADVISORS: Final = (Role.ADVISOR, Role.CLINICAL, Role.LEAD)
+NO_STORE: Final = {"Cache-Control": "no-store"}
+TASK_CODE_SYSTEM: Final = code_system_url("task-code")
+TASK_INPUT: Final = "task-input"
+"""The inputs of a Task that are not a FHIR element: each is an extension under this name."""
+
+
+class _Container(Protocol):
+    @property
+    def clock(self) -> Clock: ...
+    @property
+    def ids(self) -> IdGenerator: ...
+    @property
+    def uow_factory(self) -> UnitOfWorkFactory: ...
+    @property
+    def cache(self) -> Cache: ...
+    @property
+    def sealer(self) -> ContentSealer: ...
+
+
+def _container(request: Request) -> _Container:
+    return cast(_Container, get_container(request))
+
+
+async def _body(request: Request) -> object:
+    try:
+        return json.loads(await request.body())
+    except ValueError:
+        raise ValidationFailed(PARAMETERS, "the body is not valid JSON") from None
+
+
+def _input_url(name: str) -> str:
+    return code_system_url(f"{TASK_INPUT}/{name}")
+
+
+def _input(task: dict[str, Any], name: str, value_key: str) -> object | None:
+    """One input of a Task, read from its extension. Given twice is refused by name."""
+    url = _input_url(name)
+    found = [item for item in task.get("extension") or [] if item.get("url") == url]
+    if len(found) > 1:
+        raise ValidationFailed(name, "is given once")
+    if not found:
+        return None
+    value: object | None = found[0].get(value_key)
+    return value
+
+
+def _task_code(task: object) -> str:
+    """The code of a Task body: exactly one of the two codes this route takes."""
+    if not isinstance(task, dict) or task.get("resourceType") != "Task":
+        raise ValidationFailed("Task", "the body must be a FHIR Task")
+    codings = (task.get("code") or {}).get("coding") or []
+    code = codings[0].get("code") if codings and isinstance(codings[0], dict) else None
+    if code not in (CLINICAL_CODE, SAFETY_CODE):
+        raise ValidationFailed("code", "must be clinical-advice or safety-concern")
+    return str(code)
+
+
+def _case(task: dict[str, Any]) -> str:
+    focus = task.get("focus") or {}
+    reference = focus.get("reference") if isinstance(focus, dict) else None
+    if reference is None:
+        raise ValidationFailed("case", "is required")
+    return reference_id(reference, "case", "ServiceRequest")
+
+
+def _clinical_request(task: dict[str, Any], actor: Actor) -> RequestClinicalAdviceCommand:
+    """The command of an advisor's request for clinical advice, checked before the store."""
+    case_id = _case(task)
+    urgency = _input(task, "urgency", "valueCode")
+    if urgency not in REQUEST_URGENCIES:
+        raise ValidationFailed("urgency", "must be now or within-15-min")
+    why = _input(task, "why", "valueCode")
+    if why not in REQUEST_WHYS:
+        raise ValidationFailed("why", "is not a known reason")
+    return RequestClinicalAdviceCommand(
+        actor=actor, case_id=case_id, urgency=str(urgency), why=str(why)
+    )
+
+
+def _safety_concern(task: dict[str, Any]) -> tuple[SafetyConcernCategory, str | None, str]:
+    """The category, the optional reference and the text of a safety concern, checked here. The
+    text is required and at most 280 characters, and is never echoed; the use case stores it in the
+    protected store."""
+    category = _input(task, "category", "valueCode")
+    if category is None:
+        raise ValidationFailed("category", "is required")
+    kind = enum_value(SafetyConcernCategory, category, "category")
+    raw = _input(task, "text", "valueString")
+    if raw is None:
+        raise ValidationFailed("text", "is required")
+    reference = _input(task, "reference", "valueString")
+    return kind, (None if reference is None else str(reference)), checked_concern_text(raw)
+
+
+def _queue_task(record: ClinicalRequestRecord) -> dict[str, Any]:
+    """A queued request as a Task. It names the case, the urgency and the reason, and no one's
+    details: the requester's id, the snapshot's handle and the advice text stay out of the queue."""
+    request = record.request
+    if request.advised_at is not None:
+        status = "completed"
+    elif request.taken_by is not None:
+        status = "in-progress"
+    else:
+        status = REQUESTED
+    return {
+        "resourceType": "Task",
+        "id": request.id,
+        "status": status,
+        "code": {"coding": [{"system": TASK_CODE_SYSTEM, "code": CLINICAL_CODE}]},
+        "focus": {"reference": f"ServiceRequest/{request.case_id}"},
+        "authoredOn": format_instant(request.requested_at),
+        "extension": [
+            {"url": _input_url("urgency"), "valueCode": request.urgency},
+            {"url": _input_url("why"), "valueCode": record.why},
+        ],
+    }
+
+
+def _task_status(request_id: str, status: str) -> Response:
+    return FhirJSONResponse(
+        content={
+            "resourceType": "Task",
+            "id": request_id,
+            "businessStatus": {"coding": [{"code": status}]},
+        },
+        headers=NO_STORE,
+    )
+
+
+# ----------------------------------------------------------------------------- presence and count
+
+
+@router.put("/clinical/presence")
+async def set_presence(
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(Role.CLINICAL))],
+) -> Response:
+    body = await _body(request)
+    if not isinstance(body, dict):
+        raise ValidationFailed("presence", "is required")
+    presence = enum_value(Presence, body.get("presence"), "presence")
+    container = _container(request)
+    await SetPresence(container.uow_factory, container.cache, container.clock).execute(
+        SetPresenceCommand(actor=actor, presence=presence)
+    )
+    return FhirJSONResponse(content={"presence": presence.value}, headers=NO_STORE)
+
+
+@router.get("/clinical/available")
+async def available_clinicians(
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*ADVISORS))],
+) -> Response:
+    container = _container(request)
+    count = await AvailableClinicians(
+        container.uow_factory, container.cache, container.clock
+    ).execute()
+    return FhirJSONResponse(content={"available": count}, headers=NO_STORE)
+
+
+# ------------------------------------------------------------------------------- the task routes
+
+
+async def clinical_queue(request: Request, actor: Actor) -> Response:
+    """The clinical queue. Only a clinical advisor reads it (the use case refuses any other role,
+    which is a 404), and the status it asks for must be `requested`."""
+    if request.query_params.get("status") != REQUESTED:
+        raise ValidationFailed("status", "must be requested")
+    if actor.role is not Role.CLINICAL:
+        raise NotAllowed("only a clinical advisor may see the clinical queue")
+    records = await ListClinicalQueue(
+        _container(request).uow_factory, _container(request).clock
+    ).execute(actor)
+    bundle: dict[str, Any] = {
+        "resourceType": "Bundle",
+        "type": "searchset",
+        "total": len(records),
+        "entry": [{"resource": _queue_task(record)} for record in records],
+    }
+    return FhirJSONResponse(content=bundle, headers=NO_STORE)
+
+
+@router.get("/fhir/Task")
+async def read_tasks(
+    request: Request,
+    actor: Annotated[Actor, Depends(current_actor)],
+) -> Response:
+    """`GET /fhir/Task`, dispatched by its code: the alert list or the clinical queue. Any
+    other code is a 400 that names the parameter."""
+    code = request.query_params.get("code")
+    if code == ALERT_CODE:
+        return await alert_list(request, actor)
+    if code == CLINICAL_CODE:
+        return await clinical_queue(request, actor)
+    raise ValidationFailed("code", "must be acknowledge-alert or clinical-advice")
+
+
+@router.post("/fhir/Task/{request_id}/$take")
+async def take_request(
+    request_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(Role.CLINICAL))],
+) -> Response:
+    key = idempotency_key(request)
+    container = _container(request)
+
+    async def run() -> Response:
+        await TakeClinicalRequest(container.uow_factory, container.ids, container.clock).execute(
+            TakeClinicalRequestCommand(actor=actor, request_id=request_id)
+        )
+        return _task_status(request_id, "in-progress")
+
+    return await replay_or_run(request, actor, f"take:{request_id}:{key}", run)
+
+
+@router.post("/fhir/Task/{request_id}/$advise")
+async def give_advice(
+    request_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(Role.CLINICAL))],
+) -> Response:
+    key = idempotency_key(request)
+    index = index_parameters(await _body(request))
+    choice = text(single(index, "advice", required=True), "advice")
+    if choice not in ADVICE_CHOICES:
+        raise ValidationFailed("advice", "is not a known advice choice")
+    reason = optional_text(single(index, "reason", required=False), "reason")
+    if reason and reason not in ADVICE_REASONS:
+        raise ValidationFailed("reason", "is not a known reason")
+    note = optional_text(single(index, "note", required=False), "note", limit=NOTE_LIMIT)
+    container = _container(request)
+
+    async def run() -> Response:
+        result = await GiveClinicalAdvice(
+            container.uow_factory, container.ids, container.clock
+        ).execute(
+            GiveClinicalAdviceCommand(
+                actor=actor,
+                request_id=request_id,
+                choice=choice,
+                reason=reason or None,
+                note=note or None,
+            )
+        )
+        return _task_status(result.request_id, "completed")
+
+    return await replay_or_run(request, actor, f"advise:{request_id}:{key}", run)
+
+
+@router.post("/fhir/Task")
+async def post_task(
+    request: Request,
+    actor: Annotated[Actor, Depends(current_actor)],
+) -> Response:
+    """A clinical-advice request (an advisor) or a safety concern (any signed-in role). The key and
+    the Task's shape are checked first; each use case then refuses a role that may not act."""
+    key = idempotency_key(request)
+    task = await _body(request)
+    code = _task_code(task)
+    container = _container(request)
+    if code == CLINICAL_CODE:
+        command = _clinical_request(cast(dict[str, Any], task), actor)
+
+        async def ask() -> Response:
+            result = await RequestClinicalAdvice(
+                container.uow_factory,
+                container.ids,
+                container.clock,
+                container.cache,
+                container.sealer,
+            ).execute(command)
+            return FhirJSONResponse(
+                content={
+                    "resourceType": "Task",
+                    "id": result.request_id,
+                    "businessStatus": {"coding": [{"code": REQUESTED}]},
+                    "output": [{"valueInteger": result.notified}],
+                },
+                status_code=201,
+                headers=NO_STORE,
+            )
+
+        return await replay_or_run(request, actor, f"request:{key}", ask)
+
+    category, reference, concern_text = _safety_concern(cast(dict[str, Any], task))
+
+    async def report() -> Response:
+        result = await ReportSafetyConcern(
+            container.uow_factory,
+            UnitOfWorkIdempotency(container.uow_factory),
+            container.ids,
+            container.clock,
+            container.sealer,
+        ).execute(
+            ReportSafetyConcernCommand(
+                idempotency_key=key,
+                actor=actor,
+                category=category,
+                reference=reference,
+                text=concern_text,
+            )
+        )
+        return FhirJSONResponse(
+            content={
+                "resourceType": "Task",
+                "code": {"coding": [{"system": TASK_CODE_SYSTEM, "code": SAFETY_CODE}]},
+                "identifier": [{"value": result.reference}],
+            },
+            status_code=201,
+            headers=NO_STORE,
+        )
+
+    return await replay_or_run(request, actor, f"concern:{key}", report)
+
+
+__all__ = ["ALERT_CODE", "CLINICAL_CODE", "SAFETY_CODE", "router"]

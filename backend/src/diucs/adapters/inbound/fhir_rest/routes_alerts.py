@@ -47,7 +47,6 @@ from diucs.adapters.inbound.fhir_rest.concurrency import (
 )
 from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.adapters.inbound.fhir_rest.subscription_mapping import (
-    ALERT_CODE,
     OPEN_STATUSES,
     alert_to_task,
     save_command,
@@ -72,7 +71,7 @@ from diucs.application.use_cases.subscribe_alert import (
 )
 from diucs.application.use_cases.week_summary import GetWeekSummary, GetWeekSummaryCommand
 from diucs.domain.codes import Role
-from diucs.domain.errors import NotFound, ValidationFailed
+from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
 
 router = APIRouter(prefix="/fhir")
 
@@ -169,14 +168,13 @@ async def save_subscription(
     return await replay_or_run(request, actor, f"subscription:{subscription_id}:{key}", run)
 
 
-@router.get("/Task")
-async def read_alerts(
-    request: Request,
-    actor: Annotated[Actor, Depends(require_role(*SUBSCRIBERS))],
-) -> Response:
+async def alert_list(request: Request, actor: Actor) -> Response:
+    """The caller's open alerts, as Tasks. Reached through `GET /fhir/Task`, which the clinical
+    module dispatches by code (one path, one handler per code, R13). A role that is not an
+    executive or a lead is a non-revealing 404, as a route guard would make it."""
+    if actor.role not in SUBSCRIBERS:
+        raise NotAllowed("the alert list is for an executive or a shift lead")
     query = request.query_params
-    if query.get("code") != ALERT_CODE:
-        raise ValidationFailed("code", "must be acknowledge-alert")
     if query.get("owner") != ME:
         raise ValidationFailed("owner", "must be me")
     status = query.get("status")

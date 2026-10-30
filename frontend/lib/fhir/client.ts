@@ -74,6 +74,28 @@ function failureOutcome(status: number, text: string): OperationOutcome {
 
 export async function fhirFetch<T>(path: string, init: FhirInit = {}): Promise<FhirResult<T>> {
   const url = `${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  return sendRequest<T>(url, init);
+}
+
+/**
+ * The origin of the back end, for the routes that sit beside the FHIR base (the admin and identity
+ * routes, DEC-087). The base must end in /fhir; the name of the variable is in the message, never its value.
+ */
+function rootBase(): string {
+  const trimmed = baseUrl();
+  if (!trimmed.endsWith('/fhir')) {
+    throw new Error(`${BASE_URL_VARIABLE} must end in /fhir, because the admin routes sit beside it.`);
+  }
+  return trimmed.slice(0, -'/fhir'.length);
+}
+
+/** A call to a route beside the FHIR base. Same rules and same answers as fhirFetch. */
+export async function backendFetch<T>(path: string, init: FhirInit = {}): Promise<FhirResult<T>> {
+  const url = `${rootBase()}${path.startsWith('/') ? path : `/${path}`}`;
+  return sendRequest<T>(url, init);
+}
+
+async function sendRequest<T>(url: string, init: FhirInit): Promise<FhirResult<T>> {
   const hasBody = init.body !== undefined;
 
   const headers = new Headers({
@@ -164,9 +186,3 @@ export async function fhirStream(
   return { body: response.body };
 }
 
-// Red stub (DEC-010): the root-relative call for admin and identity routes (W42).
-export async function backendFetch<T>(path: string, init: FhirInit = {}): Promise<FhirResult<T>> {
-  void path;
-  void init;
-  return { data: undefined as T };
-}

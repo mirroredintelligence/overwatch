@@ -71,3 +71,19 @@ export async function leadGet(path: string): Promise<unknown> {
   if (!response.ok) throw new Error(`GET ${path} answered ${response.status}`);
   return response.json();
 }
+
+/** The words a page shows when the BFF refuses a person (W42: "You cannot do this. Ask a shift lead."). */
+export const CANNOT_DO = 'You cannot do this. Ask a shift lead.';
+
+export type ReadResult = { ok: true; body: unknown } | { ok: false; status: number };
+
+/** Reads one lead GET and answers the status too, so a page can show the words for a refusal. */
+export async function leadRead(path: string): Promise<ReadResult> {
+  try {
+    const response = await fetch(path, { method: 'GET', cache: 'no-store', credentials: 'same-origin' });
+    if (!response.ok) return { ok: false, status: response.status };
+    return { ok: true, body: await response.json() };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}

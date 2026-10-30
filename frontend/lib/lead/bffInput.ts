@@ -30,3 +30,20 @@ export async function jsonBody(request: Request): Promise<unknown> {
     throw invalidRequest();
   }
 }
+
+const ROUTE_ID = /^[A-Za-z0-9.-]{1,64}$/;
+
+/**
+ * An id from a route segment, checked by shape before it goes into a back-end path. A malformed id is the
+ * same 404 as an unknown one, so the answer does not say which it is.
+ */
+export async function routeId(context: { params: Promise<Record<string, string>> }, name: string): Promise<string> {
+  const { [name]: value } = await context.params;
+  if (typeof value !== 'string' || !ROUTE_ID.test(value)) {
+    throw new FhirError(404, {
+      resourceType: 'OperationOutcome',
+      issue: [{ severity: 'error', code: 'not-found', diagnostics: 'not found' }],
+    });
+  }
+  return value;
+}

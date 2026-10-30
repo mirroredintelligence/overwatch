@@ -4,6 +4,7 @@
 
 import { FhirError } from '@/lib/fhir/client';
 import { invalidRequest } from './bffInput';
+import { parametersOf, type ParameterValue, type Parameters } from './parameters';
 
 /** A body the BFF refuses before it reaches the back end: a 400 with a fixed message. */
 export class InvalidBody extends FhirError {
@@ -143,14 +144,6 @@ export function readServiceBody(value: unknown): ServiceBody {
   return result;
 }
 
-export type ParameterValue =
-  | { name: string; valueString: string }
-  | { name: string; valueCode: string }
-  | { name: string; valueInteger: number }
-  | { name: string; valueDate: string };
-
-export type Parameters = { resourceType: 'Parameters'; parameter: ParameterValue[] };
-
 /** The FHIR Parameters for $setup: one part per field, districts and needs repeated (R08). */
 export function toParameters(body: ServiceBody): Parameters {
   const parts: ParameterValue[] = [
@@ -179,6 +172,6 @@ export function toParameters(body: ServiceBody): Parameters {
   for (const district of body.districts) parts.push({ name: 'district', valueString: district });
   for (const need of body.accepts) parts.push({ name: 'accepts', valueCode: need });
   for (const need of body.excludes) parts.push({ name: 'excludes', valueCode: need });
-  return { resourceType: 'Parameters', parameter: parts };
+  return parametersOf(parts);
 }
 

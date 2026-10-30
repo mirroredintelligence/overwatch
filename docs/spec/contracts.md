@@ -26,6 +26,7 @@ frontend/                     Next.js 16 App Router, React 19.2, TypeScript stri
   app/(wall)/screen  (reporter)/app + (reporter)/setup  (advisor)/advisor  (clinical)/clinical
   app/(lead)/lead  (exec)/exec  (owner)/criteria  (console)/console  (planning)/planning
       (route groups add no URL segment, so each group keeps its pages under its own folder; app/sign-in is shared)
+      (the executive pages are `(exec)/planning/...`, W39 to W41, DEC-710; the planning view of W51 is `(planning)/planning/flows/page.tsx`, URL `/planning/flows`, because `/planning` is the executive home; the W51 fragment named `/planning`, the tree has `/planning/flows`)
   app/l/[token]/   app/register/   app/api/bff/
   components/{ui,board,advisor,lead,reporter,exec,forms}/
   lib/{fhir,auth,bff,board,push,a11y,telemetry}/
@@ -42,7 +43,7 @@ Neo4j in Docker is the only implementation of everything Neo4j stores. There are
 
 **What still has a fake** (in `diucs/adapters/testing/`, because it is outside our control or not a store of record): `FixedClock`, `SequentialIds`, `RecordingSmsSender`, `RecordingEmailSender`, `RecordingPushSender`, `ManualEventBus` (Service Bus), `InMemoryCache` (Redis), `InMemoryCodeStore` (short-lived text codes, Redis in production), `FixedSecretStore`, `FixedGeocoder`, `FixedPostcodeLocator`, `FixedTravelTime`, `FixedTerminology`, `PassThroughValidator`. The cache and event bus fakes are kept honest by contract suites that also run against Redis and the Service Bus emulator (P12, I01, I02).
 
-**Neo4j for tests.** Docker Compose service `neo4j` (image `neo4j:5`, Community edition), Bolt at `bolt://localhost:7687`, user `neo4j`, password `diucs-test-password`, overridable with `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`. Community edition has one database, so tests run serially (no pytest-xdist).
+**Neo4j for tests.** Docker Compose service `neo4j` (image `neo4j:5`, Community edition), Bolt at `bolt://localhost:7687`, user `neo4j`, password `diucs-test-password`, overridable with `NEO4J_URI`, `NEO4J_USER`, `NEO4J_PASSWORD`. Community edition has one database. Since TEN-033 to TEN-035 (DEC-460 to DEC-466) the integration tests run in parallel on one shared instance (pytest-xdist, `make test-integration`), each run working in its own tenants; see the section Tenant per run in the test harness. The earlier rule that tests run serially, and the manual lock that queued Neo4j runs, are gone.
 
 **Test layout.**
 - `backend/tests/unit/`: pure tests (domain rules, templates, the mapper's pure functions). No Docker. `uv run pytest tests/unit`.
@@ -51,10 +52,10 @@ Neo4j in Docker is the only implementation of everything Neo4j stores. There are
 
 **Harness (F10), in `backend/tests/support/` and `backend/tests/conftest.py`.**
 - `neo4j_driver` (session-scoped async fixture): an `AsyncDriver` connected with the settings above; applies the schema once with `apply_migrations(driver)` from G01.
-- `clean_graph` (autouse for `tests/integration`): before each test deletes every node and relationship in batches (`MATCH (n) WITH n LIMIT 10000 DETACH DELETE n`, repeated), keeping constraints and indexes.
+- `clean_graph` (autouse for `tests/integration`): before each test deletes the nodes of the run's own scopes only (`wipe_tenant`, in batches of 10,000; TEN-033, DEC-460), keeping constraints, indexes and every other run's data, then gives the run tenant and the second tenant their audit chain heads again. The whole-database wipe (`wipe_all`) is refused on a database the process does not own.
 - `write_tx(driver, fn)` and `read_tx(driver, fn)`: run `fn(tx)` in a managed write or read transaction in a fresh session and return its result.
 - `assert_round_trip(driver, save, load, expected)`: runs `save(tx)` in one committed write transaction, then `load(tx)` in a new read session, and asserts the loaded value equals `expected` (frozen dataclasses compare by value; datetimes must come back timezone-aware UTC).
-- `count_nodes(driver, label) -> int` and `node_props(driver, label, **match) -> dict`: for asserting on what is really stored.
+- `count_nodes(driver, label, *, tenant=None) -> int` and `node_props(driver, label, *, scope=None, **match) -> dict`: for asserting on what is really stored; since TEN-033 they read the tenant bound now (or the one given) and raise `TenantNotBound` with none; `count_nodes_all(driver, label)` is the global count.
 - `uow_factory` (fixture, added by P06 in `tests/support/uow.py`): returns a `UnitOfWorkFactory` that opens `Neo4jUnitOfWork` sessions on `neo4j_driver`.
 
 **Repository adapters.** Live in `adapters/outbound/graph_store/` (audit and outbox in `adapters/outbound/audit_neo4j/`), are named `Neo4j<Port>` (for example `Neo4jServiceRepository`, `Neo4jAuditLog`, `Neo4jOutbox`), and are constructed with the `ScopedTx` the unit of work holds (TEN-030, DEC-440: the constructors are annotated `ScopedTx`, so mypy refuses a raw transaction) and the G05 `ResourceStore` for FHIR resources: `Neo4jServiceRepository(tx, store)` (DEC-054). FHIR-shaped aggregates are saved and loaded through the resource store from G05 (no `json` property: the decomposed properties and relationships are the only stored copy, DEC-001 and DEC-049; `from_graph(to_graph(r)) == r` holds whenever `to_graph` accepts `r`, and a resource it cannot hold exactly is refused, not stored); platform nodes (`OutboxMessage`, `ScheduledWork`, `LinkToken`, `Processed`, `Credential`, `IdempotencyRecord`, ...) are written with named queries registered in G01's query registry. Every repository task's tests include, for each aggregate: a save-then-load round trip with `assert_round_trip`; a check of the stored node labels and key properties; for FHIR-backed aggregates, that `from_graph(to_graph(r)) == r` holds for each resource `to_graph` accepts (DEC-049); and the "not found" case.
@@ -118,7 +119,7 @@ Outbound ports (file → Protocols):
 - `audit.py` (P05): `AuditEntry(action: str, use_case: str, actor: Actor, entity_ids: tuple[str, ...], snapshot: dict | None, at: datetime)`; `AuditRecord(id, entry, chain_hash, previous_hash)`; `AuditLog` (append, records, verify_chain). No update or delete methods.
 - `outbox.py` + `unit_of_work.py` (P06): `OutboxMessage(id, topic: str, event_type: str, payload: dict, created_at, status="pending", attempts=0, session_id: str | None = None)`; `Outbox` (add, pending, mark_published, mark_failed); `UnitOfWork` async context manager with attributes `services, capacity, bookings, cases, people, criteria, registrations, scope, flags, communications, link_tokens, scheduled_work, audit, outbox` and `async commit()` / `async rollback()`; `UnitOfWorkFactory = Callable[[], UnitOfWork]`. Use cases write the change, the audit entry and outbox messages inside one `async with uow_factory() as uow: ...; await uow.commit()`.
 - `messaging.py` (P07): `SmsSender.send(to: str, text: str, message_id: str) -> SendReceipt`; `EmailSender.send(to, subject, text, html) -> SendReceipt`; `PushSender.send(subscription: dict, title, body, url) -> SendReceipt`; `SendReceipt(provider_message_id, accepted: bool)`; `Communication(id, message_id: MessageId, channel, recipient_role_id, about_id, payload_text, sent_at, delivery_status, provider_message_id, in_response_to: str | None)`; `CommunicationRepository` (add, get, by_provider_id, set_delivery_status, latest_prompt_for_phone).
-- `event_bus.py` (P08): `BusMessage(id, topic, event_type, payload, session_id=None, traceparent=None, *, tenant_id)` (`tenant_id` is required and keyword-only since TEN-020, DEC-251; on the wire the message id is `<tenant>:<id>` and the session id `<tenant>:<session id>`, and the tenant is the application property `tenantId`); `EventBus.publish(message)`, `EventBus.schedule(queue: str, message, enqueue_at) -> int`, `EventBus.cancel(queue, sequence_number)`; `ScheduledWorkRepository` (add, get, for_about, save). Topic and queue names exactly as `docs/spec/architecture.md`: `inbound.replies`, `inbound.receipts`, `scheduled.work`, `capacity.events`, `booking.events`, `registration.events`, `criteria.events`, `alerts.events`, `messages.outbound`.
+- `event_bus.py` (P08): `BusMessage(id, topic, event_type, payload, session_id=None, traceparent=None, *, tenant_id)` (`tenant_id` is required and keyword-only since TEN-020, DEC-251; on the wire the message id is `<tenant>:<id>` and the session id `<tenant>:<session id>`, and the tenant is the application property `tenantId`); `EventBus.publish(message)`, `EventBus.schedule(queue: str, message, enqueue_at) -> int`, `EventBus.cancel(queue, sequence_number)`; `ScheduledWorkRepository` (add, get, for_about, save). Topic and queue names exactly as `docs/spec/architecture.md`: `inbound.replies`, `inbound.receipts`, `scheduled.work`, `capacity.events`, `booking.events`, `registration.events`, `criteria.events`, `alerts.events`, `messages.outbound`. Since TEN-038 and TEN-055 (DEC-545) `QUEUES` holds `inbound.replies`, `inbound.receipts`, `scheduled.work` and `projection.work` (`domain.events.PROJECTION_WORK`, a test pins that they are equal), and the topics add `network.events`.
 - `cache.py` (P09): `Cache` (get, set(key, value, ttl), delete, publish(channel, message), `async` subscribe(channel) -> AsyncIterator (DEC-092: await it; it returns once the server confirms the subscription; DEC-058), acquire_lock(name, ttl) -> Lock | None, release_lock(lock)); `Lock(name, fencing_token: int)`. Channel `board.updates`.
 - `tokens.py` + `identity.py` (P10): `LinkTokenRepository` (add, get_by_hash, mark_used); `LinkTokenService(repo, secret_store, clock)` with `issue(purpose, about_id, phone_hash, expires_at) -> str`, `resolve(token) -> LinkTokenRecord | None`, `burn(token)`; `SecretStore.get(name) -> bytes`; `PhoneHasher.hash(number) -> str`; `ContactStore` (protected numbers/emails: put_phone, get_phone, put_email, get_email); `CodeSender.send_code(phone) -> None`, `CodeStore`; `PinStore` (set_pin, verify_pin, attempts, lock); `DeviceRegistry`.
   P10 additions (DEC-060): `HmacPhoneHasher(secrets)` and `normalise_uk_mobile(number) -> str` (eleven digits from 07) in `identity.py`; secret names `link-token` and `phone-hash` (`LINK_TOKEN_SECRET`, `PHONE_HASH_SECRET`); `Neo4jLinkTokenRepository(tx)` (`adapters/outbound/graph_store/link_token_repository.py`, queries `Q-LINK-ADD`, `Q-LINK-GET`, `Q-LINK-MARK-USED`); `FixedSecretStore(secrets: dict[str, bytes])`; migration `0021_link_token_hash` (unique `LinkToken.tokenHash`).
@@ -294,6 +295,16 @@ These names were added by individual task prompts. They are as binding as the re
 - `ReportCapacity.execute` raises `TenantMismatch` or `TenantNotBound` (500) and `NotFound` for a performer that is not the actor's role.
 - Audit snapshot of a report (U01): `value`, `source`, `status_before`, `status_after`, and `config_version` when a version is in force.
 
+### TEN-027 (DEC-500 to DEC-501)
+
+- `application/tenant_settings.py`: `TenantZones`, `LinkBases` (protocols), `DirectoryZones(directory)`, `LondonZones()`, `FixedLinkBase(url)`, `DirectoryLinkBase(directory, fallback=None)`, `as_zones(source | None)`, `as_link_base(str | LinkBases)`, `TenantSettings(policy, zone, config_version)`, `async read_settings(uow, zones)`, `async read_policy(uow)`, `LINK_PATH` (`/l`), `LINK_SCHEME_TEXT`.
+- `TenantDirectory.host_of(tenant_id) -> str | None` (port and `Neo4jTenantDirectory`; reuses `Q-TENANT-GET`).
+- `application/actor.py`: `unit_tenant_scope(scope)` (a tenant scope or `TenantNotBound`), `tenant_scope_of_unit(scope, actor)` (and the actor's own, or `TenantMismatch`).
+- `confirm_capacity.py`: `check_confirm_limit(trailing, policy)`.
+- `send_prompts.py`: `SendPrompts(uow_factory, clock, ids, idempotency, link_tokens, link_base_url: str | LinkBases, sealer, tenant_id=None, zones=None)`; `_render(..., zone)`, `_skip_reason(..., policy, zone)`, `_too_old_to_confirm(latest, now, policy)` take the tenant's values with the London default.
+- `missed_report_ladder.py`: `MissedReportLadder(..., link_base_url: str | LinkBases, sealer, zones=None)`, `ladder_offsets(policy)`, `ladder_due(work, policy=DEFAULT_POLICY)`, `stop_answered_ladders(..., policy=DEFAULT_POLICY)`.
+- `alerts.py`: `AlertEvaluator(uow_factory, ids, zones=None)`, `NotUpdatedCheck(uow_factory, ids, clock, zones=None)`; `bootstrap/container.py`: `alert_timer_handlers(..., zones=None)` and `_scheduled_work(..., link_base_url: str | LinkBases, ..., zones=None)`.
+- Tests written, not run: `tests/integration/application/test_confirm_capacity_tenants.py`, `test_send_prompts_tenants.py`, `test_tenancy_use_cases.py` (the differential over six use cases and the held-lock timing test with its control); `test_confirm_capacity.py` seeds the performer role "role-1" it names.
 
 ## Tenancy seam, step one (TEN-001, DEC-142, DEC-144)
 - `application/tenancy.py` (standard library only): `ScopeKind` (`TENANT = "tenant"`, `NETWORK = "network"`), `ScopeId(value, kind)` with `ScopeId.tenant(value)`, `ScopeId.network(value)` and `ScopeId.parse(value)` (the `net-` prefix decides the kind; an invalid value raises `ScopeInvalid`), `NETWORK_PREFIX`, `DEFAULT_TENANT_ID = "default"`, `TENANT_ID_PATTERN`, `NETWORK_ID_PATTERN`, `is_valid_tenant_id(text) -> bool`. Binding: `bind_scope(scope)` and `bind_tenant(tenant_id)` (context managers; the edge binds once per unit of work), `current_scope_or_none()`, `current_scope()` and `current_tenant()` (each raises `TenantNotBound` when nothing is bound; `current_tenant()` also when the bound scope is a network). Errors, all `TenancyError(RuntimeError)`, none a `DomainError`, no constructor argument, one fixed message each: `ScopeInvalid`, `TenantNotBound`, `TenantParameterRefused`, `QueryNotRegistered`, `GlobalStatementMisuse`. There is no mode.
@@ -335,11 +346,61 @@ These names were added by individual task prompts. They are as binding as the re
 - `backend/scripts/guard_mutants.py` (run from `backend/`: `uv run python scripts/guard_mutants.py [M01 ...]`).
 
 
+## Statement scopes: tenant, network, global and platform (TEN-028, TEN-037, TEN-051, DEC-503, DEC-540)
+
+The query model has four scopes. A statement is a registered `NamedQuery` that runs in exactly one of them, and the driver refuses any other pairing before a line of Cypher is sent.
+
+- **Tenant scope.** The default. `run_query(tx: ScopedTx, ...)` adds the bound tenant; every node the statement matches, merges or creates names `tenantId: $tenant`. `scope_kinds` is `TENANT_KINDS` unless declared.
+- **Network scope.** A network id bound with `bind_network` / `current_network()`. A statement declares `scope_kinds` as `NETWORK_KINDS` or `BOTH_KINDS` (the audit chain, idempotency and processed-marker statements, which are generic); `run_query` refuses a statement whose kinds do not include the kind of the scope its `ScopedTx` carries (`ScopeKindMismatch`). The label partition in `scope_labels.py` (`NETWORK_ONLY_LABELS`, `SCOPE_GENERIC_LABELS`, `REGISTRY_NODE_LABELS`) is checked at registration; `$sourceTenant` is mentioned only by a network-only statement. A read-only unit (`ScopedTx(read_only=True)`, `Neo4jUnitOfWork(read_only=True)`) refuses every write; the network read use cases use it.
+- **Global scope.** `run_global_query(tx: GlobalTx, ...)`: statements pinned by SHA-256 in `GLOBAL_STATEMENTS` and listed in `GLOBAL_QUERY_IDS` with a reason (the tenant directory, the two whole-graph counts, and since TEN-051 the nineteen network registry statements, eleven reads and eight writes; the writes are exactly `GLOBAL_WRITE_IDS`).
+- **Platform scope (new, DEC-503).** `NamedQuery(scope="platform")`, `PLATFORM_QUERY_IDS`, `PLATFORM_STATEMENTS` (seven statements pinned by SHA-256: `Q-TENANT-REG-CREATE`, `-SAVE`, `-SET-HOST`, `-SET-DIRECTORY`, `-PUT-NUMBER`, `-MARK-TESTED`, `-NUMBERS`), run only through `driver.run_platform_query`, which sends no tenant and refuses a `tenant` parameter. `run_query` and `run_global_query` refuse a platform statement (`PlatformStatementMisuse`). Only `graph_store/tenant_registry.py` calls it, and only the operator use cases name `TenantRegistry`.
+- The generated two-tenant test runs the tenant statements; a separate test pins that the statements it leaves out are exactly the allowlisted global and platform ones, and the generated test over three scopes (TEN-060) runs the network statements (see Network domain model and rules).
+
+### TEN-037 (DEC-540)
+
+- `diucs.application.tenancy`: `bind_network(network_id)`, `current_network()`, `NetworkNotBound`, `ScopeKindMismatch`, `ReadOnlyUnitWrite`, `SourceTenantRefused`, and their `*_MESSAGE` constants.
+- `diucs.adapters.outbound.graph_store.queries`: `TENANT_KINDS`, `NETWORK_KINDS`, `BOTH_KINDS`, `NamedQuery.scope_kinds`, `QueryTemplate.scope_kinds`, `statement_labels(cypher)`.
+- `diucs.adapters.outbound.graph_store.scope_labels`: `NETWORK_ONLY_LABELS`, `SCOPE_GENERIC_LABELS`, `REGISTRY_NODE_LABELS`.
+- `ScopedTx(tx, scope, read_only=False)`; `Neo4jUnitOfWork(..., read_only=False)`, `.read_only`; `neo4j_uow_factory(..., read_only=False)`; `UnitOfWork.read_only`.
+
 ## Tenant per run in the test harness (TEN-003, DEC-147)
 - `tests/support/tenancy.py`: `RunIdentity(pid, started, nonce)` with `token`, `tenant_id` (`tt-<token>`), `other_tenant_id` (`tt-<token>-b`) and `network_id` (`net-<token>`); `new_run_identity(*, pid=None, now=None, nonce=None)`, `parse_run_id(value) -> RunIdentity | None`; `TenantLeak`, `LEAK_MESSAGE`, `assert_bound_to`, `as_tenant`, `in_tenant`, `tenant_scope`, `guard_async_test`, `guard_sync_test`, `guard_test`.
 - `tests/conftest.py`: session fixtures `run_identity`, `tenant_id`, `other_tenant_id`, `network_id`; function fixtures `bound_tenant`, `uow_factory_a`, `uow_factory_b`; the `no_tenant` marker (an integration test that runs with nothing bound). Environment variables `DIUCS_TEST_TENANT`, `DIUCS_TEST_OTHER_TENANT`, `DIUCS_TEST_NETWORK`.
 - `tests/support/uow.py`: `tenant_uow_factory(driver, tenant, clock=None, *, factories=None)`.
 - `adapters/testing/fixed_ids.py`: `SequentialIds.scoped(scope, prefix="id")` (ids `<scope>-<prefix>-<n>`); `SequentialIds()` is unchanged.
+
+### The shared harness as built (TEN-033 to TEN-035, DEC-460 to DEC-466)
+
+- Integration tests run in parallel (`pytest-xdist`, `--dist loadfile`, the parallel phase `-n 4 -m "not exclusive"`, then the exclusive phase `-m exclusive`) on one shared Neo4j, `diucs-test-shared-neo4j`, started on demand and kept, each run in its own tenants (a run tenant, a second tenant and a network scope derived from the run's identity; every worker derives its own identity from the controller's). There is no whole-run lock to queue on and Neo4j tests are not wrapped in `flock`; only schema-changing and container-lifecycle tests (`schema`, `lifecycle`, through `own_neo4j`) take a private container, started one at a time by the harness lock, and `exclusive` tests (the Service Bus emulator, the compose stack) run in a session of their own.
+- Commands, from `backend/`: `make test-integration` (parallel phase then exclusive phase), `make test-parallel` (everything), `make neo4j-shared-up` and `make neo4j-shared-down`, variable `WORKERS`; `uv run pytest <paths>` for a builder's own files. Modes: `DIUCS_TEST_NEO4J=owned` (one private container per run) or `shared`; `DIUCS_TEST_NEO4J_URI`, `_USER`, `_PASSWORD` attach to another instance.
+- Between tests only the run's own tenants are wiped (`wipe_tenant`); `wipe_all` is refused on a database the process does not own. A test writes in `tenant_id` and `other_tenant_id` only, never a fixed tenant id, and every raw Cypher statement in a test names `tenantId: $tenant`.
+- CI runs the integration suite on a Neo4j service container in two phases (DEC-464); the end-to-end ports derive from one base port per run (`DIUCS_E2E_PORT`, DEC-465).
+
+
+### TEN-033 (DEC-460)
+
+- `tests/support/neo4j.py`: `WipeRefused`, `wipe_tenant(driver, *scopes)`, `wipe_all(driver)`, `mark_owned`, `forget_owned`, `is_owned`, `count_nodes(driver, label, *, tenant=None)`, `count_nodes_all(driver, label)`, `node_props(driver, label, *, scope=None, **match)`, `tx_run(tx, cypher, **params)`.
+- `tests/support/sweeper.py`: `START_SLACK_S`, `process_start_epoch`, `owner_alive`, `orphan_identities`, `run_scopes_present`, `sweep_orphan_tenants`.
+- `tests/support/seed.py`: `WORLD_SERVICE_IDS`, `world_service`, `SeededWorld`, `seed_world`.
+- `tests/support/tenancy.py`: `RunIdentity.scope_ids`.
+- `tests/conftest.py`: `clean_graph` (scoped, with the audit heads); the fixture `seed_service` takes `tenant=`.
+
+### TEN-034 (DEC-461)
+
+- `tests/support/harness_mode.py`: `Mode`, `Selection`, `select_mode`, `HarnessDatabase`, `open_harness_database(selection, *, exclusive, own)`, `SHARED_NAME`, `SHARED_LABEL`, `shared_run_arguments`, `ensure_shared_neo4j`, `remove_shared_neo4j`, `exclusive_selected`, `refuse_exclusive_under_parallel`, `ExclusiveUnderParallel`, `python -m tests.support.harness_mode up|down|status`.
+- `tests/support/neo4j_locks.py`: `LockTimeout`, `lock_path`, `acquire_use`, `UseHold`, `apply_migrations_once`.
+- `tests/conftest.py`: fixtures `harness_mode`, `own_neo4j`; `harness_neo4j` now opens the selected database.
+- Environment: `DIUCS_TEST_NEO4J` (`owned` or `shared`), `DIUCS_TEST_NEO4J_URI`, `_USER`, `_PASSWORD`, `_ALLOW_LOCAL`, `_SWEEP`, `DIUCS_TEST_NEO4J_LOCK_DIR`.
+- Markers: `schema`, `lifecycle`, `exclusive`, `servicebus`, `redis`, `infra`.
+
+### TEN-035 (DEC-462 to DEC-466)
+
+- `tests/support/tenancy.py`: `RunIdentity.worker`, `RunIdentity.for_worker(index)`, `MAX_WORKERS`, `WORKERINPUT_KEY`, `workerinput_for(identity)`, `identity_from_workerinput(received)`, `derive_process_identity`, `process_identity`, `export_identity`, `parse_run_token`, `run_host(label)`; `parse_run_id` accepts the `-w<n>` token.
+- `tests/support/neo4j.py`: `run_scope_ids()`, `RUN_NODES`, `run_nodes(tx, returning)`, `run_relationships(tx, returning)`, `count_nodes_run(driver, label)`; `tests/support/scoped.py`: `OpenTx.run` passes the bound tenant as `$tenant`; `tests/support/tenant_seed.py`: `invariant_breaks(tx, scopes=None)`.
+- `tests/conftest.py`: the xdist hook `pytest_configure_node`; `pytest_configure` takes the worker identity from `workerinput`.
+- Markers: `exclusive`, `servicebus`, `redis`, `infra` select (`-m`); `schema` and `lifecycle` choose a private container.
+- `backend/Makefile`: `test-integration`, `test-parallel`, `neo4j-shared-up`, `neo4j-shared-down`, variable `WORKERS`.
+- Environment: `DIUCS_E2E_PORT` (the e2e base port), the ids exported as `DIUCS_TEST_TENANT`, `DIUCS_TEST_OTHER_TENANT`, `DIUCS_TEST_NETWORK`.
 
 ## $board and $confirm-capacity (R05, DEC-145)
 - `adapters/inbound/fhir_rest/routes_board.py`: `router`, `BOARD_ROLES`, `CONFIRM_ROLES`. `GET /fhir/HealthcareService/$board` (roles wall, advisor, clinical, lead, exec, owner; `Cache-Control: no-store`) and `POST /fhir/HealthcareService/{id}/$confirm-capacity` (reporter for own service, or lead; `Idempotency-Key` required; 200 with the new Observation).
@@ -371,6 +432,26 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `domain/rules/tenant_settings.py`: `SETTING_SPECS` (27 `SettingSpec` rows: the 24 policy settings in table order, then `systemName`, `referralSystemName`, `coordinationTeamName`), `SettingSpec(key, kind, policy_field, unit, default, minimum, maximum, choices, allowed, safety_class, scope, required_for_activation)`, `SettingKind`, `SafetyClass`, `SettingScope`; `spec_for(key)`, `validate_value(spec, value)`, `policy_from_settings(values)`, `validate_settings(values)`, `changed_keys(old, new)`, `clinical_keys(keys)`, `approvals_required(old, new)`, `check_approvals(old, new, author_ref, approver_refs)`, `is_named_ref(ref)`, `check_tenant_text(field, value)` (fields `system_name`, `referral_system_name`, `coordination_team_name`). A task that adds a setting adds a row here and to `POLICY_FIELDS` and `FIELD_BOUNDS`; a row that has no class entry is `clinical` on `tenant`.
 - `domain/model/tenant.py`: `Tenant` (keyword-only; fields as in the TEN-006 prompt), `TenantContact(kind, label, value)`, `TenantWording(system_name, referral_system_name, coordination_team_name)`, `TenantConfig(version, status, values, created_at, created_by_ref, effective_from, approved_by_refs, reason_code)` with `policy` and `wording` properties; `OrganisationType`, `TenantStatus`, `SuspendMode`, `SuspendReason`, `RetentionClass`, `ContactKind` (`coordination-phone`, `support-email`, `shift-lead-escalation`, `clinical-safety-officer`), `ConfigStatus`, `NumberStatus`; `check_tenant_id(value)`, `check_time_zone(value)`, `TENANT_ID_PATTERN`, `RESERVED_TENANT_IDS`, `RESERVED_TENANT_PREFIX`, `DEFAULT_TIME_ZONE`, `ALLOWED_TIME_ZONES`, `REQUIRED_RETENTION_CLASSES`. `check_tenant_id` refuses `platform` (the application kernel accepts it); a parity test pins the pattern to `application/tenancy.py`.
 - `domain/rules/tenant_lifecycle.py`: `transition_tenant(current, target)`, `transition_config(current, target)`, `suspend_tenant(tenant, mode, reason, now)`, `resume_tenant(tenant, now)`, `start_offboarding(tenant, now)`, `complete_offboarding(tenant, now, *, waived=False)`, `purge_tenant(tenant, now)`, `reopen_tenant(tenant)`, `activate_tenant(tenant, facts, now)`, `offboarding_may_complete_at(tenant)`, `number_quarantine_until(retired_at)`, `number_assignable(status, quarantine_until, now)` (`status=None` is a number never assigned), `purge_blockers(tenant, now, operator_refs, typed_slug)`, `activation_blockers(facts)`, `ActivationFacts` (16 required fields), `OFFBOARDING_NOTICE` (30 days), `NUMBER_QUARANTINE` (90 days), `PURGE_OPERATORS_REQUIRED` (2), `REQUIRED_REFERENCES`.
+
+### TEN-028 (DEC-503 to DEC-506)
+
+- `graph_store/queries.py`: `scope="platform"` on `NamedQuery`, `PLATFORM_QUERY_IDS`, `PLATFORM_STATEMENTS` (the seven pins), `Scope`; `driver.run_platform_query`; `tenancy.PlatformStatementMisuse`.
+- `graph_store/tenant_registry.py`: `Neo4jTenantRegistry(connection)` (`create`, `save`, `set_host`, `set_entra_directory`, `put_number`, `mark_number_tested`, `numbers`), `tenant_write_properties`, `number_properties`, `number_from_row`, and the statements `Q-TENANT-REG-CREATE`, `-SAVE`, `-SET-HOST`, `-SET-DIRECTORY`, `-PUT-NUMBER`, `-MARK-TESTED`, `-NUMBERS`.
+- `ports/outbound/tenant_registry.py`: `TenantRegistry` (Protocol), `TenantNumberRecord(e164, account_sid, secret_ref, status, tested_at, quarantine_until)`.
+- `application/provisioning.py`: `new_tenant`, `same_creation`, `count_tested_numbers`, `references_recorded`, `activation_facts`, `extra_blockers`, `MISSING_HOST`, `TENANT_ADMIN_INVITE`, `ScopeProvisioner` (Protocol), `provision_scope`, `seed_recurring_work`, `ProvisionedScope`.
+- `use_cases/tenant_admin.py`: `CreateTenant`, `RecordTenantNumber`, `MarkNumberTested`, `SetTenantHost`, `RecordTenantReferences`, `VerifyEntraBinding`, `ActivateTenant` (with `assess`, `ActivationAssessment`), their commands and results, `check_operator`, `AreaDistrictsFor`.
+- `use_cases/tenant_access.py`: `InviteTenantAdmin`, `InviteTenantAdminCommand`, `InviteTenantAdminResult`, `invitation_key`.
+- `application/tenant_settings.py`: `HostUrls`, `DirectoryHostUrl`. `ScopeListRepository.ensure_list()`.
+- `bootstrap/provisioning.py`: `Provisioning`, `build_provisioning(container)`, `AuditHeads`, `operator_actor`, `parse_args`, `run_command`, `main`; `Container.tenant_registry`; `backend/scripts/provision_tenant.py`.
+- Tests written, not run: `tests/integration/graph_store/test_tenant_registry.py`, `tests/integration/application/test_tenant_provisioning.py` (a private contracted graph with a second tenant that is never touched).
+
+### TEN-073 (DEC-507)
+
+- `use_cases/tenant_suspend.py`: `SuspendTenant(tenants, registry, uow_factory, clock, on_changed=())`, `SuspendTenantCommand(actor, mode, reason)`, `SuspendTenantResult(tenant_id, epoch, mode)`, `ResumeTenant(tenants, registry, uow_factory, ids, clock, zones=None, on_changed=())`, `ResumeTenantCommand(actor)`, `ResumeTenantResult(tenant_id, epoch, services_prompted, services_announced, resumed_again)`, `TenantChanged`, `resume_marker(scope, epoch)`, `resume_event_id(epoch, service_id)`.
+- `use_cases/tenant_admin.py`: `OperatorUseCase` (the base of the operator use cases, formerly private).
+- `fhir_rest/tenant_gate.py`: `TenantGate.forget(tenant_id)`. `fhir_rest/auth.py`: `forget_tenant(app, tenant_id)`.
+- `bootstrap/provisioning.py`: `Provisioning.suspend`, `.resume`; commands `suspend` and `resume`.
+- Tests written, not run: `tests/integration/application/test_tenant_suspend.py` (two active tenants on a private contracted graph).
 
 ## Tenant directory, global statements and secret references (TEN-007, DEC-163)
 - `application/ports/outbound/tenants.py`: `TenantDirectory` (Protocol; all async: `get(tenant_id) -> Tenant | None`, `by_inbound_number(to_number, account_sid) -> TenantLine | None`, `by_account_sid(account_sid) -> TenantLine | None`, `by_host(host) -> Tenant | None`, `by_entra_directory(directory_id) -> Tenant | None`, `list_active() -> Sequence[Tenant]`, `active_tenant_ids() -> Sequence[str]`; it satisfies the relay's `ActiveTenants`), `TenantLine(tenant, number, account_sid, secret_ref)` (frozen), `TenantRecordInvalid(RuntimeError)` (fixed message), `secret_ref(kind, tenant_id, name)`, `twilio_token_ref(tenant_id)` (`twilio/<tenant>/auth-token`), `check_secret_ref(value, tenant_id)` (the tenant's own reference or `ValidationFailed`), and `normalise_e164`, `normalise_account_sid`, `normalise_host`, `normalise_directory_id` (each returns the value in its lookup form or `None`).
@@ -475,6 +556,12 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - JSON: `GET` 200 `{state: "ok", purpose, serviceName, unitLabel, recordedValue, asOf, usualMin, usualMax, replyBy, nextDue, csrfToken}`; 410 `{state: "expired" | "used"}`; `POST` 200 `{serviceName, value, unitLabel, recordedAt, nextDue}`, 400 `{state: "invalid"}`, 403 `{state: "forbidden"}`, 409 `{state: "send-number", reason, message}`, 410, 422 `{state: "out-of-range", usualMin, usualMax}`, 429 `{state: "rate-limited"}` with `Retry-After`; `renew` 202 `{state: "accepted"}`. Times are ISO 8601 UTC with a `Z`. W04's prompt describes another shape; it follows this one.
 - `adapters/outbound/graph_store/link_token_repository.py`: `Q-LINK-ADD`, `-GET`, `-MARK-USED`, `-BURN-KEY` are tenant statements with scenarios (registered statements; there is no ratchet since TEN-030); a `LinkToken` node carries `tenantId`.
 - `tests/support/link_rig.py`: `LinkRig`, `build_link_rig`, `ucr_west`, `token_hash_of`; `ladder_rig.build_rig(..., clock=)`.
+
+### L02 (DEC-830)
+
+- `diucs.adapters.inbound.link_pages.booking_links`: `REQUEST_PURPOSE`, `CHANGE_PURPOSE`, `CHANGE_TOKEN_LIFETIME`, `check_request_action`, `check_change_action`, `gone_state`, `view_body`, `BookingRequestLink`, `BookingChangeLink`, `booking_purposes`.
+- `diucs.application.use_cases.link_access`: `LinkConflict(state)` (409); `LinkAction.reason`; `BOOKING_ACTIONS`; `check_action` accepts the booking answers.
+- `capacity_links`: `_FIELDS` takes `reason`; `_guarded` answers `LinkConflict` 409 `{state}`; `_purposes` registers the two booking purposes.
 
 ## Capacity link pages (W04, DEC-172)
 - `app/l/[token]/page.tsx` (server: checks the token's shape, renders `LinkLoader`, or `LinkExpired` for a token that cannot be a link; `metadata` sets `referrer: no-referrer` and `robots` noindex; `dynamic = 'force-dynamic'`). `app/l/[token]/thanks/page.tsx` (server: `searchParams` carry the answer, read by `parseThanks`).
@@ -585,6 +672,12 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - lib/telemetry/events.ts: TELEMETRY_ENDPOINT, BATCH_SIZE, FLUSH_MS, CLICK_WINDOW_MS, ALLOWED_EVENTS, ALLOWED_ATTRIBUTES, Attributes, TelemetryInit, lengthBucket, routeTemplate, initTelemetry, stopTelemetry, track, trackPageView, noteRouteChange, flush
 - app/api/bff/telemetry/route.ts: POST (204, 400, 401, 403, 413)
 
+### O02 (DEC-740)
+
+- `initTelemetry({role, release})`, `track(name, attrs)`, `flush()`, `routeTemplate(pathname, params)`, `lengthBucket(length)`, `trackPageView(view)`, `noteRouteChange()`, `stopTelemetry()` in `frontend/lib/telemetry/events.ts` (unchanged).
+- `newTraceparent()`, `withTraceparent(init)`, `beginInteraction()`, `currentTraceId()`, `addRequestObserver(fn)` in `frontend/lib/telemetry/trace.ts`.
+- `POST /api/bff/telemetry` (204; session required).
+
 ## Support access (O06, DEC-206)
 
 - domain/rules/support.py: SUPPORT_CODE_VALID_FOR, SUPPORT_ACCESS_VALID_FOR, SUPPORT_CODE_SECRET, LEAD_ROLE_CODES, normalise_support_code, hash_support_code, code_window, access_window, support_code_usable, is_lead, may_open_support
@@ -593,6 +686,11 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - adapters/outbound/graph_store/migrations_support.py: SUPPORT_MIGRATIONS (0045_support_session_id, 0046_support_code_hash), assembled in migrations.py
 - application/ports/outbound/unit_of_work.py: UnitOfWork.support; adapters/outbound/graph_store/unit_of_work.py: DEFAULT_FACTORIES["support"]
 - application/use_cases/support_access.py: CreateSupportCode, StopSharing, OpenSessionForSupport, ListMyAccesses, with their commands, results and AccessView
+
+### TEN-084 (DEC-528 to DEC-530)
+
+- `application/cross_tenant_guard.py`: `CrossTenantGuard(uow_factory, cache, clock, ids, secrets, tenants, platform_audit)` with `issue_code(IssueCodeCommand) -> IssuedCode`, `open(OpenAccessCommand) -> Elevation`, `authorise(AuthoriseCommand) -> Elevation`, `end(EndAccessCommand)`, `revoke(RevokeAccessCommand)`; `PlatformPrincipal` (`from_claims`), `Elevation`, `Grant`, `CrossTenantDenied`; pure `check_issuer`, `check_action`, `access_expiry`, `denial`, `encode_grant`, `decode_grant`, `encode_elevation`, `decode_elevation`; `ACCESS_VALID_FOR`, `CODE_VALID_FOR`; cache names `support-grant:`, `support-access:`, `support-claim:`; audit actions `support-access-code-issued`, `-opened`, `-used`, `-ended`, `-revoked`, `-refused`, `-aborted`.
+- `application/ports/outbound/platform_audit.py`: `PlatformAuditEntry`, `PlatformAudit.append`. Fake: `adapters/testing/recording_platform_audit.py` `RecordingPlatformAudit` (`entries`, `fail_next`).
 
 ## Telemetry query (O07, DEC-207)
 
@@ -622,13 +720,74 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 
 ## Staff sign-in and role guard (W09, DEC-210)
 
+**Corrected on folding (TEN-043, TEN-044, W09 DEC-760; DEC-522 to DEC-527, DEC-600, DEC-601):** the BFF no longer holds a signing secret. `mapRoles`, `mintBackendToken`, `backendTokenExpiresAt`, `StaffRole`, the `Binding`/`bindingFor`/`Identity` types, the setting `DIUCS_ENTRA_BINDINGS` and the setting `BACKEND_JWT_SECRET` are gone. A staff token comes from the back end: the BFF hands the verified ID token to `POST /auth/token` (a wall screen's device token to `POST /auth/device-token`, the operator console's to `POST /auth/operator-token`), and keeps the token it is given; the role is the tenant's own mapping (DEC-523), never read from the token or the directory. The session cookie carries `tenantId` and the `host` it was made on and is read only on that host (DEC-600). The old bullets below are kept as history where they are marked, and the corrected ones follow in the sub-sections of W09, TEN-044 and the other front-end tenancy tasks.
+
 - `lib/auth/access.ts`: `rolesFor(pathname) -> readonly Role[] | null` (null: not guarded; `[]`: guarded for nobody), `canAccess(role, pathname)`, `roleHome(role)`, `isSamePathOnly(value)`. The one route table the proxy and the sign-in share.
-- `lib/auth/staff.ts`: `StaffRole`, `mapRoles(claim, { allowSupport? }) -> StaffRole | null`, `mintBackendToken({ oid, role, tenantId }, now?) -> Promise<string>` (HS256, claims `sub`, `role`, `services: []`, `tid` = the DIUCS tenant id, `iat`, `exp` +8 h; secret `BACKEND_JWT_SECRET`, base64, at least 32 bytes), `backendTokenExpiresAt(now)`, `BACKEND_TOKEN_LIFETIME_SECONDS`, `safeNext(next, role)`, `isTenantId`, `isGuid`.
-- `lib/auth/oidc.ts`: `loadEntraConfig(env?) -> EntraConfig`, `Binding { directoryId, tenantId, platform }`, `bindingFor`, `newTransaction`, `authorizeUrl`, `exchangeCode`, `verifyIdToken(config, idToken, nonce, now?) -> Identity { oid, directoryId, roles, binding }`, `SignInRefused(reason)`, `REFUSALS`, `resetKeyCache`. `lib/auth/flow.ts`: `startSignIn(request)`, `completeSignIn(request)`, `TRANSACTION_COOKIE` (`diucs_oidc`). `lib/auth/session.ts` also exports `sessionSecretKey`.
+- `lib/auth/staff.ts` (corrected: `safeNext` only; `StaffRole`, `mapRoles`, `mintBackendToken`, `backendTokenExpiresAt`, `isGuid` and `isTenantId` are gone, the last two moved to `lib/auth/ids.ts`; the token is made by the back end, `POST /auth/token`). Removed text for history: `mapRoles(claim, { allowSupport? })`, `mintBackendToken({ oid, role, tenantId }, now?)` (HS256, secret `BACKEND_JWT_SECRET`).
+- `lib/auth/oidc.ts`: `loadEntraConfig(env?) -> EntraConfig` (corrected by W09, DEC-760: no `bindings`; an optional `directoryId` from `ENTRA_DIRECTORY_ID`; `Binding`, `bindingFor` and `Identity` are gone), `newTransaction`, `authorizeUrl`, `exchangeCode`, `verifyIdToken(config, idToken, nonce, now?) -> void` (corrected: it only verifies), `SignInRefused(reason)`, `REFUSALS` (loses `unbound-directory`, gains `exchange-failed` and `exchange-answer`), `resetKeyCache`. `lib/auth/flow.ts`: `startSignIn(request)`, `completeSignIn(request)`, `TRANSACTION_COOKIE` (`diucs_oidc`). `lib/auth/session.ts` also exports `sessionSecretKey`.
 - Routes: `POST /api/bff/auth/entra/start` (form field `next` only), `GET /api/bff/auth/entra/callback`. Pages: `/sign-in` (`?role=clinical` note, `?error=no-access|failed`, `?next=`), `/forbidden`. `proxy.ts` (not `middleware.ts`, Next 16) guards `/advisor`, `/clinical`, `/lead`, `/owner`, `/planning`, `/console`.
-- Settings: `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_AUTHORITY_HOST` (default `https://login.microsoftonline.com`; https in production), `DIUCS_PUBLIC_URL` (scheme and host), `DIUCS_ENTRA_BINDINGS` (JSON `[{ directoryId, tenantId, platform? }]`), `BACKEND_JWT_SECRET`, `SESSION_SECRET`. `ENTRA_TENANT_ID` is not used.
+- Settings: `ENTRA_CLIENT_ID`, `ENTRA_CLIENT_SECRET`, `ENTRA_AUTHORITY_HOST` (default `https://login.microsoftonline.com`; https in production), `DIUCS_PUBLIC_URL` (scheme and host), `SESSION_SECRET`, and since W09 an optional `ENTRA_DIRECTORY_ID` and `DIUCS_FHIR_BASE_URL` (read by the sign-in). `DIUCS_ENTRA_BINDINGS` and `BACKEND_JWT_SECRET` are removed (ignored if a deployment still sets them). `ENTRA_TENANT_ID` is not used.
 - Tests: `test/oidc/{fake-entra,constants,harness}.ts` (the recording fake of Entra; `FakeEntra.create`, `authorize`, `token`, `keys`, `recorded`, `Tamper`), `test/msw/handlers/entra.ts` (`entraHandlers(fake)`), `e2e/support/oidc.ts` (the fake as an HTTP server on port 4011; personas by the `fake_user` cookie).
 - `lib/auth/oidc.ts`: `entraAuthorityOrigin(env?) -> string | null`. `lib/security/csp.ts`: `buildCsp(nonce, dev, { formActionOrigins? })`, `CspOptions`.
+
+### TEN-044 (DEC-600 to DEC-602)
+
+- `lib/auth/session.ts`: `Session {role, tenantId, host, services, sub, device?, backendToken, expiresAt}`; `ROLES` adds `tenant-admin`, `network-admin`; `STAFF_ROLES`; `sessionFromRequest` and `getSession` read a session only on its host.
+- `lib/auth/host.ts`: `normaliseHost`, `requestHost`. `lib/auth/ids.ts`: `isTenantId`, `isGuid`. `lib/auth/tokenClaims.ts`: `readIssuedToken`, `STAFF_AUDIENCE`.
+- `lib/fhir/hostCall.ts`: `callBackend` (with `headers`), `BackendCallError`, `backendRoot`. `lib/screens/wall.ts`: `createWallSession(grant, host)`; `WallGrant.tenant`. `lib/telemetry/otlp.ts`: `otlpLogs`.
+- `lib/bff/handler.ts`: `withBff(handler, {roles?, csrf?, idScoped?})`; `lib/bff/inputGuard.ts`: `refusesTenantInput`, `namesTenantInput`; `lib/bff/errors.ts`: `toBffError(error, {idScoped?})`.
+- BFF endpoints: `GET /api/bff/session` -> `{role, services, csrfToken}`; `DELETE /api/bff/session` -> 204.
+- Test support: `test/tenants.ts` (`TENANTS`), `test/backendToken.ts` (`fakeBackendToken`, `claimsOf`), `test/requests.ts` (`requestAs`, `sessionFor`), `test/cookies.ts` (jar, `headersMock`, `setRequestHost`, `seedCookies`), W6J's `test/fixtures/exchange.ts` and `test/msw/handlers/auth.ts` are the exchange stand-in (their token's tenant is now a valid tenant id, `tenantOfHost(host)`).
+
+### TEN-045 (DEC-604)
+
+- `lib/fhir/client.ts`: `fhirFetch(path, init)` and `fhirStream(path, init)` with a required `token`; `TokenRequired`, `PathRefused`.
+- `lib/tenant/inputNames.ts`: `namesTenantInput`, `normaliseName`. `lib/product.ts`: `PRODUCT_NAME`.
+- `lib/bff/inputGuard.ts` now imports `namesTenantInput` from there.
+
+### TEN-046 (DEC-603)
+
+- `lib/auth/csrf.ts`: `csrfTokenFor(subject, nonce)`, `verifyCsrfToken(subject, token)`, `issueCsrf(session)`, `checkCsrf(request, session)`, `clearCsrf()`, `CsrfSubject`, `CSRF_COOKIE`, `CSRF_HEADER`.
+- `test/requests.ts`: `csrfFor(session)`, `CSRF_NONCE`; `requestAs(..., {csrf: true | text})`.
+- `GET /api/bff/session` csrfToken is now `<43>.<43>`.
+
+### TEN-047 (DEC-607)
+
+- `test/tenants.ts`: `TENANTS`, `NETWORK`, `GRANTS`, `SHARED_IDS`, `ONLY_IN_A`, `recordsFor`, `TestTenant`, `TestProfile`.
+- `test/leak-canary.ts`: `canary` (`expect`, `expected`, `leaks`, `assertClean`, `reset`), `inspectUpstream`, `installLeakCanary`, `Leak`, `LeakRule`.
+- `test/msw/handlers/tenantData.ts`: `tenantDataHandlers`. `test/requests.ts`: `sessionFor` and `requestAs` register the tenant with the canary.
+- `test/guards/bff-routes.test.ts`: the route table (`ROUTES`); a new BFF route adds a row.
+
+### TEN-048 (DEC-608)
+
+- `test/guards/scan.ts`: `sourceFiles()`, `check(rules, files)`, `CACHING_RULES`, `LITERAL_RULES`, `FETCH_ALLOWLIST`, `Rule`, `Violation`.
+- `eslint.config.mjs`: the restricted globals, syntax and imports above; off in tests and in the three files that may touch storage.
+
+### TEN-049 (DEC-606)
+
+- `lib/tenant/profile.ts`: `TenantProfile`, `TenantWording`, `parseProfile`, `readTenantProfile(host, now?)`, `currentProfile()`, `resetProfileCache()`, `PROFILE_TTL_MS`, `UNKNOWN_HOST_TTL_MS`, `UNAVAILABLE_TTL_MS`.
+- `lib/tenant/policy.ts`: `TenantPolicy`, `POLICY_DEFAULTS`, `policyFor(profile)`, `parsePolicy(body)`.
+- `lib/copy/index.ts`: `copy`, `duration`. `components/tenant/TenantHeader.tsx`: `<TenantHeader profile>`. `Board` and `LiveBoard`: optional `subtitle`.
+- Back-end call: `GET /public/tenant-profile` (TEN-040), Host header, no token.
+- Test support: `test/msw/handlers/profile.ts` (`profileHandlers`, `seenProfileRequests`), `TENANTS.*.profile`.
+
+### TEN-050 (DEC-605)
+
+- `lib/storage/tenantStore.ts`: `createTenantStore({storage, host})`, `tenantStore`, `STORAGE_PREFIX`, `TenantStore {get, set, remove, names, clear}`.
+- `lib/session/signOut.ts`: `signOutLocal(env?)`, `unpairLocal(env?)`, `wipeBrowserState(env?)`, `installBfcacheGuard(target, reload)`, `BrowserEnv`, `EndResult {signedOut, failed, navigated}`, `WipeStep`.
+- `components/session/BfcacheGuard.tsx`: `<BfcacheGuard reload?>`.
+- `DELETE /api/bff/session` answers 204 with `Clear-Site-Data: "cache", "storage"`.
+
+### W09 (DEC-760)
+
+- `lib/auth/exchange.ts` (server-only): `exchangeStaffToken(idToken, host, now?) -> { kind: 'issued', grant: { token, expiresAt, role, sub } } | { kind: 'refused' }`, throwing `SignInRefused('bad-token' | 'exchange-failed' | 'exchange-answer')`; `STAFF_ROLES`; `readToken(token) -> { sub, expiresAtMs } | null`; `sessionEnd(expiresAt, tokenExpiresAtMs, now) -> ISO | null` (also used by the wall screen exchange).
+- `lib/auth/oidc.ts`: `EntraConfig` loses `bindings` and gains `directoryId: string | null` (from the optional `ENTRA_DIRECTORY_ID`); `Binding`, `bindingFor` and `Identity` are gone; `verifyIdToken(config, idToken, nonce, now) -> void`; `REFUSALS` loses `unbound-directory` and gains `exchange-failed` and `exchange-answer`.
+- `lib/auth/staff.ts`: `safeNext` only (`mapRoles`, `mintBackendToken`, `backendTokenExpiresAt`, `isGuid`, `isTenantId`, `StaffRole` are gone).
+- `lib/auth/access.ts`: unchanged (the role guard).
+- `lib/links/server.ts`: `LinkCall` gains `headers?` (further request headers; `Host` and `Content-Length` cannot be overridden).
+- Settings: removed `DIUCS_ENTRA_BINDINGS`, `BACKEND_JWT_SECRET`; added optional `ENTRA_DIRECTORY_ID`; `DIUCS_FHIR_BASE_URL` is read by the sign-in.
+- Test support: `test/fixtures/exchange.ts` (`staffExchange`, `deviceExchange`, `standInToken`, `GRANTS`, `DEVICES`), `test/msw/handlers/auth.ts` (`authHandlers`, `seenExchanges`), `e2e/support/exchange.ts`.
+- The stale text the W09 fragment listed in this file (the `lib/auth/staff.ts` line and the settings line) was corrected on folding; see the note at the head of this section.
 
 ## Clinical request repository (P18, DEC-220)
 
@@ -673,6 +832,16 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `Container` fields `cache: Cache` and `rng: random.Random`; `build_for_tests(..., cache=, rng=)`; the constant `TEST_RNG_SEED` in `bootstrap/container.py`.
 - `ClaimPairingResult` is unchanged (it already has `expired`).
 
+### W08 (DEC-761)
+
+- Pages: `app/(wall)/screen/pair/page.tsx` (`/screen/pair`, no sign-in), `app/(lead)/lead/screens/new/page.tsx` (`/lead/screens/new`, lead only).
+- Components: `components/screens/PairingScreen.tsx` (`PairingScreen({ api? })`; `data-el` `WALL-PAIR-CODE`, `WALL-PAIR-MESSAGE`), `components/screens/ScreenForm.tsx` (`ScreenForm({ api? })`, `ConnectApi`; `data-el` `LEAD-SCREEN-CODE-FIELD`, `-NAME-FIELD`, `-LOCATION-FIELD`, `-CONNECT-BTN`, `-CANCEL-BTN`, `-ADD-ANOTHER-BTN`, `-DONE-BTN`, `-MESSAGE`).
+- BFF routes: `POST /api/bff/screens/pairing` (201 `{pairingId, code, expiresAt}`; 403 cross-site; 404, 429 with `Retry-After`, 503), `GET /api/bff/screens/pairing/[id]` (200 `{status: waiting | expired | paired | connecting}`; 404, 429, 503), `POST /api/bff/screens/session` (200 `{status: 'paired'}`; 403, 404, 503), `POST /api/bff/screens` (lead + CSRF; 201 `{name, status: 'online', connectedAt}`; 400 `{code: 'invalid', field?, message}`, 401, 403, 404 with the code message, 422, 429, 503). Every answer is `no-store`.
+- Cookies: `diucs_pairing` (10 minutes) and `diucs_device` (400 days): sealed, HttpOnly, Secure, SameSite Strict, `Path=/api/bff/screens`.
+- `lib/screens/model.ts` (pure): `formatCode`, `parseCode`, `parseName`, `parseLocation`, `SCREEN_LABEL_MAX`, the message constants. `lib/screens/origin.ts`: `isSameOriginRequest`. `lib/screens/cookies.ts`: `rememberPairing`, `pairingFrom`, `forgetPairing`, `rememberDevice`, `deviceFrom`, `forgetDevice`. `lib/screens/server.ts` (server-only): `startPairing`, `claimPairing`, `exchangeDeviceToken`, `connectScreen`, `ScreenApiError`. `lib/screens/answers.ts`, `lib/screens/wall.ts` (`createWallSession`). `lib/screens/client.ts` (browser): `renewSession`, `startPairing`, `pollPairing`, `connectScreen`, `ScreenClientError`. `lib/screens/usePairing.ts`: `usePairing`, `POLL_INTERVAL_MS` (3000), `RETRY_UNAVAILABLE_MS` (10 s), `RETRY_THROTTLED_MS` (60 s).
+- Test support: `test/fixtures/pairing.ts` (`PairingStandIn`, R15's shapes), `test/msw/handlers/screens.ts` (`screenHandlers`, `pairingBackend`), `e2e/support/pairing.ts`.
+- Uses from W09's bundle work: `lib/auth/exchange.ts` (`readToken`, `sessionEnd`) and `lib/links/server.ts` (`callLinkApi` with `headers`, `hostOf`).
+
 ## Pathways Dx lookup (R16, DEC-225)
 
 - `diucs.domain.rules.code_search`: `MIN_SEARCH_LENGTH` (2), `search_codes(entries, text, limit)`
@@ -690,6 +859,11 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `lib/security/csp.ts`: `buildCsp(nonce: string, dev: boolean): string`, `securityHeaders(): Record<string, string>`.
 - `proxy.ts`: `proxy(request: NextRequest): NextResponse`, `config.matcher`.
 - `app/layout.tsx`: `export const dynamic = 'force-dynamic'`.
+
+### S01 (DEC-741)
+
+- `buildCsp(nonce, dev, options?)`, `securityHeaders()` in `frontend/lib/security/csp.ts` (unchanged).
+- `proxy(request)` and `config.matcher` in `frontend/proxy.ts` (unchanged).
 
 ## Criteria and flag statements (TEN-012, DEC-227)
 
@@ -728,6 +902,10 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `schedule.due_times_on(profile, local_day, policy=DEFAULT_POLICY, zone=LONDON)`, `next_due(profile, now, policy=DEFAULT_POLICY, zone=LONDON)`, `current_due(...)` likewise.
 - `freshness.assess_freshness(profile, last_report_at, now, policy=DEFAULT_POLICY, zone=LONDON)`; `status.compute_status(profile, latest, confirmed_at, now, policy=DEFAULT_POLICY, zone=LONDON)`; `alerts.should_notify(prefs, alert, now, zone=LONDON)`.
 
+### TEN-066 (DEC-835)
+
+- `diucs.domain.rules.holidays`: `REGIONS`, `ENGLAND_AND_WALES`, `SCOTLAND`, `NORTHERN_IRELAND`, `bank_holidays(region)`, `ClosurePeriod(first, last)`, `closed_on(region, closures)`.
+- `diucs.domain.rules.schedule`: `due_times_on`, `next_due`, `current_due` gain `closed: Callable[[date], bool] | None = None`.
 
 ## Tenant wording in templates (TEN-022, DEC-234)
 
@@ -752,6 +930,42 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `ProjectionRequested(network_id, source_tenant_id, grant_id, grant_version, kind, source_service_id, source_version, allowlist_version, body, at)` with `message_type`, `to_payload()`, `decode(payload)`; `ProjectionValue`; `PAYLOAD_EXCEPTIONS`; `NETWORK_EVENTS` (`network.events`); `PROJECTION_WORK` (`projection.work`); limits `MAX_BODY_KEYS` (40), `MAX_BODY_TUPLE` (50), `MAX_BODY_TEXT` (200).
 - `TOPICS` gains `network.events`.
 
+### TEN-051 (DEC-541)
+
+- `diucs.application.ports.outbound.network`: `NetworkRegistry` (11 reads, 8 writes), `RegisteredNetwork`, `ActiveGrant`, `NetworkRecordInvalid`.
+- `diucs.domain.model.network_settings`: `NetworkSettings`, `NAME_MAX_LENGTH`, `MAX_DIGITS`.
+- `diucs.adapters.outbound.graph_store.network_registry`: `Neo4jNetworkRegistry(connection)`, `network_properties`, `membership_properties`, `grant_properties`, `listing_properties` and the four `*_from_properties`, `RECORD_MESSAGE`, `CONFLICT_MESSAGE`.
+- `queries.py`: `GLOBAL_WRITE_IDS`, `NETWORK_REGISTRY_LABELS`, the nineteen ids above.
+- Migration `0110_network_registry`; `NETWORK_REGISTRY_CONSTRAINTS`.
+- Test helpers: `tests/support/network_samples.py` (`make_network`, `make_member`, `make_grant`, `make_listing`, constants), `tests/support/network_connection.py` (`NetworkConnection`).
+
+### TEN-057 (DEC-546)
+
+- `diucs.application.network_access`: `NetworkAccess(registry, tenants)` with `require_member`, `view`; `NetworkMemberAccess`, `ListedService`, `RegistryView`, `NETWORK_VIEW_ROLES`, `NETWORK_NOT_FOUND`, `ROLE_REFUSED`.
+- `diucs.application.use_cases.query_network_board`: `QueryNetworkBoard(uow_factory, access, clock).execute(actor, network_id) -> NetworkBoardView`, `NetworkReadUnitNotReadOnly`.
+- `diucs.application.use_cases.query_network_directory`: `QueryNetworkDirectory`, `QueryNetworkCriteria` (`execute(actor, network_id, *, history=False)`), `NetworkDirectoryView`, `NetworkDirectoryEntry`, `NetworkCriteriaView`, `NetworkCriteriaEntry`.
+
+### TEN-058 (DEC-547)
+
+- `diucs.application.use_cases.network_board_projector`: `NetworkBoardProjector(query, access, cache, clock)` with `handle`, `get_board`, `applied`, `rejected`; `NetworkBoardAudience`, `network_board_cache_key`, `NETWORK_BOARD_CACHE_KEY`, `NETWORK_BOARD_CACHE_TTL`, `NETWORK_BOARD_CHANGED`, `NETWORK_REBUILD_EVENTS`, `network_board_to_dict`, `network_board_from_dict`.
+- `diucs.application.ports.outbound.cache.NETWORK_BOARD_UPDATES_CHANNEL`.
+- `diucs.application.use_cases.query_network_board.QueryNetworkBoard.build`; `diucs.application.network_access.NetworkContext`, `NetworkAccess.open_network`.
+- `diucs.adapters.inbound.workers.network_board_consumer`: `NetworkBoardConsumer`, `network_board_consumer`, `network_board_runners`, `NETWORK_BOARD_SUBSCRIPTION`.
+- Emulator config: subscription `network-board-projector` on `network.events`.
+
+### TEN-059 (DEC-548)
+
+- `diucs.domain.rules.bff_token`: `BffClaims.networks: frozenset[str]` (default empty), `NETWORKS_MAX = 16`; the claim `networks` (optional list of network ids).
+- `diucs.application.actor.Actor.network_ids: frozenset[str]` (keyword-only, default empty, a hint).
+- `diucs.application.network_access.NetworkAccess.networks_of(actor) -> list[NetworkContext]`.
+- `diucs.adapters.inbound.fhir_rest.routes_network`: `NetworkServices`, `network_services`, `ensure_in_claim`, `directory_to_dict`, `criteria_to_dict`, `NETWORK_ID_PATTERN`; routes `GET /networks`, `GET /network/{network_id}/board|directory|criteria`.
+- `diucs.adapters.inbound.fhir_rest.routes_network_events`: `network_events`, `to_network_sse`, `RECHECK_INTERVAL_SECONDS`, `SCOPE_ENDED_EVENT`; route `GET /network/{network_id}/events`.
+- `diucs.adapters.testing.tokens.issue_test_token(..., networks=())`.
+
+### TEN-060 (DEC-544)
+
+- `tests/support/network_world.py`: `NetworkWorld`, `WorldIds`, `world_ids`, `NETWORK_INVARIANTS`.
+- `tests/support/query_probes.py`: `production_statements(registry, kind)`, `universe_problems(registry, statements, kind)`, `run_isolation(..., kind)`.
 
 ## Network screens specification (TEN-063, DEC-236)
 
@@ -859,6 +1073,21 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `diucs.bootstrap.container.Container.platform_slots`.
 - `diucs.adapters.inbound.fhir_rest.errors`: `RateLimited(retry_after_seconds)` (429 `throttled`, `Retry-After`, `no-store`), `TemporarilyUnavailable(retry_after_seconds)` (503 `transient`), `RATE_LIMITED_TEXT`, `UNAVAILABLE_TEXT`.
 
+### TEN-041 (DEC-520)
+
+- `application/tenant_resolution.py`: `EntryKind`, `EntryRefused` (a `NotFound`), `ENTRY_REFUSED_MESSAGE`, `MAX_TOKEN_LENGTH`, `ResolvedLink(record, state)`, `PreSessionResolver(uow_factory, clock, secrets)` with `link`, `open_link`, `invitation`, `device`, `DirectoryInboundLines(directory)` with `for_number`, `for_account`.
+- `adapters/inbound/fhir_rest/token_resolvers.py`: `pre_session_resolver(request)`, `bearer_token(request)`, `resolve_active_device` (a dependency of `bind_host_tenant`).
+- `application/use_cases/link_access.py`: `next_due_iso(profile, now, policy, zone)`; `CapacityLinkHandler(..., *, zone=LONDON)`.
+- Tests: `tests/support/pre_session.py` (`Links`, `Devices`, `Uow` stand-ins).
+
+### TEN-043 (DEC-522 to DEC-527)
+
+- `domain/rules/bff_token.py`: `STAFF_AUDIENCE` (`diucs-api`), `OPERATOR_AUDIENCE` (`diucs-ops`), `OPERATOR_ROLES`, `OperatorClaims(sub, role, expires_at)`, `encode_operator_token`, `decode_operator_token`; `encode_bff_token` adds `aud`, `decode_bff_token` requires it.
+- `domain/rules/token_exchange.py`: `staff_role`, `operator_role`, `directory_is_bound`, `may_issue`, `account_ref`, `staff_subject`, `expiry`, `STAFF_ROLE_PRIORITY`, `OPERATOR_ROLE_CLAIMS`, `STAFF_TOKEN_LIFETIME`, `OPERATOR_TOKEN_LIFETIME`, `WALL_TOKEN_LIFETIME`.
+- `application/ports/outbound/identity_verifier.py`: `Audience` (`staff`, `operator`), `IdentityRejected`, `VerifiedIdentity`, `IdentityVerifier.verify(credential, audience)`. Fake: `adapters/testing/fake_identity_verifier.py` `FakeIdentityVerifier` (`accepts`, `verify`, `audiences_asked`).
+- `application/use_cases/exchange_token.py`: `ExchangeStaffToken`, `ExchangeOperatorToken`, `ExchangeDeviceToken` with `ExchangeStaffCommand(tenant, credential)`, `ExchangeOperatorCommand(credential)`, `ExchangeDeviceCommand(tenant, token)`, `IssuedToken(token, expires_at, role)`, `ExchangeRefused`, `SIGNING_SECRET` (`bff-jwt`), `ACCOUNT_REF_SECRET` (`account-ref`), `EXCHANGE_REFUSED_MESSAGE`.
+- `adapters/inbound/fhir_rest/routes_auth.py`: `POST /auth/token`, `POST /auth/device-token`, `POST /auth/operator-token`; `ExchangeDeps(verifier, operator_directory_id)` on `app.state.token_exchange`; `exchange_rate_limit`; `EXCHANGE_REQUESTS_PER_ADDRESS`, `EXCHANGE_WINDOW`.
+- Secrets: `bff-jwt` (the signing secret, platform), `account-ref` (a platform key of at least 32 bytes).
 
 ## Bus messages carry their tenant (TEN-020, DEC-251)
 
@@ -881,6 +1110,32 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `diucs.application.projection`: `ProjectionRow(label, params)`, `ProjectionValue`, `to_rows`, `to_body`, `from_body(kind, body)`, `body_keys(kind)`, `format_window(hour)`, `parse_window(text, position)`, `check_network_write_statement(cypher) -> list[str]`, `assert_network_write_statement(cypher)`.
 - `diucs.domain.messages.privacy_guard`: `normalise_key`, `FORBIDDEN_KEY_FORMS`, `find_forbidden_keys`, `scan_value`, `MAX_SCAN_DEPTH`.
 - Test support: `tests/support/projection_samples.py`.
+
+### TEN-053 (DEC-542)
+
+- `diucs.application.ports.outbound.projection`: `ProjectionWriter` (6 methods), `NetworkView` (5 methods), `GrantRef`, `SourceState`, `SourceStatus`, `ProjectedRow[T]`, `ProjectionEndReason`, `ProjectionRecordInvalid`.
+- `diucs.application.ports.outbound.unit_of_work`: `NetworkUnitOfWork`, `NetworkUnitOfWorkFactory`.
+- `diucs.adapters.outbound.graph_store.projection_repository`: `Neo4jProjectionRepository(tx)` (the unit's `projections` and `network_view`), `RECORD_MESSAGE`; the nineteen statement ids above.
+- `diucs.adapters.outbound.graph_store.projection_scenarios`: `PROJECTION_SCENARIOS`.
+- Migration `0111_projection_keys`; `PROJECTION_CONSTRAINTS`.
+- `domain/rules/projection.py`: `NETWORK_RELATIONSHIPS = {HAS_LOCATION, HAS_OPENING_HOUR}`; `SYSTEM_PROPERTIES` for `ProjectedLocation` and `ProjectedOpeningHour` include `sourceServiceId`.
+
+### TEN-054 (DEC-543)
+
+- `diucs.application.use_cases.project_network`: `ProjectNetwork(uow_factory, registry, publisher, clock)` with `project`, `project_all`, `backfill`; `ProjectionRun`; `ProducerUnitNotReadOnly`.
+- `diucs.application.use_cases.apply_projection`: `ApplyProjection(uow_factory, registry, clock, notifier=None).execute(request, *, message_id, source_tenant_id)`; `ApplyOutcome`, `ApplyResult`, `ProjectionMismatch`, `ApplyUnitReadOnly`, `CONSUMER_NAME`.
+- `diucs.application.ports.outbound.projection`: `ProjectionPublisher.publish(request)`, `ProjectionNotifier.applied/rejected`.
+- `diucs.adapters.inbound.workers.network_projector`: `PRODUCER_EVENTS`, `NetworkProducerConsumer`, `producer_consumer(producer, tenants, observe)`, `NetworkApplyConsumer(apply, registry, tenants)`, and the fixed reasons.
+
+### TEN-055 (DEC-545)
+
+- `diucs.application.ports.outbound.event_bus.QUEUES` includes `projection.work`.
+- `diucs.adapters.outbound.projection_queue`: `BusProjectionPublisher(bus)`, `projection_message(request)`, `projection_message_id(request)`, `ID_PREFIX`.
+- `diucs.adapters.inbound.workers.servicebus_runner`: `BINDING_MARKERS = ("binds_tenant", "binds_network")`.
+- `diucs.adapters.inbound.workers.network_projector`: `NetworkApplyConsumer.binds_network`, `network_runners(client, producer, apply, tenants, observe)`, `NETWORK_SUBSCRIPTION`, `APPLY_QUEUE`.
+- `diucs.adapters.outbound.graph_store.unit_of_work.neo4j_network_uow_factory`.
+- `diucs.bootstrap.workers_main`: `NetworkProjectorWiring`, `build_runners(..., network_projector=)`.
+- Emulator config: queue `projection.work`; subscription `network-projector` on `capacity.events` (sessions), `booking.events`, `criteria.events`, `registration.events` and `network.events`; topic `network.events`.
 
 ## Tenant configuration records (TEN-026, DEC-271)
 
@@ -1041,6 +1296,10 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `frontend/lib/telemetry/trace.ts`: `addRequestObserver(observer) -> remove`
 - `frontend/lib/telemetry/events.ts`: `ALLOWED_EVENTS` gains `ui.friction`; `ALLOWED_ATTRIBUTES` gains `kind`, `count`, `window_ms`
 
+### O03
+
+- `createFrictionEngine({now, emit})` with `onClick`, `onClickResult`, `onNetwork`, `onRequestStart`, `onRequestEnd`, `onError`, `onRoute`, `onValidation`, `onFocus`, `onSubmit`, `onLeave`, `onInteraction`, `onScroll`, `onStream`, `tick`; `attachFriction(now?)`; `FRICTION_THRESHOLDS`; `QUICK_ACTION_ROUTES` (frontend/lib/telemetry/friction.ts).
+
 ## OpenTelemetry Collector allow-list (O04, DEC-331 and DEC-332)
 
 - `infra/otel-allowlist.txt`, `infra/otel-collector.yaml`, `infra/otel-collector.test.yaml`, service `otel-collector` in `infra/docker-compose.yml` (profile `test`)
@@ -1050,6 +1309,10 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 
 - `AttrSpec`, `UI_EVENT_NAMES`, `UiEventName`, `ROLE_VALUES`, `COMMON_SCHEMA`, `EVENT_SCHEMAS`, `isFreeText`, `validateEvent`
 - `frontend/lib/telemetry/events.ts`: `droppedEvents` (exported, live binding), `ALLOWED_EVENTS` now `UI_EVENT_NAMES`
+
+### O05
+
+- `EVENT_SCHEMAS`, `COMMON_SCHEMA`, `AttrSpec`, `validateEvent(name, attrs)`, `isFreeText(spec)`, `UI_EVENT_NAMES` (frontend/lib/telemetry/schema.ts).
 
 ## Daily telemetry aggregates (O08, DEC-334)
 
@@ -1122,3 +1385,773 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 
 - planning_analysis: PlanningQuery(period_days, need_group); HiddenCount(value, hidden); PlanningResult(referrals, best_fit_unavailable, best_fit_unavailable_pct, went_elsewhere, flows, heat, busiest, declined_despite); FlowRow(best_fit, state, destination, count); RunPlanningCommand(actor, query); RunPlanningAnalysis(uow_factory, clock).execute.
 - AuditLog.records_between and records_for_many (see U42 fragment).
+
+## Booking, alert, registration, clinical and admin routes (wave 5: R09, R10, R12, R13, R17)
+
+### R09 (DEC-831)
+
+- `diucs.adapters.inbound.fhir_rest.routes_bookings`: `router`; `BookingRequestBody(case_id, service_id)`; `parse_booking_request(body)`; `parameters_by_name(body)`; `decision_of(grouped)`; `decline_reason_of(grouped)`; `cancel_reason_of(grouped)`; `withdraw_reason_of(grouped)`; `not_reached_reason_of(grouped)`; `check_acknowledgement_body(body)`; `acknowledgement_path(status)`.
+- Routes: `POST /fhir/Task`; `GET /fhir/Task/{id}`; `PUT /fhir/Task/{id}` (405); `POST /fhir/Task/{id}/$respond`, `$cancel`, `$withdraw`, `$not-reached`, `$acknowledge`. Capability: Task create, read; operations respond, cancel, withdraw, not-reached, acknowledge.
+- `diucs.adapters.fhir_shared.booking_task`: `booking_to_fhir`, `codeable_to_fhir`, `BOOKING_REFERENCE_SYSTEM`.
+- `Container.link_base_url_for: LinkBaseUrlFor`, `Container.wording_for: WordingFor` (build and build_for_tests). ApiContainer gains `secrets`, `sealer`, `link_base_url_for`, `wording_for`.
+
+### R10 (DEC-832)
+
+- `backend/src/diucs/adapters/inbound/fhir_rest/parameters.py`: `index_parameters`, `single`, `repeated`, `text`, `optional_text`, `enum_value`, `whole`, `reference_id`, `reference_part`, `PARAMETERS`, `VALUE_KEYS` (shared by R10, R12, R13).
+- `routes_registration.py`: `router`; routes `GET /fhir/List/scope-list`, `POST /fhir/List/scope-list/$entry`, `POST /fhir/Task/$invite-reporter`, `PUT /fhir/Task/{id}/$draft`, `POST /fhir/Task/{id}/$submit`, `$callback`, `$scope-decision`, `$approve`, `$send-back`, `$not-approve`, `$set-live`; `refusal_outcome(error) -> Response | None`; `scope_entry_command`, `invite_command`, `parse_draft`; constants `NOTE_LIMIT`, `APPROVAL_BLOCKED`.
+- `routes_criteria.py`: `router`; routes `POST /fhir/Basic`, `POST /fhir/Basic/{id}/$submit-for-approval`, `$approve`, `$send-back`, `POST /fhir/HealthcareService/{id}/$confirm-criteria`, `GET /fhir/Basic?subject=`; `change_command`, `confirm_command`, `history_subject`.
+- `app.py`: `routes_registration.router` and `routes_criteria.router` are included after `routes_lead`.
+- The invitation reads `Container.link_base_url_for` (R09/L02); no container field is added by R10.
+
+### R12 (DEC-833)
+
+- `backend/src/diucs/adapters/inbound/fhir_rest/subscription_mapping.py`: `subscription_to_fhir`, `subscription_version`, `preferences_from_fhir`, `save_command`, `alert_to_task`, `summary_parameters`; constants `CRITERIA` ("alert-preferences"), `OPEN_STATUSES`, `QUIET_TEXT`.
+- `backend/src/diucs/adapters/inbound/fhir_rest/routes_alerts.py`: `router`; routes `GET /fhir/Subscription`, `PUT /fhir/Subscription/{id}`, `GET /fhir/Task` (acknowledge-alert, owner=me), `POST /fhir/Task/{id}/$acknowledge`, `POST /fhir/Task/{id}/$snooze`, `GET /fhir/HealthcareService/$week-summary`.
+- `app.py`: `routes_alerts.router` is included after `routes_board` and before `routes_services`.
+
+### R13 (DEC-834)
+
+- `routes_admin.py`: `router`; routes `POST /fhir/HealthcareService/{id}/$suspend`, `$resume`, `$move`; `POST /fhir/PractitionerRole/{id}/$remove`; `POST /identity/sign-out-everywhere`; `POST /fhir/Practitioner/{id}/$confirm-new-phone`; `GET /admin/report-flags?status=open`; `POST /admin/report-flags/{id}/$resolve`; `GET /admin/audit/{caseReference}`.
+- `routes_clinical.py`: `router`; `PUT /clinical/presence`; `GET /clinical/available`; `GET /fhir/Task` (dispatch by code); `POST /fhir/Task/{id}/$take`, `$advise`; `POST /fhir/Task` (dispatch by code, booking requests handed to `routes_bookings.create_booking`); constants `CLINICAL_CODE`, `SAFETY_CODE`, `NOTE_LIMIT`.
+- `routes_identity.py`: `NewPhoneBody`, `NewPhoneVerifyBody`, `NEW_DEVICE`; routes `POST /identity/new-phone` (202) and `POST /identity/new-phone/verify`.
+- `routes_alerts.py`: `alert_list(request, actor)` (was the `GET /fhir/Task` handler; now called by the dispatcher); `POST /Task/{id}/$acknowledge` hands an advisor or a clinical advisor to R17's `routes_bookings.acknowledge`.
+- `app.py`: `routes_admin.router` and `routes_clinical.router` are included after `routes_alerts`.
+- `tests/unit/adapters/inbound/fhir_rest/test_edge_binding.py`: the two new-phone routes are on the reviewed list (`BINDS_ITSELF`), as unauthenticated routes that bind from the host.
+
+### R17
+
+(no contract names in the fragment)
+
+## Advisor screens (W10 to W16, W50)
+
+### W10 (DEC-630, DEC-631, DEC-632, DEC-645)
+
+- Pages: `app/(advisor)/advisor/page.tsx` (`AdvisorHomePage`), `app/(advisor)/advisor/board/page.tsx` (`AdvisorBoardPage`).
+- Components: `CallSteps` (props `current`, `now?`, `next?`; exports `STEP_TEXT`), `CallBar` (props `openedAt`, `referrer`; exports `elapsedText`), `StartCallButton`, `BoardCounts` (exports `countsOf`).
+- Lib: `lib/advisor/browser.ts` (`bffFetch`, `csrfToken`, `resetCsrfCache`, `newIdempotencyKey`), `lib/advisor/http.ts` (`idempotencyKeyOf`, `refuse`, `answer`), `lib/advisor/roles.ts` (`CASE_ROLES`), `lib/advisor/case-api.ts` (`openEmptyCase`).
+- BFF: `POST /api/bff/cases` (roles advisor, lead; CSRF; `Idempotency-Key` 8 to 64 URL-safe characters) answers `201 { id }`.
+- Back-end call: `POST /fhir/ServiceRequest`, body `{ resourceType: "ServiceRequest" }`, `Idempotency-Key` forwarded.
+- MSW: `test/msw/handlers/advisor.ts` (`advisorHandlers`, `CSRF_TOKEN`, `CASE_ID`).
+- Test helper: `test/el.ts` (`byEl`).
+
+### W11 (DEC-633 to DEC-634)
+
+- Page: `app/(advisor)/advisor/case/[ref]/page.tsx` (`CaseNeedsPage`, props `params`).
+- Components: `NeedsForm` (props `caseId`, `openedAt`), `CaseSummaryLine` (props `caseId`, `ageBand`, `postcode`, `needs`, `urgency`; "Edit" link to `/advisor/case/<id>`).
+- Lib: `lib/advisor/postcode.ts` (`normalisePostcode`), `lib/advisor/codes.ts` (`REFERRERS`, `AGE_BANDS`, `NEEDS`, `URGENCIES`, `CaseInput`, `CaseView`, `parseCaseInput`, type guards), `lib/advisor/case-fhir.ts` (`toServiceRequest`, `fromServiceRequest`, `priorityOf`, `BASE`, `AGE_BAND_EXTENSION`, `REFERRER_EXTENSION`, `NEED_SYSTEM`), `lib/advisor/case-api.ts` (`readCase`, `updateCase`).
+- BFF: `GET /api/bff/cases/[ref]` answers the `CaseView` (`id`, `referrerType`, `ageBand`, `postcode`, `needs`, `urgency`, `scores`, `openedAt` (null), `etag`); `PUT /api/bff/cases/[ref]` (CSRF; If-Match required, 428 without; 412 mapped to `{ code: "conflict" }`; body validated by `parseCaseInput`) answers 200 with the `CaseView`.
+- Back-end calls: `GET /fhir/ServiceRequest/{id}` (not built), `PUT /fhir/ServiceRequest/{id}` with If-Match.
+
+### W12 (DEC-635, DEC-646)
+
+- Components: `ScorePickers` (props `value: Score[]`, `onChange(scores)`), with sub-components `News2Picker`, `CfsPicker`, `PathwaysPicker` in the same file.
+- Lib: `lib/advisor/scores.ts` (`Score`, `AcuityMethod`, `ACUITY_METHODS`, `MANCHESTER_TRIAGE`, `AMBULANCE_CATEGORIES`, `CFS_LABELS`, `NEWS2_MAX`, `CFS_MIN`, `CFS_MAX`, `PATHWAYS_MIN_CHARACTERS`, `PATHWAYS_DEBOUNCE_MS` (250), `PATHWAYS_RESULTS_MAX` (20), `PATHWAYS_CODE`, `parseNews2`, `parseScores`), `lib/advisor/terminology.ts` (`searchPathwaysDx`, `PathwaysDx`).
+- BFF: `GET /api/bff/terminology/pathways-dx?q=` (advisor only; `q` trimmed, 2 to 64 characters, else 400) answers `[{ code, display }]`, at most 20.
+- Back-end call: `GET /terminology/pathways-dx?q=` at the back end's root (not under `/fhir`). `lib/fhir/client.ts` gained the optional `root` flag for this (additive).
+- Score extension: `SCORE_EXTENSION` in `lib/advisor/case-fhir.ts`.
+
+### W13 (DEC-636, DEC-643)
+
+- Pages: `app/(advisor)/advisor/case/[ref]/options/page.tsx` (`CaseOptionsPage`).
+- Components: `OptionsList` (props `caseId`; optional `onRequest`, `onCriteria`, `onPhoned`, `onDeclined`, `onAskClinical`), `ServiceCard` (props `option`; optional handlers; ids `ADV-OPT-REQUEST-BTN`, `ADV-OPT-CRITERIA-BTN`, `ADV-OPT-PHONED-BTN`, `ADV-OPT-DECLINED-BTN`, `ADV-OPT-NUMBER`), `NotSuitableList` (props `items`), `CaseSummary` (props `caseId`).
+- Lib: `lib/advisor/options.ts` (`optionsFromParameters`, `OptionView`, `NotSuitableView`, `OptionsParts`, `NetworkTag`, `STALE_AFTER_SECONDS`).
+- BFF: `GET /api/bff/cases/[ref]/options` (roles advisor, lead; no body) answers `{ shownAt, options, notSuitable, patientArea, notFound, outOfArea }`.
+- Back-end call: `POST /fhir/HealthcareService/$filter-options` with `case` as `valueReference` `ServiceRequest/<id>` and a fresh `Idempotency-Key`.
+
+### W14 (DEC-637, DEC-638, DEC-639, DEC-648)
+
+- Components: `Dialog` (props `title`, `sub?`, `dataEl?`, `onClose`; `components/ui/`), `CriteriaDialog` (props `serviceId`, `serviceName`, `onClose`), `PhonedDialog` (props `caseRef`, `serviceId`, `serviceName`, `onSaved`, `onClose`), `DeclinedDialog` (same props). ids: `ADV-CRIT-DIALOG`, `ADV-PHONED-DIALOG`, `ADV-PHONED-SAVE-BTN`, `ADV-DECLINED-DIALOG`, `ADV-DECLINED-SAVE-BTN`.
+- `OptionsList` opens the dialogs from the card. `ServiceCard` gained `onDeclined` and the "They declined" button (`ADV-OPT-DECLINED-BTN`).
+- Lib: `lib/advisor/criteria.ts` (`criteriaFromHistory`, `CriteriaView`), `lib/advisor/service-api.ts` (`readCriteriaHistory`, `postAdvisorPhoned`, `postDeclined`, `Said`, `DeclineReason`).
+- BFF: `GET /api/bff/services/[id]/criteria` (advisor, lead) answers `{ accepts, excludes, version, reviewedOn, reviewBy, owner, overdue }`, 404 when there is no current version. `POST /api/bff/services/[id]/phoned` (CSRF, key) body `{ caseRef, said, value }` answers 201 `{ recorded }`. `POST /api/bff/services/[id]/declined` body `{ caseRef, reason }` answers 201 `{ recorded }`.
+- Back-end calls: `GET /fhir/Basic?subject=HealthcareService/<id>`, `POST /fhir/HealthcareService/<id>/$advisor-phoned` (Parameters: case, status, value), `POST /fhir/HealthcareService/<id>/$declined` (Parameters: case, reason).
+
+### W15 (DEC-640 to DEC-641)
+
+- Page: `app/(advisor)/advisor/case/[ref]/finish/page.tsx` (`CaseFinishPage`, props `params`, `searchParams`).
+- Components: `FinishScreen` (props `caseId`, `preselect`), `OutcomeForm` (props `caseId`, `preselect`, `onClosed(closedAt)`), `SummaryCopy` (props `summary`; section `id="summary"`; ids `ADV-FIN-COPY-BTN`), `CallClosed` (props `caseId`; id `ADV-FIN-NEXT-BTN`). Save id `ADV-FIN-SAVE-BTN`; outcome chips `ADV-FIN-OUTCOME-*`, reasons `ADV-FIN-BEST-*`.
+- Lib: `lib/advisor/outcome.ts` (`OUTCOMES`, `BEST_FIT_REASONS`, `TEXT_OUTCOMES`, `parseOutcomeInput`, `outcomeFromAddress`), `lib/advisor/summary.ts` (`summaryOf`, `summaryText`, `SummaryView`, `NOT_RECORDED`, `SUMMARY_LABELS`), `lib/advisor/case-api.ts` (`closeCase`).
+- BFF: `GET /api/bff/cases/[ref]/summary` (advisor, lead) answers the display strings; `POST /api/bff/cases/[ref]/outcome` (CSRF, key) body `{ outcome, bestFitNotUsed?, destinationServiceId? }` answers 200 `{ closedAt }`.
+- Back-end calls: `GET /fhir/ServiceRequest/{id}` (not built), `POST /fhir/ServiceRequest/{id}/$close` (Parameters: outcome, bestFitNotUsed, destination).
+
+### W16 (DEC-642)
+
+- Component: `NoServiceFits` (props `caseId`, `onWidened`, `onAskClinical`; ids `ADV-NOFIT-WIDEN-BTN`, `ADV-NOFIT-PHONE-LINK`, `ADV-NOFIT-OTHER-BTN`, `ADV-NOFIT-CLINICAL-BTN`).
+- `OptionsList` renders it in place of the placeholder when there are no options; the not-suitable list stays under it, and the list's footer is shown only when there are options.
+- Routes used: `GET` and `PUT /api/bff/cases/[ref]` (W11).
+
+### W50 (DEC-644, DEC-649, DEC-647, DEC-849)
+
+- Routes: `app/(advisor)/advisor/case/[ref]/map/page.tsx` (`CaseMapPage`).
+- Components: `MapScreen` (props `caseId`), `OptionsMap` (props `caseId`, `postcode`, `patientArea`, `options`, `selectedId`, `onSelect`; optional `onRequest`, `onCriteria`), `TravelDetails` (props `option`, `caseId`), `ViewToggle` (props `caseId`, `current`; ids `ADV-MAP-TOGGLE-MAP`, `ADV-MAP-TOGGLE-LIST`), `PostcodeNotFound` (props `caseId`, `onAskClinical`), `OutOfArea` (props `caseId`, `postcode`, `onAskClinical`). Pins `ADV-MAP-PIN-<SERVICEID>` (the id upper-cased), `ADV-MAP-TRAVEL-BTN`, `ADV-MAP-REPORT-BTN`.
+- Lib: `lib/map/project.ts` (`project`, `projectFit`, `LatLon`, `Point`, `KM_PER_DEGREE`), `lib/map/layout.ts` (`PICTURE`, `percentOf`, `layoutOf`, `radiusPx`), `lib/advisor/options.ts` (new fields above; `TravelLeg`, `Travel`, `Coverage`).
+- BFF: `GET /api/bff/cases/[ref]/options` (W13) answers the extended view. No new route.
+
+## Shift lead screens (W17, W18, W42, W43, W47)
+
+### W17 (DEC-650, DEC-651, DEC-659)
+
+- `app/(lead)/lead/page.tsx`: default export `ShiftLeadPage` (URL `/lead`).
+- `components/lead/LeadOverview.tsx`: `LeadOverview()` (client). Reads `GET /api/bff/lead/overview` on load, every 60 s, and on `board`/`board.updated` from `/api/bff/events`; posts `POST /api/bff/lead/services/[id]/remind`.
+- `components/lead/ChaseCard.tsx`: `ChaseCard({item, onEnterPhoned, onRemind})`.
+- `components/lead/OldFigureCard.tsx`: `OldFigureCard({item, now, onAsk})`.
+- `components/lead/CoveringList.tsx`: `CoveringList({items})`.
+- `components/lead/SystemCounts.tsx`: `SystemCounts({counts, reportingToday})`.
+- `components/lead/Lead.module.css`: shared lead layout classes (used by W18 to W47).
+- `components/advisor/PhonedDialog.tsx`: `PhonedDialog({open, serviceName, onClose})`. A seam for W14.
+- `lib/lead/types.ts`: `LeadOverview`, `ChaseItem`, `LadderRow`, `LadderStep`, `GettingOldItem`, `CoveringItem`, `SystemCounts`.
+- `lib/lead/parse.ts`: `parseOverview(value)`, `LeadParseError`.
+- `lib/lead/format.ts`: `clockTime(iso)`, `dateTimeLine(now)`, `overdueText(minutes)`, `agoText(iso, now)`, `servicesWord(n)`.
+- `lib/lead/browser.ts`: `csrfToken()`, `newIdempotencyKey()`, `leadPost(path, body?, key?)`, `leadGet(path)`, `CSRF_COOKIE`.
+- `lib/lead/notBuilt.ts`: `notBuilt()`, the 501 `{code: 'not-built'}` answer.
+- `app/api/bff/lead/overview/route.ts`: `GET` (lead only; 501 for now).
+- `app/api/bff/lead/services/[id]/remind/route.ts`: `POST` (lead only, CSRF; 501 for now).
+- `test/fixtures/lead.ts`: `OVERVIEW_SHIFT_LEAD`, `OVERVIEW_NOTHING_TO_CHASE`, service ids.
+- `test/msw/handlers/lead.ts`: the overview and reminder handlers, `seenLeadPosts`.
+
+### W18 (DEC-652, DEC-653, DEC-655)
+
+- `app/(lead)/lead/services/new/page.tsx`: `AddServicePage` (URL `/lead/services/new`).
+- `app/(lead)/lead/reporters/number/page.tsx`: `ChangeNumberPage` (URL `/lead/reporters/number`, `?service=<id>`).
+- `components/lead/AddServiceForm.tsx`: `AddServiceForm()` (client).
+- `components/lead/ChangeNumberForm.tsx`: `ChangeNumberForm({serviceId?})` (client).
+- `components/forms/ErrorSummary.tsx`: `ErrorSummary({errors, summaryRef?})`, `FieldError` `{field, message}`. A link moves focus to its field, or to the first control in a group. W54 extends the same component with the same props.
+- `lib/forms/ukMobile.ts`: `isUkMobile(value)`, `normaliseUkMobile(value)` (the W37 path, created here).
+- `lib/lead/serviceForm.ts`: `ServiceValues`, `FieldError`, `blankService()`, `validateService(values, now)`, `toServiceBody(values)`, `districtsOf(value)`.
+- `lib/lead/serviceBody.ts`: `readServiceBody(value)`, `toParameters(body)`, `InvalidBody` (a `FhirError` 400), `ServiceBody`, `Parameters`.
+- `lib/lead/bffInput.ts`: `idempotencyKeyOf(request)`, `jsonBody(request)`, `invalidRequest()`.
+- `lib/lead/changeNumber.ts`: `readChangeNumber(value)`, `COVER_CHOICES`, `ChangeNumber`, `CoverChoice`.
+- `lib/lead/browser.ts`: unchanged from W17 (`leadPost`, `leadGet`, `csrfToken`, `newIdempotencyKey`).
+- `app/api/bff/lead/services/route.ts`: `GET` (the services a lead may choose: `{services:[{id,name}]}`, back end `GET /HealthcareService`), `POST` (`$setup`, 201 `{serviceId}`).
+- `app/api/bff/lead/reporters/number/route.ts`: `POST` (validated, then 501).
+- `app/api/bff/lead/services/[id]/test-prompt/route.ts`: `POST` (lead, CSRF, 501).
+- `test/msw/handlers/lead.ts`: `SERVICE_CHOICES`, the POST handlers for services, the number and the test prompt, `seenLeadPosts` with `body`.
+
+### W42 (DEC-657, DEC-658, DEC-844)
+
+- `app/(lead)/lead/services/[id]/suspend/page.tsx`: `SuspendPage` (URL `/lead/services/<id>/suspend`).
+- `app/(lead)/lead/people/remove/page.tsx`: `RemovePersonPage` (URL `/lead/people/remove`).
+- `app/(lead)/lead/flags/page.tsx`: `FlagsPage` (URL `/lead/flags`).
+- `components/lead/SuspendService.tsx`: `SuspendService({serviceId})` (client): suspend, suspended, resume and resumed phases.
+- `components/lead/RemovePersonForm.tsx`: `RemovePersonForm()` (client).
+- `components/lead/ReportFlags.tsx`: `ReportFlags()` (client): tabs "To check (n)" and "Checked".
+- `lib/lead/flags.ts`: `flagSummary(reason)`, `flagItemsFrom(bundle)`, `FlagItem`.
+- `lib/lead/parameters.ts`: `parametersOf(parts)`, `partValue(resource, name)`, `Parameters`, `ParameterValue` (moved from `serviceBody.ts`, which imports them).
+- `lib/lead/bffInput.ts`: `routeId(context, name)` (a malformed id is the same 404 as an unknown one).
+- `lib/lead/browser.ts`: `CANNOT_DO`, `leadRead(path)` (the status is kept).
+- `lib/fhir/client.ts`: no change for W42 (uses W48's `root: true`).
+- `app/api/bff/lead/services/[id]/route.ts`: `GET` `{name}`.
+- `app/api/bff/lead/services/[id]/suspend/route.ts`: `POST {reason}` → `{since, expiredRequests, notified}`.
+- `app/api/bff/lead/services/[id]/resume/route.ts`: `POST {phonedRegisterNumber:true, reasonResolved:true}` → `{status, nextDueAt}`.
+- `app/api/bff/lead/people/remove/route.ts`: `POST {person, reason}` (501 after the body check).
+- `app/api/bff/lead/flags/route.ts`: `GET ?state=to-check` → `{counts:{toCheck, checked:null}, items}`; `checked` → 501.
+- `app/api/bff/lead/flags/[id]/route.ts`: `POST {action:'accept'|'checked'}` → `{flagId, outcome}`.
+- `test/lead-session.ts`: `leadRequest`, `sessionFor`, `LEAD_CSRF`.
+- `test/msw/handlers/lead.ts`: `BACKEND_ROOT`, `FLAG_CHOICES`, and the W42 POST and GET handlers.
+- Shared file touched: none beyond the above.
+
+### W43 (DEC-654, DEC-845, DEC-846)
+
+- `app/(lead)/lead/phones/page.tsx`: `PhonesPage` (`/lead/phones`); `app/(lead)/lead/phones/move/page.tsx`: `MovePage` (`/lead/phones/move?service=`); `app/(lead)/lead/reporters/invite/page.tsx`: `InvitePage` (`/lead/reporters/invite?service=`); `app/(lead)/lead/reporters/page.tsx`: `ReportersPage` (`/lead/reporters`).
+- `components/lead/PhonesList.tsx`: `PhonesList()` (client); `PhoneRow` type.
+- `components/lead/MoveServiceForm.tsx`: `MoveServiceForm({serviceId?})` (client).
+- `components/lead/InviteForm.tsx`: `InviteForm({serviceId?})` (client).
+- `components/lead/SetupTracker.tsx`: `SetupTracker()` (client); `Invitation` type.
+- `lib/lead/setupProgress.ts`: `SETUP_STEPS`, `SetupStep`, `SetupSteps`, `STEP_LABEL`, `stuckAt(steps)`.
+- `lib/lead/londonDay.ts`: `endOfLondonDay(date)`.
+- `lib/lead/answers.ts`: `listOf(body, key)`, `textOf(value)`, `AnswerShapeError`.
+- `lib/lead/serviceChoices.ts`: `loadServiceChoices()`, `ServiceChoice`.
+- `lib/lead/routeParams.ts`: `SERVICE_ID` (the id shape for query and route values).
+- `lib/lead/parameters.ts`: `valueDateTime` added to `ParameterValue`.
+- `app/api/bff/lead/phones/route.ts`: `GET` (501).
+- `app/api/bff/lead/services/[id]/move/route.ts`: `POST {toPhone, until:'changed'|'date', date?}` → 201 `{moveId}`.
+- `app/api/bff/lead/invitations/route.ts`: `POST {serviceId, role, phone, channel}` → 201 `{invitationId, numberEnding, expiresAt}`; `GET` (501).
+- `app/api/bff/lead/invitations/[id]/resend/route.ts`, `.../switch-to-text/route.ts`: `POST` (501 after the key and the id checks).
+- `components/lead/LeadOverview.test.tsx`: `configure({asyncUtilTimeout: 4000})`.
+
+### W47 (DEC-656, DEC-847, DEC-848)
+
+- `app/(lead)/lead/audit/page.tsx`: `AuditPage` (`/lead/audit`).
+- `app/(lead)/lead/audit/[ref]/page.tsx`: `AuditReferencePage` (`/lead/audit/<ref>`).
+- `components/lead/AuditSearch.tsx`: `AuditSearch()` (client); navigates to `/lead/audit/<ref>`.
+- `components/lead/AuditReplay.tsx`: `AuditReplay({reference})` (client).
+- `lib/lead/audit.ts`: `AuditReplay`, `ReplayShown`, `ReplayCriteria`, `ReplayTimelineItem`, `replayFromBackEnd(value)` (back end to BFF shape), `statusCodeFor(word)`, `ReplayShapeError`.
+- `lib/lead/auditParse.ts`: `parseReplayAnswer(value)` (the browser's reading of the BFF answer).
+- `lib/lead/auditCsv.ts`: `toCsv(replay)`.
+- `lib/lead/auditServer.ts`: `fetchReplay(token, reference)` (server only; no-store; 403 and 404 become one 404).
+- `lib/lead/format.ts`: `replayStampText(iso)` ("23 Oct 14:13:20", London).
+- `lib/fhir/client.ts`: `FhirInit.cache` (passed to fetch); the back-end read uses W48's `root: true`.
+- `app/api/bff/lead/audit/[ref]/route.ts`: `GET` (lead only; no-store).
+- `app/api/bff/lead/audit/[ref]/export/route.ts`: `GET` (lead only; `text/csv; charset=utf-8`; `Content-Disposition: attachment; filename="audit-<ref>.csv"`).
+- `test/fixtures/lead.ts`: `AUDIT_4821`. `test/msw/handlers/lead.ts`: the audit read handler.
+
+## Booking link pages and the advisor booking card (W19 to W22)
+
+### W19 (DEC-836)
+
+- `components/reporter/BookingDecision.tsx`: `BookingDecision({ token })` (client).
+- `app/l/[token]/booking/page.tsx`: the booking request page (server shell).
+- `lib/links/model.ts`: `BookingView`, `parseBookingView`, `parseOpenLink`, `OpenLink`.
+- `lib/links/browser.ts`: `LinkRead` now has a `booking` kind; `BookingAnswer`, `BookingOutcome`, `sendBookingAnswer(token, csrf, answer)`.
+- `lib/links/server.ts`: `readLink` returns `{ kind: 'open', link: OpenLink }`.
+- BFF `GET`/`POST /api/bff/links/[token]`: serves booking views and forwards `reason`. No new route.
+- Back end: `coordination_phone(contacts)`, `view_body(booking, service_name, case, phone)` in `booking_links.py`.
+
+### W20 (DEC-837)
+
+- `lib/advisor/bookings.ts`: `BookingState`, `BookingStatus`, `BOOKING_STATUSES`, `bookingFromTask(task)`, `bookingRequestTask(caseRef, serviceId)`, `parseBookingState(value)`, `declineReasonWording(code)`, `clock(instant)`, `BookingShapeError`, `PHONE_PROMPT_AFTER_MINUTES`, `REPLY_WINDOW_MINUTES`, `PHONE_PROMPT_AFTER_MS`.
+- `lib/advisor/bookingServer.ts` (server-only in use): `openBooking(session, caseRef, serviceId, key)`, `readBooking(session, id)`.
+- `lib/advisor/useBooking.ts`: `useBooking({ caseRef, serviceId, openStream?, fetcher?, pollMs? }) -> { booking, busy, conflict, failed, request }`, `BookingStream`, `POLL_INTERVAL_MS`.
+- `lib/advisor/csrf.ts`: `readCsrfCookie()`, `CSRF_COOKIE_NAME`.
+- `components/advisor/BookingPanel.tsx`: `BookingPanel({ caseRef, serviceId, serviceName, servicePhone, openStream?, fetcher?, now? })`; the request button is `ADV-OPT-REQUEST-BTN`.
+- `components/advisor/BookingCard.tsx`: `BookingCard({ booking, serviceName, servicePhone, now?, onCancel?, onBackToOptions?, onNextOption?, onRecordOutcome?, onCopySummary? })`.
+- BFF: `POST /api/bff/bookings` `{ caseRef, serviceId }` with `Idempotency-Key` (roles advisor, clinical; 201 `BookingState`; 409 `{code:'open-request'}`; 400 `{code:'invalid'}`). `GET /api/bff/bookings/[id]` (200 `BookingState`; 404 from the back end).
+- Stream: `booking.updated` is read as `{ serviceId }`.
+
+### W21 (DEC-838)
+
+- `lib/advisor/bookings.ts`: `BookingState` gains `withdrawnAt`, `withdrawReason`; `CANCEL_REASONS`, `CancelReason`, `withdrawReasonWording(code)`.
+- `lib/advisor/bookingServer.ts`: `cancelBooking(session, id, reason, key)`, `acknowledgeBooking(session, id, key)`.
+- `lib/advisor/useBooking.ts`: returns also `cancelBusy`, `cancelConflict`, `cancel(reason)`, `acknowledge()`.
+- `components/advisor/CancelBookingDialog.tsx`: `CancelBookingDialog({ kind: 'booking' | 'request', serviceName, conflict?, busy?, onConfirm(reason), onKeep })`.
+- `components/advisor/WithdrawalAlert.tsx`: `WithdrawalAlert({ booking, serviceName, onAcknowledge(), onSeeOptions, onAskClinical?, onPhoneCaller? })`.
+- `components/advisor/BookingCard.tsx`: `onCancel` is replaced by `onCancelBooking(reason)`; adds `cancelBusy`, `cancelConflict`, `onAcknowledge`, `onSeeOptions`, `onAskClinical`, `onPhoneCaller`.
+- `components/advisor/BookingPanel.tsx`: adds `onSeeOptions`, `onAskClinical`, `onPhoneCaller`.
+- BFF: `POST /api/bff/bookings/[id]/cancel` `{ reason }` (roles advisor, clinical; 200 `{status}`; 409 `{code:'state-changed', status}`; 400 `{code:'invalid'}`). `POST /api/bff/bookings/[id]/acknowledge` (200 `{acknowledged:true}`).
+
+### W22 (DEC-839)
+
+- `components/reporter/BookingChange.tsx`: `BookingChange({ token })` (client), the four steps and the final views.
+- `app/l/[token]/booking/change/page.tsx`: the change page (server shell).
+- `lib/links/server.ts`: `CLOSED_STATES`, `ClosedState`, `closedStateOf(body)`; `readLink` returns `{ kind: 'gone', state }`.
+- `lib/links/browser.ts`: `readLinkView` returns `{ kind: 'gone', state }`.
+- BFF `GET /api/bff/links/[token]`: a 410 carries a closed state word from `CLOSED_STATES`.
+- Back end: `change_view_body(booking, service_name, case, phone)` in `booking_links.py`; `BookingChangeLink.view` reads the case and the tenant's coordination phone.
+
+## Registration and criteria screens (W23 to W31, W54)
+
+### W23 (DEC-680 to DEC-682)
+
+- Components: `components/forms/CodeEntry.tsx` (`CodeEntry`, props `mobile`, `error`, `busy`, `onCheck(code)`, `onResend()`; `RESEND_SECONDS = 60`); `components/forms/TextField.tsx` (`TextField`, props `id`, `label`, `value`, `onChange`, `requirement`, `hint`, `error`, `type`, `inputMode`, `autoComplete`, `maxLength`, `readOnly`, `dataEl`); `components/forms/forms.module.css`; `components/register/SignInForm.tsx` (`SignInForm`, prop `inviteToken`); `components/register/register.module.css`.
+- Pages: `app/register/page.tsx` (`?invite=`, `?saved=1`); `app/register/[id]/start/page.tsx` (links `/register/[id]/organisation`, `/register?saved=1`).
+- Lib: `lib/register/phone.ts` (`normaliseMobile`, `mobileProblem`, `maskMobile`, `MobileProblem`); `lib/register/pending.ts` (`PENDING_COOKIE`, `PENDING_PATH`, `sealPending`, `unsealPending`, `readPending`, `issuePending`, `clearPending`, `Pending`); `lib/register/backend.ts` (`sendIdentityCode`, `verifyIdentityCode`, `signInRegistrant`, `notBuilt`, `RegistrantSignIn`); `lib/register/requests.ts` (`NO_STORE`, `bffJson`, `refuse`, `jsonBody`).
+- BFF routes (no session): `POST /api/bff/identity/code` body `{phone, purpose: "registration", inviteToken}` → 202 `{accepted, resendAfterSeconds}`, 400 `invalid`, 429 `throttled` (Retry-After), 503 `unavailable`. `POST /api/bff/identity/code/verify` body `{phone, code}` → 200 `{registrationId}` with the session cookie, 400 `wrong-code`, 403 `forbidden`, 410 `expired`, 409 `device-refused`, 429 `throttled`, 503 `unavailable` or `not-built`.
+- Test support: `test/msw/handlers/registration.ts` (`registrationHandlers`, `backendIdentity`, `bffRegistration`, `seenBackendIdentity`, `seenBffRegistration`, `resetRegistrationHandlers`), added to `test/msw/handlers/index.ts`.
+- Back-end routes called: `POST /identity/code`, `POST /identity/code/verify` (U25). Not called: `POST /identity/pin` (W34, out of scope).
+
+### W24 (DEC-685)
+
+- Components: `components/register/LocationForm.tsx` (`LocationForm`, prop `registrationId`); `components/forms/ChipGroup.tsx` gains `hint`.
+- Pages: `app/register/[id]/location/page.tsx`.
+- Lib: `lib/register/postcode.ts` (`normalisePostcode`); `lib/register/validate.ts` (`validateLocation`, `LocationAnswers`); `lib/register/draft.ts` (`locationValues`; `STEP_FIELDS.location`); `lib/register/backend.ts` (`readAddresses`, not built).
+- BFF routes: `GET /api/bff/addresses?postcode=` (reporter) → 200 `[{id, label}]`, 400 `invalid`, 401, 403, 503 `not-built`. `PUT /api/bff/registrations/[id]/steps/location` with JSON `{fixedSite, postcode?, addressId?, address?, siteName?, siteType?, hours?: {days, allDay, opens?, closes?}, siteOdsCode?}` → 200 `{status}`, 422 `{errors}`.
+- Back-end routes called: `PUT /fhir/Task/{id}/$draft` (location). Not called: an address route (none exists).
+
+### W25 (DEC-686 to DEC-687)
+
+- Components: `components/register/ServiceForm.tsx` (`ServiceForm`, prop `registrationId`); `components/forms/ChipGroup.tsx` (unchanged here).
+- Pages: `app/register/[id]/service/page.tsx`.
+- Lib: `lib/register/service.ts` (`ServiceAnswers`, `ServiceContext`, `normaliseDistrict`, `validateService`, `serviceValues`); `lib/register/options.ts` (`SERVICE_CATEGORIES`, `REFERRAL_METHODS`, `DAY_OPTIONS`, `NEED_OPTIONS`, `EXCLUDED_NEED_OPTIONS`, `NO_EXCLUSIONS`); `lib/register/draft.ts` (`STEP_FIELDS.service`).
+- BFF routes: `PUT /api/bff/registrations/[id]/steps/service` with JSON `{category, referralMethods[], spoaPhone, acceptingDays[], acceptingStart, acceptingEnd, needs[], ageMin, ageMax (number or null), excludedNeeds[], noExclusions, ownerRole, ownerEmail, reviewBy (YYYY-MM-DD), districts[]}` → 200 `{status}`, 422 `{errors}`, 400 `invalid` (unknown field or code). The GET registration passes `steps.location = {fixedSite}`.
+- Back-end values sent (R10 `ServiceStep`): `serviceName`, `category`, `referralMethods`, `spoaPhone`, `acceptingDays`, `acceptingStart`, `acceptingEnd`, `needs`, `ageMin`, `ageMax` or `noAgeLimit`, `excludedNeeds` or `noExclusions`, `ownerRole`, `ownerEmail`, `reviewBy`, `districts`, all as text, numbers or flags.
+
+### W26 (DEC-688 to DEC-690)
+
+- Components: `components/register/ReportingForm.tsx` (`ReportingForm`, prop `registrationId`); `components/register/ReviewList.tsx` (`ReviewList`, prop `registrationId`); `components/register/MyServices.tsx` (`MyServices`).
+- Pages: `app/register/[id]/reporting/page.tsx`, `app/register/[id]/review/page.tsx`, `app/register/[id]/submitted/page.tsx`, `app/register/services/page.tsx`.
+- Lib: `lib/register/reporting.ts` (`measureCodeOf`, `validateReporting`, `validateApi`, `reportingValues`, `apiValues`, `ReportingAnswers`, `ApiAnswers`); `lib/register/options.ts` (`COUNT_OPTIONS`, `CADENCE_OPTIONS`, `CHANNEL_OPTIONS`); `lib/register/browser.ts` (`submitRegistration`, `loadReview`, `ReviewRow`, `loadMine`, `MyService`); `lib/register/backend.ts` (`submitRegistration`, `readReview`, `readMine`); `lib/register/draft.ts` (`STEP_FIELDS.reporting`, `STEP_FIELDS.api`).
+- BFF routes: `PUT /api/bff/registrations/[id]/steps/reporting` (JSON `{measure, usualRange: [low, high], cadence, channel, holderName, contactMobile | contactEmail}`) and `PUT .../steps/api` (`{wanted, name?, address?, connection?, dataType?}`), each 200 `{status}`, 422 `{errors}`, 400 `invalid`. `GET /api/bff/registrations/[id]/review` → 200 `{sections: [{key, status, summary}]}`, 503 `not-built`. `POST /api/bff/registrations/[id]/submit` (CSRF) → 200 `{status}`, 422 `{errors}`. `GET /api/bff/registrations/mine` → 200 `{services: [{id, serviceName, state: active | pending-approval | review-due, detail}]}`, 503 `not-built`.
+- Back-end routes called: `PUT /fhir/Task/{id}/$draft` (reporting, api) and `POST /fhir/Task/{id}/$submit` (R10). Not called: a review read and a list of a reporter's services (not in the back end).
+- Test support: the MSW stand-ins in `test/msw/handlers/registration.ts` (`reviewState`, `seenSubmits`, `minePayload`, `bffRegistrationReviewHandlers`); the fixed-path handlers come before `/:id`.
+
+### W27 (DEC-691 to DEC-692)
+
+- Components: `components/register/StatusPage.tsx` (`StatusPage`, prop `registrationId`); `components/register/StatusTracker.tsx` (`StatusTracker`, `TRACKER_STEPS`, `TrackerStep`); `components/register/status/InReview.tsx`, `NeedsChanges.tsx`, `Approved.tsx`, `Live.tsx`, `NotApproved.tsx`, `Reverify.tsx`.
+- Pages: `app/register/[id]/status/page.tsx`.
+- Lib: `lib/register/time.ts` (`londonDayMonthTime`, `londonHourMinute`); `lib/register/browser.ts` (`loadStatus`, `statusAction`, `RegistrationStatusView`, `StatusDetails`); `lib/register/backend.ts` (`readStatus`, `sendTestNotification`, `askForReview`, `confirmDetails`, all not built).
+- BFF routes: `GET /api/bff/registrations/[id]/status` → 200 `{status, serviceName, submittedAt?, notes?, noteFrom?: {role, at}, reason?, firstPromptAt?, details?: {spoaPhone?, criteriaOwner?, reportingPhoneEnding?}}`, 503 `not-built`. `POST .../test` → 200 `{done}`; `POST .../review-request` → 202 `{done}`; `POST .../confirm-details` → 200 `{done}`; each CSRF and reporter, 503 `not-built`.
+
+### W28 (DEC-702, DEC-703, DEC-704, DEC-708)
+
+- `lib/bff/client.ts`: `bffGet<T>(path, parse)`, `bffPost(path, body?, key?)`, `newIdempotencyKey()`, `BffResult<T>`. The CSRF token is read from `GET /api/bff/session` and kept in memory only.
+- `lib/registration/types.ts`: `ScopeFlag`, `ScopeRegistrationState`, `ScopeEntry`, `ScopeList`, `QueueTab`, `QueueItem`, `QueueResponse`, `AutomaticCheck`, `Overview`, `Decision`, `CallBackResult`.
+- `lib/registration/model.ts`: `SCOPE_FLAGS`, `QUEUE_TABS`, `CATEGORY_CODES`, `categoryLabel`, `flagLabel`, `stateLabel`, `queueStateLabel`, `canInvite`, `reasonRequired`, `scopeReasonError`, `queueTabLabel`, `submittedText`, `parseScopeList`, `parseQueue`, `parseOverview`, `parseDecision`.
+- `lib/registration/backend.ts` (server-only): `mapScopeList`, `readScopeList`, `addScopeEntry`, `notServed`.
+- `lib/registration/request.ts` (server-only): `badRequest`, `idempotencyKeyOf`, `idOf`, `scopeEntryBody`.
+- BFF: `GET /api/bff/scope` (lead), `POST /api/bff/scope` (lead, 201 `{serviceId}`), `GET /api/bff/registrations?tab=` (lead; 503 until R10 serves it), `GET /api/bff/registrations/[id]` (lead; 503 until R10 serves it).
+- Components: `components/lead/ScopeList.tsx`, `AddScopeForm.tsx`, `RegistrationQueue.tsx`, `RegistrationOverview.tsx`, `lead.module.css`.
+- Pages: `app/(lead)/lead/scope/page.tsx`, `app/(lead)/lead/registrations/page.tsx`, `app/(lead)/lead/registrations/[id]/page.tsx`.
+- MSW: `test/msw/handlers/registrations.ts`, `test/msw/handlers/staff.ts` (`SAMPLE_CSRF`), `test/fixtures/registration.ts`.
+
+### W29 (DEC-705, DEC-706, DEC-707, DEC-709)
+
+- `components/lead/registration/CallBackCheck.tsx`, `ScopeCheck.tsx`, `DecideStep.tsx`, `GoLive.tsx`, `useRead.ts` (`useRead<T>(path, parse)`).
+- `lib/registration/model.ts` (W29 rules): `CALLBACK_RESULTS`, `SCOPE_ANSWERS`, `callbackFormError`, `missingText`, `canApprove`, `decisionNoteError`, `scopeFormError`, `setLiveEnabled`.
+- `lib/registration/request.ts`: `callBackBody`, `scopeDecisionBody`, `decisionBody`.
+- `lib/registration/backend.ts`: `recordCallBack`, `recordScopeDecision`, `decideRegistration`, `setServiceLive`.
+- BFF (lead only, CSRF on each POST): `POST /api/bff/registrations/[id]/callback` `{result, numberCalled, spokeToRole?}` → `{result, callbackConfirmed}`; `POST …/scope` `{answers:{pathway,spoaReferrals,canReport,categoryOnList}, decision, reason?}` → `{flag}`; `GET …/decision` (503 until served); `POST …/decision` `{action:"approve"|"send-back"|"not-approve", note?}` → `{status}`; `POST …/test` (503 until served); `POST …/go-live` → `{status}`.
+- Page: `app/(lead)/lead/registrations/[id]/page.tsx` renders the overview, or the step named by `?step=callback|scope|decide|live`.
+- Overview contract additions (read by W29): `callBack {numberToCall, numberGiven?, directoryName?}`, `pathwayName?`. The decision read: `{missing, approvedBy, test:{sentAt?, answeredAt?}, timeline}`.
+
+### W30 (DEC-700 to DEC-701)
+
+- `lib/criteria/types.ts`: `NEED_CODES`, `NeedCode`, `CriteriaValues`, `CriteriaOverview`, `ReviewPeriod`, `CriteriaStep`.
+- `lib/criteria/model.ts`: `NEED_LABELS`, `ACCEPT_CHOICES`, `EXCLUDE_CHOICES`, `REVIEW_PERIODS`, `REASON_MAX_LENGTH`, `excludeLabel`, `isNeedCode`, `conflictError`, `reviewPeriodError`, `reasonError`, `districtShape`, `ageError`, `acceptsLine`, `doesNotAcceptLine`, `districtsLine`, `valuesOf`, `shortDate`, `parseCriteriaOverview`.
+- `lib/criteria/diff.ts`: `diffCriteria(before, after): string[]`.
+- `lib/criteria/request.ts` (server-only): `changeBody`, `confirmBody`, `reviewPeriodOf`.
+- `lib/criteria/backend.ts` (server-only): `submitChange`, `confirmReview`, `readCriteria`.
+- BFF: `GET /api/bff/criteria/[serviceId]` (owner, clinical, lead; 503 until served); `POST …/confirm` `{reviewInMonths}` (owner, lead) → `{reviewBy}`; `POST …/submit` `{accepts, excludes, ageMin, ageMax, districts, reason, reviewInMonths}` (owner) → 201 `{version, status}`.
+- Components: `components/owner/CriteriaFlow.tsx`, `CriteriaOverview.tsx`, `CriteriaConfirm.tsx`, `CriteriaEditor.tsx`, `CriteriaPreview.tsx`, `CriteriaSend.tsx`, `CriteriaStatus.tsx`.
+- Page: `app/(owner)/criteria/[serviceId]/page.tsx`. `lib/bff/useRead.ts` (moved from the lead folder, shared).
+
+### W31 (DEC-840)
+
+- `lib/criteria/history.ts`: `mapHistory(bundle)`, `waitingVersion(versions)`, `parseHistory(value)` (browser).
+- `lib/criteria/pending.ts`: `parsePending(value)`.
+- `lib/criteria/backend.ts` (server-only): `readHistory(token, serviceId)`, `decidePending(token, serviceId, decision, note, key)`, `readPending()` (503 until served).
+- `lib/criteria/request.ts`: `pendingDecisionBody(value)` (approve needs no note; send back needs one; at most 280 characters).
+- BFF (owner, clinical, lead; the back end decides per call): `GET /api/bff/criteria/[serviceId]/pending` (503 until served); `POST …/pending/decision` `{decision:"approve"|"send-back", note?}` → `{status, version}`; `GET …/history` → `{versions:[{version, status, reviewBy}]}`.
+- Types: `PendingChange`, `HistoryVersion` (the BFF omits `criteriaId`), `CriteriaOverview.overdueSince` and `shiftLead {role, phone}`.
+- Components: `components/owner/CriteriaApproval.tsx`, `CriteriaHistory.tsx`, `OverdueNotice.tsx` (used by `CriteriaOverview`).
+- Pages: `app/(owner)/criteria/[serviceId]/approve/page.tsx`, `app/(owner)/criteria/[serviceId]/history/page.tsx`.
+
+### W54 (DEC-683 to DEC-684)
+
+- Components: `components/forms/ErrorSummary.tsx` (`ErrorSummary`, prop `errors: FieldIssue[]`); `components/forms/ChipGroup.tsx` (`ChipGroup`, props `id`, `legend`, `options`, `selected`, `multiple`, `requirement`, `onChange`, `error`, `dataEl`); `components/register/OrganisationForm.tsx` (`OrganisationForm`, prop `registrationId`).
+- Pages: `app/register/[id]/organisation/page.tsx`.
+- Lib: `lib/register/types.ts` (`STEP_NAMES`, `StepName`, `REGISTRATION_STATUSES`, `RegistrationStatus`, `Invitation`, `StepValues`, `RegistrationView`, `FieldIssue`); `lib/register/options.ts` (`Option`, `ORGANISATION_TYPES`); `lib/register/validate.ts` (`validateOrganisation`, `OrganisationAnswers`, `isEmailOrUkPhone`); `lib/register/draft.ts` (`STEP_FIELDS`, `organisationValues`, `organisationAnswers`, `pageFieldFor`, `issuesFromOutcome`); `lib/register/browser.ts` (`sessionCsrf`, `loadRegistration`, `saveStep`, `StepOutcome`, `LoadOutcome`); `lib/register/steps.ts` (`isStepName`); `lib/register/backend.ts` (`readRegistration`, `saveStep`, `businessStatusOf` private).
+- BFF routes: `GET /api/bff/registrations/[id]` → 200 `{id, status, invitation: {serviceName, organisationName, odsCode}, steps: {organisation?: {orgType, contactName, contact}}}`; 401, 403, 404, 503 `not-built`. `PUT /api/bff/registrations/[id]/steps/organisation` with JSON `{orgType?, contactName?, contactRole?, contact?}` and `X-CSRF-Token` → 200 `{status}`, 422 `{errors}`, 400 `invalid`, 403 `csrf`, 404 for another step (for now), 503 `not-built`.
+- Back-end routes called: `PUT /fhir/Task/{id}/$draft` (R10). Not called yet: a registration read (none in the back end).
+- Test support: `test/msw/handlers/registration.ts` (`sessionAnswer`, `bffRegistrationState`, `seenStepSaves`, `resetStepSaves`, `bffRegistrationStepHandlers`).
+
+## Reporter app (W32 to W38, W55)
+
+### W32 (DEC-841)
+
+- `public/manifest.webmanifest`, `public/sw.js`, `public/sw-logic.js` (`DiucsSw.handlePush`, `pickClientOrOpen`, `isCacheable`).
+- `app/offline/page.tsx` (`OfflinePage`), `components/pwa/RegisterServiceWorker.tsx` (`RegisterServiceWorker`).
+- `app/layout.tsx`: manifest metadata, `viewport.themeColor`, registration component in body.
+
+### W33 (DEC-660, DEC-662, DEC-842, DEC-843, DEC-664)
+
+- `lib/reporter/bff.ts`: `NOT_BUILT`, `notBuilt()`, `refuse()`, `preSession()`.
+- `lib/reporter/device.ts`: `DEVICE_COOKIE`, `deviceIdFromRequest()`, `ensureDevice()`.
+- `lib/reporter/browser.ts`: `bffRequest(path, {method, body})`, `resetBffToken()`.
+- `lib/reporter/model.ts`: `Invitation`, `InvitationState`, `parseInvitation()`.
+- `components/reporter/CodeInput.tsx`: `CodeInput({value, onChange, onComplete, disabled, dataEl})`.
+- `components/reporter/setup/SetupFlow.tsx`: `SetupFlow({step, invite})`, `SetupStep`, `Channel`.
+- `components/reporter/setup/InvitationLoader.tsx`: `InvitationLoader({token})`.
+- Routes: `GET /api/bff/reporter/start`, `GET /api/bff/invitations/[token]`, `POST /api/bff/identity/code`, `POST /api/bff/identity/code/verify`, `POST /api/bff/reporter/channel`.
+- Pages: `/i/[token]`, `/setup` (`?step=`, `?invite=`), `/setup/done?channel=`.
+
+### W34 (DEC-661, DEC-663)
+
+- `components/reporter/PinPad.tsx`: `PinPad({length, label, onComplete, dataEl})`.
+- `components/reporter/setup/PinSetup.tsx`, `Notifications.tsx`, `HomeScreen.tsx`, `AllSet.tsx`.
+- `lib/push/subscribe.ts`: `subscribeToPush(registration, publicKey)`, `PushSubscriptionShape`.
+- `lib/reporter/identity.ts`: `identityCall(request, {method, path, body, headers})` (back-end identity routes, host of the request).
+- `lib/reporter/session.ts`: `REPORTER_SESSION_HOURS`, `startReporterSession()`.
+- `lib/links/server.ts`: `LinkCall` gains optional `headers`.
+- Routes: `POST /api/bff/identity/pin`, `POST /api/bff/identity/pin/verify` (real), `GET /api/bff/push/key`, `POST /api/bff/push/subscriptions` (real, bearer gap), `POST /api/bff/push/test`, `GET /api/bff/reporter/setup-summary` (not built).
+
+### W35-W37 (DEC-665 to DEC-669)
+
+- `components/reporter/CapacityResponseForm.tsx`: `CapacityResponseForm({prompt, busy, notice, confirmAllowed, onAnswer})`, `Prompt`, `Answer`.
+- `components/reporter/PinPad.tsx` (W34); `components/reporter/CodeEntry.tsx`: `CodeEntry({sendCode, checkCode, onVerified, caption})`, `CheckResult`, `RESEND_SECONDS`.
+- `components/reporter/MobileNumberField.tsx`: `MobileNumberField({label, value, onChange, error, required, dataEl})`, `MOBILE_ERROR`.
+- `components/reporter/app/`: `PinScreen`, `RespondScreen`, `ThanksScreen`, `BookingDecision`, `LockedScreen`, `VerifyScreen`, `SettingsScreen`, `NotificationsOff`.
+- `lib/forms/ukMobile.ts`: `isUkMobile(text)`.
+- `lib/reporter/bff.ts`: `ownService(session, serviceId)`; `lib/reporter/browser.ts`: `bffRequest` accepts `headers` and `DELETE`.
+- `components/reporter/setup/PinSetup.tsx`: `PinSetup({doneHref})`.
+- Routes: `POST /api/bff/identity/pin/verify` (real; sets the reporter session, answers `{ok}|{ok:false,triesLeft}|{locked}|{reverify}`), `GET .../services/[serviceId]/prompt`, `POST .../report` (validates kind, value, ownership), `GET .../history` (not built); `GET /api/bff/reporter/bookings/[ref]` (not built), `POST .../bookings/[ref]/respond` (real `$respond`, bearer gap); `GET /api/bff/reporter/settings`, `POST /api/bff/reporter/cover` (not built, validates the number); `DELETE /api/bff/session` (existing).
+- Pages: `/app`, `/app/pin`, `/app/respond/[serviceId]`, `/app/respond/[serviceId]/thanks`, `/app/booking/[ref]`, `/app/locked`, `/app/verify`, `/app/settings`, `/app/notifications-off`.
+
+### W38-W55 (DEC-670 to DEC-674)
+
+- `components/reporter/multi/`: `GroupedUpdate()`, `MyServices()`, `AddedService({serviceId, serviceName})`, `ServiceCover({serviceId, serviceName})`, `serviceState.ts` (`ServiceRow`, `stateText`).
+- `components/reporter/CapacityResponseForm.tsx`: `serviceBanner?: {name, position, total}` (W38).
+- `components/reporter/app/`: `LostPhone()`, `SignOutAll()`.
+- Routes: `GET /api/bff/reporter/services`, `POST /api/bff/reporter/reports/batch`, `POST /api/bff/reporter/services/[serviceId]/accept`, `POST .../cover` (not built, validated); `POST /api/bff/identity/new-phone` (real), `POST /api/bff/identity/new-phone/verify` (real: `{status:'pending-callback'}` or `wrong`/`expired`/`throttled`/`device-refused` codes), `POST /api/bff/identity/sign-out-everywhere` (real, bearer gap).
+- Pages: `/app/update`, `/app/services`, `/app/services/[id]/added`, `/app/services/[id]/cover`, `/app/lost-phone`, `/app/sign-out-all`.
+- Links: `/app/pin` gains "Lost your phone?"; settings gains "Sign out of every phone".
+
+## Executive screens (W39 to W41)
+
+### W39 (DEC-710 to DEC-711)
+
+- `frontend/lib/fhir/codes.ts`: `CODE_SYSTEM_BASE`, `codeSystemUrl(name)`; mirrors `domain/codes.py` (`BASE_URL`, `code_system_url`).
+- `frontend/lib/exec/alertPrefs.ts`: `ALERT_KINDS`, `AlertKind`, `AlertPreferences`, `DEFAULT_ALERT_PREFERENCES`, `NOT_UPDATED_CHOICES`, `ACK_CHOICES`, `AlertPreferencesError`, `parseAlertPreferences`, `subscriptionFromPreferences`, `preferencesFromSubscription`.
+- `frontend/lib/exec/subscriptions.ts` (server only): `readAlertPreferences(session)`, `saveAlertPreferences(session, prefs)`.
+- `frontend/lib/exec/savePreferences.ts`: `PREFERENCES_PATH`, `DEPUTY_REQUIRED`, `SAVE_FAILED`, `savePreferences`, `hasDeputy`.
+- `frontend/lib/bff/browser.ts`: `bffRequest<T>(path, {method, body})`, `csrfFromCookie()`, `BffResult<T>`. The browser's one JSON call helper for the BFF.
+- `frontend/components/exec/AlertSwitches.tsx`: `AlertSwitches({prefs, onChange})`.
+- `frontend/components/exec/EscalationForm.tsx`: `EscalationForm({initial, busy, onSave, error})`, `EscalationValues`.
+- `frontend/components/exec/SetupFlow.tsx`, `SettingsForm.tsx`, `Exec.module.css`.
+- Routes: `app/(exec)/planning/setup/page.tsx`, `app/(exec)/planning/settings/page.tsx`, `app/api/bff/exec/alert-preferences/route.ts` (`GET`, `PUT`; roles exec and lead).
+- `frontend/test/msw/handlers/exec.ts`: the back end's Subscription stand-in (`execBackendHandlers`, `seenBackend`, `resetExecBackend`).
+
+### W40 (DEC-712 to DEC-714)
+
+- `frontend/lib/exec/homeSummary.ts`: `needsAttention(board)`, `limitedOrWorse(board)`, `pressureChip(pressure)`, `attentionLine(entry, now)`.
+- `frontend/lib/exec/alerts.ts`: `AlertItem`, `instantText(value)`, `alertItemFromTask(task, entryFor)`, `alertTitle(item)`, `alertTime(instant)`.
+- `frontend/lib/exec/alertsServer.ts` (server): `ALERT_ROLES`, `openAlerts(session)`.
+- `frontend/components/exec/ExecHome.tsx` (`ExecHome({board, name})`), `ServiceList.tsx` (`ServiceList({entries})`), `ServiceDetail.tsx` (`ServiceDetail({entry, now})`), `AlertList.tsx` (`AlertList({open})`, `ACK_FAILED`), `AlertDetail.tsx` (`AlertDetail({alert})`, `ACK_FAILED`, `SNOOZE_FAILED`).
+- Routes: `app/(exec)/planning/page.tsx`, `services/page.tsx`, `services/[id]/page.tsx`, `alerts/page.tsx`, `alerts/[id]/page.tsx`.
+- BFF: `app/api/bff/exec/alerts/route.ts` (`GET ?state=open`; acknowledged and closed answer 503), `app/api/bff/exec/alerts/[id]/acknowledge/route.ts` (`POST`), `app/api/bff/exec/alerts/[id]/snooze/route.ts` (`POST`), `app/api/bff/exec/services/[id]/route.ts` (`GET`).
+- `frontend/test/msw/handlers/exec.ts`: `OPEN_ALERT_TASKS`; the back end's `Task` list, `$acknowledge` and `$snooze` stand-ins.
+
+### W41 (DEC-715 to DEC-717)
+
+- `frontend/lib/exec/weekFormat.ts`: `Count`, `WITHHELD`, `NO_FIGURE`, `formatCount`, `formatPct`, `formatMinutes`, `formatMinutesFigure`.
+- `frontend/lib/exec/weekSummary.ts`: `Figure`, `WeekSummary`, `weekEndingDefault(now)`, `weekStartFor(ending)`, `summaryFromParameters(body, minutesPerCall)`, `timeBack(updates, minutesPerCall)`.
+- `frontend/lib/exec/weekServer.ts` (server): `readWeekSummary(session, ending)`.
+- `frontend/components/exec/WeekSummary.tsx`: `WeekSummary({summary, prefs})`, `rangeText(from, to)`.
+- Routes: `app/(exec)/planning/week/page.tsx`; BFF `app/api/bff/exec/week/route.ts` (`GET ?ending=YYYY-MM-DD`, roles exec and lead).
+- `frontend/test/msw/handlers/exec.ts` is unchanged here; the week route test stubs `$week-summary` in its own file.
+
+## Clinical, help and support-code screens (W44 to W46, W56)
+
+### W44 (DEC-718 to DEC-720)
+
+- `frontend/lib/clinical/countdown.ts`: `minutesLeft(returnsAt, now)`.
+- `frontend/lib/clinical/queue.ts`: `Urgency`, `QueueItem`, `WHY_TEXT`, `urgencyText(urgency)`, `queueItemFromTask(task)`.
+- `frontend/lib/clinical/advice.ts`: `REQUEST_URGENCIES`, `REQUEST_WHYS`, `ADVICE_CHOICES`, `ADVICE_REASONS`, `NOTE_LIMIT`, `ADVICE_LABELS`, `REASON_LABELS`, `Advice`, `validateAdvice(input)`.
+- `frontend/lib/clinical/clinicalServer.ts` (server): `readQueue(session)`, `readAvailable(session)`.
+- `frontend/components/clinical/DutyForm.tsx` (`DutyForm({available, waiting})`), `QueueList.tsx` (`QueueList()`, `REFRESH_MS`, `TAKEN_ELSEWHERE`), `AdviceForm.tsx` (`AdviceForm({requestId, onSent})`, `SEND_FAILED`), `CaseView.tsx` (`CaseView({request})`, `CaseRequest`).
+- Routes: `app/(clinical)/clinical/page.tsx`, `requests/page.tsx`, `requests/[id]/page.tsx`.
+- BFF: `app/api/bff/clinical/presence/route.ts` (`PUT`), `summary/route.ts` (`GET`; advisor, clinical and lead; `waiting` for clinical only), `requests/route.ts` (`GET ?tab=waiting`), `requests/[id]/take/route.ts` (`POST`), `requests/[id]/advice/route.ts` (`POST`).
+- `frontend/test/msw/handlers/clinical.ts`: the back-end stand-in (`clinicalBackendHandlers`, `QUEUE_TASKS`, `TAKEN_ELSEWHERE`, `seenClinical`), and the BFF stand-in for the component tests (`clinicalBffHandlers`, `QUEUE_ITEMS`, `seenBff`).
+
+### W45 (DEC-728 to DEC-729)
+
+- `frontend/components/advisor/AskClinicalDialog.tsx`: `AskClinicalDialog({caseRef, summary, optionsShown, onClose})`, `CaseSummary`, `POLL_MS`, `NONE_AVAILABLE`.
+- BFF: `app/api/bff/cases/[ref]/clinical-requests/route.ts` (`POST {urgency, why}` → `{requestId}`; roles advisor and lead), `.../[id]/route.ts` (`GET`, 503 until the read exists; roles advisor and lead).
+- `GET /api/bff/clinical/summary` (W44) answers the availability count for advisors.
+- `frontend/test/msw/handlers/clinical.ts`: `clinicalRequestHandler`, `requestBodies` (the back end's `POST /Task` for an advice request).
+
+### W46 (DEC-721 to DEC-724)
+
+- `frontend/lib/forms/patientDataHint.ts`: `looksLikePatientData(text)`.
+- `frontend/lib/help/report.ts`: `SAFETY_CATEGORIES`, `PROBLEM_KINDS`, `REPORT_LIMIT`, `checkSafetyConcern(input)`, `checkProblem(input)`, `pagePath(from)`, `supportSharingOn()`.
+- `frontend/components/ui/HelpLink.tsx` (`HelpLink()`, the link "Help" to `/help`).
+- `frontend/components/help/SafetyConcernForm.tsx` (`SafetyConcernForm()`, `SEND_FAILED`), `ProblemForm.tsx` (`ProblemForm({from})`, `SEND_FAILED`), `Help.module.css`.
+- Routes: `app/help/page.tsx`, `app/help/safety/page.tsx`, `app/help/problem/page.tsx` (`?from=`).
+- BFF: `app/api/bff/help/safety-concerns/route.ts` (`POST`; any signed-in role except wall and anonymous link), `app/api/bff/help/problems/route.ts` (`POST`, 503 after checks).
+
+### W56 (DEC-725 to DEC-727)
+
+- `frontend/lib/telemetry/events.ts`: `currentSessionId()` (the telemetry session id, read from sessionStorage).
+- `frontend/lib/release.ts`: `RELEASE`.
+- `frontend/lib/support/share.ts`: `DEVICE_TYPES`, `APP_MODES`, `DeviceType`, `AppMode`, `isSessionId`, `CodeRequest`, `checkCodeRequest(input)`, `roleLabel(role)`.
+- `frontend/components/help/SupportCode.tsx` (`SupportCode()`, `POLL_MS`), `SupportCode.module.css`.
+- Route: `app/help/share/page.tsx`.
+- BFF: `app/api/bff/support/code/route.ts` (`POST` create, `DELETE ?sessionId=` stop; roles reporter, advisor, clinical, lead, owner, exec, audit), `app/api/bff/support/accesses/route.ts` (`GET ?sessionId=`).
+- `app/help/page.tsx`: the share link is always shown. `lib/help/report.ts`: `supportSharingOn` removed.
+- `frontend/test/msw/handlers/support.ts`: the back end's `/support/codes`, `/support/codes/current` and `/support/accesses` stand-ins (`supportBackendHandlers`, `seenSupport`).
+
+## Console, insight, planning, tour and learning screens (W48, W49, W51 to W53)
+
+### W48 (DEC-742 to DEC-744)
+
+- Pages: `app/(console)/console/page.tsx`, `session/[id]/page.tsx`, `trace/[traceId]/page.tsx`.
+- Components: `FindSession`, `SessionTimeline` (props `sessionId`, `initialEvents`, `initialStandout`), `Waterfall` (props `totalMs`, `spans`), `components/console/Console.module.css`.
+- Lib: `pickAllowed(event)`, `ConsoleEvent`; `layoutSpan`, `slowestSpan`, `formatMs`, `formatOffset`, `QUERY_BUDGET_MS`, `SpanView`; `CONSOLE_ROLES`, `consoleCall(session, path, init)`, `jsonBody`, `shortText`, `sessionIdOf`, `SESSION_ID_PATTERN`, `TRACE_ID_PATTERN`, `NO_STORE` (lib/console/backend.ts).
+- BFF: `POST /api/bff/console/sessions/open` {supportCode|ticket} -> {sessionId, expiresAt}; `GET /api/bff/console/sessions` (sessionId, traceId, reference, role, release, since) -> {items}; `POST /api/bff/console/sessions/[id]/ticket` {ticket} -> {state}; `GET /api/bff/console/sessions/[id]/events?filter=` -> {meta, standout, events}; `DELETE /api/bff/console/sessions/[id]` -> 204; `GET /api/bff/console/traces/[traceId]` -> {name, totalMs, spans}.
+- Back end (read only, not changed): `/support/sessions/open`, `/support/sessions`, `/support/sessions/{id}/ticket`, `/support/sessions/{id}/events`, `/support/sessions/{id}`, `/support/traces/{id}`.
+
+### W49 (DEC-745, DEC-748)
+
+- Page: `app/(console)/console/insight/page.tsx` (`?tab=`).
+- Components: `InsightTabs` (prop `initialTab`), `FunnelsTab` (prop `funnel`), `FrictionTab` (prop `rows`), `PathsTab`, `PerformanceTab`, `ReleasesTab` in `components/console/insight/`.
+- Lib: `budgetStatus(value, budget)` (lib/console/budget.ts); `biggestDrop(steps)`, `FunnelStep` (lib/console/funnel.ts); `RANGES`, `TABS`, `Funnel`, `FrictionRow`, `Vital`, `Slow`, `Compare`, `Measure`, `PipelineRow`, `PathRow` (lib/console/insight.ts); `REVIEW_AT` (FrictionTab).
+- BFF: `GET /api/bff/console/insight/[tab]?range=24h|7d|30d` (support role).
+- Element ids: `CON-INS-TAB-<NAME>`, `CON-INS-RANGE-<VALUE>`, `CON-INS-FUNNEL-<NAME>`, `CON-INS-EXAMPLES-BTN`.
+
+### W51 (DEC-746 to DEC-747)
+
+- Page: `app/(planning)/planning/page.tsx`. Components: `PlanningView`, `FlowsTable` (props `flows`, `total`), `HeatGrid` (prop `grid`; exports `DAYS`, `BANDS`, `busiestOf`).
+- Lib: `share(count, whole)` (lib/planning/share.ts); `Planning`, `Flow`, `Declined`, `PERIODS`, `NEEDS` (lib/planning/types.ts); `toCsv(planning)` (lib/planning/csv.ts); `planningCall`, `isPeriod`, `isNeed`, `PLANNING_ROLES` (lib/planning/backend.ts).
+- BFF: `GET /api/bff/planning?period=30d|90d|12m&need=all|falls-frailty|iv-therapy|palliative`; `GET /api/bff/planning/export?...` (text/csv, attachment).
+- Element ids: `PLAN-PERIOD-<VALUE>`, `PLAN-NEED-<VALUE>`, `PLAN-EXPORT-BTN`, `PLAN-COHORT-BTN`.
+
+### W52 (DEC-749, DEC-753)
+
+- Page: `app/tour/page.tsx` (`?step=welcome|role|changes|how|practice|week`).
+- Component: `Tour` (props `initialStep`, `initialRole?`); `TourStep` type. Content: `lib/tour/content.ts` (`TOUR_ROLES`, `ROLE_CHOICES`, `ROLE_SCREENS`, `HOW_IT_WORKS`, `FIRST_WEEK`, `FIRST_WEEK_NOTE`).
+- Element ids: `TOUR-START-BTN`, `TOUR-SKIP-BTN`, `TOUR-ROLE-<ROLE>`, `TOUR-PRACTICE-YES-BTN`, `TOUR-NEXT-BTN`.
+- localStorage key `diucs-tour` (step and role), inside try/catch; the resume offer reads through `useSyncExternalStore`.
+
+### W53 (DEC-750 to DEC-752)
+
+- Pages: `app/learn/page.tsx`, `app/learn/[lessonId]/page.tsx`, `app/learn/[lessonId]/practice/page.tsx`.
+- Components: `LearnLibrary` (prop `initialRole?`), `LessonView` (prop `lessonId`), `PracticeView` (prop `lessonId`), `HelpPanel` (props `spoaPhone`, `champion?`), in `components/learn/`.
+- Lib: `LESSONS`, `lessonsFor`, `lessonById`, `LEARN_ROLES`, `LEARN_ROLE_LABELS`, `Lesson` (lib/learn/content.ts); `getDone`, `markDone`, `subscribeProgress`, `doneSnapshot` (lib/learn/progress.ts).
+- Element ids: `LEARN-TAB-<ROLE>`, `LEARN-NEXT-BTN`, `LEARN-PRACTICE-BTN`, `LEARN-DONE-BTN`, `LEARN-PRACTICE-YES-BTN`, `LEARN-LEAVE-PRACTICE-BTN`.
+
+## Back-end routes added for the front end, W7A: advisor call flow, clinical advice, help and exec (DEC-770 to DEC-781)
+
+### W7A (DEC-770, DEC-773, DEC-781, DEC-779, DEC-771, DEC-774, DEC-780, DEC-778, DEC-772, DEC-775, DEC-776, DEC-777)
+
+- Routes and shapes: `W7A-routes.md`.
+- `adapters/inbound/fhir_rest/case_mapping.py`: `CaseDetails`, `parse_case_details`, `case_to_fhir`, `filter_result_to_fhir`, `refuse_patient_details`, the extension URLs.
+- `adapters/inbound/fhir_rest/clinical_mapping.py`: `clinical_task`, `input_url`.
+- `application/use_cases/open_case.py`: `OpenCaseCommand.referrer_type` optional; `UpdateCaseCommand.referrer_type`; `missing_fields` names `referrer_type`.
+- `application/use_cases/filter_options.py`: `Option.category`, `Option.position`; `FilterOptionsResult.patient`, `.not_found`, `.out_of_area`.
+- `application/use_cases/clinical_advice.py`: `CaseGlance`, `ClinicalRequestView`, `ReadClinicalRequest`, `ListClinicalRequests` (`LIST_WAITING`, `LIST_MINE`, `LIST_DONE`, `DONE_LIMIT`), `PresenceView`, `ReadPresence`.
+- `application/use_cases/support_access.py`: `SharingState`, `ReadSharingState`.
+- `application/use_cases/subscribe_alert.py`: `Leader`, `ListLeaders`.
+- `application/use_cases/coordination_contact.py`: `ReadCoordinationPhone`.
+- `application/use_cases/criteria.py`: `CriteriaVersionView` gains `age_min`, `age_max`, `accepts`, `excludes`; the advisor reads the current version only.
+- Ports: `ClinicalRequestRepository.advised_by`, `AlertRepository.for_owner_with_status`, `SupportRepository.live_code_expiry`, `PeopleRepository.active_roles_with_codes`.
+- Registered statements (new): `Q-CLIN-ADVISED-BY`, `Q-ALERT-OWNER-BY-STATUS`, `Q-SUPPORT-CODE-LIVE`. Each has `tenantId: $tenant` on every node and a Scenario whose seed distinguishes the tenants (`Marked`).
+- Test helper: `tests/support/route_unit.py` (`route_client`, `bearer`, `assert_role_matrix`).
+
+#### Routes and shapes (from the fragment W7A-routes.md)
+
+The exact paths and shapes the back end answers after W7A, for the front-end bundles to drop their stubs. Every route reads the tenant from the verified token only; none reads a tenant from the path, query, header or body. A refused role, another tenant's id and an unknown id all answer the same 404. Reasons are in `W7A.md`.
+
+Extension URLs: `STRUCT` is `https://diucs.example/StructureDefinition/` and `CODES` is `https://diucs.example/CodeSystem/`. The Task inputs and outputs are extensions under `CODES + "task-input/<name>"`.
+
+#### A. Advisor call flow (roles advisor and clinical unless stated)
+
+| Route | Answer |
+|---|---|
+| `POST /fhir/ServiceRequest` (Idempotency-Key) | 201 the case (below), `Location`, `ETag: W/"1"`. The body may be only `{ "resourceType": "ServiceRequest" }`; every detail is optional. A referrer or age band that is not a listed code is 400. |
+| `GET /fhir/ServiceRequest/{id}` | 200 the case, `ETag: W/"1"`, `Cache-Control: no-store`. 404 for an unknown id, another tenant's id and any other role. |
+| `PUT /fhir/ServiceRequest/{id}` (Idempotency-Key, If-Match) | 200 the case. Saves referrer, age band, postcode (kept as its district), needs, urgency and scores; a part left out is unchanged. A priority that disagrees with the urgency extension is 400; changed scores are 400. |
+| `POST /fhir/ServiceRequest/{id}/$close` | 200 the case, closed (below). |
+| `POST /fhir/HealthcareService/$filter-options` | 200 Parameters (below). 400 names the missing field, now including `referrer_type`. |
+| `GET /fhir/Basic?subject=HealthcareService/{id}` (roles owner, advisor, clinical, lead) | 200 a Bundle of versions, newest first. An advisor gets the current version only. |
+
+The case (a `ServiceRequest`): `id`, `identifier[0].value` (the four-digit case number, system `https://diucs.example/case-reference`), `status` (`active` or `completed`), `intent: plan`, `authoredOn` (UTC), `subject: #p`, `contained[0]` Patient with `address[0].postalCode` (the district) and the extension `STRUCT + "age-band"` (valueCode: `0-15`, `16-64`, `65-79`, `80+`), `reasonCode[].coding[]` (system `CODES + "need-category"`), `priority` (`urgent` or `routine`), and `extension[]`:
+
+- `STRUCT + "referrer-type"` valueCode (`ambulance-crew`, `care-home`, `gp`, `nhs-111`, `other`), absent until set;
+- `STRUCT + "urgency"` valueCode (`within-2-hrs`, `today`, `planned`). Send it on a write, and read it for the urgency: `priority: routine` is both today and planned;
+- one `STRUCT + "score"` per score: `{ url, extension: [{ url: "method", valueCode }, { url: "value", valueInteger | valueString }] }`. Methods: `news2`, `cfs`, `ambulance-category` (valueInteger), `manchester`, `pathways-dx` (valueString);
+- once closed: `STRUCT + "closed-at"` valueDateTime (UTC) and `STRUCT + "outcome"` valueCode. A closed case has no postal code and no `reasonCode`.
+
+`$filter-options` Parameters: `option` parts with `serviceId`, `name`, `status`, `criteriaVersion`, `unitLabel`, `category` (valueCode), `effectiveAvailable`, `overBy` (over capacity only), `lat` and `lon` (valueDecimal, a fixed site's place), `travelLow`, `travelHigh`, `travelSource`, `dataAgeSeconds`, repeated `fits` and `checks`; `notSuitable` parts with `serviceId`, `name`, `reason`; then top-level `patientLat` and `patientLon` (the postcode district's centre), `notFound` (valueBoolean true) and `outOfArea` (valueBoolean true), the last two only when true. Not sent (no domain data): `phone`, `coverageRadiusKm`, `leg`, `organisation`, `organisationSource`.
+
+Criteria history version (a `Basic`): `id`, `meta.versionId`, `status`, `subject`, `reviewBy`, `ageMin`, `ageMax` (when set), `accepts[]` and `excludes[]` (need codes).
+
+#### B. Clinical advice, help and exec
+
+| Route | Roles | Answer |
+|---|---|---|
+| `GET /fhir/Task/{id}` | advisor (the one who asked), clinical | 200 the clinical advice request as a Task (below). Any other caller reads 404. The same path still reads a booking. |
+| `GET /fhir/Task?code=clinical-advice&status=requested` | clinical | the queue, as a searchset Bundle of Tasks with the case glance |
+| `GET /fhir/Task?code=clinical-advice&status=in-progress` | clinical | Mine: the requests the caller holds (a lapsed lock is not held) |
+| `GET /fhir/Task?code=clinical-advice&status=completed` | clinical | Done: the requests the caller advised on, latest first, at most 50 |
+| `GET /clinical/presence` | clinical | 200 `{ "presence": "available" \| "busy" \| "away" \| null, "available": n }` |
+| `GET /clinical/available` | advisor, clinical, lead | 200 `{ "available": n }` (as before) |
+| `POST /help/problems` (Idempotency-Key) | any signed-in role except wall and anonymous link | 201 `{ "id" }` for `{ "category", "text"?, "sessionShared"? }` |
+| `GET /support/codes/current?sessionId=` | any signed-in person except support, wall, anonymous link | 200 `{ "active": true, "expiresAt" }` or `{ "active": false }`; never the code |
+| `GET /fhir/Task?code=acknowledge-alert&owner=me&status=acknowledged` or `closed` | exec, lead | the caller's alerts in that status, latest first, at most 50 |
+| `GET /fhir/Practitioner?role=leadership` | exec, lead | a Bundle of `Practitioner` (`id`, `name[0].text`) of the active leads and deputies, never the caller |
+| `GET /fhir/HealthcareService/$board` | wall, advisor, clinical, lead, exec, owner | as before, plus a `coordinationPhone` valueString part when the tenant holds one |
+
+The clinical Task: `id`, `status` (`requested`, `in-progress`, `completed`), `code`, `focus` (`ServiceRequest/<case id>`), `authoredOn`, and `extension[]` under `CODES + "task-input/"`:
+
+- `urgency` (valueCode `now` or `within-15-min`), `why` (valueCode);
+- the case glance: `case-reference` (valueString, four digits), `age-band` (valueCode), `need` (valueCode, repeated), `case-urgency` (valueCode), `news2` (valueInteger). No postcode, no district, no id of a person;
+- `returns-at` (valueDateTime) while a clinician holds it;
+- once advised: `advice-choice` (valueCode: `go-ahead`, `use-another-service`, `clinical-call-to-referrer`, `emergency-route`), `advice-reason` (valueCode), `advice-note` (valueString, `GET /fhir/Task/{id}` only), `advised-at` (valueDateTime).
+
+An alert Task (open or finished) is as before, and an acknowledged one adds `CODES + "alert-acknowledged-at"` valueDateTime.
+
+#### What the front end can now drop
+
+- W10: the empty open works; W11: the case read works (`readCase`), age band, referrer and urgency persist, planned reads back as planned (send and read the `urgency` extension); W12: scores persist (the shape is the one `case-fhir.ts` already writes); W13 and W50: category, unit, over-by, place, the patient point and the two flags (not phone, legs, coverage, organisation); W14: the advisor reads the criteria history with accepts and excludes; W15: the close answers its time and outcome, and the case read feeds the summary.
+- W44 and W45: the request read, Mine, Done, the case glance on the queue, the clinician's presence; W46: the problem report is mounted at `POST /help/problems`; W56: the reload reads the state of the code, not the code; W39 and W40: the acknowledged and closed alerts and the deputy list; W44: the coordinator's number on the board.
+
+## Back-end routes added for the front end, W7B: registration sign-in, registration, criteria and shift lead (DEC-790 to DEC-809)
+
+### W7B (DEC-790 to DEC-809)
+
+- `application/use_cases/registration_session.py`: `ReadInvitation`, `RequestRegistrationCode`, `RegistrationSignIn`, `ExchangeReporterSession`, `issue_reporter_token`, `number_ending`, `reporter_services`.
+- `application/use_cases/registration_views.py`: `GetMyRegistration`, `ListMyRegistrations`, `GetRegistrationStatus`, `ListRegistrationQueue`, `GetReviewOverview`, `GetDecision`, `SendTestNotification`, `RequestRegistrationReview`, `ConfirmRegistrationDetails`, `QUEUE_TABS`.
+- `application/use_cases/criteria_views.py`: `GetCriteriaOverview`, `GetPendingChange`, `describe_changes`. `criteria.py`: `author_label`; `CriteriaVersionView.changed_on`, `.author_role`.
+- `application/use_cases/lead_views.py`: `GetLeadOverview`, `ListReporters`, `GetSuspension`, `ListPhones`, `ListInvitations`. `lead_actions.py`: `RemindService`, `SendLeadTestPrompt`, `SwitchReporterToText`.
+- Routes: `routes_registration_session.py`, `routes_registration_views.py`, `routes_criteria_views.py`, `routes_lead_views.py`; `routes_admin.py` lists closed flags; `routes_registration.py` takes `partial` and `callback_command`.
+- Domain and ports: `Measure.OTHER`, `MessageId.T1`, `ServiceCriteria.changed_on`, `ServiceFlag.expired_count`, `DeviceFacts`, `DeviceRegistry.devices_of`, `RegistrationRepository.list_invitations`, `ServiceRepository.work_phone`, `FlagRepository.report_flags_with_status`.
+- Statements: `Q-REG-INVITATIONS`, `Q-DEVICE-LIST` (each registered, with a scenario that marks the tenants apart).
+- Test support (new files only): `tests/support/w7b_rig.py`, `tests/support/w7b_roles.py`.
+
+#### Routes and shapes (from the fragment W7B-routes.md)
+
+Every route below is on the back end's root (not under `/fhir` unless shown), answers JSON in
+camelCase with `Cache-Control: no-store`, and takes the tenant from the verified token (or, for the
+four sign-in routes, from the request Host). A role a route does not take is the non-revealing 404;
+the platform operator's token is a 401. A write needs an `Idempotency-Key` (400 when missing). A
+body that names a tenant, a role or a person is a 400 on the sign-in routes. Sample values.
+
+#### Registration sign-in (A2): no token, tenant = Host
+
+| Route | Body | Answer |
+|---|---|---|
+| `POST /identity/invitation` | `{"invitation": "<link token>"}` | `200 {"state":"open","serviceName","numberEnding" (last 3 digits),"expiresAt"}`; `200 {"state":"expired"}` or `{"state":"used"}`; unknown or malformed link: the one `404` |
+| `POST /identity/registration/code` | `{"invitation"}` | `202 {"accepted":true,"resendAfterSeconds":60}` (nothing says whether a code was sent); a link that is not open: `404` |
+| `POST /identity/registration/session` | `{"invitation" \| "mobile", "code", "deviceId"}` (exactly one of invitation and mobile) | `200 {"token","expiresAt","role":"reporter"}` plus `"registrationId","serviceId","serviceName"` for an invitation; wrong code `400 "That code is not right"`; five wrong tries or lapsed `400 "Ask for a new code"`; a refused device `409`; an unknown or dead invitation `404` |
+| `POST /identity/session-token` | `{"sessionId"}` (a live PIN session from `/identity/pin/verify`) | `200 {"token","expiresAt","role"}` (30 minutes); unknown, ended or signed-out session: `404` |
+
+For the reporter app (W7C): after `POST /identity/pin/verify` the BFF sends the `sessionId` to
+`POST /identity/session-token` and uses the token it gets as the bearer for the `/reporter/...`
+routes (the issue of that token was left to this bundle by W7C). The registration flow's
+invitation lookup and code request here are the registration sign-in; W7C's `GET /invitations/{token}`
+and `/identity/invitations/{token}/code` are the reporter set-up. Both run the same machinery.
+
+The token is a back-end token (`Authorization: Bearer`): role `reporter`, `sub` = the invited
+person (the invitation's, or the holder of the number), `services` = the services that person holds
+a reporter post for, `device` = the device the code was checked on, tenant = the Host's, epoch = the
+tenant's. Registration token: 2 hours. The BFF keeps no signing secret.
+
+#### Registration, applicant (role `reporter`, own registration only)
+
+| Route | Answer |
+|---|---|
+| `GET /registrations/{id}/record` | `{registrationId,status,serviceId,serviceName,submittedAt,lastModified,invitationExpiresAt,note,noteFrom,steps:{organisation,location,service,reporting,api}}`; each step `{state:"complete"\|"needs-attention"\|"not-started", values:{camelCase}, problems:[{field,message}]}`. The reporting step has `contactMobileEnding` (3 digits) and `hasContactEmail`, never a number or address. The api step is optional. |
+| `GET /my/registrations` | `{registrations:[{registrationId,serviceId,serviceName,status,submittedAt}]}` |
+| `GET /registrations/{id}/status` | `{registrationId,status,serviceName,submittedAt,note,noteFrom,reason,firstPromptAt,reviewRequestedAt,testSentAt,details:{spoaPhone,criteriaOwner,reportingPhoneEnding}}`. `note` is for needs-changes, `reason` for not-approved. |
+| `POST /registrations/{id}/test-notification` (also the lead) | `{sentAt,channel}`; `409` inside a minute or before submission |
+| `POST /registrations/{id}/review-request` | `{requestedAt}`; `409` unless submitted or in review |
+| `POST /registrations/{id}/confirm-details` | `{status:"live",confirmedAt}`; `409` unless a re-check is due (reverify) |
+| `GET /addresses?postcode=` | `{addresses:[{id,label}]}` at most 20 (id is the UPRN, label "line, town"); `400` for a postcode that is not one; `503` when the lookup cannot answer |
+| `PUT /fhir/Task/{id}/$draft` | as before, plus body `"partial": true` for Save draft: a part-filled step is saved and the answer is `200` with `"incomplete":[{field,message}]`. `open24h` is accepted. `fixedSite` (location) and `wanted` (api) are still needed. |
+| `POST /fhir/Task/{id}/$callback` | `spokeToRole` is optional; needed only when the result is `confirmed` |
+
+#### Registration, shift lead
+
+| Route | Answer |
+|---|---|
+| `GET /registrations?tab=` | `{tab,counts:{waiting,"sent-back",approved,live,"not-approved"},tabs:[{key,label,count}],registrations:[{registrationId,serviceId,serviceName,category,status,submittedAt,registeredBy:{role,contactName},reviewRequestedAt}]}`; default tab `waiting`; oldest submission first; bad tab `400` |
+| `GET /registrations/{id}/overview` | `{registrationId,status,serviceId,serviceName,category,checks:[{name,passed,ok,message,explainedNote}],automaticOk,callbackConfirmed,scope,criteriaApproved,missing,registeredBy:{role,contactName,organisationName},applicantNumbers:[{label,ending}],callBack:{numberToCall:null,directoryName,pathwayName}}`; `409` for a registration not yet submitted |
+| `GET /registrations/{id}/decision` | `{registrationId,status,missing,approvals:[{key,label,done}],canApprove,test:{sentAt,channel},timeline:[{event,at}]}` |
+| `POST /fhir/Task/{id}/$start-review` | `Task` in `in-review` |
+| `POST /fhir/Task/{id}/$explain-check` | Parameters `check`, `note` (at most 500); `Parameters {automaticOk}` |
+
+#### Criteria (roles `owner`, `clinical`, `lead`; an owner only for a service they hold the owner post of)
+
+| Route | Answer |
+|---|---|
+| `GET /criteria/{serviceId}` | `{serviceId,serviceName,current:{id,version,status,reviewBy,ageMin,ageMax,accepts:[{code,label}],excludes,districts,changedOn,authorRole},draft:null\|{...,changeReason},pending:null\|{id,version,changeReason,changedOn},overdue,overdueSince,shiftLead:null\|{label,phone},isOwner}`. `draft` is a version the approver sent back; `pending` is waiting for approval. |
+| `GET /criteria/{serviceId}/pending` | `{criteriaId,serviceId,serviceName,version,status,changeReason,authorRole,isAuthor,reviewMonths,changedOn,criteria:{...},changes:[{field,label,before,after,words}]}`; `404` when none is waiting. `criteriaId` is the id `$approve` and `$send-back` take. |
+| `GET /fhir/Basic?subject=HealthcareService/{id}` | each entry also has `changedOn` and `authorRole` (null for a version stored before they were kept) |
+
+#### Shift lead (role `lead`)
+
+| Route | Answer |
+|---|---|
+| `GET /lead/overview` | `{chasing:[{serviceId,name,dueAt,overdueMinutes,lastValueText,ladder:[{step:"prompt"\|"reminder"\|"phone-task"\|"escalate",at,done}]}],gettingOld:[{serviceId,name,reportedAt,nextDueAt,status}],covering:[{serviceId,name,numberEnding (4 digits, "----" when not kept),until}],counts:{accepting,limited,notAccepting,overCapacity,notUpdated},reportingToday}` |
+| `POST /lead/services/{id}/remind` | `{reminded:true}`; `409` when no reminder is waiting |
+| `POST /lead/services/{id}/test-prompt` | optional `{"channel":"text"\|"email"\|"push"}`; `{channel,numberEnding}`; `409` inside a minute; `400` when no contact is held for the channel |
+| `GET /lead/services/{id}/suspension` | `{suspended,since,reason,expiredRequests,registerNumber}` (the last four are null when not suspended; `expiredRequests` null for a suspension made before it was kept) |
+| `GET /lead/reporters[?service=]` | `{reporters:[{serviceId,serviceName,roleId,role,channel,numberEnding (4),coveredUntil}]}`; `roleId` is what `$change-number` and `$remove` take |
+| `GET /lead/phones` | `{phones:[{phoneEnding (3),role,services:[{id,name}],channel,lastSeen (ISO or null)}]}` |
+| `GET /lead/invitations` | `{items:[{id,serviceName,role,steps:{invited,numberChecked,channelChosen,installed,notificationsOn,pinSet,firstReport},invitedAt,lastSeen,firstReportAt}]}` |
+| `POST /lead/invitations/{id}/resend` | `{invitationId,registrationId,expiresAt}`; `409` once the applicant has begun |
+| `POST /lead/invitations/{id}/switch-to-text` | `{channel:"text"}`; `409` when no mobile number is held |
+| `GET /admin/report-flags?status=open\|closed` | the same FHIR `Bundle` of `Flag`; a closed flag has `status:"inactive"`, `period.end` and `outcome` (`checked` or `accepted`) |
+
+## Back-end routes added for the front end, W7C: the reporter app (DEC-810 to DEC-826)
+
+### W7C (DEC-810 to DEC-826)
+
+- Rules: `domain/rules/reporter_app.py` (`mask_mobile`, `channel_for`, `channel_word`, `cover_end`,
+  `local_day_bounds`, `RowState`, `assess_row`, `check_report`, `MAX_COVER_DAYS`).
+- Use cases: `application/use_cases/reporter_setup.py` (`InvitationReader`, `DeviceReader`, `KnownPhoneHash`,
+  `stand_in_hash`, `SetDeviceChannel`, `CoordinationPhone`, `InvitationUnusable`);
+  `reporter_app.py` (`held_services`, `ReporterReader`, `ReporterReporter`, `ReporterSettingsWriter`);
+  `reporter_booking.py` (`ReporterBookingReader`, `ReporterBookingResponder`, `app_status`);
+  `reporter_push.py` (`SendPushTest`, `NoPushSubscription`).
+- Port: `DeviceRegistry.count_active(practitioner_id) -> int`; statement `Q-DEVICE-ACTIVE-COUNT`.
+- Routes: `routes_reporter_setup.py`, `routes_reporter.py` (paths and shapes in `W7C-routes.md`); `routes_identity.py`:
+  `spoaPhone` on the `new-phone/verify` 200.
+- Secret: `webpush-vapid-public-key`.
+
+#### Routes and shapes (from the fragment W7C-routes.md)
+
+For the front end to drop its `not-built` stubs. Every path is the back end's own (JSON, not FHIR,
+outside `/fhir`). Times are UTC with a `Z` and whole seconds. Every response is `Cache-Control:
+no-store`. A refusal is a FHIR `OperationOutcome` (`issue[0].code`, `issue[0].diagnostics`) unless a
+route says otherwise. The BFF never sends the browser a tenant, a person, a device id, a session id,
+a token or a number.
+
+Two kinds of caller.
+
+- **Host-bound** (no `Authorization`): the tenant is the host of the request, so the BFF forwards the
+  host the browser addressed (as `identityCall` already does). Marked `host`.
+- **Bearer** (`Authorization: Bearer <back-end token>`, role `reporter`): the tenant, the person and the
+  phone are the token's. Marked `bearer`. No token is `401`; another role is `404`; a phone that was signed
+  out is `401`. Writes marked `key` need `Idempotency-Key` (a missing one is `400`).
+
+A body names only the fields shown: any other field (a tenant, a person, a number, a role) is `400`.
+
+| Caller | Back-end route and the BFF route it replaces | What it takes and answers |
+|---|---|---|
+| host | `GET /invitations/{token}` -> BFF `GET /api/bff/invitations/[token]` | `200 {"state":"valid","service":"UCR West","role":"Duty manager","maskedPhone":"07xxx xxx456","expiresAt":"2026-10-31T06:00:00Z"}` (the shape of `parseInvitation`). `410 {"state":"expired"}` for anything that cannot be used (unknown, malformed, expired, used, another tenant's, another purpose's, unknown host). One body; the BFF may map it to its own `expired`. `429` when one address reads more than 60 in 10 minutes. |
+| host | `POST /identity/invitations/{token}/code` -> BFF `POST /api/bff/identity/code` with `{invite}` | Body `{}`. `202 {"accepted":true,"resendAfterSeconds":60}` always, for a real, an unusable and an unknown token alike. `429` over 10 requests from one address in 10 minutes. |
+| host | `POST /identity/invitations/{token}/code/verify` -> BFF `POST /api/bff/identity/code/verify` with `{invite, code}` | Body `{"code":"482913","deviceId":"<the phone's device id>"}` (the BFF adds the device id from its cookie). `200 {"verified":true}`: the code is recorded on the device. The BFF answers the browser `{ok:true}`. `400` with `issue[0].diagnostics` `"That code is not right"` and a top-level `"triesLeft": 4` (5 tries; 0 on the last); `"Ask for a new code"` with `triesLeft: 0` when five wrong tries or a lapsed code. The BFF answers `{ok:false, triesLeft}`. `409` the code is right but this device cannot be set up with it ("start again on this phone"). |
+| host | `POST /identity/device/code` -> BFF `POST /api/bff/identity/code` with `{purpose}` (`reverify`, `pin-reset`) | Body `{"deviceId":"...","purpose":"reverify"\|"pin-reset"}`. `202` as above, always (an unknown device is the same answer). Any other purpose is `400`. |
+| host | `POST /identity/device/code/verify` -> BFF `POST /api/bff/identity/code/verify` with `{purpose, code}` | Body `{"deviceId":"...","purpose":"reverify"\|"pin-reset","code":"482913"}`. `200 {"verified":true}` (the device's last verification is now: the PIN routes follow), `400` as above, `409` as above. |
+| host | `POST /identity/channel` -> BFF `POST /api/bff/reporter/channel` before sign-in (set-up, locked PIN "text me") | Body `{"deviceId":"...","channel":"app"\|"text"\|"email"}`. `200 {"channel":"app"}`. `403` (one answer: unknown device, a device not verified by a text code in the last ten minutes, nobody who reports); `400` for any other channel word. The change is on every reporter post the person owns. |
+| host | `GET /public/push-key` -> BFF `GET /api/bff/push/key` | `200 {"publicKey":"<base64url>"}` (the `applicationServerKey`); host-bound; `Vary: Host`. `503 {"code":"not-configured"}` when the platform has no key. `404` for a host no tenant owns. |
+| host | `POST /identity/new-phone/verify` (existing) now carries the SPOA number | `200 {"status":"pending-callback","spoaPhone":"01305 000111"}`; `spoaPhone` is `null` when the tenant has set none. The BFF passes it on so the wait screen can show "Phone the SPOA on ...". The route's other answers are unchanged (`400` wrong or lapsed, `409` device refused, `429` throttled). |
+| bearer | `GET /reporter/services` -> BFF `GET /api/bff/reporter/services` | `200 {"services":[{"id","name","state":"due"\|"confirmed"\|"paused","recordedValue":4\|null,"unitLabel", "at":"..."\|null,"nextDue":"..."\|null,"pendingAcceptance":false,"letter":"A"?,"replyBy":"..."?}]}`, by name. `letter` only when two or more are due; `replyBy` only on a due row. This is the `ServiceRow`. |
+| bearer | `GET /reporter/services/{id}/prompt` -> BFF `.../services/[serviceId]/prompt` | `200 {"service","unitLabel","recordedValue","asOf","low","high","replyBy","nextDue"}` (the `Prompt`); `replyBy` is null unless the service is due. A service the reporter does not hold is `404`. |
+| bearer | `POST /reporter/services/{id}/report` (key) -> BFF `.../services/[serviceId]/report` | Body `{"kind":"confirm"\|"number"\|"closed","value":5,"confirmOutOfRange":true}` (`value` only with `number`, 0 to 999; `confirmOutOfRange` only with `number`). `200 {"result":"recorded","serviceName","value","recordedAt","nextDue"}`. `200 {"result":"outOfRange","serviceName","value","low","high"}`: nothing recorded; the same figure sent again with `confirmOutOfRange:true` is recorded (and flagged). `409 {"result":"confirmLimit","serviceName"}`: two confirms in a row already. `409 {"result":"sendNumber","serviceName","reason":"no-figure"\|"stale"\|"changed"}`: a Y cannot be used, send the number. `404` a service not held; `400` a body the screens cannot send. |
+| bearer | `GET /reporter/services/{id}/history?day=today` -> BFF `.../services/[serviceId]/history` | `200 {"items":[{"at","value","kind":"number"\|"confirmed"}]}`, today in the tenant's zone, newest first. Any `day` but `today` is `400`. |
+| bearer | `POST /reporter/reports/batch` (key) -> BFF `POST /api/bff/reporter/reports/batch` | Body `{"items":[{"serviceId","kind":"confirm"}]}` (1 to 10 different services; only confirms). `200 {"results":[{"serviceId","result":"recorded"\|"sendNumber"\|"confirmLimit","at"?,"reason"?}]}` in the order sent. `404` (nothing written) if any service is not the reporter's. |
+| bearer | `GET /reporter/settings` -> BFF `GET /api/bff/reporter/settings` | `200 {"channel":"app"\|"text"\|"email","maskedPhone":"07xxx xxx123","maskedCover":"07xxx xxx456"\|null, "reverifyInDays":27,"otherDevices":1}`. `otherDevices` is the number of other phones signed in. |
+| bearer | `POST /reporter/cover` -> BFF `POST /api/bff/reporter/cover`; `POST /reporter/services/{id}/cover` -> BFF `.../services/[serviceId]/cover` | Body `{"phone":"07700 900456","until":"tonight"\|"this-week"\|"date","date":"2026-11-05"}` (`until` defaults to `this-week`; `date` only with `until:"date"`, today to 14 days ahead). The first covers every post the reporter owns, the second one service. `200 {"coveredUntil":"2026-11-01T23:59:00Z","services":2}`. `400` a number that is not a UK mobile, the reporter's own number, a bad length or date (nothing echoed). `404` a service the reporter does not own. |
+| bearer | `POST /reporter/channel` -> BFF `POST /api/bff/reporter/channel` (settings, after sign-in) | Body `{"channel":"app"\|"text"\|"email"}`. `200 {"channel":"..."}`. `400` for `email` with no address on record. |
+| bearer | `POST /reporter/services/{id}/accept` -> BFF `.../services/[serviceId]/accept` | Body `{"accept":true\|false}`. `200 {"accepted":true}`. `false` ends the reporter's own post on that service. |
+| bearer | `GET /reporter/setup-summary` -> BFF `GET /api/bff/reporter/setup-summary` | `200 {"service","contactBy":"app"\|"text"\|"email","maskedPhone","nextUpdateDue":"..."\|null,"textCodeInDays":30}`. |
+| bearer | `POST /reporter/push-test` -> BFF `POST /api/bff/push/test` | Body `{}`. `200 {"queued":true}`; `409 {"code":"no-subscription"}` (save the subscription first); `429` over three in ten minutes. |
+| bearer | `GET /reporter/bookings/{reference}` -> BFF `GET /api/bff/reporter/bookings/[ref]` | `200 {"reference":"1001","taskId":"<Task id>","service","ageBand","need","urgency","replyBy", "status":"requested"\|"confirmed"\|"declined"\|"expired","bookingStatus":"<exact state>","multiService":true, "spoaPhone":"01305 000111"\|null,"confirmedAt":"..."?}`. This is the screen's `Booking` (plus `taskId`, `bookingStatus`; `spoaPhone` may be null). Not four digits, unknown, another service's: `404`. |
+| bearer | `POST /reporter/bookings/{reference}/respond` (key) -> BFF `.../bookings/[ref]/respond` | Body `{"decision":"confirm"\|"decline","reason":"full"\|"outside-criteria"\|"staffing-or-transport"\|"other"}` (`reason` only with `decline`). `200 {"status":"confirmed","confirmedAt":"..."}` or `{"status":"declined"}` (the shape the BFF already returns). `409` the booking was already answered or is no longer open. The BFF can call this route with the reference as it is, so it needs no reference-to-Task-id mapping of its own; the read gives `taskId` for any use of `$respond`. |
+
+#### Moving the BFF off its stubs
+
+| BFF route | back end |
+|---|---|
+| `invitations/[token]` | `GET /invitations/{token}` (410 -> its `expired`) |
+| `identity/code` with `invite` | `POST /identity/invitations/{token}/code` |
+| `identity/code/verify` with `invite` | `POST /identity/invitations/{token}/code/verify` (adds `deviceId` from the cookie) |
+| `identity/code` with `purpose` | `POST /identity/device/code` (adds `deviceId`) |
+| `identity/code/verify` with `purpose` | `POST /identity/device/code/verify` |
+| `reporter/channel` before sign-in | `POST /identity/channel`; after sign-in `POST /reporter/channel` |
+| `push/key` | `GET /public/push-key` |
+| `push/test` | `POST /reporter/push-test` |
+| `reporter/setup-summary`, `settings`, `services` | the three GETs above |
+| `reporter/services/[id]/prompt`, `report`, `history`, `accept`, `cover` | the routes of the same names |
+| `reporter/reports/batch`, `reporter/cover` | `POST /reporter/reports/batch`, `POST /reporter/cover` |
+| `reporter/bookings/[ref]`, `.../respond` | `GET` and `POST /reporter/bookings/{reference}[/respond]` |
+| `identity/new-phone/verify` | adds `spoaPhone` to its 200 |
+
+The BFF's own `ownService` check stays as a first line; the back end is the authority and answers `404`
+for a service the reporter does not hold, so a BFF that skips it fails closed.
+
+## Integration fixes of the build waves (F5A, F5D, F6A, F6B and the TEN-0xx integration notes)
+
+### F6A (DEC-850)
+
+- `lib/reporter/bff.ts`: `preSessionSubject(host, deviceId)`, `preSessionSubjectOf(request)`; `preSession` checks the CSRF token of the phone on its host.
+- `lib/reporter/session.ts`: `startReporterSession({sessionId, tenantId, host, services, device})`, `ReporterSessionInput`.
+- `lib/register/backend.ts`: `RegistrantSignIn.host`.
+- `POST /identity/pin/verify` (back end) answers `tenant` beside `signedIn`, `sessionId`, `role`, `services`.
+- Test support: `test/requests.ts` (`csrfOf`, `requestPreSession`, `preSessionCsrfFor`, `SAMPLE_DEVICE`), `test/leak-canary.ts` (rules `pre-session-bearer`, `pre-session-host`), `test/guards/bff-routes.test.ts` (kind `pre-session`).
+- `GET /api/bff/reporter/start` answers `csrfToken` in the form `<43>.<43>` (bound to the host and the phone).
+
+### F6B (DEC-851 to DEC-852)
+
+(no contract names in the fragment)
+
+### Integration notes (F5A, F5D and the TEN-0xx integration fragments)
+
+- F5A (R09, R10, R12, R13, R17 route files run on the shared Neo4j): the shared test token (`adapters/testing/tokens.py`) now expires on 31 Dec 2030 (a test of expiry passes its own `expires_at`); a POST with no body sends `{"resourceType": "Parameters"}` (the middleware answers 415 to a POST with no content type, DEC-086 item 1); `routes_admin.suspend_service` reads the wording before it opens SuspendService's unit; `POST /fhir/Task` and `GET /fhir/Task` dispatch by code and `routes_clinical` is mounted before `routes_bookings` (a clinical-advice or safety-concern code stays in R13, any other body goes to `create_booking` after the same role check).
+- F5D (`tests/support/tenant_seed.py`): `seed_tenant` checks the nodes it created (count and stamped count in one transaction); the whole-database scan for an unstamped node runs only on a database the run owns (`is_owned`). `test_tenant_directory.py` exercises the eleven registry reads and names the eight registry writes in `WRITES_TESTED_IN_THEIR_OWN_WORLD`.
+- TEN-027 integration: `SendPrompts` calls `require_actor_in_bound_tenant` before the early replay read and `tenant_scope_of_unit` inside the unit; `MissedReportLadder` calls `tenant_scope_of_unit` before any read or lock; a mismatch is `TenantMismatch`. `CapacityLinkHandler.renew` passes `zone=self._zone`. `tests/support/ladder_rig.py` `Rig` builds the actor of its own tenant.
+- TEN-028 integration: `tests/integration/graph_store/test_tenant_registry.py` runs each `Q-TENANT-REG-*` statement for tenant A with A's values and with B's, with a mutant per statement; `test_tenant_isolation.py` pins that the statements it leaves out are the allowlisted global and platform ones.
+- TEN-073 integration: `ResumeTenant` stores its marker as `ResumeDone(at)` (the idempotency store keeps dataclasses and enum members only).
+- TEN-055 and TEN-060 integration: the Service Bus emulator reads its config at start only; it must run the `integration/build` `infra/servicebus-config.json` (`projection.work`, four `network-projector` subscriptions, `network.events`). The network worlds depend on `clean_graph` (lesson L84); `wipe_tenant` also deletes the `NetworkMembership`, `Grant` and `Listing` records that name the network as `networkId`; `tests/support/network_samples.py` derives every id from the run (`rid()`); the whole-database invariant check moved to `test_network_scope_global_invariants.py` (private container, `schema`).
+- F6A: see the sub-section F6A above. F6B: see DEC-851 and DEC-852.

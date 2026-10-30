@@ -214,9 +214,7 @@ async def test_a_role_that_is_not_a_reporter_reads_nothing_and_writes_nothing(
         method, path, json=body, headers=keyed(role=role, person="advisor-1", device=None)
     )
 
-    if role is Role.PLATFORM_OPERATOR:
-        assert response.status_code == 401
-    elif role is Role.EXEC and path == "/reporter/push-test":
+    if role is Role.PLATFORM_OPERATOR or (role is Role.EXEC and path == "/reporter/push-test"):
         assert response.status_code == 401
     else:
         assert response.status_code == 404

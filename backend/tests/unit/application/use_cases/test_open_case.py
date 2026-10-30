@@ -290,7 +290,7 @@ def test_a_district_is_part_of_what_a_command_says() -> None:
 
 
 def test_a_district_alone_is_not_a_full_postcode_for_the_postcode_field() -> None:
-    # The needs form still needs the whole postcode: only the explicit district field takes a district.
+    # The needs form still needs the whole postcode: only the explicit district field takes one.
     with pytest.raises(ValidationFailed) as refused:
         apply_update(opened_case(), update(postcode="DT4"))
 

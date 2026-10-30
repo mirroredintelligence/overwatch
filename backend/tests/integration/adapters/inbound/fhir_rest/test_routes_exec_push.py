@@ -1,12 +1,12 @@
 """An executive's notifications through the reporter app's routes, on two tenants (W9H, DEC-1040 to
 DEC-1044, H-710 to H-712).
 
-An executive signs in through the organisation's directory (a staff subject, no device, no post). They
-may save a push subscription for their phone, ask for a test notification and take the subscription
-off; nothing of the reporter's posts is theirs. The person record the subscription needs is made on
-the first save, in the executive's own tenant only. A refused role is the one 404, for all thirteen
-roles, and the platform operator is a 401 at the edge. Samples only; the push provider is a recording
-fake.
+An executive signs in through the organisation's directory (a staff subject, no device, no
+post). They may save a push subscription for their phone, ask for a test notification and take the
+subscription off; nothing of the reporter's posts is theirs. The person record the subscription
+needs is made on the first save, in the executive's own tenant only. A refused role is the one 404,
+for all thirteen roles, and the platform operator is a 401 at the edge. Samples only; the push
+provider is a recording fake.
 """
 
 from collections.abc import AsyncIterator
@@ -148,7 +148,10 @@ async def test_the_same_executive_id_in_two_tenants_is_two_people_with_two_subsc
 
     assert await _count(harness_driver, PERSONS, id=STAFF, tenant=tenant_id) == 1
     assert await _count(harness_driver, PERSONS, id=STAFF, tenant=other_tenant_id) == 1
-    devices = "MATCH (d:Device {tenantId: $tenant}) WHERE d.pushSubscriptionJson IS NOT NULL RETURN count(d) AS n"
+    devices = (
+        "MATCH (d:Device {tenantId: $tenant}) WHERE d.pushSubscriptionJson IS NOT NULL "
+        "RETURN count(d) AS n"
+    )
     assert await _count(harness_driver, devices, tenant=tenant_id) == 1
     assert await _count(harness_driver, devices, tenant=other_tenant_id) == 1
 

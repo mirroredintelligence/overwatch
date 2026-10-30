@@ -113,12 +113,12 @@ async def test_a_push_message_without_a_tenant_is_refused_before_the_unit_of_wor
         await _sender()(message, _Untouched())  # type: ignore[arg-type]
 
 
-# ----------------------------------------------------------------- a push to a person (W9H, DEC-1044)
+# ------------------------------------------------------------- a push to a person (W9H, DEC-1044)
 #
-# An alert (K3) and an executive's test notification name the PERSON, not a post: an executive holds
-# no post, so there is no role, no Communication and no sealed content. The title and body are the
-# plain K3 text (a service's name and the kind of alert, or the test words), which name no patient and
-# carry no link.
+# An alert (K3) and an executive's test notification name the PERSON, not a post: an executive
+# holds no post, so there is no role, no Communication and no sealed content. The title and body
+# are the plain K3 text (a service's name and the kind of alert, or the test words), which name no
+# patient and carry no link.
 
 PERSON = "stf-0123456789abcdef0123456789abcdef"
 SUBSCRIPTION_JSON = {"endpoint": "https://push.example/sample-endpoint"}

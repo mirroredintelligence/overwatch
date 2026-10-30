@@ -24,6 +24,7 @@ from diucs.application.use_cases.filter_options import (
 )
 from diucs.application.use_cases.query_board import QueryBoard
 from diucs.domain.codes import ServiceCategory
+from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from tests.integration.application.test_filter_options import (
     ACTOR,
     CASE_ID,
@@ -165,11 +166,11 @@ async def test_a_service_of_tenant_b_is_neither_an_option_nor_a_reason_to_be_in_
     assert result.out_of_area is True
 
 
-# ---------------------------------------------------------------------------------------------------
-# W50 (W9H, DEC-1045, DEC-1046): the districts offered when the postcode is not found or out of area.
-# They are the districts this tenant's services cover, that the locator can place, nearest first (or,
-# with no place for the patient, those of the case's own postcode area first). Sent only when one of
-# the two flags is, and never another tenant's.
+# ---------------------------------------------------------------------------------------------
+# W50 (W9H, DEC-1045, DEC-1046): the districts offered when the postcode is not found or out of
+# area. They are the districts this tenant's services cover, that the locator can place, nearest
+# first (or, with no place for the patient, those of the case's own postcode area first). Sent only
+# when one of the two flags is, and never another tenant's.
 
 NEAR_B_SITE = LatLon(lat=50.8, lon=-2.2)
 FAR_SITE = LatLon(lat=51.2, lon=-1.8)
@@ -287,7 +288,7 @@ async def test_the_districts_offered_are_this_tenants_and_never_tenant_bs(
         await uow.commit()
     await _add_case(uow_factory, "case-outside-a", "4824", OUTSIDE)
 
-    # The locator knows B's districts too: only the criteria of the bound tenant decide what is offered.
+    # The locator knows B's districts too: only the bound tenant's criteria decide what is offered.
     result = await _run(
         uow_factory,
         {

@@ -1,9 +1,9 @@
 """The districts offered as chips when a postcode cannot be used (W50, W9H DEC-1045, DEC-1046).
 
-When the locator does not know the case's district, or no service covers it, the advisor is offered the
-districts the tenant's services DO cover, to pick one and run the options again. Pure: places in, an
-ordered short list out. Nothing here is about a person: a district a service covers is the service's
-configuration, never a case's.
+When the locator does not know the case's district, or no service covers it, the advisor is offered
+the districts the tenant's services DO cover, to pick one and run the options again. Pure: places
+in, an ordered short list out. Nothing here is about a person: a district a service covers is the
+service's configuration, never a case's.
 """
 
 import pytest

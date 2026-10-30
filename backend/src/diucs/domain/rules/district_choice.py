@@ -8,8 +8,8 @@ districts and keeps the list short. Pure: places in, an ordered tuple out, no I/
 - With none (the district is not known): the districts of the same postcode area as the case's
   first (DT before BH), then the rest, each in natural order (DT2 before DT10).
 
-A district a service covers is the service's configuration, never a person's; the case's own district
-is never offered back. Nothing is logged and no value is echoed in a refusal.
+A district a service covers is the service's configuration, never a person's; the case's own
+district is never offered back. Nothing is logged and no value is echoed in a refusal.
 """
 
 import math
@@ -78,9 +78,7 @@ def candidate_districts(
     checked.pop(case_district or "", None)
     if origin is not None:
         start = _place(origin)
-        ordered = sorted(
-            checked, key=lambda d: (_distance_squared(checked[d], start), _natural(d))
-        )
+        ordered = sorted(checked, key=lambda d: (_distance_squared(checked[d], start), _natural(d)))
     else:
         area = _area(case_district) if case_district is not None else ""
         ordered = sorted(checked, key=lambda d: (area == "" or _area(d) != area, _natural(d)))

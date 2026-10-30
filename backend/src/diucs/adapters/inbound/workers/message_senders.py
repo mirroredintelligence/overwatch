@@ -239,65 +239,6 @@ class _OutboundSender:
         else:
             await self._settle(uow, message, communication.id, "failed", None, REFUSED)
 
-    async def _push_to_person(self, message: BusMessage, uow: UnitOfWork) -> None:
-        """A push that names a PERSON (W9H, DEC-1044): an alert (K3) or an executive's test. An
-        executive holds no post, so there is no role, no Communication and no sealed content; the
-        message carries the plain K3 title and body, which name a service and the kind of alert (or
-        the test words) and no patient, no link. One recipient kind per message: a payload that
-        also names a role is refused. Delivered to every installed app of the person; a
-        subscription the provider reports gone is deleted; a person with no app, or an app that
-        refuses, is logged by reason only (the alert's own escalation timer is the follow-up).
-        A transient failure raises, so the bus redelivers."""
-        payload = message.payload
-        if _channel(payload.get("channel")) is not self.channel:
-            raise PermanentError(BAD_CHANNEL)
-        person = _text(payload.get(RECIPIENT_PERSON))
-        title = _text(payload.get("title"))
-        body = _text(payload.get("body"))
-        if (
-            "recipient_role_id" in payload
-            or person is None
-            or title is None
-            or body is None
-            or not title.strip()
-            or not body.strip()
-            or payload.get("message_id") != MessageId.K3.value
-            or len(title) > PERSON_TITLE_MAX
-            or len(body) > PERSON_BODY_MAX
-        ):
-            raise PermanentError(BAD_PAYLOAD)
-        try:
-            render(MessageId.K3, self.channel, title=title, body=body)
-        except ValidationFailed:
-            raise PermanentError(BAD_CONTENT) from None
-
-        devices = await uow.push_subscriptions.for_practitioner(person)
-        accepted = 0
-        for device in devices:
-            try:
-                receipt = await self._sender.send(
-                    device.subscription,
-                    title,
-                    body,
-                    self._app_url,
-                    urgency=push_urgency(MessageId.K3.value),
-                )
-            except TransientSendError:
-                raise
-            except SendFailedError:
-                continue
-            if receipt.accepted:
-                accepted += 1
-            elif receipt.reason == PUSH_GONE:
-                await uow.push_subscriptions.delete(device.device_id)
-        logger.info(
-            "%s person push: message=%s apps=%d accepted=%d",
-            self.name,
-            message.id,
-            len(devices),
-            accepted,
-        )
-
     async def _settle(
         self,
         uow: UnitOfWork,

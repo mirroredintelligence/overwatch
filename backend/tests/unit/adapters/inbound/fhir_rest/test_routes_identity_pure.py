@@ -803,7 +803,7 @@ async def test_a_reporter_removes_their_push_subscription_and_the_consent_is_wit
     assert again.status_code == 404
 
 
-# ------------------------------------------------------------------ an executive's push (W9H, DEC-1042)
+# ------------------------------------------------------------ an executive's push (W9H, DEC-1042)
 
 STAFF = "stf-0123456789abcdef0123456789abcdef"
 

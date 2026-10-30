@@ -151,6 +151,7 @@ def _update_command(
         needs=details.needs,
         urgency=details.urgency,
         scores=details.scores,
+        district=details.district,
     )
 
 

@@ -25,7 +25,7 @@ from diucs.adapters.outbound.cache_redis.sessions import (
     RedisSessionStore,
 )
 from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.ports.outbound.identity import ReporterSession
+from diucs.application.ports.outbound.identity import ReporterSession, SessionEpochChanged
 from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.settings import Settings
 from diucs.domain.codes import Role
@@ -108,7 +108,7 @@ async def test_a_session_is_created_read_and_deleted(redis: tuple[Redis, str]) -
     sessions = RedisSessionStore(client, key_prefix=prefix)
 
     with bind_tenant(TENANT_A):
-        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", ("svc-1",), NOW)
+        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", ("svc-1",), NOW, epoch=0)
         assert len(session_id) == 43
         assert await sessions.get(session_id) == ReporterSession(
             session_id=session_id,
@@ -130,7 +130,7 @@ async def test_the_session_key_carries_the_tenant_and_the_full_ttl(
     sessions = RedisSessionStore(client, key_prefix=prefix)
 
     with bind_tenant(TENANT_A):
-        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW)
+        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW, epoch=0)
 
     key = f"{prefix}{TENANT_A}:sess:{session_id}"
     assert await client.exists(key) == 1
@@ -146,7 +146,7 @@ async def test_touch_extends_the_session_to_the_full_ttl(redis: tuple[Redis, str
     client, prefix = redis
     sessions = RedisSessionStore(client, key_prefix=prefix)
     with bind_tenant(TENANT_A):
-        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW)
+        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW, epoch=0)
     key = f"{prefix}{TENANT_A}:sess:{session_id}"
     await client.pexpire(key, 5_000)
     later = NOW + timedelta(minutes=1)
@@ -173,9 +173,9 @@ async def test_delete_all_for_a_person_removes_each_of_their_sessions(
     client, prefix = redis
     sessions = RedisSessionStore(client, key_prefix=prefix)
     with bind_tenant(TENANT_A):
-        first = await sessions.create(Role.REPORTER, "prac-1", "phone-1", (), NOW)
-        second = await sessions.create(Role.REPORTER, "prac-1", "tablet-1", (), NOW)
-        other = await sessions.create(Role.REPORTER, "prac-2", "phone-2", (), NOW)
+        first = await sessions.create(Role.REPORTER, "prac-1", "phone-1", (), NOW, epoch=0)
+        second = await sessions.create(Role.REPORTER, "prac-1", "tablet-1", (), NOW, epoch=0)
+        other = await sessions.create(Role.REPORTER, "prac-2", "phone-2", (), NOW, epoch=0)
 
         await sessions.delete_all_for_person("prac-1")
 
@@ -184,11 +184,79 @@ async def test_delete_all_for_a_person_removes_each_of_their_sessions(
         assert await sessions.get(other) is not None
 
 
+async def test_a_new_person_has_epoch_zero_and_a_sign_out_everywhere_raises_it(
+    redis: tuple[Redis, str],
+) -> None:
+    client, prefix = redis
+    sessions = RedisSessionStore(client, key_prefix=prefix)
+    with bind_tenant(TENANT_A):
+        assert await sessions.epoch("prac-1") == 0
+        await sessions.delete_all_for_person("prac-1")
+        assert await sessions.epoch("prac-1") == 1
+        await sessions.delete_all_for_person("prac-1")
+        assert await sessions.epoch("prac-1") == 2
+        assert await sessions.epoch("prac-2") == 0
+
+
+async def test_a_session_made_with_a_stale_epoch_is_refused_and_leaves_nothing(
+    redis: tuple[Redis, str],
+) -> None:
+    client, prefix = redis
+    sessions = RedisSessionStore(client, key_prefix=prefix)
+    with bind_tenant(TENANT_A):
+        seen = await sessions.epoch("prac-1")
+        await sessions.delete_all_for_person("prac-1")  # the person signs out everywhere
+        with pytest.raises(SessionEpochChanged):
+            await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW, epoch=seen)
+        assert [key async for key in client.scan_iter(match=f"{prefix}{TENANT_A}:sess:*")] == []
+        fresh = await sessions.epoch("prac-1")
+        session_id = await sessions.create(
+            Role.REPORTER, "prac-1", "device-2", (), NOW, epoch=fresh
+        )
+        assert (await sessions.get(session_id)) is not None
+
+
+async def test_a_session_whose_epoch_has_moved_is_dead_even_if_its_key_survived(
+    redis: tuple[Redis, str],
+) -> None:
+    client, prefix = redis
+    sessions = RedisSessionStore(client, key_prefix=prefix)
+    with bind_tenant(TENANT_A):
+        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW, epoch=0)
+        # A session created in the moment between the index read and the delete survives the
+        # delete: raise the epoch alone, as the transaction would, and keep the key.
+        await client.incr(f"{prefix}{TENANT_A}:sess-epoch:prac-1")
+        assert await client.exists(f"{prefix}{TENANT_A}:sess:{session_id}") == 1
+        assert await sessions.get(session_id) is None
+        assert await sessions.touch(session_id, NOW + timedelta(minutes=1)) is False
+
+
+async def test_the_epoch_is_kept_per_tenant(redis: tuple[Redis, str]) -> None:
+    client, prefix = redis
+    sessions = RedisSessionStore(client, key_prefix=prefix)
+    with bind_tenant(TENANT_A):
+        await sessions.delete_all_for_person("prac-1")
+    with bind_tenant(TENANT_B):
+        assert await sessions.epoch("prac-1") == 0
+        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW, epoch=0)
+    with bind_tenant(TENANT_B):
+        assert await sessions.get(session_id) is not None
+
+
+async def test_the_epoch_key_outlives_every_session_it_can_kill(redis: tuple[Redis, str]) -> None:
+    client, prefix = redis
+    sessions = RedisSessionStore(client, key_prefix=prefix)
+    with bind_tenant(TENANT_A):
+        await sessions.delete_all_for_person("prac-1")
+    ttl_ms = await client.pttl(f"{prefix}{TENANT_A}:sess-epoch:prac-1")
+    assert ttl_ms > SESSION_TTL.total_seconds() * 1000
+
+
 async def test_sessions_are_kept_per_tenant(redis: tuple[Redis, str]) -> None:
     client, prefix = redis
     sessions = RedisSessionStore(client, key_prefix=prefix)
     with bind_tenant(TENANT_A):
-        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW)
+        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW, epoch=0)
 
     with bind_tenant(TENANT_B):
         assert await sessions.get(session_id) is None
@@ -250,7 +318,7 @@ async def test_no_log_line_holds_a_session_id_a_code_or_its_hash(
     caplog.set_level(logging.DEBUG)
 
     with bind_tenant(TENANT_A):
-        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW)
+        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", (), NOW, epoch=0)
         await sessions.get(session_id)
         await sessions.touch(session_id, NOW)
         await codes.save("registration", "h1", code_hash, CodeState(issued_at=NOW))

@@ -302,9 +302,7 @@ async def test_only_the_lead_may_remove_and_a_refusal_writes_nothing() -> None:
 async def test_a_lead_cannot_remove_themself() -> None:
     world = World()
     with pytest.raises(NotAllowed):
-        await world.remove.execute(
-            RemovePersonCommand("k1", LEAD_ACTOR, LEAD, RemovalReason.OTHER)
-        )
+        await world.remove.execute(RemovePersonCommand("k1", LEAD_ACTOR, LEAD, RemovalReason.OTHER))
     assert world.units.writes.names == []
 
 
@@ -386,9 +384,7 @@ async def test_sign_out_everywhere_revokes_every_device_and_says_how_many() -> N
 
 async def test_sign_out_everywhere_kills_the_sessions_of_the_person_only() -> None:
     world = World()
-    other = await world.sessions.create(
-        Role.REPORTER, "someone-else", "dev-9", (), NOW, epoch=0
-    )
+    other = await world.sessions.create(Role.REPORTER, "someone-else", "dev-9", (), NOW, epoch=0)
     mine = await world.sessions.create(Role.REPORTER, PERSON, "dev-1", (), NOW, epoch=0)
     await world.sign_out.execute(SignOutEverywhereCommand("k1", REPORTER_ACTOR))
     assert await world.sessions.get(mine) is None
@@ -470,10 +466,24 @@ async def test_a_repeat_of_the_same_new_phone_changes_nothing_and_keeps_the_devi
 
 async def test_a_device_id_that_was_revoked_cannot_be_the_new_phone() -> None:
     world = World()
+    world.units.devices.held[(PERSON, "dev-1")]["revoked"] = True
     result = await _start(world, device="dev-1")
     assert result.started is False
     assert world.units.commits == 0
     assert world.units.devices.held[(PERSON, "dev-2")]["revoked"] is False
+
+
+async def test_a_device_id_another_person_holds_is_not_a_new_phone() -> None:
+    world = World()
+    world.units.devices.held[(COVER, "dev-cover")] = {
+        "revoked": False,
+        "pending": False,
+        "verified_at": None,
+        "at": NOW,
+    }
+    result = await _start(world, device="dev-cover")
+    assert result.started is False
+    assert world.units.writes.names == []
 
 
 async def test_a_device_id_that_is_already_active_is_not_a_new_phone() -> None:

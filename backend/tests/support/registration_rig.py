@@ -433,7 +433,9 @@ class StubFlags(_Part):
 
     async def service_flags(self, service_id: str) -> list[ServiceFlag]:
         return [
-            flag for (service, _), flag in self.held.items() if service == service_id and flag.active
+            flag
+            for (service, _), flag in self.held.items()
+            if service == service_id and flag.active
         ]
 
     async def set_service_flag(self, flag: ServiceFlag) -> None:

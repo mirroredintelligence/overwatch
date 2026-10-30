@@ -46,6 +46,7 @@ from diucs.domain.rules.identity_policy import PinOutcome, PinState
 _PRACTITIONER_KEY: Final = "Practitioner/{}"
 _STATUS_ACTIVE: Final = "active"
 _STATUS_REVOKED: Final = "revoked"
+_STATUS_PENDING: Final = "pending-callback"
 _WALL_DISPLAY: Final = DeviceType.WALL_DISPLAY.value
 
 # Scenarios of the converted statements (DEC-142 item 5, DEC-150). Both tenants have a practitioner
@@ -193,9 +194,9 @@ _REGISTER_SCENARIO: Final = Scenario(
     ),
 )
 _KNOWN_SCENARIO: Final = Scenario(
-    "count the devices of a practitioner that are not revoked and have an id",
+    "count the active devices of a practitioner that are not revoked and have an id",
     seed=_DEVICE_SEED,
-    params={"key": _KEY, "deviceId": _DEVICE},
+    params={"key": _KEY, "deviceId": _DEVICE, "active": _STATUS_ACTIVE},
     lookup=("key", "deviceId"),
     expect=Expect(rows=({"n": 1},)),
 )
@@ -209,6 +210,39 @@ _REVOKE_SCENARIO: Final = Scenario(
         rows=({"n": 1},),
         after=(NodeSpec(("Device",), {"id": _DEVICE, "status": _STATUS_REVOKED}),),
     ),
+)
+
+_PENDING_DEVICE_NODE: Final = SeedNode(
+    "device",
+    ("Device",),
+    {"id": _DEVICE, "status": _STATUS_PENDING, "registeredAt": _AT},
+)
+_PENDING_SEED: Final = TenantSeed(
+    nodes=(_PRACTITIONER, _PENDING_DEVICE_NODE),
+    rels=(SeedRel("practitioner", "HAS_DEVICE", "device"),),
+)
+_CONFIRM_SCENARIO: Final = Scenario(
+    "make the pending-callback devices of a practitioner active",
+    seed=_PENDING_SEED,
+    params={
+        "key": _KEY,
+        "pending": _STATUS_PENDING,
+        "active": _STATUS_ACTIVE,
+        "at": _AT + timedelta(minutes=5),
+    },
+    lookup=("key",),
+    new=("at",),
+    expect=Expect(
+        rows=({"n": 1},),
+        after=(NodeSpec(("Device",), {"id": _DEVICE, "status": _STATUS_ACTIVE}),),
+    ),
+)
+_AWAITING_SCENARIO: Final = Scenario(
+    "list the pending-callback devices of a practitioner that are not revoked",
+    seed=_PENDING_SEED,
+    params={"key": _KEY, "pending": _STATUS_PENDING},
+    lookup=("key",),
+    expect=Expect(rows=({"id": _DEVICE},)),
 )
 
 _MARK_VERIFIED_SCENARIO: Final = Scenario(
@@ -313,6 +347,8 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-DEVICE-REGISTER": _REGISTER_SCENARIO,
     "Q-DEVICE-KNOWN": _KNOWN_SCENARIO,
     "Q-DEVICE-REVOKE": _REVOKE_SCENARIO,
+    "Q-DEVICE-CONFIRM-PENDING": _CONFIRM_SCENARIO,
+    "Q-DEVICE-AWAITING": _AWAITING_SCENARIO,
     "Q-DEVICE-MARK-VERIFIED": _MARK_VERIFIED_SCENARIO,
     "Q-DEVICE-VERIFIED": _VERIFIED_SCENARIO,
     "Q-SCREEN-GET": _SCREEN_GET_SCENARIO,
@@ -376,10 +412,24 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "RETURN count(*) AS n",
         "write",
     ),
+    # Known means active: a revoked device, and one that waits for the lead's call-back (U37), is
+    # not known, so it cannot sign in.
     "Q-DEVICE-KNOWN": (
         "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
         "(d:Device {id: $deviceId, tenantId: $tenant}) "
-        "WHERE d.revokedAt IS NULL RETURN count(d) AS n",
+        "WHERE d.revokedAt IS NULL AND d.status = $active RETURN count(d) AS n",
+        "read",
+    ),
+    "Q-DEVICE-CONFIRM-PENDING": (
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
+        "(d:Device {tenantId: $tenant, status: $pending}) WHERE d.revokedAt IS NULL "
+        "SET d.status = $active, d.confirmedAt = $at RETURN count(d) AS n",
+        "write",
+    ),
+    "Q-DEVICE-AWAITING": (
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
+        "(d:Device {tenantId: $tenant, status: $pending}) WHERE d.revokedAt IS NULL "
+        "RETURN d.id AS id ORDER BY d.id",
         "read",
     ),
     # The last text-code verification of a device (U32): the 30-day check and the 10 minutes in
@@ -531,6 +581,16 @@ class Neo4jDeviceRegistry:
         practitioner changes nothing, so a revoked device stays revoked. A device id that belongs
         to another practitioner is Conflict. A practitioner who does not exist is NotFound. Every
         check runs before the write."""
+        await self._register(practitioner_id, device_id, at, _STATUS_ACTIVE)
+
+    async def register_pending(self, practitioner_id: str, device_id: str, at: datetime) -> None:
+        """As `register`, for a device that waits for the lead's call-back (U37): it is stored
+        `pending-callback`, which is not known until `confirm_pending`."""
+        await self._register(practitioner_id, device_id, at, _STATUS_PENDING)
+
+    async def _register(
+        self, practitioner_id: str, device_id: str, at: datetime, status: str
+    ) -> None:
         registered_at = _utc(at, "at")
         locked = await self._run("Q-DEVICE-LOCK", key=_key(practitioner_id))
         if not locked or int(locked[0]["n"]) != 1:
@@ -545,18 +605,46 @@ class Neo4jDeviceRegistry:
                 "Q-DEVICE-REGISTER",
                 key=_key(practitioner_id),
                 deviceId=device_id,
-                status=_STATUS_ACTIVE,
+                status=status,
                 at=registered_at,
             )
         except ConstraintError as error:
             raise Conflict("device is already registered") from error
 
     async def known(self, practitioner_id: str, device_id: str) -> bool:
-        rows = await self._run("Q-DEVICE-KNOWN", key=_key(practitioner_id), deviceId=device_id)
+        rows = await self._run(
+            "Q-DEVICE-KNOWN", key=_key(practitioner_id), deviceId=device_id, active=_STATUS_ACTIVE
+        )
         return bool(rows) and int(rows[0]["n"]) > 0
 
-    async def revoke_all(self, practitioner_id: str) -> None:
-        await self._run("Q-DEVICE-REVOKE", key=_key(practitioner_id), revoked=_STATUS_REVOKED)
+    async def revoke_all(self, practitioner_id: str) -> int:
+        rows = await self._run(
+            "Q-DEVICE-REVOKE", key=_key(practitioner_id), revoked=_STATUS_REVOKED
+        )
+        return int(rows[0]["n"]) if rows else 0
+
+    async def confirm_pending(self, practitioner_id: str, at: datetime) -> int:
+        rows = await self._run(
+            "Q-DEVICE-CONFIRM-PENDING",
+            key=_key(practitioner_id),
+            pending=_STATUS_PENDING,
+            active=_STATUS_ACTIVE,
+            at=_utc(at, "at"),
+        )
+        return int(rows[0]["n"]) if rows else 0
+
+    async def awaiting_callback(self, practitioner_id: str) -> list[str]:
+        rows = await self._run(
+            "Q-DEVICE-AWAITING", key=_key(practitioner_id), pending=_STATUS_PENDING
+        )
+        return [str(row["id"]) for row in rows]
+
+    async def owner_of(self, device_id: str) -> str | None:
+        rows = await self._run("Q-DEVICE-OWNER", deviceId=device_id)
+        if len(rows) > 1:
+            # One device id with two holders cannot be told apart: refuse, never pick one.
+            raise Conflict("more than one practitioner holds this device")
+        return str(rows[0]["owner"]) if rows else None
 
     async def mark_verified(self, practitioner_id: str, device_id: str, at: datetime) -> None:
         """Stamp the device's last text-code verification. A device that is not the

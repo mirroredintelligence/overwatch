@@ -142,4 +142,9 @@ class AuditLog(Protocol):
 
     async def records(self, since: str | None = None) -> list[AuditRecord]: ...
 
+    async def records_for(self, entity_id: str) -> list[AuditRecord]:
+        """Audit entries (not provenance) that name this entity id, in chain order (U42). Reads
+        the bound tenant's chain only."""
+        ...
+
     async def verify_chain(self) -> bool: ...

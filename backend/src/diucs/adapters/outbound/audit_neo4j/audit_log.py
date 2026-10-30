@@ -183,6 +183,26 @@ _HEAD_SCENARIO: Final = Scenario(
     seed=_CHAIN_SEED,
     expect=Expect(rows=(_HEAD_ROW,)),
 )
+_ENTITY_SEED: Final = TenantSeed(
+    nodes=_CHAIN_SEED.nodes,
+    rels=(*_CHAIN_SEED.rels, SeedRel("event", "ENTITY", "entity", {"role": "subject"})),
+)
+_FOR_ENTITY_SCENARIO: Final = Scenario(
+    "list the tenant's own entries that name an entity, and no other tenant's",
+    seed=_ENTITY_SEED,
+    params={"entityId": "ent-1"},
+    lookup=("entityId",),
+    expect=Expect(
+        rows=(
+            {
+                "id": "e-1",
+                "entryJson": Marked("entry-1"),
+                "chainHash": Marked("chain-1"),
+                "previousHash": "genesis-seed",
+            },
+        )
+    ),
+)
 _LIST_SCENARIO: Final = Scenario(
     "list the tenant's own links in order and no other tenant's",
     seed=_CHAIN_SEED,
@@ -385,6 +405,18 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="read",
         scenario=_LIST_SCENARIO,
+    ),
+    NamedQuery(
+        id="Q-AUDIT-FOR-ENTITY",
+        cypher=(
+            "MATCH (r:AuditRef {id: $entityId, tenantId: $tenant})"
+            "<-[:ENTITY]-(e:AuditEvent {tenantId: $tenant}) "
+            "RETURN e.id AS id, e.entryJson AS entryJson, e.chainHash AS chainHash, "
+            "e.previousHash AS previousHash "
+            "ORDER BY e.seq"
+        ),
+        mode="read",
+        scenario=_FOR_ENTITY_SCENARIO,
     ),
     NamedQuery(
         id="Q-AUDIT-HEAD",
@@ -714,6 +746,21 @@ class Neo4jAuditLog:
         if since not in ids:
             raise ValidationFailed("since", "no audit record has this id")
         return found[ids.index(since) + 1 :]
+
+    async def records_for(self, entity_id: str) -> list[AuditRecord]:
+        """Audit entries that name this entity id, in chain order (U42). The bound tenant's only."""
+        tenant_id = _chain_tenant(self._tx)
+        rows = await run_query(self._tx, REGISTRY.get("Q-AUDIT-FOR-ENTITY"), entityId=entity_id)
+        tenant_id = _chain_tenant(self._tx)
+        return [
+            AuditRecord(
+                id=str(row["id"]),
+                entry=_parse_entry(str(row["entryJson"]), tenant_id),
+                chain_hash=str(row["chainHash"]),
+                previous_hash=str(row["previousHash"]),
+            )
+            for row in rows
+        ]
 
     async def verify_chain(self) -> bool:
         """True when every link of the bound scope's chain is intact, in order, and its head points

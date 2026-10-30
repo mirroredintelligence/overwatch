@@ -1,6 +1,7 @@
 """Pure rules of the audit replay (U42): status wording, data age wording, rows from an options
 snapshot, timeline labels, the choice of the options display, and the role check. No I/O."""
 
+import dataclasses
 import json
 from datetime import UTC, datetime
 
@@ -138,7 +139,7 @@ def test_rows_never_carry_a_postcode_or_needs() -> None:
         }
     ]
     (row,) = replay_rows(snapshot, {"svc-a": "A"})
-    text = json.dumps(row.__dict__)
+    text = json.dumps(dataclasses.asdict(row))
     assert "DT4" not in text and "frailty" not in text
 
 
@@ -162,14 +163,38 @@ def test_options_shown_counts_only_the_options_not_the_not_suitable_rows() -> No
     snapshot = {
         "reference": "4821",
         "services": [
-            {"id": "a", "status": "accepting", "number": 4, "data_age_seconds": 0,
-             "criteria_version": 3, "shown_as": "option"},
-            {"id": "b", "status": "accepting", "number": 5, "data_age_seconds": 0,
-             "criteria_version": 3, "shown_as": "option"},
-            {"id": "c", "status": "accepting", "number": 2, "data_age_seconds": 0,
-             "criteria_version": 3, "shown_as": "option"},
-            {"id": "d", "status": "not-accepting", "number": 0, "data_age_seconds": 0,
-             "criteria_version": 3, "shown_as": "not-suitable"},
+            {
+                "id": "a",
+                "status": "accepting",
+                "number": 4,
+                "data_age_seconds": 0,
+                "criteria_version": 3,
+                "shown_as": "option",
+            },
+            {
+                "id": "b",
+                "status": "accepting",
+                "number": 5,
+                "data_age_seconds": 0,
+                "criteria_version": 3,
+                "shown_as": "option",
+            },
+            {
+                "id": "c",
+                "status": "accepting",
+                "number": 2,
+                "data_age_seconds": 0,
+                "criteria_version": 3,
+                "shown_as": "option",
+            },
+            {
+                "id": "d",
+                "status": "not-accepting",
+                "number": 0,
+                "data_age_seconds": 0,
+                "criteria_version": 3,
+                "shown_as": "not-suitable",
+            },
         ],
     }
     record = _record("r", T, "FilterOptions", "R", snapshot=snapshot)

@@ -103,3 +103,16 @@ async def test_the_alert_lists_are_for_an_executive_or_a_lead() -> None:
                 f"/fhir/Task?code=acknowledge-alert&owner=me&status={status}",
                 permitted,
             )
+
+
+# B7: the leadership list for the deputy picker.
+
+
+async def test_the_leadership_list_is_for_an_executive_or_a_lead() -> None:
+    async with route_client() as client:
+        await assert_role_matrix(
+            client,
+            "GET",
+            "/fhir/Practitioner?role=leadership",
+            frozenset({Role.EXEC, Role.LEAD}),
+        )

@@ -8,7 +8,13 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any, Protocol
 
-from diucs.domain.codes import AgeBand, AlertKind, NeedCategory, RegistrationStatus
+from diucs.domain.codes import (
+    AgeBand,
+    AlertKind,
+    NeedCategory,
+    PractitionerRoleCode,
+    RegistrationStatus,
+)
 from diucs.domain.model.alerts import AlertRecord, AlertSubscription
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
@@ -174,6 +180,13 @@ class PersonRepository(Protocol):
 
     async def active_clinical_leads(self, now: datetime) -> list[PractitionerRole]:
         """Active clinical-lead roles in effect at now (U40, DEC-394). The clinical advisors."""
+        ...
+
+    async def active_roles_with_codes(
+        self, codes: frozenset[PractitionerRoleCode], now: datetime
+    ) -> list[PractitionerRole]:
+        """Active roles of these codes in effect at now, of active practitioners (W7A: the
+        leadership list of the deputy picker)."""
         ...
 
     async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:
@@ -450,6 +463,13 @@ class AlertRepository(Protocol):
         """The alerts owned by this practitioner that are still new."""
         ...
 
+    async def for_owner_with_status(
+        self, practitioner_id: str, status: str, limit: int
+    ) -> list[AlertRecord]:
+        """The alerts owned by this practitioner in this status (acknowledged, closed or
+        escalated), the latest raised first, at most `limit` (W7A, R12)."""
+        ...
+
     async def chain(self, alert_id: str) -> list[AlertRecord]:
         """The alert and every alert it escalates from, from the root through each partOf link,
         oldest first. An unknown id raises NotFound."""
@@ -486,6 +506,11 @@ class ClinicalRequestRepository(Protocol):
 
     async def taken_by(self, clinician_id: str) -> list[ClinicalRequestRecord]:
         """The requests this clinician has taken and not yet advised on."""
+        ...
+
+    async def advised_by(self, clinician_id: str, limit: int) -> list[ClinicalRequestRecord]:
+        """The requests this clinician advised on, the latest advice first, at most `limit`
+        (W7A: the clinician's Done list)."""
         ...
 
 

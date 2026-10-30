@@ -57,7 +57,7 @@ def _check_close(outcome: Outcome, at: datetime, destination_service_id: str | N
 class Case:
     id: str
     reference: str
-    referrer_type: ReferrerType
+    referrer_type: ReferrerType | None
     age_band: AgeBand | None
     postcode: str | None
     needs: tuple[NeedCategory, ...]
@@ -96,7 +96,7 @@ class Case:
 @dataclass(frozen=True, slots=True)
 class CaseAuditSummary:
     reference: str
-    referrer_type: ReferrerType
+    referrer_type: ReferrerType | None
     age_band: AgeBand | None
     needs: tuple[NeedCategory, ...]
     urgency: Urgency | None

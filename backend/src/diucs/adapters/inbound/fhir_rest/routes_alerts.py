@@ -48,7 +48,7 @@ from diucs.adapters.inbound.fhir_rest.concurrency import (
 )
 from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.adapters.inbound.fhir_rest.subscription_mapping import (
-    OPEN_STATUSES,
+    LISTED_STATUSES,
     alert_to_task,
     save_command,
     subscription_to_fhir,
@@ -68,6 +68,7 @@ from diucs.application.use_cases.alerts import (
 )
 from diucs.application.use_cases.subscribe_alert import (
     GetAlertPreferences,
+    ListLeaders,
     SaveAlertPreferences,
 )
 from diucs.application.use_cases.week_summary import GetWeekSummary, GetWeekSummaryCommand
@@ -81,6 +82,9 @@ NO_STORE: Final = {"Cache-Control": "no-store"}
 SCOPE_TENANT: Final = "tenant"
 """The one scope the summary answers for. The network variant (DEC-132) is reserved."""
 ME: Final = "me"
+FINISHED_STATUSES: Final = frozenset({"acknowledged", "closed"})
+LIST_LIMIT: Final = 50
+"""The most alerts an acknowledged or closed list shows (W7A, DEC-775)."""
 
 
 class _Container(Protocol):
@@ -140,6 +144,35 @@ async def read_subscription(
     return FhirJSONResponse(content=bundle, headers=NO_STORE)
 
 
+@router.get("/Practitioner")
+async def read_leaders(
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*SUBSCRIBERS))],
+) -> Response:
+    """The leaders a deputy can be chosen from: `?role=leadership`, each an id and a display name.
+    No phone, no email, no role, no period (W7A, DEC-776)."""
+    if request.query_params.get("role") != "leadership":
+        raise ValidationFailed("role", "must be leadership")
+    container = _container(request)
+    leaders = await ListLeaders(container.uow_factory, container.clock).execute(actor)
+    bundle: dict[str, Any] = {
+        "resourceType": "Bundle",
+        "type": "searchset",
+        "total": len(leaders),
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Practitioner",
+                    "id": leader.id,
+                    "name": [{"text": leader.display_name}],
+                }
+            }
+            for leader in leaders
+        ],
+    }
+    return FhirJSONResponse(content=bundle, headers=NO_STORE)
+
+
 @router.put("/Subscription/{subscription_id}")
 async def save_subscription(
     subscription_id: str,
@@ -179,11 +212,16 @@ async def alert_list(request: Request, actor: Actor) -> Response:
     if query.get("owner") != ME:
         raise ValidationFailed("owner", "must be me")
     status = query.get("status")
-    if status is not None and status not in OPEN_STATUSES:
-        raise ValidationFailed("status", "must be new or escalated")
+    if status is not None and status not in LISTED_STATUSES:
+        raise ValidationFailed("status", "must be new, escalated, acknowledged or closed")
     async with _container(request).uow_factory() as uow:
-        records = await uow.alerts.open_for_owner(actor.practitioner_id or "")
-    if status is not None:
+        if status in FINISHED_STATUSES:
+            records = await uow.alerts.for_owner_with_status(
+                actor.practitioner_id or "", status, LIST_LIMIT
+            )
+        else:
+            records = await uow.alerts.open_for_owner(actor.practitioner_id or "")
+    if status is not None and status not in FINISHED_STATUSES:
         records = [record for record in records if record.status == status]
     bundle: dict[str, Any] = {
         "resourceType": "Bundle",

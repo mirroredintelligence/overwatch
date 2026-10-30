@@ -25,11 +25,11 @@ from typing import Any, Final
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.geo import PostcodeLocator, TravelRange, TravelTime
+from diucs.application.ports.outbound.geo import LatLon, PostcodeLocator, TravelRange, TravelTime
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.open_case import check_role, missing_fields
 from diucs.application.use_cases.query_board import BoardEntry, QueryBoard, QueryBoardQuery
-from diucs.domain.codes import AgeBand, NeedCategory, Status
+from diucs.domain.codes import AgeBand, NeedCategory, ServiceCategory, Status
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
@@ -97,6 +97,9 @@ class Option:
     warnings: tuple[str, ...]
     criteria_id: str
     criteria_version: int
+    category: ServiceCategory | None = None
+    position: LatLon | None = None
+    """The place of a fixed site, from its Location; None for a service with no position."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +114,12 @@ class FilterOptionsResult:
     options: tuple[Option, ...]
     not_suitable: tuple[NotSuitable, ...]
     generated_at: datetime
+    patient: LatLon | None = None
+    """The centre of the case's postcode district (only the district is stored, DEC-067)."""
+    not_found: bool = False
+    """The locator does not know the case's district."""
+    out_of_area: bool = False
+    """No service with current criteria covers the case's district."""
 
 
 def status_reason(status: Status, data_age: timedelta | None) -> str | None:
@@ -296,6 +305,8 @@ class FilterOptions:
                         warnings=warnings,
                         criteria_id=current.id,
                         criteria_version=current.version,
+                        category=entry.category,
+                        position=site,
                     )
                 )
                 rows.append(_snapshot_row(entry, number, data_age, current, SHOWN_AS_OPTION))
@@ -316,4 +327,8 @@ class FilterOptions:
             options=tuple(sorted(options, key=option_order_key)),
             not_suitable=tuple(sorted(not_suitable, key=lambda item: (item.name, item.service_id))),
             generated_at=now,
+            patient=None if patient is None else patient.lat_lon,
+            not_found=patient is None,
+            out_of_area=bool(criteria)
+            and all(district not in item.districts for item in criteria.values()),
         )

@@ -31,12 +31,14 @@ from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
 from diucs.application.use_cases.filter_options import need_phrase
 from diucs.application.work import WorkKind
-from diucs.domain.codes import AdviceChoice, Channel, NeedCategory, Role
+from diucs.domain.codes import AdviceChoice, AgeBand, Channel, NeedCategory, Role, Urgency
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import ClinicalAdviceGiven
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
+from diucs.domain.model.case import Case
 from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
+from diucs.domain.model.scores import News2
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY
 from diucs.domain.rules.clinical_queue import (
     TAKE_TIMEOUT,
@@ -68,6 +70,11 @@ ADVICE_USE_CASE: Final = "GiveClinicalAdvice"
 CREATE: Final = "C"
 UPDATE: Final = "U"
 NO_REQUEST: Final = "no clinical advice request with this id"
+LIST_WAITING: Final = "waiting"
+LIST_MINE: Final = "mine"
+LIST_DONE: Final = "done"
+DONE_LIMIT: Final = 50
+"""The most requests a clinician's Done list shows (W7A, DEC-774)."""
 NOT_CLOSED_FOR_REQUEST: Final = "the case is closed"
 
 
@@ -479,3 +486,160 @@ class ListClinicalQueue:
         async with self.uow_factory() as uow:
             open_records = await uow.clinical_requests.open_requests()
         return queue_now(open_records, self.clock.now())
+
+
+@dataclass(frozen=True, slots=True)
+class CaseGlance:
+    """What a clinical advisor and the advisor who asked may see of the case: its number, age band,
+    needs, urgency and NEWS2. Never the postcode, the district or any identifier (DEC-396)."""
+
+    reference: str
+    age_band: AgeBand | None
+    needs: tuple[NeedCategory, ...]
+    urgency: Urgency | None
+    news2: int | None
+
+
+def glance_of(case: Case) -> CaseGlance:
+    news2 = next((score.value for score in case.scores if isinstance(score, News2)), None)
+    return CaseGlance(
+        reference=case.reference,
+        age_band=case.age_band,
+        needs=case.needs,
+        urgency=case.urgency,
+        news2=news2,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ClinicalRequestView:
+    """A request as it is shown: the record after any lapsed lock is returned, the glance of its
+    case (None when the case cannot be read), the advice note (read for one request only) and the
+    time a held lock ends."""
+
+    record: ClinicalRequestRecord
+    case: CaseGlance | None
+    note: str | None
+    returns_at: datetime | None
+
+
+def _lock_ends(record: ClinicalRequestRecord) -> datetime | None:
+    request = record.request
+    if request.taken_at is None or request.advised_at is not None:
+        return None
+    return request.taken_at + DEFAULT_POLICY.clinical_take_timeout
+
+
+async def _glances(uow: UnitOfWork, case_ids: Sequence[str]) -> dict[str, CaseGlance]:
+    found: dict[str, CaseGlance] = {}
+    for case_id in dict.fromkeys(case_ids):
+        case = await uow.cases.get(case_id)
+        if case is not None:
+            found[case_id] = glance_of(case)
+    return found
+
+
+@dataclass(frozen=True, slots=True)
+class ReadClinicalRequest:
+    """One request, for the advisor who asked and for any clinical advisor. Another advisor, and any
+    other role, are refused with NotFound, the answer for an id that is not there. None means the id
+    is not a clinical advice request at all (the caller may then try it as something else)."""
+
+    uow_factory: UnitOfWorkFactory
+    clock: Clock
+
+    async def execute(self, actor: Actor, request_id: str) -> ClinicalRequestView | None:
+        async with self.uow_factory() as uow:
+            record = await uow.clinical_requests.get(request_id)
+            if record is None:
+                return None
+            if actor.role is Role.CLINICAL:
+                pass
+            elif actor.role is Role.ADVISOR:
+                if actor.practitioner_id is None or actor.practitioner_id != record.requester_id:
+                    raise NotFound(NO_REQUEST)
+            else:
+                raise NotFound(NO_REQUEST)
+            now = self.clock.now()
+            released = replace(record, request=return_if_idle(record.request, now, DEFAULT_POLICY))
+            case = await uow.cases.get(record.request.case_id)
+            advice = record.advice
+            note = (
+                None
+                if advice is None or advice.note_handle is None
+                else await uow.protected_text.get(advice.note_handle)
+            )
+        return ClinicalRequestView(
+            record=released,
+            case=None if case is None else glance_of(case),
+            note=note,
+            returns_at=_lock_ends(released),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ListClinicalRequests:
+    """A clinical advisor's lists (W7A): `waiting` is the queue, `mine` the requests this clinician
+    holds (a lapsed lock is not held), `done` the requests this clinician advised on, the latest
+    first and at most DONE_LIMIT. Each carries the glance of its case."""
+
+    uow_factory: UnitOfWorkFactory
+    clock: Clock
+
+    async def execute(self, actor: Actor, which: str) -> list[ClinicalRequestView]:
+        if actor.role is not Role.CLINICAL:
+            raise NotAllowed("only a clinical advisor may see the clinical lists")
+        if which not in (LIST_WAITING, LIST_MINE, LIST_DONE):
+            raise ValidationFailed("status", "is not a clinical list")
+        clinician = _practitioner(actor) if which != LIST_WAITING else None
+        now = self.clock.now()
+        async with self.uow_factory() as uow:
+            if which == LIST_WAITING:
+                records = queue_now(await uow.clinical_requests.open_requests(), now)
+            elif which == LIST_MINE:
+                assert clinician is not None
+                taken = await uow.clinical_requests.taken_by(clinician)
+                records = [
+                    held
+                    for held in (
+                        replace(r, request=return_if_idle(r.request, now, DEFAULT_POLICY))
+                        for r in taken
+                    )
+                    if held.request.taken_by == clinician
+                ]
+            else:
+                assert clinician is not None
+                records = await uow.clinical_requests.advised_by(clinician, DONE_LIMIT)
+            glances = await _glances(uow, [r.request.case_id for r in records])
+        return [
+            ClinicalRequestView(
+                record=record,
+                case=glances.get(record.request.case_id),
+                note=None,
+                returns_at=_lock_ends(record),
+            )
+            for record in records
+        ]
+
+
+@dataclass(frozen=True, slots=True)
+class PresenceView:
+    """The clinician's own presence (None when none is set or it has lapsed) and the number of
+    clinical advisors available now. A count, never a name."""
+
+    own: Presence | None
+    available: int
+
+
+@dataclass(frozen=True, slots=True)
+class ReadPresence:
+    uow_factory: UnitOfWorkFactory
+    cache: Cache
+    clock: Clock
+
+    async def execute(self, actor: Actor) -> PresenceView:
+        if actor.role is not Role.CLINICAL:
+            raise NotAllowed("only a clinical advisor has a clinical presence")
+        own = parse_presence(await self.cache.get(presence_key(_practitioner(actor))))
+        count = await AvailableClinicians(self.uow_factory, self.cache, self.clock).execute()
+        return PresenceView(own=own, available=count)

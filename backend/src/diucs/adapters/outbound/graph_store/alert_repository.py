@@ -168,6 +168,20 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
             after=(NodeSpec(("Task",), {"id": "alert-1", "businessStatus": "acknowledged"}),),
         ),
     ),
+    "Q-ALERT-OWNER-BY-STATUS": Scenario(
+        "list a practitioner's alerts in a status, latest first, for the alert code",
+        seed=_ALERT_SEED,
+        params={
+            "practitionerId": "p1",
+            "status": "new",
+            "system": TASK_CODE_SYSTEM,
+            "code": ALERT_CODE,
+            "limit": 50,
+        },
+        lookup=("practitionerId", "status", "system", "code"),
+        new=("limit",),
+        expect=Expect(rows=({"id": "alert-1"},)),
+    ),
     "Q-ALERT-OPEN-FOR-OWNER": Scenario(
         "list the new alerts owned by a practitioner, for the alert code",
         seed=_ALERT_SEED,
@@ -235,6 +249,17 @@ _QUERIES: Final[tuple[NamedQuery, ...]] = (
         ),
         mode="write",
         scenario=_SCENARIOS["Q-ALERT-SET-STATUS"],
+    ),
+    NamedQuery(
+        id="Q-ALERT-OWNER-BY-STATUS",
+        cypher=(
+            "MATCH (t:Task {businessStatus: $status, tenantId: $tenant})"
+            "-[:OWNER]->(:Practitioner {id: $practitionerId, tenantId: $tenant}), "
+            "(t)-[:CODE]->(:Concept {system: $system, code: $code, tenantId: $tenant}) "
+            "RETURN t.id AS id ORDER BY t.authoredOn DESC, t.id LIMIT $limit"
+        ),
+        mode="read",
+        scenario=_SCENARIOS["Q-ALERT-OWNER-BY-STATUS"],
     ),
     NamedQuery(
         id="Q-ALERT-OPEN-FOR-OWNER",
@@ -496,6 +521,25 @@ class Neo4jAlertRepository:
             practitionerId=practitioner_id,
             system=TASK_CODE_SYSTEM,
             code=ALERT_CODE,
+        )
+        found: list[AlertRecord] = []
+        for row in rows:
+            alert = await self.get(str(row["id"]))
+            if alert is not None:
+                found.append(alert)
+        return found
+
+    async def for_owner_with_status(
+        self, practitioner_id: str, status: str, limit: int
+    ) -> list[AlertRecord]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-ALERT-OWNER-BY-STATUS"),
+            practitionerId=practitioner_id,
+            status=status,
+            system=TASK_CODE_SYSTEM,
+            code=ALERT_CODE,
+            limit=limit,
         )
         found: list[AlertRecord] = []
         for row in rows:

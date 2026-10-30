@@ -542,6 +542,13 @@ class Neo4jPersonRepository:
             if role.code is PractitionerRoleCode.CLINICAL_LEAD and is_in_effect(role, now)
         ]
 
+    async def active_roles_with_codes(
+        self, codes: frozenset[PractitionerRoleCode], now: datetime
+    ) -> list[PractitionerRole]:
+        rows = await run_query(self._tx, REGISTRY.get("Q-PERSON-ACTIVE-ROLES"))
+        roles = await self._roles(str(row["id"]) for row in rows)
+        return [role for role in roles if role.code in codes and is_in_effect(role, now)]
+
     async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:
         rows = await run_query(
             self._tx, REGISTRY.get("Q-PERSON-ROLES-OF"), key=f"{_PRACTITIONER}/{practitioner_id}"

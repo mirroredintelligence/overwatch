@@ -75,3 +75,22 @@ def test_reaper_sweep_never_removes_a_container_outside_the_throwaway_prefix() -
 
     assert removed == []
     assert [c for c in calls if c and c[0] == "rm"] == []
+
+
+def test_a_session_that_ends_never_removes_the_shared_container(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`stop_throwaway_neo4j` is the end of a private container. Handed the shared container by a
+    wiring mistake, it refuses and sends nothing to Docker (TEN-034)."""
+    calls: list[tuple[str, ...]] = []
+
+    def fake(*args: str, timeout: float = 60.0) -> subprocess.CompletedProcess[str]:
+        calls.append(args)
+        return _done(args)
+
+    monkeypatch.setattr(harness, "_docker", fake)
+
+    with pytest.raises(ValueError, match="private"):
+        stop_throwaway_neo4j(ThrowawayNeo4j("diucs-test-shared-neo4j", "bolt://x", "u", "p"))
+
+    assert calls == []

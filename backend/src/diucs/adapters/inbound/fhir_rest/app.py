@@ -5,6 +5,7 @@ module (the layers and independence contracts in backend/.importlinter). The pro
 it calls container.startup() before serving and container.shutdown() on exit (DEC-012).
 """
 
+import random
 from collections.abc import Callable
 from typing import Protocol, cast
 
@@ -18,6 +19,7 @@ from diucs.adapters.inbound.fhir_rest.errors import (
 )
 from diucs.adapters.inbound.fhir_rest.routes_synthetic import SyntheticHook
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.geo import PostcodeLocator, TravelTime
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.terminology import FhirValidator, Terminology
@@ -45,6 +47,15 @@ class ApiContainer(Protocol):
 
     @property
     def validator(self) -> FhirValidator: ...
+
+    @property
+    def postcodes(self) -> PostcodeLocator: ...
+
+    @property
+    def travel(self) -> TravelTime: ...
+
+    @property
+    def rng(self) -> random.Random: ...
 
 
 def create_app(

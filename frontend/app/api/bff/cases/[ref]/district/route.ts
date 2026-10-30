@@ -1,5 +1,5 @@
 import { readCase, updateCase } from '@/lib/advisor/case-api';
-import { fromServiceRequest } from '@/lib/advisor/case-fhir';
+import { DISTRICT_EXTENSION, fromServiceRequest } from '@/lib/advisor/case-fhir';
 import { answer, idempotencyKeyOf, refuse } from '@/lib/advisor/http';
 import { DISTRICT_PATTERN } from '@/lib/advisor/options';
 import { CASE_ROLES } from '@/lib/advisor/roles';
@@ -14,7 +14,6 @@ import { FhirError } from '@/lib/fhir/client';
 // other field. A case that is not this session's is the one 404 (idScoped).
 
 const CASE_ID = /^[A-Za-z0-9_-]{1,64}$/;
-const DISTRICT_EXTENSION = 'https://diucs.example/StructureDefinition/postcode-district';
 
 type Context = { params: Promise<{ ref: string }> };
 

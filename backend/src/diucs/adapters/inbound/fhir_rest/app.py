@@ -93,10 +93,12 @@ def create_app(
     from diucs.adapters.inbound.fhir_rest import (
         routes_board,
         routes_cases,
+        routes_criteria,
         routes_events,
         routes_identity,
         routes_lead,
         routes_public,
+        routes_registration,
         routes_screens,
         routes_services,
         routes_terminology,
@@ -121,6 +123,9 @@ def create_app(
     app.include_router(routes_public.router)
     # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.
     app.include_router(routes_lead.router)
+    # Registration, scope list and criteria (R10): FHIR operations over the S6 use cases.
+    app.include_router(routes_registration.router)
+    app.include_router(routes_criteria.router)
 
     # Support codes and the support console (R18): JSON routes over the O06 and R18 use cases.
     from diucs.adapters.inbound.fhir_rest import routes_support

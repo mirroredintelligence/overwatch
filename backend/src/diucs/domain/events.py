@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from types import MappingProxyType
-from typing import Any, ClassVar, Self
+from typing import Any, ClassVar, Final, Self
 
 from diucs.domain.codes import (
     AlertKind,
@@ -26,6 +26,13 @@ from diucs.domain.codes import (
     parse_code,
 )
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.network import (
+    DirectorySource,
+    GrantApprover,
+    GrantEndReason,
+    GrantScope,
+    MembershipEndReason,
+)
 
 CAPACITY_EVENTS = "capacity.events"
 BOOKING_EVENTS = "booking.events"
@@ -608,6 +615,185 @@ class ReportEscalated:
             due_at=_when(payload, "due_at"),
             at=_when(payload),
         )
+
+
+# ---------------------------------------------------------------- network events (TEN-038)
+# Stub for the red commit: every class refuses to be built.
+
+NETWORK_EVENTS = "network.events"
+PROJECTION_WORK = "projection.work"
+PAYLOAD_EXCEPTIONS: Final[frozenset[str]] = frozenset({"ProjectionRequested"})
+
+type ProjectionValue = str | int | float | bool | None | tuple[str | int | float | bool, ...]
+
+
+class ProjectionRejectReason(StrEnum):
+    GRANT_NOT_EFFECTIVE = "grant-not-effective"
+    MEMBER_NOT_ACTIVE = "member-not-active"
+    LISTING_NOT_ADMITTED = "listing-not-admitted"
+    ALLOWLIST_MISMATCH = "allowlist-mismatch"
+    INVALID_BODY = "invalid-body"
+
+
+@dataclass(frozen=True, slots=True)
+class NetworkCreated:
+    event_type: ClassVar[str] = "NetworkCreated"
+    network_id: str
+    owner_tenant_id: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class MemberAdded:
+    event_type: ClassVar[str] = "MemberAdded"
+    network_id: str
+    member_tenant_id: str
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class MemberRemoved:
+    event_type: ClassVar[str] = "MemberRemoved"
+    network_id: str
+    member_tenant_id: str
+    reason: MembershipEndReason
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class AgreementRecorded:
+    event_type: ClassVar[str] = "AgreementRecorded"
+    network_id: str
+    reference: str
+    version: int
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class GrantProposed:
+    event_type: ClassVar[str] = "GrantProposed"
+    grant_id: str
+    network_id: str
+    grantor_tenant_id: str
+    scope: GrantScope
+    version: int
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class GrantApproved:
+    event_type: ClassVar[str] = "GrantApproved"
+    grant_id: str
+    network_id: str
+    grantor_tenant_id: str
+    scope: GrantScope
+    version: int
+    by: GrantApprover
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class GrantEffective:
+    event_type: ClassVar[str] = "GrantEffective"
+    grant_id: str
+    network_id: str
+    grantor_tenant_id: str
+    scope: GrantScope
+    version: int
+    effective_from: datetime
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class GrantEnded:
+    event_type: ClassVar[str] = "GrantEnded"
+    grant_id: str
+    network_id: str
+    grantor_tenant_id: str
+    scope: GrantScope
+    version: int
+    reason: GrantEndReason
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectionApplied:
+    event_type: ClassVar[str] = "ProjectionApplied"
+    network_id: str
+    source_tenant_id: str
+    kind: GrantScope
+    item_id: str
+    source_version: int
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectionRejected:
+    event_type: ClassVar[str] = "ProjectionRejected"
+    network_id: str
+    source_tenant_id: str
+    kind: GrantScope
+    reason: ProjectionRejectReason
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class ServiceDirectoryChanged:
+    event_type: ClassVar[str] = "ServiceDirectoryChanged"
+    service_id: str
+    source: DirectorySource
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
+
+
+@dataclass(frozen=True, slots=True)
+class ProjectionRequested:
+    message_type: ClassVar[str] = "ProjectionRequested"
+    network_id: str
+    source_tenant_id: str
+    grant_id: str
+    grant_version: int
+    kind: GrantScope
+    source_service_id: str
+    source_version: int
+    allowlist_version: int
+    body: Mapping[str, ProjectionValue]
+    at: datetime
+
+    def __post_init__(self) -> None:
+        raise NotImplementedError
 
 
 DomainEvent = (

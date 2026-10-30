@@ -21,6 +21,7 @@ from diucs.domain.codes import (
 )
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.events import (
+    AgreementRecorded,
     AlertAcknowledged,
     AlertRaised,
     BookingCancelled,
@@ -31,7 +32,17 @@ from diucs.domain.events import (
     CapacityReported,
     CriteriaApproved,
     DomainEvent,
+    GrantApproved,
+    GrantEffective,
+    GrantEnded,
+    GrantProposed,
+    MemberAdded,
+    MemberRemoved,
+    NetworkCreated,
     PhoneTaskRaised,
+    ProjectionApplied,
+    ProjectionRejected,
+    ProjectionRejectReason,
     RegistrationApproved,
     RegistrationPersisted,
     RegistrationSubmitted,
@@ -39,10 +50,18 @@ from diucs.domain.events import (
     ReportEscalated,
     ReportFlagged,
     ServiceActivated,
+    ServiceDirectoryChanged,
     StatusChanged,
     from_payload,
     session_id_for,
     topic_for,
+)
+from diucs.domain.model.network import (
+    DirectorySource,
+    GrantApprover,
+    GrantEndReason,
+    GrantScope,
+    MembershipEndReason,
 )
 
 SERVICE_ID = "svc-ucr-west"
@@ -70,6 +89,23 @@ SAMPLES: tuple[DomainEvent, ...] = (
     ReportFlagged("flag-1", SERVICE_ID, "obs-1", ReportFlagReason.MANY_CHANGES, AT),
     PhoneTaskRaised(SERVICE_ID, DUE_AT, AT),
     ReportEscalated(SERVICE_ID, DUE_AT, AT),
+    NetworkCreated("net-test", "tenant-a", AT),
+    MemberAdded("net-test", "tenant-b", AT),
+    MemberRemoved("net-test", "tenant-b", MembershipEndReason.LEFT, AT),
+    AgreementRecorded("net-test", "DSA-2026/14", 2, AT),
+    GrantProposed("grant-1", "net-test", "tenant-b", GrantScope.CAPACITY, 1, AT),
+    GrantApproved(
+        "grant-1", "net-test", "tenant-b", GrantScope.CAPACITY, 1, GrantApprover.OWNER, AT
+    ),
+    GrantEffective("grant-1", "net-test", "tenant-b", GrantScope.DIRECTORY, 1, DUE_AT, AT),
+    GrantEnded(
+        "grant-1", "net-test", "tenant-b", GrantScope.CRITERIA, 2, GrantEndReason.LAPSED, AT
+    ),
+    ProjectionApplied("net-test", "tenant-b", GrantScope.CAPACITY, "svc-ucr-west", 7, AT),
+    ProjectionRejected(
+        "net-test", "tenant-b", GrantScope.DIRECTORY, ProjectionRejectReason.INVALID_BODY, AT
+    ),
+    ServiceDirectoryChanged(SERVICE_ID, DirectorySource.MANUAL, AT),
 )
 
 EXPECTED_TOPIC: dict[type, str] = {
@@ -91,6 +127,17 @@ EXPECTED_TOPIC: dict[type, str] = {
     ReportFlagged: "capacity.events",
     PhoneTaskRaised: "capacity.events",
     ReportEscalated: "alerts.events",
+    NetworkCreated: "network.events",
+    MemberAdded: "network.events",
+    MemberRemoved: "network.events",
+    AgreementRecorded: "network.events",
+    GrantProposed: "network.events",
+    GrantApproved: "network.events",
+    GrantEffective: "network.events",
+    GrantEnded: "network.events",
+    ProjectionApplied: "network.events",
+    ProjectionRejected: "network.events",
+    ServiceDirectoryChanged: "registration.events",
 }
 
 
@@ -161,7 +208,17 @@ def test_datetimes_keep_their_microseconds_and_end_in_z() -> None:
 
 
 def test_no_event_has_a_patient_field() -> None:
-    forbidden = {"postcode", "name", "nhs_number", "needs"}
+    forbidden = {
+        "postcode",
+        "name",
+        "nhs_number",
+        "needs",
+        "phone",
+        "email",
+        "comment",
+        "free_text",
+        "address",
+    }
     for cls in get_args(DomainEvent):
         names = {field.name for field in dataclasses.fields(cls)}
         assert names.isdisjoint(forbidden), cls.__name__

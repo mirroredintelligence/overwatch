@@ -33,7 +33,7 @@ LEADERS = "/fhir/Practitioner"
 CLINICAL_LEAD = "prac-clinical-lead"
 FORMER = "prac-former-lead"
 INACTIVE = "prac-inactive-lead"
-REPORTER = "prac-a-reporter"
+REPORTER = "prac-a-coordinator"
 B_LEAD = "prac-b-lead"
 
 
@@ -78,7 +78,7 @@ async def leaders_world(
     await _person(
         uow_factory_a, INACTIVE, "Inactive Lead", PractitionerRoleCode.SHIFT_LEAD, active=False
     )
-    await _person(uow_factory_a, REPORTER, "A Reporter", PractitionerRoleCode.REPORTER)
+    await _person(uow_factory_a, REPORTER, "A Coordinator", PractitionerRoleCode.COORDINATOR)
     await _person(uow_factory_b, B_LEAD, "Other Tenant Lead", PractitionerRoleCode.SHIFT_LEAD)
 
 

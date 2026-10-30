@@ -144,7 +144,7 @@ def test_a_code_that_is_not_listed_is_a_400_that_does_not_echo_it(
     assert message_field in refused.value.field
 
 
-# Urgency (DEC-397, decided again in DEC-770): planned is kept as planned.
+# Urgency (DEC-397, decided again in DEC-773): planned is kept as planned.
 
 
 @pytest.mark.parametrize(

@@ -10,7 +10,7 @@ Shapes the front end reads and writes (docs/delivery/fragments/W7A-routes.md):
 - the urgency is the extension `urgency` (within-2-hrs, today or planned). The FHIR `priority`
   carries urgent for within-2-hrs and routine for today and planned, because FHIR has no planned
   priority. A body with a priority and no urgency extension reads as before (urgent is within
-  2 hrs, routine is today). A priority that disagrees with the extension is refused (DEC-770);
+  2 hrs, routine is today). A priority that disagrees with the extension is refused (DEC-773);
 - a referrer's score is one complex extension, `score`, with a `method` and a `value`;
 - the answer carries the case reference as the identifier, the open time as authoredOn, and, once
   closed, the close time and the outcome as extensions.

@@ -1,7 +1,10 @@
 """Advisor cases over FHIR (R07).
 
-POST /fhir/ServiceRequest                       open a case (OpenCase, U11, then UpdateCase, U11)
-PUT  /fhir/ServiceRequest/{id}                  update needs, urgency and postcode (If-Match)
+POST /fhir/ServiceRequest                       open a case (OpenCase, U11, then UpdateCase, U11); a
+                                                body with no details opens an empty case (DEC-770)
+GET  /fhir/ServiceRequest/{id}                  read one case, open or closed (W7A)
+PUT  /fhir/ServiceRequest/{id}                  update referrer, age band, postcode, needs, urgency
+                                                and scores (If-Match)
 POST /fhir/ServiceRequest/{id}/$close           close with an outcome (RecordOutcome, U14)
 POST /fhir/HealthcareService/$filter-options    the options for a case (FilterOptions, U12)
 POST /fhir/HealthcareService/{id}/$advisor-phoned   "I phoned" (RecordAdvisorPhoned, U13)
@@ -15,8 +18,11 @@ The only stored patient data is the postcode district and an age band (DEC-398).
 name, identifier, birth date or telecom is refused with 400 invalid before anything is read or
 written; the message never echoes the value.
 
-Decisions: DEC-397 (the open is two use cases in two units; the priority mapping), DEC-398 (no case
-version: If-Match is required but its value is not compared; the answers are the stored shape).
+Decisions: DEC-397 (the open is two use cases in two units), DEC-398 (no case version: If-Match is
+required but its value is not compared; the answers are the stored shape), DEC-770 (an empty open,
+the referrer optional until the case is complete), DEC-773 (planned is kept as planned; scores are
+stored), DEC-779 (the options carry category, place and the map flags), DEC-781 (the close time).
+The ServiceRequest shape is in case_mapping.py.
 """
 
 import json
@@ -79,7 +85,7 @@ ETAG_OPEN: Final = 'W/"1"'
 router = APIRouter(prefix="/fhir")
 capability.register_resource(
     "ServiceRequest",
-    ("create", "update"),
+    ("read", "create", "update"),
     (f"{BASE_URL}OperationDefinition/close",),
 )
 

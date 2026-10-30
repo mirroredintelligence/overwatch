@@ -25,6 +25,23 @@ _SEPARATORS: Final = re.compile(r"[ \-().]")
 _UK_MOBILE: Final = re.compile(r"07[0-9]{9}")
 
 
+class TenantKeyedSecrets:
+    """Stub for the red commit (TEN-023)."""
+
+    def __init__(self, platform: SecretStore) -> None:
+        self._platform = platform
+
+    def get(self, name: str) -> bytes:
+        return self._platform.get(name)
+
+    def is_configured(self, name: str) -> bool:
+        raise NotImplementedError
+
+
+def secret_is_configured(store: SecretStore, name: str) -> bool:
+    raise NotImplementedError
+
+
 class PhoneHasher(Protocol):
     def hash(self, number: str) -> str: ...
 

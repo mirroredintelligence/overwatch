@@ -19,12 +19,21 @@ from diucs.adapters.outbound.ids_uuid.uuid_ids import UuidGenerator
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
-from diucs.application.tenancy import current_scope, current_scope_or_none
+from diucs.application.ports.outbound.identity import TenantKeyedSecrets
+from diucs.application.tenancy import (
+    DEFAULT_TENANT_ID,
+    bind_tenant,
+    current_scope,
+    current_scope_or_none,
+)
 from diucs.application.work import WorkKind
 from diucs.bootstrap import container as container_module
 from diucs.bootstrap.container import build, build_for_tests
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
+from diucs.domain.model.tenant import Tenant
+from diucs.domain.rules.tenant_keys import KeyVersionMismatch, derive_tenant_key
+from tests.support.tenant_samples import make_tenant
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 
@@ -197,9 +206,28 @@ async def test_build_has_no_secret_store_until_one_is_given_and_fails_closed() -
     store = FixedSecretStore({"link-token": b"x"})
     given = build(Settings(), secrets=store)
     try:
-        assert given.secrets is store
+        # The process's store is wrapped so that every hash and token key is the tenant's own
+        # (TEN-023); a name that is not keyed reads straight through.
+        assert isinstance(given.secrets, TenantKeyedSecrets)
+        with bind_tenant("acme-icb"):
+            assert given.secrets.get("link-token") == derive_tenant_key(
+                b"x", "acme-icb", "link-token"
+            )
+        with bind_tenant(DEFAULT_TENANT_ID):
+            assert given.secrets.get("link-token") == b"x"
     finally:
         await given.shutdown()
+
+
+async def test_the_production_container_never_hands_out_the_platform_key_to_a_tenant() -> None:
+    store = FixedSecretStore({"phone-hash": b"p" * 32, "twilio/acme-icb/auth-token": b"t"})
+    container = build(Settings(), secrets=store)
+    try:
+        with bind_tenant("acme-icb"):
+            assert container.secrets.get("phone-hash") != b"p" * 32
+            assert container.secrets.get("twilio/acme-icb/auth-token") == b"t"
+    finally:
+        await container.shutdown()
 
 
 async def test_the_container_is_still_frozen_with_the_new_fields(neo4j: Neo4jConnection) -> None:
@@ -213,11 +241,18 @@ async def test_the_container_is_still_frozen_with_the_new_fields(neo4j: Neo4jCon
 class _Tenants:
     """Stands in for the tenant directory: the ids the start-up binds, in order."""
 
-    def __init__(self, ids: list[str]) -> None:
+    def __init__(self, ids: list[str], versions: dict[str, int] | None = None) -> None:
         self._ids = ids
+        self._versions = {} if versions is None else versions
 
     async def active_tenant_ids(self) -> list[str]:
         return list(self._ids)
+
+    async def list_active(self) -> list[Tenant]:
+        return [
+            make_tenant(id=tenant_id, hash_key_version=self._versions.get(tenant_id, 1))
+            for tenant_id in self._ids
+        ]
 
 
 async def test_start_up_opens_the_connection_then_migrates_then_ensures_the_audit_head(
@@ -558,3 +593,53 @@ async def test_build_exposes_the_same_dispatch_table() -> None:
         )
     finally:
         await container.shutdown()
+
+
+async def test_start_up_refuses_a_tenant_whose_hash_key_version_does_not_match_its_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        return []
+
+    async def fake_head(driver: object) -> None:
+        events.append("head")
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    monkeypatch.setattr(container_module, "ensure_audit_head", fake_head)
+    container = dataclasses.replace(
+        build_for_tests(neo4j=cast(Neo4jConnection, connection)),
+        tenants=cast(Any, _Tenants(["acme-icb"], {"acme-icb": 0})),
+    )
+
+    with pytest.raises(KeyVersionMismatch):
+        await container.startup()
+
+    assert "head" not in events
+    assert events[-1] == "close"
+
+
+async def test_start_up_accepts_the_default_tenant_on_the_legacy_key_and_others_on_derived_keys(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        return []
+
+    async def fake_head(driver: object) -> None:
+        events.append(f"head:{current_scope().value}")
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    monkeypatch.setattr(container_module, "ensure_audit_head", fake_head)
+    container = dataclasses.replace(
+        build_for_tests(neo4j=cast(Neo4jConnection, connection)),
+        tenants=cast(Any, _Tenants([DEFAULT_TENANT_ID, "acme-icb"], {DEFAULT_TENANT_ID: 0})),
+    )
+
+    await container.startup()
+
+    assert [e for e in events if e.startswith("head:")] == ["head:default", "head:acme-icb"]

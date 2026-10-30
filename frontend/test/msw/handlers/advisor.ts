@@ -33,6 +33,7 @@ export function resetSeenAdvisorRequests() {
   seenCasePuts.length = 0;
   PATHWAYS_BACKEND_CALLS.length = 0;
   seenOptionsReads.length = 0;
+  seenOutcomePosts.length = 0;
 }
 
 const caseHandlers = [
@@ -76,6 +77,35 @@ export const CRITERIA_VIEW = {
   overdue: false,
 };
 
+/** The summary for the finish screen (W15), as the BFF answers it: display strings only. */
+export const SUMMARY_VIEW = {
+  reference: CASE_ID,
+  referrer: 'Ambulance crew',
+  ageBand: '80+',
+  postcode: 'DT4 8XX',
+  needs: 'Fall, Frailty',
+  urgency: 'Within 2 hrs',
+  scores: 'NEWS2 2; Frailty scale 6 · Moderately frail',
+  destination: 'UCR West',
+  booked: 'Confirmed 14:19, reference 4821',
+  dataAge: 'Capacity 9 min old · criteria v3',
+};
+
+/** Every outcome POST this file's handlers saw, newest last. */
+export const seenOutcomePosts: { body: unknown; csrf: string | null; key: string | null }[] = [];
+
+const outcomeHandlers = [
+  http.get('/api/bff/cases/:ref/summary', () => HttpResponse.json(SUMMARY_VIEW)),
+  http.post('/api/bff/cases/:ref/outcome', async ({ request }) => {
+    seenOutcomePosts.push({
+      body: await request.json(),
+      csrf: request.headers.get('x-csrf-token'),
+      key: request.headers.get('idempotency-key'),
+    });
+    return HttpResponse.json({ closedAt: '2026-10-30T14:21:00.000Z' });
+  }),
+];
+
 const serviceHandlers = [
   http.get('/api/bff/services/:id/criteria', () => HttpResponse.json(CRITERIA_VIEW)),
   http.post('/api/bff/services/:id/phoned', () => HttpResponse.json({ recorded: true }, { status: 201 })),
@@ -94,6 +124,7 @@ export const advisorHandlers = [
   ...pathwaysHandlers,
   ...optionsHandlers,
   ...serviceHandlers,
+  ...outcomeHandlers,
   http.get('/api/bff/board', () => HttpResponse.json(BOARD_A)),
   http.get('/api/bff/session', () =>
     HttpResponse.json({ role: 'advisor', services: [], sub: 'advisor-1', csrfToken: CSRF_TOKEN }),

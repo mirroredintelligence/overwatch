@@ -23,7 +23,7 @@ import type { FieldIssue } from '@/lib/register/types';
 import styles from './register.module.css';
 
 // Registration step 3, describing the service and who it is for (W25, artboards RegisterFlow2
-// panels 5 and 6). The service's name is the invitation's and is read-only. Continue checks every
+// panels 5 and 6). The service's name is set by the shift lead and is read-only here. Continue checks every
 // answer here and the back end checks them again on save.
 
 export type ServiceFormProps = { registrationId: string };
@@ -94,7 +94,7 @@ export function ServiceForm({ registrationId }: ServiceFormProps) {
       setCsrf(token);
       if (outcome.kind === 'open') {
         const fixed = outcome.view.steps.location?.fixedSite;
-        setLoad({ kind: 'open', serviceName: outcome.view.invitation.serviceName, fixedSite: typeof fixed === 'boolean' ? fixed : undefined });
+        setLoad({ kind: 'open', serviceName: outcome.view.serviceName, fixedSite: typeof fixed === 'boolean' ? fixed : undefined });
       } else {
         setLoad({ kind: outcome.kind });
       }

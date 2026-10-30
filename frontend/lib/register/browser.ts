@@ -2,6 +2,7 @@
 // session and the registration are the only things the BFF needs, and both are in its cookies.
 // The CSRF header name is written out here, because lib/auth/csrf.ts is server-only.
 
+import type { MyService, ReviewRow, StatusView } from './applicant';
 import { isStepName } from './steps';
 import type { FieldIssue, RegistrationView, StepName } from './types';
 
@@ -52,7 +53,7 @@ export async function loadRegistration(id: string): Promise<LoadOutcome> {
   if (response.status === 401) return { kind: 'signed-out' };
   if (!response.ok) return { kind: 'unavailable' };
   const body = await bodyOf(response);
-  if (typeof body.id !== 'string' || typeof body.status !== 'string' || typeof body.invitation !== 'object' || body.invitation === null) {
+  if (typeof body.id !== 'string' || typeof body.status !== 'string' || typeof body.serviceName !== 'string' || typeof body.steps !== 'object' || body.steps === null) {
     return { kind: 'unavailable' };
   }
   return { kind: 'open', view: body as unknown as RegistrationView };
@@ -98,7 +99,7 @@ export async function submitRegistration(id: string, csrf: string): Promise<Step
   return { kind: 'failed' };
 }
 
-export type ReviewRow = { key: string; status: 'complete' | 'needs-attention'; summary: string };
+export type { ReviewRow, MyService };
 
 /** The review's rows, or unavailable. */
 export async function loadReview(id: string): Promise<{ kind: 'open'; sections: ReviewRow[] } | { kind: 'unavailable' } | { kind: 'signed-out' }> {
@@ -120,7 +121,6 @@ export async function loadReview(id: string): Promise<{ kind: 'open'; sections: 
   return { kind: 'open', sections };
 }
 
-export type MyService = { id: string; serviceName: string; state: 'active' | 'pending-approval' | 'review-due'; detail: string };
 
 /** The reporter's own services, or unavailable. */
 export async function loadMine(): Promise<{ kind: 'open'; services: MyService[] } | { kind: 'unavailable' } | { kind: 'signed-out' }> {
@@ -137,22 +137,13 @@ export async function loadMine(): Promise<{ kind: 'open'; services: MyService[] 
   const services = body.services.filter(
     (row): row is MyService =>
       typeof row === 'object' && row !== null && typeof (row as MyService).id === 'string' && typeof (row as MyService).serviceName === 'string' &&
-      ['active', 'pending-approval', 'review-due'].includes((row as MyService).state) && typeof (row as MyService).detail === 'string',
+      ['active', 'pending-approval', 'review-due', 'not-approved'].includes((row as MyService).state) && typeof (row as MyService).detail === 'string',
   );
   return { kind: 'open', services };
 }
 
-export type StatusDetails = { spoaPhone?: string; criteriaOwner?: string; reportingPhoneEnding?: string };
-export type RegistrationStatusView = {
-  status: string;
-  serviceName: string;
-  submittedAt?: string;
-  notes?: string[];
-  noteFrom?: { role: string; at: string };
-  reason?: string;
-  firstPromptAt?: string;
-  details?: StatusDetails;
-};
+export type RegistrationStatusView = StatusView;
+export type StatusDetails = NonNullable<StatusView['details']>;
 
 /** The applicant's status, or unavailable. A status the page does not know is read as unavailable by the page. */
 export async function loadStatus(id: string): Promise<{ kind: 'open'; view: RegistrationStatusView } | { kind: 'unavailable' } | { kind: 'signed-out' }> {
@@ -166,7 +157,7 @@ export async function loadStatus(id: string): Promise<{ kind: 'open'; view: Regi
   if (!response.ok) return { kind: 'unavailable' };
   const body = await bodyOf(response);
   if (typeof body.status !== 'string' || typeof body.serviceName !== 'string') return { kind: 'unavailable' };
-  return { kind: 'open', view: body as unknown as RegistrationStatusView };
+  return { kind: 'open', view: body as unknown as StatusView };
 }
 
 /** One of the applicant's status actions: the test, a review request, or the confirmation of details. */

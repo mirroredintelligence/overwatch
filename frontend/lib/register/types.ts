@@ -18,20 +18,18 @@ export const REGISTRATION_STATUSES = [
 ] as const;
 export type RegistrationStatus = (typeof REGISTRATION_STATUSES)[number];
 
-/** What the invitation fixes. These are read-only on every step: the BFF takes them from the back end, never from the browser. */
-export type Invitation = {
-  serviceName: string;
-  organisationName: string;
-  odsCode: string;
-};
-
 /** The saved answers of one step, as the back end holds them, for prefilling a form. */
 export type StepValues = Record<string, string | number | boolean | null | undefined>;
 
+/**
+ * The registration as the applicant's pages see it (DEC-904): its status, the service the registration
+ * is for (set by the lead, so locked on every step) and the saved steps. The organisation's name and
+ * ODS code are typed by the applicant (DEC-910), so they are saved answers, not locked invitation values.
+ */
 export type RegistrationView = {
   id: string;
   status: RegistrationStatus;
-  invitation: Invitation;
+  serviceName: string;
   steps: Partial<Record<StepName, StepValues>>;
 };
 

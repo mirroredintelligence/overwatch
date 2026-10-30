@@ -10,16 +10,17 @@ import { TextField } from '@/components/forms/TextField';
 import { loadRegistration, saveStep, sessionCsrf, type StepOutcome } from '@/lib/register/browser';
 import { ORGANISATION_TYPES } from '@/lib/register/options';
 import { validateOrganisation, type OrganisationAnswers } from '@/lib/register/validate';
-import type { FieldIssue, Invitation } from '@/lib/register/types';
+import type { FieldIssue } from '@/lib/register/types';
 import styles from './register.module.css';
 
-// Registration step 1, the organisation (W54, artboard RegisterFlow1 panel 3). What the invitation
-// fixes is shown as text and cannot be changed. "Continue" checks the answers, saves them and goes on
-// to step 2; "Save draft" saves what is there. The back end's refusals come back as the same errors.
+// Registration step 1, the organisation (W54, artboard RegisterFlow1 panel 3). The service is set by the
+// shift lead and is shown as text. The organisation's name and ODS code are typed here (DEC-910); the
+// reviewer's checks confirm them. "Continue" checks the answers, saves them and goes on to step 2;
+// "Save draft" saves what is there. Fields the back end cannot keep are on screen but never sent (DEC-906).
 
 export type OrganisationFormProps = { registrationId: string };
 
-type Load = { kind: 'loading' } | { kind: 'open'; invitation: Invitation } | { kind: 'unavailable' } | { kind: 'signed-out' };
+type Load = { kind: 'loading' } | { kind: 'open'; serviceName: string } | { kind: 'unavailable' } | { kind: 'signed-out' };
 
 const LOAD_FAILED = 'We could not load your registration. Try again later.';
 const SIGNED_OUT = 'Please sign in again.';
@@ -47,7 +48,7 @@ export function OrganisationForm({ registrationId }: OrganisationFormProps) {
       if (!alive) return;
       setCsrf(token);
       if (outcome.kind === 'open') {
-        setLoad({ kind: 'open', invitation: outcome.view.invitation });
+        setLoad({ kind: 'open', serviceName: outcome.view.serviceName });
         setAnswers({ ...(outcome.view.steps.organisation as OrganisationAnswers | undefined) });
       } else {
         setLoad({ kind: outcome.kind });
@@ -64,7 +65,8 @@ export function OrganisationForm({ registrationId }: OrganisationFormProps) {
       return;
     }
     const body: Record<string, unknown> = {};
-    for (const key of ['orgType', 'contactName', 'contactRole', 'contact'] as const) {
+    // The contact role and the part-of answer are on screen only: the back end cannot keep them (DEC-906).
+    for (const key of ['name', 'odsCode', 'orgType', 'contactName', 'contact'] as const) {
       const value = answers[key]?.trim();
       if (value !== undefined && value !== '') body[key] = value;
     }
@@ -105,7 +107,7 @@ export function OrganisationForm({ registrationId }: OrganisationFormProps) {
     );
   }
 
-  const { invitation } = load;
+  const { serviceName } = load;
   const set = (key: keyof OrganisationAnswers) => (value: string) => {
     setAnswers((current) => ({ ...current, [key]: value }));
   };
@@ -116,18 +118,10 @@ export function OrganisationForm({ registrationId }: OrganisationFormProps) {
       <dl className={styles.locked}>
         <div>
           <dt>Service</dt>
-          <dd>{invitation.serviceName}</dd>
-        </div>
-        <div>
-          <dt>Organisation</dt>
-          <dd>{invitation.organisationName}</dd>
-        </div>
-        <div>
-          <dt>ODS code</dt>
-          <dd>{invitation.odsCode}</dd>
+          <dd>{serviceName}</dd>
         </div>
       </dl>
-      <p className={styles.note}>From your invitation. It cannot be changed.</p>
+      <p className={styles.note}>The shift lead set the service. It cannot be changed here.</p>
 
       <form
         className={styles.stack}
@@ -150,6 +144,22 @@ export function OrganisationForm({ registrationId }: OrganisationFormProps) {
           requirement="required"
           error={errorFor(errors, 'orgType')}
           dataEl="REG-STEP1-TYPE"
+        />
+        <TextField
+          id="name"
+          label="Organisation name"
+          value={answers.name ?? ''}
+          onChange={set('name')}
+          autoComplete="organization"
+          error={errorFor(errors, 'name')}
+        />
+        <TextField
+          id="odsCode"
+          label="ODS code"
+          value={answers.odsCode ?? ''}
+          onChange={set('odsCode')}
+          hint="Your organisation's code in the NHS Organisation Data Service"
+          error={errorFor(errors, 'odsCode')}
         />
         <TextField
           id="partOf"

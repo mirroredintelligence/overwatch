@@ -61,6 +61,7 @@ def payload(**changes: Any) -> dict[str, Any]:
         "services": ["svc-1"],
         "tenant": TENANT,
         "epoch": 1,
+        "aud": "diucs-api",
         "exp": int(EXPIRES.timestamp()),
     }
     for key, value in changes.items():

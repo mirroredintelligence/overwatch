@@ -519,6 +519,9 @@ TENANT_FREE = {
 }
 BINDS_ITSELF = {
     ("GET", "/public/tenant-profile"): "tenant from the host, by bind_host_tenant (TEN-040)",
+    ("POST", "/auth/token"): "tenant from the host, by bind_host_tenant (TEN-043)",
+    ("POST", "/auth/device-token"): "tenant from the host, by resolve_active_device (TEN-043)",
+    ("POST", "/auth/operator-token"): "no tenant: the operator directory's own token (TEN-043)",
     ("POST", "/screens/pairing"): "tenant from the host (R15)",
     ("GET", "/screens/pairing/{pairing_id}"): "tenant from the host (R15)",
     ("POST", "/identity/code"): "tenant from the host (R11)",
@@ -646,3 +649,20 @@ async def test_every_public_route_binds_the_tenant_of_its_host_through_the_one_b
     for key, route in public.items():
         assert _depends_on(route.dependant, bind_host_tenant), key
         assert not _depends_on_actor(route.dependant), key
+
+
+async def test_the_staff_and_screen_exchange_routes_bind_the_tenant_of_their_host() -> None:
+    app = build(active_tenants(TENANT_A))
+    routes = _routes(app)
+
+    for key in (("POST", "/auth/token"), ("POST", "/auth/device-token")):
+        assert _depends_on(routes[key].dependant, bind_host_tenant), key
+        assert not _depends_on_actor(routes[key].dependant), key
+
+
+async def test_the_operator_exchange_route_binds_no_tenant_at_all() -> None:
+    app = build(active_tenants(TENANT_A))
+    route = _routes(app)[("POST", "/auth/operator-token")]
+
+    assert not _depends_on(route.dependant, bind_host_tenant)
+    assert not _depends_on_actor(route.dependant)

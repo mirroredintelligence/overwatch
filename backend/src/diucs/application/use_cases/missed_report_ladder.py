@@ -259,8 +259,8 @@ class MissedReportLadder:
     async def execute(self, command: LadderStepCommand) -> LadderStepResult:
         fingerprint = _fingerprint(command)
         async with self._uow_factory() as uow:
-            # The tenant is the unit's scope, and the actor's own: a step of one tenant never runs in
-            # another's scope (a wiring fault, never an access decision). Before any read.
+            # The tenant is the unit's scope, and the actor's own: a step of one tenant never runs
+            # in another's scope (a wiring fault, never an access decision). Before any read.
             scope = tenant_scope_of_unit(uow.unit_scope, command.actor)
             key = _command_key(scope, command.idempotency_key)
             stored = await uow.idempotency.get(key)

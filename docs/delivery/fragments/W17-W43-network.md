@@ -1,6 +1,6 @@
 # W17 and W43: the lead's network variants (back end reads)
 
-Bundle W9B. The lead's "System now" network variant (W17), and the phones and moves network variants (W43), designed as the minimal read routes the pages need. Tests: `test_network_lead_views.py` (unit, 20), `test_network_lead_routes.py` (integration, with the role matrix).
+Bundle W9B. The lead's "System now" network variant (W17), and the phones and moves network variants (W43), designed as the minimal read routes the pages need. Tests: `test_network_lead_views.py` (unit, 20 cases), `test_network_lead_routes.py` (integration, with the role matrix).
 
 ## Decisions
 

@@ -390,9 +390,12 @@ _QUERIES: Final[dict[str, tuple[str, Literal["read", "write"]]]] = {
         "RETURN properties(v) AS props",
         "read",
     ),
+    # No LIMIT: the caller takes the first row, which is the highest version in force, and the
+    # extra row a missing tenant predicate would add (both tenants hold a current version) is then
+    # visible to the generated test instead of being cut off (as Q-CONTACT-GET, 4b9679b).
     "Q-TCFG-CURRENT": (
         "MATCH (v:TenantConfigVersion {status: 'current', tenantId: $tenant}) "
-        "RETURN properties(v) AS props ORDER BY v.version DESC LIMIT 1",
+        "RETURN properties(v) AS props ORDER BY v.version DESC",
         "read",
     ),
     "Q-TCFG-SETTINGS": (

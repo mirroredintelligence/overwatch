@@ -197,9 +197,16 @@ def test_the_latest_statement_also_counts_so_a_missing_predicate_shows() -> None
 
 
 def test_no_read_of_a_unique_key_is_limited() -> None:
-    for query_id in ("Q-TCFG-GET", "Q-TCFG-SETTINGS", "Q-TCONTACT-LIST", "Q-TCHANNEL-LIST"):
+    # A LIMIT would cut off the extra row a missing tenant predicate adds and hide the leak from
+    # the generated test, so no read is limited; the version in force is the first row by order.
+    for query_id in (
+        "Q-TCFG-GET",
+        "Q-TCFG-CURRENT",
+        "Q-TCFG-SETTINGS",
+        "Q-TCONTACT-LIST",
+        "Q-TCHANNEL-LIST",
+    ):
         assert "LIMIT" not in REGISTRY.get(query_id).cypher
-    assert "LIMIT 1" in REGISTRY.get("Q-TCFG-CURRENT").cypher
     assert "ORDER BY v.version DESC" in REGISTRY.get("Q-TCFG-CURRENT").cypher
 
 

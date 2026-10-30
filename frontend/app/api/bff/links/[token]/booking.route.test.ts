@@ -46,10 +46,10 @@ describe('GET /api/bff/links/[token] for a booking request', () => {
     expect(lastWrite(LINK_CSRF_COOKIE)).toMatchObject({ value: csrfFor(LINK.booking), options: { path: `/api/bff/links/${LINK.booking}` } });
   });
 
-  it('answers a closed booking with 410 and the same word as any closed link, so the page does not say which it was', async () => {
+  it('answers a closed booking with 410 and its state word, which a holder of the link may know', async () => {
     const response = await GET(requestWithCookies(url(LINK.bookingDeclined), {}), ctx(LINK.bookingDeclined));
     expect(response.status).toBe(410);
-    expect(await response.json()).toEqual({ state: 'expired' });
+    expect(await response.json()).toEqual({ state: 'declined' });
     expect(cookieWrites).toHaveLength(0);
   });
 });
@@ -68,6 +68,17 @@ describe('POST /api/bff/links/[token] for a booking answer', () => {
   it('returns the change token of a confirmed booking', async () => {
     const response = await POST(post(LINK.booking, { action: 'confirm' }, csrfFor(LINK.booking)), ctx(LINK.booking));
     expect(await response.json()).toEqual({ bookingStatus: 'confirmed', changeToken: BOOKING_CHANGE_TOKEN });
+  });
+
+  it('answers a cancelled change link with 410 cancelled, so its page can say so', async () => {
+    const response = await GET(requestWithCookies(url(LINK.bookingCancelled), {}), ctx(LINK.bookingCancelled));
+    expect(response.status).toBe(410);
+    expect(await response.json()).toEqual({ state: 'cancelled' });
+  });
+
+  it('answers an unknown link with 410 expired, never with a state word', async () => {
+    const response = await GET(requestWithCookies(url('NoSuchLinkTokenAbcdefghij'), {}), ctx('NoSuchLinkTokenAbcdefghij'));
+    expect(await response.json()).toEqual({ state: 'expired' });
   });
 
   it('refuses a booking answer without the CSRF header and posts nothing to the back end', async () => {

@@ -102,4 +102,16 @@ describe('GET /api/bff/registrations/[id]', () => {
     expect(response.status).toBe(503);
     expect(await response.json()).toMatchObject({ code: 'not-built' });
   });
+
+  it('gives the fixed-site answer of the location step, and none of the other location answers', async () => {
+    read.mockResolvedValueOnce({
+      id: ID,
+      status: 'draft',
+      invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
+      steps: { location: { fixedSite: false, postcode: 'DT4 8XX', siteName: 'Sample Ward' } },
+    });
+    const cookie = await sessionFor('reporter');
+    const body = (await (await GET(requestWithCookies(url, { [SESSION_COOKIE]: cookie }), ctx(ID))).json()) as { steps: object };
+    expect(body.steps).toEqual({ location: { fixedSite: false } });
+  });
 });

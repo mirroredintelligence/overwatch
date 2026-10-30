@@ -226,3 +226,47 @@ function answerLocation(status: number, body: unknown) {
     }) as HttpResponseResolver),
   );
 }
+
+// The service step (W25): the invitation's service name is read from the back end, never the browser.
+describe('PUT /api/bff/registrations/[id]/steps/service', () => {
+  beforeEach(() => {
+    read.mockClear();
+    answerLocation(200, { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'draft' }] } });
+  });
+
+  it('saves the coded values with the service name from the invitation', async () => {
+    const response = await save(
+      {
+        category: 'urgent-community-response',
+        referralMethods: ['phone'],
+        spoaPhone: '01305 123456',
+        acceptingDays: ['mon'],
+        acceptingStart: '08:00',
+        acceptingEnd: '18:00',
+        needs: ['frailty'],
+        ageMin: 65,
+        ageMax: null,
+        noExclusions: true,
+        ownerRole: 'Community matron',
+        ownerEmail: 'owner@example.test',
+        reviewBy: '2027-01-31',
+        districts: ['DT3', 'DT4'],
+      },
+      'reporter',
+      CSRF,
+      'service',
+    );
+    expect(response.status).toBe(200);
+    expect(read).toHaveBeenCalledWith('backend-token-sample-value', ID);
+    expect(upstream?.body).toMatchObject({
+      step: 'service',
+      values: { serviceName: 'UCR West', category: 'urgent-community-response', noAgeLimit: true, ageMin: 65, districts: 'DT3,DT4' },
+    });
+  });
+
+  it('refuses a service field the back end does not take, and an unknown referral or need', async () => {
+    expect((await save({ category: 'other', specialty: 'x' }, 'reporter', CSRF, 'service')).status).toBe(400);
+    expect((await save({ needs: ['not-a-need'] }, 'reporter', CSRF, 'service')).status).toBe(400);
+    expect(upstream).toBeNull();
+  });
+});

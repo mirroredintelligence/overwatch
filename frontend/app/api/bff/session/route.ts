@@ -1,27 +1,27 @@
-import { clearCsrf, CSRF_COOKIE, issueCsrf } from '@/lib/auth/csrf';
+import { clearCsrf, CSRF_COOKIE, issueCsrf, verifyCsrfToken } from '@/lib/auth/csrf';
 import { destroySession, readRequestCookie } from '@/lib/auth/session';
 import { withBff } from '@/lib/bff/handler';
 
-// The browser's view of its own session. It never carries the back-end token.
-
-const NO_STORE = { 'Cache-Control': 'no-store' };
-const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
+// The browser's view of its own session: display fields only. It never carries the back-end token,
+// the subject or the tenant id: the tenant is the session's and nothing in the browser needs it.
 
 const get = withBff(async (request, session) => {
-  // Keep the token already in the cookie, so a second tab is not logged out.
+  // Keep the token already in the cookie when it is this session's, so a second tab is not logged
+  // out; one that is not (a stale or another session's) is replaced.
   const existing = readRequestCookie(request, CSRF_COOKIE);
-  const csrfToken = existing && TOKEN_SHAPE.test(existing) ? existing : await issueCsrf();
-  return Response.json(
-    { role: session.role, services: session.services, sub: session.sub, csrfToken },
-    { headers: NO_STORE },
-  );
+  const csrfToken = existing && verifyCsrfToken(session, existing) ? existing : await issueCsrf(session);
+  return Response.json({ role: session.role, services: session.services, csrfToken });
 });
+
+// For the browsers that act on it (Chromium; Safari ignores it, so the page clears its own state too,
+// lib/session/signOut.ts): the HTTP cache and every kind of storage of this origin.
+const CLEAR_SITE_DATA = '"cache", "storage"';
 
 const del = withBff(
   async () => {
     await destroySession();
     await clearCsrf();
-    return new Response(null, { status: 204, headers: NO_STORE });
+    return new Response(null, { status: 204, headers: { 'Clear-Site-Data': CLEAR_SITE_DATA } });
   },
   { csrf: true },
 );

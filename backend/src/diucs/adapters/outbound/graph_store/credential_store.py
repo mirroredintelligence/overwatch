@@ -200,6 +200,13 @@ _KNOWN_SCENARIO: Final = Scenario(
     lookup=("key", "deviceId"),
     expect=Expect(rows=({"n": 1},)),
 )
+_ACTIVE_COUNT_SCENARIO: Final = Scenario(
+    "count the active devices of a practitioner that are not revoked",
+    seed=_DEVICE_SEED,
+    params={"key": _KEY, "active": _STATUS_ACTIVE},
+    lookup=("key",),
+    expect=Expect(rows=({"n": 1},)),
+)
 _REVOKE_SCENARIO: Final = Scenario(
     "revoke the devices of a practitioner",
     seed=_DEVICE_SEED,
@@ -368,6 +375,7 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-DEVICE-OWNER": _OWNER_SCENARIO,
     "Q-DEVICE-REGISTER": _REGISTER_SCENARIO,
     "Q-DEVICE-KNOWN": _KNOWN_SCENARIO,
+    "Q-DEVICE-ACTIVE-COUNT": _ACTIVE_COUNT_SCENARIO,
     "Q-DEVICE-REVOKE": _REVOKE_SCENARIO,
     "Q-DEVICE-CONFIRM-PENDING": _CONFIRM_SCENARIO,
     "Q-DEVICE-AWAITING": _AWAITING_SCENARIO,
@@ -440,6 +448,14 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-DEVICE-KNOWN": (
         "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
         "(d:Device {id: $deviceId, tenantId: $tenant}) "
+        "WHERE d.revokedAt IS NULL AND d.status = $active RETURN count(d) AS n",
+        "read",
+    ),
+    # The devices a practitioner can sign in on now: the same test as Q-DEVICE-KNOWN, over every
+    # device of the practitioner (W7C: how many other phones are signed in).
+    "Q-DEVICE-ACTIVE-COUNT": (
+        "MATCH (:Practitioner {key: $key, tenantId: $tenant})-[:HAS_DEVICE]->"
+        "(d:Device {tenantId: $tenant}) "
         "WHERE d.revokedAt IS NULL AND d.status = $active RETURN count(d) AS n",
         "read",
     ),
@@ -652,6 +668,12 @@ class Neo4jDeviceRegistry:
             "Q-DEVICE-KNOWN", key=_key(practitioner_id), deviceId=device_id, active=_STATUS_ACTIVE
         )
         return bool(rows) and int(rows[0]["n"]) > 0
+
+    async def count_active(self, practitioner_id: str) -> int:
+        rows = await self._run(
+            "Q-DEVICE-ACTIVE-COUNT", key=_key(practitioner_id), active=_STATUS_ACTIVE
+        )
+        return int(rows[0]["n"]) if rows else 0
 
     async def revoke_all(self, practitioner_id: str) -> int:
         rows = await self._run(

@@ -6,11 +6,13 @@ import { BACKEND_ROOT, csrfFor, LINK, RECORDED_ANSWER, TENANT_HOST } from '@/tes
 import { cookieWrites, cookiesMock, lastWrite, requestWithCookies, resetCookieWrites } from '@/test/cookies';
 import { resetLinkRequests, seenBackendRequests } from '@/test/msw/handlers/links';
 import { server } from '@/test/msw/server';
+import { SESSION_COOKIE } from '@/lib/auth/session';
+import { CSRF_COOKIE } from '@/lib/auth/csrf';
 import { GET, POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 // The link page's own API. No session: the token is the only thing that identifies the link.
@@ -141,5 +143,47 @@ describe('POST /api/bff/links/[token]', () => {
     expect(response.status).toBe(429);
     expect(response.headers.get('Retry-After')).toBe('600');
     expect(await response.json()).toEqual({ state: 'rate-limited' });
+  });
+});
+
+
+// A link opened in a browser that is signed in as staff (TEN-046): the link's routes never read the
+// staff session and never touch the staff CSRF cookie, so the staff person's next request still works.
+describe('a link opened in a browser that holds a staff session', () => {
+  const STAFF_COOKIES = { [SESSION_COOKIE]: 'sealed-staff-session-value', [CSRF_COOKIE]: 'staff-csrf-token-value' };
+
+  it('writes the link cookie only: the staff session and the staff CSRF cookie are not written, rotated or cleared', async () => {
+    const response = await GET(requestWithCookies(url(LINK.recorded), STAFF_COOKIES), ctx(LINK.recorded));
+    expect(response.status).toBe(200);
+    expect(cookieWrites.map((w) => w.name)).toEqual([LINK_CSRF_COOKIE]);
+  });
+
+  it('never reads the session: it answers when there is no session secret at all', async () => {
+    vi.stubEnv('SESSION_SECRET', '');
+    const get = await GET(requestWithCookies(url(LINK.recorded), STAFF_COOKIES), ctx(LINK.recorded));
+    expect(get.status).toBe(200);
+    const token = csrfFor(LINK.recorded);
+    const post_ = await POST(post(LINK.recorded, { action: 'confirm' }, token, token), ctx(LINK.recorded));
+    expect(post_.status).toBe(200);
+  });
+
+  it('never forwards the staff cookies, a bearer token or a tenant to the back end', async () => {
+    await GET(requestWithCookies(url(LINK.recorded), STAFF_COOKIES, { headers: { Authorization: 'Bearer staff-token', 'X-Tenant-Id': 'trust-b' } }), ctx(LINK.recorded));
+    const last = seenBackendRequests.at(-1);
+    expect(last?.host).toBe(TENANT_HOST);
+    expect(JSON.stringify(last)).not.toMatch(/staff|trust-b/);
+  });
+
+  it('does not accept the staff pair as the link’s CSRF', async () => {
+    const response = await POST(
+      requestWithCookies(url(LINK.recorded), { [CSRF_COOKIE]: 'staff-csrf-token-value' }, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Host: TENANT_HOST, 'X-CSRF-Token': 'staff-csrf-token-value' },
+        body: JSON.stringify({ action: 'confirm' }),
+      }),
+      ctx(LINK.recorded),
+    );
+    expect(response.status).toBe(403);
+    expect(seenBackendRequests.filter((r) => r.method === 'POST')).toHaveLength(0);
   });
 });

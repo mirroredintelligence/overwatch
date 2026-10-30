@@ -34,6 +34,8 @@ export const ROLE_VALUES: readonly string[] = [
   'anonymous-link',
   'support',
   'audit',
+  'tenant-admin',
+  'network-admin',
 ];
 
 const ELEMENT_ID = /^[A-Z0-9]+(-[A-Z0-9]+)*$/;

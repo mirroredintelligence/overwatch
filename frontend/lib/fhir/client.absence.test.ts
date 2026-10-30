@@ -7,6 +7,7 @@ import { FhirError, fhirFetch } from './client';
 // failure is a 503 FhirError (DEC-109 item 5).
 
 const BASE = 'http://backend.test/fhir';
+const TEST_TOKEN = 'token-for-tests';
 
 beforeEach(() => {
   vi.stubEnv('DIUCS_FHIR_BASE_URL', BASE);
@@ -26,7 +27,7 @@ describe('optional request headers are absent when not given (DEC-109 item 8)', 
       }),
     );
 
-    await fhirFetch<undefined>('/Task/a1/$cancel', { method: 'POST' });
+    await fhirFetch<undefined>('/Task/a1/$cancel', { token: TEST_TOKEN, method: 'POST' });
 
     expect(seen).toEqual([null]);
   });
@@ -40,7 +41,7 @@ describe('optional request headers are absent when not given (DEC-109 item 8)', 
       }),
     );
 
-    await fhirFetch('/Task/a2');
+    await fhirFetch('/Task/a2', { token: TEST_TOKEN });
 
     expect(seen).toEqual([null]);
   });
@@ -54,7 +55,7 @@ describe('optional request headers are absent when not given (DEC-109 item 8)', 
       }),
     );
 
-    await fhirFetch<undefined>('/Task/a3/$withdraw', { method: 'POST' });
+    await fhirFetch<undefined>('/Task/a3/$withdraw', { token: TEST_TOKEN, method: 'POST' });
 
     expect(seen).toEqual([null]);
   });
@@ -73,7 +74,7 @@ describe('a body-read failure is a 503 FhirError (DEC-109 item 5)', () => {
       }),
     );
 
-    const error = await fhirFetch('/Patient/broken').then(
+    const error = await fhirFetch('/Patient/broken', { token: TEST_TOKEN }).then(
       () => new Error('the request succeeded'),
       (failure: unknown) => failure,
     );

@@ -14,6 +14,11 @@ import { DIRECTORY_A, DIRECTORY_B, SIGN_IN_HOST } from '@/test/oidc/constants';
 // another tenant's directory gets the one refusal.
 
 export const STAND_IN_KEY = 'stand-in-signing-key-for-tests-only';
+/** The tenant id the stand-in gives the tenant that owns a host: a valid tenant id (letters, digits, hyphens). */
+export function tenantOfHost(host: string): string {
+  return `tenant-of-${host.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`.slice(0, 31).replace(/-+$/, '');
+}
+
 export const REFUSED_TEXT = 'Your account does not have access.';
 export const STAFF_LIFETIME_SECONDS = 8 * 3600;
 export const WALL_LIFETIME_SECONDS = 3600;
@@ -114,7 +119,7 @@ export function staffExchange(
     sub: subjectOf(host as string, directory, oid),
     role,
     services: [],
-    tenant: `tenant-of-${host}`,
+    tenant: tenantOfHost(host as string),
     epoch: 1,
     aud: 'diucs-api',
     iat: issuedAt,
@@ -142,7 +147,7 @@ export function deviceExchange(
     sub: device,
     role: 'wall',
     services: [],
-    tenant: `tenant-of-${host}`,
+    tenant: tenantOfHost(host),
     epoch: 1,
     aud: 'diucs-api',
     iat: issuedAt,

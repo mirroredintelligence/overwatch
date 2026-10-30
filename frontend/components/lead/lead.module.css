@@ -1,0 +1,165 @@
+/* The shift lead's registration pages (W28, W29). Tokens from app/tokens.css. */
+.page {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: var(--space-4, 16px);
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+}
+
+.heading {
+  font-size: 1.75rem;
+  margin: 0 0 0.5rem;
+}
+
+.lede {
+  margin: 0 0 1rem;
+}
+
+.list {
+  list-style: none;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.card {
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.name {
+  font-weight: 700;
+  margin: 0;
+}
+
+.meta {
+  margin: 0;
+}
+
+.tag {
+  display: inline-block;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  margin-right: 0.5rem;
+  min-height: 44px;
+  line-height: 36px;
+  box-sizing: border-box;
+}
+
+.tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.tab {
+  min-height: 52px;
+  padding: 0 1rem;
+  border: 2px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab[aria-selected='true'] {
+  font-weight: 700;
+  box-shadow: inset 0 -4px 0 currentColor;
+}
+
+.fieldset {
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin: 0 0 1rem;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 1rem;
+}
+
+.input,
+.select,
+.textarea {
+  min-height: 44px;
+  font: inherit;
+  padding: 0.5rem;
+  border: 2px solid currentColor;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.textarea {
+  min-height: 6rem;
+}
+
+.radio {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+}
+
+.hint {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.error {
+  margin: 0.25rem 0 0;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0;
+}
+
+.section {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.25rem;
+}
+
+.steps {
+  padding-left: 1.5rem;
+  margin: 0 0 1rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}
+
+.approve {
+  min-height: 52px;
+  padding: 0 1.25rem;
+  border: 2px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.approve[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

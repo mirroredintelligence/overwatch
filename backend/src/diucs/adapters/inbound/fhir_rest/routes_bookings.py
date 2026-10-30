@@ -30,6 +30,7 @@ from diucs.adapters.inbound.fhir_rest import capability
 from diucs.adapters.inbound.fhir_rest.app import ApiContainer, get_container
 from diucs.adapters.inbound.fhir_rest.auth import PROJECTIONS, current_actor, require_role
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from diucs.adapters.inbound.fhir_rest.clinical_mapping import clinical_task
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key
 from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
 from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
@@ -38,6 +39,7 @@ from diucs.application.actor import Actor
 from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.cancel_booking import CancelBooking, CancelBookingCommand
+from diucs.application.use_cases.clinical_advice import ReadClinicalRequest
 from diucs.application.use_cases.query_board import QueryBoard
 from diucs.application.use_cases.request_booking import (
     RequestBooking,
@@ -298,6 +300,15 @@ async def read_booking(
     actor: Annotated[Actor, Depends(current_actor)],
 ) -> Response:
     container = get_container(request)
+    # The same path reads a clinical advice request (W7A, B1): for the advisor who asked and for a
+    # clinical advisor. Any other caller of one reads the same NotFound as for an unknown id.
+    asked = await ReadClinicalRequest(container.uow_factory, container.clock).execute(
+        actor, booking_id
+    )
+    if asked is not None:
+        return FhirJSONResponse(
+            content=clinical_task(asked), status_code=200, headers={"Cache-Control": "no-store"}
+        )
     if actor.role not in SEEING_ROLES and actor.role is not Role.REPORTER:
         raise NotFound(NO_BOOKING)
     if actor.role is Role.REPORTER:

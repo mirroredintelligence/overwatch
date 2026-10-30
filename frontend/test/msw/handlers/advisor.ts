@@ -5,7 +5,7 @@ import { OPTIONS_VIEW } from '@/test/fixtures/options';
 // Browser-facing stubs for the advisor screens (W10 to W16, W50): the BFF routes a client component
 // calls, answered from fixtures. Every request a test makes must match a handler (test/setup.ts).
 
-export const CSRF_TOKEN = 'csrf-token-for-tests-only-0000000000000000000';
+export const CSRF_TOKEN = 'csrf-sample-token';
 export const CASE_ID = '4821';
 
 // A case as the BFF reads it before anything is recorded (W11). The ETag is the one the back end

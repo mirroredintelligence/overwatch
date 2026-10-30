@@ -57,6 +57,14 @@ class SupportRepository(Protocol):
 
     async def code_by_hash(self, code_hash: str) -> SupportCodeRecord | None: ...
 
+    async def live_code_expiry(
+        self, session_id: str, practitioner_id: str, at: datetime
+    ) -> datetime | None:
+        """When the practitioner's latest live code for the session ends: a code not yet expired
+        and not stopped at `at`. None when there is none. The code itself is never read: only its
+        hash is stored (W7A, DEC-772)."""
+        ...
+
     async def stop_codes(self, session_id: str, practitioner_id: str, at: datetime) -> int:
         """Expire the practitioner's live codes for the session at once. Returns how many."""
         ...

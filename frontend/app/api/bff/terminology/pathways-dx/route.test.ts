@@ -9,7 +9,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 // The back end mounts the terminology routes at its root, not under /fhir (R16).
@@ -19,6 +19,8 @@ const seen: { path: string; query: string | null; token: string | null }[] = [];
 function session(role: Role): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: 'app.test',
     services: [],
     sub: 'advisor-1',
     backendToken: 'token-for-advisor',
@@ -92,6 +94,6 @@ describe('GET /api/bff/terminology/pathways-dx (W12)', () => {
   });
 
   it('is never cached', async () => {
-    expect((await get('advisor', 'fa')).headers.get('cache-control')).toBe('no-store');
+    expect((await get('advisor', 'fa')).headers.get('cache-control')).toBe('private, no-store');
   });
 });

@@ -6,10 +6,13 @@ import { getSession } from '@/lib/auth/session';
 import { serverNow } from '@/lib/board/clock';
 import { canReadBoard, readBoard } from '@/lib/board/read';
 import type { Board as BoardData } from '@/lib/board/types';
+import { copy } from '@/lib/copy';
 import { FhirError } from '@/lib/fhir/client';
+import { readTenantProfile } from '@/lib/tenant/profile';
 
+// The layout's template adds the product name; no organisation is named here.
 export const metadata: Metadata = {
-  title: 'DIUCS capacity wall screen',
+  title: 'Wall screen',
 };
 
 // Read at every request: a wall board is never cached.
@@ -37,5 +40,8 @@ export default async function WallScreenPage() {
     // Anything else: show no figure at all, and say what to do.
     return <BoardUnavailable />;
   }
-  return <LiveBoard initialBoard={board} serverTime={serverTime} />;
+  // The line under the heading is the tenant's own, from the profile of the host the session was made
+  // on; none when the tenant has not set one or the profile cannot be read.
+  const subtitle = copy.wallSubtitle(await readTenantProfile(session.host));
+  return <LiveBoard initialBoard={board} serverTime={serverTime} subtitle={subtitle} />;
 }

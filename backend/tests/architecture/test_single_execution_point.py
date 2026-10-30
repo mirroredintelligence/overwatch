@@ -74,6 +74,9 @@ BINDING_MODULES: frozenset[str] = frozenset(
         # like the pairing routes they bind the tenant the request host names in the tenant
         # directory, never one the request sends. The push routes take theirs from the token.
         "diucs.adapters.inbound.fhir_rest.routes_identity",
+        # W7C: the reporter set-up routes (an invitation, a device's code, a channel) have no
+        # session either; they bind the tenant the request host names, as routes_identity does.
+        "diucs.adapters.inbound.fhir_rest.routes_reporter_setup",
         # TEN-018: the REST edge. `current_actor` binds the tenant of a verified token for the
         # request, and nothing a request sends (header, query, body, host) is read for it.
         "diucs.adapters.inbound.fhir_rest.auth",

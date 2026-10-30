@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
+import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { standInToken } from '@/test/fixtures/exchange';
@@ -11,7 +11,7 @@ import { POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 // POST /api/bff/screens: a shift lead types the code shown on a wall display. Role lead, CSRF. The
@@ -19,7 +19,9 @@ vi.mock('next/headers', async () => {
 // organisation's own (the page offers no choice).
 
 const URL_ = `https://${SIGN_IN_HOST}/api/bff/screens`;
-const CSRF = 'c'.repeat(43);
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF = csrfTokenFor({ tenantId: 'trust-a', host: SIGN_IN_HOST, sub: 'stf-1' }, 'N'.repeat(43));
 
 function tokenFor(role: string) {
   return standInToken({ sub: `stf-${role}`, role, aud: 'diucs-api', exp: Math.floor(Date.now() / 1000) + 3600 });
@@ -31,6 +33,8 @@ async function lead(body: unknown, options: { role?: Role | null; csrf?: boolean
   if (role !== null) {
     cookies[SESSION_COOKIE] = await sealSession({
       role,
+      tenantId: 'trust-a',
+      host: SIGN_IN_HOST,
       services: [],
       sub: 'stf-1',
       backendToken: tokenFor(role),
@@ -80,7 +84,7 @@ describe('POST /api/bff/screens: connecting', () => {
     const response = await lead({ code: '482 913', name: ' Control room ', location: ' Ward 4 corridor ' });
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ name: 'Control room', status: 'online', connectedAt: expect.stringMatching(/^\d{4}-\d\d-\d\dT.*Z$/) });
-    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('cache-control')).toBe('private, no-store');
   });
 
   it('sends the code without its space, the trimmed name and place, the lead’s own token and a fresh idempotency key', async () => {
@@ -95,9 +99,17 @@ describe('POST /api/bff/screens: connecting', () => {
     expect(pairingBackend.connects.at(-1)!.idempotencyKey).not.toBe(sent.idempotencyKey);
   });
 
-  it('forwards the fields of a connect and no others: a tenant, a board scope, a device id are dropped', async () => {
+  it('refuses a connect that names a tenant or a scope with 400, and calls nothing (TEN-044)', async () => {
     await startPairing();
-    await lead({ code: '482913', name: 'Control room', tenant: 'trust-b', tenantId: 'trust-b', boardScope: 'network', deviceId: 'dev-9', role: 'wall' });
+    for (const extra of [{ tenant: 'trust-b' }, { tenantId: 'trust-b' }, { scope: 'network' }, { network: 'net-x' }]) {
+      expect((await lead({ code: '482913', name: 'Control room', ...extra })).status, JSON.stringify(extra)).toBe(400);
+    }
+    expect(pairingBackend.connects).toHaveLength(0);
+  });
+
+  it('forwards the fields of a connect and no others: a device id and a role are dropped', async () => {
+    await startPairing();
+    await lead({ code: '482913', name: 'Control room', deviceId: 'dev-9', role: 'wall' });
     expect(pairingBackend.connects.at(-1)!.body).toEqual({ code: '482913', name: 'Control room' });
   });
 

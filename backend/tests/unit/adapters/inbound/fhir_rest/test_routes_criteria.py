@@ -152,8 +152,9 @@ async def test_each_keyed_criteria_route_takes_its_roles_and_refuses_the_rest(
                 assert response.status_code == 404, role
 
 
-async def test_the_history_is_for_the_owner_clinical_lead_and_lead_only() -> None:
-    permitted = {Role.OWNER, Role.CLINICAL, Role.LEAD}
+async def test_the_history_is_for_the_owner_advisor_clinical_and_lead_only() -> None:
+    # The advisor reads it for the criteria dialog (W7A-A7, DEC-771).
+    permitted = {Role.OWNER, Role.ADVISOR, Role.CLINICAL, Role.LEAD}
     async with _client() as client:
         for role in Role:
             response = await client.get(

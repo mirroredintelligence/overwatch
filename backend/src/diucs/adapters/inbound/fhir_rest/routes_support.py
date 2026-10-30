@@ -49,6 +49,7 @@ from diucs.application.use_cases.support_access import (
     CreateSupportCodeCommand,
     ListMyAccesses,
     ListMyAccessesCommand,
+    ReadSharingState,
     StopSharing,
     StopSharingCommand,
 )
@@ -173,6 +174,27 @@ async def create_code(
             )
         )
         return _json(201, {"code": result.code, "expiresAt": _iso(result.expires_at)})
+
+    return await _answer(run)
+
+
+@router.get("/codes/current")
+async def my_code_state(
+    request: Request,
+    actor: Annotated[Actor, Depends(current_actor)],
+    session_id: Annotated[str, Query(alias="sessionId", pattern=_SESSION_ID)],
+) -> Response:
+    """Whether a code is live for the person's session and until when, so a reload can say so. The
+    code is shown once, when it is made, and is not stored (DEC-772)."""
+
+    async def run() -> Response:
+        container = _container(request)
+        state = await ReadSharingState(container.uow_factory, container.clock).execute(
+            ListMyAccessesCommand(actor=actor, session_id=session_id)
+        )
+        if state.expires_at is None:
+            return _json(200, {"active": False})
+        return _json(200, {"active": True, "expiresAt": _iso(state.expires_at)})
 
     return await _answer(run)
 

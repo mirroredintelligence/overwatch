@@ -8,7 +8,7 @@ import { GET, POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 // The booking purposes through the same BFF route as the capacity page (L02, W19).

@@ -1,0 +1,31 @@
+.summary {
+  box-sizing: border-box;
+  margin: 0 0 var(--space-5);
+  padding: var(--space-3) var(--space-4);
+  border: 3px solid var(--c-closed);
+  border-radius: var(--radius-card);
+  background: var(--c-bg);
+  color: var(--c-ink);
+}
+
+.summary:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.title {
+  margin: 0 0 var(--space-2);
+  font-size: var(--type-heading-size);
+  line-height: var(--type-heading-lh);
+  font-weight: var(--type-heading-weight);
+}
+
+.list {
+  margin: 0;
+  padding-left: 1.25em;
+}
+
+.list a {
+  color: var(--c-ink);
+  font-weight: 700;
+}

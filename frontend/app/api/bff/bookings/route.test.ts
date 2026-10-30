@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
+import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { CASE_REF, SERVICE_ID, STATE_REQUESTED } from '@/test/fixtures/bookings';
@@ -10,17 +10,22 @@ import { POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const BACKEND = 'http://backend.test/fhir';
 const URL_ = 'https://app.test/api/bff/bookings';
 const KEY = '9f1c2b3a-4d5e-4f60-8a7b-1c2d3e4f5a6b';
 const TOKEN = 'token-for-advisor-one';
+// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
+vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+const CSRF_VALUE = csrfTokenFor({ tenantId: 'trust-a', host: 'app.test', sub: 'advisor-1' }, 'N'.repeat(43));
 
 function session(role: Role): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: 'app.test',
     services: [],
     sub: 'advisor-1',
     backendToken: TOKEN,
@@ -34,7 +39,7 @@ async function post(options: Options = {}) {
   const role = options.role === undefined ? 'advisor' : options.role;
   const cookies: Record<string, string> = {};
   if (role !== null) cookies[SESSION_COOKIE] = await sealSession(session(role));
-  const csrf = options.csrf === undefined ? 'csrf-value' : options.csrf;
+  const csrf = options.csrf === undefined ? CSRF_VALUE : options.csrf;
   if (csrf !== null) cookies[CSRF_COOKIE] = csrf;
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (options.key !== null) headers['Idempotency-Key'] = options.key ?? KEY;
@@ -77,7 +82,7 @@ describe('POST /api/bff/bookings', () => {
     const response = await post();
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual(STATE_REQUESTED);
-    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
   });
 
   it('answers 409 open-request when the service already has a request waiting', async () => {

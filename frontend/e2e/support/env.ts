@@ -42,3 +42,11 @@ export const ENTRA_ENV = {
   DIUCS_PUBLIC_URL: SITE_URL,
   SESSION_SECRET: E2E_SESSION_SECRET,
 };
+
+// The one tenant the e2e stand-in back end serves: its host, the tenant id the stand-in gives it
+// (test/fixtures/exchange.ts `tenantOfHost`) and the name its profile shows.
+export const E2E_TENANT = {
+  id: `tenant-of-localhost-${SITE_PORT}`,
+  host: new URL(SITE_URL).host,
+  displayName: 'Sample Area A',
+};

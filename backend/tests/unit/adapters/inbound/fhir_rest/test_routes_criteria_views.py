@@ -281,3 +281,15 @@ async def test_a_version_with_no_recorded_date_has_none() -> None:
             e["resource"] for e in (await http.get(HISTORY, headers=OWNER_AUTH)).json()["entry"]
         ]
     assert entries[-1]["changedOn"] is None
+
+
+async def test_an_advisor_reads_the_current_version_and_not_who_wrote_it_or_when() -> None:
+    rig = _world()
+    rig.units.criteria.versions["crit-3"] = _version(rig)
+    async with client(rig) as http:
+        response = await http.get(HISTORY, headers=bearer(Role.ADVISOR, "prac-adv"))
+
+    assert response.status_code == 200, response.text
+    entries = [entry["resource"] for entry in response.json()["entry"]]
+    assert [e["status"] for e in entries] == ["current"]
+    assert "authorRole" not in entries[0] and "changedOn" not in entries[0]

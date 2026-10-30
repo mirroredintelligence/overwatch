@@ -1,5 +1,5 @@
 import { http, HttpResponse, type HttpResponseResolver } from 'msw';
-import { BACKEND_ROOT, LINK, linkAnswerReply, linkRenewReply, linkViewReply, type LinkReplyFor } from '@/test/fixtures/links';
+import { BACKEND_ROOT, LINK, linkAnswerReply, linkRenewReply, linkViewReply, TENANT_HOST, type LinkReplyFor } from '@/test/fixtures/links';
 
 // The capacity link API as the back end answers it (L01, DEC-167), for the link pages' tests,
 // from the shared scenario table in test/fixtures/links.ts (the browser tests use the same table).
@@ -32,17 +32,24 @@ async function jsonBody(request: Request): Promise<Record<string, unknown>> {
 }
 
 /** The back end stand-in: `GET /links/{token}`, `POST /links/{token}` and `POST /links/{token}/renew`. */
+// The sample links belong to one tenant: the tenant of TENANT_HOST. Like the real back end (DEC-167
+// item 1), a request addressed to another tenant's host finds no such link and answers as it does for
+// a link that exists nowhere (TEN-047).
+const OWN_HOST = TENANT_HOST;
+const ABSENT = { status: 410, body: { state: 'expired' } } as LinkReplyFor;
+const ownHost = (request: Request) => request.headers.get('host') === OWN_HOST;
+
 export const backendLinkHandlers = [
   http.get(`${BACKEND_ROOT}/links/:token`, (({ request, params }) => {
     const token = String(params.token);
     seenBackendRequests.push({ method: 'GET', token, host: request.headers.get('host'), body: undefined });
-    return reply(linkViewReply(token));
+    return reply(ownHost(request) ? linkViewReply(token) : ABSENT);
   }) as HttpResponseResolver),
   http.post(`${BACKEND_ROOT}/links/:token`, (async ({ request, params }) => {
     const token = String(params.token);
     const body = await jsonBody(request);
     seenBackendRequests.push({ method: 'POST', token, host: request.headers.get('host'), body });
-    return reply(linkAnswerReply(token, request.headers.get('x-csrf-token'), body));
+    return reply(ownHost(request) ? linkAnswerReply(token, request.headers.get('x-csrf-token'), body) : ABSENT);
   }) as HttpResponseResolver),
   http.post(`${BACKEND_ROOT}/links/:token/renew`, (({ request, params }) => {
     const token = String(params.token);

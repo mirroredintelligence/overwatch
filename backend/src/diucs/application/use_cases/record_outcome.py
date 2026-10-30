@@ -132,7 +132,7 @@ def build_summary(
     if case.closed_at is not None:
         raise Conflict("the summary is built only while the case is open")
     values: dict[str, str | None] = {
-        "Referrer": display(case.referrer_type),
+        "Referrer": None if case.referrer_type is None else display(case.referrer_type),
         "Age band": None if case.age_band is None else display(case.age_band),
         "Postcode": case.postcode,
         "Needs": needs_text(case),

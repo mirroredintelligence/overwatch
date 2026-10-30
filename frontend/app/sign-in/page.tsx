@@ -1,10 +1,14 @@
 import type { Metadata } from 'next';
 import { Banner, Button } from '@/components/ui';
+import { TenantHeader } from '@/components/tenant/TenantHeader';
 import { isSamePathOnly } from '@/lib/auth/access';
+import { copy } from '@/lib/copy';
+import { PRODUCT_NAME } from '@/lib/product';
+import { currentProfile } from '@/lib/tenant/profile';
 import styles from './page.module.css';
 
 export const metadata: Metadata = {
-  title: 'Sign in - DIUCS capacity',
+  title: 'Sign in',
   // A sign-in page is not for search engines or caches.
   robots: { index: false },
 };
@@ -15,7 +19,7 @@ export const metadata: Metadata = {
 // the page has no such input, and a query string cannot add one.
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-const NO_ACCESS = 'Your account does not have access to DIUCS capacity. Ask your shift lead to check your access.';
+const NO_ACCESS = `Your account does not have access to ${PRODUCT_NAME}. Ask your shift lead to check your access.`;
 const FAILED = 'We could not sign you in. Try again, or ask your shift lead to check your access.';
 const CLINICAL_NOTE = 'Clinical advisors see case details, so this uses staff sign-in, not a texted code.';
 
@@ -28,17 +32,21 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
   const error = one(query.error);
   const next = one(query.next);
   const message = error === 'no-access' ? NO_ACCESS : error === 'failed' ? FAILED : undefined;
+  // Which organisation this is: the host's own profile, so a person who works for two always sees which.
+  const profile = await currentProfile();
+  const words = copy.signIn();
 
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
-        <h1 className={styles.product}>DIUCS capacity</h1>
+        <h1 className={styles.product}>{PRODUCT_NAME}</h1>
+        <TenantHeader profile={profile} />
         {message !== undefined ? <Banner tone="warning" title={message} dataEl="SIGNIN-MESSAGE" /> : null}
         <section className={styles.card} aria-labelledby="signin-heading">
           <h2 id="signin-heading" className={styles.heading}>
             Sign in
           </h2>
-          <p className={styles.text}>Use your Trust staff account. There is no new password.</p>
+          <p className={styles.text}>{words.intro}</p>
           {one(query.role) === 'clinical' ? (
             <p className={styles.text} data-el="SIGNIN-CLINICAL-NOTE">
               {CLINICAL_NOTE}
@@ -47,7 +55,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
           <form className={styles.form} method="post" action="/api/bff/auth/entra/start">
             {next !== undefined && isSamePathOnly(next) ? <input type="hidden" name="next" value={next} /> : null}
             <Button variant="primary" type="submit" dataEl="SIGNIN-ENTRA-BTN">
-              Sign in with your Trust account
+              {words.button}
             </Button>
           </form>
           <p className={styles.help}>Having trouble? Ask your shift lead to check your access.</p>

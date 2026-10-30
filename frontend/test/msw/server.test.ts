@@ -3,7 +3,7 @@ import { server } from './server';
 
 describe('MSW test server', () => {
   it('is set up to reject any request that no handler mocks', async () => {
-    const failure = await fetch('http://backend.test/fhir/NotMocked').then(
+    const failure = await fetch('http://backend.test/fhir/NotMocked', { headers: { Authorization: 'Bearer opaque-test-token' } }).then(
       () => new Error('the request was answered'),
       (error: unknown) => error,
     );

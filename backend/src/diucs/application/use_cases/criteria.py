@@ -35,7 +35,10 @@ from diucs.domain.rules.london_time import to_london
 
 AUDIT_CHANGE: str = "C"
 AUDIT_UPDATE: str = "U"
-_HISTORY_ROLES: frozenset[Role] = frozenset({Role.OWNER, Role.CLINICAL, Role.LEAD})
+_HISTORY_ROLES: frozenset[Role] = frozenset({Role.OWNER, Role.ADVISOR, Role.CLINICAL, Role.LEAD})
+_CURRENT_ONLY_ROLES: frozenset[Role] = frozenset({Role.ADVISOR})
+"""Roles that read the version in force and nothing else: an advisor reads what a service takes, not
+the changes waiting for approval or the old versions (DEC-771)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,6 +200,10 @@ class CriteriaVersionView:
     status: CriteriaStatus
     review_by: date
     author_role_id: str
+    age_min: int = 0
+    age_max: int | None = None
+    accepts: frozenset[NeedCategory] = frozenset()
+    excludes: frozenset[NeedCategory] = frozenset()
     changed_on: date | None = None
     author_role: str | None = None
     """The author's post in words (the person's label, "Clinical lead, UCR"), or None."""
@@ -482,10 +489,17 @@ class CriteriaHistory:
             raise NotAllowed("this role may not read criteria history")
         async with self._uow_factory() as uow:
             versions = await uow.criteria.history(query.service_id)
-            labels = {
-                role_id: await author_label(uow, role_id)
-                for role_id in {version.owner_role_id for version in versions}
-            }
+            # An advisor reads what a service takes, not who wrote it (DEC-771): no author label.
+            labels = (
+                {}
+                if query.actor.role in _CURRENT_ONLY_ROLES
+                else {
+                    role_id: await author_label(uow, role_id)
+                    for role_id in {version.owner_role_id for version in versions}
+                }
+            )
+        if query.actor.role in _CURRENT_ONLY_ROLES:
+            versions = [v for v in versions if v.status is CriteriaStatus.CURRENT]
         return [
             CriteriaVersionView(
                 criteria_id=version.id,
@@ -493,8 +507,12 @@ class CriteriaHistory:
                 status=version.status,
                 review_by=version.review_by,
                 author_role_id=version.owner_role_id,
-                changed_on=version.changed_on,
-                author_role=labels[version.owner_role_id],
+                age_min=version.age_min,
+                age_max=version.age_max,
+                accepts=version.accepts,
+                excludes=version.excludes,
+                changed_on=None if query.actor.role in _CURRENT_ONLY_ROLES else version.changed_on,
+                author_role=labels.get(version.owner_role_id),
             )
             for version in versions
         ]

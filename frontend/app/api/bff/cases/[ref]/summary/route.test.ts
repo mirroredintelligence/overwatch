@@ -9,7 +9,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const SR_URL = `${BACKEND_BASE}/ServiceRequest/4821`;
@@ -17,6 +17,8 @@ const SR_URL = `${BACKEND_BASE}/ServiceRequest/4821`;
 function session(role: Role): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: 'app.test',
     services: [],
     sub: 'advisor-1',
     backendToken: 'token-for-advisor',
@@ -88,6 +90,6 @@ describe('GET /api/bff/cases/[ref]/summary (W15)', () => {
   });
 
   it('is never cached', async () => {
-    expect((await get('advisor')).headers.get('cache-control')).toBe('no-store');
+    expect((await get('advisor')).headers.get('cache-control')).toBe('private, no-store');
   });
 });

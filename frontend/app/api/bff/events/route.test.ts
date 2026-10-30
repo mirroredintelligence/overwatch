@@ -3,6 +3,8 @@ import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { sessionFor } from '@/test/requests';
+import { TENANTS } from '@/test/tenants';
 import { BACKEND_BASE, TOKEN_ORG_A, TOKEN_ORG_B } from '@/test/msw/handlers/board';
 import { server } from '@/test/msw/server';
 import { frame, readAll, streamOf } from '@/test/sse';
@@ -10,22 +12,16 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-const URL_ = 'https://app.test/api/bff/events';
+const URL_ = `https://${TENANTS.A.host}/api/bff/events`;
 const EVENTS = `${BACKEND_BASE}/events`;
 const SSE = 'text/event-stream';
 const SERVICE = '{"serviceId":"a1","changedAt":"2026-10-23T13:12:00Z"}';
 
 function session(role: Role, backendToken: string = TOKEN_ORG_A): Session {
-  return {
-    role,
-    services: [],
-    sub: 'screen-1',
-    backendToken,
-    expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
-  };
+  return sessionFor(TENANTS.A, role, { sub: 'screen-1', backendToken });
 }
 
 async function get(
@@ -210,8 +206,8 @@ describe('GET /api/bff/events: who may listen', () => {
   });
 
   it('is never cached when it refuses, either', async () => {
-    expect((await get(null)).headers.get('cache-control')).toBe('no-store');
-    expect((await get('reporter')).headers.get('cache-control')).toBe('no-store');
+    expect((await get(null)).headers.get('cache-control')).toBe('private, no-store');
+    expect((await get('reporter')).headers.get('cache-control')).toBe('private, no-store');
   });
 });
 
@@ -230,16 +226,31 @@ describe('GET /api/bff/events: one organisation, the session’s own (DEC-130, D
     for (const name of request.headers.keys()) expect(name).not.toMatch(/tenant|organi[sz]ation|scope|network/i);
   });
 
-  it('ignores a tenant, organisation, scope or network in the query string and in the request headers', async () => {
+  it('refuses a request that names a tenant, a scope or a network, and opens no stream upstream', async () => {
+    backend([]);
+
+    for (const [url, headers] of [
+      [`${URL_}?tenant=${TOKEN_ORG_B}`, {}],
+      [`${URL_}?scope=network`, {}],
+      [`${URL_}?network=n1`, {}],
+      [URL_, { 'X-Tenant-Id': TOKEN_ORG_B }],
+      [URL_, { 'X-Network': 'n1' }],
+    ] as [string, Record<string, string>][]) {
+      const response = await get('wall', { url, headers });
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ code: 'invalid' });
+    }
+    expect(upstreamRequests).toHaveLength(0);
+  });
+
+  it('ignores an organisation in the query string and in the request headers', async () => {
     backend([]);
 
     await (
       await get('wall', {
-        url: `${URL_}?tenant=${TOKEN_ORG_B}&organisation=Other&scope=network&network=n1`,
+        url: `${URL_}?organisation=Other`,
         headers: {
-          'X-Tenant-Id': TOKEN_ORG_B,
           'X-Organisation': 'Other',
-          'X-Scope': 'network',
           Authorization: `Bearer ${TOKEN_ORG_B}`,
         },
       })

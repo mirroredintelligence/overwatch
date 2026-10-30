@@ -28,6 +28,7 @@ from diucs.adapters.inbound.fhir_rest.mapping import board_to_parameters, report
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, ConfirmCapacityCommand
+from diucs.application.use_cases.coordination_contact import ReadCoordinationPhone
 from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
 from diucs.domain.codes import ReportSource, Role
 from diucs.domain.errors import ConfirmLimitReached, NothingToConfirm
@@ -65,8 +66,9 @@ async def board(
     result = await QueryBoard(container.uow_factory, container.clock).execute(
         QueryBoardQuery(actor=actor)
     )
+    phone = await ReadCoordinationPhone(container.uow_factory).execute()
     return FhirJSONResponse(
-        content=board_to_parameters(result), headers={"Cache-Control": "no-store"}
+        content=board_to_parameters(result, phone), headers={"Cache-Control": "no-store"}
     )
 
 

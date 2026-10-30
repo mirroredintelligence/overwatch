@@ -8,12 +8,12 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 
 async function get(role: Role, id: string, token: string = TOKEN_ORG_A) {
-  const s: Session = { role, services: [], sub: 'user-1', backendToken: token, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
+  const s: Session = { role, tenantId: 'trust-a', host: 'app.test', services: [], sub: 'user-1', backendToken: token, expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
   return GET(requestWithCookies(`https://app.test/api/bff/exec/services/${id}`, { [SESSION_COOKIE]: await sealSession(s) }), { params: Promise.resolve({ id }) });
 }
 

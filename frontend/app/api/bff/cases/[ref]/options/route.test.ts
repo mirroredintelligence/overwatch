@@ -10,7 +10,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 const FILTER_URL = `${BACKEND_BASE}/HealthcareService/$filter-options`;
@@ -20,6 +20,8 @@ const seen: Seen[] = [];
 function session(role: Role): Session {
   return {
     role,
+    tenantId: 'trust-a',
+    host: 'app.test',
     services: [],
     sub: 'advisor-1',
     backendToken: 'token-for-advisor',
@@ -99,13 +101,24 @@ describe('GET /api/bff/cases/[ref]/options (W13)', () => {
   });
 
   it('is never cached', async () => {
-    expect((await get('advisor')).headers.get('cache-control')).toBe('no-store');
+    expect((await get('advisor')).headers.get('cache-control')).toBe('private, no-store');
   });
 
-  it('a tenant named in the address is ignored: the back end sees the session token and the case only (DEC-130)', async () => {
+  it('a tenant named in the address is refused with 400 and the back end is not called (DEC-130, TEN-044)', async () => {
+    const cookies = { [SESSION_COOKIE]: await sealSession(session('advisor')) };
+    const response = await GET(
+      requestWithCookies('https://app.test/api/bff/cases/4821/options?tenantId=tenant-b', cookies),
+      { params: Promise.resolve({ ref: '4821' }) },
+    );
+
+    expect(response.status).toBe(400);
+    expect(seen).toHaveLength(0);
+  });
+
+  it('an organisation named in the address is ignored: the back end sees the session token and the case only (DEC-130)', async () => {
     const cookies = { [SESSION_COOKIE]: await sealSession(session('advisor')) };
     await GET(
-      requestWithCookies('https://app.test/api/bff/cases/4821/options?tenantId=tenant-b&organisation=other', cookies),
+      requestWithCookies('https://app.test/api/bff/cases/4821/options?organisation=other', cookies),
       { params: Promise.resolve({ ref: '4821' }) },
     );
 

@@ -13,8 +13,10 @@ POST   /fhir/Basic/{id}/$approve                    lead; Idempotency-Key; an op
 POST   /fhir/Basic/{id}/$send-back                  lead; Idempotency-Key; an optional note
 POST   /fhir/HealthcareService/{id}/$confirm-criteria  owner or lead; Idempotency-Key; Parameters
                                                     reviewInMonths 3, 6 or 12 (ConfirmCriteria, U30)
-GET    /fhir/Basic?subject=HealthcareService/{id}   owner, clinical or lead; every version, newest
-                                                    first (CriteriaHistory, U30)
+GET    /fhir/Basic?subject=HealthcareService/{id}   owner, advisor, clinical or lead; every version,
+                                                    newest first, with what it accepts and
+                                                    excludes; an advisor reads the current
+                                                    version only (CriteriaHistory, U30, DEC-771)
 
 A note is at most 280 characters and carries no patient information. A refused role is a
 non-revealing 404 (require_role). An error names the part, never its value.
@@ -60,6 +62,7 @@ from diucs.application.use_cases.criteria import (
     CriteriaHistory,
     CriteriaHistoryQuery,
     CriteriaValues,
+    CriteriaVersionView,
 )
 from diucs.domain.codes import CriteriaStatus, NeedCategory, Role
 from diucs.domain.errors import InvalidTransition, NotFound, ValidationFailed
@@ -72,7 +75,7 @@ REVIEW_PERIODS: Final = frozenset({3, 6, 12})
 """The review periods the owner may choose, in months (U30, domain-rules section 6)."""
 NO_STORE: Final = {"Cache-Control": "no-store"}
 CRITERIA_CODE_SYSTEM: Final = "service-criteria"
-HISTORY_ROLES: Final = (Role.OWNER, Role.CLINICAL, Role.LEAD)
+HISTORY_ROLES: Final = (Role.OWNER, Role.ADVISOR, Role.CLINICAL, Role.LEAD)
 OWNER_ROLES: Final = (Role.OWNER,)
 CONFIRM_ROLES: Final = (Role.OWNER, Role.LEAD)
 
@@ -125,26 +128,29 @@ def _basic(record: ServiceCriteria) -> dict[str, Any]:
     return body
 
 
-def _view_basic(
-    record_id: str,
-    version: int,
-    status: str,
-    review_by: str,
-    service_id: str,
-    changed_on: str | None = None,
-    author_role: str | None = None,
-) -> dict[str, Any]:
-    return {
+def _view_basic(view: CriteriaVersionView, service_id: str) -> dict[str, Any]:
+    """One version as the history shows it: its status, review date and what it accepts and
+    excludes (the criteria dialog reads these), and the age range. Not the districts or the change
+    reason. The day of the change and the author's post in words (never a person) are there for
+    the roles that read the history of changes; an advisor reads neither (W7B B)."""
+    body: dict[str, Any] = {
         "resourceType": "Basic",
-        "id": record_id,
-        "meta": {"versionId": str(version)},
+        "id": view.criteria_id,
+        "meta": {"versionId": str(view.version)},
         "code": {"coding": [{"code": CRITERIA_CODE_SYSTEM}]},
         "subject": {"reference": f"HealthcareService/{service_id}"},
-        "status": status,
-        "reviewBy": review_by,
-        "changedOn": changed_on,
-        "authorRole": author_role,
+        "status": view.status.value,
+        "reviewBy": view.review_by.isoformat(),
+        "ageMin": view.age_min,
+        "accepts": sorted(need.value for need in view.accepts),
+        "excludes": sorted(need.value for need in view.excludes),
     }
+    if view.age_max is not None:
+        body["ageMax"] = view.age_max
+    if view.author_role is not None or view.changed_on is not None:
+        body["changedOn"] = None if view.changed_on is None else view.changed_on.isoformat()
+        body["authorRole"] = view.author_role
+    return body
 
 
 # ----------------------------------------------------------------------------- command parsing
@@ -351,20 +357,7 @@ async def read_criteria_history(
         "resourceType": "Bundle",
         "type": "searchset",
         "total": len(newest_first),
-        "entry": [
-            {
-                "resource": _view_basic(
-                    view.criteria_id,
-                    view.version,
-                    view.status.value,
-                    view.review_by.isoformat(),
-                    service_id,
-                    None if view.changed_on is None else view.changed_on.isoformat(),
-                    view.author_role,
-                )
-            }
-            for view in newest_first
-        ],
+        "entry": [{"resource": _view_basic(view, service_id)} for view in newest_first],
     }
     return FhirJSONResponse(content=bundle, headers=NO_STORE)
 

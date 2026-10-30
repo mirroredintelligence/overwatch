@@ -12,7 +12,7 @@ import { POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
+  return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
 // POST /api/bff/screens/session: a paired screen's wall token lasts an hour (TEN-043), so a screen

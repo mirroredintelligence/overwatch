@@ -1,0 +1,118 @@
+.screen,
+.group,
+.summary {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+
+.group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  line-height: var(--type-heading-lh);
+  color: var(--c-ink);
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.text {
+  margin: 0;
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-lh);
+  color: var(--c-ink-2);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.status {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  border-left: 4px solid var(--c-surge);
+  padding-left: var(--space-2);
+}
+
+.rows {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(8rem, max-content) 1fr;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--c-line);
+}
+
+.term {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.value {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+  overflow-wrap: anywhere;
+}
+
+.plain {
+  margin: 0;
+  padding: var(--space-3);
+  white-space: pre-wrap;
+  font: inherit;
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+  background: var(--c-tint);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+@media (max-width: 40rem) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+}

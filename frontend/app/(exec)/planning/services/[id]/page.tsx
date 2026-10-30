@@ -17,7 +17,7 @@ export default async function ExecServicePage({ params }: { params: Promise<{ id
   if (!entry) notFound();
   return (
     <main>
-      <ServiceDetail entry={entry} now={board.generatedAt} />
+      <ServiceDetail entry={entry} now={board.generatedAt} coordinationPhone={board.coordinationPhone ?? null} />
     </main>
   );
 }

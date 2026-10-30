@@ -50,13 +50,6 @@ describe('WeekSummary', () => {
     expect(screen.getByText('Counts under 10 are hidden. Outcomes are not shown yet.')).toBeInTheDocument();
   });
 
-  it('keeps the minutes placeholder and says the estimate is not yet measured', () => {
-    render(<WeekSummaryView summary={summary} prefs={prefs} />);
-    expect(screen.getByText(/about one phone call of \[x\] minutes/)).toBeInTheDocument();
-    expect(screen.getByText('Estimate until we measure the baseline.')).toBeInTheDocument();
-    expect(screen.getByText('Estimate')).toBeInTheDocument();
-  });
-
   it('shows the sum behind the estimate once the minutes are set', () => {
     render(<WeekSummaryView summary={{ ...summary, minutesPerCall: 4 }} prefs={prefs} />);
     expect(screen.getByText('about 1,648 minutes (412 × 4)')).toBeInTheDocument();

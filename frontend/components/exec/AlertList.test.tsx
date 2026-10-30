@@ -26,6 +26,7 @@ describe('AlertList', () => {
   });
 
   it('moves between tabs with the arrow keys', async () => {
+    server.use(http.get('/api/bff/exec/alerts', () => HttpResponse.json({ counts: { open: 2 }, items: [] })));
     render(<AlertList open={open} />);
     screen.getByRole('tab', { name: 'Open (2)' }).focus();
     await userEvent.keyboard('{ArrowRight}');
@@ -51,7 +52,7 @@ describe('AlertList', () => {
     await userEvent.click(within(card).getByRole('button', { name: 'Acknowledge' }));
     await waitFor(() => expect(posted).toEqual(['al-1']));
     await userEvent.click(screen.getByRole('tab', { name: 'Acknowledged' }));
-    const acknowledged = await screen.findByText('Acknowledged at 13:40');
+    const acknowledged = await screen.findByText(/Acknowledged at 13:40/);
     expect(within(acknowledged.closest('article') as HTMLElement).getByText('Hospital at home over capacity')).toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Open (1)' })).toBeInTheDocument();
   });

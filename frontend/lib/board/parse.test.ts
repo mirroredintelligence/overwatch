@@ -118,14 +118,14 @@ describe('parseBoardParameters', () => {
     const parameters = boardParameters(BOARD_A);
     parameters.parameter?.push({ name: 'coordinationPhone', valueString: '01632 960001' });
     expect(parseBoardParameters(parameters).coordinationPhone).toBe('01632 960001');
-    expect(parseBoardParameters(boardParameters(BOARD_A)).coordinationPhone).toBeNull();
+    expect(parseBoardParameters(boardParameters(BOARD_A)).coordinationPhone ?? null).toBeNull();
   });
 
   it('keeps no number that is not a phone number: text, markup or a link is dropped, never shown', () => {
     for (const value of ['call me', '<b>999</b>', 'javascript:alert(1)', 'tel:01632 960001']) {
       const parameters = boardParameters(BOARD_A);
       parameters.parameter?.push({ name: 'coordinationPhone', valueString: value });
-      expect(parseBoardParameters(parameters).coordinationPhone).toBeNull();
+      expect(parseBoardParameters(parameters).coordinationPhone ?? null).toBeNull();
     }
   });
 

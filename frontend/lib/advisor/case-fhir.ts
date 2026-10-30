@@ -5,23 +5,28 @@ import {
   isAgeCode,
   isNeedCode,
   isReferrerCode,
+  isUrgencyCode,
   type UrgencyCode,
 } from './codes';
 
 // The one mapping between the browser's coded case and the back end's ServiceRequest (R07). Pure:
-// no I/O, so both directions are unit-tested. The shapes are the ones routes_cases.py reads and writes.
+// no I/O, so both directions are unit-tested against the JSON the back end's own mapping writes
+// (case_mapping.py; test/fixtures/backend-shapes.ts).
 
 export const BASE = 'https://diucs.example/';
 export const AGE_BAND_EXTENSION = `${BASE}StructureDefinition/age-band`;
 export const REFERRER_EXTENSION = `${BASE}StructureDefinition/referrer-type`;
+export const URGENCY_EXTENSION = `${BASE}StructureDefinition/urgency`;
+export const CLOSED_AT_EXTENSION = `${BASE}StructureDefinition/closed-at`;
+export const OUTCOME_EXTENSION = `${BASE}StructureDefinition/outcome`;
 export const NEED_SYSTEM = `${BASE}CodeSystem/need-category`;
-// A referrer's score: one complex extension per score, with its method and value. The back end
-// does not read this shape yet (docs/delivery/fragments/W12.md): until it does, a saved score is
-// not kept. This mapping is the shape the back-end task must adopt.
+// A referrer's score: one complex extension per score, with its method and value. The back end reads
+// and writes this shape (case_mapping.py `_score`, `_score_extension`).
 export const SCORE_EXTENSION = `${BASE}StructureDefinition/score`;
 
-// The back end has two priorities. A within-2-hrs case is urgent; today and planned are routine,
-// because the back end answers planned as routine (DEC-397). A planned case reads back as today.
+// The FHIR priority has two values: urgent for within 2 hrs, routine for today and planned. The urgency
+// extension carries which of the three it is, and the back end refuses a priority that disagrees with
+// it (DEC-773), so a write always sends both.
 export function priorityOf(urgency: UrgencyCode): 'urgent' | 'routine' {
   return urgency === 'within-2-hrs' ? 'urgent' : 'routine';
 }
@@ -34,38 +39,46 @@ function scoreExtension(score: Score): Record<string, unknown> {
   return { url: SCORE_EXTENSION, extension: [{ url: 'method', valueCode: score.method }, value] };
 }
 
+type Record_ = Record<string, unknown>;
+const asRecord = (value: unknown): Record_ | null =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record_) : null;
+
+const extensionsOf = (holder: Record_ | null): Record_[] =>
+  (Array.isArray(holder?.extension) ? holder.extension : []).map(asRecord).filter((item): item is Record_ => item !== null);
+
 /** The scores on a ServiceRequest, or null when one is not a score the rules allow. */
 function scoresOf(request: Record_): Score[] | null {
-  const items = (Array.isArray(request.extension) ? request.extension : []).map(asRecord).filter(
-    (item) => item?.url === SCORE_EXTENSION,
-  );
-  const parts = items.map((item) => {
-    const inner = (Array.isArray(item?.extension) ? item?.extension : []).map(asRecord);
-    const method = inner.find((part) => part?.url === 'method')?.valueCode;
-    const valuePart = inner.find((part) => part?.url === 'value');
-    const value = valuePart?.valueInteger ?? valuePart?.valueString;
-    return { method, value };
-  });
+  const parts = extensionsOf(request)
+    .filter((item) => item.url === SCORE_EXTENSION)
+    .map((item) => {
+      const inner = extensionsOf(item);
+      const method = inner.find((part) => part.url === 'method')?.valueCode;
+      const valuePart = inner.find((part) => part.url === 'value');
+      const value = valuePart?.valueInteger ?? valuePart?.valueString;
+      return { method, value };
+    });
   return parts.length === 0 ? [] : parseScores(parts);
 }
 
 export function toServiceRequest(id: string, input: CaseInput): Record<string, unknown> {
+  // The back end keeps the district of a postcode and nothing else of it (DEC-398). With no postcode in
+  // the save, the district on record stays as it is, so the Patient carries only the age band.
+  const patient: Record<string, unknown> = {
+    resourceType: 'Patient',
+    id: 'p',
+    extension: [{ url: AGE_BAND_EXTENSION, valueCode: input.ageBand }],
+  };
+  if (input.postcode !== null) patient.address = [{ postalCode: input.postcode }];
   return {
     resourceType: 'ServiceRequest',
     id,
     status: 'active',
     intent: 'plan',
     subject: { reference: '#p' },
-    contained: [
-      {
-        resourceType: 'Patient',
-        id: 'p',
-        address: [{ postalCode: input.postcode }],
-        extension: [{ url: AGE_BAND_EXTENSION, valueCode: input.ageBand }],
-      },
-    ],
+    contained: [patient],
     extension: [
       { url: REFERRER_EXTENSION, valueCode: input.referrerType },
+      { url: URGENCY_EXTENSION, valueCode: input.urgency },
       ...input.scores.map(scoreExtension),
     ],
     priority: priorityOf(input.urgency),
@@ -73,15 +86,21 @@ export function toServiceRequest(id: string, input: CaseInput): Record<string, u
   };
 }
 
-type Record_ = Record<string, unknown>;
-const asRecord = (value: unknown): Record_ | null =>
-  typeof value === 'object' && value !== null && !Array.isArray(value) ? (value as Record_) : null;
+function codeOf(holder: Record_ | null, url: string): unknown {
+  return extensionsOf(holder).find((item) => item.url === url)?.valueCode;
+}
 
-function extensionValue(holder: Record_ | null, url: string): unknown {
-  const found = (Array.isArray(holder?.extension) ? holder.extension : []).find(
-    (item) => asRecord(item)?.url === url,
-  );
-  return asRecord(found)?.valueCode;
+function urgencyOf(request: Record_): UrgencyCode | null {
+  // The extension says which of the three it is; the priority alone cannot tell today from planned.
+  const code = codeOf(request, URGENCY_EXTENSION);
+  if (code !== undefined) return isUrgencyCode(code) ? code : null;
+  if (request.priority === 'urgent') return 'within-2-hrs';
+  if (request.priority === 'routine') return 'today';
+  return null;
+}
+
+function instantOf(value: unknown): string | null {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value)) ? value : null;
 }
 
 /**
@@ -98,9 +117,6 @@ export function fromServiceRequest(value: unknown, etag: string | null): CaseVie
   const address = asRecord(Array.isArray(patient?.address) ? patient?.address[0] : null);
   const postcode = typeof address?.postalCode === 'string' ? address.postalCode : null;
 
-  const priority = request.priority;
-  const urgency = priority === 'urgent' ? 'within-2-hrs' : priority === 'routine' ? 'today' : null;
-
   const needs = (Array.isArray(request.reasonCode) ? request.reasonCode : []).flatMap((concept) => {
     const codings = Array.isArray(asRecord(concept)?.coding) ? (asRecord(concept)?.coding as unknown[]) : [];
     return codings
@@ -109,19 +125,28 @@ export function fromServiceRequest(value: unknown, etag: string | null): CaseVie
       .map((coding) => coding?.code as string);
   });
 
-  const referrer = extensionValue(request, REFERRER_EXTENSION);
-  const ageBand = extensionValue(patient, AGE_BAND_EXTENSION);
+  const reference = (Array.isArray(request.identifier) ? request.identifier : [])
+    .map(asRecord)
+    .find((item) => typeof item?.value === 'string')?.value;
+  const referrer = codeOf(request, REFERRER_EXTENSION);
+  const ageBand = codeOf(patient, AGE_BAND_EXTENSION);
+  const outcome = codeOf(request, OUTCOME_EXTENSION);
+  const closedAt = extensionsOf(request).find((item) => item.url === CLOSED_AT_EXTENSION)?.valueDateTime;
   const scores = scoresOf(request);
   if (scores === null) return null;
   return {
     id: request.id,
+    reference: typeof reference === 'string' ? reference : null,
     referrerType: isReferrerCode(referrer) ? referrer : null,
     ageBand: isAgeCode(ageBand) ? ageBand : null,
     postcode,
     needs: needs.filter(isNeedCode),
-    urgency: urgency === null ? null : (urgency as UrgencyCode),
+    urgency: urgencyOf(request),
     scores,
-    openedAt: null,
+    openedAt: instantOf(request.authoredOn),
+    closed: request.status === 'completed',
+    closedAt: instantOf(closedAt),
+    outcome: typeof outcome === 'string' ? outcome : null,
     etag,
   };
 }

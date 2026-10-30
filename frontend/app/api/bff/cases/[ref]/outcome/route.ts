@@ -29,7 +29,7 @@ const post = withBff<Context>(
     await closeCase(session.backendToken, ref, input, key);
     return answer({ closedAt: new Date().toISOString() });
   },
-  { roles: [...CASE_ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

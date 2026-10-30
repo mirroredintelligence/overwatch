@@ -36,7 +36,7 @@ const post = withBff<Context>(
     await postDeclined(session.backendToken, id, caseId, reason as DeclineReason, key);
     return answer({ recorded: true }, 201);
   },
-  { roles: [...CASE_ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

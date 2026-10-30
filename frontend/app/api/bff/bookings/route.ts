@@ -1,3 +1,4 @@
+import { CASE_ROLES } from '@/lib/advisor/roles';
 import { withBff } from '@/lib/bff/handler';
 import { FhirError } from '@/lib/fhir/client';
 import { openBooking } from '@/lib/advisor/bookingServer';
@@ -11,7 +12,6 @@ const CASE_REF = /^[A-Za-z0-9._-]{1,64}$/;
 const SERVICE_ID = /^[A-Za-z0-9.-]{1,64}$/;
 const KEY = /^[A-Za-z0-9-]{16,80}$/;
 const FIELDS = ['caseRef', 'serviceId'] as const;
-const ROLES = ['advisor', 'clinical'] as const;
 
 function refuse(status: number, code: string): Response {
   return Response.json({ code }, { status, headers: NO_STORE });
@@ -43,7 +43,7 @@ const post = withBff(
       throw error;
     }
   },
-  { roles: [...ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 export const POST = (request: Request) => post(request, undefined);

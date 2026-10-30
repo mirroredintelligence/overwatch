@@ -8,6 +8,10 @@ import { CaseSummary } from './CaseSummary';
 
 const SAVED = {
   id: '4821',
+  reference: '4821',
+  closed: false,
+  closedAt: null,
+  outcome: null,
   referrerType: 'ambulance-crew',
   ageBand: '80+',
   postcode: 'DT4 8XX',

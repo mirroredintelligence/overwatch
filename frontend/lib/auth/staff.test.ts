@@ -31,7 +31,7 @@ describe('safeNext', () => {
   it('sends a path the role may not open to the role home', () => {
     expect(safeNext('/lead', 'advisor')).toBe('/advisor');
     expect(safeNext('/console', 'lead')).toBe('/lead');
-    expect(safeNext('/advisor/case/4821', 'lead')).toBe('/advisor/case/4821');
+    expect(safeNext('/advisor/case/4821', 'lead')).toBe('/lead');
   });
 
   it('does not send a signed-in person back to the sign-in page', () => {

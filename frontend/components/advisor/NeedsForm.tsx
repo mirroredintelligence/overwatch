@@ -17,16 +17,20 @@ import {
   URGENCIES,
   type UrgencyCode,
 } from '@/lib/advisor/codes';
-import { bffFetch } from '@/lib/advisor/browser';
+import { bffFetch, newIdempotencyKey } from '@/lib/advisor/browser';
 import { normalisePostcode } from '@/lib/advisor/postcode';
 import type { Score } from '@/lib/advisor/scores';
+import { scoreText } from '@/lib/advisor/summary';
 import { CallBar } from './CallBar';
 import { ScorePickers } from './ScorePickers';
 import styles from './NeedsForm.module.css';
 
 // The needs form (W11): who is calling, age, postcode, needs and how soon. Nothing is typed except
 // the postcode. The form is not editable until the case has been read, so a save never overwrites
-// a case the page has not seen. A save sends the ETag it read as If-Match (W11).
+// a case the page has not seen. A save sends the ETag it read as If-Match and a key of its own (W11).
+// The back end keeps the postcode DISTRICT only (DEC-398), so the form says which district is on record
+// and sends a postcode only when one is typed; it keeps scores once recorded (they cannot change), so
+// they are shown as text; a closed case cannot change, so it is not a form at all.
 
 const POSTCODE_ERROR = 'Enter a full postcode, for example DT4 8XX';
 const POSTCODE_ERROR_ID = 'needs-postcode-error';
@@ -49,17 +53,18 @@ function draftFrom(view: CaseView): Draft {
   return {
     referrerType: view.referrerType,
     ageBand: view.ageBand,
-    postcode: view.postcode ?? '',
+    // The field starts empty: the district on record is not a postcode to edit, it is said beside it.
+    postcode: '',
     needs: view.needs,
     urgency: view.urgency,
     scores: view.scores,
   };
 }
 
-/** The coded save, or null while any part is still unset or the postcode is not full. */
-function inputFrom(draft: Draft, postcode: string | null): CaseInput | null {
+/** The coded save, or null while any part is still unset or the postcode is neither full nor on record. */
+function inputFrom(draft: Draft, postcode: string | null, districtOnRecord: boolean): CaseInput | null {
   if (draft.referrerType === null || draft.ageBand === null || draft.urgency === null) return null;
-  if (postcode === null || draft.needs.length === 0) return null;
+  if ((postcode === null && !districtOnRecord) || draft.needs.length === 0) return null;
   return {
     referrerType: draft.referrerType,
     ageBand: draft.ageBand,
@@ -70,7 +75,13 @@ function inputFrom(draft: Draft, postcode: string | null): CaseInput | null {
   };
 }
 
-export function NeedsForm({ caseId, openedAt }: { caseId: string; openedAt: string }) {
+function withoutPostcode(input: CaseInput): Record<string, unknown> {
+  const body: Record<string, unknown> = { ...input };
+  delete body.postcode;
+  return body;
+}
+
+export function NeedsForm({ caseId }: { caseId: string }) {
   const router = useRouter();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -78,12 +89,15 @@ export function NeedsForm({ caseId, openedAt }: { caseId: string; openedAt: stri
   const [postcodeError, setPostcodeError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<'conflict' | 'failed' | null>(null);
+  // The clock the call bar falls back to when the back end gave no open time: when the case was read.
+  const [readAt, setReadAt] = useState('');
 
   useEffect(() => {
     let live = true;
     bffFetch<CaseView>(`/api/bff/cases/${encodeURIComponent(caseId)}`).then((reply) => {
       if (!live) return;
       if (reply.ok) {
+        setReadAt(new Date().toISOString());
         setLoad({ kind: 'ready', view: reply.body });
         setDraft(draftFrom(reply.body));
       } else {
@@ -95,8 +109,10 @@ export function NeedsForm({ caseId, openedAt }: { caseId: string; openedAt: stri
     };
   }, [caseId]);
 
+  const view = load.kind === 'ready' ? load.view : null;
+  const district = view?.postcode ?? null;
   const postcode = normalisePostcode(draft.postcode);
-  const input = inputFrom(draft, postcode);
+  const input = inputFrom(draft, postcode, district !== null);
   const canContinue = load.kind === 'ready' && input !== null && !saving;
 
   function onPostcodeBlur() {
@@ -121,8 +137,10 @@ export function NeedsForm({ caseId, openedAt }: { caseId: string; openedAt: stri
     setMessage(null);
     const reply = await bffFetch<CaseView>(`/api/bff/cases/${encodeURIComponent(caseId)}`, {
       method: 'PUT',
-      body: input,
+      // No postcode in the body leaves the district on record as it is.
+      body: input.postcode === null ? withoutPostcode(input) : input,
       ifMatch: load.view.etag ?? undefined,
+      idempotencyKey: newIdempotencyKey(),
     });
     if (reply.ok) {
       router.push(`/advisor/case/${encodeURIComponent(caseId)}/options`);
@@ -143,12 +161,23 @@ export function NeedsForm({ caseId, openedAt }: { caseId: string; openedAt: stri
 
   if (load.kind === 'loading') return <p>Loading the case.</p>;
   if (load.kind === 'failed') return <p role="alert">This case could not be loaded.</p>;
+  if (load.view.closed) {
+    return (
+      <section className={styles.form} aria-label="Patient needs">
+        <h1 className={styles.legend}>This call is closed.</h1>
+        <p className={styles.note}>The postcode and needs were cleared when it closed. A closed call cannot be changed.</p>
+        <Button variant="primary" href="/advisor">
+          Start a new call
+        </Button>
+      </section>
+    );
+  }
 
   const referrerLabel = labelOf(REFERRERS, draft.referrerType) ?? 'Caller not yet recorded';
 
   return (
     <section className={styles.form} aria-label="Patient needs">
-      <CallBar openedAt={openedAt} referrer={referrerLabel} />
+      <CallBar openedAt={load.view.openedAt ?? readAt} referrer={referrerLabel} />
       <form onSubmit={save} noValidate>
         <h1 className={styles.legend}>Patient needs</h1>
 
@@ -202,6 +231,9 @@ export function NeedsForm({ caseId, openedAt }: { caseId: string; openedAt: stri
             aria-describedby={postcodeError ? POSTCODE_ERROR_ID : undefined}
             data-el="ADV-NEEDS-POSTCODE"
           />
+          {district !== null ? (
+            <p className={styles.note}>{`On record: postcode district ${district}. Type the full postcode only to change it.`}</p>
+          ) : null}
           {postcodeError ? (
             <p id={POSTCODE_ERROR_ID} className={styles.error}>
               {POSTCODE_ERROR}
@@ -261,10 +293,14 @@ export function NeedsForm({ caseId, openedAt }: { caseId: string; openedAt: stri
           </div>
         </fieldset>
 
-        <ScorePickers
-          value={draft.scores}
-          onChange={(scores) => setDraft((current) => ({ ...current, scores }))}
-        />
+        {load.view.scores.length > 0 ? (
+          <p className={styles.note}>{`Recorded as the referrer gave them: ${load.view.scores.map(scoreText).join('; ')}. They cannot be changed.`}</p>
+        ) : (
+          <ScorePickers
+            value={draft.scores}
+            onChange={(scores) => setDraft((current) => ({ ...current, scores }))}
+          />
+        )}
 
         <p className={styles.note}>
           No patient name is stored. Postcode and needs are cleared after the call record closes.

@@ -162,7 +162,7 @@ describe('PUT /api/bff/cases/[ref] (W11)', () => {
   });
 
   it('sends no postcode when the stored district is to stay, and none of the Patient address', async () => {
-    const { postcode: _kept, ...withoutPostcode } = VALID;
+    const withoutPostcode = { ...VALID, postcode: undefined };
     const response = await put('advisor', withoutPostcode);
 
     expect(response.status).toBe(200);

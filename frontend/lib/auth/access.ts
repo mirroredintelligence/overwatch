@@ -4,7 +4,7 @@ import type { Role } from './session';
 // (proxy.ts) and the sign-in both read this one table, so they cannot disagree.
 
 const PREFIX_ROLES: ReadonlyMap<string, readonly Role[]> = new Map([
-  ['advisor', ['advisor', 'lead']], // includes /advisor/case
+  ['advisor', ['advisor']], // includes /advisor/case; a lead does not work a call (DEC-860)
   ['clinical', ['clinical']],
   ['lead', ['lead']],
   ['owner', ['owner', 'clinical']],

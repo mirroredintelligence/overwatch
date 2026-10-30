@@ -36,7 +36,7 @@ beforeEach(() => {
   resetSeenAdvisorRequests();
 });
 
-function caseIs(view: unknown) {
+function caseIs(view: Record<string, unknown>) {
   server.use(http.get('/api/bff/cases/:ref', () => HttpResponse.json(view)));
 }
 

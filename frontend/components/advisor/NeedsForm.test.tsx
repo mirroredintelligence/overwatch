@@ -12,7 +12,6 @@ import { NeedsForm } from './NeedsForm';
 const push = vi.fn();
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push }) }));
 
-const OPENED = '2026-10-30T10:00:00.000Z';
 
 beforeEach(() => {
   push.mockReset();
@@ -21,7 +20,7 @@ beforeEach(() => {
 });
 
 async function renderForm() {
-  const result = render(<NeedsForm caseId="4821" openedAt={OPENED} />);
+  const result = render(<NeedsForm caseId="4821" />);
   await screen.findByRole('group', { name: 'Who is calling?' });
   return result;
 }
@@ -37,7 +36,7 @@ async function fillEverything(user: ReturnType<typeof userEvent.setup>) {
 
 describe('NeedsForm (W11)', () => {
   it('shows the loading line until the case is read, and no form to edit before then', () => {
-    render(<NeedsForm caseId="4821" openedAt={OPENED} />);
+    render(<NeedsForm caseId="4821" />);
 
     expect(screen.getByText('Loading the case.')).toBeInTheDocument();
     expect(screen.queryByRole('group', { name: 'Who is calling?' })).toBeNull();
@@ -45,7 +44,7 @@ describe('NeedsForm (W11)', () => {
 
   it('says so when the case cannot be read, and offers no save', async () => {
     server.use(http.get('/api/bff/cases/:ref', () => HttpResponse.json({ code: 'not-found' }, { status: 404 })));
-    render(<NeedsForm caseId="4821" openedAt={OPENED} />);
+    render(<NeedsForm caseId="4821" />);
 
     expect(await screen.findByText('This case could not be loaded.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'See options' })).toBeNull();

@@ -1,3 +1,4 @@
+import { CASE_ROLES } from '@/lib/advisor/roles';
 import { withBff } from '@/lib/bff/handler';
 import { acknowledgeBooking } from '@/lib/advisor/bookingServer';
 
@@ -7,7 +8,6 @@ import { acknowledgeBooking } from '@/lib/advisor/bookingServer';
 const NO_STORE = { 'Cache-Control': 'no-store' };
 const BOOKING_ID = /^[A-Za-z0-9-]{1,64}$/;
 const KEY = /^[A-Za-z0-9-]{16,80}$/;
-const ROLES = ['advisor', 'clinical'] as const;
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -20,7 +20,7 @@ const post = withBff<Context>(
     await acknowledgeBooking(session, id, key);
     return Response.json({ acknowledged: true }, { status: 200, headers: NO_STORE });
   },
-  { roles: [...ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

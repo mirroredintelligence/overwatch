@@ -19,7 +19,7 @@ const get = withBff<Context>(
     if (view === null) return refuse(502, 'exception');
     return answer(summaryOf(view));
   },
-  { roles: [...CASE_ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 export const GET = (request: Request, context: Context) => get(request, context);

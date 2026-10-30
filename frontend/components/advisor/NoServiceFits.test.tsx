@@ -57,10 +57,10 @@ describe('NoServiceFits (W16)', () => {
     expect(seenCasePuts[0].body).toMatchObject({
       referrerType: 'ambulance-crew',
       ageBand: '80+',
-      postcode: 'DT4 8XX',
       needs: ['fall-no-injury', 'frailty'],
       urgency: 'today',
     });
+    expect(seenCasePuts[0].body).not.toHaveProperty('postcode');
   });
 
   it('with urgency today, "Widen the time" is not shown', async () => {

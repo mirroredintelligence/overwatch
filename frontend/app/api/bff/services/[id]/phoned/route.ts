@@ -47,7 +47,7 @@ const post = withBff<Context>(
     await postAdvisorPhoned(session.backendToken, id, caseId, said as Said, value, key);
     return answer({ recorded: true }, 201);
   },
-  { roles: [...CASE_ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

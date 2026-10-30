@@ -34,18 +34,20 @@ export async function readCase(token: string, id: string): Promise<ServiceReques
   return { data, etag: etag ?? null };
 }
 
-/** Saves a case (PUT ServiceRequest). A stale ETag answers 412 (FhirError), which the route maps. */
+/** Saves a case (PUT ServiceRequest). The back end requires If-Match and an Idempotency-Key. A stale ETag answers 412 (FhirError), which the route maps. */
 export async function updateCase(
   token: string,
   id: string,
   body: Record<string, unknown>,
   ifMatch: string,
+  idempotencyKey: string,
 ): Promise<ServiceRequestReply> {
   const { data, etag } = await fhirFetch<unknown>(`/ServiceRequest/${encodeURIComponent(id)}`, {
     method: 'PUT',
     token,
     body,
     ifMatch,
+    idempotencyKey,
   });
   return { data, etag: etag ?? null };
 }

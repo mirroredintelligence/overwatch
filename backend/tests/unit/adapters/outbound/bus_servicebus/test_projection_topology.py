@@ -110,3 +110,14 @@ def test_the_readme_names_the_queue_and_the_subscription() -> None:
     text = README.read_text(encoding="utf-8")
     assert PROJECTION_WORK in text
     assert NETWORK_SUBSCRIPTION in text
+
+
+def test_the_network_board_projector_has_its_own_subscription_on_the_network_events_topic() -> None:
+    """TEN-058: the board rebuilds on the governance events, and the subscription is its own so a
+    slow reconciliation sweep never holds the board back."""
+    from diucs.adapters.inbound.workers.network_board_consumer import NETWORK_BOARD_SUBSCRIPTION
+
+    properties = _subscriptions("network.events")[NETWORK_BOARD_SUBSCRIPTION]
+    assert properties["RequiresSession"] is False
+    assert properties["DeadLetteringOnMessageExpiration"] is True
+    assert NETWORK_BOARD_SUBSCRIPTION != NETWORK_SUBSCRIPTION

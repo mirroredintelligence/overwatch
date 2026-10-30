@@ -245,3 +245,20 @@ def test_without_the_network_projector_no_projection_runner_is_built() -> None:
         work_handlers={WorkKind.REMINDER: _no_work},
     )
     assert all(r._entity != "projection.work" for r in runners)
+
+
+def test_with_the_network_board_projector_its_runner_is_added() -> None:
+    from tests.unit.adapters.inbound.workers.test_network_board_consumer import _Projector
+
+    runners = build_runners(
+        client=None,  # type: ignore[arg-type]
+        handle_inbound_text=_UseCase(),
+        uow_factory=_no_unit,  # type: ignore[arg-type]
+        tenants=StaticTenants(["tenant-a"]),
+        work_handlers={WorkKind.REMINDER: _no_work},
+        network_board_projector=_Projector(),  # type: ignore[arg-type]
+    )
+    assert [(r._entity, r._subscription) for r in runners[3:]] == [
+        ("network.events", "network-board-projector")
+    ]
+    assert all(isinstance(r._consumer, TenantBoundConsumer) for r in runners)

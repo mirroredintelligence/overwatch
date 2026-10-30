@@ -1,7 +1,7 @@
 """Tests for the pure rules of acknowledging, snoozing and checking alerts (U34).
 
-Only the owner of an alert may acknowledge or snooze it. An alert can be acknowledged while it is new
-or escalated, anywhere in its chain; a snooze moves a new alert's escalation one hour later. A
+Only the owner of an alert may acknowledge or snooze it. An alert can be acknowledged while it is
+new or escalated, anywhere in its chain; a snooze moves a new alert's escalation one hour later. A
 not-updated service is checked at two and four hours after it changed. Sample values only.
 """
 
@@ -22,7 +22,7 @@ AT = datetime(2026, 10, 29, 14, 12, tzinfo=UTC)
 
 
 def test_a_snooze_moves_the_escalation_one_hour_later() -> None:
-    assert SNOOZE_BY == timedelta(hours=1)
+    assert timedelta(hours=1) == SNOOZE_BY
     assert snoozed_due(datetime(2026, 10, 29, 14, 27, tzinfo=UTC)) == datetime(
         2026, 10, 29, 15, 27, tzinfo=UTC
     )

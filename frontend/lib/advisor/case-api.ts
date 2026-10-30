@@ -49,3 +49,20 @@ export async function updateCase(
   });
   return { data, etag: etag ?? null };
 }
+
+/**
+ * The options for a case (W13): one `$filter-options` call. The back end writes an audit snapshot for
+ * every call, so the caller makes one call per page load and sends a fresh key for it.
+ */
+export async function filterOptions(token: string, caseId: string, idempotencyKey: string): Promise<unknown> {
+  const { data } = await fhirFetch<unknown>('/HealthcareService/$filter-options', {
+    method: 'POST',
+    token,
+    idempotencyKey,
+    body: {
+      resourceType: 'Parameters',
+      parameter: [{ name: 'case', valueReference: { reference: `ServiceRequest/${caseId}` } }],
+    },
+  });
+  return data;
+}

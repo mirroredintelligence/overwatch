@@ -110,7 +110,8 @@ describe('OptionsList (W13)', () => {
     render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     const card = await screen.findByRole('article', { name: 'Other unit' });
 
-    expect(screen.getAllByText('Read only. You cannot book or change these services from here. Phone the service to check.')).toHaveLength(1);
+    expect(screen.getAllByText('You cannot book or change these services from here. Phone the service to check.')).toHaveLength(1);
+    expect(screen.getByText('Read only')).toBeInTheDocument();
     expect(within(card).queryByRole('button', { name: 'Request booking' })).toBeNull();
   });
 

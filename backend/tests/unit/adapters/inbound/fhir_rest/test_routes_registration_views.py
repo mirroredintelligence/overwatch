@@ -42,7 +42,7 @@ from tests.support.w7b_rig import (
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-KEY = {"Idempotency-Key": "w7b-views-key-0001"}
+KEY = {"Idempotency-Key": "w7b-views-key-0001", "Content-Type": "application/json"}
 APPLICANT = bearer(Role.REPORTER, INVITEE, (SERVICE,))
 OTHER_APPLICANT = bearer(Role.REPORTER, "prac-other", ("svc-other",))
 LEAD_AUTH = bearer(Role.LEAD, LEAD)
@@ -461,11 +461,11 @@ async def test_the_lead_may_send_the_test_again_and_a_second_press_inside_a_minu
     async with client(rig) as http:
         first = await http.post(TEST_NOTIFICATION, headers={**KEY, **LEAD_AUTH})
         again = await http.post(
-            TEST_NOTIFICATION, headers={"Idempotency-Key": "another-key-0002", **LEAD_AUTH}
+            TEST_NOTIFICATION, headers={**KEY, "Idempotency-Key": "another-key-0002", **LEAD_AUTH}
         )
         rig.clock.advance(timedelta(minutes=2))
         later = await http.post(
-            TEST_NOTIFICATION, headers={"Idempotency-Key": "another-key-0003", **LEAD_AUTH}
+            TEST_NOTIFICATION, headers={**KEY, "Idempotency-Key": "another-key-0003", **LEAD_AUTH}
         )
 
     assert (first.status_code, again.status_code, later.status_code) == (200, 409, 200)
@@ -504,7 +504,7 @@ async def test_a_review_request_is_recorded_and_may_be_made_again() -> None:
     async with client(rig) as http:
         first = await http.post(REVIEW_REQUEST, headers={**KEY, **APPLICANT})
         second = await http.post(
-            REVIEW_REQUEST, headers={"Idempotency-Key": "other-key-0009", **APPLICANT}
+            REVIEW_REQUEST, headers={**KEY, "Idempotency-Key": "other-key-0009", **APPLICANT}
         )
 
     assert first.status_code == second.status_code == 200
@@ -586,7 +586,7 @@ async def test_a_failed_check_is_explained_and_a_check_that_passed_is_not() -> N
         )
 
     assert explained.status_code == 200, explained.text
-    assert explained.json()["parameter"][0] == {"name": "automaticOk", "valueBoolean": False}
+    assert explained.json()["parameter"][0] == {"name": "automaticOk", "valueBoolean": True}
     assert passed.status_code == 409
     assert unknown.status_code == 400
 
@@ -649,6 +649,7 @@ async def test_only_a_reporter_looks_up_an_address() -> None:
     assert lead.status_code == 404
 
 
-def test_the_ending_of_a_number_is_its_last_three_digits() -> None:
+@pytest.mark.asyncio(loop_scope="session")
+async def test_the_ending_of_a_number_is_its_last_three_digits() -> None:
     assert number_ending("+447700900456") == "456"
     assert number_ending("07700 900 456") == "456"

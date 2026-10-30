@@ -17,7 +17,8 @@ def test_the_test_message_says_it_is_a_test_and_needs_no_answer(channel: Channel
     rendered = render(MessageId.T1, channel, service="UCR West")
 
     text = rendered.text
-    assert "UCR West" in text
+    # A push carries the service in its title, as the other push messages do.
+    assert "UCR West" in text or "UCR West" in (rendered.subject or "")
     assert "test" in text.lower()
     assert "no reply" in text.lower() or "nothing to" in text.lower()
     for word in ("http", "reply with", "send a number", "confirm or update"):

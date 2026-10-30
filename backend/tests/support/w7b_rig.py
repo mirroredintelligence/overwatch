@@ -32,6 +32,7 @@ from diucs.application.use_cases.registration_draft import (
     encode_step,
 )
 from diucs.application.use_cases.registration_submit import Lookups, encode_lookups
+from diucs.application.use_cases.review_registration import districts_in_ranges
 from diucs.application.use_cases.text_code import CODE_HMAC_SECRET, INVITATION_PURPOSE
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.codes import (
@@ -202,6 +203,10 @@ class _LinkBase:
         return f"https://{HOST}"
 
 
+def _area(scope: ScopeId) -> frozenset[str]:
+    return districts_in_ranges(("DT", 1, 11), ("BH", 1, 31))
+
+
 class Rig:
     """The container the W7B routes read, over `StubUnits`."""
 
@@ -225,6 +230,7 @@ class Rig:
         self.geocoder = FixedGeocoder({})
         self.terminology = FixedTerminology({}, {})
         self.link_base_url_for = _LinkBase()
+        self.area_districts_for = _area
 
     def invite(self, status: RegistrationStatus = RegistrationStatus.INVITED) -> str:
         """One invited registration for the service, with the applicant's post and number, the

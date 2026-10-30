@@ -110,6 +110,7 @@ _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.K2: frozenset({"service", "review_by"}),
     MessageId.K3: frozenset({"title", "body"}),
     MessageId.K4: frozenset({"service", "coordination_team_name"}),
+    MessageId.T1: frozenset({"service"}),
     MessageId.C1: frozenset({"service", "value", "unit", "as_of", "link", "reply_by"}),
     MessageId.C2: frozenset({"service", "unit", "window", "reply_by", "link"}),
     MessageId.C3: frozenset({"service", "value", "unit", "recorded_at", "next_due"}),
@@ -168,6 +169,10 @@ _B7_TEXT: Final = (
 _B8_TEXT: Final = "No booking is waiting for a reply."
 _B9_TEXT: Final = "That booking has expired, so nothing was booked."
 _K2_TEXT: Final = "Due {review_by}. Confirm or update in 2 minutes."
+# [ASSUMED] (W7B): the test message. It carries no link and asks for nothing, so it can never be
+# answered with a number.
+_T1_TEXT: Final = "DIUCS test: {service}. This is a test message. There is nothing to reply to."
+_T1_PUSH_TEXT: Final = "This is a test notification. There is nothing to do."
 
 _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
     (MessageId.C1, Channel.TEXT): _Template(required=_FIELDS[MessageId.C1], text=_C1_TEXT),
@@ -351,6 +356,18 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         required=_FIELDS[MessageId.K2],
         text=_K2_TEXT,
         subject="{service} criteria: review due",
+    ),
+    (MessageId.T1, Channel.TEXT): _Template(required=_FIELDS[MessageId.T1], text=_T1_TEXT),
+    (MessageId.T1, Channel.EMAIL): _Template(
+        required=_FIELDS[MessageId.T1],
+        text=_T1_TEXT,
+        subject="{service}: test message",
+        html="<p>DIUCS test: {service}. This is a test message. There is nothing to reply to.</p>",
+    ),
+    (MessageId.T1, Channel.PUSH): _Template(
+        required=_FIELDS[MessageId.T1],
+        text=_T1_PUSH_TEXT,
+        subject="{service}: test notification",
     ),
     (MessageId.K3, Channel.PUSH): _Template(
         required=_FIELDS[MessageId.K3],

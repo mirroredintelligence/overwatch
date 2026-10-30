@@ -45,6 +45,8 @@ class MessageId(StrEnum):
     K2 = "K2"
     K3 = "K3"
     K4 = "K4"
+    # The test message of a registration and of a lead's test prompt (W7B): [ASSUMED] wording.
+    T1 = "T1"
 
 
 # The three wording fields a tenant supplies (TEN-022). Each is checked by check_tenant_text.

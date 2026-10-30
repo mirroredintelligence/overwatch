@@ -1,6 +1,6 @@
 import { createHmac } from 'node:crypto';
 import { decodeJwt } from 'jose';
-import { DIRECTORY_A, DIRECTORY_B, SIGN_IN_HOST } from '@/test/oidc/constants';
+import { DIRECTORY_A, DIRECTORY_B, DIRECTORY_PLATFORM, SIGN_IN_HOST } from '@/test/oidc/constants';
 
 // A stand-in for the back end's token exchange (TEN-043, DEC-522 to DEC-526): `POST /auth/token`
 // and `POST /auth/device-token`. It is a stand-in, not the back end: it answers the shapes the
@@ -154,4 +154,34 @@ export function deviceExchange(
     exp: expires,
   });
   return { status: 200, body: { token, expiresAt: iso(expires), role: 'wall' } };
+}
+
+const OPERATOR_ROLE_BY_APP_ROLE: Record<string, string> = {
+  'DIUCS.PlatformOperator': 'platform-operator',
+  'DIUCS.Support': 'support',
+};
+const OPERATOR_PRIORITY = ['platform-operator', 'support'];
+export const OPERATOR_LIFETIME_SECONDS = 3600;
+
+/** `POST /auth/operator-token`: the operator directory only, no host and no tenant (TEN-043, DEC-1000). */
+export function operatorExchange(body: unknown, directory: string = DIRECTORY_PLATFORM, now: Date = new Date()): ExchangeReply {
+  const keys = typeof body === 'object' && body !== null ? Object.keys(body) : [];
+  const idToken = (body as { idToken?: unknown } | null)?.idToken;
+  if (keys.length !== 1 || typeof idToken !== 'string' || idToken === '') return badRequest();
+  let claims: Record<string, unknown>;
+  try {
+    claims = decodeJwt(idToken);
+  } catch {
+    return refused();
+  }
+  const oid = typeof claims.oid === 'string' ? claims.oid : '';
+  if (claims.tid !== directory) return refused();
+  const held = (Array.isArray(claims.roles) ? claims.roles : []).flatMap((r) => OPERATOR_ROLE_BY_APP_ROLE[String(r)] ?? []);
+  const role = OPERATOR_PRIORITY.find((candidate) => held.includes(candidate));
+  if (role === undefined) return refused();
+  const issuedAt = Math.floor(now.getTime() / 1000);
+  const expires = issuedAt + OPERATOR_LIFETIME_SECONDS;
+  const digest = createHmac('sha256', STAND_IN_KEY).update(`operator|${oid}`).digest('hex');
+  const token = standInToken({ sub: `ops-${digest.slice(0, 32)}`, role, aud: 'diucs-ops', iat: issuedAt, exp: expires });
+  return { status: 200, body: { token, expiresAt: iso(expires), role } };
 }

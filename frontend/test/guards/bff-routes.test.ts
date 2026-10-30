@@ -7,6 +7,8 @@ import { LINK_CSRF_COOKIE } from '@/lib/links/csrf';
 import { BACKEND_ROOT, csrfFor, LINK, TENANT_HOST } from '@/test/fixtures/links';
 import { cookieWrites, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
 import { resetLinkRequests } from '@/test/msw/handlers/links';
+import { OPERATOR_ROLES, type OperatorRole } from '@/lib/operator/session';
+import { OPERATOR_HOST, requestAsOperator } from '@/test/operator';
 import { requestAs } from '@/test/requests';
 import { TENANTS } from '@/test/tenants';
 
@@ -23,6 +25,10 @@ import { TENANTS } from '@/test/tenants';
 //   sign-in  the staff sign-in: its answers are never stored.
 //   beacon   the telemetry ingest: no session is a 401, never stored.
 //   pairing  the wall screen's pairing routes (no person: a screen's secret).
+//   operator the operator console's routes (`withOperatorBff`, TEN-083): an operator session (a cookie of its
+//            own, no tenant). A tenant's person of any role is a 401 on every one, as no session at all; an
+//            operator session is a 401 on every `session` route above; a request that names a tenant is a 400.
+//   operator-sign-in  the operator's own sign-in routes (its app registration, its directory, its host).
 //   pre-session  the routes a phone calls before it has a session (the reporter's set-up and PIN
 //            sign-in, the registration code, the invitation read, the push key). The tenant is the
 //            host (the back end resolves it; no token is sent), so such a route must never take a
@@ -35,11 +41,13 @@ vi.mock('next/headers', async () => {
   return { cookies: m.cookiesMock, headers: m.headersMock };
 });
 
-type Kind = 'session' | 'link' | 'sign-in' | 'beacon' | 'pairing' | 'pre-session';
+type Kind = 'session' | 'operator' | 'operator-sign-in' | 'link' | 'sign-in' | 'beacon' | 'pairing' | 'pre-session';
 
 /** The routes that are not `withBff` routes, and what each is. */
 const NAMED: Record<string, Kind> = {
   'app/api/bff/telemetry/route.ts': 'beacon',
+  'app/api/bff/platform/auth/start/route.ts': 'operator-sign-in',
+  'app/api/bff/platform/auth/callback/route.ts': 'operator-sign-in',
   'app/api/bff/links/[token]/route.ts': 'link',
   'app/api/bff/links/[token]/renew/route.ts': 'link',
   'app/api/bff/auth/entra/start/route.ts': 'sign-in',
@@ -65,6 +73,7 @@ const NAMED: Record<string, Kind> = {
 };
 
 const WITH_BFF = /\bwithBff(<[^>]*>)?\(/;
+const WITH_OPERATOR_BFF = /\bwithOperatorBff(<[^>]*>)?\(/;
 
 function textOf(file: string): string {
   return readFileSync(`${ROOT}${file}`, 'utf8');
@@ -73,6 +82,7 @@ function textOf(file: string): string {
 /** `session` for a `withBff` route, the named kind for another, undefined for a route nobody has classified. */
 function kindOf(file: string): Kind | undefined {
   if (file in NAMED) return NAMED[file];
+  if (WITH_OPERATOR_BFF.test(textOf(file))) return 'operator';
   return WITH_BFF.test(textOf(file)) ? 'session' : undefined;
 }
 
@@ -139,6 +149,20 @@ describe('the routes on disk', () => {
   it('say idScoped on every route that takes an id from the caller, beyond the list of those that do not yet', () => {
     const idRoutes = files.filter((f) => /\[[^\]]+\]/.test(f) && WITH_BFF.test(textOf(f)) && !/idScoped:\s*true/.test(textOf(f)));
     expect(idRoutes.sort()).toEqual([...ID_ROUTES_NOT_YET_SCOPED].sort());
+  });
+
+  it('give an operator route no tenant wrapper and a tenant route no operator wrapper: one door each', () => {
+    for (const file of files) {
+      const text = textOf(file);
+      expect(WITH_BFF.test(text) && WITH_OPERATOR_BFF.test(text), file).toBe(false);
+      if (file.startsWith('app/api/bff/platform/') && !(file in NAMED)) expect(WITH_OPERATOR_BFF.test(text), file).toBe(true);
+      if (!file.startsWith('app/api/bff/platform/')) expect(WITH_OPERATOR_BFF.test(text), file).toBe(false);
+    }
+  });
+
+  it('say idScoped on every operator route that takes an id from the caller', () => {
+    const idRoutes = files.filter((f) => /\[[^\]]+\]/.test(f) && WITH_OPERATOR_BFF.test(textOf(f)) && !/idScoped:\s*true/.test(textOf(f)));
+    expect(idRoutes).toEqual([]);
   });
 
   it('export only HTTP methods, each a function', async () => {
@@ -223,6 +247,102 @@ describe.each(files.filter((f) => kindOf(f) === 'session'))('%s (session)', (fil
       expect(await response.text()).not.toMatch(/trust-b|tenant-b|Sample Area B/);
     }
     expect(cookieWrites).toEqual([]);
+  });
+});
+
+describe.each(files.filter((f) => kindOf(f) === 'session'))('%s (session: not an operator’s)', (file) => {
+  it('answers a request that carries only an operator session as no session: an operator is not a tenant’s person', async () => {
+    for (const { verb, handler } of await load(file)) {
+      const operator = await requestAsOperator('platform-operator', { method: verb, host: A.host, csrf: UNSAFE.has(verb) ? true : undefined });
+      const response = await handler(operator, undefined);
+      expect(response.status, `${verb}`).toBe(401);
+      expect(await response.json()).toEqual({ code: 'no-session' });
+    }
+  });
+});
+
+describe.each(files.filter((f) => kindOf(f) === 'operator'))('%s (operator)', (file) => {
+  // The role the route lets in is found by asking: the first operator role that is not refused with 403.
+  async function allowedRole(verb: string, handler: Handler): Promise<OperatorRole> {
+    for (const role of OPERATOR_ROLES) {
+      const response = await handler(
+        await requestAsOperator(role, { method: verb, path: '/api/bff/x?tenant=probe', csrf: UNSAFE.has(verb) ? true : undefined }),
+        undefined,
+      );
+      if (response.status !== 403) return role;
+    }
+    throw new Error(`no operator role is let in by ${file}`);
+  }
+  const none = () => new Request(`https://${OPERATOR_HOST}/x`, { headers: { Host: OPERATOR_HOST } });
+
+  it('answers 401 no-session, private and not stored, to a request with no session', async () => {
+    for (const { verb, handler } of await load(file)) {
+      const response = await handler(new Request(`https://${OPERATOR_HOST}/x`, { method: verb, headers: { Host: OPERATOR_HOST } }), undefined);
+      expect(response.status, `${verb}`).toBe(401);
+      expect(await response.json()).toEqual({ code: 'no-session' });
+      privateNoStore(response);
+    }
+  });
+
+  it('answers a tenant’s person, of every tenant role, exactly as no session', async () => {
+    for (const { verb, handler } of await load(file)) {
+      const empty = await handler(new Request(`https://${OPERATOR_HOST}/x`, { method: verb, headers: { Host: OPERATOR_HOST } }), undefined);
+      for (const role of ROLES) {
+        const crossed = await handler(await requestAs(A, role, { method: verb, csrf: UNSAFE.has(verb) ? true : undefined }), undefined);
+        expect(crossed.status, `${verb} ${role}`).toBe(401);
+        expect(await crossed.text(), `${verb} ${role}`).toBe(await empty.text());
+      }
+    }
+    void none;
+  });
+
+  it('answers an operator session sent to a tenant’s host exactly as no session', async () => {
+    for (const { verb, handler } of await load(file)) {
+      const role = await allowedRole(verb, handler);
+      const crossed = await handler(await requestAsOperator(role, { method: verb, host: B.host, csrf: UNSAFE.has(verb) ? true : undefined }), undefined);
+      expect(crossed.status, `${verb}`).toBe(401);
+    }
+  });
+
+  it('refuses, with 400, a request that names a tenant, a scope or a network, before it does any work', async () => {
+    for (const { verb, handler } of await load(file)) {
+      const role = await allowedRole(verb, handler);
+      for (const query of ['tenant=trust-b', 'scope=network', 'networkId=net-sample']) {
+        const response = await handler(
+          await requestAsOperator(role, { method: verb, path: `/api/bff/x?${query}`, csrf: UNSAFE.has(verb) ? true : undefined }),
+          undefined,
+        );
+        expect(response.status, `${verb} ${query}`).toBe(400);
+        expect(await response.json()).toEqual({ code: 'invalid' });
+        privateNoStore(response);
+      }
+      const header = await handler(await requestAsOperator(role, { method: verb, headers: { 'X-Tenant-Id': B.id }, csrf: UNSAFE.has(verb) ? true : undefined }), undefined);
+      expect(header.status, `${verb} header`).toBe(400);
+    }
+  });
+
+  it('needs the operator’s CSRF token for every write, 403 before any work', async () => {
+    for (const { verb, handler } of await load(file)) {
+      if (!UNSAFE.has(verb)) continue;
+      const role = await allowedRole(verb, handler);
+      const response = await handler(await requestAsOperator(role, { method: verb }), undefined);
+      expect(response.status, verb).toBe(403);
+      expect(await response.json()).toEqual({ code: 'csrf' });
+    }
+  });
+});
+
+describe.each(files.filter((f) => kindOf(f) === 'operator-sign-in'))('%s (operator sign-in)', (file) => {
+  it('is never stored, and takes no tenant from the request', async () => {
+    for (const k of ['OPERATOR_ENTRA_CLIENT_ID', 'OPERATOR_ENTRA_CLIENT_SECRET']) vi.stubEnv(k, 'x');
+    for (const { verb, handler } of await load(file)) {
+      const response = await handler(
+        new Request(`https://${OPERATOR_HOST}/x?tenant=${B.id}`, { method: verb, headers: { Host: OPERATOR_HOST, 'X-Tenant-Id': B.id, 'Content-Type': 'application/x-www-form-urlencoded' }, body: verb === 'POST' ? '' : undefined }),
+        undefined,
+      );
+      privateNoStore(response);
+      expect(response.headers.get('location') ?? '').not.toContain(B.id);
+    }
   });
 });
 

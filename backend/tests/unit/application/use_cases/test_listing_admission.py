@@ -364,3 +364,48 @@ async def test_a_reader_of_another_network_or_a_non_member_is_not_found(rig: _Ri
         await rig.query.for_network(person(MEMBER_B, Role.NETWORK_ADMIN), NETWORK_ID)
     with bind_tenant(OUTSIDER), pytest.raises(NotFound):
         await rig.query.of_member(_member(OUTSIDER), NETWORK_ID)
+
+
+async def test_a_listing_id_never_looks_like_a_postcode_a_phone_or_an_nhs_number() -> None:
+    """The listing's own id is the row reference of the network board (DEC-546), and the board
+    refuses an id the privacy guard reads as personal data: a random UUID can hold a postcode shape
+    (`b59al`), which would make the whole board fail. The id of a listing is therefore made of
+    letters only, whatever the generator gave."""
+    from diucs.domain.messages.privacy_guard import find_patient_data
+    from diucs.domain.rules.projection import check_projection_id
+
+    awkward = ["b59al-0001", "07700900123", "9434765919", "dt48xx-12", "e12ab-77-d48xx"]
+
+    class _Awkward:
+        def __init__(self) -> None:
+            self.n = 0
+
+        def new_id(self) -> str:
+            self.n += 1
+            return awkward[(self.n - 1) % len(awkward)]
+
+    rig = _Rig()
+    factories = UnitFactories(rig.world)
+    rig.request = RequestListing(
+        rig.registry,  # type: ignore[arg-type]
+        factories.tenant_read_only,  # type: ignore[arg-type]
+        GovernanceRecorder(
+            factories.tenant,  # type: ignore[arg-type]
+            factories.network,  # type: ignore[arg-type]
+            Ids("ob"),
+            rig.clock,
+        ),
+        _Awkward(),
+        rig.clock,
+    )
+    made: list[str] = []
+    for _ in awkward:
+        rig.registry.listing_rows.clear()
+        with bind_tenant(MEMBER_B):
+            listing_id = await rig.request.execute(
+                RequestListingCommand(_member(), NETWORK_ID, SERVICE_ID)
+            )
+        assert not find_patient_data(listing_id), listing_id
+        assert check_projection_id("row_ref", listing_id) == listing_id
+        made.append(listing_id)
+    assert len(set(made)) == len(awkward)  # distinct inputs stay distinct

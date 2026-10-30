@@ -26,7 +26,13 @@ from diucs.adapters.outbound.graph_store.unit_of_work import Neo4jUnitOfWork, ne
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.actor import Actor
 from diucs.application.network_access import NetworkAccess
-from diucs.application.tenancy import bind_network, bind_tenant, current_scope_or_none
+from diucs.application.tenancy import (
+    ScopeId,
+    bind_network,
+    bind_scope,
+    bind_tenant,
+    current_scope_or_none,
+)
 from diucs.application.use_cases.apply_projection import ApplyProjection, ApplyResult
 from diucs.application.use_cases.grants import (
     ApproveGrant,
@@ -324,12 +330,9 @@ class AdminRig:
                     await uow.commit()
         return done
 
-    async def project(self, member: str, service_id: str = "svc-1") -> list[ApplyResult]:
-        """The producer in the member's scope, then each message it published applied in the
-        network's, one unit at a time."""
-        self.published.sent.clear()
-        with bind_tenant(member):
-            await self.producer.project_all(service_id)
+    async def apply_pending(self) -> list[ApplyResult]:
+        """Apply, in the network's scope and one unit at a time, every projection message the
+        producer has published since the last time (what the projection queue's consumer does)."""
         results: list[ApplyResult] = []
         for request in list(self.published.sent):
             self._message += 1
@@ -341,7 +344,32 @@ class AdminRig:
                         source_tenant_id=request.source_tenant_id,
                     )
                 )
+        self.published.sent.clear()
         return results
+
+    async def project(self, member: str, service_id: str = "svc-1") -> list[ApplyResult]:
+        """The producer in the member's scope, then each message it published applied in the
+        network's."""
+        self.published.sent.clear()
+        with bind_tenant(member):
+            await self.producer.project_all(service_id)
+        return await self.apply_pending()
+
+    async def beat(self, member: str, work_id: str) -> Any:
+        """One run of the member's projection heartbeat, and the messages it published applied."""
+        from diucs.application.use_cases.projection_boundaries import RunProjectionHeartbeatCommand
+
+        self.published.sent.clear()
+        with bind_tenant(member):
+            result = await self.heartbeat.execute(RunProjectionHeartbeatCommand(work_id))
+        await self.apply_pending()
+        return result
+
+    async def verify_chain(self, scope: str) -> bool:
+        """True when every link of the scope's audit chain is intact."""
+        with bind_scope(ScopeId.parse(scope)):
+            async with Neo4jUnitOfWork(self.driver, read_only=True) as uow:
+                return await uow.audit.verify_chain()
 
     # ---- looking
 

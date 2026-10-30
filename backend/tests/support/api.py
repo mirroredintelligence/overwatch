@@ -21,7 +21,9 @@ from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.tenant_directory import tenant_properties
 from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import issue_test_token
+from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
 from diucs.bootstrap.container import Container, build_for_tests
 from diucs.domain.codes import Role
 from tests.support.neo4j import ThrowawayNeo4j, write_tx
@@ -30,6 +32,8 @@ from tests.support.tenant_samples import make_tenant
 # The clock of the R01 route tests (DEC-070 item 4): 14:12 London, passed explicitly. F08's
 # TEST_NOW (13:00Z) is left unchanged.
 R01_TEST_NOW = datetime(2026, 10, 23, 13, 12, tzinfo=UTC)
+# The key that hashes a phone number in the routes that take one (R08); synthetic.
+TEST_PHONE_HASH_SECRET = b"phone-hash-route-test-secret-0123456789ab"
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -43,7 +47,11 @@ async def test_container(
     )
     await connection.open()
     try:
-        yield build_for_tests(clock=FixedClock(R01_TEST_NOW), neo4j=connection)
+        yield build_for_tests(
+            clock=FixedClock(R01_TEST_NOW),
+            neo4j=connection,
+            secrets=FixedSecretStore({PHONE_HASH_SECRET: TEST_PHONE_HASH_SECRET}),
+        )
     finally:
         await connection.close()
 

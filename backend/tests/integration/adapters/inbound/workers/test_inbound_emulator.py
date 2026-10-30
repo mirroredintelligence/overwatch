@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 
 import pytest
 import pytest_asyncio
+from azure.servicebus import ServiceBusMessage
 
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
@@ -59,7 +60,17 @@ async def test_a_text_with_a_tenant_reaches_the_use_case_in_it_and_one_with_none
             None,
             reply_consumer(use_case, uow_factory, StaticTenants([tenant_id])),
         )
-        await bus.enqueue("inbound.replies", reply_message(None, poison_id))
+        # A message with no tenant property cannot be built by the bus adapter, so it is sent as
+        # a bare SDK message: what a producer that skipped the tenant would put on the queue.
+        async with sb.get_queue_sender("inbound.replies") as sender:
+            await sender.send_messages(
+                ServiceBusMessage(
+                    body=b"{}",
+                    message_id=f"{tenant_id}:{poison_id}",
+                    subject="SmsReceived",
+                    content_type="application/json",
+                )
+            )
         await bus.enqueue("inbound.replies", reply_message(tenant_id, good_id))
         stop = asyncio.Event()
         task = asyncio.create_task(runner.run(stop))

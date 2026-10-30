@@ -8,6 +8,7 @@ runs. Nothing here retries a send. The wire carries the tenant as the applicatio
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from azure.servicebus import ServiceBusReceivedMessage
 
 from diucs.adapters.outbound.bus_servicebus.service_bus import (
@@ -16,6 +17,11 @@ from diucs.adapters.outbound.bus_servicebus.service_bus import (
 )
 from diucs.application.ports.outbound.event_bus import BusMessage, from_wire
 from tests.support.servicebus import client, run_tenant, unique_id
+
+# These suites send as tenants of their own on the shared emulator, with nothing bound: the way the
+# outbox relay publishes, where the message's own tenant is the declaration (`check_publishable`).
+# A bound tenant that is not the message's is refused, which the unit tests pin.
+pytestmark = pytest.mark.no_tenant
 
 TENANT_A = run_tenant("integ-a")
 TENANT_B = run_tenant("integ-b")

@@ -62,6 +62,9 @@ export function ExecHome({ board, name }: { board: Board; name: string }) {
         <Button variant="secondary" href="/planning/services" dataEl="EXEC-HOME-SEEALL-BTN">
           See all services
         </Button>
+        <Button variant="secondary" href="/planning/flows" dataEl="EXEC-HOME-FLOWS-BTN">
+          See planning flows
+        </Button>
       </div>
     </div>
   );

@@ -23,6 +23,7 @@ type SearchItem = {
 };
 
 const NO_ACCESS = 'You do not have access to the console.';
+const NOT_SUPPORTED = 'Search by trace id or reference is not available yet. Search by session id, role or release.';
 const CODE_REFUSED = 'That code is not valid or has expired.';
 
 async function readJson<T>(response: Response): Promise<T | null> {
@@ -89,6 +90,12 @@ export function FindSession() {
       });
       if (response.status === 403) {
         setSearchError(NO_ACCESS);
+        setItems(null);
+        return;
+      }
+      if (response.status === 400) {
+        const refusal = await readJson<{ code?: string }>(response);
+        setSearchError(refusal?.code === 'not-supported' ? NOT_SUPPORTED : 'The search could not be run. Try again.');
         setItems(null);
         return;
       }
@@ -175,7 +182,8 @@ export function FindSession() {
           Search
         </Button>
         {searchError !== null && <p role="alert" className={styles.alert}>{searchError}</p>}
-        {items !== null && (
+        {items !== null && items.length === 0 && <p>No sessions found.</p>}
+        {items !== null && items.length > 0 && (
           <table className={styles.table}>
             <caption className={styles.help}>Search results</caption>
             <thead>

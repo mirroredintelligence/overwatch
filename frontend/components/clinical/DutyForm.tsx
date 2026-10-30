@@ -8,8 +8,9 @@ import { OptionButton } from '@/components/ui/OptionButton';
 import { bffRequest } from '@/lib/bff/browser';
 import styles from '@/components/exec/Exec.module.css';
 
-// On duty (W44, ClinicalAdvisor screen 2): available, busy or away. Away says what happens to unfinished
-// requests before it is saved.
+// On duty (W44, ClinicalAdvisor screen 2): available, busy or away. It starts where the clinician left it
+// (the back end's read of their own presence, DEC-780). Away says what happens to unfinished requests
+// before it is saved. A count that could not be read is not shown as zero.
 
 type Presence = 'available' | 'busy' | 'away';
 const CHOICES: readonly { value: Presence; label: string }[] = [
@@ -18,9 +19,9 @@ const CHOICES: readonly { value: Presence; label: string }[] = [
   { value: 'away', label: 'Away' },
 ];
 
-export function DutyForm({ available, waiting }: { available: number; waiting: number }) {
+export function DutyForm({ available, waiting, presence: initial }: { available: number | null; waiting: number | null; presence: Presence | null }) {
   const router = useRouter();
-  const [presence, setPresence] = useState<Presence | null>(null);
+  const [presence, setPresence] = useState<Presence | null>(initial);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -68,8 +69,15 @@ export function DutyForm({ available, waiting }: { available: number; waiting: n
       </div>
       {saved ? <p role="status">Status saved.</p> : null}
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-      <p>{`${waiting} request${waiting === 1 ? '' : 's'} waiting`}</p>
-      <p>{`${available} clinical advisor${available === 1 ? '' : 's'} available now`}</p>
+      {initial === null && presence === null ? <p>You have not set your status.</p> : null}
+      {waiting === null || available === null ? (
+        <p>The counts could not be read.</p>
+      ) : (
+        <>
+          <p>{`${waiting} request${waiting === 1 ? '' : 's'} waiting`}</p>
+          <p>{`${available} clinical advisor${available === 1 ? '' : 's'} available now`}</p>
+        </>
+      )}
       <p className={styles.footer}>Advisors see how many of you are available. They see your name only after you take a request.</p>
     </div>
   );

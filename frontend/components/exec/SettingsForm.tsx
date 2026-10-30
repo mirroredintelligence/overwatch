@@ -6,13 +6,14 @@ import { EscalationForm, type EscalationValues } from '@/components/exec/Escalat
 import { Button } from '@/components/ui/Button';
 import { Banner } from '@/components/ui/Banner';
 import { type AlertPreferences } from '@/lib/exec/alertPrefs';
+import type { Leader } from '@/lib/exec/leaders';
 import { DEPUTY_REQUIRED, hasDeputy, SAVE_FAILED, savePreferences } from '@/lib/exec/savePreferences';
 import styles from './Exec.module.css';
 
 // Alerts and escalation together (W39, the settings screen). Each save sends the whole state, because
 // the back end keeps one subscription per practitioner.
 
-export function SettingsForm({ initial }: { initial: AlertPreferences }) {
+export function SettingsForm({ initial, leaders }: { initial: AlertPreferences; leaders?: Leader[] | null }) {
   const [prefs, setPrefs] = useState(initial);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export function SettingsForm({ initial }: { initial: AlertPreferences }) {
       </section>
       <section className={styles.section} aria-labelledby="settings-escalation-heading">
         <h2 id="settings-escalation-heading" className={styles.heading}>If nobody acknowledges</h2>
-        <EscalationForm initial={prefs} busy={busy} onSave={saveEscalation} error={error} />
+        <EscalationForm initial={prefs} busy={busy} onSave={saveEscalation} error={error} leaders={leaders} />
       </section>
       {saved ? <Banner tone="info" title="Your choices are saved." dataEl="EXEC-SETTINGS-SAVED" /> : null}
     </div>

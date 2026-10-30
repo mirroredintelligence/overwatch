@@ -2,11 +2,12 @@ import Link from 'next/link';
 import { StatusBadge, type StatusCode } from '@/components/ui/StatusBadge';
 import type { BoardEntry } from '@/lib/board/types';
 import { dataAgeText } from '@/lib/board/format';
+import { telHref } from '@/lib/exec/call';
 import styles from './Exec.module.css';
 
 // One service for the executive (W40, ExecApp2 screen 4). The figure is the board's own: over established
-// capacity by a count, or what is free. The call button is not here: the board holds no duty coordinator
-// number (known issue), so no number is shown.
+// capacity by a count, or what is free. "Call the duty coordinator" is shown only when the board holds the
+// tenant's number (DEC-777): no number is made up.
 
 type Figure = { big: string; small: string };
 
@@ -16,7 +17,7 @@ function figureOf(entry: BoardEntry): Figure | null {
   return null;
 }
 
-export function ServiceDetail({ entry, now }: { entry: BoardEntry; now: string }) {
+export function ServiceDetail({ entry, now, coordinationPhone = null }: { entry: BoardEntry; now: string; coordinationPhone?: string | null }) {
   const figure = figureOf(entry);
   return (
     <div className={styles.stack}>
@@ -33,6 +34,13 @@ export function ServiceDetail({ entry, now }: { entry: BoardEntry; now: string }
           <p>{figure.small}</p>
           {entry.used !== null ? <p>{`${entry.used} of ${entry.established} ${entry.unitLabel}`}</p> : null}
         </section>
+      ) : null}
+      {coordinationPhone !== null ? (
+        <p>
+          <a href={telHref(coordinationPhone)} className={styles.backLink} data-el="EXEC-SERVICE-CALL-LINK">Call the duty coordinator</a>
+          {' '}
+          <span>{coordinationPhone}</span>
+        </p>
       ) : null}
       <div className={styles.actions}>
         <Link href="/planning/alerts" className={styles.backLink}>Back to alerts</Link>

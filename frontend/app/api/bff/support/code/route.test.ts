@@ -1,13 +1,14 @@
 // @vitest-environment node
 import { csrfTokenFor } from '@/lib/auth/csrf';
+import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { TOKEN_ORG_A } from '@/test/msw/handlers/board';
 import { EXEC_BACKEND } from '@/test/msw/handlers/exec';
-import { resetSupportBackend, seenSupport, supportBackendHandlers } from '@/test/msw/handlers/support';
+import { resetSupportBackend, seenSupport, setSharing, supportBackendHandlers } from '@/test/msw/handlers/support';
 import { server } from '@/test/msw/server';
-import { DELETE, POST } from './route';
+import { DELETE, GET, POST } from './route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
@@ -86,5 +87,38 @@ describe('DELETE /api/bff/support/code', () => {
     const sent = seenSupport.find((s) => s.method === 'DELETE');
     expect(sent?.path).toBe(`/support/codes/current?sessionId=${SESSION}`);
     expect(sent?.idempotencyKey).toBeTruthy();
+  });
+});
+
+describe('GET /api/bff/support/code', () => {
+  it('says that no code is live, from the back end\'s root path', async () => {
+    const response = await GET(requestWithCookies(`https://app.test/api/bff/support/code?sessionId=${SESSION}`, await cookies('exec')));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ active: false });
+    expect(seenSupport.at(-1)?.path).toBe(`/support/codes/current?sessionId=${SESSION}`);
+  });
+
+  it('says that a code is live and until when, and never the code', async () => {
+    setSharing({ active: true, expiresAt: '2026-10-23T17:02:00Z' });
+    const response = await GET(requestWithCookies(`https://app.test/api/bff/support/code?sessionId=${SESSION}`, await cookies('exec')));
+    const body = await response.json();
+    expect(body).toEqual({ active: true, expiresAt: '2026-10-23T17:02:00Z' });
+    expect(JSON.stringify(body)).not.toMatch(/K7R4|code"/);
+  });
+
+  it('refuses a session id that is not one, and a role that may not share, with no back-end call', async () => {
+    expect((await GET(requestWithCookies('https://app.test/api/bff/support/code?sessionId=../x', await cookies('exec')))).status).toBe(400);
+    expect((await GET(requestWithCookies(`https://app.test/api/bff/support/code?sessionId=${SESSION}`, await cookies('support')))).status).toBe(403);
+    expect(seenSupport).toHaveLength(0);
+  });
+
+  it('answers a refused creation as the back end refused it, so the screen can read the state again', async () => {
+    server.use(http.post('http://backend.test/support/codes', () => HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'conflict', diagnostics: 'live' }] }, { status: 409 })));
+    const response = await POST(requestWithCookies('https://app.test/api/bff/support/code', await cookies('exec'), {
+      method: 'POST',
+      headers: { 'X-CSRF-Token': CSRF, 'Content-Type': 'application/json' },
+      body: JSON.stringify(BODY),
+    }));
+    expect(response.status).toBe(409);
   });
 });

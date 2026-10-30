@@ -1,20 +1,17 @@
 import { withBff } from '@/lib/bff/handler';
 import { readMine } from '@/lib/register/backend';
-import { bffJson } from '@/lib/register/requests';
+import { myServicesFrom } from '@/lib/register/applicant';
+import { bffJson, refuse } from '@/lib/register/requests';
 
-// My services (W26): the reporter's own services, with the state and detail the page shows.
+// My services (W26): the applicant's own registrations, with the state and the detail the page shows.
+// A registration nobody has sent yet is not listed. The back end's answer is mapped here, and a
+// answer that cannot be read is a 503, never an empty list.
 
 const get = withBff(
   async (_request, session) => {
-    const services = await readMine(session.backendToken);
-    return bffJson(200, {
-      services: services.map((service) => ({
-        id: service.id,
-        serviceName: service.serviceName,
-        state: service.state,
-        detail: service.detail,
-      })),
-    });
+    const services = myServicesFrom(await readMine(session.backendToken));
+    if (services === null) return refuse(503, 'unavailable', 'We could not load your registration. Try again later.');
+    return bffJson(200, { services });
   },
   { roles: ['reporter'] },
 );

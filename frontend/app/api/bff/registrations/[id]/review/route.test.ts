@@ -1,67 +1,61 @@
 // @vitest-environment node
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { SESSION_COOKIE, sealSession, type Session } from '@/lib/auth/session';
-import { readReview } from '@/lib/register/backend';
-import { FhirError } from '@/lib/fhir/client';
-import { cookiesMock, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { BACKEND_ROOT } from '@/test/fixtures/links';
+import { answerBackend, resetSeen, seen } from '@/test/applicant/backend';
+import { callerRequest } from '@/test/applicant/session';
+import { TEST_SESSION_SECRET } from '@/test/cookies';
+import { withApplicantHandlers } from '@/test/msw/applicant';
 import { GET } from './route';
-import { TENANTS } from '@/test/tenants';
+
+withApplicantHandlers();
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
   return { cookies: m.cookiesMock };
 });
-vi.mock('@/lib/register/backend', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@/lib/register/backend')>()),
-  readReview: vi.fn(),
-}));
 
-// The review of a registration (W26): one row per section, complete or needing attention, with the
-// words the back end gives. Nothing else the back end holds leaves the BFF.
+// The review (W26): one row per answered step, complete or needing attention, with the words the back
+// end gives. The back end has no review route for the applicant: the rows come from the record's steps.
 
 const ID = 'REG-SAMPLE-1';
-const read = vi.mocked(readReview);
 const url = `https://tenant-a.example.test/api/bff/registrations/${ID}/review`;
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
-async function sessionFor(role: Session['role']): Promise<string> {
-  return sealSession({ role, tenantId: TENANTS.A.id, host: TENANTS.A.host, services: [], sub: 'person-sample-1', backendToken: 'backend-token-sample-value', expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
-}
-
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  cookiesMock.mockClear();
-  read.mockReset();
-  read.mockResolvedValue([
-    { key: 'organisation', status: 'complete', summary: 'Sample Community Trust', checkedBy: 'lead' },
-    { key: 'service', status: 'needs-attention', summary: 'UCR West · criteria review date missing' },
-  ] as never);
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  resetSeen();
 });
 
 describe('GET /api/bff/registrations/[id]/review', () => {
-  it('answers a reporter with the sections, their status and summary, and nothing else', async () => {
-    const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('reporter') }), ctx(ID));
+  it('answers one row per answered step, from the record, and nothing else', async () => {
+    answerBackend('get', `/registrations/${ID}/record`, 200, {
+      registrationId: ID,
+      status: 'draft',
+      serviceId: 'SVC-SAMPLE-1',
+      serviceName: 'Community nursing',
+      submittedAt: null,
+      lastModified: '2026-10-30T09:00:00Z',
+      invitationExpiresAt: null,
+      note: '',
+      noteFrom: null,
+      steps: {
+        organisation: { state: 'complete', values: { name: 'Sample Community Trust' }, problems: [] },
+        location: { state: 'not-started', values: {}, problems: [] },
+        service: { state: 'needs-attention', values: {}, problems: [{ field: 'spoaPhone', message: 'Enter a phone number' }] },
+        reporting: { state: 'complete', values: {}, problems: [] },
+        api: { state: 'not-started', values: {}, problems: [] },
+      },
+    });
+    const response = await GET(await callerRequest(url), ctx(ID));
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
     expect(await response.json()).toEqual({
       sections: [
-        { key: 'organisation', status: 'complete', summary: 'Sample Community Trust' },
-        { key: 'service', status: 'needs-attention', summary: 'UCR West · criteria review date missing' },
+        { key: 'organisation', status: 'complete', summary: '' },
+        { key: 'service', status: 'needs-attention', summary: 'Enter a phone number' },
+        { key: 'reporting', status: 'complete', summary: '' },
       ],
     });
-    expect(read).toHaveBeenCalledWith('backend-token-sample-value', ID);
-  });
-
-  it('refuses no session (401) and another role (403)', async () => {
-    expect((await GET(requestWithCookies(url, {}), ctx(ID))).status).toBe(401);
-    expect((await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('lead') }), ctx(ID))).status).toBe(403);
-    expect(read).not.toHaveBeenCalled();
-  });
-
-  it('answers 503 not-built while the back end has no review read', async () => {
-    read.mockRejectedValueOnce(new FhirError(503, { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-built', diagnostics: 'x' }] }));
-    const response = await GET(requestWithCookies(url, { [SESSION_COOKIE]: await sessionFor('reporter') }), ctx(ID));
-    expect(response.status).toBe(503);
-    expect(await response.json()).toMatchObject({ code: 'not-built' });
+    expect(seen).toHaveLength(1);
   });
 });

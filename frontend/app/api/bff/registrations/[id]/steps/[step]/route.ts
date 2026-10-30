@@ -1,7 +1,7 @@
 import { FhirError } from '@/lib/fhir/client';
 import { withBff } from '@/lib/bff/handler';
 import { readRegistration, saveStep } from '@/lib/register/backend';
-import { issuesFromOutcome, locationValues, organisationValues, STEP_FIELDS } from '@/lib/register/draft';
+import { issuesFromOutcome, locationValues, organisationValues, pageFieldFor, STEP_FIELDS } from '@/lib/register/draft';
 import { serviceValues } from '@/lib/register/service';
 import { apiValues, reportingValues } from '@/lib/register/reporting';
 import { bffJson, jsonBody, refuse } from '@/lib/register/requests';
@@ -19,20 +19,24 @@ const ID = /^[A-Za-z0-9-]{1,64}$/;
 const BUILT_STEPS: readonly string[] = ['organisation', 'location', 'service', 'reporting', 'api'];
 
 /**
- * The values one step sends, or null when a code is not one the back end holds. The invitation's
- * values (the organisation name and ODS code, the service name) are read from the back end here,
- * never taken from the browser.
+ * The values one step sends, or null when a code is not one the back end holds. The service's name is
+ * the one the back end holds for the registration (read here, never taken from the browser); the
+ * organisation's name and ODS code are typed by the applicant (DEC-910).
  */
 async function valuesFor(step: StepName, body: Record<string, unknown>, token: string, id: string): Promise<Record<string, unknown> | null> {
   if (step === 'location') return locationValues(body);
   if (step === 'reporting') return reportingValues(body);
   if (step === 'api') return apiValues(body);
-  const registration = await readRegistration(token, id);
-  if (step === 'service') return serviceValues(body, registration.invitation.serviceName);
-  return organisationValues(body, {
-    organisationName: registration.invitation.organisationName,
-    odsCode: registration.invitation.odsCode,
-  });
+  if (step === 'service') {
+    const registration = await readRegistration(token, id);
+    return serviceValues(body, registration.serviceName);
+  }
+  return organisationValues(body);
+}
+
+/** The page's errors for the fields a partial save still lacks (the same names as a refusal). */
+function incompleteFields(list: { field: string; message: string }[]): { field: string; message: string }[] {
+  return list.map((item) => ({ field: pageFieldFor(item.field), message: item.message }));
 }
 
 const put = withBff<Context>(
@@ -41,14 +45,17 @@ const put = withBff<Context>(
     if (!ID.test(id) || !isStepName(step) || !BUILT_STEPS.includes(step)) {
       return refuse(404, 'not-found', 'We could not find that.');
     }
-    const body = await jsonBody(request, STEP_FIELDS[step]);
+    const body = await jsonBody(request, [...STEP_FIELDS[step], 'partial']);
     if (body === null) return refuse(400, 'invalid', 'The request was not valid.');
+    const partial = body.partial === true;
+    delete body.partial;
 
     const values = await valuesFor(step, body, session.backendToken, id);
     if (values === null) return refuse(400, 'invalid', 'The request was not valid.');
 
     try {
-      const saved = await saveStep(session.backendToken, id, step, values);
+      const saved = await saveStep(session.backendToken, id, step, values, partial);
+      if (partial) return bffJson(200, { status: saved.status, incomplete: incompleteFields(saved.incomplete) });
       return bffJson(200, { status: saved.status });
     } catch (error) {
       if (error instanceof FhirError && error.status === 400) {

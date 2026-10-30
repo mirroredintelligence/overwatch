@@ -34,18 +34,20 @@ export async function readCase(token: string, id: string): Promise<ServiceReques
   return { data, etag: etag ?? null };
 }
 
-/** Saves a case (PUT ServiceRequest). A stale ETag answers 412 (FhirError), which the route maps. */
+/** Saves a case (PUT ServiceRequest). The back end requires If-Match and an Idempotency-Key. A stale ETag answers 412 (FhirError), which the route maps. */
 export async function updateCase(
   token: string,
   id: string,
   body: Record<string, unknown>,
   ifMatch: string,
+  idempotencyKey: string,
 ): Promise<ServiceRequestReply> {
   const { data, etag } = await fhirFetch<unknown>(`/ServiceRequest/${encodeURIComponent(id)}`, {
     method: 'PUT',
     token,
     body,
     ifMatch,
+    idempotencyKey,
   });
   return { data, etag: etag ?? null };
 }
@@ -67,13 +69,13 @@ export async function filterOptions(token: string, caseId: string, idempotencyKe
   return data;
 }
 
-/** Closes a case with its outcome (R07 $close). The answer carries no close time, so the caller stamps it. */
+/** Closes a case with its outcome (R07 $close). The answer is the closed ServiceRequest, which carries the close time (DEC-781). */
 export async function closeCase(
   token: string,
   id: string,
   input: { outcome: string; bestFitNotUsed?: string; destinationServiceId?: string },
   idempotencyKey: string,
-): Promise<void> {
+): Promise<ServiceRequestReply> {
   const parameter: Record<string, unknown>[] = [{ name: 'outcome', valueCode: input.outcome }];
   if (input.bestFitNotUsed !== undefined) parameter.push({ name: 'bestFitNotUsed', valueCode: input.bestFitNotUsed });
   if (input.destinationServiceId !== undefined) {
@@ -82,10 +84,11 @@ export async function closeCase(
       valueReference: { reference: `HealthcareService/${input.destinationServiceId}` },
     });
   }
-  await fhirFetch<unknown>(`/ServiceRequest/${encodeURIComponent(id)}/$close`, {
+  const { data, etag } = await fhirFetch<unknown>(`/ServiceRequest/${encodeURIComponent(id)}/$close`, {
     method: 'POST',
     token,
     idempotencyKey,
     body: { resourceType: 'Parameters', parameter },
   });
+  return { data, etag: etag ?? null };
 }

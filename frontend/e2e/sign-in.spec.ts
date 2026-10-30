@@ -140,11 +140,12 @@ test('shows the forbidden page, with a 403, to an advisor on the lead page', asy
   await expect(page.getByRole('heading', { name: 'You do not have access to this page.' })).toBeVisible();
 });
 
-test('lets a lead into the advisor case page, and not into the clinical page', async ({ page }) => {
+test('keeps a lead out of the advisor call pages and the clinical page (DEC-860)', async ({ page }) => {
   await signInAs(page, 'lead');
   await expect(page).toHaveURL(/\/lead$/);
 
-  expect((await page.goto('/advisor/case/4821'))?.status()).not.toBe(403);
+  expect((await page.goto('/advisor/case/4821'))?.status()).toBe(403);
+  expect((await page.goto('/advisor'))?.status()).toBe(403);
   expect((await page.goto('/clinical'))?.status()).toBe(403);
 });
 

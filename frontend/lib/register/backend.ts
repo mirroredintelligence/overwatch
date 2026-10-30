@@ -1,91 +1,85 @@
-import type { Session } from '@/lib/auth/session';
 import { fhirFetch, FhirError, type FhirResult } from '@/lib/fhir/client';
 import type { OperationOutcome } from '@/lib/fhir/types';
 import { callLinkApi, type LinkReply } from '@/lib/links/server';
-import type { RegistrationView, StepName } from './types';
+import { addressesFrom, viewFromRecord, type RecordView } from './applicant';
+import type { StepName } from './types';
 
-// The registration seam: the only place the registration BFF routes call the back end (R10, U25).
-// A route the back end does not serve yet throws a 503 with the code `not-built`, so the page shows
-// its "could not load" state and nothing is invented. Each such route is named in the W-fragments
-// with the back-end route it waits for.
-//
+// The registration seam: the only place the registration BFF routes call the back end.
 // Identity routes sit beside /fhir and are tenant-bound from the Host header, so they go through
 // lib/links/server (node:http keeps the Host). The FHIR routes go through lib/fhir/client with the
-// reporter's bearer token. The browser never names a tenant (DEC-130, DEC-132).
+// reporter's bearer token. The applicant's own reads and actions (W7B A1) sit at the back end's
+// root with the same bearer token (fhirFetch with root). The browser never names a tenant (DEC-130).
 
-export type RegistrantSignIn = {
-  /** The host the code came to: the session is for it and for the tenant the back end signs the applicant in for. */
-  host: string;
-  mobile: string;
-  deviceId: string;
-  inviteToken: string | undefined;
-};
-
-/** The back end's purposes for a code: `setup` is a new device's first sign-in (U25, DEC-413). */
-const CODE_PURPOSE_SETUP = 'setup';
-
-/** A route the back end does not serve yet: a 503 the BFF answers with the code `not-built`. */
-export function notBuilt(what: string): FhirError {
+/** The applicant's answer from the back end that the screens cannot use: a 503 that names nothing. */
+function unreadable(what: string): FhirError {
   const outcome: OperationOutcome = {
     resourceType: 'OperationOutcome',
-    issue: [{ severity: 'error', code: 'not-built', diagnostics: `${what} is not built in the back end yet` }],
+    issue: [{ severity: 'error', code: 'exception', diagnostics: `${what} could not be read` }],
   };
   return new FhirError(503, outcome);
 }
 
-/** Asks the back end for a registration code for this mobile. The back end answers 202 for every number. */
-export async function sendIdentityCode(host: string | null, mobile: string): Promise<LinkReply> {
-  return callLinkApi({ method: 'POST', path: '/identity/code', host, body: { mobile, purpose: CODE_PURPOSE_SETUP } });
+/** The link as the back end reads it, for the applicant's sign-in (W7B A2, DEC-900). Host-bound, no token. */
+export async function readInvitation(host: string | null, invitation: string): Promise<LinkReply> {
+  return callLinkApi({ method: 'POST', path: '/identity/invitation', host, body: { invitation } });
 }
 
-/** Checks a code for this mobile and device. A right code is recorded on the device by the back end. */
-export async function verifyIdentityCode(input: {
+/** Asks for a code to the number the open invitation holds. The back end answers 202 whether or not a code went. */
+export async function requestRegistrationCode(host: string | null, invitation: string): Promise<LinkReply> {
+  return callLinkApi({ method: 'POST', path: '/identity/registration/code', host, body: { invitation } });
+}
+
+/** Checks a code for the invitation and the device. A right code ends in a reporter token and the registration. */
+export async function verifyRegistrationCode(input: {
   host: string | null;
-  mobile: string;
+  invitation: string;
   code: string;
   deviceId: string;
 }): Promise<LinkReply> {
   return callLinkApi({
     method: 'POST',
-    path: '/identity/code/verify',
+    path: '/identity/registration/session',
     host: input.host,
-    body: { mobile: input.mobile, code: input.code, deviceId: input.deviceId, purpose: CODE_PURPOSE_SETUP },
+    body: { invitation: input.invitation, code: input.code, deviceId: input.deviceId },
   });
 }
 
-/**
- * Signs a verified applicant in: the registration the invitation names, and a reporter session.
- * NOT BUILT: the back end has no reporter token after a text code (the PIN sign-in answers a
- * device session, and the registration routes need a bearer token). Until it does, this throws
- * `not-built`. See docs/delivery/fragments/W23.md.
- */
-export async function signInRegistrant(input: RegistrantSignIn): Promise<{ registrationId: string; session: Session }> {
-  void input;
-  throw notBuilt('The registration sign-in');
+async function bearerGet(token: string, path: string): Promise<unknown> {
+  const result = await fhirFetch<unknown>(path, { token, root: true });
+  return result.data;
+}
+
+async function bearerPost(token: string, path: string): Promise<unknown> {
+  const result = await fhirFetch<unknown>(path, { method: 'POST', token, root: true, idempotencyKey: crypto.randomUUID() });
+  return result.data;
+}
+
+/** The applicant's registration: its record, mapped for the screens (W7B A1). Another person's is a 404. */
+export async function readRegistration(token: string, id: string): Promise<RecordView> {
+  const view = viewFromRecord(await bearerGet(token, `/registrations/${encodeURIComponent(id)}/record`));
+  if (view === null) throw unreadable('The registration');
+  return view;
 }
 
 /**
- * The registration as the back end holds it. NOT BUILT: no route serves a registration read yet
- * (R10 has the draft and the submit only). A 503 `not-built` until one does (W54 fragment).
+ * Saves one step's answers as the back end's draft (R10 `PUT /fhir/Task/{id}/$draft`). A partial save
+ * is a "Save draft" (DEC-905): the back end keeps what is there and says what is still missing. A
+ * refusal is a 400 OperationOutcome, which surfaces as a FhirError for the route to map.
  */
-export async function readRegistration(token: string, id: string): Promise<RegistrationView> {
-  void token;
-  void id;
-  throw notBuilt('The registration read');
-}
-
-/**
- * Saves one step's answers as the back end's draft (R10 `PUT /fhir/Task/{id}/$draft`). A refusal
- * is a 400 OperationOutcome, which surfaces as a FhirError for the route to map.
- */
-export async function saveStep(token: string, id: string, step: StepName, values: Record<string, unknown>): Promise<{ status: string }> {
+export async function saveStep(
+  token: string,
+  id: string,
+  step: StepName,
+  values: Record<string, unknown>,
+  partial = false,
+): Promise<{ status: string; incomplete: { field: string; message: string }[] }> {
   const result: FhirResult<unknown> = await fhirFetch<unknown>(`/Task/${encodeURIComponent(id)}/$draft`, {
     method: 'PUT',
     token,
-    body: { step, values },
+    body: partial ? { step, values, partial: true } : { step, values },
     idempotencyKey: crypto.randomUUID(),
   });
-  return { status: businessStatusOf(result.data) };
+  return { status: businessStatusOf(result.data), incomplete: incompleteOf(result.data) };
 }
 
 function businessStatusOf(task: unknown): string {
@@ -94,11 +88,21 @@ function businessStatusOf(task: unknown): string {
   return typeof code === 'string' ? code : 'draft';
 }
 
-/** NOT BUILT: no address lookup route in the back end (I12 is an adapter; no REST route calls it). */
+function incompleteOf(task: unknown): { field: string; message: string }[] {
+  const list = (task as { incomplete?: unknown } | undefined)?.incomplete;
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((item): { field: string; message: string }[] => {
+    const field = (item as { field?: unknown })?.field;
+    const message = (item as { message?: unknown })?.message;
+    return typeof field === 'string' && typeof message === 'string' ? [{ field, message }] : [];
+  });
+}
+
+/** The addresses for a postcode, at most twenty: the id and the label (W7B A1). A lookup that cannot answer is a 503. */
 export async function readAddresses(token: string, postcode: string): Promise<{ id: string; label: string }[]> {
-  void token;
-  void postcode;
-  throw notBuilt('The address lookup');
+  const list = addressesFrom(await bearerGet(token, `/addresses?postcode=${encodeURIComponent(postcode)}`));
+  if (list === null) throw unreadable('The address lookup');
+  return list;
 }
 
 /**
@@ -114,43 +118,48 @@ export async function submitRegistration(token: string, id: string): Promise<{ s
   return { status: businessStatusOf(result.data) };
 }
 
-/** NOT BUILT: no route serves the review yet (the back end has the review's use case, not its read). */
-export async function readReview(token: string, id: string): Promise<{ key: string; status: string; summary: string }[]> {
-  void token;
-  void id;
-  throw notBuilt('The registration review');
+/** My registrations, as the back end gives them (mapped by the route with myServicesFrom). */
+export async function readMine(token: string): Promise<unknown> {
+  return bearerGet(token, '/my/registrations');
 }
 
-/** NOT BUILT: no route lists a reporter's services yet. */
-export async function readMine(token: string): Promise<{ id: string; serviceName: string; state: string; detail: string }[]> {
-  void token;
-  throw notBuilt('The list of my services');
+/** The status answer of one registration, as the back end gives it (mapped by the route with statusFrom). */
+export async function readStatus(token: string, id: string): Promise<unknown> {
+  return bearerGet(token, `/registrations/${encodeURIComponent(id)}/status`);
 }
 
-/** NOT BUILT: no route serves a registration's status for its applicant yet. */
-export async function readStatus(token: string, id: string): Promise<Record<string, unknown>> {
-  void token;
-  void id;
-  throw notBuilt('The registration status');
-}
-
-/** NOT BUILT: no route sends the applicant's test notification yet. */
+/** Sends the applicant's test notification (W27; the lead, W29). The back end answers 409 inside a minute. */
 export async function sendTestNotification(token: string, id: string): Promise<void> {
-  void token;
-  void id;
-  throw notBuilt('The test notification');
+  await bearerPost(token, `/registrations/${encodeURIComponent(id)}/test-notification`);
 }
 
-/** NOT BUILT: no route asks the shift lead to look again yet. */
+/** Asks the shift lead to look again (W27). The back end answers 409 unless submitted or in review. */
 export async function askForReview(token: string, id: string): Promise<void> {
-  void token;
-  void id;
-  throw notBuilt('The review request');
+  await bearerPost(token, `/registrations/${encodeURIComponent(id)}/review-request`);
 }
 
-/** NOT BUILT: no route records that the applicant's details are still right yet. */
+/** Records that the applicant's details are still right (W27). The back end answers 409 unless a re-check is due. */
 export async function confirmDetails(token: string, id: string): Promise<void> {
-  void token;
-  void id;
-  throw notBuilt('The details confirmation');
+  await bearerPost(token, `/registrations/${encodeURIComponent(id)}/confirm-details`);
+}
+
+export { unreadable };
+
+async function leadGet(token: string, path: string): Promise<unknown> {
+  return bearerGet(token, path);
+}
+
+/** The queue of one tab for the shift lead (W7B A4). The route maps it with queueFromBackend. */
+export async function readQueue(token: string, tab: string): Promise<unknown> {
+  return leadGet(token, `/registrations?tab=${encodeURIComponent(tab)}`);
+}
+
+/** The review overview of one registration for the shift lead. The route maps it with overviewFromBackend. */
+export async function readOverview(token: string, id: string): Promise<unknown> {
+  return leadGet(token, `/registrations/${encodeURIComponent(id)}/overview`);
+}
+
+/** The decision read of one registration for the shift lead. The route maps it with decisionFromBackend. */
+export async function readDecision(token: string, id: string): Promise<unknown> {
+  return leadGet(token, `/registrations/${encodeURIComponent(id)}/decision`);
 }

@@ -1,7 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
+import { withApplicantHandlers } from '@/test/msw/applicant';
 import RegisterPage from './page';
+
+withApplicantHandlers();
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 
@@ -18,7 +21,9 @@ describe('register page', () => {
   it('shows the heading and the sign-in form', async () => {
     await open({ invite: 'InviteTokenSampleValue1' });
     expect(screen.getByRole('heading', { level: 1, name: 'Register your service' })).toBeInTheDocument();
-    expect(screen.getByLabelText('Mobile number')).toBeInTheDocument();
+    // The invitation decides whose number the code goes to: the page reads the link, then offers to send the code.
+    expect(await screen.findByRole('button', { name: 'Send code' })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Mobile number')).toBeNull();
   });
 
   it('shows the saved-draft note only when it comes back from Save and come back later', async () => {

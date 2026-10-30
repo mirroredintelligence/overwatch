@@ -4,12 +4,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { CodeEntry } from './CodeEntry';
 
-const MOBILE = '07700900456';
+// The last three digits of the number the code went to: the only part of it the page ever holds (DEC-900).
+const ENDING = '456';
 
 function setup(overrides: Partial<Parameters<typeof CodeEntry>[0]> = {}) {
   const onCheck = vi.fn();
   const onResend = vi.fn();
-  const view = render(<CodeEntry mobile={MOBILE} onCheck={onCheck} onResend={onResend} {...overrides} />);
+  const view = render(<CodeEntry ending={ENDING} onCheck={onCheck} onResend={onResend} {...overrides} />);
   return { ...view, onCheck, onResend };
 }
 
@@ -23,8 +24,8 @@ describe('CodeEntry', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Enter your code' })).toBeInTheDocument();
     expect(screen.getByText('We sent a code to 07xxx xxx456.')).toBeInTheDocument();
     expect(screen.getByText('The code works for 10 minutes. After 5 wrong tries you must ask for a new code.')).toBeInTheDocument();
-    // The full number is never on the page, in any form.
-    expect(container.textContent).not.toMatch(/07700\s?900456/);
+    // The page holds only the ending: no whole number can be on it.
+    expect(container.textContent).not.toMatch(/07\d{9}/);
   });
 
   it('gives the code field the numeric keyboard and one-time-code autofill', () => {

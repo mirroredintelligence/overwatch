@@ -7,6 +7,7 @@ import type { LatLon } from '@/lib/map/project';
 import { layoutOf, PICTURE, percentOf, radiusPx } from '@/lib/map/layout';
 import { type OptionView } from '@/lib/advisor/options';
 import { durationText } from '@/lib/board/format';
+import { OptionBooking } from './OptionBooking';
 import { TravelDetails } from './TravelDetails';
 import styles from './map.module.css';
 
@@ -24,7 +25,6 @@ export type OptionsMapProps = {
   options: OptionView[];
   selectedId: string | null;
   onSelect: (serviceId: string) => void;
-  onRequest?: (serviceId: string) => void;
   onCriteria?: (serviceId: string) => void;
 };
 
@@ -48,7 +48,6 @@ export function OptionsMap({
   options,
   selectedId,
   onSelect,
-  onRequest,
   onCriteria,
 }: OptionsMapProps) {
   const fixed = options.filter((option) => option.position !== null);
@@ -116,7 +115,7 @@ export function OptionsMap({
       <p className={styles.caption}>{CAPTION}</p>
 
       {selected === null ? null : (
-        <PinCard caseId={caseId} option={selected} onRequest={onRequest} onCriteria={onCriteria} />
+        <PinCard caseId={caseId} option={selected} onCriteria={onCriteria} />
       )}
     </section>
   );
@@ -125,12 +124,10 @@ export function OptionsMap({
 function PinCard({
   caseId,
   option,
-  onRequest,
   onCriteria,
 }: {
   caseId: string;
   option: OptionView;
-  onRequest?: (serviceId: string) => void;
   onCriteria?: (serviceId: string) => void;
 }) {
   const [travelOpen, setTravelOpen] = useState(false);
@@ -150,12 +147,8 @@ function PinCard({
       {free === null ? null : <p className={styles.line}>{free}</p>}
       <p className={styles.line}>{travelLine(option)}</p>
       {age === null ? null : <p className={styles.line}>{age}</p>}
+      {network === null ? <OptionBooking caseId={caseId} option={option} /> : null}
       <div className={styles.actions}>
-        {network === null ? (
-          <Button variant="primary" dataEl="ADV-OPT-REQUEST-BTN" onClick={() => onRequest?.(option.serviceId)}>
-            Request booking
-          </Button>
-        ) : null}
         <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onCriteria?.(option.serviceId)}>
           Criteria
         </Button>

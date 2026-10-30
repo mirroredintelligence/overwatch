@@ -50,6 +50,7 @@ const NAMED: Record<string, Kind> = {
   'app/api/bff/reporter/start/route.ts': 'pre-session',
   'app/api/bff/identity/code/route.ts': 'pre-session',
   'app/api/bff/identity/code/verify/route.ts': 'pre-session',
+  'app/api/bff/identity/invitation/route.ts': 'pre-session',
   'app/api/bff/identity/new-phone/route.ts': 'pre-session',
   'app/api/bff/identity/new-phone/verify/route.ts': 'pre-session',
   'app/api/bff/identity/pin/route.ts': 'pre-session',
@@ -77,13 +78,6 @@ function kindOf(file: string): Kind | undefined {
  * list only shrinks.
  */
 const ID_ROUTES_NOT_YET_SCOPED: string[] = [
-  'app/api/bff/bookings/[id]/acknowledge/route.ts',
-  'app/api/bff/bookings/[id]/cancel/route.ts',
-  'app/api/bff/bookings/[id]/route.ts',
-  'app/api/bff/cases/[ref]/options/route.ts',
-  'app/api/bff/cases/[ref]/outcome/route.ts',
-  'app/api/bff/cases/[ref]/route.ts',
-  'app/api/bff/cases/[ref]/summary/route.ts',
   'app/api/bff/console/insight/[tab]/route.ts',
   'app/api/bff/console/sessions/[id]/events/route.ts',
   'app/api/bff/console/sessions/[id]/route.ts',
@@ -92,9 +86,6 @@ const ID_ROUTES_NOT_YET_SCOPED: string[] = [
   'app/api/bff/exec/alerts/[id]/acknowledge/route.ts',
   'app/api/bff/exec/alerts/[id]/snooze/route.ts',
   'app/api/bff/exec/services/[id]/route.ts',
-  'app/api/bff/services/[id]/criteria/route.ts',
-  'app/api/bff/services/[id]/declined/route.ts',
-  'app/api/bff/services/[id]/phoned/route.ts',
 ];
 
 const VERBS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];

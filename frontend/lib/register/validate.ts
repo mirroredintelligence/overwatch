@@ -7,6 +7,9 @@ import { ORGANISATION_TYPES } from './options';
 import type { FieldIssue } from './types';
 
 export type OrganisationAnswers = {
+  /** The organisation's name and ODS code, typed by the applicant (DEC-910). */
+  name?: string;
+  odsCode?: string;
   orgType?: string;
   /** Shown on screen; the back end does not take it yet (W54 fragment). */
   partOf?: string;
@@ -33,6 +36,8 @@ export function isEmailOrUkPhone(text: string): boolean {
 
 export function validateOrganisation(answers: OrganisationAnswers): FieldIssue[] {
   const issues: FieldIssue[] = [];
+  if (blank(answers.name)) issues.push({ field: 'name', message: 'Enter the organisation name' });
+  if (blank(answers.odsCode)) issues.push({ field: 'odsCode', message: 'Enter the ODS code' });
   if (answers.orgType === undefined || !ORGANISATION_TYPES.some((option) => option.value === answers.orgType)) {
     issues.push({ field: 'orgType', message: 'Choose the organisation type' });
   }

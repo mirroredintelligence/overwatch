@@ -1,12 +1,11 @@
 import { Button } from '@/components/ui/Button';
-import { londonHourMinute } from '@/lib/register/time';
 import styles from '../register.module.css';
 
 // Needs changes (W27, ApprovalApplicant panel 3): the notes, who sent them, and the two ways on.
 
 export function NeedsChanges({ notes, noteFrom, registrationId, spoaPhone }: {
   notes: string[];
-  noteFrom?: { role: string; at: string };
+  noteFrom?: { role: string };
   registrationId: string;
   spoaPhone?: string;
 }) {
@@ -20,7 +19,7 @@ export function NeedsChanges({ notes, noteFrom, registrationId, spoaPhone }: {
           <li key={`${index}-${note}`}>{note}</li>
         ))}
       </ol>
-      {noteFrom !== undefined ? <p className={styles.note}>From {noteFrom.role}, {londonHourMinute(noteFrom.at)}.</p> : null}
+      {noteFrom !== undefined ? <p className={styles.note}>From {noteFrom.role}.</p> : null}
       <div className={styles.actions}>
         <Button variant="primary" href={`/register/${encodeURIComponent(registrationId)}/review`} dataEl="REG-STATUS-FIX-BTN">
           Fix and resubmit

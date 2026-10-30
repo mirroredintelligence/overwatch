@@ -14,22 +14,32 @@ export type DialogProps = {
   title: string;
   sub?: string;
   dataEl?: string;
+  /** An alert that needs an answer is an alertdialog (W21). Defaults to a plain dialog. */
+  role?: 'dialog' | 'alertdialog';
+  /**
+   * Move focus to the first control on open (the default). False keeps focus on the sheet itself, which
+   * a screen reader reads from its title: an alert whose first control answers a safety question must not
+   * have it one keystroke from pressed (W21, DEC-854).
+   */
+  focusFirst?: boolean;
   onClose: () => void;
   children?: ReactNode;
 };
 
-export function Dialog({ title, sub, dataEl, onClose, children }: DialogProps) {
+export function Dialog({ title, sub, dataEl, role = 'dialog', focusFirst = true, onClose, children }: DialogProps) {
   const titleId = useId();
   const sheet = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // The opener is whatever had focus when the dialog appeared; it gets focus back on close.
     const opener = document.activeElement as HTMLElement | null;
-    const first = sheet.current?.querySelector<HTMLElement>(FOCUSABLE);
+    const first = focusFirst ? sheet.current?.querySelector<HTMLElement>(FOCUSABLE) : null;
     (first ?? sheet.current)?.focus();
     return () => {
       opener?.focus?.();
     };
+    // Focus is placed once, when the dialog opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -56,7 +66,7 @@ export function Dialog({ title, sub, dataEl, onClose, children }: DialogProps) {
     <div className={styles.backdrop}>
       <div
         ref={sheet}
-        role="dialog"
+        role={role}
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}

@@ -1,14 +1,15 @@
 import { readCase, updateCase } from '@/lib/advisor/case-api';
 import { fromServiceRequest, toServiceRequest } from '@/lib/advisor/case-fhir';
 import { parseCaseInput } from '@/lib/advisor/codes';
-import { answer, refuse } from '@/lib/advisor/http';
+import { answer, idempotencyKeyOf, refuse } from '@/lib/advisor/http';
 import { CASE_ROLES } from '@/lib/advisor/roles';
 import { withBff } from '@/lib/bff/handler';
 import { FhirError } from '@/lib/fhir/client';
 
 // One case, read and saved by the advisor's own session (W11). The case id is the only input, and it
-// is checked for shape before anything is read. A save needs the ETag from the read (If-Match): the
-// back end requires it (DEC-398). A stale ETag answers 412 with the code "conflict".
+// is checked for shape before anything is read. A save needs the ETag from the read (If-Match) and an
+// Idempotency-Key: the back end requires both (concurrency.py). A stale ETag answers 412 with the code
+// "conflict". An id the back end does not know, or that is another tenant's, is the one 404 (idScoped).
 
 const CASE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -28,7 +29,7 @@ const get = withBff<Context>(
     if (view === null) return refuse(502, 'exception');
     return answer(view);
   },
-  { roles: [...CASE_ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 const put = withBff<Context>(
@@ -37,6 +38,8 @@ const put = withBff<Context>(
     if (id === null) return refuse(400, 'invalid');
     const ifMatch = request.headers.get('If-Match');
     if (ifMatch === null || ifMatch === '') return refuse(428, 'precondition');
+    const key = idempotencyKeyOf(request);
+    if (key === null) return refuse(400, 'invalid');
 
     let body: unknown;
     try {
@@ -48,7 +51,7 @@ const put = withBff<Context>(
     if (input === null) return refuse(400, 'invalid');
 
     try {
-      const reply = await updateCase(session.backendToken, id, toServiceRequest(id, input), ifMatch);
+      const reply = await updateCase(session.backendToken, id, toServiceRequest(id, input), ifMatch, key);
       const view = fromServiceRequest(reply.data, reply.etag);
       if (view === null) return refuse(502, 'exception');
       return answer(view);
@@ -57,7 +60,7 @@ const put = withBff<Context>(
       throw error;
     }
   },
-  { roles: [...CASE_ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 export const GET = (request: Request, context: Context) => get(request, context);

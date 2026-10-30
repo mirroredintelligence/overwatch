@@ -67,3 +67,34 @@ describe('parseOpenLink', () => {
     ).toBe('capacity');
   });
 });
+
+describe('the booking views the back end writes (L02, booking_links.py)', () => {
+  it('reads the request view, with a reply-by time written with an offset', async () => {
+    const { LINK_REQUEST_VIEW } = await import('@/test/fixtures/backend-shapes');
+    expect(parseOpenLink(LINK_REQUEST_VIEW)).toEqual({
+      kind: 'booking',
+      view: {
+        state: 'ok',
+        purpose: 'booking-request',
+        csrfToken: 'csrf-sample',
+        reference: '4821',
+        serviceName: 'UCR West',
+        ageBand: '80+',
+        need: 'fall-no-injury and frailty',
+        urgency: 'within 2 hrs',
+        replyBy: '2026-10-30T14:10:00+00:00',
+        bookingStatus: 'requested',
+        coordinationPhone: '0300 123 4567',
+      },
+    });
+  });
+
+  it('reads the change view, which has no reply-by time', async () => {
+    const { LINK_CHANGE_VIEW } = await import('@/test/fixtures/backend-shapes');
+    const link = parseOpenLink(LINK_CHANGE_VIEW);
+    expect(link.kind).toBe('booking');
+    if (link.kind === 'booking') {
+      expect(link.view).toMatchObject({ purpose: 'booking-change', bookingStatus: 'confirmed', replyBy: null });
+    }
+  });
+});

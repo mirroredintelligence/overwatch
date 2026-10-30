@@ -21,7 +21,7 @@ export async function postAdvisorPhoned(
   serviceId: string,
   caseId: string,
   said: Said,
-  value: number,
+  value: number | null,
   idempotencyKey: string,
 ): Promise<void> {
   await fhirFetch<unknown>(`/HealthcareService/${encodeURIComponent(serviceId)}/$advisor-phoned`, {
@@ -33,7 +33,8 @@ export async function postAdvisorPhoned(
       parameter: [
         { name: 'case', valueReference: { reference: `ServiceRequest/${caseId}` } },
         { name: 'status', valueCode: said },
-        { name: 'value', valueInteger: value },
+        // A "not accepting" answer carries no number: the back end refuses one and stores 0 itself.
+        ...(value === null ? [] : [{ name: 'value', valueInteger: value }]),
       ],
     },
   });

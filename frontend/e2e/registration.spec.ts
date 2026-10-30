@@ -18,11 +18,13 @@ async function allowSession(page: Page) {
   await answer(page, /\/api\/bff\/session$/, { role: 'reporter', services: [], sub: 'person-sample-1', csrfToken: 'csrf-sample-token' });
 }
 
-test('sign-in sends the code request and never shows the whole number again', async ({ page }) => {
+test('sign-in reads the invitation, asks for a code to its number, and never shows the whole number', async ({ page }) => {
+  await answer(page, /\/api\/bff\/identity\/invitation$/, { state: 'open', serviceName: 'UCR West', numberEnding: '456', expiresAt: '2026-11-01T18:00:00Z' });
   await answer(page, /\/api\/bff\/identity\/code$/, { accepted: true, resendAfterSeconds: 60 }, 202);
   await page.goto(`/register?invite=InviteTokenSampleValue1`);
   await expect(page.getByRole('heading', { level: 1, name: 'Register your service' })).toBeVisible();
-  await page.getByLabel('Mobile number').fill('07700 900456');
+  await expect(page.getByText('We will text a code to the number your invitation was sent to: 07xxx xxx456.')).toBeVisible();
+  await expect(page.getByLabel('Mobile number')).toHaveCount(0);
   await page.getByRole('button', { name: 'Send code' }).click();
   await expect(page.getByText('We sent a code to 07xxx xxx456.')).toBeVisible();
   await expect(page.locator('body')).not.toContainText('07700 900456');
@@ -30,6 +32,7 @@ test('sign-in sends the code request and never shows the whole number again', as
 });
 
 test('the sign-in and code pages have no axe violations', async ({ page }) => {
+  await answer(page, /\/api\/bff\/identity\/invitation$/, { state: 'open', serviceName: 'UCR West', numberEnding: '456', expiresAt: '2026-11-01T18:00:00Z' });
   await page.goto('/register?invite=InviteTokenSampleValue1');
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
@@ -42,17 +45,17 @@ test('the start page leads to the organisation step', async ({ page }) => {
   await expect(page).toHaveURL(new RegExp(`/register/${ID}/organisation$`));
 });
 
-test('organisation: Continue with nothing shows the four problems, focused', async ({ page }) => {
+test('organisation: Continue with nothing shows the six problems, focused', async ({ page }) => {
   await allowSession(page);
   await answer(page, new RegExp(`/api/bff/registrations/${ID}$`), {
     id: ID,
     status: 'draft',
-    invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
+    serviceName: 'UCR West',
     steps: {},
   });
   await page.goto(`/register/${ID}/organisation`);
   await page.getByRole('button', { name: 'Continue' }).click();
-  await expect(page.getByRole('heading', { name: 'There are 4 problems' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'There are 6 problems' })).toBeVisible();
   await expect(page.getByRole('alert')).toBeFocused();
 });
 
@@ -84,7 +87,7 @@ test('status: needs changes lists the notes numbered, with the way to fix them',
     status: 'needs-changes',
     serviceName: 'UCR West',
     notes: ['The criteria owner email must be an organisation address.'],
-    noteFrom: { role: 'SPOA shift lead', at: '2026-10-27T13:52:00Z' },
+    noteFrom: { role: 'SPOA shift lead' },
     details: { spoaPhone: '01305 123456' },
   });
   await page.goto(`/register/${ID}/status`);

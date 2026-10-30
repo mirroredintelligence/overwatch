@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { CASE_CLOSED } from '@/test/fixtures/backend-shapes';
 import { BACKEND_BASE } from '@/test/msw/handlers/board';
 import { server } from '@/test/msw/server';
 import { POST } from './route';
@@ -54,7 +55,7 @@ beforeEach(() => {
   server.use(
     http.post(CLOSE_URL, async ({ request }) => {
       seen.push({ body: await request.clone().json(), key: request.headers.get('idempotency-key') });
-      return HttpResponse.json({ resourceType: 'ServiceRequest', id: '4821', status: 'completed' });
+      return HttpResponse.json(CASE_CLOSED);
     }),
   );
 });
@@ -64,22 +65,47 @@ afterEach(() => {
 });
 
 describe('POST /api/bff/cases/[ref]/outcome (W15)', () => {
-  it('closes the case at the back end with the outcome as Parameters, and answers when it was closed', async () => {
-    const response = await post('advisor', { outcome: 'accepted-and-booked', bestFitNotUsed: 'data-too-old' });
+  it('closes the case at the back end with the outcome as Parameters, and answers the close time the back end recorded (DEC-781)', async () => {
+    const response = await post('advisor', {
+      outcome: 'accepted-and-booked',
+      destinationServiceId: 'svc-ucr-west',
+      bestFitNotUsed: 'data-too-old',
+    });
 
     expect(response.status).toBe(200);
-    expect(typeof ((await response.json()) as { closedAt: unknown }).closedAt).toBe('string');
+    expect(await response.json()).toEqual({ closedAt: '2026-10-30T14:09:00Z' });
     expect(seen[0].body).toEqual({
       resourceType: 'Parameters',
       parameter: [
         { name: 'outcome', valueCode: 'accepted-and-booked' },
         { name: 'bestFitNotUsed', valueCode: 'data-too-old' },
+        { name: 'destination', valueReference: { reference: 'HealthcareService/svc-ucr-west' } },
       ],
     });
     expect(seen[0].key).toBe('key-0000003');
   });
 
-  it('a destination is sent as a reference to the service', async () => {
+  it('answers 502 and not a made-up time when the back end answers a case that is not closed', async () => {
+    server.use(http.post(CLOSE_URL, () => HttpResponse.json({ ...CASE_CLOSED, status: 'active' })));
+
+    expect((await post('advisor', { outcome: 'declined' })).status).toBe(502);
+  });
+
+  it.each(['accepted-and-booked', 'redirected'])('refuses %s with no destination service, as the back end does, before any call', async (outcome) => {
+    expect((await post('advisor', { outcome })).status).toBe(400);
+    expect(seen).toHaveLength(0);
+  });
+
+  it.each(['no-service-fits', 'out-of-area', 'declined', 'caller-cancelled'])(
+    'accepts %s with no destination, and refuses one: the back end takes none for this outcome',
+    async (outcome) => {
+      expect((await post('advisor', { outcome })).status).toBe(200);
+      expect((await post('advisor', { outcome, destinationServiceId: 'svc-ucr-west' })).status).toBe(400);
+      expect(seen).toHaveLength(1);
+    },
+  );
+
+  it('sends a redirect with its destination', async () => {
     await post('advisor', { outcome: 'redirected', destinationServiceId: 'svc-ucr-west' });
 
     expect(seen[0].body).toMatchObject({
@@ -87,21 +113,15 @@ describe('POST /api/bff/cases/[ref]/outcome (W15)', () => {
     });
   });
 
-  it.each(['no-service-fits', 'out-of-area', 'declined', 'caller-cancelled', 'redirected'])(
-    'the outcome %s is accepted',
-    async (outcome) => {
-      expect((await post('advisor', { outcome })).status).toBe(200);
-    },
-  );
-
   it('refuses an outcome or a reason that is not on the list, before any call', async () => {
     expect((await post('advisor', { outcome: 'deleted' })).status).toBe(400);
     expect((await post('advisor', { outcome: 'declined', bestFitNotUsed: 'bored' })).status).toBe(400);
     expect(seen).toHaveLength(0);
   });
 
-  it('refuses a reporter, and a request without CSRF', async () => {
+  it('refuses a reporter, a lead and a request without CSRF', async () => {
     expect((await post('reporter', { outcome: 'declined' })).status).toBe(403);
+    expect((await post('lead', { outcome: 'declined' })).status).toBe(403);
     expect((await post('advisor', { outcome: 'declined' }, null)).status).toBe(403);
     expect(seen).toHaveLength(0);
   });

@@ -1,3 +1,4 @@
+import { CASE_ROLES } from '@/lib/advisor/roles';
 import { withBff } from '@/lib/bff/handler';
 import { FhirError } from '@/lib/fhir/client';
 import { CANCEL_REASONS } from '@/lib/advisor/bookings';
@@ -11,7 +12,6 @@ const NO_STORE = { 'Cache-Control': 'no-store' };
 const BOOKING_ID = /^[A-Za-z0-9-]{1,64}$/;
 const KEY = /^[A-Za-z0-9-]{16,80}$/;
 const REASONS: readonly string[] = CANCEL_REASONS.map((reason) => reason.code);
-const ROLES = ['advisor', 'clinical'] as const;
 
 type Context = { params: Promise<{ id: string }> };
 
@@ -46,7 +46,7 @@ const post = withBff<Context>(
       return Response.json({ code: 'state-changed', status: now.status }, { status: 409, headers: NO_STORE });
     }
   },
-  { roles: [...ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 export const POST = (request: Request, context: Context) => post(request, context);

@@ -70,8 +70,8 @@ export function ReportingForm({ registrationId }: ReportingFormProps) {
 
     setBusy(mode);
     setNotice(null);
-    const first: StepOutcome = await saveStep(registrationId, 'reporting', reporting, csrf);
-    const second: StepOutcome = first.kind === 'saved' ? await saveStep(registrationId, 'api', apiBody, csrf) : first;
+    const first: StepOutcome = await saveStep(registrationId, 'reporting', reporting, csrf, mode === 'save');
+    const second: StepOutcome = first.kind === 'saved' ? await saveStep(registrationId, 'api', apiBody, csrf, mode === 'save') : first;
     setBusy(null);
     if (second.kind === 'saved') {
       setErrors([]);

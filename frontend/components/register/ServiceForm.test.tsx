@@ -51,13 +51,13 @@ beforeEach(() => {
   bffRegistrationState.view = {
     id: ID,
     status: 'draft',
-    invitation: { serviceName: 'UCR West', organisationName: 'Sample Community Trust', odsCode: 'RSA01' },
+    serviceName: 'UCR West',
     steps: { location: { fixedSite: true } },
   };
 });
 
 describe('ServiceForm: the screen', () => {
-  it('shows the service name from the invitation as read-only, with its hint', async () => {
+  it('shows the service name the shift lead set as read-only, with its hint', async () => {
     await open();
     const name = screen.getByLabelText('Service name');
     expect(name).toHaveValue('UCR West');

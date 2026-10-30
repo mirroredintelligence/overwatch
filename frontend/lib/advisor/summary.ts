@@ -32,7 +32,7 @@ const SUMMARY_ROWS: readonly { key: keyof SummaryView; label: string }[] = [
   { key: 'dataAge', label: 'Data age' },
 ];
 
-function scoreText(score: Score): string {
+export function scoreText(score: Score): string {
   switch (score.method) {
     case 'news2':
       return `NEWS2 ${score.value}`;
@@ -52,7 +52,7 @@ export function summaryOf(view: CaseView): SummaryView {
     .map((code) => NEEDS.find((need) => need.code === code)?.short ?? code)
     .join(', ');
   return {
-    reference: view.id,
+    reference: view.reference ?? NOT_RECORDED,
     referrer: labelOf(REFERRERS, view.referrerType) ?? NOT_RECORDED,
     ageBand: labelOf(AGE_BANDS, view.ageBand) ?? NOT_RECORDED,
     postcode: view.postcode ?? NOT_RECORDED,

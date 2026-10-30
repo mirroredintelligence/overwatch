@@ -8,6 +8,10 @@ import type { CaseView } from '@/lib/advisor/codes';
 
 const CASE: CaseView = {
   id: 'case-4821',
+  reference: '4821',
+  closed: false,
+  closedAt: null,
+  outcome: null,
   referrerType: 'gp',
   ageBand: '80+',
   postcode: 'DT4 8XX',

@@ -2,15 +2,20 @@ import { Button } from '@/components/ui/Button';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import type { OptionView } from '@/lib/advisor/options';
 import { categoryLabel, durationText } from '@/lib/board/format';
+import { OptionBooking } from './OptionBooking';
 import styles from './ServiceCard.module.css';
 
 // One service in the options list (W13). Order and content come from the back end: a card has no rank,
 // no "best" label and no score. A network service is read only: it names its organisation and has no
-// booking, phoned or declined action (network-ui.md section 9).
+// booking, phoned or declined action (network-ui.md section 9). Another service of the viewer's own
+// organisation carries the booking panel of this case (W20): the request control, then the card it leaves.
 
 export type ServiceCardProps = {
+  caseId: string;
   option: OptionView;
-  onRequest?: (serviceId: string) => void;
+  /** Back to the options, and the clinical advisor, from the booking card. */
+  onSeeOptions?: () => void;
+  onAskClinical?: () => void;
   onCriteria?: (serviceId: string) => void;
   onPhoned?: (serviceId: string) => void;
   onDeclined?: (serviceId: string) => void;
@@ -30,7 +35,7 @@ function dataAgeLine(option: OptionView): string {
   return `Data age: ${durationText(Math.floor(option.dataAgeSeconds / 60))} ago`;
 }
 
-export function ServiceCard({ option, onRequest, onCriteria, onPhoned, onDeclined }: ServiceCardProps) {
+export function ServiceCard({ caseId, option, onSeeOptions, onAskClinical, onCriteria, onPhoned, onDeclined }: ServiceCardProps) {
   const network = option.network;
   const checks = option.staleWarning
     ? [...option.checks, 'Data is over 2 hrs old. Consider phoning.']
@@ -80,12 +85,9 @@ export function ServiceCard({ option, onRequest, onCriteria, onPhoned, onDecline
         </section>
       )}
 
+      {network === null ? <OptionBooking caseId={caseId} option={option} onSeeOptions={onSeeOptions} onAskClinical={onAskClinical} /> : null}
+
       <div className={styles.actions}>
-        {network === null ? (
-          <Button variant="primary" dataEl="ADV-OPT-REQUEST-BTN" onClick={() => onRequest?.(option.serviceId)}>
-            Request booking
-          </Button>
-        ) : null}
         <Button variant="secondary" dataEl="ADV-OPT-CRITERIA-BTN" onClick={() => onCriteria?.(option.serviceId)}>
           Criteria
         </Button>

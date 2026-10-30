@@ -12,6 +12,7 @@ const STATE_WORDS: Record<MyService['state'], string> = {
   active: 'Active',
   'pending-approval': 'Pending approval',
   'review-due': 'Review due',
+  'not-approved': 'Not approved',
 };
 const LOAD_FAILED = 'We could not load your registration. Try again later.';
 const SIGNED_OUT = 'Please sign in again.';

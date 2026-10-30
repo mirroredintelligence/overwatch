@@ -3,7 +3,11 @@ import type { CaseView } from './codes';
 import { NOT_RECORDED, summaryOf, summaryText } from './summary';
 
 const VIEW: CaseView = {
-  id: '4821',
+  id: 'case-1',
+  reference: '4821',
+  closed: false,
+  closedAt: null,
+  outcome: null,
   referrerType: 'ambulance-crew',
   ageBand: '80+',
   postcode: 'DT4 8XX',
@@ -60,5 +64,12 @@ describe('summaryText (W15)', () => {
     expect(text.split('\n')[1]).toBe('Age band: 80+');
     expect(text.split('\n')).toHaveLength(9);
     expect(text).toContain('Postcode: DT4 8XX');
+  });
+});
+
+describe('the case number on the summary (DEC-631)', () => {
+  it('is the four-digit number the back end holds, never the id used in the address', () => {
+    expect(summaryOf(VIEW).reference).toBe('4821');
+    expect(summaryOf({ ...VIEW, reference: null }).reference).toBe(NOT_RECORDED);
   });
 });

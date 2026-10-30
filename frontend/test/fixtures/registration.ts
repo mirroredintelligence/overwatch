@@ -8,16 +8,17 @@ export const SCOPE_ENTRIES: ScopeEntry[] = [
 ];
 
 export const QUEUE: QueueResponse = {
-  counts: { toReview: 2, waiting: 1, goLive: 1 },
+  tab: 'waiting',
+  counts: { waiting: 2, 'sent-back': 0, approved: 0, live: 1, 'not-approved': 0 },
+  tabs: [
+    { key: 'waiting', label: 'Waiting', count: 2 },
+    { key: 'sent-back', label: 'Sent back', count: 0 },
+    { key: 'approved', label: 'Approved', count: 0 },
+    { key: 'live', label: 'Live', count: 1 },
+    { key: 'not-approved', label: 'Not approved', count: 0 },
+  ],
   items: [
-    {
-      id: 'r1',
-      serviceName: 'UCR East',
-      state: 'in-review',
-      submittedAt: '2026-10-30T14:30:00Z',
-      submittedByRole: 'Duty manager',
-      firstIssue: 'Criteria owner email is not an organisation address',
-    },
+    { id: 'r1', serviceName: 'UCR East', state: 'submitted', submittedAt: '2026-10-30T14:30:00Z', submittedByRole: 'Duty manager' },
     { id: 'r2', serviceName: 'SDEC · Site 1', state: 'in-review', submittedAt: '2026-10-30T13:05:00Z', submittedByRole: 'Duty manager' },
   ],
 };

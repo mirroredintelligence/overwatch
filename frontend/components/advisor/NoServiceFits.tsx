@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { bffFetch } from '@/lib/advisor/browser';
+import { bffFetch, newIdempotencyKey } from '@/lib/advisor/browser';
 import type { CaseView } from '@/lib/advisor/codes';
 import styles from './NoServiceFits.module.css';
 
@@ -43,18 +43,20 @@ export function NoServiceFits({ caseId, onWidened, onAskClinical }: NoServiceFit
     if (view === null || busy) return;
     setBusy(true);
     setFailed(false);
-    // The case is saved whole: every field as it was read, with the urgency changed to today.
+    // The case is saved whole: every field as it was read, with the urgency changed to today. The postcode
+    // is left out, so the district on record stays (DEC-398), and the recorded scores are repeated
+    // (the back end refuses a change to them).
     const reply = await bffFetch<CaseView>(`/api/bff/cases/${id}`, {
       method: 'PUT',
       body: {
         referrerType: view.referrerType,
         ageBand: view.ageBand,
-        postcode: view.postcode,
         needs: view.needs,
         urgency: 'today',
         scores: view.scores,
       },
       ifMatch: view.etag ?? undefined,
+      idempotencyKey: newIdempotencyKey(),
     });
     if (reply.ok) {
       setView(reply.body);

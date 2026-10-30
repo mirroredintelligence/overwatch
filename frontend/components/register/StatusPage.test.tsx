@@ -63,7 +63,7 @@ describe('StatusPage: needs changes', () => {
       serviceName: 'UCR West',
       submittedAt: '2026-10-23T13:30:00Z',
       notes: ['The criteria owner email must be an organisation address.', 'Add the review date for the criteria.'],
-      noteFrom: { role: 'SPOA shift lead', at: '2026-10-27T13:52:00Z' },
+      noteFrom: { role: 'SPOA shift lead' },
       details: { spoaPhone: '01305 123456' },
     });
     await open();
@@ -74,7 +74,7 @@ describe('StatusPage: needs changes', () => {
       'The criteria owner email must be an organisation address.',
       'Add the review date for the criteria.',
     ]);
-    expect(screen.getByText('From SPOA shift lead, 13:52.')).toBeInTheDocument();
+    expect(screen.getByText('From SPOA shift lead.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Fix and resubmit' })).toHaveAttribute('href', `/register/${ID}/review`);
     expect(screen.getByRole('link', { name: '01305 123456' })).toHaveAttribute('href', 'tel:01305123456');
   });
@@ -158,7 +158,7 @@ describe('StatusPage: unknown and failing', () => {
 describe('StatusPage: accessibility in every state', () => {
   it.each([
     ['in-review', { status: 'in-review', serviceName: 'UCR West', submittedAt: '2026-10-23T13:30:00Z' }],
-    ['needs-changes', { status: 'needs-changes', serviceName: 'UCR West', notes: ['Fix it.'], noteFrom: { role: 'SPOA shift lead', at: '2026-10-27T13:52:00Z' }, details: { spoaPhone: '01305 123456' } }],
+    ['needs-changes', { status: 'needs-changes', serviceName: 'UCR West', notes: ['Fix it.'], noteFrom: { role: 'SPOA shift lead' }, details: { spoaPhone: '01305 123456' } }],
     ['approved', { status: 'approved', serviceName: 'UCR West' }],
     ['live', { status: 'live', serviceName: 'UCR East', firstPromptAt: '2026-10-30T16:00:00Z' }],
     ['not-approved', { status: 'not-approved', serviceName: 'UCR West', reason: 'outside the scope of the pilot' }],

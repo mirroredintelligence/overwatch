@@ -17,9 +17,11 @@ const get = withBff<Context>(
     const reply = await readCase(session.backendToken, ref);
     const view = fromServiceRequest(reply.data, reply.etag);
     if (view === null) return refuse(502, 'exception');
+    // A closed case has no postcode or needs left (D18), so there is nothing to copy.
+    if (view.closed) return refuse(409, 'closed');
     return answer(summaryOf(view));
   },
-  { roles: [...CASE_ROLES] },
+  { roles: [...CASE_ROLES], idScoped: true },
 );
 
 export const GET = (request: Request, context: Context) => get(request, context);

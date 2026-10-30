@@ -5,6 +5,7 @@ import { BOARD_A, BOARD_SURGE, boardBuiltAt, boardParameters, withForeignOrganis
 import { BACKEND_PORT, E2E_TENANT } from './env';
 import { BOARDS_BY_TOKEN, LIVE_SURGE_PREFIX, LIVE_TOKEN_PREFIX, TOKEN_FOREIGN_ENTRY } from './tokens';
 import { handleAuthRoute } from './exchange';
+import { handleAdvisorRoute } from './advisor';
 import { handleLinkRoute } from './links';
 import { handlePairingRoute, isWallToken } from './pairing';
 
@@ -175,6 +176,10 @@ export function startMockBackend(): Promise<Server> {
       });
     } else if (url.pathname.startsWith('/links/')) {
       void handleLinkRoute(request, response, url.pathname).then((handled) => {
+        if (!handled) response.writeHead(404).end();
+      });
+    } else if (url.pathname.startsWith('/fhir/ServiceRequest') || url.pathname.startsWith('/fhir/Task') || url.pathname === '/fhir/Basic' || url.pathname === '/fhir/HealthcareService/$filter-options') {
+      void handleAdvisorRoute(request, response, url.pathname).then((handled) => {
         if (!handled) response.writeHead(404).end();
       });
     } else if (request.method === 'POST' && control) {

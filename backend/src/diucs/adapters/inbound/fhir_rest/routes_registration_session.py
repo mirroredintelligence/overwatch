@@ -10,7 +10,8 @@ POST /identity/registration/code    {"invitation"}: a code to the number the inv
 POST /identity/registration/session {"invitation" | "mobile", "code", "deviceId"}: the code is
                                     checked and recorded on the device, as /identity/code/verify
                                     does, and a right one answers 200 {"token", "expiresAt",
-                                    "role": "reporter"} (with "registrationId", "serviceId" and
+                                    "role": "reporter", "tenant"} (the host's tenant id; with
+                                    "registrationId", "serviceId" and
                                     "serviceName" for an invitation). A wrong or lapsed code is
                                     that route's own 400, a device that is refused is 409.
 POST /identity/session-token        {"sessionId"}: a live PIN session, exchanged for a 30-minute
@@ -236,6 +237,8 @@ async def sign_in_to_registration(
             "token": result.token.token,
             "expiresAt": _iso(result.token.expires_at),
             "role": result.token.role.value,
+            # The host's tenant. The BFF keeps it in its sealed session; a browser never gets it.
+            "tenant": resolved.id,
         }
         if result.registration_id is not None:
             answer["registrationId"] = result.registration_id

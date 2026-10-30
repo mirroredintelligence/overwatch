@@ -19,7 +19,8 @@ import { WithdrawalAlert } from './WithdrawalAlert';
 
 // The booking card an advisor sees for one service after asking it to take the patient (W20, W21). It
 // shows what the back end holds now. It changes nothing itself: a cancel goes to the parent, which posts
-// it; a withdrawal or not-reached report opens its alert, which is acknowledged before any action.
+// it; a withdrawal or not-reached report opens its alert, which is acknowledged only by an explicit
+// answer that the caller was phoned or is being helped (DEC-854). Until then the card keeps a notice.
 
 const BADGE: Record<BookingStatus, { word: string; shape: Shape }> = {
   requested: { word: 'Requested', shape: 'dashed-circle' },
@@ -44,6 +45,8 @@ const ANNOUNCE: Partial<Record<BookingStatus, string>> = {
 };
 
 const CONFLICT = 'This booking changed before you cancelled. Check its status.';
+// The directory the number is looked up in is the advisor's own: the back end sends no service phone (H-530).
+const NO_NUMBER = "This service's phone number is not on this screen. Find it in your service directory.";
 
 export type BookingCardProps = {
   booking: BookingState;
@@ -55,19 +58,18 @@ export type BookingCardProps = {
   onCancelBooking?: (reason: CancelReason) => void;
   cancelBusy?: boolean;
   cancelConflict?: boolean;
-  /** The advisor has seen a withdrawal or not-reached report: acknowledge it at the back end. */
-  onAcknowledge?: () => Promise<void>;
+  /** The advisor answered a withdrawal or not-reached alert: acknowledge it at the back end. True when it was taken. */
+  onAcknowledge?: () => Promise<boolean>;
   onSeeOptions?: () => void;
   onBackToOptions?: () => void;
   onNextOption?: () => void;
   onAskClinical?: () => void;
-  onPhoneCaller?: () => void;
   onRecordOutcome?: () => void;
   onCopySummary?: () => void;
 };
 
 function phoneLink(servicePhone: string | null, label: string, dataEl: string) {
-  if (servicePhone === null) return null;
+  if (servicePhone === null) return <p className={styles.text}>{NO_NUMBER}</p>;
   return (
     <Button variant="secondary" href={`tel:${servicePhone}`} dataEl={dataEl}>
       {label}
@@ -83,6 +85,8 @@ export function BookingCard(props: BookingCardProps) {
   const stateKey = `${booking.id}|${booking.status}`;
   const [firedFor, setFiredFor] = useState<string | null>(null);
   const [acknowledgedFor, setAcknowledgedFor] = useState<string | null>(null);
+  // The alert was set aside without an answer for this state: it is not acknowledged, and a notice stands.
+  const [leftOpenFor, setLeftOpenFor] = useState<string | null>(null);
   const [lastStatus, setLastStatus] = useState<BookingStatus>(booking.status);
   const [announcement, setAnnouncement] = useState('');
 
@@ -109,7 +113,8 @@ export function BookingCard(props: BookingCardProps) {
   }
 
   const badge = BADGE[booking.status];
-  const alertOpen = (booking.status === 'withdrawn' || booking.status === 'not-reached') && acknowledgedFor !== stateKey;
+  const needsAnswer = (booking.status === 'withdrawn' || booking.status === 'not-reached') && acknowledgedFor !== stateKey;
+  const alertOpen = needsAnswer && leftOpenFor !== stateKey;
   const hidden = dialogOpen || alertOpen;
   const cancelled = booking.status === 'cancelled-before' || booking.status === 'cancelled-after';
   const cancellable = booking.status === 'requested' || booking.status === 'confirmed';
@@ -209,6 +214,18 @@ export function BookingCard(props: BookingCardProps) {
           <p className={styles.text}>{badge.word}</p>
         ) : null}
 
+        {needsAnswer && !alertOpen ? (
+          <Banner
+            tone="warning"
+            title={`${serviceName} ${booking.status === 'withdrawn' ? 'withdrew' : 'could not reach the patient'}. This is not answered yet: phone the caller, then answer the alert.`}
+            dataEl="ADV-WITHDRAWN-NOTICE"
+          >
+            <Button variant="primary" dataEl="ADV-WITHDRAWN-REOPEN-BTN" onClick={() => setLeftOpenFor(null)}>
+              Open the alert
+            </Button>
+          </Banner>
+        ) : null}
+
         {cancellable && !pending && booking.status === 'confirmed' ? (
           <div className={styles.actions}>
             <Button variant="neutral" dataEl="ADV-BOOK-CANCEL-BTN" onClick={() => setDialogOpen(true)}>
@@ -242,12 +259,13 @@ export function BookingCard(props: BookingCardProps) {
           booking={booking}
           serviceName={serviceName}
           onAcknowledge={async () => {
-            setAcknowledgedFor(stateKey);
-            await props.onAcknowledge?.();
+            const taken = (await props.onAcknowledge?.()) ?? false;
+            if (taken) setAcknowledgedFor(stateKey);
+            return taken;
           }}
+          onLeaveOpen={() => setLeftOpenFor(stateKey)}
           onSeeOptions={() => props.onSeeOptions?.()}
           onAskClinical={props.onAskClinical}
-          onPhoneCaller={props.onPhoneCaller}
         />
       ) : null}
     </>

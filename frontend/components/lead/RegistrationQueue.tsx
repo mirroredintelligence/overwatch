@@ -20,7 +20,7 @@ import styles from './lead.module.css';
 const PANEL_ID = 'registrations-panel';
 
 export function RegistrationQueue() {
-  const [tab, setTab] = useState<QueueTab>('to-review');
+  const [tab, setTab] = useState<QueueTab>('waiting');
   const [data, setData] = useState<QueueResponse | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -75,7 +75,6 @@ export function RegistrationQueue() {
                   <span className={styles.tag}>{queueStateLabel(item.state)}</span>
                 </p>
                 <p className={styles.meta}>{submittedText(item)}</p>
-                {item.firstIssue !== undefined ? <p className={styles.meta}>{item.firstIssue}</p> : null}
                 <div>
                   <Button variant="secondary" href={`/lead/registrations/${encodeURIComponent(item.id)}`} dataEl="LEAD-REG-REVIEW-BTN">
                     Review

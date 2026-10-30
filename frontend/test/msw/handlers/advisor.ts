@@ -19,14 +19,18 @@ export const BLANK_CASE = {
   needs: [],
   urgency: null,
   scores: [],
-  openedAt: null,
+  reference: '4821',
+  openedAt: '2026-10-30T10:00:00.000Z',
+  closed: false,
+  closedAt: null,
+  outcome: null,
   etag: CASE_ETAG,
 };
 
 /** Every POST /api/bff/cases this file's handlers saw, newest last. */
 export const seenCaseCreates: Request[] = [];
 /** Every PUT /api/bff/cases/[ref] this file's handlers saw. */
-export const seenCasePuts: { url: string; ifMatch: string | null; body: unknown }[] = [];
+export const seenCasePuts: { url: string; ifMatch: string | null; key: string | null; body: unknown }[] = [];
 
 export function resetSeenAdvisorRequests() {
   seenCaseCreates.length = 0;
@@ -42,6 +46,7 @@ const caseHandlers = [
     seenCasePuts.push({
       url: request.url,
       ifMatch: request.headers.get('if-match'),
+      key: request.headers.get('idempotency-key'),
       body: await request.json(),
     });
     return HttpResponse.json({ ...BLANK_CASE, etag: CASE_ETAG });

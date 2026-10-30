@@ -65,7 +65,8 @@ export type UrgencyCode = (typeof URGENCIES)[number]['code'];
 export type CaseInput = {
   referrerType: ReferrerCode;
   ageBand: AgeCode;
-  postcode: string;
+  /** A full postcode, or null to leave the district the back end already holds as it is (DEC-398). */
+  postcode: string | null;
   needs: NeedCode[];
   urgency: UrgencyCode;
   scores: Score[];
@@ -74,14 +75,21 @@ export type CaseInput = {
 /** What the BFF answers for a case. Nulls mean not yet recorded. */
 export type CaseView = {
   id: string;
+  /** The four-digit case number the advisor reads out and the audit uses. Never part of an address (DEC-631). */
+  reference: string | null;
   referrerType: ReferrerCode | null;
   ageBand: AgeCode | null;
+  /** The postcode DISTRICT: the back end keeps no more of a postcode (DEC-398), and none once closed. */
   postcode: string | null;
   needs: NeedCode[];
   urgency: UrgencyCode | null;
   scores: Score[];
-  /** Not returned by the back end today (see docs/delivery/fragments/W11.md). Null. */
+  /** When the back end opened the case (ServiceRequest.authoredOn): the call clock counts from it. */
   openedAt: string | null;
+  /** A closed case cannot change (D18): it has no postcode or needs, and the page says so. */
+  closed: boolean;
+  closedAt: string | null;
+  outcome: string | null;
   etag: string | null;
 };
 
@@ -114,9 +122,13 @@ export function parseCaseInput(value: unknown): CaseInput | null {
   if (!isAgeCode(source.ageBand)) return null;
   if (!isUrgencyCode(source.urgency)) return null;
   // The browser normalises a postcode too; the back end's rule is applied here as well, and the
-  // normalised form is what is saved.
-  const postcode = typeof source.postcode === 'string' ? normalisePostcode(source.postcode) : null;
-  if (postcode === null) return null;
+  // normalised form is what is saved. No postcode leaves the district on record as it is; a district
+  // on its own is not a postcode and is refused.
+  let postcode: string | null = null;
+  if (source.postcode !== undefined && source.postcode !== null) {
+    postcode = typeof source.postcode === 'string' ? normalisePostcode(source.postcode) : null;
+    if (postcode === null) return null;
+  }
   const scores = parseScores(source.scores);
   if (scores === null) return null;
   return {

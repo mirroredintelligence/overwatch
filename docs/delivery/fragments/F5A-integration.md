@@ -38,8 +38,14 @@ No tenancy or privacy defect was found in these routes. The cross-tenant tests i
 | **target set** | **67 passed** |
 
 Wider checks: `tests/integration/adapters/inbound` 727 passed (token default change checked
-against every inbound route suite); `tests/unit tests/architecture` 12520 passed; `ruff check`,
-`ruff format`, `mypy src` and `lint-imports` clean.
+against every inbound route suite, before the merge); `tests/unit tests/architecture` 13177 passed
+on the merged tree; `ruff check`, `ruff format --check`, `mypy src` and `lint-imports` clean on the
+merged tree.
+
+Merge: `integration/build` moved to 44f63df (W5E, TEN-037 to TEN-060) and was merged into
+`task/fix-F5A` (no conflicts). The merged tree failed `ruff check` in five test modules of other
+bundles (import order only); they are sorted in a separate commit. The target set was re-run on
+the merged tree: 67 passed.
 
 ## Known issues (not fixed here)
 

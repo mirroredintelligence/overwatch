@@ -97,3 +97,9 @@ def test_shape_replaces_every_id_longest_first() -> None:
     error = NotFound("svc-1 and svc-12")
 
     assert matrix.shape(error, "svc-1", "svc-12") == "<id> and <id>"
+
+
+def test_the_integration_matrix_runs_every_case_of_the_matrix_and_no_other() -> None:
+    from tests.integration.graph_store import test_cross_tenant_references as integration
+
+    assert set(integration.CASES) == set(matrix.checked_cases())

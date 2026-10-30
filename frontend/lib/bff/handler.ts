@@ -1,6 +1,7 @@
 import { checkCsrf, clearCsrf } from '@/lib/auth/csrf';
 import { destroySession, sessionFromRequest, type Role, type Session } from '@/lib/auth/session';
 import { FhirError } from '@/lib/fhir/client';
+import { renewIfDue } from '@/lib/reporter/renew';
 import { toBffError } from './errors';
 import { refusesTenantInput } from './inputGuard';
 
@@ -87,7 +88,20 @@ export function withBff<C = unknown>(
 
       if (await refusesTenantInput(request)) return refuse(400, 'invalid');
 
-      return await handler(request, session, context);
+      // A reporter's token lasts 30 minutes: it is renewed from the live PIN session when due (W8E,
+      // DEC-792), after every check above so a refused request asks the back end for nothing. A session
+      // that cannot be renewed has ended.
+      let active = session;
+      if (session.pinSession !== undefined) {
+        const renewal = await renewIfDue(session);
+        if (renewal.kind === 'ended') {
+          await endSession();
+          return Response.json({ code: 'session-ended', message: 'Please sign in again.' }, { status: 401 });
+        }
+        active = renewal.session;
+      }
+
+      return await handler(request, active, context);
     } catch (error) {
       // The back end no longer knows this session (expired, suspended, role changed): so do we.
       if (error instanceof FhirError && error.status === 401) {

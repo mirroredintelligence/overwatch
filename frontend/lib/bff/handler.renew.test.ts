@@ -71,7 +71,9 @@ afterEach(() => {
 });
 
 const echo = vi.fn((_request: Request, session: Session) => Response.json({ role: session.role, ok: true }));
-beforeEach(() => echo.mockClear());
+beforeEach(() => {
+  echo.mockClear();
+});
 
 describe('withBff renews a reporter’s token', () => {
   it('gives the handler the new token when the old one has five minutes left, and rewrites the cookie', async () => {

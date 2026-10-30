@@ -22,7 +22,7 @@ from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.outbox import outbox_message_for
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId
 from diucs.domain.codes import CriteriaStatus, NeedCategory, PractitionerRoleCode, Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
@@ -81,6 +81,7 @@ def pending_version(
         change_reason=change_reason,
         supersedes_id=current.id,
         review_months=review_months,
+        changed_on=today,
     )
 
 
@@ -124,7 +125,9 @@ def approved_versions(
     if pending.review_months is None:
         raise ValidationFailed("review_months", "the pending version has no chosen review period")
     old, new = approve(current, pending)
-    return old, replace(new, review_by=next_review_by(today, pending.review_months))
+    return old, replace(
+        new, review_by=next_review_by(today, pending.review_months), changed_on=today
+    )
 
 
 def confirmed_review_by(today: date, months: int) -> date:
@@ -194,6 +197,9 @@ class CriteriaVersionView:
     status: CriteriaStatus
     review_by: date
     author_role_id: str
+    changed_on: date | None = None
+    author_role: str | None = None
+    """The author's post in words (the person's label, "Clinical lead, UCR"), or None."""
 
 
 def _command_key(scope: ScopeId | None, key: str) -> str:
@@ -455,6 +461,18 @@ class ConfirmCriteria:
         return result
 
 
+async def author_label(uow: UnitOfWork, role_id: str) -> str | None:
+    """The author's post in words: the label of the person who holds the owner post ("Clinical lead,
+    UCR"), or the post's code in words when the person has no label."""
+    role = await uow.people.get_role(role_id)
+    if role is None:
+        return None
+    person = await uow.people.get_practitioner(role.practitioner_id)
+    if person is not None and person.display_name.strip():
+        return person.display_name
+    return role.code.value.replace("-", " ").capitalize()
+
+
 class CriteriaHistory:
     def __init__(self, uow_factory: UnitOfWorkFactory) -> None:
         self._uow_factory = uow_factory
@@ -464,6 +482,10 @@ class CriteriaHistory:
             raise NotAllowed("this role may not read criteria history")
         async with self._uow_factory() as uow:
             versions = await uow.criteria.history(query.service_id)
+            labels = {
+                role_id: await author_label(uow, role_id)
+                for role_id in {version.owner_role_id for version in versions}
+            }
         return [
             CriteriaVersionView(
                 criteria_id=version.id,
@@ -471,6 +493,8 @@ class CriteriaHistory:
                 status=version.status,
                 review_by=version.review_by,
                 author_role_id=version.owner_role_id,
+                changed_on=version.changed_on,
+                author_role=labels[version.owner_role_id],
             )
             for version in versions
         ]

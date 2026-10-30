@@ -371,6 +371,8 @@ def test_the_first_criteria_version_is_what_the_service_step_says() -> None:
         excludes=frozenset(),
         review_by=date(2027, 1, 1),
         owner_role_id=OWNER_ROLE,
+        # The London day the bundle was built (W7B B): the history says when each version began.
+        changed_on=date(2026, 10, 29),
     )
 
 

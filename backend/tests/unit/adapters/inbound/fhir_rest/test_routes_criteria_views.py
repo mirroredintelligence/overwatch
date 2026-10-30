@@ -18,9 +18,7 @@ from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.tenant import ContactKind, TenantContact
 from tests.support.w7b_rig import (
     CLINICAL,
-    NOW,
     OWNER,
-    OWNER_ROLE,
     SERVICE,
     SERVICE_NAME,
     Rig,
@@ -283,8 +281,3 @@ async def test_a_version_with_no_recorded_date_has_none() -> None:
             e["resource"] for e in (await http.get(HISTORY, headers=OWNER_AUTH)).json()["entry"]
         ]
     assert entries[-1]["changedOn"] is None
-
-
-def test_the_clock_the_tests_use_is_the_clocks() -> None:
-    assert NOW.date() == date(2026, 10, 30)
-    assert OWNER_ROLE == "role-owner"

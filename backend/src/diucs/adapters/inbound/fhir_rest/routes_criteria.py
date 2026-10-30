@@ -126,7 +126,13 @@ def _basic(record: ServiceCriteria) -> dict[str, Any]:
 
 
 def _view_basic(
-    record_id: str, version: int, status: str, review_by: str, service_id: str
+    record_id: str,
+    version: int,
+    status: str,
+    review_by: str,
+    service_id: str,
+    changed_on: str | None = None,
+    author_role: str | None = None,
 ) -> dict[str, Any]:
     return {
         "resourceType": "Basic",
@@ -136,6 +142,8 @@ def _view_basic(
         "subject": {"reference": f"HealthcareService/{service_id}"},
         "status": status,
         "reviewBy": review_by,
+        "changedOn": changed_on,
+        "authorRole": author_role,
     }
 
 
@@ -351,6 +359,8 @@ async def read_criteria_history(
                     view.status.value,
                     view.review_by.isoformat(),
                     service_id,
+                    None if view.changed_on is None else view.changed_on.isoformat(),
+                    view.author_role,
                 )
             }
             for view in newest_first

@@ -115,6 +115,7 @@ def create_app(
         routes_cases,
         routes_clinical,
         routes_criteria,
+        routes_criteria_views,
         routes_events,
         routes_identity,
         routes_lead,
@@ -166,6 +167,7 @@ def create_app(
     app.include_router(routes_registration_session.router)
     app.include_router(routes_registration_views.router)
     app.include_router(routes_criteria.router)
+    app.include_router(routes_criteria_views.router)
 
     # Support codes and the support console (R18): JSON routes over the O06 and R18 use cases.
     from diucs.adapters.inbound.fhir_rest import routes_support

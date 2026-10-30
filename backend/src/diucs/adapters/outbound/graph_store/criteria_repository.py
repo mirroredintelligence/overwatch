@@ -70,6 +70,7 @@ _KEYS: Final = frozenset(
         "excludesNeed",
         "changeReason",
         "supersedes",
+        "changedOn",
     }
 )
 
@@ -260,6 +261,18 @@ def _review_by(resource: dict[str, Any]) -> date:
         raise ValidationFailed("reviewBy", "must be a calendar date, YYYY-MM-DD") from None
 
 
+def _changed_on(resource: dict[str, Any]) -> date | None:
+    value = resource.get("changedOn")
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValidationFailed("changedOn", "must be a calendar date")
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        raise ValidationFailed("changedOn", "must be a calendar date, YYYY-MM-DD") from None
+
+
 def _needs(resource: dict[str, Any], element: str) -> frozenset[NeedCategory]:
     concepts = resource.get(element, [])
     if not isinstance(concepts, list):
@@ -294,6 +307,8 @@ def criteria_to_fhir(criteria: ServiceCriteria) -> dict[str, Any]:
         resource["reviewMonths"] = criteria.review_months
     if criteria.supersedes_id is not None:
         resource["supersedes"] = {"reference": f"{_BASIC}/{criteria.supersedes_id}"}
+    if criteria.changed_on is not None:
+        resource["changedOn"] = criteria.changed_on.isoformat()
     return resource
 
 
@@ -329,6 +344,7 @@ def criteria_from_fhir(resource: dict[str, Any]) -> ServiceCriteria:
             if resource.get("reviewMonths") is None
             else _int(resource, "reviewMonths", minimum=1)
         ),
+        changed_on=_changed_on(resource),
     )
 
 

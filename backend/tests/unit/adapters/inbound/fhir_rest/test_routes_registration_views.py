@@ -18,7 +18,6 @@ import pytest
 from diucs.application.use_cases.registration_session import number_ending
 from diucs.application.work import SCHEDULED, ScheduledWork, WorkKind
 from diucs.domain.codes import (
-    CriteriaStatus,
     PractitionerRoleCode,
     RegistrationStatus,
     Role,
@@ -418,7 +417,7 @@ async def test_a_decision_with_every_check_done_can_be_approved() -> None:
     rig.units.registrations.held[REGISTRATION] = dataclasses.replace(
         held, checks=ApprovalChecks(True, True, ScopeFlag.IN_PILOT, True)
     )
-    rig.units.criteria.current[SERVICE] = type("C", (), {"status": CriteriaStatus.CURRENT})()
+    rig.criteria_world()
     # The automatic checks are re-judged from what is stored: the reporting number is explained.
     notes = {**held.draft.get("check_notes", {}), "reporting-phone": "Phoned and agreed."}
     registration = rig.units.registrations.held[REGISTRATION]

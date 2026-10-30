@@ -22,7 +22,7 @@ Decisions: DEC-313 to DEC-315 (U27).
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any, Final
 
 from diucs.application.actor import Actor
@@ -70,6 +70,7 @@ from diucs.domain.model.registration import (
     Registration,
 )
 from diucs.domain.model.service import ESTABLISHED_CAPACITY_MIN, LIMITED_LEVEL_PERCENT_DEFAULT
+from diucs.domain.rules.london_time import to_london
 from diucs.domain.rules.postcode import normalise_district, normalise_postcode, postcode_district
 
 ODS_ORG_SYSTEM: Final = "https://fhir.nhs.uk/Id/ods-organization-code"
@@ -457,6 +458,7 @@ def _criteria(
     owner_role_id: str,
     step: ServiceStep,
     location: LocationStep,
+    changed_on: date,
 ) -> dict[str, Any]:
     if step.review_by is None:
         raise ValidationFailed("review_by", "the draft has no review-by date")
@@ -471,6 +473,7 @@ def _criteria(
         "status": CriteriaStatus.PENDING_APPROVAL.value,
         "ageMin": step.age_min,
         "reviewBy": step.review_by.isoformat(),
+        "changedOn": changed_on.isoformat(),
     }
     if not step.no_age_limit and step.age_max is not None:
         criteria["ageMax"] = step.age_max
@@ -536,7 +539,18 @@ def build_registration_bundle(
             )
         )
     )
-    entries.append(_post(_criteria(ids.new_id(), service_id, owner_role_id, service, location)))
+    entries.append(
+        _post(
+            _criteria(
+                ids.new_id(),
+                service_id,
+                owner_role_id,
+                service,
+                location,
+                to_london(now).date(),
+            )
+        )
+    )
     return {"resourceType": "Bundle", "type": "transaction", "entry": entries}
 
 

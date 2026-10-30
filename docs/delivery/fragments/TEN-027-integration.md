@@ -16,4 +16,3 @@ The integration tests of TEN-027 were run on the shared Neo4j and are green.
 | ID | what | where | trigger |
 |---|---|---|---|
 | TEN-027 | Supersedes the TEN-027 line "SendPrompts and the ladder do not compare the command's actor tenant": they do now | `send_prompts.py`, `missed_report_ladder.py` | none |
-| TEN-027 | `test_routes_admin.py::test_a_lead_suspends_a_service_...` (500, `UnitOfWorkAlreadyOpen`) and two tests of `test_routes_criteria.py` (415 on a post with no body) fail on this branch; they are not in the wave 5 files and were not touched | `tests/integration/adapters/inbound/fhir_rest/` | the next run of the FHIR route tests |

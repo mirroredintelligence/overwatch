@@ -732,10 +732,11 @@ async def test_the_universe_leaves_out_exactly_the_global_and_platform_statement
     global reads. A statement may be left out of the universe only because it is on the allowlist
     of its scope AND pinned by digest, so no tenant statement can hide there; the seven platform
     statements are proved in `test_tenant_registry.py` (every statement, own and foreign values,
-    and a mutant of each)."""
+    and a mutant of each). The network-only statements (TEN-060) are run by their own test."""
     universe = production_statements(REGISTRY)
+    network_universe = production_statements(REGISTRY, ScopeKind.NETWORK)  # TEN-060, its own test
     singles = [i for i in REGISTRY.ids() if ":" not in i]
-    left_out = {i for i in singles if i not in universe}
+    left_out = {i for i in singles if i not in universe and i not in network_universe}
     scopes = {i: REGISTRY.get(i).scope for i in left_out}
 
     assert left_out == set(GLOBAL_QUERY_IDS) | set(PLATFORM_QUERY_IDS)
@@ -745,8 +746,9 @@ async def test_the_universe_leaves_out_exactly_the_global_and_platform_statement
     assert set(GLOBAL_QUERY_IDS) == set(GLOBAL_STATEMENTS)
     assert len(PLATFORM_QUERY_IDS) == 7
     assert all(i.startswith("Q-TENANT-REG-") for i in PLATFORM_QUERY_IDS)
-    # Nothing in the universe is of another scope, and no left-out statement is a tenant one.
+    # Nothing in either universe is of another scope, and no left-out statement is a tenant one.
     assert {q.scope for q in universe.values()} == {"tenant"}
+    assert {q.scope for q in network_universe.values()} == {"tenant"}
     assert "tenant" not in set(scopes.values())
     # The templates are all tenant statements (a template cannot be global or platform).
     assert all(REGISTRY.template(t).scope == "tenant" for t in REGISTRY.template_ids())

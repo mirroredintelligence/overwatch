@@ -139,7 +139,7 @@ async def test_a_lead_sets_up_a_service_and_a_fresh_read_finds_it(
         headers={"Idempotency-Key": "setup-0001", **token_headers(tenant_id, Role.LEAD)},
     )
 
-    assert response.status_code == 201
+    assert response.status_code == 201, response.text
     assert response.json()["resourceType"] == "HealthcareService"
     assert response.json()["name"] == "UCR West"
 
@@ -214,7 +214,7 @@ async def test_a_number_change_for_today_reports_the_last_four_digits(
         json=_change(),
         headers={"Idempotency-Key": "change-0001", **token_headers(tenant_id, Role.LEAD)},
     )
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     values = {p["name"]: p.get("valueString") for p in response.json()["parameter"]}
     assert values["numberEnding"] == "0456"
 

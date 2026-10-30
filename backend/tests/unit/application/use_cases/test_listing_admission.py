@@ -12,6 +12,9 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.listing_admission import (
     DecideListing,
     DecideListingCommand,
@@ -20,13 +23,10 @@ from diucs.application.use_cases.listing_admission import (
     RequestListing,
     RequestListingCommand,
 )
-
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.network_admin import GovernanceRecorder
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.network import ListingReason, ListingStatus, MembershipStatus
+from diucs.domain.model.network import ListingReason, ListingStatus
 from tests.support.network_admin_fakes import (
     Ids,
     MemoryDirectory,
@@ -364,7 +364,3 @@ async def test_a_reader_of_another_network_or_a_non_member_is_not_found(rig: _Ri
         await rig.query.for_network(person(MEMBER_B, Role.NETWORK_ADMIN), NETWORK_ID)
     with bind_tenant(OUTSIDER), pytest.raises(NotFound):
         await rig.query.of_member(_member(OUTSIDER), NETWORK_ID)
-
-
-async def test_the_membership_status_of_the_listing_source_is_not_assumed(rig: _Rig) -> None:
-    assert MembershipStatus.ACTIVE.value == "active"

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Atkinson_Hyperlegible } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { BfcacheGuard } from '@/components/session/BfcacheGuard';
 import { PRODUCT_NAME } from '@/lib/product';
 import './tokens.css';
 
@@ -24,7 +25,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-GB" className={atkinson.variable}>
-      <body>{children}</body>
+      <body>
+        <BfcacheGuard />
+        {children}
+      </body>
     </html>
   );
 }

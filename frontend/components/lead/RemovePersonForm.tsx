@@ -1,8 +1,9 @@
 'use client';
 
-import { useId, useState, type FormEvent } from 'react';
+import { useEffect, useId, useState, type FormEvent } from 'react';
 import { Button } from '@/components/ui/Button';
-import { CANNOT_DO, leadPost } from '@/lib/lead/browser';
+import { CANNOT_DO, leadGet, leadPost } from '@/lib/lead/browser';
+import type { ReporterPost } from '@/lib/lead/reporters';
 import styles from './Lead.module.css';
 
 // Remove a person's access (W42). The effects are listed before the lead submits. The back end's removal
@@ -23,7 +24,17 @@ const EFFECTS: string[] = [
   'Past reports stay in the record.',
 ];
 
+function postsOf(value: unknown): ReporterPost[] {
+  const list = (value as { reporters?: unknown } | undefined)?.reporters;
+  if (!Array.isArray(list)) return [];
+  return list.filter(
+    (item): item is ReporterPost =>
+      typeof item === 'object' && item !== null && typeof (item as ReporterPost).roleId === 'string' && typeof (item as ReporterPost).numberEnding === 'string',
+  );
+}
+
 export function RemovePersonForm() {
+  const [posts, setPosts] = useState<ReporterPost[]>([]);
   const [person, setPerson] = useState('');
   const [reason, setReason] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
@@ -31,6 +42,20 @@ export function RemovePersonForm() {
   const [notice, setNotice] = useState('');
   const [noticeIsError, setNoticeIsError] = useState(false);
   const effectsId = useId();
+
+  useEffect(() => {
+    let cancelled = false;
+    leadGet('/api/bff/lead/reporters')
+      .then((value) => {
+        if (!cancelled) setPosts(postsOf(value));
+      })
+      .catch(() => {
+        if (!cancelled) setPosts([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -70,13 +95,19 @@ export function RemovePersonForm() {
           <label htmlFor="lead-remove-person" className={styles.fieldLabel}>
             Person (role or phone ending)
           </label>
-          <input
+          <select
             id="lead-remove-person"
             className={styles.input}
             value={person}
             onChange={(event) => setPerson(event.target.value)}
-            autoComplete="off"
-          />
+          >
+            <option value="">Choose who to remove</option>
+            {posts.map((post) => (
+              <option key={post.roleId} value={post.roleId}>
+                {`${post.serviceName}, ${post.role}, ending ${post.numberEnding}`}
+              </option>
+            ))}
+          </select>
         </div>
 
         <fieldset className={styles.choices}>

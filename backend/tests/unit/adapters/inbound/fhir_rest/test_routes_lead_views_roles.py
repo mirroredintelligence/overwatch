@@ -22,6 +22,7 @@ ROUTES: list[tuple[str, str, int | None]] = [
     ("GET", "/admin/report-flags?status=closed", None),
     ("POST", "/lead/services/svc-1/remind", 400),
     ("POST", "/lead/services/svc-1/test-prompt", 400),
+    ("POST", "/lead/services/svc-1/phoned", 400),
     ("POST", "/lead/invitations/inv-1/resend", 400),
     ("POST", "/lead/invitations/inv-1/switch-to-text", 400),
 ]

@@ -1,12 +1,18 @@
 import { withBff } from '@/lib/bff/handler';
-import { notBuilt } from '@/lib/lead/notBuilt';
+import { fhirFetch } from '@/lib/fhir/client';
+import { parseOverview } from '@/lib/lead/parse';
 
-// The shift lead's overview (W17): chasing, figures getting old, covering, the system counts. Lead only.
-// The back end has no read that gives the chasing ladder, the figures getting old or the covering numbers
-// yet, so this answers 501 and never an empty overview (H-330, DEC-651). It takes no tenant or organisation
-// from the request (DEC-130, DEC-132).
+// The shift lead's overview (W17): chasing with the ladder, figures getting old, who is covering, the system
+// counts and the reports today. Lead only. The back end's read is at its root, not under /fhir (DEC-802). The
+// answer is checked against the shape the page knows before it is passed on, so a malformed answer is an error
+// and never a partly filled page (H-330). It takes no tenant from the request (DEC-130, DEC-132).
 
-const get = withBff(async () => notBuilt(), { roles: ['lead'] });
+const get = withBff(
+  async (_request, session) => {
+    const { data } = await fhirFetch<unknown>('/lead/overview', { root: true, token: session.backendToken, cache: 'no-store' });
+    return Response.json(parseOverview(data), { headers: { 'Cache-Control': 'no-store' } });
+  },
+  { roles: ['lead'] },
+);
 
 export const GET = (request: Request) => get(request, undefined);
-

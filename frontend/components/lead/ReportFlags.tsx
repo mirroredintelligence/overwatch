@@ -159,6 +159,7 @@ export function ReportFlags() {
 
       <LeadPhonedDialog
         open={phoned !== null}
+        serviceId={phoned?.serviceId ?? ''}
         serviceName={phoned?.serviceName ?? ''}
         onClose={() => setPhoned(null)}
       />

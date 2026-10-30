@@ -396,6 +396,7 @@ async def test_an_invitation_says_how_far_the_set_up_has_got() -> None:
         "items": [
             {
                 "id": INVITATION,
+                "serviceId": SERVICE,
                 "serviceName": SERVICE_NAME,
                 "role": "Duty manager",
                 "steps": {
@@ -628,3 +629,85 @@ async def test_a_test_prompt_for_an_unknown_service_or_one_with_no_reporter_is_r
     assert unknown.status_code == 404
     assert nobody.status_code == 409
     assert rig.units.communications.sent == []
+
+
+# ------------------------------------------------------------- the lead's phoned answer (W8D)
+
+
+async def test_a_lead_records_what_a_service_said_by_phone_with_no_case() -> None:
+    from diucs.domain.codes import ReportSource
+
+    rig = _world()
+    async with client(rig) as http:
+        response = await http.post(
+            "/lead/services/svc-a/phoned",
+            json={"told": "limited", "value": 3},
+            headers={**KEY, **LEAD_AUTH},
+        )
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["value"] == 3
+    stored = rig.units.capacity.reports["svc-a"]
+    assert stored.value == 3
+    assert stored.source is ReportSource.ADVISOR_PHONED
+    entry = rig.units.audit.entries[-1]
+    assert entry.use_case == "ReportCapacity"  # the one unit that writes the report and its audit
+    assert entry.snapshot is not None
+    assert entry.snapshot["told"] == "limited"
+    assert "case_id" not in entry.snapshot
+
+
+async def test_a_lead_phoned_not_accepting_stores_zero_and_takes_no_value() -> None:
+    rig = _world()
+    async with client(rig) as http:
+        response = await http.post(
+            "/lead/services/svc-a/phoned",
+            json={"told": "not-accepting"},
+            headers={**KEY, **LEAD_AUTH},
+        )
+        refused = await http.post(
+            "/lead/services/svc-a/phoned",
+            json={"told": "not-accepting", "value": 2},
+            headers={"Idempotency-Key": "w8d-phoned-2", **LEAD_AUTH},
+        )
+
+    assert response.status_code == 201, response.text
+    assert rig.units.capacity.reports["svc-a"].value == 0
+    assert refused.status_code == 400
+
+
+async def test_a_lead_phoned_answer_refuses_a_bad_shape_an_unknown_service_and_no_key() -> None:
+    rig = _world()
+    async with client(rig) as http:
+        unknown_answer = await http.post(
+            "/lead/services/svc-a/phoned",
+            json={"told": "maybe", "value": 1},
+            headers={**KEY, **LEAD_AUTH},
+        )
+        missing_value = await http.post(
+            "/lead/services/svc-a/phoned",
+            json={"told": "accepting"},
+            headers={"Idempotency-Key": "w8d-phoned-3", **LEAD_AUTH},
+        )
+        extra_field = await http.post(
+            "/lead/services/svc-a/phoned",
+            json={"told": "accepting", "value": 1, "tenant": "tenant-b"},
+            headers={"Idempotency-Key": "w8d-phoned-4", **LEAD_AUTH},
+        )
+        unknown_service = await http.post(
+            "/lead/services/svc-x/phoned",
+            json={"told": "accepting", "value": 1},
+            headers={"Idempotency-Key": "w8d-phoned-5", **LEAD_AUTH},
+        )
+        no_key = await http.post(
+            "/lead/services/svc-a/phoned", json={"told": "accepting", "value": 1}, headers=LEAD_AUTH
+        )
+
+    assert unknown_answer.status_code == 400
+    assert missing_value.status_code == 400
+    assert extra_field.status_code == 400
+    assert unknown_service.status_code == 404
+    assert no_key.status_code == 400
+    assert rig.units.capacity.reports["svc-a"].value != 1
+    assert "tenant-b" not in extra_field.text

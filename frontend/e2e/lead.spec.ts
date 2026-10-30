@@ -5,8 +5,10 @@ import { SITE_URL } from './support/env';
 import { TOKEN_ORG_A } from './support/tokens';
 
 // The shift lead's pages as a browser sees them (W17, W18, W42, W43, W47). Written in the build wave and not
-// run there: the verification run executes it (pnpm e2e). Until the back end has the overview, the lead
-// page must say it could not load, and must never say that nothing needs chasing (H-330).
+// run there: the verification run executes it (pnpm e2e). The BFF now reads the back end's lead routes (W8D).
+// The browser stand-in (e2e/support/backend.ts) does not serve them, so here the lead page must say it could
+// not load, and must never say that nothing needs chasing (H-330). Flows against the real back end are in
+// the verification run's own environment, not in this stand-in (known issue W8D-K1).
 
 test('an advisor is kept off the shift lead page', async ({ page }) => {
   await signIn(page.context(), SITE_URL, 'advisor', TOKEN_ORG_A);

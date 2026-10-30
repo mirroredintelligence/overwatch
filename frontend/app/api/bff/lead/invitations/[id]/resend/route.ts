@@ -1,16 +1,24 @@
 import { withBff } from '@/lib/bff/handler';
+import { fhirFetch } from '@/lib/fhir/client';
 import { idempotencyKeyOf, routeId } from '@/lib/lead/bffInput';
-import { notBuilt } from '@/lib/lead/notBuilt';
 
-// Sends an invitation again (W43). Lead only, CSRF. The back end has no resend yet: 501 (DEC-651).
+// Sends an invitation again (W43): the back end's resend (U24), with the Idempotency-Key passed on, so a double press
+// sends once. Lead only, CSRF. The answer names the ids and when the link expires, never the number.
 
 type Context = { params: Promise<Record<string, string>> };
 
 const post = withBff<Context>(
-  async (request, _session, context) => {
-    await routeId(context, 'id');
-    idempotencyKeyOf(request);
-    return notBuilt();
+  async (request, session, context) => {
+    const id = await routeId(context, 'id');
+    const key = idempotencyKeyOf(request);
+    const { data } = await fhirFetch<{ invitationId?: unknown; registrationId?: unknown; expiresAt?: unknown }>(
+      `/lead/invitations/${encodeURIComponent(id)}/resend`,
+      { method: 'POST', root: true, token: session.backendToken, idempotencyKey: key },
+    );
+    return Response.json(
+      { invitationId: data.invitationId, registrationId: data.registrationId, expiresAt: data.expiresAt },
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
   },
   { idScoped: true, roles: ['lead'] },
 );

@@ -15,6 +15,7 @@ import styles from './Lead.module.css';
 
 export type Invitation = {
   id: string;
+  serviceId: string;
   serviceName: string;
   role: string;
   steps: SetupSteps;
@@ -34,6 +35,7 @@ function invitationsFrom(body: unknown): Invitation[] {
     }
     return {
       id: textOf(row.id),
+      serviceId: textOf(row.serviceId),
       serviceName: textOf(row.serviceName),
       role: textOf(row.role),
       steps: flags,
@@ -108,7 +110,7 @@ function TrackedInvitation({ item, onNotice }: { item: Invitation; onNotice: (te
         </p>
       )}
       {text !== null ? <p className={styles.muted}>{text}</p> : null}
-      <LeadPhonedDialog open={phoned} serviceName={item.serviceName} onClose={() => setPhoned(false)} />
+      <LeadPhonedDialog open={phoned} serviceId={item.serviceId} serviceName={item.serviceName} onClose={() => setPhoned(false)} />
     </section>
   );
 }

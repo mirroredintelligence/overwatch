@@ -45,6 +45,12 @@ async function recorded(request: Request, path: string) {
   });
 }
 
+/** The reporter posts, as the BFF gives them to the lead's pages (W18, W42). The role id is the post's own id. */
+export const REPORTER_CHOICES = [
+  { serviceId: SERVICE_UCR_EAST, serviceName: 'UCR East', roleId: 'role-ucr-east', role: 'Duty manager', channel: 'text', numberEnding: '4821', coveredUntil: null },
+  { serviceId: SERVICE_REABLEMENT, serviceName: 'Reablement', roleId: 'role-reablement', role: 'Duty manager', channel: 'text', numberEnding: '0377', coveredUntil: null },
+];
+
 /** The flags on the open list, as the BFF maps them (W42). */
 export const FLAG_CHOICES = [
   { id: 'flag-1', serviceId: SERVICE_UCR_EAST, serviceName: 'UCR East', reason: 'out-of-range-twice', summary: 'The figure was out of its usual range twice.' },
@@ -78,6 +84,7 @@ export const PHONE_CHOICES = [
 export const INVITATION_CHOICES = [
   {
     id: 'inv-1',
+    serviceId: 's-ucr-west',
     serviceName: 'UCR West',
     role: 'Duty manager',
     steps: { invited: true, numberChecked: true, channelChosen: true, installed: true, notificationsOn: false, pinSet: false, firstReport: false },
@@ -87,6 +94,7 @@ export const INVITATION_CHOICES = [
   },
   {
     id: 'inv-2',
+    serviceId: SERVICE_REABLEMENT,
     serviceName: 'Reablement',
     role: 'Team lead',
     steps: { invited: true, numberChecked: true, channelChosen: true, installed: true, notificationsOn: true, pinSet: true, firstReport: true },
@@ -107,6 +115,15 @@ export const leadHandlers = [
   http.post('/api/bff/lead/services', async ({ request }) => {
     await recorded(request, '/api/bff/lead/services');
     return HttpResponse.json({ serviceId: 's-new-1' }, { status: 201, headers: NO_STORE });
+  }),
+  http.get('/api/bff/lead/reporters', ({ request }) => {
+    const service = new URL(request.url).searchParams.get('service');
+    const reporters = REPORTER_CHOICES.filter((post) => service === null || post.serviceId === service);
+    return HttpResponse.json({ reporters }, { headers: NO_STORE });
+  }),
+  http.post('/api/bff/lead/services/:id/phoned', async ({ request, params }) => {
+    await recorded(request, `/api/bff/lead/services/${String(params.id)}/phoned`);
+    return HttpResponse.json({ recorded: true, value: null }, { status: 201, headers: NO_STORE });
   }),
   http.post('/api/bff/lead/reporters/number', async ({ request }) => {
     await recorded(request, '/api/bff/lead/reporters/number');

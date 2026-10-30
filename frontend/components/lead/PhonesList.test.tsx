@@ -44,7 +44,7 @@ describe('PhonesList', () => {
   });
 
   it('says the phones could not be loaded, and never shows an empty table for a failed read', async () => {
-    server.use(http.get('/api/bff/lead/phones', () => HttpResponse.json({ code: 'not-built' }, { status: 501 })));
+    server.use(http.get('/api/bff/lead/phones', () => HttpResponse.json({ code: 'unavailable' }, { status: 503 })));
     render(<PhonesList />);
     expect(await screen.findByRole('alert')).toHaveTextContent('We could not load the phones.');
     expect(screen.queryByRole('table')).not.toBeInTheDocument();

@@ -9,6 +9,7 @@ import { GET } from './route';
 
 vi.mock('next/headers', async () => ({ cookies: (await import('@/test/cookies')).cookiesMock }));
 
+const ROOT = BACKEND_BASE.replace(/\/fhir$/, '');
 const URL_ = 'https://app.test/api/bff/lead/services/s-ucr-east';
 const ctx = { params: Promise.resolve({ id: 's-ucr-east' }) };
 
@@ -16,34 +17,48 @@ beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
+  server.use(
+    http.get(`${BACKEND_BASE}/HealthcareService/s-ucr-east`, () => HttpResponse.json({ resourceType: 'HealthcareService', id: 's-ucr-east', name: 'UCR East' })),
+  );
 });
 
 afterEach(() => vi.unstubAllEnvs());
 
 describe('GET /api/bff/lead/services/[id]', () => {
-  it('answers the service name, and no suspension state it cannot read', async () => {
-    server.use(
-      http.get(`${BACKEND_BASE}/HealthcareService/s-ucr-east`, () =>
-        HttpResponse.json({ resourceType: 'HealthcareService', id: 's-ucr-east', name: 'UCR East', active: true }),
-      ),
-    );
-    const response = await GET(await leadRequest(URL_, 'lead'), ctx);
-    expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ name: 'UCR East' });
-  });
-
   it('answers 403 to an advisor', async () => {
     expect((await GET(await leadRequest(URL_, 'advisor'), ctx)).status).toBe(403);
   });
 
-  it('answers 404 when the back end does not know the service, with no detail', async () => {
+  it('answers the name, the suspension, when, how many requests expired and the register number', async () => {
     server.use(
-      http.get(`${BACKEND_BASE}/HealthcareService/s-ucr-east`, () =>
-        HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-found', diagnostics: 'no service s-ucr-east' }] }, { status: 404 }),
+      http.get(`${ROOT}/lead/services/s-ucr-east/suspension`, () =>
+        HttpResponse.json({ suspended: true, since: '2026-10-30T14:20:00Z', reason: 'closed-unexpectedly', expiredRequests: 2, registerNumber: '07700900123' }),
       ),
     );
     const response = await GET(await leadRequest(URL_, 'lead'), ctx);
-    expect(response.status).toBe(404);
-    expect(await response.text()).not.toContain('s-ucr-east');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      name: 'UCR East',
+      suspended: true,
+      since: '2026-10-30T14:20:00Z',
+      expiredRequests: 2,
+      registerPhone: '07700900123',
+    });
+  });
+
+  it('answers not suspended with no since, no count, and the register number when there is one', async () => {
+    server.use(
+      http.get(`${ROOT}/lead/services/s-ucr-east/suspension`, () =>
+        HttpResponse.json({ suspended: false, since: null, reason: null, expiredRequests: null, registerNumber: null }),
+      ),
+    );
+    const response = await GET(await leadRequest(URL_, 'lead'), ctx);
+    expect(await response.json()).toEqual({ name: 'UCR East', suspended: false, registerPhone: null });
+  });
+
+  it('answers 503 when the suspension cannot be read, and never a suspension it does not know', async () => {
+    server.use(http.get(`${ROOT}/lead/services/s-ucr-east/suspension`, () => HttpResponse.json({}, { status: 503 })));
+    const response = await GET(await leadRequest(URL_, 'lead'), ctx);
+    expect(response.status).toBe(503);
   });
 });

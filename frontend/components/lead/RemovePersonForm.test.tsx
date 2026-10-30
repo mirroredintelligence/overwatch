@@ -22,16 +22,24 @@ describe('RemovePersonForm', () => {
     expect(seenLeadPosts).toHaveLength(0);
   });
 
-  it('posts the person and the reason, and says the access was removed', async () => {
+  it('lists each reporter post by its service, role and last four digits, and never a whole number', async () => {
+    render(<RemovePersonForm />);
+    expect(await screen.findByRole('option', { name: 'UCR East, Duty manager, ending 4821' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Reablement, Duty manager, ending 0377' })).toBeInTheDocument();
+    expect(document.body.textContent ?? '').not.toMatch(/07700\s?900/);
+  });
+
+  it('posts the chosen post and the reason, and says the access was removed', async () => {
     const user = userEvent.setup();
     render(<RemovePersonForm />);
-    await user.type(screen.getByLabelText('Person (role or phone ending)'), 'role-42');
+    await screen.findByRole('option', { name: 'UCR East, Duty manager, ending 4821' });
+    await user.selectOptions(screen.getByLabelText('Person (role or phone ending)'), 'role-ucr-east');
     await user.click(screen.getByRole('radio', { name: 'Lost phone' }));
     await user.click(screen.getByRole('button', { name: 'Remove access' }));
     expect(await screen.findByRole('status')).toHaveTextContent('Access removed.');
     expect(seenLeadPosts[0]).toMatchObject({
       path: '/api/bff/lead/people/remove',
-      body: { person: 'role-42', reason: 'lost-phone' },
+      body: { person: 'role-ucr-east', reason: 'lost-phone' },
     });
   });
 

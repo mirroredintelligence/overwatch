@@ -311,6 +311,10 @@ class StubCommunications(_Part):
         self.wrote("add")
         self.sent.append(communication)
 
+    async def latest_prompt_for_phone(self, role_ids: Any, message_ids: Any) -> None:
+        """No prompt is waiting in a stub, so a report stops no ladder (W8D)."""
+        return None
+
 
 class StubIdempotency(_Part):
     def __init__(self, writes: Writes) -> None:

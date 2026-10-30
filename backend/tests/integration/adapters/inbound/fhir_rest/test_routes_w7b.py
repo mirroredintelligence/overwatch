@@ -349,3 +349,31 @@ async def test_an_invited_reporter_saves_a_part_filled_step_and_a_24_hour_locati
 
 def RECORD_PATH(registration_id: str) -> str:
     return f"/registrations/{registration_id}/record"
+
+
+async def test_the_lead_records_a_phoned_answer_for_its_own_service_and_no_other_tenant_can(
+    api_client: AsyncClient, world: None, other_tenant_id: str
+) -> None:
+    """The lead's phoned answer with no case (W8D, DEC-920): the lead of the tenant records it for
+    its own service; the same route for another tenant's service is the 404 of a service that is
+    not there, and nothing of it is stored."""
+    mine = await api_client.post(
+        "/lead/services/ucr-west/phoned",
+        json={"told": "limited", "value": 2},
+        headers={
+            **token_headers(role=Role.LEAD, sub=LEAD_SUB),
+            "Idempotency-Key": "w8d-phoned-own-1",
+        },
+    )
+    assert mine.status_code == 201, mine.text
+    assert mine.json()["value"] == 2
+
+    other = await api_client.post(
+        "/lead/services/ucr-west/phoned",
+        json={"told": "accepting", "value": 9},
+        headers={
+            **token_headers(other_tenant_id, Role.LEAD, sub=LEAD_SUB),
+            "Idempotency-Key": "w8d-phoned-other-1",
+        },
+    )
+    assert other.status_code == 404, other.text

@@ -77,7 +77,7 @@ describe('LeadOverview', () => {
   it('never says nothing needs chasing when the overview could not be read', async () => {
     server.use(
       http.get('/api/bff/lead/overview', () =>
-        HttpResponse.json({ code: 'not-built', message: 'x' }, { status: 501 }),
+        HttpResponse.json({ code: 'unavailable', message: 'x' }, { status: 503 }),
       ),
     );
     render(<LeadOverview />);
@@ -105,7 +105,7 @@ describe('LeadOverview', () => {
     const [first] = screen.getAllByRole('button', { name: 'Enter what they told me by phone' });
     await userEvent.click(first);
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByText(/Virtual ward/)).toBeInTheDocument();
+    expect(within(dialog).getByText('What did Virtual ward tell you?')).toBeInTheDocument();
     expect(dialog.textContent ?? '').not.toMatch(/case|reference/i);
   });
 

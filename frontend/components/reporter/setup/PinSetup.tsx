@@ -37,7 +37,8 @@ export function PinSetup({ doneHref = '/setup/all-set' }: { doneHref?: string })
       return;
     }
     const signIn = await bffRequest('/api/bff/identity/pin/verify', { method: 'POST', body: { pin } });
-    if (signIn.status === 200) {
+    // The BFF answers 200 for a wrong PIN too ({ok: false}): only ok: true is a sign-in.
+    if (signIn.status === 200 && (signIn.body as { ok?: unknown } | undefined)?.ok === true) {
       router.push(doneHref);
       return;
     }

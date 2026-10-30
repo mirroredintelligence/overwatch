@@ -6,6 +6,7 @@ import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { bffRequest } from '@/lib/reporter/browser';
+import { clock } from '@/lib/reporter/times';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // One booking request in the app (W36): confirm it, or decline it with a reason. A booking shows
@@ -15,18 +16,40 @@ import styles from '@/components/reporter/Reporter.module.css';
 type Reason = 'full' | 'outside-criteria' | 'staffing-or-transport' | 'other';
 type Status = 'requested' | 'confirmed' | 'declined' | 'expired';
 
+// What the BFF gives (the back end's booking by its reference, DEC-821): the instants are ISO, the age
+// band, the urgency and the SPOA number may be absent, and nothing of the case is in it.
 type Booking = {
   reference: string;
   service: string;
-  ageBand: string;
+  ageBand: string | null;
   need: string;
-  urgency: string;
+  urgency: string | null;
   replyBy: string;
   status: Status;
   multiService: boolean;
   confirmedAt?: string;
-  spoaPhone: string;
+  spoaPhone: string | null;
 };
+
+const STATUSES: readonly string[] = ['requested', 'confirmed', 'declined', 'expired'];
+
+function readBooking(body: unknown): Booking | null {
+  const v = body as Partial<Booking> | undefined;
+  if (typeof v?.reference !== 'string' || typeof v.service !== 'string' || typeof v.need !== 'string' || typeof v.replyBy !== 'string') return null;
+  if (typeof v.status !== 'string' || !STATUSES.includes(v.status) || typeof v.multiService !== 'boolean') return null;
+  return {
+    reference: v.reference,
+    service: v.service,
+    ageBand: typeof v.ageBand === 'string' ? v.ageBand : null,
+    need: v.need,
+    urgency: typeof v.urgency === 'string' ? v.urgency : null,
+    replyBy: v.replyBy,
+    status: v.status as Status,
+    multiService: v.multiService,
+    spoaPhone: typeof v.spoaPhone === 'string' ? v.spoaPhone : null,
+    ...(typeof v.confirmedAt === 'string' ? { confirmedAt: v.confirmedAt } : {}),
+  };
+}
 
 const REASONS: { code: Reason; label: string }[] = [
   { code: 'full', label: 'Full' },
@@ -50,8 +73,9 @@ export function BookingDecision({ reference }: { reference: string }) {
     void bffRequest(`/api/bff/reporter/bookings/${encodeURIComponent(reference)}`).then((reply) => {
       if (!live) return;
       if (reply.status === 401) return router.replace('/app/pin');
-      if (reply.status !== 200) return setFailed(true);
-      setBooking(reply.body as Booking);
+      const read = reply.status === 200 ? readBooking(reply.body) : null;
+      if (read === null) return setFailed(true);
+      setBooking(read);
     });
     return () => {
       live = false;
@@ -75,6 +99,15 @@ export function BookingDecision({ reference }: { reference: string }) {
     setBusy(false);
     if (reply.status === 401) return router.replace('/app/pin');
     const answer = reply.body as { status?: string; confirmedAt?: string } | undefined;
+    if (reply.status === 409) {
+      // Answered meanwhile (by someone else, or the time ran out): show what the back end holds.
+      const fresh = await bffRequest(`/api/bff/reporter/bookings/${encodeURIComponent(reference)}`);
+      const read = fresh.status === 200 ? readBooking(fresh.body) : null;
+      if (read === null || read.status === 'requested') return setFailed(true);
+      setBooking(read);
+      setOutcome(null);
+      return undefined;
+    }
     if (reply.status === 200 && answer?.status === 'confirmed') {
       setConfirmedAt(answer.confirmedAt);
       return setOutcome('confirmed');
@@ -85,12 +118,12 @@ export function BookingDecision({ reference }: { reference: string }) {
   };
 
   const confirmLabel = booking.multiService ? `Confirm booking for ${booking.service}` : 'Confirm booking';
-  const phone = booking.spoaPhone.replace(/\s+/g, '');
+  const phone = booking.spoaPhone === null ? null : booking.spoaPhone.replace(/\s+/g, '');
 
   if (current === 'expired') {
     return (
       <main className={styles.page}>
-        <p>{`This request expired at ${booking.replyBy}. The coordination team will phone you if they still need you.`}</p>
+        <p>{`This request expired at ${clock(booking.replyBy)}. The coordination team will phone you if they still need you.`}</p>
       </main>
     );
   }
@@ -98,12 +131,15 @@ export function BookingDecision({ reference }: { reference: string }) {
     return (
       <main className={styles.page}>
         <h1 className={styles.title}>Booked</h1>
-        <p>{`Reference ${booking.reference}, ${booking.service}. Confirmed ${confirmedAt ?? booking.confirmedAt ?? ''}. The advisor has been told.`}</p>
+        <p>{`Reference ${booking.reference}, ${booking.service}. Confirmed ${clock(confirmedAt ?? booking.confirmedAt)}. The advisor has been told.`}</p>
         <p>Referral details follow in the referral system.</p>
-        <p>
-          Something changed? Phone the coordination team on{' '}
-          <a href={`tel:${phone}`}>{booking.spoaPhone}</a>.
-        </p>
+        {phone === null ? (
+          <p>Something changed? Phone the coordination team.</p>
+        ) : (
+          <p>
+            Something changed? Phone the coordination team on <a href={`tel:${phone}`}>{booking.spoaPhone}</a>.
+          </p>
+        )}
       </main>
     );
   }
@@ -121,11 +157,11 @@ export function BookingDecision({ reference }: { reference: string }) {
       {booking.multiService ? <Banner tone="info" title={`${booking.service} only`} /> : null}
       <p className={styles.eyebrow}>{booking.service}</p>
       <h1 className={styles.title}>{`Booking request ${booking.reference}`}</h1>
-      <p>{`Age band ${booking.ageBand}`}</p>
+      {booking.ageBand === null ? null : <p>{`Age band ${booking.ageBand}`}</p>}
       <p>{`Need ${booking.need}`}</p>
-      <p>{booking.urgency}</p>
+      {booking.urgency === null ? null : <p>{booking.urgency}</p>}
       <p>Referral details follow in the referral system.</p>
-      <p className={styles.question}>Reply by {`${booking.replyBy}.`}</p>
+      <p className={styles.question}>Reply by {`${clock(booking.replyBy)}.`}</p>
       <Button variant="primary" busy={busy} dataEl="REP-BOOK-CONFIRM-BTN" onClick={() => void decide('confirm')}>
         {confirmLabel}
       </Button>

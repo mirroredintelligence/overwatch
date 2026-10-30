@@ -3,12 +3,13 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { bffRequest } from '@/lib/reporter/browser';
+import { clock } from '@/lib/reporter/times';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // After a capacity update (W35): the figure recorded, the next update, and today's reports for this
 // service, newest first. The list is read from the BFF; nothing is kept in the browser.
 
-type Item = { at: string; value: number };
+type Item = { at: string; value: number; kind?: string };
 
 export function ThanksScreen({
   serviceId,
@@ -35,7 +36,8 @@ export function ThanksScreen({
       if (reply.status === 401) return router.replace('/app/pin');
       const list = (reply.body as { items?: Item[] } | undefined)?.items;
       if (reply.status === 200 && Array.isArray(list)) {
-        setItems([...list].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0)));
+        // Newest first, by the instant (not by the clock text, which would not sort across midnight).
+        setItems([...list].sort((a, b) => Date.parse(b.at) - Date.parse(a.at)));
       }
     });
     return () => {
@@ -46,13 +48,13 @@ export function ThanksScreen({
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Thank you</h1>
-      <p>{`${service}: ${value} ${unit} recorded at ${at}.`}</p>
-      <p>{`Next update due ${nextDue}`}</p>
+      <p>{`${service}: ${value} ${unit} recorded at ${clock(at)}.`}</p>
+      {clock(nextDue) !== '' ? <p>{`Next update due ${clock(nextDue)}`}</p> : null}
       <h2>Today</h2>
       <ul>
         {items.map((item) => (
           <li key={`${item.at}-${item.value}`}>
-            <span>{item.at}</span> <span>{item.value}</span>
+            <span>{clock(item.at)}</span> <span>{item.value}</span>
           </li>
         ))}
       </ul>

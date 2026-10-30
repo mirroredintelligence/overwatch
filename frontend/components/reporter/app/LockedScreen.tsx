@@ -6,6 +6,7 @@ import { CodeEntry } from '@/components/reporter/CodeEntry';
 import { PinSetup } from '@/components/reporter/setup/PinSetup';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/reporter/browser';
+import { recordChannelForDevice } from '@/lib/reporter/channel';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // The locked PIN (W37): a text code, then a new PIN entered twice. "Forgot your PIN?" (the link
@@ -19,10 +20,10 @@ export function LockedScreen({ reason }: { reason: string | null }) {
   const [notice, setNotice] = useState<string | null>(null);
   const forgot = reason === 'forgot';
 
-  const sendCode = async () => (await bffRequest('/api/bff/identity/code', { method: 'POST', body: { purpose: 'pin-reset' } })).status === 202;
+  const sendCode = async () => (await bffRequest('/api/bff/identity/device-code', { method: 'POST', body: { purpose: 'pin-reset' } })).status === 202;
 
   const checkCode = async (code: string) => {
-    const reply = await bffRequest('/api/bff/identity/code/verify', { method: 'POST', body: { purpose: 'pin-reset', code } });
+    const reply = await bffRequest('/api/bff/identity/device-code/verify', { method: 'POST', body: { purpose: 'pin-reset', code } });
     const body = reply.body as { ok?: boolean; triesLeft?: number } | undefined;
     if (reply.status === 200 && body?.ok === true) return { ok: true as const };
     return { ok: false as const, triesLeft: typeof body?.triesLeft === 'number' ? body.triesLeft : null };
@@ -35,9 +36,10 @@ export function LockedScreen({ reason }: { reason: string | null }) {
   };
 
   const chooseText = async () => {
-    const reply = await bffRequest('/api/bff/reporter/channel', { method: 'POST', body: { channel: 'text' } });
-    if (reply.status === 200 || reply.status === 204) router.push('/app/settings');
-    else setNotice('We could not change how we contact you. Try again.');
+    // No session behind a locked PIN: recorded for the phone's device, which needs a text code first.
+    const result = await recordChannelForDevice('text');
+    if (result === 'ok') router.push('/setup/done?channel=text');
+    else setNotice(result === 'needs-code' ? 'Get a code by text first, then choose text or email.' : 'We could not change how we contact you. Try again.');
   };
 
   if (stage === 'code') {

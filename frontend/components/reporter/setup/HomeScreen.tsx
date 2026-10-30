@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useSyncExternalStore } from 'react';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
-import { bffRequest } from '@/lib/reporter/browser';
+import { recordChannelForDevice } from '@/lib/reporter/channel';
 import styles from './Setup.module.css';
 
 // Step 3 of 5 (W34): add DIUCS to the home screen. Notifications only work from the home screen, so
@@ -43,6 +43,7 @@ export function HomeScreen() {
   const router = useRouter();
   const [platform, setPlatform] = useState<Platform>(() => platformFromAgent(navigator.userAgent));
   const [notInstalled, setNotInstalled] = useState(false);
+  const [textFailed, setTextFailed] = useState(false);
   const installed = useSyncExternalStore(noListeners, isInstalled, () => false);
 
   const added = () => {
@@ -53,9 +54,11 @@ export function HomeScreen() {
     setNotInstalled(true);
   };
 
+  // No one is signed in yet in set-up: the choice is recorded for this phone's device.
   const chooseText = async () => {
-    const reply = await bffRequest('/api/bff/reporter/channel', { method: 'POST', body: { channel: 'text' } });
-    if (reply.status === 200 || reply.status === 204) router.push('/setup/done?channel=text');
+    setTextFailed(false);
+    if ((await recordChannelForDevice('text')) === 'ok') router.push('/setup/done?channel=text');
+    else setTextFailed(true);
   };
 
   if (installed) {
@@ -101,6 +104,7 @@ export function HomeScreen() {
           title="Open DIUCS from your home screen to carry on. Notifications only work from there."
         />
       ) : null}
+      {textFailed ? <Banner tone="warning" title="We could not save that. Check your number again, then try once more." /> : null}
       <Button variant="primary" dataEl="ONB-HOME-ADDED-BTN" onClick={added}>
         I have added it
       </Button>

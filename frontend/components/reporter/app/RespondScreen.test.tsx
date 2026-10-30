@@ -99,7 +99,7 @@ describe('RespondScreen', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Yes, still 3' }));
     await waitFor(() => expect(push).toHaveBeenCalled());
     const query = new URLSearchParams(String(push.mock.calls[0][0]).split('?')[1]);
-    expect(Object.fromEntries(query)).toEqual({ service: 'UCR West', unit: 'referrals in the next 2 hrs', value: '3', at: '2026-10-30T10:12:00Z', next: '2026-10-30T12:00:00Z' });
+    expect(Object.fromEntries(query)).toEqual({ service: 'UCR West', unit: 'referrals', value: '3', at: '2026-10-30T10:12:00Z', next: '2026-10-30T12:00:00Z' });
   });
 
   it('uses the range the back end names for a figure out of range, and confirms it with the next send of the same figure', async () => {

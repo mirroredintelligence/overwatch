@@ -57,7 +57,7 @@ describe('POST /api/bff/identity/new-phone/verify', () => {
     server.use(http.post('http://backend.test/identity/new-phone/verify', () => HttpResponse.json({ status: 'pending-callback' })));
     const response = await call();
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ status: 'pending-callback' });
+    expect(await response.json()).toEqual({ status: 'pending-callback', spoaPhone: null });
   });
 
   it('maps a wrong code to 400 wrong, a lapsed one to 410 expired, and too many tries to 429', async () => {
@@ -77,5 +77,11 @@ describe('POST /api/bff/identity/new-phone/verify', () => {
     expect(await expired.json()).toEqual({ code: 'expired' });
     server.use(http.post('http://backend.test/identity/new-phone/verify', () => HttpResponse.json({}, { status: 429 })));
     expect((await call()).status).toBe(429);
+  });
+
+  it('passes on the tenant’s coordination number when the back end gives one, and nothing else of the answer', async () => {
+    server.use(http.post('http://backend.test/identity/new-phone/verify', () => HttpResponse.json({ status: 'pending-callback', spoaPhone: '01632 960001', person: 'prac-1' })));
+    const body = (await (await call()).json()) as Record<string, unknown>;
+    expect(body).toEqual({ status: 'pending-callback', spoaPhone: '01632 960001' });
   });
 });

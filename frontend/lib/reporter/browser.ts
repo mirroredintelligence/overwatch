@@ -5,6 +5,7 @@
 export type Reply = { status: number; body: unknown };
 
 const START = '/api/bff/reporter/start';
+const PIN_VERIFY = '/api/bff/identity/pin/verify';
 let csrf: string | null = null;
 
 async function fetchJson(path: string, init: RequestInit): Promise<Reply> {
@@ -49,6 +50,9 @@ export async function bffRequest(
     });
   };
   const first = await send();
+  // A right PIN made a session: the token this page holds was the phone's, and the session's writes need
+  // the session's, which the start route now gives (W8E).
+  if (path === PIN_VERIFY && first.status === 200 && (first.body as { ok?: unknown } | undefined)?.ok === true) csrf = null;
   // A stale token (another tab rotated it) is refreshed once and the call repeated.
   if (first.status === 403 && (first.body as { code?: string } | undefined)?.code === 'csrf') {
     csrf = null;

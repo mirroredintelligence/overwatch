@@ -61,7 +61,7 @@ describe('LockedScreen', () => {
     const { seenBffRequests } = await import('@/test/msw/handlers/reporter');
     render(<LockedScreen reason={null} />);
     await userEvent.click(screen.getByRole('button', { name: 'Use text or email instead' }));
-    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/settings'));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/setup/done?channel=text'));
     expect(seenBffRequests.find((r) => r.path === '/api/bff/identity/channel')?.body).toEqual({ channel: 'text' });
     expect(seenBffRequests.some((r) => r.path === '/api/bff/reporter/channel')).toBe(false);
   });

@@ -85,6 +85,7 @@ GRANT_NOT_FOUND: Final = "the grant was not found"
 OPEN_GRANT: Final = "a grant for this scope is already open; revise it instead"
 OPEN_REVISION: Final = "this grant already has a revision waiting"
 NO_AGREEMENT: Final = "the network has no agreement in force"
+APPROVAL_ATTEMPTS: Final = 3
 
 _OPEN: Final = frozenset(
     {
@@ -323,28 +324,38 @@ class ApproveGrant:
         require_role(actor, Role.TENANT_ADMIN, Role.NETWORK_ADMIN)
         require_actor_in_bound_tenant(actor)
         account = account_ref_of(actor)
-        grant = await _grant_of(self._registry, command.grant_id)
-        network = await _network(self._registry, grant.network_id)
-        if actor.role is Role.TENANT_ADMIN:
-            approver = GrantApprover.GRANTOR
-            party_ok = grant.grantor_tenant_id == actor.tenant_id
-        else:
-            approver = GrantApprover.OWNER
-            party_ok = network.owner_tenant_id == actor.tenant_id
-        if not party_ok:
-            raise NotFound(GRANT_NOT_FOUND)
-        require_active(network)
-        now = self._clock.now()
-        approved = approve_grant(
-            grant,
-            approver=approver,
-            approver_tenant_id=actor.tenant_id,
-            network_owner_tenant_id=network.owner_tenant_id,
-            account_ref=account,
-            now=now,
-        )
-        if approved != grant:
-            await self._registry.save_grant(approved, expected_status=grant.status)
+        approver = GrantApprover.GRANTOR if actor.role is Role.TENANT_ADMIN else GrantApprover.OWNER
+        for attempt in range(APPROVAL_ATTEMPTS):
+            grant = await _grant_of(self._registry, command.grant_id)
+            network = await _network(self._registry, grant.network_id)
+            party = (
+                grant.grantor_tenant_id
+                if approver is GrantApprover.GRANTOR
+                else network.owner_tenant_id
+            )
+            if party != actor.tenant_id:
+                raise NotFound(GRANT_NOT_FOUND)
+            require_active(network)
+            now = self._clock.now()
+            approved = approve_grant(
+                grant,
+                approver=approver,
+                approver_tenant_id=actor.tenant_id,
+                network_owner_tenant_id=network.owner_tenant_id,
+                account_ref=account,
+                now=now,
+            )
+            if approved == grant:
+                break
+            try:
+                await self._registry.save_grant(approved, expected_status=grant.status)
+                break
+            except Conflict:
+                # The other party's approval (or an end) landed between the read and the write:
+                # read again, so that both approvals survive a race; after the last try it is a
+                # conflict for the caller.
+                if attempt == APPROVAL_ATTEMPTS - 1:
+                    raise
         mine = (
             approved.grantor_approval
             if approver is GrantApprover.GRANTOR

@@ -75,7 +75,7 @@ describe('PUT /api/bff/cases/[ref]/district', () => {
   });
 
   it('answers the case as the back end now holds it', async () => {
-    const view = (await (await choose('clinical', { district: 'BH21' })).json()) as { id?: unknown };
+    const view = (await (await choose('advisor', { district: 'BH21' })).json()) as { id?: unknown };
     expect(view.id).toBe(CASE_FULL.id);
   });
 
@@ -113,8 +113,8 @@ describe('PUT /api/bff/cases/[ref]/district', () => {
     expect((await choose('advisor', { district: 'DT1' })).status).toBe(404);
   });
 
-  it('is for an advisor and a clinical advisor only: every other role, and no session, is refused before the back end', async () => {
-    for (const role of ['lead', 'reporter', 'exec'] as const) expect((await choose(role, { district: 'DT1' })).status, role).toBe(403);
+  it('is for the advisor only, as every advisor route is (DEC-860): every other role, and no session, is refused before the back end', async () => {
+    for (const role of ['lead', 'reporter', 'exec', 'clinical'] as const) expect((await choose(role, { district: 'DT1' })).status, role).toBe(403);
     expect((await choose(null, { district: 'DT1' })).status).toBe(401);
     expect((await choose('advisor', { district: 'DT1' }, { csrf: false })).status).toBe(403);
     expect(seen).toEqual([]);

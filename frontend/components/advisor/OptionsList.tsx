@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { bffFetch } from '@/lib/advisor/browser';
+import { chooseDistrict } from '@/lib/advisor/district';
 import type { OptionsParts } from '@/lib/advisor/options';
 import { AskClinicalPanel } from './AskClinicalPanel';
 import { CriteriaDialog } from './CriteriaDialog';
@@ -12,6 +13,7 @@ import { NoServiceFits } from './NoServiceFits';
 import { ViewToggle } from './ViewToggle';
 import { NotSuitableList } from './NotSuitableList';
 import { PhonedDialog } from './PhonedDialog';
+import { OutOfArea, PostcodeNotFound } from './PostcodeStates';
 import { ServiceCard } from './ServiceCard';
 import styles from './OptionsList.module.css';
 
@@ -62,6 +64,12 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
   if (load.kind === 'failed') return <p role="alert">The options could not be read. Try again.</p>;
 
   const { options, notSuitable } = load.parts;
+  // A district chosen from the chips is saved on the case, then the list is read again (W50, W9H DEC-1045).
+  const chooseDistrictAndRead = async (district: string): Promise<boolean> => {
+    if (!(await chooseDistrict(caseId, district))) return false;
+    await readOptions();
+    return true;
+  };
   const hasNetwork = options.some((option) => option.network !== null);
   const close = () => setOpen(null);
   // "Ask a clinical advisor" (W45): this list owns the dialog, so the button and the no-fit state share it.
@@ -77,7 +85,11 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
   return (
     <section className={styles.list} aria-label="Options">
       <ViewToggle caseId={caseId} current="list" />
-      {options.length === 0 ? (
+      {options.length === 0 && load.parts.outOfArea ? (
+        <OutOfArea caseId={caseId} postcode="This postcode" onAskClinical={askClinical} districts={load.parts.districts} onChooseDistrict={chooseDistrictAndRead} />
+      ) : options.length === 0 && load.parts.notFound ? (
+        <PostcodeNotFound caseId={caseId} onAskClinical={askClinical} districts={load.parts.districts} onChooseDistrict={chooseDistrictAndRead} />
+      ) : options.length === 0 ? (
         <NoServiceFits caseId={caseId} onWidened={() => void readOptions()} onAskClinical={askClinical} />
       ) : (
         <>

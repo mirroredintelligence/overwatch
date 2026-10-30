@@ -85,11 +85,16 @@ function badRequest(): ExchangeReply {
 }
 
 /** `POST /auth/token` for a request addressed to `host`, with the body the BFF sent. */
-export function staffExchange(host: string | null, body: unknown, now: Date = new Date()): ExchangeReply {
+export function staffExchange(
+  host: string | null,
+  body: unknown,
+  now: Date = new Date(),
+  grants: Record<string, string[]> = GRANTS,
+): ExchangeReply {
   const keys = typeof body === 'object' && body !== null ? Object.keys(body) : [];
   const idToken = (body as { idToken?: unknown } | null)?.idToken;
   if (keys.length !== 1 || typeof idToken !== 'string' || idToken === '') return badRequest();
-  const directories = host === null ? undefined : GRANTS[host];
+  const directories = host === null ? undefined : grants[host];
   if (directories === undefined) return notFound();
   let claims: Record<string, unknown>;
   try {
@@ -119,12 +124,18 @@ export function staffExchange(host: string | null, body: unknown, now: Date = ne
 }
 
 /** `POST /auth/device-token` for a request addressed to `host`, with `Authorization: Bearer <device token>`. */
-export function deviceExchange(host: string | null, authorization: string | null, body: unknown, now: Date = new Date()): ExchangeReply {
+export function deviceExchange(
+  host: string | null,
+  authorization: string | null,
+  body: unknown,
+  now: Date = new Date(),
+  grants: Record<string, string[]> = GRANTS,
+): ExchangeReply {
   const keys = typeof body === 'object' && body !== null ? Object.keys(body) : [-1];
   if (keys.length !== 0) return badRequest();
   const deviceToken = /^Bearer (.+)$/.exec(authorization ?? '')?.[1];
   const device = deviceToken === undefined ? undefined : DEVICES[deviceToken];
-  if (host === null || GRANTS[host] === undefined || device === undefined) return notFound();
+  if (host === null || grants[host] === undefined || device === undefined) return notFound();
   const issuedAt = Math.floor(now.getTime() / 1000);
   const expires = issuedAt + WALL_LIFETIME_SECONDS;
   const token = standInToken({

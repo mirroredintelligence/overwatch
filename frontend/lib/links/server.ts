@@ -62,6 +62,8 @@ export type LinkCall = {
   host: string | null;
   body?: unknown;
   csrf?: string;
+  /** Further request headers, such as `Authorization` or `X-Screen-Secret` (the screen and token routes). */
+  headers?: Record<string, string>;
 };
 
 function jsonOrUndefined(text: string): unknown {
@@ -86,6 +88,10 @@ export async function callLinkApi(call: LinkCall): Promise<LinkReply> {
     headers['Content-Length'] = Buffer.byteLength(payload);
   }
   if (call.csrf !== undefined) headers['X-CSRF-Token'] = call.csrf;
+  // Applied last, but never over the host that names the tenant or the length of the body.
+  for (const [name, value] of Object.entries(call.headers ?? {})) {
+    if (!['host', 'content-length'].includes(name.toLowerCase())) headers[name] = value;
+  }
 
   // Read at call time from the module object, so a test double of the transport is the one used.
   const transport = url.protocol === 'https:' ? https : http;

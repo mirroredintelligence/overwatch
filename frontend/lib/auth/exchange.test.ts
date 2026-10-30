@@ -40,11 +40,17 @@ async function reasonOf(promise: Promise<unknown>): Promise<string> {
 }
 
 beforeEach(() => {
+  // The stand-in back end issues tokens from the clock: hold it at NOW, as the code under test is given.
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(NOW);
   vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetExchanges();
   server.use(...authHandlers);
 });
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllEnvs();
+});
 
 describe('exchangeStaffToken: what is sent', () => {
   it('posts the ID token and nothing else to /auth/token, addressed to the host the person came to', async () => {

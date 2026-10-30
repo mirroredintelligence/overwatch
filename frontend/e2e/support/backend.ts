@@ -4,6 +4,7 @@ import type { Board } from '@/lib/board/types';
 import { BOARD_A, BOARD_SURGE, boardBuiltAt, boardParameters, withForeignOrganisation } from '@/test/fixtures/board';
 import { BACKEND_PORT } from './env';
 import { BOARDS_BY_TOKEN, LIVE_SURGE_PREFIX, LIVE_TOKEN_PREFIX, TOKEN_FOREIGN_ENTRY } from './tokens';
+import { handleAuthRoute } from './exchange';
 import { handleLinkRoute } from './links';
 
 // A stand-in for the back end, for the browser tests. Like the real one it answers
@@ -145,7 +146,11 @@ export function startMockBackend(): Promise<Server> {
     const control = /^\/__control\/(.+)$/.exec(url.pathname);
     const stateRoute = /^\/__state\/(.+)$/.exec(url.pathname);
 
-    if (url.pathname.startsWith('/links/')) {
+    if (url.pathname.startsWith('/auth/')) {
+      void handleAuthRoute(request, response, url.pathname).then((handled) => {
+        if (!handled) response.writeHead(404).end();
+      });
+    } else if (url.pathname.startsWith('/links/')) {
       void handleLinkRoute(request, response, url.pathname).then((handled) => {
         if (!handled) response.writeHead(404).end();
       });

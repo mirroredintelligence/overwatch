@@ -1,7 +1,6 @@
-// Red stub (W33): replaced by the implementation.
-export function GET(): Response {
-  throw new Error('not implemented');
-}
-export function POST(): Response {
-  throw new Error('not implemented');
-}
+import { withBff } from '@/lib/bff/handler';
+import { notBuilt } from '@/lib/reporter/bff';
+
+// POST /api/bff/reporter/channel (W33, W37). A reporter's session and CSRF are checked by withBff.
+// The back end has no reporter channel route yet, so this answers not-built.
+export const POST = withBff(() => notBuilt(), { roles: ['reporter'] });

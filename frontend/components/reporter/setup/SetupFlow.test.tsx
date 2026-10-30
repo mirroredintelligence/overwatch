@@ -42,17 +42,26 @@ describe('SetupFlow', () => {
   it('shows the resend button only after 60 seconds', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     render(<SetupFlow step="code" invite={INVITE} />);
+    expect(await screen.findByText(/Send a new code in 0:/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send a new code' })).toBeNull();
-    expect(screen.getByText(/Send a new code in 0:/)).toBeInTheDocument();
-    await act(async () => {
-      vi.advanceTimersByTime(60_000);
-    });
+    // A second at a time, so each tick is one render (the countdown is one interval).
+    for (let second = 0; second < 55; second += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+    }
+    expect(screen.queryByRole('button', { name: 'Send a new code' })).toBeNull();
+    for (let second = 0; second < 10; second += 1) {
+      await act(async () => {
+        vi.advanceTimersByTime(1000);
+      });
+    }
     expect(await screen.findByRole('button', { name: 'Send a new code' })).toBeInTheDocument();
   });
 
   it('says how many tries are left after a wrong code', async () => {
     render(<SetupFlow step="code" invite={INVITE} />);
-    const boxes = screen.getAllByRole('textbox');
+    const boxes = await screen.findAllByRole('textbox');
     await userEvent.click(boxes[0]);
     await userEvent.paste('000001');
     await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
@@ -62,7 +71,7 @@ describe('SetupFlow', () => {
   it('says to send a new code and disables Check code when no tries are left', async () => {
     server.use(http.post('/api/bff/identity/code/verify', () => HttpResponse.json({ ok: false, triesLeft: 0 })));
     render(<SetupFlow step="code" invite={INVITE} />);
-    const boxes = screen.getAllByRole('textbox');
+    const boxes = await screen.findAllByRole('textbox');
     await userEvent.click(boxes[0]);
     await userEvent.paste('000002');
     await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
@@ -72,7 +81,7 @@ describe('SetupFlow', () => {
 
   it('posts Text as the channel and goes to the done page', async () => {
     render(<SetupFlow step="channel" invite={INVITE} />);
-    await userEvent.click(screen.getByRole('radio', { name: /Text message/ }));
+    await userEvent.click(await screen.findByRole('radio', { name: /Text message/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(push).toHaveBeenCalledWith('/setup/done?channel=text'));
     expect(seenBffRequests.find((r) => r.path === '/api/bff/reporter/channel')?.body).toEqual({ channel: 'text' });
@@ -80,7 +89,7 @@ describe('SetupFlow', () => {
 
   it('sends App to the home-screen guide', async () => {
     render(<SetupFlow step="channel" invite={INVITE} />);
-    await userEvent.click(screen.getByRole('radio', { name: /App notification/ }));
+    await userEvent.click(await screen.findByRole('radio', { name: /App notification/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(push).toHaveBeenCalledWith('/setup/home-screen'));
   });
@@ -92,7 +101,7 @@ describe('SetupFlow', () => {
       ),
     );
     render(<SetupFlow step="code" invite={INVITE} />);
-    const boxes = screen.getAllByRole('textbox');
+    const boxes = await screen.findAllByRole('textbox');
     await userEvent.click(boxes[0]);
     await userEvent.paste('482913');
     await userEvent.click(screen.getByRole('button', { name: 'Check code' }));

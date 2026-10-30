@@ -163,6 +163,34 @@ class CreateSupportCode:
         return CreateSupportCodeResult(code=code, expires_at=expires_at)
 
 
+@dataclass(frozen=True, slots=True)
+class SharingState:
+    """Whether the person has a live support code for their session, and when it ends. Never the
+    code: only its hash is stored."""
+
+    active: bool
+    expires_at: datetime | None
+
+
+class ReadSharingState:
+    def __init__(self, uow_factory: UnitOfWorkFactory, clock: Clock) -> None:
+        self._uow_factory = uow_factory
+        self._clock = clock
+
+    async def execute(self, command: ListMyAccessesCommand) -> SharingState:
+        """The state of the person's own code for the session (the same command as the list of
+        opens: a session and an actor). Another person's code, another tenant's and a session
+        nobody shared read as no live code."""
+        actor = command.actor
+        if actor.practitioner_id is None or actor.role is Role.SUPPORT:
+            raise NotAllowed(SHARE_REFUSED)
+        async with self._uow_factory() as uow:
+            ends = await uow.support.live_code_expiry(
+                command.session_id, actor.practitioner_id, self._clock.now()
+            )
+        return SharingState(active=ends is not None, expires_at=ends)
+
+
 class StopSharing:
     def __init__(self, uow_factory: UnitOfWorkFactory, clock: Clock) -> None:
         self._uow_factory = uow_factory

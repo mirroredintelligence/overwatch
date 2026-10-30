@@ -76,8 +76,11 @@ async def test_a_problem_report_that_is_not_valid_is_a_400_and_never_echoes_the_
 # B5: the state of the person's support code.
 
 
-async def test_the_support_code_state_is_for_every_role_but_support_and_the_edge_refusal() -> None:
-    permitted = frozenset(role for role in Role if role is not Role.SUPPORT)
+async def test_the_support_code_state_is_for_a_named_person_and_not_support() -> None:
+    # A wall screen and an anonymous link name no practitioner, so they have no session to share.
+    permitted = frozenset(
+        role for role in Role if role not in (Role.SUPPORT, Role.WALL, Role.ANONYMOUS_LINK)
+    )
     async with route_client() as client:
         await assert_role_matrix(
             client,

@@ -158,6 +158,14 @@ _CODE_GET: Final = Scenario(
     lookup=("codeHash",),
     expect=Expect(rows=({"sessionId": Marked("ui"), "practitionerId": "p-1"},)),
 )
+_CODE_LIVE: Final = Scenario(
+    "read when the practitioner's live code for the tenant's session ends",
+    seed=_CODE_SEED,
+    params={"sessionId": "ui-1", "practitionerId": "p-1", "at": _NOW},
+    lookup=("sessionId", "practitionerId"),
+    new=("at",),
+    expect=Expect(rows=({"sessionId": Marked("ui"), "expiresAt": _LATER},)),
+)
 _CODES_STOP: Final = Scenario(
     "stop the tenant's live codes for the session at once",
     seed=_SESSION_SEED,
@@ -248,6 +256,16 @@ _QUERIES: Final[dict[str, tuple[str, Literal["read", "write"], Scenario]]] = {
         "s.id AS sessionId, p.id AS practitionerId",
         "read",
         _CODE_GET,
+    ),
+    "Q-SUPPORT-CODE-LIVE": (
+        "MATCH (s:UiSession {id: $sessionId, tenantId: $tenant})"
+        "-[:SHARED_VIA]->(c:SupportCode {tenantId: $tenant})"
+        "-[:SHARED_BY]->(p:Practitioner {id: $practitionerId, tenantId: $tenant}) "
+        "WHERE c.expiresAt > $at AND c.stoppedAt IS NULL "
+        "RETURN s.id AS sessionId, c.expiresAt AS expiresAt "
+        "ORDER BY c.createdAt DESC LIMIT 1",
+        "read",
+        _CODE_LIVE,
     ),
     "Q-SUPPORT-CODES-STOP": (
         "MATCH (s:UiSession {id: $sessionId, tenantId: $tenant})"
@@ -368,6 +386,17 @@ class Neo4jSupportRepository:
             expires_at=_utc(row["expiresAt"]),
             stopped_at=_optional_utc(row["stoppedAt"]),
         )
+
+    async def live_code_expiry(
+        self, session_id: str, practitioner_id: str, at: datetime
+    ) -> datetime | None:
+        rows = await self._run(
+            "Q-SUPPORT-CODE-LIVE",
+            sessionId=session_id,
+            practitionerId=practitioner_id,
+            at=at.astimezone(UTC),
+        )
+        return _utc(rows[0]["expiresAt"]) if rows else None
 
     async def stop_codes(self, session_id: str, practitioner_id: str, at: datetime) -> int:
         rows = await self._run(

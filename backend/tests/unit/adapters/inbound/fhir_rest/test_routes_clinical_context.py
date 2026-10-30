@@ -14,7 +14,7 @@ from diucs.application.use_cases.clinical_context import (
     WhatAdvisorSaw,
 )
 from diucs.domain.codes import Role
-from tests.support.route_unit import assert_role_matrix, route_client
+from tests.support.route_unit import assert_role_matrix, bearer, route_client
 
 CLINICAL = frozenset({Role.CLINICAL})
 SEEN = "/clinical/requests/req-1/seen"
@@ -35,8 +35,10 @@ async def test_neither_read_can_be_written_to() -> None:
     async with route_client() as client:
         for path in (SEEN, CONTACT):
             for method in ("POST", "PUT", "DELETE"):
-                response = await client.request(method, path)
-                assert response.status_code in (401, 404, 405), (method, path)
+                response = await client.request(
+                    method, path, json={}, headers=bearer(Role.CLINICAL)
+                )
+                assert response.status_code == 405, (method, path)
 
 
 def test_what_was_seen_is_sent_as_lines_with_the_time_and_no_identifier() -> None:

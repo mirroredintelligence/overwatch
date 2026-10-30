@@ -229,9 +229,7 @@ async def world(
         {"reference": REFERENCE, "services": [_row(WEST, "not-accepting", 0, 60)]},
         R01_TEST_NOW,
     )
-    refs["other-case"] = await _audit(
-        uow_factory_a, tenant_id, "FilterOptions", OTHER_CASE, shown
-    )
+    refs["other-case"] = await _audit(uow_factory_a, tenant_id, "FilterOptions", OTHER_CASE, shown)
     refs["open-case"] = await _audit(uow_factory_a, tenant_id, "OpenCase", CASE, {})
     refs["broken"] = await _audit(
         uow_factory_a,
@@ -378,12 +376,16 @@ async def test_no_display_kept_is_said_and_is_not_nothing_fitted(
 ) -> None:
     body = (await _seen(api_client, tenant_id, "t-none")).json()
 
-    assert body == {"state": "none", "shownAt": None, "options": 0, "noneFitted": False, "lines": []}
+    assert body == {
+        "state": "none",
+        "shownAt": None,
+        "options": 0,
+        "noneFitted": False,
+        "lines": [],
+    }
 
 
-@pytest.mark.parametrize(
-    "request_id", ["t-gone", "t-other-case", "t-open-case", "t-broken"]
-)
+@pytest.mark.parametrize("request_id", ["t-gone", "t-other-case", "t-open-case", "t-broken"])
 async def test_a_display_that_cannot_be_read_is_said_and_shows_no_lines(
     api_client: AsyncClient, world: dict[str, str], tenant_id: str, request_id: str
 ) -> None:
@@ -638,5 +640,3 @@ async def test_a_wall_screen_has_no_clinical_seat_and_gets_nothing(
         )
 
         assert response.status_code == 404
-
-

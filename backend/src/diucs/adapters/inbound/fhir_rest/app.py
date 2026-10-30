@@ -91,6 +91,7 @@ def create_app(
     app.include_router(fhir)
     # Imported here: the route modules depend on auth, which imports this module (DEC-111).
     from diucs.adapters.inbound.fhir_rest import (
+        routes_auth,
         routes_board,
         routes_cases,
         routes_events,
@@ -119,6 +120,8 @@ def create_app(
     app.include_router(routes_identity.router)
     # The public tenant profile (TEN-040): no token, the tenant is the request host.
     app.include_router(routes_public.router)
+    # The token exchange (TEN-043): the back end issues the tenant-bound token.
+    app.include_router(routes_auth.router)
     # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.
     app.include_router(routes_lead.router)
 

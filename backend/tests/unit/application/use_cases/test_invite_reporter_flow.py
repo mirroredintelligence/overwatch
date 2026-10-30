@@ -185,6 +185,21 @@ async def test_the_text_i1_carries_a_link_that_resolves_to_the_invitation_and_th
     assert record.expires_at == NOW + timedelta(hours=48)
 
 
+async def test_the_text_is_about_the_service_and_a_resend_is_too() -> None:
+    """A Communication's about is a service (the store links it to the HealthcareService), never
+    the invitation task: an invitation id there made a second node under the same id."""
+    world = World()
+
+    result = await world.invite.execute(world.command())
+    await world.resend.execute(
+        ResendInvitationCommand(
+            idempotency_key="resend-1", actor=LEAD, invitation_id=result.invitation_id
+        )
+    )
+
+    assert [c.about_id for c in world.units.communications.sent] == [SERVICE, SERVICE]
+
+
 async def test_the_stored_copy_of_the_text_holds_no_token() -> None:
     world = World()
 

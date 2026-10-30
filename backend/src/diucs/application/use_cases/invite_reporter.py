@@ -177,7 +177,7 @@ async def _send_text(
     link: str,
     redacted: str,
     role_id: str,
-    invitation_id: str,
+    service_id: str,
 ) -> None:
     """The text I1 as an outbox message that carries the real link, and its Communication, which
     keeps the text with the link's token left out so the graph never holds a live token."""
@@ -188,7 +188,7 @@ async def _send_text(
         message_id=sent.message_id.value,
         channel=Channel.TEXT,
         recipient_role_id=role_id,
-        about_id=invitation_id,
+        about_id=service_id,
         payload_text=stored.text,
         sent_at=now,
         delivery_status="queued",
@@ -329,7 +329,7 @@ class InviteReporter:
                 link=invitation_link(base_url, token),
                 redacted=redacted_invitation_link(base_url),
                 role_id=role_id,
-                invitation_id=invitation_id,
+                service_id=command.service_id,
             )
             await uow.outbox.add(
                 outbox_message_for(
@@ -433,7 +433,7 @@ class ResendInvitation:
                 link=invitation_link(base_url, token),
                 redacted=redacted_invitation_link(base_url),
                 role_id=registration.requester_role_id,
-                invitation_id=invitation.id,
+                service_id=invitation.service_id,
             )
             await uow.audit.append(
                 AuditEntry(

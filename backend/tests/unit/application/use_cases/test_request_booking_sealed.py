@@ -34,6 +34,7 @@ from diucs.domain.codes import AgeBand, Channel, NeedCategory, ReferrerType, Rol
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.case import Case
 from diucs.domain.model.tenant import TenantWording
+from tests.support.actors import ACTOR_TENANT
 
 NOW = datetime(2026, 10, 29, 14, 16, tzinfo=UTC)
 TENANT = "tenant-unit-a"
@@ -56,6 +57,7 @@ ADVISOR = Actor(
     device_id=None,
     channel="web",
     service_ids=frozenset(),
+    tenant_id=ACTOR_TENANT,
 )
 CASE = Case(
     id="case-1",

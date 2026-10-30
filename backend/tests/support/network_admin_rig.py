@@ -176,6 +176,7 @@ class AdminRig:
         self.access = NetworkAccess(reg, directory)
         self.board = QueryNetworkBoard(network_read, self.access, self.clock)
         self._message = 0
+        self._reports = 0
         self.people = self._people()
 
     # ---- people
@@ -298,12 +299,11 @@ class AdminRig:
         """A fresh figure from the member's reporter, in the member's own scope."""
         from tests.support.projection_samples import sample_report
 
+        self._reports += 1
         with bind_tenant(member):
             async with self.tenant_factory() as uow:
                 await uow.capacity.add(
-                    sample_report(
-                        id=f"rep-{self.token}-{int(at.timestamp())}", effective_at=at, value=value
-                    )
+                    sample_report(id=f"rep-fresh-{self._reports}", effective_at=at, value=value)
                 )
                 await uow.commit()
 

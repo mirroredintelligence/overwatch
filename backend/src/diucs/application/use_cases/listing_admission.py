@@ -65,6 +65,21 @@ SERVICE_NOT_FOUND: Final = "the service was not found"
 REASON_NEEDED: Final = "needs a listing reason code"
 
 
+_DIGITS_AS_LETTERS: Final = str.maketrans("0123456789", "ghijklmnop")
+
+
+def _letters_only(raw: str) -> str:
+    """The listing's id is the row reference of the network board, and the board refuses an id that
+    the privacy guard reads as personal data (a postcode, a phone number, an NHS number): a random id
+    can hold such a shape by chance, and one such listing would make the whole board fail. So the id
+    is `lst-` and letters only: digits become letters and separators go (one letter for each hex
+    digit and each separator, so two different inputs stay different)."""
+    return "lst-" + "".join(
+        character.translate(_DIGITS_AS_LETTERS) if character.isalnum() else "q"
+        for character in raw.lower()
+    )
+
+
 class ListingDecision(StrEnum):
     ADMIT = "admit"
     DECLINE = "decline"
@@ -130,7 +145,7 @@ class RequestListing:
         listing = request_listing(
             list(await self._registry.listings_of(command.network_id, actor.tenant_id)),
             membership,
-            id=self._ids.new_id(),
+            id=_letters_only(self._ids.new_id()),
             network_id=command.network_id,
             source_service_id=command.service_id,
             now=now,

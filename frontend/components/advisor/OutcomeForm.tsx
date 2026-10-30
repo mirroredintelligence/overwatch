@@ -1,6 +1,6 @@
 'use client';
 
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { OptionButton } from '@/components/ui/OptionButton';
@@ -56,14 +56,11 @@ export function OutcomeForm({ caseId, preselect, onClosed }: OutcomeFormProps) {
     );
   }, [caseId]);
 
-  useEffect(() => {
-    // The services are read once the outcome needs one, and not again unless the read failed.
-    if (needsDestination && services.kind === 'idle') void readServices();
-  }, [needsDestination, services.kind, readServices]);
-
   function choose(next: OutcomeCode) {
     setOutcome(next);
     if (!takesDestination(next)) setDestination(null);
+    // The services are read once an outcome needs one, and not again unless the read failed.
+    else if (services.kind === 'idle') void readServices();
   }
 
   async function save(event: FormEvent<HTMLFormElement>) {

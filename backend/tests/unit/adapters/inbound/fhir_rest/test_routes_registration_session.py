@@ -258,13 +258,12 @@ async def test_a_suspended_tenants_host_gets_no_token_and_the_code_is_not_tried(
     assert rig.units.devices.held == {}
 
 
-async def test_a_bad_device_id_is_a_400_and_a_device_someone_holds_is_a_409() -> None:
+async def test_a_bad_device_id_is_a_400_and_a_revoked_device_is_a_409() -> None:
     rig = Rig()
     rig.invite()
     await rig.hold_code()
-    other = "prac-other"
-    rig.units.devices.held[(other, DEVICE)] = {
-        "revoked": False,
+    rig.units.devices.held[(INVITEE, DEVICE)] = {
+        "revoked": True,
         "pending": False,
         "verified_at": None,
         "at": NOW_PLUS_ONE_MINUTE,

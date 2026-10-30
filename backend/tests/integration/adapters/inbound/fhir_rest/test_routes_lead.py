@@ -20,7 +20,7 @@ from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
-from diucs.domain.codes import Measure, PractitionerRoleCode, Role, ServiceCategory
+from diucs.domain.codes import Channel, Measure, PractitionerRoleCode, Role, ServiceCategory
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 from tests.support.api import token_headers
@@ -92,10 +92,11 @@ async def _seed_tenant(
 def _other_code(
     person: tuple[Practitioner, PractitionerRole],
 ) -> tuple[Practitioner, PractitionerRole]:
-    """Tenant B's reporter role uses another practitioner-role code: the shared schema keeps one
-    Concept per code (lesson L169), and tenant A's role already holds duty-manager."""
+    """Tenant B's reporter role uses another practitioner-role code and another channel: the shared
+    schema keeps one Concept per code (lesson L169), and tenant A's role already holds duty-manager
+    and text."""
     practitioner, role = person
-    return practitioner, replace(role, code=PractitionerRoleCode.COORDINATOR)
+    return practitioner, replace(role, code=PractitionerRoleCode.COORDINATOR, channel=Channel.EMAIL)
 
 
 @pytest_asyncio.fixture(loop_scope="session")

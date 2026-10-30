@@ -49,13 +49,14 @@ describe('clinicalRequestFromTask', () => {
     const base = QUEUE_TASKS[0] as Record<string, unknown>;
     const ext = base.extension as { url: string }[];
     expect(() => clinicalRequestFromTask({ ...base, status: 'cancelled' })).toThrow();
-    expect(() => clinicalRequestFromTask({ ...base, extension: [...ext, { url: 'https://diucs.example/CodeSystem/task-input/age-band', valueCode: '99+' }] })).toThrow();
-    expect(() => clinicalRequestFromTask({ ...base, extension: [...ext, { url: 'https://diucs.example/CodeSystem/task-input/need', valueCode: 'shopping' }] })).toThrow();
+    const without = (name: string) => ext.filter((item) => !item.url.endsWith(`/${name}`));
+    expect(() => clinicalRequestFromTask({ ...base, extension: [...without('age-band'), { url: 'https://diucs.example/CodeSystem/task-input/age-band', valueCode: '99+' }] })).toThrow();
+    expect(() => clinicalRequestFromTask({ ...base, extension: [...without('need'), { url: 'https://diucs.example/CodeSystem/task-input/need', valueCode: 'shopping' }] })).toThrow();
     expect(() => clinicalRequestFromTask({ ...ADVISED_TASK, extension: [...ADVISED_TASK.extension.filter((item) => !/advice-choice/.test(item.url)), { url: 'https://diucs.example/CodeSystem/task-input/advice-choice', valueCode: 'shrug' }] })).toThrow();
   });
 
   it('never carries a postcode, a district or a practitioner, whatever the Task holds', () => {
-    const read = clinicalRequestFromTask({ ...QUEUE_TASKS[0], owner: { reference: 'Practitioner/pr-1' }, requester: { reference: 'Practitioner/pr-2' }, extension: [...(QUEUE_TASKS[0]!.extension as unknown[]), { url: 'https://diucs.example/CodeSystem/task-input/postcode', valueString: 'DT4 8XX' }] });
+    const read = clinicalRequestFromTask({ ...QUEUE_TASKS[0], owner: { reference: 'Practitioner/pr-1' }, requester: { reference: 'Practitioner/pr-2' }, extension: [...(QUEUE_TASKS[0]!.extension as { url: string }[]), { url: 'https://diucs.example/CodeSystem/task-input/postcode', valueString: 'DT4 8XX' }] });
     expect(JSON.stringify(read)).not.toMatch(/practitioner|DT4|postcode/i);
   });
 });

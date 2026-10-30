@@ -1,22 +1,12 @@
-import { instantText } from '@/lib/exec/alerts';
-import { REQUEST_URGENCIES, REQUEST_WHYS } from './advice';
+import { AGE_BANDS, labelOf, NEEDS, URGENCIES } from '@/lib/advisor/codes';
+import { clinicalRequestFromTask, type ClinicalRequest, type Glance, type Urgency } from './task';
 
-// A queued clinical request as the screens show it (W44). The back end's queue (R13) names the case, the
-// urgency and the reason, and nothing else: no age band, no needs, no referrer. The screens show only that.
+// A clinical request as the queue shows it (W44): the urgency, the reason and one line about the case.
+// The back end's Task carries the case's glance (DEC-774), so the line is the advisor's own record:
+// age band, needs, NEWS2 and the case urgency. It carries no postcode and no referrer.
 
-export type Urgency = 'now' | 'within-15-min';
-export type QueueItem = {
-  id: string;
-  urgency: Urgency;
-  why: string;
-  /** ISO 8601 UTC, to the second. */
-  requestedAt: string;
-  status: string;
-  caseId: string;
-};
-
-const TASK_INPUT = 'task-input';
-const SERVICE_REQUEST = 'ServiceRequest/';
+export type { Urgency };
+export type QueueItem = ClinicalRequest;
 
 export const WHY_TEXT: Readonly<Record<string, string>> = {
   'borderline-criteria': 'Borderline criteria',
@@ -28,31 +18,21 @@ export function urgencyText(urgency: Urgency): string {
   return urgency === 'now' ? 'Now' : 'Within 15 min';
 }
 
-function inputOf(task: Record<string, unknown>, name: string): unknown {
-  const extensions = Array.isArray(task.extension) ? (task.extension as Record<string, unknown>[]) : [];
-  return extensions.find((item) => typeof item.url === 'string' && item.url.endsWith(`/${TASK_INPUT}/${name}`))?.valueCode;
-}
+export const queueItemFromTask = clinicalRequestFromTask;
 
-export function queueItemFromTask(task: unknown): QueueItem {
-  if (typeof task !== 'object' || task === null) throw new Error('a queued request must be a Task');
-  const record = task as Record<string, unknown>;
-  if (typeof record.id !== 'string' || record.id === '') throw new Error('a queued request has no id');
-  const urgency = inputOf(record, 'urgency');
-  if (typeof urgency !== 'string' || !(REQUEST_URGENCIES as readonly string[]).includes(urgency)) {
-    throw new Error('urgency is not known');
-  }
-  const why = inputOf(record, 'why');
-  if (typeof why !== 'string' || !(REQUEST_WHYS as readonly string[]).includes(why)) throw new Error('why is not known');
-  const focus = record.focus as { reference?: unknown } | undefined;
-  const reference = typeof focus?.reference === 'string' ? focus.reference : '';
-  if (!reference.startsWith(SERVICE_REQUEST)) throw new Error('a queued request names no case');
-  if (typeof record.authoredOn !== 'string') throw new Error('a queued request has no time');
-  return {
-    id: record.id,
-    urgency: urgency as Urgency,
-    why,
-    requestedAt: instantText(record.authoredOn),
-    status: typeof record.status === 'string' ? record.status : 'requested',
-    caseId: reference.slice(SERVICE_REQUEST.length),
-  };
+/**
+ * "80+ · Frailty, Fall · NEWS2 2 · Within 2 hrs": what the case holds, in that order, leaving out what
+ * is not recorded. Null when the case could not be read (no glance).
+ */
+export function summaryLine(glance: Glance | null): string | null {
+  if (glance === null) return null;
+  const needs = glance.needs.map((code) => NEEDS.find((need) => need.code === code)?.short ?? code);
+  return [
+    labelOf(AGE_BANDS, glance.ageBand),
+    needs.length > 0 ? needs.join(', ') : null,
+    glance.news2 === null ? null : `NEWS2 ${glance.news2}`,
+    labelOf(URGENCIES, glance.caseUrgency),
+  ]
+    .filter((part): part is string => part !== null && part !== '')
+    .join(' · ');
 }

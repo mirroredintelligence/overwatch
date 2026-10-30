@@ -35,7 +35,7 @@ describe('QueueList, Waiting', () => {
     expect(within(now).getByText('Borderline criteria')).toBeInTheDocument();
     expect(screen.getByRole('article', { name: /Within 15 min/ })).toBeInTheDocument();
     expect(screen.getByText('Once you take a request, no one else can. It returns to the queue if you do not act in 10 minutes.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Waiting (2)' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('tab', { name: 'Waiting (2)' })).toHaveAttribute('aria-selected', 'true');
   });
 
   it('takes a request and opens its case by its id alone: nothing about the case is carried in the address', async () => {
@@ -96,7 +96,7 @@ describe('QueueList, Mine and Done', () => {
   it('lists Mine from the back end, each with a link back into its case and when it returns to the queue', async () => {
     render(<QueueList />);
     await queueShown();
-    await userEvent.click(screen.getByRole('button', { name: 'Mine' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Mine' }));
     const card = await screen.findByRole('article', { name: /Other/ });
     expect(within(card).getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/clinical/requests/req-5001');
     expect(within(card).queryByRole('button', { name: 'Take it' })).not.toBeInTheDocument();
@@ -107,7 +107,7 @@ describe('QueueList, Mine and Done', () => {
   it('lists Done with the advice given, and no note', async () => {
     render(<QueueList />);
     await queueShown();
-    await userEvent.click(screen.getByRole('button', { name: 'Done' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Done' }));
     const card = await screen.findByRole('article', { name: /Within 15 min/ });
     expect(within(card).getByText('Advice given: Use another service')).toBeInTheDocument();
     expect(within(card).getByText('80+ · Frailty, Fall · NEWS2 4 · Within 2 hrs')).toBeInTheDocument();
@@ -116,7 +116,7 @@ describe('QueueList, Mine and Done', () => {
   it('has no accessibility violations on Mine', async () => {
     const { container } = render(<QueueList />);
     await queueShown();
-    await userEvent.click(screen.getByRole('button', { name: 'Mine' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Mine' }));
     await screen.findByRole('link', { name: 'Open' });
     expect(await runAxe(container)).toHaveNoViolations();
   });

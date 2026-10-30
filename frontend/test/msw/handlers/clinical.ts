@@ -23,7 +23,8 @@ const glance = (reference: string, news2: number) => [
   { url: `${INPUT}/news2`, valueInteger: news2 },
 ];
 
-const task = (id: string, caseId: string, status: string, authoredOn: string, extension: unknown[]) => ({
+type Ext = { url: string; [key: string]: unknown };
+const task = (id: string, caseId: string, status: string, authoredOn: string, extension: Ext[]) => ({
   resourceType: 'Task',
   id,
   status,
@@ -117,7 +118,12 @@ export const clinicalBackendHandlers = [
   // One request (W7A, DEC-774): any id that is not a clinical request falls through to the booking stand-in.
   http.get(`${EXEC_BACKEND}/Task/:id`, (({ params }) => {
     const found = TASKS_BY_ID[String(params.id)];
-    if (found === undefined) return undefined;
+    if (found === undefined) {
+      // A request id that is nowhere is the back end's 404; any other id is a booking's.
+      if (!String(params.id).startsWith('req-')) return undefined;
+      seenClinical.push({ method: 'GET', path: `/Task/${String(params.id)}`, idempotencyKey: null, body: undefined });
+      return HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-found', diagnostics: 'no such task' }] }, { status: 404 });
+    }
     seenClinical.push({ method: 'GET', path: `/Task/${String(params.id)}`, idempotencyKey: null, body: undefined });
     return HttpResponse.json(found);
   }) as HttpResponseResolver),

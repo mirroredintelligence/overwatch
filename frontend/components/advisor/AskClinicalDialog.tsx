@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/Button';
 import { OptionButton } from '@/components/ui/OptionButton';
 import { ADVICE_LABELS, REASON_LABELS } from '@/lib/clinical/advice';
@@ -10,23 +10,29 @@ import styles from '@/components/exec/Exec.module.css';
 // "Ask a clinical advisor" (W45, AdvisorActions and AdvisorDialogsPhone). A modal: focus moves to its
 // heading when it opens and is kept inside it, Escape closes it, and focus goes back to the button that
 // opened it. While a request waits it reads the request every five seconds and stops once advice arrives.
-// The case summary is what the caller passed in; the only other read is the count of advisors available.
+// The answer is the back end's read of the request (DEC-774): the advice, the reason and the clinician's
+// note once given. A read that fails is said, never shown as "waiting" (DEC-855, H-514). The case summary
+// is what the caller passed in (null when the case could not be read); the only other read is the count of
+// advisors available.
 
+/** What the case holds, for the dialog's two lines. A part that is not recorded is null, never made up. */
 export type CaseSummary = {
-  ageBand: string;
-  district: string;
+  ageBand: string | null;
+  district: string | null;
   needs: string[];
-  within: string;
-  news2: number;
-  frailtyScale: number;
+  within: string | null;
+  news2: number | null;
+  frailtyScale: number | null;
 };
 
 type Urgency = 'now' | 'within-15-min';
 type Why = 'borderline-criteria' | 'unsure-of-urgency' | 'other';
-type Phase = 'ask' | 'waiting' | 'taken' | 'advised' | 'returned';
-type Answer = { state: 'waiting' | 'taken' | 'advised' | 'returned'; takenByRole?: string; takenAt?: string; advice?: string; reason?: string };
+type Phase = 'ask' | 'waiting' | 'taken' | 'advised';
+type Answer = { state: 'waiting' | 'taken' | 'advised'; returnsAt?: string; advice?: string; reason?: string; note?: string; advisedAt?: string };
 
 export const POLL_MS = 5_000;
+export const READ_FAILED = 'The answer could not be read. Check again, or use the escalation route under local protocol.';
+export const RETURNED = 'The clinical advisor did not act in time. Your request is back in the queue.';
 export const NONE_AVAILABLE = 'No clinical advisor is available now. Use the escalation route under local protocol.';
 const URGENCY_LABELS: Readonly<Record<Urgency, string>> = { now: 'Now', 'within-15-min': 'Within 15 min' };
 const WHY_LABELS: Readonly<Record<Why, string>> = { 'borderline-criteria': 'Borderline criteria', 'unsure-of-urgency': 'Unsure of urgency', other: 'Other' };
@@ -42,6 +48,22 @@ function clock(instant: string): string {
   return new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(instant));
 }
 
+function caseLine(summary: CaseSummary): string {
+  return [summary.ageBand, summary.district, summary.needs.length > 0 ? summary.needs.join(', ') : null, summary.within]
+    .filter((part): part is string => part !== null && part !== '')
+    .join(' · ');
+}
+
+function scoreLine(summary: CaseSummary, optionsShown: number): string {
+  return [
+    summary.news2 === null ? null : `NEWS2 ${summary.news2}`,
+    summary.frailtyScale === null ? null : `Frailty scale ${summary.frailtyScale}`,
+    `Options shown: ${optionsShown}`,
+  ]
+    .filter((part): part is string => part !== null)
+    .join(' · ');
+}
+
 export function AskClinicalDialog({
   caseRef,
   summary,
@@ -49,7 +71,7 @@ export function AskClinicalDialog({
   onClose,
 }: {
   caseRef: string;
-  summary: CaseSummary;
+  summary: CaseSummary | null;
   optionsShown: number;
   onClose: () => void;
 }) {
@@ -59,6 +81,8 @@ export function AskClinicalDialog({
   const [phase, setPhase] = useState<Phase>('ask');
   const [requestId, setRequestId] = useState<string | null>(null);
   const [answer, setAnswer] = useState<Answer | null>(null);
+  const [readFailed, setReadFailed] = useState(false);
+  const [returned, setReturned] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -85,20 +109,33 @@ export function AskClinicalDialog({
     };
   }, []);
 
-  // Poll the request while it waits or is taken; stop when advice (or a return) arrives.
+  // One read of the request. A failed read is kept as a failure; a taken request that reads as waiting
+  // again has gone back to the queue (a lapsed lock reads as waiting, DEC-774 item 3).
+  const read = useCallback(async () => {
+    if (requestId === null) return;
+    const result = await bffRequest<Answer>(`/api/bff/cases/${encodeURIComponent(caseRef)}/clinical-requests/${encodeURIComponent(requestId)}`);
+    if (!result.ok) {
+      setReadFailed(true);
+      return;
+    }
+    setReadFailed(false);
+    setAnswer(result.data);
+    if (result.data.state === 'advised') setPhase('advised');
+    else if (result.data.state === 'taken') {
+      setReturned(false);
+      setPhase('taken');
+    } else {
+      if (phase === 'taken') setReturned(true);
+      setPhase('waiting');
+    }
+  }, [caseRef, requestId, phase]);
+
+  // Poll the request while it waits or is taken; stop when the advice arrives.
   useEffect(() => {
     if (requestId === null || (phase !== 'waiting' && phase !== 'taken')) return undefined;
-    const timer = setInterval(() => {
-      void bffRequest<Answer>(`/api/bff/cases/${encodeURIComponent(caseRef)}/clinical-requests/${encodeURIComponent(requestId)}`).then((result) => {
-        if (!result.ok) return;
-        setAnswer(result.data);
-        if (result.data.state === 'taken') setPhase('taken');
-        if (result.data.state === 'advised') setPhase('advised');
-        if (result.data.state === 'returned') setPhase('returned');
-      });
-    }, POLL_MS);
+    const timer = setInterval(() => void read(), POLL_MS);
     return () => clearInterval(timer);
-  }, [caseRef, requestId, phase]);
+  }, [requestId, phase, read]);
 
   const call = async () => {
     if (why === null) {
@@ -149,8 +186,15 @@ export function AskClinicalDialog({
         <p className={styles.footer}>Escalate</p>
 
         <section aria-label="Case summary" className={styles.section}>
-          <p>{`${summary.ageBand} · ${summary.district} · ${summary.needs.join(', ')} · ${summary.within}`}</p>
-          <p>{`NEWS2 ${summary.news2} · Frailty scale ${summary.frailtyScale} · Options shown: ${optionsShown}`}</p>
+          {summary === null ? (
+            <p>The case summary could not be read.</p>
+          ) : (
+            <>
+              {caseLine(summary) !== '' ? <p>{caseLine(summary)}</p> : null}
+              <p>{scoreLine(summary, optionsShown)}</p>
+            </>
+          )}
+          {summary === null ? <p>{`Options shown: ${optionsShown}`}</p> : null}
         </section>
 
         {phase === 'ask' ? (
@@ -188,13 +232,33 @@ export function AskClinicalDialog({
           </>
         ) : null}
 
-        {phase === 'waiting' ? <p role="status">Waiting for a clinical advisor</p> : null}
-        {phase === 'taken' && answer?.takenByRole !== undefined && answer.takenAt !== undefined ? (
-          <p role="status">{`Taken by ${answer.takenByRole} at ${clock(answer.takenAt)}`}</p>
+        {phase === 'waiting' || phase === 'taken' ? (
+          <>
+            {readFailed ? (
+              <div role="alert" className={styles.error}>
+                <p>{READ_FAILED}</p>
+                <Button variant="secondary" onClick={() => void read()} dataEl="ADV-CLIN-CHECK-BTN">Check again</Button>
+              </div>
+            ) : null}
+            {!readFailed && phase === 'waiting' && returned ? <p role="status">{RETURNED}</p> : null}
+            {!readFailed && phase === 'waiting' ? <p role="status">Waiting for a clinical advisor</p> : null}
+            {!readFailed && phase === 'taken' ? (
+              <p role="status">
+                {answer?.returnsAt === undefined
+                  ? 'A clinical advisor has taken your request.'
+                  : `A clinical advisor has taken your request. It returns to the queue at ${clock(answer.returnsAt)} if they do not act.`}
+              </p>
+            ) : null}
+            <p className={styles.footer}>Keep this open until the advice arrives. It is not kept if you close it.</p>
+            <div className={styles.actions}>
+              <Button variant="secondary" onClick={onClose} dataEl="ADV-CLIN-CLOSE-BTN">Close</Button>
+            </div>
+          </>
         ) : null}
         {phase === 'advised' && answer?.advice !== undefined ? (
           <>
-            <p role="status">{`Advice: ${ADVICE_CHOICE_LABEL(answer.advice)}. Reason: ${REASON_TEXT(answer.reason ?? 'other')}.`}</p>
+            <p role="status">{`Advice: ${ADVICE_CHOICE_LABEL(answer.advice)}.${answer.reason === undefined ? '' : ` Reason: ${REASON_TEXT(answer.reason)}.`}`}</p>
+            {answer.note !== undefined ? <p>{`Note from the clinical advisor: ${answer.note}`}</p> : null}
             <div className={styles.actions}>
               <Button variant="primary" onClick={onClose} dataEl="ADV-CLIN-CLOSE-BTN">Close</Button>
             </div>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { OPTIONS_PARAMETERS } from '@/test/fixtures/options';
+import { MAP_PARAMETERS } from '@/test/fixtures/map';
 import { optionsFromParameters, STALE_AFTER_SECONDS } from './options';
 
 describe('optionsFromParameters (W13)', () => {
@@ -77,5 +78,53 @@ describe('optionsFromParameters (W13)', () => {
   it('answers null for anything that is not a Parameters resource', () => {
     expect(optionsFromParameters({ resourceType: 'Bundle' })).toBeNull();
     expect(optionsFromParameters(null)).toBeNull();
+  });
+});
+
+describe('optionsFromParameters: the map parts (W50)', () => {
+  it('reads the patient point, each position, the coverage radius, the travel legs and the flags', () => {
+    const view = optionsFromParameters(MAP_PARAMETERS);
+
+    expect(view?.patientArea).toEqual({ lat: 50.7, lon: -2.44 });
+    expect(view?.notFound).toBe(false);
+    expect(view?.outOfArea).toBe(false);
+    expect(view?.options[0].position).toEqual({ lat: 50.72, lon: -2.45 });
+    expect(view?.options[0].travel?.legs).toEqual([
+      {
+        label: 'Patient to UCR West, by road',
+        low: 35,
+        high: 50,
+        how: 'Typical weekday afternoon. The spread is from traffic.',
+        source: 'Routing data, updated 12 Oct',
+      },
+    ]);
+    expect(view?.options[2].coverage).toEqual({ lat: 50.71, lon: -2.44, radiusKm: 15 });
+    expect(view?.options[2].position).toBeNull();
+  });
+
+  it('a network service carries its organisation, and its own organisation is null', () => {
+    const view = optionsFromParameters(MAP_PARAMETERS);
+    expect(view?.options[3].network).toEqual({ organisation: 'Neighbouring', source: 'Entered by the organisation' });
+    expect(view?.options[0].network).toBeNull();
+  });
+
+  it('an answer with no map parts gives no positions, no patient point and no flags set', () => {
+    const view = optionsFromParameters(OPTIONS_PARAMETERS);
+    expect(view?.patientArea).toBeNull();
+    expect(view?.options[0].position).toBeNull();
+    expect(view?.options[0].travel?.legs).toEqual([]);
+    expect(view?.notFound).toBe(false);
+  });
+
+  it('an out-of-range coordinate is not a position', () => {
+    const view = optionsFromParameters({
+      resourceType: 'Parameters',
+      parameter: [{ name: 'option', part: [
+        { name: 'serviceId', valueString: 's' }, { name: 'name', valueString: 'S' },
+        { name: 'status', valueCode: 'accepting' }, { name: 'criteriaVersion', valueInteger: 1 },
+        { name: 'lat', valueDecimal: 123 }, { name: 'lon', valueDecimal: -2 },
+      ] }],
+    });
+    expect(view?.options[0].position).toBeNull();
   });
 });

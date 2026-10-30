@@ -135,7 +135,7 @@ def test_a_closed_booking_shows_its_state_word(status: BookingStatus, state: str
 
 
 def test_the_request_page_names_the_booking_and_no_postcode_name_or_case() -> None:
-    body = view_body(_booking(), "UCR West", _case())
+    body = view_body(_booking(), "UCR West", _case(), "0300 123 4567")
     assert set(body) == {
         "reference",
         "serviceName",
@@ -144,7 +144,9 @@ def test_the_request_page_names_the_booking_and_no_postcode_name_or_case() -> No
         "urgency",
         "replyBy",
         "bookingStatus",
+        "coordinationPhone",
     }
+    assert body["coordinationPhone"] == "0300 123 4567"
     assert body["reference"] == "4821"
     assert body["serviceName"] == "UCR West"
     assert body["ageBand"] == "80+"

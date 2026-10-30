@@ -46,10 +46,10 @@ describe('GET /api/bff/links/[token] for a booking request', () => {
     expect(lastWrite(LINK_CSRF_COOKIE)).toMatchObject({ value: csrfFor(LINK.booking), options: { path: `/api/bff/links/${LINK.booking}` } });
   });
 
-  it('answers a closed booking with 410 and its state word only', async () => {
+  it('answers a closed booking with 410 and the same word as any closed link, so the page does not say which it was', async () => {
     const response = await GET(requestWithCookies(url(LINK.bookingDeclined), {}), ctx(LINK.bookingDeclined));
     expect(response.status).toBe(410);
-    expect(await response.json()).toEqual({ state: 'declined' });
+    expect(await response.json()).toEqual({ state: 'expired' });
     expect(cookieWrites).toHaveLength(0);
   });
 });

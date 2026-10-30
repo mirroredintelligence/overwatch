@@ -78,7 +78,10 @@ describe('callLinkApi', () => {
 describe('readLink', () => {
   it('reads an open link and returns its view', async () => {
     const result = await readLink(LINK.recorded, TENANT_HOST);
-    expect(result).toMatchObject({ kind: 'open', view: { serviceName: RECORDED_VIEW.serviceName, recordedValue: 3 } });
+    expect(result).toMatchObject({
+      kind: 'open',
+      link: { kind: 'capacity', view: { serviceName: RECORDED_VIEW.serviceName, recordedValue: 3 } },
+    });
   });
 
   it('reads a 410 as gone, whatever state word it carries', async () => {

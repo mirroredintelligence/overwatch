@@ -1,5 +1,5 @@
 import { withTraceparent } from '@/lib/telemetry/trace';
-import { type LinkAnswer, type LinkAnswered, type LinkView, parseLinkAnswered, parseLinkView } from './model';
+import { type BookingView, type LinkAnswer, type LinkAnswered, type LinkView, parseLinkAnswered, parseOpenLink } from './model';
 
 // The browser's calls to the link pages' BFF (`/api/bff/links/[token]`). Each answers with what the
 // page needs to show, and nothing else: a token, a hash or a tenant never comes back through here.
@@ -12,9 +12,30 @@ export type AnswerOutcome =
   | { kind: 'rate-limited' }
   | { kind: 'failed' };
 
+const CAPACITY_PURPOSE = 'capacity-reply';
+
 const base = (token: string) => `/api/bff/links/${encodeURIComponent(token)}`;
 
-export type LinkRead = { kind: 'open'; view: LinkView } | { kind: 'gone' } | { kind: 'unavailable' };
+export type LinkRead =
+  | { kind: 'open'; view: LinkView }
+  | { kind: 'booking'; view: BookingView }
+  | { kind: 'gone' }
+  | { kind: 'unavailable' };
+
+/** A booking answer (L02): a confirm or a decline, or a withdrawal or not-reached report with its reason. */
+export type BookingAnswer =
+  | { action: 'confirm' }
+  | { action: 'decline'; reason?: string }
+  | { action: 'withdraw'; reason: string }
+  | { action: 'not-reached'; reason: string };
+
+/** What the page shows after a booking answer. A conflict carries the booking's state word. */
+export type BookingOutcome =
+  | { kind: 'answered'; bookingStatus: string; changeToken?: string }
+  | { kind: 'gone' }
+  | { kind: 'conflict'; state: string }
+  | { kind: 'rate-limited' }
+  | { kind: 'failed' };
 
 /**
  * Reads the link through the BFF: the browser's own request, so the CSRF cookie for this link is set
@@ -30,9 +51,51 @@ export async function readLinkView(token: string): Promise<LinkRead> {
   if (response.status === 410) return { kind: 'gone' };
   if (!response.ok) return { kind: 'unavailable' };
   try {
-    return { kind: 'open', view: parseLinkView(await response.json()) };
+    const page = parseOpenLink(await response.json());
+    if (page.kind === 'booking') return { kind: 'booking', view: page.view };
+    // A capacity page serves only the capacity-reply purpose; anything else is not a link this page reads.
+    return page.view.purpose === CAPACITY_PURPOSE ? { kind: 'open', view: page.view } : { kind: 'unavailable' };
   } catch {
     return { kind: 'unavailable' };
+  }
+}
+
+function stateOf(body: unknown): string {
+  const state = typeof body === 'object' && body !== null ? (body as { state?: unknown }).state : undefined;
+  return typeof state === 'string' ? state : 'expired';
+}
+
+/** Sends one booking answer. Nothing from the answer is kept; the outcome says what the page shows. */
+export async function sendBookingAnswer(token: string, csrf: string, answer: BookingAnswer): Promise<BookingOutcome> {
+  let response: Response;
+  try {
+    response = await fetch(base(token), withTraceparent({
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+      body: JSON.stringify(answer),
+      cache: 'no-store',
+      credentials: 'same-origin',
+    }));
+  } catch {
+    return { kind: 'failed' };
+  }
+  const body = await bodyOf(response);
+  switch (response.status) {
+    case 200: {
+      const record = body as { bookingStatus?: unknown; changeToken?: unknown } | undefined;
+      if (typeof record?.bookingStatus !== 'string') return { kind: 'failed' };
+      return typeof record.changeToken === 'string'
+        ? { kind: 'answered', bookingStatus: record.bookingStatus, changeToken: record.changeToken }
+        : { kind: 'answered', bookingStatus: record.bookingStatus };
+    }
+    case 409:
+      return { kind: 'conflict', state: stateOf(body) };
+    case 410:
+      return { kind: 'gone' };
+    case 429:
+      return { kind: 'rate-limited' };
+    default:
+      return { kind: 'failed' };
   }
 }
 

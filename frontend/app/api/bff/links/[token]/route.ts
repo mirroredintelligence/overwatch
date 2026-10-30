@@ -7,7 +7,7 @@ import { callLinkApi, hostOf, type LinkReply, publicReply, readLink } from '@/li
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 const TOKEN_SHAPE = /^[A-Za-z0-9_-]{1,64}$/;
-const ANSWER_FIELDS = ['action', 'value', 'confirmOutOfRange'] as const;
+const ANSWER_FIELDS = ['action', 'value', 'confirmOutOfRange', 'reason'] as const;
 const MAX_BODY_BYTES = 1024;
 
 type Context = { params: Promise<{ token: string }> };
@@ -39,8 +39,8 @@ export async function GET(request: Request, context: Context): Promise<Response>
   try {
     const state = await readLink(token, hostOf(request));
     if (state.kind === 'gone') return gone();
-    await issueLinkCsrf(token, state.view.csrfToken);
-    return reply({ status: 200, body: { ...state.view } });
+    await issueLinkCsrf(token, state.link.view.csrfToken);
+    return reply({ status: 200, body: { ...state.link.view } });
   } catch {
     return unavailable();
   }

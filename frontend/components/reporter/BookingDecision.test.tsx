@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { BOOKING_CHANGE_TOKEN, csrfFor, LINK } from '@/test/fixtures/links';
-import { resetLinkRequests, seenBackendRequests, seenBffPosts } from '@/test/msw/handlers/links';
+import { resetLinkRequests, seenBffPosts } from '@/test/msw/handlers/links';
 import { BookingDecision } from './BookingDecision';
 
 const { replace } = vi.hoisted(() => ({ replace: vi.fn() }));
@@ -103,7 +103,7 @@ describe('BookingDecision: closed and taken links', () => {
     render(<BookingDecision token={LINK.bookingTaken} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Decline' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Declined' })).toBeInTheDocument();
-    expect(seenBackendRequests.filter((r) => r.method === 'POST')).toHaveLength(1);
+    expect(seenBffPosts).toEqual([{ token: LINK.bookingTaken, body: { action: 'decline' }, csrf: csrfFor(LINK.bookingTaken) }]);
   });
 
   it('is clean for axe on the booked and declined pages', async () => {

@@ -208,7 +208,7 @@ _PLAN_FOR_CASES_SCENARIO: Final = Scenario(
     "list the tenant's own entries of one use case that name one of the entities",
     seed=_ENTITY_SEED,
     params={"entityIds": ["ent-1"], "useCase": "ReportCapacity"},
-    lookup=("entityIds",),
+    lookup=("useCase",),
     expect=Expect(
         rows=(
             {
@@ -225,10 +225,10 @@ _PLAN_WINDOW_SCENARIO: Final = Scenario(
     seed=_CHAIN_SEED,
     params={
         "useCases": ["ReportCapacity"],
-        "start": datetime(2026, 10, 24, 9, 0, tzinfo=UTC),
+        "start": _SEED_AT,
         "end": datetime(2026, 10, 26, 9, 0, tzinfo=UTC),
     },
-    lookup=("useCases",),
+    lookup=("start",),
     expect=Expect(
         rows=(
             {

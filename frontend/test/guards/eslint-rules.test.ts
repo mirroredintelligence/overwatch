@@ -95,6 +95,6 @@ describe('what is left alone', () => {
   }, 120_000);
 
   it('does not apply to tests, which may name what the rules forbid', async () => {
-    expect(await messages('localStorage.clear(); process.env.NEXT_PUBLIC_X;', 'lib/x.test.ts')).toEqual([]);
+    expect(await messages('export const a = localStorage;\nexport const b = process.env.NEXT_PUBLIC_X;', 'lib/x.test.ts')).toEqual([]);
   });
 });

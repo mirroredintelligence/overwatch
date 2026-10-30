@@ -539,6 +539,7 @@ async def test_build_for_tests_exposes_the_dispatcher_with_the_ladder_and_bookin
             WorkKind.CRITERIA_REVIEW_REMINDER,
             WorkKind.BOOKING_PHONE_PROMPT,
             WorkKind.BOOKING_EXPIRE,
+            WorkKind.WITHDRAWAL_ESCALATE,
         }
     )
 
@@ -554,6 +555,7 @@ async def test_build_exposes_the_same_dispatch_table() -> None:
                 WorkKind.CRITERIA_REVIEW_REMINDER,
                 WorkKind.BOOKING_PHONE_PROMPT,
                 WorkKind.BOOKING_EXPIRE,
+                WorkKind.WITHDRAWAL_ESCALATE,
             }
         )
     finally:

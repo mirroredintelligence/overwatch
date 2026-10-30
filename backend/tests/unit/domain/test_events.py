@@ -37,6 +37,9 @@ from diucs.domain.events import (
     RegistrationSubmitted,
     ReporterInvited,
     ReportEscalated,
+    BookingWithdrawn,
+    BookingNotReached,
+    WithdrawalEscalated,
     ReportFlagged,
     ServiceActivated,
     StatusChanged,
@@ -91,6 +94,10 @@ EXPECTED_TOPIC: dict[type, str] = {
     ReportFlagged: "capacity.events",
     PhoneTaskRaised: "capacity.events",
     ReportEscalated: "alerts.events",
+    # U21 (DEC-400): the booking exceptions and the withdrawal escalation.
+    BookingWithdrawn: "booking.events",
+    BookingNotReached: "booking.events",
+    WithdrawalEscalated: "alerts.events",
 }
 
 

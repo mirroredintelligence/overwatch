@@ -23,16 +23,18 @@ stored resource; of criteria the version number. The tenant is read from the bou
 (`current_tenant()`, which refuses a network scope) and never taken as an argument.
 """
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from typing import Final
+from zoneinfo import ZoneInfo
 
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.network import ActiveGrant, NetworkRegistry
 from diucs.application.ports.outbound.projection import ProjectionPublisher
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.projection import Projection, to_body
-from diucs.application.tenancy import current_tenant
+from diucs.application.tenancy import ScopeId, current_tenant
+from diucs.application.tenant_settings import TenantZones, as_zones
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.events import ProjectionRequested
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
@@ -40,8 +42,10 @@ from diucs.domain.model.network import GrantScope
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.listing import may_project_listing
+from diucs.domain.rules.projection_validity import next_status_change
 from diucs.domain.rules.projection import (
     PROJECTION_ALLOWLIST_VERSION,
+    CapacityProjection,
     CriteriaProjection,
     build_capacity_projection,
     build_criteria_projection,
@@ -65,6 +69,9 @@ class ProjectionRun:
 
     requested: int
     skipped: int
+    next_boundary: datetime | None = field(default=None, compare=False)
+    """The earliest `valid_until` of the capacity projections built: when the heartbeat next has
+    something to say (`projection_boundaries.py`). Not part of what a run is compared by."""
 
 
 def _version(dto: Projection) -> int:
@@ -78,11 +85,13 @@ class ProjectNetwork:
         registry: NetworkRegistry,
         publisher: ProjectionPublisher,
         clock: Clock,
+        zones: TenantZones | None = None,
     ) -> None:
         self._uow_factory = uow_factory
         self._registry = registry
         self._publisher = publisher
         self._clock = clock
+        self._zones = as_zones(zones)
 
     async def project(self, kind: GrantScope, service_id: str) -> ProjectionRun:
         """One kind of one service."""
@@ -110,9 +119,19 @@ class ProjectNetwork:
         plan = await self._plan(tenant, kinds, now)
         if not plan:
             return ProjectionRun(0, len(kinds) * (1 if service_ids is None else len(service_ids)))
-        built, skipped = await self._build(plan, kinds, service_ids, now)
+        # The tenant's own zone, read before the unit opens (a directory read is not a unit's):
+        # the hours and the due times that `valid_until` follows are read in it (TEN-065).
+        zone = (
+            await self._zones.zone_of(ScopeId.tenant(tenant))
+            if GrantScope.CAPACITY in plan
+            else None
+        )
+        built, skipped = await self._build(plan, kinds, service_ids, now, zone)
         requested = 0
+        boundaries: list[datetime] = []
         for kind, service_id, dto in built:
+            if isinstance(dto, CapacityProjection) and dto.valid_until is not None:
+                boundaries.append(dto.valid_until)
             for entry in plan[kind]:
                 if service_id not in entry.admitted:
                     continue
@@ -132,7 +151,7 @@ class ProjectNetwork:
                     )
                 )
                 requested += 1
-        return ProjectionRun(requested, skipped)
+        return ProjectionRun(requested, skipped, min(boundaries, default=None))
 
     async def _plan(
         self, tenant: str, kinds: tuple[GrantScope, ...], now: datetime
@@ -161,6 +180,7 @@ class ProjectNetwork:
         kinds: tuple[GrantScope, ...],
         service_ids: tuple[str, ...] | None,
         now: datetime,
+        zone: ZoneInfo | None,
     ) -> tuple[list[tuple[GrantScope, str, Projection]], int]:
         built: list[tuple[GrantScope, str, Projection]] = []
         skipped = 0
@@ -177,7 +197,7 @@ class ProjectNetwork:
                     if kind not in plan or not any(service_id in e.admitted for e in plan[kind]):
                         skipped += 1
                         continue
-                    dto = await self._dto(uow, kind, service_id, suspended, policy, now)
+                    dto = await self._dto(uow, kind, service_id, suspended, policy, now, zone)
                     if dto is None:
                         skipped += 1
                     else:
@@ -192,6 +212,7 @@ class ProjectNetwork:
         suspended: set[str],
         policy: TenantPolicy,
         now: datetime,
+        zone: ZoneInfo | None,
     ) -> Projection | None:
         if kind is GrantScope.CRITERIA:
             current = await uow.criteria.current_for_service(service_id)
@@ -216,13 +237,16 @@ class ProjectNetwork:
                 [service_id], latest.effective_at
             )
             confirmed = len(counted.get(service_id, []))
+        assert zone is not None  # read for every plan that holds the capacity kind
         return build_capacity_projection(
             profile,
             latest,
             confirmed_since=confirmed,
             policy=policy,
             source_version=int(now.timestamp() * 1000),
-            valid_until=None,
+            valid_until=next_status_change(
+                profile, None if latest is None else latest.effective_at, now, policy, zone
+            ),
         )
 
 

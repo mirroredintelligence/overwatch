@@ -98,8 +98,8 @@ def due_times_on(
     `closed` (TEN-066) names the local days the service is closed; none is due on those days."""
     policy = require_policy(policy)
     zone = require_zone(zone)
-    if closed is not None:
-        raise NotImplementedError
+    if closed is not None and closed(local_day):
+        return []
     instants: set[datetime] = set()
     for window in profile.available_times:
         if local_day.weekday() not in window.days:

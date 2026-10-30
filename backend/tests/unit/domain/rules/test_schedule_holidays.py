@@ -56,7 +56,7 @@ def test_a_bank_holiday_closure_suppresses_prompts() -> None:
     """Good Friday 2026 (3 April) and Easter Monday (6 April) are closed in England and Wales. A
     report due on the Thursday evening is followed by the first due time on Tuesday 7 April, not by
     the Friday or the Monday (H-T21)."""
-    now = utc(2026, 4, 2, 18, 0)  # Thursday, 19:00 BST
+    now = utc(2026, 4, 2, 19, 30)  # Thursday, after its last due time (20:00 BST)
     open_schedule = next_due(ucr_west(), now)
     closed = next_due(ucr_west(), now, closed=closed_on(ENGLAND_AND_WALES))
     assert open_schedule == utc(2026, 4, 3, 7, 0)
@@ -68,7 +68,7 @@ def test_current_due_does_not_look_back_to_a_closed_day() -> None:
     the closed Friday and Monday have none."""
     now = utc(2026, 4, 6, 6, 0)
     assert current_due(ucr_west(), now, closed=closed_on(ENGLAND_AND_WALES)) == utc(
-        2026, 4, 2, 18, 0
+        2026, 4, 2, 19, 0
     )
 
 

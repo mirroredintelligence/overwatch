@@ -2,6 +2,7 @@ import { CSRF_COOKIE, CSRF_HEADER, csrfTokenFor } from '@/lib/auth/csrf';
 import { sealSession, SESSION_COOKIE, type Role, type Session } from '@/lib/auth/session';
 import { fakeBackendToken } from '@/test/backendToken';
 import { requestWithCookies } from '@/test/cookies';
+import { canary } from '@/test/leak-canary';
 import type { TestTenant } from '@/test/tenants';
 
 // Helpers that build a request as a signed-in person of a tenant would send it, and the session that
@@ -20,6 +21,8 @@ export function csrfFor(session: Session): string {
 }
 
 export function sessionFor(tenant: TestTenant, role: Role, overrides: Partial<Session> = {}): Session {
+  // The leak canary now knows this test signs in as this tenant (test/leak-canary.ts).
+  canary.expect(tenant.id);
   return {
     role,
     tenantId: tenant.id,

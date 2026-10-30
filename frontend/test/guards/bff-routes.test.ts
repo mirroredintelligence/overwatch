@@ -156,7 +156,7 @@ describe.each(Object.entries(ROUTES).filter(([, k]) => k.kind === 'link'))('%s (
   async function ask(verb: string, handler: Handler, token: string, host: string) {
     const path = new URL(url(token)).pathname;
     // A POST carries the link's own CSRF pair, as the page sends it, so the request reaches the back end.
-    const cookies = verb === 'POST' && !path.endsWith('/renew') ? { [LINK_CSRF_COOKIE]: csrfFor(token) } : {};
+    const cookies: Record<string, string> = verb === 'POST' && !path.endsWith('/renew') ? { [LINK_CSRF_COOKIE]: csrfFor(token) } : {};
     const headers: Record<string, string> = { Host: host, 'Content-Type': 'application/json' };
     if (verb === 'POST' && !path.endsWith('/renew')) headers['X-CSRF-Token'] = csrfFor(token);
     const request = requestWithCookies(`https://${host}${path}`, cookies, {

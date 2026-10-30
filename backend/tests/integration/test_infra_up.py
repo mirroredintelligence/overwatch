@@ -12,6 +12,7 @@ closed at the end. Each test that writes or reads uses fresh sessions on that dr
 import json
 import os
 import subprocess
+import uuid
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -179,3 +180,51 @@ def test_session_subscription_receives_publish_on_its_session() -> None:
             assert messages[0].session_id == "svc-1"
             assert str(messages[0]) == "svc-1 update"
             receiver.complete_message(messages[0])
+
+
+def test_projection_queue_delivers_a_message_with_its_tenant_property() -> None:
+    """TEN-055: the queue exists and carries the application property the apply step reads."""
+    with ServiceBusClient.from_connection_string(SERVICEBUS_CONNECTION) as client:
+        with client.get_queue_sender("projection.work") as sender:
+            sender.send_messages(
+                ServiceBusMessage(
+                    "{}",
+                    message_id=f"tenant-x:smoke-{uuid.uuid4().hex}",
+                    application_properties={"tenantId": "tenant-x"},
+                )
+            )
+        with client.get_queue_receiver("projection.work", max_wait_time=10) as receiver:
+            messages = receiver.receive_messages(max_message_count=1, max_wait_time=10)
+            assert len(messages) == 1
+            assert messages[0].application_properties is not None
+            assert messages[0].application_properties.get(b"tenantId") == b"tenant-x"
+            receiver.complete_message(messages[0])
+
+
+@pytest.mark.parametrize(
+    ("topic", "session"),
+    [
+        ("capacity.events", "svc-net-1"),
+        ("booking.events", None),
+        ("criteria.events", None),
+        ("registration.events", None),
+    ],
+)
+def test_network_projector_subscription_receives_a_publish(topic: str, session: str | None) -> None:
+    with ServiceBusClient.from_connection_string(SERVICEBUS_CONNECTION) as client:
+        body = f"net-projector {uuid.uuid4().hex}"
+        with client.get_topic_sender(topic) as sender:
+            sender.send_messages(ServiceBusMessage(body, session_id=session))
+        if session is None:
+            receiver = client.get_subscription_receiver(
+                topic, "network-projector", max_wait_time=10
+            )
+        else:
+            receiver = client.get_subscription_receiver(
+                topic, "network-projector", session_id=session, max_wait_time=10
+            )
+        with receiver:
+            messages = receiver.receive_messages(max_message_count=5, max_wait_time=10)
+            assert body in [str(m) for m in messages]
+            for message in messages:
+                receiver.complete_message(message)

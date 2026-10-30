@@ -9,7 +9,7 @@ from datetime import timedelta
 import pytest
 
 from diucs.application.ports.outbound.event_bus import BusMessage, EventBus
-from diucs.application.tenancy import bind_tenant
+from diucs.application.tenancy import bind_network, bind_tenant
 from diucs.domain.errors import ValidationFailed
 from tests.contract.harness import Harness
 from tests.support.servicebus import run_tenant, unique_id
@@ -359,3 +359,71 @@ async def test_an_id_too_long_for_the_wire_is_refused(bus_harness: Harness[Event
             BusMessage(id="x" * 120, topic=QUEUE, event_type="prompt-due", tenant_id=TENANT_A),
             bus_harness.now() + DELAY,
         )
+
+
+# ---------------------------------------------------------------- TEN-055: the projection queue
+
+
+def _projection(message_id: str, tenant: str = TENANT_A) -> BusMessage:
+    return BusMessage(
+        id=message_id,
+        topic="projection.work",
+        event_type="ProjectionRequested",
+        payload={
+            "network_id": "net-contract",
+            "source_tenant_id": tenant,
+            "grant_id": "grant-1",
+            "grant_version": 1,
+            "kind": "capacity",
+            "source_service_id": "svc-1",
+            "source_version": 7,
+            "allowlist_version": 1,
+            "body": {"slots": 3, "tags": ["a", "b"]},
+            "at": "2026-10-31T09:00:00Z",
+        },
+        tenant_id=tenant,
+    )
+
+
+async def test_a_projection_message_is_received_on_the_projection_queue_with_its_tenant(
+    bus_harness: Harness[EventBus],
+) -> None:
+    harness = _receiver(bus_harness)
+    assert harness.receive is not None
+    local = unique_id("proj")
+    with bind_tenant(TENANT_A):
+        await harness.subject.enqueue("projection.work", _projection(local))
+    received = await harness.receive("projection.work", PATIENCE)
+    assert received is not None
+    assert (received.id, received.tenant_id, received.event_type) == (
+        local,
+        TENANT_A,
+        "ProjectionRequested",
+    )
+    assert received.session_id is None
+    assert received.payload["body"] == {"slots": 3, "tags": ["a", "b"]}
+
+
+async def test_a_projection_message_is_received_on_its_queue_only(
+    bus_harness: Harness[EventBus],
+) -> None:
+    harness = _receiver(bus_harness)
+    assert harness.receive is not None
+    with bind_tenant(TENANT_A):
+        await harness.subject.enqueue("projection.work", _projection(unique_id("proj")))
+    assert await harness.receive(QUEUE, QUIET) is None
+    assert await harness.receive("projection.work", PATIENCE) is not None
+
+
+async def test_a_projection_message_for_another_tenant_than_the_bound_one_is_refused(
+    bus_harness: Harness[EventBus],
+) -> None:
+    with bind_tenant(TENANT_B), pytest.raises(ValidationFailed):
+        await bus_harness.subject.enqueue("projection.work", _projection(unique_id("proj")))
+
+
+async def test_a_projection_message_cannot_be_sent_from_a_network_binding(
+    bus_harness: Harness[EventBus],
+) -> None:
+    with bind_network("net-contract"), pytest.raises(ValidationFailed):
+        await bus_harness.subject.enqueue("projection.work", _projection(unique_id("proj")))

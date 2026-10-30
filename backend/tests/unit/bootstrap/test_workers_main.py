@@ -19,6 +19,7 @@ from diucs.application.work import WorkKind
 from diucs.bootstrap import workers_main
 from diucs.bootstrap.settings import Settings
 from diucs.bootstrap.workers_main import (
+    NetworkProjectorWiring,
     WorkersConfigError,
     build_runners,
     run_workers,
@@ -204,3 +205,43 @@ def test_with_a_board_projector_the_two_board_runners_are_added_and_each_binds_t
         ("booking.events", "board-projector"),
     ]
     assert all(isinstance(r._consumer, TenantBoundConsumer) for r in runners)
+
+
+def test_with_the_network_projector_its_five_runners_are_added() -> None:
+    from diucs.adapters.inbound.workers.network_projector import NetworkApplyConsumer
+    from tests.unit.adapters.inbound.workers.test_network_projector import (
+        _Apply,
+        _Producer,
+        _Registry,
+    )
+
+    runners = build_runners(
+        client=None,  # type: ignore[arg-type]
+        handle_inbound_text=_UseCase(),
+        uow_factory=_no_unit,  # type: ignore[arg-type]
+        tenants=StaticTenants(["tenant-a"]),
+        work_handlers={WorkKind.REMINDER: _no_work},
+        network_projector=NetworkProjectorWiring(
+            producer=_Producer(),  # type: ignore[arg-type]
+            apply=NetworkApplyConsumer(_Apply(), _Registry(), StaticTenants(["tenant-a"])),  # type: ignore[arg-type]
+        ),
+    )
+
+    assert [(r._entity, r._subscription) for r in runners[3:]] == [
+        ("capacity.events", "network-projector"),
+        ("booking.events", "network-projector"),
+        ("criteria.events", "network-projector"),
+        ("registration.events", "network-projector"),
+        ("projection.work", None),
+    ]
+
+
+def test_without_the_network_projector_no_projection_runner_is_built() -> None:
+    runners = build_runners(
+        client=None,  # type: ignore[arg-type]
+        handle_inbound_text=_UseCase(),
+        uow_factory=_no_unit,  # type: ignore[arg-type]
+        tenants=StaticTenants(["tenant-a"]),
+        work_handlers={WorkKind.REMINDER: _no_work},
+    )
+    assert all(r._entity != "projection.work" for r in runners)

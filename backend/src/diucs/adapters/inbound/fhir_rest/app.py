@@ -83,6 +83,7 @@ def create_app(
         routes_board,
         routes_events,
         routes_lead,
+        routes_public,
         routes_screens,
         routes_services,
         routes_terminology,
@@ -100,6 +101,8 @@ def create_app(
     routes_validate.register_profiles()
     # Wall screen pairing (R15): JSON routes outside /fhir, over the U10 use cases.
     app.include_router(routes_screens.router)
+    # The public tenant profile (TEN-040): no token, the tenant is the request host.
+    app.include_router(routes_public.router)
     # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.
     app.include_router(routes_lead.router)
 

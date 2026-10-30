@@ -12,7 +12,7 @@ bound to (DEC-130 item 7, DEC-132 items 1 and 4, TEN-019). Callers pass logical 
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
-from typing import Final, Protocol
+from typing import Final, Protocol, runtime_checkable
 
 from diucs.application.tenancy import ScopeId, ScopeKind, current_scope
 from diucs.domain.errors import DomainError, ValidationFailed
@@ -93,8 +93,9 @@ PLATFORM_SEGMENT: Final = "_"
 
 
 def platform_names() -> ScopedNames:
-    """The names of the platform namespace. Stub for the red commit."""
-    raise NotImplementedError
+    """The names of the platform namespace. Pure: it reads no binding, so a platform name can be
+    built before any tenant is known and is the same whichever tenant is bound."""
+    return ScopedNames(PLATFORM_SEGMENT)
 
 
 def names_for(scope: ScopeId) -> ScopedNames:
@@ -155,10 +156,11 @@ class Cache(Protocol):
         ...
 
 
+@runtime_checkable
 class PlatformSlots(Protocol):
-    """The cache's platform namespace (TEN-040): single-use, expiring markers that belong to no
-    tenant. The only calls that do not read the bound scope, and the only ones that use the platform
-    segment; a name is a name of this namespace and nothing else (a tenant name never reaches it)."""
+    """The cache's platform namespace (TEN-040): expiring markers that belong to no tenant. The
+    only calls that do not read the bound scope, and the only ones that use the platform segment: a
+    name here is a name of this namespace and nothing else, and no tenant's name reaches it."""
 
     async def platform_take(self, name: str, ttl: timedelta) -> bool:
         """Store the marker when it is absent or expired, in one step; True when stored."""

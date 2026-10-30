@@ -15,6 +15,7 @@ from typing import Self
 from diucs.application.ports.outbound.cache import (
     CacheScopeMismatch,
     Lock,
+    platform_names,
     scoped_names,
 )
 from diucs.application.ports.outbound.clock import Clock
@@ -119,13 +120,26 @@ class InMemoryCache:
 
     def platform_keys(self) -> frozenset[str]:
         """The unexpired platform markers, as scoped names. For tests."""
-        raise NotImplementedError
+        now = self._now()
+        prefix = f"{platform_names().segment}:cache:"
+        return frozenset(
+            name
+            for name, stored in self._values.items()
+            if name.startswith(prefix) and (stored.expires_at is None or now < stored.expires_at)
+        )
 
     async def platform_take(self, name: str, ttl: timedelta) -> bool:
-        raise NotImplementedError
+        if ttl <= timedelta(0):
+            raise ValueError("ttl must be positive")
+        full = platform_names().key(name)
+        stored = self._values.get(full)
+        if stored is not None and (stored.expires_at is None or self._now() < stored.expires_at):
+            return False
+        self._values[full] = _Value(text="1", expires_at=self._now() + ttl)
+        return True
 
     async def platform_release(self, name: str) -> None:
-        raise NotImplementedError
+        self._values.pop(platform_names().key(name), None)
 
     async def publish(self, channel: str, message: str) -> None:
         names = scoped_names()

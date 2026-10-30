@@ -189,9 +189,12 @@ async def suspend_service(
     async def run() -> Response:
         reader = ReadTenantConfig(container.uow_factory)
         policy = await reader.policy()
+        # Read before SuspendService opens its unit: it asks for the wording inside that unit, and
+        # a reader that opened a unit there would be a second one (UnitOfWorkAlreadyOpen, a 500).
+        wording = await reader.wording()
 
         async def wording_for(_scope: object) -> Any:
-            return await reader.wording()
+            return wording
 
         result = await SuspendService(
             container.uow_factory,

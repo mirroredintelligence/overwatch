@@ -35,6 +35,8 @@ from tests.support.ladder_rig import virtual_ward
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads
 
+EMPTY_PARAMETERS = {"resourceType": "Parameters"}
+
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SERVICE = "svc-criteria"
@@ -175,6 +177,7 @@ async def test_the_owner_cannot_approve_their_own_change(
 
     refused = await api_client.post(
         f"/fhir/Basic/{criteria_id}/$approve",
+        json=EMPTY_PARAMETERS,
         headers={
             "Idempotency-Key": "criteria-approve-0001",
             **token_headers(tenant_id, Role.OWNER, sub=OWNER),
@@ -199,6 +202,7 @@ async def test_a_clinical_lead_approves_the_change_and_history_reads_newest_firs
 
     approved = await api_client.post(
         f"/fhir/Basic/{criteria_id}/$approve",
+        json=EMPTY_PARAMETERS,
         headers={
             "Idempotency-Key": "criteria-approve-0002",
             **token_headers(tenant_id, Role.LEAD, sub=LEAD),

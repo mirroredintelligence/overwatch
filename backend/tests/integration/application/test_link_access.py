@@ -13,6 +13,7 @@ import re
 from dataclasses import replace
 from datetime import timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import pytest
 from neo4j import AsyncDriver
@@ -51,6 +52,7 @@ from diucs.domain.errors import (
     ValidationFailed,
 )
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from diucs.domain.rules.london_time import LONDON
 from tests.support.ladder_rig import PHONE_HASH_1, SECRET, london, reporter, seed_people
 from tests.support.link_rig import (
     ANSWER_AT,
@@ -812,6 +814,35 @@ async def test_renewing_an_expired_link_queues_a_fresh_prompt_with_a_new_link(
     async with links.factory() as uow:
         entries = [r.entry for r in await uow.audit.records() if r.entry.use_case == "RenewLink"]
     assert [(e.actor.channel, e.actor.role.value) for e in entries] == [("link", "reporter")]
+
+
+@pytest.mark.parametrize(
+    ("zone", "local"),
+    [(LONDON, "11:"), (ZoneInfo("America/New_York"), "06:")],
+    ids=["london", "new-york"],
+)
+async def test_the_renewed_prompt_words_its_times_in_the_tenants_zone(
+    uow_factory: UnitOfWorkFactory,
+    neo4j_driver: AsyncDriver,
+    tenant_id: str,
+    zone: ZoneInfo,
+    local: str,
+) -> None:
+    # `renew` renders the text with the handler's zone (TEN-041): the reply-by time of the fresh
+    # prompt is 10:0x UTC, which reads 11:0x in London in October and 06:0x in New York.
+    clock = FixedClock(ANSWER_AT)
+    rig = build_link_rig(
+        uow_factory_on(neo4j_driver, clock), neo4j_driver, tenant_id, clock=clock, zone=zone
+    )
+    await rig.seed()
+    token = await rig.prompt()
+    rig.clock.set(REPLY_BY + timedelta(minutes=3))
+    sent_before = len(await _sent(rig))
+
+    await rig.renew(token)
+
+    [fresh] = (await _sent(rig))[sent_before:]
+    assert local in fresh["text"], fresh["text"]
 
 
 async def test_the_fresh_prompt_goes_to_the_same_role_and_its_text_is_sealed_for_this_tenant(

@@ -841,7 +841,7 @@ class CapacityLinkHandler:
                 CAPACITY_PURPOSE, communication_id, link.record.phone_hash, reply
             )
             url = f"{link_base_url.rstrip('/')}/{token}"
-            message_id, rendered = _render(profile, latest, window, url, reply)
+            message_id, rendered = _render(profile, latest, window, url, reply, zone=self._zone)
             await uow.communications.add(
                 Communication(
                     id=communication_id,

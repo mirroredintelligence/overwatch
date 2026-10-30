@@ -16,6 +16,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
@@ -51,6 +52,7 @@ from diucs.application.use_cases.link_access import LinkAction as LinkAction
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.domain.codes import ReportSource, Role
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.rules.london_time import LONDON
 from diucs.domain.rules.schedule import reply_by
 from diucs.domain.rules.tokens import hash_token
 from tests.support.actors import ACTOR_TENANT
@@ -346,6 +348,7 @@ def build_link_rig(
     reports: Any = None,
     confirms: Any = None,
     tokens_class: type[LinkTokenService] = LinkTokenService,
+    zone: ZoneInfo = LONDON,
 ) -> LinkRig:
     """The rig on a unit-of-work factory. `reports` and `confirms` replace ReportCapacity and
     ConfirmCapacity, and `tokens_class` the link-token service (a test that needs one to refuse)."""
@@ -367,6 +370,7 @@ def build_link_rig(
         sealer,
         reports or ReportCapacity(factory, shared_clock, shared_ids, idempotency),
         confirms or ConfirmCapacity(factory, shared_clock, shared_ids, idempotency),
+        zone=zone,
     )
     purposes: LinkPurposes = {CAPACITY_PURPOSE: handler}
     return LinkRig(

@@ -78,15 +78,15 @@ def _p(name: str, value: dict) -> dict:
     return {"name": name, **value}
 
 
-def _entry(name: str = "UCR West", flag: str = "in-pilot") -> dict:
-    return {
-        "resourceType": "Parameters",
-        "parameter": [
-            _p("service", {"valueString": name}),
-            _p("category", {"valueCode": "urgent-community-response"}),
-            _p("flag", {"valueCode": flag}),
-        ],
-    }
+def _entry(name: str = "UCR West", flag: str = "in-pilot", reason: str | None = None) -> dict:
+    parts = [
+        _p("service", {"valueString": name}),
+        _p("category", {"valueCode": "urgent-community-response"}),
+        _p("flag", {"valueCode": flag}),
+    ]
+    if reason is not None:
+        parts.append(_p("reason", {"valueString": reason}))
+    return {"resourceType": "Parameters", "parameter": parts}
 
 
 def _invite(service_id: str, mobile: str = MOBILE) -> dict:
@@ -208,9 +208,10 @@ async def test_a_service_flagged_later_cannot_be_invited_and_no_task_is_made(
 ) -> None:
     added = await api_client.post(
         SCOPE_ENTRY,
-        json=_entry(name="UCR Later", flag="later"),
+        json=_entry(name="UCR Later", flag="later", reason="Not before the second wave"),
         headers={"Idempotency-Key": "scope-add-0003", **_lead()},
     )
+    assert added.status_code == 201, added.text
     service_id = added.json()["parameter"][0]["valueString"]
 
     refused = await api_client.post(

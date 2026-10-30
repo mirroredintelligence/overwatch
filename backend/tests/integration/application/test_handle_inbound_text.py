@@ -248,7 +248,7 @@ async def _send_c1(
         tokens,
         "diucs.example",
         AesGcmContentSealer(FixedSecretStore({"link-token": LINK_SECRET})),
-        "tenant-a",
+        ACTOR_TENANT,
     )
     result = await sender.execute(
         SendPromptCommand(

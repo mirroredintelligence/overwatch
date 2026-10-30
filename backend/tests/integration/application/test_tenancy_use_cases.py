@@ -341,7 +341,9 @@ async def _written(world: World, tenant: str) -> dict[str, int]:
 async def _answer(call: Call, world: World, target: str) -> tuple[type, str]:
     with pytest.raises(DomainError) as refused:
         await call(world, target)
-    return type(refused.value), str(refused.value)
+    # A message may echo the id the caller itself sent ("scheduled work <id> is not stored"): that
+    # tells the caller nothing it did not send, so the echo is masked before two answers compare.
+    return type(refused.value), str(refused.value).replace(target, "<the id sent>")
 
 
 @pytest.mark.parametrize("case", CASES, ids=IDS)

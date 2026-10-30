@@ -19,9 +19,10 @@ Written in build wave 5 and not run there: the full integration run follows on t
 Synthetic values only.
 """
 
+import json
 import os
-from collections.abc import AsyncIterator
-from dataclasses import replace
+from collections.abc import AsyncIterator, Awaitable, Callable
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any
 
@@ -30,6 +31,13 @@ import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
+from diucs.adapters.outbound.graph_store.queries import (
+    PLATFORM_QUERY_IDS,
+    PLATFORM_STATEMENTS,
+    REGISTRY,
+    NamedQuery,
+    QueryRegistry,
+)
 from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
 from diucs.application.ports.outbound.tenant_registry import TenantNumberRecord
@@ -45,6 +53,7 @@ from diucs.domain.model.tenant import (
 )
 from diucs.domain.rules.tenant_lifecycle import resume_tenant, suspend_tenant
 from tests.support.neo4j import ThrowawayNeo4j, read_tx, write_tx
+from tests.support.tenant_seed import invariant_breaks
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
@@ -52,6 +61,7 @@ A, B = "reg-alpha", "reg-bravo"
 SID = "AC" + "a" * 32
 NUMBER_A, NUMBER_B = "+447700900301", "+447700900302"
 GUID = "0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f"
+GUID_B = "1a6b8d2f-4c3e-4d7b-8f9a-2b3c4d5e6f70"
 NOW = datetime(2026, 10, 30, 9, 0, tzinfo=UTC)
 LATER = datetime(2026, 10, 31, 9, 0, tzinfo=UTC)
 
@@ -126,7 +136,7 @@ async def _forget(driver: AsyncDriver) -> None:
             ids=[A, B],
         )
         await tx.run(
-            "MATCH (r:Resource) WHERE r.id IN $ids AND r.tenantId = r.id DETACH DELETE r",
+            "MATCH (r:Resource) WHERE r.tenantId IN $ids OR r.id IN $ids DETACH DELETE r",
             ids=[A, B],
         )
 
@@ -390,3 +400,378 @@ async def test_the_registry_statements_touch_no_node_that_is_not_a_registry_node
         "host": "alpha.example.org",
         "e164": NUMBER_A,
     }
+
+
+# -- the seven platform statements: each is proved to reach one tenant's registry nodes only -----
+#
+# The generated two-tenant test (test_tenant_isolation.py) runs the tenant statements. The seven
+# statements of the `platform` scope write the registry, whose nodes carry no tenant, so they are
+# proved here, in the same shape: a world of two tenants (each with a record, a host, a directory,
+# a number and a data node of its own), one statement run for A, and what is not A's must be what
+# it was. Each statement is run twice, with A's own values and with values that belong to B, and a
+# mutant of each (the key taken out) is run to show that the check would notice.
+
+A_HOST, B_HOST = "alpha.example.org", "bravo.example.org"
+NUMBER_A2 = "+447700900303"
+OTHERS = (
+    "MATCH (n) WHERE NOT (n:Tenant AND n.id = $a) "
+    "AND NOT (n:TenantNumber AND EXISTS {(:Tenant {id: $a})-[:HAS_NUMBER]->(n)}) "
+    "RETURN labels(n) AS labels, properties(n) AS props"
+)
+OTHER_LINKS = (
+    "MATCH (x)-[r]->(y) WHERE NOT (x:Tenant AND x.id = $a) "
+    "RETURN labels(x) AS x, properties(x) AS xp, type(r) AS type, labels(y) AS y, "
+    "properties(y) AS yp"
+)
+OWN = (
+    "MATCH (n) WHERE (n:Tenant AND n.id = $a) "
+    "OR (n:TenantNumber AND EXISTS {(:Tenant {id: $a})-[:HAS_NUMBER]->(n)}) "
+    "RETURN labels(n) AS labels, properties(n) AS props"
+)
+
+
+async def _seed_world(registry: Neo4jTenantRegistry, driver: AsyncDriver, *, with_a: bool) -> None:
+    """B, and unless `with_a` is False A, each with a host, a directory and a number, and a data
+    node of its own with the very words the registry keys use (a host, a number)."""
+    people = [(B, NUMBER_B, B_HOST, GUID_B)]
+    if with_a:
+        people.insert(0, (A, NUMBER_A, A_HOST, GUID))
+    for tenant, number, host, directory in people:
+        await registry.create(_tenant(tenant))
+        await registry.set_host(tenant, host)
+        await registry.set_entra_directory(tenant, directory)
+        await registry.put_number(tenant, _number(tenant, number))
+
+    async def data(tx: AsyncManagedTransaction) -> None:
+        for tenant, number, host in ((A, NUMBER_A, A_HOST), (B, NUMBER_B, B_HOST)):
+            await tx.run(
+                "CREATE (a:Resource {id: 'res-1', tenantId: $t, host: $host, e164: $number}) "
+                "CREATE (b:Resource {id: 'res-2', tenantId: $t}) CREATE (a)-[:NEXT]->(b)",
+                t=tenant,
+                host=host,
+                number=number,
+            )
+
+    await write_tx(driver, data)
+
+
+def _canonical(rows: list[dict[str, Any]]) -> list[str]:
+    return sorted(json.dumps(row, sort_keys=True, default=str) for row in rows)
+
+
+async def _look(driver: AsyncDriver, query: str, subject: str) -> list[str]:
+    async def work(tx: AsyncManagedTransaction) -> list[str]:
+        return _canonical(await (await tx.run(query, a=subject)).data())
+
+    return await read_tx(driver, work)
+
+
+@dataclass(frozen=True)
+class Seen:
+    """What the graph holds that is not A's registry nodes, the links of those, and A's own."""
+
+    others: list[str]
+    links: list[str]
+    own: list[str]
+
+
+async def _seen(driver: AsyncDriver) -> Seen:
+    return Seen(
+        await _look(driver, OTHERS, A),
+        await _look(driver, OTHER_LINKS, A),
+        await _look(driver, OWN, A),
+    )
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def world(registry: Neo4jTenantRegistry, neo4j_driver: AsyncDriver) -> Neo4jTenantRegistry:
+    await _seed_world(registry, neo4j_driver, with_a=True)
+    return registry
+
+
+@pytest_asyncio.fixture(loop_scope="session")
+async def world_without_a(
+    registry: Neo4jTenantRegistry, neo4j_driver: AsyncDriver
+) -> Neo4jTenantRegistry:
+    await _seed_world(registry, neo4j_driver, with_a=False)
+    return registry
+
+
+Act = Callable[[Neo4jTenantRegistry], Awaitable[object]]
+
+
+@dataclass(frozen=True)
+class Case:
+    """One platform statement, run for A with A's own values (`own`) and with a value that is B's
+    (`foreign`, which must be refused with `refused`, or answer empty for a read)."""
+
+    statement: str
+    own: Act
+    foreign: Act
+    refused: type[BaseException] | None
+    creates_a: bool = False
+
+
+async def _create_a(registry: Neo4jTenantRegistry) -> object:
+    return await registry.create(_tenant(A))
+
+
+async def _create_b(registry: Neo4jTenantRegistry) -> object:
+    return await registry.create(_tenant(B, display_name="Hijack"))
+
+
+async def _save_a(registry: Neo4jTenantRegistry) -> object:
+    return await registry.save(
+        _tenant(A, status=TenantStatus.ACTIVE, activated_at=NOW, display_name="A renamed"),
+        expected_epoch=1,
+        expected_status=TenantStatus.PROVISIONING,
+    )
+
+
+async def _save_a_stale(registry: Neo4jTenantRegistry) -> object:
+    return await registry.save(
+        _tenant(A, status=TenantStatus.ACTIVE, activated_at=NOW),
+        expected_epoch=9,
+        expected_status=TenantStatus.PROVISIONING,
+    )
+
+
+CASES = (
+    Case("Q-TENANT-REG-CREATE", _create_a, _create_b, Conflict, creates_a=True),
+    Case("Q-TENANT-REG-SAVE", _save_a, _save_a_stale, None),
+    Case(
+        "Q-TENANT-REG-SET-HOST",
+        lambda r: r.set_host(A, "alpha-two.example.org"),
+        lambda r: r.set_host(A, B_HOST),
+        Conflict,
+    ),
+    Case(
+        "Q-TENANT-REG-SET-DIRECTORY",
+        lambda r: r.set_entra_directory(A, "2b7c9e3a-5d4f-4e8c-9a0b-3c4d5e6f7081"),
+        lambda r: r.set_entra_directory(A, GUID_B),
+        Conflict,
+    ),
+    Case(
+        "Q-TENANT-REG-PUT-NUMBER",
+        lambda r: r.put_number(A, _number(A, NUMBER_A2)),
+        lambda r: r.put_number(A, _number(A, NUMBER_B)),
+        Conflict,
+    ),
+    Case(
+        "Q-TENANT-REG-MARK-TESTED",
+        lambda r: r.mark_number_tested(A, NUMBER_A, NOW),
+        lambda r: r.mark_number_tested(A, NUMBER_B, NOW),  # B's number, A's id
+        NotFound,
+    ),
+    Case("Q-TENANT-REG-NUMBERS", lambda r: r.numbers(A), lambda r: r.numbers("reg-nobody"), None),
+)
+
+
+async def test_the_cases_cover_every_platform_statement_and_only_those() -> None:
+    registered = {i for i in REGISTRY.ids() if REGISTRY.get(i).scope == "platform"}
+    assert {c.statement for c in CASES} == set(PLATFORM_QUERY_IDS) == registered
+    assert set(PLATFORM_STATEMENTS) == set(PLATFORM_QUERY_IDS)
+    assert len(CASES) == 7
+    assert {m.statement for m in MUTANTS} == set(PLATFORM_QUERY_IDS)  # every statement has a mutant
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.statement)
+async def test_a_platform_statement_run_for_one_tenant_changes_only_that_tenants_nodes(
+    case: Case,
+    registry: Neo4jTenantRegistry,
+    neo4j_driver: AsyncDriver,
+) -> None:
+    await _seed_world(registry, neo4j_driver, with_a=not case.creates_a)
+    before = await _seen(neo4j_driver)
+
+    await case.own(registry)
+
+    after = await _seen(neo4j_driver)
+    assert after.others == before.others, "a node that is not A's changed"
+    assert after.links == before.links
+    assert after.own != before.own or case.statement == "Q-TENANT-REG-NUMBERS"  # it did its work
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda c: c.statement)
+async def test_a_platform_statement_given_a_value_of_another_tenant_changes_nothing(
+    case: Case, registry: Neo4jTenantRegistry, neo4j_driver: AsyncDriver
+) -> None:
+    await _seed_world(registry, neo4j_driver, with_a=True)
+    await registry.mark_number_tested(B, NUMBER_B, NOW)
+    before = await _seen(neo4j_driver)
+
+    if case.refused is None:
+        answer = await case.foreign(registry)
+        assert answer in (False, ())  # a stale save, or a read of a tenant nobody created
+    else:
+        with pytest.raises(case.refused):
+            await case.foreign(registry)
+
+    assert await _seen(neo4j_driver) == before  # not B's nodes, not A's, not a link
+
+
+async def test_a_read_of_one_tenants_numbers_never_lists_the_others(
+    world: Neo4jTenantRegistry,
+) -> None:
+    assert [n.e164 for n in await world.numbers(A)] == [NUMBER_A]
+    assert [n.e164 for n in await world.numbers(B)] == [NUMBER_B]
+
+
+async def test_the_registry_writes_leave_the_graphs_invariants_whole(
+    world: Neo4jTenantRegistry, neo4j_driver: AsyncDriver
+) -> None:
+    """Every node still carries a tenant, except the registry labels, and no relationship joins two
+    tenants: the `HAS_NUMBER` edges are between two registry nodes, which carry none."""
+    await world.mark_number_tested(A, NUMBER_A, NOW)
+    await world.put_number(B, _number(B, "+447700900304"))
+
+    async def work(tx: AsyncManagedTransaction) -> tuple[list[str], list[str]]:
+        return await invariant_breaks(tx)
+
+    assert await read_tx(neo4j_driver, work) == ([], [])
+
+
+# -- the mutants: the check above is not vacuous ---------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Mutant:
+    """A statement with the part that scopes it taken out, and the call it is run with. The
+    original and the mutant are each run in a fresh world; they must not behave alike."""
+
+    name: str
+    statement: str
+    old: str  # the text taken out of the statement (it must be in it)
+    new: str  # what takes its place
+    params: dict[str, Any]
+    mode: str = "write"
+
+
+def _props(**fields: Any) -> dict[str, Any]:
+    return {"displayName": "Hijack", **fields}
+
+
+MUTANTS = (
+    Mutant(
+        "a create that merges: it would overwrite a tenant that exists",
+        "Q-TENANT-REG-CREATE",
+        "CREATE (t:Tenant",
+        "MERGE (t:Tenant",
+        {"id": B, "props": _props()},
+    ),
+    Mutant(
+        "a save that does not name the tenant",
+        "Q-TENANT-REG-SAVE",
+        "id: $id, ",
+        "",
+        {"id": A, "expectedEpoch": 1, "expectedStatus": "provisioning", "props": _props()},
+    ),
+    Mutant(
+        "a save that does not compare the epoch and the status",
+        "Q-TENANT-REG-SAVE",
+        ", epoch: $expectedEpoch, status: $expectedStatus",
+        "",
+        {"id": A, "expectedEpoch": 9, "expectedStatus": "suspended", "props": _props()},
+    ),
+    Mutant(
+        "a host set on every tenant",
+        "Q-TENANT-REG-SET-HOST",
+        "(t:Tenant {id: $id})",
+        "(t:Tenant)",
+        {"id": A, "host": "everyone.example.org"},
+    ),
+    Mutant(
+        "a directory set on every tenant",
+        "Q-TENANT-REG-SET-DIRECTORY",
+        "(t:Tenant {id: $id})",
+        "(t:Tenant)",
+        {"id": A, "directoryId": "3c8d0f4b-6e5a-4f9d-8b1c-4d5e6f708192"},
+    ),
+    Mutant(
+        "a number put on every tenant",
+        "Q-TENANT-REG-PUT-NUMBER",
+        "(t:Tenant {id: $id})",
+        "(t:Tenant)",
+        {"id": A, "e164": NUMBER_A2, "props": {"accountSid": SID, "status": "active"}},
+    ),
+    Mutant(
+        "a test mark that does not name the tenant",
+        "Q-TENANT-REG-MARK-TESTED",
+        "(:Tenant {id: $id})",
+        "(:Tenant)",
+        {"id": A, "e164": NUMBER_B, "at": NOW},
+    ),
+    Mutant(
+        "a read of numbers that does not name the tenant",
+        "Q-TENANT-REG-NUMBERS",
+        "(:Tenant {id: $id})",
+        "(:Tenant)",
+        {"id": A},
+        mode="read",
+    ),
+)
+
+
+async def _outcome(
+    driver: AsyncDriver, cypher: str, mutant: Mutant, registry: Neo4jTenantRegistry
+) -> tuple[Any, ...]:
+    """The rows (or the class of the error) and what the graph holds afterwards, from a fresh
+    world, for one statement text."""
+    await _forget(driver)
+    await _seed_world(registry, driver, with_a=True)
+
+    async def work(tx: AsyncManagedTransaction) -> list[str]:
+        return _canonical(await (await tx.run(cypher, mutant.params)).data())
+
+    try:
+        rows: Any = await (read_tx if mutant.mode == "read" else write_tx)(driver, work)
+    except Exception as error:  # noqa: BLE001  the kind of failure is part of the outcome
+        rows = type(error).__name__
+    return rows, await _seen(driver)
+
+
+@pytest.mark.parametrize("mutant", MUTANTS, ids=lambda m: m.name)
+async def test_a_platform_statement_with_its_scoping_taken_out_is_told_apart(
+    mutant: Mutant, registry: Neo4jTenantRegistry, neo4j_driver: AsyncDriver
+) -> None:
+    original = REGISTRY.get(mutant.statement)
+    assert mutant.old in original.cypher, "the statement changed: update the mutant"
+    mutated = original.cypher.replace(mutant.old, mutant.new, 1)
+    assert mutated != original.cypher
+
+    real_rows, real_seen = await _outcome(neo4j_driver, original.cypher, mutant, registry)
+    leaky_rows, leaky_seen = await _outcome(neo4j_driver, mutated, mutant, registry)
+
+    # The real statement, given a value that is not A's, touches nothing that is not A's.
+    fresh_others = await _seen_after_seed(registry, neo4j_driver)
+    assert real_seen.others == fresh_others.others and real_seen.links == fresh_others.links
+    # And the mutant does not behave like it: another tenant's node, a link, the rows or the
+    # answer (an error) is different.
+    assert (leaky_rows, leaky_seen.others, leaky_seen.links) != (
+        real_rows,
+        real_seen.others,
+        real_seen.links,
+    ), f"the check cannot tell {mutant.name} from the statement"
+
+
+async def _seen_after_seed(registry: Neo4jTenantRegistry, driver: AsyncDriver) -> Seen:
+    await _forget(driver)
+    await _seed_world(registry, driver, with_a=True)
+    return await _seen(driver)
+
+
+@pytest.mark.parametrize("mutant", MUTANTS, ids=lambda m: m.name)
+async def test_a_changed_platform_statement_is_refused_at_registration(mutant: Mutant) -> None:
+    """The digest pin: the registry will not take a statement whose text is not the pinned one, so
+    a mutant cannot get into the production registry by being called what the original is called."""
+    original = REGISTRY.get(mutant.statement)
+    scratch = QueryRegistry()
+    with pytest.raises(ValueError, match="pinned"):
+        scratch.register(
+            NamedQuery(
+                id=original.id,
+                cypher=original.cypher.replace(mutant.old, mutant.new, 1),
+                mode=original.mode,
+                scope="platform",
+            )
+        )

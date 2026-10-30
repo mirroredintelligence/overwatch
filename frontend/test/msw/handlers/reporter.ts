@@ -3,7 +3,7 @@ import { http, HttpResponse, type RequestHandler } from 'msw';
 // Default answers of the reporter BFF (W33 to W55). A test overrides one with server.use().
 // The records hold paths and bodies only, never a cookie, a device id or a phone number.
 
-export const seenBffRequests: { path: string; method: string; body: unknown }[] = [];
+export const seenBffRequests: { path: string; method: string; body: unknown; idempotencyKey?: string | null }[] = [];
 
 export function resetReporterRequests() {
   seenBffRequests.length = 0;
@@ -17,7 +17,12 @@ async function record(request: Request) {
   } catch {
     body = text;
   }
-  seenBffRequests.push({ path: new URL(request.url).pathname, method: request.method, body });
+  seenBffRequests.push({
+    path: new URL(request.url).pathname,
+    method: request.method,
+    body,
+    idempotencyKey: request.headers.get('Idempotency-Key'),
+  });
   return body;
 }
 
@@ -97,5 +102,26 @@ export const reporterHandlers: RequestHandler[] = [
       ],
     }),
   ),
+  http.get('/api/bff/reporter/bookings/:ref', () =>
+    HttpResponse.json({
+      reference: '4821',
+      service: 'UCR West',
+      ageBand: '80+',
+      need: 'Fall and frailty',
+      urgency: 'Wanted Within 2 hrs',
+      replyBy: '14:26',
+      status: 'requested',
+      multiService: false,
+      spoaPhone: '0300 000 0000',
+    }),
+  ),
+  http.post('/api/bff/reporter/bookings/:ref/respond', async ({ request }) => {
+    const body = (await record(request)) as { decision?: string } | undefined;
+    return HttpResponse.json(
+      body?.decision === 'decline'
+        ? { status: 'declined', at: '14:19' }
+        : { status: 'confirmed', confirmedAt: '14:19' },
+    );
+  }),
   http.get('/api/bff/reporter/start', () => HttpResponse.json({ csrfToken: 'T'.repeat(43) })),
 ];

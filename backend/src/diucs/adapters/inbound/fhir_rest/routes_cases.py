@@ -33,6 +33,7 @@ from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
 from diucs.adapters.inbound.fhir_rest.case_mapping import (
     CaseDetails,
     case_to_fhir,
+    filter_result_to_fhir,
     parse_case_details,
     refuse_patient_details,
 )
@@ -50,7 +51,6 @@ from diucs.application.use_cases.advisor_phoned import (
 from diucs.application.use_cases.filter_options import (
     FilterOptions,
     FilterOptionsCommand,
-    FilterOptionsResult,
 )
 from diucs.application.use_cases.open_case import (
     OpenCase,
@@ -264,44 +264,6 @@ async def close_case(
     return FhirJSONResponse(content=validate_outbound(case_to_fhir(case)), status_code=200)
 
 
-def _option_to_part(option: Any) -> dict[str, Any]:
-    parts: list[dict[str, Any]] = [
-        {"name": "serviceId", "valueString": option.service_id},
-        {"name": "name", "valueString": option.name},
-        {"name": "status", "valueCode": option.status.value},
-        {"name": "criteriaVersion", "valueInteger": option.criteria_version},
-    ]
-    if option.effective_available is not None:
-        parts.append({"name": "effectiveAvailable", "valueInteger": option.effective_available})
-    if option.travel is not None:
-        parts.append({"name": "travelLow", "valueInteger": option.travel.low_minutes})
-        parts.append({"name": "travelHigh", "valueInteger": option.travel.high_minutes})
-        parts.append({"name": "travelSource", "valueString": option.travel.source})
-    if option.data_age is not None:
-        parts.append(
-            {"name": "dataAgeSeconds", "valueInteger": int(option.data_age.total_seconds())}
-        )
-    parts.extend({"name": "fits", "valueString": fit} for fit in option.fits)
-    parts.extend({"name": "checks", "valueString": check} for check in option.warnings)
-    return {"name": "option", "part": parts}
-
-
-def _filter_to_fhir(result: FilterOptionsResult) -> dict[str, Any]:
-    parameters: list[dict[str, Any]] = [_option_to_part(o) for o in result.options]
-    parameters.extend(
-        {
-            "name": "notSuitable",
-            "part": [
-                {"name": "serviceId", "valueString": item.service_id},
-                {"name": "name", "valueString": item.name},
-                {"name": "reason", "valueString": item.reason},
-            ],
-        }
-        for item in result.not_suitable
-    )
-    return {"resourceType": "Parameters", "parameter": parameters}
-
-
 @router.post("/HealthcareService/$filter-options")
 async def filter_options(
     request: Request,
@@ -318,7 +280,7 @@ async def filter_options(
         container.postcodes,
         container.travel,
     ).execute(FilterOptionsCommand(key, actor, case_id))
-    return FhirJSONResponse(content=_filter_to_fhir(result), status_code=200)
+    return FhirJSONResponse(content=filter_result_to_fhir(result), status_code=200)
 
 
 @router.post("/HealthcareService/{service_id}/$advisor-phoned")

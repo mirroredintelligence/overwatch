@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from diucs.application.idempotency import format_instant
+from diucs.application.use_cases.filter_options import FilterOptionsResult, Option
 from diucs.domain.codes import (
     BASE_URL,
     AcuityMethod,
@@ -277,3 +278,62 @@ def case_to_fhir(case: Case) -> dict[str, Any]:
             {"coding": [{"system": system, "code": need.value}]} for need in case.needs
         ]
     return request
+
+
+def _decimal(name: str, value: float) -> dict[str, Any]:
+    return {"name": name, "valueDecimal": value}
+
+
+def _option_part(option: Option) -> dict[str, Any]:
+    parts: list[dict[str, Any]] = [
+        {"name": "serviceId", "valueString": option.service_id},
+        {"name": "name", "valueString": option.name},
+        {"name": "status", "valueCode": option.status.value},
+        {"name": "criteriaVersion", "valueInteger": option.criteria_version},
+        {"name": "unitLabel", "valueString": option.unit_label},
+    ]
+    if option.category is not None:
+        parts.append({"name": "category", "valueCode": option.category.value})
+    if option.effective_available is not None:
+        parts.append({"name": "effectiveAvailable", "valueInteger": option.effective_available})
+    if option.over_by is not None:
+        parts.append({"name": "overBy", "valueInteger": option.over_by})
+    if option.position is not None:
+        parts.append(_decimal("lat", option.position.lat))
+        parts.append(_decimal("lon", option.position.lon))
+    if option.travel is not None:
+        parts.append({"name": "travelLow", "valueInteger": option.travel.low_minutes})
+        parts.append({"name": "travelHigh", "valueInteger": option.travel.high_minutes})
+        parts.append({"name": "travelSource", "valueString": option.travel.source})
+    if option.data_age is not None:
+        parts.append(
+            {"name": "dataAgeSeconds", "valueInteger": int(option.data_age.total_seconds())}
+        )
+    parts.extend({"name": "fits", "valueString": fit} for fit in option.fits)
+    parts.extend({"name": "checks", "valueString": check} for check in option.warnings)
+    return {"name": "option", "part": parts}
+
+
+def filter_result_to_fhir(result: FilterOptionsResult) -> dict[str, Any]:
+    """The `$filter-options` answer as Parameters: the options, then the services that do not fit,
+    then the patient's area and the map flags (each flag only when true)."""
+    parameters: list[dict[str, Any]] = [_option_part(option) for option in result.options]
+    parameters.extend(
+        {
+            "name": "notSuitable",
+            "part": [
+                {"name": "serviceId", "valueString": item.service_id},
+                {"name": "name", "valueString": item.name},
+                {"name": "reason", "valueString": item.reason},
+            ],
+        }
+        for item in result.not_suitable
+    )
+    if result.patient is not None:
+        parameters.append(_decimal("patientLat", result.patient.lat))
+        parameters.append(_decimal("patientLon", result.patient.lon))
+    if result.not_found:
+        parameters.append({"name": "notFound", "valueBoolean": True})
+    if result.out_of_area:
+        parameters.append({"name": "outOfArea", "valueBoolean": True})
+    return {"resourceType": "Parameters", "parameter": parameters}

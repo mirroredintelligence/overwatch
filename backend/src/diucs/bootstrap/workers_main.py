@@ -100,6 +100,7 @@ def build_runners(
     push: PushSender | None = None,
     clock: Clock | None = None,
     app_url: str = "",
+    board_projector: object | None = None,
 ) -> list[ServiceBusRunner]:
     """One runner for each inbound queue, each over a consumer that binds the message's tenant and
     handles the message under its trace span (O01): the replies, the receipts and, with the

@@ -18,6 +18,7 @@ import json
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Any
 
 from diucs.application.actor import Actor, wall_actor
@@ -30,6 +31,18 @@ from diucs.domain.errors import NotAllowed
 from diucs.domain.rules.pressure import Pressure
 
 BOARD_CACHE_KEY = "board:v1"
+
+
+class BoardAudience(StrEnum):
+    """Stub for the red commit."""
+
+    ALL = "all"
+
+
+def board_cache_key(audience: BoardAudience) -> str:
+    raise NotImplementedError
+
+
 # [ASSUMED] in docs/plan/prompts/U09.md: a 60 s backstop. The rebuild on each event does the work.
 BOARD_CACHE_TTL = timedelta(seconds=60)
 BOARD_CHANGED = "board-changed"

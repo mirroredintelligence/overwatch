@@ -822,6 +822,27 @@ async def test_a_cover_for_one_service_leaves_the_others_with_the_reporter(
     assert [row["id"] for row in rows] == [EAST]
 
 
+async def test_a_post_that_is_already_covered_can_be_handed_to_another_cover(
+    api: AsyncClient,
+) -> None:
+    await api.post(
+        f"/reporter/services/{WEST}/cover",
+        json={"phone": COVER_MOBILE, "until": "tonight"},
+        headers=bearer(),
+    )
+
+    again = await api.post(
+        f"/reporter/services/{WEST}/cover",
+        json={"phone": "07700 900654", "until": "this-week"},
+        headers=bearer(),
+    )
+
+    assert (again.status_code, again.json()) == (
+        200,
+        {"coveredUntil": "2026-11-01T23:59:00Z", "services": 1},
+    )
+
+
 async def test_a_cover_for_a_service_the_reporter_does_not_hold_is_a_404(
     api: AsyncClient, world: Container, tenant_id: str
 ) -> None:

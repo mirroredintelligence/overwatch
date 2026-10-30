@@ -242,7 +242,7 @@ class ReporterReader:
         async with self._uow_factory() as uow:
             held = await held_services(uow, actor, now)
             settings = await read_settings(uow, self._zones)
-            rows: list[tuple[ServiceProfile, CapacityReport | None, RowState, ServiceRow]] = []
+            rows: list[ServiceRow] = []
             for service_id in sorted(held.roles, key=lambda sid: (held.names[sid], sid)):
                 profile = await uow.services.get(service_id)
                 if profile is None or not profile.active:
@@ -267,10 +267,10 @@ class ReporterReader:
                     reply_by=assessed.reply_by,
                     letter=None,
                 )
-                rows.append((profile, latest, assessed.state, row))
-        due = [row.name for _, _, state, row in rows if state is RowState.DUE]
+                rows.append(row)
+        due = [row.name for row in rows if row.state is RowState.DUE]
         letters = letters_for(due) if len(due) > 1 else {}
-        return [replace(row, letter=letters.get(row.name)) for _, _, _, row in rows]
+        return [replace(row, letter=letters.get(row.name)) for row in rows]
 
     async def prompt(self, actor: Actor, service_id: str) -> PromptView:
         now = self._clock.now()
@@ -717,13 +717,13 @@ class ReporterSettingsWriter:
                 now,
                 settings.zone,
             )
+            # A post the reporter has already handed on is still theirs to hand on again, so the
+            # targets are their own posts, covered or not.
             targets = [
                 role
                 for role in held.own
                 if command.service_id is None or role.service_id == command.service_id
             ]
-            if command.service_id is not None:
-                _role_of(held, command.service_id)
             if not targets:
                 raise _unknown_service()
             if cover_hash == held.practitioner.phone_hash:
@@ -771,7 +771,6 @@ class ReporterSettingsWriter:
         async with self._uow_factory() as uow:
             scope = _tenant_scope(uow)
             held = await held_services(uow, actor, now)
-            _role_of(held, service_id)
             own = next((role for role in held.own if role.service_id == service_id), None)
             if own is None:
                 raise _unknown_service()

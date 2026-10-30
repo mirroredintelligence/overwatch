@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { bffFetch } from '@/lib/advisor/browser';
 import type { OptionsParts } from '@/lib/advisor/options';
+import { CriteriaDialog } from './CriteriaDialog';
+import { DeclinedDialog } from './DeclinedDialog';
 import { NotSuitableList } from './NotSuitableList';
+import { PhonedDialog } from './PhonedDialog';
 import { ServiceCard } from './ServiceCard';
 import styles from './OptionsList.module.css';
 
@@ -30,24 +33,37 @@ function headingFor(count: number): string {
   return count === 1 ? "1 service meets this patient's criteria" : `${count} services meet this patient's criteria`;
 }
 
+type Open = { kind: 'criteria' | 'phoned' | 'declined'; serviceId: string; serviceName: string };
+
 export function OptionsList({ caseId, onRequest, onCriteria, onPhoned, onAskClinical }: OptionsListProps) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  const [open, setOpen] = useState<Open | null>(null);
   const requested = useRef<string | null>(null);
+
+  // Reads the options. Called once per case on mount, and again only after a saved answer, so the
+  // list shows what the answer changed. Never on focus.
+  const readOptions = useCallback(async () => {
+    const reply = await bffFetch<OptionsParts>(`/api/bff/cases/${encodeURIComponent(caseId)}/options`);
+    setLoad(reply.ok ? { kind: 'ready', parts: reply.body } : { kind: 'failed' });
+  }, [caseId]);
 
   useEffect(() => {
     // One read per case. Re-running the effect (a strict-mode remount) does not read again.
     if (requested.current === caseId) return;
     requested.current = caseId;
-    bffFetch<OptionsParts>(`/api/bff/cases/${encodeURIComponent(caseId)}/options`).then((reply) => {
-      setLoad(reply.ok ? { kind: 'ready', parts: reply.body } : { kind: 'failed' });
-    });
-  }, [caseId]);
+    void readOptions();
+  }, [caseId, readOptions]);
 
   if (load.kind === 'loading') return <p>Loading the options.</p>;
   if (load.kind === 'failed') return <p role="alert">The options could not be read. Try again.</p>;
 
   const { options, notSuitable } = load.parts;
   const hasNetwork = options.some((option) => option.network !== null);
+  const close = () => setOpen(null);
+  const opener = (kind: Open['kind']) => (serviceId: string) => {
+    const name = options.find((option) => option.serviceId === serviceId)?.name ?? '';
+    setOpen({ kind, serviceId, serviceName: name });
+  };
 
   return (
     <section className={styles.list} aria-label="Options">
@@ -64,13 +80,42 @@ export function OptionsList({ caseId, onRequest, onCriteria, onPhoned, onAskClin
                 key={option.serviceId}
                 option={option}
                 onRequest={onRequest}
-                onCriteria={onCriteria}
-                onPhoned={onPhoned}
+                onCriteria={(id) => {
+                  opener('criteria')(id);
+                  onCriteria?.(id);
+                }}
+                onPhoned={(id) => {
+                  opener('phoned')(id);
+                  onPhoned?.(id);
+                }}
+                onDeclined={opener('declined')}
               />
             ))}
           </div>
         </>
       )}
+
+      {open?.kind === 'criteria' ? (
+        <CriteriaDialog serviceId={open.serviceId} serviceName={open.serviceName} onClose={close} />
+      ) : null}
+      {open?.kind === 'phoned' ? (
+        <PhonedDialog
+          caseRef={caseId}
+          serviceId={open.serviceId}
+          serviceName={open.serviceName}
+          onSaved={() => void readOptions()}
+          onClose={close}
+        />
+      ) : null}
+      {open?.kind === 'declined' ? (
+        <DeclinedDialog
+          caseRef={caseId}
+          serviceId={open.serviceId}
+          serviceName={open.serviceName}
+          onSaved={() => void readOptions()}
+          onClose={close}
+        />
+      ) : null}
 
       <NotSuitableList items={notSuitable} />
 

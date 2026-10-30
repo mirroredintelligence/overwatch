@@ -50,7 +50,9 @@ describe('PhonedDialog (W14)', () => {
     expect(sent[0].body).toEqual({ said: 'limited', value: 1, caseRef: '4821' });
     expect(sent[0].csrf).toBe(CSRF_TOKEN);
     expect(sent[0].key).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
-    expect(sent[0].url).not.toMatch(/4821|svc-ucr-west/);
+    // The service is in the path, as the BFF route says; the case is only in the body.
+    expect(sent[0].url).toContain('/api/bff/services/svc-ucr-west/phoned');
+    expect(sent[0].url).not.toContain('4821');
   });
 
   it('Not accepting hides the number and sends 0', async () => {

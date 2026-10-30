@@ -13,6 +13,7 @@ export type ServiceCardProps = {
   onRequest?: (serviceId: string) => void;
   onCriteria?: (serviceId: string) => void;
   onPhoned?: (serviceId: string) => void;
+  onDeclined?: (serviceId: string) => void;
 };
 
 const NOT_KNOWN = 'Not recorded';
@@ -29,7 +30,7 @@ function dataAgeLine(option: OptionView): string {
   return `Data age: ${durationText(Math.floor(option.dataAgeSeconds / 60))} ago`;
 }
 
-export function ServiceCard({ option, onRequest, onCriteria, onPhoned }: ServiceCardProps) {
+export function ServiceCard({ option, onRequest, onCriteria, onPhoned, onDeclined }: ServiceCardProps) {
   const network = option.network;
   const checks = option.staleWarning
     ? [...option.checks, 'Data is over 2 hrs old. Consider phoning.']
@@ -91,6 +92,11 @@ export function ServiceCard({ option, onRequest, onCriteria, onPhoned }: Service
         {network === null ? (
           <Button variant="secondary" dataEl="ADV-OPT-PHONED-BTN" onClick={() => onPhoned?.(option.serviceId)}>
             I phoned
+          </Button>
+        ) : null}
+        {network === null ? (
+          <Button variant="secondary" dataEl="ADV-OPT-DECLINED-BTN" onClick={() => onDeclined?.(option.serviceId)}>
+            They declined
           </Button>
         ) : null}
       </div>

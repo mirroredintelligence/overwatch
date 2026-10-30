@@ -1,5 +1,5 @@
 import { getSession } from '@/lib/auth/session';
-import { TelemetryMount } from './TelemetryMount';
+import { TelemetryMount } from '@/components/telemetry/TelemetryMount';
 
 // Server side of the telemetry mount (W9F): the browser measures only for a signed-in person, whose
 // role the sealed session names. A signed-out page, a session on another host or a session that has

@@ -162,18 +162,17 @@ async def test_the_graph_holds_no_session_id_only_a_keyed_marker(
         ],
     )
 
-    async def texts(tx: AsyncManagedTransaction) -> list[str]:
+    async def values(tx: AsyncManagedTransaction) -> list[Any]:
         rows = await (
             await tx.run(
-                "MATCH (n) WHERE n.tenantId = $tenant "
-                "UNWIND keys(n) AS key RETURN toString(n[key]) AS text"
+                "MATCH (n) WHERE n.tenantId = $tenant UNWIND keys(n) AS key RETURN n[key] AS value"
             )
         ).data()
-        return [row["text"] for row in rows]
+        return [row["value"] for row in rows]
 
-    found = await read_tx(neo4j_driver, texts)
+    found = await read_tx(neo4j_driver, values)
     assert found
-    assert not any(SESSION in text for text in found)
+    assert not any(SESSION in str(value) for value in found)
     markers = await node_props_list(neo4j_driver, "TallySeen")
     assert markers
     assert all(len(marker["key"]) == 32 for marker in markers)

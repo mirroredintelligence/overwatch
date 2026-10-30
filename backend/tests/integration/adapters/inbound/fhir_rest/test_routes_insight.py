@@ -193,10 +193,20 @@ async def test_every_tab_answers_with_its_own_shape_on_an_empty_tenant(
         "releases": {"tab", "range", "compare", "measures", "pipeline"},
     }
     for tab, keys in shapes.items():
-        response = await _read(client, run_identity.tenant_id, tab, "range=24h&device=phone")
+        query = "range=24h" if tab == "releases" else "range=24h&device=phone"
+        response = await _read(client, run_identity.tenant_id, tab, query)
         assert response.status_code == 200, (tab, response.text)
         assert set(response.json()) == keys, tab
         assert response.json()["tab"] == tab
+
+
+async def test_the_release_comparison_refuses_a_device_it_has_no_use_for(
+    client: AsyncClient, run_identity: RunIdentity
+) -> None:
+    response = await _read(client, run_identity.tenant_id, "releases", "range=7d&device=phone")
+
+    assert response.status_code == 400
+    assert "device" in response.text
 
 
 async def test_the_funnels_list_each_browser_funnel_with_hidden_steps_when_there_is_no_data(

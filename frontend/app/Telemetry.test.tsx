@@ -5,7 +5,7 @@ import { resetCookieWrites, seedCookies, setRequestHost, TEST_SESSION_SECRET } f
 import { sessionFor } from '@/test/requests';
 import { TENANTS } from '@/test/tenants';
 import { Telemetry } from './Telemetry';
-import { TelemetryMount } from './TelemetryMount';
+import { TelemetryMount } from '@/components/telemetry/TelemetryMount';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');

@@ -128,3 +128,45 @@ def test_the_status_type_and_scope_values_are_the_stored_words() -> None:
     assert [s.value for s in DeviceStatus] == ["paired-unclaimed", "active", "revoked"]
     assert [t.value for t in DeviceType] == ["wall-display"]
     assert [b.value for b in BoardScope] == ["tenant", "network"]
+
+
+# ---- the board setting of a wall screen (TEN-067)
+
+
+def test_a_screen_starts_on_the_tenant_board_at_version_one_with_no_network() -> None:
+    device = _device()
+    assert device.board_scope is BoardScope.TENANT
+    assert device.network_id is None
+    assert device.scope_version == 1
+
+
+def test_a_network_screen_names_its_network() -> None:
+    device = _device(board_scope=BoardScope.NETWORK, network_id="net-dorset")
+    assert device.network_id == "net-dorset"
+
+
+def test_a_network_screen_without_a_network_is_refused() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        _device(board_scope=BoardScope.NETWORK, network_id=None)
+    assert refused.value.field == "network_id"
+
+
+def test_a_tenant_screen_with_a_network_is_refused() -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        _device(board_scope=BoardScope.TENANT, network_id="net-dorset")
+    assert refused.value.field == "network_id"
+
+
+@pytest.mark.parametrize("text", ["dorset", "NET-X", "net-", "net-a b", "tenant-1", ""])
+def test_a_network_id_must_be_a_network_id(text: str) -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        _device(board_scope=BoardScope.NETWORK, network_id=text)
+    assert refused.value.field == "network_id"
+    assert text not in str(refused.value) or text == ""
+
+
+@pytest.mark.parametrize("version", [0, -1, True, "1", 1.0])
+def test_a_scope_version_is_a_positive_whole_number(version: object) -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        _device(scope_version=version)
+    assert refused.value.field == "scope_version"

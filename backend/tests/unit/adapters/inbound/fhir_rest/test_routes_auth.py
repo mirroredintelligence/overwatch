@@ -574,6 +574,84 @@ async def test_an_operator_exchange_with_no_operator_directory_is_a_500() -> Non
     assert response.status_code == 500
 
 
+# ---- the operator's sign-in is recorded
+
+
+class _Platform:
+    def __init__(self, fail: bool = False) -> None:
+        self.entries: list[Any] = []
+        self.fail = fail
+
+    async def append(self, entry: Any) -> None:
+        if self.fail:
+            raise ConnectionError("platform audit is down")
+        self.entries.append(entry)
+
+
+def _operator_app(platform: _Platform | None, role: str = "DIUCS.Support") -> FastAPI:
+    verifier = accepting(_identity(D_OPERATOR, (), (role,)), Audience.OPERATOR)
+    app, _ = build(verifier=verifier)
+    app.state.token_exchange = ExchangeDeps(
+        verifier=verifier, operator_directory_id=D_OPERATOR, platform_audit=platform
+    )
+    return app
+
+
+async def test_an_operator_sign_in_is_written_to_the_platform_chain_before_the_token_is_given() -> (
+    None
+):
+    platform = _Platform()
+    app = _operator_app(platform)
+
+    async with client(app, "ops.example.test") as c:
+        response = await c.post(OPERATOR_PATH, json={"idToken": CREDENTIAL})
+
+    claims = decode_operator_token(response.json()["token"], SIGNING, NOW)
+    (entry,) = platform.entries
+    assert (entry.action, entry.principal_ref) == ("operator-signed-in", claims.sub)
+    assert (entry.tenant_id, entry.access_id, entry.at) == (None, None, NOW)
+    assert entry.snapshot == {"role": "support"}
+    text = repr(entry)
+    for secret in (CREDENTIAL, D_OPERATOR, OID, response.json()["token"]):
+        assert secret not in text
+
+
+async def test_a_sign_in_the_platform_chain_cannot_record_gets_no_token() -> None:
+    platform = _Platform(fail=True)
+    app = _operator_app(platform)
+
+    async with client(app, "ops.example.test") as c:
+        response = await c.post(OPERATOR_PATH, json={"idToken": CREDENTIAL})
+
+    assert response.status_code == 503
+    assert response.headers["retry-after"]
+    assert "token" not in response.text.lower().replace("unavailable", "")
+    assert platform.entries == []
+
+
+async def test_a_refused_operator_exchange_writes_nothing_to_the_platform_chain() -> None:
+    platform = _Platform()
+    verifier = accepting(_identity(D_A, (), ("DIUCS.Support",)), Audience.OPERATOR)
+    app, _ = build(verifier=verifier)
+    app.state.token_exchange = ExchangeDeps(
+        verifier=verifier, operator_directory_id=D_OPERATOR, platform_audit=platform
+    )
+
+    async with client(app) as c:
+        response = await c.post(OPERATOR_PATH, json={"idToken": CREDENTIAL})
+
+    assert response.status_code == 403 and platform.entries == []
+
+
+async def test_a_process_with_no_platform_chain_still_issues_the_token() -> None:
+    app = _operator_app(None)
+
+    async with client(app, "ops.example.test") as c:
+        response = await c.post(OPERATOR_PATH, json={"idToken": CREDENTIAL})
+
+    assert response.status_code == 200
+
+
 # ----------------------------------------------------------------------- logs
 
 

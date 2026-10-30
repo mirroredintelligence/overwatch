@@ -46,6 +46,7 @@ from diucs.adapters.inbound.fhir_rest.token_resolvers import resolve_active_devi
 from diucs.application.ports.outbound.cache import PlatformSlots
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.identity_verifier import IdentityVerifier
+from diucs.application.ports.outbound.platform_audit import PlatformAudit, PlatformAuditEntry
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.rate_limits import PlatformRateLimiter
@@ -70,6 +71,7 @@ AUTH_PREFIX: Final = "/auth"
 STAFF_PATH: Final = f"{AUTH_PREFIX}/token"
 DEVICE_PATH: Final = f"{AUTH_PREFIX}/device-token"
 OPERATOR_PATH: Final = f"{AUTH_PREFIX}/operator-token"
+ACTION_OPERATOR_SIGNED_IN: Final = "operator-signed-in"
 FORBIDDEN_TEXT: Final = EXCHANGE_REFUSED_MESSAGE
 
 # [ASSUMED] (domain-rules 7): the exchanges of one address in a minute. Behind the BFF the address
@@ -97,6 +99,10 @@ class ExchangeDeps:
 
     verifier: IdentityVerifier
     operator_directory_id: str | None
+    platform_audit: PlatformAudit | None = None
+    """The platform chain (TEN-075). When set, every operator sign-in is written to it before the
+    token is returned, and a sign-in that cannot be recorded gets no token (a fixed 503). None
+    leaves sign-ins unrecorded (a process with no platform chain)."""
 
 
 class _Container(Protocol):
@@ -228,4 +234,21 @@ async def exchange_operator(request: Request, body: CredentialBody) -> Response:
         issued = await use_case.execute(ExchangeOperatorCommand(credential=body.idToken))
     except ExchangeRefused:
         return _forbidden()
+    if deps.platform_audit is not None and issued.account_ref is not None:
+        try:
+            await deps.platform_audit.append(
+                PlatformAuditEntry(
+                    action=ACTION_OPERATOR_SIGNED_IN,
+                    principal_ref=issued.account_ref,
+                    tenant_id=None,
+                    access_id=None,
+                    snapshot={"role": issued.role.value},
+                    at=_container(request).clock.now(),
+                )
+            )
+        except Exception as error:
+            # A sign-in nobody can record gets no token: the platform chain is the operator's
+            # record of who was let in.
+            log.error("operator sign-in not recorded: %s", type(error).__name__)
+            raise TemporarilyUnavailable(RETRY_AFTER_UNAVAILABLE_SECONDS) from None
     return _issued(issued)

@@ -210,8 +210,6 @@ def _case_to_fhir(case: Case) -> dict[str, Any]:
         request["reasonCode"] = [
             {"coding": [{"system": system, "code": need.value}]} for need in case.needs
         ]
-    if case.outcome is not None:
-        request["outcome"] = {"valueCode": case.outcome.value}
     return request
 
 

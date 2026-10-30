@@ -193,8 +193,11 @@ class Rig:
         *,
         effective_at: datetime | None = None,
         key: str | None = None,
+        performer: bool = True,
     ) -> ReportCapacityResult:
-        """A reporter's text report at `at` (an advisor-phoned report when it is back-dated)."""
+        """A reporter's text report at `at` (an advisor-phoned report when it is back-dated). The
+        performer is the rig's reporter role; a service nobody could be texted for has none to name
+        (`performer=False`), and the performer of a report must be a role that exists (TEN-024)."""
         self.clock.set(at)
         back_dated = effective_at is not None
         actor = (
@@ -217,7 +220,7 @@ class Rig:
                 value=value,
                 source=ReportSource.ADVISOR_PHONED if back_dated else ReportSource.TEXT,
                 effective_at=effective_at,
-                performer_role_id=None if back_dated else f"{self.prefix}role-1",
+                performer_role_id=None if back_dated or not performer else f"{self.prefix}role-1",
             )
         )
 

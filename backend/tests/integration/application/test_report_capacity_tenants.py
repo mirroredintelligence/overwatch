@@ -17,7 +17,7 @@ Runs on contracted_container() (DEC-159). Synthetic values only.
 
 import asyncio
 from collections.abc import AsyncIterator
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
 from typing import Any
 
@@ -37,6 +37,12 @@ from diucs.application.use_cases.report_capacity import (
     ReportCapacity,
     ReportCapacityCommand,
 )
+from diucs.application.use_cases.tenant_config import (
+    ApproveConfigCommand,
+    ApproveTenantConfig,
+    DraftConfigCommand,
+    DraftTenantConfig,
+)
 from diucs.domain.codes import (
     Cadence,
     Channel,
@@ -50,7 +56,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
-from diucs.domain.model.tenant import ConfigStatus, TenantConfig
+from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import read_tx, wipe
 from tests.support.tenancy import as_tenant
 from tests.support.tenant_seed import contracted_container
@@ -108,7 +114,7 @@ class Tenants:
         )
 
 
-async def _seed(factory: UnitOfWorkFactory, config: TenantConfig | None = None) -> None:
+async def _seed(factory: UnitOfWorkFactory) -> None:
     async with factory() as uow:
         await uow.services.save(PROFILE)
         await uow.people.save_practitioner(
@@ -127,8 +133,6 @@ async def _seed(factory: UnitOfWorkFactory, config: TenantConfig | None = None) 
                 period_start=NOW - timedelta(days=30),
             )
         )
-        if config is not None:
-            await uow.tenant_config.add_version(config)
         await uow.commit()
 
 
@@ -193,9 +197,7 @@ async def test_a_service_only_the_other_tenant_has_reads_as_an_id_nobody_has(
     tenants: Tenants,
 ) -> None:
     async with tenants.factory_b() as uow:
-        await uow.services.save(
-            ServiceProfile(**{**PROFILE.__dict__, "id": "only-b", "name": "Only B"})
-        )
+        await uow.services.save(replace(PROFILE, id="only-b", name="Only B"))
         await uow.commit()
     before_a = await _written(tenants, tenants.a)
     before_b = await _written(tenants, tenants.b)
@@ -230,41 +232,47 @@ async def test_a_service_only_the_other_tenant_has_reads_as_an_id_nobody_has(
 async def test_a_lock_the_other_tenant_holds_does_not_delay_a_report_for_its_service_id(
     tenants: Tenants,
 ) -> None:
-    async with tenants.factory_b() as holder:
-        await holder.capacity.lock_service(SERVICE)  # held until this unit ends
-        async with tenants.factory_b() as uow:
-            await uow.services.save(
-                ServiceProfile(**{**PROFILE.__dict__, "id": "held-by-b", "name": "Held B"})
+    async with tenants.factory_b() as uow:
+        await uow.services.save(replace(PROFILE, id="held-by-b", name="Held B"))
+        await uow.commit()
+    locked, release = asyncio.Event(), asyncio.Event()
+
+    async def hold() -> None:
+        # Its own task, so its unit of work is not nested in the test's context.
+        async with tenants.factory_b() as holder:
+            await holder.capacity.lock_service("held-by-b")  # held until released
+            locked.set()
+            await release.wait()
+            await holder.rollback()
+
+    holder_task = asyncio.create_task(hold())
+    try:
+        await asyncio.wait_for(locked.wait(), timeout=30)
+        advisor = Actor(
+            role=Role.ADVISOR,
+            practitioner_id="prac-advisor",
+            device_id=None,
+            channel="web",
+            service_ids=frozenset(),
+            tenant_id=tenants.a,
+        )
+        with pytest.raises(NotFound):
+            await asyncio.wait_for(
+                _report(
+                    tenants,
+                    tenants.a,
+                    service_id="held-by-b",
+                    actor=advisor,
+                    source=ReportSource.ADVISOR_PHONED,
+                ),
+                timeout=10,
             )
-            await uow.commit()
-        async with tenants.factory_b() as holder_two:
-            await holder_two.capacity.lock_service("held-by-b")
-            try:
-                advisor = Actor(
-                    role=Role.ADVISOR,
-                    practitioner_id="prac-advisor",
-                    device_id=None,
-                    channel="web",
-                    service_ids=frozenset(),
-                    tenant_id=tenants.a,
-                )
-                with pytest.raises(NotFound):
-                    await asyncio.wait_for(
-                        _report(
-                            tenants,
-                            tenants.a,
-                            service_id="held-by-b",
-                            actor=advisor,
-                            source=ReportSource.ADVISOR_PHONED,
-                        ),
-                        timeout=5,
-                    )
-            finally:
-                await holder_two.rollback()
-        await holder.rollback()
+    finally:
+        release.set()
+        await holder_task
 
 
-def test_the_lock_statement_is_bound_to_the_tenant() -> None:
+async def test_the_lock_statement_is_bound_to_the_tenant() -> None:
     assert "tenantId: $tenant" in REGISTRY.get("Q-CAP-LOCK-SERVICE").cypher
 
 
@@ -401,29 +409,48 @@ async def test_an_actor_of_the_other_tenant_in_work_bound_to_this_one_is_refused
     assert await _written(tenants, tenants.a) == before
 
 
+async def _config_in_force(factory: UnitOfWorkFactory) -> int:
+    """A first configuration version approved by two people other than its author, as it must be:
+    a reply window of 60 minutes (the default is 30)."""
+
+    def person(ref: str) -> Actor:
+        return Actor(
+            role=Role.OWNER,
+            practitioner_id=ref,
+            device_id=None,
+            channel="web",
+            service_ids=frozenset(),
+            tenant_id=ACTOR_TENANT,
+        )
+
+    roles = frozenset({Role.OWNER})
+    clock = FixedClock(NOW)
+    drafted = await DraftTenantConfig(factory, clock, roles).execute(
+        DraftConfigCommand(
+            person("prac-lead-1"),
+            0,
+            {
+                "replyWindowMinutes": 60,
+                "reminderAfterMinutes": 60,
+                "phoneTaskAfterMinutes": 90,
+                "escalateAfterMinutes": 120,
+            },
+        )
+    )
+    for approver in ("prac-owner-1", "prac-owner-2"):
+        await ApproveTenantConfig(factory, clock, roles).execute(
+            ApproveConfigCommand(person(approver), drafted.version)
+        )
+    return drafted.version
+
+
 # -- the tenant's own configuration ------------------------------------------------------------
 
 
 async def test_the_tenants_configuration_reaches_the_status_and_the_audit_records_its_version(
     tenants: Tenants,
 ) -> None:
-    config = TenantConfig(
-        version=3,
-        status=ConfigStatus.CURRENT,
-        values={
-            "replyWindowMinutes": 60,
-            "reminderAfterMinutes": 60,
-            "phoneTaskAfterMinutes": 90,
-            "escalateAfterMinutes": 120,
-        },
-        created_at=NOW - timedelta(days=1),
-        created_by_ref="prac-owner",
-        effective_from=NOW - timedelta(days=1),
-        approved_by_refs=("prac-owner-1", "prac-owner-2"),
-    )
-    async with tenants.factory_a() as uow:
-        await uow.tenant_config.add_version(config)
-        await uow.commit()
+    version = await _config_in_force(tenants.factory_a)
     # 10:30Z (11:30 BST) answers the 10:00 prompt but not the 12:00 one. At 12:45 BST the default
     # reply window (30 minutes) has run out for the 12:00 prompt, so the figure is overdue; with the
     # tenant's 60 minutes the 12:00 prompt is still being waited for, and the figure is current.
@@ -449,5 +476,5 @@ async def test_the_tenants_configuration_reaches_the_status_and_the_audit_record
         return {str(row["tenant"]): str(row["entry"]) for row in rows}
 
     entries = await read_tx(tenants.driver, snapshots)
-    assert '"config_version":3' in entries[tenants.a].replace(" ", "")
+    assert f'"config_version":{version}' in entries[tenants.a].replace(" ", "")
     assert "config_version" not in entries[tenants.b]

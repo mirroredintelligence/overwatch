@@ -669,7 +669,7 @@ async def test_an_echo_with_no_next_prompt_is_refused_and_writes_nothing(
     # No valid profile reaches this state (see test_next_due_total.py). The state is built by
     # replacing next_due, so the guard in execute is exercised and nothing is written.
     await _seed_with_performer(seed_service, uow_factory)
-    monkeypatch.setattr(report_capacity, "next_due", lambda profile, now: None)
+    monkeypatch.setattr(report_capacity, "next_due", lambda profile, now, *rest: None)
 
     with pytest.raises(DomainError, match="next due instant"):
         await _rig(uow_factory, neo4j_driver)[0].execute(_command(4, performer_role_id="role-1"))

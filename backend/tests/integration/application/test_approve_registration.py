@@ -93,7 +93,8 @@ async def seed_approved(
         stored = await uow.registrations.get(REG)
         assert stored is not None
         record = dict(stored.draft.get("record", {}))
-        record.update(extra or {})
+        # A draft step must not be empty: the approval record starts with the approval itself.
+        record.update(extra or {"approved_at": at(10, 30).isoformat(), "approved_by": "prac-lead"})
         await uow.registrations.save(
             replace(
                 stored,

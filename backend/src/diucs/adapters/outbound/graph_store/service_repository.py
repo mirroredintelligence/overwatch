@@ -256,9 +256,12 @@ class Neo4jServiceRepository:
             await self._put_with_current(organisation)
 
     async def _put_with_current(self, resource: dict[str, Any]) -> None:
+        """Write the resource as a new version. The store sets `meta` itself and refuses a resource
+        that carries it, so the stored meta is left out of the write."""
         current = await self._store.get(resource["resourceType"], resource["id"])
         expected = None if current is None else str(current["meta"]["versionId"])
-        await self._store.put(resource, expected)
+        body = {key: value for key, value in resource.items() if key != "meta"}
+        await self._store.put(body, expected)
 
     async def save(self, profile: ServiceProfile) -> None:
         # Replace the stored version, or create it. The store checks the version after its lock,

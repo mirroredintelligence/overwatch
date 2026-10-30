@@ -117,6 +117,16 @@ class InMemoryCache:
         names = scoped_names()
         self._values.pop(names.key(key), None)
 
+    def platform_keys(self) -> frozenset[str]:
+        """The unexpired platform markers, as scoped names. For tests."""
+        raise NotImplementedError
+
+    async def platform_take(self, name: str, ttl: timedelta) -> bool:
+        raise NotImplementedError
+
+    async def platform_release(self, name: str) -> None:
+        raise NotImplementedError
+
     async def publish(self, channel: str, message: str) -> None:
         names = scoped_names()
         for queue in self._subscribers.get(names.channel(channel), []):

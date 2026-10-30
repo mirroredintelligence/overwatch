@@ -140,6 +140,12 @@ class RedisCache:
         names = scoped_names()
         await self._client.delete(ROOT + names.key(key))
 
+    async def platform_take(self, name: str, ttl: timedelta) -> bool:
+        raise NotImplementedError
+
+    async def platform_release(self, name: str) -> None:
+        raise NotImplementedError
+
     async def publish(self, channel: str, message: str) -> None:
         names = scoped_names()
         await self._client.publish(ROOT + names.channel(channel), message)

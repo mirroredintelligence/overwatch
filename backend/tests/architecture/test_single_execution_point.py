@@ -69,6 +69,9 @@ BINDING_MODULES: frozenset[str] = frozenset(
         # TEN-018: the REST edge. `current_actor` binds the tenant of a verified token for the
         # request, and nothing a request sends (header, query, body, host) is read for it.
         "diucs.adapters.inbound.fhir_rest.auth",
+        # TEN-040: the host-bound binder of every route that carries no token. It binds the tenant
+        # the request host names in the tenant directory (an active tenant only), and nothing else.
+        "diucs.adapters.inbound.fhir_rest.host_tenant",
         # TEN-017: the start-up is an edge of its own: it binds each active tenant in turn to make
         # that tenant's audit head. No request or message is in it.
         "diucs.bootstrap.container",

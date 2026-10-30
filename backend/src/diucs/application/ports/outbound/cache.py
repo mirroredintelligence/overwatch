@@ -85,6 +85,18 @@ class ScopedNames:
         return f"{self.segment}:{FAMILY_CHANNEL}:{_checked(name)}"
 
 
+# The platform namespace (TEN-040): names that belong to no tenant, because they are counted before
+# any tenant is known (the source-address limiter of the unauthenticated routes). One segment, and
+# a tenant id cannot be it (a tenant id has two or more characters), so no tenant's name can fall
+# in it and no platform name in a tenant's.
+PLATFORM_SEGMENT: Final = "_"
+
+
+def platform_names() -> ScopedNames:
+    """The names of the platform namespace. Stub for the red commit."""
+    raise NotImplementedError
+
+
 def names_for(scope: ScopeId) -> ScopedNames:
     """The names of one scope. Pure: it takes the scope, it does not read the binding."""
     return ScopedNames(scope_segment(scope))
@@ -140,4 +152,18 @@ class Cache(Protocol):
     async def release_lock(self, lock: Lock) -> None:
         """Release the lock only when its token is the current holder's. Otherwise do nothing. A
         lock issued in another scope is refused with CacheScopeMismatch and nothing is released."""
+        ...
+
+
+class PlatformSlots(Protocol):
+    """The cache's platform namespace (TEN-040): single-use, expiring markers that belong to no
+    tenant. The only calls that do not read the bound scope, and the only ones that use the platform
+    segment; a name is a name of this namespace and nothing else (a tenant name never reaches it)."""
+
+    async def platform_take(self, name: str, ttl: timedelta) -> bool:
+        """Store the marker when it is absent or expired, in one step; True when stored."""
+        ...
+
+    async def platform_release(self, name: str) -> None:
+        """Remove a marker. Removing a missing one is not an error."""
         ...

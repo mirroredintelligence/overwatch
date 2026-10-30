@@ -44,7 +44,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     Slot,
     render,
 )
-from diucs.application.tenancy import ScopeId
+from diucs.application.tenancy import ScopeId, ScopeKind
 from tests.support.neo4j import wipe
 from tests.support.tenant_seed import (
     Snapshot,
@@ -101,7 +101,9 @@ def _load_every_statement() -> None:
             importlib.import_module(module.name)
 
 
-def production_statements(registry: QueryRegistry = REGISTRY) -> dict[str, NamedQuery]:
+def production_statements(
+    registry: QueryRegistry = REGISTRY, kind: ScopeKind = ScopeKind.TENANT
+) -> dict[str, NamedQuery]:
     """Every tenant statement of the registry, keyed by base id: the eager statements, and one
     entry per template (the instance its scenario names, or a stand-in with the place emptied when
     it has none). Global statements and run-time instances are left out. A private registry that a
@@ -159,7 +161,11 @@ def registry_problems(registry: QueryRegistry) -> list[str]:
     return problems
 
 
-def universe_problems(registry: QueryRegistry, statements: Mapping[str, NamedQuery]) -> list[str]:
+def universe_problems(
+    registry: QueryRegistry,
+    statements: Mapping[str, NamedQuery],
+    kind: ScopeKind = ScopeKind.TENANT,
+) -> list[str]:
     """The registered tenant statements and templates that the generated test would not run:
     every one of them must be in the universe, whatever its name. Empty means fine."""
     registered = [
@@ -420,6 +426,7 @@ async def run_isolation(
     registry: QueryRegistry,
     tenant_a: str,
     tenant_b: str,
+    kind: ScopeKind = ScopeKind.TENANT,
 ) -> list[Finding]:
     """Run the scenario of every statement that has one, both ways round. A statement with no
     scenario is not run here: `scenario_gaps` and the ratchet are what refuse it."""

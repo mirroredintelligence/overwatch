@@ -35,6 +35,7 @@ from typing import Annotated, Any, Final, Protocol, cast
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 from diucs.adapters.inbound.fhir_rest import routes_bookings
 from diucs.adapters.inbound.fhir_rest.app import get_container
@@ -81,13 +82,20 @@ from diucs.application.use_cases.clinical_advice import (
     TakeClinicalRequestCommand,
 )
 from diucs.application.use_cases.safety_concern import (
+    ReportProblem,
+    ReportProblemCommand,
     ReportSafetyConcern,
     ReportSafetyConcernCommand,
 )
 from diucs.domain.codes import Role, code_system_url
 from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.rules.clinical_queue import Presence
-from diucs.domain.rules.safety_report import SafetyConcernCategory, checked_concern_text
+from diucs.domain.rules.safety_report import (
+    MAX_TEXT_LENGTH,
+    ProblemCategory,
+    SafetyConcernCategory,
+    checked_concern_text,
+)
 
 router = APIRouter()
 
@@ -100,6 +108,22 @@ NO_STORE: Final = {"Cache-Control": "no-store"}
 TASK_CODE_SYSTEM: Final = code_system_url("task-code")
 TASK_INPUT: Final = "task-input"
 """The inputs of a Task that are not a FHIR element: each is an extension under this name."""
+
+
+PROBLEM_ROLES: Final = tuple(role for role in Role if role not in (Role.WALL, Role.ANONYMOUS_LINK))
+"""Who may report a problem: any signed-in person. A wall screen and an anonymous link are no one
+(the use case refuses them too, U41)."""
+
+
+class ProblemBody(BaseModel):
+    """A problem report: its kind, an optional text of at most 280 characters, and whether the
+    person was sharing their session with support. Nothing else is accepted."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    category: ProblemCategory
+    text: str | None = Field(default=None, max_length=MAX_TEXT_LENGTH)
+    sessionShared: StrictBool = False
 
 
 class _Container(Protocol):
@@ -256,6 +280,37 @@ async def available_clinicians(
         container.uow_factory, container.cache, container.clock
     ).execute()
     return FhirJSONResponse(content={"available": count}, headers=NO_STORE)
+
+
+@router.post("/help/problems", status_code=201)
+async def report_problem(
+    body: ProblemBody,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*PROBLEM_ROLES))],
+) -> Response:
+    """A problem with the tool (U41, W7A-B4). The answer is the report's id and never the text,
+    which the use case keeps in the protected store."""
+    key = idempotency_key(request)
+    container = _container(request)
+
+    async def run() -> Response:
+        result = await ReportProblem(
+            container.uow_factory,
+            UnitOfWorkIdempotency(container.uow_factory),
+            container.ids,
+            container.clock,
+        ).execute(
+            ReportProblemCommand(
+                idempotency_key=key,
+                actor=actor,
+                category=body.category,
+                text=body.text,
+                session_shared=body.sessionShared,
+            )
+        )
+        return FhirJSONResponse(content={"id": result.report_id}, status_code=201, headers=NO_STORE)
+
+    return await replay_or_run(request, actor, f"problem:{key}", run)
 
 
 # ------------------------------------------------------------------------------- the task routes

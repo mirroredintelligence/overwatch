@@ -89,7 +89,7 @@ async def test_a_repeat_with_the_same_key_is_the_same_report_and_another_body_is
 
     assert first.status_code == 201
     assert again.json() == first.json()
-    assert changed.status_code == 409
+    assert changed.status_code == 422  # the key was used for another body
 
 
 @pytest.mark.parametrize("role", [Role.ADVISOR, Role.CLINICAL, Role.LEAD, Role.EXEC, Role.OWNER])

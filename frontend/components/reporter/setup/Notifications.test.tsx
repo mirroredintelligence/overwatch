@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
+import { resetReporterRequests, seenBffRequests } from '@/test/msw/handlers/reporter';
 import { Notifications } from './Notifications';
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
@@ -11,6 +12,7 @@ const requestPermission = vi.fn<() => Promise<NotificationPermission>>();
 
 beforeEach(() => {
   push.mockClear();
+  resetReporterRequests();
   requestPermission.mockReset();
   vi.stubGlobal('Notification', Object.assign(function () {}, { permission: 'default', requestPermission }));
 });
@@ -39,5 +41,13 @@ describe('Notifications', () => {
     render(<Notifications service="UCR West" />);
     await userEvent.click(screen.getByRole('button', { name: 'Allow notifications' }));
     expect(await screen.findByRole('link', { name: /notifications are off/i })).toHaveAttribute('href', '/app/notifications-off');
+  });
+
+  it('records text for the phone’s device before sign-in when the reporter would rather have text', async () => {
+    render(<Notifications service="UCR West" />);
+    await userEvent.click(screen.getByRole('button', { name: 'Not now. Use text instead' }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/setup/done?channel=text'));
+    expect(seenBffRequests.find((r) => r.path === '/api/bff/identity/channel')?.body).toEqual({ channel: 'text' });
+    expect(seenBffRequests.some((r) => r.path === '/api/bff/reporter/channel')).toBe(false);
   });
 });

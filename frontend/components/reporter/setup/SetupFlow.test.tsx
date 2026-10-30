@@ -72,7 +72,7 @@ describe('SetupFlow', () => {
   });
 
   it('says to send a new code and disables Check code when no tries are left', async () => {
-    server.use(http.post('/api/bff/identity/code/verify', () => HttpResponse.json({ ok: false, triesLeft: 0 })));
+    server.use(http.post('/api/bff/identity/invitation-code/verify', () => HttpResponse.json({ ok: false, triesLeft: 0 })));
     render(<SetupFlow step="code" invite={INVITE} />);
     const boxes = await screen.findAllByRole('textbox');
     await userEvent.click(boxes[0]);
@@ -87,7 +87,53 @@ describe('SetupFlow', () => {
     await userEvent.click(await screen.findByRole('radio', { name: /Text message/ }));
     await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(push).toHaveBeenCalledWith('/setup/done?channel=text'));
-    expect(seenBffRequests.find((r) => r.path === '/api/bff/reporter/channel')?.body).toEqual({ channel: 'text' });
+    // Before sign-in the channel is recorded for the phone's device (W8E): the session-bound route is not used.
+    expect(seenBffRequests.find((r) => r.path === '/api/bff/identity/channel')?.body).toEqual({ channel: 'text' });
+    expect(seenBffRequests.some((r) => r.path === '/api/bff/reporter/channel')).toBe(false);
+  });
+
+  it('asks for the invitation’s code with the link’s token only, and checks it with the token and the code only', async () => {
+    render(<SetupFlow step="number" invite={INVITE} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Send code' }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith(`/setup?step=code&invite=${INVITE}`));
+    expect(seenBffRequests.find((r) => r.path === '/api/bff/identity/invitation-code')?.body).toEqual({ invite: INVITE });
+    const { unmount } = render(<SetupFlow step="code" invite={INVITE} />);
+    const boxes = await screen.findAllByRole('textbox');
+    await userEvent.click(boxes[0]);
+    await userEvent.paste('482913');
+    await userEvent.click(screen.getByRole('button', { name: 'Check code' }));
+    await waitFor(() => expect(seenBffRequests.some((r) => r.path === '/api/bff/identity/invitation-code/verify')).toBe(true));
+    expect(seenBffRequests.find((r) => r.path === '/api/bff/identity/invitation-code/verify')?.body).toEqual({ invite: INVITE, code: '482913' });
+    unmount();
+  });
+
+  it('says the code could not be sent when the back end says no, and does not move on', async () => {
+    server.use(http.post('/api/bff/identity/invitation-code', () => HttpResponse.json({ code: 'unavailable' }, { status: 503 })));
+    render(<SetupFlow step="number" invite={INVITE} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Send code' }));
+    expect(await screen.findByText('We could not send a code. Try again shortly.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('says to check the number again when the phone’s code has timed out (the channel answers needs-code)', async () => {
+    server.use(http.post('/api/bff/identity/channel', () => HttpResponse.json({ code: 'needs-code' }, { status: 403 })));
+    render(<SetupFlow step="channel" invite={INVITE} />);
+    await userEvent.click(await screen.findByRole('radio', { name: /Text message/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    expect(await screen.findByText('That took too long. Check your number again to carry on.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Check my number again' }));
+    expect(push).toHaveBeenCalledWith(`/setup?step=number&invite=${INVITE}`);
+  });
+
+  it('shows the expired text for an invitation the back end will not use (410), and “could not check” for a failure', async () => {
+    server.use(http.get('/api/bff/invitations/:token', () => HttpResponse.json({ state: 'expired' }, { status: 410 })));
+    const { unmount } = render(<SetupFlow step="welcome" invite={INVITE} />);
+    expect(await screen.findByText('This invitation has expired. Ask the shift lead to send a new one.')).toBeInTheDocument();
+    unmount();
+    server.use(http.get('/api/bff/invitations/:token', () => HttpResponse.json({ code: 'unavailable' }, { status: 503 })));
+    render(<SetupFlow step="welcome" invite={INVITE} />);
+    expect(await screen.findByText('We could not check this invitation. Try again shortly.')).toBeInTheDocument();
+    expect(screen.queryByText(/has expired/)).toBeNull();
   });
 
   it('sends App to the home-screen guide', async () => {

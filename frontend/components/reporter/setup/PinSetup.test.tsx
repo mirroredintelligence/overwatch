@@ -51,4 +51,22 @@ describe('PinSetup', () => {
     expect(await screen.findByText('Get a code by text first.')).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
+
+  it('does not go on when the sign-in after the PIN is set is not a right PIN (a 200 that says ok: false), and says so', async () => {
+    server.use(http.post('/api/bff/identity/pin/verify', () => HttpResponse.json({ ok: false, triesLeft: 4 })));
+    render(<PinSetup />);
+    await type('123456');
+    await type('123456');
+    expect(await screen.findByText('We could not sign you in. Try again.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('does not go on when the sign-in could not be completed (the back end gave no token): 503', async () => {
+    server.use(http.post('/api/bff/identity/pin/verify', () => HttpResponse.json({ code: 'unavailable' }, { status: 503 })));
+    render(<PinSetup />);
+    await type('123456');
+    await type('123456');
+    expect(await screen.findByText('We could not sign you in. Try again.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
 });

@@ -17,9 +17,7 @@ describe('InvitationLoader (/i/[token])', () => {
 
   it('shows the expired text for an expired invitation and does not redirect', async () => {
     server.use(
-      http.get('/api/bff/invitations/:token', () =>
-        HttpResponse.json({ service: 'UCR West', role: 'reporter', maskedPhone: '07xxx xxx456', expiresAt: '2026-10-29T10:00:00Z', state: 'expired' }),
-      ),
+      http.get('/api/bff/invitations/:token', () => HttpResponse.json({ state: 'expired' }, { status: 410 })),
     );
     render(<InvitationLoader token="tok" />);
     expect(
@@ -28,8 +26,15 @@ describe('InvitationLoader (/i/[token])', () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
+  it('says the invitation could not be checked for an answer that is not an invitation, and never calls it expired', async () => {
+    server.use(http.get('/api/bff/invitations/:token', () => HttpResponse.json({ nothing: true })));
+    render(<InvitationLoader token="tok" />);
+    expect(await screen.findByText('We could not check this invitation. Try again shortly.')).toBeInTheDocument();
+    expect(screen.queryByText(/has expired/)).toBeNull();
+  });
+
   it('says the invitation could not be checked when the back end is not available', async () => {
-    server.use(http.get('/api/bff/invitations/:token', () => HttpResponse.json({ code: 'not-built' }, { status: 503 })));
+    server.use(http.get('/api/bff/invitations/:token', () => HttpResponse.json({ code: 'unavailable' }, { status: 503 })));
     render(<InvitationLoader token="tok" />);
     expect(await screen.findByText('We could not check this invitation. Try again shortly.')).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();

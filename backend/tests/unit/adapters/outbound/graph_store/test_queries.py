@@ -19,6 +19,7 @@ import diucs.adapters.outbound.graph_store as graph_store_package
 from diucs.adapters.outbound.graph_store import queries as queries_module
 from diucs.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
+    PLATFORM_QUERY_IDS,
     REGISTRY,
     NamedQuery,
     QueryRegistry,
@@ -443,6 +444,8 @@ def test_every_registered_statement_is_tenant_scoped_with_a_scenario_or_global(
         query = loaded.get(query_id)
         if query.scope == "global":
             assert query_id in GLOBAL_QUERY_IDS
+        elif query.scope == "platform":
+            assert query_id in PLATFORM_QUERY_IDS
         else:
             assert re.search(r"\btenantId: \$tenant\b", query.cypher), query_id
             assert query.scenario is not None, query_id

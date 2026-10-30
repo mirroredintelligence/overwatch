@@ -44,7 +44,7 @@ from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.integration.application.test_query_board import WEST, WEST_REPORT
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -190,7 +190,8 @@ async def _confirm(
 async def _derived_from(driver: AsyncDriver, report_id: str) -> list[str]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (o:Observation)-[:DERIVED_FROM]->(:Observation {id: $id}) RETURN o.id AS id",
+            "MATCH (o:Observation {tenantId: $tenant})-[:DERIVED_FROM]->(:Observation {id: $id, "
+            "tenantId: $tenant}) RETURN o.id AS id",
             id=report_id,
         )
         return await result.data()
@@ -331,7 +332,7 @@ async def test_the_board_follows_the_graph_and_writes_nothing(
 
 async def _node_count(driver: AsyncDriver) -> int:
     async def work(tx: AsyncManagedTransaction) -> int:
-        result = await tx.run("MATCH (n) RETURN count(n) AS nodes")
+        result = await run_nodes(tx, "count(n) AS nodes")
         record = await result.single()
         assert record is not None
         return int(record["nodes"])

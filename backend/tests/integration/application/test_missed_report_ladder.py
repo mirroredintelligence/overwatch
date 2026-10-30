@@ -56,7 +56,7 @@ from tests.support.ladder_rig import (
     seed_report,
     virtual_ward,
 )
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
 Seed = Callable[..., Awaitable[None]]
 
@@ -100,9 +100,12 @@ async def _counts(driver: AsyncDriver) -> dict[str, int]:
 async def _communications(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (c:Communication) OPTIONAL MATCH (c)-[:TOPIC]->(t:Concept) "
-            "OPTIONAL MATCH (c)-[:RECIPIENT]->(r:PractitionerRole) "
-            "OPTIONAL MATCH (c)-[:ABOUT]->(s:HealthcareService) "
+            "MATCH (c:Communication {tenantId: $tenant}) OPTIONAL MATCH (c {tenantId: "
+            "$tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:RECIPIENT]->(r:PractitionerRole {tenantId: "
+            "$tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:ABOUT]->(s:HealthcareService {tenantId: "
+            "$tenant}) "
             "RETURN c.id AS id, c.payloadText AS text, c.deliveryStatus AS status, "
             "t.code AS messageId, r.id AS role, s.id AS service ORDER BY c.id"
         )
@@ -117,7 +120,7 @@ async def _reminders(driver: AsyncDriver) -> list[dict[str, Any]]:
 
 async def _every_node_property(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        result = await tx.run("MATCH (n) RETURN properties(n) AS props")
+        result = await run_nodes(tx, "properties(n) AS props")
         return await result.data()
 
     return [row["props"] for row in await read_tx(driver, work)]

@@ -30,7 +30,11 @@ from diucs.application.use_cases import link_access
 from diucs.bootstrap.container import Container, build_for_tests
 from diucs.domain.codes import ReportSource, ReportType
 from diucs.domain.model.tenant import TenantStatus
-from tests.integration.adapters.inbound.link_pages.conftest import client_for, seed_tenant_host
+from tests.integration.adapters.inbound.link_pages.conftest import (
+    change_tenant_record,
+    client_for,
+    seed_tenant_host,
+)
 from tests.support.ladder_rig import SECRET, london
 from tests.support.link_rig import (
     ANSWER_AT,
@@ -40,6 +44,7 @@ from tests.support.link_rig import (
     LinkRig,
     token_hash_of,
 )
+from tests.support.tenancy import run_host
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.no_tenant]
 
@@ -395,8 +400,9 @@ async def test_a_tenant_that_is_not_active_does_not_serve_links(
     status: TenantStatus,
 ) -> None:
     token = await _prompted(links)
-    await seed_tenant_host(neo4j_driver, tenant_id, "dormant.example.org", status)
-    async with client_for(link_app, "dormant.example.org") as client:
+    host = run_host("dormant")
+    await seed_tenant_host(neo4j_driver, tenant_id, host, status)
+    async with client_for(link_app, host) as client:
         got = await client.get(f"/links/{token}")
 
     assert (got.status_code, got.json()) == (410, EXPIRED_BODY)
@@ -413,14 +419,13 @@ async def test_the_host_is_read_without_its_port_and_in_lower_case(
 
 
 async def test_a_damaged_tenant_record_fails_closed_as_an_unknown_link(
-    link_app: FastAPI, links: LinkRig, neo4j_driver: Any, tenant_id: str, hosts: None
+    link_app: FastAPI, links: LinkRig, neo4j_driver: Any, other_tenant_id: str, hosts: None
 ) -> None:
     token = await _prompted(links)
-    await seed_tenant_host(
-        neo4j_driver, "damaged-tenant", "damaged.example.org", damage={"status": "bogus"}
-    )
+    host = run_host("damaged")
+    await change_tenant_record(neo4j_driver, other_tenant_id, host=host, status="bogus")
 
-    async with client_for(link_app, "damaged.example.org") as client:
+    async with client_for(link_app, host) as client:
         response = await client.get(f"/links/{token}")
 
     assert (response.status_code, response.json()) == (410, EXPIRED_BODY)

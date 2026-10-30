@@ -168,7 +168,8 @@ async def test_the_task_is_owned_by_the_service_and_focused_on_the_case_with_no_
 
     async def rels(tx: AsyncManagedTransaction) -> list[tuple[str, str]]:
         result = await tx.run(
-            "MATCH (:Task {id: 'bk-4821'})-[r]->(t) RETURN type(r) AS type, t.key AS key"
+            "MATCH (:Task {id: 'bk-4821', tenantId: $tenant})-[r]->(t) RETURN type(r) AS type, "
+            "t.key AS key"
         )
         return [(row["type"], row["key"]) async for row in result]
 

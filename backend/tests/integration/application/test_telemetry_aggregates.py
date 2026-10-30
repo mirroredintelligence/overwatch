@@ -2,8 +2,7 @@
 
 The day comes from a fixture written for the run tenant (the conftest binds it), so the rows are the
 caller's own. The other tenant's rows use names no run-tenant row uses, because `node_props` matches
-across tenants. Synthetic values only. Written in the build wave; run in the verification stage (one
-Neo4j at a time: flock /tmp/diucs-neo4j-tests.lock).
+across tenants. Synthetic values only. Written in the build wave; run in the verification stage.
 """
 
 import json

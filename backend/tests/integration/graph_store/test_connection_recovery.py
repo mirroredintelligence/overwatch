@@ -1,8 +1,9 @@
 """Integration tests for the Neo4j connection lifecycle, health and recovery (G14, DEC-012).
 
-Every test runs on the F10 harness: the throwaway container and `harness_driver` for the pytest
-session (DEC-008, lesson L11). The recovery tests stop and start that container. F11 made the
-harness container restartable, so no test needs a container of its own.
+Every test runs on a private container (`own_neo4j`, marker `lifecycle`, TEN-034), because the
+recovery tests stop and start the container, which on a database that other runs share would take
+it away from them. This module's `harness_driver` and `harness_container` are that container's
+(F11 made the container restartable).
 
 Every test writes only nodes with the label G14Probe, and removes them before it runs.
 """
@@ -32,7 +33,7 @@ from tests.support.neo4j import ThrowawayNeo4j, start_container, stop_container
 
 # Every test here runs on the session loop, because the harness driver and container
 # are session-scoped (lesson L11).
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.lifecycle]
 
 WRONG_PASSWORD = "g14-wrong-password"
 PROBE_LABEL = "G14Probe"
@@ -44,6 +45,16 @@ RETRYABLE_ERRORS = (DriverError, Neo4jError)
 UNREACHABLE_URI = "bolt://localhost:1"
 
 log = logging.getLogger(__name__)
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def harness_container(own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver]) -> ThrowawayNeo4j:
+    return own_neo4j[0]
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def harness_driver(own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver]) -> AsyncDriver:
+    return own_neo4j[1]
 
 
 def _harness_settings() -> tuple[str, str, str]:

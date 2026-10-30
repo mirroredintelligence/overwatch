@@ -98,7 +98,8 @@ async def test_the_open_case_round_trips_and_keeps_its_postcode_on_the_stub(
 
     await assert_round_trip(neo4j_driver, save, load, OPEN_CASE)
     stub = await _rows(
-        neo4j_driver, "MATCH (p:Patient {id: 'pt-case-1'}) RETURN p.postalCode AS postalCode"
+        neo4j_driver,
+        "MATCH (p:Patient {id: 'pt-case-1', tenantId: $tenant}) RETURN p.postalCode AS postalCode",
     )
     assert stub == [{"postalCode": "DT4"}]
 
@@ -131,11 +132,13 @@ async def test_closing_the_case_removes_its_postcode_and_needs_and_writes_no_his
 
     postcode_left = await _rows(
         neo4j_driver,
-        "MATCH (n) WHERE n.postalCode IS NOT NULL OR n.json CONTAINS 'DT4' "
+        "MATCH (n {tenantId: $tenant}) WHERE n.postalCode IS NOT NULL OR n.json CONTAINS 'DT4' "
         "RETURN count(n) AS total",
     )
     reason_links = await _rows(
-        neo4j_driver, "MATCH ()-[r:REASON_CODE]->() RETURN count(r) AS total"
+        neo4j_driver,
+        "MATCH ({tenantId: $tenant})-[r:REASON_CODE]->({tenantId: $tenant}) RETURN count(r) AS "
+        "total",
     )
     assert postcode_left == [{"total": 0}]
     assert reason_links == [{"total": 0}]
@@ -154,12 +157,14 @@ async def test_a_closed_case_reads_back_with_its_outcome_destination_and_both_sc
     assert await _load(neo4j_driver, "case-1") == closed
     performers = await _rows(
         neo4j_driver,
-        "MATCH (r:ServiceRequest {id: 'case-1'})-[:PERFORMER]->(s) RETURN s.id AS id",
+        "MATCH (r:ServiceRequest {id: 'case-1', tenantId: $tenant})-[:PERFORMER]->(s) RETURN s.id "
+        "AS id",
     )
     assert performers == [{"id": "svc-ucr-west"}]
     scores = await _rows(
         neo4j_driver,
-        "MATCH (o:Observation)-[:SUBJECT]->(:Patient {id: 'pt-case-1'}) RETURN count(o) AS total",
+        "MATCH (o:Observation {tenantId: $tenant})-[:SUBJECT]->(:Patient {id: 'pt-case-1', "
+        "tenantId: $tenant}) RETURN count(o) AS total",
     )
     assert scores == [{"total": 2}]
 
@@ -252,7 +257,8 @@ async def test_a_save_that_changes_the_reference_is_refused_and_writes_nothing(
 
     assert await _load(neo4j_driver, "case-1") == OPEN_CASE
     assert await _rows(
-        neo4j_driver, "MATCH (r:ServiceRequest {reference: '9999'}) RETURN count(r) AS total"
+        neo4j_driver,
+        "MATCH (r:ServiceRequest {reference: '9999', tenantId: $tenant}) RETURN count(r) AS total",
     ) == [{"total": 0}]
 
 
@@ -474,7 +480,7 @@ async def test_a_closed_case_with_residue_is_refused_on_add_and_writes_nothing(
 async def _references(driver: AsyncDriver) -> list[dict[str, Any]]:
     return await _rows(
         driver,
-        "MATCH (r:ServiceRequest) RETURN r.id AS id, r.reference AS reference, "
+        "MATCH (r:ServiceRequest {tenantId: $tenant}) RETURN r.id AS id, r.reference AS reference, "
         "r.openReference AS open ORDER BY id",
     )
 
@@ -578,5 +584,7 @@ async def test_a_case_opened_with_no_scores_round_trips_and_has_no_empty_score_l
         empty,
     )
     assert await _rows(
-        neo4j_driver, "MATCH (r:ServiceRequest {id: 'case-1'}) RETURN r.supportingInfo AS info"
+        neo4j_driver,
+        "MATCH (r:ServiceRequest {id: 'case-1', tenantId: $tenant}) RETURN r.supportingInfo AS "
+        "info",
     ) == [{"info": None}]

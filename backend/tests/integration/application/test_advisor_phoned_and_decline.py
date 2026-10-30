@@ -146,7 +146,8 @@ async def _outbox_count(driver: AsyncDriver, event_type: str) -> int:
     async def work(tx: Any) -> int:
         record = await (
             await tx.run(
-                "MATCH (m:OutboxMessage {eventType: $event}) RETURN count(m) AS total",
+                "MATCH (m:OutboxMessage {eventType: $event, tenantId: $tenant}) RETURN count(m) "
+                "AS total",
                 event=event_type,
             )
         ).single()

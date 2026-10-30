@@ -3,7 +3,7 @@
 Tenant A and tenant B each hold a practitioner `prac-1` with a device `dev-1`, and each has its own
 PIN. A's sign-in reads and changes A's credential only; B's failed count does not move; A's PIN is
 wrong in B; a practitioner of B given to A's sign-in answers as an unknown person does (needs a text
-code). Runs on contracted_container() (DEC-159, lesson L168).
+code). Runs on the shared harness database (the contracted schema, DEC-159).
 
 NOT RUN in the build wave: the batch verification run proves it.
 """
@@ -28,9 +28,7 @@ from diucs.application.use_cases.pin import (
     SetPinCommand,
 )
 from diucs.domain.model.people import Practitioner
-from tests.support.neo4j import wipe
 from tests.support.registration_rig import StubLimiter
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -59,16 +57,15 @@ async def _set_up(factory: UnitOfWorkFactory, pin: str) -> None:
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two_tenants(
-    tenant_id: str, other_tenant_id: str
+    tenant_id: str, other_tenant_id: str, neo4j_driver: AsyncDriver, clean_graph: None
 ) -> AsyncIterator[tuple[AsyncDriver, UnitOfWorkFactory, UnitOfWorkFactory]]:
-    async with contracted_container() as driver:
-        await wipe(driver)
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id)
-        factory_b = tenant_uow_factory(driver, other_tenant_id)
-        await _set_up(factory_a, PIN_A)
-        await _set_up(factory_b, PIN_B)
-        yield driver, factory_a, factory_b
+    driver = neo4j_driver
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id)
+    factory_b = tenant_uow_factory(driver, other_tenant_id)
+    await _set_up(factory_a, PIN_A)
+    await _set_up(factory_b, PIN_B)
+    yield driver, factory_a, factory_b
 
 
 def _sign_in(factory: UnitOfWorkFactory) -> PinSignIn:

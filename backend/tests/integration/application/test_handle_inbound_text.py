@@ -72,7 +72,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
 Seed = Callable[..., Awaitable[None]]
 
@@ -421,10 +421,13 @@ async def _latest(factory: UnitOfWorkFactory, service_id: str = "ucr-west") -> C
 async def _communications(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (c:Communication)-[:TOPIC]->(t:Concept) "
-            "OPTIONAL MATCH (c)-[:RECIPIENT]->(r:PractitionerRole) "
-            "OPTIONAL MATCH (c)-[:ABOUT]->(s:HealthcareService) "
-            "OPTIONAL MATCH (c)-[:IN_RESPONSE_TO]->(p:Communication) "
+            "MATCH (c:Communication {tenantId: $tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:RECIPIENT]->(r:PractitionerRole {tenantId: "
+            "$tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:ABOUT]->(s:HealthcareService {tenantId: "
+            "$tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:IN_RESPONSE_TO]->(p:Communication "
+            "{tenantId: $tenant}) "
             "RETURN c.id AS id, c.payloadText AS text, c.deliveryStatus AS status, "
             "t.code AS messageId, r.id AS role, s.id AS about, p.id AS inResponseTo "
             "ORDER BY c.id"
@@ -443,7 +446,7 @@ async def _replies(driver: AsyncDriver, *skip: str) -> list[dict[str, Any]]:
 
 async def _total_nodes(driver: AsyncDriver) -> int:
     async def work(tx: AsyncManagedTransaction) -> int:
-        record = await (await tx.run("MATCH (n) RETURN count(n) AS total")).single()
+        record = await (await run_nodes(tx, "count(n) AS total")).single()
         assert record is not None
         return int(record["total"])
 
@@ -1994,7 +1997,7 @@ async def test_no_audit_entry_or_message_record_holds_the_phone_hash_or_the_text
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (n) WHERE any(l IN labels(n) WHERE l IN "
+            "MATCH (n {tenantId: $tenant}) WHERE any(l IN labels(n) WHERE l IN "
             "['AuditEvent', 'Snapshot', 'Communication', 'OutboxMessage']) "
             "RETURN properties(n) AS props"
         )
@@ -2015,7 +2018,7 @@ async def test_the_typed_text_is_not_stored_anywhere(
     await rig.say(typed, bst(10, 5))
 
     async def work(tx: AsyncManagedTransaction) -> int:
-        result = await tx.run("MATCH (n) RETURN properties(n) AS props")
+        result = await run_nodes(tx, "properties(n) AS props")
         return sum(typed in repr(row["props"]) for row in await result.data())
 
     assert await read_tx(neo4j_driver, work) == 0

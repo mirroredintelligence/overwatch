@@ -13,10 +13,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-import pytest_asyncio
 from neo4j import AsyncDriver, AsyncSession
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.health import HealthStatus, neo4j_health
@@ -45,12 +43,6 @@ from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def audit_head(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
-    """The audit chain head exists, as it does after startup. Runs after the graph is wiped."""
-    await ensure_audit_head(neo4j_driver)
 
 
 def _entry() -> AuditEntry:
@@ -94,7 +86,7 @@ def _work(work_id: str, due_hour: int) -> ScheduledWork:
 
 
 async def test_the_service_audit_entry_and_outbox_message_commit_together(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, audit_head: None
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver
 ) -> None:
     async with uow_factory() as uow:
         await uow.services.save(UCR_WEST)
@@ -110,7 +102,7 @@ async def test_the_service_audit_entry_and_outbox_message_commit_together(
 
 
 async def test_without_commit_none_of_the_three_writes_is_stored(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, audit_head: None
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver
 ) -> None:
     async with uow_factory() as uow:
         await uow.services.save(UCR_WEST)
@@ -123,7 +115,7 @@ async def test_without_commit_none_of_the_three_writes_is_stored(
 
 
 async def test_an_exception_inside_the_block_stores_nothing_and_propagates(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, audit_head: None
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver
 ) -> None:
     with pytest.raises(RuntimeError, match="stop here"):
         async with uow_factory() as uow:
@@ -145,7 +137,7 @@ async def test_two_repositories_in_one_unit_of_work_share_the_store_and_the_tran
 
 
 async def test_a_conflict_that_the_caller_swallows_cannot_be_committed(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, audit_head: None
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver
 ) -> None:
     """DEC-083 item 9: a write that raised Conflict is never committed, even if the caller caught
     the Conflict and carried on. Scheduled work with one id and two sets of values is the
@@ -308,27 +300,27 @@ async def _as_coroutine[T](work: Awaitable[T]) -> T:
 
 
 async def test_the_server_accepts_the_tenant_parameter_a_unit_sends(
-    neo4j_driver: AsyncDriver,
+    neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
-    with bind_tenant("a1"):
+    with bind_tenant(tenant_id):
         async with _echo_factory(neo4j_driver)() as uow:
-            assert await uow.echo.tenant() == [{"tenant": "a1"}]  # type: ignore[attr-defined]
+            assert await uow.echo.tenant() == [{"tenant": tenant_id}]  # type: ignore[attr-defined]
             assert await uow.echo.active_services() == []  # type: ignore[attr-defined]
             await uow.commit()
 
 
 async def test_a_unit_keeps_its_tenant_against_the_real_server_when_the_context_moves(
-    neo4j_driver: AsyncDriver,
+    neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
-    with bind_tenant("a1"):
+    with bind_tenant(tenant_id):
         async with _echo_factory(neo4j_driver)() as uow:
-            with bind_tenant("b1"):
-                assert await uow.echo.tenant() == [{"tenant": "a1"}]  # type: ignore[attr-defined]
-            assert uow.unit_scope == ScopeId.tenant("a1")
+            with bind_tenant(other_tenant_id):
+                assert await uow.echo.tenant() == [{"tenant": tenant_id}]  # type: ignore[attr-defined]
+            assert uow.unit_scope == ScopeId.tenant(tenant_id)
 
 
 async def test_health_and_migrations_run_with_nothing_bound_and_with_a_tenant_bound(
-    harness_container: ThrowawayNeo4j, neo4j_driver: AsyncDriver
+    harness_container: ThrowawayNeo4j, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
     connection = Neo4jConnection(
         harness_container.uri, harness_container.user, harness_container.password
@@ -337,7 +329,7 @@ async def test_health_and_migrations_run_with_nothing_bound_and_with_a_tenant_bo
     try:
         for bound in (False, True):
             if bound:
-                with bind_tenant("a1"):
+                with bind_tenant(tenant_id):
                     health = await neo4j_health(connection, timeout=5)
                     applied = await apply_migrations(neo4j_driver)
             else:
@@ -351,7 +343,7 @@ async def test_health_and_migrations_run_with_nothing_bound_and_with_a_tenant_bo
 
 
 async def test_a_unit_opened_with_nothing_bound_is_refused_and_leaks_nothing(
-    harness_container: ThrowawayNeo4j,
+    harness_container: ThrowawayNeo4j, tenant_id: str
 ) -> None:
     connection = Neo4jConnection(
         harness_container.uri, harness_container.user, harness_container.password
@@ -369,9 +361,9 @@ async def test_a_unit_opened_with_nothing_bound_is_refused_and_leaks_nothing(
                 async with factory():
                     pytest.fail("the unit must not open")
             assert connection.open_session_count == 0
-            with bind_tenant("a1"):
+            with bind_tenant(tenant_id):
                 async with factory() as uow:
-                    assert uow.unit_scope == ScopeId.tenant("a1")
+                    assert uow.unit_scope == ScopeId.tenant(tenant_id)
 
         await _unbound(unbound_unit())
         assert connection.open_session_count == 0

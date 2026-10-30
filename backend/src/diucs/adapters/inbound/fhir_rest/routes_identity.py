@@ -411,6 +411,84 @@ async def verify_code(body: VerifyBody, request: Request) -> Response:
     )
 
 
+NEW_DEVICE: Final = "new-device"
+"""The text-code purpose of a lost phone (U37, DEC-411). The code proves the new number; the lead's
+call-back (`$confirm-new-phone`) then confirms the new phone (R13)."""
+
+
+class NewPhoneBody(_Body):
+    phone: str = Field(min_length=1, max_length=32)
+
+
+class NewPhoneVerifyBody(_Body):
+    phone: str = Field(min_length=1, max_length=32)
+    code: str = Field(min_length=1, max_length=16)
+    deviceId: str = Field(pattern=DEVICE_ID_PATTERN)
+
+
+@router.post("/new-phone", status_code=202)
+async def request_new_phone_code(body: NewPhoneBody, request: Request) -> Response:
+    """A lost phone's code, sent to the new number. Always 202 with the code request's body: nothing
+    is said about whether the number is known (the same answer as /code, R11)."""
+
+    async def work(container: _Container) -> Response:
+        with contextlib.suppress(CodeResendRefused):
+            await RequestTextCode(
+                container.codes,
+                HmacPhoneHasher(container.secrets),
+                container.uow_factory,
+                container.secrets,
+                container.sealer,
+                container.ids,
+                container.clock,
+                container.rng,
+            ).execute(
+                RequestTextCodeCommand(
+                    idempotency_key=container.ids.new_id(), phone=body.phone, purpose=NEW_DEVICE
+                )
+            )
+        return _json(202, dict(ACCEPTED_BODY))
+
+    return await _edge(
+        request, "new-phone", ADDRESS_CODE_REQUESTS, work, PHONE_HASH_SECRET, CODE_HMAC_SECRET
+    )
+
+
+@router.post("/new-phone/verify")
+async def verify_new_phone(body: NewPhoneVerifyBody, request: Request) -> Response:
+    """The new number's code, checked. The answer is `pending-callback` while the lead's call-back
+    is outstanding. A wrong code, or a code that has lapsed or locked, is a 400 (the same contract
+    as /code/verify, R11: the use case gives one answer for those three)."""
+
+    async def work(container: _Container) -> Response:
+        result = await ConfirmDeviceByTextCode(
+            VerifyTextCode(
+                container.codes,
+                HmacPhoneHasher(container.secrets),
+                container.uow_factory,
+                container.secrets,
+                container.clock,
+            ),
+            RecordTextCodeVerified(container.uow_factory, container.clock),
+            StartNewPhone(container.uow_factory, container.clock, container.sessions),
+            container.clock,
+        ).execute(
+            ConfirmDeviceCommand(
+                phone=body.phone, code=body.code, purpose=NEW_DEVICE, device_id=body.deviceId
+            )
+        )
+        if not result.verified:
+            text = NEW_CODE_TEXT if result.needs_new_code else WRONG_CODE_TEXT
+            return operation_outcome(400, "invalid", text, headers=_NO_STORE)
+        if result.device_refused:
+            return operation_outcome(409, "conflict", DEVICE_REFUSED_TEXT, headers=_NO_STORE)
+        return _json(200, {"status": "pending-callback"})
+
+    return await _edge(
+        request, "new-phone-verify", ADDRESS_CODE_CHECKS, work, PHONE_HASH_SECRET, CODE_HMAC_SECRET
+    )
+
+
 @router.post("/pin")
 async def set_pin(body: PinBody, request: Request) -> Response:
     async def work(container: _Container) -> Response:

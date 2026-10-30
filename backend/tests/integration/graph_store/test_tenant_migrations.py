@@ -43,14 +43,14 @@ from diucs.adapters.outbound.graph_store.migrations_tenant import (
 )
 from diucs.adapters.outbound.graph_store.migrations_tenant_config import TENANT_CONFIG_MIGRATIONS
 from diucs.application.tenancy import DEFAULT_TENANT_ID
-from tests.support.neo4j import read_tx, throwaway_driver, wipe, write_tx
+from tests.support.neo4j import read_tx, throwaway_driver, wipe_all, write_tx
 from tests.support.tenant_seed import (
     SUPERSEDED_CONSTRAINT_NAMES,
     SUPERSEDED_INDEX_NAMES,
     schema_names,
 )
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
 _OLD_INDEXES = SUPERSEDED_INDEX_NAMES | {"location_position"}
 
@@ -72,18 +72,18 @@ async def built() -> AsyncIterator[_Built]:
 @pytest_asyncio.fixture(loop_scope="session")
 async def private(built: _Built) -> AsyncIterator[AsyncDriver]:
     """The private driver with no data in it (the migration records stay)."""
-    await wipe(built.driver)
+    await wipe_all(built.driver)
     yield built.driver
-    await wipe(built.driver)
+    await wipe_all(built.driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def contracted(built: _Built) -> AsyncIterator[AsyncDriver]:
     """The private driver with no data in it. Since TEN-032 the migrated schema is the contracted
     one, so nothing is dropped here and nothing is put back."""
-    await wipe(built.driver)
+    await wipe_all(built.driver)
     yield built.driver
-    await wipe(built.driver)
+    await wipe_all(built.driver)
 
 
 async def _schema(driver: AsyncDriver, statement: str) -> None:
@@ -532,7 +532,7 @@ async def test_each_composite_key_lets_two_tenants_share_and_refuses_a_repeat_in
 ) -> None:
     refused: list[str] = []
     for row in COMPOSITE_CONSTRAINTS:
-        await wipe(contracted)
+        await wipe_all(contracted)
         props = _props(row.label, row.properties)
         await _create(contracted, row.label, "a", props)
         await _create(contracted, row.label, "b", props)

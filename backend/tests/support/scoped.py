@@ -22,8 +22,14 @@ class OpenTx(ScopedTx):
     def __getattr__(self, name: str) -> Any:
         return getattr(self.tx, name)
 
-    async def run(self, *args: Any, **kwargs: Any) -> Any:
-        return await self.tx.run(*args, **kwargs)
+    async def run(self, query: Any, parameters: dict[str, Any] | None = None, **kwargs: Any) -> Any:
+        """Raw Cypher in a test says `{tenantId: $tenant}` and gets the bound tenant as `tenant`
+        unless the caller passed one (a test that reads another tenant's nodes names it). On a
+        Neo4j that other runs share, a statement without it would read and change their data
+        too (TEN-035)."""
+        merged = {**(parameters or {}), **kwargs}
+        merged.setdefault("tenant", self.scope.value)
+        return await self.tx.run(query, merged)
 
 
 def scoped(tx: AsyncManagedTransaction | AsyncTransaction) -> Any:

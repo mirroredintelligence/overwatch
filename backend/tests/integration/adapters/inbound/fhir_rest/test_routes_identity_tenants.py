@@ -24,7 +24,6 @@ from neo4j import AsyncDriver
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
@@ -47,9 +46,8 @@ from tests.integration.adapters.inbound.fhir_rest.test_routes_identity import (
 )
 from tests.integration.adapters.inbound.link_pages.conftest import seed_tenant_host
 from tests.support.link_rig import HOST_A, HOST_B
-from tests.support.neo4j import ThrowawayNeo4j, read_tx, throwaway_driver, wipe
+from tests.support.neo4j import ThrowawayNeo4j, read_tx
 from tests.support.redis import flush_prefix
-from tests.support.tenant_seed import contract_schema
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.no_tenant]
@@ -59,19 +57,21 @@ MOBILE_B = "07700 900456"
 
 
 @pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant() -> AsyncIterator[tuple[ThrowawayNeo4j, AsyncDriver]]:
-    async with throwaway_driver() as (container, driver):
-        await apply_migrations(driver)
-        await contract_schema(driver)
-        yield container, driver
+async def two_tenant(
+    harness_container: ThrowawayNeo4j, harness_driver: AsyncDriver
+) -> tuple[ThrowawayNeo4j, AsyncDriver]:
+    """The shared harness database, which has the contracted schema (DEC-159)."""
+    return harness_container, harness_driver
 
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two_container(
-    two_tenant: tuple[ThrowawayNeo4j, AsyncDriver], tenant_id: str, other_tenant_id: str
+    two_tenant: tuple[ThrowawayNeo4j, AsyncDriver],
+    tenant_id: str,
+    other_tenant_id: str,
+    clean_graph: None,
 ) -> AsyncIterator[Container]:
     server, driver = two_tenant
-    await wipe(driver)
     connection = Neo4jConnection(server.uri, server.user, server.password)
     await connection.open()
     container = build_for_tests(
@@ -89,7 +89,6 @@ async def two_container(
             await flush_prefix(container.redis, f"diucs:{tenant}:")
         await container.redis.aclose()
         await connection.close()
-        await wipe(driver)
 
 
 async def _seed_tenant(container: Container, tenant: str, mobile: str) -> None:

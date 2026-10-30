@@ -45,7 +45,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     render,
 )
 from diucs.application.tenancy import ScopeId, ScopeKind
-from tests.support.neo4j import wipe
+from tests.support.neo4j import wipe_all
 from tests.support.tenant_seed import (
     Snapshot,
     canonical,
@@ -383,7 +383,7 @@ async def _phase(
 
     own = render(dict(scenario.params), slots[0])
     other = render(dict(scenario.params), slots[1])
-    await wipe(driver)
+    await wipe_all(driver)
     await seed_tenant(driver, first, slots[0], scenario.seed)
     try:
         base = await _probe(driver, query, registry, first, second, own, kind)

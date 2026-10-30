@@ -4,7 +4,7 @@ Tenant A and tenant B hold the same service id and the same ODS code. A's applic
 submits A's registration; B's registration (a different id) must not change, and a B registration
 id given to A's unit of work reads as not found. Registration, scope-list, person and service
 statements are tenant-scoped (TEN-010, TEN-011), and so are the contact statements (TEN-014), so
-every test here is an ordinary test. Runs on contracted_container() (DEC-159, lesson L168).
+every test here is an ordinary test. Runs on the shared harness database (DEC-159).
 """
 
 from collections.abc import AsyncIterator
@@ -43,8 +43,6 @@ from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import wipe
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -172,31 +170,19 @@ async def _seed_tenant(
         await uow.commit()
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    return two_tenant_driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
 async def tenants(
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,
-    two_tenant_driver: AsyncDriver,
+    neo4j_driver: AsyncDriver,
     tenant_id: str,
     other_tenant_id: str,
+    clean_graph: None,
 ) -> AsyncIterator[None]:
-    await wipe(two_tenant_driver)
-    await ensure_audit_heads(two_tenant_driver, tenant_id, other_tenant_id)
+    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
     await _seed_tenant(uow_factory_a, "a", A_REGISTRATION, A_ROLE)
     await _seed_tenant(uow_factory_b, "b", B_REGISTRATION, B_ROLE)
     yield
-    await wipe(two_tenant_driver)
 
 
 def _save(factory: UnitOfWorkFactory) -> SaveRegistrationStep:

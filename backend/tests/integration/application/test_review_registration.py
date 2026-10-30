@@ -242,7 +242,7 @@ async def test_an_owner_email_at_a_free_mail_domain_fails_and_an_explanation_mak
 async def _provenance(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: Any) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (p:Provenance)-[:TARGET]->(t:AuditRef) "
+            "MATCH (p:Provenance {tenantId: $tenant})-[:TARGET]->(t:AuditRef {tenantId: $tenant}) "
             "RETURN p.activity AS activity, t.id AS target, properties(p) AS props"
         )
         return await result.data()

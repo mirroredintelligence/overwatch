@@ -50,6 +50,7 @@ def _token(**changes: Any) -> str:
         "services": [],
         "tenant": "tenant-a",
         "epoch": 1,
+        "aud": "diucs-api",
         "exp": int(EXPIRES.timestamp()),
     }
     body.update(changes)

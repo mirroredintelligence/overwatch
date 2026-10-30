@@ -56,12 +56,13 @@ async def test_the_protected_node_has_no_relationships_and_no_other_node_holds_t
     await _put(neo4j_driver, "safety-concern", "task-1", SAMPLE)
 
     relationships = await _scalar(
-        neo4j_driver, "MATCH (:ProtectedText)-[r]-() RETURN count(r) AS n"
+        neo4j_driver,
+        "MATCH (:ProtectedText {tenantId: $tenant})-[r]-({tenantId: $tenant}) RETURN count(r) AS n",
     )
     assert relationships == 0
     holders = await _scalar(
         neo4j_driver,
-        "MATCH (n) WHERE NOT n:Protected AND any(k IN keys(n) "
+        "MATCH (n {tenantId: $tenant}) WHERE NOT n:Protected AND any(k IN keys(n) "
         "WHERE toString(n[k]) CONTAINS 'they were closed') RETURN count(n) AS n",
     )
     assert holders == 0

@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
-import { BACKEND_PORT } from './support/env';
+import { BACKEND_PORT, SITE_URL } from './support/env';
 import { signIn } from './support/session';
 import { LIVE_SURGE_PREFIX, TOKEN_FOREIGN_ENTRY, TOKEN_QUIET, TOKEN_SURGE } from './support/tokens';
 
@@ -28,7 +28,7 @@ const SIZES = [
 ] as const;
 
 async function openBoard(page: Page, token: string) {
-  await signIn(page.context(), 'http://localhost:3000', 'wall', token);
+  await signIn(page.context(), SITE_URL, 'wall', token);
   await page.goto('/screen');
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
 }
@@ -117,7 +117,7 @@ test.describe('the quiet board', () => {
 });
 
 test('refuses a payload with a foreign organisation part, and shows no tile', async ({ page }) => {
-  await signIn(page.context(), 'http://localhost:3000', 'wall', TOKEN_FOREIGN_ENTRY);
+  await signIn(page.context(), SITE_URL, 'wall', TOKEN_FOREIGN_ENTRY);
   await page.goto('/screen');
 
   await expect(page.getByRole('alert').filter({ hasText: 'Board unavailable' })).toBeVisible();
@@ -141,7 +141,7 @@ test.describe('a surge board that goes stale', () => {
   }
 
   test('loses the pressure banner and every variant detail, and says Last known, never current', async ({ page, request }) => {
-    await signIn(page.context(), 'http://localhost:3000', 'wall', token);
+    await signIn(page.context(), SITE_URL, 'wall', token);
     await page.clock.install();
     await page.goto('/screen');
     await expect(pressure(page)).toBeVisible();

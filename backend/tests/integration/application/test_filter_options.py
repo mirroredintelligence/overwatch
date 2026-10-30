@@ -406,7 +406,9 @@ async def test_a_reporter_is_refused_and_nothing_is_audited(
         await _filter(uow_factory).execute(FilterOptionsCommand("filter-x", REPORTER, CASE_ID))
 
     async def audit_total(tx: AsyncManagedTransaction) -> int:
-        record = await (await tx.run("MATCH (a:AuditEvent) RETURN count(a) AS total")).single()
+        record = await (
+            await tx.run("MATCH (a:AuditEvent {tenantId: $tenant}) RETURN count(a) AS total")
+        ).single()
         return int(record["total"])
 
     assert await count_nodes(neo4j_driver, "AuditEvent") == before

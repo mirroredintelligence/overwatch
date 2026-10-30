@@ -23,10 +23,9 @@ from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.tenancy import bind_tenant
 from diucs.domain.codes import Channel
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, run_scope_ids, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.support.scoped import scoped
-from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -158,17 +157,20 @@ async def test_topic_and_medium_are_shared_concepts_and_the_recipient_is_a_role(
     await _add(neo4j_driver, _comm(id="comm-2", provider_message_id="sms-2"))
     topic_count = await _count(
         neo4j_driver,
-        "MATCH (t:Concept {system: $system, code: 'C1'}) RETURN count(t) AS total",
+        "MATCH (t:Concept {system: $system, code: 'C1', tenantId: $tenant}) RETURN count(t) AS "
+        "total",
         system=MESSAGE_SYSTEM,
     )
     medium_count = await _count(
         neo4j_driver,
-        "MATCH (m:Concept {system: $system, code: 'text'}) RETURN count(m) AS total",
+        "MATCH (m:Concept {system: $system, code: 'text', tenantId: $tenant}) RETURN count(m) AS "
+        "total",
         system=CHANNEL_SYSTEM,
     )
     recipient_links = await _count(
         neo4j_driver,
-        "MATCH (:Communication)-[:RECIPIENT]->(:PractitionerRole {id: 'role-1'}) "
+        "MATCH (:Communication {tenantId: $tenant})-[:RECIPIENT]->(:PractitionerRole {id: "
+        "'role-1', tenantId: $tenant}) "
         "RETURN count(*) AS total",
     )
     assert topic_count == 1
@@ -277,8 +279,8 @@ async def test_a_reply_threads_to_its_prompt_through_in_response_to(
     await _add(neo4j_driver, _reply(id="comm-reply", in_response_to="comm-1"))
     threads = await _count(
         neo4j_driver,
-        "MATCH (:Communication {id: 'comm-reply'})-[:IN_RESPONSE_TO]->"
-        "(:Communication {id: 'comm-1'}) RETURN count(*) AS total",
+        "MATCH (:Communication {id: 'comm-reply', tenantId: $tenant})-[:IN_RESPONSE_TO]->"
+        "(:Communication {id: 'comm-1', tenantId: $tenant}) RETURN count(*) AS total",
     )
     assert threads == 1
 
@@ -438,7 +440,7 @@ async def test_a_late_sent_waits_for_a_held_delivered_and_does_not_overwrite_it(
     async with neo4j_driver.session() as session:
         held = scoped(await session.begin_transaction())
         await held.run(
-            "MATCH (c:Communication {id: 'comm-1'}) "
+            "MATCH (c:Communication {id: 'comm-1', tenantId: $tenant}) "
             "SET c.deliveryStatus = 'delivered', c.status = 'completed'"
         )
         late = asyncio.create_task(_set_status(neo4j_driver, "sms-1", "sent"))
@@ -474,17 +476,9 @@ async def test_receipts_applied_in_every_order_all_end_delivered(
 # container holds the composite keys only (TEN-005, TEN-032), so the two tenants can share them.
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
-async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe(two_tenant_driver)
-    yield two_tenant_driver
-    await wipe(two_tenant_driver)
+async def two(neo4j_driver: AsyncDriver, clean_graph: None) -> AsyncIterator[AsyncDriver]:
+    yield neo4j_driver
 
 
 async def _add_as(driver: AsyncDriver, tenant: str, communication: Communication) -> None:
@@ -559,7 +553,9 @@ async def test_the_topic_and_channel_concepts_of_each_tenant_are_its_own(
 
     async def concepts(tx: AsyncManagedTransaction) -> list[tuple[str, int]]:
         result = await tx.run(
-            "MATCH (c:Concept) RETURN c.tenantId AS tenant, count(c) AS n ORDER BY tenant"
+            "MATCH (c:Concept) WHERE c.tenantId IN $scopes "
+            "RETURN c.tenantId AS tenant, count(c) AS n ORDER BY tenant",
+            scopes=run_scope_ids(),
         )
         return [(record["tenant"], int(record["n"])) async for record in result]
 

@@ -1,13 +1,13 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { LINK } from '@/test/fixtures/links';
-import { BACKEND_PORT } from './support/env';
+import { BACKEND_PORT, SITE_URL } from './support/env';
 
 // The capacity link page in a real browser (W04): what a reporter sees from a text, the one press
 // that records a figure, and the rule that the page calls nothing but its own origin. The stand-in
 // back end (e2e/support/backend.ts) answers the link routes from the same table as the unit tests.
 
-const ORIGIN = 'http://localhost:3000';
+const ORIGIN = SITE_URL;
 const UNKNOWN = 'NoSuchLinkTokenAbcdefghij';
 
 /** Every request the page makes that leaves its own origin, or reaches the back end port directly. */

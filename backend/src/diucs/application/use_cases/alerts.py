@@ -14,12 +14,16 @@ lead is told (AlertEscalatedToLead, once). Every timer runs through the schedule
 is idempotent: its work is marked done in the same unit as what it does, and a message id is marked
 processed first (ProcessedMessages).
 
+The hours a service is open, the quiet hours of a subscriber and the defaults of a deputy are the
+tenant's own zone and policy (TEN-027, DEC-500): each use case reads them inside its unit of work.
+
 No alert names a patient. The push carries the service's name and the kind, nothing else.
 """
 
 from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
 from typing import Final
+from zoneinfo import ZoneInfo
 
 from diucs.application.actor import Actor, timer_actor
 from diucs.application.ports.outbound.audit import AuditEntry
@@ -29,6 +33,7 @@ from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_messag
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.scheduling import cancel_work, schedule_work
 from diucs.application.tenancy import current_tenant
+from diucs.application.tenant_settings import TenantZones, as_zones, read_policy, read_settings
 from diucs.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
 from diucs.domain.codes import AlertKind, Channel, Status
 from diucs.domain.errors import NotFound, ValidationFailed
@@ -37,7 +42,7 @@ from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
 from diucs.domain.model.alerts import AlertRecord
 from diucs.domain.model.service import ServiceProfile
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY
+from diucs.domain.model.tenant_policy import TenantPolicy
 from diucs.domain.rules.alert_workflow import (
     may_acknowledge,
     may_snooze,
@@ -186,17 +191,19 @@ async def _alert_subscribers(
     profile: ServiceProfile,
     alert: Alert,
     now: datetime,
+    zone: ZoneInfo,
     *,
     hours: int | None = None,
 ) -> int:
-    """Raise `alert` for every subscriber who wants it now. For a not-updated check, only the
-    subscribers whose threshold is `hours`. Returns how many alerts were raised."""
+    """Raise `alert` for every subscriber who wants it now, judging their quiet hours in the
+    tenant's `zone`. For a not-updated check, only the subscribers whose threshold is `hours`.
+    Returns how many alerts were raised."""
     raised = 0
     for subscription in await uow.alert_subscriptions.subscribers_for_kind(alert.kind):
         prefs: AlertPreferences = subscription.preferences
         if hours is not None and prefs.not_updated_hours != hours:
             continue
-        if not should_notify(prefs, alert, now):
+        if not should_notify(prefs, alert, now, zone):
             continue
         record = AlertRecord(
             id=ids.new_id(),
@@ -232,9 +239,12 @@ async def _alert_subscribers(
 class AlertEvaluator:
     """Handles StatusChanged: raises the alerts it finds, and schedules the not-updated checks."""
 
-    def __init__(self, uow_factory: UnitOfWorkFactory, ids: IdGenerator) -> None:
+    def __init__(
+        self, uow_factory: UnitOfWorkFactory, ids: IdGenerator, zones: TenantZones | None = None
+    ) -> None:
         self._uow_factory = uow_factory
         self._ids = ids
+        self._zones = as_zones(zones)
 
     async def execute(self, command: StatusChangedCommand) -> EvaluationResult:
         now = command.at
@@ -244,12 +254,15 @@ class AlertEvaluator:
             profile = await uow.services.get(command.service_id)
             if profile is None:
                 raise NotFound(NO_SERVICE)
-            in_hours = is_in_hours(profile.available_times, now)
+            settings = await read_settings(uow, self._zones)
+            in_hours = is_in_hours(profile.available_times, now, zone=settings.zone)
             raised = 0
             for alert in alerts_for_change(
-                command.service_id, command.before, command.after, in_hours, now, DEFAULT_POLICY
+                command.service_id, command.before, command.after, in_hours, now, settings.policy
             ):
-                raised += await _alert_subscribers(uow, self._ids, profile, alert, now)
+                raised += await _alert_subscribers(
+                    uow, self._ids, profile, alert, now, settings.zone
+                )
             checks = 0
             if command.after is Status.NOT_UPDATED:
                 for hours, due in zip(
@@ -282,10 +295,17 @@ class NotUpdatedCheck:
     """A not-updated check at two or four hours (run by the scheduled-work consumer). It alerts the
     subscribers whose threshold is this age, if the service still has no report newer than it."""
 
-    def __init__(self, uow_factory: UnitOfWorkFactory, ids: IdGenerator, clock: Clock) -> None:
+    def __init__(
+        self,
+        uow_factory: UnitOfWorkFactory,
+        ids: IdGenerator,
+        clock: Clock,
+        zones: TenantZones | None = None,
+    ) -> None:
         self._uow_factory = uow_factory
         self._ids = ids
         self._clock = clock
+        self._zones = as_zones(zones)
 
     async def execute(self, command: NotUpdatedCheckCommand) -> int:
         service_id, hours = _parse_check_about(command.about_id)
@@ -302,13 +322,16 @@ class NotUpdatedCheck:
             profile = await uow.services.get(service_id)
             if profile is None:
                 raise NotFound(NO_SERVICE)
+            settings = await read_settings(uow, self._zones)
             alert = Alert(
                 AlertKind.NOT_UPDATED,
                 service_id,
                 now,
-                AlertKind.NOT_UPDATED in DEFAULT_POLICY.critical_alert_kinds,
+                AlertKind.NOT_UPDATED in settings.policy.critical_alert_kinds,
             )
-            raised = await _alert_subscribers(uow, self._ids, profile, alert, now, hours=hours)
+            raised = await _alert_subscribers(
+                uow, self._ids, profile, alert, now, settings.zone, hours=hours
+            )
             await uow.commit()
         return raised
 
@@ -423,7 +446,7 @@ class EscalateAlert:
             owner = await uow.alert_subscriptions.get_for_practitioner(alert.owner_practitioner_id)
             deputy_id = None if owner is None else owner.deputy_id
             if alert.part_of_id is None and deputy_id is not None:
-                await self._to_deputy(uow, alert, deputy_id, now)
+                await self._to_deputy(uow, alert, deputy_id, now, await read_policy(uow))
                 await uow.commit()
                 return EscalateAlertResult(acted=True, escalated_to="deputy")
             root = alert.part_of_id or alert.id
@@ -438,10 +461,15 @@ class EscalateAlert:
         return EscalateAlertResult(acted=True, escalated_to="shift-lead")
 
     async def _to_deputy(
-        self, uow: UnitOfWork, alert: AlertRecord, deputy_id: str, now: datetime
+        self,
+        uow: UnitOfWork,
+        alert: AlertRecord,
+        deputy_id: str,
+        now: datetime,
+        policy: TenantPolicy,
     ) -> None:
         deputy = await uow.alert_subscriptions.get_for_practitioner(deputy_id)
-        prefs = default_preferences(DEFAULT_POLICY) if deputy is None else deputy.preferences
+        prefs = default_preferences(policy) if deputy is None else deputy.preferences
         record = AlertRecord(
             id=self._ids.new_id(),
             kind=alert.kind,

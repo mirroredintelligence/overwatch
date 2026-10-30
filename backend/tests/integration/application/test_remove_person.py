@@ -55,7 +55,6 @@ from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props
 from tests.support.registration_rig import StubLimiter
 from tests.support.session_rig import StubSessions
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -438,17 +437,17 @@ async def test_a_device_id_another_person_holds_is_not_a_new_phone(rig: Rig) -> 
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def two_tenants(tenant_id: str, other_tenant_id: str):  # type: ignore[no-untyped-def]
-    from tests.support.neo4j import wipe
+async def two_tenants(
+    tenant_id: str, other_tenant_id: str, neo4j_driver: AsyncDriver, clean_graph: None
+):  # type: ignore[no-untyped-def]
 
-    async with contracted_container() as driver:
-        await wipe(driver)
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id)
-        factory_b = tenant_uow_factory(driver, other_tenant_id)
-        await seed(factory_a)
-        await seed(factory_b)
-        yield driver, Rig(factory_a, tenant_id), Rig(factory_b, other_tenant_id)
+    driver = neo4j_driver
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id)
+    factory_b = tenant_uow_factory(driver, other_tenant_id)
+    await seed(factory_a)
+    await seed(factory_b)
+    yield driver, Rig(factory_a, tenant_id), Rig(factory_b, other_tenant_id)
 
 
 async def test_removing_in_a_leaves_b_untouched_and_the_same_ids_do_not_collide(

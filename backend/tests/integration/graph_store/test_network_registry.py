@@ -52,6 +52,7 @@ from tests.support.network_samples import (
     make_network,
     make_owner_membership,
 )
+from tests.support.tenancy import RunIdentity
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -292,19 +293,19 @@ async def test_of_racing_creates_of_one_listing_or_membership_exactly_one_is_wri
 
 
 async def test_a_registry_statement_answers_the_same_whatever_scope_is_bound(
-    registry: Neo4jNetworkRegistry,
+    registry: Neo4jNetworkRegistry, run_identity: RunIdentity
 ) -> None:
     await _world(registry)
     expected = await registry.get_network(NETWORK_ID)
     assert expected is not None
-    with bind_tenant("tenant-b"):
+    with bind_tenant(run_identity.tenant_id):
         assert await registry.get_network(NETWORK_ID) == expected
     with bind_network(NETWORK_ID):
         assert await registry.get_network(NETWORK_ID) == expected
 
 
 async def test_a_read_returns_registry_nodes_only_when_the_graph_holds_lookalike_data(
-    registry: Neo4jNetworkRegistry, harness_driver: AsyncDriver
+    registry: Neo4jNetworkRegistry, harness_driver: AsyncDriver, run_identity: RunIdentity
 ) -> None:
     """A tenant's node with the same id and properties as a registry node is not read."""
     await _world(registry)
@@ -312,21 +313,29 @@ async def test_a_read_returns_registry_nodes_only_when_the_graph_holds_lookalike
     await _run(
         harness_driver,
         "CREATE (:Observation {id: $id, status: 'approved', networkId: $net, "
-        "grantorTenantId: $tenant, scope: 'capacity', tenantId: 'tenant-b'})",
+        "grantorTenantId: $member, scope: 'capacity', tenantId: $stamp})",
         id="grant-b-capacity",
         net=NETWORK_ID,
-        tenant=MEMBER_B,
+        member=MEMBER_B,
+        stamp=run_identity.tenant_id,
     )
     try:
         assert [g.id for g in await registry.grants(NETWORK_ID)] == ["grant-b-capacity"]
         assert len(await registry.active_grants_for(MEMBER_B, GrantScope.CAPACITY, NOW)) == 1
     finally:
-        await _run(harness_driver, "MATCH (n:Observation {id: 'grant-b-capacity'}) DETACH DELETE n")
+        await _run(
+            harness_driver,
+            "MATCH (n:Observation {id: 'grant-b-capacity', tenantId: $stamp}) DETACH DELETE n",
+            stamp=run_identity.tenant_id,
+        )
 
 
 @pytest.mark.parametrize("query_id", sorted(GLOBAL_WRITE_IDS))
 async def test_a_write_statement_changes_no_node_that_is_not_a_registry_node(
-    query_id: str, registry: Neo4jNetworkRegistry, harness_driver: AsyncDriver
+    query_id: str,
+    registry: Neo4jNetworkRegistry,
+    harness_driver: AsyncDriver,
+    run_identity: RunIdentity,
 ) -> None:
     """Run each write against a graph that also holds a lookalike tenant node: the lookalike is
     untouched, whatever the statement matched or created."""
@@ -334,12 +343,15 @@ async def test_a_write_statement_changes_no_node_that_is_not_a_registry_node(
     await _run(
         harness_driver,
         "CREATE (:Observation {id: 'lookalike', networkId: $net, memberTenantId: $m, "
-        "status: 'invited', tenantId: 'tenant-b'})",
+        "status: 'invited', tenantId: $stamp})",
         net=NETWORK_ID,
         m=MEMBER_B,
+        stamp=run_identity.tenant_id,
     )
     before = await _rows(
-        harness_driver, "MATCH (n:Observation {id: 'lookalike'}) RETURN properties(n) AS p"
+        harness_driver,
+        "MATCH (n:Observation {id: 'lookalike', tenantId: $stamp}) RETURN properties(n) AS p",
+        stamp=run_identity.tenant_id,
     )
     try:
         grant = make_grant(id="grant-extra")
@@ -368,9 +380,15 @@ async def test_a_write_statement_changes_no_node_that_is_not_a_registry_node(
             await calls[query_id]()
     finally:
         after = await _rows(
-            harness_driver, "MATCH (n:Observation {id: 'lookalike'}) RETURN properties(n) AS p"
+            harness_driver,
+            "MATCH (n:Observation {id: 'lookalike', tenantId: $stamp}) RETURN properties(n) AS p",
+            stamp=run_identity.tenant_id,
         )
-        await _run(harness_driver, "MATCH (n:Observation {id: 'lookalike'}) DETACH DELETE n")
+        await _run(
+            harness_driver,
+            "MATCH (n:Observation {id: 'lookalike', tenantId: $stamp}) DETACH DELETE n",
+            stamp=run_identity.tenant_id,
+        )
     assert before == after
 
 

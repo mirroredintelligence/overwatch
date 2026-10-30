@@ -9,25 +9,40 @@ from collections.abc import Awaitable, Callable
 import pytest
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.audit_neo4j.audit_log import ensure_audit_head
+from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.domain.model.flags import ServiceFlag
 from diucs.domain.model.service import ServiceProfile
+from tests.support.api import edge_tenants, test_container
+from tests.support.uow import ensure_audit_heads, tenant_uow_factory
+
+# The container of the API's test profile and the edge's tenant records, for the application tests
+# that resolve a number or a token against the real directory (wave 5).
+__all__ = ["edge_tenants", "seed_service", "test_container"]
 
 Seed = Callable[..., Awaitable[None]]
 
 
 @pytest.fixture
-def seed_service(uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver) -> Seed:
-    """Commit a service profile and optional service flags in one committed unit of work.
+def seed_service(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, uow_clock: Clock
+) -> Seed:
+    """Commit a service profile and optional service flags in one committed unit of work, in the
+    tenant bound now, or in `tenant` when one is given (the second tenant of a cross-tenant test).
 
-    The audit chain head is created here too, because clean_graph wipes it with everything else
-    (ensure_audit_head is idempotent).
+    The run tenant's audit chain head is made by clean_graph (TEN-033); another tenant's is made
+    here, because the wipe never makes more than the run's own two (ensure_audit_heads is
+    idempotent).
     """
 
-    async def seed(*profiles: ServiceProfile, flags: tuple[ServiceFlag, ...] = ()) -> None:
-        await ensure_audit_head(neo4j_driver)
-        async with uow_factory() as uow:
+    async def seed(
+        *profiles: ServiceProfile, flags: tuple[ServiceFlag, ...] = (), tenant: str | None = None
+    ) -> None:
+        factory = uow_factory
+        if tenant is not None:
+            await ensure_audit_heads(neo4j_driver, tenant)
+            factory = tenant_uow_factory(neo4j_driver, tenant, uow_clock)
+        async with factory() as uow:
             for profile in profiles:
                 await uow.services.save(profile)
             for flag in flags:

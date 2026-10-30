@@ -93,7 +93,8 @@ async def test_an_entry_for_a_service_not_yet_written_creates_one_inactive_servi
     assert await count_nodes(neo4j_driver, "HealthcareService") == 1
     rows = await _rows(
         neo4j_driver,
-        "MATCH (:List)-[e:ENTRY]->(:HealthcareService {id: $id}) RETURN e.flag AS flag",
+        "MATCH (:List {tenantId: $tenant})-[e:ENTRY]->(:HealthcareService {id: $id, tenantId: "
+        "$tenant}) RETURN e.flag AS flag",
         id=SDEC,
     )
     assert rows == [{"flag": "in-pilot"}]
@@ -107,7 +108,8 @@ async def test_saving_the_same_entry_again_updates_the_relationship_not_a_second
 
     rows = await _rows(
         neo4j_driver,
-        "MATCH (:List)-[e:ENTRY]->(:HealthcareService {id: $id}) "
+        "MATCH (:List {tenantId: $tenant})-[e:ENTRY]->(:HealthcareService {id: $id, tenantId: "
+        "$tenant}) "
         "RETURN e.flag AS flag, e.reason AS reason",
         id=SDEC,
     )
@@ -213,7 +215,8 @@ async def test_a_second_save_for_a_service_waits_for_a_held_save_and_leaves_one_
 
     rows = await _rows(
         neo4j_driver,
-        "MATCH (:List)-[e:ENTRY]->(:HealthcareService {id: $id}) RETURN e.flag AS flag",
+        "MATCH (:List {tenantId: $tenant})-[e:ENTRY]->(:HealthcareService {id: $id, tenantId: "
+        "$tenant}) RETURN e.flag AS flag",
         id=WEST,
     )
     assert rows == [{"flag": "later"}]
@@ -233,7 +236,8 @@ async def test_sixteen_racing_first_saves_for_one_service_leave_one_entry(
     assert await count_nodes(neo4j_driver, "HealthcareService") == 1
     rows = await _rows(
         neo4j_driver,
-        "MATCH (:List)-[e:ENTRY]->(:HealthcareService {id: $id}) RETURN count(e) AS entries",
+        "MATCH (:List {tenantId: $tenant})-[e:ENTRY]->(:HealthcareService {id: $id, tenantId: "
+        "$tenant}) RETURN count(e) AS entries",
         id=SDEC,
     )
     assert rows == [{"entries": 1}]
@@ -290,7 +294,8 @@ async def test_a_save_for_a_service_that_a_held_save_is_creating_waits_and_succe
     assert await count_nodes(neo4j_driver, "HealthcareService") == 2
     rows = await _rows(
         neo4j_driver,
-        "MATCH (:List)-[e:ENTRY]->(:HealthcareService {id: $id}) RETURN e.flag AS flag",
+        "MATCH (:List {tenantId: $tenant})-[e:ENTRY]->(:HealthcareService {id: $id, tenantId: "
+        "$tenant}) RETURN e.flag AS flag",
         id=NEW,
     )
     assert rows == [{"flag": "later"}]
@@ -312,7 +317,8 @@ async def test_sixteen_racing_saves_for_a_new_service_all_succeed_and_leave_one_
     assert await count_nodes(neo4j_driver, "HealthcareService") == 2
     rows = await _rows(
         neo4j_driver,
-        "MATCH (:List)-[e:ENTRY]->(:HealthcareService {id: $id}) RETURN count(e) AS entries",
+        "MATCH (:List {tenantId: $tenant})-[e:ENTRY]->(:HealthcareService {id: $id, tenantId: "
+        "$tenant}) RETURN count(e) AS entries",
         id=NEW,
     )
     assert rows == [{"entries": 1}]

@@ -108,6 +108,19 @@ def _gate(request: Request) -> TenantGate:
     return gate
 
 
+def forget_tenant(app: Any, tenant_id: str) -> None:
+    """Make this process judge the next token of the tenant on a fresh read of its record (TEN-073).
+
+    Called after a suspension or a resume, by whatever runs the operator's route in this process
+    (`use_cases/tenant_suspend.py`, `on_changed`), so the change is immediate here. It is only a
+    shortcut: a record that is cached in another process, or here when nothing called this, is read
+    again at most `RECORD_TTL` (60 seconds) later, and an epoch behind the record is refused on the
+    first read. An app that has built no gate yet has nothing cached."""
+    gate: TenantGate | None = getattr(app.state, "tenant_gate", None)
+    if gate is not None:
+        gate.forget(tenant_id)
+
+
 async def current_actor(request: Request) -> AsyncIterator[Actor]:
     token = _bearer_token(request)
     secret = _secret(request)

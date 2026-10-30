@@ -39,11 +39,11 @@ from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.container import build
 from diucs.bootstrap.settings import Settings
 from diucs.domain.model.tenant import Tenant, TenantStatus
-from tests.support.neo4j import read_tx, write_tx
+from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all, write_tx
 from tests.support.relay_rig import NOW, SpyBus, add_messages, outbox_message
 from tests.support.tenant_samples import make_tenant
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [pytest.mark.asyncio(loop_scope="session"), pytest.mark.schema]
 
 A, B = "alpha-icb", "bravo-trust"
 SID_A, SID_B = "AC" + "a" * 32, "AC" + "b" * 32
@@ -53,6 +53,27 @@ TOKEN_B = b"test-only-token-for-bravo"
 GUID_A = "0f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f"
 GUID_B = "1f5a7c1e-3b2d-4c6a-9e8f-1a2b3c4d5e6f"
 DATA_MARKER = "DATA-MARKER-must-never-leave-the-graph"
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def harness_driver(own_neo4j: tuple[ThrowawayNeo4j, AsyncDriver]) -> AsyncDriver:
+    """The directory is the registry of the whole database: it answers "which tenants are there",
+    by host and by number, and a host or a number is unique across it. Another run's tenants on a
+    shared Neo4j would be part of the answer, so this module runs on a container of its own,
+    whatever the session's mode (`schema`)."""
+    return own_neo4j[1]
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def neo4j_driver(harness_driver: AsyncDriver) -> AsyncDriver:
+    return harness_driver
+
+
+@pytest_asyncio.fixture(autouse=True, loop_scope="session")
+async def _empty_graph(harness_driver: AsyncDriver) -> AsyncIterator[None]:
+    await wipe_all(harness_driver)
+    yield
+    await wipe_all(harness_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")

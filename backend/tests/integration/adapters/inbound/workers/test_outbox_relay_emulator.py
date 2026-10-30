@@ -26,7 +26,11 @@ from tests.support.relay_rig import (
 )
 from tests.support.servicebus import client
 
-pytestmark = pytest.mark.asyncio(loop_scope="session")
+pytestmark = [
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.servicebus,
+    pytest.mark.exclusive,
+]
 
 
 @pytest_asyncio.fixture

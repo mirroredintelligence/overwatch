@@ -143,7 +143,10 @@ async def test_find_by_token_hash_finds_only_an_active_screen(neo4j_driver: Asyn
     await _save(neo4j_driver, _unclaimed("screen-2"))
     assert await _find(neo4j_driver, HASH) == _active("screen-1", HASH)
     assert await _find(neo4j_driver, OTHER_HASH) is None
-    await _cypher(neo4j_driver, "MATCH (d:Device {id: 'screen-1'}) SET d.status = 'revoked'")
+    await _cypher(
+        neo4j_driver,
+        "MATCH (d:Device {id: 'screen-1', tenantId: $tenant}) SET d.status = 'revoked'",
+    )
     assert await _find(neo4j_driver, HASH) is None
 
 

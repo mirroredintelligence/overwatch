@@ -10,7 +10,13 @@ only checks that the two agree.
 
 from dataclasses import dataclass, field
 
-from diucs.application.tenancy import TenantMismatch, current_tenant
+from diucs.application.tenancy import (
+    ScopeId,
+    ScopeKind,
+    TenantMismatch,
+    TenantNotBound,
+    current_tenant,
+)
 from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.network import check_network_id
@@ -86,6 +92,24 @@ def require_actor_in_bound_tenant(actor: Actor) -> None:
     Defence against a wiring fault: the check is on two values the edge set, not on any input."""
     if actor.tenant_id != current_tenant():
         raise TenantMismatch
+
+
+def unit_tenant_scope(scope: ScopeId | None) -> ScopeId:
+    """The tenant scope a unit of work opened under. Nothing bound, or a network scope, is a missing
+    binding: a tenant use case runs for one tenant. Checked before the first read or lock, so a unit
+    of another scope takes none."""
+    if scope is None or scope.kind is not ScopeKind.TENANT:
+        raise TenantNotBound
+    return scope
+
+
+def tenant_scope_of_unit(scope: ScopeId | None, actor: Actor) -> ScopeId:
+    """`unit_tenant_scope`, and the actor's own: another tenant's actor is `TenantMismatch` (a
+    wiring fault, never an access decision)."""
+    tenant_scope = unit_tenant_scope(scope)
+    if tenant_scope.value != actor.tenant_id:
+        raise TenantMismatch
+    return tenant_scope
 
 
 def timer_actor(tenant_id: str) -> Actor:

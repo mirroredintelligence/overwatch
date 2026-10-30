@@ -95,12 +95,17 @@ async def add_scheduled(
     return work
 
 
-async def outbox_node(driver: AsyncDriver, message_id: str) -> dict[str, Any]:
-    return await node_props(driver, "OutboxMessage", id=message_id)
+async def outbox_node(
+    driver: AsyncDriver, message_id: str, *, scope: str | None = None
+) -> dict[str, Any]:
+    """The outbox row of the tenant bound now, or of `scope` (the other tenant's)."""
+    return await node_props(driver, "OutboxMessage", scope=scope, id=message_id)
 
 
-async def work_node(driver: AsyncDriver, work_id: str) -> dict[str, Any]:
-    return await node_props(driver, "ScheduledWork", id=work_id)
+async def work_node(
+    driver: AsyncDriver, work_id: str, *, scope: str | None = None
+) -> dict[str, Any]:
+    return await node_props(driver, "ScheduledWork", scope=scope, id=work_id)
 
 
 def instant(value: Any) -> datetime:

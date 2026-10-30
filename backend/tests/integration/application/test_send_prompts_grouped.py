@@ -249,9 +249,12 @@ async def _communications(driver: AsyncDriver) -> list[dict[str, Any]]:
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (c:Communication) OPTIONAL MATCH (c)-[:TOPIC]->(t:Concept) "
-            "OPTIONAL MATCH (c)-[:RECIPIENT]->(r:PractitionerRole) "
-            "OPTIONAL MATCH (c)-[:ABOUT]->(s:HealthcareService) "
+            "MATCH (c:Communication {tenantId: $tenant}) OPTIONAL MATCH (c {tenantId: "
+            "$tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:RECIPIENT]->(r:PractitionerRole {tenantId: "
+            "$tenant}) "
+            "OPTIONAL MATCH (c {tenantId: $tenant})-[:ABOUT]->(s:HealthcareService {tenantId: "
+            "$tenant}) "
             "RETURN c.id AS id, c.payloadText AS text, c.deliveryStatus AS status, "
             "toString(c.sent) AS sent, t.code AS messageId, r.id AS role, s.id AS service "
             "ORDER BY s.id, c.id"

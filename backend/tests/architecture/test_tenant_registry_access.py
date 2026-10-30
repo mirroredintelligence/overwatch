@@ -18,9 +18,12 @@ BACKEND = Path(__file__).resolve().parents[2]
 PACKAGE_ROOT = BACKEND / "src" / "diucs"
 GRAPH_STORE = "adapters/outbound/graph_store"
 DIRECTORY = f"{GRAPH_STORE}/tenant_directory.py"
-# The only files that name a registry label in Cypher: the directory's statements, and the schema
-# and the default record of the tenant migrations.
-REGISTRY_CYPHER_FILES = frozenset({DIRECTORY, f"{GRAPH_STORE}/migrations_tenant.py"})
+REGISTRY_WRITES = f"{GRAPH_STORE}/tenant_registry.py"
+# The only files that name a registry label in Cypher: the directory's statements, the registry's
+# writes (TEN-028), and the schema and the default record of the tenant migrations.
+REGISTRY_CYPHER_FILES = frozenset(
+    {DIRECTORY, REGISTRY_WRITES, f"{GRAPH_STORE}/migrations_tenant.py"}
+)
 INVARIANTS = f"{GRAPH_STORE}/invariants.py"
 # TEN-051: the network registry (`Network`, `NetworkMembership`, `Grant`, `Listing`) is the second
 # module that runs global statements, and the only one that runs global writes (GLOBAL_WRITE_IDS).
@@ -135,6 +138,58 @@ def test_only_the_composition_root_builds_the_directory() -> None:
         for path in _files()
         if _relative(path) not in {DIRECTORY, "bootstrap/container.py"}
         and "Neo4jTenantDirectory" in referenced_names(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
+
+
+# The platform statements write the registry (TEN-028, DEC-503). They run through one function, from
+# one module, and only the operator use cases hold that module's port.
+PLATFORM_RUNNERS = frozenset({f"{GRAPH_STORE}/driver.py", REGISTRY_WRITES})
+OPERATOR_USE_CASES = frozenset(
+    {
+        "application/use_cases/tenant_admin.py",
+        "application/use_cases/tenant_suspend.py",
+        "application/ports/outbound/tenant_registry.py",
+        "bootstrap/container.py",
+        "bootstrap/provisioning.py",
+        REGISTRY_WRITES,
+    }
+)
+
+
+def test_only_the_registry_writes_run_a_platform_statement() -> None:
+    offenders = [
+        _relative(path)
+        for path in _files()
+        if _relative(path) not in PLATFORM_RUNNERS
+        and "run_platform_query" in referenced_names(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
+
+
+def test_the_registry_writes_bind_nothing_run_no_tenant_or_global_statement() -> None:
+    names = referenced_names((PACKAGE_ROOT / REGISTRY_WRITES).read_text(encoding="utf-8"))
+    assert names.isdisjoint(BINDING_NAMES)
+    assert "run_global_query" not in names
+    assert "run_platform_query" in names
+
+
+def test_only_the_composition_root_builds_the_registry_writes() -> None:
+    offenders = [
+        _relative(path)
+        for path in _files()
+        if _relative(path) not in {REGISTRY_WRITES, "bootstrap/container.py"}
+        and "Neo4jTenantRegistry" in referenced_names(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
+
+
+def test_only_the_operator_use_cases_name_the_registry_port() -> None:
+    offenders = [
+        _relative(path)
+        for path in _files()
+        if _relative(path) not in OPERATOR_USE_CASES
+        and "TenantRegistry" in referenced_names(path.read_text(encoding="utf-8"))
     ]
     assert offenders == []
 

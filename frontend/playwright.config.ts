@@ -1,7 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
-import { BACKEND_PORT, ENTRA_ENV } from './e2e/support/env';
+import { BACKEND_PORT, ENTRA_ENV, PORT_CHOSEN, SITE_PORT } from './e2e/support/env';
 
-const PORT = 3000;
+// One port per run (e2e/support/env.ts), so two runs on a machine never share a dev server.
+const PORT = SITE_PORT;
 // The synthetic checks (O09) run against a deployed test environment, or the compose stack, named by
 // SYNTHETIC_BASE_URL. When it is set, no dev server and no stand-in back end start here.
 const SYNTHETIC_BASE_URL = process.env.SYNTHETIC_BASE_URL;
@@ -39,9 +40,11 @@ export default defineConfig({
   webServer: SYNTHETIC_BASE_URL
     ? undefined
     : {
-        command: 'pnpm dev',
+        command: `pnpm dev --port ${PORT}`,
         url: `http://localhost:${PORT}`,
-        reuseExistingServer: !process.env.CI,
+        // A dev server is reused only on a port the person chose (DIUCS_E2E_PORT), never on the
+        // port derived for this run, where another run's server could be.
+        reuseExistingServer: PORT_CHOSEN && !process.env.CI,
         // The page reads the board from a stand-in back end that global-setup starts.
         env: {
           DIUCS_FHIR_BASE_URL: `http://127.0.0.1:${BACKEND_PORT}/fhir`,

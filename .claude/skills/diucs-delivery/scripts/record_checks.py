@@ -2,7 +2,7 @@
 
     python record_checks.py --cwd backend
     python record_checks.py --cwd backend --out docs/delivery/evidence/U02.md --heading "Checks (generated)" \
-        --extra "Neo4j confirm::flock /tmp/diucs-neo4j-tests.lock uv run pytest tests/integration/application/test_confirm_capacity.py -q"
+        --extra "Neo4j confirm::uv run pytest tests/integration/application/test_confirm_capacity.py -q"
 
 Each command runs without a pipe, so its own exit code is the one recorded. The table lists the command,
 the exit code and the last non-empty output line. The exit status of this script is 1 if any command failed.

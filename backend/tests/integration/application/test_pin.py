@@ -199,7 +199,8 @@ async def test_no_audit_node_holds_a_pin_or_a_hash(rig: Rig, neo4j_driver: Async
 
     async def work(tx: Any) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (n) WHERE NOT n:Credential RETURN labels(n) AS labels, properties(n) AS p"
+            "MATCH (n {tenantId: $tenant}) WHERE NOT n:Credential RETURN labels(n) AS labels, "
+            "properties(n) AS p"
         )
         return await result.data()
 

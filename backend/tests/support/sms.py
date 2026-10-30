@@ -10,6 +10,7 @@ up for the tests.
 import base64
 import hashlib
 import hmac
+import os
 from collections.abc import Mapping
 from dataclasses import dataclass
 
@@ -45,8 +46,17 @@ class Subaccount:
     token: bytes
 
 
-TENANT_A = Subaccount("tenant-a", "+447700900001", "AC" + "a" * 32, "twilio/tenant-a", b"token-a")
-TENANT_B = Subaccount("tenant-b", "+447700900002", "AC" + "b" * 32, "twilio/tenant-b", b"token-b")
+# The two organisations are the run's own two tenants (TEN-035): their records and the reporters
+# the tests write into them are removed by the wipe between tests, and another run on the same
+# Neo4j has tenants of its own. A fixed `tenant-a` would be neither.
+_RUN_TENANT = os.environ["DIUCS_TEST_TENANT"]
+_RUN_OTHER_TENANT = os.environ["DIUCS_TEST_OTHER_TENANT"]
+TENANT_A = Subaccount(
+    _RUN_TENANT, "+447700900001", "AC" + "a" * 32, f"twilio/{_RUN_TENANT}", b"token-a"
+)
+TENANT_B = Subaccount(
+    _RUN_OTHER_TENANT, "+447700900002", "AC" + "b" * 32, f"twilio/{_RUN_OTHER_TENANT}", b"token-b"
+)
 
 
 def secret_store() -> FixedSecretStore:

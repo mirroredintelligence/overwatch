@@ -113,7 +113,7 @@ async def test_saving_v3_as_current_points_the_service_at_it(neo4j_driver: Async
     await _run(neo4j_driver, lambda repo: repo.add(UCR_WEST_V3))
     rows = await _rows(
         neo4j_driver,
-        "MATCH (:HealthcareService {id: $service})-[:CURRENT_CRITERIA]->(c) "
+        "MATCH (:HealthcareService {id: $service, tenantId: $tenant})-[:CURRENT_CRITERIA]->(c) "
         "RETURN c.version AS version",
         service=SERVICE,
     )
@@ -143,7 +143,8 @@ async def test_superseding_then_making_v4_current_moves_the_link_and_keeps_histo
     assert (
         await _rows(
             neo4j_driver,
-            "MATCH (:HealthcareService {id: $service})-[:CURRENT_CRITERIA]->(c) RETURN c.id AS id",
+            "MATCH (:HealthcareService {id: $service, tenantId: "
+            "$tenant})-[:CURRENT_CRITERIA]->(c) RETURN c.id AS id",
             service=SERVICE,
         )
         == []
@@ -152,13 +153,15 @@ async def test_superseding_then_making_v4_current_moves_the_link_and_keeps_histo
     assert await _read(neo4j_driver, lambda repo: repo.current_for_service(SERVICE)) == V4_CURRENT
     links = await _rows(
         neo4j_driver,
-        "MATCH (:HealthcareService {id: $service})-[:CURRENT_CRITERIA]->(c) RETURN c.id AS id",
+        "MATCH (:HealthcareService {id: $service, tenantId: $tenant})-[:CURRENT_CRITERIA]->(c) "
+        "RETURN c.id AS id",
         service=SERVICE,
     )
     assert links == [{"id": V4_PENDING.id}]
     supersedes = await _rows(
         neo4j_driver,
-        "MATCH (:ServiceCriteria {id: $new})-[:SUPERSEDES]->(old:ServiceCriteria) "
+        "MATCH (:ServiceCriteria {id: $new, tenantId: "
+        "$tenant})-[:SUPERSEDES]->(old:ServiceCriteria {tenantId: $tenant}) "
         "RETURN old.id AS id",
         new=V4_PENDING.id,
     )
@@ -299,7 +302,8 @@ async def test_two_racing_current_versions_leave_one_current(neo4j_driver: Async
     assert await count_nodes(neo4j_driver, "ServiceCriteria") == 2
     current = await _rows(
         neo4j_driver,
-        "MATCH (:HealthcareService {id: $service})-[:CURRENT_CRITERIA]->(c) RETURN c.id AS id",
+        "MATCH (:HealthcareService {id: $service, tenantId: $tenant})-[:CURRENT_CRITERIA]->(c) "
+        "RETURN c.id AS id",
         service=SERVICE,
     )
     assert current == [{"id": V4_CURRENT.id}]
@@ -373,7 +377,8 @@ async def test_two_racing_saves_that_make_a_version_current_leave_one_current(
         await racer
     current = await _rows(
         neo4j_driver,
-        "MATCH (:HealthcareService {id: $service})-[:CURRENT_CRITERIA]->(c) RETURN c.id AS id",
+        "MATCH (:HealthcareService {id: $service, tenantId: $tenant})-[:CURRENT_CRITERIA]->(c) "
+        "RETURN c.id AS id",
         service=SERVICE,
     )
     assert current == [{"id": V4_CURRENT.id}]

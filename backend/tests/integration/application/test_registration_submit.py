@@ -46,7 +46,7 @@ from diucs.domain.codes import (
 )
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, run_nodes
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -222,21 +222,23 @@ async def test_a_fixed_site_registration_is_written_as_drafts_with_its_links_and
     assert (lookups.ods_found, lookups.address_found) == (True, True)
     criteria = await _rows(
         neo4j_driver,
-        "MATCH (c:ServiceCriteria)-[:SUBJECT]->(:HealthcareService {id: $id}) "
+        "MATCH (c:ServiceCriteria {tenantId: $tenant})-[:SUBJECT]->(:HealthcareService {id: $id, "
+        "tenantId: $tenant}) "
         "RETURN c.version AS version, c.status AS status",
         id=service_id,
     )
     assert criteria == [{"version": 1, "status": CriteriaStatus.PENDING_APPROVAL.value}]
     provided = await _rows(
         neo4j_driver,
-        "MATCH (:HealthcareService {id: $id, active: false})-[:PROVIDED_BY]->"
-        "(o:Organization {active: false}) RETURN o.odsCode AS ods",
+        "MATCH (:HealthcareService {id: $id, active: false, tenantId: $tenant})-[:PROVIDED_BY]->"
+        "(o:Organization {active: false, tenantId: $tenant}) RETURN o.odsCode AS ods",
         id=service_id,
     )
     assert provided == [{"ods": "RXX01"}]
     located = await _rows(
         neo4j_driver,
-        "MATCH (:HealthcareService {id: $id})-[:LOCATION]->(l:Location {status: 'inactive'}) "
+        "MATCH (:HealthcareService {id: $id, tenantId: $tenant})-[:LOCATION]->(l:Location "
+        "{status: 'inactive', tenantId: $tenant}) "
         "RETURN l.positionLatitude AS lat, l.ext_geocodeSource AS source",
         id=service_id,
     )
@@ -250,7 +252,10 @@ async def test_the_reporters_mobile_is_found_only_on_the_protected_contact_node(
 
     await _persist(uow_factory).execute(PersistRegistrationCommand(registration_id))
 
-    nodes = await _rows(neo4j_driver, "MATCH (n) RETURN labels(n) AS labels, properties(n) AS p")
+    async def read_nodes(tx: Any) -> list[dict[str, Any]]:
+        return await (await run_nodes(tx, "labels(n) AS labels, properties(n) AS p")).data()
+
+    nodes = await read_tx(neo4j_driver, read_nodes)
     holding = {
         tuple(row["labels"])
         for row in nodes
@@ -277,12 +282,15 @@ async def test_a_visiting_service_gets_district_locations_and_a_second_one_reuse
     assert await count_nodes(neo4j_driver, "Location") == 2
     areas = await _rows(
         neo4j_driver,
-        "MATCH (s:HealthcareService {id: 'svc-2'})-[:COVERAGE_AREA]->(l:Location) "
+        "MATCH (s:HealthcareService {id: 'svc-2', tenantId: "
+        "$tenant})-[:COVERAGE_AREA]->(l:Location {tenantId: $tenant}) "
         "RETURN l.name AS name",
     )
     assert areas == [{"name": "DT3"}]
     positioned = await _rows(
-        neo4j_driver, "MATCH (l:Location) WHERE l.positionLatitude IS NOT NULL RETURN l.id AS id"
+        neo4j_driver,
+        "MATCH (l:Location {tenantId: $tenant}) WHERE l.positionLatitude IS NOT NULL RETURN l.id "
+        "AS id",
     )
     assert positioned == []
 

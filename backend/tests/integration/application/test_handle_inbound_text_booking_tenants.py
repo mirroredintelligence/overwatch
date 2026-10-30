@@ -2,7 +2,7 @@
 
 Tenant A has an open booking with reference R. Tenant B has its own reporter, on another phone
 number, who replies CONFIRMED with R: the number called resolves to B, so B sees no open booking
-and A's booking is not confirmed. Runs on contracted_container() (DEC-159, lesson L168).
+and A's booking is not confirmed. Runs on the shared harness database (DEC-159).
 """
 
 from collections.abc import AsyncIterator
@@ -24,8 +24,6 @@ from tests.support.booking_rig import (
 )
 from tests.support.ladder_rig import reporter, seed_people, seed_report
 from tests.support.link_rig import ucr_west
-from tests.support.neo4j import wipe
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -34,21 +32,20 @@ PHONE_B = "de" * 32
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two_tenants(
-    tenant_id: str, other_tenant_id: str
+    tenant_id: str, other_tenant_id: str, neo4j_driver: AsyncDriver, clean_graph: None
 ) -> AsyncIterator[tuple[AsyncDriver, UnitOfWorkFactory, UnitOfWorkFactory]]:
-    async with contracted_container() as driver:
-        await wipe(driver)
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id)
-        factory_b = tenant_uow_factory(driver, other_tenant_id)
-        await seed_world(factory_a, driver)
-        async with factory_b() as uow:
-            await uow.services.save(ucr_west(SERVICE_ID))
-            await uow.cases.add(open_case())
-            await uow.commit()
-        await seed_people(factory_b, reporter(2, PHONE_B, service_id=SERVICE_ID))
-        await seed_report(factory_b, at(13, 0), service_id=SERVICE_ID, value=4)
-        yield driver, factory_a, factory_b
+    driver = neo4j_driver
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id)
+    factory_b = tenant_uow_factory(driver, other_tenant_id)
+    await seed_world(factory_a, driver)
+    async with factory_b() as uow:
+        await uow.services.save(ucr_west(SERVICE_ID))
+        await uow.cases.add(open_case())
+        await uow.commit()
+    await seed_people(factory_b, reporter(2, PHONE_B, service_id=SERVICE_ID))
+    await seed_report(factory_b, at(13, 0), service_id=SERVICE_ID, value=4)
+    yield driver, factory_a, factory_b
 
 
 async def test_a_confirmed_text_in_tenant_b_cannot_confirm_tenant_as_booking_by_its_reference(

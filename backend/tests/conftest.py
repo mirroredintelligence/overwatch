@@ -1,39 +1,58 @@
 """Shared pytest fixtures and hooks.
 
-The Neo4j harness (F10, DEC-008): an integration session starts its own throwaway Neo4j container,
-on a free port with a unique name, and removes it when the session ends. The harness never reads
-or uses a shared stack, so no test can wipe diucs-local (port 7687).
+The Neo4j harness (F10, DEC-008, TEN-034): an integration session runs on one of three databases,
+chosen by `tests/support/harness_mode.py`: the machine's shared container (the default, found or
+created once, every run in its own tenants), a private container the session starts and removes
+(`DIUCS_TEST_NEO4J=owned`), or an instance named by `DIUCS_TEST_NEO4J_URI`. The harness never reads
+`NEO4J_URI` and refuses the compose stack of the owner (port 7687), so no test can wipe diucs-local.
+A test that must change or assert the whole schema, or stop a container, takes `own_neo4j`.
 
 The tenant per run (TEN-003, DEC-147): each pytest session has one run identity, from which a run
 tenant, a second tenant and a run network scope derive. Every integration test runs with the run
 tenant bound (a test marked `no_tenant` runs with none), and a guard fails a test that leaves
-another tenant bound. The wipe is still the whole database and the container still one per run
-(TEN-033 to TEN-035).
+another tenant bound. The wipe between tests deletes only the run's own tenants (TEN-033), so
+runs share one Neo4j, and under pytest-xdist each worker has tenants of its own (TEN-035).
 """
 
 import os
 from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, bind_tenant
 from diucs.bootstrap.container import TEST_NOW
+from tests.support.harness_mode import (
+    ExclusiveUnderParallel,
+    Mode,
+    exclusive_selected,
+    open_harness_database,
+    refuse_exclusive_under_parallel,
+    select_mode,
+)
 from tests.support.neo4j import (
     ThrowawayNeo4j,
     apply_session_env,
     reap_stale_test_containers,
     throwaway_driver,
-    wipe,
+    wipe_tenant,
 )
-from tests.support.tenancy import RunIdentity, guard_test, new_run_identity
-from tests.support.uow import tenant_uow_factory, uow_factory_on
+from tests.support.neo4j_locks import apply_migrations_once
+from tests.support.tenancy import (
+    RunIdentity,
+    export_identity,
+    guard_test,
+    identity_from_workerinput,
+    process_identity,
+    workerinput_for,
+)
+from tests.support.uow import ensure_audit_heads, tenant_uow_factory, uow_factory_on
 from tests.support.watchdog import configured_timeout_s, setup_timeout_s, time_limit
 
 _INTEGRATION_ROOT = Path(__file__).resolve().parent / "integration"
@@ -41,16 +60,46 @@ _INTEGRATION_ROOT = Path(__file__).resolve().parent / "integration"
 # never touch Neo4j (and a Docker-less run) never starts a container.
 _active: list[AsyncDriver] = []
 _RUN_IDENTITY: pytest.StashKey[RunIdentity] = pytest.StashKey()
+# True when a selected test is marked `exclusive`: the session then holds the shared Neo4j's use
+# lock exclusively, so it never overlaps another run (TEN-034).
+_EXCLUSIVE_RUN: pytest.StashKey[bool] = pytest.StashKey()
+_SESSION_ENV = ("NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD")
+
+
+_PROCESS_IDENTITY = process_identity()
 
 
 def pytest_configure(config: pytest.Config) -> None:
-    """One run identity per pytest session (worker identities under xdist are TEN-035). The three
-    ids are exported for child processes: the front end's end-to-end run reads them later."""
-    identity = new_run_identity()
+    """One run identity per pytest session. The process made it when this file was imported (see
+    `process_identity`: a worker derives its own from its controller's run and its number). Under
+    pytest-xdist the controller also sends it to each worker (`pytest_configure_node`), and the
+    worker takes the identity of its own number from that (`workerinput`), which is the same one
+    by construction. Each worker therefore has a tenant, a second tenant and a network scope of its
+    own (TEN-035). The three ids are exported for child processes: the front end's end-to-end run
+    reads them later."""
+    received = getattr(config, "workerinput", None)
+    if received is None:
+        identity = process_identity()
+    else:
+        try:
+            identity = identity_from_workerinput(received)
+        except ValueError as error:
+            raise pytest.UsageError(str(error)) from error
     config.stash[_RUN_IDENTITY] = identity
-    os.environ["DIUCS_TEST_TENANT"] = identity.tenant_id
-    os.environ["DIUCS_TEST_OTHER_TENANT"] = identity.other_tenant_id
-    os.environ["DIUCS_TEST_NETWORK"] = identity.network_id
+    export_identity(identity, os.environ)
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_configure_node(node: Any) -> None:
+    """xdist hook, in the controller: tell the worker which run it belongs to. The worker's number
+    is added on its side, from its `workerid`."""
+    node.workerinput.update(workerinput_for(node.config.stash[_RUN_IDENTITY]))
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:
+    """After the selection (`-m`, `-k`) is applied: is this an exclusive run? The session then holds
+    the shared Neo4j's use lock exclusively (`harness_neo4j`)."""
+    session.config.stash[_EXCLUSIVE_RUN] = exclusive_selected(session.items)
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
@@ -67,10 +116,23 @@ def _capture_release(item: pytest.Item) -> Callable[[], None] | None:
     return lambda: manager.suspend_global_capture(in_=False)
 
 
+def _refuse_exclusive_on_a_worker(item: pytest.Item) -> None:
+    """An exclusive test cannot run beside another test, so it fails, naming the commands to use,
+    when the session has parallel workers (xdist). It fails before any fixture runs: a worker that
+    refused at collection would crash and the controller would report an internal error."""
+    received = getattr(item.config, "workerinput", None)
+    workers = None if received is None else received.get("workercount")
+    try:
+        refuse_exclusive_under_parallel([item], workers)
+    except ExclusiveUnderParallel as error:
+        pytest.fail(str(error), pytrace=False)
+
+
 @pytest.hookimpl(wrapper=True)
 def pytest_runtest_setup(item: pytest.Item) -> Iterator[None]:
     """Fail a test whose fixture set-up runs past DIUCS_TEST_SETUP_TIMEOUT seconds (default 900,
     0 turns it off). The harness pauses this clock for its lock wait and image pull (F10b)."""
+    _refuse_exclusive_on_a_worker(item)
     with time_limit(
         setup_timeout_s(), f"{item.nodeid} (set-up)", release_capture=_capture_release(item)
     ):
@@ -116,24 +178,55 @@ def _bind_run_tenant(item: pytest.Item, tenant: str) -> None:
         item.obj = guard_test(item.obj, None if unbound else tenant)
 
 
+@pytest.fixture(scope="session")
+def harness_mode() -> Mode:
+    """Which database the session runs on: owned, shared or attached (TEN-034)."""
+    return select_mode().mode
+
+
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
-async def harness_neo4j() -> AsyncIterator[tuple[ThrowawayNeo4j, AsyncDriver]]:
-    """One throwaway Neo4j container and one driver for the whole pytest session; migrations
-    applied once.
+async def harness_neo4j(
+    request: pytest.FixtureRequest, run_identity: RunIdentity
+) -> AsyncIterator[tuple[ThrowawayNeo4j, AsyncDriver]]:
+    """The database for the whole pytest session and one driver to it, migrated (once at a time
+    across processes), and for a shared or attached database swept of the tenants of dead runs.
 
     The harness sets NEO4J_URI, NEO4J_USER and NEO4J_PASSWORD for the session, so code that reads
-    them (the G01 test module) reaches this container and nothing else. The container is restartable
-    (F11): tests may stop and start it, and it is removed when the session ends, even if connecting
-    failed.
+    them (the G01 test module) reaches this database and nothing else. In owned mode the container
+    is restartable (F11) and is removed when the session ends, even if connecting failed; the shared
+    container is never removed by a run.
     """
-    async with throwaway_driver() as (container, driver):
-        apply_session_env(container)
-        await apply_migrations(driver)
-        _active.append(driver)
+    exclusive = request.config.stash.get(_EXCLUSIVE_RUN, False)
+    async with open_harness_database(
+        select_mode(), exclusive=exclusive, own=run_identity
+    ) as database:
+        apply_session_env(database.target)
+        _active.append(database.driver)
         try:
-            yield container, driver
+            yield database.target, database.driver
         finally:
             _active.clear()
+
+
+@pytest_asyncio.fixture(scope="module", loop_scope="session")
+async def own_neo4j() -> AsyncIterator[tuple[ThrowawayNeo4j, AsyncDriver]]:
+    """A private container for one test module, whatever the session's mode, migrated, with the
+    session environment pointing at it while the module runs. For tests that change or assert the
+    whole schema, or the whole database, or stop and start a container (markers `schema` and
+    `lifecycle`). Private containers start one at a time, machine-wide (the harness lock, DEC-135),
+    and the container is removed when the module is done."""
+    saved = {name: os.environ.get(name) for name in _SESSION_ENV}
+    async with throwaway_driver() as (container, driver):
+        apply_session_env(container)
+        try:
+            await apply_migrations_once(driver, container.uri)
+            yield container, driver
+        finally:
+            for name, value in saved.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
 
 
 @pytest_asyncio.fixture(scope="session", loop_scope="session")
@@ -158,12 +251,17 @@ async def neo4j_driver(harness_driver: AsyncDriver) -> AsyncDriver:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def clean_graph() -> None:
-    """Delete every node and relationship in the harness container before an integration test.
-    Constraints, indexes and :Migration nodes stay. If no test has needed Neo4j yet, the container
-    does not exist and there is nothing to clean, so this starts nothing."""
+async def clean_graph(run_identity: RunIdentity) -> None:
+    """Delete what this run owns in the harness database before an integration test: every node of
+    the run tenant, the second tenant and the run network scope (and the directory records of
+    those), and nothing else, so other runs on a shared Neo4j are untouched. Constraints, indexes
+    and :Migration nodes stay. The run tenant and the second tenant then get their audit chain
+    heads again, as the product's start-up makes them (a use case that appends to the chain needs
+    one). If no test has needed Neo4j yet, the container does not exist and there is nothing to
+    clean, so this starts nothing."""
     for driver in _active:
-        await wipe(driver)
+        await wipe_tenant(driver, *run_identity.scope_ids)
+        await ensure_audit_heads(driver, run_identity.tenant_id, run_identity.other_tenant_id)
 
 
 @pytest.fixture(scope="session")

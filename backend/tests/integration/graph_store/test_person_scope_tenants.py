@@ -3,12 +3,13 @@
 Both tenants hold a practitioner `p-1` with the same phone hash, a role `r-1`, a service `svc-1`,
 a registration `reg-1` and a scope list. The keys are composite with the tenant (TEN-005), so both
 can be written; every read and every write must stay in the bound tenant. These tests run on a
-private container with the superseded single-property keys dropped (`contracted_container`), the
+shared harness database (the contracted schema, DEC-159), the
 schema the platform has after TEN-032. All values are synthetic.
 """
 
 from collections.abc import AsyncIterator
 from datetime import UTC, date, datetime
+from functools import partial
 from typing import Any
 
 import pytest
@@ -36,8 +37,8 @@ from diucs.domain.errors import NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Registration, ScopeEntry
 from diucs.domain.rules.registration import ApprovalChecks
-from tests.support.neo4j import read_tx, wipe, write_tx
-from tests.support.tenant_seed import contracted_container, invariant_breaks, seed_tenant
+from tests.support.neo4j import read_tx, run_scope_ids, write_tx
+from tests.support.tenant_seed import invariant_breaks, seed_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -48,17 +49,9 @@ CREATED = datetime(2026, 10, 25, 12, 40, tzinfo=UTC)
 DAY = date(2026, 10, 25)
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    async with contracted_container() as driver:
-        yield driver
-
-
 @pytest_asyncio.fixture(loop_scope="session")
-async def two(two_tenant_driver: AsyncDriver) -> AsyncIterator[AsyncDriver]:
-    await wipe(two_tenant_driver)
-    yield two_tenant_driver
-    await wipe(two_tenant_driver)
+async def two(neo4j_driver: AsyncDriver, clean_graph: None) -> AsyncIterator[AsyncDriver]:
+    yield neo4j_driver
 
 
 def _repo(tx: AsyncManagedTransaction) -> Neo4jPersonRepository:
@@ -189,7 +182,8 @@ async def test_a_channel_in_one_tenant_never_links_to_the_concept_of_the_other(
     rows = await _rows_as(
         two,
         tenant_id,
-        "MATCH (:PractitionerRole {id: 'r-1', tenantId: $tenant})-[:CHANNEL]->(c:Concept) "
+        "MATCH (:PractitionerRole {id: 'r-1', tenantId: $tenant})-[:CHANNEL]->(c:Concept "
+        "{tenantId: $tenant}) "
         "RETURN c.tenantId AS tenant",
         tenant=tenant_id,
     )
@@ -388,7 +382,7 @@ async def test_a_scope_entry_for_a_service_the_other_tenant_holds_names_the_tena
     await _as(two, tenant_id, mine)
 
     query = (
-        "MATCH (:List {tenantId: $tenant})-[:ENTRY]->(s:HealthcareService) "
+        "MATCH (:List {tenantId: $tenant})-[:ENTRY]->(s:HealthcareService {tenantId: $tenant}) "
         "RETURN s.id AS id, s.tenantId AS tenant"
     )
     assert await _rows_as(two, tenant_id, query, tenant=tenant_id) == [
@@ -398,7 +392,9 @@ async def test_a_scope_entry_for_a_service_the_other_tenant_holds_names_the_tena
     assert await invariant_breaks_of(two) == ([], [])
 
 
-async def test_a_seeded_relationship_keeps_the_properties_it_is_given(two: AsyncDriver) -> None:
+async def test_a_seeded_relationship_keeps_the_properties_it_is_given(
+    two: AsyncDriver, other_tenant_id: str
+) -> None:
     """The scenario seeder writes a relationship's properties (TEN-011: a cover has an `until`)."""
     seed = TenantSeed(
         nodes=(
@@ -407,18 +403,18 @@ async def test_a_seeded_relationship_keeps_the_properties_it_is_given(two: Async
         ),
         rels=(SeedRel("role", "COVERED_BY", "person", {"until": "2026-10-25T19:00:00Z"}),),
     )
-    await seed_tenant(two, "tenant-seed-check", "A", seed)
+    await seed_tenant(two, other_tenant_id, "A", seed)
 
     async def read(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         query = (
-            "MATCH (:PractitionerRole {tenantId: 'tenant-seed-check'})-[c:COVERED_BY]->() "
+            "MATCH (:PractitionerRole {tenantId: $tenant})-[c:COVERED_BY]->({tenantId: $tenant}) "
             "RETURN c.until AS until"
         )
-        return await (await tx.run(query)).data()
+        return await (await tx.run(query, tenant=other_tenant_id)).data()
 
     rows = await read_tx(two, read)
     assert rows == [{"until": "2026-10-25T19:00:00Z"}]
 
 
 async def invariant_breaks_of(driver: AsyncDriver) -> tuple[list[str], list[str]]:
-    return await read_tx(driver, invariant_breaks)
+    return await read_tx(driver, partial(invariant_breaks, scopes=run_scope_ids()))

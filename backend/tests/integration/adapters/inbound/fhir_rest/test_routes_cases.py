@@ -34,7 +34,7 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.api import token_headers
-from tests.support.neo4j import count_nodes, wipe
+from tests.support.neo4j import count_nodes
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -130,7 +130,9 @@ def _report(service_id: str, value: int, at: datetime, number: int) -> CapacityR
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def seeded(neo4j_driver: AsyncDriver, uow_factory: UnitOfWorkFactory, tenant_id: str) -> None:
+async def seeded(
+    neo4j_driver: AsyncDriver, uow_factory: UnitOfWorkFactory, tenant_id: str, clean_graph: None
+) -> None:
     """Two services with current criteria and a current report each (UCR West accepts, Ward B is
     not accepting)."""
     await ensure_audit_heads(neo4j_driver, tenant_id)
@@ -316,14 +318,13 @@ async def test_close_leaves_no_postcode_and_no_needs(
 
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def route_state(api_app: Any, test_container: Any) -> None:
+async def route_state(api_app: Any, test_container: Any, clean_graph: None) -> None:
     """The BFF secret for the tokens and the cache the idempotent writes replay from (DEC-096)."""
     api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
     api_app.state.cache = InMemoryCache(test_container.clock)
 
 
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def fresh_cases(neo4j_driver: AsyncDriver) -> AsyncIterator[None]:
-    """Each case test starts from a wiped graph, so the case counts are its own."""
-    await wipe(neo4j_driver)
+async def fresh_cases(neo4j_driver: AsyncDriver, clean_graph: None) -> AsyncIterator[None]:
+    """Each case test starts from a wiped graph (clean_graph), so the case counts are its own."""
     yield

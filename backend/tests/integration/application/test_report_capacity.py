@@ -136,7 +136,8 @@ async def _events(factory: UnitOfWorkFactory, event_type: str) -> list[OutboxMes
 async def _communications(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (c:Communication) OPTIONAL MATCH (c)-[:TOPIC]->(t:Concept) "
+            "MATCH (c:Communication {tenantId: $tenant}) OPTIONAL MATCH (c {tenantId: "
+            "$tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
             "RETURN c.payloadText AS text, c.deliveryStatus AS status, t.code AS messageId"
         )
         return await result.data()

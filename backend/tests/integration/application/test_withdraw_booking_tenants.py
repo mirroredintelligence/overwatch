@@ -2,7 +2,7 @@
 
 Tenant A and tenant B each hold a booking world with the same service id, case and reporter. A
 confirmed booking of A is given to B's withdrawal and B's escalation timer: both read as not found,
-and A's booking and its escalation are unchanged. Runs on contracted_container() (DEC-159, L168).
+and A's booking and its escalation are unchanged. Runs on the shared harness database (DEC-159).
 """
 
 from collections.abc import AsyncIterator
@@ -25,8 +25,6 @@ from diucs.application.work import WorkKind
 from diucs.domain.codes import BookingStatus, WithdrawReason
 from diucs.domain.errors import NotFound
 from tests.support.booking_rig import REPORTER, at, request, seed_world
-from tests.support.neo4j import wipe
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -34,16 +32,15 @@ pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def two_tenants(
-    tenant_id: str, other_tenant_id: str
+    tenant_id: str, other_tenant_id: str, neo4j_driver: AsyncDriver, clean_graph: None
 ) -> AsyncIterator[tuple[AsyncDriver, UnitOfWorkFactory, UnitOfWorkFactory]]:
-    async with contracted_container() as driver:
-        await wipe(driver)
-        await ensure_audit_heads(driver, tenant_id, other_tenant_id)
-        factory_a = tenant_uow_factory(driver, tenant_id)
-        factory_b = tenant_uow_factory(driver, other_tenant_id)
-        await seed_world(factory_a, driver)
-        await seed_world(factory_b, driver)
-        yield driver, factory_a, factory_b
+    driver = neo4j_driver
+    await ensure_audit_heads(driver, tenant_id, other_tenant_id)
+    factory_a = tenant_uow_factory(driver, tenant_id)
+    factory_b = tenant_uow_factory(driver, other_tenant_id)
+    await seed_world(factory_a, driver)
+    await seed_world(factory_b, driver)
+    yield driver, factory_a, factory_b
 
 
 async def test_tenant_b_cannot_withdraw_or_time_out_a_booking_and_a_is_unchanged(

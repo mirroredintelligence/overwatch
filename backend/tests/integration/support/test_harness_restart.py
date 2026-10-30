@@ -8,15 +8,20 @@ other tests share.
 
 import subprocess
 
+import pytest
+
 from tests.support.neo4j import (
     connect_or_fail,
     count_nodes,
     start_container,
     stop_container,
     throwaway_driver,
+    tx_run,
     wait_until_ready,
     write_tx,
 )
+
+pytestmark = pytest.mark.lifecycle
 
 
 def _docker_inspect(name: str, template: str) -> str:
@@ -40,7 +45,7 @@ def _container_exists(name: str) -> bool:
 
 
 async def _create_probe(tx: object) -> None:
-    await tx.run("CREATE (:Probe {id: 'restart'})")  # type: ignore[attr-defined]
+    await tx_run(tx, "CREATE (:Probe {id: 'restart', tenantId: $tenant})")
 
 
 async def test_harness_container_survives_stop_and_start_and_is_ready_again() -> None:

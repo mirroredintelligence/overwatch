@@ -17,6 +17,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from neo4j import AsyncDriver
 
 from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
     WorkHandler,
@@ -36,7 +37,6 @@ from diucs.domain.errors import NotFound, ValidationFailed
 from tests.support.bus import message_with_tenant
 from tests.support.neo4j import count_nodes
 from tests.support.tenancy import tenant_scope
-from tests.support.tenant_seed import contracted_container
 from tests.support.uow import tenant_uow_factory
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -359,70 +359,75 @@ async def test_a_message_with_no_tenant_or_an_unlisted_one_runs_nothing(
 
 
 async def test_each_tenant_runs_its_own_work_under_its_own_scope(
-    tenant_id: str, other_tenant_id: str
+    tenant_id: str, other_tenant_id: str, neo4j_driver: AsyncDriver, clean_graph: None
 ) -> None:
-    async with contracted_container() as driver:
-        factory = neo4j_uow_factory(driver, clock=FixedClock(TEST_NOW))
-        work_a = _work("work-a")
-        work_b = _work("work-b", WorkKind.PHONE_TASK)
-        await _seed(tenant_uow_factory(driver, tenant_id, FixedClock(TEST_NOW)), work_a)
-        await _seed(tenant_uow_factory(driver, other_tenant_id, FixedClock(TEST_NOW)), work_b)
-        handler = _Recorder()
-        consumer = build_scheduled_work_consumer(
-            {WorkKind.REMINDER: handler, WorkKind.PHONE_TASK: handler},
-            factory,
-            StaticTenants([tenant_id, other_tenant_id]),
-        )
+    driver = neo4j_driver
+    factory = neo4j_uow_factory(driver, clock=FixedClock(TEST_NOW))
+    work_a = _work("work-a")
+    work_b = _work("work-b", WorkKind.PHONE_TASK)
+    await _seed(tenant_uow_factory(driver, tenant_id, FixedClock(TEST_NOW)), work_a)
+    await _seed(tenant_uow_factory(driver, other_tenant_id, FixedClock(TEST_NOW)), work_b)
+    handler = _Recorder()
+    consumer = build_scheduled_work_consumer(
+        {WorkKind.REMINDER: handler, WorkKind.PHONE_TASK: handler},
+        factory,
+        StaticTenants([tenant_id, other_tenant_id]),
+    )
 
-        a = await consumer.handle(_message(work_a, tenant_id=tenant_id, message_id="m-a"))
-        b = await consumer.handle(_message(work_b, tenant_id=other_tenant_id, message_id="m-b"))
+    a = await consumer.handle(_message(work_a, tenant_id=tenant_id, message_id="m-a"))
+    b = await consumer.handle(_message(work_b, tenant_id=other_tenant_id, message_id="m-b"))
 
-        assert [a.kind, b.kind] == ["completed", "completed"]
-        assert [w.id for w in handler.works] == ["work-a", "work-b"]
-        assert handler.scopes == [tenant_scope(tenant_id), tenant_scope(other_tenant_id)]
-        assert await count_nodes(driver, "ScheduledWork") == 2
+    assert [a.kind, b.kind] == ["completed", "completed"]
+    assert [w.id for w in handler.works] == ["work-a", "work-b"]
+    assert handler.scopes == [tenant_scope(tenant_id), tenant_scope(other_tenant_id)]
+    assert (
+        await count_nodes(driver, "ScheduledWork", tenant=tenant_id)
+        + await count_nodes(driver, "ScheduledWork", tenant=other_tenant_id)
+    ) == 2
 
 
 async def test_a_message_for_tenant_a_naming_tenant_bs_work_is_not_found(
-    tenant_id: str, other_tenant_id: str
+    tenant_id: str, other_tenant_id: str, neo4j_driver: AsyncDriver, clean_graph: None
 ) -> None:
-    async with contracted_container() as driver:
-        factory = neo4j_uow_factory(driver, clock=FixedClock(TEST_NOW))
-        work_b = _work("work-b")
-        await _seed(tenant_uow_factory(driver, other_tenant_id, FixedClock(TEST_NOW)), work_b)
-        handler = _Recorder()
+    driver = neo4j_driver
+    factory = neo4j_uow_factory(driver, clock=FixedClock(TEST_NOW))
+    work_b = _work("work-b")
+    await _seed(tenant_uow_factory(driver, other_tenant_id, FixedClock(TEST_NOW)), work_b)
+    handler = _Recorder()
 
-        outcome = await _consumer({WorkKind.REMINDER: handler}, factory, tenant_id).handle(
-            _message(work_b, tenant_id=tenant_id)
+    outcome = await _consumer({WorkKind.REMINDER: handler}, factory, tenant_id).handle(
+        _message(work_b, tenant_id=tenant_id)
+    )
+
+    assert outcome == Outcome("dead-letter", NOT_STORED)
+    assert handler.works == []
+
+
+async def test_one_work_id_in_two_tenants_is_two_jobs(
+    tenant_id: str, other_tenant_id: str, neo4j_driver: AsyncDriver, clean_graph: None
+) -> None:
+    driver = neo4j_driver
+    factory = neo4j_uow_factory(driver, clock=FixedClock(TEST_NOW))
+    await _seed(
+        tenant_uow_factory(driver, tenant_id, FixedClock(TEST_NOW)),
+        _work("work-same", WorkKind.REMINDER),
+    )
+    await _seed(
+        tenant_uow_factory(driver, other_tenant_id, FixedClock(TEST_NOW)),
+        _work("work-same", WorkKind.PHONE_TASK),
+    )
+    handler = _Recorder()
+    consumer = build_scheduled_work_consumer(
+        {WorkKind.REMINDER: handler, WorkKind.PHONE_TASK: handler},
+        factory,
+        StaticTenants([tenant_id, other_tenant_id]),
+    )
+
+    await consumer.handle(_message(_work("work-same"), tenant_id=tenant_id, message_id="m-a"))
+    await consumer.handle(
+        _message(
+            _work("work-same", WorkKind.PHONE_TASK), tenant_id=other_tenant_id, message_id="m-b"
         )
+    )
 
-        assert outcome == Outcome("dead-letter", NOT_STORED)
-        assert handler.works == []
-
-
-async def test_one_work_id_in_two_tenants_is_two_jobs(tenant_id: str, other_tenant_id: str) -> None:
-    async with contracted_container() as driver:
-        factory = neo4j_uow_factory(driver, clock=FixedClock(TEST_NOW))
-        await _seed(
-            tenant_uow_factory(driver, tenant_id, FixedClock(TEST_NOW)),
-            _work("work-same", WorkKind.REMINDER),
-        )
-        await _seed(
-            tenant_uow_factory(driver, other_tenant_id, FixedClock(TEST_NOW)),
-            _work("work-same", WorkKind.PHONE_TASK),
-        )
-        handler = _Recorder()
-        consumer = build_scheduled_work_consumer(
-            {WorkKind.REMINDER: handler, WorkKind.PHONE_TASK: handler},
-            factory,
-            StaticTenants([tenant_id, other_tenant_id]),
-        )
-
-        await consumer.handle(_message(_work("work-same"), tenant_id=tenant_id, message_id="m-a"))
-        await consumer.handle(
-            _message(
-                _work("work-same", WorkKind.PHONE_TASK), tenant_id=other_tenant_id, message_id="m-b"
-            )
-        )
-
-        assert [w.kind for w in handler.works] == [WorkKind.REMINDER, WorkKind.PHONE_TASK]
+    assert [w.kind for w in handler.works] == [WorkKind.REMINDER, WorkKind.PHONE_TASK]

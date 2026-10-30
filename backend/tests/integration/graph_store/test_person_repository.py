@@ -92,7 +92,10 @@ async def _write(driver: AsyncDriver, *steps: Any) -> None:
 
 
 async def _count_rels(driver: AsyncDriver, rel_type: str) -> int:
-    query = f"MATCH ()-[r:`{rel_type}`]->() RETURN count(r) AS total"
+    query = (
+        f"MATCH ({{tenantId: $tenant}})-[r:`{rel_type}`]->({{tenantId: $tenant}}) "
+        "RETURN count(r) AS total"
+    )
 
     async def work(tx: AsyncManagedTransaction) -> int:
         record = await (await tx.run(query)).single()
@@ -170,7 +173,10 @@ async def test_the_cover_is_a_covered_by_relationship_with_its_until(
     await _write(neo4j_driver, "services", P1, P2, ROLE_EAST_COVERED)
 
     async def until(tx: AsyncManagedTransaction) -> list[datetime]:
-        result = await tx.run("MATCH ()-[c:COVERED_BY]->(:Practitioner) RETURN c.until AS until")
+        result = await tx.run(
+            "MATCH ({tenantId: $tenant})-[c:COVERED_BY]->(:Practitioner {tenantId: $tenant}) "
+            "RETURN c.until AS until"
+        )
         return [record["until"].to_native() for record in await result.data()]
 
     assert await read_tx(neo4j_driver, until) == [COVER_UNTIL]

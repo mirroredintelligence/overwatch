@@ -60,6 +60,10 @@ GLOBAL_STATEMENT_MESSAGE: Final = (
     "a global statement runs only through run_global_query, "
     "and run_global_query runs only global statements"
 )
+PLATFORM_STATEMENT_MESSAGE: Final = (
+    "a platform statement runs only through run_platform_query, "
+    "and run_platform_query runs only platform statements"
+)
 RAW_TRANSACTION_MESSAGE: Final = (
     "a tenant statement runs only on a scoped transaction, opened by a unit of work"
 )
@@ -122,6 +126,10 @@ class QueryNotRegistered(TenancyError):
 
 class GlobalStatementMisuse(TenancyError):
     MESSAGE = GLOBAL_STATEMENT_MESSAGE
+
+
+class PlatformStatementMisuse(TenancyError):
+    MESSAGE = PLATFORM_STATEMENT_MESSAGE
 
 
 class RawTransactionRefused(TenancyError):

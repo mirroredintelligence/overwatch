@@ -25,7 +25,7 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import current_scope_or_none
 from diucs.domain.codes import Channel
 from tests.support.inbound_rig import Receiver, UnitLog, logging_factory, raw, receipt_message
-from tests.support.neo4j import count_nodes, node_props, read_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, run_scope_ids
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -286,7 +286,11 @@ async def test_two_tenants_each_have_their_own_marker_for_their_receipts(
     assert (a.kind, b.kind, again.kind) == ("completed", "completed", "duplicate")
 
     async def marked(tx: Any) -> list[tuple[str, str]]:
-        result = await tx.run("MATCH (p:Processed) RETURN p.tenantId AS t, p.messageId AS m")
+        result = await tx.run(
+            "MATCH (p:Processed) WHERE p.tenantId IN $scopes "
+            "RETURN p.tenantId AS t, p.messageId AS m",
+            scopes=run_scope_ids(),
+        )
         return sorted([(record["t"], record["m"]) async for record in result])
 
     assert await read_tx(neo4j_driver, marked) == sorted(

@@ -96,3 +96,19 @@ def test_reaper_skips_a_bad_timestamp_and_still_removes_the_stale_good_container
 
     assert removed == ["diucs-test-neo4j-old"]
     assert docker.removed() == ["diucs-test-neo4j-old"]
+
+
+def test_reaper_never_removes_the_shared_container_whatever_its_age_or_labels() -> None:
+    """The machine's shared Neo4j (TEN-034) is long-lived by design. It is not named
+    `diucs-test-neo4j-*`, so the sweep cannot reach it even if it carried the test label and no
+    owner label, which is what a legacy container looks like."""
+    shared = [
+        ("diucs-test-shared-neo4j", "2026-10-20T10:00:00.000000000Z", "true"),
+        *CONTAINERS,
+    ]
+    docker = FakeDocker(shared)
+
+    removed = reap_stale_test_containers(MAX_AGE, run=docker, now=lambda: NOW)
+
+    assert "diucs-test-shared-neo4j" not in removed
+    assert "diucs-test-shared-neo4j" not in docker.removed()

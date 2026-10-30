@@ -30,6 +30,7 @@ from diucs.domain.codes import (
     Cadence,
     Channel,
     Measure,
+    PractitionerRoleCode,
     ReportSource,
     ReportType,
     Role,
@@ -47,6 +48,7 @@ from diucs.domain.errors import (
 )
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
@@ -197,11 +199,30 @@ def entry_gated_factory(factory: UnitOfWorkFactory, gate: EntryGate) -> UnitOfWo
 async def _seed_with_report(
     factory: UnitOfWorkFactory, seed_service: Seed, report: CapacityReport | None
 ) -> None:
+    """The service, the role "role-1" of the reporter the REPORTER actor stands for (a performer
+    must be a role of this tenant that the actor holds for the service, TEN-024 and TEN-027) and,
+    when given, the number report on record."""
     await seed_service(UCR_WEST)
-    if report is not None:
-        async with factory() as uow:
+    async with factory() as uow:
+        await uow.people.save_practitioner(
+            Practitioner(
+                id="prac-reporter-1", active=True, display_name="Sample Reporter", phone_hash=None
+            )
+        )
+        await uow.people.save_role(
+            PractitionerRole(
+                id="role-1",
+                practitioner_id="prac-reporter-1",
+                service_id="ucr-west",
+                code=PractitionerRoleCode.DUTY_MANAGER,
+                active=True,
+                channel=Channel.TEXT,
+                period_start=AT_1005 - timedelta(days=30),
+            )
+        )
+        if report is not None:
             await uow.capacity.add(report)
-            await uow.commit()
+        await uow.commit()
 
 
 class Rig:
@@ -256,7 +277,10 @@ async def _latest(factory: UnitOfWorkFactory) -> CapacityReport | None:
 async def _confirmed_count(driver: AsyncDriver) -> int:
     async def work(tx: AsyncManagedTransaction) -> int:
         row = await (
-            await tx.run("MATCH (o:Observation {ext_reportType: 'confirmed'}) RETURN count(o) AS n")
+            await tx.run(
+                "MATCH (o:Observation {ext_reportType: 'confirmed', tenantId: $tenant}) RETURN "
+                "count(o) AS n"
+            )
         ).single()
         assert row is not None
         return int(row["n"])
@@ -272,7 +296,8 @@ async def _outbox(factory: UnitOfWorkFactory) -> list[OutboxMessage]:
 async def _derived_from(driver: AsyncDriver, report_id: str) -> list[str]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (:Observation {id: $id})-[:DERIVED_FROM]->(t:Observation) RETURN t.id AS id",
+            "MATCH (:Observation {id: $id, tenantId: $tenant})-[:DERIVED_FROM]->(t:Observation "
+            "{tenantId: $tenant}) RETURN t.id AS id",
             id=report_id,
         )
         return await result.data()
@@ -379,7 +404,8 @@ async def test_a_text_confirmation_gets_the_c3_echo_with_the_confirmed_value(
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (c:Communication) OPTIONAL MATCH (c)-[:TOPIC]->(t:Concept) "
+            "MATCH (c:Communication {tenantId: $tenant}) OPTIONAL MATCH (c {tenantId: "
+            "$tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
             "RETURN c.payloadText AS text, t.code AS messageId"
         )
         return await result.data()

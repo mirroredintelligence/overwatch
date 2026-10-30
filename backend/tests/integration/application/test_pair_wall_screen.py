@@ -8,7 +8,6 @@ through a fresh unit of work or the harness helpers. Values are synthetic: no pa
 import asyncio
 import random
 import re
-from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, cast
@@ -48,8 +47,15 @@ from diucs.domain.errors import Conflict, NotAllowed, ValidationFailed
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
-from tests.support.tenant_seed import contracted_container
+from tests.support.neo4j import (
+    count_nodes,
+    count_nodes_run,
+    node_props,
+    read_tx,
+    run_scope_ids,
+    write_tx,
+)
+from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -198,25 +204,9 @@ def make_rig(
     )
 
 
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """A private Neo4j with every migration applied and the superseded single-property keys dropped
-    (DEC-159). The tenancy tests give each tenant its own audit chain head, and the shared schema
-    keeps one AuditHead per id until TEN-032."""
-    async with contracted_container() as driver:
-        yield driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
-    """Overrides the session driver for this module."""
-    return two_tenant_driver
-
-
 @pytest_asyncio.fixture(autouse=True, loop_scope="session")
-async def fresh_graph(neo4j_driver: AsyncDriver) -> None:
+async def fresh_graph(neo4j_driver: AsyncDriver, clean_graph: None) -> None:
     """Wipes the module's own container before each test (clean_graph wipes only the harness)."""
-    await wipe(neo4j_driver)
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -252,7 +242,7 @@ async def _all_values(driver: AsyncDriver) -> list[Any]:
     """Every property value of every node, and every list element of a list property."""
 
     async def work(tx: AsyncManagedTransaction) -> list[Any]:
-        result = await tx.run("MATCH (n) UNWIND keys(n) AS k RETURN n[k] AS v")
+        result = await tx.run("MATCH (n {tenantId: $tenant}) UNWIND keys(n) AS k RETURN n[k] AS v")
         values: list[Any] = []
         for row in await result.data():
             value = row["v"]
@@ -265,7 +255,8 @@ async def _all_values(driver: AsyncDriver) -> list[Any]:
 async def _link_tokens(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (t:LinkToken) RETURN properties(t) AS props ORDER BY t.purpose"
+            "MATCH (t:LinkToken {tenantId: $tenant}) RETURN properties(t) AS props ORDER BY "
+            "t.purpose"
         )
         return [row["props"] for row in await result.data()]
 
@@ -284,19 +275,26 @@ async def _audit_actions(rig: Rig) -> list[str]:
 
 
 async def _state(driver: AsyncDriver) -> tuple[Any, ...]:
-    """What a refusal must leave untouched: the device nodes, the link tokens and the audit."""
+    """What a refusal must leave untouched, in both run tenants: the device nodes, the link tokens
+    and the audit."""
+    tokens: list[Any] = []
+    for tenant in run_scope_ids()[:2]:
+        with as_tenant(tenant):
+            tokens.append(await _link_tokens(driver))
     return (
-        await count_nodes(driver, "Device"),
-        await _link_tokens(driver),
-        await count_nodes(driver, "AuditEvent"),
-        await count_nodes(driver, "IdempotencyRecord"),
+        await count_nodes_run(driver, "Device"),
+        tokens,
+        await count_nodes_run(driver, "AuditEvent"),
+        await count_nodes_run(driver, "IdempotencyRecord"),
     )
 
 
 async def _set_device_status(driver: AsyncDriver, device_id: str, status: str) -> None:
     async def work(tx: AsyncManagedTransaction) -> None:
         await tx.run(
-            "MATCH (d:Device {id: $id}) SET d.status = $status", id=device_id, status=status
+            "MATCH (d:Device {id: $id, tenantId: $tenant}) SET d.status = $status",
+            id=device_id,
+            status=status,
         )
 
     await write_tx(driver, work)
@@ -1190,8 +1188,8 @@ async def test_two_tenants_can_hold_the_same_six_digits_at_once_and_each_pairs_i
     await pair.a.confirm.execute(_command(a, key="a"))
     await pair.b.confirm.execute(_command(b, key="b"))
     owners = {
-        (await node_props(neo4j_driver, "Device", id=i))["tenantId"]: i
-        for i in (a.pairing_id, b.pairing_id)
+        (await node_props(neo4j_driver, "Device", scope=tenant, id=i))["tenantId"]: i
+        for tenant, i in ((tenant_id, a.pairing_id), (other_tenant_id, b.pairing_id))
     }
     assert owners == {tenant_id: a.pairing_id, other_tenant_id: b.pairing_id}
 
@@ -1240,7 +1238,7 @@ async def test_the_same_command_key_in_two_tenants_is_two_commands(
     again = await pair.b.confirm.execute(_command(b, key="shared-key"))
     assert again.device_id == b.pairing_id
     assert again.replayed
-    assert await count_nodes(neo4j_driver, "Device") == 2
+    assert await count_nodes_run(neo4j_driver, "Device") == 2
 
 
 async def test_a_device_token_is_found_in_its_own_tenant_only(pair: Pair) -> None:
@@ -1287,7 +1285,7 @@ async def test_a_unit_of_work_bound_to_a_network_scope_pairs_nothing(
 
 @pytest.mark.no_tenant
 async def test_with_no_tenant_bound_nothing_starts_confirms_or_claims(
-    uow_factory: UnitOfWorkFactory, uow_clock: Clock, neo4j_driver: AsyncDriver
+    uow_factory: UnitOfWorkFactory, uow_clock: Clock, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
     rig = make_rig(uow_factory, uow_clock)
     with pytest.raises(TenantNotBound):
@@ -1297,7 +1295,7 @@ async def test_with_no_tenant_bound_nothing_starts_confirms_or_claims(
         await rig.confirm.execute(_command(started))
     with pytest.raises(TenantNotBound):
         await rig.claim.execute(ClaimPairingCommand("p", "A" * 23))
-    assert await count_nodes(neo4j_driver, "LinkToken") == 0
+    assert await count_nodes(neo4j_driver, "LinkToken", tenant=tenant_id) == 0
 
 
 def test_no_command_carries_a_tenant() -> None:

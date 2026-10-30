@@ -17,7 +17,12 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWork
 from tests.support.neo4j import count_nodes
 from tests.support.servicebus import client, take_emulator_lock
 
-pytestmark = [pytest.mark.integration, pytest.mark.asyncio(loop_scope="session")]
+pytestmark = [
+    pytest.mark.integration,
+    pytest.mark.asyncio(loop_scope="session"),
+    pytest.mark.servicebus,
+    pytest.mark.exclusive,
+]
 
 
 async def test_a_message_sent_twice_with_one_id_is_processed_once(

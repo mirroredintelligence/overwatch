@@ -64,7 +64,7 @@ async def test_a_valid_reply_is_answered_with_empty_twiml_and_queued_once(
     assert queued.id == SID
     assert queued.topic == QUEUE
     assert queued.event_type == "SmsReceived"
-    assert queued.tenant_id == "tenant-a"
+    assert queued.tenant_id == TENANT_A.tenant_id
     assert queued.payload == {
         "phone_hash": phone_hash(SENDER_E164),
         "text": REPLY_TEXT,
@@ -124,7 +124,7 @@ async def test_a_request_that_does_not_verify_is_refused_and_nothing_is_queued(
     assert response.status_code == 403
     assert response.text == REFUSED_BODY
     assert sms_bus.enqueued_to(QUEUE) == []
-    assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") is None
+    assert await sms_cache.get(f"idem:sms:{TENANT_A.tenant_id}:{SID}") is None
 
 
 async def test_the_signature_is_over_the_public_url_from_settings_not_the_url_the_app_saw(
@@ -144,7 +144,7 @@ async def test_a_query_string_changes_the_url_and_so_fails_the_signature(
 ) -> None:
     params = reply_params(sid=SID)
     response = await sms_client.post(
-        INTERNAL_REPLY_URL + "?tenant=tenant-b",
+        INTERNAL_REPLY_URL + f"?tenant={TENANT_B.tenant_id}",
         data=params,
         headers={"X-Twilio-Signature": sign(REPLY_URL, params, TENANT_A.token)},
     )
@@ -265,7 +265,7 @@ async def test_a_sender_not_in_neo4j_gets_the_same_answer_and_nothing_is_queued(
         accepted.text,
     )
     assert [m.id for m in sms_bus.enqueued_to(QUEUE)] == [SID]
-    assert await sms_cache.get("idem:sms:tenant-a:" + "SM" + "2" * 32) is None
+    assert await sms_cache.get(f"idem:sms:{TENANT_A.tenant_id}:" + "SM" + "2" * 32) is None
 
 
 async def test_a_sender_who_is_not_a_uk_mobile_is_dropped_without_a_queue_message(
@@ -314,16 +314,16 @@ async def test_the_replay_marker_is_a_day_long_and_tenant_prefixed(
     # The marker is written in the tenant of the number called, so it is read in that tenant: the
     # cache qualifies every name with the bound scope (TEN-019), and the test binds none of its own.
     with as_tenant(TENANT_A.tenant_id):
-        assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
+        assert await sms_cache.get(f"idem:sms:{TENANT_A.tenant_id}:{SID}") == "1"
     with as_tenant(TENANT_B.tenant_id):
-        assert await sms_cache.get(f"idem:sms:tenant-b:{SID}") is None
+        assert await sms_cache.get(f"idem:sms:{TENANT_B.tenant_id}:{SID}") is None
     clock = test_container.clock
     assert isinstance(clock, FixedClock)
     with as_tenant(TENANT_A.tenant_id):
         clock.advance(timedelta(hours=24) - timedelta(seconds=1))
-        assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") == "1"
+        assert await sms_cache.get(f"idem:sms:{TENANT_A.tenant_id}:{SID}") == "1"
         clock.advance(timedelta(seconds=1))
-        assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") is None
+        assert await sms_cache.get(f"idem:sms:{TENANT_A.tenant_id}:{SID}") is None
 
 
 async def test_a_failed_queue_send_gives_a_500_and_frees_the_marker_so_the_retry_is_queued(
@@ -345,7 +345,7 @@ async def test_a_failed_queue_send_gives_a_500_and_frees_the_marker_so_the_retry
 
     first = await post_signed(sms_client, reply_params(sid=SID))
     assert first.status_code == 500
-    assert await sms_cache.get(f"idem:sms:tenant-a:{SID}") is None
+    assert await sms_cache.get(f"idem:sms:{TENANT_A.tenant_id}:{SID}") is None
     assert sms_bus.enqueued_to(QUEUE) == []
 
     failing = False

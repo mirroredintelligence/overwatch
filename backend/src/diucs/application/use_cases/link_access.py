@@ -40,6 +40,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Final, Protocol
+from zoneinfo import ZoneInfo
 
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import AuditEntry
@@ -91,6 +92,8 @@ from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import PractitionerRole
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules.london_time import LONDON
 from diucs.domain.rules.reply_parser import Confirm, Number
 from diucs.domain.rules.reply_policy import (
     AskRecheck,
@@ -120,6 +123,9 @@ LINK_PROMPT_MESSAGES: Final = frozenset(
 these."""
 
 ACTIONS: Final = frozenset({"confirm", "number", "closed"})
+BOOKING_ACTIONS: Final = frozenset({"decline", "withdraw", "not-reached"})
+"""The answers of the booking links (L02). The shared gate only checks their shape; the booking
+purpose checks the reason and the state (booking_links.py)."""
 CLOSED_VALUE: Final = 0
 MAX_VALUE: Final = 999
 
@@ -164,6 +170,15 @@ class CsrfRejected(DomainError):
     """The CSRF token is missing or wrong. Nothing was read or written."""
 
 
+class LinkConflict(DomainError):
+    """The booking a link is for is no longer open for this answer (L02): `state` is its state word
+    (expired, cancelled, declined, ...), and the page answers 409 with that word."""
+
+    def __init__(self, state: str) -> None:
+        super().__init__(state)
+        self.state = state
+
+
 class LinkOutOfRange(DomainError):
     """The figure is outside the service's usual range and was not confirmed. Carries the range."""
 
@@ -200,6 +215,8 @@ class LinkAction:
     action: str
     value: int | None = None
     confirm_out_of_range: bool = False
+    reason: str | None = None
+    """The reason a booking answer gives (L02): a decline, a withdrawal or a not-reached reason."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -282,6 +299,14 @@ def iso_utc(moment: datetime | None) -> str | None:
     if moment is None:
         return None
     return moment.astimezone(UTC).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def next_due_iso(
+    profile: ServiceProfile, now: datetime, policy: TenantPolicy, zone: ZoneInfo
+) -> str | None:
+    """The next prompt of the service after `now`, as the page shows it: in the tenant's zone and
+    under the tenant's policy (TEN-041), written in UTC. None when the service has none."""
+    return iso_utc(next_due(profile, now, policy, zone))
 
 
 def command_key(scope: ScopeId, record: LinkTokenRecord) -> str:
@@ -498,8 +523,14 @@ def check_action(action: LinkAction) -> None:
     """The shape of the answer, before anything is read: an action the page knows, a figure only
     for `number`, a whole number from 0 to 999, and `confirmOutOfRange` only where a figure is
     sent. Field names only in the refusals."""
+    if action.action in BOOKING_ACTIONS:
+        if action.value is not None or action.confirm_out_of_range:
+            raise ValidationFailed("value", "a booking answer takes no figure")
+        return
     if action.action not in ACTIONS:
         raise ValidationFailed("action", "is not one of confirm, number, closed")
+    if action.reason is not None:
+        raise ValidationFailed("reason", "is not a field of this link")
     if action.action == "number":
         value = action.value
         if isinstance(value, bool) or not isinstance(value, int):
@@ -617,7 +648,12 @@ class CapacityLinkHandler:
         sealer: ContentSealer,
         reports: _Reports,
         confirms: _Confirms,
+        *,
+        zone: ZoneInfo = LONDON,
     ) -> None:
+        """`zone` is the tenant's time zone, read by the route from the host's tenant record
+        (TEN-041). The default is the one zone the allow-list holds today (DEC-353): a caller that
+        knows no tenant, a test rig, gets London's."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
@@ -625,6 +661,7 @@ class CapacityLinkHandler:
         self._sealer = sealer
         self._reports = reports
         self._confirms = confirms
+        self._zone = zone
 
     @staticmethod
     async def _target(uow: UnitOfWork, link: LinkRequest) -> _Target:
@@ -664,6 +701,8 @@ class CapacityLinkHandler:
         async with self._uow_factory() as uow:
             target = await self._target(uow, link)
             latest = await uow.capacity.latest(target.profile.id)
+            config = await uow.tenant_config.current_version()
+        policy = DEFAULT_POLICY if config is None else config.policy
         profile = target.profile
         return {
             "serviceName": profile.name,
@@ -673,10 +712,12 @@ class CapacityLinkHandler:
             "usualMin": profile.usual_range[0],
             "usualMax": profile.usual_range[1],
             "replyBy": iso_utc(link.record.expires_at),
-            "nextDue": iso_utc(next_due(profile, link.now)),
+            "nextDue": next_due_iso(profile, link.now, policy, self._zone),
         }
 
     async def respond(self, link: LinkRequest, action: LinkAction) -> Body:
+        if action.action not in ACTIONS:
+            raise ValidationFailed("action", "is not one of confirm, number, closed")
         async with self._uow_factory() as uow:
             target = await self._target(uow, link)
             profile = target.profile

@@ -1006,7 +1006,8 @@ async def _nodes_holding(links: LinkRig, text: str, *, not_labels: tuple[str, ..
 
     async def everything(tx: Any) -> int:
         result = await tx.run(
-            "MATCH (n) WHERE NOT n:LinkToken AND NONE(l IN labels(n) WHERE l IN $skip) "
+            "MATCH (n {tenantId: $tenant}) WHERE NOT n:LinkToken AND NONE(l IN labels(n) WHERE l "
+            "IN $skip) "
             "RETURN properties(n) AS props",
             skip=list(not_labels),
         )

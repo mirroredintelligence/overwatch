@@ -25,6 +25,7 @@ from diucs.adapters.outbound.graph_store.queries import (
 )
 from diucs.application.tenancy import (
     GlobalStatementMisuse,
+    PlatformStatementMisuse,
     QueryNotRegistered,
     RawTransactionRefused,
     ReadOnlyUnitWrite,
@@ -178,6 +179,8 @@ async def run_query(
     _refuse_tenant_parameter(params)
     if query.scope == "global":
         raise GlobalStatementMisuse
+    if query.scope == "platform":
+        raise PlatformStatementMisuse
     if not isinstance(tx, ScopedTx):
         raise RawTransactionRefused
     if tx.scope.kind.value not in query.scope_kinds:
@@ -208,6 +211,27 @@ async def run_global_query(
     if query.scope != "global":
         raise GlobalStatementMisuse
     _refuse_source_tenant(params, query, None)
+    return await _execute(tx, query, params)
+
+
+async def run_platform_query(
+    tx: GlobalTx,
+    query: NamedQuery,
+    /,
+    *,
+    registry: QueryRegistry | None = None,
+    **params: Any,
+) -> list[dict[str, Any]]:
+    """Run a platform statement (one on PLATFORM_QUERY_IDS: the tenant registry's writes, TEN-028)
+    with no tenant parameter, whether or not a scope is bound. The only way a platform statement
+    runs, and called only by `graph_store/tenant_registry.py`. Refuses a string, an unregistered
+    statement, a `tenant` parameter and any tenant or global statement."""
+    lookup = REGISTRY if registry is None else registry
+    if not lookup.is_registered(query):
+        raise QueryNotRegistered
+    _refuse_tenant_parameter(params)
+    if query.scope != "platform":
+        raise PlatformStatementMisuse
     return await _execute(tx, query, params)
 
 

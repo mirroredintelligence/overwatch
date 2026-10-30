@@ -1,12 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { TOKEN_ORG_A } from './support/tokens';
 import { signIn } from './support/session';
+import { SITE_URL } from './support/env';
 
 // The policy as a browser sees it (S01): the screen answers with the content security policy,
 // every request it makes goes to its own origin, and the browser reports no policy violation.
 // Written in the build wave and not run there; the verification run executes it (pnpm e2e).
 
-const BASE_URL = 'http://localhost:3000';
+const BASE_URL = SITE_URL;
 
 test('the screen loads under the policy, with same-origin requests only and no violation', async ({
   page,

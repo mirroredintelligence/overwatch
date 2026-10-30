@@ -67,15 +67,15 @@ from tests.support.ladder_rig import (
     virtual_ward,
 )
 from tests.support.neo4j import read_tx
-from tests.support.tenancy import as_tenant
+from tests.support.tenancy import as_tenant, run_host
 from tests.support.uow import ensure_audit_heads
 
 CSRF_SECRET = b"link-csrf-secret-for-the-link-tests"
 SERVICE_ID = "ucr-west"
 SERVICE_NAME = "UCR West"
 UNIT_LABEL = "referrals in the next 2 hrs"
-HOST_A = "alpha.example.org"
-HOST_B = "bravo.example.org"
+HOST_A = run_host("alpha")
+HOST_B = run_host("bravo")
 BASE_URL_A = f"https://{HOST_A}/l"
 CLIENT = "198.51.100.7"
 OTHER_CLIENT = "198.51.100.8"
@@ -307,7 +307,9 @@ class LinkRig:
         async def work(tx: AsyncManagedTransaction) -> dict[str, int]:
             found: dict[str, int] = {}
             for label in labels:
-                result = await tx.run(f"MATCH (n:{label}) RETURN count(n) AS n")
+                result = await tx.run(
+                    f"MATCH (n:{label} {{tenantId: $tenant}}) RETURN count(n) AS n"
+                )
                 found[label] = int((await result.single() or {"n": 0})["n"])
             return found
 
@@ -317,7 +319,8 @@ class LinkRig:
     async def token_node(self, token: str) -> dict[str, Any]:
         async def work(tx: AsyncManagedTransaction) -> dict[str, Any]:
             result = await tx.run(
-                "MATCH (t:LinkToken {tokenHash: $hash}) RETURN properties(t) AS props",
+                "MATCH (t:LinkToken {tokenHash: $hash, tenantId: $tenant}) RETURN properties(t) "
+                "AS props",
                 hash=token_hash_of(token),
             )
             row = await result.single()

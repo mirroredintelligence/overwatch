@@ -158,7 +158,8 @@ async def test_a_report_flag_round_trips_and_sits_on_its_observation(
     )
     on = await _rows(
         neo4j_driver,
-        "MATCH (f:ReportFlag {id: $id})-[:ON]->(o:Observation) RETURN o.id AS report",
+        "MATCH (f:ReportFlag {id: $id, tenantId: $tenant})-[:ON]->(o:Observation {tenantId: "
+        "$tenant}) RETURN o.id AS report",
         id=RANGE_FLAG_WEST.id,
     )
     assert on == [{"report": WEST_REPORT}]
@@ -496,7 +497,7 @@ async def test_the_database_refuses_a_second_report_flag_node_with_one_id(
 
     async def create(tx: AsyncManagedTransaction) -> None:
         result = await tx.run(
-            "MATCH (o:Observation {key: $key}) "
+            "MATCH (o:Observation {key: $key, tenantId: $tenant}) "
             "CREATE (f:ReportFlag {id: $id, serviceId: $service, tenantId: $tenant})-[:ON]->(o)",
             key=f"Observation/{WEST_REPORT}",
             id="rf-raw-duplicate",

@@ -33,7 +33,11 @@ def _message(message_id: str = "m-1", tenant: str = ACTOR_TENANT) -> BusMessage:
 
 async def _mark(uow: UnitOfWork, message: BusMessage) -> None:
     tx: Any = cast(Any, uow)._tx
-    await tx.run("CREATE (:TestMark {messageId: $id})", id=message.id)
+    await tx.run(
+        "CREATE (:TestMark {messageId: $id, tenantId: $tenant})",
+        id=message.id,
+        tenant=message.tenant_id,
+    )
 
 
 class _Recorder:
@@ -171,7 +175,7 @@ async def test_a_unit_that_opens_under_another_tenant_than_the_message_marks_not
 
 @pytest.mark.no_tenant
 async def test_with_no_tenant_bound_a_message_is_dead_lettered_and_no_unit_opens(
-    uow_factory: UnitOfWorkFactory, neo4j_driver: Any
+    uow_factory: UnitOfWorkFactory, neo4j_driver: Any, tenant_id: str
 ) -> None:
     handler = _Recorder()
 
@@ -180,4 +184,4 @@ async def test_with_no_tenant_bound_a_message_is_dead_lettered_and_no_unit_opens
     assert outcome.kind == "dead-letter"
     assert outcome.reason == TENANT_MISMATCH
     assert handler.calls == 0
-    assert await count_nodes(neo4j_driver, "Processed") == 0
+    assert await count_nodes(neo4j_driver, "Processed", tenant=tenant_id) == 0

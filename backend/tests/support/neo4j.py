@@ -11,9 +11,9 @@ machine to load 15 on 4 cores. So:
   /tmp/diucs-neo4j-harness.lock (environment DIUCS_NEO4J_LOCK overrides the path) and holds it until
   stop_throwaway_neo4j, or until the process dies (the operating system frees it). A second session
   waits up to DIUCS_NEO4J_LOCK_TIMEOUT seconds (default 3600), then fails naming the holder's pid.
-  Agents also wrap pytest in `flock /tmp/diucs-neo4j-tests.lock <command>`. That is a different
-  file, deliberately: the manual lock queues whole runs, this one guards the container, and a
-  process that takes the manual lock first and this one second can never deadlock.
+  Since TEN-034 this lock matters only for private containers (owned mode, `own_neo4j`): runs on
+  the shared Neo4j (tests/support/harness_mode.py) need no lock to queue on, and agents no longer
+  wrap pytest in a manual flock.
 * Memory limits. The container gets --memory (DIUCS_NEO4J_MEMORY, default 1g) and Neo4j heap
   (DIUCS_NEO4J_HEAP, 256m) and page cache (DIUCS_NEO4J_PAGECACHE, 128m) settings.
 * Owner labels. The container is labelled with the owning pid, that process's start time and the
@@ -46,6 +46,12 @@ from neo4j import AsyncDriver, AsyncManagedTransaction, GraphDatabase
 from neo4j.exceptions import ServiceUnavailable
 
 from diucs.adapters.outbound.graph_store.driver import create_driver
+from diucs.application.tenancy import (
+    ScopeId,
+    TenantNotBound,
+    TenantParameterRefused,
+    current_scope_or_none,
+)
 from tests.support import harness_lock
 from tests.support.proc import (
     ProcessUnreadable,
@@ -385,6 +391,11 @@ def wait_until_ready(
 def stop_throwaway_neo4j(container: ThrowawayNeo4j, *, run: DockerRunner | None = None) -> None:
     """Remove the container and its anonymous volumes (DEC-128), then free its hold on the harness
     lock. The lock is freed even if the removal fails: the next session's reaper finishes it."""
+    if not container.name.startswith(NAME_PREFIX):
+        raise ValueError(
+            f"{container.name} is not a private test container; only a container this session "
+            f"started (a name starting {NAME_PREFIX}) is removed here (the shared one is kept)."
+        )
     try:
         result = (run or _docker)("rm", "-f", "-v", container.name)
     finally:
@@ -400,9 +411,11 @@ async def throwaway_driver() -> AsyncIterator[tuple[ThrowawayNeo4j, AsyncDriver]
     container = start_throwaway_neo4j()
     try:
         driver = await connect_or_fail(container.uri, container.user, container.password)
+        mark_owned(driver)  # a private container: nothing else uses it, so it may be wiped whole
         try:
             yield container, driver
         finally:
+            forget_owned(driver)
             await driver.close()
     finally:
         stop_throwaway_neo4j(container)
@@ -453,26 +466,188 @@ def _checked_name(name: str) -> str:
     return name
 
 
-async def count_nodes(driver: AsyncDriver, label: str) -> int:
-    query = f"MATCH (n:`{_checked_name(label)}`) RETURN count(n) AS total"
+class WipeRefused(Exception):
+    """A global wipe was asked of a database this process does not own."""
 
+
+# Databases this process started itself (a private container). Only these may be wiped whole: on
+# anything else other runs may be using the instance (TEN-033, DEC-130 item 9). Keyed by identity,
+# because a driver is not hashable by value.
+_OWNED: dict[int, AsyncDriver] = {}
+
+
+def mark_owned(driver: AsyncDriver) -> None:
+    """Record that `driver` points at a database this process started and no other run uses."""
+    _OWNED[id(driver)] = driver
+
+
+def forget_owned(driver: AsyncDriver) -> None:
+    _OWNED.pop(id(driver), None)
+
+
+def is_owned(driver: AsyncDriver) -> bool:
+    return _OWNED.get(id(driver)) is driver
+
+
+def _scope_values(scopes: tuple[str | ScopeId, ...]) -> list[str]:
+    """The scope ids to delete, each checked as a tenant or network id before anything is sent."""
+    if not scopes:
+        raise ValueError("wipe_tenant needs at least one scope")
+    return [
+        ScopeId.parse(scope.value if isinstance(scope, ScopeId) else scope).value
+        for scope in scopes
+    ]
+
+
+# A tenant's own nodes carry `tenantId`; its directory record (and the numbers on it) is the
+# registry's and carries the id as `id` (DEC-131). Both go, and nothing else: the `Migration`
+# bookkeeping has neither.
+_WIPE_REGISTRY = (
+    "MATCH (t:Tenant) WHERE t.id IN $scopes "
+    "OPTIONAL MATCH (t)-[:HAS_NUMBER]->(number:TenantNumber) "
+    "DETACH DELETE t, number RETURN count(t) AS deleted"
+)
+_WIPE_NETWORK_REGISTRY = (
+    "MATCH (n:Network) WHERE n.id IN $scopes DETACH DELETE n RETURN count(n) AS deleted"
+)
+_WIPE_BATCH = (
+    f"MATCH (n) WHERE n.tenantId IN $scopes WITH n LIMIT {DELETE_BATCH} "
+    "DETACH DELETE n RETURN count(*) AS deleted"
+)
+
+
+async def _delete(driver: AsyncDriver, cypher: str, **params: Any) -> int:
     async def work(tx: AsyncManagedTransaction) -> int:
-        record = await (await tx.run(query)).single()
-        assert record is not None
-        return int(record["total"])
+        rows = await (await tx.run(cypher, **params)).data()
+        return int(rows[0]["deleted"]) if rows else 0
+
+    return await write_tx(driver, work)
+
+
+async def wipe_tenant(driver: AsyncDriver, *scopes: str | ScopeId) -> None:
+    """Delete every node that carries one of these scope ids (a tenant or a network), and the
+    directory records of those scopes, in batches. Nothing else is touched: not another tenant's
+    data on the same Neo4j, not the `Migration` records, not the constraints and indexes. This is
+    the wipe between tests (`clean_graph`) and the sweeper's."""
+    values = _scope_values(scopes)
+    await _delete(driver, _WIPE_REGISTRY, scopes=values)
+    await _delete(driver, _WIPE_NETWORK_REGISTRY, scopes=values)
+    while await _delete(driver, _WIPE_BATCH, scopes=values):
+        pass
+
+
+async def wipe_all(driver: AsyncDriver) -> None:
+    """Delete every node and relationship of a database this process owns, in batches. The
+    `Migration` nodes stay, and so do constraints and indexes. Refused (WipeRefused, nothing sent)
+    for a database that was not marked owned: another run may be using it."""
+    if not is_owned(driver):
+        raise WipeRefused("a whole-database wipe is allowed only on a database this run started")
+    query = (
+        f"MATCH (n) WHERE NOT n:Migration WITH n LIMIT {DELETE_BATCH} "
+        "DETACH DELETE n RETURN count(*) AS deleted"
+    )
+    while await _delete(driver, query):
+        pass
+
+
+def _bound_or_given(tenant: str | None) -> str:
+    """The scope a helper reads: the one given, else the one bound now (TenantNotBound if none)."""
+    if tenant is not None:
+        return ScopeId.parse(tenant).value
+    scope = current_scope_or_none()
+    if scope is None:
+        raise TenantNotBound
+    return scope.value
+
+
+async def tx_run(tx: Any, cypher: str, /, **params: Any) -> Any:
+    """Run raw test Cypher with `tenant` set to the tenant bound now, so a statement can say
+    `{tenantId: $tenant}` without every call site passing it. A `tenant` argument is refused, as
+    `run_query` refuses it: the tenant is the one that is bound."""
+    if "tenant" in params:
+        raise TenantParameterRefused
+    return await tx.run(cypher, **params, tenant=_bound_or_given(None))
+
+
+def run_scope_ids() -> list[str]:
+    """The scope ids of this process's run (tenant, second tenant, network scope), as the conftest
+    exported them (`DIUCS_TEST_TENANT`, `_OTHER_TENANT`, `_NETWORK`): the only scopes a test of this
+    run may write to, and so the only ones a whole-graph scan of a test needs to read."""
+    names = ("DIUCS_TEST_TENANT", "DIUCS_TEST_OTHER_TENANT", "DIUCS_TEST_NETWORK")
+    values = [os.environ.get(name, "") for name in names]
+    if not all(values):
+        raise RuntimeError("the run's scope ids are not set: the tests conftest sets them")
+    return values
+
+
+# Every node of this run's scopes: those that carry one of its ids as `tenantId`, and the registry
+# records (`Tenant`, `Network`) that carry it as `id`. The graph holds other runs' data too (one
+# shared Neo4j, DEC-461), so a test that reads "every node" means this run's, never the database's.
+RUN_NODES = (
+    "MATCH (n) WHERE n.tenantId IN $scopes OR ((n:Tenant OR n:Network) AND n.id IN $scopes) "
+)
+
+
+async def run_nodes(tx: Any, returning: str) -> Any:
+    """Run `MATCH <every node of the run's scopes> RETURN <returning>` (the node is `n`)."""
+    return await tx.run(f"{RUN_NODES}RETURN {returning}", scopes=run_scope_ids())
+
+
+async def run_relationships(tx: Any, returning: str) -> Any:
+    """The relationships (`r`) that leave a node of the run's scopes."""
+    return await tx.run(
+        f"MATCH (a)-[r]->() WHERE a.tenantId IN $scopes OR "
+        f"((a:Tenant OR a:Network) AND a.id IN $scopes) RETURN {returning}",
+        scopes=run_scope_ids(),
+    )
+
+
+async def count_nodes(driver: AsyncDriver, label: str, *, tenant: str | None = None) -> int:
+    """The nodes with this label in the tenant bound now (or in `tenant`). With nothing bound and
+    no tenant given it raises TenantNotBound: a global count is `count_nodes_all`."""
+    query = f"MATCH (n:`{_checked_name(label)}` {{tenantId: $tenant}}) RETURN count(n) AS total"
+    scope = _bound_or_given(tenant)
+    return await _total(driver, query, tenant=scope)
+
+
+async def count_nodes_run(driver: AsyncDriver, label: str) -> int:
+    """The nodes with this label in every scope of this run (its tenant, its second tenant and its
+    network scope): for a test that works in two tenants and counts what both hold. Other runs'
+    nodes on the same Neo4j are not counted."""
+    query = (
+        f"MATCH (n:`{_checked_name(label)}`) WHERE n.tenantId IN $scopes RETURN count(n) AS total"
+    )
+    return await _total(driver, query, scopes=run_scope_ids())
+
+
+async def count_nodes_all(driver: AsyncDriver, label: str) -> int:
+    """The nodes with this label in every tenant, and those with none. For the registry labels
+    (`Migration`, `Tenant`) and for a test that means the whole database."""
+    return await _total(driver, f"MATCH (n:`{_checked_name(label)}`) RETURN count(n) AS total")
+
+
+async def _total(driver: AsyncDriver, query: str, **params: Any) -> int:
+    async def work(tx: AsyncManagedTransaction) -> int:
+        rows = await (await tx.run(query, **params)).data()
+        return int(rows[0]["total"])
 
     return await read_tx(driver, work)
 
 
-async def node_props(driver: AsyncDriver, label: str, **match: Any) -> dict[str, Any]:
-    """Properties of the single node with this label and these property values. Fails unless
-    exactly one node matches, and the message names how many did."""
-    conditions = " AND ".join(f"n.`{_checked_name(key)}` = ${key}" for key in match)
-    where = f" WHERE {conditions}" if conditions else ""
-    query = f"MATCH (n:`{_checked_name(label)}`){where} RETURN properties(n) AS props"
+async def node_props(
+    driver: AsyncDriver, label: str, *, scope: str | None = None, **match: Any
+) -> dict[str, Any]:
+    """Properties of the single node with this label and these property values in the tenant bound
+    now (or in `scope`). Fails unless exactly one node matches, and the message names how many
+    did."""
+    conditions = " AND ".join(
+        ["n.tenantId = $tenant", *(f"n.`{_checked_name(key)}` = ${key}" for key in match)]
+    )
+    query = f"MATCH (n:`{_checked_name(label)}`) WHERE {conditions} RETURN properties(n) AS props"
+    tenant = _bound_or_given(scope)
 
     async def work(tx: AsyncManagedTransaction) -> list[dict[str, Any]]:
-        return await (await tx.run(query, **match)).data()
+        return await (await tx.run(query, **match, tenant=tenant)).data()
 
     rows = await read_tx(driver, work)
     if len(rows) != 1:
@@ -481,23 +656,6 @@ async def node_props(driver: AsyncDriver, label: str, **match: Any) -> dict[str,
         )
     props: dict[str, Any] = rows[0]["props"]
     return props
-
-
-async def wipe(driver: AsyncDriver) -> None:
-    """Delete every node and relationship, in batches. :Migration nodes stay, and so do
-    constraints and indexes (deleting nodes does not touch them)."""
-    query = (
-        f"MATCH (n) WHERE NOT n:Migration WITH n LIMIT {DELETE_BATCH} "
-        "DETACH DELETE n RETURN count(*) AS deleted"
-    )
-
-    async def batch(tx: AsyncManagedTransaction) -> int:
-        record = await (await tx.run(query)).single()
-        assert record is not None
-        return int(record["deleted"])
-
-    while await write_tx(driver, batch):
-        pass
 
 
 # DEC-108, amended by DEC-135. A container labelled with its owner is judged by whether that owner

@@ -8,10 +8,8 @@ per tenant, so each tenant's first concern is SC-0001. Sample values only.
 """
 
 import json
-from collections.abc import AsyncIterator
 
 import pytest
-import pytest_asyncio
 from neo4j import AsyncDriver
 
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
@@ -28,29 +26,9 @@ from diucs.application.use_cases.safety_concern import (
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.safety_report import ProblemCategory, SafetyConcernCategory
 from tests.support.booking_rig import ADVISOR, at, sealer, seed_world
-from tests.support.neo4j import count_nodes, node_props, wipe
-from tests.support.tenant_seed import contracted_container
-from tests.support.uow import ensure_audit_heads
+from tests.support.neo4j import count_nodes, node_props, run_scope_ids
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
-
-
-@pytest_asyncio.fixture(scope="module", loop_scope="session")
-async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
-    """The contracted schema (superseded global keys dropped, DEC-159): the two-tenant tests run on
-    it, not on the root driver, which still holds the global Concept and Communication keys."""
-    async with contracted_container() as driver:
-        yield driver
-
-
-@pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(
-    two_tenant_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
-) -> AsyncDriver:
-    """Wiped per test, and each tenant's audit chain head made again: a wipe removes the heads."""
-    await wipe(two_tenant_driver)
-    await ensure_audit_heads(two_tenant_driver, tenant_id, other_tenant_id)
-    return two_tenant_driver
 
 
 CONCERN_TEXT = "The board showed accepting for the day, but the service had closed at noon."
@@ -80,13 +58,13 @@ def concern(key: str, text: str = CONCERN_TEXT) -> ReportSafetyConcernCommand:
 async def mentions_outside_protected_text(driver: AsyncDriver, probe: str) -> int:
     """How many properties of nodes that are not protected text contain the probe."""
     query = (
-        "MATCH (n) WHERE NOT n:ProtectedText UNWIND keys(n) AS k "
+        "MATCH (n) WHERE n.tenantId IN $scopes AND NOT n:ProtectedText UNWIND keys(n) AS k "
         "WITH n[k] AS value WHERE valueType(value) STARTS WITH 'STRING' "
         "AND value CONTAINS $probe "
         "RETURN count(*) AS total"
     )
     async with driver.session() as session:
-        result = await session.run(query, {"probe": probe})
+        result = await session.run(query, {"probe": probe, "scopes": run_scope_ids()})
         record = await result.single()
     assert record is not None
     return int(record["total"])

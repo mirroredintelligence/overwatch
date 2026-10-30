@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'msw';
+import { bookingHandlers } from './bookings';
 import { boardHandlers } from './board';
 import { criteriaHandlers } from './criteria';
 import { linkHandlers } from './links';
@@ -10,6 +11,7 @@ import { staffHandlers } from './staff';
 export const handlers: RequestHandler[] = [
   ...boardHandlers,
   ...linkHandlers,
+  ...bookingHandlers,
   ...staffHandlers,
   ...registrationHandlers,
   ...registrationStepHandlers,

@@ -1,5 +1,5 @@
 import { checkLinkCsrf, issueLinkCsrf } from '@/lib/links/csrf';
-import { callLinkApi, hostOf, type LinkReply, publicReply, readLink } from '@/lib/links/server';
+import { callLinkApi, type ClosedState, hostOf, type LinkReply, publicReply, readLink } from '@/lib/links/server';
 
 // The capacity link page's own API. No session: the link's token is the only thing that says
 // which link this is, and the tenant is the host the request was addressed to, which the back
@@ -7,7 +7,7 @@ import { callLinkApi, hostOf, type LinkReply, publicReply, readLink } from '@/li
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 const TOKEN_SHAPE = /^[A-Za-z0-9_-]{1,64}$/;
-const ANSWER_FIELDS = ['action', 'value', 'confirmOutOfRange'] as const;
+const ANSWER_FIELDS = ['action', 'value', 'confirmOutOfRange', 'reason'] as const;
 const MAX_BODY_BYTES = 1024;
 
 type Context = { params: Promise<{ token: string }> };
@@ -25,7 +25,7 @@ function fromBackEnd(answer: LinkReply): Response {
 }
 
 const unavailable = () => reply({ status: 503, body: { state: 'unavailable' } });
-const gone = () => reply({ status: 410, body: { state: 'expired' } });
+const gone = (state: ClosedState = 'expired') => reply({ status: 410, body: { state } });
 const forbidden = () => reply({ status: 403, body: { state: 'forbidden' } });
 const invalid = () => reply({ status: 400, body: { state: 'invalid' } });
 
@@ -38,9 +38,9 @@ export async function GET(request: Request, context: Context): Promise<Response>
   if (!TOKEN_SHAPE.test(token)) return gone();
   try {
     const state = await readLink(token, hostOf(request));
-    if (state.kind === 'gone') return gone();
-    await issueLinkCsrf(token, state.view.csrfToken);
-    return reply({ status: 200, body: { ...state.view } });
+    if (state.kind === 'gone') return gone(state.state);
+    await issueLinkCsrf(token, state.link.view.csrfToken);
+    return reply({ status: 200, body: { ...state.link.view } });
   } catch {
     return unavailable();
   }

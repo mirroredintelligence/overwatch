@@ -4,7 +4,9 @@ import type { Board } from '@/lib/board/types';
 import { BOARD_A, BOARD_SURGE, boardBuiltAt, boardParameters, withForeignOrganisation } from '@/test/fixtures/board';
 import { BACKEND_PORT } from './env';
 import { BOARDS_BY_TOKEN, LIVE_SURGE_PREFIX, LIVE_TOKEN_PREFIX, TOKEN_FOREIGN_ENTRY } from './tokens';
+import { handleAuthRoute } from './exchange';
 import { handleLinkRoute } from './links';
+import { handlePairingRoute, isWallToken } from './pairing';
 
 // A stand-in for the back end, for the browser tests. Like the real one it answers
 // by bearer token alone and reads nothing else from the request: GET $board and
@@ -46,7 +48,8 @@ function bearer(request: IncomingMessage): string | undefined {
 
 function boardFor(token: string, state: LiveState | undefined): Board | undefined {
   const live = token.startsWith(LIVE_TOKEN_PREFIX);
-  const base = live ? (token.startsWith(LIVE_SURGE_PREFIX) ? BOARD_SURGE : BOARD_A) : BOARDS_BY_TOKEN[token];
+  // A wall token the stand-in exchange issued (a screen paired in a browser test) reads the sample board.
+  const base = live ? (token.startsWith(LIVE_SURGE_PREFIX) ? BOARD_SURGE : BOARD_A) : (BOARDS_BY_TOKEN[token] ?? (isWallToken(token) ? BOARD_A : undefined));
   if (base === undefined) return undefined;
   const built = state?.mode === 'stale' ? new Date(Date.now() - 20 * 60_000) : new Date();
   const board = boardBuiltAt(base, built.toISOString());
@@ -104,7 +107,7 @@ function handleBoard(request: IncomingMessage, response: ServerResponse) {
 
 function handleEvents(request: IncomingMessage, response: ServerResponse) {
   const token = bearer(request);
-  const known = token !== undefined && (token.startsWith(LIVE_TOKEN_PREFIX) || BOARDS_BY_TOKEN[token] !== undefined);
+  const known = token !== undefined && (token.startsWith(LIVE_TOKEN_PREFIX) || BOARDS_BY_TOKEN[token] !== undefined || isWallToken(token));
   if (!known) {
     json(response, 401, { resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'login' }] }, 'application/fhir+json');
     return;
@@ -145,7 +148,15 @@ export function startMockBackend(): Promise<Server> {
     const control = /^\/__control\/(.+)$/.exec(url.pathname);
     const stateRoute = /^\/__state\/(.+)$/.exec(url.pathname);
 
-    if (url.pathname.startsWith('/links/')) {
+    if (url.pathname.startsWith('/auth/')) {
+      void handleAuthRoute(request, response, url.pathname).then((handled) => {
+        if (!handled) response.writeHead(404).end();
+      });
+    } else if (url.pathname.startsWith('/screens')) {
+      void handlePairingRoute(request, response, url.pathname).then((handled) => {
+        if (!handled) response.writeHead(404).end();
+      });
+    } else if (url.pathname.startsWith('/links/')) {
       void handleLinkRoute(request, response, url.pathname).then((handled) => {
         if (!handled) response.writeHead(404).end();
       });

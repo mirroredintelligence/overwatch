@@ -8,21 +8,16 @@ import {
   CLIENT_SECRET,
   DIRECTORY_A,
   DIRECTORY_B,
-  DIRECTORY_PLATFORM,
   DIRECTORY_UNBOUND,
   ENTRA_ENV,
   HOST,
   OID_ADVISOR,
   REDIRECT_URI,
-  SINGLE_BINDING,
-  TENANT_A,
-  TENANT_B,
 } from '@/test/oidc/constants';
 import type { FakeEntra, FakeUser, Tamper } from '@/test/oidc/fake-entra';
 import { idTokenFrom, startFakeEntra } from '@/test/oidc/harness';
 import {
   authorizeUrl,
-  bindingFor,
   entraAuthorityOrigin,
   exchangeCode,
   loadEntraConfig,
@@ -60,18 +55,15 @@ async function verify(tamper: Tamper = {}, user: FakeUser = USER, nonce = 'nonce
 }
 
 describe('loadEntraConfig', () => {
-  it('reads the client, the directories bound to tenants and the public address', () => {
+  it('reads the client, the public address and, when there is one, the directory; and no table of tenants', () => {
     expect(config.clientId).toBe(CLIENT_ID);
     expect(config.authorityHost).toBe(HOST);
     expect(config.publicUrl).toBe('https://capacity.example.test');
-    expect(config.bindings).toEqual([
-      { directoryId: DIRECTORY_A, tenantId: TENANT_A, platform: false },
-      { directoryId: DIRECTORY_B, tenantId: TENANT_B, platform: false },
-      { directoryId: DIRECTORY_PLATFORM, tenantId: 'platform-ops', platform: true },
-    ]);
+    expect(config.directoryId).toBeNull();
+    expect(Object.keys(config).sort()).toEqual(['authorityHost', 'clientId', 'clientSecret', 'directoryId', 'publicUrl']);
   });
 
-  it.each(['ENTRA_CLIENT_ID', 'ENTRA_CLIENT_SECRET', 'DIUCS_PUBLIC_URL', 'DIUCS_ENTRA_BINDINGS'])(
+  it.each(['ENTRA_CLIENT_ID', 'ENTRA_CLIENT_SECRET', 'DIUCS_PUBLIC_URL'])(
     'refuses to load without %s, naming the variable',
     (name) => {
       expect(() => loadEntraConfig({ ...ENTRA_ENV, [name]: undefined })).toThrow(name);
@@ -79,34 +71,27 @@ describe('loadEntraConfig', () => {
     },
   );
 
+  it('does not read a table of directories and tenants any more: the back end holds it (TEN-043)', () => {
+    const withTable = loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: 'not json', BACKEND_JWT_SECRET: 'x' });
+    expect(withTable).toEqual(config);
+  });
+
+  it('reads the directory of a single-tenant app registration, as a lower-case GUID', () => {
+    expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A.toUpperCase() }).directoryId).toBe(DIRECTORY_A);
+    expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: '' }).directoryId).toBeNull();
+  });
+
+  it.each(['common', 'organizations', 'contoso.onmicrosoft.com', '../x', DIRECTORY_A + '/x'])(
+    'refuses a directory that is not a GUID (%s), naming the variable',
+    (value) => {
+      expect(() => loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: value })).toThrow('ENTRA_DIRECTORY_ID');
+    },
+  );
+
   it('defaults the authority host to Microsoft', () => {
     expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: undefined }).authorityHost).toBe(
       'https://login.microsoftonline.com',
     );
-  });
-
-  it.each([
-    ['not JSON', 'not json'],
-    ['not a list', '{}'],
-    ['an empty list', '[]'],
-    ['a directory that is not a GUID', JSON.stringify([{ directoryId: 'common', tenantId: TENANT_A }])],
-    ['a tenant id that is not valid', JSON.stringify([{ directoryId: DIRECTORY_A, tenantId: 'Trust A' }])],
-    ['a network id as the tenant', JSON.stringify([{ directoryId: DIRECTORY_A, tenantId: 'net-abcdef' }])],
-    [
-      'one directory bound twice',
-      JSON.stringify([
-        { directoryId: DIRECTORY_A, tenantId: TENANT_A },
-        { directoryId: DIRECTORY_A, tenantId: TENANT_B },
-      ]),
-    ],
-    ['an entry that is not an object', JSON.stringify([7])],
-    ['an entry that is null', JSON.stringify([null])],
-    ['an entry that is a list', JSON.stringify([[DIRECTORY_A, TENANT_A]])],
-    ['a directory that is a number', JSON.stringify([{ directoryId: 7, tenantId: TENANT_A }])],
-    ['a key it does not know', JSON.stringify([{ directoryId: DIRECTORY_A, tenantId: TENANT_A, role: 'support' }])],
-    ['a platform flag that is not a boolean', JSON.stringify([{ directoryId: DIRECTORY_A, tenantId: TENANT_A, platform: 'yes' }])],
-  ])('refuses bindings with %s', (_name, bindings) => {
-    expect(() => loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: bindings })).toThrow('DIUCS_ENTRA_BINDINGS');
   });
 
   it('refuses an authority host that is not https in production, and a public address with a path', () => {
@@ -128,7 +113,7 @@ describe('loadEntraConfig', () => {
 
   it('never puts the client secret in an error', () => {
     try {
-      loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: 'not json' });
+      loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: 'not a directory' });
     } catch (error) {
       expect(String(error)).not.toContain(CLIENT_SECRET);
     }
@@ -156,16 +141,6 @@ describe('entraAuthorityOrigin', () => {
   });
 });
 
-describe('bindingFor', () => {
-  it('finds the tenant a directory is bound to, and nothing for another directory', () => {
-    expect(bindingFor(config, DIRECTORY_A)?.tenantId).toBe(TENANT_A);
-    expect(bindingFor(config, DIRECTORY_B)?.tenantId).toBe(TENANT_B);
-    expect(bindingFor(config, DIRECTORY_UNBOUND)).toBeUndefined();
-    expect(bindingFor(config, DIRECTORY_A.toUpperCase())?.tenantId).toBe(TENANT_A);
-    expect(bindingFor(config, '')).toBeUndefined();
-  });
-});
-
 describe('newTransaction', () => {
   it('makes a new state, nonce and verifier each time, and keeps next', () => {
     const one = newTransaction('/lead');
@@ -180,13 +155,13 @@ describe('newTransaction', () => {
 });
 
 describe('authorizeUrl', () => {
-  it('asks the one bound directory directly when there is only one', () => {
-    const single = loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: SINGLE_BINDING });
+  it('asks the configured directory directly when the app registration is for one directory', () => {
+    const single = loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
     const url = authorizeUrl(single, newTransaction('/'));
     expect(url.origin + url.pathname).toBe(`${HOST}/${DIRECTORY_A}/oauth2/v2.0/authorize`);
   });
 
-  it('asks the organizations endpoint when several directories are bound', () => {
+  it('asks the organizations endpoint when no directory is configured: the back end decides who may sign in', () => {
     const url = authorizeUrl(config, newTransaction('/'));
     expect(url.origin + url.pathname).toBe(`${HOST}/organizations/oauth2/v2.0/authorize`);
   });
@@ -295,33 +270,25 @@ describe('exchangeCode', () => {
 });
 
 describe('verifyIdToken', () => {
-  it('accepts a good token and returns the object id, the directory and the roles, and nothing else', async () => {
-    const identity = await verify();
-    expect(identity).toEqual({
-      oid: OID_ADVISOR,
-      directoryId: DIRECTORY_A,
-      roles: ['DIUCS.Advisor'],
-      binding: { directoryId: DIRECTORY_A, tenantId: TENANT_A, platform: false },
-    });
-    expect(JSON.stringify(identity)).not.toMatch(/Sample|example\.test/);
+  it('accepts a good token and returns nothing: who the person is, and what they may do, is the back end’s to say', async () => {
+    expect(await verify()).toBeUndefined();
   });
 
-  it('takes the keys from the directory it asked when one directory is bound, and from organizations when several are', async () => {
-    const single = loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: SINGLE_BINDING });
+  it('takes the keys from the configured directory, and from organizations when none is', async () => {
+    const single = loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
     const token = await idTokenFrom(fake, USER, { nonce: 'n', directory: DIRECTORY_A });
     await verifyIdToken(single, token, 'n', NOW);
     expect(fake.recorded('keys').at(-1)?.directory).toBe(DIRECTORY_A);
 
-    const many = loadEntraConfig({ ...ENTRA_ENV });
+    const many = config;
     const other = await idTokenFrom(fake, { ...USER, tid: DIRECTORY_B }, { nonce: 'n', directory: 'organizations' });
     await verifyIdToken(many, other, 'n', NOW);
     expect(fake.recorded('keys').at(-1)?.directory).toBe('organizations');
   });
 
-  it('binds a person from another bound directory to that directory’s tenant', async () => {
-    const identity = await verify({}, { ...USER, tid: DIRECTORY_B }, 'nonce-1', 'organizations');
-    expect(identity.binding.tenantId).toBe(TENANT_B);
-    expect(identity.directoryId).toBe(DIRECTORY_B);
+  it('accepts a correctly signed token from any directory the shared endpoint serves: the host’s tenant decides, in the back end', async () => {
+    expect(await reasonOf(verify({}, { ...USER, tid: DIRECTORY_B }, 'nonce-1', 'organizations'))).toBe('accepted');
+    expect(await reasonOf(verify({}, { ...USER, tid: DIRECTORY_UNBOUND }, 'nonce-1', 'organizations'))).toBe('accepted');
   });
 
   it.each([
@@ -350,13 +317,8 @@ describe('verifyIdToken', () => {
     expect(await reasonOf(verify(tamper))).toBe(reason);
   });
 
-  it('refuses a token from a directory that is signed correctly but not bound to a tenant', async () => {
-    const reason = await reasonOf(verify({}, { ...USER, tid: DIRECTORY_UNBOUND }, 'nonce-1', 'organizations'));
-    expect(reason).toBe('unbound-directory');
-  });
-
-  it('refuses, for a single bound directory, a token from any other directory even when it is signed correctly', async () => {
-    const single = loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: SINGLE_BINDING });
+  it('refuses, for a configured directory, a token from any other directory even when it is signed correctly', async () => {
+    const single = loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
     const token = await idTokenFrom(fake, { ...USER, tid: DIRECTORY_B }, { nonce: 'n', directory: 'organizations' });
     expect(await reasonOf(verifyIdToken(single, token, 'n', NOW))).toBe('wrong-issuer');
   });

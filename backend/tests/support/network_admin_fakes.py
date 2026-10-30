@@ -482,3 +482,43 @@ class Ids:
     def new_id(self) -> str:
         self._n += 1
         return f"{self._prefix}-{self._n:03d}"
+
+
+# ---------------------------------------------------------------- people
+
+
+def staff_ref(name: str) -> str:
+    """A token subject of the shape the exchange issues: `stf-` and 32 hex digits."""
+    import hashlib
+
+    return "stf-" + hashlib.sha256(name.encode()).hexdigest()[:32]
+
+
+def person(tenant: str, role: Any, name: str = "person-a") -> Any:
+    """An actor of one tenant in one role (the token's subject, never a name)."""
+    from diucs.application.actor import Actor
+
+    return Actor(
+        role=role,
+        practitioner_id=staff_ref(f"{tenant}/{name}"),
+        device_id=None,
+        channel="web",
+        service_ids=frozenset(),
+        tenant_id=tenant,
+    )
+
+
+def active_tenant(tenant_id: str, name: str | None = None) -> Tenant:
+    from datetime import UTC
+
+    from diucs.domain.model.tenant import OrganisationType, TenantStatus
+
+    return Tenant(
+        id=tenant_id,
+        display_name=name or f"Org {tenant_id[-3:]}",
+        legal_name="Sample Organisation Ltd",
+        organisation_type=OrganisationType.OTHER,
+        status=TenantStatus.ACTIVE,
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        activated_at=datetime(2026, 1, 2, tzinfo=UTC),
+    )

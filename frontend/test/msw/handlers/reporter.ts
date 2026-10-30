@@ -69,5 +69,33 @@ export const reporterHandlers: RequestHandler[] = [
     await record(request);
     return HttpResponse.json({ sent: true });
   }),
+  http.get('/api/bff/reporter/services/:serviceId/prompt', () =>
+    HttpResponse.json({
+      service: 'UCR West',
+      unitLabel: 'referrals in the next 2 hrs',
+      recordedValue: 3,
+      asOf: '08:15',
+      low: 0,
+      high: 8,
+      replyBy: '10:30',
+      nextDue: '12:00',
+    }),
+  ),
+  http.post('/api/bff/reporter/services/:serviceId/report', async ({ request }) => {
+    const body = (await record(request)) as { kind?: string; value?: number } | undefined;
+    if (body?.kind === 'number' && typeof body.value === 'number' && body.value > 8) {
+      return HttpResponse.json({ result: 'outOfRange', value: body.value });
+    }
+    const value = body?.kind === 'number' ? body.value : 3;
+    return HttpResponse.json({ result: 'recorded', value, recordedAt: '10:12', nextDue: '12:00' });
+  }),
+  http.get('/api/bff/reporter/services/:serviceId/history', () =>
+    HttpResponse.json({
+      items: [
+        { at: '08:15', value: 2 },
+        { at: '10:12', value: 3 },
+      ],
+    }),
+  ),
   http.get('/api/bff/reporter/start', () => HttpResponse.json({ csrfToken: 'T'.repeat(43) })),
 ];

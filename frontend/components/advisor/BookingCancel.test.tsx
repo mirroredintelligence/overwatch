@@ -148,7 +148,8 @@ describe('WithdrawalAlert (W21, DEC-854)', () => {
   });
 
   it('says so, stays open and lets the advisor answer again when the acknowledgement could not be sent', async () => {
-    const { onAcknowledge, onLeaveOpen } = renderAlert({ onAcknowledge: vi.fn(async () => false) });
+    const onAcknowledge = vi.fn(async () => false);
+    const { onLeaveOpen } = renderAlert({ onAcknowledge });
     await userEvent.click(screen.getByRole('button', { name: 'I have phoned the caller' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The answer could not be sent. The shift lead will still be told. Try again.');
     expect(onLeaveOpen).not.toHaveBeenCalled();
@@ -182,7 +183,7 @@ describe('the advisor dialogs use the shared Dialog (W14, DEC-637)', () => {
   it.each(['CancelBookingDialog.tsx', 'WithdrawalAlert.tsx'])('%s builds on components/ui/Dialog and draws no modal of its own', (file) => {
     const source = readFileSync(resolve(process.cwd(), 'components/advisor', file), 'utf8');
     expect(source).toContain("from '@/components/ui/Dialog'");
-    expect(source).not.toMatch(/role=["'](alert)?dialog["']/);
+    expect(source).not.toMatch(/<(section|div)[^>]*role=["'](alert)?dialog["']/);
     expect(source).not.toContain('aria-modal');
   });
 

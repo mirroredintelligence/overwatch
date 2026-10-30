@@ -39,8 +39,11 @@ export type BookingController = {
   /** The booking moved on before the cancel (409): the card says so and reads the state again. */
   cancelConflict: boolean;
   cancel: (reason: CancelReason) => Promise<void>;
-  /** The advisor has seen a withdrawal or not-reached report (R17). Posting twice is fine. */
-  acknowledge: () => Promise<void>;
+  /**
+   * The advisor answered a withdrawal or not-reached alert (R17, DEC-854). True only when the back end
+   * took the acknowledgement; anything else is false and the alert stays open. Posting twice is fine.
+   */
+  acknowledge: () => Promise<boolean>;
 };
 
 export const POLL_INTERVAL_MS = 30_000;
@@ -147,17 +150,19 @@ export function useBooking(options: UseBookingOptions): BookingController {
 
   const acknowledge = useCallback(async () => {
     const current = latest.current;
-    if (current === null) return;
+    if (current === null) return false;
     try {
-      await fetcher(`${REQUEST_PATH}/${encodeURIComponent(current.id)}/acknowledge`, {
+      const response = await fetcher(`${REQUEST_PATH}/${encodeURIComponent(current.id)}/acknowledge`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': keyForRequest(), 'X-CSRF-Token': readCsrfCookie() ?? '' },
         body: '{}',
         cache: 'no-store',
         credentials: 'same-origin',
       });
+      return response.ok;
     } catch {
-      // The alert closes either way; the back end keeps the escalation until it is acknowledged.
+      // Not sent: the alert stays open and says so, and the back end keeps the escalation running.
+      return false;
     }
   }, [fetcher]);
 

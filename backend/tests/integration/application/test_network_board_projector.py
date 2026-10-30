@@ -75,12 +75,22 @@ async def world(
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def cache() -> AsyncIterator[RedisCache]:
+async def cache(run_identity: RunIdentity) -> AsyncIterator[RedisCache]:
+    """The cache, with no cached board of the run's network before or after a test: the board is
+    cached for a minute, and the next test builds a different world under the same network id."""
     store = RedisCache.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
     try:
+        await _forget_boards(store, run_identity)
         yield store
     finally:
+        await _forget_boards(store, run_identity)
         await store.aclose()
+
+
+async def _forget_boards(store: RedisCache, identity: RunIdentity) -> None:
+    for network in (identity.network_id, f"{identity.network_id}-b"):
+        with bind_network(network):
+            await store.delete(NETWORK_BOARD_CACHE_KEY)
 
 
 def _staff(tenant: str) -> Actor:

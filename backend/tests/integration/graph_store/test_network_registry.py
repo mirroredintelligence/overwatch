@@ -51,10 +51,14 @@ from tests.support.network_samples import (
     make_member,
     make_network,
     make_owner_membership,
+    rid,
 )
 from tests.support.tenancy import RunIdentity
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+# A third network the write-surface test creates; named for the run so it is cleaned with it.
+EXTRA_NETWORK_ID = f"{NETWORK_ID}-x"
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -74,9 +78,9 @@ async def _clean_registry(harness_driver: AsyncDriver) -> AsyncIterator[None]:
     """The registry carries no tenant, and these tests use two networks of the run's (`NETWORK_ID`
     and `OTHER_NETWORK_ID`, derived from the run), so they clear the records of those two, before
     and after, and never another run's."""
-    await wipe_tenant(harness_driver, NETWORK_ID, OTHER_NETWORK_ID)
+    await wipe_tenant(harness_driver, NETWORK_ID, OTHER_NETWORK_ID, EXTRA_NETWORK_ID)
     yield
-    await wipe_tenant(harness_driver, NETWORK_ID, OTHER_NETWORK_ID)
+    await wipe_tenant(harness_driver, NETWORK_ID, OTHER_NETWORK_ID, EXTRA_NETWORK_ID)
 
 
 @pytest.fixture
@@ -145,7 +149,7 @@ async def test_the_membership_check_finds_the_active_row_and_never_a_closed_one(
     assert await registry.active_membership(NETWORK_ID, MEMBER_C) is None
     assert [m.status for m in await registry.memberships_of(MEMBER_C)] == [MembershipStatus.LEFT]
     # A tenant that left rejoins as a new row; the closed row stays as history.
-    again = replace(make_member(MEMBER_C), id="mem-tenant-c-again")
+    again = replace(make_member(MEMBER_C), id=rid("mem-tenant-c-again"))
     await registry.create_membership(again)
     assert {m.status for m in await registry.memberships_of(MEMBER_C)} == {
         MembershipStatus.LEFT,
@@ -160,13 +164,13 @@ async def test_the_gate_returns_the_grants_that_may_project_and_only_those(
     registry: Neo4jNetworkRegistry,
 ) -> None:
     await _world(registry)
-    good = make_grant(id="grant-good")
-    unapproved = make_grant(id="grant-unapproved", scope=GrantScope.DIRECTORY, approved=False)
-    other_scope = make_grant(id="grant-criteria", scope=GrantScope.CRITERIA)
+    good = make_grant(id=rid("grant-good"))
+    unapproved = make_grant(id=rid("grant-unapproved"), scope=GrantScope.DIRECTORY, approved=False)
+    other_scope = make_grant(id=rid("grant-criteria"), scope=GrantScope.CRITERIA)
     for grant in (good, unapproved, other_scope):
         await registry.create_grant(grant)
     active = await registry.active_grants_for(MEMBER_B, GrantScope.CAPACITY, NOW)
-    assert [a.grant.id for a in active] == ["grant-good"]
+    assert [a.grant.id for a in active] == [good.id]
     assert active[0].network.settings == SETTINGS
     assert active[0].membership.member_tenant_id == MEMBER_B
     assert await registry.active_grants_for(MEMBER_B, GrantScope.DIRECTORY, NOW) == []
@@ -215,11 +219,13 @@ async def test_a_second_live_membership_or_listing_for_the_same_key_is_a_conflic
 ) -> None:
     await _world(registry)
     with pytest.raises(Conflict):
-        await registry.create_membership(replace(make_member(MEMBER_B), id="mem-other-id"))
-    await registry.create_listing(make_listing(id="lst-1", service="svc-1", admitted=False))
+        await registry.create_membership(replace(make_member(MEMBER_B), id=rid("mem-other-id")))
+    await registry.create_listing(make_listing(id=rid("lst-1"), service="svc-1", admitted=False))
     with pytest.raises(Conflict):
-        await registry.create_listing(make_listing(id="lst-2", service="svc-1", admitted=False))
-    await registry.create_listing(make_listing(id="lst-3", service="svc-2", admitted=False))
+        await registry.create_listing(
+            make_listing(id=rid("lst-2"), service="svc-1", admitted=False)
+        )
+    await registry.create_listing(make_listing(id=rid("lst-3"), service="svc-2", admitted=False))
 
 
 async def test_a_save_that_expects_another_status_writes_nothing(
@@ -262,7 +268,7 @@ async def test_of_racing_creates_of_one_listing_or_membership_exactly_one_is_wri
     async def create_listing(n: int) -> bool:
         try:
             await registry.create_listing(
-                make_listing(id=f"lst-race-{n}", service="svc-race", admitted=False)
+                make_listing(id=rid(f"lst-race-{n}"), service="svc-race", admitted=False)
             )
         except Conflict:
             return False
@@ -270,7 +276,9 @@ async def test_of_racing_creates_of_one_listing_or_membership_exactly_one_is_wri
 
     async def create_member(n: int) -> bool:
         try:
-            await registry.create_membership(replace(make_member("tenant-d"), id=f"mem-race-{n}"))
+            await registry.create_membership(
+                replace(make_member("tenant-d"), id=rid(f"mem-race-{n}"))
+            )
         except Conflict:
             return False
         return True
@@ -311,18 +319,19 @@ async def test_a_read_returns_registry_nodes_only_when_the_graph_holds_lookalike
         harness_driver,
         "CREATE (:Observation {id: $id, status: 'approved', networkId: $net, "
         "grantorTenantId: $member, scope: 'capacity', tenantId: $stamp})",
-        id="grant-b-capacity",
+        id=make_grant().id,
         net=NETWORK_ID,
         member=MEMBER_B,
         stamp=run_identity.tenant_id,
     )
     try:
-        assert [g.id for g in await registry.grants(NETWORK_ID)] == ["grant-b-capacity"]
+        assert [g.id for g in await registry.grants(NETWORK_ID)] == [make_grant().id]
         assert len(await registry.active_grants_for(MEMBER_B, GrantScope.CAPACITY, NOW)) == 1
     finally:
         await _run(
             harness_driver,
-            "MATCH (n:Observation {id: 'grant-b-capacity', tenantId: $stamp}) DETACH DELETE n",
+            "MATCH (n:Observation {id: $id, tenantId: $stamp}) DETACH DELETE n",
+            id=make_grant().id,
             stamp=run_identity.tenant_id,
         )
 
@@ -351,10 +360,10 @@ async def test_a_write_statement_changes_no_node_that_is_not_a_registry_node(
         stamp=run_identity.tenant_id,
     )
     try:
-        grant = make_grant(id="grant-extra")
+        grant = make_grant(id=rid("grant-extra"))
         calls = {
             "Q-NETWORK-CREATE": lambda: registry.create_network(
-                make_network(id="net-extra"), SETTINGS
+                make_network(id=EXTRA_NETWORK_ID), SETTINGS
             ),
             "Q-NETWORK-SAVE": lambda: registry.save_network(
                 make_network(), SETTINGS, expected_status=NetworkStatus.ACTIVE

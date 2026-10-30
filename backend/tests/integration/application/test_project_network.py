@@ -48,6 +48,7 @@ from tests.support.network_samples import (
     make_member,
     make_network,
     make_owner_membership,
+    rid,
 )
 from tests.support.projection_samples import sample_criteria, sample_profile, sample_report
 
@@ -110,7 +111,10 @@ class World:
         await self.registry.create_membership(make_member(self.tenant, network=net))
         for scope in GrantScope:
             grant = make_grant(
-                id=f"grant-{scope.value}", tenant=self.tenant, scope=scope, network_id=self.network
+                id=rid(f"grant-{scope.value}"),
+                tenant=self.tenant,
+                scope=scope,
+                network_id=self.network,
             )
             await self.registry.create_grant(grant)
         with bind_network(self.network):
@@ -216,7 +220,7 @@ async def test_a_replay_and_an_older_version_change_nothing(world: World) -> Non
 async def test_a_grant_ended_by_its_grantor_stops_the_next_projection(world: World) -> None:
     await world.admit()
     requests = {r.kind: r for r in await world.project()}
-    grant = await world.registry.get_grant("grant-capacity")
+    grant = await world.registry.get_grant(rid("grant-capacity"))
     assert grant is not None
     ended = end_grant(grant, by_tenant_id=world.tenant, account_ref=ACCOUNT_B, now=NOW)
     await world.registry.save_grant(ended, expected_status=GrantStatus.APPROVED)

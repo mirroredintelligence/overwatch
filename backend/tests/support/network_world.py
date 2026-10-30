@@ -71,6 +71,7 @@ from tests.support.network_samples import (
     NOW,
     SETTINGS,
     T0,
+    rid,
 )
 from tests.support.projection_samples import (
     SERVICE_ID,
@@ -171,7 +172,9 @@ class NetworkWorld:
         world = cls(driver, connection, ids)
         await world.cleanup()
         await world.registry.create_network(world.network, SETTINGS)
-        await world.registry.create_membership(owner_membership(world.network, "mem-owner", T0))
+        await world.registry.create_membership(
+            owner_membership(world.network, rid("mem-owner"), T0)
+        )
         for member in ids.members:
             invited = invite_member(world.network, [], id=f"mem-{member}", tenant_id=member, now=T0)
             await world.registry.create_membership(invited)

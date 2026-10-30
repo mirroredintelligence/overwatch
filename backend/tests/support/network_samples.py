@@ -43,6 +43,19 @@ OWNER = f"{_RUN_TENANT}-o" if _RUN_TENANT else "tenant-a"
 MEMBER_B = f"{_RUN_TENANT}-m1" if _RUN_TENANT else "tenant-b"
 MEMBER_C = f"{_RUN_TENANT}-m2" if _RUN_TENANT else "tenant-c"
 OUTSIDER = f"{_RUN_TENANT}-x" if _RUN_TENANT else "tenant-z"
+_RUN_TOKEN = _RUN_NETWORK.removeprefix("net-") if _RUN_NETWORK else None
+
+
+def rid(name: str) -> str:
+    """A registry record id that no other run shares. The registry's keys (a grant's id, a listing's
+    id, a membership's id) are unique across the whole database, so two runs on one Neo4j must not
+    pick the same: the run's token is added. Without a run (a process that is not pytest) the name
+    stays as it is."""
+    if _RUN_TOKEN is None or _RUN_TOKEN in name:
+        return name
+    return f"{name}-{_RUN_TOKEN}"
+
+
 AGREEMENT = Agreement("DSA-2026-1", 1)
 ACCOUNT_OWNER = "acct-owner-0001"
 ACCOUNT_B = "acct-member-b-01"
@@ -77,7 +90,7 @@ def make_network(
 
 
 def make_owner_membership(network: Network | None = None) -> NetworkMembership:
-    return owner_membership(network or make_network(), "mem-owner", T0)
+    return owner_membership(network or make_network(), rid("mem-owner"), T0)
 
 
 def make_member(
@@ -88,7 +101,7 @@ def make_member(
     id: str | None = None,
 ) -> NetworkMembership:
     net = network or make_network()
-    invited = invite_member(net, [], id=id or f"mem-{tenant}", tenant_id=tenant, now=T0)
+    invited = invite_member(net, [], id=id or rid(f"mem-{tenant}"), tenant_id=tenant, now=T0)
     if status is MembershipStatus.INVITED:
         return invited
     active = accept_membership(
@@ -111,7 +124,7 @@ def make_member(
 
 def make_grant(
     *,
-    id: str = "grant-b-capacity",
+    id: str = rid("grant-b-capacity"),
     tenant: str = MEMBER_B,
     scope: GrantScope = GrantScope.CAPACITY,
     approved: bool = True,
@@ -153,7 +166,11 @@ def make_grant(
 
 
 def make_listing(
-    *, id: str = "lst-b-1", tenant: str = MEMBER_B, service: str = "svc-1", admitted: bool = True
+    *,
+    id: str = rid("lst-b-1"),
+    tenant: str = MEMBER_B,
+    service: str = "svc-1",
+    admitted: bool = True,
 ) -> Listing:
     listing = request_listing(
         [],

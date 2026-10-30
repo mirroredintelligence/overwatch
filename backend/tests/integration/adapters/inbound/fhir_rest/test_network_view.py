@@ -32,7 +32,11 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.application.network_access import NetworkAccess
-from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
+from diucs.application.tenancy import bind_network
+from diucs.application.use_cases.network_board_projector import (
+    NETWORK_BOARD_CACHE_KEY,
+    NetworkBoardProjector,
+)
 from diucs.application.use_cases.query_network_board import QueryNetworkBoard
 from diucs.application.use_cases.query_network_directory import (
     QueryNetworkCriteria,
@@ -84,6 +88,9 @@ async def world(
 @pytest_asyncio.fixture(loop_scope="session")
 async def app(world: NetworkWorld) -> AsyncIterator[FastAPI]:
     cache = RedisCache.from_url(os.environ.get("REDIS_URL", "redis://localhost:6379/0"))
+    # the board is cached for a minute: no board of an earlier test's world under this network id
+    with bind_network(world.ids.network):
+        await cache.delete(NETWORK_BOARD_CACHE_KEY)
     clock = FixedClock(NOW + timedelta(minutes=2))
     container = EdgeContainer(
         tenants=active_tenants(*world.ids.members, world.ids.outsider), clock=clock
@@ -101,6 +108,8 @@ async def app(world: NetworkWorld) -> AsyncIterator[FastAPI]:
     )
     built.state.cache = cache
     yield built
+    with bind_network(world.ids.network):
+        await cache.delete(NETWORK_BOARD_CACHE_KEY)
     await cache.aclose()
 
 

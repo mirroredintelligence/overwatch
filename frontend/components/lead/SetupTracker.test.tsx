@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { resetLeadPosts, seenLeadPosts } from '@/test/msw/handlers/lead';
 import { beforeEach } from 'vitest';
@@ -55,6 +55,17 @@ describe('SetupTracker', () => {
     await user.click(within(card).getByRole('button', { name: 'Switch them to text' }));
     expect(seenLeadPosts[0]).toMatchObject({ path: '/api/bff/lead/invitations/inv-1/switch-to-text' });
     expect(within(card).getByRole('button', { name: 'Phone them' })).toBeInTheDocument();
+  });
+
+  it('records what the service said by phone for the invitation\'s own service, with no case', async () => {
+    const user = userEvent.setup();
+    render(<SetupTracker />);
+    const card = (await screen.findByText('Stuck at: Notifications on. Invited 09:00, last seen 09:21.')).closest('section') as HTMLElement;
+    await user.click(within(card).getByRole('button', { name: 'Phone them' }));
+    await user.click(screen.getByRole('button', { name: 'Not accepting' }));
+    await user.click(screen.getByRole('button', { name: 'Save position' }));
+    await vi.waitFor(() => expect(seenLeadPosts).toHaveLength(1));
+    expect(seenLeadPosts[0]).toMatchObject({ path: '/api/bff/lead/services/s-ucr-west/phoned', body: { said: 'not-accepting' } });
   });
 
   it('has no axe violations', async () => {

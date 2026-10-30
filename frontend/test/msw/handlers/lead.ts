@@ -84,6 +84,7 @@ export const PHONE_CHOICES = [
 export const INVITATION_CHOICES = [
   {
     id: 'inv-1',
+    serviceId: 's-ucr-west',
     serviceName: 'UCR West',
     role: 'Duty manager',
     steps: { invited: true, numberChecked: true, channelChosen: true, installed: true, notificationsOn: false, pinSet: false, firstReport: false },
@@ -93,6 +94,7 @@ export const INVITATION_CHOICES = [
   },
   {
     id: 'inv-2',
+    serviceId: SERVICE_REABLEMENT,
     serviceName: 'Reablement',
     role: 'Team lead',
     steps: { invited: true, numberChecked: true, channelChosen: true, installed: true, notificationsOn: true, pinSet: true, firstReport: true },

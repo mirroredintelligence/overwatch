@@ -13,7 +13,12 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.domain.model.flags import ServiceFlag
 from diucs.domain.model.service import ServiceProfile
+from tests.support.api import edge_tenants, test_container
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
+
+# The container of the API's test profile and the edge's tenant records, for the application tests
+# that resolve a number or a token against the real directory (wave 5).
+__all__ = ["edge_tenants", "seed_service", "test_container"]
 
 Seed = Callable[..., Awaitable[None]]
 

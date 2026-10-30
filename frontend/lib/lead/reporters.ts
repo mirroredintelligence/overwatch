@@ -1,18 +1,19 @@
-// The reporter posts the back end lists for the lead (GET /lead/reporters, W7B C). The browser gets each
-// post without its role id: the BFF finds the role id itself when it changes a number or removes a person,
-// so no internal id is held in the page (DEC-803). A number is only ever its last four digits.
+// The reporter posts the back end lists for the lead (GET /lead/reporters, W7B C). The role id is the post's
+// own id (not a person's number, and no secret): the lead's remove page picks a post by it (DEC-921). A number
+// is only ever its last four digits.
 
 export type ReporterPost = {
   serviceId: string;
   serviceName: string;
+  roleId: string;
   role: string;
   channel: string;
   numberEnding: string;
   coveredUntil: string | null;
 };
 
-/** A post as the back end gives it, with the role id the change and remove routes need. */
-export type BackEndPost = ReporterPost & { roleId: string };
+/** A post as the back end gives it. */
+export type BackEndPost = ReporterPost;
 
 type Json = Record<string, unknown>;
 
@@ -46,7 +47,3 @@ export function postsFrom(value: unknown): BackEndPost[] {
   });
 }
 
-/** The post as the page gets it: no role id. */
-export function publicPost({ roleId: _roleId, ...post }: BackEndPost): ReporterPost {
-  return post;
-}

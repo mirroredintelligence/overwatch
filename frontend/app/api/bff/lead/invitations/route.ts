@@ -2,19 +2,26 @@ import { withBff } from '@/lib/bff/handler';
 import { FhirError, fhirFetch } from '@/lib/fhir/client';
 import { idempotencyKeyOf, invalidRequest, jsonBody } from '@/lib/lead/bffInput';
 import { isUkMobile } from '@/lib/forms/ukMobile';
-import { notBuilt } from '@/lib/lead/notBuilt';
 import { parametersOf, partValue } from '@/lib/lead/parameters';
+import { invitationsFrom } from '@/lib/lead/invitations';
 
 // Invites a reporter (W43): the back end's $invite-reporter (R10). Lead only, CSRF. The answer names the ids
 // and the last four digits of the number, never the number. A service outside the pilot is a 409 with the code
-// "not-in-pilot", so the page can say what it means. The list of invitations is not on the back end yet: 501.
+// "not-in-pilot", so the page can say what it means. The list of invitations and their set-up steps is read
+// from the back end (W7B C) and passed on checked; a malformed answer is an error, never an empty list.
 
 const PILOT_REFUSAL = 'Only services in the pilot can be invited';
 const CHANNELS = ['push', 'text', 'email'] as const;
 const ROLE_MAX = 200;
 const SERVICE_ID = /^[A-Za-z0-9.-]{1,64}$/;
 
-const get = withBff(async () => notBuilt(), { roles: ['lead'] });
+const get = withBff(
+  async (_request, session) => {
+    const { data } = await fhirFetch<unknown>('/lead/invitations', { root: true, token: session.backendToken, cache: 'no-store' });
+    return Response.json({ items: invitationsFrom(data) }, { headers: { 'Cache-Control': 'no-store' } });
+  },
+  { roles: ['lead'] },
+);
 
 const post = withBff(
   async (request, session) => {

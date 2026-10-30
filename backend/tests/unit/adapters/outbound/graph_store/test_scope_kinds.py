@@ -1,4 +1,4 @@
-"""Scope kinds and the label partition (TEN-037, DEC-132 item 4, DEC-542).
+"""Scope kinds and the label partition (TEN-037, DEC-132 item 4, DEC-540).
 
 A statement declares the kinds of scope it runs in: `tenant` (the default), `network`, or both for
 the statements that are scope-stamped and label-generic (the audit chain, the idempotency record,
@@ -45,8 +45,8 @@ def _network(cypher: str) -> NamedQuery:
 def test_a_statement_runs_in_a_tenant_scope_unless_it_says_otherwise() -> None:
     query = NamedQuery(id="Q-D", cypher="RETURN 1", mode="read")
     assert query.scope_kinds == frozenset({"tenant"}) == TENANT_KINDS
-    assert NETWORK_KINDS == frozenset({"network"})
-    assert BOTH_KINDS == frozenset({"tenant", "network"})
+    assert frozenset({"network"}) == NETWORK_KINDS
+    assert frozenset({"tenant", "network"}) == BOTH_KINDS
 
 
 @pytest.mark.parametrize(
@@ -93,21 +93,28 @@ def test_a_registered_statement_is_the_one_with_the_same_kinds() -> None:
 
 
 def test_the_label_sets_are_disjoint_and_the_network_set_is_the_allowlist_and_two_more() -> None:
-    assert scope_labels.NETWORK_ONLY_LABELS == frozenset(allowlist.ALLOWLIST) | {
-        "ProjectionSource",
-        "ProjectionCursor",
-    }
-    assert scope_labels.SCOPE_GENERIC_LABELS == frozenset(
-        {
-            "AuditHead",
-            "AuditEvent",
-            "ChainLink",
-            "AuditRef",
-            "Snapshot",
-            "IdempotencyRecord",
-            "IdempotencyValue",
-            "Processed",
+    assert (
+        frozenset(allowlist.ALLOWLIST)
+        | {
+            "ProjectionSource",
+            "ProjectionCursor",
         }
+        == scope_labels.NETWORK_ONLY_LABELS
+    )
+    assert (
+        frozenset(
+            {
+                "AuditHead",
+                "AuditEvent",
+                "ChainLink",
+                "AuditRef",
+                "Snapshot",
+                "IdempotencyRecord",
+                "IdempotencyValue",
+                "Processed",
+            }
+        )
+        == scope_labels.SCOPE_GENERIC_LABELS
     )
     assert not scope_labels.NETWORK_ONLY_LABELS & scope_labels.SCOPE_GENERIC_LABELS
     assert not scope_labels.NETWORK_ONLY_LABELS & scope_labels.REGISTRY_NODE_LABELS
@@ -181,11 +188,13 @@ def test_a_statement_for_both_kinds_may_name_only_generic_labels() -> None:
         # A node with no variable, a quoted label, a node after a comma and one on a new line.
         "MATCH (:ProjectedService {tenantId: $tenant}) RETURN 1 AS one",
         "MATCH (n:`ProjectedService` {tenantId: $tenant}) RETURN n",
-        "MATCH (a:Observation {tenantId: $tenant}), (b:ProjectedCapacity {tenantId: $tenant}) RETURN a",
-        "MATCH (a:Observation {tenantId: $tenant})\n--(b:\nProjectedCapacity {tenantId: $tenant}) RETURN a",
+        "MATCH (a:Observation {tenantId: $tenant}), "
+        "(b:ProjectedCapacity {tenantId: $tenant}) RETURN a",
+        "MATCH (a:Observation {tenantId: $tenant})\n--(b:\nProjectedCapacity "
+        "{tenantId: $tenant}) RETURN a",
         # A label hidden after a relationship pattern with a type.
-        "MATCH (a:Observation {tenantId: $tenant})-[:FOCUS]->(b:ProjectedService {tenantId: $tenant}) "
-        "RETURN a",
+        "MATCH (a:Observation {tenantId: $tenant})-[:FOCUS]->"
+        "(b:ProjectedService {tenantId: $tenant}) RETURN a",
         # No space before the parenthesis.
         "MATCH(n:ProjectedService {tenantId: $tenant}) RETURN n",
     ],

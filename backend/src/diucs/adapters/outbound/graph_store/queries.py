@@ -29,6 +29,11 @@ from types import MappingProxyType
 from typing import Final, Literal
 
 from diucs.adapters.outbound.graph_store.scenario import Scenario
+from diucs.adapters.outbound.graph_store.scope_labels import (
+    NETWORK_ONLY_LABELS,
+    REGISTRY_NODE_LABELS,
+    SCOPE_GENERIC_LABELS,
+)
 
 _MODES = ("read", "write")
 _SCOPES = ("tenant", "global")
@@ -39,14 +44,19 @@ _TENANT_PARAMETER = re.compile(r"\$tenant\b")
 # comment is not one (a comment and the inside of a string are blanked before the look).
 _TENANT_ENTRY = re.compile(r"\btenantId\s*:\s*\$tenant\b")
 
+# The kinds of scope a statement runs in (TEN-037, DEC-132 item 4): a tenant, a network, or both for
+# the statements that are scope-stamped and label-generic. A statement's kinds are one of these
+# three exact values; `run_query` refuses a statement in a scope of another kind.
 TENANT_KINDS: Final = frozenset({"tenant"})
 NETWORK_KINDS: Final = frozenset({"network"})
 BOTH_KINDS: Final = frozenset({"tenant", "network"})
+_KIND_SETS: Final = (TENANT_KINDS, NETWORK_KINDS, BOTH_KINDS)
 
-
-def statement_labels(cypher: str) -> list[str]:
-    raise NotImplementedError
-
+# `$sourceTenant`: the member a projection came from. Only a network-only statement may mention it.
+_SOURCE_TENANT_PARAMETER = re.compile(r"\$sourceTenant\b")
+_BRACKETS = re.compile(r"\[[^\[\]]*\]")
+_BRACES = re.compile(r"\{[^{}]*\}")
+_LABEL_NAME = re.compile(r":\s*(`[^`]*`|[A-Za-z_]\w*)")
 
 PLACEHOLDER: Final = "{insert}"
 # `:Label` or `:Label:Other` or `:HAS_X`: ASCII identifiers only. fullmatch, so no trailing text.
@@ -325,13 +335,21 @@ def _check_global_text(query_id: str, cypher: str) -> None:
         )
 
 
-def _validate(query_id: str, mode: object, scope: object, scenario: object) -> None:
+def _validate(
+    query_id: str, mode: object, scope: object, scenario: object, scope_kinds: object
+) -> None:
     if mode not in _MODES:
         raise ValueError(f"query {query_id}: mode must be 'read' or 'write', not {mode!r}")
     if scope not in _SCOPES:
         raise ValueError(f"query {query_id}: scope must be 'tenant' or 'global', not {scope!r}")
     if scenario is not None and not isinstance(scenario, Scenario):
         raise ValueError(f"query {query_id}: scenario must be a Scenario or None")
+    if type(scope_kinds) is not frozenset or scope_kinds not in _KIND_SETS:
+        raise ValueError(
+            f"query {query_id}: scope_kinds must be TENANT_KINDS, NETWORK_KINDS or BOTH_KINDS"
+        )
+    if scope == "global" and scope_kinds != TENANT_KINDS:
+        raise ValueError(f"query {query_id}: a global statement has no scope_kinds of its own")
 
 
 @dataclass(frozen=True, slots=True)
@@ -344,7 +362,7 @@ class NamedQuery:
     scope_kinds: frozenset[str] = TENANT_KINDS
 
     def __post_init__(self) -> None:
-        _validate(self.id, self.mode, self.scope, self.scenario)
+        _validate(self.id, self.mode, self.scope, self.scenario, self.scope_kinds)
 
 
 @dataclass(frozen=True, slots=True)
@@ -359,7 +377,57 @@ class QueryTemplate:
     scope_kinds: frozenset[str] = TENANT_KINDS
 
     def __post_init__(self) -> None:
-        _validate(self.id, self.mode, self.scope, self.scenario)
+        _validate(self.id, self.mode, self.scope, self.scenario, self.scope_kinds)
+
+
+def statement_labels(cypher: str) -> list[str]:
+    """The node labels a statement names, each once, in the order written. Comments and the
+    inside of strings are removed first, then relationship patterns (`[:TYPE]`) and property
+    maps (`{...}`), so what is left holds a `:Name` only where a label is written: in a node
+    pattern, a `WHERE n:X` or a `SET n:X`. Cheap, and not a parser (DEC-142)."""
+    text = _blank("(statement)", cypher)
+    for pattern in (_BRACKETS, _BRACES):
+        previous = None
+        while previous != text:
+            previous = text
+            text = pattern.sub(" ", text)
+    labels: list[str] = []
+    for match in _LABEL_NAME.finditer(text):
+        label = match.group(1).strip("`")
+        if label not in labels:
+            labels.append(label)
+    return labels
+
+
+def _check_kinds(query_id: str, cypher: str, scope_kinds: frozenset[str]) -> None:
+    """The label partition and the `$sourceTenant` rule for a tenant-scope-stamped statement."""
+    text = _blank(query_id, cypher)
+    if scope_kinds != NETWORK_KINDS and _SOURCE_TENANT_PARAMETER.search(text) is not None:
+        raise ValueError(
+            f"query {query_id}: only a network-only statement may mention $sourceTenant"
+        )
+    labels = set(statement_labels(cypher))
+    if scope_kinds == TENANT_KINDS:
+        bad = labels & (NETWORK_ONLY_LABELS | REGISTRY_NODE_LABELS)
+        if bad:
+            raise ValueError(
+                f"query {query_id}: a tenant statement cannot name a network label or a registry "
+                f"label: {', '.join(sorted(bad))}"
+            )
+    elif scope_kinds == NETWORK_KINDS:
+        bad = labels - (NETWORK_ONLY_LABELS | SCOPE_GENERIC_LABELS)
+        if bad:
+            raise ValueError(
+                f"query {query_id}: a network statement may name network and scope-generic "
+                f"labels only: {', '.join(sorted(bad))}"
+            )
+    else:
+        bad = labels - SCOPE_GENERIC_LABELS
+        if bad:
+            raise ValueError(
+                f"query {query_id}: a statement for both kinds of scope may name scope-generic "
+                f"labels only: {', '.join(sorted(bad))}"
+            )
 
 
 def _mentions_tenant(cypher: str) -> bool:
@@ -376,6 +444,7 @@ class QueryRegistry:
             raise ValueError(f"query {query.id}: a statement id cannot contain a colon")
         self._refuse_taken(query.id)
         self._check(query.id, query.cypher, query.mode, query.scope, query.scenario)
+        self._check_kinds(query.id, query.cypher, query.scope, query.scope_kinds)
         self._queries[query.id] = query
 
     def register_template(self, template: QueryTemplate) -> None:
@@ -385,6 +454,7 @@ class QueryRegistry:
             raise ValueError(f"template {template.id}: a template cannot be a global statement")
         self._refuse_taken(template.id)
         self._check(template.id, template.cypher, template.mode, template.scope, template.scenario)
+        self._check_kinds(template.id, template.cypher, template.scope, template.scope_kinds)
         self._templates[template.id] = template
 
     def instance(self, template_id: str, insert: str = "") -> NamedQuery:
@@ -410,7 +480,10 @@ class QueryRegistry:
             mode=template.mode,
             scope=template.scope,
             scenario=template.scenario,
+            scope_kinds=template.scope_kinds,
         )
+        # The template was judged with its insert empty: the labels the insert adds are judged now.
+        _check_kinds(query_id, query.cypher, template.scope_kinds)
         self._queries[query_id] = query
         return query
 
@@ -441,6 +514,12 @@ class QueryRegistry:
     def _refuse_taken(self, query_id: str) -> None:
         if query_id in self._queries or query_id in self._templates:
             raise ValueError(f"duplicate query id: {query_id}")
+
+    def _check_kinds(
+        self, query_id: str, cypher: str, scope: str, scope_kinds: frozenset[str]
+    ) -> None:
+        if scope != "global":
+            _check_kinds(query_id, cypher, scope_kinds)
 
     def _check(
         self, query_id: str, cypher: str, mode: str, scope: str, scenario: Scenario | None

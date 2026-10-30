@@ -69,10 +69,15 @@ UNIT_OF_WORK_OPEN_MESSAGE: Final = (
 TENANT_MISMATCH_MESSAGE: Final = (
     "the actor belongs to another tenant than the one bound for this work"
 )
-NETWORK_NOT_BOUND_MESSAGE: Final = ""
-SCOPE_KIND_MESSAGE: Final = ""
-READ_ONLY_MESSAGE: Final = ""
-SOURCE_TENANT_MESSAGE: Final = ""
+NETWORK_NOT_BOUND_MESSAGE: Final = (
+    "no network is bound for this work; bind one at the edge before running a network query"
+)
+SCOPE_KIND_MESSAGE: Final = "this statement does not run in the kind of scope that is bound"
+READ_ONLY_MESSAGE: Final = "a read-only unit of work cannot run a statement that writes"
+SOURCE_TENANT_MESSAGE: Final = (
+    "a source tenant is accepted only by a network statement on a network scope, "
+    "and only as a valid tenant id"
+)
 _TENANCY_ERROR_MESSAGE: Final = "a tenancy error"
 
 
@@ -211,11 +216,8 @@ def bind_tenant(tenant_id: str) -> contextlib.AbstractContextManager[ScopeId]:
 
 
 def bind_network(network_id: str) -> contextlib.AbstractContextManager[ScopeId]:
-    raise NotImplementedError
-
-
-def current_network() -> str:
-    raise NotImplementedError
+    """`bind_scope` for a network id."""
+    return bind_scope(ScopeId.network(network_id))
 
 
 def current_scope_or_none() -> ScopeId | None:
@@ -235,6 +237,15 @@ def current_tenant() -> str:
     scope = _SCOPE.get()
     if scope is None or scope.kind is not ScopeKind.TENANT:
         raise TenantNotBound
+    return scope.value
+
+
+def current_network() -> str:
+    """The bound network id. A bound tenant scope is not a network: a network use case must never
+    run inside a tenant binding by accident (the mirror of `current_tenant`)."""
+    scope = _SCOPE.get()
+    if scope is None or scope.kind is not ScopeKind.NETWORK:
+        raise NetworkNotBound
     return scope.value
 
 

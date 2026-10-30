@@ -1,4 +1,4 @@
-"""The network side of the tenancy kernel (TEN-037, DEC-132 item 4, DEC-542).
+"""The network side of the tenancy kernel (TEN-037, DEC-132 item 4, DEC-540).
 
 A unit of work binds exactly one scope, and a scope is a tenant or a network. A network use case
 asks for the bound network and a tenant use case for the bound tenant, and each is refused inside

@@ -1,5 +1,5 @@
 """The execution point and the unit of work, for the network scope (TEN-037, DEC-132 item 4,
-DEC-542).
+DEC-540).
 
 `run_query` refuses a statement whose declared kinds do not include the kind of the scope its
 transaction carries, refuses a write on a read-only unit, and accepts the `sourceTenant` parameter
@@ -55,7 +55,10 @@ NETWORK_WRITE = (
     "SET p.active = false RETURN p.sourceServiceId AS id"
 )
 GENERIC_READ = "MATCH (h:AuditHead {id: 'audit', tenantId: $tenant}) RETURN h.lastSeq AS seq"
-GENERIC_WRITE = "MATCH (h:AuditHead {id: 'audit', tenantId: $tenant}) SET h.lastSeq = $seq RETURN h.lastSeq AS s"
+GENERIC_WRITE = (
+    "MATCH (h:AuditHead {id: 'audit', tenantId: $tenant}) SET h.lastSeq = $seq "
+    "RETURN h.lastSeq AS s"
+)
 
 
 class _Result:

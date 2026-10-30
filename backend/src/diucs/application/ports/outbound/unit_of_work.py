@@ -91,6 +91,12 @@ class UnitOfWork(Protocol):
     tenant_config: TenantConfigRepository
 
     @property
+    def read_only(self) -> bool:
+        """True for a unit that cannot write: a statement that writes is refused before any Cypher
+        is sent and `commit()` rolls back (TEN-037). The units of the network read use cases."""
+        ...
+
+    @property
     def unit_scope(self) -> ScopeId | None:
         """The scope this unit opened under (DEC-132 item 4), fixed for its life; None when none
         was bound. Raises RuntimeError before the unit is entered."""

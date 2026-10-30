@@ -17,14 +17,24 @@ from typing import Any
 
 from neo4j import AsyncDriver, AsyncGraphDatabase, AsyncManagedTransaction, AsyncTransaction
 
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, QueryRegistry
+from diucs.adapters.outbound.graph_store.queries import (
+    NETWORK_KINDS,
+    REGISTRY,
+    NamedQuery,
+    QueryRegistry,
+)
 from diucs.application.tenancy import (
     GlobalStatementMisuse,
     QueryNotRegistered,
     RawTransactionRefused,
+    ReadOnlyUnitWrite,
     ScopeId,
+    ScopeKind,
+    ScopeKindMismatch,
+    SourceTenantRefused,
     TenantNotBound,
     TenantParameterRefused,
+    is_valid_tenant_id,
 )
 
 QueryObserver = Callable[[str, str, int, float], None]
@@ -73,13 +83,32 @@ def _refuse_tenant_parameter(params: dict[str, Any]) -> None:
         raise TenantParameterRefused
 
 
+def _refuse_source_tenant(params: dict[str, Any], query: NamedQuery, scope: ScopeId | None) -> None:
+    """`sourceTenant` names the member a projection came from. It is accepted only for a
+    network-only statement run on a network scope, and only as a valid tenant id (a network id,
+    another kind of text or a non-string is refused). The caller of a network statement takes the
+    value from a verified grant, never from a request (TEN-054)."""
+    if "sourceTenant" not in params:
+        return
+    value = params["sourceTenant"]
+    if (
+        scope is None
+        or scope.kind is not ScopeKind.NETWORK
+        or query.scope_kinds != NETWORK_KINDS
+        or type(value) is not str
+        or not is_valid_tenant_id(value)
+    ):
+        raise SourceTenantRefused
+
+
 @dataclass(frozen=True, slots=True)
 class ScopedTx:
     """A transaction and the scope its unit of work opened under (DEC-132 item 4, TEN-002).
 
     It has no `run` and no other way to execute Cypher: the only way to run a statement on it is
     `run_query`, so a repository cannot bypass the tenant parameter. The scope is never None: a
-    transaction with no scope cannot be made (TEN-030, `TenantNotBound`).
+    transaction with no scope cannot be made (TEN-030, `TenantNotBound`). A read-only transaction
+    (TEN-037) refuses every statement that writes, whatever the statement's kinds.
     """
 
     tx: AsyncManagedTransaction | AsyncTransaction
@@ -129,8 +158,12 @@ async def run_query(
     In this order, all before any Cypher is sent: a string or a statement that is not the
     registered one is refused; a caller-supplied `tenant` is refused; a global statement is
     refused; a transaction that is not a `ScopedTx` is refused (`RawTransactionRefused`), whatever
-    is bound in the context. Otherwise the statement runs with `tenant=<the scope>`, written first
-    and with nothing in `params` able to replace it.
+    is bound in the context; a statement whose kinds do not include the kind of the scope the
+    transaction carries is refused (`ScopeKindMismatch`, TEN-037); a write on a read-only
+    transaction is refused (`ReadOnlyUnitWrite`); a `sourceTenant` is refused unless it is a valid
+    tenant id on a network-only statement run on a network scope (`SourceTenantRefused`).
+    Otherwise the statement runs with `tenant=<the scope>`, written first and with nothing in
+    `params` able to replace it.
 
     The scope is the one the `ScopedTx` carries: the unit of work took it when it opened, and no
     rebinding of the context afterwards changes it, even to none.
@@ -147,6 +180,11 @@ async def run_query(
         raise GlobalStatementMisuse
     if not isinstance(tx, ScopedTx):
         raise RawTransactionRefused
+    if tx.scope.kind.value not in query.scope_kinds:
+        raise ScopeKindMismatch
+    if tx.read_only and query.mode == "write":
+        raise ReadOnlyUnitWrite
+    _refuse_source_tenant(params, query, tx.scope)
     return await _execute(tx, query, {"tenant": tx.scope.value, **params})
 
 
@@ -169,6 +207,7 @@ async def run_global_query(
     _refuse_tenant_parameter(params)
     if query.scope != "global":
         raise GlobalStatementMisuse
+    _refuse_source_tenant(params, query, None)
     return await _execute(tx, query, params)
 
 

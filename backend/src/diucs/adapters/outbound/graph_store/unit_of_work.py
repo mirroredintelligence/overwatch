@@ -241,6 +241,7 @@ class Neo4jUnitOfWork:
         self._source = driver
         self._factories = factories
         self._clock = clock
+        self._read_only = read_only
         self._state = _NEW
         self._session_cm: AbstractAsyncContextManager[AsyncSession] | None = None
         self._tx: AsyncTransaction | None = None
@@ -249,6 +250,12 @@ class Neo4jUnitOfWork:
         self._store: ResourceStore | None = None
         self._repositories: dict[str, object] = {}
         self._refused: Conflict | None = None
+
+    @property
+    def read_only(self) -> bool:
+        """True for a unit that cannot write (TEN-037): every statement that writes is refused
+        before any Cypher is sent, and `commit()` rolls back."""
+        return self._read_only
 
     @property
     def unit_scope(self) -> ScopeId | None:
@@ -277,7 +284,7 @@ class Neo4jUnitOfWork:
         self._session_cm = session_cm
         self._tx = tx
         self._scope = scope
-        self._scoped = ScopedTx(tx, scope)
+        self._scoped = ScopedTx(tx, scope, self._read_only)
         self._store = ResourceStore(self._scoped, self._clock)
         self._state = _OPEN
         return self
@@ -333,6 +340,14 @@ class Neo4jUnitOfWork:
             raise Conflict(
                 "a write in this unit of work was refused, so nothing was committed"
             ) from refused
+        if self._read_only:
+            # Nothing was written, so there is nothing to commit: end the transaction as a rollback.
+            self._state = _FINISHED
+            try:
+                await self._require_tx().rollback()
+            finally:
+                release_unit(self)
+            return
         await self._require_tx().commit()
         self._state = _FINISHED
         release_unit(self)
@@ -376,6 +391,9 @@ def neo4j_uow_factory(
     driver: AsyncDriver | Neo4jConnection,
     factories: dict[str, RepositoryFactory] = DEFAULT_FACTORIES,
     clock: Clock | None = None,
+    *,
+    read_only: bool = False,
 ) -> UnitOfWorkFactory:
-    """A factory that makes a fresh Neo4jUnitOfWork on each call."""
-    return lambda: Neo4jUnitOfWork(driver, factories, clock)
+    """A factory that makes a fresh Neo4jUnitOfWork on each call. With `read_only` every unit it
+    makes refuses a write (TEN-037): the factory of the network read use cases."""
+    return lambda: Neo4jUnitOfWork(driver, factories, clock, read_only=read_only)

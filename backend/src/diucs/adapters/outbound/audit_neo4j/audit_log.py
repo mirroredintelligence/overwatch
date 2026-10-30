@@ -45,7 +45,7 @@ from typing import Any, Final
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
 from diucs.adapters.outbound.graph_store.driver import ScopedTx, Tx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.queries import BOTH_KINDS, REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
@@ -382,6 +382,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="write",
         scenario=_ENSURE_HEAD_SCENARIO,
+        scope_kinds=BOTH_KINDS,
     ),
     NamedQuery(
         id="Q-AUDIT-LOCK-HEAD",
@@ -392,6 +393,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="write",
         scenario=_LOCK_HEAD_SCENARIO,
+        scope_kinds=BOTH_KINDS,
     ),
     NamedQuery(
         id="Q-AUDIT-APPEND",
@@ -409,6 +411,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="write",
         scenario=_APPEND_SCENARIO,
+        scope_kinds=BOTH_KINDS,
     ),
     NamedQuery(
         id="Q-AUDIT-LINK-AGENT",
@@ -420,6 +423,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="write",
         scenario=_LINK_AGENT_SCENARIO,
+        scope_kinds=BOTH_KINDS,
     ),
     NamedQuery(
         id="Q-AUDIT-LINK-ENTITY",
@@ -431,6 +435,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="write",
         scenario=_LINK_ENTITY_SCENARIO,
+        scope_kinds=BOTH_KINDS,
     ),
     NamedQuery(
         id="Q-AUDIT-LIST",
@@ -442,6 +447,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="read",
         scenario=_LIST_SCENARIO,
+        scope_kinds=BOTH_KINDS,
     ),
     NamedQuery(
         id="Q-AUDIT-FOR-ENTITY",
@@ -454,6 +460,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="read",
         scenario=_FOR_ENTITY_SCENARIO,
+        scope_kinds=BOTH_KINDS,
     ),
     NamedQuery(
         id="Q-PLAN-FOR-CASES",
@@ -488,6 +495,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="read",
         scenario=_HEAD_SCENARIO,
+        scope_kinds=BOTH_KINDS,
     ),
     NamedQuery(
         id="Q-AUDIT-CHAIN",
@@ -503,6 +511,7 @@ _QUERIES: tuple[NamedQuery, ...] = (
         ),
         mode="read",
         scenario=_CHAIN_WALK_SCENARIO,
+        scope_kinds=BOTH_KINDS,
     ),
     NamedQuery(
         id="Q-PROV-APPEND",

@@ -12,7 +12,7 @@ entry point that writes it does when the caller names a record that belongs to a
   node in the bound tenant for an id it does not know (DEC-053 item 8). A foreign id is unknown in
   the bound tenant, so the placeholder is the tenant's own and nothing links across. It is not
   refused: the integration test proves the tenant-local result, and the refusal the audit asks for
-  (F 3.4 item 1) is a known issue (TEN-029 fragment).
+  (F 3.4 item 1) is a known issue (DEC-272, known issues).
 - `TENANT_LOCAL`: every node of the statement is matched or merged on `tenantId: $tenant`, so the
   statement cannot reach a foreign node. The generated two-tenant test (TEN-004) proves this for
   every registered statement.

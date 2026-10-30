@@ -10,7 +10,7 @@ POST /fhir/PractitionerRole/{id}/$change-number  role lead; Idempotency-Key requ
 
 The `$setup` Parameters are: name, category, measure, unitLabel, establishedCapacity, usualMin,
 usualMax, cadence, channel (text or email), mobile or email, roleName, availableFrom and availableTo
-(HH:MM; the hours are needed by U15 and are not in the prompt's list, see the fragment), and the
+(HH:MM; the hours are needed by U15 and are not in the prompt's list, DEC-344 item 2), and the
 criteria: ageMin, optional ageMax, district (repeating, at least one), accepts and excludes
 (repeating), reviewBy, optional ownerRoleName (default "Criteria owner"). Parts of a `criteria`
 parameter are read as top-level parameters too.
@@ -63,7 +63,7 @@ from diucs.domain.model.service import AvailableTime
 router = APIRouter(prefix="/fhir")
 MOBILE_REFUSAL: Final = "Enter a UK mobile number, for example 07700 900123"
 OWNER_ROLE_DEFAULT: Final = "Criteria owner"
-"""The owner role name when the caller gives none. [ASSUMED] (R08 fragment)."""
+"""The owner role name when the caller gives none. [ASSUMED] (DEC-344 item 3)."""
 PILOT_CHANNELS: Final = frozenset({Channel.TEXT, Channel.EMAIL})
 """push is outside the pilot for a new service (R08): a 400."""
 _VALUE_KEYS: Final = ("valueString", "valueCode", "valueInteger", "valueDate", "valueBoolean")

@@ -19,7 +19,7 @@ Authentication rules this module keeps:
 - No PIN, hash or secret is in a log, an audit entry, a throttle key or a repr: the commands hide
   their PIN, the audit holds an outcome word only, and an unknown identifier is never written.
 
-Decisions: DEC-321 to DEC-324 (fragment U32).
+Decisions: DEC-321 to DEC-324 (U32).
 """
 
 import hashlib

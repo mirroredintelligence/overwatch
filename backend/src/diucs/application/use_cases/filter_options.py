@@ -12,7 +12,8 @@ The patient's position is the postcode centroid of the case's district; a servic
 has no travel. Only the district is stored on a case (DEC-067), so the snapshot holds no postcode
 and no district.
 
-Decisions: DEC-290 (roles, the read and its audit, no replay), DEC-291 (the warnings and reasons).
+Decisions: DEC-290 (roles, the read and its audit, no replay; its Assumed list holds the reason
+and warning texts).
 """
 
 from collections.abc import Mapping

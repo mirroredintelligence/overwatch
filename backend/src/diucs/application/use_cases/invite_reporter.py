@@ -9,7 +9,7 @@ being active), the registration in state `invited`, the invitation Task, the lin
 and the replay record. The mobile number goes only to the protected contact store; the rest of the
 graph keeps its keyed hash. The stored copy of the text holds no live token (DEC-311).
 
-Decisions: DEC-310 to DEC-312 (fragment U24).
+Decisions: DEC-310 to DEC-312 (U24).
 """
 
 import hashlib

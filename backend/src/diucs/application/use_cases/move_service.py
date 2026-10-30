@@ -15,7 +15,7 @@ many-services on each of its services (D28, after any change). The change, its a
 flags are written in one unit of work per use case.
 
 Not built here: replay of the start and add commands by idempotency key (an open move per service
-and a pending addition per role refuse a repeat; see the fragment), and the live check of a service
+and a pending addition per role refuse a repeat; DEC-343 item 9), and the live check of a service
 before a prompt reaches its new phone (the registration rules own it)."""
 
 from dataclasses import dataclass, replace

@@ -36,7 +36,7 @@ usecase.idempotent_replay
 usecase.outcome
 user.role
 
-# name and value are refused everywhere (O04 fragment decision 3, superseded at integration): free text
+# name and value are refused everywhere (DEC-331 item 3, superseded by DEC-332): free text
 # words in DENIED_FRAGMENTS, no browser event carries them (the BFF allow-list and the O05 schema do not),
 # and the collector has no event name to limit them to ui.web_vital. Re-admit them only with a reviewed rule.
 [browser]

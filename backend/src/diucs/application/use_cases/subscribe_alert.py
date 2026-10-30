@@ -9,7 +9,7 @@ practitioner, stored by the alert subscription repository.
 A user changes only their own preferences: the command names no target, so the subscription saved
 is the actor's (structural, not a check). The deputy is another active practitioner who holds a
 leadership role (shift lead or clinical lead, the codes the graph has; an exec role is not held in
-the graph, see the fragment). Replays use the tenant-scoped command key (lesson L160).
+the graph, DEC-341 item 4). Replays use the tenant-scoped command key (lesson L160).
 
 The audit entry records the kinds chosen and nothing else.
 """

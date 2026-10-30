@@ -9,7 +9,7 @@ advanced by one statement in the caller's unit of work, so two concerns in two u
 SC-0002. The counter's (tenantId, counterId) pair is unique (migration 0070).
 
 The Task statements carry no FHIR relationships yet: the requester, the owner and the focus are
-properties (a known issue in the W2D fragment).
+properties (a known issue of U41).
 """
 
 from datetime import UTC, datetime

@@ -39,7 +39,7 @@ async def text_reporter_role(
 ) -> PractitionerRole | None:
     """The reporter role a service's echoes go to: the one a request goes to (the lowest id), when
     it is on text. The echo wording (B4 to B6, K4) is text only in D16, so an email or push
-    reporter gets no echo (a known issue, see the W2D fragments)."""
+    reporter gets no echo (hazard H-135, DEC-300 item 3)."""
     roles = await uow.people.reporter_roles_for_service(service_id, now)
     if not roles:
         return None

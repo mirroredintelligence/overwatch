@@ -111,7 +111,15 @@ def _client(app: FastAPI) -> AsyncClient:
 
 
 def _bearer(tenant: str, networks: tuple[str, ...], role: Role = Role.ADVISOR) -> dict[str, str]:
-    token = issue_test_token(role, [], "prac-1", tenant=tenant, networks=networks)
+    # the app's clock is the network world's (late October 2026), past the default token's expiry
+    token = issue_test_token(
+        role,
+        [],
+        "prac-1",
+        tenant=tenant,
+        networks=networks,
+        expires_at=NOW + timedelta(hours=1),
+    )
     return {"Authorization": f"Bearer {token}"}
 
 

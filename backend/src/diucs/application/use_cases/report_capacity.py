@@ -44,6 +44,7 @@ from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from diucs.domain.model.people import PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.rules.london_time import format_hhmm
 from diucs.domain.rules.schedule import next_due
@@ -107,6 +108,15 @@ def check_may_report(actor: Actor, source: ReportSource, service_id: str) -> Non
     if actor.role in (Role.ADVISOR, Role.LEAD) and source is ReportSource.ADVISOR_PHONED:
         return
     raise NotAllowed("this role may not report this capacity")
+
+
+PERFORMER_NOT_FOUND: Final = "no practitioner role with this id"
+
+
+def check_performer(
+    role: PractitionerRole | None, *, service_id: str, actor: Actor, now: datetime
+) -> None:
+    raise NotImplementedError
 
 
 def _echo_text(

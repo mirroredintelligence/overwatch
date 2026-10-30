@@ -10,7 +10,7 @@ reply policy (D11) decides `out-of-range-twice` and the caller passes it as `ext
 DEC-161.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Final
 
 from diucs.application.ports.outbound.ids import IdGenerator
@@ -22,10 +22,15 @@ from diucs.domain.events import ReportFlagged
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import REPORT_FLAG_OPEN, ReportFlag
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.report_flags import MANY_CHANGES_WINDOW, PHONED_WINDOW, flags_for_report
 
 LOOKBACK: Final = max(MANY_CHANGES_WINDOW, PHONED_WINDOW)
 """How far before a report the rules look: the longer of the two windows (DEC-161 item 2)."""
+
+
+def report_lookback(policy: TenantPolicy = DEFAULT_POLICY) -> timedelta:
+    raise NotImplementedError
 
 
 async def raise_report_flags(

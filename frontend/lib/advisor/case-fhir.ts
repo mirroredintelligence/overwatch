@@ -1,3 +1,4 @@
+import { parseScores, type Score } from './scores';
 import {
   type CaseInput,
   type CaseView,
@@ -14,11 +15,38 @@ export const BASE = 'https://diucs.example/';
 export const AGE_BAND_EXTENSION = `${BASE}StructureDefinition/age-band`;
 export const REFERRER_EXTENSION = `${BASE}StructureDefinition/referrer-type`;
 export const NEED_SYSTEM = `${BASE}CodeSystem/need-category`;
+// A referrer's score: one complex extension per score, with its method and value. The back end
+// does not read this shape yet (docs/delivery/fragments/W12.md): until it does, a saved score is
+// not kept. This mapping is the shape the back-end task must adopt.
+export const SCORE_EXTENSION = `${BASE}StructureDefinition/score`;
 
 // The back end has two priorities. A within-2-hrs case is urgent; today and planned are routine,
 // because the back end answers planned as routine (DEC-397). A planned case reads back as today.
 export function priorityOf(urgency: UrgencyCode): 'urgent' | 'routine' {
   return urgency === 'within-2-hrs' ? 'urgent' : 'routine';
+}
+
+function scoreExtension(score: Score): Record<string, unknown> {
+  const value =
+    typeof score.value === 'number'
+      ? { url: 'value', valueInteger: score.value }
+      : { url: 'value', valueString: score.value };
+  return { url: SCORE_EXTENSION, extension: [{ url: 'method', valueCode: score.method }, value] };
+}
+
+/** The scores on a ServiceRequest, or null when one is not a score the rules allow. */
+function scoresOf(request: Record_): Score[] | null {
+  const items = (Array.isArray(request.extension) ? request.extension : []).map(asRecord).filter(
+    (item) => item?.url === SCORE_EXTENSION,
+  );
+  const parts = items.map((item) => {
+    const inner = (Array.isArray(item?.extension) ? item?.extension : []).map(asRecord);
+    const method = inner.find((part) => part?.url === 'method')?.valueCode;
+    const valuePart = inner.find((part) => part?.url === 'value');
+    const value = valuePart?.valueInteger ?? valuePart?.valueString;
+    return { method, value };
+  });
+  return parts.length === 0 ? [] : parseScores(parts);
 }
 
 export function toServiceRequest(id: string, input: CaseInput): Record<string, unknown> {
@@ -36,7 +64,10 @@ export function toServiceRequest(id: string, input: CaseInput): Record<string, u
         extension: [{ url: AGE_BAND_EXTENSION, valueCode: input.ageBand }],
       },
     ],
-    extension: [{ url: REFERRER_EXTENSION, valueCode: input.referrerType }],
+    extension: [
+      { url: REFERRER_EXTENSION, valueCode: input.referrerType },
+      ...input.scores.map(scoreExtension),
+    ],
     priority: priorityOf(input.urgency),
     reasonCode: input.needs.map((need) => ({ coding: [{ system: NEED_SYSTEM, code: need }] })),
   };
@@ -80,6 +111,8 @@ export function fromServiceRequest(value: unknown, etag: string | null): CaseVie
 
   const referrer = extensionValue(request, REFERRER_EXTENSION);
   const ageBand = extensionValue(patient, AGE_BAND_EXTENSION);
+  const scores = scoresOf(request);
+  if (scores === null) return null;
   return {
     id: request.id,
     referrerType: isReferrerCode(referrer) ? referrer : null,
@@ -87,7 +120,7 @@ export function fromServiceRequest(value: unknown, etag: string | null): CaseVie
     postcode,
     needs: needs.filter(isNeedCode),
     urgency: urgency === null ? null : (urgency as UrgencyCode),
-    scores: [],
+    scores,
     openedAt: null,
     etag,
   };

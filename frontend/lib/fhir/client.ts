@@ -16,6 +16,11 @@ export type FhirInit = {
   ifMatch?: string;
   /** Passed through unchanged; otherwise a new one is generated. */
   traceparent?: string;
+  /**
+   * The path is from the back end's root, not under /fhir (the terminology routes, R16). Only
+   * this flag changes the base; the path is still checked to start with a slash.
+   */
+  root?: boolean;
 };
 
 export type FhirResult<T> = { data: T; etag?: string };
@@ -72,8 +77,13 @@ function failureOutcome(status: number, text: string): OperationOutcome {
   return parsed.ok && isOperationOutcome(parsed.value) ? parsed.value : outcomeFor('exception', `HTTP ${status}`);
 }
 
+/** The back end's origin and any prefix before /fhir: the base without its trailing /fhir. */
+function rootUrl(): string {
+  return baseUrl().replace(/\/fhir$/, '');
+}
+
 export async function fhirFetch<T>(path: string, init: FhirInit = {}): Promise<FhirResult<T>> {
-  const url = `${baseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
+  const url = `${init.root ? rootUrl() : baseUrl()}${path.startsWith('/') ? path : `/${path}`}`;
   const hasBody = init.body !== undefined;
 
   const headers = new Headers({

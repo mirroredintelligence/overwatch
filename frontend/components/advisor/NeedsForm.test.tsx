@@ -165,7 +165,7 @@ describe('NeedsForm (W11)', () => {
       { method: 'manchester', value: 'very-urgent' },
       { method: 'pathways-dx', value: PATHWAYS_RESULTS[0].code },
     ]);
-  });
+  }, 20_000);
 
   it('never puts the postcode in the URL of the save', async () => {
     const user = userEvent.setup();

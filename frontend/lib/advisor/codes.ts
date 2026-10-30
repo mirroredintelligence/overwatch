@@ -1,4 +1,5 @@
 import { normalisePostcode } from './postcode';
+import { parseScores, type Score } from './scores';
 
 // The coded values of a case (W11). The browser sends and reads these codes; the labels are shown
 // only. The codes are the back end's (domain/codes.py, docs/spec/contracts.md), so a label change
@@ -67,7 +68,7 @@ export type CaseInput = {
   postcode: string;
   needs: NeedCode[];
   urgency: UrgencyCode;
-  scores: never[];
+  scores: Score[];
 };
 
 /** What the BFF answers for a case. Nulls mean not yet recorded. */
@@ -78,7 +79,7 @@ export type CaseView = {
   postcode: string | null;
   needs: NeedCode[];
   urgency: UrgencyCode | null;
-  scores: never[];
+  scores: Score[];
   /** Not returned by the back end today (see docs/delivery/fragments/W11.md). Null. */
   openedAt: string | null;
   etag: string | null;
@@ -116,14 +117,15 @@ export function parseCaseInput(value: unknown): CaseInput | null {
   // normalised form is what is saved.
   const postcode = typeof source.postcode === 'string' ? normalisePostcode(source.postcode) : null;
   if (postcode === null) return null;
-  if (!Array.isArray(source.scores) || source.scores.length !== 0) return null;
+  const scores = parseScores(source.scores);
+  if (scores === null) return null;
   return {
     referrerType: source.referrerType,
     ageBand: source.ageBand,
     postcode,
     needs: [...new Set(needs)],
     urgency: source.urgency,
-    scores: [],
+    scores,
   };
 }
 

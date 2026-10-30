@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
@@ -13,9 +14,23 @@ beforeEach(() => {
   PATHWAYS_BACKEND_CALLS.length = 0;
 });
 
+// The parent holds the scores, as NeedsForm does: a change is shown once the parent has kept it.
+function Harness({ initial, onChange }: { initial: Score[]; onChange: (scores: Score[]) => void }) {
+  const [scores, setScores] = useState<Score[]>(initial);
+  return (
+    <ScorePickers
+      value={scores}
+      onChange={(next) => {
+        setScores(next);
+        onChange(next);
+      }}
+    />
+  );
+}
+
 function setup(initial: Score[] = []) {
   const onChange = vi.fn();
-  const view = render(<ScorePickers value={initial} onChange={onChange} />);
+  const view = render(<Harness initial={initial} onChange={onChange} />);
   return { onChange, ...view };
 }
 
@@ -41,7 +56,8 @@ describe('ScorePickers (W12)', () => {
     await user.type(input, '21');
     expect(screen.getByText('Enter a whole number from 0 to 20')).toBeInTheDocument();
     expect(input).toHaveAttribute('aria-invalid', 'true');
-    expect(onChange.mock.calls.some((call) => (call[0] as Score[]).some((s) => s.method === 'news2'))).toBe(false);
+    // Typing "2" first records 2; "21" then clears it, so nothing is recorded at the end.
+    expect(lastScores(onChange).some((score) => score.method === 'news2')).toBe(false);
 
     await user.clear(input);
     await user.type(input, '2');

@@ -19,7 +19,9 @@ import {
 } from '@/lib/advisor/codes';
 import { bffFetch } from '@/lib/advisor/browser';
 import { normalisePostcode } from '@/lib/advisor/postcode';
+import type { Score } from '@/lib/advisor/scores';
 import { CallBar } from './CallBar';
+import { ScorePickers } from './ScorePickers';
 import styles from './NeedsForm.module.css';
 
 // The needs form (W11): who is calling, age, postcode, needs and how soon. Nothing is typed except
@@ -36,11 +38,12 @@ type Draft = {
   postcode: string;
   needs: NeedCode[];
   urgency: UrgencyCode | null;
+  scores: Score[];
 };
 
 type Load = { kind: 'loading' } | { kind: 'ready'; view: CaseView } | { kind: 'failed' };
 
-const EMPTY: Draft = { referrerType: null, ageBand: null, postcode: '', needs: [], urgency: null };
+const EMPTY: Draft = { referrerType: null, ageBand: null, postcode: '', needs: [], urgency: null, scores: [] };
 
 function draftFrom(view: CaseView): Draft {
   return {
@@ -49,6 +52,7 @@ function draftFrom(view: CaseView): Draft {
     postcode: view.postcode ?? '',
     needs: view.needs,
     urgency: view.urgency,
+    scores: view.scores,
   };
 }
 
@@ -62,7 +66,7 @@ function inputFrom(draft: Draft, postcode: string | null): CaseInput | null {
     postcode,
     needs: draft.needs,
     urgency: draft.urgency,
-    scores: [],
+    scores: draft.scores,
   };
 }
 
@@ -256,6 +260,11 @@ export function NeedsForm({ caseId, openedAt }: { caseId: string; openedAt: stri
             ))}
           </div>
         </fieldset>
+
+        <ScorePickers
+          value={draft.scores}
+          onChange={(scores) => setDraft((current) => ({ ...current, scores }))}
+        />
 
         <p className={styles.note}>
           No patient name is stored. Postcode and needs are cleared after the call record closes.

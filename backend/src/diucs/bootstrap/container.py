@@ -43,6 +43,8 @@ from diucs.adapters.outbound.geocoder_os_places.os_places import (
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection, Neo4jPoolOptions
 from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
+from diucs.adapters.outbound.graph_store.platform_audit import Neo4jPlatformAudit
+from diucs.adapters.outbound.graph_store.support_ticket_store import Neo4jSupportTickets
 from diucs.adapters.outbound.graph_store.tenant_directory import Neo4jTenantDirectory
 from diucs.adapters.outbound.graph_store.tenant_registry import Neo4jTenantRegistry
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_uow_factory
@@ -63,8 +65,10 @@ from diucs.adapters.testing.fixed_terminology import FixedTerminology
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.actor import system_actor
+from diucs.application.cross_tenant_guard import CrossTenantGuard
 from diucs.application.ports.outbound.cache import Cache, PlatformSlots
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.cross_tenant_tickets import CrossTenantTicketStore
 from diucs.application.ports.outbound.geo import (
     AddressCandidate,
     Geocoder,
@@ -85,6 +89,7 @@ from diucs.application.ports.outbound.invariants import (
     TenantInvariants,
     TenantInvariantViolated,
 )
+from diucs.application.ports.outbound.platform_audit import PlatformAuditLog
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.telemetry_query import (
     SessionFilters,
@@ -229,6 +234,13 @@ class Container:
     # fails closed: no host is an error, no wording a refused request (H-T15).
     link_base_url_for: LinkBaseUrlFor
     wording_for: WordingFor
+    # The platform's own audit chain, the support-access tickets and the cross-tenant guard
+    # (TEN-075, TEN-084): the guard is the only way a platform principal reaches a tenant, and it
+    # writes every step to the tenant's chain and to the platform's. The platform records carry no
+    # tenant (migration 0190); only platform statements reach them.
+    platform_audit: PlatformAuditLog
+    support_tickets: CrossTenantTicketStore
+    cross_tenant_guard: CrossTenantGuard
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -504,6 +516,7 @@ def build(
     monitor = InvariantMonitor()
     redis_cache = RedisCache(redis)
     directory = Neo4jTenantDirectory(neo4j)
+    platform_audit = Neo4jPlatformAudit(neo4j)
     return Container(
         clock=clock,
         ids=ids,
@@ -556,6 +569,11 @@ def build(
         area_districts_for=area_districts_for(settings.tenant_areas),
         link_base_url_for=_no_link_host,
         wording_for=_no_wording,
+        platform_audit=platform_audit,
+        support_tickets=Neo4jSupportTickets(neo4j),
+        cross_tenant_guard=CrossTenantGuard(
+            uow_factory, redis_cache, clock, ids, store, directory, platform_audit
+        ),
     )
 
 
@@ -590,12 +608,14 @@ def build_for_tests(
     monitor = InvariantMonitor()
     memory = InMemoryCache(resolved_clock)
     resolved_cache = memory if cache is None else cache
+    directory = Neo4jTenantDirectory(neo4j)
+    platform_audit = Neo4jPlatformAudit(neo4j)
     return Container(
         clock=resolved_clock,
         ids=resolved_ids,
         neo4j=neo4j,
         uow_factory=uow_factory,
-        tenants=Neo4jTenantDirectory(neo4j),
+        tenants=directory,
         tenant_registry=Neo4jTenantRegistry(neo4j),
         secrets=store,
         validator=ProfileValidator(),
@@ -625,4 +645,15 @@ def build_for_tests(
         area_districts_for=area_districts_for({} if areas is None else areas),
         link_base_url_for=_test_link_host(link_base_url),
         wording_for=_test_wording,
+        platform_audit=platform_audit,
+        support_tickets=Neo4jSupportTickets(neo4j),
+        cross_tenant_guard=CrossTenantGuard(
+            uow_factory,
+            resolved_cache,
+            resolved_clock,
+            resolved_ids,
+            TenantKeyedSecrets(store),
+            directory,
+            platform_audit,
+        ),
     )

@@ -744,8 +744,14 @@ async def test_the_universe_leaves_out_exactly_the_global_and_platform_statement
     assert {i for i, scope in scopes.items() if scope == "global"} == set(GLOBAL_QUERY_IDS)
     assert set(PLATFORM_QUERY_IDS) == set(PLATFORM_STATEMENTS)  # each is pinned
     assert set(GLOBAL_QUERY_IDS) == set(GLOBAL_STATEMENTS)
-    assert len(PLATFORM_QUERY_IDS) == 7
-    assert all(i.startswith("Q-TENANT-REG-") for i in PLATFORM_QUERY_IDS)
+    # The seven registry writes and reads of TEN-028, and (TEN-075) the registry's list and detail,
+    # the platform audit chain and the support-access tickets: the platform's own records, which
+    # carry no tenant, proved in `test_platform_records.py` and `test_tenant_registry.py`.
+    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6
+    assert all(
+        i.startswith(("Q-TENANT-REG-", "Q-PLATFORM-AUDIT-", "Q-SUPPORT-TICKET"))
+        for i in PLATFORM_QUERY_IDS
+    )
     # Nothing in either universe is of another scope, and no left-out statement is a tenant one.
     assert {q.scope for q in universe.values()} == {"tenant"}
     assert {q.scope for q in network_universe.values()} == {"tenant"}

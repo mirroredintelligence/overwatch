@@ -30,6 +30,7 @@ from diucs.application.use_cases.network_board_projector import (
     NetworkBoardProjector,
     network_board_to_dict,
 )
+from diucs.application.use_cases.network_week_summary import GetNetworkWeekSummary
 from diucs.application.use_cases.query_network_directory import (
     NetworkCriteriaEntry,
     NetworkCriteriaView,
@@ -57,6 +58,9 @@ class NetworkServices:
     projector: NetworkBoardProjector
     directory: QueryNetworkDirectory
     criteria: QueryNetworkCriteria
+    # The week summary reads the samples with its own read-only unit (TEN-082); a process that does
+    # not wire it answers the route with a 500, never an empty week.
+    weeks: GetNetworkWeekSummary | None = None
 
 
 def network_services(request: Request) -> NetworkServices:

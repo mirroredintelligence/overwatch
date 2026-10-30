@@ -123,6 +123,7 @@ def create_app(
         routes_network,
         routes_network_admin,
         routes_network_events,
+        routes_network_views,
         routes_public,
         routes_registration,
         routes_registration_session,
@@ -142,6 +143,8 @@ def create_app(
     # The network and grant administration (TEN-079): the members, the agreement, the grants and
     # the listings, for the tenant administrator and the network administrator.
     app.include_router(routes_network_admin.router)
+    # The lead's and the executive's network reads: system now, phones, the week (TEN-082).
+    app.include_router(routes_network_views.router)
     # $board must be routed before any HealthcareService/{id} route, or {id} would take it.
     app.include_router(routes_board.router)
     # The alert and summary routes (R12) read `/HealthcareService/$week-summary`: they are mounted
@@ -185,6 +188,13 @@ def create_app(
     from diucs.adapters.inbound.fhir_rest import routes_support
 
     app.include_router(routes_support.router)
+
+    # The platform operator's and the support person's routes (TEN-075), on the operator door
+    # (audience diucs-ops), and the tenant administrator's own (TEN-075), on the tenant door.
+    from diucs.adapters.inbound.fhir_rest import routes_platform, routes_tenant
+
+    app.include_router(routes_platform.router)
+    app.include_router(routes_tenant.router)
 
     # The planning analysis (W51, U43): aggregates from the decision log, for a lead or an
     # executive.

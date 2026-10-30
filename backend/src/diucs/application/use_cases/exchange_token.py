@@ -96,6 +96,9 @@ class IssuedToken:
     token: str
     expires_at: datetime
     role: Role
+    account_ref: str | None = None
+    """The opaque account reference of an operator the token was issued to (an operator exchange
+    only): what the platform chain records of a sign-in. Never a name, never printed."""
 
     def __repr__(self) -> str:
         return f"IssuedToken(role={self.role.value!r})"
@@ -248,15 +251,11 @@ class ExchangeOperatorToken:
         if role is None:
             raise _refused("operator-role")
         expires_at = expiry(self._clock.now(), OPERATOR_TOKEN_LIFETIME)
+        reference = account_ref(account_key, identity.directory_id, identity.object_id)
         token = encode_operator_token(
-            OperatorClaims(
-                sub=account_ref(account_key, identity.directory_id, identity.object_id),
-                role=role,
-                expires_at=expires_at,
-            ),
-            signing,
+            OperatorClaims(sub=reference, role=role, expires_at=expires_at), signing
         )
-        return IssuedToken(token=token, expires_at=expires_at, role=role)
+        return IssuedToken(token=token, expires_at=expires_at, role=role, account_ref=reference)
 
 
 class ExchangeDeviceToken:

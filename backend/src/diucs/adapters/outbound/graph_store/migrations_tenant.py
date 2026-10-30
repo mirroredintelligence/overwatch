@@ -42,6 +42,10 @@ REGISTRY_LABELS: Final = (
     "NetworkMembership",
     "Grant",
     "Listing",
+    # The platform's own records (TEN-075, migration 0190): they carry no tenant either.
+    "PlatformAuditHead",
+    "PlatformAuditEntry",
+    "SupportAccessTicket",
 )
 
 

@@ -82,6 +82,10 @@ REGISTRY: Final = (
     "NetworkMembership",
     "Grant",
     "Listing",
+    # The platform's own records (TEN-075, migration 0190).
+    "PlatformAuditHead",
+    "PlatformAuditEntry",
+    "SupportAccessTicket",
 )
 
 _CONSTRAINT = re.compile(
@@ -257,9 +261,9 @@ def test_the_rollback_drops_exactly_what_0031_creates_and_each_with_if_exists() 
 # The backfill and the open reference
 
 
-def test_the_registry_labels_are_the_seven_nodes_that_carry_no_tenant() -> None:
+def test_the_registry_labels_are_the_ten_nodes_that_carry_no_tenant() -> None:
     assert set(tenant.REGISTRY_LABELS) == set(REGISTRY)
-    assert len(tenant.REGISTRY_LABELS) == 7
+    assert len(tenant.REGISTRY_LABELS) == 7 + 3
 
 
 def test_the_seeder_and_the_migration_agree_on_which_labels_carry_no_tenant() -> None:

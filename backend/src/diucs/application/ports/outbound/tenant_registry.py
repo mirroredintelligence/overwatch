@@ -59,6 +59,16 @@ class TenantNumberRecord:
         return self
 
 
+@dataclass(frozen=True, slots=True)
+class RegistryTenant:
+    """A tenant as the operator's list and detail show it: the record, its host and the Entra
+    directory bound to it (the two registry properties the record does not hold)."""
+
+    tenant: Tenant
+    host: str | None
+    directory_id: str | None
+
+
 class TenantRegistry(Protocol):
     async def create(self, tenant: Tenant) -> None:
         """Write a new tenant in `provisioning`. An id that exists is `Conflict`."""
@@ -92,4 +102,12 @@ class TenantRegistry(Protocol):
 
     async def numbers(self, tenant_id: str) -> tuple[TenantNumberRecord, ...]:
         """The numbers of the tenant, by number."""
+        ...
+
+    async def list_all(self) -> tuple[RegistryTenant, ...]:
+        """Every tenant, whatever its status, by id: the platform operator's list."""
+        ...
+
+    async def detail(self, tenant_id: str) -> RegistryTenant | None:
+        """One tenant with its host and directory, or None when there is none."""
         ...

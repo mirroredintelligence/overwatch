@@ -54,6 +54,7 @@ def _fakes() -> Any:
         activate=_Recorder(SimpleNamespace(tenant_id=TENANT, epoch=1)),
         suspend=_Recorder(SimpleNamespace(tenant_id=TENANT, epoch=2, mode=SuspendMode.BLOCKED)),
         resume=_Recorder(SimpleNamespace(tenant_id=TENANT, epoch=3, services_prompted=4)),
+        offboard=_Recorder(SimpleNamespace(tenant_id=TENANT, notice_ends_at=EXPIRES)),
         container=SimpleNamespace(tenants=_Tenants()),
     )
 
@@ -87,6 +88,7 @@ def test_the_operator_is_required_and_the_command_is_one_of_the_eleven() -> None
         "status",
         "suspend",
         "resume",
+        "offboard",
     }
 
 
@@ -154,6 +156,11 @@ async def test_a_command_runs_bound_to_the_tenant_it_names_and_to_nothing_after(
             "suspended blocked, epoch 2",
         ),
         (("resume", TENANT), "resume", "active again, epoch 3, 4 services prompted"),
+        (
+            ("offboard", TENANT, "--confirm", TENANT),
+            "offboard",
+            "offboarding, the notice period ends 2026-11-01T09:00:00+00:00",
+        ),
     ],
 )
 async def test_each_command_calls_its_use_case_for_the_named_tenant_and_prints_fixed_words(
@@ -256,3 +263,18 @@ async def test_the_suspend_command_carries_the_mode_and_reason_it_was_given() ->
     [command] = fakes.suspend.commands
     assert (command.mode, command.reason) == (SuspendMode.READ_ONLY, SuspendReason.CLINICAL_SAFETY)
     assert fakes.suspend.scopes[0].value == TENANT
+
+
+def test_offboard_needs_the_tenants_own_id_typed_again() -> None:
+    with pytest.raises(SystemExit):
+        _args("offboard", TENANT)  # no confirmation: refused by the parser
+
+
+async def test_the_offboard_command_carries_the_confirmation_it_was_given() -> None:
+    fakes = _fakes()
+
+    await run_command(fakes, _args("offboard", TENANT, "--confirm", "some-other-org"))
+
+    [command] = fakes.offboard.commands
+    assert command.confirm_tenant_id == "some-other-org"
+    assert fakes.offboard.scopes[0].value == TENANT

@@ -26,8 +26,15 @@ This module is a binder: it binds the tenant the support person names, only afte
 checked and the tenant is known to the directory, to write the tenant's chain and read its cache
 (`diucs.application.cross_tenant_guard` joins `BINDING_MODULES`). It reads no tenant data.
 
-Not built here: the routes that call it and the use of an access by the support routes (R18 reads
-the access through `authorise`), and the platform chain's graph adapter (needs a platform scope).
+The platform chain's graph adapter is `adapters/outbound/graph_store/platform_audit.py` (TEN-075).
+The ticket flow (`use_cases/cross_tenant_tickets.py`) asks a tenant's administrator for the code
+(`issue_code`), withdraws a code the administrator no longer wants (`withdraw_code`) and writes the
+steps of a ticket to both chains through `note_ticket` (a support person's step) and
+`note_decision` (the administrator's), so the use cases bind nothing themselves: this module is the
+one binder of a tenant that a platform principal names.
+
+Not built here: the use of an access by the support routes (R18 reads the access through
+`authorise`).
 """
 
 import json
@@ -85,7 +92,10 @@ USE_CASE_OPEN: Final = "OpenCrossTenantAccess"
 USE_CASE_USE: Final = "UseCrossTenantAccess"
 USE_CASE_END: Final = "EndCrossTenantAccess"
 USE_CASE_REVOKE: Final = "RevokeCrossTenantAccess"
+USE_CASE_WITHDRAW: Final = "WithdrawSupportAccessCode"
+USE_CASE_TICKET: Final = "SupportAccessTicket"
 ACTION_CODE_ISSUED: Final = "support-access-code-issued"
+ACTION_CODE_WITHDRAWN: Final = "support-access-code-withdrawn"
 ACTION_OPENED: Final = "support-access-opened"
 ACTION_USED: Final = "support-access-used"
 ACTION_ENDED: Final = "support-access-ended"
@@ -354,6 +364,9 @@ class IssueCodeCommand:
 class IssuedCode:
     code: str
     expires_at: datetime
+    code_hash: str
+    """The keyed hash the grant is held under: what a ticket remembers of the code, so that the
+    code is withdrawn with it and an access opened by another code is not the ticket's."""
 
     def __repr__(self) -> str:
         return f"IssuedCode(expires_at={self.expires_at.isoformat()!r})"
@@ -387,6 +400,34 @@ class EndAccessCommand:
 class RevokeAccessCommand:
     actor: Actor
     access_id: str
+
+
+@dataclass(frozen=True, slots=True)
+class WithdrawCodeCommand:
+    actor: Actor
+    code_hash: str
+
+
+@dataclass(frozen=True, slots=True)
+class TicketNoteCommand:
+    """One step of a ticket by a support person, for the one tenant it names."""
+
+    principal: PlatformPrincipal
+    tenant_id: str
+    action: str
+    ticket_id: str
+    access_id: str | None = None
+    snapshot: dict[str, Any] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionNoteCommand:
+    """One step of a ticket by the tenant's administrator, in the tenant the edge bound."""
+
+    actor: Actor
+    action: str
+    ticket_id: str
+    snapshot: dict[str, Any] | None = None
 
 
 class CrossTenantGuard:
@@ -450,7 +491,109 @@ class CrossTenantGuard:
         except BaseException:
             await self._cache.delete(GRANT_PREFIX + code_hash)
             raise
-        return IssuedCode(code=code, expires_at=grant.expires_at)
+        return IssuedCode(code=code, expires_at=grant.expires_at, code_hash=code_hash)
+
+    async def withdraw_code(self, command: WithdrawCodeCommand) -> None:
+        """The tenant's administrator takes back a code that was issued and not used (a refused or
+        revoked ticket, an approval that could not be recorded). The grant leaves the cache, so the
+        code opens nothing. Runs in the tenant the edge bound; written to the tenant's chain."""
+        actor = command.actor
+        check_issuer(actor)
+        require_actor_in_bound_tenant(actor)
+        code_hash = _hash(command.code_hash)
+        now = self._clock.now()
+        await self._cache.delete(GRANT_PREFIX + code_hash)
+        await self._tenant_audit(
+            AuditEntry(
+                action=ACTION_CODE_WITHDRAWN,
+                use_case=USE_CASE_WITHDRAW,
+                actor=actor,
+                entity_ids=(str(actor.practitioner_id),),
+                snapshot=None,
+                at=now,
+            ),
+            actor.tenant_id,
+        )
+
+    # ------------------------------------------------------------ the steps of a ticket
+
+    async def note_ticket(self, command: TicketNoteCommand) -> None:
+        """Write one step of a support person's ticket to both chains (the platform's first): the
+        tenant's administrator reads what the operator's people asked, and the operator keeps a
+        record the tenant cannot change. The tenant must be one the directory knows. Raises if
+        either record cannot be written, so the caller does not let the step stand."""
+        principal = _principal(command.principal)
+        tenant_id = _tenant(command.tenant_id)
+        action = check_action(command.action)
+        ticket_id = _access_id(command.ticket_id)
+        access_id = None if command.access_id is None else _access_id(command.access_id)
+        tenant = await self._tenants.get(tenant_id)
+        if type(tenant) is not Tenant:
+            raise CrossTenantDenied
+        now = self._clock.now()
+        snapshot = {"ticket": ticket_id, **(command.snapshot or {})}
+        await self._platform.append(
+            PlatformAuditEntry(
+                action=action,
+                principal_ref=principal.account_ref,
+                tenant_id=tenant_id,
+                access_id=access_id,
+                snapshot=snapshot,
+                at=now,
+            )
+        )
+        with bind_tenant(tenant_id):
+            await self._tenant_audit(
+                AuditEntry(
+                    action=action,
+                    use_case=USE_CASE_TICKET,
+                    actor=Actor(
+                        role=Role.SUPPORT,
+                        practitioner_id=principal.account_ref,
+                        device_id=None,
+                        channel=CHANNEL,
+                        service_ids=frozenset(),
+                        tenant_id=tenant_id,
+                    ),
+                    entity_ids=(ticket_id,),
+                    snapshot=snapshot,
+                    at=now,
+                ),
+                tenant_id,
+            )
+
+    async def note_decision(self, command: DecisionNoteCommand) -> None:
+        """Write one step of the tenant administrator's decision on a ticket to both chains. Runs in
+        the tenant the edge bound from the administrator's token; the platform chain names the
+        administrator by the reference the tenant's chain does."""
+        actor = command.actor
+        check_issuer(actor)
+        require_actor_in_bound_tenant(actor)
+        action = check_action(command.action)
+        ticket_id = _access_id(command.ticket_id)
+        now = self._clock.now()
+        snapshot = {"ticket": ticket_id, "by": "tenant-admin", **(command.snapshot or {})}
+        await self._platform.append(
+            PlatformAuditEntry(
+                action=action,
+                principal_ref=str(actor.practitioner_id),
+                tenant_id=actor.tenant_id,
+                access_id=None,
+                snapshot=snapshot,
+                at=now,
+            )
+        )
+        await self._tenant_audit(
+            AuditEntry(
+                action=action,
+                use_case=USE_CASE_TICKET,
+                actor=actor,
+                entity_ids=(ticket_id,),
+                snapshot=snapshot,
+                at=now,
+            ),
+            actor.tenant_id,
+        )
 
     # ------------------------------------------------------------ opening, by the platform
 
@@ -721,5 +864,11 @@ def _tenant(value: object) -> str:
 
 def _access_id(value: object) -> str:
     if type(value) is not str or _ACCESS_ID.fullmatch(value) is None:
+        raise CrossTenantDenied
+    return value
+
+
+def _hash(value: object) -> str:
+    if type(value) is not str or _HASH.fullmatch(value) is None:
         raise CrossTenantDenied
     return value

@@ -76,6 +76,7 @@ from diucs.application.use_cases.network_admin import GovernanceRecorder
 from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
 from diucs.application.use_cases.network_governance import NetworkGovernance
 from diucs.application.use_cases.network_leave import EndProjections
+from diucs.application.use_cases.network_samples import RecordNetworkSample
 from diucs.application.use_cases.project_network import ProjectNetwork
 from diucs.application.use_cases.projection_boundaries import (
     RunProjectionHeartbeat,
@@ -248,6 +249,9 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
             network_access,
             cache,
             container.clock,
+            sampler=RecordNetworkSample(
+                neo4j_network_uow_factory(container.neo4j, clock=container.clock)
+            ),
         )
         projection_producer = ProjectNetwork(
             neo4j_uow_factory(container.neo4j, clock=container.clock, read_only=True),

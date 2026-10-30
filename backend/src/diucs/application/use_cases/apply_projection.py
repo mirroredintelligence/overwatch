@@ -17,8 +17,8 @@ processed, makes sure the member's source is open, writes the row, appends one a
 versions, never a value) and commits. A rejected message opens no unit and is not retried.
 
 The source is opened by the first projection under an effective grant. An ended source is reopened
-only by a grant that began after it ended (approved, or started, after: TEN-056): a message that was in flight when a member left or a grant
-ended carries an older grant and cannot reopen it (a grant that ends between the gate and the write
+only by a grant that began after it ended (approved or started after, TEN-056): a message that was
+in flight when a member left or a grant ended carries an older grant and cannot reopen it (a grant that ends between the gate and the write
 may let one projection through, DEC-132 item 3, and the end marks that row when it runs).
 
 After the commit the notifier is told (TEN-058 rebuilds the network board); a notifier that fails

@@ -42,7 +42,6 @@ from diucs.domain.model.network import GrantScope
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.listing import may_project_listing
-from diucs.domain.rules.projection_validity import next_status_change
 from diucs.domain.rules.projection import (
     PROJECTION_ALLOWLIST_VERSION,
     CapacityProjection,
@@ -51,6 +50,7 @@ from diucs.domain.rules.projection import (
     build_criteria_projection,
     build_service_projection,
 )
+from diucs.domain.rules.projection_validity import next_status_change
 
 _ALL_KINDS: Final = tuple(GrantScope)
 

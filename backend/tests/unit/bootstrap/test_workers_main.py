@@ -262,3 +262,44 @@ def test_with_the_network_board_projector_its_runner_is_added() -> None:
         ("network.events", "network-board-projector")
     ]
     assert all(isinstance(r._consumer, TenantBoundConsumer) for r in runners)
+
+
+def test_with_the_network_governance_handler_its_runner_is_added() -> None:
+    from tests.unit.adapters.inbound.workers.test_network_governance_consumer import _Governance
+
+    runners = build_runners(
+        client=None,  # type: ignore[arg-type]
+        handle_inbound_text=_UseCase(),
+        uow_factory=_no_unit,  # type: ignore[arg-type]
+        tenants=StaticTenants(["tenant-a"]),
+        work_handlers={WorkKind.REMINDER: _no_work},
+        network_governance=_Governance(),
+    )
+    assert [(r._entity, r._subscription) for r in runners[3:]] == [
+        ("network.events", "network-projector")
+    ]
+    assert all(isinstance(r._consumer, TenantBoundConsumer) for r in runners)
+
+
+async def test_the_heartbeat_handler_runs_the_job_for_the_work_it_is_given() -> None:
+    from datetime import UTC, datetime
+
+    from diucs.application.work import ScheduledWork
+    from diucs.bootstrap.workers_main import projection_heartbeat_handler
+
+    seen: list[str] = []
+
+    class _Job:
+        async def execute(self, command: Any) -> None:
+            seen.append(command.work_id)
+
+    work = ScheduledWork(
+        id="work-9",
+        kind=WorkKind.PROJECTION_HEARTBEAT,
+        due_at=datetime(2026, 10, 30, 9, 0, tzinfo=UTC),
+        about_id="tenant-a",
+        sequence_number=None,
+        status="scheduled",
+    )
+    await projection_heartbeat_handler(_Job())(work)  # type: ignore[arg-type]
+    assert seen == ["work-9"]

@@ -137,14 +137,16 @@ class Classified:
 def classify(labels: Sequence[str]) -> Classified:
     """How one label set is handled. Excluded wins over everything (a node that carries a
     credential label is never exported, whatever else it is), then protected, then the class of
-    the first label that has one; no label with a place is `UnclassifiedData`."""
+    the first label that has one (a backbone element's label, `<Resource>_<Element>`, is classified
+    by the resource it hangs off: `HealthcareService_AvailableTime` is a service's); no label with a
+    place is `UnclassifiedData`."""
     names = tuple(labels)
     if any(name in EXCLUDED_LABELS for name in names):
         return Classified(Handling.EXCLUDED, None)
     if any(name in PROTECTED_LABELS for name in names):
         return Classified(Handling.PROTECTED, ExportClass.PROTECTED)
     for name in sorted(names):
-        found = CLASS_OF_LABEL.get(name)
+        found = CLASS_OF_LABEL.get(name) or CLASS_OF_LABEL.get(name.partition("_")[0])
         if found is not None:
             return Classified(Handling.EXPORT, found)
     raise UnclassifiedData(names)

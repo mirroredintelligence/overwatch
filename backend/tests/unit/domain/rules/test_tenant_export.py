@@ -77,6 +77,15 @@ def test_a_label_set_is_classified(
     assert (result.handling, result.export_class) == (handling, export_class)
 
 
+def test_a_backbone_elements_label_is_classified_by_its_resource() -> None:
+    assert classify(("HealthcareService_AvailableTime",)).export_class is (
+        ExportClass.DIRECTORY_AND_CRITERIA
+    )
+    assert classify(("Observation_Component",)).export_class is ExportClass.CAPACITY_REPORTS
+    with pytest.raises(UnclassifiedData):
+        classify(("Unknown_Element",))
+
+
 def test_a_label_no_class_names_is_refused_with_a_fixed_message() -> None:
     with pytest.raises(UnclassifiedData) as caught:
         classify(("SomethingNew",))

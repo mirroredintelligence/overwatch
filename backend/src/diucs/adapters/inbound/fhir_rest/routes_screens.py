@@ -41,11 +41,12 @@ from diucs.adapters.inbound.fhir_rest.auth import require_role
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key
 from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, operation_outcome
 from diucs.application.actor import Actor
+from diucs.application.edge_tenant import resolve_active_tenant
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
-from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET
+from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, secret_is_configured
 from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.tenants import TenantDirectory, TenantRecordInvalid
+from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant
@@ -61,9 +62,8 @@ from diucs.application.use_cases.pair_wall_screen import (
     StartPairing,
 )
 from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound
+from diucs.domain.errors import NotAllowed
 from diucs.domain.model.device import BoardScope
-from diucs.domain.model.tenant import TenantStatus
 
 log = logging.getLogger(__name__)
 
@@ -135,24 +135,18 @@ def _container(request: Request) -> _Container:
 def _check_secrets(container: _Container) -> None:
     """Fail closed: a missing pairing secret is a configuration error (a 500), never an open route
     and never a refusal that looks like a wrong code."""
-    try:
-        container.secrets.get(LINK_TOKEN_SECRET)
-        container.secrets.get(DEVICE_TOKEN_SECRET)
-    except NotFound:
-        raise RuntimeError("the pairing secrets are not configured") from None
+    if not (
+        secret_is_configured(container.secrets, LINK_TOKEN_SECRET)
+        and secret_is_configured(container.secrets, DEVICE_TOKEN_SECRET)
+    ):
+        raise RuntimeError("the pairing secrets are not configured")
 
 
 async def _tenant_of(request: Request, container: _Container) -> str | None:
     """The id of the active tenant whose host this request was addressed to, or None. A host no
     tenant owns, a tenant that is not active, and a damaged tenant record all answer None."""
-    try:
-        tenant = await container.tenants.by_host(request.url.hostname or "")
-    except TenantRecordInvalid:
-        log.warning("pairing refused: reason=tenant-record")
-        return None
-    if tenant is None or tenant.status is not TenantStatus.ACTIVE:
-        return None
-    return tenant.id
+    tenant = await resolve_active_tenant(container.tenants, request.url.hostname)
+    return None if tenant is None else tenant.id
 
 
 def _address_key(tenant: str, kind: str, request: Request) -> str:

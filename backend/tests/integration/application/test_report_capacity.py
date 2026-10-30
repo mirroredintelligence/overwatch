@@ -32,6 +32,7 @@ from diucs.domain.codes import (
     Cadence,
     Channel,
     Measure,
+    PractitionerRoleCode,
     ReportFlagReason,
     ReportSource,
     ReportType,
@@ -42,6 +43,7 @@ from diucs.domain.codes import (
 from diucs.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, read_tx
@@ -147,6 +149,30 @@ async def _latest(factory: UnitOfWorkFactory, service_id: str) -> CapacityReport
         return await uow.capacity.latest(service_id)
 
 
+async def _seed_with_performer(seed_service: Seed, factory: UnitOfWorkFactory) -> None:
+    """The service, and the role "role-1" of the reporter that the REPORTER actor stands for: a
+    performer must be a role of this tenant that the actor holds for the service (TEN-024)."""
+    await seed_service(UCR_WEST)
+    async with factory() as uow:
+        await uow.people.save_practitioner(
+            Practitioner(
+                id="prac-reporter-1", active=True, display_name="Sample Reporter", phone_hash=None
+            )
+        )
+        await uow.people.save_role(
+            PractitionerRole(
+                id="role-1",
+                practitioner_id="prac-reporter-1",
+                service_id="ucr-west",
+                code=PractitionerRoleCode.DUTY_MANAGER,
+                active=True,
+                channel=Channel.TEXT,
+                period_start=NOW - timedelta(days=30),
+            )
+        )
+        await uow.commit()
+
+
 async def test_text_report_is_stored_and_emits_both_events(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
@@ -179,7 +205,7 @@ async def test_text_report_is_stored_and_emits_both_events(
 async def test_a_performer_gets_the_c3_echo(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
-    await seed_service(UCR_WEST)
+    await _seed_with_performer(seed_service, uow_factory)
 
     await _rig(uow_factory, neo4j_driver)[0].execute(_command(4, performer_role_id="role-1"))
 
@@ -244,7 +270,7 @@ async def test_the_echo_can_be_switched_off_for_a_caller_that_sends_its_own_repl
 ) -> None:
     """U05 answers a grouped reply with one C10 and so asks for no per-service C3 (DEC-148). The
     performer is still recorded on the report."""
-    await seed_service(UCR_WEST)
+    await _seed_with_performer(seed_service, uow_factory)
 
     await _rig(uow_factory, neo4j_driver)[0].execute(
         dataclasses.replace(_command(4, performer_role_id="role-1"), send_echo=False)
@@ -260,7 +286,7 @@ async def test_the_echo_can_be_switched_off_for_a_caller_that_sends_its_own_repl
 async def test_a_key_reused_with_the_echo_switched_is_a_different_report(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
-    await seed_service(UCR_WEST)
+    await _seed_with_performer(seed_service, uow_factory)
     use_case = _rig(uow_factory, neo4j_driver)[0]
     await use_case.execute(_command(4, performer_role_id="role-1"))
 
@@ -273,7 +299,7 @@ async def test_a_key_reused_with_the_echo_switched_is_a_different_report(
 async def test_a_replaced_figure_is_echoed_as_c4_and_a_link_is_not_echoed(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
-    await seed_service(UCR_WEST)
+    await _seed_with_performer(seed_service, uow_factory)
     use_case, clock = _rig(uow_factory, neo4j_driver)
     await use_case.execute(_command(4, key="key-4"))
 
@@ -304,7 +330,7 @@ async def test_a_value_outside_zero_to_999_is_refused_and_writes_nothing(
     seed_service: Seed,
     value: int,
 ) -> None:
-    await seed_service(UCR_WEST)
+    await _seed_with_performer(seed_service, uow_factory)
 
     with pytest.raises(ValidationFailed) as refused:
         await _rig(uow_factory, neo4j_driver)[0].execute(
@@ -642,8 +668,8 @@ async def test_an_echo_with_no_next_prompt_is_refused_and_writes_nothing(
 ) -> None:
     # No valid profile reaches this state (see test_next_due_total.py). The state is built by
     # replacing next_due, so the guard in execute is exercised and nothing is written.
-    await seed_service(UCR_WEST)
-    monkeypatch.setattr(report_capacity, "next_due", lambda profile, now: None)
+    await _seed_with_performer(seed_service, uow_factory)
+    monkeypatch.setattr(report_capacity, "next_due", lambda profile, now, *rest: None)
 
     with pytest.raises(DomainError, match="next due instant"):
         await _rig(uow_factory, neo4j_driver)[0].execute(_command(4, performer_role_id="role-1"))

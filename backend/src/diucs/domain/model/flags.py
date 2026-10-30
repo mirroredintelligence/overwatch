@@ -25,8 +25,16 @@ SERVICE_FLAG_SUSPENDED = "suspended"
 SERVICE_FLAG_CRITERIA_OVERDUE = "criteria-overdue"
 SERVICE_FLAG_HOLDS_MANY = "holds-many-services"
 """Set on each service of a phone that holds more than three services (U38, D28)."""
+SERVICE_FLAG_NO_REPORTER = "no-reporter"
+"""Set when a removal leaves a service with nobody to text; prompts go to the shift lead (U37)
+[ASSUMED code]."""
 SERVICE_FLAG_CODES = frozenset(
-    {SERVICE_FLAG_SUSPENDED, SERVICE_FLAG_CRITERIA_OVERDUE, SERVICE_FLAG_HOLDS_MANY}
+    {
+        SERVICE_FLAG_SUSPENDED,
+        SERVICE_FLAG_CRITERIA_OVERDUE,
+        SERVICE_FLAG_HOLDS_MANY,
+        SERVICE_FLAG_NO_REPORTER,
+    }
 )
 
 

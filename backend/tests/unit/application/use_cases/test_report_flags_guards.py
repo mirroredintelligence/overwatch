@@ -11,6 +11,7 @@ import pytest
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
 from diucs.application.actor import Actor
+from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
 from diucs.application.use_cases.report_flags import raise_report_flags
 from diucs.domain.codes import (
@@ -108,7 +109,10 @@ async def test_a_flag_that_is_not_a_flag_reason_is_refused_before_any_lock(flag:
         _NoReplay(),
     )
 
-    with pytest.raises(ValidationFailed, match="flag: must be a report flag reason") as refused:
+    with (
+        bind_tenant(ACTOR_TENANT),
+        pytest.raises(ValidationFailed, match="flag: must be a report flag reason") as refused,
+    ):
         await use_case.execute(
             ReportCapacityCommand(
                 idempotency_key="key-1",

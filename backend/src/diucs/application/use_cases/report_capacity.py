@@ -13,7 +13,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from diucs.application.actor import Actor
+from diucs.application.actor import Actor, require_actor_in_bound_tenant
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
@@ -21,6 +21,7 @@ from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
+from diucs.application.tenancy import ScopeKind, TenantMismatch, TenantNotBound
 from diucs.application.use_cases.missed_report_ladder import stop_answered_ladders
 from diucs.application.use_cases.report_flags import raise_report_flags
 from diucs.domain.codes import (
@@ -44,7 +45,9 @@ from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
+from diucs.domain.model.people import REPORTER_ROLE_CODES, PractitionerRole
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.london_time import format_hhmm
 from diucs.domain.rules.schedule import next_due
 from diucs.domain.rules.status import compute_status
@@ -109,6 +112,36 @@ def check_may_report(actor: Actor, source: ReportSource, service_id: str) -> Non
     raise NotAllowed("this role may not report this capacity")
 
 
+PERFORMER_NOT_FOUND: Final = "no practitioner role with this id"
+
+
+def check_performer(
+    role: PractitionerRole | None, *, service_id: str, actor: Actor, now: datetime
+) -> None:
+    """The performer of a report is a role the actor holds for this service (TEN-024). The role was
+    read through the tenant-bound store, so another tenant's role id arrives as None; every way a
+    role can be wrong (unknown, another tenant's, inactive, of another service, not a reporter's,
+    not yet started, held by someone else, or the actor is no person) is the one NotFound, so the
+    refusal tells a caller nothing about which. The holder is the owner or the practitioner covering
+    the role, whichever the actor is: a reply sent while a cover was in force and processed after it
+    ended is still that person's reply (the text path judges it at its received time, DEC-148).
+    The role's end is not checked, for the same reason."""
+    holders = (
+        None if role is None else {role.practitioner_id, role.covered_by_practitioner_id} - {None}
+    )
+    if (
+        role is None
+        or holders is None
+        or not role.active
+        or role.service_id != service_id
+        or role.code not in REPORTER_ROLE_CODES
+        or actor.practitioner_id is None
+        or actor.practitioner_id not in holders
+        or role.period_start.astimezone(UTC) > now.astimezone(UTC)
+    ):
+        raise NotFound(PERFORMER_NOT_FOUND)
+
+
 def _echo_text(
     profile: ServiceProfile,
     report: CapacityReport,
@@ -154,6 +187,8 @@ async def record_report(
     audit_snapshot: dict[str, Any] | None = None,
     flag: ReportFlagReason | None = None,
     audit_detail: tuple[tuple[str, str], ...] = (),
+    policy: TenantPolicy = DEFAULT_POLICY,
+    config_version: int | None = None,
 ) -> ReportCapacityResult:
     """Store one report with its status change, echo, audit entry and outbox messages, inside the
     caller's unit of work. The caller commits. U02 reuses this function (DEC-100).
@@ -166,6 +201,11 @@ async def record_report(
     snapshot when a caller records its own (U02, DEC-112 item 1). `flag` is a reason the caller
     has already decided (the reply policy's `out-of-range-twice`); the flag rules of D12 are
     always applied as well (U07, DEC-161). The caller holds the service lock.
+
+    `policy` is the tenant's policy (TEN-024): the status, the next prompt and the flag windows read
+    it, and the default is today's behaviour. `config_version` is the version of the tenant
+    configuration the policy came from; the default audit snapshot records it, and leaves the key
+    out when no version is in force (the built-in defaults).
     """
     flags: Sequence[ServiceFlag] = await uow.flags.service_flags(profile.id)
     if any(flag.code == SERVICE_FLAG_SUSPENDED for flag in flags):
@@ -174,8 +214,8 @@ async def record_report(
     latest_before = await uow.capacity.latest(profile.id)
     since = now
     confirmed = await uow.bookings.confirmed_since(profile.id, since)
-    before = compute_status(profile, latest_before, confirmed, now).status
-    after = compute_status(profile, report, confirmed, now).status
+    before = compute_status(profile, latest_before, confirmed, now, policy).status
+    after = compute_status(profile, report, confirmed, now, policy).status
 
     await uow.capacity.add(report)
 
@@ -194,13 +234,13 @@ async def record_report(
         await uow.outbox.add(outbox_message_for(event, id=ids.new_id(), now=now))
 
     flag_ids = await raise_report_flags(
-        uow, ids, profile=profile, report=report, extra=flag, now=now
+        uow, ids, profile=profile, report=report, extra=flag, now=now, policy=policy
     )
     # A report at or after a prompt's due time answers it: the rest of its missed-report ladder is
     # cancelled in this unit of work (U06, domain-rules 1.5). prompt-due work is left alone.
     await stop_answered_ladders(uow, profile.id, answered_at=report.effective_at, now=now)
 
-    next_prompt = next_due(profile, now)
+    next_prompt = next_due(profile, now, policy)
     if send_echo is not None:
         # Unreachable for a valid profile: every window yields a due time on each day it starts,
         # and SEARCH_DAYS covers more than a week. Refusing here is the only honest outcome.
@@ -242,6 +282,7 @@ async def record_report(
             "source": report.source.value,
             "status_before": before.value,
             "status_after": after.value,
+            **({} if config_version is None else {"config_version": config_version}),
         }
     )
     snapshot = {**snapshot, **dict(audit_detail)}
@@ -265,11 +306,14 @@ async def record_report(
 
 
 def _fingerprint(command: ReportCapacityCommand) -> str:
-    """The command body and the actor who sent it. A replay must match both (DEC-104)."""
+    """The command body and the actor who sent it, tenant included. A replay must match both
+    (DEC-104); the tenant is a belt-and-braces term, as the store is already tenant-scoped
+    (TEN-016, TEN-024)."""
     effective = None if command.effective_at is None else command.effective_at.isoformat()
     flag = None if command.flag is None else command.flag.value
     body = repr(
         (
+            command.actor.tenant_id,
             command.service_id,
             command.value,
             command.source.value,
@@ -327,6 +371,9 @@ class ReportCapacity:
         self._idempotency = idempotency
 
     async def execute(self, command: ReportCapacityCommand) -> ReportCapacityResult:
+        # Before anything is read, the early replay included: the actor's tenant is the bound one
+        # (a wiring fault otherwise, never an access decision) and a tenant is bound at all.
+        require_actor_in_bound_tenant(command.actor)
         if command.flag is not None and not isinstance(command.flag, ReportFlagReason):
             raise ValidationFailed("flag", "must be a report flag reason")
         fingerprint = _fingerprint(command)
@@ -341,6 +388,13 @@ class ReportCapacity:
         explicit = _explicit_effective(command.effective_at, self._clock.now())
 
         async with self._uow_factory() as uow:
+            # The unit opened under the actor's tenant, and under a tenant at all. Checked before
+            # the lock, so a unit of another scope takes none.
+            scope = uow.unit_scope
+            if scope is None or scope.kind is not ScopeKind.TENANT:
+                raise TenantNotBound
+            if scope.value != command.actor.tenant_id:
+                raise TenantMismatch
             # The service lock comes before every read that decides the report, and before the
             # default effective time is taken (DEC-139). A report that waits behind a confirmation
             # is therefore timed after it, so it sorts after the confirmation on the board.
@@ -356,6 +410,17 @@ class ReportCapacity:
             check_may_report(command.actor, command.source, profile.id)
 
             now = self._clock.now()
+            if command.performer_role_id is not None:
+                # After the permission check, so a caller who may not report learns nothing about
+                # which roles exist; the store answers None for another tenant's role (TEN-024).
+                check_performer(
+                    await uow.people.get_role(command.performer_role_id),
+                    service_id=profile.id,
+                    actor=command.actor,
+                    now=now,
+                )
+            config = await uow.tenant_config.current_version()
+            policy = DEFAULT_POLICY if config is None else config.policy
             effective = now if explicit is None else explicit
             if explicit is not None:
                 # A number back-dated behind the latest confirmed figure would never reach the
@@ -392,6 +457,8 @@ class ReportCapacity:
                 replaced_value=command.replaced_value,
                 flag=command.flag,
                 audit_detail=command.audit_detail,
+                policy=policy,
+                config_version=None if config is None else config.version,
             )
             await uow.idempotency.put(command.idempotency_key, _StoredReport(fingerprint, result))
             await uow.commit()

@@ -33,6 +33,7 @@ from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay
 from diucs.adapters.inbound.fhir_rest.errors import operation_outcome
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.clock import Clock
+from diucs.application.ports.outbound.identity import secret_is_configured
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.telemetry_query import (
     SessionFilters,
@@ -62,7 +63,7 @@ from diucs.application.use_cases.support_console import (
     SearchSessions,
 )
 from diucs.domain.codes import Role
-from diucs.domain.errors import NotAllowed, NotFound, ValidationFailed
+from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.rules.support import SUPPORT_CODE_SECRET
 
 router = APIRouter(prefix="/support")
@@ -113,10 +114,8 @@ def _container(request: Request) -> _SupportContainer:
 def _support_secret(container: _SupportContainer) -> None:
     """Fail closed: a missing support secret is a configuration error (a 500), never an open
     route."""
-    try:
-        container.secrets.get(SUPPORT_CODE_SECRET)
-    except NotFound:
-        raise RuntimeError("the support code secret is not configured") from None
+    if not secret_is_configured(container.secrets, SUPPORT_CODE_SECRET):
+        raise RuntimeError("the support code secret is not configured")
 
 
 def _iso(value: datetime) -> str:

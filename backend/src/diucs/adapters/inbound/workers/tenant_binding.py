@@ -5,10 +5,13 @@ message, as the Service Bus application property `tenantId` (DEC-130 item 7, DEC
 webhook sets it from the number called, the outbox relay from the tenant it read the row under.
 `TenantBoundConsumer` wraps a consumer and, for each message:
 
-1. refuses a message with no tenant, a tenant that is not a valid tenant id (a network id included)
-   or a tenant the directory does not list as active, by dead-lettering it. A suspended tenant is
-   not listed as active, so it reads the same as an unknown one. The inner consumer never runs and
-   no unit of work opens, scoped or not: a message is never processed unscoped.
+1. refuses a message with no tenant (`tenant-missing`), a tenant that is not a valid tenant id, a
+   network id included (`tenant-malformed`), or a tenant the directory does not list as active
+   (`tenant-unknown`), by dead-lettering it. The property is unsigned (TEN-020), so this check
+   against the directory is the control, and `IdempotentConsumer` repeats the scope check. A
+   suspended tenant is not listed as active, so it reads the same as an unknown one. The inner
+   consumer never runs and no unit of work opens, scoped or not: a message is never processed
+   unscoped.
 2. binds the tenant for the whole handling of the message, so every unit of work the inner consumer
    (or a use case it calls) opens binds that one scope (DEC-146). The binding is restored when the
    message is done, whatever the outcome.
@@ -24,7 +27,7 @@ application property and makes `observe` open a span from it; no consumer change
 import logging
 from collections.abc import Callable
 from contextlib import AbstractContextManager, nullcontext
-from typing import Final
+from typing import ClassVar, Final
 
 from diucs.adapters.inbound.workers.consumer import MessageConsumer, Outcome, PermanentError
 from diucs.adapters.inbound.workers.outbox_relay import ActiveTenants
@@ -33,9 +36,12 @@ from diucs.application.tenancy import ScopeId, ScopeInvalid, bind_scope
 
 logger = logging.getLogger(__name__)
 
-NO_TENANT: Final = "message has no tenant"
-BAD_TENANT: Final = "message tenant is not valid"
-UNKNOWN_TENANT: Final = "message tenant is unknown or not active"
+# The fixed words of the bus contract: TEN-020's `from_wire` gives `tenant-missing`,
+# `tenant-malformed` and `tenant-mismatch`; TEN-025 adds `tenant-unknown`. A dead letter holds one
+# of these and nothing else.
+NO_TENANT: Final = "tenant-missing"
+BAD_TENANT: Final = "tenant-malformed"
+UNKNOWN_TENANT: Final = "tenant-unknown"
 
 Observe = Callable[[BusMessage], AbstractContextManager[object]]
 
@@ -46,6 +52,9 @@ def untraced(message: BusMessage) -> AbstractContextManager[object]:
 
 
 class TenantBoundConsumer:
+    binds_tenant: ClassVar[bool] = True
+    """The marker the runner looks for: it serves only a consumer that binds the tenant."""
+
     def __init__(
         self, inner: MessageConsumer, tenants: ActiveTenants, observe: Observe = untraced
     ) -> None:

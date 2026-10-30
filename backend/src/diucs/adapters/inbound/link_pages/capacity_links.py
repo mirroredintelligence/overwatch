@@ -33,11 +33,12 @@ from typing import Any, Final, Protocol
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, Response
 
+from diucs.application.edge_tenant import resolve_active_tenant
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.sealing import ContentSealer
-from diucs.application.ports.outbound.tenants import TenantDirectory, TenantRecordInvalid
+from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.tokens import (
     LinkTokenRepository,
     LinkTokenService,
@@ -66,7 +67,6 @@ from diucs.application.use_cases.link_access import (
 )
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.model.tenant import TenantStatus
 
 log = logging.getLogger(__name__)
 
@@ -164,17 +164,8 @@ def _collaborators(request: Request) -> tuple[_Container, LinkPagesDeps]:
 
 async def _tenant_of(request: Request, container: _Container) -> str | None:
     """The id of the active tenant whose host this request was addressed to, or None."""
-    host = request.url.hostname
-    if host is None:
-        return None
-    try:
-        tenant = await container.tenants.by_host(host)
-    except TenantRecordInvalid:
-        _refused("tenant-record")
-        return None
-    if tenant is None or tenant.status is not TenantStatus.ACTIVE:
-        return None
-    return tenant.id
+    tenant = await resolve_active_tenant(container.tenants, request.url.hostname)
+    return None if tenant is None else tenant.id
 
 
 def _tokens(container: _Container) -> Callable[[LinkTokenRepository], LinkTokenService]:

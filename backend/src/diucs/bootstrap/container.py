@@ -17,7 +17,7 @@ process that serves, and without one every secret reads as not found (fail close
 """
 
 import random
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -61,7 +61,7 @@ from diucs.adapters.testing.fixed_terminology import FixedTerminology
 from diucs.adapters.testing.fixture_telemetry import FixtureTelemetryQuery
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.actor import system_actor
-from diucs.application.ports.outbound.cache import Cache
+from diucs.application.ports.outbound.cache import Cache, PlatformSlots
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.geo import (
     AddressCandidate,
@@ -72,8 +72,14 @@ from diucs.application.ports.outbound.geo import (
     TravelRange,
     TravelTime,
 )
-from diucs.application.ports.outbound.identity import CodeStore, RateLimiter, SessionStore
+from diucs.application.ports.outbound.identity import (
+    CodeStore,
+    RateLimiter,
+    SessionStore,
+    TenantKeyedSecrets,
+)
 from diucs.application.ports.outbound.ids import IdGenerator
+from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.telemetry_query import (
     SessionFilters,
     SessionSummary,
@@ -106,10 +112,13 @@ from diucs.application.use_cases.missed_report_ladder import (
     LadderStepCommand,
     MissedReportLadder,
 )
+from diucs.application.use_cases.review_registration import AreaDistrictsFor
 from diucs.application.work import ScheduledWork, WorkKind
+from diucs.bootstrap.areas import area_districts_for
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import NotFound
 from diucs.domain.model.telemetry_aggregates import DayAggregates
+from diucs.domain.rules.tenant_keys import check_key_version
 
 TEST_NOW = datetime(2026, 10, 23, 13, 0, tzinfo=UTC)
 # The sample telemetry the test container serves (O07). Sample values only.
@@ -148,6 +157,9 @@ class Container:
     # The Cache port on the same Redis client (DEC-003: short-lived counts and keys only). The
     # pairing limits of the wall screen routes (R15) are kept here.
     cache: Cache
+    # The cache's platform namespace (TEN-040): the source-address limiter of the routes with no
+    # token counts here, before any tenant is known. The same Redis client as `cache`.
+    platform_slots: PlatformSlots
     # The random source of pairing codes and device tokens (U10): cryptographic in production.
     rng: random.Random
     # Postcode centroids for the patient's position, read from the local file (I11). A patient
@@ -166,6 +178,12 @@ class Container:
     telemetry: TelemetryQuery
     # The dispatch table of the scheduled.work queue: the missed-report ladder steps (I05, DEC-192).
     scheduled_work: ScheduledWorkDispatcher
+    # Seals the text code (and any other secret content) before it is written to the outbox, so
+    # only the sender that opens it ever sees it (U25, R11).
+    sealer: ContentSealer
+    # The area of each tenant for the registration review (U28, DEC-317): no default, so a tenant
+    # with no entry in the settings has an empty area (R11 wiring, bootstrap/wiring.py).
+    area_districts_for: AreaDistrictsFor
     # Each later task adds one field here, and wires it in build() and build_for_tests().
 
     async def startup(self) -> None:
@@ -180,6 +198,10 @@ class Container:
             await apply_migrations(driver)
             # One chain per scope (TEN-017): each active tenant gets its head, bound in turn. A
             # tenant with no head fails closed at its first append (AuditHeadMissing).
+            # A tenant record whose hash key version disagrees with its id would hash with a key its
+            # stored hashes were not made with (TEN-023): the process does not start.
+            for tenant in await self.tenants.list_active():
+                check_key_version(tenant.id, tenant.hash_key_version)
             for tenant_id in await self.tenants.active_tenant_ids():
                 with bind_tenant(tenant_id):
                     await ensure_audit_head(driver)
@@ -341,8 +363,11 @@ def build(
     key = settings.os_places_api_key
     http = None if key is None else httpx.AsyncClient(timeout=REQUEST_TIMEOUT_SECONDS)
     ids = UuidGenerator()
-    store: SecretStore = NoSecrets() if secrets is None else secrets
+    # Every hash and token key is the bound tenant's own (TEN-023, DEC-350): the process's store is
+    # seen through TenantKeyedSecrets, and nothing outside it holds the platform key.
+    store: SecretStore = TenantKeyedSecrets(NoSecrets() if secrets is None else secrets)
     uow_factory = neo4j_uow_factory(neo4j, clock=clock)
+    redis_cache = RedisCache(redis)
     return Container(
         clock=clock,
         ids=ids,
@@ -355,7 +380,8 @@ def build(
         sessions=RedisSessionStore(redis),
         codes=RedisCodeStore(redis, clock),
         rate_limiter=RedisRateLimiter(redis),
-        cache=RedisCache(redis),
+        cache=redis_cache,
+        platform_slots=redis_cache,
         rng=random.SystemRandom(),
         postcodes=(
             NoPostcodes()
@@ -376,6 +402,8 @@ def build(
             )
         ),
         scheduled_work=_scheduled_work(uow_factory, clock, ids, store, settings.base_url),
+        sealer=AesGcmContentSealer(store),
+        area_districts_for=area_districts_for(settings.tenant_areas),
     )
 
 
@@ -390,6 +418,7 @@ def build_for_tests(
     rng: random.Random | None = None,
     telemetry: TelemetryQuery | None = None,
     link_base_url: str = TEST_LINK_BASE_URL,
+    areas: Mapping[str, str] | None = None,
 ) -> Container:
     """Wire the container for tests: a fixed clock and sequential ids unless overridden, and a
     recording fake secret store that holds nothing unless one is passed.
@@ -405,6 +434,8 @@ def build_for_tests(
     resolved_ids = SequentialIds() if ids is None else ids
     store: SecretStore = FixedSecretStore({}) if secrets is None else secrets
     uow_factory = neo4j_uow_factory(neo4j, clock=resolved_clock)
+    memory = InMemoryCache(resolved_clock)
+    resolved_cache = memory if cache is None else cache
     return Container(
         clock=resolved_clock,
         ids=resolved_ids,
@@ -417,7 +448,8 @@ def build_for_tests(
         sessions=RedisSessionStore(resolved_redis),
         codes=RedisCodeStore(resolved_redis, resolved_clock),
         rate_limiter=RedisRateLimiter(resolved_redis),
-        cache=InMemoryCache(resolved_clock) if cache is None else cache,
+        cache=resolved_cache,
+        platform_slots=resolved_cache if isinstance(resolved_cache, PlatformSlots) else memory,
         rng=random.Random(TEST_RNG_SEED) if rng is None else rng,
         postcodes=FixedPostcodeLocator({}, {}),
         travel=FixedTravelTime(TravelRange(low_minutes=10, high_minutes=20, source="test fixed")),
@@ -432,4 +464,6 @@ def build_for_tests(
         scheduled_work=_scheduled_work(
             uow_factory, resolved_clock, resolved_ids, store, link_base_url
         ),
+        sealer=AesGcmContentSealer(store),
+        area_districts_for=area_districts_for({} if areas is None else areas),
     )

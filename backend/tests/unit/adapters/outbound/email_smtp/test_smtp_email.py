@@ -14,14 +14,20 @@ from typing import Any
 
 import pytest
 from aiosmtpd.controller import Controller
+from pydantic import SecretStr
 
-from diucs.adapters.outbound.email_smtp.smtp_email import SmtpEmail, build_message, text_to_html
+from diucs.adapters.outbound.email_smtp.smtp_email import (
+    SmtpEmail,
+    SmtpIdentity,
+    SmtpRelay,
+    build_message,
+    text_to_html,
+)
 from diucs.application.ports.outbound.messaging import (
     SendFailedError,
     SendReceipt,
     TransientSendError,
 )
-from diucs.bootstrap.settings import Settings
 from diucs.domain.codes import Channel
 from diucs.domain.messages.templates import MessageId, render
 
@@ -83,14 +89,11 @@ def smtp_server() -> Any:
         controller.stop()
 
 
-def settings_for(port: int) -> Settings:
-    return Settings(
-        _env_file=None,  # type: ignore[call-arg]
-        smtp_host="127.0.0.1",
-        smtp_port=port,
-        smtp_starttls=False,
-        email_from=FROM,
-    )
+IDENTITY = SmtpIdentity(from_address="capacity@diucs.example", display_name="DIUCS Capacity")
+
+
+def relay_for(port: int) -> SmtpRelay:
+    return SmtpRelay(host="127.0.0.1", port=port, starttls=False)
 
 
 def test_build_message_is_multipart_alternative_with_text_then_html() -> None:
@@ -145,7 +148,7 @@ def test_the_capacity_email_for_ucr_west_has_its_subject_and_footer() -> None:
 async def test_send_delivers_one_message_with_both_parts(smtp_server: Any) -> None:
     handler, port = smtp_server
 
-    receipt = await SmtpEmail(settings_for(port)).send(TO, SUBJECT, TEXT, HTML)
+    receipt = await SmtpEmail(relay_for(port), IDENTITY).send(TO, SUBJECT, TEXT, HTML)
 
     assert receipt.accepted is True
     assert re.fullmatch(r"<[0-9a-f-]{36}@diucs\.example>", receipt.provider_message_id)
@@ -165,7 +168,7 @@ async def test_send_delivers_one_message_with_both_parts(smtp_server: Any) -> No
 
 async def test_each_send_gets_its_own_message_id(smtp_server: Any) -> None:
     _, port = smtp_server
-    sender = SmtpEmail(settings_for(port))
+    sender = SmtpEmail(relay_for(port), IDENTITY)
 
     first = await sender.send(TO, SUBJECT, TEXT, HTML)
     second = await sender.send(TO, SUBJECT, TEXT, HTML)
@@ -176,7 +179,9 @@ async def test_each_send_gets_its_own_message_id(smtp_server: Any) -> None:
 async def test_a_text_only_message_gets_a_generated_html_part(smtp_server: Any) -> None:
     handler, port = smtp_server
 
-    await SmtpEmail(settings_for(port)).send(TO, "Review request", "Review request: " + LINK, None)
+    await SmtpEmail(relay_for(port), IDENTITY).send(
+        TO, "Review request", "Review request: " + LINK, None
+    )
 
     _, raw = handler.messages[0]
     received = email.message_from_bytes(raw, policy=policy.default)
@@ -193,7 +198,7 @@ async def test_a_4xx_answer_is_transient_and_nothing_is_stored(smtp_server: Any)
     handler.rcpt_reply = "451 4.3.0 try again later"
 
     with pytest.raises(TransientSendError):
-        await SmtpEmail(settings_for(port)).send(TO, SUBJECT, TEXT, HTML)
+        await SmtpEmail(relay_for(port), IDENTITY).send(TO, SUBJECT, TEXT, HTML)
 
     assert handler.messages == []
 
@@ -202,7 +207,7 @@ async def test_a_550_refused_recipient_is_not_accepted(smtp_server: Any) -> None
     handler, port = smtp_server
     handler.rcpt_reply = "550 5.1.1 mailbox unavailable"
 
-    receipt = await SmtpEmail(settings_for(port)).send(TO, SUBJECT, TEXT, HTML)
+    receipt = await SmtpEmail(relay_for(port), IDENTITY).send(TO, SUBJECT, TEXT, HTML)
 
     assert receipt == SendReceipt(provider_message_id="", accepted=False)
     assert handler.messages == []
@@ -215,7 +220,7 @@ async def test_a_5xx_answer_to_the_message_is_a_failure_and_is_not_retried(
     handler.data_reply = "554 5.7.1 message rejected"
 
     with pytest.raises(SendFailedError):
-        await SmtpEmail(settings_for(port)).send(TO, SUBJECT, TEXT, HTML)
+        await SmtpEmail(relay_for(port), IDENTITY).send(TO, SUBJECT, TEXT, HTML)
 
     assert handler.messages == []
 
@@ -224,7 +229,7 @@ async def test_no_server_listening_is_transient() -> None:
     port = _free_port()
 
     with pytest.raises(TransientSendError):
-        await SmtpEmail(settings_for(port)).send(TO, SUBJECT, TEXT, HTML)
+        await SmtpEmail(relay_for(port), IDENTITY).send(TO, SUBJECT, TEXT, HTML)
 
 
 async def test_logs_hold_neither_the_address_nor_the_body(
@@ -233,7 +238,7 @@ async def test_logs_hold_neither_the_address_nor_the_body(
     _, port = smtp_server
     caplog.set_level(logging.DEBUG)
 
-    receipt = await SmtpEmail(settings_for(port)).send(
+    receipt = await SmtpEmail(relay_for(port), IDENTITY).send(
         MARKER_ADDRESS,
         SUBJECT,
         f"{MARKER_BODY} text",
@@ -271,7 +276,7 @@ async def test_the_refusal_log_holds_neither_the_address_nor_the_body(
     handler.rcpt_reply = f"550 5.1.1 <{MARKER_ADDRESS}> no such mailbox {MARKER_BODY}"
     caplog.set_level(logging.DEBUG)
 
-    receipt = await SmtpEmail(settings_for(port)).send(
+    receipt = await SmtpEmail(relay_for(port), IDENTITY).send(
         MARKER_ADDRESS, SUBJECT, f"{MARKER_BODY} text", f"<p>{MARKER_BODY} html</p>"
     )
 
@@ -288,7 +293,7 @@ async def test_the_deferral_log_holds_neither_the_address_nor_the_body(
     caplog.set_level(logging.DEBUG)
 
     with pytest.raises(TransientSendError):
-        await SmtpEmail(settings_for(port)).send(
+        await SmtpEmail(relay_for(port), IDENTITY).send(
             MARKER_ADDRESS, SUBJECT, f"{MARKER_BODY} text", f"<p>{MARKER_BODY} html</p>"
         )
 
@@ -304,7 +309,7 @@ async def test_the_failure_log_holds_neither_the_address_nor_the_body(
     caplog.set_level(logging.DEBUG)
 
     with pytest.raises(SendFailedError):
-        await SmtpEmail(settings_for(port)).send(
+        await SmtpEmail(relay_for(port), IDENTITY).send(
             MARKER_ADDRESS, SUBJECT, f"{MARKER_BODY} text", f"<p>{MARKER_BODY} html</p>"
         )
 
@@ -313,11 +318,9 @@ async def test_the_failure_log_holds_neither_the_address_nor_the_body(
 
 
 async def test_an_unconfigured_relay_is_a_failure_and_sends_nothing() -> None:
-    # No SMTP host in settings: the adapter must refuse, never fall back to a local relay.
-    settings = Settings(_env_file=None)  # type: ignore[call-arg]
-
+    # No SMTP host: the adapter must refuse, never fall back to a local relay.
     with pytest.raises(SendFailedError):
-        await SmtpEmail(settings).send(TO, SUBJECT, TEXT, HTML)
+        await SmtpEmail(SmtpRelay(host=None), IDENTITY).send(TO, SUBJECT, TEXT, HTML)
 
 
 def test_text_on_either_side_of_the_link_becomes_its_own_paragraph() -> None:
@@ -342,7 +345,7 @@ async def test_a_4xx_answer_to_the_message_is_transient(smtp_server: Any) -> Non
     handler.data_reply = "451 4.3.0 try again later"
 
     with pytest.raises(TransientSendError):
-        await SmtpEmail(settings_for(port)).send(TO, SUBJECT, TEXT, HTML)
+        await SmtpEmail(relay_for(port), IDENTITY).send(TO, SUBJECT, TEXT, HTML)
 
     assert handler.messages == []
 
@@ -352,10 +355,117 @@ async def test_a_text_only_message_without_a_link_still_gets_an_html_part(
 ) -> None:
     handler, port = smtp_server
 
-    await SmtpEmail(settings_for(port)).send(TO, "Notice", "No link here.", None)
+    await SmtpEmail(relay_for(port), IDENTITY).send(TO, "Notice", "No link here.", None)
 
     _, raw = handler.messages[0]
     received = email.message_from_bytes(raw, policy=policy.default)
     html_part = received.get_body(("html",))
     assert html_part is not None
     assert "<a " not in html_part.get_content()
+
+
+# One relay, one identity for each tenant (TEN-042, DEC-131 item 1)
+
+
+class _CapturedSend:
+    """Stands in for `aiosmtplib.send`: records what the adapter hands it, sends nothing."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def __call__(self, message: EmailMessage, **kwargs: Any) -> None:
+        self.calls.append({"message": message, **kwargs})
+
+
+@pytest.fixture
+def captured(monkeypatch: pytest.MonkeyPatch) -> _CapturedSend:
+    captured_send = _CapturedSend()
+    monkeypatch.setattr("aiosmtplib.send", captured_send)
+    return captured_send
+
+
+ALPHA = SmtpIdentity(
+    from_address="capacity@alpha.example.test",
+    display_name="Alpha Capacity",
+    username="capacity@alpha.example.test",
+    password=SecretStr("alpha-secret-canary-0001"),
+)
+BRAVO = SmtpIdentity(from_address="ops@bravo.example.test")
+RELAY = SmtpRelay(host="relay.example.test", port=2525, starttls=True)
+
+
+async def test_each_identity_sends_from_its_own_address_through_the_one_relay(
+    captured: _CapturedSend,
+) -> None:
+    await SmtpEmail(RELAY, ALPHA).send(TO, SUBJECT, TEXT, HTML)
+    await SmtpEmail(RELAY, BRAVO).send(TO, SUBJECT, TEXT, HTML)
+
+    first, second = captured.calls
+    assert first["message"]["From"] == "Alpha Capacity <capacity@alpha.example.test>"
+    assert second["message"]["From"] == "ops@bravo.example.test"
+    for call in (first, second):
+        assert (call["hostname"], call["port"], call["start_tls"]) == (
+            "relay.example.test",
+            2525,
+            True,
+        )
+
+
+async def test_the_message_id_is_in_the_domain_of_the_senders_own_address(
+    captured: _CapturedSend,
+) -> None:
+    first = await SmtpEmail(RELAY, ALPHA).send(TO, SUBJECT, TEXT, HTML)
+    second = await SmtpEmail(RELAY, BRAVO).send(TO, SUBJECT, TEXT, HTML)
+
+    assert re.fullmatch(r"<[0-9a-f-]{36}@alpha\.example\.test>", first.provider_message_id)
+    assert re.fullmatch(r"<[0-9a-f-]{36}@bravo\.example\.test>", second.provider_message_id)
+    assert "diucs.example" not in first.provider_message_id
+
+
+async def test_the_credentials_are_the_identitys_own_and_none_means_no_login(
+    captured: _CapturedSend,
+) -> None:
+    await SmtpEmail(RELAY, ALPHA).send(TO, SUBJECT, TEXT, HTML)
+    await SmtpEmail(RELAY, BRAVO).send(TO, SUBJECT, TEXT, HTML)
+
+    first, second = captured.calls
+    assert (first["username"], first["password"]) == (
+        "capacity@alpha.example.test",
+        "alpha-secret-canary-0001",
+    )
+    assert (second["username"], second["password"]) == (None, None)
+
+
+def test_no_identity_or_sender_shows_its_password_in_a_repr_or_str() -> None:
+    sender = SmtpEmail(RELAY, ALPHA)
+
+    for text in (repr(ALPHA), str(ALPHA), repr(sender), str(sender)):
+        assert "alpha-secret-canary-0001" not in text
+
+
+async def test_the_password_is_not_in_the_log_of_a_send(
+    captured: _CapturedSend, caplog: pytest.LogCaptureFixture
+) -> None:
+    caplog.set_level(logging.DEBUG)
+
+    await SmtpEmail(RELAY, ALPHA).send(TO, SUBJECT, TEXT, HTML)
+
+    assert "alpha-secret-canary-0001" not in _adapter_log(caplog)
+
+
+@pytest.mark.parametrize("address", ["", "no-at-sign", "a@b", "x y@example.test", "a@b@c.test"])
+def test_an_identity_with_an_address_that_is_not_one_is_refused(address: str) -> None:
+    with pytest.raises(ValueError):
+        SmtpIdentity(from_address=address)
+
+
+def test_a_display_name_that_could_break_the_header_is_refused() -> None:
+    for name in ("Alpha\r\nBcc: x@example.test", "Alpha <x@example.test>", "a" * 100):
+        with pytest.raises(ValueError):
+            SmtpIdentity(from_address="capacity@alpha.example.test", display_name=name)
+
+
+def test_a_relay_port_outside_the_range_is_refused() -> None:
+    for port in (0, 65536, -1):
+        with pytest.raises(ValueError):
+            SmtpRelay(host="relay.example.test", port=port)

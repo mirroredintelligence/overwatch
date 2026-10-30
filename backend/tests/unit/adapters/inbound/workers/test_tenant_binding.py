@@ -198,3 +198,17 @@ async def test_a_refused_message_does_not_open_the_trace_hook() -> None:
     await consumer.handle(_message(None))
 
     assert opened == []
+
+
+def test_the_refusal_reasons_are_the_fixed_words_of_the_bus_contract() -> None:
+    # TEN-025: the words TEN-020 fixed for the message itself, and `tenant-unknown` for a tenant the
+    # directory does not list as active (a suspended tenant reads the same as an unknown one).
+    assert (NO_TENANT, BAD_TENANT, UNKNOWN_TENANT) == (
+        "tenant-missing",
+        "tenant-malformed",
+        "tenant-unknown",
+    )
+
+
+def test_the_consumer_declares_that_it_binds_the_tenant() -> None:
+    assert TenantBoundConsumer.binds_tenant is True

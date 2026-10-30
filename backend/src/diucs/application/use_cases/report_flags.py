@@ -10,7 +10,7 @@ reply policy (D11) decides `out-of-range-twice` and the caller passes it as `ext
 DEC-161.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Final
 
 from diucs.application.ports.outbound.ids import IdGenerator
@@ -22,10 +22,16 @@ from diucs.domain.events import ReportFlagged
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import REPORT_FLAG_OPEN, ReportFlag
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
 from diucs.domain.rules.report_flags import MANY_CHANGES_WINDOW, PHONED_WINDOW, flags_for_report
 
 LOOKBACK: Final = max(MANY_CHANGES_WINDOW, PHONED_WINDOW)
 """How far before a report the rules look: the longer of the two windows (DEC-161 item 2)."""
+
+
+def report_lookback(policy: TenantPolicy = DEFAULT_POLICY) -> timedelta:
+    """How far before a report the rules look under this policy: the longer of its two windows."""
+    return max(policy.many_changes_window, policy.phoned_window)
 
 
 async def raise_report_flags(
@@ -36,6 +42,7 @@ async def raise_report_flags(
     report: CapacityReport,
     extra: ReportFlagReason | None,
     now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,
 ) -> list[str]:
     """Raise the flags `report` earns, and return their ids (empty when there are none).
 
@@ -43,13 +50,14 @@ async def raise_report_flags(
     open-flag check below cannot race another report for the same service. The reasons are the
     rules' reasons in rule order, then `extra`, each once. A reason that already has an open flag
     for this service raises nothing (one open flag per service and reason). Each new flag is
-    stored open on the report and announced by a `ReportFlagged` outbox message.
+    stored open on the report and announced by a `ReportFlagged` outbox message. The windows are the
+    tenant's `policy` (TEN-024); the default is today's.
     """
     if report.service_id != profile.id:
         raise ValidationFailed("report", "is not for this service")
-    since = report.effective_at.astimezone(UTC) - LOOKBACK
+    since = report.effective_at.astimezone(UTC) - report_lookback(policy)
     recent = await uow.capacity.reports_since(profile.id, since)
-    reasons = flags_for_report(report, recent, profile)
+    reasons = flags_for_report(report, recent, profile, policy)
     if extra is not None and extra not in reasons:
         reasons.append(extra)
     if not reasons:

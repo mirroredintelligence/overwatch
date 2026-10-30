@@ -536,7 +536,7 @@ async def test_a_report_stops_the_ladder_of_a_service_nobody_could_be_texted_for
     await rig.prompt(london(12, 0))
     assert len(await rig.works(SERVICE, WorkKind.PHONE_TASK)) == 1
 
-    await rig.report(london(12, 40), value=3)
+    await rig.report(london(12, 40), value=3, performer=False)
 
     assert set((await _ladder_statuses(rig, SERVICE)).values()) == {CANCELLED}
     [next_prompt] = await rig.works(SERVICE, WorkKind.PROMPT_DUE)

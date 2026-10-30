@@ -66,9 +66,16 @@ BINDING_MODULES: frozenset[str] = frozenset(
         # R15: the wall screen pairing routes have no session; like the link pages (DEC-167) they
         # bind the tenant the request host names in the tenant directory, never one it sends.
         "diucs.adapters.inbound.fhir_rest.routes_screens",
+        # R11: the reporter identity routes (text code, PIN, the 30-day check) have no session yet;
+        # like the pairing routes they bind the tenant the request host names in the tenant
+        # directory, never one the request sends. The push routes take theirs from the token.
+        "diucs.adapters.inbound.fhir_rest.routes_identity",
         # TEN-018: the REST edge. `current_actor` binds the tenant of a verified token for the
         # request, and nothing a request sends (header, query, body, host) is read for it.
         "diucs.adapters.inbound.fhir_rest.auth",
+        # TEN-040: the host-bound binder of every route that carries no token. It binds the tenant
+        # the request host names in the tenant directory (an active tenant only), and nothing else.
+        "diucs.adapters.inbound.fhir_rest.host_tenant",
         # TEN-017: the start-up is an edge of its own: it binds each active tenant in turn to make
         # that tenant's audit head. No request or message is in it.
         "diucs.bootstrap.container",

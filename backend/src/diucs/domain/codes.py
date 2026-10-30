@@ -210,6 +210,15 @@ class Outcome(StrEnum):
     OUT_OF_AREA = "out-of-area"
 
 
+class AdviceChoice(StrEnum):
+    """What a clinical advisor advised on a request (U40)."""
+
+    GO_AHEAD = "go-ahead"
+    USE_ANOTHER_SERVICE = "use-another-service"
+    CLINICAL_CALL_TO_REFERRER = "clinical-call-to-referrer"
+    EMERGENCY_ROUTE = "emergency-route"
+
+
 class BestFitNotUsedReason(StrEnum):
     FULL = "full"
     DECLINED = "declined"

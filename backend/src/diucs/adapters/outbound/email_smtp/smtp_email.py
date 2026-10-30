@@ -9,8 +9,10 @@ import html as _html
 import logging
 import re
 import uuid
+from dataclasses import dataclass
 from email.message import EmailMessage
-from typing import Final, Protocol
+from email.utils import formataddr
+from typing import Final
 
 import aiosmtplib
 from pydantic import SecretStr
@@ -23,7 +25,6 @@ from diucs.application.ports.outbound.messaging import (
 
 _log = logging.getLogger(__name__)
 
-_MESSAGE_ID_DOMAIN: Final = "diucs.example"
 # [ASSUMED] Bounded wait for each SMTP step. A slow relay is transient, not a success.
 _TIMEOUT_S: Final = 30.0
 _FALLBACK_LABEL: Final = "Open link"
@@ -39,13 +40,76 @@ _HTML_FRAME: Final = (
 )
 
 
-class SmtpSettings(Protocol):
-    smtp_host: str | None
-    smtp_port: int
-    smtp_user: str | None
-    smtp_password: SecretStr | None
-    smtp_starttls: bool
-    email_from: str
+_LABEL: Final = r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+# One address, no display name, no comment, no quoting: the shape a role inbox has. A domain needs a
+# dot, so "a@b" is not an address. Anything that could carry a header break or a second recipient
+# (white space, angle brackets, a comma, a second at sign) does not match.
+_ADDRESS: Final = re.compile(rf"[A-Za-z0-9._%+-]{{1,64}}@{_LABEL}(?:\.{_LABEL})+")
+_ADDRESS_MAX_LENGTH: Final = 254
+_DISPLAY_NAME: Final = re.compile(r"[A-Za-z0-9][A-Za-z0-9 .'&()_-]{0,79}")
+
+
+@dataclass(frozen=True, slots=True)
+class SmtpRelay:
+    """The platform's SMTP relay: where mail is handed in, never who it is from. The endpoint is
+    infrastructure and is shared; each tenant's identity and credential are its own (DEC-131
+    item 1). `host` is None when no relay is configured, and nothing is then sent."""
+
+    host: str | None
+    port: int = 587
+    starttls: bool = True
+
+    def __post_init__(self) -> None:
+        if self.host is not None and (type(self.host) is not str or not self.host.strip()):
+            raise ValueError("the relay host is not a host name")
+        if type(self.port) is not int or not 1 <= self.port <= 65535:
+            raise ValueError("the relay port is not a port")
+
+
+@dataclass(frozen=True, slots=True)
+class SmtpIdentity:
+    """One tenant's sender: the address its mail is from (and the domain of its message ids), a
+    display name, and the login it presents to the relay. The password is a secret that came from
+    the secret store; it is hidden from `repr` and `str`, so no log line or error can print it."""
+
+    from_address: str
+    display_name: str | None = None
+    username: str | None = None
+    password: SecretStr | None = None
+
+    def __post_init__(self) -> None:
+        if (
+            type(self.from_address) is not str
+            or len(self.from_address) > _ADDRESS_MAX_LENGTH
+            or _ADDRESS.fullmatch(self.from_address) is None
+        ):
+            raise ValueError("the sender address is not an address")
+        if self.display_name is not None and (
+            type(self.display_name) is not str or _DISPLAY_NAME.fullmatch(self.display_name) is None
+        ):
+            raise ValueError("the sender display name is not plain text")
+        if self.username is not None and (
+            type(self.username) is not str
+            or not 1 <= len(self.username) <= _ADDRESS_MAX_LENGTH
+            or not self.username.isprintable()
+        ):
+            raise ValueError("the login name is not plain text")
+
+    def __repr__(self) -> str:
+        return f"SmtpIdentity(domain={self.from_address.rsplit('@', 1)[1]})"
+
+    __str__ = __repr__
+
+    @property
+    def domain(self) -> str:
+        return self.from_address.rsplit("@", 1)[1].lower()
+
+    @property
+    def sender(self) -> str:
+        """The From header: the display name and the address, or the address alone."""
+        if self.display_name is None:
+            return self.from_address
+        return formataddr((self.display_name, self.from_address))
 
 
 def build_message(
@@ -112,28 +176,27 @@ class SmtpEmail:
     retries). A 5xx answer to the recipient is a refusal (accepted False, no provider id). Any
     other 5xx answer is a configuration or contract fault and is not retried."""
 
-    def __init__(self, settings: SmtpSettings) -> None:
-        self._host = settings.smtp_host
-        self._port = settings.smtp_port
-        self._user = settings.smtp_user
-        self._password = settings.smtp_password
-        self._starttls = settings.smtp_starttls
-        self._from = settings.email_from
+    def __init__(self, relay: SmtpRelay, identity: SmtpIdentity) -> None:
+        self._relay = relay
+        self._identity = identity
 
     async def send(self, to: str, subject: str, text: str, html: str | None) -> SendReceipt:
-        if self._host is None:
+        relay, identity = self._relay, self._identity
+        if relay.host is None:
             raise SendFailedError("the SMTP relay is not configured")
-        message_id = f"<{uuid.uuid4()}@{_MESSAGE_ID_DOMAIN}>"
+        message_id = f"<{uuid.uuid4()}@{identity.domain}>"
         body = html if html is not None else text_to_html(text, _link_label(text))
-        message = build_message(to, subject, text, body, self._from, message_id)
+        message = build_message(to, subject, text, body, identity.sender, message_id)
         try:
             await aiosmtplib.send(
                 message,
-                hostname=self._host,
-                port=self._port,
-                username=self._user,
-                password=None if self._password is None else self._password.get_secret_value(),
-                start_tls=self._starttls,
+                hostname=relay.host,
+                port=relay.port,
+                username=identity.username,
+                password=None
+                if identity.password is None
+                else identity.password.get_secret_value(),
+                start_tls=relay.starttls,
                 timeout=_TIMEOUT_S,
             )
         except aiosmtplib.SMTPRecipientsRefused as refused:

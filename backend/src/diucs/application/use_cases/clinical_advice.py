@@ -31,7 +31,7 @@ from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
 from diucs.application.use_cases.filter_options import need_phrase
 from diucs.application.work import WorkKind
-from diucs.domain.codes import Channel, NeedCategory, Role
+from diucs.domain.codes import AdviceChoice, Channel, NeedCategory, Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.events import ClinicalAdviceGiven
 from diucs.domain.messages.catalogue import MessageId
@@ -445,7 +445,7 @@ class GiveClinicalAdvice:
             ):
                 await cancel_work(uow, work, now)
             event = ClinicalAdviceGiven(
-                request_id=command.request_id, choice=command.choice, at=now
+                request_id=command.request_id, choice=AdviceChoice(command.choice), at=now
             )
             await uow.outbox.add(outbox_message_for(event, id=self._ids.new_id(), now=now))
             await uow.audit.append(

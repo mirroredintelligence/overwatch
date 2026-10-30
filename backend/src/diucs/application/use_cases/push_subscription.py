@@ -25,6 +25,7 @@ from diucs.application.ports.outbound.messaging import PushSubscription
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from diucs.domain.rules.push_endpoint import check_push_endpoint
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,6 +117,11 @@ class SavePushSubscription:
         practitioner = _practitioner(command.actor)
         _check_device(command.device_id)
         _check_wording(command.wording_version)
+        # The server posts to this endpoint, so its shape is checked before anything is stored
+        # (R11: a client-chosen URL must never reach an inside address).
+        check_push_endpoint(
+            command.subscription.get("endpoint") if isinstance(command.subscription, dict) else None
+        )
         fingerprint = _save_fingerprint(command, practitioner)
         now = self._clock.now()
         key = _command_key("save", current_scope(), command.idempotency_key)

@@ -175,16 +175,20 @@ async def test_no_sentinel_and_nothing_patient_shaped_is_anywhere_in_the_network
     # a district is the most of a postcode a projection holds
     assert "DT4" in text
     # a member's tenant id is in the scope only where the allowlist puts it: the row's source
+    # (the scope's own audit chain names the source of a write by id: it is the chain, not a row)
     for row in rows:
+        if set(row["labels"]) & SCOPE_GENERIC_LABELS:
+            continue
         for key, value in row["props"].items():
             if any(member in str(value) for member in world.ids.members):
                 assert key in {"sourceTenantId", "grantId"}, key
+    # no value of a projected row looks like patient data (a hash in the audit chain can look like
+    # a ten-digit number: the chain is the scope's own and holds ids and hashes only)
     for row in rows:
-        for label, props in [(row["labels"], row["props"])]:
-            leaked = [
-                p for p in _strings(props) if find_patient_data(p) and "sourceTenantId" not in props
-            ]
-            assert leaked == [], label
+        if set(row["labels"]) & SCOPE_GENERIC_LABELS:
+            continue
+        leaked = [text for text in _strings(row["props"]) if find_patient_data(text)]
+        assert leaked == [], row["labels"]
 
 
 async def test_every_label_property_and_relationship_is_on_the_allowlist(

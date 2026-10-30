@@ -230,7 +230,9 @@ async def world(
         R01_TEST_NOW,
     )
     refs["other-case"] = await _audit(uow_factory_a, tenant_id, "FilterOptions", OTHER_CASE, shown)
-    refs["open-case"] = await _audit(uow_factory_a, tenant_id, "OpenCase", CASE, {})
+    # A record of this case that is not a display, with the snapshot of one: only its use case
+    # tells it is not what the advisor saw.
+    refs["open-case"] = await _audit(uow_factory_a, tenant_id, "OpenCase", CASE, shown)
     refs["broken"] = await _audit(
         uow_factory_a,
         tenant_id,

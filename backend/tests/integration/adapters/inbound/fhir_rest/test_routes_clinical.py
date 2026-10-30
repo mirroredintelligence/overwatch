@@ -24,8 +24,8 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET
 from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
-from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
+from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.bootstrap.container import Container, build_for_tests
 from diucs.domain.codes import PractitionerRoleCode, Role, code_system_url
 from diucs.domain.model.people import Practitioner, PractitionerRole
@@ -41,7 +41,7 @@ PRESENCE = "/clinical/presence"
 AVAILABLE = "/clinical/available"
 TASK = "/fhir/Task"
 SAFETY_TEXT = "The board showed the wrong service for the sample referral."
-# The key that seals the clinical safety officer's notice (queue_message): a safety concern needs it.
+# The key that seals the clinical safety officer's notice (queue_message): a concern needs it.
 LINK_SECRET = b"link-token-test-secret-0123456789abcdef"
 
 
@@ -59,7 +59,10 @@ async def test_container(
             clock=FixedClock(R01_TEST_NOW),
             neo4j=connection,
             secrets=FixedSecretStore(
-                {PHONE_HASH_SECRET: b"phone-hash-test-secret-0123456789ab", LINK_TOKEN_SECRET: LINK_SECRET}
+                {
+                    PHONE_HASH_SECRET: b"phone-hash-test-secret-0123456789ab",
+                    LINK_TOKEN_SECRET: LINK_SECRET,
+                }
             ),
         )
     finally:
@@ -149,7 +152,8 @@ async def test_taking_a_request_that_does_not_exist_is_not_found(
     api_client: AsyncClient, clinical_world: None, tenant_id: str
 ) -> None:
     response = await api_client.post(
-        "/fhir/Task/req-missing/$take", json=EMPTY_PARAMETERS,
+        "/fhir/Task/req-missing/$take",
+        json=EMPTY_PARAMETERS,
         headers={
             "Idempotency-Key": "take-0001",
             **token_headers(tenant_id, Role.CLINICAL, sub="clin-1"),

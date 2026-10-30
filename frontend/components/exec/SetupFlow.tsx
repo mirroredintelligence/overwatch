@@ -6,6 +6,7 @@ import { AlertSwitches } from '@/components/exec/AlertSwitches';
 import { EscalationForm, type EscalationValues } from '@/components/exec/EscalationForm';
 import { Button } from '@/components/ui/Button';
 import { type AlertPreferences } from '@/lib/exec/alertPrefs';
+import type { Leader } from '@/lib/exec/leaders';
 import { DEPUTY_REQUIRED, hasDeputy, SAVE_FAILED, savePreferences } from '@/lib/exec/savePreferences';
 import styles from './Exec.module.css';
 
@@ -16,7 +17,7 @@ import styles from './Exec.module.css';
 
 type Step = 'welcome' | 'alerts' | 'escalation';
 
-export function SetupFlow({ initial }: { initial: AlertPreferences }) {
+export function SetupFlow({ initial, leaders }: { initial: AlertPreferences; leaders?: Leader[] | null }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>('welcome');
   const [prefs, setPrefs] = useState(initial);
@@ -76,7 +77,7 @@ export function SetupFlow({ initial }: { initial: AlertPreferences }) {
   return (
     <section className={styles.section} aria-labelledby="exec-escalation-heading">
       <h1 id="exec-escalation-heading" className={styles.heading}>If nobody acknowledges</h1>
-      <EscalationForm initial={prefs} busy={busy} onSave={saveEscalation} error={error} />
+      <EscalationForm initial={prefs} busy={busy} onSave={saveEscalation} error={error} leaders={leaders} />
     </section>
   );
 }

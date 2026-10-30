@@ -7,7 +7,7 @@ import styles from '../console/Console.module.css';
 
 const STATES: Record<string, string> = { full: 'Full', closed: 'Closed', 'not-updated': 'Not updated' };
 
-export function FlowsTable({ flows, total }: { flows: readonly Flow[]; total: number }) {
+export function FlowsTable({ flows, total }: { flows: readonly Flow[]; total: number | null }) {
   return (
     <section aria-labelledby="flows-heading">
       <h2 id="flows-heading" className={styles.heading}>Where they went when the best fit was full</h2>
@@ -22,7 +22,7 @@ export function FlowsTable({ flows, total }: { flows: readonly Flow[]; total: nu
         </thead>
         <tbody>
           {flows.map((flow) => {
-            const pct = flow.suppressed ? null : share(flow.count, total);
+            const pct = flow.suppressed || total === null ? null : share(flow.count, total);
             return (
               <tr key={`${flow.bestFit}-${flow.wentTo}`}>
                 <td>

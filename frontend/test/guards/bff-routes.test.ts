@@ -77,10 +77,6 @@ function kindOf(file: string): Kind | undefined {
  * list only shrinks.
  */
 const ID_ROUTES_NOT_YET_SCOPED: string[] = [
-  'app/api/bff/cases/[ref]/clinical-requests/[id]/route.ts',
-  'app/api/bff/cases/[ref]/clinical-requests/route.ts',
-  'app/api/bff/clinical/requests/[id]/advice/route.ts',
-  'app/api/bff/clinical/requests/[id]/take/route.ts',
   'app/api/bff/console/insight/[tab]/route.ts',
   'app/api/bff/console/sessions/[id]/events/route.ts',
   'app/api/bff/console/sessions/[id]/route.ts',

@@ -5,6 +5,7 @@ import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { bffFetch } from '@/lib/advisor/browser';
 import type { OptionsParts } from '@/lib/advisor/options';
+import { AskClinicalPanel } from './AskClinicalPanel';
 import { CriteriaDialog } from './CriteriaDialog';
 import { DeclinedDialog } from './DeclinedDialog';
 import { NoServiceFits } from './NoServiceFits';
@@ -22,7 +23,7 @@ export type OptionsListProps = {
   caseId: string;
   onCriteria?: (serviceId: string) => void;
   onPhoned?: (serviceId: string) => void;
-  /** Wired by the clinical escalation task (W45). Until then the button does nothing. */
+  /** Called when the advisor asks for clinical advice; the dialog itself is opened here (W45). */
   onAskClinical?: () => void;
 };
 
@@ -39,6 +40,7 @@ type Open = { kind: 'criteria' | 'phoned' | 'declined'; serviceId: string; servi
 export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: OptionsListProps) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [open, setOpen] = useState<Open | null>(null);
+  const [asking, setAsking] = useState(false);
   const requested = useRef<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
 
@@ -62,6 +64,11 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
   const { options, notSuitable } = load.parts;
   const hasNetwork = options.some((option) => option.network !== null);
   const close = () => setOpen(null);
+  // "Ask a clinical advisor" (W45): this list owns the dialog, so the button and the no-fit state share it.
+  const askClinical = () => {
+    setAsking(true);
+    onAskClinical?.();
+  };
   const opener = (kind: Open['kind']) => (serviceId: string) => {
     const name = options.find((option) => option.serviceId === serviceId)?.name ?? '';
     setOpen({ kind, serviceId, serviceName: name });
@@ -71,7 +78,7 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
     <section className={styles.list} aria-label="Options">
       <ViewToggle caseId={caseId} current="list" />
       {options.length === 0 ? (
-        <NoServiceFits caseId={caseId} onWidened={() => void readOptions()} onAskClinical={() => onAskClinical?.()} />
+        <NoServiceFits caseId={caseId} onWidened={() => void readOptions()} onAskClinical={askClinical} />
       ) : (
         <>
           <h2 className={styles.heading} ref={heading} tabIndex={-1}>
@@ -124,13 +131,15 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
         />
       ) : null}
 
+      {asking ? <AskClinicalPanel caseRef={caseId} optionsShown={options.length} onClose={() => setAsking(false)} /> : null}
+
       <NotSuitableList items={notSuitable} />
 
       {options.length === 0 ? null : (
         <footer className={styles.footer}>
           <p className={styles.note}>No patient name is stored. Postcode and needs are cleared after the call record closes.</p>
           <div className={styles.actions}>
-            <Button variant="secondary" dataEl="ADV-OPT-CLINICAL-BTN" onClick={() => onAskClinical?.()}>
+            <Button variant="secondary" dataEl="ADV-OPT-CLINICAL-BTN" onClick={askClinical}>
               Ask clinical advisor
             </Button>
             <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/finish`}>

@@ -4,14 +4,15 @@ import type { Planning } from './types';
 
 const PLANNING: Planning = {
   cohort: 'Cohort: age 65+.',
-  referrals: 640,
-  bestFitUnavailable: { count: 112, pct: 18 },
-  wentElsewhere: 62,
+  referrals: { count: 640, suppressed: false },
+  bestFitUnavailable: { count: 112, pct: 18, suppressed: false },
+  wentElsewhere: { count: 62, suppressed: false },
   flows: [
     { bestFit: 'Falls team, Weymouth', state: 'full', wentTo: 'Community beds', count: 41, suppressed: false },
     { bestFit: 'Frailty ward', state: 'closed', wentTo: 'Virtual ward', count: null, suppressed: true },
   ],
   grid: [],
+  busiest: null,
   declinedDespite: [{ service: 'Ward "B"', count: 12, suppressed: false }],
 };
 

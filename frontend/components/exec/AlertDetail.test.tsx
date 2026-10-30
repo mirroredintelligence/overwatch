@@ -12,7 +12,7 @@ vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }
 
 const alert: AlertItem = {
   id: 'al-1', kind: 'over-capacity', serviceId: 'svc-hah', serviceName: 'Hospital at home', detail: '+4',
-  raisedAt: '2026-10-23T13:04:00Z', state: 'new', escalatesAt: '2026-10-23T13:19:00Z', escalatesTo: 'deputy',
+  raisedAt: '2026-10-23T13:04:00Z', state: 'new', escalatesAt: '2026-10-23T13:19:00Z', escalatesTo: 'deputy', acknowledgedAt: null,
 };
 
 describe('AlertDetail', () => {
@@ -36,6 +36,18 @@ describe('AlertDetail', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Acknowledge' }));
     expect(await screen.findByText('Acknowledged.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Back to alerts' })).toHaveAttribute('href', '/planning/alerts');
+  });
+
+  it('offers a call to the duty coordinator when the board holds the number', () => {
+    render(<AlertDetail alert={alert} coordinationPhone="01632 960001" />);
+    expect(screen.getByRole('link', { name: 'Call the duty coordinator' })).toHaveAttribute('href', 'tel:01632960001');
+  });
+
+  it('shows an alert acknowledged earlier as acknowledged, with the time, and offers no second acknowledgement', () => {
+    render(<AlertDetail alert={{ ...alert, state: 'acknowledged', acknowledgedAt: '2026-10-23T12:40:00Z', escalatesAt: null, escalatesTo: null }} />);
+    expect(screen.getByText('Acknowledged at 13:40')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Acknowledge' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Snooze for 1 hour' })).not.toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {

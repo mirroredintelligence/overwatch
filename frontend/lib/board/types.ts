@@ -41,6 +41,11 @@ export type Board = {
    * top-level `organisation` part (DEC-151 item 3). Null when the back end sends none.
    */
   organisation: string | null;
+  /**
+   * The duty coordinator's number, from the optional top-level `coordinationPhone` part (DEC-777). Null
+   * or absent when the tenant has none: no number is made up.
+   */
+  coordinationPhone?: string | null;
 };
 
 export { parseBoardParameters, BoardParseError } from './parse';

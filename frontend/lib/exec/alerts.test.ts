@@ -30,7 +30,35 @@ describe('alertItemFromTask', () => {
       state: 'escalated',
       escalatesAt: '2026-10-23T13:19:00Z',
       escalatesTo: 'deputy',
+      acknowledgedAt: null,
     });
+  });
+
+  it('reads an acknowledged alert with when it was acknowledged', () => {
+    const acknowledged = {
+      ...task,
+      status: 'completed',
+      businessStatus: { coding: [{ code: 'acknowledged' }] },
+      executionPeriod: undefined,
+      extension: [
+        ...task.extension,
+        { url: 'https://diucs.example/CodeSystem/alert-acknowledged-at', valueDateTime: '2026-10-23T13:40:00+00:00' },
+      ],
+    };
+    const item = alertItemFromTask(acknowledged, () => undefined);
+    expect(item.state).toBe('acknowledged');
+    expect(item.acknowledgedAt).toBe('2026-10-23T13:40:00Z');
+    expect(item.escalatesAt).toBeNull();
+  });
+
+  it('reads a closed alert, with no acknowledgement time when it was never acknowledged', () => {
+    const item = alertItemFromTask({ ...task, status: 'completed', businessStatus: { coding: [{ code: 'closed' }] } }, () => undefined);
+    expect(item.state).toBe('closed');
+    expect(item.acknowledgedAt).toBeNull();
+  });
+
+  it('refuses a status it does not know', () => {
+    expect(() => alertItemFromTask({ ...task, businessStatus: { coding: [{ code: 'snoozed' }] } }, () => undefined)).toThrow();
   });
 
   it('leaves the name and detail empty when the board does not hold the service', () => {
@@ -48,7 +76,7 @@ describe('alertTitle', () => {
   it('names the service and what happened', () => {
     const item: AlertItem = {
       id: 'x', kind: 'over-capacity', serviceId: 's', serviceName: 'Hospital at home', detail: '+4',
-      raisedAt: '2026-10-23T13:04:00Z', state: 'new', escalatesAt: null, escalatesTo: null,
+      raisedAt: '2026-10-23T13:04:00Z', state: 'new', escalatesAt: null, escalatesTo: null, acknowledgedAt: null,
     };
     expect(alertTitle(item)).toBe('Hospital at home over capacity');
     expect(alertTitle({ ...item, serviceName: null })).toBe('A service over capacity');

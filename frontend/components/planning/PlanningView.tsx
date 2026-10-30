@@ -6,10 +6,15 @@ import { Chip } from '@/components/ui/Chip';
 import { FlowsTable } from './FlowsTable';
 import { HeatGrid } from './HeatGrid';
 import styles from '../console/Console.module.css';
-import { NEEDS, PERIODS, type Declined, type Need, type Period, type Planning } from '@/lib/planning/types';
+import { NEEDS, PERIODS, type Count, type Declined, type Need, type Period, type Planning } from '@/lib/planning/types';
 
 // The planning view (W51): where capacity ran out, and where patients went instead, from the
 // decision log. Counts are referrals and acceptances, never a person or an advisor.
+
+/** A headline count in words: the number, or "Fewer than 10" when the back end withheld it. */
+function countText(figure: Count): string {
+  return figure.suppressed || figure.count === null ? 'Fewer than 10' : String(figure.count);
+}
 
 export function PlanningView() {
   const [period, setPeriod] = useState<Period>('90d');
@@ -76,16 +81,17 @@ export function PlanningView() {
 
           <section aria-labelledby="headline-heading" className={styles.section}>
             <h2 id="headline-heading" className={styles.heading}>Headline</h2>
-            <p className={styles.heading}>{data.referrals} referrals</p>
+            <p className={styles.heading}>{`${countText(data.referrals)} referrals`}</p>
             <p>
-              {data.bestFitUnavailable.count} best fit unavailable ({data.bestFitUnavailable.pct}% of referrals. Full, closed or
-              not updated.)
+              {data.bestFitUnavailable.pct === null || data.bestFitUnavailable.suppressed
+                ? `${countText(data.bestFitUnavailable)} best fit unavailable (Full, closed or not updated.)`
+                : `${countText(data.bestFitUnavailable)} best fit unavailable (${data.bestFitUnavailable.pct}% of referrals. Full, closed or not updated.)`}
             </p>
-            <p>{data.wentElsewhere} went to another suitable service</p>
+            <p>{`${countText(data.wentElsewhere)} went to another suitable service`}</p>
           </section>
 
           <FlowsTable flows={data.flows} total={data.bestFitUnavailable.count} />
-          <HeatGrid grid={data.grid} />
+          <HeatGrid grid={data.grid} busiest={data.busiest} />
 
           <section aria-labelledby="declined-heading" className={styles.section}>
             <h2 id="declined-heading" className={styles.heading}>Declined despite showing capacity</h2>

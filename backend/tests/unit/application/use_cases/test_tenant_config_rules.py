@@ -431,7 +431,7 @@ def test_the_same_person_cannot_approve_twice() -> None:
     draft = draft_of({**WINDOW, "staleWarningHours": 3})
     pending = apply_approval(draft, current_config(), "prac-owner-1", NOW)
 
-    with pytest.raises(NotAllowed):
+    with pytest.raises(NotAllowed, match="already approved"):
         apply_approval(pending, current_config(), "prac-owner-1", LATER)
 
 

@@ -388,6 +388,7 @@ def test_a_missing_empty_list_reads_as_no_approvers() -> None:
         {"createdByRef": None},
         {"createdByRef": "bad ref!"},
         {"approvedByRefs": "prac-owner-1"},
+        {"approvedByRefs": "abc"},  # a string is not a list of refs, whatever its letters
         {"approvedByRefs": ["a", "a"]},
         {"reasonCode": 5},
     ],

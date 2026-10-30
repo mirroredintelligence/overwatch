@@ -4,7 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
+import { http, HttpResponse } from 'msw';
 import { resetSeenAdvisorRequests } from '@/test/msw/handlers/advisor';
+import { server } from '@/test/msw/server';
 import { FinishScreen } from './FinishScreen';
 
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -20,7 +22,7 @@ describe('FinishScreen (W15)', () => {
     render(<FinishScreen caseId="4821" preselect={null} />);
 
     expect(await screen.findByText('DT4 8XX')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Accepted and booked' }));
+    await user.click(byEl('ADV-FIN-OUTCOME-DECLINED'));
     await user.click(byEl('ADV-FIN-SAVE-BTN'));
 
     expect(await screen.findByRole('heading', { name: 'Call closed' })).toBeInTheDocument();
@@ -37,17 +39,25 @@ describe('FinishScreen (W15)', () => {
     render(<FinishScreen caseId="case-1" preselect={null} />);
 
     expect(await screen.findByText('Case 4821')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Declined' }));
+    await user.click(byEl('ADV-FIN-OUTCOME-DECLINED'));
     await user.click(byEl('ADV-FIN-SAVE-BTN'));
 
     expect(await screen.findByText('Case 4821 is saved. The postcode has been cleared from this screen.')).toBeInTheDocument();
     expect(document.body.textContent).not.toContain('case-1');
   });
 
+  it('says the call is closed, and offers no outcome, when the case was closed already', async () => {
+    server.use(http.get('/api/bff/cases/:ref/summary', () => HttpResponse.json({ code: 'closed' }, { status: 409 })));
+    render(<FinishScreen caseId="case-1" preselect={null} />);
+
+    expect(await screen.findByRole('heading', { name: 'Call closed' })).toBeInTheDocument();
+    expect(document.querySelector('[data-el="ADV-FIN-SAVE-BTN"]')).toBeNull();
+  });
+
   it('"Start next call" goes to the advisor home', async () => {
     const user = userEvent.setup();
     render(<FinishScreen caseId="4821" preselect={null} />);
-    await user.click(screen.getByRole('button', { name: 'Accepted and booked' }));
+    await user.click(byEl('ADV-FIN-OUTCOME-DECLINED'));
     await user.click(byEl('ADV-FIN-SAVE-BTN'));
 
     expect(await screen.findByRole('link', { name: 'Start next call' })).toHaveAttribute('href', '/advisor');

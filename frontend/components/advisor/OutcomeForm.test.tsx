@@ -28,12 +28,17 @@ describe('OutcomeForm (W15)', () => {
     render(<OutcomeForm caseId="4821" preselect={null} onClosed={onClosed} />);
 
     await user.click(screen.getByRole('button', { name: 'Accepted and booked' }));
+    await user.click(await screen.findByRole('button', { name: 'UCR West' }));
     await user.click(screen.getByRole('button', { name: 'Data too old' }));
     await user.click(byEl('ADV-FIN-SAVE-BTN'));
 
     await waitFor(() => expect(onClosed).toHaveBeenCalledWith('2026-10-30T14:21:00.000Z'));
     expect(seenOutcomePosts).toHaveLength(1);
-    expect(seenOutcomePosts[0].body).toEqual({ outcome: 'accepted-and-booked', bestFitNotUsed: 'data-too-old' });
+    expect(seenOutcomePosts[0].body).toEqual({
+      outcome: 'accepted-and-booked',
+      bestFitNotUsed: 'data-too-old',
+      destinationServiceId: 'svc-ucr-west',
+    });
     expect(seenOutcomePosts[0].csrf).toBe(CSRF_TOKEN);
     expect(seenOutcomePosts[0].key).toMatch(/^[A-Za-z0-9_-]{8,64}$/);
   });

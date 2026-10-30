@@ -19,12 +19,18 @@ export function FinishScreen({ caseId, preselect }: Props) {
   const [summary, setSummary] = useState<SummaryView | null>(null);
   const [failed, setFailed] = useState(false);
   const [closed, setClosed] = useState(false);
+  // The case number is kept when the summary is forgotten: it is the one thing the closed screen names.
+  const [reference, setReference] = useState<string | null>(null);
 
   useEffect(() => {
     let live = true;
     bffFetch<SummaryView>(`/api/bff/cases/${encodeURIComponent(caseId)}/summary`).then((reply) => {
       if (!live) return;
-      if (reply.ok) setSummary(reply.body);
+      if (reply.ok) {
+        setSummary(reply.body);
+        setReference(reply.body.reference);
+      }
+      else if (reply.status === 409 && reply.code === 'closed') setClosed(true);
       else setFailed(true);
     });
     return () => {
@@ -32,12 +38,12 @@ export function FinishScreen({ caseId, preselect }: Props) {
     };
   }, [caseId]);
 
-  if (closed) return <CallClosed caseId={caseId} />;
+  if (closed) return <CallClosed reference={reference} />;
 
   return (
     <div className={styles.screen}>
       <h1 className={styles.heading}>Record outcome</h1>
-      <p className={styles.text}>{`Case ${caseId}`}</p>
+      <p className={styles.text}>{reference === null ? 'Case number not read yet' : `Case ${reference}`}</p>
       <section id="outcome" aria-label="Outcome">
         <OutcomeForm
           caseId={caseId}

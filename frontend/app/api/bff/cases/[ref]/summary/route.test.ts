@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
 import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { BACKEND_BASE } from '@/test/msw/handlers/board';
+import { CASE_CLOSED, CASE_FULL } from '@/test/fixtures/backend-shapes';
 import { server } from '@/test/msw/server';
 import { GET } from './route';
 
@@ -38,28 +39,7 @@ beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
-  server.use(
-    http.get(SR_URL, () =>
-      HttpResponse.json(
-        {
-          resourceType: 'ServiceRequest',
-          id: '4821',
-          contained: [
-            {
-              resourceType: 'Patient',
-              id: 'p',
-              address: [{ postalCode: 'DT4 8XX' }],
-              extension: [{ url: 'https://diucs.example/StructureDefinition/age-band', valueCode: '80+' }],
-            },
-          ],
-          extension: [{ url: 'https://diucs.example/StructureDefinition/referrer-type', valueCode: 'gp' }],
-          priority: 'routine',
-          reasonCode: [{ coding: [{ system: 'https://diucs.example/CodeSystem/need-category', code: 'frailty' }] }],
-        },
-        { headers: { ETag: 'W/"1"' } },
-      ),
-    ),
-  );
+  server.use(http.get(SR_URL, () => HttpResponse.json(CASE_FULL, { headers: { ETag: 'W/"1"' } })));
 });
 
 afterEach(() => {
@@ -73,16 +53,24 @@ describe('GET /api/bff/cases/[ref]/summary (W15)', () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       reference: '4821',
-      referrer: 'GP',
+      referrer: 'Ambulance crew',
       ageBand: '80+',
-      postcode: 'DT4 8XX',
-      needs: 'Frailty',
-      urgency: 'Today',
-      scores: 'None given',
+      postcode: 'DT4',
+      needs: 'Fall, Frailty',
+      urgency: 'Within 2 hrs',
+      scores: 'NEWS2 2',
       destination: 'Not recorded in this view',
       booked: 'Not recorded in this view',
       dataAge: 'Not recorded in this view',
     });
+  });
+
+  it('answers 409 closed for a closed case: the back end builds the summary only while a case is open', async () => {
+    server.use(http.get(SR_URL, () => HttpResponse.json(CASE_CLOSED)));
+    const response = await get('advisor');
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({ code: 'closed' });
   });
 
   it('answers 403 for a reporter and reads nothing', async () => {

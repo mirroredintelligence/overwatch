@@ -33,6 +33,11 @@ export type OutcomeInput = {
 
 const SERVICE_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
+/** True for the two outcomes that name the service the patient went to. */
+export function takesDestination(outcome: string): boolean {
+  return outcome === 'accepted-and-booked' || outcome === 'redirected';
+}
+
 export function isTextOutcome(value: unknown): value is TextOutcome {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(TEXT_OUTCOMES, value);
 }
@@ -63,5 +68,8 @@ export function parseOutcomeInput(value: unknown): OutcomeInput | null {
     if (typeof source.destinationServiceId !== 'string' || !SERVICE_ID.test(source.destinationServiceId)) return null;
     input.destinationServiceId = source.destinationServiceId;
   }
+  // The back end's rule (RecordOutcome.check_destination): an accepted-and-booked or redirected call
+  // names the service it went to, and every other outcome names none.
+  if (takesDestination(input.outcome) !== (input.destinationServiceId !== undefined)) return null;
   return input;
 }

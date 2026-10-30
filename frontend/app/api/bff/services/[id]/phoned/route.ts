@@ -4,7 +4,7 @@ import { postAdvisorPhoned, type Said } from '@/lib/advisor/service-api';
 import { withBff } from '@/lib/bff/handler';
 
 // "I phoned" (W14): what the service said on the phone. The body names the case by its id and the
-// answer; the service is in the path. A "not accepting" answer always carries 0. The browser's key is
+// answer; the service is in the path. A "not accepting" answer carries no number to the back end. The browser's key is
 // passed on, so a double press records once.
 
 const SERVICE_ID = /^[A-Za-z0-9_-]{1,64}$/;
@@ -35,9 +35,9 @@ const post = withBff<Context>(
     if (typeof caseId !== 'string' || !CASE_ID.test(caseId)) return refuse(400, 'invalid');
     if (!SAID.includes(said as Said)) return refuse(400, 'invalid');
 
-    let value: number;
+    let value: number | null;
     if (said === 'not-accepting') {
-      value = 0;
+      value = null; // the back end refuses a number with this answer and stores 0 (DEC-861)
     } else if (typeof body.value === 'number' && Number.isInteger(body.value) && body.value >= 0 && body.value <= MAX_VALUE) {
       value = body.value;
     } else {

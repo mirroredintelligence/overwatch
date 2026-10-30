@@ -28,7 +28,7 @@ export type CriteriaOverview = {
   serviceName: string;
   current: CriteriaValues & { version: number; reviewBy: string };
   /** A version waiting for the second approval. Advisors still see `current` until it is approved. */
-  draft?: CriteriaValues & {
+  draft?: Partial<CriteriaValues> & {
     version: number;
     reviewBy: string;
     status: 'waiting' | 'sent-back';

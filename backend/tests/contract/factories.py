@@ -13,6 +13,7 @@ change another test's result.
 import asyncio
 import json
 from collections import defaultdict, deque
+from collections.abc import Callable
 from contextlib import AsyncExitStack
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -39,6 +40,7 @@ from diucs.domain.rules.identity_policy import CodeState
 from tests.contract.harness import Harness
 from tests.support.redis import flush_prefix, flush_run
 from tests.support.servicebus import client as servicebus_client
+from tests.support.servicebus import take_emulator_lock
 
 # Every fake starts on 2026-10-25, the day of the London clock change, in UTC (the only zone a
 # contract may depend on). Durations are relative, so no test depends on the start instant.
@@ -300,7 +302,18 @@ class _RecordingBus:
 
 
 async def make_servicebus_event_bus() -> Harness[EventBus]:
-    """The Service Bus emulator (I02, DEC-008 pattern: no state carries between tests)."""
+    """The Service Bus emulator (I02, DEC-008 pattern: no state carries between tests). The
+    emulator lock is held from here until close(): another run that receives from the same queues
+    takes this test's due message (tests/support/servicebus.py)."""
+    release = await take_emulator_lock()
+    try:
+        return await _open_servicebus_event_bus(release)
+    except BaseException:
+        release()
+        raise
+
+
+async def _open_servicebus_event_bus(release: Callable[[], None]) -> Harness[EventBus]:
     sb = servicebus_client()
     # A timed-out session open is the normal empty case, so it fails at once instead of retrying
     # for about 40 s per call (DEC-102 item 4).
@@ -325,9 +338,12 @@ async def make_servicebus_event_bus() -> Harness[EventBus]:
                 await bus.cancel(queue, number)
             await _drain(sb, sessions, _CONTRACT_QUEUES)
         finally:
-            await bus.close()
-            await sessions.close()
-            await sb.close()
+            try:
+                await bus.close()
+                await sessions.close()
+                await sb.close()
+            finally:
+                release()
 
     return Harness(
         subject=recorder,

@@ -68,6 +68,7 @@ EXPECTED_CHANNELS: dict[MessageId, frozenset[Channel]] = {
     MessageId.K2: frozenset({EMAIL, PUSH}),
     MessageId.K3: frozenset({PUSH}),
     MessageId.K4: frozenset({TEXT}),
+    MessageId.T1: frozenset({TEXT, EMAIL, PUSH}),
 }
 
 _CAPACITY_LINK = "diucs.example/k3F9a"
@@ -167,6 +168,7 @@ SAMPLE_FIELDS: dict[MessageId, dict[str, object]] = {
     MessageId.K2: {"service": "UCR West", "review_by": "30 Oct"},
     MessageId.K3: {"title": "Capacity alert", "body": "UCR West: not updated"},
     MessageId.K4: {"service": "UCR West", "coordination_team_name": "The SPOA shift lead"},
+    MessageId.T1: {"service": "UCR West"},
 }
 
 # Scalar probe values for the field-level test: a name in title form, as it could reach a field.

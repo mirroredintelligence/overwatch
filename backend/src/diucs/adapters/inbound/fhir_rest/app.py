@@ -115,13 +115,19 @@ def create_app(
         routes_cases,
         routes_clinical,
         routes_criteria,
+        routes_criteria_views,
         routes_events,
         routes_identity,
         routes_lead,
+        routes_lead_views,
         routes_network,
         routes_network_events,
         routes_public,
         routes_registration,
+        routes_registration_session,
+        routes_registration_views,
+        routes_reporter,
+        routes_reporter_setup,
         routes_screens,
         routes_services,
         routes_terminology,
@@ -153,15 +159,23 @@ def create_app(
     app.include_router(routes_screens.router)
     # Reporter identity: text code, PIN, the 30-day check and push subscriptions (R11).
     app.include_router(routes_identity.router)
+    # Reporter set-up behind a link or a device, and the reporter app's routes behind a reporter's
+    # bearer token (W7C).
+    app.include_router(routes_reporter_setup.router)
+    app.include_router(routes_reporter.router)
     # The public tenant profile (TEN-040): no token, the tenant is the request host.
     app.include_router(routes_public.router)
     # The token exchange (TEN-043): the back end issues the tenant-bound token.
     app.include_router(routes_auth.router)
     # Shift lead set-up and number changes (R08): FHIR operations over the U15 and U16 use cases.
     app.include_router(routes_lead.router)
+    app.include_router(routes_lead_views.router)
     # Registration, scope list and criteria (R10): FHIR operations over the S6 use cases.
     app.include_router(routes_registration.router)
+    app.include_router(routes_registration_session.router)
+    app.include_router(routes_registration_views.router)
     app.include_router(routes_criteria.router)
+    app.include_router(routes_criteria_views.router)
 
     # Support codes and the support console (R18): JSON routes over the O06 and R18 use cases.
     from diucs.adapters.inbound.fhir_rest import routes_support

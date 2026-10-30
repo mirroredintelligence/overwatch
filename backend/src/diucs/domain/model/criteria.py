@@ -6,7 +6,7 @@ cannot be built, so it cannot reach the filter.
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from diucs.domain.codes import CriteriaStatus, NeedCategory
 from diucs.domain.errors import ValidationFailed
@@ -55,6 +55,9 @@ class ServiceCriteria:
     review_months: int | None = None
     """The review period the owner chose (3, 6 or 12 months, U30). A pending version carries it so
     that approval can set review-by from the approval date."""
+    changed_on: date | None = None
+    """The London day this version was proposed, and again the day it was approved (W7B B), so the
+    history can say when each change was made. None for a version stored before it was kept."""
 
     def __post_init__(self) -> None:
         _check_int("version", self.version, minimum=1)
@@ -68,6 +71,10 @@ class ServiceCriteria:
         _check_needs("excludes", self.excludes)
         if self.accepts & self.excludes:
             raise ValidationFailed("excludes", "a need cannot be both accepted and excluded")
+        if self.changed_on is not None and (
+            not isinstance(self.changed_on, date) or isinstance(self.changed_on, datetime)
+        ):
+            raise ValidationFailed("changed_on", "must be a calendar date")
         if self.review_months is not None and (
             type(self.review_months) is not int or self.review_months not in REVIEW_CHOICES_MONTHS
         ):

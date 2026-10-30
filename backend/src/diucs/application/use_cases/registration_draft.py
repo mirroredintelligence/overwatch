@@ -404,6 +404,9 @@ class SaveRegistrationStepCommand:
     actor: Actor
     registration_id: str
     step: OrganisationStep | LocationStep | ServiceStep | ReportingStep | ApiStep
+    partial: bool = False
+    """A draft: the step is saved part-filled. A service name that is blank is the invitation's, and
+    a contact that is not a good number or address is not stored (the step still reports it)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -454,9 +457,14 @@ class SaveRegistrationStep:
         if kind not in _KEY_OF:
             raise ValidationFailed("step", "is not a registration step")
         fingerprint = _fingerprint(
-            "save", command.registration_id, repr(command.step), command.actor.practitioner_id
+            "save",
+            command.registration_id,
+            repr(command.step),
+            command.partial,
+            command.actor.practitioner_id,
         )
         now = self._clock.now()
+        step = command.step
         async with self._uow_factory() as uow:
             key = _command_key(uow.unit_scope, command.idempotency_key)
             stored = _replay(await uow.idempotency.get(key), fingerprint)
@@ -482,19 +490,24 @@ class SaveRegistrationStep:
                     f"a registration in {registration.status.value} cannot be edited"
                 )
             fixed_site: bool | None = None
-            if isinstance(command.step, ServiceStep):
+            if isinstance(step, ServiceStep):
                 entry = await uow.scope.get_entry(registration.service_id)
                 if entry is None:
                     raise NotFound("this service is not on the scope list")
-                if command.step.service_name != entry.name:
+                if command.partial and not step.service_name.strip():
+                    step = replace(step, service_name=entry.name)
+                if step.service_name != entry.name:
                     raise ValidationFailed("service_name", "is fixed by the invitation")
                 location = read_draft(registration).location
                 fixed_site = None if location is None else location.fixed_site
-            errors = validate_step(command.step, fixed_site=fixed_site)
-            if isinstance(command.step, ReportingStep) and not errors:
-                await _store_contacts(uow, registration.requester_role_id, command.step)
+            errors = validate_step(step, fixed_site=fixed_site)
+            if isinstance(step, ReportingStep):
+                if not errors:
+                    await _store_contacts(uow, registration.requester_role_id, step)
+                elif command.partial:
+                    await _store_contacts(uow, registration.requester_role_id, _good_contacts(step))
             draft = dict(registration.draft)
-            draft[_KEY_OF[kind]] = encode_step(command.step)
+            draft[_KEY_OF[kind]] = encode_step(step)
             updated = replace(registration, status=status, draft=draft, last_modified=now)
             await uow.registrations.save(updated)
             await uow.audit.append(
@@ -520,6 +533,14 @@ async def _store_contacts(uow: UnitOfWork, role_id: str | None, step: ReportingS
         await uow.contacts.put_phone(role_id, step.contact_mobile)
     if step.contact_email:
         await uow.contacts.put_email(role_id, step.contact_email)
+
+
+def _good_contacts(step: ReportingStep) -> ReportingStep:
+    """The step with only the contacts that are good numbers or addresses, so a draft never stores
+    half a number."""
+    mobile = step.contact_mobile if is_full_uk_phone(step.contact_mobile) else ""
+    email = step.contact_email if _valid_email(step.contact_email) else ""
+    return replace(step, contact_mobile=mobile, contact_email=email)
 
 
 def with_protected_contacts(

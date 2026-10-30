@@ -661,10 +661,11 @@ def _checked_note(note: str) -> str:
 
 
 def _role_spoken_to(result: CallBackResult, role: str) -> str:
-    """The role spoken to: required when someone was spoken to (confirmed or not confirmed),
-    optional for no answer (DEC-318 item 2)."""
+    """The role spoken to: required when the call confirmed the number, optional when it did not
+    (not confirmed, no answer): the lead may not know who answered (DEC-318 item 2, narrowed by the
+    front end's finding, W7B A3)."""
     text = " ".join(role.split()) if isinstance(role, str) else ""
-    if not text and result is not CallBackResult.NO_ANSWER:
+    if not text and result is CallBackResult.CONFIRMED:
         raise ValidationFailed("role_spoken_to", "is required")
     if text:
         if len(text) > ROLE_SPOKEN_MAX_LENGTH:

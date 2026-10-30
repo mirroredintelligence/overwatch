@@ -97,6 +97,7 @@ from diucs.application.use_cases.reporter_identity import (
     SetDevicePinCommand,
     SignInKind,
 )
+from diucs.application.use_cases.reporter_setup import CoordinationPhone
 from diucs.application.use_cases.text_code import (
     CODE_HMAC_SECRET,
     RESEND_AFTER_SECONDS,
@@ -459,7 +460,8 @@ async def request_new_phone_code(body: NewPhoneBody, request: Request) -> Respon
 async def verify_new_phone(body: NewPhoneVerifyBody, request: Request) -> Response:
     """The new number's code, checked. The answer is `pending-callback` while the lead's call-back
     is outstanding. A wrong code, or a code that has lapsed or locked, is a 400 (the same contract
-    as /code/verify, R11: the use case gives one answer for those three)."""
+    as /code/verify, R11: the use case gives one answer for those three). The wait also carries
+    `spoaPhone`, the tenant's coordination phone or null (W7C)."""
 
     async def work(container: _Container) -> Response:
         result = await ConfirmDeviceByTextCode(
@@ -483,7 +485,10 @@ async def verify_new_phone(body: NewPhoneVerifyBody, request: Request) -> Respon
             return operation_outcome(400, "invalid", text, headers=_NO_STORE)
         if result.device_refused:
             return operation_outcome(409, "conflict", DEVICE_REFUSED_TEXT, headers=_NO_STORE)
-        return _json(200, {"status": "pending-callback"})
+        # The screen of the wait tells the reporter to phone the SPOA: the tenant's own number
+        # (W7C), or none when the tenant has set none.
+        phone = await CoordinationPhone(container.uow_factory).read()
+        return _json(200, {"status": "pending-callback", "spoaPhone": phone})
 
     return await _edge(
         request, "new-phone-verify", ADDRESS_CODE_CHECKS, work, PHONE_HASH_SECRET, CODE_HMAC_SECRET

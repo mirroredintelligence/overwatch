@@ -24,6 +24,7 @@ from diucs.adapters.outbound.graph_store.bundle_writer import write_bundle as wr
 from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
 from diucs.adapters.outbound.graph_store.invitation_fhir import (
+    INVITE_REPORTER,
     invitation_from_fhir,
     invitation_to_fhir,
     is_invitation,
@@ -149,7 +150,39 @@ _NODE_AREA: Final = SeedNode(
 _DISTRICT_SEED: Final = TenantSeed(
     nodes=(_NODE_AREA, _NODE_DISTRICT_TYPE), rels=(SeedRel("area", "TYPE", "district-type"),)
 )
+# The invitation Tasks of a tenant (W7B C): both tenants hold an invitation `inv-1` and a
+# registration `reg-1`; the invitation's id differs (`Marked`), so a row from the other tenant looks
+# different, and the registration must never be listed with the invitations.
+_NODE_INVITE_CONCEPT: Final = SeedNode(
+    "invite-concept",
+    ("Concept",),
+    {
+        "system": _TASK_SYSTEM,
+        "code": INVITE_REPORTER,
+        "key": f"Concept|{_TASK_SYSTEM}|{INVITE_REPORTER}",
+        "display": Marked("Invite a reporter"),
+    },
+)
+_NODE_INVITATION: Final = SeedNode(
+    "invitation",
+    ("Resource", "Task"),
+    {"id": Marked("inv-1"), "key": "Task/inv-1"},
+)
+_INVITATION_SEED: Final = TenantSeed(
+    nodes=(_NODE_TASK, _NODE_CONCEPT, _NODE_INVITE_CONCEPT, _NODE_INVITATION),
+    rels=(
+        SeedRel("task", "CODE", "concept"),
+        SeedRel("invitation", "CODE", "invite-concept"),
+    ),
+)
 _SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-REG-INVITATIONS": Scenario(
+        "list the invitations of the tenant, newest first",
+        seed=_INVITATION_SEED,
+        params={"system": _TASK_SYSTEM, "code": INVITE_REPORTER},
+        lookup=("system", "code"),
+        expect=Expect(rows=({"id": Marked("inv-1")},)),
+    ),
     "Q-REG-DISTRICT-LOCATIONS": Scenario(
         "find the tenant's postcode-district Locations by name",
         seed=_DISTRICT_SEED,
@@ -243,6 +276,16 @@ _FOR_SERVICE: Final = NamedQuery(
     mode="read",
     scenario=_SCENARIOS["Q-REG-FOR-SERVICE"],
 )
+_INVITATIONS: Final = NamedQuery(
+    id="Q-REG-INVITATIONS",
+    cypher=(
+        "MATCH (t:Task {tenantId: $tenant})-[:CODE]->"
+        "(:Concept {system: $system, code: $code, tenantId: $tenant}) "
+        "RETURN t.id AS id ORDER BY t.authoredOn DESC, t.id DESC"
+    ),
+    mode="read",
+    scenario=_SCENARIOS["Q-REG-INVITATIONS"],
+)
 _SET_PROPS: Final = NamedQuery(
     id="Q-REG-SET-PROPS",
     cypher=(
@@ -302,6 +345,7 @@ def _register(query: NamedQuery) -> None:
 for _query in (
     _BY_STATUS,
     _FOR_SERVICE,
+    _INVITATIONS,
     _SET_PROPS,
     _DRAFT_CLEAR,
     _DRAFT_ADD,
@@ -548,6 +592,20 @@ class Neo4jRegistrationRepository:
         found: dict[str, str] = {}
         for row in rows:  # ordered by id, so the first of a name is the lowest
             found.setdefault(str(row["name"]), str(row["id"]))
+        return found
+
+    async def list_invitations(self) -> list[Invitation]:
+        rows = await run_query(
+            self._tx,
+            REGISTRY.get("Q-REG-INVITATIONS"),
+            system=TASK_CODE_SYSTEM,
+            code=INVITE_REPORTER,
+        )
+        found: list[Invitation] = []
+        for row in rows:
+            invitation = await self.get_invitation(str(row["id"]))
+            if invitation is not None:
+                found.append(invitation)
         return found
 
     async def add_invitation(self, invitation: Invitation) -> None:

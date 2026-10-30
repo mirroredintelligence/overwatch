@@ -246,6 +246,18 @@ class PinStore(Protocol):
     async def clear_all(self, practitioner_id: str) -> None: ...
 
 
+@dataclass(frozen=True, slots=True)
+class DeviceFacts:
+    """One of a practitioner's devices as the registry holds it: its id, whether it is active or
+    waits for the lead's call-back, when it was registered and when a text code was last verified
+    on it. Never revoked ones. Read for the set-up tracker (W7B C); no number is here."""
+
+    device_id: str
+    status: str
+    registered_at: datetime
+    last_verified_at: datetime | None
+
+
 class DeviceRegistry(Protocol):
     """The devices a practitioner has registered (P16), and the wall screens of the tenant (U10).
     A revoked device is never known again."""
@@ -253,6 +265,11 @@ class DeviceRegistry(Protocol):
     async def register(self, practitioner_id: str, device_id: str, at: datetime) -> None: ...
 
     async def known(self, practitioner_id: str, device_id: str) -> bool: ...
+
+    async def count_active(self, practitioner_id: str) -> int:
+        """How many of the practitioner's devices are active: registered, not revoked and not
+        waiting for the lead's call-back (W7C: the settings count the other phones)."""
+        ...
 
     async def revoke_all(self, practitioner_id: str) -> int:
         """Revoke every device of the practitioner that is not revoked already, pending ones
@@ -274,6 +291,11 @@ class DeviceRegistry(Protocol):
     async def awaiting_callback(self, practitioner_id: str) -> list[str]:
         """The ids of the practitioner's devices that wait for the lead's call-back and are not
         revoked (U37)."""
+        ...
+
+    async def devices_of(self, practitioner_id: str) -> list[DeviceFacts]:
+        """The practitioner's devices that are not revoked, oldest first (W7B C: the lead's set-up
+        tracker). An unknown practitioner, and another tenant's, has none."""
         ...
 
     async def owner_of(self, device_id: str) -> str | None:

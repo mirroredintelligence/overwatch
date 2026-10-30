@@ -30,6 +30,9 @@ class Measure(StrEnum):
     REFERRALS_ACCEPTABLE = "referrals-acceptable"
     OCCUPIED_PATIENTS = "occupied-patients"
     PACKAGES_FREE = "packages-free"
+    OTHER = "other"
+    # A service that counts something none of the others name: read like any other count, with the
+    # generic unit "places" (W7B A3).
 
 
 class ReportSource(StrEnum):

@@ -214,6 +214,18 @@ class Neo4jServiceRepository:
             return None
         return profile_from_fhir(resource), int(resource["meta"]["versionId"])
 
+    async def work_phone(self, service_id: str) -> str | None:
+        resource = await self._store.get(_RESOURCE_TYPE, service_id)
+        if resource is None:
+            return None
+        telecom = resource.get("telecom")
+        for point in telecom if isinstance(telecom, list) else []:
+            if isinstance(point, dict) and point.get("system") == "phone":
+                value = point.get("value")
+                if isinstance(value, str) and value.strip():
+                    return value
+        return None
+
     async def list_active(self) -> list[ServiceProfile]:
         rows = await run_query(self._tx, REGISTRY.get("Q-SVC-LIST-ACTIVE"))
         profiles: list[ServiceProfile] = []

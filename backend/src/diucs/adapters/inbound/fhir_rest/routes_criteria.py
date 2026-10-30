@@ -130,8 +130,9 @@ def _basic(record: ServiceCriteria) -> dict[str, Any]:
 
 def _view_basic(view: CriteriaVersionView, service_id: str) -> dict[str, Any]:
     """One version as the history shows it: its status, review date and what it accepts and
-    excludes (the criteria dialog reads these), and the age range. Not the districts, the author
-    or the change reason."""
+    excludes (the criteria dialog reads these), and the age range. Not the districts or the change
+    reason. The day of the change and the author's post in words (never a person) are there for
+    the roles that read the history of changes; an advisor reads neither (W7B B)."""
     body: dict[str, Any] = {
         "resourceType": "Basic",
         "id": view.criteria_id,
@@ -146,6 +147,9 @@ def _view_basic(view: CriteriaVersionView, service_id: str) -> dict[str, Any]:
     }
     if view.age_max is not None:
         body["ageMax"] = view.age_max
+    if view.author_role is not None or view.changed_on is not None:
+        body["changedOn"] = None if view.changed_on is None else view.changed_on.isoformat()
+        body["authorRole"] = view.author_role
     return body
 
 

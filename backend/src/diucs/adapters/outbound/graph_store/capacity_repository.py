@@ -43,6 +43,7 @@ _UCUM_UNITS: Final[dict[Measure, str]] = {
     Measure.FREE_SLOTS: "{slot}",
     Measure.OCCUPIED_PATIENTS: "{patient}",
     Measure.PACKAGES_FREE: "{package}",
+    Measure.OTHER: "{place}",
 }
 _REPORT_TYPE_URL: Final = f"{BASE_URL}StructureDefinition/reportType"
 _OBSERVATION: Final = "Observation"

@@ -48,6 +48,7 @@ from diucs.domain.model.people import (
 )
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules.london_time import to_london
 from diucs.domain.rules.postcode import normalise_district
 from diucs.domain.rules.schedule import next_due
 
@@ -202,7 +203,11 @@ def _districts(value: object) -> frozenset[str]:
 
 
 def build_criteria(
-    command: SetupServiceCommand, criteria_id: str, service_id: str, owner_role_id: str
+    command: SetupServiceCommand,
+    criteria_id: str,
+    service_id: str,
+    owner_role_id: str,
+    changed_on: date | None = None,
 ) -> ServiceCriteria:
     """Criteria version 1, current. ServiceCriteria checks the ages and the need sets; this adds the
     district rule, the review date rule and the rule that a service accepts at least one need."""
@@ -222,6 +227,7 @@ def build_criteria(
         excludes=command.excludes,
         review_by=command.review_by,
         owner_role_id=owner_role_id,
+        changed_on=changed_on,
     )
 
 
@@ -362,7 +368,9 @@ class SetupServiceByLead:
         reporter_role_id = self._ids.new_id()
         owner_role_id = self._ids.new_id()
         criteria_id = self._ids.new_id()
-        criteria = build_criteria(command, criteria_id, service_id, owner_role_id)
+        criteria = build_criteria(
+            command, criteria_id, service_id, owner_role_id, to_london(now).date()
+        )
 
         async with self._uow_factory() as uow:
             stored = await uow.idempotency.get(command.idempotency_key)

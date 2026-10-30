@@ -53,7 +53,14 @@ SPEC: dict[type[StrEnum], tuple[str, tuple[str, ...]]] = {
     ),
     Measure: (
         "capacity-measure",
-        ("free-slots", "free-beds", "referrals-acceptable", "occupied-patients", "packages-free"),
+        (
+            "free-slots",
+            "free-beds",
+            "referrals-acceptable",
+            "occupied-patients",
+            "packages-free",
+            "other",
+        ),
     ),
     ReportSource: (
         "report-source",

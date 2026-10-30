@@ -24,8 +24,11 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET
 from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
+from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
 from diucs.bootstrap.container import Container, build_for_tests
-from diucs.domain.codes import Role, code_system_url
+from diucs.domain.codes import PractitionerRoleCode, Role, code_system_url
+from diucs.domain.model.people import Practitioner, PractitionerRole
 from tests.support.api import R01_TEST_NOW, token_headers
 from tests.support.neo4j import ThrowawayNeo4j
 from tests.support.uow import ensure_audit_heads
@@ -38,6 +41,8 @@ PRESENCE = "/clinical/presence"
 AVAILABLE = "/clinical/available"
 TASK = "/fhir/Task"
 SAFETY_TEXT = "The board showed the wrong service for the sample referral."
+# The key that seals the clinical safety officer's notice (queue_message): a safety concern needs it.
+LINK_SECRET = b"link-token-test-secret-0123456789abcdef"
 
 
 @pytest_asyncio.fixture(loop_scope="session")
@@ -53,7 +58,9 @@ async def test_container(
         yield build_for_tests(
             clock=FixedClock(R01_TEST_NOW),
             neo4j=connection,
-            secrets=FixedSecretStore({PHONE_HASH_SECRET: b"phone-hash-test-secret-0123456789ab"}),
+            secrets=FixedSecretStore(
+                {PHONE_HASH_SECRET: b"phone-hash-test-secret-0123456789ab", LINK_TOKEN_SECRET: LINK_SECRET}
+            ),
         )
     finally:
         await connection.close()
@@ -65,12 +72,30 @@ async def clinical_world(
     test_container: Container,
     neo4j_driver: AsyncDriver,
     tenant_id: str,
+    uow_factory_a: UnitOfWorkFactory,
 ) -> None:
     """The replay cache and presence store are set as the other route tests set them (lesson L131).
-    The run tenant's audit head exists before any write."""
+    The run tenant's audit head exists before any write. The clinician who sets a presence is a
+    clinical lead in the graph: the count only reads the clinical leads (AvailableClinicians)."""
     api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
     api_app.state.cache = InMemoryCache(test_container.clock)
     await ensure_audit_heads(neo4j_driver, tenant_id)
+    async with uow_factory_a() as uow:
+        await uow.people.save_practitioner(
+            Practitioner(id="clin-1", active=True, display_name="Clinician", phone_hash=None)
+        )
+        await uow.people.save_role(
+            PractitionerRole(
+                id="role-clin-1",
+                practitioner_id="clin-1",
+                service_id=None,
+                code=PractitionerRoleCode.CLINICAL_LEAD,
+                active=True,
+                channel=None,
+                period_start=R01_TEST_NOW,
+            )
+        )
+        await uow.commit()
 
 
 async def test_a_clinician_goes_available_and_the_count_names_no_one(

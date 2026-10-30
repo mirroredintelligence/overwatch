@@ -4,4 +4,6 @@ import { linkHandlers } from './links';
 
 // Default handlers for every test. Feature tasks add their handlers in
 // test/msw/handlers/<area>.ts and list them here.
-export const handlers: RequestHandler[] = [...boardHandlers, ...linkHandlers];
+import { reporterHandlers } from './reporter';
+
+export const handlers: RequestHandler[] = [...boardHandlers, ...linkHandlers, ...reporterHandlers];

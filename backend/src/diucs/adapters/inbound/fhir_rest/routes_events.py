@@ -21,12 +21,13 @@ import json
 import re
 from collections.abc import AsyncIterator, Mapping
 from datetime import datetime
-from typing import Any, Final
+from typing import Annotated, Any, Final
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 
 from diucs.adapters.inbound.fhir_rest.auth import require_role
+from diucs.application.actor import Actor, require_actor_in_bound_tenant
 from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache
 from diucs.application.use_cases.board_projector import BOARD_CHANGED
 from diucs.domain.codes import Role
@@ -157,8 +158,13 @@ def _cache(request: Request) -> Cache:
     return cache
 
 
-@router.get("/events", dependencies=[Depends(require_role(*STREAM_ROLES))])
-async def events(request: Request) -> StreamingResponse:
+@router.get("/events")
+async def events(
+    request: Request, actor: Annotated[Actor, Depends(require_role(*STREAM_ROLES))]
+) -> StreamingResponse:
+    # The stream is the caller's scope only (TEN-039): the subscription below takes the channel of
+    # the scope the token bound, and keeps it. An actor that is not of that scope is a wiring fault.
+    require_actor_in_bound_tenant(actor)
     messages = await _cache(request).subscribe(BOARD_UPDATES_CHANNEL)
     return StreamingResponse(
         _events(messages),

@@ -11,7 +11,14 @@ from handle, so the consumer can retry: rebuilding is idempotent. The anonymous 
 before the cache is read, so the cache cannot serve it a board (QueryBoard refuses it too).
 
 The cache key does not depend on the caller's role. Every role that may read the board sees the
-same board today. Any role-specific filter added to QueryBoard needs its own key.
+same board today (`BoardAudience.ALL`). Any role-specific filter added to QueryBoard needs its own
+audience and key.
+
+Tenancy (TEN-039): the board, its cache key and the "board changed" channel belong to the scope
+the work is bound to. The projector takes no tenant: a rebuild runs in the scope the consumer bound
+from the message (`workers/board_consumer.py`), reads the board as that tenant's wall actor, and the
+cache qualifies the key and the channel by the same scope. `get_board` refuses an actor of another
+tenant, a network scope and no scope.
 """
 
 import json
@@ -21,27 +28,34 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any
 
-from diucs.application.actor import Actor, wall_actor
+from diucs.application.actor import Actor, require_actor_in_bound_tenant, wall_actor
 from diucs.application.ports.outbound.cache import BOARD_UPDATES_CHANNEL, Cache
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.tenancy import current_tenant
 from diucs.application.use_cases.query_board import Board, BoardEntry, QueryBoard, QueryBoardQuery
 from diucs.domain.codes import Role, ServiceCategory, Status
-from diucs.domain.errors import NotAllowed
+from diucs.domain.errors import NotAllowed, ValidationFailed
 from diucs.domain.rules.pressure import Pressure
-
-BOARD_CACHE_KEY = "board:v1"
 
 
 class BoardAudience(StrEnum):
-    """Stub for the red commit."""
+    """Who a cached board is for. Today every role that may read the board sees the same board
+    (DEC-099 item 7), so there is one audience. A view that differs by role, service or flag adds a
+    member here, and so its own key (L130); the cache qualifies every key by the bound scope
+    (TEN-019), so a key never crosses tenants whatever the audience."""
 
     ALL = "all"
 
 
 def board_cache_key(audience: BoardAudience) -> str:
-    raise NotImplementedError
+    """The logical cache name of the board for an audience: `board:v1:<audience>`. An audience that
+    is not exactly a member of the enum is refused (a plain string would be a key no test pins)."""
+    if type(audience) is not BoardAudience:
+        raise ValidationFailed("audience", "is not a board audience")
+    return f"board:v1:{audience.value}"
 
+
+BOARD_CACHE_KEY = board_cache_key(BoardAudience.ALL)
 
 # [ASSUMED] in docs/plan/prompts/U09.md: a 60 s backstop. The rebuild on each event does the work.
 BOARD_CACHE_TTL = timedelta(seconds=60)
@@ -157,6 +171,9 @@ class BoardProjector:
         """The cached board, or a computed one that is then cached for the backstop time."""
         if actor.role is Role.ANONYMOUS_LINK:
             raise NotAllowed("the anonymous link cannot read the board")
+        # The cache and the board are the bound scope's: an actor of another tenant, a network
+        # scope and no scope are wiring faults, refused before anything is read or stored.
+        require_actor_in_bound_tenant(actor)
         cached = await self._read_cached()
         if cached is not None:
             return cached

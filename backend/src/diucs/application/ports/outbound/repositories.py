@@ -38,6 +38,13 @@ class ServiceRepository(Protocol):
         """Every active service, sorted by name."""
         ...
 
+    async def set_active(self, service_id: str) -> None:
+        """Make a registered service active (U29): HealthcareService.active, its Location.status and
+        its Organization.active, each as a new resource version. Only those flags change, so the
+        provider, location and coverage the registration wrote are kept. An unknown service or a
+        referenced resource that is missing raises NotFound."""
+        ...
+
     async def save(self, profile: ServiceProfile) -> None:
         """Insert the profile, or replace the stored one."""
         ...

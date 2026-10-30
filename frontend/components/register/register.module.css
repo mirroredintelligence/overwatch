@@ -81,3 +81,66 @@
   flex-wrap: wrap;
   gap: var(--space-3);
 }
+
+.locked {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-4);
+  background: var(--c-bg);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+}
+
+.locked > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.locked dt {
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.locked dd {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+}
+
+.backLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--btn-h);
+  padding: 0 var(--space-4);
+  border: 2px solid var(--c-closed);
+  border-radius: var(--radius);
+  color: var(--c-ink-2);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.backLink:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.linkButton {
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--c-primary);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.linkButton:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

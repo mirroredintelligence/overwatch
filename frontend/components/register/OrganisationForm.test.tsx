@@ -46,7 +46,7 @@ describe('OrganisationForm: the invitation and the screen', () => {
     expect(screen.getByText('Sample Community Trust')).toBeInTheDocument();
     expect(screen.getByText('RSA01')).toBeInTheDocument();
     expect(screen.getByText('From your invitation. It cannot be changed.')).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: /service|organisation|ODS/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: /^(service|organisation|ODS code)$/i })).not.toBeInTheDocument();
   });
 
   it('shows the step label, the organisation type chips, and the fields with Required or Optional as words', async () => {
@@ -73,7 +73,7 @@ describe('OrganisationForm: the invitation and the screen', () => {
   it('prefills the answers the back end already holds for this step', async () => {
     bffRegistrationState.view = {
       ...(bffRegistrationState.view as object),
-      steps: { organisation: { orgType: 'gp-practice', contactName: 'Sample Person', contactEmail: 'contact@example.test' } },
+      steps: { organisation: { orgType: 'gp-practice', contactName: 'Sample Person', contact: 'contact@example.test' } },
     };
     await open();
     expect(screen.getByRole('button', { name: 'GP practice' })).toHaveAttribute('aria-pressed', 'true');

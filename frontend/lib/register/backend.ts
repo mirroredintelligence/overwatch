@@ -1,15 +1,17 @@
-import { FhirError } from '@/lib/fhir/client';
-import type { OperationOutcome } from '@/lib/fhir/types';
 import type { Session } from '@/lib/auth/session';
+import { fhirFetch, FhirError, type FhirResult } from '@/lib/fhir/client';
+import type { OperationOutcome } from '@/lib/fhir/types';
 import { callLinkApi, type LinkReply } from '@/lib/links/server';
+import type { RegistrationView, StepName } from './types';
 
 // The registration seam: the only place the registration BFF routes call the back end (R10, U25).
-// Routes that the back end does not serve yet throw a 503 with the code `not-built`, so the page
-// shows its "could not load" state and nothing is invented. Every such route is named in
-// docs/delivery/fragments/W23.md (and the later W-fragments), with the back-end route it waits for.
+// A route the back end does not serve yet throws a 503 with the code `not-built`, so the page shows
+// its "could not load" state and nothing is invented. Each such route is named in the W-fragments
+// with the back-end route it waits for.
 //
 // Identity routes sit beside /fhir and are tenant-bound from the Host header, so they go through
-// lib/links/server (node:http keeps the Host). The browser never names a tenant (DEC-130, DEC-132).
+// lib/links/server (node:http keeps the Host). The FHIR routes go through lib/fhir/client with the
+// reporter's bearer token. The browser never names a tenant (DEC-130, DEC-132).
 
 export type RegistrantSignIn = {
   mobile: string;
@@ -60,13 +62,32 @@ export async function signInRegistrant(input: RegistrantSignIn): Promise<{ regis
   throw notBuilt('The registration sign-in');
 }
 
-// Stubs (red commit) for the registration reads and the step save (W54).
-import type { RegistrationView, StepName } from './types';
-
-export async function readRegistration(_token: string, _id: string): Promise<RegistrationView> {
+/**
+ * The registration as the back end holds it. NOT BUILT: no route serves a registration read yet
+ * (R10 has the draft and the submit only). A 503 `not-built` until one does (W54 fragment).
+ */
+export async function readRegistration(token: string, id: string): Promise<RegistrationView> {
+  void token;
+  void id;
   throw notBuilt('The registration read');
 }
 
-export async function saveStep(_token: string, _id: string, _step: StepName, _values: Record<string, unknown>): Promise<{ status: string }> {
-  throw new Error('not implemented');
+/**
+ * Saves one step's answers as the back end's draft (R10 `PUT /fhir/Task/{id}/$draft`). A refusal
+ * is a 400 OperationOutcome, which surfaces as a FhirError for the route to map.
+ */
+export async function saveStep(token: string, id: string, step: StepName, values: Record<string, unknown>): Promise<{ status: string }> {
+  const result: FhirResult<unknown> = await fhirFetch<unknown>(`/Task/${encodeURIComponent(id)}/$draft`, {
+    method: 'PUT',
+    token,
+    body: { step, values },
+    idempotencyKey: crypto.randomUUID(),
+  });
+  return { status: businessStatusOf(result.data) };
+}
+
+function businessStatusOf(task: unknown): string {
+  const coding = (task as { businessStatus?: { coding?: { code?: unknown }[] } } | undefined)?.businessStatus?.coding;
+  const code = coding?.[0]?.code;
+  return typeof code === 'string' ? code : 'draft';
 }

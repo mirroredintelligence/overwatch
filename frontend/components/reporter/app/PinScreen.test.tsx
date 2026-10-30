@@ -44,4 +44,27 @@ describe('PinScreen', () => {
     await typePin('123123');
     await waitFor(() => expect(push).toHaveBeenCalledWith('/app/verify'));
   });
+
+  it('says sign-in is not available when the back end gave no token (503), and does not go on', async () => {
+    server.use(http.post('/api/bff/identity/pin/verify', () => HttpResponse.json({ code: 'unavailable' }, { status: 503 })));
+    render(<PinScreen />);
+    await typePin('123123');
+    expect(await screen.findByText('Sign-in is not available right now. Try again shortly.')).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it('goes to the app on a right PIN, and not for a 200 that does not say ok', async () => {
+    server.use(http.post('/api/bff/identity/pin/verify', () => HttpResponse.json({ ok: true })));
+    const { unmount } = render(<PinScreen />);
+    await typePin('123123');
+    await waitFor(() => expect(replace).toHaveBeenCalledWith('/app'));
+    unmount();
+    replace.mockClear();
+    server.use(http.post('/api/bff/identity/pin/verify', () => HttpResponse.json({})));
+    render(<PinScreen />);
+    await typePin('123123');
+    expect(await screen.findByText('Sign-in is not available right now. Try again shortly.')).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
+  });
 });

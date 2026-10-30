@@ -33,4 +33,29 @@ describe('ServiceCover', () => {
     await waitFor(() => expect(seenBffRequests.some((r) => r.path === '/api/bff/reporter/services/svc-east/cover')).toBe(true));
     expect(seenBffRequests.find((r) => r.path.endsWith('/cover'))?.body).toEqual({ phone: '07700 900123', until: 'this-week' });
   });
+
+  it('sends a date for a cover until a date, and refuses to send without one', async () => {
+    render(<ServiceCover serviceId="svc-east" serviceName="UCR East" />);
+    await userEvent.type(screen.getByLabelText('Cover mobile number'), '07700900123');
+    await userEvent.click(screen.getByRole('radio', { name: 'A date' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Hand over UCR East' }));
+    expect(await screen.findByText('Choose the last day of the cover.')).toBeInTheDocument();
+    expect(seenBffRequests.some((r) => r.path.endsWith('/cover'))).toBe(false);
+    await userEvent.type(screen.getByLabelText('Cover until date'), '2026-11-05');
+    await userEvent.click(screen.getByRole('button', { name: 'Hand over UCR East' }));
+    await waitFor(() => expect(seenBffRequests.some((r) => r.path.endsWith('/cover'))).toBe(true));
+    expect(seenBffRequests.find((r) => r.path.endsWith('/cover'))?.body).toEqual({ phone: '07700900123', until: 'date', date: '2026-11-05' });
+    await waitFor(() => expect(push).toHaveBeenCalledWith('/app/services'));
+  });
+
+  it('stays on the page, with the number cleared from the answer, when the back end refuses the cover', async () => {
+    const { http, HttpResponse } = await import('msw');
+    const { server } = await import('@/test/msw/server');
+    server.use(http.post('/api/bff/reporter/services/:serviceId/cover', () => HttpResponse.json({ code: 'not-found' }, { status: 404 })));
+    render(<ServiceCover serviceId="svc-east" serviceName="UCR East" />);
+    await userEvent.type(screen.getByLabelText('Cover mobile number'), '07700900123');
+    await userEvent.click(screen.getByRole('button', { name: 'Hand over UCR East' }));
+    expect(await screen.findByText('We could not hand over the service. Try again.')).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
 });

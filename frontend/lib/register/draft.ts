@@ -27,8 +27,8 @@ export const STEP_FIELDS: Record<StepName, readonly string[]> = {
     'reviewBy',
     'districts',
   ],
-  reporting: [],
-  api: [],
+  reporting: ['measure', 'usualRange', 'cadence', 'channel', 'holderName', 'contactMobile', 'contactEmail'],
+  api: ['wanted', 'name', 'address', 'connection', 'dataType'],
 };
 
 const CONTACT_FIELDS = new Set(['contact', 'contactEmail', 'contactPhone']);

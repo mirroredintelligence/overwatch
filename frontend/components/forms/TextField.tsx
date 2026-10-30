@@ -13,8 +13,8 @@ export type TextFieldProps = {
   requirement?: 'required' | 'optional' | 'none';
   hint?: string;
   error?: string | null;
-  type?: 'text' | 'email' | 'tel' | 'date' | 'number';
-  inputMode?: 'text' | 'numeric' | 'tel' | 'email' | 'decimal';
+  type?: 'text' | 'email' | 'tel' | 'date' | 'number' | 'url';
+  inputMode?: 'text' | 'numeric' | 'tel' | 'email' | 'decimal' | 'url';
   autoComplete?: string;
   maxLength?: number;
   readOnly?: boolean;

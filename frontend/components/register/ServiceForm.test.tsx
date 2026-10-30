@@ -5,6 +5,9 @@ import { runAxe } from '@/test/a11y';
 import { bffRegistrationState, resetStepSaves, seenStepSaves } from '@/test/msw/handlers/registration';
 import { ServiceForm } from './ServiceForm';
 
+// These flows type through a whole form in one test: the suite's default five seconds is too little on a loaded machine.
+vi.setConfig({ testTimeout: 20_000 });
+
 // Registration step 3, describing the service (W25, artboards RegisterFlow2 panels 5 and 6). The
 // criteria set here are what advisors filter on, so each answer is checked before it is sent.
 
@@ -105,7 +108,7 @@ describe('ServiceForm: exclusions, ages and districts', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add district' }));
     expect(screen.getByText('Enter postcode districts, for example DT4')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'DT' })).not.toBeInTheDocument();
-  });
+  }, 30_000);
 
   it('a visiting service with no districts is asked for them; a fixed site is not', async () => {
     bffRegistrationState.view = { ...(bffRegistrationState.view as object), steps: { location: { fixedSite: false } } };

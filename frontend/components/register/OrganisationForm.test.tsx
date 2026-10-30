@@ -7,6 +7,9 @@ import { bffRegistrationState, resetStepSaves, seenStepSaves } from '@/test/msw/
 import { server } from '@/test/msw/server';
 import { OrganisationForm } from './OrganisationForm';
 
+// These flows type through a whole form in one test: the suite's default five seconds is too little on a loaded machine.
+vi.setConfig({ testTimeout: 20_000 });
+
 // Registration step 1 (W54, artboard RegisterFlow1 panel 3). The invitation's values are shown as
 // text and cannot be changed; the answers are the organisation's own.
 

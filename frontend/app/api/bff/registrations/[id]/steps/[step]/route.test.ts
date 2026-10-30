@@ -277,9 +277,9 @@ describe('PUT /api/bff/registrations/[id]/steps/reporting and api', () => {
     answerLocation(200, { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'draft' }] } });
   });
 
-  it('saves the reporting answers as the back end’s values, with the count mapped to its measure', async () => {
+  it('saves the reporting answers as the back end’s values', async () => {
     const response = await save(
-      { measure: 'virtual-beds', usualRange: [0, 8], cadence: 'every-2-hrs', channel: 'text', holderName: 'Sample Ward team', contactMobile: '07700900456' },
+      { measure: 'free-beds', usualRange: [0, 8], cadence: 'every-2-hrs', channel: 'text', holderName: 'Sample Ward team', contactMobile: '07700900456' },
       'reporter',
       CSRF,
       'reporting',

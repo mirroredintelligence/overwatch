@@ -98,3 +98,29 @@ export async function readAddresses(token: string, postcode: string): Promise<{ 
   void postcode;
   throw notBuilt('The address lookup');
 }
+
+/**
+ * Submits the registration for approval (R10 `POST /fhir/Task/{id}/$submit`). A refusal is a 400
+ * OperationOutcome, a FhirError the route maps to the errors the review shows.
+ */
+export async function submitRegistration(token: string, id: string): Promise<{ status: string }> {
+  const result = await fhirFetch<unknown>(`/Task/${encodeURIComponent(id)}/$submit`, {
+    method: 'POST',
+    token,
+    idempotencyKey: crypto.randomUUID(),
+  });
+  return { status: businessStatusOf(result.data) };
+}
+
+/** NOT BUILT: no route serves the review yet (the back end has the review's use case, not its read). */
+export async function readReview(token: string, id: string): Promise<{ key: string; status: string; summary: string }[]> {
+  void token;
+  void id;
+  throw notBuilt('The registration review');
+}
+
+/** NOT BUILT: no route lists a reporter's services yet. */
+export async function readMine(token: string): Promise<{ id: string; serviceName: string; state: string; detail: string }[]> {
+  void token;
+  throw notBuilt('The list of my services');
+}

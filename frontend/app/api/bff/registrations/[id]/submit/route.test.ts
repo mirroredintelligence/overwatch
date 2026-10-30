@@ -35,7 +35,7 @@ function answerWith(status: number, body: unknown) {
   );
 }
 
-function post(role: Session['role'] = 'reporter', csrf: string | null = CSRF) {
+function post(csrf: string | null = CSRF) {
   const headers: Record<string, string> = {};
   if (csrf !== null) headers[CSRF_HEADER] = csrf;
   return requestWithCookies(url, { [SESSION_COOKIE]: 'x', [CSRF_COOKIE]: CSRF }, { method: 'POST', headers });
@@ -50,7 +50,7 @@ beforeEach(async () => {
 });
 
 async function call(role: Session['role'] = 'reporter', csrf: string | null = CSRF) {
-  const request = post(role, csrf);
+  const request = post(csrf);
   const headers = new Headers(request.headers);
   headers.set('Cookie', `${SESSION_COOKIE}=${await sessionFor(role)}; ${CSRF_COOKIE}=${CSRF}`);
   return POST(new Request(request.url, { method: 'POST', headers }), ctx(ID));

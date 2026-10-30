@@ -78,3 +78,66 @@ export async function saveStep(id: string, step: StepName, values: Record<string
   if (response.status === 422) return { kind: 'errors', errors: fieldIssues(body.errors) };
   return { kind: 'failed' };
 }
+
+/** Submits the registration for approval. The back end's refusal comes back as the errors the page shows. */
+export async function submitRegistration(id: string, csrf: string): Promise<StepOutcome> {
+  let response: Response;
+  try {
+    response = await fetch(`${base(id)}/submit`, {
+      method: 'POST',
+      headers: { [CSRF_HEADER]: csrf },
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+  } catch {
+    return { kind: 'failed' };
+  }
+  const body = await bodyOf(response);
+  if (response.status === 200) return { kind: 'saved', status: typeof body.status === 'string' ? body.status : 'submitted' };
+  if (response.status === 422) return { kind: 'errors', errors: fieldIssues(body.errors) };
+  return { kind: 'failed' };
+}
+
+export type ReviewRow = { key: string; status: 'complete' | 'needs-attention'; summary: string };
+
+/** The review's rows, or unavailable. */
+export async function loadReview(id: string): Promise<{ kind: 'open'; sections: ReviewRow[] } | { kind: 'unavailable' } | { kind: 'signed-out' }> {
+  let response: Response;
+  try {
+    response = await fetch(`${base(id)}/review`, { cache: 'no-store', credentials: 'same-origin' });
+  } catch {
+    return { kind: 'unavailable' };
+  }
+  if (response.status === 401) return { kind: 'signed-out' };
+  if (!response.ok) return { kind: 'unavailable' };
+  const body = await bodyOf(response);
+  if (!Array.isArray(body.sections)) return { kind: 'unavailable' };
+  const sections = body.sections.filter(
+    (row): row is ReviewRow =>
+      typeof row === 'object' && row !== null && typeof (row as ReviewRow).key === 'string' && typeof (row as ReviewRow).summary === 'string' &&
+      ((row as ReviewRow).status === 'complete' || (row as ReviewRow).status === 'needs-attention'),
+  );
+  return { kind: 'open', sections };
+}
+
+export type MyService = { id: string; serviceName: string; state: 'active' | 'pending-approval' | 'review-due'; detail: string };
+
+/** The reporter's own services, or unavailable. */
+export async function loadMine(): Promise<{ kind: 'open'; services: MyService[] } | { kind: 'unavailable' } | { kind: 'signed-out' }> {
+  let response: Response;
+  try {
+    response = await fetch('/api/bff/registrations/mine', { cache: 'no-store', credentials: 'same-origin' });
+  } catch {
+    return { kind: 'unavailable' };
+  }
+  if (response.status === 401) return { kind: 'signed-out' };
+  if (!response.ok) return { kind: 'unavailable' };
+  const body = await bodyOf(response);
+  if (!Array.isArray(body.services)) return { kind: 'unavailable' };
+  const services = body.services.filter(
+    (row): row is MyService =>
+      typeof row === 'object' && row !== null && typeof (row as MyService).id === 'string' && typeof (row as MyService).serviceName === 'string' &&
+      ['active', 'pending-approval', 'review-due'].includes((row as MyService).state) && typeof (row as MyService).detail === 'string',
+  );
+  return { kind: 'open', services };
+}

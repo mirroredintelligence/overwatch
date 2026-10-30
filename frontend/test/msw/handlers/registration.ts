@@ -205,10 +205,12 @@ export const bffRegistrationReviewHandlers = [
   http.get('/api/bff/registrations/mine', (() => HttpResponse.json(minePayload, { headers: { 'Cache-Control': 'no-store' } })) as HttpResponseResolver),
 ];
 
+// The BFF's fixed paths (mine, review, submit) come before the registration's /:id read, so a path
+// such as /registrations/mine is answered by its own handler, not as an id.
 export const registrationHandlers = [
   ...backendIdentityHandlers,
   ...bffRegistrationHandlers,
+  ...bffRegistrationReviewHandlers,
   ...bffRegistrationStepHandlers,
   ...bffAddressHandlers,
-  ...bffRegistrationReviewHandlers,
 ];

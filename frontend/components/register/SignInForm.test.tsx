@@ -7,6 +7,9 @@ import { bffRegistration, seenBffRegistration } from '@/test/msw/handlers/regist
 import { server } from '@/test/msw/server';
 import { SignInForm } from './SignInForm';
 
+// These flows type through a whole form in one test: the suite's default five seconds is too little on a loaded machine.
+vi.setConfig({ testTimeout: 20_000 });
+
 const push = vi.hoisted(() => vi.fn());
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }));
 

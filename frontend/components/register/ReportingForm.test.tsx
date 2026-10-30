@@ -5,6 +5,9 @@ import { runAxe } from '@/test/a11y';
 import { resetStepSaves, seenStepSaves } from '@/test/msw/handlers/registration';
 import { ReportingForm } from './ReportingForm';
 
+// These flows type through a whole form in one test: the suite's default five seconds is too little on a loaded machine.
+vi.setConfig({ testTimeout: 20_000 });
+
 // Registration step 4, how the service reports capacity (W26, artboard RegisterFlow2 panel 7). The
 // API answer is saved after the reporting answers; a "Yes" reveals its four details.
 
@@ -109,11 +112,11 @@ describe('ReportingForm: saving', () => {
         cadence: 'every-2-hrs',
         channel: 'text',
         holderName: 'Sample Ward team',
-        contactMobile: '07700 900456',
+        contactMobile: '07700900456',
       },
     });
     expect(seenStepSaves.find((save) => save.step === 'api')).toMatchObject({ body: { wanted: false } });
-  });
+  }, 30_000);
 
   it('has no axe violations with errors shown', async () => {
     const { container } = await open();

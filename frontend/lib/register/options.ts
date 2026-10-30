@@ -59,3 +59,25 @@ export const EXCLUDED_NEED_OPTIONS: readonly Option[] = [
 ];
 
 export const NO_EXCLUSIONS = 'no-exclusions';
+
+/** What the applicant counts. The chip value is the screen's; reporting.ts sends the measure code. */
+export const COUNT_OPTIONS: readonly Option[] = [
+  { value: 'referrals', label: 'Referrals in the next 2 hrs' },
+  { value: 'beds', label: 'Beds free' },
+  { value: 'slots', label: 'Slots left today' },
+  { value: 'packages', label: 'Packages available' },
+  { value: 'virtual-beds', label: 'Virtual beds free' },
+  { value: 'other', label: 'Other' },
+];
+
+export const CADENCE_OPTIONS: readonly Option[] = [
+  { value: 'every-2-hrs', label: 'Every 2 hrs' },
+  { value: 'twice-a-day', label: 'Twice a day' },
+  { value: 'once-a-day', label: 'Once a day' },
+];
+
+export const CHANNEL_OPTIONS: readonly Option[] = [
+  { value: 'push', label: 'App notification' },
+  { value: 'text', label: 'Text' },
+  { value: 'email', label: 'Email' },
+];

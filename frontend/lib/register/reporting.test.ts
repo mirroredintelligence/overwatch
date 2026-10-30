@@ -103,11 +103,16 @@ describe('reportingValues', () => {
     });
   });
 
-  it('maps "Virtual beds free" to the beds measure, and sends an email as the contact email', () => {
-    const values = reportingValues({ measure: 'virtual-beds', usualRange: [1, 2], cadence: 'once-a-day', channel: 'email', holderName: 'Team', contactEmail: 'r@example.test' });
+  it('takes the beds measure for "Virtual beds free" too, and sends an email as the contact email', () => {
+    const values = reportingValues({ measure: 'free-beds', usualRange: [1, 2], cadence: 'once-a-day', channel: 'email', holderName: 'Team', contactEmail: 'r@example.test' });
     expect(values).toMatchObject({ measure: 'free-beds', channel: 'email', contactEmail: 'r@example.test' });
     expect(values).not.toHaveProperty('contactMobile');
   });
+});
+
+it('refuses a measure the back end does not have, which is "Other" and any made-up code', () => {
+  expect(reportingValues({ measure: 'other', usualRange: [0, 8], cadence: 'once-a-day', channel: 'text', holderName: 'x', contactMobile: '07700900456' })).toBeNull();
+  expect(reportingValues({ measure: 'made-up', usualRange: [0, 8], cadence: 'once-a-day', channel: 'text', holderName: 'x', contactMobile: '07700900456' })).toBeNull();
 });
 
 describe('apiValues', () => {

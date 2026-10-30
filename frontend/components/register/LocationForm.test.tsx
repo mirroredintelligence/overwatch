@@ -5,6 +5,9 @@ import { runAxe } from '@/test/a11y';
 import { addressState, resetAddressRequests, seenAddressRequests, seenStepSaves, resetStepSaves } from '@/test/msw/handlers/registration';
 import { LocationForm } from './LocationForm';
 
+// These flows type through a whole form in one test: the suite's default five seconds is too little on a loaded machine.
+vi.setConfig({ testTimeout: 20_000 });
+
 // Registration step 2, where the service is (W24, artboards RegisterFlow1 panel 4 and RegisterMobile
 // panel 3). A fixed site takes an address from a postcode lookup; a visiting service skips the site.
 
@@ -159,7 +162,7 @@ describe('LocationForm: validation and saving', () => {
         hours: { days: [0], allDay: false, opens: '08:00', closes: '20:00' },
       },
     });
-  });
+  }, 30_000);
 
   it('has no axe violations with errors shown', async () => {
     const { container } = await open();

@@ -3,6 +3,7 @@ import { withBff } from '@/lib/bff/handler';
 import { readRegistration, saveStep } from '@/lib/register/backend';
 import { issuesFromOutcome, locationValues, organisationValues, STEP_FIELDS } from '@/lib/register/draft';
 import { serviceValues } from '@/lib/register/service';
+import { apiValues, reportingValues } from '@/lib/register/reporting';
 import { bffJson, jsonBody, refuse } from '@/lib/register/requests';
 import { isStepName } from '@/lib/register/steps';
 import type { StepName } from '@/lib/register/types';
@@ -15,7 +16,7 @@ type Context = { params: Promise<{ id: string; step: string }> };
 
 const ID = /^[A-Za-z0-9-]{1,64}$/;
 /** The steps this route saves. The others are built with their own tasks. */
-const BUILT_STEPS: readonly string[] = ['organisation', 'location', 'service'];
+const BUILT_STEPS: readonly string[] = ['organisation', 'location', 'service', 'reporting', 'api'];
 
 /**
  * The values one step sends, or null when a code is not one the back end holds. The invitation's
@@ -24,6 +25,8 @@ const BUILT_STEPS: readonly string[] = ['organisation', 'location', 'service'];
  */
 async function valuesFor(step: StepName, body: Record<string, unknown>, token: string, id: string): Promise<Record<string, unknown> | null> {
   if (step === 'location') return locationValues(body);
+  if (step === 'reporting') return reportingValues(body);
+  if (step === 'api') return apiValues(body);
   const registration = await readRegistration(token, id);
   if (step === 'service') return serviceValues(body, registration.invitation.serviceName);
   return organisationValues(body, {

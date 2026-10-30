@@ -151,3 +151,68 @@
   line-height: var(--type-title-lh);
   font-weight: var(--type-title-weight);
 }
+
+.rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 2px solid var(--c-line);
+  border-radius: var(--radius);
+  background: Canvas;
+}
+
+.rowHead {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.rowTitle {
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-lh);
+  font-weight: var(--type-title-weight);
+}
+
+.complete,
+.attention {
+  font-weight: 700;
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-chip);
+}
+
+.complete {
+  color: var(--c-primary-dark);
+  background: var(--c-tint);
+}
+
+.attention {
+  color: var(--c-ink);
+  background: var(--c-amber-tint);
+  border: 1px solid var(--c-limited);
+}
+
+.changeLink {
+  align-self: flex-start;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--c-primary);
+  font-weight: 700;
+}
+
+.changeLink:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}

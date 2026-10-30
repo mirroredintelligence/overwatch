@@ -48,7 +48,8 @@ from diucs.application.use_cases.remove_person import (
 from diucs.application.use_cases.text_code import VerifyTextCodeCommand, VerifyTextCodeResult
 from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
-from diucs.domain.rules.identity_policy import REVERIFY_EVERY, needs_reverification
+from diucs.domain.model.tenant_policy import DEFAULT_POLICY
+from diucs.domain.rules.identity_policy import needs_reverification
 
 UNKNOWN_PREFIX: Final = "unknown-"
 PUSH_DEVICE_PREFIX: Final = "app-"
@@ -300,9 +301,15 @@ class ReverifyStatus:
             _tenant_bound(uow)
             known = await uow.devices.known(person, device)
             verified = await uow.devices.verified_at(person, device)
-        if needs_reverification(verified, now, device_known=known) or verified is None:
+        # The platform's default policy, as PinSignIn uses it: the tenant's own period is read when
+        # the policy is threaded through the use cases (TEN-026, the ratchet in test_booking_rules).
+        policy = DEFAULT_POLICY
+        if (
+            needs_reverification(verified, now, device_known=known, policy=policy)
+            or verified is None
+        ):
             return ReverifyStatusResult(reverify_due=True, days_left=0)
-        remaining = REVERIFY_EVERY - (now - verified)
+        remaining = policy.reverify_every - (now - verified)
         return ReverifyStatusResult(
             reverify_due=False, days_left=max(0, math.ceil(remaining / _ONE_DAY))
         )

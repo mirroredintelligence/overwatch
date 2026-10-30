@@ -27,7 +27,7 @@ from datetime import UTC, datetime, timedelta
 from types import MappingProxyType
 from typing import Final
 
-from diucs.application.actor import Actor, unit_tenant_scope
+from diucs.application.actor import Actor, tenant_scope_of_unit
 from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
@@ -259,7 +259,9 @@ class MissedReportLadder:
     async def execute(self, command: LadderStepCommand) -> LadderStepResult:
         fingerprint = _fingerprint(command)
         async with self._uow_factory() as uow:
-            scope = unit_tenant_scope(uow.unit_scope)
+            # The tenant is the unit's scope, and the actor's own: a step of one tenant never runs in
+            # another's scope (a wiring fault, never an access decision). Before any read.
+            scope = tenant_scope_of_unit(uow.unit_scope, command.actor)
             key = _command_key(scope, command.idempotency_key)
             stored = await uow.idempotency.get(key)
             if isinstance(stored, _StoredStep):

@@ -59,7 +59,7 @@ Seed = Callable[..., Awaitable[None]]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
-TENANT = "tenant-a"
+TENANT = ACTOR_TENANT  # the run's tenant: the units bind it and the sealed content names it
 PHONE = "ab" * 32  # the prompt's "ph-456": the person repository refuses anything but 64 hex
 OTHER_PHONE = "cd" * 32
 DUE = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)  # 10:00 BST

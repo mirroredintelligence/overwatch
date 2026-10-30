@@ -31,6 +31,7 @@ from diucs.application.ports.outbound.outbox import MAX_ATTEMPTS, OutboxMessage
 from diucs.application.ports.outbound.tokens import LinkTokenRepository, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.scheduling import cancel_work, schedule_work
+from diucs.application.tenancy import TenantMismatch
 from diucs.application.use_cases import send_prompts as send_prompts_module
 from diucs.application.use_cases.send_prompts import (
     SKIP_INACTIVE,
@@ -67,7 +68,7 @@ Seed = Callable[..., Awaitable[None]]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
-TENANT = "tenant-a"
+TENANT = ACTOR_TENANT  # the run's tenant: the units bind it and the sealed content names it
 LINK_BASE = "diucs.example"
 DUE = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)  # 10:00 BST
 PHONE_HASH_1 = "ab" * 32
@@ -975,7 +976,7 @@ async def test_a_profile_with_no_next_due_instant_is_refused_and_writes_nothing(
     # times), so this is refused rather than sent without a chain (DEC-115 item 29).
     await _seed_one_reporter(uow_factory, seed_service)
     before = await _counts(neo4j_driver)
-    monkeypatch.setattr(send_prompts_module, "next_due", lambda profile, now: None)
+    monkeypatch.setattr(send_prompts_module, "next_due", lambda profile, now, *rest, **named: None)
     use_case, _ = _rig(uow_factory, neo4j_driver)
 
     with pytest.raises(DomainError):
@@ -1274,17 +1275,31 @@ async def test_sixteen_racing_sends_of_one_prompt_record_one_send(
     assert len(_sent(await _outbox(uow_factory))) == 1
 
 
-async def test_the_content_is_sealed_under_the_tenant_the_use_case_was_given(
+async def test_the_content_is_sealed_under_the_tenant_the_unit_is_bound_to(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
-    # The tenant in the associated data is the constructor's, not a fixed value: a use case built
-    # for tenant-b seals for tenant-b, and the content does not open as the default test tenant.
+    # The tenant in the associated data is the unit's scope (DEC-501 item 2), never a constructor
+    # argument: the content opens for the bound tenant and for no other.
     await _seed_one_reporter(uow_factory, seed_service)
     await _seed_report(uow_factory)
-    use_case, _ = _rig(uow_factory, neo4j_driver, tenant="tenant-b")
+    use_case, _ = _rig(uow_factory, neo4j_driver)
     await use_case.execute(_command())
     [message] = _sent(await _outbox(uow_factory))
 
-    assert "text" in _opened(message, tenant="tenant-b")
+    assert "text" in _opened(message, tenant=TENANT)
     with pytest.raises(ValidationFailed):
-        _opened(message, tenant=TENANT)
+        _opened(message, tenant="tenant-b")
+
+
+async def test_a_use_case_built_for_another_tenant_than_the_bound_one_is_refused_and_seals_nothing(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _seed_one_reporter(uow_factory, seed_service)
+    await _seed_report(uow_factory)
+    before = await _counts(neo4j_driver)
+    use_case, _ = _rig(uow_factory, neo4j_driver, tenant="tenant-b")
+
+    with pytest.raises(TenantMismatch):
+        await use_case.execute(_command())
+
+    assert await _counts(neo4j_driver) == before

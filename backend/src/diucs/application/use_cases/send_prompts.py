@@ -29,7 +29,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Final
 from zoneinfo import ZoneInfo
 
-from diucs.application.actor import Actor, unit_tenant_scope
+from diucs.application.actor import Actor, require_actor_in_bound_tenant, tenant_scope_of_unit
 from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
@@ -356,6 +356,9 @@ class SendPrompts:
     async def execute(self, command: SendPromptCommand) -> SendPromptResult:
         if command.due_at.tzinfo is None or command.due_at.utcoffset() is None:
             raise ValidationFailed("due_at", "must be a timezone-aware datetime")
+        # Before anything is read, the early replay included: the actor's tenant is the bound one
+        # (a wiring fault otherwise, never an access decision) and a tenant is bound at all.
+        require_actor_in_bound_tenant(command.actor)
         due = command.due_at.astimezone(UTC)
         fingerprint = _fingerprint(command)
         # An early read outside the unit of work (as U01). The authoritative check is inside it.
@@ -365,9 +368,10 @@ class SendPrompts:
         now = self._clock.now().astimezone(UTC)
 
         async with self._uow_factory() as uow:
-            # The command's actor is recorded, not authorised (a job no person started): the tenant
-            # is the unit's scope, checked before anything is read.
-            scope = unit_tenant_scope(uow.unit_scope)
+            # The tenant is the unit's scope, checked before anything is read, and it is the
+            # actor's own (the job's actor carries no authority, but a job of one tenant must never
+            # run in another's scope).
+            scope = tenant_scope_of_unit(uow.unit_scope, command.actor)
             if self._tenant_id is not None and self._tenant_id != scope.value:
                 raise TenantMismatch
             stored = await uow.idempotency.get(command.idempotency_key)

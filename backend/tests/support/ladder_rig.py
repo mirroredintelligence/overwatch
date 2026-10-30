@@ -174,13 +174,19 @@ class Rig:
     ladder: MissedReportLadder
     prefix: str = ""
 
+    @property
+    def system_actor(self) -> Actor:
+        """The actor of the rig's own tenant (a rig of the second tenant must not carry the run
+        tenant's actor: the use cases compare the actor's tenant with the bound one)."""
+        return replace(SYSTEM_ACTOR, tenant_id=self.tenant)
+
     async def prompt(self, at: datetime) -> SendPromptResult:
         """Send the prompt that is due at `at`, with the clock at `at`."""
         self.clock.set(at)
         return await self.sender.execute(
             SendPromptCommand(
                 idempotency_key=prompt_key(self.service_id, at),
-                actor=SYSTEM_ACTOR,
+                actor=self.system_actor,
                 service_id=self.service_id,
                 due_at=at,
             )
@@ -201,7 +207,7 @@ class Rig:
         self.clock.set(at)
         back_dated = effective_at is not None
         actor = (
-            ADVISOR
+            replace(ADVISOR, tenant_id=self.tenant)
             if back_dated
             else Actor(
                 role=Role.REPORTER,
@@ -209,7 +215,7 @@ class Rig:
                 device_id=None,
                 channel="sms",
                 service_ids=frozenset({self.service_id}),
-                tenant_id=ACTOR_TENANT,
+                tenant_id=self.tenant,
             )
         )
         return await self.reports.execute(
@@ -238,7 +244,9 @@ class Rig:
         """Run one ladder step with the clock at `at`."""
         self.clock.set(at)
         return await self.ladder.execute(
-            LadderStepCommand(idempotency_key=key or work.id, actor=SYSTEM_ACTOR, work_id=work.id)
+            LadderStepCommand(
+                idempotency_key=key or work.id, actor=self.system_actor, work_id=work.id
+            )
         )
 
     async def step(self, about_id: str, kind: WorkKind, at: datetime) -> LadderStepResult:

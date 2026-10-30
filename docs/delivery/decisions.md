@@ -4564,3 +4564,2254 @@ Status: accepted (build wave 4, bundle W4B, under DEC-133; no owner gate). Affec
 **Tenant pending.**
 
 - None. No statement was added or changed; the registry and the ratchet are untouched.
+
+## DEC-830 Booking links: the request link, the change link and the shapes they answer with (L02)
+Status: accepted (build wave 5, bundle W5A, fragment `L02`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+1. Shapes follow L01 (lesson L172), not the prompt where they differ. An expired or closed link is
+   410 with `{state}` alone (the gate refuses it before the handler runs, so a POST on an expired
+   booking is 410 too, not the prompt's 409). A refused booking answer (a closed booking, an answer
+   that RespondToBooking reports as already final) is 409 `{state}`, mapped in capacity_links.
+2. Change token. A confirmation issues one single-use token of purpose `booking-change`, valid 24
+   hours [ASSUMED] (the prompt's value), tied to the same booking and phone, returned once in the
+   response as `changeToken`. Only its hash is stored (LinkTokenService).
+3. The request link is burned under its own key (command_key of the link) after the answer; the
+   change link likewise after a withdrawal or a not-reached report.
+4. Renewal is not offered for booking links: `renew` returns False. A new request is the advisor's
+   to send.
+5. Actions. The shared gate (link_access.check_action) now accepts the booking answers `decline`,
+   `withdraw` and `not-reached`, and `LinkAction` gains an optional `reason`. The capacity purpose
+   refuses booking answers (its handler checks the action is one of confirm, number, closed), and
+   each booking purpose checks its own reason: a confirmation takes none, a decline a DeclineReason,
+   a withdrawal a WithdrawReason, a not-reached report a NotReachedReason. A reason is required for
+   the change answers.
+6. Who answers. The actor is the anonymous-link role for the one service the booking is for, and the
+   practitioner the phone holds for that service (`_holder`). A phone that holds no role there, or
+   two people on one phone, is the same expired answer as an unknown link.
+7. The purposes are registered in capacity_links `_purposes` beside the capacity purpose (the L01
+   registry); the handlers live in booking_links.py.
+
+**Tenant pending.** The booking and case reads (`uow.bookings.get`, `uow.cases.get`, `uow.services.get`) and the phone lookups (`find_by_phone_hash`, `services_for_phone_hash`) use the existing P-series and U-series statements, which are tenant-pending as their own fragments record. The link token statements are the L01 ones (tenant-scoped by LinkToken.tenantId, TEN-013). No new Cypher.
+
+**Assumed.** Change token lifetime 24 hours [ASSUMED] (L02 prompt).
+
+## DEC-740 The telemetry batch is sent without a traceparent header; each event carries its own trace_id, and the fallback fetch carries a traceparent (O02, refines DEC-205)
+Status: accepted (build wave 6, bundle W6I, fragment `O02`; under DEC-133, no owner gate).
+
+1. `navigator.sendBeacon` cannot set a header, so the batch to `/api/bff/telemetry` goes without a traceparent. The trace id of the interaction is an attribute (`trace_id`) of each event, which the BFF route forwards (allow-listed), so the join is kept.
+2. When the beacon is refused, the keep-alive fetch fallback does send a `traceparent` (a fresh one, not the interaction's: the fallback must not count as a network result for the click classifier, so it does not use `withTraceparent`).
+3. The BFF telemetry route requires a session, takes the tenant from the session only, and answers 204 (unchanged).
+4. The collector mismatch (known issue O04: the BFF posted `{events:[...]}` JSON to a collector that takes OTLP only, which drops it with a 200) is followed to DEC-331 item 5, which keeps `ui.*` events in the logs pipeline. The route now posts OTLP/JSON logs to `${OTEL_HTTP_ENDPOINT}/v1/logs` (`OTEL_HTTP_ENDPOINT` is the collector's base address). Each event is one log record: the event name is the body; the allow-listed attributes and `event.name` are the attributes; numbers are `doubleValue`, booleans `boolValue`; the resource is `service.name` `diucs-browser`. Commit d63bb75, test `app/api/bff/telemetry/route.test.ts`.
+
+**Tenant pending.** The telemetry route adds `tenant.id` from the session when the session carries one (`tenantIdOf`). The browser's tenant is dropped. No statement pending.
+
+**Assumed.** Flush every 5 s, at 20 events, or when the page is hidden (prompt).
+
+## DEC-831 Booking Task routes: roles, the reporter's view, the 409 cases and where the Task mapping lives (R09, R17)
+Status: accepted (build wave 5, bundle W5A, fragment `R09`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+1. Roles. `POST /fhir/Task`, `$cancel` and `$acknowledge` take advisor or clinical, the roles the
+   use cases RequestBooking, CancelBooking and AcknowledgeWithdrawal already admit. The prompt says
+   advisor only; the clinical role is kept because the use cases allow it. `$respond`, `$withdraw`
+   and `$not-reached` take the reporter; the use case then checks the service (`responder_may_act`).
+2. Reporter's view. `GET /fhir/Task/{id}` answers the stored Task, projected by `PROJECTIONS` (R02).
+   A reporter of another service, and every other role, gets the 404 of an unknown id. P02 writes no
+   `Task.for`, so the projection removes `focus` only; the prompt's "no for" holds because the
+   stored Task has none.
+3. `$respond` on an answered booking. RespondToBooking returns `already_final`; the route raises
+   InvalidTransition, which answers 409 business-rule with the fixed TRANSITION text.
+4. PUT on a booking is refused in the route with 405 `not-supported` and the prompt's text.
+5. The API's respond is recorded with channel `app` (ReportSource.APP).
+6. Acknowledgement (R17). A confirmed, requested or other-status booking is refused with 409
+   business-rule and the prompt's text, before AcknowledgeWithdrawal is called. A not-reached
+   booking answers 200 without calling it. A withdrawn booking calls AcknowledgeWithdrawal.
+   `acknowledgedAt` is the clock's instant at the answer, because AcknowledgeWithdrawalResult holds
+   no time; on a replay it is the replay's time, not the first acknowledgement's.
+7. The booking Task mapping (`booking_to_fhir`, `codeable_to_fhir` and the Task constants) moved
+   from the Neo4j booking repository to `diucs.adapters.fhir_shared.booking_task`. The inbound and
+   outbound packages may not import each other (the independence contract). The repository and
+   `service_repository` re-export the names, so no importer changed. No behaviour changed; the
+   existing P02 round-trip tests cover it.
+8. Production has no link host or referral wording per tenant yet (TEN-022, TEN-028). The Container
+   fields `link_base_url_for` and `wording_for` fail closed in `build()`: no host raises a
+   RuntimeError (500, class name logged); no wording refuses the booking as ValidationFailed (400).
+   The test profile serves the test base URL and fixed wording.
+
+**Tenant pending.**
+
+- No new Cypher. The booking reads and writes use the P02 statements (`Q-BOOK-*`, `Q-RES-*`) through `Neo4jBookingRepository`, which are tenant-pending as their own fragments record. The routes add no statement.
+- The Task's `requester` and `owner` references are read back as stored (no tenant check of the referenced Practitioner or HealthcareService beyond the booking's own tenant scope).
+
+**Assumed.** Reply-by is 10 minutes from the request (booking_rules, existing; the route test asserts it against the fixed clock).
+
+## DEC-832 Registration, scope and criteria routes: the edge shape, the two business-rule answers and the gaps the prompt leaves open (R10)
+Status: accepted (build wave 5, bundle W5B, fragment `R10`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+R10 · Registration, scope and criteria routes: the edge shape, the two business-rule answers and the gaps the prompt leaves open (build W5B, under DEC-133; no owner gate; no DEC number here, the orchestrator numbers it).
+
+1. **Edge shape.** Every route depends on `require_role(...)` (which depends on `current_actor`, TEN-018), so the tenant is bound from the signed token before any handler runs. Every keyed POST and the draft PUT check `Idempotency-Key` first, then parse the body, then run the use case through `replay_or_run`. A body that fails its own checks is refused before the replay cache and before any store is opened. Bodies are FHIR `Parameters`, except `$draft`, which is JSON `{"step", "values"}` with camelCase values, because a registration step is a set of typed fields that a Parameters list would flatten badly.
+2. **Two 409 business-rule answers, and nothing else.** An approval with a check still missing is `409 business-rule` with the rule's own message (it names the missing checks and nothing about a patient). An invitation for a service not in the pilot is `409 business-rule` with the use case's message. Every other `NotAllowed` stays a non-revealing 404. The two are matched by message: `refusal_outcome` checks the approval prefix `Approve is unavailable until: ` and the constant `NOT_IN_PILOT_MESSAGE`. `test_routes_registration` calls the domain rule itself, so the prefix is pinned to the rule.
+3. **The prompt's gaps, decided.** (a) `$entry` needs a `category` part: `AddScopeEntry` requires one and the prompt's part list omits it; it is refused by name when missing. (b) `$scope-decision` takes the four answers (`onDorsetPathway`, `takesSpoaReferrals`, `canReport`, `categoryOnPilotList`) as well as `flag` and `reason`, because `RecordScopeDecision` needs them. (c) `$submit-for-approval` confirms a version that is already waiting for approval (200), and refuses any other version with 409 `business-rule` (`InvalidTransition`). A version the caller's own roles do not own is a 404. This is a read-through confirmation, not a state move: U30 (`ChangeCriteria`) writes the version straight into `pending-approval`, so the prompt's draft step has no use case to expose.
+4. **The invitation's link host.** `InviteReporter` takes `link_base_url_for`, the per-tenant host function that the container already carries from R09/L02 (`Container.link_base_url_for`, with `_no_link_host` in production). The route passes it straight through. This replaces a platform-wide `link_base_url` field that R10 first added; the merge of `integration/build` resolved to the integration side. Production refuses to invite until a tenant's link host is in its configuration (TEN-022 and TEN-028); that is the fail-closed rule (H-T15), not a gap in R10.
+
+**Tenant pending.**
+
+- The routes add no Cypher. The statements they reach are the use cases' and the repositories' own: `uow.criteria.get`, `uow.criteria.history`, `uow.people.roles_for_practitioner`, `uow.scope.entries`, `uow.registrations`, the invitation and token writes, and the audit and outbox writes. Their tenancy is whatever the merged TEN-0xx conversions leave them at; the generated two-tenant test covers the registered statements in the verification stage.
+- The route-level reads (`uow.criteria.get` in `$submit-for-approval` and in the answers after a change, `uow.people.roles_for_practitioner`) are repository methods, and go through the bound unit of work like every other read.
+
+**Assumed.**
+
+- `NOTE_LIMIT` = 280 characters for a note, a scope reason and a change reason (the prompt; the same limit as the existing safety concern text).
+- `REVIEW_PERIODS` = {3, 6, 12} months (the prompt and U30).
+- The invitation's mobile wording is U24's `MOBILE_MESSAGE` ("Enter a UK mobile number, like 07700 900123"), not the R08 wording.
+
+## DEC-833 Alert preferences, acknowledgement, snooze and the week summary over FHIR (R12)
+Status: accepted (build wave 5, bundle W5B, fragment `R12`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+R12 · Alert preferences, acknowledgement, snooze and the week summary over FHIR (build W5B, under DEC-133; no owner gate; the orchestrator numbers it).
+
+1. **One subscription per practitioner, id = practitioner id.** P17 keeps one preferences node per practitioner, so the Subscription's id is the practitioner's id. `PUT /fhir/Subscription/{id}` with another practitioner's id is a 404 before the body is read. `GET /fhir/Subscription` returns the caller's own preferences as a Bundle of one.
+2. **Versions.** The `If-Match` version is 1 for preferences never saved, and otherwise the save's epoch milliseconds plus one. Both are whole positive numbers, so the existing concurrency module reads them. A PUT with no `If-Match` is 428; a stale one is 412.
+3. **Edge order for `PUT /fhir/Subscription/{id}`.** Idempotency-Key first, then the caller's own id, then the body's checks (a range error names its setting in camel case, e.g. `notUpdatedHours`), then `If-Match`, then the write through the replay cache.
+4. **R4B Subscription, verified before the mapping was written.** R4B `Subscription` has no `topic` element (topic-based subscriptions are the R5 model; `SubscriptionTopic` exists as its own resource in 4.3.0 and is not referenced). Channel has type, endpoint, payload and header, and the model requires `channel`. The preferences use `criteria` = "alert-preferences", the channel type "message" (alerts go by push and text, I14, not a REST hook), and one extension per setting under the platform code system.
+5. **Week summary: tenant scope only.** `scope=tenant` is the only answer. `scope=network` is refused with 400 until the network variant (DEC-132) exists. A figure under the small-group threshold (10) is withheld: its part carries `suppressed: true` and no value. The time-back text is not shown, because the minutes per avoided call are a tenant setting (TEN-026) that the container does not yet hold; no number is made up.
+6. **Alert list.** `GET /fhir/Task` takes `code=acknowledge-alert` and `owner=me` only, and `status` may be `new` or `escalated` (the open statuses the owner's query reads). Acknowledged and closed alerts are not listed by this route.
+7. **A shared path, dispatched by role.** `POST /fhir/Task/{id}/$acknowledge` is also R17's booking withdrawal acknowledgement (advisor and clinical). An executive or a lead gets this route; an advisor or a clinical advisor is handed to `routes_bookings.acknowledge` after the role check. The roles do not overlap (R13 records the same dispatch).
+8. **Route order.** `routes_alerts.router` is mounted before `routes_services.router`, because `GET /fhir/HealthcareService/$week-summary` would otherwise match `/HealthcareService/{service_id}`.
+
+**Tenant pending.** The routes add no Cypher. They reach `uow.alert_subscriptions`, `uow.alerts` and the week summary's reads (`uow.cases`, `uow.capacity`, `uow.bookings`, `uow.communications`) through the existing use cases. Their tenancy is whatever the merged TEN-0xx conversions leave them at; the generated two-tenant test covers the registered statements in the verification stage.
+
+**Assumed.**
+
+- `NOT_UPDATED_HOURS` = {2, 4}, `ACK_MINUTES` = {10, 15, 30}, quiet hours 22:00 to 06:00 or none (the domain constants in `domain/rules/alerts.py`, D24).
+- A PUT carries the whole state. The not-updated threshold and the acknowledgement window are required (refused by name when missing); quiet hours default to none and critical-only to false; kinds left out are none. No default is read at the edge, so the policy ratchet has nothing to thread (the rule book's defaults apply to the GET of a practitioner who has never saved).
+- The small-group threshold of 10 (`SMALL_GROUP` in the week summary use case).
+
+## DEC-834 The lead, clinical, safety and audit routes and the lost-phone and sign-out routes (R13)
+Status: accepted (build wave 5, bundle W5B, fragment `R13`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+R13 · The lead, clinical, safety and audit routes over the S8 use cases, and the lost-phone and sign-out routes (build W5B, under DEC-133; no owner gate; the orchestrator numbers it).
+
+1. **Placement.** The lead, audit and sign-out routes are in `routes_admin.py`. The two lost-phone routes (`POST /identity/new-phone`, `POST /identity/new-phone/verify`) are in `routes_identity.py`, beside the code routes they repeat the flow of: they share R11's unauthenticated edge (the host's tenant, the address throttle, the 503 on a store outage), and a copy of that edge would drift from it. The contract assigns both paths to R13; the behaviour is R13's, the module is R11's.
+2. **One `GET /fhir/Task`, dispatched by code.** Starlette matches by path, so the alert list (R12) and the clinical queue (R13) cannot be two handlers on one path. `routes_clinical.read_tasks` reads `code`: `acknowledge-alert` goes to `routes_alerts.alert_list` (which now checks the caller's role itself and answers a non-revealing 404 otherwise); `clinical-advice` goes to the clinical queue (a clinical advisor only; the status must be `requested`). Any other code is a 400 naming `code`. R12 changed only this: its decorator moved to the dispatcher.
+3. **One `POST /fhir/Task`, dispatched by code.** `clinical-advice` (an advisor asks; focus is the case; extensions `urgency` and `why`) and `safety-concern` (any signed-in role; extensions `category`, `text`, and an optional `reference`). The key is checked first, then the Task's shape, then the use case; the use case refuses a role that may not act (a 404).
+4. **Flag outcomes.** `$resolve` takes the use case's three outcomes: `checked`, `accepted`, `phoned`. The prompt listed `suspended`, but the use case (U39) has no such outcome and a suspension is a service flag made by `$suspend` (U36). `suspended` is refused with 400 naming `outcome` and pointing to `$suspend`. The prompt's list is corrected here, not in the use case.
+5. **Lost-phone answers.** `/identity/new-phone/verify` answers `{"status": "pending-callback"}` while the lead's call-back is outstanding, as the prompt asks. A wrong code, a lapsed code and a locked code are one answer in the use case (`ConfirmDeviceByTextCode` returns `needs_new_code` for all three), so they are a 400 on R11's contract. The prompt's 410 and 429 are not separate outcomes the use case can give; this is a divergence, recorded, not forked.
+6. **Resume.** `$resume` needs `calledBack` and `reasonResolved`, both true. Each is named when it is missing or false. `calledBack` is passed as `phoned_register_number`, and `reasonResolved` as `reason_resolved`.
+7. **Clinical queue content.** A queued request shows its id, case reference (`focus`), urgency, reason, requested time and status. It does not show the requester's id, the protected snapshot's handle, or any advice text.
+8. **Two paths shared with the merged booking routes (R09, R17), dispatched by the caller.** `POST /fhir/Task` is also R09's booking creation (`routes_bookings.create_booking`, roles advisor and clinical). The dispatcher here takes the clinical-advice and safety-concern codes; any other Task body is handed to `create_booking` after the same role check (`CREATE_ROLES`), so R09's route is reached through this one and is shadowed in the route table (the only duplicate method and path in the app; recorded, not removed, because R09 owns that file). `POST /fhir/Task/{id}/$acknowledge` is also R17's withdrawal acknowledgement (advisor and clinical). R12's handler (routes_alerts) takes an executive or a lead, and hands an advisor or a clinical advisor to `routes_bookings.acknowledge` after the role check. The roles do not overlap, so the dispatch is by role, not by the id.
+9. **Presence.** `PUT /clinical/presence` takes JSON `{"presence": ...}` and no key, because a PUT of a state is not a POST. Take answers `in-progress` and advise answers `completed`.
+
+**Tenant pending.**
+
+- The routes add no Cypher. They reach the existing use cases and the repositories: the service flags and the suspension (U36), the removal and the sessions (U37), the move (U38), the flags and their capacity report (U39), the clinical queue, the take and the advice (U40), the safety concern and its protected store (U41), the audit replay (U42), and the cache for presence and the count. Their tenancy is whatever the merged TEN-0xx conversions leave them at.
+- The lost-phone routes reach the code store and the session store, which are tenant-scoped at the port (I13).
+
+**Assumed.**
+
+- Flag outcomes: `checked`, `accepted`, `phoned` (the use case's own set).
+- Clinical request urgencies and reasons, advice choices and advice reasons: the sets the use case defines (`REQUEST_URGENCIES`, `REQUEST_WHYS`, `ADVICE_CHOICES`, `ADVICE_REASONS`).
+- A safety concern's text and a note: at most 280 characters (`checked_concern_text`, and the same limit as the other notes).
+
+## DEC-741 Tasks whose code is already on integration/build without a delivered ledger record are verified against their prompt in the wave that finds them, and the ledger is updated by the orchestrator (S01, O02, O03, O05 in wave 6)
+Status: accepted (build wave 6, bundle W6I, fragment `S01`; under DEC-133, no owner gate).
+
+1. Found on arrival: `frontend/proxy.ts`, `frontend/lib/security/csp.ts`, the `dynamic` layout and the tests `lib/security/csp.test.ts` and `proxy.test.ts`. The ledger still listed S01 as not-started; no evidence file exists for it.
+2. Checked against the prompt: the policy string, the dev-only `'unsafe-eval'`, the five headers with exact values, the per-request nonce, the `x-nonce` request header, the matcher, and fonts through `next/font/google` (no font host in app/).
+3. Not changed: DEC-226 stands. The session cookie is HTTP-only and SameSite=Strict (DEC-226 item 7).
+
+**Tenant pending.** None. The policy reads no tenant and no data.
+
+**Assumed.** `'strict-dynamic'` makes `'self'` redundant for scripts; both are kept, as the prompt lists them (DEC-226).
+
+## DEC-500 The tenant's policy, time zone and link host reach the in-flight use cases through three small sources, not through arguments of the command (TEN-027, refines DEC-134 items 3 and 14 and DEC-353)
+Status: accepted (build wave 5, bundle W5C, fragment `TEN-027`; under DEC-133, no owner gate).
+
+1. **Three sources in one module, `application/tenant_settings.py`.** `TenantZones.zone_of(scope)` (the tenant record's zone, validated by `zone_named`; `DirectoryZones` over the tenant directory, `LondonZones` for a caller that has none, which is behaviour-identical while the allow-list holds only Europe/London), `LinkBases.link_base_url(scope)` (`DirectoryLinkBase`: `https://<the tenant's host>/l`; `FixedLinkBase`: one base, for tests and a one-host deployment; a plain string is a `FixedLinkBase`) and `read_settings(uow, zones)` / `read_policy(uow)` (the configuration version in force, or the defaults, read inside the unit of work like `ReportCapacity` does, plus the zone). The scope is always the unit's; no source takes a tenant from a command.
+2. **Fail closed.** A tenant the directory does not hold, or with no host, is `TenantRecordInvalid` (fixed message, names no tenant or host). A network scope is `TenantNotBound` before the directory is asked. Only the default tenant (development data from before tenancy, no host of its own) may fall back to the platform's `settings.base_url`; every other tenant without a host cannot be sent a link, which is better than a link on another tenant's host (the host chooses the tenant, DEC-134 item 3; a mismatch is a dead link). The link path is `/l` (the capacity link pages, DEC-167); the adapter's copy of the constant is held equal by a test.
+3. **`TenantDirectory.host_of(tenant_id)`** reads the `host` property of the tenant's registry node with the existing `Q-TENANT-GET` statement: no new global statement, no new digest pin. A key that is not a tenant id sends nothing.
+4. **The container passes the directory's sources** to the missed-report ladder and the alert timers (`DirectoryLinkBase(directory, fallback=settings.base_url)`, `DirectoryZones(directory)`); the test container passes its fixed base and no zone source (London). The production fallback link now ends `/l/<token>` (the ladder built `<base_url>/<token>` before, which is not a page that exists).
+
+## DEC-501 ConfirmCapacity, SendPrompts, the ladder and the alert use cases are tenant-bound (TEN-027, refines DEC-112 items 11 and 12, DEC-115, DEC-166)
+Status: accepted (build wave 5, bundle W5C, fragment `TEN-027`; under DEC-133, no owner gate).
+
+1. **ConfirmCapacity** is bound as ReportCapacity is: the actor's tenant must be the bound one (`TenantMismatch` before the early replay read), the unit must be a tenant's (`TenantNotBound` before the lock), the performer role is validated with `check_performer` after the permission check (it becomes the echo recipient; this closes the audit's "`performer_role_id` is accepted without validation"), the limit of consecutive confirmations is `policy.max_consecutive_confirms` (`check_confirm_limit`), the policy goes to `record_report`, the audit snapshot records `config_version` when a version is in force, and the replay fingerprint holds the tenant. The order of checks of DEC-112 item 12 (service lookup, then permission) is kept, so within one tenant the probe it describes remains; across tenants another tenant's id is `NotFound` as an id nobody holds, and the new differential test pins that.
+2. **SendPrompts** reads the tenant from the unit (`unit_tenant_scope`), never from a constructor argument: the constructor's `tenant_id` is optional, kept for callers that pass it, and a value that is not the bound tenant is `TenantMismatch` before any read. The command's actor is recorded, not authorised (a job no person started), so its tenant is not compared (the shared ladder rig builds one system actor for both of its tenants). The reply window (`reply_by`), the ladder offsets (`ladder_times`), the grouping window (`group_due`, `group_window`), the stale limit (`_too_old_to_confirm`) and the next prompt (`next_due`) are the tenant's policy; hours, due times and the times in the text are read in the tenant's zone (`is_in_hours`, `current_due`, `next_due`, `format_hhmm`, `format_stamp` with `zone=`); the sealed content's associated tenant is the unit's scope; the link is `<tenant link base>/<token>`, read only when someone is to be texted, so a tenant with no host still skips and re-arms its chain.
+3. **MissedReportLadder** reads the same sources: `ladder_due(work, policy)` and `ladder_offsets(policy)` (the offsets are the tenant's), the reminder's reply window is `policy.reply_window`, the status before and after the reply-by is judged with the tenant's policy and zone, the link is the tenant's. `stop_answered_ladders(..., policy)` takes the policy too, and `record_report` passes it (one line in `report_capacity.py`): with custom offsets a report must find the steps by the same offsets the prompt scheduled them with, or it would cancel the wrong ones.
+4. **Alerts** (`AlertEvaluator`, `NotUpdatedCheck`, `EscalateAlert`): quiet hours and the hours a service is open are judged in the tenant's zone, `alerts_for_change` and the critical set use the tenant's policy, and a deputy's default preferences are the tenant's. Their constructors take an optional zone source (None is London).
+5. **The ratchet entries are removed.** `alerts.py`, `missed_report_ladder.py` and `send_prompts.py` leave `ZONE_NOT_YET_THREADED` (every rule call in them passes `zone=`); `missed_report_ladder.py` and `send_prompts.py` leave the TEN-021 policy ratchet (`test_status.py`, `POLICY_NOT_YET_THREADED`) and `send_prompts.py` leaves the TEN-064 one (`test_booking_rules.py`), since both now pass the tenant's policy. No entry was added anywhere.
+6. **`SendPrompts` still has no production caller.** No handler is registered for `prompt-due` (known issue U04/U36, DEC-192), and a handler needs the process's driver for the early replay read, which the container does not hold at build time. TEN-027 does not wire it; the link host, the policy and the zone are ready for the task that does.
+
+**Tenant pending.** None: no statement was added or changed (`host_of` reuses the registered global `Q-TENANT-GET`). The use cases above read and write through repositories whose statements are already converted.
+
+## DEC-503 The registry is written through a fourth statement scope, `platform`: seven pinned statements, one adapter, one port (TEN-028, refines DEC-163 items 2 and 3 and DEC-134 item 9)
+Status: accepted (build wave 5, bundle W5C, fragment `TEN-028`; under DEC-133, no owner gate).
+
+1. **Why a new scope.** The registry nodes (`Tenant`, `TenantNumber`) carry no tenant (DEC-132), so a tenant statement cannot write them, and DEC-163 item 3 left the writing to this task and called a global write "the widest door in the system". A tenant statement that stamped the registry with its own id was weighed and refused: it changes DEC-163's registry design, cannot reassign or even see another tenant's number (the quarantine rule), and the generated two-tenant test cannot seed a `Tenant` node whose key is the tenant under test. So the writes get a scope of their own, no wider than the global reads.
+2. **The rules, as strict as the global ones.** `NamedQuery(scope="platform")` registers only when its id is on `PLATFORM_QUERY_IDS` (with a reason) AND the SHA-256 of its exact text equals the pin in `PLATFORM_STATEMENTS`; it must not mention `$tenant`, may name registry labels only, may CREATE, MERGE and SET and nothing that deletes, removes, calls, loads or loops, and a node it names by variable alone must already have been declared with a registry label by an earlier pattern (so `MERGE (t)-[:HAS_NUMBER]->(n:TenantNumber {...})` after `MATCH (t:Tenant {...})` is allowed, and a bare `(n)` is not). A platform id cannot register as a tenant or a global statement and the reverse, and a template cannot be platform. The structural checks are defence in depth; the pin is the guarantee, as for the global list.
+3. **One way to run one.** `run_platform_query` (driver.py) takes a platform statement and nothing else, sends no tenant, refuses a `tenant` parameter, and `run_query` and `run_global_query` refuse a platform statement (`PlatformStatementMisuse`, a fixed message). Architecture tests: only `graph_store/tenant_registry.py` calls it; only the composition root builds `Neo4jTenantRegistry`; only the operator use cases, the port and the bootstrap modules name `TenantRegistry`; the adapter binds nothing and runs no tenant or global statement.
+4. **The seven statements.** `Q-TENANT-REG-CREATE` (a new node, in provisioning), `-SAVE` (compare and set on `epoch` and `status` as read; `SET t += $props` with `None` for an unset field, which removes the property: a resumed tenant keeps no suspend field), `-SET-HOST`, `-SET-DIRECTORY` (unique constraints answer `Conflict`), `-PUT-NUMBER` (a `TenantNumber` on `HAS_NUMBER`; the number is unique across tenants in any status, so a second tenant's claim is a `Conflict` and a retired number is never moved, which keeps DEC-136 item 10's quarantine without a cross-tenant read), `-MARK-TESTED`, `-NUMBERS` (the one read). The properties come from `tenant_write_properties` / `number_properties`: no id, host, directory or tenant in a props map, no secret anywhere (a number holds the reference of its token, `twilio/<tenant>/auth-token`, and it must be the tenant's own).
+5. **Not here.** The network registry's writes (TEN-077, TEN-078) will add their labels and ids the same way, as deliberate changes to the two constants.
+
+**Owner delegation (DEC-133), decided on folding: accepted.** The registry nodes carry no tenant by design (DEC-132), so no tenant statement can write them, and a tenant statement that stamped the registry with its own id was weighed in the item above and refused. A fourth scope is the narrowest door that works: seven statements pinned by digest, registry labels only, no `$tenant`, one adapter, one port, run only by the platform operator for one bound tenant, with a per-statement mutant test (TEN-028 integration run) and a registration check that refuses a tenant statement registered as platform. Item 1 of DEC-163 on global statements is unchanged.
+
+## DEC-504 The operator's lifecycle is a set of short sagas, run as the platform operator of one bound tenant, with the tenant's chain as the tenant's record of them (TEN-028, refines DEC-134 item 4, DEC-136 item 10, audit F 2.2 and 2.4)
+Status: accepted (build wave 5, bundle W5C, fragment `TEN-028`; under DEC-133, no owner gate).
+
+1. **Who and as whom.** Every use case in `use_cases/tenant_admin.py` and `tenant_access.py` checks `Role.PLATFORM_OPERATOR` and a named operator before it reads anything, and that the actor is of the bound tenant (`TenantMismatch`). The operator has no standing in any scope but the one named for the call, and no data access: what is written in the tenant's scope is its own structure (channel, binding, contact) and its audit chain, so the tenant sees what the operator did. There is no platform audit chain yet (known issue): a lifecycle action is in the affected tenant's chain.
+2. **`CreateTenant`** writes the registry record first (a tenant in provisioning can do nothing), then `provision_scope` (the audit chain head with the tenant's own genesis, so a chain cannot be spliced into another tenant's, and the scope list), then the audit entry. The id to create must equal the bound scope. A creation that stopped between the steps is finished by running it again (`same_creation`: still provisioning, same names, type, country, zone and ODS code); anything else that holds the id is a `Conflict` and nothing is written. New tenants get their own hash keys (`hash_key_version` 1, DEC-350).
+3. **`RecordTenantNumber`, `SetTenantHost`, `VerifyEntraBinding`**: the registry write comes first, so a value another tenant holds is refused before anything of the tenant's changes; then the tenant's own record (the SMS channel, the verified binding) and the audit entry. `VerifyEntraBinding` verifies only a binding the tenant's administrator bound and left `pending` (TEN-026) and records who verified it and when. `MarkNumberTested` records that a test text was delivered (the operator sends it and reads the delivery). `RecordTenantReferences` saves the three references (DSA, DPIA, DCB0160: an id each, never the document) with a compare and set on the record as read; the system records that they were asserted, not that they are true (DEC-133 item 2).
+4. **`ActivateTenant`** reads what the registry, the tenant's configuration and its invitation say now, builds the domain's `ActivationFacts` (`application/provisioning.activation_facts`), judges them with the domain rule (`activation_blockers`, fixed words that name nothing about the tenant) plus one blocker of its own (`Host set`: without a host its links cannot open and the host chooses the tenant, DEC-134 item 3), then writes the registry once with a compare and set on the epoch and status it read, then the audit entry, then seeds the daily jobs (`seed_recurring_work`: the criteria review run and the invariant check, idempotent, and run again at every start-up). `assess` writes nothing: it is the script's `status`. A tenant that was activated and not seeded is finished by the next start-up or by seeding again. The facts: email is "in use" with an email channel and "verified" when one is active; the tenant registers services, so its area must be set (`area_districts_for`, U28); it is not a network member and has no agreement (network membership has its own record, TEN-077, and its own blocker then). No second operator is required to activate (DEC-136 item 10 asks two only for a purge).
+5. **Why sagas.** The registry and a tenant's scope cannot share a transaction, and a unit of work cannot open inside another. Each step is idempotent or a compare and set, in the order that fails closed; the one failure that leaves a half state (the registry written and the audit entry not) leaves a state that is safe (a provisioning tenant that can do nothing, an active tenant without its first audit entry) and is finished by running the step again; the audit entry of a step that committed is never lost, the entry of a step that failed after its registry write may be (a known issue).
+
+## DEC-505 The first administrator is invited by a link token and a sealed text; the first sign-in is the sign-in tasks' (TEN-028, refines audit F 2.5)
+Status: accepted (build wave 5, bundle W5C, fragment `TEN-028`; under DEC-133, no owner gate).
+
+1. `InviteTenantAdmin` checks the mobile (`check_invite_mobile`, UK mobile, never echoed), hashes it with the tenant's own key, and in one unit of work: refuses while an invitation is open (`Conflict`), refuses a tenant with no wording (the text names its system, `I2`), issues a link token of the purpose `tenant-admin-invite` (not the reporters' `invite`, so the text-code flow never finds it) about the tenant's one invitation key `tenant-admin-<tenant>`, valid 48 hours (`INVITATION_VALID_FOR`), stores the number in the protected contact store under that key, queues `I2` with the tenant's `systemName` and the link `https://<the tenant's host>/i/<token>` through `queue_message` (sealed for the tenant and the key; the stored Communication holds `[link]`, and is about nothing, since a Communication is about a service), and audits it with no number, token or hash. The host comes from `DirectoryHostUrl` (no fallback: an invitation on another host would not open).
+2. **Not built, with the reason.** Consuming the invitation at first sign-in (the text code, the Entra sign-in through the verified directory, creating the account and giving it `tenant-admin`) needs the token mint and the sign-in route (TEN-043, W09), which do not exist. The activation rule needs only that the administrator was invited, which this gives. No `PractitionerRoleCode` for a tenant administrator was added: the role comes from the sign-in task and the group mapping.
+
+## DEC-506 The provisioning script and its wiring (TEN-028)
+Status: accepted (build wave 5, bundle W5C, fragment `TEN-028`; under DEC-133, no owner gate).
+
+1. `scripts/provision_tenant.py` is a thin entry over `bootstrap/provisioning.py`: `create`, `host`, `number`, `number-tested`, `references`, `verify-directory`, `invite`, `activate`, `status`, each bound to the one tenant it names (`bind_tenant`, the module joins the binding list with its reason) and run as `--operator NAME`. It prints fixed words and ids: no number, address, token or link. `status` lists what activation still waits for. A `DomainError` is printed as `refused:` with exit 2.
+2. `Container.tenant_registry` (the registry adapter) is built only by `build` and `build_for_tests`; `AuditHeads` is the `ScopeProvisioner` over the one connection; `ScopeListRepository.ensure_list` (port and adapter, the existing `Q-SCOPE-ENSURE-LIST`) gives a new tenant its empty list.
+3. **Needs a real value at deploy:** the platform secret store (the `invite` command hashes a mobile and seals the text; a process with no store refuses it, closed), each tenant's Twilio subaccount, number and auth token (DEC-131), and a real sender to send the test text and the invitation.
+
+**Tenant pending.** None: no tenant statement was added or changed. The seven platform statements are not tenant statements (they carry no `$tenant`, and the generated two-tenant test selects `scope == "tenant"` only); `Q-SCOPE-ENSURE-LIST`, used by `ensure_list`, is already converted.
+
+## DEC-460 The wipe between tests deletes only the run's own scopes, and a whole-database wipe is allowed only on a database the process owns (TEN-033, refines DEC-130 item 9 and DEC-147 item 7)
+Status: accepted (build wave 4, bundle W4C, under DEC-133; no owner gate). Affects: `backend/tests/support/neo4j.py`, `sweeper.py` (new), `seed.py`, `tenancy.py`, `backend/tests/conftest.py`, `backend/tests/integration/application/conftest.py`, and about fifty integration modules that called `wipe`.
+
+1. **`wipe_tenant(driver, *scopes)`** deletes every node whose `tenantId` is one of the scope ids (tenants or network scopes, each validated first), in batches of 10,000, and the registry records of those scopes (`Tenant` by `id` with its `TenantNumber` nodes, `Network` by `id`), which carry no `tenantId`. Nothing else is touched: not another tenant's data, not the `Migration` records, not the schema. **`wipe_all(driver)`** is the old whole-database wipe and raises `WipeRefused` (nothing sent) unless the driver was marked owned (`mark_owned`, set by `throwaway_driver`, so only a private container this process started). `wipe` is removed: every caller named the case it meant.
+2. **`clean_graph`** wipes the three scopes of the run identity (`RunIdentity.scope_ids`: tenant, second tenant, network scope) and then gives the run tenant and the second tenant their audit chain heads again (`ensure_audit_heads`), so a use case that appends to the chain finds one and no test can forget it. The three copies of `ensure_audit_head` in `integration/application/conftest.py`, `test_unit_of_work.py` and `test_audit_log.py` are gone; the test that proves an append with no head is refused removes the head itself (`wipe_tenant`). Other modules that call `ensure_audit_heads` for a tenant of their own still work (it is idempotent).
+3. **Contextual helpers.** `count_nodes(driver, label, *, tenant=None)` and `node_props(driver, label, *, scope=None, **match)` read the tenant bound now (or the one given; a network id is allowed) and raise `TenantNotBound` when there is none; `count_nodes_all(driver, label)` is the global count (for `Migration`, `Tenant` and a test that means the whole database). `tx_run(tx, cypher, **params)` runs raw test Cypher with `tenant` set from the bound tenant and refuses a `tenant` argument (`TenantParameterRefused`), so a test statement says `{tenantId: $tenant}` without every call passing it. Helper results read with `.data()`, so the recording fake driver drives them in unit tests.
+4. **Orphan sweeper** (`tests/support/sweeper.py`). A run tenant id carries the pid and the start (`time.time()` when the run began) of its owner. `owner_alive` says an owner is alive when its pid exists and that process started no later than the identity says it did (plus 5 seconds of slack: a pid reused later started after the identity was made), gone when the pid does not exist, and unknown (`None`, never swept) when the process table cannot be read. The process start is read from `/proc/<pid>/stat` field 22 with the boot time from `/proc/stat` (`process_start_epoch`). `orphan_identities(scopes, own, owner_state)` is pure: only values that parse as run ids (`parse_run_id`) are considered, so `default`, a real tenant id and anything else are never touched; the caller's own runs and runs whose owner is alive or unknown are left out. `sweep_orphan_tenants(driver, own)` reads the run-shaped scope ids present (one pass over the nodes and the `Tenant` registry) and wipes the three ids of each orphan, retrying a delete that meets another session's (`TransientError`) up to five times. It judges owners from the process table of this machine, so it is for an instance used from this machine only (TEN-034 decides where it runs).
+5. **Seed layer.** `seed_world(driver, tenant, clock=None)` writes one sample world into a tenant through a committed unit of work bound to it: the audit head and two urgent community response services with the same ids in every tenant (`WORLD_SERVICE_IDS`), so a test that seeds two tenants has worlds that collide on every key. It is idempotent for one tenant. The `seed_service` fixture seeds the tenant bound now, or `tenant=` another (making that tenant's head first). It no longer makes the head itself.
+6. **What was not needed.** `round_trip.py` and `things.py` needed no change: both go through `write_tx` and `read_tx` (which carry the bound scope) and the statements of `things.py` were stamped by TEN-032.
+7. **Order of fixtures stays.** `clean_graph` is still appended to the end of a test's fixture closure, as before (lesson L84: a fixture that seeds depends on `clean_graph`); the converted modules of TEN-034 add the dependence where they seeded from a module-level wipe.
+
+**Tenant pending.** None. No statement was added or changed in `src`.
+
+## DEC-461 The integration tests run on one shared Neo4j: owned, shared and attached modes, markers, exclusive runs and a cross-process migration lock (TEN-034, amends DEC-008 and DEC-013 item 3, refines DEC-130 item 9 and DEC-135)
+Status: accepted (build wave 4, bundle W4C, under DEC-133; no owner gate). Affects: `backend/tests/support/harness_mode.py` and `neo4j_locks.py` (new), `neo4j.py`, `tenant_seed.py` (`contracted_container` and `contract_schema` removed), `backend/tests/conftest.py`, `backend/pyproject.toml` (markers), the integration modules named below, `tests/unit/support/test_harness_mode.py`, `test_neo4j_locks.py`, `test_harness_markers.py`, `test_reaper.py`, `test_container_removal.py`, `tests/integration/support/test_shared_mode.py`.
+
+1. **Three modes** (`select_mode`, from the environment; `NEO4J_URI` and its kin are still never read, DEC-013 item 3). `shared` is the default: one container for the machine, `diucs-test-shared-neo4j`, found by name or created once (under a file lock, so two sessions that arrive together make one), on a random loopback port and a random password read back with `docker inspect`, 2g memory with heap 768m and page cache 384m (`DIUCS_NEO4J_MEMORY`, `_HEAP` and `_PAGECACHE` override). It is labelled `diucs-test-shared`, not `diucs-test`, and is not named `diucs-test-neo4j-*`, so the reaper (DEC-108, DEC-135) can never remove it; `stop_throwaway_neo4j` refuses any name that is not a private one. A run never stops or removes it: `make neo4j-shared-down` does. `owned` (`DIUCS_TEST_NEO4J=owned`) is the old container per run, with the machine-wide container lock of DEC-135. `attached` is `DIUCS_TEST_NEO4J_URI` with `DIUCS_TEST_NEO4J_USER` (default `neo4j`) and `DIUCS_TEST_NEO4J_PASSWORD`: a bolt or neo4j uri with a host, a password, and not the compose stack of the owner (loopback port 7687 is refused unless `DIUCS_TEST_NEO4J_ALLOW_LOCAL=1`). A uri and a mode together are refused. The selection never shows its password.
+2. **Where a run is isolated.** Every run on a shared or attached database works in its own scopes (TEN-003 identity, TEN-033 wipe), applies the migrations under the migration lock, and sweeps the tenants of dead runs (TEN-033) when the instance is on this machine (always for the shared container, loopback for an attached one, any other with `DIUCS_TEST_NEO4J_SWEEP=1`). `wipe_all` is refused on it. A run on an owned database is as before.
+3. **Markers.** `schema` (changes or asserts the whole schema or database), `lifecycle` (stops, starts or removes a container) and `exclusive` (cannot share the machine). `schema` and `lifecycle` tests take the module-scoped fixture `own_neo4j`: a private container, migrated, with the session environment pointing at it while the module runs, removed afterwards; private containers start one at a time (the harness lock). A unit test fails a module under `tests/integration` that uses `own_neo4j` or `throwaway_driver` with neither marker, and one that calls `wipe_all` outside such a module. `servicebus`, `redis` and `infra` are registered here too (they select, TEN-035).
+4. **Exclusive runs.** `neo4j_locks.acquire_use`: every session that uses the shared or attached database holds a use lock (`flock`, one file per instance) shared; a session whose selection (after `-m` and `-k`, `pytest_collection_finish`) contains an `exclusive` test holds it exclusively, so it waits for the other runs to finish and they wait for it. An exclusive test in a session with parallel workers is refused with the commands to use instead (`ExclusiveUnderParallel`, in the hook of TEN-035). The wait is outside the set-up time limit and has its own bound (`LockTimeout`, 3600 s).
+5. **Migration lock.** `apply_migrations_once(driver, key)`: one read tells whether any migration is missing; if none is, nothing is locked and nothing waits (the common case); otherwise the session takes the migration lock, checks again (a session that waited finds the work done) and applies. Two sessions on one new database leave one record per migration (tested against a real container). The locks are between processes of one machine.
+6. **The restartable mode is kept** for the tests that need it: `own_neo4j` is a `throwaway_driver` container, which `stop_container` and `start_container` still stop and start (F11); `test_connection_recovery.py` and `test_harness_restart.py` run on private containers and carry `lifecycle`.
+7. **Modules moved.** `contracted_container()` and `contract_schema()` are removed: since TEN-032 the shared schema is the contracted schema, so the thirty-odd modules that started a second container only to drop keys that are gone now run on the harness database (`neo4j_driver`, `uow_factory_a`, `uow_factory_b`, the second tenant `other_tenant_id`); their module fixtures that wiped a private container are gone and the fixtures that seed depend on `clean_graph`. The generated two-tenant test and the communication predicate test run on `own_neo4j` (they check that no node anywhere lacks a tenant, which no other run may disturb), as does `test_tenant_invariants.py`. `test_driver.py`'s five schema tests use `own_neo4j`; its three `run_query` tests stay on the shared database. The three modules that started a private container for the old audit-head key (`test_capacity_links_tenants.py`, `test_routes_identity_tenants.py`, `test_routes_services_tenants.py`) use the harness database.
+8. **Service Bus, Redis, compose.** The Service Bus emulator tests (`test_service_bus.py`, `test_servicebus_runner.py`, `test_inbound_emulator.py`, `test_outbox_relay_emulator.py`, the servicebus parameter of the event bus contract) carry `servicebus` and `exclusive`; `test_infra_up.py` and `test_collector_allowlist.py` carry `infra` and `exclusive`; the Redis parameters and tests carry `redis`.
+
+**Tenant pending.** None. No statement was added or changed in `src`.
+
+## DEC-462 Parallel runs with pytest-xdist: one identity per worker, derived from the controller's (TEN-035, refines DEC-130 item 9 and DEC-147)
+Status: accepted (build wave 4, bundle W4C, under DEC-133; no owner gate). Affects: `backend/tests/support/tenancy.py`, `backend/tests/conftest.py`, `backend/pyproject.toml` (`pytest-xdist` in the dev group, `addopts = "--dist loadfile"`), `backend/uv.lock`, `tests/unit/support/test_worker_identity.py`, `test_conftest_workers.py`, `tests/unit/test_parallel_harness_config.py`.
+
+1. **The controller makes the run identity and every worker derives its own.** `RunIdentity` has a new field `worker: int | None`. `RunIdentity.for_worker(n)` (0 to 4095) keeps the pid, start and nonce of the controller and adds the number, so the token is `<pid>-<start>-<nonce>-w<n>` (base 36) and the three scope ids of a worker (`tt-<token>`, `tt-<token>-b`, `net-<token>`) are at most 31 characters, valid, and different from every other worker's and from the controller's. No id is derived from the worker number alone, so the same worker number in two runs never collides. `parse_run_id` reads a worker id back to its identity, so the orphan sweeper (TEN-033) finds the tenants of every worker of a dead controller, and a live controller's workers are never swept (the owner is judged from the shared pid and start).
+2. **How the identity travels.** In the controller, `pytest_configure_node` (an xdist hook, optional so a run without xdist still loads the conftest) writes `workerinput_for(identity)` (`{"diucs_run": [pid, started, nonce]}`) into each worker's `workerinput`; in the worker, `pytest_configure` calls `identity_from_workerinput`, which combines it with `workerid` (`gw0`, `gw1`, ...). A `workerinput` that does not name a run and a worker (missing, wrong type, a bad nonce, `master`, a negative number) stops the worker with a `UsageError` naming `workerinput`: a worker that cannot tell whose run it is must not guess a tenant. The three ids are exported as `DIUCS_TEST_TENANT`, `DIUCS_TEST_OTHER_TENANT` and `DIUCS_TEST_NETWORK` in each process, as before.
+   **The identity exists before any conftest below the root one is read.** A pytest run that names a file (`uv run pytest tests/integration/.../test_x.py`) reads the conftest files of that directory before `pytest_configure`, and a support module they import (`link_rig`, `sms`) needs the run's tenant when it is imported. So `tests/conftest.py` calls `process_identity()` when it is imported: a process with no worker number makes an identity and exports the three ids and `DIUCS_TEST_RUN` (`<pid>.<start>.<nonce>`); a worker (`PYTEST_XDIST_WORKER` is set before any conftest is read) takes the controller's run from `DIUCS_TEST_RUN`, which it inherits, and its own number. `pytest_configure` then takes the same identity again from `workerinput`, the authoritative copy.
+3. **Two phases.** Tests marked `exclusive` cannot share the machine, so a run is two commands (the Makefile does both and reports both results even when the first fails): the parallel phase `pytest -n 4 --dist loadfile -m "not exclusive" <paths>` and the serial phase `pytest -m exclusive <paths>` (a session of its own; it holds the shared database's use lock exclusively, DEC-461 item 4). A worker that is handed an exclusive test fails it before any fixture runs, naming the commands to use (a worker that refused at collection would crash and the controller would report an internal error). `--dist loadfile` keeps every test of a file on one worker, because several modules depend on the order of their own tests and on their module fixtures. A worker has a driver and a Neo4j session loop of its own, so nothing is shared between workers but the database and the lock files.
+4. **Targets.** `make test-integration` (integration and contract, two phases), `make test-parallel` (unit, architecture, integration and contract, two phases), `make neo4j-shared-up` and `neo4j-shared-down`, `WORKERS=n` (default 4, the cores of the build machine). `make test` and a bare `uv run pytest` still run everything serially, with no markers deselected.
+5. **What is serial, and why.** `exclusive`: the Service Bus emulator tests (`test_service_bus.py`, `test_servicebus_runner.py`, `test_inbound_emulator.py`, `test_outbox_relay_emulator.py` and the `servicebus` parameter of the event bus contract): there is one emulator for the machine, they already hold `take_emulator_lock`, and they race the emulator's clock (messages scheduled seconds ahead), which a loaded machine would turn into flakes; and `test_infra_up.py`, `test_collector_allowlist.py`: they assert about the owner's compose stack. `schema` and `lifecycle` (DEC-461): they run on a private container (`own_neo4j`), started one at a time by the harness lock, so they are parallel-safe and not exclusive. Redis tests (`redis`) are parallel: each process uses its own run tenants and a key prefix with its run id (`tests/support/redis.py`).
+
+6. **Measured** (4 cores, 15 GB, an attached Neo4j of 2 GB, `make test-integration`; the previous serial total was about 52 minutes). First full run on the tip before wave 5: 2649 tests; the parallel phase ran 2597 in 13 min 11 s with 189 failures (all test or harness faults, DEC-466), the exclusive phase 52 in 11 min 35 s with 7 failures (the compose-stack tests, expected here): 24 min 52 s in all. After the fixes, a second full run: 2592 passed and 5 failed in the parallel phase (19 min 1 s, under a machine load of about 5 from another agent's containers) and the same 7 expected failures in the exclusive phase (11 min 32 s): 30 min 40 s. The five were fixed and their files run again in parallel (all pass). The exclusive phase is slow by nature (the emulator tests wait for scheduled messages), and one session of it holds the database exclusively.
+
+## DEC-463 The manual whole-run lock is retired and the briefs say the true rule (TEN-035, amends DEC-135 and the transitional rule of `multi-tenancy.md`)
+Status: accepted (build wave 4, bundle W4C). Affects: `CLAUDE.md`, `.claude/skills/diucs-delivery/assets/builder-brief.md`, `assets/verifier-brief.md`, `references/collective.md`, `references/delivery-standard.md`, `references/multi-tenancy.md`, `scripts/record_checks.py`, the plan prompts that named the lock (TEN-001 to TEN-006, TEN-019 to TEN-021, TEN-036, TEN-038, TEN-052, TEN-064), the docstring of `tests/support/neo4j.py`, `test_harness_lock.py`.
+
+1. "Neo4j tests run one at a time", under a manual `flock` on a lock file in /tmp, was true while every run wiped the whole database. It is not true since TEN-033 (a run deletes only its own tenants) and TEN-034 (one shared Neo4j). A brief that still says it makes an agent queue for nothing, and an agent that wraps a whole parallel run in a lock is told to stop doing it. Every live instruction now says: runs share one Neo4j and go in parallel; own files with `uv run pytest <paths>`; the whole suites with `make test-integration` or `make test-parallel`; what runs alone is marked (`exclusive`, `schema`, `lifecycle`) and why; never `wipe_all` the shared database; a test writes in `tenant_id` and `other_tenant_id` only, and a raw `CREATE` in a test carries `tenantId: $tenant`.
+2. A unit test (`test_parallel_harness_config.py`) fails when any live instruction (CLAUDE.md, the skill, the briefs, the recording script, a plan prompt) names the old lock, and when the briefs stop saying how to run the tests. The ledger, the evidence files and `decisions.md` are history and are not edited.
+3. The harness lock `/tmp/diucs-neo4j-harness.lock` stays, for private containers only (DEC-135).
+
+## DEC-464 CI runs the integration suite on a Neo4j service container in two phases (TEN-035, amends the comment of DEC-008 in `ci.yml`)
+Status: accepted (build wave 4, bundle W4C). Affects: `.github/workflows/ci.yml`, `backend/tests/unit/test_ci_workflow.py`.
+
+1. The `backend` job starts a Neo4j service container (the image of `infra/docker-compose.yml`, on port 7690, heap and page cache set as the shared container's) and a Redis service container, and the harness attaches to the Neo4j with `DIUCS_TEST_NEO4J_URI`, `_USER` and `_PASSWORD` (the password is made from the run id and attempt; it is not a secret that outlives the job). The first phase is `pytest -n 4 --dist loadfile -m "not exclusive"` over unit, architecture, integration and contract; the second is `-m "exclusive and not servicebus and not infra"` (exit code 5, nothing selected, is not a failure). The Service Bus emulator and the compose stack are not in CI, so `servicebus` and `infra` tests are not run there (known issue).
+2. `test_ci_workflow.py` reads the workflow and fails when the attach variables, the services, the two phases or the pinned image tags are missing, or when a job is started by a trigger the owner disabled (billing, 2026-10-28).
+
+## DEC-465 The end-to-end ports follow from one base port per run (TEN-035, refines TEN-006)
+Status: accepted (build wave 4, bundle W4C). Affects: `frontend/playwright.config.ts`, `frontend/e2e/support/env.ts`, the e2e specs that named `localhost:3000`.
+
+1. Two e2e runs on one machine (a builder and a verifier) shared the dev server on port 3000, the stand-in back end on 4010 and the fake identity provider on 4011, so one run could be tested against the other's server. `DIUCS_E2E_PORT` names the base; when it is not set the first module that loads `env.ts` derives it from the process id (`20000 + (pid % 3300) * 3`) and writes it to the environment, where the browser-test workers inherit it. The site is on the base, the stand-in on base+1 and the fake provider on base+2. A dev server already on the port is reused only when the person named the port (`PORT_CHOSEN`); a derived port belongs to this run alone. The specs take the site address from `SITE_URL`.
+
+## DEC-466 Test code on the shared Neo4j reads and writes only its own run: raw Cypher is tenant-scoped, hosts and tenants are the run's (TEN-035, refines DEC-460 and DEC-461)
+Status: accepted (build wave 4, bundle W4C). Affects: `backend/tests/support/scoped.py`, `neo4j.py`, `tenancy.py`, `tenant_seed.py`, `link_rig.py`, `relay_rig.py`, `sms.py`, and about fifty integration modules; `tests/unit/support/test_integration_cypher_scope.py`, `test_run_scoped_reads.py`.
+
+1. The first parallel run of the whole suite (2597 tests, four workers, one Neo4j) failed 189 tests, and none of them was a fault of the product: they were tests written for a database that was emptied before every test. A raw `MATCH (m:OutboxMessage) RETURN count(m)` counted every worker's messages, `MATCH (e:AuditEvent {seq: 1}) SET ...` changed every tenant's audit chain, tests with a fixed tenant id (`tenant-a`, `a1`, `t0` to `t49`, `alpha-icb`) left data that the scoped wipe cannot see and the next run met, and a host such as `alpha.example.org` registered by two runs made the directory lookup ambiguous.
+2. **Raw Cypher in a test names the run's tenant.** `OpenTx.run` (the transaction `read_tx` and `write_tx` hand a test) passes the bound tenant as `$tenant` unless the caller names one, so a statement says `(n:Label {id: $id, tenantId: $tenant})` and reads or changes only the run's data. A whole-graph scan (`MATCH (n) RETURN properties(n)`, for "no secret is stored anywhere") reads the run's three scopes: `run_nodes(tx, returning)` and `run_relationships(tx, returning)`, with `run_scope_ids()` from the environment the conftest sets. `invariant_breaks(tx, scopes=...)` looks for an unstamped node next to the run's nodes and for a relationship that leaves the run for another tenant. A test with nothing bound (`no_tenant`) names the tenant it checks (`count_nodes(..., tenant=tenant_id)`).
+3. **Tenants, hosts and numbers are the run's.** The two organisations of the SMS webhook tests are the run tenant and the second tenant; tenant hosts are `run_host("alpha")` (`alpha-<token>.example.org`); a test that needs a tenant record in a state of its own (suspended, damaged) changes the second tenant's record (`change_tenant_record`) instead of making a tenant of another name. `RelayRig.outbox_node` and `work_node` take the scope of the other tenant's row.
+4. **What cannot share a database moves to a private container.** `test_tenant_directory.py` (the directory is the registry of the whole database: hosts and numbers are unique across it, `active_tenant_ids` lists all) and the fifty-tenant plan-stability test of `test_resource_store.py` use `own_neo4j` and carry `schema`.
+5. **A guard keeps it so.** `test_integration_cypher_scope.py` reads the string literals of every integration module and support module that is not on a private container and fails on a node pattern with no `tenantId` (the registry labels excepted), and on `bind_tenant`, `as_tenant` or `ScopeId.tenant` with `tenant-a`, `tenant-b`, `default`, `a1` or `b1`. A new test that writes raw Cypher without the tenant fails a unit test, not a parallel run an hour later.
+6. **Departure.** The six superseded range indexes remain after the contract migration (DEC-450 item 2); `test_tenant_isolation.py` asserted that the old harness helper had dropped them, and now asserts that they stay.
+
+**Tenant pending.** None. No statement was added or changed in `src`.
+
+## DEC-540 Scope kinds, the label partition, the read-only unit and the source tenant (TEN-037)
+Status: accepted (build wave 5, bundle W5E, under DEC-133; no owner gate). Follows DEC-132 item 4, DEC-142 item 6 and DEC-146. Affects: `application/tenancy.py`, `graph_store/queries.py`, `graph_store/scope_labels.py` (new), `graph_store/driver.py`, `graph_store/unit_of_work.py`, `application/ports/outbound/unit_of_work.py`, the audit and idempotency statements (kinds only), TEN-051 to TEN-062.
+
+1. **A statement declares the kinds of scope it runs in.** `NamedQuery` and `QueryTemplate` get `scope_kinds`, one of three exact frozensets: `TENANT_KINDS` (the default, so every existing statement is unchanged), `NETWORK_KINDS` and `BOTH_KINDS`. The audit's name `scopes` was not used because `scope` already means tenant or global. A global statement has no kinds of its own (non-default kinds on a global statement are refused). `run_query` refuses a statement whose kinds do not include the kind of the scope its `ScopedTx` carries (`ScopeKindMismatch`, fixed message), after the transaction check and before any Cypher is sent.
+2. **Label partition (registration check, cheap and not a proof, DEC-142 item 9).** `scope_labels.py` names three sets: `NETWORK_ONLY_LABELS` (the five labels of the projection allowlist plus `ProjectionSource` and `ProjectionCursor`), `SCOPE_GENERIC_LABELS` (`AuditHead`, `AuditEvent`, `ChainLink`, `AuditRef`, `Snapshot`, `IdempotencyRecord`, `IdempotencyValue`, `Processed`) and `REGISTRY_NODE_LABELS` (the registry labels). Registration refuses: a tenant statement that names a network or registry label; a network statement that names anything outside the network and generic sets (so it cannot name a tenant's data); a statement for both kinds that names anything outside the generic set. Labels are read by `statement_labels(cypher)`: comments and strings removed, then `[...]` and `{...}` removed, then every `:Name` that is left (so `WHERE n:X`, `SET n:X`, a quoted label, a second label and a node with no variable are all seen; a relationship type and a property value are not). A template instance is judged again with its insert. A parity test holds `NETWORK_ONLY_LABELS` equal to the projection allowlist's labels plus the two bookkeeping labels.
+3. **`$sourceTenant`** (the member a projection came from) may be mentioned only by a network-only statement, and `run_query` accepts the `sourceTenant` parameter only for such a statement on a network scope and only as a valid tenant id (a network id, a non-string or an invalid id is `SourceTenantRefused`). `run_global_query` never accepts it. The value comes from a verified grant (TEN-054); the caller still cannot pass `tenant`.
+4. **Read-only unit of work.** `ScopedTx` gets `read_only: bool = False`; `run_query` refuses a statement with mode `write` on a read-only transaction (`ReadOnlyUnitWrite`) before any Cypher is sent. `Neo4jUnitOfWork(..., read_only=True)` and `neo4j_uow_factory(..., read_only=True)` hand every repository a read-only transaction; `commit()` on one rolls back and releases the unit (no commit is sent). `UnitOfWork` gets a `read_only` property. The units of the network read use cases (TEN-057) are read-only.
+5. **Nested units.** The refusal of a second open unit (`UnitOfWorkAlreadyOpen`, TEN-002) already holds whatever the kinds; tests now show a network unit inside a tenant unit and the reverse are refused and that the place is given back.
+6. **`bind_network(id)` and `current_network()`** mirror `bind_tenant` and `current_tenant`: a network use case is refused inside a tenant binding (`NetworkNotBound`), as a tenant use case is refused inside a network binding.
+7. **Statements for both kinds.** The audit chain (`Q-AUDIT-ENSURE-HEAD`, `-LOCK-HEAD`, `-APPEND`, `-LINK-AGENT`, `-LINK-ENTITY`, `-LIST`, `-FOR-ENTITY`, `-HEAD`, `-CHAIN`), the idempotency record (`Q-IDEM-*`) and the processed marker (`Q-PROCESSED-*`) declare `BOTH_KINDS`: they are stamped with the scope and name generic labels only, so a network scope has its own chain, its own idempotent commands and its own processed markers. Everything else stays tenant-only (the outbox is not given to the network scope: network events are published after the commit, TEN-054). A test pins the list of statements that declare both kinds.
+8. **Four old tests changed.** Two tests (`test_driver.py`, `test_scoped_tx.py`) that ran a tenant statement on a network scope now run a statement declared for both kinds; `ScopedTx`'s field list gained `read_only`.
+
+**Tenant pending.** None. No statement was added; nine audit statements, five idempotency statements and two processed-marker statements gained `scope_kinds=BOTH_KINDS`, and the generated test (TEN-060) runs them in a network scope too.
+
+## DEC-520 Pre-session entries resolve host-first through one refusal; the inbound number directory is a small class over the tenant directory; no global token statement is added (TEN-041, refines DEC-228 item 2, DEC-370 and DEC-131 item 2; supersedes the tenancy plan's wording "through allowlisted statements" for tokens)
+Status: accepted (build wave 5, bundle W5D, under DEC-133; no owner gate). Affects: `application/tenant_resolution.py` (new), `adapters/inbound/fhir_rest/token_resolvers.py` (new), `application/use_cases/link_access.py`, `adapters/inbound/link_pages/capacity_links.py`, `tests/unit/domain/rules/test_zone_threading.py`.
+
+1. **No statement looks a token up across tenants.** The plan and audit F section 3.2 asked for allowlisted global statements that return a token's tenant (`Q-LINK-TENANT-BY-HASH`, device and pairing lookups). DEC-228 item 2 already decided against a global token-hash resolver, and DEC-134 item 3 and DEC-370 resolve the tenant of every web entry from the request HOST. Decisions override the task text, so the global allowlist is unchanged (no id, no digest pin, no label added). A token is looked up inside the tenant the host bound, by a hash made with that tenant's own key (TEN-023), so host and token cannot disagree: another tenant's token is not found, and "host and token disagree is a 404" holds by construction rather than by a comparison. The only global statements these entries use are the ones TEN-007 and TEN-040 already allow (`by_host`, `by_inbound_number`, `by_account_sid`).
+2. **`PreSessionResolver(uow_factory, clock, secrets)`** (`application/tenant_resolution.py`) resolves, inside the bound tenant and in one read-only unit of work that never commits: `link(token, purposes)` (the record and its state `ok`, `expired` or `used`), `open_link` (open only), `invitation` (a link of purpose `invite`) and `device` (the ACTIVE wall screen of the tenant whose keyed token hash this is). A unit that is not a tenant scope resolves nothing (`TenantNotBound`). Text that is not a token (not text, empty, over 64 characters, not URL-safe) is refused before it is hashed and before any unit opens. A missing secret is a `RuntimeError` (a 500), never a refusal, so a broken deployment is not read as "no such token".
+3. **One refusal.** `EntryRefused` (a `NotFound`, fixed message `this entry cannot be resolved`, no argument) is every way of not resolving: unknown, another tenant's, another purpose, malformed, expired or used where no state is wanted, a screen that is revoked or has not collected its token (refused even if the store returned it), and two screens for one token (logged as a reason word). `EntryKind` (`link`, `invitation`, `device`, `pairing`, `inbound-number`) is logged on a refusal and appears in no answer. A suspended tenant never reaches a token lookup: the host binder answers its host as a host nobody owns (TEN-040).
+4. **The device-token dependency.** `resolve_active_device` (`adapters/inbound/fhir_rest/token_resolvers.py`) depends on `bind_host_tenant`, reads `Authorization: Bearer <device token>` (one token, scheme case-insensitive, no inner space) and returns the screen. Every failure is the one 404 of a path that is not there, byte for byte (tested against an unknown path): no header, wrong scheme, empty token, unknown or malformed token, another tenant's token on this host, a suspended tenant, an unknown host. `X-Forwarded-Host`, `Forwarded`, `X-Tenant` and a `tenant` query are never read. TEN-043's wall token exchange uses it.
+5. **`DirectoryInboundLines(directory)`** is the `InboundLineDirectory` over `TenantDirectory` (DEC-163 item 12): `for_number` and `for_account` return `InboundLine(tenant_id, token_secret=<the reference>)` only for a number or account of the shape it is looked up by (E.164, `AC` and 32 lower-case hex), and only when the directory's answer is exactly a `TenantLine` of an ACTIVE `Tenant` whose secret reference is that tenant's own. A retired or quarantined number, a number under another account, a suspended, offboarding or purged tenant's number, a damaged record (logged as the reason word `tenant-record`, no number, no account) and a number nobody holds are all `None`, so the SMS edge answers a suspended tenant as an unknown number (closes the TEN-007 known issue on this point). A directory outage is raised, never read as "unknown". Quarantine itself (90 days, DEC-136 item 10) is the registry's: the directory statements match `status: 'active'` only, so a retired or quarantined number never resolves.
+6. **Zone threading of link access (the zone ratchet).** `CapacityLinkHandler` takes the tenant's zone (`zone: ZoneInfo`, keyword, default London so a caller that knows no tenant, a test rig, behaves as before) and `view` reads the tenant's policy from the configuration in force (`uow.tenant_config.current_version()`, the default policy when none), then `next_due_iso(profile, now, policy, zone)`. The route passes `zone_named(tenant.time_zone)` from the host's tenant record (`_tenant_of` now returns the `Tenant`). `application/use_cases/link_access.py` leaves `ZONE_NOT_YET_THREADED`; the ratchet shrinks by one and no entry is added. Its other time rules (`respond`'s `next_due`) are ReportCapacity's, which stays on the ratchet under TEN-026.
+7. **Not built, with the reason.** The pairing-code resolver is not a second implementation: pairing is a tenant-keyed hash lookup inside `PairWallScreen` (DEC-160 item 2) behind the host binder (DEC-224 item 7) with one refusal, and its cross-tenant tests are U10's and R15's. The invitation page's shape (`service`, `role`, `maskedPhone`, W33) needs the invitation record U24 stores and has no route yet; `invitation()` gives the state and the link record, and the route is TEN-044's or W33's. Wiring `DirectoryInboundLines` into the serving process is the process's job (no `api_main` exists; `SmsWebhookDeps.lines` takes it).
+
+**Tenant pending.** None. No Cypher is added, no global statement or digest pin is added, no migration. Cross-scope reads this task would need: none.
+
+**Assumed.** A token is at most 64 characters (the link pages' `MAX_TOKEN_LENGTH`). A screen that is not `active` is refused whatever the store returns.
+
+## DEC-522 The back end issues every token; a token is for one audience; the BFF holds no signing secret (TEN-043, DEC-134 item 2, refines DEC-094 item 4 and DEC-250 item 3)
+Status: accepted (build wave 5, bundle W5D, under DEC-133; no owner gate). Affects: `domain/rules/bff_token.py`, `domain/rules/token_exchange.py` (new), `application/ports/outbound/identity_verifier.py` (new), `application/use_cases/exchange_token.py` (new), `adapters/inbound/fhir_rest/routes_auth.py` (new) and `app.py`, `adapters/testing/fake_identity_verifier.py` (new), `tests/unit/domain/rules/test_bff_token.py`, `tests/unit/adapters/inbound/fhir_rest/test_edge_binding.py`.
+
+1. **Three exchanges, three routes, none with a signed token.** `POST /auth/token` `{"idToken"}` (staff), `POST /auth/device-token` with `Authorization: Bearer <device token>` and `{}` (a paired wall screen) and `POST /auth/operator-token` `{"idToken"}` (the operator console). A 200 is `{token, expiresAt, role}` and nothing else (no tenant, subject or epoch); every answer is `no-store` (the token is a bearer secret). The staff and device routes take the tenant from the request HOST through the one binder (`bind_host_tenant`, DEC-370); the operator route binds none. Order: the source-address limit (platform namespace, counted before the host, kind `exchange`, 60 a minute per address [ASSUMED]; 429 with `Retry-After: 60`, a cache that cannot be reached is 503, a container with no limiter is 500), then the host, then the credential. A body that names anything but the credential (a tenant, a role, an audience) is a 400 and is never read; `idToken` is 1 to 8192 characters.
+2. **The signing secret is the platform's, read by the back end only.** The staff, operator and wall tokens are signed with `bff-jwt` (the name the edge already reads, DEC-096; `SIGNING_SECRET`). The BFF needs no signing secret and `BACKEND_JWT_SECRET` leaves the front end when TEN-044 reworks it. `app.state.secrets` is the platform store (the serving process sets it, as for the edge); a missing signing or account-reference secret is a `RuntimeError` (a 500), never a refusal.
+3. **Audience (DEC-527 repeats the break).** `BffClaims` tokens carry `aud: "diucs-api"` and `decode_bff_token` refuses a token with no `aud` or any other; an operator token (`OperatorClaims(sub, role, expires_at)`, `encode_operator_token`, `decode_operator_token`) carries `aud: "diucs-ops"` and nothing else (no tenant, epoch, services or device: a token that carries one is refused whole), and its roles are `platform-operator` and `support` only (`OPERATOR_ROLES`). Each decoder refuses the other's token; the audience is judged after the signature and before any claim is read. Every refusal is the one `TokenRejected` (fixed message). Test tokens (`issue_test_token`) carry the audience through `encode_bff_token`; `test_bff_token.py` forges its payloads with `aud` set.
+4. **The identity verifier is a port.** `IdentityVerifier.verify(credential, audience) -> VerifiedIdentity | IdentityRejected` (`application/ports/outbound/identity_verifier.py`): the real adapter checks signature, issuer, audience (the staff app or the operator console), expiry and nonce against the directory's keys, and is built at deploy against a real Entra app registration (DEC-133 item 3, built against a fake: `FakeIdentityVerifier`, registered per credential and audience, records the audiences asked and never a credential). `VerifiedIdentity(directory_id, object_id, group_ids, app_roles)` holds lower-case GUIDs and shows none of its fields in a repr. A failure of the provider other than a rejection is raised, never read as a refusal.
+5. **One refusal.** Every way of not getting a staff or operator token is `ExchangeRefused` (a `DomainError`, fixed message `Your account does not have access.`), answered as one 403 with one body (compared byte for byte in a test): a credential that does not verify or is not text or is over 8192 characters, a directory the tenant has not bound, a binding that is pending or revoked, no mapped group, a retired mapping, a tenant that cannot be signed into, the wrong audience, a customer's directory asking for an operator role. A host no tenant owns and a suspended tenant are the 404 of an unknown path (the binder). A screen that does not resolve is the 404 of every pre-session entry (`EntryRefused`, TEN-041). The reason is logged as a word (`directory`, `role`, `tenant`, `credential`, `operator-directory`, `operator-role`), never a value.
+
+## DEC-523 A staff role is the tenant's mapping and nothing the token says; the directory must be the tenant's verified binding (TEN-043, audit F A01 and A02, DEC-136 item 6, refines DEC-271 item 8)
+Status: accepted (build wave 5, bundle W5D). Affects: `domain/rules/token_exchange.py`, `exchange_token.py`.
+
+1. **The tenant is the host's.** `ExchangeStaffToken` takes the `Tenant` the edge resolved from the host, runs in a unit bound to it (a unit bound to another tenant is `TenantMismatch`, a wiring fault; none or a network scope is `TenantNotBound`), and issues a token naming that tenant and that tenant's CURRENT epoch (the record the host binder just read, never a cache). The directory a person signed in through never chooses the tenant: a member of tenant A's directory asking on tenant B's host gets the one refusal, and one directory bound to two tenants gives each host its own tenant.
+2. **The binding is the tenant's own record.** `directory_is_bound(bindings, directory_id)`: one of the tenant's `TenantEntraBinding` records for that directory, status `verified` (a `pending` or `revoked` one binds nothing). The registry's `entraDirectoryId` (`by_entra_directory`) is not read: TEN-026 does not maintain it (known issue), and the tenant-scope binding is what the operator verifies.
+3. **The role is the highest the tenant's ACTIVE role mappings give for the groups held (`staff_role`)**, in the order tenant-admin, network-admin, lead, clinical, advisor, owner, exec, audit (`STAFF_ROLE_PRIORITY`). The identity's own app roles are never read for a staff role. A mapping that names a role that is not a staff role (support, platform-operator, wall, reporter, anonymous-link) is ignored, so a damaged store cannot give a customer's group a platform role (the W09 hole, DEC-134 item 5). `tenant-admin` and `network-admin` are in the order but cannot be mapped yet (`ENTRA_MAPPABLE_ROLES`, DEC-271 item 8); they are reached when provisioning (TEN-028) allows it.
+4. **A token may be issued only as the edge would accept it (`may_issue`).** It asks `edge_verdict` about the tenant's own epoch: an active tenant gets any staff or wall role; a read-only suspended tenant gets a token for its administrator only; every other status, a blocked suspension and the operator role get none. So the exchange and the edge cannot disagree.
+5. **Lifetimes [ASSUMED]:** staff eight hours (the BFF's own session), operator and wall one hour. A suspend or a role change reaches a live token within a minute through the epoch (DEC-250), not at its expiry.
+6. **Audit.** One entry in the tenant's chain, in the unit of work that signs: use case `ExchangeStaffToken`, action `token-issued`, the derived subject as entity, snapshot `{role, epoch}` (no directory, object id, group or credential). The audit append comes before the commit and a failed append gives no token. A refusal writes nothing.
+
+## DEC-524 A person is a derived subject at a tenant and a derived account reference across tenants; no Practitioner is written (TEN-043, DEC-136 item 7, audit F 4.3)
+Status: accepted (build wave 5, bundle W5D). Affects: `domain/rules/token_exchange.py`.
+
+1. `account_ref(key, directory_id, object_id)` is the base64url HMAC-SHA256 (43 characters, the shape `ACCOUNT_REF_PATTERN` takes) of `account|<directory>|<object id>` under the platform secret `account-ref` (`ACCOUNT_REF_SECRET`, at least 32 bytes, not per tenant: it is the one opaque link between a person's accounts). An object id is unique only within its directory, so the same id in two directories is two people. `staff_subject(key, tenant_id, directory_id, object_id)` is `stf-` and 32 hex digits of the HMAC of `subject|<tenant>|<directory>|<object id>`: the token `sub` and the audit actor, a different value in every tenant, so a session or record is never shared. Neither shows the directory, the object id or the key.
+2. **No `Practitioner` and no `accountRef` property is written at sign-in.** Staff roles need no practitioner record (the use cases take `actor.practitioner_id` as an opaque id), and persisting `accountRef` needs a person-repository statement and a scenario that no task asks for yet. The network records (`proposed_by_account_ref`) take the value `account_ref` returns. The operator token's `sub` is `account_ref` of the operator directory and the person.
+
+## DEC-525 The operator token comes from the operator's own directory only, for the operator door only (TEN-043, audit F A02, DEC-134 items 4 and 5, DEC-136 item 6)
+Status: accepted (build wave 5, bundle W5D). Affects: `exchange_token.py`, `bff_token.py`.
+
+1. `ExchangeOperatorToken(clock, verifier, secrets, operator_directory_id)` verifies for the OPERATOR audience (a separate app registration, so a staff credential is not an operator credential), requires `identity.directory_id` to be the operator's directory (a GUID from settings; anything else is a `ValueError` at start-up), and takes the role from that directory's app roles: `DIUCS.PlatformOperator` gives `platform-operator`, `DIUCS.Support` gives `support`, matched exactly; a person with both is the platform operator, who has no data access (DEC-134 item 4). A customer's directory can create any app role in it, so an operator role from any other directory is the one refusal.
+2. The token is for `diucs-ops`: the tenant API refuses it (a probe route returns 401), and it names no tenant. Access to one tenant is a separate act (TEN-084). `app.state.token_exchange.operator_directory_id` None makes the route a 500, never open.
+3. Operator sign-ins are not audited here: there is no platform chain yet (DEC-529 of TEN-084 defines the port).
+
+## DEC-526 A paired wall screen exchanges its device token for a wall token (TEN-043, TEN-041, DEC-134 item 2, DEC-224)
+Status: accepted (build wave 5, bundle W5D). Affects: `exchange_token.py`, `routes_auth.py`, `token_resolvers.py`.
+
+1. The BFF holds the screen's opaque device token (DEC-224) and, with no signing secret, cannot mint the JWT the edge reads. `ExchangeDeviceToken` checks `may_issue(tenant, wall)` (an active tenant only: a read-only suspension is for the administrator's reads), resolves the screen inside the host's tenant (`resolve_active_device`, the active screen whose keyed hash this is) and signs `{sub: device id, role: wall, services: [], tenant, epoch}` for one hour. The device token itself is unchanged and long-lived; a revoke or a suspend takes effect at the next exchange and within a minute through the epoch. No audit entry (one an hour per screen would be noise; the pairing and revoke are audited by U10 and U37).
+2. The route depends on `resolve_active_device`, which has already found the screen, so the use case is handed it by a one-line resolver and the store is read once.
+
+## DEC-527 The audience claim is required on every tenant token: a token minted by the old BFF is refused (TEN-043, TEN-044)
+Status: accepted (build wave 5, bundle W5D). The front end's `mintBackendToken` (W09) still signs a token with no `tenant`, `epoch` or `aud`; the edge already refused it for the first two (known issue TEN-018) and now refuses it for the third. TEN-044 replaces the minting with a call to `POST /auth/token`.
+
+**Tenant pending.** None. No Cypher is added, no global statement, no migration. The exchange reads the tenant's own configuration records through the existing `TenantConfigRepository` and writes through the existing audit port. Cross-scope reads this task would need: none.
+
+**Assumed.** Lifetimes: staff 8 hours, operator 1 hour, wall 1 hour. 60 exchanges a minute per source address. `idToken` at most 8192 characters. The operator app roles `DIUCS.PlatformOperator` and `DIUCS.Support`. The priority order of the staff roles.
+
+## DEC-600 The BFF session carries the tenant and the host it was made on, and is read only on that host (TEN-044, refines DEC-125 items 2 and 9, DEC-130 item 3 and DEC-134 item 3, reworks W02)
+Status: accepted (build wave 6, bundle W6A, under DEC-133; no owner gate). Affects: `frontend/lib/auth/session.ts`, `lib/auth/host.ts` (new), `lib/auth/ids.ts` (new), `lib/auth/tokenClaims.ts` (new), `app/api/bff/telemetry/route.ts`, `lib/telemetry/schema.ts`, `proxy.ts` (unchanged, reads the same function), `e2e/support/session.ts`.
+
+1. **`Session` gains `tenantId` and `host`.** The tenant is the one the back end issued the token for, read from the `tenant` claim of the token the back end returned at sign-in (`readIssuedToken`), never from a request. A claim that is missing, a network id (`net-...`) or not a tenant id is refused. The browser never receives it (the session answer is `{role, services, csrfToken}`; `sub` is dropped too).
+2. **Unseal fails closed.** A sealed session with no or an invalid `tenantId` or `host` is `null`, so a session cookie from before this change is a signed-out visitor (one sign-in), never a session with a guessed tenant.
+3. **A session is for the host it was made on.** `sessionFromRequest` and `getSession` return the session only when the request's Host (`requestHost`: the Host header, or the address of a request built without one; never `X-Forwarded-Host`, `Forwarded` or a tenant header) equals the sealed `host`. The cookie is already host-only (no `Domain`), so this closes the case of a cookie set from a sibling sub-domain (a tenant B script setting a valid tenant B session on tenant A's host). The host is compared in lower case with its port. A proxy in front of the app must pass the original Host on, as the back end already requires (DEC-167 item 1).
+4. **`tenant-admin` and `network-admin` join `ROLES`** (DEC-134 item 4); `STAFF_ROLES` names the eight roles a staff sign-in can give. `platform-operator` is not a session role: the operator door is a separate audience and a separate exchange (TEN-043 `/auth/operator-token`) and has no BFF door yet (known issue).
+5. **Not done: a `__Host-` cookie prefix.** It would stop cookie tossing at the browser, but it needs Secure and so breaks local development over http, and it renames the cookie every e2e and proxy test reads. The host binding covers the same case in the sealed value. Revisit with the first production deployment.
+
+## DEC-601 The staff and wall sessions are made for the tenant the back end signed the token for and the host they were made on; the sign-in itself is W09's (TEN-044, merged with W6J's DEC-760, refines DEC-134 item 2, reworks W09 and W08)
+Status: accepted (build wave 6, bundle W6A, under DEC-133; no owner gate). Affects: `frontend/lib/auth/flow.ts`, `lib/auth/tokenClaims.ts` (new), `lib/screens/wall.ts`, `lib/screens/server.ts`, `lib/fhir/hostCall.ts` (new), `lib/links/server.ts`, `test/fixtures/exchange.ts` (`tenantOfHost`).
+
+1. **Bundle W6J built the sign-in's exchange in parallel (DEC-760: `exchangeStaffToken`, `ENTRA_DIRECTORY_ID`, no signing secret, no tenant table, no role mapping, the one `DIUCS_PUBLIC_URL`), and the merge keeps it whole.** This bundle's own version (a per-host redirect address, a transaction that carries its host, a host-forwarding exchange in `hostCall`) was dropped in the merge, where it overlapped. What this bundle adds to that sign-in is the session: after the exchange, `completeSignIn` reads the `tenant` claim of the token the back end answered with (`readIssuedToken`: the staff audience `diucs-api`, a valid tenant id that is not a network id, a subject, an unexpired integer `exp`; a token that fails it is `exchange-answer`, a failed sign-in, never a session) and makes the session for that tenant and for the host the callback came to. `createWallSession(grant, host)` does the same for a paired screen (`WallGrant` gains `tenant`, read from the wall token the same way).
+2. **The claims are read without a signature check, as W09 reads the subject and expiry:** this side holds no key, the token came over the server-to-server call just made, and the back end checks every use. The tenant in the session is for the page's own checks (CSRF binding, telemetry stamp, the host check) and never reaches the browser.
+3. **Per-host redirect addresses are not adopted here** (W09's known issue: the one `DIUCS_PUBLIC_URL` serves one tenant host per deployment until a per-tenant registration is chosen). The session's host binding (DEC-600) is independent of it.
+4. **The host-forwarding transport is `lib/fhir/hostCall.ts`** (`callBackend`, `BackendCallError`, `backendRoot`, with W6J's `headers` option), beside `client.ts`; `lib/links/server.ts` keeps `callLinkApi`, `LinkApiError`, `hostOf` and `backendRoot` on top of it, so the scan rule "`node:http` in `lib/fhir/hostCall.ts` only" holds.
+5. **`tenant-admin` and `network-admin` are in `ROLES`** (DEC-134 item 4), which W09 listed as a known issue ("the session `Role` list does not have them"); no page is for them yet, so the exchange still refuses them.
+
+## DEC-602 The BFF handler: private and never stored, no tenant input, one 404 for an id, the back end's 401 ends the session (TEN-044, supersedes DEC-125 item 8, refines DEC-130 item 7 and DEC-132, reworks W02 and W01)
+Status: accepted (build wave 6, bundle W6A). Affects: `lib/bff/handler.ts`, `lib/bff/inputGuard.ts` (new), `lib/bff/errors.ts`, `app/api/bff/session/route.ts`, `test/cookies.ts`, `test/requests.ts` (new), `test/tenants.ts` (new), `test/backendToken.ts` (new), `test/msw/handlers/auth.ts` (new).
+
+1. **Every answer of `withBff` is `Cache-Control: private, no-store` and `Vary: Cookie, Host`,** success, refusal, error and 204 alike. The handler's own directives are kept except the ones that let a cache keep or share (`public`, `max-age`, `s-maxage`, `stale-*`, `immutable`, `must-revalidate`), so a stream keeps its `no-transform`. The response is rebuilt, so one with immutable headers (from `fetch` or `Response.redirect`) works; one that cannot be rebuilt is a bare 500.
+2. **Inputs that name a tenant, a scope or a network are a 400 `{code: "invalid"}` before the handler runs,** after the session, role and CSRF checks (an unauthenticated caller always learns 401). The check is on key names only, compared without case, dashes, underscores, dots or brackets: a query key, a header (`tenant*`, `x-tenant*`, `x-scope*`, `x-network*`, `x-source-tenant*`) and a key of a JSON or form body at any depth up to 12 (deeper, more than 5000 objects or a body over 128 KiB is refused as unverifiable). A value such as `?q=network` is data. Other bodies (text, binary) are not read. The scope of a request is the route family, never a parameter (audit D 3.3).
+3. **`idScoped: true` makes every back-end 403 and 404 the one 404** (`{code: "not-found", message: "We could not find that."}`), so an id in another tenant cannot be told from an id that is nowhere. A 404 has one code whatever the back end called it, on every route.
+4. **A 401 from the back end ends the session here:** the session and CSRF cookies are cleared and the answer is 401 `{code: "session-ended"}`. A 400, 403, 404, 409, 5xx leaves it. (The back end refuses a token whose epoch moved, a suspended tenant or a changed role; the BFF no longer keeps a dead session.)
+5. **The session route** answers display fields only: `{role, services, csrfToken}`.
+
+## DEC-604 The back-end client requires a token, never stores an answer and sends no tenant; the page head names the product and no place (TEN-045, refines DEC-109, reworks W01 and F03)
+Status: accepted (build wave 6, bundle W6A, under DEC-133; no owner gate). Affects: `frontend/lib/fhir/client.ts`, `lib/tenant/inputNames.ts` (new), `lib/product.ts` (new), `app/layout.tsx`, `app/page.tsx`, `app/(wall)/screen/page.tsx`, `lib/bff/inputGuard.ts`, `e2e/smoke.spec.ts` (new).
+
+1. **A token is required.** `fhirFetch` and `fhirStream` take a `token` that must be a bearer token shape (1 to 8192 characters of `A-Za-z0-9._~+/=-`); anything else (none, empty, blank, with a space or newline, too long, not text, or no init at all) throws `TokenRequired` (fixed message, no token in it) before anything is sent. The "no Authorization header when there is no token" behaviour of W01 is gone. The calls that have no token are not FHIR calls and live in `lib/fhir/hostCall.ts`: the link pages and the sign-in exchange.
+2. **No answer is stored.** Both calls pass `cache: 'no-store'` to `fetch`, with no `next.revalidate` or tags, so Next.js never keeps a back-end answer across people or tenants (audit D R11).
+3. **No tenant is sent.** The caller has no place to put a header (the type has none and a cast does not add one: a test passes `headers` and `tenant` through a cast and sees neither sent). The path is checked before the call: it starts with one slash, holds no `//`, backslash, fragment, space or control character, no dot segment (also written `%2e`), nothing that decodes to a slash or NUL, and a query that names no tenant, scope or network (`namesTenantInput`, shared with the BFF input guard in `lib/tenant/inputNames.ts`). A path that fails throws `PathRefused`. This also closes a path-traversal door: `/../auth/token` would have reached the token exchange route with a bearer attached.
+4. **The product name is one constant** (`PRODUCT_NAME` in `lib/product.ts`, "DIUCS capacity", the name every prompt and test already used; the DEC-014 "Community Overwatch" question stays open and is now a one-line change). The root layout's title is `{default: PRODUCT_NAME, template: '%s | DIUCS capacity'}` and its description is "Urgent-care capacity" (the single point of access wording is gone). The root page's heading is the constant; the wall screen's title is "Wall screen" (the template adds the product). An organisation's name in the head comes with the profile (TEN-049), not from these files.
+5. **`lang` stays `en-GB`,** which is every tenant profile's default locale (the back end's `DEFAULT_LOCALE`).
+
+## DEC-603 The staff CSRF token is bound to the session, and the link page keeps its own cookie (TEN-046, refines DEC-125 items 5 to 7, DEC-167 item 3, audit D 3.6, reworks W02)
+Status: accepted (build wave 6, bundle W6A, under DEC-133; no owner gate). Affects: `frontend/lib/auth/csrf.ts`, `lib/bff/handler.ts`, `app/api/bff/session/route.ts`, `test/requests.ts`.
+
+1. **The token is `<nonce>.<mac>`.** The nonce is 32 random bytes (base64url); the MAC is HMAC-SHA256 under a key derived by HKDF from `SESSION_SECRET` for this purpose alone (info `csrf-token-v1`, so a sealed session or a sign-in transaction cannot pass as a MAC), over `csrf`, the session's tenant id, host, subject and the nonce, newline-joined (not the expiry: it proves who and where, and the cookie that carries it is the person's own). Nothing of the session is readable in the token (it is a MAC). The cookie is still `diucs_csrf` (not HttpOnly: the page reads it, SameSite Strict, Path `/`, Secure outside development, no Domain).
+2. **`checkCsrf(request, session)` passes only when the header equals the cookie AND the token verifies for the live session.** Both comparisons are `timingSafeEqual` on SHA-256 digests (equal length, so length never changes the path). A matching pair the attacker planted (a script on a sibling sub-domain can set a cookie), a token issued to another tenant's session, to another person, to another host or in the old unbound shape (43 characters) is refused with the same `403 csrf`. A missing `SESSION_SECRET` throws (a 500), never a pass.
+3. **`GET /api/bff/session` keeps the cookie's token only when it verifies for this session** (so a second tab is not logged out) and otherwise issues a new one. A session that ends (the back end's 401, sign-out) clears the cookie.
+4. **The link page's CSRF is separate and unchanged in kind:** `diucs_link_csrf`, HttpOnly, Strict, Path `/api/bff/links/<token>` (it already was, DEC-172), checked by `checkLinkCsrf` against the back end's token-bound value. New tests pin the separation: opening a link writes only the link cookie even when the browser holds a staff session and a staff CSRF cookie; the link routes work with no `SESSION_SECRET` at all (they never read the session); the staff pair is not the link's CSRF and the link pair is not the staff's; one link's pair does not pass on another link's path. This settles the W04 and L01 disagreement the audit found (the page does not issue `diucs_csrf`).
+
+## DEC-607 The front-end tenancy harness: overlapping fixtures, a leak canary on every back-end call, and a generated test over every BFF route (TEN-047, refines DEC-130 item 7, audit D 7)
+Status: accepted (build wave 6, bundle W6A, under DEC-133; no owner gate). Affects: `frontend/test/tenants.ts`, `test/leak-canary.ts` (new), `test/setup.ts`, `test/msw/handlers/*` (`tenantData.ts` new, `links.ts`, `index.ts`), `test/requests.ts`, `test/guards/bff-routes.test.ts` (new), `test/import-meta-glob.d.ts` (new), `vitest.config.ts`.
+
+1. **The fixture is built to make a mistake visible.** `TENANTS.A`, `.B` and `.C` (hosts `tenant-a|b|c.example.test`, distinct fictional names and ids), `NETWORK` (`net-sample`, members A and B; C is not a member), `GRANTS` (one active, one ended, one pending), and `recordsFor(tenantId)`: tenants A and B hold the SAME service id `s1`, case reference `4821`, phone ending and registration id with DIFFERENT content (so a handler that forgets the tenant returns the wrong record, not a 404, and the wrong record is not mistaken for the right one), one id (`a-only-1`, case `4822`) exists in A only. No person, phone number, postcode or NHS number (a test scans the fixture).
+2. **The leak canary watches every call to the back end, in every test.** `test/setup.ts` installs it on the MSW server (`request:start`, so it also sees a call no handler answers) and asserts it after every test; a test that made a call that could cross a tenant fails there, whatever it was checking. Rules: `tenant-mismatch` (the token's tenant is not one the test signed in as: `sessionFor` and `requestAs` call `canary.expect`), `tenant-header` (any `X-Tenant*`, `X-Scope*`, `X-Network*`, `X-Source-Tenant*` header), `tenant-query` (a query key naming a tenant, scope or network), `link-bearer` (a link call with an Authorization header), `network-non-member` (a network route called with a token of a tenant that is not a member of `net-sample`), `no-token` (a tenant-API call with no token; `/auth/`, `/public/`, `/links/` and a wall screen's `/screens/pairing` have none by design) and `bad-audience` (an operator token at the tenant API). A token the canary cannot read (the opaque tokens of the older tests) is judged on the other rules only. The message names the rule, method and path, never a token, cookie or host. Only calls to the back end origin are looked at.
+3. **A tenant-aware back end stand-in** (`tenantDataHandlers`: `GET /fhir/HealthcareService/{id}` and `GET /fhir/ServiceRequest/{reference}`): the tenant is the token's `tenant` claim and nothing else; a record in another tenant is the same 404 as a record nowhere; a token it cannot read is a 401. The sample link handlers now answer a request addressed to another tenant's host as they do a link that exists nowhere (410 `expired`), like the real back end (DEC-167 item 1).
+4. **The generated route test** (`test/guards/bff-routes.test.ts`) finds every `app/api/bff/**/route.ts` on disk (about fifty after the merge), takes a route wrapped in `withBff` as a signed-in person's route automatically and requires every other to be named in a short table (`link`, `sign-in`, `beacon`, `pairing`), so a new route file that is neither fails the build, and checks each kind: exports only HTTP methods (the build refuses any other export of a route module: this found one, `otlpLogs` in the telemetry route) and no `revalidate` or `fetchCache`; a route that reads the session by hand is named and says why; **session** routes (the role each lets in is found by asking, with a probe that names a tenant so the route never reaches its work) answer 401 with no session, answer a session of tenant A sent to tenant B's host byte-for-byte as no session, refuse (400) a request naming a tenant, scope or network (query or header) before any work, and are `no-store`; **link** routes answer a link that exists only in tenant A, asked on tenant B's host, exactly as a link that exists nowhere (never a 403), answer the same with a staff session in the browser and write no staff cookie, and are `no-store` (plus a non-vacuity control: the same link on A's own host is a different answer); sign-in and beacon routes are `no-store` and take no tenant from the request. The audit asked for "tenant B holding an id that exists only in tenant A gets 404": the invariant tested is the stronger "indistinguishable from an id that exists nowhere", which is the same 404 for the routes that answer one and the 410 of a link for the link pages. Verified by mutation: a link route that ignores the request host fails it. Routes that take an id and do not yet say `idScoped: true` are listed in the test (`ID_ROUTES_NOT_YET_SCOPED`, 22 today) and the list only shrinks.
+5. **The suite's own timeout is 20 seconds** (`testTimeout`, `hookTimeout`): the axe checks render a whole page in jsdom and ran past the default 5 seconds on a busy machine (five failures on one full run that passed alone).
+
+## DEC-608 Guard rails: lint rules as the mistake is typed, repository scans as the net that fails the build (TEN-048, refines DEC-130, audit D 9)
+Status: accepted (build wave 6, bundle W6A, under DEC-133; no owner gate). Affects: `frontend/eslint.config.mjs`, `test/guards/scan.ts` (new), `test/guards/no-caching.test.ts` (new), `test/guards/no-literals.test.ts` (new), `test/guards/eslint-rules.test.ts` (new).
+
+1. **Two nets say the same things.** ESLint (`no-restricted-globals`, `no-restricted-syntax`, `no-restricted-imports`, applied to `app`, `components`, `lib` and `proxy.ts`, not to tests) warns in the editor; the scans in `test/guards` (plain text rules over the same source, run by `pnpm test`) fail the build. Each rule has a sample that breaks it (the rule is shown to fire) and a sample that must stay quiet, and the repository itself has no violation. A mutation was made to check both nets: a `revalidate` export in a page and a `localStorage` read in a library file each fail the lint and the scan.
+2. **No framework cache.** Forbidden under `app`, `components`, `lib`, `proxy.ts`: the `use cache` directive, `unstable_cache`, `cacheLife`, `cacheTag`, a `revalidate` export, `dynamic = 'force-static'` or `'error'`, a `fetchCache` export, `fetch` with `next.revalidate` or `next.tags`, `cache: 'force-cache'` or `'only-if-cached'`; and in `next.config.ts` `cacheComponents`, `ppr`, `useCache`, `dynamicIO`. The root layout must be `force-dynamic`, and every page that reads the session or the board must say `force-dynamic` itself.
+3. **No tenant or person in the build or the browser.** Forbidden: any `NEXT_PUBLIC_` variable; the retired settings `SPOA_PHONE_DISPLAY`, `SUPPORT_SHARING`, `BACKEND_JWT_SECRET`, `DIUCS_ENTRA_BINDINGS`, `ENTRA_TENANT_ID` (`DIUCS_PUBLIC_URL` is still the sign-in's, W09); direct `localStorage` or `indexedDB` anywhere but `lib/storage/tenantStore.ts` and `lib/session/signOut.ts`; `sessionStorage` anywhere but those and `lib/telemetry/events.ts` (the per-tab session id); writing `document.cookie`; opening Cache Storage; setting an `X-Tenant`, `X-Scope` or `X-Network` header; logging a token, secret, cookie, password or authorization value.
+4. **No place, organisation type, system or number of its own:** `Dorset`, `Trust account`, `SPOA`, `single point of access`, `SystmOne`, `diucs.example`, the `01305` area code. Words and numbers come from the profile and the policy (TEN-049).
+5. **One client of the back end.** `DIUCS_FHIR_BASE_URL` is read under `lib/fhir/` only; `node:http` and `node:https` are imported by `lib/fhir/hostCall.ts` only; a `fetch(` call whose address is not written out as an `/api/bff/...` path (a call from the browser to its own BFF) is allowed only in the files named in `FETCH_ALLOWLIST` with a reason (the back end client, the identity provider, the telemetry collector, and four browser helpers that take a BFF path from their callers). A new file that calls `fetch` fails until it is named, which is the point: a new network call is reviewed. A client component (`'use client'`) may not import `@/lib/fhir/*`, `@/lib/auth/session`, `@/lib/links/server`, `@/lib/tenant/profile`, `next/headers` or a `node:` module (types excepted); the lint rule says the same for everything under `components/`.
+6. **A ratchet for what was built before the rules.** The merged tree already holds screens (W6B to W6J) that write "SPOA", "SystmOne" and one "Trust account" into their words (18 files, listed in `DEBT` in `test/guards/scan.ts` with a count per file and rule). The scan fails on any violation that is not listed and on any listed debt that is no longer true, so the table only shrinks; a test holds that the debt is for words only. The two storage violations the merge brought (the tour and the lesson progress wrote `localStorage` directly) are fixed here, not listed: both now go through `tenantStore`.
+7. **What the scans read:** application source only (`app`, `components`, `lib`, `proxy.ts`, `next.config.ts`), not tests, fixtures, end-to-end files or generated code; and they read the text, comments included, so a banned word in a comment fails too (write around it).
+
+## DEC-606 The tenant profile is read per host with a short cache, and the pages say only what the profile says (TEN-049, refines DEC-134 item 14, DEC-136 item 11, audit D 5)
+Status: accepted (build wave 6, bundle W6A, under DEC-133; no owner gate). Affects: `frontend/lib/tenant/profile.ts` (new), `lib/tenant/policy.ts` (new), `lib/copy/index.ts` (new), `components/tenant/TenantHeader.tsx` (new), `components/board/Board.tsx`, `components/board/LiveBoard.tsx`, `app/(wall)/screen/page.tsx`, `app/sign-in/page.tsx`, `app/layout.tsx`, `test/msw/handlers/profile.ts` (new), `test/tenants.ts`.
+
+1. **The profile is `GET /public/tenant-profile` (TEN-040), read with the host as the Host header and no token** (`callBackend`, so it is not a `fetch` and not in the Next.js data cache). `parseProfile` keeps only what it knows: `displayName`, `timeZone`, `locale` (each refused if wrong, which refuses the whole profile), `wording` (the three words, all or none: a missing, empty, over-long (120) or control-character word makes the whole set null), `coordinationPhone` (digits, spaces, `+`, `()` and `-`, 3 to 20 characters with at least three digits; a wrong phone is dropped, never shown) and `supportSharing` (true only for the boolean `true`; off otherwise). An id, status, epoch or other field in the answer is dropped. The object is frozen, so a component cannot change what another request sees.
+2. **The cache is per host and short.** Key: the normalised host and nothing else. A profile lives 60 seconds (`PROFILE_TTL_MS`); a host nobody owns (404) 30 seconds (`UNKNOWN_HOST_TTL_MS`, so a flood of invented hosts is not a flood of back-end calls, and the back end's per-address limit is shared by the BFF); any other failure 5 seconds (`UNAVAILABLE_TTL_MS`); at most 200 hosts, oldest first out (hosts are chosen by whoever sends the request); two reads of one host at once make one call. A failure for one host is never answered with another host's profile.
+3. **A page never fails for want of a profile** (`readTenantProfile` returns null for an unknown host, a back end that is down, a bad answer, a missing configuration). It then carries the product's own name alone and leaves out what only a tenant can say (H-T15): no invented organisation, no invented words, no invented phone.
+4. **Copy takes the profile and the policy as arguments** (`lib/copy`): `signIn()` ("Use your staff account. There is no new password." and "Sign in with your staff account": the "Trust" wording is gone, because not every tenant is a trust, DEC-134 item 14), `wallSubtitle(profile)` (the tenant's coordination team name or nothing), `phoneTheCoordinationTeam(profile)` ("Phone <team> on <number>." with whichever the tenant has set, null with neither), and the sentences that carry a policy number (`bookingReplyBy`, `bookingPhonePrompt`, `invitationValid`, `textCodeValid`, `reverifyEvery`, `pressureHigh`), none with a number written in it. `duration()` writes "1 minute", "10 minutes".
+5. **`TenantPolicy` holds the numbers the copy prints** with the back end's defaults (reply window 30, stale 2 hours, pressure 3 and 5, correction 15 minutes, 3 services per phone, booking reply 10 and prompt 5 minutes, clinical take 10, re-verify 30 days, not-updated alert 2 hours) and four platform constants that no answer can change (invitation 48 hours, text code 10 minutes, 5 wrong tries, suppression under 10). Until the back end publishes a tenant's policy to its staff (only the tenant administrator can read it now), `policyFor(profile)` is a new frozen copy of the defaults; `parsePolicy` takes an answer's settable fields when they are whole numbers within bounds and keeps the pressure levels and the booking timers in order (a pair that is not goes back to the defaults together).
+6. **`TenantHeader`** shows the display name in a region labelled "Organisation" (`data-el="TENANT-HEADER"`) and renders nothing without a profile; it holds no id, host, phone or network. The sign-in page shows it under the product name, so a person who works for two organisations sees which one they are signing into. The wall board's line under the heading is `copy.wallSubtitle(profile of the session's host)` and `Board` and `LiveBoard` take it as a `subtitle` prop (the literal "Single point of access" is gone). The root layout's title is `generateMetadata`: `<organisation> | DIUCS capacity` with a page's own title in front, and the product alone without a profile.
+7. **Nothing to remove, and a scan to keep it so:** there is no `SPOA_PHONE_DISPLAY` or `NEXT_PUBLIC_SUPPORT_SHARING` in the front end built so far (the prompts that name them, W19, W22, W46, W56, are unbuilt); the phone and the support-sharing flag come from the profile only, and TEN-048 scans that no environment variable carries either.
+
+## DEC-605 Browser state is wiped on sign-out and unpair; browser storage goes through one allow-listed helper keyed by host (TEN-050, refines DEC-130, audit D R8 to R10)
+Status: accepted (build wave 6, bundle W6A, under DEC-133; no owner gate). Affects: `frontend/lib/storage/tenantStore.ts` (new), `lib/session/signOut.ts` (new), `components/session/BfcacheGuard.tsx` (new), `app/layout.tsx`, `app/api/bff/session/route.ts`.
+
+1. **`tenantStore` is the one way browser code keeps anything on the device.** A name (`^[a-z][a-z0-9]*([.-][a-z0-9]+)*$`, at most 40, never naming a tenant, scope or network) and a plain value (JSON of booleans, numbers up to 999,999, strings, lists and plain objects; at most 2 KiB and 6 deep). It refuses a token (three base64url parts, or a 40-character opaque run), seven or more digits (a phone or NHS number, spaces and dashes aside), an email address, a postcode, and an object key that names a tenant, scope or network. The key is `diucs:v1:<host>:<name>`. **The tenant is the host, not an id:** the browser must not hold a tenant id (audit D 3.4) and one sub-domain is one tenant (DEC-136 item 11), so one origin is one tenant's and a value written on one host is never read on another. Storage that is missing, blocked or full is never an error (`set` says false, `get` says undefined). `get` takes a validator and removes a value that fails it or is not JSON. `clear()` removes every `diucs:` key on every host. The audit's "opaque per-user key" is not built: the wipe at sign-out gives the same separation without a stable per-person value in the browser; revisit if two people must be kept apart without a sign-out.
+2. **`signOutLocal()` and `unpairLocal()` end the session, wipe the device, and leave by a hard navigation.** In order: `DELETE /api/bff/session` with the CSRF token from the cookie (or one fetched from `GET /api/bff/session` when the cookie has none; a 401 at either step means the session is already gone and counts as ended); then `wipeBrowserState` (unsubscribe the push subscription, delete every Cache Storage cache, `localStorage.clear()` and `sessionStorage.clear()`: all keys of the origin, not only the app's, because Safari ignores `Clear-Site-Data`); then `location.replace('/sign-in')` (unpair: `/screen/pair`), never a router push, so no script, client router cache or back-forward cache page survives. Each wipe step is tried even when another throws, and the result names the steps that failed. **When the session could not be ended** (a 5xx, a 403, no answer) the device is still wiped but the page does not navigate and the result says `signedOut: false`, so the person sees that they are still signed in rather than a sign-in page over a live session. Nothing is logged; the only credential used is the CSRF token the session route issued. The destination is fixed, not a parameter.
+3. **`DELETE /api/bff/session` sends `Clear-Site-Data: "cache", "storage"`** on its 204 (not on a refusal or a read), for the browsers that act on it. The script wipe is the part that works everywhere.
+4. **`BfcacheGuard`** (a client component in the root layout, renders nothing) reloads a page the back-forward cache restores (`pageshow` with `persisted`), so after a sign-out Back never shows the page left; the server then decides. Pages with data are already `no-store` (DEC-602).
+5. **The service worker is not unregistered.** It caches static assets only (W32; audit D R7), so it holds nothing of a person; the caches it filled are deleted. The push subscription is the thing that outlives a person.
+
+## DEC-541 The network registry: nineteen global statements, guarded writes and the registry's labels (TEN-051)
+Status: accepted (build wave 5, bundle W5E, under DEC-133; no owner gate). Follows DEC-132, DEC-134 item 9, DEC-136 items 3 and 4, DEC-163 and DEC-235. Affects: `graph_store/network_registry.py` (new), `graph_store/migrations_network.py`, `graph_store/queries.py` (`GLOBAL_QUERY_IDS`, `GLOBAL_STATEMENTS`, `GLOBAL_WRITE_IDS`, `NETWORK_REGISTRY_LABELS`, the global write check), `graph_store/migrations_tenant.py` (`REGISTRY_LABELS`), `application/ports/outbound/network.py` (new), `domain/model/network_settings.py` (new), `tests/support/tenant_seed.py` (`UNSTAMPED_OK`, one label), TEN-053, TEN-054, TEN-056, TEN-057, TEN-059, TEN-077.
+
+1. **Four registry node kinds, no `tenantId`.** `Network`, `NetworkMembership`, `Grant` and `Listing`. A `Listing` is a registry node too (the plan's "listing nodes"): `REGISTRY_LABELS` becomes seven (the migration record, `Tenant`, `TenantNumber` and these four), so the unstamped-node invariant and the backfill leave them alone. The properties that name a tenant are `ownerTenantId`, `memberTenantId`, `grantorTenantId` and `sourceTenantId` (the last on a listing only); the listing's service is `serviceId`, not `sourceServiceId`, so the projection allowlist's name appears in one module only (a test holds that). A network's id is its scope id (`net-...`, TEN-036), so a network scope id can never equal a tenant id.
+2. **Nineteen global statements: eleven reads, eight writes.** Reads: `Q-NETWORK-GET`, `-MEMBERSHIPS`, `-MEMBERSHIPS-OF`, `-MEMBERSHIP-ACTIVE`, `-GRANT-GET`, `-GRANTS`, `-GRANTS-OF`, `-GRANT-ACTIVE-FOR` (the projector's gate: approved grants of one grantor and scope with their active network and the grantor's active membership), `-LISTING-GET`, `-LISTINGS`, `-LISTINGS-OF`. Writes: `Q-NETWORK-CREATE`, `-SAVE`, `-MEMBER-CREATE`, `-MEMBER-SAVE`, `-GRANT-CREATE`, `-GRANT-SAVE`, `-LISTING-CREATE`, `-LISTING-SAVE`. All are on `GLOBAL_QUERY_IDS` with a reason that says `registry`, pinned by SHA-256 in `GLOBAL_STATEMENTS`, and run only through `run_global_query`. No statement mentions `$tenant` or `tenantId`.
+3. **Global writes are allowed for these eight and no other.** DEC-163 item 3 kept the tenant directory read-only because "a global write would be the widest door in the system"; the registry's governance records (membership, grant, listing) have to be written by something, and the audits put it in global statements written last. So `GLOBAL_WRITE_IDS` names eight ids, and a global statement registers as a write only when its id is on that list (and a listed id must be a write). A global write may contain `CREATE` and `SET` and nothing else that writes (no `MERGE`, `DELETE`, `REMOVE`, `CALL`, `FOREACH`), may name the four labels of `NETWORK_REGISTRY_LABELS` only (not `Tenant` or `TenantNumber`), cannot assign a map (`+=`) or a label (`SET n:X`), and carries no tenant, so it cannot create or change a tenant's data or the tenant registry. The digest pin remains the guarantee; the structural check is defence in depth.
+4. **Guards.** A create of a membership or a listing takes the network's lock first (`SET n.status = n.status` on the `Network` node), then counts the live rows that would clash (an invited or active row of the same tenant in the network; a pending, admitted or suspended listing of the same service), and writes only when there is none (`WITH n, count(l) AS live WHERE live = 0`: grouped by `n` so a network that does not exist writes nothing). A network and a grant are plain creates whose unique key refuses a second row. A save matches the row by its key and the status the caller expects, so of two racing writers exactly one writes. A write returns the id it wrote; no row, or a unique-key refusal, is `Conflict` (fixed message). A grant's second live row is not refused by the statement because a revision keeps the old grant approved until its successor is approved (TEN-036 `revise_grant`); the version key refuses a duplicate number.
+5. **The port is `NetworkRegistry`** (`application/ports/outbound/network.py`): eleven reads and eight writes over the domain records, plus `RegisteredNetwork(network, settings)`, `ActiveGrant(network, grant, membership)` and `NetworkRecordInvalid`. It is not part of a unit of work (it runs before and outside a scope, like the tenant directory). An id of the wrong kind (a network id in a tenant place, a tenant id in a network place) answers `None` or an empty list and sends nothing. `active_grants_for(tenant, scope, now)` selects with the statement and then decides with the domain's `may_project` at `now` (a grant that has not started, or whose window ended, is dropped), and requires the network to be `active`.
+6. **Network settings.** `NetworkSettings(system_name, pathway_name, time_zone)` (new, `domain/model/network_settings.py`) is stored on the `Network` node (`systemName`, `pathwayName`, `timeZone`). Names are 1 to 60 characters of plain text that pass the privacy guard and hold at most six digits (so no phone number); the zone is on the tenant allow-list (`Europe/London` today). The network board reads opening hours in this zone because a projection carries no zone (DEC-270). [ASSUMED] 60 characters and six digits.
+7. **A record is typed properties** (DEC-001): codes as text, times as datetimes, versions as integers, an agreement as `agreementReference` and `agreementVersion` (never its content), an approval as three properties (`...AccountRef`, `...TenantId`, `...At`). A node the domain refuses (missing or mistyped property, a status that disagrees with its approvals or dates) is `NetworkRecordInvalid` with one fixed message that names no id: fail closed, never a guess.
+8. **Migration `0110_network_registry`** (expand only, one schema statement each, `IF NOT EXISTS`): unique `network_id`, `network_membership_id`, `network_grant_id`, `network_grant_version` (network, grantor, scope, version) and `network_listing_id`, and five indexes for the gate, the membership check and the listing reads. It sorts after the contract migration `0105_drop_superseded_keys` because the block given to this bundle starts at 0110; it replaces no key (the labels are new), so it need not wait for the contract step, and `test_it_is_assembled_after_every_other_migration` now says exactly that.
+9. **Old tests changed.** `test_global_allowlist.py` (eleven plus nineteen, the registry labels, the writes), `test_migrations_tenant.py` (seven registry labels, the network list), `test_migrations_contract.py` (the order), `tenant_seed.py` `UNSTAMPED_OK` (one label added, `Listing`: a one-line edit of a harness file, because the unit test that compares it with `REGISTRY_LABELS` and the invariant both need it).
+
+**Tenant pending.** None. No tenant statement was added. Nineteen global statements were added to the allowlist with pins (the allowlist is now thirty). Cross-scope reads: the gate and the membership check read registry nodes in no scope, by design (DEC-134 item 9).
+
+## DEC-542 The network scope's projection repository: sources, current rows, ended rows and the unit of work (TEN-053)
+Status: accepted (build wave 5, bundle W5E, under DEC-133; no owner gate). Follows DEC-132 item 4, DEC-134 items 6 and 7, DEC-270 and DEC-540. Affects: `graph_store/projection_repository.py`, `projection_scenarios.py` (new), `migrations_network.py` (0111), `domain/rules/projection.py` (`SYSTEM_PROPERTIES`, `NETWORK_RELATIONSHIPS`), `application/ports/outbound/projection.py` (new), `application/ports/outbound/unit_of_work.py` (`NetworkUnitOfWork`), `unit_of_work.py`, TEN-054, TEN-056, TEN-057, TEN-058, TEN-060.
+
+1. **One current row per member and service** for a service, a capacity row and a criteria row, keyed `(tenantId, sourceTenantId, sourceServiceId)`, where `tenantId` is the network's scope id. The audits disagreed (audit A: capacity append-only by report id; audit B and DEC-134 item 6: the current inputs); the allowlist's DTO carries `report_id` so either was possible (DEC-270 item 13). Current-row keeps the network scope bounded and the read trivial, and the ordering value (`sourceVersion`, milliseconds since 1970 for capacity, the service version, `Basic.version` for criteria) makes a replay idempotent and an out-of-order message harmless (hazard H-N06). A capacity history of a network is not a requirement of DEC-132.
+2. **A `ProjectionSource` per member and kind** (`directory`, `capacity`, `criteria`, the grant scopes) with `status` (`active` or `ended`), the grant id, and `endedAt` and `endReason` once ended. Every upsert starts by matching the active source of its kind and locks it with a self-set (`SET s.status = s.status`), so an upsert that races a leave or a grant end finds the source ended and writes nothing (it returns zero rows written, `False`). `open_source` is a `MERGE` that reopens an ended source under a new grant and clears the end. This is where the audit's "upserts that match an active grant and take its lock first" lands: a network-scope statement cannot match a registry `Grant` (the label partition forbids it), so the grant is verified by the caller in the registry (TEN-054) and its id is recorded on the source and on every row.
+3. **Children by relationship.** A location and each opening window hang off their service by `HAS_LOCATION` and `HAS_OPENING_HOUR` (the only two relationship types `NETWORK_RELATIONSHIPS` allows now, neither with a property, each with a test), are keyed by the service id and the position, and are written only `WHERE p.sourceVersion = $sourceVersion`: the version just written. `sourceServiceId` joins the stamped properties of those two labels (`SYSTEM_PROPERTIES`; it is the id the service row already carries). The `ProjectionCursor` label and its key are created (migration 0111) for the reconciliation sweep (TEN-056); no statement uses it yet.
+4. **Nothing is deleted.** The statement check forbids `DELETE`, and history stays (DEC-132 item 6). A window or a place that a newer version no longer has is marked ended with the reason `replaced` (`Q-PROJ-LOCATION-END`, `Q-PROJ-HOURS-END`); when a member leaves or a grant ends, `mark_ended(source, kind, at, reason)` marks every live row of that member and kind (`Q-PROJ-MARK-*`, one per label; the directory kind marks three labels). The live read returns rows with no end mark; the history read (`live_only=False`) returns the ended rows too, marked with the date and the reason, and leaves out the `replaced` windows and places. A later projection under a new grant clears the marks (`endedAt = null`). The end marks are `left`, `grant-ended` and `replaced` (`ProjectionEndReason`).
+5. **Nineteen statements, all network-only, all with a scenario**: five reads (`Q-PROJ-SOURCE-GET`, `Q-PROJ-SOURCES`, `Q-NETVIEW-SERVICES`, `-CAPACITIES`, `-CRITERIA`) and fourteen writes. Every write passes the allowlist's own statement check in a unit test. The parameters of an upsert are exactly the stored properties of the DTO's label, the member (`sourceTenant`) and three stamps; no method takes a property bag; no parameter name has the form of a personal field (the guard's key forms), which is why the end parameters are `endedAt` and `endReason` and not `at` and `reason`. A scenario seeds two networks with the same member and service ids and a per-network `Marked` value; the generated test (TEN-060) runs it with two network scopes.
+6. **Ports.** `ProjectionWriter` and `NetworkView` (`application/ports/outbound/projection.py`) share no method; member-facing use cases import `NetworkView` only. `NetworkUnitOfWork` (a Protocol on the same unit of work class) names `projections`, `network_view`, `audit`, `idempotency` and `processed`. The unit's mapping has two new entries, `projections` and `network_view`, both `Neo4jProjectionRepository`; a tenant unit that reaches for one is refused by `run_query` (`ScopeKindMismatch`). `ProjectedRow[T]` carries the member, the DTO, the time projected, the grant id and the end marks.
+7. **Migration `0111_projection_keys`**: seven composite keys (each with the scope and the member) and three indexes for the live reads, one schema statement each, `IF NOT EXISTS`, expand only.
+
+**Tenant pending.** None. Nineteen network-only statements with scenarios were added; none is unconverted. Cross-scope reads this task would need: none (the member-scope reads and the registry read are TEN-054; the registry gate is TEN-051).
+
+## DEC-543 The network projector core: a producer in the member's scope, an apply step in the network's, and the message between them (TEN-054)
+Status: accepted (build wave 5, bundle W5E, under DEC-133; no owner gate). Follows DEC-132 items 3, 4 and 6, DEC-134 items 6 and 7, DEC-270, DEC-372 item 7 and DEC-541 to DEC-542. Affects: `application/use_cases/project_network.py`, `apply_projection.py` (new), `adapters/inbound/workers/network_projector.py` (new), `application/ports/outbound/projection.py` (`ProjectionPublisher`, `ProjectionNotifier`), TEN-055, TEN-056, TEN-057, TEN-058, TEN-077.
+
+1. **The message between the two units is `ProjectionRequested`** (DEC-372 item 7 left it open): the producer builds the DTOs and publishes the allowlisted body, the apply step decodes it with `from_body`, which runs the DTO's own checks again. The two units are never nested and never one transaction: the producer's unit (tenant, read-only) closes before anything is published, and the apply step's unit (network, read-write) opens only after the registry has been asked. Transport is a port (`ProjectionPublisher`); TEN-055 gives it the `projection.work` queue.
+2. **Producer (`ProjectNetwork`).** `project(kind, service_id)`, `project_all(service_id)`, `backfill(kind=None)`. The tenant is `current_tenant()` (a network scope is refused). Gates in order: the registry's `active_grants_for(tenant, kind, now)`, then the registry's listings: a service projects into a network only while the owner has admitted it there (`may_project_listing`, DEC-136 item 3), so a pending, declined, suspended or withdrawn listing projects nothing new and a member with no grant costs one registry read and opens no unit. It refuses a unit that is not read-only (`ProducerUnitNotReadOnly`). Built from the stored profile and its version (directory: `source_version` is the resource version; location and service contact are `None` because no repository stores them yet), the latest report, the count of bookings confirmed since it, the suspended flag and the tenant's policy (capacity: `source_version` is the read instant in milliseconds [ASSUMED], `valid_until` is `None` until TEN-056), and the current criteria. Returns `ProjectionRun(requested, skipped)`.
+3. **Apply (`ApplyProjection.execute(request, message_id, source_tenant_id)`).** Needs the network scope bound and equal to the payload's network and the verified bus tenant equal to the payload's source (`ProjectionMismatch`, permanent). Then, before any unit: allowlist version (`ALLOWLIST_MISMATCH`), body (`INVALID_BODY`, including a service id or version that differs from the message's), active membership (`MEMBER_NOT_ACTIVE`), the named grant at the named version effective now for this member, kind and network (`GRANT_NOT_EFFECTIVE`), an admitted listing (`LISTING_NOT_ADMITTED`). Then one read-write network unit: `processed.mark_if_new`, the source, the upsert, one audit entry (action `C`, use case `ApplyProjection`, actor `system_actor(source tenant)`, entity `<source>/<service>`, snapshot of kind, service id, version, grant id and version) and the commit. A duplicate returns `DUPLICATE`, an older version `STALE` (only the marker commits), a rejection opens no unit. The time written is the clock's, never the message's.
+4. **The source opens once and is not reopened by a stale message.** An absent source is opened; an ended one is reopened only by a grant approved after it ended (`approved_at > ended_at`); a message in flight when a member left or a grant ended carries an older grant and gets `GRANT_NOT_EFFECTIVE`. A grant that ends between the registry read and the write may let one projection through (DEC-132 item 3); the end then marks that row.
+5. **After the commit** the optional `ProjectionNotifier` is told `ProjectionApplied` or `ProjectionRejected` (TEN-058 rebuilds the board); a failing notifier is logged by class and changes nothing. Network events are not published on the bus here: `BusMessage.tenant_id` must be a tenant id, so a network-scoped event needs TEN-055's network property. Rejections write no audit entry (no unit opens); that departs from audit A 10.5, which also audits rejects, and is a known issue.
+6. **Consumers.** `NetworkProducerConsumer` (inside `TenantBoundConsumer`, `producer_consumer`) maps seven event types to the kinds they refresh (`PRODUCER_EVENTS`): capacity reports, status changes, booking responses and expiries (capacity), criteria approval (criteria), registration approval (all three), directory change (directory and capacity). An unfollowed event completes and does nothing; a followed event with no service id is dead-lettered `service-missing`. `NetworkApplyConsumer` decodes the message, requires the bus tenant to equal the payload's source (`source-mismatch`) and to be listed active by the directory (`tenant-unknown`), requires the network to exist and be active (`network-unknown`), binds the network scope for the one message, and calls the apply step. Applied, duplicate, stale and rejected are `completed` (a rejection is acknowledged, not retried); `ProjectionMismatch` is `projection-mismatch`; anything else is a retry that names the class only.
+7. **The network scope needs its audit head.** `Q-AUDIT-APPEND` fails with `AuditHeadMissing` in a network scope with none. Creating the head is part of creating the network (TEN-077 calls `ensure_audit_head` bound to the network scope); the integration test does it in its fixture.
+
+**Tenant pending.** None. No statement is added by this task. Cross-scope reads it makes: the registry (global, DEC-134 item 9) and, in two separate units, the member's tenant scope (read-only) and the network scope (read-write).
+
+## DEC-545 The projection transport: one queue, four subscriptions, a runner that serves two bindings (TEN-055)
+Status: accepted (build wave 5, bundle W5E, under DEC-133; no owner gate). Follows DEC-130 item 7, DEC-132 item 4, DEC-538 item 4 and DEC-543. Affects: `application/ports/outbound/event_bus.py` (`QUEUES`), `adapters/outbound/projection_queue.py` (new), `adapters/inbound/workers/servicebus_runner.py`, `adapters/inbound/workers/network_projector.py`, `adapters/outbound/graph_store/unit_of_work.py`, `bootstrap/workers_main.py`, `infra/servicebus-config.json`, `infra/README.md`.
+
+1. **`projection.work` is a queue, with no sessions and no duplicate detection.** It is in `QUEUES` (a test pins that it equals `domain.events.PROJECTION_WORK`), so `ManualEventBus` and `ServiceBusEventBus` accept it with no other change, which is the in-memory parity: both enqueue, receive once, and refuse a message for another tenant than the bound one. Order does not matter, because the apply step orders by source version (DEC-542 item 1), so a session would only serialise work. Bus-level duplicate detection is a 20 second window, and the apply step's processed marker is the guard that lasts; one guard that can be explained beats two that can disagree, and the in-memory bus has no window to match.
+2. **The message is the source tenant's.** `BusProjectionPublisher` (the production `ProjectionPublisher`) enqueues `BusMessage(tenant_id=source tenant, event_type="ProjectionRequested", payload=request.to_payload())`. The producer is bound to that tenant, so the bus refuses it from any other binding, a network binding included (`check_publishable`). The network is in the payload only; the only properties are the event type and `tenantId` (a test pins this). The apply consumer already compares the property with the payload and asks the registry about the network before it binds it (DEC-543).
+3. **The message id is a digest of what the request says**: `proj-` and 40 hex characters of SHA-256 over network, member, grant, grant version, kind, service, source version and allowlist version, not the time. The same state sent twice has the same id (the second is a duplicate for the apply step); a new grant version, a new source version or a new allowlist version is a new message. A digest holds no id (so no wire length problem: tenant id 31 + 1 + 45 is under 128) and leaks none into a log line.
+4. **Four subscriptions named `network-projector`**: on `capacity.events` with sessions (as `board-projector`: the subscription requires them, and `CapacityReported` and `StatusChanged` carry the service id), and on `booking.events`, `criteria.events` and `registration.events` without. These are the topics of the events in `PRODUCER_EVENTS`; a test requires every producer event's topic to be subscribed. The audit's sketch had no booking subscription; a booking response changes the confirmed count in the capacity inputs (DEC-543), so it is here.
+5. **The runner serves two bindings.** `ServiceBusRunner` accepted only `binds_tenant is True`. The apply consumer binds a network, not a tenant, and claiming `binds_tenant` would be false, so the runner now accepts either of two markers (`BINDING_MARKERS`), each the value `True` itself, and still refuses a consumer with neither at construction. `NetworkApplyConsumer.binds_network = True`; `producer_consumer` is a `TenantBoundConsumer`. No other consumer is changed. `network_runners(...)` builds the four producer runners and the apply runner; `workers_main.build_runners(..., network_projector=NetworkProjectorWiring(producer, apply))` adds them, and `serve` builds the wiring: the producer over a read-only unit factory, the apply step over `neo4j_network_uow_factory` (new: the same units, typed as the network scope's).
+6. **`network.events` was declared in `TOPICS` (DEC-538) and not in the emulator config.** It is now, with one subscription `network-projector` (no sessions). No runner reads it yet (the reconciliation sweep, TEN-056); the topic exists so that a publish is never refused. Nothing publishes to it in this bundle.
+7. **Not done.** The `ProjectionNotifier` is not given to `ApplyProjection` in `serve` (TEN-058 builds it); the backfill and end triggers on a grant event are TEN-056. `test_infra_up.py` and the bus contract cases for the queue are written, not run (they need the emulator).
+
+**Tenant pending.** None. No Cypher statement was added; the transport carries messages and holds no scope of its own. Cross-scope reads this task would need: none.
+
+## DEC-546 The network read use cases: the membership gate, the registry view, the read-only unit and the degrade at read time (TEN-057)
+Status: accepted (build wave 5, bundle W5E, under DEC-133; no owner gate). Follows DEC-132 item 4, DEC-134 items 6 and 8, DEC-136 item 14, DEC-542 and DEC-543. Affects: `application/network_access.py` (new), `application/use_cases/query_network_board.py` (new), `application/use_cases/query_network_directory.py` (new), TEN-058, TEN-059, TEN-062, TEN-067.
+
+1. **The gate is the registry's record of the viewer's own tenant, never the token's claim.** `NetworkAccess.require_member(actor, network_id)`: a role outside `NETWORK_VIEW_ROLES` (advisor, clinical, lead, owner, exec) is refused first with `NotAllowed` and no read, so that refusal says nothing about any network; then one registry read, `active_membership(network, actor.tenant_id)`. No active row is `NotFound("the network was not found")`, the same class, text and single read whether the network is unknown, the tenant never joined, or the tenant left a minute ago (a member who left is refused at once, not at token expiry). A member of a network that is suspended or closed gets the same NotFound. A wall screen, a reporter, an anonymous link, support, audit and the three administrator roles are not in the set: a wall shows a network only when its tenant's administrator has set it (TEN-067, which will add the role then), and an administrator runs sharing, not the board. This is my reading of DEC-134 item 4 and audit B 12.3; the owner-pending question 12.9(1) is decided here.
+2. **The registry is read before the unit opens.** `NetworkAccess.view(access, now)` reads the network's listings, grants and memberships and the member organisations' display names from the tenant directory (a global read, never a projection field), and gives each (member, service) a `ListedService`: the listing, its opaque `row_ref` (the listing's own id, which names neither the member nor the member's service), the organisation name and `scopes = visible_scopes(listing, membership, grants, now)`. A listing that is not admitted, or whose member is not active, has no scope; an admitted one wins over an older request of the same service. A listing of a tenant the directory does not know is left out. No unit of work holds two scopes (DEC-130 item 7): the use case then binds the network and opens a read-only unit that touches `network_view` alone, and refuses a unit that is not read-only (`NetworkReadUnitNotReadOnly`).
+3. **The board is assembled at the time of the read.** `QueryNetworkBoard.execute(actor, network_id)` joins the projected service rows and capacity rows (live only) to the listings and calls `assemble_network_board` (TEN-052), whose status is `compute_status` on the stored inputs at `clock.now()`. A service that stops reporting reads Not updated with no new event and its age is from the source's report time. A row with no listing, no admitted listing, no capacity and directory scope, or a member who left is not on the board. Pressure uses the default thresholds (`DEFAULT_POLICY`): a network policy with owner-set thresholds is a later decision. The result (`NetworkBoardView`) carries the network's system name, pathway name and time zone from `NetworkSettings`; no use case here takes a tenant's zone, so the zone ratchet has no new entry.
+4. **Directory and criteria are separate classes in one module**, `QueryNetworkDirectory` and `QueryNetworkCriteria`, each `execute(actor, network_id, *, history=False)`. A live row needs an admitted, not hidden listing and the grant of its own scope (directory, criteria) from an active member; a deactivated service is not on the live directory. `history=True` reads the ended rows as well and returns them with `ended_at` and `end_reason` (left, grant-ended, replaced); a departed member is only ever in the history. A criteria row is shown with the name of its directory row, so a criteria grant without a directory grant shows nothing (the name would be missing: a stated limit). Entries are ordered by organisation, service and reference, not ranked.
+5. **No entry names the member's tenant, a grant, or the member's own service id** (tests over `repr`), so the directory and criteria read as the board does (DEC-136 item 14).
+
+**Tenant pending.** None. No Cypher statement was added; the reads use the TEN-053 network-only statements (`Q-NETVIEW-*`) and the TEN-051 registry reads. Cross-scope reads: the registry (global) before the unit and the tenant directory's display names (global), both outside any unit of work.
+
+## DEC-547 The network board projector: key, channel, rebuild events and the read gate (TEN-058)
+Status: accepted (build wave 5, bundle W5E, under DEC-133; no owner gate). Follows DEC-130 item 7, DEC-132 item 4, DEC-250 and DEC-251 (the tenant board's key and channel), DEC-543 (the notifier) and DEC-546. Affects: `application/use_cases/network_board_projector.py` (new), `application/use_cases/query_network_board.py` (`build`), `application/network_access.py` (`NetworkContext`, `open_network`), `application/ports/outbound/cache.py` (`NETWORK_BOARD_UPDATES_CHANNEL`), `adapters/inbound/workers/network_board_consumer.py` (new), `bootstrap/workers_main.py`, `infra/servicebus-config.json`, `infra/README.md`, TEN-059.
+
+1. **One key and one channel per network, by the scope and not by a parameter.** `NetworkBoardProjector` stores the board under `network-board:v1:all` and announces on `network-board.updates`; the cache qualifies both by the bound scope (`_net-<id>:cache:...`), so a network's board never reaches another network's cache or stream, and a tenant scope never holds one (tests read each scope back). The logical names differ from the tenant board's (`board:v1:all`, `board.updates`) so a grep and a test cannot confuse them. The audience enum has one member (`ALL`), as the tenant board's: every role that may read a network board sees the same one.
+2. **Rebuild events**: `ProjectionApplied`, `GrantEffective`, `GrantEnded`, `MemberAdded`, `MemberRemoved`. `ProjectionApplied` reaches the projector as the `ProjectionNotifier` the apply step calls after its commit (`applied`; `rejected` changes nothing and does nothing); the other four arrive on `network.events` through a new subscription, `network-board-projector` (no sessions), read by `network_board_runners` through `TenantBoundConsumer` (the message's tenant is the tenant that acted). The subscription is the board's own, not the reconciliation sweep's `network-projector` (DEC-545 item 6), so a slow sweep never holds the board back. The payload's `network_id` is validated as a network id and the registry confirms the network is active when the board is built; a payload that is not a network id is `message-invalid` and a network the registry does not know is `network-unknown`, both dead-lettered; any other failure retries with the class of the error.
+3. **A rebuild is system work and a read is a viewer's.** `QueryNetworkBoard.build(network_id)` assembles the board with no viewer (only the network must exist and be active, `NetworkAccess.open_network`); `execute` is `require_member` and then the same assembly. `build` is called by the projector only, never from a request. `get_board(actor, network_id)` asks the registry about the viewer on every call, cached or not, so a member who left (or a network that was suspended) is refused at once and the cache never answers for them.
+4. **The cache is a convenience.** A read or a write that fails falls back to a rebuild and never raises from `get_board`; a cached value that is not a board is rebuilt; a rebuild that fails raises from `handle` (the consumer retries) and caches nothing. A cached board was assembled at its rebuild, so its status can be up to the backstop time (60 s) old; one that is not cached is assembled at the time of the read, which is what degrades a service that stopped reporting (DEC-546 item 3). Time passing is not an event, so the backstop is what makes the board turn Not updated with no event.
+5. **The message holds no figure.** `{"type": "network-board-changed", "at": ...}` and nothing else: no service, no tenant, no network id (the channel is the network).
+6. **Wired.** `workers_main.serve` builds the projector and passes it to the apply step as its notifier and to `build_runners(..., network_board_projector=...)`.
+
+**Tenant pending.** None. No Cypher statement was added. The cache names are qualified by the network scope by the cache wrapper (TEN-019); no network name is built by hand.
+
+## DEC-548 The network API: the `networks` claim as a hint, the registry as the gate, one 404, and a stream that ends when membership does (TEN-059)
+Status: accepted (build wave 5, bundle W5E, under DEC-133; no owner gate). Follows DEC-130 item 6, DEC-132 item 4, DEC-546 and DEC-547. Affects: `domain/rules/bff_token.py` (`BffClaims.networks`, `NETWORKS_MAX`), `application/actor.py` (`Actor.network_ids`), `application/network_access.py` (`networks_of`), `adapters/inbound/fhir_rest/routes_network.py` (new), `routes_network_events.py` (new), `auth.py`, `app.py`, `adapters/testing/tokens.py`, TEN-062, TEN-067, TEN-068.
+
+1. **The claim is a hint.** The token may carry `networks`, a list of at most 16 network ids (absent and null both mean none; anything else, an id that is not a network id included, is a rejected token like any other bad claim). It is signed with the rest, `BffClaims.networks` and `Actor.network_ids` hold it (a keyword-only field, so the tenant stays the last positional field of `Actor`), and a token without one is unchanged on the wire. It routes only: the BFF mints it at sign-in from the membership records (TEN-068) so the page knows a network view exists. It is never an access decision.
+2. **The registry is the gate, every request.** Each network route first checks that the path's network is in the claim (a network outside it is answered at once, with no read), then runs a use case that asks the registry about the viewer (`NetworkAccess.require_member`, DEC-546), so a member who left, or whose network was suspended, reads nothing although the token still lists the network. The cost: a tenant that joins a network after a person signed in sees it only after the next token (the page's list, `GET /networks`, is the registry's and shows it at once, but a read needs the claim). A claim that lists a network the person cannot use does nothing.
+3. **One 404.** `NotFound` and `NotAllowed` already answer the one 404 of the API, so a network that does not exist, one the tenant never joined, one it left, one outside the claim, a suspended one and a role that never sees a network (reporter, wall, anonymous link, support, audit, the administrators) are the same status and the same body (a test compares them), and no body repeats the network id. A path that is not a network id (the domain's pattern, kept equal by a test) is refused by validation before any use case runs.
+4. **The routes** (JSON, outside `/fhir`, `Cache-Control: no-store`, no business rule): `GET /networks` (the registry's active networks of the viewer's tenant: id, name, the system and pathway names, the time zone), `GET /network/{id}/board` (through `NetworkBoardProjector.get_board`: the cached board after the gate, DEC-547), `GET /network/{id}/directory` and `/criteria` (`?history=true` adds the ended rows with the date and the reason; the use cases of DEC-546). The board body is the cache encoding (`network_board_to_dict`), one serialisation. No body names a tenant, a grant or a member's own service id (tests over the text). A query or a header that names another network or tenant is ignored.
+5. **The stream** `GET /network/{id}/events` relays the network's own channel (`network-board.updates`, qualified by the network scope, so another network's messages and the tenant board's never reach it) as `event: network-board` with the time and nothing else. The gate runs before the subscription opens (the subscription is opened in the handler, so no message is missed) and again every 30 seconds (`RECHECK_INTERVAL_SECONDS`): a viewer the registry no longer lets in is sent one `scope-ended` event and the stream closes, and the subscription is closed however the stream ends. A keep-alive comment is sent when nothing was published for 15 seconds. A member who leaves can therefore still receive a content-free "changed" event for up to 30 seconds; the refetch they would then make is refused (DEC-546).
+6. **Wiring is on the app's state**, as the cache and the secrets are: `app.state.network_services = NetworkServices(access, projector, directory, criteria)`; with none, the routes fail closed with a 500. No process builds the app yet (`create_app` has no caller in `src`), so there is no production wiring to add here.
+
+**Tenant pending.** None. No Cypher statement was added. The routes bind no scope of their own beyond the tenant the edge binds; the use cases bind the network after the registry has confirmed the viewer.
+
+## DEC-544 The generated test over three scopes: the universe by kind, the network world and the network invariants (TEN-060)
+Status: accepted (build wave 5, bundle W5E, under DEC-133; no owner gate). Follows DEC-142 item 6, DEC-540, DEC-542 and the audit rows E:E32, E:E33 and A:G23. Affects: `tests/support/query_probes.py`, `tests/support/predicate_removal.py`, `tests/support/network_world.py` (new), `tests/integration/graph_store/test_tenant_isolation.py`, `test_network_scope_isolation.py` (new), `tests/unit/support/test_network_probes.py` (new). Written, not run (the owner's instruction for wave 5: the whole integration suite runs once, on the merged tip).
+
+1. **The universe has a scope dimension.** `production_statements(registry, kind=ScopeKind.TENANT)` and `universe_problems(registry, statements, kind)` return the statements that run in a scope of that kind: the tenant universe is the tenant statements and the statements for both kinds (what it was, less the network-only ones), the network universe is the network-only statements and the statements for both kinds. `run_isolation(..., kind=...)` opens each probe on a `ScopedTx` of that kind (`ScopeId(first, kind)`); the two "tenants" of a network run are two network scope ids, which the seeder, the snapshot and the invariants already treat as opaque scope values. `mutant_of` keeps `scope_kinds`, so the predicate-removal mutant of a network statement registers in a leaky scratch registry and is run in a network scope. Three tests were added to `test_tenant_isolation.py`: every network statement is isolated between two networks; removing the scope predicate from each network statement is caught; a statement for both kinds is isolated in each kind.
+2. **The network world** (`NetworkWorld.build`): an owner, three members, an outsider and a network, built through the registry port and the use cases (grants approved by the member and the owner, a listing admitted for each member's service, the network's audit head, and tenant data for each member). Every member holds a service with the same ids and a name that tells it apart, and text in the fields a projection must never carry (the service comment, the reporter role, the criteria change reason: the "poison"). `grants_for(member, *scopes, approved=True)` builds the grants, `run_projector(only=None)` runs the producer in a member's scope and the apply step in the network's, never nested, `produce_as`, `forge_from` and `forge_with_grant_of` drive the refusals, `leave` and `end_grant` drive the endings, `view` reads the network, `reader(member)` reads a member's own scope. Ids derive from the run (`world_ids`): the five tenant ids are the run tenant with a suffix (valid tenant ids that no sweeper owns, so the world cleans up after itself).
+3. **Five network invariants** (`NETWORK_INVARIANTS`, read-only Cypher that returns a label set or a relationship type and a count, never a value): a projected or source node outside a network scope; a source tenant on a node that is not a projection or a listing; a tenant's data (any label outside the network and scope-generic sets) inside a network scope; a relationship that joins two scopes; a source tenant that is a network id. They run after the projector in the integration test, beside the platform's two global counts (`Q-INVARIANT-UNSTAMPED`, `Q-INVARIANT-CROSS-SCOPE`).
+4. **What `test_network_scope_isolation.py` shows** (nine tests): three members with one service id stay apart in the network and no member scope holds a projection; no poison reaches the network scope; an outsider projects nothing and a forged message from it, or naming another member's grant, is refused; every invariant holds after a projector run; deleting a member's tenant data leaves the network rows and their history untouched; a leaving member's rows end with the leave date and nobody else's do; a statement for one kind of scope is refused in the other on a real transaction; the registry answers the same in every scope; a grant that is ended stops its own kind only.
+5. **Test-support files touched**: `query_probes.py` and `predicate_removal.py` (this task's files), and, in earlier tasks of this bundle, one label in `tenant_seed.UNSTAMPED_OK` and two entries in `relationship_matrix.RELATIONSHIPS` (additive; the harness bundle that is rebuilding `tests/support/*` should keep them).
+
+**Tenant pending.** None. This task adds no statement.
+
+## DEC-835 Bank holidays are per nation and checked in; a tenant's region alone decides which holidays close it; a service's own closures are inclusive local dates (TEN-066)
+Status: accepted (build wave 5, bundle W5A, fragment `TEN-066`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+1. Reference data. `domain/rules/holidays.py` holds one checked-in list per nation (england-and-wales, scotland, northern-ireland) for 2026 and 2027. No runtime fetch. The tests check the lists against the rules they follow: Good Friday in every nation, Easter Monday in England and Wales and Northern Ireland but not Scotland, first and last Mondays in May and August, the Scottish first-Monday August holiday, and the weekend substitutes (Christmas and Boxing Day 2026 and 2027, New Year and 2 January in Scotland 2027, the 12th of July in Northern Ireland 2026).
+2. Tenant region. `bank_holidays(region)` and `closed_on(region, closures)` take the tenant's holidayRegion as an argument. An unknown region is refused, never read as "no holidays". The region is the tenant's setting; the module names no zone and no clock.
+3. Service closures. `ClosurePeriod(first, last)` is inclusive, refuses a reversed period and refuses a datetime (lesson L48). `closed_on` returns a predicate over local dates: a bank holiday of the region, or a day inside a closure period, is closed.
+4. Schedule. `due_times_on`, `next_due` and `current_due` take an optional `closed` predicate. A closed local day has no due time, so next_due skips it and current_due does not look back to it. The predicate is called with the local day the schedule uses, in the zone the caller passes (TEN-065). Without a predicate the schedule is unchanged.
+5. Not hard-coded to London: the calendar and the predicate read no zone; the zone is the caller's, as in the rest of schedule.py.
+
+**Tenant pending.** None: the module is pure, reads no tenant. The region comes from the caller (see known issues).
+
+**Assumed.** None beyond the bank holiday data itself (government list; the tests check the rules, not the source).
+
+## DEC-507 Suspending writes the record first; resuming does the tenant's work first and the record last (TEN-073, refines DEC-136 item 10 and audit F 2.4)
+Status: accepted (build wave 5, bundle W5C, fragment `TEN-073`; under DEC-133, no owner gate).
+
+1. **`SuspendTenant`** (`use_cases/tenant_suspend.py`): the platform operator of the bound tenant, a named person, a fixed mode (`read-only` or `blocked`) and a fixed reason (the five of `SuspendReason`, never free text). The domain rule `suspend_tenant` moves an active tenant (and only an active tenant: anything else is `InvalidTransition`, nothing written) and raises the epoch. The registry is written first, by a compare and set on the epoch and status as read (`Conflict` if it moved), then the serving process is told (`on_changed`), then the audit entry is written in the tenant's own chain (mode, reason, epoch; no free text). A failure after the record leaves a tenant that is safely stopped.
+2. **Within the cache interval.** The REST edge judges every token on the tenant record's status and epoch, cached for at most `RECORD_TTL` (60 seconds, TEN-018). A suspension therefore takes effect within a minute in any process, never at the token's expiry (`test_the_cache_interval_is_at_most_a_minute` pins the constant; `test_a_suspended_tenants_token_is_refused_within_the_cache_interval` runs it on a gate). `TenantGate.forget(tenant_id)` and `auth.forget_tenant(app, tenant_id)` let the process that ran the operator's route make it immediate; they are a shortcut, and nothing depends on them.
+3. **Read-only and blocked** are the edge's existing rule (`edge_verdict`): a read-only suspension lets the tenant administrator read (GET and HEAD) and nothing else; a blocked one lets nobody. Not widened here (a test pins both).
+4. **A token from before a suspension never comes back.** Suspend and resume each raise the epoch, so a token issued before the suspension (epoch e) stays refused after the resume (record at e+2): everyone signs in again.
+5. **Relay and consumers skip it, by what already exists.** `Neo4jTenantDirectory.active_tenant_ids()` lists active tenants only, the outbox relay serves that list and the queue consumers bind a message's tenant only when the directory lists it (DEC-352), so nothing is relayed, projected or processed for a suspended tenant; a message for it is dead-lettered as `tenant-unknown`, and what is pending in its outbox waits. The integration test shows the tenant leaves and rejoins the list.
+6. **Boards and the network go Not updated by staleness, with no event on suspension.** A suspended tenant's staff cannot read its board (the edge), nothing prompts, so nothing is reported and every figure ages; the network view reads the projected figures as old (TEN-057's read). No `StatusChanged` is written at suspension: the relay would hold it until the resume and publish it late.
+7. **`ResumeTenant`** does the tenant's own work before it writes the record, because the unsafe direction is an active tenant whose services are never prompted again (a silent service, H-13). In one unit of work, for each active service the lead has not suspended (a lead's suspension stands, U36): a prompt that fell due while the tenant was suspended is cancelled, the next prompt is scheduled from the service's own times in the tenant's zone and policy (once: a prompt still ahead is kept), and a `StatusChanged` (before `Not updated`, after what the service reads now) is written under the id `tenant-resume-<epoch>-<service>` so the boards recompute; the tenant's work is marked under `tenant-resume:<tenant>:<epoch>` and the audit entry is written; the unit commits. Only then is the record saved, by a compare and set from the suspended record as read, and the serving process is told. A resume that stopped between the two is run again: the marker shows the work done, so it is not done twice (`resumed_again`).
+8. **Not here.** Changing a suspension's mode in place (read-only to blocked, for an incident that grows) needs a resume and a new suspension, or a new rule, because the domain table has no suspended-to-suspended move; offboarding from a suspended tenant (DEC-155 item 8) is TEN-074; the operator routes (`/platform/tenants/{id}/$suspend`, `$resume`) are TEN-075, which will call `forget_tenant` through `on_changed`.
+9. **The script.** `provision_tenant.py` gains `suspend TENANT --mode ... --reason ...` and `resume TENANT` (an emergency suspension must not wait for the routes); it is not the serving process, so the 60 seconds are its bound.
+
+**Tenant pending.** None: no statement was added or changed. The resume's reads and writes go through repositories whose statements are converted; the registry write is the platform statement `Q-TENANT-REG-SAVE` (TEN-028).
+
+## DEC-528 No role holds standing cross-tenant access: support access to one tenant needs an operator-directory principal, a code the tenant's administrator issued, one tenant and an hour, and every step is written to both chains (TEN-084, DEC-134 item 5, DEC-136 item 6, audit F 4.2 and A03, audit C TEN-C23, refines DEC-130 item 8 and DEC-132 item 8)
+Status: accepted (build wave 5, bundle W5D, under DEC-133; no owner gate). Affects: `application/cross_tenant_guard.py` (new), `application/ports/outbound/platform_audit.py` (new), `adapters/testing/recording_platform_audit.py` (new), `tests/architecture/test_single_execution_point.py` (`BINDING_MODULES`).
+
+1. **Deny by default.** `denial(principal, elevation, tenant_id, now)` is None only when the access is exactly an `Elevation` for this tenant, for this person, and `now` is before its expiry; every other case is a reason word (`no-principal`, `no-access`, `other-tenant`, `other-principal`, `expired`). A damaged cache value decodes to None, so it is `no-access`, never an allow, and losing the cache ends every access (nothing is allowed by a missing record).
+2. **The principal.** `PlatformPrincipal(account_ref, role)` is built only for the `support` role and an `account_ref` of the shape the network records take, and `PlatformPrincipal.from_claims(OperatorClaims)` is the way in from an operator token (TEN-043, audience `diucs-ops`). The platform operator (no data access, DEC-134 item 4), every tenant role and a tenant token's `Actor` are no principal (`CrossTenantDenied`). So a support role can come only from the operator directory (a customer's directory cannot give one, TEN-043), and is no standing access.
+3. **The code is the tenant administrator's.** `issue_code(IssueCodeCommand(actor))` runs in the tenant the edge bound from the administrator's token (`check_issuer`: role `tenant-admin` and a person; `require_actor_in_bound_tenant`), makes the eight-character support code of O06 (`XXXX-XXXX`, valid four hours, `CODE_VALID_FOR`), holds only its keyed hash (`support-code`, derived per tenant, DEC-350) as a `Grant` in the tenant's cache names under `support-grant:<hash>`, returns the code once, and writes one audit entry in the tenant's chain (`support-access-code-issued`, the expiry only). A failed audit removes the grant and gives no code. The code is the existing O06 code format and secret; no support-code record is written to the graph (no statement, no migration).
+4. **One tenant, one hour, one use.** `open(OpenAccessCommand(principal, tenant_id, code))`: the principal is checked, `tenant_id` must be a plain tenant id and the directory's record must be ACTIVE, the code is normalised and hashed under that tenant's key and found only in that tenant's cache names (a code of tenant A names nothing in B), and a claim key `support-claim:<hash>` is taken with `set_if_absent`, so a code opens one access and only one even under eight racing opens. The access (`Elevation(access_id, tenant_id, principal_ref, opened_at, expires_at, grant_hash)`) lasts `ACCESS_VALID_FOR` (one hour) from the opening and never past the code (`access_expiry`), is held in the cache for exactly that long (`support-access:<id>`), and is built and decoded strictly (not over an hour, ends after it opens, exact keys and version). The elevation names no secret: its repr shows the tenant and the expiry only.
+5. **Both chains, or no access.** The opening, each use (`authorise(AuthoriseCommand(principal, tenant_id, access_id, action))`, `action` a short lower-case word), the ending by the support person (`end`) and the revocation by the tenant's administrator (`revoke`, in the administrator's own tenant only) are each written to the platform chain (`PlatformAudit`, platform first) and to the tenant's own chain (the support person as the actor: role `support`, `practitioner_id` the account reference, the tenant's id, the access as the entity), so the tenant's administrator reads what the operator did and the operator keeps a record the tenant cannot change. A call under an access is not allowed if either record cannot be written. An opening that fails after its key is stored removes the access and the claim (the code can be used again) and, when the platform chain already says `opened`, adds a best-effort `support-access-aborted` note. A refusal is written to the platform chain only, with a reason word (`tenant`, `code`, `no-grant`, `no-access`, `no-principal`, `other-tenant`, `other-principal`, `expired`); the tenant's chain records an attempt only if it succeeded.
+6. **One refusal.** Every refusal the support person sees is one `CrossTenantDenied` (a `NotAllowed`, so a route answers it as a record that is not there) with one fixed message, so an answer never says whether the tenant, the code or the access was wrong. An unknown tenant, a suspended or offboarding tenant, a malformed or unknown or expired or used code and another tenant's code are all it.
+7. **The guard is a binder.** To write the target tenant's chain and read its cache it binds the tenant the support person names, after the principal is checked and the directory has known the tenant, and reads no tenant data. `diucs.application.cross_tenant_guard` joins `BINDING_MODULES` in the architecture test with that reason. Nothing is left bound after a call.
+
+## DEC-529 The platform chain is a port with a recording fake; its graph adapter needs a platform scope that does not exist (TEN-084, TEN-043)
+Status: accepted (build wave 5, bundle W5D). The audit (F section 2.4) keeps two chains: the platform's and the tenant's. `ScopeId` has tenant and network kinds only (a tenant id may not be `platform`), the platform scope is TEN-028's lifecycle work, and writing the chain needs registered statements, a head and a scenario in a scope that no unit of work can bind. So `PlatformAuditEntry(action, principal_ref, tenant_id, access_id, snapshot, at)` and the `PlatformAudit` port are defined here, the guard requires one (an access never stands without its platform record) and `RecordingPlatformAudit` is the only implementation today. TEN-043's operator sign-ins use the same port when it has an adapter.
+
+## DEC-530 The cache holds the grant and the access; nothing of record is lost with it (TEN-084)
+Status: accepted (build wave 5, bundle W5D). A grant and an access are short-lived authority, not facts: the audit chains are the record. Both live under the tenant-scoped names of the cache (TEN-019), so a code and an access of one tenant are never seen by another, and an eviction, a restart or a lost key only denies (a code the administrator must issue again, an access the support person must open again). Chosen over a graph record because it needs no statement, scenario or migration, expires by itself, and fails closed. Redis must not be run with a policy that returns an expired key; the TTL is also checked against the clock on read.
+
+**Tenant pending.** None. No Cypher, no global statement, no migration. The tenant's chain is written through the existing audit port in a unit of work bound to the target tenant; the platform chain is the new port. Cross-scope reads this task would need: none (the guard reads the tenant directory, which is global by design, DEC-134 item 9).
+
+**Assumed.** One hour per access and four hours per code (O06's [ASSUMED] values, `SUPPORT_ACCESS_VALID_FOR` and `SUPPORT_CODE_VALID_FOR`). An action word is 1 to 40 characters of `[a-z0-9-]`, starting with a letter. Five attempts to draw a free code.
+
+## DEC-761 Wall screen pairing as built: the display pairs with no one signed in, the BFF keeps the pairing secret and the device token in two sealed cookies, and the wall session is the back end's one-hour wall token, renewed from the device token (W08, R15, TEN-043, refines DEC-224 item 20 and DEC-160, overrides the prompt's session shape)
+Status: accepted (bundle W6J, under DEC-133; no owner gate). Numbered DEC-761 from the orchestrator's block DEC-760 to DEC-769. Builds on DEC-224 (the three routes), DEC-526 (the device token exchange, fragment `TEN-043.md`) and DEC-134 item 3 (the tenant of a request with no token is its host). Affects `app/(wall)/screen/pair`, `app/(lead)/lead/screens/new`, `app/api/bff/screens/**`, `components/screens/*`, `lib/screens/*`, `test/fixtures/pairing.ts`, `test/msw/handlers/screens.ts`, `e2e/screens.spec.ts`, `e2e/support/pairing.ts`.
+
+1. **The session is not the device token (overrides the prompt).** The prompt makes a session of `{ role: 'wall', backendToken: deviceToken }`. Since TEN-043 the device token is an opaque, long-lived secret that the edge does not accept as a bearer; the back end trades it at `POST /auth/device-token` for a wall JWT that lasts one hour. So the session is `{ role: 'wall', services: [], sub: <the token's own subject, the device id>, device: <same>, backendToken: <the wall token>, expiresAt: <at most an hour on> }`, and the device token lives in its own sealed cookie (item 2).
+2. **Two cookies, the browser reads neither.** `diucs_pairing` holds the pairing id and the screen secret while a code is on screen (ten minutes, the back end's own). `diucs_device` holds the device token once a lead has connected the screen (400 days [ASSUMED]; it lasts until the screen is revoked, which the screen learns at its next trade, within an hour). Each is encrypted (`dir` + `A256GCM`) with its own key derived by HKDF from `SESSION_SECRET` (a session, a pairing and a device cookie cannot pass as one another or as the sign-in's transaction cookie), HttpOnly, Secure (not in development), SameSite Strict and `Path=/api/bff/screens`, so no other route is sent them. A missing `SESSION_SECRET` is a fault, not "no cookie".
+3. **Four BFF routes, all reading nothing from the request but its cookies and its Host.** `POST /api/bff/screens/pairing` (no session; answers `{pairingId, code, expiresAt}`, never the secret); `GET /api/bff/screens/pairing/[id]` (answers `{status}`: `waiting`, `expired`, `paired` or `connecting`; the `[id]` must equal the pairing id in the cookie or it is a 404 without asking the back end); `POST /api/bff/screens/session` (a screen with a device cookie asks for a new wall session); `POST /api/bff/screens` (role lead and the session's CSRF check; body `{code, name, location?}`). The tenant of the first three is the Host the display was opened on; the fourth is the lead's token's. A tenant, host, board scope or any other field in a body, a query or a header is never read, and the connect forwards only code, name and location.
+4. **`paired` means only that the BFF now holds a wall session; the device token is stored before it is traded.** The back end gives the device token once (a second claim answers `paired` with none, DEC-224 item 3), so the BFF writes the sealed device cookie first and only then trades: if the trade fails (the back end is down), the answer is `connecting`, the page asks `POST /api/bff/screens/session`, and that trades from the cookie. A second `paired` with no token while the screen holds a device cookie trades from the cookie; with none it is `expired` (a new code), because the token cannot be had again. A trade that the back end refuses (a screen revoked in the moment since) forgets the device cookie. Neither token, the screen secret nor a subject is in any body, header, address, log or storage of the page (tested; the browser test is written, not run).
+5. **What the display does.** On opening, `/screen/pair` first asks to renew (a switched-off screen comes back with nobody there); with no device cookie that is a 404 and it asks for a code, shows it in two groups of three ("482 913") in very large digits (8rem, 4.5rem under 600px), and asks every three seconds, one request at a time, until `paired` (then `router.replace('/screen')`). An `expired` answer, or a 404 for the pairing, asks for a new code at once and shows it (DEC-224 item 20: the display must keep asking, because the code and the secret live the same ten minutes). A throttle shows the back end's words and waits the `Retry-After` it gave (at most ten minutes), else a minute [ASSUMED]; an outage shows "Pairing is not available right now. Try again shortly." and asks again in ten seconds [ASSUMED]; the code stays on screen through failed polls. `/screen` (W05) already sends a screen with no live session to `/screen/pair`, and W06 sends a refused refetch there once, so an hour-old wall token is renewed there with no one touching the screen. A display that already holds a wall session is sent on to `/screen`; a staff session is not a screen.
+6. **Session-less POSTs must come from this site's own page.** The pairing start and the renew have no session to hold a CSRF token, so `isSameOriginRequest` refuses `Sec-Fetch-Site` other than `same-origin` and an `Origin` whose host is not the Host the request came to (each tenant host is its own origin, so a sibling subdomain is refused too); a request with neither header is let through, since only a browser can be tricked and every browser sends one. This is a second control beside Strict cookies.
+7. **The lead's page.** `/lead/screens/new` has the prompt's words and ids, and checks the session itself (not a lead: `/sign-in?next=%2Flead%2Fscreens%2Fnew`) beside the proxy's guard (DEC-210 item 9) and the route's role check. The code is read as typed or as shown (any spaces removed); the messages "Enter the code shown on the screen", "The code has 6 numbers" and "Enter a name for the screen" sit beside their fields, linked by `aria-describedby` and `aria-invalid`, and the first wrong field takes the focus; the checks are the same module's on the page and in the route (`lib/screens/model.ts`), and a name or a place over 60 characters (the back end's own limit) or with a control character is refused. A 404 from the back end is "That code is not valid or has expired. Check the screen for a new code." beside the code field; a throttle, an outage and a signed-out lead are alerts above the form with words decided here (item 9). The confirmation moves the focus to its heading, shows "Online, updated HH:MM" in London time from the BFF's own clock at the moment of the connect, and offers "Add another screen" (an empty form, focus on the code) and "Done" (`/lead`). A second press while a connect is in flight sends nothing. The name is shown as text.
+8. **Not built, with the reason.** (a) The board choice (our organisation or a network, TEN-063 `ScreenBoardChoice`) and the claim confirmation with the organisation's name and "first seen" (`ScreenClaim`): the choice list is the back end's to build from the organisation's memberships and no route gives it, and no route gives the organisation's name or a first-seen time; the page sends no `boardScope`, so every screen shows its organisation's own board (the back end's default). Both belong to TEN-072. (b) A screen list, unpair and re-pair (TEN-072, U37).
+9. **Words decided here (the prompt gives the rest).** "Connecting this screen…" (the display, while it tries to renew); "Too many attempts. Wait a few minutes and try again." and "Pairing is not available right now. Try again shortly." (the back end's own texts, on the display and in the routes); "We could not connect the screen. Try again." (the lead's alert); "Your session has ended. Sign in again." with a "Sign in" link to `/sign-in?next=%2Flead%2Fscreens%2Fnew`; "Check the screen name and where it is. Do not include patient information." (the back end refused the name or the place: it looks for patient information, DEC-160); "Use 60 characters or fewer."; "Use letters, numbers and punctuation only."; "No patient information on this screen" under the code. No clinical text is invented.
+
+## DEC-760 The staff sign-in hands the verified ID token to `POST /auth/token` and keeps the token the back end answers with; the BFF holds no signing secret, no tenant table and no role mapping (W09, TEN-043, refines DEC-210 items 5 to 7 and 13, under DEC-130, DEC-134 item 2)
+Status: accepted (bundle W6J, under DEC-133; no owner gate). Numbered DEC-760 from the orchestrator's block DEC-760 to DEC-769. Builds on DEC-522 to DEC-527 (fragment `TEN-043.md`: the back end's three exchanges, one refusal, a staff role that is the tenant's own mapping). Affects `lib/auth/{exchange,flow,oidc,staff}.ts` (the rest of DEC-210 stands: items 1 to 4, 8 to 12, 14 and 15), `lib/links/server.ts` (one option), `test/fixtures/exchange.ts`, `test/msw/handlers/auth.ts`, the e2e stand-in, and W6A's session rework (TEN-044), which no longer has a minting to replace.
+
+1. **What goes to the back end.** After the sign-in's own checks (state, PKCE, then the ID token's signature, audience, issuer, expiry and nonce, all kept: the nonce is the one check that ties the token to this browser's sign-in and only this side knows it, because `IdentityVerifier.verify(credential, audience)` takes no nonce), `exchangeStaffToken` posts `{ "idToken" }` and nothing else to `/auth/token` at the back end's origin (`DIUCS_FHIR_BASE_URL` without `/fhir`). The tenant is the Host the callback came to, sent as the Host header through `callLinkApi` (DEC-167; Node's global fetch ignores a Host header). No tenant, directory, role, audience or hint from the body, the query or any other header reaches the call (tested, including `X-Forwarded-Host`, `Forwarded`, `X-Original-Host` and `X-Tenant-Id`). A host that is not a plain host name is not called.
+2. **What comes back and what is made of it.** `{token, expiresAt, role}`. The session is `role` from the answer, `backendToken` the answered token, `sub` the back end's derived subject read from the token's `sub` claim (never the Entra object id: DEC-524 makes it a different value in each tenant, and the oid is not kept anywhere), `services: []`, and `expiresAt` the earlier of the answer's and the token's own `exp`, to the second, and only if that is a future instant within twelve hours [ASSUMED: staff get eight, DEC-523 item 5]. The claim is read without checking a signature: this side holds no key and cannot, the token arrived over the server-to-server call just made, and it is only ever sent back to the back end, which verifies it. The answer is judged strictly: not an object, a token that is not three parts or over 4096 characters, a missing subject or expiry, an unparseable or out-of-range expiry, or a role that is not a staff role is `exchange-answer`, a failed sign-in, never a session.
+3. **Refusals.** A 403 (the one refusal for every reason, DEC-522 item 5) goes to `/sign-in?error=no-access`, byte for byte the same for a missing role, a directory the host's tenant has not bound and another tenant's member. Any other status, a failure to reach the back end or a bad answer goes to `/sign-in?error=failed` and logs one fixed word (`exchange-failed` or `exchange-answer`), so a fault is never shown as a lack of access. The sign-in no longer ends at `/forbidden` (that was the old unbound-directory result, which the back end now folds into the one 403); the page stays for the proxy's wrong-role case. The two roles the back end can give that no page here is for, `tenant-admin` and `network-admin` (TEN-043's `ENTRA_MAPPABLE_ROLES` cannot map them yet), get no session and the access message.
+4. **Settings.** `DIUCS_ENTRA_BINDINGS` and `BACKEND_JWT_SECRET` are gone from the front end (a scan test, `lib/auth/no-signing-secret.test.ts`, fails if either name or `SignJWT` comes back). `ENTRA_DIRECTORY_ID` is new and optional: a single-tenant app registration names its one directory (a GUID, else the load refuses and names the variable); the authorize and token calls then go to it and a token from any other directory is `wrong-issuer`. Without it the shared `organizations` endpoint is asked and any directory Entra signs is accepted here, because whether the host's tenant has bound that directory is the back end's to say. `DIUCS_FHIR_BASE_URL` (already used by the BFF) is now also needed by the sign-in.
+5. **The role guard is unchanged and stays in `lib/auth/access.ts`** (`rolesFor`, `canAccess`, `roleHome`, `isSamePathOnly`, read by `proxy.ts` and the sign-in), pure and free of Next imports, so TEN-044 can adopt it as it stands. `lib/auth/staff.ts` keeps `safeNext` only. The staff exchange never gives `support` or `platform-operator` (the operator console has its own door, `POST /auth/operator-token`, DEC-525), so `/console` stays guarded for `support` and no sign-in makes one until the operator sign-in is built (known issue). `audit` is a staff role the exchange gives; it has no page prefix and its home is `/`.
+6. **One tenant host per deployment for now.** The redirect address stays the single `DIUCS_PUBLIC_URL` (DEC-210 item 2: never taken from a request, because Entra would be asked for any address a caller chose), so a sign-in begun on any host returns to that host, and the exchange names the host the callback came to, which is then that host. The session cookie is set for the host that received the callback, so the person holds a session only for the host the back end agreed to. Per-tenant redirect addresses (one app-registration redirect per tenant host, DEC-136 item 11) are a deployment change recorded as a known issue.
+7. **A test stand-in, not the back end.** `test/fixtures/exchange.ts` answers `/auth/token` and `/auth/device-token` in the shapes `routes_auth.py` documents, from a table of hosts and the directory each has bound, deciding the role from the `roles` claim of the fake Entra token (the real back end uses the tenant's own group mapping). It is shared by the unit tests (MSW) and the browser tests (a real HTTP stand-in). Mutants run and failing as they should: the session ending at the answer's expiry instead of the token's, no staff-role check on the answer, a fixed host instead of the callback's, a 404 read as a refusal, and no ID token verification.
+
+## DEC-630 The advisor home is `app/(advisor)/advisor/page.tsx` (URL `/advisor`), and the wall board view for the advisor is `/advisor/board` (W10)
+Status: accepted (build wave 6, fragment `W10`; under DEC-133, no owner gate).
+
+1. The route group `(advisor)` adds no URL segment. The home is `/advisor`, not `/`, so it cannot clash with the other route groups.
+2. The proxy guard for `/advisor` (`lib/auth/access.ts`, roles advisor and lead) already covers both pages, so no table change was needed.
+
+## DEC-631 A case is named in the URL by its case id, not by a four-digit reference (W10)
+Status: accepted (build wave 6, fragment `W10`; under DEC-133, no owner gate).
+
+1. The back end keys a case by id. Its FHIR ServiceRequest carries no reference (`ServiceRequest.openReference` exists in the graph only, docs/spec/contracts.md), so the BFF cannot return one.
+2. The directory is still `[ref]`, as the prompts name the files, but the value is the id. `/advisor/case/4821` in the prompts becomes `/advisor/case/<id>`.
+3. The BFF `POST /api/bff/cases` answers `{ id }` only, not `{ id, reference }`.
+
+## DEC-632 The case routes admit the roles the proxy guard admits (advisor and lead), and the back end admits advisor and clinical (DEC-397) (W10)
+Status: accepted (build wave 6, fragment `W10`; under DEC-133, no owner gate).
+
+1. The BFF follows the prompt and the guard. A lead is therefore sent to the back end, which answers NotFound. This is a known issue, not a silent grant: no lead call succeeds.
+2. The owner or orchestrator decides whether the guard or the back end is right. Changing the guard is not this task's call.
+
+Fold note: the question whether a lead may open a call stays open (W7A-K8 in the known issues): the back end admits advisor and clinical, the front-end guard admits advisor and lead. It is a role decision beyond the builder's text and is not decided here.
+
+## DEC-645 No BFF route reads a tenant, organisation or scope from the URL, query string, headers or body (W10)
+Status: accepted (build wave 6, fragment `W10`; under DEC-133, no owner gate).
+
+No BFF route reads a tenant, organisation or scope from the URL, query string, headers or body. The edge tests (`options` and `phoned` routes) pin that a tenant named in a request is not forwarded. The tenant is the back-end token's (DEC-130, DEC-132).
+
+**Tenant pending.** `POST /fhir/ServiceRequest` (back-end statements for the open, OpenCase and UpdateCase): tenant-scoped in the back end (DEC-130). The BFF adds no tenant.
+
+**Assumed.**
+
+- The Needs step wording (`STEP_TEXT.needs`) is the prompt's [ASSUMED] line.
+- "The call could not be started. Try again." [ASSUMED].
+- The idempotency key shape is 8 to 64 URL-safe characters at the BFF. The back end accepts 1 to 200 printable characters (`_KEY_PATTERN`); the BFF is stricter, and the browser only sends UUIDs.
+
+## DEC-633 The case is read through the BFF with a GET, and a save sends the ETag from that read as If-Match. There is no fallback ETag (W11)
+Status: accepted (build wave 6, fragment `W11`; under DEC-133, no owner gate).
+
+1. The back end has no GET `/fhir/ServiceRequest/{id}` route. The BFF calls it as a typed client (`readCase`) and the tests stub it. Until the route exists, the form shows "This case could not be loaded." and the save is never offered. That is intended: a save never overwrites a case the page has not seen.
+2. The back end's constant ETag (`W/"1"`, DEC-398) is not hard-coded anywhere in the front end. If a read gives no ETag, the save is refused with 428 by the BFF.
+
+## DEC-634 The postcode rule (`lib/advisor/postcode.ts`) runs in the browser on blur and submit, and again in the BFF (`parseCaseInput`) (W11)
+Status: accepted (build wave 6, fragment `W11`; under DEC-133, no owner gate).
+
+The postcode rule (`lib/advisor/postcode.ts`) runs in the browser on blur and submit, and again in the BFF (`parseCaseInput`). The normalised form is what is saved. A postcode is never put in a URL, a log, a telemetry attribute or browser storage.
+
+**Tenant pending.**
+
+- `GET /fhir/ServiceRequest/{id}` (new): the case read must be tenant-scoped in the back end (DEC-130).
+- `PUT /fhir/ServiceRequest/{id}`: tenant-scoped in the back end (existing).
+
+**Assumed.**
+
+- Chip labels "Caller not yet recorded" (CallBar when no referrer is set). [ASSUMED].
+- "The case could not be saved. Try again." [ASSUMED].
+- Age and need labels as the prompt gives them; the summary uses the short need label "Fall" for `fall-no-injury`, so "Fall, Frailty" is what the summary line shows.
+
+## DEC-635 A referrer's score is written to the ServiceRequest as one complex extension per score, with a method and a value (W12)
+Status: accepted (build wave 6, fragment `W12`; under DEC-133, no owner gate).
+
+A referrer's score is written to the ServiceRequest as one complex extension per score (`SCORE_EXTENSION`, `https://diucs.example/StructureDefinition/score`) with a `method` (valueCode) and a `value` (valueInteger for NEWS2, Frailty scale and ambulance category; valueString for the Manchester word and the Pathways Dx code). The shape is proposed here for the back end to adopt: the back end does not read it yet (H-323).
+1. Each method at most once. A NEWS2 score is a whole number from 0 to 20; a Frailty scale value is 1 to 9; an ambulance category is 1 to 4; a Manchester word is one of the five; a Pathways code is letters, digits, dot, dash or underscore, up to 32 characters.
+2. The browser offers only codes from the lookup for Pathways. The BFF checks the shape only; it cannot check that a code is in the list, since the list is the back end's.
+
+## DEC-646 The Pathways Dx lookup is advisor-only (the prompt) (W12)
+Status: accepted (build wave 6, fragment `W12`; under DEC-133, no owner gate).
+
+The Pathways Dx lookup is advisor-only (the prompt). The case routes admit advisor and lead (DEC-632). The back end's terminology route admits advisor and clinical (R16). A lead therefore sees the case but not the lookup.
+
+**Tenant pending.** `GET /terminology/pathways-dx`: reads the Terminology port, not tenant data. No tenant statement.
+
+**Assumed.**
+
+- The debounce is 250 ms (prompt). The display for Manchester and Ambulance uses the prompt's words.
+- Chip labels "NHS Pathways Dx", "Ambulance category", "Manchester triage", "NEWS2", "Frailty scale", "Not given" (prompt).
+
+## DEC-636 The options are read once per case per page load. They are read again only after a saved answer (W14), never on focus or visibility change. The audit snapshot the back end writes for each `$filter-options` call is why (W13)
+Status: accepted (build wave 6, fragment `W13`; under DEC-133, no owner gate).
+
+1. The BFF generates a new `Idempotency-Key` for each read (a UUID), because the back end requires a key on the call.
+2. The list holds a request guard, so a strict-mode remount does not read twice.
+
+## DEC-643 The options view is the back end's `$filter-options` Parameters read through `lib/advisor/options.ts`, which keeps only the named parts (W13)
+Status: accepted (build wave 6, fragment `W13`; under DEC-133, no owner gate).
+
+The options view is the back end's `$filter-options` Parameters read through `lib/advisor/options.ts`, which keeps only the named parts. Unknown parts are dropped, an unknown status is shown as Not updated (never as accepting), a stale figure (over 2 hrs) is flagged, and an option with no `serviceId` or name is dropped.
+1. The order is the back end's; nothing is re-sorted or ranked.
+2. A card has four actions for the viewer's own organisation: Request booking (W20), Criteria (W14), I phoned (W14), They declined (W14). A network card has only Criteria (DEC-648; network-ui.md section 9).
+
+**Tenant pending.** `POST /fhir/HealthcareService/$filter-options`: the options are tenant-scoped in the back end (FilterOptions). The BFF adds no tenant; `test/.../options/route.test.ts` pins that a tenant named in the URL is not forwarded.
+
+**Assumed.**
+
+- Heading wording for one and for several services (prompt).
+- "Phone to confirm" as the unit when none is given (network-ui.md section 2).
+- Loading and failure wording: "Loading the options." and "The options could not be read. Try again." [ASSUMED].
+
+## DEC-637 The dialog shell is an accessible modal built by hand, not a native dialog element (W14)
+Status: accepted (build wave 6, fragment `W14`; under DEC-133, no owner gate).
+
+The dialog shell (`components/ui/Dialog.tsx`) is an accessible modal, not a native `<dialog>`: `role="dialog"`, `aria-modal`, named by its heading, focus moved in on open and back to the opener on close, Escape closes it, and Tab wraps inside. It draws no close button of its own, so a dialog's own "Close" and "Cancel" never share a name with one in the shell. It is a full-screen sheet at phone width. jsdom has no `showModal`, so the shell does not depend on it.
+
+## DEC-638 "I phoned": a "not accepting" answer always sends the value 0 and hides the number (W14)
+Status: accepted (build wave 6, fragment `W14`; under DEC-133, no owner gate).
+
+"I phoned": a "not accepting" answer always sends the value 0 and hides the number. A count must be a whole number (no sign, no decimal). The BFF bounds a count to 0 to 9999 [ASSUMED]. The browser's idempotency key is passed on to the back end, so a double press records once.
+
+## DEC-639 The criteria dialog shows what the history gives (W14)
+Status: accepted (build wave 6, fragment `W14`; under DEC-133, no owner gate).
+
+The criteria dialog shows what the history gives. The history answer has the version, the status and the review date only, so "Accepts" and "Does not accept" say "Not shown in this view. Phone the service to check." and the reviewed date and owner say "not recorded". Overdue is a review date before today in London (DEC-038); the warning is shown when it is.
+
+## DEC-648 "They declined" and "I phoned" are not offered on a network card (network-ui.md section 9). Criteria is (W14)
+Status: accepted (build wave 6, fragment `W14`; under DEC-133, no owner gate).
+
+
+
+**Tenant pending.**
+
+- `GET /fhir/Basic` (criteria history): tenant-scoped in the back end (DEC-130). The BFF adds no tenant.
+- `$advisor-phoned`, `$declined`: tenant-scoped in the back end.
+
+**Assumed.**
+
+- Count bound 9999 (`MAX_VALUE`) [ASSUMED].
+- "The position could not be saved. Try again." and "The reason could not be saved. Try again." [ASSUMED].
+- "Criteria are past their review date." when the reviewed date is not known [ASSUMED].
+- The dialog's sub line for "They declined" is "The board showed capacity" (prompt).
+
+## DEC-640 The close time is the BFF's own, not the back end's. `POST $close` answers the closed ServiceRequest, which carries no close time, so the BFF answers `closedAt` as the moment it recorded the close (W15)
+Status: accepted (build wave 6, fragment `W15`; under DEC-133, no owner gate).
+
+
+
+## DEC-641 The SystmOne summary is built from the case the back end holds and shows "Not recorded in this view" for every field the back end does not send ... (W15)
+Status: accepted (build wave 6, fragment `W15`; under DEC-133, no owner gate).
+
+The SystmOne summary is built from the case the back end holds and shows "Not recorded in this view" for every field the back end does not send (destination, booked, data age). It is a copy of what the back end holds, not of what the advisor just chose.
+1. Once the outcome is saved, the summary, the postcode and the needs are removed from the state and from the page (test: the postcode is not in the document after close).
+2. An outcome named in the address (`?outcome=no-service-fits` or `out-of-area`) is preselected and shown as text.
+
+**Tenant pending.**
+
+- `$close`: tenant-scoped in the back end (existing).
+- Summary read: depends on the case read, which is tenant-scoped in the back end (new, W11).
+
+**Assumed.**
+
+- "Out of area" is the label for the out-of-area outcome [ASSUMED] (see W50).
+- "The outcome could not be saved. Try again." and "The summary could not be read." [ASSUMED].
+- The "Done" link goes to the outcome section (`#outcome`) [ASSUMED].
+- The retention note and the kept and cleared lists are the prompt's words.
+
+## DEC-642 "Widen the time" is offered only when the case is within 2 hrs (W16)
+Status: accepted (build wave 6, fragment `W16`; under DEC-133, no owner gate).
+
+"Widen the time" is offered only when the case is within 2 hrs. It saves the whole case, as the needs form does, with urgency `today`, using the ETag it read as If-Match, then reads the options again. A case that is not within 2 hrs is never widened by this button.
+The state follows DEC-643 (W13): it always offers a next step and never ends the call. The primary action is last in the DOM, so it is the bottom action on the phone layout; "Back to needs" is the secondary link above the options.
+
+**Tenant pending.** None new (uses the case read and save, W11).
+
+**Assumed.** "The time could not be changed. Try again." [ASSUMED].
+
+## DEC-650 The shift lead's main page is `/lead`, not `app/(lead)/page.tsx`, and every ladder row says its state in words (W17)
+Status: accepted (build wave 6, fragment `W17`; under DEC-133, no owner gate).
+
+The shift lead's main page is at `/lead` (file `app/(lead)/lead/page.tsx`), not `app/(lead)/page.tsx` as the task list has it; the route group does not appear in the URL (the wave prompt's rule). Build one: the ladder rows say their state in words on every row, including the escalate row, which reads "Escalated to you. Done." or "Escalated to you. Not done." (the prompt's sample row has no state word; the prompt's own rule "done and not done shown by word and icon" wins).
+
+## DEC-651 A back-end gap is answered, not filled (W17)
+Status: accepted (build wave 6, fragment `W17`; under DEC-133, no owner gate).
+
+A back-end gap is answered, not filled. The overview needs a back-end read that does not exist (the chasing ladder, the figures getting old and the covering numbers). Its BFF route answers 501 `not-built`, and the page says it could not load. It never shows "No services need chasing." for a read that failed (H-330). The same rule applies to every lead task.
+
+Fold note: W7B now serves the lead overview, the reminder, the reporters and the phones (DEC-802 to DEC-809); the BFF still answers not-built until it is wired.
+
+## DEC-659 The phoned dialog is a seam until W14 lands: `components/advisor/PhonedDialog.tsx` is a shell with the props W14 keeps (W17)
+Status: accepted (build wave 6, fragment `W17`; under DEC-133, no owner gate).
+
+
+
+**Tenant pending.** None: the W17 overview has no Cypher and no tenant input. The BFF takes none from the request (DEC-130, DEC-132). The overview's back-end read, when built, must be tenant-bound by the back end like every other read.
+
+**Assumed.**
+
+- Ladder labels: "Text sent", "Reminder sent", "Advisor phone task", "Escalated to you", each followed by its state word.
+- Time format is London time, 24-hour, `HH:MM`. Overdue text: "N min" under an hour, "N hr" or "N hrs" with "M min" when M is not zero.
+- Refresh every 60 s; a board update refreshes at once.
+- The "Getting old" card appears only when the list is not empty.
+
+## DEC-652 The BFF forwards only to back-end routes that exist, and converts the browser's JSON to the FHIR Parameters the route takes (W18)
+Status: accepted (build wave 6, fragment `W18`; under DEC-133, no owner gate).
+
+The BFF forwards only to back-end routes that exist, and converts the browser's JSON to the FHIR Parameters the route takes. It invents no endpoint. `POST /api/bff/lead/services` sends `$setup` with the Idempotency-Key the browser sent (checked against the back end's own rule, 400 when missing or malformed); the answer names the new service and nothing else. Validation runs twice: the form shows the problems before it posts, and `readServiceBody` refuses a body the back end would refuse, before the back end is called.
+
+## DEC-653 Each write carries the CSRF token from the `diucs_csrf` cookie (`X-CSRF-Token`) and one Idempotency-Key per attempt (W18)
+Status: accepted (build wave 6, fragment `W18`; under DEC-133, no owner gate).
+
+Each write carries the CSRF token from the `diucs_csrf` cookie (`X-CSRF-Token`) and one Idempotency-Key per attempt. A failed save that the lead sends again keeps its key, so the back end sees one request, not two (H-332).
+
+## DEC-655 The "What is counted" choices are the four measures the back end counts: referrals (referrals-acceptable), beds (free-beds), slots (free-slots) ... (W18)
+Status: accepted (build wave 6, fragment `W18`; under DEC-133, no owner gate).
+
+The "What is counted" choices are the four measures the back end counts: referrals (referrals-acceptable), beds (free-beds), slots (free-slots), packages (packages-free). The canvas's "Virtual beds free" is the same measure as "Beds free" (free-beds): the back end has no virtual-bed measure, and offering both would show two pressed chips for one value. The unit label carries the difference. "Other" is not offered, since no measure stands for it. Hours: the back end takes one time window every day, so the form says "Accepts referrals every day" and has no day choices; a service with different days needs a back-end change first.
+
+**Tenant pending.** None in this bundle. The BFF takes no tenant and forwards the lead's token only. The back-end routes bind the tenant at the edge (TEN-018), as R08 does.
+
+**Assumed.**
+
+- Mobile: 11 digits starting 07, spaces allowed (the form and the back end agree). Email: one `@` and a dot after it (the form's check; the back end checks again).
+- Postcode district: one or two letters, a digit, and an optional letter (`^[A-Z]{1,2}[0-9][0-9A-Z]?$`).
+- Review date: must be after today's date in the browser's own calendar (ISO date compare).
+- Ages and capacities: whole numbers from 0 (the body reader allows up to 100 000).
+- A name, unit label or role is at most 200 characters.
+- Needs excluded: "Needs IV therapy" uses the code `iv-therapy`, the same code as "IV therapy" to accept (the canvas gives both labels for the same need).
+
+## DEC-836 Booking link pages follow the L02 back end as built, not the W19 prompt where they differ (W19)
+Status: accepted (build wave 6, bundle W6H, fragment `W19`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+Booking link pages follow the L02 back end as built (booking_links.py), not the W19 prompt where they differ (lesson L172).
+1. Purposes are `booking-request` (the request) and `booking-change` (a confirmed booking's change link). The prompt's `booking` is read as either.
+2. A booking 410 is `{state}` alone, as for every link. The page shows the same closed page for every closed state (expired, declined, cancelled, used), so it does not reveal which it was. The BFF answers `expired` for any closed booking on GET.
+3. The confirm answer carries `bookingStatus` and `changeToken` only. The page shows "Booked" and the reference and service it already read; it shows no confirmation time, because the back end sends none.
+4. The request view and the change view carry `coordinationPhone`, the SPOA's coordination-phone contact from the tenant's own configuration (`uow.tenant_config.contacts()`). It is never a constant or an environment variable (DEC-130 amendment, W19 prompt). A closed (410) answer has no phone, by the 410 rule (H-486).
+5. The BFF forwards `reason` on a booking answer. A capacity answer never sends one, and the back end refuses a reason on a capacity link.
+6. The need is shown exactly as the back end sends it (a code list joined with "and", e.g. "fall-no-injury and frailty"). No wording is invented for clinical needs (H-489).
+7. A booking request reads its link twice: once on `/l/[token]` to learn the purpose and redirect, once on `/l/[token]/booking`. One booking view costs two of the tenant's 60 link requests a minute (DEC-167 item 8).
+8. The redirect is kept in state and taken by its own effect, so a router that is a new object on each render does not re-read the link.
+
+**Tenant pending.** The booking views read `uow.tenant_config.contacts()` inside the bound tenant; the statements behind it are the TEN-012 contacts statements (unconverted in the shared schema; the link is bound by the edge, DEC-167 item 1).
+
+**Assumed.** None new. The need, urgency and age band are shown as sent.
+
+## DEC-837 The advisor's booking card is built standalone and reads only the booking state the BFF answers (W20)
+Status: accepted (build wave 6, bundle W6H, fragment `W20`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+W20 is built standalone, as the wave prompt allows: W13 (the options list) is in bundle W6B and not on integration/build, so `BookingPanel` is the control and card a later options list mounts once per service.
+1. The advisor card reads only the booking state the BFF answers (`BookingState`). The BFF maps the back end's FHIR Task (R09, `booking_task.py`) with `bookingFromTask`; the browser parses that answer with `parseBookingState`. The card never reads a Task.
+2. The phone prompt comes five minutes after the request and the request is shown as expiring at its reply-by time. Both come from the Task's own times and a named constant (`PHONE_PROMPT_AFTER_MINUTES` [ASSUMED]). The tenant's own setting (`bookingPhonePromptMinutes`, TenantPolicy) is not on the Task, so a tenant with a different setting sees the default (H-493).
+3. The live stream names a service, not a booking (the relay keeps `serviceId`, `kind`, `changedAt`; DEC-152). The card therefore re-reads its booking when a `booking.updated` names its own service, and ignores the rest. The prompt's "bookingId" match is not possible through the relay.
+4. A request is posted once per press with a fresh `Idempotency-Key` (UUID) and the CSRF token from the `diucs_csrf` cookie. A second press while one is in flight, or once a booking exists, posts nothing (`inFlight` ref).
+5. The sent text is shown as sent. The Task carries no delivery status, so the card does not say "delivered" (H-494).
+6. The 409 from the back end is `open-request` and shows "UCR West already has a request waiting. Phone them instead."; no other error shows a generic failure.
+7. Every timer and the stream are released on unmount and when the booking changes state.
+
+**Tenant pending.** R09's Task statements are not on the tenant conversion list for W20; the tenant comes from the BFF session's back-end token only. TEN-016 (scheduled work) and the booking conversions cover the back end.
+
+**Assumed.** `PHONE_PROMPT_AFTER_MINUTES = 5`, `REPLY_WINDOW_MINUTES = 10` [ASSUMED], domain-rules 3.
+
+## DEC-838 The withdrawal alert acknowledges on the advisor's first action; the cancel dialog and the cancelled card (W21)
+Status: accepted (build wave 6, bundle W6H, fragment `W21`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+1. Acknowledging a withdrawal or a not-reached report happens on the first action the advisor takes from the alert ("See options again", "Ask a clinical advisor" or "Phone the caller"). The alert says "Phone the caller now" first, and the back end stops the shift lead's escalation on the acknowledgement (R17). The acknowledgement does not check that the caller was phoned (H-495).
+2. "Cancel request" and "Cancel booking" open the same dialog. The dialog's reasons are the four of U20; its Cancel stays off until a reason is chosen. Keep closes it with no request and gives focus back to the control that opened it.
+3. A cancel answered 409 (the booking moved on) or that does not reach an answer shows "This booking changed before you cancelled. Check its status." and reads the booking again, so the card shows what the back end holds.
+4. The withdrawal alert shows the reason and the withdrawal time from the Task (`withdrawnAt` from `executionPeriod.end`, `withdrawReason` from the output). Not-reached shows its own reason words.
+5. While a dialog or the alert is open, the card behind it is `aria-hidden`, so its controls are not reached by a screen reader or a query. This is the modal behaviour; the W14 shared dialog is not on integration/build (see known issues).
+6. Cancelled bookings show "Booking cancelled" with "Choose another option", which returns to the options list through `onSeeOptions`.
+
+**Tenant pending.** As W20: the back-end token is the only tenant the BFF sends.
+
+**Assumed.** The not-reached alert wording, "Reported {time}", and the cancel dialog's note for a request (see known issues).
+
+## DEC-839 Change pages follow the L02 back end as built; a closed change link passes its state word through (W22)
+Status: accepted (build wave 6, bundle W6H, fragment `W22`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+Change pages follow the L02 back end as built, as the W19 fragment does (lesson L172).
+1. The change link (`booking-change`) answers its booked view with the reference, service, age band, need, urgency, status and the SPOA's phone (`change_view_body` in `booking_links.py`). No reply-by time and no confirmation time: the back end sends neither.
+2. A closed change link answers 410 with its state word (`cancelled`, `withdrawn`, `not-reached`, `used`, `declined`, `expired`). The BFF now passes those words through, not only `expired`: a holder of the change token is the service that confirmed the booking, and an unknown or guessed token still gets `expired` from the back end. This changes the W04 and W19 rule that every closed link reads `expired` on GET (W19 fragment decision 2 is superseded for GET).
+3. The cancelled-by-SPOA view says "The booking was cancelled by the SPOA. No action needed." with no reference and no time. A 410 carries neither (H-499).
+4. A refused change (409) shows the step its state word names: withdrawn shows Withdrawn, not-reached shows Thank you, cancelled shows the cancelled view, anything else the closed page.
+5. Withdraw and not-reached forms enter a history entry, so the browser's Back returns to the booked view; the on-page Back sets the booked view without a post.
+
+**Tenant pending.** As the W19 fragment: the change view reads the tenant's contacts through the bound unit of work; the statements are the TEN-012 contacts statements.
+
+**Assumed.** "This link has closed" and "This link can no longer be used." on an expired change link; "The booking was cancelled by the SPOA. No action needed." (the prompt's time dropped, see H-499).
+
+## DEC-680 Registration sign-in: the back-end seam, and what the BFF refuses (W23)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W23 (`frontend/lib/register/backend.ts`, `frontend/app/api/bff/identity/code/`), W54 to W27 (every registration BFF route goes through the same seam), U25 and R10 (their routes are the back end this seam calls).
+
+1. **The BFF calls the back end's identity routes that exist.** `POST /identity/code` and `POST /identity/code/verify` (U25, routes_identity.py) are called through `lib/links/server.ts` with the browser's host, because the identity routes are tenant-bound from the Host header (DEC-134 item 3). The BFF never sends or reads a tenant.
+2. **The back end's purpose is `setup`.** The prompt's `purpose: "registration"` is not one of the back end's four purposes, and the back end refuses unknown fields. The BFF accepts `registration` from the browser and sends `setup` (a new device's first sign-in, DEC-413). The invitation token is not forwarded: no back-end route reads it on the code request.
+3. **A device id is made by the BFF.** The back end records a right code on a device id the phone holds (128 bits, `DEVICE_ID_PATTERN`). The BFF makes it on the first code request and keeps it, with the invitation token, in a sealed HTTP-only cookie (`diucs_register`, path `/api/bff/identity`, 15 minutes, sealed with the session key). The browser never holds either value.
+4. **The session is not built.** After a right code the back end returns `{verified: true}` and no token. A reporter session needs a back-end token and the registration id, and no route issues them (the PIN sign-in answers a device session, and the registration routes need a bearer token). `signInRegistrant` throws `not-built` (503). The verify route creates the session only from what that seam returns; it never creates one from the code check alone.
+5. **Unreachable back end is 503 with no detail**, never a 500 that names the error.
+
+## DEC-681 What the browser sees of the number, the code and the invitation (W23)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W23 (`components/register/SignInForm.tsx`, `components/forms/CodeEntry.tsx`, `lib/register/phone.ts`), W24 to W27.
+
+1. The number is held only in the sign-in component's state. The code screen gets it as a prop and shows `07xxx xxx456`; the full number is never in the DOM, a URL, a cookie or storage after it is sent. Tests assert this after submission.
+2. The invitation token is the only identifier in a URL (`/register?invite=…`). It is shape-checked on the page and in the BFF (16 to 128 URL-safe characters) and never rendered. This follows DEC-167 for link tokens in paths; the access log redaction for `/register` is a follow-up (see known issues).
+3. The code is six digits and is sent only when it is. The BFF refuses any body field it does not name, so a tenant, role or host in a body is a 400 (tests).
+
+## DEC-682 Error mapping for the code check (W23)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W23 `app/api/bff/identity/code/verify/route.ts`, `components/register/SignInForm.tsx`.
+
+1. A back-end 400 whose diagnostics say "Ask for a new code" is answered as 410 `expired`. The back end uses that one answer for a lapsed code and for five wrong tries, so the page cannot say which. The prompt's separate 429 "Too many wrong tries" is shown only for a 429 from the back end, which the identity route uses for its address limit.
+2. A wrong code is 400 `wrong-code`. The back end gives no count of tries left, so the page shows the count only when the answer carries `triesLeft`, and otherwise says "That code is not right. Check it and try again." The prompt's "You have 3 tries left" is shown when a count is present (tested with a sample of 3).
+3. 403 (no invitation) is shown with the prompt's words. The back end never answers 403 for a number, so this path is not reachable until a back-end route checks the invitation (H-351).
+
+**Tenant pending.**
+
+- The identity routes take the tenant from the Host the BFF forwards (done). `signInRegistrant` must bind the tenant from the host and open its unit of work under it (TEN-018). Until then it is a `not-built` 503.
+- The pending cookie is not tenant-scoped: it is sealed for this origin and holds no tenant. A tenant change of host is a new origin.
+
+**Assumed.**
+
+- [ASSUMED] Resend after 60 seconds (`RESEND_SECONDS`, the back end's `RESEND_AFTER_SECONDS` is the same value).
+- [ASSUMED] Pending record lives 15 minutes (`LIFETIME_SECONDS`), the code's own life is 10 minutes (the screen's note).
+- [ASSUMED] Invitation token: 16 to 128 characters of `A-Za-z0-9_-` (matches the link token shape at the lower end).
+- [ASSUMED] Device id: 16 random bytes, base64url (22 characters), the back end's `DEVICE_ID_PATTERN`.
+- [ASSUMED] `+44 7…` is accepted as a UK mobile and normalised to `07…`.
+
+## DEC-685 Location step: the address is saved as its label, and the open-24-hours answer is sent as `open24h` (W24)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W24 (`app/api/bff/addresses/`, `app/api/bff/registrations/[id]/steps/[step]/`, `lib/register/draft.ts` `locationValues`, `lib/register/validate.ts` `validateLocation`, `components/register/LocationForm.tsx`), W25 (the next step reads the fixed-site answer), U26 and R10 (the back end's `LocationStep`).
+
+1. **The chosen address is saved as its label** (R10 `LocationStep.address` is a string and stores the label, not an id). The page keeps the lookup's `addressId` only to show which address is chosen. The save body carries both `addressId` and `address`. Validation reads the label: an id alone is not a chosen address. (The W24 red tests asserted the id alone; the green commit corrects that, see the commit message.)
+2. **The postcode is normalised by one function** (`lib/register/postcode.ts`) in the browser and again in the BFF, so the lookup and the save hold the same `DT4 8XX`.
+3. **Hours are sent as the back end takes them:** `openingDays` as `mon,tue,…` (0 is Monday), `openingStart` and `openingEnd` as `HH:MM`, and for 24 hours `open24h: true`. A visiting service sends `fixedSite: false` and nothing else.
+4. **The address lookup is the BFF's, never the browser's.** `GET /api/bff/addresses?postcode=` normalises the postcode, needs a reporter session, and returns at most 20 `{id, label}` pairs. The back end has no address route (the geocoder is an adapter with no REST route, see H-356), so the route answers 503 `not-built` until one exists.
+5. **Errors follow the screen's order and wording** (`validateLocation`). The fixed-site question alone is asked first. An empty lookup is a postcode error with the screen's not-found words; a postcode that is not one is "Enter a full postcode" (R10's words).
+
+**Tenant pending.** The address lookup must search the postcode directory of the tenant the token names, not a shared one (the directory is per tenant at the address level only once the back end binds it; TEN-018). Until then the route is a 503.
+
+**Assumed.**
+
+- [ASSUMED] A lookup returns at most 20 addresses (`MAX_ADDRESSES`).
+- [ASSUMED] Times are `HH:MM` on the 24-hour clock; a closing time must be after the opening time on the same day (R10 `_hours_ok`).
+- [ASSUMED] A postcode is a UK postcode in the form `A9 9AA`, `A99 9AA`, `AA9 9AA`, `AA99 9AA`, `A9A 9AA` or `AA9A 9AA`, matched case-insensitively.
+
+## DEC-686 Service step: codes the back end does not hold are refused by the BFF, and the criteria check is the screen's own (W25)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W25 (`lib/register/service.ts`, `app/api/bff/registrations/[id]/steps/[step]/route.ts`, `components/register/ServiceForm.tsx`), W26 (review reads the service step), U26 and R10 (the `ServiceStep`), and every advisor filter that reads the criteria (category, needs, excluded needs, districts).
+
+1. **A code the back end does not hold is a 400, not a save.** The category, referral methods, accepting days, needs, excluded needs and districts are checked against the same lists the screen shows (`lib/register/options.ts`). A district is normalised to `DT5` (a bare area or a full postcode is refused). Any other value is refused by name, never passed on.
+2. **The service name is the invitation's**, read from the back end in the route (the browser cannot change it). The page shows it read-only.
+3. **"No limit" is `ageMax: null`** on the wire and `noAgeLimit: true` in the back end's values. "No exclusions" is `noExclusions: true` with no list of exclusions. A chosen exclusion clears "No exclusions", and the reverse.
+4. **The review date is checked against today in London** (`Intl` with `Europe/London`), and a date that is not later than today is refused with the screen's words.
+5. **The checks run in the screen's order** (`validateService`), so the summary's count and its order are the same on every run.
+
+## DEC-687 What the service step does not save (W25)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W25 (`ServiceForm.tsx`), advisors (who read the notes), the back end (`ServiceStep` has no field for these).
+
+1. "Specialty", "Appointment needed?" and "Anything else advisors should know" are on the screen (the prompt names them) and are **not sent**. R10 has no field for them and refuses an unknown value. The owner decides whether they are kept (H-357).
+2. The browser's own copy of "Anything else advisors should know" is capped at 500 characters (`maxLength`), as the prompt says, and that cap is not a substitute for the back end's own limit.
+
+Fold note: whether the fields the back end has no place for (specialty, appointment, notes) are kept is a product question and stays open (H-357); W7B did not add them.
+
+**Tenant pending.** The districts are checked against the tenant's area by the back end's `area_districts_for`. The BFF does not know the tenant's areas and must not guess them.
+
+**Assumed.**
+
+- [ASSUMED] Ages are whole numbers from 0 to 120 (the screen's range); an oldest age must be at least the youngest.
+- [ASSUMED] A UK phone for the SPOA is 10 or 11 digits starting 0, spaces and hyphens not counted (the screen's words); +44 is refused for this field.
+- [ASSUMED] "Today" for the review date is today in London.
+- [ASSUMED] Times are `HH:MM`; the back end's own rule that the two times differ is left to it.
+
+## DEC-688 Reporting step: the browser sends the back end's measure code, and the BFF refuses a code it does not hold (W26)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W26 (`lib/register/reporting.ts`, `components/register/ReportingForm.tsx`, the step route), W25 (the same rule for codes), U26 and R10 (`ReportingStep`).
+
+1. **The wire carries codes, not chip names.** The prompt calls the values "coded". The screen's count chips map to the back end's `Measure` codes in one place (`measureCodeOf`): "Referrals in the next 2 hrs" is `referrals-acceptable`, "Beds free" and "Virtual beds free" are both `free-beds`, "Slots left today" is `free-slots`, "Packages available" is `packages-free`. The BFF accepts only the four codes the back end holds (`MEASURES`) and refuses any other with a 400.
+2. **"Other" has no measure code** (H-359). The screen offers it (the prompt names it) and refuses it with "Choose what you count", so a service that counts something else cannot be registered until the owner decides a code or drops the choice.
+3. **The usual range is two whole numbers** from 0 to 999, sent as `usualLow` and `usualHigh` (the prompt's `usualRange` is the browser's name only).
+4. **The contact follows the channel:** a mobile for text and app notifications, an email for email. The mobile is sent as digits (as the sign-in does).
+
+Fold note: the back end now has `Measure.OTHER` (W7B, DEC-793 item 4); the BFF refusal of `other` stays until the BFF is wired to it (H-359).
+
+## DEC-689 Review and submit: nothing is sent while a section needs attention, and the back end's refusal is shown, not repeated (W26)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W26 (`ReviewList.tsx`, `app/api/bff/registrations/[id]/submit/`, `[id]/review/`), W27 (the status page reads the same registration).
+
+1. **Submit is refused in the browser while any section says "Needs attention".** The summary lists each such section and links to its row. No request is made (tested). The back end's own checks still answer the submit (R10 `$submit`).
+2. **Each section's status and summary are the back end's words.** The BFF passes on only `key`, `status` (`complete` or `needs-attention`) and `summary` per section.
+3. **The expected time is not shown.** The prompt's submitted page says "Expected time: [expected time]", and no back-end route gives a time. The page says what happens next without a time, and the W27 fragment carries the gap.
+
+## DEC-690 The API answer is its own step, and "No" saves nothing but "wanted: false" (W26)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W26 (`ReportingForm.tsx`, `lib/register/reporting.ts` `apiValues`), R10 `ApiStep`.
+
+1. "Continue" on step 4 saves the reporting answers and then the API answer (two PUTs, in that order). If the first is refused, the second is not sent.
+2. A "No" answer sends `{wanted: false}` and no other value, so the review's API row is complete without the four details the prompt keeps for later.
+
+**Tenant pending.** The submit and the review read bind the tenant from the reporter's token (TEN-018). The BFF reads no tenant from anywhere.
+
+**Assumed.**
+
+- [ASSUMED] A usual number is a whole number from 0 to 999 (R10 `MAX_USUAL`).
+- [ASSUMED] The app notification channel needs a mobile, as the text channel does (R10 `_reporting` treats `push` like `text`).
+- [ASSUMED] An API address starts `https://` and has something after it.
+- [ASSUMED] The "Yes" API details are four text fields (name, address, connection type, type of data), each required.
+
+## DEC-691 The status page shows what the back end says and nothing it does not name (W27)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W27 (`app/api/bff/registrations/[id]/status/`, `components/register/StatusPage.tsx`, `components/register/status/*`), W35 (the reporter app after going live).
+
+1. **The BFF passes on the status, the service name, the submitted time, the notes and who sent them, the reason, the first prompt time, and three detail fields** (the SPOA phone, the criteria owner, the last three digits of the reporting phone). Nothing else the back end holds leaves the BFF (tests assert a tenant and an internal field do not).
+2. **A status the page does not know is shown as the page's failure** ("We could not load your registration. Try again later."). The page never guesses at a state.
+3. **The reporting phone is shown masked** (`07xxx xxx456`), from the last three digits only. The full number is not sent to the page at all.
+4. **Times are London time** (`lib/register/time.ts`): "23 Oct 14:30" for the submitted time, and "16:00" for the first prompt.
+5. **The re-check period is 30 days** on the reverify screen. [ASSUMED] It is the same period the back end's text-code check uses (DEC-044); the back end has not said so for the status page.
+
+## DEC-692 The applicant's actions on the status page are POSTs with CSRF, and each shows its own confirmation (W27)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W27 (`app/api/bff/registrations/[id]/test/`, `review-request/`, `confirm-details/`), the back end's notification and review routes (not built).
+
+1. "Send my test notification", "Ask for a review" and "All correct" are POST routes that need the CSRF header. They do not change the page's state on the server: the page shows the confirmation the request returned, and a failure shows "We could not send that. Try again." No text is invented for a back-end answer that the back end does not give.
+2. "Ask for a review" and "All correct" show their confirmation in the same place; a second press is allowed, and the back end is the one that decides whether a second review request is honoured.
+
+**Tenant pending.** Each status read and action binds the tenant from the reporter's token (TEN-018). The BFF reads no tenant.
+
+**Assumed.**
+
+- [ASSUMED] Re-check period 30 days (DEC-044; the same as the text-code check).
+- [ASSUMED] The tracker's five steps are the prompt's: Submitted, Checks, Approval, Test notification, Live; a submitted or in-review registration is on Checks.
+- [ASSUMED] Times are shown in London time, to the minute.
+
+## DEC-702 Registration reads map the back end's states to four words on the scope list (W28)
+Status: accepted (build wave 6, fragment `W28`; under DEC-133, no owner gate).
+
+1. A scope entry with no `registration-status` extension is `not-invited`. `invited`, `live`, `paused`, `not-approved` and `reverify` map to their own states.
+2. `draft`, `submitted`, `in-review`, `needs-changes` and `approved` all show as `in-review`: each is still between submission and live.
+3. The invitation link is offered only for `in-pilot` and `not-invited` (`canInvite`).
+4. The prompt's test 1 names `/reporters/invite?service=s3`. The page lives under the `(lead)` route group, so the URL is `/lead/reporters/invite?service=<id>`, as the W28 rules say.
+
+## DEC-703 Category words come from the category code (W28)
+Status: accepted (build wave 6, fragment `W28`; under DEC-133, no owner gate).
+
+The browser shows a category by its words from `lib/registration/model.ts`: the spec's own wording for the codes the artboards name, and sentence case for any other code. A code is never shown raw.
+
+## DEC-704 The reviewer's reason rule is checked in the browser and in the BFF (W28)
+Status: accepted (build wave 6, fragment `W28`; under DEC-133, no owner gate).
+
+A flag other than `in-pilot` needs a reason. The browser shows "Enter a reason" and sends nothing; the BFF refuses the same case with a 400 (`scopeEntryBody`). The back end's own rule (U23) stays the authority.
+
+## DEC-708 Idempotency keys come from the browser, one per submit attempt (W28)
+Status: accepted (build wave 6, fragment `W28`; under DEC-133, no owner gate).
+
+Each POST sends `Idempotency-Key` (a UUID made in the browser). The BFF forwards a key that is 1 to 200 printable characters and refuses any other with 400. A retry after a network failure is a new attempt with a new key, so the back end may record it twice; the Add button is busy while a request is in flight, so a double click does not send two.
+
+**Tenant pending.** None. The browser sends no tenant. The back-end token is the only tenant binding (DEC-130). No Cypher is written by this task.
+
+**Assumed.**
+
+- Scope category labels for codes the artboards do not name are sentence case of the code (`categoryLabel`).
+- The queue's state word for a state not in the table is the back end's code, as received.
+
+## DEC-705 The go-live board preview is a status word, not the board tile (W29)
+Status: accepted (build wave 6, fragment `W29`; under DEC-133, no owner gate).
+
+The prompt asks for the board Tile (W05) in Accepting state. The tile shows a figure, and no figure is known for a service that is not yet live: any number put in the preview would be made up. The preview shows the service name with the Accepting status badge (StatusBadge, F09). The prompt's "Export record" button is not built: there is no export route, and a button that does nothing is not shown.
+
+## DEC-706 Approve is gated by the back end's list, shown as it arrives (W29)
+Status: accepted (build wave 6, fragment `W29`; under DEC-133, no owner gate).
+
+Approve is `aria-disabled` while the decision read lists anything missing, and a click then sends nothing. The list is the back end's (`missing`), never worked out in the browser. The back end still refuses an early approval itself (U29 409); the browser does not rely on its own gate. If the read is unavailable, Approve stays disabled, so an unknown state never looks approvable.
+
+## DEC-707 The call-back records the number called from the register, not the applicant's (W29)
+Status: accepted (build wave 6, fragment `W29`; under DEC-133, no owner gate).
+
+The browser sends `numberCalled` taken from the overview's `callBack.numberToCall`, which the back end sends from the register. The applicant's number is shown only to be told apart, never as the number to call. The back end requires `numberCalled` and `spokeToRole` on every call-back, so the BFF forwards `spokeToRole` only when a role was given (see Known issues).
+
+## DEC-709 Tenant wording for the call-back and the pathway comes from the overview (W29) "Dorset directory" and "Dorset urgent care" are not written in the ...
+Status: accepted (build wave 6, fragment `W29`; under DEC-133, no owner gate).
+
+Tenant wording for the call-back and the pathway comes from the overview (W29)
+"Dorset directory" and "Dorset urgent care" are not written in the browser. The overview carries `callBack.directoryName` and `pathwayName` from tenant configuration. When they are absent the sentence names no directory and no pathway, rather than a default that names an organisation.
+
+**Tenant pending.** None in the browser. The back end's `$callback`, `$scope-decision`, `$approve`, `$send-back`, `$not-approve` and `$set-live` are tenant-bound from the token by R10 (TEN-018).
+
+**Assumed.**
+
+- The "Done" success words after each decision ("Approved.", "Sent back. The applicant sees your note.", "Not approved. The applicant sees your note.", "Call-back saved.", "Scope decision saved.", "The service is live.") are plain status text of this build; no spec artboard gives them. The owner may replace them in one place per component.
+- The number format accepted for `numberCalled` is 6 to 20 characters of digits, spaces, `+`, `(`, `)` and `-`.
+
+## DEC-700 The owner's criteria pages, their guard, and what "send" carries (W30)
+Status: accepted (build wave 6, fragment `W30`; under DEC-133, no owner gate).
+
+1. The criteria pages are at `/criteria/<service>` (the `(owner)` route group adds no segment, as contracts.md sets out). The proxy guard (`lib/auth/access.ts`) had no entry for `/criteria`, so those pages were not guarded at all. A `criteria` prefix now admits the owner, the clinical lead and the shift lead; the back end decides per call which of them may change or approve (U30). The existing `/owner` prefix and its home `/owner/criteria` are unchanged, and the home has no page of its own: see Known issues.
+2. There is no draft store on the back end (U30 writes a change straight into pending-approval). So "send" posts the whole change (the four values and the reason and review period) to `POST /api/bff/criteria/<id>/submit`, and the BFF writes it as one `Basic`. The prompt's `POST …/drafts` route is not built: it would store a draft nothing reads. Leaving the editor before sending loses the edit.
+
+## DEC-701 Every need can be excluded, and the owner's rules are the artboard's wording (W30, W31)
+Status: accepted (build wave 6, fragment `W30`; under DEC-133, no owner gate).
+
+1. The exclusion list shows the artboard's four needs first, then "No exclusions", then the other five needs. The conflict test needs Frailty to be excludable; the artboard alone does not allow it. "No exclusions" is pressed exactly when no exclusion is chosen, and choosing it clears the others.
+2. A need in both lists is refused in the browser (Preview disabled, the conflict shown) and by the BFF (400). The back end's own rule is not relied on for this.
+3. The need is "IV therapy" in the accept list and "Needs IV therapy" in the exclude list, as the artboard words them.
+4. The approval page (W31) is for the change's second approval. The author check is the back end's (the author gets 404), and the page shows the author's own message only when the read says `isAuthor` (W31).
+5. Overdue, history and the approval read are in W31 under this same number.
+
+**Tenant pending.** None in the browser. The tenant comes from the owner's token (DEC-130). The back end's `Basic` writes are tenant-bound by R10 (TEN-018).
+
+**Assumed.**
+
+- Accepts/does-not-accept words: needs joined with ", " and the age as "age N+" or "age N to M"; an empty exclusion list reads "Does not accept: nothing listed".
+- Postcode district shape: one or two letters, a digit, an optional letter or digit ("DT4", "DT11", "DT4A"). The browser uppercases what is typed.
+- The youngest age is a whole number 0 to 120; the oldest is blank (no limit) or a whole number at least the youngest.
+
+## DEC-840 The second approval, the history and the overdue notice of the criteria pages (W31, items 6 to 9 of the number the W30 fragment also holds)
+Status: accepted (build wave 6, fragment `W31`; under DEC-133, no owner gate). The fragment `W31` numbered it DEC-701, which an earlier entry holds; renumbered on folding.
+
+6. The second approval reads the waiting version from the history, which the back end serves, and acts on that version (`decidePending`). The approval read itself (what changed, why, who wrote it) is not served yet, so the page cannot show the change until it is. The approver's decision does not depend on that read.
+7. A refusal from the back end reads the same to the approver whatever its cause: the role refusal and the author's refusal are both the back end's non-revealing 404, and the page shows "You cannot approve criteria for this service." for a 403 or a 404. The author sees "You wrote this change. Another clinical lead must approve it." and no buttons, when the read says `isAuthor` (the back end still refuses an author who sends the request).
+8. The history shows each version's number and status word, and a version with no earlier version reads "At registration". The back end gives a version's review date and no change date and no author role, so no date or role is shown: showing the review date as the change date would be wrong. "Start a new draft from version N" opens the editor of the current version (N is the current version, not the waiting one).
+9. The overdue notice shows the shift lead's role and phone as text from tenant configuration, and sends nothing (DEC-707's rule of no default organisation applies: with no shift lead from the overview, the notice says to ask the shift lead without a number).
+
+**Tenant pending.** None in the browser. The back end's `$approve`, `$send-back` and the history read are tenant-bound from the token (R10, TEN-018).
+
+**Assumed.**
+
+- The approval refusal text for 403 and 404 is "You cannot approve criteria for this service." (prompt wording).
+- The send-back note limit is 280 characters, the back end's `NOTE_LIMIT`.
+- Status words in the history: waiting "Waiting", current "Current", retired "Retired", replaced no word; version 1 "At registration".
+
+## DEC-841 Offline shell and installable app (W32)
+Status: accepted (build wave 6, fragment `W32`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+1. The service worker's logic lives in `frontend/public/sw-logic.js` (a classic script, exposed as `self.DiucsSw`) and `public/sw.js` loads it with `importScripts`. The tests load the same shipped file, so the tested logic is the logic that ships.
+2. The offline page holds no tenant, service or capacity data. Its text says "phone the SPOA on the number your service has on record", because the SPOA number is per organisation and the precached shell must not hold organisation data (DEC-134 item 3, DEC-660 item 3). The number is shown from the API where a page has one.
+3. Only `/offline` and `/_next/static/*` (GET) are cached. Navigations that fail offline get the offline page. `/api/bff/*` and every other HTML page are never cached.
+4. Manifest icons are plain generated placeholder PNGs (`public/icons/*.png`), to be replaced by the design asset.
+
+**Tenant pending.** None: the worker and shell hold no tenant data.
+
+**Assumed.** Icons are placeholder PNGs (solid #0B5C8C with a light disc).
+
+## DEC-660 Reporter session and device model: the session in the sealed cookie, the phone's device id in an http-only cookie (W33)
+Status: accepted (build wave 6, fragment `W33`; under DEC-133, no owner gate).
+
+Reporter set-up, first half (W33). The browser holds only the invitation token in the address and the masked number; the BFF holds the device cookie and the session.
+
+Reporter session and device model: a reporter session is sealed in the existing session cookie with `role: reporter`; its `backendToken` is the back end's session id, which is not a bearer token (the reporter exchange is TEN-043, not built). The phone's device id is 16 random bytes, base64url, in an http-only `diucs_device` cookie kept for 365 days [ASSUMED]. `GET /api/bff/reporter/start` gives the browser its CSRF token and makes sure the device cookie exists; no tenant, person or device id is ever returned in a body.
+
+## DEC-662 Invitation landing: an expired, used, unknown or malformed invitation shows one expired text (W33)
+Status: accepted (build wave 6, fragment `W33`; under DEC-133, no owner gate).
+
+Invitation landing: an invitation that is expired, used, unknown or malformed is shown with the one expired text, so an unknown link tells nobody it ever existed. A failed check is shown as "could not check", never as expired.
+
+## DEC-842 Resend countdown is one one-second interval per set-up step (W33)
+Status: accepted (build wave 6, fragment `W33`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+Resend countdown is one one-second interval per set-up step. Wrong-code wording uses "try" when one remains and "tries" otherwise.
+
+## DEC-843 Exec invitations (role `exec`) skip the channel step and go to `/setup/home-screen` (W33)
+Status: accepted (build wave 6, fragment `W33`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+Exec invitations (role `exec`) skip the channel step and go to `/setup/home-screen`.
+
+## DEC-664 Back-end gaps: the invitation and device routes and the reporter channel route answer 503 not-built (W33)
+Status: accepted (build wave 6, fragment `W33`; under DEC-133, no owner gate).
+
+Back-end gaps: the four routes that need an invitation or a device-to-number lookup, and the reporter channel route, answer `503 {code:"not-built"}` and do nothing else. See Known issues.
+
+**Tenant pending.** The invitation lookup and the code routes need the back end to resolve tenant from the invitation (the tenant is the host, DEC-134 item 3). The BFF forwards the request host when it calls them (not yet, since they are not built).
+
+**Assumed.** DEC-660: device cookie 365 days; `diucs_device` cookie name.
+
+## DEC-661 The push subscription is saved on the All-set step, after the reporter has signed in, not when Allow is pressed (W34)
+Status: accepted (build wave 6, fragment `W34`; under DEC-133, no owner gate).
+
+Reporter set-up, second half (W34): home screen, notifications, PIN and "All set".
+
+The push subscription is saved on the All-set step, after the reporter has signed in, not when Allow is pressed. The back end's push-subscription route needs a signed-in actor (`current_actor`), and set-up issues no session until the PIN is verified (`/identity/pin/verify`). Allow therefore asks the browser for permission only; the subscription and its consent wording `v1` are posted from All set. This departs from the W34 prompt's test 3 (see the test file).
+
+## DEC-663 PIN: held in component state, sent once, never stored (W34)
+Status: accepted (build wave 6, fragment `W34`; under DEC-133, no owner gate).
+
+PIN: the PIN is held in the PinPad's component state, sent once to `POST /api/bff/identity/pin`, then `POST /api/bff/identity/pin/verify` signs the reporter in. The keypad shows no digits; the live region counts them. The pad clears itself after each complete entry.
+3. Home screen: platform tab from the user agent; the installed app (standalone display mode) skips the guide to a Continue button.
+4. Notifications copy is exactly the prompt's; a denied permission links to `/app/notifications-off` (W37).
+
+**Tenant pending.** Identity routes take the tenant from the host (already the back end's rule). The push route takes it from the bearer token, which does not exist yet for reporters.
+
+**Assumed.**
+
+- DEC-660: reporter session 8 hours [ASSUMED].
+- Consent wording version `v1` (from the prompt).
+
+## DEC-665 The app home is a server redirect, not a page of its own (W35 to W37) (W35-W37)
+Status: accepted (build wave 6, fragment `W35-W37`; under DEC-133, no owner gate).
+
+Reporter app, everyday use and recovery (W35 to W37). Departures from the prompts are numbered.
+
+The app home (`/app`) is a server redirect, not a page of its own: no session goes to `/app/pin`; one service goes to its respond page (which shows "Still right?" when a figure is on record); two or more go to `/app/update` (W38). The "latest confirmation" home is therefore the respond page, not a separate view.
+
+## DEC-666 The thanks page takes the recorded figure from its address (service name, unit, value, time, next due) (W35-W37)
+Status: accepted (build wave 6, fragment `W35-W37`; under DEC-133, no owner gate).
+
+The thanks page takes the recorded figure from its address (service name, unit, value, time, next due). None of it is a phone number, a token or a patient detail. The list of today's reports is read from the BFF.
+
+## DEC-667 An out-of-range figure is refused once and kept in the field (W35 to W37) (W35-W37)
+Status: accepted (build wave 6, fragment `W35-W37`; under DEC-133, no owner gate).
+
+An out-of-range figure is refused once with the usual range and kept in the field; a second send of the same figure sends `confirmOutOfRange: true` (the link page's rule, L01). A back-end refusal of a second confirm (`confirmLimit`) hides the confirm button for the screen.
+
+## DEC-668 The booking decision shows its outcome in place after a decision (W36) (W35-W37)
+Status: accepted (build wave 6, fragment `W35-W37`; under DEC-133, no owner gate).
+
+The booking decision (W36) shows its outcome in place after a decision, not on a separate `done` page: a refresh shows the status the back end holds, so no `done` route is needed. The Idempotency-Key is made once per screen load.
+
+## DEC-669 Locked PIN and 30-day check reuse `CodeEntry` (extracted from set-up; the set-up code step now uses it) and `PinSetup` (now takes `doneHref`) (W35-W37)
+Status: accepted (build wave 6, fragment `W35-W37`; under DEC-133, no owner gate).
+
+Locked PIN and 30-day check reuse `CodeEntry` (extracted from set-up; the set-up code step now uses it) and `PinSetup` (now takes `doneHref`). Sign out uses the existing `DELETE /api/bff/session` (W02), not a new `POST /api/bff/session/sign-out`, since the session route already clears the cookie and needs CSRF.
+6. Test-only: the `PinScreen`, `RespondScreen`, `SettingsScreen`, `LockedScreen` and `PinSetup` tests raise their timeout to 20 s (full-suite load on userEvent-heavy tests).
+
+**Tenant pending.** Every reporter route checks ownership of the service against the session. The tenant comes from the sealed session's back-end credential (not built for reporters; TEN-043).
+
+**Assumed.** Notes on pluralisation: "1 try left" and "tries left" (DEC-662 item 3 applies here too).
+
+## DEC-670 Grouped update: a row is answered on its own; "Both still right (3 and 1)" posts every due service in one batch (W38-W55)
+Status: accepted (build wave 6, fragment `W38-W55`; under DEC-133, no owner gate).
+
+Several services on one phone (W38) and lost phone, sign out everywhere (W55).
+
+Grouped update: a row is answered on its own; "Both still right (3 and 1)" posts every due service in one batch. A partial answer never confirms the others, which stay "Waiting". The thanks lines are shown in place after an answer, not on a separate page.
+
+## DEC-671 The change banner counts the phone's due services by name, so UCR East reads "1 of 2" (as on the artboard) (W38-W55)
+Status: accepted (build wave 6, fragment `W38-W55`; under DEC-133, no owner gate).
+
+The change banner counts the phone's due services by name, so UCR East reads "1 of 2" (as on the artboard). The "Both still right" label keeps the services' letter order, so it reads "3 and 1". Two orders, two rules, both stated.
+
+## DEC-672 Ownership first on every service route: a service the reporter does not act for is the same 404 as an unknown one (W38-W55)
+Status: accepted (build wave 6, fragment `W38-W55`; under DEC-133, no owner gate).
+
+Ownership first on every service route: a service the reporter does not act for is the same 404 as an unknown one. The batch route refuses any item that is not a confirm for an owned service before the back end is asked.
+
+## DEC-673 Lost phone (`/app/lost-phone`) needs no session (W38-W55)
+Status: accepted (build wave 6, fragment `W38-W55`; under DEC-133, no owner gate).
+
+Lost phone (`/app/lost-phone`) needs no session. The browser holds the number only for the requests. The back end answers 202 for any number, and the BFF does the same. The verify answers map to three BFF codes: wrong (400), expired (410), throttled (429); a device that is refused answers 409. The old phone is signed out by the back end when the code is right.
+
+## DEC-674 Sign out everywhere lists this phone and the others, then clears this phone's session (W38 to W55) (W38-W55)
+Status: accepted (build wave 6, fragment `W38-W55`; under DEC-133, no owner gate).
+
+Sign out everywhere (`/app/sign-out-all`) lists "This phone and N other(s)" from settings, then clears this phone's session (`DELETE /api/bff/session`) only after the back end has signed the others out.
+
+**Tenant pending.** Lost phone: the back end resolves the tenant from the host (already the rule for identity routes), so the BFF forwards the request host. The sign-out route takes the tenant from the bearer token (not issued to reporters yet).
+
+**Assumed.** Lost-phone resend in 60 seconds, as set-up (the back end's `RESEND_AFTER_SECONDS`).
+
+## DEC-710 Exec pages live under `/planning`, not `/exec` (W39)
+Status: accepted (build wave 6, bundle W6G, fragment `W39`; under DEC-133, no owner gate).
+
+1. **Exec pages live under `/planning`, not `/exec`.** DEC-210 already names `/planning` as the exec home and the guard (`lib/auth/access.ts`) guards `planning` for exec and lead. The W39 to W41 prompts say `/exec`; a page there would be unguarded. The pages are `app/(exec)/planning/...`, so the route group adds no segment and the URLs are `/planning/setup` and `/planning/settings`.
+
+## DEC-711 Alert preferences are a FHIR Subscription, and the BFF maps them (W39)
+Status: accepted (build wave 6, bundle W6G, fragment `W39`; under DEC-133, no owner gate).
+
+2. **Alert preferences are a FHIR Subscription, and the BFF maps them.** `GET /api/bff/exec/alert-preferences` reads the caller's own Subscription (R12) and answers the screens' shape. `PUT` runs the same checks as the back end's mapping, then reads the current `meta.versionId` and writes with `If-Match: W/"<version>"` and a fresh `Idempotency-Key` (the back end refuses a PUT with no If-Match, 428, and a stale one, 412). The read and the write are not one lock (see known issues).
+3. **Deputy is a practitioner reference, not a name.** The back end refuses an alert without a deputy and needs an active practitioner who holds a leadership role (DEC-341 item 4). The field is therefore the deputy's practitioner id, sent as `Practitioner/<id>`. A name is not stored anywhere. A picker needs a back-end list of leaders, which does not exist yet.
+4. **Set-up saves once, at the end.** The alerts step holds its choice and moves on; the single PUT is the escalation save, because the back end takes the whole state and a PUT with no deputy is refused. The settings page saves each section, always with the whole state.
+5. **After set-up the executive lands on `/planning`.** The home-screen step (W34) is not built, so there is no step after set-up.
+6. **Save failures say one fixed sentence:** "Could not save your choices. Try again." The missing deputy says "Enter who to alert next" and nothing is sent.
+
+**Tenant pending.**
+
+- The BFF reads and writes the caller's own Subscription. Its tenancy is whatever R12's routes and U33's repository leave: the back end binds the tenant from the token (TEN-018). No browser input names a tenant, a practitioner or an organisation. Nothing here is Cypher.
+- Tenant isolation test (front end): `EscalationForm`, `SettingsForm` and `SetupFlow` show no organisation text; the deputy id is the only identifier shown and it is the caller's own choice.
+
+**Assumed.**
+
+- Quiet hours are 22:00 to 06:00 only (the back end's one window, `QUIET_TEXT`).
+- Deputy reference text is trimmed; no other format is checked in the browser (the back end decides).
+- The save banner says "Your choices are saved." (wording not in the canvas snapshot; v1.1 check).
+
+## DEC-712 The "since" in an attention line is the time of the last report, not the moment the service changed (W40)
+Status: accepted (build wave 6, bundle W6G, fragment `W40`; under DEC-133, no owner gate).
+
+1. **The "since" in an attention line is the time of the last report, not the moment the service changed.** The board does not hold when a service went over or stopped accepting, only its last report (`reportedAt`). The line says "Over capacity +4, reported 13:10" and "Not accepting, reported 12:50", not "since". The prompt's "since" would state a time the board does not hold.
+2. **Pressure is the back end's word; the count is the front end's arithmetic.** The chip shows `board.pressure` as a word (Normal, Watch, High, or Unknown). "N of M services limited or worse" counts limited, not-accepting and over-capacity against in-hours services (domain-rules 1.7).
+
+## DEC-713 Alerts are the back end's open alerts, joined to the board for names (W40)
+Status: accepted (build wave 6, bundle W6G, fragment `W40`; under DEC-133, no owner gate).
+
+3. **Alerts are the back end's open alerts, joined to the board for names.** The back end lists open alerts only and holds no free text (H-09), so a card has the service name (from the board), the kind, the over-capacity figure (from the board) and the due time. The Acknowledged tab holds the alerts this person acknowledged in this visit (the back end has no list of them); Closed says it is not available. This is a departure from the prompt's `state=acknowledged|closed` answers, which the back end cannot give.
+4. **Single alerts are read from the open list.** There is no single-alert read on the back end; an alert that is no longer open is not found.
+5. **The escalation line names "your deputy", not a role.** The deputy is a practitioner reference (W39 item 3); the screen does not show a name it does not hold.
+
+## DEC-714 "Call the duty coordinator" is not on these screens (W40)
+Status: accepted (build wave 6, bundle W6G, fragment `W40`; under DEC-133, no owner gate).
+
+6. **"Call the duty coordinator" is not on these screens.** The board does not carry a coordinator's number, and this build does not invent one. Shown nowhere until a number exists on the back end (known issue).
+7. **"See all services" goes to a plain list** (`/planning/services`) of the board's entries. It is not in the W40 file list; it is the target the prompt's button names, and it holds no figure the home does not.
+
+**Tenant pending.**
+
+- The alert list, the acknowledgement, the snooze and the board read all go through the back end with the caller's token; the tenant is bound there (TEN-018). Nothing in the browser names a tenant or an organisation; the home's heading is the board's organisation name.
+- The join between an alert and a board entry is by service id inside one board: a cross-tenant service id cannot reach it, because the board is the caller's (TEN-009/010 scope the board's reads).
+- Tenant isolation (front end): `alerts.test.ts` and `route.test.ts` use one organisation's data only. The two-organisation test is `app/api/bff/exec/services/[id]/route.test.ts` ("never answers another organisation's service"): organisation B's token cannot read organisation A's service. The home and alerts render only the board and alerts the token reads.
+
+**Assumed.**
+
+- The attention list is the three statuses the prompt names (over capacity, not accepting, not updated); "limited" is not on it.
+- "Limited or worse" is limited, not accepting, over capacity (domain-rules 1.7).
+- The alert kinds' phrases: "closed unexpectedly", "over capacity", "has not updated", "system pressure rising" (wording not in the canvas snapshot; v1.1 check).
+
+## DEC-715 The week is the back end's Monday-to-Sunday week (W41)
+Status: accepted (build wave 6, bundle W6G, fragment `W41`; under DEC-133, no owner gate).
+
+1. **The week is the back end's Monday-to-Sunday week.** `$week-summary` takes a Monday and answers the week it starts. The BFF takes `ending` as the Sunday that closes the week and derives the Monday six days before. The default is the last complete week before today. The prompt's sample range "17 to 23 Oct" is a Saturday to a Friday in 2026, so it cannot be a back-end week; the sample is illustrative only.
+
+## DEC-716 The time-back estimate waits for the tenant's minutes (W41)
+Status: accepted (build wave 6, bundle W6G, fragment `W41`; under DEC-133, no owner gate).
+
+2. **The time-back estimate waits for the tenant's minutes.** The minutes per avoided call are a tenant setting (TEN-026) the back end does not hold, so `minutesPerCall` is always null here: the line keeps "[x]" and says the baseline is not measured. When a setting exists the screen shows the sum behind the estimate ("about 1,648 minutes (412 × 4)") with the label "Estimate". No number is made up.
+
+## DEC-717 Total updates are the sum of the channels, and are withheld if any channel is (W41)
+Status: accepted (build wave 6, bundle W6G, fragment `W41`; under DEC-133, no owner gate).
+
+3. **Total updates are the sum of the channels, and are withheld if any channel is.** A total built from a channel that is under ten would be a figure the back end did not give; the sum is only shown when every channel is shown.
+4. **A missing median reads "No figure yet", never "0 min".** A missing value is not a zero.
+5. **The Monday switch is the W39 preference,** saved as the whole state (the back end takes all of it). It needs a deputy on record: without one it says "Enter who to alert next" and sends nothing. When the preferences cannot be read the figures still show and the switch is left out.
+
+**Tenant pending.**
+
+- The week figures are read with the caller's token; the back end's `$week-summary` is tenant-scoped through the same edge that binds the caller's tenant (TEN-018). Its Cypher is the back end's (U35 / TEN-009..015), not this bundle's.
+- The screen names no organisation; the range and figures carry no tenant text.
+
+**Assumed.**
+
+- "Limited" pressure counts are not used here; the summary's own figures are the back end's.
+- The footnote wording is the prompt's; the Monday labels are the prompt's ("Send me this each Monday", "You will get this each Monday.").
+
+## DEC-657 The suspended state is not on any read the back end offers (W42)
+Status: accepted (build wave 6, fragment `W42`; under DEC-133, no owner gate).
+
+The suspended state is not on any read the back end offers. `GET /fhir/HealthcareService/{id}` answers the registration's `active`, which is not the suspension flag (the suspension is a service flag read by U36, not in the FHIR service). So a fresh visit to the suspend page shows the suspend form, not the suspended view. The suspended view is shown from the suspend answer on the page. The answer's time is the BFF's clock at the moment the back end took the suspension. The register number is not on any read either: "Phone the service" says so rather than showing a number from anywhere else. Closing this needs one read that gives the suspension, its time, the expired count and the register number (an R13 follow-up).
+
+Fold note: the back end now serves the suspension read (W7B, DEC-804: `GET /lead/services/{id}/suspension`); the BFF is not yet wired to it.
+
+## DEC-658 A flag shows its rule in words from the screen footnote, one line per rule (W42)
+Status: accepted (build wave 6, fragment `W42`; under DEC-133, no owner gate).
+
+A flag shows its rule in words from the screen footnote, one line per rule: "The figure was out of its usual range twice.", "The figure changed many times in a short time.", "The figure differs from what advisors recorded by phone.". A reason the screen does not know is shown as "Flagged by rules.", never dropped. The screen's detail line ("Usual range 0 to 8. Sent 14:10 and 14:12 by text.") and its figure ("reported 40, twice") are not on the back end's open-flag list, so they are not shown. Out-of-range and differs-from-phoned flags offer "Accept the figure" and "Suspend service"; many-changes flags offer "Mark as checked" (both as the prompt lists them). Every flag offers "Phone to confirm", which opens the phoned dialog's seam (DEC-659).
+
+## DEC-844 The lead's routes call only the back end's existing routes (W42, restates the rule of W18)
+Status: accepted (build wave 6, fragment `W42`; under DEC-133, no owner gate). The fragment `W42` numbered it DEC-652, which an earlier entry holds; renumbered on folding.
+
+The lead's routes call only the back end's existing routes: `$suspend`, `$resume`, `GET /admin/report-flags?status=open`, `POST /admin/report-flags/{id}/$resolve`, and `GET /fhir/HealthcareService/{id}`. The admin and identity routes sit at the back end's root, beside `/fhir`, so these calls use `fhirFetch(path, {root: true})` (the option W48 added to `lib/fhir/client.ts`), which calls the origin of `DIUCS_FHIR_BASE_URL`.
+
+**Tenant pending.** None in this bundle. Each back-end call uses the lead's token; the back end binds the tenant at the edge (TEN-018). The suspension's wording and its SMS are the back end's (TEN-026 wording).
+
+**Assumed.**
+
+- The suspend answer's `since` is the BFF's clock, not the back end's (the back end does not return it).
+- Suspension reasons as the back end codes them: suspected-false-reports, closed-unexpectedly, contact-unreachable, other.
+- Removal reasons: left-service, changed-role, lost-phone, other.
+- Flag actions: accept → `accepted`, checked → `checked` (the back end's own outcomes).
+- A person given to the remove form is a role id-shaped string (letters, digits, dots, hyphens, up to 64).
+
+## DEC-654 A cover "until a date" ends at 23:59:59 London time on that date, with the offset in force on that day (GMT or BST) (W43)
+Status: accepted (build wave 6, fragment `W43`; under DEC-133, no owner gate).
+
+A cover "until a date" ends at 23:59:59 London time on that date, with the offset in force on that day (GMT or BST). The BFF computes it (`endOfLondonDay`) and sends the back end one instant with its offset, so the day does not depend on the server's zone. "Until I change it" sends no `until` part at all.
+
+## DEC-845 The invitation is real: it calls `$invite-reporter` (W43, restates the rule of W18)
+Status: accepted (build wave 6, fragment `W43`; under DEC-133, no owner gate). The fragment `W43` numbered it DEC-652, which an earlier entry holds; renumbered on folding.
+
+The invitation is real: `POST /api/bff/lead/invitations` calls `$invite-reporter` (R10) with `service` as a reference, `role`, `mobile` and `suggestedChannel` (push, text or email; "App notification" is push). The answer names the invitation, the last four digits of the number and the expiry, never the number. A service outside the pilot is a 409 with the code `not-in-pilot`; the page shows the scope words, not the back end's own sentence. The move is real: `$move` (U38) with `toMobile` and optional `until`.
+
+## DEC-846 The phones list, the set-up tracker, resend and switch-to-text have no back-end read or write yet (W43)
+Status: accepted (build wave 6, fragment `W43`; under DEC-133, no owner gate). The fragment `W43` numbered it DEC-651, which an earlier entry holds; renumbered on folding.
+
+The phones list, the set-up tracker, resend and switch-to-text have no back-end read or write yet. Their BFF routes answer 501 `not-built`, and the pages say they could not load. An empty list is never shown for them (H-330).
+
+Fold note: W7B now serves the phones, the invitations list, resend and switch-to-text (DEC-805, DEC-806, DEC-809); the BFF still answers 501 until it is wired.
+
+**Tenant pending.** None in this bundle. The invitation and the move use the lead's token; the back end binds the tenant (R10, U38). The pilot list is the tenant's own (the back end answers 409 for a service outside it).
+
+**Assumed.**
+
+- Phone: 11 digits starting 07, spaces allowed; the example in these forms is "07700 900123".
+- Channel for an invitation: push is "App notification"; the back end's own check decides which are allowed.
+- The move's "until a date" is the end of that London day (DEC-654).
+- Role for an invitation: free text, up to 200 characters.
+
+## DEC-718 The routes are `/clinical`, `/clinical/requests` and `/clinical/requests/[id]` (W44)
+Status: accepted (build wave 6, bundle W6G, fragment `W44`; under DEC-133, no owner gate).
+
+1. **The routes are `/clinical`, `/clinical/requests` and `/clinical/requests/[id]`.** The prompt's file list says `request/[id]`; its own URL rules say `requests`. The queue's URL and the guard's `clinical` prefix (DEC-210) both use `requests`.
+2. **Advice and reason values are the back end's.** The back end takes `within-criteria-on-judgement`, `safer-alternative`, `other` as reasons (the prompt's test named `within-criteria`, which the back end refuses). The four advice choices are the back end's. A value the back end does not take is refused before the call.
+
+## DEC-719 The queue link carries the queue context to the case page (W44)
+Status: accepted (build wave 6, bundle W6G, fragment `W44`; under DEC-133, no owner gate).
+
+3. **The queue link carries the queue context to the case page.** The back end has no read of one request, and the take response holds only the status. So the queue opens `/clinical/requests/<id>?urgency=&why=&case=`. The page checks each value against the back end's own list (`case` against the case-id shape) and falls back to a safe default, and the advice goes by request id. No name, postcode or phone is put in the URL.
+4. **The advice form is shown although the case details are not.** The case's age band, postcode, needs and scores, and what the advisor saw, are not on any back-end read this build can call. The case screen says "The case details are not on this screen yet." and keeps the advice form, so a clinical advisor is not stopped in the flow. **This is a clinical-safety decision the owner must confirm before go-live** (H-375): the screen gives the advisor less than the prompt's case view, and the advice is still recorded against the case.
+
+## DEC-720 "Go off duty" saves Away and then returns to `/clinical` (W44)
+Status: accepted (build wave 6, bundle W6G, fragment `W44`; under DEC-133, no owner gate).
+
+5. **"Go off duty" saves Away and then returns to `/clinical`.** It is the one presence change the screen makes after advice, and no request is left unfinished at that point.
+6. **Presence has no read on the back end.** The on-duty screen starts with no status chosen; it does not guess the last one.
+7. **Mine and Done are not built.** The queue lists Waiting only; the BFF answers 503 for the other two tabs, and the page says they are not available yet.
+
+**Tenant pending.**
+
+- Every clinical call is made with the caller's token; the back end binds the tenant (TEN-018) and scopes the queue and the presence to it. No browser input names a tenant or a clinician.
+- The queue's case numbers and request ids are the tenant's own; they are opaque to the browser.
+- Tenant isolation (front end): the BFF tests check that the queue reply has no practitioner, phone or postcode field. A two-tenant test waits for the back end's scoped reads (TEN-009..015).
+
+**Assumed.**
+
+- The "Go ahead with the service" wording (the prompt's "Go ahead with <service>"; no service name is known on the screen).
+- Reasons' labels: "Within criteria on my judgement", "Safer alternative", "Other".
+- The 10-minute return and the 15-second refresh are the prompt's; the return is not shown.
+
+## DEC-728 The reason is asked, and required (W45)
+Status: accepted (build wave 6, bundle W6G, fragment `W45`; under DEC-133, no owner gate).
+
+1. **The reason is asked, and required.** The back end refuses a clinical-advice request with no `why` (R13 takes `borderline-criteria`, `unsure-of-urgency` or `other`). The prompt's dialog asks only for urgency and posts `{urgency}`, which the back end would refuse. The dialog therefore asks "Why are you asking?" as a required choice (it says "Choose why you are asking." when none is chosen, and sends nothing). The prompt's test 2 body is extended to `{urgency, why}` accordingly.
+
+## DEC-729 The advisor's state read is not on the back end (W45)
+Status: accepted (build wave 6, bundle W6G, fragment `W45`; under DEC-133, no owner gate).
+
+2. **The advisor's state read is not on the back end.** The poll reads `GET /api/bff/cases/[ref]/clinical-requests/[id]`, which answers 503 because no back-end read lets an advisor see one request. The dialog therefore never sees "taken" or "advised" in this build; it keeps showing "Waiting for a clinical advisor". This is the risk in H-514 and it is not a working feature until that read exists. The poll, the state changes and the stop-on-advice behaviour are built and tested against the browser contract the prompt names.
+
+**Tenant pending.**
+
+- The request and the state read go with the advisor's token; the back end binds the tenant (TEN-018) and the case belongs to it. Nothing here names a tenant.
+- The dialog shows the district the caller passed in; the district is the case's, as the case screen already holds it.
+
+**Assumed.**
+
+- "How soon do you need them?" defaults to Now (the prompt's default).
+- "2 clinical advisors available" (the prompt's sample) is shown as "N clinical advisors available" (singular for one).
+- Polling is every 5 seconds (the prompt's), and stops on advice or a return.
+
+## DEC-721 The categories and kinds are the back end's (W46)
+Status: accepted (build wave 6, bundle W6G, fragment `W46`; under DEC-133, no owner gate).
+
+1. **The categories and kinds are the back end's.** The safety concern takes the five categories of `SafetyConcernCategory` (domain/rules/safety_report.py): wrong-service-shown, out-of-date-criteria, wrong-status-on-board, message-went-to-wrong-place, something-else. The problem report takes `ProblemCategory`: screen-slow, button-does-not-work, figure-looks-wrong, something-else (the prompt's "button-not-working" is not a value the back end holds). "Read the one-page guide" is not on the page: its content is out of scope and there is no page to link to.
+2. **Safety concerns go to the back end as a safety-concern Task** (R13, `POST /fhir/Task`): the category, the text and an optional reference are its inputs, and the reference (SC-0192) comes back as the Task's identifier. The browser never holds the text after sending.
+
+## DEC-722 A problem report answers 503 until the back end mounts it (W46)
+Status: accepted (build wave 6, bundle W6G, fragment `W46`; under DEC-133, no owner gate).
+
+3. **A problem report answers 503 until the back end mounts it.** The use case (U41, `ReportProblem`) is built, but no HTTP route takes a problem report (the prompt pointed at `routes_admin.py`, which has none). The BFF checks the report and answers 503; the page says "We could not send your report. Try again later." and keeps the text. Nothing is stored or logged on the way.
+
+## DEC-723 "Share my session with support" stays behind `NEXT_PUBLIC_SUPPORT_SHARING` (W46)
+Status: accepted (build wave 6, bundle W6G, fragment `W46`; under DEC-133, no owner gate).
+
+4. **"Share my session with support" stays behind `NEXT_PUBLIC_SUPPORT_SHARING`** (only the exact value "on") until W56 removes the check. The flag is read when the page renders.
+
+## DEC-724 The confirmation for a safety concern does not show the SPOA's phone number (W46)
+Status: accepted (build wave 6, bundle W6G, fragment `W46`; under DEC-133, no owner gate).
+
+5. **The confirmation for a safety concern does not show the SPOA's phone number.** The prompt's "[SPOA phone number]" would have to be a constant or a guess: the back end sends no phone number to the browser, and the tenancy rules forbid constants for organisation wording. The sentence says "phone the SPOA or follow local procedure."
+
+**Tenant pending.**
+
+- The safety-concern Task is created with the caller's token; the back end binds the tenant and keeps the text in its protected store under that tenant (U41, TEN-0xx). Nothing here names a tenant.
+- The Help pages show no organisation text.
+
+**Assumed.**
+
+- The "What is it about?" labels are the prompt's; the categories are to be agreed with the clinical safety officer (the prompt's note, kept on the screen).
+- The "Tell us more" and "What happened?" limit is 280 characters (the back end's `MAX_TEXT_LENGTH`).
+
+## DEC-656 The replay shows an integrity warning when the back end's `chain_ok` is false: "This replay did not pass its integrity check (W47)
+Status: accepted (build wave 6, fragment `W47`; under DEC-133, no owner gate).
+
+The replay shows an integrity warning when the back end's `chain_ok` is false: "This replay did not pass its integrity check. Do not rely on it until it is checked." The prompt does not give this case. A replay whose chain does not verify is shown with that warning, never without it, because the lead would otherwise read a broken record as a sound one. The wording is for the owner and information governance to confirm.
+
+## DEC-847 The export is a plain GET (a link with `download`), so it needs no CSRF token, and it is read-only (W47)
+Status: accepted (build wave 6, fragment `W47`; under DEC-133, no owner gate). The fragment `W47` numbered it DEC-653, which an earlier entry holds; renumbered on folding.
+
+The export is a plain GET (a link with `download`), so it needs no CSRF token, and it is read-only. The CSV has one table: the services shown, then the timeline. Fields that start with a formula character (= + - @) are given an apostrophe so a spreadsheet does not run them; this is an addition to the prompt's escaping rule.
+
+## DEC-848 The replay's `decisionAt` is the back end's `shown_at`. "Criteria version N" is shown once when every service has the same version, and per service otherwise (W47)
+Status: accepted (build wave 6, fragment `W47`; under DEC-133, no owner gate). The fragment `W47` numbered it DEC-657, which an earlier entry holds; renumbered on folding.
+
+H-517 (W47) · Both the page's read and the export are `no-store` at the BFF and on the back-end call (`fhirFetch` with `root: true` and `cache: 'no-store'`). A refusal and an unknown reference give the same 404 and the same words, so the page does not reveal which.
+
+**Tenant pending.** None in this bundle. The replay is read with the lead's token; the back end scopes it to the tenant and audits the read (U42). No Cypher is written here.
+
+**Assumed.**
+
+- Reference: letters, digits and hyphens, up to 40 characters.
+- A replay read with any answer other than 200 that is not 404 or 403 shows "The replay could not be loaded. Try again shortly." (not "No record").
+
+## DEC-742 The console calls the back end's root, not /fhir: `fhirFetch` takes `root: true`, which drops the trailing `/fhir` segment of `DIUCS_FHIR_BASE_URL` (W48, extends the F-series client)
+Status: accepted (build wave 6, bundle W6I, fragment `W48`; under DEC-133, no owner gate).
+
+1. The support routes (R18) are mounted at the application root. The option is off by default, so every FHIR call keeps its path.
+
+## DEC-743 The console's open route takes exactly one of a support code or a ticket, sends a fresh `Idempotency-Key` on every request, and forwards nothing else from the body (W48)
+Status: accepted (build wave 6, bundle W6I, fragment `W48`; under DEC-133, no owner gate).
+
+1. The back end refuses a POST with no key (400 required), and a repeated key replays (its own rule). A fresh UUID per user action is never a repeat.
+2. Any tenant or other field the browser sends is dropped (the tenant comes from the code, DEC-130, DEC-132). Tested: `never forwards a tenant the browser sent`.
+
+## DEC-744 The timeline and trace follow the back end's shapes, not the prompt's (W48)
+Status: accepted (build wave 6, bundle W6I, fragment `W48`; under DEC-133, no owner gate).
+
+1. The back end sends `offsetMs` (not `startMs`), no span attributes and no `slowest`. The page computes the slowest span and compares it with the 200 ms query budget (observability.md, named Cypher query, options).
+2. The span table has no Attributes column, because the back end sends none.
+3. "View trace" appears only for an API row that carries a trace id. The back end's `public_event` sends no trace id today, so every API row reads "No trace recorded" until the back end adds one (see known issues).
+4. The timeline's header (role, device, release, code expiry) is not shown: the events response carries only the session id and a count.
+
+**Tenant pending.** The console is the cross-tenant surface (tenancy audit). Session open resolves the tenant from the support code on the back end. The browser sends none. When the back end's R18 statements are converted, the console needs a test that a code for tenant A cannot open a session of tenant B (back-end test, not run here).
+
+**Assumed.**
+
+- `QUERY_BUDGET_MS = 200` (observability.md, named Cypher query, options).
+- The `Idempotency-Key` is a `crypto.randomUUID()`.
+
+## DEC-745 The insight and planning pages call back-end routes that are not built yet, and a missing route is shown as "could not be loaded", never as an empty success (W49, W51)
+Status: accepted (build wave 6, bundle W6I, fragment `W49`; under DEC-133, no owner gate).
+
+1. The insight BFF calls `/support/insight/{tab}?range=`; the planning BFF calls `/planning?period=&need=`. The back end has the use cases (O08 telemetry aggregates, U43 planning analysis) and no route for either. A 404 from the back end reaches the browser as an error for the view.
+2. The tab and the range are checked against their lists before any call. Other query parameters are dropped.
+
+## DEC-748 Insight and console are guarded by the support role; the session model has no product or design role, so those users are not admitted (W49, W48)
+Status: accepted (build wave 6, bundle W6I, fragment `W49`; under DEC-133, no owner gate).
+
+1. The prompt says "product and design users see this page; support code is not needed". The session role list (lib/auth/session.ts) has no such role, and the proxy table is W09's. No role is invented here.
+2. The page does not ask for a support code (the code gates a session, not the aggregates).
+
+**Tenant pending.** The insight routes (back end) must read the tenant from the token and must not return another tenant's counts. No statement is pending in the front end.
+
+**Assumed.**
+
+- Default range is 7 days.
+- Review threshold 5% at or over (rows "at or over 5%", prompt).
+
+## DEC-644 The map is a schematic: a picture drawn with SVG and a plain equirectangular projection, not a tile map (W50)
+Status: accepted (build wave 6, fragment `W50`; under DEC-133, no owner gate).
+
+The map is a schematic: a picture drawn with SVG and a plain equirectangular projection, not a tile map. No tile provider is chosen and no third-party script is loaded. The patient's area is a dot at the postcode centre. Each fixed site is a labelled button over the picture; each visiting service is a dashed circle with its name beside it, and has no pin (it is reached from the list). Tiles are a later change.
+
+## DEC-649 The travel wording is the spec's (W50)
+Status: accepted (build wave 6, fragment `W50`; under DEC-133, no owner gate).
+
+The travel wording is the spec's. The range is for the area, not the door, and a visiting service is "Included in their response time". A wrong estimate is reported to `/help/problem?from=<the map path>`, with the path encoded.
+
+## DEC-647 The postcode-not-found state does not re-enter the postcode in place (W50)
+Status: accepted (build wave 6, fragment `W50`; under DEC-133, no owner gate).
+
+The postcode-not-found state does not re-enter the postcode in place. "Change the postcode" goes to the needs form, where the postcode is edited and checked. The district chips are not built: the back end stores the postcode district only (DEC-398), and the BFF's save needs a full postcode, so a district choice has no save path yet.
+
+## DEC-849 The options view also carries the patient area, the not-found and out-of-area flags and each option's position, coverage and travel (W50, extends DEC-643)
+Status: accepted (build wave 6, fragment `W50`; under DEC-133, no owner gate). The fragment `W50` numbered it DEC-643, which an earlier entry holds; renumbered on folding.
+
+is extended here (not renumbered): the options view also carries `patientArea`, `notFound`, `outOfArea`, and per option `position`, `coverage` and `travel` (with `legs`), read from optional back-end parts: `patientLat`, `patientLon`, `notFound`, `outOfArea` at the top; `lat`, `lon`, `coverageRadiusKm`, `travelSource`, and `leg` sub-parts (label, low, high, how, source) per option. A coordinate outside the earth's range is not a position. This is the contract the back end must adopt; it sends none of these yet.
+
+**Tenant pending.** `$filter-options` (existing, W13): the map adds no statement. The map parts the back end will send come from the same tenant-scoped read.
+
+**Assumed.**
+
+- "Out of area" [ASSUMED]. "Other routes under local protocol" and "Change the postcode" are the prompt's words.
+- Picture size 600 by 400 with 36 units of padding; pins are placed as percentages of the picture [ASSUMED].
+- The coverage radius is in kilometres at 111 km per degree of latitude [ASSUMED for the schematic].
+
+## DEC-746 Planning is open to the lead and the executive, as the proxy table says; the owner is not admitted here (W51)
+Status: accepted (build wave 6, bundle W6I, fragment `W51`; under DEC-133, no owner gate).
+
+1. The prompt says "allow roles lead, owner, exec". The proxy table (lib/auth/access.ts, owned by W09) admits lead and exec for `/planning`. This bundle does not change that table: a change is for W09 or a role decision.
+
+## DEC-747 A planning share is of the referrals whose best fit was unavailable; the CSV is written in the BFF from the same answer, and a count under 10 is an empty field (W51)
+Status: accepted (build wave 6, bundle W6I, fragment `W51`; under DEC-133, no owner gate).
+
+1. `share(18, 112)` is 16. The flows table divides by the 112 (best fit unavailable), not by the 640 referrals.
+2. The export holds no more than the page: `toCsv` writes the flow rows and the declined rows; suppressed counts are blank.
+
+**Tenant pending.** The planning back-end route must take the tenant from the token; the browser sends none. The planning statements are not built, so none is converted in this bundle.
+
+**Assumed.** Default period 90 days, default need all.
+
+## DEC-749 The tour uses the artboards' copy as written, keeps "[x] minutes" for a phone call, and sends each role's action to the nearest real step (W52)
+Status: accepted (build wave 6, bundle W6I, fragment `W52`; under DEC-133, no owner gate).
+
+1. The reporter closing line stays "A phone call today takes [x] minutes. We measure it in the pilot." No saving is stated as a number.
+2. Reporter and advisor actions go to the practice step. Lead, clinical and COO actions go to the app home, since no matching flow exists in the tour.
+
+## DEC-753 Practice in the tour makes no request: a practice answer changes only what the screen says (W52, and W53 for the lessons)
+Status: accepted (build wave 6, bundle W6I, fragment `W52`; under DEC-133, no owner gate).
+
+1. Tested with a `fetch` spy in `Tour.test.tsx` and with the e2e spec (a request counter; not run).
+
+**Tenant pending.** None. The tour is public and holds no tenant data.
+
+**Assumed.** The role choice is one of five (reporter, advisor, lead, clinical, exec).
+
+## DEC-750 Lessons without written steps are Draft placeholders; no clinical or patient text is written (W53)
+Status: accepted (build wave 6, bundle W6I, fragment `W53`; under DEC-133, no owner gate).
+
+1. The artboards write one lesson in full ("Correct a figure"). Reporter lessons "Reply to a prompt", "Cover when you are away" and "If notifications stop" have titles and no steps: they are Draft with a placeholder body. The advisor and shift-lead lessons are Draft.
+
+## DEC-751 The SPOA number on the help panel comes from the service's own record; with no number, the panel says so and shows none (W53)
+Status: accepted (build wave 6, bundle W6I, fragment `W53`; under DEC-133, no owner gate).
+
+1. Multi-tenant (DEC-130): the number is organisation-specific. `HelpPanel` takes `spoaPhone` (a value from the record) or null. The lesson and library pages pass null until the record is read.
+
+## DEC-752 Lesson progress is kept in localStorage behind a store interface, and no page reads storage directly (W53)
+Status: accepted (build wave 6, bundle W6I, fragment `W53`; under DEC-133, no owner gate).
+
+1. `getDone`, `markDone`, `subscribeProgress`, `doneSnapshot` in lib/learn/progress.ts. A blocked browser remembers nothing and does not fail. A back-end progress store replaces the module later.
+
+**Tenant pending.** None in the front end. A back-end progress store, when built, is per person and per tenant.
+
+**Assumed.** Each lesson is 2 minutes (the artboard's figure).
+
+## DEC-683 Organisation step: the invitation's values come from the back end, and the browser's answers are the only ones saved (W54)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W54 (`app/api/bff/registrations/[id]/`, `lib/register/draft.ts`, `components/register/OrganisationForm.tsx`), W24 to W27 (every step save uses the same route shape).
+
+1. **The locked rows are the back end's, not the browser's.** The organisation name and ODS code are sent to R10's `$draft` from the registration read (`readRegistration`), never from the request body. A body that names any other field (`name`, `odsCode`, a tenant) is a 400 and nothing is read (tests).
+2. **The organisation step's values, as R10 takes them:** `name` and `odsCode` (the invitation), `orgType`, `contactName`, and `contactEmail` or `contactPhone` (the one "Contact email or phone" box is sent as whichever it is, by the `@` test). `contactRole` and "Part of a larger organisation" are on screen (the prompt names them) and are **not sent**: R10's `OrganisationStep` has no field for either, and refuses an unknown value. See H-353 and the known issues.
+3. **A save is `PUT /api/bff/registrations/[id]/steps/organisation` with CSRF,** which the BFF maps to R10 `PUT /fhir/Task/{id}/$draft` with an Idempotency-Key and the applicant's bearer token. A 200 answers `{status}` (the Task's business status); a 400 OperationOutcome answers 422 `{errors: [{field, message}]}`; any other failure is the BFF's usual error.
+4. **Continue and Save draft differ only in validation.** Continue checks the answers in the browser (`lib/register/validate.ts`, screen wording) before it saves. Save draft saves what is there. Both go to the same route, and the back end's own checks answer both.
+
+## DEC-684 Error summary and field names (W54)
+Status: accepted (builder build-W6E, for the owner to confirm; accepted by the orchestrator on folding under DEC-133) · Affects: W54 and every registration step form (`components/forms/ErrorSummary.tsx`, `ChipGroup.tsx`, `TextField.tsx`).
+
+1. **One vocabulary for field names.** Each form field's element id is the name the back end uses in its refusals (`orgType`, `contactName`, `contact`, and so on). A back-end refusal names the page field through `pageFieldFor`, where both contact fields are the one `contact` box. A message the back end gives only as "is required" is replaced by the screen's own wording for that field.
+2. **The summary is an alert that takes focus when its errors change,** says "There is a problem" for one and "There are N problems" for more, and links each message to its field. Pressing a link focuses the field (a fieldset for a chip group; `tabIndex=-1`, so it can take focus).
+3. **"Required" and "Optional" are written as words** outside the label text, so the accessible name is the label alone.
+
+**Tenant pending.**
+
+- The step save sends the reporter's bearer token; R10 binds the tenant from the verified token (TEN-018). The BFF reads the tenant from nothing.
+- `readRegistration` must bind the tenant the token names, not the request's host (TEN-018).
+
+**Assumed.**
+
+- [ASSUMED] Organisation type chip values are the back end's codes (`nhs-trust`, …), listed in `lib/register/options.ts`.
+- [ASSUMED] An email is recognised by the `@` in the contact box, and a UK phone is 0 followed by ten digits (or +44), as R10's `is_full_uk_phone`.
+- [ASSUMED] An Idempotency-Key is a new random UUID per save (the browser's replay is not a concern here; R10 needs one).
+
+## DEC-725 The support code is made for the browser session and returned once (W56)
+Status: accepted (build wave 6, bundle W6G, fragment `W56`; under DEC-133, no owner gate).
+
+1. **The support code is made for the browser session and returned once.** `POST /api/bff/support/code` sends the telemetry session id (16 to 32 hex characters, kept in sessionStorage under the telemetry's key), the device type, the app mode (installed or browser) and the build's release (`lib/release.ts`, which mirrors `package.json`) to the back end's `POST /support/codes` (R18). The code and its end time come back; the BFF keeps neither. `DELETE` stops sharing for that session; `GET /api/bff/support/accesses` lists who opened it (role and time only). A support person cannot share (the back end refuses it, and the BFF's role list leaves support out).
+
+## DEC-726 The Help flag is removed (W56)
+Status: accepted (build wave 6, bundle W6G, fragment `W56`; under DEC-133, no owner gate).
+
+2. **The Help flag is removed.** "Share my session with support" links to `/help/share` for everyone, as the prompt's step says. `supportSharingOn` and its test are deleted with the flag (W46 item 4 is superseded).
+
+## DEC-727 One code per session, and a reload does not show it again (W56)
+Status: accepted (build wave 6, bundle W6G, fragment `W56`; under DEC-133, no owner gate).
+
+3. **One code per session, and a reload does not show it again.** The back end keeps only the code's hash and refuses a second code while one is active (404, non-revealing). A page that reloads cannot read the code back, because no read exists. The screen says "We could not make a code. Try again." in that case. Two things follow and are open for the owner: whether the BFF should hold the code in the sealed session for a reload (a decision that puts a live code in a cookie), and whether a second tab should see the first tab's code. Neither is decided here (known issue).
+
+Fold note: answered by W7A, DEC-772 (the back end's read of whether a code is live; the sealed session does not hold the code).
+
+**Tenant pending.**
+
+- The code is made for the caller's session in the caller's tenant; the back end binds the tenant and stores the code's hash under it (R18, TEN-0xx). The browser sends no tenant, and the URL names none.
+- The session id is the browser's own; it is not linked to a person in the BFF.
+
+**Assumed.**
+
+- The device type is from the viewport width: phone up to 600 px, tablet up to 1024 px, otherwise desktop.
+- The app mode is "installed" when the page is in standalone display mode.
+- The copy fallback is the prompt's: select the code and say "Press Ctrl+C to copy".
+
+## DEC-770 A case opens with nothing in it, and the referrer type is optional until the case is complete (A2, A3) (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. `POST /fhir/ServiceRequest` with a body of only `{ "resourceType": "ServiceRequest" }` opens an empty case (W10 sends exactly that). DEC-067 and DEC-068 say the advisor opens an empty case at the start of a call and fills it in later; the old route demanded a referrer at the open, which contradicted the use case (U11) and the screen.
+2. `Case.referrer_type` is `ReferrerType | None`. `OpenCaseCommand.referrer_type` and `UpdateCaseCommand.referrer_type` are optional. `missing_fields` names `referrer_type` last, so `UpdateCaseResult.complete` and `FilterOptions` need it (`$filter-options` answers 400 naming the missing field, as it does for age band, postcode, needs and urgency).
+3. A PUT now saves the referrer and the age band (it ignored both, H-320). A PUT that leaves a part out leaves the stored value as it is: a part not said is not "empty". `POST` with details runs the second unit only when there is something to save.
+4. A referrer or age band that is not a listed code is a 400 that does not echo the value.
+
+## DEC-773 Planned is stored and answered as planned; a referrer's scores are stored and read back (A4, A5). This supersedes the "planned is answered as routine" part of DEC-397 (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. The case already held `Urgency.PLANNED`; only the FHIR mapping lost it. The ServiceRequest now carries the extension `https://diucs.example/StructureDefinition/urgency` (`within-2-hrs`, `today` or `planned`). The FHIR `priority` stays (urgent for within-2-hrs, routine for today and planned) because FHIR has no planned priority.
+2. On a write, the extension wins. A body with a priority and no extension reads as before (urgent is within 2 hrs, routine is today), so an older client still works. A priority that disagrees with the extension (urgent with planned, routine with within-2-hrs) is a 400.
+3. A score is one complex extension, `https://diucs.example/StructureDefinition/score`, with a `method` (valueCode: news2, cfs, ambulance-category, manchester, pathways-dx) and a `value` (valueInteger for the first three, valueString for the others). This is the shape W12 proposed. The route now passes the scores to `UpdateCase`; the case repository's first-recording path writes them. Once recorded they cannot change (the Observation store refuses a rewrite): repeating them unchanged is accepted, changing them is a 400 "recorded scores cannot change" (known issue W7A-K2).
+4. The answer also carries the case reference (`identifier`, system `https://diucs.example/case-reference`) and the open time (`authoredOn`), which W10 and W11 had no way to read.
+
+## DEC-781 `GET /fhir/ServiceRequest/{id}` reads one case (A1) and `$close` answers the close time (A8) (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. The read is for the advisor and the clinical roles (DEC-397); another tenant's id, an unknown id and any other role answer the same 404. The ETag is the constant `W/"1"` (DEC-398). `Cache-Control: no-store`.
+2. A closed case answers `status: completed`, the extension `closed-at` (valueDateTime, UTC) and the extension `outcome` (valueCode), and no postcode and no needs (DEC-398). The same shape is answered by `$close` and by the read. The front end may drop its own stamp of the close time (DEC-640).
+3. The mapping is a pure module, `adapters/inbound/fhir_rest/case_mapping.py`, with unit tests both ways.
+
+## DEC-779 `$filter-options` sends what the domain holds (A6) (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. Per option: `category` (valueCode), `unitLabel`, `overBy` (when over capacity), `lat` and `lon` (valueDecimal, the site's place from its Location), with the existing travel range and source. At the top: `patientLat` and `patientLon` (the centre of the case's postcode district: only the district is stored, DEC-067), `notFound` (valueBoolean true when the locator does not know the district) and `outOfArea` (true when no service with current criteria covers the district). A flag is sent only when true.
+2. The age filter needed no change: it reads the case's age band, which the PUT now saves (DEC-770). It is tested through `$filter-options` (a 0-15 band is outside UCR West's criteria, an 80+ band is an option).
+3. Not sent, because the domain does not hold it: a service phone (only a hash of a person's phone is stored), a coverage radius for a visiting service, travel legs (a travel estimate is one range with a source), and a network organisation (the options are the tenant's own board). See the known issues.
+
+## DEC-771 The criteria history is readable by the advisor, with the accepts and excludes (A7) (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. `GET /fhir/Basic?subject=HealthcareService/{id}` admits the advisor as well as the owner, clinical and lead roles.
+2. An advisor reads the version in force only (status current): a change waiting for approval, and old versions, are for the owner and the leads. This is the clinical-safety choice: the criteria dialog must never show an advisor text that is not yet approved.
+3. Every role now reads `ageMin`, `ageMax`, `accepts` and `excludes` on each version (H-325). The districts, the author and the change reason are not in the history.
+
+**Owner delegation (DEC-133), decided on folding: accepted.** The history an advisor reads is the current version only; a change waiting for approval and old versions stay with the owner and the leads. This is the clinical-safety choice stated in item 2: the criteria dialog must never show an advisor text that has not been approved. The cost is that an advisor cannot see what is about to change; that is correct.
+
+## DEC-774 A clinical advice request can be read, and a clinician has Mine and Done lists (B1, B2) (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. `GET /fhir/Task/{id}` answers a clinical advice request to the advisor who asked it and to any clinical advisor. Any other advisor, and every other role, read the same 404 as an unknown id. The path is shared with the booking read, so the booking route asks the clinical use case first and falls through to the booking when the id is not a clinical request.
+2. The Task carries the case's number (`case-reference`), age band, needs, urgency (`case-urgency`) and NEWS2, and never the postcode, the district, a practitioner id (requester or taker) or any identifier of a person. It carries the request's urgency and reason, when a held lock ends (`returns-at`, taken time plus the take timeout) and, once advised, the choice, the reason, the clinician's note and when (`advice-choice`, `advice-reason`, `advice-note`, `advised-at`). The advice answers who asked and any clinician, not the queue: the lists do not carry the note.
+3. A lock that has lapsed reads as waiting again (the same rule as the queue).
+4. `GET /fhir/Task?code=clinical-advice&status=requested|in-progress|completed` is the queue, Mine and Done of the calling clinician (the role is checked first, any other role is a 404; an unlisted status is a 400). Mine is the requests the clinician holds, oldest first; a lapsed lock is not held. Done is the requests the clinician advised on, the latest advice first, at most 50 (DEC-774). Each entry carries the case glance of item 2, so the queue now shows age band, needs and NEWS2.
+5. The statement `Q-CLIN-ADVISED-BY` is new; the others are reads the use cases already made.
+
+**Owner delegation (DEC-133), decided on folding: accepted.** The clinician's advice note (free text, at most 280 characters) is shown to the advisor who asked and to clinical advisors, and the case glance carries age band, needs, urgency and NEWS2 only, never the postcode or a person's id. The advisor who asked already holds the case, so the note discloses nothing to a person who does not already have it. The residual risk is patient detail typed into the note, which the back end cannot recognise (H-412); the controls are the cap, the role gate, the screen's warning and the protected store.
+
+## DEC-780 A clinician reads their own presence (B3) (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. `GET /clinical/presence` answers `{ "presence": available|busy|away|null, "available": n }`: the caller's own presence (null when none is set or it has lapsed after its 120 seconds) and the count of clinical advisors available. No name. The on-duty screen starts where it was left.
+2. The count that advisors read already existed: `GET /clinical/available` (advisor, clinical, lead). B3 as written ("a presence read: how many clinicians are available, names none") was already built; the gap W44 reported was the clinician's own state, which this adds.
+
+## DEC-778 The problem report is mounted (B4): `POST /help/problems` (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. Body `{ "category": screen-slow|button-does-not-work|figure-looks-wrong|something-else, "text"?: up to 280 characters, "sessionShared"?: boolean }`, nothing else accepted. `Idempotency-Key` required; a replay with the same body answers the same report, another body under the same key is 422. Answer 201 `{ "id" }`, never the text.
+2. Any signed-in person may report, except a wall screen and an anonymous link (404). The text goes to the protected store (U41), under the tenant.
+3. The use case stores no page route, so the front end's `route` is not sent; the BFF maps `kind` to `category` (known issue W7A-K5).
+
+## DEC-772 A reload shows whether a support code is live, not the code (B5). This departs from the task's wording ("so a reload can show it") (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. `GET /support/codes/current?sessionId=` answers `{ "active": true, "expiresAt": ... }` or `{ "active": false }` for the caller's own code for that session. Only the person who shared it reads it; support, a wall screen and an anonymous link are refused (404); another tenant's code for the same session id is not seen.
+2. The code is returned once, when it is made, and only its keyed hash is stored (O06). Storing it again so that it could be read back would put a recoverable live code in the graph for four hours, which the design chose not to do. W56 left this to the owner; this is the decision. The screen says "A code is live until HH:MM" and offers "Stop sharing", after which a new code can be made.
+
+**Owner delegation (DEC-133), decided on folding: accepted.** The read shows that a code is live and until when, not the code. Storing the code so it could be read back would keep a recoverable live code in the graph for four hours; the keyed hash is all that is kept (O06). The person needs to know after a reload that sharing is on and can stop it, which the read gives. This departs from the task wording and answers W56's open question (whether the sealed session should hold the code): it should not.
+
+## DEC-775 The acknowledged and closed alert lists (B6) (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. `GET /fhir/Task?code=acknowledge-alert&owner=me&status=acknowledged|closed` (also `new` and `escalated` as before). The caller's own alerts only, the latest raised first, at most 50. Executives and leads only (404 for others), an unlisted status is a 400.
+2. An acknowledged alert carries the extension `https://diucs.example/CodeSystem/alert-acknowledged-at` (valueDateTime) for "acknowledged at 13:40". Who acknowledged is always the owner; no name is sent.
+3. The statement `Q-ALERT-OWNER-BY-STATUS` is new. The `escalated` list is as it was (it filters the open list, which holds new alerts only, so it is empty): see W7A-K6.
+
+## DEC-776 The leadership list for the deputy picker (B7): `GET /fhir/Practitioner?role=leadership` (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+1. The active practitioners of the tenant who hold an active shift-lead or clinical-lead role in effect now (the roles DEC-341 item 4 accepts as a deputy), as a Bundle of `Practitioner` with an `id` and `name[0].text` only. Not the caller (a user cannot be their own deputy), ordered by name then id. Executives and leads only.
+2. No phone, email, role or period is sent. No new statement (it reads the active roles the clinical-lead lookup already reads).
+
+## DEC-777 The duty coordinator's number is on the board (B8): a `coordinationPhone` string part of `$board` ... (W7A)
+Status: accepted (build wave 7, bundle W7A, fragment `W7A`; under DEC-133, no owner gate).
+
+The duty coordinator's number is on the board (B8): a `coordinationPhone` string part of `$board`, read from the tenant's configuration contact of kind coordination-phone (an organisational role number). A tenant with none sends no part: no number is made up (H-T15). Every board role reads it; the public profile already shows the same number before sign-in.
+
+**Tenant pending.** None. The three new statements are converted (registered with scenarios and run by `test_tenant_isolation.py`). Every read uses the unit of work's tenant; no route reads a tenant from the request.
+
+**Assumed.**
+
+- The Done list shows at most 50 requests (DEC-774) and an alert list at most 50 (DEC-775).
+- `ReadCoordinationPhone` takes the first contact of kind coordination-phone.
+- The urgency extension URL and the score extension URL are the ones W12 proposed (`StructureDefinition/score`) and the analogous `StructureDefinition/urgency`; the front end maps them in `frontend/lib/advisor/case-fhir.ts`.
+
+## DEC-790 The back end issues the reporter token after a right text code; the BFF holds no signing secret (W7B A2)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The back end issues the reporter token after a right text code; the BFF holds no
+signing secret (TEN-043, DEC-134 item 2, DEC-136). 1. `POST /identity/registration/session` checks
+the code and records it on the device in the same call the code route uses (`ConfirmDeviceByTextCode`),
+then issues a back-end token (`aud diucs-api`) for role `reporter`: `sub` is the person (the
+invitation's invitee, or the holder of the number), `services` the services that person holds an
+active reporter post for, `device` the device the code was checked on, `tenant` and `epoch` the
+Host's tenant's. 2. The tenant comes from the Host only (the one binder, `bind_host_tenant`); a body
+that names a tenant, a role, a person or a service is a 400 and is never read. 3. [ASSUMED] the
+token lasts 2 hours (a registration is filled in over a sitting; the applicant signs in again by
+number and code). 4. The order is: tenant active (`may_issue`), the invitation open, then the code,
+so a refused request never uses up a try. 5. A number nobody holds, or one that holds no reporter
+post, answers as a code that needs asking for again: nothing says which numbers exist.
+
+## DEC-791 An invitation is read and used by its link token, so the browser never needs the number (A2) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+An invitation is read and used by its link token, so the browser never needs the
+number. `POST /identity/invitation` gives the state and, for an open link, the service name and the
+last three digits; an unknown, malformed or other tenant's link is the one 404 (`EntryRefused`),
+and an expired or used one is `{state}` only. `POST /identity/registration/code` sends the code to the
+number the invitation holds. A returning applicant (the invitation has expired) signs in with their
+mobile number and a code (`mobile` instead of `invitation`).
+
+## DEC-792 A live PIN session is exchanged for a short back-end token, `POST /identity/session-token` (W7B A2)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+A live PIN session is exchanged for a short back-end token (`POST
+/identity/session-token`). [ASSUMED] 30 minutes: a token cannot be recalled, the session can, so the
+app asks again and a signed-out person gets nothing. This replaces the BFF holding the session id
+as a bearer (W33, W34, W35, W38, W55).
+
+## DEC-793 R10 defects. 1 (A3) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+R10 defects. 1. `open24h` is read (the route mapped camel to snake by lower-casing
+capitals, which cannot give `open_24h`; it now maps by the step's own field names). 2. `"partial":
+true` on `$draft` saves what is there: missing text is blank, a missing number is none; the step's
+own checks say what is left (`incomplete`). A yes-or-no answer (`fixedSite`, `wanted`) is still
+needed. A blank service name is the invitation's. A contact that is not a good number or address is
+not stored. Submit is unchanged: every step must be complete. 3. `spokeToRole` is required only when
+the call confirmed the number. 4. `Measure.OTHER` (`other`, unit "places", UCUM `{place}`) is a
+measure a service can count; it is read like any other count. 5. No-reply and not-confirmed calls
+record no role.
+
+## DEC-794 The applicant reads their own registration: record (every step, with state, values and problems), `my/registrations`, and the status page (A1) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The applicant reads their own registration: record (every step, with state, values
+and problems), `my/registrations`, and the status page. Only a registration whose requester post
+the reader holds; another person's and an unknown id are the same 404. A contact number or address
+is never in a body: the last three digits and a flag stand for them.
+
+## DEC-795 The reviewer queue has five tabs (waiting, sent-back, approved, live, not-approved); an invited or drafting registration is not in it (A1) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The reviewer queue has five tabs (waiting, sent-back, approved, live, not-approved);
+an invited or drafting registration is not in it. The overview carries the five automatic checks,
+who registered (the invitee's label and the organisation contact), the endings of the numbers the
+applicant gave (so the lead can tell them from the register's), and the call-back words from the
+tenant's wording: [ASSUMED] directory name is `referralSystemName` and pathway name is
+`systemName`; with no wording both are null and the page names none. `numberToCall` is null: the
+platform holds no register number for a service that is not yet listed, so the lead types it.
+
+## DEC-796 The decision read gives what is missing, the four approvals, the test notification mark, canApprove and a timeline (W7B A1)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The decision read gives `missing`, the four approvals with the screen's words, the
+test notification mark, `canApprove` and a timeline (invited, submitted, review requested, test sent,
+and the decision). The call-back and scope decisions are Provenance, which has no read: they are not
+in the timeline (known issue).
+
+## DEC-797 Test notification, review request and confirm details are marks on the draft (W7B A4)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+Test notification, review request and confirm details are marks on the draft (keys
+`test_notification`, `review_request`, `details_confirmed`, as the review notes and lookups are), so no
+new record is needed. The test is the new message `T1` (text, email, push), queued sealed to the
+applicant's post by the channel they chose; it has no link and asks for nothing, so it cannot be
+answered with a number. [ASSUMED] one test a minute per registration. The lead may send it again.
+Confirm details moves reverify to live. `$start-review` and `$explain-check` routes are added: the
+use cases existed with no route.
+
+## DEC-798 The address lookup is a route over the existing Geocoder port (W7B A4)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The address lookup is a route over the existing `Geocoder` port (fake in tests; the OS
+Places adapter when a key is configured, else `NoGeocoder`, which finds nothing, by design). A lookup
+that cannot answer is a 503, never an empty list. The postcode is never logged.
+
+## DEC-799 `GET /criteria/{service}` gives the current version, the draft, the change waiting, the overdue state, the shift lead's phone and whether the reader is the owner (W7B B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+`GET /criteria/{service}` gives the current version, the draft (a version the approver
+sent back, status draft) and the change waiting, whether the review is overdue and since when (the
+review-by date, judged on the London day), the shift lead's phone (the tenant's
+`shift-lead-escalation` contact, never a default) and whether the reader holds the owner post. An
+owner reads only a service they hold the criteria-owner post for. `GET .../pending` tells the change
+in words against the current version with its reason, the author's post and `isAuthor`.
+
+## DEC-800 A criteria version keeps `changedOn` (the London day it was proposed, and again the day it was approved) ... (B) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+A criteria version keeps `changedOn` (the London day it was proposed, and again the day
+it was approved); the history gives it with `authorRole` (the author's label). A version stored
+before this has none.
+
+## DEC-801 The author may not approve their own change; the read says `isAuthor` so the page can say so ... (B) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The author may not approve their own change; the read says `isAuthor` so the page can
+say so, and the back end still refuses an author who sends the request.
+
+## DEC-802 The lead overview reads the board (`QueryBoard`), so a status here is the status everywhere else (C) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The lead overview reads the board (`QueryBoard`), so a status here is the status everywhere
+else. Chasing: not-updated with a missed prompt, not suspended; each shows the prompt and the three
+later steps with whether each ran (from the scheduled work; a step with none shows when it would
+have run, not done). Getting old: reported more than the stale limit ago, not yet overdue, not
+suspended. Covering: posts a cover is holding. The tenant's own policy and zone are not read yet
+(as the board does not).
+
+## DEC-803 The reporter post of each service is listed with its role id (what `$change-number` and `$remove` take), the channel ... (C) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The reporter post of each service is listed with its role id (what `$change-number` and
+`$remove` take), the channel, the last four digits and the cover. A cover's number is now kept in the
+protected contact store under `cover-<role id>`, and an until-changed change gives the new post its
+number (the change used to keep the hash only, so the lists could not show the ending).
+
+## DEC-804 Suspension state: whether, since when, the reason, how many requests it expired (`ServiceFlag.expired_count` ... (C) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+Suspension state: whether, since when, the reason, how many requests it expired
+(`ServiceFlag.expired_count`, kept at the suspension) and the register number to phone (the work
+phone the service is listed with). The register number is a directory number, not a person's, and is
+the one number given whole because the lead phones it. The closed report flags are listed by
+`status=closed` (checked and accepted), newest closed first.
+
+## DEC-805 Phones are grouped by the phone that holds each service now (a cover holds the service while it runs), shown as the last three digits ... (C) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+Phones are grouped by the phone that holds each service now (a cover holds the service
+while it runs), shown as the last three digits; the flag above three services is the page's.
+`lastSeen` is the latest report time of the phone's services (not device activity).
+
+## DEC-806 The set-up steps of an invitation are judged from what is stored: a text code checked on a device, the channel chosen in the registration ... (C) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The set-up steps of an invitation are judged from what is stored: a text code checked on
+a device, the channel chosen in the registration, a device set up, a push subscription, a PIN, and the
+service's first report. One new statement lists a practitioner's devices (`Q-DEVICE-LIST`) and one
+the invitations (`Q-REG-INVITATIONS`).
+
+## DEC-807 The reminder runs the missed-report ladder's reminder step that is scheduled for the service, now (the step the scheduler would run ... (C) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The reminder runs the missed-report ladder's reminder step that is scheduled for the
+service, now (the step the scheduler would run: C8 with a fresh link). With none scheduled, or one
+that does nothing, it is a 409, so the lead is never told a reminder went when it did not.
+
+## DEC-808 The lead's test prompt sends `T1` to the service's reporter post by its channel (or the one named) ... (C) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+The lead's test prompt sends `T1` to the service's reporter post by its channel (or the
+one named), to the post's own number. [ASSUMED] one a minute per service (a processed marker).
+
+## DEC-809 Switch to text sets the invited person's post to text when a mobile number is held; resend is routed to `ResendInvitation` (U24) (C) (W7B)
+Status: accepted (build wave 7, bundle W7B, fragment `W7B`; under DEC-133, no owner gate).
+
+Switch to text sets the invited person's post to text when a mobile number is held;
+resend is routed to `ResendInvitation` (U24).
+
+Note on W7C (merged): W7C's reporter routes assume a reporter bearer token and leave its issue to
+this bundle (W7C-K4). It is issued two ways: `POST /identity/registration/session` (a right code, for
+the registration flow and a returning applicant) and `POST /identity/session-token` (a PIN session,
+for the reporter app). W7C's invitation lookup and invitation code routes are the reporter set-up;
+`POST /identity/invitation` and `/identity/registration/code` are the same idea for the registration
+sign-in, with the 404 and 200-with-state answers its page needs.
+
+**Tenant pending.** None: both new statements are converted (`tenantId: $tenant` on every node, with scenarios). The sign-in routes bind the tenant from the Host through `bind_host_tenant`.
+
+**Assumed.**
+
+- Registration token 2 hours; PIN-session token 30 minutes; one test notification a minute per registration; one lead test prompt a minute per service.
+- Call-back words: directory name is `referralSystemName`, pathway name is `systemName`.
+- The ending of a number: 3 digits for a person's phone on a page, 4 for a reporter's.
+
+## DEC-810 Invitation lookup (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+`GET /invitations/{token}` needs no token but the invitation's, and the
+   tenant is the host (DEC-134 item 3). It answers the service, the post label, the masked number and the
+   expiry, and nothing of the person. An unknown, malformed, expired, used, another tenant's or another
+   purpose's token, and a host no tenant owns, all get the one answer `410 {"state":"expired"}` (the front
+   end words "used" and "expired" alike, W33). The number is shown as its first two and last three digits
+   (`07xxx xxx456`); a value that is not a UK mobile shows no digit. 60 reads per address in 10 minutes
+   [ASSUMED]. The access log hides the token (`/invitations/` joins `/links/` in `RedactLinkTokens`).
+
+## DEC-811 Codes without a number in the browser (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+The browser at set-up holds a token or a device id,
+   never a number. `POST /identity/invitations/{token}/code` and `/code/verify` run the number-based use
+   cases (U25, U32) with the keyed hash of the number the invitation was sent to (`KnownPhoneHash`);
+   `POST /identity/device/code` and `/device/code/verify` do the same for the owner of a device. A token or
+   a device that cannot be used gets a stand-in hash no practitioner holds, so the request does the same
+   work and gets the same answer as a real one (H-96, H-451). The request is always 202; a wrong code names
+   the tries left (`triesLeft` on the 400), as the front end's set-up and locked screens need.
+
+## DEC-812 Device codes are for the 30-day check and a PIN reset only (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+Purposes `reverify` and
+   `pin-reset`; a code of another purpose does not verify a device. A right code stamps the device
+   (`RecordTextCodeVerified`), so the PIN routes that follow work as before.
+
+## DEC-813 Channel before sign-in (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+`POST /identity/channel` records `app`, `text` or `email` for a
+   device a text code verified in the last ten minutes (the window of a PIN), on every reporter post the
+   person owns; the set-up channel step and the locked PIN's "text me" both call it, and neither has a
+   session. Any device that cannot be used is one `403`. `app` is the push channel. `POST
+   /reporter/channel` is the same change behind a session (settings); `email` needs an address on record
+   for every post.
+
+## DEC-814 What a reporter holds is read from the graph (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+Every `/reporter/...` route asks the graph which
+   services the person holds a reporter post for now (their own, and those they cover) and ignores the
+   token's `services` claim, so a cover that began after the token was made takes effect at once. A service
+   the person does not hold, an unknown one and another tenant's are one `404`. A role other than
+   `reporter` is the `404` of every refused role; a phone that was signed out is `401` at once.
+
+## DEC-815 Service rows (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+A row is `due` when the service's latest due time (the tenant's zone and policy,
+   DEC-353) has had no report since, `paused` when the service is suspended, `confirmed` otherwise;
+   a service that is not live is not listed (a reporter invited to a service not yet live sees it only on
+   the set-up summary). When two or more rows are due they carry the letters of a grouped prompt (D28).
+   `pendingAcceptance` is always false (see known issues).
+
+## DEC-816 A report from the app (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+Confirm, number and closed go through `ReportCapacity` and
+   `ConfirmCapacity` (source `app`) under the same reply policy as a text or a link: a figure out of the
+   usual range is asked for once (`outOfRange`) and recorded, with a flag, on the second send with
+   `confirmOutOfRange`; a third confirm in a row is `confirmLimit` (409); a Y with no figure, or on a
+   figure older than two hours, or after a number was written, is `sendNumber` (409, with the reason), so
+   a Y never makes an old figure current (H-31, H-32, H-454). The app is open whenever the reporter is in it:
+   there is no prompt to be late for, and the figure is judged at the time of the request. An
+   `Idempotency-Key` is required (the use case's own replay record and the route's replay cache).
+
+**Owner delegation (DEC-133), decided on folding: accepted.** The app is open only while the reporter is in it, so there is no prompt to be late for, and judging the figure at the time of the request is the correct moment. Nothing that protects a figure is relaxed: a Y confirms only a current figure (not older than two hours, nothing written since), the out-of-range reply and the confirm limit are the text and link rules, and a Y never makes an old figure current (H-454). The prompt-time rule of the text and link channels is unchanged.
+
+## DEC-817 History (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+is the reports of the tenant's local day, newest first, numbers and confirms, and
+   only `day=today` exists.
+
+## DEC-818 Batch (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+Only confirms, one to ten different services; every service must be the reporter's or
+   nothing is written (one `404`). Each confirm then runs on its own (a digest of the key and the service),
+   so one service that must send a number does not stop the others and a repeat repeats nothing (H-458).
+
+## DEC-819 Settings (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+show the channel, the masked number, the masked cover (only while a cover runs),
+    the whole days until the text code is next needed (the device's last verification and the tenant's
+    period) and the other phones that are signed in. The count is the one new statement,
+    `Q-DEVICE-ACTIVE-COUNT` (read, tenant on both nodes, a Scenario with the same ids in both tenants), behind
+    `DeviceRegistry.count_active`.
+
+## DEC-820 A reporter hands their own posts to a cover (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+Amends the letter of DEC-136 item 5 ("the
+    provider's own lead changes reporter numbers and cover") within its intent (no cross-tenant write): a
+    reporter may set a cover on the posts they own, for `tonight`, `this-week` (the default when none is
+    named) or a `date`, at most a fortnight ahead [ASSUMED], ending 23:59 in the tenant's zone. The cover
+    practitioner is found by the number's hash or made; the audit holds the hash, never the number; the
+    number is kept as the post's cover contact `cover-<role id>`, so the post's own number is not
+    replaced. A post already handed on can be handed to another cover; a post the reporter only covers
+    cannot be passed on (H-456). The shift lead's own change (U16) is unchanged.
+
+**Owner delegation (DEC-133), decided on folding: accepted.** The builder flagged it because it amends the letter of DEC-136 item 5. It is sound. The change stays inside one tenant (no cross-tenant write). A reporter may hand over only posts they own, for at most a fortnight, ending at 23:59 in the tenant's zone. The audit holds the hash and never the number. The lead sees every running cover on the lead overview (DEC-802) and U16's lead change is unchanged, so the lead can still end or replace it. A cover who reports is judged by the same reply rules (DEC-816). The residual risk, that a cover number gives a stranger reporting access, is H-456; the 14 days is an [ASSUMED] limit to review, not a reason to hold the decision. The plain-text store the cover number sits in is a separate open decision (see the plain-text phone numbers entry at the end of this fold).
+
+## DEC-821 Booking read by reference (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+The notification carries the four-digit reference, not the Task
+    id. `GET /reporter/bookings/{reference}` maps it to the tenant's booking (`BookingRepository.
+    get_by_reference`) for a service the reporter holds, and answers the reference, the Task id, the
+    service, the age band, the need, the urgency, reply-by, the status, the SPOA phone and whether the
+    reporter holds more than one service; never the case, the postcode or the requester. A reference that
+    is not four digits, unknown, another tenant's or for another service is the one `404` (H-455). The
+    status is one of `requested`, `confirmed`, `declined`, `expired`; every closed state the screen cannot
+    answer is `expired`, and `bookingStatus` holds the exact word. `spoaPhone` is null when the tenant has
+    set none (never a default).
+
+## DEC-822 Booking decision by reference (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+`POST /reporter/bookings/{reference}/respond` runs
+    `RespondToBooking` (source `app`, as `$respond` and the link do); a booking already answered is `409`;
+    the decline reason is one of the four of the screen.
+
+## DEC-823 Answer to a service the lead added (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+`accept: true` is recorded (audit) and changes no post;
+    `accept: false` ends the reporter's own post on that service now. Only a post the reporter owns can be
+    answered.
+
+## DEC-824 Push key and test push (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+`GET /public/push-key` serves the platform's VAPID public key from the
+    secret `webpush-vapid-public-key` (not a secret, platform-wide like the private key, DEC-340), tenant by
+    host, `no-store`, `Vary: Host`; 503 when it is not configured. `POST /reporter/push-test` queues a
+    `K3` push to the reporter's own post through the sealed send (DEC-116): a title and a body that name no
+    service, figure or person, no link; `409 no-subscription` when no subscription is saved; three per ten
+    minutes per person [ASSUMED] (H-457).
+
+## DEC-825 The SPOA number on the lost-phone wait (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+The `200` of `POST /identity/new-phone/verify` carries
+    `spoaPhone`, the tenant's coordination phone or null (H-459); a refused code carries nothing.
+
+## DEC-826 Set-up summary (W7C)
+Status: accepted (build wave 7, bundle W7C, fragment `W7C`; under DEC-133, no owner gate).
+
+`GET /reporter/setup-summary` names the first post's service by name (a service
+    not live yet is allowed), how the reporter is contacted, the masked number, the next update due and the
+    days until the text code is needed again.
+
+**Tenant pending.**
+
+None. The one new statement is converted (`tenantId: $tenant` on both nodes, with a Scenario). Every route
+binds the tenant from the token or from the host, and the replay keys, rate-limit keys and codes carry it
+through the existing seams.
+
+**Assumed.**
+
+- 60 invitation reads per address in 10 minutes; at most 14 days of cover and "this week" as the default
+  cover; three test pushes in 10 minutes; at most ten services in a batch (the phone load limit, D28).
+- The app judges a confirm at the time of the request, not at a prompt's time.
+
+## DEC-850 The merged tree's other bundles are brought onto the tenant-bound session and the W6A harness (F6A)
+Status: accepted (build wave 6, fragment `F6A`; under DEC-133, no owner gate). The fragment carried no number; numbered on folding.
+
+1. **A phone with no session has a CSRF token bound to its host and its device id.** `GET /api/bff/reporter/start` made the old unbound token (`issueCsrf()` with no subject), and `preSession` called `checkCsrf(request)` with none, so neither compiled against TEN-046. The subject of a pre-session token is `{tenantId: '', host, sub: 'device:<id>'}` (`lib/reporter/bff.ts`: `preSessionSubject`, `preSessionSubjectOf`). The tenant part is empty because the BFF has no signed claim before sign-in (the back end resolves the tenant from the host) and no signed-in session's tenant is ever empty, so a session's token never verifies here and a phone's token never verifies for a session. A token made for another host or another phone is replaced by `reporter/start`, refused by `preSession`. A write from a phone with no device id yet (no visit to `reporter/start`) is a 403 `csrf`. After sign-in `GET /api/bff/session` issues the session-bound token (it keeps the cookie's token only when it verifies for the session). A sibling sub-domain can still plant its own device cookie and its own token pair on a victim: that is login CSRF, which the host-only cookies and `SameSite=Strict` already limit, and no pre-session route acts on anything but the phone's own cookies.
+2. **Every session a bundle builds carries the tenant and the host.** The reporter's PIN sign-in (`identity/pin/verify`) made `{role, services, sub, backendToken}` with no tenant. The back end now answers `tenant` in the `POST /identity/pin/verify` success body (the host's tenant, `current_tenant()`, additive, backend unit test), and the route seals the session for that tenant and for the host the phone came to; an answer with no tenant, a network id or a value that is not a tenant id signs nobody in (503 `unavailable`, no cookie). The applicant's sign-in seam (`signInRegistrant`, still not built) is now given the host, and the code-check route keeps no session whose host is not the one the code came to. When the reporter app moves to the back end's token exchange (W7B DEC-792, `POST /identity/session-token`), the tenant comes from the token's claim (`readIssuedToken`) and the `tenant` field of the PIN answer is no longer read.
+3. **The identity routes are pre-session calls in the leak canary** (`test/leak-canary.ts`), not tenant-API calls: `POST /identity/code`, `/code/verify`, `/pin`, `/pin/verify`, `/new-phone`, `/new-phone/verify`, `GET /identity/status`, and the back end's registration and device routes of W7B and W7C (`/identity/invitation`, `/registration/code`, `/registration/session`, `/session-token`, `/invitations/{token}/code`, `/device/code`, `GET /invitations/{token}`). The back end resolves their tenant from the Host and takes no token. Two new rules: `pre-session-bearer` (the call carries an Authorization header: a second source for the tenant) and `pre-session-host` (the call's Host is missing or is the back end's own, so no host named a tenant). `push-subscription` and `sign-out-everywhere` still need a token (`no-token`). The other rules (header, query) still apply. The canary was not weakened: a call to these routes that earlier would have been reported as `no-token` is now checked against stricter, more specific rules. A test shows that the Host `callBackend` sends reaches the canary.
+4. **The nine routes the route guard did not know are classified `pre-session`** (`test/guards/bff-routes.test.ts`): `reporter/start`, `identity/code`, `identity/code/verify`, `identity/new-phone`, `identity/new-phone/verify`, `identity/pin`, `identity/pin/verify`, `invitations/[token]`, `push/key`. The generated checks for the kind: never stored; takes no tenant from the request (a query key and a header that name one change nothing and are not echoed); reads no session (a staff session of another tenant changes nothing); a `preSession` write with no CSRF token of its phone is a 403 before any work; a JSON-only write refuses another content type with 400. Verified by mutation (`preSession` with its check removed fails seven of them).
+5. **The 36 `[id]`-style `withBff` routes of the other bundles say `idScoped: true`** (criteria, lead, registrations, reporter). The list `ID_ROUTES_NOT_YET_SCOPED` is unchanged (the 22 W6A named) and was not added to: it only shrinks. A back end 403 on one of these routes is now the one 404 (`We could not find that.`); every route test of those directories passes.
+6. **Wording.** Fifty-eight scan violations, none new debt. Corrections in the screens: "the SPOA shift lead" is "the shift lead", "the SPOA" is "the coordination team", "A SPOA clinical lead" is "A clinical lead", "an SPOA advisor" is "an advisor", "Referral details follow in SystmOne" (reporter app) is "in the referral system", "Trust account" (planning) is "your staff account"; the place names in two comments, the `01305` example number (now `01632 960123`, Ofcom drama range), the `diucs.example` link in the invitation preview (now `[link to set up]`) and a comment that named the back end address variable are gone. 23 screens and the words in two libraries; the tests that asserted the old words assert the new ones. The `DEBT` table went from 14 files (39 lines) to 9 files (12 lines), and holds only `epr-name`; the new entry (`lib/register/options.ts`) is the back end's own referral method code `systmone`, which cannot be renamed on this side. Four browser helpers that take a BFF path from their callers are named in `FETCH_ALLOWLIST` with their reasons (`lib/bff/client.ts`, `lib/lead/browser.ts`, `lib/register/browser.ts`, `lib/reporter/browser.ts`): each calls its own BFF only. The test that said the debt is for exactly `epr-name`, `spoa` and `trust-wording` now says every owed rule is a word rule.
+7. **Tests.** About 120 route tests failed with "Session has no valid tenant": they build the session with `sessionFor(TENANTS.A, ...)` or the same shape with the tenant and host, are addressed to tenant A's host, and send the CSRF token issued to that session (`csrfOf` in `test/requests.ts`). `test/lead-session.ts` (shared by 13 lead route tests) is rebuilt on `requestAs`. `withBff` answers `private, no-store`, so the assertions that said `no-store` say `private, no-store`. New: `requestPreSession` and `preSessionCsrfFor` in `test/requests.ts`; tests for `preSession`, the reporter start, the PIN sign-in and the code check's host handling; the new-phone check now proves its call carries the host and no bearer.
+
+## DEC-851 A racing save of one stored resource does not deadlock: `Q-RES-UPSERT-ROOT` merges the properties with `+=` (F6B)
+Status: accepted (build wave 7, fix bundle F6B; under DEC-133, no owner gate). The fragment `F6B` took no number; numbered on folding. Affects: `adapters/outbound/graph_store/resource_store.py` (`Q-RES-UPSERT-ROOT`, `_gone_from`, `_stored_root`), `tests/support/races.py` (new), `tests/integration/graph_store/test_person_repository.py`, `test_resource_store.py`.
+
+**Cause: a test that did not race, plus a product weakness it hid.**
+
+- The test did not make its 16 saves concurrent. `save_practitioner` is "insert or replace": it reads
+  the stored practitioner, then writes with the version it read. A save whose transaction opens after
+  an earlier one committed reads that practitioner and replaces it, which is a legitimate save, so
+  the number of winners depended on how fast the driver opened 16 sessions (3 to 14 of 16 "won").
+  `write_tx` also runs a managed transaction, which the driver re-runs after a deadlock; a refused
+  racer came back as a fresh save over the winner. The harness schema was fine: `tenant_resource_key`
+  `(tenantId, key)` and `tenant_resource_id` `(tenantId, id)` are present and no duplicate node was
+  ever made (the node count was 1 in every run). **The product cannot create a duplicate node under a
+  race**; this is not a data-integrity defect.
+- The product weakness: concurrent writers of one *stored* resource deadlocked (Neo4j
+  `DeadlockDetected`, 15 victims of 16 on the old code). `Q-RES-UPSERT-ROOT` wrote the root with
+  `SET n = row.props`, which rewrites the root's unique-constrained properties (`key`, `id`,
+  `tenantId`) and so needs their index entries exclusively, while every writer waiting at `Q-RES-LOCK`
+  holds them shared (the locking unique-key lookup). The unit of work never retries, so the victim
+  surfaced as an unhandled `TransientError` (a 500) instead of the `Conflict` a stale write is meant
+  to get (412 on a PUT).
+
+**Fix.**
+
+- `Q-RES-UPSERT-ROOT` now ends `SET n += row.props` (`resource_store.py`). A property the new version
+  lacks, and the lock marks (`placeholder`, `lockStamp`), are sent as null, which `+=` removes
+  (`_gone_from`, `_stored_root`), so the root keeps exactly the new properties, as `=` did. With
+  `+=` the unique-key properties are not rewritten and the 16 racing replacers give 1 save and 15
+  `Conflict`, no deadlock (probe, 16 of 16 runs).
+- Tests: `tests/support/races.py` (`ReadBarrier`: every racer waits after its first read until all
+  have read; `write_once`: an explicit transaction that is never re-run, as the unit of work is).
+  `test_person_repository.py`: the original test uses them (a true race of 16 creates), and a new
+  `test_sixteen_racing_saves_over_one_stored_practitioner_let_exactly_one_win` (red before the fix:
+  `DeadlockDetected`). `test_resource_store.py`: a replacement leaves the root with exactly the new
+  properties. The generated tenant-isolation test (`test_tenant_isolation.py`, 44) passes for the
+  changed statement.
+
+**Other racing tests**: every integration test with `racing` in its name (18 files, 160 file runs),
+and the 7 named `concurrent` (audit log, link token, credential store), was run 10 times each, serially,
+all green; the 38 racing and concurrent tests of all 19 files together were also run 6 times under
+`-n 4 --dist loadfile` beside other runs, all green. None other is flaky: the
+create-only `add` repositories (cases, bookings, flags, link tokens, idempotency, contacts,
+credentials) raise `Conflict` for an existing id whatever the timing, so a late racer cannot win.
+
+Known issue (F6B-1): two tests that race an *insert-or-replace* save must use `ReadBarrier` and
+`write_once` or they are flaky by construction. Trigger: a new "N racing saves" test over a repository
+whose save reads before it writes.
+
+**Known issue F6B-1** (see the known issues): two tests that race an insert-or-replace save must use `ReadBarrier` and `write_once` or they are flaky by construction.
+
+## DEC-852 The text and email senders address a post's cover while a cover runs (F6B, closes W7C-K2 and the W7B C line)
+Status: accepted (build wave 7, fix bundle F6B; under DEC-133, no owner gate). The fragment `F6B` took no number; numbered on folding. Affects: `domain/model/people.py` (`COVER_CONTACT_PREFIX`, `cover_in_force`, `phone_contact_key`), `adapters/inbound/workers/message_senders.py` (`SmsMessageSender._address`, `sender_runners(..., clock, observe)`), `application/use_cases/lead_actions.py` (`SendLeadTestPrompt`), `bootstrap/workers_main.py`.
+
+**Cause (product).** `SmsMessageSender._address` read `contacts.get_phone(recipient_role_id)`, the
+post's own number, whoever held the post; the prompt's link and the reply routing already use the
+cover (`role_holder`, `services_for_phone_hash`). During any cover (U16's lead cover, W7C's own cover
+of a reporter, DEC-820) the prompt text went to the original holder's number.
+
+**Fix.**
+
+- `domain/model/people.py`: `COVER_CONTACT_PREFIX` (`cover-`, one definition; `change_reporter_number`
+  and `reporter_app` now use it), `cover_in_force(role, now)` and `phone_contact_key(role, now)`.
+- `message_senders.py`: the sender takes a clock (required; `sender_runners(..., clock, observe)`,
+  `workers_main` passes the container clock). The text sender reads the post and then the contact
+  `phone_contact_key` names: `cover-<role id>` while a cover runs (cover ends at the instant
+  `covered_until`, UTC comparison), the post's own number otherwise. A recipient that is not a post
+  (a text code's contact key) is addressed by the key as before. A cover with no number kept sends
+  nothing and records `no-contact`; the original holder, who has handed the post on, is not texted.
+- The email sender follows the same rule: a cover is known by a number only, so while a cover runs the
+  original holder's address is not used (`no-contact`). This goes beyond the text sender the task
+  named; it is the same defect for the email channel.
+- The push sender already read `role_holder` (the cover's devices), so it was right.
+- The lead's test prompt (W7B C, `SendLeadTestPrompt`) checked and showed the post's own number; it now
+  checks the cover's number while a cover runs and shows its ending, and an email test prompt for a
+  covered post is refused. The reminder, the ladder steps and every other prompt queue a
+  Communication for `role.id` and go through the same sender, so the sender fix covers them (the link
+  hash already used `role_holder`).
+- Tests: unit `test_message_senders_cover.py` (10) and `test_people_cover_contact.py` (6), route tests
+  for the test prompt in `test_routes_lead_views.py` (3); two-tenant integration
+  `tests/integration/adapters/inbound/workers/test_message_senders_cover_tenants.py` (3: each tenant's
+  cover through its own recording sender and no other number, the cover ending, and a cover with no
+  number kept never reading the other tenant's `cover-role-1`). The real `ChangeReporterNumber` makes
+  the covers. Recording fake senders only, sample numbers `07700 900xxx`. Mutant: the sender reading
+  the post's own number again fails 5 of these.
+
+W7C-K2 and the W7B C line "the sender does not read it" are closed by this decision. Known issues F6B-2 and F6B-3 (a cover made by a service move keeps no number; a covered post on the email channel reaches no one) are in the known issues.
+
+## DEC-853 Routes that run before a session take the tenant from the Host only (decided on folding; gathers DEC-520, DEC-790, DEC-791, DEC-810, DEC-811, DEC-813, DEC-825 and the F6A leak-canary rules)
+Status: accepted (orchestrator, under DEC-133; the builders of TEN-041, TEN-043, W7B and W7C each applied it and none recorded it as a decision of its own). Affects: every route that has no bearer token: the text-code, invitation, device, pairing and lost-phone routes, the three token exchanges, the public profile and the push key.
+
+1. **The rule.** A request that carries no session and no token names its tenant by the Host it was addressed to and by nothing else: the one binder `bind_host_tenant` resolves the Host to an active tenant, and an unknown Host or a suspended tenant answers as an unknown path. A body, query or header that names a tenant, a role, a person or a service is a 400 on the routes that take a body, and is never read. A pre-session call carries no `Authorization` header (the leak canary rule `pre-session-bearer`, F6A), and the call must carry the Host the browser used (`pre-session-host`).
+2. **Why this is sound.** The Host is the one value the person's browser sets by going to the organisation's own address, and it is the value the tenant already owns (DEC-134 item 3, the tenant registry's unique host). A token, a code or a number looked up inside the Host's tenant with that tenant's own key cannot find another tenant's record, so another tenant's invitation or device reads exactly as one nobody holds (DEC-520: one refusal, one 404 byte for byte). The alternatives are worse: a tenant named in a body or a header is caller-controlled, and a global lookup of a token across tenants is a widest-door statement that DEC-520 refused.
+3. **What it costs.** A person who works for two organisations signs in on each organisation's own address (H-316). A BFF that fronts several hosts must forward the browser's Host; it never sends its own.
+4. **Not changed.** Routes that carry a verified token take the tenant from the token only (DEC-250, DEC-522).
+
+## DEC-854 OPEN: A withdrawal or not-reached alert is acknowledged on the advisor's first action, whether or not the caller was phoned (W21, R17)
+Status: OPEN. Not accepted. Severity HIGH. Raised by the W21 builder ("owner to confirm the acknowledgement rule", H-495); decided here as not sound enough to accept, and not a design question the delegation (DEC-133) settles because it changes what ends a safety escalation. Hazards H-495 and H-496; known issue DEC-854.
+
+1. **What is built.** The alert says "Phone the caller now" first. Whichever action the advisor takes first from it ("See options again", "Ask a clinical advisor", "Phone the caller") acknowledges it (`POST /fhir/Task/{id}/$acknowledge`, R17), and the acknowledgement stops the shift lead's escalation for the alert. Nothing checks that the caller was phoned.
+2. **Why it is not accepted.** A booking withdrawn by the service, or a service that could not be reached, leaves a patient's referral with nowhere to go. The escalation to the shift lead is the safety net for an advisor who does not act. Pressing "See options again" without phoning ends the net while the caller still has not been told. The back end's own 10-minute escalation covers an alert nobody acts on, but not one somebody opened and left.
+3. **The options.** (a) Acknowledge only from an explicit answer such as "I have phoned the caller" (or "The caller is already being helped"), and let the other buttons leave the alert open and the escalation running. (b) Keep the first-action rule and add a short second prompt. (c) Keep it as built. The orchestrator's lean is (a): it needs no back-end change (the route is explicit; only the screen decides when to send it), costs one extra press, and keeps the escalation for the case it exists for.
+4. **What stands until it is decided.** The behaviour as built stays in the code; W21 is not to be shipped to a pilot site as it is. The rule has no unit test that proves the opposite. Resolve by choosing an option, changing W21's decision 1 and the alert tests, and closing H-495.
+
+## DEC-855 OPEN: The clinical advice screens are built without the case's details and without the advisor's view of the answer (W44 item 4, W45)
+Status: OPEN. Not accepted. Severity HIGH. Raised by the W44 builder ("a clinical-safety decision the owner must confirm before go-live", H-375) and by W45 (H-514, "blocker for go-live of the escalation"); not accepted here. Hazards H-375, H-514 and H-412; known issue DEC-855.
+
+1. **What is built.** The clinical advisor's case screen shows "The case details are not on this screen yet." and keeps the advice form, so a clinician can give advice with no age band, needs, urgency or NEWS2 on screen. The advisor's dialog keeps saying "Waiting for a clinical advisor" after advice is given, because its state read answers 503.
+2. **Why it is not accepted.** Advice given on a case the clinician cannot see is a wrong-advice route, and an advisor who is not shown the advice may phone again or act without it. Neither is a risk a builder's note or a delegated design choice can accept.
+3. **What the back end now gives.** W7A (DEC-774) serves the request read (the case glance: case number, age band, needs, urgency and NEWS2, never the postcode or a person's id), the Mine and Done lists, the take's return time and the clinician's presence, and lets the advisor who asked read the request, the advice choice, the reason and the note. The BFF and the screens are not wired to any of it.
+4. **Decision for go-live.** The advice form must not be offered when the case read fails or has not loaded: the screen shows that the case could not be read and gives no way to advise. The advisor's dialog must show the advice from the request read, or say that it could not read it, and must never say "waiting" after advice exists. Until the wiring is built and checked, the clinical advice flow is not to be enabled for a pilot site. This is recorded as the rule to build to; the status stays OPEN until the wiring, with its tests, is delivered.
+
+## DEC-856 OPEN: Phone numbers are kept in plain text on ProtectedContact nodes (R08, W7B DEC-803, W7C DEC-820, F6B)
+Status: OPEN. Not accepted. Severity HIGH. An information-governance question that DEC-070 item 2 and DEC-072 item 4 left open ("encryption at rest is not built") and that wave 7 widens. Hazard H-523; known issue DEC-856.
+
+1. **What is kept.** The number of a reporter's post, of a cover (`cover-<role id>`, W7B DEC-803, W7C DEC-820, F6B), of a registration call-back (`callback-<id>`), of a tenant's first administrator and of a lead's phone is stored as a plain `value` on a `ProtectedContact` node, in the tenant's scope. Everything else that identifies a number is a keyed hash (the phone hash, the audit entry) and a number never appears in a body, a log or an audit entry.
+2. **Why it is not accepted as it stands.** The numbers are personal data of staff, and the cover feature (DEC-820) means a reporter now puts a third person's number into the store without that person's involvement. A read of the database or a backup then exposes every number in clear.
+3. **The options.** (a) Application-level encryption of `value` under a per-tenant key from the secret store, with the key reference recorded on the node (a vault adapter does not exist; it would be built against a fake until deploy, as DEC-133 allows). (b) Rely on the managed database's encryption at rest and record that decision with the retention rules. (c) Keep plain text for a pilot and record it as an accepted risk with the data protection impact assessment.
+4. **What stands until it is decided.** The behaviour as built; no new store of numbers is to be added without recording it in this entry. Choose an option, then close H-523.

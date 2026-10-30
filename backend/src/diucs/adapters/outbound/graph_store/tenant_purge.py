@@ -22,6 +22,8 @@ once, so a new label of a tenant is data and goes in the first batches whatever 
 from collections.abc import Sequence
 from typing import Any, Final
 
+from neo4j.time import Date, DateTime, Duration, Time
+
 from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.outbound.graph_store.driver import run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
@@ -173,8 +175,24 @@ def _batch(limit: int) -> int:
     return limit
 
 
+def _plain(value: Any) -> Any:
+    """A driver value as plain data: Neo4j's own temporal types as ISO 8601 text (a date time keeps
+    its zone), lists and maps walked."""
+    if isinstance(value, DateTime | Date | Time):
+        return str(value.iso_format())
+    if isinstance(value, Duration):
+        return str(value)
+    if isinstance(value, list | tuple):
+        return [_plain(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _plain(item) for key, item in value.items()}
+    return value
+
+
 def _clean(properties: dict[str, Any]) -> dict[str, Any]:
-    return {key: value for key, value in properties.items() if key not in _PROPERTY_STRIPPED}
+    return {
+        key: _plain(value) for key, value in properties.items() if key not in _PROPERTY_STRIPPED
+    }
 
 
 class Neo4jTenantData:
@@ -222,7 +240,7 @@ class Neo4jTenantData:
                 str(row["type"]),
                 str(row["start"]),
                 str(row["end"]),
-                dict(row["props"]),
+                _clean(dict(row["props"])),
             )
             for row in await self._connection.run_scoped_read(work)
         ]

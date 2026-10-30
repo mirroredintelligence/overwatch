@@ -43,9 +43,11 @@ from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.events import MemberAdded, MemberRemoved
 from diucs.domain.model.network import (
     MembershipEndReason,
+    MembershipRole,
     MembershipStatus,
     Network,
     NetworkMembership,
+    NetworkStatus,
     accept_membership,
     check_network_id,
     check_tenant_field,
@@ -392,3 +394,49 @@ class RemoveMember:
         return await self._ending.finish(
             actor, network, row, MembershipEndReason.REMOVED, "RemoveMember"
         )
+
+
+class LeaveAllNetworks:
+    """A tenant that is being offboarded leaves every network it is in (TEN-074, DEC-136 item 10):
+    each active membership ends as a leave and each invitation is removed, the way
+    `LeaveNetwork` and `RemoveMember` end one (the registry, the network scope, the records), by
+    the platform operator for the tenant. The owner of a network cannot be among them: its
+    offboarding is refused until the network is transferred or closed (`owned_networks`)."""
+
+    def __init__(
+        self,
+        registry: NetworkRegistry,
+        ends: EndProjections,
+        recorder: GovernanceRecorder,
+        clock: Clock,
+    ) -> None:
+        self._registry = registry
+        self._ending = _Ending(registry, ends, recorder, clock)
+
+    async def owned_networks(self, tenant_id: str) -> list[str]:
+        """The networks this tenant owns and that are not closed."""
+        owned: list[str] = []
+        for row in await self._registry.memberships_of(tenant_id):
+            if row.role is MembershipRole.OWNER and row.status is MembershipStatus.ACTIVE:
+                registered = await self._registry.get_network(row.network_id)
+                if registered is not None and registered.network.status is not NetworkStatus.CLOSED:
+                    owned.append(row.network_id)
+        return owned
+
+    async def execute(self, actor: Actor, tenant_id: str) -> int:
+        """End every live membership of the tenant; the number ended. Repeatable: a membership that
+        already ended is not live and is not met again."""
+        require_actor_in_bound_tenant(actor)
+        ended = 0
+        for row in await self._registry.memberships_of(tenant_id):
+            if row.status not in (MembershipStatus.ACTIVE, MembershipStatus.INVITED):
+                continue
+            network = await _network(self._registry, row.network_id)
+            reason = (
+                MembershipEndReason.LEFT
+                if row.status is MembershipStatus.ACTIVE
+                else MembershipEndReason.REMOVED
+            )
+            await self._ending.finish(actor, network, row, reason, "OffboardTenant")
+            ended += 1
+        return ended

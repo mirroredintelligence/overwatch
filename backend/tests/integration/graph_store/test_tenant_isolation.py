@@ -21,7 +21,15 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver, AsyncManagedTransaction
 
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, QueryRegistry
+from diucs.adapters.outbound.graph_store.queries import (
+    GLOBAL_QUERY_IDS,
+    GLOBAL_STATEMENTS,
+    PLATFORM_QUERY_IDS,
+    PLATFORM_STATEMENTS,
+    REGISTRY,
+    NamedQuery,
+    QueryRegistry,
+)
 from diucs.adapters.outbound.graph_store.scenario import (
     SINGLE_PROPERTY_UNIQUE,
     Expect,
@@ -715,6 +723,55 @@ async def test_a_leaky_statement_named_q_test_in_the_production_registry_is_caug
     finally:
         del REGISTRY._queries["Q-TEST-SNEAK"]  # noqa: SLF001
     assert FindingKind.ROWS_DIFFER in {f.kind for f in findings}, format_findings(findings)
+
+
+async def test_the_universe_leaves_out_exactly_the_global_and_platform_statements() -> None:
+    """The generated test runs the tenant statements. TEN-028 added the `platform` scope (seven
+    `Q-TENANT-REG-*` statements that write the registry, whose nodes carry no tenant), beside the
+    global reads. A statement may be left out of the universe only because it is on the allowlist
+    of its scope AND pinned by digest, so no tenant statement can hide there; the seven platform
+    statements are proved in `test_tenant_registry.py` (every statement, own and foreign values,
+    and a mutant of each)."""
+    universe = production_statements(REGISTRY)
+    singles = [i for i in REGISTRY.ids() if ":" not in i]
+    left_out = {i for i in singles if i not in universe}
+    scopes = {i: REGISTRY.get(i).scope for i in left_out}
+
+    assert left_out == set(GLOBAL_QUERY_IDS) | set(PLATFORM_QUERY_IDS)
+    assert {i for i, scope in scopes.items() if scope == "platform"} == set(PLATFORM_QUERY_IDS)
+    assert {i for i, scope in scopes.items() if scope == "global"} == set(GLOBAL_QUERY_IDS)
+    assert set(PLATFORM_QUERY_IDS) == set(PLATFORM_STATEMENTS)  # each is pinned
+    assert set(GLOBAL_QUERY_IDS) == set(GLOBAL_STATEMENTS)
+    assert len(PLATFORM_QUERY_IDS) == 7
+    assert all(i.startswith("Q-TENANT-REG-") for i in PLATFORM_QUERY_IDS)
+    # Nothing in the universe is of another scope, and no left-out statement is a tenant one.
+    assert {q.scope for q in universe.values()} == {"tenant"}
+    assert "tenant" not in set(scopes.values())
+    # The templates are all tenant statements (a template cannot be global or platform).
+    assert all(REGISTRY.template(t).scope == "tenant" for t in REGISTRY.template_ids())
+
+
+async def test_a_leaky_statement_cannot_hide_in_the_platform_or_the_global_scope() -> None:
+    """Claiming the scope is not a way out of the generated test: a scratch registry refuses a
+    tenant statement registered as platform or global, a platform statement that names a tenant,
+    and an allowlisted id whose text is not the pinned one. The production registry is unchanged."""
+    before = sorted(REGISTRY.ids())
+    for scope in ("platform", "global"):
+        scratch = QueryRegistry()
+        with pytest.raises(ValueError):
+            scratch.register(
+                NamedQuery(id="Q-TEST-HIDE", cypher=_SNEAK_TEXT, mode="read", scope=scope)  # type: ignore[arg-type]
+            )
+    scratch = QueryRegistry()
+    pinned_id = sorted(PLATFORM_QUERY_IDS)[0]
+    for text in (
+        "MATCH (t:Tenant {id: $id}) RETURN t.id AS id",
+        "MATCH (n:ProbeThing {id: $id, tenantId: $tenant}) SET n.host = $host RETURN n.id AS id",
+        "MATCH (t:Tenant {id: $id, tenantId: $tenant}) SET t.host = $host RETURN t.id AS id",
+    ):
+        with pytest.raises(ValueError):
+            scratch.register(NamedQuery(id=pinned_id, cypher=text, mode="write", scope="platform"))
+    assert sorted(REGISTRY.ids()) == before
 
 
 async def test_the_converted_statements_are_exactly_those_with_a_scenario() -> None:

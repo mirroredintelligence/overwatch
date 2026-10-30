@@ -83,6 +83,14 @@ function randomHex(bytes: number): string {
   return Array.from(buffer, (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+/**
+ * The browser session's id, as telemetry names it. The share screen (W56) sends the same id with a
+ * support code, so support can match the code to the session they see. It is in sessionStorage only.
+ */
+export function currentSessionId(): string {
+  return sessionIdentifier();
+}
+
 /** The session id: random per browser session, kept in sessionStorage. Not linked to a person here. */
 function sessionIdentifier(): string {
   try {

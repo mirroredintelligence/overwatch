@@ -708,6 +708,36 @@ class WithdrawalEscalated:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class AlertEscalatedToLead:
+    """An alert nobody acknowledged went to the deputy and the deputy did not act either: the shift
+    lead is told (U34). `alert_id` is the first alert of the chain."""
+
+    event_type: ClassVar[str] = "AlertEscalatedToLead"
+    alert_id: str
+    service_id: str | None
+    at: datetime
+
+    def __post_init__(self) -> None:
+        _require_utc(self.at)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "alert_id": self.alert_id,
+            "service_id": self.service_id,
+            "at": _at_text(self.at),
+        }
+
+    @classmethod
+    def decode(cls, payload: Mapping[str, Any]) -> Self:
+        service = payload.get("service_id")
+        return cls(
+            alert_id=_text(payload, "alert_id"),
+            service_id=None if service is None else _text(payload, "service_id"),
+            at=_when(payload),
+        )
+
+
 DomainEvent = (
     CapacityReported
     | StatusChanged
@@ -730,6 +760,7 @@ DomainEvent = (
     | BookingWithdrawn
     | BookingNotReached
     | WithdrawalEscalated
+    | AlertEscalatedToLead
 )
 
 _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
@@ -755,6 +786,7 @@ _TOPIC_BY_CLASS: Mapping[type, str] = MappingProxyType(
         BookingWithdrawn: BOOKING_EVENTS,
         BookingNotReached: BOOKING_EVENTS,
         WithdrawalEscalated: ALERTS_EVENTS,
+        AlertEscalatedToLead: ALERTS_EVENTS,
     }
 )
 
@@ -781,6 +813,7 @@ _DECODER_BY_NAME: Mapping[str, Callable[[Mapping[str, Any]], DomainEvent]] = Map
         "BookingWithdrawn": BookingWithdrawn.decode,
         "BookingNotReached": BookingNotReached.decode,
         "WithdrawalEscalated": WithdrawalEscalated.decode,
+        "AlertEscalatedToLead": AlertEscalatedToLead.decode,
     }
 )
 

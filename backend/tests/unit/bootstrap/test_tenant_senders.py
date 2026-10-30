@@ -273,7 +273,10 @@ async def test_a_text_channel_is_not_an_email_channel() -> None:
         account_sid=SID,
         secret_ref=twilio_token_ref(SAMPLE_ID),
     )
-    resolver = _email_resolver()
+    resolver = _email_resolver(FixedSecretStore({twilio_token_ref(SAMPLE_ID): TOKEN}))
+    # A text channel with an address, which the record itself would refuse: the resolver checks
+    # the kind on its own and does not rely on the record having been validated.
+    object.__setattr__(sms, "from_address", "capacity@example-icb.test")
 
     with bind_tenant(SAMPLE_ID), pytest.raises(ChannelUnavailable):
         await resolver.email_for(sms)

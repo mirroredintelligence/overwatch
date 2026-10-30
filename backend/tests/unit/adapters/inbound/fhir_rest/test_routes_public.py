@@ -100,6 +100,7 @@ def _config(wording: bool = True) -> TenantConfig:
 
 PHONE_A = TenantContact(ContactKind.COORDINATION_PHONE, "Coordination", "01234 567890")
 EMAIL_A = TenantContact(ContactKind.SUPPORT_EMAIL, "Support", "support@example.test")
+SHIFT_A = TenantContact(ContactKind.SHIFT_LEAD_ESCALATION, "Shift lead", "01234 000111")
 
 
 class _Container:
@@ -110,7 +111,7 @@ class _Container:
         self.opened = 0
         self.platform_slots = InMemoryCache(self.clock) if slots == "default" else slots
         self.units: dict[str, _Config] = {
-            "tenant-a": _Config(_config(), (PHONE_A, EMAIL_A)),
+            "tenant-a": _Config(_config(), (EMAIL_A, SHIFT_A, PHONE_A)),
             "tenant-b": _Config(None, ()),
         }
 
@@ -158,7 +159,13 @@ async def test_nothing_else_of_the_tenant_record_or_its_contacts_is_in_the_answe
     async with _client(container) as client:
         text = (await client.get(_url(HOST_A))).text
 
-    for hidden in ("tenant-a", "Example Integrated Care Board", "support@example.test", "epoch"):
+    for hidden in (
+        "tenant-a",
+        "Example Integrated Care Board",
+        "support@example.test",
+        "01234 000111",
+        "epoch",
+    ):
         assert hidden not in text
 
 

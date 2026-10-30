@@ -290,8 +290,8 @@ async def test_the_heartbeat_handler_runs_the_job_for_the_work_it_is_given() -> 
     seen: list[str] = []
 
     class _Job:
-        async def execute(self, command: Any) -> None:
-            seen.append(command.work_id)
+        async def execute(self, command: object) -> None:
+            seen.append(command.work_id)  # type: ignore[attr-defined]
 
     work = ScheduledWork(
         id="work-9",

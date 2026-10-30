@@ -23,6 +23,7 @@ TOPICS: frozenset[str] = frozenset(
         "registration.events",
         "criteria.events",
         "alerts.events",
+        "network.events",
         "messages.outbound",
     }
 )

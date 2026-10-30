@@ -91,3 +91,10 @@ function businessStatusOf(task: unknown): string {
   const code = coding?.[0]?.code;
   return typeof code === 'string' ? code : 'draft';
 }
+
+/** NOT BUILT: no address lookup route in the back end (I12 is an adapter; no REST route calls it). */
+export async function readAddresses(token: string, postcode: string): Promise<{ id: string; label: string }[]> {
+  void token;
+  void postcode;
+  throw notBuilt('The address lookup');
+}

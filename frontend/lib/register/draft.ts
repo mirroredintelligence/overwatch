@@ -6,7 +6,7 @@ import type { FieldIssue, StepName, StepValues } from './types';
 
 export const STEP_FIELDS: Record<StepName, readonly string[]> = {
   organisation: ['orgType', 'contactName', 'contactRole', 'contact'],
-  location: [],
+  location: ['fixedSite', 'postcode', 'addressId', 'address', 'siteName', 'siteType', 'hours', 'siteOdsCode'],
   service: [],
   reporting: [],
   api: [],
@@ -55,6 +55,10 @@ export function organisationAnswers(stored: StepValues): Record<string, string> 
 }
 
 /** The page's field a back-end field belongs to. Either contact field is the one contact box. */
+export function locationValues(_body: Record<string, unknown>): Record<string, unknown> {
+  throw new Error('not implemented');
+}
+
 export function pageFieldFor(backendField: string): string {
   return CONTACT_FIELDS.has(backendField) ? 'contact' : backendField;
 }

@@ -42,3 +42,22 @@ export function validateOrganisation(answers: OrganisationAnswers): FieldIssue[]
   }
   return issues;
 }
+
+// Stub (red commit): the location step's checks.
+export type LocationAnswers = {
+  fixedSite?: boolean;
+  postcode?: string;
+  addressId?: string;
+  address?: string;
+  siteName?: string;
+  siteType?: string;
+  days?: number[];
+  allDay?: boolean;
+  opens?: string;
+  closes?: string;
+  siteOdsCode?: string;
+};
+
+export function validateLocation(_answers: LocationAnswers): FieldIssue[] {
+  throw new Error('not implemented');
+}

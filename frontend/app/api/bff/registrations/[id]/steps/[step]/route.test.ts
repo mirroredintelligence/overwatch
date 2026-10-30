@@ -155,3 +155,74 @@ describe('PUT /api/bff/registrations/[id]/steps/organisation', () => {
     expect(upstream).toBeNull();
   });
 });
+
+// The location step (W24): the fixed-site answers, in the back end's names. The organisation's
+// invitation is not read for this step.
+describe('PUT /api/bff/registrations/[id]/steps/location', () => {
+  const locationSave = (body: unknown, role: Session['role'] = 'reporter') => save(body, role, CSRF, 'location');
+
+  beforeEach(() => {
+    read.mockClear();
+    answerLocation(200, { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'draft' }] } });
+  });
+
+  it('saves a visiting service as fixedSite false only, with no read of the invitation', async () => {
+    const response = await locationSave({ fixedSite: false });
+    expect(response.status).toBe(200);
+    expect(upstream).toMatchObject({ path: `/fhir/Task/${ID}/$draft`, method: 'PUT' });
+    expect(upstream?.body).toEqual({ step: 'location', values: { fixedSite: false } });
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it('saves a fixed site in the back end’s names, and refuses a body with a field the location step does not take', async () => {
+    const response = await locationSave({
+      fixedSite: true,
+      postcode: 'DT4 8XX',
+      addressId: 'addr-1',
+      address: 'Sample House, Dorchester, DT4 8XX',
+      siteName: 'Sample Ward',
+      siteType: 'ward',
+      hours: { days: [0], allDay: false, opens: '08:00', closes: '20:00' },
+    });
+    expect(response.status).toBe(200);
+    expect(upstream?.body).toEqual({
+      step: 'location',
+      values: {
+        fixedSite: true,
+        postcode: 'DT4 8XX',
+        address: 'Sample House, Dorchester, DT4 8XX',
+        siteName: 'Sample Ward',
+        siteType: 'ward',
+        openingDays: 'mon',
+        openingStart: '08:00',
+        openingEnd: '20:00',
+      },
+    });
+    expect((await locationSave({ fixedSite: false, tenantId: 'tenant-b' })).status).toBe(400);
+  });
+
+  it('answers the back end’s refusal of a location as 422 on the fields it names', async () => {
+    answerLocation(400, {
+      resourceType: 'OperationOutcome',
+      issue: [{ severity: 'error', code: 'invalid', diagnostics: 'Enter the opening days and times, or choose 24 hours', expression: ['opening'] }],
+    });
+    const response = await locationSave({ fixedSite: true, postcode: 'DT4 8XX', address: 'x', siteName: 'x', siteType: 'ward' });
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ errors: [{ field: 'opening', message: 'Enter the opening days and times, or choose 24 hours' }] });
+  });
+});
+
+function answerLocation(status: number, body: unknown) {
+  server.use(
+    http.put(`${BACKEND_ROOT}/fhir/Task/${ID}/$draft`, (async ({ request }) => {
+      upstream = {
+        path: new URL(request.url).pathname,
+        method: request.method,
+        body: await request.json(),
+        auth: request.headers.get('authorization'),
+        idem: request.headers.get('idempotency-key'),
+      };
+      return HttpResponse.json(body as Record<string, unknown>, { status });
+    }) as HttpResponseResolver),
+  );
+}

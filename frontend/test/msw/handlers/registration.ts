@@ -138,4 +138,35 @@ export const bffRegistrationStepHandlers = [
   }) as HttpResponseResolver),
 ];
 
-export const registrationHandlers = [...backendIdentityHandlers, ...bffRegistrationHandlers, ...bffRegistrationStepHandlers];
+/** The postcode lookup the BFF answers (W24). The default lists three sample addresses. */
+export const addressState: { lookup: BackendReply } = {
+  lookup: {
+    status: 200,
+    body: [
+      { id: 'addr-1', label: 'Sample House, Dorchester, DT4 8XX' },
+      { id: 'addr-2', label: 'Sample Flat, Dorchester, DT4 8XX' },
+      { id: 'addr-3', label: 'Sample Lodge, Dorchester, DT4 8XX' },
+    ],
+  },
+};
+
+/** Every postcode the browser looked up, newest last (normalised as the BFF received them). */
+export const seenAddressRequests: string[] = [];
+
+export function resetAddressRequests() {
+  seenAddressRequests.length = 0;
+}
+
+export const bffAddressHandlers = [
+  http.get('/api/bff/addresses', (({ request }) => {
+    seenAddressRequests.push(new URL(request.url).searchParams.get('postcode') ?? '');
+    return reply(addressState.lookup);
+  }) as HttpResponseResolver),
+];
+
+export const registrationHandlers = [
+  ...backendIdentityHandlers,
+  ...bffRegistrationHandlers,
+  ...bffRegistrationStepHandlers,
+  ...bffAddressHandlers,
+];

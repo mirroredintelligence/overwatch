@@ -32,6 +32,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     Marked,
     Scenario,
     SeedNode,
+    SeedRel,
     TenantSeed,
 )
 from diucs.application.ports.outbound.tenant_export import (
@@ -67,19 +68,24 @@ _SEED: Final = TenantSeed(
             {"id": "aud-1", "action": "C", "useCase": Marked("Seed"), "seq": 1},
         ),
     ),
+    rels=(SeedRel("service", "HAS_VERSION", "service-2"),),
 )
 
 _COUNTS = NamedQuery(
     id="Q-TENANT-DATA-COUNTS",
-    cypher="MATCH (n {tenantId: $tenant}) RETURN labels(n) AS labels, count(*) AS n",
+    cypher=(
+        "MATCH (n {tenantId: $tenant}) UNWIND labels(n) AS label "
+        "WITH n, label ORDER BY label WITH n, collect(label) AS labels "
+        "RETURN labels, count(*) AS total ORDER BY labels"
+    ),
     mode="read",
     scenario=Scenario(
         "count the tenant's nodes by label set, and nobody else's",
         seed=_SEED,
         expect=Expect(
             rows=(
-                {"labels": ["HealthcareService", "Resource"], "n": 2},
-                {"labels": ["AuditEvent", "ChainLink"], "n": 1},
+                {"labels": ["HealthcareService", "Resource"], "total": 2},
+                {"labels": ["AuditEvent", "ChainLink"], "total": 1},
             )
         ),
     ),
@@ -117,7 +123,7 @@ _RELS = NamedQuery(
         seed=_SEED,
         params={"after": None, "limit": 10},
         new=("after", "limit"),
-        expect=Expect(),
+        expect=Expect(rows=({"type": "HAS_VERSION"},)),
     ),
 )
 _PURGE_DATA = NamedQuery(
@@ -210,7 +216,7 @@ class Neo4jTenantData:
         grouped: dict[tuple[str, ...], int] = {}
         for row in await self._connection.run_scoped_read(work):
             key = tuple(sorted(str(label) for label in row["labels"]))
-            grouped[key] = grouped.get(key, 0) + int(row["n"])
+            grouped[key] = grouped.get(key, 0) + int(row["total"])
         return [LabelCount(labels, count) for labels, count in sorted(grouped.items())]
 
     async def nodes(

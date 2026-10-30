@@ -1,57 +1,60 @@
 // @vitest-environment node
+import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
-import { SESSION_COOKIE, sealSession, type Role, type Session } from '@/lib/auth/session';
-import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
+import { TEST_SESSION_SECRET } from '@/test/cookies';
+import { leadRequest } from '@/test/lead-session';
+import { BACKEND_BASE } from '@/test/msw/handlers/board';
+import { server } from '@/test/msw/server';
 import { POST } from './route';
-import { csrfOf } from '@/test/requests';
-import { TENANTS } from '@/test/tenants';
 
-vi.mock('next/headers', async () => {
-  const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock };
-});
+vi.mock('next/headers', async () => ({ cookies: (await import('@/test/cookies')).cookiesMock }));
 
-// The CSRF token issued to the sample session: bound to its person, tenant and host (TEN-046).
-vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-const CSRF = csrfOf(TENANTS.A, 'user-1');
-const URL_ = `https://${TENANTS.A.host}/api/bff/lead/services/s-1/test-prompt`;
-
-function session(role: Role): Session {
-  return { role, tenantId: TENANTS.A.id, host: TENANTS.A.host, services: [], sub: 'user-1', backendToken: 'token-for-the-lead', expiresAt: new Date(Date.now() + 3_600_000).toISOString() };
-}
-
-async function post(role: Role, csrf: boolean) {
-  const cookies: Record<string, string> = { [SESSION_COOKIE]: await sealSession(session(role)) };
-  const headers: Record<string, string> = { 'Idempotency-Key': 'test-prompt-key-0001' };
-  if (csrf) {
-    cookies[CSRF_COOKIE] = CSRF;
-    headers[CSRF_HEADER] = CSRF;
-  }
-  return POST(requestWithCookies(URL_, cookies, { method: 'POST', headers }), { params: Promise.resolve({ id: 's-1' }) });
-}
+const ROOT = BACKEND_BASE.replace(/\/fhir$/, '');
+const URL_ = 'https://app.test/api/bff/lead/services/s-ucr-east/test-prompt';
+const ctx = { params: Promise.resolve({ id: 's-ucr-east' }) };
+const KEY = 'test-prompt-key-0001';
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
 });
 
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
+afterEach(() => vi.unstubAllEnvs());
 
 describe('POST /api/bff/lead/services/[id]/test-prompt', () => {
-  it('answers 403 to an advisor', async () => {
-    expect((await post('advisor', true)).status).toBe(403);
+  it('answers 403 to an advisor, and 403 with no CSRF header', async () => {
+    expect((await POST(await leadRequest(URL_, 'advisor', { method: 'POST', csrf: true, key: KEY }), ctx)).status).toBe(403);
+    expect((await POST(await leadRequest(URL_, 'lead', { method: 'POST', key: KEY }), ctx)).status).toBe(403);
   });
 
-  it('answers 403 without the CSRF header', async () => {
-    expect((await post('lead', false)).status).toBe(403);
+  it('refuses a channel the back end does not know, a body field it does not take, and no key', async () => {
+    expect((await POST(await leadRequest(URL_, 'lead', { method: 'POST', csrf: true, key: KEY, body: { channel: 'fax' } }), ctx)).status).toBe(400);
+    expect((await POST(await leadRequest(URL_, 'lead', { method: 'POST', csrf: true, key: KEY, body: { channel: 'text', tenantId: 'x' } }), ctx)).status).toBe(400);
+    expect((await POST(await leadRequest(URL_, 'lead', { method: 'POST', csrf: true }), ctx)).status).toBe(400);
   });
 
-  it('answers 501 for a lead until the back end has a route for a lead test prompt', async () => {
-    const response = await post('lead', true);
-    expect(response.status).toBe(501);
-    expect(((await response.json()) as { code: string }).code).toBe('not-built');
+  it('sends the test prompt to the back end and answers the channel and the last four digits only', async () => {
+    let body: unknown;
+    server.use(
+      http.post(`${ROOT}/lead/services/s-ucr-east/test-prompt`, async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ channel: 'email', numberEnding: '0377' });
+      }),
+    );
+    const response = await POST(await leadRequest(URL_, 'lead', { method: 'POST', csrf: true, key: KEY, body: { channel: 'email' } }), ctx);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ channel: 'email', numberEnding: '0377' });
+    expect(body).toEqual({ channel: 'email' });
+  });
+
+  it('answers 409 inside a minute of the last test', async () => {
+    server.use(
+      http.post(`${ROOT}/lead/services/s-ucr-east/test-prompt`, () =>
+        HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'conflict', diagnostics: 'too soon' }] }, { status: 409 }),
+      ),
+    );
+    const response = await POST(await leadRequest(URL_, 'lead', { method: 'POST', csrf: true, key: KEY }), ctx);
+    expect(response.status).toBe(409);
   });
 });

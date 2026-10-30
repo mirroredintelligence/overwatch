@@ -106,6 +106,10 @@ export function SettingsScreen() {
         </Button>
       )}
 
+      <p>
+        <a href="/app/sign-out-all">Sign out of every phone</a>
+      </p>
+
       {signOutAsk ? (
         <div role="group" aria-label="Sign out of this phone">
           <p>Sign out of this phone?</p>

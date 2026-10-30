@@ -366,10 +366,37 @@ class AdminRig:
         return result
 
     async def verify_chain(self, scope: str) -> bool:
-        """True when every link of the scope's audit chain is intact."""
+        """True when every link of the scope's audit chain is intact: contiguous numbers, each link
+        hashed over the one before it (the scope's own genesis first), and the head at the last
+        link. Read here, link by link, because the audit port verifies a tenant's chain only and a
+        network chain has no tenant to parse its entries under (a known issue)."""
+        from diucs.adapters.outbound.audit_neo4j.audit_log import chain_hash_over, genesis_hash_for
+        from tests.support.neo4j import read_tx, tx_run
+
+        async def links(tx: AsyncManagedTransaction) -> tuple[list[dict[str, Any]], list[Any]]:
+            chain = await tx_run(
+                tx,
+                "MATCH (e:AuditEvent:ChainLink {tenantId: $tenant}) RETURN e.seq AS seq, "
+                "e.previousHash AS previousHash, e.chainHash AS chainHash, "
+                "e.entryJson AS entryJson ORDER BY e.seq",
+            )
+            head = await tx_run(
+                tx,
+                "MATCH (h:AuditHead {id: 'audit', tenantId: $tenant}) "
+                "RETURN h.lastHash AS lastHash, h.lastSeq AS lastSeq",
+            )
+            return await chain.data(), await head.data()
+
         with bind_scope(ScopeId.parse(scope)):
-            async with Neo4jUnitOfWork(self.driver, read_only=True) as uow:
-                return await uow.audit.verify_chain()
+            rows, heads = await read_tx(self.driver, links)
+        previous = genesis_hash_for(scope)
+        for index, row in enumerate(rows, start=1):
+            if row["seq"] != index or row["previousHash"] != previous:
+                return False
+            if chain_hash_over(previous, str(row["entryJson"])) != row["chainHash"]:
+                return False
+            previous = str(row["chainHash"])
+        return bool(heads) and heads[0]["lastHash"] == previous and heads[0]["lastSeq"] == len(rows)
 
     # ---- looking
 

@@ -186,7 +186,8 @@ class AcceptMembership:
             ),
             None,
         )
-        if row is None:
+        if row is None or row.status in (MembershipStatus.LEFT, MembershipStatus.REMOVED):
+            # a withdrawn invitation, like an unknown one, is not there to accept
             raise NotFound(MEMBERSHIP_NOT_FOUND)
         network = await _network(self._registry, row.network_id)
         agreement = network.agreement

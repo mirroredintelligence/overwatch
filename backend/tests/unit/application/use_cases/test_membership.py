@@ -298,6 +298,16 @@ async def test_accepting_twice_changes_and_records_nothing_the_second_time(rig: 
     assert len(rig.world.outbox) == 1 and len(rig.world.audits) == 2
 
 
+async def test_an_invitation_that_was_withdrawn_or_a_membership_that_ended_is_not_found(
+    rig: _Rig,
+) -> None:
+    mid = _invited(rig)
+    with bind_tenant(OWNER):
+        await rig.remove.execute(RemoveMemberCommand(_owner_admin(), NETWORK_ID, mid))
+    with bind_tenant(OUTSIDER), pytest.raises(NotFound):
+        await rig.accept.execute(AcceptMembershipCommand(_tenant_admin(OUTSIDER), mid, 1))
+
+
 async def test_a_suspended_network_cannot_be_joined(rig: _Rig) -> None:
     mid = _invited(rig)
     network, settings = rig.registry.networks[NETWORK_ID]

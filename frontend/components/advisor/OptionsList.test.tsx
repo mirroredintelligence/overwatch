@@ -271,4 +271,19 @@ describe('the booking control on each card (W13, W20)', () => {
     expect(document.activeElement).toBe(screen.getByRole('heading', { name: "3 services meet this patient's criteria" }));
     expect(seenOptionsReads).toHaveLength(1);
   });
+
+  it('opens the clinical dialog from the withdrawal alert of a card, and acknowledges nothing (DEC-854, DEC-855)', async () => {
+    const { STATE_WITHDRAWN } = await import('@/test/fixtures/bookings');
+    const { seenAcknowledgements } = await import('@/test/msw/handlers/bookings');
+    server.use(http.post('/api/bff/bookings', () => HttpResponse.json(STATE_WITHDRAWN, { status: 201 })));
+    const user = userEvent.setup();
+    render(<OptionsList caseId="case-1" />);
+    const ucr = await screen.findByRole('article', { name: 'UCR West' });
+    await user.click(within(ucr).getByRole('button', { name: 'Request booking' }));
+
+    await user.click(await screen.findByRole('button', { name: 'Ask a clinical advisor' }));
+
+    expect(await screen.findByRole('heading', { name: 'Ask a clinical advisor' })).toBeInTheDocument();
+    expect(seenAcknowledgements).toEqual([]);
+  });
 });

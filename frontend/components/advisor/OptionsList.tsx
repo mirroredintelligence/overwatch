@@ -93,7 +93,7 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
                 caseId={caseId}
                 option={option}
                 onSeeOptions={() => heading.current?.focus()}
-                onAskClinical={onAskClinical}
+                onAskClinical={askClinical}
                 onCriteria={(id) => {
                   opener('criteria')(id);
                   onCriteria?.(id);

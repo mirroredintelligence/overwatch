@@ -43,6 +43,7 @@ from diucs.domain.events import (
     ServiceActivated,
     StatusChanged,
     WithdrawalEscalated,
+    AlertEscalatedToLead,
     from_payload,
     session_id_for,
     topic_for,
@@ -98,6 +99,7 @@ EXPECTED_TOPIC: dict[type, str] = {
     BookingWithdrawn: "booking.events",
     BookingNotReached: "booking.events",
     WithdrawalEscalated: "alerts.events",
+    AlertEscalatedToLead: "alerts.events",
 }
 
 

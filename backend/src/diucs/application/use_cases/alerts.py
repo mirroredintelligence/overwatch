@@ -247,7 +247,7 @@ class AlertEvaluator:
             in_hours = is_in_hours(profile.available_times, now)
             raised = 0
             for alert in alerts_for_change(
-                command.service_id, command.before, command.after, in_hours, now
+                command.service_id, command.before, command.after, in_hours, now, DEFAULT_POLICY
             ):
                 raised += await _alert_subscribers(uow, self._ids, profile, alert, now)
             checks = 0
@@ -441,7 +441,7 @@ class EscalateAlert:
         self, uow: UnitOfWork, alert: AlertRecord, deputy_id: str, now: datetime
     ) -> None:
         deputy = await uow.alert_subscriptions.get_for_practitioner(deputy_id)
-        prefs = default_preferences() if deputy is None else deputy.preferences
+        prefs = default_preferences(DEFAULT_POLICY) if deputy is None else deputy.preferences
         record = AlertRecord(
             id=self._ids.new_id(),
             kind=alert.kind,

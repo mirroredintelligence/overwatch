@@ -30,6 +30,7 @@ from diucs.domain.rules.safety_report import ProblemCategory, SafetyConcernCateg
 from tests.support.booking_rig import ADVISOR, at, sealer, seed_world
 from tests.support.neo4j import count_nodes, node_props, wipe
 from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 

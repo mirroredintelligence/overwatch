@@ -29,6 +29,7 @@ from tests.integration.application.test_suspend_service import sample_wording, s
 from tests.support.booking_rig import LEAD, SECRETS, at
 from tests.support.neo4j import count_nodes, wipe
 from tests.support.tenant_seed import contracted_container
+from tests.support.uow import ensure_audit_heads
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 

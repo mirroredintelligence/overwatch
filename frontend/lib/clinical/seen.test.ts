@@ -68,7 +68,7 @@ describe('seenLineText', () => {
   });
 
   it('says there is no figure rather than leaving it out when a service has none and is an option', () => {
-    const line = { ...lines[0]!, figure: null, status: 'limited', statusText: 'Limited' };
+    const line = { ...lines[0]!, figure: null, status: 'limited' as const, statusText: 'Limited' };
     expect(seenLineText(line)).toBe('UCR West: limited, no figure, 9 min old');
   });
 });

@@ -226,6 +226,7 @@ describe('CaseView: call the advisor', () => {
   });
 
   it('says the number could not be read when the call fails, and lets the clinician try again', async () => {
+    resetClinicalBff();
     server.use(...clinicalBffHandlers);
     render(<CaseView requestId="req-fail" request={held} seen={seen} />);
     await userEvent.click(callButton());

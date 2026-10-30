@@ -64,7 +64,21 @@ EXPECTED_TEXT = {
     "Q-TENANT-BY-ENTRA": (
         "MATCH (t:Tenant {entraDirectoryId: $directoryId}) RETURN properties(t) AS tenant"
     ),
+    # TEN-031: the two whole-graph counts of the start-up and daily invariant check. They scan every
+    # node, so they name no label, and they return only a label set or a relationship type and a
+    # count: never a property value.
+    "Q-INVARIANT-UNSTAMPED": (
+        "MATCH (n) WHERE n.tenantId IS NULL AND none(l IN labels(n) WHERE l IN $registryLabels) "
+        "RETURN labels(n) AS labels, count(*) AS n"
+    ),
+    "Q-INVARIANT-CROSS-SCOPE": (
+        "MATCH (a)-[r]->(b) WHERE a.tenantId IS NOT NULL AND b.tenantId IS NOT NULL "
+        "AND a.tenantId <> b.tenantId RETURN type(r) AS type, count(*) AS n"
+    ),
 }
+# The two statements that count over the whole graph (TEN-031). The only ones that may name no
+# label and read a `tenantId`.
+WHOLE_GRAPH = {"Q-INVARIANT-UNSTAMPED", "Q-INVARIANT-CROSS-SCOPE"}
 EXPECTED_PARAMETERS = {
     "Q-NEO4J-PING": set(),
     "Q-TENANT-GET": {"id"},
@@ -75,6 +89,8 @@ EXPECTED_PARAMETERS = {
     "Q-TENANT-ACTIVE-LINE": {"id"},
     "Q-TENANT-BY-HOST": {"host"},
     "Q-TENANT-BY-ENTRA": {"directoryId"},
+    "Q-INVARIANT-UNSTAMPED": {"registryLabels"},
+    "Q-INVARIANT-CROSS-SCOPE": set(),
 }
 REASON = "x" * 30
 
@@ -107,17 +123,20 @@ def _pin(monkeypatch: pytest.MonkeyPatch, cypher: str, query_id: str = "Q-TEST-G
 # The allowlist
 
 
-def test_the_allowlist_is_the_ping_and_the_eight_directory_statements() -> None:
+def test_the_allowlist_is_the_ping_the_directory_and_the_two_invariant_counts() -> None:
     assert set(GLOBAL_QUERY_IDS) == set(EXPECTED_TEXT)
-    assert len(GLOBAL_QUERY_IDS) == 9
+    assert len(GLOBAL_QUERY_IDS) == 11
+    assert queries_module.GLOBAL_WHOLE_GRAPH_IDS == WHOLE_GRAPH
 
 
 def test_each_entry_gives_a_reason_that_says_what_it_reads() -> None:
     for query_id, reason in GLOBAL_QUERY_IDS.items():
         assert isinstance(reason, str) and len(reason) > 30, query_id
     for query_id in EXPECTED_TEXT:
-        if query_id != "Q-NEO4J-PING":
-            assert "registry" in GLOBAL_QUERY_IDS[query_id], query_id
+        if query_id == "Q-NEO4J-PING":
+            continue
+        word = "count" if query_id in WHOLE_GRAPH else "registry"
+        assert word in GLOBAL_QUERY_IDS[query_id], query_id
 
 
 def test_the_allowlist_cannot_be_changed_at_run_time() -> None:
@@ -147,7 +166,8 @@ def test_every_global_statement_reads_never_mentions_the_tenant_and_takes_known_
         assert query.scenario is None, query_id
         assert re.search(r"\$tenant\b", query.cypher) is None, query_id
         assert set(re.findall(r"\$(\w+)", query.cypher)) == EXPECTED_PARAMETERS[query_id], query_id
-        assert re.search(r"\btenantId\b", query.cypher, re.IGNORECASE) is None, query_id
+        if query_id not in WHOLE_GRAPH:
+            assert re.search(r"\btenantId\b", query.cypher, re.IGNORECASE) is None, query_id
 
 
 def test_every_global_statement_names_registry_labels_only() -> None:
@@ -313,7 +333,7 @@ def _digest(text: str) -> str:
     return hashlib.sha256(text.strip().encode()).hexdigest()
 
 
-def test_the_pins_are_the_digests_of_the_exact_texts_of_the_eight_statements() -> None:
+def test_the_pins_are_the_digests_of_the_exact_texts_of_the_statements() -> None:
     assert dict(queries_module.GLOBAL_STATEMENTS) == {
         i: _digest(t) for i, t in EXPECTED_TEXT.items()
     }
@@ -529,3 +549,98 @@ async def test_a_directory_statement_runs_only_through_the_global_runner(query_i
     with bind_tenant("tenant-a"):
         await run_global_query(tx, query, **params)  # type: ignore[arg-type]
     assert tx.calls == [(query.cypher, params)]
+
+
+# TEN-031: the whole-graph counts. A statement that scans every node names no label, so the label
+# rule cannot hold for it; what replaces the rule for these two ids, and only these, is that the
+# statement returns a label set or a relationship type and a count and nothing else, so no
+# property value leaves the graph. The pin is still the guarantee.
+
+
+@pytest.fixture
+def whole_graph(monkeypatch: pytest.MonkeyPatch) -> QueryRegistry:
+    allowed = MappingProxyType({**GLOBAL_QUERY_IDS, "Q-TEST-GLOBAL": REASON})
+    monkeypatch.setattr(queries_module, "GLOBAL_QUERY_IDS", allowed)
+    monkeypatch.setattr(
+        queries_module, "GLOBAL_WHOLE_GRAPH_IDS", frozenset({"Q-TEST-GLOBAL"}), raising=True
+    )
+    return QueryRegistry()
+
+
+@pytest.mark.parametrize("query_id", sorted(WHOLE_GRAPH))
+def test_each_invariant_count_registers_with_no_tenant_bound_and_is_global_and_read_only(
+    query_id: str,
+) -> None:
+    query = REGISTRY.get(query_id)
+    assert query.scope == "global" and query.mode == "read" and query.scenario is None
+    assert query_id in GLOBAL_QUERY_IDS and query_id in queries_module.GLOBAL_STATEMENTS
+
+
+@pytest.mark.parametrize("query_id", sorted(WHOLE_GRAPH))
+def test_each_invariant_count_returns_only_a_label_set_or_a_type_and_a_count(
+    query_id: str,
+) -> None:
+    text = REGISTRY.get(query_id).cypher
+    assert re.search(r"RETURN (?:labels\(\w+\)|type\(\w+\)) AS \w+, count\(\*\) AS \w+$", text), (
+        query_id
+    )
+
+
+@pytest.mark.parametrize(
+    "cypher",
+    [
+        # a property value leaves the graph
+        "MATCH (n) WHERE n.tenantId IS NULL RETURN n.id AS id, count(*) AS n",
+        "MATCH (n) WHERE n.tenantId IS NULL RETURN labels(n) AS labels, n.id AS id",
+        "MATCH (n) WHERE n.tenantId IS NULL RETURN properties(n) AS p",
+        "MATCH (n) WHERE n.tenantId IS NULL RETURN n",
+        "MATCH (n) RETURN labels(n) AS labels, collect(n.id) AS ids, count(*) AS n",
+        "MATCH (n) RETURN labels(n) AS labels, count(*) AS n, n.id AS id",
+        # a write or a procedure
+        "MATCH (n) WHERE n.tenantId IS NULL SET n.x = 1 RETURN labels(n) AS labels, count(*) AS n",
+        "MATCH (n) DETACH DELETE n RETURN labels(n) AS labels, count(*) AS n",
+        "CALL db.labels() YIELD label RETURN labels(n) AS labels, count(*) AS n",
+        # more than one statement, or a second RETURN
+        "MATCH (n) RETURN labels(n) AS labels, count(*) AS n; MATCH (m) RETURN m",
+        "MATCH (n) RETURN labels(n) AS labels, count(*) AS n UNION MATCH (m) RETURN m",
+        # a function that is not allowed
+        "MATCH (n) RETURN keys(n) AS labels, count(*) AS n",
+        # a node with a property map (a lookup, not a scan)
+        "MATCH (n {id: 'x'}) RETURN labels(n) AS labels, count(*) AS n",
+    ],
+)
+def test_a_whole_graph_statement_that_could_return_a_value_or_write_is_refused(
+    whole_graph: QueryRegistry, monkeypatch: pytest.MonkeyPatch, cypher: str
+) -> None:
+    _pin(monkeypatch, cypher)
+    with pytest.raises(ValueError, match="Q-TEST-GLOBAL") as raised:
+        whole_graph.register(_global("Q-TEST-GLOBAL", cypher))
+    assert "pinned" not in str(raised.value), "the pin let it through; the structure must refuse it"
+
+
+def test_a_whole_graph_scan_is_accepted_only_under_a_whole_graph_id(
+    allowlisted: QueryRegistry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An id that is on the allowlist but not a whole-graph id keeps the label rule: `(n)` with no
+    label is refused, whatever the pin says."""
+    cypher = EXPECTED_TEXT["Q-INVARIANT-CROSS-SCOPE"]
+    _pin(monkeypatch, cypher)
+    with pytest.raises(ValueError, match="Q-TEST-GLOBAL") as raised:
+        allowlisted.register(_global("Q-TEST-GLOBAL", cypher))
+    assert "pinned" not in str(raised.value)
+
+
+def test_the_two_invariant_counts_register_under_a_whole_graph_id_with_their_exact_text(
+    whole_graph: QueryRegistry, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    for query_id in sorted(WHOLE_GRAPH):
+        cypher = EXPECTED_TEXT[query_id]
+        _pin(monkeypatch, cypher)
+        registry = QueryRegistry()
+        registry.register(_global("Q-TEST-GLOBAL", cypher))
+        assert registry.get("Q-TEST-GLOBAL").cypher == cypher
+
+
+def test_the_whole_graph_ids_are_two_and_cannot_be_changed_at_run_time() -> None:
+    assert isinstance(queries_module.GLOBAL_WHOLE_GRAPH_IDS, frozenset)
+    assert set(GLOBAL_QUERY_IDS) >= queries_module.GLOBAL_WHOLE_GRAPH_IDS

@@ -21,8 +21,12 @@ DIRECTORY = f"{GRAPH_STORE}/tenant_directory.py"
 # The only files that name a registry label in Cypher: the directory's statements, and the schema
 # and the default record of the tenant migrations.
 REGISTRY_CYPHER_FILES = frozenset({DIRECTORY, f"{GRAPH_STORE}/migrations_tenant.py"})
-# The files that run a global statement (the ping, and the directory).
-GLOBAL_RUNNERS = frozenset({f"{GRAPH_STORE}/driver.py", f"{GRAPH_STORE}/health.py", DIRECTORY})
+INVARIANTS = f"{GRAPH_STORE}/invariants.py"
+# The files that run a global statement (the ping, the directory, and the invariant check of
+# TEN-031, which counts over the whole graph and returns label names and counts only).
+GLOBAL_RUNNERS = frozenset(
+    {f"{GRAPH_STORE}/driver.py", f"{GRAPH_STORE}/health.py", DIRECTORY, INVARIANTS}
+)
 BINDING_NAMES = frozenset({"bind_scope", "bind_tenant", "run_query"})
 
 _REGISTRY_LABEL = re.compile(r"\(\s*\w*\s*:\s*`?(?:Tenant|TenantNumber)`?\b")
@@ -75,7 +79,7 @@ def test_the_directory_and_the_migrations_do_name_them_so_the_scan_sees_somethin
         assert names_registry_label((PACKAGE_ROOT / relative).read_text(encoding="utf-8")), relative
 
 
-def test_only_the_ping_and_the_directory_run_a_global_statement() -> None:
+def test_only_the_ping_the_directory_and_the_invariant_check_run_a_global_statement() -> None:
     offenders = [
         _relative(path)
         for path in _files()
@@ -89,6 +93,25 @@ def test_the_directory_binds_nothing_and_runs_no_tenant_statement() -> None:
     names = referenced_names((PACKAGE_ROOT / DIRECTORY).read_text(encoding="utf-8"))
     assert names.isdisjoint(BINDING_NAMES)
     assert "run_global_query" in names
+
+
+def test_the_invariant_check_binds_nothing_and_names_no_registry_label() -> None:
+    source = (PACKAGE_ROOT / INVARIANTS).read_text(encoding="utf-8")
+    names = referenced_names(source)
+    assert names.isdisjoint(BINDING_NAMES)
+    assert "run_global_query" in names
+    # The registry labels it leaves out come in as a parameter, never as text in a statement.
+    assert not names_registry_label(source)
+
+
+def test_only_the_composition_root_builds_the_invariant_check() -> None:
+    offenders = [
+        _relative(path)
+        for path in _files()
+        if _relative(path) not in {INVARIANTS, "bootstrap/container.py"}
+        and "Neo4jTenantInvariants" in referenced_names(path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
 
 
 def test_only_the_composition_root_builds_the_directory() -> None:

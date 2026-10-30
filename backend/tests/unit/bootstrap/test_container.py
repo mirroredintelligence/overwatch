@@ -6,6 +6,13 @@ from typing import Any, cast
 
 import pytest
 import pytest_asyncio
+from diucs.adapters.outbound.graph_store.invariants import Neo4jTenantInvariants
+from diucs.application.ports.outbound.invariants import (
+    InvariantReport,
+    TenantInvariantViolated,
+    UnstampedNodes,
+)
+from diucs.application.use_cases.tenant_invariants import InvariantMonitor
 from neo4j import AsyncDriver, AsyncGraphDatabase
 from redis.asyncio import Redis
 
@@ -142,6 +149,16 @@ def test_build_for_tests_requires_the_connection_to_be_passed_in() -> None:
 # TEN-007: the tenant directory and the secret store on the container, and start-up
 
 
+class _EmptyResult:
+    async def data(self) -> list[dict[str, Any]]:
+        return []
+
+
+class _EmptyTx:
+    async def run(self, cypher: str, parameters: dict[str, Any] | None = None) -> _EmptyResult:
+        return _EmptyResult()
+
+
 class _FakeConnection:
     """Stands in for Neo4jConnection: records the order of what the container does with it."""
 
@@ -166,6 +183,10 @@ class _FakeConnection:
 
     async def run_read(self, work: Callable[..., Awaitable[object]]) -> object:
         self.reads += 1
+        if work.__name__ == "read_invariants":
+            # The tenant invariant check's own callback runs against a graph with no rows: clean.
+            self.events.append("invariants")
+            return await work(_EmptyTx())
         return []
 
 
@@ -279,7 +300,12 @@ async def test_start_up_opens_the_connection_then_migrates_then_ensures_the_audi
 
     await container.startup()
 
-    assert [e for e in events if e != "driver"] == ["open", "migrate", "head:acme-icb"]
+    assert [e for e in events if e != "driver"] == [
+        "open",
+        "migrate",
+        "head:acme-icb",
+        "invariants",
+    ]
 
 
 async def test_start_up_sets_up_each_active_tenants_head_in_turn_and_binds_nothing_after(
@@ -574,6 +600,7 @@ async def test_build_for_tests_exposes_the_dispatcher_with_the_ladder_and_bookin
             WorkKind.CRITERIA_REVIEW_REMINDER,
             WorkKind.BOOKING_PHONE_PROMPT,
             WorkKind.BOOKING_EXPIRE,
+            WorkKind.INVARIANT_CHECK,
         }
     )
 
@@ -589,6 +616,7 @@ async def test_build_exposes_the_same_dispatch_table() -> None:
                 WorkKind.CRITERIA_REVIEW_REMINDER,
                 WorkKind.BOOKING_PHONE_PROMPT,
                 WorkKind.BOOKING_EXPIRE,
+                WorkKind.INVARIANT_CHECK,
             }
         )
     finally:
@@ -643,3 +671,136 @@ async def test_start_up_accepts_the_default_tenant_on_the_legacy_key_and_others_
     await container.startup()
 
     assert [e for e in events if e.startswith("head:")] == ["head:default", "head:acme-icb"]
+
+
+# TEN-031: the tenant invariant check at start-up
+
+
+class _Violating:
+    def __init__(self, events: list[str]) -> None:
+        self.events = events
+
+    async def check(self) -> InvariantReport:
+        self.events.append("check")
+        return InvariantReport(unstamped=(UnstampedNodes(("Person",), 2),))
+
+
+async def test_build_wires_the_tenant_invariant_check_over_the_one_connection(
+    neo4j: Neo4jConnection,
+) -> None:
+    container = build_for_tests(neo4j=neo4j)
+    assert isinstance(container.invariants, Neo4jTenantInvariants)
+    assert isinstance(container.invariant_monitor, InvariantMonitor)
+    assert container.invariant_monitor.raised is False
+
+
+async def test_start_up_checks_the_invariants_after_the_migrations_and_the_audit_heads(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        events.append("migrate")
+        return []
+
+    async def fake_head(driver: object) -> None:
+        events.append(f"head:{current_scope().value}")
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    monkeypatch.setattr(container_module, "ensure_audit_head", fake_head)
+    container = dataclasses.replace(
+        build_for_tests(neo4j=cast(Neo4jConnection, connection)),
+        tenants=cast(Any, _Tenants(["acme-icb"])),
+    )
+
+    await container.startup()
+
+    assert [e for e in events if e != "driver"] == [
+        "open",
+        "migrate",
+        "head:acme-icb",
+        "invariants",
+    ]
+    assert container.invariant_monitor.raised is False
+    assert container.invariant_monitor.report == InvariantReport()
+    assert current_scope_or_none() is None
+
+
+async def test_start_up_refuses_to_start_when_a_node_has_no_tenant_and_closes_the_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        return []
+
+    async def fake_head(driver: object) -> None:
+        return None
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    monkeypatch.setattr(container_module, "ensure_audit_head", fake_head)
+    container = dataclasses.replace(
+        build_for_tests(neo4j=cast(Neo4jConnection, connection)),
+        tenants=cast(Any, _Tenants(["acme-icb"])),
+        invariants=_Violating(events),
+    )
+
+    with pytest.raises(TenantInvariantViolated) as raised:
+        await container.startup()
+
+    assert "Person" in str(raised.value)
+    assert events[-1] == "close"
+    assert container.invariant_monitor.raised is True
+
+
+async def test_a_failed_invariant_query_stops_the_start_too(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    connection = _FakeConnection(events)
+
+    async def fake_migrate(driver: object) -> list[str]:
+        return []
+
+    class _Broken:
+        async def check(self) -> InvariantReport:
+            raise RuntimeError("no answer")
+
+    monkeypatch.setattr(container_module, "apply_migrations", fake_migrate)
+    container = dataclasses.replace(
+        build_for_tests(neo4j=cast(Neo4jConnection, connection)), invariants=_Broken()
+    )
+
+    with pytest.raises(RuntimeError, match="no answer"):
+        await container.startup()
+
+    assert events[-1] == "close"
+
+
+async def test_the_daily_schedules_include_the_invariant_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seeded: list[tuple[str, str]] = []
+
+    async def fake_criteria(uow_factory: object, ids: object, clock: object) -> bool:
+        seeded.append(("criteria", current_scope().value))
+        return True
+
+    async def fake_invariants(uow_factory: object, ids: object, clock: object) -> bool:
+        seeded.append(("invariants", current_scope().value))
+        return True
+
+    monkeypatch.setattr(container_module, "ensure_daily_schedule", fake_criteria)
+    monkeypatch.setattr(container_module, "ensure_invariant_schedule", fake_invariants)
+    container = build_for_tests(neo4j=cast(Neo4jConnection, _FakeConnection([])))
+
+    await container.seed_daily_schedules(["acme-icb", "bridge-ccg"])
+
+    assert seeded == [
+        ("criteria", "acme-icb"),
+        ("invariants", "acme-icb"),
+        ("criteria", "bridge-ccg"),
+        ("invariants", "bridge-ccg"),
+    ]

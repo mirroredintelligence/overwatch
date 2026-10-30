@@ -19,7 +19,7 @@ from diucs.application.ports.outbound.identity import HmacPhoneHasher
 from diucs.application.tenancy import bind_tenant
 from diucs.bootstrap.container import Container
 from diucs.domain.model.people import Practitioner
-from tests.support.api import api_app, test_container
+from tests.support.api import api_app, edge_tenants, test_container
 from tests.support.neo4j import write_tx
 from tests.support.sms import (
     PUBLIC_BASE_URL,
@@ -32,6 +32,7 @@ from tests.support.sms import (
 
 __all__ = [
     "api_app",
+    "edge_tenants",
     "test_container",
     "sms_bus",
     "sms_cache",

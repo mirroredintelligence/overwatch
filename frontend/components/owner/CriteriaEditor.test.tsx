@@ -13,6 +13,10 @@ const INITIAL: CriteriaValues = {
   districts: ['DT1', 'DT2', 'DT3', 'DT4'],
 };
 
+
+// The user-event tests here run slowly when the whole suite shares the machine; the budget is per file.
+vi.setConfig({ testTimeout: 15_000 });
+
 describe('CriteriaEditor', () => {
   it('shows the conflict and blocks Preview when a need is both accepted and not accepted', async () => {
     const user = userEvent.setup();

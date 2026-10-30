@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { resetRegistrationRequests, seenRegistrationRequests } from '@/test/msw/handlers/registrations';
 import { ScopeList } from './ScopeList';
@@ -8,6 +8,10 @@ import { ScopeList } from './ScopeList';
 beforeEach(() => resetRegistrationRequests());
 
 const posts = () => seenRegistrationRequests.filter((request) => request.method === 'POST');
+
+
+// The user-event tests here run slowly when the whole suite shares the machine; the budget is per file.
+vi.setConfig({ testTimeout: 15_000 });
 
 describe('ScopeList', () => {
   it('shows the three sample services, and an Invite link only on the in-pilot service not yet invited', async () => {

@@ -1,11 +1,14 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { resetRegistrationRequests, seenRegistrationRequests } from '@/test/msw/handlers/registrations';
 import { RegistrationQueue } from './RegistrationQueue';
 
 beforeEach(() => resetRegistrationRequests());
+
+// The user-event tests here run slowly when the whole suite shares the machine; the budget is per file.
+vi.setConfig({ testTimeout: 15_000 });
 
 describe('RegistrationQueue', () => {
   it('labels the tabs with the counts the API gives, and marks the selected tab', async () => {

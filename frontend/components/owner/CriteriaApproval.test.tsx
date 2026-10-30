@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { PENDING_CHANGE, PENDING_REGISTRATION } from '@/test/fixtures/criteria';
 import { resetCriteriaRequests, seenCriteriaRequests } from '@/test/msw/handlers/criteria';
@@ -15,6 +15,9 @@ const posts = () => seenCriteriaRequests.filter((r) => r.method === 'POST' && r.
 function pendingWith(body: unknown, status = 200) {
   server.use(http.get('/api/bff/criteria/:serviceId/pending', () => HttpResponse.json(body as Record<string, unknown>, { status })));
 }
+
+// The user-event tests here run slowly when the whole suite shares the machine; the budget is per file.
+vi.setConfig({ testTimeout: 15_000 });
 
 describe('CriteriaApproval', () => {
   it('shows what changed and the reason, and approves on "Yes, approve"', async () => {

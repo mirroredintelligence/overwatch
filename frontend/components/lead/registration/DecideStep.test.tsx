@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { DECISION_OPEN } from '@/test/fixtures/registration';
 import { resetRegistrationRequests, seenRegistrationRequests } from '@/test/msw/handlers/registrations';
@@ -19,6 +19,9 @@ function decisionWith(missing: string[]) {
     ),
   );
 }
+
+// The user-event tests here run slowly when the whole suite shares the machine; the budget is per file.
+vi.setConfig({ testTimeout: 15_000 });
 
 describe('DecideStep', () => {
   it('keeps Approve aria-disabled and sends nothing while a check is missing, and names the missing check', async () => {

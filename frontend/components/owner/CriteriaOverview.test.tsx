@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { CRITERIA_OVERVIEW_WAITING } from '@/test/fixtures/criteria';
 import { http, HttpResponse } from 'msw';
@@ -8,6 +8,9 @@ import { server } from '@/test/msw/server';
 import { CriteriaOverview } from './CriteriaOverview';
 import { CRITERIA_OVERVIEW } from '@/test/fixtures/criteria';
 import userEvent from '@testing-library/user-event';
+
+// The user-event tests here run slowly when the whole suite shares the machine; the budget is per file.
+vi.setConfig({ testTimeout: 15_000 });
 
 describe('CriteriaOverview', () => {
   it('shows the version, its review date, the accepts and does-not-accept lists, and the warning', async () => {

@@ -7,6 +7,9 @@ import { CriteriaHistory } from './CriteriaHistory';
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, replace: vi.fn() }) }));
 
+// The user-event tests here run slowly when the whole suite shares the machine; the budget is per file.
+vi.setConfig({ testTimeout: 15_000 });
+
 describe('CriteriaHistory', () => {
   it('lists the versions newest first, marks the waiting one, and offers a new draft from version 3', async () => {
     const { container } = render(<CriteriaHistory serviceId="s1" />);

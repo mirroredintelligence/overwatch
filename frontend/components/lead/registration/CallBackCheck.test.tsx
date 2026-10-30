@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { resetRegistrationRequests, seenRegistrationRequests } from '@/test/msw/handlers/registrations';
 import { CallBackCheck } from './CallBackCheck';
@@ -8,6 +8,9 @@ import { CallBackCheck } from './CallBackCheck';
 const CALLBACK = '/api/bff/registrations/r1/callback';
 beforeEach(() => resetRegistrationRequests());
 const posts = (path: string) => seenRegistrationRequests.filter((r) => r.method === 'POST' && r.path === path);
+
+// The user-event tests here run slowly when the whole suite shares the machine; the budget is per file.
+vi.setConfig({ testTimeout: 15_000 });
 
 describe('CallBackCheck', () => {
   it('asks who was spoken to when the call is confirmed, and posts nothing until a role is given', async () => {

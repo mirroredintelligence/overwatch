@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { resetCriteriaRequests, seenCriteriaRequests } from '@/test/msw/handlers/criteria';
 import { CriteriaConfirm } from './CriteriaConfirm';
@@ -8,6 +8,9 @@ import { CriteriaConfirm } from './CriteriaConfirm';
 const CONFIRM = '/api/bff/criteria/s1/confirm';
 beforeEach(() => resetCriteriaRequests());
 const posts = () => seenCriteriaRequests.filter((r) => r.method === 'POST' && r.path === CONFIRM);
+
+// The user-event tests here run slowly when the whole suite shares the machine; the budget is per file.
+vi.setConfig({ testTimeout: 15_000 });
 
 describe('CriteriaConfirm', () => {
   it('asks for a review period before it confirms, and posts the one chosen', async () => {

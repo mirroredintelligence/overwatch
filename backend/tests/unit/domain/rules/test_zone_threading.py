@@ -186,7 +186,6 @@ ZONE_NOT_YET_THREADED: dict[str, str] = {
     "application/use_cases/approve_registration.py": "TEN-026",
     "application/use_cases/cancel_booking.py": "TEN-026",
     "application/use_cases/handle_inbound_text.py": "TEN-026",
-    "application/use_cases/link_access.py": "TEN-041",
     "application/use_cases/missed_report_ladder.py": "TEN-027",
     "application/use_cases/query_board.py": "TEN-039",
     "application/use_cases/report_capacity.py": "TEN-026",

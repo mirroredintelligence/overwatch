@@ -71,6 +71,8 @@ from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.application.use_cases.respond_to_booking import RespondToBooking
 from diucs.application.use_cases.withdraw_booking import ReportNotReached, WithdrawBooking
 from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.tenant import Tenant
+from diucs.domain.rules.london_time import zone_named
 
 log = logging.getLogger(__name__)
 
@@ -166,10 +168,9 @@ def _collaborators(request: Request) -> tuple[_Container, LinkPagesDeps]:
     return container, deps
 
 
-async def _tenant_of(request: Request, container: _Container) -> str | None:
-    """The id of the active tenant whose host this request was addressed to, or None."""
-    tenant = await resolve_active_tenant(container.tenants, request.url.hostname)
-    return None if tenant is None else tenant.id
+async def _tenant_of(request: Request, container: _Container) -> Tenant | None:
+    """The active tenant whose host this request was addressed to, or None."""
+    return await resolve_active_tenant(container.tenants, request.url.hostname)
 
 
 def _tokens(container: _Container) -> Callable[[LinkTokenRepository], LinkTokenService]:
@@ -179,7 +180,7 @@ def _tokens(container: _Container) -> Callable[[LinkTokenRepository], LinkTokenS
     return tokens
 
 
-def _purposes(container: _Container, deps: LinkPagesDeps) -> LinkPurposes:
+def _purposes(container: _Container, deps: LinkPagesDeps, tenant: Tenant) -> LinkPurposes:
     tokens = _tokens(container)
     idempotency = UnitOfWorkIdempotency(container.uow_factory)
     return {
@@ -191,6 +192,7 @@ def _purposes(container: _Container, deps: LinkPagesDeps) -> LinkPurposes:
             deps.sealer,
             ReportCapacity(container.uow_factory, container.clock, container.ids, idempotency),
             ConfirmCapacity(container.uow_factory, container.clock, container.ids, idempotency),
+            zone=zone_named(tenant.time_zone),
         ),
         **booking_purposes(
             container.uow_factory,
@@ -290,14 +292,14 @@ async def view_link(token: str, request: Request) -> Response:
         if tenant is None:
             _refused("host")
             return _gone()
-        with bind_tenant(tenant):
+        with bind_tenant(tenant.id):
             result = await ViewLink(
                 container.uow_factory,
                 container.clock,
                 container.secrets,
                 deps.cache,
                 _tokens(container),
-                _purposes(container, deps),
+                _purposes(container, deps, tenant),
             ).execute(ViewLinkQuery(token=token, client=_client(request)))
         return _json(200, dict(result.body))
 
@@ -313,14 +315,14 @@ async def respond_via_link(token: str, request: Request) -> Response:
             _refused("host")
             raise CsrfRejected  # no link can be found on this host, so no token can be right
         action = _action_of(await _read_json(request))
-        with bind_tenant(tenant):
+        with bind_tenant(tenant.id):
             result = await RespondViaLink(
                 container.uow_factory,
                 container.clock,
                 container.secrets,
                 deps.cache,
                 _tokens(container),
-                _purposes(container, deps),
+                _purposes(container, deps, tenant),
             ).execute(
                 RespondViaLinkCommand(
                     token=token,
@@ -340,14 +342,14 @@ async def renew_link(token: str, request: Request) -> Response:
         container, deps = _collaborators(request)
         tenant = await _tenant_of(request, container)
         if tenant is not None:
-            with bind_tenant(tenant):
+            with bind_tenant(tenant.id):
                 await RenewLink(
                     container.uow_factory,
                     container.clock,
                     container.secrets,
                     deps.cache,
                     _tokens(container),
-                    _purposes(container, deps),
+                    _purposes(container, deps, tenant),
                 ).execute(
                     RenewLinkCommand(
                         token=token,

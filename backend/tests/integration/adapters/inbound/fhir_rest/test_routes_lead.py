@@ -131,8 +131,13 @@ async def lead_world(
 
 
 async def test_a_lead_sets_up_a_service_and_a_fresh_read_finds_it(
-    api_client: AsyncClient, lead_world: None, tenant_id: str
+    api_client: AsyncClient, lead_world: None, tenant_id: str, uow_factory_a: UnitOfWorkFactory
 ) -> None:
+    # Precondition: the lead and the reporter role the routes read are visible in the run tenant
+    # from the test's own unit of work, before the request is sent.
+    async with uow_factory_a() as uow:
+        assert await uow.people.get_practitioner("prac-1") is not None, "lead not seeded"
+        assert await uow.people.get_role(ROLE_A) is not None, "reporter role not seeded"
     response = await api_client.post(
         SETUP,
         json=_setup(),

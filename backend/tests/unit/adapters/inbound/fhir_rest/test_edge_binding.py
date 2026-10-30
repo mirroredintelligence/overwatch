@@ -531,6 +531,7 @@ BINDS_ITSELF = {
     ("POST", "/identity/new-phone"): "tenant from the host, the code edge of R11 (R13, DEC-411)",
     ("POST", "/identity/new-phone/verify"): "tenant from the host, the code edge of R11 (R13)",
     ("GET", "/identity/status"): "tenant from the host (R11)",
+    ("GET", "/public/push-key"): "tenant from the host, by bind_host_tenant (W7C)",
     ("GET", "/invitations/{token}"): "tenant from the host, the invitation read (W7C)",
     ("POST", "/identity/invitations/{token}/code"): "tenant from the host (W7C)",
     ("POST", "/identity/invitations/{token}/code/verify"): "tenant from the host (W7C)",

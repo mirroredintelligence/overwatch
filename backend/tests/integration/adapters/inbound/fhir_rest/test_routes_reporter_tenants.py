@@ -31,7 +31,6 @@ from tests.integration.adapters.inbound.fhir_rest.reporter_rig import (
     EAST,
     MOBILE,
     NOW,
-    PERSON,
     WEST,
     bearer,
     build_app,
@@ -282,12 +281,7 @@ async def test_a_device_code_for_a_device_of_a_is_for_an_unknown_device_on_bs_ho
         assert await two_container.codes.get("reverify", phone_hash_a) is None
 
 
-async def test_the_person_and_device_of_a_token_are_resolved_in_the_tokens_tenant(
-    on_a: AsyncClient, other_tenant_id: str
-) -> None:
-    # B's person holds no post in A's graph under a token for B's tenant on A's host, and a token
-    # for a tenant with no record at all is the one 401.
+async def test_a_token_for_a_tenant_with_no_record_is_the_one_401(on_a: AsyncClient) -> None:
     stranger = await on_a.get("/reporter/services", headers=bearer(tenant="no-such-tenant"))
 
     assert stranger.status_code == 401
-    assert PERSON == "prac-1"

@@ -21,7 +21,7 @@ that was signed out stops working at once, not at the token's expiry. Only role 
 from the graph at the time of the request, never from the token's claim, and a service the reporter
 does not hold is the same 404 as an unknown one and as another tenant's (H-452). The routes hold no
 business rule: they bind nothing themselves (the token's tenant is bound by `current_actor`), run
-one use case and map its result. Responses are `no-store`. A whole number, a token or a code is
+one use case and map its result. Responses are `no-store`. A phone number, a token or a code is
 never in a body or a log line: the numbers shown are masked.
 """
 

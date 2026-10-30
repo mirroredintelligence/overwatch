@@ -30,6 +30,7 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.tokens import LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from diucs.application.use_cases.link_access import MAX_TOKEN_LENGTH
 from diucs.application.use_cases.pin import PIN_SET_WINDOW
 from diucs.application.use_cases.reporter_identity import unknown_person
 from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
@@ -102,6 +103,8 @@ class InvitationReader:
         self._link_tokens = link_tokens
 
     async def _open(self, uow: UnitOfWork, token: str) -> _OpenInvitation | None:
+        if not isinstance(token, str) or len(token) > MAX_TOKEN_LENGTH:
+            return None  # nothing that long is a token: it is not hashed
         service: LinkTokenService = self._link_tokens(uow.link_tokens)
         record = await service.resolve(token)
         if (

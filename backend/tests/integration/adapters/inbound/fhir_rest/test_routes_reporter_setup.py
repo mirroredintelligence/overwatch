@@ -109,7 +109,9 @@ async def test_an_open_invitation_shows_the_service_the_post_the_expiry_and_the_
         assert secret not in response.text
 
 
-@pytest.mark.parametrize("case", ["unknown", "malformed", "expired", "used", "other-purpose"])
+@pytest.mark.parametrize(
+    "case", ["unknown", "malformed", "overlong", "expired", "used", "other-purpose"]
+)
 async def test_every_unusable_invitation_gets_the_one_refusal(
     api: AsyncClient, world: Container, tenant_id: str, case: str
 ) -> None:
@@ -120,6 +122,8 @@ async def test_every_unusable_invitation_gets_the_one_refusal(
         token = UNKNOWN_TOKEN
     elif case == "malformed":
         token = "not-a-token!"
+    elif case == "overlong":
+        token = "a" * 500
     elif case == "expired":
         token = await seed_invitation(world, tenant_id, expires_at=NOW - timedelta(minutes=1))
     elif case == "used":

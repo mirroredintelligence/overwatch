@@ -13,6 +13,10 @@ const TABLE: [string, Role[]][] = [
   ['/lead', ['lead']],
   ['/owner', ['owner', 'clinical']],
   ['/owner/criteria', ['owner', 'clinical']],
+  // W30: the criteria pages live at /criteria/<service> (route group (owner)); the owner, the clinical lead and the shift lead may open them.
+  ['/criteria', ['owner', 'clinical', 'lead']],
+  ['/criteria/s1', ['owner', 'clinical', 'lead']],
+  ['/criteria/s1/history', ['owner', 'clinical', 'lead']],
   ['/planning', ['exec', 'lead']],
   ['/console', ['support']],
 ];
@@ -22,7 +26,7 @@ describe('rolesFor', () => {
     expect([...(rolesFor(path) ?? [])].sort()).toEqual([...roles].sort());
   });
 
-  it.each(['/', '/screen', '/screen/pair', '/sign-in', '/forbidden', '/case/4821', '/api/bff/board', '/advisors', '/leader', '/consoles'])(
+  it.each(['/', '/screen', '/screen/pair', '/sign-in', '/forbidden', '/case/4821', '/api/bff/board', '/advisors', '/leader', '/consoles', '/criteriaa'])(
     'leaves %s unguarded',
     (path) => {
       expect(rolesFor(path)).toBeNull();

@@ -1,18 +1,10 @@
 import { http, HttpResponse, type HttpResponseResolver } from 'msw';
+import { recordInto, type SeenRequest } from '../record';
 import { DECISION_OPEN, OVERVIEW, QUEUE, SCOPE_ENTRIES } from '@/test/fixtures/registration';
 import type { ScopeEntry } from '@/lib/registration/types';
 
 // The BFF's registration routes, as the browser sees them (W28). Each request the browser makes is
 // kept, so a test can assert what was sent and what was not sent. The list is reset per test.
-
-export type SeenRequest = {
-  method: string;
-  path: string;
-  search: string;
-  body: unknown;
-  csrf: string | null;
-  idempotencyKey: string | null;
-};
 
 export const seenRegistrationRequests: SeenRequest[] = [];
 
@@ -23,28 +15,7 @@ export function resetRegistrationRequests() {
   scope = SCOPE_ENTRIES.map((entry) => ({ ...entry }));
 }
 
-async function record(request: Request): Promise<SeenRequest> {
-  const url = new URL(request.url);
-  const text = request.method === 'GET' ? '' : await request.text();
-  let body: unknown = undefined;
-  if (text !== '') {
-    try {
-      body = JSON.parse(text) as unknown;
-    } catch {
-      body = text;
-    }
-  }
-  const seen: SeenRequest = {
-    method: request.method,
-    path: url.pathname,
-    search: url.search,
-    body,
-    csrf: request.headers.get('X-CSRF-Token'),
-    idempotencyKey: request.headers.get('Idempotency-Key'),
-  };
-  seenRegistrationRequests.push(seen);
-  return seen;
-}
+const record = (request: Request): Promise<SeenRequest> => recordInto(seenRegistrationRequests, request);
 
 const json = (body: unknown, status = 200) =>
   HttpResponse.json(body as Record<string, unknown>, { status, headers: { 'Cache-Control': 'no-store' } });

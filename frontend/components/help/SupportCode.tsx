@@ -80,7 +80,6 @@ export function SupportCode() {
 
   useEffect(() => {
     // Whether sharing is on is read when the page opens; no code is made by opening the page.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void readState();
   }, [readState]);
 

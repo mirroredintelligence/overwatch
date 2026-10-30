@@ -19,6 +19,11 @@ describe('toCsv', () => {
     expect(csv).toContain('shown,2026-10-23T13:13:20Z,"UCR West, ""north""",Accepting,4,9 min old,3,');
   });
 
+  it('gives a field that starts with a formula character an apostrophe, so a spreadsheet does not run it', () => {
+    const csv = toCsv({ ...AUDIT_4821, shown: [{ serviceName: '=HYPERLINK("x")', status: 'Accepting', value: '4', age: '9 min old' }], criteriaVersions: [] });
+    expect(csv).toContain(`shown,2026-10-23T13:13:20Z,"'=HYPERLINK(""x"")",Accepting,4,9 min old,,`);
+  });
+
   it('never holds a postcode, because none is in the replay it is given', () => {
     expect(toCsv(AUDIT_4821)).not.toMatch(/\bDT\d/);
   });

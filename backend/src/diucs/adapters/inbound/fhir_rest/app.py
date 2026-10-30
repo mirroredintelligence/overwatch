@@ -121,6 +121,7 @@ def create_app(
         routes_lead,
         routes_lead_views,
         routes_network,
+        routes_network_admin,
         routes_network_events,
         routes_public,
         routes_registration,
@@ -138,6 +139,9 @@ def create_app(
     # The network read routes and live stream (TEN-059): JSON outside /fhir, behind the registry.
     app.include_router(routes_network.router)
     app.include_router(routes_network_events.router)
+    # The network and grant administration (TEN-079): the members, the agreement, the grants and
+    # the listings, for the tenant administrator and the network administrator.
+    app.include_router(routes_network_admin.router)
     # $board must be routed before any HealthcareService/{id} route, or {id} would take it.
     app.include_router(routes_board.router)
     # The alert and summary routes (R12) read `/HealthcareService/$week-summary`: they are mounted

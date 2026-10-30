@@ -133,7 +133,9 @@ async def _move_to_completion(
     started = await _start(uow_factory).execute(
         StartServiceMoveCommand(actor=LEAD, service_id=service, to_mobile=NEW_MOBILE, until=until)
     )
-    await VerifyServiceMoveCode(uow_factory, verifier or RecordingVerifier(), _clock()).execute(
+    await VerifyServiceMoveCode(
+        uow_factory, verifier or RecordingVerifier(), _clock(), HASHER
+    ).execute(
         VerifyServiceMoveCodeCommand(move_id=started.move_id, mobile=NEW_MOBILE, code="123456")
     )
     await RecordMoveCallBack(uow_factory, _clock()).execute(

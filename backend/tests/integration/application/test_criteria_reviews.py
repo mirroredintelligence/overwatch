@@ -206,7 +206,8 @@ async def test_a_run_for_tenant_a_never_reminds_or_flags_tenant_b(
     tenant_id: str,
     seeded: None,
 ) -> None:
-    await ensure_audit_heads(neo4j_driver, other_tenant_id)
+    # Tenant B's seed writes no audit entry, so it needs no audit head. On the shared schema a
+    # second head collides with tenant A's (lesson L157).
     async with uow_factory_b() as uow:
         await uow.services.save(virtual_ward("ucr-east", name="UCR East"))
         await uow.criteria.add(_criteria("ucr-east", date(2026, 12, 1), role="none"))

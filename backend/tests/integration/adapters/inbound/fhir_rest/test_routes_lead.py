@@ -10,9 +10,13 @@ The phone numbers are the prompt's sample values. No patient data.
 
 import pytest
 import pytest_asyncio
+from fastapi import FastAPI
 from httpx import AsyncClient
 from neo4j import AsyncDriver
 
+from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME
+from diucs.adapters.testing.fixed_secrets import FixedSecretStore
+from diucs.adapters.testing.tokens import TEST_BFF_SECRET
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.domain.codes import Role
 from diucs.domain.model.people import Practitioner, PractitionerRole
@@ -85,18 +89,21 @@ async def _seed_tenant(
 
 @pytest_asyncio.fixture(loop_scope="session")
 async def lead_world(
-    edge_tenants: None,
+    api_app: FastAPI,
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,
     neo4j_driver: AsyncDriver,
     tenant_id: str,
-    other_tenant_id: str,
 ) -> None:
     """One service and one reporter role in each tenant, written through that tenant's own unit
     of work. The ids differ between the tenants because the shared harness schema keeps
-    single-property keys until TEN-032. It depends on edge_tenants, which depends on the container,
-    so clean_graph has already wiped the graph (lesson L84)."""
-    await ensure_audit_heads(neo4j_driver, tenant_id, other_tenant_id)
+    single-property keys until TEN-032. Only the run tenant gets an audit head: a setup writes an
+    audit entry there, and the other tenant's seed writes none. Two heads on the shared schema
+    collide on the old single-property AuditHead key (lesson L157). It depends on api_app, which
+    depends on edge_tenants and the container, so clean_graph has already wiped the graph (L84).
+    The BFF secret store is set here, as the other route tests do (lesson L131)."""
+    api_app.state.secrets = FixedSecretStore({BFF_SECRET_NAME: TEST_BFF_SECRET})
+    await ensure_audit_heads(neo4j_driver, tenant_id)
     await _seed_tenant(uow_factory_a, virtual_ward(SERVICE_A), reporter(1, None))
     await _seed_tenant(
         uow_factory_b,
@@ -154,7 +161,9 @@ async def test_an_advisor_is_not_found_and_nothing_is_stored(
     assert await count_nodes(neo4j_driver, "HealthcareService") == before
 
 
-async def test_push_is_refused_outside_the_pilot(api_client: AsyncClient, tenant_id: str) -> None:
+async def test_push_is_refused_outside_the_pilot(
+    api_client: AsyncClient, lead_world: None, tenant_id: str
+) -> None:
     response = await api_client.post(
         SETUP,
         json=_setup(channel="push"),
@@ -164,7 +173,7 @@ async def test_push_is_refused_outside_the_pilot(api_client: AsyncClient, tenant
 
 
 async def test_an_invalid_mobile_is_refused_and_the_input_is_not_echoed(
-    api_client: AsyncClient, tenant_id: str
+    api_client: AsyncClient, lead_world: None, tenant_id: str
 ) -> None:
     response = await api_client.post(
         SETUP,

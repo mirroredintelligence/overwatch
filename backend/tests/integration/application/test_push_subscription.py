@@ -116,7 +116,7 @@ async def test_saving_writes_the_subscription_an_active_consent_and_one_audit_re
     assert [s.device_id for s in subscriptions] == [DEVICE]
     assert consent is not None
     assert (consent.status, consent.wording_version, consent.at) == ("active", WORDING, AT)
-    assert await count_nodes(neo4j_driver, "AuditRecord") == 1
+    assert await count_nodes(neo4j_driver, "AuditEvent") == 1
 
 
 async def test_saving_again_for_the_same_device_leaves_one_subscription(
@@ -152,12 +152,12 @@ async def test_a_replayed_save_with_the_same_key_writes_nothing_new(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seeded: None
 ) -> None:
     first = await _save(uow_factory, neo4j_driver, "save-1")
-    audits = await count_nodes(neo4j_driver, "AuditRecord")
+    audits = await count_nodes(neo4j_driver, "AuditEvent")
 
     replay = await _save(uow_factory, neo4j_driver, "save-1")
 
     assert replay == first
-    assert await count_nodes(neo4j_driver, "AuditRecord") == audits
+    assert await count_nodes(neo4j_driver, "AuditEvent") == audits
 
 
 async def test_a_device_of_another_practitioner_is_not_found_and_nothing_changes(

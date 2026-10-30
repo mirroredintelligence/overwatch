@@ -270,3 +270,36 @@ describe('PUT /api/bff/registrations/[id]/steps/service', () => {
     expect(upstream).toBeNull();
   });
 });
+
+// The reporting and API steps (W26): the coded values the back end takes.
+describe('PUT /api/bff/registrations/[id]/steps/reporting and api', () => {
+  beforeEach(() => {
+    answerLocation(200, { resourceType: 'Task', id: ID, businessStatus: { coding: [{ system: 'x', code: 'draft' }] } });
+  });
+
+  it('saves the reporting answers as the back end’s values, with the count mapped to its measure', async () => {
+    const response = await save(
+      { measure: 'virtual-beds', usualRange: [0, 8], cadence: 'every-2-hrs', channel: 'text', holderName: 'Sample Ward team', contactMobile: '07700900456' },
+      'reporter',
+      CSRF,
+      'reporting',
+    );
+    expect(response.status).toBe(200);
+    expect(upstream?.body).toEqual({
+      step: 'reporting',
+      values: { measure: 'free-beds', usualLow: 0, usualHigh: 8, cadence: 'every-2-hrs', channel: 'text', holderName: 'Sample Ward team', contactMobile: '07700900456' },
+    });
+  });
+
+  it('refuses a count the back end does not have, without calling it', async () => {
+    expect((await save({ measure: 'other', usualRange: [0, 8] }, 'reporter', CSRF, 'reporting')).status).toBe(400);
+    expect(upstream).toBeNull();
+  });
+
+  it('saves the API answer, and only "wanted" when there is none', async () => {
+    expect((await save({ wanted: false }, 'reporter', CSRF, 'api')).status).toBe(200);
+    expect(upstream?.body).toEqual({ step: 'api', values: { wanted: false } });
+    expect((await save({ wanted: true, name: 'Sample API', address: 'https://api.example.test', connection: 'REST', dataType: 'Referrals' }, 'reporter', CSRF, 'api')).status).toBe(200);
+    expect(upstream?.body).toEqual({ step: 'api', values: { wanted: true, name: 'Sample API', address: 'https://api.example.test', connection: 'REST', dataType: 'Referrals' } });
+  });
+});

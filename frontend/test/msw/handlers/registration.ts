@@ -117,6 +117,8 @@ export const seenStepSaves: { id: string; step: string; body: unknown; csrf: str
 
 export function resetStepSaves() {
   seenStepSaves.length = 0;
+  seenSubmits.length = 0;
+  reviewState.reply = reviewDefault();
   bffRegistrationState.step = { status: 200, body: { status: 'draft' } };
 }
 
@@ -164,9 +166,49 @@ export const bffAddressHandlers = [
   }) as HttpResponseResolver),
 ];
 
+/** The review the BFF gives the applicant (W26): one row per section, each complete or needing attention. */
+function reviewDefault(): BackendReply {
+  return {
+    status: 200,
+    body: {
+      sections: [
+        { key: 'organisation', status: 'complete', summary: 'Sample Community Trust · NHS trust · Sample Person' },
+        { key: 'location', status: 'complete', summary: 'Fixed site · Sample Ward · Mon to Fri 08:00 to 18:00' },
+        { key: 'service', status: 'complete', summary: 'UCR West · Urgent community response · refer by phone and SystmOne' },
+        { key: 'reporting', status: 'complete', summary: 'Referrals in the next 2 hrs · 0 to 8 · every 2 hrs · by text' },
+        { key: 'api', status: 'complete', summary: 'No API' },
+      ],
+    },
+  };
+}
+
+export const reviewState: { reply: BackendReply } = { reply: reviewDefault() };
+
+/** Every submit the browser made, newest last. */
+export const seenSubmits: { id: string; csrf: string | null }[] = [];
+
+/** The services of the signed-in reporter (W26's My services). */
+export const minePayload = {
+  services: [
+    { id: 'REG-SAMPLE-1', serviceName: 'UCR West', state: 'active', detail: 'Reporting every 2 hrs by text' },
+    { id: 'REG-SAMPLE-2', serviceName: 'UCR East', state: 'pending-approval', detail: 'Submitted 23 Oct' },
+    { id: 'REG-SAMPLE-3', serviceName: 'Ward 4', state: 'review-due', detail: 'Criteria review due 30 Oct' },
+  ],
+};
+
+export const bffRegistrationReviewHandlers = [
+  http.get('/api/bff/registrations/:id/review', (() => reply(reviewState.reply)) as HttpResponseResolver),
+  http.post('/api/bff/registrations/:id/submit', (({ request, params }) => {
+    seenSubmits.push({ id: String(params.id), csrf: request.headers.get('x-csrf-token') });
+    return HttpResponse.json({ status: 'submitted' }, { status: 200 });
+  }) as HttpResponseResolver),
+  http.get('/api/bff/registrations/mine', (() => HttpResponse.json(minePayload, { headers: { 'Cache-Control': 'no-store' } })) as HttpResponseResolver),
+];
+
 export const registrationHandlers = [
   ...backendIdentityHandlers,
   ...bffRegistrationHandlers,
   ...bffRegistrationStepHandlers,
   ...bffAddressHandlers,
+  ...bffRegistrationReviewHandlers,
 ];

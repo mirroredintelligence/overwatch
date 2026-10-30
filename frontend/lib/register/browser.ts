@@ -59,15 +59,24 @@ export async function loadRegistration(id: string): Promise<LoadOutcome> {
   return { kind: 'open', view: body as unknown as RegistrationView };
 }
 
-/** Saves one step. `values` are the screen's answers; the BFF checks and maps them. */
-export async function saveStep(id: string, step: StepName, values: Record<string, unknown>, csrf: string): Promise<StepOutcome> {
+/**
+ * Saves one step. `values` are the screen's answers; the BFF checks and maps them. A "Save draft" is
+ * `partial` (DEC-905): the back end keeps what is there without the checks a Continue makes.
+ */
+export async function saveStep(
+  id: string,
+  step: StepName,
+  values: Record<string, unknown>,
+  csrf: string,
+  partial = false,
+): Promise<StepOutcome> {
   if (!isStepName(step)) return { kind: 'failed' };
   let response: Response;
   try {
     response = await fetch(`${base(id)}/steps/${step}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json', [CSRF_HEADER]: csrf },
-      body: JSON.stringify(values),
+      body: JSON.stringify(partial ? { ...values, partial: true } : values),
       cache: 'no-store',
       credentials: 'same-origin',
     });

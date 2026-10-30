@@ -111,7 +111,7 @@ export function ServiceForm({ registrationId }: ServiceFormProps) {
     }
     setBusy(mode);
     setNotice(null);
-    const outcome: StepOutcome = await saveStep(registrationId, 'service', bodyFrom(answers), csrf);
+    const outcome: StepOutcome = await saveStep(registrationId, 'service', bodyFrom(answers), csrf, mode === 'save');
     setBusy(null);
     void fixedSite;
     if (outcome.kind === 'saved') {

@@ -133,7 +133,7 @@ describe('OrganisationForm: validation', () => {
     await userEvent.type(screen.getByLabelText('Your name'), 'Sample Person');
     await userEvent.click(screen.getByRole('button', { name: 'Save draft' }));
     await waitFor(() => expect(seenStepSaves).toHaveLength(1));
-    expect(seenStepSaves[0]).toMatchObject({ id: ID, step: 'organisation', body: { contactName: 'Sample Person' } });
+    expect(seenStepSaves[0]).toMatchObject({ id: ID, step: 'organisation', body: { contactName: 'Sample Person', partial: true } });
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     expect(screen.queryByText(/problem/)).not.toBeInTheDocument();
   });

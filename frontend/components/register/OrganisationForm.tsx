@@ -72,7 +72,7 @@ export function OrganisationForm({ registrationId }: OrganisationFormProps) {
     }
     setBusy(mode);
     setNotice(null);
-    const outcome: StepOutcome = await saveStep(registrationId, 'organisation', body, csrf);
+    const outcome: StepOutcome = await saveStep(registrationId, 'organisation', body, csrf, mode === 'save');
     setBusy(null);
     if (outcome.kind === 'saved') {
       setErrors([]);

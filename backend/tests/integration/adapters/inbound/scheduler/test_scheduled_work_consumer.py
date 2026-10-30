@@ -33,6 +33,7 @@ from diucs.application.tenancy import current_scope_or_none
 from diucs.application.work import CANCELLED, DONE, SCHEDULED, ScheduledWork, WorkKind
 from diucs.bootstrap.container import TEST_NOW
 from diucs.domain.errors import NotFound, ValidationFailed
+from tests.support.bus import message_with_tenant
 from tests.support.neo4j import count_nodes
 from tests.support.tenancy import tenant_scope
 from tests.support.tenant_seed import contracted_container
@@ -74,12 +75,12 @@ def _message(
     if work is not None:
         body = {"work_id": work.id, "kind": work.kind.value, "about_id": work.about_id}
     body.update(payload)
-    return BusMessage(
+    return message_with_tenant(
+        tenant_id,
         id=message_id,
         topic="scheduled.work",
         event_type="ScheduledWorkDue",
         payload=body,
-        tenant_id=tenant_id,
     )
 
 

@@ -546,7 +546,9 @@ async def test_a_poison_message_is_dead_lettered_and_the_next_one_is_processed(
     await runner.process(receiver, raw(reply_message("tenant-zz", "SM3")))
     await runner.process(receiver, raw(reply_message(tenant_id, "SM4")))
 
-    assert receiver.calls == [
+    # The wire id carries the tenant (TEN-020, <tenant>:<id>): the provider id is what follows it.
+    settled = [(action, wire_id.rsplit(":", 1)[-1]) for action, wire_id in receiver.calls]
+    assert settled == [
         ("dead-letter", "SM1"),
         ("dead-letter", "SM2"),
         ("dead-letter", "SM3"),

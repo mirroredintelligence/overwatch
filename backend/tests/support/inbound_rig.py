@@ -17,6 +17,7 @@ from diucs.application.use_cases.handle_inbound_text import (
     HandleInboundTextCommand,
     HandleInboundTextResult,
 )
+from tests.support.bus import message_with_tenant
 
 PHONE = "ab" * 32
 RECEIVED_AT = datetime(2026, 10, 23, 9, 12, tzinfo=UTC)
@@ -40,12 +41,12 @@ def reply_message(
         "provider_message_id": message_id,
     }
     payload.update(payload_changes)
-    return BusMessage(
+    return message_with_tenant(
+        tenant_id,
         id=message_id,
         topic="inbound.replies",
         event_type="SmsReceived",
         payload={name: value for name, value in payload.items() if name not in omit},
-        tenant_id=tenant_id,
     )
 
 
@@ -65,12 +66,12 @@ def receipt_message(
         "error_code": error_code,
     }
     payload.update(payload_changes)
-    return BusMessage(
+    return message_with_tenant(
+        tenant_id,
         id=f"{provider_message_id}:{status}",
         topic="inbound.receipts",
         event_type="SmsDeliveryReceived",
         payload={name: value for name, value in payload.items() if name not in omit},
-        tenant_id=tenant_id,
     )
 
 

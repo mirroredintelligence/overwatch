@@ -41,6 +41,7 @@ REGISTRY_LABELS: Final = (
     "Network",
     "NetworkMembership",
     "Grant",
+    "Listing",
 )
 
 

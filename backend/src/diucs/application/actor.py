@@ -8,7 +8,7 @@ layer's scope is the bound context (`application/tenancy.py`), and `require_acto
 only checks that the two agree.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from diucs.application.tenancy import (
     ScopeId,
@@ -18,6 +18,8 @@ from diucs.application.tenancy import (
     current_tenant,
 )
 from diucs.domain.codes import Role
+from diucs.domain.errors import ValidationFailed
+from diucs.domain.model.network import check_network_id
 from diucs.domain.model.tenant import check_tenant_id
 
 SYSTEM_CHANNEL = "system"
@@ -31,11 +33,20 @@ class Actor:
     channel: str
     service_ids: frozenset[str]
     tenant_id: str
+    # The networks the token named (TEN-059): a hint that routes the request and tells the page a
+    # network view exists. It is never an access decision: every network request is checked against
+    # the registry (`NetworkAccess.require_member`). Keyword-only, so the tenant stays the last
+    # positional field.
+    network_ids: frozenset[str] = field(default=frozenset(), kw_only=True)
 
     def __post_init__(self) -> None:
         # The domain's rule: a network id, the reserved platform id and anything that is not a plain
         # tenant id is refused, and the refusal holds no value.
         check_tenant_id(self.tenant_id)
+        if type(self.network_ids) is not frozenset:
+            raise ValidationFailed("network_ids", "must be a set of network ids")
+        for network_id in self.network_ids:
+            check_network_id(network_id, "network_ids")
 
 
 def wall_actor(tenant_id: str, device_id: str | None = None) -> Actor:

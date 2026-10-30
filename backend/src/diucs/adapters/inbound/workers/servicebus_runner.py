@@ -70,6 +70,10 @@ class Receiver(Protocol):
 CONSUMER_NOT_TENANT_BOUND: Final = (
     "a queue runner needs a consumer that binds the tenant of each message"
 )
+# A consumer declares what it binds: `binds_tenant` (the message's tenant, `TenantBoundConsumer`) or
+# `binds_network` (the network scope of a projection message, after the registry has confirmed it:
+# the apply consumer of TEN-055). Each marker is the value `True` itself.
+BINDING_MARKERS: Final = ("binds_tenant", "binds_network")
 
 
 class ConsumerNotTenantBound(TypeError):
@@ -138,7 +142,7 @@ class ServiceBusRunner:
     ) -> None:
         if max_concurrency < 1:
             raise ValueError("max_concurrency must be at least 1")
-        if getattr(consumer, "binds_tenant", False) is not True:
+        if not any(getattr(consumer, marker, False) is True for marker in BINDING_MARKERS):
             raise ConsumerNotTenantBound(CONSUMER_NOT_TENANT_BOUND)
         self._client = client
         self._entity = entity

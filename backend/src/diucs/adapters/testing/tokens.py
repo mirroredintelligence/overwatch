@@ -38,6 +38,7 @@ def issue_test_token(
     expires_at: datetime = TEST_TOKEN_EXPIRES_AT,
     tenant: str | None = None,
     epoch: int = 1,
+    networks: Sequence[str] = (),
 ) -> str:
     claims = BffClaims(
         sub=sub,
@@ -47,5 +48,6 @@ def issue_test_token(
         tenant=tenant if tenant is not None else default_token_tenant(),
         epoch=epoch,
         device=device,
+        networks=frozenset(networks),
     )
     return encode_bff_token(claims, TEST_BFF_SECRET)

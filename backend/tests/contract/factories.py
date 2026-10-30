@@ -212,7 +212,7 @@ async def make_redis_code_store() -> Harness[CodeStore]:
 # receiver takes the next available session (DEC-075 item 3, I02).
 _TOPIC_SUBSCRIPTIONS = {"capacity.events": "board-projector"}
 # Queues the contract drains at start and close. Nothing else reads them.
-_CONTRACT_QUEUES = ("scheduled.work", "inbound.receipts")
+_CONTRACT_QUEUES = ("scheduled.work", "inbound.receipts", "projection.work")
 _DRAIN_WAIT = timedelta(milliseconds=300)
 # A session receive opens its link with this window, not the short wait (DEC-102 item 4).
 _SESSION_OPEN_WAIT = 5.0

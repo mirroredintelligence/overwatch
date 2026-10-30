@@ -361,7 +361,11 @@ def test_the_system_properties_are_the_documented_set() -> None:
         "endReason",
     }
     for label in LABELS:
-        assert SYSTEM_PROPERTIES[label] == stamped
+        # A location and an opening window are keyed by their service (TEN-053).
+        extra = (
+            {"sourceServiceId"} if label in {"ProjectedLocation", "ProjectedOpeningHour"} else set()
+        )
+        assert SYSTEM_PROPERTIES[label] == stamped | extra
     assert SYSTEM_PROPERTIES["ProjectionSource"] == {
         "tenantId",
         "sourceTenantId",
@@ -379,21 +383,28 @@ def test_the_system_properties_are_the_documented_set() -> None:
     }
 
 
-def test_no_relationship_type_is_allowed_yet() -> None:
-    assert frozenset() == NETWORK_RELATIONSHIPS
+def test_only_the_two_relationships_of_the_service_children_are_allowed() -> None:
+    # TEN-053: a service to its location and to each opening window; none carries a property.
+    assert frozenset({"HAS_LOCATION", "HAS_OPENING_HOUR"}) == NETWORK_RELATIONSHIPS
 
 
 def test_the_allowlist_exists_once_in_the_source_tree() -> None:
     """No second list of projected property names: another module that spelled them out would
-    drift (hazard H-N01)."""
+    drift (hazard H-N01). The two modules of the graph store that write and scenario the network
+    scope's statements name the parameters of those statements (TEN-053); a unit test there holds
+    each statement's parameters to the allowlist, so they cannot drift."""
     from pathlib import Path
 
     source = Path(domain_projection.__file__).parents[2]
     needle = '"sourceServiceId"'
     holders = [path for path in source.rglob("*.py") if needle in path.read_text(encoding="utf-8")]
 
-    assert [path.name for path in holders] == ["projection.py"]
-    assert holders[0].parent.name == "rules"
+    assert [path.name for path in holders if path.parent.name != "graph_store"] == ["projection.py"]
+    assert {path.name for path in holders if path.parent.name == "graph_store"} <= {
+        "migrations_network.py",  # the key of a constraint
+        "projection_repository.py",
+        "projection_scenarios.py",
+    }
 
 
 # ---------------------------------------------------------------- 4. the sentinel scan

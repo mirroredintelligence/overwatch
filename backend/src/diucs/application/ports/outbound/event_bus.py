@@ -15,7 +15,11 @@ from diucs.application.tenancy import ScopeKind, current_scope_or_none, is_valid
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.errors import DomainError, ValidationFailed
 
-QUEUES: frozenset[str] = frozenset({"inbound.replies", "inbound.receipts", "scheduled.work"})
+# `projection.work` carries `ProjectionRequested` from a tenant's producer to the network's apply
+# step (TEN-055). The name is `domain.events.PROJECTION_WORK`; a test pins that they are equal.
+QUEUES: frozenset[str] = frozenset(
+    {"inbound.replies", "inbound.receipts", "scheduled.work", "projection.work"}
+)
 TOPICS: frozenset[str] = frozenset(
     {
         "capacity.events",

@@ -34,6 +34,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     Unique,
     validate_scenario,
 )
+from diucs.application.tenancy import ScopeKind
 from tests.support.leaky_registry import LeakyRegistry
 from tests.support.neo4j import ThrowawayNeo4j, read_tx, wipe_all, write_tx
 from tests.support.predicate_removal import mutant_of, predicate_count
@@ -756,6 +757,90 @@ async def test_removing_the_tenant_predicate_makes_the_generated_test_fail(
         )
         assert clean == [], format_findings(clean)
     assert survivors == [], f"these ran without their tenant predicate unnoticed: {survivors}"
+
+
+# The proof over the registry, for the network scope (TEN-060): the same two networks, the same keys
+
+
+@pytest.fixture
+def network_a(network_id: str) -> str:
+    return network_id
+
+
+@pytest.fixture
+def network_b(network_id: str) -> str:
+    return f"{network_id}-b"
+
+
+async def test_every_network_statement_is_isolated_between_two_networks(
+    isolation_driver: AsyncDriver, network_a: str, network_b: str
+) -> None:
+    """The statements that run in a network scope (the network-only ones and the statements for
+    both kinds) run as network A and as network B on colliding keys; a statement that forgets the
+    scope predicate, or reads or writes the other network, is a finding."""
+    statements = production_statements(REGISTRY, kind=ScopeKind.NETWORK)
+    assert universe_problems(REGISTRY, statements, kind=ScopeKind.NETWORK) == []
+    assert scenario_gaps(statements) == []
+    assert predicate_problems(statements) == []
+    assert {"Q-PROJ-SERVICE-UPSERT", "Q-NETVIEW-SERVICES", "Q-AUDIT-APPEND"} <= set(statements)
+    findings = await run_isolation(
+        isolation_driver,
+        statements,
+        registry=REGISTRY,
+        tenant_a=network_a,
+        tenant_b=network_b,
+        kind=ScopeKind.NETWORK,
+    )
+    assert findings == [], "\n" + format_findings(findings)
+
+
+async def test_removing_the_scope_predicate_makes_the_generated_test_fail_for_network_statements(
+    isolation_driver: AsyncDriver, network_a: str, network_b: str
+) -> None:
+    statements = production_statements(REGISTRY, kind=ScopeKind.NETWORK)
+    survivors: list[str] = []
+    for query_id in sorted(statements):
+        original = statements[query_id]
+        assert predicate_count(original.cypher) >= 1, query_id
+        registry, mutant = mutant_of(original)
+        found = await run_isolation(
+            isolation_driver,
+            {query_id: mutant},
+            registry=registry,
+            tenant_a=network_a,
+            tenant_b=network_b,
+            kind=ScopeKind.NETWORK,
+        )
+        if not found:
+            survivors.append(query_id)
+    assert survivors == [], f"these ran without their scope predicate unnoticed: {survivors}"
+
+
+async def test_a_statement_for_both_kinds_is_isolated_in_each_kind(
+    isolation_driver: AsyncDriver,
+    tenant_id: str,
+    other_tenant_id: str,
+    network_a: str,
+    network_b: str,
+) -> None:
+    both = {
+        i: q
+        for i, q in production_statements(REGISTRY, kind=ScopeKind.NETWORK).items()
+        if i in production_statements(REGISTRY)
+    }
+    assert {"Q-AUDIT-APPEND", "Q-PROCESSED-MARK"} <= set(both)
+    as_tenants = await run_isolation(
+        isolation_driver, both, registry=REGISTRY, tenant_a=tenant_id, tenant_b=other_tenant_id
+    )
+    as_networks = await run_isolation(
+        isolation_driver,
+        both,
+        registry=REGISTRY,
+        tenant_a=network_a,
+        tenant_b=network_b,
+        kind=ScopeKind.NETWORK,
+    )
+    assert as_tenants == [] and as_networks == [], format_findings([*as_tenants, *as_networks])
 
 
 # The schema the scenarios lean on

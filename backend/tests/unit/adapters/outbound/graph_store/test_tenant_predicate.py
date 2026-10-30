@@ -137,6 +137,7 @@ def test_the_module_registry_registers_nothing_a_fresh_registry_would_refuse() -
                 mode=query.mode,
                 scope=query.scope,
                 scenario=query.scenario,
+                scope_kinds=query.scope_kinds,
             )
         )
 

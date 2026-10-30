@@ -28,7 +28,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
 from diucs.adapters.outbound.graph_store.driver import ScopedTx, Tx, run_query
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from diucs.adapters.outbound.graph_store.queries import BOTH_KINDS, REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
     Marked,
@@ -246,7 +246,11 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"], Scenario | None]] = {
 }
 
 for _query_id, (_cypher, _mode, _scenario) in _QUERIES.items():
-    REGISTRY.register(NamedQuery(id=_query_id, cypher=_cypher, mode=_mode, scenario=_scenario))
+    REGISTRY.register(
+        NamedQuery(
+            id=_query_id, cypher=_cypher, mode=_mode, scenario=_scenario, scope_kinds=BOTH_KINDS
+        )
+    )
 
 
 def _processed_key(message_id: str, consumer: str) -> str:

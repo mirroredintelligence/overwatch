@@ -65,6 +65,9 @@ REQUIRED_NAMES = {
     "aggregates",
     "support_tickets",
     "tenant_config",
+    # The network scope's two repositories (TEN-053): on the unit, not on the tenant port.
+    "projections",
+    "network_view",
 }
 
 

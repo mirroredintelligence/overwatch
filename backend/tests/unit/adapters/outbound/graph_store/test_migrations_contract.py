@@ -19,6 +19,7 @@ from diucs.adapters.outbound.graph_store.migrations_contract import (
     CONTRACT_MIGRATION_ID,
     CONTRACT_MIGRATIONS,
 )
+from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_tenant import (
     COMPOSITE_CONSTRAINTS,
     REGISTRY_LABELS,
@@ -41,8 +42,13 @@ def test_the_contract_area_is_one_migration_with_the_id_of_the_block() -> None:
 
 def test_it_is_assembled_after_every_other_migration() -> None:
     ids = [m.id for m in MIGRATIONS]
-    assert ids[-1] == CONTRACT_MIGRATION_ID
     assert ids.count(CONTRACT_MIGRATION_ID) == 1
+    # Only the migrations of the network area, whose block starts at 0110 (build wave 5, bundle
+    # W5E), follow it: they are expand steps on labels that did not exist before, so they replace
+    # no key and need not wait for the contract step.
+    later = ids[ids.index(CONTRACT_MIGRATION_ID) + 1 :]
+    assert later == [m.id for m in NETWORK_MIGRATIONS]
+    assert all(int(i[:4]) >= 110 for i in later)
 
 
 def test_it_has_only_drop_constraint_statements_with_if_exists_and_no_loop_or_parameter() -> None:

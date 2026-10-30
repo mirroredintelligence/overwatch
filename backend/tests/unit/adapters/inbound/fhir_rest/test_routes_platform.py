@@ -483,7 +483,7 @@ async def test_the_other_provisioning_steps_answer_in_fixed_words_and_record_no_
     assert host.status_code == 200 and host.json() == {"recorded": True}
     assert number.status_code == 201 and number.json()["channelId"] == "sms-447700900123"
     assert tested.status_code == 200
-    assert references.json()["recorded"] is True
+    assert references.json() == {"references": ["dpia_ref", "dsa_ref"], "recorded": True}
     assert invited.status_code == 201 and invited.json()["expiresAt"] == "2026-11-01T09:00:00Z"
     assert r.stubs.invite.commands[0].mobile == "07700 900123"
     assert [e.action for e in r.audit.entries] == [

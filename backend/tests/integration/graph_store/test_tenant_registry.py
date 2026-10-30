@@ -536,6 +536,23 @@ async def _save_a_stale(registry: Neo4jTenantRegistry) -> object:
     )
 
 
+TEN_075_STATEMENTS = frozenset(
+    {
+        "Q-TENANT-REG-LIST",
+        "Q-TENANT-REG-GET",
+        "Q-PLATFORM-AUDIT-LOCK",
+        "Q-PLATFORM-AUDIT-APPEND",
+        "Q-PLATFORM-AUDIT-ENTRIES",
+        "Q-PLATFORM-AUDIT-HEAD",
+        "Q-SUPPORT-TICKET-ADD",
+        "Q-SUPPORT-TICKET-OF-TENANT",
+        "Q-SUPPORT-TICKET-OF-PRINCIPAL",
+        "Q-SUPPORT-TICKETS-OF-TENANT",
+        "Q-SUPPORT-TICKETS-OF-PRINCIPAL",
+        "Q-SUPPORT-TICKET-MOVE",
+    }
+)
+
 CASES = (
     Case("Q-TENANT-REG-CREATE", _create_a, _create_b, Conflict, creates_a=True),
     Case("Q-TENANT-REG-SAVE", _save_a, _save_a_stale, None),
@@ -569,10 +586,15 @@ CASES = (
 
 async def test_the_cases_cover_every_platform_statement_and_only_those() -> None:
     registered = {i for i in REGISTRY.ids() if REGISTRY.get(i).scope == "platform"}
-    assert {c.statement for c in CASES} == set(PLATFORM_QUERY_IDS) == registered
+    # The seven statements of TEN-028 are proved here. The registry's list and detail, the platform
+    # audit chain and the support-access tickets (TEN-075) are proved, each with a mutant, in
+    # `test_platform_records.py`.
+    mine = {i for i in PLATFORM_QUERY_IDS if i not in TEN_075_STATEMENTS}
+    assert {c.statement for c in CASES} == mine
+    assert set(PLATFORM_QUERY_IDS) == registered
     assert set(PLATFORM_STATEMENTS) == set(PLATFORM_QUERY_IDS)
     assert len(CASES) == 7
-    assert {m.statement for m in MUTANTS} == set(PLATFORM_QUERY_IDS)  # every statement has a mutant
+    assert {m.statement for m in MUTANTS} == mine  # every statement has a mutant
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c.statement)

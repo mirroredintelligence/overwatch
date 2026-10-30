@@ -38,6 +38,8 @@ NETWORK_REGISTRY_CONSTRAINTS: Final[tuple[RegistryConstraint, ...]] = (
     RegistryConstraint("network_listing_id", "Listing", ("id",)),
 )
 
+PROJECTION_CONSTRAINTS: Final[tuple[RegistryConstraint, ...]] = ()
+
 NETWORK_MIGRATIONS: Final[tuple[Migration, ...]] = (
     Migration(
         "0110_network_registry",

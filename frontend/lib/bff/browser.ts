@@ -36,10 +36,15 @@ async function codeOf(response: Response): Promise<string> {
 }
 
 /** One call to a BFF route. The body is JSON when given. A network failure is status 0. */
-export async function bffRequest<T>(path: string, options: { method?: string; body?: unknown } = {}): Promise<BffResult<T>> {
+export async function bffRequest<T>(
+  path: string,
+  options: { method?: string; body?: unknown; idempotencyKey?: string } = {},
+): Promise<BffResult<T>> {
   const method = (options.method ?? (options.body === undefined ? 'GET' : 'POST')).toUpperCase();
   const headers: Record<string, string> = {};
   if (options.body !== undefined) headers['Content-Type'] = 'application/json';
+  // One key per submit: a repeat of the same submit is a replay at the back end, not a second change.
+  if (options.idempotencyKey !== undefined) headers['Idempotency-Key'] = options.idempotencyKey;
   if (UNSAFE.has(method)) {
     const token = await csrfToken();
     if (token) headers['X-CSRF-Token'] = token;

@@ -25,7 +25,6 @@ async function post(role: Role, body: unknown) {
       headers: { [CSRF_HEADER]: CSRF, 'Idempotency-Key': 'change-key-0001', 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     }),
-    { params: Promise.resolve({}) } as never,
   );
 }
 

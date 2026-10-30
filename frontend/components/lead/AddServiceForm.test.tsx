@@ -7,6 +7,9 @@ import { resetLeadPosts, seenLeadPosts } from '@/test/msw/handlers/lead';
 import { server } from '@/test/msw/server';
 import { AddServiceForm } from './AddServiceForm';
 
+// Filling the whole form types into about fifteen fields, so these tests get more than the default 5 s.
+const FORM_TIMEOUT_MS = 20_000;
+
 // The shift lead's add-a-service form (W18, pilot). The form posts JSON to the BFF, which sends the
 // FHIR Parameters to the back end's $setup. Validation is shown in a summary and inline.
 
@@ -35,7 +38,7 @@ async function fillValid(user = userEvent.setup()) {
   return user;
 }
 
-describe('AddServiceForm', () => {
+describe('AddServiceForm', { timeout: FORM_TIMEOUT_MS }, () => {
   it('shows an error summary with a link to each problem, and moves focus to it', async () => {
     const user = userEvent.setup();
     render(<AddServiceForm />);
@@ -96,7 +99,7 @@ describe('AddServiceForm', () => {
       accepts: ['frailty'],
     });
     expect(screen.getByRole('button', { name: 'Send a test prompt' })).toBeEnabled();
-  });
+  }, FORM_TIMEOUT_MS);
 
   it('has no axe violations with the errors shown', async () => {
     const user = userEvent.setup();
@@ -132,5 +135,5 @@ describe('AddServiceForm', () => {
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(seenLeadPosts).toHaveLength(2));
     expect(seenLeadPosts[1].idempotencyKey).toBe(seenLeadPosts[0].idempotencyKey);
-  });
+  }, FORM_TIMEOUT_MS);
 });

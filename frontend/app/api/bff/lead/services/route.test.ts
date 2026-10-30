@@ -88,7 +88,7 @@ describe('GET /api/bff/lead/services', () => {
         }),
       ),
     );
-    const response = await GET(await request('GET', 'lead'), { params: Promise.resolve({}) } as never);
+    const response = await GET(await request('GET', 'lead'));
     expect(response.status).toBe(200);
     const body = await response.text();
     expect(JSON.parse(body)).toEqual({ services: [{ id: 's-1', name: 'Reablement' }] });
@@ -96,25 +96,25 @@ describe('GET /api/bff/lead/services', () => {
   });
 
   it('answers 403 to an advisor', async () => {
-    expect((await GET(await request('GET', 'advisor'), { params: Promise.resolve({}) } as never)).status).toBe(403);
+    expect((await GET(await request('GET', 'advisor'))).status).toBe(403);
   });
 });
 
 describe('POST /api/bff/lead/services', () => {
   it('answers 403 without the CSRF header, even for a lead', async () => {
-    const response = await POST(await request('POST', 'lead', { key: KEY, body: VALID_BODY }), { params: Promise.resolve({}) } as never);
+    const response = await POST(await request('POST', 'lead', { key: KEY, body: VALID_BODY }));
     expect(response.status).toBe(403);
   });
 
   it('answers 403 to an advisor', async () => {
-    const response = await POST(await request('POST', 'advisor', { csrf: true, key: KEY, body: VALID_BODY }), { params: Promise.resolve({}) } as never);
+    const response = await POST(await request('POST', 'advisor', { csrf: true, key: KEY, body: VALID_BODY }));
     expect(response.status).toBe(403);
   });
 
   it('answers 400 with no Idempotency-Key, and does not call the back end', async () => {
     let called = false;
     server.use(http.post(`${BACKEND_BASE}/HealthcareService/$setup`, () => { called = true; return HttpResponse.json({}, { status: 201 }); }));
-    const response = await POST(await request('POST', 'lead', { csrf: true, body: VALID_BODY }), { params: Promise.resolve({}) } as never);
+    const response = await POST(await request('POST', 'lead', { csrf: true, body: VALID_BODY }));
     expect(response.status).toBe(400);
     expect(called).toBe(false);
   });
@@ -122,8 +122,9 @@ describe('POST /api/bff/lead/services', () => {
   it('answers 400 for a body with no name, and does not call the back end', async () => {
     let called = false;
     server.use(http.post(`${BACKEND_BASE}/HealthcareService/$setup`, () => { called = true; return HttpResponse.json({}, { status: 201 }); }));
-    const { name: _name, ...rest } = VALID_BODY;
-    const response = await POST(await request('POST', 'lead', { csrf: true, key: KEY, body: rest }), { params: Promise.resolve({}) } as never);
+    const rest: Record<string, unknown> = { ...VALID_BODY };
+    delete rest.name;
+    const response = await POST(await request('POST', 'lead', { csrf: true, key: KEY, body: rest }));
     expect(response.status).toBe(400);
     expect(called).toBe(false);
   });
@@ -136,7 +137,7 @@ describe('POST /api/bff/lead/services', () => {
         return HttpResponse.json({ resourceType: 'HealthcareService', id: 's-new-1' }, { status: 201 });
       }),
     );
-    const response = await POST(await request('POST', 'lead', { csrf: true, key: KEY, body: VALID_BODY }), { params: Promise.resolve({}) } as never);
+    const response = await POST(await request('POST', 'lead', { csrf: true, key: KEY, body: VALID_BODY }));
     expect(response.status).toBe(201);
     const text = await response.text();
     expect(JSON.parse(text)).toEqual({ serviceId: 's-new-1' });

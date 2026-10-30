@@ -35,6 +35,7 @@ describe('ChangeNumberForm', () => {
     render(<ChangeNumberForm serviceId={SERVICE_REABLEMENT} />);
     const field = await screen.findByLabelText('New mobile number');
     await user.type(field, '07700 900456');
+    await user.click(screen.getByRole('button', { name: 'This week' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByRole('status');
     expect(document.body.textContent ?? '').not.toMatch(/07700\s?900456/);
@@ -53,6 +54,7 @@ describe('ChangeNumberForm', () => {
     render(<ChangeNumberForm serviceId={SERVICE_REABLEMENT} />);
     expect(await screen.findByRole('button', { name: 'Send a test text' })).toBeDisabled();
     await user.type(await screen.findByLabelText('New mobile number'), '07700 900456');
+    await user.click(screen.getByRole('button', { name: 'Today' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByRole('status');
     expect(screen.getByRole('button', { name: 'Send a test text' })).toBeEnabled();

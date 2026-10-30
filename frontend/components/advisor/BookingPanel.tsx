@@ -20,7 +20,7 @@ export type BookingPanelProps = {
   /** Back to the options list: after a cancel, a decline, an expiry or a withdrawal acknowledged. */
   onSeeOptions?: () => void;
   onAskClinical?: () => void;
-  /** "Record outcome" and "Copy summary for SystmOne" on a confirmed booking. */
+  /** The two next steps of a confirmed booking card: record the outcome, and copy the summary. */
   onRecordOutcome?: () => void;
   onCopySummary?: () => void;
 };

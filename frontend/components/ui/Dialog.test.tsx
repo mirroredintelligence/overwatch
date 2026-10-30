@@ -83,3 +83,27 @@ describe('Dialog (W14 shell)', () => {
     expect((await runAxe(document.body)).violations).toEqual([]);
   });
 });
+
+describe('Dialog as an alert (W21)', () => {
+  it('can be an alert dialog, and then holds focus on the sheet itself so no button is one keystroke from pressed', () => {
+    render(
+      <Dialog title="Alert" role="alertdialog" focusFirst={false} onClose={() => undefined}>
+        <button type="button">Answer</button>
+      </Dialog>,
+    );
+
+    const dialog = screen.getByRole('alertdialog', { name: 'Alert' });
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(document.activeElement).toBe(dialog);
+  });
+
+  it('keeps the first control focused by default', () => {
+    render(
+      <Dialog title="Plain" onClose={() => undefined}>
+        <button type="button">First</button>
+      </Dialog>,
+    );
+
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'First' }));
+  });
+});

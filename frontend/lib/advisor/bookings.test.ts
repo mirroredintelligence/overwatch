@@ -1,3 +1,4 @@
+import { BOOKINGS } from '@/test/fixtures/backend-shapes';
 import { describe, expect, it } from 'vitest';
 import { STATE_CONFIRMED, STATE_DECLINED, STATE_REQUESTED, TASK_CONFIRMED, TASK_DECLINED, TASK_EXPIRED, TASK_REQUESTED, CASE_REF, SERVICE_ID } from '@/test/fixtures/bookings';
 import { bookingFromTask, bookingRequestTask, BookingShapeError, declineReasonWording, parseBookingState, PHONE_PROMPT_AFTER_MS, withdrawReasonWording, CANCEL_REASONS } from './bookings';
@@ -89,5 +90,56 @@ describe('withdrawReasonWording', () => {
 
   it('offers the four cancel reasons in the order of the artboard', () => {
     expect(CANCEL_REASONS.map((reason) => reason.code)).toEqual(['caller-declined', 'no-longer-needed', 'other-route-found', 'entered-in-error']);
+  });
+});
+
+
+describe('bookingFromTask against the Task the back end writes (R09, booking_task.py)', () => {
+  it('reads a request: the reference, the times and the phone prompt five minutes after it', () => {
+    expect(bookingFromTask(BOOKINGS.requested)).toEqual({
+      id: 'bk-1',
+      reference: '4821',
+      status: 'requested',
+      requestedAt: '2026-10-30T14:00:00Z',
+      replyBy: '2026-10-30T14:10:00Z',
+      phonePromptAt: '2026-10-30T14:05:00Z',
+      confirmedAt: null,
+      declinedAt: null,
+      declineReason: null,
+      expiredAt: null,
+      withdrawnAt: null,
+      withdrawReason: null,
+    });
+  });
+
+  it('reads the confirmation time from the confirmed-at output', () => {
+    expect(bookingFromTask(BOOKINGS.confirmed)).toMatchObject({ status: 'confirmed', confirmedAt: '2026-10-30T14:03:00Z' });
+  });
+
+  it('reads a decline with its reason and the time it was answered', () => {
+    expect(bookingFromTask(BOOKINGS.declined)).toMatchObject({ status: 'declined', declineReason: 'full', declinedAt: '2026-10-30T14:03:00Z' });
+  });
+
+  it('reads an expiry with the time the back end ended it', () => {
+    expect(bookingFromTask(BOOKINGS.expired)).toMatchObject({ status: 'expired', expiredAt: '2026-10-30T14:03:00Z' });
+  });
+
+  it('reads both cancelled states as cancelled', () => {
+    expect(bookingFromTask(BOOKINGS.cancelledBefore).status).toBe('cancelled-before');
+    expect(bookingFromTask(BOOKINGS.cancelledAfter).status).toBe('cancelled-after');
+  });
+
+  it('reads a withdrawal and a not-reached report with their reasons and the time they were made', () => {
+    expect(bookingFromTask(BOOKINGS.withdrawn)).toMatchObject({
+      status: 'withdrawn',
+      withdrawReason: 'now-full',
+      withdrawnAt: '2026-10-30T14:04:00Z',
+      confirmedAt: '2026-10-30T14:03:00Z',
+    });
+    expect(bookingFromTask(BOOKINGS.notReached)).toMatchObject({ status: 'not-reached', withdrawReason: 'no-answer' });
+  });
+
+  it('puts every status the back end can write on the card (BOOKING_STATUSES lists them all)', () => {
+    for (const task of Object.values(BOOKINGS)) expect(() => bookingFromTask(task)).not.toThrow();
   });
 });

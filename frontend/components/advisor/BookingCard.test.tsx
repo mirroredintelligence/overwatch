@@ -151,3 +151,26 @@ describe('BookingCard: live region', () => {
     expect(screen.getByRole('status')).toHaveTextContent('UCR West confirmed booking 4821');
   });
 });
+
+describe('BookingCard: a service whose phone number is not on this screen (H-530)', () => {
+  const NO_NUMBER = 'This service\'s phone number is not on this screen. Find it in your service directory.';
+
+  it('says so, in place of a number, when "Phone them instead" is pressed', async () => {
+    render(<BookingCard booking={STATE_REQUESTED} serviceName="UCR West" servicePhone={null} now={() => Date.parse('2026-10-30T14:16:30Z')} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Phone them instead' }));
+
+    expect(screen.getByText(NO_NUMBER)).toBeInTheDocument();
+  });
+
+  it('says so on the no-reply card, where the way on is to phone', () => {
+    render(<BookingCard booking={STATE_EXPIRED} serviceName="UCR West" servicePhone={null} />);
+
+    expect(screen.getByText(NO_NUMBER)).toBeInTheDocument();
+  });
+
+  it('says so on the declined card', () => {
+    render(<BookingCard booking={STATE_DECLINED} serviceName="UCR West" servicePhone={null} />);
+
+    expect(screen.getByText(NO_NUMBER)).toBeInTheDocument();
+  });
+});

@@ -1,8 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { http, HttpResponse } from 'msw';
+import { server } from '@/test/msw/server';
 import { FakeStream } from '@/test/fakeStream';
 import { runAxe } from '@/test/a11y';
+import { byEl } from '@/test/el';
 import { BOOKING_ID, CASE_REF, SERVICE_ID, SERVICE_PHONE, SERVICE_WITH_OPEN_REQUEST, STATE_CONFIRMED, STATE_NOT_REACHED, STATE_REQUESTED, STATE_WITHDRAWN } from '@/test/fixtures/bookings';
 import { bookingStore, resetBookingRequests, seenAcknowledgements, seenBookingCancels, seenBookingPosts, seenBookingReads } from '@/test/msw/handlers/bookings';
 import { BookingPanel } from './BookingPanel';
@@ -156,25 +159,95 @@ describe('BookingPanel: cancelling (W21)', () => {
   });
 });
 
-describe('BookingPanel: withdrawal and not-reached alerts (W21)', () => {
-  it('opens the withdrawal alert on booking.updated with focus on its heading, and says why', async () => {
+describe('BookingPanel: withdrawal and not-reached alerts (W21, DEC-854)', () => {
+  it('opens the withdrawal alert on booking.updated on the shared dialog, and says why', async () => {
     await requestThenMove(STATE_WITHDRAWN);
-    expect(await screen.findByRole('alertdialog', { name: 'UCR West withdrew' })).toBeInTheDocument();
+    const alert = await screen.findByRole('alertdialog', { name: 'UCR West withdrew' });
     expect(screen.getByText('Reason: staffing. Withdrawn 14:41.')).toBeInTheDocument();
-    expect(document.activeElement).toBe(screen.getByRole('heading', { name: 'UCR West can no longer take this patient' }));
+    expect(document.activeElement).toBe(alert);
   });
 
-  it('acknowledges through the BFF, then goes to the options', async () => {
+  it('acknowledges through the BFF, once, from "I have phoned the caller", and the alert closes', async () => {
+    await requestThenMove(STATE_WITHDRAWN);
+    await userEvent.click(await screen.findByRole('button', { name: 'I have phoned the caller' }));
+
+    await vi.waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(seenAcknowledgements).toEqual([{ id: BOOKING_ID, csrf: CSRF, idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/) }]);
+    expect(document.querySelector('[data-el="ADV-WITHDRAWN-NOTICE"]')).toBeNull();
+  });
+
+  it('acknowledges from "The caller is already being helped" too', async () => {
+    await requestThenMove(STATE_WITHDRAWN);
+    await userEvent.click(await screen.findByRole('button', { name: 'The caller is already being helped' }));
+
+    await vi.waitFor(() => expect(seenAcknowledgements).toHaveLength(1));
+  });
+
+  it('does not acknowledge on "See options again": the alert gives way to a standing notice and the escalation keeps running (the old first-action rule fails here)', async () => {
     await requestThenMove(STATE_WITHDRAWN);
     await userEvent.click(await screen.findByRole('button', { name: 'See options again' }));
-    await vi.waitFor(() => expect(onSeeOptions).toHaveBeenCalledTimes(1));
-    expect(seenAcknowledgements).toEqual([{ id: BOOKING_ID, csrf: CSRF, idempotencyKey: expect.stringMatching(/^[0-9a-f-]{36}$/) }]);
+
+    expect(onSeeOptions).toHaveBeenCalledTimes(1);
+    expect(seenAcknowledgements).toEqual([]);
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    const notice = await vi.waitFor(() => byEl('ADV-WITHDRAWN-NOTICE'));
+    expect(notice).toHaveTextContent('UCR West withdrew. This is not answered yet: phone the caller, then answer the alert.');
   });
 
-  it('opens the not-reached alert for a not-reached booking', async () => {
+  it('does not acknowledge on "Ask a clinical advisor", and the notice stays', async () => {
+    const onAskClinical = vi.fn();
+    render(
+      <BookingPanel
+        caseRef={CASE_REF}
+        serviceId={SERVICE_ID}
+        serviceName="UCR West"
+        servicePhone={SERVICE_PHONE}
+        onAskClinical={onAskClinical}
+        openStream={() => {
+          stream = new FakeStream();
+          return stream;
+        }}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Request booking' }));
+    await screen.findByText('Requested');
+    bookingStore.current = STATE_WITHDRAWN as typeof bookingStore.current;
+    stream.emit('booking.updated', JSON.stringify({ serviceId: SERVICE_ID, kind: 'booking', changedAt: '2026-10-30T14:41:00Z' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Ask a clinical advisor' }));
+
+    expect(onAskClinical).toHaveBeenCalledTimes(1);
+    expect(seenAcknowledgements).toEqual([]);
+    await vi.waitFor(() => expect(byEl('ADV-WITHDRAWN-NOTICE')).toBeInTheDocument());
+  });
+
+  it('does not acknowledge on Escape, and the notice reopens the alert so it can be answered', async () => {
+    await requestThenMove(STATE_WITHDRAWN);
+    await screen.findByRole('alertdialog');
+    await userEvent.keyboard('{Escape}');
+
+    expect(seenAcknowledgements).toEqual([]);
+    await userEvent.click(await screen.findByRole('button', { name: 'Open the alert' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'I have phoned the caller' }));
+
+    await vi.waitFor(() => expect(seenAcknowledgements).toHaveLength(1));
+    await vi.waitFor(() => expect(document.querySelector('[data-el="ADV-WITHDRAWN-NOTICE"]')).toBeNull());
+  });
+
+  it('keeps the alert open and says so when the acknowledgement fails, so the escalation is never believed stopped', async () => {
+    server.use(http.post('/api/bff/bookings/:id/acknowledge', () => HttpResponse.json({ code: 'exception' }, { status: 502 })));
+    await requestThenMove(STATE_WITHDRAWN);
+    await userEvent.click(await screen.findByRole('button', { name: 'I have phoned the caller' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The answer could not be sent. The shift lead will still be told. Try again.');
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+  });
+
+  it('shows the not-reached alert for a not-reached booking, answered the same way', async () => {
     await requestThenMove(STATE_NOT_REACHED);
     expect(await screen.findByRole('alertdialog', { name: 'UCR West could not reach the patient' })).toBeInTheDocument();
     expect(screen.getByText('Reason: No answer at the door. Reported 14:41.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'I have phoned the caller' }));
+    await vi.waitFor(() => expect(seenAcknowledgements).toHaveLength(1));
   });
 
   it('ignores the withdrawal alert when the booking is still only requested', async () => {
@@ -183,5 +256,14 @@ describe('BookingPanel: withdrawal and not-reached alerts (W21)', () => {
     await screen.findByText('Requested');
     expect(screen.queryByRole('alertdialog')).toBeNull();
     expect(STATE_REQUESTED.status).toBe('requested');
+  });
+
+  it('has no axe violations with the alert open or with the standing notice', async () => {
+    await requestThenMove(STATE_WITHDRAWN);
+    await screen.findByRole('alertdialog');
+    expect(await runAxe(document.body)).toHaveNoViolations();
+    await userEvent.click(screen.getByRole('button', { name: 'See options again' }));
+    await vi.waitFor(() => byEl('ADV-WITHDRAWN-NOTICE'));
+    expect(await runAxe(document.body)).toHaveNoViolations();
   });
 });

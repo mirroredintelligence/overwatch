@@ -57,7 +57,7 @@ Neo4j in Docker is the only implementation of everything Neo4j stores. There are
 - `count_nodes(driver, label) -> int` and `node_props(driver, label, **match) -> dict`: for asserting on what is really stored.
 - `uow_factory` (fixture, added by P06 in `tests/support/uow.py`): returns a `UnitOfWorkFactory` that opens `Neo4jUnitOfWork` sessions on `neo4j_driver`.
 
-**Repository adapters.** Live in `adapters/outbound/graph_store/` (audit and outbox in `adapters/outbound/audit_neo4j/`), are named `Neo4j<Port>` (for example `Neo4jServiceRepository`, `Neo4jAuditLog`, `Neo4jOutbox`), and are constructed with the open `AsyncManagedTransaction` the unit of work holds and the G05 `ResourceStore` for FHIR resources: `Neo4jServiceRepository(tx, store)` (DEC-054). FHIR-shaped aggregates are saved and loaded through the resource store from G05 (no `json` property: the decomposed properties and relationships are the only stored copy, DEC-001 and DEC-049; `from_graph(to_graph(r)) == r` holds whenever `to_graph` accepts `r`, and a resource it cannot hold exactly is refused, not stored); platform nodes (`OutboxMessage`, `ScheduledWork`, `LinkToken`, `Processed`, `Credential`, `IdempotencyRecord`, ...) are written with named queries registered in G01's query registry. Every repository task's tests include, for each aggregate: a save-then-load round trip with `assert_round_trip`; a check of the stored node labels and key properties; for FHIR-backed aggregates, that `from_graph(to_graph(r)) == r` holds for each resource `to_graph` accepts (DEC-049); and the "not found" case.
+**Repository adapters.** Live in `adapters/outbound/graph_store/` (audit and outbox in `adapters/outbound/audit_neo4j/`), are named `Neo4j<Port>` (for example `Neo4jServiceRepository`, `Neo4jAuditLog`, `Neo4jOutbox`), and are constructed with the `ScopedTx` the unit of work holds (TEN-030, DEC-440: the constructors are annotated `ScopedTx`, so mypy refuses a raw transaction) and the G05 `ResourceStore` for FHIR resources: `Neo4jServiceRepository(tx, store)` (DEC-054). FHIR-shaped aggregates are saved and loaded through the resource store from G05 (no `json` property: the decomposed properties and relationships are the only stored copy, DEC-001 and DEC-049; `from_graph(to_graph(r)) == r` holds whenever `to_graph` accepts `r`, and a resource it cannot hold exactly is refused, not stored); platform nodes (`OutboxMessage`, `ScheduledWork`, `LinkToken`, `Processed`, `Credential`, `IdempotencyRecord`, ...) are written with named queries registered in G01's query registry. Every repository task's tests include, for each aggregate: a save-then-load round trip with `assert_round_trip`; a check of the stored node labels and key properties; for FHIR-backed aggregates, that `from_graph(to_graph(r)) == r` holds for each resource `to_graph` accepts (DEC-049); and the "not found" case.
 
 **Use-case tests.** Construct the use case with `uow_factory` plus the external fakes above. Assert outcomes by reading back through a fresh unit of work or the harness helpers, never by peeking into Python objects. Check rollback: when the use case raises, nothing it wrote is in the graph.
 
@@ -267,6 +267,14 @@ These names were added by individual task prompts. They are as binding as the re
 |---|---|
 | `application/use_cases/board_projector.py`: `BOARD_CACHE_KEY = "board:v1"`, `BOARD_CACHE_TTL` (60 s, [ASSUMED]), `BOARD_CHANGED = "board-changed"`, `REBUILD_EVENTS` (the seven event names that rebuild the board), `wall_actor(tenant_id, device_id=None)` in `application/actor.py` (replaces the `WALL_ACTOR` constant, TEN-018), `board_to_dict(board) -> dict`, `board_from_dict(data) -> Board`, `BoardProjector(query_board, cache, clock)` with `async handle(event_type, payload) -> bool` and `async get_board(actor) -> Board`. Message on `board.updates`: `{"type": "board-changed", "service_id": str or null, "at": ISO 8601 UTC}`, no figures. The cache holds the board as JSON under `board:v1`. | U09 |
 
+### Board projector, board cache key and stream (TEN-039, DEC-373)
+
+- `diucs.application.use_cases.board_projector`: `BoardAudience` (`ALL`), `board_cache_key(audience) -> str`, `BOARD_CACHE_KEY` (`board:v1:all`); `get_board` and `QueryBoard.execute` raise `TenantMismatch` / `TenantNotBound`.
+- `diucs.adapters.inbound.workers.board_consumer`: `BoardUpdateConsumer(projector).handle(message) -> Outcome`, `board_consumer(projector, tenants, observe) -> TenantBoundConsumer`, `board_runners(client, projector, tenants, observe) -> list[ServiceBusRunner]` (`capacity.events` with sessions, `booking.events`, subscription `board-projector`), `BoardRebuilder` (protocol), `BOARD_SUBSCRIPTION`, `CAPACITY_TOPIC`, `BOOKING_TOPIC`, `NOT_BOUND_REASON`.
+- `diucs.bootstrap.workers_main.build_runners(..., board_projector=None)`.
+- `GET /events`: unchanged path and shape; the actor is now a parameter.
+
+
 ## Email adapter (I09, DEC-110)
 - `adapters/outbound/email_smtp/smtp_email.py`: `SmtpEmail(settings)` implements `EmailSender`. `SmtpSettings` is the structural Protocol it reads (`smtp_host`, `smtp_port`, `smtp_user`, `smtp_password`, `smtp_starttls`, `email_from`). `build_message(to, subject, text, html, from_addr, message_id) -> EmailMessage` and `text_to_html(text, link_label) -> str` are module functions. The settings are read by `bootstrap/settings.py` as `Settings` fields with the same names.
 
@@ -278,11 +286,20 @@ These names were added by individual task prompts. They are as binding as the re
 - `domain/errors.py`: `EffectiveBeforeConfirmation(ValidationFailed)`, a number whose explicit effective time is before the latest confirmed figure. Created by U02 round 3 (DEC-140).
 - `application/use_cases/report_capacity.py`: `record_report(..., use_case=, audit_snapshot=)` gains two optional keyword arguments, and `_check_may_report` is renamed to the public `check_may_report`. Changed by U02 (DEC-112 item 1).
 
+### ReportCapacity tenant guard and performer check (TEN-024, DEC-351)
+
+- `report_capacity.PERFORMER_NOT_FOUND`, `report_capacity.check_performer(role, *, service_id, actor, now) -> None` (raises `NotFound`).
+- `record_report(..., policy: TenantPolicy = DEFAULT_POLICY, config_version: int | None = None)`.
+- `report_flags.report_lookback(policy=DEFAULT_POLICY) -> timedelta`; `raise_report_flags(..., policy=DEFAULT_POLICY)`.
+- `ReportCapacity.execute` raises `TenantMismatch` or `TenantNotBound` (500) and `NotFound` for a performer that is not the actor's role.
+- Audit snapshot of a report (U01): `value`, `source`, `status_before`, `status_after`, and `config_version` when a version is in force.
+
+
 ## Tenancy seam, step one (TEN-001, DEC-142, DEC-144)
 - `application/tenancy.py` (standard library only): `ScopeKind` (`TENANT = "tenant"`, `NETWORK = "network"`), `ScopeId(value, kind)` with `ScopeId.tenant(value)`, `ScopeId.network(value)` and `ScopeId.parse(value)` (the `net-` prefix decides the kind; an invalid value raises `ScopeInvalid`), `NETWORK_PREFIX`, `DEFAULT_TENANT_ID = "default"`, `TENANT_ID_PATTERN`, `NETWORK_ID_PATTERN`, `is_valid_tenant_id(text) -> bool`. Binding: `bind_scope(scope)` and `bind_tenant(tenant_id)` (context managers; the edge binds once per unit of work), `current_scope_or_none()`, `current_scope()` and `current_tenant()` (each raises `TenantNotBound` when nothing is bound; `current_tenant()` also when the bound scope is a network). Errors, all `TenancyError(RuntimeError)`, none a `DomainError`, no constructor argument, one fixed message each: `ScopeInvalid`, `TenantNotBound`, `TenantParameterRefused`, `QueryNotRegistered`, `GlobalStatementMisuse`. There is no mode.
-- `adapters/outbound/graph_store/queries.py`: `NamedQuery(id, cypher, mode, scope="tenant", scenario=None)` and `QueryTemplate(...)` (same fields; one `{insert}` place), `QueryRegistry(unconverted=UNCONVERTED)` with `register`, `register_template`, `instance(template_id, insert="")`, `template(template_id)`, `get`, `ids`, `template_ids`, `is_registered(query)`, `is_tenant_pending(query)`, `needs_conversion(query)` and `ratchet_ids()`; `REGISTRY`, `GLOBAL_QUERY_IDS` (id to reason; only `Q-NEO4J-PING`), `TenantPredicateMissing` and `ScenarioMissing` (both `ValueError`). `adapters/outbound/graph_store/unconverted.py`: `UNCONVERTED`, the ratchet (ids of statements and templates that do not mention `$tenant` or have no scenario; it may only shrink).
+- `adapters/outbound/graph_store/queries.py`: `NamedQuery(id, cypher, mode, scope="tenant", scenario=None)` and `QueryTemplate(...)` (same fields; one `{insert}` place), `QueryRegistry(unconverted=UNCONVERTED)` as TEN-001 built it, with `register`, `register_template`, `instance(template_id, insert="")`, `template(template_id)`, `get`, `ids`, `template_ids`, `is_registered(query)`, `is_tenant_pending(query)`, `needs_conversion(query)` and `ratchet_ids()` (superseded by TEN-030, DEC-440: `QueryRegistry()` takes no argument and the ratchet methods are gone); `REGISTRY`, `GLOBAL_QUERY_IDS` (id to reason; only `Q-NEO4J-PING`), `TenantPredicateMissing` and `ScenarioMissing` (both `ValueError`). `adapters/outbound/graph_store/unconverted.py`: `UNCONVERTED`, the ratchet (ids of statements and templates that do not mention `$tenant` or have no scenario; it may only shrink). Deleted by TEN-030 (DEC-440): there is no ratchet and no list of unconverted ids.
 - `adapters/outbound/graph_store/scenario.py` (TEN-004, DEC-150): `Scenario(description, seed=TenantSeed(), params={}, lookup=(), expect=Expect(), insert="")`, `TenantSeed(nodes, rels)`, `SeedNode(ref, labels, props)`, `SeedRel(start, type, end)`, `Expect(rows, after, gone, nodes, rels)`, `NodeSpec(labels, props)`, the per-tenant values `Marked(base)` and `Unique(base, constraint)`, `render(value, slot)`, `validate_scenario(query_id, scenario) -> list[str]`, `collision_blocked(scenario)`, `constraints_used(scenario)` and `SINGLE_PROPERTY_UNIQUE` (constraint name to label and property). A scenario is data; `Scenario("text")` alone builds but does not validate. The generated test is `tests/integration/graph_store/test_tenant_isolation.py` over `tests/support/query_probes.py` (`run_isolation`, `production_statements`, `scenario_gaps`, `ratchet_problems`, `INITIAL_UNCONVERTED`), `tenant_seed.py` and `predicate_removal.py`.
-- `adapters/outbound/graph_store/driver.py`: `run_query(tx, query, /, *, registry=None, **params)` and `run_global_query(...)` take a registered `NamedQuery` and nothing else (no string); `run_query` binds the tenant, refuses the keywords `tenant` and `parameters`, and passes the parameters to `tx.run` as one dict. Callers write `run_query(tx, REGISTRY.get("Q-ID"), ...)`.
+- `adapters/outbound/graph_store/driver.py`: `run_query(tx, query, /, *, registry=None, **params)` and `run_global_query(...)` take a registered `NamedQuery` and nothing else (no string); from TEN-030 (DEC-440) `run_query` takes a `ScopedTx` only, and it binds the tenant, refuses the keywords `tenant` and `parameters`, and passes the parameters to `tx.run` as one dict. Callers write `run_query(tx, REGISTRY.get("Q-ID"), ...)`.
 - Tests: `tests/architecture/test_single_execution_point.py` holds `BINDING_MODULES`, `TENANT_PARAMETER_MODULES` (dotted module names, empty) and `BUILT_CYPHER_RATCHET` (module and count of statements that splice a constant; it may only shrink).
 
 ## HandleInboundText (U05, DEC-148)
@@ -303,11 +320,20 @@ These names were added by individual task prompts. They are as binding as the re
 
 
 ## Tenancy seam, unit of work and scoped transaction (TEN-002, DEC-146)
-- `adapters/outbound/graph_store/driver.py`: `ScopedTx(tx, scope)` (frozen; a transaction and the `ScopeId | None` its unit of work opened under; it has no `run`), `type Tx = AsyncManagedTransaction | AsyncTransaction | ScopedTx` (transitional; TEN-030 narrows it to `ScopedTx`). `run_query` and `run_global_query` take a `Tx`: on a `ScopedTx` the scope is the one it carries and the ambient context is ignored; on a raw transaction it is the ambient scope, as before.
+- `adapters/outbound/graph_store/driver.py`: `ScopedTx(tx, scope)` (frozen; a transaction and the `ScopeId | None` its unit of work opened under; it has no `run`), `type Tx = ScopedTx` since TEN-030 (DEC-440); under TEN-002 it was `AsyncManagedTransaction | AsyncTransaction | ScopedTx`. `run_query` takes a `Tx`: the scope is the one the `ScopedTx` carries and the ambient context is ignored; a raw transaction is refused with `RawTransactionRefused` before any Cypher runs. `run_global_query` takes a `GlobalTx`, which admits a raw transaction (the health ping, the tenant directory, the invariant check).
 - `application/tenancy.py`: `UnitOfWorkAlreadyOpen`, `UNIT_OF_WORK_OPEN_MESSAGE`, `claim_unit(owner)`, `release_unit(owner)` (called only by the graph store's unit of work), `scope_for_new_unit() -> ScopeId | None` (the one place that reads the scope when a unit, or any code that opens its own transaction, opens).
 - `application/ports/outbound/unit_of_work.py`: `UnitOfWork.unit_scope -> ScopeId | None` (read-only; raises `RuntimeError` before the unit is entered). `Neo4jUnitOfWork.unit_scope` implements it. (`uow.scope` stays the scope list repository.)
 - `adapters/outbound/graph_store/connection.py`: `Neo4jConnection.run_scoped_read(work)` and `run_scoped_write(work)`, where `work` takes a `ScopedTx`: the supported way for a worker to run scoped work outside a unit of work.
 - `tests/support/fake_neo4j.py`: `FakeDriver`, `FakeSession`, `FakeTx`, a recording stand-in for the driver in unit tests (not a store).
+
+### Enforced execution (TEN-030, DEC-440)
+
+- `application.tenancy.RawTransactionRefused` (fixed message `RAW_TRANSACTION_MESSAGE`); `scope_for_new_unit() -> ScopeId` (raises `TenantNotBound`).
+- `graph_store.driver`: `type Tx = ScopedTx`, `type GlobalTx = AsyncManagedTransaction | AsyncTransaction | ScopedTx`; `ScopedTx.scope: ScopeId` (never `None`); `run_query(tx: Tx, ...)`, `run_global_query(tx: GlobalTx, ...)`.
+- `graph_store.queries`: `QueryRegistry()` (no argument), `TenantPredicateMissing`, `ScenarioMissing`; removed: `UNCONVERTED`, `ratchet_ids`, `needs_conversion`, `is_tenant_pending`, the module `graph_store/unconverted.py`.
+- Tests: `tests/support/leaky_registry.LeakyRegistry`, `tests/support/scoped.OpenTx`, `scoped(tx)`, `scoped_stub(tx, tenant)`; `tests/support/query_probes`: `scenario_gaps(statements)`, `predicate_problems(statements)` (the ratchet functions and `INITIAL_UNCONVERTED` are gone).
+- `backend/scripts/guard_mutants.py` (run from `backend/`: `uv run python scripts/guard_mutants.py [M01 ...]`).
+
 
 ## Tenant per run in the test harness (TEN-003, DEC-147)
 - `tests/support/tenancy.py`: `RunIdentity(pid, started, nonce)` with `token`, `tenant_id` (`tt-<token>`), `other_tenant_id` (`tt-<token>-b`) and `network_id` (`net-<token>`); `new_run_identity(*, pid=None, now=None, nonce=None)`, `parse_run_id(value) -> RunIdentity | None`; `TenantLeak`, `LEAK_MESSAGE`, `assert_bound_to`, `as_tenant`, `in_tenant`, `tenant_scope`, `guard_async_test`, `guard_sync_test`, `guard_test`.
@@ -355,13 +381,39 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `bootstrap/container.py`: `Container.tenants`, `Container.secrets`; `build(settings, *, secrets=None)` (`NoSecrets` when none: every name `NotFound`), `build_for_tests(clock, ids, *, neo4j, secrets=None)`; `startup()` opens, applies the migrations and ensures the audit head, and closes the connection if either fails. `Neo4jConnection.driver` (read-only property).
 - Tests: `tests/support/directory_connection.py` (`RecordingConnection`: a stand-in connection that answers by statement id and records the calls).
 
+### Per-tenant derived keys (TEN-023, DEC-350)
+
+- `diucs.domain.rules.tenant_keys`: `hkdf_sha256(key_material, *, salt, info, length)`, `derive_tenant_key(platform_key, tenant_id, purpose) -> bytes`, `uses_legacy_key(tenant_id)`, `key_version_for(tenant_id)`, `check_key_version(tenant_id, version)`, `KeyVersionMismatch`, `PER_TENANT_KEY_NAMES`, `HASH_KEY_VERSION_LEGACY` (0), `HASH_KEY_VERSION_DERIVED` (1), `KEY_BYTES` (32), `LEGACY_KEY_TENANT` (`default`).
+- `diucs.application.ports.outbound.identity`: `TenantKeyedSecrets(platform: SecretStore)` with `get(name)` and `is_configured(name)`; `secret_is_configured(store, name) -> bool`.
+- `Container.secrets` in `build()` is a `TenantKeyedSecrets`; in `build_for_tests()` it is the store passed.
+
+
 ## Tenant schema: composite keys, the stamp and the migration runner (TEN-005, DEC-159)
 - `adapters/outbound/graph_store/migration_types.py`: `Migration(id, statements=(), loops=(), params={}, batch=10_000)` (frozen; `batch` at least 1; `params` read-only), `MigrationFailed(RuntimeError)` and `MAX_LOOP_ITERATIONS = 10_000`. A loop statement receives `$batch` and the migration's parameters and returns exactly one row with an integer `changed`. The message of a failure is `migration <id> failed at statement <n> | loop <n> | record: <ExceptionClass>`.
 - `adapters/outbound/graph_store/migrations.py`: `CORE_MIGRATIONS` (the 26 entries of `0001` to `0030`, never edited; a unit test pins a digest), `assemble_migrations(*areas) -> list[Migration]` (sorted by id; a duplicate id is a `ValueError`), `MIGRATIONS` (core, tenant and network areas together) and `apply_migrations(driver, migrations=None) -> list[str]`. Each later task adds its migrations to its own area module and never edits the core list.
 - `adapters/outbound/graph_store/migration_loop.py`: `run_loop(driver, statement, params, *, batch, max_iterations) -> int`, `LoopResultInvalid`, `LoopDidNotFinish`.
 - `adapters/outbound/graph_store/migrations_tenant.py`: `REGISTRY_LABELS`, `CompositeConstraint`, `CompositeIndex`, `COMPOSITE_CONSTRAINTS` (20), `COMPOSITE_INDEXES` (6), `SUPERSEDED_CONSTRAINTS` (18) and `SUPERSEDED_INDEXES` (6) for TEN-032, `STAMP_DEFAULT_TENANT`, `OPEN_REFERENCE_BACKFILL`, `UNSTAMPED_NODES_QUERY`, `CROSS_SCOPE_RELATIONSHIPS_QUERY`, `ROLLBACK_0031`, `TENANT_MIGRATIONS` (`0031_tenant_composites`, `0032_backfill_default_tenant`, `0033_case_open_reference`), `backfill_default_tenant(driver, *, batch=10_000) -> int` and `invariant_violations(driver) -> {"unstamped_nodes": [...], "cross_scope_relationships": [...]}`. `migrations_network.py`: `NETWORK_MIGRATIONS` (empty; TEN-051 and TEN-053).
 - Graph: `ServiceRequest.openReference` (the reference while the case is open, absent once it closes), constraint `tenant_case_open_reference`. Composite constraints are named `tenant_<...>`; the global constraint is `migration_id` on `Migration.id`; `link_token_hash` stays a single-property key.
-- Tests: `tests/support/tenant_seed.py` holds `SUPERSEDED_CONSTRAINT_NAMES`, `SUPERSEDED_INDEX_NAMES`, `schema_names(driver)`, `contract_schema(driver)` and `contracted_container()` (a private container with the superseded keys dropped, which the generated two-tenant test runs on until TEN-032). `tests/architecture/test_single_execution_point.py` names `MIGRATION_RUNNER_FILES` (the files that may run Cypher beside `driver.py`).
+- Tests: `tests/support/tenant_seed.py` holds `SUPERSEDED_CONSTRAINT_NAMES`, `SUPERSEDED_INDEX_NAMES`, `schema_names(driver)`, `contract_schema(driver)` and `contracted_container()` (a private container with the superseded keys dropped; since TEN-032 the shared schema has no such keys, so it drops nothing that exists and is kept, see the TEN-032 section). `tests/architecture/test_single_execution_point.py` names `MIGRATION_RUNNER_FILES` (the files that may run Cypher beside `driver.py`).
+
+### Invariant check (TEN-031, DEC-441, DEC-442)
+
+- `graph_store.invariants`: `Neo4jTenantInvariants(connection).check() -> InvariantReport`; `UNSTAMPED_QUERY_ID = "Q-INVARIANT-UNSTAMPED"`, `CROSS_SCOPE_QUERY_ID = "Q-INVARIANT-CROSS-SCOPE"`.
+- `graph_store.queries`: `GLOBAL_WHOLE_GRAPH_IDS` (frozenset of the two ids); the two ids on `GLOBAL_QUERY_IDS` and `GLOBAL_STATEMENTS`.
+- `graph_store.health`: `invariant_health(monitor) -> Health`.
+- `application.ports.outbound.invariants`: `UnstampedNodes`, `CrossScope`, `InvariantReport` (`ok`, `unstamped_total`, `cross_scope_total`, `summary()`), `TenantInvariants` (protocol: `async check()`), `TenantInvariantViolated(report)` (a `RuntimeError`, `.report`).
+- `application.use_cases.tenant_invariants`: `INVARIANT_RUN_AT` (03:30 London), `next_run_due`, `first_run_due`, `invariant_work_id`, `InvariantMonitor` (`record`, `report`, `raised`), `RunInvariantCheck`, `RunInvariantCheckCommand`, `InvariantCheckResult`, `ensure_invariant_schedule`.
+- `application.work.WorkKind.INVARIANT_CHECK = "invariant-check"`.
+- `Container.invariants`, `Container.invariant_monitor`; `Container.startup()` raises `TenantInvariantViolated`; `Container.seed_daily_schedules` also seeds the invariant check; `container.invariant_check_handler`.
+
+### Contract migration (TEN-032, DEC-450)
+
+- `adapters/outbound/graph_store/migrations_contract.py`: `CONTRACT_MIGRATION_ID` (`0105_drop_superseded_keys`), `CONTRACT_MIGRATIONS` (one `Migration`).
+- `migration_types.Migration.requires: tuple[str, ...] = ()`: constraint names that must exist before the migration runs.
+- `migrations.py`: `MIGRATIONS` now ends with `0105_drop_superseded_keys`; the runner raises `MigrationFailed` at the step `precondition` when a required constraint is missing.
+- The production schema after this migration: no unique constraint on a tenant label other than `link_token_hash` is single-property; `SUPERSEDED_CONSTRAINTS` (18) no longer exist on a migrated database; `SUPERSEDED_INDEXES` (6) still do.
+
+
 
 ## Outbox relay worker (I03, DEC-157)
 - `adapters/inbound/workers/outbox_relay.py`: `OutboxRelay(uow_factory, bus, cache, clock, tenants, batch_size=100, *, poll_interval_s=1.0, backoff_start_s=1.0)` with `async run_once() -> RelayResult` and `async run_forever(stop: asyncio.Event)`; `RelayResult(published, failed, skipped_no_lock)`; `ActiveTenants` (Protocol, `async active_tenant_ids() -> Sequence[str]`; TEN-007's `TenantDirectory` satisfies it); `StaticTenants(ids)`; constants `LOCK_NAME = "outbox-relay"`, `LOCK_TTL` (30 s), `LOCK_MARGIN` (5 s), `BATCH_SIZE` (100), `BACKOFF_START_SECONDS` (1), `BACKOFF_CAP_SECONDS` (60), `POLL_INTERVAL_SECONDS` (1), `SCHEDULED_WORK_DUE = "ScheduledWorkDue"`. The relay binds one tenant per round, and every `BusMessage` it sends carries `tenant_id`.
@@ -377,6 +429,14 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `application/ports/outbound/messaging.py`: `statuses_before(status) -> tuple[str, ...]` (the statuses a Communication may move from to reach `status`: queued, then sent, then delivered or failed, which are final; `received` and `grouped` never move; an unknown status is a `ValueError`), and `CommunicationRepository.set_delivery_status` now returns True only when the record moved (an unknown provider id, a refused move and a repeat are False), decided under the record's write lock.
 - `bootstrap/workers_main.py`: `python -m diucs.bootstrap.workers_main`; `configured_tenants(environ)` reads `DIUCS_WORKER_TENANTS` (a stand-in for the directory), `service_bus_connection(settings)`, `build_runners(client, handle_inbound_text, uow_factory, tenants)`, `run_workers(loops, stop)`, `serve(settings, tenants, stop)`, `WorkersConfigError`. `graph_store/connection.py`: `Neo4jConnection.driver` (read-only property).
 - Tests: `tests/support/inbound_rig.py` (`reply_message`, `receipt_message`, `RecordingUseCase`, `UnitLog`, `logging_factory`, `Receiver`, `raw`).
+
+### Consumer framework binds and verifies the tenant (TEN-025, DEC-352)
+
+- `consumer.TENANT_MISMATCH` (`tenant-mismatch`); `IdempotentConsumer.handle` dead-letters with it before a unit opens, or before the message is marked.
+- `tenant_binding.NO_TENANT` (`tenant-missing`), `BAD_TENANT` (`tenant-malformed`), `UNKNOWN_TENANT` (`tenant-unknown`); `TenantBoundConsumer.binds_tenant: ClassVar[bool] = True`.
+- `servicebus_runner.ConsumerNotTenantBound(TypeError)`, `CONSUMER_NOT_TENANT_BOUND`; `MalformedMessage(reason: str | None = None)` with `.reason`.
+- `workers_main.serve(settings, stop)`, `workers_main._run(settings)`; `configured_tenants` and `DIUCS_WORKER_TENANTS` removed.
+
 
 ## Grouped prompts (U04, DEC-158)
 - `application/use_cases/send_prompts.py`: `prompt_key(service_id, due) -> str` (`prompt:<service_id>:<due in UTC, isoformat>`: the idempotency key of the prompt for a service at a due instant; the `prompt-due` job builds its `SendPromptCommand.idempotency_key` with it, because a grouped prompt stores the other services' results under these keys), and `SendPromptResult.grouped_service_ids: tuple[str, ...] = ()` (every service prompted in one C9 with this one, itself included, in letter order; empty when prompted alone). `SendPrompts`'s constructor and `SendPromptCommand` are unchanged.
@@ -413,7 +473,7 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `adapters/inbound/link_pages/capacity_links.py`: `router` (`GET /links/{token}`, `POST /links/{token}`, `POST /links/{token}/renew`), `LinkPagesDeps(cache, sealer)` (set on `app.state.link_pages` by the serving process; the container supplies `tenants` and `secrets`), `RedactLinkTokens` and `install_log_redaction()` (the access log shows `/links/[token]`), `LINK_PAGE_PATH = "/l"`, `LINK_SCHEME`, `SEND_THE_NUMBER_TEXT = "Please send the number"`. The tenant is the active tenant of the request host (`TenantDirectory.by_host`). Mounted by `fhir_rest/app.py`.
 - `application/use_cases/link_access.py`: `ViewLink`, `RespondViaLink`, `RenewLink` (each `(uow_factory, clock, secrets, cache, link_tokens: LinkTokenServiceFactory, purposes: LinkPurposes)`, `async execute(query_or_command)`), `ViewLinkQuery(token, client)`, `RespondViaLinkCommand(token, csrf_token, action: LinkAction, client)`, `RenewLinkCommand(token, client, link_base_url)`, `LinkAction(action, value=None, confirm_out_of_range=False)`, `LinkView(purpose, body)`, `LinkResponse(body)`; errors `LinkGone(state)` (`expired` or `used`), `CsrfRejected`, `LinkOutOfRange(usual_min, usual_max)`, `SendTheNumber(reason)` (`no-figure`, `limit`, `stale`, `changed`), `LinkRateLimited(retry_after_seconds)`; the purpose registry `LinkPurposes = Mapping[str, LinkPurposeHandler]` (`view`, `respond`, `renew`) keyed by the stored purpose, with `CapacityLinkHandler` registered for `capacity-reply` (L02 registers `booking-request`); `csrf_token(token_hash, secret)`, `command_key(scope, record)` (`link:<tenant>:<hash>`), `LINK_CSRF_SECRET = "link-csrf"`, the rate-limit constants (`REQUESTS_PER_WINDOW` 60 a minute, `BAD_ATTEMPTS_PER_ADDRESS` 20 in 10 minutes, `RENEWALS_PER_WINDOW` 20 in 10 minutes), `UnitOfWorkIdempotency(uow_factory)`.
 - JSON: `GET` 200 `{state: "ok", purpose, serviceName, unitLabel, recordedValue, asOf, usualMin, usualMax, replyBy, nextDue, csrfToken}`; 410 `{state: "expired" | "used"}`; `POST` 200 `{serviceName, value, unitLabel, recordedAt, nextDue}`, 400 `{state: "invalid"}`, 403 `{state: "forbidden"}`, 409 `{state: "send-number", reason, message}`, 410, 422 `{state: "out-of-range", usualMin, usualMax}`, 429 `{state: "rate-limited"}` with `Retry-After`; `renew` 202 `{state: "accepted"}`. Times are ISO 8601 UTC with a `Z`. W04's prompt describes another shape; it follows this one.
-- `adapters/outbound/graph_store/link_token_repository.py`: `Q-LINK-ADD`, `-GET`, `-MARK-USED`, `-BURN-KEY` are tenant statements with scenarios (off the ratchet); a `LinkToken` node carries `tenantId`.
+- `adapters/outbound/graph_store/link_token_repository.py`: `Q-LINK-ADD`, `-GET`, `-MARK-USED`, `-BURN-KEY` are tenant statements with scenarios (registered statements; there is no ratchet since TEN-030); a `LinkToken` node carries `tenantId`.
 - `tests/support/link_rig.py`: `LinkRig`, `build_link_rig`, `ucr_west`, `token_hash_of`; `ladder_rig.build_rig(..., clock=)`.
 
 ## Capacity link pages (W04, DEC-172)
@@ -457,6 +517,16 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - Constants: `MESSAGES_TOPIC`, `SEND_MESSAGE_EVENT`, `CONSUMER_SMS`, `CONSUMER_EMAIL`, `SMS_SUBSCRIPTION`, `EMAIL_SUBSCRIPTION`, `PUSH_SUBSCRIPTION`; reason codes `NO_CONTACT`, `NO_CHANNEL`, `REFUSED`, `SEND_FAILED`.
 - `FixedSenderResolver(sms=, email=)` (test fake; keyed by the bound tenant).
 - Config: `text-sender`, `email-sender`, `push-sender` on `messages.outbound` carry SQL rules.
+
+### Per-tenant email and credentials (TEN-042, DEC-374)
+
+- `SenderResolver.email_for(channel: TenantChannel | None) -> EmailSender` (was `email_for()`); `FixedSenderResolver.email_for(channel=None)`.
+- `diucs.adapters.outbound.email_smtp.smtp_email`: `SmtpRelay(host, port=587, starttls=True)`, `SmtpIdentity(from_address, display_name=None, username=None, password=None)` (properties `domain`, `sender`), `SmtpEmail(relay, identity)` (was `SmtpEmail(settings)`); `SmtpSettings` is gone.
+- `diucs.bootstrap.tenant_senders`: `TenantSenderResolver(directory, secrets, http, status_url, smtp_relay=None)`, `smtp_relay_from(settings) -> SmtpRelay`.
+- `diucs.adapters.inbound.workers.message_senders`: the sender hook `_send(uow, address, outbound, outbox_id)` (the unit of work is now passed).
+- `diucs.adapters.testing.recording_senders`: `RecordingSmsSender(identity=None)`, `RecordingEmailSender(identity=None)`, `RecordedSms` and `RecordedEmail` gain `tenant` and `identity`.
+- `Settings`: removed `twilio_account_sid`, `twilio_auth_token`, `twilio_from`, `smtp_user`, `smtp_password`, `email_from`; kept `sms_provider`, `smtp_host`, `smtp_port`, `smtp_starttls`.
+
 
 ## Postcode centroids and straight-line travel (I11, DEC-200)
 
@@ -651,6 +721,14 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `diucs.domain.rules.pressure.system_pressure` and `diucs.domain.rules.reply_policy.decide_capacity_reply` gain the same optional last parameter.
 - the optional `policy` parameter on the nine functions above (DEC-133 item 4); no new names.
 
+### Time zone argument (TEN-065, DEC-353)
+
+- `london_time`: `zone_named(name) -> ZoneInfo`, `require_zone(zone) -> ZoneInfo`, `to_local(dt, zone=LONDON)`, `local_to_utc(d, t, zone=LONDON)`, `format_hhmm(dt, zone=LONDON)`, `format_stamp(dt, zone=LONDON)`; `to_london`, `london_to_utc` unchanged.
+- `opening_hours.is_in_hours(times, now, zone=LONDON)`, `next_opening(times, now, zone=LONDON)`.
+- `schedule.due_times_on(profile, local_day, policy=DEFAULT_POLICY, zone=LONDON)`, `next_due(profile, now, policy=DEFAULT_POLICY, zone=LONDON)`, `current_due(...)` likewise.
+- `freshness.assess_freshness(profile, last_report_at, now, policy=DEFAULT_POLICY, zone=LONDON)`; `status.compute_status(profile, latest, confirmed_at, now, policy=DEFAULT_POLICY, zone=LONDON)`; `alerts.should_notify(prefs, alert, now, zone=LONDON)`.
+
+
 ## Tenant wording in templates (TEN-022, DEC-234)
 
 - `diucs.domain.messages.templates.render`: new fields `system_name` (I2), `referral_system_name` (B1, B2), `coordination_team_name` (K4) and `confirm_limit` (C6). Each is required and has no default.
@@ -667,6 +745,14 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `domain/rules/grant.py`: `transition_grant`, `propose_grant`, `approve_grant`, `decline_grant`, `end_grant`, `lapse_grant`, `lapse_grants_for_member`, `revise_grant`, `supersede_grant`, `is_effective`, `was_effective_at`, `effective_grant`, `may_project`, `end_reason`
 - `domain/rules/listing.py`: `ListingPresentation`, `transition_listing`, `request_listing`, `admit_listing`, `decline_listing`, `suspend_listing`, `reinstate_listing`, `withdraw_listing`, `withdraw_for_leave`, `listing_presentation`, `visible_scopes`, `shows_on_board`, `may_project_listing`
 
+### Network events and the projection message (TEN-038, DEC-372)
+
+- `diucs.domain.events`: `NetworkCreated(network_id, owner_tenant_id, at)`, `MemberAdded(network_id, member_tenant_id, at)`, `MemberRemoved(network_id, member_tenant_id, reason: MembershipEndReason, at)`, `AgreementRecorded(network_id, reference, version, at)`, `GrantProposed(grant_id, network_id, grantor_tenant_id, scope: GrantScope, version, at)`, `GrantApproved(..., by: GrantApprover, at)`, `GrantEffective(..., effective_from, at)`, `GrantEnded(..., reason: GrantEndReason, at)`, `ProjectionApplied(network_id, source_tenant_id, kind: GrantScope, item_id, source_version, at)`, `ProjectionRejected(network_id, source_tenant_id, kind, reason: ProjectionRejectReason, at)`, `ServiceDirectoryChanged(service_id, source: DirectorySource, at)`; each with `event_type`, `to_payload()`, `decode(payload)`.
+- `ProjectionRejectReason` (`grant-not-effective`, `member-not-active`, `listing-not-admitted`, `allowlist-mismatch`, `invalid-body`).
+- `ProjectionRequested(network_id, source_tenant_id, grant_id, grant_version, kind, source_service_id, source_version, allowlist_version, body, at)` with `message_type`, `to_payload()`, `decode(payload)`; `ProjectionValue`; `PAYLOAD_EXCEPTIONS`; `NETWORK_EVENTS` (`network.events`); `PROJECTION_WORK` (`projection.work`); limits `MAX_BODY_KEYS` (40), `MAX_BODY_TUPLE` (50), `MAX_BODY_TEXT` (200).
+- `TOPICS` gains `network.events`.
+
+
 ## Network screens specification (TEN-063, DEC-236)
 
 - Components named in the specification (built by TEN-069 to TEN-072, TEN-080 to TEN-082): `ScopeHeader`, `ScopeSwitch`, `OrgLabel`, `NetworkBoard`, `NetworkBoardList`, `NetworkServices`, `NetworkServiceDetail`, `NetworkHistory`, `NetworkWeek`, `NetworkNotAvailable`, `NetworkPaused`, `NetworkMembershipEnded`, `NetworkSourceStopped`, `NetworkSourceDelayed`, `NetworkOffline`, `NetworkWallFallback`, `ScreenList`, `ScreenBoardChoice`, `ScreenClaim`, `ScreenUnpair`, `WallNetwork`, `ScreenDisconnected`, `NetworkMembers`, `NetworkMemberAdd`, `NetworkMemberEnd`, `NetworkAgreement`, `NetworkGrants`, `NetworkListings`, `NetworkHealth`, `NetworkAdminHistory`, `SharingOverview`, `SharingFields`, `SharingEnd`, `SharingLeave`, `SharingAgreement`, `SharingHistory`, `AllowlistFields`.
@@ -677,6 +763,13 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 ## OpenCase and UpdateCase (U11, DEC-237)
 
 - `diucs.application.use_cases.open_case`: `OpenCaseCommand`, `OpenCaseResult`, `OpenCase`, `UpdateCaseCommand`, `UpdateCaseResult`, `UpdateCase`, `OPEN_CASE`, `UPDATE_CASE`, `ALLOWED_ROLES`, `check_role`, `tenant_scope`, `district_for`, `new_open_case`, `missing_fields`, `apply_update`, `snapshot_of`, `free_reference`, `replay_key`, `open_fingerprint`, `update_fingerprint`.
+
+### Case endpoints and $filter-options (R07, DEC-397 to DEC-399)
+
+- routes_cases: POST /fhir/ServiceRequest; PUT /fhir/ServiceRequest/{id}; POST /fhir/ServiceRequest/{id}/$close; POST /fhir/HealthcareService/$filter-options; POST /fhir/HealthcareService/{id}/$advisor-phoned; POST /fhir/HealthcareService/{id}/$declined.
+- ApiContainer gains postcodes (PostcodeLocator), travel (TravelTime) and rng (random.Random) (app.py).
+- Extensions: https://diucs.example/StructureDefinition/age-band (valueCode), .../referrer-type (valueCode); reasonCode system code_system_url("need-category").
+
 
 ## SetupServiceByLead (U15, DEC-238)
 
@@ -701,6 +794,16 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 
 - `diucs.application.use_cases.text_code`: `RequestTextCodeCommand`, `RequestTextCodeResult`, `VerifyTextCodeCommand`, `VerifyTextCodeResult`, `RequestTextCode(code_store, phone_hasher, uow_factory, secret_store, sealer, ids, clock, rng)` (the spec's `code_sender` is replaced by `sealer` and `ids`: the send is an outbox event), `VerifyTextCode(code_store, phone_hasher, uow_factory, secret_store, clock)`, `check_purpose`, `code_key`, `new_code`, `code_hash`, `cooldown_seconds`, `verify_fields`, `CODE_HMAC_SECRET` (`code-hmac`), `INVITATION_PURPOSE` (`invite`), `PURPOSES`, `CODES_TOPIC` (`codes.dispatch`), `SEND_CODE` (`SendCode`), `DISCARD_CODE` (`DiscardCode`).
 - `LinkTokenRepository.open_for_phone(purpose, phone_hash, now) -> LinkTokenRecord | None` (tokens.py, Neo4jLinkTokenRepository).
+
+### Reporter identity routes and push endpoints (R11, DEC-413 to DEC-416)
+
+- Routes (`adapters/inbound/fhir_rest/routes_identity.py`, router prefix `/identity`): `POST /identity/code`, `POST /identity/code/verify`, `POST /identity/pin`, `POST /identity/pin/verify`, `GET /identity/status`, `POST /identity/push-subscription`, `DELETE /identity/push-subscription`. Bodies, answers and codes as in DEC-413 and DEC-415. Constants `DEVICE_ID_PATTERN`, `DEVICE_HEADER`, `PUSH_DEVICE_PREFIX`, `ADDRESS_CODE_REQUESTS`, `ADDRESS_CODE_CHECKS`, `ADDRESS_PIN_ATTEMPTS`, `ADDRESS_STATUS_READS`.
+- `application/use_cases/reporter_identity.py`: `unknown_person`, `ConfirmDeviceByTextCode` (`ConfirmDeviceCommand`, `ConfirmDeviceResult`), `SetDevicePin` (`SetDevicePinCommand`), `ReporterSignIn` (`ReporterSignInCommand`, `ReporterSignInResult`, `SignInKind`), `ReverifyStatus` (`ReverifyStatusResult`), `CheckReporterAccess`.
+- `domain/rules/push_endpoint.py`: `check_push_endpoint`, `MAX_ENDPOINT_LENGTH`. `SavePushSubscription` calls it.
+- `SetPinCommand.verified_at` is optional.
+- `bootstrap/wiring.py`: `submit_registration(container)`. `bootstrap/areas.py`: `parse_area`, `area_districts_for(areas)`. `Container.sealer`, `Container.area_districts_for`; `build_for_tests(..., areas=None)`. `Settings.tenant_areas`.
+- Architecture: `routes_identity` is on the list of modules that may bind a tenant (the host), and its unauthenticated routes are on the reviewed list of `test_edge_binding.py`.
+
 
 ## Registration drafting (U26, DEC-243)
 
@@ -744,6 +847,18 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `adapters/testing/tokens.py`: `issue_test_token(role, services, sub, *, device, expires_at, tenant, epoch)`, `default_token_tenant()`, `SAMPLE_TENANT`, `TEST_TENANT_ENV`.
 - Removed names: `board_projector.WALL_ACTOR`, `text_code.ANONYMOUS`, `container.SCHEDULER_ACTOR` (now `SCHEDULER_CHANNEL`), `pin._ANONYMOUS` (now `ACTOR_CHANNEL`), `actor.SYSTEM_ACTOR`.
 - Tests: `tests/support/edge.py`, `tests/support/actors.py`, `tests/unit/application/test_actor.py`, `tests/unit/domain/rules/test_edge_access.py`, `tests/unit/adapters/inbound/fhir_rest/test_edge_binding.py`, `tests/unit/adapters/testing/test_tokens.py`, `tests/integration/adapters/inbound/fhir_rest/test_edge_tenants.py`.
+
+### Host-resolved tenant on routes with no token (TEN-040, DEC-370, DEC-371)
+
+- `diucs.application.edge_tenant.resolve_active_tenant(directory, host) -> Tenant | None`.
+- `diucs.adapters.inbound.fhir_rest.host_tenant`: `request_host(request) -> str | None`, `resolve_request_tenant(request) -> Tenant | None`, `bind_host_tenant(request)` (async dependency yielding the `Tenant`, binding it for the request), `HostNotResolved(NotFound)`.
+- `diucs.adapters.inbound.fhir_rest.routes_public`: `router`, `PROFILE_PATH` (`/public/tenant-profile`), `PUBLIC_PREFIX`, `public_rate_limit` (dependency), `RETRY_AFTER_UNAVAILABLE_SECONDS`. Route `GET /public/tenant-profile`, no token, answers `{displayName, timeZone, locale, wording: {systemName, referralSystemName, coordinationTeamName} | null, coordinationPhone: string | null}`.
+- `diucs.application.use_cases.public_profile`: `ReadPublicProfile(uow_factory).execute(tenant) -> PublicTenantProfile(display_name, time_zone, locale, wording, coordination_phone)`, `DEFAULT_LOCALE`.
+- `diucs.application.rate_limits`: `PlatformRateLimiter(slots).take(kind, address, limit, window) -> slot | None`, `.release(slot)`, `address_digest`, `PUBLIC_REQUESTS_PER_ADDRESS` (60), `PUBLIC_WINDOW` (1 minute), `PUBLIC_KIND`.
+- `diucs.application.ports.outbound.cache`: `PLATFORM_SEGMENT` (`_`), `platform_names() -> ScopedNames`, `PlatformSlots` (runtime-checkable protocol: `platform_take(name, ttl) -> bool`, `platform_release(name)`); implemented by `RedisCache` and `InMemoryCache` (which also has `platform_keys()` for tests).
+- `diucs.bootstrap.container.Container.platform_slots`.
+- `diucs.adapters.inbound.fhir_rest.errors`: `RateLimited(retry_after_seconds)` (429 `throttled`, `Retry-After`, `no-store`), `TemporarilyUnavailable(retry_after_seconds)` (503 `transient`), `RATE_LIMITED_TEXT`, `UNAVAILABLE_TEXT`.
+
 
 ## Bus messages carry their tenant (TEN-020, DEC-251)
 
@@ -808,6 +923,16 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `application/booking_effects.py`: `cancel_booking_timers(uow, booking_id, now, *, keep=None)`, `text_reporter_role(uow, service_id, now)`, `expired(booking, at)`, `BOOKING_TIMER_KINDS`
 - `application/booking_effects.py`: `queue_echo(uow, ids, sealer, *, scope, rendered, booking, recipient_role_id, now) -> str` (added at integration, commit 97f314c: the echo Communication is about the booking's service, never the booking)
 
+### Booking replies by text (U22, DEC-402 to DEC-404)
+
+- `domain/rules/booking_reply_text.py`: plan_booking_text, DECLINE_REASON_WINDOW, RespondTo, AskReference, Expired, NothingWaiting, SetReason, BookingTextPlan, Decision.
+- `application/ports/outbound/repositories.py`: BookingRepository.latest_for_services(service_ids) -> list[Booking].
+- `adapters/outbound/graph_store/booking_repository.py`: Q-BOOK-LATEST-FOR (registered, scenario in service_scenarios.py).
+- `domain/messages/catalogue.py`: MessageId.B8, MessageId.B9.
+- `application/use_cases/handle_inbound_text.py`: HandleInboundText takes respond_to_booking and set_decline_reason (keyword, optional); outcomes booking-confirmed, booking-declined, booking-ask-reference, booking-none, booking-expired, booking-reason-set.
+- `bootstrap/workers_main.py`: wires RespondToBooking and SetDeclineReason into the inbound text use case.
+
+
 ## Booking timers (U19, DEC-301)
 
 - `BookingPhonePromptCommand(work_id, booking_id)`, `ExpireBookingCommand(work_id, booking_id)`, `TimerResult(acted: bool)`
@@ -821,6 +946,15 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 
 - `CancelBookingCommand(idempotency_key, actor, booking_id, reason: CancelReason)`, `CancelBookingResult(booking_id, status)`, `CancelBooking(uow_factory, idempotency, clock, ids, sealer)`
 - `domain/events.py`: `BookingCancelled(booking_id, service_id, status: BookingStatus, at)`, event type `BookingCancelled`, topic booking.events
+
+### Withdrawal and not-reached (U21, DEC-400, DEC-401)
+
+- `application/use_cases/withdraw_booking.py`: WithdrawBooking, WithdrawBookingCommand, WithdrawBookingResult; ReportNotReached, ReportNotReachedCommand, ReportNotReachedResult; AcknowledgeWithdrawal, AcknowledgeWithdrawalCommand, AcknowledgeWithdrawalResult; EscalateWithdrawal, EscalateWithdrawalCommand, EscalateWithdrawalResult.
+- `domain/rules/booking_exceptions.py`: withdraw_target, not_reached_target, checked_withdraw_reason, checked_not_reached_reason.
+- `domain/events.py`: BookingWithdrawn (booking.events), BookingNotReached (booking.events), WithdrawalEscalated (alerts.events).
+- `application/work.py`: WorkKind.WITHDRAWAL_ESCALATE = "withdrawal-escalate".
+- `bootstrap/container.py`: withdrawal_escalation_handler; the dispatcher registers WITHDRAWAL_ESCALATE.
+
 
 ## Suspend and resume a service (U36, DEC-303)
 
@@ -874,11 +1008,30 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 - `AuditLog.append_provenance(target_type, target_id, activity, agent_id, agent_role, source_communication_id=None, extra=None, agent_type="Practitioner") -> str` on the port; provenance activity `scope-decision`.
 - Provenance `call-back` extras: `callbackId`, `numberHash`, `result`, `roleSpokenTo`; `scope-decision` extras: `onDorsetPathway`, `takesSpoaReferrals`, `canReport`, `categoryOnPilotList`, `decision`, `reason`. Draft key `check_notes`.
 
+### Approval, set live and the registration record (U29, DEC-405 to DEC-407)
+
+- `domain/rules/registration_approval.py`: require_distinct_approver, answers_the_test, may_set_live, check_note, MAX_NOTE_LENGTH.
+- `domain/rules/registration_record.py`: RECORD_STEP, RecordedStep, registration_steps.
+- `application/use_cases/approve_registration.py`: ApproveRegistration, SendBackRegistration, NotApproveRegistration, ReopenRegistration, RecordTestAnswer, SetServiceLive, GetRegistrationRecord; RegistrationDecisionCommand, NoteCommand, RegistrationResult, RecordTestAnswerCommand, RecordTestAnswerResult.
+- `application/ports/outbound/repositories.py`: ServiceRepository.set_active(service_id).
+- `adapters/outbound/graph_store/service_repository.py`: Neo4jServiceRepository.set_active.
+
+
 ## PIN set-up and sign-in (U32, DEC-321 to DEC-324)
 
 - `diucs.application.use_cases.pin`: `SetPinCommand(practitioner_id, device_id, pin, verified_at)`, `SetPinResult(ok)`, `SetPin(uow_factory, secret_store, clock, rate_limiter)`; `PinSignInCommand(practitioner_id, device_id, pin)`, `PinSignInResult(ok, locked, tries_left, needs_text_code, practitioner_id, role, service_ids)`, `PinSignIn(uow_factory, secret_store, clock, rate_limiter)`; `RecordTextCodeVerifiedCommand(practitioner_id, device_id, verified_at, purpose)`, `RecordTextCodeVerifiedResult(device_known)`, `RecordTextCodeVerified(uow_factory, clock)`; `PinRateLimited(retry_after_seconds)` (answer 429); pure `pin_hash`, `verification_is_fresh`, `session_role`, `reporter_service_ids`, `limiter_key`; constants `PIN_HMAC_SECRET` (`pin-hmac`), `PIN_SET_WINDOW`, `VERIFIED_PURPOSES`, `RATE_WINDOW`, `SIGN_IN_PER_DEVICE`, `SIGN_IN_PER_PERSON`, `SET_PIN_PER_PERSON`, `NEEDS_TEXT_CODE`.
 - `DeviceRegistry.mark_verified(practitioner_id, device_id, at)` and `verified_at(practitioner_id, device_id) -> datetime | None` (`Neo4jDeviceRegistry`); statements `Q-DEVICE-MARK-VERIFIED` (write) and `Q-DEVICE-VERIFIED` (read), both converted with scenarios; property `lastVerifiedAt` on the practitioner's `Device` node.
 - Test support: `StubPins`, `StubDevices`, `StubLimiter` in `tests/support/registration_rig.py`.
+
+### Removing a person, signing out everywhere and lost phones (U37, DEC-410 to DEC-412)
+
+- `application/use_cases/remove_person.py`: `RemovalReason` (`left-service`, `changed-role`, `lost-phone`, `other`); `RemovePerson(uow_factory, clock, ids, sessions)` with `RemovePersonCommand(idempotency_key, actor, practitioner_id, reason)` and `RemovePersonResult(roles_ended, devices_revoked, push_removed, covers_released, services_without_reporter, services_covered)`; `SignOutEverywhere(uow_factory, clock, sessions)` with `SignOutEverywhereCommand(idempotency_key, actor)` and `SignOutEverywhereResult(devices_signed_out)`; `StartNewPhone(uow_factory, clock, sessions)` with `StartNewPhoneCommand(practitioner_id, device_id, verified_at)` and `StartNewPhoneResult(started, devices_signed_out)`; `ConfirmNewPhone(uow_factory, clock)` with `ConfirmNewPhoneCommand(idempotency_key, actor, practitioner_id)` and `ConfirmNewPhoneResult(confirmed)`; `NOT_STARTED`, `NEW_DEVICE_PURPOSE`.
+- `DeviceRegistry` gains `revoke_all -> int`, `register_pending`, `confirm_pending -> int`, `awaiting_callback`, `owner_of`; statements `Q-DEVICE-CONFIRM-PENDING`, `Q-DEVICE-AWAITING` (new, with scenarios) and `Q-DEVICE-KNOWN` (now `status = $active`).
+- `SessionStore.epoch`, `create(..., *, epoch)`, `ReporterSession.epoch`, `SessionEpochChanged`; Redis key `<prefix><tenant>:sess-epoch:<practitioner>`, `EPOCH_TTL`.
+- `domain/model/flags.py`: `SERVICE_FLAG_NO_REPORTER = "no-reporter"` (in `SERVICE_FLAG_CODES`).
+- Device status `pending-callback` on a practitioner's `Device` node (`confirmedAt` when confirmed).
+- Test support: `tests/support/session_rig.py` (`StubSessions`), stubs for devices, flags, push, consents in `registration_rig.py`.
+
 
 ## Friction rules engine (O03, DEC-330)
 
@@ -931,6 +1084,14 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 
 - `diucs.application.use_cases.subscribe_alert`: `SaveAlertPreferencesCommand(idempotency_key, actor, kinds, not_updated_hours, quiet_hours, quiet_critical_only, ack_minutes, deputy_id, daily_summary, weekly_summary)`, `SaveAlertPreferences(uow_factory, idempotency, clock).execute -> AlertSubscription`, `GetAlertPreferences(uow_factory).execute(actor) -> AlertSubscription`, `NEVER_SAVED`, `DEPUTY_CODES`, `ALLOWED_ROLES`, `SavedAlertPreferences`.
 
+### Alert evaluator, acknowledge, snooze and escalation (U34, DEC-408)
+
+- `domain/rules/alert_workflow.py`: SNOOZE_BY, snoozed_due, may_acknowledge, may_snooze, not_updated_check_times.
+- `domain/events.py`: AlertEscalatedToLead (alerts.events).
+- `application/use_cases/alerts.py`: AlertEvaluator, StatusChangedCommand, EvaluationResult; NotUpdatedCheck, NotUpdatedCheckCommand; AcknowledgeAlert, AcknowledgeAlertCommand, AcknowledgeAlertResult; SnoozeAlert, SnoozeAlertCommand, SnoozeAlertResult; EscalateAlert, EscalateAlertCommand, EscalateAlertResult; check_about.
+- `bootstrap/container.py`: alert_timer_handlers for ALERT_ESCALATE and NOT_UPDATED_CHECK.
+
+
 ## Criteria review reminders (U31, DEC-342)
 
 - `diucs.application.use_cases.criteria_reviews`: `RunCriteriaReviews(uow_factory, ids, clock, sealer).execute(RunCriteriaReviewsCommand(work_id)) -> CriteriaReviewsResult(reminders_sent, flags_set)`; `ensure_daily_schedule(uow_factory, ids, clock) -> bool`; `next_run_due(now)`, `first_run_due(now)`, `reminder_marker(criteria_id, review_by)`; `REVIEW_RUN_AT`, `CONSUMER`, `REMINDER_CONSUMER`, `SYSTEM_ACTOR`.
@@ -945,3 +1106,19 @@ Pure domain, standard library and `diucs.domain` only. Names are the contract fo
 
 - `diucs.adapters.inbound.fhir_rest.routes_lead`: `router` (prefix `/fhir`), `set_up_service` (`POST /HealthcareService/$setup`), `change_reporter_number` (`POST /PractitionerRole/{role_id}/$change-number`), `setup_command(body, actor, key)`, `change_parameters(body)`, `number_ending(mobile)`, `MOBILE_REFUSAL`, `PILOT_CHANNELS`, `OWNER_ROLE_DEFAULT`.
 - `diucs.adapters.inbound.fhir_rest.app`: `routes_lead.router` included.
+
+## Clinical advice requests (U40, DEC-394 to DEC-396)
+
+- clinical_advice: presence_key(practitioner_id) -> str; parse_presence; validate_request; validate_advice; queue_now(records, now); advice_notice(urgency, age_band, need) -> (title, body); PRESENCE_TTL; ADVICE_CHOICES; ADVICE_REASONS; REQUEST_WHYS.
+- Commands/results: RequestClinicalAdviceCommand(actor, case_id, urgency, why) -> RequestClinicalAdviceResult(request_id, notified); SetPresenceCommand(actor, presence); AvailableClinicians(uow_factory, cache, clock).execute() -> int; TakeClinicalRequestCommand(actor, request_id); ReturnIdleRequest(uow_factory, clock).execute(request_id); GiveClinicalAdviceCommand(actor, request_id, choice, reason, note) -> GiveClinicalAdviceResult; ListClinicalQueue(uow_factory, clock).execute(actor).
+- PersonRepository.active_clinical_leads(now) -> list[PractitionerRole]; ClinicalRequestRepository.open_requests() -> list[ClinicalRequestRecord].
+- domain/events: ClinicalAdviceGiven(request_id, choice, at), topic alerts.events; added to DomainEvent, the topic table and the decoder table.
+
+## Audit replay and planning analysis (U42, U43, DEC-390 to DEC-393)
+
+- AuditLog.records_for(entity_id) -> list[AuditRecord]; AuditLog.records_for_many(entity_ids, use_case); AuditLog.records_between(start, end, use_cases) (U43 uses the last two).
+- Named queries: Q-AUDIT-FOR-ENTITY (read, tenant, scenario).
+- audit_replay: ReplayRow(service_name, status, value_text, data_age_text, criteria_version); TimelineItem(at, label); AuditReplay(reference, shown_at, rows, timeline, chain_ok); GetAuditReplayCommand(actor, reference); GetAuditReplay(uow_factory, clock).execute; ExportAuditReplay(replay).execute -> dict (JSON-ready).
+
+- planning_analysis: PlanningQuery(period_days, need_group); HiddenCount(value, hidden); PlanningResult(referrals, best_fit_unavailable, best_fit_unavailable_pct, went_elsewhere, flows, heat, busiest, declined_despite); FlowRow(best_fit, state, destination, count); RunPlanningCommand(actor, query); RunPlanningAnalysis(uow_factory, clock).execute.
+- AuditLog.records_between and records_for_many (see U42 fragment).

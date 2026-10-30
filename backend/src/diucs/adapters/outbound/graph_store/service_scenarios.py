@@ -124,7 +124,7 @@ _DATED_REQUESTED: Final = SeedNode(
     "booking-requested",
     ("Resource", "Task"),
     {
-        "id": "bk-1",
+        "id": Marked("bk-1"),
         "key": "Task/bk-1",
         "businessStatus": "requested",
         "reference": "4821",
@@ -277,7 +277,7 @@ SCENARIOS: Final[dict[str, Scenario]] = {
         "the most recent booking of each of a list of the tenant's services",
         seed=_LATEST_SEED,
         params={"ids": ["svc-1"]},
-        expect=Expect(rows=({"serviceId": "svc-1", "id": "bk-1"},)),
+        expect=Expect(rows=({"serviceId": "svc-1", "id": Marked("bk-1")},)),
     ),
     "Q-BOOK-CONFIRMED-SINCE": Scenario(
         "the confirmed bookings of one of the tenant's services",

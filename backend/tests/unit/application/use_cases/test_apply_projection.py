@@ -163,7 +163,11 @@ class _Registry:
 
     async def active_grants_for(self, tenant_id: str, scope: GrantScope, now: datetime) -> Any:
         self.reads.append("grants")
-        return [a for a in self.active if a.grant.scope is scope]
+        return [
+            a
+            for a in self.active
+            if a.grant.scope is scope and a.grant.grantor_tenant_id == tenant_id
+        ]
 
     async def listings_of(self, network_id: str, tenant_id: str) -> Any:
         self.reads.append("listings")
@@ -361,7 +365,7 @@ async def test_a_body_with_a_key_off_the_allowlist_is_rejected_whatever_its_valu
     rig: _Rig,
 ) -> None:
     body = dict(to_body(sample_capacity_projection()))
-    body["reporter_name"] = "x"
+    body["extra_field"] = "x"
     result = await rig.run(_request(body=body))
     assert result.reason is ProjectionRejectReason.INVALID_BODY
     assert rig.world.calls == []

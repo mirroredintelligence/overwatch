@@ -60,6 +60,10 @@ BINDING_MODULES: frozenset[str] = frozenset(
         "diucs.adapters.inbound.sms_webhook.routes",
         "diucs.adapters.inbound.workers.outbox_relay",
         "diucs.adapters.inbound.workers.tenant_binding",
+        # TEN-054: the network apply consumer binds the network scope its message names, for the
+        # handling of that one message, and only after the directory has listed the source tenant
+        # and the registry has said the network exists and is active.
+        "diucs.adapters.inbound.workers.network_projector",
         # O09: the synthetic test hook binds the one tenant its configuration names, never one the
         # request sends, and is mounted only when the hook is configured.
         "diucs.adapters.inbound.fhir_rest.routes_synthetic",

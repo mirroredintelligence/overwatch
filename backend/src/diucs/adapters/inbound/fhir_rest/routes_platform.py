@@ -464,7 +464,7 @@ async def record_references(
             services,
             actor,
             "tenant-references-recorded",
-            {"recorded": list(recorded)},
+            {"references": list(recorded)},
             snapshot={"recorded": list(recorded)},
         )
 

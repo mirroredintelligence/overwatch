@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
-import { clinicalBffHandlers, DONE_ITEMS, MINE_ITEMS, QUEUE_ITEMS, resetClinicalBff, seenBff } from '@/test/msw/handlers/clinical';
+import { clinicalBffHandlers, DONE_ITEMS, MINE_ITEMS, QUEUE_ITEMS, resetClinicalBff, SEEN_NO_DISPLAY, SEEN_NONE_FITTED, SEEN_SHOWN, SEEN_UNREADABLE, seenBff } from '@/test/msw/handlers/clinical';
 import { server } from '@/test/msw/server';
+import { seenFromJson } from '@/lib/clinical/seen';
 import type { ClinicalRequest } from '@/lib/clinical/task';
 import { CaseView } from './CaseView';
 
@@ -12,6 +13,7 @@ const { push, refresh } = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() })
 vi.mock('next/navigation', () => ({ useRouter: () => ({ push, refresh, replace: vi.fn() }) }));
 
 const held = MINE_ITEMS[0] as ClinicalRequest;
+const seen = seenFromJson(SEEN_SHOWN);
 const advised = () => seenBff.filter((c) => c.path.endsWith('/advice'));
 
 afterEach(() => vi.useRealTimers());
@@ -19,7 +21,7 @@ afterEach(() => vi.useRealTimers());
 describe('CaseView with the case read', () => {
   it('shows the case number and the case as the advisor recorded it: age band, needs, urgency and NEWS2', () => {
     resetClinicalBff();
-    render(<CaseView requestId="req-5001" request={held} />);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     expect(screen.getByRole('heading', { name: 'Case 5001' })).toBeInTheDocument();
     expect(screen.getByText('80+ · Frailty, Fall · NEWS2 3 · Within 2 hrs')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Why the advisor asked' })).toBeInTheDocument();
@@ -29,7 +31,7 @@ describe('CaseView with the case read', () => {
 
   it('says in a live region when the request returns to the queue, in whole minutes', () => {
     vi.useFakeTimers({ now: new Date('2026-10-23T13:20:00Z'), shouldAdvanceTime: false });
-    render(<CaseView requestId="req-5001" request={held} />);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     const live = screen.getByRole('status');
     expect(live).toHaveTextContent('Returns to the queue in 9 min');
     act(() => {
@@ -41,7 +43,7 @@ describe('CaseView with the case read', () => {
   it('asks for an advice choice before sending, and sends nothing', async () => {
     resetClinicalBff();
     server.use(...clinicalBffHandlers);
-    render(<CaseView requestId="req-5001" request={held} />);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     await userEvent.click(screen.getByRole('button', { name: 'Send advice' }));
     expect(screen.getByText('Choose what you advise.')).toBeInTheDocument();
     expect(advised()).toHaveLength(0);
@@ -50,7 +52,7 @@ describe('CaseView with the case read', () => {
   it('blocks a note of 281 characters with its message, and sends nothing', async () => {
     resetClinicalBff();
     server.use(...clinicalBffHandlers);
-    render(<CaseView requestId="req-5001" request={held} />);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     await userEvent.click(screen.getByRole('button', { name: 'Go ahead with the service' }));
     fireEvent.change(screen.getByLabelText('Note (optional)'), { target: { value: 'x'.repeat(281) } });
     await userEvent.click(screen.getByRole('button', { name: 'Send advice' }));
@@ -61,7 +63,7 @@ describe('CaseView with the case read', () => {
   it('posts a valid advice and then shows the confirmation', async () => {
     resetClinicalBff();
     server.use(...clinicalBffHandlers);
-    render(<CaseView requestId="req-5001" request={held} />);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     await userEvent.click(screen.getByRole('button', { name: 'Go ahead with the service' }));
     await userEvent.click(screen.getByRole('button', { name: 'Within criteria on my judgement' }));
     await userEvent.click(screen.getByRole('button', { name: 'Send advice' }));
@@ -75,7 +77,7 @@ describe('CaseView with the case read', () => {
 
   it('says the request is no longer theirs when the back end refuses the advice as taken or returned', async () => {
     server.use(http.post('/api/bff/clinical/requests/:id/advice', () => HttpResponse.json({ code: 'conflict' }, { status: 409 })));
-    render(<CaseView requestId="req-5001" request={held} />);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     await userEvent.click(screen.getByRole('button', { name: 'Go ahead with the service' }));
     await userEvent.click(screen.getByRole('button', { name: 'Send advice' }));
     expect(await screen.findByText('This request is no longer yours. It may have returned to the queue.')).toBeInTheDocument();
@@ -83,7 +85,7 @@ describe('CaseView with the case read', () => {
   });
 
   it('has no accessibility violations', async () => {
-    const { container } = render(<CaseView requestId="req-5001" request={held} />);
+    const { container } = render(<CaseView requestId="req-5001" request={held} seen={seen} />);
     expect(screen.getByRole('button', { name: 'Send advice' })).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
   });
@@ -92,7 +94,7 @@ describe('CaseView with the case read', () => {
 // DEC-855: the advice form is offered only when the case read loaded.
 describe('CaseView without the case read (DEC-855)', () => {
   it('offers no advice form when the request could not be read, and says so', async () => {
-    const { container } = render(<CaseView requestId="req-5001" request={null} />);
+    const { container } = render(<CaseView requestId="req-5001" request={null} seen={null} />);
     expect(screen.getByRole('alert')).toHaveTextContent('This request could not be read, so it cannot be answered from here.');
     expect(screen.queryByRole('button', { name: 'Send advice' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Go ahead with the service' })).not.toBeInTheDocument();
@@ -101,20 +103,178 @@ describe('CaseView without the case read (DEC-855)', () => {
   });
 
   it('offers no advice form when the request has no case details, and says the case could not be read', () => {
-    render(<CaseView requestId="req-5003" request={{ ...held, id: 'req-5003', glance: null }} />);
+    render(<CaseView requestId="req-5003" request={{ ...held, id: 'req-5003', glance: null }} seen={null} />);
     expect(screen.getByRole('alert')).toHaveTextContent('The case could not be read, so no advice can be given from here.');
     expect(screen.queryByRole('button', { name: 'Send advice' })).not.toBeInTheDocument();
   });
 
   it('offers no advice form for a request that is back in the queue, and says to take it again', () => {
-    render(<CaseView requestId="req-4821" request={QUEUE_ITEMS[0] as ClinicalRequest} />);
+    render(<CaseView requestId="req-4821" request={QUEUE_ITEMS[0] as ClinicalRequest} seen={null} />);
     expect(screen.getByText('This request is back in the queue. Take it again from the queue to answer it.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send advice' })).not.toBeInTheDocument();
   });
 
   it('shows the advice already given on a completed request, and offers no second one', () => {
-    render(<CaseView requestId="req-5002" request={DONE_ITEMS[0] as ClinicalRequest} />);
+    render(<CaseView requestId="req-5002" request={DONE_ITEMS[0] as ClinicalRequest} seen={seen} />);
     expect(screen.getByText('Advice given: Use another service')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Send advice' })).not.toBeInTheDocument();
+  });
+});
+
+// W9G: what the advisor saw, and the way to reach the advisor.
+describe('CaseView: what the advisor saw', () => {
+  it('shows what the advisor saw with the time of the display, one line per service, as they saw it', () => {
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    const section = screen.getByRole('region', { name: 'What the advisor saw at 14:13' });
+    const items = within(section).getAllByRole('listitem').map((item) => item.textContent);
+    expect(items).toEqual([
+      'UCR West: accepting, 4, 9 min old',
+      'Hospital at home: over capacity, +2, 14 min old',
+      'Ward B: accepting, 5, 2 hrs 10 min old. Over 2 hrs old.',
+      'UCR East: not accepting, 3 min old. Not suitable.',
+    ]);
+  });
+
+  it('says that nothing fitted and still shows each service that was considered, with why', () => {
+    render(<CaseView requestId="req-5006" request={held} seen={seenFromJson(SEEN_NONE_FITTED)} />);
+    const section = screen.getByRole('region', { name: 'What the advisor saw at 14:13' });
+    expect(within(section).getByText('None of the services fitted this case when the advisor asked.')).toBeInTheDocument();
+    expect(within(section).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'UCR East: not accepting, 3 min old. Not suitable.',
+      'Ward B: accepting, 5, 1 min old. Not suitable: outside its criteria.',
+    ]);
+  });
+
+  it('says no options display is recorded, and does not say that nothing fitted', () => {
+    render(<CaseView requestId="req-5007" request={held} seen={seenFromJson(SEEN_NO_DISPLAY)} />);
+    expect(screen.getByText('No options display is recorded for this request.')).toBeInTheDocument();
+    expect(screen.queryByText(/None of the services fitted/)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['a display that cannot be read', seenFromJson(SEEN_UNREADABLE)],
+    ['a read that failed', null],
+  ])('says what the advisor saw could not be read for %s, offers the call, and keeps the advice form (the case is on screen)', (_name, value) => {
+    render(<CaseView requestId="req-5008" request={held} seen={value} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('What the advisor saw could not be read. Phone the advisor to ask.');
+    expect(screen.queryByText(/accepting|over capacity/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Call the advisor' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send advice' })).toBeInTheDocument();
+  });
+
+  it('shows what was seen on a request already advised, and not on one that is back in the queue', () => {
+    const { unmount } = render(<CaseView requestId="req-5002" request={DONE_ITEMS[0] as ClinicalRequest} seen={seen} />);
+    expect(screen.getByRole('region', { name: 'What the advisor saw at 14:13' })).toBeInTheDocument();
+    unmount();
+    render(<CaseView requestId="req-4821" request={QUEUE_ITEMS[0] as ClinicalRequest} seen={null} />);
+    expect(screen.queryByText(/What the advisor saw/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('has no accessibility violations with what the advisor saw on screen', async () => {
+    const { container } = render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    expect(await runAxe(container)).toHaveNoViolations();
+  });
+});
+
+describe('CaseView: call the advisor', () => {
+  const callButton = () => screen.getByRole('button', { name: 'Call the advisor' });
+
+  it('asks for no number until the button is pressed', () => {
+    resetClinicalBff();
+    server.use(...clinicalBffHandlers);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    expect(seenBff).toEqual([]);
+    expect(screen.queryByText(/07700|01305/)).not.toBeInTheDocument();
+  });
+
+  it('shows the advisor’s work phone whole with a phone link and their name', async () => {
+    resetClinicalBff();
+    server.use(...clinicalBffHandlers);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    await userEvent.click(callButton());
+    const live = await screen.findByRole('status', { name: 'The advisor’s number' });
+    expect(live).toHaveTextContent('Phone Sample Advisor on 07700 900123.');
+    expect(within(live).getByRole('link', { name: '07700 900123' })).toHaveAttribute('href', 'tel:07700900123');
+    expect(seenBff.map((call) => call.path)).toEqual(['/api/bff/clinical/requests/req-5001/advisor-contact']);
+  });
+
+  it('shows the advisor line and says the advisor’s own number is not held', async () => {
+    server.use(...clinicalBffHandlers);
+    render(<CaseView requestId="req-5006" request={held} seen={seen} />);
+    await userEvent.click(callButton());
+    const live = await screen.findByRole('status', { name: 'The advisor’s number' });
+    expect(live).toHaveTextContent('The advisor’s own number is not held. Phone the advisor line on 01305 900000.');
+    expect(within(live).getByRole('link', { name: '01305 900000' })).toHaveAttribute('href', 'tel:01305900000');
+  });
+
+  it('says there is no number when the organisation holds none, and shows no link', async () => {
+    server.use(...clinicalBffHandlers);
+    render(<CaseView requestId="req-5007" request={held} seen={seen} />);
+    await userEvent.click(callButton());
+    const live = await screen.findByRole('status', { name: 'The advisor’s number' });
+    expect(live).toHaveTextContent('No number is held for the advisor, and this organisation has no advisor line set.');
+    expect(within(live).queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('says the request is no longer theirs when the back end refuses, and shows no number', async () => {
+    server.use(...clinicalBffHandlers);
+    render(<CaseView requestId="req-lost" request={held} seen={seen} />);
+    await userEvent.click(callButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent('You no longer hold this request, so the advisor’s number is not shown.');
+    expect(screen.queryByRole('link', { name: /0[0-9]{4}/ })).not.toBeInTheDocument();
+  });
+
+  it('says the number could not be read when the call fails, and lets the clinician try again', async () => {
+    server.use(...clinicalBffHandlers);
+    render(<CaseView requestId="req-fail" request={held} seen={seen} />);
+    await userEvent.click(callButton());
+    expect(await screen.findByRole('alert')).toHaveTextContent('The number could not be read. Try again.');
+    expect(callButton()).toBeEnabled();
+    await userEvent.click(callButton());
+    await waitFor(() => expect(seenBff.filter((call) => call.path.endsWith('/advisor-contact'))).toHaveLength(2));
+  });
+
+  it('keeps the number in memory only: nothing in storage, the address or a cookie', async () => {
+    window.localStorage.clear();
+    window.sessionStorage.clear();
+    server.use(...clinicalBffHandlers);
+    const before = window.location.href;
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    await userEvent.click(callButton());
+    await screen.findByRole('status', { name: 'The advisor’s number' });
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+    expect(window.location.href).toBe(before);
+    expect(document.cookie).not.toMatch(/07700|900123/);
+  });
+
+  it('takes the number off the screen once the advice is sent, and offers no call then', async () => {
+    resetClinicalBff();
+    server.use(...clinicalBffHandlers);
+    render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    await userEvent.click(callButton());
+    await screen.findByRole('status', { name: 'The advisor’s number' });
+    await userEvent.click(screen.getByRole('button', { name: 'Go ahead with the service' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Send advice' }));
+    expect(await screen.findByRole('heading', { name: 'Advice sent' })).toBeInTheDocument();
+    expect(screen.queryByText(/07700 900123/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Call the advisor' })).not.toBeInTheDocument();
+  });
+
+  it('offers no call on a request already advised or back in the queue', () => {
+    const { unmount } = render(<CaseView requestId="req-5002" request={DONE_ITEMS[0] as ClinicalRequest} seen={seen} />);
+    expect(screen.queryByRole('button', { name: 'Call the advisor' })).not.toBeInTheDocument();
+    unmount();
+    render(<CaseView requestId="req-4821" request={QUEUE_ITEMS[0] as ClinicalRequest} seen={null} />);
+    expect(screen.queryByRole('button', { name: 'Call the advisor' })).not.toBeInTheDocument();
+  });
+
+  it('has no accessibility violations with the number shown', async () => {
+    server.use(...clinicalBffHandlers);
+    const { container } = render(<CaseView requestId="req-5001" request={held} seen={seen} />);
+    await userEvent.click(callButton());
+    await screen.findByRole('status', { name: 'The advisor’s number' });
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 });

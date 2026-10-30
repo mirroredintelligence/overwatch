@@ -286,7 +286,7 @@ class ReadAdvisorContact:
     @staticmethod
     async def _contact(uow: UnitOfWork, requester_id: str) -> AdvisorContact:
         advisor = await uow.people.get_practitioner(requester_id)
-        if advisor is not None and advisor.active:
+        if advisor is not None:
             phone = await uow.contacts.get_phone(work_contact_key(requester_id))
             if phone:
                 return AdvisorContact(VIA_WORK_PHONE, phone, advisor.display_name)

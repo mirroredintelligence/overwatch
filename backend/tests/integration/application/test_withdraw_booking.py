@@ -151,7 +151,11 @@ async def test_acknowledging_at_1445_cancels_the_escalation_which_then_writes_no
     (work,) = await _works(uow_factory, booking_id)
     assert work.status == "cancelled"
     async with uow_factory() as uow:
-        cancel_messages = [m for m in await uow.outbox.pending(200) if m.event_type == "CancelWork"]
+        cancel_messages = [
+            m
+            for m in await uow.outbox.pending(200)
+            if m.event_type == "CancelWork" and m.payload["work_id"] == work.id
+        ]
     assert len(cancel_messages) == 1
 
     # The scheduled time comes: the cancelled escalation writes nothing.

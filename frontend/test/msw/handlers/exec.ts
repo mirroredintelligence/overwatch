@@ -49,7 +49,58 @@ async function body(request: Request): Promise<unknown> {
   return request.json().catch(() => undefined);
 }
 
+const TASK_CODE = 'https://diucs.example/CodeSystem/task-code';
+const ALERT_KIND = 'https://diucs.example/CodeSystem/alert-kind';
+const ALERT_STATUS = 'https://diucs.example/CodeSystem/alert-status';
+
+/** Open alerts for the caller, as the back end lists them (R12, GET /fhir/Task). */
+export const OPEN_ALERT_TASKS = [
+  {
+    resourceType: 'Task',
+    id: 'al-1',
+    status: 'requested',
+    code: { coding: [{ system: TASK_CODE, code: 'acknowledge-alert' }] },
+    businessStatus: { coding: [{ system: ALERT_STATUS, code: 'new' }] },
+    owner: { reference: `Practitioner/${SUBSCRIBER_ID}` },
+    authoredOn: '2026-10-23T13:04:00+00:00',
+    focus: { reference: 'HealthcareService/svc-ucr-west' },
+    executionPeriod: { end: '2026-10-23T13:19:00+00:00' },
+    extension: [{ url: ALERT_KIND, valueCode: 'not-updated' }],
+  },
+];
+
 export const execBackendHandlers = [
+  http.get(`${EXEC_BACKEND}/Task`, (({ request }) => {
+    const url = new URL(request.url);
+    seenBackend.push({ method: 'GET', path: `/Task?${url.search.slice(1)}`, ifMatch: null, idempotencyKey: null, body: undefined });
+    return HttpResponse.json({ resourceType: 'Bundle', type: 'searchset', total: OPEN_ALERT_TASKS.length, entry: OPEN_ALERT_TASKS.map((resource) => ({ resource })) });
+  }) as HttpResponseResolver),
+  http.post(`${EXEC_BACKEND}/Task/:id/$acknowledge`, (async ({ request, params }) => {
+    seenBackend.push({
+      method: 'POST',
+      path: `/Task/${String(params.id)}/$acknowledge`,
+      ifMatch: null,
+      idempotencyKey: request.headers.get('Idempotency-Key'),
+      body: undefined,
+    });
+    return HttpResponse.json({ resourceType: 'Task', id: String(params.id), businessStatus: { coding: [{ code: 'acknowledged' }] } });
+  }) as HttpResponseResolver),
+  http.post(`${EXEC_BACKEND}/Task/:id/$snooze`, (async ({ request, params }) => {
+    seenBackend.push({
+      method: 'POST',
+      path: `/Task/${String(params.id)}/$snooze`,
+      ifMatch: null,
+      idempotencyKey: request.headers.get('Idempotency-Key'),
+      body: undefined,
+    });
+    return HttpResponse.json({
+      resourceType: 'Parameters',
+      parameter: [
+        { name: 'alertId', valueString: String(params.id) },
+        { name: 'escalationDueAt', valueDateTime: '2026-10-23T14:19:00Z' },
+      ],
+    });
+  }) as HttpResponseResolver),
   http.get(`${EXEC_BACKEND}/Subscription`, (() => {
     seenBackend.push({ method: 'GET', path: '/Subscription', ifMatch: null, idempotencyKey: null, body: undefined });
     const resource = saved ?? NEVER_SAVED;

@@ -14,7 +14,7 @@ export function CriteriaStatus({ version, sentAt, waiting }: { version: number; 
           <span>Sent</span> <span>{sentAt !== undefined ? `${londonTime(sentAt)}, by you` : 'by you'}</span>
         </li>
         <li>
-          <span>Second approval</span> <span>SPOA clinical lead</span>
+          <span>Second approval</span> <span>Clinical lead</span>
         </li>
         <li>
           <span>Live</span> <span>{`Advisors see version ${version}`}</span>

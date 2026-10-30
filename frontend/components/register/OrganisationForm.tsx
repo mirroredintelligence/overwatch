@@ -178,7 +178,7 @@ export function OrganisationForm({ registrationId }: OrganisationFormProps) {
           label="Contact email or phone"
           value={answers.contact ?? ''}
           onChange={set('contact')}
-          hint="For the SPOA to reach your organisation about this registration"
+          hint="For the coordination team to reach your organisation about this registration"
           error={errorFor(errors, 'contact')}
           autoComplete="email"
         />
@@ -214,7 +214,7 @@ export function OrganisationForm({ registrationId }: OrganisationFormProps) {
           </button>
           {notMine ? (
             <p className={styles.notice} data-el="REG-STEP1-NOTMINE-TEXT">
-              Not your service, or the details are wrong? Tell the SPOA shift lead. Do not carry on.
+              Not your service, or the details are wrong? Tell the shift lead. Do not carry on.
             </p>
           ) : null}
         </div>

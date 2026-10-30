@@ -140,7 +140,7 @@ describe('WithdrawalAlert', () => {
     );
     expect(screen.getByRole('alertdialog', { name: 'UCR West could not reach the patient' })).toBeInTheDocument();
     expect(screen.getByText('Reason: No answer at the door. Reported 14:41.')).toBeInTheDocument();
-    expect(screen.getByText('The SPOA is told and will phone the caller.')).toBeInTheDocument();
+    expect(screen.getByText('The coordination team is told and will phone the caller.')).toBeInTheDocument();
     expect(await runAxe(container)).toHaveNoViolations();
   });
 });

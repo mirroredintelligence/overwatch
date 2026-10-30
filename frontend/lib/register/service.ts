@@ -75,13 +75,13 @@ export function validateService(answers: ServiceAnswers, context: ServiceContext
     issues.push({ field: 'category', message: 'Choose a category' });
   }
   if ((answers.referralMethods ?? []).length === 0) {
-    issues.push({ field: 'referralMethods', message: 'Choose how the SPOA can refer' });
+    issues.push({ field: 'referralMethods', message: 'Choose how the coordination team can refer' });
   }
   const phone = answers.spoaPhone ?? '';
   if (blank(phone)) {
-    issues.push({ field: 'spoaPhone', message: 'Enter a phone number the SPOA can call' });
+    issues.push({ field: 'spoaPhone', message: 'Enter a phone number the coordination team can call' });
   } else if (!ukPhone(phone)) {
-    issues.push({ field: 'spoaPhone', message: 'Enter a full phone number, for example 01305 123456' });
+    issues.push({ field: 'spoaPhone', message: 'Enter a full phone number, for example 01632 960123' });
   }
   if ((answers.acceptingDays ?? []).length === 0) {
     issues.push({ field: 'acceptingDays', message: 'Choose the days you accept referrals' });

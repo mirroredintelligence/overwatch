@@ -60,7 +60,7 @@ export type Overview = {
   manualChecks: { callback: CallBackState; scope: ScopeState; criteria: CriteriaState };
   /** The call-back: the number from the register, the number the applicant gave, and the directory's name. */
   callBack?: CallBackDetails;
-  /** The pathway's name, as tenant configuration words it (for example the Dorset urgent care pathway). */
+  /** The pathway's name, as tenant configuration words it (for example the area's urgent care pathway). */
   pathwayName?: string;
 };
 
@@ -69,7 +69,7 @@ export type CallBackDetails = {
   numberToCall: string;
   /** The number on the registration. Shown for comparison; never called. */
   numberGiven?: string;
-  /** The directory's name, from tenant configuration (for example "Dorset directory"). */
+  /** The directory's name, from tenant configuration (for example "the area directory"). */
   directoryName?: string;
 };
 

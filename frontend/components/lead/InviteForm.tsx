@@ -147,7 +147,7 @@ export function InviteForm({ serviceId }: { serviceId?: string }) {
             The text we send
           </h2>
           <p className={styles.preview}>
-            {`DIUCS: You are invited to report capacity for ${chosen || 'this service'}. Set up takes about 3 minutes: diucs.example/i/… Valid for 48 hrs.`}
+            {`DIUCS: You are invited to report capacity for ${chosen || 'this service'}. Set up takes about 3 minutes: [link to set up] Valid for 48 hrs.`}
           </p>
         </section>
 

@@ -57,7 +57,7 @@ describe('SafetyConcernForm', () => {
 
   it('shows the warning about someone at risk before the form', () => {
     render(<SafetyConcernForm />);
-    expect(screen.getByText('If someone is at risk now, phone the SPOA or follow local procedure first.')).toBeInTheDocument();
+    expect(screen.getByText('If someone is at risk now, phone the coordination team or follow local procedure first.')).toBeInTheDocument();
   });
 
   it('has no accessibility violations', async () => {

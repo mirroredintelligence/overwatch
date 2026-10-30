@@ -60,7 +60,7 @@ describe('ReviewList', () => {
       screen.getByText('UCR West · Urgent community response · refer by phone and SystmOne'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('The SPOA shift lead checks your details and sends a test text. You will not appear on the board until approved.'),
+      screen.getByText('The shift lead checks your details and sends a test text. You will not appear on the board until approved.'),
     ).toBeInTheDocument();
   });
 

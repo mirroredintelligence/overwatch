@@ -42,7 +42,7 @@ export function InvitationLoader({ token }: { token: string }) {
       <h1 className={styles.title}>{state === 'expired' ? 'This invitation has expired' : 'We could not check this invitation'}</h1>
       <p>
         {state === 'expired'
-          ? 'This invitation has expired. Ask the SPOA shift lead to send a new one.'
+          ? 'This invitation has expired. Ask the shift lead to send a new one.'
           : 'We could not check this invitation. Try again shortly.'}
       </p>
     </main>

@@ -12,7 +12,7 @@ import styles from './Reporter.module.css';
 
 // The service's page for a booking request (L02, W19). It opens from the request text or email.
 // Opening it changes nothing: only a press posts. A confirm or a decline is single use, so once it
-// is answered (or closed by the SPOA) the page shows what the booking now is.
+// is answered (or closed by the coordination team) the page shows what the booking now is.
 
 type Phase = 'loading' | 'open' | 'busy' | 'booked' | 'declined' | 'closed' | 'unavailable';
 
@@ -132,7 +132,7 @@ export function BookingDecision({ token }: { token: string }) {
         <p className={styles.or}>Referral details follow in SystmOne.</p>
         <p className={styles.footer}>
           Something changed?{' '}
-          {phone === null ? 'Phone the SPOA.' : <>Phone the SPOA on <a href={`tel:${phone}`}>{phone}</a>.</>}
+          {phone === null ? 'Phone the coordination team.' : <>Phone the coordination team on <a href={`tel:${phone}`}>{phone}</a>.</>}
         </p>
         {changeToken !== null ? (
           <a href={`/l/${changeToken}/booking/change`} data-el="SVC-BOOK-CHANGE-LINK">
@@ -215,9 +215,9 @@ function Closed({ phone }: { phone: string | null }) {
       <h1 className={styles.title}>This request has closed</h1>
       <p className={styles.question}>
         {phone === null ? (
-          'If you can still take this patient, phone the SPOA.'
+          'If you can still take this patient, phone the coordination team.'
         ) : (
-          <>If you can still take this patient, phone the SPOA on <a href={`tel:${phone}`}>{phone}</a>.</>
+          <>If you can still take this patient, phone the coordination team on <a href={`tel:${phone}`}>{phone}</a>.</>
         )}
       </p>
     </main>

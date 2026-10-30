@@ -16,7 +16,7 @@ import { useRead } from '@/lib/bff/useRead';
 
 const ANSWERS: ReadonlyArray<{ key: keyof ScopeAnswers; question: (pathway: string) => string }> = [
   { key: 'pathway', question: (pathway) => `Is the service part of the ${pathway} pathway?` },
-  { key: 'spoaReferrals', question: () => 'Does it take referrals from the SPOA?' },
+  { key: 'spoaReferrals', question: () => 'Does it take referrals from the coordination team?' },
   { key: 'canReport', question: () => 'Can it report by app, text or email?' },
   { key: 'categoryOnList', question: () => 'Is its category on the pilot list?' },
 ];

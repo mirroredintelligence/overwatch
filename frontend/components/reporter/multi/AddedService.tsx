@@ -26,7 +26,7 @@ export function AddedService({ serviceId, serviceName }: { serviceId: string; se
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>{`${serviceName} has been added`}</h1>
-      <p>{`The SPOA shift lead added ${serviceName} to your account. Do you look after it?`}</p>
+      <p>{`The shift lead added ${serviceName} to your account. Do you look after it?`}</p>
       <p>We check this with the service before it goes live. Your other services are not affected.</p>
       {notice !== null ? <Banner tone="warning" title={notice} /> : null}
       <Button variant="primary" busy={busy} dataEl="REP-ADDED-YES-BTN" onClick={() => void answer(true)}>

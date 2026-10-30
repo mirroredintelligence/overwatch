@@ -171,8 +171,8 @@ export function BookingChange({ token }: { token: string }) {
     return (
       <main className={styles.page}>
         <p className={styles.eyebrow}>Cancelled</p>
-        <h1 className={styles.title}>Cancelled by the SPOA</h1>
-        <p className={styles.question}>The booking was cancelled by the SPOA. No action needed.</p>
+        <h1 className={styles.title}>Cancelled by the coordination team</h1>
+        <p className={styles.question}>The booking was cancelled by the coordination team. No action needed.</p>
         {closeButton}
         {closeNote}
       </main>
@@ -185,12 +185,12 @@ export function BookingChange({ token }: { token: string }) {
       <main className={styles.page}>
         <p className={styles.eyebrow}>Withdrawn</p>
         <h1 className={styles.title}>Withdrawn</h1>
-        <p className={styles.question}>The SPOA has been told and is finding another service.</p>
+        <p className={styles.question}>The coordination team has been told and is finding another service.</p>
         <p className={styles.footer}>
           {phone === null ? (
-            'If the patient has already been told you are coming, phone the SPOA now.'
+            'If the patient has already been told you are coming, phone the coordination team now.'
           ) : (
-            <>If the patient has already been told you are coming, phone the SPOA on <a href={`tel:${phone}`}>{phone}</a> now.</>
+            <>If the patient has already been told you are coming, phone the coordination team on <a href={`tel:${phone}`}>{phone}</a> now.</>
           )}
         </p>
         {closeButton}
@@ -204,7 +204,7 @@ export function BookingChange({ token }: { token: string }) {
       <main className={styles.page}>
         <p className={styles.eyebrow}>Not reached</p>
         <h1 className={styles.title}>Thank you</h1>
-        <p className={styles.question}>The SPOA has been told.</p>
+        <p className={styles.question}>The coordination team has been told.</p>
         {closeButton}
         {closeNote}
       </main>
@@ -231,7 +231,7 @@ export function BookingChange({ token }: { token: string }) {
             </OptionButton>
           ))}
         </div>
-        <p className={styles.footer}>The SPOA is told at once and will find another service. The patient will not be left without a plan.</p>
+        <p className={styles.footer}>The coordination team is told at once and will find another service. The patient will not be left without a plan.</p>
         <Button
           variant="primary"
           busy={busyNow}
@@ -266,7 +266,7 @@ export function BookingChange({ token }: { token: string }) {
             </OptionButton>
           ))}
         </div>
-        <p className={styles.footer}>The SPOA is told and will phone the caller.</p>
+        <p className={styles.footer}>The coordination team is told and will phone the caller.</p>
         <Button
           variant="primary"
           busy={busyNow}
@@ -302,7 +302,7 @@ export function BookingChange({ token }: { token: string }) {
           {row}
         </p>
       ))}
-      <p className={styles.footer}>Something changed? Tell us here so the SPOA can act at once.</p>
+      <p className={styles.footer}>Something changed? Tell us here so the coordination team can act at once.</p>
       <Button variant="secondary" disabled={busyNow} dataEl="SVC-CHANGE-WITHDRAW-BTN" onClick={() => enter('withdraw')}>
         We cannot take this patient now
       </Button>

@@ -179,7 +179,7 @@ export function ServiceForm({ registrationId }: ServiceFormProps) {
         <TextField id="specialty" label="Specialty" value={specialty} onChange={setSpecialty} requirement="optional" />
         <ChipGroup
           id="referralMethods"
-          legend="How can the SPOA refer?"
+          legend="How can the coordination team refer?"
           options={REFERRAL_METHODS}
           selected={answers.referralMethods ?? []}
           multiple
@@ -189,7 +189,7 @@ export function ServiceForm({ registrationId }: ServiceFormProps) {
         />
         <TextField
           id="spoaPhone"
-          label="Phone number for the SPOA to call"
+          label="Phone number for the coordination team to call"
           value={answers.spoaPhone ?? ''}
           onChange={(value) => set('spoaPhone', value)}
           type="tel"

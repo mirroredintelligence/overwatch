@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 const READY = [
   'Organisation name and ODS code',
   'The address of the site, or the area you cover',
-  'A phone number the SPOA can call',
+  'A phone number the coordination team can call',
   'Who owns your criteria, and when they are next reviewed',
   'A mobile number or email for capacity updates',
 ];
@@ -42,7 +42,7 @@ export default async function StartPage({ params }: { params: Promise<{ id: stri
               Save and come back later
             </Button>
           </div>
-          <p className={styles.note}>Drafts are saved as you go. Nothing is live until the SPOA shift lead approves it.</p>
+          <p className={styles.note}>Drafts are saved as you go. Nothing is live until the shift lead approves it.</p>
         </div>
       </div>
     </main>

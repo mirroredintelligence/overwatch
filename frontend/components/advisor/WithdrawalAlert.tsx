@@ -47,7 +47,7 @@ export function WithdrawalAlert({ booking, serviceName, onAcknowledge, onSeeOpti
       </h3>
       <p className={styles.text}>{notReached ? `Reason: ${reason}. Reported ${when}.` : `Reason: ${reason}. Withdrawn ${when}.`}</p>
       {notReached ? (
-        <p className={styles.text}>The SPOA is told and will phone the caller.</p>
+        <p className={styles.text}>The coordination team is told and will phone the caller.</p>
       ) : (
         <>
           <p className={styles.text}>Phone the caller now.</p>

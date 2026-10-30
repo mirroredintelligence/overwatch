@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import styles from '../console/Console.module.css';
 
-// "Need a hand?" (W53). The SPOA number comes from the service's own record, never from a constant:
+// "Need a hand?" (W53). The coordination team number comes from the service's own record, never from a constant:
 // with no number set, the panel says so rather than showing one.
 
 export function HelpPanel({ spoaPhone, champion }: { spoaPhone: string | null; champion?: string }) {
@@ -12,7 +12,7 @@ export function HelpPanel({ spoaPhone, champion }: { spoaPhone: string | null; c
         <li><Link href="/help">Read the one-page guide</Link></li>
         <li>Ask your champion{champion ? `, ${champion}` : ''}</li>
         <li>
-          Phone the SPOA shift lead:{' '}
+          Phone the shift lead:{' '}
           {spoaPhone !== null ? <span>{spoaPhone}</span> : <span>The number is not set for your service yet. Ask your shift lead.</span>}
         </li>
         <li><Link href="/help/problem">Report a problem</Link></li>

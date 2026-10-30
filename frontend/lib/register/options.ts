@@ -25,7 +25,7 @@ export const SERVICE_CATEGORIES: readonly Option[] = [
 
 export const REFERRAL_METHODS: readonly Option[] = [
   { value: 'phone', label: 'Phone' },
-  { value: 'systmone', label: 'SystmOne' },
+  { value: 'systmone', label: 'Clinical record system' },
   { value: 'email', label: 'Email' },
   { value: 'e-referral', label: 'e-Referral' },
 ];

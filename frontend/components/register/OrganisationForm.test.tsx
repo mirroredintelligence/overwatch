@@ -71,7 +71,7 @@ describe('OrganisationForm: the invitation and the screen', () => {
     expect(screen.getByLabelText('Your name')).toBeInTheDocument();
     expect(screen.getByLabelText('Your role')).toBeInTheDocument();
     expect(screen.getByLabelText('Contact email or phone')).toHaveAccessibleDescription(
-      'For the SPOA to reach your organisation about this registration',
+      'For the coordination team to reach your organisation about this registration',
     );
     expect(screen.getAllByText('Required').length).toBeGreaterThanOrEqual(4);
     expect(screen.getByText('Optional')).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe('OrganisationForm: the invitation and the screen', () => {
     expect(screen.queryByText(/Not your service, or the details are wrong/)).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'This is not my service' }));
     expect(
-      screen.getByText('Not your service, or the details are wrong? Tell the SPOA shift lead. Do not carry on.'),
+      screen.getByText('Not your service, or the details are wrong? Tell the shift lead. Do not carry on.'),
     ).toBeInTheDocument();
   });
 });

@@ -10,7 +10,7 @@ beforeEach(() => resetRegistrationRequests());
 const posts = (path: string) => seenRegistrationRequests.filter((r) => r.method === 'POST' && r.path === path);
 const QUESTIONS = [
   'Is the service part of the Dorset urgent care pathway?',
-  'Does it take referrals from the SPOA?',
+  'Does it take referrals from the coordination team?',
   'Can it report by app, text or email?',
   'Is its category on the pilot list?',
 ];

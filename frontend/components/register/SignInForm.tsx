@@ -25,7 +25,7 @@ const SEND_FAILED = 'We could not send a code. Try again.';
 const THROTTLED = 'Too many attempts. Try again later.';
 const CHECK_FAILED = 'We could not check the code. Try again.';
 
-const NO_INVITATION = 'We could not find an invitation for this number. Ask the SPOA shift lead to check it.';
+const NO_INVITATION = 'We could not find an invitation for this number. Ask the shift lead to check it.';
 
 function triesLeft(count: number): string {
   return count === 1 ? '1 try' : `${count} tries`;
@@ -186,8 +186,8 @@ export function SignInForm({ inviteToken }: SignInFormProps) {
         Send code
       </Button>
       {notice !== null ? <p className={styles.notice} role="status">{notice}</p> : null}
-      <p className={styles.note}>You need an invitation from the SPOA shift lead to register. Check your texts or email for the link.</p>
-      <p className={styles.note}>Having trouble? Ask the SPOA shift lead to check your invitation.</p>
+      <p className={styles.note}>You need an invitation from the shift lead to register. Check your texts or email for the link.</p>
+      <p className={styles.note}>Having trouble? Ask the shift lead to check your invitation.</p>
     </form>
   );
 }

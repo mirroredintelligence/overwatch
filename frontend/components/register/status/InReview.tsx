@@ -13,7 +13,7 @@ export function InReview({ submittedAt }: { submittedAt?: string }) {
         current="Checks"
         details={{
           Submitted: submittedAt === undefined ? undefined : londonDayMonthTime(submittedAt),
-          Checks: 'In progress. The SPOA shift lead may phone your service.',
+          Checks: 'In progress. The shift lead may phone your service.',
         }}
       />
       <p className={styles.text}>We will tell you by notification.</p>

@@ -19,7 +19,7 @@ describe('registration start page', () => {
     expect(items).toEqual([
       'Organisation name and ODS code',
       'The address of the site, or the area you cover',
-      'A phone number the SPOA can call',
+      'A phone number the coordination team can call',
       'Who owns your criteria, and when they are next reviewed',
       'A mobile number or email for capacity updates',
     ]);
@@ -36,7 +36,7 @@ describe('registration start page', () => {
     const later = screen.getByRole('link', { name: 'Save and come back later' });
     expect(later).toHaveAttribute('href', '/register?saved=1');
     expect(later).toHaveAttribute('data-el', 'REG-START-LATER-BTN');
-    expect(screen.getByText('Drafts are saved as you go. Nothing is live until the SPOA shift lead approves it.')).toBeInTheDocument();
+    expect(screen.getByText('Drafts are saved as you go. Nothing is live until the shift lead approves it.')).toBeInTheDocument();
   });
 
   it('has no axe violations', async () => {

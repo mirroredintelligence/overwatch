@@ -19,7 +19,7 @@ describe('CriteriaSend', () => {
     const user = userEvent.setup();
     render(<CriteriaSend serviceId="s1" currentVersion={3} changes={['Youngest age 18 to 16']} values={VALUES} />);
     expect(await screen.findByRole('heading', { level: 2, name: 'Send for second approval' })).toBeInTheDocument();
-    expect(screen.getByText('A SPOA clinical lead approves it too. Until then, advisors still see version 3.')).toBeInTheDocument();
+    expect(screen.getByText('A clinical lead approves it too. Until then, advisors still see version 3.')).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Send for approval' }));
     expect(await screen.findByText('Enter why you are changing this')).toBeInTheDocument();

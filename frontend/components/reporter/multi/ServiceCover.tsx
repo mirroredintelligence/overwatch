@@ -55,7 +55,7 @@ export function ServiceCover({ serviceId, serviceName }: { serviceId: string; se
           <input type="date" aria-label="Cover until date" value={date} onChange={(event) => setDate(event.target.value)} className={styles.input} />
         ) : null}
       </fieldset>
-      <p>We text them a code to check the number. The SPOA shift lead is told.</p>
+      <p>We text them a code to check the number. The shift lead is told.</p>
       {notice !== null ? <Banner tone="warning" title={notice} /> : null}
       <Button variant="primary" busy={busy} dataEl="REP-COVER-SUBMIT-BTN" onClick={() => void submit()}>
         {`Hand over ${serviceName}`}

@@ -21,7 +21,7 @@ there: the full integration run follows on the merged tip.
 
 import asyncio
 from collections.abc import AsyncIterator
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, time, timedelta
 from typing import Any
 
@@ -103,13 +103,17 @@ class Tenants:
     b: str
     factory_a: UnitOfWorkFactory
     factory_b: UnitOfWorkFactory
+    # One generator per tenant for the whole test: a generator rebuilt per call restarts at 1
+    # and two confirmations in a row would write the same Observation id (L134).
+    ids: dict[str, SequentialIds] = field(default_factory=dict)
 
     def use_case(self, tenant: str) -> ConfirmCapacity:
         factory = self.factory_a if tenant == self.a else self.factory_b
+        ids = self.ids.setdefault(tenant, SequentialIds(f"{tenant}-"))
         return ConfirmCapacity(
             factory,
             FixedClock(NOW),
-            SequentialIds(f"{tenant}-"),
+            ids,
             DriverIdempotencyStore(self.driver),
         )
 

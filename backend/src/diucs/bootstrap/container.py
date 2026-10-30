@@ -91,6 +91,12 @@ from diucs.application.ports.outbound.tokens import (
 )
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant, current_tenant
+from diucs.application.use_cases.alerts import (
+    EscalateAlert,
+    EscalateAlertCommand,
+    NotUpdatedCheck,
+    NotUpdatedCheckCommand,
+)
 from diucs.application.use_cases.booking_timers import (
     BookingPhonePrompt,
     ExpireBooking,
@@ -232,6 +238,23 @@ def criteria_review_handler(job: RunCriteriaReviews) -> WorkHandler:
     return step
 
 
+def alert_timer_handlers(
+    uow_factory: UnitOfWorkFactory, ids: IdGenerator, clock: Clock
+) -> dict[WorkKind, WorkHandler]:
+    """The escalation of an unacknowledged alert and the not-updated checks (U34), each run once for
+    each scheduled work of its kind."""
+    escalate = EscalateAlert(uow_factory, ids, clock)
+    checks = NotUpdatedCheck(uow_factory, ids, clock)
+
+    async def on_escalation(work: ScheduledWork) -> None:
+        await escalate.execute(EscalateAlertCommand(work_id=work.id, alert_id=work.about_id))
+
+    async def on_check(work: ScheduledWork) -> None:
+        await checks.execute(NotUpdatedCheckCommand(work_id=work.id, about_id=work.about_id))
+
+    return {WorkKind.ALERT_ESCALATE: on_escalation, WorkKind.NOT_UPDATED_CHECK: on_check}
+
+
 def withdrawal_escalation_handler(job: EscalateWithdrawal) -> WorkHandler:
     """The escalation of a booking withdrawal (U21), run once for each scheduled work of its
     kind."""
@@ -271,6 +294,8 @@ def _scheduled_work(
     handlers[WorkKind.WITHDRAWAL_ESCALATE] = withdrawal_escalation_handler(
         EscalateWithdrawal(uow_factory, clock)
     )
+    # The alert escalation and the not-updated checks (U34).
+    handlers.update(alert_timer_handlers(uow_factory, ids, clock))
     return ScheduledWorkDispatcher(handlers)
 
 

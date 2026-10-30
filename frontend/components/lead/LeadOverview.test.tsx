@@ -77,7 +77,7 @@ describe('LeadOverview', () => {
   it('never says nothing needs chasing when the overview could not be read', async () => {
     server.use(
       http.get('/api/bff/lead/overview', () =>
-        HttpResponse.json({ code: 'not-built', message: 'x' }, { status: 501 }),
+        HttpResponse.json({ code: 'unavailable', message: 'x' }, { status: 503 }),
       ),
     );
     render(<LeadOverview />);

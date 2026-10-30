@@ -488,6 +488,11 @@ class ClinicalRequestRepository(Protocol):
         """The requests this clinician has taken and not yet advised on."""
         ...
 
+    async def advised_by(self, clinician_id: str, limit: int) -> list[ClinicalRequestRecord]:
+        """The requests this clinician advised on, the latest advice first, at most `limit`
+        (W7A: the clinician's Done list)."""
+        ...
+
 
 class ServiceMoveRepository(Protocol):
     """Service moves (P20, U38). Adapter: Neo4jServiceMoveRepository

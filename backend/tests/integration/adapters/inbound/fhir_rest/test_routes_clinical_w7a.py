@@ -43,10 +43,10 @@ __all__ = ["clinical_world", "test_container"]
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 NOTE = "Go ahead: the sample referral fits the service."
-CASE = "case-clin-1"
+CASE = "case-first"
 REFERENCE = "4821"
-OTHER_CASE = "case-clin-2"
-B_CASE = "case-clin-b"
+OTHER_CASE = "case-second"
+B_CASE = "case-tenant-b"
 B_REFERENCE = "7391"
 ADVISOR_1 = "adv-1"
 ADVISOR_2 = "adv-2"
@@ -433,3 +433,43 @@ async def test_tenant_bs_requests_are_in_neither_of_tenant_as_lists(
     assert _ids(done) == ["a1"]
     assert _ids(b_mine) == ["b-taken"]
     assert _ids(b_done) == ["b-done"]
+
+
+# B3: the clinician reads their own presence.
+
+
+async def test_a_clinician_reads_their_own_presence_and_the_count_without_a_name(
+    api_client: AsyncClient, world: None, tenant_id: str
+) -> None:
+    headers = _as(tenant_id, Role.CLINICAL, CLIN_1)
+    before = await api_client.get("/clinical/presence", headers=headers)
+    await api_client.put("/clinical/presence", json={"presence": "busy"}, headers=headers)
+    busy = await api_client.get("/clinical/presence", headers=headers)
+    await api_client.put("/clinical/presence", json={"presence": "available"}, headers=headers)
+    available = await api_client.get("/clinical/presence", headers=headers)
+
+    assert before.json() == {"presence": None, "available": 0}
+    assert busy.json() == {"presence": "busy", "available": 0}
+    assert available.json() == {"presence": "available", "available": 1}
+    for response in (before, busy, available):
+        assert CLIN_1 not in response.text
+
+
+async def test_one_clinicians_presence_is_not_anothers_and_not_the_other_tenants(
+    api_client: AsyncClient, world: None, tenant_id: str, other_tenant_id: str
+) -> None:
+    await api_client.put(
+        "/clinical/presence",
+        json={"presence": "available"},
+        headers=_as(tenant_id, Role.CLINICAL, CLIN_1),
+    )
+
+    second = await api_client.get(
+        "/clinical/presence", headers=_as(tenant_id, Role.CLINICAL, CLIN_2)
+    )
+    other_tenant = await api_client.get(
+        "/clinical/presence", headers=_as(other_tenant_id, Role.CLINICAL, CLIN_1)
+    )
+
+    assert second.json() == {"presence": None, "available": 1}
+    assert other_tenant.json() == {"presence": None, "available": 0}

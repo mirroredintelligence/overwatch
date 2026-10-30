@@ -40,6 +40,7 @@ from diucs.adapters.inbound.fhir_rest import routes_bookings
 from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.adapters.inbound.fhir_rest.auth import current_actor, require_role
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
+from diucs.adapters.inbound.fhir_rest.clinical_mapping import clinical_task
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from diucs.adapters.inbound.fhir_rest.parameters import (
     PARAMETERS,
@@ -54,7 +55,6 @@ from diucs.adapters.inbound.fhir_rest.routes_alerts import alert_list
 from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.adapters.inbound.fhir_rest.subscription_mapping import ALERT_CODE
 from diucs.application.actor import Actor
-from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
@@ -63,12 +63,16 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.clinical_advice import (
     ADVICE_CHOICES,
     ADVICE_REASONS,
+    LIST_DONE,
+    LIST_MINE,
+    LIST_WAITING,
     REQUEST_URGENCIES,
     REQUEST_WHYS,
     AvailableClinicians,
     GiveClinicalAdvice,
     GiveClinicalAdviceCommand,
-    ListClinicalQueue,
+    ListClinicalRequests,
+    ReadPresence,
     RequestClinicalAdvice,
     RequestClinicalAdviceCommand,
     SetPresence,
@@ -82,7 +86,6 @@ from diucs.application.use_cases.safety_concern import (
 )
 from diucs.domain.codes import Role, code_system_url
 from diucs.domain.errors import NotAllowed, ValidationFailed
-from diucs.domain.model.clinical import ClinicalRequestRecord
 from diucs.domain.rules.clinical_queue import Presence
 from diucs.domain.rules.safety_report import SafetyConcernCategory, checked_concern_text
 
@@ -196,30 +199,6 @@ def _safety_concern(task: dict[str, Any]) -> tuple[SafetyConcernCategory, str | 
     return kind, (None if reference is None else str(reference)), checked_concern_text(raw)
 
 
-def _queue_task(record: ClinicalRequestRecord) -> dict[str, Any]:
-    """A queued request as a Task. It names the case, the urgency and the reason, and no one's
-    details: the requester's id, the snapshot's handle and the advice text stay out of the queue."""
-    request = record.request
-    if request.advised_at is not None:
-        status = "completed"
-    elif request.taken_by is not None:
-        status = "in-progress"
-    else:
-        status = REQUESTED
-    return {
-        "resourceType": "Task",
-        "id": request.id,
-        "status": status,
-        "code": {"coding": [{"system": TASK_CODE_SYSTEM, "code": CLINICAL_CODE}]},
-        "focus": {"reference": f"ServiceRequest/{request.case_id}"},
-        "authoredOn": format_instant(request.requested_at),
-        "extension": [
-            {"url": _input_url("urgency"), "valueCode": request.urgency},
-            {"url": _input_url("why"), "valueCode": record.why},
-        ],
-    }
-
-
 def _task_status(request_id: str, status: str) -> Response:
     return FhirJSONResponse(
         content={
@@ -250,6 +229,23 @@ async def set_presence(
     return FhirJSONResponse(content={"presence": presence.value}, headers=NO_STORE)
 
 
+@router.get("/clinical/presence")
+async def read_presence(
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(Role.CLINICAL))],
+) -> Response:
+    """The clinician's own presence, so the on-duty screen starts where it was left (null when none
+    is set or it has lapsed), and how many clinical advisors are available. No name (W7A)."""
+    container = _container(request)
+    view = await ReadPresence(container.uow_factory, container.cache, container.clock).execute(
+        actor
+    )
+    own = None if view.own is None else view.own.value
+    return FhirJSONResponse(
+        content={"presence": own, "available": view.available}, headers=NO_STORE
+    )
+
+
 @router.get("/clinical/available")
 async def available_clinicians(
     request: Request,
@@ -265,21 +261,26 @@ async def available_clinicians(
 # ------------------------------------------------------------------------------- the task routes
 
 
+LISTS: Final = {REQUESTED: LIST_WAITING, "in-progress": LIST_MINE, "completed": LIST_DONE}
+"""The Task statuses a clinical advisor lists, and the list each one is: the queue (requested),
+Mine (in-progress) and Done (completed)."""
+
+
 async def clinical_queue(request: Request, actor: Actor) -> Response:
-    """The clinical queue. Only a clinical advisor reads it (the use case refuses any other role,
-    which is a 404), and the status it asks for must be `requested`."""
-    if request.query_params.get("status") != REQUESTED:
-        raise ValidationFailed("status", "must be requested")
+    """The clinical lists. Only a clinical advisor reads them (any other role is a 404), and the
+    status asked for is the queue, Mine or Done."""
     if actor.role is not Role.CLINICAL:
         raise NotAllowed("only a clinical advisor may see the clinical queue")
-    records = await ListClinicalQueue(
-        _container(request).uow_factory, _container(request).clock
-    ).execute(actor)
+    which = LISTS.get(request.query_params.get("status") or "")
+    if which is None:
+        raise ValidationFailed("status", "must be requested, in-progress or completed")
+    container = _container(request)
+    views = await ListClinicalRequests(container.uow_factory, container.clock).execute(actor, which)
     bundle: dict[str, Any] = {
         "resourceType": "Bundle",
         "type": "searchset",
-        "total": len(records),
-        "entry": [{"resource": _queue_task(record)} for record in records],
+        "total": len(views),
+        "entry": [{"resource": clinical_task(view)} for view in views],
     }
     return FhirJSONResponse(content=bundle, headers=NO_STORE)
 

@@ -14,6 +14,9 @@ from datetime import timedelta
 from typing import Any
 
 import pytest
+
+from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.application.tenancy import ScopeId, bind_tenant
 from diucs.application.use_cases.network_admin import (
     CreateNetwork,
     CreateNetworkCommand,
@@ -21,9 +24,6 @@ from diucs.application.use_cases.network_admin import (
     RecordAgreement,
     RecordAgreementCommand,
 )
-
-from diucs.adapters.testing.fixed_clock import FixedClock
-from diucs.application.tenancy import ScopeId, bind_tenant
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.network import (
@@ -60,9 +60,15 @@ class _Rig:
         self.registry = MemoryRegistry(self.log)
         owner = active_tenant(OWNER)
         if not owner_active:
-            from diucs.domain.model.tenant import TenantStatus
+            from diucs.domain.model.tenant import SuspendMode, SuspendReason, TenantStatus
 
-            owner = replace(owner, status=TenantStatus.SUSPENDED, suspended_at=NOW)
+            owner = replace(
+                owner,
+                status=TenantStatus.SUSPENDED,
+                suspended_at=NOW,
+                suspend_mode=SuspendMode.BLOCKED,
+                suspend_reason=SuspendReason.OPERATOR_REQUEST,
+            )
         self.directory = MemoryDirectory(owner)
         self.heads = Heads(self.log)
         factories = UnitFactories(self.world)

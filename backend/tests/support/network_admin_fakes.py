@@ -246,7 +246,7 @@ class _Audit:
 
     async def append(self, entry: AuditEntry) -> None:
         self._unit.world.log.append(f"{self._unit.kind}:audit:{entry.use_case}")
-        self._unit.world.audits.append((str(self._unit.unit_scope), entry))
+        self._unit.pending_audits.append((str(self._unit.unit_scope), entry))
 
 
 class _Outbox:
@@ -255,7 +255,7 @@ class _Outbox:
 
     async def add(self, message: Any) -> None:
         self._unit.world.log.append(f"{self._unit.kind}:outbox:{message.event_type}")
-        self._unit.world.outbox.append((str(self._unit.unit_scope), message))
+        self._unit.pending_outbox.append((str(self._unit.unit_scope), message))
 
 
 class _Processed:
@@ -395,6 +395,8 @@ class _Unit:
         self.network_view = _View(self)
         self.pending_marks: set[tuple[str, str]] = set()
         self.pending_work: list[Any] = []
+        self.pending_audits: list[tuple[str, AuditEntry]] = []
+        self.pending_outbox: list[tuple[str, Any]] = []
         self.scope = SimpleNamespace(ensure_list=self._ensure_list)
         self.committed = False
 
@@ -423,6 +425,8 @@ class _Unit:
         self.world.log.append(f"{self.kind}:commit")
         self.world.marked |= self.pending_marks
         self.world.scheduled.extend(self.pending_work)
+        self.world.audits.extend(self.pending_audits)
+        self.world.outbox.extend(self.pending_outbox)
 
     async def rollback(self) -> None:
         return None

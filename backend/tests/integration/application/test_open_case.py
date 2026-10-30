@@ -40,6 +40,7 @@ from diucs.domain.model.case import Case
 from diucs.domain.model.scores import ClinicalFrailty, News2
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx, wipe
+from tests.support.tenancy import as_tenant
 from tests.support.tenant_seed import contracted_container
 from tests.support.uow import ensure_audit_heads
 
@@ -469,8 +470,13 @@ async def test_the_same_key_in_two_tenants_is_two_commands(
     tenant_id: str,
     other_tenant_id: str,
 ) -> None:
-    a = await _open(uow_factory_a, tenant_id, key="shared")
-    b = await _open(uow_factory_b, other_tenant_id, key="shared")
+    # Each call runs with its own tenant bound, as the edge binds it: the use case reads the
+    # replay record under the bound tenant before it opens a unit of work, and a unit of work
+    # from `uow_factory_b` binds B only while it is entered.
+    with as_tenant(tenant_id):
+        a = await _open(uow_factory_a, tenant_id, key="shared")
+    with as_tenant(other_tenant_id):
+        b = await _open(uow_factory_b, other_tenant_id, key="shared")
 
     assert a.case_id != b.case_id
     assert await _read(uow_factory_a, b.case_id) is None
@@ -492,15 +498,6 @@ async def test_tenant_b_cannot_read_or_change_a_case_it_names_by_id(
     assert await _read(uow_factory_a, a.case_id) == before
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "tenant-pending (TEN-010, TEN-032): Q-CASE-BY-REF and the global reference constraint "
-        "(migration 0022) are unscoped, so tenant B sees tenant A's reference and moves on. "
-        "Remove this marker when TEN-010 and TEN-032 land (lesson L168)."
-    ),
-)
 async def test_the_same_reference_in_two_tenants_does_not_collide(
     uow_factory_a: UnitOfWorkFactory,
     uow_factory_b: UnitOfWorkFactory,
@@ -511,12 +508,14 @@ async def test_the_same_reference_in_two_tenants_does_not_collide(
     rng_a.feed(4821)
     rng_b = ScriptedRng()
     rng_b.feed(4821, 4822)
-    a = await _opener(uow_factory_a, tenant_id, rng_a).execute(
-        OpenCaseCommand("open-a", ADVISOR, ReferrerType.GP)
-    )
-    b = await _opener(uow_factory_b, other_tenant_id, rng_b).execute(
-        OpenCaseCommand("open-b", ADVISOR, ReferrerType.GP)
-    )
+    with as_tenant(tenant_id):
+        a = await _opener(uow_factory_a, tenant_id, rng_a).execute(
+            OpenCaseCommand("open-a", ADVISOR, ReferrerType.GP)
+        )
+    with as_tenant(other_tenant_id):
+        b = await _opener(uow_factory_b, other_tenant_id, rng_b).execute(
+            OpenCaseCommand("open-b", ADVISOR, ReferrerType.GP)
+        )
 
     assert a.reference == "4821"
     assert b.reference == "4821"

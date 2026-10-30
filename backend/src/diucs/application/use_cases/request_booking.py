@@ -22,13 +22,15 @@ from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.audit import AuditEntry
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
-from diucs.application.ports.outbound.messaging import Communication
-from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
+from diucs.application.ports.outbound.outbox import outbox_message_for
+from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.scheduling import schedule_work
+from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
 from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
 from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
+from diucs.application.use_cases.suspend_service import WordingFor
 from diucs.application.work import WorkKind
 from diucs.domain.codes import AgeBand, BookingStatus, Channel, NeedCategory, Role, Urgency
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
@@ -53,8 +55,6 @@ backs it with the tenant directory, which holds the host (the Tenant record has 
 item 3)."""
 BOOKING_PURPOSE: Final = "booking-request"
 """The link token purpose of a booking request (L01 names booking purposes by this prefix)."""
-MESSAGES_TOPIC: Final = "messages.outbound"
-SEND_MESSAGE: Final = "SendMessage"
 USE_CASE: Final = "RequestBooking"
 AUDIT_ACTION: Final = "C"
 REQUEST_LINK_PATH: Final = "/l/"
@@ -172,8 +172,10 @@ def _render_request(
     open_case: _OpenCase,
     link: str | None,
     reply_by: datetime,
+    referral_system_name: str | None,
 ) -> RenderedMessage:
-    """B1, B2 or B3 for the channel. The fields are the request's own: never the postcode."""
+    """B1, B2 or B3 for the channel. The fields are the request's own: never the postcode.
+    `referral_system_name` is the tenant's word for its referral system (TEN-022); B3 has none."""
     message = message_for_channel(channel)
     reply_by_text = format_hhmm(reply_by)
     if message is MessageId.B3:
@@ -190,6 +192,7 @@ def _render_request(
         urgency=urgency_wording(open_case.urgency),
         link=link or "",
         reply_by=reply_by_text,
+        referral_system_name=referral_system_name,
     )
 
 
@@ -203,11 +206,15 @@ class RequestBooking:
         ids: IdGenerator,
         rng: random.Random,
         query_board: QueryBoard,
+        sealer: ContentSealer,
+        wording_for: WordingFor,
         *,
         link_base_url_for: LinkBaseUrlFor,
     ) -> None:
         """`link_tokens` builds the link service over the unit's own repository. The link host of
-        a tenant comes from its configuration, through `link_base_url_for` (DEC-134 item 3)."""
+        a tenant comes from its configuration, through `link_base_url_for` (DEC-134 item 3). The
+        request is sealed with `sealer` and queued as the senders read it (DEC-305); the tenant's
+        referral wording comes from `wording_for`, as SuspendService's does (TEN-022)."""
         self._uow_factory = uow_factory
         self._idempotency = idempotency
         self._link_tokens = link_tokens
@@ -215,6 +222,8 @@ class RequestBooking:
         self._ids = ids
         self._rng = rng
         self._query_board = query_board
+        self._sealer = sealer
+        self._wording_for = wording_for
         self._link_base_url_for = link_base_url_for
 
     async def execute(self, command: RequestBookingCommand) -> RequestBookingResult:
@@ -266,6 +275,8 @@ class RequestBooking:
             if reporter is None:
                 raise NotFound("the reporter of this service")
 
+            referral_system_name = await self._referral_system_name(scope, channel)
+
             reference = await self._free_reference(uow)
             reply_by = booking_reply_by(now)
             booking = Booking(
@@ -297,34 +308,18 @@ class RequestBooking:
                 open_case=open_case,
                 link=link,
                 reply_by=reply_by,
+                referral_system_name=referral_system_name,
             )
-            communication = Communication(
-                id=self._ids.new_id(),
-                message_id=rendered.message_id.value,
-                channel=channel,
+            await queue_message(
+                uow,
+                self._ids,
+                self._sealer,
+                scope=scope,
+                rendered=rendered,
                 recipient_role_id=role.id,
-                about_id=booking.id,
-                payload_text=rendered.text,
-                sent_at=now,
-                delivery_status="queued",
-            )
-            await uow.communications.add(communication)
-            await uow.outbox.add(
-                OutboxMessage(
-                    id=self._ids.new_id(),
-                    topic=MESSAGES_TOPIC,
-                    event_type=SEND_MESSAGE,
-                    payload={
-                        "communication_id": communication.id,
-                        "message_id": rendered.message_id.value,
-                        "channel": channel.value,
-                        "recipient_role_id": role.id,
-                        "text": rendered.text,
-                        "subject": rendered.subject,
-                        "html": rendered.html,
-                    },
-                    created_at=now,
-                )
+                about_id=profile.id,
+                now=now,
+                link=link,
             )
             await uow.outbox.add(
                 outbox_message_for(
@@ -380,6 +375,17 @@ class RequestBooking:
             await uow.idempotency.put(key, _StoredBooking(fingerprint, result))
             await uow.commit()
         return result
+
+    async def _referral_system_name(self, scope: ScopeId, channel: Channel) -> str | None:
+        """The tenant's word for its referral system, which B1 and B2 print. A tenant with no
+        wording cannot be activated (H-T15), so none here is a configuration fault: the request is
+        refused before anything is written. The push message names no system."""
+        if message_for_channel(channel) is MessageId.B3:
+            return None
+        wording = await self._wording_for(scope)
+        if wording is None:
+            raise ValidationFailed("referral_system_name", "the tenant has set no wording")
+        return wording.referral_system_name
 
     async def _free_reference(self, uow: UnitOfWork) -> str:
         """A four-digit reference that no open booking of this tenant holds (domain-rules 3.2,

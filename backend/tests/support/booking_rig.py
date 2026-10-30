@@ -20,6 +20,7 @@ from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, LinkTokenService
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import ScopeId
 from diucs.application.use_cases.query_board import QueryBoard
 from diucs.application.use_cases.request_booking import (
     RequestBooking,
@@ -28,6 +29,7 @@ from diucs.application.use_cases.request_booking import (
 )
 from diucs.domain.codes import AgeBand, Channel, NeedCategory, ReferrerType, Role, Urgency
 from diucs.domain.model.case import Case
+from diucs.domain.model.tenant import TenantWording
 from tests.support.actors import ACTOR_TENANT
 from tests.support.ladder_rig import PHONE_HASH_1, reporter, seed_people, seed_report
 from tests.support.link_rig import ucr_west
@@ -97,6 +99,15 @@ def sealer() -> AesGcmContentSealer:
     return AesGcmContentSealer(SECRETS)
 
 
+async def sample_wording(scope: ScopeId) -> TenantWording | None:
+    """The tenant wording a rig tenant has: the referral name is the one B1 and B2 print."""
+    return TenantWording(
+        system_name="Rig capacity",
+        referral_system_name="SystmOne",
+        coordination_team_name="The SPOA shift lead",
+    )
+
+
 async def seed_world(uow_factory: UnitOfWorkFactory, driver: AsyncDriver) -> None:
     """UCR West with a report at 13:00 of 4, one reporter on text, and one open case."""
     await ensure_audit_head(driver)
@@ -124,6 +135,8 @@ def request_use_case(
         SequentialIds("bk"),
         random.Random(7),
         QueryBoard(uow_factory, clock),
+        sealer(),
+        sample_wording,
         link_base_url_for=lambda scope: LINK_HOST,
     )
 

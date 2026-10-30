@@ -39,6 +39,8 @@ EXEMPT = {
 # Stubs and rigs with no database: a fixed tenant id there is only a label.
 NO_DATABASE = {"support/registration_rig.py"}
 REGISTRY = {"Tenant", "TenantNumber", "Network", "Migration"}
+# `WHERE n.tenantId IN $scopes` or `n.tenantId = $tenant`: the statement is limited in its WHERE.
+WHERE_SCOPED = re.compile(r"\.tenantId\s*(?:IN|=)\s*\$")
 CYPHER = re.compile(r"\b(?:MATCH|CREATE|MERGE)\s*\(")
 NODE = re.compile(
     r"(?<![\w`$])\(\s*(?P<var>\w*)\s*(?P<labels>(?::[\w`|]+)+)?\s*(?P<props>\{[^{}]*\})?\s*\)"
@@ -71,7 +73,7 @@ def _texts(tree: ast.AST) -> list[tuple[int, str]]:
 def unscoped_patterns(text: str) -> list[str]:
     """The node patterns of a Cypher statement that name no tenant. Empty for anything that is not a
     statement, and for a statement that names `tenantId` in its WHERE or a scope list."""
-    if CYPHER.search(text) is None or "tenantId" in text and "tenantId:" not in text:
+    if CYPHER.search(text) is None or WHERE_SCOPED.search(text):
         return []
     bad = []
     for match in NODE.finditer(text):
@@ -100,6 +102,8 @@ def test_the_guard_sees_an_unscoped_statement_and_a_scoped_one() -> None:
     assert unscoped_patterns("MATCH ()-[r:T]->() RETURN count(r)") == ["()", "()"]
     assert unscoped_patterns("MATCH (m:OutboxMessage {tenantId: $tenant}) RETURN count(m)") == []
     assert unscoped_patterns("MATCH (n) WHERE n.tenantId IN $scopes RETURN n") == []
+    # Reading the property is not limiting by it.
+    assert unscoped_patterns("MATCH (p:Processed) RETURN p.tenantId AS t") == ["(p:Processed)"]
     assert unscoped_patterns("MATCH (t:Tenant {id: $id}) SET t += $props") == []
     assert unscoped_patterns("a sentence (with a parenthesis) and no statement") == []
 

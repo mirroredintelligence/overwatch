@@ -25,7 +25,7 @@ from tests.support.inbound_rig import (
     receipt_message,
     reply_message,
 )
-from tests.support.neo4j import read_tx
+from tests.support.neo4j import read_tx, run_scope_ids
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -64,7 +64,9 @@ async def test_the_same_sender_and_the_same_message_id_in_two_tenants_are_two_me
 
     async def markers(tx: object) -> list[tuple[str, str, str]]:
         result = await tx.run(  # type: ignore[attr-defined]
-            "MATCH (p:Processed) RETURN p.tenantId AS t, p.consumer AS c, p.messageId AS m"
+            "MATCH (p:Processed) WHERE p.tenantId IN $scopes "
+            "RETURN p.tenantId AS t, p.consumer AS c, p.messageId AS m",
+            scopes=run_scope_ids(),
         )
         return sorted([(r["t"], r["c"], r["m"]) async for r in result])
 

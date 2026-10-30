@@ -19,7 +19,7 @@ from diucs.adapters.outbound.graph_store.scheduled_work_repository import (
 from diucs.application.tenancy import bind_tenant
 from diucs.application.work import ScheduledWork, WorkKind
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, run_scope_ids, write_tx
 from tests.support.round_trip import assert_round_trip
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -310,9 +310,10 @@ async def test_the_same_work_id_in_two_tenants_is_two_records(
 
     async def subjects(tx: AsyncManagedTransaction) -> list[tuple[str, int]]:
         result = await tx.run(
-            "MATCH (s:Resource {key: $key}) RETURN s.tenantId AS tenant, count(s) AS n "
-            "ORDER BY tenant",
+            "MATCH (s:Resource {key: $key}) WHERE s.tenantId IN $scopes "
+            "RETURN s.tenantId AS tenant, count(s) AS n ORDER BY tenant",
             key=BOOKING,
+            scopes=run_scope_ids(),
         )
         return [(record["tenant"], int(record["n"])) async for record in result]
 

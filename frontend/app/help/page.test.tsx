@@ -14,14 +14,10 @@ describe('Help page', () => {
     expect(screen.getByText('Help is one tap away on every screen.')).toBeInTheDocument();
   });
 
-  it('hides "Share my session with support" unless the flag is on', () => {
+  it('always links to "Share my session with support", whatever the old flag says (W56)', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPPORT_SHARING', 'off');
-    const { unmount } = render(<HelpPage />);
-    expect(screen.queryByRole('link', { name: 'Share my session with support' })).not.toBeInTheDocument();
-    unmount();
-    vi.stubEnv('NEXT_PUBLIC_SUPPORT_SHARING', 'on');
     render(<HelpPage />);
-    expect(screen.getByRole('link', { name: 'Share my session with support' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Share my session with support' })).toHaveAttribute('href', '/help/share');
   });
 
   it('has no accessibility violations', async () => {

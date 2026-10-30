@@ -284,6 +284,10 @@ def iso_utc(moment: datetime | None) -> str | None:
     return moment.astimezone(UTC).replace(microsecond=0).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def next_due_iso(profile: object, now: datetime, policy: object, zone: object) -> str | None:
+    raise NotImplementedError
+
+
 def command_key(scope: ScopeId, record: LinkTokenRecord) -> str:
     """The replay key of the one answer a link may have. The tenant is part of it, so two tenants
     can never share a key (the replay statements are not tenant-scoped yet, L160)."""

@@ -56,7 +56,12 @@ BROWSER_KEYS_FROM_SPEC: Final = frozenset(
     }
 )
 BROWSER_KEYS_ADDED_HERE: Final = frozenset({"trace_id"})
+# The spec's ui.web_vital keys are free-text words (DENIED_FRAGMENTS). They are not kept anywhere:
+# the back end refuses them, the browser allow-list and the O05 schema do not send them, and the
+# collector cannot limit a key to one event, so the O04 integration removed them from the list.
+REFUSED_FREE_TEXT_KEYS: Final = frozenset({"name", "value"})
 RESOURCE_KEYS: Final = frozenset({"service.name", "service.version", "deployment.environment"})
+FRONTEND_EVENTS_FILE: Final = REPO_ROOT / "frontend" / "lib" / "telemetry" / "events.ts"
 
 # A key the back end must never let out, and a key the collector must never list, even by mistake.
 PRIVACY_KEYS: Final = (
@@ -125,9 +130,7 @@ REVIEWED_BACKEND_DENIED_WORD_KEYS: Final = frozenset(
         "db.system.name",  # the semantic-convention database name, such as neo4j
     }
 )
-REVIEWED_BROWSER_DENIED_WORD_KEYS: Final = frozenset(
-    {"name", "value"}
-)  # ui.web_vital (DEC-O04 item 3)
+REVIEWED_BROWSER_DENIED_WORD_KEYS: Final = frozenset()  # none: name and value are refused (above)
 
 
 def _with_denied_word(keys: set[str]) -> set[str]:
@@ -145,8 +148,30 @@ def test_only_the_reviewed_keys_contain_a_denied_word() -> None:
     assert _with_denied_word(sections["browser"]) == REVIEWED_BROWSER_DENIED_WORD_KEYS
 
 
-def test_the_browser_section_is_the_spec_list_plus_trace_id() -> None:
-    assert _sections()["browser"] == set(BROWSER_KEYS_FROM_SPEC | BROWSER_KEYS_ADDED_HERE)
+def test_the_browser_section_is_the_spec_list_less_the_refused_keys_plus_trace_id() -> None:
+    expected = (BROWSER_KEYS_FROM_SPEC - REFUSED_FREE_TEXT_KEYS) | BROWSER_KEYS_ADDED_HERE
+    assert _sections()["browser"] == set(expected)
+
+
+def test_free_text_keys_are_on_no_list_and_no_keep_keys_statement() -> None:
+    sections = _sections()
+    for section in sections.values():
+        assert section.isdisjoint(REFUSED_FREE_TEXT_KEYS)
+    for _context, _target, keys in _keep_key_lists(_config()):
+        assert keys.isdisjoint(REFUSED_FREE_TEXT_KEYS)
+    for key in REFUSED_FREE_TEXT_KEYS:
+        assert not is_allowed_key(key), key
+
+
+def test_the_browser_allow_list_does_not_send_free_text_keys() -> None:
+    # The browser sends only the keys of ALLOWED_ATTRIBUTES (frontend/lib/telemetry/events.ts); none
+    # of the refused keys may be among them, or the collector and the browser would disagree.
+    source = FRONTEND_EVENTS_FILE.read_text(encoding="utf-8")
+    block = re.search(r"ALLOWED_ATTRIBUTES[^=]*=\s*\[(.*?)\];", source, re.DOTALL)
+    assert block is not None, "ALLOWED_ATTRIBUTES not found"
+    sent = set(re.findall(r"'([^']+)'", block.group(1)))
+    assert sent, "ALLOWED_ATTRIBUTES is empty"
+    assert sent.isdisjoint(REFUSED_FREE_TEXT_KEYS), sent & REFUSED_FREE_TEXT_KEYS
 
 
 def test_the_resource_section_is_the_three_resource_keys() -> None:

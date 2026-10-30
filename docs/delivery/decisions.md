@@ -3411,3 +3411,704 @@ Partly built, finish after U13: `RecordAdvisorPhoned` (U13) does not exist yet. 
 - A flag's reason gives the sentence: out-of-range-twice, many-changes, differs-from-phoned. Any other reason raises ValidationFailed.
 - The phoned figure is 0 to 999, as a report is.
 - A phoned outcome is recorded as status `checked`, because the flag statuses are open, checked and accepted.
+
+## DEC-250 The REST edge binds the tenant from the verified token, and nothing else (TEN-018)
+
+Status: accepted (build wave 2, bundle W2A, under DEC-133; no owner gate). Folded from the fragment of TEN-018. Refines DEC-130 item 6, DEC-134 items 2 and 4, DEC-094 item 4 (a token is no longer valid until `exp` once tenants can be suspended; audit F H-T23). Affects: `adapters/inbound/fhir_rest/auth.py`, `tenant_gate.py` (new), `app.py`, `concurrency.py`, `domain/rules/bff_token.py`, `domain/rules/edge_access.py` (new), `domain/codes.py`, `application/actor.py`, `application/tenancy.py`, `adapters/testing/tokens.py`, every `Actor(` construction site (src 9, tests about 70), R15's connect route.
+
+1. **The binding.** `current_actor` is an async generator dependency: it reads the bearer, checks the signature and expiry, asks the tenant gate, and runs the request inside `bind_scope(ScopeId.tenant(<claim>))`. It is async so that it runs in the request's own task (a plain `def` dependency runs in a thread pool and its binding would be lost); a `def` handler still sees the binding because the thread pool copies the context; the binding is reset when the request ends, so nothing is left bound (proved through a request, the reset trap of known issue TEN-003, with an outer binding present, and with two requests in flight at once). A request that arrives with another scope already bound is bound to the token's tenant for its own duration and the outer one is restored. `require_role` depends on it, so every role-guarded route binds too.
+2. **The tenant is the signed claim.** No header, query, body, cookie or host is read for it (tests send a tenant in each, with the host named after another tenant, and the scope stays the token's). `fhir_rest.auth` joins `BINDING_MODULES` in the architecture test.
+3. **Claims.** `BffClaims` gains required `tenant` and `epoch`. `tenant` must satisfy the domain `check_tenant_id` (not a network id, not `platform`, not a list); `epoch` is a whole number from 1 to 10**9 (a `bool` is refused). A token with neither, or with a bad one, is the one `TokenRejected`. `encode_bff_token` refuses the same values. The token carries the tenant's epoch when it was issued.
+4. **The gate** (`TenantGate`): the directory's own record of the claimed tenant (`TenantDirectory.get`, global, read-only) is asked only after the signature has been checked, and only about the claim. The record is cached in the process for less than 60 seconds (re-read when it is 60 seconds old or older; only found records are cached; at most 1024). A token whose epoch is ahead of a cached record reads the record again once before it is judged (a resume this process has not seen), and a fresh record still behind is refused. A directory error is not caught: it is a 500 and no handler runs (fail closed). `ApiContainer` gains `tenants`.
+5. **The rule** (`edge_verdict`, pure, `domain/rules/edge_access.py`): allowed only when the record is exactly a `Tenant` whose id is the claim, the role is exactly a `Role` and not `platform-operator`, the token's epoch is not behind the record's, and the status is active; or suspended in `read-only` mode for the `tenant-admin` role on GET and HEAD only [ASSUMED, audit F section 2.4: the administrator may export and read]; every other status, mode, role and method is refused. A token ahead of the record answers `record-behind` (one refresh). Every refusal, whatever the cause (no token, bad signature, unknown tenant, suspended, older epoch, operator), is the same 401 with the same body.
+6. **Roles.** `Role` gains `tenant-admin`, `network-admin` and `platform-operator` (DEC-134 item 4). No route allows the first two yet (they are refused by the existing role sets, so nothing widens); the operator has no data access and is refused at the data edge. `terminology/codesystems/role.json` was exported again.
+7. **`Actor.tenant_id` is required** (the last positional field, so the first five keep their places; checked with the domain `check_tenant_id` when built). It is a copy of what the edge bound, never an access decision. The module constants that held an actor are gone: `WALL_ACTOR` (now `wall_actor(tenant, device_id=None)`), `text_code.ANONYMOUS` and `pin._ANONYMOUS` (now `anonymous_actor(tenant, channel)`), `container.SCHEDULER_ACTOR` (now `system_actor(current_tenant(), "scheduler")` per step), and U19's `SYSTEM_ACTOR` from the merged branch (now `timer_actor(tenant)`, role audit, channel system). Use cases that build an actor take the tenant from the unit of work or the bound context. `require_actor_in_bound_tenant(actor)` and `TenantMismatch` (fixed message) are the defence against a wiring fault; `ReplayCache.lookup` and `save` call it.
+8. **Replay key per tenant.** The cache already qualifies every name with the bound scope (TEN-019), so the replay entry of R03 is per tenant once the edge binds; a two-tenant test proves the same subject, key and body in tenant B is not tenant A's replay and that the entry is not stored under A's name. `scoped_key` is unchanged. This closes the R04 known issue.
+9. **The audit chain.** The hashed text is unchanged (DEC-231 item 3). `_parse_entry(text, tenant_id)` gives each stored entry's actor the tenant of the chain it sits in (the bound scope); a network-scope chain has no tenant and refuses with `TenantNotBound` until the network audit is designed.
+10. **The route registry test** (`test_edge_binding.py`): every route of the app either depends on `current_actor` or is on a reviewed list with its reason: tenant-free (`/health`, `/fhir/metadata`, the three refused writes of `/fhir/Observation/{id}`) or binds itself (pairing start and claim by host, the SMS webhook by number and account, the link pages by link token, the synthetic hook by its configured tenant). A route added without either fails. The walk reads FastAPI 0.162's lazily included routers (`_IncludedRouter`); a shape it does not know fails the test.
+11. **Test support.** `issue_test_token(..., tenant=None, epoch=1)`: the default tenant is the harness's run tenant (`DIUCS_TEST_TENANT`), else `example-icb`. `tests/support/api.py` seeds an active record for the run tenant and the second tenant (`edge_tenants`, which `api_app` needs) and has `token_headers(tenant, role, ...)`; `tests/support/edge.py` has a recording directory and a fixed container for unit tests; `tests/support/actors.py` has `ACTOR_TENANT` for the actors tests build.
+12. **R15.** The connect route now runs bound to the lead's tenant from the token (a unit test and an integration test); the 500 it answered in production is gone. The integration test that expected the 500 and the one that used `as_tenant` to stand for the edge were rewritten.
+
+**Assumed.** The read-only suspension rule of item 5; the 60-second cache and its 1024 bound; the epoch bound of 10**9; reading `platform-operator` as "no data access at this edge" (TEN-073 and TEN-084 own the operator routes and their own audience).
+
+**Mutants run by hand** against the edge (each fails a named test): no binding (`test_an_async_handler_runs_bound_to_the_tokens_tenant`), epoch check removed (`test_a_token_from_before_a_suspend_and_resume_is_refused`), directory check removed (`test_the_causes_of_a_refusal_all_answer_with_the_same_401`), read-only suspension allows writes (`test_a_read_only_suspension_lets_only_the_tenant_admin_read`), cache `<` changed to `<=` (`test_a_suspend_takes_effect_when_the_cached_record_is_a_minute_old`), record id not compared with the claim (`test_a_record_for_another_tenant_than_the_claim_is_refused`), refresh of a token ahead of the record removed (`test_a_token_newer_than_the_cached_record_reads_the_record_again_once`), actor tenant unchecked (`test_a_tenant_that_is_not_a_tenant_id_is_refused`), replay actor check removed (`test_an_actor_of_another_tenant_than_the_bound_one_cannot_look_up_a_replay`).
+
+**Tenant pending.**
+
+- No Cypher is added or changed. The statements behind the routes are the existing ones; their conversion state is whatever TEN-009 to TEN-017 left, and the generated two-tenant tests run in the verification stage. The tenant directory read (`TenantDirectory.get`) is the TEN-007 global statement.
+- Cross-scope reads the edge would need: none. A network route (TEN-057) will bind a network scope after its own membership check; this edge binds tenant scopes only.
+
+## DEC-251 Every bus message carries its tenant, qualified ids and one reader (TEN-020)
+
+Status: accepted (build wave 2, bundle W2A, under DEC-133; no owner gate). Folded from the fragment of TEN-020. Refines DEC-130 item 7 and DEC-157; follows the prompt `docs/plan/prompts/TEN-020.md` except where item 9 says. Affects: `application/ports/outbound/event_bus.py`, `adapters/outbound/bus_servicebus/service_bus.py`, `adapters/testing/memory_event_bus.py`, `adapters/inbound/workers/servicebus_runner.py`, `application/use_cases/text_code.py`, `docs/delivery/tenancy-plan.md` (the session id row), the contract and integration tests.
+
+1. **Names.** The application property is `tenantId`. On the wire the message id is `<tenant>:<local id>` and the session id `<tenant>:<local session id>`; the port holds the local values. A tenant id holds no colon, so the first colon splits exactly (`TENANT_SEPARATOR`). Service Bus allows 128 characters: a longer qualified id is `ValidationFailed("id" or "session_id", ...)` in both buses, with a fixed message.
+2. **`BusMessage.tenant_id` is required** (`str`, keyword-only, no default, validated with the kernel's `is_valid_tenant_id`). An empty id, an empty session id and a payload with a top-level `tenantId`, `tenant_id` or `tenant` are refused: the tenant is a property, never part of the body.
+3. **One reader.** `from_wire(topic, *, message_id, session_id, subject, properties, payload)` is the only reader of the tenant. Keys and values may be `str` or `bytes` (strict UTF-8). Reasons, as fixed words: `tenant-missing` (no key, `None`, empty), `tenant-malformed` (not text, bad bytes, not a tenant id, both key forms), `tenant-mismatch` (the message id has no colon or names another tenant, or a present session id does). `MessageTenantError(DomainError)` carries `reason` and its message is the reason. A message id whose local part is empty is the constructor's `ValidationFailed("id")`.
+4. **`to_wire`** gives exactly the event type, the tenant, a text `channel` and, when present, the `traceparent` (already on the wire since O01; the prompt predates it). No other payload value becomes a property.
+5. **`check_publishable`** runs first in `publish`, `enqueue` and `schedule` of the adapter and of the fake (the prompt names `publish` and `schedule`; `enqueue` came with I07). With a scope bound it must be a tenant scope equal to the message's tenant (a network binding is refused); with none bound the message's own tenant is the declaration, because the outbox relay carries the tenant on each message and publishes unbound. A body with a top-level `link`, `link_token`, `token` or `url` is refused: a live link is sealed before it reaches the bus (a dead letter holds the body). No heuristic scan of free text is added (a false positive would refuse real messages).
+6. **The fake enforces the same rules.** `ManualEventBus` checks the wire form (the length limit) and `check_publishable` on every send, has `wire(message)`, and `published_to(topic, tenant_id=None)` filters by tenant. The contract suite runs the same tenant cases against the fake and the emulator.
+7. **The runner (the prompt's rule 9, the smallest edit).** `to_bus_message` builds the message with `from_wire`; a `MessageTenantError` or `ValidationFailed` is the existing `MalformedMessage`, so a message with no usable tenant is dead-lettered as `malformed message` and the consumer never runs. TEN-025 replaces that with the four reasons. `TenantBoundConsumer` and the senders keep their own tenant checks as defence in depth; a message that skips the constructor's check (built with `object.__setattr__`, `tests/support/bus.py`) still dead-letters there.
+8. **`text_code` no longer puts the tenant in the code message's body** (the one producer that did: `{"tenantId", "sealed_code", "purpose"}`). The sender opens the sealed code with the message's validated tenant property; the relay sets that property from the row's tenant. The unit test that pinned the body field now pins its absence.
+9. **Test helpers.** `tests/support/servicebus.py`: `RUN_ID`, `run_tenant(label)` (`sb<run id>-<label>`), `unique_id(prefix)`. `tests/support/inbound_rig.raw` builds the received form with `to_wire`. The runner, loop, traceparent and tenant-binding unit tests were given qualified ids and the property. `tests/architecture/test_no_tenant_from_payload.py` greps `src` for a tenant read out of a payload (the body of a verified token in `bff_token.py` is the signed claim and is not a payload).
+10. **Not built here, as the prompt says:** binding in the consumer and the directory check (TEN-025), `OutboxMessage.tenant_id` and the relay's per-tenant loop (TEN-016, I03), the cancel ownership (TEN-015), a signed tenant property, the subscription filters (TEN-035). The tenancy plan's session id row was amended in the same change.
+
+**Assumed.** The emulator keeps a colon in a message id and a session id (the integration case `test_a_queue_message_keeps_its_qualified_message_id_and_the_tenant_property` finds out; if it refuses one, `TENANT_SEPARATOR` is the one place to change, by a decision).
+
+**Mutants run by hand** (each fails a named test): no tenant property (`test_the_wire_form_qualifies_both_ids_and_names_the_tenant`), message id or session not qualified (same), missing tenant ignored (`test_a_missing_tenant_is_tenant_missing`), id prefix unchecked and session prefix unchecked (the two `...are_tenant_mismatch` rows), `check_publishable` removed from adapter publish, enqueue, schedule and from the fake (one test each), payload tenant allowed, deny-list dropped, fake without the length check, a payload value copied into a property, split on the last colon (`test_any_valid_message_comes_back_equal`).
+
+**Tenant pending.**
+
+- No Cypher is added. Nothing else is pending: every message on every topic and queue carries its tenant; the consumer side (binding, the directory check, the comparison with the node) is TEN-025.
+- Cross-scope reads: none.
+
+## DEC-252 Tenant policy is an explicit argument of thirteen more rules (TEN-064, follows DEC-233)
+
+Status: accepted (build wave 2, bundle W2A, under DEC-133; no owner gate). Folded from the fragment of TEN-064. Refines DEC-134 item 14 and DEC-007. Affects: `domain/rules/{booking_rules,report_flags,multi_service,criteria_workflow,alerts,clinical_queue,identity_policy}.py`, `tests/unit/domain/rules/test_status.py` (one line), `test_alerts.py` (one case).
+
+1. The thirteen functions `booking_reply_by`, `phone_prompt_at`, `flags_for_report`, `group_due`, `phone_overloaded`, `review_reminder_due`, `default_preferences`, `alerts_for_change`, `alert_for_pressure`, `take`, `return_if_idle`, `give_advice` and `needs_reverification` take `policy: TenantPolicy = DEFAULT_POLICY` as their last parameter and begin with `require_policy` (`TypeError("a TenantPolicy is required")` for a dict, `None`, a mock, a subclass). The prompt says fifteen; the table lists thirteen, and the thirteen are built. The module constants (`BOOKING_REPLY_WINDOW`, `PHONE_PROMPT_AFTER`, `MANY_CHANGES_WINDOW`, `MANY_CHANGES_COUNT`, `PHONED_WINDOW`, `GROUP_WINDOW`, `MAX_SERVICES_PER_PHONE`, `REVIEW_REMINDER_BEFORE`, `CRITICAL_KINDS`, `TAKE_TIMEOUT`, `REVERIFY_EVERY`) stay importable as `Final = DEFAULT_POLICY.<field>`, so each is the default policy's own object and the number is written once, in `tenant_policy.py`.
+2. Fields read: `booking_reply_window`, `booking_phone_prompt_after`; `many_changes_window`, `many_changes_count`, `phoned_window`; `group_window`, `max_services_per_phone` (and `reply_window` through `reply_by(first_due, policy)`, so the tenant's reply window reaches a grouped prompt); `criteria_reminder_before`; `alert_default_kinds`, `alert_default_not_updated_hours`, `critical_alert_kinds`; `clinical_take_timeout`; `reverify_every`. Windows keep their edges: flags inclusive at both ends (DEC-025), the group window exclusive, the lock idle at `>=`, the reminder inclusive of `review_by`, re-verification due at `>=`.
+3. **The `Alert` invariant.** An `Alert` has no policy, so `Alert.__post_init__` keeps only the structural checks (a pressure alert names no service, a service alert needs one, `critical` is a `bool`); the rule "critical follows the kind" moved into one private constructor, `_alert(kind, service_id, raised_at, policy)`, used by `alerts_for_change` and `alert_for_pressure`. The one existing assertion that changes: the third case of `test_alert_fields_must_match_their_kind` (`(SERVICE_CLOSED, SERVICE, False)`, "critical follows the kind") encoded the module-constant rule and was removed; the policy-based tests in `test_policy_threading.py` replace it. `test_alert_carries_no_free_text` is unchanged.
+4. **Re-verification, read narrowly.** `REVERIFY_EVERY` is a person's text-code re-verification (domain-rules section 7), the bounded setting `reverify_every_days` (7 to 30, a tenant may only shorten it). The 180-day figure of domain-rules 6.2 is a registered service's re-verification and is a separate setting (`reverifyDays`) for the task that builds it; the two names are kept apart.
+5. **Global on purpose:** the alert option sets (not-updated hours 2 or 4, acknowledge minutes, quiet hours 22:00 to 06:00), the escalation ladder, `NOTE_MAX`, `MAX_LETTERED_ITEMS` and the letters, the booking reference format, the code and PIN limits (security floors) and the invitation lifetime. Time zone and bank holidays are TEN-065 and TEN-066.
+6. **The ratchet.** `test_remaining_rules_are_called_with_a_policy` (in `test_booking_rules.py`) finds every call of the thirteen functions (imported by name, aliased, or through the module) with no `policy` keyword and no argument in the policy position, excluding the seven defining modules. The prompt expected no caller on `main`; seven files call them now, so the test has an allowlist, `POLICY_NOT_YET_THREADED_064`, that can only shrink and whose entries must still offend: `report_flags.py` (`flags_for_report`, TEN-024, the builder's reading: U07 depends on the ReportCapacity rework), `send_prompts.py` (`group_due`, TEN-027, already TEN-021's owner for that file), and, because no source of a tenant's policy exists before TEN-026's configuration read port, `request_booking.py` (`booking_reply_by`, `phone_prompt_at`), `criteria_reviews.py` (`review_reminder_due`), `move_service.py` (`phone_overloaded`), `pin.py` (`needs_reverification`) and `subscribe_alert.py` (`default_preferences`), all under TEN-026 (the builder's reading of the tenancy plan tags of U17, U31, U32, U33 and U35). A caller outside the list that omits the policy fails the build. The test has its own self-check on a sample file.
+7. TEN-021's allowlist lost its `domain/rules/multi_service.py` entry (`group_due` forwards the policy now), which its own test required.
+8. `setup_service_by_lead.first_prompt_at` (U15, E1) already takes a `policy` parameter and passes it to `next_due`; the use case calls it with the default because no source of a tenant's policy exists until TEN-026's configuration read port. It is not changed here.
+
+**Assumed.** The ratchet owners of item 6 (the builder's reading of the tenancy plan, as DEC-233 item 4); the thirteen-function reading of "fifteen".
+
+**Mutants run by hand** (each fails a named test): a function reads its constant instead of the policy (booking, group, reminder, re-verification, critical kinds, alert defaults and hours), two fields swapped, `<` and `>=` changed at the flag window, the phoned window, the group window, the load limit, the reminder day, the lock timeout and the re-verification interval, the group's `reply_by` without the policy, `require_policy` removed, the policy cached on the function, days read as minutes.
+
+**Tenant pending.**
+
+- None: pure rules, no statement, key, channel or queue. The two-policy test is the equivalent of a two-tenant test: policy A cannot influence a call made with policy B or the default. Cross-scope reads: none.
+
+## DEC-270 One allowlist module, one digest, and the choices the prompt leaves open (TEN-052)
+
+Status: accepted (build wave 2, bundle W2B, under DEC-133; no owner gate). Folded from the fragment of TEN-052. Affects: DEC-132 items 4 and 7, DEC-134 items 6 to 8, DEC-136 items 3, 4 and 14, D17 (`privacy_guard.py`), TEN-053 to TEN-057 and TEN-062, which read this module and write nothing of their own.
+
+1. **One definition, two layers.** `domain/rules/projection.py` is the only place that names what may leave a tenant: `PROJECTION_ALLOWLIST_VERSION` (1), `FieldSpec`, `ALLOWLIST` (five labels, each field with its stored property and its source), `SYSTEM_PROPERTIES`, `NETWORK_RELATIONSHIPS` (empty), `NEVER_SHARED` (18 categories), `allowlist_digest()`, the five DTOs and the three builders. `application/projection.py` holds the translation (`to_rows`, `to_body`, `from_body`, `body_keys`, `format_window`, `parse_window`) and the statement check. A grep of `src/` finds `"sourceServiceId"` in `domain/rules/projection.py` only (a test holds that). The digest is the SHA-256 of the version and every label, DTO field, stored property and source, in order, pinned in `tests/unit/application/test_projection_allowlist.py` (`6ed747fd9ea7b4d753811d2f8bcea92b6a5524ba2710ef1972857f56095fdf97` for version 1). It does not cover `SYSTEM_PROPERTIES`, which statements stamp and TEN-053 may extend. Changing the allowlist needs a version bump, a new pin, a decision and, for a widening, a new agreement version (TEN-036 `revise_grant`).
+2. **Names.** The service name is `service_name` (stored `serviceName`) and the place name is `location_name`, because `name` is a forbidden key (D17 `FORBIDDEN_FIELDS`, TEN-038's body floor).
+3. **The street address is not shared.** A location holds a name, a postal district (the outward code, from `normalise_postcode` then `postcode_district`, or a bare district), a city and a coordinate pair (both or neither). A value that is neither a postcode nor a district gives `None` and is never copied. The street lines are not an input at all, the postcode input is reduced to its district by the builder, and the full postcode appears nowhere.
+4. **Source versions.** A service projection orders by the producer's `source_version` (the HealthcareService version); a capacity projection by milliseconds since 1970 UTC at which the producer read the source (a monotonic per-source sequence, named `source_version` so every DTO orders the same way); criteria by `Basic.version`. `supersedes(stored, incoming)` is true for the first write and for an equal version (a replay is idempotent), false for an older one (hazard H-N06). It refuses a version that is not a whole number of at least 1.
+5. **Contact.** `contact_label` is plain text of at most 60 characters and `contact_phone` matches `\+?[0-9][0-9 ]{6,15}[0-9]` and passes `find_patient_data`. That a number is a role or switchboard number and not a person's cannot be enforced by shape: it is a point for the person who registers the service (the registration form wording is TEN-051/W-series work, not here).
+6. **Opening hours** travel in the flat body as window strings `"<days csv>|HH:MM:SS|HH:MM:SS"` or `"<days csv>|all-day"`, days ascending and distinct, times whole seconds. `from_body` accepts a tuple or a list of them (a body that went through JSON has lists).
+7. **`valid_until`** is supplied by the producer (TEN-056 computes it); `None` means no known boundary and the read relies on the heartbeat. **`NETWORK_RELATIONSHIPS`** is empty until TEN-053 adds what it needs, with a test each. **`NetworkServiceInput.row_ref`** is an opaque reference supplied by the read use case (TEN-057), never the source tenant id.
+8. **Text and identifier checks.** Every `str` DTO field is checked in `__post_init__`: exact `str`, within its cap, characters from `[\w &'()./,:+·-]`, no control character, no `<`, `>` or `@`, and `find_patient_data == []`. Ids match `[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}`. Numbers are range-checked, enums by exact type (lesson L3), datetimes must be timezone-aware and are held in UTC, lists become sorted tuples, a bare string is refused as a list (lesson L51).
+9. **Privacy guard.** `normalise_key`, `FORBIDDEN_KEY_FORMS`, `find_forbidden_keys` and `scan_value` are added; `find_patient_data` and `FORBIDDEN_FIELDS` are unchanged. A value nested deeper than 16 levels, which includes a value that contains itself, is refused.
+10. **Statement check** (`check_network_write_statement`, `assert_network_write_statement`): a tokenising parse (comments removed and string literals masked first), fail closed (`unparseable`). Codes as in the prompt, plus `multiple-labels`, `unlabelled-node` and `unlabelled-variable` (a write through a variable whose pattern gave no label). A statement with no write clause has no problems. `ON CREATE SET` and `ON MATCH SET` need no case of their own (they read as an empty CREATE or MATCH followed by the SET). The relationship list is read at call time, so TEN-053's additions take effect.
+11. **Network board.** An `admitted` listing with both the `directory` and `capacity` scopes becomes a figure row; a `suspended` listing is a name-only row whatever the scopes (TEN-036 gives a suspended listing no scopes); `pending`, `declined` and `withdrawn` are left out; a shown listing missing a scope is left out (fail closed). Order is category declaration order, organisation, service name (case-folded), then `row_ref`; status never affects it. Pressure counts shown rows only, through TEN-021's functions with the thresholds passed in.
+12. **Departures from the prompt text, each with a test.**
+   a. `tenantId` is a stamped system property and also a forbidden key form (D17 forbids `tenant_id`, TEN-022). The prompt's test 3 says no `SYSTEM_PROPERTIES` entry may be a forbidden form; the test instead pins that the scope stamp `tenantId` is the only exception. No DTO has a tenant field and no row or body carries one.
+   b. A service projection with `active == False` is left out of the board (the prompt is silent; a deactivated service must not look like a live tile).
+   c. A report dated after the read instant (clock skew between member and platform) reads Not updated with no figures, instead of raising from `assess_freshness` and taking the whole board down.
+   d. A capacity projection that has no report reads as `compute_status` reads it (Not updated in hours, Out of hours outside them), so the network row and the tenant row agree; the prompt says "no report: not-updated" and that holds in hours.
+   e. `format_window` and `parse_window` take and return an `OpeningHourProjection` (and the position), not four loose values.
+   f. `ProjectionValue` is defined in `application/projection.py` as `str | int | float | bool | None | tuple[str, ...]` because TEN-038's events are not on this branch; TEN-038 may alias it.
+   g. `build_capacity_projection` refuses a report of another service or measure with `ValidationFailed` (not the `ValueError` of `compute_status`), and a policy that is not exactly a `TenantPolicy` with `ValidationFailed` (not `TypeError`).
+13. **Disagreements in the sources, and the choice.** Audit A stores a computed status in `ProjectedCapacity`; DEC-134 item 6 (later) stores the inputs, so DEC-134 wins. Audit F copies `comment`, a `listingStatus` and an `endorsement`; DEC-132 and DEC-136 do not, so they are not copied. Audit A keys capacity by report id, audit F keeps a series, audit B and DEC-134 want the current inputs: the DTO carries `report_id` so TEN-053 can key either way.
+14. **Mutants run by hand** (`mutate.py` over the six test files, about 6 seconds a run): 50 named mutants, every one killed by a named test. Builders: copy `comment` (M01), copy a `change_reason` or `performer_role_id` (M02, M03), a field in `ALLOWLIST` without the DTO (M04), in the DTO without the allowlist (M05), a stored property named `phone` (M06), `to_rows` with an extra key (M07), a `postcode` copied raw (M33, M34), `build_criteria_projection` accepting `pending-approval` (M20). Body and guard: `from_body` without the extra-key or missing-key check (M08, M56), the text check without the guard (M09), `scan_value` without list or key reads (M17, M18), `normalise_key` not normalising (M19), a deleted `NEVER_SHARED` entry (M28), a digest that ignores sources (M30). Statement check: `+=`, a parameter map, a tenant label, a CALL or `apoc`, backticks, a comment that hides the rest, `keys(`, DELETE, an unlisted relationship, relationship properties, an unknown or unlabelled variable, a property or label assignment, a dynamic set, an unread statement answered `[]`, the shape check removed (M10, M12, M13, M14b to M16, M40 to M55). Board: `confirmed_since` dropped (M21), the default reply window (M22), `suspended` ignored (M23), `supersedes` with `>` or `<` (M24), status order (M25), a `pending` field (M26), scopes ignored (M27), an inactive service shown (M31), a figure on a suspended listing (M32). Three mutants first survived (M11 the `ON CREATE SET` case, M14 the CALL clause case, M29 a repeated scope check): each was an equivalent mutant (another line did the same work), so the redundant code was removed, not tested around. Coverage of the four modules is 100 percent line and branch (`uv run --with coverage python -m coverage`).
+
+**Tenant pending.** None. Pure code: no statement is registered, no key, channel or queue is added, and nothing reads a tenant. No DTO has a tenant field (the source tenant id is an argument the producer takes from its verified binding, TEN-054). Cross-scope reads this task would need: none (the member-scope reads and the network write are TEN-054, the network board read is TEN-057). The layer-2 proof against a real network scope (every property of every node, label and relationship) is TEN-062.
+
+## DEC-271 Tenant configuration records: scope, versions, approvals, retention defaults and what is left to others (TEN-026)
+
+Status: accepted (build wave 2, bundle W2B, under DEC-133; no owner gate). Folded from the fragment of TEN-026. Affects: DEC-134 item 14, DEC-136 item 10, the tenancy plan rows TEN-026, TEN-028, TEN-042, TEN-043, audit F section 2.3. Assumed values are marked [ASSUMED].
+
+1. **Tenant scope, registry untouched.** Every record is a node in the tenant's own scope with `tenantId`, written and read by registered `NamedQuery` statements with a scenario each (17 statements, `CONFIG_QUERY_IDS`). The registry (`Tenant`, `TenantNumber`, no `tenantId`) is read only by global statements (DEC-163) and is not written here, so the registry's `currentConfigVersion` and `entraDirectoryId` are not maintained by this task. The version in force is the tenant's version with status `current`, never a pointer.
+2. **Seven records and their keys** (composite, migration 0055 `0055_tenant_config_records` in the new area module `migrations_tenant_config.py`, lesson L157, one schema statement each, expand only, no label existed before so nothing is superseded): `TenantConfigVersion (tenantId, version)`, `TenantSetting (tenantId, configVersion, key)` joined by `HAS_SETTING`, `TenantContact (tenantId, kind)`, `TenantChannel (tenantId, id)`, `TenantRetention (tenantId, dataClass)`, `TenantEntraBinding (tenantId, directoryId)`, `TenantRoleMapping (tenantId, groupObjectId)`. A setting is a typed row with one column (`intValue`, `textValue`, `boolValue`, `timeValue`, `codeValues` a list of text) and its unit, never JSON (DEC-001). The migration is in its own module and not in `migrations_tenant.py` (the files list named that one) so the existing `TENANT_IDS` pin is untouched; the assembled list and its count test include it.
+3. **Versions are immutable snapshots.** A version holds the whole set of overrides; `plan_draft` builds the next one from the version in force (`based_on` must equal it, else `Conflict`, so a retry of a lost reply cannot make a second draft), applies the changes and removals, validates every value (bounds, allowed codes, cross-field rules), and refuses a draft that changes nothing. Setting a key back to its default is a change. The only statement that changes a version's node (`Q-TCFG-MOVE`) sets its status, approvers and effective time, matches by key, locks the node with a self-set and reads the status after the lock (lessons L73, L99), so two approvers at once move it once. A settings row is written once with its version.
+4. **Approvals (the DEC-032 pattern).** An operational change needs one approver, who may be its author. A change that touches a clinical setting needs two different people, neither the author; the first version of a tenant always does (it sets clinical values). The approvers needed are judged against the version in force at approval, from the values alone. Only the latest version can be approved, so a draft written against an older version can never revert a newer one. The approval that completes a change moves it draft to pending to current and the old version to `superseded` in one unit of work (each a guarded move, a lost race is `Conflict`).
+5. **Who may change it: nobody yet.** `CONFIGURATION_ROLES` is empty and every use case takes the roles as a constructor argument, so every actor is refused until the composition root passes `frozenset({Role.TENANT_ADMIN})` (TEN-018 adds the role, DEC-134 item 4). A role off the list is refused before any unit of work opens. The unit of work must be bound to a tenant; a network scope or none is `TenantNotBound`.
+6. **Retention defaults [ASSUMED]**, one rule per class, set by an explicit act (activation needs the rules stored): capacity reports 730 days summarised; bookings 730 days deleted; case audit 2555 days deleted (the postcode and needs of a case are cleared at close by the rule book whatever this row says); communications 730 days; raw telemetry 90 days; telemetry aggregates 730 days; audit chain and safety concerns kept until purge. Only those two classes may be `keep`, and they may be nothing else. The longest period is 3650 days.
+7. **Channels.** A text channel holds a Twilio account SID and the reference of its token, an email channel a sender address and optionally the reference of its SMTP secret; no field can hold a token or a password (DEC-131 item 4). The secret reference must be the bound tenant's own (`check_secret_ref`), so a channel can never name another tenant's token. A channel is retired by recording it again with its id and status `retired`; it stays as history. The sender label and display name go through the privacy guard (D17).
+8. **Directory binding and roles.** A tenant administrator binds a directory as `pending`; binding another revokes the one in force; binding the same one again changes nothing. Verification is the platform operator's (TEN-043, TEN-028) through `put_binding`, so a `verified` record names when and by whom. A group maps to a staff role only (advisor, clinical, lead, owner, exec, audit): not `support` (a platform role from the operator directory), nor wall, reporter or anonymous link.
+9. **The read port.** `ReadTenantConfig` gives the policy in force (the default policy when no version is in force, which equals the behaviour before tenancy), the wording (None unless all three words are set), the contacts and the readiness facts (`ConfigurationFacts`). Each call opens its own unit of work, so a caller must not hold one open (lesson L173). It does not cache.
+10. **Not built here, with the reason.** No domain event (`TenantConfigChanged` has no consumer yet); no idempotency key (the `based_on` and status guards make a retry a `Conflict` or a no-op); no discard of a draft (the move table has no such step); no container or settings wiring (the composition root is shared and TEN-028, TEN-042 and TEN-043 wire what they use); no write of the `TenantNumber` or the registry's host and directory (a tenant unit cannot write a registry node, DEC-163).
+11. **Mutants run by hand** (22, over the four unit files of this task): the author approving a clinical change, one approver for a clinical change, a draft not checked against the version in force, a draft that changes nothing, any role configuring (and the default role set not empty), a directory bound twice, another tenant's secret, an approver approving twice, a setting written without the registry check, duplicate setting rows, the lock of the move removed or the status read before it, a kept class deleted, a `support` group mapping, a verified binding with no verifier, a channel with the wrong provider, a string read as a list of approvers, the count dropped from the latest statement, a draft built from nothing, clinical keys not counted, and a supersede that keeps its status. All killed; two first survived (the repeated-approver message and a string read as a list) and their tests were tightened. The use cases' own flow (`execute`) is covered by the integration tests only, which are not run here.
+
+**Tenant pending.** None. All 17 statements are tenant statements with `tenantId: $tenant` on every node and a scenario; none is on the ratchet, none is global, and no allow-list entry or digest pin is added. Cross-scope reads this task would need: none. The registry fields it does not write are listed in the known issues.
+
+**Assumed.**
+
+- Retention: capacity-reports 730 summarise, bookings 730 delete, case-audit 2555 delete, communications 730 delete, telemetry-raw 90 delete, telemetry-aggregates 730 delete, audit-chain and safety-concerns kept until purge; `MAX_KEEP_DAYS` 3650.
+- Sender label 40 characters, display name 60, address 254; the channel id pattern `[A-Za-z0-9][A-Za-z0-9_-]{0,63}`.
+- The roles a directory group may map to: advisor, clinical, lead, owner, exec, audit.
+
+## DEC-272 The cross-tenant reference matrix tests the entry points as they are; the placeholder behaviour is not changed (TEN-029)
+
+Status: accepted (build wave 2, bundle W2B, under DEC-133; no owner gate). Folded from the fragment of TEN-029. Affects: DEC-053 item 8, DEC-130 item 1, audit F section 3.4 items 1 and 3, `ResourceStore`, TEN-032.
+
+1. **The audit asked for two things and this task does one.** Audit F 3.4 recommends (item 1) that in tenant mode the resource store refuses to create placeholders, and (item 3) a generated matrix test over every relationship. The matrix is built. The store is not changed: placeholder creation is the design of DEC-053 item 8, `test_resource_store.py` asserts it, several callers rely on it (a scope entry for a service not yet held, a booking whose owner is written in the same transaction), and a change to it cannot be verified without Neo4j, which this build does not run. Changing it blind would be a decision about behaviour that nothing here can show is safe.
+2. **What the placeholder does with a foreign id.** The store looks the id up in the bound tenant, so an id that exists only in another tenant is unknown, and the placeholder is the bound tenant's own node with its own `tenantId`. Nothing links across, and the other tenant's node is neither read nor changed. A foreign id therefore cannot create a cross-tenant relationship or leak that it exists (the collision the audit feared, `Resource.id` clashing across tenants, is gone because the key is `(tenantId, id)`, TEN-005). What remains is the audit's lesser point: the bound tenant's entry point accepts the id instead of refusing it. See the known issue.
+3. **The matrix** (`tests/support/relationship_matrix.py`) classifies the 39 relationship types the graph store names in its Cypher by what the entry point does with a foreign target: `CHECKED` (9 types, 9 cases: refused with `NotFound`, before any write), `PLACEHOLDER` (2: `ENTRY`, `OWNER`), `TENANT_LOCAL` (every node of the statement is on `tenantId: $tenant`, proved for each registered statement by the generated two-tenant test), `SHARED` (7 Concept-valued types, DEC-130 item 5) and `REGISTRY` (`HAS_NUMBER`). `written_types()` reads the Cypher text of the store, so a new relationship type that is not classified fails `test_every_relationship_type_the_store_writes_is_classified`.
+4. **"The same body as a missing target"** is tested by `shape()`, which takes the ids the caller named out of the message, and compares the refusal for a foreign id with the refusal for an id that exists nowhere. **"Zero writes"** is tested by catching the refusal inside the transaction and committing it, then comparing the SHA-256 digest of both tenants' subgraphs (`tenant_seed.digest`) before and after. A refusal that propagates would roll back and hide a write made before it, so it is not used.
+5. **What the nine cases are**: `capacity.add.service` (FOCUS), `person.save_role.practitioner` (PRACTITIONER), `person.save_role.service` (HEALTHCARE_SERVICE), `person.save_role.cover` (COVERED_BY), `flag.add_report_flag.report` (ON), `flag.set_service_flag.service` (SUBJECT), `push.save.practitioner` (USED_BY), `move.add.service` (FOR), `move.add.practitioner` (FROM). Each also runs once with the tenant's own record, which must not be refused as missing, so a case cannot pass by refusing everything.
+
+**Tenant pending.** None. No Cypher, statement, allow-list entry or digest pin is added. Cross-scope reads: none.
+
+## DEC-290 FilterOptions: roles, the read, the audit and no replay (U12)
+
+Status: accepted (build wave 2, bundle W2C, under DEC-133; no owner gate). Folded from the fragment of U12.
+
+1. **Who may filter.** Advisor and clinical only (`check_role`, as U11). Every other role is `NotAllowed` before anything is read.
+2. **The read is audited.** Each call writes one audit entry, action `R`, use case `FilterOptions`, entity ids the case and every service on the board, snapshot `{reference, services: [{id, status, number, data_age_seconds, criteria_version, shown_as}]}`. The snapshot holds neither the postcode nor the district (DEC-067). `shown_as` is `option` or `not-suitable`.
+3. **No replay.** The command carries `idempotency_key`, as the shape requires, but the use case does not replay on it: each display is its own record, and a replay would show an advisor what was on the screen earlier, not now. The key is kept for the caller's correlation only.
+4. **Two units, in order.** QueryBoard reads the board in its own unit of work first; this unit opens after it (a nested unit is refused, P06). The case, the criteria, the suspended flags, the positions and the audit write share this unit.
+5. **Refusals.** A case that is unknown, in another tenant or closed: `NotFound` or `Conflict` before any criteria read. A case missing age band, postcode, need or urgency: `ValidationFailed` with the missing names joined in the field.
+6. **Travel.** The patient is `PostcodeLocator.locate` of the stored district (an approximate district centroid, which the port marks). A service with no Location position, or no patient position, has no travel and sorts last.
+
+**Tenant pending.**
+
+- None. `Q-SVC-POSITIONS` carries `$tenant` on every node it matches. The network part of the tenancy audit change is not built (see Known issues).
+
+**Assumed.**
+
+- Reason texts: "not accepting", "out of hours", "outside criteria", "criteria not current", "suspended. Phone to confirm.", "not updated for <age>. Phone to confirm." ([ASSUMED] the prompt's wording; the age text is `data_age_text` without " ago").
+- Warnings: "Limited: phone to confirm", "Over capacity now. Phone to confirm before offering.", "Data is over 2 hrs old. Consider phoning." (over, not at, `STALE_WARNING_AFTER`), "Criteria not reviewed" (today later than review-by).
+- Fit lines: "Covers this postcode" and "Takes <need phrases>", listing only the needs the service accepts.
+- Sort: travel low end, then no travel, then name, then id.
+
+## DEC-292 I phoned: the figure, the audit detail, the case check and the clinical conflict (U13)
+
+Status: accepted (build wave 2, bundle W2C, under DEC-133; no owner gate). Folded from the fragment of U13.
+
+1. **The figure.** Accepting and limited need a whole number of referrals or beds the service can take. Not accepting stores 0, and a number given with it is refused (`value`). A value that is not a whole number (a bool included) is refused. Nothing is written on a refusal.
+2. **The answer is kept.** The advisor's answer (`told`) and the case id, when given, go into the audit snapshot of the report through a new optional `audit_detail` field on `ReportCapacityCommand` (U01). The field is empty for every other caller, so their snapshots and fingerprints are unchanged. The report, its status change and its audit entry stay in ReportCapacity's one unit of work.
+3. **No echo.** A phoned figure sends no text (`send_echo=False`, source `advisor-phoned`).
+4. **The case check.** A case id given with the call must exist in the tenant bound to the call, checked in its own unit of work before the report's unit opens. Otherwise `NotFound`, and no report is written.
+5. **Who may phone.** ReportCapacity's `check_may_report` decides (DEC-100 item 3): an advisor or a lead, not a clinician. The U13 prompt lists clinical too. U01 has a test that refuses a clinical advisor for this source. This task keeps U01's rule. **Owner decision needed:** whether a clinical advisor may record a phoned figure. Until then clinical is refused.
+
+**Tenant pending (for DEC-292, DEC-293).**
+
+- None. The declines are read through the tenant's audit chain (TEN-017); the outbox message carries the tenant through the outbox seam.
+
+**Assumed (for DEC-292, DEC-293).**
+
+- [ASSUMED] A decline has no status gate; its status and number are whatever the board showed.
+- [ASSUMED] A phoned "not accepting" with a number is refused, not stored as the number.
+
+## DEC-293 They declined: what the advisor saw, the list and the outbox message (U13)
+
+Status: accepted (build wave 2, bundle W2C, under DEC-133; no owner gate). Folded from the fragment of U13.
+
+1. **Who may record.** Advisor and clinical (`check_role`).
+2. **What is recorded.** The status and the number the advisor saw, read from QueryBoard before the unit opens. The number is the effective figure, or the used count for a service without one (occupied patients). A service not on this tenant's board is `NotFound`. A closed case is `Conflict`. No status gate: a decline is recorded on any status.
+3. **One unit.** The audit entry (action `C`, use case `RecordDecline`, snapshot `{reference, service_id, reason, status_seen, number_seen}`), the outbox message on `capacity.events` with event type `DeclinedDespiteCapacity` and payload `{service_id, reason, at}`, and the replay record, all committed together. Replay is keyed by the tenant and the caller's key; a key reused with another body is a `Conflict`.
+4. **The list.** `ListDeclinesSince(uow_factory).execute(since)` returns `DeclineRecord(service_id, reason, at)` only: no practitioner, no case. It reads the tenant's audit records and keeps the RecordDecline entries (known issue U13-1).
+
+## DEC-294 Outcomes, destinations and the SystmOne summary (U14)
+
+Status: accepted (build wave 2, bundle W2C, under DEC-133; no owner gate). Folded from the fragment of U14.
+
+1. **Destination rule.** Accepted-and-booked and redirected need a destination service (a blank one counts as none). Every other outcome must not name one. Refused before the case is read, so nothing is written.
+2. **The destination is in the tenant.** A destination that is not an active service of the bound tenant is `NotFound`, the same answer as an unknown service.
+3. **Best fit not used** is accepted with any outcome; the prompt does not tie it to one.
+4. **The summary** (`build_summary`) has the nine rows in the prompt's order. A row with an empty value is left out. It is built only while the case is open (`Conflict` after close). Its Postcode row is the stored district, not the full postcode, because only the district is held (DEC-067). The prompt's example shows "DT4 8XX"; that example cannot be produced from the stored case.
+5. **Summary wording.** Referrer, age band, urgency and destination use the codes' display words. Needs are lower-case phrases joined by commas, with the first letter capitalised ("Fall, frailty"). Scores are "NEWS2 n", "Frailty scale n", "Ambulance category n", "Manchester <level>" and "Pathways Dx <code>", joined by " · ".
+
+**Tenant pending (for DEC-294, DEC-295).**
+
+- None. The destination is read through `uow.services`, which is tenant-scoped.
+
+**Assumed (for DEC-294, DEC-295).**
+
+- [ASSUMED] The summary's Booked and Data age lines are passed in by the caller (the finish screen formats them); the function does not format times.
+
+## DEC-295 Close, clear and audit (U14)
+
+Status: accepted (build wave 2, bundle W2C, under DEC-133; no owner gate). Folded from the fragment of U14.
+
+1. **Close.** `Case.close` clears the postcode and the needs; `CaseRepository.save` removes the postcode property and the REASON_CODE relationships (P21, DEC-066). The integration test proves both on the graph.
+2. **The audit entry** (action `U`, use case `RecordOutcome`) is written in the same unit of work as the close, with the snapshot `{reference, age_band, needs, urgency, scores, destination_service_id, outcome, best_fit_not_used, opened_at, closed_at}`. Needs are captured before they are cleared. Each score is `{method, value}`. The postcode is never in it.
+3. **Closing twice** is `Conflict`; the closed case is unchanged.
+4. **Replay** is keyed by the tenant and the caller's key; a key reused with another body is `Conflict`.
+
+## DEC-300 RespondToBooking and SetDeclineReason: the reply, the decline reason and the echo (U18)
+
+Status: accepted (build wave 2, bundle W2D, under DEC-133; no owner gate). Folded from the fragment of U18.
+
+1. A reply moves only a requested booking. `plan_response` (domain/rules/booking_response.py) raises InvalidTransition for every other state except expired, which is reported as `already_final=True` with no write and no audit entry. Silence is never acceptance.
+2. Confirm and decline both cancel the phone prompt and the expiry through `cancel_booking_timers` (application/booking_effects.py), which uses cancel_work (U03). The BookingResponded event is emitted on booking.events.
+3. The echo is B4 (confirmed, with the time in London) or B5 (declined, reference only). It goes to the service's lowest-id reporter role only when that role is on text: B4 and B5 have no email or push template (see H-135).
+4. A decline reason may come with the reply or later. SetDeclineReason sets it once; a second reason is a Conflict; a reason on a booking that is not declined is an InvalidTransition. It has no replay record: a second submission is a Conflict by the rule (known issue).
+5. The actor must be reporter or anonymous-link and the booking's service must be in the actor's service ids; anything else is NotAllowed with a fixed text that names no booking. An unknown booking id is NotFound.
+6. The constructors take the ContentSealer (`RespondToBooking(uow_factory, idempotency, clock, ids, sealer)`). The prompt's signature has no sealer; the sealer is needed to queue the echo through the I10 senders (DEC-305).
+
+**Tenant pending (for DEC-300, DEC-305, DEC-306).**
+
+- The booking, scheduled-work, communication and outbox statements are the existing repository statements (converted by TEN-010, TEN-011, TEN-015 as U17 says).
+- Idempotency statements (Q-IDEM-*) are unconverted, as in U17; the replay key carries the tenant (`respond-booking:<tenant>:<key>`).
+- The tenant comes only from `uow.unit_scope`; no command carries a tenant.
+
+**Assumed (for DEC-300, DEC-305, DEC-306).**
+
+- The echo wording is the D16 template (B4, B5) unchanged.
+- SetDeclineReason has no replay record (see known issues).
+
+## DEC-301 Booking timers: the phone prompt and the expiry, run by the scheduled-work consumer (U19)
+
+Status: accepted (build wave 2, bundle W2D, under DEC-133; no owner gate). Folded from the fragment of U19.
+
+1. Two use cases, `BookingPhonePrompt` and `ExpireBooking`, each taking a work id and a booking id. Each runs in one unit of work: it marks the ScheduledWork done, and then acts only while the booking is requested (domain/rules/booking_timers.py). A late timer acts on the current state; a final booking is left as it is.
+2. Work that is not scheduled is ignored (acted False, no write). Work whose kind or booking does not match the booking is NotFound.
+3. Outbox ids are derived from the booking id (`booking-phone-prompt-<booking>`, `booking-expired-<booking>`), so one booking emits one event of each kind however often its work is delivered.
+4. The expiry moves the booking with `with_status(EXPIRED)` (D13: Task `cancelled`, businessStatus `expired`), cancels the other booking timer, emits BookingExpired on booking.events (no session id, DEC-306), and audits `ExpireBooking` under `SYSTEM_ACTOR` (Role.AUDIT, channel `system`). DEC-193 gives the scheduler's actor as Role.OWNER on channel `scheduler`; the two should be reconciled when the system role is decided (known issue). *The `SYSTEM_ACTOR` constant of this item became `timer_actor(tenant_id)` when TEN-018 required the actor to carry its tenant (DEC-250 item 7); role and channel are unchanged.*
+5. `booking_timer_handlers(phone_prompt, expire)` returns the two dispatch entries; the composition root adds them to the dispatch table with the three ladder kinds. The table now holds five kinds. `prompt-due` stays unregistered (DEC-192).
+
+**Tenant pending.**
+
+- The scheduled-work and booking statements are the existing ones (as U18). The timers run under the tenant bound from the scheduled message (the consumer binds it, DEC-195).
+
+**Assumed.**
+
+- The prompt's `SYSTEM_ACTOR` values (Role.AUDIT, channel `system`).
+- Reply and expiry windows: D14 constants (5 and 10 minutes), unchanged.
+
+## DEC-302 CancelBooking: the advisor cancels a request or a confirmation (U20)
+
+Status: accepted (build wave 2, bundle W2D, under DEC-133; no owner gate). Folded from the fragment of U20.
+
+1. Only an advisor or a clinician cancels (`advisor_may_cancel`). The reason is required and must be a CancelReason; a missing reason is a ValidationFailed before any read.
+2. A requested booking becomes cancelled-before and its two timers are cancelled. A confirmed booking becomes cancelled-after: it no longer reduces effective available, because confirmed_since counts only bookings whose status is exactly confirmed. A declined, expired or other final booking is an InvalidTransition and nothing is written.
+3. The service is told with B6 on its text channel (the lowest-id reporter role, as U18); BookingCancelled is emitted on booking.events (no session id, DEC-306).
+4. The constructor takes the ContentSealer for the B6 echo: `CancelBooking(uow_factory, idempotency, clock, ids, sealer)`.
+5. The replay key is `cancel-booking:<tenant>:<key>`; a replay with another reason or actor is a Conflict.
+
+**Tenant pending.**
+
+- As U18. The booking statements are tenant-scoped; the lookup is by the bound tenant only.
+
+**Assumed.**
+
+- B6 wording is the D16 template ("Booking <ref> was cancelled at <HH:MM>. No action needed.").
+
+## DEC-303 Suspension and resume of a service (U36)
+
+Status: accepted (build wave 2, bundle W2D, under DEC-133; no owner gate). Folded from the fragment of U36.
+
+1. Only the shift lead suspends or resumes (`may_suspend`). A reason is one of the four SuspendReason values; any other text is a ValidationFailed.
+2. Suspending is one unit of work: it refuses a service that is already suspended (Conflict) or missing (NotFound); writes the `suspended` ServiceFlag (reason, lead, time); cancels the service's prompt-due, reminder, phone-task and escalate-to-lead work; expires every open request with its timers cancelled and BookingExpired; queues K4 to the service's text reporter; emits StatusChanged (before from the status rule, after not-updated); and audits the lead. The status rule then reads the service as not-updated, and the criteria hard filter leaves it out of the options.
+3. K4 needs the tenant's coordination team name. The caller supplies it through `wording_for(scope)`. When there is none, the suspension still happens and K4 is not queued; `SuspendServiceResult.notified` says which happened. Refusing the suspension for a missing notice would block a safety action, so it does not.
+4. Resuming needs both checks (`require_resume_checks`), refuses a service that is not suspended (Conflict), clears the flag, schedules the next prompt-due with `next_due` from the service's times, emits StatusChanged, and audits the lead.
+5. The tenant policy (TEN-021) is a required constructor argument on both services: the status rule and `next_due` read it. The wiring caller supplies it.
+6. The replay key is `suspend-service:<tenant>:<key>` and `resume-service:<tenant>:<key>`. A failure before the commit writes nothing (the integration test injects a sealer that fails).
+
+**Tenant pending.**
+
+- Flags, scheduled work, bookings, capacity and services are the existing statements (tenant-scoped through their repositories). The tenant wording and policy are not read from the directory yet (the two arguments above).
+
+**Assumed.**
+
+- K4 wording is the D16 template with the tenant's coordination team name (the prompt's own wording differs, [ASSUMED] in both).
+- The resume's flag reason text: "resumed after the phone check and the resolved reason".
+
+## DEC-304 Safety concerns and problem reports: the reference, the text and the officer's notice (U41)
+
+Status: accepted (build wave 2, bundle W2D, under DEC-133; no owner gate). Folded from the fragment of U41.
+
+1. A concern is a Task with code `safety-concern`, owner the clinical safety officer role (`clinical-safety-officer`), its category (five values), its reference `SC-` and a sequence of at least four digits, its requester (the person), its focus (the case, or the booking's case, when the reference names one; otherwise ignored) and the handle of its text. The reference comes from a per-tenant counter node (`SafetyCounter`), advanced by one MERGE in the caller's unit; migration 0070 makes (tenantId, counterId) unique.
+2. The text is required, not blank, and at most 280 characters; it goes to the protected store and nowhere else. The replay fingerprint does not include the text: a hash of free text would sit at rest. A replay with another text under the same key returns the first report (known issue).
+3. The officer is told by a K3 notice whose title is "New safety concern SC-0001" and whose body names no detail. It is queued sealed on messages.outbound to the officer's role.
+4. A problem report is a Task with code `problem-report`, a category (four values), an optional text (protected, 280 at most) and `session_shared`. It notifies nobody.
+5. Any signed-in person may report: a link or a wall screen is NotAllowed, and so is an actor with no practitioner.
+
+**Tenant pending.**
+
+- All three statements carry `tenantId: $tenant` on every node; the scenarios are registered, so the generated two-tenant test covers them in verification.
+- The counter and the owner role are per tenant (the prompt's tenancy change).
+- The protected text store is tenant-scoped (P20).
+
+**Assumed.**
+
+- SC- reference of at least four digits; above 9999 the reference grows (SC-10000), no width limit.
+- A reference that names no case or booking is ignored [ASSUMED].
+- The K3 wording is the D16 template with the title and the body given here.
+
+## DEC-305 Booking and safety messages are queued the way the I10 senders read them (U18, U20, U36, U41)
+
+Status: accepted (build wave 2, bundle W2D, under DEC-133; no owner gate). Folded from the fragment of U18.
+
+1. Every message a W2D use case queues goes through `application/sealed_send.queue_message`: the Communication stores the text with any link replaced by the placeholder, and the outbox SendMessage carries `communication_id, message_id, channel, recipient_role_id, sealed_content` (DEC-199 item 1, DEC-116). The content is sealed under the outbox message id, the bound tenant and the recipient role.
+2. U17's `RequestBooking` does not do this (known issue U17-1, hazard H-139). W2D did not change U17; the orchestrator decides. *Closed by DEC-307 (U17-1): `RequestBooking` now queues through `queue_message`; hazard H-139 and the U17-1 known issue are closed.*
+
+## DEC-306 Booking event session ids stay None (U18, U19, U20)
+
+Status: accepted (build wave 2, bundle W2D, under DEC-133; no owner gate). Folded from the fragment of U18.
+
+The prompts say "session id = service id" for BookingResponded, BookingCancelled and BookingRequested. events.py says the session id is the service id for capacity.events only, and the existing domain test pins None for booking events (D25). The decision and the test win: booking events have no session id. Nothing changed.
+
+## DEC-307 RequestBooking queues through `queue_message` and takes the tenant's referral wording (U17-1, fixD)
+
+Status: accepted (build wave 2, bundle W2D, under DEC-133; no owner gate). Folded from the fragment of U17-1 (branch task/fixD).
+
+1. `RequestBooking` now seals its request and queues it with `application/sealed_send.queue_message` (DEC-305, DEC-116). The outbox `SendMessage` carries `communication_id, message_id, channel, recipient_role_id, sealed_content` and no clear text, subject or html, so the I10 senders no longer dead-letter it. The Communication stores the text with the link replaced by `[link]`: no token and no full link is at rest. Closes known issue U17-1 and hazard H-139.
+2. The constructor is `RequestBooking(uow_factory, idempotency, link_tokens, clock, ids, rng, query_board, sealer, wording_for, *, link_base_url_for)`. `wording_for` is the `WordingFor` callable of SuspendService (TEN-022): B1 and B2 print the tenant's `referral_system_name`. A tenant with no wording is refused with `ValidationFailed("referral_system_name")` before anything is written; B3 (push) names no system and needs none.
+3. The Communication is `about` the service, not the booking. The store links a Communication to a HealthcareService by the id it is given, so a booking id there creates a placeholder service with the booking's own id and breaks the unique `Resource.id` (ConstraintError). Every other use case passes the service id.
+4. No container wiring exists for `RequestBooking` (the container builds only the ladder and the booking timers), so none was changed. The route wiring must pass the `ContentSealer` and a `WordingFor` backed by the tenant configuration.
+
+## DEC-310 Invite a service reporter: what the invitation writes and how a resend works (U24)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U24.
+
+1. One unit of work writes: the invitee's practitioner (reused when the mobile's keyed hash is already held in this tenant; otherwise a new active practitioner whose display name is the role label), the invitee's post (code duty-manager, active, channel = the suggested channel, on the still inactive service), the registration in `invited` with the post as `requester_role_id`, the invitation Task, the link token, the text I1, the `ReporterInvited` event, one audit entry and the replay record. The post is active so U26's applicant check (`roles_for_practitioner`, active roles only) finds it; a report from the invitee before go-live is refused because the service is not active (`ReportCapacity` and `HandleInboundText` both refuse an inactive service).
+2. The invitation is a Task code `invite-reporter` (`Invitation`, `invitation_to_fhir` / `invitation_from_fhir`): focus the service, requester the lead's shift-lead post, owner the invitee practitioner, `partOf` the registration Task, `description` the role label, `restriction.period` from the latest send to the expiry. The token and the number are never in it. Stored through the resource store by three new methods on `RegistrationRepository`: `add_invitation`, `get_invitation`, `save_invitation` (no new Cypher).
+3. Only the shift lead (role lead, a named practitioner who holds an active shift-lead post) invites or resends. Only an entry flagged in-pilot ("Only services in the pilot can be invited"). A service that already has a registration is Conflict (resend its invitation instead), so a service has one registration at a time. A mobile that is not a UK mobile is ValidationFailed on `mobile`: "Enter a UK mobile number, like 07700 900123".
+4. The mobile goes to the protected contact store under the invitee's post (`+447...`); the graph keeps `PhoneHasher.hash(number)` on the practitioner and on the link token.
+5. The same mobile may be invited by two tenants: every lookup is the tenant's. The link host is the tenant's (`link_base_url_for(scope)`), the link is `<host>/i/<token>`.
+
+**Tenant pending (for DEC-310, DEC-311, DEC-312).**
+
+- `Q-PERSON-PHONE-FIND`, registration, scope-list, contact and link statements are converted. The audit append and the idempotency statements (`Q-IDEM-*`, `Q-AUDIT-*`) follow the ratchet of their own tasks; the tenant is in the replay key.
+- The invitation Task and the resend's link lookup are tenant statements (the store stamps the Task; `Q-LINK-OPEN-FOR-ABOUT` names `$tenant`). Nothing pending for U24 itself.
+
+**Assumed (for DEC-310, DEC-311, DEC-312).**
+
+- The post an invited reporter holds is `duty-manager` for every invitation (the lead gives a role label, not a code), as U15 does.
+- The invitation text is always a text message to the mobile given; the suggested channel is the channel the person will report by (stored on the post), and they may change it during set-up.
+- The registration's `owner_role_id` (the reviewer) stays unset until review starts (U28).
+
+## DEC-311 The stored copy of an invitation text holds no live token (U24)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U24.
+
+The outbox message carries the text with the real link (the sender needs it). The `Communication` that records the send keeps the text with `[link]` where the token is, so the graph never holds a live token (the spec says the token is held by the link adapter and never in the graph). The outbox payload still carries the token until the relay sweeps the message (known issue).
+
+## DEC-312 A resend restarts the 48 hours everywhere they are counted (U24)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U24.
+
+A resend burns every open link of this invitation (new `LinkTokenRepository.open_for_about`, statement `Q-LINK-OPEN-FOR-ABOUT`, so a second invitation of the same phone is never burned), issues a new link, moves the invitation's send time and expiry, and sets the registration's `created_at` to now: U26 counts the applicant's 48 hours from `created_at` (DEC-243 item 3), so without this a fresh link would still be refused after the first 48 hours. Only while the registration is `invited`. The replay key is `invite-reporter:<operation>:<tenant>:<key>` inside the unit (DEC-243 item 11), so the use cases take no idempotency store (the prompt's constructor listed one).
+
+## DEC-313 Registration persistence runs after the submit commits, once, and a lookup that cannot answer leaves the submit standing (U27)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U27.
+
+1. `PersistRegistration(uow_factory, geocoder, terminology, ids, clock)` writes a submitted registration's resources. `SubmitRegistration` takes it as an optional keyword (`persist=`, a `RegistrationPersister`: `persist_registration(registration_id)`), so the U26 constructor still works. After a submit that succeeds the registration is persisted in a second unit of work. The ODS lookup and the geocoder run outside any unit of work, so no lock is held while an external service answers.
+2. The write is one unit: the criteria owner's practitioner, post and protected email, the bundle, the registration's lookup record, the audit entry and the `RegistrationPersisted` outbox message commit together or not at all (a failure on any write, including the last, leaves nothing).
+3. A `TransientLookupError` from either lookup is swallowed by the submit only: the submit stands, nothing was written, and sending the same submit again is a replay that tries the write again. Any other error propagates.
+4. Persisted-once marker: the registration's draft holds a `lookups` key (not a wizard step: `read_draft` ignores it and a step save keeps it). A second call, or a replay, finds it and writes nothing. Allowed statuses are submitted and in-review; anything else is InvalidTransition and writes nothing.
+5. An ODS code that is not found, or an address the geocoder cannot match, does not stop the registration: the result is kept (`Lookups`) for the review (U28).
+
+**Tenant pending (for DEC-313, DEC-314, DEC-315).**
+
+- Every statement used is converted: the registration statements and the new district lookup, the person, contact and criteria-label statements, and the resource store (stamps the tenant). Audit and idempotency statements follow the ratchet of their own tasks. Nothing pending for U27 itself.
+- Cross-scope reads: none.
+
+**Assumed (for DEC-313, DEC-314, DEC-315).**
+
+- Unit labels by measure: slots, beds, referrals, patients, packages [ASSUMED].
+- Established capacity is the highest usual number, at least 1; `canExceedEstablished` is false; limited level 80.
+- The UPRN identifier system is `https://diucs.example/uprn`; the code systems `organization-type`, `location-type` and `referral-method` are local and created by the store on first use.
+- The audit actor of the write is the system (role owner, no practitioner, channel `system`).
+
+## DEC-314 The bundle: what differs from the prompt, and why (U27)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U27.
+
+1. The service entry is a PUT onto the placeholder id the scope list made (DEC-082 item 4); Organization, Location and Basic are POSTs. A POST of the service id would be a Conflict. Each entry carries its resource `id` and a `fullUrl` of `urn:uuid:<id>`; references between entries are those URLs, and the writer resolves them to `<Type>/<id>`.
+2. `HealthcareService.category` is written as FHIR's list of one CodeableConcept so the resource validates against the R4B model; `codeable_from_fhir` now also reads a list of one, so `profile_from_fhir` reads both shapes. The profile writer (`profile_to_fhir`) still writes the single form.
+3. The criteria Basic is the repository's own profile (author, subject, version, status ...), not an R4B Basic, so it is checked by reading it back as a criteria version. It is version 1, `pending-approval`; no `CURRENT_CRITERIA` link exists until approval makes it current (U30), which differs from the prompt's test 4.
+4. Extensions written on the service: the prompt's list plus `canExceedEstablished` (false), `measure`, `unitLabel` and `channel`, which `profile_from_fhir` requires. The established capacity is the highest usual number (at least 1); the unit label follows the measure [ASSUMED]; the limited level is 80.
+5. The organisation's registration contact (email, phone) is written as `Organization.telecom` (the spec needs a telecom or contact; the mapper cannot hold `contact.name`) and the SPOA phone as the service's telecom. The reporter's mobile and email, and the criteria owner's email, are in no resource: the reporter's stays in the contact store and the owner's is stored under the owner's new post.
+6. The criteria Basic needs an author post, so the use case writes the criteria owner as a practitioner (display name the owner's role, or "Criteria owner" when that text carries a postcode or a long number), a criteria-owner post for the service and the owner's email in the protected contact store.
+7. A fixed site without a matched address still gets a Location with the draft's address and postcode but no position, no UPRN and no geocode record (no position is guessed). The address is matched on line, or line and town, ignoring case and punctuation; zero or two matches choose nothing.
+
+## DEC-315 District Locations are reused inside a tenant (U27)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U27.
+
+A visiting service covers postcode-district Locations (`mode kind`, type `postcode-district` in the `location-type` system). `RegistrationRepository.district_locations(districts)` (statement `Q-REG-DISTRICT-LOCATIONS`, tenant on every node, with a scenario) finds the tenant's existing ones by name, lowest id first, and the bundle references them instead of writing another. A district of another tenant is never found.
+
+## DEC-317 The review's area comes from the tenant and there is no built-in default (U28)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U28.
+
+The prompt's `Settings.area_districts` (default DT1 to DT11 and BH1 to BH31) is a tenant setting with no default (the tenancy audit, F section 6: a Dorset default inherited by a new tenant is wrong). Every review use case takes `area_districts_for: Callable[[ScopeId], frozenset[str]]` as a keyword, and the composition root backs it with the tenant's configuration (there is no field for it on the tenant record yet: known issue). `districts_in_ranges(("DT", 1, 11), ("BH", 1, 31))` states an area from prefixes and runs. The district check of a fixed site uses the geocoded address district kept by U27; a visiting service needs every district of its service step inside the area; an empty area fails every address.
+
+**Tenant pending (for DEC-317, DEC-318, DEC-319).**
+
+- Statements used are converted: registration, person, contact, criteria current and the provenance statements (`Q-PROV-*`). The audit append and the idempotency statements follow the ratchet of their own tasks; the tenant is in the replay key. The area is tenant configuration supplied by the caller (no statement yet).
+- Cross-scope reads: none.
+
+**Assumed (for DEC-317, DEC-318, DEC-319).**
+
+- Free-mail domains: gmail.com, hotmail.com, outlook.com, yahoo.com. NHS mail domain `nhs.net`.
+- NHS organisation types (ODS role names, compared ignoring case and punctuation): NHS TRUST, NHS TRUST SITE, NHS FOUNDATION TRUST, GP PRACTICE, PRIMARY CARE NETWORK, INTEGRATED CARE BOARD, COMMUNITY HEALTH SERVICE, PILOT-SAMPLE.
+- A note is at most 500 characters and a role spoken to at most 80.
+
+## DEC-318 The review: what each step writes, and the departures from the prompt (U28)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U28.
+
+1. `StartReview` moves `submitted` to `in-review` (a second start is InvalidTransition from `transition_registration`), sets the registration's reviewer post (`owner_role_id`) to the lead's active shift-lead post (NotAllowed when the lead has none) and stores `automatic_ok` and `criteria_approved` from the checks. Only the lead (role lead, a named practitioner) reviews: start, explain, call-back, scope and status.
+2. The role spoken to is required when someone was spoken to (confirmed or not confirmed) and optional for no answer (nobody to name). The prompt says required for all three; a reviewer who got no answer cannot invent a role.
+3. The call-back's number must be a full UK number and must not be one the applicant gave (the reporting mobile, the organisation's contact phone, the SPOA phone). It goes to the protected contact store under `callback-<id>`, one key per call-back, and the Provenance (`call-back`, target the registration Task, agent the lead with role `lead`) holds `callbackId`, `numberHash` (HMAC-SHA256 under the `phone-hash` secret over `callback|<digits>`, separated from a person's phone hash), `result` and `roleSpokenTo`. The latest call-back decides: a confirmed one sets `callback_confirmed`, a not-confirmed or no-answer one clears it.
+3a. The scope decision is a `scope-decision` Provenance with the four answers (yes, no, not sure), the decision and the reason; the decision is stored in the registration's checks, and the latest wins. A reason is required unless in-pilot (the U23 rule). A decision other than in-pilot with a "yes" answer, or in-pilot with a "no", is not refused: the answers are recorded for the person who approves. The scope list's flag is not changed by a review.
+4. The five checks, in screen order: ODS code (found, active, an NHS organisation type), organisation name (the ODS name, ignoring case, spacing and punctuation), address and area, reporting phone (the hash of the number stored under the applicant's post equals the phone hash of the person invited), criteria owner email (`nhs.net`, or the organisation contact's own domain; free-mail domains fail even when the contact uses one). The wording of a failed email check is "Criteria owner email is not an organisation address".
+5. A failed check is explained with a note (`ExplainCheck`, 1 to 500 characters, no patient-data shape, only while in review, only for a failed check); an explained failure counts as ok. Notes are kept in the registration's draft under `check_notes` (check name to note), beside the `lookups` record of U27.
+6. The checks are judged from what is stored every time they are needed: `GetReviewStatus` re-runs them (read only) and judges `criteria_approved` from the service's current criteria version (U30 does not touch the registration), so a number changed after the review started shows as missing. The checks stored on the registration are refreshed by every writing use case; U29's approval must re-run `evaluate`-style checks (call `GetReviewStatus` or `run_automatic_checks`) rather than trust the stored flag alone.
+7. The replay key is `review-registration:<operation>:<tenant>:<key>` inside the unit (DEC-243 item 11); no use case takes an idempotency store. The fingerprint of a call-back holds the number's keyed hash, never the number.
+
+## DEC-319 `AuditLog.append_provenance` is on the port; `scope-decision` is a provenance activity (U28)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U28.
+
+`append_provenance` existed on `Neo4jAuditLog` only. It is added to the `AuditLog` Protocol with the adapter's signature, and `scope-decision` joins `PROVENANCE_ACTIVITIES` (`call-back` was there). Provenance values are text, whole numbers or flags; the call-back number is never one of them.
+
+## DEC-321 PIN: the verification time is read from the device, never trusted from the caller (U32)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U32.
+
+The prompt passes `verified_at` from `VerifyTextCodeResult` to `SetPin` and checks it against the clock. A caller-supplied time can be forged, so the server stamps it: `RecordTextCodeVerified(uow_factory, clock)` (called after U25's `VerifyTextCode` succeeds, with its practitioner id, the device id, its `verified_at` and its purpose) registers the device if it is new and stamps `lastVerifiedAt` on it (`DeviceRegistry.mark_verified`, `verified_at`; statements `Q-DEVICE-MARK-VERIFIED`, `Q-DEVICE-VERIFIED`). `SetPin` sets a PIN only when the device's stored verification exists, is not in the future, is at most 10 minutes old, and the command's `verified_at` is not fresher than the record and not older than the window. A time in the future is clamped to now. The purposes that stamp a device are `setup`, `pin-reset`, `new-device` and `reverify`. A revoked device is never stamped (`device_known` false). The edge (R11) must call `RecordTextCodeVerified` after every successful verify.
+
+**Tenant pending (for DEC-321, DEC-322, DEC-323, DEC-324).**
+
+- Every statement used is converted: the credential and device statements (TEN-014), the person statements (TEN-011) and the two new device statements. The audit append follows the audit ratchet. The throttle keys are tenant-prefixed by the limiter (I13). The tenant comes only from `uow.unit_scope`; a unit with no tenant, or a network scope, raises `TenantNotBound`.
+- Cross-scope reads: none.
+
+**Assumed (for DEC-321, DEC-322, DEC-323, DEC-324).**
+
+- Throttle limits: 10 sign-in attempts per device, 20 per person, 10 PIN settings per person, each in 10 minutes.
+- The role a PIN session carries is reporter for an active reporter post; nothing higher is derived.
+
+## DEC-322 PIN storage, lock and 30-day check (U32)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U32.
+
+1. The stored value is HMAC-SHA256 under the secret `pin-hmac` over the practitioner id, the device id and the PIN (NUL between them), so a PIN set on one device does not work on another. It is compared with `hmac.compare_digest`. `Credential` nodes keep `pinHash`, `failed` and `locked`.
+2. The lock has no end time (DEC-044 item 2): five wrong tries lock the credential, every attempt then fails (`locked` true, `tries_left` 0) and the count does not move, until a verified text code and a new PIN (`set_pin` clears the count and the lock). The prompt's `lockedUntil` is not stored.
+3. A malformed PIN at sign-in counts as one wrong try (it is hashed as nothing and can never match) and is never echoed. At set time a malformed PIN is `ValidationFailed` on `pin` before anything is read or counted.
+4. Sign-in answers `needs_text_code` (nothing else changes) when the person is unknown or has left, the device is unknown or revoked, no PIN was set, or `needs_reverification` is true (30 days exactly or more since the last verification, or never). A locked credential on a stale device answers `needs_text_code`. A success resets the wrong count and returns the practitioner id, the role (reporter when the person holds an active duty-manager or coordinator post, otherwise None: exec and lead sessions are built by the edge) and the sorted service ids of the active reporter posts in effect.
+
+## DEC-323 One answer for every identity that cannot sign in, and equal work (U32)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U32.
+
+The answers of an unknown person, a person who left, an unknown device, a revoked device, no PIN yet and a stale device are the same object (`NEEDS_TEXT_CODE`) and make the same calls (person, device known, device verified, credential read, one audit entry, one commit); the hash comparison runs for all of them (against a dummy hash for an unknown identity). The audit entry of such an attempt holds the outcome word only and no identifier the caller invented. What remains distinguishable is a known person on a registered, fresh device with a PIN (wrong PIN with `tries_left`): that needs both the practitioner id and the device id, which are random ids the person's own phone holds. Known issue below.
+
+## DEC-324 Rate limits use the existing limiter, keyed without identifiers (U32)
+
+Status: accepted (build wave 2, bundle W2E, under DEC-133; no owner gate). Folded from the fragment of U32.
+
+`SetPin` and `PinSignIn` take a `RateLimiter` (I13, per tenant). Every attempt is counted before anything is read, for known and unknown identities alike, under keys that are a kind and a digest (`limiter_key`): sign-in 10 per device and 20 per person, PIN setting 10 per person, all in 10 minutes [ASSUMED]. An attempt past a limit raises `PinRateLimited(retry_after_seconds)` (fixed message, no count, no identifier); edges answer 429. The fast throttle and the durable lock are separate: the throttle limit is twice the five tries, so a mistyping person is locked (visible, durable) before the throttle refuses.
+
+## DEC-330 Friction rules are a pure engine, one `ui.friction` event per firing, with the element id it happened on (O03)
+
+Status: accepted (build wave 2, bundle W2F, under DEC-133; no owner gate). Folded from the fragment of O03.
+
+1. `createFrictionEngine({ now, emit })` in `frontend/lib/telemetry/friction.ts` takes time only from `now()` and touches no DOM. All thresholds live in `FRICTION_THRESHOLDS` [ASSUMED values, see Assumed].
+2. The page-level kinds carry fixed element ids so every event has an element id that passes the O05 pattern: `PAGE` (u-turn, thrash, hesitation, scroll-thrash), `LIVE-STREAM` (stream-gap), `UNTAGGED` (a click on no `data-el`).
+3. Dead click is answered by a navigation, a DOM change, a state change or a network call started from the page. `onNetwork(elementId)` is added beside the spec's method list; `attachFriction` feeds it from a second request observer (`addRequestObserver` in `trace.ts`), because the single observer slot belongs to O02.
+4. `attachFriction()` wires the engine to the DOM and to `track('ui.friction', ...)`. It does not observe HTTP status codes (the trace hook carries only the trace id), so `error-click` on an HTTP error is raised only by the caller, through `onRequestEnd`. The caller also calls `handle.route(template)` on page change and `handle.stream(state)`; no screen calls them yet.
+5. O02 change: `ui.friction` is added to `ALLOWED_EVENTS` and `kind`, `count`, `window_ms` to `ALLOWED_ATTRIBUTES` (both files are O02's and are edited here, as O05 requires).
+
+**Tenant pending.**
+
+- None. The engine holds no server data and no tenant.
+
+**Assumed.**
+
+- rageClicks 3, rageWindowMs 1000, rageDistancePx 30, deadClickMs 1000, errorClickMs 2000, impatientClicks 2, uTurnMs 5000, thrashSwitches 3, thrashWindowMs 10000, validationFailures 3, hesitationMs 20000, missedTapPx 24, scrollReversals 4, scrollWindowMs 3000, streamGapMs 10000 [ASSUMED, observability.md "Friction signals"]
+- Route-level kinds report `element.id` `PAGE`; the spec did not name one (decision above).
+
+## DEC-331 The collector is the second scrub layer, and one list defines what it keeps (O04)
+
+Status: accepted (build wave 2, bundle W2F, under DEC-133; no owner gate). Folded from the fragment of O04.
+
+1. `infra/otel-allowlist.txt` is the single list. Sections: `[backend]` (the 27 keys of `ALLOWED_KEYS` in O01's `attributes.py`, written out in full), `[browser]` (the spec's `ui.*` attributes plus `trace_id`, which O02 sends), `[resource]` (`service.name`, `service.version`, `deployment.environment`). The collector matches exact keys only, so the O01 prefix families (`usecase.`, `db.`, `messaging.`) and the `.id` suffix rule are listed key by key: a new key is dropped until it is listed (fail closed).
+2. `infra/otel-collector.yaml` keeps the same lists in `transform/allowlist`, for the span, span event and log contexts (backend plus browser) and the resource context (resource keys). `backend/tests/unit/adapters/outbound/telemetry/test_collector_allowlist.py` fails when either side differs, when a privacy key appears (`db.statement`, `db.query.text`, query parameters, patient or postcode keys), or when a denied word appears outside the reviewed set.
+3. *Superseded by DEC-332 for `name` and `value`: they are no longer kept.* Reviewed keys with a denied word: `messaging.destination.name` and `db.system.name` (back end: names of a queue or a database, not patient data); `name` and `value` (browser: the spec's `ui.web_vital` keys). `name` and `value` are kept because observability.md defines the web-vitals event with them. The back end never emits them (O01 refuses them at source), and O05's schema has no event that carries them yet, so no browser event can send them today. Owner to confirm.
+4. After the allow-list, `replace_all_patterns` scrubs every surviving value for phone and NHS number shapes, UK postcodes, 23-letter link tokens, support codes and `482 913` pairing codes. The patterns avoid look-behind, which the collector's regex engine does not support.
+5. Tail sampling: keep error traces, traces over 1000 ms, 10% of the rest [ASSUMED]; the logs pipeline is not sampled (pilot: every `ui.*` event is kept).
+6. Image `otel/opentelemetry-collector-contrib:0.162.0`, pushed 2026-10-05 (checked on Docker Hub; at least two weeks old). Pinned in `infra/docker-compose.yml`.
+7. Test profile: the compose service `otel-collector` is under profile `test`; it runs `otel-collector.yaml` with the overlay `infra/otel-collector.test.yaml`, which replaces the exporters with `file/test` (`/tmp/otel/out.json`, mounted from `infra/otel-out/`, git-ignored).
+8. Zipkin is defined but in no pipeline.
+
+**Tenant pending.**
+
+- `tenant.id` is on the list (`TENANT_ID` in O01). No span carries it yet (O01 known issue), and the collector does not bind or check it.
+
+**Assumed.**
+
+- Tail sampling 10% and the 1000 ms latency threshold [ASSUMED, observability.md "Sampling"]; memory limiter 80%; batch 8192 items or 5 s.
+
+## DEC-332 The collector keeps no `name` or `value` key (O04 integration; supersedes DEC-331 item 3 for those keys)
+
+Status: accepted (build wave 2, bundle W2F, under DEC-133; no owner gate). Folded from the integration notes of O04. Supersedes DEC-331 item 3 for `name` and `value`.
+
+1. `name` and `value` are removed from `infra/otel-allowlist.txt` `[browser]` and from every `keep_keys` statement in `infra/otel-collector.yaml`. Both are free-text words in `DENIED_FRAGMENTS`, so the back end refuses them too. The browser never sends them (`ALLOWED_ATTRIBUTES` in `frontend/lib/telemetry/events.ts` does not name them, and the O05 schema has no `ui.web_vital`).
+2. The collector cannot keep them for `ui.web_vital` only: the BFF forwards events with the event name in the body, not as an attribute, so no OTTL condition can tie a `name` or `value` to that event. A future `ui.web_vital` must use keys that pass the rule, or the owner must re-admit the keys with a reviewed rule.
+3. Unit test `test_collector_allowlist.py` pins the removal (red before the change). Integration test `test_free_text_under_name_and_value_never_leaves_the_collector` pins it end to end.
+
+## DEC-333 Every `ui.*` event has a schema, and `track` refuses an event that breaks it (O05)
+
+Status: accepted (build wave 2, bundle W2F, under DEC-133; no owner gate). Folded from the fragment of O05.
+
+1. `frontend/lib/telemetry/schema.ts` defines `UI_EVENT_NAMES` (the 8 event names, `ui.friction` included), `COMMON_SCHEMA` (the attributes any event may carry), `EVENT_SCHEMAS: Record<UiEventName, Record<string, AttrSpec>>`, `validateEvent(name, attributes): string[]` and `isFreeText(spec): boolean`.
+2. The attribute kinds are the four of the spec: number, boolean, fixed enum, id with a fixed pattern. A plain string is not a kind, so it cannot be declared.
+3. `track` validates the raw merged attributes before the allow-list filter. An unknown key is a problem, so a stray `value` fails rather than being dropped silently. In `development` `track` throws (the message names the event and the attribute keys, never a value); in every other mode it drops the event and increments the exported `droppedEvents` counter.
+4. `isFreeText` is a shape check, not a value check: an id pattern must be anchored and must reject the probe values `Sample Patient`, `DT4 8XX`, `A B`, `x@example.com`, `Dr Jones`; an enum must list short fixed codes. It flags a spec, not an event.
+5. Changes to O02's `events.ts` that the schema requires: the lower-case `unspecified` error code becomes `UNSPECIFIED`; the form id falls back to `FORM-UNNAMED` rather than the HTML id; the stored session id is checked as lowercase hex (16 to 32); the connection type is sent only when it is one of the four names; `initTelemetry` callers must pass a three-part release. `events.test.ts` is updated to valid values (`release` `1.4.2`, chip state `true`).
+
+**Assumed.**
+
+- Probe values listed above; the enum length limit of 40 characters; the regex for an enum code `^[A-Za-z0-9][A-Za-z0-9_.+\-/[\]]*$` (decision above).
+
+## DEC-334 The daily aggregates are counts and timings, stored per tenant and day, and read with suppression (O08)
+
+Status: accepted (build wave 2, bundle W2F, under DEC-133; no owner gate). Folded from the fragment of O08.
+
+1. Funnels: `FUNNELS` in `domain/rules/telemetry_insights.py` holds the seven funnels of observability.md as `FunnelStep(step, event, branch)` tuples, in order, with the branches last. The spec wrote `dict[str, list[str]]`; a step needs its name and its defining event, so a pair is used (decision). Event names are the names the telemetry and the domain use for each step; a step whose event is not yet emitted counts zero until it is.
+2. Rows (`domain/model/telemetry_aggregates.py`): `FunnelDailyRow`, `FrictionDailyRow`, `ElementUsageDailyRow`, `RouteDailyRow`, `QueryStatDailyRow`, `DayAggregates`. They are domain values, so the rules can use them; the port re-exports nothing.
+3. `sessions` is added to `FrictionDaily`, `ElementUsageDaily` and `RouteDaily` (the spec's field lists do not have it). Suppression needs the count of sessions behind a group, and a rate over interactions alone can rest on one person. `FunnelDaily` uses `entered` as its session count, as the spec implies.
+4. Suppression: a group under 10 sessions has no numbers (`is_suppressed`, `SUPPRESS_BELOW_SESSIONS`). Friction: events over interactions; flagged when strictly over 5% (`FRICTION_REVIEW_RATE`, [ASSUMED]); the window is the 7 days ending on the day asked (`rate_window_start`).
+5. The job replaces one day: `Neo4jAggregateRepository.replace_day` runs five clear statements (remove the tenant's rows of that date) and then writes the day's rows, in one unit of work. A re-run leaves the same node count. Dates are stored as ISO text (`YYYY-MM-DD`), so a range is a text comparison.
+6. `BuildDailyAggregates.execute(day)` reads through `TelemetryQuery.daily_aggregates(day)` before the unit opens, and writes through `uow.aggregates`. `ReadInsights` reads by range and returns figures (`funnel`, `friction`, `routes`, `queries`).
+7. No `AuditEntry` is written by the build. The rule says every use case writes one; here the rows are derived from telemetry and no person acts in them, so no actor exists to record. Owner to confirm.
+8. Scheduling: no `WorkKind` is added (no kind fits a once-a-day job without changing the scheduler); the job is a use case for a daily scheduler to call. Not yet wired.
+9. The Azure adapter's `daily_aggregates` and `NoTelemetry` fail closed (`TelemetryUnavailable`): the KQL summary is not built, so the job cannot write an empty day by mistake.
+10. Named queries: `Q-AGG-CLEAR-{FUNNEL,FRICTION,USAGE,ROUTE,QUERY}`, `Q-AGG-WRITE-*` (UNWIND, MERGE on the key fields plus `tenantId`), `Q-AGG-READ-*` (range reads). Fifteen statements, each with a `Scenario` that `validate_scenario` accepts (tested without Neo4j). The generated two-tenant test runs them on Neo4j in verification.
+
+**Tenant pending.**
+
+- None: every Q-AGG statement writes or matches `tenantId: $tenant` on each node; they are not on the ratchet. Tenant binding for the job is the caller's (the daily scheduler binds each tenant, as the outbox relay does).
+
+**Assumed.**
+
+- SUPPRESS_BELOW_SESSIONS 10 (observability.md, "Privacy and governance"); FRICTION_REVIEW_RATE 0.05 [ASSUMED]; RATE_WINDOW_DAYS 7 (observability.md).
+- The funnel event names (decision 1) are chosen here, not taken from the spec.
+
+## DEC-335 The support routes are thin over O06 and the telemetry port, with these choices the prompt leaves open (R18)
+
+Status: accepted (build wave 2, bundle W2F, under DEC-133; no owner gate). Folded from the fragment of R18.
+
+1. Session identity: the BFF token carries no session id (`BffClaims` has the practitioner, role, services and device). A route that needs a telemetry session takes it from the request: `sessionId` in the body of `POST /support/codes`, and as the `sessionId` query parameter of `DELETE /support/codes/current` and `GET /support/accesses`. Each id must match the hex pattern of O05. A person can only act on codes and opens they created (practitioner-scoped in O06), but a person who knew another session's id could name it. Known issue, to close when the BFF carries a session claim.
+2. Code creation (`POST /support/codes`) validates `Idempotency-Key` but does not use the HTTP replay cache: `replay_or_run` caches the successful body for 24 hours, which would keep a live code in the cache. A repeat with the same key creates a second code (the first stays valid until its 4-hour expiry). Decision for the owner: accept, or add a durable replay that does not hold the code.
+3. Refusals: a wrong or expired code is 403 with `That code is not valid or has expired.` (the O06 refusal `OPEN_REFUSED`, mapped in the route); a support route for another role is the app's non-revealing 404 (role guard first); the events of a session not open to the caller are 403 `This session is not open to you.`; the telemetry store being unreadable is 503 with no detail.
+4. Events: only while the caller's own open of the session is live (`expires_at` after now and `practitioner_id` the caller's). The read window is the last 90 days (`RAW_LOOKBACK`, O07's [ASSUMED]). `standout` is the friction and error events in time order, at most 5.
+5. Event and trace fields: `kind`, `elementId`, `route`, `outcome`, `durationMs`, `status`, `offsetMs` only (`ALLOWED_EVENT_KEYS`). A field value, a page text, a name and any unlisted attribute are removed by construction, not by filter.
+6. Filters: `role`, `release` and `since` are applied through `SessionFilters`; `sessionId` is applied after the search. `traceId` and `reference` are not implemented: the route answers 400 `This filter is not available yet.` rather than ignoring them.
+7. `DELETE /support/sessions/{id}` ends all live opens of the session (O06 `end_accesses`), and is 404 when none is live.
+8. Tickets: O06 has no ticket record, so R18 adds a `SupportTicket` store (`support_tickets` port, `Q-TICKET-ADD`, `Q-TICKET-GET`, `Q-TICKET-APPROVE`, tenant-scoped, with scenarios). Support requests a ticket on a session; a lead (role `lead`, and an active shift-lead role checked in the use case) approves; support opens with the ticket, which O06 then checks as an approved ticket with that approver. `POST /support/sessions/open` takes `supportCode` or `ticket`, never both.
+9. Trace reads (`GET /support/traces/{traceId}`) need only the support role. A trace with no spans is 404.
+10. Session summaries (`GET /support/sessions`) are aggregates only (`SessionSummary` fields).
+11. No route logs or caches a code except the creation response; the code is never in an audit snapshot.
+
+**Tenant pending.**
+
+- The R18 routes do not read a tenant (transitional rule; TEN-018, DEC-250, has since landed: `require_role` binds the tenant from the token for these routes). The support statements (O06 `Q-SUPPORT-*`, R18 `Q-TICKET-*`) are tenant-scoped; the telemetry reads bind the tenant from the context (O07).
+
+**Assumed.**
+
+- `RAW_LOOKBACK` 90 days (O07, [ASSUMED]); standout limit 5; session search limit from O07 (50).
+
+## DEC-340 Web Push and notification consent (I14)
+
+Status: accepted (build wave 2, bundle W2G, under DEC-133; no owner gate). Folded from the fragment of I14.
+
+1. The VAPID private key is platform-wide, not per tenant: one key pair, read from the secret store by reference `webpush-vapid-private-key` at start-up. A change of key forces every installed app to subscribe again. No key configured: the push runner is not started and push messages wait on their Service Bus subscription (nothing is sent without a key).
+2. The VAPID subject is `mailto:` the operations inbox from settings (`webpush_subject`, placeholder `operations@diucs.example` until deploy).
+3. Notification consent is a FHIR R4B Consent written through the resource store (G05), id `notif-<device id>`, one per device. R4B accepts it without a patient. `performer` is the practitioner, `sourceReference` the Device, `category` the DIUCS code `notification` (system `https://diucs.example/CodeSystem/consent-category`), `scope` patient-privacy (the closest R4B value; IG to review), `policyRule` the coding of the wording version. Withdrawal writes the same resource with status `inactive`. An extension was not used: the mapper keeps only registered extensions.
+4. Urgency is `high` for a booking request (B3) and an alert (K3); `normal` otherwise. Payload `{title, body, url}`, TTL 600 s. The title is the template subject, the body the template text; the url is the app root.
+5. A provider 404 or 410 is a refused receipt with reason `gone`; the handler deletes that device's subscription. A 429, a 5xx or a network failure raises TransientSendError, and the whole message is retried (a device that already took it may take it again: a duplicate is preferred to a missed alert). Other refusals are SendFailedError, not retried.
+6. The recipient is the practitioner who holds the recipient role at send time (`role_holder`, so a cover receives it), resolved from the tenant's own data. A role with no device is recorded as failed with reason `no-contact`.
+7. The messaging port changed compatibly: `SendReceipt` has `reason` (default None) and `PushSender.send` takes `urgency` (keyword, default `normal`). `PushSender` is still the one port.
+8. `pywebpush` 2.5.0 is added to the backend dependencies (uv.lock changed); its mypy import is marked ignore_missing_imports.
+
+**Tenant pending.**
+
+- None new. Every statement the task reaches is an existing tenant-scoped NamedQuery (P19 push statements, the resource store) or the resource store's stamp. Consent nodes carry the tenant through the resource store (TEN-009).
+- The VAPID key is platform-wide by decision (the tenancy audit's task-specific change); it is not a tenant secret.
+
+**Assumed.**
+
+- VAPID subject `mailto:operations@diucs.example` [ASSUMED placeholder].
+- Push TTL 600 s (the prompt) and request timeout 10 s [ASSUMED].
+
+## DEC-341 Alert preference use cases (U33)
+
+Status: accepted (build wave 2, bundle W2G, under DEC-133; no owner gate). Folded from the fragment of U33.
+
+1. `SaveAlertPreferences(uow_factory, idempotency, clock).execute(command)` and `GetAlertPreferences(uow_factory).execute(actor)` store and return P17's `AlertSubscription`. The command names no target: a user can only change their own preferences.
+2. Only roles `exec` and `lead` may set or read preferences (NotAllowed otherwise). An actor with no practitioner id is NotAllowed.
+3. The rules are D24's (`AlertPreferences`, `default_preferences`): thresholds 2 or 4 hours, acknowledge 10, 15 or 30 minutes, quiet hours 22:00 to 06:00 or none. A refusal names the field.
+4. The deputy is required when any kind is on, must differ from the user, and must be an active practitioner who holds a shift-lead or clinical-lead role. The graph has no exec role code, so an exec deputy is refused until the identity model (W09) carries roles on people. Recorded as an open question.
+5. Replays use the tenant-scoped key (L160). A replay with a different command is Conflict; the same command returns the subscription as stored now. The stored replay result is plain (a time of day cannot be stored by the command store).
+6. The audit entry records the kinds chosen (`{"kinds": [...]}`) and nothing else; the deputy and the times are not audited.
+7. `GetAlertPreferences` returns the defaults when nothing is saved, with `updated_at` at the epoch (never saved). Writes nothing.
+
+**Tenant pending.**
+
+- None new. Repository reads (deputy, subscribers, preferences) are the P17 and P03 tenant-scoped statements; the replay key carries the tenant.
+
+**Assumed.**
+
+- Deputy codes: `shift-lead` and `clinical-lead` [ASSUMED: the graph's leadership codes; exec is not one of them].
+- Defaults as D24 (see known issues).
+
+## DEC-342 The daily criteria review job (U31)
+
+Status: accepted (build wave 2, bundle W2G, under DEC-133; no owner gate). Folded from the fragment of U31.
+
+1. The job runs once a day at 07:00 London (`REVIEW_RUN_AT`, [ASSUMED]). Each run schedules its own next run through `schedule_work` at 07:00 on the next London date, converted by `london_to_utc`, so the clock change is handled (23 Oct 2026 run: 24 Oct 06:00Z; 24 Oct run: 25 Oct 07:00Z).
+2. Reminder: for each current version where `review_reminder_due` holds (14 days before review-by up to and including it), the owner's role gets K2 by its channel. K2 is defined for email and push only (DEC-037 and the D16 template test), so a text-only owner gets no reminder; the marker is not written for them, so a later run can still send once their channel is email or push.
+3. Each review-by date of each criteria version is reminded once. The record is a processed marker `criteria-reminder:<criteria id>:<review-by>`, not a property on the criteria node, so P04's model and statements are unchanged.
+4. Overdue: when `is_review_overdue` holds the service gets the flag `criteria-overdue` with reason "review-by passed", unless it already has it. Only U30 clears it. The flag's actor is `system:criteria-review`.
+5. The run marks its work id as processed in the same unit of work as its writes, and schedules the next run there too, so a second delivery of one work id changes nothing.
+6. Constructor: `RunCriteriaReviews(uow_factory, ids, clock, sealer)`. The prompt's `processed` argument is not taken: the processed store is bound to the unit of work (`uow.processed`), so the marker and the writes commit together. The sealer is added because every SendMessage content is sealed.
+7. `ensure_daily_schedule(uow_factory, ids, clock)` seeds the first run for the bound tenant when none is scheduled. Its work id is `criteria-review:<tenant>:<London date of the run>`, so a second writer for the same run is a Conflict and returns False. It runs at worker start for each active tenant (`workers_main.serve`), not in `Container.startup`, which only migrates and sets audit heads.
+8. Wiring: `container._scheduled_work` registers the handler for `WorkKind.CRITERIA_REVIEW_REMINDER`. Two dispatch-table unit tests now include that kind.
+
+**Tenant pending.**
+
+- None new. The processed markers and the scheduled works go through the tenant-scoped repositories; the start-up work id carries the tenant id; the daily run reads only the bound tenant's services and criteria.
+
+**Assumed.**
+
+- Run time 07:00 London; reminder window 14 days (rule book, D21 `REVIEW_REMINDER_BEFORE`).
+
+## DEC-343 Service moves and additions (U38)
+
+Status: accepted (build wave 2, bundle W2G, under DEC-133; no owner gate). Folded from the fragment of U38.
+
+1. A move has three steps in order: (1) the new number is verified by a text code (`VerifyServiceMoveCode`, through the `CodeVerifier` port, which is U25's check, purpose `setup`); (2) the call-back to the service is recorded (`RecordMoveCallBack`, refused until step 1); (3) `CompleteServiceMove` (refused until both). Step 3 refuses with NotAllowed naming the missing step.
+2. A permanent move ends the old role (active false, period end now) and starts an active role of the same code and channel for the new phone's practitioner, created with the phone hash when no one holds the number (display name "Reporter", as U16).
+3. A cover (`until` set, in the future) keeps the old role and sets `covered_by_practitioner_id` and `covered_until` on it; `role_holder` returns the cover until `until`.
+4. The move stores only the hash of the new number. `VerifyServiceMoveCode` takes the number again from the lead and checks its hash against the move before the code check.
+5. One open move per service (Conflict otherwise). A move needs a reporter role on the service (NotFound otherwise).
+6. `AddServiceToPhone` creates an inactive role (the pending addition) for the phone's practitioner, with the phone's first role's code and channel. A second addition of the same service to the same number is a Conflict. `AnswerServiceAddition` by that practitioner only (another person reads as NotFound): accept makes the role active; reject ends it (active false, period end now). An answered addition cannot be answered again.
+7. After a move, and after an addition is accepted, a phone holding more than `MAX_SERVICES_PER_PHONE` (3) services gets the flag `holds-many-services` on each of its services, reason "phone holds N services, more than 3". The flag is checked for the phone that gained and the phone that lost in a move.
+8. Cross-task edit (P14): `SERVICE_FLAG_HOLDS_MANY = "holds-many-services"` is added to `SERVICE_FLAG_CODES` in `domain/model/flags.py`. Without it no service flag could carry the code.
+9. Replay by idempotency key is not built for the start and add commands. A repeated start is refused by the open-move rule, a repeated addition by the duplicate-service rule; a repeated verify or call-back returns without a second write.
+
+**Tenant pending.**
+
+- None new. The move, roles, practitioners, flags and audit go through tenant-scoped repositories and the bound unit of work; a move for another tenant's service reads as NotFound (the two-tenant case is in the integration file).
+
+**Assumed.**
+
+- The move code purpose is `setup` [ASSUMED: U25's purpose for a phone being set up to report].
+- The new practitioner's display name is "Reporter" (as U16) [ASSUMED].
+
+## DEC-344 The two shift lead routes (R08)
+
+Status: accepted (build wave 2, bundle W2G, under DEC-133; no owner gate). Folded from the fragment of R08.
+
+1. `POST /fhir/HealthcareService/$setup` (201 HealthcareService) and `POST /fhir/PractitionerRole/{id}/$change-number` (200 Parameters with `numberEnding` and, for a cover, `coverUntil`) are thin over U15 and U16. Role lead only (anyone else: the non-revealing 404 of `require_role`). `Idempotency-Key` required (400 when missing or malformed). Replays go through `replay_or_run`, named per action.
+2. `$setup` needs `availableFrom` and `availableTo` (HH:MM). The prompt's Parameters list does not name them, but U15 needs the hours, and a default of all day would claim availability the service did not give. Refused with 400 when missing.
+3. `ownerRoleName` is optional and defaults to "Criteria owner" [ASSUMED]. Parts of a `criteria` parameter are read as top-level parameters.
+4. Channel is text or email. `push` is a 400 naming `channel`: it is outside the pilot.
+5. A bad mobile answers 400 with "Enter a UK mobile number, for example 07700 900123", never with the input. Other refusals name the element, never its value.
+6. The change route is keyed by the role id. The route reads the role's service and passes it to U16, which changes the first active reporter role of that service (U16's choice). An unknown role is a 404.
+7. Responses carry no whole number: a change answers `numberEnding` (the last four digits). `$setup` answers the HealthcareService only.
+8. Tenancy: the routes bind nothing. The lead's tenant comes from the REST edge (TEN-018). Until it lands the use cases refuse with TenantNotBound and the request fails closed (500), exactly as R15's connect route does. *TEN-018 has since landed (DEC-250): the routes run bound to the lead's tenant from the token, and the 500 is gone.*
+9. Mount: `app.include_router(routes_lead.router)` in `app.py`, after the screens router.
+
+**Tenant pending.**
+
+- None in this module: it reads and writes through the use cases only. Tenant binding at the edge is TEN-018 (a dependence, met by TEN-018, DEC-250).
+
+**Assumed.**
+
+- Owner role name default "Criteria owner" [ASSUMED].

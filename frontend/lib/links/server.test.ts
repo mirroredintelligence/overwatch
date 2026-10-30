@@ -78,12 +78,16 @@ describe('callLinkApi', () => {
 describe('readLink', () => {
   it('reads an open link and returns its view', async () => {
     const result = await readLink(LINK.recorded, TENANT_HOST);
-    expect(result).toMatchObject({ kind: 'open', view: { serviceName: RECORDED_VIEW.serviceName, recordedValue: 3 } });
+    expect(result).toMatchObject({
+      kind: 'open',
+      link: { kind: 'capacity', view: { serviceName: RECORDED_VIEW.serviceName, recordedValue: 3 } },
+    });
   });
 
-  it('reads a 410 as gone, whatever state word it carries', async () => {
-    await expect(readLink(LINK.expired, TENANT_HOST)).resolves.toEqual({ kind: 'gone' });
-    await expect(readLink(LINK.used, TENANT_HOST)).resolves.toEqual({ kind: 'gone' });
+  it('reads a 410 as gone, with its closed state word', async () => {
+    await expect(readLink(LINK.expired, TENANT_HOST)).resolves.toEqual({ kind: 'gone', state: 'expired' });
+    await expect(readLink(LINK.used, TENANT_HOST)).resolves.toEqual({ kind: 'gone', state: 'used' });
+    await expect(readLink(LINK.bookingCancelled, TENANT_HOST)).resolves.toEqual({ kind: 'gone', state: 'cancelled' });
   });
 
   it('answers a 503 as unavailable, not as gone', async () => {

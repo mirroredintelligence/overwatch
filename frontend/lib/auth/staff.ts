@@ -1,9 +1,9 @@
 import { canAccess, isSamePathOnly, roleHome } from './access';
 import type { Role } from './session';
 
-// Staff sign-in rules that do not depend on the provider. Which role a person has is the back end's
-// (the tenant's own mapping of directory groups, TEN-043), and so is the back-end token: this module
-// maps no app role, mints nothing and reads no signing secret (TEN-044, DEC-134 item 2).
+// Staff sign-in rules that do not depend on the provider or the back end: where to go next. The
+// role is the back end's answer (exchange.ts, TEN-043) and the token is the back end's to sign: this
+// module maps no app role and mints no token.
 
 /**
  * Where to go after signing in: `next` when it is a path on this site the role may open (and not the

@@ -39,12 +39,12 @@ afterEach(() => {
 });
 
 // The CSRF token is tied to the session it was issued for (TEN-046, audit D 3.6): the person, the
-// tenant, the host and the life of the session. A cookie and a header that merely match prove nothing.
+// and the tenant and host. A cookie and a header that merely match prove nothing.
 const URL_ = `https://${TENANTS.A.host}/api/bff/x`;
 // SESSION_SECRET is set here as well, so the token below can be made before the first test starts.
 vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
 const NONCE = 'N'.repeat(43);
-const SESSION: Session = sessionFor(TENANTS.A, 'advisor', { sub: 'stf-person-1', expiresAt: '2026-10-30T20:00:00.000Z' });
+const SESSION: Session = sessionFor(TENANTS.A, 'advisor', { sub: 'stf-person-1' });
 const TOKEN = csrfTokenFor(SESSION, NONCE);
 
 function post(headerValue: string | null, cookie: string | null, session: Session = SESSION): { request: Request; session: Session } {
@@ -80,13 +80,12 @@ describe('csrfTokenFor and verifyCsrfToken', () => {
     ['another tenant', { tenantId: TENANTS.B.id }],
     ['another host', { host: TENANTS.B.host }],
     ['another person', { sub: 'stf-person-2' }],
-    ['another session of the same person (another expiry)', { expiresAt: '2026-10-30T20:00:01.000Z' }],
   ])('does not verify for %s', (_name, change) => {
     expect(verifyCsrfToken({ ...SESSION, ...change }, TOKEN)).toBe(false);
   });
 
   it('does not verify when the tenant is the only thing that differs, even with everything else equal (the cross-tenant case)', () => {
-    const b = sessionFor(TENANTS.B, 'advisor', { sub: SESSION.sub, expiresAt: SESSION.expiresAt, host: SESSION.host });
+    const b = sessionFor(TENANTS.B, 'advisor', { sub: SESSION.sub, host: SESSION.host });
     expect(b.tenantId).not.toBe(SESSION.tenantId);
     expect(verifyCsrfToken(b, TOKEN)).toBe(false);
   });
@@ -132,7 +131,7 @@ describe('csrfTokenFor and verifyCsrfToken', () => {
   });
 
   it('shows no part of the session in the token', () => {
-    for (const text of [SESSION.sub, SESSION.tenantId, SESSION.host, SESSION.expiresAt]) {
+    for (const text of [SESSION.sub, SESSION.tenantId, SESSION.host]) {
       expect(TOKEN).not.toContain(text);
       expect(Buffer.from(TOKEN.replace('.', ''), 'base64url').toString('latin1')).not.toContain(text);
     }
@@ -171,14 +170,14 @@ describe('checkCsrf', () => {
   });
 
   it('fails for a pair that was made for another tenant’s session', () => {
-    const b = sessionFor(TENANTS.B, 'advisor', { sub: SESSION.sub, expiresAt: SESSION.expiresAt, host: SESSION.host });
+    const b = sessionFor(TENANTS.B, 'advisor', { sub: SESSION.sub, host: SESSION.host });
     const forB = csrfTokenFor(b, NONCE);
     expect(check(forB, forB, SESSION)).toBe(false);
     expect(check(forB, forB, b)).toBe(true);
   });
 
-  it('fails for a pair that was made for another person, another host or an earlier session', () => {
-    for (const change of [{ sub: 'stf-person-2' }, { host: TENANTS.B.host }, { expiresAt: '2026-10-30T19:00:00.000Z' }]) {
+  it('fails for a pair that was made for another person or another host', () => {
+    for (const change of [{ sub: 'stf-person-2' }, { host: TENANTS.B.host }]) {
       const old = csrfTokenFor({ ...SESSION, ...change }, NONCE);
       expect(check(old, old)).toBe(false);
     }
@@ -240,7 +239,7 @@ describe('issueCsrf', () => {
 
   it('gives a token that does not verify for another tenant’s session', async () => {
     const token = await issueCsrf(SESSION);
-    expect(verifyCsrfToken(sessionFor(TENANTS.B, 'advisor', { sub: SESSION.sub, expiresAt: SESSION.expiresAt, host: SESSION.host }), token)).toBe(false);
+    expect(verifyCsrfToken(sessionFor(TENANTS.B, 'advisor', { sub: SESSION.sub, host: SESSION.host }), token)).toBe(false);
   });
 
   it('sets a cookie the page script can read, SameSite=Strict, Path=/, Secure, no Domain', async () => {

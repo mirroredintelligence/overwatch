@@ -1,34 +1,34 @@
 // Sample values for the staff sign-in tests. Directory ids and object ids are made up.
 
 export const HOST = 'https://login.entra-fake.test';
-// One sub-domain per tenant (DEC-134 item 3): the site a person signs in on is the tenant's own host,
-// and the redirect URI the sign-in sends to the provider is built from it.
-export const PUBLIC_URL = 'https://tenant-a.example.test';
-export const PUBLIC_URL_B = 'https://tenant-b.example.test';
-export const PUBLIC_URL_C = 'https://tenant-c.example.test';
-export const CALLBACK_PATH = '/api/bff/auth/entra/callback';
-export const REDIRECT_URI = `${PUBLIC_URL}${CALLBACK_PATH}`;
-export const REDIRECT_URI_B = `${PUBLIC_URL_B}${CALLBACK_PATH}`;
-export const REDIRECT_URI_C = `${PUBLIC_URL_C}${CALLBACK_PATH}`;
+export const PUBLIC_URL = 'https://capacity.example.test';
+export const REDIRECT_URI = `${PUBLIC_URL}/api/bff/auth/entra/callback`;
 export const CLIENT_ID = '5d1c7a0e-3f55-4a5b-9a41-2f3b6f0c9a11';
 export const CLIENT_SECRET = 'fake-client-secret-for-tests-only';
 
-// Two Entra directories, each bound by one tenant, and one that no tenant has bound. The binding is the
-// back end's (TEN-043): the front end holds no list of directories.
+// Entra directories. Which of them a DIUCS tenant has bound is the back end's record (TEN-043); the
+// front end holds no table of it. The stand-in back end (test/fixtures/exchange.ts) knows the grants.
 export const DIRECTORY_A = '11111111-1111-4111-8111-111111111111';
 export const DIRECTORY_B = '22222222-2222-4222-8222-222222222222';
+// A directory no tenant has bound.
 export const DIRECTORY_UNBOUND = '33333333-3333-4333-8333-333333333333';
+// The operator's own directory, the only one that may carry the support role.
+export const DIRECTORY_PLATFORM = '44444444-4444-4444-8444-444444444444';
 
-export const TENANT_A = 'trust-a';
-export const TENANT_B = 'trust-b';
 
 export const OID_ADVISOR = 'aaaaaaaa-0000-4000-8000-000000000001';
 export const OID_LEAD = 'aaaaaaaa-0000-4000-8000-000000000002';
 export const OID_B = 'bbbbbbbb-0000-4000-8000-000000000001';
 
-/** What the sign-in reads: the provider and this app's registration. No tenant, no directory list, no signing secret. */
+// The back end the BFF calls (as the link tests do): its address, and the host the sign-in is
+// served on, which is the host the back end takes the tenant from (DEC-134 item 3, TEN-043).
+export const BACKEND_ROOT = 'http://backend.test';
+export const SIGN_IN_HOST = new URL(PUBLIC_URL).host;
+
 export const ENTRA_ENV: Record<string, string> = {
   ENTRA_CLIENT_ID: CLIENT_ID,
   ENTRA_CLIENT_SECRET: CLIENT_SECRET,
   ENTRA_AUTHORITY_HOST: HOST,
+  DIUCS_PUBLIC_URL: PUBLIC_URL,
+  DIUCS_FHIR_BASE_URL: `${BACKEND_ROOT}/fhir`,
 };

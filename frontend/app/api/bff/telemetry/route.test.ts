@@ -14,7 +14,10 @@ vi.mock('next/headers', async () => {
 });
 
 const URL_ = `https://${TENANTS.A.host}/api/bff/telemetry`;
-const COLLECTOR = 'https://collector.test/v1/events';
+// OTEL_HTTP_ENDPOINT is the collector's base. ui.* events are log records (DEC-331 item 5), so the
+// batch goes to its OTLP logs receiver as OTLP/JSON (O04 mismatch, decided in DEC-740).
+const COLLECTOR = 'https://collector.test';
+const LOGS_RECEIVER = `${COLLECTOR}/v1/logs`;
 
 function session(role: Role): Session {
   return sessionFor(TENANTS.A, role, { sub: 'user-1', backendToken: 'backend-token' });
@@ -46,7 +49,7 @@ beforeEach(() => {
   vi.stubEnv('OTEL_HTTP_ENDPOINT', COLLECTOR);
   forwarded = [];
   server.use(
-    http.post(COLLECTOR, async ({ request }) => {
+    http.post(LOGS_RECEIVER, async ({ request }) => {
       forwarded.push(await request.json());
       return new HttpResponse(null, { status: 202 });
     }),
@@ -67,6 +70,19 @@ describe('POST /api/bff/telemetry', () => {
     expect(JSON.stringify(forwarded)).toContain('ADV-OPT-REQUEST-BTN');
   });
 
+  it('sends the batch to the logs receiver as OTLP/JSON, one log record per event, with the event name as its body', async () => {
+    await post(batch({ 'element.id': 'ADV-OPT-REQUEST-BTN', dwell_ms: 812, valid: true }));
+
+    const body = forwarded[0] as {
+      resourceLogs: { scopeLogs: { logRecords: { body: { stringValue: string }; attributes: { key: string; value: Record<string, unknown> }[] }[] }[] }[];
+    };
+    const record = body.resourceLogs[0]?.scopeLogs[0]?.logRecords[0];
+    expect(record?.body).toEqual({ stringValue: 'ui.chip' });
+    expect(record?.attributes).toContainEqual({ key: 'element.id', value: { stringValue: 'ADV-OPT-REQUEST-BTN' } });
+    expect(record?.attributes).toContainEqual({ key: 'dwell_ms', value: { doubleValue: 812 } });
+    expect(record?.attributes).toContainEqual({ key: 'valid', value: { boolValue: true } });
+  });
+
   it('drops an attribute it does not know, such as field.value', async () => {
     await post(batch({ 'element.id': 'ADV-REF-INPUT', 'field.value': 'DT4 8XX' }));
 
@@ -78,8 +94,11 @@ describe('POST /api/bff/telemetry', () => {
 
     await post(batch({ 'element.id': 'ADV-REF-INPUT', 'tenant.id': 'tenant-b' }));
 
-    const [sent] = forwarded as Array<{ events: Array<{ attributes: Record<string, unknown> }> }>;
-    expect(sent?.events[0]?.attributes['tenant.id']).toBe(TENANTS.A.id);
+    const [sent] = forwarded as Array<{
+      resourceLogs: Array<{ scopeLogs: Array<{ logRecords: Array<{ attributes: Array<{ key: string; value: unknown }> }> }> }>;
+    }>;
+    const attributes = sent?.resourceLogs[0]?.scopeLogs[0]?.logRecords[0]?.attributes ?? [];
+    expect(attributes).toContainEqual({ key: 'tenant.id', value: { stringValue: TENANTS.A.id } });
     expect(JSON.stringify(forwarded)).not.toContain('tenant-b');
   });
 

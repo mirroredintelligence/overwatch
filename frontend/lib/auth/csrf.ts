@@ -3,13 +3,14 @@ import { cookies } from 'next/headers';
 import { baseCookieOptions, readRequestCookie, sessionSecretKey, type Session } from './session';
 
 // Double-submit CSRF, bound to the session (TEN-046, audit D 3.6). The token is a random nonce and a
-// MAC of the nonce and of the session it was issued for (the person, the tenant, the host and the
-// life of the session), as `<nonce>.<mac>`. It is in a cookie the page script can read; every
+// MAC of the nonce and of the session it was issued for (the person, the tenant and the host), as
+// `<nonce>.<mac>`. It is in a cookie the page script can read; every
 // state-changing request must repeat it in a header. A forged cross-site request cannot read the
 // cookie, so it cannot set the header; and a script on a sibling sub-domain that can plant a cookie
 // still cannot make a token that verifies for this session, so a planted matching pair fails. A token
-// issued for tenant A's session does not verify in tenant B's, and a token from one sign-in does not
-// verify in the next.
+// issued for tenant A's session does not verify in tenant B's, and one issued to one person does not
+// verify for another. (It is not tied to the life of one sign-in: it proves who and where, and the
+// cookie that carries it is the person's own.)
 //
 // The link page has its own cookie, name, path and check (lib/links/csrf.ts): opening a link never
 // touches this cookie.
@@ -22,7 +23,7 @@ const PART = /^[A-Za-z0-9_-]{43}$/;
 const TOKEN = /^([A-Za-z0-9_-]{43})\.([A-Za-z0-9_-]{43})$/;
 
 /** What a token is bound to. */
-export type CsrfSubject = Pick<Session, 'tenantId' | 'host' | 'sub' | 'expiresAt'>;
+export type CsrfSubject = Pick<Session, 'tenantId' | 'host' | 'sub'>;
 
 // The MAC key is derived from the session secret for this one purpose, so a sealed session or a
 // sign-in transaction can never be passed off as a CSRF MAC. Read at call time: a missing secret is a
@@ -32,7 +33,7 @@ function macKey(): Uint8Array {
 }
 
 function macOf(subject: CsrfSubject, nonce: string): string {
-  const material = ['csrf', subject.tenantId, subject.host, subject.sub, subject.expiresAt, nonce].join('\n');
+  const material = ['csrf', subject.tenantId, subject.host, subject.sub, nonce].join('\n');
   return createHmac('sha256', macKey()).update(material).digest('base64url');
 }
 

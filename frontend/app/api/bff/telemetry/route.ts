@@ -1,8 +1,10 @@
 import { sessionFromRequest } from '@/lib/auth/session';
 import { ALLOWED_ATTRIBUTES, ALLOWED_EVENTS } from '@/lib/telemetry/events';
+import { OTLP_LOGS_PATH, otlpLogs, type Attribute, type TelemetryEvent as Event } from '@/lib/telemetry/otlp';
 
 // The ingest of the browser's ui.* events (O02). It keeps only what the allow-list names, forwards the
-// batch to the OpenTelemetry collector when OTEL_HTTP_ENDPOINT is set, and otherwise discards it. It
+// batch to the OpenTelemetry collector's logs receiver when OTEL_HTTP_ENDPOINT is set (the collector's
+// base address), and otherwise discards it. It
 // answers 204 for a batch it accepts, and never says what it kept or dropped.
 //
 // Tenancy: the browser never sends a tenant. The tenant.id attribute is written here, from the
@@ -13,9 +15,6 @@ const NO_STORE = { 'Cache-Control': 'no-store' };
 const MAX_BODY_CHARS = 16 * 1024;
 const MAX_EVENTS = 50;
 const MAX_TEXT_CHARS = 100;
-
-type Attribute = string | number | boolean;
-type Event = { name: string; at: number; attributes: Record<string, Attribute> };
 
 function attributesOf(value: unknown, tenantId: string): Record<string, Attribute> {
   const kept: Record<string, Attribute> = {};
@@ -48,13 +47,13 @@ function eventsOf(body: unknown, tenantId: string): Event[] {
 }
 
 async function forward(events: Event[]): Promise<void> {
-  const endpoint = process.env.OTEL_HTTP_ENDPOINT;
-  if (!endpoint || events.length === 0) return;
+  const base = process.env.OTEL_HTTP_ENDPOINT;
+  if (!base || events.length === 0) return;
   try {
-    await fetch(endpoint, {
+    await fetch(`${base.replace(/\/+$/, '')}${OTLP_LOGS_PATH}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ events }),
+      body: JSON.stringify(otlpLogs(events)),
       cache: 'no-store',
     });
   } catch {

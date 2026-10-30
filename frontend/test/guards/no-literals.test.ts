@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
-import { check, FETCH_ALLOWLIST, LITERAL_RULES, sourceFiles } from './scan';
+import { check, DEBT, FETCH_ALLOWLIST, LITERAL_RULES, ratchet, sourceFiles } from './scan';
 
 // Repository scan: nothing in the app names a place, an organisation type, a system or a phone number
 // of its own; nothing reads tenant configuration from a build-time or public environment variable;
@@ -10,6 +10,24 @@ import { check, FETCH_ALLOWLIST, LITERAL_RULES, sourceFiles } from './scan';
 
 const ids = (rule: string, text: string, file = 'app/page.tsx') =>
   check(LITERAL_RULES.filter((r) => r.id === rule), [{ file, text }]).map((v) => v.rule);
+
+describe('the ratchet', () => {
+  const violation = (file: string, rule: string) => ({ file, rule, line: 1 });
+
+  it('passes what the table lists, fails what it does not, and fails more of a rule than the table allows', () => {
+    const debt = { 'a.ts': { spoa: 2 } };
+    expect(ratchet([violation('a.ts', 'spoa'), violation('a.ts', 'spoa')], debt)).toEqual({ unlisted: [], stale: [] });
+    expect(ratchet([violation('a.ts', 'spoa'), violation('a.ts', 'spoa'), violation('a.ts', 'spoa')], debt).unlisted).toHaveLength(1);
+    expect(ratchet([violation('b.ts', 'spoa')], debt).unlisted).toHaveLength(1);
+    expect(ratchet([violation('a.ts', 'epr-name')], debt).unlisted).toHaveLength(1);
+  });
+
+  it('says so when a listed debt is no longer there, in whole or in part', () => {
+    const debt = { 'a.ts': { spoa: 2 } };
+    expect(ratchet([], debt).stale).toEqual(['a.ts|spoa: listed 2, found 0']);
+    expect(ratchet([violation('a.ts', 'spoa')], debt).stale).toEqual(['a.ts|spoa: listed 2, found 1']);
+  });
+});
 
 describe('the literal rules fire on what they forbid', () => {
   it.each([
@@ -36,6 +54,8 @@ describe('the literal rules fire on what they forbid', () => {
     ['node-http', "import http from 'node:http';"],
     ['node-http', "import { request } from 'https';"],
     ['fetch-call', 'await fetch("https://elsewhere.example/x");'],
+    ['fetch-call', 'await fetch(url);'],
+    ['fetch-call', 'await fetch(`${base}/api/bff/x`);'],
     ['tenant-header-set', "headers.set('X-Tenant-Id', id);"],
     ['tenant-header-set', 'headers.append("x-scope", "network");'],
     ['console-secret', 'console.log("token", token);'],
@@ -68,7 +88,13 @@ describe('the literal rules fire on what they forbid', () => {
     expect(ids('node-http', "import http from 'node:http';", 'lib/links/server.ts')).toEqual(['node-http']);
   });
 
-  it('allows a fetch only in the files that are named for it, and a new one fails until it is named', () => {
+  it('lets a page call its own BFF with a fetch whose address is written out', () => {
+    expect(ids('fetch-call', "await fetch('/api/bff/session', { credentials: 'same-origin' });", 'components/x/Y.tsx')).toEqual([]);
+    expect(ids('fetch-call', 'await fetch(`/api/bff/console/${id}`);', 'components/x/Y.tsx')).toEqual([]);
+    expect(ids('fetch-call', 'await fetch(\n  `/api/bff/console/${id}`,\n);', 'components/x/Y.tsx')).toEqual([]);
+  });
+
+  it('allows a fetch with another address only in the files that are named for it, and a new one fails until it is named', () => {
     for (const file of Object.keys(FETCH_ALLOWLIST)) expect(ids('fetch-call', 'await fetch(url);', file), file).toEqual([]);
     expect(ids('fetch-call', 'await fetch(url);', 'lib/new/thing.ts')).toEqual(['fetch-call']);
     expect(ids('fetch-call', 'await fetch(url);', 'app/api/bff/new/route.ts')).toEqual(['fetch-call']);
@@ -103,8 +129,17 @@ describe('the literal rules fire on what they forbid', () => {
 describe('the repository', () => {
   const files = sourceFiles();
 
-  it('names no place, organisation type, system or phone number of its own, reads no tenant configuration from the environment, touches no browser storage but its helper, and calls the back end from one client only', () => {
-    expect(check(LITERAL_RULES, files)).toEqual([]);
+  it('names no place, organisation type, system or phone number of its own, reads no tenant configuration from the environment, touches no browser storage but its helper, and calls the back end from one client only: beyond the debt below', () => {
+    expect(ratchet(check(LITERAL_RULES, files)).unlisted).toEqual([]);
+  });
+
+  it('has no debt that has been paid and not struck out: the table only shrinks', () => {
+    expect(ratchet(check(LITERAL_RULES, files)).stale).toEqual([]);
+  });
+
+  it('owes only for words: never for browser storage, a cache, a secret, a header, a log or a back-end call', () => {
+    const owed = new Set(Object.values(DEBT).flatMap((rules) => Object.keys(rules)));
+    expect([...owed].sort()).toEqual(['epr-name', 'spoa', 'trust-wording']);
   });
 
   it('has the one client that may call the back end', () => {

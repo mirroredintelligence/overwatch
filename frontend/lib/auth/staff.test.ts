@@ -3,12 +3,8 @@ import { describe, expect, it } from 'vitest';
 import * as staff from './staff';
 import { safeNext } from './staff';
 
-// Staff sign-in rules that do not depend on the provider. The role is the back end's (the tenant's own
-// mapping, TEN-043) and the back-end token is the back end's too: this module no longer maps an app
-// role, mints a token or reads a signing secret.
-
-describe('what this module no longer does (TEN-044)', () => {
-  it('has no way to map an app role, mint a token or name a signing secret', () => {
+describe('what staff.ts no longer does (TEN-043)', () => {
+  it('maps no app role to a role and mints no token: the back end decides the role and signs the token', () => {
     expect(Object.keys(staff).sort()).toEqual(['safeNext']);
   });
 });

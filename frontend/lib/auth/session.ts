@@ -30,18 +30,6 @@ export const ROLES = [
 
 export type Role = (typeof ROLES)[number];
 
-/** The roles a staff sign-in can give (the back end maps a directory group to one of these). */
-export const STAFF_ROLES: readonly Role[] = [
-  'advisor',
-  'clinical',
-  'lead',
-  'owner',
-  'exec',
-  'audit',
-  'tenant-admin',
-  'network-admin',
-];
-
 export type Session = {
   role: Role;
   /** The tenant the back-end token is for. Never sent to the browser. */

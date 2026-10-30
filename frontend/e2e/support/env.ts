@@ -1,4 +1,4 @@
-import { CLIENT_ID, CLIENT_SECRET, DIRECTORY_A, TENANT_A } from '../../test/oidc/constants';
+import { CLIENT_ID, CLIENT_SECRET } from '../../test/oidc/constants';
 
 // Values shared by playwright.config.ts and the support files. Plain constants,
 // so the config loads nothing heavy.
@@ -31,17 +31,22 @@ export const ENTRA_PORT = SITE_PORT + 2;
 export const ENTRA_HOST = `http://127.0.0.1:${ENTRA_PORT}`;
 export const SITE_URL = `http://localhost:${SITE_PORT}`;
 
-// What the dev server is given for the staff sign-in: the provider and this app's registration, and
-// the session secret. No tenant, no directory list and no signing secret: the tenant is the host the
-// site is served on (here `localhost:<port>`, the e2e tenant's own host, which the stand-in back end
-// binds to directory A), and the back end issues the token. Relative import: the config loads this
-// file before the path aliases are known.
+// What the dev server is given for the staff sign-in: the provider and the app registration. Which
+// directory a tenant has bound, and who may sign in as what, is the stand-in back end's answer to
+// POST /auth/token (e2e/support/exchange.ts), as it is the real back end's (TEN-043). Relative
+// import: the config loads this file before the path aliases are known.
 export const ENTRA_ENV = {
   ENTRA_CLIENT_ID: CLIENT_ID,
   ENTRA_CLIENT_SECRET: CLIENT_SECRET,
   ENTRA_AUTHORITY_HOST: ENTRA_HOST,
+  DIUCS_PUBLIC_URL: SITE_URL,
   SESSION_SECRET: E2E_SESSION_SECRET,
 };
 
-// The one tenant the e2e stand-in back end serves: its host, id and the directory it has bound.
-export const E2E_TENANT = { id: TENANT_A, host: new URL(SITE_URL).host, directoryId: DIRECTORY_A, displayName: 'Sample Area A' };
+// The one tenant the e2e stand-in back end serves: its host, the tenant id the stand-in gives it
+// (test/fixtures/exchange.ts `tenantOfHost`) and the name its profile shows.
+export const E2E_TENANT = {
+  id: `tenant-of-localhost-${SITE_PORT}`,
+  host: new URL(SITE_URL).host,
+  displayName: 'Sample Area A',
+};

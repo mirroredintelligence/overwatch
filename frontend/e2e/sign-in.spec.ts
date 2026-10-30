@@ -106,26 +106,21 @@ test('shows the access message and sets no session when the account has no DIUCS
   expect(await sessionRole(page)).toBeNull();
 });
 
-test('gives the support role to nobody who signs in through a customer directory', async ({ page }) => {
+test('gives the support role to nobody who signs in through the staff door', async ({ page }) => {
   await signInAs(page, 'support-from-a-customer');
 
   await expect(page).toHaveURL(/\/sign-in\?error=no-access$/);
   expect(await sessionRole(page)).toBeNull();
 });
 
-test('gives a person from a directory no tenant has bound the same refusal as no role, and no session', async ({ page }) => {
-  await signInAs(page, 'unbound-directory');
+for (const persona of ['unbound-directory', 'other-organisation'] as const) {
+  test(`shows the one access message to a person from a directory this host’s tenant has not bound (${persona})`, async ({ page }) => {
+    await signInAs(page, persona);
 
-  await expect(page).toHaveURL(/\/sign-in\?error=no-access$/);
-  expect(await sessionRole(page)).toBeNull();
-});
-
-test('gives a person of another organisation’s directory nothing on this organisation’s host', async ({ page }) => {
-  await signInAs(page, 'other-organisation');
-
-  await expect(page).toHaveURL(/\/sign-in\?error=no-access$/);
-  expect(await sessionRole(page)).toBeNull();
-});
+    await expect(page).toHaveURL(/\/sign-in\?error=no-access$/);
+    expect(await sessionRole(page)).toBeNull();
+  });
+}
 
 test('refuses a token with the wrong nonce', async ({ page }) => {
   await signInAs(page, 'forged-nonce');

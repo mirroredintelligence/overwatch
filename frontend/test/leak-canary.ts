@@ -21,8 +21,9 @@ import { namesTenantInput } from '@/lib/tenant/inputNames';
 
 const BACKEND_ORIGINS: ReadonlySet<string> = new Set(['http://backend.test']);
 const HEADER_NAME = /^(x-)?(tenant|scope|network|source-tenant)/i;
-// Calls that have no token by design: the sign-in exchange, the public profile and the link pages.
-const TOKENLESS_PATH = /^\/(auth|public|links)(\/|$)/;
+// Calls that have no token by design: the token exchanges, the public profile, the link pages and a
+// wall screen's pairing (the screen has no session yet; its secret is a header).
+const TOKENLESS_PATH = /^\/(auth|public|links)(\/|$)|^\/screens\/pairing(\/|$)/;
 const LINK_PATH = /^\/links(\/|$)/;
 const NETWORK_PATH = /^\/(?:fhir\/)?network\/([^/]+)(?:\/|$)/;
 const STAFF_AUDIENCE = 'diucs-api';

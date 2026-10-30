@@ -24,6 +24,11 @@ export type FhirInit = {
   ifMatch?: string;
   /** Passed through unchanged; otherwise a new one is generated. */
   traceparent?: string;
+  /**
+   * Calls the back end's root, outside /fhir: the support and console routes (W48). Off by default,
+   * so every FHIR call keeps its path.
+   */
+  root?: boolean;
 };
 
 export type FhirResult<T> = { data: T; etag?: string };
@@ -88,14 +93,16 @@ function checkedPath(path: string): string {
   return path;
 }
 
-function baseUrl(): string {
+function baseUrl(root = false): string {
   // Read at call time, so a missing value fails the request that needs it.
   // The message names the variable only, never a URL.
   const value = process.env[BASE_URL_VARIABLE];
   if (!value) {
     throw new Error(`${BASE_URL_VARIABLE} is not set, so the back end cannot be called.`);
   }
-  return value.replace(/\/+$/, '');
+  const trimmed = value.replace(/\/+$/, '');
+  // The variable names the FHIR base (…/fhir). The root is the same origin without that segment.
+  return root ? trimmed.replace(/\/fhir$/, '') : trimmed;
 }
 
 function outcomeFor(code: string, diagnostics: string): OperationOutcome {
@@ -127,7 +134,7 @@ function failureOutcome(status: number, text: string): OperationOutcome {
 
 export async function fhirFetch<T>(path: string, init: FhirInit): Promise<FhirResult<T>> {
   const token = checkedToken(init?.token);
-  const url = `${baseUrl()}${checkedPath(path)}`;
+  const url = `${baseUrl(init?.root === true)}${checkedPath(path)}`;
   const hasBody = init.body !== undefined;
 
   const headers = new Headers({

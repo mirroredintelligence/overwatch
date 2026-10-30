@@ -12,16 +12,12 @@ import {
   ENTRA_ENV,
   HOST,
   OID_ADVISOR,
-  PUBLIC_URL,
-  PUBLIC_URL_B,
   REDIRECT_URI,
-  REDIRECT_URI_B,
 } from '@/test/oidc/constants';
 import type { FakeEntra, FakeUser, Tamper } from '@/test/oidc/fake-entra';
 import { idTokenFrom, startFakeEntra } from '@/test/oidc/harness';
 import {
   authorizeUrl,
-  callbackAddress,
   entraAuthorityOrigin,
   exchangeCode,
   loadEntraConfig,
@@ -32,7 +28,6 @@ import {
 } from './oidc';
 
 const NOW = new Date();
-const ADDRESS = REDIRECT_URI;
 const USER: FakeUser = { oid: OID_ADVISOR, roles: ['DIUCS.Advisor'] };
 
 let fake: FakeEntra;
@@ -60,19 +55,38 @@ async function verify(tamper: Tamper = {}, user: FakeUser = USER, nonce = 'nonce
 }
 
 describe('loadEntraConfig', () => {
-  it('reads the client and the provider and nothing about tenants, directories or the site’s own address', () => {
-    expect(config).toEqual({ clientId: CLIENT_ID, clientSecret: CLIENT_SECRET, authorityHost: HOST });
+  it('reads the client, the public address and, when there is one, the directory; and no table of tenants', () => {
+    expect(config.clientId).toBe(CLIENT_ID);
+    expect(config.authorityHost).toBe(HOST);
+    expect(config.publicUrl).toBe('https://capacity.example.test');
+    expect(config.directoryId).toBeNull();
+    expect(Object.keys(config).sort()).toEqual(['authorityHost', 'clientId', 'clientSecret', 'directoryId', 'publicUrl']);
   });
 
-  it.each(['ENTRA_CLIENT_ID', 'ENTRA_CLIENT_SECRET'])('refuses to load without %s, naming the variable', (name) => {
-    expect(() => loadEntraConfig({ ...ENTRA_ENV, [name]: undefined })).toThrow(name);
-    expect(() => loadEntraConfig({ ...ENTRA_ENV, [name]: '' })).toThrow(name);
+  it.each(['ENTRA_CLIENT_ID', 'ENTRA_CLIENT_SECRET', 'DIUCS_PUBLIC_URL'])(
+    'refuses to load without %s, naming the variable',
+    (name) => {
+      expect(() => loadEntraConfig({ ...ENTRA_ENV, [name]: undefined })).toThrow(name);
+      expect(() => loadEntraConfig({ ...ENTRA_ENV, [name]: '' })).toThrow(name);
+    },
+  );
+
+  it('does not read a table of directories and tenants any more: the back end holds it (TEN-043)', () => {
+    const withTable = loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: 'not json', BACKEND_JWT_SECRET: 'x' });
+    expect(withTable).toEqual(config);
   });
 
-  it('loads without DIUCS_ENTRA_BINDINGS, DIUCS_PUBLIC_URL or a signing secret, and ignores them when they are set', () => {
-    const loaded = loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: 'not json', DIUCS_PUBLIC_URL: 'nonsense', BACKEND_JWT_SECRET: 'x' });
-    expect(Object.keys(loaded).sort()).toEqual(['authorityHost', 'clientId', 'clientSecret']);
+  it('reads the directory of a single-tenant app registration, as a lower-case GUID', () => {
+    expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A.toUpperCase() }).directoryId).toBe(DIRECTORY_A);
+    expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: '' }).directoryId).toBeNull();
   });
+
+  it.each(['common', 'organizations', 'contoso.onmicrosoft.com', '../x', DIRECTORY_A + '/x'])(
+    'refuses a directory that is not a GUID (%s), naming the variable',
+    (value) => {
+      expect(() => loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: value })).toThrow('ENTRA_DIRECTORY_ID');
+    },
+  );
 
   it('defaults the authority host to Microsoft', () => {
     expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: undefined }).authorityHost).toBe(
@@ -80,55 +94,29 @@ describe('loadEntraConfig', () => {
     );
   });
 
-  it('refuses an authority host that is not https in production, and allows http in development', () => {
+  it('refuses an authority host that is not https in production, and a public address with a path', () => {
     expect(() =>
       loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'http://login.example.test', NODE_ENV: 'production' }),
     ).toThrow('ENTRA_AUTHORITY_HOST');
+    expect(() => loadEntraConfig({ ...ENTRA_ENV, DIUCS_PUBLIC_URL: 'https://capacity.example.test/app' })).toThrow(
+      'DIUCS_PUBLIC_URL',
+    );
     expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'http://127.0.0.1:4011', NODE_ENV: 'development' }).authorityHost).toBe(
       'http://127.0.0.1:4011',
     );
   });
 
-  it('refuses addresses that are not addresses, or carry a path', () => {
+  it('refuses addresses that are not addresses', () => {
+    expect(() => loadEntraConfig({ ...ENTRA_ENV, DIUCS_PUBLIC_URL: 'not an address' })).toThrow('DIUCS_PUBLIC_URL');
     expect(() => loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'ftp://login.example.test' })).toThrow('ENTRA_AUTHORITY_HOST');
-    expect(() => loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'https://login.example.test/path' })).toThrow('ENTRA_AUTHORITY_HOST');
   });
 
   it('never puts the client secret in an error', () => {
     try {
-      loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'not an address' });
+      loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: 'not a directory' });
     } catch (error) {
       expect(String(error)).not.toContain(CLIENT_SECRET);
     }
-  });
-});
-
-describe('callbackAddress', () => {
-  const at = (url: string, headers: Record<string, string> = {}) => new Request(url, { headers });
-
-  it('is the callback on the host the request was addressed to: one address per tenant host', () => {
-    expect(callbackAddress(at(`${PUBLIC_URL}/x`), { NODE_ENV: 'production' })).toBe(REDIRECT_URI);
-    expect(callbackAddress(at(`${PUBLIC_URL_B}/x`), { NODE_ENV: 'production' })).toBe(REDIRECT_URI_B);
-  });
-
-  it('is https in production whatever scheme the request URL shows (a proxy ends TLS)', () => {
-    expect(callbackAddress(at('http://tenant-a.example.test/x'), { NODE_ENV: 'production' })).toBe(REDIRECT_URI);
-  });
-
-  it('keeps the scheme and the port of the request outside production', () => {
-    expect(callbackAddress(at('http://localhost:20000/x'), { NODE_ENV: 'development' })).toBe(
-      'http://localhost:20000/api/bff/auth/entra/callback',
-    );
-  });
-
-  it('reads the Host header and no forwarded or tenant header', () => {
-    const request = at(`${PUBLIC_URL}/x`, { 'X-Forwarded-Host': 'tenant-b.example.test', Forwarded: 'host=tenant-b.example.test' });
-    expect(callbackAddress(request, { NODE_ENV: 'production' })).toBe(REDIRECT_URI);
-  });
-
-  it('is null for a host that is not a host name', () => {
-    expect(callbackAddress(at(`${PUBLIC_URL}/x`, { Host: 'tenant-a.example.test/evil' }), { NODE_ENV: 'production' })).toBeNull();
-    expect(callbackAddress(at(`${PUBLIC_URL}/x`, { Host: 'user@tenant-a.example.test' }), { NODE_ENV: 'production' })).toBeNull();
   });
 });
 
@@ -154,11 +142,10 @@ describe('entraAuthorityOrigin', () => {
 });
 
 describe('newTransaction', () => {
-  it('makes a new state, nonce and verifier each time, and keeps next and the host it began on', () => {
-    const one = newTransaction('/lead', 'tenant-a.example.test');
-    const two = newTransaction('/lead', 'tenant-a.example.test');
+  it('makes a new state, nonce and verifier each time, and keeps next', () => {
+    const one = newTransaction('/lead');
+    const two = newTransaction('/lead');
     expect(one.next).toBe('/lead');
-    expect(one.host).toBe('tenant-a.example.test');
     for (const key of ['state', 'nonce', 'verifier'] as const) {
       expect(one[key]).not.toBe(two[key]);
       expect(one[key]).toMatch(/^[A-Za-z0-9_-]{43}$/);
@@ -168,18 +155,24 @@ describe('newTransaction', () => {
 });
 
 describe('authorizeUrl', () => {
-  it('asks the organizations endpoint: the front end knows no directory', () => {
-    const url = authorizeUrl(config, newTransaction('/', 'tenant-a.example.test'), ADDRESS);
+  it('asks the configured directory directly when the app registration is for one directory', () => {
+    const single = loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
+    const url = authorizeUrl(single, newTransaction('/'));
+    expect(url.origin + url.pathname).toBe(`${HOST}/${DIRECTORY_A}/oauth2/v2.0/authorize`);
+  });
+
+  it('asks the organizations endpoint when no directory is configured: the back end decides who may sign in', () => {
+    const url = authorizeUrl(config, newTransaction('/'));
     expect(url.origin + url.pathname).toBe(`${HOST}/organizations/oauth2/v2.0/authorize`);
   });
 
   it('is a code request with PKCE S256, a state, a nonce, the fixed redirect address and the openid scope only', () => {
-    const transaction = newTransaction('/lead', 'tenant-a.example.test');
-    const url = authorizeUrl(config, transaction, ADDRESS);
+    const transaction = newTransaction('/lead');
+    const url = authorizeUrl(config, transaction);
     const q = url.searchParams;
     expect(q.get('client_id')).toBe(CLIENT_ID);
     expect(q.get('response_type')).toBe('code');
-    expect(q.get('redirect_uri')).toBe(ADDRESS);
+    expect(q.get('redirect_uri')).toBe(REDIRECT_URI);
     expect(q.get('scope')).toBe('openid');
     expect(q.get('response_mode')).toBe('query');
     expect(q.get('state')).toBe(transaction.state);
@@ -190,35 +183,29 @@ describe('authorizeUrl', () => {
   });
 
   it('carries no secret, no verifier, no tenant and no next', () => {
-    const transaction = newTransaction('/lead', 'tenant-a.example.test');
-    const text = authorizeUrl(config, transaction, ADDRESS).toString();
+    const transaction = newTransaction('/lead');
+    const text = authorizeUrl(config, transaction).toString();
     expect(text).not.toContain(CLIENT_SECRET);
     expect(text).not.toContain(transaction.verifier);
     expect(text).not.toContain('lead');
-    // No parameter names a tenant, a directory hint or a login hint (the redirect address is a value).
-    expect([...authorizeUrl(config, transaction, ADDRESS).searchParams.keys()].join(' ')).not.toMatch(/tenant|login_hint|domain_hint|directory/);
-  });
-
-  it('sends the address it is given, so each tenant host has its own', () => {
-    const b = authorizeUrl(config, newTransaction('/', 'tenant-b.example.test'), REDIRECT_URI_B);
-    expect(b.searchParams.get('redirect_uri')).toBe(REDIRECT_URI_B);
+    expect(text).not.toMatch(/tenant|login_hint|domain_hint/);
   });
 
   it('is accepted by the fake provider', () => {
-    const { location } = fake.authorize(authorizeUrl(config, newTransaction('/', 'tenant-a.example.test'), ADDRESS).toString(), USER);
+    const { location } = fake.authorize(authorizeUrl(config, newTransaction('/')).toString(), USER);
     expect(new URL(location).searchParams.get('code')).not.toBeNull();
   });
 });
 
 describe('exchangeCode', () => {
-  function issue(transaction = newTransaction('/', 'tenant-a.example.test')) {
-    const { location } = fake.authorize(authorizeUrl(config, transaction, ADDRESS).toString(), USER);
+  function issue(transaction = newTransaction('/')) {
+    const { location } = fake.authorize(authorizeUrl(config, transaction).toString(), USER);
     return { transaction, code: new URL(location).searchParams.get('code') ?? '' };
   }
 
   it('redeems the code with the verifier and the client secret, and returns the ID token only', async () => {
     const { transaction, code } = issue();
-    const idToken = await exchangeCode(config, code, transaction, ADDRESS);
+    const idToken = await exchangeCode(config, code, transaction);
     expect(idToken.split('.')).toHaveLength(3);
     const sent = fake.recorded('token').at(-1);
     expect(sent?.params).toMatchObject({
@@ -234,19 +221,19 @@ describe('exchangeCode', () => {
 
   it('sends the client secret to the token endpoint and to nothing else', async () => {
     const { transaction, code } = issue();
-    await exchangeCode(config, code, transaction, ADDRESS);
+    await exchangeCode(config, code, transaction);
     const withSecret = fake.requests.filter((r) => JSON.stringify(r.params).includes(CLIENT_SECRET));
     expect(withSecret.map((r) => r.endpoint)).toEqual(['token']);
   });
 
   it('is refused when the provider refuses the code', async () => {
     const { transaction } = issue();
-    expect(await reasonOf(exchangeCode(config, 'not-a-code', transaction, ADDRESS))).toBe('token-exchange');
+    expect(await reasonOf(exchangeCode(config, 'not-a-code', transaction))).toBe('token-exchange');
   });
 
   it('is refused when the verifier is not the one the challenge was made from', async () => {
     const { transaction, code } = issue();
-    expect(await reasonOf(exchangeCode(config, code, { ...transaction, verifier: 'x'.repeat(43) }, ADDRESS))).toBe('token-exchange');
+    expect(await reasonOf(exchangeCode(config, code, { ...transaction, verifier: 'x'.repeat(43) }))).toBe('token-exchange');
   });
 
   it.each([
@@ -257,24 +244,24 @@ describe('exchangeCode', () => {
     ['a null body', null],
   ])('is refused when the answer has %s', async (_name, body) => {
     server.use(http.post(`${HOST}/:directory/oauth2/v2.0/token`, () => HttpResponse.json(body)));
-    expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/', 'tenant-a.example.test'), ADDRESS))).toBe('token-exchange');
+    expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/')))).toBe('token-exchange');
   });
 
   it.each([400, 401, 500])('is refused on a %s answer, whatever the body holds', async (status) => {
     server.use(http.post(`${HOST}/:directory/oauth2/v2.0/token`, () => HttpResponse.json({ id_token: 'a.b.c' }, { status })));
-    expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/', 'tenant-a.example.test'), ADDRESS))).toBe('token-exchange');
+    expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/')))).toBe('token-exchange');
   });
 
   it('is refused when the provider cannot be reached or answers with something that is not JSON', async () => {
     server.use(http.post(`${HOST}/:directory/oauth2/v2.0/token`, () => HttpResponse.error()));
-    expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/', 'tenant-a.example.test'), ADDRESS))).toBe('token-exchange');
+    expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/')))).toBe('token-exchange');
     server.use(http.post(`${HOST}/:directory/oauth2/v2.0/token`, () => new HttpResponse('<html>', { status: 200 })));
-    expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/', 'tenant-a.example.test'), ADDRESS))).toBe('token-exchange');
+    expect(await reasonOf(exchangeCode(config, 'code', newTransaction('/')))).toBe('token-exchange');
   });
 
   it('puts neither the code nor the secret in the refusal', async () => {
     try {
-      await exchangeCode(config, 'code-value-12345', newTransaction('/', 'tenant-a.example.test'), ADDRESS);
+      await exchangeCode(config, 'code-value-12345', newTransaction('/'));
     } catch (error) {
       expect(String(error)).not.toContain('code-value-12345');
       expect(String(error)).not.toContain(CLIENT_SECRET);
@@ -283,17 +270,25 @@ describe('exchangeCode', () => {
 });
 
 describe('verifyIdToken', () => {
-  it('accepts a good token and returns the object id and the directory, and nothing else: no role, no tenant', async () => {
-    const identity = await verify();
-    expect(identity).toEqual({ oid: OID_ADVISOR, directoryId: DIRECTORY_A });
-    expect(JSON.stringify(identity)).not.toMatch(/Sample|example\.test|DIUCS|trust-/);
+  it('accepts a good token and returns nothing: who the person is, and what they may do, is the back end’s to say', async () => {
+    expect(await verify()).toBeUndefined();
   });
 
-  it('takes the keys from organizations, and names the directory a person came from without judging it', async () => {
+  it('takes the keys from the configured directory, and from organizations when none is', async () => {
+    const single = loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
+    const token = await idTokenFrom(fake, USER, { nonce: 'n', directory: DIRECTORY_A });
+    await verifyIdToken(single, token, 'n', NOW);
+    expect(fake.recorded('keys').at(-1)?.directory).toBe(DIRECTORY_A);
+
+    const many = config;
     const other = await idTokenFrom(fake, { ...USER, tid: DIRECTORY_B }, { nonce: 'n', directory: 'organizations' });
-    const identity = await verifyIdToken(config, other, 'n', NOW);
+    await verifyIdToken(many, other, 'n', NOW);
     expect(fake.recorded('keys').at(-1)?.directory).toBe('organizations');
-    expect(identity.directoryId).toBe(DIRECTORY_B);
+  });
+
+  it('accepts a correctly signed token from any directory the shared endpoint serves: the host’s tenant decides, in the back end', async () => {
+    expect(await reasonOf(verify({}, { ...USER, tid: DIRECTORY_B }, 'nonce-1', 'organizations'))).toBe('accepted');
+    expect(await reasonOf(verify({}, { ...USER, tid: DIRECTORY_UNBOUND }, 'nonce-1', 'organizations'))).toBe('accepted');
   });
 
   it.each([
@@ -322,9 +317,10 @@ describe('verifyIdToken', () => {
     expect(await reasonOf(verify(tamper))).toBe(reason);
   });
 
-  it('does not judge the directory: whether a tenant has bound it is the back end’s answer, never this code’s', async () => {
-    const identity = await verify({}, { ...USER, tid: DIRECTORY_UNBOUND }, 'nonce-1', 'organizations');
-    expect(identity.directoryId).toBe(DIRECTORY_UNBOUND);
+  it('refuses, for a configured directory, a token from any other directory even when it is signed correctly', async () => {
+    const single = loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
+    const token = await idTokenFrom(fake, { ...USER, tid: DIRECTORY_B }, { nonce: 'n', directory: 'organizations' });
+    expect(await reasonOf(verifyIdToken(single, token, 'n', NOW))).toBe('wrong-issuer');
   });
 
   it('refuses a token whose roles were changed after it was signed', async () => {

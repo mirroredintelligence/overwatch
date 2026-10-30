@@ -1,51 +1,50 @@
 // @vitest-environment node
 import { hkdfSync } from 'node:crypto';
-import { EncryptJWT, jwtDecrypt } from 'jose';
+import { decodeJwt, EncryptJWT, jwtDecrypt } from 'jose';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { unsealSession, SESSION_COOKIE } from '@/lib/auth/session';
 import { cookieWrites, lastWrite, resetCookieWrites, requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
-import { http, HttpResponse } from 'msw';
-import { claimsOf, fakeBackendToken } from '@/test/backendToken';
-import { EXCHANGE_URL, resetExchanges, seenExchanges } from '@/test/msw/handlers/auth';
+import { authHandlers, resetExchanges, seenExchanges } from '@/test/msw/handlers/auth';
 import { server } from '@/test/msw/server';
-import { TENANTS } from '@/test/tenants';
+import { http, HttpResponse } from 'msw';
 import {
+  BACKEND_ROOT,
   CLIENT_SECRET,
   DIRECTORY_A,
   DIRECTORY_B,
+  DIRECTORY_PLATFORM,
   DIRECTORY_UNBOUND,
   ENTRA_ENV,
   OID_ADVISOR,
+  OID_B,
   OID_LEAD,
   PUBLIC_URL,
-  PUBLIC_URL_B,
-  TENANT_A,
-  TENANT_B,
+  SIGN_IN_HOST,
 } from '@/test/oidc/constants';
 import type { FakeEntra, FakeUser, Tamper } from '@/test/oidc/fake-entra';
 import { startFakeEntra, stubEntraEnv } from '@/test/oidc/harness';
+import { standInToken, tenantOfHost } from '@/test/fixtures/exchange';
 import { GET as callback } from './callback/route';
 import { POST as start } from './start/route';
 
 vi.mock('next/headers', async () => {
   const m = await import('@/test/cookies');
-  return { cookies: m.cookiesMock, headers: m.headersMock };
+  return { cookies: m.cookiesMock };
 });
 
 const TRANSACTION_COOKIE = 'diucs_oidc';
-const START_PATH = '/api/bff/auth/entra/start';
-const START_URL = `${PUBLIC_URL}${START_PATH}`;
+const START_URL = `${PUBLIC_URL}/api/bff/auth/entra/start`;
+const OTHER_HOST = 'trust-b.example.test';
+const OID_B_USER = OID_B;
 
 let fake: FakeEntra;
 
 beforeEach(async () => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', 'http://backend.test/fhir');
-  // The front end holds no signing secret, no list of directories and no address of its own.
-  for (const name of ['BACKEND_JWT_SECRET', 'DIUCS_ENTRA_BINDINGS', 'DIUCS_PUBLIC_URL']) vi.stubEnv(name, undefined as unknown as string);
   stubEntraEnv();
   resetCookieWrites();
   resetExchanges();
+  server.use(...authHandlers);
   fake = await startFakeEntra();
 });
 afterEach(() => {
@@ -54,8 +53,8 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function startRequest(fields: Record<string, string> = {}, query = '', site = PUBLIC_URL): Request {
-  return new Request(`${site}${START_PATH}${query}`, {
+function startRequest(fields: Record<string, string> = {}, query = ''): Request {
+  return new Request(`${START_URL}${query}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams(fields).toString(),
@@ -77,10 +76,9 @@ type Outcome = {
  */
 async function signIn(
   user: FakeUser,
-  options: { fields?: Record<string, string>; tamper?: Tamper; callbackQuery?: Record<string, string>; state?: string; site?: string } = {},
+  options: { fields?: Record<string, string>; tamper?: Tamper; callbackQuery?: Record<string, string>; state?: string } = {},
 ): Promise<Outcome> {
-  const site = options.site ?? PUBLIC_URL;
-  const begun = await start(startRequest(options.fields, '', site));
+  const begun = await start(startRequest(options.fields));
   const authorize = begun.headers.get('location') ?? '';
   const sealed = lastWrite(TRANSACTION_COOKIE)?.value ?? '';
   const { location } = fake.authorize(authorize, user, options.tamper);
@@ -88,7 +86,7 @@ async function signIn(
   for (const [k, v] of Object.entries(options.callbackQuery ?? {})) back.searchParams.set(k, v);
   if (options.state !== undefined) back.searchParams.set('state', options.state);
   resetCookieWrites();
-  const response = await callback(requestWithCookies(back.toString(), sealed ? { [TRANSACTION_COOKIE]: sealed } : {}, { headers: { Host: new URL(site).host } }));
+  const response = await callback(requestWithCookies(back.toString(), sealed ? { [TRANSACTION_COOKIE]: sealed } : {}));
   const sessionWrite = lastWrite(SESSION_COOKIE);
   return {
     response,
@@ -116,37 +114,10 @@ describe('POST /api/bff/auth/entra/start', () => {
     expect(response.headers.get('cache-control')).toBe('no-store');
   });
 
-  it('always asks the shared endpoint: the front end holds no list of directories, the back end binds them', async () => {
+  it('asks the configured directory itself when the app registration is for one directory', async () => {
+    stubEntraEnv({ ENTRA_DIRECTORY_ID: DIRECTORY_A });
     const response = await start(startRequest());
-    expect(new URL(response.headers.get('location') ?? '').pathname).toBe('/organizations/oauth2/v2.0/authorize');
-  });
-
-  it('sends the person back to the host they came from: one redirect address per tenant host', async () => {
-    const a = new URL((await start(startRequest())).headers.get('location') ?? '');
-    const b = new URL((await start(startRequest({}, '', PUBLIC_URL_B))).headers.get('location') ?? '');
-    expect(a.searchParams.get('redirect_uri')).toBe(`${PUBLIC_URL}/api/bff/auth/entra/callback`);
-    expect(b.searchParams.get('redirect_uri')).toBe(`${PUBLIC_URL_B}/api/bff/auth/entra/callback`);
-  });
-
-  it.each([
-    ['a Host that is a path', 'tenant-a.example.test/evil'],
-    ['a Host with a user', 'user@tenant-a.example.test'],
-    ['a Host with a space', 'tenant-a .example.test'],
-  ])('does not start for %s', async (_name, host) => {
-    const request = new Request(START_URL, { method: 'POST', headers: { Host: host, 'Content-Type': 'application/x-www-form-urlencoded' }, body: '' });
-    const response = await start(request);
-    expect(response.headers.get('location')).toBe('/sign-in?error=failed');
-    expect(lastWrite(TRANSACTION_COOKIE)).toBeUndefined();
-  });
-
-  it('takes the host from the Host header only, never from a forwarded header or the query', async () => {
-    const request = new Request(`${START_URL}?host=${new URL(PUBLIC_URL_B).host}`, {
-      method: 'POST',
-      headers: { 'X-Forwarded-Host': new URL(PUBLIC_URL_B).host, Forwarded: `host=${new URL(PUBLIC_URL_B).host}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: '',
-    });
-    const location = new URL((await start(request)).headers.get('location') ?? '');
-    expect(location.searchParams.get('redirect_uri')).toBe(`${PUBLIC_URL}/api/bff/auth/entra/callback`);
+    expect(new URL(response.headers.get('location') ?? '').pathname).toBe(`/${DIRECTORY_A}/oauth2/v2.0/authorize`);
   });
 
   it('keeps the transaction in one sealed cookie: HttpOnly, Secure, SameSite Lax, limited path, short life', async () => {
@@ -171,8 +142,8 @@ describe('POST /api/bff/auth/entra/start', () => {
   it('accepts no tenant, directory, hint or role from the request, in the body or the query', async () => {
     const response = await start(
       startRequest(
-        { tenant: TENANT_B, tenantId: TENANT_B, tid: DIRECTORY_B, directory: DIRECTORY_B, login_hint: 'x', domain_hint: 'y', role: 'lead', client_id: 'other' },
-        `?tenant=${TENANT_B}&tid=${DIRECTORY_B}&directory=${DIRECTORY_B}&role=lead&redirect_uri=https://evil.example`,
+        { tenant: 'trust-b', tenantId: 'trust-b', tid: DIRECTORY_B, directory: DIRECTORY_B, login_hint: 'x', domain_hint: 'y', role: 'lead', client_id: 'other' },
+        `?tenant=trust-b&tid=${DIRECTORY_B}&directory=${DIRECTORY_B}&role=lead&redirect_uri=https://evil.example`,
       ),
     );
     const location = new URL(response.headers.get('location') ?? '');
@@ -182,7 +153,7 @@ describe('POST /api/bff/auth/entra/start', () => {
     expect([...location.searchParams.keys()].sort()).toEqual(
       ['client_id', 'code_challenge', 'code_challenge_method', 'nonce', 'prompt', 'redirect_uri', 'response_mode', 'response_type', 'scope', 'state'],
     );
-    expect(location.toString()).not.toContain(TENANT_B);
+    expect(location.toString()).not.toContain('trust-b');
     expect(location.toString()).not.toContain(DIRECTORY_B);
   });
 
@@ -206,9 +177,8 @@ describe('POST /api/bff/auth/entra/start', () => {
 describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
   it('creates our own session cookie and no other session cookie, and clears the transaction cookie', async () => {
     const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
-    expect(outcome.session).toMatchObject({ role: 'advisor', tenantId: TENANT_A, host: TENANTS.A.host, services: [] });
-    expect(outcome.session?.sub).toEqual(expect.stringMatching(/^stf-/));
-    expect(outcome.session?.sub).not.toBe(OID_ADVISOR);
+    expect(outcome.session).toMatchObject({ role: 'advisor', services: [], host: SIGN_IN_HOST, tenantId: tenantOfHost(SIGN_IN_HOST) });
+    expect(outcome.session?.sub).toMatch(/^stf-[0-9a-f]{32}$/);
     expect(new Set(cookieWrites.map((w) => w.name))).toEqual(new Set([SESSION_COOKIE, TRANSACTION_COOKIE]));
     expect(outcome.transactionWrites).toHaveLength(1);
     expect(outcome.transactionWrites[0]?.value).toBe('');
@@ -222,21 +192,20 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     expect(Number(outcome.sessionWrite?.options.maxAge)).toBeLessThanOrEqual(8 * 3600);
   });
 
-  it('holds the token the back end issued for this host, and mints nothing itself', async () => {
+  it('keeps the back end’s own token in the session, makes none, and ends the session when the token ends', async () => {
     const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
-    expect(seenExchanges).toHaveLength(1);
-    expect(seenExchanges[0]?.host).toBe(TENANTS.A.host);
-    expect(Object.keys(seenExchanges[0]?.body as object)).toEqual(['idToken']);
-    expect(seenExchanges[0]?.authorization).toBeNull();
-    const claims = claimsOf(outcome.session!.backendToken);
-    expect(claims).toMatchObject({ tenant: TENANT_A, role: 'advisor', aud: 'diucs-api' });
-    expect(Date.parse(outcome.session!.expiresAt)).toBe((claims.exp as number) * 1000);
+    const claims = decodeJwt(outcome.session!.backendToken);
+    expect(claims).toMatchObject({ role: 'advisor', aud: 'diucs-api', services: [] });
+    expect(claims.sub).toBe(outcome.session!.sub);
+    expect(Date.parse(outcome.session!.expiresAt)).toBe(claims.exp! * 1000);
   });
 
-  it('works with no signing secret in the environment at all', async () => {
-    expect(process.env.BACKEND_JWT_SECRET).toBeUndefined();
+  it('asks the back end once, with the ID token as the only thing in the body, and keeps the Entra object id out of the session', async () => {
     const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
-    expect(outcome.session).not.toBeNull();
+    expect(seenExchanges).toHaveLength(1);
+    expect(seenExchanges[0]).toMatchObject({ path: '/auth/token', host: SIGN_IN_HOST, authorization: null });
+    expect(Object.keys(seenExchanges[0]!.body as object)).toEqual(['idToken']);
+    expect(JSON.stringify(outcome.session)).not.toContain(OID_ADVISOR);
   });
 
   it('keeps the person’s name, email, the access token and the ID token out of the session, the cookie and the response', async () => {
@@ -291,17 +260,19 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     expect(outcome.body).toContain('url=/advisor"');
   });
 
-  it('never gives the support role or any platform role on a tenant host, whatever the directory says', async () => {
-    for (const roles of [['DIUCS.Support'], ['DIUCS.PlatformOperator'], ['DIUCS.Support', 'DIUCS.Advisor']]) {
+  it('never makes a support session here: the operator console has its own door (TEN-043), from any directory', async () => {
+    for (const tid of [DIRECTORY_PLATFORM, DIRECTORY_A]) {
       resetCookieWrites();
-      const outcome = await signIn({ oid: OID_LEAD, roles, tid: DIRECTORY_A });
-      if (roles.includes('DIUCS.Advisor')) {
-        expect(outcome.session?.role).toBe('advisor');
-      } else {
-        expectNoSession(outcome);
-        expect(outcome.location).toBe('/sign-in?error=no-access');
-      }
+      const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.Support'], tid });
+      expectNoSession(outcome);
+      expect(outcome.location).toBe('/sign-in?error=no-access');
     }
+  });
+
+  it('gives no session to a role this front end has no pages for yet, and says the access message', async () => {
+    const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.TenantAdmin'], tid: DIRECTORY_A });
+    expectNoSession(outcome);
+    expect(outcome.location).toBe('/sign-in?error=no-access');
   });
 });
 
@@ -318,59 +289,43 @@ describe('GET /api/bff/auth/entra/callback: who may not sign in', () => {
     expect(outcome.transactionWrites[0]?.options.maxAge).toBe(0);
   });
 
-  it('gives a person from a directory this tenant has not bound the one refusal, the same as no role', async () => {
-    const unbound = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_UNBOUND });
-    expectNoSession(unbound);
-    expect(unbound.location).toBe('/sign-in?error=no-access');
-    const noRole = await signIn({ oid: OID_ADVISOR, roles: [], tid: DIRECTORY_A });
-    expect(noRole.location).toBe(unbound.location);
-    expect(noRole.response.status).toBe(unbound.response.status);
-  });
-
-  it('gives a member of another tenant’s directory nothing on this tenant’s host', async () => {
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_B });
+  it('gives the one access message to a person from a directory the host’s tenant has not bound: no session, no hint why', async () => {
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_UNBOUND }, { fields: {} });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=no-access');
+    const other = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_B });
+    expect(other.location).toBe(outcome.location);
+    expect(other.body).toBe(outcome.body);
   });
 
-  it('answers a back end that is down, a host it does not know and an answer it cannot trust as a failed sign-in, with no session', async () => {
-    server.use(http.post(EXCHANGE_URL, () => HttpResponse.json({}, { status: 503 })));
-    const down = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_A });
-    expectNoSession(down);
-    expect(down.location).toBe('/sign-in?error=failed');
-
-    server.use(http.post(EXCHANGE_URL, () => HttpResponse.json({}, { status: 404 })));
-    const unknown = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_A });
-    expectNoSession(unknown);
-    expect(unknown.location).toBe('/sign-in?error=failed');
-
-    server.use(http.post(EXCHANGE_URL, () => HttpResponse.json({ token: 'x', role: 'lead', expiresAt: 'tomorrow' })));
-    const bad = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_A });
-    expectNoSession(bad);
-    expect(bad.location).toBe('/sign-in?error=failed');
+  it('sends a person from another directory away, as a failed sign-in, when the app registration is for one directory', async () => {
+    stubEntraEnv({ ENTRA_DIRECTORY_ID: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_UNBOUND });
+    expectNoSession(outcome);
+    expect(outcome.location).toBe('/sign-in?error=failed');
+    expect(seenExchanges).toHaveLength(0);
   });
 
-  it.each(['wall', 'reporter', 'support', 'platform-operator', 'anonymous-link'])(
-    'makes no session from a token for the role %s: that is not a staff sign-in',
-    async (role) => {
-      server.use(
-        http.post(EXCHANGE_URL, () => {
-          const exp = Math.floor(Date.now() / 1000) + 3600;
-          return HttpResponse.json({ token: fakeBackendToken({ role, tenant: TENANT_A, exp }), role, expiresAt: new Date(exp * 1000).toISOString() });
-        }),
-      );
-      expectNoSession(await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_A }));
-    },
-  );
+  it.each([404, 429, 500, 503])('gives a failed sign-in, not the access message, when the back end answers %i', async (status) => {
+    server.use(http.post(`${BACKEND_ROOT}/auth/token`, () => HttpResponse.json({}, { status })));
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    expectNoSession(outcome);
+    expect(outcome.location).toBe('/sign-in?error=failed');
+  });
 
-  it('makes no session from a token for another tenant than the host’s answer claims, when the token names none', async () => {
-    server.use(
-      http.post(EXCHANGE_URL, () => {
-        const exp = Math.floor(Date.now() / 1000) + 3600;
-        return HttpResponse.json({ token: fakeBackendToken({ role: 'lead', tenant: undefined as unknown as string, exp }), role: 'lead', expiresAt: new Date(exp * 1000).toISOString() });
-      }),
-    );
-    expectNoSession(await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_A }));
+  it('gives a failed sign-in when the back end cannot be reached, and logs one fixed word', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    server.use(http.post(`${BACKEND_ROOT}/auth/token`, () => HttpResponse.error()));
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    expectNoSession(outcome);
+    expect(outcome.location).toBe('/sign-in?error=failed');
+    expect(warn.mock.calls).toEqual([['staff sign-in refused: exchange-failed']]);
+  });
+
+  it('does not ask the back end for a sign-in whose own checks failed (state, nonce, audience)', async () => {
+    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A }, { tamper: { nonce: 'bad' } });
+    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A }, { state: 'wrong' });
+    expect(seenExchanges).toHaveLength(0);
   });
 });
 
@@ -456,13 +411,10 @@ describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or rep
     ['a verifier of the wrong shape', { verifier: 'short' }],
     ['a next that is not a path', { next: 'https://evil.example' }],
     ['a next that is not text', { next: 7 }],
-    ['no host', { host: undefined }],
-    ['a host that is not a host name', { host: 'tenant-a.example.test/evil' }],
-    ['another tenant’s host', { host: TENANTS.B.host }],
   ])('refuses a transaction cookie that is ours but holds %s', async (_name, change) => {
     const begun = await start(startRequest());
     const { location } = fake.authorize(begun.headers.get('location')!, USER);
-    const good = { state: 's'.repeat(43), nonce: 'n'.repeat(43), verifier: 'v'.repeat(43), next: '', host: TENANTS.A.host };
+    const good = { state: 's'.repeat(43), nonce: 'n'.repeat(43), verifier: 'v'.repeat(43), next: '' };
     // The same key and format as lib/auth/flow.ts, to show that a well-sealed but wrong cookie is refused.
     const key = new Uint8Array(
       hkdfSync('sha256', new Uint8Array(Buffer.from(TEST_SESSION_SECRET, 'base64')), 'diucs-staff-sign-in', 'transaction-cookie-v1', 32),
@@ -520,59 +472,93 @@ describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or rep
   });
 });
 
-describe('tenant: it comes from the host, through the back end, and from nothing else', () => {
+describe('tenant: it is the host the browser came to, decided by the back end, and nothing else', () => {
   const as = (oid: string, tid: string, roles = ['DIUCS.Advisor']): FakeUser => ({ oid, roles, tid });
 
-  it('is the tenant of each host, and the same object id on two hosts gives two sessions', async () => {
-    const a = await signIn(as(OID_ADVISOR, DIRECTORY_A));
-    const b = await signIn(as(OID_ADVISOR, DIRECTORY_B), { site: PUBLIC_URL_B });
-    expect(a.session).toMatchObject({ tenantId: TENANT_A, host: TENANTS.A.host });
-    expect(b.session).toMatchObject({ tenantId: TENANT_B, host: TENANTS.B.host });
-    expect(claimsOf(a.session!.backendToken).tenant).toBe(TENANT_A);
-    expect(claimsOf(b.session!.backendToken).tenant).toBe(TENANT_B);
-    expect(a.session?.backendToken).not.toBe(b.session?.backendToken);
-    expect(seenExchanges.map((e) => e.host)).toEqual([TENANTS.A.host, TENANTS.B.host]);
+  async function callbackOn(host: string, user: FakeUser, extra: Record<string, string> = {}) {
+    const begun = await start(startRequest());
+    const sealed = lastWrite(TRANSACTION_COOKIE)!.value;
+    const { location } = fake.authorize(begun.headers.get('location')!, user);
+    resetCookieWrites();
+    const response = await callback(requestWithCookies(location, { [TRANSACTION_COOKIE]: sealed }, { headers: { Host: host, ...extra } }));
+    const write = lastWrite(SESSION_COOKIE);
+    return { response, session: write ? await unsealSession(write.value) : null };
+  }
+
+  it('sends the host the callback came to, so each tenant’s host gets that tenant’s answer for the same person', async () => {
+    const a = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
+    expect(a.session?.role).toBe('advisor');
+    expect(seenExchanges.at(-1)?.host).toBe(SIGN_IN_HOST);
+    // A member of directory A on the host that has bound directory B: the one refusal, no session.
+    const wrong = await callbackOn(OTHER_HOST, as(OID_ADVISOR, DIRECTORY_A));
+    expect(wrong.session).toBeNull();
+    expect(wrong.response.headers.get('location')).toBe('/sign-in?error=no-access');
+    expect(seenExchanges.at(-1)?.host).toBe(OTHER_HOST);
+    const b = await callbackOn(OTHER_HOST, as(OID_B_USER, DIRECTORY_B));
+    expect(b.session?.role).toBe('advisor');
+    expect(b.session?.backendToken).not.toBe(a.session?.backendToken);
+  });
+
+  it('makes the session for the tenant the back end signed the token for, and for the host the callback came to (TEN-044)', async () => {
+    const a = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
+    const b = await callbackOn(OTHER_HOST, as(OID_B_USER, DIRECTORY_B));
+    expect(a.session).toMatchObject({ tenantId: tenantOfHost(SIGN_IN_HOST), host: SIGN_IN_HOST });
+    expect(b.session).toMatchObject({ tenantId: tenantOfHost(OTHER_HOST), host: OTHER_HOST });
+    expect(a.session?.tenantId).not.toBe(b.session?.tenantId);
+    expect(decodeJwt(a.session!.backendToken).tenant).toBe(a.session?.tenantId);
+  });
+
+  it('makes no session from a token that names no tenant, a network or a malformed tenant, and says the sign-in failed', async () => {
+    for (const tenant of [undefined, '', 'net-capacity', 'Trust A', 7]) {
+      resetCookieWrites();
+      server.use(
+        http.post(`${BACKEND_ROOT}/auth/token`, () => {
+          const exp = Math.floor(Date.now() / 1000) + 3600;
+          const token = standInToken({ sub: 'stf-0123456789abcdef0123456789abcdef', role: 'advisor', services: [], tenant, epoch: 1, aud: 'diucs-api', iat: exp - 3600, exp });
+          return HttpResponse.json({ token, expiresAt: new Date(exp * 1000).toISOString(), role: 'advisor' });
+        }),
+      );
+      const outcome = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
+      expect(outcome.session, String(tenant)).toBeNull();
+      expect(outcome.response.headers.get('location')).toBe('/sign-in?error=failed');
+    }
+  });
+
+  it('keeps the same person apart on two hosts: the subject the back end derives differs', async () => {
+    const a = await callbackOn('shared.example.test', as(OID_ADVISOR, DIRECTORY_A));
+    const b = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A));
+    expect(a.session?.sub).not.toBe(b.session?.sub);
   });
 
   it.each([
-    ['tenant', TENANT_B],
-    ['tid', TENANT_B],
-    ['tenantId', TENANT_B],
+    ['tenant', 'trust-b'],
+    ['tid', DIRECTORY_B],
+    ['tenantId', 'trust-b'],
     ['directory', DIRECTORY_B],
+    ['host', OTHER_HOST],
     ['organization', DIRECTORY_B],
-    ['x-tenant-id', TENANT_B],
   ])('ignores %s=%s in the callback query and in the start body', async (name, value) => {
     const outcome = await signIn(as(OID_ADVISOR, DIRECTORY_A), { callbackQuery: { [name]: value }, fields: { [name]: value } });
-    expect(outcome.session?.tenantId).toBe(TENANT_A);
-    expect(seenExchanges.at(-1)?.host).toBe(TENANTS.A.host);
+    expect(outcome.session?.role).toBe('advisor');
+    expect(seenExchanges.at(-1)?.host).toBe(SIGN_IN_HOST);
+    expect(Object.keys(seenExchanges.at(-1)!.body as object)).toEqual(['idToken']);
   });
 
-  it('ignores a tenant header and a forwarded host on the callback', async () => {
-    const begun = await start(startRequest());
-    const sealed = lastWrite(TRANSACTION_COOKIE)!.value;
-    const { location } = fake.authorize(begun.headers.get('location')!, as(OID_ADVISOR, DIRECTORY_A));
-    const response = await callback(
-      requestWithCookies(location, { [TRANSACTION_COOKIE]: sealed }, { headers: { 'X-Tenant-Id': TENANT_B, 'X-Forwarded-Host': TENANTS.B.host, Host: TENANTS.A.host } }),
-    );
-    expect(response.status).toBe(200);
-    expect((await unsealSession(lastWrite(SESSION_COOKIE)!.value))?.tenantId).toBe(TENANT_A);
-    expect(seenExchanges.at(-1)?.host).toBe(TENANTS.A.host);
+  it.each([
+    ['X-Tenant-Id', 'trust-b'],
+    ['X-Forwarded-Host', OTHER_HOST],
+    ['Forwarded', `host=${OTHER_HOST}`],
+    ['X-Original-Host', OTHER_HOST],
+  ])('ignores the %s header: only the Host the browser used names the tenant', async (name, value) => {
+    const outcome = await callbackOn(SIGN_IN_HOST, as(OID_ADVISOR, DIRECTORY_A), { [name]: value });
+    expect(outcome.session?.role).toBe('advisor');
+    expect(seenExchanges.at(-1)?.host).toBe(SIGN_IN_HOST);
   });
 
-  it('gives no session when a person of directory B signs in on tenant A’s host, even with a tenant B hint', async () => {
-    const outcome = await signIn(as(OID_ADVISOR, DIRECTORY_B), { callbackQuery: { tenant: TENANT_B }, fields: { tenant: TENANT_B } });
+  it('does not let a token signed for directory A pass as directory B’s, whatever its other claims say', async () => {
+    const outcome = await signIn(as(OID_ADVISOR, DIRECTORY_B), { tamper: { iss: `${ENTRA_ENV.ENTRA_AUTHORITY_HOST}/${DIRECTORY_A}/v2.0` } });
     expectNoSession(outcome);
-  });
-
-  it('gives no session when the sign-in began on one host and comes back on another', async () => {
-    const begun = await start(startRequest({}, '', PUBLIC_URL));
-    const sealed = lastWrite(TRANSACTION_COOKIE)!.value;
-    const { location } = fake.authorize(begun.headers.get('location')!, as(OID_ADVISOR, DIRECTORY_A));
-    resetCookieWrites();
-    const back = new URL(location);
-    const response = await callback(requestWithCookies(back.toString(), { [TRANSACTION_COOKIE]: sealed }, { headers: { Host: TENANTS.B.host } }));
-    expect(response.headers.get('location')).toBe('/sign-in?error=failed');
-    expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
+    expect(seenExchanges).toHaveLength(0);
   });
 });
 
@@ -583,6 +569,9 @@ describe('what the sign-in logs', () => {
     await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A }, { tamper: { nonce: 'bad' } });
     await signIn({ oid: OID_ADVISOR, roles: [], tid: DIRECTORY_A });
     await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_UNBOUND });
+    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Support'], tid: DIRECTORY_A });
+    server.use(http.post(`${BACKEND_ROOT}/auth/token`, () => HttpResponse.json({}, { status: 503 })));
+    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
     stubEntraEnv({ ENTRA_CLIENT_SECRET: undefined });
     await start(startRequest());
 
@@ -592,6 +581,8 @@ describe('what the sign-in logs', () => {
       CLIENT_SECRET,
       TEST_SESSION_SECRET,
       OID_ADVISOR,
+      good.session?.sub ?? '',
+      ...seenExchanges.map((e) => String((e.body as { idToken?: string }).idToken ?? '')),
       'Sample Staff',
       'sample.staff@example.test',
       good.sessionWrite?.value ?? '',

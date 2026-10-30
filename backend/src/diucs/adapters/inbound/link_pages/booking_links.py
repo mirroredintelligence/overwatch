@@ -12,7 +12,7 @@ answers run the use cases (RespondToBooking, WithdrawBooking, ReportNotReached),
 booking's state and the actor again. Each answer is single use: the link is burned under its key.
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from datetime import timedelta
 from typing import Any, Final, Literal
 
@@ -50,6 +50,7 @@ from diucs.domain.errors import Conflict, InvalidTransition, ValidationFailed
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.case import Case
 from diucs.domain.model.service import ServiceProfile
+from diucs.domain.model.tenant import ContactKind
 
 REQUEST_PURPOSE: Final = "booking-request"
 CHANGE_PURPOSE: Final = "booking-change"
@@ -107,9 +108,34 @@ def gone_state(status: BookingStatus) -> str:
     return _GONE_STATES.get(status, "used")
 
 
-def view_body(booking: Booking, service_name: str, case: Case) -> dict[str, Any]:
-    """The request page: the reference, service, age band, needs, urgency, reply-by and status. No
-    postcode, name or case id (the page is open to anyone holding the link)."""
+def coordination_phone(contacts: Iterable[Any]) -> str | None:
+    """The SPOA's coordination phone from the tenant's own contacts, or None when it has none.
+    Never a default: a page shows the number the tenant set, or no number."""
+    return next(
+        (contact.value for contact in contacts if contact.kind is ContactKind.COORDINATION_PHONE),
+        None,
+    )
+
+
+def change_view_body(
+    booking: Booking, service_name: str, case: Case, phone: str | None
+) -> dict[str, Any]:
+    """The change page of a confirmed booking: the reference, service, age band, needs, urgency,
+    status and the SPOA's phone. No postcode, name or case id, as for the request page."""
+    return {
+        "reference": booking.reference,
+        "serviceName": service_name,
+        "ageBand": None if case.age_band is None else case.age_band.value,
+        "need": need_text(case),
+        "urgency": None if case.urgency is None else urgency_wording(case.urgency),
+        "bookingStatus": booking.status.value,
+        "coordinationPhone": phone,
+    }
+
+
+def view_body(booking: Booking, service_name: str, case: Case, phone: str | None) -> dict[str, Any]:
+    """The request page: the reference, service, age band, needs, urgency, reply-by, status and the
+    SPOA's phone. No postcode, name or case id (the page is open to anyone holding the link)."""
     return {
         "reference": booking.reference,
         "serviceName": service_name,
@@ -118,6 +144,7 @@ def view_body(booking: Booking, service_name: str, case: Case) -> dict[str, Any]
         "urgency": None if case.urgency is None else urgency_wording(case.urgency),
         "replyBy": booking.reply_by.isoformat(),
         "bookingStatus": booking.status.value,
+        "coordinationPhone": phone,
     }
 
 
@@ -191,7 +218,8 @@ class BookingRequestLink:
             case = await uow.cases.get(booking.case_id)
             if case is None:
                 raise LinkGone("expired")
-        return view_body(booking, profile.name, case)
+            phone = coordination_phone(await uow.tenant_config.contacts())
+        return view_body(booking, profile.name, case, phone)
 
     async def respond(self, link: LinkRequest, action: LinkAction) -> Body:
         reason = check_request_action(action)
@@ -261,11 +289,11 @@ class BookingChangeLink:
             if booking.status is not BookingStatus.CONFIRMED:
                 raise LinkGone(gone_state(booking.status))
             profile, _ = await _holder(uow, link, booking)
-        return {
-            "reference": booking.reference,
-            "serviceName": profile.name,
-            "bookingStatus": booking.status.value,
-        }
+            case = await uow.cases.get(booking.case_id)
+            if case is None:
+                raise LinkGone("expired")
+            phone = coordination_phone(await uow.tenant_config.contacts())
+        return change_view_body(booking, profile.name, case, phone)
 
     async def respond(self, link: LinkRequest, action: LinkAction) -> Body:
         reason = check_change_action(action)

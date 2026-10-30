@@ -84,7 +84,7 @@ describe('GET /api/bff/session', () => {
 
   it('replaces a csrf cookie that is not a token of this session: too short, the old unbound shape, or another tenant’s', async () => {
     const cookie = await sealSession(session);
-    const other = csrfFor(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host, expiresAt: session.expiresAt }));
+    const other = csrfFor(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host }));
     for (const stale of ['short', 'A'.repeat(43), other]) {
       resetCookieWrites();
       const response = await GET(requestWithCookies(URL_, { [SESSION_COOKIE]: cookie, [CSRF_COOKIE]: stale }));
@@ -100,7 +100,7 @@ describe('GET /api/bff/session', () => {
     const body = await (await GET(requestWithCookies(URL_, { [SESSION_COOKIE]: cookie }))).json();
     const { verifyCsrfToken } = await import('@/lib/auth/csrf');
     expect(verifyCsrfToken(session, body.csrfToken)).toBe(true);
-    expect(verifyCsrfToken(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host, expiresAt: session.expiresAt }), body.csrfToken)).toBe(false);
+    expect(verifyCsrfToken(sessionFor(TENANTS.B, 'advisor', { sub: session.sub, host: session.host }), body.csrfToken)).toBe(false);
   });
 
   it('returns 401 no-session with no cookie, and sets no cookie', async () => {

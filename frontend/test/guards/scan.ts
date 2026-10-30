@@ -120,6 +120,10 @@ const SESSION_STORAGE_FILES = ['lib/telemetry/events.ts', 'lib/session/signOut.t
 
 /** The files that call `fetch`, and why each may. A new file that calls it fails until it is named here. */
 export const FETCH_ALLOWLIST: Record<string, string> = {
+  'lib/advisor/browser.ts': 'the advisor pages\' browser helper: its callers pass /api/bff paths',
+  'lib/advisor/useBooking.ts': 'the booking hook passes the browser\'s fetch to its BFF calls',
+  'lib/bff/browser.ts': 'the browser helper for the BFF\'s JSON routes (a path under /api/bff)',
+  'lib/screens/client.ts': 'the wall pairing pages\' browser client: its callers pass /api/bff/screens paths',
   'lib/fhir/client.ts': 'the one server-side client of the back end FHIR API (token required, no cache, no tenant)',
   'lib/auth/oidc.ts': 'the staff sign-in redeems its code at the identity provider, not at the back end',
   'app/api/bff/telemetry/route.ts': 'forwards a batch of interface events to the telemetry collector, not to the back end',
@@ -129,6 +133,18 @@ export const FETCH_ALLOWLIST: Record<string, string> = {
   'lib/links/browser.ts': 'the link page calls its own BFF link routes',
   'lib/session/signOut.ts': 'sign-out calls the BFF session route',
 };
+
+// A `fetch(` whose first argument is written out as an /api/bff path is a call to the app's own BFF
+// from the browser and needs no entry; any other `fetch(` (a variable address) must be named above.
+function fetchOutsideBff(text: string): number[] {
+  const lines: number[] = [];
+  for (const match of text.matchAll(/\bfetch\s*\(\s*/g)) {
+    const after = text.slice((match.index ?? 0) + match[0].length, (match.index ?? 0) + match[0].length + 12);
+    if (/^[`'"]\/api\/bff\//.test(after)) continue;
+    lines.push(text.slice(0, match.index).split('\n').length);
+  }
+  return lines;
+}
 
 function clientImportsServer(text: string): number[] {
   if (!/^\s*['"]use client['"]/m.test(text)) return [];
@@ -144,14 +160,19 @@ export const LITERAL_RULES: Rule[] = [
   { id: 'spoa', why: 'the coordination team has the tenant\'s own name (its profile)', appliesTo: everywhere, lines: matching(/\bSPOA\b/) },
   { id: 'single-point', why: 'the coordination team has the tenant\'s own name (its profile)', appliesTo: everywhere, lines: matching(/single point of access/i) },
   { id: 'epr-name', why: 'the referral system is the tenant\'s own word (its profile)', appliesTo: everywhere, lines: matching(/SystmOne/i) },
-  { id: 'example-domain', why: 'a link or sender address is the tenant\'s own host', appliesTo: everywhere, lines: matching(/diucs\.example/) },
+  {
+    id: 'example-domain',
+    why: 'a link or sender address is the tenant\'s own host (FHIR code-system addresses are the platform\'s, and are not links)',
+    appliesTo: except('lib/fhir/codes.ts', 'lib/advisor/case-fhir.ts'),
+    lines: matching(/diucs\.example/),
+  },
   { id: 'area-code', why: 'a phone number is the tenant\'s own (its profile)', appliesTo: everywhere, lines: matching(/\b01305\b/) },
   { id: 'public-env', why: 'a NEXT_PUBLIC variable is built into the page for every tenant', appliesTo: everywhere, lines: matching(/NEXT_PUBLIC_/) },
   {
     id: 'retired-env',
     why: 'these variables were global settings or signing secrets; the profile and the back end replaced them',
     appliesTo: everywhere,
-    lines: matching(/\b(SPOA_PHONE_DISPLAY|SUPPORT_SHARING|BACKEND_JWT_SECRET|DIUCS_ENTRA_BINDINGS|DIUCS_PUBLIC_URL|ENTRA_TENANT_ID)\b/),
+    lines: matching(/\b(SPOA_PHONE_DISPLAY|SUPPORT_SHARING|BACKEND_JWT_SECRET|DIUCS_ENTRA_BINDINGS|ENTRA_TENANT_ID)\b/),
   },
   { id: 'direct-storage', why: 'browser storage goes through lib/storage/tenantStore', appliesTo: except(...STORAGE_FILES), lines: matching(/\b(localStorage|indexedDB)\b/) },
   { id: 'session-storage', why: 'browser storage goes through lib/storage/tenantStore (the telemetry session id aside)', appliesTo: except(...SESSION_STORAGE_FILES), lines: matching(/\bsessionStorage\b/) },
@@ -171,9 +192,9 @@ export const LITERAL_RULES: Rule[] = [
   },
   {
     id: 'fetch-call',
-    why: 'a call to anywhere is named in FETCH_ALLOWLIST with its reason',
+    why: 'a call to anywhere but an /api/bff path is named in FETCH_ALLOWLIST with its reason',
     appliesTo: (file) => !(file in FETCH_ALLOWLIST),
-    lines: matching(/\bfetch\s*\(/),
+    lines: fetchOutsideBff,
   },
   { id: 'tenant-header-set', why: 'no tenant, scope or network is ever sent as a header', appliesTo: everywhere, lines: matching(/\.(set|append)\(\s*['"]x-?(tenant|scope|network)/i) },
   {
@@ -184,3 +205,53 @@ export const LITERAL_RULES: Rule[] = [
   },
   { id: 'client-imports-server', why: 'a client component must not import a server module', appliesTo: everywhere, lines: clientImportsServer },
 ];
+
+// ----------------------------------------------------------------------------------------------
+// The ratchet. Code that was built before these rules existed still breaks some of them (a place name
+// or a referral system written into a screen's words, a browser storage call in the tour and the
+// learning progress). Those are listed here, per file and per rule, with how many. The scan fails on
+// anything not listed and on anything listed that is no longer there, so the table only shrinks: fix
+// a file and lower its count in the same change. Each belongs to the screen's tenancy rework (the
+// words from the profile, TEN-049 and the screens' tasks).
+
+export const DEBT: Record<string, Record<string, number>> = {
+  'app/api/bff/cases/[ref]/summary/route.ts': { 'epr-name': 1 },
+  'components/advisor/BookingCard.tsx': { 'epr-name': 2 },
+  'components/advisor/OptionsList.tsx': { 'epr-name': 1 },
+  'components/advisor/SummaryCopy.tsx': { 'epr-name': 2 },
+  'components/advisor/WithdrawalAlert.tsx': { 'spoa': 1 },
+  'components/exec/EscalationForm.tsx': { 'spoa': 2 },
+  'components/help/SafetyConcernForm.tsx': { 'spoa': 2 },
+  'components/learn/HelpPanel.tsx': { 'spoa': 2 },
+  'components/planning/PlanningView.tsx': { 'spoa': 1, 'trust-wording': 1 },
+  'components/reporter/BookingChange.tsx': { 'epr-name': 1, 'spoa': 9 },
+  'components/reporter/BookingDecision.tsx': { 'epr-name': 2, 'spoa': 4 },
+  'lib/advisor/summary.ts': { 'epr-name': 1 },
+  'lib/links/model.ts': { 'spoa': 2 },
+  'lib/tour/content.ts': { 'epr-name': 1, 'spoa': 4 },
+};
+
+export type RatchetResult = { unlisted: Violation[]; stale: string[] };
+
+/** Violations that are not in the debt table, and debt entries that are no longer true. */
+export function ratchet(found: Violation[], debt: Record<string, Record<string, number>> = DEBT): RatchetResult {
+  const counts = new Map<string, number>();
+  for (const v of found) counts.set(`${v.file}|${v.rule}`, (counts.get(`${v.file}|${v.rule}`) ?? 0) + 1);
+  const allowed = new Map<string, number>();
+  for (const [file, rules] of Object.entries(debt)) for (const [rule, n] of Object.entries(rules)) allowed.set(`${file}|${rule}`, n);
+
+  const unlisted: Violation[] = [];
+  const seen = new Map<string, number>();
+  for (const v of found) {
+    const key = `${v.file}|${v.rule}`;
+    const used = (seen.get(key) ?? 0) + 1;
+    seen.set(key, used);
+    if (used > (allowed.get(key) ?? 0)) unlisted.push(v);
+  }
+  const stale: string[] = [];
+  for (const [key, n] of allowed) {
+    const actual = counts.get(key) ?? 0;
+    if (actual < n) stale.push(`${key}: listed ${n}, found ${actual}`);
+  }
+  return { unlisted, stale };
+}

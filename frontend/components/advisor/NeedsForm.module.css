@@ -1,0 +1,77 @@
+.form {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4) 0;
+}
+
+.group {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  line-height: var(--type-heading-lh);
+  color: var(--c-ink);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.label {
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+}
+
+.input {
+  min-height: var(--btn-h);
+  width: 100%;
+  max-width: 24ch;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-size: var(--type-body-size);
+  color: var(--c-ink);
+  background: var(--c-bg);
+  border: 2px solid var(--c-ink);
+  border-radius: var(--radius);
+}
+
+.error {
+  margin: 0;
+  font-size: var(--type-label-size);
+  font-weight: var(--type-label-weight);
+  color: var(--c-ink);
+  border-left: 4px solid var(--c-surge);
+  padding-left: var(--space-2);
+}
+
+.note {
+  margin: 0;
+  font-size: var(--type-caption-size);
+  color: var(--c-muted);
+}
+
+.more {
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  font: inherit;
+  font-weight: var(--type-label-weight);
+  color: var(--c-primary);
+  background: transparent;
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-chip);
+}

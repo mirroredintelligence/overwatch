@@ -62,8 +62,6 @@ export type FakeEntraOptions = {
   clientId: string;
   clientSecret: string;
   redirectUri: string;
-  /** Further redirect URIs registered for the app: one per tenant host (DEC-134 item 3). */
-  moreRedirectUris?: string[];
   /** The directories the fake serves, besides `organizations`. */
   directories: string[];
 };
@@ -164,10 +162,6 @@ export class FakeEntra {
     return `${this.options.host}/${directoryId}/v2.0`;
   }
 
-  private registered(uri: string | undefined): uri is string {
-    return uri !== undefined && [this.options.redirectUri, ...(this.options.moreRedirectUris ?? [])].includes(uri);
-  }
-
   private serves(directory: string): boolean {
     return directory === 'organizations' || this.options.directories.includes(directory);
   }
@@ -188,7 +182,7 @@ export class FakeEntra {
     this.requests.push({ endpoint: 'authorize', directory, params });
     const state = params.state ?? '';
     const refuse = (error: string) => {
-      const back = new URL(this.registered(params.redirect_uri) ? params.redirect_uri : this.options.redirectUri);
+      const back = new URL(this.options.redirectUri);
       back.searchParams.set('error', error);
       if (state) back.searchParams.set('state', state);
       return { location: back.toString() };
@@ -197,7 +191,7 @@ export class FakeEntra {
     if (!url.pathname.endsWith('/oauth2/v2.0/authorize') || !this.serves(directory)) return refuse('invalid_request');
     if (params.client_id !== this.options.clientId) return refuse('unauthorized_client');
     if (params.response_type !== 'code') return refuse('unsupported_response_type');
-    if (!this.registered(params.redirect_uri)) return refuse('invalid_request');
+    if (params.redirect_uri !== this.options.redirectUri) return refuse('invalid_request');
     if (!(params.scope ?? '').split(' ').includes('openid')) return refuse('invalid_scope');
     if (!state || !params.nonce) return refuse('invalid_request');
     if (params.code_challenge_method !== 'S256' || !params.code_challenge) return refuse('invalid_request');
@@ -212,7 +206,7 @@ export class FakeEntra {
       tamper,
       used: false,
     });
-    const back = new URL(params.redirect_uri);
+    const back = new URL(this.options.redirectUri);
     back.searchParams.set('code', code);
     back.searchParams.set('state', state);
     return { location: back.toString() };

@@ -102,6 +102,24 @@ async def seed_tenant_host(
     await write_tx(driver, work)
 
 
+async def change_tenant_record(
+    driver: AsyncDriver, tenant_id: str, *, host: str, **properties: object
+) -> None:
+    """Give an existing tenant record (the run's own, made by `hosts`) another host and other
+    properties: a status that is suspended, or one the domain refuses. The record belongs to this
+    run, so the wipe between tests removes it; a tenant id of another name would not be."""
+
+    async def work(tx: AsyncManagedTransaction) -> None:
+        await tx.run(
+            "MATCH (t:Tenant {id: $id}) SET t += $props, t.host = $host",
+            id=tenant_id,
+            props=properties,
+            host=host,
+        )
+
+    await write_tx(driver, work)
+
+
 @pytest_asyncio.fixture
 async def hosts(neo4j_driver: AsyncDriver, tenant_id: str, other_tenant_id: str) -> None:
     """Each run tenant has a host: alpha for the run tenant, bravo for the second."""

@@ -191,7 +191,10 @@ describe('OptionsList with no service that fits (W16)', () => {
       http.get('/api/bff/cases/:ref', () =>
         HttpResponse.json({ id: '4821', referrerType: 'gp', ageBand: '80+', postcode: 'DT4 8XX', needs: ['frailty'], urgency: 'within-2-hrs', scores: [], openedAt: null, etag: 'W/"1"' }),
       ),
-      http.get('/api/bff/cases/:ref/options', () => HttpResponse.json({ ...OPTIONS_EMPTY_VIEW })),
+      http.get('/api/bff/cases/:ref/options', () => {
+        seenOptionsReads.push('4821');
+        return HttpResponse.json({ ...OPTIONS_EMPTY_VIEW });
+      }),
     );
     const user = userEvent.setup();
     render(<OptionsList caseId="4821" onRequest={vi.fn()} onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);

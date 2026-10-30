@@ -7,6 +7,7 @@ import { bffFetch } from '@/lib/advisor/browser';
 import type { OptionsParts } from '@/lib/advisor/options';
 import { CriteriaDialog } from './CriteriaDialog';
 import { DeclinedDialog } from './DeclinedDialog';
+import { NoServiceFits } from './NoServiceFits';
 import { NotSuitableList } from './NotSuitableList';
 import { PhonedDialog } from './PhonedDialog';
 import { ServiceCard } from './ServiceCard';
@@ -68,7 +69,7 @@ export function OptionsList({ caseId, onRequest, onCriteria, onPhoned, onAskClin
   return (
     <section className={styles.list} aria-label="Options">
       {options.length === 0 ? (
-        <h2 className={styles.heading}>No service fits right now</h2>
+        <NoServiceFits caseId={caseId} onWidened={() => void readOptions()} onAskClinical={() => onAskClinical?.()} />
       ) : (
         <>
           <h2 className={styles.heading}>{headingFor(options.length)}</h2>
@@ -119,20 +120,22 @@ export function OptionsList({ caseId, onRequest, onCriteria, onPhoned, onAskClin
 
       <NotSuitableList items={notSuitable} />
 
-      <footer className={styles.footer}>
-        <p className={styles.note}>No patient name is stored. Postcode and needs are cleared after the call record closes.</p>
-        <div className={styles.actions}>
-          <Button variant="secondary" dataEl="ADV-OPT-CLINICAL-BTN" onClick={() => onAskClinical?.()}>
-            Ask clinical advisor
-          </Button>
-          <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/finish`}>
-            Record outcome
-          </Button>
-          <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/finish#summary`}>
-            Copy summary for SystmOne
-          </Button>
-        </div>
-      </footer>
+      {options.length === 0 ? null : (
+        <footer className={styles.footer}>
+          <p className={styles.note}>No patient name is stored. Postcode and needs are cleared after the call record closes.</p>
+          <div className={styles.actions}>
+            <Button variant="secondary" dataEl="ADV-OPT-CLINICAL-BTN" onClick={() => onAskClinical?.()}>
+              Ask clinical advisor
+            </Button>
+            <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/finish`}>
+              Record outcome
+            </Button>
+            <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/finish#summary`}>
+              Copy summary for SystmOne
+            </Button>
+          </div>
+        </footer>
+      )}
     </section>
   );
 }

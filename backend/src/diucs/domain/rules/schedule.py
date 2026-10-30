@@ -14,7 +14,7 @@ the defaults and their bounds). The module constants below are aliases of the de
 so that existing importers keep working. The policy is a value passed in, never looked up.
 """
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import date, datetime, time, timedelta
 from enum import StrEnum
 from typing import Final
@@ -92,10 +92,14 @@ def due_times_on(
     local_day: date,
     policy: TenantPolicy = DEFAULT_POLICY,
     zone: ZoneInfo = LONDON,
+    closed: Callable[[date], bool] | None = None,
 ) -> list[datetime]:
-    """Sorted UTC due instants of windows that start on local_day in `zone`, with no duplicates."""
+    """Sorted UTC due instants of windows that start on local_day in `zone`, with no duplicates.
+    `closed` (TEN-066) names the local days the service is closed; none is due on those days."""
     policy = require_policy(policy)
     zone = require_zone(zone)
+    if closed is not None and closed(local_day):
+        return []
     instants: set[datetime] = set()
     for window in profile.available_times:
         if local_day.weekday() not in window.days:
@@ -110,6 +114,7 @@ def next_due(
     now: datetime,
     policy: TenantPolicy = DEFAULT_POLICY,
     zone: ZoneInfo = LONDON,
+    closed: Callable[[date], bool] | None = None,
 ) -> datetime | None:
     """The earliest due instant strictly after now, searching SEARCH_DAYS ahead, or None."""
     policy = require_policy(policy)
@@ -118,7 +123,7 @@ def next_due(
     candidates = [
         due
         for offset in range(-1, SEARCH_DAYS)
-        for due in due_times_on(profile, today + timedelta(days=offset), policy, zone)
+        for due in due_times_on(profile, today + timedelta(days=offset), policy, zone, closed)
         if due > now
     ]
     return min(candidates, default=None)
@@ -129,6 +134,7 @@ def current_due(
     now: datetime,
     policy: TenantPolicy = DEFAULT_POLICY,
     zone: ZoneInfo = LONDON,
+    closed: Callable[[date], bool] | None = None,
 ) -> datetime | None:
     """The latest due instant at or before now, searching SEARCH_DAYS back, or None (DEC-023)."""
     policy = require_policy(policy)
@@ -137,7 +143,7 @@ def current_due(
     candidates = [
         due
         for offset in range(-SEARCH_DAYS, 1)
-        for due in due_times_on(profile, today + timedelta(days=offset), policy, zone)
+        for due in due_times_on(profile, today + timedelta(days=offset), policy, zone, closed)
         if due <= now
     ]
     return max(candidates, default=None)

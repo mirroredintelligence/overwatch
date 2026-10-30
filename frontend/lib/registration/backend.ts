@@ -126,3 +126,116 @@ export async function addScopeEntry(token: string, input: ScopeEntryInput, key: 
   if (typeof serviceId !== 'string') badBody();
   return { serviceId };
 }
+
+// ------------------------------------------------------------------------------ W29 writes
+
+export type CallBackInput = { result: string; numberCalled: string; spokeToRole?: string };
+export type ScopeDecisionInput = {
+  answers: { pathway: string; spoaReferrals: string; canReport: string; categoryOnList: string };
+  decision: ScopeFlag;
+  reason?: string;
+};
+
+/** Parts the back end reads as codes; every other text part is a string. */
+const CODE_PARTS: ReadonlySet<string> = new Set([
+  'result',
+  'flag',
+  'onDorsetPathway',
+  'takesSpoaReferrals',
+  'canReport',
+  'categoryOnPilotList',
+]);
+
+function parameters(entries: Array<[string, string]>): Json {
+  return {
+    resourceType: 'Parameters',
+    parameter: entries.map(([name, value]) => (CODE_PARTS.has(name) ? { name, valueCode: value } : { name, valueString: value })),
+  };
+}
+
+/** The named parts of a Parameters answer, as their values. Other parts are not read. */
+function partsOf(data: unknown): Map<string, unknown> {
+  const found = new Map<string, unknown>();
+  if (!isRecord(data) || !Array.isArray(data.parameter)) badBody();
+  for (const part of data.parameter as unknown[]) {
+    if (!isRecord(part) || typeof part.name !== 'string') continue;
+    found.set(part.name, part.valueCode ?? part.valueString ?? part.valueBoolean);
+  }
+  return found;
+}
+
+/** One call-back (U28): the number called, the role spoken to (when there was a call) and the result. */
+export async function recordCallBack(token: string, id: string, input: CallBackInput, key: string) {
+  const entries: Array<[string, string]> = [['numberCalled', input.numberCalled]];
+  if (input.spokeToRole !== undefined) entries.push(['spokeToRole', input.spokeToRole]);
+  entries.push(['result', input.result]);
+  const { data } = await fhirFetch<unknown>(`/Task/${encodeURIComponent(id)}/$callback`, {
+    method: 'POST',
+    token,
+    idempotencyKey: key,
+    body: parameters(entries),
+  });
+  const parts = partsOf(data);
+  const result = parts.get('result');
+  if (typeof result !== 'string' || typeof parts.get('callbackConfirmed') !== 'boolean') badBody();
+  return { result: result as string, callbackConfirmed: parts.get('callbackConfirmed') as boolean };
+}
+
+/** The scope decision (U28): four answers, the flag, and the reason when one is needed. */
+export async function recordScopeDecision(token: string, id: string, input: ScopeDecisionInput, key: string) {
+  const entries: Array<[string, string]> = [
+    ['onDorsetPathway', input.answers.pathway],
+    ['takesSpoaReferrals', input.answers.spoaReferrals],
+    ['canReport', input.answers.canReport],
+    ['categoryOnPilotList', input.answers.categoryOnList],
+    ['flag', input.decision],
+  ];
+  if (input.reason !== undefined) entries.push(['reason', input.reason]);
+  const { data } = await fhirFetch<unknown>(`/Task/${encodeURIComponent(id)}/$scope-decision`, {
+    method: 'POST',
+    token,
+    idempotencyKey: key,
+    body: parameters(entries),
+  });
+  const flag = partsOf(data).get('flag');
+  if (typeof flag !== 'string') badBody();
+  return { flag: flag as ScopeFlag };
+}
+
+export type DecisionAction = 'approve' | 'send-back' | 'not-approve';
+
+const DECISION_OPERATION: Record<DecisionAction, string> = {
+  approve: '$approve',
+  'send-back': '$send-back',
+  'not-approve': '$not-approve',
+};
+
+/** The approval, the send back or the refusal (U29). The back end answers the Task's new status. */
+export async function decideRegistration(token: string, id: string, action: DecisionAction, note: string | undefined, key: string) {
+  const body = action === 'approve' || note === undefined ? undefined : parameters([['note', note]]);
+  const { data } = await fhirFetch<Json>(`/Task/${encodeURIComponent(id)}/${DECISION_OPERATION[action]}`, {
+    method: 'POST',
+    token,
+    idempotencyKey: key,
+    body,
+  });
+  return { status: taskStatus(data) };
+}
+
+/** The Task's business status code, as the back end writes it. */
+function taskStatus(data: unknown): string {
+  const coding = isRecord(data) && isRecord(data.businessStatus) && Array.isArray(data.businessStatus.coding) ? data.businessStatus.coding[0] : undefined;
+  const code = isRecord(coding) ? coding.code : undefined;
+  if (typeof code !== 'string') badBody();
+  return code as string;
+}
+
+/** The service goes live (U29), once its test is answered. */
+export async function setServiceLive(token: string, id: string, key: string) {
+  const { data } = await fhirFetch<Json>(`/Task/${encodeURIComponent(id)}/$set-live`, {
+    method: 'POST',
+    token,
+    idempotencyKey: key,
+  });
+  return { status: taskStatus(data) };
+}

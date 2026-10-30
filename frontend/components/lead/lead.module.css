@@ -146,3 +146,20 @@
     transition: none;
   }
 }
+
+.approve {
+  min-height: 52px;
+  padding: 0 1.25rem;
+  border: 2px solid currentColor;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.approve[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

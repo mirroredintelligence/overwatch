@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
@@ -15,9 +15,12 @@ const QUESTIONS = [
   'Is its category on the pilot list?',
 ];
 
+// One query for the four answer sets, in question order: a name query per click is too slow here.
 async function answerAll(user: ReturnType<typeof userEvent.setup>, answer: string) {
-  for (const question of QUESTIONS) {
-    await user.click(within(screen.getByRole('group', { name: question })).getByRole('button', { name: answer }));
+  const buttons = screen.getAllByRole('button', { name: answer });
+  expect(buttons).toHaveLength(QUESTIONS.length);
+  for (const button of buttons) {
+    await user.click(button);
   }
 }
 
@@ -48,7 +51,7 @@ describe('ScopeCheck', () => {
     const user = userEvent.setup();
     render(<ScopeCheck id="r1" />);
     await screen.findByRole('heading', { level: 1, name: 'Is it in scope?' });
-    await user.click(within(screen.getByRole('group', { name: QUESTIONS[0]! })).getByRole('button', { name: 'Yes' }));
+    await user.click(screen.getAllByRole('button', { name: 'Yes' })[0]!);
     await user.click(screen.getByRole('button', { name: 'In scope: pilot' }));
     await user.click(screen.getByRole('button', { name: 'Save' }));
     expect(await screen.findByText('Answer every question')).toBeInTheDocument();

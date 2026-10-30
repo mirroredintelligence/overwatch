@@ -3,12 +3,13 @@
 import { londonTime } from '@/lib/board/format';
 import type {
   CallBackResult,
-  DecisionAction,
   Decision,
+  DecisionAction,
   Overview,
   QueueItem,
   QueueResponse,
   QueueTab,
+  ScopeAnswer,
   ScopeAnswers,
   ScopeEntry,
   ScopeFlag,
@@ -113,25 +114,43 @@ export function submittedText(item: QueueItem): string {
   return `Submitted ${londonTime(item.submittedAt)} by ${item.submittedByRole}`;
 }
 
-// W29 rules (red stubs, see the implement commit)
+// ------------------------------------------------------------------------- W29 check rules
+
 export const CALLBACK_RESULTS: readonly CallBackResult[] = ['confirmed', 'not-confirmed', 'no-answer'];
-export function callbackFormError(_result: CallBackResult, _spokeToRole: string): string | null {
-  return null;
+export const SCOPE_ANSWERS: readonly ScopeAnswer[] = ['yes', 'no', 'not-sure'];
+
+/** A confirmed call names who was spoken to (ui-screens ApprovalWeb1 screen 4). Other results need no role. */
+export function callbackFormError(result: CallBackResult, spokeToRole: string): string | null {
+  return result === 'confirmed' && spokeToRole.trim() === '' ? 'Enter who you spoke to' : null;
 }
-export function missingText(_missing: readonly string[]): string {
-  return '';
+
+/** The message the back end gives when approval is refused, with the checks still missing. */
+export function missingText(missing: readonly string[]): string {
+  return `Approve is unavailable until: ${missing.join(', ')}`;
 }
-export function canApprove(_missing: readonly string[]): boolean {
-  return false;
+
+/** Approve is available only when the back end lists nothing missing. The list is never worked out here. */
+export function canApprove(missing: readonly string[]): boolean {
+  return missing.length === 0;
 }
-export function decisionNoteError(_action: DecisionAction, _note: string): string | null {
-  return null;
+
+/** A send back and a refusal to approve need a note to the applicant; approval needs none. */
+export function decisionNoteError(action: DecisionAction, note: string): string | null {
+  const needsNote = action === 'send-back' || action === 'not-approve';
+  return needsNote && note.trim() === '' ? 'Enter a note for the applicant' : null;
 }
-export function scopeFormError(_answers: Partial<ScopeAnswers>, _decision: ScopeFlag | null, _reason: string): string | null {
-  return null;
+
+/** The scope check: all four questions answered, a decision chosen, and a reason unless it is the pilot. */
+export function scopeFormError(answers: Partial<ScopeAnswers>, decision: ScopeFlag | null, reason: string): string | null {
+  const answered = (['pathway', 'spoaReferrals', 'canReport', 'categoryOnList'] as const).every((key) => answers[key] !== undefined);
+  if (!answered) return 'Answer every question';
+  if (decision === null) return 'Choose a decision';
+  return reasonRequired(decision) && reason.trim() === '' ? 'Enter a reason' : null;
 }
-export function setLiveEnabled(_decision: Decision): boolean {
-  return false;
+
+/** Set live is offered only once the test notification has been answered from the registered phone. */
+export function setLiveEnabled(decision: Decision): boolean {
+  return decision.test.answeredAt !== undefined;
 }
 
 // ------------------------------------------------------------------------------- parsers

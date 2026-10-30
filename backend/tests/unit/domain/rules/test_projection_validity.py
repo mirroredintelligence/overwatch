@@ -64,7 +64,12 @@ def test_a_suspended_service_has_no_time_boundary() -> None:
 
 
 def test_the_tenant_reply_window_moves_the_boundary() -> None:
-    policy = sample_policy(reply_window=timedelta(minutes=45))
+    policy = sample_policy(
+        reply_window=timedelta(minutes=45),
+        reminder_after=timedelta(minutes=45),
+        phone_task_after=timedelta(minutes=75),
+        escalate_after=timedelta(minutes=105),
+    )
     assert next_status_change(sample_profile(), REPORTED_AT, NOW, policy) == at(29, 10, 45)
 
 
@@ -117,3 +122,17 @@ def test_the_status_can_change_at_the_boundary() -> None:
             changed += 1
         now = until
     assert changed >= 4
+
+
+def test_two_windows_that_join_are_one_stretch_of_hours() -> None:
+    from datetime import time
+
+    from diucs.domain.model.service import AvailableTime
+    from diucs.domain.rules.opening_hours import next_hours_change
+
+    joined = (
+        AvailableTime.weekdays(time(8, 0), time(12, 0)),
+        AvailableTime.weekdays(time(12, 0), time(18, 0)),
+    )
+    assert next_hours_change(joined, at(29, 9, 0)) == at(29, 18, 0)
+    assert next_hours_change((), at(29, 9, 0)) is None

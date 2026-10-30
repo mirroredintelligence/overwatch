@@ -141,3 +141,45 @@ export async function loadMine(): Promise<{ kind: 'open'; services: MyService[] 
   );
   return { kind: 'open', services };
 }
+
+export type StatusDetails = { spoaPhone?: string; criteriaOwner?: string; reportingPhoneEnding?: string };
+export type RegistrationStatusView = {
+  status: string;
+  serviceName: string;
+  submittedAt?: string;
+  notes?: string[];
+  noteFrom?: { role: string; at: string };
+  reason?: string;
+  firstPromptAt?: string;
+  details?: StatusDetails;
+};
+
+/** The applicant's status, or unavailable. A status the page does not know is read as unavailable by the page. */
+export async function loadStatus(id: string): Promise<{ kind: 'open'; view: RegistrationStatusView } | { kind: 'unavailable' } | { kind: 'signed-out' }> {
+  let response: Response;
+  try {
+    response = await fetch(`${base(id)}/status`, { cache: 'no-store', credentials: 'same-origin' });
+  } catch {
+    return { kind: 'unavailable' };
+  }
+  if (response.status === 401) return { kind: 'signed-out' };
+  if (!response.ok) return { kind: 'unavailable' };
+  const body = await bodyOf(response);
+  if (typeof body.status !== 'string' || typeof body.serviceName !== 'string') return { kind: 'unavailable' };
+  return { kind: 'open', view: body as unknown as RegistrationStatusView };
+}
+
+/** One of the applicant's status actions: the test, a review request, or the confirmation of details. */
+export async function statusAction(id: string, action: 'test' | 'review-request' | 'confirm-details', csrf: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${base(id)}/${action}`, {
+      method: 'POST',
+      headers: { [CSRF_HEADER]: csrf },
+      cache: 'no-store',
+      credentials: 'same-origin',
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}

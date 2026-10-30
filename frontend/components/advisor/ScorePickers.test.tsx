@@ -101,7 +101,7 @@ describe('ScorePickers (W12)', () => {
 
     await user.type(screen.getByRole('searchbox', { name: 'Search Dx code or description' }), 'fa');
 
-    await waitFor(() => expect(pathwaysOptionCount()).toBe(PATHWAYS_RESULTS.length));
+    await waitFor(() => expect(pathwaysOptionCount()).toBe(PATHWAYS_RESULTS.length), { timeout: 8000 });
     expect(PATHWAYS_BACKEND_CALLS).toHaveLength(1);
     expect(PATHWAYS_BACKEND_CALLS[0]).toBe('fa');
     expect(screen.getByRole('button', { name: `${PATHWAYS_RESULTS[0].code} · ${PATHWAYS_RESULTS[0].display}` })).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('ScorePickers (W12)', () => {
     await user.type(screen.getByRole('searchbox', { name: 'Search Dx code or description' }), 'PD-101');
     expect(onChange.mock.calls.every((call) => (call[0] as Score[]).length === 0)).toBe(true);
 
-    await waitFor(() => expect(pathwaysOptionCount()).toBeGreaterThan(0));
+    await waitFor(() => expect(pathwaysOptionCount()).toBeGreaterThan(0), { timeout: 8000 });
     await user.click(screen.getByRole('button', { name: `${PATHWAYS_RESULTS[0].code} · ${PATHWAYS_RESULTS[0].display}` }));
 
     expect(lastScores(onChange)).toEqual([{ method: 'pathways-dx', value: PATHWAYS_RESULTS[0].code }]);

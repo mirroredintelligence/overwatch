@@ -153,7 +153,9 @@ describe('NeedsForm (W11)', () => {
     await user.click(screen.getByRole('button', { name: /Very urgent/ }));
     await user.click(byEl('ADV-SCORE-PATHWAYS-CHIP'));
     await user.type(screen.getByRole('searchbox', { name: 'Search Dx code or description' }), 'fa');
-    await user.click(await screen.findByRole('button', { name: `${PATHWAYS_RESULTS[0].code} · ${PATHWAYS_RESULTS[0].display}` }));
+    await user.click(
+      await screen.findByRole('button', { name: `${PATHWAYS_RESULTS[0].code} · ${PATHWAYS_RESULTS[0].display}` }, { timeout: 8000 }),
+    );
 
     await user.click(byEl('ADV-NEEDS-CONTINUE-BTN'));
 

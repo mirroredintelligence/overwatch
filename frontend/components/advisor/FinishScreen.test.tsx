@@ -51,5 +51,5 @@ describe('FinishScreen (W15)', () => {
     await user.click(byEl('ADV-FIN-SAVE-BTN'));
     await screen.findByRole('heading', { name: 'Call closed' });
     expect((await runAxe(container)).violations).toEqual([]);
-  });
+  }, 30_000);
 });

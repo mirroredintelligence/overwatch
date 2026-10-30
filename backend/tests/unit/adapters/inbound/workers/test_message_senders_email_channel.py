@@ -14,6 +14,7 @@ from diucs.adapters.inbound.workers.message_senders import (
     SmsMessageSender,
 )
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.recording_senders import RecordingEmailSender, RecordingSmsSender
 from diucs.application.ports.outbound.event_bus import BusMessage
@@ -26,6 +27,7 @@ from diucs.domain.model.tenant_records import ChannelKind, ChannelProvider, Tena
 SEALER = AesGcmContentSealer(
     FixedSecretStore({"link-token": b"link-token-test-secret-0123456789abcdef"})
 )
+CLOCK = FixedClock(datetime(2026, 10, 23, 13, 0, tzinfo=UTC))
 TENANT = "tenant-a"
 ROLE = "role-1"
 OUTBOX_ID = "outbox-1"
@@ -100,8 +102,14 @@ class _Contacts:
         return "07700900123"
 
 
+class _People:
+    async def get_role(self, role_id: str) -> None:
+        return None
+
+
 class _Unit:
     def __init__(self, channels: tuple[TenantChannel, ...]) -> None:
+        self.people = _People()
         self.tenant_config = _Config(channels)
         self.communications = _Communications()
         self.contacts = _Contacts()
@@ -158,7 +166,7 @@ async def test_the_active_email_channel_is_read_in_the_unit_and_handed_to_the_re
     unit: Any = _Unit((_sms_channel(), _email_channel("email-0", NumberStatus.RETIRED), active))
     resolver = _Resolver()
 
-    await EmailMessageSender(resolver, SEALER)(_message("email"), unit)
+    await EmailMessageSender(resolver, SEALER, CLOCK)(_message("email"), unit)
 
     assert resolver.channels == [active]
     assert unit.communications.outcomes == [("comm-1", "sent", "email-1", None)]
@@ -169,7 +177,7 @@ async def test_with_no_active_email_channel_the_resolver_gets_none_and_nothing_i
     unit: Any = _Unit((_sms_channel(), _email_channel("email-0", NumberStatus.RETIRED)))
     resolver = _Resolver(unavailable=True)
 
-    await EmailMessageSender(resolver, SEALER)(_message("email"), unit)
+    await EmailMessageSender(resolver, SEALER, CLOCK)(_message("email"), unit)
 
     assert resolver.channels == [None]
     assert resolver.email.sent == []
@@ -185,7 +193,7 @@ async def test_two_active_email_channels_are_ambiguous_and_none_is_used() -> Non
     )
     resolver = _Resolver(unavailable=True)
 
-    await EmailMessageSender(resolver, SEALER)(_message("email"), unit)
+    await EmailMessageSender(resolver, SEALER, CLOCK)(_message("email"), unit)
 
     assert resolver.channels == [None]
     assert resolver.email.sent == []
@@ -195,7 +203,7 @@ async def test_a_text_send_reads_no_email_channel() -> None:
     unit: Any = _Unit((_email_channel("email-1", NumberStatus.ACTIVE),))
     resolver = _Resolver()
 
-    await SmsMessageSender(resolver, SEALER)(_message("text"), unit)
+    await SmsMessageSender(resolver, SEALER, CLOCK)(_message("text"), unit)
 
     assert unit.tenant_config.reads == 0
     assert resolver.channels == []

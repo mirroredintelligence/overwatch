@@ -6,8 +6,10 @@ infra/servicebus-config.json), and:
 
 1. opens the sealed content with the outbox message id, the tenant and the recipient role as its
    associated data, so the text belongs to this message, tenant and person (DEC-116);
-2. looks the recipient up in the protected contact store, inside the unit of work (P16). No number
-   or address means nothing is sent;
+2. looks the recipient up in the protected contact store, inside the unit of work (P16), by the
+   post's contact at send time: while a cover holds the post, the cover's number
+   (`cover-<role id>`), never the original holder's (F6B). No number or address means nothing is
+   sent;
 3. gets the sender of the bound tenant from the SenderResolver (DEC-131 item 1). No sender for the
    tenant means nothing is sent;
 4. sends. A transient failure raises, so the unit of work rolls back and the bus redelivers. Any
@@ -27,6 +29,7 @@ import json
 import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Final, Literal
 
 from azure.servicebus.aio import ServiceBusClient
@@ -53,7 +56,7 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWork
 from diucs.domain.codes import Channel
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.catalogue import MessageId
-from diucs.domain.model.people import role_holder
+from diucs.domain.model.people import cover_in_force, phone_contact_key, role_holder
 from diucs.domain.model.tenant import NumberStatus
 from diucs.domain.model.tenant_records import ChannelKind
 
@@ -182,9 +185,10 @@ class _OutboundSender:
     channel: Channel
     name: str
 
-    def __init__(self, senders: SenderResolver, sealer: ContentSealer) -> None:
+    def __init__(self, senders: SenderResolver, sealer: ContentSealer, clock: Clock) -> None:
         self._senders = senders
         self._sealer = sealer
+        self._clock = clock
 
     async def __call__(self, message: BusMessage, uow: UnitOfWork) -> None:
         if message.event_type != SEND_MESSAGE_EVENT:
@@ -204,7 +208,7 @@ class _OutboundSender:
         if is_handled(communication):
             return
 
-        address = await self._address(uow, outbound.recipient_role_id)
+        address = await self._address(uow, outbound.recipient_role_id, self._clock.now())
         if address is None:
             await self._settle(uow, message, communication.id, "failed", None, NO_CONTACT)
             return
@@ -255,7 +259,8 @@ class _OutboundSender:
             error_code or "-",
         )
 
-    async def _address(self, uow: UnitOfWork, role_id: str) -> str | None:
+    async def _address(self, uow: UnitOfWork, role_id: str, now: datetime) -> str | None:
+        """Where the message goes at `now`, or None when no one holds an address for it."""
         raise NotImplementedError
 
     async def _send(
@@ -272,8 +277,14 @@ class SmsMessageSender(_OutboundSender):
     channel = Channel.TEXT
     name = CONSUMER_SMS
 
-    async def _address(self, uow: UnitOfWork, role_id: str) -> str | None:
-        return await uow.contacts.get_phone(role_id)
+    async def _address(self, uow: UnitOfWork, role_id: str, now: datetime) -> str | None:
+        # The post's own number is the original holder's. While a cover holds the post the text
+        # goes to the cover's number, and to no one when none was kept (F6B). A recipient that is
+        # not a post (a text code's contact key) is addressed by the key itself.
+        role = await uow.people.get_role(role_id)
+        return await uow.contacts.get_phone(
+            role_id if role is None else phone_contact_key(role, now)
+        )
 
     async def _send(
         self, uow: UnitOfWork, address: str, outbound: OutboundMessage, outbox_id: str
@@ -288,7 +299,12 @@ class EmailMessageSender(_OutboundSender):
     channel = Channel.EMAIL
     name = CONSUMER_EMAIL
 
-    async def _address(self, uow: UnitOfWork, role_id: str) -> str | None:
+    async def _address(self, uow: UnitOfWork, role_id: str, now: datetime) -> str | None:
+        # A cover is known by a number only, so while one holds the post there is no address to
+        # write to, and the original holder's address is not used (F6B).
+        role = await uow.people.get_role(role_id)
+        if role is not None and cover_in_force(role, now):
+            return None
         return await uow.contacts.get_email(role_id)
 
     async def _send(
@@ -338,17 +354,19 @@ def sender_runners(
     tenants: ActiveTenants,
     senders: SenderResolver,
     sealer: ContentSealer,
+    clock: Clock,
     observe: Observe = untraced,
 ) -> list[ServiceBusRunner]:
     """The two runners of `messages.outbound`: the text sender and the email sender. Each binds the
-    tenant of the message before it opens a unit of work (TenantBoundConsumer)."""
+    tenant of the message before it opens a unit of work (TenantBoundConsumer). The clock decides
+    who holds a post when a message goes, which a cover changes."""
     sms = TenantBoundConsumer(
-        IdempotentConsumer(CONSUMER_SMS, SmsMessageSender(senders, sealer), uow_factory),
+        IdempotentConsumer(CONSUMER_SMS, SmsMessageSender(senders, sealer, clock), uow_factory),
         tenants,
         observe,
     )
     email = TenantBoundConsumer(
-        IdempotentConsumer(CONSUMER_EMAIL, EmailMessageSender(senders, sealer), uow_factory),
+        IdempotentConsumer(CONSUMER_EMAIL, EmailMessageSender(senders, sealer, clock), uow_factory),
         tenants,
         observe,
     )

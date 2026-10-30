@@ -56,6 +56,7 @@ from diucs.domain.errors import (
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import (
+    COVER_CONTACT_PREFIX,
     REPORTER_ROLE_CODES,
     Practitioner,
     PractitionerRole,
@@ -85,9 +86,6 @@ from diucs.domain.rules.reporter_app import (
 SERVICE_NOT_YOURS: Final = "no service with this id"
 MAX_BATCH: Final = 10
 """The most services one batch confirms: the phone load limit of a reporter (D28, DEC-048)."""
-COVER_CONTACT_PREFIX: Final = "cover-"
-"""The protected contact of a role's cover number is stored under `cover-<role id>`, beside the
-role's own number, so a cover never replaces the number the role was invited on."""
 DEFAULT_COVER_UNTIL: Final = "this-week"
 """[ASSUMED] The length of a cover the settings screen sets when it names none: the week."""
 _ACCEPT_USE_CASE: Final = "ReporterAcceptService"

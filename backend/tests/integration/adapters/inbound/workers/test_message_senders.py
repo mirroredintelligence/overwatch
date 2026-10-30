@@ -31,6 +31,7 @@ from diucs.adapters.inbound.workers.message_senders import (
 from diucs.adapters.inbound.workers.outbox_relay import StaticTenants
 from diucs.adapters.inbound.workers.tenant_binding import TenantBoundConsumer
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.recording_senders import (
     FixedSenderResolver,
@@ -51,6 +52,7 @@ from tests.support.neo4j import node_props
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
 SECRET = b"link-token-test-secret-0123456789abcdef"
+CLOCK = FixedClock(datetime(2026, 10, 23, 13, 0, tzinfo=UTC))
 SEALER = AesGcmContentSealer(FixedSecretStore({"link-token": SECRET}))
 SENT = datetime(2026, 10, 29, 9, 0, tzinfo=UTC)
 ROLE = "role-1"
@@ -150,7 +152,7 @@ def _text_consumer(
     factory: UnitOfWorkFactory, tenants: StaticTenants, resolver: FixedSenderResolver
 ) -> TenantBoundConsumer:
     return TenantBoundConsumer(
-        IdempotentConsumer(CONSUMER_SMS, SmsMessageSender(resolver, SEALER), factory),
+        IdempotentConsumer(CONSUMER_SMS, SmsMessageSender(resolver, SEALER, CLOCK), factory),
         tenants,
     )
 
@@ -159,7 +161,7 @@ def _email_consumer(
     factory: UnitOfWorkFactory, tenants: StaticTenants, resolver: FixedSenderResolver
 ) -> TenantBoundConsumer:
     return TenantBoundConsumer(
-        IdempotentConsumer(CONSUMER_EMAIL, EmailMessageSender(resolver, SEALER), factory),
+        IdempotentConsumer(CONSUMER_EMAIL, EmailMessageSender(resolver, SEALER, CLOCK), factory),
         tenants,
     )
 
@@ -448,6 +450,7 @@ async def test_the_two_sender_runners_are_built_for_the_two_sender_subscriptions
         tenants,
         FixedSenderResolver(),
         SEALER,
+        CLOCK,
     )
 
     assert len(runners) == 2

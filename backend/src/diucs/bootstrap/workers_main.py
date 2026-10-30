@@ -45,6 +45,7 @@ from diucs.adapters.inbound.workers.reply_processor import HandlesInboundText, r
 from diucs.adapters.inbound.workers.servicebus_runner import ServiceBusRunner
 from diucs.adapters.outbound.bus_servicebus.service_bus import ServiceBusEventBus
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
+from diucs.adapters.outbound.clock_system.system_clock import SystemClock
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
 from diucs.adapters.outbound.graph_store.idempotency_store import DriverIdempotencyStore
 from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
@@ -149,7 +150,9 @@ def build_runners(
         ),
     ]
     if senders is not None and sealer is not None:
-        runners += sender_runners(client, uow_factory, tenants, senders, sealer, observe)
+        runners += sender_runners(
+            client, uow_factory, tenants, senders, sealer, clock or SystemClock(), observe
+        )
     if push is not None and clock is not None and sealer is not None:
         runners.append(
             push_runner(client, uow_factory, tenants, push, sealer, clock, app_url, observe)

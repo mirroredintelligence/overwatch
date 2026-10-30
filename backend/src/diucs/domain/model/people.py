@@ -16,6 +16,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Final
 
 from diucs.domain.codes import Channel, PractitionerRoleCode
 from diucs.domain.errors import ValidationFailed
@@ -130,6 +131,30 @@ def role_holder(role: PractitionerRole, now: datetime) -> str:
     ):
         return role.covered_by_practitioner_id
     return role.practitioner_id
+
+
+COVER_CONTACT_PREFIX: Final = "cover-"
+"""The protected contact of a cover's number is kept under `cover-<role id>`, beside the post's own
+number under `<role id>`, so a cover never replaces the number the post was set up with."""
+
+
+def cover_in_force(role: PractitionerRole, now: datetime) -> bool:
+    """Whether a cover holds the role at `now`: there is a cover and its end has not come."""
+    check_aware("now", now)
+    return (
+        role.covered_by_practitioner_id is not None
+        and role.covered_until is not None
+        and now.astimezone(UTC) < role.covered_until.astimezone(UTC)
+    )
+
+
+def phone_contact_key(role: PractitionerRole, now: datetime) -> str:
+    """The key of the protected contact that holds the number a message for this role goes to at
+    `now`: the cover's while a cover holds the role, the post's own otherwise. The post's own
+    number is the original holder's, and it is not written to while a cover runs."""
+    if cover_in_force(role, now):
+        return f"{COVER_CONTACT_PREFIX}{role.id}"
+    return role.id
 
 
 def is_in_effect(role: PractitionerRole, now: datetime) -> bool:

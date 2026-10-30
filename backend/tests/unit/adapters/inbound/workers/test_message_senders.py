@@ -7,6 +7,7 @@ patient data.
 """
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -31,12 +32,14 @@ from diucs.adapters.inbound.workers.message_senders import (
     parse_outbound,
 )
 from diucs.adapters.outbound.content_seal.aes_gcm import AesGcmContentSealer
+from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.application.ports.outbound.event_bus import BusMessage
 from diucs.application.ports.outbound.messaging import Communication
 from diucs.domain.codes import Channel
 from tests.support.bus import message_with_tenant
 
+CLOCK = FixedClock(datetime(2026, 10, 23, 13, 0, tzinfo=UTC))
 SECRET = b"link-token-test-secret-0123456789abcdef"
 SEALER = AesGcmContentSealer(FixedSecretStore({"link-token": SECRET}))
 TENANT = "tenant-a"
@@ -219,7 +222,7 @@ def test_a_refusal_never_names_the_body_text() -> None:
 
 
 async def test_a_push_payload_is_refused_by_the_text_sender_before_the_unit_of_work() -> None:
-    sender = SmsMessageSender(senders=None, sealer=SEALER)
+    sender = SmsMessageSender(senders=None, sealer=SEALER, clock=CLOCK)
 
     with pytest.raises(PermanentError) as refused:
         await sender(_message(_payload("push")), _Untouched())  # type: ignore[arg-type]
@@ -228,7 +231,7 @@ async def test_a_push_payload_is_refused_by_the_text_sender_before_the_unit_of_w
 
 
 async def test_an_email_payload_is_refused_by_the_text_sender() -> None:
-    sender = SmsMessageSender(senders=None, sealer=SEALER)
+    sender = SmsMessageSender(senders=None, sealer=SEALER, clock=CLOCK)
 
     with pytest.raises(PermanentError) as refused:
         await sender(_message(_payload("email", SUBJECT, HTML)), _Untouched())  # type: ignore[arg-type]
@@ -237,7 +240,7 @@ async def test_an_email_payload_is_refused_by_the_text_sender() -> None:
 
 
 async def test_a_text_payload_is_refused_by_the_email_sender() -> None:
-    sender = EmailMessageSender(senders=None, sealer=SEALER)
+    sender = EmailMessageSender(senders=None, sealer=SEALER, clock=CLOCK)
 
     with pytest.raises(PermanentError) as refused:
         await sender(_message(_payload("text")), _Untouched())  # type: ignore[arg-type]
@@ -246,7 +249,7 @@ async def test_a_text_payload_is_refused_by_the_email_sender() -> None:
 
 
 async def test_a_message_without_a_tenant_is_refused_before_the_unit_of_work() -> None:
-    sender = SmsMessageSender(senders=None, sealer=SEALER)
+    sender = SmsMessageSender(senders=None, sealer=SEALER, clock=CLOCK)
 
     with pytest.raises(PermanentError) as refused:
         await sender(_message(_payload("text"), tenant_id=None), _Untouched())  # type: ignore[arg-type]

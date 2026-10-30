@@ -31,7 +31,13 @@ from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, curren
 from diucs.application.use_cases.setup_service_by_lead import international
 from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
-from diucs.domain.model.people import Practitioner, PractitionerRole, is_in_effect, role_holder
+from diucs.domain.model.people import (
+    COVER_CONTACT_PREFIX,
+    Practitioner,
+    PractitionerRole,
+    is_in_effect,
+    role_holder,
+)
 
 LONDON: Final = ZoneInfo("Europe/London")
 COVER_ENDS_AT: Final = time(23, 59)
@@ -41,7 +47,7 @@ WEEK_LAST_DAY: Final = 6
 AUDIT_ACTION: Final = "U"
 USE_CASE: Final = "ChangeReporterNumber"
 NEW_REPORTER_NAME: Final = "Reporter"
-COVER_KEY_PREFIX: Final = "cover-"
+COVER_KEY_PREFIX: Final = COVER_CONTACT_PREFIX
 """The contact-store key of a cover's number: `cover-<role id>`. A cover keeps the covered post, so
 its number cannot be the post's own (W7B C)."""
 """The name of a practitioner created for a new mobile. The number is the only thing known about

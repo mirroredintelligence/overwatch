@@ -32,27 +32,30 @@ from diucs.adapters.outbound.graph_store.queries import (
 from diucs.application.tenancy import (
     GLOBAL_STATEMENT_MESSAGE,
     QUERY_NOT_REGISTERED_MESSAGE,
-    TENANT_NOT_BOUND_MESSAGE,
+    RAW_TRANSACTION_MESSAGE,
     TENANT_PARAMETER_MESSAGE,
     GlobalStatementMisuse,
     QueryNotRegistered,
+    RawTransactionRefused,
     ScopeId,
-    TenantNotBound,
     TenantParameterRefused,
     bind_scope,
     bind_tenant,
 )
+from tests.support.scoped import OpenTx
 
-SECRET_CYPHER = "MATCH (n:Observation) WHERE n.marker = 'secret-cypher-marker' RETURN n"
+SECRET_CYPHER = (
+    "MATCH (n:Observation {tenantId: $tenant}) WHERE n.marker = 'secret-cypher-marker' RETURN n"
+)
 SCOPED_CYPHER = "MATCH (n:Observation {id: $id, tenantId: $tenant}) RETURN n.id AS id"
-OLD_CYPHER = "MATCH (n:Observation {id: $id, marker: 'secret-cypher-marker'}) RETURN n.id AS id"
+OTHER_CYPHER = (
+    "MATCH (n:Observation {id: $id, marker: 'secret-cypher-marker', tenantId: $tenant}) "
+    "RETURN n.id AS id"
+)
 GLOBAL_CYPHER = "RETURN 1 AS ok"
 SECRET_PARAM = "secret-param-marker"
 SECRET_TENANT = "secret-tenant-marker"
 SCENARIO = Scenario("placeholder until TEN-004")
-
-# The ids this test registry lets through without a tenant: its own ratchet.
-_OLD_IDS = frozenset({"Q-X", "Q-OBS", "Q-NO-TEXT", "Q-LOG", "Q-ECHO", "Q-CLEAR"})
 
 # A well-formed statement that no registry knows.
 _UNKNOWN = NamedQuery(id="Q-UNKNOWN", cypher=SCOPED_CYPHER, mode="read", scenario=SCENARIO)
@@ -93,13 +96,12 @@ class _RawTx:
 
 
 def _new_registry() -> QueryRegistry:
-    """A scoped statement, one that is not converted yet (on this registry's ratchet) and the
-    global ping."""
-    registry = QueryRegistry(unconverted=_OLD_IDS)
+    """Two tenant statements and the global ping."""
+    registry = QueryRegistry()
     registry.register(
         NamedQuery(id="Q-SCOPED", cypher=SCOPED_CYPHER, mode="read", scenario=SCENARIO)
     )
-    registry.register(NamedQuery(id="Q-X", cypher=OLD_CYPHER, mode="read"))
+    registry.register(NamedQuery(id="Q-X", cypher=OTHER_CYPHER, mode="read", scenario=SCENARIO))
     registry.register(
         NamedQuery(id="Q-NEO4J-PING", cypher=GLOBAL_CYPHER, mode="read", scope="global")
     )
@@ -118,8 +120,18 @@ def _q(registry: QueryRegistry, query_id: str) -> NamedQuery:
     return registry.get(query_id)
 
 
-def _stub(rows: list[dict[str, Any]] | None = None) -> _StubTx:
+def _raw(rows: list[dict[str, Any]] | None = None) -> _StubTx:
+    """A raw transaction: `run_query` refuses it (TEN-030)."""
     return _StubTx(rows=[{"id": "r1"}] if rows is None else rows)
+
+
+def _stub(
+    rows: list[dict[str, Any]] | None = None, scope: ScopeId | str = "a1", raw: Any = None
+) -> Any:
+    """The transaction a unit of work hands a repository: a ScopedTx for `scope` (a tenant id or a
+    scope id) that also gives the test the stub's `calls`."""
+    where = scope if isinstance(scope, ScopeId) else ScopeId.tenant(scope)
+    return OpenTx(_raw(rows) if raw is None else raw, where)
 
 
 @pytest.fixture(autouse=True)
@@ -135,11 +147,11 @@ def _no_observer() -> Any:
 async def test_observer_receives_id_mode_row_count_and_a_non_negative_duration(
     registry: QueryRegistry,
 ) -> None:
-    registry.register(NamedQuery(id="Q-OBS", cypher=SECRET_CYPHER, mode="read"))
+    registry.register(NamedQuery(id="Q-OBS", cypher=SECRET_CYPHER, mode="read", scenario=SCENARIO))
     seen: list[tuple[str, str, int, float]] = []
     set_query_observer(lambda q_id, mode, rows, ms: seen.append((q_id, mode, rows, ms)))
 
-    tx = _StubTx(rows=[{"n": 1}, {"n": 2}])
+    tx = _stub([{"n": 1}, {"n": 2}])
     await run_query(tx, _q(registry, "Q-OBS"), marker="x")
 
     assert len(seen) == 1
@@ -150,18 +162,20 @@ async def test_observer_receives_id_mode_row_count_and_a_non_negative_duration(
 
 
 async def test_observer_sees_no_cypher_text_parameter_or_scope(registry: QueryRegistry) -> None:
-    registry.register(NamedQuery(id="Q-NO-TEXT", cypher=SECRET_CYPHER, mode="read"))
+    registry.register(
+        NamedQuery(id="Q-NO-TEXT", cypher=SECRET_CYPHER, mode="read", scenario=SCENARIO)
+    )
     seen: list[tuple[object, ...]] = []
     set_query_observer(lambda *args: seen.append(args))
 
     with bind_tenant(SECRET_TENANT):
         await run_query(
-            _StubTx(rows=[]),
+            _stub([]),
             _q(registry, "Q-NO-TEXT"),
             marker="secret-cypher-marker",
             p=SECRET_PARAM,
         )
-        await run_query(_StubTx(rows=[]), _q(registry, "Q-SCOPED"), id=SECRET_PARAM)
+        await run_query(_stub([]), _q(registry, "Q-SCOPED"), id=SECRET_PARAM)
 
     assert len(seen) == 2
     for args in seen:
@@ -175,11 +189,11 @@ async def test_run_query_logs_no_cypher_text_parameter_or_scope(
     registry: QueryRegistry, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.DEBUG)
-    registry.register(NamedQuery(id="Q-LOG", cypher=SECRET_CYPHER, mode="read"))
+    registry.register(NamedQuery(id="Q-LOG", cypher=SECRET_CYPHER, mode="read", scenario=SCENARIO))
 
-    await run_query(_StubTx(rows=[{"n": 1}]), _q(registry, "Q-LOG"), marker="secret-cypher-marker")
+    await run_query(_stub([{"n": 1}]), _q(registry, "Q-LOG"), marker="secret-cypher-marker")
     with bind_tenant(SECRET_TENANT):
-        await run_query(_StubTx(rows=[{"n": 1}]), _q(registry, "Q-SCOPED"), id=SECRET_PARAM)
+        await run_query(_stub([{"n": 1}]), _q(registry, "Q-SCOPED"), id=SECRET_PARAM)
 
     for forbidden in ("secret-cypher-marker", "Observation", SECRET_PARAM, SECRET_TENANT):
         assert forbidden not in caplog.text
@@ -193,12 +207,14 @@ async def test_the_observer_is_called_for_a_global_statement_too(registry: Query
 
 
 async def test_observer_is_not_called_once_cleared(registry: QueryRegistry) -> None:
-    registry.register(NamedQuery(id="Q-CLEAR", cypher="RETURN 1", mode="read"))
+    registry.register(
+        NamedQuery(id="Q-CLEAR", cypher=SECRET_CYPHER, mode="read", scenario=SCENARIO)
+    )
     seen: list[tuple[object, ...]] = []
     set_query_observer(lambda *args: seen.append(args))
     set_query_observer(None)
 
-    await run_query(_StubTx(rows=[]), _q(registry, "Q-CLEAR"))
+    await run_query(_stub([]), _q(registry, "Q-CLEAR"))
 
     assert seen == []
 
@@ -206,8 +222,8 @@ async def test_observer_is_not_called_once_cleared(registry: QueryRegistry) -> N
 async def test_a_refused_call_does_not_reach_the_observer(registry: QueryRegistry) -> None:
     seen: list[tuple[object, ...]] = []
     set_query_observer(lambda *args: seen.append(args))
-    with pytest.raises(TenantNotBound):
-        await run_query(_stub(), _q(registry, "Q-SCOPED"), id="1")
+    with pytest.raises(RawTransactionRefused):
+        await run_query(_raw(), _q(registry, "Q-SCOPED"), id="1")
     with pytest.raises(QueryNotRegistered):
         await run_query(_stub(), "Q-SCOPED", id="1")  # type: ignore[arg-type]
     assert seen == []
@@ -306,23 +322,38 @@ async def test_run_query_uses_the_given_registry_instead(registry: QueryRegistry
     assert len(tx.calls) == 1
 
 
-# Unbound: a converted statement is refused before any Cypher is sent
+# A raw transaction is refused before any Cypher is sent, bound or not
 
 
-async def test_an_unbound_call_of_a_converted_statement_is_refused_before_any_cypher(
+@pytest.mark.parametrize("bound", [False, True])
+@pytest.mark.parametrize("query_id", ["Q-SCOPED", "Q-X"])
+async def test_a_raw_transaction_is_refused_before_any_cypher_bound_or_not(
+    registry: QueryRegistry, query_id: str, bound: bool
+) -> None:
+    tx = _raw()
+    if bound:
+        with bind_tenant("a1"), pytest.raises(RawTransactionRefused) as raised:
+            await run_query(tx, _q(registry, query_id), id="x")  # type: ignore[arg-type]
+    else:
+        with pytest.raises(RawTransactionRefused) as raised:
+            await run_query(tx, _q(registry, query_id), id="x")  # type: ignore[arg-type]
+    assert str(raised.value) == RAW_TRANSACTION_MESSAGE
+    assert tx.calls == []
+
+
+async def test_the_scope_a_transaction_carries_wins_over_the_ambient_scope(
     registry: QueryRegistry,
 ) -> None:
-    tx = _stub()
-    with pytest.raises(TenantNotBound) as raised:
+    tx = _stub(scope="a1")
+    with bind_tenant("b1"):
         await run_query(tx, _q(registry, "Q-SCOPED"), id="x")
-    assert str(raised.value) == TENANT_NOT_BOUND_MESSAGE
-    assert tx.calls == []
+    assert tx.calls == [(SCOPED_CYPHER, {"tenant": "a1", "id": "x"})]
 
 
 async def test_a_network_binding_is_a_binding_for_the_execution_point(
     registry: QueryRegistry,
 ) -> None:
-    tx = _stub()
+    tx = _stub(scope=ScopeId.network("net-pilot"))
     with bind_scope(ScopeId.network("net-pilot")):
         await run_query(tx, _q(registry, "Q-SCOPED"), id="x")
     assert tx.calls == [(SCOPED_CYPHER, {"tenant": "net-pilot", "id": "x"})]
@@ -344,7 +375,7 @@ async def test_a_bound_call_passes_the_unchanged_text_the_tenant_and_the_callers
 async def test_the_bound_value_is_what_is_passed_not_a_constant(registry: QueryRegistry) -> None:
     seen: list[object] = []
     for tenant in ("a1", "b2", "ucr-west-1"):
-        tx = _stub()
+        tx = _stub(scope=tenant)
         with bind_tenant(tenant):
             await run_query(tx, _q(registry, "Q-SCOPED"), id="x")
         seen.append(tx.calls[0][1].get("tenant"))
@@ -354,9 +385,9 @@ async def test_the_bound_value_is_what_is_passed_not_a_constant(registry: QueryR
 async def test_the_parameters_travel_as_one_dict_after_the_text(registry: QueryRegistry) -> None:
     """neo4j's own `run(query, parameters=None, **kwparameters)` merges a `parameters` keyword with
     the other keywords, so the execution point passes one dict positionally."""
-    tx = _RawTx()
+    tx = _stub(raw=_RawTx())
     with bind_tenant("a1"):
-        await run_query(tx, _q(registry, "Q-SCOPED"), id="x")  # type: ignore[arg-type]
+        await run_query(tx, _q(registry, "Q-SCOPED"), id="x")
     assert tx.calls == [((SCOPED_CYPHER, {"tenant": "a1", "id": "x"}), {})]
 
 
@@ -444,41 +475,6 @@ async def test_for_any_parameters_a_tenant_key_is_refused_and_otherwise_the_boun
             await run_query(tx, _q(registry, "Q-SCOPED"), **params)
             assert tx.calls == [(SCOPED_CYPHER, {"tenant": "a1", **params})]
             assert tx.calls[0][1]["tenant"] == "a1"
-
-
-# A statement that is not converted yet (on the ratchet) still runs, unbound or bound
-
-
-async def test_a_ratchet_statement_runs_unbound_with_no_tenant_parameter(
-    registry: QueryRegistry,
-) -> None:
-    tx = _stub()
-    rows = await run_query(tx, _q(registry, "Q-X"), id=SECRET_PARAM)
-    assert rows == [{"id": "r1"}]
-    assert tx.calls == [(OLD_CYPHER, {"id": SECRET_PARAM})]
-
-
-async def test_a_ratchet_statement_runs_bound_and_receives_the_tenant_parameter(
-    registry: QueryRegistry,
-) -> None:
-    tx = _stub()
-    with bind_tenant("a1"):
-        await run_query(tx, _q(registry, "Q-X"), id="1")
-    assert tx.calls == [(OLD_CYPHER, {"tenant": "a1", "id": "1"})]
-
-
-async def test_only_a_statement_with_no_tenant_in_it_may_run_unbound(
-    registry: QueryRegistry,
-) -> None:
-    """A ratchet id whose statement already mentions $tenant is a converted statement: unbound
-    it is refused, like any other (the ratchet is for the missing tenant only)."""
-    registry.register(
-        NamedQuery(id="Q-OBS", cypher=SCOPED_CYPHER, mode="read")  # converted, scenario pending
-    )
-    tx = _stub()
-    with pytest.raises(TenantNotBound):
-        await run_query(tx, _q(registry, "Q-OBS"), id="1")
-    assert tx.calls == []
 
 
 # Global statements

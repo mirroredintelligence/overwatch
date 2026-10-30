@@ -14,9 +14,7 @@ be denied the Protected label, and IG to decide whether the text is also encrypt
 import secrets
 from typing import Final
 
-from neo4j import AsyncManagedTransaction
-
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
@@ -131,7 +129,7 @@ def checked_text(text: str) -> str:
 class Neo4jProtectedTextStore:
     """Protected text. Built per transaction (DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def put(self, kind: str, about_id: str, text: str) -> str:

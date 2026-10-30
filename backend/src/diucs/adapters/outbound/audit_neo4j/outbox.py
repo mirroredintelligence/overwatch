@@ -11,11 +11,10 @@ import re
 from datetime import UTC, datetime
 from typing import Any, Final, Literal
 
-from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 from neo4j.time import DateTime
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
@@ -252,7 +251,7 @@ def _message_of(props: dict[str, Any]) -> OutboxMessage:
 class Neo4jOutbox:
     """The outbox on the caller's transaction. Built by the unit of work."""
 
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def add(self, message: OutboxMessage) -> None:

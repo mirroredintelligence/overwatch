@@ -20,7 +20,6 @@ from diucs.adapters.outbound.graph_store.protected_text_store import (
 )
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.domain.errors import ValidationFailed
 
 PROTECTED_LABEL = re.compile(r":\s*`?Protected(?:Text)?`?\b")
@@ -102,7 +101,6 @@ def test_the_protected_statements_are_registered_and_carry_scenarios() -> None:
             assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), query_id
         assert query.scenario is not None, query_id
         assert validate_scenario(query_id, query.scenario) == [], query_id
-        assert query_id not in UNCONVERTED
 
 
 def test_a_protected_text_node_has_no_relationship_in_its_statement() -> None:

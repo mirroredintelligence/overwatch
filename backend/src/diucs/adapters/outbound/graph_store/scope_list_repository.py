@@ -15,10 +15,9 @@ so two saves for one service serialise and leave one entry.
 from datetime import date
 from typing import Any, Final
 
-from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.scenario import (
@@ -178,7 +177,7 @@ def _as_date(value: Any) -> date:
 class Neo4jScopeListRepository:
     """The scope list. Built per transaction (DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction, store: ResourceStore) -> None:
+    def __init__(self, tx: ScopedTx, store: ResourceStore) -> None:
         self._tx = tx
         self._store = store
 

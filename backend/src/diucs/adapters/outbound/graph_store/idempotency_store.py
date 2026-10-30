@@ -393,7 +393,7 @@ class Neo4jIdempotencyStore:
 class Neo4jProcessedMessages:
     """Consumer idempotency: (messageId, consumer) is handled once (P15, DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def mark_if_new(self, message_id: str, consumer: str) -> bool:

@@ -14,6 +14,7 @@ from diucs.application.tenancy import (
     UNIT_OF_WORK_OPEN_MESSAGE,
     ScopeId,
     TenancyError,
+    TenantNotBound,
     UnitOfWorkAlreadyOpen,
     bind_scope,
     bind_tenant,
@@ -136,8 +137,9 @@ def test_a_new_unit_snapshots_the_bound_scope() -> None:
         assert scope_for_new_unit() == ScopeId.network("net-pilot")
 
 
-def test_a_new_unit_with_nothing_bound_snapshots_no_scope() -> None:
-    assert scope_for_new_unit() is None
+def test_a_new_unit_with_nothing_bound_is_refused() -> None:
+    with pytest.raises(TenantNotBound):
+        scope_for_new_unit()
 
 
 def test_the_snapshot_does_not_follow_a_later_rebinding() -> None:

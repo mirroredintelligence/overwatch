@@ -2,14 +2,15 @@
 
 `mutant_of` makes a scratch copy of a registered statement with `tenantId: $tenant` taken out of
 its text (every occurrence, or one), in a private registry. The registry would refuse the copy at
-registration (the predicate is gone), so the copy's id goes on that registry's ratchet: the copy
-exists only to be run. The integration test then shows the generated test fails for it.
+registration (the predicate is gone), so the copy goes into a `LeakyRegistry` (tests/support): the
+copy exists only to be run. The integration test then shows the generated test fails for it.
 """
 
 import re
 from typing import Final
 
-from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry
+from diucs.adapters.outbound.graph_store.queries import NamedQuery
+from tests.support.leaky_registry import LeakyRegistry
 
 PREDICATE: Final = "tenantId: $tenant"
 # A map entry `tenantId: $tenant` with the comma that joins it to its neighbour: the one before it
@@ -37,7 +38,7 @@ def without_predicate(cypher: str, occurrence: int | None = None) -> str:
     return out
 
 
-def mutant_of(query: NamedQuery, occurrence: int | None = None) -> tuple[QueryRegistry, NamedQuery]:
+def mutant_of(query: NamedQuery, occurrence: int | None = None) -> tuple[LeakyRegistry, NamedQuery]:
     """A private registry holding the statement without its predicate (the same mode, scope and
     scenario, and the same id, but for an instance of a template: the registry refuses a colon in a
     statement id, so the copy takes the template's id), and that statement."""
@@ -48,6 +49,6 @@ def mutant_of(query: NamedQuery, occurrence: int | None = None) -> tuple[QueryRe
         scope=query.scope,
         scenario=query.scenario,
     )
-    registry = QueryRegistry(unconverted=frozenset({mutant.id}))
+    registry = LeakyRegistry()
     registry.register(mutant)
     return registry, mutant

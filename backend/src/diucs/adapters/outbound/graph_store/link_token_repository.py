@@ -11,10 +11,9 @@ link is not found, marked used or read. Times are written in UTC and read back i
 from datetime import UTC, datetime
 from typing import Any, Final, Literal
 
-from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
@@ -275,7 +274,7 @@ def _from_props(props: dict[str, Any]) -> LinkTokenRecord:
 
 
 class Neo4jLinkTokenRepository:
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def add(self, record: LinkTokenRecord) -> None:

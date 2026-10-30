@@ -23,6 +23,7 @@ from diucs.domain.model.registration import Registration
 from diucs.domain.rules.registration import ApprovalChecks
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
+from tests.support.scoped import scoped
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -268,7 +269,7 @@ async def test_a_save_waits_for_a_held_save_and_a_refused_save_leaves_its_draft(
     held_draft = {"organisation": {"name": "Dorset HealthCare", "ods": "RDY"}, "n": {"v": 2}}
     racing_draft = {"reporting": {"phone_checked": False}}
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).save(replace(SUBMITTED_EAST, draft=held_draft))
         racer = asyncio.create_task(

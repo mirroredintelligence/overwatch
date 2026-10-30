@@ -15,7 +15,6 @@ import pytest
 from diucs.adapters.outbound.graph_store.criteria_repository import Neo4jCriteriaRepository
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.domain.codes import AgeBand, NeedCategory
 from diucs.domain.errors import ValidationFailed
 
@@ -57,11 +56,6 @@ def test_every_labelled_node_names_the_tenant(query_id: str) -> None:
     assert nodes, "the statement matches no tenant node: the scan is not looking at it"
     for node in nodes:
         assert "tenantId: $tenant" in node.group(0), node.group(0)
-
-
-@pytest.mark.parametrize("query_id", ["Q-CRIT-FILTER", "Q-CRIT-HISTORY"])
-def test_the_new_statements_are_not_on_the_ratchet(query_id: str) -> None:
-    assert query_id not in UNCONVERTED
 
 
 def test_the_candidate_statement_reads_the_current_version_of_an_active_service() -> None:

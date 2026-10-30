@@ -25,6 +25,7 @@ from diucs.domain.codes import Role
 from diucs.domain.errors import Conflict
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.scoped import scoped
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -122,13 +123,13 @@ async def test_a_racing_put_waits_for_a_held_put_and_is_refused(
 ) -> None:
     """Held transaction (lesson L94): the second put must wait for the first, then be refused."""
     first_session = neo4j_driver.session()
-    first_tx = await first_session.begin_transaction()
+    first_tx = scoped(await first_session.begin_transaction())
     try:
         await Neo4jIdempotencyStore(first_tx).put("cmd-6", _result("first"))
 
         async def second() -> None:
             async with neo4j_driver.session() as session:
-                tx = await session.begin_transaction()
+                tx = scoped(await session.begin_transaction())
                 try:
                     await Neo4jIdempotencyStore(tx).put("cmd-6", _result("second"))
                 except BaseException:
@@ -152,7 +153,7 @@ async def test_sixteen_racing_puts_for_one_key_leave_one_record(
 ) -> None:
     async def racer(index: int) -> str:
         async with neo4j_driver.session() as session:
-            tx = await session.begin_transaction()
+            tx = scoped(await session.begin_transaction())
             try:
                 await Neo4jIdempotencyStore(tx).put("cmd-7", _result(f"racer-{index}"))
             except Conflict:
@@ -254,13 +255,13 @@ async def test_a_racing_mark_waits_for_a_held_mark_and_leaves_one_marker(
 ) -> None:
     """Held transaction (lesson L94): without the unique key the second mark makes a second node."""
     first_session = neo4j_driver.session()
-    first_tx = await first_session.begin_transaction()
+    first_tx = scoped(await first_session.begin_transaction())
     try:
         assert await Neo4jProcessedMessages(first_tx).mark_if_new("m3", "c") is True
 
         async def second() -> bool:
             async with neo4j_driver.session() as session:
-                tx = await session.begin_transaction()
+                tx = scoped(await session.begin_transaction())
                 try:
                     created = await Neo4jProcessedMessages(tx).mark_if_new("m3", "c")
                 except BaseException:

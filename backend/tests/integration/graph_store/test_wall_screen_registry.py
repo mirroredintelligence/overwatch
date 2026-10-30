@@ -14,6 +14,7 @@ from diucs.adapters.outbound.graph_store.credential_store import Neo4jDeviceRegi
 from diucs.domain.errors import Conflict
 from diucs.domain.model.device import BoardScope, Device, DeviceStatus, DeviceType
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.scoped import scoped
 from tests.support.tenancy import as_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -162,7 +163,7 @@ async def test_get_waits_for_a_held_get_of_the_same_screen_and_then_proceeds(
     the screen must still be waiting while the first holds the screen, and finish after it."""
     await _save(neo4j_driver, _unclaimed())
     async with neo4j_driver.session() as holder:
-        held = await holder.begin_transaction()
+        held = scoped(await holder.begin_transaction())
         await Neo4jDeviceRegistry(cast(AsyncManagedTransaction, held)).get("screen-1")
         second = asyncio.create_task(_get(neo4j_driver, "screen-1"))
         done, _ = await asyncio.wait({second}, timeout=1.0)

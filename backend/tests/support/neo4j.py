@@ -54,6 +54,7 @@ from tests.support.proc import (
     pid_namespace,
     process_start_marker,
 )
+from tests.support.scoped import scoped
 from tests.support.watchdog import paused
 
 START_MESSAGE = (
@@ -429,15 +430,21 @@ async def connect_or_fail(uri: str, user: str, password: str, timeout_s: float =
 async def write_tx[T](
     driver: AsyncDriver, fn: Callable[[AsyncManagedTransaction], Awaitable[T]]
 ) -> T:
+    async def scoped_fn(tx: AsyncManagedTransaction) -> T:
+        return await fn(scoped(tx))
+
     async with driver.session() as session:
-        return await session.execute_write(fn)
+        return await session.execute_write(scoped_fn)
 
 
 async def read_tx[T](
     driver: AsyncDriver, fn: Callable[[AsyncManagedTransaction], Awaitable[T]]
 ) -> T:
+    async def scoped_fn(tx: AsyncManagedTransaction) -> T:
+        return await fn(scoped(tx))
+
     async with driver.session() as session:
-        return await session.execute_read(fn)
+        return await session.execute_read(scoped_fn)
 
 
 def _checked_name(name: str) -> str:

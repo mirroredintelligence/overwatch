@@ -22,7 +22,6 @@ from diucs.adapters.outbound.graph_store.push_subscription_repository import (
 )
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.application.ports.outbound.messaging import PushSubscription
 from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.model.device import DeviceType
@@ -98,7 +97,6 @@ def test_every_push_statement_names_its_tenant_and_carries_a_valid_scenario() ->
             assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), query_id
         assert query.scenario is not None, query_id
         assert validate_scenario(query_id, query.scenario) == [], query_id
-        assert query_id not in UNCONVERTED
 
 
 def test_no_push_statement_writes_the_subscription_text_into_a_log_or_an_audit_row() -> None:

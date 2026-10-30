@@ -39,6 +39,7 @@ from diucs.domain.model.flags import (
 from tests.integration.graph_store.test_service_repository import UCR_EAST
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
+from tests.support.scoped import scoped
 from tests.unit.adapters.outbound.graph_store.test_capacity_repository import NUMBER_REPORT
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST
 
@@ -313,7 +314,7 @@ async def test_a_second_add_of_one_flag_waits_for_a_held_add_and_is_refused(
 ) -> None:
     await _seed(neo4j_driver)
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).add_report_flag(RANGE_FLAG_WEST)
         racer = asyncio.create_task(
@@ -390,7 +391,7 @@ async def test_a_second_resolution_waits_for_a_held_resolution_and_is_refused(
     await _seed(neo4j_driver)
     await _run(neo4j_driver, lambda repo: repo.add_report_flag(RANGE_FLAG_WEST))
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     first = replace(RANGE_FLAG_WEST, status=REPORT_FLAG_CHECKED, resolved_at=RESOLVED)
     second = replace(
         RANGE_FLAG_WEST,
@@ -451,7 +452,7 @@ async def test_a_second_set_for_a_service_that_a_held_set_is_creating_waits_and_
     # existing node is serialised by Neo4j anyway, so it cannot show the lock is there.
     await _seed(neo4j_driver)
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).set_service_flag(SUSPENDED_WEST)
         racer = asyncio.create_task(
@@ -516,7 +517,7 @@ async def test_two_racing_adds_of_one_flag_id_on_different_reports_leave_one_fla
     await _seed(neo4j_driver)
     same_id_on_east = replace(RANGE_FLAG_EAST, id=RANGE_FLAG_WEST.id)
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).add_report_flag(RANGE_FLAG_WEST)
         racer = asyncio.create_task(

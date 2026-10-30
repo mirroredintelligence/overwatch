@@ -70,14 +70,18 @@ def _no_observer() -> Any:
 # 1. A raw transaction is refused
 
 
-async def test_a_raw_transaction_is_refused_even_with_a_scope_bound(registry: QueryRegistry) -> None:
+async def test_a_raw_transaction_is_refused_even_with_a_scope_bound(
+    registry: QueryRegistry,
+) -> None:
     tx = _Tx()
     with bind_tenant("a1"), pytest.raises(RawTransactionRefused):
         await run_query(tx, registry.get("Q-SCOPED"), registry=registry, id="x")  # type: ignore[arg-type]
     assert tx.calls == []
 
 
-async def test_a_raw_transaction_is_refused_with_no_scope_bound_too(registry: QueryRegistry) -> None:
+async def test_a_raw_transaction_is_refused_with_no_scope_bound_too(
+    registry: QueryRegistry,
+) -> None:
     tx = _Tx()
     with pytest.raises(RawTransactionRefused):
         await run_query(tx, registry.get("Q-SCOPED"), registry=registry, id="x")  # type: ignore[arg-type]

@@ -5,17 +5,15 @@ import re
 
 from diucs.adapters.outbound.graph_store import registration_repository  # registers the queries
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 
 QUERY_ID = "Q-REG-DISTRICT-LOCATIONS"
 
 
-def test_the_statement_is_a_registered_read_with_a_scenario_and_is_not_on_the_ratchet() -> None:
+def test_the_statement_is_a_registered_read_with_a_scenario() -> None:
     assert registration_repository is not None
     query = REGISTRY.get(QUERY_ID)
     assert query.mode == "read"
     assert query.scenario is not None
-    assert QUERY_ID not in UNCONVERTED
 
 
 def test_every_node_it_matches_names_the_tenant() -> None:

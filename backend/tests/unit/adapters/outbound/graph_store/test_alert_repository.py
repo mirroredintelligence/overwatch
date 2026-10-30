@@ -17,7 +17,6 @@ from diucs.adapters.outbound.graph_store.alert_repository import (
 )
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.domain.codes import AlertKind, code_system_url
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.alerts import AlertRecord, AlertSubscription
@@ -235,10 +234,6 @@ def test_every_alert_statement_carries_a_valid_scenario() -> None:
         query = REGISTRY.get(query_id)
         assert query.scenario is not None, query_id
         assert validate_scenario(query_id, query.scenario) == [], query_id
-
-
-def test_no_alert_statement_is_on_the_ratchet() -> None:
-    assert not {query_id for query_id in _alert_ids() if query_id in UNCONVERTED}
 
 
 def test_the_subscription_statements_do_not_hold_a_second_subscription_per_practitioner() -> None:

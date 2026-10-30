@@ -15,13 +15,13 @@ from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
 from diucs.adapters.outbound.graph_store.idempotency_store import Neo4jIdempotencyStore
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.application.actor import Actor
-from diucs.application.tenancy import TenantNotBound, bind_tenant
+from diucs.application.tenancy import RawTransactionRefused
 from diucs.domain.codes import Role
 from tests.support.actors import ACTOR_TENANT
+from tests.support.scoped import scoped_stub
 
-# The statements that TEN-016 converts. Each is on the ratchet today; the conversion removes it.
+# The statements that TEN-016 converts. Each carries `tenantId: $tenant` and a scenario.
 CONVERTED_BY_TEN_016: tuple[str, ...] = (
     "Q-IDEM-CREATE",
     "Q-IDEM-EDGES",
@@ -70,8 +70,7 @@ class _RecordingTx:
 
 
 @pytest.mark.parametrize("query_id", CONVERTED_BY_TEN_016)
-def test_the_statement_is_off_the_ratchet_and_carries_a_scenario(query_id: str) -> None:
-    assert query_id not in UNCONVERTED
+def test_the_statement_carries_a_scenario(query_id: str) -> None:
     query = REGISTRY.get(query_id)
     assert _STAMP in query.cypher
     assert query.scenario is not None
@@ -103,50 +102,48 @@ def test_the_replay_record_is_stamped_on_the_record_and_on_every_value() -> None
     assert "(c:IdempotencyValue {seq: e.child, tenantId: $tenant})" in link
 
 
-async def test_reading_a_replay_record_without_a_bound_tenant_is_refused_before_cypher() -> None:
+async def test_reading_a_replay_record_on_a_raw_transaction_is_refused_before_cypher() -> None:
     tx = _RecordingTx()
     store = Neo4jIdempotencyStore(cast(Any, tx))
-    with pytest.raises(TenantNotBound):
+    with pytest.raises(RawTransactionRefused):
         await store.get("pairing:key-1")
     assert tx.calls == []
 
 
-async def test_storing_a_replay_record_without_a_bound_tenant_is_refused_before_cypher() -> None:
+async def test_storing_a_replay_record_on_a_raw_transaction_is_refused_before_cypher() -> None:
     tx = _RecordingTx()
     store = Neo4jIdempotencyStore(cast(Any, tx))
-    with pytest.raises(TenantNotBound):
+    with pytest.raises(RawTransactionRefused):
         await store.put("pairing:key-1", _RESULT)
     assert tx.calls == []
 
 
 async def test_the_replay_read_is_stamped_with_the_bound_tenant() -> None:
     tx = _RecordingTx()
-    with bind_tenant("tt-unit-0001"):
-        assert await Neo4jIdempotencyStore(cast(Any, tx)).get("pairing:key-1") is None
+    assert await Neo4jIdempotencyStore(scoped_stub(tx, "tt-unit-0001")).get("pairing:key-1") is None
     assert tx.calls
     for cypher, parameters in tx.calls:
         assert _STAMP in cypher
         assert parameters["tenant"] == "tt-unit-0001"
 
 
-async def test_marking_an_outbox_message_published_without_a_tenant_is_refused() -> None:
+async def test_marking_an_outbox_message_published_on_a_raw_transaction_is_refused() -> None:
     tx = _RecordingTx()
-    with pytest.raises(TenantNotBound):
+    with pytest.raises(RawTransactionRefused):
         await Neo4jOutbox(cast(Any, tx)).mark_published("m-1", _AT)
     assert tx.calls == []
 
 
-async def test_failing_an_outbox_message_without_a_tenant_is_refused() -> None:
+async def test_failing_an_outbox_message_on_a_raw_transaction_is_refused() -> None:
     tx = _RecordingTx()
-    with pytest.raises(TenantNotBound):
+    with pytest.raises(RawTransactionRefused):
         await Neo4jOutbox(cast(Any, tx)).mark_failed("m-1", "boom")
     assert tx.calls == []
 
 
 async def test_publishing_an_outbox_message_is_stamped_with_the_bound_tenant() -> None:
     tx = _RecordingTx(rows=[{"status": "pending"}])
-    with bind_tenant("tt-unit-0001"):
-        await Neo4jOutbox(cast(Any, tx)).mark_published("m-1", _AT)
+    await Neo4jOutbox(scoped_stub(tx, "tt-unit-0001")).mark_published("m-1", _AT)
     assert len(tx.calls) == 2
     for cypher, parameters in tx.calls:
         assert _STAMP in cypher
@@ -155,8 +152,7 @@ async def test_publishing_an_outbox_message_is_stamped_with_the_bound_tenant() -
 
 async def test_failing_an_outbox_message_is_stamped_with_the_bound_tenant() -> None:
     tx = _RecordingTx(rows=[{"attempts": 1, "status": "pending"}])
-    with bind_tenant("tt-unit-0001"):
-        await Neo4jOutbox(cast(Any, tx)).mark_failed("m-1", "boom")
+    await Neo4jOutbox(scoped_stub(tx, "tt-unit-0001")).mark_failed("m-1", "boom")
     assert len(tx.calls) == 1
     cypher, parameters = tx.calls[0]
     assert _STAMP in cypher

@@ -97,7 +97,6 @@ def test_each_statement_is_a_tenant_statement_with_a_scenario(query_id: str) -> 
     assert query.mode == EXPECTED_IDS[query_id]
     assert query.scenario is not None
     assert validate_scenario(query_id, query.scenario) == []
-    assert query_id not in REGISTRY.ratchet_ids()
 
 
 @pytest.mark.parametrize("query_id", sorted(EXPECTED_IDS))

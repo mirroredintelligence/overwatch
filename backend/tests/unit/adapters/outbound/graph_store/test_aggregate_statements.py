@@ -13,7 +13,6 @@ import pytest
 import diucs.adapters.outbound.graph_store.aggregate_repository  # noqa: F401  (registers the statements)
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 
 AGG_IDS = sorted(
     [
@@ -55,11 +54,6 @@ def test_every_node_the_statement_names_carries_the_tenant(query_id: str) -> Non
     assert nodes, "the statement names no node with properties"
     for properties in nodes:
         assert "tenantId: $tenant" in properties, query_id
-
-
-@pytest.mark.parametrize("query_id", AGG_IDS)
-def test_the_aggregate_statements_are_not_on_the_ratchet(query_id: str) -> None:
-    assert query_id not in UNCONVERTED
 
 
 def test_the_write_and_clear_statements_are_writes_and_the_reads_are_reads() -> None:

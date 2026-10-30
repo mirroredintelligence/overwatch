@@ -25,10 +25,9 @@ Neo4j stores no null property (lesson L74): a cleared value is absent, and reade
 from datetime import UTC, datetime, timedelta
 from typing import Any, Final, Literal
 
-from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
@@ -510,7 +509,7 @@ def _pin_state(row: dict[str, Any]) -> PinState:
 
 
 class Neo4jPinStore:
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def set_pin(self, practitioner_id: str, device_id: str, pin_hash: str) -> None:
@@ -573,7 +572,7 @@ def _screen(row: dict[str, Any]) -> Device:
 
 
 class Neo4jDeviceRegistry:
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def register(self, practitioner_id: str, device_id: str, at: datetime) -> None:

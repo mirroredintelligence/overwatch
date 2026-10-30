@@ -25,6 +25,7 @@ from diucs.adapters.outbound.graph_store.scenario import (
     Scenario,
     Unique,
 )
+from tests.support.leaky_registry import LeakyRegistry
 from tests.support.query_probes import (
     Finding,
     FindingKind,
@@ -32,8 +33,8 @@ from tests.support.query_probes import (
     format_findings,
     is_vacuous,
     normalised,
+    predicate_problems,
     production_statements,
-    ratchet_problems,
     registry_problems,
     row_problems,
     scenario_gaps,
@@ -47,7 +48,7 @@ OLD_CYPHER = "MATCH (n:X) RETURN n"
 
 
 def _registry() -> QueryRegistry:
-    registry = QueryRegistry(unconverted=frozenset({"Q-OLD", "Q-TPL-OLD", "Q-TEST-OLD"}))
+    registry = LeakyRegistry()  # holds bare statements: the universe tests need some
     registry.register(NamedQuery(id="Q-OLD", cypher=OLD_CYPHER, mode="read"))
     registry.register(NamedQuery(id="Q-NEW", cypher=TENANT_CYPHER, mode="read", scenario=SC))
     registry.register(NamedQuery(id="Q-TEST-OLD", cypher=OLD_CYPHER, mode="read"))
@@ -146,7 +147,11 @@ def test_the_universe_is_complete_in_a_fresh_interpreter() -> None:
 # The production registry may hold no test-named statement, and the universe holds all of it
 # (TEN-004 round 2, B1)
 
-LEAKY_TEXT = "MATCH (p:ProbeThing {id: $id}) WHERE p.tenantId = $tenant OR true RETURN p.id AS id"
+# Carries the predicate entry the registry looks for on one node and leaks through another.
+LEAKY_TEXT = (
+    "MATCH (a:ProbeThing {id: $id, tenantId: $tenant}) MATCH (p:ProbeThing {id: $id}) "
+    "RETURN p.id AS id"
+)
 
 
 def _sneak() -> NamedQuery:
@@ -209,7 +214,7 @@ def test_the_hygiene_check_refuses_a_test_named_statement_in_the_production_regi
 
 
 def test_the_hygiene_check_names_a_test_named_template_and_an_id_outside_the_convention() -> None:
-    registry = QueryRegistry(unconverted=frozenset({"q-lower", "Q-TEST-TPL-OLD"}))
+    registry = LeakyRegistry()
     registry.register(NamedQuery(id="q-lower", cypher=OLD_CYPHER, mode="read"))
     registry.register(NamedQuery(id="Q-FINE-ONE", cypher=TENANT_CYPHER, mode="read", scenario=SC))
     registry.register_template(
@@ -265,65 +270,43 @@ def test_the_universe_check_does_not_name_global_statements_or_instances() -> No
     assert universe_problems(registry, production_statements(registry)) == []
 
 
-# Gaps and the ratchet
+# Gaps and predicates
 
 
-def test_a_statement_with_no_scenario_that_is_not_on_the_ratchet_is_a_gap() -> None:
+def test_a_statement_with_no_scenario_is_a_gap() -> None:
     statements = {"Q-OLD": NamedQuery(id="Q-OLD", cypher=OLD_CYPHER, mode="read")}
-    gaps = scenario_gaps(statements, frozenset())
+    gaps = scenario_gaps(statements)
     assert len(gaps) == 1
     assert "Q-OLD" in gaps[0]
     assert "no scenario" in gaps[0]
 
 
-def test_a_statement_on_the_ratchet_or_with_a_scenario_is_no_gap() -> None:
+def test_a_statement_with_a_scenario_is_no_gap() -> None:
+    statements = {"Q-NEW": NamedQuery(id="Q-NEW", cypher=TENANT_CYPHER, mode="read", scenario=SC)}
+    assert scenario_gaps(statements) == []
+
+
+def test_a_statement_with_no_predicate_entry_is_a_problem() -> None:
     statements = production_statements(_registry())
-    assert scenario_gaps(statements, frozenset({"Q-OLD", "Q-TPL-OLD"})) == []
+    problems = predicate_problems(statements)
+    assert any("Q-OLD" in p and "tenantId: $tenant" in p for p in problems)
+    assert any("Q-TPL-OLD" in p for p in problems)
+    assert not any("Q-NEW" in p for p in problems)
 
 
-def _real_like() -> tuple[dict[str, NamedQuery], frozenset[str], frozenset[str]]:
-    statements = production_statements(_registry())
-    return (
-        statements,
-        frozenset({"Q-OLD", "Q-TPL-OLD"}),
-        frozenset({"Q-OLD", "Q-TPL-OLD", "Q-GONE"}),
-    )
+def test_a_statement_that_only_mentions_the_tenant_is_a_problem() -> None:
+    statements = {
+        "Q-HALF": NamedQuery(
+            id="Q-HALF", cypher="MATCH (n:X) RETURN n, $tenant AS t", mode="read", scenario=SC
+        )
+    }
+    assert predicate_problems(statements) != []
 
 
-def test_a_clean_state_has_no_ratchet_problem() -> None:
-    statements, unconverted, initial = _real_like()
-    assert ratchet_problems(statements, unconverted, initial) == []
-
-
-def test_an_id_added_to_the_ratchet_is_a_problem() -> None:
-    statements, unconverted, initial = _real_like()
-    problems = ratchet_problems(statements, unconverted | {"Q-NEW"}, initial)
-    assert any("Q-NEW" in p and "not on the initial list" in p for p in problems)
-
-
-def test_a_converted_statement_left_on_the_ratchet_is_a_problem() -> None:
-    statements, unconverted, initial = _real_like()
-    problems = ratchet_problems(statements, unconverted | {"Q-NEW"}, initial | {"Q-NEW"})
-    assert any("Q-NEW" in p and "remove it from UNCONVERTED" in p for p in problems)
-
-
-def test_a_ratchet_id_that_is_not_a_statement_is_a_problem() -> None:
-    statements, unconverted, initial = _real_like()
-    problems = ratchet_problems(statements, unconverted | {"Q-GONE"}, initial)
-    assert any("Q-GONE" in p and "no such statement" in p for p in problems)
-
-
-def test_a_statement_with_neither_conversion_nor_a_place_on_the_ratchet_is_a_problem() -> None:
-    statements, unconverted, initial = _real_like()
-    problems = ratchet_problems(statements, frozenset({"Q-TPL-OLD"}), initial)
-    assert any("Q-OLD" in p and "$tenant and a scenario" in p for p in problems)
-
-
-def test_a_converted_text_without_a_scenario_is_a_problem() -> None:
-    statements, unconverted, initial = _real_like()
-    statements["Q-HALF"] = NamedQuery(id="Q-HALF", cypher=TENANT_CYPHER, mode="read")
-    problems = ratchet_problems(statements, unconverted, initial)
-    assert any("Q-HALF" in p and "$tenant and a scenario" in p for p in problems)
+def test_the_real_registry_has_no_gap_and_no_predicate_problem() -> None:
+    statements = production_statements(REGISTRY)
+    assert scenario_gaps(statements) == []
+    assert predicate_problems(statements) == []
 
 
 # Rows

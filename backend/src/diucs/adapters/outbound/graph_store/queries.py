@@ -4,9 +4,9 @@ Every statement is fixed text in the code, registered once with a name, its text
 `run_query` takes only a registered `NamedQuery`: no string, no text built at the call. Only the id
 ever reaches telemetry, never the Cypher text.
 
-The check at registration is cheap and is not a proof. A tenant statement must mention `$tenant`
-and must carry a `Scenario`, unless its id is on the ratchet (`UNCONVERTED`: the statements that
-existed before the seam and have not been converted yet). A global statement must be on the short
+The check at registration is cheap and is not a proof. A tenant statement must carry a
+`tenantId: $tenant` entry and a `Scenario`, always: there is no ratchet and no list of ids that
+are excused (TEN-030 ended it, DEC-440). A global statement must be on the short
 allowlist `GLOBAL_QUERY_IDS` and be pinned in `GLOBAL_STATEMENTS` by the SHA-256 of its exact text
 (that pin is the guarantee, TEN-007 round 2); it must also not mention `$tenant`, must be read-only
 and may name registry labels only (`GLOBAL_STATEMENT_LABELS`), as defence in depth. That
@@ -29,19 +29,21 @@ from types import MappingProxyType
 from typing import Final, Literal
 
 from diucs.adapters.outbound.graph_store.scenario import Scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 
 _MODES = ("read", "write")
 _SCOPES = ("tenant", "global")
 
 # `$tenant` and not `$tenantId`, `$tenants` or `$tenant_x`.
 _TENANT_PARAMETER = re.compile(r"\$tenant\b")
+# The predicate itself: a map entry `tenantId: $tenant`. `$tenant` in a result, a comparison or a
+# comment is not one (a comment and the inside of a string are blanked before the look).
+_TENANT_ENTRY = re.compile(r"\btenantId\s*:\s*\$tenant\b")
 
 PLACEHOLDER: Final = "{insert}"
 # `:Label` or `:Label:Other` or `:HAS_X`: ASCII identifiers only. fullmatch, so no trailing text.
 _INSERT = re.compile(r"(?::[A-Za-z_][A-Za-z0-9_]*)+")
 # A plain statement id has no colon: `Q-RES-UPSERT-ROOT:Resource:Organization` is an instance of
-# the template `Q-RES-UPSERT-ROOT`, and an instance inherits the template's place on the ratchet.
+# the template `Q-RES-UPSERT-ROOT`, and a template instance is judged by its template.
 _INSTANCE_SEPARATOR: Final = ":"
 
 # The short global allowlist (DEC-130 item 3): statements that run before any tenant is known or
@@ -188,7 +190,7 @@ def _blank(query_id: str, cypher: str) -> str:
             i += 1
             while True:
                 if i >= n:
-                    raise ValueError(f"query {query_id}: a string in a global statement is open")
+                    raise ValueError(f"query {query_id}: a string in the statement is open")
                 if cypher[i] == "\\":
                     i += 2
                 elif cypher[i] == c:
@@ -200,7 +202,7 @@ def _blank(query_id: str, cypher: str) -> str:
         elif c == "`":
             end = cypher.find("`", i + 1)
             if end < 0:
-                raise ValueError(f"query {query_id}: a quoted name in a global statement is open")
+                raise ValueError(f"query {query_id}: a quoted name in the statement is open")
             out.append(cypher[i : end + 1])
             i = end + 1
         elif cypher.startswith("//", i):
@@ -210,7 +212,7 @@ def _blank(query_id: str, cypher: str) -> str:
         elif cypher.startswith("/*", i):
             end = cypher.find("*/", i + 2)
             if end < 0:
-                raise ValueError(f"query {query_id}: a comment in a global statement is open")
+                raise ValueError(f"query {query_id}: a comment in the statement is open")
             i = end + 2
             out.append(" ")
         else:
@@ -220,11 +222,11 @@ def _blank(query_id: str, cypher: str) -> str:
 
 
 class TenantPredicateMissing(ValueError):
-    """A tenant statement that never mentions `$tenant` and is not on the ratchet."""
+    """A tenant statement that has no `tenantId: $tenant` entry."""
 
 
 class ScenarioMissing(ValueError):
-    """A tenant statement that has no scenario and is not on the ratchet."""
+    """A tenant statement that has no scenario."""
 
 
 def _check_global_text(query_id: str, cypher: str) -> None:
@@ -308,8 +310,7 @@ def _mentions_tenant(cypher: str) -> bool:
 
 
 class QueryRegistry:
-    def __init__(self, unconverted: frozenset[str] = UNCONVERTED) -> None:
-        self._unconverted = unconverted
+    def __init__(self) -> None:
         self._queries: dict[str, NamedQuery] = {}
         self._templates: dict[str, QueryTemplate] = {}
 
@@ -380,25 +381,6 @@ class QueryRegistry:
         mode, scope and scenario. An id alone is not enough."""
         return isinstance(query, NamedQuery) and self._queries.get(query.id) == query
 
-    def is_tenant_pending(self, query: NamedQuery | QueryTemplate) -> bool:
-        """A tenant statement that does not mention `$tenant`: it is on the ratchet, and it may
-        still run with no scope bound. Every other tenant statement may not."""
-        return query.scope == "tenant" and not _mentions_tenant(query.cypher)
-
-    def needs_conversion(self, query: NamedQuery | QueryTemplate) -> bool:
-        """A tenant statement that does not mention `$tenant` or has no scenario."""
-        return query.scope == "tenant" and (
-            not _mentions_tenant(query.cypher) or query.scenario is None
-        )
-
-    def ratchet_ids(self) -> list[str]:
-        """The ids of the registered statements and templates that still need conversion: what
-        `UNCONVERTED` must list, no more and no fewer. An instance counts as its template."""
-        plain = [q.id for q in self._queries.values() if _INSTANCE_SEPARATOR not in q.id]
-        pending = [i for i in plain if self.needs_conversion(self._queries[i])]
-        pending += [t.id for t in self._templates.values() if self.needs_conversion(t)]
-        return sorted(pending)
-
     def _refuse_taken(self, query_id: str) -> None:
         if query_id in self._queries or query_id in self._templates:
             raise ValueError(f"duplicate query id: {query_id}")
@@ -427,15 +409,12 @@ class QueryRegistry:
                     f"query {query_id}: the text is not the pinned text of this global statement"
                 )
             return
-        on_ratchet = query_id in self._unconverted
-        if not _mentions_tenant(cypher) and not on_ratchet:
+        if _TENANT_ENTRY.search(_blank(query_id, cypher)) is None:
             raise TenantPredicateMissing(
-                f"query {query_id}: no $tenant in the statement, and its id is not on the ratchet"
+                f"query {query_id}: no tenantId: $tenant entry in the statement"
             )
-        if scenario is None and not on_ratchet:
-            raise ScenarioMissing(
-                f"query {query_id}: no scenario, and its id is not on the ratchet"
-            )
+        if scenario is None:
+            raise ScenarioMissing(f"query {query_id}: no scenario")
 
 
 REGISTRY = QueryRegistry()

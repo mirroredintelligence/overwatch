@@ -16,7 +16,6 @@ from diucs.adapters.outbound.graph_store.clinical_request_repository import (
 )
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.domain.codes import code_system_url
 from diucs.domain.model.clinical import ClinicalAdvice, ClinicalRequestRecord
 from diucs.domain.rules.clinical_queue import ClinicalRequest, give_advice, take
@@ -134,7 +133,6 @@ def test_every_clinical_statement_names_its_tenant_and_carries_a_valid_scenario(
             assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), query_id
         assert query.scenario is not None, query_id
         assert validate_scenario(query_id, query.scenario) == [], query_id
-        assert query_id not in UNCONVERTED
 
 
 def test_the_queue_statement_orders_nothing_it_does_not_need_to() -> None:

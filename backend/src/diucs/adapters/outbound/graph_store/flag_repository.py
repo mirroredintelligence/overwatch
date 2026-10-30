@@ -16,10 +16,9 @@ Every refusal is decided before the first change.
 from datetime import UTC, datetime
 from typing import Any, Final, Literal
 
-from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.flag_scenarios import FLAG_SCENARIOS
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
@@ -260,7 +259,7 @@ def _report_flag(props: dict[str, Any], report_id: str) -> ReportFlag:
 class Neo4jFlagRepository:
     """Flags, built per transaction (DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction, store: ResourceStore) -> None:
+    def __init__(self, tx: ScopedTx, store: ResourceStore) -> None:
         self._tx = tx
         self._store = store
 

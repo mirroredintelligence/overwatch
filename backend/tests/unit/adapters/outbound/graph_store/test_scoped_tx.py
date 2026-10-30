@@ -21,15 +21,14 @@ from diucs.adapters.outbound.graph_store.driver import (
 from diucs.adapters.outbound.graph_store.queries import NamedQuery, QueryRegistry, Scenario
 from diucs.application.tenancy import (
     GlobalStatementMisuse,
+    RawTransactionRefused,
     ScopeId,
-    TenantNotBound,
     TenantParameterRefused,
     bind_scope,
     bind_tenant,
 )
 
 SCOPED_CYPHER = "MATCH (n:Observation {id: $id, tenantId: $tenant}) RETURN n.id AS id"
-OLD_CYPHER = "MATCH (n:Observation {id: $id}) RETURN n.id AS id"
 GLOBAL_CYPHER = "RETURN 1 AS ok"
 SCENARIO = Scenario("placeholder until TEN-004")
 
@@ -56,9 +55,8 @@ class _StubTx:
 
 @pytest.fixture
 def registry(monkeypatch: pytest.MonkeyPatch) -> QueryRegistry:
-    new = QueryRegistry(unconverted=frozenset({"Q-OLD"}))
+    new = QueryRegistry()
     new.register(NamedQuery(id="Q-SCOPED", cypher=SCOPED_CYPHER, mode="read", scenario=SCENARIO))
-    new.register(NamedQuery(id="Q-OLD", cypher=OLD_CYPHER, mode="read"))
     new.register(NamedQuery(id="Q-NEO4J-PING", cypher=GLOBAL_CYPHER, mode="read", scope="global"))
     monkeypatch.setattr(driver_module, "REGISTRY", new)
     return new
@@ -118,32 +116,6 @@ async def test_the_scope_carried_by_a_scoped_transaction_survives_every_rebindin
     assert [params["tenant"] for _, params in stub.calls] == ["a1", "a1", "a1", "a1"]
 
 
-async def test_a_scoped_transaction_with_no_scope_sends_no_tenant_for_a_statement_not_yet_converted(
-    registry: QueryRegistry,
-) -> None:
-    stub = _StubTx()
-    with bind_scope(B1):
-        await run_query(ScopedTx(stub, None), registry.get("Q-OLD"), id="x")  # type: ignore[arg-type]
-    assert stub.calls == [(OLD_CYPHER, {"id": "x"})]
-
-
-async def test_a_scoped_transaction_with_no_scope_refuses_a_converted_statement_though_one_is_bound(
-    registry: QueryRegistry,
-) -> None:
-    stub = _StubTx()
-    with bind_scope(B1), pytest.raises(TenantNotBound):
-        await run_query(ScopedTx(stub, None), registry.get("Q-SCOPED"), id="x")  # type: ignore[arg-type]
-    assert stub.calls == []
-
-
-async def test_a_scoped_transaction_gives_a_statement_not_yet_converted_its_scope_unused(
-    registry: QueryRegistry,
-) -> None:
-    stub = _StubTx()
-    await run_query(ScopedTx(stub, A1), registry.get("Q-OLD"), id="x")  # type: ignore[arg-type]
-    assert stub.calls == [(OLD_CYPHER, {"tenant": "a1", "id": "x"})]
-
-
 async def test_a_network_scope_reaches_the_statement_as_the_same_parameter(
     registry: QueryRegistry,
 ) -> None:
@@ -175,16 +147,16 @@ async def test_a_global_statement_is_refused_by_run_query_on_a_scoped_transactio
     assert stub.calls == []
 
 
-# 3. A raw transaction behaves as TEN-001 left it
+# 3. A raw transaction is refused (TEN-030)
 
 
-async def test_a_raw_transaction_still_takes_the_ambient_scope(registry: QueryRegistry) -> None:
+async def test_a_raw_transaction_is_refused_whatever_is_bound(registry: QueryRegistry) -> None:
     stub = _StubTx()
-    with bind_tenant("b1"):
+    with bind_tenant("b1"), pytest.raises(RawTransactionRefused):
         await run_query(stub, registry.get("Q-SCOPED"), id="x")  # type: ignore[arg-type]
-    assert stub.calls == [(SCOPED_CYPHER, {"tenant": "b1", "id": "x"})]
-    with pytest.raises(TenantNotBound):
+    with pytest.raises(RawTransactionRefused):
         await run_query(stub, registry.get("Q-SCOPED"), id="x")  # type: ignore[arg-type]
+    assert stub.calls == []
 
 
 # 4. The global path takes either kind and never a tenant

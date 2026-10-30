@@ -21,10 +21,9 @@ import re
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
@@ -444,7 +443,7 @@ class Neo4jCaseRepository:
     (DEC-012). Every write goes through the resource store, which checks the version after its
     lock (DEC-053 item 4)."""
 
-    def __init__(self, tx: AsyncManagedTransaction, store: ResourceStore) -> None:
+    def __init__(self, tx: ScopedTx, store: ResourceStore) -> None:
         self._tx = tx
         self._store = store
 

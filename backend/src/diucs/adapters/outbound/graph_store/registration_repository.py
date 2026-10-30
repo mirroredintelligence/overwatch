@@ -20,10 +20,8 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from neo4j import AsyncManagedTransaction
-
 from diucs.adapters.outbound.graph_store.bundle_writer import write_bundle as write_resources
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.extensions import EXTENSIONS, by_short_name
 from diucs.adapters.outbound.graph_store.invitation_fhir import (
     invitation_from_fhir,
@@ -481,7 +479,7 @@ def _utc(value: datetime | None) -> datetime | None:
 class Neo4jRegistrationRepository:
     """Registrations as Task resources. Built per transaction (DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction, store: ResourceStore) -> None:
+    def __init__(self, tx: ScopedTx, store: ResourceStore) -> None:
         self._tx = tx
         self._store = store
 

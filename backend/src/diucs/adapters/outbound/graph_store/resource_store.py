@@ -30,11 +30,10 @@ import uuid
 from datetime import UTC, datetime, timedelta, timezone
 from typing import Any, Literal
 
-from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 from neo4j.time import Date, DateTime, Time
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.extensions import TENANT_OWNED_NAMES
 from diucs.adapters.outbound.graph_store.mapper import (
     GraphFragment,
@@ -373,7 +372,7 @@ def _props_from_db(props: dict[str, Any]) -> dict[str, Any]:
 
 
 class ResourceStore:
-    def __init__(self, tx: AsyncManagedTransaction, clock: Clock | None = None) -> None:
+    def __init__(self, tx: ScopedTx, clock: Clock | None = None) -> None:
         self._tx = tx
         self._clock = clock
 

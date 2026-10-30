@@ -23,10 +23,9 @@ default and never a guess (fail closed).
 from datetime import UTC, datetime
 from typing import Any, Final, Literal
 
-from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ConstraintError
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
@@ -722,7 +721,7 @@ class Neo4jTenantConfigRepository:
     """The tenant's configuration on the unit of work's transaction (DEC-012). The tenant is the
     scope the unit opened with; nothing here takes one."""
 
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def _run(self, query_id: str, **params: Any) -> list[dict[str, Any]]:

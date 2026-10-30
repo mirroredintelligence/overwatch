@@ -9,9 +9,7 @@ Location gives the first one by id; a service with none is left out.
 from collections.abc import Sequence
 from typing import Final
 
-from neo4j import AsyncManagedTransaction
-
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.service_scenarios import SCENARIOS
 from diucs.application.ports.outbound.geo import LatLon
@@ -36,7 +34,7 @@ if _SERVICE_POSITIONS.id not in REGISTRY.ids():
 class Neo4jServicePositions:
     """Service positions inside the unit of work's transaction (DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def get_many(self, service_ids: Sequence[str]) -> dict[str, LatLon]:

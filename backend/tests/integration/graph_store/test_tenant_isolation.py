@@ -34,13 +34,14 @@ from diucs.adapters.outbound.graph_store.scenario import (
     Unique,
     validate_scenario,
 )
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
+from tests.support.leaky_registry import LeakyRegistry
 from tests.support.neo4j import read_tx, wipe, write_tx
 from tests.support.predicate_removal import mutant_of, predicate_count
 from tests.support.query_probes import (
     Finding,
     FindingKind,
     format_findings,
+    predicate_problems,
     production_statements,
     registry_problems,
     run_isolation,
@@ -394,7 +395,7 @@ LEAKY: dict[str, tuple[str, str, Scenario, FindingKind]] = {
 
 
 def _private_registry() -> QueryRegistry:
-    registry = QueryRegistry(unconverted=frozenset(LEAKY))
+    registry = LeakyRegistry()
     for query_id, (cypher, mode, scenario) in SOUND.items():
         registry.register(NamedQuery(id=query_id, cypher=cypher, mode=mode, scenario=scenario))  # type: ignore[arg-type]
     for query_id, (cypher, mode, scenario, _) in LEAKY.items():
@@ -560,7 +561,7 @@ async def test_the_same_merge_with_an_id_the_seed_holds_is_caught(
         new=("note",),
     )
     assert validate_scenario("Q-TEST-LEAK-HELD-MERGE", scenario) == []
-    registry = QueryRegistry(unconverted=frozenset({"Q-TEST-LEAK-HELD-MERGE"}))
+    registry = LeakyRegistry()
     registry.register(
         NamedQuery(
             id="Q-TEST-LEAK-HELD-MERGE", cypher=_FRESH_MERGE, mode="write", scenario=scenario
@@ -584,8 +585,8 @@ async def test_a_leak_that_shows_in_one_direction_is_found_in_the_other_too(
 async def test_a_statement_with_no_scenario_is_not_run_by_the_runner(
     isolation_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
 ) -> None:
-    """`scenario_gaps` and the ratchet refuse it; the runner has nothing to run for it."""
-    registry = QueryRegistry(unconverted=frozenset({"Q-TEST-BARE"}))
+    """`scenario_gaps` refuses it; the runner has nothing to run for it."""
+    registry = LeakyRegistry()
     bare = NamedQuery(id="Q-TEST-BARE", cypher="MATCH (n:ProbeThing) RETURN n", mode="read")
     registry.register(bare)
     findings = await run_isolation(
@@ -596,7 +597,7 @@ async def test_a_statement_with_no_scenario_is_not_run_by_the_runner(
         tenant_b=other_tenant_id,
     )
     assert findings == []
-    assert scenario_gaps({"Q-TEST-BARE": bare}, frozenset()) != []
+    assert scenario_gaps({"Q-TEST-BARE": bare}) != []
 
 
 async def test_a_probe_error_names_the_exception_class_and_never_the_text_or_a_value(
@@ -661,7 +662,8 @@ async def test_every_converted_statement_is_isolated(
     statements = production_statements(REGISTRY)
     assert registry_problems(REGISTRY) == []
     assert universe_problems(REGISTRY, statements) == []
-    assert scenario_gaps(statements, UNCONVERTED) == []
+    assert scenario_gaps(statements) == []
+    assert predicate_problems(statements) == []
     with_scenario = {i: q for i, q in statements.items() if q.scenario is not None}
     assert len(with_scenario) >= 8
     findings = await run_isolation(
@@ -674,8 +676,11 @@ async def test_every_converted_statement_is_isolated(
     assert findings == [], "\n" + format_findings(findings)
 
 
+# Carries the `tenantId: $tenant` entry the registry looks for, on one node, and leaks through a
+# second node that does not (the registration check is cheap, and this is what the generated test
+# is for).
 _SNEAK_TEXT = (
-    "MATCH (n:ProbeThing {id: $id}) WHERE n.tenantId = $tenant OR true "
+    "MATCH (a:ProbeThing {id: $id, tenantId: $tenant}) MATCH (n:ProbeThing {id: $id}) "
     "RETURN n.id AS id, n.note AS note"
 )
 
@@ -713,7 +718,7 @@ async def test_a_leaky_statement_named_q_test_in_the_production_registry_is_caug
 async def test_the_converted_statements_are_exactly_those_with_a_scenario() -> None:
     """The loop above runs `with_scenario`; this shows it cannot silently skip a converted id."""
     statements = production_statements(REGISTRY)
-    converted = {i for i, q in statements.items() if i not in UNCONVERTED}
+    converted = set(statements)
     with_scenario = {i for i, q in statements.items() if q.scenario is not None}
     assert converted == with_scenario
 
@@ -724,7 +729,7 @@ async def test_removing_the_tenant_predicate_makes_the_generated_test_fail(
     """The predicate-removal check, for every converted statement: a scratch copy with every
     `tenantId: $tenant` taken out is caught by the generated test, and the original is clean."""
     statements = production_statements(REGISTRY)
-    converted = sorted(i for i in statements if i not in UNCONVERTED)
+    converted = sorted(statements)
     assert len(converted) >= 8
     survivors: list[str] = []
     for query_id in converted:

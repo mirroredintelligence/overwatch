@@ -21,10 +21,10 @@ from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, Qu
 from diucs.application.tenancy import (
     GlobalStatementMisuse,
     QueryNotRegistered,
+    RawTransactionRefused,
     ScopeId,
     TenantNotBound,
     TenantParameterRefused,
-    current_scope_or_none,
 )
 
 QueryObserver = Callable[[str, str, int, float], None]
@@ -78,20 +78,30 @@ class ScopedTx:
     """A transaction and the scope its unit of work opened under (DEC-132 item 4, TEN-002).
 
     It has no `run` and no other way to execute Cypher: the only way to run a statement on it is
-    `run_query`, so a repository cannot bypass the tenant parameter. `scope` is None only for a
-    unit opened with nothing bound, which can run only statements still on the ratchet.
+    `run_query`, so a repository cannot bypass the tenant parameter. The scope is never None: a
+    transaction with no scope cannot be made (TEN-030, `TenantNotBound`).
     """
 
     tx: AsyncManagedTransaction | AsyncTransaction
-    scope: ScopeId | None
+    scope: ScopeId
+
+    def __post_init__(self) -> None:
+        if self.scope is None:
+            raise TenantNotBound
 
 
-# The transitional alias (DEC-144 item 3): a raw transaction still takes the ambient scope. TEN-030
-# narrows it to ScopedTx when the ratchet is empty.
-type Tx = AsyncManagedTransaction | AsyncTransaction | ScopedTx
+# What a tenant statement runs on (TEN-030, DEC-146 item 2): a ScopedTx and nothing else. A raw
+# driver transaction is refused at run time, and the annotation of every repository says so, so
+# mypy refuses to hand one to `run_query` too.
+type Tx = ScopedTx
+# What a global statement runs on: it carries no scope, so a raw transaction is fine (the health
+# ping and the tenant directory run before any scope exists), and so is a scoped one.
+type GlobalTx = AsyncManagedTransaction | AsyncTransaction | ScopedTx
 
 
-async def _execute(tx: Tx, query: NamedQuery, parameters: dict[str, Any]) -> list[dict[str, Any]]:
+async def _execute(
+    tx: GlobalTx, query: NamedQuery, parameters: dict[str, Any]
+) -> list[dict[str, Any]]:
     started = time.perf_counter()
     raw = tx.tx if isinstance(tx, ScopedTx) else tx
     result = await raw.run(query.cypher, parameters)
@@ -114,17 +124,15 @@ async def run_query(
     """Run a registered tenant statement inside the caller's transaction and return its rows as
     dicts. The registry is the module registry unless one is given.
 
-    The execution point of DEC-130 item 2 and DEC-142. In this order, all before any Cypher is
-    sent: a string or a statement that is not the registered one is refused; a caller-supplied
-    `tenant` is refused; a global statement is refused; with no scope the call is refused,
-    except for a statement on the ratchet (it does not mention `$tenant` yet: it runs with no
-    `tenant` parameter, as it did before the seam, until its conversion bundle takes it off the
-    list). Otherwise the statement runs with `tenant=<the scope>`, written first and with nothing
-    in `params` able to replace it.
+    The execution point of DEC-130 item 2 and DEC-142, with one path and no exemption (TEN-030).
+    In this order, all before any Cypher is sent: a string or a statement that is not the
+    registered one is refused; a caller-supplied `tenant` is refused; a global statement is
+    refused; a transaction that is not a `ScopedTx` is refused (`RawTransactionRefused`), whatever
+    is bound in the context. Otherwise the statement runs with `tenant=<the scope>`, written first
+    and with nothing in `params` able to replace it.
 
-    The scope is the one a `ScopedTx` carries (the unit of work took it when it opened, and no
-    rebinding of the context afterwards changes it, even to none). On a raw transaction it is the
-    one bound in the context now (the transitional case, DEC-144 item 3).
+    The scope is the one the `ScopedTx` carries: the unit of work took it when it opened, and no
+    rebinding of the context afterwards changes it, even to none.
 
     The observer, if set, is called once per successful run with the query id, its mode, the row
     count and the duration in milliseconds. It never receives the Cypher text, the parameters or
@@ -136,16 +144,13 @@ async def run_query(
     _refuse_tenant_parameter(params)
     if query.scope == "global":
         raise GlobalStatementMisuse
-    scope = tx.scope if isinstance(tx, ScopedTx) else current_scope_or_none()
-    if scope is None:
-        if lookup.is_tenant_pending(query):
-            return await _execute(tx, query, params)
-        raise TenantNotBound
-    return await _execute(tx, query, {"tenant": scope.value, **params})
+    if not isinstance(tx, ScopedTx):
+        raise RawTransactionRefused
+    return await _execute(tx, query, {"tenant": tx.scope.value, **params})
 
 
 async def run_global_query(
-    tx: Tx,
+    tx: GlobalTx,
     query: NamedQuery,
     /,
     *,

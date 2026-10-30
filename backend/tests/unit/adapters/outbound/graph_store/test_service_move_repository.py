@@ -8,7 +8,6 @@ import re
 from diucs.adapters.outbound.graph_store import service_move_repository  # noqa: F401
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 
 
 def _move_ids() -> list[str]:
@@ -33,7 +32,6 @@ def test_every_move_statement_names_its_tenant_and_carries_a_valid_scenario() ->
             assert match.group(1) is not None and "tenantId: $tenant" in match.group(1), query_id
         assert query.scenario is not None, query_id
         assert validate_scenario(query_id, query.scenario) == [], query_id
-        assert query_id not in UNCONVERTED
 
 
 def test_the_add_statement_writes_the_phone_hash_and_no_number() -> None:

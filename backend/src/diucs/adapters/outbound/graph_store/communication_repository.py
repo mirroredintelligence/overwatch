@@ -17,10 +17,9 @@ from collections.abc import Collection
 from datetime import UTC, datetime
 from typing import Any, Final, Literal
 
-from neo4j import AsyncManagedTransaction
 from neo4j.exceptions import ClientError
 
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
@@ -483,7 +482,7 @@ def _utc_instant(value: Any) -> datetime:
 
 
 class Neo4jCommunicationRepository:
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def add(self, communication: Communication) -> None:

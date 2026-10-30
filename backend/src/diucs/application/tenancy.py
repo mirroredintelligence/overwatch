@@ -60,6 +60,9 @@ GLOBAL_STATEMENT_MESSAGE: Final = (
     "a global statement runs only through run_global_query, "
     "and run_global_query runs only global statements"
 )
+RAW_TRANSACTION_MESSAGE: Final = (
+    "a tenant statement runs only on a scoped transaction, opened by a unit of work"
+)
 UNIT_OF_WORK_OPEN_MESSAGE: Final = (
     "a unit of work is already open in this context; open the next one after this one has finished"
 )
@@ -110,6 +113,12 @@ class QueryNotRegistered(TenancyError):
 
 class GlobalStatementMisuse(TenancyError):
     MESSAGE = GLOBAL_STATEMENT_MESSAGE
+
+
+class RawTransactionRefused(TenancyError):
+    """A tenant statement was sent on a transaction that does not carry its scope (TEN-030)."""
+
+    MESSAGE = RAW_TRANSACTION_MESSAGE
 
 
 class UnitOfWorkAlreadyOpen(TenancyError):
@@ -227,13 +236,13 @@ def release_unit(owner: object) -> None:
         _UNIT.set(None)
 
 
-def scope_for_new_unit() -> ScopeId | None:
+def scope_for_new_unit() -> ScopeId:
     """The scope a unit of work, or any other code that opens its own transaction, takes when it
-    opens: the one bound now, or None when none is. Read once, at that moment, and carried on the
-    transaction (`ScopedTx`), so a later rebinding of the context changes nothing for that unit.
+    opens: the one bound now. Read once, at that moment, and carried on the transaction
+    (`ScopedTx`), so a later rebinding of the context changes nothing for that unit.
 
-    None is allowed while statements are on the ratchet (DEC-144 item 3): a unit opened unbound can
-    run only those, and a converted statement refuses on it. TEN-030 empties the ratchet and makes
-    this function refuse with `TenantNotBound`, which is the one place that change is made.
+    With nothing bound it raises `TenantNotBound` (TEN-030, DEC-146 item 3): nothing opens a
+    transaction that has no scope, so there is no unbound unit for a statement to run on. A caller
+    that needs no scope runs a global statement (`run_global_query`), which takes no unit.
     """
-    return current_scope_or_none()
+    return current_scope()

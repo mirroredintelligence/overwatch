@@ -1,7 +1,7 @@
-"""The registry of statements against the ratchet and the scenarios (TEN-004, DEC-142 item 5).
+"""The registry of statements against the scenarios (TEN-004, DEC-142 item 5; TEN-030).
 
-Every registered tenant statement either carries a scenario (and `$tenant`) or is on the ratchet;
-the ratchet may only shrink; every scenario is valid. These tests read the real registry, with no
+Every registered tenant statement carries a scenario and the `tenantId: $tenant` entry, with no
+ratchet to excuse one; every scenario is valid. These tests read the real registry, with no
 database. The behaviour of each scenario on a real Neo4j is the generated test in
 tests/integration/graph_store/test_tenant_isolation.py.
 """
@@ -16,11 +16,9 @@ from diucs.adapters.outbound.graph_store.scenario import (
     constraints_used,
     validate_scenario,
 )
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from tests.support.query_probes import (
-    INITIAL_UNCONVERTED,
+    predicate_problems,
     production_statements,
-    ratchet_problems,
     scenario_gaps,
 )
 
@@ -116,42 +114,20 @@ def test_the_universe_holds_the_starter_statements(statements: dict[str, NamedQu
     assert set(statements) >= STARTER
 
 
-def test_every_tenant_statement_has_a_scenario_or_is_on_the_ratchet(
+def test_every_tenant_statement_has_a_scenario(statements: dict[str, NamedQuery]) -> None:
+    assert scenario_gaps(statements) == []
+
+
+def test_every_tenant_statement_has_the_predicate_entry(
     statements: dict[str, NamedQuery],
 ) -> None:
-    assert scenario_gaps(statements, UNCONVERTED) == []
+    assert predicate_problems(statements) == []
 
 
-def test_the_real_ratchet_has_no_problem(statements: dict[str, NamedQuery]) -> None:
-    assert ratchet_problems(statements, UNCONVERTED, INITIAL_UNCONVERTED) == []
-
-
-def test_the_ratchet_may_only_shrink() -> None:
-    """The initial list is the 126 ids TEN-001 put on the ratchet. The live ratchet holds only ids
-    from it, so a statement cannot be added to the unconverted side later."""
-    assert len(INITIAL_UNCONVERTED) == 126
-    assert UNCONVERTED <= INITIAL_UNCONVERTED
-    assert len(UNCONVERTED) <= 126 - len(STARTER) - len(RESOURCE_STORE)
-
-
-def test_no_resource_store_id_is_on_the_ratchet_and_the_dead_pair_is_not_registered() -> None:
-    assert not UNCONVERTED & RESOURCE_STORE
-    assert RESOURCE_STORE <= INITIAL_UNCONVERTED
+def test_no_resource_store_id_is_registered_as_the_dead_pair() -> None:
     registered = set(REGISTRY.ids()) | set(REGISTRY.template_ids())
+    assert RESOURCE_STORE - {"Q-RES-IDEM-GET", "Q-RES-IDEM-RECORD"} <= registered
     assert not registered & {"Q-RES-IDEM-GET", "Q-RES-IDEM-RECORD"}
-
-
-def test_a_new_unconverted_id_is_a_problem_even_when_the_registry_agrees(
-    statements: dict[str, NamedQuery],
-) -> None:
-    """The registry test (the ratchet equals what needs conversion) cannot see an id that was added
-    to the list and registered together; only the pinned initial list refuses it."""
-    added = {
-        **statements,
-        "Q-NEW-ONE": NamedQuery(id="Q-NEW-ONE", cypher="MATCH (n:X) RETURN n", mode="read"),
-    }
-    problems = ratchet_problems(added, UNCONVERTED | {"Q-NEW-ONE"}, INITIAL_UNCONVERTED)
-    assert any("Q-NEW-ONE" in p and "not on the initial list" in p for p in problems)
 
 
 def test_a_statement_with_no_scenario_is_not_skipped_by_the_generated_test(
@@ -161,7 +137,19 @@ def test_a_statement_with_no_scenario_is_not_skipped_by_the_generated_test(
         **statements,
         "Q-NEW-TWO": NamedQuery(id="Q-NEW-TWO", cypher="MATCH (n:X) RETURN n", mode="read"),
     }
-    assert any("Q-NEW-TWO" in gap for gap in scenario_gaps(bare, UNCONVERTED))
+    assert any("Q-NEW-TWO" in gap for gap in scenario_gaps(bare))
+
+
+def test_a_statement_with_no_predicate_entry_is_a_problem_of_the_universe(
+    statements: dict[str, NamedQuery],
+) -> None:
+    leaky = {
+        **statements,
+        "Q-NEW-THREE": NamedQuery(
+            id="Q-NEW-THREE", cypher="MATCH (n:X) WHERE n.k = $tenant RETURN n", mode="read"
+        ),
+    }
+    assert any("Q-NEW-THREE" in problem for problem in predicate_problems(leaky))
 
 
 def test_the_starter_statements_are_converted(statements: dict[str, NamedQuery]) -> None:
@@ -170,8 +158,6 @@ def test_the_starter_statements_are_converted(statements: dict[str, NamedQuery])
         assert re.search(r"\$tenant\b", query.cypher), query_id
         assert "tenantId: $tenant" in query.cypher, query_id
         assert query.scenario is not None, query_id
-        assert query_id not in UNCONVERTED, query_id
-        assert query_id in INITIAL_UNCONVERTED, query_id
 
 
 def test_every_registered_scenario_is_valid(statements: dict[str, NamedQuery]) -> None:
@@ -249,7 +235,6 @@ def test_the_people_registration_and_scope_statements_are_converted(
         query = statements[query_id]
         assert query.scenario is not None, query_id
         assert "tenantId: $tenant" in query.cypher, query_id
-        assert query_id not in UNCONVERTED, query_id
 
 
 # The thirteen statements of the communication and scheduled-work records (TEN-015, reworks P07 and
@@ -277,7 +262,6 @@ TEN_015 = frozenset(
 def test_the_communication_and_scheduled_work_statements_are_converted(
     statements: dict[str, NamedQuery],
 ) -> None:
-    assert set() == TEN_015 & UNCONVERTED
     assert set(statements) >= TEN_015
     for query_id in sorted(TEN_015):
         query = statements[query_id]
@@ -327,7 +311,6 @@ def test_the_criteria_and_flag_statements_are_converted(
     statements: dict[str, NamedQuery],
 ) -> None:
     assert len(CRITERIA_AND_FLAGS) == 21
-    assert CRITERIA_AND_FLAGS.isdisjoint(UNCONVERTED)
     assert set(statements) >= CRITERIA_AND_FLAGS
     for query_id in sorted(CRITERIA_AND_FLAGS):
         query = statements[query_id]
@@ -362,7 +345,6 @@ def test_the_contact_and_device_statements_are_converted(
     statements: dict[str, NamedQuery],
 ) -> None:
     assert len(CONTACT_AND_DEVICE) == 7
-    assert CONTACT_AND_DEVICE.isdisjoint(UNCONVERTED)
     assert set(statements) >= CONTACT_AND_DEVICE
     for query_id in sorted(CONTACT_AND_DEVICE):
         query = statements[query_id]

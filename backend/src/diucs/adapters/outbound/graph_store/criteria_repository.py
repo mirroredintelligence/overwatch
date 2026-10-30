@@ -22,8 +22,6 @@ from collections.abc import Iterable, Sequence
 from datetime import date
 from typing import Any, Final
 
-from neo4j import AsyncManagedTransaction
-
 from diucs.adapters.outbound.graph_store.criteria_scenarios import (
     CLEAR_CURRENT_SCENARIO,
     CURRENT_FOR_SCENARIO,
@@ -36,7 +34,7 @@ from diucs.adapters.outbound.graph_store.criteria_scenarios import (
     SUBJECT_SCENARIO,
     VERSIONS_SCENARIO,
 )
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import (
@@ -337,7 +335,7 @@ def criteria_from_fhir(resource: dict[str, Any]) -> ServiceCriteria:
 class Neo4jCriteriaRepository:
     """Criteria versions as Basic resources. Built per transaction (DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction, store: ResourceStore) -> None:
+    def __init__(self, tx: ScopedTx, store: ResourceStore) -> None:
         self._tx = tx
         self._store = store
 

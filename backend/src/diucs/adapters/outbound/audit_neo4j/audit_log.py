@@ -67,10 +67,10 @@ from diucs.application.ports.outbound.audit import (
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.tenancy import (
+    RawTransactionRefused,
     ScopeId,
     ScopeKind,
     TenantNotBound,
-    current_scope_or_none,
     scope_for_new_unit,
 )
 from diucs.domain.codes import Role, code_system_url
@@ -471,8 +471,6 @@ async def ensure_audit_head(driver: AsyncDriver) -> None:
     TenantNotBound is raised before a session opens (TEN-017, fail closed).
     """
     scope = scope_for_new_unit()
-    if scope is None:
-        raise TenantNotBound
 
     async def work(tx: AsyncManagedTransaction) -> None:
         await run_query(
@@ -486,12 +484,11 @@ async def ensure_audit_head(driver: AsyncDriver) -> None:
 
 
 def _bound_scope(tx: Tx) -> ScopeId:
-    """The scope the chain is read or written in: the one the unit of work carries, or the one bound
-    in the context for a raw transaction (the same one run_query uses). None is refused."""
-    scope = tx.scope if isinstance(tx, ScopedTx) else current_scope_or_none()
-    if scope is None:
-        raise TenantNotBound
-    return scope
+    """The scope the chain is read or written in: the one the unit of work carries, the same one
+    run_query uses. A transaction that carries none is refused."""
+    if not isinstance(tx, ScopedTx):
+        raise RawTransactionRefused
+    return tx.scope
 
 
 def _chain_tenant(tx: Tx) -> str:

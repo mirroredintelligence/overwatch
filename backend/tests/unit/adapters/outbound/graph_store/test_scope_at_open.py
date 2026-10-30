@@ -196,7 +196,7 @@ async def test_a_scoped_helper_hands_the_work_a_scoped_transaction_carrying_the_
 
 
 @pytest.mark.parametrize("method", ["run_scoped_read", "run_scoped_write"])
-async def test_a_scoped_helper_with_nothing_bound_carries_no_scope(
+async def test_a_scoped_helper_with_nothing_bound_refuses_and_opens_no_session(
     connection: Neo4jConnection, method: str
 ) -> None:
     received: list[ScopedTx] = []
@@ -204,8 +204,10 @@ async def test_a_scoped_helper_with_nothing_bound_carries_no_scope(
     async def work(tx: ScopedTx) -> None:
         received.append(tx)
 
-    await getattr(connection, method)(work)
-    assert [tx.scope for tx in received] == [None]
+    with pytest.raises(TenantNotBound):
+        await getattr(connection, method)(work)
+    assert received == []
+    assert connection.open_session_count == 0
 
 
 @pytest.mark.parametrize("method", ["run_scoped_read", "run_scoped_write"])
@@ -230,7 +232,7 @@ async def test_a_scoped_helper_closes_its_session_when_the_work_fails(
     async def work(tx: ScopedTx) -> None:
         raise ValueError("stop")
 
-    with pytest.raises(ValueError, match="stop"):
+    with bind_tenant("a1"), pytest.raises(ValueError, match="stop"):
         await getattr(connection, method)(work)
     assert connection.open_session_count == 0
 

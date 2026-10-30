@@ -22,9 +22,9 @@ import inspect
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager, suppress
 from types import TracebackType
-from typing import Self, cast
+from typing import Self
 
-from neo4j import AsyncDriver, AsyncManagedTransaction, AsyncSession, AsyncTransaction
+from neo4j import AsyncDriver, AsyncSession, AsyncTransaction
 
 from diucs.adapters.outbound.audit_neo4j.audit_log import Neo4jAuditLog
 from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
@@ -124,7 +124,7 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, claim_unit, release_unit, scope_for_new_unit
 from diucs.domain.errors import Conflict
 
-RepositoryFactory = Callable[[AsyncManagedTransaction, ResourceStore], object]
+RepositoryFactory = Callable[[ScopedTx, ResourceStore], object]
 
 # Every repository of the UnitOfWork port, built on the unit of work's transaction. A later task
 # registers its repository by adding one entry here (P06 "Later tasks register new repositories").
@@ -276,7 +276,7 @@ class Neo4jUnitOfWork:
         self._tx = tx
         self._scope = scope
         self._scoped = ScopedTx(tx, scope)
-        self._store = ResourceStore(cast(AsyncManagedTransaction, self._scoped), self._clock)
+        self._store = ResourceStore(self._scoped, self._clock)
         self._state = _OPEN
         return self
 
@@ -313,9 +313,7 @@ class Neo4jUnitOfWork:
         repository = self._repositories.get(name)
         if repository is None:
             repository = _WriteGuard(
-                factory(
-                    cast(AsyncManagedTransaction, self._require_scoped()), self._require_store()
-                ),
+                factory(self._require_scoped(), self._require_store()),
                 self._refuse,
             )
             self._repositories[name] = repository

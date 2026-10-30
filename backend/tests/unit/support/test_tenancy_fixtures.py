@@ -23,6 +23,7 @@ from diucs.application.tenancy import (
     ScopeId,
     ScopeInvalid,
     ScopeKind,
+    TenantNotBound,
     UnitOfWorkAlreadyOpen,
     bind_scope,
     bind_tenant,
@@ -667,5 +668,7 @@ async def test_the_plain_factory_binds_whatever_is_ambient_when_the_unit_opens()
     with bind_tenant("a1"):
         async with factory() as uow:
             assert uow.unit_scope == A1
-    async with factory() as uow:
-        assert uow.unit_scope is None
+    # With nothing bound the unit does not open (TEN-030).
+    with pytest.raises(TenantNotBound):
+        async with factory():
+            pytest.fail("the unit must not open")

@@ -7,6 +7,7 @@ to its repositories.
 
 import asyncio
 import typing
+from collections.abc import Iterator
 from typing import Any, cast
 
 import pytest
@@ -22,7 +23,6 @@ from diucs.adapters.outbound.graph_store.unit_of_work import (
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork
 from diucs.application.tenancy import (
     ScopeId,
-    TenantNotBound,
     UnitOfWorkAlreadyOpen,
     bind_scope,
     bind_tenant,
@@ -127,6 +127,14 @@ class _Probe:
     label = "probe"
 
 
+@pytest.fixture(autouse=True)
+def _tenant_bound() -> Iterator[None]:
+    """A unit of work opens only with a scope bound (TEN-030): every test here runs under one, and
+    the refusal to open with none is in test_enforced_execution.py."""
+    with bind_tenant("a1"):
+        yield
+
+
 class _Rig:
     """A unit of work on a fake driver with one extra repository, `probe`, and a record of what
     its factory was given."""
@@ -199,25 +207,6 @@ async def test_rebinding_the_context_inside_a_unit_changes_nothing_for_that_unit
             await uow.probe.look("4")
             assert uow.unit_scope == A1
     assert rig.driver.tenants_sent() == ["a1", "a1", "a1", "a1"]
-
-
-async def test_a_unit_opened_with_no_scope_bound_runs_only_statements_not_yet_converted() -> None:
-    rig = _Rig()
-    async with rig.unit() as uow:
-        assert uow.unit_scope is None
-        # A scope bound later does not reach the unit: it opened unbound and stays unbound.
-        with bind_tenant("b1"), pytest.raises(TenantNotBound):
-            await uow.probe.look()
-    assert rig.driver.calls == []
-
-
-async def test_an_unbound_unit_does_not_leave_its_claim_behind() -> None:
-    rig = _Rig()
-    async with rig.unit():
-        pass
-    with bind_tenant("a1"):
-        async with rig.unit() as uow:
-            assert uow.unit_scope == A1
 
 
 # Nested units

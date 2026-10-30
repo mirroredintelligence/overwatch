@@ -55,145 +55,12 @@ from tests.support.tenant_seed import (
     snapshot,
 )
 
-_TENANT: Final = re.compile(r"\$tenant\b")
+_ENTRY: Final = re.compile(r"\btenantId\s*:\s*\$tenant\b")
 _ID_CONVENTION: Final = re.compile(r"Q-[A-Z0-9]+(?:-[A-Z0-9]+)*")
 _INSTANCE_SEPARATOR: Final = ":"
 # Ids with this prefix belong to the private registries the tests build for their own corpus. The
 # production registry holds none (`registry_problems`), so the prefix is no way out of the proof.
 TEST_PREFIX: Final = "Q-TEST-"
-
-# The 126 ids on the ratchet when TEN-004 was built (TEN-001 measured it). Never edited again. The
-# live ratchet (graph_store/unconverted.py) may only shrink and may only hold ids from this list.
-INITIAL_UNCONVERTED: Final[frozenset[str]] = frozenset(
-    {
-        "Q-AUDIT-APPEND",
-        "Q-AUDIT-CHAIN",
-        "Q-AUDIT-ENSURE-HEAD",
-        "Q-AUDIT-HEAD",
-        "Q-AUDIT-LINK-AGENT",
-        "Q-AUDIT-LINK-ENTITY",
-        "Q-AUDIT-LIST",
-        "Q-AUDIT-LOCK-HEAD",
-        "Q-BOOK-BY-REF",
-        "Q-BOOK-CONFIRMED-FOR",
-        "Q-BOOK-CONFIRMED-SINCE",
-        "Q-BOOK-OPEN-FOR",
-        "Q-BOOK-PENDING",
-        "Q-BOOK-SET-PROPS",
-        "Q-CAP-LATEST",
-        "Q-CAP-LATEST-CONFIRMED-AT",
-        "Q-CAP-LATEST-FOR",
-        "Q-CAP-LOCK-SERVICE",
-        "Q-CAP-SINCE",
-        "Q-CAP-TRAILING-CONFIRMS",
-        "Q-CASE-BY-REF",
-        "Q-CASE-READ-POSTCODE",
-        "Q-CASE-SET-POSTCODE",
-        "Q-CASE-SET-REFERENCE",
-        "Q-COMM-ADD",
-        "Q-COMM-BY-PROVIDER",
-        "Q-COMM-EXISTS",
-        "Q-COMM-GET",
-        "Q-COMM-LATEST-PROMPT",
-        "Q-COMM-LINK-ABOUT",
-        "Q-COMM-LINK-RECIPIENT",
-        "Q-COMM-LINK-REPLY",
-        "Q-COMM-SET-STATUS",
-        "Q-CONTACT-GET",
-        "Q-CONTACT-PUT",
-        "Q-CRED-CLEAR",
-        "Q-CRED-GET",
-        "Q-CRED-PRACTITIONER-EXISTS",
-        "Q-CRED-SAVE-STATE",
-        "Q-CRED-SET",
-        "Q-CRIT-CLEAR-CURRENT",
-        "Q-CRIT-CURRENT",
-        "Q-CRIT-CURRENT-FOR",
-        "Q-CRIT-LABEL",
-        "Q-CRIT-LOCK-SERVICE",
-        "Q-CRIT-SET-CURRENT",
-        "Q-CRIT-SUBJECT",
-        "Q-CRIT-VERSIONS",
-        "Q-DEVICE-KNOWN",
-        "Q-DEVICE-LOCK",
-        "Q-DEVICE-OWNER",
-        "Q-DEVICE-REGISTER",
-        "Q-DEVICE-REVOKE",
-        "Q-FLAG-BASIC-STATE",
-        "Q-FLAG-LABEL",
-        "Q-FLAG-OBS-LOCK",
-        "Q-FLAG-OBS-SERVICE",
-        "Q-FLAG-REPORT-ADD",
-        "Q-FLAG-REPORT-EXISTS",
-        "Q-FLAG-REPORT-GET",
-        "Q-FLAG-REPORT-LOCK",
-        "Q-FLAG-REPORT-OPEN",
-        "Q-FLAG-REPORT-SAVE",
-        "Q-FLAG-SERVICE-ACTIVE",
-        "Q-FLAG-SERVICE-LOCK",
-        "Q-FLAG-SERVICES-WITH",
-        "Q-IDEM-CREATE",
-        "Q-IDEM-EDGES",
-        "Q-IDEM-HEAD",
-        "Q-IDEM-LINK",
-        "Q-IDEM-VALUES",
-        "Q-LINK-ADD",
-        "Q-LINK-BURN-KEY",
-        "Q-LINK-GET",
-        "Q-LINK-MARK-USED",
-        "Q-OUTBOX-ADD",
-        "Q-OUTBOX-FAILED",
-        "Q-OUTBOX-LOCK",
-        "Q-OUTBOX-PENDING",
-        "Q-OUTBOX-PUBLISHED",
-        "Q-PERSON-PHONE-FIND",
-        "Q-PERSON-ROLES-OF",
-        "Q-PERSON-SET-PROPS",
-        "Q-PHONE-SERVICES-AT",
-        "Q-PHONE-SERVICES-HELD",
-        "Q-PROCESSED-MARK",
-        "Q-PROV-APPEND",
-        "Q-PROV-LINK",
-        "Q-PROV-SOURCE",
-        "Q-REG-BY-STATUS",
-        "Q-REG-DRAFT-ADD",
-        "Q-REG-DRAFT-CLEAR",
-        "Q-REG-DRAFT-FOR",
-        "Q-REG-FOR-SERVICE",
-        "Q-REG-SET-PROPS",
-        "Q-RES-CLEAR-OWNED",
-        "Q-RES-CLEAR-ROOT-RELS",
-        "Q-RES-GET",
-        "Q-RES-HISTORY",
-        "Q-RES-IDEM-GET",
-        "Q-RES-IDEM-RECORD",
-        "Q-RES-LOAD-NODES",
-        "Q-RES-LOAD-RELS",
-        "Q-RES-LOCK",
-        "Q-RES-MERGE-NODES",
-        "Q-RES-MERGE-RELS",
-        "Q-RES-SET-POSITION",
-        "Q-RES-SHARED-CREATE",
-        "Q-RES-SHARED-FILL",
-        "Q-RES-SHARED-READ",
-        "Q-RES-UPSERT-NODE",
-        "Q-RES-UPSERT-ROOT",
-        "Q-ROLE-CHANNEL",
-        "Q-ROLE-COVER",
-        "Q-SCOPE-ENSURE-LIST",
-        "Q-SCOPE-ENTRIES",
-        "Q-SCOPE-ENTRY-FOR",
-        "Q-SCOPE-LOCK-LIST",
-        "Q-SCOPE-UPSERT-ENTRY",
-        "Q-SERVICE-REPORTER-ROLES",
-        "Q-SVC-LAST-REPORT",
-        "Q-SVC-LIST-ACTIVE",
-        "Q-WORK-ADD",
-        "Q-WORK-FOR-ABOUT",
-        "Q-WORK-GET",
-        "Q-WORK-SAVE",
-    }
-)
 
 
 class FindingKind(StrEnum):
@@ -314,47 +181,24 @@ def is_vacuous(rows: list[dict[str, Any]], before: Snapshot, after: Snapshot) ->
     return not rows and digest(before) == digest(after)
 
 
-def scenario_gaps(statements: Mapping[str, NamedQuery], unconverted: frozenset[str]) -> list[str]:
-    """The statements that have no scenario and are not on the ratchet: the generated test fails
-    for each of them, so a statement cannot be added without proof."""
+def scenario_gaps(statements: Mapping[str, NamedQuery]) -> list[str]:
+    """The statements that have no scenario: the generated test fails for each of them, so a
+    statement cannot be added without proof. There is no ratchet to excuse one (TEN-030)."""
     return [
-        f"{query_id}: no scenario, and its id is not on the ratchet; give it a Scenario"
+        f"{query_id}: no scenario; give it a Scenario"
         for query_id, query in sorted(statements.items())
-        if query.scenario is None and query_id not in unconverted
+        if query.scenario is None
     ]
 
 
-def _converted(query: NamedQuery) -> bool:
-    return _TENANT.search(query.cypher) is not None and query.scenario is not None
-
-
-def ratchet_problems(
-    statements: Mapping[str, NamedQuery], unconverted: frozenset[str], initial: frozenset[str]
-) -> list[str]:
-    """Why the ratchet is not as it must be. Empty means fine."""
-    problems: list[str] = []
-    for query_id in sorted(unconverted):
-        if query_id not in initial:
-            problems.append(
-                f"{query_id}: on the ratchet but not on the initial list; a new statement must "
-                "carry $tenant and a scenario, it cannot be added to UNCONVERTED"
-            )
-        if query_id not in statements:
-            problems.append(
-                f"{query_id}: on the ratchet, but no such statement is registered; "
-                "remove it from UNCONVERTED"
-            )
-    for query_id, query in sorted(statements.items()):
-        converted = _converted(query)
-        if query_id in unconverted and converted:
-            problems.append(
-                f"{query_id}: converted (it has $tenant and a scenario); remove it from UNCONVERTED"
-            )
-        if query_id not in unconverted and not converted:
-            problems.append(
-                f"{query_id}: not converted and not on the ratchet; it needs $tenant and a scenario"
-            )
-    return problems
+def predicate_problems(statements: Mapping[str, NamedQuery]) -> list[str]:
+    """The statements that have no `tenantId: $tenant` entry. The registry refuses one at
+    registration; this is the same look over a universe a test hands in."""
+    return [
+        f"{query_id}: no tenantId: $tenant entry; it needs the tenant predicate"
+        for query_id, query in sorted(statements.items())
+        if _ENTRY.search(query.cypher) is None
+    ]
 
 
 # Rows and effects

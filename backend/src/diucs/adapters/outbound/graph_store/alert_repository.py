@@ -18,9 +18,7 @@ tenant on every node it matches or creates, and carries a scenario (DEC-142).
 from datetime import UTC, datetime, time
 from typing import Any, Final
 
-from neo4j import AsyncManagedTransaction
-
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.extensions import by_short_name
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
@@ -430,7 +428,7 @@ def subscription_from_props(props: dict[str, Any]) -> AlertSubscription:
 class Neo4jAlertSubscriptionRepository:
     """Alert subscriptions, one per practitioner. Built per transaction (DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def get_for_practitioner(self, practitioner_id: str) -> AlertSubscription | None:
@@ -467,7 +465,7 @@ class Neo4jAlertSubscriptionRepository:
 class Neo4jAlertRepository:
     """Alerts as Task resources. Built per transaction (DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction, store: ResourceStore) -> None:
+    def __init__(self, tx: ScopedTx, store: ResourceStore) -> None:
         self._tx = tx
         self._store = store
 

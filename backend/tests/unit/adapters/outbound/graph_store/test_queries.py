@@ -1,8 +1,9 @@
-"""The registry of fixed statements (TEN-001, DEC-142): what can be registered, what is refused,
-the ratchet of statements that are not converted yet, and the list of every statement.
+"""The registry of fixed statements (TEN-001, DEC-142, TEN-030): what can be registered, what is
+refused, and the list of every statement.
 
-The registration check is cheap and is not a proof: it catches a statement that never mentions
-`$tenant`. The proof is the generated two-tenant test of TEN-004.
+The registration check is cheap and is not a proof: it catches a statement with no
+`tenantId: $tenant` entry or no scenario, with no ratchet to excuse one. The proof is the generated
+two-tenant test of TEN-004.
 """
 
 import ast
@@ -26,7 +27,6 @@ from diucs.adapters.outbound.graph_store.queries import (
     ScenarioMissing,
     TenantPredicateMissing,
 )
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 
 SCENARIO = Scenario("placeholder until TEN-004")
 SECRET_CYPHER = "MATCH (n:Marker {key: $key, note: 'secret-cypher-marker'}) RETURN n"
@@ -116,9 +116,11 @@ def test_a_statement_that_never_mentions_the_tenant_is_refused_naming_the_id_onl
         "MATCH (n:X {tenantId: $other}) RETURN n",
         "MATCH (n:X) RETURN n, 'tenant' AS t",
         "MATCH (n:X) RETURN $Tenant",
+        "MATCH (n:X) WHERE n.tenantId=$tenant RETURN n",
+        "MATCH (n:X) RETURN n, $tenant AS t",
     ],
 )
-def test_only_the_exact_parameter_dollar_tenant_counts(cypher: str) -> None:
+def test_only_the_exact_entry_tenant_id_colon_dollar_tenant_counts(cypher: str) -> None:
     registry = QueryRegistry()
     with pytest.raises(TenantPredicateMissing):
         registry.register(NamedQuery(id="Q-NEW", cypher=cypher, mode="read", scenario=SCENARIO))
@@ -128,12 +130,11 @@ def test_only_the_exact_parameter_dollar_tenant_counts(cypher: str) -> None:
     "cypher",
     [
         "MATCH (n:X {tenantId: $tenant}) RETURN n",
-        "MATCH (n:X) WHERE n.tenantId=$tenant RETURN n",
-        "MATCH (n:X) RETURN n, $tenant AS t",
+        "MATCH (n:X {tenantId:$tenant}) RETURN n",
         "MATCH (n:X {tenantId: $tenant})\nRETURN n",
     ],
 )
-def test_a_statement_that_mentions_dollar_tenant_passes_the_cheap_check(cypher: str) -> None:
+def test_a_statement_with_the_predicate_entry_passes_the_cheap_check(cypher: str) -> None:
     registry = QueryRegistry()
     registry.register(NamedQuery(id="Q-NEW", cypher=cypher, mode="read", scenario=SCENARIO))
     assert registry.ids() == ["Q-NEW"]
@@ -146,37 +147,6 @@ def test_a_converted_statement_with_no_scenario_is_refused() -> None:
     assert "Q-NEW" in str(raised.value)
     assert isinstance(raised.value, ValueError)
     assert registry.ids() == []
-
-
-def test_an_id_on_the_ratchet_registers_without_a_tenant_and_without_a_scenario() -> None:
-    registry = QueryRegistry(unconverted=frozenset({"Q-OLD"}))
-    registry.register(NamedQuery(id="Q-OLD", cypher=OLD_CYPHER, mode="read"))
-    assert registry.ids() == ["Q-OLD"]
-    assert registry.is_tenant_pending(registry.get("Q-OLD")) is True
-    assert registry.needs_conversion(registry.get("Q-OLD")) is True
-
-
-def test_the_ratchet_excuses_only_the_ids_on_it() -> None:
-    registry = QueryRegistry(unconverted=frozenset({"Q-OLD"}))
-    with pytest.raises(TenantPredicateMissing):
-        registry.register(NamedQuery(id="Q-OLDER", cypher=OLD_CYPHER, mode="read"))
-    with pytest.raises(ScenarioMissing):
-        registry.register(NamedQuery(id="Q-NEWER", cypher=TENANT_CYPHER, mode="read"))
-    assert registry.ids() == []
-
-
-def test_a_ratchet_statement_that_was_converted_no_longer_needs_conversion() -> None:
-    registry = QueryRegistry(unconverted=frozenset({"Q-OLD"}))
-    registry.register(_tenant_query("Q-OLD"))
-    assert registry.is_tenant_pending(registry.get("Q-OLD")) is False
-    assert registry.needs_conversion(registry.get("Q-OLD")) is False
-
-
-def test_a_statement_with_a_tenant_and_no_scenario_needs_conversion_but_is_not_pending() -> None:
-    registry = QueryRegistry(unconverted=frozenset({"Q-OLD"}))
-    registry.register(_tenant_query("Q-OLD", scenario=None))
-    assert registry.is_tenant_pending(registry.get("Q-OLD")) is False
-    assert registry.needs_conversion(registry.get("Q-OLD")) is True
 
 
 # Global statements
@@ -195,8 +165,6 @@ def test_an_allowlisted_global_statement_registers_with_no_tenant_and_no_scenari
     ping = NamedQuery(id="Q-NEO4J-PING", cypher="RETURN 1 AS ok", mode="read", scope="global")
     registry.register(ping)
     assert registry.get("Q-NEO4J-PING") == ping
-    assert registry.is_tenant_pending(ping) is False
-    assert registry.needs_conversion(ping) is False
 
 
 def test_a_global_statement_off_the_allowlist_is_refused_naming_the_id() -> None:
@@ -229,7 +197,6 @@ def test_a_registered_statement_is_registered() -> None:
     query = _tenant_query()
     registry.register(query)
     assert registry.is_registered(query) is True
-    assert registry.is_tenant_pending(query) is False
 
 
 def test_the_same_id_with_other_text_is_not_the_registered_statement() -> None:
@@ -381,8 +348,13 @@ def test_a_template_without_the_placeholder_takes_no_insert() -> None:
 
 
 def test_a_registered_template_can_be_read_back_and_an_unknown_one_is_a_key_error() -> None:
-    registry = QueryRegistry(unconverted=frozenset({"Q-TPL-OLD"}))
-    template = QueryTemplate(id="Q-TPL-OLD", cypher="MERGE (n{insert}) RETURN n", mode="write")
+    registry = QueryRegistry()
+    template = QueryTemplate(
+        id="Q-TPL-OLD",
+        cypher="MERGE (n{insert} {tenantId: $tenant}) RETURN n",
+        mode="write",
+        scenario=SCENARIO,
+    )
     registry.register_template(template)
     assert registry.template("Q-TPL-OLD") is template
     with pytest.raises(KeyError, match="Q-NO-TEMPLATE"):
@@ -394,22 +366,24 @@ def test_an_instance_of_an_unknown_template_is_a_key_error() -> None:
         QueryRegistry().instance("Q-NO-TEMPLATE", ":A")
 
 
-def test_an_instance_of_a_ratchet_template_is_tenant_pending_by_the_ratchet_on_the_template() -> (
-    None
-):
-    registry = QueryRegistry(unconverted=frozenset({"Q-TPL-OLD"}))
+def test_an_instance_of_a_template_is_registered_and_judged_by_its_template() -> None:
+    registry = QueryRegistry()
     registry.register_template(
-        QueryTemplate(id="Q-TPL-OLD", cypher="MERGE (n{insert} {key: 1}) RETURN n", mode="write")
+        QueryTemplate(
+            id="Q-TPL-NEW",
+            cypher="MERGE (n{insert} {key: 1, tenantId: $tenant}) RETURN n",
+            mode="write",
+            scenario=SCENARIO,
+        )
     )
-    instance = registry.instance("Q-TPL-OLD", ":Organization")
-    assert registry.is_tenant_pending(instance) is True
+    instance = registry.instance("Q-TPL-NEW", ":Organization")
     assert registry.is_registered(instance) is True
-    assert registry.ratchet_ids() == ["Q-TPL-OLD"]
+    assert registry.instance("Q-TPL-NEW", ":Organization") is instance
 
 
-def test_a_plain_statement_id_cannot_contain_a_colon_so_it_cannot_borrow_a_template_place() -> None:
-    """`Q-TPL-OLD:Evil` would otherwise take the ratchet place of the template `Q-TPL-OLD`."""
-    registry = QueryRegistry(unconverted=frozenset({"Q-TPL-OLD"}))
+def test_a_plain_statement_id_cannot_contain_a_colon_so_it_cannot_pass_for_an_instance() -> None:
+    """`Q-TPL-OLD:Evil` would otherwise be taken for an instance of the template `Q-TPL-OLD`."""
+    registry = QueryRegistry()
     with pytest.raises(ValueError, match="colon"):
         registry.register(NamedQuery(id="Q-TPL-OLD:Evil", cypher=OLD_CYPHER, mode="read"))
     with pytest.raises(ValueError, match="colon"):
@@ -420,7 +394,7 @@ def test_a_plain_statement_id_cannot_contain_a_colon_so_it_cannot_borrow_a_templ
     assert registry.template_ids() == []
 
 
-# The module registry and the ratchet
+# The module registry
 
 
 def _import_every_module(package: object) -> None:
@@ -462,44 +436,21 @@ def test_every_statement_in_the_source_is_in_the_registry(loaded: QueryRegistry)
     assert len(loaded.template_ids()) == 16  # 17 less the dead idempotency pair, plus LINK-SHARED
 
 
-def test_every_registered_statement_is_converted_unconverted_or_global(
+def test_every_registered_statement_is_tenant_scoped_with_a_scenario_or_global(
     loaded: QueryRegistry,
 ) -> None:
     for query_id in loaded.ids():
         query = loaded.get(query_id)
         if query.scope == "global":
             assert query_id in GLOBAL_QUERY_IDS
-        elif loaded.needs_conversion(query):
-            assert query.id.partition(":")[0] in UNCONVERTED
         else:
-            assert re.search(r"\$tenant\b", query.cypher) and query.scenario is not None
+            assert re.search(r"\btenantId: \$tenant\b", query.cypher), query_id
+            assert query.scenario is not None, query_id
 
 
-def test_the_ratchet_is_exactly_the_statements_that_are_not_converted(
+def test_the_module_registry_refuses_a_statement_that_is_not_tenant_scoped(
     loaded: QueryRegistry,
 ) -> None:
-    """A converted statement must leave the list, and nothing may be on it that is not a
-    statement (a stale entry fails here)."""
-    assert set(UNCONVERTED) == set(loaded.ratchet_ids())
-    assert loaded.ratchet_ids() == sorted(loaded.ratchet_ids())
-    assert not set(UNCONVERTED) & set(GLOBAL_QUERY_IDS)
-
-
-def test_the_ratchet_may_only_shrink() -> None:
-    """126 is the number of statements and templates at TEN-001; TEN-004 converted eight of them
-    (118 left), TEN-009 the seventeen of the resource store, fifteen converted and two removed
-    (101 left), L01 the four link-token statements (97 left), TEN-011, TEN-015 and TEN-010 the
-    fifty person, registration, scope, communication, service, capacity, booking and case
-    statements, TEN-012 to TEN-014 the criteria, flag, contact and device statements, and TEN-016
-    and TEN-017 the idempotency, outbox, audit and provenance statements (0 left). The ratchet is
-    empty: a conversion bundle lowered this number in the same commit that removed ids from the
-    list, and nothing may raise it. The ids themselves are pinned against the initial list in
-    test_tenant_ratchet.py."""
-    assert len(UNCONVERTED) <= 0
-    assert len(UNCONVERTED) == len(set(UNCONVERTED))
-
-
-def test_the_module_registry_follows_the_ratchet_of_the_module(loaded: QueryRegistry) -> None:
     assert loaded.is_registered(loaded.get("Q-NEO4J-PING"))
     assert loaded.get("Q-NEO4J-PING").scope == "global"
     # A new statement that is not tenant-scoped cannot be added to the module registry.

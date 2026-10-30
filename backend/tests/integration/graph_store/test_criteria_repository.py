@@ -26,6 +26,7 @@ from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
+from tests.support.scoped import scoped
 from tests.unit.adapters.outbound.graph_store.test_criteria_mapping import UCR_WEST_V3
 from tests.unit.adapters.outbound.graph_store.test_service_repository import UCR_WEST
 
@@ -284,7 +285,7 @@ async def test_two_racing_current_versions_leave_one_current(neo4j_driver: Async
     )
     rival = replace(V4_CURRENT, id="crit-ucr-west-v5", version=5, supersedes_id=V3_ID)
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).add(V4_CURRENT)
         racer = asyncio.create_task(write_tx(neo4j_driver, lambda tx: _repo(tx).add(rival)))
@@ -310,7 +311,7 @@ async def test_two_racing_writers_of_one_version_number_leave_one_version(
     await _seed_service(neo4j_driver)
     twin = replace(V4_PENDING, id="crit-ucr-west-v4-twin")
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).add(replace(V4_PENDING, supersedes_id=None))
         racer = asyncio.create_task(write_tx(neo4j_driver, lambda tx: _repo(tx).add(twin)))
@@ -331,7 +332,7 @@ async def test_two_racing_writers_with_a_seeded_version_leave_two_versions(
     await _run(neo4j_driver, lambda repo: repo.add(UCR_WEST_V3))
     twin = replace(V4_PENDING, id="crit-ucr-west-v4-twin")
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).add(V4_PENDING)
         racer = asyncio.create_task(write_tx(neo4j_driver, lambda tx: _repo(tx).add(twin)))
@@ -358,7 +359,7 @@ async def test_two_racing_saves_that_make_a_version_current_leave_one_current(
         lambda repo: repo.save(V3_SUPERSEDED),
     )
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).save(V4_CURRENT)
         current_v5 = replace(pending_v5, status=CriteriaStatus.CURRENT)

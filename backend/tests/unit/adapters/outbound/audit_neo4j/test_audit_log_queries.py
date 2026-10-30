@@ -16,9 +16,9 @@ from diucs.adapters.outbound.audit_neo4j.audit_log import (
     _parse_entry,
     ensure_audit_head,
 )
+from diucs.adapters.outbound.graph_store.driver import ScopedTx
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.scenario import validate_scenario
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.audit import (
     GENESIS_HASH,
@@ -26,9 +26,10 @@ from diucs.application.ports.outbound.audit import (
     canonical_entry_json,
     genesis_hash_for,
 )
-from diucs.application.tenancy import TenantNotBound, bind_tenant
+from diucs.application.tenancy import RawTransactionRefused, TenantNotBound, bind_tenant
 from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
+from tests.support.scoped import scoped_stub
 
 AUDIT_QUERY_IDS = {"Q-AUDIT-APPEND", "Q-AUDIT-LIST", "Q-PROV-APPEND"}
 
@@ -84,10 +85,9 @@ def test_the_audit_log_has_no_update_delete_or_remove() -> None:
 
 
 @pytest.mark.parametrize("query_id", CONVERTED_BY_TEN_017)
-def test_the_audit_statement_is_off_the_ratchet_and_carries_a_usable_scenario(
+def test_the_audit_statement_carries_a_usable_scenario(
     query_id: str,
 ) -> None:
-    assert query_id not in UNCONVERTED
     query = REGISTRY.get(query_id)
     assert _STAMP in query.cypher
     assert query.scenario is not None
@@ -175,28 +175,33 @@ async def test_a_provenance_extra_cannot_be_named_as_the_tenant(tx: _RecordingTx
     assert tx.calls == []
 
 
-async def test_appending_an_entry_without_a_bound_tenant_is_refused_before_cypher(
+async def test_appending_an_entry_on_a_raw_transaction_is_refused_before_cypher(
     tx: _RecordingTx,
 ) -> None:
-    with pytest.raises(TenantNotBound):
+    # A transaction with no scope cannot be made (TEN-030), and a raw one is refused.
+    with pytest.raises(RawTransactionRefused):
         await Neo4jAuditLog(cast(Any, tx)).append(_ENTRY)
     assert tx.calls == []
 
 
-async def test_reading_the_chain_without_a_bound_tenant_is_refused_before_cypher(
+async def test_reading_the_chain_on_a_raw_transaction_is_refused_before_cypher(
     tx: _RecordingTx,
 ) -> None:
     log = Neo4jAuditLog(cast(Any, tx))
-    with pytest.raises(TenantNotBound):
+    with pytest.raises(RawTransactionRefused):
         await log.verify_chain()
-    with pytest.raises(TenantNotBound):
+    with pytest.raises(RawTransactionRefused):
         await log.records()
     assert tx.calls == []
 
 
+async def test_a_scoped_transaction_cannot_be_made_with_no_scope(tx: _RecordingTx) -> None:
+    with pytest.raises(TenantNotBound):
+        ScopedTx(cast(Any, tx), None)  # type: ignore[arg-type]
+
+
 async def test_every_statement_of_an_append_carries_the_bound_tenant(tx: _RecordingTx) -> None:
-    with bind_tenant("tt-unit-0001"):
-        await Neo4jAuditLog(cast(Any, tx)).append(_ENTRY)
+    await Neo4jAuditLog(scoped_stub(tx, "tt-unit-0001")).append(_ENTRY)
     assert len(tx.calls) >= 4
     for cypher, parameters in tx.calls:
         assert _STAMP in cypher

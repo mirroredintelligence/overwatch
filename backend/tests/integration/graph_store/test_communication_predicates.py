@@ -19,7 +19,8 @@ import pytest
 import pytest_asyncio
 from neo4j import AsyncDriver
 
-from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery, QueryRegistry
+from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
+from tests.support.leaky_registry import LeakyRegistry
 from tests.support.predicate_removal import predicate_count, without_predicate
 from tests.support.query_probes import production_statements, run_isolation
 from tests.support.tenant_seed import contracted_container
@@ -81,7 +82,7 @@ async def test_each_predicate_is_killed_or_redundant_as_pinned(
                 mode=original.mode,
                 scenario=original.scenario,
             )
-            registry = QueryRegistry(unconverted=frozenset({query_id}))
+            registry = LeakyRegistry()
             registry.register(mutant)
             found = await run_isolation(
                 predicate_driver,

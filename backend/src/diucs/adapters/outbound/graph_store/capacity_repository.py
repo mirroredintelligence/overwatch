@@ -17,9 +17,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from neo4j import AsyncManagedTransaction
-
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
 from diucs.adapters.outbound.graph_store.service_repository import (
@@ -245,7 +243,7 @@ def _as_utc(value: Any) -> datetime | None:
 class Neo4jCapacityRepository:
     """Capacity reports as Observation resources. Built per transaction (DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction, store: ResourceStore) -> None:
+    def __init__(self, tx: ScopedTx, store: ResourceStore) -> None:
         self._tx = tx
         self._store = store
 

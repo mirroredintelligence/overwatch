@@ -27,6 +27,7 @@ from diucs.domain.codes import Role
 from diucs.domain.errors import ValidationFailed
 from tests.support.actors import ACTOR_TENANT
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.scoped import scoped
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -106,7 +107,7 @@ async def test_an_append_that_is_rolled_back_leaves_no_event_and_does_not_move_t
     neo4j_driver: AsyncDriver, audit_head: None, tenant_id: str
 ) -> None:
     async with neo4j_driver.session() as session:
-        tx = await session.begin_transaction()
+        tx = scoped(await session.begin_transaction())
         try:
             await Neo4jAuditLog(tx).append(entry_at(0))
         finally:

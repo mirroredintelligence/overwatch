@@ -15,9 +15,7 @@ properties (a known issue of U41).
 from datetime import UTC, datetime
 from typing import Any, Final
 
-from neo4j import AsyncManagedTransaction
-
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
@@ -173,7 +171,7 @@ def _utc(value: Any) -> datetime:
 class Neo4jSafetyReportRepository:
     """Safety reports on the unit of work's transaction (built per unit, DEC-012)."""
 
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def next_concern_reference(self) -> str:

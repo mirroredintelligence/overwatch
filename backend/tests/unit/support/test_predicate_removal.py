@@ -7,8 +7,13 @@ shows that the generated test fails for the copy. Only the helper is tested here
 
 import pytest
 
-from diucs.adapters.outbound.graph_store.queries import NamedQuery
+from diucs.adapters.outbound.graph_store.queries import (
+    NamedQuery,
+    QueryRegistry,
+    TenantPredicateMissing,
+)
 from diucs.adapters.outbound.graph_store.scenario import Scenario
+from tests.support.leaky_registry import LeakyRegistry
 from tests.support.predicate_removal import mutant_of, predicate_count, without_predicate
 
 TWO = "MATCH (a:X {k: $k, tenantId: $tenant}) MATCH (b:Y {tenantId: $tenant, j: 1}) RETURN a"
@@ -85,11 +90,13 @@ def test_the_mutant_can_drop_one_occurrence_only() -> None:
 
 
 def test_the_mutant_registers_although_it_no_longer_carries_the_predicate() -> None:
-    """The registry would refuse it (TenantPredicateMissing); the mutant exists to be run anyway,
-    so its id goes on the private registry's ratchet."""
+    """The production registry would refuse it (TenantPredicateMissing); the mutant exists to be
+    run anyway, so it goes into a LeakyRegistry, a private registry of the test."""
     registry, mutant = mutant_of(_query())
     assert "$tenant" not in mutant.cypher
-    assert registry.is_tenant_pending(mutant) is True
+    assert isinstance(registry, LeakyRegistry)
+    with pytest.raises(TenantPredicateMissing):
+        QueryRegistry().register(mutant)
 
 
 def test_the_original_statement_is_not_touched() -> None:

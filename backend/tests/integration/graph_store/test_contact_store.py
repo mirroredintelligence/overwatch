@@ -17,6 +17,7 @@ from diucs.adapters.outbound.graph_store.contact_store import Neo4jContactStore
 from diucs.adapters.outbound.graph_store.migrations import apply_migrations
 from diucs.domain.errors import Conflict, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.scoped import scoped
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -159,9 +160,9 @@ async def test_a_racing_first_put_is_refused_while_the_first_write_is_uncommitte
     first_session = neo4j_driver.session()
     second_session = neo4j_driver.session()
     try:
-        first_tx = await first_session.begin_transaction()
+        first_tx = scoped(await first_session.begin_transaction())
         await Neo4jContactStore(first_tx).put_phone(ROLE, PHONE)
-        second_tx = await second_session.begin_transaction()
+        second_tx = scoped(await second_session.begin_transaction())
         racing = asyncio.create_task(Neo4jContactStore(second_tx).put_phone(ROLE, NEW_PHONE))
         await asyncio.wait({racing}, timeout=1.0)
         await first_tx.commit()

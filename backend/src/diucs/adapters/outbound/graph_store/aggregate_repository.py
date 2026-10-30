@@ -20,9 +20,7 @@ is scheduled once a day, and the known-issues entry records the gap.
 from datetime import date
 from typing import Any, Final, Literal
 
-from neo4j import AsyncManagedTransaction
-
-from diucs.adapters.outbound.graph_store.driver import run_query
+from diucs.adapters.outbound.graph_store.driver import ScopedTx, run_query
 from diucs.adapters.outbound.graph_store.queries import REGISTRY, NamedQuery
 from diucs.adapters.outbound.graph_store.scenario import (
     Expect,
@@ -393,7 +391,7 @@ def _query_params(row: QueryStatDailyRow) -> dict[str, Any]:
 
 
 class Neo4jAggregateRepository:
-    def __init__(self, tx: AsyncManagedTransaction) -> None:
+    def __init__(self, tx: ScopedTx) -> None:
         self._tx = tx
 
     async def replace_day(self, day: date, aggregates: DayAggregates) -> None:

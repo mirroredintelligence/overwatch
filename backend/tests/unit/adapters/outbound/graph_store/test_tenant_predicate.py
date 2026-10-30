@@ -239,5 +239,6 @@ def test_the_unanchored_ends_are_reached_from_an_anchored_root() -> None:
     statements = production_statements(REGISTRY)
     for query_id in UNANCHORED_ENDS:
         assert re.match(
-            r"MATCH \(\w+:Resource \{key: \$\w+, tenantId: \$tenant\}\)", statements[query_id].cypher
+            r"MATCH \(\w+:Resource \{key: \$\w+, tenantId: \$tenant\}\)",
+            statements[query_id].cypher,
         ), query_id

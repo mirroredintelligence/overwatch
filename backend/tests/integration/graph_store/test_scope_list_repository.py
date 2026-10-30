@@ -22,6 +22,7 @@ from diucs.domain.errors import Conflict, ValidationFailed
 from diucs.domain.model.registration import ScopeEntry
 from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
 from tests.support.round_trip import assert_round_trip
+from tests.support.scoped import scoped
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -178,7 +179,7 @@ async def test_a_second_save_for_a_service_waits_for_a_held_save_and_leaves_one_
 ) -> None:
     await _seed_active_service(neo4j_driver)
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).save_entry(
             ScopeEntry(
@@ -273,7 +274,7 @@ async def test_a_save_for_a_service_that_a_held_save_is_creating_waits_and_succe
     # service, meets the uniqueness constraint after the held write commits, and is refused.
     await _run(neo4j_driver, _sdec(ScopeFlag.LATER))  # the list exists before the race
     session = neo4j_driver.session()
-    held = await session.begin_transaction()
+    held = scoped(await session.begin_transaction())
     try:
         await _repo(held).save_entry(_new_entry(ScopeFlag.IN_PILOT))
         racer = asyncio.create_task(

@@ -24,12 +24,12 @@ from diucs.adapters.outbound.graph_store import resource_store
 from diucs.adapters.outbound.graph_store.mapper import RelSpec, UnknownExtension
 from diucs.adapters.outbound.graph_store.queries import REGISTRY
 from diucs.adapters.outbound.graph_store.resource_store import ResourceStore
-from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.application.tenancy import TenantNotBound, bind_tenant
 from diucs.domain.codes import BASE_URL
 from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
+from tests.support.scoped import scoped
 from tests.support.tenant_seed import contracted_container, invariant_breaks
 from tests.unit.adapters.outbound.graph_store.test_mapper_backbone import (
     AREA_A_ID,
@@ -455,7 +455,7 @@ async def test_the_resource_store_registers_exactly_these_templates() -> None:
 
 
 @pytest.mark.parametrize("template_id", sorted(RES_TEMPLATES))
-async def test_a_resource_store_template_is_converted_and_leaves_the_ratchet(
+async def test_a_resource_store_template_is_converted(
     template_id: str,
 ) -> None:
     assert template_id in REGISTRY.template_ids()
@@ -463,8 +463,6 @@ async def test_a_resource_store_template_is_converted_and_leaves_the_ratchet(
 
     assert "tenantId: $tenant" in template.cypher
     assert template.scenario is not None
-    assert template_id not in UNCONVERTED
-    assert not REGISTRY.is_tenant_pending(template)
 
 
 @pytest.mark.parametrize("template_id", sorted(RES_TEMPLATES))
@@ -831,7 +829,7 @@ async def test_a_reference_target_that_does_not_exist_is_a_placeholder_of_each_t
 
 async def _db_hits(driver: AsyncDriver, text: str, **params: Any) -> int:
     async with driver.session() as session:
-        tx = await session.begin_transaction()
+        tx = scoped(await session.begin_transaction())
         try:
             summary = await (await tx.run(f"PROFILE {text}", **params)).consume()
         finally:

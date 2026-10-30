@@ -25,6 +25,7 @@ from diucs.domain.codes import Channel
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from tests.support.neo4j import count_nodes, node_props, read_tx, wipe, write_tx
 from tests.support.round_trip import assert_round_trip
+from tests.support.scoped import scoped
 from tests.support.tenant_seed import contracted_container
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
@@ -435,7 +436,7 @@ async def test_a_late_sent_waits_for_a_held_delivered_and_does_not_overwrite_it(
     sent one must wait for it and then see delivered, not decide from the queued it read first."""
     await _add(neo4j_driver, _comm(delivery_status="queued"))
     async with neo4j_driver.session() as session:
-        held = await session.begin_transaction()
+        held = scoped(await session.begin_transaction())
         await held.run(
             "MATCH (c:Communication {id: 'comm-1'}) "
             "SET c.deliveryStatus = 'delivered', c.status = 'completed'"

@@ -697,6 +697,120 @@ def test_the_call_scanner_accepts_a_statement_object(source: str) -> None:
 # 8. The whole check, on a tree
 
 
+# 8. The enforcement has no transitional path (TEN-030)
+
+# Names that belonged to the ratchet and the unbound exemption. The registry has one rule and no
+# list of excused ids; `run_query` has one path. None of these may come back in `src`.
+TRANSITIONAL_NAMES = frozenset(
+    {"UNCONVERTED", "unconverted", "is_tenant_pending", "needs_conversion", "ratchet_ids"}
+)
+# The test-only registry and transaction wrappers: `src` never imports the tests.
+TEST_PACKAGE = "tests"
+
+
+def _node_names(node: ast.AST) -> list[str]:
+    """The identifiers a node uses that this rule cares about."""
+    if isinstance(node, ast.Name):
+        return [node.id]
+    if isinstance(node, ast.Attribute):
+        return [node.attr]
+    if isinstance(node, ast.keyword):
+        return [node.arg] if node.arg else []
+    if isinstance(node, ast.alias):
+        return [node.name.split(".")[-1]]
+    if isinstance(node, ast.ImportFrom) and node.module is not None:
+        return [node.module.split(".")[-1]]
+    return []
+
+
+def _imports_the_tests(node: ast.AST) -> bool:
+    if isinstance(node, ast.ImportFrom):
+        return node.module is not None and node.module.split(".")[0] == TEST_PACKAGE
+    if isinstance(node, ast.Import):
+        return any(alias.name.split(".")[0] == TEST_PACKAGE for alias in node.names)
+    return False
+
+
+def transitional_lines(source: str) -> list[int]:
+    """Lines that name a ratchet identifier (a name, an attribute, a keyword argument, an imported
+    name or module) or import the test package."""
+    lines = {
+        getattr(node, "lineno", 0)
+        for node in ast.walk(_parse(source))
+        if _imports_the_tests(node) or any(n in TRANSITIONAL_NAMES for n in _node_names(node))
+    }
+    return sorted(lines)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from diucs.adapters.outbound.graph_store.unconverted import UNCONVERTED\n",
+        "registry = QueryRegistry(unconverted=frozenset())\n",
+        "if registry.is_tenant_pending(query):\n    pass\n",
+        "ids = registry.ratchet_ids()\n",
+        "x = registry.needs_conversion(q)\n",
+        "from tests.support.leaky_registry import LeakyRegistry\n",
+        "import tests.support\n",
+    ],
+)
+def test_the_transitional_scanner_flags_a_ratchet_name_and_an_import_of_the_tests(
+    source: str,
+) -> None:
+    assert transitional_lines(source) != [], source
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        "from diucs.adapters.outbound.graph_store.queries import REGISTRY\n",
+        "registry = QueryRegistry()\n",
+        "from testing_tools import x\n",
+    ],
+)
+def test_the_transitional_scanner_ignores_the_enforced_names(source: str) -> None:
+    assert transitional_lines(source) == [], source
+
+
+def test_no_module_of_src_names_the_ratchet_or_imports_the_tests() -> None:
+    found = {
+        relative: transitional_lines(source)
+        for relative, source in load_tree(PACKAGE_ROOT).items()
+        if transitional_lines(source)
+    }
+    assert found == {}
+
+
+def test_the_unconverted_module_is_not_in_src() -> None:
+    assert not (PACKAGE_ROOT / GRAPH_STORE / "unconverted.py").exists()
+
+
+def _constructs_registry(source: str) -> list[int]:
+    return [
+        node.lineno
+        for node in ast.walk(_parse(source))
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Name)
+        and node.func.id == "QueryRegistry"
+    ]
+
+
+def test_only_the_queries_module_builds_a_registry_and_it_builds_one_with_no_argument() -> None:
+    files = load_tree(PACKAGE_ROOT)
+    outside = {
+        r: _constructs_registry(s) for r, s in files.items() if r != f"{GRAPH_STORE}/queries.py"
+    }
+    assert {r: n for r, n in outside.items() if n} == {}
+    queries = _parse(files[f"{GRAPH_STORE}/queries.py"])
+    calls = [
+        n
+        for n in ast.walk(queries)
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "QueryRegistry"
+    ]
+    assert len(calls) == 1
+    assert calls[0].args == [] and calls[0].keywords == []
+
+
 def load_tree(root: Path) -> dict[str, str]:
     files = {
         path.relative_to(root).as_posix(): path.read_text(encoding="utf-8")
@@ -724,6 +838,7 @@ def violations(files: Mapping[str, str]) -> list[str]:
                 for n in statement_construction_lines(source)
             ]
         found += [f"literal-statement-call: {relative}:{n}" for n in runner_call_problems(source)]
+        found += [f"transitional-path: {relative}:{n}" for n in transitional_lines(source)]
         if lines := cypher_building_lines(source):
             built[relative] = len(lines)
     for relative, count in sorted(built.items()):
@@ -767,6 +882,7 @@ from diucs.adapters.outbound.graph_store.queries import NamedQuery
 
 LABEL = "Organization"
 Q = NamedQuery(id="Q-PROBE", cypher="MATCH (n) RETURN n", mode="read")
+EXCUSED = frozenset(UNCONVERTED)
 
 
 async def leak(session, tx, driver, name):
@@ -794,6 +910,7 @@ def test_a_probe_module_outside_the_query_packages_fails_every_rule() -> None:
         "statement-outside-packages",
         "literal-statement-call",
         "built-cypher",
+        "transitional-path",
     }, found
     assert len([line for line in found if line.startswith("raw-run")]) == 3
 

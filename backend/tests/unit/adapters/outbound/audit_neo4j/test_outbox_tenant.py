@@ -9,7 +9,7 @@ from typing import Any
 
 from diucs.adapters.outbound.audit_neo4j.outbox import Neo4jOutbox
 from diucs.application.ports.outbound.outbox import OutboxMessage
-from diucs.application.tenancy import bind_tenant
+from tests.support.scoped import scoped_stub
 
 
 class _Result:
@@ -40,8 +40,7 @@ async def test_a_payload_field_named_tenant_id_is_stored_under_its_own_prefix() 
         attempts=0,
         session_id=None,
     )
-    with bind_tenant("tt-unit-0001"):
-        await Neo4jOutbox(tx).add(message)  # type: ignore[arg-type]
+    await Neo4jOutbox(scoped_stub(tx, "tt-unit-0001")).add(message)
     ((cypher, parameters),) = tx.calls
     assert "tenantId: $tenant" in cypher
     assert parameters["tenant"] == "tt-unit-0001"

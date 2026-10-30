@@ -22,13 +22,14 @@ unit of work holds two scopes (DEC-130 item 7).
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Final
+from typing import Final, Protocol
 
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.network import NetworkRegistry
 from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed, NotFound
+from diucs.domain.model.device import BoardScope, Device, DeviceStatus
 from diucs.domain.model.network import (
     GrantScope,
     Listing,
@@ -45,8 +46,8 @@ NETWORK_NOT_FOUND: Final = "the network was not found"
 ROLE_REFUSED: Final = "this role cannot see a network"
 
 # The staff who see the board of their own tenant. Not a reporter, a wall screen (a screen shows a
-# network only when its tenant's administrator sets it, TEN-067), an anonymous link, support, audit,
-# or an administrator (who runs sharing, not the board).
+# network only when its tenant sets it, and then through its own routes, `require_wall`, TEN-067),
+# an anonymous link, support, audit, or an administrator (who runs sharing, not the board).
 NETWORK_VIEW_ROLES: Final[frozenset[Role]] = frozenset(
     {Role.ADVISOR, Role.CLINICAL, Role.LEAD, Role.OWNER, Role.EXEC}
 )
@@ -101,19 +102,66 @@ def _membership_of(rows: Sequence[NetworkMembership]) -> NetworkMembership | Non
     return rows[-1] if rows else None
 
 
+class ScreenReader(Protocol):
+    """The wall screen of the bound tenant with an id, as stored (TEN-067)."""
+
+    async def screen(self, device_id: str) -> Device | None: ...
+
+
 class NetworkAccess:
-    def __init__(self, registry: NetworkRegistry, tenants: TenantDirectory) -> None:
+    def __init__(
+        self,
+        registry: NetworkRegistry,
+        tenants: TenantDirectory,
+        screens: ScreenReader | None = None,
+    ) -> None:
         self._registry = registry
         self._tenants = tenants
+        self._screens = screens
 
     async def require_member(self, actor: Actor, network_id: str) -> NetworkMemberAccess:
         if actor.role not in NETWORK_VIEW_ROLES:
             raise NotAllowed(ROLE_REFUSED)
-        membership = await self._registry.active_membership(network_id, actor.tenant_id)
+        return await self.require_tenant_member(actor.tenant_id, network_id)
+
+    async def require_tenant_member(self, tenant_id: str, network_id: str) -> NetworkMemberAccess:
+        """The tenant's active membership of an active network, else NotFound (one read for every
+        cause, as `require_member`). No role is checked: the caller has checked the one it needs
+        (a wall screen's setting, `require_wall`; the administrator who sets a screen's board)."""
+        membership = await self._registry.active_membership(network_id, tenant_id)
         if membership is None:
             raise NotFound(NETWORK_NOT_FOUND)
         context = await self.open_network(network_id)
         return NetworkMemberAccess(context.network, context.settings, membership)
+
+    async def screen_network(self, actor: Actor) -> tuple[Device, NetworkMemberAccess | None]:
+        """A wall screen's own record, and the network it is set to show when that network is
+        still open to it. The screen is read by the id of its signed token inside its tenant, so
+        another tenant's screen, a revoked one and a screen the token does not name are the one
+        NotFound; a role that is not a wall screen is NotAllowed with no read. The membership is
+        None when the screen is not set to a network, or when its tenant has left it or it is no
+        longer active: the caller shows the tenant board then (TEN-067)."""
+        if actor.role is not Role.WALL or actor.device_id is None or self._screens is None:
+            raise NotAllowed(ROLE_REFUSED)
+        device = await self._screens.screen(actor.device_id)
+        if device is None or device.status is not DeviceStatus.ACTIVE:
+            raise NotFound(NETWORK_NOT_FOUND)
+        if device.board_scope is not BoardScope.NETWORK or device.network_id is None:
+            return device, None
+        try:
+            return device, await self.require_tenant_member(actor.tenant_id, device.network_id)
+        except NotFound:
+            return device, None
+
+    async def require_wall(self, actor: Actor) -> NetworkMemberAccess:
+        """The network a wall screen shows, else NotFound: the screen is set to the tenant board,
+        or to a network its tenant is no longer an active member of. The screen's own record is
+        the authority, read on every call: a stolen token cannot ask for a network, and a changed
+        setting or an ended membership is refused on the next read (TEN-067)."""
+        _, member = await self.screen_network(actor)
+        if member is None:
+            raise NotFound(NETWORK_NOT_FOUND)
+        return member
 
     async def networks_of(self, actor: Actor) -> list[NetworkContext]:
         """The active networks the viewer's tenant is an active member of, from the registry (the
@@ -121,8 +169,12 @@ class NetworkAccess:
         a member has left. A role that never sees a network is refused with no read."""
         if actor.role not in NETWORK_VIEW_ROLES:
             raise NotAllowed(ROLE_REFUSED)
+        return await self.networks_of_tenant(actor.tenant_id)
+
+    async def networks_of_tenant(self, tenant_id: str) -> list[NetworkContext]:
+        """`networks_of` for a caller that has checked its own role (the screen administration)."""
         found: list[NetworkContext] = []
-        for membership in await self._registry.memberships_of(actor.tenant_id):
+        for membership in await self._registry.memberships_of(tenant_id):
             if membership.status is not MembershipStatus.ACTIVE:
                 continue
             registered = await self._registry.get_network(membership.network_id)

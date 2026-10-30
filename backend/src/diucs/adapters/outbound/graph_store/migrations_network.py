@@ -16,6 +16,10 @@ Migration 0111 (TEN-053) makes the keys of the network scope's nodes unique, eac
 scope and with the member the row came from, and indexes the live reads. A constraint ignores a node
 that has no `tenantId`, so the invariant check counts those (TEN-031). Expand only again: no label
 existed before, so nothing is dropped.
+
+Migration 0185 (the first id of the block 0185 to 0189 given to build wave 9, bundle W9B, TEN-082)
+makes the key of the network scope's hourly sample unique: the scope and the hour. A new label, so
+expand only again.
 """
 
 from dataclasses import dataclass
@@ -118,6 +122,13 @@ NETWORK_MIGRATIONS: Final[tuple[Migration, ...]] = (
             "FOR (n:ProjectedCapacity) ON (n.tenantId, n.endedAt)",
             "CREATE INDEX projected_criteria_live IF NOT EXISTS "
             "FOR (n:ProjectedCriteria) ON (n.tenantId, n.endedAt)",
+        ),
+    ),
+    Migration(
+        "0185_network_samples",
+        statements=(
+            "CREATE CONSTRAINT network_sample_hour IF NOT EXISTS FOR (n:NetworkSample) "
+            "REQUIRE (n.tenantId, n.hour) IS UNIQUE",
         ),
     ),
 )

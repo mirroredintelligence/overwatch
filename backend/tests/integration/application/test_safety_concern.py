@@ -43,8 +43,12 @@ async def two_tenant_driver() -> AsyncIterator[AsyncDriver]:
 
 
 @pytest_asyncio.fixture(loop_scope="session")
-async def neo4j_driver(two_tenant_driver: AsyncDriver) -> AsyncDriver:
+async def neo4j_driver(
+    two_tenant_driver: AsyncDriver, tenant_id: str, other_tenant_id: str
+) -> AsyncDriver:
+    """Wiped per test, and each tenant's audit chain head made again: a wipe removes the heads."""
     await wipe(two_tenant_driver)
+    await ensure_audit_heads(two_tenant_driver, tenant_id, other_tenant_id)
     return two_tenant_driver
 
 

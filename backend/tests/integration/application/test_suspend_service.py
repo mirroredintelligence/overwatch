@@ -63,7 +63,9 @@ async def seed_east(uow_factory: UnitOfWorkFactory, driver: AsyncDriver, tenant:
         await uow.services.save(ucr_west(EAST))
         await uow.commit()
     await seed_people(uow_factory, reporter(2, PHONE_HASH_1, service_id=EAST))
-    await seed_report(uow_factory, at(13, 0), service_id=EAST, value=4)
+    await seed_report(
+        uow_factory, at(13, 0), service_id=EAST, report_id="seed-report-east", value=4
+    )
     ids: list[str] = []
     async with uow_factory() as uow:
         for number in (1, 2):

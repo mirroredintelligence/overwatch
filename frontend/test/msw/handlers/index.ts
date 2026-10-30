@@ -1,4 +1,5 @@
 import type { RequestHandler } from 'msw';
+import { advisorHandlers } from './advisor';
 import { bookingHandlers } from './bookings';
 import { boardHandlers } from './board';
 import { linkHandlers } from './links';
@@ -7,4 +8,10 @@ import { linkHandlers } from './links';
 // test/msw/handlers/<area>.ts and list them here.
 import { reporterHandlers } from './reporter';
 
-export const handlers: RequestHandler[] = [...boardHandlers, ...linkHandlers, ...bookingHandlers, ...reporterHandlers];
+export const handlers: RequestHandler[] = [
+  ...boardHandlers,
+  ...linkHandlers,
+  ...bookingHandlers,
+  ...advisorHandlers,
+  ...reporterHandlers,
+];

@@ -1,0 +1,63 @@
+.backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.sheet {
+  width: 100%;
+  max-width: 40rem;
+  max-height: 100%;
+  overflow: auto;
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--c-bg);
+  color: var(--c-ink);
+  border: 1px solid var(--c-line);
+  border-radius: var(--radius-card);
+}
+
+.sheet:focus {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.title {
+  margin: 0;
+  font-size: var(--type-heading-size);
+  font-weight: var(--type-heading-weight);
+  line-height: var(--type-heading-lh);
+  color: var(--c-ink);
+}
+
+.sub {
+  margin: 0;
+  font-size: var(--type-body-size);
+  color: var(--c-ink-2);
+}
+
+@media (max-width: 40rem) {
+  .backdrop {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .sheet {
+    max-width: none;
+    height: 100%;
+    border-radius: 0;
+    border: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sheet {
+    transition: none;
+  }
+}

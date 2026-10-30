@@ -23,7 +23,7 @@ from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.tenancy import bind_tenant
 from diucs.domain.codes import Channel
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
-from tests.support.neo4j import count_nodes, node_props, read_tx, write_tx
+from tests.support.neo4j import count_nodes, node_props, read_tx, run_scope_ids, write_tx
 from tests.support.round_trip import assert_round_trip
 from tests.support.scoped import scoped
 
@@ -553,7 +553,9 @@ async def test_the_topic_and_channel_concepts_of_each_tenant_are_its_own(
 
     async def concepts(tx: AsyncManagedTransaction) -> list[tuple[str, int]]:
         result = await tx.run(
-            "MATCH (c:Concept) RETURN c.tenantId AS tenant, count(c) AS n ORDER BY tenant"
+            "MATCH (c:Concept) WHERE c.tenantId IN $scopes "
+            "RETURN c.tenantId AS tenant, count(c) AS n ORDER BY tenant",
+            scopes=run_scope_ids(),
         )
         return [(record["tenant"], int(record["n"])) async for record in result]
 

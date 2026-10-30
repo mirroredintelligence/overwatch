@@ -26,7 +26,7 @@ from diucs.application.use_cases.safety_concern import (
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.safety_report import ProblemCategory, SafetyConcernCategory
 from tests.support.booking_rig import ADVISOR, at, sealer, seed_world
-from tests.support.neo4j import count_nodes, node_props
+from tests.support.neo4j import count_nodes, node_props, run_scope_ids
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -58,13 +58,13 @@ def concern(key: str, text: str = CONCERN_TEXT) -> ReportSafetyConcernCommand:
 async def mentions_outside_protected_text(driver: AsyncDriver, probe: str) -> int:
     """How many properties of nodes that are not protected text contain the probe."""
     query = (
-        "MATCH (n {tenantId: $tenant}) WHERE NOT n:ProtectedText UNWIND keys(n) AS k "
+        "MATCH (n) WHERE n.tenantId IN $scopes AND NOT n:ProtectedText UNWIND keys(n) AS k "
         "WITH n[k] AS value WHERE valueType(value) STARTS WITH 'STRING' "
         "AND value CONTAINS $probe "
         "RETURN count(*) AS total"
     )
     async with driver.session() as session:
-        result = await session.run(query, {"probe": probe})
+        result = await session.run(query, {"probe": probe, "scopes": run_scope_ids()})
         record = await result.single()
     assert record is not None
     return int(record["total"])

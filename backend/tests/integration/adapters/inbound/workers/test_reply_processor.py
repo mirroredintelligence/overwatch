@@ -56,7 +56,7 @@ from tests.support.inbound_rig import (
     raw,
     reply_message,
 )
-from tests.support.neo4j import count_nodes, read_tx
+from tests.support.neo4j import count_nodes, read_tx, run_scope_ids
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
@@ -80,9 +80,10 @@ def tenants(tenant_id: str, other_tenant_id: str) -> StaticTenants:
 async def _processed(driver: AsyncDriver) -> list[dict[str, Any]]:
     async def work(tx: Any) -> list[dict[str, Any]]:
         result = await tx.run(
-            "MATCH (p:Processed {tenantId: $tenant}) RETURN p.messageId AS messageId, p.consumer "
-            "AS consumer, "
-            "p.tenantId AS tenantId ORDER BY p.tenantId, p.messageId"
+            "MATCH (p:Processed) WHERE p.tenantId IN $scopes "
+            "RETURN p.messageId AS messageId, p.consumer AS consumer, "
+            "p.tenantId AS tenantId ORDER BY p.tenantId, p.messageId",
+            scopes=run_scope_ids(),
         )
         return [dict(record) async for record in result]
 

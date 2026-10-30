@@ -195,7 +195,8 @@ async def test_the_mobile_is_kept_in_the_protected_store_only(
             "MATCH (n {tenantId: $tenant}) WHERE any(k IN keys(n) WHERE valueType(n[k]) STARTS "
             "WITH 'STRING' "
             "AND n[k] CONTAINS '7700900123') "
-            "RETURN labels(n) AS labels"
+            "RETURN labels(n) AS labels",
+            tenant=tenant_id,
         )
         holders = [record["labels"] async for record in result]
     assert holders, "the number is stored somewhere"

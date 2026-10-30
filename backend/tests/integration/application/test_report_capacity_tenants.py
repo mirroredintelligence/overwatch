@@ -57,7 +57,7 @@ from diucs.domain.errors import Conflict, NotFound
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from tests.support.actors import ACTOR_TENANT
-from tests.support.neo4j import read_tx
+from tests.support.neo4j import read_tx, run_scope_ids
 from tests.support.tenancy import as_tenant
 from tests.support.uow import ensure_audit_heads, tenant_uow_factory
 
@@ -469,8 +469,10 @@ async def test_the_tenants_configuration_reaches_the_status_and_the_audit_record
     async def snapshots(tx: AsyncManagedTransaction) -> dict[str, Any]:
         rows = await (
             await tx.run(
-                "MATCH (e:AuditEvent {tenantId: $tenant}) WHERE e.useCase = 'ReportCapacity' "
-                "RETURN e.tenantId AS tenant, e.entryJson AS entry"
+                "MATCH (e:AuditEvent) WHERE e.tenantId IN $scopes "
+                "AND e.useCase = 'ReportCapacity' "
+                "RETURN e.tenantId AS tenant, e.entryJson AS entry",
+                scopes=run_scope_ids(),
             )
         ).data()
         return {str(row["tenant"]): str(row["entry"]) for row in rows}

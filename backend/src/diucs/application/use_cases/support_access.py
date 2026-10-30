@@ -57,6 +57,9 @@ OPEN_REFUSED: Final = "This session cannot be opened with that code or ticket."
 ROLE_REFUSED: Final = "Only support can open a session."
 LIST_REFUSED: Final = "These sessions are not yours."
 _TICKET: Final = re.compile(r"[A-Za-z0-9-]{1,32}")
+_NO_OWN_SESSION: Final = frozenset({Role.SUPPORT, Role.WALL, Role.ANONYMOUS_LINK})
+"""Roles that have no session of their own to share: support opens sessions, a wall screen and an
+anonymous link are no one."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,7 +185,7 @@ class ReadSharingState:
         opens: a session and an actor). Another person's code, another tenant's and a session
         nobody shared read as no live code."""
         actor = command.actor
-        if actor.practitioner_id is None or actor.role is Role.SUPPORT:
+        if actor.practitioner_id is None or actor.role in _NO_OWN_SESSION:
             raise NotAllowed(SHARE_REFUSED)
         async with self._uow_factory() as uow:
             ends = await uow.support.live_code_expiry(

@@ -77,7 +77,7 @@ async def test_a_problem_report_that_is_not_valid_is_a_400_and_never_echoes_the_
 
 
 async def test_the_support_code_state_is_for_a_named_person_and_not_support() -> None:
-    # A wall screen and an anonymous link name no practitioner, so they have no session to share.
+    # Support opens sessions; a wall screen and an anonymous link are no one: none shares a session.
     permitted = frozenset(
         role for role in Role if role not in (Role.SUPPORT, Role.WALL, Role.ANONYMOUS_LINK)
     )

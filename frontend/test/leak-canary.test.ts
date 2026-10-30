@@ -77,6 +77,15 @@ describe('inspectUpstream: what is a leak', () => {
       '/identity/pin/verify',
       '/identity/new-phone',
       '/identity/new-phone/verify',
+      // The back end's registration and device routes (W7B, W7C): the same kind of caller.
+      '/identity/invitation',
+      '/identity/registration/code',
+      '/identity/registration/session',
+      '/identity/session-token',
+      '/identity/invitations/SampleInvitationToken1/code',
+      '/identity/invitations/SampleInvitationToken1/code/verify',
+      '/identity/device/code',
+      '/identity/device/code/verify',
     ];
     const host = { Host: A.host };
 

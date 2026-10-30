@@ -31,7 +31,8 @@ const LINK_PATH = /^\/links(\/|$)/;
 // The identity routes a phone calls before it has a session. The back end reads the tenant from the
 // Host the request was addressed to and takes no token; `push-subscription` and `sign-out-everywhere`
 // are not here because they carry the signed-in person's token like every other route.
-const PRE_SESSION_PATH = /^\/identity\/(?:code|pin|new-phone)(?:\/verify)?$|^\/identity\/status$/;
+const PRE_SESSION_PATH =
+  /^\/identity\/(?:code|pin|new-phone|device\/code|registration\/code|registration\/session|invitation|session-token|invitations\/[^/]+\/code)(?:\/verify)?$|^\/identity\/status$|^\/invitations\/[^/]+$/;
 const NETWORK_PATH = /^\/(?:fhir\/)?network\/([^/]+)(?:\/|$)/;
 const STAFF_AUDIENCE = 'diucs-api';
 

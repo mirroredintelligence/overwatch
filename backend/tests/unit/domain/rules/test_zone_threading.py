@@ -182,18 +182,15 @@ SOURCE_ROOT: Final = Path(__file__).resolve().parents[4] / "src" / "diucs"
 # shrinks. The rules that take a zone pass it on; `network_board` has no zone to pass because a
 # projection holds none (the source tenant's zone would join the projection allowlist, TEN-057).
 ZONE_NOT_YET_THREADED: dict[str, str] = {
-    "application/use_cases/alerts.py": "TEN-027",
     "application/use_cases/approve_registration.py": "TEN-026",
     "application/use_cases/cancel_booking.py": "TEN-026",
     "application/use_cases/handle_inbound_text.py": "TEN-026",
     "application/use_cases/link_access.py": "TEN-041",
-    "application/use_cases/missed_report_ladder.py": "TEN-027",
     "application/use_cases/query_board.py": "TEN-039",
     "application/use_cases/report_capacity.py": "TEN-026",
     "application/use_cases/request_booking.py": "TEN-026",
     "application/use_cases/resolve_report_flag.py": "TEN-026",
     "application/use_cases/respond_to_booking.py": "TEN-026",
-    "application/use_cases/send_prompts.py": "TEN-027",
     "application/use_cases/setup_service_by_lead.py": "TEN-026",
     "application/use_cases/suspend_service.py": "TEN-026",
     "domain/rules/network_board.py": "TEN-057",

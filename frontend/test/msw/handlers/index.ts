@@ -3,6 +3,7 @@ import { advisorHandlers } from './advisor';
 import { bookingHandlers } from './bookings';
 import { boardHandlers } from './board';
 import { criteriaHandlers } from './criteria';
+import { leadHandlers } from './lead';
 import { linkHandlers } from './links';
 import { registrationHandlers as reviewerRegistrationHandlers, registrationStepHandlers } from './registrations';
 import { staffHandlers } from './staff';
@@ -19,4 +20,5 @@ export const handlers: RequestHandler[] = [
   ...reviewerRegistrationHandlers,
   ...registrationStepHandlers,
   ...criteriaHandlers,
+  ...leadHandlers,
 ];

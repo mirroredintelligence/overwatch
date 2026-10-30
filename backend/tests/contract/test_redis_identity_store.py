@@ -108,7 +108,9 @@ async def test_a_session_is_created_read_and_deleted(redis: tuple[Redis, str]) -
     sessions = RedisSessionStore(client, key_prefix=prefix)
 
     with bind_tenant(TENANT_A):
-        session_id = await sessions.create(Role.REPORTER, "prac-1", "device-1", ("svc-1",), NOW, epoch=0)
+        session_id = await sessions.create(
+            Role.REPORTER, "prac-1", "device-1", ("svc-1",), NOW, epoch=0
+        )
         assert len(session_id) == 43
         assert await sessions.get(session_id) == ReporterSession(
             session_id=session_id,

@@ -450,6 +450,10 @@ class StubPush(_Part):
         super().__init__(writes, "push_subscriptions")
         self.held: dict[str, PushSubscription] = {}
 
+    async def save(self, subscription: PushSubscription) -> None:
+        self.wrote("save")
+        self.held[subscription.device_id] = subscription
+
     async def for_practitioner(self, practitioner_id: str) -> list[PushSubscription]:
         return [sub for sub in self.held.values() if sub.practitioner_id == practitioner_id]
 
@@ -464,6 +468,13 @@ class StubConsents(_Part):
     def __init__(self, writes: Writes) -> None:
         super().__init__(writes, "notification_consents")
         self.withdrawn: list[tuple[str, str]] = []
+        self.recorded: list[tuple[str, str, str]] = []
+
+    async def record(
+        self, practitioner_id: str, device_id: str, wording_version: str, at: datetime
+    ) -> None:
+        self.wrote("record")
+        self.recorded.append((practitioner_id, device_id, wording_version))
 
     async def withdraw(self, practitioner_id: str, device_id: str, at: datetime) -> None:
         self.wrote("withdraw")

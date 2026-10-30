@@ -3,6 +3,7 @@ of one invited registration, built the way `InviteReporter` writes it (U24). Tes
 tests of routes and use cases, not stores of record (DEC-004). Sample values only."""
 
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
@@ -34,22 +35,37 @@ from diucs.application.use_cases.registration_draft import (
 from diucs.application.use_cases.registration_submit import Lookups, encode_lookups
 from diucs.application.use_cases.review_registration import districts_in_ranges
 from diucs.application.use_cases.text_code import CODE_HMAC_SECRET, INVITATION_PURPOSE
-from diucs.application.work import ScheduledWork, WorkKind
+from diucs.application.work import DONE, SCHEDULED, ScheduledWork, WorkKind
 from diucs.domain.codes import (
+    Cadence,
+    Channel,
     CriteriaStatus,
+    Measure,
     NeedCategory,
     PractitionerRoleCode,
     RegistrationStatus,
+    ReportSource,
+    ReportType,
     Role,
     ScopeFlag,
     ServiceCategory,
 )
+from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.criteria import ServiceCriteria
+from diucs.domain.model.flags import ReportFlag, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Invitation, Registration, ScopeEntry
+from diucs.domain.model.service import AvailableTime, ServiceProfile
 from diucs.domain.model.tenant import ConfigStatus, TenantConfig, TenantContact, TenantStatus
 from diucs.domain.rules.tokens import LinkTokenRecord, hash_token
-from tests.support.registration_rig import StubLimiter, StubPeople, StubUnits
+from tests.support.registration_rig import (
+    StubDevices,
+    StubFlags,
+    StubLimiter,
+    StubPeople,
+    StubRegistrations,
+    StubUnits,
+)
 from tests.support.session_rig import StubSessions
 from tests.support.tenant_samples import make_tenant
 
@@ -180,6 +196,114 @@ class StubTenantConfig:
         )
 
 
+class W7BRegistrations(StubRegistrations):
+    """The registrations stub with the list of invitations."""
+
+    async def list_invitations(self) -> list[Invitation]:
+        return sorted(
+            self.invitations.values(), key=lambda item: (item.created_at, item.id), reverse=True
+        )
+
+
+class W7BDevices(StubDevices):
+    """The devices stub with a person's devices, as the registry reports them."""
+
+    async def devices_of(self, practitioner_id: str) -> list[Any]:
+        from diucs.application.ports.outbound.identity import DeviceFacts
+
+        found = [
+            DeviceFacts(
+                device_id,
+                "active" if not held["pending"] else "pending-callback",
+                held["at"],
+                held["verified_at"],
+            )
+            for (person, device_id), held in sorted(self.held.items())
+            if person == practitioner_id and not held["revoked"]
+        ]
+        return found
+
+
+class W7BServices:
+    """Service profiles and the register phone of each."""
+
+    def __init__(self) -> None:
+        self.profiles: dict[str, ServiceProfile] = {}
+        self.phones: dict[str, str] = {}
+
+    async def list_active(self) -> list[ServiceProfile]:
+        return [p for p in self.profiles.values() if p.active]
+
+    async def get(self, service_id: str) -> ServiceProfile | None:
+        return self.profiles.get(service_id)
+
+    async def work_phone(self, service_id: str) -> str | None:
+        return self.phones.get(service_id)
+
+
+class W7BCapacity:
+    """The latest report of each service."""
+
+    def __init__(self) -> None:
+        self.reports: dict[str, CapacityReport] = {}
+
+    async def latest(self, service_id: str) -> CapacityReport | None:
+        return self.reports.get(service_id)
+
+    async def get(self, report_id: str) -> CapacityReport | None:
+        return next((r for r in self.reports.values() if r.id == report_id), None)
+
+    async def reports_since(self, service_id: str, since: datetime) -> list[CapacityReport]:
+        return [r for r in self.reports.values() if r.service_id == service_id]
+
+    async def latest_for_services(self, service_ids: Sequence[str]) -> dict[str, CapacityReport]:
+        return {sid: self.reports[sid] for sid in service_ids if sid in self.reports}
+
+    async def last_report_times(self) -> dict[str, datetime | None]:
+        return {sid: report.effective_at for sid, report in self.reports.items()}
+
+
+class W7BBookings:
+    async def open_for_services(self, service_ids: Sequence[str]) -> dict[str, list[Any]]:
+        return {}
+
+    async def confirmed_since_for_services(
+        self, service_ids: Sequence[str], since: datetime
+    ) -> dict[str, list[datetime]]:
+        return {}
+
+
+class W7BFlags(StubFlags):
+    """The flags stub with the suspended services and the report flags."""
+
+    def __init__(self, writes: Any) -> None:
+        super().__init__(writes)
+        self.report_flags: dict[str, ReportFlag] = {}
+
+    async def services_with_flag(self, code: str) -> set[str]:
+        return {
+            service
+            for (service, flag_code), flag in self.held.items()
+            if flag_code == code and flag.active
+        }
+
+    async def report_flags_with_status(self, status: str) -> list[ReportFlag]:
+        return [flag for flag in self.report_flags.values() if flag.status == status]
+
+
+class StubProcessed:
+    """Markers of work done: a marker is new once."""
+
+    def __init__(self) -> None:
+        self.marks: set[tuple[str, str]] = set()
+
+    async def mark_if_new(self, message_id: str, consumer: str) -> bool:
+        if (message_id, consumer) in self.marks:
+            return False
+        self.marks.add((message_id, consumer))
+        return True
+
+
 class W7BCriteria:
     """Criteria versions of every service, by id."""
 
@@ -252,6 +376,13 @@ class Rig:
         self.units = StubUnits(ScopeId.tenant(TENANT))
         self.units.people = W7BPeople(self.units.writes, self.units.calls)
         self.units.criteria = W7BCriteria()
+        self.units.registrations = W7BRegistrations(self.units.writes)
+        self.units.devices = W7BDevices(self.units.writes, self.units.calls)
+        self.units.services = W7BServices()
+        self.units.capacity = W7BCapacity()
+        self.units.bookings = W7BBookings()
+        self.units.flags = W7BFlags(self.units.writes)
+        self.units.processed = StubProcessed()
         self.units.scheduled_work = StubScheduledWork()
         self.units.tenant_config = StubTenantConfig()
         self.uow_factory = self.units
@@ -328,6 +459,91 @@ class Rig:
         )
         self.link(INVITE_TOKEN, phone_hash)
         return INVITE_TOKEN
+
+    def lead_world(self) -> None:
+        """Three live services, as the shift lead's pages see them at NOW (10:00 London): A is
+        overdue (its figure is from 06:30 and its 08:00 prompt was missed), B reported at 07:30 and
+        is getting old, C reported at 09:30. One duty manager reports for A and B, and A is covered
+        by another number until tomorrow. C is suspended."""
+        units = self.units
+        everywhere = (AvailableTime(frozenset(range(7)), True, None, None),)
+        rows = (
+            ("svc-a", "Ward A", Cadence.EVERY_2_HRS, 2, datetime(2026, 10, 30, 6, 30, tzinfo=UTC)),
+            ("svc-b", "Ward B", Cadence.ONCE_A_DAY, 3, datetime(2026, 10, 30, 7, 30, tzinfo=UTC)),
+            ("svc-c", "Ward C", Cadence.ONCE_A_DAY, 0, datetime(2026, 10, 30, 9, 30, tzinfo=UTC)),
+        )
+        for service_id, name, cadence, value, at in rows:
+            units.services.profiles[service_id] = ServiceProfile(
+                id=service_id,
+                name=name,
+                category=ServiceCategory.INPATIENT_BEDS,
+                measure=Measure.FREE_BEDS,
+                unit_label="beds",
+                established_capacity=10,
+                can_exceed_established=False,
+                usual_range=(0, 8),
+                cadence=cadence,
+                available_times=everywhere,
+                channel=Channel.TEXT,
+            )
+            units.capacity.reports[service_id] = CapacityReport(
+                id=f"obs-{service_id}",
+                service_id=service_id,
+                value=value,
+                measure=Measure.FREE_BEDS,
+                effective_at=at,
+                source=ReportSource.TEXT,
+                report_type=ReportType.NUMBER,
+            )
+            units.scope.entries_by_service[service_id] = ScopeEntry(
+                service_id,
+                name,
+                ServiceCategory.INPATIENT_BEDS,
+                ScopeFlag.IN_PILOT,
+                date(2026, 10, 1),
+            )
+        units.people.practitioners["prac-rep-a"] = Practitioner(
+            id="prac-rep-a", active=True, display_name="Duty manager", phone_hash=None
+        )
+        units.people.practitioners["prac-cover"] = Practitioner(
+            id="prac-cover", active=True, display_name="Cover", phone_hash=None
+        )
+        for role_id, service_id in (("role-rep-a", "svc-a"), ("role-rep-b", "svc-b")):
+            units.people.roles[role_id] = PractitionerRole(
+                id=role_id,
+                practitioner_id="prac-rep-a",
+                service_id=service_id,
+                code=PractitionerRoleCode.DUTY_MANAGER,
+                active=True,
+                channel=Channel.TEXT,
+                period_start=NOW - timedelta(days=30),
+            )
+        units.people.roles["role-rep-a"] = replace(
+            units.people.roles["role-rep-a"],
+            covered_by_practitioner_id="prac-cover",
+            covered_until=NOW + timedelta(days=1),
+        )
+        units.contacts.phones["role-rep-a"] = "+447700900421"
+        units.contacts.phones["role-rep-b"] = "+447700900421"
+        units.contacts.phones["cover-role-rep-a"] = "+447700900777"
+        units.services.phones["svc-c"] = "01305 123400"
+        units.flags.held[("svc-c", "suspended")] = ServiceFlag(
+            "svc-c",
+            "suspended",
+            True,
+            "closed-unexpectedly",
+            LEAD,
+            datetime(2026, 10, 30, 8, 12, tzinfo=UTC),
+            expired_count=2,
+        )
+        for kind, due, status in (
+            (WorkKind.REMINDER, datetime(2026, 10, 30, 8, 30, tzinfo=UTC), DONE),
+            (WorkKind.PHONE_TASK, datetime(2026, 10, 30, 9, 0, tzinfo=UTC), DONE),
+            (WorkKind.ESCALATE_TO_LEAD, datetime(2026, 10, 30, 9, 30, tzinfo=UTC), SCHEDULED),
+        ):
+            units.scheduled_work.held.append(
+                ScheduledWork(f"work-{kind.value}", kind, due, "svc-a", None, status)
+            )
 
     def criteria_world(self, *, review_by: date = date(2027, 1, 15)) -> None:
         """The service's criteria: a current version 2 owned by the criteria owner (a practitioner

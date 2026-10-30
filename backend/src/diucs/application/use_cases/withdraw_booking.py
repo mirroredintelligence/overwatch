@@ -6,10 +6,10 @@ report it not reached (not at the address, no answer, gone to hospital, other). 
 confirmed and alert the advisor at once (BookingWithdrawn, BookingNotReached on booking.events).
 
 A withdrawal also schedules an escalation WITHDRAWAL_ESCALATE (decision DEC-400, not
-ESCALATE_TO_LEAD, which the missed-report ladder owns) at the tenant's withdrawal window. The advisor's
-acknowledgement cancels it. If the escalation fires while the withdrawal is still unacknowledged,
-WithdrawalEscalated goes to alerts.events for the shift lead, once: the work is marked done in the
-same unit of work, so a second delivery does nothing.
+ESCALATE_TO_LEAD, which the missed-report ladder owns) at the tenant's withdrawal window. The
+advisor's acknowledgement cancels it. If the escalation fires while the withdrawal is still
+unacknowledged, WithdrawalEscalated goes to alerts.events for the shift lead, once: the work is
+marked done in the same unit of work, so a second delivery does nothing.
 
 Every command is replayed by its key inside the tenant the unit is bound to (DEC-104), every
 change is audited, and the change, its audit entry and its outbox messages share one unit of work

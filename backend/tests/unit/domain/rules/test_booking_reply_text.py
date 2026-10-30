@@ -72,7 +72,7 @@ def plan(
 
 
 def test_the_decline_window_is_ten_minutes() -> None:
-    assert DECLINE_REASON_WINDOW == timedelta(minutes=10)
+    assert timedelta(minutes=10) == DECLINE_REASON_WINDOW
 
 
 def test_a_bare_confirmed_with_one_open_booking_responds_to_it() -> None:

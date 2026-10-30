@@ -1,4 +1,5 @@
-"""Tests for the pure rules of the registration approval steps (U29): who may approve, what counts as
+"""Tests for the pure rules of the registration approval steps (U29): who may approve, what counts
+as
 the test answer, when a service may go live, and what a send-back note may say.
 
 The approver must differ from the requester (DEC-032, an assumption until the owner rules). A test
@@ -10,10 +11,10 @@ import pytest
 from diucs.domain.codes import RegistrationStatus
 from diucs.domain.errors import InvalidTransition, NotAllowed, ValidationFailed
 from diucs.domain.rules.registration_approval import (
+    answers_the_test,
     check_note,
     may_set_live,
     require_distinct_approver,
-    answers_the_test,
 )
 
 

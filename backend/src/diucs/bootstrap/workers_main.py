@@ -67,10 +67,13 @@ from diucs.application.ports.outbound.messaging import PushSender
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.sender_resolver import SenderResolver
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenancy import current_tenant
 from diucs.application.use_cases.apply_projection import ApplyProjection
 from diucs.application.use_cases.board_projector import BoardProjector
 from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
+from diucs.application.use_cases.grants import SupersedeDueGrants
 from diucs.application.use_cases.handle_inbound_text import HandleInboundText
+from diucs.application.use_cases.network_admin import GovernanceRecorder
 from diucs.application.use_cases.network_board_projector import NetworkBoardProjector
 from diucs.application.use_cases.network_governance import NetworkGovernance
 from diucs.application.use_cases.network_leave import EndProjections
@@ -286,6 +289,20 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
             container.clock,
             tenants,
         )
+        supersede = SupersedeDueGrants(
+            registry,
+            GovernanceRecorder(
+                container.uow_factory,
+                neo4j_network_uow_factory(container.neo4j, clock=container.clock),
+                container.ids,
+                container.clock,
+            ),
+            container.clock,
+        )
+
+        async def supersede_due() -> int:
+            return await supersede.execute(current_tenant())
+
         work_handlers = dict(container.scheduled_work.handlers)
         work_handlers[WorkKind.PROJECTION_HEARTBEAT] = projection_heartbeat_handler(
             RunProjectionHeartbeat(
@@ -295,6 +312,7 @@ async def serve(settings: Settings, stop: asyncio.Event) -> None:
                 registry,
                 projection_producer,
                 reconcile,
+                supersede_due,
             )
         )
         push = configured_push_sender(container.secrets, settings.webpush_subject)

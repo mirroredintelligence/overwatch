@@ -8,14 +8,17 @@ export const BANDS = ['00:00 to 06:00', '06:00 to 12:00', '12:00 to 18:00', '18:
 
 export function busiestOf(grid: readonly number[][]): { day: string; band: string; count: number } | null {
   let best: { day: string; band: string; count: number } | null = null;
-  grid.forEach((row, dayIndex) => {
-    row.forEach((count, bandIndex) => {
+  for (let dayIndex = 0; dayIndex < grid.length; dayIndex += 1) {
+    const row = grid[dayIndex] ?? [];
+    for (let bandIndex = 0; bandIndex < row.length; bandIndex += 1) {
+      const count = row[bandIndex] ?? 0;
       const day = DAYS[dayIndex];
       const band = BANDS[bandIndex];
-      if (day === undefined || band === undefined) return;
-      if (best === null || count > best.count) best = { day, band, count };
-    });
-  });
+      if (day !== undefined && band !== undefined && (best === null || count > best.count)) {
+        best = { day, band, count };
+      }
+    }
+  }
   return best !== null && best.count > 0 ? best : null;
 }
 

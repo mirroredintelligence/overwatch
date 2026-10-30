@@ -31,6 +31,7 @@ from diucs.application.use_cases.alerts import (
 from diucs.application.work import SCHEDULED, WorkKind
 from diucs.domain.codes import AlertKind, Role, Status
 from diucs.domain.model.alerts import AlertRecord, AlertSubscription
+from diucs.domain.model.people import Practitioner
 from diucs.domain.model.service import AvailableTime, ServiceProfile
 from diucs.domain.rules.alerts import AlertPreferences
 from tests.support.actors import ACTOR_TENANT
@@ -94,12 +95,19 @@ async def seed(
     extra: tuple[AlertSubscription, ...] = (),
 ) -> None:
     await ensure_audit_head(driver)
+    subscriptions = (owner, *(() if deputy is None else (deputy,)), *extra)
     async with uow_factory() as uow:
         await uow.services.save(in_hours_profile())
-        await uow.alert_subscriptions.save(owner)
-        if deputy is not None:
-            await uow.alert_subscriptions.save(deputy)
-        for item in extra:
+        for item in subscriptions:
+            await uow.people.save_practitioner(
+                Practitioner(
+                    id=item.practitioner_id,
+                    active=True,
+                    display_name="Sample",
+                    phone_hash=None,
+                )
+            )
+        for item in subscriptions:
             await uow.alert_subscriptions.save(item)
         await uow.commit()
 

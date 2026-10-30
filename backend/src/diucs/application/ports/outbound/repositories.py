@@ -8,7 +8,13 @@ from collections.abc import Iterable, Sequence
 from datetime import datetime
 from typing import Any, Protocol
 
-from diucs.domain.codes import AgeBand, AlertKind, NeedCategory, RegistrationStatus
+from diucs.domain.codes import (
+    AgeBand,
+    AlertKind,
+    NeedCategory,
+    PractitionerRoleCode,
+    RegistrationStatus,
+)
 from diucs.domain.model.alerts import AlertRecord, AlertSubscription
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.capacity import CapacityReport
@@ -174,6 +180,13 @@ class PersonRepository(Protocol):
 
     async def active_clinical_leads(self, now: datetime) -> list[PractitionerRole]:
         """Active clinical-lead roles in effect at now (U40, DEC-394). The clinical advisors."""
+        ...
+
+    async def active_roles_with_codes(
+        self, codes: frozenset[PractitionerRoleCode], now: datetime
+    ) -> list[PractitionerRole]:
+        """Active roles of these codes in effect at now, of active practitioners (W7A: the
+        leadership list of the deputy picker)."""
         ...
 
     async def roles_for_practitioner(self, practitioner_id: str) -> list[PractitionerRole]:

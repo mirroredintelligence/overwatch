@@ -68,6 +68,7 @@ from diucs.application.use_cases.alerts import (
 )
 from diucs.application.use_cases.subscribe_alert import (
     GetAlertPreferences,
+    ListLeaders,
     SaveAlertPreferences,
 )
 from diucs.application.use_cases.week_summary import GetWeekSummary, GetWeekSummaryCommand
@@ -139,6 +140,35 @@ async def read_subscription(
         "type": "searchset",
         "total": 1,
         "entry": [{"resource": subscription_to_fhir(subscription)}],
+    }
+    return FhirJSONResponse(content=bundle, headers=NO_STORE)
+
+
+@router.get("/Practitioner")
+async def read_leaders(
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*SUBSCRIBERS))],
+) -> Response:
+    """The leaders a deputy can be chosen from: `?role=leadership`, each an id and a display name.
+    No phone, no email, no role, no period (W7A, DEC-776)."""
+    if request.query_params.get("role") != "leadership":
+        raise ValidationFailed("role", "must be leadership")
+    container = _container(request)
+    leaders = await ListLeaders(container.uow_factory, container.clock).execute(actor)
+    bundle: dict[str, Any] = {
+        "resourceType": "Bundle",
+        "type": "searchset",
+        "total": len(leaders),
+        "entry": [
+            {
+                "resource": {
+                    "resourceType": "Practitioner",
+                    "id": leader.id,
+                    "name": [{"text": leader.display_name}],
+                }
+            }
+            for leader in leaders
+        ],
     }
     return FhirJSONResponse(content=bundle, headers=NO_STORE)
 

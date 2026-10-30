@@ -218,3 +218,36 @@ class GetAlertPreferences:
             weekly_summary=DEFAULT_WEEKLY_SUMMARY,
             updated_at=NEVER_SAVED,
         )
+
+
+@dataclass(frozen=True, slots=True)
+class Leader:
+    """A person who may be named as a deputy: an id and a display name, nothing else."""
+
+    id: str
+    display_name: str
+
+
+class ListLeaders:
+    """The active shift leads and clinical leads of the tenant, for the deputy picker (W7A). Not
+    the caller, who cannot be their own deputy; in order of name, then id. An executive and a lead
+    only. Reads are within the bound tenant, so another tenant's leaders are never listed."""
+
+    def __init__(self, uow_factory: UnitOfWorkFactory, clock: Clock) -> None:
+        self._uow_factory = uow_factory
+        self._clock = clock
+
+    async def execute(self, actor: Actor) -> list[Leader]:
+        if actor.role not in ALLOWED_ROLES:
+            raise NotAllowed("only an executive or a shift lead may list the leaders")
+        async with self._uow_factory() as uow:
+            roles = await uow.people.active_roles_with_codes(DEPUTY_CODES, self._clock.now())
+            found: dict[str, Leader] = {}
+            for role in roles:
+                person_id = role.practitioner_id
+                if person_id == actor.practitioner_id or person_id in found:
+                    continue
+                person = await uow.people.get_practitioner(person_id)
+                if person is not None and person.active:
+                    found[person_id] = Leader(person.id, person.display_name)
+        return sorted(found.values(), key=lambda leader: (leader.display_name, leader.id))

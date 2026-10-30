@@ -160,6 +160,23 @@ describe('GET /api/bff/session', () => {
 });
 
 describe('DELETE /api/bff/session', () => {
+  it('tells the browser to clear its caches and storage, so a service worker or stored value cannot outlive the session (TEN-050)', async () => {
+    const response = await del('ok');
+    expect(response.headers.get('Clear-Site-Data')).toBe('"cache", "storage"');
+  });
+
+  it('does not send Clear-Site-Data when the request was refused (no CSRF, no session)', async () => {
+    expect((await del('none')).headers.get('Clear-Site-Data')).toBeNull();
+    const none = await DELETE(requestWithCookies(URL_, { [CSRF_COOKIE]: TOKEN }, { method: 'DELETE', headers: { [CSRF_HEADER]: TOKEN } }));
+    expect(none.headers.get('Clear-Site-Data')).toBeNull();
+  });
+
+  it('never sends Clear-Site-Data on a read of the session', async () => {
+    const cookie = await sealSession(session);
+    const response = await GET(requestWithCookies(URL_, { [SESSION_COOKIE]: cookie }));
+    expect(response.headers.get('Clear-Site-Data')).toBeNull();
+  });
+
   it('has no-store on the 204 too', async () => {
     const cookie = await sealSession(session);
     const response = await DELETE(

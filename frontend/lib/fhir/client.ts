@@ -20,7 +20,8 @@ export type FhirInit = {
    * Calls the back end's root, outside /fhir: the support and console routes (W48). Off by default,
    * so every FHIR call keeps its path.
    */
-  root?: boolean;
+  root?: boolean;  /** Passed to fetch. The audit replay asks for no-store, so no copy is kept (W47). */
+  cache?: RequestCache;
 };
 
 export type FhirResult<T> = { data: T; etag?: string };
@@ -99,6 +100,7 @@ export async function fhirFetch<T>(path: string, init: FhirInit = {}): Promise<F
       method: init.method ?? (hasBody ? 'POST' : 'GET'),
       headers,
       body: hasBody ? JSON.stringify(init.body) : undefined,
+      cache: init.cache,
     });
     text = await response.text();
   } catch {

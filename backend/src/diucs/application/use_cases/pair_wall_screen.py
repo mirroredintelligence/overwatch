@@ -352,6 +352,7 @@ class ConfirmPairing:
                 device_type=DeviceType.WALL_DISPLAY,
                 token_hash=None,
                 board_scope=command.board_scope,
+                paired_at=now,
             )
             await uow.devices.save(device)
             await uow.audit.append(

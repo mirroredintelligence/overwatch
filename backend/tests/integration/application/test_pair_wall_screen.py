@@ -392,6 +392,7 @@ async def test_a_lead_confirms_and_a_paired_unclaimed_device_is_stored_with_one_
     rig: Rig, neo4j_driver: AsyncDriver
 ) -> None:
     started = await rig.start.execute()
+    paired_at = rig.clock.now()
     result = await rig.confirm.execute(_command(started))
     assert result == ConfirmPairingResult(started.pairing_id, SCREEN_NAME)
     assert await _device(rig, started.pairing_id) == Device(
@@ -402,6 +403,7 @@ async def test_a_lead_confirms_and_a_paired_unclaimed_device_is_stored_with_one_
         device_type=DeviceType.WALL_DISPLAY,
         token_hash=None,
         board_scope=BoardScope.TENANT,
+        paired_at=paired_at,
     )
     assert await _audit_actions(rig) == [AUDIT_ACTION_PAIRED]
     code_record = (await _link_tokens(neo4j_driver))[0]
@@ -422,6 +424,7 @@ async def test_the_confirmed_device_node_holds_only_what_a_wall_display_needs(
         "status",
         "deviceName",
         "boardScope",
+        "pairedAt",
         "updatedAt",
     }
     assert props["tenantId"] == tenant_id
@@ -474,6 +477,7 @@ async def test_the_code_works_up_to_but_not_including_ten_minutes(rig: Rig) -> N
 async def test_a_claim_with_the_right_secret_returns_the_token_and_activates_the_device(
     rig: Rig, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:
+    paired_at = rig.clock.now()
     started, device_id = await rig.pair()
     result = await rig.claim.execute(ClaimPairingCommand(device_id, started.screen_secret))
     assert result.status == "paired"
@@ -495,6 +499,7 @@ async def test_a_claim_with_the_right_secret_returns_the_token_and_activates_the
         device_type=DeviceType.WALL_DISPLAY,
         token_hash=token_hash,
         board_scope=BoardScope.TENANT,
+        paired_at=paired_at,
     )
     secret_record = (await _link_tokens(neo4j_driver))[1]
     assert secret_record["purpose"] == PAIRING_SECRET_PURPOSE

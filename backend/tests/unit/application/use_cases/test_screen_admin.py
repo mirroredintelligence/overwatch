@@ -110,7 +110,10 @@ async def test_the_list_puts_live_screens_first_by_name_and_revoked_ones_last() 
 
 async def test_a_screen_revoked_long_ago_is_not_listed_any_more() -> None:
     rig, devices = _rig()
-    for device_id, age in (("s-1", REVOKED_LISTED_FOR - timedelta(seconds=1)), ("s-2", REVOKED_LISTED_FOR)):
+    for device_id, age in (
+        ("s-1", REVOKED_LISTED_FOR - timedelta(seconds=1)),
+        ("s-2", REVOKED_LISTED_FOR),
+    ):
         devices.screens[device_id] = _screen(
             device_id,
             device_id,
@@ -183,7 +186,11 @@ async def test_revoking_a_screen_that_never_collected_its_token_works() -> None:
 async def test_revoking_again_changes_nothing_and_audits_nothing() -> None:
     rig, devices = _rig()
     devices.screens["s-1"] = _screen(
-        "s-1", "Ward", status=DeviceStatus.REVOKED, token_hash=None, revoked_at=NOW - timedelta(hours=2)
+        "s-1",
+        "Ward",
+        status=DeviceStatus.REVOKED,
+        token_hash=None,
+        revoked_at=NOW - timedelta(hours=2),
     )
     result = await RevokeWallScreen(rig.uow_factory, rig.clock).execute(
         RevokeWallScreenCommand(actor=_lead(), device_id="s-1")

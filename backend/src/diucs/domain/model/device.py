@@ -6,14 +6,21 @@ once the screen has collected the token. The token itself is never part of a rec
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Final
 
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.privacy_guard import find_patient_data
+from diucs.domain.rules.tokens import PAIRING_CODE_VALID_FOR
 
 SCREEN_LABEL_MAX: Final = 60
+ONLINE_WITHIN: Final = timedelta(minutes=3)
+"""A screen seen this recently is online. It reads the board every minute (the wall's poll), so
+three minutes is three polls missed in a row before the lead is told it is offline [ASSUMED]."""
+REVOKED_LISTED_FOR: Final = timedelta(days=30)
+"""How long a revoked screen stays in the lead's list, so the lead sees it ended [ASSUMED]."""
 _TOKEN_HASH: Final = re.compile(r"[0-9a-f]{64}")
 
 
@@ -44,6 +51,18 @@ class Device:
     device_type: DeviceType
     token_hash: str | None
     board_scope: BoardScope = BoardScope.TENANT
+    paired_at: datetime | None = None
+    """When a lead connected the screen. Absent on a screen paired before it was recorded."""
+    last_seen_at: datetime | None = None
+    """When the screen last read through the edge (at most once in `SCREEN_SEEN_EVERY`)."""
+    revoked_at: datetime | None = None
+
+    def revoke(self, at: datetime) -> Device:
+        """The same screen, ended: no token hash (it can never be found by its token again) and the
+        time. A screen that is revoked already is returned as it is, so the first time stays."""
+        if self.status is DeviceStatus.REVOKED:
+            return self
+        return replace(self, status=DeviceStatus.REVOKED, token_hash=None, revoked_at=at)
 
     def __post_init__(self) -> None:
         """The name and place are checked and trimmed. A screen waiting to collect its token has no
@@ -81,3 +100,29 @@ def check_screen_label(value: str, field: str) -> str:
     if find_patient_data(text):
         raise ValidationFailed(field, "must not hold anything that looks like patient information")
     return text
+
+
+class ScreenState(StrEnum):
+    """What the lead is told about a screen. `online` and `offline` are a screen that collected its
+    token; `waiting` is one whose pairing window is still open; `never-connected` is one whose
+    window ran out before it collected its token (it can only be paired again)."""
+
+    ONLINE = "online"
+    OFFLINE = "offline"
+    WAITING = "waiting"
+    NEVER_CONNECTED = "never-connected"
+    REVOKED = "revoked"
+
+
+def screen_state(device: Device, now: datetime) -> ScreenState:
+    if device.status is DeviceStatus.REVOKED:
+        return ScreenState.REVOKED
+    if device.status is DeviceStatus.PAIRED_UNCLAIMED:
+        window_open = (
+            device.paired_at is not None and now - device.paired_at < PAIRING_CODE_VALID_FOR
+        )
+        return ScreenState.WAITING if window_open else ScreenState.NEVER_CONNECTED
+    seen = device.last_seen_at
+    if seen is not None and timedelta(0) <= now - seen <= ONLINE_WITHIN:
+        return ScreenState.ONLINE
+    return ScreenState.OFFLINE

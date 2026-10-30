@@ -8,7 +8,8 @@ Layout:
 - (:Practitioner)-[:HAS_DEVICE]->(:Device {id, status, registeredAt, revokedAt}). Device ids are
   unique in the graph (migration 0023). A device belongs to one practitioner.
 - (:Device {id, tenantId, deviceType: 'wall-display', status, deviceName, locationName, boardScope,
-  tokenHash, updatedAt}): a paired wall screen (U10, DEC-160). It hangs from no practitioner and
+  tokenHash, pairedAt, lastSeenAt, revokedAt, updatedAt}): a paired wall screen (U10, DEC-160,
+  W9I). It hangs from no practitioner and
   carries `deviceType`, which a practitioner's device never has, so the two kinds never match each
   other's statements. It is not a Resource node: it holds a token hash and a pairing status that
   are not FHIR elements, and nothing reads it through the resource store. `tokenHash` is the keyed
@@ -297,6 +298,7 @@ _VERIFIED_SCENARIO: Final = Scenario(
 # token hash (the keys are composite since TEN-005), so a statement that forgot the tenant finds the
 # other tenant's screen.
 _SCREEN_HASH: Final = "e" * 64
+_SCREEN_TIME: Final = datetime(2026, 10, 30, 10, 0, tzinfo=UTC)
 _SCREEN: Final = SeedNode(
     "screen",
     ("Device",),
@@ -337,9 +339,12 @@ _SCREEN_SAVE_SCENARIO: Final = Scenario(
         "location": "Level 3",
         "boardScope": "tenant",
         "tokenHash": "f" * 64,
+        "pairedAt": _SCREEN_TIME,
+        "lastSeenAt": _SCREEN_TIME,
+        "revokedAt": _SCREEN_TIME,
     },
     lookup=("id", "type"),
-    new=("status", "name", "location", "tokenHash"),
+    new=("status", "name", "location", "tokenHash", "pairedAt", "lastSeenAt", "revokedAt"),
     expect=Expect(
         rows=({"n": 1},),
         after=(
@@ -351,6 +356,9 @@ _SCREEN_SAVE_SCENARIO: Final = Scenario(
                     "deviceName": "Renamed corridor",
                     "locationName": "Level 3",
                     "tokenHash": "f" * 64,
+                    "pairedAt": _SCREEN_TIME,
+                    "lastSeenAt": _SCREEN_TIME,
+                    "revokedAt": _SCREEN_TIME,
                 },
             ),
         ),
@@ -363,6 +371,31 @@ _SCREEN_BY_TOKEN_SCENARIO: Final = Scenario(
     lookup=("tokenHash", "type", "status"),
     expect=Expect(
         rows=({"id": "screen-1", "status": "active", "name": Marked("Ward 4 corridor")},)
+    ),
+)
+_SCREEN_LIST_SCENARIO: Final = Scenario(
+    "list the wall screens of the tenant, by name",
+    seed=_SCREEN_SEED,
+    params={"type": _WALL_DISPLAY},
+    lookup=("type",),
+    expect=Expect(
+        rows=({"id": "screen-1", "status": "active", "name": Marked("Ward 4 corridor")},)
+    ),
+)
+_SCREEN_SEEN_SCENARIO: Final = Scenario(
+    "confirm the wall screen of the tenant is active and mark it seen when it is stale",
+    seed=_SCREEN_SEED,
+    params={
+        "id": "screen-1",
+        "type": _WALL_DISPLAY,
+        "seenAt": _SCREEN_TIME,
+        "staleBefore": _SCREEN_TIME,
+    },
+    lookup=("id", "type"),
+    new=("seenAt", "staleBefore"),
+    expect=Expect(
+        rows=({"status": "active"},),
+        after=(NodeSpec(("Device",), {"id": "screen-1", "lastSeenAt": _SCREEN_TIME}),),
     ),
 )
 _SCENARIOS: Final[dict[str, Scenario]] = {
@@ -385,6 +418,8 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-SCREEN-GET": _SCREEN_GET_SCENARIO,
     "Q-SCREEN-SAVE": _SCREEN_SAVE_SCENARIO,
     "Q-SCREEN-BY-TOKEN": _SCREEN_BY_TOKEN_SCENARIO,
+    "Q-SCREEN-LIST": _SCREEN_LIST_SCENARIO,
+    "Q-SCREEN-SEEN": _SCREEN_SEEN_SCENARIO,
 }
 
 _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
@@ -506,7 +541,8 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "SET d.id = d.id "
         "RETURN d.id AS id, d.status AS status, d.deviceName AS name, "
         "d.locationName AS location, d.deviceType AS deviceType, d.boardScope AS boardScope, "
-        "d.tokenHash AS tokenHash",
+        "d.tokenHash AS tokenHash, d.pairedAt AS pairedAt, d.lastSeenAt AS lastSeenAt, "
+        "d.revokedAt AS revokedAt",
         "write",
     ),
     # The type is in the MERGE key, so a practitioner's device with this id (it has no type) is
@@ -515,9 +551,35 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-SCREEN-SAVE": (
         "MERGE (d:Device {id: $id, tenantId: $tenant, deviceType: $type}) "
         "SET d.status = $status, d.deviceName = $name, d.locationName = $location, "
-        "d.boardScope = $boardScope, d.tokenHash = $tokenHash, "
+        "d.boardScope = $boardScope, d.tokenHash = $tokenHash, d.pairedAt = $pairedAt, "
+        "d.lastSeenAt = $lastSeenAt, d.revokedAt = $revokedAt, "
         "d.updatedAt = datetime({timezone: 'UTC'}) "
         "RETURN count(d) AS n",
+        "write",
+    ),
+    # The lead's list (W9I): every wall screen of the tenant, no lock, no practitioner's device (it
+    # has no deviceType).
+    "Q-SCREEN-LIST": (
+        "MATCH (d:Device {tenantId: $tenant, deviceType: $type}) "
+        "RETURN d.id AS id, d.status AS status, d.deviceName AS name, "
+        "d.locationName AS location, d.deviceType AS deviceType, d.boardScope AS boardScope, "
+        "d.tokenHash AS tokenHash, d.pairedAt AS pairedAt, d.lastSeenAt AS lastSeenAt, "
+        "d.revokedAt AS revokedAt "
+        "ORDER BY d.deviceName, d.id",
+        "read",
+    ),
+    # The edge's question about a wall token (W9I): is this screen still active? It answers with the
+    # status as it is, and sets the last seen time only for an active screen whose time is absent or
+    # older than $staleBefore, so a screen that reads every minute is written about every half
+    # minute at most. A status that is not active is never written (a revoked screen stays as the
+    # lead left it). A value of NULL in the CASE's other arm leaves the property as it was.
+    "Q-SCREEN-SEEN": (
+        "MATCH (d:Device {id: $id, tenantId: $tenant, deviceType: $type}) "
+        "WITH d, d.status AS status "
+        "SET d.lastSeenAt = CASE WHEN status = 'active' AND "
+        "(d.lastSeenAt IS NULL OR d.lastSeenAt < $staleBefore) THEN $seenAt "
+        "ELSE d.lastSeenAt END "
+        "RETURN status",
         "write",
     ),
     "Q-SCREEN-BY-TOKEN": (
@@ -525,7 +587,8 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "status: $status}) "
         "RETURN d.id AS id, d.status AS status, d.deviceName AS name, "
         "d.locationName AS location, d.deviceType AS deviceType, d.boardScope AS boardScope, "
-        "d.tokenHash AS tokenHash",
+        "d.tokenHash AS tokenHash, d.pairedAt AS pairedAt, d.lastSeenAt AS lastSeenAt, "
+        "d.revokedAt AS revokedAt",
         "read",
     ),
 }
@@ -612,6 +675,13 @@ class Neo4jPinStore:
         return await run_query(self._tx, REGISTRY.get(query_id), **params)
 
 
+def _instant(value: Any) -> datetime | None:
+    if value is None:
+        return None
+    native: datetime = value.to_native() if hasattr(value, "to_native") else value
+    return native.astimezone(UTC)
+
+
 def _screen(row: dict[str, Any]) -> Device:
     return Device(
         id=str(row["id"]),
@@ -621,6 +691,9 @@ def _screen(row: dict[str, Any]) -> Device:
         device_type=DeviceType(row["deviceType"]),
         token_hash=None if row["tokenHash"] is None else str(row["tokenHash"]),
         board_scope=BoardScope(row["boardScope"]),
+        paired_at=_instant(row["pairedAt"]),
+        last_seen_at=_instant(row["lastSeenAt"]),
+        revoked_at=_instant(row["revokedAt"]),
     )
 
 
@@ -749,11 +822,30 @@ class Neo4jDeviceRegistry:
                 location=device.location,
                 boardScope=device.board_scope.value,
                 tokenHash=device.token_hash,
+                pairedAt=device.paired_at,
+                lastSeenAt=device.last_seen_at,
+                revokedAt=device.revoked_at,
             )
         except ConstraintError as error:
             # The id belongs to a device that is not a wall screen of this tenant. The write is
             # refused and nothing is stored.
             raise Conflict("device already exists") from error
+
+    async def list_screens(self) -> list[Device]:
+        rows = await self._run("Q-SCREEN-LIST", type=_WALL_DISPLAY)
+        return [_screen(row) for row in rows]
+
+    async def confirm_active(
+        self, device_id: str, seen_at: datetime, refresh_after: timedelta
+    ) -> bool:
+        rows = await self._run(
+            "Q-SCREEN-SEEN",
+            id=device_id,
+            type=_WALL_DISPLAY,
+            seenAt=_utc(seen_at, "seen_at"),
+            staleBefore=_utc(seen_at, "seen_at") - refresh_after,
+        )
+        return bool(rows) and rows[0]["status"] == DeviceStatus.ACTIVE.value
 
     async def find_by_token_hash(self, token_hash: str) -> Device | None:
         rows = await self._run(

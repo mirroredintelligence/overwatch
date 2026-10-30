@@ -21,6 +21,7 @@ serves the app (DEC-096). No token or secret value is logged, returned or put in
 """
 
 from collections.abc import AsyncIterator, Awaitable, Callable
+from datetime import timedelta
 from typing import Annotated, Any, Final
 
 from fastapi import Depends, HTTPException, Request
@@ -40,6 +41,8 @@ from diucs.domain.rules.bff_token import BffClaims, TokenRejected, decode_bff_to
 from diucs.domain.rules.edge_access import EdgeVerdict
 
 BFF_SECRET_NAME: Final = "bff-jwt"
+SCREEN_SEEN_EVERY: Final = timedelta(seconds=30)
+"""A wall screen's last seen time is written at most this often, however often it reads."""
 PATIENT_ROLES: Final = frozenset({Role.ADVISOR, Role.CLINICAL})
 _SERVICE_WIDE_ROLES: Final = frozenset({Role.LEAD, Role.ADVISOR, Role.CLINICAL, Role.AUDIT})
 REDACTED_SYSTEM: Final = "http://terminology.hl7.org/CodeSystem/v3-ObservationValue"
@@ -136,15 +139,44 @@ async def current_actor(request: Request) -> AsyncIterator[Actor]:
         yield actor_from_claims(claims)
 
 
-def require_role(*roles: Role) -> Callable[[Actor], Awaitable[Actor]]:
+def require_role(*roles: Role) -> Callable[[Request, Actor], Awaitable[Actor]]:
     allowed = frozenset(roles)
 
-    async def dependency(actor: Annotated[Actor, Depends(current_actor)]) -> Actor:
+    async def dependency(
+        request: Request, actor: Annotated[Actor, Depends(current_actor)]
+    ) -> Actor:
         if actor.role not in allowed:
             raise NotAllowed("role")
+        await ensure_screen_live(request, actor)
         return actor
 
     return dependency
+
+
+async def ensure_screen_live(request: Request, actor: Actor) -> None:
+    """A wall screen is let through only while its record in the bound tenant is active.
+
+    A wall token lasts an hour (TEN-043), so a screen that a lead has revoked would otherwise read
+    until it ran out. The registry is asked on every request a wall may make (`require_role` and
+    the reads a wall makes through `current_actor`), so the screen stops with its next request: the
+    401 a lapsed token gets, which the BFF turns into the end of the screen's session. The same
+    step marks the screen seen for the lead's list (at most once in SCREEN_SEEN_EVERY). A screen
+    that is not in the tenant, is waiting for its token or is revoked is refused; every other role
+    is not asked.
+    A registry that cannot answer fails the request, never lets it through.
+    """
+    if actor.role is not Role.WALL:
+        return
+    container = get_container(request)
+    if actor.device_id is None:
+        raise _unauthorised()
+    async with container.uow_factory() as uow:
+        live = await uow.devices.confirm_active(
+            actor.device_id, container.clock.now(), SCREEN_SEEN_EVERY
+        )
+        await uow.commit()
+    if not live:
+        raise _unauthorised()
 
 
 def ensure_can_act_for(actor: Actor, service_id: str) -> None:

@@ -11,6 +11,15 @@ POST /screens                        connect: a shift lead types the code and a 
                                      role dependency binds it from the verified token (TEN-018,
                                      `auth.current_actor`) and the route never reads a tenant from
                                      the body, the query or a header.
+GET  /screens                        the lead's list of the tenant's screens: name, place, state,
+                                     board, when paired, last seen, revoked (W9I, TEN-072). Never a
+                                     token, hash or secret. Role lead.
+POST /screens/{deviceId}/revoke      the lead ends a screen at once: its device token gets no new
+                                     wall token and the wall token it holds is refused at its next
+                                     request (`auth.ensure_screen_live`). Role lead,
+                                     Idempotency-Key required, no body read; 200 with the new state,
+                                     and the same answer again for a screen already revoked. A
+                                     screen the tenant does not hold is the one 404.
 
 Refusals: every wrong, expired, used or other-tenant code or secret answers 404 with one body (the
 use case raises one NotAllowed, DEC-160 item 3). Pairing limits answer 429. A cache that cannot be
@@ -32,16 +41,17 @@ import random
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any, Final, Literal, Protocol, cast
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Path, Request
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict
 
 from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key
+from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, operation_outcome
 from diucs.application.actor import Actor
 from diucs.application.edge_tenant import resolve_active_tenant
+from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, secret_is_configured
@@ -60,6 +70,11 @@ from diucs.application.use_cases.pair_wall_screen import (
     ConfirmPairingCommand,
     PairingRateLimited,
     StartPairing,
+)
+from diucs.application.use_cases.screen_admin import (
+    ListWallScreens,
+    RevokeWallScreen,
+    RevokeWallScreenCommand,
 )
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed
@@ -288,3 +303,65 @@ async def connect_screen(
         )
 
     return await _answer(run)
+
+
+# ------------------------------------------------------------------- the lead's administration
+
+DEVICE_ID_PATTERN: Final = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+
+
+def _at(value: Any) -> str | None:
+    return None if value is None else format_instant(value)
+
+
+@router.get(SCREENS_PATH)
+async def list_screens(
+    request: Request, actor: Annotated[Actor, Depends(require_role(Role.LEAD))]
+) -> Response:
+    container = _container(request)
+    screens = await ListWallScreens(container.uow_factory, container.clock).execute(actor)
+    return _json(
+        200,
+        {
+            "scope": "tenant",
+            "asOf": format_instant(container.clock.now()),
+            "screens": [
+                {
+                    "deviceId": screen.device_id,
+                    "name": screen.name,
+                    "location": screen.location,
+                    "status": screen.state.value,
+                    "boardScope": screen.board_scope.value,
+                    "pairedAt": _at(screen.paired_at),
+                    "lastSeenAt": _at(screen.last_seen_at),
+                    "revokedAt": _at(screen.revoked_at),
+                }
+                for screen in screens
+            ],
+        },
+    )
+
+
+@router.post(SCREENS_PATH + "/{device_id}/revoke")
+async def revoke_screen(
+    device_id: Annotated[str, Path(pattern=DEVICE_ID_PATTERN)],
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(Role.LEAD))],
+) -> Response:
+    key = idempotency_key(request)
+    container = _container(request)
+
+    async def run() -> Response:
+        result = await RevokeWallScreen(container.uow_factory, container.clock).execute(
+            RevokeWallScreenCommand(actor=actor, device_id=device_id)
+        )
+        return _json(
+            200,
+            {
+                "deviceId": result.device_id,
+                "status": "revoked",
+                "revokedAt": _at(result.revoked_at),
+            },
+        )
+
+    return await replay_or_run(request, actor, f"screen-revoke:{device_id}:{key}", run)

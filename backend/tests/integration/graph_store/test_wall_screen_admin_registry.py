@@ -92,9 +92,7 @@ async def test_the_list_gives_the_tenants_wall_screens_in_name_order_and_no_othe
 
     async def a_phone(tx: AsyncManagedTransaction) -> None:
         # A practitioner's device: no deviceType, so it is never a screen.
-        await tx.run(
-            "CREATE (:Device {id: 'phone-1', tenantId: $tenant, status: 'active'})"
-        )
+        await tx.run("CREATE (:Device {id: 'phone-1', tenantId: $tenant, status: 'active'})")
 
     await write_tx(neo4j_driver, a_phone)
     with as_tenant(other_tenant_id):
@@ -147,9 +145,7 @@ async def test_an_unknown_screen_and_a_practitioners_device_are_not_confirmed(
     neo4j_driver: AsyncDriver,
 ) -> None:
     async def a_phone(tx: AsyncManagedTransaction) -> None:
-        await tx.run(
-            "CREATE (:Device {id: 'phone-1', tenantId: $tenant, status: 'active'})"
-        )
+        await tx.run("CREATE (:Device {id: 'phone-1', tenantId: $tenant, status: 'active'})")
 
     await write_tx(neo4j_driver, a_phone)
     assert await _seen(neo4j_driver, "nowhere", NOW) is False

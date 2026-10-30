@@ -21,6 +21,7 @@ from neo4j import AsyncDriver, AsyncManagedTransaction
 from diucs.adapters.inbound.fhir_rest.app import create_app
 from diucs.adapters.inbound.fhir_rest.auth import BFF_SECRET_NAME, require_role
 from diucs.adapters.inbound.fhir_rest.routes_auth import DEVICE_PATH, ExchangeDeps
+from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.adapters.testing.fake_identity_verifier import FakeIdentityVerifier
 from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.fixed_ids import SequentialIds
@@ -32,7 +33,6 @@ from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, PHONE
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET
 from diucs.application.use_cases.exchange_token import ACCOUNT_REF_SECRET
 from diucs.bootstrap.container import Container, build_for_tests
-from diucs.adapters.outbound.graph_store.connection import Neo4jConnection
 from diucs.domain.codes import Role
 from tests.support.neo4j import ThrowawayNeo4j, write_tx
 from tests.support.tenancy import as_tenant
@@ -110,6 +110,7 @@ async def hosts(
 async def app(container: Container, hosts: dict[str, str]) -> FastAPI:
     built = create_app(container)
     built.state.secrets = _secrets()
+    built.state.cache = container.cache
     built.state.token_exchange = ExchangeDeps(
         verifier=FakeIdentityVerifier(), operator_directory_id=None
     )
@@ -149,7 +150,9 @@ async def _pair(c: AsyncClient, tenant: str, name: str, key: str) -> tuple[str, 
 
 
 async def _wall_token(c: AsyncClient, device_token: str) -> str:
-    response = await c.post(DEVICE_PATH, json={}, headers={"Authorization": f"Bearer {device_token}"})
+    response = await c.post(
+        DEVICE_PATH, json={}, headers={"Authorization": f"Bearer {device_token}"}
+    )
     assert response.status_code == 200, response.text
     token: str = response.json()["token"]
     return token
@@ -184,21 +187,25 @@ async def test_a_paired_screen_is_listed_waiting_then_offline_then_online_when_i
         assert (collected["status"], collected["lastSeenAt"]) == ("offline", None)
 
         wall = await _wall_token(c, claimed.json()["deviceToken"])
-        assert (await c.get("/wall-probe", headers={"Authorization": f"Bearer {wall}"})).status_code == 200
+        assert (
+            await c.get("/wall-probe", headers={"Authorization": f"Bearer {wall}"})
+        ).status_code == 200
         [online] = await _list(c, tenant_id)
         assert online["status"] == "online"
         assert online["lastSeenAt"] == "2026-10-30T10:00:00Z"
 
 
 async def test_a_revoked_screen_is_cut_off_at_once_and_listed_revoked(
-    app: FastAPI, hosts: dict[str, str], tenant_id: str, neo4j_driver: AsyncDriver
+    app: FastAPI, container: Container, hosts: dict[str, str], tenant_id: str
 ) -> None:
     async with _client(app, hosts["a"]) as c:
         device_id, device_token = await _pair(c, tenant_id, "Ward 4", "pair-1")
         wall = {"Authorization": f"Bearer {await _wall_token(c, device_token)}"}
         assert (await c.get("/wall-probe", headers=wall)).status_code == 200
 
-        revoked = await c.post(f"{SCREENS}/{device_id}/revoke", headers=_lead(tenant_id, "rev-1"))
+        revoked = await c.post(
+            f"{SCREENS}/{device_id}/revoke", json={}, headers=_lead(tenant_id, "rev-1")
+        )
         assert revoked.status_code == 200, revoked.text
         assert revoked.json() == {
             "deviceId": device_id,
@@ -217,20 +224,16 @@ async def test_a_revoked_screen_is_cut_off_at_once_and_listed_revoked(
         assert (row["status"], row["revokedAt"]) == ("revoked", "2026-10-30T10:00:00Z")
 
         # A second revoke, with a new key, changes nothing and writes no second audit entry.
-        repeat = await c.post(f"{SCREENS}/{device_id}/revoke", headers=_lead(tenant_id, "rev-2"))
+        repeat = await c.post(
+            f"{SCREENS}/{device_id}/revoke", json={}, headers=_lead(tenant_id, "rev-2")
+        )
         assert repeat.status_code == 200
         assert repeat.json()["revokedAt"] == "2026-10-30T10:00:00Z"
 
-    async def audits(tx: AsyncManagedTransaction) -> int:
-        result = await tx.run(
-            "MATCH (a:AuditEntry {tenantId: $tenant}) WHERE a.action = 'wall-screen-revoked' "
-            "RETURN count(a) AS n"
-        )
-        record = await result.single()
-        return int(record["n"]) if record else 0
-
     with as_tenant(tenant_id):
-        assert await write_tx(neo4j_driver, audits) == 1
+        async with container.uow_factory() as uow:
+            actions = [record.entry.action for record in await uow.audit.records()]
+    assert actions.count("wall-screen-revoked") == 1
 
 
 async def test_the_other_tenants_lead_sees_none_of_it_and_cannot_revoke_it(
@@ -244,13 +247,18 @@ async def test_the_other_tenants_lead_sees_none_of_it_and_cannot_revoke_it(
         assert [s["name"] for s in await _list(b, other_tenant_id)] == ["Ward B"]
 
         refused = await b.post(
-            f"{SCREENS}/{device_a}/revoke", headers=_lead(other_tenant_id, "cross-1")
+            f"{SCREENS}/{device_a}/revoke", json={}, headers=_lead(other_tenant_id, "cross-1")
         )
         assert refused.status_code == 404
         wall = {"Authorization": f"Bearer {await _wall_token(a, token_a)}"}
         assert (await a.get("/wall-probe", headers=wall)).status_code == 200
         assert [s["status"] for s in await _list(a, tenant_id)] != ["revoked"]
 
-        # A wall token of A is not good on B's host either: the tenant is the token's own.
-        assert (await b.get("/wall-probe", headers=wall)).status_code == 401
-        assert device_b != "" and [s["name"] for s in await _list(b, other_tenant_id)] == ["Ward B"]
+        # B's lead revokes B's own screen; A's list does not change.
+        own = await b.post(
+            f"{SCREENS}/{device_b}/revoke", json={}, headers=_lead(other_tenant_id, "own-1")
+        )
+        assert own.status_code == 200
+        assert [s["status"] for s in await _list(b, other_tenant_id)] == ["revoked"]
+        assert [s["status"] for s in await _list(a, tenant_id)] != ["revoked"]
+        assert (await a.get("/wall-probe", headers=wall)).status_code == 200

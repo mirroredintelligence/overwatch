@@ -326,6 +326,22 @@ class DeviceRegistry(Protocol):
         another tenant or a practitioner's device already holds is Conflict."""
         ...
 
+    async def list_screens(self) -> list[Device]:
+        """Every wall screen of the bound tenant, any status, by name then id (W9I). A
+        practitioner's device is never one, and another tenant's screen is never listed. Takes no
+        lock."""
+        ...
+
+    async def confirm_active(
+        self, device_id: str, seen_at: datetime, refresh_after: timedelta
+    ) -> bool:
+        """True when the bound tenant holds an ACTIVE wall screen with this id (W9I: the edge asks
+        this of every wall request, so a revoked screen is refused at once). When it is, and its
+        last seen time is absent or older than `seen_at - refresh_after`, the time is set to
+        `seen_at` in the same step; a screen seen more recently is not written. A revoked, waiting,
+        unknown or another tenant's screen is False and nothing is written."""
+        ...
+
     async def find_by_token_hash(self, token_hash: str) -> Device | None:
         """The ACTIVE wall screen of the bound tenant whose token hashes to this, or None: a screen
         that is not active, or of another tenant, is never found. More than one is Conflict."""

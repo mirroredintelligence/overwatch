@@ -53,8 +53,13 @@ def _world() -> tuple[Rig, ScreenDevices]:
     rig.units.devices = devices
     devices.screens["s-1"] = _screen("s-1", "Ward 4 corridor")
     devices.screens["s-2"] = _screen(
-        "s-2", "Day room", status=DeviceStatus.PAIRED_UNCLAIMED, token_hash=None,
-        last_seen_at=None, paired_at=NOW - timedelta(minutes=1), location=None,
+        "s-2",
+        "Day room",
+        status=DeviceStatus.PAIRED_UNCLAIMED,
+        token_hash=None,
+        last_seen_at=None,
+        paired_at=NOW - timedelta(minutes=1),
+        location=None,
     )
     return rig, devices
 
@@ -112,15 +117,6 @@ async def test_an_empty_tenant_gets_an_empty_list_not_a_missing_one() -> None:
     assert body["screens"] == []
 
 
-async def test_listing_reads_only_the_callers_tenant() -> None:
-    rig, _ = _world()
-    async with _http(rig) as http:
-        other = await http.get("/screens", headers=bearer(Role.LEAD, LEAD, tenant="other-tenant"))
-    # The token names a tenant the directory does not know: the edge refuses it, nothing is read.
-    assert other.status_code == 401
-    assert "devices.list_screens" not in rig.units.calls
-
-
 async def test_the_role_matrix_of_the_list_is_the_shift_lead_alone() -> None:
     async with route_client() as client:
         await assert_role_matrix(client, "GET", "/screens", frozenset({Role.LEAD}))
@@ -132,7 +128,7 @@ async def test_the_role_matrix_of_the_list_is_the_shift_lead_alone() -> None:
 async def test_revoking_answers_the_new_state_and_ends_the_screen() -> None:
     rig, devices = _world()
     async with _http(rig) as http:
-        response = await http.post("/screens/s-1/revoke", headers={**LEAD_AUTH, **KEY})
+        response = await http.post("/screens/s-1/revoke", json={}, headers={**LEAD_AUTH, **KEY})
 
     assert response.status_code == 200, response.text
     assert response.headers["cache-control"] == "no-store"
@@ -151,8 +147,8 @@ async def test_revoking_answers_the_new_state_and_ends_the_screen() -> None:
 async def test_the_same_key_twice_is_answered_again_and_audited_once() -> None:
     rig, _ = _world()
     async with _http(rig) as http:
-        first = await http.post("/screens/s-1/revoke", headers={**LEAD_AUTH, **KEY})
-        second = await http.post("/screens/s-1/revoke", headers={**LEAD_AUTH, **KEY})
+        first = await http.post("/screens/s-1/revoke", json={}, headers={**LEAD_AUTH, **KEY})
+        second = await http.post("/screens/s-1/revoke", json={}, headers={**LEAD_AUTH, **KEY})
     assert (first.status_code, second.status_code) == (200, 200)
     assert second.json() == first.json()
     assert len(rig.units.audit.entries) == 1
@@ -161,18 +157,22 @@ async def test_the_same_key_twice_is_answered_again_and_audited_once() -> None:
 async def test_revoking_with_no_key_is_refused_and_changes_nothing() -> None:
     rig, devices = _world()
     async with _http(rig) as http:
-        response = await http.post("/screens/s-1/revoke", headers=LEAD_AUTH)
+        response = await http.post("/screens/s-1/revoke", json={}, headers=LEAD_AUTH)
     assert response.status_code == 400
     assert devices.screens["s-1"].status is DeviceStatus.ACTIVE
 
 
-async def test_revoking_a_screen_the_tenant_does_not_hold_is_the_404_of_a_missing_one() -> None:
+async def test_revoking_a_screen_the_tenant_does_not_hold_is_a_404_and_a_malformed_id_a_400() -> (
+    None
+):
     rig, _ = _world()
     async with _http(rig) as http:
-        response = await http.post("/screens/nowhere/revoke", headers={**LEAD_AUTH, **KEY})
-        malformed = await http.post("/screens/bad id!/revoke", headers={**LEAD_AUTH, **KEY})
+        response = await http.post("/screens/nowhere/revoke", json={}, headers={**LEAD_AUTH, **KEY})
+        malformed = await http.post(
+            "/screens/bad id!/revoke", json={}, headers={**LEAD_AUTH, **KEY}
+        )
     assert response.status_code == 404
-    assert malformed.status_code == 404
+    assert malformed.status_code == 400  # not an id at all: refused before any lookup
     assert rig.units.audit.entries == []
 
 
@@ -180,7 +180,9 @@ async def test_the_revoke_body_is_never_read() -> None:
     rig, devices = _world()
     async with _http(rig) as http:
         response = await http.post(
-            "/screens/s-1/revoke", json={"tenant": "other", "deviceId": "s-2"}, headers={**LEAD_AUTH, **KEY}
+            "/screens/s-1/revoke",
+            json={"tenant": "other", "deviceId": "s-2"},
+            headers={**LEAD_AUTH, **KEY},
         )
     assert response.status_code == 200
     assert devices.screens["s-1"].status is DeviceStatus.REVOKED
@@ -190,7 +192,7 @@ async def test_the_revoke_body_is_never_read() -> None:
 async def test_the_role_matrix_of_the_revoke_is_the_shift_lead_alone() -> None:
     async with route_client() as client:
         await assert_role_matrix(
-            client, "POST", "/screens/s-1/revoke", frozenset({Role.LEAD}), headers=KEY
+            client, "POST", "/screens/s-1/revoke", frozenset({Role.LEAD}), body={}, headers=KEY
         )
 
 

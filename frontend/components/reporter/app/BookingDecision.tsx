@@ -17,7 +17,7 @@ type Reason = 'full' | 'outside-criteria' | 'staffing-or-transport' | 'other';
 type Status = 'requested' | 'confirmed' | 'declined' | 'expired';
 
 // What the BFF gives (the back end's booking by its reference, DEC-821): the instants are ISO, the age
-// band, the urgency and the SPOA number may be absent, and nothing of the case is in it.
+// band, the urgency and the coordination number may be absent, and nothing of the case is in it.
 type Booking = {
   reference: string;
   service: string;

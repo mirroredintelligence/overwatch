@@ -172,8 +172,11 @@ export function authorizeUrl(config: EntraConfig, transaction: Transaction): URL
   query.set('response_type', 'code');
   query.set('redirect_uri', redirectUri(config));
   query.set('response_mode', 'query');
-  // Only openid: no name, email or profile is asked for, so none is sent.
-  query.set('scope', 'openid');
+  // openid and profile. Entra puts the object id (`oid`), which the back end keys every person on, into the
+  // ID token only when `profile` is asked for as well; with `openid` alone the token has `sub` and no `oid`
+  // and every sign-in is refused (seen on the pilot). The name and preferred_username that arrive with it are
+  // never read, kept or logged: verifyIdToken reads only tid, oid, iss and nonce.
+  query.set('scope', 'openid profile');
   query.set('state', transaction.state);
   query.set('nonce', transaction.nonce);
   query.set('code_challenge', createHash('sha256').update(transaction.verifier).digest('base64url'));

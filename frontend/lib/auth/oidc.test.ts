@@ -222,14 +222,14 @@ describe('authorizeUrl', () => {
     expect(url.origin + url.pathname).toBe(`${HOST}/organizations/oauth2/v2.0/authorize`);
   });
 
-  it('is a code request with PKCE S256, a state, a nonce, the fixed redirect address and the openid scope only', () => {
+  it('is a code request with PKCE S256, a state, a nonce, the fixed redirect address and the openid and profile scopes', () => {
     const transaction = newTransaction('/lead');
     const url = authorizeUrl(config, transaction);
     const q = url.searchParams;
     expect(q.get('client_id')).toBe(CLIENT_ID);
     expect(q.get('response_type')).toBe('code');
     expect(q.get('redirect_uri')).toBe(REDIRECT_URI);
-    expect(q.get('scope')).toBe('openid');
+    expect(q.get('scope')).toBe('openid profile');
     expect(q.get('response_mode')).toBe('query');
     expect(q.get('state')).toBe(transaction.state);
     expect(q.get('nonce')).toBe(transaction.nonce);

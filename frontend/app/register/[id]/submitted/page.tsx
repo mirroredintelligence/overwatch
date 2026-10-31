@@ -15,7 +15,6 @@ export default async function SubmittedPage({ params }: { params: Promise<{ id: 
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
-        <p className={styles.product}>Overwatch</p>
         <div className={styles.card}>
           <h1 className={styles.heading}>Submitted for approval</h1>
           <p className={styles.text}>

@@ -28,7 +28,6 @@ export default async function RegisterPage({ searchParams }: { searchParams: Sea
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
-        <p className={styles.product}>Overwatch</p>
         {saved ? (
           <Banner tone="info" title="Your draft is saved. Use your invitation link to come back." dataEl="REG-SAVED-NOTE" />
         ) : null}

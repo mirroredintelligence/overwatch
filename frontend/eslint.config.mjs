@@ -85,8 +85,8 @@ export default defineConfig([
   },
   {
     // The files that may touch browser storage: the helper, the sign-out that wipes it, and the
-    // telemetry session id (per tab, not linked to a person).
-    files: ['lib/storage/tenantStore.ts', 'lib/session/signOut.ts', 'lib/telemetry/events.ts'],
+    // telemetry session id and the splash's once-per-session flag (per tab, not linked to a person).
+    files: ['lib/storage/tenantStore.ts', 'lib/session/signOut.ts', 'lib/telemetry/events.ts', 'lib/pwa/launch.ts'],
     rules: {
       'no-restricted-globals': 'off',
       'no-restricted-syntax': ['error', ...commonSyntax],

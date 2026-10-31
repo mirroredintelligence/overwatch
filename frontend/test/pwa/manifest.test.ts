@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -30,4 +30,29 @@ describe('web app manifest', () => {
     expect(manifest.icons.some((icon) => icon.sizes === '192x192')).toBe(true);
     expect(manifest.icons.some((icon) => icon.purpose === 'maskable')).toBe(true);
   });
+
+  it('names no product but Overwatch', () => {
+    expect(JSON.stringify(manifest)).not.toMatch(new RegExp(['diu', 'cs'].join(''), 'i'));
+  });
+
+  it('points every icon at a PNG of the size it claims', () => {
+    for (const icon of manifest.icons) {
+      const file = join(process.cwd(), 'public', icon.src);
+      expect(existsSync(file), icon.src).toBe(true);
+      const [width, height] = pngSize(file);
+      expect(`${width}x${height}`, icon.src).toBe(icon.sizes);
+    }
+  });
+
+  it('has the browser tab icon and the iOS home-screen icon from the same mark', () => {
+    expect(pngSize(join(process.cwd(), 'app', 'icon.png'))).toEqual([64, 64]);
+    expect(pngSize(join(process.cwd(), 'app', 'apple-icon.png'))).toEqual([180, 180]);
+  });
 });
+
+/** The width and height in a PNG's IHDR chunk, after the 8-byte signature and the chunk's length and type. */
+function pngSize(file: string): [number, number] {
+  const bytes = readFileSync(file);
+  expect(bytes.subarray(1, 4).toString('ascii'), file).toBe('PNG');
+  return [bytes.readUInt32BE(16), bytes.readUInt32BE(20)];
+}

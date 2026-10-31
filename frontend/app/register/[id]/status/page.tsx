@@ -14,7 +14,6 @@ export default async function StatusRoute({ params }: { params: Promise<{ id: st
   return (
     <main className={styles.main}>
       <div className={styles.panel}>
-        <p className={styles.product}>Overwatch</p>
         <div className={styles.card}>
           <StatusPage registrationId={id} />
         </div>

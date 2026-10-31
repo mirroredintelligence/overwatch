@@ -116,7 +116,7 @@ export const CACHING_RULES: Rule[] = [
 // Literals, environment, storage, the back end
 
 const STORAGE_FILES = ['lib/storage/tenantStore.ts', 'lib/session/signOut.ts'];
-const SESSION_STORAGE_FILES = ['lib/telemetry/events.ts', 'lib/session/signOut.ts'];
+const SESSION_STORAGE_FILES = ['lib/telemetry/events.ts', 'lib/session/signOut.ts', 'lib/pwa/launch.ts'];
 
 /** The files that call `fetch`, and why each may. A new file that calls it fails until it is named here. */
 export const FETCH_ALLOWLIST: Record<string, string> = {

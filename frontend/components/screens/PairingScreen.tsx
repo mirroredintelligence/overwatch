@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { LogoReversed } from '@/components/brand/LogoReversed';
 import { Banner } from '@/components/ui';
 import { pollPairing, renewSession, startPairing } from '@/lib/screens/client';
 import { usePairing, type PairingApi } from '@/lib/screens/usePairing';
@@ -17,7 +18,11 @@ export function PairingScreen({ api = SCREEN_API }: { api?: PairingApi }) {
 
   return (
     <main className={styles.page}>
-      <h1 className={styles.title}>Overwatch wall screen</h1>
+      <header className={styles.header}>
+        <h1 className={styles.title}>
+          <LogoReversed height={48} /> <span>wall screen</span>
+        </h1>
+      </header>
       <div className={styles.stage}>
         {view.disconnected === true ? (
           <div className={styles.message}>

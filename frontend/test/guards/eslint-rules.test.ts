@@ -27,9 +27,9 @@ describe('browser storage', () => {
     expect(has(await messages(code, 'lib/board/x.ts'), 'tenantStore')).toBe(true);
   });
 
-  it('lets the store, the sign-out and the telemetry session id use it', async () => {
+  it('lets the store, the sign-out, the telemetry session id and the splash flag use it', async () => {
     const code = 'export function f() { return window.localStorage.length + sessionStorage.length; }';
-    for (const file of ['lib/storage/tenantStore.ts', 'lib/session/signOut.ts', 'lib/telemetry/events.ts']) {
+    for (const file of ['lib/storage/tenantStore.ts', 'lib/session/signOut.ts', 'lib/telemetry/events.ts', 'lib/pwa/launch.ts']) {
       expect(has(await messages(code, file), 'tenantStore'), file).toBe(false);
     }
   });

@@ -80,7 +80,6 @@ export function ReviewList({ registrationId }: ReviewListProps) {
 
   const header = (
     <>
-      <p className={styles.product}>Overwatch</p>
       <p className={styles.note}>Step 5 of 5 · Review</p>
       <h1 className={styles.heading}>Check your details</h1>
     </>

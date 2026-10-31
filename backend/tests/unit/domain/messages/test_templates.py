@@ -403,7 +403,7 @@ def test_c6_without_a_confirm_limit_is_refused_and_nothing_is_guessed() -> None:
     assert refusal.value.field == "confirm_limit"
 
 
-# The footer of a capacity email: three sentences, in both parts, and the link escaped (KI-173, KI-174)
+# The footer of a capacity email: three sentences in both parts, and the link escaped (KI-173, 174)
 
 CAPACITY_EMAILS = (MessageId.C1, MessageId.C2, MessageId.C8)
 FOOTER_SENTENCES = (

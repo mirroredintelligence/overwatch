@@ -190,6 +190,21 @@ _ROW_OF_PROMPT: Final[dict[str, Any]] = {
     "props": {"id": "comm-1", "payloadText": Marked(_MESSAGE_TEXT), "deliveryStatus": "sent"},
 }
 _PROVIDER_ID: Final = "SM-1"
+_RECEIPT_ID: Final = "SM-early"
+_RECEIPT_KEY: Final = f"{_RECEIPT_ID}|delivered"
+_RECEIPT_SEED: Final = TenantSeed(
+    nodes=(
+        SeedNode(
+            "receipt",
+            ("ProviderReceipt",),
+            {
+                "key": _RECEIPT_KEY,
+                "providerMessageId": _RECEIPT_ID,
+                "status": Marked("delivered"),
+            },
+        ),
+    ),
+)
 
 
 def _scenario(
@@ -356,6 +371,29 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
         },
         expect=Expect(rows=(_ROW_OF_LATEST,)),
     ),
+    "Q-COMM-PARK-RECEIPT": _scenario(
+        "keep a delivery receipt for a provider id no communication holds yet",
+        _RECEIPT_SEED,
+        {
+            "key": _RECEIPT_KEY,
+            "providerMessageId": _RECEIPT_ID,
+            "status": "delivered",
+            "errorCode": None,
+        },
+        lookup=("key",),
+        new=("status", "errorCode"),
+        expect=Expect(rows=({"status": Marked("delivered")},)),
+    ),
+    "Q-COMM-TAKE-PARKED": _scenario(
+        "take the receipts parked for a provider id, oldest first, and forget them",
+        _RECEIPT_SEED,
+        {"providerMessageId": _RECEIPT_ID},
+        lookup=("providerMessageId",),
+        expect=Expect(
+            rows=({"status": Marked("delivered"), "errorCode": None},),
+            nodes={"ProviderReceipt": -1},
+        ),
+    ),
     "Q-COMM-RECENT-PROMPTS": _scenario(
         "find every prompt sent to a role since a time, newest first",
         _LATEST_SEED,
@@ -446,6 +484,23 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "WITH c ORDER BY c.sent DESC, c.id DESC LIMIT 1 " + _READ,
         "read",
     ),
+    # A receipt that came before the send was recorded (KI-133): the provider id and the status
+    # only. The key joins them, so the same receipt twice is one node.
+    "Q-COMM-PARK-RECEIPT": (
+        "MERGE (r:ProviderReceipt {key: $key, tenantId: $tenant}) "
+        "ON CREATE SET r.providerMessageId = $providerMessageId, r.status = $status, "
+        "r.errorCode = $errorCode, r.receivedAt = datetime({timezone: 'UTC'}) "
+        "RETURN r.status AS status",
+        "write",
+    ),
+    "Q-COMM-TAKE-PARKED": (
+        "MATCH (r:ProviderReceipt {tenantId: $tenant}) "
+        "WHERE r.providerMessageId = $providerMessageId "
+        "WITH r, r.status AS status, r.errorCode AS errorCode, r.receivedAt AS at "
+        "DELETE r "
+        "RETURN status, errorCode ORDER BY at, status",
+        "write",
+    ),
     "Q-COMM-RECENT-PROMPTS": (
         "MATCH (c:Communication {tenantId: $tenant})-[:TOPIC]->(t:Concept {tenantId: $tenant}) "
         "WHERE t.system = $messageSystem AND t.code IN $messageIds "
@@ -496,6 +551,7 @@ def _from_row(row: dict[str, Any]) -> Communication:
         delivery_status=str(props["deliveryStatus"]),
         provider_message_id=props.get("providerMessageId"),
         in_response_to=props.get("inResponseTo"),
+        error_code=props.get("errorCode"),
     )
 
 
@@ -592,6 +648,25 @@ class Neo4jCommunicationRepository:
         )
         return int(rows[0]["updated"]) > 0
 
+    async def park_receipt(
+        self, provider_message_id: str, status: str, error_code: str | None
+    ) -> None:
+        if status not in DELIVERY_STATUSES:
+            raise ValidationFailed("deliveryStatus", "not a delivery status")
+        await self._run(
+            "Q-COMM-PARK-RECEIPT",
+            key=f"{provider_message_id}|{status}",
+            providerMessageId=provider_message_id,
+            status=status,
+            errorCode=error_code,
+        )
+
+    async def apply_parked_receipts(self, provider_message_id: str) -> int:
+        rows = await self._run("Q-COMM-TAKE-PARKED", providerMessageId=provider_message_id)
+        for row in rows:
+            await self.set_delivery_status(provider_message_id, str(row["status"]))
+        return len(rows)
+
     async def prompts_due_between(self, start: datetime, end: datetime) -> list[PromptDue]:
         rows = await self._run(
             "Q-COMM-PROMPTS-DUE-BETWEEN",
@@ -623,7 +698,12 @@ class Neo4jCommunicationRepository:
             providerMessageId=provider_message_id,
             errorCode=error_code,
         )
-        return int(rows[0]["recorded"]) > 0
+        recorded = int(rows[0]["recorded"]) > 0
+        if recorded and provider_message_id is not None:
+            # A receipt can have come first: it was parked, and is applied now, in this unit of
+            # work, so the record is never left `sent` for a text that was delivered (KI-133).
+            await self.apply_parked_receipts(provider_message_id)
+        return recorded
 
     async def latest_prompt_for_phone(
         self, role_ids: Collection[str], message_ids: Collection[str]

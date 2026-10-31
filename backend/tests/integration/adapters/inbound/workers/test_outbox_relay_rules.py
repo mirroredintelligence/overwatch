@@ -113,7 +113,7 @@ async def test_a_schedule_that_hangs_is_given_up_and_counted_too(
 
     assert result == RelayResult(published=0, failed=1, skipped_no_lock=False)
     assert (await outbox_node(neo4j_driver, "out-1"))["lastError"] == "TimeoutError"
-    assert (await work_node(neo4j_driver, "work-1"))["sequenceNumber"] is None
+    assert (await work_node(neo4j_driver, "work-1")).get("sequenceNumber") is None
 
 
 async def test_the_timeout_is_shorter_than_the_lock_a_batch_holds() -> None:
@@ -121,9 +121,8 @@ async def test_the_timeout_is_shorter_than_the_lock_a_batch_holds() -> None:
 
     assert outbox_relay.PUBLISH_TIMEOUT_SECONDS > 0
     assert (
-        (outbox_relay.LOCK_TTL - outbox_relay.LOCK_MARGIN).total_seconds()
-        > outbox_relay.PUBLISH_TIMEOUT_SECONDS
-    )
+        outbox_relay.LOCK_TTL - outbox_relay.LOCK_MARGIN
+    ).total_seconds() > outbox_relay.PUBLISH_TIMEOUT_SECONDS
 
 
 # --- KI-103: one poison row does not back off the tenant ----------------------------------------

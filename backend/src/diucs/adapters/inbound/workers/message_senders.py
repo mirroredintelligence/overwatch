@@ -20,13 +20,15 @@ A Communication that already has a provider id, or has left `queued`, is never s
 Errors carry fixed texts only: no number, address, body text or tenant id reaches a log line or an
 error (the log holds the message id, the status and the reason code).
 
-Known issue (I10-1): the provider call and the commit of its record are separate. If the commit
-fails after the provider accepted the text, the redelivery sends it again. Twilio's Messages API
-has no idempotency key used here.
+Known issue (I10-1, narrowed by KI-185): the provider call and the commit of its record are
+separate. If the commit fails after the provider accepted the text, the redelivery in the same
+process records the remembered receipt and sends nothing; a redelivery to another process, or after
+a restart, still sends it again. Twilio's Messages API has no idempotency key used here.
 """
 
 import json
 import logging
+from collections import OrderedDict
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -205,17 +207,55 @@ def is_handled(communication: Communication) -> bool:
     )
 
 
+SENT_LEDGER_SIZE: Final = 10_000
+"""How many accepted sends a sender remembers (KI-185). Bounded: the oldest is forgotten first."""
+
+
+class _SentLedger:
+    """The receipts of the sends the provider accepted, by tenant and outbox message id, so a
+    redelivery after a commit that failed records the same send and does not make another (H-46).
+    It holds the provider's receipt only: never a number, an address or a text."""
+
+    def __init__(self, size: int) -> None:
+        self._size = size
+        self._receipts: OrderedDict[tuple[str, str], SendReceipt] = OrderedDict()
+
+    def get(self, tenant_id: str, message_id: str) -> SendReceipt | None:
+        return self._receipts.get((tenant_id, message_id))
+
+    def remember(self, tenant_id: str, message_id: str, receipt: SendReceipt) -> None:
+        key = (tenant_id, message_id)
+        self._receipts[key] = receipt
+        self._receipts.move_to_end(key)
+        while len(self._receipts) > self._size:
+            self._receipts.popitem(last=False)
+
+
 class _OutboundSender:
     """The shared path of the text and email senders. A subclass names its channel, how it finds
-    the recipient and how it sends through the bound tenant's sender."""
+    the recipient and how it sends through the bound tenant's sender.
+
+    Send-once (KI-185, H-46): the provider call and the commit of its record are separate. When
+    the commit fails after the provider accepted the send, the bus redelivers the message; the
+    sender remembers the receipt of an accepted send, so the redelivery records that receipt and
+    does not call the provider again. The memory is this process's: a redelivery to another process
+    or after a restart can still send twice."""
 
     channel: Channel
     name: str
 
-    def __init__(self, senders: SenderResolver, sealer: ContentSealer, clock: Clock) -> None:
+    def __init__(
+        self,
+        senders: SenderResolver,
+        sealer: ContentSealer,
+        clock: Clock,
+        *,
+        ledger_size: int = SENT_LEDGER_SIZE,
+    ) -> None:
         self._senders = senders
         self._sealer = sealer
         self._clock = clock
+        self._ledger = _SentLedger(ledger_size)
 
     async def __call__(self, message: BusMessage, uow: UnitOfWork) -> None:
         if message.event_type != SEND_MESSAGE_EVENT:
@@ -233,6 +273,13 @@ class _OutboundSender:
         if communication is None:
             raise PermanentError(NO_COMMUNICATION)
         if is_handled(communication):
+            return
+        remembered = self._ledger.get(tenant_id, message.id)
+        if remembered is not None:
+            # The provider accepted this send before, and the commit after it failed.
+            await self._settle(
+                uow, message, communication.id, "sent", remembered.provider_message_id, None
+            )
             return
         if await prompt_is_held_back(uow, communication):
             await self._settle(uow, message, communication.id, "failed", None, SERVICE_SUSPENDED)
@@ -259,6 +306,7 @@ class _OutboundSender:
             await self._settle(uow, message, communication.id, "failed", None, SEND_FAILED)
             return
         if receipt.accepted:
+            self._ledger.remember(tenant_id, message.id, receipt)
             await self._settle(
                 uow, message, communication.id, "sent", receipt.provider_message_id, None
             )

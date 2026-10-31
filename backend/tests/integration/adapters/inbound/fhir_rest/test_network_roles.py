@@ -60,6 +60,8 @@ async def _screen(
 
 
 def _params(route: NetworkRoute) -> dict[str, str]:
+    if route.needs_case:
+        return {"case": "case-not-read"}  # refused before the case is read, or not found
     return WEEK if route.needs_week else {}
 
 
@@ -80,6 +82,8 @@ async def test_every_route_answers_each_role_with_its_own_status_and_nothing_els
             for role in ALL_ROLES:
                 if role in route.roles and route.streams:
                     continue  # a stream does not end in a test client: see test_network_stream
+                if role in route.roles and route.needs_case:
+                    continue  # a 200 needs the viewer's own case: see test_network_options.py
                 headers = (
                     wall_bearer(member) if role is Role.WALL else bearer(member, role, (network,))
                 )

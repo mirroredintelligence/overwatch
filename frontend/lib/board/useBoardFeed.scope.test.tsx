@@ -71,7 +71,12 @@ describe('useBoardFeed: the scope', () => {
     const { fetchBoard, createEventSource, streams } = mount();
     await openLast(streams);
     fetchBoard.mockResolvedValueOnce(fresh(NETWORK_BOARD, NETWORK));
-    await advance(60_000);
+    // The own stream beats every 15 s (KI-54): a silent one is closed and opened again by the watchdog, which is
+    // not what this test is about, so it is kept alive up to the read of the minute.
+    for (let beat = 0; beat < 4; beat++) {
+      await act(async () => streams[0]!.stream.emit('heartbeat'));
+      await advance(15_000);
+    }
     expect(createEventSource).toHaveBeenCalledTimes(2);
     expect(createEventSource).toHaveBeenLastCalledWith(NETWORK);
     expect(streams[0]!.stream.closed).toBe(true);

@@ -68,8 +68,8 @@ async function call(
   options: { role?: Role; tenant?: (typeof TENANTS)[keyof typeof TENANTS]; query?: string; body?: unknown; csrf?: boolean; params?: Record<string, string>; url?: string } = {},
 ): Promise<Response> {
   const [verb, url, params] = PATHS[name];
-  const module = await ROUTES[name]();
-  const handler = module[verb] as Handler;
+  const loaded = await ROUTES[name]();
+  const handler = loaded[verb] as Handler;
   const body = options.body === undefined ? BODIES[name] : options.body;
   const request = await requestAs(options.tenant ?? MEMBER, options.role ?? 'tenant-admin', {
     method: verb,

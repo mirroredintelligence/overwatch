@@ -39,6 +39,11 @@ def _labels_of_every_tenant_statement() -> set[str]:
             importlib.import_module(module.name)
     found: set[str] = set()
     for query_id in REGISTRY.ids():
+        if ":" in query_id:
+            # An instance of a template (`Q-RES-UPSERT-NODE:Address`), registered by whichever
+            # scenario or store asked for it first: which of them exist depends on what ran
+            # before. Its label is a backbone resource or element, classified by its resource.
+            continue
         query = REGISTRY.get(query_id)
         if query.scope == "tenant" and "tenant" in query.scope_kinds:
             found |= set(statement_labels(query.cypher))

@@ -92,6 +92,7 @@ describe('GET /api/bff/cases/[ref] (W11)', () => {
       needs: ['fall-no-injury', 'frailty'],
       urgency: 'within-2-hrs',
       scores: [{ method: 'news2', value: 2 }],
+      scoreCorrections: 0,
       openedAt: '2026-10-30T14:00:00Z',
       closed: false,
       closedAt: null,

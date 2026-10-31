@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { type FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import {
@@ -14,6 +14,8 @@ import {
   type NeedCode,
   REFERRERS,
   type ReferrerCode,
+  SCORE_CORRECTION_REASONS,
+  type ScoreCorrectionReasonCode,
   URGENCIES,
   type UrgencyCode,
 } from '@/lib/advisor/codes';
@@ -29,8 +31,10 @@ import styles from './NeedsForm.module.css';
 // the postcode. The form is not editable until the case has been read, so a save never overwrites
 // a case the page has not seen. A save sends the ETag it read as If-Match and a key of its own (W11).
 // The back end keeps the postcode DISTRICT only (DEC-398), so the form says which district is on record
-// and sends a postcode only when one is typed; it keeps scores once recorded (they cannot change), so
-// they are shown as text; a closed case cannot change, so it is not a form at all.
+// and sends a postcode only when one is typed; a recorded score is shown as text and is changed only
+// by a correction with a reason, the first value kept in the audit (Q7, DEC-1171); a closed case cannot
+// change, so it is not a form at all. A save refused because someone else changed the case first says
+// so and keeps nothing: the advisor reads the case again (H-192, DEC-1172).
 
 const POSTCODE_ERROR = 'Enter a full postcode, for example DT4 8XX';
 const POSTCODE_ERROR_ID = 'needs-postcode-error';
@@ -44,6 +48,19 @@ type Draft = {
   urgency: UrgencyCode | null;
   scores: Score[];
 };
+
+/** True when a score of a method already recorded is given another value (a correction). */
+function changesRecorded(recorded: Score[], given: Score[]): boolean {
+  return recorded.some((was) => {
+    const now = given.find((score) => score.method === was.method);
+    return now !== undefined && now.value !== was.value;
+  });
+}
+
+/** True when a method already recorded is missing from the draft (an invalid entry): not saved. */
+function dropsRecorded(recorded: Score[], given: Score[]): boolean {
+  return recorded.some((was) => !given.some((score) => score.method === was.method));
+}
 
 type Load = { kind: 'loading' } | { kind: 'ready'; view: CaseView } | { kind: 'failed' };
 
@@ -75,9 +92,11 @@ function inputFrom(draft: Draft, postcode: string | null, districtOnRecord: bool
   };
 }
 
-function withoutPostcode(input: CaseInput): Record<string, unknown> {
+/** The save as sent: no postcode leaves the district on record, and no reason key unless scores were corrected. */
+function bodyOf(input: CaseInput): Record<string, unknown> {
   const body: Record<string, unknown> = { ...input };
-  delete body.postcode;
+  if (input.postcode === null) delete body.postcode;
+  if (!input.scoreCorrectionReason) delete body.scoreCorrectionReason;
   return body;
 }
 
@@ -89,31 +108,55 @@ export function NeedsForm({ caseId }: { caseId: string }) {
   const [postcodeError, setPostcodeError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<'conflict' | 'failed' | null>(null);
+  const [correcting, setCorrecting] = useState(false);
+  const [reason, setReason] = useState<ScoreCorrectionReasonCode | null>(null);
   // The clock the call bar falls back to when the back end gave no open time: when the case was read.
   const [readAt, setReadAt] = useState('');
 
+  // Reads the case and puts it on screen as it is now: the draft, the correction and any message start again.
+  const read = useCallback(
+    (isLive: () => boolean) =>
+      bffFetch<CaseView>(`/api/bff/cases/${encodeURIComponent(caseId)}`).then((reply) => {
+        if (!isLive()) return;
+        if (reply.ok) {
+          setReadAt(new Date().toISOString());
+          setLoad({ kind: 'ready', view: reply.body });
+          setDraft(draftFrom(reply.body));
+          setCorrecting(false);
+          setReason(null);
+          setMessage(null);
+        } else {
+          setLoad({ kind: 'failed' });
+        }
+      }),
+    [caseId],
+  );
+
   useEffect(() => {
     let live = true;
-    bffFetch<CaseView>(`/api/bff/cases/${encodeURIComponent(caseId)}`).then((reply) => {
-      if (!live) return;
-      if (reply.ok) {
-        setReadAt(new Date().toISOString());
-        setLoad({ kind: 'ready', view: reply.body });
-        setDraft(draftFrom(reply.body));
-      } else {
-        setLoad({ kind: 'failed' });
-      }
-    });
+    void read(() => live);
     return () => {
       live = false;
     };
-  }, [caseId]);
+  }, [read]);
+
+  async function readAgain() {
+    setSaving(true);
+    await read(() => true);
+    setSaving(false);
+  }
 
   const view = load.kind === 'ready' ? load.view : null;
   const district = view?.postcode ?? null;
   const postcode = normalisePostcode(draft.postcode);
-  const input = inputFrom(draft, postcode, district !== null);
-  const canContinue = load.kind === 'ready' && input !== null && !saving;
+  const recorded = view?.scores ?? [];
+  const corrected = recorded.length > 0 && changesRecorded(recorded, draft.scores);
+  // A changed recorded score needs its reason; a method recorded and now invalid is not saved.
+  const scoresReady = !(corrected && reason === null) && !dropsRecorded(recorded, draft.scores);
+  const base = inputFrom(draft, postcode, district !== null);
+  const input: CaseInput | null =
+    base === null || !scoresReady ? null : corrected ? { ...base, scoreCorrectionReason: reason } : base;
+  const canContinue = load.kind === 'ready' && input !== null && !saving && message !== 'conflict';
 
   function onPostcodeBlur() {
     const normal = normalisePostcode(draft.postcode);
@@ -137,8 +180,7 @@ export function NeedsForm({ caseId }: { caseId: string }) {
     setMessage(null);
     const reply = await bffFetch<CaseView>(`/api/bff/cases/${encodeURIComponent(caseId)}`, {
       method: 'PUT',
-      // No postcode in the body leaves the district on record as it is.
-      body: input.postcode === null ? withoutPostcode(input) : input,
+      body: bodyOf(input),
       ifMatch: load.view.etag ?? undefined,
       idempotencyKey: newIdempotencyKey(),
     });
@@ -293,13 +335,52 @@ export function NeedsForm({ caseId }: { caseId: string }) {
           </div>
         </fieldset>
 
-        {load.view.scores.length > 0 ? (
-          <p className={styles.note}>{`Recorded as the referrer gave them: ${load.view.scores.map(scoreText).join('; ')}. They cannot be changed.`}</p>
+        {recorded.length === 0 ? (
+          <ScorePickers value={draft.scores} onChange={(scores) => setDraft((current) => ({ ...current, scores }))} />
         ) : (
-          <ScorePickers
-            value={draft.scores}
-            onChange={(scores) => setDraft((current) => ({ ...current, scores }))}
-          />
+          <>
+            <p className={styles.note}>{`Recorded as the referrer gave them: ${recorded.map(scoreText).join('; ')}.`}</p>
+            {load.view.scoreCorrections > 0 ? (
+              <p className={styles.note}>
+                {`Corrected ${load.view.scoreCorrections} ${load.view.scoreCorrections === 1 ? 'time' : 'times'}. The score first recorded is kept in the record.`}
+              </p>
+            ) : null}
+            {correcting ? (
+              <>
+                <ScorePickers
+                  value={draft.scores}
+                  onChange={(scores) => setDraft((current) => ({ ...current, scores }))}
+                  recordedMethods={recorded.map((score) => score.method)}
+                />
+                <fieldset className={styles.group}>
+                  <legend className={styles.legend}>Why is the score being corrected?</legend>
+                  <div className={styles.chips}>
+                    {SCORE_CORRECTION_REASONS.map((item) => (
+                      <label key={item.code} className={styles.reason}>
+                        <input
+                          type="radio"
+                          name="score-correction-reason"
+                          checked={reason === item.code}
+                          onChange={() => setReason(item.code)}
+                          data-el={`ADV-SCORE-REASON-${item.code}`}
+                        />
+                        {item.label}
+                      </label>
+                    ))}
+                  </div>
+                  <p className={styles.note}>
+                    {corrected && reason === null
+                      ? 'Choose why before saving a changed score.'
+                      : 'The score first recorded is kept in the record. A reason is needed only when a recorded score changes.'}
+                  </p>
+                </fieldset>
+              </>
+            ) : (
+              <button type="button" className={styles.more} onClick={() => setCorrecting(true)}>
+                Correct a score
+              </button>
+            )}
+          </>
         )}
 
         <p className={styles.note}>
@@ -307,9 +388,12 @@ export function NeedsForm({ caseId }: { caseId: string }) {
         </p>
 
         {message === 'conflict' ? (
-          <p role="alert" className={styles.error}>
-            This case changed in another window. Reload to see the latest.
-          </p>
+          <div role="alert" className={styles.error}>
+            <p>Someone changed this case since you opened it. Nothing of yours was saved.</p>
+            <button type="button" className={styles.more} onClick={() => void readAgain()}>
+              Read the case again
+            </button>
+          </div>
         ) : null}
         {message === 'failed' ? (
           <p role="alert" className={styles.error}>

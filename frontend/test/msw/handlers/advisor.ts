@@ -19,6 +19,7 @@ export const BLANK_CASE = {
   needs: [],
   urgency: null,
   scores: [],
+  scoreCorrections: 0,
   reference: '4821',
   openedAt: '2026-10-30T10:00:00.000Z',
   closed: false,

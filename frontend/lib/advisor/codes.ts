@@ -61,7 +61,6 @@ export const URGENCIES = [
 ] as const;
 export type UrgencyCode = (typeof URGENCIES)[number]['code'];
 
-/** What the needs form saves. Nothing is typed except the postcode; every other field is a code. */
 /** Why a recorded score is changed (Q7): the back end's closed set, never free text. [ASSUMED] wording. */
 export const SCORE_CORRECTION_REASONS = [
   { code: 'typing-error', label: 'I entered it wrongly' },
@@ -72,6 +71,7 @@ export type ScoreCorrectionReasonCode = (typeof SCORE_CORRECTION_REASONS)[number
 export const isScoreCorrectionReason = (value: unknown): value is ScoreCorrectionReasonCode =>
   SCORE_CORRECTION_REASONS.some((reason) => reason.code === value);
 
+/** What the needs form saves. Nothing is typed except the postcode; every other field is a code. */
 export type CaseInput = {
   referrerType: ReferrerCode;
   ageBand: AgeCode;

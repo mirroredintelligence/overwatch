@@ -6,9 +6,11 @@ export type ChipProps = {
   onPressedChange: (next: boolean) => void;
   children: ReactNode;
   dataEl?: string;
+  /** A chip that is shown but cannot be changed (a recorded score's method is not removed). */
+  disabled?: boolean;
 };
 
-export function Chip({ pressed, onPressedChange, children, dataEl }: ChipProps) {
+export function Chip({ pressed, onPressedChange, children, dataEl, disabled }: ChipProps) {
   return (
     <button
       type="button"
@@ -16,6 +18,7 @@ export function Chip({ pressed, onPressedChange, children, dataEl }: ChipProps) 
       aria-pressed={pressed}
       onClick={() => onPressedChange(!pressed)}
       data-el={dataEl}
+      disabled={disabled}
     >
       {children}
     </button>

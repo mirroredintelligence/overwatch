@@ -5,7 +5,7 @@ export const CASE_FULL = {
   "id": "case-1",
   "identifier": [
     {
-      "system": "https://diucs.example/case-reference",
+      "system": "https://overwatch.mirroredintelligence.com/case-reference",
       "value": "4821"
     }
   ],
@@ -26,7 +26,7 @@ export const CASE_FULL = {
       ],
       "extension": [
         {
-          "url": "https://diucs.example/StructureDefinition/age-band",
+          "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/age-band",
           "valueCode": "80+"
         }
       ]
@@ -35,15 +35,15 @@ export const CASE_FULL = {
   "priority": "urgent",
   "extension": [
     {
-      "url": "https://diucs.example/StructureDefinition/referrer-type",
+      "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/referrer-type",
       "valueCode": "ambulance-crew"
     },
     {
-      "url": "https://diucs.example/StructureDefinition/urgency",
+      "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/urgency",
       "valueCode": "within-2-hrs"
     },
     {
-      "url": "https://diucs.example/StructureDefinition/score",
+      "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/score",
       "extension": [
         {
           "url": "method",
@@ -60,7 +60,7 @@ export const CASE_FULL = {
     {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/need-category",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/need-category",
           "code": "fall-no-injury"
         }
       ]
@@ -68,7 +68,7 @@ export const CASE_FULL = {
     {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/need-category",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/need-category",
           "code": "frailty"
         }
       ]
@@ -81,7 +81,7 @@ export const CASE_BLANK = {
   "id": "case-1",
   "identifier": [
     {
-      "system": "https://diucs.example/case-reference",
+      "system": "https://overwatch.mirroredintelligence.com/case-reference",
       "value": "4821"
     }
   ],
@@ -104,7 +104,7 @@ export const CASE_CLOSED = {
   "id": "case-1",
   "identifier": [
     {
-      "system": "https://diucs.example/case-reference",
+      "system": "https://overwatch.mirroredintelligence.com/case-reference",
       "value": "4821"
     }
   ],
@@ -120,7 +120,7 @@ export const CASE_CLOSED = {
       "id": "p",
       "extension": [
         {
-          "url": "https://diucs.example/StructureDefinition/age-band",
+          "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/age-band",
           "valueCode": "80+"
         }
       ]
@@ -129,15 +129,15 @@ export const CASE_CLOSED = {
   "priority": "urgent",
   "extension": [
     {
-      "url": "https://diucs.example/StructureDefinition/referrer-type",
+      "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/referrer-type",
       "valueCode": "ambulance-crew"
     },
     {
-      "url": "https://diucs.example/StructureDefinition/urgency",
+      "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/urgency",
       "valueCode": "within-2-hrs"
     },
     {
-      "url": "https://diucs.example/StructureDefinition/score",
+      "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/score",
       "extension": [
         {
           "url": "method",
@@ -150,11 +150,11 @@ export const CASE_CLOSED = {
       ]
     },
     {
-      "url": "https://diucs.example/StructureDefinition/closed-at",
+      "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/closed-at",
       "valueDateTime": "2026-10-30T14:09:00Z"
     },
     {
-      "url": "https://diucs.example/StructureDefinition/outcome",
+      "url": "https://overwatch.mirroredintelligence.com/StructureDefinition/outcome",
       "valueCode": "accepted-and-booked"
     }
   ]
@@ -667,7 +667,7 @@ export const BOOKINGS = {
     "businessStatus": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "requested",
           "display": "Requested"
         }
@@ -678,7 +678,7 @@ export const BOOKINGS = {
     "lastModified": "2026-10-30T14:00:00Z",
     "identifier": [
       {
-        "system": "https://diucs.example/booking-reference",
+        "system": "https://overwatch.mirroredintelligence.com/booking-reference",
         "value": "4821"
       }
     ],
@@ -704,7 +704,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "phone-prompt-at"
             }
           ]
@@ -715,7 +715,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-message"
             }
           ]
@@ -726,7 +726,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-delivery"
             }
           ]
@@ -742,7 +742,7 @@ export const BOOKINGS = {
     "businessStatus": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "confirmed",
           "display": "Confirmed"
         }
@@ -753,7 +753,7 @@ export const BOOKINGS = {
     "lastModified": "2026-10-30T14:03:00Z",
     "identifier": [
       {
-        "system": "https://diucs.example/booking-reference",
+        "system": "https://overwatch.mirroredintelligence.com/booking-reference",
         "value": "4821"
       }
     ],
@@ -780,7 +780,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "decision"
             }
           ]
@@ -788,7 +788,7 @@ export const BOOKINGS = {
         "valueCodeableConcept": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "confirmed",
               "display": "Confirmed"
             }
@@ -799,7 +799,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "confirmed-at"
             }
           ]
@@ -810,7 +810,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "phone-prompt-at"
             }
           ]
@@ -821,7 +821,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-message"
             }
           ]
@@ -832,7 +832,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-delivery"
             }
           ]
@@ -848,7 +848,7 @@ export const BOOKINGS = {
     "businessStatus": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "declined",
           "display": "Declined"
         }
@@ -859,7 +859,7 @@ export const BOOKINGS = {
     "lastModified": "2026-10-30T14:03:00Z",
     "identifier": [
       {
-        "system": "https://diucs.example/booking-reference",
+        "system": "https://overwatch.mirroredintelligence.com/booking-reference",
         "value": "4821"
       }
     ],
@@ -886,7 +886,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "decision"
             }
           ]
@@ -894,7 +894,7 @@ export const BOOKINGS = {
         "valueCodeableConcept": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "declined",
               "display": "Declined"
             }
@@ -905,7 +905,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "reason"
             }
           ]
@@ -916,7 +916,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "phone-prompt-at"
             }
           ]
@@ -927,7 +927,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-message"
             }
           ]
@@ -938,7 +938,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-delivery"
             }
           ]
@@ -954,7 +954,7 @@ export const BOOKINGS = {
     "businessStatus": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "expired",
           "display": "Expired"
         }
@@ -965,7 +965,7 @@ export const BOOKINGS = {
     "lastModified": "2026-10-30T14:03:00Z",
     "identifier": [
       {
-        "system": "https://diucs.example/booking-reference",
+        "system": "https://overwatch.mirroredintelligence.com/booking-reference",
         "value": "4821"
       }
     ],
@@ -990,7 +990,7 @@ export const BOOKINGS = {
     "statusReason": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "expired",
           "display": "Expired"
         }
@@ -1001,7 +1001,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "decision"
             }
           ]
@@ -1009,7 +1009,7 @@ export const BOOKINGS = {
         "valueCodeableConcept": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "expired",
               "display": "Expired"
             }
@@ -1020,7 +1020,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "phone-prompt-at"
             }
           ]
@@ -1031,7 +1031,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-message"
             }
           ]
@@ -1042,7 +1042,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-delivery"
             }
           ]
@@ -1058,7 +1058,7 @@ export const BOOKINGS = {
     "businessStatus": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "cancelled-before",
           "display": "Cancelled before"
         }
@@ -1069,7 +1069,7 @@ export const BOOKINGS = {
     "lastModified": "2026-10-30T14:03:00Z",
     "identifier": [
       {
-        "system": "https://diucs.example/booking-reference",
+        "system": "https://overwatch.mirroredintelligence.com/booking-reference",
         "value": "4821"
       }
     ],
@@ -1096,7 +1096,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "decision"
             }
           ]
@@ -1104,7 +1104,7 @@ export const BOOKINGS = {
         "valueCodeableConcept": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "cancelled-before",
               "display": "Cancelled before"
             }
@@ -1115,7 +1115,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "phone-prompt-at"
             }
           ]
@@ -1126,7 +1126,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-message"
             }
           ]
@@ -1137,7 +1137,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-delivery"
             }
           ]
@@ -1153,7 +1153,7 @@ export const BOOKINGS = {
     "businessStatus": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "cancelled-after",
           "display": "Cancelled after"
         }
@@ -1164,7 +1164,7 @@ export const BOOKINGS = {
     "lastModified": "2026-10-30T14:04:00Z",
     "identifier": [
       {
-        "system": "https://diucs.example/booking-reference",
+        "system": "https://overwatch.mirroredintelligence.com/booking-reference",
         "value": "4821"
       }
     ],
@@ -1191,7 +1191,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "decision"
             }
           ]
@@ -1199,7 +1199,7 @@ export const BOOKINGS = {
         "valueCodeableConcept": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "cancelled-after",
               "display": "Cancelled after"
             }
@@ -1210,7 +1210,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "confirmed-at"
             }
           ]
@@ -1221,7 +1221,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "phone-prompt-at"
             }
           ]
@@ -1232,7 +1232,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-message"
             }
           ]
@@ -1243,7 +1243,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-delivery"
             }
           ]
@@ -1259,7 +1259,7 @@ export const BOOKINGS = {
     "businessStatus": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "withdrawn",
           "display": "Withdrawn"
         }
@@ -1270,7 +1270,7 @@ export const BOOKINGS = {
     "lastModified": "2026-10-30T14:04:00Z",
     "identifier": [
       {
-        "system": "https://diucs.example/booking-reference",
+        "system": "https://overwatch.mirroredintelligence.com/booking-reference",
         "value": "4821"
       }
     ],
@@ -1295,7 +1295,7 @@ export const BOOKINGS = {
     "statusReason": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "withdrawn",
           "display": "Withdrawn"
         }
@@ -1306,7 +1306,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "decision"
             }
           ]
@@ -1314,7 +1314,7 @@ export const BOOKINGS = {
         "valueCodeableConcept": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "withdrawn",
               "display": "Withdrawn"
             }
@@ -1325,7 +1325,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "reason"
             }
           ]
@@ -1336,7 +1336,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "confirmed-at"
             }
           ]
@@ -1347,7 +1347,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "phone-prompt-at"
             }
           ]
@@ -1358,7 +1358,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-message"
             }
           ]
@@ -1369,7 +1369,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-delivery"
             }
           ]
@@ -1385,7 +1385,7 @@ export const BOOKINGS = {
     "businessStatus": {
       "coding": [
         {
-          "system": "https://diucs.example/CodeSystem/booking-business-status",
+          "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
           "code": "not-reached",
           "display": "Not reached"
         }
@@ -1396,7 +1396,7 @@ export const BOOKINGS = {
     "lastModified": "2026-10-30T14:04:00Z",
     "identifier": [
       {
-        "system": "https://diucs.example/booking-reference",
+        "system": "https://overwatch.mirroredintelligence.com/booking-reference",
         "value": "4821"
       }
     ],
@@ -1423,7 +1423,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "decision"
             }
           ]
@@ -1431,7 +1431,7 @@ export const BOOKINGS = {
         "valueCodeableConcept": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "not-reached",
               "display": "Not reached"
             }
@@ -1442,7 +1442,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "reason"
             }
           ]
@@ -1453,7 +1453,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "confirmed-at"
             }
           ]
@@ -1464,7 +1464,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "phone-prompt-at"
             }
           ]
@@ -1475,7 +1475,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-message"
             }
           ]
@@ -1486,7 +1486,7 @@ export const BOOKINGS = {
         "type": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-output-type",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
               "code": "request-delivery"
             }
           ]
@@ -1504,7 +1504,7 @@ export const BOOKING_ACKNOWLEDGED = {
   "businessStatus": {
     "coding": [
       {
-        "system": "https://diucs.example/CodeSystem/booking-business-status",
+        "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
         "code": "withdrawn",
         "display": "Withdrawn"
       }
@@ -1515,7 +1515,7 @@ export const BOOKING_ACKNOWLEDGED = {
   "lastModified": "2026-10-30T14:04:00Z",
   "identifier": [
     {
-      "system": "https://diucs.example/booking-reference",
+      "system": "https://overwatch.mirroredintelligence.com/booking-reference",
       "value": "4821"
     }
   ],
@@ -1540,7 +1540,7 @@ export const BOOKING_ACKNOWLEDGED = {
   "statusReason": {
     "coding": [
       {
-        "system": "https://diucs.example/CodeSystem/booking-business-status",
+        "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
         "code": "withdrawn",
         "display": "Withdrawn"
       }
@@ -1551,7 +1551,7 @@ export const BOOKING_ACKNOWLEDGED = {
       "type": {
         "coding": [
           {
-            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
             "code": "decision"
           }
         ]
@@ -1559,7 +1559,7 @@ export const BOOKING_ACKNOWLEDGED = {
       "valueCodeableConcept": {
         "coding": [
           {
-            "system": "https://diucs.example/CodeSystem/booking-business-status",
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
             "code": "withdrawn",
             "display": "Withdrawn"
           }
@@ -1570,7 +1570,7 @@ export const BOOKING_ACKNOWLEDGED = {
       "type": {
         "coding": [
           {
-            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
             "code": "reason"
           }
         ]
@@ -1581,7 +1581,7 @@ export const BOOKING_ACKNOWLEDGED = {
       "type": {
         "coding": [
           {
-            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
             "code": "confirmed-at"
           }
         ]
@@ -1592,7 +1592,7 @@ export const BOOKING_ACKNOWLEDGED = {
       "type": {
         "coding": [
           {
-            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
             "code": "phone-prompt-at"
           }
         ]
@@ -1603,7 +1603,7 @@ export const BOOKING_ACKNOWLEDGED = {
       "type": {
         "coding": [
           {
-            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
             "code": "request-message"
           }
         ]
@@ -1614,7 +1614,7 @@ export const BOOKING_ACKNOWLEDGED = {
       "type": {
         "coding": [
           {
-            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
             "code": "acknowledged-at"
           }
         ]
@@ -1625,7 +1625,7 @@ export const BOOKING_ACKNOWLEDGED = {
       "type": {
         "coding": [
           {
-            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
             "code": "acknowledged-by"
           }
         ]
@@ -1636,7 +1636,7 @@ export const BOOKING_ACKNOWLEDGED = {
       "type": {
         "coding": [
           {
-            "system": "https://diucs.example/CodeSystem/booking-output-type",
+            "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
             "code": "request-delivery"
           }
         ]
@@ -1660,7 +1660,7 @@ export const BOOKING_SEARCH = {
         "businessStatus": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "declined",
               "display": "Declined"
             }
@@ -1671,7 +1671,7 @@ export const BOOKING_SEARCH = {
         "lastModified": "2026-10-30T14:03:00Z",
         "identifier": [
           {
-            "system": "https://diucs.example/booking-reference",
+            "system": "https://overwatch.mirroredintelligence.com/booking-reference",
             "value": "4821"
           }
         ],
@@ -1698,7 +1698,7 @@ export const BOOKING_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "decision"
                 }
               ]
@@ -1706,7 +1706,7 @@ export const BOOKING_SEARCH = {
             "valueCodeableConcept": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-business-status",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
                   "code": "declined",
                   "display": "Declined"
                 }
@@ -1717,7 +1717,7 @@ export const BOOKING_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "reason"
                 }
               ]
@@ -1728,7 +1728,7 @@ export const BOOKING_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "phone-prompt-at"
                 }
               ]
@@ -1739,7 +1739,7 @@ export const BOOKING_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "request-message"
                 }
               ]
@@ -1750,7 +1750,7 @@ export const BOOKING_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "request-delivery"
                 }
               ]
@@ -1769,7 +1769,7 @@ export const BOOKING_SEARCH = {
         "businessStatus": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "requested",
               "display": "Requested"
             }
@@ -1780,7 +1780,7 @@ export const BOOKING_SEARCH = {
         "lastModified": "2026-10-30T14:00:00Z",
         "identifier": [
           {
-            "system": "https://diucs.example/booking-reference",
+            "system": "https://overwatch.mirroredintelligence.com/booking-reference",
             "value": "4821"
           }
         ],
@@ -1806,7 +1806,7 @@ export const BOOKING_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "phone-prompt-at"
                 }
               ]
@@ -1817,7 +1817,7 @@ export const BOOKING_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "request-message"
                 }
               ]
@@ -1828,7 +1828,7 @@ export const BOOKING_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "request-delivery"
                 }
               ]
@@ -1855,7 +1855,7 @@ export const ALERT_SEARCH = {
         "businessStatus": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "withdrawn",
               "display": "Withdrawn"
             }
@@ -1866,7 +1866,7 @@ export const ALERT_SEARCH = {
         "lastModified": "2026-10-30T14:04:00Z",
         "identifier": [
           {
-            "system": "https://diucs.example/booking-reference",
+            "system": "https://overwatch.mirroredintelligence.com/booking-reference",
             "value": "4821"
           }
         ],
@@ -1891,7 +1891,7 @@ export const ALERT_SEARCH = {
         "statusReason": {
           "coding": [
             {
-              "system": "https://diucs.example/CodeSystem/booking-business-status",
+              "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
               "code": "withdrawn",
               "display": "Withdrawn"
             }
@@ -1902,7 +1902,7 @@ export const ALERT_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "decision"
                 }
               ]
@@ -1910,7 +1910,7 @@ export const ALERT_SEARCH = {
             "valueCodeableConcept": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-business-status",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-business-status",
                   "code": "withdrawn",
                   "display": "Withdrawn"
                 }
@@ -1921,7 +1921,7 @@ export const ALERT_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "reason"
                 }
               ]
@@ -1932,7 +1932,7 @@ export const ALERT_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "confirmed-at"
                 }
               ]
@@ -1943,7 +1943,7 @@ export const ALERT_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "phone-prompt-at"
                 }
               ]
@@ -1954,7 +1954,7 @@ export const ALERT_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "request-message"
                 }
               ]
@@ -1965,7 +1965,7 @@ export const ALERT_SEARCH = {
             "type": {
               "coding": [
                 {
-                  "system": "https://diucs.example/CodeSystem/booking-output-type",
+                  "system": "https://overwatch.mirroredintelligence.com/CodeSystem/booking-output-type",
                   "code": "request-delivery"
                 }
               ]

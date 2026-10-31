@@ -26,7 +26,7 @@ const call = (method: string, path: string, headers: Record<string, string> = {}
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
 });
 afterEach(() => {
@@ -65,7 +65,7 @@ describe('the model of BodyTypeMiddleware', () => {
 
   it('matches the back end source: the same types, methods and exempt prefixes', () => {
     const source = readFileSync(
-      fileURLToPath(new URL('../../backend/src/diucs/adapters/inbound/fhir_rest/errors.py', import.meta.url)),
+      fileURLToPath(new URL('../../backend/src/overwatch/adapters/inbound/fhir_rest/errors.py', import.meta.url)),
       'utf8',
     );
     const set = (name: string) => [...source.match(new RegExp(`${name}\\s*=\\s*frozenset\\(\\{([^}]*)\\}\\)`))![1]!.matchAll(/"([^"]+)"/g)].map((m) => m[1]);

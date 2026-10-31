@@ -38,19 +38,19 @@ describe('the literal rules fire on what they forbid', () => {
     ['spoa', '<p>Phone the SPOA shift lead</p>'],
     ['single-point', 'Single point of access'],
     ['epr-name', 'Summary for SystmOne'],
-    ['example-domain', 'https://diucs.example/b4821'],
+    ['example-domain', 'https://overwatch.example/b4821'],
     ['area-code', 'Call 01305 123456'],
     ['public-env', 'const v = process.env.NEXT_PUBLIC_SUPPORT_SHARING;'],
     ['retired-env', 'process.env.SPOA_PHONE_DISPLAY'],
     ['retired-env', 'process.env.BACKEND_JWT_SECRET'],
-    ['retired-env', 'DIUCS_ENTRA_BINDINGS'],
+    ['retired-env', 'OVERWATCH_ENTRA_BINDINGS'],
     ['retired-env', 'process.env.ENTRA_TENANT_ID'],
     ['direct-storage', 'window.localStorage.setItem("a", "b")'],
     ['direct-storage', 'indexedDB.open("x")'],
     ['session-storage', 'sessionStorage.setItem("a", "b")'],
     ['cookie-write', 'document.cookie = "a=b";'],
     ['cache-api', 'const c = await caches.open("pages");'],
-    ['backend-base-url', 'process.env.DIUCS_FHIR_BASE_URL'],
+    ['backend-base-url', 'process.env.OVERWATCH_FHIR_BASE_URL'],
     ['node-http', "import http from 'node:http';"],
     ['node-http', "import { request } from 'https';"],
     ['fetch-call', 'await fetch("https://elsewhere.example/x");'],
@@ -82,8 +82,8 @@ describe('the literal rules fire on what they forbid', () => {
     expect(ids('direct-storage', 'window.localStorage', 'lib/session/signOut.ts')).toEqual([]);
     expect(ids('direct-storage', 'window.localStorage', 'lib/board/x.ts')).toEqual(['direct-storage']);
     expect(ids('session-storage', 'sessionStorage.getItem("a")', 'lib/telemetry/events.ts')).toEqual([]);
-    expect(ids('backend-base-url', 'process.env.DIUCS_FHIR_BASE_URL', 'lib/fhir/client.ts')).toEqual([]);
-    expect(ids('backend-base-url', 'process.env.DIUCS_FHIR_BASE_URL', 'lib/board/x.ts')).toEqual(['backend-base-url']);
+    expect(ids('backend-base-url', 'process.env.OVERWATCH_FHIR_BASE_URL', 'lib/fhir/client.ts')).toEqual([]);
+    expect(ids('backend-base-url', 'process.env.OVERWATCH_FHIR_BASE_URL', 'lib/board/x.ts')).toEqual(['backend-base-url']);
     expect(ids('node-http', "import http from 'node:http';", 'lib/fhir/hostCall.ts')).toEqual([]);
     expect(ids('node-http', "import http from 'node:http';", 'lib/links/server.ts')).toEqual(['node-http']);
   });
@@ -144,7 +144,7 @@ describe('the repository', () => {
   });
 
   it('has the one client that may call the back end', () => {
-    const calling = files.filter((f) => /DIUCS_FHIR_BASE_URL/.test(f.text)).map((f) => f.file).sort();
+    const calling = files.filter((f) => /OVERWATCH_FHIR_BASE_URL/.test(f.text)).map((f) => f.file).sort();
     expect(calling.every((f) => f.startsWith('lib/fhir/'))).toBe(true);
     expect(calling.length).toBeGreaterThan(0);
   });

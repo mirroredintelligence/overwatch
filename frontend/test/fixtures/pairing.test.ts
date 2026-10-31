@@ -6,8 +6,8 @@ import { PairingStandIn, STAND_IN_NETWORK } from './pairing';
 // The stand-in's lead administration answers the shapes of routes_screens.py: GET /screens is
 // `{scope, asOf, screens: [...]}`, POST /screens/{id}/revoke is `{deviceId, status: 'revoked', revokedAt}`.
 
-const lead = `Bearer ${standInToken({ sub: 'stf-1', role: 'lead', aud: 'diucs-api', exp: Math.floor(Date.now() / 1000) + 3600 })}`;
-const advisor = `Bearer ${standInToken({ sub: 'stf-2', role: 'advisor', aud: 'diucs-api', exp: Math.floor(Date.now() / 1000) + 3600 })}`;
+const lead = `Bearer ${standInToken({ sub: 'stf-1', role: 'lead', aud: 'overwatch-api', exp: Math.floor(Date.now() / 1000) + 3600 })}`;
+const advisor = `Bearer ${standInToken({ sub: 'stf-2', role: 'advisor', aud: 'overwatch-api', exp: Math.floor(Date.now() / 1000) + 3600 })}`;
 const stand = new PairingStandIn();
 
 function pair(): { deviceId: string; deviceToken: string } {

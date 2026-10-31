@@ -170,7 +170,7 @@ const privateNoStore = (response: Response) => {
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   vi.stubEnv('NODE_ENV', 'production');
   resetCookieWrites();
   resetLinkRequests();
@@ -472,7 +472,7 @@ describe.each(files.filter((f) => kindOf(f) === 'link'))('%s (link)', (file) => 
       expect(answer.status, verb).toBe(plain.status);
       expect(stable(await answer.text()), verb).toBe(stable(await plain.text()));
       expect(cookieWrites.map((w) => w.name), verb).toEqual(names);
-      expect(cookieWrites.some((w) => w.name === 'diucs_session' || w.name === 'diucs_csrf')).toBe(false);
+      expect(cookieWrites.some((w) => w.name === 'overwatch_session' || w.name === 'overwatch_csrf')).toBe(false);
     }
   });
 

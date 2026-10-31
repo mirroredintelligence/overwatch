@@ -176,7 +176,7 @@ describe('inspectUpstream: what is a leak', () => {
   });
 
   it('is a leak when the token is for another audience (an operator token at the tenant API)', () => {
-    const leaks = inspectUpstream(upstream('/fhir/x', { token: token(A.id, { aud: 'diucs-ops' }) }), new Set([A.id]));
+    const leaks = inspectUpstream(upstream('/fhir/x', { token: token(A.id, { aud: 'overwatch-ops' }) }), new Set([A.id]));
     expect(rules(leaks)).toEqual(['bad-audience']);
   });
 
@@ -201,7 +201,7 @@ describe('inspectUpstream: what is a leak', () => {
   describe('the operator door (/platform): an operator token, no tenant', () => {
     const operatorToken = (extra: Record<string, unknown> = {}) => opToken(extra);
 
-    it('is nothing for an operator token of the audience diucs-ops that names no tenant', () => {
+    it('is nothing for an operator token of the audience overwatch-ops that names no tenant', () => {
       expect(inspectUpstream(upstream('/platform/tenants', { token: fakeOperatorToken('platform-operator') }), new Set([A.id]))).toEqual([]);
       expect(inspectUpstream(upstream('/platform/session', { token: fakeOperatorToken('support') }), new Set())).toEqual([]);
     });
@@ -246,11 +246,11 @@ describe('the installed canary', () => {
         return HttpResponse.json({}, { status: 202 });
       }),
     );
-    process.env.DIUCS_FHIR_BASE_URL = `${BACKEND}/fhir`;
+    process.env.OVERWATCH_FHIR_BASE_URL = `${BACKEND}/fhir`;
     try {
       await callBackend({ method: 'POST', path: '/identity/code', host: A.host, body: {} });
     } finally {
-      delete process.env.DIUCS_FHIR_BASE_URL;
+      delete process.env.OVERWATCH_FHIR_BASE_URL;
     }
     expect(seen).toEqual([A.host]);
     expect(canary.leaks()).toEqual([]);

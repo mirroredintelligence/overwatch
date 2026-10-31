@@ -32,7 +32,7 @@ vi.mock('next/headers', async () => {
   return { cookies: m.cookiesMock };
 });
 
-const TRANSACTION_COOKIE = 'diucs_oidc';
+const TRANSACTION_COOKIE = 'overwatch_oidc';
 const START_URL = `${PUBLIC_URL}/api/bff/auth/entra/start`;
 const OTHER_HOST = 'trust-b.example.test';
 const OID_B_USER = OID_B;
@@ -176,7 +176,7 @@ describe('POST /api/bff/auth/entra/start', () => {
 
 describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
   it('creates our own session cookie and no other session cookie, and clears the transaction cookie', async () => {
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     expect(outcome.session).toMatchObject({ role: 'advisor', services: [], host: SIGN_IN_HOST, tenantId: tenantOfHost(SIGN_IN_HOST) });
     expect(outcome.session?.sub).toMatch(/^stf-[0-9a-f]{32}$/);
     expect(new Set(cookieWrites.map((w) => w.name))).toEqual(new Set([SESSION_COOKIE, TRANSACTION_COOKIE]));
@@ -186,22 +186,22 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
   });
 
   it('sets the session cookie HttpOnly, Secure, SameSite Strict, for the life of the back-end token (8 hours)', async () => {
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     expect(outcome.sessionWrite?.options).toMatchObject({ httpOnly: true, secure: true, sameSite: 'strict', path: '/' });
     expect(Number(outcome.sessionWrite?.options.maxAge)).toBeGreaterThan(8 * 3600 - 60);
     expect(Number(outcome.sessionWrite?.options.maxAge)).toBeLessThanOrEqual(8 * 3600);
   });
 
   it('keeps the back end’s own token in the session, makes none, and ends the session when the token ends', async () => {
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     const claims = decodeJwt(outcome.session!.backendToken);
-    expect(claims).toMatchObject({ role: 'advisor', aud: 'diucs-api', services: [] });
+    expect(claims).toMatchObject({ role: 'advisor', aud: 'overwatch-api', services: [] });
     expect(claims.sub).toBe(outcome.session!.sub);
     expect(Date.parse(outcome.session!.expiresAt)).toBe(claims.exp! * 1000);
   });
 
   it('asks the back end once, with the ID token as the only thing in the body, and keeps the Entra object id out of the session', async () => {
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     expect(seenExchanges).toHaveLength(1);
     expect(seenExchanges[0]).toMatchObject({ path: '/auth/token', host: SIGN_IN_HOST, authorization: null });
     expect(Object.keys(seenExchanges[0]!.body as object)).toEqual(['idToken']);
@@ -209,7 +209,7 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
   });
 
   it('keeps the person’s name, email, the access token and the ID token out of the session, the cookie and the response', async () => {
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     const { payload } = await jwtDecrypt(outcome.sessionWrite!.value, new Uint8Array(Buffer.from(TEST_SESSION_SECRET, 'base64')));
     const everything = JSON.stringify([payload, outcome.body, [...outcome.response.headers.entries()], cookieWrites.map((w) => w.options)]);
     expect(everything).not.toMatch(/Sample Staff|sample\.staff@example\.test|fake-access-token|id_token|eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]/);
@@ -217,7 +217,7 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
   });
 
   it('answers with a page that moves the browser on, not a redirect, so the strict cookie is sent on the next request', async () => {
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     expect(outcome.response.status).toBe(200);
     expect(outcome.location).toBeNull();
     expect(outcome.response.headers.get('content-type')).toContain('text/html');
@@ -228,12 +228,12 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
   });
 
   it.each([
-    ['advisor', ['DIUCS.Advisor'], 'advisor', '/advisor'],
-    ['clinical', ['DIUCS.Clinical'], 'clinical', '/clinical'],
-    ['lead', ['DIUCS.Lead'], 'lead', '/lead'],
-    ['owner', ['DIUCS.Owner'], 'owner', '/owner/criteria'],
-    ['exec', ['DIUCS.Planning'], 'exec', '/planning'],
-    ['lead and advisor', ['DIUCS.Advisor', 'DIUCS.Lead'], 'lead', '/lead'],
+    ['advisor', ['Overwatch.Advisor'], 'advisor', '/advisor'],
+    ['clinical', ['Overwatch.Clinical'], 'clinical', '/clinical'],
+    ['lead', ['Overwatch.Lead'], 'lead', '/lead'],
+    ['owner', ['Overwatch.Owner'], 'owner', '/owner/criteria'],
+    ['exec', ['Overwatch.Planning'], 'exec', '/planning'],
+    ['lead and advisor', ['Overwatch.Advisor', 'Overwatch.Lead'], 'lead', '/lead'],
   ])('signs in a %s and goes to their home', async (_name, roles, role, home) => {
     const outcome = await signIn({ oid: OID_LEAD, roles, tid: DIRECTORY_A });
     expect(outcome.session?.role).toBe(role);
@@ -241,14 +241,14 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
   });
 
   it('goes to next when it is a same-origin path the role may open', async () => {
-    const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.Lead'], tid: DIRECTORY_A }, { fields: { next: '/lead?tab=late' } });
+    const outcome = await signIn({ oid: OID_LEAD, roles: ['Overwatch.Lead'], tid: DIRECTORY_A }, { fields: { next: '/lead?tab=late' } });
     expect(outcome.body).toContain('url=/lead?tab=late"');
   });
 
   it.each(['https://evil.example/', '//evil.example', '/\\evil.example', 'javascript:alert(1)', '/lead"><script>x</script>'])(
     'goes to the role home, not to next=%s',
     async (next) => {
-      const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A }, { fields: { next } });
+      const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A }, { fields: { next } });
       expect(outcome.body).toContain('url=/advisor"');
       expect(outcome.body).not.toContain('evil');
       expect(outcome.body).not.toContain('<script>');
@@ -256,34 +256,34 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
   );
 
   it('goes to the role home when next is a page the role may not open', async () => {
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A }, { fields: { next: '/lead' } });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A }, { fields: { next: '/lead' } });
     expect(outcome.body).toContain('url=/advisor"');
   });
 
   it('never makes a support session here: the operator console has its own door (TEN-043), from any directory', async () => {
     for (const tid of [DIRECTORY_PLATFORM, DIRECTORY_A]) {
       resetCookieWrites();
-      const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.Support'], tid });
+      const outcome = await signIn({ oid: OID_LEAD, roles: ['Overwatch.Support'], tid });
       expectNoSession(outcome);
       expect(outcome.location).toBe('/sign-in?error=no-access');
     }
   });
 
   it('signs in a tenant administrator and goes to the administration pages (TEN-076)', async () => {
-    const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.TenantAdmin'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_LEAD, roles: ['Overwatch.TenantAdmin'], tid: DIRECTORY_A });
     expect(outcome.session?.role).toBe('tenant-admin');
     expect(outcome.body).toContain('url=/admin"');
   });
 
   it('signs in a network administrator and goes to the network administration pages (TEN-080)', async () => {
-    const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.NetworkAdmin'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_LEAD, roles: ['Overwatch.NetworkAdmin'], tid: DIRECTORY_A });
     expect(outcome.session?.role).toBe('network-admin');
     expect(outcome.body).toContain('url=/network-admin"');
   });
 
   it('gives no session to a role the back end gave that this front end has no pages for, and says the access message', async () => {
     // The back end may one day answer a staff role this front end does not know: it is refused, never guessed at.
-    const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.Unknown'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_LEAD, roles: ['Overwatch.Unknown'], tid: DIRECTORY_A });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=no-access');
   });
@@ -293,7 +293,7 @@ describe('GET /api/bff/auth/entra/callback: who may not sign in', () => {
   it.each([
     ['no roles claim', undefined],
     ['an empty roles claim', []],
-    ['only roles DIUCS does not map', ['Some.Other.Role']],
+    ['only roles Overwatch does not map', ['Some.Other.Role']],
   ])('gives no session and the access message page for %s', async (_name, roles) => {
     const outcome = await signIn({ oid: OID_ADVISOR, roles, tid: DIRECTORY_A });
     expectNoSession(outcome);
@@ -303,17 +303,17 @@ describe('GET /api/bff/auth/entra/callback: who may not sign in', () => {
   });
 
   it('gives the one access message to a person from a directory the host’s tenant has not bound: no session, no hint why', async () => {
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_UNBOUND }, { fields: {} });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Lead'], tid: DIRECTORY_UNBOUND }, { fields: {} });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=no-access');
-    const other = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_B });
+    const other = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Lead'], tid: DIRECTORY_B });
     expect(other.location).toBe(outcome.location);
     expect(other.body).toBe(outcome.body);
   });
 
   it('sends a person from another directory away, as a failed sign-in, when the app registration is for one directory', async () => {
     stubEntraEnv({ ENTRA_DIRECTORY_ID: DIRECTORY_A });
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_UNBOUND });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Lead'], tid: DIRECTORY_UNBOUND });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=failed');
     expect(seenExchanges).toHaveLength(0);
@@ -321,7 +321,7 @@ describe('GET /api/bff/auth/entra/callback: who may not sign in', () => {
 
   it.each([404, 429, 500, 503])('gives a failed sign-in, not the access message, when the back end answers %i', async (status) => {
     server.use(http.post(`${BACKEND_ROOT}/auth/token`, () => HttpResponse.json({}, { status })));
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=failed');
   });
@@ -329,21 +329,21 @@ describe('GET /api/bff/auth/entra/callback: who may not sign in', () => {
   it('gives a failed sign-in when the back end cannot be reached, and logs one fixed word', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     server.use(http.post(`${BACKEND_ROOT}/auth/token`, () => HttpResponse.error()));
-    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    const outcome = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=failed');
     expect(warn.mock.calls).toEqual([['staff sign-in refused: exchange-failed']]);
   });
 
   it('does not ask the back end for a sign-in whose own checks failed (state, nonce, audience)', async () => {
-    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A }, { tamper: { nonce: 'bad' } });
-    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A }, { state: 'wrong' });
+    await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A }, { tamper: { nonce: 'bad' } });
+    await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A }, { state: 'wrong' });
     expect(seenExchanges).toHaveLength(0);
   });
 });
 
 describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or replayed sign-in', () => {
-  const USER: FakeUser = { oid: OID_ADVISOR, roles: ['DIUCS.Lead'], tid: DIRECTORY_A };
+  const USER: FakeUser = { oid: OID_ADVISOR, roles: ['Overwatch.Lead'], tid: DIRECTORY_A };
 
   async function refused(outcome: Outcome) {
     expectNoSession(outcome);
@@ -395,7 +395,11 @@ describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or rep
     const response = await callback(requestWithCookies(location, { [TRANSACTION_COOKIE]: sealed }));
     expect(response.headers.get('location')).toBe('/sign-in?error=failed');
     expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
-    expect(warn.mock.calls).toEqual([['staff sign-in refused: fault']]);
+    // The fixed word is always logged first. A temporary fault-detail line (class and code only, no value) may follow.
+    expect(warn.mock.calls[0]).toEqual(['staff sign-in refused: fault']);
+    for (const call of warn.mock.calls.slice(1)) {
+      expect(String(call[0])).toMatch(/^staff sign-in fault detail \(TEMPORARY\): [A-Za-z]+$/);
+    }
   });
 
   it('refuses a callback that comes without the transaction cookie (another browser)', async () => {
@@ -430,7 +434,7 @@ describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or rep
     const good = { state: 's'.repeat(43), nonce: 'n'.repeat(43), verifier: 'v'.repeat(43), next: '' };
     // The same key and format as lib/auth/flow.ts, to show that a well-sealed but wrong cookie is refused.
     const key = new Uint8Array(
-      hkdfSync('sha256', new Uint8Array(Buffer.from(TEST_SESSION_SECRET, 'base64')), 'diucs-staff-sign-in', 'transaction-cookie-v1', 32),
+      hkdfSync('sha256', new Uint8Array(Buffer.from(TEST_SESSION_SECRET, 'base64')), 'overwatch-staff-sign-in', 'transaction-cookie-v1', 32),
     );
     const sealed = await new EncryptJWT({ ...good, ...change })
       .setProtectedHeader({ alg: 'dir', enc: 'A256GCM' })
@@ -486,7 +490,7 @@ describe('GET /api/bff/auth/entra/callback: the checks that stop a forged or rep
 });
 
 describe('tenant: it is the host the browser came to, decided by the back end, and nothing else', () => {
-  const as = (oid: string, tid: string, roles = ['DIUCS.Advisor']): FakeUser => ({ oid, roles, tid });
+  const as = (oid: string, tid: string, roles = ['Overwatch.Advisor']): FakeUser => ({ oid, roles, tid });
 
   async function callbackOn(host: string, user: FakeUser, extra: Record<string, string> = {}) {
     const begun = await start(startRequest());
@@ -527,7 +531,7 @@ describe('tenant: it is the host the browser came to, decided by the back end, a
       server.use(
         http.post(`${BACKEND_ROOT}/auth/token`, () => {
           const exp = Math.floor(Date.now() / 1000) + 3600;
-          const token = standInToken({ sub: 'stf-0123456789abcdef0123456789abcdef', role: 'advisor', services: [], tenant, epoch: 1, aud: 'diucs-api', iat: exp - 3600, exp });
+          const token = standInToken({ sub: 'stf-0123456789abcdef0123456789abcdef', role: 'advisor', services: [], tenant, epoch: 1, aud: 'overwatch-api', iat: exp - 3600, exp });
           return HttpResponse.json({ token, expiresAt: new Date(exp * 1000).toISOString(), role: 'advisor' });
         }),
       );
@@ -578,13 +582,13 @@ describe('tenant: it is the host the browser came to, decided by the back end, a
 describe('what the sign-in logs', () => {
   it('logs no token, secret, code, state, nonce, verifier, object id, name, email or cookie value', async () => {
     const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((level) => vi.spyOn(console, level).mockImplementation(() => {}));
-    const good = await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
-    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A }, { tamper: { nonce: 'bad' } });
+    const good = await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
+    await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A }, { tamper: { nonce: 'bad' } });
     await signIn({ oid: OID_ADVISOR, roles: [], tid: DIRECTORY_A });
-    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_UNBOUND });
-    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Support'], tid: DIRECTORY_A });
+    await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_UNBOUND });
+    await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Support'], tid: DIRECTORY_A });
     server.use(http.post(`${BACKEND_ROOT}/auth/token`, () => HttpResponse.json({}, { status: 503 })));
-    await signIn({ oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], tid: DIRECTORY_A });
+    await signIn({ oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], tid: DIRECTORY_A });
     stubEntraEnv({ ENTRA_CLIENT_SECRET: undefined });
     await start(startRequest());
 

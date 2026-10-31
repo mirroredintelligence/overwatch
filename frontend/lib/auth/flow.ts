@@ -29,7 +29,7 @@ import { hostOf } from '@/lib/links/server';
 // records whether this person may sign in and as what (TEN-043). Nothing here logs a token, code or
 // claim.
 
-export const TRANSACTION_COOKIE = 'diucs_oidc';
+export const TRANSACTION_COOKIE = 'overwatch_oidc';
 const TRANSACTION_PATH = '/api/bff/auth/entra';
 export const TRANSACTION_SECONDS = 600;
 const ENCRYPTION = { alg: 'dir', enc: 'A256GCM' } as const;
@@ -46,7 +46,7 @@ export function see(location: string): Response {
 
 // The transaction cookie is sealed with a key derived from the session secret for this one
 // purpose, so a sealed session can never be passed off as a transaction or the other way round.
-const STAFF_PURPOSE = 'diucs-staff-sign-in';
+const STAFF_PURPOSE = 'overwatch-staff-sign-in';
 
 async function transactionKey(purpose: string): Promise<Uint8Array> {
   const derived = hkdfSync('sha256', await sessionSecretKey(), purpose, 'transaction-cookie-v1', 32);

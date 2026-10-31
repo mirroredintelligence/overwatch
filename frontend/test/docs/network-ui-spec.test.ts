@@ -255,7 +255,7 @@ describe('network-ui.md: structure', () => {
 
   it('has the fourteen section headings in order, and a ### heading for each of N1 to N5', () => {
     const doc = readDoc();
-    const lines = doc.split('\n');
+    const lines = doc.split(/\r?\n/);
     const positions = HEADINGS.map((heading) => lines.indexOf(heading));
     for (const [index, position] of positions.entries()) {
       expect(position, `missing heading: ${HEADINGS[index]}`).toBeGreaterThanOrEqual(0);

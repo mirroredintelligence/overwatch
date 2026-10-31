@@ -112,7 +112,7 @@ export async function loadEntraConfig(env: Env = process.env): Promise<EntraConf
   // The settings are checked first, so a bad one never costs a vault call; the secret is read last.
   const clientId = setting(env, 'ENTRA_CLIENT_ID');
   const authorityHost = origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST);
-  const publicUrl = origin(env, 'DIUCS_PUBLIC_URL', setting(env, 'DIUCS_PUBLIC_URL'));
+  const publicUrl = origin(env, 'OVERWATCH_PUBLIC_URL', setting(env, 'OVERWATCH_PUBLIC_URL'));
   const directoryId = directory(env);
   return { clientId, clientSecret: await getSecret(STAFF_SECRET), authorityHost, publicUrl, directoryId };
 }
@@ -130,7 +130,7 @@ export async function loadOperatorEntraConfig(env: Env = process.env): Promise<E
   if (directoryId === null) throw new Error('OPERATOR_ENTRA_DIRECTORY_ID is not set');
   const clientId = setting(env, 'OPERATOR_ENTRA_CLIENT_ID');
   const authorityHost = origin(env, 'ENTRA_AUTHORITY_HOST', env.ENTRA_AUTHORITY_HOST || DEFAULT_AUTHORITY_HOST);
-  const publicUrl = origin(env, 'DIUCS_OPERATOR_PUBLIC_URL', setting(env, 'DIUCS_OPERATOR_PUBLIC_URL'));
+  const publicUrl = origin(env, 'OVERWATCH_OPERATOR_PUBLIC_URL', setting(env, 'OVERWATCH_OPERATOR_PUBLIC_URL'));
   return { clientId, clientSecret: await getSecret(OPERATOR_SECRET), authorityHost, publicUrl, directoryId, callbackPath: OPERATOR_CALLBACK_PATH };
 }
 

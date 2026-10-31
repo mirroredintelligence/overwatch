@@ -9,7 +9,7 @@ function token(claims: Record<string, unknown>) {
   const part = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
   return `${part({ alg: 'HS256', typ: 'JWT' })}.${part(claims)}.sig`;
 }
-const base = { sub: 'stf-1', role: 'advisor', services: [], tenant: 'trust-a', epoch: 1, aud: 'diucs-api', exp: nowSeconds + 3600 };
+const base = { sub: 'stf-1', role: 'advisor', services: [], tenant: 'trust-a', epoch: 1, aud: 'overwatch-api', exp: nowSeconds + 3600 };
 
 describe('readIssuedToken', () => {
   it('reads the claims the back end put in the token it issued', () => {
@@ -36,8 +36,8 @@ describe('readIssuedToken', () => {
     ['a tenant that is a list', { tenant: ['trust-a'] }],
     ['an upper-case tenant id', { tenant: 'Trust-A' }],
     ['no audience', { aud: undefined }],
-    ['the operator audience', { aud: 'diucs-ops' }],
-    ['an audience list', { aud: ['diucs-api'] }],
+    ['the operator audience', { aud: 'overwatch-ops' }],
+    ['an audience list', { aud: ['overwatch-api'] }],
     ['no subject', { sub: undefined }],
     ['an empty subject', { sub: '' }],
     ['a subject that is too long', { sub: 'x'.repeat(200) }],

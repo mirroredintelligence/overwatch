@@ -2,7 +2,7 @@ import { sealOperatorSession, OPERATOR_COOKIE, type OperatorRole, type OperatorS
 import { OPERATOR_CSRF_COOKIE, operatorCsrfTokenFor } from '@/lib/operator/csrf';
 import { requestWithCookies } from '@/test/cookies';
 
-// Helpers for the operator console's tests: the operator's back-end token (audience `diucs-ops`, NO tenant),
+// Helpers for the operator console's tests: the operator's back-end token (audience `overwatch-ops`, NO tenant),
 // the sealed operator session, and a request as a signed-in operator would send it. They seal with the real
 // `sealOperatorSession`, so a test exercises the real unseal. SESSION_SECRET must be stubbed.
 
@@ -19,7 +19,7 @@ function part(value: unknown): string {
 /** An operator token as the back end issues it: claims `sub role aud exp` and nothing about a tenant. */
 export function fakeOperatorToken(role: OperatorRole = 'platform-operator', now: Date = new Date()): string {
   const iat = Math.floor(now.getTime() / 1000);
-  return `${part({ alg: 'HS256', typ: 'JWT' })}.${part({ sub: OPERATOR_ACCOUNT, role, aud: 'diucs-ops', iat, exp: iat + 3600 })}.test-signature-not-checked`;
+  return `${part({ alg: 'HS256', typ: 'JWT' })}.${part({ sub: OPERATOR_ACCOUNT, role, aud: 'overwatch-ops', iat, exp: iat + 3600 })}.test-signature-not-checked`;
 }
 
 export function operatorSessionFor(role: OperatorRole = 'platform-operator', overrides: Partial<OperatorSession> = {}): OperatorSession {

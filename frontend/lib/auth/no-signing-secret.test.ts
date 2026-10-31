@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { join, relative } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -8,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 // side holds the person's sign-in, the session key and the Entra client secret, and nothing else.
 // A scan of the source, so a later change that brings the secret back fails here.
 
-const ROOT = new URL('../..', import.meta.url).pathname;
+const ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const SKIP = new Set(['node_modules', '.next', 'e2e', 'test']);
 const SOURCE = /\.(ts|tsx|mjs|js)$/;
 const TEST = /\.test\.(ts|tsx)$/;

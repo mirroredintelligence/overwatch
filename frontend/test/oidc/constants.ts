@@ -6,7 +6,7 @@ export const REDIRECT_URI = `${PUBLIC_URL}/api/bff/auth/entra/callback`;
 export const CLIENT_ID = '5d1c7a0e-3f55-4a5b-9a41-2f3b6f0c9a11';
 export const CLIENT_SECRET = 'fake-client-secret-for-tests-only';
 
-// Entra directories. Which of them a DIUCS tenant has bound is the back end's record (TEN-043); the
+// Entra directories. Which of them a Overwatch tenant has bound is the back end's record (TEN-043); the
 // front end holds no table of it. The stand-in back end (test/fixtures/exchange.ts) knows the grants.
 export const DIRECTORY_A = '11111111-1111-4111-8111-111111111111';
 export const DIRECTORY_B = '22222222-2222-4222-8222-222222222222';
@@ -29,8 +29,8 @@ export const ENTRA_ENV: Record<string, string> = {
   ENTRA_CLIENT_ID: CLIENT_ID,
   ENTRA_CLIENT_SECRET: CLIENT_SECRET,
   ENTRA_AUTHORITY_HOST: HOST,
-  DIUCS_PUBLIC_URL: PUBLIC_URL,
-  DIUCS_FHIR_BASE_URL: `${BACKEND_ROOT}/fhir`,
+  OVERWATCH_PUBLIC_URL: PUBLIC_URL,
+  OVERWATCH_FHIR_BASE_URL: `${BACKEND_ROOT}/fhir`,
 };
 
 // The operator console's own sign-in (TEN-083): another app registration for the operator's directory
@@ -47,7 +47,7 @@ export const OPERATOR_ENV: Record<string, string> = {
   OPERATOR_ENTRA_CLIENT_ID: OPERATOR_CLIENT_ID,
   OPERATOR_ENTRA_CLIENT_SECRET: OPERATOR_CLIENT_SECRET,
   OPERATOR_ENTRA_DIRECTORY_ID: DIRECTORY_PLATFORM,
-  DIUCS_OPERATOR_PUBLIC_URL: OPERATOR_PUBLIC_URL,
+  OVERWATCH_OPERATOR_PUBLIC_URL: OPERATOR_PUBLIC_URL,
   ENTRA_AUTHORITY_HOST: HOST,
-  DIUCS_FHIR_BASE_URL: `${BACKEND_ROOT}/fhir`,
+  OVERWATCH_FHIR_BASE_URL: `${BACKEND_ROOT}/fhir`,
 };

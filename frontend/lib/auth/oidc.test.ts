@@ -31,7 +31,7 @@ import {
 } from './oidc';
 
 const NOW = new Date();
-const USER: FakeUser = { oid: OID_ADVISOR, roles: ['DIUCS.Advisor'] };
+const USER: FakeUser = { oid: OID_ADVISOR, roles: ['Overwatch.Advisor'] };
 
 let fake: FakeEntra;
 let config: EntraConfig;
@@ -67,7 +67,7 @@ describe('loadEntraConfig', () => {
     expect(Object.keys(config).sort()).toEqual(['authorityHost', 'clientId', 'clientSecret', 'directoryId', 'publicUrl']);
   });
 
-  it.each(['ENTRA_CLIENT_ID', 'DIUCS_PUBLIC_URL'])(
+  it.each(['ENTRA_CLIENT_ID', 'OVERWATCH_PUBLIC_URL'])(
     'refuses to load without %s, naming the variable',
     async (name) => {
       await expect(loadEntraConfig({ ...ENTRA_ENV, [name]: undefined })).rejects.toThrow(name);
@@ -87,14 +87,14 @@ describe('loadEntraConfig', () => {
   });
 
   it('refuses the plain client secret beside the vault, naming the variable and never the value', async () => {
-    vi.stubEnv('DIUCS_KEY_VAULT_URL', 'https://diucs-test.vault.azure.net');
+    vi.stubEnv('OVERWATCH_KEY_VAULT_URL', 'https://overwatch-test.vault.azure.net');
     const error = await loadEntraConfig({ ...ENTRA_ENV }).catch((e: unknown) => e);
     expect((error as Error).message).toContain('ENTRA_CLIENT_SECRET');
     expect(String(error)).not.toContain(CLIENT_SECRET);
   });
 
   it('does not read a table of directories and tenants any more: the back end holds it (TEN-043)', async () => {
-    const withTable = await loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: 'not json', BACKEND_JWT_SECRET: 'x' });
+    const withTable = await loadEntraConfig({ ...ENTRA_ENV, OVERWATCH_ENTRA_BINDINGS: 'not json', BACKEND_JWT_SECRET: 'x' });
     expect(withTable).toEqual(config);
   });
 
@@ -120,8 +120,8 @@ describe('loadEntraConfig', () => {
     await expect(
       loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'http://login.example.test', NODE_ENV: 'production' }),
     ).rejects.toThrow('ENTRA_AUTHORITY_HOST');
-    await expect(loadEntraConfig({ ...ENTRA_ENV, DIUCS_PUBLIC_URL: 'https://capacity.example.test/app' })).rejects.toThrow(
-      'DIUCS_PUBLIC_URL',
+    await expect(loadEntraConfig({ ...ENTRA_ENV, OVERWATCH_PUBLIC_URL: 'https://capacity.example.test/app' })).rejects.toThrow(
+      'OVERWATCH_PUBLIC_URL',
     );
     expect((await loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'http://127.0.0.1:4011', NODE_ENV: 'development' })).authorityHost).toBe(
       'http://127.0.0.1:4011',
@@ -129,7 +129,7 @@ describe('loadEntraConfig', () => {
   });
 
   it('refuses addresses that are not addresses', async () => {
-    await expect(loadEntraConfig({ ...ENTRA_ENV, DIUCS_PUBLIC_URL: 'not an address' })).rejects.toThrow('DIUCS_PUBLIC_URL');
+    await expect(loadEntraConfig({ ...ENTRA_ENV, OVERWATCH_PUBLIC_URL: 'not an address' })).rejects.toThrow('OVERWATCH_PUBLIC_URL');
     await expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'ftp://login.example.test' })).rejects.toThrow('ENTRA_AUTHORITY_HOST');
   });
 
@@ -158,7 +158,7 @@ describe('loadOperatorEntraConfig', () => {
     expect((await loadOperatorEntraConfig({ ...OPERATOR_ENV, OPERATOR_ENTRA_CLIENT_SECRET: 'not-this' })).clientSecret).toBe(OPERATOR_CLIENT_SECRET);
   });
 
-  it.each(['OPERATOR_ENTRA_CLIENT_ID', 'OPERATOR_ENTRA_DIRECTORY_ID', 'DIUCS_OPERATOR_PUBLIC_URL'])('refuses to load without %s, naming the variable', async (name) => {
+  it.each(['OPERATOR_ENTRA_CLIENT_ID', 'OPERATOR_ENTRA_DIRECTORY_ID', 'OVERWATCH_OPERATOR_PUBLIC_URL'])('refuses to load without %s, naming the variable', async (name) => {
     await expect(loadOperatorEntraConfig({ ...OPERATOR_ENV, [name]: undefined })).rejects.toThrow(name);
   });
 
@@ -169,7 +169,7 @@ describe('loadOperatorEntraConfig', () => {
 
   it('refuses the plain operator secret beside the vault, naming the variable and never the value', async () => {
     vi.stubEnv('ENTRA_CLIENT_SECRET', '');
-    vi.stubEnv('DIUCS_KEY_VAULT_URL', 'https://diucs-test.vault.azure.net');
+    vi.stubEnv('OVERWATCH_KEY_VAULT_URL', 'https://overwatch-test.vault.azure.net');
     const error = await loadOperatorEntraConfig({ ...OPERATOR_ENV }).catch((e: unknown) => e);
     expect((error as Error).message).toContain('OPERATOR_ENTRA_CLIENT_SECRET');
     expect(String(error)).not.toContain(OPERATOR_CLIENT_SECRET);
@@ -383,7 +383,7 @@ describe('verifyIdToken', () => {
     const token = await idTokenFrom(fake, USER, { nonce: 'nonce-1' });
     const [head, body, signature] = token.split('.');
     const claims = JSON.parse(Buffer.from(body!, 'base64url').toString());
-    claims.roles = ['DIUCS.Lead'];
+    claims.roles = ['Overwatch.Lead'];
     const forged = `${head}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.${signature}`;
     expect(await reasonOf(verifyIdToken(config, forged, 'nonce-1', NOW))).toBe('bad-token');
   });
@@ -412,7 +412,7 @@ describe('verifyIdToken', () => {
     } catch (error) {
       expect(String(error)).not.toContain(token);
       expect(String(error)).not.toContain(OID_ADVISOR);
-      expect(String(error)).not.toContain('DIUCS.Advisor');
+      expect(String(error)).not.toContain('Overwatch.Advisor');
     }
   });
 });

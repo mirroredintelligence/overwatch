@@ -8,7 +8,7 @@ import { isTenantId } from './ids';
 // audience, naming a tenant, with an expiry still ahead. Anything else is not a token this server
 // will keep.
 
-export const STAFF_AUDIENCE = 'diucs-api';
+export const STAFF_AUDIENCE = 'overwatch-api';
 const MAX_TOKEN_LENGTH = 8192;
 const MAX_SUBJECT_LENGTH = 128;
 const MAX_ROLE_LENGTH = 40;

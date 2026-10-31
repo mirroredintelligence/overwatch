@@ -7,9 +7,9 @@ import { sameOrigin, syntheticTarget, type SyntheticEnv } from './guard';
 
 const TOKEN = 'test-only-hook-token-0123456789';
 const GOOD: SyntheticEnv = {
-  SYNTHETIC_BASE_URL: 'https://diucs-test.example',
-  SYNTHETIC_ALLOWED_HOSTS: 'diucs-test.example,diucs-test-api.example',
-  SYNTHETIC_BACKEND_URL: 'https://diucs-test-api.example',
+  SYNTHETIC_BASE_URL: 'https://overwatch-test.example',
+  SYNTHETIC_ALLOWED_HOSTS: 'overwatch-test.example,overwatch-test-api.example',
+  SYNTHETIC_BACKEND_URL: 'https://overwatch-test-api.example',
   SYNTHETIC_HOOK_TOKEN: TOKEN,
   SYNTHETIC_STAFF_STORAGE_STATE: '/run/secrets/synthetic-staff.json',
 };
@@ -22,8 +22,8 @@ describe('syntheticTarget', () => {
   it('runs against an allow-listed https host with the hook token', () => {
     expect(syntheticTarget(GOOD)).toEqual({
       ok: true,
-      baseUrl: 'https://diucs-test.example',
-      backendUrl: 'https://diucs-test-api.example',
+      baseUrl: 'https://overwatch-test.example',
+      backendUrl: 'https://overwatch-test-api.example',
       hookToken: TOKEN,
       staffState: '/run/secrets/synthetic-staff.json',
     });
@@ -36,11 +36,11 @@ describe('syntheticTarget', () => {
   });
 
   it('skips with a reason when the host is not in SYNTHETIC_ALLOWED_HOSTS', () => {
-    const result = syntheticTarget(withEnv({ SYNTHETIC_BASE_URL: 'https://diucs.example' }));
+    const result = syntheticTarget(withEnv({ SYNTHETIC_BASE_URL: 'https://overwatch.example' }));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.reason).toContain('not in SYNTHETIC_ALLOWED_HOSTS');
-      expect(result.reason).toContain('diucs.example');
+      expect(result.reason).toContain('overwatch.example');
     }
   });
 
@@ -52,8 +52,8 @@ describe('syntheticTarget', () => {
   it('matches hosts case-insensitively and ignores spaces in the list', () => {
     const result = syntheticTarget(
       withEnv({
-        SYNTHETIC_BASE_URL: 'https://Diucs-Test.example/',
-        SYNTHETIC_ALLOWED_HOSTS: '  other.example , DIUCS-TEST.example, Diucs-Test-Api.example ',
+        SYNTHETIC_BASE_URL: 'https://Overwatch-Test.example/',
+        SYNTHETIC_ALLOWED_HOSTS: '  other.example , Overwatch-TEST.example, Overwatch-Test-Api.example ',
       }),
     );
     expect(result.ok).toBe(true);
@@ -61,7 +61,7 @@ describe('syntheticTarget', () => {
 
   it('does not treat a host that only contains an allowed host as allowed', () => {
     const result = syntheticTarget(
-      withEnv({ SYNTHETIC_BASE_URL: 'https://diucs-test.example.attacker.example' }),
+      withEnv({ SYNTHETIC_BASE_URL: 'https://overwatch-test.example.attacker.example' }),
     );
     expect(result.ok).toBe(false);
   });
@@ -69,7 +69,7 @@ describe('syntheticTarget', () => {
   it('refuses plain http unless the host is localhost and listed', () => {
     expect(
       syntheticTarget(
-        withEnv({ SYNTHETIC_BASE_URL: 'http://diucs-test.example', SYNTHETIC_ALLOWED_HOSTS: 'diucs-test.example' }),
+        withEnv({ SYNTHETIC_BASE_URL: 'http://overwatch-test.example', SYNTHETIC_ALLOWED_HOSTS: 'overwatch-test.example' }),
       ).ok,
     ).toBe(false);
     const local = syntheticTarget(
@@ -100,8 +100,8 @@ describe('syntheticTarget', () => {
   it('never puts the hook token in a reason', () => {
     const results = [
       syntheticTarget(withEnv({ SYNTHETIC_BASE_URL: 'not a url' })),
-      syntheticTarget(withEnv({ SYNTHETIC_BASE_URL: 'https://diucs.example' })),
-      syntheticTarget(withEnv({ SYNTHETIC_BACKEND_URL: 'ftp://diucs-test-api.example' })),
+      syntheticTarget(withEnv({ SYNTHETIC_BASE_URL: 'https://overwatch.example' })),
+      syntheticTarget(withEnv({ SYNTHETIC_BACKEND_URL: 'ftp://overwatch-test-api.example' })),
     ];
     for (const result of results) {
       expect(result.ok).toBe(false);
@@ -112,16 +112,16 @@ describe('syntheticTarget', () => {
 
 describe('sameOrigin', () => {
   it('accepts a link on the same origin, with any path and query', () => {
-    expect(sameOrigin('https://diucs-test.example/l/abc?x=1', 'https://diucs-test.example')).toBe(true);
+    expect(sameOrigin('https://overwatch-test.example/l/abc?x=1', 'https://overwatch-test.example')).toBe(true);
   });
 
   it('refuses a link on another host, another port or another scheme', () => {
-    expect(sameOrigin('https://other.example/l/abc', 'https://diucs-test.example')).toBe(false);
-    expect(sameOrigin('https://diucs-test.example:8443/l/abc', 'https://diucs-test.example')).toBe(false);
-    expect(sameOrigin('http://diucs-test.example/l/abc', 'https://diucs-test.example')).toBe(false);
+    expect(sameOrigin('https://other.example/l/abc', 'https://overwatch-test.example')).toBe(false);
+    expect(sameOrigin('https://overwatch-test.example:8443/l/abc', 'https://overwatch-test.example')).toBe(false);
+    expect(sameOrigin('http://overwatch-test.example/l/abc', 'https://overwatch-test.example')).toBe(false);
   });
 
   it('refuses text that is not a URL', () => {
-    expect(sameOrigin('not a url', 'https://diucs-test.example')).toBe(false);
+    expect(sameOrigin('not a url', 'https://overwatch-test.example')).toBe(false);
   });
 });

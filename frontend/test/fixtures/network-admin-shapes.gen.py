@@ -11,7 +11,7 @@ Re-run it when a route's answer changes.
 import json
 from datetime import UTC, datetime, timedelta
 
-from diucs.adapters.inbound.fhir_rest.routes_network_admin import (
+from overwatch.adapters.inbound.fhir_rest.routes_network_admin import (
     _grant,
     _listing,
     _member,
@@ -19,22 +19,22 @@ from diucs.adapters.inbound.fhir_rest.routes_network_admin import (
     _projection,
     _sharing,
 )
-from diucs.application.ports.outbound.projection import ProjectionEndReason, SourceStatus
-from diucs.application.use_cases.grants import GrantView
-from diucs.application.use_cases.listing_admission import ListingView
-from diucs.application.use_cases.member_sharing import (
+from overwatch.application.ports.outbound.projection import ProjectionEndReason, SourceStatus
+from overwatch.application.use_cases.grants import GrantView
+from overwatch.application.use_cases.listing_admission import ListingView
+from overwatch.application.use_cases.member_sharing import (
     MemberSharingNetwork,
     MemberSharingView,
     SharedKindView,
     allowlist_fields,
 )
-from diucs.application.use_cases.network_admin import (
+from overwatch.application.use_cases.network_admin import (
     AdminMemberView,
     AdminNetworkView,
     KindStatus,
     MemberProjectionStatus,
 )
-from diucs.domain.model.network import (
+from overwatch.domain.model.network import (
     GrantEndReason,
     GrantScope,
     GrantStatus,

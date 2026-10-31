@@ -53,7 +53,7 @@ export type Session = {
   expiresAt: string;
 };
 
-export const SESSION_COOKIE = 'diucs_session';
+export const SESSION_COOKIE = 'overwatch_session';
 
 /** A PIN session id as the back end makes it (256 bits, urlsafe) with room to spare; anything else is not one. */
 export const PIN_SESSION_PATTERN = /^[A-Za-z0-9_-]{1,128}$/;

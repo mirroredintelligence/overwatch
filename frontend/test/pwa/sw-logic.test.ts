@@ -19,11 +19,11 @@ type Logic = {
 };
 
 function load(): Logic {
-  const scope: { DiucsSw?: Logic } = {};
+  const scope: { OverwatchSw?: Logic } = {};
   vm.createContext({ self: scope });
   vm.runInContext(SOURCE, vm.createContext({ self: scope }));
-  if (!scope.DiucsSw) throw new Error('sw-logic.js does not expose DiucsSw');
-  return scope.DiucsSw;
+  if (!scope.OverwatchSw) throw new Error('sw-logic.js does not expose OverwatchSw');
+  return scope.OverwatchSw;
 }
 
 const sw = load();

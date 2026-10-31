@@ -15,7 +15,7 @@ import { baseCookieOptions, readRequestCookie, sessionSecretKey, type Session } 
 // The link page has its own cookie, name, path and check (lib/links/csrf.ts): opening a link never
 // touches this cookie.
 
-export const CSRF_COOKIE = 'diucs_csrf';
+export const CSRF_COOKIE = 'overwatch_csrf';
 export const CSRF_HEADER = 'X-CSRF-Token';
 
 const NONCE_BYTES = 32;
@@ -29,7 +29,7 @@ export type CsrfSubject = Pick<Session, 'tenantId' | 'host' | 'sub'>;
 // sign-in transaction can never be passed off as a CSRF MAC. Read at call time: a missing secret is a
 // fault (an error, so a 500), never a pass.
 async function macKey(): Promise<Uint8Array> {
-  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'diucs-csrf', 'csrf-token-v1', 32));
+  return new Uint8Array(hkdfSync('sha256', await sessionSecretKey(), 'overwatch-csrf', 'csrf-token-v1', 32));
 }
 
 async function macOf(subject: CsrfSubject, nonce: string): Promise<string> {

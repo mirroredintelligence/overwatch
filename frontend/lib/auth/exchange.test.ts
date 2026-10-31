@@ -16,11 +16,11 @@ const NOW = new Date('2026-10-30T09:00:00Z');
 const SECONDS = Math.floor(NOW.getTime() / 1000);
 
 function idToken(claims: Record<string, unknown>): string {
-  return standInToken({ tid: DIRECTORY_A, oid: OID_ADVISOR, roles: ['DIUCS.Advisor'], ...claims });
+  return standInToken({ tid: DIRECTORY_A, oid: OID_ADVISOR, roles: ['Overwatch.Advisor'], ...claims });
 }
 
 function answer(over: Record<string, unknown> = {}, tokenClaims: Record<string, unknown> = {}, status = 200) {
-  const token = standInToken({ sub: 'stf-0123456789abcdef0123456789abcdef', role: 'lead', aud: 'diucs-api', iat: SECONDS, exp: SECONDS + 8 * 3600, ...tokenClaims });
+  const token = standInToken({ sub: 'stf-0123456789abcdef0123456789abcdef', role: 'lead', aud: 'overwatch-api', iat: SECONDS, exp: SECONDS + 8 * 3600, ...tokenClaims });
   server.use(
     http.post(`${BACKEND_ROOT}/auth/token`, () =>
       HttpResponse.json({ token, expiresAt: '2026-10-30T17:00:00Z', role: 'lead', ...over }, { status }),
@@ -43,7 +43,7 @@ beforeEach(() => {
   // The stand-in back end issues tokens from the clock: hold it at NOW, as the code under test is given.
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(NOW);
-  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
+  vi.stubEnv('OVERWATCH_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   resetExchanges();
   server.use(...authHandlers);
 });
@@ -89,10 +89,10 @@ describe('exchangeStaffToken: what is made of the answer', () => {
   });
 
   it('takes the role from the back end, not from anything in the ID token', async () => {
-    const result = await exchangeStaffToken(idToken({ roles: ['DIUCS.Lead'] }), SIGN_IN_HOST, NOW);
+    const result = await exchangeStaffToken(idToken({ roles: ['Overwatch.Lead'] }), SIGN_IN_HOST, NOW);
     expect(result).toMatchObject({ kind: 'issued', grant: { role: 'lead' } });
     answer({ role: 'advisor' }, { role: 'advisor' });
-    expect(await exchangeStaffToken(idToken({ roles: ['DIUCS.Lead'] }), SIGN_IN_HOST, NOW)).toMatchObject({
+    expect(await exchangeStaffToken(idToken({ roles: ['Overwatch.Lead'] }), SIGN_IN_HOST, NOW)).toMatchObject({
       grant: { role: 'advisor' },
     });
   });
@@ -138,7 +138,7 @@ describe('exchangeStaffToken: what is made of the answer', () => {
     ['an expiry already past', { expiresAt: '2026-10-30T08:59:59Z' }, { exp: SECONDS - 1 }],
     ['an expiry more than twelve hours on', { expiresAt: '2026-10-31T09:30:00Z' }, { exp: SECONDS + 24 * 3600 }],
   ])('is a bad answer when it holds %s', async (_name, over, tokenClaims) => {
-    const claims = { sub: 'stf-0123456789abcdef0123456789abcdef', role: 'lead', aud: 'diucs-api', iat: SECONDS, exp: SECONDS + 8 * 3600, ...tokenClaims };
+    const claims = { sub: 'stf-0123456789abcdef0123456789abcdef', role: 'lead', aud: 'overwatch-api', iat: SECONDS, exp: SECONDS + 8 * 3600, ...tokenClaims };
     const token = standInToken(claims);
     server.use(
       http.post(`${BACKEND_ROOT}/auth/token`, () =>
@@ -180,8 +180,8 @@ describe('exchangeStaffToken: what the back end refuses', () => {
   it('is a failed sign-in when the back end cannot be reached or the address is not set', async () => {
     server.use(http.post(`${BACKEND_ROOT}/auth/token`, () => HttpResponse.error()));
     expect(await reasonOf(exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW))).toBe('exchange-failed');
-    vi.stubEnv('DIUCS_FHIR_BASE_URL', '');
-    await expect(exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW)).rejects.toThrow('DIUCS_FHIR_BASE_URL');
+    vi.stubEnv('OVERWATCH_FHIR_BASE_URL', '');
+    await expect(exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW)).rejects.toThrow('OVERWATCH_FHIR_BASE_URL');
   });
 
   it('puts neither the ID token, the answer’s token nor the subject in anything it throws', async () => {

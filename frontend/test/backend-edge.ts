@@ -1,7 +1,7 @@
 // The back end's own front door, modelled for the tests (WB4). The real stack refuses before any route
 // runs, and a stand-in that answers whatever it is sent hides the refusal: a BFF route that POSTs with
 // no body and no Content-Type passed every test and answered 415 on a real stack (BodyTypeMiddleware,
-// backend/src/diucs/adapters/inbound/fhir_rest/errors.py).
+// backend/src/overwatch/adapters/inbound/fhir_rest/errors.py).
 //
 // This file copies that rule: a POST or PUT whose body type is not application/json or
 // application/fhir+json is refused with 415, whether or not it has a body, except the paths under

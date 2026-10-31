@@ -17,7 +17,7 @@ const manifest = JSON.parse(
 describe('web app manifest', () => {
   it('names the app and opens it at /app, standalone', () => {
     expect(manifest.name).toBe('Overwatch');
-    expect(manifest.short_name).toBe('DIUCS');
+    expect(manifest.short_name).toBe('Overwatch');
     expect(manifest.start_url).toBe('/app');
     expect(manifest.display).toBe('standalone');
     expect(manifest.background_color).toBe('#F4F6F5');

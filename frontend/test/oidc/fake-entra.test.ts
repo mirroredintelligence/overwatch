@@ -57,7 +57,7 @@ function form(code: string, overrides: Record<string, string> = {}): URLSearchPa
 
 describe('the fake Entra provider', () => {
   it('gives a code and the state back, and an id token with the claims Entra sends', async () => {
-    const { location } = fake.authorize(request(), { oid: OID_ADVISOR, roles: ['DIUCS.Advisor'] });
+    const { location } = fake.authorize(request(), { oid: OID_ADVISOR, roles: ['Overwatch.Advisor'] });
     expect(new URL(location).searchParams.get('state')).toBe('state-1');
     const result = await fake.token(DIRECTORY_A, form(codeOf(location)));
     expect(result.status).toBe(200);

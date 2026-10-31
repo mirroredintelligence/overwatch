@@ -26,7 +26,7 @@ async function failure(call: Promise<unknown>): Promise<FhirError> {
   return error as FhirError;
 }
 
-beforeEach(() => vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE));
+beforeEach(() => vi.stubEnv('OVERWATCH_FHIR_BASE_URL', BACKEND_BASE));
 
 describe('tenantDataHandlers', () => {
   it('answers each tenant with its own record for an identifier both hold', async () => {

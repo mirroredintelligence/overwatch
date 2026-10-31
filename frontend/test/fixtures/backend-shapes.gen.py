@@ -10,28 +10,28 @@ Re-run it when a mapping changes, so a front-end test never holds a shape the ba
 import json
 from datetime import UTC, date, datetime, timedelta
 
-from diucs.adapters.fhir_shared.booking_task import booking_to_fhir
-from diucs.adapters.inbound.fhir_rest.case_mapping import case_to_fhir, filter_result_to_fhir
-from diucs.adapters.inbound.fhir_rest.routes_criteria import _view_basic
-from diucs.adapters.inbound.fhir_rest.routes_bookings import _search_bundle
-from diucs.adapters.inbound.link_pages.booking_links import (
+from overwatch.adapters.fhir_shared.booking_task import booking_to_fhir
+from overwatch.adapters.inbound.fhir_rest.case_mapping import case_to_fhir, filter_result_to_fhir
+from overwatch.adapters.inbound.fhir_rest.routes_criteria import _view_basic
+from overwatch.adapters.inbound.fhir_rest.routes_bookings import _search_bundle
+from overwatch.adapters.inbound.link_pages.booking_links import (
     change_view_body,
     closed_detail,
     view_body,
 )
-from diucs.application.use_cases.link_access import closed_body
-from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.adapters.inbound.fhir_rest.case_mapping import summary_to_fhir
-from diucs.application.use_cases.case_summary import CaseSummary
-from diucs.application.use_cases.criteria import CriteriaVersionView
-from diucs.application.use_cases.filter_options import (
+from overwatch.application.use_cases.link_access import closed_body
+from overwatch.application.ports.outbound.geo import LatLon, TravelRange
+from overwatch.adapters.inbound.fhir_rest.case_mapping import summary_to_fhir
+from overwatch.application.use_cases.case_summary import CaseSummary
+from overwatch.application.use_cases.criteria import CriteriaVersionView
+from overwatch.application.use_cases.filter_options import (
     Coverage,
     FilterOptionsResult,
     NotSuitable,
     Option,
     TravelLeg,
 )
-from diucs.domain.codes import (
+from overwatch.domain.codes import (
     AgeBand,
     BestFitNotUsedReason,
     BookingStatus,
@@ -43,9 +43,9 @@ from diucs.domain.codes import (
     Status,
     Urgency,
 )
-from diucs.domain.model.booking import Booking
-from diucs.domain.model.case import Case
-from diucs.domain.model.scores import News2
+from overwatch.domain.model.booking import Booking
+from overwatch.domain.model.case import Case
+from overwatch.domain.model.scores import News2
 
 T0 = datetime(2026, 10, 30, 14, 0, tzinfo=UTC)
 

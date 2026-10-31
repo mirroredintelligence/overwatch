@@ -10,24 +10,24 @@ Re-run it when a mapping changes, so a front-end test never holds a shape the ba
 import json
 from datetime import UTC, date, datetime, timedelta
 
-from diucs.adapters.inbound.fhir_rest.routes_insight import (
+from overwatch.adapters.inbound.fhir_rest.routes_insight import (
     friction_json,
     funnels_json,
     paths_json,
     performance_json,
     releases_json,
 )
-from diucs.application.use_cases.browser_insight import ReleasesView
-from diucs.domain.model.insight import MeasureRow, PipelineRow, ReleaseRow
-from diucs.domain.model.telemetry_aggregates import (
+from overwatch.application.use_cases.browser_insight import ReleasesView
+from overwatch.domain.model.insight import MeasureRow, PipelineRow, ReleaseRow
+from overwatch.domain.model.telemetry_aggregates import (
     ElementUsageDailyRow,
     FrictionDailyRow,
     FunnelDailyRow,
     QueryStatDailyRow,
     RouteDailyRow,
 )
-from diucs.domain.rules.browser_insight import BUCKET_COUNT, bucket_of
-from diucs.domain.rules.insight_views import (
+from overwatch.domain.rules.browser_insight import BUCKET_COUNT, bucket_of
+from overwatch.domain.rules.insight_views import (
     friction_table,
     funnel_views,
     paths_view,

@@ -11,8 +11,8 @@ export type SeenClinical = { method: string; path: string; idempotencyKey: strin
 export const seenClinical: SeenClinical[] = [];
 export const TAKEN_ELSEWHERE = 'req-4822';
 
-const CLINICAL_CODE = 'https://diucs.example/CodeSystem/task-code';
-const INPUT = 'https://diucs.example/CodeSystem/task-input';
+const CLINICAL_CODE = 'https://overwatch.mirroredintelligence.com/CodeSystem/task-code';
+const INPUT = 'https://overwatch.mirroredintelligence.com/CodeSystem/task-input';
 
 const glance = (reference: string, news2: number) => [
   { url: `${INPUT}/case-reference`, valueString: reference },

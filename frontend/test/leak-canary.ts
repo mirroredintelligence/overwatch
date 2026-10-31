@@ -48,10 +48,10 @@ const WEBHOOK_AREA = /^\/webhooks(\/|$)/;
 const WEBHOOK_PATH = /^\/webhooks\/sms\/twilio(\/status)?$/;
 const WEBHOOK_HEADER = /^(authorization|cookie|proxy-authorization|forwarded|x-forwarded-.*|x-real-ip|x-edge-auth|cf-connecting-ip|x-csrf-token|x-screen-secret)$/i;
 const NETWORK_PATH = /^\/(?:fhir\/)?network\/([^/]+)(?:\/|$)/;
-const STAFF_AUDIENCE = 'diucs-api';
-// The operator door (TEN-075, TEN-083): `/platform/**` takes an operator's token (audience `diucs-ops`, no tenant).
+const STAFF_AUDIENCE = 'overwatch-api';
+// The operator door (TEN-075, TEN-083): `/platform/**` takes an operator's token (audience `overwatch-ops`, no tenant).
 const OPERATOR_PATH = /^\/platform(\/|$)/;
-const OPERATOR_AUDIENCE = 'diucs-ops';
+const OPERATOR_AUDIENCE = 'overwatch-ops';
 
 export type LeakRule =
   | 'tenant-mismatch'

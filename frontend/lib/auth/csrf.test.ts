@@ -212,7 +212,7 @@ describe('checkCsrf', () => {
   });
 
   it('is not fooled by the link page’s cookie: it is another cookie with another name', async () => {
-    const request = requestWithCookies(URL_, { diucs_link_csrf: TOKEN }, { method: 'POST', headers: { [CSRF_HEADER]: TOKEN } });
+    const request = requestWithCookies(URL_, { overwatch_link_csrf: TOKEN }, { method: 'POST', headers: { [CSRF_HEADER]: TOKEN } });
     expect(await checkCsrf(request, SESSION)).toBe(false);
   });
 

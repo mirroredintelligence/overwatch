@@ -10,7 +10,7 @@ export const SUBSCRIBER_ID = 'pr-0042';
 export type SeenBackend = { method: string; path: string; ifMatch: string | null; idempotencyKey: string | null; body: unknown };
 export const seenBackend: SeenBackend[] = [];
 
-const SETTING = 'https://diucs.example/CodeSystem/alert-preferences';
+const SETTING = 'https://overwatch.mirroredintelligence.com/CodeSystem/alert-preferences';
 
 // What the back end sends for a practitioner who has never saved (the rule book's defaults).
 const NEVER_SAVED = {
@@ -49,9 +49,9 @@ async function body(request: Request): Promise<unknown> {
   return request.json().catch(() => undefined);
 }
 
-const TASK_CODE = 'https://diucs.example/CodeSystem/task-code';
-const ALERT_KIND = 'https://diucs.example/CodeSystem/alert-kind';
-const ALERT_STATUS = 'https://diucs.example/CodeSystem/alert-status';
+const TASK_CODE = 'https://overwatch.mirroredintelligence.com/CodeSystem/task-code';
+const ALERT_KIND = 'https://overwatch.mirroredintelligence.com/CodeSystem/alert-kind';
+const ALERT_STATUS = 'https://overwatch.mirroredintelligence.com/CodeSystem/alert-status';
 
 /** Open alerts for the caller, as the back end lists them (R12, GET /fhir/Task). */
 export const OPEN_ALERT_TASKS = [
@@ -69,7 +69,7 @@ export const OPEN_ALERT_TASKS = [
   },
 ];
 
-const ACKNOWLEDGED_AT = 'https://diucs.example/CodeSystem/alert-acknowledged-at';
+const ACKNOWLEDGED_AT = 'https://overwatch.mirroredintelligence.com/CodeSystem/alert-acknowledged-at';
 const finished = (id: string, status: string, kind: string, extra: unknown[] = []) => ({
   resourceType: 'Task',
   id,

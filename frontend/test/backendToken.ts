@@ -27,7 +27,7 @@ export function fakeBackendToken(claims: Partial<TokenClaims> = {}, now: Date = 
     services: [],
     tenant: 'trust-a',
     epoch: 1,
-    aud: 'diucs-api',
+    aud: 'overwatch-api',
     iat,
     exp: iat + 8 * 3600,
     ...claims,

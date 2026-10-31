@@ -32,14 +32,14 @@ export const GRANTS: Record<string, string[]> = {
 };
 
 const ROLE_BY_APP_ROLE: Record<string, string> = {
-  'DIUCS.Advisor': 'advisor',
-  'DIUCS.Clinical': 'clinical',
-  'DIUCS.Lead': 'lead',
-  'DIUCS.Owner': 'owner',
-  'DIUCS.Planning': 'exec',
-  'DIUCS.Audit': 'audit',
-  'DIUCS.TenantAdmin': 'tenant-admin',
-  'DIUCS.NetworkAdmin': 'network-admin',
+  'Overwatch.Advisor': 'advisor',
+  'Overwatch.Clinical': 'clinical',
+  'Overwatch.Lead': 'lead',
+  'Overwatch.Owner': 'owner',
+  'Overwatch.Planning': 'exec',
+  'Overwatch.Audit': 'audit',
+  'Overwatch.TenantAdmin': 'tenant-admin',
+  'Overwatch.NetworkAdmin': 'network-admin',
 };
 const PRIORITY = ['tenant-admin', 'network-admin', 'lead', 'clinical', 'advisor', 'owner', 'exec', 'audit'];
 
@@ -125,7 +125,7 @@ export function staffExchange(
     services: [],
     tenant: tenantOfHost(host as string),
     epoch: 1,
-    aud: 'diucs-api',
+    aud: 'overwatch-api',
     iat: issuedAt,
     exp: expires,
   });
@@ -153,7 +153,7 @@ export function deviceExchange(
     services: [],
     tenant: tenantOfHost(host),
     epoch: 1,
-    aud: 'diucs-api',
+    aud: 'overwatch-api',
     iat: issuedAt,
     exp: expires,
   });
@@ -161,8 +161,8 @@ export function deviceExchange(
 }
 
 const OPERATOR_ROLE_BY_APP_ROLE: Record<string, string> = {
-  'DIUCS.PlatformOperator': 'platform-operator',
-  'DIUCS.Support': 'support',
+  'Overwatch.PlatformOperator': 'platform-operator',
+  'Overwatch.Support': 'support',
 };
 const OPERATOR_PRIORITY = ['platform-operator', 'support'];
 export const OPERATOR_LIFETIME_SECONDS = 3600;
@@ -186,6 +186,6 @@ export function operatorExchange(body: unknown, directory: string = DIRECTORY_PL
   const issuedAt = Math.floor(now.getTime() / 1000);
   const expires = issuedAt + OPERATOR_LIFETIME_SECONDS;
   const digest = createHmac('sha256', STAND_IN_KEY).update(`operator|${oid}`).digest('hex');
-  const token = standInToken({ sub: `ops-${digest.slice(0, 32)}`, role, aud: 'diucs-ops', iat: issuedAt, exp: expires });
+  const token = standInToken({ sub: `ops-${digest.slice(0, 32)}`, role, aud: 'overwatch-ops', iat: issuedAt, exp: expires });
   return { status: 200, body: { token, expiresAt: iso(expires), role } };
 }

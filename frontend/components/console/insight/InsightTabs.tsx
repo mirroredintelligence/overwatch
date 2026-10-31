@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { Chip } from '@/components/ui/Chip';
 import {
+  DEVICES,
   RANGES,
   TABS,
   TAB_LABELS,
   type Compare,
+  type Device,
   type FrictionRow,
   type Funnel,
   type InsightTab,
@@ -24,12 +26,13 @@ import { PathsTab } from './PathsTab';
 import { PerformanceTab } from './PerformanceTab';
 import { ReleasesTab } from './ReleasesTab';
 
-// The insight page's tabs and range (W49). A tab change asks the BFF for that tab with the range
-// that is chosen now. The data is aggregates; no person is shown.
+// The insight page's tabs, range and device (W49, W9F). A change asks the BFF for that tab with the range
+// and device that are chosen now. The data is aggregates; no person is shown. Whatever stops the back
+// end answering is said as "could not be loaded", never as an empty view.
 
 type Data = Record<string, unknown>;
 
-const NOT_SERVED = 'Insight is not available yet: the back end does not serve it.';
+const NOT_LOADED = 'This view could not be loaded. Try again.';
 
 // The back end's answer for each tab, as the page reads it. A missing list is an empty one.
 function list<T>(value: unknown): T[] {
@@ -39,30 +42,31 @@ function list<T>(value: unknown): T[] {
 export function InsightTabs({ initialTab }: { initialTab: InsightTab }) {
   const [tab, setTab] = useState<InsightTab>(initialTab);
   const [range, setRange] = useState<Range>('7d');
+  const [device, setDevice] = useState<Device | null>(null);
   const [result, setResult] = useState<{ key: string; data: Data | null; error: string | null } | null>(null);
   const [funnelName, setFunnelName] = useState<string | null>(null);
-  const requestKey = `${tab}|${range}`;
+  // The release comparison is of releases, not devices, so it takes no device.
+  const deviceFor = tab === 'releases' ? null : device;
+  const requestKey = `${tab}|${range}|${deviceFor ?? ''}`;
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/bff/console/insight/${tab}?range=${range}`, { credentials: 'same-origin' })
+    const query = `range=${range}${deviceFor === null ? '' : `&device=${deviceFor}`}`;
+    fetch(`/api/bff/console/insight/${tab}?${query}`, { credentials: 'same-origin' })
       .then(async (response) => {
-        if (response.status === 404) throw new Error('not-served');
         if (!response.ok) throw new Error('status');
         return (await response.json()) as Data;
       })
       .then((body) => {
         if (!cancelled) setResult({ key: requestKey, data: body, error: null });
       })
-      .catch((error: Error) => {
-        // A 404 is the back end having no insight route (O08 is not served over HTTP yet): said, not hidden.
-        const message = error.message === 'not-served' ? NOT_SERVED : 'This view could not be loaded. Try again.';
-        if (!cancelled) setResult({ key: requestKey, data: null, error: message });
+      .catch(() => {
+        if (!cancelled) setResult({ key: requestKey, data: null, error: NOT_LOADED });
       });
     return () => {
       cancelled = true;
     };
-  }, [tab, range, requestKey]);
+  }, [tab, range, deviceFor, requestKey]);
 
   // An answer for a view the person has since left is not shown: the key must match the view now.
   const current = result?.key === requestKey ? result : null;
@@ -104,6 +108,23 @@ export function InsightTabs({ initialTab }: { initialTab: InsightTab }) {
           </Chip>
         ))}
       </div>
+      {tab !== 'releases' && (
+        <div className={styles.chips} role="group" aria-label="Device">
+          <Chip pressed={device === null} onPressedChange={() => setDevice(null)} dataEl="CON-INS-DEVICE-ALL">
+            All devices
+          </Chip>
+          {DEVICES.map((item) => (
+            <Chip
+              key={item.value}
+              pressed={device === item.value}
+              onPressedChange={() => setDevice(item.value)}
+              dataEl={`CON-INS-DEVICE-${item.value.toUpperCase()}`}
+            >
+              {item.label}
+            </Chip>
+          ))}
+        </div>
+      )}
       <div role="tabpanel" id="insight-panel" aria-labelledby={`tab-${tab}`}>
         {error !== null && <p role="alert" className={styles.alert}>{error}</p>}
         {error === null && data === null && <p className={styles.help}>Loading</p>}
@@ -130,10 +151,15 @@ export function InsightTabs({ initialTab }: { initialTab: InsightTab }) {
           <PathsTab
             mostCommon={list<PathRow>(data.mostCommon)}
             uTurns={list<PathRow>(data.uTurns)}
-            unused={list<string>(data.unused)}
+            unused={Array.isArray(data.unused) ? (data.unused as string[]) : null}
           />
         )}
-        {data !== null && tab === 'friction' && <FrictionTab rows={list<FrictionRow>(data.rows)} />}
+        {data !== null && tab === 'friction' && (
+          <FrictionTab
+            rows={list<FrictionRow>(data.rows)}
+            suppressedGroups={typeof data.suppressedGroups === 'number' ? data.suppressedGroups : 0}
+          />
+        )}
         {data !== null && tab === 'performance' && (
           <PerformanceTab
             vitals={list<Vital>(data.vitals)}

@@ -18,6 +18,7 @@ export const UI_EVENT_NAMES = [
   'ui.submit',
   'ui.error_shown',
   'ui.friction',
+  'ui.web_vital',
 ] as const;
 
 export type UiEventName = (typeof UI_EVENT_NAMES)[number];
@@ -39,7 +40,9 @@ export const ROLE_VALUES: readonly string[] = [
 ];
 
 const ELEMENT_ID = /^[A-Z0-9]+(-[A-Z0-9]+)*$/;
-const ROUTE_TEMPLATE = /^\/[a-z0-9\-/[\]]*$/;
+// A route template: lower-case path words and parameter names in brackets (`[serviceId]`, camel case
+// as Next.js names them). No space, no dot, no capital outside a bracket: a typed value does not fit.
+const ROUTE_TEMPLATE = /^\/(?:[a-z0-9-]|\/|\[[A-Za-z0-9]+\])*$/;
 const SESSION_ID = /^[a-f0-9]{16,32}$/;
 const TRACE_ID = /^[a-f0-9]{32}$/;
 const RELEASE = /^\d+\.\d+\.\d+$/;
@@ -111,6 +114,13 @@ export const EVENT_SCHEMAS: Record<UiEventName, Record<string, AttrSpec>> = {
     'element.id': { type: 'id', pattern: ELEMENT_ID },
     count: { type: 'number' },
     window_ms: { type: 'number' },
+  },
+  // A web vital (W9F). The spec's keys `name` and `value` are refused by the collector (DEC-332), so
+  // the metric is `metric` and the number is `reading`.
+  'ui.web_vital': {
+    metric: { type: 'enum', values: ['lcp', 'inp', 'cls'] },
+    reading: { type: 'number' },
+    rating: { type: 'enum', values: ['good', 'needs-improvement', 'poor'] },
   },
 };
 

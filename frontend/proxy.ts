@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { isSamePathOnly, rolesFor } from '@/lib/auth/access';
 import { entraAuthorityOrigin } from '@/lib/auth/oidc';
+import { operatorAccessFor } from '@/lib/operator/access';
+import { operatorSessionFromRequest } from '@/lib/operator/session';
 import { sessionFromRequest } from '@/lib/auth/session';
 import { buildCsp, securityHeaders } from '@/lib/security/csp';
 
@@ -21,6 +23,7 @@ import { buildCsp, securityHeaders } from '@/lib/security/csp';
 
 const NO_STORE = 'no-store';
 const SIGN_IN_PATH = '/sign-in';
+const OPERATOR_SIGN_IN_PATH = '/operator/sign-in';
 
 function newNonce(): string {
   return Buffer.from(crypto.randomUUID()).toString('base64');
@@ -31,8 +34,27 @@ type Decision =
   | { kind: 'sign-in'; url: URL }
   | { kind: 'forbidden'; url: URL };
 
+// The operator console (TEN-083) is another door: its pages are guarded by the OPERATOR session cookie and by
+// nothing a tenant's person holds, and an operator's cookie opens no tenant page (the tenant guard below
+// reads its own cookie only). A tenant's person on a console page is sent to the console's sign-in.
+async function decideOperator(request: NextRequest, roles: readonly string[]): Promise<Decision> {
+  const { pathname, search } = request.nextUrl;
+  const session = await operatorSessionFromRequest(request);
+  if (!session) {
+    const signIn = new URL(OPERATOR_SIGN_IN_PATH, request.url);
+    const back = `${pathname}${search}`;
+    if (isSamePathOnly(back)) signIn.searchParams.set('next', back);
+    return { kind: 'sign-in', url: signIn };
+  }
+  if (!roles.includes(session.role)) return { kind: 'forbidden', url: new URL('/forbidden', request.url) };
+  return { kind: 'pass', guarded: true };
+}
+
 async function decide(request: NextRequest): Promise<Decision> {
   const { pathname, search } = request.nextUrl;
+  const operator = operatorAccessFor(pathname);
+  if (operator.kind === 'public') return { kind: 'pass', guarded: false };
+  if (operator.kind === 'guarded') return decideOperator(request, operator.roles);
   const allowed = rolesFor(pathname);
   if (allowed === null) return { kind: 'pass', guarded: false };
 
@@ -53,7 +75,8 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
   const nonce = newNonce();
   // The sign-in page's form posts to our start route, which redirects to the provider; the browser
   // checks that redirect against this page's form-action. Exactly this path, no other, names it.
-  const authority = request.nextUrl.pathname === SIGN_IN_PATH ? entraAuthorityOrigin() : null;
+  const signInPage = request.nextUrl.pathname === SIGN_IN_PATH || (request.nextUrl.pathname === OPERATOR_SIGN_IN_PATH);
+  const authority = signInPage ? entraAuthorityOrigin() : null;
   const policy = buildCsp(nonce, process.env.NODE_ENV === 'development', {
     formActionOrigins: authority === null ? [] : [authority],
   });

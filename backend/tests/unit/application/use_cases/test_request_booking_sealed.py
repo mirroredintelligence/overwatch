@@ -108,6 +108,7 @@ class _Idempotency(_Collect):
 class _Unit:
     channel: Channel
     committed: bool = False
+    open: bool = False
     stores: dict[str, _Collect] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -144,9 +145,11 @@ class _Unit:
         return ScopeId.tenant(TENANT)
 
     async def __aenter__(self) -> Self:
+        self.open = True
         return self
 
     async def __aexit__(self, *exc: object) -> None:
+        self.open = False
         return None
 
     async def commit(self) -> None:
@@ -350,3 +353,41 @@ async def test_the_communication_is_about_the_service_not_the_booking() -> None:
     unit, _ = await _request(Channel.TEXT)
 
     assert unit.stores["communications"].items[0].about_id == SERVICE_ID
+
+
+async def test_the_wording_is_read_before_the_unit_opens_and_a_link_base_may_be_async() -> None:
+    """The production wording and link base read the tenant's records through a unit of their own,
+    and a unit cannot open inside another (UnitOfWorkAlreadyOpen), so the use case asks for the
+    wording before its own unit opens; an async link base source is awaited."""
+    unit = _Unit(Channel.TEXT)
+    tokens = _Tokens()
+    asked_while_open: list[bool] = []
+
+    async def wording(scope: ScopeId) -> TenantWording | None:
+        asked_while_open.append(unit.open)
+        return WORDING
+
+    async def link_base(scope: ScopeId) -> str:
+        return LINK_HOST
+
+    use_case = RequestBooking(
+        lambda: unit,  # type: ignore[arg-type, return-value]
+        unit.stores["idempotency"],  # type: ignore[arg-type]
+        lambda repo: tokens,  # type: ignore[arg-type, return-value]
+        FixedClock(NOW),
+        SequentialIds("bk"),
+        random.Random(7),
+        _Board(),  # type: ignore[arg-type]
+        SEALER,
+        wording,
+        link_base_url_for=link_base,
+    )
+    command = RequestBookingCommand(
+        idempotency_key="req-3", actor=ADVISOR, case_id=CASE.id, service_id=SERVICE_ID
+    )
+
+    with bind_scope(ScopeId.tenant(TENANT)):
+        await use_case.execute(command)
+
+    assert asked_while_open == [False]
+    assert FULL_LINK in _opened(unit)["text"]

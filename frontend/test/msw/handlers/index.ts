@@ -5,10 +5,12 @@ import { boardHandlers } from './board';
 import { criteriaHandlers } from './criteria';
 import { leadHandlers } from './lead';
 import { linkHandlers } from './links';
+import { operatorHandlers } from './operator';
 import { profileHandlers } from './profile';
 import { registrationHandlers as reviewerRegistrationHandlers, registrationStepHandlers } from './registrations';
 import { reporterHandlers } from './reporter';
 import { staffHandlers } from './staff';
+import { tenantAdminHandlers } from './tenantAdmin';
 import { tenantDataHandlers } from './tenantData';
 
 // Default handlers for every test. Feature tasks add their handlers in
@@ -28,4 +30,6 @@ export const handlers: RequestHandler[] = [
   ...reporterHandlers,
   ...profileHandlers,
   ...tenantDataHandlers,
+  ...tenantAdminHandlers,
+  ...operatorHandlers,
 ];

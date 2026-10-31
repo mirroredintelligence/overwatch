@@ -82,3 +82,18 @@ class Settings(BaseSettings):
     # O07: the Log Analytics workspace the support console reads raw telemetry from. Unset: the
     # telemetry query refuses every read (fail closed). The workspace id is not a secret.
     telemetry_workspace_id: str | None = None
+    # B1 (the serving process): where the API binds, and what it trusts about the proxy in front of
+    # it. Behind Cloudflare (deployment-plan item 5) the client address and the original host come
+    # from the edge's headers only when the request comes from Cloudflare: its published ranges
+    # (built in; `edge_cloudflare_ranges_file` replaces them, one range for each line), an extra
+    # trusted peer range (`edge_trusted_peers`, for the ingress that accepts only Cloudflare) or the
+    # origin secret `edge-origin` in the secret store. `none` trusts no published range, and every
+    # forwarded header is then ignored.
+    api_host: str = "0.0.0.0"  # noqa: S104 (a container binds all its interfaces; the ingress is the door)
+    api_port: int = 8000
+    edge: Literal["cloudflare", "none"] = "cloudflare"
+    edge_cloudflare_ranges_file: Path | None = None
+    edge_trusted_peers: list[str] = []
+    # TEN-043: the Entra directory of the platform operator's own staff (a GUID). Unset leaves the
+    # operator sign-in unconfigured (it answers as a server with no exchange configuration).
+    operator_directory_id: str | None = None

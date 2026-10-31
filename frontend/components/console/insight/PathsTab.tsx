@@ -10,7 +10,8 @@ export function PathsTab({
 }: {
   mostCommon: readonly PathRow[];
   uTurns: readonly PathRow[];
-  unused: readonly string[];
+  /** The controls nobody used, or null when the back end cannot say (it does not hold the list of controls). */
+  unused: readonly string[] | null;
 }) {
   return (
     <div className={styles.page}>
@@ -45,11 +46,15 @@ export function PathsTab({
       </section>
       <section className={styles.section} aria-labelledby="paths-unused">
         <h2 id="paths-unused" className={styles.heading}>Never used this week</h2>
-        <ul>
-          {unused.map((elementId) => (
-            <li key={elementId}>{elementId}</li>
-          ))}
-        </ul>
+        {unused === null ? (
+          <p className={styles.help}>Not measured yet: this needs the list of every control.</p>
+        ) : (
+          <ul>
+            {unused.map((elementId) => (
+              <li key={elementId}>{elementId}</li>
+            ))}
+          </ul>
+        )}
       </section>
     </div>
   );

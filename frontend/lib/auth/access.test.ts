@@ -21,6 +21,13 @@ const TABLE: [string, Role[]][] = [
   // W9H: the executive's alerts on their phone sit under /planning; the page itself sends a lead on to the home screen.
   ['/planning/phone', ['exec', 'lead']],
   ['/console', ['support']],
+  // The tenant administrator's pages (TEN-076).
+  ['/admin', ['tenant-admin']],
+  ['/admin/config', ['tenant-admin']],
+  ['/admin/support', ['tenant-admin']],
+  // The operator console is a different door (lib/operator/access.ts): no TENANT role opens it.
+  ['/operator', []],
+  ['/operator/tenants/trust-a', []],
 ];
 
 describe('rolesFor', () => {
@@ -28,7 +35,7 @@ describe('rolesFor', () => {
     expect([...(rolesFor(path) ?? [])].sort()).toEqual([...roles].sort());
   });
 
-  it.each(['/', '/screen', '/screen/pair', '/sign-in', '/forbidden', '/case/4821', '/api/bff/board', '/advisors', '/leader', '/consoles', '/criteriaa'])(
+  it.each(['/', '/screen', '/screen/pair', '/sign-in', '/forbidden', '/case/4821', '/api/bff/board', '/advisors', '/leader', '/consoles', '/criteriaa', '/administrator', '/operators'])(
     'leaves %s unguarded',
     (path) => {
       expect(rolesFor(path)).toBeNull();
@@ -81,6 +88,7 @@ describe('roleHome', () => {
     ['owner', '/owner/criteria'],
     ['exec', '/planning'],
     ['support', '/console'],
+    ['tenant-admin', '/admin'],
   ] as [Role, string][])('sends %s to %s', (role, home) => {
     expect(roleHome(role)).toBe(home);
   });
@@ -90,7 +98,7 @@ describe('roleHome', () => {
   });
 
   it('can open its own home, whichever role', () => {
-    for (const role of ['advisor', 'clinical', 'lead', 'owner', 'exec', 'support'] as Role[]) {
+    for (const role of ['advisor', 'clinical', 'lead', 'owner', 'exec', 'support', 'tenant-admin'] as Role[]) {
       expect(canAccess(role, roleHome(role))).toBe(true);
     }
   });
@@ -116,5 +124,15 @@ describe('isSamePathOnly', () => {
     '/' + 'a'.repeat(2100),
   ])('refuses %j', (value) => {
     expect(isSamePathOnly(value)).toBe(false);
+  });
+});
+
+describe('a next path for a tenant role', () => {
+  it('is never the operator console, whatever the role', () => {
+    for (const role of ROLES) {
+      expect(canAccess(role, '/operator'), role).toBe(false);
+      expect(canAccess(role, '/operator/audit'), role).toBe(false);
+      expect(canAccess(role, '/OPERATOR/tenants'), role).toBe(false);
+    }
   });
 });

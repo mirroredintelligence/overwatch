@@ -1,5 +1,5 @@
 import { http, HttpResponse, type HttpResponseResolver } from 'msw';
-import { deviceExchange, staffExchange } from '@/test/fixtures/exchange';
+import { deviceExchange, operatorExchange, staffExchange } from '@/test/fixtures/exchange';
 import { BACKEND_ROOT } from '@/test/oidc/constants';
 
 // The back end's token exchange (TEN-043) for the BFF's tests. Not in the default handlers: the
@@ -32,6 +32,13 @@ export const authHandlers = [
     const authorization = request.headers.get('authorization');
     seenExchanges.push({ path: '/auth/device-token', host, authorization, body });
     const reply = deviceExchange(host, authorization, body);
+    return HttpResponse.json(reply.body as Record<string, unknown>, { status: reply.status, headers: { 'Cache-Control': 'no-store' } });
+  }) as HttpResponseResolver),
+  http.post(`${BACKEND_ROOT}/auth/operator-token`, (async ({ request }) => {
+    const body = await bodyOf(request);
+    const host = request.headers.get('host');
+    seenExchanges.push({ path: '/auth/operator-token', host, authorization: request.headers.get('authorization'), body });
+    const reply = operatorExchange(body);
     return HttpResponse.json(reply.body as Record<string, unknown>, { status: reply.status, headers: { 'Cache-Control': 'no-store' } });
   }) as HttpResponseResolver),
 ];

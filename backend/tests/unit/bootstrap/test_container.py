@@ -594,6 +594,7 @@ async def test_build_for_tests_exposes_the_dispatcher_with_the_ladder_and_bookin
 
     assert container.scheduled_work.kinds == frozenset(
         {
+            WorkKind.PROMPT_DUE,
             WorkKind.REMINDER,
             WorkKind.PHONE_TASK,
             WorkKind.ESCALATE_TO_LEAD,
@@ -613,6 +614,7 @@ async def test_build_exposes_the_same_dispatch_table() -> None:
     try:
         assert container.scheduled_work.kinds == frozenset(
             {
+                WorkKind.PROMPT_DUE,
                 WorkKind.REMINDER,
                 WorkKind.PHONE_TASK,
                 WorkKind.ESCALATE_TO_LEAD,

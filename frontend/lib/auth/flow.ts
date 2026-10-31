@@ -31,7 +31,7 @@ import { hostOf } from '@/lib/links/server';
 
 export const TRANSACTION_COOKIE = 'diucs_oidc';
 const TRANSACTION_PATH = '/api/bff/auth/entra';
-const TRANSACTION_SECONDS = 600;
+export const TRANSACTION_SECONDS = 600;
 const ENCRYPTION = { alg: 'dir', enc: 'A256GCM' } as const;
 
 const FAILED = '/sign-in?error=failed';
@@ -40,28 +40,31 @@ const NO_ACCESS = '/sign-in?error=no-access';
 const BASE64URL_43 = /^[A-Za-z0-9_-]{43}$/;
 const CODE_MAX_LENGTH = 2048;
 
-function see(location: string): Response {
+export function see(location: string): Response {
   return new Response(null, { status: 303, headers: { Location: location, 'Cache-Control': 'no-store' } });
 }
 
 // The transaction cookie is sealed with a key derived from the session secret for this one
 // purpose, so a sealed session can never be passed off as a transaction or the other way round.
-function transactionKey(): Uint8Array {
-  const derived = hkdfSync('sha256', sessionSecretKey(), 'diucs-staff-sign-in', 'transaction-cookie-v1', 32);
+const STAFF_PURPOSE = 'diucs-staff-sign-in';
+
+function transactionKey(purpose: string): Uint8Array {
+  const derived = hkdfSync('sha256', sessionSecretKey(), purpose, 'transaction-cookie-v1', 32);
   return new Uint8Array(derived);
 }
 
-async function sealTransaction(transaction: Transaction, now: Date): Promise<string> {
+/** The sealed sign-in transaction. The operator console seals its own with a purpose of its own. */
+export async function sealTransaction(transaction: Transaction, now: Date, purpose: string = STAFF_PURPOSE): Promise<string> {
   const seconds = Math.floor(now.getTime() / 1000);
   return new EncryptJWT({ ...transaction })
     .setProtectedHeader(ENCRYPTION)
     .setIssuedAt(seconds)
     .setExpirationTime(seconds + TRANSACTION_SECONDS)
-    .encrypt(transactionKey());
+    .encrypt(transactionKey(purpose));
 }
 
-async function unsealTransaction(value: string, now: Date): Promise<Transaction | null> {
-  const key = transactionKey(); // A missing secret is a fault, not "no transaction".
+export async function unsealTransaction(value: string, now: Date, purpose: string = STAFF_PURPOSE): Promise<Transaction | null> {
+  const key = transactionKey(purpose); // A missing secret is a fault, not "no transaction".
   if (!value) return null;
   try {
     const { payload } = await jwtDecrypt(value, key, {
@@ -80,10 +83,10 @@ async function unsealTransaction(value: string, now: Date): Promise<Transaction 
   }
 }
 
-function transactionCookie(maxAge: number) {
+export function transactionCookie(maxAge: number, path: string = TRANSACTION_PATH) {
   // Lax, not Strict: the browser comes back from Entra on a cross-site navigation, and a Strict
   // cookie is not sent on one. The session cookie, set after the checks, is Strict.
-  return { ...baseCookieOptions(), httpOnly: true, sameSite: 'lax' as const, path: TRANSACTION_PATH, maxAge };
+  return { ...baseCookieOptions(), httpOnly: true, sameSite: 'lax' as const, path, maxAge };
 }
 
 // A fixed word per refusal, so an operator can tell a forged callback from a broken set-up without
@@ -92,7 +95,7 @@ function note(reason: string): void {
   console.warn(`staff sign-in refused: ${reason}`);
 }
 
-async function nextFrom(request: Request): Promise<string> {
+export async function nextFrom(request: Request): Promise<string> {
   try {
     const next = (await request.formData()).get('next');
     return typeof next === 'string' && isSamePathOnly(next) ? next : '';
@@ -119,7 +122,7 @@ export async function startSignIn(request: Request): Promise<Response> {
 // A page that moves the browser on, not a redirect. The browser came here from Entra, so a redirect
 // from this response would still count as cross-site and the Strict session cookie just set would
 // not be sent with it. A navigation the page starts itself is same-site.
-function moveOn(destination: string): Response {
+export function moveOn(destination: string): Response {
   const href = destination.replaceAll('&', '&amp;');
   const html =
     '<!doctype html><html lang="en-GB"><head><meta charset="utf-8">' +

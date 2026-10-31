@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { canAccess } from '@/lib/auth/access';
 import { ROLES, sealSession, SESSION_COOKIE, type Role, type Session } from '@/lib/auth/session';
 import { TEST_SESSION_SECRET } from '@/test/cookies';
+import { OPERATOR_COOKIE, sealOperatorSession, type OperatorRole } from '@/lib/operator/session';
+import { OPERATOR_HOST, operatorSessionFor } from '@/test/operator';
 import { config, proxy } from './proxy';
 
 // The role guard (W09). The session is read from the sealed cookie and from
@@ -136,7 +138,7 @@ describe('a signed-in role', () => {
     expect((await proxy(await request('/lead', 'advisor')))?.headers.get('cache-control')).toBe('no-store');
   });
 
-  const guarded = ['/advisor', '/advisor/case/4821', '/clinical', '/lead', '/owner', '/owner/criteria', '/planning', '/console'];
+  const guarded = ['/advisor', '/advisor/case/4821', '/clinical', '/lead', '/owner', '/owner/criteria', '/planning', '/console', '/admin', '/admin/config'];
   it.each(ROLES.flatMap((role) => guarded.map((path) => [role, path] as const)))('%s on %s', async (role, path) => {
     const response = await proxy(await request(path, role));
     if (canAccess(role, path)) {
@@ -148,7 +150,7 @@ describe('a signed-in role', () => {
 
   it('gives a wall screen, a reporter and a link no staff page', async () => {
     for (const role of ['wall', 'reporter', 'anonymous-link', 'audit'] as Role[]) {
-      for (const path of ['/advisor', '/clinical', '/lead', '/owner', '/planning', '/console']) {
+      for (const path of ['/advisor', '/clinical', '/lead', '/owner', '/planning', '/console', '/admin']) {
         expect(rewrittenTo(await proxy(await request(path, role)))).toBe('/forbidden');
       }
     }
@@ -245,5 +247,75 @@ describe('matcher', () => {
 
   it('leaves out the static files Next serves', () => {
     for (const path of ['/_next/static/chunks/a.js', '/_next/image', '/favicon.ico']) expect(covered(path)).toBe(false);
+  });
+});
+
+// The operator console (TEN-083): its pages are guarded by the OPERATOR session cookie and by nothing a
+// tenant's person holds. No tenant role opens a console page and no operator opens a tenant's.
+
+describe('the operator console pages', () => {
+  const CONSOLE = `https://${OPERATOR_HOST}`;
+
+  async function asOperator(path: string, role?: OperatorRole, init: { headers?: Record<string, string>; cookie?: string } = {}) {
+    const headers = new Headers(init.headers);
+    const cookie = init.cookie ?? (role ? `${OPERATOR_COOKIE}=${await sealOperatorSession(operatorSessionFor(role))}` : undefined);
+    if (cookie) headers.set('cookie', cookie);
+    return new NextRequest(`${CONSOLE}${path}`, { headers });
+  }
+
+  it('sends a request with no operator session to the console’s own sign-in, with the page to come back to', async () => {
+    expect(redirectedTo(await proxy(await asOperator('/operator/audit')))).toBe('/operator/sign-in?next=%2Foperator%2Faudit');
+    expect(redirectedTo(await proxy(await asOperator('/operator')))).toBe('/operator/sign-in?next=%2Foperator');
+  });
+
+  it('leaves the sign-in page open and does not need the session secret for it', async () => {
+    vi.stubEnv('SESSION_SECRET', '');
+    expect(passes(await proxy(await asOperator('/operator/sign-in?error=failed')))).toBe(true);
+  });
+
+  it('lets the operator into the tenants and the audit, and the support person into the support requests', async () => {
+    for (const path of ['/operator', '/operator/tenants/trust-a', '/operator/tenants/new', '/operator/audit']) {
+      expect(passes(await proxy(await asOperator(path, 'platform-operator'))), path).toBe(true);
+    }
+    expect(passes(await proxy(await asOperator('/operator', 'support')))).toBe(true);
+    expect(passes(await proxy(await asOperator('/operator/support/new', 'support')))).toBe(true);
+  });
+
+  it('shows the forbidden page to a role that has no business on the page', async () => {
+    for (const path of ['/operator/audit', '/operator/tenants/trust-a', '/operator/tenants/new']) {
+      expect(rewrittenTo(await proxy(await asOperator(path, 'support'))), path).toBe('/forbidden');
+    }
+    expect(rewrittenTo(await proxy(await asOperator('/operator/support', 'platform-operator')))).toBe('/forbidden');
+  });
+
+  it('does not let a tenant’s person in, whatever their role: a tenant session is not an operator session', async () => {
+    for (const role of ROLES) {
+      const response = await proxy(await request('/operator', role));
+      expect(redirectedTo(response), role).toBe('/operator/sign-in?next=%2Foperator');
+    }
+    const sealed = await sealSession(sessionFor('tenant-admin'));
+    const renamed = await proxy(await asOperator('/operator/audit', undefined, { cookie: `${OPERATOR_COOKIE}=${sealed}` }));
+    expect(redirectedTo(renamed)).toBe('/operator/sign-in?next=%2Foperator%2Faudit');
+  });
+
+  it('does not let an operator into a tenant’s page: the operator cookie is no tenant session', async () => {
+    for (const path of ['/lead', '/admin', '/advisor', '/console']) {
+      const response = await proxy(await asOperator(path, 'platform-operator', { cookie: `${OPERATOR_COOKIE}=${await sealOperatorSession(operatorSessionFor('platform-operator'))}` }));
+      expect(redirectedTo(response), path).toBe(`/sign-in?next=${encodeURIComponent(path)}`);
+    }
+  });
+
+  it('does not let an operator session made for another host in', async () => {
+    const sealed = await sealOperatorSession(operatorSessionFor('platform-operator', { host: 'other.example.test' }));
+    expect(redirectedTo(await proxy(await asOperator('/operator', undefined, { cookie: `${OPERATOR_COOKIE}=${sealed}` })))).toBe('/operator/sign-in?next=%2Foperator');
+  });
+
+  it('does not let the browser cache a console page, and names the provider only on the console’s sign-in page', async () => {
+    expect((await proxy(await asOperator('/operator', 'platform-operator')))?.headers.get('cache-control')).toBe('no-store');
+    vi.stubEnv('ENTRA_AUTHORITY_HOST', 'https://login.example.test');
+    const formAction = (response: Response | undefined) =>
+      (response?.headers.get('content-security-policy') ?? '').split(';').map((part) => part.trim()).find((part) => part.startsWith('form-action'));
+    expect(formAction(await proxy(await asOperator('/operator/sign-in')))).toBe("form-action 'self' https://login.example.test");
+    expect(formAction(await proxy(await asOperator('/operator', 'platform-operator')))).toBe("form-action 'self'");
   });
 });

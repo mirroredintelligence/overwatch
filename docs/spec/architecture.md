@@ -28,11 +28,11 @@ Service Bus earns its place for four things: durable scheduled messages without 
 | `inbound.replies` | Queue | Webhook adapter | Reply processor | The webhook acknowledges the provider at once and queues the text. Duplicate detection on the provider message id. |
 | `inbound.receipts` | Queue | Webhook adapter | Delivery tracker | Delivery receipts update the Communication |
 | `scheduled.work` | Queue | Use cases | Scheduler consumer | Scheduled messages: prompts, reminders, expiries, re-verification, reviews |
-| `capacity.events` | Topic | Outbox relay | Board projector, alert evaluator, analytics aggregator | Session id is the service id (on the wire `<tenant>:<service id>`, TEN-020, DEC-251), so one service's events arrive in order |
-| `booking.events` | Topic | Outbox relay | Notifier, board projector, advisor stream, analytics | Filter on event type |
-| `registration.events` | Topic | Outbox relay | Notifier, lead queue projector, analytics |  |
-| `criteria.events` | Topic | Outbox relay | Notifier, flag maintainer |  |
-| `alerts.events` | Topic | Alert evaluator | Notifier, escalation timer, analytics |  |
+| `capacity.events` | Topic | Outbox relay | Board projector, alert evaluator, network projector | Session id is the service id (on the wire `<tenant>:<service id>`, TEN-020, DEC-251), so one service's events arrive in order |
+| `booking.events` | Topic | Outbox relay | Board projector, network projector | Filter on event type. The notifier, advisor stream and analytics subscriptions were never read and are deleted (DEC-1111) |
+| `registration.events` | Topic | Outbox relay | Network projector | The notifier, lead queue projector and analytics subscriptions were never read and are deleted (DEC-1111) |
+| `criteria.events` | Topic | Outbox relay | Network projector | The notifier and flag maintainer subscriptions were never read and are deleted (DEC-1111) |
+| `alerts.events` | Topic | Alert evaluator | Notifier (tells the shift leads of an escalation, DEC-1111) | The escalation timer is scheduled work, and the analytics subscription was never read and is deleted |
 | `messages.outbound` | Topic | Use cases via the outbox | Text sender, email sender, push sender | Subscriptions filter on the channel. Each has a dead-letter queue and a retry policy. |
 
 The dead-letter queues are watched, and a message there raises an alert. I have not checked the tier needed for private networking or the message size limits, so confirm with the platform team.

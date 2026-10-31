@@ -89,6 +89,7 @@ from overwatch.application.use_cases.tenant_offboarding import StartOffboardingC
 from overwatch.application.use_cases.tenant_suspend import ResumeTenantCommand, SuspendTenantCommand
 from overwatch.domain.codes import Role
 from overwatch.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason, Tenant
+from overwatch.domain.model.tenant_records import BindingStatus
 from overwatch.domain.rules.bff_token import OperatorClaims
 from overwatch.domain.rules.support_ticket import ReasonCode
 
@@ -269,6 +270,23 @@ def detail_to_dict(detail: PlatformTenantDetail) -> dict[str, Any]:
         "tenant": tenant_to_dict(detail.tenant.tenant),
         "host": detail.tenant.host,
         "directoryId": detail.tenant.directory_id,
+        "bindings": [
+            {
+                "directoryId": binding.directory_id,
+                "status": binding.status.value,
+                "verifiedAt": _iso(binding.verified_at),
+            }
+            for binding in detail.bindings
+            if binding.status is not BindingStatus.REVOKED
+        ],
+        "roleMappings": [
+            {
+                "groupObjectId": mapping.group_object_id,
+                "role": mapping.role.value,
+                "status": mapping.status.value,
+            }
+            for mapping in detail.role_mappings
+        ],
         "numbers": [
             {
                 "e164": number.e164,

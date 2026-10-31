@@ -318,6 +318,7 @@ async def test_the_detail_of_a_provisioning_tenant_says_what_activation_waits_fo
     assert body["host"] == "new.example.org" and body["numbers"] == []
     assert body["activation"]["ready"] is False
     assert body["activation"]["blockers"]
+    assert body["bindings"] == [] and body["roleMappings"] == []
 
 
 async def test_the_detail_of_an_active_tenant_has_no_activation_and_a_missing_one_is_a_404() -> (

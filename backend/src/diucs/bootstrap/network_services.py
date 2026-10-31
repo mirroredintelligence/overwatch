@@ -28,6 +28,7 @@ from diucs.application.use_cases.listing_admission import (
     QueryListings,
     RequestListing,
 )
+from diucs.application.use_cases.member_sharing import QueryMemberSharing
 from diucs.application.use_cases.membership import (
     AcceptMembership,
     InviteMember,
@@ -102,6 +103,7 @@ def build_network_admin_services(container: Container) -> NetworkAdminServices:
         listings=QueryListings(registry, tenants),
         request_listing=RequestListing(registry, container.uow_factory, recorder, ids, clock),
         decide_listing=DecideListing(registry, recorder, clock),
+        sharing=QueryMemberSharing(registry, read_only),
     )
 
 

@@ -14,7 +14,11 @@ from typing import Any
 
 import pytest
 
-from diucs.application.ports.outbound.projection import ProjectionEndReason, SourceState, SourceStatus
+from diucs.application.ports.outbound.projection import (
+    ProjectionEndReason,
+    SourceState,
+    SourceStatus,
+)
 from diucs.application.projection import body_keys
 from diucs.application.tenancy import bind_tenant
 from diucs.application.use_cases.member_sharing import QueryMemberSharing
@@ -108,7 +112,9 @@ async def test_a_member_reads_its_own_networks_and_what_each_holds_of_it(rig: _R
     rig.world.sources.extend(
         [
             source(MEMBER_B, GrantScope.CAPACITY),
-            source(MEMBER_B, GrantScope.DIRECTORY, ended=True, reason=ProjectionEndReason.GRANT_ENDED),
+            source(
+                MEMBER_B, GrantScope.DIRECTORY, ended=True, reason=ProjectionEndReason.GRANT_ENDED
+            ),
         ]
     )
 
@@ -116,6 +122,7 @@ async def test_a_member_reads_its_own_networks_and_what_each_holds_of_it(rig: _R
 
     (network,) = view.networks
     assert (network.network_id, network.membership_status) == (NETWORK_ID, MembershipStatus.ACTIVE)
+    assert network.membership_id == rid(f"mem-{MEMBER_B}")
     by_kind = {k.kind: k for k in network.kinds}
     assert set(by_kind) == {GrantScope.CAPACITY, GrantScope.DIRECTORY}
     assert by_kind[GrantScope.CAPACITY].status is SourceStatus.ACTIVE

@@ -181,6 +181,7 @@ def _app(rig: AdminRig, *tenants: str) -> FastAPI:
         listings=rig.listing_query,
         request_listing=rig.request_listing,
         decide_listing=rig.decide_listing,
+        sharing=rig.member_sharing,
     )
     container = EdgeContainer(tenants=active_tenants(*tenants), clock=rig.clock)
     app: FastAPI = create_app(container)  # type: ignore[arg-type]

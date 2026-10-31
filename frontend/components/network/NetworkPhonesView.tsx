@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { NetworkUnavailable } from '@/components/scope/NetworkUnavailable';
 import { OrgLabel } from '@/components/scope/OrgLabel';
+import { PhoneLink } from '@/components/scope/PhoneLink';
 import { ScopeHeader } from '@/components/scope/ScopeHeader';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { categoryLabel } from '@/lib/board/format';
@@ -89,9 +90,7 @@ function Phones({ networkId, networkName, ownOrganisation, ownHref }: { networkI
                       {phone.contactPhone === null ? (
                         'Phone to confirm'
                       ) : (
-                        <a href={`tel:${phone.contactPhone.replace(/[^0-9+]/g, '')}`} aria-label={`Phone ${phone.serviceName} on ${phone.contactPhone}`}>
-                          {phone.contactPhone}
-                        </a>
+                        <PhoneLink serviceName={phone.serviceName} phone={phone.contactPhone} />
                       )}
                     </td>
                   </tr>

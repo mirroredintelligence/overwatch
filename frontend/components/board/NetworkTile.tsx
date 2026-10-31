@@ -1,4 +1,5 @@
 import { OrgLabel } from '@/components/scope/OrgLabel';
+import { PhoneLink } from '@/components/scope/PhoneLink';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { ageLineText, categoryLabel, dataAgeText, londonTime } from '@/lib/board/format';
 import { toBoardEntry } from '@/lib/network/entries';
@@ -20,10 +21,6 @@ export type ServiceLines = Record<string, ServiceLine> | null | undefined;
 
 const PAUSED_WORDS = 'Not available on the network. Phone to confirm.';
 
-function telHref(phone: string): string {
-  return `tel:${phone.replace(/[^0-9+]/g, '')}`;
-}
-
 export function isPaused(entry: NetworkBoardEntry): boolean {
   return entry.presentation === 'unavailable' || entry.status === null;
 }
@@ -36,9 +33,7 @@ export function ServiceLineText({ entry, lines }: { entry: NetworkBoardEntry; li
   return (
     <p className={styles.meta}>
       {`${line.label ?? 'Service line'} `}
-      <a href={telHref(line.phone)} data-el="NET-BOARD-PHONE-LINK" aria-label={`Phone ${entry.serviceName} on ${line.phone}`}>
-        {line.phone}
-      </a>
+      <PhoneLink serviceName={entry.serviceName} phone={line.phone} dataEl="NET-BOARD-PHONE-LINK" />
     </p>
   );
 }

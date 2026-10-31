@@ -91,6 +91,10 @@ describe('ScreenForm: the form', () => {
     const { user, connect } = setup();
     await user.type(code(), '482913');
     await user.type(name(), 'Control room{Enter}');
+    // Enter sends the form, which looks at the code first; nothing is connected yet (ScreenClaim).
+    expect(await screen.findByRole('heading', { name: 'Check before you connect' })).toBeInTheDocument();
+    expect(connect).not.toHaveBeenCalled();
+    await user.click(submit());
     expect(connect).toHaveBeenCalledTimes(1);
   });
 
@@ -183,11 +187,12 @@ describe('ScreenForm: what the back end says', () => {
   it.each([
     ['throttled', 'Too many attempts. Wait a few minutes and try again.'],
     ['unavailable', 'We could not connect the screen. Try again.'],
-  ] as const)('says %s as an alert above the form, and keeps what was typed', async (kind, text) => {
-    await submitGood(vi.fn(async () => { throw failure(kind); }));
+  ] as const)('says %s as an alert on the confirm step, and keeps what was typed for a second try', async (kind, text) => {
+    const { user } = await submitGood(vi.fn(async () => { throw failure(kind); }));
     expect(await screen.findByRole('alert')).toHaveTextContent(text);
-    expect(name()).toHaveValue('Control room');
     expect(submit()).not.toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(name()).toHaveValue('Control room');
   });
 
   it('says the session has ended, with a way to sign in again, when the lead is no longer signed in', async () => {
@@ -287,7 +292,7 @@ describe('ScreenForm: accessibility', () => {
 
   it('has no axe violations with the errors showing', async () => {
     const { user, container } = setup();
-    await proceed(user);
+    await user.click(submit());
     expect(await runAxe(container)).toHaveNoViolations();
   });
 

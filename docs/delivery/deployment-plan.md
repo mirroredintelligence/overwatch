@@ -71,3 +71,18 @@ older topology file and must be re-created from the current one (adds `projectio
 removed by hand); the Twilio webhooks need a public route to the API (`api` is internal); and the API's edge-trust mode
 for traffic that arrives from `web` rather than Cloudflare.
 
+
+### Runtime secrets and the non-secret settings of each app (DEC-1303, DEC-1304)
+
+Secrets are read from Key Vault at run time through each app's managed identity; the environment carries none. These
+values are identifiers and URLs, not secrets, and are set on the container apps:
+
+| Setting | api | web | workers | collector |
+|---|---|---|---|---|
+| `DIUCS_KEY_VAULT_URL` | `https://kv-diucs-pilot-7k2q.vault.azure.net/` | same | same | not needed |
+| `AZURE_CLIENT_ID` (the app's own identity) | `9d8902dc-4bcb-4703-8183-67dfcaaf55d6` | `8e25e547-e457-4dce-b0b1-29dd0ed0a5e7` | `dfb0c9ba-6f9d-4f0e-bc68-5a98d6a49670` | `e4700742-daa0-4df1-ba9c-252fb7b4d91a` (no secrets) |
+
+Each of api, web and workers holds Key Vault Secrets User on the vault and nothing more; collector and redis hold none.
+`web` also needs `DIUCS_FHIR_BASE_URL` (the API's internal address ending `/fhir`); `api` needs `DIUCS_BASE_URL`
+(`https://overwatch.mirroredintelligence.com`) and `DIUCS_EDGE=none`. Twilio: no global credential (DEC-1304 item 9);
+the Auth Token is `twilio--<tenant>--auth-token`.

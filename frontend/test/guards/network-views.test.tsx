@@ -37,7 +37,7 @@ function poisoned() {
   return [
     http.get('/api/bff/network', () => HttpResponse.json(poison(NETWORK_LIST))),
     ...(['board', 'directory', 'criteria', 'system-now', 'phones', 'week'] as const).map((view) =>
-      http.get(`/api/bff/network/${view}`, async ({ request }) => HttpResponse.json(poison(await fetchClean(view, request)))),
+      http.get(`/api/bff/network/${view}`, async ({ request }) => HttpResponse.json(poison(await fetchClean(view, request)) as Record<string, unknown>)),
     ),
   ];
 }

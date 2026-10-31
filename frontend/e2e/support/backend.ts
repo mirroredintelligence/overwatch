@@ -9,6 +9,7 @@ import { handleAdvisorRoute } from './advisor';
 import { handleLinkRoute } from './links';
 import { handleReporterRoute } from './reporter';
 import { handlePairingRoute, isWallToken } from './pairing';
+import { handleNetworkRoute } from './network';
 
 // A stand-in for the back end, for the browser tests. Like the real one it answers
 // by bearer token alone and reads nothing else from the request: GET $board and
@@ -187,6 +188,8 @@ export function startMockBackend(): Promise<Server> {
       void handleAdvisorRoute(request, response, url.pathname).then((handled) => {
         if (!handled) response.writeHead(404).end();
       });
+    } else if ((url.pathname === '/networks' || url.pathname.startsWith('/network/')) && handleNetworkRoute(request, response, url.pathname, url.searchParams)) {
+      // Answered by the network stand-in (e2e/support/network.ts).
     } else if (request.method === 'POST' && control) {
       void handleControl(request, response, decodeURIComponent(control[1]));
     } else if (request.method === 'GET' && stateRoute) {

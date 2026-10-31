@@ -9,13 +9,13 @@ import { E2E_SESSION_SECRET, E2E_TENANT } from './env';
 
 const SESSION_COOKIE = 'overwatch_session';
 
-export async function signIn(context: BrowserContext, baseURL: string, role: string, backendToken: string) {
+export async function signIn(context: BrowserContext, baseURL: string, role: string, backendToken: string, services: string[] = []) {
   const expiresAt = new Date(Date.now() + 3_600_000);
   const value = await new EncryptJWT({
     role,
     tenantId: E2E_TENANT.id,
     host: new URL(baseURL).host,
-    services: [],
+    services,
     sub: 'e2e-screen',
     backendToken,
     expiresAt: expiresAt.toISOString(),

@@ -19,7 +19,7 @@ describe('safeNext', () => {
     'sends %j to the role home',
     (next) => {
       expect(safeNext(next, 'advisor')).toBe('/advisor');
-      expect(safeNext(next, 'owner')).toBe('/owner/criteria');
+      expect(safeNext(next, 'owner')).toBe('/criteria');
     },
   );
 

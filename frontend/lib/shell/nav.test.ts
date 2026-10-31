@@ -48,6 +48,7 @@ describe('staff navigation', () => {
 
   it('sends the logo to the role home, the reporter app, or the front page', () => {
     expect(homeFor('lead')).toBe('/lead');
+    expect(homeFor('owner')).toBe('/criteria'); // the landing page, DEC-1306
     expect(homeFor('exec')).toBe('/planning');
     expect(homeFor('reporter')).toBe('/app');
     expect(homeFor(null)).toBe('/');

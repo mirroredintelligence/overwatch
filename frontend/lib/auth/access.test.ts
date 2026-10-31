@@ -90,7 +90,7 @@ describe('roleHome', () => {
     ['advisor', '/advisor'],
     ['clinical', '/clinical'],
     ['lead', '/lead'],
-    ['owner', '/owner/criteria'],
+    ['owner', '/criteria'],
     ['exec', '/planning'],
     ['support', '/console'],
     ['tenant-admin', '/admin'],

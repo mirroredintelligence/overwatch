@@ -231,7 +231,7 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     ['advisor', ['Overwatch.Advisor'], 'advisor', '/advisor'],
     ['clinical', ['Overwatch.Clinical'], 'clinical', '/clinical'],
     ['lead', ['Overwatch.Lead'], 'lead', '/lead'],
-    ['owner', ['Overwatch.Owner'], 'owner', '/owner/criteria'],
+    ['owner', ['Overwatch.Owner'], 'owner', '/criteria'],
     ['exec', ['Overwatch.Planning'], 'exec', '/planning'],
     ['lead and advisor', ['Overwatch.Advisor', 'Overwatch.Lead'], 'lead', '/lead'],
   ])('signs in a %s and goes to their home', async (_name, roles, role, home) => {

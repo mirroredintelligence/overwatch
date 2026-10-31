@@ -6,7 +6,7 @@ import type { Role } from '@/lib/auth/session';
 // nothing here points at a page the person would be turned away from. Network pages are not listed: each
 // page that has a network view already links to it, and a second link of the same name would be a
 // duplicate (for the same reason the shift lead's "Wall screens" link, which the overview carries, is not
-// repeated here). The criteria owner has one page per service and no list, so has the home only.
+// repeated here). The criteria owner has one page per service and the landing at /criteria (DEC-1306), so has the home only.
 
 export type NavItem = { readonly label: string; readonly href: string };
 

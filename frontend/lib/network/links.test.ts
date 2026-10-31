@@ -11,7 +11,7 @@ describe('ownHrefFor', () => {
     expect(ownHrefFor('board', 'advisor')).toBe('/advisor/board');
     expect(ownHrefFor('board', 'lead')).toBe('/lead');
     expect(ownHrefFor('board', 'exec')).toBe('/planning');
-    expect(ownHrefFor('board', 'owner')).toBe('/owner/criteria');
+    expect(ownHrefFor('board', 'owner')).toBe('/criteria');
     expect(ownHrefFor('board', 'clinical')).toBe('/clinical');
   });
 

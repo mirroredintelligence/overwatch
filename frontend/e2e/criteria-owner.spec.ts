@@ -12,6 +12,28 @@ import { TOKEN_ORG_A } from './support/tokens';
 const BASE_URL = SITE_URL;
 const WCAG = ['wcag2a', 'wcag2aa', 'wcag21aa'];
 
+// DEC-1306: the owner's home is the landing at /criteria (the old /owner/criteria had no page).
+test('the owner’s landing lists the services, goes straight to a single one, and says so when there are none', async ({ page }) => {
+  await signIn(page.context(), BASE_URL, 'owner', TOKEN_ORG_A, ['s1', 's2']);
+  await page.goto('/criteria');
+  await expect(page.getByRole('heading', { level: 1, name: 'Your services' })).toBeVisible();
+  await expect(page.getByRole('link', { name: 's2' })).toHaveAttribute('href', '/criteria/s2');
+  await expect(page.getByRole('banner').getByRole('link', { name: 'Overwatch home' })).toHaveAttribute('href', '/criteria');
+  const listed = await new AxeBuilder({ page }).withTags(WCAG).analyze();
+  expect(listed.violations).toEqual([]);
+
+  await signIn(page.context(), BASE_URL, 'owner', TOKEN_ORG_A, ['s1']);
+  await page.goto('/criteria');
+  await expect(page).toHaveURL(/\/criteria\/s1$/);
+
+  await signIn(page.context(), BASE_URL, 'owner', TOKEN_ORG_A, []);
+  await page.goto('/criteria');
+  await expect(page.getByText('No services to review')).toBeVisible();
+  await expect(page.getByRole('main').getByRole('link', { name: 'Help' })).toHaveAttribute('href', '/help');
+  const empty = await new AxeBuilder({ page }).withTags(WCAG).analyze();
+  expect(empty.violations).toEqual([]);
+});
+
 test('an advisor is refused the criteria pages, which were unguarded before W30', async ({ page }) => {
   await signIn(page.context(), BASE_URL, 'advisor', TOKEN_ORG_A);
   for (const path of ['/criteria/s1', '/criteria/s1/history', '/criteria/s1/approve']) {

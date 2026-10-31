@@ -28,7 +28,7 @@ const HOMES: Readonly<Partial<Record<Role, string>>> = {
   advisor: '/advisor',
   clinical: '/clinical',
   lead: '/lead',
-  owner: '/owner/criteria',
+  owner: '/criteria', // the landing page (DEC-1306)
   exec: '/planning',
   support: '/console',
   'tenant-admin': '/admin',

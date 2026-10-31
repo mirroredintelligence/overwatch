@@ -46,6 +46,7 @@ BOTH: Final = 2
 # zero (DEC-041). An age band is an AgeBand value. An urgency is one of the three wordings of the
 # Urgency members (within 2 hrs, today, planned). A need is a NeedCategory code.
 REFERENCE_FORMAT: Final = re.compile(r"[1-9][0-9]{3}")
+LETTER_FORMAT: Final = re.compile(r"[A-Z]")
 AGE_BANDS: Final = frozenset(band.value for band in AgeBand)
 URGENCY_WORDING: Final = frozenset({"within 2 hrs", "today", "planned"})
 NEED_CODES: Final = frozenset(need.value for need in NeedCategory)
@@ -125,13 +126,22 @@ _FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
     MessageId.C12: frozenset({"service", "value", "unit", "as_of", "reply_with", "reply_by"}),
 }
 
+# A field a message may take but does not need. `letter` is the service's letter on a grouped prompt
+# (KI-26): the refusals of one item of a grouped prompt say what to type with it.
+_OPTIONAL_FIELDS: Final[Mapping[MessageId, frozenset[str]]] = {
+    MessageId.C2: frozenset({"letter"}),
+    MessageId.C5: frozenset({"letter"}),
+    MessageId.C6: frozenset({"letter"}),
+    MessageId.C7: frozenset({"letter"}),
+}
+
 _C1_TEXT: Final = (
     "DIUCS: {service}. We have {value} {unit} (as of {as_of}). "
     "Confirm or update: {link} Or reply Y, or a new number. By {reply_by}."
 )
 _C2_TEXT: Final = (
     "DIUCS: {service}. How many {unit} can you take {window}? "
-    "Send a number (0 = closed). By {reply_by}."
+    "Send {send_a_number} (0 = closed). By {reply_by}."
 )
 _C8_TEXT: Final = (
     "DIUCS reminder: {service} has not updated. Confirm or update: {link} By {reply_by}."
@@ -226,18 +236,18 @@ _TEMPLATES: Final[Mapping[tuple[MessageId, Channel], _Template]] = {
         text=(
             "Too late: the {cutoff} cut-off had passed, so {rejected} was not used. "
             "New question: {service} has {value} {unit} recorded. "
-            "Reply Y if right, or send the new number, by {reply_by}."
+            "Reply {yes} if right, or send {send_new_number}, by {reply_by}."
         ),
     ),
     (MessageId.C6, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C6],
-        text="Y was used {times} already. Please send the number for {service}.",
+        text="Y was used {times} already. Please send {send_the_number} for {service}.",
     ),
     (MessageId.C7, Channel.TEXT): _Template(
         required=_FIELDS[MessageId.C7],
         text=(
             "{service}: {value} is outside the usual range of {low} to {high}. "
-            "If it is right, send {value} again."
+            "If it is right, send {again} again."
         ),
     ),
     (MessageId.C8, Channel.TEXT): _Template(required=_FIELDS[MessageId.C8], text=_C8_TEXT),
@@ -502,6 +512,10 @@ def _check_constrained_fields(fields: Mapping[str, object]) -> None:
         raise ValidationFailed("reply_with", "must be 'a number' or a letter and 'a number'")
     if "need" in fields and not _is_need_text(fields["need"]):
         raise ValidationFailed("need", "must be a need category code, or two joined with 'and'")
+    if "letter" in fields and not (
+        isinstance(fields["letter"], str) and LETTER_FORMAT.fullmatch(fields["letter"])
+    ):
+        raise ValidationFailed("letter", "must be one capital letter, the service's letter")
 
 
 # The confirm limit as words for C6 (TEN-022). Only the three limits the policy allows are words.
@@ -521,12 +535,31 @@ def _check_tenant_fields(fields: Mapping[str, object]) -> None:
             raise ValidationFailed("confirm_limit", "must be 1, 2 or 3")
 
 
+def _lettered(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, object]:
+    """The words of a refusal that depend on whether the prompt was grouped (KI-26). On a grouped
+    prompt a bare figure is not understood, so each says what to type with the service's letter:
+    `A 40`, `Y A`, `A and a number`. With no letter the single-service wording is unchanged."""
+    letter = fields.get("letter")
+    values = {key: value for key, value in fields.items() if key != "letter"}
+    if message_id is MessageId.C2:
+        values["send_a_number"] = "a number" if letter is None else f"{letter} and a number"
+    elif message_id is MessageId.C5:
+        values["yes"] = "Y" if letter is None else f"Y {letter}"
+        values["send_new_number"] = (
+            "the new number" if letter is None else f"{letter} and the new number"
+        )
+    elif message_id is MessageId.C6:
+        values["send_the_number"] = "the number" if letter is None else f"{letter} and the number"
+        values["times"] = CONFIRM_LIMIT_WORDS[cast(int, fields["confirm_limit"])]
+        del values["confirm_limit"]
+    elif message_id is MessageId.C7:
+        values["again"] = fields["value"] if letter is None else f"{letter} {fields['value']}"
+    return values
+
+
 def _values(message_id: MessageId, fields: Mapping[str, object]) -> dict[str, object]:
-    if message_id is MessageId.C6:
-        return {
-            "service": fields["service"],
-            "times": CONFIRM_LIMIT_WORDS[cast(int, fields["confirm_limit"])],
-        }
+    if message_id in (MessageId.C2, MessageId.C5, MessageId.C6, MessageId.C7):
+        return _lettered(message_id, fields)
     if message_id is MessageId.C9:
         return _multi_service_values(fields["items"], fields["reply_by"])
     if message_id is MessageId.C10:
@@ -544,7 +577,7 @@ def render(message_id: MessageId, channel: Channel, **fields: object) -> Rendere
     that cannot be worded.
     """
     message_id = MessageId(message_id)
-    unexpected = sorted(set(fields) - _FIELDS[message_id])
+    unexpected = sorted(set(fields) - _FIELDS[message_id] - _OPTIONAL_FIELDS.get(message_id, set()))
     if unexpected:
         raise ValidationFailed(unexpected[0], "not a field of this message")
     template = _TEMPLATES.get((message_id, channel))

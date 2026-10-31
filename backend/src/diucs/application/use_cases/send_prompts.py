@@ -162,7 +162,7 @@ def split_unit_label(label: str) -> tuple[str, str]:
     return unit, f"in {window}"
 
 
-def _render(
+def render_prompt(
     profile: ServiceProfile,
     latest: CapacityReport | None,
     window: tuple[str, str],
@@ -217,7 +217,7 @@ def _skip_reason(
     return None
 
 
-def _send_payload(
+def send_payload(
     outbox_id: str,
     communication_id: str,
     message_id: MessageId,
@@ -244,6 +244,12 @@ def _send_payload(
             recipient_role_id=role.id,
         ),
     }
+
+
+# The names the module used before they were public (KI-160): kept for the callers and tests that
+# still use them (criteria_reviews imports `_send_payload`).
+_render = render_prompt
+_send_payload = send_payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -627,7 +633,9 @@ class SendPrompts:
             communication_id = self._ids.new_id()
             token = await tokens.issue(LINK_PURPOSE, communication_id, phone_hash, reply)
             link = f"{base}/{token}"
-            message_id, rendered = _render(one.profile, one.latest, window, link, reply, run.zone)
+            message_id, rendered = render_prompt(
+                one.profile, one.latest, window, link, reply, run.zone
+            )
             await uow.communications.add(
                 Communication(
                     id=communication_id,
@@ -659,7 +667,7 @@ class SendPrompts:
                 id=outbox_id,
                 topic=MESSAGES_TOPIC,
                 event_type=SEND_MESSAGE,
-                payload=_send_payload(
+                payload=send_payload(
                     outbox_id,
                     communication_id,
                     message_id,

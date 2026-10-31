@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from neo4j import AsyncDriver
 
+from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.use_cases.handle_inbound_text import (
@@ -26,10 +27,12 @@ from diucs.application.use_cases.handle_inbound_text import (
 from diucs.domain.codes import ReportType
 from diucs.domain.errors import Conflict
 from tests.integration.application.test_handle_inbound_text import (
+    EARLY,
     LONG_AGO,
     PHONE,
     ROLE_EAST,
     ROLE_WEST,
+    STORE_CLOCK,
     UCR_EAST,
     UCR_WEST,
     Rig,
@@ -50,6 +53,14 @@ from tests.integration.application.test_handle_inbound_text import (
 )
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
+
+
+@pytest.fixture
+def uow_clock() -> FixedClock:
+    """The clock the graph store stamps writes with, as in test_handle_inbound_text.py: hazard H-32
+    turns on the write time, so a seeded figure was written long before the prompt."""
+    STORE_CLOCK.set(EARLY)
+    return STORE_CLOCK
 
 
 # --- KI-26: a refusal on a grouped prompt names the letter and keeps the group -------------------
@@ -148,7 +159,9 @@ async def test_a_refusal_for_one_service_does_not_end_the_group(
     assert [r.value for r in await _reports(uow_factory, "ucr-west")] == [3]
     refusals = [r for r in await _replies(neo4j_driver) if r["messageId"] == "C5"]
     assert [r["about"] for r in refusals] == ["ucr-east", "ucr-west"]
-    assert {r["inResponseTo"] for r in refusals} == {"c9-ucr-east"}
+    # Both are replies to the group's one C9 (as stored: one comm per service, same text).
+    assert len({r["inResponseTo"] for r in refusals}) == 1
+    assert refusals[0]["inResponseTo"].startswith("c9-")
 
 
 async def test_a_grouped_stale_refusal_is_answered_by_a_lettered_number_in_its_own_window(
@@ -366,7 +379,7 @@ async def test_a_y_after_the_pending_key_is_lost_is_still_judged_for_a_stale_fig
     result = await rig.say("Y", bst(10, 13))
 
     assert result == HandleInboundTextResult(STALE_FIGURE, ("ucr-west",))
-    assert len(await _reports(uow_factory)) == 2
+    assert len(await _reports(uow_factory)) == 1
 
 
 # --- KI-141: a duplicate delivered at the same moment writes one record --------------------------

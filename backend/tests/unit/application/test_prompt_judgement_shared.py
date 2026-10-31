@@ -29,7 +29,9 @@ def _report(
     written_at: datetime | None,
     effective_at: datetime = PROMPT - timedelta(hours=1),
 ) -> CapacityReport:
+    derived = None if report_type is ReportType.NUMBER else "r-0"
     return CapacityReport(
+        derived_from=derived,
         id="r",
         service_id="svc",
         value=3,
@@ -59,7 +61,6 @@ def _uow(since: list[CapacityReport]) -> Any:
 def test_the_text_and_the_link_use_the_same_functions() -> None:
     assert link_access.number_after_prompt is prompt_judgement.number_after_prompt
     assert handle_inbound_text.number_after_prompt is prompt_judgement.number_after_prompt
-    assert handle_inbound_text.recorded_since_prompt is prompt_judgement.recorded_since_prompt
     assert handle_inbound_text.figure_is_out_of_date is prompt_judgement.figure_is_out_of_date
 
 

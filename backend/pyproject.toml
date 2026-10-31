@@ -26,6 +26,7 @@ dependencies = [
     "rdflib>=7.6.0",
     "redis>=8.1.0",
     "tzdata>=2026.5",
+    "uvicorn>=0.34",
 ]
 
 [dependency-groups]

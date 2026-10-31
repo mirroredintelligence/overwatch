@@ -269,8 +269,14 @@ describe('GET /api/bff/auth/entra/callback: a good sign-in', () => {
     }
   });
 
-  it('gives no session to a role this front end has no pages for yet, and says the access message', async () => {
+  it('signs in a tenant administrator and goes to the administration pages (TEN-076)', async () => {
     const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.TenantAdmin'], tid: DIRECTORY_A });
+    expect(outcome.session?.role).toBe('tenant-admin');
+    expect(outcome.body).toContain('url=/admin"');
+  });
+
+  it('gives no session to a role this front end has no pages for yet, and says the access message', async () => {
+    const outcome = await signIn({ oid: OID_LEAD, roles: ['DIUCS.NetworkAdmin'], tid: DIRECTORY_A });
     expectNoSession(outcome);
     expect(outcome.location).toBe('/sign-in?error=no-access');
   });

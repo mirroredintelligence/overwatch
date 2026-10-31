@@ -6,15 +6,20 @@ writes `tenantId: $tenant` on each node it matches, merges or creates (DEC-130, 
 is held as the ISO text YYYY-MM-DD, which sorts in day order, so a range is a text comparison.
 
 (:FunnelDaily {tenantId, funnel, step, date, role, channel, device, branch, entered, completed,
-medianMs}) (:FrictionDaily {tenantId, date, elementId, kind, role, device, interactions, events,
-sessions}) (:ElementUsageDaily {tenantId, date, elementId, role, device, interactions,
-sessions}) (:RouteDaily {tenantId, date, route, role, device, p50, p75, p95, lcp75, inp75,
-cls75, errors, sessions}) (:QueryStatDaily {tenantId, date, queryId, calls, p50, p95, errors})
+medianMs})
+(:FrictionDaily {tenantId, date, elementId, kind, role, device, route, interactions, events,
+sessions})
+(:ElementUsageDaily {tenantId, date, elementId, role, device, interactions, sessions})
+(:RouteDaily {tenantId, date, route, role, device, p50, p75, p95, lcp75, inp75, cls75, errors,
+sessions})
+(:QueryStatDaily {tenantId, date, queryId, calls, p50, p95, errors})
 
 A day is replaced in one unit of work: its rows are removed first, then written, so a second run
-of the same day leaves the same node count. There is no uniqueness constraint on these labels
-(no migration in this build): two runs for one tenant and day at once could both write. The job
-is scheduled once a day, and the known-issues entry records the gap.
+of the same day leaves the same node count. Each label has a composite uniqueness key with the
+tenant (migration 0195, W9F), so two writers that meet wait and match instead of making two nodes.
+The same labels are also counted into by the browser-event ingest (insight_repository.py); a
+replaced day is that day's summary from a telemetry store and takes the place of what was counted.
+The `route` of a friction row is the route of a page-level friction and empty for a control's.
 """
 
 from datetime import date
@@ -70,6 +75,7 @@ _SEED: Final = TenantSeed(
                 "kind": "rage",
                 "role": "advisor",
                 "device": "desktop",
+                "route": "",
                 "interactions": 312,
                 "events": 41,
                 "sessions": 14,
@@ -160,6 +166,7 @@ _FRICTION_ROW: Final = {
     "kind": "validation-loop",
     "role": "advisor",
     "device": "desktop",
+    "route": "",
     "interactions": 100,
     "events": 3,
     "sessions": 12,
@@ -262,7 +269,7 @@ _CYPHER: Final[dict[str, str]] = {
     "f.medianMs = row.medianMs RETURN count(f) AS written",
     "Q-AGG-WRITE-FRICTION": "UNWIND $rows AS row "
     "MERGE (f:FrictionDaily {tenantId: $tenant, date: row.date, elementId: row.elementId, "
-    "kind: row.kind, role: row.role, device: row.device}) "
+    "kind: row.kind, role: row.role, device: row.device, route: row.route}) "
     "SET f.interactions = row.interactions, f.events = row.events, f.sessions = row.sessions "
     "RETURN count(f) AS written",
     "Q-AGG-WRITE-USAGE": "UNWIND $rows AS row "
@@ -287,8 +294,8 @@ _CYPHER: Final[dict[str, str]] = {
     "Q-AGG-READ-FRICTION": "MATCH (f:FrictionDaily {tenantId: $tenant}) "
     "WHERE f.date >= $start AND f.date <= $end "
     "RETURN f.date AS day, f.elementId AS elementId, f.kind AS kind, f.role AS role, "
-    "f.device AS device, f.interactions AS interactions, f.events AS events, "
-    "f.sessions AS sessions ORDER BY day, elementId, kind",
+    "f.device AS device, coalesce(f.route, '') AS route, f.interactions AS interactions, "
+    "f.events AS events, f.sessions AS sessions ORDER BY day, elementId, kind, route",
     "Q-AGG-READ-USAGE": "MATCH (u:ElementUsageDaily {tenantId: $tenant}) "
     "WHERE u.date >= $start AND u.date <= $end "
     "RETURN u.date AS day, u.elementId AS elementId, u.role AS role, u.device AS device, "
@@ -345,6 +352,7 @@ def _friction_params(row: FrictionDailyRow) -> dict[str, Any]:
         "kind": row.kind,
         "role": row.role,
         "device": row.device,
+        "route": row.route,
         "interactions": row.interactions,
         "events": row.events,
         "sessions": row.sessions,
@@ -461,6 +469,7 @@ class Neo4jAggregateRepository:
                 interactions=int(row["interactions"]),
                 events=int(row["events"]),
                 sessions=int(row["sessions"]),
+                route=str(row["route"]),
             )
             for row in rows
         ]

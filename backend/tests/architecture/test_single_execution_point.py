@@ -41,7 +41,7 @@ MIGRATION_RUNNER_FILES = frozenset(
 )
 
 # Receivers whose `run` is not a database call.
-NOT_A_DATABASE_ROOTS = frozenset({"asyncio", "subprocess", "anyio", "trio"})
+NOT_A_DATABASE_ROOTS = frozenset({"asyncio", "subprocess", "anyio", "trio", "uvicorn"})
 EXECUTING_ATTRIBUTES = frozenset({"run", "execute_query"})
 
 # The kernel module: the only place the context variable is created and set.

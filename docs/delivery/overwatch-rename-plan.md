@@ -105,3 +105,15 @@ About two to three hours of agent time for steps 2 to 7, then the full pass. The
 in-flight work, hence the quiet window; the second is the name appearing in tests that assert exact strings, which the
 guard and the suites will find. No behaviour changes except what is listed: cookie names (everyone signed in is signed out
 once), token audiences (existing tokens are refused), the SMS prefix, and the FHIR identifiers.
+
+## 6. Update after the as-built Azure report (31 October 2026)
+
+- **D1 (canonical FHIR base URL):** the real domain is now known: `mirroredintelligence.com`, with the staff host
+  `overwatch.mirroredintelligence.com`. Proposed canonical base: `https://overwatch.mirroredintelligence.com/`
+  (identifiers do not have to resolve). Awaiting your confirmation.
+- **D5 (Azure names):** the resource group and most resources are built as `*-diucs-pilot-*` and cannot be renamed, and
+  nothing user-visible depends on them, so the proposal is to keep those names and rename only what can change in
+  place: the two Entra app display names ("DIUCS Staff (pilot)" and "DIUCS Operator Console (pilot)", which can be edited
+  in Entra without touching their app ids) and the resource tags. `infra/azure/` scripts keep `P="diucs"` for names
+  that already exist; any new resource named after the product uses `overwatch`.
+- The public hostnames already use the product name, so no hostname change is needed.

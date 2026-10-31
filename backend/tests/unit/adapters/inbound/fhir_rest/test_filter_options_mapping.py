@@ -12,7 +12,13 @@ from typing import Any
 
 from diucs.adapters.inbound.fhir_rest.case_mapping import filter_result_to_fhir
 from diucs.application.ports.outbound.geo import LatLon, TravelRange
-from diucs.application.use_cases.filter_options import FilterOptionsResult, NotSuitable, Option
+from diucs.application.use_cases.filter_options import (
+    Coverage,
+    FilterOptionsResult,
+    NotSuitable,
+    Option,
+    TravelLeg,
+)
 from diucs.domain.codes import ServiceCategory, Status
 
 NOW = datetime(2026, 10, 23, 13, 13, tzinfo=UTC)
@@ -152,3 +158,51 @@ def test_no_districts_sends_no_district_part() -> None:
     resource = filter_result_to_fhir(result(option()))
 
     assert named(resource["parameter"], "district") == []
+
+
+# KI-626, KI-627, KI-801: the service phone, the coverage circle and the travel legs.
+
+
+def test_a_service_with_a_phone_sends_it_as_a_part_and_one_without_sends_none() -> None:
+    with_phone = filter_result_to_fhir(result(option(phone="01305 900100")))
+    without = filter_result_to_fhir(result(option()))
+
+    assert named(parts(with_phone)[0]["part"], "phone") == [
+        {"name": "phone", "valueString": "01305 900100"}
+    ]
+    assert named(parts(without)[0]["part"], "phone") == []
+
+
+def test_a_visiting_service_sends_its_circle_as_lat_lon_and_a_radius() -> None:
+    visiting = option(position=None, travel=None, coverage=Coverage(50.1, -2.0, 12))
+
+    flat = parts(filter_result_to_fhir(result(visiting)))[0]["part"]
+
+    assert named(flat, "lat") == [{"name": "lat", "valueDecimal": 50.1}]
+    assert named(flat, "lon") == [{"name": "lon", "valueDecimal": -2.0}]
+    assert named(flat, "coverageRadiusKm") == [{"name": "coverageRadiusKm", "valueDecimal": 12.0}]
+
+
+def test_a_fixed_site_sends_no_radius() -> None:
+    flat = parts(filter_result_to_fhir(result(option())))[0]["part"]
+
+    assert named(flat, "coverageRadiusKm") == []
+
+
+def test_the_travel_legs_are_sent_as_leg_parts_in_the_shape_the_screen_reads() -> None:
+    leg = TravelLeg("Patient to UCR West, by road", 35, 50, "Typical weekday afternoon.", "Routing")
+
+    flat = parts(filter_result_to_fhir(result(option(legs=(leg,)))))[0]["part"]
+
+    assert named(flat, "leg") == [
+        {
+            "name": "leg",
+            "part": [
+                {"name": "label", "valueString": "Patient to UCR West, by road"},
+                {"name": "low", "valueInteger": 35},
+                {"name": "high", "valueInteger": 50},
+                {"name": "how", "valueString": "Typical weekday afternoon."},
+                {"name": "source", "valueString": "Routing"},
+            ],
+        }
+    ]

@@ -8,16 +8,21 @@ from datetime import date, timedelta
 
 import pytest
 
+from diucs.application.ports.outbound.geo import LatLon, TravelRange
 from diucs.application.use_cases.filter_options import (
     CRITERIA_NOT_REVIEWED_WARNING,
     LIMITED_WARNING,
     OLD_DATA_WARNING,
     OVER_CAPACITY_WARNING,
+    Coverage,
+    TravelLeg,
+    coverage_of,
     criteria_warnings,
     data_age_warnings,
     fits_for,
     status_reason,
     status_warnings,
+    travel_legs,
 )
 from diucs.domain.codes import CriteriaStatus, NeedCategory, Status
 from diucs.domain.model.criteria import ServiceCriteria
@@ -101,3 +106,53 @@ def test_the_fit_names_the_postcode_and_the_needs_the_service_takes() -> None:
 
 def test_a_case_with_no_need_still_fits_on_the_postcode() -> None:
     assert fits_for(_criteria(date(2026, 11, 30)), ()) == ("Covers this postcode",)
+
+
+# KI-626, KI-627, KI-801: the travel leg and the coverage circle.
+
+
+def test_a_routed_range_is_one_leg_by_road_with_the_traffic_note_and_the_engines_source() -> None:
+    legs = travel_legs("Ward B", TravelRange(35, 50, "Routing data, updated 2026-10-01"))
+
+    assert legs == (
+        TravelLeg(
+            label="Patient to Ward B, by road",
+            low_minutes=35,
+            high_minutes=50,
+            how="Typical weekday afternoon. The spread is from traffic.",
+            source="Routing data, updated 2026-10-01",
+        ),
+    )
+
+
+def test_a_straight_line_estimate_is_never_called_a_road_route() -> None:
+    (leg,) = travel_legs("Ward B", TravelRange(30, 55, "straight-line estimate"))
+
+    assert "road" not in leg.label
+    assert "by road" not in leg.how
+    assert leg.label == "Patient to Ward B, in a straight line"
+    assert leg.source == "straight-line estimate"
+
+
+def test_no_range_gives_no_leg() -> None:
+    assert travel_legs("Ward B", None) == ()
+
+
+def test_the_coverage_of_a_visiting_service_is_the_circle_of_the_districts_it_covers() -> None:
+    places = {"DT1": LatLon(50.0, -2.0), "DT2": LatLon(50.2, -2.0)}
+
+    found = coverage_of(["DT1", "DT2"], places.get)
+
+    assert found is not None
+    assert found.radius_km >= 11
+    assert round(found.lat, 3) == 50.1
+
+
+def test_a_district_the_locator_cannot_place_is_left_out_and_none_placed_gives_no_coverage() -> (
+    None
+):
+    places = {"DT1": LatLon(50.0, -2.0)}
+
+    assert coverage_of(["DT1", "ZZ9"], places.get) == Coverage(lat=50.0, lon=-2.0, radius_km=1)
+    assert coverage_of(["ZZ9"], places.get) is None
+    assert coverage_of([], places.get) is None

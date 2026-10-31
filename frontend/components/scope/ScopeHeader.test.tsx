@@ -78,14 +78,16 @@ describe('ScopeHeader', () => {
   });
 
   it('has no axe violations in any form', async () => {
-    const { container } = render(
-      <main>
-        <ScopeHeader scope="own" />
-        <ScopeHeader scope="network" networkName="Sample Network" switchTo={LINKS} />
-        <ScopeHeader scope="own" variant="wall" />
-      </main>,
-    );
-    expect((await runAxe(container)).violations).toEqual([]);
+    // One header to a page, as on a real page (a landmark is unique by its name).
+    for (const header of [
+      <ScopeHeader key="a" scope="own" />,
+      <ScopeHeader key="b" scope="network" networkName="Sample Network" switchTo={LINKS} />,
+      <ScopeHeader key="c" scope="own" variant="wall" />,
+    ]) {
+      const { container, unmount } = render(<main>{header}</main>);
+      expect((await runAxe(container)).violations).toEqual([]);
+      unmount();
+    }
   });
 });
 

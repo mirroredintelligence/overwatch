@@ -1,11 +1,13 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BOARD_A, GENERATED_AT } from '@/test/fixtures/board';
 import { Board } from './Board';
 import { LiveBoard } from './LiveBoard';
 
 // TEN-069 (KI-545, KI-559): the wall board says which board it is, in words, on the screen itself (a
 // wall has no address bar), and its heading is the tenant's own word for its system when it has one.
+
+vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn() }) }));
 
 describe('the wall board’s scope header', () => {
   it('says "Showing: Our organisation" in a landmark, with no switch', () => {

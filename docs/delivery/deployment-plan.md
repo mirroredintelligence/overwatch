@@ -12,10 +12,10 @@ that nothing in the application contradicts it. It does not gate building and ve
 | Images | Azure Container Registry (ACR) |
 | Secrets | Azure Key Vault: per-tenant Twilio credentials named `<kind>/<tenant>/<name>`, signing and key-derivation keys, VAPID push keys, the address lookup key. One user-assigned managed identity per app; no secret in an environment variable |
 | Graph | Neo4j Aura (managed). Tier (Professional or Business Critical) to be chosen for backups, availability and private networking |
-| Messaging | Azure Service Bus (Premium if private endpoints are wanted); topology in `infra/servicebus-config.json` |
-| Cache | Azure Managed Redis (Microsoft's recommended service; Azure Cache for Redis is on a retirement path). Use the Enterprise clustering policy unless the code is shown to use no multi-key operations |
+| Messaging | Azure Service Bus, Standard tier for the pilot; topology in `infra/servicebus-config.json`, created by `infra/azure/servicebus-entities.sh` |
+| Cache | Redis 7 as an internal container app in the same environment (`infra/azure/redis-app.bicep`): one replica, no persistence, password from Key Vault, plain TCP inside the environment. Azure Managed Redis was tried three times and failed with `OperationFailed` and no detail, so it is not used for the pilot. Revisit it before any tenant beyond the pilot; the code uses plain `redis.asyncio` either way |
 | Edge and WAF | Cloudflare (not Front Door, not Application Gateway) |
-| Network | VNet, private endpoints and private DNS for Key Vault, Service Bus, Redis and storage |
+| Network | No VNet for the pilot. Internal-only ingress is the isolation: only `web` has external ingress; `api`, `workers`, `collector` and `redis` are internal. Key Vault, storage and Service Bus are reachable from the internet with role-based access and TLS as the controls. Moving to a VNet means a new Container Apps environment and a cut-over |
 | Storage | Storage account for backups and tenant exports (lifecycle and immutability rules) |
 | Email and SMS | Twilio only. SMS and email use one subaccount per tenant and the same credentials. Email is Twilio's own Email API (`comms.twilio.com/v1/Emails`), not SendGrid and not Azure Communication Services Email |
 | Governance | Defender for Cloud, Azure Policy, resource locks; deploys from GitHub Actions with OIDC federation (no stored Azure credential) |
@@ -31,7 +31,7 @@ that nothing in the application contradicts it. It does not gate building and ve
 - Email: a per-tenant verified sender domain is a tenant onboarding step (TEN-028 go-live checks); an email send
   answers 202 (queued) and delivery status is read from the Operation resource, mapped to the same delivered or
   failed model as SMS.
-- Redis: no cross-slot multi-key operations unless the Enterprise policy is set.
+- Redis: no cross-slot multi-key operations (the pilot Redis is a single node, so this is not enforced there; a clustered service later would enforce it).
 - Neo4j Aura: the schema uses only features the chosen Aura tier offers (to be checked before the tier is chosen).
 - Telemetry: the exporter is configurable and may point nowhere.
 - Phone numbers: Aura encrypts at rest (DEC-856, pilot only); application-level encryption is a condition for
@@ -49,3 +49,25 @@ that nothing in the application contradicts it. It does not gate building and ve
 8. The link host and wording sources for production (TEN-022, TEN-028 follow-ups).
 
 Open questions for the owner: Aura tier, UK West for disaster recovery, Bicep or Terraform.
+
+## As built, 31 October 2026 (owner's report; details are in the Azure subscription, not here)
+
+- The pilot infrastructure is provisioned in UK South: resource group, the Container Apps environment (no VNet, no Log
+  Analytics), the container registry (empty), Key Vault, Service Bus, storage, four managed identities, and two Entra
+  app registrations. Names follow `<type>-diucs-pilot-<suffix>`; the Azure resources keep the `diucs` name (resource
+  groups cannot be renamed).
+- Apps: `web` (external ingress, hostnames `overwatch.mirroredintelligence.com` for staff and
+  `overwatch-admin.mirroredintelligence.com` for the operator console, managed certificates), `api`, `workers` and
+  `collector` (internal), and `redis`. They run hello-world placeholders scaled to zero; no application image is
+  deployed yet.
+- Cloudflare DNS points both names at `web` with the proxy OFF (needed for managed certificate validation and renewal);
+  proxying is turned on only after renewal is confirmed. The `edge-origin` header check and the Cloudflare IP
+  restrictions are not enforced yet.
+- Secrets are in Key Vault; `neo4j-password` and `os-places-api-key` are still to be added by hand.
+
+Open points raised by the as-built design (tracked as work, not decisions): the Service Bus entities were created from an
+older topology file and must be re-created from the current one (adds `projection.work`, `network.events`,
+`codes.dispatch` and the new subscriptions; the script never deletes, so subscriptions removed from the config stay until
+removed by hand); the Twilio webhooks need a public route to the API (`api` is internal); and the API's edge-trust mode
+for traffic that arrives from `web` rather than Cloudflare.
+

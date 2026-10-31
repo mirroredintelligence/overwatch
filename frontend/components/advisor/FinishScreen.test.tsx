@@ -74,6 +74,25 @@ describe('FinishScreen (W15)', () => {
     expect(await screen.findAllByText('UCR West')).not.toHaveLength(0);
   });
 
+  it('does not leave a summary without the destination on screen when reading it again fails', async () => {
+    server.use(
+      http.get('/api/bff/cases/:ref/summary', ({ request }) =>
+        new URL(request.url).searchParams.get('destination') === null
+          ? HttpResponse.json(SUMMARY_VIEW)
+          : HttpResponse.json({ code: 'exception' }, { status: 502 }),
+      ),
+    );
+    const user = userEvent.setup();
+    render(<FinishScreen caseId="4821" preselect={null} />);
+    await screen.findByText('DT4 8XX');
+
+    await user.click(byEl('ADV-FIN-OUTCOME-ACCEPTED'));
+    await user.click(await screen.findByRole('button', { name: 'UCR West' }));
+
+    expect(await screen.findByText('The summary could not be read.')).toBeInTheDocument();
+    expect(screen.queryByText('DT4 8XX')).toBeNull();
+  });
+
   it('"Start next call" goes to the advisor home', async () => {
     const user = userEvent.setup();
     render(<FinishScreen caseId="4821" preselect={null} />);

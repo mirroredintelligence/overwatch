@@ -31,12 +31,14 @@ export type OutcomeFormProps = {
   preselect: TextOutcome | null;
   /** Called with the time the close was recorded. */
   onClosed: (closedAt: string) => void;
+  /** Called when the service the call went to is chosen (or cleared), so the summary can name it (H-322). */
+  onDestinationChange?: (serviceId: string | null) => void;
 };
 
 type Chosen = OutcomeCode | TextOutcome | null;
 type Services = { kind: 'idle' } | { kind: 'loading' } | { kind: 'ready'; list: { serviceId: string; name: string }[] } | { kind: 'failed' };
 
-export function OutcomeForm({ caseId, preselect, onClosed }: OutcomeFormProps) {
+export function OutcomeForm({ caseId, preselect, onClosed, onDestinationChange }: OutcomeFormProps) {
   const [outcome, setOutcome] = useState<Chosen>(preselect);
   const [bestFit, setBestFit] = useState<BestFitCode | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,9 +64,14 @@ export function OutcomeForm({ caseId, preselect, onClosed }: OutcomeFormProps) {
     );
   }, [caseId]);
 
+  function chooseDestination(serviceId: string | null) {
+    setDestination(serviceId);
+    onDestinationChange?.(serviceId);
+  }
+
   function choose(next: OutcomeCode) {
     setOutcome(next);
-    if (!takesDestination(next)) setDestination(null);
+    if (!takesDestination(next)) chooseDestination(null);
     // The services are read once an outcome needs one, and not again unless the read failed.
     else if (services.kind === 'idle') void readServices();
   }
@@ -135,7 +142,7 @@ export function OutcomeForm({ caseId, preselect, onClosed }: OutcomeFormProps) {
                 <OptionButton
                   key={service.serviceId}
                   selected={destination === service.serviceId}
-                  onSelect={() => setDestination(service.serviceId)}
+                  onSelect={() => chooseDestination(service.serviceId)}
                 >
                   {service.name}
                 </OptionButton>

@@ -70,6 +70,17 @@ export async function filterOptions(token: string, caseId: string, idempotencyKe
 }
 
 /**
+ * The summary to copy into the referral, built by the back end for an open case (GET $summary, H-322).
+ * `destination` is the id of the service the call went to; without it the destination, booking and data
+ * age rows are left out. A closed case answers 409 (FhirError), which the route maps.
+ */
+export async function readSummary(token: string, caseId: string, destination: string | null): Promise<unknown> {
+  const query = destination === null ? '' : `?destination=${encodeURIComponent(destination)}`;
+  const { data } = await fhirFetch<unknown>(`/ServiceRequest/${encodeURIComponent(caseId)}/$summary${query}`, { token });
+  return data;
+}
+
+/**
  * The networks the session's organisation is in (GET /networks, at the back end's root). The answer is
  * ids and names only; the caller reads nothing else from it.
  */

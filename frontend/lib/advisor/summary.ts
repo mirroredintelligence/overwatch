@@ -1,10 +1,12 @@
-import { AGE_BANDS, type CaseView, labelOf, NEEDS, REFERRERS, URGENCIES } from './codes';
+import { labelOf } from './codes';
 import { CFS_LABELS, MANCHESTER_TRIAGE, type Score } from './scores';
 
 // The SystmOne summary (W15): the case as display strings, one row per field. Pure.
-// Destination, booking and data age are not in the back end's answer yet, so they say so.
+// The back end builds the rows (BuildCaseSummary) so the text that is pasted is the text it holds.
 
-export const NOT_RECORDED = 'Not recorded in this view';
+export const NOT_RECORDED = 'Not recorded';
+export const NO_DESTINATION = 'No destination chosen yet';
+export const NOT_BOOKED = 'Not booked';
 const NONE_GIVEN = 'None given';
 
 export type SummaryView = {
@@ -47,21 +49,48 @@ export function scoreText(score: Score): string {
   }
 }
 
-export function summaryOf(view: CaseView): SummaryView {
-  const needs = view.needs
-    .map((code) => NEEDS.find((need) => need.code === code)?.short ?? code)
-    .join(', ');
+type Row = { name?: unknown; valueString?: unknown; part?: unknown };
+
+/** The (label, text) rows of the back end's summary. A row whose label or value is not text is dropped. */
+function rowsOf(parameters: Row[]): Map<string, string> {
+  const rows = new Map<string, string>();
+  for (const item of parameters) {
+    if (item.name !== 'row' || !Array.isArray(item.part)) continue;
+    const parts = item.part as Row[];
+    const label = parts.find((part) => part.name === 'label')?.valueString;
+    const value = parts.find((part) => part.name === 'value')?.valueString;
+    if (typeof label === 'string' && typeof value === 'string' && !rows.has(label)) rows.set(label, value);
+  }
+  return rows;
+}
+
+/**
+ * The summary the back end builds for an open case (BuildCaseSummary, H-322): the case number and one row
+ * per field, in order, a field with nothing to say left out. `destinationNamed` is true when the request
+ * named the service the call went to: its name, booking and data age are then rows of their own; without
+ * one the three say no destination is chosen (never blank, never a guess). Null when the answer is not a
+ * summary, so the route can say it could not be read.
+ */
+export function summaryFromParameters(value: unknown, destinationNamed: boolean): SummaryView | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const resource = value as { resourceType?: unknown; parameter?: unknown };
+  if (resource.resourceType !== 'Parameters' || !Array.isArray(resource.parameter)) return null;
+  const parameters = resource.parameter as Row[];
+  const reference = parameters.find((item) => item.name === 'reference')?.valueString;
+  if (typeof reference !== 'string' || reference === '') return null;
+  const rows = rowsOf(parameters);
+  const absent = destinationNamed ? undefined : NO_DESTINATION;
   return {
-    reference: view.reference ?? NOT_RECORDED,
-    referrer: labelOf(REFERRERS, view.referrerType) ?? NOT_RECORDED,
-    ageBand: labelOf(AGE_BANDS, view.ageBand) ?? NOT_RECORDED,
-    postcode: view.postcode ?? NOT_RECORDED,
-    needs: needs === '' ? NOT_RECORDED : needs,
-    urgency: labelOf(URGENCIES, view.urgency) ?? NOT_RECORDED,
-    scores: view.scores.length === 0 ? NONE_GIVEN : view.scores.map(scoreText).join('; '),
-    destination: NOT_RECORDED,
-    booked: NOT_RECORDED,
-    dataAge: NOT_RECORDED,
+    reference,
+    referrer: rows.get('Referrer') ?? NOT_RECORDED,
+    ageBand: rows.get('Age band') ?? NOT_RECORDED,
+    postcode: rows.get('Postcode') ?? NOT_RECORDED,
+    needs: rows.get('Needs') ?? NOT_RECORDED,
+    urgency: rows.get('Urgency') ?? NOT_RECORDED,
+    scores: rows.get('Scores') ?? NONE_GIVEN,
+    destination: rows.get('Destination') ?? absent ?? NOT_RECORDED,
+    booked: rows.get('Booked') ?? absent ?? NOT_BOOKED,
+    dataAge: rows.get('Data age') ?? absent ?? NOT_RECORDED,
   };
 }
 

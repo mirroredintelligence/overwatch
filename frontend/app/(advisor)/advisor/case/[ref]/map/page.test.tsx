@@ -1,4 +1,5 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import { networkBffHandlers } from '@/test/msw/handlers/networkBff';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -22,6 +23,18 @@ beforeEach(() => {
     ),
     http.get('/api/bff/cases/:ref/options', () => HttpResponse.json(MAP_VIEW)),
   );
+});
+
+describe('map page: the scope header (WB11)', () => {
+  it('says it shows our organisation’s options and offers the network’s map, when the organisation is in a network', async () => {
+    server.use(...networkBffHandlers);
+    render(await MapPage({ params: Promise.resolve({ ref: '4821' }) }));
+    const header = screen.getByRole('region', { name: 'Which board you are viewing' });
+    expect(header).toHaveTextContent('Showing: Our organisation');
+    const nav = await within(header).findByRole('navigation', { name: 'Choose the board' });
+    expect(within(nav).getByRole('link', { name: 'Network' })).toHaveAttribute('href', '/advisor/case/4821/network-map');
+    expect(within(nav).getByRole('link', { name: 'Our organisation' })).toHaveAttribute('href', '/advisor/case/4821/map');
+  });
 });
 
 describe('map page (W50)', () => {

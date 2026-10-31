@@ -116,3 +116,62 @@ test.describe('district chips (W50)', () => {
     await expect(page.getByRole('link', { name: 'Change the postcode' })).toBeVisible();
   });
 });
+
+// A recorded score is corrected with a reason, and a case someone else changed says so (B6, Q7, H-192).
+// The BFF routes are answered in the page. Written, not run.
+test.describe('score correction and a changed case (B6)', () => {
+  const RECORDED = {
+    id: 'case-1', reference: '4821', referrerType: 'ambulance-crew', ageBand: '80+', postcode: 'DT4', needs: ['frailty'],
+    urgency: 'within-2-hrs', scores: [{ method: 'news2', value: 2 }], scoreCorrections: 0,
+    openedAt: '2026-10-30T14:00:00Z', closed: false, closedAt: null, outcome: null, etag: 'W/"3"',
+  };
+
+  test.beforeEach(async ({ page }) => {
+    await signIn(page.context(), SITE_URL, 'advisor', TOKEN_ORG_A);
+  });
+
+  test('a changed score needs a reason before it is saved, and is sent with it', async ({ page }) => {
+    let put: { ifMatch: string | null; body: Record<string, unknown> } | null = null;
+    await page.route('**/api/bff/cases/case-1', async (route) => {
+      if (route.request().method() === 'PUT') {
+        put = { ifMatch: route.request().headers()['if-match'] ?? null, body: route.request().postDataJSON() as Record<string, unknown> };
+        await route.fulfill({ json: { ...RECORDED, scoreCorrections: 1, etag: 'W/"4"' } });
+        return;
+      }
+      await route.fulfill({ json: RECORDED });
+    });
+    await page.route('**/api/bff/cases/case-1/options', (route) => route.fulfill({ json: { shownAt: '2026-10-30T14:12:00.000Z', options: [], notSuitable: [], patientArea: null, notFound: false, outOfArea: false, districts: [] } }));
+
+    await page.goto('/advisor/case/case-1');
+    await page.getByRole('button', { name: 'Correct a score' }).click();
+    await page.locator('[data-el="ADV-SCORE-NEWS2-INPUT"]').fill('5');
+    await expect(page.locator('[data-el="ADV-NEEDS-CONTINUE-BTN"]')).toBeDisabled();
+    expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+
+    await page.getByRole('radio', { name: 'I entered it wrongly' }).check();
+    await page.locator('[data-el="ADV-NEEDS-CONTINUE-BTN"]').click();
+
+    await expect(page).toHaveURL(/\/advisor\/case\/case-1\/options$/);
+    expect(put).toEqual({ ifMatch: 'W/"3"', body: expect.objectContaining({ scores: [{ method: 'news2', value: 5 }], scoreCorrectionReason: 'typing-error' }) });
+  });
+
+  test('a case changed by someone else is not overwritten: it says so and reads the case again', async ({ page }) => {
+    let reads = 0;
+    await page.route('**/api/bff/cases/case-1', async (route) => {
+      if (route.request().method() === 'PUT') {
+        await route.fulfill({ status: 412, json: { code: 'conflict' } });
+        return;
+      }
+      reads += 1;
+      await route.fulfill({ json: reads === 1 ? RECORDED : { ...RECORDED, urgency: 'today', etag: 'W/"4"' } });
+    });
+
+    await page.goto('/advisor/case/case-1');
+    await page.locator('[data-el="ADV-NEEDS-CONTINUE-BTN"]').click();
+    await expect(page.getByText('Someone changed this case since you opened it. Nothing of yours was saved.')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Read the case again' }).click();
+    await expect(page.getByText(/Someone changed this case/)).toHaveCount(0);
+    expect(reads).toBe(2);
+  });
+});

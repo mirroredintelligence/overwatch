@@ -76,6 +76,17 @@ test('a request that cannot be read offers no advice form (W44, DEC-855)', async
   await expect(page.getByText(/0[0-9]{4} ?[0-9]{6}/)).toHaveCount(0);
 });
 
+// DEC-1179 (tightening DEC-1036): a request whose "what the advisor saw" cannot be read is not answered from
+// here: the form is not offered, the call to the advisor and a way to read it again are. Written, not run.
+test('advice is not offered when what the advisor saw cannot be read (DEC-1179)', async ({ page }) => {
+  await signIn(page.context(), BASE_URL, 'clinical', TOKEN_ORG_A);
+  await page.route('**/api/bff/clinical/requests/req-5001/seen', (route) => route.fulfill({ status: 500, json: { code: 'exception' } }));
+  await page.goto('/clinical/requests/req-5001');
+  await expect(page.getByRole('alert')).toContainText('What the advisor saw could not be read');
+  await expect(page.getByRole('button', { name: 'Send advice' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Read it again' })).toBeVisible();
+});
+
 test('the share page makes no code by itself, and says whether sharing is on (W56)', async ({ page }) => {
   await signIn(page.context(), BASE_URL, 'advisor', TOKEN_ORG_A);
   await page.goto('/help/share');

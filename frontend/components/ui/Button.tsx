@@ -13,6 +13,8 @@ export type ButtonProps = {
   /** Renders a link instead of a button. */
   href?: string;
   dataEl?: string;
+  /** The accessible name, when the visible words need more to say what the button acts on. */
+  ariaLabel?: string;
   onClick?: ButtonHTMLAttributes<HTMLButtonElement>['onClick'];
   type?: 'button' | 'submit';
 };
@@ -24,13 +26,14 @@ export function Button({
   disabled = false,
   href,
   dataEl,
+  ariaLabel,
   onClick,
   type = 'button',
 }: ButtonProps) {
   const className = `${styles.button} ${styles[variant]}`;
   if (href !== undefined) {
     return (
-      <a className={className} href={href} data-el={dataEl} data-variant={variant}>
+      <a className={className} href={href} data-el={dataEl} data-variant={variant} aria-label={ariaLabel}>
         {children}
       </a>
     );
@@ -41,6 +44,7 @@ export function Button({
       className={className}
       disabled={busy || disabled}
       aria-busy={busy ? 'true' : undefined}
+      aria-label={ariaLabel}
       onClick={onClick}
       data-el={dataEl}
       data-variant={variant}

@@ -2,6 +2,7 @@
 import { http, HttpResponse } from 'msw';
 import { afterEach, describe, expect, it } from 'vitest';
 import { fakeBackendToken } from '@/test/backendToken';
+import { fakeOperatorToken } from '@/test/operator';
 import { canary, inspectUpstream, type Leak } from '@/test/leak-canary';
 import { server } from '@/test/msw/server';
 import { NETWORK, TENANTS } from '@/test/tenants';
@@ -27,6 +28,11 @@ function upstream(path: string, init: { token?: string; headers?: Record<string,
 }
 const token = (tenant: string, extra: Record<string, unknown> = {}) => fakeBackendToken({ tenant, ...extra });
 const rules = (leaks: Leak[]) => leaks.map((l) => l.rule);
+const opToken = (extra: Record<string, unknown>) => {
+  const [head, body, sig] = fakeOperatorToken().split('.');
+  const claims = { ...(JSON.parse(Buffer.from(body ?? '', 'base64url').toString()) as object), ...extra };
+  return `${head}.${Buffer.from(JSON.stringify(claims)).toString('base64url')}.${sig}`;
+};
 
 afterEach(() => canary.reset());
 
@@ -148,6 +154,39 @@ describe('inspectUpstream: what is a leak', () => {
     expect(JSON.stringify(leaks)).not.toContain(t.split('.')[1]);
     expect(leaks[0]?.method).toBe('GET');
     expect(leaks[0]?.url).toBe('/fhir/x');
+  });
+
+  describe('the operator door (/platform): an operator token, no tenant', () => {
+    const operatorToken = (extra: Record<string, unknown> = {}) => opToken(extra);
+
+    it('is nothing for an operator token of the audience diucs-ops that names no tenant', () => {
+      expect(inspectUpstream(upstream('/platform/tenants', { token: fakeOperatorToken('platform-operator') }), new Set([A.id]))).toEqual([]);
+      expect(inspectUpstream(upstream('/platform/session', { token: fakeOperatorToken('support') }), new Set())).toEqual([]);
+    });
+
+    it('is a leak when a tenant’s token is sent to /platform (the wrong audience)', () => {
+      expect(rules(inspectUpstream(upstream('/platform/tenants', { token: token(A.id) }), new Set([A.id])))).toEqual(['bad-audience']);
+    });
+
+    it('is a leak when an operator token is sent to a tenant route or the FHIR API (the wrong audience)', () => {
+      for (const path of ['/tenant/overview', '/fhir/HealthcareService/s1', '/lead/phones']) {
+        expect(rules(inspectUpstream(upstream(path, { token: fakeOperatorToken() }), new Set([A.id]))), path).toEqual(['bad-audience']);
+      }
+    });
+
+    it('is a leak when a token for /platform names a tenant, even with the operator audience', () => {
+      expect(rules(inspectUpstream(upstream('/platform/tenants', { token: operatorToken({ tenant: A.id }) }), new Set()))).toEqual(['operator-names-tenant']);
+    });
+
+    it('is a leak when a /platform call has no token, and when it carries a tenant header or query', () => {
+      expect(rules(inspectUpstream(upstream('/platform/tenants'), new Set()))).toEqual(['no-token']);
+      expect(rules(inspectUpstream(upstream('/platform/tenants?tenant=trust-b', { token: fakeOperatorToken() }), new Set()))).toEqual(['tenant-query']);
+      expect(rules(inspectUpstream(upstream('/platform/tenants', { token: fakeOperatorToken(), headers: { 'X-Tenant-Id': B.id } }), new Set()))).toEqual(['tenant-header']);
+    });
+
+    it('lets the operator’s sign-in exchange through with no token, as the staff one is', () => {
+      expect(inspectUpstream(upstream('/auth/operator-token', { method: 'POST' }), new Set())).toEqual([]);
+    });
   });
 
   it('looks only at the back end: a call to another origin is not its business', () => {

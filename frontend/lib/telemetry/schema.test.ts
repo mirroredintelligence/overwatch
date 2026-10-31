@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ROLES } from '../auth/session';
-import { ALLOWED_EVENTS, droppedEvents, flush, initTelemetry, stopTelemetry, track } from './events';
+import { ALLOWED_ATTRIBUTES, ALLOWED_EVENTS, droppedEvents, flush, initTelemetry, stopTelemetry, track } from './events';
 import { FRICTION_EVENT } from './friction';
 import {
   COMMON_SCHEMA,
@@ -106,6 +106,40 @@ describe('validateEvent', () => {
     const friction = { 'element.id': 'PAGE', count: 3, window_ms: 1000 };
     expect(validateEvent('ui.friction', { ...friction, kind: 'rage' })).toEqual([]);
     expect(validateEvent('ui.friction', { ...friction, kind: 'anything the user typed' }).length).toBeGreaterThan(0);
+  });
+});
+
+describe('route templates', () => {
+  it('accepts a template whose parameter is named in camel case', () => {
+    expect(validateEvent('ui.page_view', { 'page.route': '/app/respond/[serviceId]' })).toEqual([]);
+    expect(validateEvent('ui.page_view', { 'page.route': '/criteria/[serviceId]/approve' })).toEqual([]);
+    expect(validateEvent('ui.page_view', { 'page.route': '/' })).toEqual([]);
+  });
+
+  it('still refuses text a person could have typed in a route', () => {
+    for (const route of ['/case/DT4 8XX', '/Sample Patient', '/a/[ref', '/Advisor/board', 'board', '/a/[re f]']) {
+      expect(validateEvent('ui.page_view', { 'page.route': route }).length, route).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('ui.web_vital', () => {
+  it('carries a metric from a fixed list, a number and a rating, and nothing that is free text', () => {
+    for (const metric of ['lcp', 'inp', 'cls']) {
+      expect(validateEvent('ui.web_vital', { metric, reading: 1200, rating: 'good' })).toEqual([]);
+    }
+    expect(validateEvent('ui.web_vital', { metric: 'fid', reading: 12 }).length).toBeGreaterThan(0);
+    expect(validateEvent('ui.web_vital', { metric: 'lcp', reading: 'fast' }).length).toBeGreaterThan(0);
+    expect(validateEvent('ui.web_vital', { metric: 'lcp', reading: 1, rating: 'DT4 8XX' }).length).toBeGreaterThan(0);
+  });
+
+  it('does not use the keys the collector refuses (name and value)', () => {
+    expect(Object.keys(EVENT_SCHEMAS['ui.web_vital'])).toEqual(['metric', 'reading', 'rating']);
+  });
+
+  it('is sent by the browser, so its keys are on the attribute list', () => {
+    expect(ALLOWED_EVENTS).toContain('ui.web_vital');
+    for (const key of ['metric', 'reading', 'rating']) expect(ALLOWED_ATTRIBUTES).toContain(key);
   });
 });
 

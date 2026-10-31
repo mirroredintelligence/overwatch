@@ -16,6 +16,8 @@ export class ScreenClientError extends Error {
   field?: ScreenField;
   /** For `invalid`: the BFF's own words for it. */
   detail?: string;
+  /** For `not-found` on a renewal: the screen had a device token and the back end refused it (a lead disconnected it). */
+  disconnected?: boolean;
 
   constructor(kind: ScreenFailureKind) {
     super('The screen request failed.');
@@ -63,7 +65,11 @@ function failureOf(response: Response): ScreenClientError {
 /** A screen that holds a device cookie asks for a new wall session. Done when it has one. */
 export async function renewSession(signal?: AbortSignal): Promise<void> {
   const response = await send(`${BASE}/session`, { method: 'POST', signal });
-  if (!response.ok) throw failureOf(response);
+  if (!response.ok) {
+    const error = failureOf(response);
+    if (response.status === 404 && (await bodyOf(response)).code === 'disconnected') error.disconnected = true;
+    throw error;
+  }
   if ((await bodyOf(response)).status !== 'paired') throw new ScreenClientError('unavailable');
 }
 

@@ -44,6 +44,9 @@ const PRIORITY = ['tenant-admin', 'lead', 'clinical', 'advisor', 'owner', 'exec'
 
 export type ExchangeReply = { status: number; body: unknown };
 
+/** The screens a lead has disconnected (W9I): the stand-in exchange gives their device tokens nothing, as the back end does. */
+export const REVOKED_SCREENS = new Set<string>();
+
 /** A device token a paired screen holds, and the screen it names. */
 export const DEVICES: Record<string, string> = {
   'device-token-for-screen-one': 'dev-screen-one',
@@ -140,7 +143,7 @@ export function deviceExchange(
   if (keys.length !== 0) return badRequest();
   const deviceToken = /^Bearer (.+)$/.exec(authorization ?? '')?.[1];
   const device = deviceToken === undefined ? undefined : DEVICES[deviceToken];
-  if (host === null || grants[host] === undefined || device === undefined) return notFound();
+  if (host === null || grants[host] === undefined || device === undefined || REVOKED_SCREENS.has(device)) return notFound();
   const issuedAt = Math.floor(now.getTime() / 1000);
   const expires = issuedAt + WALL_LIFETIME_SECONDS;
   const token = standInToken({

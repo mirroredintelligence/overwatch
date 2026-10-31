@@ -206,7 +206,9 @@ async def test_a_revoked_screen_and_a_screen_that_does_not_exist_read_nothing(
             "/screens/me/network-board", headers=wall_bearer(member, "nowhere-1")
         )
     assert live.status_code == 200
-    assert revoked.status_code == unknown.status_code == 404
+    # The edge refuses a wall whose screen is not an active one of its tenant (W9I): the 401 of a
+    # lapsed token, the same for a revoked screen and one that is not there.
+    assert revoked.status_code == unknown.status_code == 401
     assert revoked.text == unknown.text
 
 
@@ -223,7 +225,7 @@ async def test_a_screen_id_of_another_tenant_reads_nothing_in_this_one(
         foreign = await client.get(
             "/screens/me/network-board", headers=wall_bearer(second, "only-first")
         )
-    assert (own.status_code, foreign.status_code) == (200, 404)
+    assert (own.status_code, foreign.status_code) == (200, 401)
 
 
 async def test_a_screen_of_a_tenant_outside_the_network_cannot_be_set_to_it_and_reads_nothing(

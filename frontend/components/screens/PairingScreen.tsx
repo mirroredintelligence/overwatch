@@ -19,6 +19,13 @@ export function PairingScreen({ api = SCREEN_API }: { api?: PairingApi }) {
     <main className={styles.page}>
       <h1 className={styles.title}>DIUCS capacity wall screen</h1>
       <div className={styles.stage}>
+        {view.disconnected === true ? (
+          <div className={styles.message}>
+            <Banner tone="warning" title="This screen was disconnected." dataEl="WALL-PAIR-DISCONNECTED">
+              Ask a shift lead to connect it again with the code below.
+            </Banner>
+          </div>
+        ) : null}
         <div aria-live="polite" className={styles.stage}>
           {view.kind === 'code' ? (
             <>

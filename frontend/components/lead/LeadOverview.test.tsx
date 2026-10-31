@@ -74,6 +74,15 @@ describe('LeadOverview', () => {
     expect(await screen.findByText('No services need chasing.')).toBeInTheDocument();
   });
 
+  it('links to the wall screens page, whatever the overview did (W9I)', async () => {
+    server.use(http.get('/api/bff/lead/overview', () => HttpResponse.json({ code: 'unavailable', message: 'x' }, { status: 503 })));
+    render(<LeadOverview />);
+    const nav = screen.getByRole('navigation', { name: 'Shift lead pages' });
+    expect(within(nav).getByRole('link', { name: 'Wall screens' })).toHaveAttribute('href', '/lead/screens');
+    await screen.findByRole('alert');
+    expect(within(nav).getByRole('link', { name: 'Wall screens' })).toBeInTheDocument();
+  });
+
   it('never says nothing needs chasing when the overview could not be read', async () => {
     server.use(
       http.get('/api/bff/lead/overview', () =>

@@ -28,8 +28,16 @@ needs one, run one use case and map the result.
 Which board a screen shows (TEN-067, DEC-132 item 5). The setting is on the screen's record in the
 tenant, never in its token:
 
-GET  /screens                        the tenant's screens with what each shows and the networks an
-                                     administrator may choose. Role lead or tenant-admin.
+GET  /screens                        the tenant's screens with what each shows, and the networks an
+                                     administrator may choose. Role lead or tenant-admin. Each row
+                                     also carries the screen's `state`, `pairedAt`, `lastSeenAt` and
+                                     `revokedAt` (W9I); never a token, hash or secret.
+POST /screens/{deviceId}/revoke      the lead ends a screen at once (W9I, TEN-072): 200
+                                     `{deviceId, status: "revoked", revokedAt}`; Idempotency-Key
+                                     required; its device token gets no new wall token and the wall
+                                     token it holds is refused at its next request
+                                     (`auth.ensure_screen_live`). Role lead. Another tenant's
+                                     screen is the one 404.
 PUT  /screens/{deviceId}/board-scope change one screen's board: `{boardScope, networkId?}`, with
                                      If-Match (the screen's `scopeVersion`) and Idempotency-Key.
                                      Role lead or tenant-admin. A network the tenant is not an
@@ -75,6 +83,7 @@ from diucs.adapters.inbound.fhir_rest.routes_network import network_services
 from diucs.adapters.inbound.fhir_rest.routes_network_events import open_wall_network_events
 from diucs.application.actor import Actor
 from diucs.application.edge_tenant import resolve_active_tenant
+from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.identity import DEVICE_TOKEN_SECRET, secret_is_configured
@@ -94,6 +103,11 @@ from diucs.application.use_cases.pair_wall_screen import (
     ConfirmPairingCommand,
     PairingRateLimited,
     StartPairing,
+)
+from diucs.application.use_cases.screen_admin import (
+    ListWallScreens,
+    RevokeWallScreen,
+    RevokeWallScreenCommand,
 )
 from diucs.application.use_cases.wall_board_scope import (
     ADMIN_ROLES,
@@ -353,6 +367,10 @@ class BoardScopeBody(BaseModel):
     networkId: str | None = None
 
 
+def _at(value: Any) -> str | None:
+    return None if value is None else format_instant(value)
+
+
 def _setting(setting: ScreenSetting) -> dict[str, Any]:
     return {
         "deviceId": setting.id,
@@ -373,13 +391,56 @@ async def list_screens(request: Request, actor: ScreenAdmin) -> Response:
     listed = await ListScreens(container.uow_factory, network_services(request).access).execute(
         actor
     )
+    # The board setting (TEN-067) and the screen's life (W9I: its state, when paired, last seen and
+    # revoked) are two reads of one record. The rows are the life's, in its order (live first, a
+    # screen revoked long ago left out), each with its setting under the same `deviceId`.
+    summaries = await ListWallScreens(container.uow_factory, container.clock).execute(actor)
+    settings = {screen.id: screen for screen in listed.screens}
+    rows = [
+        {
+            **_setting(settings[summary.device_id]),
+            "state": summary.state.value,
+            "pairedAt": _at(summary.paired_at),
+            "lastSeenAt": _at(summary.last_seen_at),
+            "revokedAt": _at(summary.revoked_at),
+        }
+        for summary in summaries
+        if summary.device_id in settings
+    ]
     return _json(
         200,
         {
-            "screens": [_setting(screen) for screen in listed.screens],
+            "scope": "tenant",
+            "asOf": format_instant(container.clock.now()),
+            "screens": rows,
             "networks": [{"id": n.id, "name": n.name} for n in listed.networks],
         },
     )
+
+
+@router.post(SCREENS_PATH + "/{device_id}/revoke")
+async def revoke_screen(
+    device_id: DeviceId,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(Role.LEAD))],
+) -> Response:
+    key = idempotency_key(request)
+    container = _container(request)
+
+    async def run() -> Response:
+        result = await RevokeWallScreen(container.uow_factory, container.clock).execute(
+            RevokeWallScreenCommand(actor=actor, device_id=device_id)
+        )
+        return _json(
+            200,
+            {
+                "deviceId": result.device_id,
+                "status": "revoked",
+                "revokedAt": _at(result.revoked_at),
+            },
+        )
+
+    return await replay_or_run(request, actor, f"screen-revoke:{device_id}:{key}", run)
 
 
 @router.put(SCREENS_PATH + "/{device_id}/board-scope")

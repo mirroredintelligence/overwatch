@@ -48,6 +48,33 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+describe('usePairing: a screen that was disconnected (W9I)', () => {
+  const disconnected = () => Object.assign(new ScreenClientError('not-found'), { disconnected: true });
+
+  it('says so, and goes on to ask for a new code, when the renewal is refused because a lead disconnected it', async () => {
+    const calls = api({ renew: vi.fn(async () => { throw disconnected(); }) });
+    const { result, onPaired } = mount(calls);
+    await advance(0);
+    expect(result.current).toEqual({ kind: 'code', code: '482 913', expiresAt: '2026-10-30T09:10:00Z', disconnected: true });
+    expect(calls.start).toHaveBeenCalledTimes(1);
+    expect(onPaired).not.toHaveBeenCalled();
+  });
+
+  it('keeps saying so through the polling and a replacement code', async () => {
+    const calls = api({ renew: vi.fn(async () => { throw disconnected(); }), poll: vi.fn(async () => 'expired' as const) });
+    const { result } = mount(calls);
+    await advance(0);
+    await advance(POLL_INTERVAL_MS);
+    expect(result.current).toMatchObject({ kind: 'code', code: '271 828', disconnected: true });
+  });
+
+  it('says nothing of it for a screen that was never paired', async () => {
+    const { result } = mount(api());
+    await advance(0);
+    expect(result.current).not.toHaveProperty('disconnected');
+  });
+});
+
 describe('usePairing: opening', () => {
   it('tries the screen’s own session first, and goes straight on when it has one, asking for no code', async () => {
     const calls = api({ renew: vi.fn(async () => undefined) });

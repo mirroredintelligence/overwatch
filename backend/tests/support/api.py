@@ -9,6 +9,7 @@ tenant (`edge_tenants`, which `api_app` depends on), and a request is sent for a
 that names it (`token_headers`). A test token with no tenant argument names the run tenant.
 """
 
+import hashlib
 from collections.abc import AsyncIterator, Sequence
 from datetime import UTC, datetime
 
@@ -27,6 +28,7 @@ from diucs.application.ports.outbound.identity import PHONE_HASH_SECRET
 from diucs.bootstrap.container import Container, build_for_tests
 from diucs.domain.codes import Role
 from tests.support.neo4j import ThrowawayNeo4j, write_tx
+from tests.support.tenancy import as_tenant
 from tests.support.tenant_samples import make_tenant
 
 # The clock of the R01 route tests (DEC-070 item 4): 14:12 London, passed explicitly. F08's
@@ -56,16 +58,36 @@ async def test_container(
         await connection.close()
 
 
+WALL_TEST_SUBS = ("prac-1", "device-wall-1", "device-wall-x")
+"""The subjects the route tests give a wall token. The edge refuses a wall token whose screen is not
+an active one of the tenant (W9I, `auth.ensure_screen_live`), so each tenant is seeded one active
+screen per subject."""
+
+
 async def seed_edge_tenants(driver: AsyncDriver, *tenant_ids: str, epoch: int = 1) -> None:
     """An active tenant record for each id (merged, so a second call changes nothing but the
-    epoch), as the REST edge reads it from the directory."""
+    epoch), as the REST edge reads it from the directory, and an active wall screen for each
+    subject a route test gives a wall token."""
 
     async def work(tx: AsyncManagedTransaction) -> None:
         for tenant_id in tenant_ids:
             props = tenant_properties(make_tenant(id=tenant_id, epoch=epoch))
             await tx.run("MERGE (t:Tenant {id: $id}) SET t += $props", id=tenant_id, props=props)
 
+    async def screens(tx: AsyncManagedTransaction) -> None:
+        for sub in WALL_TEST_SUBS:
+            await tx.run(
+                "MERGE (d:Device {id: $id, tenantId: $tenant, deviceType: 'wall-display'}) "
+                "SET d.status = 'active', d.deviceName = 'Test wall screen', "
+                "d.boardScope = 'tenant', d.tokenHash = $hash",
+                id=sub,
+                hash=hashlib.sha256(sub.encode()).hexdigest(),
+            )
+
     await write_tx(driver, work)
+    for tenant_id in tenant_ids:
+        with as_tenant(tenant_id):
+            await write_tx(driver, screens)
 
 
 def token_headers(

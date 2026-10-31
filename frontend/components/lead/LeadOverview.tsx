@@ -85,6 +85,10 @@ export function LeadOverview() {
         </time>
       </header>
 
+      <nav aria-label="Shift lead pages" className={styles.actions}>
+        <a href="/lead/screens">Wall screens</a>
+      </nav>
+
       {load.kind === 'failed' ? (
         <p role="alert" className={styles.line}>
           We could not load the shift lead page. Try again shortly.

@@ -57,6 +57,22 @@ export const FLAG_CHOICES = [
   { id: 'flag-2', serviceId: SERVICE_REABLEMENT, serviceName: 'Reablement', reason: 'many-changes', summary: 'The figure changed many times in a short time.' },
 ];
 
+/**
+ * The lead's wall screens as GET /api/bff/screens answers (W9I), which is GET /screens of the back end
+ * cut to the fields a page shows. `asOf` is the back end's clock: ages are measured against it.
+ */
+export const SCREEN_LIST = {
+  scope: 'tenant',
+  networks: [],
+  asOf: '2026-10-30T10:00:00Z',
+  screens: [
+    { deviceId: 's-2', name: 'Day room', location: null, state: 'waiting', status: 'paired-unclaimed', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-30T09:59:00Z', lastSeenAt: null, revokedAt: null },
+    { deviceId: 's-1', name: 'Ward 4 corridor', location: 'Level 2', state: 'online', status: 'active', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-27T10:00:00Z', lastSeenAt: '2026-10-30T09:59:20Z', revokedAt: null },
+    { deviceId: 's-3', name: 'Reception', location: 'Ground floor', state: 'offline', status: 'active', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-20T08:30:00Z', lastSeenAt: '2026-10-30T07:40:00Z', revokedAt: null },
+    { deviceId: 's-4', name: 'Old canteen screen', location: null, state: 'revoked', status: 'revoked', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-01T08:30:00Z', lastSeenAt: '2026-10-29T16:00:00Z', revokedAt: '2026-10-29T16:05:00Z' },
+  ],
+};
+
 /** The phones the lead's services report from, as the BFF maps them (W43). Last digits only. */
 export const PHONE_CHOICES = [
   {
@@ -157,6 +173,11 @@ export const leadHandlers = [
   http.post('/api/bff/lead/flags/:id', async ({ request, params }) => {
     await recorded(request, `/api/bff/lead/flags/${String(params.id)}`);
     return HttpResponse.json({ flagId: String(params.id), outcome: 'accepted' }, { status: 200, headers: NO_STORE });
+  }),
+  http.get('/api/bff/screens', () => HttpResponse.json(SCREEN_LIST, { headers: NO_STORE })),
+  http.post('/api/bff/screens/:id/revoke', async ({ request, params }) => {
+    await recorded(request, `/api/bff/screens/${String(params.id)}/revoke`);
+    return HttpResponse.json({ deviceId: String(params.id), state: 'revoked', revokedAt: '2026-10-30T10:00:00Z' }, { headers: NO_STORE });
   }),
   http.get('/api/bff/lead/phones', () => HttpResponse.json({ phones: PHONE_CHOICES }, { headers: NO_STORE })),
   http.get('/api/bff/lead/invitations', () => HttpResponse.json({ items: INVITATION_CHOICES }, { headers: NO_STORE })),

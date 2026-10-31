@@ -29,7 +29,12 @@ from fastapi.responses import Response
 
 from diucs.adapters.inbound.fhir_rest import capability
 from diucs.adapters.inbound.fhir_rest.app import get_container
-from diucs.adapters.inbound.fhir_rest.auth import current_actor, ensure_can_act_for, require_role
+from diucs.adapters.inbound.fhir_rest.auth import (
+    current_actor,
+    ensure_can_act_for,
+    ensure_screen_live,
+    require_role,
+)
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
 from diucs.adapters.inbound.fhir_rest.concurrency import (
     idempotency_key,
@@ -233,8 +238,9 @@ async def _versioned(uow: UnitOfWork, service_id: str) -> tuple[ServiceProfile, 
 
 @router.get("/HealthcareService")
 async def search_services(
-    request: Request, _actor: Annotated[Actor, Depends(current_actor)]
+    request: Request, actor: Annotated[Actor, Depends(current_actor)]
 ) -> Response:
+    await ensure_screen_live(request, actor)
     search = _parse_services(_search_params(request, _SERVICE_PARAMS))
     async with get_container(request).uow_factory() as uow:
         profiles = await uow.services.list_active()
@@ -273,8 +279,9 @@ async def search_services(
 
 @router.get("/HealthcareService/{service_id}")
 async def read_service(
-    service_id: str, request: Request, _actor: Annotated[Actor, Depends(current_actor)]
+    service_id: str, request: Request, actor: Annotated[Actor, Depends(current_actor)]
 ) -> Response:
+    await ensure_screen_live(request, actor)
     found = None
     if _ID.fullmatch(service_id) is not None:
         async with get_container(request).uow_factory() as uow:

@@ -72,9 +72,10 @@ describe('POST /api/bff/screens/session', () => {
   it('tells a screen the back end no longer knows (revoked, or on another host), and makes it forget its device token', async () => {
     const response = await post(await deviceCookie('a-token-nobody-issued'));
     expect(response.status).toBe(404);
-    expect(await response.json()).toEqual({ code: 'not-found', message: 'We could not find that.' });
+    expect(await response.json()).toEqual({ code: 'disconnected', message: 'This screen was disconnected.' });
     expect(lastWrite(DEVICE_COOKIE)).toMatchObject({ value: '', options: { maxAge: 0 } });
-    expect(lastWrite(SESSION_COOKIE)).toBeUndefined();
+    // The wall session the screen still held is ended too, so the pairing page does not send it back to the board.
+    expect(lastWrite(SESSION_COOKIE)).toMatchObject({ value: '', options: { maxAge: 0 } });
   });
 
   it('keeps the device token, and makes no session, when the back end is down', async () => {

@@ -1,8 +1,9 @@
 import { decodeJwt } from 'jose';
-import { DEVICES, GRANTS } from '@/test/fixtures/exchange';
+import { DEVICES, GRANTS, REVOKED_SCREENS } from '@/test/fixtures/exchange';
 
 // A stand-in for the back end's wall screen pairing (R15, DEC-224): `POST /screens/pairing`,
-// `GET /screens/pairing/{id}` and `POST /screens`. It answers the shapes the route module documents
+// `GET /screens/pairing/{id}` and `POST /screens`, and the lead's administration, `GET /screens` and
+// `POST /screens/{id}/revoke` (W9I). It answers the shapes the route module documents
 // and keeps the same rules the tests rely on: a code is the tenant's (the host's), the secret comes
 // only in `X-Screen-Secret`, the device token is given once, every refusal is the one 404 and an
 // expired code is `expired`. It is a stand-in, not the back end.
@@ -33,8 +34,22 @@ function outcome(status: number, code: string, text: string, headers?: Record<st
 const refused = () => outcome(404, 'not-found', REFUSED_TEXT);
 const iso = (ms: number) => new Date(ms).toISOString().replace('.000Z', 'Z');
 
+type Screen = { deviceId: string; host: string; name: string; location: string | null; pairedAt: number; collected: boolean; revokedAt: number | null };
+
+function leadOf(authorization: string | null): boolean {
+  const token = /^Bearer (.+)$/.exec(authorization ?? '')?.[1];
+  try {
+    return token !== undefined && decodeJwt(token).role === 'lead';
+  } catch {
+    return false;
+  }
+}
+
 export class PairingStandIn {
   private pairings: Pairing[] = [];
+  private screens: Screen[] = [];
+  /** Revokes the stand-in has accepted, newest last. */
+  readonly revokes: { host: string | null; deviceId: string; idempotencyKey: string | null; authorization: string | null }[] = [];
   private issued = 0;
   /** Connects the stand-in has accepted, newest last: what a lead sent, and the key it came with. */
   readonly connects: { host: string | null; body: unknown; idempotencyKey: string | null; authorization: string | null }[] = [];
@@ -48,6 +63,9 @@ export class PairingStandIn {
 
   reset() {
     this.pairings = [];
+    this.screens = [];
+    this.revokes.length = 0;
+    REVOKED_SCREENS.clear();
     this.issued = 0;
     this.connects.length = 0;
     this.claims.length = 0;
@@ -58,6 +76,44 @@ export class PairingStandIn {
   /** Test control: the code a pairing is showing. */
   codeOf(id: string): string | undefined {
     return this.pairings.find((p) => p.id === id)?.code;
+  }
+
+  /** @internal The screens of the tenant a host names. */
+  screensOf(host: string | null): Screen[] {
+    return host === null ? [] : this.screens.filter((s) => s.host === host);
+  }
+
+  /** `GET /screens`: the lead's list for the host's tenant, in the back end's shape (routes_screens.py). */
+  list(host: string | null, authorization: string | null, now: Date = new Date()): StandInReply {
+    if (!leadOf(authorization)) return outcome(404, 'not-found', 'Not found.');
+    const screens = this.screensOf(host).map((s) => ({
+      deviceId: s.deviceId,
+      name: s.name,
+      location: s.location,
+      state: s.revokedAt !== null ? 'revoked' : s.collected ? 'online' : 'waiting',
+      status: s.revokedAt !== null ? 'revoked' : s.collected ? 'active' : 'paired-unclaimed',
+      boardScope: 'tenant',
+      networkId: null,
+      networkName: null,
+      networkAvailable: true,
+      scopeVersion: 1,
+      pairedAt: iso(s.pairedAt),
+      lastSeenAt: s.collected && s.revokedAt === null ? iso(now.getTime()) : null,
+      revokedAt: s.revokedAt === null ? null : iso(s.revokedAt),
+    }));
+    return { status: 200, body: { scope: 'tenant', asOf: iso(now.getTime()), screens, networks: [] }, headers: { 'Cache-Control': 'no-store' } };
+  }
+
+  /** `POST /screens/{id}/revoke`: ends the screen at once; the same answer again for one already ended. */
+  revoke(host: string | null, authorization: string | null, idempotencyKey: string | null, deviceId: string, now: Date = new Date()): StandInReply {
+    this.revokes.push({ host, deviceId, idempotencyKey, authorization });
+    if (!leadOf(authorization)) return outcome(404, 'not-found', 'Not found.');
+    if (idempotencyKey === null || !/^[\x21-\x7e]{1,200}$/.test(idempotencyKey)) return outcome(400, 'required', 'Idempotency-Key is required.');
+    const screen = this.screensOf(host).find((s) => s.deviceId === deviceId);
+    if (screen === undefined) return outcome(404, 'not-found', 'The requested resource was not found.');
+    screen.revokedAt ??= now.getTime();
+    REVOKED_SCREENS.add(screen.deviceId);
+    return { status: 200, body: { deviceId, status: 'revoked', revokedAt: iso(screen.revokedAt) }, headers: { 'Cache-Control': 'no-store' } };
   }
 
   /** Test control: let a pairing's ten minutes run out. */
@@ -105,6 +161,8 @@ export class PairingStandIn {
     if (now.getTime() >= pairing.expiresAt) return { status: 200, body: { status: 'expired' } };
     if (pairing.deviceToken === null) return { status: 200, body: { status: 'waiting' } };
     pairing.collected = true;
+    const screen = this.screens.find((s) => s.deviceId === pairing.deviceId);
+    if (screen !== undefined) screen.collected = true;
     return { status: 200, body: { status: 'paired', deviceToken: pairing.deviceToken } };
   }
 
@@ -131,6 +189,8 @@ export class PairingStandIn {
     const n = this.pairings.filter((p) => p.deviceToken !== null).length;
     pairing.deviceToken = DEVICE_TOKENS[n % DEVICE_TOKENS.length] as string;
     pairing.deviceId = DEVICES[pairing.deviceToken] as string;
+    const location = typeof fields.location === 'string' ? fields.location : null;
+    this.screens.push({ deviceId: pairing.deviceId, host: host as string, name: String(fields.name).trim(), location, pairedAt: now.getTime(), collected: false, revokedAt: null });
     return { status: 201, body: { deviceId: pairing.deviceId, name: String(fields.name).trim(), status: 'online' } };
   }
 }

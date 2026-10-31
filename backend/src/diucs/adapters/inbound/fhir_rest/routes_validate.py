@@ -11,7 +11,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, Request
 
 from diucs.adapters.inbound.fhir_rest import capability
-from diucs.adapters.inbound.fhir_rest.auth import current_actor
+from diucs.adapters.inbound.fhir_rest.auth import current_actor, ensure_screen_live
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
 from diucs.adapters.inbound.fhir_rest.validation import issue_outcome, json_body
 from diucs.application.actor import Actor
@@ -38,8 +38,9 @@ async def validate_resource(
     resource_type: str,
     profile: str,
     request: Request,
-    _actor: Annotated[Actor, Depends(current_actor)],
+    actor: Annotated[Actor, Depends(current_actor)],
 ) -> FhirJSONResponse:
+    await ensure_screen_live(request, actor)
     body: Any = await json_body(request, "resourceType")
     if not isinstance(body, dict) or body.get("resourceType") != resource_type:
         raise ValidationFailed("resourceType", "must match the resource type in the path")

@@ -55,6 +55,48 @@ test('connects a display from a lead’s page, and the display goes on to the bo
   await lead.close();
 });
 
+test('lists the connected screen, and disconnecting it sends the display back to pairing saying so (W9I, written, not run)', async ({ browser, baseURL }) => {
+  const display = await browser.newContext({ baseURL });
+  const lead = await browser.newContext({ baseURL });
+  const wall = await display.newPage();
+  await wall.goto('/screen/pair');
+  const shown = (await wall.locator('[data-el="WALL-PAIR-CODE"]').textContent()) ?? '';
+
+  await signIn(lead, new URL(wall.url()).origin, 'lead', tokenFor('lead'));
+  const admin = await lead.newPage();
+  await admin.goto('/lead/screens/new');
+  await admin.getByLabel(/Code shown on the screen/).fill(shown);
+  await admin.getByLabel(/Screen name/).fill('Control room');
+  await admin.getByRole('button', { name: 'Connect screen' }).click();
+  await admin.getByRole('link', { name: 'See all screens' }).click();
+  await expect(admin).toHaveURL(/\/lead\/screens$/);
+  const row = admin.getByRole('row', { name: /Control room/ });
+  await expect(row.getByText('Online')).toBeVisible();
+  await expect(wall).toHaveURL(/\/screen$/, { timeout: 15_000 });
+
+  await row.getByRole('button', { name: 'Disconnect Control room' }).click();
+  await admin.getByRole('dialog', { name: 'Disconnect Control room?' }).getByRole('button', { name: 'Disconnect screen' }).click();
+  await expect(admin.getByRole('status')).toHaveText('Control room was disconnected.');
+  await expect(admin.getByRole('row', { name: /Control room/ }).getByText('Disconnected')).toBeVisible();
+
+  // The display's next read is refused: it goes back to pairing, says so, and shows a new code.
+  await wall.reload();
+  await expect(wall).toHaveURL(/\/screen\/(pair|reconnect)$/, { timeout: 15_000 });
+  await expect(wall.getByText('This screen was disconnected.')).toBeVisible();
+  await expect(wall.locator('[data-el="WALL-PAIR-CODE"]')).toHaveText(/^\d{3} \d{3}$/);
+  await display.close();
+  await lead.close();
+});
+
+test('keeps every role but the lead out of the list of screens (W9I, written, not run)', async ({ browser, baseURL }) => {
+  const advisor = await browser.newContext({ baseURL });
+  await signIn(advisor, baseURL!, 'advisor', tokenFor('advisor'));
+  const page = await advisor.newPage();
+  expect((await page.goto('/lead/screens'))?.status()).toBe(403);
+  expect((await page.request.get(`${baseURL}/api/bff/screens`)).status()).toBe(403);
+  await advisor.close();
+});
+
 test('says the code is not valid beside the field when it is wrong', async ({ browser, baseURL }) => {
   const lead = await browser.newContext({ baseURL });
   await signIn(lead, baseURL!, 'lead', tokenFor('lead'));
@@ -109,6 +151,7 @@ test('refuses a pairing request that comes from another site', async ({ request,
 for (const [name, path] of [
   ['the display’s pairing', '/screen/pair'],
   ['the lead’s form', '/lead/screens/new'],
+  ['the lead’s list of screens', '/lead/screens'],
 ] as const) {
   test(`has no axe violations on ${name}, with colour contrast`, async ({ browser, baseURL }) => {
     const context = await browser.newContext({ baseURL });
@@ -116,7 +159,7 @@ for (const [name, path] of [
     const page = await context.newPage();
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-    await page.locator('[data-el="WALL-PAIR-CODE"], [data-el="LEAD-SCREEN-CONNECT-BTN"]').first().waitFor();
+    await page.locator('[data-el="WALL-PAIR-CODE"], [data-el="LEAD-SCREEN-CONNECT-BTN"], [data-el="LEAD-SCREENS-ADD-BTN"]').first().waitFor();
 
     const results = await new AxeBuilder({ page }).analyze();
 
@@ -129,7 +172,7 @@ test('reads at phone width without sideways scroll', async ({ browser, baseURL }
   const context = await browser.newContext({ baseURL, viewport: { width: 360, height: 740 } });
   await signIn(context, baseURL!, 'lead', tokenFor('lead'));
   const page = await context.newPage();
-  for (const path of ['/screen/pair', '/lead/screens/new']) {
+  for (const path of ['/screen/pair', '/lead/screens/new', '/lead/screens']) {
     await page.goto(path);
     await page.getByRole('heading', { level: 1 }).waitFor();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);

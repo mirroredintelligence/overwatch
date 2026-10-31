@@ -263,11 +263,12 @@ describe('wall screen page: not allowed to see the board', () => {
     },
   );
 
-  it.each([401, 403, 404])('redirects to /screen/pair when the back end answers %i', async (status) => {
+  it.each([401, 403, 404])('redirects to /screen/reconnect when the back end answers %i (a screen it no longer lets read, such as one a lead disconnected)', async (status) => {
     as(signedIn('wall'));
     server.use(http.get(BOARD_URL, () => HttpResponse.json({ resourceType: 'OperationOutcome', issue: [] }, { status })));
 
-    expect(await redirectOf()).toBe('/screen/pair');
+    // Not /screen/pair: that page sends a display that still holds a wall session back here, and the two would loop.
+    expect(await redirectOf()).toBe('/screen/reconnect');
   });
 });
 

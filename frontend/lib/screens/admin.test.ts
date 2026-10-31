@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { revokedFrom, screenListFrom, STATUS_WORDS } from './admin';
+import { boardChangedFrom, revokedFrom, screenListFrom, STATUS_WORDS } from './admin';
 
 // The lead's list of wall screens as the back end gives it (GET /screens, routes_screens.py), checked
 // before a page shows it. A shape that is not the one expected is an error, never an empty list.
@@ -10,11 +10,16 @@ const ROW = {
   location: 'Level 2',
   state: 'online',
   boardScope: 'tenant',
+  networkId: null,
+  networkName: null,
+  networkAvailable: true,
+  scopeVersion: 1,
   pairedAt: '2026-10-27T10:00:00Z',
   lastSeenAt: '2026-10-30T09:59:20Z',
   revokedAt: null,
 };
-const BODY = { scope: 'tenant', asOf: '2026-10-30T10:00:00Z', screens: [ROW] };
+const NETWORKS = [{ id: 'net-west', name: 'West Dorset system' }];
+const BODY = { scope: 'tenant', asOf: '2026-10-30T10:00:00Z', screens: [ROW], networks: NETWORKS };
 
 describe('screenListFrom', () => {
   it('reads the list the back end gives', () => {
@@ -26,6 +31,18 @@ describe('screenListFrom', () => {
     expect(screenListFrom({ ...BODY, screens: [waiting] }).screens).toEqual([waiting]);
   });
 
+  it('reads a screen set to a network, with the network it shows and whether it is still open to it', () => {
+    const shown = { ...ROW, boardScope: 'network', networkId: 'net-west', networkName: 'West Dorset system', scopeVersion: 3 };
+    expect(screenListFrom({ ...BODY, screens: [shown] }).screens).toEqual([shown]);
+    const closed = { ...shown, networkAvailable: false };
+    expect(screenListFrom({ ...BODY, screens: [closed] }).screens[0]?.networkAvailable).toBe(false);
+  });
+
+  it('reads the networks the lead may choose, and an organisation in none as an empty list', () => {
+    expect(screenListFrom(BODY).networks).toEqual(NETWORKS);
+    expect(screenListFrom({ ...BODY, networks: [] }).networks).toEqual([]);
+  });
+
   it('reads an empty list as an empty list', () => {
     expect(screenListFrom({ ...BODY, screens: [] }).screens).toEqual([]);
   });
@@ -35,7 +52,13 @@ describe('screenListFrom', () => {
     ['no screens', { scope: 'tenant', asOf: BODY.asOf }],
     ['screens not a list', { ...BODY, screens: {} }],
     ['an unknown scope', { ...BODY, scope: 'galaxy' }],
-    ['no time', { scope: 'tenant', screens: [ROW] }],
+    ['no time', { scope: 'tenant', screens: [ROW], networks: [] }],
+    ['no networks list', { scope: 'tenant', asOf: BODY.asOf, screens: [ROW] }],
+    ['a network with no name', { ...BODY, networks: [{ id: 'net-west' }] }],
+    ['a network id that is not a network id', { ...BODY, networks: [{ id: 'trust-b', name: 'x' }] }],
+    ['a row set to a network with no network id', { ...BODY, screens: [{ ...ROW, boardScope: 'network', networkId: null, networkName: 'x' }] }],
+    ['a row with a version that is not a number', { ...BODY, screens: [{ ...ROW, scopeVersion: 'one' }] }],
+    ['a row with a network id that is not a network id', { ...BODY, screens: [{ ...ROW, networkId: 'trust-b' }] }],
     ['a time that is not a time', { ...BODY, asOf: 'yesterday' }],
     ['a row with no id', { ...BODY, screens: [{ ...ROW, deviceId: undefined }] }],
     ['a row with an id that is not an id', { ...BODY, screens: [{ ...ROW, deviceId: '../x' }] }],
@@ -77,9 +100,31 @@ describe('the words for a status', () => {
     expect(STATUS_WORDS).toEqual({
       online: 'Online',
       offline: 'Offline',
-      waiting: 'Waiting to connect',
+      waiting: 'Waiting to be connected',
       'never-connected': 'Never connected',
-      revoked: 'Disconnected',
+      revoked: 'Unpaired',
     });
+  });
+});
+
+describe('boardChangedFrom', () => {
+  const answer = { deviceId: 's-1', name: 'Ward 4', location: null, status: 'active', boardScope: 'network', networkId: 'net-west', networkName: 'West Dorset system', networkAvailable: true, scopeVersion: 2 };
+
+  it('reads the answer to a change of board', () => {
+    expect(boardChangedFrom(answer)).toEqual({ deviceId: 's-1', boardScope: 'network', networkId: 'net-west', networkName: 'West Dorset system', networkAvailable: true, scopeVersion: 2 });
+  });
+
+  it('reads a screen set back to its own board', () => {
+    expect(boardChangedFrom({ ...answer, boardScope: 'tenant', networkId: null, networkName: null, scopeVersion: 3 })).toMatchObject({ boardScope: 'tenant', networkId: null, scopeVersion: 3 });
+  });
+
+  it.each([
+    ['not an object', null],
+    ['no id', { ...answer, deviceId: undefined }],
+    ['an unknown board', { ...answer, boardScope: 'moon' }],
+    ['a network board with no network', { ...answer, networkId: null }],
+    ['no version', { ...answer, scopeVersion: undefined }],
+  ])('refuses %s', (_name, body) => {
+    expect(() => boardChangedFrom(body)).toThrow();
   });
 });

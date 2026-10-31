@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
 import { VIEW_OVERVIEW } from '@/test/fixtures/networkAdmin';
-import { resetNetworkAdminReads, resetNetworkAdminWrites, seenNetworkAdminReads, seenNetworkAdminWrites } from '@/test/msw/handlers/networkAdmin';
+import { read, resetNetworkAdminReads, resetNetworkAdminWrites, seenNetworkAdminReads, seenNetworkAdminWrites } from '@/test/msw/handlers/networkAdmin';
 import { SAMPLE_CSRF } from '@/test/msw/handlers/staff';
 import { server } from '@/test/msw/server';
 import { NetworkMembers } from './NetworkMembers';
@@ -107,7 +107,7 @@ describe('which network', () => {
   });
 
   it('says the one refusal, and reads nothing else, when the organisation runs no network', async () => {
-    server.use(http.get('/api/bff/network-admin/networks', () => HttpResponse.json({ networks: [] })));
+    server.use(http.get('/api/bff/network-admin/networks', read({ networks: [] })));
     render(<NetworkMembers />);
     const panel = await screen.findByText('Network view not available');
     expect(byEl('NET-STATE-PANEL')).toContainElement(panel);
@@ -116,7 +116,7 @@ describe('which network', () => {
   });
 
   it('offers a choice when it runs more than one, reads nothing of a network until one is chosen, and then names it as the one key', async () => {
-    server.use(http.get('/api/bff/network-admin/networks', () => HttpResponse.json({ networks: [{ id: 'net-sample', name: 'Sample Network' }, { id: 'net-second', name: 'Second Network' }] })));
+    server.use(http.get('/api/bff/network-admin/networks', read({ networks: [{ id: 'net-sample', name: 'Sample Network' }, { id: 'net-second', name: 'Second Network' }] })));
     const user = userEvent.setup();
     render(<NetworkMembers />);
     await screen.findByText('Which network?');

@@ -30,7 +30,8 @@ async function recorded(request: Request) {
   seenNetworkAdminWrites.push({ method: request.method, path: url.pathname, query: url.search.slice(1), csrf: request.headers.get('x-csrf-token'), body });
 }
 
-function read(body: unknown) {
+/** A resolver that answers `body` and records the read, for a test that overrides a read and still counts it. */
+export function read(body: unknown) {
   return ({ request }: { request: Request }) => {
     const url = new URL(request.url);
     seenNetworkAdminReads.push(`${url.pathname}${url.search}`);

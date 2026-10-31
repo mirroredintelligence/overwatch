@@ -93,10 +93,10 @@ export function parseMembers(value: unknown): MemberRow[] {
 export type KindState = { kind: Scope; status: 'active' | 'ended'; endedAt: string | null; endReason: (typeof SOURCE_END_REASONS)[number] | null };
 export type HealthRow = { id: string; organisation: string; kinds: KindState[] };
 
-function kindState(value: unknown): KindState {
+function kindState(value: unknown, key: 'kind' | 'scope' = 'kind'): KindState {
   const k = obj(value);
   return {
-    kind: oneOf(k.kind, SCOPES),
+    kind: oneOf(k[key], SCOPES),
     status: oneOf(k.status, ['active', 'ended'] as const),
     endedAt: timeOrNull(k.ended_at),
     endReason: k.end_reason === null || k.end_reason === undefined ? null : oneOf(k.end_reason, SOURCE_END_REASONS),
@@ -106,7 +106,7 @@ function kindState(value: unknown): KindState {
 export function parseProjection(value: unknown): HealthRow[] {
   return list(obj(value).members, 2000).map((row) => {
     const r = obj(row);
-    return { id: str(r.membership_id, 64), organisation: str(r.organisation_name, 120), kinds: list(r.kinds, 10).map(kindState) };
+    return { id: str(r.membership_id, 64), organisation: str(r.organisation_name, 120), kinds: list(r.kinds, 10).map((k) => kindState(k, 'kind')) };
   });
 }
 
@@ -215,7 +215,7 @@ export function parseSharing(value: unknown): SharingRead {
         agreementVersion: numOrNull(r.agreement_version),
         acceptedAgreementVersion: numOrNull(r.accepted_agreement_version),
         agreementBehind: bool(r.agreement_behind),
-        shared: list(r.shared, 10).map(kindState),
+        shared: list(r.shared, 10).map((k) => kindState(k, 'scope')),
       };
     }),
   };

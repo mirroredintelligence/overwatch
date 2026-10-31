@@ -80,7 +80,7 @@ RELATIONSHIPS: Final = (
     _local("CONTACT", "an alert subscription checks its practitioner (NotFound) before it writes"),
     _local(
         "COVERAGE_AREA",
-        "a read of the places a service visits: the service and each place are matched on the tenant",
+        "a read of the places a service visits: the service and each place are tenant-matched",
     ),
     _checked("COVERED_BY", "person.save_role.cover"),
     _local("CURRENT_CRITERIA", "a criteria version checks its service (NotFound) before it writes"),

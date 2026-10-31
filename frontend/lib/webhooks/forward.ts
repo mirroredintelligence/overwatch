@@ -125,7 +125,6 @@ export async function forwardTwilioWebhook(request: Request, target: WebhookTarg
         headers,
         body: form.bytes as BodyInit,
         redirect: 'manual',
-        cache: 'no-store',
         signal: controller.signal,
       });
     } catch {

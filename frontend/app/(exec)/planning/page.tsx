@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { ExecHome } from '@/components/exec/ExecHome';
+import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
+import { ScopeHeader } from '@/components/scope/ScopeHeader';
 import { Banner } from '@/components/ui/Banner';
 import { getSession } from '@/lib/auth/session';
 import { readBoard } from '@/lib/board/read';
@@ -30,6 +32,8 @@ export default async function ExecHomePage() {
   }
   return (
     <main>
+      {/* Which board the home is of (WB11). The network's counts are the executive's alone: a lead has none. */}
+      {session.role === 'exec' ? <OwnScopeHeader ownHref="/planning" networkHref="/network/home" /> : <ScopeHeader scope="own" />}
       <ExecHome board={board} name={board.organisation ?? 'Your system'} phoneAlerts={session.role === 'exec'} />
     </main>
   );

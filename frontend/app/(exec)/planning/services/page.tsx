@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { ServiceList } from '@/components/exec/ServiceList';
+import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
+import { ScopeHeader } from '@/components/scope/ScopeHeader';
 import { Banner } from '@/components/ui/Banner';
 import { getSession } from '@/lib/auth/session';
 import { readBoard } from '@/lib/board/read';
@@ -28,6 +30,7 @@ export default async function ExecServicesPage() {
   }
   return (
     <main>
+      {session.role === 'exec' ? <OwnScopeHeader ownHref="/planning/services" networkHref="/network/services" /> : <ScopeHeader scope="own" />}
       <h1>All services</h1>
       <ServiceList entries={board.entries} />
     </main>

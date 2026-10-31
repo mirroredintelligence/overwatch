@@ -1,4 +1,4 @@
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import type { OperationOutcome } from '@/lib/fhir/types';
 
 // What the operator and tenant-administrator BFF routes need to read an answer of the back end (W9C): a

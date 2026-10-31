@@ -4,7 +4,7 @@ import styles from '@/components/console/Console.module.css';
 import { getSession } from '@/lib/auth/session';
 import { CONSOLE_ROLES, consoleCall, TRACE_ID_PATTERN } from '@/lib/console/backend';
 import { formatMs, QUERY_BUDGET_MS, slowestSpan, type SpanView } from '@/lib/console/trace';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 export const metadata: Metadata = {
   title: 'Overwatch console: trace',

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { sessionFor } from '@/test/requests';
 import { NETWORK_ROOT, networkHandlers, resetNetworkBackend, seenNetwork } from '@/test/msw/handlers/network';
 import { server } from '@/test/msw/server';

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { CSRF_COOKIE, CSRF_HEADER } from '@/lib/auth/csrf';
 import { SESSION_COOKIE, sealSession, type Session } from '@/lib/auth/session';
 import { cookieWrites, lastWrite, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';

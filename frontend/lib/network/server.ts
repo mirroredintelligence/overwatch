@@ -1,5 +1,6 @@
 import type { Session } from '@/lib/auth/session';
-import { FhirError, fhirFetch } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { readTenantProfile } from '@/lib/tenant/profile';
 import { offeredNetworks, readBackendBody, requireOffered } from './availability';
 import type { NetworkList } from './types';

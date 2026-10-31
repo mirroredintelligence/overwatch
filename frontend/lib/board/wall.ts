@@ -1,5 +1,6 @@
 import type { Session } from '@/lib/auth/session';
-import { FhirError, fhirFetch } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { badGateway, readBackendBody } from '@/lib/network/availability';
 import { networkToWallBoard } from '@/lib/network/entries';
 import { parseBoard } from '@/lib/network/parse';

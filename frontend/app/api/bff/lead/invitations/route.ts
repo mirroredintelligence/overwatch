@@ -1,5 +1,6 @@
 import { withBff } from '@/lib/bff/handler';
-import { FhirError, fhirFetch } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { idempotencyKeyOf, invalidRequest, jsonBody } from '@/lib/lead/bffInput';
 import { isUkMobile } from '@/lib/forms/ukMobile';
 import { parametersOf, partValue } from '@/lib/lead/parameters';

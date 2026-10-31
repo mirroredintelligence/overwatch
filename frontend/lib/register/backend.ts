@@ -1,4 +1,5 @@
-import { fhirFetch, FhirError, type FhirResult } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch, type FhirResult } from '@/lib/fhir/client';
 import type { OperationOutcome } from '@/lib/fhir/types';
 import { callLinkApi, type LinkReply } from '@/lib/links/server';
 import { addressesFrom, viewFromRecord, type RecordView } from './applicant';

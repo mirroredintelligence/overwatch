@@ -1,4 +1,4 @@
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 // A path segment of a tenant administrator route, checked by its shape before it goes into a back-end
 // path. A malformed one is the same 404 as an unknown one, so the answer does not say which it is.

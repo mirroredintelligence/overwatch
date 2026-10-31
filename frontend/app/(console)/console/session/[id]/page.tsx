@@ -4,7 +4,7 @@ import { SessionTimeline } from '@/components/console/SessionTimeline';
 import styles from '@/components/console/Console.module.css';
 import { getSession } from '@/lib/auth/session';
 import { CONSOLE_ROLES, consoleCall, sessionIdOf } from '@/lib/console/backend';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 export const metadata: Metadata = {
   title: 'Overwatch console: session timeline',

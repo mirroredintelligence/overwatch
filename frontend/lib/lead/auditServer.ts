@@ -1,4 +1,5 @@
-import { fhirFetch, FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { replayFromBackEnd, type AuditReplay } from './audit';
 
 // Server only: one read of the audit replay for the lead (W47). It is not cached, and each read is audited

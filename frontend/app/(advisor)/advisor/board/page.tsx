@@ -4,7 +4,7 @@ import { Board } from '@/components/board/Board';
 import { BoardUnavailable } from '@/components/board/BoardUnavailable';
 import { getSession } from '@/lib/auth/session';
 import { canReadBoard, readBoard } from '@/lib/board/read';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 export const metadata: Metadata = {
   title: 'Wall board view · Overwatch',

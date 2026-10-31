@@ -1,5 +1,6 @@
 import { withBff } from '@/lib/bff/handler';
-import { fhirFetch, FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { idempotencyKeyOf, invalidRequest, jsonBody, routeId } from '@/lib/lead/bffInput';
 import { type CoverageInput, coverageWire, DAYS, MAX_RESPONSE_HOURS, parseCoverageForm } from '@/lib/areas/types';
 import { DISTRICT_PATTERN } from '@/lib/advisor/options';

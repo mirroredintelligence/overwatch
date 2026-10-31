@@ -1,6 +1,6 @@
 import { checkCsrf, clearCsrf } from '@/lib/auth/csrf';
 import { destroySession, sessionFromRequest, type Role, type Session } from '@/lib/auth/session';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { renewIfDue } from '@/lib/reporter/renew';
 import { toBffError } from './errors';
 import { refusesTenantInput } from './inputGuard';

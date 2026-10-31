@@ -3,7 +3,7 @@ import { answer, refuse } from '@/lib/advisor/http';
 import { CASE_ROLES } from '@/lib/advisor/roles';
 import { summaryFromParameters } from '@/lib/advisor/summary';
 import { withBff } from '@/lib/bff/handler';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 // The SystmOne summary of one open case (W15, H-322): read only, display strings only. The back end builds
 // it (BuildCaseSummary), so the text that is pasted is the text it holds, with the destination, the booking

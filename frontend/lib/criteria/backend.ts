@@ -1,4 +1,5 @@
-import { FhirError, fhirFetch } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { mapHistory } from './history';
 import { criteriaOverviewFromBackend, pendingFromBackend } from './mapping';
 import type { CriteriaOverview, CriteriaValues, HistoryVersion, PendingChange, ReviewPeriod } from './types';

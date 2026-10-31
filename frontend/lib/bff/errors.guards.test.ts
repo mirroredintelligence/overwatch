@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { toBffError } from './errors';
 
 // Guard tests for DEC-109: the issue code the browser sees is a short

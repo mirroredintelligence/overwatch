@@ -1,5 +1,6 @@
 import type { Session } from '@/lib/auth/session';
-import { FhirError, fhirFetch } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { IDEMPOTENCY_KEY } from './answers';
 
 // The reporter BFF routes' calls to the back end's `/reporter/...` routes (W7C, W8E). Every call

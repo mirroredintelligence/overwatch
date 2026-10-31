@@ -1,5 +1,6 @@
 import { withBff } from '@/lib/bff/handler';
-import { fhirFetch, FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { routeId } from '@/lib/lead/bffInput';
 
 // One service for the lead's service pages (W42): its name, and its suspension: whether it is suspended, since

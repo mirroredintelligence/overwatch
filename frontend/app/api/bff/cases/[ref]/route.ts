@@ -4,7 +4,7 @@ import { parseCaseInput } from '@/lib/advisor/codes';
 import { answer, idempotencyKeyOf, refuse } from '@/lib/advisor/http';
 import { CASE_ROLES } from '@/lib/advisor/roles';
 import { withBff } from '@/lib/bff/handler';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 // One case, read and saved by the advisor's own session (W11). The case id is the only input, and it
 // is checked for shape before anything is read. A save needs the ETag from the read (If-Match) and an

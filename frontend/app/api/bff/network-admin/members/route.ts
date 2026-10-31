@@ -1,5 +1,5 @@
 import { withBff } from '@/lib/bff/handler';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { jsonBody } from '@/lib/lead/bffInput';
 import { inviteBody } from '@/lib/networkAdmin/bodies';
 import { adminWrite, NO_STORE } from '@/lib/networkAdmin/call';

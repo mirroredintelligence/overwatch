@@ -1,5 +1,6 @@
 import { PATHWAYS_CODE, PATHWAYS_RESULTS_MAX } from './scores';
-import { FhirError, fhirFetch } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import type { OperationOutcome } from '@/lib/fhir/types';
 
 // Server-only. The Pathways Dx lookup (R16), mounted at the back end's root. Codes come from the

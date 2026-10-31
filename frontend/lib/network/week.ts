@@ -1,4 +1,4 @@
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 // The week of the network summary: Monday to Sunday, the back end's `weekStart` a Monday (400 otherwise).
 // Pure; no clock except the one `lastCompleteWeekStart` is given.

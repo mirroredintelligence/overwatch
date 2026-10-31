@@ -1,4 +1,4 @@
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { withBff } from '@/lib/bff/handler';
 import { readRegistration, saveStep } from '@/lib/register/backend';
 import { issuesFromOutcome, locationValues, organisationValues, pageFieldFor, STEP_FIELDS } from '@/lib/register/draft';

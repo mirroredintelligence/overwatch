@@ -1,6 +1,6 @@
 import { CASE_ROLES } from '@/lib/advisor/roles';
 import { withBff } from '@/lib/bff/handler';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { CANCEL_REASONS } from '@/lib/advisor/bookings';
 import { cancelBooking, readBooking } from '@/lib/advisor/bookingServer';
 

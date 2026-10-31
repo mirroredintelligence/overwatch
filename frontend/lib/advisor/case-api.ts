@@ -1,4 +1,5 @@
-import { FhirError, fhirFetch } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import type { OperationOutcome } from '@/lib/fhir/types';
 
 // Server-only. The one place the advisor BFF calls the back end's case routes (R07). The browser

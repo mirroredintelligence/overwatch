@@ -1,7 +1,7 @@
 import { privateNoStore, refuse } from '@/lib/bff/handler';
 import { toBffError } from '@/lib/bff/errors';
 import { refusesTenantInput } from '@/lib/bff/inputGuard';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { checkOperatorCsrf, clearOperatorCsrf } from './csrf';
 import { destroyOperatorSession, operatorSessionFromRequest, type OperatorRole, type OperatorSession } from './session';
 

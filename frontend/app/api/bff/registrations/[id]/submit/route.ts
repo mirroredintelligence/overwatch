@@ -1,4 +1,4 @@
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { withBff } from '@/lib/bff/handler';
 import { submitRegistration } from '@/lib/register/backend';
 import { issuesFromOutcome } from '@/lib/register/draft';

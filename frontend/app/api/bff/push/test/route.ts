@@ -1,5 +1,5 @@
 import { withBff } from '@/lib/bff/handler';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { parseQueued } from '@/lib/reporter/answers';
 import { json, onlyFields, plain, readJson, reporterCall } from '@/lib/reporter/backend';
 

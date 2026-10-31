@@ -4,7 +4,7 @@ import { answer, idempotencyKeyOf, refuse } from '@/lib/advisor/http';
 import { DISTRICT_PATTERN } from '@/lib/advisor/options';
 import { CASE_ROLES } from '@/lib/advisor/roles';
 import { withBff } from '@/lib/bff/handler';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 // Choosing a district (W50, W9H DEC-1045). When the postcode was not found, or no service covers its area,
 // the advisor picks one of the districts the options screen offered, and the options run again. The back

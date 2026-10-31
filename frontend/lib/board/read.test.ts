@@ -1,6 +1,6 @@
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { BOARD_A, BOARD_B } from '@/test/fixtures/board';
 import {
   BACKEND_BASE,

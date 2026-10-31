@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { agreementBody, emptyBody, inviteBody, reasonBody } from './bodies';
 
 const refused = (fn: () => unknown) => {

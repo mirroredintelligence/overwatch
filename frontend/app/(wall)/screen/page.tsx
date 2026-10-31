@@ -9,7 +9,7 @@ import type { WallScope } from '@/lib/board/scope';
 import type { Board as BoardData } from '@/lib/board/types';
 import { readWallBoard } from '@/lib/board/wall';
 import { copy } from '@/lib/copy';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { readTenantProfile } from '@/lib/tenant/profile';
 
 // The layout's template adds the product name; no organisation is named here.

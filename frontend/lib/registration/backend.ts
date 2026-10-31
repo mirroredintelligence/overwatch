@@ -1,4 +1,5 @@
-import { FhirError, fhirFetch } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { CATEGORY_CODES, SCOPE_FLAGS } from './model';
 import type { ScopeEntry, ScopeFlag, ScopeList, ScopeRegistrationState } from './types';
 

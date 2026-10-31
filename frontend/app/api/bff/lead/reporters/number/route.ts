@@ -1,5 +1,6 @@
 import { withBff } from '@/lib/bff/handler';
-import { fhirFetch, FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { idempotencyKeyOf, jsonBody } from '@/lib/lead/bffInput';
 import { readChangeNumber } from '@/lib/lead/changeNumber';
 import { parametersOf, partValue } from '@/lib/lead/parameters';

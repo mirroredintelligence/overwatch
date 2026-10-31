@@ -1,5 +1,6 @@
 import type { Role, Session } from '@/lib/auth/session';
-import { FhirError, fhirFetch } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
+import { fhirFetch } from '@/lib/fhir/client';
 import { NetworkParseError, parseNetworks } from './parse';
 import type { NetworkSummary } from './types';
 

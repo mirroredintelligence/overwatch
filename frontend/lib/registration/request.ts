@@ -1,6 +1,6 @@
 // Checks on what the browser may send to the registration BFF routes. Each refusal is a 400 with a
 // fixed code and no copy of the value sent (DEC-109 item 2). Pure: no I/O.
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import {
   CALLBACK_RESULTS,
   CATEGORY_CODES,

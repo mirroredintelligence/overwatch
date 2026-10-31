@@ -1,4 +1,4 @@
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 
 // The shapes of the ids the network administration routes take, checked before any back-end path is
 // built (TEN-080). A malformed id is the same 404 as an unknown one, so the answer never says which.

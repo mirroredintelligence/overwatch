@@ -1,6 +1,6 @@
 import { CASE_ROLES } from '@/lib/advisor/roles';
 import { withBff } from '@/lib/bff/handler';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import { openBooking, readCaseBookings, readOpenAlerts } from '@/lib/advisor/bookingServer';
 
 // The advisor's request for a booking (W20). The body names a case and a service and nothing else:

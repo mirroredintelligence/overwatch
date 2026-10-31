@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FhirError } from '@/lib/fhir/client';
+import { FhirError } from '@/lib/fhir/fhirError';
 import type { OperationOutcome } from '@/lib/fhir/types';
 import { toBffError } from './errors';
 

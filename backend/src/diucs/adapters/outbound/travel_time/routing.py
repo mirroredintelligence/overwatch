@@ -24,7 +24,7 @@ import httpx
 
 from diucs.application.ports.outbound.cache import Cache
 from diucs.application.ports.outbound.geo import LatLon, TravelRange, TravelTime
-from diucs.application.tenancy import current_tenant
+from diucs.application.tenancy import TenantNotBound, current_tenant
 from diucs.domain.errors import ValidationFailed
 
 # [ASSUMED] The request timeout. The I15 prompt said 2 s; the owner set 3 s.
@@ -33,11 +33,12 @@ ROUTING_TIMEOUT: Final = timedelta(seconds=3)
 TRAFFIC_SPREAD: Final = Decimal("1.4")
 # Both ends of the range are rounded up to a whole number of minutes, then to this step (I15).
 ROUND_UP_TO_MINUTES: Final = 5
-# A routed range is kept for 24 hours, keyed by the tenant and the directional pair (I15).
+# A routed range is kept for 24 hours, keyed by the directional pair (I15). The cache puts the bound
+# tenant in every name itself (TEN-019), so the key does not repeat it (KI-203).
 ROUTE_CACHE_TTL: Final = timedelta(hours=24)
 # Six decimal places of a degree is about 0.1 metre: more than a postcode centroid needs.
 _COORDINATE: Final = "{:.6f}"
-_CACHE_KEY: Final = "travel:{}:{}"
+_CACHE_KEY: Final = "travel:{}"
 
 
 class RoutingFailed(Exception):
@@ -134,14 +135,15 @@ def duration_seconds(body: object) -> float:
     return value
 
 
-def _cache_key(tenant: str, origin: LatLon, destination: LatLon) -> str:
+def _cache_key(origin: LatLon, destination: LatLon) -> str:
     """Directional: patient to site and site to patient are different keys (architecture F8). The
-    pair is hashed, so no coordinate is readable in a key name."""
+    pair is hashed, so no coordinate is readable in a key name. The tenant is not in the key: the
+    cache qualifies every name with the bound scope (TEN-019, KI-203)."""
     pair = (
         f"{_coordinate(origin.lat)},{_coordinate(origin.lon)}>"
         f"{_coordinate(destination.lat)},{_coordinate(destination.lon)}"
     )
-    return _CACHE_KEY.format(tenant, hashlib.sha256(pair.encode("ascii")).hexdigest())
+    return _CACHE_KEY.format(hashlib.sha256(pair.encode("ascii")).hexdigest())
 
 
 def _encode_range(travel: TravelRange) -> str:
@@ -168,6 +170,10 @@ class RoutingTravelTime:
 
     The cache is read and written under the bound tenant; a missing tenant is an error, never a
     default. Only routed answers are cached: a fallback is not, so routing is asked again next time.
+    A cache that cannot be read or written never fails the options list (KI-202): an unreadable
+    cache answers the fallback estimate at once (the engine is not asked on a cache that is down,
+    so a Redis outage does not turn into a burst of route requests), and an unwritable cache only
+    loses the keeping of an answer already in hand.
     """
 
     def __init__(
@@ -187,8 +193,14 @@ class RoutingTravelTime:
         self._timeout = timeout
 
     async def estimate(self, origin: LatLon, destination: LatLon) -> TravelRange:
-        key = _cache_key(current_tenant(), origin, destination)
-        cached = await self._cache.get(key)
+        current_tenant()  # no tenant bound is an error, never a default
+        key = _cache_key(origin, destination)
+        try:
+            cached = await self._cache.get(key)
+        except TenantNotBound:
+            raise
+        except Exception:
+            return await self._fallback.estimate(origin, destination)
         if cached is not None:
             found = _decode_range(cached)
             if found is not None:
@@ -198,7 +210,12 @@ class RoutingTravelTime:
         except RoutingFailed, TimeoutError:
             return await self._fallback.estimate(origin, destination)
         result = range_from_duration(seconds, self._extract_date)
-        await self._cache.set(key, _encode_range(result), ROUTE_CACHE_TTL)
+        try:
+            await self._cache.set(key, _encode_range(result), ROUTE_CACHE_TTL)
+        except TenantNotBound:
+            raise
+        except Exception:
+            pass  # the answer is in hand; only the keeping of it is lost
         return result
 
     async def _route_seconds(self, origin: LatLon, destination: LatLon) -> float:

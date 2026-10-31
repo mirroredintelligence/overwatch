@@ -36,10 +36,12 @@ def test_the_circle_is_centred_on_the_mean_and_reaches_the_farthest_district() -
 
 
 def test_the_radius_is_a_whole_number_rounded_up_never_down() -> None:
-    near = coverage_circle([(50.0, -2.0), (50.0 + 2.0 / DEGREE_KM, -2.0)])
+    near = coverage_circle([(50.0, -2.0), (50.0 + 1.8 / DEGREE_KM, -2.0)])
+    just_over = coverage_circle([(50.0, -2.0), (50.0 + 2.4 / DEGREE_KM, -2.0)])
 
-    assert near is not None
-    assert near.radius_km == 1
+    assert near is not None and just_over is not None
+    assert near.radius_km == 1  # 0.9 km rounds up to one
+    assert just_over.radius_km == 2  # 1.2 km rounds up to two, never down to one
 
 
 def test_a_circle_holds_every_district_centre_it_was_made_from() -> None:

@@ -333,10 +333,31 @@ def _option_part(option: Option) -> dict[str, Any]:
     if option.position is not None:
         parts.append(_decimal("lat", option.position.lat))
         parts.append(_decimal("lon", option.position.lon))
+    elif option.coverage is not None:
+        # A visiting service has no site: the circle's centre goes as its place and the radius
+        # says it is a circle (the screen draws a coverage area, not a pin).
+        parts.append(_decimal("lat", option.coverage.lat))
+        parts.append(_decimal("lon", option.coverage.lon))
+        parts.append(_decimal("coverageRadiusKm", float(option.coverage.radius_km)))
+    if option.phone is not None:
+        parts.append({"name": "phone", "valueString": option.phone})
     if option.travel is not None:
         parts.append({"name": "travelLow", "valueInteger": option.travel.low_minutes})
         parts.append({"name": "travelHigh", "valueInteger": option.travel.high_minutes})
         parts.append({"name": "travelSource", "valueString": option.travel.source})
+    parts.extend(
+        {
+            "name": "leg",
+            "part": [
+                {"name": "label", "valueString": leg.label},
+                {"name": "low", "valueInteger": leg.low_minutes},
+                {"name": "high", "valueInteger": leg.high_minutes},
+                {"name": "how", "valueString": leg.how},
+                {"name": "source", "valueString": leg.source},
+            ],
+        }
+        for leg in option.legs
+    )
     if option.data_age is not None:
         parts.append(
             {"name": "dataAgeSeconds", "valueInteger": int(option.data_age.total_seconds())}

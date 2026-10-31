@@ -16,7 +16,7 @@ Decisions: DEC-290 (roles, the read and its audit, no replay; its Assumed list h
 and warning texts).
 """
 
-from collections.abc import Collection, Mapping
+from collections.abc import Callable, Collection, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from types import MappingProxyType
@@ -39,6 +39,7 @@ from diucs.domain.codes import AgeBand, NeedCategory, ServiceCategory, Status
 from diucs.domain.errors import Conflict, NotFound, ValidationFailed
 from diucs.domain.model.criteria import ServiceCriteria
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
+from diucs.domain.rules.coverage import coverage_circle
 from diucs.domain.rules.criteria_filter import check_hard_criteria
 from diucs.domain.rules.criteria_workflow import is_review_overdue
 from diucs.domain.rules.district_choice import candidate_districts
@@ -58,6 +59,11 @@ OVER_CAPACITY_WARNING: Final = "Over capacity now. Phone to confirm before offer
 OLD_DATA_WARNING: Final = "Data is over 2 hrs old. Consider phoning."
 CRITERIA_NOT_REVIEWED_WARNING: Final = "Criteria not reviewed"
 COVERS_POSTCODE: Final = "Covers this postcode"
+ROAD_LEG_HOW: Final = "Typical weekday afternoon. The spread is from traffic."
+STRAIGHT_LEG_HOW: Final = (
+    "A straight-line estimate, not a road route. The spread allows for slower roads."
+)
+ROUTING_SOURCE_PREFIX: Final = "Routing data"
 SHOWN_AS_OPTION: Final = "option"
 SHOWN_AS_NOT_SUITABLE: Final = "not-suitable"
 
@@ -111,6 +117,61 @@ class FilterOptionsCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class TravelLeg:
+    """One leg of a travel estimate as the travel details table shows it (W50): the leg, its range
+    in minutes, how it was measured and where the range came from."""
+
+    label: str
+    low_minutes: int
+    high_minutes: int
+    how: str
+    source: str
+
+
+@dataclass(frozen=True, slots=True)
+class Coverage:
+    """The circle a visiting service is drawn with (DEC-1175): its centre and a radius in whole
+    kilometres. A picture of where it goes, not a boundary."""
+
+    lat: float
+    lon: float
+    radius_km: int
+
+
+def travel_legs(name: str, travel: TravelRange | None) -> tuple[TravelLeg, ...]:
+    """The legs of a travel range: one, from the patient to the service. Only a range that came from
+    the routing engine is called a road route; the straight-line fallback says what it is."""
+    if travel is None:
+        return ()
+    routed = travel.source.startswith(ROUTING_SOURCE_PREFIX)
+    return (
+        TravelLeg(
+            label=f"Patient to {name}, by road"
+            if routed
+            else f"Patient to {name}, in a straight line",
+            low_minutes=travel.low_minutes,
+            high_minutes=travel.high_minutes,
+            how=ROAD_LEG_HOW if routed else STRAIGHT_LEG_HOW,
+            source=travel.source,
+        ),
+    )
+
+
+def coverage_of(
+    districts: Iterable[str], centre_of: Callable[[str], LatLon | None]
+) -> Coverage | None:
+    """The circle of the districts a service covers that the locator can place; None when it can
+    place none. A district it cannot place is left out rather than guessed."""
+    points = [
+        (place.lat, place.lon)
+        for district in sorted(set(districts))
+        if (place := centre_of(district)) is not None
+    ]
+    circle = coverage_circle(points)
+    return None if circle is None else Coverage(circle.lat, circle.lon, circle.radius_km)
+
+
+@dataclass(frozen=True, slots=True)
 class Option:
     service_id: str
     name: str
@@ -127,6 +188,14 @@ class Option:
     category: ServiceCategory | None = None
     position: LatLon | None = None
     """The place of a fixed site, from its Location; None for a service with no position."""
+    phone: str | None = None
+    """The service's own number, to phone to confirm (Q5, DEC-1100): the work phone of its profile.
+    None when the service has none; the screen then says "Phone to confirm" and no number."""
+    coverage: Coverage | None = None
+    """A visiting service's circle (DEC-1175): set for a service with no site and districts the
+    locator can place."""
+    legs: tuple[TravelLeg, ...] = ()
+    """The travel range as legs (W50)."""
 
 
 @dataclass(frozen=True, slots=True)

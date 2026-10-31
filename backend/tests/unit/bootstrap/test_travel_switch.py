@@ -1,6 +1,8 @@
 """The travel-time switch of the container (KI-200): the routing engine when one is configured,
 the straight-line estimate otherwise, and a refusal to start on a half-set configuration."""
 
+from datetime import UTC, datetime
+
 import httpx
 import pytest
 
@@ -10,7 +12,6 @@ from diucs.adapters.testing.fixed_clock import FixedClock
 from diucs.adapters.testing.memory_cache import InMemoryCache
 from diucs.bootstrap.container import build, travel_time_for
 from diucs.bootstrap.settings import Settings
-from datetime import UTC, datetime
 
 CLOCK = FixedClock(datetime(2026, 10, 23, 13, 0, tzinfo=UTC))
 

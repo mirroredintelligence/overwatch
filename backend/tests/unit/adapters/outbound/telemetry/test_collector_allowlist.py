@@ -55,7 +55,9 @@ BROWSER_KEYS_FROM_SPEC: Final = frozenset(
         "session_code_shared",
     }
 )
-BROWSER_KEYS_ADDED_HERE: Final = frozenset({"trace_id"})
+# `metric` and `reading` are the web-vital keys that stand in for the spec's `name` and `value`
+# (W9F): an enum of three codes and a number.
+BROWSER_KEYS_ADDED_HERE: Final = frozenset({"trace_id", "metric", "reading"})
 # The spec's ui.web_vital keys are free-text words (DENIED_FRAGMENTS). They are not kept anywhere:
 # the back end refuses them, the browser allow-list and the O05 schema do not send them, and the
 # collector cannot limit a key to one event, so the O04 integration removed them from the list.

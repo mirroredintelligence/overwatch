@@ -12,9 +12,7 @@ type Props = {
 };
 
 function show(value: number, unit: Vital['unit']): string {
-  if (unit === 'ms') return `${Math.round(value)} ms`;
-  if (unit === 's') return `${value} s`;
-  return String(value);
+  return unit === 'ms' ? `${Math.round(value)} ms` : String(value);
 }
 
 export function PerformanceTab({ vitals, slowestRoutes, slowestQueries, promptToBoard }: Props) {
@@ -26,6 +24,7 @@ export function PerformanceTab({ vitals, slowestRoutes, slowestQueries, promptTo
           <thead>
             <tr>
               <th scope="col">Measure</th>
+              <th scope="col">Device</th>
               <th scope="col">p75</th>
               <th scope="col">Budget</th>
               <th scope="col">Status</th>
@@ -33,11 +32,22 @@ export function PerformanceTab({ vitals, slowestRoutes, slowestQueries, promptTo
           </thead>
           <tbody>
             {vitals.map((vital) => (
-              <tr key={vital.measure}>
+              <tr key={`${vital.metric}-${vital.device}`}>
                 <td>{vital.measure}</td>
-                <td>{show(vital.p75, vital.unit)}</td>
-                <td>{show(vital.budget, vital.unit)}</td>
-                <td>{budgetStatus(vital.p75, vital.budget)}</td>
+                <td>{vital.device}</td>
+                {vital.suppressed || vital.p75 === null ? (
+                  <>
+                    <td>fewer than 10</td>
+                    <td>{show(vital.budget, vital.unit)}</td>
+                    <td></td>
+                  </>
+                ) : (
+                  <>
+                    <td>{show(vital.p75, vital.unit)}</td>
+                    <td>{show(vital.budget, vital.unit)}</td>
+                    <td>{budgetStatus(vital.p75, vital.budget)}</td>
+                  </>
+                )}
               </tr>
             ))}
           </tbody>
@@ -57,7 +67,9 @@ export function PerformanceTab({ vitals, slowestRoutes, slowestQueries, promptTo
           ))}
         </ol>
       </section>
-      {promptToBoard !== null && (
+      {promptToBoard === null ? (
+        <p className={styles.help}>Prompt to board: not measured yet.</p>
+      ) : (
         <p>
           Prompt to board: System time {promptToBoard.systemSeconds} s, Human time {promptToBoard.humanMinutes} min
         </p>

@@ -106,12 +106,12 @@ describe('exchangeStaffToken: what is made of the answer', () => {
     expect(Object.keys((again as { grant: object }).grant).sort()).toEqual(['expiresAt', 'role', 'sub', 'token']);
   });
 
-  it.each(['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit'])('accepts the staff role %s', async (role) => {
+  it.each(['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'tenant-admin'])('accepts the staff role %s', async (role) => {
     answer({ role }, { role });
     expect(await exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW)).toMatchObject({ kind: 'issued', grant: { role } });
   });
 
-  it.each(['tenant-admin', 'network-admin'])('gives no session to %s: no page of this front end is for it yet', async (role) => {
+  it.each(['network-admin'])('gives no session to %s: no page of this front end is for it yet', async (role) => {
     answer({ role }, { role });
     expect(await exchangeStaffToken(idToken({}), SIGN_IN_HOST, NOW)).toEqual({ kind: 'refused' });
   });

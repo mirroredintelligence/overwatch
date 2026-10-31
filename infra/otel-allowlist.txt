@@ -39,6 +39,7 @@ user.role
 # name and value are refused everywhere (DEC-331 item 3, superseded by DEC-332): free text
 # words in DENIED_FRAGMENTS, no browser event carries them (the BFF allow-list and the O05 schema do not),
 # and the collector has no event name to limit them to ui.web_vital. Re-admit them only with a reviewed rule.
+# ui.web_vital (W9F) uses `metric` (lcp, inp or cls), `reading` (a number) and `rating` instead.
 [browser]
 from.route
 load.type
@@ -57,6 +58,8 @@ kind
 count
 window_ms
 rating
+metric
+reading
 duration_ms
 gap_ms
 standalone

@@ -14,6 +14,9 @@ vi.mock('next/headers', async () => {
 });
 
 const URL_ = `https://${TENANTS.A.host}/api/bff/telemetry`;
+// The back end counts the same batch into the tenant's aggregates (W9F), at its root.
+const BACKEND_ROOT = 'http://backend.test';
+const BACKEND_UI = `${BACKEND_ROOT}/telemetry/ui`;
 // OTEL_HTTP_ENDPOINT is the collector's base. ui.* events are log records (DEC-331 item 5), so the
 // batch goes to its OTLP logs receiver as OTLP/JSON (O04 mismatch, decided in DEC-740).
 const COLLECTOR = 'https://collector.test';
@@ -42,13 +45,24 @@ const batch = (attributes: Record<string, unknown>) => ({
 });
 
 let forwarded: unknown[];
+let counted: Array<{ authorization: string | null; contentType: string | null; body: unknown }>;
 
 beforeEach(() => {
   vi.stubEnv('SESSION_SECRET', TEST_SESSION_SECRET);
   vi.stubEnv('NODE_ENV', 'production');
   vi.stubEnv('OTEL_HTTP_ENDPOINT', COLLECTOR);
+  vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
   forwarded = [];
+  counted = [];
   server.use(
+    http.post(BACKEND_UI, async ({ request }) => {
+      counted.push({
+        authorization: request.headers.get('authorization'),
+        contentType: request.headers.get('content-type'),
+        body: await request.json(),
+      });
+      return HttpResponse.json({ accepted: 1, dropped: 0 });
+    }),
     http.post(LOGS_RECEIVER, async ({ request }) => {
       forwarded.push(await request.json());
       return new HttpResponse(null, { status: 202 });
@@ -136,5 +150,77 @@ describe('POST /api/bff/telemetry', () => {
 
     expect(response.status).toBe(204);
     expect(forwarded).toEqual([]);
+  });
+
+  describe('the back end counts the batch (W9F)', () => {
+    it('sends the events that passed the allow-list to the back end with the session token, and no tenant', async () => {
+      const response = await post({
+        events: [
+          {
+            name: 'ui.click',
+            at: 1_700_000_000_000,
+            attributes: {
+              'session.id': 'a1b2c3d4e5f60718',
+              release: '0.1.0',
+              'device.type': 'desktop',
+              'element.id': 'ADV-OPT-REQUEST-BTN',
+              'tenant.id': 'tenant-b',
+              'field.value': 'DT4 8XX',
+            },
+          },
+        ],
+      });
+
+      expect(response.status).toBe(204);
+      expect(counted).toHaveLength(1);
+      expect(counted[0]?.authorization).toBe('Bearer backend-token');
+      expect(counted[0]?.contentType).toContain('json');
+      expect(counted[0]?.body).toEqual({
+        events: [
+          {
+            name: 'ui.click',
+            attributes: {
+              'session.id': 'a1b2c3d4e5f60718',
+              release: '0.1.0',
+              'device.type': 'desktop',
+              'element.id': 'ADV-OPT-REQUEST-BTN',
+            },
+          },
+        ],
+      });
+      expect(JSON.stringify(counted)).not.toContain('tenant');
+      expect(JSON.stringify(counted)).not.toContain('DT4');
+    });
+
+    it('counts the batch even when no collector is set', async () => {
+      vi.stubEnv('OTEL_HTTP_ENDPOINT', '');
+
+      await post(batch({ 'element.id': 'ADV-REF-INPUT' }));
+
+      expect(counted).toHaveLength(1);
+      expect(forwarded).toEqual([]);
+    });
+
+    it('asks the back end for nothing when no event passed the allow-list', async () => {
+      await post({ events: [{ name: 'patient.lookup', at: 1, attributes: {} }] });
+
+      expect(counted).toEqual([]);
+    });
+
+    it('answers 204 whatever the back end does, and never says what it kept', async () => {
+      server.use(http.post(BACKEND_UI, () => HttpResponse.json({ code: 'x' }, { status: 503 })));
+
+      const response = await post(batch({ 'element.id': 'ADV-REF-INPUT' }));
+
+      expect(response.status).toBe(204);
+      expect(await response.text()).toBe('');
+    });
+
+    it('does not count a batch from another origin or with no session', async () => {
+      await post(batch({ 'element.id': 'ADV-REF-INPUT' }), 'advisor', { origin: 'https://evil.test' });
+      await post(batch({ 'element.id': 'ADV-REF-INPUT' }), null);
+
+      expect(counted).toEqual([]);
+    });
   });
 });

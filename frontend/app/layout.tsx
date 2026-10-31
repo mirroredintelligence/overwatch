@@ -5,6 +5,7 @@ import { RegisterServiceWorker } from '@/components/pwa/RegisterServiceWorker';
 import { BfcacheGuard } from '@/components/session/BfcacheGuard';
 import { PRODUCT_NAME } from '@/lib/product';
 import { currentProfile } from '@/lib/tenant/profile';
+import { Telemetry } from './Telemetry';
 import './tokens.css';
 
 // Every page is rendered per request, so Next.js can put this request's nonce on its scripts (S01).
@@ -41,6 +42,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="en-GB" className={atkinson.variable}>
       <body>
         <BfcacheGuard />
+        <Telemetry />
         {children}
         <RegisterServiceWorker />
       </body>

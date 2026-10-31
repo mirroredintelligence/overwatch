@@ -32,6 +32,7 @@ from diucs.adapters.outbound.graph_store.migration_types import (
     MigrationFailed,
 )
 from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
+from diucs.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_platform import PLATFORM_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
@@ -186,6 +187,7 @@ MIGRATIONS: Final[list[Migration]] = assemble_migrations(
     SAFETY_MIGRATIONS,
     CONTRACT_MIGRATIONS,
     PLATFORM_MIGRATIONS,
+    INSIGHT_MIGRATIONS,
 )
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

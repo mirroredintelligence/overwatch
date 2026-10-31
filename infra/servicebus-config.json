@@ -45,6 +45,20 @@
               "RequiresDuplicateDetection": false,
               "RequiresSession": false
             }
+          },
+          {
+            "Name": "projection.work",
+            "Properties": {
+              "DeadLetteringOnMessageExpiration": true,
+              "DefaultMessageTimeToLive": "PT1H",
+              "DuplicateDetectionHistoryTimeWindow": "PT20S",
+              "ForwardDeadLetteredMessagesTo": "",
+              "ForwardTo": "",
+              "LockDuration": "PT1M",
+              "MaxDeliveryCount": 10,
+              "RequiresDuplicateDetection": false,
+              "RequiresSession": false
+            }
           }
         ],
         "Topics": [
@@ -81,7 +95,7 @@
                 }
               },
               {
-                "Name": "analytics-aggregator",
+                "Name": "network-projector",
                 "Properties": {
                   "DeadLetteringOnMessageExpiration": true,
                   "DefaultMessageTimeToLive": "PT1H",
@@ -103,18 +117,6 @@
             },
             "Subscriptions": [
               {
-                "Name": "notifier",
-                "Properties": {
-                  "DeadLetteringOnMessageExpiration": true,
-                  "DefaultMessageTimeToLive": "PT1H",
-                  "ForwardDeadLetteredMessagesTo": "",
-                  "ForwardTo": "",
-                  "LockDuration": "PT1M",
-                  "MaxDeliveryCount": 10,
-                  "RequiresSession": false
-                }
-              },
-              {
                 "Name": "board-projector",
                 "Properties": {
                   "DeadLetteringOnMessageExpiration": true,
@@ -127,19 +129,7 @@
                 }
               },
               {
-                "Name": "advisor-stream",
-                "Properties": {
-                  "DeadLetteringOnMessageExpiration": true,
-                  "DefaultMessageTimeToLive": "PT1H",
-                  "ForwardDeadLetteredMessagesTo": "",
-                  "ForwardTo": "",
-                  "LockDuration": "PT1M",
-                  "MaxDeliveryCount": 10,
-                  "RequiresSession": false
-                }
-              },
-              {
-                "Name": "analytics",
+                "Name": "network-projector",
                 "Properties": {
                   "DeadLetteringOnMessageExpiration": true,
                   "DefaultMessageTimeToLive": "PT1H",
@@ -161,31 +151,7 @@
             },
             "Subscriptions": [
               {
-                "Name": "notifier",
-                "Properties": {
-                  "DeadLetteringOnMessageExpiration": true,
-                  "DefaultMessageTimeToLive": "PT1H",
-                  "ForwardDeadLetteredMessagesTo": "",
-                  "ForwardTo": "",
-                  "LockDuration": "PT1M",
-                  "MaxDeliveryCount": 10,
-                  "RequiresSession": false
-                }
-              },
-              {
-                "Name": "lead-queue-projector",
-                "Properties": {
-                  "DeadLetteringOnMessageExpiration": true,
-                  "DefaultMessageTimeToLive": "PT1H",
-                  "ForwardDeadLetteredMessagesTo": "",
-                  "ForwardTo": "",
-                  "LockDuration": "PT1M",
-                  "MaxDeliveryCount": 10,
-                  "RequiresSession": false
-                }
-              },
-              {
-                "Name": "analytics",
+                "Name": "network-projector",
                 "Properties": {
                   "DeadLetteringOnMessageExpiration": true,
                   "DefaultMessageTimeToLive": "PT1H",
@@ -207,19 +173,7 @@
             },
             "Subscriptions": [
               {
-                "Name": "notifier",
-                "Properties": {
-                  "DeadLetteringOnMessageExpiration": true,
-                  "DefaultMessageTimeToLive": "PT1H",
-                  "ForwardDeadLetteredMessagesTo": "",
-                  "ForwardTo": "",
-                  "LockDuration": "PT1M",
-                  "MaxDeliveryCount": 10,
-                  "RequiresSession": false
-                }
-              },
-              {
-                "Name": "flag-maintainer",
+                "Name": "network-projector",
                 "Properties": {
                   "DeadLetteringOnMessageExpiration": true,
                   "DefaultMessageTimeToLive": "PT1H",
@@ -251,30 +205,6 @@
                   "MaxDeliveryCount": 10,
                   "RequiresSession": false
                 }
-              },
-              {
-                "Name": "escalation-timer",
-                "Properties": {
-                  "DeadLetteringOnMessageExpiration": true,
-                  "DefaultMessageTimeToLive": "PT1H",
-                  "ForwardDeadLetteredMessagesTo": "",
-                  "ForwardTo": "",
-                  "LockDuration": "PT1M",
-                  "MaxDeliveryCount": 10,
-                  "RequiresSession": false
-                }
-              },
-              {
-                "Name": "analytics",
-                "Properties": {
-                  "DeadLetteringOnMessageExpiration": true,
-                  "DefaultMessageTimeToLive": "PT1H",
-                  "ForwardDeadLetteredMessagesTo": "",
-                  "ForwardTo": "",
-                  "LockDuration": "PT1M",
-                  "MaxDeliveryCount": 10,
-                  "RequiresSession": false
-                }
               }
             ]
           },
@@ -296,7 +226,18 @@
                   "LockDuration": "PT1M",
                   "MaxDeliveryCount": 10,
                   "RequiresSession": false
-                }
+                },
+                "Rules": [
+                  {
+                    "Name": "channel-text",
+                    "Properties": {
+                      "FilterType": "SqlFilter",
+                      "SqlFilter": {
+                        "SqlExpression": "channel = 'text'"
+                      }
+                    }
+                  }
+                ]
               },
               {
                 "Name": "email-sender",
@@ -308,10 +249,88 @@
                   "LockDuration": "PT1M",
                   "MaxDeliveryCount": 10,
                   "RequiresSession": false
-                }
+                },
+                "Rules": [
+                  {
+                    "Name": "channel-email",
+                    "Properties": {
+                      "FilterType": "SqlFilter",
+                      "SqlFilter": {
+                        "SqlExpression": "channel = 'email'"
+                      }
+                    }
+                  }
+                ]
               },
               {
                 "Name": "push-sender",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": true,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "RequiresSession": false
+                },
+                "Rules": [
+                  {
+                    "Name": "channel-push",
+                    "Properties": {
+                      "FilterType": "SqlFilter",
+                      "SqlFilter": {
+                        "SqlExpression": "channel = 'push'"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Name": "codes.dispatch",
+            "Properties": {
+              "DefaultMessageTimeToLive": "PT1H",
+              "DuplicateDetectionHistoryTimeWindow": "PT20S",
+              "RequiresDuplicateDetection": false
+            },
+            "Subscriptions": [
+              {
+                "Name": "code-sender",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": true,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "RequiresSession": false
+                }
+              }
+            ]
+          },
+          {
+            "Name": "network.events",
+            "Properties": {
+              "DefaultMessageTimeToLive": "PT1H",
+              "DuplicateDetectionHistoryTimeWindow": "PT20S",
+              "RequiresDuplicateDetection": false
+            },
+            "Subscriptions": [
+              {
+                "Name": "network-projector",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": true,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "ForwardDeadLetteredMessagesTo": "",
+                  "ForwardTo": "",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "RequiresSession": false
+                }
+              },
+              {
+                "Name": "network-board-projector",
                 "Properties": {
                   "DeadLetteringOnMessageExpiration": true,
                   "DefaultMessageTimeToLive": "PT1H",

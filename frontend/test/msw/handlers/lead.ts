@@ -9,6 +9,8 @@ export type SeenLeadPost = {
   csrf: string | null;
   idempotencyKey: string | null;
   body: unknown;
+  /** The `If-Match` header of a PUT. */
+  ifMatch?: string | null;
 };
 
 /** Every lead POST this test file's handlers saw, newest last. */
@@ -42,6 +44,7 @@ async function recorded(request: Request, path: string) {
     csrf: request.headers.get('x-csrf-token'),
     idempotencyKey: request.headers.get('idempotency-key'),
     body,
+    ifMatch: request.headers.get('if-match'),
   });
 }
 
@@ -63,12 +66,14 @@ export const FLAG_CHOICES = [
  */
 export const SCREEN_LIST = {
   scope: 'tenant',
-  networks: [],
+  networks: [{ id: 'net-west', name: 'West Dorset system' }],
   asOf: '2026-10-30T10:00:00Z',
   screens: [
     { deviceId: 's-2', name: 'Day room', location: null, state: 'waiting', status: 'paired-unclaimed', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-30T09:59:00Z', lastSeenAt: null, revokedAt: null },
     { deviceId: 's-1', name: 'Ward 4 corridor', location: 'Level 2', state: 'online', status: 'active', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-27T10:00:00Z', lastSeenAt: '2026-10-30T09:59:20Z', revokedAt: null },
     { deviceId: 's-3', name: 'Reception', location: 'Ground floor', state: 'offline', status: 'active', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-20T08:30:00Z', lastSeenAt: '2026-10-30T07:40:00Z', revokedAt: null },
+    { deviceId: 's-5', name: 'Staff room', location: 'Level 1', state: 'online', status: 'active', boardScope: 'network', networkId: 'net-west', networkName: 'West Dorset system', networkAvailable: true, scopeVersion: 3, pairedAt: '2026-10-28T08:00:00Z', lastSeenAt: '2026-10-30T09:58:00Z', revokedAt: null },
+    { deviceId: 's-6', name: 'Lobby', location: null, state: 'online', status: 'active', boardScope: 'network', networkId: 'net-gone', networkName: 'Old system', networkAvailable: false, scopeVersion: 2, pairedAt: '2026-10-28T08:00:00Z', lastSeenAt: '2026-10-30T09:58:00Z', revokedAt: null },
     { deviceId: 's-4', name: 'Old canteen screen', location: null, state: 'revoked', status: 'revoked', boardScope: 'tenant', networkId: null, networkName: null, networkAvailable: true, scopeVersion: 1, pairedAt: '2026-10-01T08:30:00Z', lastSeenAt: '2026-10-29T16:00:00Z', revokedAt: '2026-10-29T16:05:00Z' },
   ],
 };
@@ -178,6 +183,14 @@ export const leadHandlers = [
   http.post('/api/bff/screens/:id/revoke', async ({ request, params }) => {
     await recorded(request, `/api/bff/screens/${String(params.id)}/revoke`);
     return HttpResponse.json({ deviceId: String(params.id), state: 'revoked', revokedAt: '2026-10-30T10:00:00Z' }, { headers: NO_STORE });
+  }),
+  http.put('/api/bff/screens/:id/board-scope', async ({ request, params }) => {
+    await recorded(request, `/api/bff/screens/${String(params.id)}/board-scope`);
+    const body = (await request.clone().json()) as { boardScope: string; networkId?: string };
+    return HttpResponse.json(
+      { deviceId: String(params.id), boardScope: body.boardScope, networkId: body.networkId ?? null, networkName: body.networkId === undefined ? null : 'West Dorset system', networkAvailable: true, scopeVersion: 4 },
+      { headers: NO_STORE },
+    );
   }),
   http.get('/api/bff/lead/phones', () => HttpResponse.json({ phones: PHONE_CHOICES }, { headers: NO_STORE })),
   http.get('/api/bff/lead/invitations', () => HttpResponse.json({ items: INVITATION_CHOICES }, { headers: NO_STORE })),

@@ -56,6 +56,7 @@ from overwatch.application.ports.outbound.support import SupportRepository
 from overwatch.application.ports.outbound.support_tickets import SupportTicketRepository
 from overwatch.application.ports.outbound.tenant_config import TenantConfigRepository
 from overwatch.application.ports.outbound.tokens import LinkTokenRepository
+from overwatch.application.ports.outbound.visits import VisitRepository
 from overwatch.application.tenancy import ScopeId
 
 
@@ -93,6 +94,7 @@ class UnitOfWork(Protocol):
     insight: InsightRepository
     support_tickets: SupportTicketRepository
     tenant_config: TenantConfigRepository
+    visits: VisitRepository
 
     @property
     def read_only(self) -> bool:

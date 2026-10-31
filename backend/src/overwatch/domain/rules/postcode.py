@@ -46,6 +46,19 @@ def postcode_district(postcode: str) -> str:
     return postcode.split(" ", 1)[0]
 
 
+def postcode_sector(postcode: str) -> str:
+    """Return the sector of a normalised full postcode: the outward code and the first digit of the
+    inward code ('DT4 8AB' gives 'DT4 8'), about two thousand addresses (DEC-1308).
+
+    Raises ValidationFailed for anything that is not already in canonical form. The message
+    deliberately does not repeat the value.
+    """
+    if FULL_POSTCODE.fullmatch(postcode) is None:
+        raise ValidationFailed("postcode", "must be a normalised full postcode")
+    outward, inward = postcode.split(" ", 1)
+    return f"{outward} {inward[0]}"
+
+
 _PARTIAL_INWARD = re.compile(r"[0-9][A-Z]{0,2}")
 
 

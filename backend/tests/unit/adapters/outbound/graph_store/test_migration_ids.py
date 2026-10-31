@@ -26,6 +26,7 @@ from overwatch.adapters.outbound.graph_store.migrations_tenant import TENANT_MIG
 from overwatch.adapters.outbound.graph_store.migrations_tenant_config import (
     TENANT_CONFIG_MIGRATIONS,
 )
+from overwatch.adapters.outbound.graph_store.migrations_visits import VISIT_MIGRATIONS
 
 CORE_IDS = [
     "0001_resource_id",
@@ -189,6 +190,7 @@ def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_togethe
         + len(CONTRACT_MIGRATIONS)
         + len(PLATFORM_MIGRATIONS)
         + len(INSIGHT_MIGRATIONS)
+        + len(VISIT_MIGRATIONS)
     )
     assert {m.id for m in MIGRATIONS} == (
         {m.id for m in CORE_MIGRATIONS}
@@ -201,6 +203,7 @@ def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_togethe
         | {m.id for m in CONTRACT_MIGRATIONS}
         | {m.id for m in PLATFORM_MIGRATIONS}
         | {m.id for m in INSIGHT_MIGRATIONS}
+        | {m.id for m in VISIT_MIGRATIONS}
     )
 
 

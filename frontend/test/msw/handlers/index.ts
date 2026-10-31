@@ -8,6 +8,7 @@ import { linkHandlers } from './links';
 import { networkAdminHandlers } from './networkAdmin';
 import { ownScopeHandlers } from './networkBff';
 import { operatorHandlers } from './operator';
+import { practitionerHandlers } from './practitioner';
 import { profileHandlers } from './profile';
 import { registrationHandlers as reviewerRegistrationHandlers, registrationStepHandlers } from './registrations';
 import { reporterHandlers } from './reporter';
@@ -30,6 +31,7 @@ export const handlers: RequestHandler[] = [
   ...criteriaHandlers,
   ...leadHandlers,
   ...reporterHandlers,
+  ...practitionerHandlers,
   ...profileHandlers,
   ...tenantDataHandlers,
   ...ownScopeHandlers,

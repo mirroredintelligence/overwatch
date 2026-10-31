@@ -26,6 +26,8 @@ def test_the_work_kinds_are_named_as_the_spec_names_them() -> None:
         "withdrawal-escalate",
         # Added by TEN-056: the projection heartbeat of a tenant that shares capacity.
         "projection-heartbeat",
+        # Added by DEC-1308: the close of a visit offer.
+        "visit-close",
     }
 
 

@@ -31,6 +31,9 @@ class WorkKind(StrEnum):
     # The projection heartbeat of one tenant that shares capacity with a network (TEN-056): its own
     # chain, one scheduled job at a time, that re-projects and reconciles and schedules the next.
     PROJECTION_HEARTBEAT = "projection-heartbeat"
+    # The close of a visit offer (DEC-1308 item 7): once its time is up, or a day after it was
+    # accepted, whatever is left of it (the sealed address and contact, the sector) is erased.
+    VISIT_CLOSE = "visit-close"
 
 
 SCHEDULED = "scheduled"

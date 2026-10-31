@@ -14,6 +14,7 @@ import { handlePairingRoute, isWallToken } from './pairing';
 import { handleNetworkRoute } from './network';
 import { handleNetworkAdminRoute } from './networkAdmin';
 import { handlePlatformRoute } from './platform';
+import { handlePractitionerRoute } from './practitioner';
 import { handleRadarRoute } from './radar';
 
 // A stand-in for the back end, for the browser tests. Like the real one it answers
@@ -188,6 +189,11 @@ export function startMockBackend(): Promise<Server> {
       });
     } else if (/^\/(invitations|reporter|identity|public\/push-key)(\/|$)/.test(url.pathname)) {
       void handleReporterRoute(request, response, url.pathname).then((handled) => {
+        if (!handled) response.writeHead(404).end();
+      });
+    } else if (url.pathname.startsWith('/practitioner/')) {
+      // The practitioner app's routes (e2e/support/practitioner.ts).
+      void handlePractitionerRoute(request, response, url.pathname).then((handled) => {
         if (!handled) response.writeHead(404).end();
       });
     } else if (url.pathname.startsWith('/links/')) {

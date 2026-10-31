@@ -39,7 +39,7 @@ export async function readJson(request: Request): Promise<unknown> {
 }
 
 type Call<T> = {
-  method?: 'GET' | 'POST';
+  method?: 'GET' | 'POST' | 'PUT';
   body?: unknown;
   key?: string;
   parse: (body: unknown) => T | null;

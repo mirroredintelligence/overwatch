@@ -42,6 +42,7 @@ from overwatch.adapters.outbound.graph_store.migrations_tenant import TENANT_MIG
 from overwatch.adapters.outbound.graph_store.migrations_tenant_config import (
     TENANT_CONFIG_MIGRATIONS,
 )
+from overwatch.adapters.outbound.graph_store.migrations_visits import VISIT_MIGRATIONS
 
 _CORE_MIGRATIONS: list[tuple[str, str]] = [
     (
@@ -190,6 +191,7 @@ MIGRATIONS: Final[list[Migration]] = assemble_migrations(
     CONTRACT_MIGRATIONS,
     PLATFORM_MIGRATIONS,
     INSIGHT_MIGRATIONS,
+    VISIT_MIGRATIONS,
 )
 
 _APPLIED = "MATCH (m:Migration) RETURN m.id AS id"

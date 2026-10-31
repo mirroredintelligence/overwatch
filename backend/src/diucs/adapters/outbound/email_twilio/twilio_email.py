@@ -1,4 +1,5 @@
-"""Twilio Email adapter: sends an email through Twilio's own Email API (DEC-131 correction, DEC-1130).
+"""Twilio Email adapter: sends an email through Twilio's own Email API (DEC-131 correction,
+DEC-1130).
 
 `POST https://comms.twilio.com/v1/Emails` with the tenant subaccount's Account SID and Auth Token,
 the same credentials as its texts. The API is asynchronous: it answers 202 with an operation id,

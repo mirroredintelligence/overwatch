@@ -9,9 +9,9 @@ inbound webhook (I07).
 Email (TEN-042, DEC-1130): the caller reads the tenant's active email channel in its own unit of
 work and hands the record over. A Twilio email channel (the provider of every new one) is sent with
 a TwilioEmail on the same subaccount, Account SID and token as the tenant's text line. A channel
-recorded before DEC-1130 still names the SMTP relay; for it the resolver builds an SmtpEmail from the channel's sender address and
-display name, the login (the channel's address) and the password, which is the secret the channel's
-own reference names. Every credential is a network secret read from the secret store by a reference
+recorded before DEC-1130 still names the SMTP relay; for it the resolver builds an SmtpEmail from
+the channel's sender address and display name, the login (the channel's address) and the
+password, which is the secret the channel's own reference names. Every credential is a network secret read from the secret store by a reference
 of the shape `<kind>/<own tenant>/<name>` (TEN-026), checked again here for the bound tenant; none
 is an environment variable or a value in git. The relay endpoint is the platform's (`SmtpRelay`).
 

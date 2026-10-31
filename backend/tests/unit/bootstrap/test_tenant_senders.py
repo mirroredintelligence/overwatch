@@ -372,8 +372,8 @@ def test_the_status_callback_is_the_inbound_webhook_of_this_deployment() -> None
     assert status_callback_url(Settings(base_url="https://diucs.example")) == STATUS_URL
 
 
-# Email through Twilio's own Email API: the tenant's own subaccount, the same credentials as its text
-# line, a sender address the tenant verified in Twilio (DEC-1130).
+# Email through Twilio's own Email API: the tenant's own subaccount, the same credentials as its
+# text line, a sender address the tenant verified in Twilio (DEC-1130).
 
 
 def _twilio_channel(**changes: Any) -> TenantChannel:
@@ -409,7 +409,7 @@ async def test_a_twilio_email_channel_resolves_to_a_sender_on_the_tenants_own_su
     assert directory.asked == [SAMPLE_ID]
 
 
-async def test_the_twilio_email_sender_sends_from_the_channels_address_with_the_lines_credentials() -> (
+async def test_the_twilio_email_sender_sends_with_the_channels_address_and_the_lines_login() -> (
     None
 ):
     import base64

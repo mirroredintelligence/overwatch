@@ -7,6 +7,7 @@ model as a text.
 """
 
 import base64
+import contextlib
 import json
 import logging
 
@@ -203,10 +204,8 @@ async def test_nothing_that_identifies_a_person_or_a_secret_is_logged(
     for response in (_accepted(), httpx.Response(503), httpx.Response(401, json={"code": 1})):
         _, transport = _recording(response)
         async with httpx.AsyncClient(transport=transport) as client:
-            try:
+            with contextlib.suppress(SendFailedError, TransientSendError):
                 await _email(client).send(TO, SUBJECT, TEXT, HTML)
-            except SendFailedError, TransientSendError:
-                pass
 
     logged = caplog.text
     for secret in (TO, TOKEN, TEXT, SUBJECT, "diucs.example/l/abc", ACCOUNT):

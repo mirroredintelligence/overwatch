@@ -6,6 +6,7 @@ import { requestWithCookies, TEST_SESSION_SECRET } from '@/test/cookies';
 import { BACKEND_BASE } from '@/test/msw/handlers/board';
 import { server } from '@/test/msw/server';
 import { OPTIONS_PARAMETERS, OPTIONS_VIEW } from '@/test/fixtures/options';
+import { OPTIONS as BACKEND_OPTIONS } from '@/test/fixtures/backend-shapes';
 import { GET } from './route';
 
 vi.mock('next/headers', async () => {
@@ -14,6 +15,7 @@ vi.mock('next/headers', async () => {
 });
 
 const FILTER_URL = `${BACKEND_BASE}/HealthcareService/$filter-options`;
+const NETWORKS_URL = 'http://backend.test/networks';
 type Seen = { body: unknown; key: string | null; token: string | null };
 const seen: Seen[] = [];
 
@@ -43,6 +45,8 @@ beforeEach(() => {
   vi.stubEnv('DIUCS_FHIR_BASE_URL', BACKEND_BASE);
   vi.stubEnv('NODE_ENV', 'production');
   server.use(
+    // By default the organisation is in no network: nothing more is read.
+    http.get(NETWORKS_URL, () => HttpResponse.json({ networks: [] })),
     http.post(FILTER_URL, async ({ request }) => {
       seen.push({
         body: await request.clone().json(),
@@ -125,5 +129,134 @@ describe('GET /api/bff/cases/[ref]/options (W13)', () => {
     expect(seen).toHaveLength(1);
     expect(seen[0].token).toBe('Bearer token-for-advisor');
     expect(JSON.stringify(seen[0].body)).not.toMatch(/tenant|organisation|other/);
+  });
+});
+
+// The other organisations' services, view only (KI-349, KI-181, KI-794, DEC-1176).
+describe('GET /api/bff/cases/[ref]/options: the network services (B6)', () => {
+  const networkOption = (BACKEND_OPTIONS.parameter as { name: string }[]).find(
+    (item) => item.name === 'option' && JSON.stringify(item).includes('Neighbouring Trust'),
+  );
+  const ownParameters = {
+    resourceType: 'Parameters',
+    parameter: (BACKEND_OPTIONS.parameter as { name: string }[]).filter((item) => item !== networkOption),
+  };
+  const networkParameters = { resourceType: 'Parameters', parameter: [networkOption] };
+  type Reply = { options: { serviceId: string; network: { organisation: string } | null; phone: string | null }[]; network: string };
+
+  function answerWithNetworks(networks: { id: string }[]) {
+    const calls: { body: unknown; key: string | null }[] = [];
+    server.use(
+      http.get(NETWORKS_URL, () => HttpResponse.json({ networks })),
+      http.post(FILTER_URL, async ({ request }) => {
+        const body = (await request.clone().json()) as { parameter: { name: string }[] };
+        calls.push({ body, key: request.headers.get('idempotency-key') });
+        return HttpResponse.json(body.parameter.some((part) => part.name === 'network') ? networkParameters : ownParameters);
+      }),
+    );
+    return calls;
+  }
+
+  it('reads the networks of the session, then the network options of each, and puts them after the own services, each tagged with its organisation', async () => {
+    const calls = answerWithNetworks([{ id: 'net-aa11' }]);
+
+    const reply = (await (await get('advisor')).json()) as Reply;
+
+    expect(calls).toHaveLength(2);
+    expect(calls[1]?.body).toEqual({
+      resourceType: 'Parameters',
+      parameter: [
+        { name: 'case', valueReference: { reference: 'ServiceRequest/4821' } },
+        { name: 'network', valueString: 'net-aa11' },
+      ],
+    });
+    expect(calls[0]?.key).not.toBe(calls[1]?.key);
+    expect(reply.options.map((option) => option.serviceId)).toEqual(['svc-1', 'svc-2', 'svc-4', 'net-1']);
+    expect(reply.options[3]).toMatchObject({ network: { organisation: 'Neighbouring Trust' }, phone: '01305 900300' });
+    expect(reply.options.slice(0, 3).every((option) => option.network === null)).toBe(true);
+    expect(reply.network).toBe('shown');
+  });
+
+  it('a row of the own answer that names an organisation is not taken as the viewer\'s own, and a network row with none is dropped', async () => {
+    server.use(
+      http.get(NETWORKS_URL, () => HttpResponse.json({ networks: [{ id: 'net-aa11' }] })),
+      http.post(FILTER_URL, async ({ request }) => {
+        const body = (await request.clone().json()) as { parameter: { name: string }[] };
+        const isNetwork = body.parameter.some((part) => part.name === 'network');
+        // A network answer whose row has no organisation must not be shown as the viewer's own service.
+        return HttpResponse.json(isNetwork ? { resourceType: 'Parameters', parameter: [(ownParameters.parameter as unknown[])[0]] } : ownParameters);
+      }),
+    );
+
+    const reply = (await (await get('advisor')).json()) as Reply;
+
+    expect(reply.options.map((option) => option.serviceId)).toEqual(['svc-1', 'svc-2', 'svc-4']);
+  });
+
+  it('says none when the organisation is in no network, and reads no network options', async () => {
+    const reply = (await (await get('advisor')).json()) as Reply;
+
+    expect(seen).toHaveLength(1);
+    expect(reply.network).toBe('none');
+  });
+
+  it('a failed network read leaves the own services and says the network could not be read', async () => {
+    server.use(http.get(NETWORKS_URL, () => HttpResponse.json({}, { status: 500 })));
+
+    const response = await get('advisor');
+    const reply = (await response.json()) as Reply;
+
+    expect(response.status).toBe(200);
+    expect(reply.options.length).toBeGreaterThan(0);
+    expect(reply.network).toBe('unavailable');
+  });
+
+  it('a refused network option read does the same', async () => {
+    server.use(
+      http.get(NETWORKS_URL, () => HttpResponse.json({ networks: [{ id: 'net-aa11' }] })),
+      http.post(FILTER_URL, async ({ request }) => {
+        const body = (await request.clone().json()) as { parameter: { name: string }[] };
+        if (body.parameter.some((part) => part.name === 'network')) return HttpResponse.json({}, { status: 404 });
+        return HttpResponse.json(ownParameters);
+      }),
+    );
+
+    const reply = (await (await get('advisor')).json()) as Reply;
+
+    expect(reply.options.every((option) => option.network === null)).toBe(true);
+    expect(reply.network).toBe('unavailable');
+  });
+
+  it('reads at most three networks, and never an id that is not a network id', async () => {
+    const calls = answerWithNetworks([{ id: 'net-aa11' }, { id: 'not a network' }, { id: 'net-bb22' }, { id: 'net-cc33' }, { id: 'net-dd44' }]);
+
+    await get('advisor');
+
+    const named = calls.map((call) => (call.body as { parameter: { name: string; valueString?: string }[] }).parameter.find((part) => part.name === 'network')?.valueString);
+    expect(named).toEqual([undefined, 'net-aa11', 'net-bb22', 'net-cc33']);
+  });
+
+  it('with only=own it reads the own services and nothing else (the outcome form needs no network row)', async () => {
+    const cookies = { [SESSION_COOKIE]: await sealSession(session('advisor')) };
+    const calls = answerWithNetworks([{ id: 'net-aa11' }]);
+
+    const response = await GET(
+      requestWithCookies('https://app.test/api/bff/cases/4821/options?only=own', cookies),
+      { params: Promise.resolve({ ref: '4821' }) },
+    );
+    const reply = (await response.json()) as Reply;
+
+    expect(calls).toHaveLength(1);
+    expect(reply.options.every((option) => option.network === null)).toBe(true);
+    expect(reply.network).toBe('none');
+  });
+
+  it('puts no network id, tenant or network name in the answer beyond the organisation name', async () => {
+    answerWithNetworks([{ id: 'net-aa11' }]);
+
+    const text = JSON.stringify(await (await get('advisor')).json());
+
+    expect(text).not.toContain('net-aa11');
+    expect(text).not.toMatch(/tenant/i);
   });
 });

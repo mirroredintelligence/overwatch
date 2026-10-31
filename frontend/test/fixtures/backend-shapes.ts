@@ -203,6 +203,10 @@ export const OPTIONS = {
           "valueDecimal": -2.45
         },
         {
+          "name": "phone",
+          "valueString": "01305 900100"
+        },
+        {
           "name": "travelLow",
           "valueInteger": 15
         },
@@ -213,6 +217,31 @@ export const OPTIONS = {
         {
           "name": "travelSource",
           "valueString": "road estimate"
+        },
+        {
+          "name": "leg",
+          "part": [
+            {
+              "name": "label",
+              "valueString": "Patient to UCR West, by road"
+            },
+            {
+              "name": "low",
+              "valueInteger": 15
+            },
+            {
+              "name": "high",
+              "valueInteger": 25
+            },
+            {
+              "name": "how",
+              "valueString": "Typical weekday afternoon."
+            },
+            {
+              "name": "source",
+              "valueString": "road estimate"
+            }
+          ]
         },
         {
           "name": "dataAgeSeconds",
@@ -262,6 +291,120 @@ export const OPTIONS = {
       ]
     },
     {
+      "name": "option",
+      "part": [
+        {
+          "name": "serviceId",
+          "valueString": "svc-4"
+        },
+        {
+          "name": "name",
+          "valueString": "Visiting Nurses"
+        },
+        {
+          "name": "status",
+          "valueCode": "accepting"
+        },
+        {
+          "name": "criteriaVersion",
+          "valueInteger": 2
+        },
+        {
+          "name": "unitLabel",
+          "valueString": "visits today"
+        },
+        {
+          "name": "effectiveAvailable",
+          "valueInteger": 2
+        },
+        {
+          "name": "lat",
+          "valueDecimal": 50.71
+        },
+        {
+          "name": "lon",
+          "valueDecimal": -2.44
+        },
+        {
+          "name": "coverageRadiusKm",
+          "valueDecimal": 15.0
+        },
+        {
+          "name": "phone",
+          "valueString": "01305 900200"
+        },
+        {
+          "name": "dataAgeSeconds",
+          "valueInteger": 1200
+        }
+      ]
+    },
+    {
+      "name": "option",
+      "part": [
+        {
+          "name": "serviceId",
+          "valueString": "net-1"
+        },
+        {
+          "name": "name",
+          "valueString": "Neighbour UCR"
+        },
+        {
+          "name": "status",
+          "valueCode": "accepting"
+        },
+        {
+          "name": "criteriaVersion",
+          "valueInteger": 1
+        },
+        {
+          "name": "unitLabel",
+          "valueString": "referrals in the next 2 hrs"
+        },
+        {
+          "name": "effectiveAvailable",
+          "valueInteger": 1
+        },
+        {
+          "name": "lat",
+          "valueDecimal": 50.8
+        },
+        {
+          "name": "lon",
+          "valueDecimal": -2.5
+        },
+        {
+          "name": "phone",
+          "valueString": "01305 900300"
+        },
+        {
+          "name": "organisation",
+          "valueString": "Neighbouring Trust"
+        },
+        {
+          "name": "organisationSource",
+          "valueString": "Entered by the organisation"
+        },
+        {
+          "name": "travelLow",
+          "valueInteger": 30
+        },
+        {
+          "name": "travelHigh",
+          "valueInteger": 40
+        },
+        {
+          "name": "travelSource",
+          "valueString": "straight-line estimate"
+        },
+        {
+          "name": "dataAgeSeconds",
+          "valueInteger": 300
+        }
+      ]
+    },
+    {
       "name": "notSuitable",
       "part": [
         {
@@ -299,6 +442,182 @@ export const OPTIONS_NO_POSTCODE = {
     {
       "name": "outOfArea",
       "valueBoolean": true
+    }
+  ]
+};
+
+export const SUMMARY_WITH_DESTINATION = {
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "reference",
+      "valueString": "4821"
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Referrer"
+        },
+        {
+          "name": "value",
+          "valueString": "Ambulance crew"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Age band"
+        },
+        {
+          "name": "value",
+          "valueString": "80+"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Postcode"
+        },
+        {
+          "name": "value",
+          "valueString": "DT4"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Needs"
+        },
+        {
+          "name": "value",
+          "valueString": "Fall with no injury, frailty"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Urgency"
+        },
+        {
+          "name": "value",
+          "valueString": "Within 2 hrs"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Scores"
+        },
+        {
+          "name": "value",
+          "valueString": "NEWS2 2 \u00b7 Frailty scale 6"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Destination"
+        },
+        {
+          "name": "value",
+          "valueString": "UCR West"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Booked"
+        },
+        {
+          "name": "value",
+          "valueString": "Confirmed 14:03"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Data age"
+        },
+        {
+          "name": "value",
+          "valueString": "9 min ago"
+        }
+      ]
+    }
+  ]
+};
+
+export const SUMMARY_NO_DESTINATION = {
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "reference",
+      "valueString": "4821"
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Referrer"
+        },
+        {
+          "name": "value",
+          "valueString": "Ambulance crew"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Age band"
+        },
+        {
+          "name": "value",
+          "valueString": "80+"
+        }
+      ]
+    },
+    {
+      "name": "row",
+      "part": [
+        {
+          "name": "label",
+          "valueString": "Postcode"
+        },
+        {
+          "name": "value",
+          "valueString": "DT4"
+        }
+      ]
     }
   ]
 };

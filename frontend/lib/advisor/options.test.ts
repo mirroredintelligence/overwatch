@@ -68,12 +68,40 @@ describe('optionsFromParameters (W13)', () => {
           { name: 'status', valueCode: 'accepting' },
           { name: 'criteriaVersion', valueInteger: 1 },
           { name: 'tenantId', valueString: 'tenant-b' },
-          { name: 'phone', valueString: '01234 567890' },
+          { name: 'secretNote', valueString: 'not for the screen' },
         ] },
       ],
     });
     expect(JSON.stringify(view)).not.toContain('tenant-b');
-    expect(JSON.stringify(view)).not.toContain('01234');
+    expect(JSON.stringify(view)).not.toContain('not for the screen');
+  });
+
+  describe('the service phone (Q5, KI-626)', () => {
+    const withPhone = (value: unknown) =>
+      optionsFromParameters({
+        resourceType: 'Parameters',
+        parameter: [{ name: 'option', part: [
+          { name: 'serviceId', valueString: 's' }, { name: 'name', valueString: 'S' },
+          { name: 'status', valueCode: 'accepting' }, { name: 'criteriaVersion', valueInteger: 1 },
+          { name: 'phone', valueString: value },
+        ] }],
+      })?.options[0].phone;
+
+    it('reads a number the back end sends, as sent', () => {
+      expect(withPhone('01305 900100')).toBe('01305 900100');
+      expect(withPhone('+44 1305 900100')).toBe('+44 1305 900100');
+    });
+
+    it.each(['', 'call the ward', 'javascript:alert(1)', '01305 900100;rm', '0'.repeat(40), '<b>01305</b>'])(
+      'does not offer %j as a number to phone: it is not read, so nothing odd reaches a phone link',
+      (value) => {
+        expect(withPhone(value)).toBeNull();
+      },
+    );
+
+    it('is null when the back end sent none: the card says to find it in the directory, never a made-up number', () => {
+      expect(optionsFromParameters(OPTIONS_PARAMETERS)?.options[0].phone).toBeNull();
+    });
   });
 
   it('answers null for anything that is not a Parameters resource', () => {
@@ -151,9 +179,14 @@ describe('optionsFromParameters against the back end\'s own answer (W13, W50, DE
       checks: ['Limited: phone to confirm'],
       position: { lat: 50.71, lon: -2.45 },
       coverage: null,
-      travel: { low: 15, high: 25, source: 'road estimate', legs: [] },
+      travel: {
+        low: 15,
+        high: 25,
+        source: 'road estimate',
+        legs: [{ label: 'Patient to UCR West, by road', low: 15, high: 25, how: 'Typical weekday afternoon.', source: 'road estimate' }],
+      },
       network: null,
-      phone: null,
+      phone: '01305 900100',
     });
     expect(view?.notSuitable).toEqual([{ serviceId: 'svc-3', name: 'Dorchester SDEC', reason: 'Not accepting' }]);
   });
@@ -208,5 +241,28 @@ describe('optionsFromParameters against the back end\'s own answer (W13, W50, DE
     expect(optionsFromParameters(withDistricts({}, 'DT1'))?.districts).toEqual([]);
     expect(optionsFromParameters(withDistricts({ notFound: true }))?.districts).toEqual([]);
     expect(optionsFromParameters(OPTIONS_PARAMETERS)?.districts).toEqual([]);
+  });
+});
+
+describe('a visiting service and a network service as the back end writes them (KI-627, KI-349, KI-794)', () => {
+  it('a visiting service has its circle, its radius in whole km, and no pin', () => {
+    const visiting = optionsFromParameters(OPTIONS)?.options.find((option) => option.serviceId === 'svc-4');
+
+    expect(visiting).toMatchObject({
+      coverage: { lat: 50.71, lon: -2.44, radiusKm: 15 },
+      position: null,
+      phone: '01305 900200',
+    });
+  });
+
+  it('a network service names its organisation and where its entry came from, and has a place and a number', () => {
+    const network = optionsFromParameters(OPTIONS)?.options.find((option) => option.serviceId === 'net-1');
+
+    expect(network).toMatchObject({
+      network: { organisation: 'Neighbouring Trust', source: 'Entered by the organisation' },
+      position: { lat: 50.8, lon: -2.5 },
+      phone: '01305 900300',
+      travelText: 'about 30 to 40 min',
+    });
   });
 });

@@ -1,6 +1,8 @@
 import http from 'node:http';
 import https from 'node:https';
+import { isIP } from 'node:net';
 import { normaliseHost } from '@/lib/auth/host';
+import { ambientVisitorAddress } from '@/lib/fhir/visitorAddress';
 import { getSecret, SecretConfigurationError, SecretNotFoundError, vaultConfigured } from '@/lib/secrets';
 
 // Server-only. The calls to the back end that have no signed token to say whose they are: the token
@@ -24,7 +26,6 @@ const BASE_URL_VARIABLE = 'OVERWATCH_FHIR_BASE_URL';
 const EDGE_SECRET = 'edge-origin';
 const HEADER_SAFE = /^[\x21-\x7e]+$/;
 const EDGE_HEADERS = ['x-forwarded-host', 'x-edge-auth', 'cf-connecting-ip'];
-const ONE_ADDRESS = /^[0-9a-fA-F:.]{2,45}$/;
 const FHIR_SUFFIX = '/fhir';
 const TIMEOUT_MS = 10_000;
 const MAX_ANSWER_BYTES = 64 * 1024;
@@ -69,8 +70,12 @@ export type BackendCall = {
   path: string;
   /** The host the request was addressed to: the tenant's own host. */
   host: string | null;
-  /** The visitor's address, passed on behind the platform ingress for the rate limits. One address only. */
-  clientIp?: string;
+  /**
+   * The visitor's address, passed on behind the platform ingress for the rate limits. One address only.
+   * Left out, it is the address of the request in progress (`ambientVisitorAddress`, KI-1303); `null`
+   * says there is none, so the shared bucket applies.
+   */
+  clientIp?: string | null;
   body?: unknown;
   csrf?: string;
   /** Further request headers, such as `Authorization` or `X-Screen-Secret` (the screen and token routes). */
@@ -91,7 +96,7 @@ function jsonOrUndefined(text: string): unknown {
  * call without the edge header: that call would resolve the tenant from the API's own host. A value that
  * could not be a header value is a fault too (the message names the secret, never the value).
  */
-async function edgeSecret(): Promise<string | null> {
+export async function edgeSecret(): Promise<string | null> {
   let value: string;
   try {
     value = await getSecret(EDGE_SECRET);
@@ -118,7 +123,8 @@ export async function callBackend(call: BackendCall): Promise<BackendReply> {
   if (edge !== null) {
     headers['X-Forwarded-Host'] = host;
     headers['X-Edge-Auth'] = edge;
-    if (call.clientIp !== undefined && ONE_ADDRESS.test(call.clientIp)) headers['CF-Connecting-IP'] = call.clientIp;
+    const visitor = call.clientIp === undefined ? await ambientVisitorAddress() : call.clientIp;
+    if (visitor !== null && visitor !== undefined && isIP(visitor) !== 0) headers['CF-Connecting-IP'] = visitor;
   } else {
     headers.Host = host;
   }

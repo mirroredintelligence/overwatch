@@ -239,6 +239,9 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'OVERWATCH_KEY_VAULT_URL', value: keyVaultUrl }
             { name: 'AZURE_CLIENT_ID', value: webIdentity.properties.clientId }
             { name: 'OVERWATCH_FHIR_BASE_URL', value: fhirBaseUrl }
+            // OVERWATCH_VISITOR_ADDRESS_SOURCE (not set: the default is right for this ingress, DEC-1311) says where web reads
+            // the visitor address it passes to api for the rate limits: 'x-forwarded-for' (default, the right-most entry the
+            // ingress added) or 'cf-connecting-ip' (set it only when Cloudflare proxies web).
             { name: 'ENTRA_CLIENT_ID', value: entraStaffClientId }
             { name: 'OVERWATCH_PUBLIC_URL', value: baseUrl }
             { name: 'OPERATOR_ENTRA_CLIENT_ID', value: entraOperatorClientId }

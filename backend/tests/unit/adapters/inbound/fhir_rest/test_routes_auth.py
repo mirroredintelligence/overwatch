@@ -195,15 +195,30 @@ def _identity(
     )
 
 
+class _Owners:
+    def __init__(self, *owners: str) -> None:
+        self.owners = frozenset(owners)
+        self.asked: list[str] = []
+
+    async def owns_active_network(self, tenant_id: str) -> bool:
+        self.asked.append(tenant_id)
+        return tenant_id in self.owners
+
+
 def build(
-    *, verifier: FakeIdentityVerifier | None = None, configured: bool = True
+    *,
+    verifier: FakeIdentityVerifier | None = None,
+    configured: bool = True,
+    ownership: _Owners | None = None,
 ) -> tuple[FastAPI, _Container]:
     container = _Container()
     app = create_app(container)  # type: ignore[arg-type]
     app.state.secrets = FixedSecretStore({SIGNING_SECRET: SIGNING, ACCOUNT_REF_SECRET: ACCOUNT_KEY})
     if configured:
         verifier = verifier or FakeIdentityVerifier()
-        app.state.token_exchange = ExchangeDeps(verifier=verifier, operator_directory_id=D_OPERATOR)
+        app.state.token_exchange = ExchangeDeps(
+            verifier=verifier, operator_directory_id=D_OPERATOR, ownership=ownership
+        )
 
     @app.get("/probe")
     async def probe(actor: Annotated[Actor, Depends(current_actor)]) -> dict[str, Any]:
@@ -248,6 +263,62 @@ async def test_a_signed_in_member_gets_a_token_the_edge_accepts_for_the_hosts_te
     claims = decode_bff_token(body["token"], SIGNING, NOW)
     assert (claims.tenant, claims.epoch, claims.role) == ("tenant-a", 4, Role.LEAD)
     assert probe.json() == {"scope": "tenant-a", "role": "lead"}
+
+
+G_NETWORK = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee"
+
+
+def _network_admin_app(ownership: _Owners | None) -> tuple[FastAPI, _Container]:
+    app, container = build(verifier=accepting(_identity(groups=(G_NETWORK,))), ownership=ownership)
+    container.configs["tenant-a"] = _Config(
+        [_verified(D_A)], [RoleMapping(G_NETWORK, Role.NETWORK_ADMIN, MappingStatus.ACTIVE)]
+    )
+    return app, container
+
+
+async def test_the_owner_of_a_network_gets_the_network_administrator_token_for_its_own_host() -> (
+    None
+):
+    owners = _Owners("tenant-a")
+    app, _ = _network_admin_app(owners)
+
+    async with client(app) as c:
+        response = await staff(c)
+        probe = await c.get(
+            "/probe", headers={"Authorization": f"Bearer {response.json()['token']}"}
+        )
+
+    assert response.status_code == 200 and response.json()["role"] == "network-admin"
+    assert probe.json() == {"scope": "tenant-a", "role": "network-admin"}
+    assert owners.asked == ["tenant-a"]
+
+
+async def test_another_tenants_ownership_gives_nothing_on_this_tenants_host() -> None:
+    owners = _Owners("tenant-b")
+    app, _ = _network_admin_app(owners)
+
+    async with client(app) as c:
+        response = await staff(c)
+
+    assert response.status_code == 403
+    assert response.content == (await _refused_reference()).content
+    assert owners.asked == ["tenant-a"]
+
+
+async def test_a_process_with_no_registry_never_gives_the_network_administrator_role() -> None:
+    app, _ = _network_admin_app(None)
+
+    async with client(app) as c:
+        response = await staff(c)
+
+    assert response.status_code == 403
+
+
+async def _refused_reference() -> httpx.Response:
+    """The one refusal, as any other cause gives it: an identity of a directory nobody bound."""
+    app, _ = build(verifier=accepting(_identity(directory=D_B)))
+    async with client(app) as c:
+        return await staff(c)
 
 
 async def test_the_answer_is_never_stored_and_varies_by_host() -> None:

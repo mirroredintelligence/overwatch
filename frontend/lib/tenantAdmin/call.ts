@@ -1,5 +1,4 @@
 import { fhirFetch } from '@/lib/fhir/client';
-import type { Session } from '@/lib/auth/session';
 import { idempotencyKeyOf, invalidRequest, jsonBody } from '@/lib/lead/bffInput';
 
 // The calls the tenant administrator's BFF routes make to the back end's `/tenant` routes (at the app root,
@@ -9,13 +8,15 @@ import { idempotencyKeyOf, invalidRequest, jsonBody } from '@/lib/lead/bffInput'
 
 export { invalidRequest, jsonBody };
 
-export async function tenantRead(session: Session, path: string): Promise<unknown> {
+type Bearer = { backendToken: string };
+
+export async function tenantRead(session: Bearer, path: string): Promise<unknown> {
   const { data } = await fhirFetch<unknown>(path, { root: true, token: session.backendToken, cache: 'no-store' });
   return data;
 }
 
 export async function tenantWrite(
-  session: Session,
+  session: Bearer,
   request: Request,
   method: 'POST' | 'PUT' | 'DELETE',
   path: string,

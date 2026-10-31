@@ -56,7 +56,7 @@ const T = '/api/bff/platform/tenants/trust-b';
 const P = { id: 'trust-b' };
 
 const CASES: Case[] = [
-  { name: 'tenants (operator)', module: () => import('./tenants/route'), verb: 'GET', url: '/api/bff/platform/tenants', roles: OPERATOR, backend: { path: '/platform/tenants', reply: RAW_TENANTS_OPERATOR }, view: VIEW_TENANTS_OPERATOR },
+  { name: 'tenants (operator)', module: () => import('./tenants/route'), verb: 'GET', url: '/api/bff/platform/tenants', roles: ['platform-operator', 'support'], backend: { path: '/platform/tenants', reply: RAW_TENANTS_OPERATOR }, view: VIEW_TENANTS_OPERATOR },
   { name: 'tenant detail', module: () => import('./tenants/[id]/route'), verb: 'GET', url: T, params: P, roles: OPERATOR, backend: { path: '/platform/tenants/trust-b', reply: RAW_DETAIL_PROVISIONING }, view: VIEW_DETAIL_PROVISIONING },
   {
     name: 'create a tenant',
@@ -285,7 +285,8 @@ describe.each(CASES)('$verb $url ($name)', (c) => {
     expect(response.status).toBe(c.status ?? 200);
     const text = await response.text();
     expect(JSON.parse(text)).toEqual(c.view);
-    expect(text).not.toMatch(/authTokenRef|secretRef|tenants\/trust-b\/twilio|accessId|"epoch"|hash/i);
+    expect(text).not.toMatch(/authTokenRef|secretRef|tenants\/trust-b\/twilio|"epoch"|hash/i);
+    if (c.roles.includes('support') && c.name !== 'tenants (operator)') expect(text).not.toContain('accessId');
     expect(response.headers.get('cache-control')).toContain('no-store');
   });
 

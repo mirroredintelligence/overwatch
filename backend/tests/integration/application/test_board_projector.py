@@ -205,12 +205,35 @@ async def test_a_capacity_report_stores_the_board_and_publishes_one_update(
     assert datetime.fromisoformat(body["at"]) == FRIDAY_NOON_LONDON
 
 
+async def _three_services(factory: UnitOfWorkFactory, west_value: int) -> list[ServiceProfile]:
+    """West with `west_value` and two services that are already not accepting: the pressure is
+    `watch` once West is limited or worse too (the tenant default: three services)."""
+    services = [WEST, _ucr("svc-ucr-north", "UCR North"), _ucr("svc-ucr-south", "UCR South")]
+    async with factory() as uow:
+        for service in services:
+            await uow.services.save(service)
+            value = west_value if service is WEST else 0
+            await uow.capacity.add(
+                CapacityReport(
+                    id=f"obs-{service.id}-1403",
+                    service_id=service.id,
+                    value=value,
+                    measure=service.measure,
+                    effective_at=WEST_REPORT_AT,
+                    source=ReportSource.TEXT,
+                    report_type=ReportType.NUMBER,
+                )
+            )
+        await uow.commit()
+    return services
+
+
 async def test_a_change_of_pressure_publishes_a_whole_board_message_after_the_service_one(
     uow_factory: UnitOfWorkFactory,
 ) -> None:
     # KI-55: the banner belongs to no one service, so the stream is told about it on its own.
     clock = FixedClock(FRIDAY_NOON_LONDON)
-    await _seed(uow_factory, _report("obs-west-1403", 4, WEST_REPORT_AT))
+    await _three_services(uow_factory, west_value=4)
     cache = _RecordingCache(clock)
     projector, _ = _projector(uow_factory, cache, clock)
     await projector.handle("CapacityReported", _payload("svc-ucr-west"))

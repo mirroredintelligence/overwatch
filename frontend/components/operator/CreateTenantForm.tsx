@@ -33,6 +33,8 @@ export function CreateTenantForm() {
   const [country, setCountry] = useState('GB');
   const [zone, setZone] = useState('Europe/London');
   const [directory, setDirectory] = useState('');
+  const [domain, setDomain] = useState('');
+  const [lookupNote, setLookupNote] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
   const [nextKey, setNextKey] = useState(1);
   const [errors, setErrors] = useState<FieldError[]>([]);
@@ -58,6 +60,24 @@ export function CreateTenantForm() {
     submitKey.fresh();
     setRows((all) => all.filter((r) => r.key !== key));
   };
+
+  // Suggests the directory id from the organisation's domain (the public OpenID configuration, through this app's
+  // route). It fills the field for the operator to check; nothing is saved here.
+  async function lookUp() {
+    setLookupNote('');
+    const response = await fetch(`/api/bff/platform/directory-lookup?domain=${encodeURIComponent(domain.trim())}`, { cache: 'no-store' });
+    if (!response.ok) {
+      setLookupNote('Enter a domain name, for example example.nhs.uk.');
+      return;
+    }
+    const found = (await response.json()) as { domain: string; directoryId: string | null };
+    if (found.directoryId === null) {
+      setLookupNote(`No directory was found for ${found.domain}. Ask the organisation for its Entra tenant id.`);
+      return;
+    }
+    setDirectory(found.directoryId);
+    setLookupNote(`Found the directory for ${found.domain}. Check it is the organisation’s before you create the tenant.`);
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -152,6 +172,22 @@ export function CreateTenantForm() {
           <p className={styles.text}>
             The directory the organisation’s staff sign in with. It is saved as <strong>waiting</strong>: nobody can use it until you have checked the domain and verified it, on the tenant’s page.
           </p>
+          <TextField
+            id="directory-domain"
+            label="Organisation’s domain"
+            value={domain}
+            onChange={edit(setDomain)}
+            requirement="optional"
+            hint="Look up the directory id from it, then check it."
+            autoComplete="off"
+            dataEl="OP-CREATE-DOMAIN-INPUT"
+          />
+          <p className={styles.row}>
+            <Button variant="secondary" onClick={() => void lookUp()} dataEl="OP-CREATE-DOMAIN-LOOKUP-BTN">
+              Look up directory id
+            </Button>
+          </p>
+          {lookupNote !== '' ? <p className={styles.text} role="status">{lookupNote}</p> : null}
           <TextField
             id="directory-id"
             label="Directory id"

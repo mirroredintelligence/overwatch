@@ -47,6 +47,31 @@ describe('CreateTenantForm', () => {
     expect(within(done).getByRole('link', { name: 'Open the tenant' })).toHaveAttribute('href', '/operator/tenants/trust-d');
   });
 
+  it('looks the directory id up from the domain, fills it in for the operator to check, and says what it found', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/bff/platform/directory-lookup', ({ request }) => {
+        expect(new URL(request.url).searchParams.get('domain')).toBe('example.nhs.uk');
+        return HttpResponse.json({ domain: 'example.nhs.uk', directoryId: 'c5901e0b-8d43-4ae8-97c3-ca6c52573a33' });
+      }),
+    );
+    render(<CreateTenantForm />);
+    await user.type(screen.getByLabelText('Organisation’s domain'), 'example.nhs.uk');
+    await user.click(screen.getByRole('button', { name: 'Look up directory id' }));
+    await waitFor(() => expect(screen.getByLabelText('Directory id')).toHaveValue('c5901e0b-8d43-4ae8-97c3-ca6c52573a33'));
+    expect(screen.getByRole('status')).toHaveTextContent('Found the directory for example.nhs.uk');
+  });
+
+  it('says so when a domain has no directory, and fills nothing', async () => {
+    const user = userEvent.setup();
+    server.use(http.get('/api/bff/platform/directory-lookup', () => HttpResponse.json({ domain: 'nowhere.example', directoryId: null })));
+    render(<CreateTenantForm />);
+    await user.type(screen.getByLabelText('Organisation’s domain'), 'nowhere.example');
+    await user.click(screen.getByRole('button', { name: 'Look up directory id' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('No directory was found for nowhere.example');
+    expect(screen.getByLabelText('Directory id')).toHaveValue('');
+  });
+
   it('is in three parts: the organisation, the directory (saved as waiting) and who gets which role', () => {
     render(<CreateTenantForm />);
     expect(screen.getByRole('group', { name: '1 The organisation' })).toBeInTheDocument();

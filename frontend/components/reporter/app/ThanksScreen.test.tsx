@@ -19,6 +19,15 @@ describe('ThanksScreen', () => {
     expect(within(container).queryByText(/\d{7,}/)).toBeNull();
   });
 
+  it('opens with the done mark, boxes the next update, lists today in a card and offers Change it as a button-sized link', async () => {
+    const { container } = render(<ThanksScreen serviceId="svc-1" service="UCR West" value={3} at="2026-10-30T10:12:00Z" nextDue="2026-10-30T12:00:00Z" />);
+    expect(container.querySelector('[data-el="REP-APP-THANKS-MARK"]')).toHaveAttribute('data-tone', 'done');
+    expect(screen.getByText('Next update due 12:00')).toHaveAttribute('data-el', 'REP-APP-NEXT-DUE');
+    expect(screen.getByRole('region', { name: 'Today' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Change it' })).toHaveAttribute('data-variant', 'secondary');
+    await screen.findAllByRole('listitem');
+  });
+
   it('shows the instants as London clock time, and says nothing of a next update the back end did not give', async () => {
     render(<ThanksScreen serviceId="svc-1" service="UCR West" value={3} at="2026-07-01T10:12:00Z" nextDue="" />);
     expect(screen.getByText('UCR West: 3 referrals recorded at 11:12.')).toBeInTheDocument();

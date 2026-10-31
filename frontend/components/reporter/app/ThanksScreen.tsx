@@ -3,7 +3,11 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { bffRequest } from '@/lib/reporter/browser';
+import { Button } from '@/components/ui/Button';
 import { clock } from '@/lib/reporter/times';
+import { Panel } from '../parts/Panel';
+import partStyles from '../parts/Parts.module.css';
+import { StatusMark } from '../parts/StatusMark';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // After a capacity update (W35): the figure recorded, the next update, and today's reports for this
@@ -47,20 +51,25 @@ export function ThanksScreen({
 
   return (
     <main className={styles.page}>
+      <StatusMark tone="done" dataEl="REP-APP-THANKS-MARK" />
       <h1 className={styles.title}>Thank you</h1>
-      <p>{`${service}: ${value} ${unit} recorded at ${clock(at)}.`}</p>
-      {clock(nextDue) !== '' ? <p>{`Next update due ${clock(nextDue)}`}</p> : null}
-      <h2>Today</h2>
-      <ul>
-        {items.map((item) => (
-          <li key={`${item.at}-${item.value}`}>
-            <span>{clock(item.at)}</span> <span>{item.value}</span>
-          </li>
-        ))}
-      </ul>
-      <p>
-        <a href={`/app/respond/${encodeURIComponent(serviceId)}`}>Change it</a>
-      </p>
+      <p className={styles.question}>{`${service}: ${value} ${unit} recorded at ${clock(at)}.`}</p>
+      {clock(nextDue) !== '' ? <Panel dataEl="REP-APP-NEXT-DUE">{`Next update due ${clock(nextDue)}`}</Panel> : null}
+      <section className={partStyles.card} aria-labelledby="rep-app-today">
+        <h2 id="rep-app-today" className={partStyles.cardTitle}>
+          Today
+        </h2>
+        <ul className={partStyles.today}>
+          {items.map((item) => (
+            <li key={`${item.at}-${item.value}`} className={partStyles.todayItem}>
+              <span>{clock(item.at)}</span> <span>{item.value}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <Button variant="secondary" href={`/app/respond/${encodeURIComponent(serviceId)}`} dataEl="REP-APP-CHANGE-IT">
+        Change it
+      </Button>
     </main>
   );
 }

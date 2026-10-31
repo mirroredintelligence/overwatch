@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { bffRequest } from '@/lib/reporter/browser';
 import { clock } from '@/lib/reporter/times';
+import { StatusMark } from '@/components/reporter/parts/StatusMark';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // One booking request in the app (W36): confirm it, or decline it with a reason. A booking shows
@@ -130,6 +131,7 @@ export function BookingDecision({ reference }: { reference: string }) {
   if (current === 'confirmed') {
     return (
       <main className={styles.page}>
+        <StatusMark tone="done" dataEl="REP-APP-BOOKED-MARK" />
         <h1 className={styles.title}>Booked</h1>
         <p>{`Reference ${booking.reference}, ${booking.service}. Confirmed ${clock(confirmedAt ?? booking.confirmedAt)}. The advisor has been told.`}</p>
         <p>Referral details follow in the referral system.</p>
@@ -146,6 +148,7 @@ export function BookingDecision({ reference }: { reference: string }) {
   if (current === 'declined') {
     return (
       <main className={styles.page}>
+        <StatusMark tone="closed" dataEl="REP-APP-DECLINED-MARK" />
         <h1 className={styles.title}>Declined</h1>
         <p>Declined. The advisor has been told.</p>
       </main>

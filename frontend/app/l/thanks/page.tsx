@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Panel } from '@/components/reporter/parts/Panel';
+import { StatusMark } from '@/components/reporter/parts/StatusMark';
 import { Button } from '@/components/ui/Button';
 import { londonHm } from '@/lib/links/model';
 import { unsealThanks } from '@/lib/links/thanks';
@@ -31,6 +33,7 @@ export default async function ThanksPage({ searchParams }: Props) {
 
   return (
     <main className={styles.page}>
+      <StatusMark tone="done" dataEl="REP-LINK-THANKS-MARK" />
       <p className={styles.eyebrow}>Overwatch update</p>
       <h1 className={styles.title}>Thank you</h1>
       {detail !== null ? (
@@ -38,7 +41,7 @@ export default async function ThanksPage({ searchParams }: Props) {
           {`${detail.serviceName}: ${detail.value} ${detail.unitLabel}, recorded at ${londonHm(detail.recordedAt)}.`}
         </p>
       ) : null}
-      {detail?.nextDue ? <p className={styles.or}>{`Next update due ${londonHm(detail.nextDue)}`}</p> : null}
+      {detail?.nextDue ? <Panel dataEl="REP-LINK-NEXT-DUE">{`Next update due ${londonHm(detail.nextDue)}`}</Panel> : null}
       <Button variant="neutral" href="/sign-in" dataEl="REP-LINK-BOARD-LINK">
         See the live board
       </Button>

@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -33,6 +33,32 @@ describe('SetupFlow', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Start' }));
     expect(push).toHaveBeenCalledWith(`/setup?step=number&invite=${INVITE}`);
     expect(await runAxe(container)).toHaveNoViolations();
+  });
+
+  it('lists the five steps as numbered cards, each with the time it takes (OnboardReporter1, Welcome)', async () => {
+    render(<SetupFlow step="welcome" invite={INVITE} />);
+    const list = await screen.findByRole('list', { name: 'Set-up steps' });
+    const items = within(list).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent?.replace(/^\d/, ''))).toEqual([
+      'Check your number30 seconds',
+      'Choose how we contact you1 minute',
+      'Add to home screen1 minute, app only',
+      'Allow notificationsApp only',
+      'Create a PIN30 seconds',
+    ]);
+  });
+
+  it('asks for the code under the heading Enter your code and says which number it went to', async () => {
+    render(<SetupFlow step="code" invite={INVITE} />);
+    expect(await screen.findByRole('heading', { level: 1, name: 'Enter your code' })).toBeInTheDocument();
+    expect(screen.getByText('We sent a code to 07xxx xxx456.')).toBeInTheDocument();
+    expect(screen.getByText('The code works for 10 minutes. After 5 wrong tries you must ask for a new code.')).toBeInTheDocument();
+  });
+
+  it('says a 6-digit code goes to the masked number, shown on its own (OnboardReporter1, Check your number)', async () => {
+    render(<SetupFlow step="number" invite={INVITE} />);
+    expect(await screen.findByText('We will send a 6-digit code to this number.')).toBeInTheDocument();
+    expect(screen.getByText('07xxx xxx456')).toHaveAttribute('data-el', 'ONB-MASKED-NUMBER');
   });
 
   it('shows the masked number and never the full number', async () => {

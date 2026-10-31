@@ -9,6 +9,7 @@ import { type BookingAnswer, type BookingOutcome, readLinkView, sendBookingAnswe
 import { type BookingView, type ClosedLink, londonHm } from '@/lib/links/model';
 import { atTime, closedFacts, PhoneTo } from './closed';
 import { LinkUnavailable } from './LinkUnavailable';
+import { StatusMark } from './parts/StatusMark';
 import styles from './Reporter.module.css';
 
 // The service's page for a booking request (L02, W19). It opens from the request text or email.
@@ -145,6 +146,7 @@ export function BookingDecision({ token, initial, initialClosed }: Props) {
   if (phase === 'booked') {
     return (
       <main className={styles.page}>
+        <StatusMark tone="done" dataEl="SVC-BOOK-BOOKED-MARK" />
         <p className={styles.eyebrow}>Overwatch booking request</p>
         <h1 className={styles.title}>Booked</h1>
         <p className={styles.question}>{`Reference ${view.reference}, ${view.serviceName}. The advisor has been told.`}</p>
@@ -167,6 +169,7 @@ export function BookingDecision({ token, initial, initialClosed }: Props) {
   if (phase === 'declined') {
     return (
       <main className={styles.page}>
+        <StatusMark tone="closed" dataEl="SVC-BOOK-DECLINED-MARK" />
         <p className={styles.eyebrow}>Overwatch booking request</p>
         <h1 className={styles.title}>Declined</h1>
         <p className={styles.question}>{`Reference ${view.reference} declined. The advisor has been told.`}</p>
@@ -233,6 +236,7 @@ function Closed({ closed, phone }: { closed: ClosedLink | null; phone: string | 
   const facts = closedFacts(closed);
   return (
     <main className={styles.page}>
+      <StatusMark tone="closed" dataEl="SVC-BOOK-CLOSED-MARK" />
       <p className={styles.eyebrow}>Overwatch booking request</p>
       <h1 className={styles.title}>This request has closed</h1>
       {facts !== null ? <p className={styles.or}>{facts}</p> : null}

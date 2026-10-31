@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Banner } from '@/components/ui/Banner';
 import { recordChannelForDevice } from '@/lib/reporter/channel';
+import partStyles from '../parts/Parts.module.css';
 import styles from './Setup.module.css';
 
 // Step 4 of 5 (W34). Nothing is asked of the browser until Allow is pressed: consent first, then
@@ -39,10 +40,12 @@ export function Notifications({ service }: { service: string }) {
     <main className={styles.page}>
       <p className={styles.caption}>Step 4 of 5</p>
       <h1 className={styles.title}>Allow notifications</h1>
-      <p>{`What we send: Capacity requests and booking requests for ${service}.`}</p>
-      <p>What we never send: Patient names or details.</p>
-      <p>You choose: Turn them off any time in Settings.</p>
-      <p>When you allow, we record the date and this phone.</p>
+      <section className={partStyles.card} aria-label="What notifications do">
+        <p>{`What we send: Capacity requests and booking requests for ${service}.`}</p>
+        <p>What we never send: Patient names or details.</p>
+        <p>You choose: Turn them off any time in Settings.</p>
+      </section>
+      <p className={styles.caption}>When you allow, we record the date and this phone.</p>
       {denied ? (
         <p>
           <a href="/app/notifications-off">Notifications are off. See how to turn them on.</a>

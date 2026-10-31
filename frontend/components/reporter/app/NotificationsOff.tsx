@@ -5,6 +5,8 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Banner } from '@/components/ui/Banner';
 import { recordChannel } from '@/lib/reporter/channel';
+import { StatusMark } from '@/components/reporter/parts/StatusMark';
+import { StepCards } from '@/components/reporter/parts/StepCards';
 import styles from '@/components/reporter/Reporter.module.css';
 
 // Notifications are off (W37): the three steps on the phone, then a re-check of the browser's
@@ -33,13 +35,17 @@ export function NotificationsOff() {
 
   return (
     <main className={styles.page}>
+      <StatusMark tone="closed" dataEl="REP-NOTIF-OFF-MARK" />
       <h1 className={styles.title}>Notifications are off</h1>
       <p>We cannot alert you. Turn them on in your phone settings, or switch to text.</p>
-      <ol>
-        <li>Open your phone Settings</li>
-        <li>Find Overwatch</li>
-        <li>Turn Notifications on</li>
-      </ol>
+      <StepCards
+        label="How to turn notifications on"
+        steps={[
+          { key: 'settings', title: 'Open your phone Settings' },
+          { key: 'find', title: 'Find Overwatch' },
+          { key: 'on', title: 'Turn Notifications on' },
+        ]}
+      />
       {still ? <p role="status">Notifications are still off.</p> : null}
       {failed ? <Banner tone="warning" title="We could not change how we contact you. Check your number again, then try once more." /> : null}
       <Button variant="neutral" dataEl="REP-NOTIF-TEXT-BTN" onClick={() => void chooseText()}>

@@ -27,6 +27,14 @@ describe('the thank-you page', () => {
     expect(text).toContain('You can close this page.');
   });
 
+  it('opens with the done mark and boxes the next update (Reporter, Confirmation)', async () => {
+    const element = await ThanksPage({ searchParams: Promise.resolve({ d: await sealThanks(RECORDED_ANSWER) }) });
+    const markup = renderToStaticMarkup(element as React.ReactElement);
+    expect(markup).toContain('data-el="REP-LINK-THANKS-MARK"');
+    expect(markup).toContain('data-tone="done"');
+    expect(markup).toMatch(/data-el="REP-LINK-NEXT-DUE">Next update due 12:00</);
+  });
+
   it('says thank you and claims nothing was recorded when the address carries no sealed detail', async () => {
     const text = await thanks({});
     expect(text).toContain('Thank you');

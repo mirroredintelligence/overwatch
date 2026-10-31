@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Banner } from '@/components/ui/Banner';
 import { Button } from '@/components/ui/Button';
 import { requestRenew } from '@/lib/links/browser';
+import { StatusMark } from './parts/StatusMark';
 import styles from './Reporter.module.css';
 
 // The page for a link that has expired or been used. It says the same thing for both, and for a
@@ -34,6 +35,7 @@ export function LinkExpired({ token, csrfToken }: { token: string; csrfToken: st
   const result = RESULT[phase];
   return (
     <main className={styles.page}>
+      <StatusMark tone="closed" dataEl="REP-LINK-EXPIRED-MARK" />
       <p className={styles.eyebrow}>Overwatch update</p>
       <h1 className={styles.title}>This link has expired</h1>
       <p className={styles.question}>This link can no longer be used.</p>

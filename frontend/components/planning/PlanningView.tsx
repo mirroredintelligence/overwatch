@@ -6,6 +6,7 @@ import { Chip } from '@/components/ui/Chip';
 import { FlowsTable } from './FlowsTable';
 import { HeatGrid } from './HeatGrid';
 import styles from '../console/Console.module.css';
+import layout from './Planning.module.css';
 import { NEEDS, PERIODS, type Count, type Declined, type Need, type Period, type Planning } from '@/lib/planning/types';
 
 // The planning view (W51): where capacity ran out, and where patients went instead, from the
@@ -71,60 +72,86 @@ export function PlanningView() {
       {data !== null && (
         <>
           <p>{data.cohort}</p>
-          <details>
-            <summary data-el="PLAN-COHORT-BTN">Show cohort definition</summary>
-            <p className={styles.help}>
-              Period: {PERIODS.find((item) => item.value === period)?.label}. Need group: {NEEDS.find((item) => item.value === need)?.label}.
-              Groups under 10 are hidden.
-            </p>
-          </details>
 
-          <section aria-labelledby="headline-heading" className={styles.section}>
-            <h2 id="headline-heading" className={styles.heading}>Headline</h2>
-            <p className={styles.heading}>{`${countText(data.referrals)} referrals`}</p>
-            <p>
-              {data.bestFitUnavailable.pct === null || data.bestFitUnavailable.suppressed
-                ? `${countText(data.bestFitUnavailable)} best fit unavailable (Full, closed or not updated.)`
-                : `${countText(data.bestFitUnavailable)} best fit unavailable (${data.bestFitUnavailable.pct}% of referrals. Full, closed or not updated.)`}
-            </p>
-            <p>{`${countText(data.wentElsewhere)} went to another suitable service`}</p>
-          </section>
+          <ul className={layout.stats} aria-label="Headline figures">
+            <li className={layout.stat}>
+              <span className={layout.statNumber}>{countText(data.referrals)}</span>
+              <span className={layout.statLabel}>referrals</span>
+              <span className={styles.help}>
+                {`${PERIODS.find((item) => item.value === period)?.label}, ${NEEDS.find((item) => item.value === need)?.label.toLowerCase()}`}
+              </span>
+            </li>
+            <li className={layout.stat}>
+              <span className={layout.statNumber}>{countText(data.bestFitUnavailable)}</span>
+              <span className={layout.statLabel}>best fit unavailable</span>
+              <span className={styles.help}>
+                {data.bestFitUnavailable.pct === null || data.bestFitUnavailable.suppressed
+                  ? 'Full, closed or not updated.'
+                  : `${data.bestFitUnavailable.pct}% of referrals. Full, closed or not updated.`}
+              </span>
+            </li>
+            <li className={layout.stat}>
+              <span className={layout.statNumber}>{countText(data.wentElsewhere)}</span>
+              <span className={layout.statLabel}>went to another suitable service</span>
+              <span className={styles.help}>The rest: fewer than 10 per destination, or no destination recorded</span>
+            </li>
+          </ul>
 
-          <FlowsTable flows={data.flows} total={data.bestFitUnavailable.count} />
-          <HeatGrid grid={data.grid} busiest={data.busiest} />
+          <div className={layout.columns}>
+            <div className={layout.wide}>
+              <FlowsTable flows={data.flows} total={data.bestFitUnavailable.count} />
+              <div className={layout.actions}>
+                <Button variant="secondary" href={exportHref} dataEl="PLAN-EXPORT-BTN">
+                  Export table (CSV)
+                </Button>
+                <details>
+                  <summary data-el="PLAN-COHORT-BTN">Show cohort definition</summary>
+                  <p className={styles.help}>
+                    Period: {PERIODS.find((item) => item.value === period)?.label}. Need group: {NEEDS.find((item) => item.value === need)?.label}.
+                    Groups under 10 are hidden.
+                  </p>
+                </details>
+              </div>
+            </div>
+            <div className={layout.narrow}>
+              <HeatGrid grid={data.grid} busiest={data.busiest} />
+            </div>
+          </div>
 
-          <section aria-labelledby="declined-heading" className={styles.section}>
-            <h2 id="declined-heading" className={styles.heading}>Declined despite showing capacity</h2>
-            <p className={styles.help}>For a conversation with each service. Not a league table and not used to assess advisors.</p>
-            <table className={styles.table} aria-label="Declined despite showing capacity table">
-              <thead>
-                <tr>
-                  <th scope="col">Service</th>
-                  <th scope="col">Referrals</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.declinedDespite.map((row: Declined) => (
-                  <tr key={row.service}>
-                    <td>{row.service}</td>
-                    <td>{row.suppressed || row.count === null ? 'fewer than 10' : row.count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </section>
+          <div className={layout.columns}>
+            <section aria-labelledby="declined-heading" className={`${styles.section} ${layout.narrow}`}>
+              <h2 id="declined-heading" className={styles.heading}>Declined despite showing capacity</h2>
+              <p className={styles.help}>By service, {PERIODS.find((item) => item.value === period)?.label.toLowerCase()}</p>
+              <div className={layout.scroll}>
+                <table className={styles.table} aria-label="Declined despite showing capacity table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Service</th>
+                      <th scope="col">Referrals</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.declinedDespite.map((row: Declined) => (
+                      <tr key={row.service}>
+                        <td>{row.service}</td>
+                        <td>{row.suppressed || row.count === null ? 'fewer than 10' : row.count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className={styles.help}>For a conversation with each service. Not a league table and not used to assess advisors.</p>
+            </section>
 
-          <section aria-labelledby="reading-heading" className={styles.section}>
-            <h2 id="reading-heading" className={styles.heading}>How to read this</h2>
-            <p>
-              These are referral and acceptance counts from the coordination team decision log. They do not show what happened to patients
-              afterwards. Outcomes need linked data and come in phase 2.
-            </p>
-          </section>
-
-          <Button variant="neutral" href={exportHref} dataEl="PLAN-EXPORT-BTN">
-            Export table (CSV)
-          </Button>
+            <section aria-labelledby="reading-heading" className={`${styles.section} ${layout.narrow}`}>
+              <h2 id="reading-heading" className={styles.heading}>How to read this</h2>
+              <p>
+                These are referral and acceptance counts from the coordination team decision log. They do not show what happened to patients
+                afterwards. Outcomes need linked data and come in phase 2.
+              </p>
+              <p>Who acts on these findings: [owner to be agreed].</p>
+            </section>
+          </div>
         </>
       )}
     </div>

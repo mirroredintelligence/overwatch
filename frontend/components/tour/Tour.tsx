@@ -148,9 +148,10 @@ export function Tour({ initialStep, initialRole }: { initialStep: TourStep; init
           {role === 'reporter' || role === 'advisor' ? (
             <Button variant="secondary" onClick={() => go('practice')}>{screen.action}</Button>
           ) : (
-            <Button variant="secondary" href="/">{screen.action}</Button>
+            <Button variant="secondary" href={screen.actionHref ?? '/'} dataEl="TOUR-ROLE-ACTION-BTN">{screen.action}</Button>
           )}
           {next && <Button variant="primary" onClick={() => go(next)} dataEl="TOUR-NEXT-BTN">Next</Button>}
+          {role !== 'reporter' && <Button variant="neutral" href="/" dataEl="TOUR-ROLE-SKIP-BTN">Skip</Button>}
         </section>
       )}
       {step === 'changes' && role === null && <p role="alert">Choose your role first.</p>}

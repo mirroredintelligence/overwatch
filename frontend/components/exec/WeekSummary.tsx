@@ -56,11 +56,18 @@ export function WeekSummary({ summary, prefs }: { summary: Summary; prefs: Alert
       <h1 className={styles.heading}>This week</h1>
       <p>{rangeText(summary.from, summary.to)}</p>
 
-      <ul className={styles.attention} aria-label="Figures for the week">
-        <li className={styles.card}>{`${formatCount(summary.referrals)} referrals`}</li>
-        <li className={styles.card}>{`${formatPct(summary.bestFitUnavailablePct)} best fit not available`}</li>
-        <li className={styles.card}>{`${formatPct(summary.onTimePct)} capacity updates on time`}</li>
-        <li className={styles.card}>{`${formatMinutesFigure(summary.medianMinutesToConfirmed)} median time to a confirmed booking`}</li>
+      <ul className={styles.tiles} aria-label="Figures for the week">
+        {[
+          { value: formatCount(summary.referrals), label: 'referrals' },
+          { value: formatPct(summary.bestFitUnavailablePct), label: 'best fit not available' },
+          { value: formatPct(summary.onTimePct), label: 'capacity updates on time' },
+          { value: formatMinutesFigure(summary.medianMinutesToConfirmed), label: 'median time to a confirmed booking' },
+        ].map((figure) => (
+          <li key={figure.label} className={styles.tile}>
+            <span className={styles.tileValue}>{figure.value}</span>
+            <span>{figure.label}</span>
+          </li>
+        ))}
       </ul>
 
       <section className={styles.section} aria-labelledby="week-time-back">

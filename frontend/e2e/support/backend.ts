@@ -6,6 +6,7 @@ import { BACKEND_PORT, E2E_TENANT } from './env';
 import { BOARDS_BY_TOKEN, LIVE_SURGE_PREFIX, LIVE_TOKEN_PREFIX, TOKEN_FOREIGN_ENTRY } from './tokens';
 import { handleAuthRoute } from './exchange';
 import { handleAdvisorRoute } from './advisor';
+import { handleExecRoute, isExecRoute } from './exec';
 import { handleInsightRoute } from './insight';
 import { handleLinkRoute } from './links';
 import { handleReporterRoute } from './reporter';
@@ -189,6 +190,11 @@ export function startMockBackend(): Promise<Server> {
       });
     } else if (url.pathname.startsWith('/links/')) {
       void handleLinkRoute(request, response, url.pathname).then((handled) => {
+        if (!handled) response.writeHead(404).end();
+      });
+    } else if (isExecRoute(request.method, url)) {
+      // The executive's alerts, preferences, week summary and the planning view (e2e/support/exec.ts).
+      void handleExecRoute(request, response, url).then((handled) => {
         if (!handled) response.writeHead(404).end();
       });
     } else if (url.pathname.startsWith('/fhir/ServiceRequest') || url.pathname.startsWith('/fhir/Task') || url.pathname === '/fhir/Basic' || url.pathname === '/fhir/HealthcareService/$filter-options') {

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it } from 'vitest';
@@ -48,9 +48,11 @@ describe('PlanningView with small counts hidden', () => {
     })));
     render(<PlanningView />);
 
-    expect(await screen.findByText('Fewer than 10 referrals')).toBeInTheDocument();
-    expect(screen.getByText(/Fewer than 10 best fit unavailable/)).not.toHaveTextContent('%');
-    expect(screen.getByText('Fewer than 10 went to another suitable service')).toBeInTheDocument();
+    const cards = within(await screen.findByRole('list', { name: 'Headline figures' })).getAllByRole('listitem');
+    expect(cards[0]).toHaveTextContent('Fewer than 10referrals');
+    expect(cards[1]).toHaveTextContent('Fewer than 10best fit unavailable');
+    expect(cards[1]).not.toHaveTextContent('%');
+    expect(cards[2]).toHaveTextContent('Fewer than 10went to another suitable service');
     expect(screen.getByText('No day or time had 10 or more unavailable referrals.')).toBeInTheDocument();
   });
 
@@ -59,7 +61,7 @@ describe('PlanningView with small counts hidden', () => {
     render(<PlanningView />);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('The planning view could not be loaded. Try again.');
-    expect(screen.queryByText(/referrals/)).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Headline figures' })).toBeNull();
   });
 
   it('reads the busiest cell from the back end\'s answer', async () => {
@@ -70,12 +72,26 @@ describe('PlanningView with small counts hidden', () => {
   });
 });
 
+describe('PlanningView layout', () => {
+  it('puts the export and the cohort definition with the flows, and the heat grid across seven days', async () => {
+    answer([]);
+    render(<PlanningView />);
+    await screen.findByRole('list', { name: 'Headline figures' });
+
+    expect(screen.getByRole('link', { name: 'Export table (CSV)' })).toHaveAttribute('href', '/api/bff/planning/export?period=90d&need=all');
+    expect(screen.getByText('Show cohort definition')).toBeInTheDocument();
+    const grid = screen.getByRole('table', { name: /by day and time/i });
+    expect(within(grid).getAllByRole('columnheader')).toHaveLength(8);
+    expect(within(grid).getAllByRole('rowheader')).toHaveLength(4);
+  });
+});
+
 describe('PlanningView', () => {
   it('asks for the 30-day period when it is chosen', async () => {
     const seen: string[] = [];
     answer(seen);
     render(<PlanningView />);
-    await screen.findByText('640 referrals');
+    await screen.findByRole('list', { name: 'Headline figures' });
 
     await userEvent.click(screen.getByRole('button', { name: 'Last 30 days' }));
 
@@ -86,16 +102,19 @@ describe('PlanningView', () => {
     answer([]);
     render(<PlanningView />);
 
-    expect(await screen.findByText('640 referrals')).toBeInTheDocument();
-    expect(screen.getByText(/112 best fit unavailable/)).toHaveTextContent('18%');
-    expect(screen.getByText('62 went to another suitable service')).toBeInTheDocument();
+    const cards = within(await screen.findByRole('list', { name: 'Headline figures' })).getAllByRole('listitem');
+    expect(cards).toHaveLength(3);
+    expect(cards[0]).toHaveTextContent('640referralsLast 90 days, all');
+    expect(cards[1]).toHaveTextContent('112best fit unavailable18% of referrals. Full, closed or not updated.');
+    expect(cards[2]).toHaveTextContent('62went to another suitable service');
+    expect(screen.getByText('Who acts on these findings: [owner to be agreed].')).toBeInTheDocument();
     expect(screen.getByText(/They do not show what happened to patients afterwards/)).toBeInTheDocument();
   });
 
   it('says that the figures are not a league table and are not used to assess advisors, and lists no advisor', async () => {
     answer([]);
     render(<PlanningView />);
-    await screen.findByText('640 referrals');
+    await screen.findByRole('list', { name: 'Headline figures' });
 
     expect(screen.getByText(/Not a league table and not used to assess advisors/)).toBeInTheDocument();
     expect(screen.queryByText(/advisor [A-Z][a-z]+/)).toBeNull();
@@ -104,7 +123,7 @@ describe('PlanningView', () => {
   it('passes vitest-axe', async () => {
     answer([]);
     const { container } = render(<PlanningView />);
-    await screen.findByText('640 referrals');
+    await screen.findByRole('list', { name: 'Headline figures' });
 
     expect(await runAxe(container)).toHaveNoViolations();
   });

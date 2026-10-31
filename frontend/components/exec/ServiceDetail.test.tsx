@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type { BoardEntry } from '@/lib/board/types';
 import { NOW } from '@/test/fixtures/board';
 import { runAxe } from '@/test/a11y';
-import { ServiceDetail } from './ServiceDetail';
+import type { AlertItem } from '@/lib/exec/alerts';
+import { ServiceDetail, alertRowText } from './ServiceDetail';
 
 const entry: BoardEntry = {
   serviceId: 'svc-hah', name: 'Hospital at home', category: 'hospital-at-home-or-virtual-ward', status: 'over-capacity',
@@ -34,6 +35,31 @@ describe('ServiceDetail', () => {
     unmount();
     render(<ServiceDetail entry={entry} now={NOW.toISOString()} coordinationPhone={null} />);
     expect(screen.queryByRole('link', { name: 'Call the duty coordinator' })).not.toBeInTheDocument();
+  });
+
+  it('shows the alert row and the escalation row when they were read, and neither when they were not', () => {
+    const alert: AlertItem = {
+      id: 'al-1', kind: 'over-capacity', serviceId: 'svc-hah', serviceName: 'Hospital at home', detail: '+4',
+      raisedAt: '2026-10-23T13:12:00Z', state: 'acknowledged', escalatesAt: null, escalatesTo: null, acknowledgedAt: '2026-10-23T13:40:00Z',
+    };
+    const { unmount } = render(<ServiceDetail entry={entry} now={NOW.toISOString()} alert={alert} escalationInPlace />);
+    const facts = screen.getByText('Alert').closest('dl')!;
+    expect(facts).toHaveTextContent('AlertAcknowledged by you 14:40');
+    expect(facts).toHaveTextContent('Escalation in placeYes');
+    unmount();
+    render(<ServiceDetail entry={entry} now={NOW.toISOString()} />);
+    expect(screen.queryByText('Escalation in place')).not.toBeInTheDocument();
+  });
+
+  it('says what became of the alert in words', () => {
+    expect(alertRowText(null)).toBe('No alert for this service');
+    const base: AlertItem = {
+      id: 'al-2', kind: 'over-capacity', serviceId: 'svc-hah', serviceName: null, detail: null,
+      raisedAt: '2026-10-23T13:12:00Z', state: 'new', escalatesAt: null, escalatesTo: null, acknowledgedAt: null,
+    };
+    expect(alertRowText(base)).toBe('New, alerted 14:12');
+    expect(alertRowText({ ...base, state: 'escalated' })).toBe('Escalated, alerted 14:12');
+    expect(alertRowText({ ...base, state: 'closed' })).toBe('Closed, alerted 14:12');
   });
 
   it('links back to the alerts', () => {

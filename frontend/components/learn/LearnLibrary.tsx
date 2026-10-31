@@ -4,7 +4,9 @@ import Link from 'next/link';
 import { useState, useSyncExternalStore } from 'react';
 import { LEARN_ROLE_LABELS, LEARN_ROLES, lessonsFor, type LearnRole } from '@/lib/learn/content';
 import { doneSnapshot, subscribeProgress } from '@/lib/learn/progress';
+import { Button } from '@/components/ui/Button';
 import styles from '../console/Console.module.css';
+import layout from './Learn.module.css';
 
 // The 2-minute lessons library (W53): role tabs, each lesson with its state, and the way to the
 // first lesson not yet done.
@@ -35,19 +37,21 @@ export function LearnLibrary({ initialRole = 'reporter' }: { initialRole?: Learn
           </button>
         ))}
       </div>
-      <ul aria-label={`${LEARN_ROLE_LABELS[role]} lessons`} className={styles.stand}>
+      <ul aria-label={`${LEARN_ROLE_LABELS[role]} lessons`} className={layout.lessons}>
         {lessons.map((lesson) => (
           <li key={lesson.id}>
-            <Link href={`/learn/${lesson.id}`}>
-              {lesson.title}
-              {lesson.draft ? <span className={styles.help}> Draft</span> : null}{' '}
-              <span>{done.has(lesson.id) ? `${lesson.minutes} min · done` : `${lesson.minutes} min`}</span>
+            <Link href={`/learn/${lesson.id}`} className={layout.lesson}>
+              <span>
+                {lesson.title}
+                {lesson.draft ? <span className={styles.help}> Draft</span> : null}
+              </span>{' '}
+              <span className={layout.lessonMeta}>{done.has(lesson.id) ? `${lesson.minutes} min · done` : `${lesson.minutes} min`}</span>
             </Link>
           </li>
         ))}
       </ul>
       {next !== null && (
-        <Link href={`/learn/${next.id}`} data-el="LEARN-NEXT-BTN">Start the next lesson</Link>
+        <Button variant="primary" href={`/learn/${next.id}`} dataEl="LEARN-NEXT-BTN">Start the next lesson</Button>
       )}
     </main>
   );

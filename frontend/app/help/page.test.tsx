@@ -14,6 +14,14 @@ describe('Help page', () => {
     expect(screen.getByText('Help is one tap away on every screen.')).toBeInTheDocument();
   });
 
+  it('offers the four ways to get help of the training artboard', () => {
+    render(<HelpPage />);
+    expect(screen.getByRole('heading', { level: 2, name: 'Need a hand?' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Read the one-page guide' })).toBeInTheDocument();
+    expect(screen.getByText('Ask your champion')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Report a problem' })).toHaveAttribute('href', '/help/problem');
+  });
+
   it('always links to "Share my session with support", whatever the old flag says (W56)', () => {
     vi.stubEnv('NEXT_PUBLIC_SUPPORT_SHARING', 'off');
     render(<HelpPage />);

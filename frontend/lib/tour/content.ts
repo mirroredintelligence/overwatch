@@ -18,6 +18,11 @@ export type RoleScreen = {
   today: readonly string[];
   withOverwatch: readonly string[];
   action: string;
+  /**
+   * Where the role's action goes, when it is a page and not the practice step (TourRoles artboard). These
+   * pages need a sign-in, so a visitor who has none is sent to sign in and back.
+   */
+  actionHref?: string;
   /** A closing line for the role, when the artboard has one. */
   closing?: string;
 };
@@ -57,18 +62,21 @@ export const ROLE_SCREENS: Record<TourRole, RoleScreen> = {
       'Everyone sees the same board, so fewer huddles',
     ],
     action: 'Invite a reporter',
+    actionHref: '/lead/reporters/invite',
   },
   clinical: {
     heading: 'For clinical advisors',
     today: ['Interrupted by calls with no case ready', 'Asked the same questions again'],
     withOverwatch: ['Requests arrive with the case and what the advisor saw', 'Advise on one screen and it is logged'],
     action: 'Go on duty',
+    actionHref: '/clinical',
   },
   exec: {
     heading: 'For COOs and ICB leads',
     today: ['Ask for updates by phone and in meetings', 'Hear about pressure late', 'Cannot see unused capacity'],
     withOverwatch: ['The system picture in your pocket', 'Alerts only for what you choose', 'A weekly summary replaces a meeting'],
     action: 'Choose my alerts',
+    actionHref: '/planning/setup',
   },
 };
 

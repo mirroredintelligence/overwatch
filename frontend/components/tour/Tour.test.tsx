@@ -33,6 +33,28 @@ describe('Tour: picking a role and what changes', () => {
   });
 });
 
+describe('Tour: what changes for each role (TourRoles)', () => {
+  it.each([
+    ['lead', 'Invite a reporter', '/lead/reporters/invite'],
+    ['clinical', 'Go on duty', '/clinical'],
+    ['exec', 'Choose my alerts', '/planning/setup'],
+  ] as const)('the %s screen offers its action at its page, and Skip, besides Next', (role, action, href) => {
+    render(<Tour initialStep="changes" initialRole={role} />);
+
+    expect(screen.getByRole('link', { name: action })).toHaveAttribute('href', href);
+    expect(screen.getByRole('link', { name: 'Skip' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument();
+  });
+
+  it('the reporter screen has Next and no Skip, and its action is the practice step', async () => {
+    render(<Tour initialStep="changes" initialRole="reporter" />);
+
+    expect(screen.queryByRole('link', { name: 'Skip' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Try a practice update' }));
+    expect(screen.getByRole('heading', { name: 'Practice update' })).toBeInTheDocument();
+  });
+});
+
 describe('Tour: practice', () => {
   it('makes no network request and shows Practice done', async () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch');

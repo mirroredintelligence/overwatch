@@ -35,6 +35,7 @@ REDUNDANT: dict[tuple[str, int], str] = {
     **{("Q-COMM-BY-PROVIDER", k): _VIA_RELATIONSHIP for k in (1, 2, 3, 4)},
     **{("Q-COMM-GET", k): _VIA_RELATIONSHIP for k in (1, 2, 3, 4)},
     **{("Q-COMM-LATEST-PROMPT", k): _VIA_RELATIONSHIP for k in range(7)},
+    **{("Q-COMM-RECENT-PROMPTS", k): _VIA_RELATIONSHIP for k in range(7)},
     # Each of the three nodes is joined to the other two by TOPIC and ABOUT, so with the other two
     # in the caller's tenant a third in another tenant cannot join them (the same as the prompt
     # statement above, which the anchor is no exception to).
@@ -53,6 +54,7 @@ TEN_015 = (
     "Q-COMM-LINK-RECIPIENT",
     "Q-COMM-LINK-REPLY",
     "Q-COMM-PROMPTS-DUE-BETWEEN",
+    "Q-COMM-RECENT-PROMPTS",
     "Q-COMM-RECORD-OUTCOME",
     "Q-COMM-SET-STATUS",
     "Q-WORK-ADD",

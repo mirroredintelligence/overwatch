@@ -5,7 +5,8 @@ It builds the Neo4j connection and the units of work from the container, the cac
 the bus client from Service Bus, wires `HandleInboundText` with the use cases it calls, and runs one
 `ServiceBusRunner` for each inbound queue until it is told to stop: `inbound.replies` (the reply
 processor), `inbound.receipts` (the delivery tracker) and `scheduled.work` (the missed-report
-ladder, I05), and the two sender runners of `messages.outbound` (I10). Nothing here holds a rule.
+ladder, I05), the two sender runners of `messages.outbound` (I10) and the code sender of
+`codes.dispatch` (KI-270). Nothing here holds a rule.
 
 The tenants it serves are the active tenants of the container's tenant directory (TEN-007, TEN-025):
 the platform's own record, read for each message by the consumer that binds the tenant, so a tenant
@@ -30,6 +31,7 @@ from diucs.adapters.inbound.scheduler.scheduled_work_consumer import (
     build_scheduled_work_consumer,
 )
 from diucs.adapters.inbound.workers.board_consumer import BoardRebuilder, board_runners
+from diucs.adapters.inbound.workers.code_sender import code_runner
 from diucs.adapters.inbound.workers.delivery_tracker import receipt_consumer
 from diucs.adapters.inbound.workers.message_senders import push_runner, sender_runners
 from diucs.adapters.inbound.workers.network_board_consumer import (
@@ -141,8 +143,8 @@ def build_runners(
     """One runner for each inbound queue, each over a consumer that binds the message's tenant and
     handles the message under its trace span (O01): the replies, the receipts and, with the
     handlers of the dispatch table, `scheduled.work` (I05). With a sender resolver and a sealer,
-    the two runners of `messages.outbound` (the text and email senders, I10) are added; each binds
-    the message's tenant in the same way."""
+    the two runners of `messages.outbound` (the text and email senders, I10) and the code sender of
+    `codes.dispatch` (KI-270) are added; each binds the message's tenant in the same way."""
     observe = consumer_observer(otel_trace.get_tracer(INSTRUMENTATION_NAME))
     runners = [
         ServiceBusRunner(
@@ -167,6 +169,11 @@ def build_runners(
     if senders is not None and sealer is not None:
         runners += sender_runners(
             client, uow_factory, tenants, senders, sealer, clock or SystemClock(), observe
+        )
+        runners.append(
+            code_runner(
+                client, uow_factory, tenants, senders, sealer, clock or SystemClock(), observe
+            )
         )
     if push is not None and clock is not None and sealer is not None:
         runners.append(

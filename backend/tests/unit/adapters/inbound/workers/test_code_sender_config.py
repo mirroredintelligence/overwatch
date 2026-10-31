@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Any
 
 from diucs.adapters.inbound.workers.code_sender import CODE_SUBSCRIPTION, CODES_TOPIC
-
 from diucs.application.ports.outbound.event_bus import TOPICS
 
 CONFIG = Path(__file__).resolve().parents[6] / "infra" / "servicebus-config.json"

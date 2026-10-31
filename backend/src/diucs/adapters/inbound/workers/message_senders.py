@@ -284,7 +284,8 @@ class SmsMessageSender(_OutboundSender):
     async def _address(self, uow: UnitOfWork, role_id: str, now: datetime) -> str | None:
         # The post's own number is the original holder's. While a cover holds the post the text
         # goes to the cover's number, and to no one when none was kept (F6B). A recipient that is
-        # not a post (a text code's contact key) is addressed by the key itself.
+        # not a post is addressed by the key itself. (A text code is not sent here: it has its own
+        # consumer, code_sender.py.)
         role = await uow.people.get_role(role_id)
         return await uow.contacts.get_phone(
             role_id if role is None else phone_contact_key(role, now)

@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+
 from diucs.adapters.inbound.workers.code_sender import (
     CODE_SUBSCRIPTION,
     CODES_TOPIC,
@@ -21,7 +22,6 @@ from diucs.adapters.inbound.workers.code_sender import (
     CodeMessageSender,
     code_runner,
 )
-
 from diucs.adapters.inbound.workers.consumer import IdempotentConsumer, PermanentError
 from diucs.adapters.inbound.workers.message_senders import (
     BAD_CONTENT,
@@ -140,7 +140,8 @@ async def test_a_code_is_texted_to_the_sealed_number_in_the_k1_wording() -> None
 async def test_every_purpose_is_texted_the_same_way(purpose: str) -> None:
     sender, sms = _sender()
 
-    await _handle(sender, _message(_payload(purpose=purpose)))
+    key = f"code:{'ab' * 32}:{purpose}"
+    await _handle(sender, _message(_payload(purpose=purpose, key=key)))
 
     assert len(sms.sent) == 1
 
@@ -230,6 +231,23 @@ async def test_a_field_that_is_not_what_the_request_writes_is_permanent(
     with pytest.raises(PermanentError):
         await _handle(sender, _message(payload))
 
+    assert sms.sent == []
+
+
+async def test_a_key_that_is_not_this_purposes_code_key_is_refused() -> None:
+    # Each key is sealed under itself, so only the checks on the key can refuse it.
+    sender, sms = _sender()
+    hashed = "ab" * 32
+    cases = (
+        ("setup", f"code:{hashed}:reverify"),
+        ("login", f"code:{hashed}:login"),
+        ("setup", f"role-{hashed}:setup"),
+        ("setup", "code::setup"),
+    )
+    for purpose, key in cases:
+        with pytest.raises(PermanentError) as refused:
+            await _handle(sender, _message(_payload(purpose=purpose, key=key)))
+        assert str(refused.value) == BAD_PAYLOAD
     assert sms.sent == []
 
 

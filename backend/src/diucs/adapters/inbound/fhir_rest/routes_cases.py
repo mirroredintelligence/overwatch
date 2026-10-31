@@ -45,9 +45,10 @@ from diucs.adapters.inbound.fhir_rest.case_mapping import (
 )
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, require_if_match
 from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenant_settings import DirectoryZones
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.advisor_phoned import (
     PHONED_ANSWERS,
     PhonedAnswer,
@@ -311,6 +312,7 @@ async def advisor_phoned(
             container.clock,
             container.ids,
             UnitOfWorkIdempotency(container.uow_factory),
+            zones=DirectoryZones(container.tenants),
         ),
         container.uow_factory,
     )

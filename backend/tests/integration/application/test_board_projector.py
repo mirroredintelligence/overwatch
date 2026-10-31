@@ -205,6 +205,86 @@ async def test_a_capacity_report_stores_the_board_and_publishes_one_update(
     assert datetime.fromisoformat(body["at"]) == FRIDAY_NOON_LONDON
 
 
+async def _three_services(factory: UnitOfWorkFactory, west_value: int) -> list[ServiceProfile]:
+    """West with `west_value` and two services that are already not accepting: the pressure is
+    `watch` once West is limited or worse too (the tenant default: three services)."""
+    services = [WEST, _ucr("svc-ucr-north", "UCR North"), _ucr("svc-ucr-south", "UCR South")]
+    async with factory() as uow:
+        for service in services:
+            await uow.services.save(service)
+            value = west_value if service is WEST else 0
+            await uow.capacity.add(
+                CapacityReport(
+                    id=f"obs-{service.id}-1403",
+                    service_id=service.id,
+                    value=value,
+                    measure=service.measure,
+                    effective_at=WEST_REPORT_AT,
+                    source=ReportSource.TEXT,
+                    report_type=ReportType.NUMBER,
+                )
+            )
+        await uow.commit()
+    return services
+
+
+async def test_a_change_of_pressure_publishes_a_whole_board_message_after_the_service_one(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    # KI-55: the banner belongs to no one service, so the stream is told about it on its own.
+    clock = FixedClock(FRIDAY_NOON_LONDON)
+    await _three_services(uow_factory, west_value=4)
+    cache = _RecordingCache(clock)
+    projector, _ = _projector(uow_factory, cache, clock)
+    await projector.handle("CapacityReported", _payload("svc-ucr-west"))
+    first = board_from_dict(json.loads(await cache.get(BOARD_CACHE_KEY) or "null"))
+    assert first.pressure.value == "normal"
+    cache.publishes.clear()
+
+    async with uow_factory() as uow:
+        await uow.capacity.add(_report("obs-west-1410", 0, NEWER_REPORT_AT))
+        await uow.commit()
+    await projector.handle("CapacityReported", _payload("svc-ucr-west"))
+
+    bodies = [json.loads(message) for _, message in cache.publishes]
+    assert [b["service_id"] for b in bodies] == ["svc-ucr-west", None]
+    assert all(b["type"] == "board-changed" for b in bodies)
+    assert set(bodies[1]) == {"type", "service_id", "at"}
+
+
+async def test_no_whole_board_message_is_published_while_the_pressure_is_unchanged(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    clock = FixedClock(FRIDAY_NOON_LONDON)
+    await _seed(uow_factory, _report("obs-west-1403", 4, WEST_REPORT_AT))
+    cache = _RecordingCache(clock)
+    projector, _ = _projector(uow_factory, cache, clock)
+    await projector.handle("CapacityReported", _payload("svc-ucr-west"))
+    cache.publishes.clear()
+
+    async with uow_factory() as uow:
+        await uow.capacity.add(_report("obs-west-1410", 3, NEWER_REPORT_AT))
+        await uow.commit()
+    await projector.handle("CapacityReported", _payload("svc-ucr-west"))
+
+    assert [json.loads(m)["service_id"] for _, m in cache.publishes] == ["svc-ucr-west"]
+
+
+async def test_an_unreadable_previous_board_does_not_stop_the_publish(
+    uow_factory: UnitOfWorkFactory,
+) -> None:
+    clock = FixedClock(FRIDAY_NOON_LONDON)
+    await _seed(uow_factory, _report("obs-west-1403", 4, WEST_REPORT_AT))
+    cache = _RecordingCache(clock)
+    await cache.set(BOARD_CACHE_KEY, "{not json", timedelta(seconds=60))
+    cache.writes.clear()
+    projector, _ = _projector(uow_factory, cache, clock)
+
+    assert await projector.handle("CapacityReported", _payload("svc-ucr-west"))
+
+    assert [json.loads(m)["service_id"] for _, m in cache.publishes] == ["svc-ucr-west"]
+
+
 async def test_an_event_the_board_does_not_show_changes_nothing(
     uow_factory: UnitOfWorkFactory,
 ) -> None:

@@ -28,6 +28,7 @@ from diucs.application.idempotency import IdempotencyStore
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.tenant_settings import TenantZones, as_zones, read_settings
 from diucs.application.use_cases.report_capacity import (
     check_may_report,
     check_performer,
@@ -42,7 +43,8 @@ from diucs.domain.errors import (
     NothingToConfirm,
 )
 from diucs.domain.model.capacity import CapacityReport
-from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.model.tenant_policy import TenantPolicy
+from diucs.domain.rules.effective_time import default_effective_at
 
 USE_CASE = "ConfirmCapacity"
 
@@ -119,11 +121,15 @@ class ConfirmCapacity:
         clock: Clock,
         ids: IdGenerator,
         idempotency: IdempotencyStore,
+        zones: TenantZones | None = None,
     ) -> None:
+        """`zones` is the tenant's time zone source; None is London, the one zone on the allow-list
+        (KI-415). The serving process passes `DirectoryZones`."""
         self._uow_factory = uow_factory
         self._clock = clock
         self._ids = ids
         self._idempotency = idempotency
+        self._zones = as_zones(zones)
 
     async def execute(self, command: ConfirmCapacityCommand) -> ConfirmCapacityResult:
         # Before anything is read, the early replay included: the actor's tenant is the bound one
@@ -173,8 +179,8 @@ class ConfirmCapacity:
                     latest.value,
                     latest.effective_at,
                 )
-            config = await uow.tenant_config.current_version()
-            policy = DEFAULT_POLICY if config is None else config.policy
+            settings = await read_settings(uow, self._zones)
+            policy = settings.policy
             trailing = await uow.capacity.trailing_confirmations(profile.id)
             check_confirm_limit(trailing, policy)
 
@@ -183,7 +189,9 @@ class ConfirmCapacity:
                 service_id=profile.id,
                 value=latest.value,
                 measure=profile.measure,
-                effective_at=now,
+                # Never at or before the figure it confirms: a host whose clock is behind the one
+                # that wrote it would otherwise time the confirmation before the figure (KI-8).
+                effective_at=default_effective_at(now, latest.effective_at),
                 source=command.source,
                 report_type=ReportType.CONFIRMED,
                 performer_role_id=command.performer_role_id,
@@ -208,10 +216,15 @@ class ConfirmCapacity:
                     "value": report.value,
                     "derived_from": latest.id,
                     "consecutive": trailing + 1,
-                    **({} if config is None else {"config_version": config.version}),
+                    **(
+                        {}
+                        if settings.config_version is None
+                        else {"config_version": settings.config_version}
+                    ),
                 },
                 policy=policy,
-                config_version=None if config is None else config.version,
+                config_version=settings.config_version,
+                zone=settings.zone,
             )
             result = ConfirmCapacityResult(
                 report_id=recorded.report_id,

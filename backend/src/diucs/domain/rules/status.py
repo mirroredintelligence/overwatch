@@ -122,10 +122,10 @@ def compute_status(
     """The status, figures and freshness of one service at instant now (domain-rules 1.2, 1.3).
 
     confirmed_at holds the instants of bookings confirmed for this service. Only those at or after
-    the report's effective time are subtracted (1.6). A report later than now, or a naive now, is
-    refused by assess_freshness. The tenant's policy (TEN-021) reaches assess_freshness, and the
-    tenant's `zone` (TEN-065, London by default) reaches it and the opening hours; the rule order
-    is unchanged.
+    the report's effective time are subtracted (1.6). A naive now is refused by assess_freshness; a
+    report later than now has age zero (KI-31). The tenant's policy (TEN-021) reaches
+    assess_freshness, and the tenant's `zone` (TEN-065, London by default) reaches it and the
+    opening hours; the rule order is unchanged.
     """
     policy = require_policy(policy)
     zone = require_zone(zone)

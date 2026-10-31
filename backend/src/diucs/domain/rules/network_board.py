@@ -276,11 +276,14 @@ def _shown(item: NetworkServiceInput, now: datetime) -> NetworkBoardEntry:
     capacity = item.capacity
     if capacity is None:
         return dataclasses.replace(name_only, status=Status.NOT_UPDATED)
+    if capacity.reported_at is not None and capacity.reported_at > _aware("now", now):
+        # A report dated after this read (clock skew between the member and the platform) is
+        # never shown as a figure: the row reads Not updated. A member's own board counts such a
+        # figure as current (KI-31); another organisation's is not trusted that far.
+        return dataclasses.replace(name_only, status=Status.NOT_UPDATED)
     try:
         state = compute_network_state(status_inputs(capacity, item.service), now)
     except ValueError:
-        # A report dated after this read (clock skew between the member and the platform) is
-        # never shown as a figure: the row reads Not updated.
         return dataclasses.replace(name_only, status=Status.NOT_UPDATED)
     return dataclasses.replace(
         name_only,

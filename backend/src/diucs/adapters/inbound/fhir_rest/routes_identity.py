@@ -52,7 +52,6 @@ from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.adapters.inbound.fhir_rest.auth import require_role
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, operation_outcome
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.identity import (
@@ -69,6 +68,7 @@ from diucs.application.ports.outbound.tenants import TenantDirectory, TenantReco
 from diucs.application.ports.outbound.tokens import SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant, current_tenant
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.pin import (
     PIN_HMAC_SECRET,
     RATE_WINDOW,

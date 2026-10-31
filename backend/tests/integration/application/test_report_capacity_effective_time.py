@@ -26,6 +26,7 @@ from diucs.application.use_cases.confirm_capacity import ConfirmCapacity, Confir
 from diucs.application.use_cases.report_capacity import ReportCapacity, ReportCapacityCommand
 from diucs.domain.codes import ReportSource, ReportType
 from diucs.domain.errors import (
+    Conflict,
     EffectiveBeforeConfirmation,
     EffectiveNotAfterLatest,
     ValidationFailed,
@@ -175,6 +176,19 @@ async def test_any_explicit_time_is_accepted_when_the_service_has_no_figure(
 
     latest = await _latest(uow_factory)
     assert latest is not None and latest.effective_at == REPORT_AT - timedelta(days=3)
+
+
+async def test_a_key_used_by_a_confirmation_is_a_conflict_before_the_time_is_judged(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    """A key that another command used is refused as a Conflict first, like ConfirmCapacity does,
+    so the answer does not depend on a time that was refused for another reason."""
+    await _seed_with_report(uow_factory, seed_service, _seed_report())
+    rig = Rig(uow_factory, neo4j_driver, SequentialIds())
+    await rig.yes(AT_1005, "shared-key")
+
+    with pytest.raises(Conflict):
+        await rig.report.execute(_report_at(rig, "shared-key", 5, AT_1005))
 
 
 # --- KI-8: the default time never precedes a figure on record -------------------------------------

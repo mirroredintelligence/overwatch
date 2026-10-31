@@ -11,6 +11,7 @@ figure before an older one. Boundary values at one microsecond.
 from datetime import UTC, datetime, timedelta, timezone
 
 import pytest
+
 from diucs.domain.rules.effective_time import (
     ONE_MICROSECOND,
     default_effective_at,

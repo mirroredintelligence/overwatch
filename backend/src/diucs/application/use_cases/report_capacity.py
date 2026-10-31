@@ -81,6 +81,10 @@ class ReportCapacityCommand:
     """Extra text keys added to the audit snapshot, as sorted-by-caller (name, value) pairs. The
     advisor's answer to a phone call is recorded this way (U13, DEC-292). Empty for every other
     caller, so their snapshots do not change."""
+    open_case_id: str | None = None
+    """A case that must exist in the bound tenant and be open when the report is written, checked
+    in the report's own unit of work (KI-354, DEC-1173): a case closed a moment ago is not accepted.
+    None for every caller that names no case."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -410,6 +414,14 @@ class ReportCapacity:
             if profile is None or not profile.active:
                 raise NotFound("no active service with this id")
             check_may_report(command.actor, command.source, profile.id)
+            if command.open_case_id is not None:
+                # The same unit as the report, so the case that was checked is the case the report
+                # is written against. Another tenant's id reads as unknown (DEC-131).
+                named = await uow.cases.get(command.open_case_id)
+                if named is None:
+                    raise NotFound("no case with this id")
+                if named.closed_at is not None:
+                    raise Conflict("the case is closed")
 
             now = self._clock.now()
             if command.performer_role_id is not None:

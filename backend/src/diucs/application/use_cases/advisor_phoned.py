@@ -6,8 +6,10 @@ ReportCapacity's one unit of work (U01). "Not accepting" stores 0. The answer it
 case when one is given) goes into that same audit entry, so the record says what the service said,
 not only the number. No echo is sent: an advisor's call is not a text to the service.
 
-A case given with the call must exist in the tenant bound to the call; another tenant's case id, or
-an unknown one, is refused as not found before any report is written (DEC-292). Who may name the
+A case given with the call must exist in the tenant bound to the call and be open; another tenant's
+case id, or an unknown one, is refused as not found and a closed one as a conflict, before any
+report is written. The check is in the report's own unit of work (KI-354, DEC-1173), so a case
+closed between the check and the report is not accepted (DEC-292). Who may name the
 advisor-phoned source is decided by ReportCapacity (check_may_report, DEC-100): an advisor or a
 lead, not a clinician. The U13 prompt also names clinicians; that conflict is recorded for the owner
 in DEC-292 and is not decided here.
@@ -24,7 +26,7 @@ from diucs.application.use_cases.report_capacity import (
     ReportCapacityResult,
 )
 from diucs.domain.codes import ReportSource
-from diucs.domain.errors import NotFound, ValidationFailed
+from diucs.domain.errors import ValidationFailed
 
 PhonedAnswer = Literal["accepting", "limited", "not-accepting"]
 ACCEPTING: Final = "accepting"
@@ -69,7 +71,6 @@ class RecordAdvisorPhoned:
         number = phoned_figure(command.told, command.value)
         detail: list[tuple[str, str]] = [("told", command.told)]
         if command.case_id is not None:
-            await self._check_case(command.case_id)
             detail.append(("case_id", command.case_id))
         return await self._report_capacity.execute(
             ReportCapacityCommand(
@@ -80,11 +81,6 @@ class RecordAdvisorPhoned:
                 source=ReportSource.ADVISOR_PHONED,
                 send_echo=False,
                 audit_detail=tuple(detail),
+                open_case_id=command.case_id,
             )
         )
-
-    async def _check_case(self, case_id: str) -> None:
-        # Its own unit of work, closed before the report opens its own (one open unit at a time).
-        async with self._uow_factory() as uow:
-            if await uow.cases.get(case_id) is None:
-                raise NotFound("no case with this id")

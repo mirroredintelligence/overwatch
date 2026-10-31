@@ -100,7 +100,8 @@ export type NetworkCriteriaEntry = {
   serviceName: string;
   version: number;
   ageMin: number;
-  ageMax: number;
+  /** Null when the service has no upper age limit. */
+  ageMax: number | null;
   districts: string[];
   accepts: string[];
   excludes: string[];

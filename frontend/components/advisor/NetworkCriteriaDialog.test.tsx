@@ -3,6 +3,8 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
 import { runAxe } from '@/test/a11y';
+import { CRITERIA_BODY } from '@/test/fixtures/network';
+import { parseCriteria } from '@/lib/network/parse';
 import { networkBffHandlers, resetNetworkBff, seenNetworkBff } from '@/test/msw/handlers/networkBff';
 import { server } from '@/test/msw/server';
 import { NetworkCriteriaDialog } from './NetworkCriteriaDialog';
@@ -46,6 +48,13 @@ describe('NetworkCriteriaDialog', () => {
     open();
     await screen.findByText(/Accepts/);
     expect(seenNetworkBff).toEqual([{ path: '/api/bff/network/criteria', query: 'networkId=net-sample' }]);
+  });
+
+  it('says "and over" for a service with no upper age limit', async () => {
+    const body = { ...CRITERIA_BODY, entries: [{ ...CRITERIA_BODY.entries[0], age_max: null }] };
+    server.use(http.get('/api/bff/network/criteria', () => HttpResponse.json(parseCriteria(body, 'backend'))));
+    render(<NetworkCriteriaDialog networkId="net-sample" rowRef="lst-0001" serviceName="UCR West" organisationName="Sample Area A" onClose={() => {}} />);
+    expect(await screen.findByText('Ages: 18 and over')).toBeInTheDocument();
   });
 
   it('says no criteria are shared for a service that shared none', async () => {

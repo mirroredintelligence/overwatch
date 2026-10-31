@@ -72,3 +72,8 @@ export function networkToWallBoard(board: NetworkBoard, ownOrganisation: string 
     organisation: null,
   };
 }
+
+/** The ages a service takes: "18 to 120", or "18 and over" when it has no upper limit. */
+export function agesText(min: number, max: number | null): string {
+  return max === null ? `${min} and over` : `${min} to ${max}`;
+}

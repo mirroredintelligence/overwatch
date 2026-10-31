@@ -6,7 +6,7 @@ import { Dialog } from '@/components/ui/Dialog';
 import { NEED_LABELS } from '@/lib/criteria/model';
 import type { NeedCode } from '@/lib/criteria/types';
 import { readNetworkView } from '@/lib/network/browser';
-import { dayText } from '@/lib/network/entries';
+import { agesText, dayText } from '@/lib/network/entries';
 import { parseCriteria } from '@/lib/network/parse';
 import type { NetworkCriteriaEntry } from '@/lib/network/types';
 import styles from './dialog-body.module.css';
@@ -58,7 +58,7 @@ export function NetworkCriteriaDialog({
           <>
             <p className={styles.text}>{`Accepts: ${needs(load.entry.accepts)}`}</p>
             <p className={styles.text}>{`Does not accept: ${needs(load.entry.excludes)}`}</p>
-            <p className={styles.text}>{`Ages: ${load.entry.ageMin} to ${load.entry.ageMax}`}</p>
+            <p className={styles.text}>{`Ages: ${agesText(load.entry.ageMin, load.entry.ageMax)}`}</p>
             <p className={styles.text}>{`Districts: ${load.entry.districts.length === 0 ? 'none listed' : load.entry.districts.join(', ')}`}</p>
             <p className={styles.text}>{`Review by ${dayText(`${load.entry.reviewBy}T12:00:00Z`)}`}</p>
           </>

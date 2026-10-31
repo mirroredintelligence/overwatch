@@ -333,7 +333,8 @@ function criteriaEntry(item: unknown, style: KeyStyle): NetworkCriteriaEntry {
     serviceName: shape.text('serviceName'),
     version: shape.count('version'),
     ageMin: shape.count('ageMin'),
-    ageMax: shape.count('ageMax'),
+    // The back end sends null for "no upper limit" (`age_max: int | None`).
+    ageMax: shape.nullableCount('ageMax'),
     districts: shape.textList('districts'),
     accepts: shape.textList('accepts', NEEDS),
     excludes: shape.textList('excludes', NEEDS),

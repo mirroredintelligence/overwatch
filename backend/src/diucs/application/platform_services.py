@@ -18,7 +18,7 @@ route can say the step was done and not recorded (`recorded` is False).
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Protocol
 
 from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.platform_audit import (
@@ -59,7 +59,10 @@ from diucs.application.use_cases.tenant_config import (
     RecordTenantContact,
     SetTenantRetention,
 )
-from diucs.application.use_cases.tenant_offboarding import StartTenantOffboarding
+from diucs.application.use_cases.tenant_offboarding import (
+    StartOffboardingCommand,
+    StartOffboardingResult,
+)
 from diucs.application.use_cases.tenant_suspend import ResumeTenant, SuspendTenant
 
 log = logging.getLogger(__name__)
@@ -112,6 +115,13 @@ class PlatformRecorder:
         return True
 
 
+class OffboardingStart(Protocol):
+    """What starts an offboarding: `StartTenantOffboarding` (the notice period) or, in a process
+    that can reach the networks, `OffboardTenant` (TEN-074), which ends the memberships first."""
+
+    async def execute(self, command: StartOffboardingCommand) -> StartOffboardingResult: ...
+
+
 @dataclass(frozen=True, slots=True)
 class PlatformServices:
     """What `/platform` runs: the operator's tenant lifecycle, the platform chain and the support
@@ -129,7 +139,7 @@ class PlatformServices:
     activate: ActivateTenant
     suspend: SuspendTenant
     resume: ResumeTenant
-    offboard: StartTenantOffboarding
+    offboard: OffboardingStart
     recorder: PlatformRecorder
     audit_reader: PlatformAuditReader
     tickets: SupportTicketServices

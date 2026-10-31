@@ -28,6 +28,9 @@ class WorkKind(StrEnum):
     # The escalation of an unacknowledged booking withdrawal (U21). Its own kind, not
     # ESCALATE_TO_LEAD: the missed-report ladder owns that kind and the dispatcher routes by kind.
     WITHDRAWAL_ESCALATE = "withdrawal-escalate"
+    # The projection heartbeat of one tenant that shares capacity with a network (TEN-056): its own
+    # chain, one scheduled job at a time, that re-projects and reconciles and schedules the next.
+    PROJECTION_HEARTBEAT = "projection-heartbeat"
 
 
 SCHEDULED = "scheduled"

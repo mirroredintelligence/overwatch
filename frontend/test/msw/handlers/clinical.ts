@@ -95,6 +95,54 @@ export const LISTS: Record<string, unknown[]> = {
   completed: [DONE_TASK],
 };
 
+
+// What the back end answers for what the advisor saw and the way to reach the advisor (W9G: `GET
+// /clinical/requests/{id}/seen` and `/advisor-contact`, at the back end's root). The shapes are the back end's
+// (clinical_mapping.seen_json and contact_json). Only the clinician who holds a request reads either: any other id
+// is the one 404 of an id that is nowhere.
+export const SEEN_SHOWN = {
+  state: 'shown',
+  shownAt: '2026-10-23T13:13:20Z',
+  options: 2,
+  noneFitted: false,
+  lines: [
+    { service: 'UCR West', shownAs: 'option', status: 'accepting', statusText: 'Accepting', figure: '4', age: '9 min old', stale: false, why: null, criteriaVersion: 3 },
+    { service: 'Hospital at home', shownAs: 'option', status: 'over-capacity', statusText: 'Over capacity', figure: '+2', age: '14 min old', stale: false, why: null, criteriaVersion: 3 },
+    { service: 'Ward B', shownAs: 'option', status: 'accepting', statusText: 'Accepting', figure: '5', age: '2 hrs 10 min old', stale: true, why: null, criteriaVersion: 3 },
+    { service: 'UCR East', shownAs: 'not-suitable', status: 'not-accepting', statusText: 'Not accepting', figure: null, age: '3 min old', stale: false, why: 'Not accepting', criteriaVersion: 3 },
+  ],
+};
+export const SEEN_NONE_FITTED = {
+  state: 'shown',
+  shownAt: '2026-10-23T13:13:20Z',
+  options: 0,
+  noneFitted: true,
+  lines: [
+    { service: 'UCR East', shownAs: 'not-suitable', status: 'not-accepting', statusText: 'Not accepting', figure: null, age: '3 min old', stale: false, why: 'Not accepting', criteriaVersion: 3 },
+    { service: 'Ward B', shownAs: 'not-suitable', status: 'accepting', statusText: 'Accepting', figure: '5', age: '1 min old', stale: false, why: 'Outside its criteria', criteriaVersion: 3 },
+  ],
+};
+export const SEEN_NO_DISPLAY = { state: 'none', shownAt: null, options: 0, noneFitted: false, lines: [] };
+export const SEEN_UNREADABLE = { state: 'unreadable', shownAt: null, options: 0, noneFitted: false, lines: [] };
+export const WORK_PHONE_CONTACT = { available: true, via: 'work-phone', phone: '07700 900123', name: 'Sample Advisor' };
+export const LINE_CONTACT = { available: true, via: 'advisor-line', phone: '01305 900000', name: null };
+export const NO_CONTACT = { available: false, via: null, phone: null, name: null };
+
+const SEEN_BY_ID: Record<string, unknown> = {
+  'req-5001': SEEN_SHOWN,
+  'req-5002': SEEN_SHOWN,
+  'req-5006': SEEN_NONE_FITTED,
+  'req-5007': SEEN_NO_DISPLAY,
+  'req-5008': SEEN_UNREADABLE,
+};
+const CONTACT_BY_ID: Record<string, unknown> = {
+  'req-5001': WORK_PHONE_CONTACT,
+  'req-5006': LINE_CONTACT,
+  'req-5007': NO_CONTACT,
+};
+const notFound = () =>
+  HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'not-found', diagnostics: 'The requested resource was not found.' }] }, { status: 404 });
+
 export function resetClinicalBackend() {
   seenClinical.length = 0;
 }
@@ -136,6 +184,20 @@ export const clinicalBackendHandlers = [
     const body = await request.json().catch(() => undefined);
     seenClinical.push({ method: 'POST', path: `/Task/${String(params.id)}/$advise`, idempotencyKey: request.headers.get('Idempotency-Key'), body });
     return HttpResponse.json({ resourceType: 'Task', id: String(params.id), businessStatus: { coding: [{ code: 'completed' }] } });
+  }) as HttpResponseResolver),
+  http.get(`${BACKEND_ROOT}/clinical/requests/:id/seen`, (({ params }) => {
+    const id = String(params.id);
+    seenClinical.push({ method: 'GET', path: `/clinical/requests/${id}/seen`, idempotencyKey: null, body: undefined });
+    if (id === 'req-fail') return HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'exception', diagnostics: 'Internal error' }] }, { status: 500 });
+    const found = SEEN_BY_ID[id];
+    return found === undefined ? notFound() : HttpResponse.json(found);
+  }) as HttpResponseResolver),
+  http.get(`${BACKEND_ROOT}/clinical/requests/:id/advisor-contact`, (({ params }) => {
+    const id = String(params.id);
+    seenClinical.push({ method: 'GET', path: `/clinical/requests/${id}/advisor-contact`, idempotencyKey: null, body: undefined });
+    if (id === 'req-fail') return HttpResponse.json({ resourceType: 'OperationOutcome', issue: [{ severity: 'error', code: 'exception', diagnostics: 'Internal error' }] }, { status: 500 });
+    const found = CONTACT_BY_ID[id];
+    return found === undefined ? notFound() : HttpResponse.json(found);
   }) as HttpResponseResolver),
   // The clinician's own presence and the count (W7A, DEC-780): at the back end's root, not under /fhir.
   http.get(`${BACKEND_ROOT}/clinical/presence`, (() => {
@@ -209,6 +271,14 @@ export const clinicalBffHandlers = [
   http.put('/api/bff/clinical/presence', (async ({ request }) => {
     const body = await recorded(request);
     return HttpResponse.json(body ?? {});
+  }) as HttpResponseResolver),
+  http.get('/api/bff/clinical/requests/:id/advisor-contact', (async ({ request, params }) => {
+    await recorded(request);
+    const id = String(params.id);
+    if (id === 'req-lost') return HttpResponse.json({ code: 'not-found', message: 'We could not find that.' }, { status: 404 });
+    if (id === 'req-fail') return HttpResponse.json({ code: 'unavailable' }, { status: 503 });
+    const found = CONTACT_BY_ID[id];
+    return found === undefined ? HttpResponse.json({ code: 'not-found' }, { status: 404 }) : HttpResponse.json({ contact: found });
   }) as HttpResponseResolver),
   http.post('/api/bff/clinical/requests/:id/take', (async ({ request, params }) => {
     await recorded(request);

@@ -5,6 +5,12 @@ use cases hold the rules (who may ask, take or advise; the lock; the protected t
 
 PUT  /clinical/presence
          clinical; {"presence": available, busy or away} (SetPresence, U40)
+GET  /clinical/requests/{id}/seen
+         clinical, holding the request: the display of the options the advisor had when they asked
+         (ReadWhatAdvisorSaw, W9G)
+GET  /clinical/requests/{id}/advisor-contact
+         clinical, holding the request: the number to phone the advisor on, or none
+         (ReadAdvisorContact, W9G)
 GET  /clinical/available
          advisor, clinical or lead; {"available": n}, a count only, never a name
 GET  /fhir/Task?code=clinical-advice&status=requested
@@ -41,7 +47,11 @@ from diucs.adapters.inbound.fhir_rest import routes_bookings
 from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.adapters.inbound.fhir_rest.auth import current_actor, require_role
 from diucs.adapters.inbound.fhir_rest.capability import FhirJSONResponse
-from diucs.adapters.inbound.fhir_rest.clinical_mapping import clinical_task
+from diucs.adapters.inbound.fhir_rest.clinical_mapping import (
+    clinical_task,
+    contact_json,
+    seen_json,
+)
 from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, replay_or_run
 from diucs.adapters.inbound.fhir_rest.parameters import (
     PARAMETERS,
@@ -81,6 +91,7 @@ from diucs.application.use_cases.clinical_advice import (
     TakeClinicalRequest,
     TakeClinicalRequestCommand,
 )
+from diucs.application.use_cases.clinical_context import ReadAdvisorContact, ReadWhatAdvisorSaw
 from diucs.application.use_cases.safety_concern import (
     ReportProblem,
     ReportProblemCommand,
@@ -280,6 +291,36 @@ async def available_clinicians(
         container.uow_factory, container.cache, container.clock
     ).execute()
     return FhirJSONResponse(content={"available": count}, headers=NO_STORE)
+
+
+@router.get("/clinical/requests/{request_id}/seen")
+async def read_seen(
+    request_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(Role.CLINICAL))],
+) -> Response:
+    """What the advisor saw when they asked, for the clinician who holds the request (W9G). Anyone
+    else, a request that is waiting and an id that is not there are the same 404."""
+    container = _container(request)
+    saw = await ReadWhatAdvisorSaw(container.uow_factory, container.clock).execute(
+        actor, request_id
+    )
+    return FhirJSONResponse(content=seen_json(saw), headers=NO_STORE)
+
+
+@router.get("/clinical/requests/{request_id}/advisor-contact")
+async def read_advisor_contact(
+    request_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(Role.CLINICAL))],
+) -> Response:
+    """The number to phone the advisor on, for the clinician who holds the request (W9G). The number
+    is in this answer only: the use case audits how it was found and nothing else about it."""
+    container = _container(request)
+    contact = await ReadAdvisorContact(container.uow_factory, container.clock).execute(
+        actor, request_id
+    )
+    return FhirJSONResponse(content=contact_json(contact), headers=NO_STORE)
 
 
 @router.post("/help/problems", status_code=201)

@@ -138,6 +138,18 @@ COVER_CONTACT_PREFIX: Final = "cover-"
 number under `<role id>`, so a cover never replaces the number the post was set up with."""
 
 
+WORK_CONTACT_PREFIX: Final = "work-"
+"""The protected contact of a person's work phone, kept under `work-<practitioner id>`: it belongs
+to the person, not to a post (W9G, DEC-1030). Nothing in the product writes it yet."""
+
+
+def work_contact_key(practitioner_id: str) -> str:
+    """The key of the protected contact that holds a practitioner's work phone."""
+    if not isinstance(practitioner_id, str) or not practitioner_id.strip():
+        raise ValidationFailed("practitioner_id", "is required")
+    return f"{WORK_CONTACT_PREFIX}{practitioner_id}"
+
+
 def cover_in_force(role: PractitionerRole, now: datetime) -> bool:
     """Whether a cover holds the role at `now`: there is a cover and its end has not come."""
     check_aware("now", now)

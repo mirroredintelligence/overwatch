@@ -17,6 +17,7 @@ from typing import Any, Final
 
 from diucs.application.idempotency import format_instant
 from diucs.application.use_cases.clinical_advice import ClinicalRequestView
+from diucs.application.use_cases.clinical_context import AdvisorContact, WhatAdvisorSaw
 from diucs.domain.codes import code_system_url
 
 CLINICAL_CODE: Final = "clinical-advice"
@@ -79,4 +80,43 @@ def clinical_task(view: ClinicalRequestView) -> dict[str, Any]:
         "focus": {"reference": f"ServiceRequest/{request.case_id}"},
         "authoredOn": format_instant(request.requested_at),
         "extension": extensions,
+    }
+
+
+def seen_json(saw: WhatAdvisorSaw) -> dict[str, Any]:
+    """What the advisor saw, for the clinician who holds the request (W9G). One line per service of
+    the display: its name, how it was shown, its status, its figure (what it could take, "+n" when
+    over capacity, or none), the age of the figure, whether that is past the stale limit, why it was
+    not suitable, and the criteria version. No postcode, no district, no identifier of a service or
+    a person: the lines are in the order the display showed them."""
+    return {
+        "state": saw.state,
+        "shownAt": None if saw.shown_at is None else format_instant(saw.shown_at),
+        "options": saw.options,
+        "noneFitted": saw.state == "shown" and saw.options == 0,
+        "lines": [
+            {
+                "service": line.service,
+                "shownAs": line.shown_as,
+                "status": line.status,
+                "statusText": line.status_text,
+                "figure": line.figure,
+                "age": line.age,
+                "stale": line.stale,
+                "why": line.why,
+                "criteriaVersion": line.criteria_version,
+            }
+            for line in saw.lines
+        ],
+    }
+
+
+def contact_json(contact: AdvisorContact) -> dict[str, Any]:
+    """The way to reach the advisor, for the clinician who holds the request (W9G). The number is
+    whole here and nowhere else; with none, `available` is false and every other field is null."""
+    return {
+        "available": contact.phone is not None,
+        "via": contact.via,
+        "phone": contact.phone,
+        "name": contact.name,
     }

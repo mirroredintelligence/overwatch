@@ -396,6 +396,35 @@ async def test_one_audit_record_lists_every_service_and_holds_no_postcode(
     assert DISTRICT not in text
 
 
+async def test_the_snapshot_keeps_how_far_over_a_service_was_and_why_one_was_not_suitable(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    """W9G (H-190): a clinician reads what the advisor saw. An over-capacity row holds how far
+    over it was (the used count is not a figure), and a row that was not suitable holds a closed
+    reason code, never a sentence with an age in it."""
+    await _seed(uow_factory, neo4j_driver, tenant_id)
+    async with uow_factory() as uow:
+        await uow.criteria.save(
+            dataclasses.replace(_criteria(UCR_EAST), accepts=frozenset({NeedCategory.WOUND_CARE}))
+        )
+        await uow.commit()
+
+    await _run(uow_factory)
+
+    async with uow_factory() as uow:
+        records = await uow.audit.records()
+    snapshot = records[-1].entry.snapshot
+    assert snapshot is not None
+    rows = {row["id"]: row for row in snapshot["services"]}
+    assert rows[HOME]["over_by"] == 2
+    assert rows[HOME]["shown_as"] == "option"
+    assert rows[HOME].get("reason") is None
+    assert rows[UCR_WEST]["over_by"] is None
+    assert rows[SDEC_2]["shown_as"] == "not-suitable"
+    assert rows[SDEC_2]["reason"] == "not-accepting"
+    assert rows[UCR_EAST]["reason"] == "outside-criteria"
+
+
 async def test_a_reporter_is_refused_and_nothing_is_audited(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, tenant_id: str
 ) -> None:

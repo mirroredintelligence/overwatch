@@ -131,6 +131,11 @@ class _Body(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class RoleMappingBody(_Body):
+    groupObjectId: str = Field(min_length=1, max_length=64)
+    role: Role
+
+
 class CreateTenantBody(_Body):
     displayName: str = Field(min_length=1, max_length=120)
     legalName: str = Field(min_length=1, max_length=200)
@@ -138,6 +143,8 @@ class CreateTenantBody(_Body):
     countryCode: str = Field(default="GB", min_length=2, max_length=2)
     timeZone: str = Field(default="Europe/London", max_length=64)
     odsCode: str | None = Field(default=None, max_length=16)
+    directoryId: str | None = Field(default=None, max_length=64)
+    roleMappings: list[RoleMappingBody] = Field(default_factory=list, max_length=12)
 
 
 class HostBody(_Body):
@@ -378,6 +385,8 @@ async def create_tenant(
                 country_code=body.countryCode,
                 time_zone=body.timeZone,
                 ods_code=body.odsCode,
+                directory_id=body.directoryId,
+                role_mappings=tuple((m.groupObjectId, m.role) for m in body.roleMappings),
             )
         )
         return await _step(

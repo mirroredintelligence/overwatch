@@ -57,7 +57,7 @@ from overwatch.application.provisioning import (
     seed_recurring_work,
 )
 from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from overwatch.application.use_cases.tenant_config import configuration_facts
+from overwatch.application.use_cases.tenant_config import configuration_facts, plan_binding
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from overwatch.domain.model.tenant import (
@@ -72,6 +72,8 @@ from overwatch.domain.model.tenant_records import (
     BindingStatus,
     ChannelKind,
     EntraBinding,
+    MappingStatus,
+    RoleMapping,
     TenantChannel,
 )
 from overwatch.domain.rules.tenant_lifecycle import (
@@ -186,6 +188,12 @@ class CreateTenantCommand:
     country_code: str = "GB"
     time_zone: str = "Europe/London"
     ods_code: str | None = None
+    directory_id: str | None = None
+    """The Entra directory the tenant's staff will sign in through, bound as `pending`: the
+    operator verifies it as a separate step (`VerifyEntraBinding`), so creating a tenant never
+    makes a directory usable."""
+    role_mappings: tuple[tuple[str, Role], ...] = ()
+    """(group object id, role) pairs, written in use. A role a group may not give is refused."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,6 +233,15 @@ class CreateTenant(OperatorUseCase):
             ods_code=command.ods_code,
             now=self._clock.now(),
         )
+        directory = None
+        if command.directory_id is not None:
+            directory = normalise_directory_id(command.directory_id)
+            if directory is None:
+                raise ValidationFailed("directory_id", "must be a directory id")
+        # Built (and so checked) before anything is written: a bad mapping creates nothing.
+        mappings = tuple(
+            RoleMapping(group, role, MappingStatus.ACTIVE) for group, role in command.role_mappings
+        )
         existing = await self._tenants.get(wanted.id)
         created = existing is None
         if existing is None:
@@ -234,6 +251,14 @@ class CreateTenant(OperatorUseCase):
             raise Conflict("a tenant with this id already exists")
         await provision_scope(self._provisioner, self._uow_factory)
         async with self._uow_factory() as uow:
+            if directory is not None:
+                _unit_scope(uow)
+                for binding in plan_binding(await uow.tenant_config.bindings(), directory):
+                    await uow.tenant_config.put_binding(binding)
+            if mappings:
+                _unit_scope(uow)
+                for mapping in mappings:
+                    await uow.tenant_config.put_role_mapping(mapping)
             await _audit(
                 uow,
                 self._clock,
@@ -245,6 +270,8 @@ class CreateTenant(OperatorUseCase):
                     "organisationType": wanted.organisation_type.value,
                     "timeZone": wanted.time_zone,
                     "resumed": not created,
+                    "directoryBound": directory is not None,
+                    "roleMappings": len(mappings),
                 },
             )
             await uow.commit()

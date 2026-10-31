@@ -195,6 +195,11 @@ class FakeConfig:
             b for b in self.binding_list if b.directory_id != binding.directory_id
         ] + [binding]
 
+    async def put_role_mapping(self, mapping: RoleMapping) -> None:
+        self.mapping_list = [
+            m for m in self.mapping_list if m.group_object_id != mapping.group_object_id
+        ] + [mapping]
+
     def make_ready(self) -> None:
         """Everything the configuration contributes to an activation."""
         self.current = TenantConfig(

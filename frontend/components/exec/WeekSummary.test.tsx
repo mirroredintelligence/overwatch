@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { describe, expect, it, vi } from 'vitest';
@@ -43,10 +43,11 @@ describe('WeekSummary', () => {
   it('shows the four figures with their words, and the footnote', () => {
     render(<WeekSummaryView summary={summary} prefs={prefs} />);
     expect(screen.getByRole('heading', { level: 1, name: 'This week' })).toBeInTheDocument();
-    expect(screen.getByText('640 referrals')).toBeInTheDocument();
-    expect(screen.getByText('18% best fit not available')).toBeInTheDocument();
-    expect(screen.getByText('92% capacity updates on time')).toBeInTheDocument();
-    expect(screen.getByText('4 min median time to a confirmed booking')).toBeInTheDocument();
+    const tiles = within(screen.getByRole('list', { name: 'Figures for the week' })).getAllByRole('listitem');
+    expect(tiles[0]).toHaveTextContent('640referrals');
+    expect(tiles[1]).toHaveTextContent('18%best fit not available');
+    expect(tiles[2]).toHaveTextContent('92%capacity updates on time');
+    expect(tiles[3]).toHaveTextContent('4 minmedian time to a confirmed booking');
     expect(screen.getByText('Counts under 10 are hidden. Outcomes are not shown yet.')).toBeInTheDocument();
   });
 
@@ -57,7 +58,7 @@ describe('WeekSummary', () => {
 
   it('shows "fewer than 10" for a withheld figure, and no percentage', () => {
     render(<WeekSummaryView summary={{ ...summary, bestFitUnavailablePct: { value: null, suppressed: true } }} prefs={prefs} />);
-    expect(screen.getByText('fewer than 10 best fit not available')).toBeInTheDocument();
+    expect(screen.getByText('best fit not available').closest('li')).toHaveTextContent('fewer than 10best fit not available');
     expect(screen.queryByText(/%\s*best fit/)).not.toBeInTheDocument();
   });
 

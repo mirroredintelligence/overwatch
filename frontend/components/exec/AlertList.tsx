@@ -71,7 +71,7 @@ export function AlertList({ open: initialOpen }: { open: AlertItem[] }) {
       {item.detail !== null ? <p>{item.detail}</p> : null}
       <p className={styles.footer}>
         {item.state === 'acknowledged' && item.acknowledgedAt !== null
-          ? `Acknowledged at ${alertTime(item.acknowledgedAt)} · alerted ${alertTime(item.raisedAt)}`
+          ? `Acknowledged by you ${alertTime(item.acknowledgedAt)} · alerted ${alertTime(item.raisedAt)}`
           : `${STATE_WORD[item.state]} · alerted ${alertTime(item.raisedAt)}`}
       </p>
       {actions ? (
@@ -108,6 +108,8 @@ export function AlertList({ open: initialOpen }: { open: AlertItem[] }) {
       </div>
 
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
+
+      <p className={styles.footer}>Acknowledging tells others it is being handled. It does not change the board.</p>
 
       <div role="tabpanel" id={`${baseId}-open-panel`} aria-labelledby={`${baseId}-open-tab`} hidden={tab !== 'open'}>
         {open.length === 0 ? <p>No open alerts.</p> : open.map((item) => card(item, true))}

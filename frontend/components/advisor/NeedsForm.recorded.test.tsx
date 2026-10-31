@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetCsrfCache } from '@/lib/advisor/browser';
+import { runAxe } from '@/test/a11y';
 import { byEl } from '@/test/el';
 import { BLANK_CASE, resetSeenAdvisorRequests, seenCasePuts } from '@/test/msw/handlers/advisor';
 import { server } from '@/test/msw/server';
@@ -203,6 +204,41 @@ describe('recorded scores are changed only as a correction with a reason (Q7, KI
     render(<NeedsForm caseId="case-1" />);
 
     expect(await screen.findByText('Corrected 2 times. The score first recorded is kept in the record.')).toBeInTheDocument();
+  });
+
+  it('has no axe violations while a score is being corrected, with the reasons shown and one chosen', async () => {
+    caseIs({ ...RECORDED, scoreCorrections: 1 });
+    const user = userEvent.setup();
+    const { container } = render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+    await user.click(screen.getByRole('radio', { name: 'I entered it wrongly' }));
+
+    expect((await runAxe(container)).violations).toEqual([]);
+  });
+
+  it('keeps a recorded method pressed and not clearable, and offers no "Not given", while correcting', async () => {
+    caseIs(RECORDED);
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+
+    expect(byEl('ADV-SCORE-NEWS2-CHIP')).toBeDisabled();
+    expect(byEl('ADV-SCORE-NEWS2-CHIP')).toHaveAttribute('aria-pressed', 'true');
+    expect(document.querySelector('[data-el="ADV-SCORE-NONE-CHIP"]')).toBeNull();
+  });
+
+  it('will not save while a recorded score is left as an invalid entry: it is not sent as the old value', async () => {
+    caseIs(RECORDED);
+    const user = userEvent.setup();
+    render(<NeedsForm caseId="case-1" />);
+    await screen.findByRole('group', { name: 'Who is calling?' });
+    await user.click(screen.getByRole('button', { name: 'Correct a score' }));
+
+    await user.clear(byEl('ADV-SCORE-NEWS2-INPUT'));
+
+    expect(byEl('ADV-NEEDS-CONTINUE-BTN')).toBeDisabled();
   });
 
   it('says nothing about a correction for a case never corrected', async () => {

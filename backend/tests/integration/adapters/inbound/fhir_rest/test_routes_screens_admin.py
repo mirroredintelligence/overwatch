@@ -10,6 +10,7 @@ October 2026, 10:00. Synthetic values only; no body holds a token, a hash or a s
 
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Annotated, Any
 
 import pytest
@@ -57,6 +58,11 @@ def _secrets() -> FixedSecretStore:
             PHONE_HASH_SECRET: PLATFORM_KEY,
         }
     )
+
+
+class _NoNetworks:
+    async def networks_of_tenant(self, tenant_id: str) -> list[Any]:
+        return []
 
 
 @pytest.fixture
@@ -121,6 +127,8 @@ async def app(container: Container, hosts: dict[str, str]) -> FastAPI:
     built = create_app(container)
     built.state.secrets = _secrets()
     built.state.cache = container.cache
+    # The list asks the tenant's networks; these tests have none (the setting is W9B's own tests).
+    built.state.network_services = SimpleNamespace(access=_NoNetworks())
     built.state.token_exchange = ExchangeDeps(
         verifier=FakeIdentityVerifier(), operator_directory_id=None
     )

@@ -240,8 +240,14 @@ async def test_a_lead_lists_the_screens_and_the_networks_to_choose(
             "networkName": None,
             "networkAvailable": True,
             "scopeVersion": 1,
+            # The screen's life (W9I): a screen nobody has read through yet is offline.
+            "state": "offline",
+            "pairedAt": None,
+            "lastSeenAt": None,
+            "revokedAt": None,
         }
     ]
+    assert body["scope"] == "tenant"
     assert body["networks"] == [{"id": world.ids.network, "name": "Sample network"}]
     assert response.headers["cache-control"] == "no-store"
     assert not any(t in response.text for t in (*world.ids.members, world.ids.owner))
@@ -629,7 +635,8 @@ async def test_a_revoked_screen_reads_nothing_even_with_a_valid_token(
             )
         scope = await client.get("/screens/me/board-scope", headers=_wall(member))
         board = await client.get("/screens/me/network-board", headers=_wall(member))
-    assert scope.status_code == board.status_code == 404
+    # The edge refuses it with the 401 of a lapsed token (W9I): the wall's session ends.
+    assert scope.status_code == board.status_code == 401
 
 
 async def test_a_screen_of_another_tenant_with_the_same_id_reads_its_own_setting_only(
@@ -653,7 +660,7 @@ async def test_a_token_for_a_screen_that_does_not_exist_reads_nothing(
         scope = await client.get(
             "/screens/me/board-scope", headers=_wall(world.ids.members[0], "screen-9")
         )
-    assert scope.status_code == 404
+    assert scope.status_code == 401
 
 
 # ------------------------------------------------------------------ the role matrix

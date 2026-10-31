@@ -9,8 +9,14 @@ export const SERVICE_PHONE = '0300 123 4567';
 
 const requestedAt = '2026-10-30T14:16:00Z';
 
+/** The outputs of a booking the back end has asked a service about: the tenant's phone prompt time and the request's delivery (WB4). */
+const REQUEST_OUTPUTS = [
+  { type: { coding: [{ code: 'phone-prompt-at' }] }, valueDateTime: '2026-10-30T14:21:00Z' },
+  { type: { coding: [{ code: 'request-delivery' }] }, valueString: 'delivered' },
+];
+
 /** A Task as the back end sends it. The fields the advisor card reads are the ones the mapping names. */
-function task(id: string, businessStatus: string, extra: Record<string, unknown> = {}) {
+function rawTask(id: string, businessStatus: string, extra: Record<string, unknown> = {}) {
   return {
     resourceType: 'Task',
     id,
@@ -29,7 +35,47 @@ function task(id: string, businessStatus: string, extra: Record<string, unknown>
   };
 }
 
+/** A booking as the back end now writes it: its prompt time and its request's delivery come before the outputs the status adds. */
+function task(id: string, businessStatus: string, extra: Record<string, unknown> = {}) {
+  const added = Array.isArray(extra.output) ? (extra.output as unknown[]) : [];
+  return rawTask(id, businessStatus, { ...extra, output: [...REQUEST_OUTPUTS, ...added] });
+}
+
 export const TASK_REQUESTED = task(BOOKING_ID, 'requested');
+
+/** A tenant whose phone prompt is after 3 minutes and whose request is 8 minutes long, and whose text did not arrive. */
+export const TASK_REQUESTED_TENANT_POLICY = rawTask('bk-4822', 'requested', {
+  restriction: { period: { end: '2026-10-30T14:24:00Z' } },
+  output: [
+    { type: { coding: [{ code: 'phone-prompt-at' }] }, valueDateTime: '2026-10-30T14:19:00Z' },
+    { type: { coding: [{ code: 'request-delivery' }] }, valueString: 'failed' },
+  ],
+});
+
+/** A booking from before the back end kept the phone prompt time: no output at all. */
+export const TASK_REQUESTED_OLD = rawTask('bk-4820', 'requested');
+
+/** A withdrawn booking an advisor has already answered. */
+export const TASK_WITHDRAWN_ACKNOWLEDGED = task(BOOKING_ID, 'withdrawn', {
+  executionPeriod: { start: requestedAt, end: '2026-10-30T14:41:00Z' },
+  output: [
+    { type: { coding: [{ code: 'decision' }] }, valueCodeableConcept: { coding: [{ code: 'confirmed' }] } },
+    { type: { coding: [{ code: 'confirmed-at' }] }, valueDateTime: '2026-10-30T14:19:00Z' },
+    { type: { coding: [{ code: 'reason' }] }, valueString: 'staffing' },
+    { type: { coding: [{ code: 'acknowledged-at' }] }, valueDateTime: '2026-10-30T14:43:00Z' },
+    { type: { coding: [{ code: 'acknowledged-by' }] }, valueString: 'advisor-1' },
+  ],
+});
+
+/** The search answer of the back end (a Bundle of Tasks), as `GET /fhir/Task?focus=...` and `?alert=open` send it. */
+export function searchBundle(tasks: readonly unknown[]) {
+  return {
+    resourceType: 'Bundle',
+    type: 'searchset',
+    total: tasks.length,
+    entry: tasks.map((resource) => ({ fullUrl: `Task/${(resource as { id: string }).id}`, resource })),
+  };
+}
 
 export const TASK_CONFIRMED = task(BOOKING_ID, 'confirmed', {
   executionPeriod: { start: requestedAt, end: '2026-10-30T14:19:00Z' },
@@ -70,6 +116,10 @@ export const TASK_NOT_REACHED = task(BOOKING_ID, 'not-reached', {
 /** The advisor-side state of a booking, as the BFF answers it (lib/advisor/bookings.ts). */
 export const STATE_REQUESTED = {
   id: BOOKING_ID,
+  caseRef: CASE_REF,
+  serviceId: SERVICE_ID,
+  delivery: 'delivered',
+  acknowledgedAt: null,
   reference: '4821',
   status: 'requested',
   requestedAt,
@@ -81,6 +131,22 @@ export const STATE_REQUESTED = {
   expiredAt: null,
   withdrawnAt: null,
   withdrawReason: null,
+} as const;
+
+/** What a booking from before the back end kept the prompt time reads as: five minutes, the assumed default. */
+export const STATE_REQUESTED_OLD = {
+  ...STATE_REQUESTED,
+  id: 'bk-4820',
+  delivery: null,
+  phonePromptAt: '2026-10-30T14:21:00Z',
+} as const;
+
+export const STATE_REQUESTED_TENANT_POLICY = {
+  ...STATE_REQUESTED,
+  id: 'bk-4822',
+  delivery: 'failed',
+  replyBy: '2026-10-30T14:24:00Z',
+  phonePromptAt: '2026-10-30T14:19:00Z',
 } as const;
 
 export const STATE_CONFIRMED = {
@@ -117,6 +183,8 @@ export const STATE_NOT_REACHED = {
 } as const;
 
 /** A booking the advisor cancelled before the service answered (W21). */
+export const STATE_WITHDRAWN_ACKNOWLEDGED = { ...STATE_WITHDRAWN, acknowledgedAt: '2026-10-30T14:43:00Z' } as const;
+
 export const STATE_CANCELLED = { ...STATE_REQUESTED, status: 'cancelled-before' } as const;
 
 /** A service whose request is already waiting: the back end answers 409 for it. */

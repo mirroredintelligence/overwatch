@@ -58,7 +58,6 @@ from diucs.adapters.inbound.fhir_rest.parameters import (
     text,
 )
 from diucs.adapters.inbound.fhir_rest.routes_lead import number_ending
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.idempotency import format_instant
 from diucs.application.ports.outbound.clock import Clock
@@ -69,6 +68,7 @@ from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.terminology import Terminology
 from diucs.application.ports.outbound.tokens import LinkTokenService, SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.approve_registration import (
     ApproveRegistration,
     NotApproveRegistration,

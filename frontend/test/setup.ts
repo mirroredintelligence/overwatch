@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, expect } from 'vitest';
 import * as axeMatchers from 'vitest-axe/matchers';
+import { backendEdge, installBackendEdge } from './backend-edge';
 import { canary, installLeakCanary } from './leak-canary';
 import { handlers } from './msw/handlers';
 import { server } from './msw/server';
@@ -17,6 +18,8 @@ beforeAll(() => {
   server.resetHandlers(...handlers);
   // Every call to the back end is watched for a tenant leak (test/leak-canary.ts).
   installLeakCanary(server);
+  // And for the back end's body-type rule: a POST or PUT with no JSON Content-Type is a 415 there.
+  installBackendEdge(server);
 });
 
 // Each test starts with the default handlers only.
@@ -30,6 +33,15 @@ afterEach(() => {
     canary.assertClean();
   } finally {
     canary.reset();
+  }
+});
+
+// A call the real back end would refuse (415) fails the test that made it, even when the test mocks the answer.
+afterEach(() => {
+  try {
+    backendEdge.assertClean();
+  } finally {
+    backendEdge.reset();
   }
 });
 

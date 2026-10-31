@@ -14,12 +14,12 @@ import pytest
 from hypothesis import given
 from hypothesis import strategies as st
 
-from diucs.application.use_cases.handle_inbound_text import (
-    CONFIRM_PROCESSING_LIMIT,
+from diucs.application.prompt_judgement import (
     CONFIRMABLE_FIGURE_AGE,
     figure_is_out_of_date,
     recorded_since_prompt,
 )
+from diucs.application.use_cases.handle_inbound_text import CONFIRM_PROCESSING_LIMIT
 from diucs.domain.codes import Measure, ReportSource, ReportType
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.model.capacity import CapacityReport

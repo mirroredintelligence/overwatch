@@ -113,6 +113,7 @@ EXCLUDED_LABELS: Final = frozenset(
         "Processed",
         "OutboxMessage",
         "ScheduledWork",
+        "ProviderReceipt",  # a delivery receipt parked until its send is recorded: bookkeeping
     }
 )
 

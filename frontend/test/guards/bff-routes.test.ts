@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ROLES, type Role } from '@/lib/auth/session';
-import { LINK_CSRF_COOKIE } from '@/lib/links/csrf';
+import { LINK_CSRF_COOKIE, renewCsrfFor } from '@/lib/links/csrf';
 import { BACKEND_ROOT, csrfFor, LINK, TENANT_HOST } from '@/test/fixtures/links';
 import { cookieWrites, requestWithCookies, resetCookieWrites, TEST_SESSION_SECRET } from '@/test/cookies';
 import { resetLinkRequests } from '@/test/msw/handlers/links';
@@ -390,12 +390,19 @@ describe.each(files.filter((f) => kindOf(f) === 'link'))('%s (link)', (file) => 
   const ctx = (token: string) => ({ params: Promise.resolve({ token }) });
   const ABSENT = 'NoSuchLinkTokenAnywhere1';
 
+  // What a closed link's answer carries that is made from the link's own token or sealed with a fresh nonce: the
+  // renewal CSRF token and the thank-you detail. They differ between two links and between two runs by design
+  // and say nothing of whether a link exists, so the comparison of answers masks their values (not their presence).
+  const stable = (text: string) => text.replace(/("csrfToken":")[^"]*/g, '$1*').replace(/("thanks":")[^"]*/g, '$1*');
+
   async function ask(verb: string, handler: Handler, token: string, host: string) {
     const path = new URL(url(token)).pathname;
     // A POST carries the link's own CSRF pair, as the page sends it, so the request reaches the back end.
     const cookies: Record<string, string> = verb === 'POST' && !path.endsWith('/renew') ? { [LINK_CSRF_COOKIE]: csrfFor(token) } : {};
     const headers: Record<string, string> = { Host: host, 'Content-Type': 'application/json' };
     if (verb === 'POST' && !path.endsWith('/renew')) headers['X-CSRF-Token'] = csrfFor(token);
+    // A renewal carries the renewal token the closed link's answer gave the page (KI-178).
+    if (path.endsWith('/renew')) headers['X-CSRF-Token'] = renewCsrfFor(token);
     const request = requestWithCookies(`https://${host}${path}`, cookies, {
       method: verb,
       headers,
@@ -409,7 +416,7 @@ describe.each(files.filter((f) => kindOf(f) === 'link'))('%s (link)', (file) => 
       const other = await ask(verb, handler, LINK.recorded, B.host);
       const absent = await ask(verb, handler, ABSENT, B.host);
       expect(other.status, verb).toBe(absent.status);
-      expect(await other.text(), verb).toBe(await absent.text());
+      expect(stable(await other.text()), verb).toBe(stable(await absent.text()));
       expect([403, 401]).not.toContain(other.status);
     }
   });
@@ -440,12 +447,13 @@ describe.each(files.filter((f) => kindOf(f) === 'link'))('%s (link)', (file) => 
           Cookie: `${cookiePair}${link}`,
           'Content-Type': 'application/json',
           ...(verb === 'POST' && !path.endsWith('/renew') ? { 'X-CSRF-Token': csrfFor(LINK.recorded) } : {}),
+          ...(path.endsWith('/renew') ? { 'X-CSRF-Token': renewCsrfFor(LINK.recorded) } : {}),
         },
         body: verb === 'POST' ? JSON.stringify({ action: 'confirm' }) : undefined,
       });
       const answer = await handler(withStaff, ctx(LINK.recorded));
       expect(answer.status, verb).toBe(plain.status);
-      expect(await answer.text(), verb).toBe(await plain.text());
+      expect(stable(await answer.text()), verb).toBe(stable(await plain.text()));
       expect(cookieWrites.map((w) => w.name), verb).toEqual(names);
       expect(cookieWrites.some((w) => w.name === 'diucs_session' || w.name === 'diucs_csrf')).toBe(false);
     }

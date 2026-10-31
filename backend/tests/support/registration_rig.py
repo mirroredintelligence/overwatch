@@ -315,6 +315,12 @@ class StubCommunications(_Part):
         """No prompt is waiting in a stub, so a report stops no ladder (W8D)."""
         return None
 
+    async def recent_prompts_for_roles(
+        self, role_ids: Any, message_ids: Any, since: Any
+    ) -> list[Any]:
+        """No prompt is waiting in a stub, so a report stops no ladder (W8D)."""
+        return []
+
 
 class StubIdempotency(_Part):
     def __init__(self, writes: Writes) -> None:

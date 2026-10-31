@@ -292,6 +292,12 @@ class Neo4jFlagRepository:
         existing = await run_query(self._tx, REGISTRY.get("Q-FLAG-REPORT-EXISTS"), id=flag.id)
         if int(existing[0]["found"]) > 0:
             raise Conflict("a report flag with this id already exists")
+        if flag.status == REPORT_FLAG_OPEN:
+            # One open flag for each service and reason at a time (domain-rules 2.3, KI-101): the
+            # use case checks it first, and the store refuses a second one that gets past it.
+            held = {open_flag.reason for open_flag in await self.open_report_flags(flag.service_id)}
+            if flag.reason in held:
+                raise Conflict("this service already has an open flag for this reason")
         try:
             await run_query(
                 self._tx, REGISTRY.get("Q-FLAG-REPORT-ADD"), key=key, props=_report_props(flag)

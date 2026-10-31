@@ -23,6 +23,18 @@ _REASON: Final = "reason"
 
 _CONFIRMED_AT: Final = "confirmed-at"
 
+_PHONE_PROMPT_AT: Final = "phone-prompt-at"
+
+_REQUEST_MESSAGE: Final = "request-message"
+
+_ACKNOWLEDGED_AT: Final = "acknowledged-at"
+
+_ACKNOWLEDGED_BY: Final = "acknowledged-by"
+
+_REQUEST_DELIVERY: Final = "request-delivery"
+"""Read-time only: the delivery state of the request message is the message's, not stored on the
+booking, so it is added when a booking is read and never written (H-494)."""
+
 
 def codeable_to_fhir(member: StrEnum) -> dict[str, Any]:
     """A CodeableConcept with one coding for a local code (the coding's system comes from its enum
@@ -40,7 +52,7 @@ def _output_type(code: str) -> dict[str, Any]:
     return {"coding": [{"system": _OUTPUT_TYPE_SYSTEM, "code": code}]}
 
 
-def _output_entries(booking: Booking) -> list[dict[str, Any]]:
+def _output_entries(booking: Booking, delivery_status: str | None = None) -> list[dict[str, Any]]:
     entries: list[dict[str, Any]] = []
     if booking.status is not BookingStatus.REQUESTED:
         entries.append(
@@ -55,11 +67,32 @@ def _output_entries(booking: Booking) -> list[dict[str, Any]]:
         entries.append(
             {"type": _output_type(_CONFIRMED_AT), "valueDateTime": _iso(booking.confirmed_at)}
         )
+    if booking.phone_prompt_at is not None:
+        entries.append(
+            {"type": _output_type(_PHONE_PROMPT_AT), "valueDateTime": _iso(booking.phone_prompt_at)}
+        )
+    if booking.request_message_id is not None:
+        entries.append(
+            {"type": _output_type(_REQUEST_MESSAGE), "valueString": booking.request_message_id}
+        )
+    if booking.acknowledged_at is not None and booking.acknowledged_by is not None:
+        entries.append(
+            {
+                "type": _output_type(_ACKNOWLEDGED_AT),
+                "valueDateTime": _iso(booking.acknowledged_at),
+            }
+        )
+        entries.append(
+            {"type": _output_type(_ACKNOWLEDGED_BY), "valueString": booking.acknowledged_by}
+        )
+    if delivery_status is not None:
+        entries.append({"type": _output_type(_REQUEST_DELIVERY), "valueString": delivery_status})
     return entries
 
 
-def booking_to_fhir(booking: Booking) -> dict[str, Any]:
-    """The Task for a booking. No meta: the store sets it."""
+def booking_to_fhir(booking: Booking, *, delivery_status: str | None = None) -> dict[str, Any]:
+    """The Task for a booking. No meta: the store sets it. `delivery_status` is the state of the
+    request message at the time of a read; it is an output of the answer and is never stored."""
     task = to_fhir(booking.status)
     status = from_fhir(task.business_status)
     resource: dict[str, Any] = {
@@ -82,7 +115,7 @@ def booking_to_fhir(booking: Booking) -> dict[str, Any]:
     resource["executionPeriod"] = period
     if task.status_reason is not None:
         resource["statusReason"] = codeable_to_fhir(from_fhir(task.status_reason))
-    entries = _output_entries(booking)
+    entries = _output_entries(booking, delivery_status)
     if entries:
         resource["output"] = entries
     return resource

@@ -7,6 +7,8 @@ export const STREAM_RETRY_MS = 5_000;
 export const STALE_AFTER_MS = 180_000;
 export const MAX_FUTURE_SKEW_MS = 60_000;
 export const FETCH_TIMEOUT_MS = 15_000;
+/** The back end sends a heartbeat every 15 s; three missed beats and an open stream is taken for dead (KI-54). */
+export const HEARTBEAT_SILENCE_MS = 45_000;
 
 export type LastKnownReason = 'offline' | 'unreadable' | 'old';
 

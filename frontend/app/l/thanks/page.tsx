@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
 import { Button } from '@/components/ui/Button';
-import { londonHm, parseThanks } from '@/lib/links/model';
+import { londonHm } from '@/lib/links/model';
+import { unsealThanks } from '@/lib/links/thanks';
 import styles from '@/components/reporter/Reporter.module.css';
 
-// The thank-you page after a figure is recorded. It shows the answer the link page carried here
-// (the service, the figure, the time it was recorded and the next update). It holds no token
-// check: the figure is already recorded, and it says nothing a link could be used for.
+// The thank-you page after a figure is recorded. Its address holds no link token (the link is spent,
+// KI-179) and the detail it shows is sealed by the BFF: the service, the figure, the time it was recorded
+// and the next update. An address with no sealed detail, or one made by hand, says thank you and nothing
+// about what was recorded.
 
 export const dynamic = 'force-dynamic';
 
@@ -15,18 +17,12 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-type Props = {
-  params: Promise<{ token: string }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
+type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
 export default async function ThanksPage({ searchParams }: Props) {
-  const raw = await searchParams;
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(raw)) {
-    if (typeof value === 'string') query.set(key, value);
-  }
-  const detail = parseThanks(query);
+  const raw = (await searchParams).d;
+  const sealed = typeof raw === 'string' ? raw : '';
+  const detail = await unsealThanks(sealed);
 
   return (
     <main className={styles.page}>

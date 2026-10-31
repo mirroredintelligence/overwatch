@@ -40,7 +40,14 @@ from diucs.domain.codes import (
     ServiceCategory,
     Status,
 )
-from diucs.domain.errors import Conflict, DomainError, NotAllowed, NotFound, ValidationFailed
+from diucs.domain.errors import (
+    Conflict,
+    DomainError,
+    EffectiveNotAfterLatest,
+    NotAllowed,
+    NotFound,
+    ValidationFailed,
+)
 from diucs.domain.model.capacity import CapacityReport
 from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED, ServiceFlag
 from diucs.domain.model.people import Practitioner, PractitionerRole
@@ -528,25 +535,30 @@ async def test_a_naive_effective_time_is_refused(
     assert await count_nodes(neo4j_driver, "Observation") == 0
 
 
-async def test_a_back_dated_report_does_not_replace_the_latest_figure(
+async def test_a_back_dated_number_behind_a_later_number_is_refused_and_writes_nothing(
     uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
 ) -> None:
+    """DEC-1100 Q8 (KI-9): a number with an explicit time earlier than the latest figure would be
+    hidden on the board, so it is refused, naming that figure's time, and nothing is written. (Until
+    Q8 it was accepted and hidden: U01, DEC-100.)"""
     await seed_service(UCR_WEST)
     use_case, clock = _rig(uow_factory, neo4j_driver)
     await use_case.execute(_command(4, key="key-4"))
+    observations = await count_nodes(neo4j_driver, "Observation")
+    events = len(await _events(uow_factory, "CapacityReported"))
 
     clock.set(NOW + timedelta(minutes=1))
-    back_dated = await use_case.execute(
-        _command(3, key="key-3", effective_at=NOW - timedelta(minutes=10))
-    )
+    with pytest.raises(EffectiveNotAfterLatest) as refused:
+        await use_case.execute(_command(3, key="key-3", effective_at=NOW - timedelta(minutes=10)))
 
-    assert back_dated.status is Status.ACCEPTING
-    assert back_dated.status_changed is False
+    assert refused.value.latest_at == NOW
+    assert "23 Oct 14:12" in refused.value.message
     latest = await _latest(uow_factory, "ucr-west")
     assert latest is not None
     assert latest.value == 4
     assert latest.effective_at == NOW
-    assert len(await _events(uow_factory, "CapacityReported")) == 2
+    assert await count_nodes(neo4j_driver, "Observation") == observations
+    assert len(await _events(uow_factory, "CapacityReported")) == events
 
 
 @pytest.mark.parametrize(

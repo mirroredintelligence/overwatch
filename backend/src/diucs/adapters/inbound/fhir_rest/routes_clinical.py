@@ -63,7 +63,6 @@ from diucs.adapters.inbound.fhir_rest.parameters import (
     text,
 )
 from diucs.adapters.inbound.fhir_rest.routes_alerts import alert_list
-from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.adapters.inbound.fhir_rest.subscription_mapping import ALERT_CODE
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.cache import Cache
@@ -71,6 +70,7 @@ from diucs.application.ports.outbound.clock import Clock
 from diucs.application.ports.outbound.ids import IdGenerator
 from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.application.uow_idempotency import UnitOfWorkIdempotency
 from diucs.application.use_cases.clinical_advice import (
     ADVICE_CHOICES,
     ADVICE_REASONS,
@@ -386,9 +386,12 @@ async def read_tasks(
     request: Request,
     actor: Annotated[Actor, Depends(current_actor)],
 ) -> Response:
-    """`GET /fhir/Task`, dispatched by its code: the alert list or the clinical queue. Any
-    other code is a 400 that names the parameter."""
+    """`GET /fhir/Task`, dispatched by its code: the alert list or the clinical queue. A search with
+    no code is a search of booking Tasks (the bookings of a case, the open withdrawal alerts: WB4).
+    Any other code is a 400 that names the parameter."""
     code = request.query_params.get("code")
+    if code is None:
+        return await routes_bookings.search_bookings(request, actor)
     if code == ALERT_CODE:
         return await alert_list(request, actor)
     if code == CLINICAL_CODE:

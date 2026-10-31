@@ -4,6 +4,9 @@ Rules: docs/spec/domain-rules.md 1.5 and the D05 prompt. Decision DEC-029 record
 Pure: no I/O and no clock. `now` is an argument. Every instant is converted to UTC before it is
 compared or subtracted (lesson L4).
 
+A figure dated after `now` (a host whose clock is ahead of the reader's wrote it) has age zero and
+does not raise (KI-31).
+
 A due time is missed when its reply-by (due + the policy's reply window) is before now. The service
 is overdue when a missed due time is later than its last report (no report ever: any missed due
 counts). The latest missed due is `was_due`. It is found with current_due only (lesson L30), because
@@ -73,10 +76,10 @@ def assess_freshness(
     zone = require_zone(zone)
     now_utc = _as_utc(now, "now")
     last_utc = None if last_report_at is None else _as_utc(last_report_at, "last_report_at")
-    if last_utc is not None and last_utc > now_utc:
-        raise ValueError("last_report_at must not be after now")
 
-    age = None if last_utc is None else now_utc - last_utc
+    # A figure dated after `now` was written by a host whose clock is ahead of the reader's. It is
+    # a current figure, not an error: its age is zero (KI-31). It answers every due time before it.
+    age = None if last_utc is None else max(now_utc - last_utc, timedelta(0))
     was_due = _latest_missed_due(profile, last_utc, now_utc, policy, zone)
     return Freshness(
         overdue=was_due is not None,

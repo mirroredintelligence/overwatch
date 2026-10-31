@@ -1,51 +1,47 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { readLinkView } from '@/lib/links/browser';
-import type { LinkView } from '@/lib/links/model';
+import type { BookingView, ClosedLink, LinkView } from '@/lib/links/model';
+import { BookingChange } from './BookingChange';
+import { BookingDecision } from './BookingDecision';
 import { CapacityResponder } from './CapacityResponder';
 import { LinkExpired } from './LinkExpired';
 import { LinkUnavailable } from './LinkUnavailable';
 import styles from './Reporter.module.css';
 
 // Reads the link once through the BFF (which sets its CSRF cookie) and shows what it says: the
-// capacity page, the expired page, the unavailable page, or the booking page for a booking link.
-// Nothing is posted here; only a press in CapacityResponder posts.
+// capacity page, the booking request or change page, the closed page, or the unavailable page. A booking
+// page is shown here with the view this read gave it, so the link is read once (KI-651, DEC-167 item 8).
+// Nothing is posted here; only a press in the page posts.
 
 type State =
   | { kind: 'loading' }
   | { kind: 'open'; view: LinkView }
-  | { kind: 'booking' }
-  | { kind: 'gone' }
+  | { kind: 'booking'; view: BookingView }
+  | { kind: 'gone'; closed: ClosedLink; csrfToken: string | null }
   | { kind: 'unavailable' };
 
 const CHANGE_PURPOSE = 'booking-change';
+/** The states only a change link has: a booking cancelled, withdrawn or reported not reached. */
+const CHANGE_STATES: readonly string[] = ['cancelled', 'withdrawn', 'not-reached'];
 
 export function LinkLoader({ token }: { token: string }) {
-  const router = useRouter();
   const [state, setState] = useState<State>({ kind: 'loading' });
 
   useEffect(() => {
     let current = true;
     void readLinkView(token).then((result) => {
       if (!current) return;
-      if (result.kind === 'booking') {
-        // The booking pages read the link again for their own view (one read per page, DEC-167 item 8).
-        router.replace(result.view.purpose === CHANGE_PURPOSE ? `/l/${token}/booking/change` : `/l/${token}/booking`);
-        setState({ kind: 'booking' });
-        return;
-      }
-      setState(result.kind === 'open' ? { kind: 'open', view: result.view } : { kind: result.kind });
+      setState(result);
     });
     return () => {
       current = false;
     };
-  }, [token, router]);
+  }, [token]);
 
   switch (state.kind) {
     case 'loading':
-    case 'booking':
       return (
         <main className={styles.page}>
           <p className={styles.eyebrow} role="status">
@@ -55,8 +51,21 @@ export function LinkLoader({ token }: { token: string }) {
       );
     case 'open':
       return <CapacityResponder token={token} view={state.view} />;
+    case 'booking':
+      return state.view.purpose === CHANGE_PURPOSE ? (
+        <BookingChange token={token} initial={state.view} />
+      ) : (
+        <BookingDecision token={token} initial={state.view} />
+      );
     case 'gone':
-      return <LinkExpired token={token} />;
+      if (state.closed.kind === 'booking') {
+        return CHANGE_STATES.includes(state.closed.state) ? (
+          <BookingChange token={token} initialClosed={state.closed} />
+        ) : (
+          <BookingDecision token={token} initialClosed={state.closed} />
+        );
+      }
+      return <LinkExpired token={token} csrfToken={state.csrfToken} />;
     case 'unavailable':
       return <LinkUnavailable />;
   }

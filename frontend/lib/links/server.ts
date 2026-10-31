@@ -1,5 +1,5 @@
 import { BackendCallError, backendRoot, callBackend, type BackendCall, type BackendReply } from '@/lib/fhir/hostCall';
-import { parseOpenLink, type OpenLink, LinkShapeError } from './model';
+import { CLOSED_STATES, type ClosedLink, type ClosedState, parseClosed, parseOpenLink, type OpenLink, LinkShapeError } from './model';
 
 // Server-only. The link pages' route handlers and Server Components call the back end's
 // link API (`/links/...`, beside `/fhir`) through this module, never the browser.
@@ -49,24 +49,27 @@ export async function callLinkApi(call: LinkCall): Promise<LinkReply> {
   }
 }
 
-export type LinkState = { kind: 'open'; link: OpenLink } | { kind: 'gone'; state: ClosedState };
+export type LinkState = { kind: 'open'; link: OpenLink } | { kind: 'gone'; closed: ClosedLink };
 
 /**
  * The words a closed link may say on GET (L01, L02). A holder of the link may learn why it is closed
  * (a change link shows a cancelled booking); anything else the back end sends is `expired`.
  */
-export const CLOSED_STATES = ['expired', 'used', 'declined', 'cancelled', 'withdrawn', 'not-reached'] as const;
-export type ClosedState = (typeof CLOSED_STATES)[number];
+export { CLOSED_STATES, type ClosedState };
 
 export function closedStateOf(body: unknown): ClosedState {
-  const state = typeof body === 'object' && body !== null ? (body as { state?: unknown }).state : undefined;
-  return CLOSED_STATES.find((known) => known === state) ?? 'expired';
+  return parseClosed(body).state;
+}
+
+/** A closed link's body as the browser may see it (KI-169, KI-648, KI-649, KI-664, KI-665). */
+export function closedOf(body: unknown): ClosedLink {
+  return parseClosed(body);
 }
 
 /** The link as the back end sees it for this host: open with its view, or gone (expired, used or unknown). */
 export async function readLink(token: string, host: string | null): Promise<LinkState> {
   const reply = await callLinkApi({ method: 'GET', path: `/links/${encodeURIComponent(token)}`, host });
-  if (reply.status === 410) return { kind: 'gone', state: closedStateOf(reply.body) };
+  if (reply.status === 410) return { kind: 'gone', closed: closedOf(reply.body) };
   if (reply.status !== 200) throw new LinkApiError('unavailable');
   try {
     return { kind: 'open', link: parseOpenLink(reply.body) };
@@ -77,6 +80,9 @@ export async function readLink(token: string, host: string | null): Promise<Link
 }
 
 const STATE_WORD = /^[a-z-]{1,24}$/;
+
+/** What a closed booking link may say beyond its state word (booking_links.py closed_detail). */
+const CLOSED_DETAIL = ['kind', 'reference', 'closedAt', 'confirmedAt', 'cancelledAt', 'coordinationPhone'] as const;
 
 /** The fields a page may read, per status. Anything else the back end sent is dropped. */
 const FIELDS_BY_STATUS: Record<number, readonly string[]> = {
@@ -96,12 +102,14 @@ const FIELDS_BY_STATUS: Record<number, readonly string[]> = {
     'usualMax',
     'replyBy',
     'csrfToken',
+    'confirmedAt',
+    'respondedAt',
   ],
   202: ['state'],
   400: ['state'],
   403: ['state'],
-  409: ['state', 'reason', 'message'],
-  410: ['state'],
+  409: ['state', 'reason', 'message', ...CLOSED_DETAIL],
+  410: ['state', ...CLOSED_DETAIL],
   422: ['state', 'usualMin', 'usualMax'],
   429: ['state'],
 };

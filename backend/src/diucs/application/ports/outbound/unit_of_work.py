@@ -32,6 +32,7 @@ from diucs.application.ports.outbound.messaging import (
     CommunicationRepository,
     PushSubscriptionRepository,
 )
+from diucs.application.ports.outbound.network_samples import NetworkSamples
 from diucs.application.ports.outbound.outbox import Outbox
 from diucs.application.ports.outbound.projection import NetworkView, ProjectionWriter
 from diucs.application.ports.outbound.protected_text import ProtectedTextStore
@@ -136,6 +137,7 @@ class NetworkUnitOfWork(Protocol):
 
     projections: ProjectionWriter
     network_view: NetworkView
+    network_samples: NetworkSamples
     audit: AuditLog
     idempotency: IdempotencyStore
     processed: ProcessedMessages

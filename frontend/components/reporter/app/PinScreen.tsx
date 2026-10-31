@@ -45,6 +45,9 @@ export function PinScreen() {
       <p className={styles.footer}>
         <a href="/app/lost-phone">Lost your phone?</a>
       </p>
+      <p className={styles.footer}>
+        <a href="/sign-in?next=/planning">Sign in with your organisation account</a>
+      </p>
     </main>
   );
 }

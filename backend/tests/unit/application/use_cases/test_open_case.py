@@ -248,6 +248,55 @@ def test_the_fields_are_stored_as_given_and_the_postcode_as_its_district() -> No
     )
 
 
+# A district chosen from the chips (W50, W9H DEC-1045): the one way a district alone is kept.
+
+
+@pytest.mark.parametrize(("text", "district"), [("DT4", "DT4"), (" dt4 ", "DT4"), ("BH21", "BH21")])
+def test_a_chosen_district_is_kept_as_the_cases_district(text: str, district: str) -> None:
+    updated = apply_update(complete_case(), update(district=text))
+
+    assert updated.postcode == district
+    assert replace(updated, postcode="DT4") == complete_case()
+
+
+@pytest.mark.parametrize("text", ["DT4 8XX", "DT48X9", "", "ＤＴ４", "DT 4", "4DT", "DT4,BH1"])
+def test_a_district_that_is_not_one_is_refused_and_does_not_echo_it(text: str) -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        apply_update(complete_case(), update(district=text))
+
+    assert refused.value.field == "district"
+    if text.strip():
+        assert text.strip() not in str(refused.value)
+
+
+def test_a_district_and_a_full_postcode_together_are_refused_and_nothing_changes() -> None:
+    case = complete_case()
+
+    with pytest.raises(ValidationFailed) as refused:
+        apply_update(case, update(district="BH1", postcode="DT4 8XX"))
+
+    assert refused.value.field == "district"
+    assert case.postcode == "DT4"
+
+
+def test_a_district_cannot_change_a_closed_case() -> None:
+    with pytest.raises(Conflict):
+        apply_update(replace(complete_case(), closed_at=CLOSED_AT), update(district="BH1"))
+
+
+def test_a_district_is_part_of_what_a_command_says() -> None:
+    assert update_fingerprint(update(district="BH1")) != update_fingerprint(update(district="DT4"))
+    assert update_fingerprint(update(district="DT4")) != update_fingerprint(update())
+
+
+def test_a_district_alone_is_not_a_full_postcode_for_the_postcode_field() -> None:
+    # The needs form still needs the whole postcode: only the explicit district field takes one.
+    with pytest.raises(ValidationFailed) as refused:
+        apply_update(opened_case(), update(postcode="DT4"))
+
+    assert refused.value.field == "postcode"
+
+
 def test_a_field_left_out_of_the_update_is_unchanged() -> None:
     first = apply_update(opened_case(), update(age_band=AgeBand.A16_64))
 

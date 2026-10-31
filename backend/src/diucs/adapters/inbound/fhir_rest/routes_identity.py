@@ -98,6 +98,7 @@ from diucs.application.use_cases.reporter_identity import (
     SignInKind,
 )
 from diucs.application.use_cases.reporter_setup import CoordinationPhone
+from diucs.application.use_cases.staff_person import EnsureStaffPerson
 from diucs.application.use_cases.text_code import (
     CODE_HMAC_SECRET,
     RESEND_AFTER_SECONDS,
@@ -577,6 +578,9 @@ async def save_push_subscription(
 ) -> Response:
     key = idempotency_key(request)
     container = _container(request)
+    if actor.role is Role.EXEC:
+        # A directory sign-in has no person record until something makes one (DEC-1042).
+        await EnsureStaffPerson(container.uow_factory, container.clock).execute(actor)
     await _signed_in(container, actor)
     device = _push_device(actor, body.deviceId)
 

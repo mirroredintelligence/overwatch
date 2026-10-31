@@ -22,14 +22,18 @@ from diucs.adapters.outbound.graph_store.driver import (
     run_platform_query,
     run_query,
 )
+from diucs.adapters.outbound.graph_store.migrations_tenant import REGISTRY_LABELS
 from diucs.adapters.outbound.graph_store.queries import (
     GLOBAL_QUERY_IDS,
+    GLOBAL_STATEMENT_LABELS,
     PLATFORM_QUERY_IDS,
+    PLATFORM_RECORD_LABELS,
     PLATFORM_STATEMENTS,
     REGISTRY,
     NamedQuery,
     QueryRegistry,
     QueryTemplate,
+    _check_global_text,
     statement_digest,
 )
 from diucs.application.tenancy import (
@@ -67,7 +71,68 @@ EXPECTED_TEXT = {
         "ORDER BY n.e164"
     ),
 }
-EXPECTED_MODE = {query_id: "write" for query_id in EXPECTED_TEXT} | {"Q-TENANT-REG-NUMBERS": "read"}
+# The platform's own records (TEN-075): the registry's list and detail reads, the platform audit
+# chain and the support-access tickets. Each is reviewed here exactly like the seven above.
+EXPECTED_TEXT |= {
+    "Q-TENANT-REG-LIST": "MATCH (t:Tenant) RETURN properties(t) AS tenant ORDER BY t.id",
+    "Q-TENANT-REG-GET": ("MATCH (t:Tenant {id: $id}) RETURN properties(t) AS tenant, t.id AS id"),
+    "Q-PLATFORM-AUDIT-LOCK": (
+        "MERGE (h:PlatformAuditHead {id: $id}) "
+        "ON CREATE SET h.lastSeq = 0, h.lastHash = $genesis "
+        "SET h.lockStamp = $stamp "
+        "RETURN h.lastSeq AS lastSeq, h.lastHash AS lastHash"
+    ),
+    "Q-PLATFORM-AUDIT-APPEND": (
+        "MATCH (h:PlatformAuditHead {id: $id, lastSeq: $expectedSeq}) "
+        "CREATE (e:PlatformAuditEntry {seq: $seq}) "
+        "SET e += $props, h.lastSeq = $seq, h.lastHash = $hash "
+        "RETURN e.seq AS seq"
+    ),
+    "Q-PLATFORM-AUDIT-ENTRIES": (
+        "MATCH (e:PlatformAuditEntry) WHERE e.seq > $afterSeq "
+        "RETURN properties(e) AS entry ORDER BY e.seq LIMIT $limit"
+    ),
+    "Q-PLATFORM-AUDIT-HEAD": (
+        "MATCH (h:PlatformAuditHead {id: $id}) RETURN h.lastSeq AS lastSeq, h.lastHash AS lastHash"
+    ),
+    "Q-SUPPORT-TICKET-ADD": (
+        "CREATE (t:SupportAccessTicket {id: $id}) SET t += $props RETURN t.id AS id"
+    ),
+    "Q-SUPPORT-TICKET-OF-TENANT": (
+        "MATCH (t:SupportAccessTicket {id: $id, forTenant: $forTenant}) "
+        "RETURN properties(t) AS ticket"
+    ),
+    "Q-SUPPORT-TICKET-OF-PRINCIPAL": (
+        "MATCH (t:SupportAccessTicket {id: $id, requestedBy: $requestedBy}) "
+        "RETURN properties(t) AS ticket"
+    ),
+    "Q-SUPPORT-TICKETS-OF-TENANT": (
+        "MATCH (t:SupportAccessTicket {forTenant: $forTenant}) "
+        "RETURN properties(t) AS ticket ORDER BY t.requestedAt DESC LIMIT $limit"
+    ),
+    "Q-SUPPORT-TICKETS-OF-PRINCIPAL": (
+        "MATCH (t:SupportAccessTicket {requestedBy: $requestedBy}) "
+        "RETURN properties(t) AS ticket ORDER BY t.requestedAt DESC LIMIT $limit"
+    ),
+    "Q-SUPPORT-TICKET-MOVE": (
+        "MATCH (t:SupportAccessTicket {id: $id, forTenant: $forTenant, state: $expectedState}) "
+        "SET t += $props RETURN t.id AS id"
+    ),
+}
+READ_ONLY = {
+    "Q-TENANT-REG-NUMBERS",
+    "Q-TENANT-REG-LIST",
+    "Q-TENANT-REG-GET",
+    "Q-PLATFORM-AUDIT-ENTRIES",
+    "Q-PLATFORM-AUDIT-HEAD",
+    "Q-SUPPORT-TICKET-OF-TENANT",
+    "Q-SUPPORT-TICKET-OF-PRINCIPAL",
+    "Q-SUPPORT-TICKETS-OF-TENANT",
+    "Q-SUPPORT-TICKETS-OF-PRINCIPAL",
+}
+EXPECTED_MODE = {
+    query_id: "read" if query_id in READ_ONLY else "write" for query_id in EXPECTED_TEXT
+}
 EXPECTED_PARAMETERS = {
     "Q-TENANT-REG-CREATE": {"id", "props"},
     "Q-TENANT-REG-SAVE": {"id", "expectedEpoch", "expectedStatus", "props"},
@@ -76,6 +141,18 @@ EXPECTED_PARAMETERS = {
     "Q-TENANT-REG-PUT-NUMBER": {"id", "e164", "props"},
     "Q-TENANT-REG-MARK-TESTED": {"id", "e164", "at"},
     "Q-TENANT-REG-NUMBERS": {"id"},
+    "Q-TENANT-REG-LIST": set(),
+    "Q-TENANT-REG-GET": {"id"},
+    "Q-PLATFORM-AUDIT-LOCK": {"id", "genesis", "stamp"},
+    "Q-PLATFORM-AUDIT-APPEND": {"id", "expectedSeq", "seq", "props", "hash"},
+    "Q-PLATFORM-AUDIT-ENTRIES": {"afterSeq", "limit"},
+    "Q-PLATFORM-AUDIT-HEAD": {"id"},
+    "Q-SUPPORT-TICKET-ADD": {"id", "props"},
+    "Q-SUPPORT-TICKET-OF-TENANT": {"id", "forTenant"},
+    "Q-SUPPORT-TICKET-OF-PRINCIPAL": {"id", "requestedBy"},
+    "Q-SUPPORT-TICKETS-OF-TENANT": {"forTenant", "limit"},
+    "Q-SUPPORT-TICKETS-OF-PRINCIPAL": {"requestedBy", "limit"},
+    "Q-SUPPORT-TICKET-MOVE": {"id", "forTenant", "expectedState", "props"},
 }
 REASON = "x" * 30
 
@@ -103,10 +180,10 @@ def _pin(monkeypatch: pytest.MonkeyPatch, cypher: str, query_id: str = "Q-TEST-P
 # -- the list ------------------------------------------------------------------------------------
 
 
-def test_the_platform_list_is_the_seven_registry_statements() -> None:
+def test_the_platform_list_is_the_registry_statements_and_the_platforms_own_records() -> None:
     assert set(PLATFORM_QUERY_IDS) == set(EXPECTED_TEXT)
     assert set(PLATFORM_STATEMENTS) == set(EXPECTED_TEXT)
-    assert len(PLATFORM_QUERY_IDS) == 7
+    assert len(PLATFORM_QUERY_IDS) == 7 + 2 + 4 + 6
 
 
 def test_no_id_is_on_both_the_global_and_the_platform_list() -> None:
@@ -376,3 +453,47 @@ async def test_the_platform_path_refuses_a_string_and_an_unregistered_statement(
     with pytest.raises(QueryNotRegistered):
         await run_platform_query(tx, other, id="a", host="b")  # type: ignore[arg-type]
     assert tx.calls == []
+
+
+# -- the platform's own records (TEN-075) --------------------------------------------------------
+
+
+def test_the_platform_records_are_three_labels_no_global_statement_may_name() -> None:
+    assert {
+        "PlatformAuditHead",
+        "PlatformAuditEntry",
+        "SupportAccessTicket",
+    } == PLATFORM_RECORD_LABELS
+    assert PLATFORM_RECORD_LABELS.isdisjoint(GLOBAL_STATEMENT_LABELS)
+    for label in PLATFORM_RECORD_LABELS:
+        with pytest.raises(ValueError, match="registry labels only"):
+            _check_global_text("Q-X", f"MATCH (n:{label} {{id: $id}}) RETURN n.id AS id")
+
+
+def test_a_global_write_cannot_name_a_platform_record() -> None:
+    for label in PLATFORM_RECORD_LABELS:
+        with pytest.raises(ValueError, match="registry labels only"):
+            _check_global_text("Q-X", f"CREATE (n:{label} {{id: $id}})", registry_writes=True)
+
+
+def test_a_platform_statement_may_name_a_platform_record_and_still_no_tenants_data() -> None:
+    for label in PLATFORM_RECORD_LABELS:
+        _check_global_text(
+            "Q-X", f"MERGE (n:{label} {{id: $id}}) SET n.a = 1", writes=True, platform=True
+        )
+        _check_global_text("Q-X", f"MATCH (n:{label} {{id: $id}}) RETURN n.id AS id", platform=True)
+    for label in ("Resource", "Observation", "HealthcareService", "AuditHead", "Patient"):
+        with pytest.raises(ValueError, match="registry labels only"):
+            _check_global_text(
+                "Q-X", f"MATCH (n:{label} {{id: $id}}) SET n.a = 1", writes=True, platform=True
+            )
+
+
+def test_the_platform_records_carry_no_tenant_so_the_invariant_check_knows_them() -> None:
+    assert set(REGISTRY_LABELS) >= PLATFORM_RECORD_LABELS
+
+
+def test_no_platform_record_statement_writes_a_tenant_scoped_label() -> None:
+    for query_id in PLATFORM_QUERY_IDS:
+        labels = set(re.findall(r"\(\w*:(\w+)", REGISTRY.get(query_id).cypher))
+        assert labels <= {"Tenant", "TenantNumber"} | PLATFORM_RECORD_LABELS, query_id

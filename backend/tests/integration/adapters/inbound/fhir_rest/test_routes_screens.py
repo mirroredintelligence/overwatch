@@ -306,14 +306,15 @@ async def test_a_body_that_names_a_tenant_or_a_bad_board_scope_is_refused(
     assert await count_nodes(neo4j_driver, "Device") == 0
 
 
-async def test_a_network_board_scope_is_stored(
+async def test_a_network_board_at_pairing_is_refused_and_stores_nothing(
     screens: AsyncClient, neo4j_driver: AsyncDriver
 ) -> None:
+    """A screen is paired to its own board; a network board is set afterwards, by
+    `PUT /screens/{id}/board-scope`, which checks the membership (TEN-067)."""
     started = await start(screens)
     response = await connect(screens, spaced(started["code"]), boardScope="network")
-    assert response.status_code == 201
-    stored = await node_props(neo4j_driver, "Device", id=response.json()["deviceId"])
-    assert stored["boardScope"] == "network"
+    assert response.status_code == 400
+    assert await count_nodes(neo4j_driver, "Device") == 0
 
 
 async def owner_starts(app: FastAPI) -> None:

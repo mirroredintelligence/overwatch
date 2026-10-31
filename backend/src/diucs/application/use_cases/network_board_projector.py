@@ -30,7 +30,7 @@ import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, Protocol
 
 from diucs.application.actor import Actor
 from diucs.application.network_access import NetworkAccess
@@ -152,14 +152,36 @@ def network_board_from_dict(data: Mapping[str, Any]) -> NetworkBoardView:
     )
 
 
+class SampleRecorder(Protocol):
+    """Files the counts of a freshly built board under its hour (TEN-082)."""
+
+    async def record(self, network_id: str, view: NetworkBoardView) -> None: ...
+
+
 class NetworkBoardProjector:
     def __init__(
-        self, query: QueryNetworkBoard, access: NetworkAccess, cache: Cache, clock: Clock
+        self,
+        query: QueryNetworkBoard,
+        access: NetworkAccess,
+        cache: Cache,
+        clock: Clock,
+        sampler: SampleRecorder | None = None,
     ) -> None:
         self._query = query
         self._access = access
         self._cache = cache
         self._clock = clock
+        self._sampler = sampler
+
+    async def _sample(self, network_id: str, view: NetworkBoardView) -> None:
+        """Best effort: a board never fails because its history could not be written. Only the
+        class of an error is logged, never a value."""
+        if self._sampler is None:
+            return
+        try:
+            await self._sampler.record(network_id, view)
+        except Exception as error:
+            _LOG.warning("a network board sample was not recorded: %s", type(error).__name__)
 
     async def handle(self, event_type: str, payload: Mapping[str, Any]) -> bool:
         """Rebuild and publish for an event the board shows. Return False for any other event."""
@@ -186,17 +208,29 @@ class NetworkBoardProjector:
             )
             message = {"type": NETWORK_BOARD_CHANGED, "at": _utc_text(self._clock.now())}
             await self._cache.publish(NETWORK_BOARD_UPDATES_CHANNEL, json.dumps(message))
+            await self._sample(network_id, view)
 
     async def get_board(self, actor: Actor, network_id: str) -> NetworkBoardView:
         """The cached board, or a computed one that is then cached for the backstop time, for a
         viewer the registry has just confirmed (NotFound or NotAllowed otherwise)."""
         await self._access.require_member(actor, network_id)
+        return await self._serve(network_id)
+
+    async def get_wall_board(self, actor: Actor) -> NetworkBoardView:
+        """The board of the network a wall screen is set to (TEN-067): the screen's own record
+        names it and the registry confirms the membership, on every call, cached or not. A screen
+        set to its own board, a revoked one and one whose tenant left are NotFound."""
+        member = await self._access.require_wall(actor)
+        return await self._serve(member.network.id)
+
+    async def _serve(self, network_id: str) -> NetworkBoardView:
         with bind_network(network_id):
             cached = await self._read_cached()
             if cached is not None:
                 return cached
             view = await self._query.build(network_id)
             await self._store_best_effort(view)
+            await self._sample(network_id, view)
             return view
 
     async def _read_cached(self) -> NetworkBoardView | None:

@@ -18,6 +18,7 @@ from diucs.adapters.outbound.graph_store.migrations import (
 from diucs.adapters.outbound.graph_store.migrations_contract import CONTRACT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_insight import INSIGHT_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_network import NETWORK_MIGRATIONS
+from diucs.adapters.outbound.graph_store.migrations_platform import PLATFORM_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_protected import PROTECTED_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_safety import SAFETY_MIGRATIONS
 from diucs.adapters.outbound.graph_store.migrations_support import SUPPORT_MIGRATIONS
@@ -184,6 +185,7 @@ def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_togethe
         + len(SUPPORT_MIGRATIONS)
         + len(SAFETY_MIGRATIONS)
         + len(CONTRACT_MIGRATIONS)
+        + len(PLATFORM_MIGRATIONS)
         + len(INSIGHT_MIGRATIONS)
     )
     assert {m.id for m in MIGRATIONS} == (
@@ -195,6 +197,7 @@ def test_the_assembled_list_is_the_core_the_tenant_and_the_network_lists_togethe
         | {m.id for m in SUPPORT_MIGRATIONS}
         | {m.id for m in SAFETY_MIGRATIONS}
         | {m.id for m in CONTRACT_MIGRATIONS}
+        | {m.id for m in PLATFORM_MIGRATIONS}
         | {m.id for m in INSIGHT_MIGRATIONS}
     )
 

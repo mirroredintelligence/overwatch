@@ -326,6 +326,15 @@ class DeviceRegistry(Protocol):
         another tenant or a practitioner's device already holds is Conflict."""
         ...
 
+    async def peek(self, device_id: str) -> Device | None:
+        """`get` without the write lock, for reads that decide nothing single-use (TEN-067: a wall
+        screen asks for its board setting on every refresh). Another tenant's screen is None."""
+        ...
+
+    async def list_screens(self) -> list[Device]:
+        """Every wall screen of the bound tenant, any status, by name then id (TEN-067)."""
+        ...
+
     async def find_by_token_hash(self, token_hash: str) -> Device | None:
         """The ACTIVE wall screen of the bound tenant whose token hashes to this, or None: a screen
         that is not active, or of another tenant, is never found. More than one is Conflict."""

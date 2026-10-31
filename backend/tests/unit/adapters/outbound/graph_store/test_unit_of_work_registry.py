@@ -69,6 +69,7 @@ REQUIRED_NAMES = {
     # The network scope's two repositories (TEN-053): on the unit, not on the tenant port.
     "projections",
     "network_view",
+    "network_samples",
 }
 
 

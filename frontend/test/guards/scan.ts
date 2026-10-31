@@ -135,6 +135,7 @@ export const FETCH_ALLOWLIST: Record<string, string> = {
   'lib/bff/client.ts': 'the browser helper for the BFF JSON routes (the CSRF token from the BFF session route; its callers pass /api/bff paths)',
   'lib/lead/browser.ts': 'the shift lead pages\' browser helper: its callers pass /api/bff/lead paths',
   'lib/register/browser.ts': 'the registration pages\' browser helper: every path is built from /api/bff/registrations or the BFF session route',
+  'lib/operator/browser.ts': 'the operator console\'s sign-out passes the browser\'s fetch to its own BFF session route (/api/bff/platform/session)',
   'lib/reporter/browser.ts': 'the reporter app\'s browser helper: its callers pass /api/bff paths',
 };
 

@@ -27,6 +27,7 @@ from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
 from diucs.application.ports.outbound.geo import ServicePositions
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
+from diucs.application.ports.outbound.insight import InsightRepository
 from diucs.application.ports.outbound.messaging import (
     CommunicationRepository,
     PushSubscriptionRepository,
@@ -89,6 +90,7 @@ class UnitOfWork(Protocol):
     processed: ProcessedMessages
     support: SupportRepository
     aggregates: AggregateRepository
+    insight: InsightRepository
     support_tickets: SupportTicketRepository
     tenant_config: TenantConfigRepository
 

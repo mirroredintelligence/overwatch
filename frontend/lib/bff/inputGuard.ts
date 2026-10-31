@@ -18,9 +18,30 @@ function headersName(request: Request): boolean {
   return false;
 }
 
-function queryNames(request: Request): boolean {
+// A network id as the back end makes it (`check_network_id`): `net-` and lower-case letters, digits and
+// hyphens, 31 characters at most in all.
+const NETWORK_ID = /^net-[a-z0-9][a-z0-9-]{1,26}$/;
+
+export type InputGuardOptions = {
+  /**
+   * The route takes the id of the network a page is looking at, as the query key `networkId` (TEN-068).
+   * Only that key, once, holding a network id: any other key that names a tenant, a scope or a network,
+   * any header and any body key is still refused.
+   */
+  allowNetworkId?: boolean;
+};
+
+function queryNames(request: Request, options: InputGuardOptions): boolean {
   try {
-    for (const key of new URL(request.url).searchParams.keys()) if (namesTenantInput(key)) return true;
+    let networkIds = 0;
+    for (const [key, value] of new URL(request.url).searchParams) {
+      if (options.allowNetworkId === true && key === 'networkId') {
+        networkIds += 1;
+        if (networkIds > 1 || !NETWORK_ID.test(value)) return true;
+        continue;
+      }
+      if (namesTenantInput(key)) return true;
+    }
   } catch {
     return true;
   }
@@ -90,6 +111,6 @@ async function bodyNames(request: Request): Promise<boolean> {
   }
 }
 
-export async function refusesTenantInput(request: Request): Promise<boolean> {
-  return queryNames(request) || headersName(request) || (await bodyNames(request));
+export async function refusesTenantInput(request: Request, options: InputGuardOptions = {}): Promise<boolean> {
+  return queryNames(request, options) || headersName(request) || (await bodyNames(request));
 }

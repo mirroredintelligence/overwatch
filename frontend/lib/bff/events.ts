@@ -6,6 +6,15 @@
 // `booking.updated`); see DEC-152.
 
 export const RELAYED_EVENTS: readonly string[] = ['board', 'board.updated', 'booking.updated'];
+/**
+ * The network stream (TEN-068, routes_network_events.py): `network-board` says the network's board
+ * changed, and `scope-ended` says the viewer may no longer read it. The two streams never relay each
+ * other's events.
+ */
+export const NETWORK_RELAYED_EVENTS: readonly string[] = ['network-board', 'scope-ended'];
+
+/** Which stream is being relayed: the tenant's (the default) or a network's. */
+export type RelayedStream = 'tenant' | 'network';
 
 const KEEP_ALIVE = ': keep-alive\n\n';
 // A frame bigger than this is not a board event. The relay stops rather than buffer it.
@@ -14,6 +23,25 @@ const MAX_FRAME_CHARS = 16 * 1024;
 const SERVICE_ID = /^[A-Za-z0-9.-]{1,64}$/;
 const UTC_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|\+00:00)$/;
 const KINDS: readonly string[] = ['capacity', 'status', 'booking'];
+
+/** The data of a network event: `network-board` keeps its time, `scope-ended` keeps nothing. */
+function sanitiseNetwork(name: string, data: string): string {
+  if (name === 'scope-ended') return '{}';
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(data);
+  } catch {
+    parsed = null;
+  }
+  const kept: Record<string, string> = {};
+  if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+    const { changedAt } = parsed as Record<string, unknown>;
+    if (typeof changedAt === 'string' && UTC_TIME.test(changedAt) && !Number.isNaN(Date.parse(changedAt))) {
+      kept.changedAt = changedAt;
+    }
+  }
+  return JSON.stringify(kept);
+}
 
 /** The data of an event, cut down to the fields the pages use, each checked. */
 function sanitise(data: string): string {
@@ -37,11 +65,15 @@ function sanitise(data: string): string {
 
 type Frame = { event: string | null; data: string[]; comment: boolean };
 
-function dispatch(frame: Frame): string {
+function dispatch(frame: Frame, stream: RelayedStream): string {
   if (frame.event === null && frame.data.length === 0) return frame.comment ? KEEP_ALIVE : '';
   const name = frame.event === null || frame.event === '' ? 'message' : frame.event;
+  const data = frame.data.join('\n');
+  if (stream === 'network') {
+    return NETWORK_RELAYED_EVENTS.includes(name) ? `event: ${name}\ndata: ${sanitiseNetwork(name, data)}\n\n` : '';
+  }
   if (!RELAYED_EVENTS.includes(name)) return '';
-  return `event: ${name}\ndata: ${sanitise(frame.data.join('\n'))}\n\n`;
+  return `event: ${name}\ndata: ${sanitise(data)}\n\n`;
 }
 
 /** Reads server-sent event text as it arrives, in pieces, and gives back the text to forward. */
@@ -50,6 +82,8 @@ class FrameReader {
   private frame: Frame = { event: null, data: [], comment: false };
   private frameChars = 0;
   overflow = false;
+
+  constructor(private readonly stream: RelayedStream) {}
 
   push(text: string): string {
     this.buffer += text;
@@ -75,7 +109,7 @@ class FrameReader {
 
   private line(line: string): string {
     if (line === '') {
-      const out = dispatch(this.frame);
+      const out = dispatch(this.frame, this.stream);
       this.frame = { event: null, data: [], comment: false };
       this.frameChars = 0;
       return out;
@@ -105,6 +139,8 @@ export type RelayOptions = {
   signal?: AbortSignal;
   /** Called when the reader of the relayed stream goes away (cancels it). */
   onCancel?: () => void;
+  /** `network` relays a network's events only; the default relays the tenant's. */
+  events?: RelayedStream;
 };
 
 export function relayEvents(
@@ -114,7 +150,7 @@ export function relayEvents(
   const reader = upstream.getReader();
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
-  const frames = new FrameReader();
+  const frames = new FrameReader(options.events ?? 'tenant');
   const stop = () => void reader.cancel().catch(() => undefined);
   options.signal?.addEventListener('abort', stop, { once: true });
   if (options.signal?.aborted) stop();

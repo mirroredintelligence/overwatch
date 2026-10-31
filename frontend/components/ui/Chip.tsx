@@ -6,9 +6,11 @@ export type ChipProps = {
   onPressedChange: (next: boolean) => void;
   children: ReactNode;
   dataEl?: string;
+  /** Further `data-*` attributes (an opaque reference to tell repeated chips apart). */
+  data?: Record<`data-${string}`, string>;
 };
 
-export function Chip({ pressed, onPressedChange, children, dataEl }: ChipProps) {
+export function Chip({ pressed, onPressedChange, children, dataEl, data }: ChipProps) {
   return (
     <button
       type="button"
@@ -16,6 +18,7 @@ export function Chip({ pressed, onPressedChange, children, dataEl }: ChipProps) 
       aria-pressed={pressed}
       onClick={() => onPressedChange(!pressed)}
       data-el={dataEl}
+      {...data}
     >
       {children}
     </button>

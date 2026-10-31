@@ -84,3 +84,22 @@ describe('copy from the policy', () => {
     expect(copy.pressureHigh({ ...POLICY_DEFAULTS, pressureHighFrom: 7 })).toBe('7 or more services are limited or worse.');
   });
 });
+
+describe('the capacity heading (TEN-069, KI-545)', () => {
+  it('is the organisation and the tenant’s own word for its system', () => {
+    expect(copy.capacityHeading(A, 'Dorset')).toBe('Dorset Capacity A');
+  });
+
+  it('is the system word alone when the board names no organisation', () => {
+    expect(copy.capacityHeading(A, null)).toBe('Capacity A');
+  });
+
+  it('is null for a tenant with no wording, or no profile: the page then keeps the product’s own words', () => {
+    expect(copy.capacityHeading(C, 'Dorset')).toBeNull();
+    expect(copy.capacityHeading(null, 'Dorset')).toBeNull();
+  });
+
+  it('prints the words as text', () => {
+    expect(copy.capacityHeading({ ...A, wording: { ...A.wording!, systemName: '<b>X</b>' } }, 'Y')).toBe('Y <b>X</b>');
+  });
+});

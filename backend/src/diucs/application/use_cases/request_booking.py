@@ -12,7 +12,7 @@ QueryBoard opens its own unit and a unit may not be nested (DEC-146).
 
 import hashlib
 import random
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
@@ -28,7 +28,7 @@ from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWork
 from diucs.application.scheduling import schedule_work
 from diucs.application.sealed_send import queue_message
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound, current_scope
-from diucs.application.tenant_settings import read_policy
+from diucs.application.tenant_settings import read_policy, resolve_link_base
 from diucs.application.use_cases.query_board import QueryBoard, QueryBoardQuery
 from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
 from diucs.application.use_cases.suspend_service import WordingFor
@@ -40,6 +40,7 @@ from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import RenderedMessage, render
 from diucs.domain.model.booking import Booking
 from diucs.domain.model.case import Case
+from diucs.domain.model.tenant import TenantWording
 from diucs.domain.rules.booking_rules import (
     REFERENCE_ATTEMPTS,
     booking_reply_by,
@@ -51,7 +52,8 @@ from diucs.domain.rules.booking_state import is_open
 from diucs.domain.rules.london_time import format_hhmm
 from diucs.domain.rules.need_words import need_words
 
-LinkBaseUrlFor = Callable[[ScopeId], str]
+LinkBaseUrlFor = Callable[[ScopeId], str | Awaitable[str]]
+"""Text or an awaitable of text (`resolve_link_base`): the serving process's source is async."""
 """The link base URL of a tenant (`https://<host>`), given the bound scope. The composition root
 backs it with the tenant directory, which holds the host (the Tenant record has none; DEC-134
 item 3)."""
@@ -248,6 +250,10 @@ class RequestBooking:
             else int((now - entry.reported_at).total_seconds() // 60)
         )
 
+        # The tenant's wording, read before the unit opens: the production source reads the tenant's
+        # configuration through a unit of its own, and a unit cannot open inside another.
+        wording = await self._wording_for(current_scope())
+
         async with self._uow_factory() as uow:
             scope = _tenant_scope(uow.unit_scope)
             key = command_key(scope, command.idempotency_key)
@@ -273,7 +279,7 @@ class RequestBooking:
             if reporter is None:
                 raise NotFound("the reporter of this service")
 
-            referral_system_name = await self._referral_system_name(scope, channel)
+            referral_system_name = self._referral_system_name(wording, channel)
 
             reference = await self._free_reference(uow)
             reply_by = booking_reply_by(now, policy)
@@ -298,7 +304,8 @@ class RequestBooking:
                     reporter.phone_hash if channel is Channel.TEXT else None,
                     reply_by,
                 )
-                link = f"{self._link_base_url_for(scope)}{REQUEST_LINK_PATH}{token}"
+                link_base = await resolve_link_base(self._link_base_url_for, scope)
+                link = f"{link_base}{REQUEST_LINK_PATH}{token}"
 
             rendered = _render_request(
                 channel,
@@ -377,13 +384,13 @@ class RequestBooking:
             await uow.commit()
         return result
 
-    async def _referral_system_name(self, scope: ScopeId, channel: Channel) -> str | None:
+    @staticmethod
+    def _referral_system_name(wording: TenantWording | None, channel: Channel) -> str | None:
         """The tenant's word for its referral system, which B1 and B2 print. A tenant with no
         wording cannot be activated (H-T15), so none here is a configuration fault: the request is
         refused before anything is written. The push message names no system."""
         if message_for_channel(channel) is MessageId.B3:
             return None
-        wording = await self._wording_for(scope)
         if wording is None:
             raise ValidationFailed("referral_system_name", "the tenant has set no wording")
         return wording.referral_system_name

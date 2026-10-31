@@ -5,6 +5,7 @@ import type { FetchedBoard } from '@/lib/board/client';
 import type { Board as BoardData } from '@/lib/board/types';
 import { useBoardFeed, type StreamSource } from '@/lib/board/useBoardFeed';
 import { Board } from './Board';
+import { StatusAnnouncer } from './StatusAnnouncer';
 
 // The wall board, kept current. The page reads the first board on the server; this
 // listens to the live stream (through the BFF, as the paired screen's session) and
@@ -16,6 +17,8 @@ export type LiveBoardProps = {
   initialBoard: BoardData;
   /** The tenant's own line under the heading, read by the page from the profile (TEN-049). */
   subtitle?: string | null;
+  /** The tenant's own heading, built by the page from the profile (TEN-069), or none. */
+  heading?: string | null;
   /** The web server's clock (epoch ms) when it read `initialBoard`. */
   serverTime: number;
   // Seams for tests. Production uses the defaults.
@@ -35,6 +38,7 @@ function openStream(): StreamSource | null {
 export function LiveBoard({
   initialBoard,
   subtitle = null,
+  heading = null,
   serverTime,
   fetchBoard,
   createEventSource = openStream,
@@ -51,9 +55,15 @@ export function LiveBoard({
     // A refused screen is not paired (or no longer): the pairing page, as on first load (DEC-151 item 4).
     onUnpaired: onUnpaired ?? (() => router.replace(PAIR)),
   });
-  return assessment.mode === 'last-known' ? (
-    <Board board={board} lastKnown={assessment} subtitle={subtitle} />
-  ) : (
-    <Board board={board} streamPaused={assessment.streamPaused} subtitle={subtitle} />
+  return (
+    <>
+      {/* Status changes, said politely once (KI-56). */}
+      <StatusAnnouncer board={board} lastKnown={assessment.mode === 'last-known'} />
+      {assessment.mode === 'last-known' ? (
+        <Board board={board} lastKnown={assessment} subtitle={subtitle} heading={heading} />
+      ) : (
+        <Board board={board} streamPaused={assessment.streamPaused} subtitle={subtitle} heading={heading} />
+      )}
+    </>
   );
 }

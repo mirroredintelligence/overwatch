@@ -76,12 +76,12 @@ afterEach(() => {
 });
 
 describe('wall screen page: signed in', () => {
-  it('shows the board for the paired screen: heading, nine tiles in order, legend and footer', async () => {
+  it('shows the board for the paired screen: the tenant’s own heading, nine tiles in order, legend and footer', async () => {
     as(signedIn('wall'));
 
     const { container } = render(await WallScreenPage());
 
-    expect(screen.getByRole('heading', { level: 1, name: 'Dorset urgent care capacity' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: 'Dorset Capacity A' })).toBeInTheDocument();
     expect(
       Array.from(container.querySelectorAll('[data-el="WALL-TILE"]')).map((t) => t.getAttribute('data-service-id')),
     ).toEqual(BOARD_A.entries.map((e) => e.serviceId));
@@ -96,7 +96,7 @@ describe('wall screen page: signed in', () => {
 
     render(await WallScreenPage());
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('urgent care capacity');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Capacity A');
   });
 
   it('reads the board with the session token, as a GET with no query string', async () => {
@@ -121,7 +121,7 @@ describe('wall screen page: signed in', () => {
     });
     render(page);
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Dorset urgent care capacity');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Dorset Capacity A');
     expect(seenBoardRequests[0].headers.get('authorization')).toBe(`Bearer ${TOKEN_ORG_A}`);
   });
 
@@ -143,7 +143,7 @@ describe('wall screen page: signed in', () => {
 
     const { container } = render(await WallScreenPage());
 
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Neighbouring urgent care capacity');
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Neighbouring Capacity A');
     expect(container.querySelectorAll('[data-el="WALL-TILE"]')).toHaveLength(BOARD_B.entries.length);
     for (const e of BOARD_A.entries) expect(container.textContent).not.toContain(e.name);
   });

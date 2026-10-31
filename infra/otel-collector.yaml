@@ -9,8 +9,8 @@
 #
 # Privacy rule: db.statement, db.query.text and every query parameter are refused. Keep it that way.
 # Free-text keys: `name` and `value` are not kept, on any context (the back end refuses them too). The
-# ui.web_vital event that uses them is not built, and the collector cannot tell which event a span or
-# log record came from, so it cannot keep them for that one event only.
+# collector cannot tell which event a span or log record came from, so it cannot keep them for the
+# ui.web_vital event only; that event (W9F) carries `metric`, `reading` and `rating` instead.
 # Secrets: the Azure connection string comes from the environment, never from this file.
 
 receivers:
@@ -36,7 +36,7 @@ processors:
           - 'keep_keys(attributes, ["service.name", "service.version", "deployment.environment"])'
       - context: span
         statements:
-          - 'keep_keys(attributes, ["app.mode", "component.id", "db.access_mode", "db.query.id", "db.row_count", "db.system", "db.system.name", "device.type", "element.id", "error.type", "http.request.method", "http.response.status_code", "http.route", "messaging.destination.name", "messaging.message.id", "messaging.system", "net.effective_type", "page.route", "release", "server.address", "service.id", "session.id", "tenant.id", "url.scheme", "usecase.idempotent_replay", "usecase.outcome", "user.role", "from.route", "load.type", "ttfb_ms", "lcp_ms", "dwell_ms", "result", "valid", "length_bucket", "state", "form.id", "error_count", "time_to_submit_ms", "error.code", "kind", "count", "window_ms", "rating", "duration_ms", "gap_ms", "standalone", "session_code_shared", "trace_id"])'
+          - 'keep_keys(attributes, ["app.mode", "component.id", "db.access_mode", "db.query.id", "db.row_count", "db.system", "db.system.name", "device.type", "element.id", "error.type", "http.request.method", "http.response.status_code", "http.route", "messaging.destination.name", "messaging.message.id", "messaging.system", "net.effective_type", "page.route", "release", "server.address", "service.id", "session.id", "tenant.id", "url.scheme", "usecase.idempotent_replay", "usecase.outcome", "user.role", "from.route", "load.type", "ttfb_ms", "lcp_ms", "dwell_ms", "result", "valid", "length_bucket", "state", "form.id", "error_count", "time_to_submit_ms", "error.code", "kind", "count", "window_ms", "rating", "metric", "reading", "duration_ms", "gap_ms", "standalone", "session_code_shared", "trace_id"])'
           - 'replace_all_patterns(attributes, "value", "\\+?\\d(?:[ -]?\\d){9,}", "[redacted]")'  # phone_or_nhs
           - 'replace_all_patterns(attributes, "value", "(?i)\\b[a-z]{1,2}\\d[a-z\\d]?\\s?\\d[a-z]{2}\\b", "[redacted]")'  # postcode
           - 'replace_all_patterns(attributes, "value", "\\b[A-Za-z]{23}\\b", "[redacted]")'  # link_token
@@ -44,14 +44,14 @@ processors:
           - 'replace_all_patterns(attributes, "value", "\\b\\d{3} \\d{3}\\b", "[redacted]")'  # pairing_code
       - context: spanevent
         statements:
-          - 'keep_keys(attributes, ["app.mode", "component.id", "db.access_mode", "db.query.id", "db.row_count", "db.system", "db.system.name", "device.type", "element.id", "error.type", "http.request.method", "http.response.status_code", "http.route", "messaging.destination.name", "messaging.message.id", "messaging.system", "net.effective_type", "page.route", "release", "server.address", "service.id", "session.id", "tenant.id", "url.scheme", "usecase.idempotent_replay", "usecase.outcome", "user.role", "from.route", "load.type", "ttfb_ms", "lcp_ms", "dwell_ms", "result", "valid", "length_bucket", "state", "form.id", "error_count", "time_to_submit_ms", "error.code", "kind", "count", "window_ms", "rating", "duration_ms", "gap_ms", "standalone", "session_code_shared", "trace_id"])'
+          - 'keep_keys(attributes, ["app.mode", "component.id", "db.access_mode", "db.query.id", "db.row_count", "db.system", "db.system.name", "device.type", "element.id", "error.type", "http.request.method", "http.response.status_code", "http.route", "messaging.destination.name", "messaging.message.id", "messaging.system", "net.effective_type", "page.route", "release", "server.address", "service.id", "session.id", "tenant.id", "url.scheme", "usecase.idempotent_replay", "usecase.outcome", "user.role", "from.route", "load.type", "ttfb_ms", "lcp_ms", "dwell_ms", "result", "valid", "length_bucket", "state", "form.id", "error_count", "time_to_submit_ms", "error.code", "kind", "count", "window_ms", "rating", "metric", "reading", "duration_ms", "gap_ms", "standalone", "session_code_shared", "trace_id"])'
     log_statements:
       - context: resource
         statements:
           - 'keep_keys(attributes, ["service.name", "service.version", "deployment.environment"])'
       - context: log
         statements:
-          - 'keep_keys(attributes, ["app.mode", "component.id", "db.access_mode", "db.query.id", "db.row_count", "db.system", "db.system.name", "device.type", "element.id", "error.type", "http.request.method", "http.response.status_code", "http.route", "messaging.destination.name", "messaging.message.id", "messaging.system", "net.effective_type", "page.route", "release", "server.address", "service.id", "session.id", "tenant.id", "url.scheme", "usecase.idempotent_replay", "usecase.outcome", "user.role", "from.route", "load.type", "ttfb_ms", "lcp_ms", "dwell_ms", "result", "valid", "length_bucket", "state", "form.id", "error_count", "time_to_submit_ms", "error.code", "kind", "count", "window_ms", "rating", "duration_ms", "gap_ms", "standalone", "session_code_shared", "trace_id"])'
+          - 'keep_keys(attributes, ["app.mode", "component.id", "db.access_mode", "db.query.id", "db.row_count", "db.system", "db.system.name", "device.type", "element.id", "error.type", "http.request.method", "http.response.status_code", "http.route", "messaging.destination.name", "messaging.message.id", "messaging.system", "net.effective_type", "page.route", "release", "server.address", "service.id", "session.id", "tenant.id", "url.scheme", "usecase.idempotent_replay", "usecase.outcome", "user.role", "from.route", "load.type", "ttfb_ms", "lcp_ms", "dwell_ms", "result", "valid", "length_bucket", "state", "form.id", "error_count", "time_to_submit_ms", "error.code", "kind", "count", "window_ms", "rating", "metric", "reading", "duration_ms", "gap_ms", "standalone", "session_code_shared", "trace_id"])'
           - 'replace_all_patterns(attributes, "value", "\\+?\\d(?:[ -]?\\d){9,}", "[redacted]")'  # phone_or_nhs
           - 'replace_all_patterns(attributes, "value", "(?i)\\b[a-z]{1,2}\\d[a-z\\d]?\\s?\\d[a-z]{2}\\b", "[redacted]")'  # postcode
           - 'replace_all_patterns(attributes, "value", "\\b[A-Za-z]{23}\\b", "[redacted]")'  # link_token

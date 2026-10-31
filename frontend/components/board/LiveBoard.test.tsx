@@ -82,7 +82,9 @@ describe('LiveBoard: online', () => {
     expect(screen.getByRole('heading', { level: 1, name: 'Dorset urgent care capacity' })).toBeInTheDocument();
     expect(tiles(container)).toHaveLength(MAIN_ENTRIES.length);
     expect(tiles(container)[0]).toHaveAttribute('data-status', 'accepting');
-    expect(container.querySelector('[role="alert"], [role="status"], [aria-live]')).toBeNull();
+    // Nothing is said: the only live region is the one for status changes (KI-56), and it is empty.
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(Array.from(container.querySelectorAll('[role="status"], [aria-live]')).map((e) => e.textContent)).toEqual(['']);
     expect(container.textContent).not.toContain('Last known');
   });
 
@@ -100,7 +102,9 @@ describe('LiveBoard: online', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Refreshed area urgent care capacity');
     expect(tiles(m.container)).toHaveLength(1);
     expect(within(tiles(m.container)[0]).getByText('7')).toBeInTheDocument();
-    expect(m.container.querySelector('[role="alert"], [role="status"], [aria-live]')).toBeNull();
+    // A refresh that changes a figure and no status says nothing (KI-56): the live region stays empty.
+    expect(m.container.querySelector('[role="alert"]')).toBeNull();
+    expect(Array.from(m.container.querySelectorAll('[role="status"], [aria-live]')).map((e) => e.textContent)).toEqual(['']);
   });
 
   it('shows a note in words, and no alert, when the stream is down but the poll still works', async () => {
@@ -182,7 +186,8 @@ describe('LiveBoard: offline', () => {
     expect(screen.getAllByRole('alert')).toHaveLength(1);
     expect(screen.getByRole('alert')).toBe(alert);
     expect(screen.getByRole('alert').textContent).toBe(text);
-    expect(m.container.querySelectorAll('[aria-live], [role="status"]')).toHaveLength(0);
+    // The one live region of the page is the status announcer, and offline it says nothing (KI-56).
+    expect(Array.from(m.container.querySelectorAll('[aria-live], [role="status"]')).map((e) => e.textContent)).toEqual(['']);
   });
 
   it('lets the ages grow while offline, minute by minute', async () => {

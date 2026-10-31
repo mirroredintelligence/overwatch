@@ -33,6 +33,8 @@ class FrictionDailyRow:
     interactions: int
     events: int
     sessions: int
+    # The route a page-level friction (element id PAGE) happened on; empty for a control's friction.
+    route: str = ""
 
 
 @dataclass(frozen=True, slots=True)

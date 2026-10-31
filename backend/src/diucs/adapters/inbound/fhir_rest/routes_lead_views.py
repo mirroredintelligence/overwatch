@@ -43,6 +43,7 @@ from diucs.application.ports.outbound.sealing import ContentSealer
 from diucs.application.ports.outbound.tokens import LinkTokenService, SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId
+from diucs.application.tenant_settings import resolve_link_base
 from diucs.application.use_cases.advisor_phoned import (
     PHONED_ANSWERS,
     PhonedAnswer,
@@ -105,7 +106,7 @@ class _Bases:
         self._source = source
 
     async def link_base_url(self, scope: ScopeId) -> str:
-        return self._source(scope)
+        return await resolve_link_base(self._source, scope)
 
 
 def build_ladder(container: _Container) -> MissedReportLadder:

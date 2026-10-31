@@ -55,6 +55,7 @@ from diucs.adapters.outbound.graph_store.idempotency_store import (
     Neo4jIdempotencyStore,
     Neo4jProcessedMessages,
 )
+from diucs.adapters.outbound.graph_store.insight_repository import Neo4jInsightRepository
 from diucs.adapters.outbound.graph_store.link_token_repository import Neo4jLinkTokenRepository
 from diucs.adapters.outbound.graph_store.network_sample_repository import (
     Neo4jNetworkSampleRepository,
@@ -98,6 +99,7 @@ from diucs.application.ports.outbound.event_bus import ScheduledWorkRepository
 from diucs.application.ports.outbound.geo import ServicePositions
 from diucs.application.ports.outbound.idempotency import ProcessedMessages
 from diucs.application.ports.outbound.identity import ContactStore, DeviceRegistry, PinStore
+from diucs.application.ports.outbound.insight import InsightRepository
 from diucs.application.ports.outbound.messaging import (
     CommunicationRepository,
     PushSubscriptionRepository,
@@ -168,6 +170,7 @@ DEFAULT_FACTORIES: dict[str, RepositoryFactory] = {
     "processed": lambda tx, store: Neo4jProcessedMessages(tx),
     "support": lambda tx, store: Neo4jSupportRepository(tx),
     "aggregates": lambda tx, store: Neo4jAggregateRepository(tx),
+    "insight": lambda tx, store: Neo4jInsightRepository(tx),
     "support_tickets": lambda tx, store: Neo4jSupportTicketRepository(tx),
     "tenant_config": lambda tx, store: Neo4jTenantConfigRepository(tx),
     # The network scope's writer and reader (TEN-053). They sit in the same mapping because a unit
@@ -242,6 +245,7 @@ class Neo4jUnitOfWork:
     processed: ProcessedMessages
     support: SupportRepository
     aggregates: AggregateRepository
+    insight: InsightRepository
     support_tickets: SupportTicketRepository
     tenant_config: TenantConfigRepository
     projections: ProjectionWriter

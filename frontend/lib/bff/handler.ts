@@ -25,6 +25,12 @@ export type BffOptions = {
    * so an id that is in another tenant cannot be told from an id that is nowhere.
    */
   idScoped?: boolean;
+  /**
+   * The route takes the id of a network in its query (`networkId`, one, a network id) and nothing else
+   * that names a tenant, a scope or a network (TEN-068). The network is still checked per call: the id
+   * is a choice among the networks the server offered, never an authority.
+   */
+  allowNetworkId?: boolean;
 };
 
 export type BffHandler<C = unknown> = (
@@ -35,7 +41,7 @@ export type BffHandler<C = unknown> = (
 
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-function refuse(status: number, code: string): Response {
+export function refuse(status: number, code: string): Response {
   return Response.json({ code }, { status });
 }
 
@@ -44,7 +50,7 @@ function refuse(status: number, code: string): Response {
 const CACHING_DIRECTIVE = /^(public|private|no-store|max-age|s-maxage|stale-while-revalidate|stale-if-error|immutable|must-revalidate|proxy-revalidate)(=|$)/;
 const VARY_ALWAYS = ['Cookie', 'Host'];
 
-function privateNoStore(response: Response): Response {
+export function privateNoStore(response: Response): Response {
   try {
     const headers = new Headers(response.headers);
     const kept = (headers.get('Cache-Control') ?? '')
@@ -86,7 +92,7 @@ export function withBff<C = unknown>(
       const check = UNSAFE_METHODS.has(request.method.toUpperCase()) || options.csrf === true;
       if (check && !checkCsrf(request, session)) return refuse(403, 'csrf');
 
-      if (await refusesTenantInput(request)) return refuse(400, 'invalid');
+      if (await refusesTenantInput(request, { allowNetworkId: options.allowNetworkId })) return refuse(400, 'invalid');
 
       // A reporter's token lasts 30 minutes: it is renewed from the live PIN session when due (W8E,
       // DEC-792), after every check above so a refused request asks the back end for nothing. A session

@@ -67,6 +67,13 @@ describe('what the page says', () => {
     ]);
   });
 
+  it('says the window of the grant in force and of the one that waits, so what is approved is what is read', async () => {
+    await open();
+    expect(within(card('Directory')).getByText('From 4 Oct 2026, no end date')).toBeInTheDocument();
+    expect(within(card('Capacity')).getByText('From 4 Oct 2026, no end date')).toBeInTheDocument();
+    expect(within(card('Criteria')).queryByText(/^From /)).not.toBeInTheDocument();
+  });
+
   it('says whether the network is getting what is in force', async () => {
     await open();
     expect(within(card('Directory')).getByText('The network is receiving this.')).toBeInTheDocument();

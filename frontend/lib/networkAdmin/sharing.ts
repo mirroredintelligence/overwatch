@@ -26,6 +26,8 @@ export type Card = {
   endable: string | null;
   /** When the grant in force started, said while a newer version waits for approval. */
   inForceSince: string | null;
+  /** The window of the grant this card is about (the one that waits, else the one in force), or null. */
+  window: { from: string; to: string | null } | null;
   arrival: Arrival;
 };
 
@@ -55,9 +57,11 @@ export function cardFor(scope: Scope, grants: GrantRow[], shared: KindState[]): 
   if (source?.status === 'active') arrival = { kind: 'receiving' };
   else if (source?.status === 'ended' && source.endedAt !== null) arrival = { kind: 'stopped', at: source.endedAt };
 
+  const about = state.kind === 'waiting-you' ? waitingYou : state.kind === 'waiting-owner' ? waitingOwner : state.kind === 'sharing' || state.kind === 'scheduled' ? approved : undefined;
   return {
     scope,
     state,
+    window: about === undefined ? null : { from: about.effectiveFrom, to: about.effectiveTo },
     waitingFor: waitingYou?.id ?? null,
     endable: state.kind === 'sharing' || state.kind === 'scheduled' ? (approved?.id ?? null) : null,
     inForceSince: waitingYou !== undefined || waitingOwner !== undefined ? (inForce?.effectiveFrom ?? null) : null,
@@ -81,6 +85,12 @@ export function cardWord(state: CardState): string {
     case 'ended':
       return `Ended on ${dateText(state.on)}`;
   }
+}
+
+/** The window in words: where it starts and, when it has one, where it ends. */
+export function windowWord(card: Pick<Card, 'window'>): string | null {
+  if (card.window === null) return null;
+  return card.window.to === null ? `From ${dateText(card.window.from)}, no end date` : `From ${dateText(card.window.from)} to ${dateText(card.window.to)}`;
 }
 
 /** Whether the network is getting this kind, said only when there is something to say. */

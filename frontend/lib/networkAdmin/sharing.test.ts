@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cardFor, cardWord, arrivalWord } from './sharing';
+import { arrivalWord, cardFor, cardWord, windowWord } from './sharing';
 import type { GrantRow, GrantStatus, KindState, Scope } from './views';
 
 const grant = (id: string, scope: Scope, status: GrantStatus, over: Partial<GrantRow> = {}): GrantRow => ({
@@ -117,5 +117,30 @@ describe('what has reached the network', () => {
 
   it('says nothing about arrival for a kind that was never shared', () => {
     expect(arrivalWord(cardFor('criteria', [], []))).toBeNull();
+  });
+});
+
+describe('the window of the grant the card is about', () => {
+  it('is said for a grant in force, with or without an end', () => {
+    const open = cardFor('capacity', [grant('g1', 'capacity', 'approved', { effective: true })], []);
+    expect(open.window).toEqual({ from: '2026-10-04T09:00:00Z', to: null });
+    expect(windowWord(open)).toBe('From 4 Oct 2026, no end date');
+    const dated = cardFor('capacity', [grant('g1', 'capacity', 'approved', { effective: true, effectiveTo: '2026-11-30T09:00:00Z' })], []);
+    expect(windowWord(dated)).toBe('From 4 Oct 2026 to 30 Nov 2026');
+  });
+
+  it('is said for a grant that waits, so an administrator sees what they would approve', () => {
+    expect(windowWord(cardFor('capacity', [grant('g1', 'capacity', 'proposed', { effectiveTo: '2026-11-30T09:00:00Z' })], []))).toBe('From 4 Oct 2026 to 30 Nov 2026');
+    expect(windowWord(cardFor('capacity', [grant('g1', 'capacity', 'grantor-approved')], []))).toBe('From 4 Oct 2026, no end date');
+  });
+
+  it('is the one that waits when a newer version waits over one in force', () => {
+    const card = cardFor('capacity', [grant('g1', 'capacity', 'approved', { effective: true }), grant('g2', 'capacity', 'proposed', { version: 2, effectiveFrom: '2026-12-01T09:00:00Z' })], []);
+    expect(card.window).toEqual({ from: '2026-12-01T09:00:00Z', to: null });
+  });
+
+  it('is nothing for a kind that is not shared, or ended', () => {
+    expect(windowWord(cardFor('criteria', [], []))).toBeNull();
+    expect(windowWord(cardFor('capacity', [ended('g1', 'ended', '2026-10-20T09:00:00Z')], []))).toBeNull();
   });
 });

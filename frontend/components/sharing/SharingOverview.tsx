@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/Card';
 import { Dialog } from '@/components/ui/Dialog';
 import { post, queryFor, SHARING_BASE, useAdminRead, useNotice, type SharingPage, type SharingPageNetwork } from '@/lib/networkAdmin/browser';
 import { NEVER_SHARED } from '@/lib/networkAdmin/fieldLabels';
-import { arrivalWord, cardFor, cardWord, type Card as KindCard } from '@/lib/networkAdmin/sharing';
+import { arrivalWord, cardFor, cardWord, windowWord, type Card as KindCard } from '@/lib/networkAdmin/sharing';
 import { SCOPES, type Allowlist, type Scope } from '@/lib/networkAdmin/views';
 import { dateText, SCOPE_WORD } from '@/lib/networkAdmin/words';
 import styles from '../admin/admin.module.css';
@@ -163,6 +163,7 @@ function ScopeCard({
   const [busy, setBusy] = useState(false);
   const [dialog, setDialog] = useState<'decline' | 'end' | null>(null);
   const arrival = arrivalWord(card);
+  const windowText = windowWord(card);
 
   async function approve(grantId: string) {
     if (busy) return;
@@ -192,6 +193,7 @@ function ScopeCard({
   return (
     <Card heading={SCOPE_WORD[scope]} headingLevel={3} dataEl="SHARE-SCOPE-CARD">
       <p className={styles.ok}>{cardWord(card.state)}</p>
+      {windowText !== null ? <p className={styles.text}>{windowText}</p> : null}
       {card.inForceSince !== null ? <p className={styles.text}>{`Sharing is in force since ${dateText(card.inForceSince)} until this is decided.`}</p> : null}
       {arrival !== null ? <p className={styles.text}>{arrival}</p> : null}
       {card.state.kind === 'waiting-you' ? (

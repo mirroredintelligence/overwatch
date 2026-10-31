@@ -66,7 +66,7 @@ describe('OptionsMap (W50)', () => {
       MAP_OPTIONS.filter((option) => option.coverage !== null).length,
     );
     expect(
-      screen.getByText('Patient shown at postcode centre. Dashed areas are where a visiting service can attend.'),
+      screen.getByText('Patient shown at postcode centre. Dashed areas are where a visiting service can attend. The dotted line is the route to the selected site.'),
     ).toBeInTheDocument();
   });
 

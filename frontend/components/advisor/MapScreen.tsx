@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { bffFetch } from '@/lib/advisor/browser';
 import type { CaseView } from '@/lib/advisor/codes';
 import { chooseDistrict } from '@/lib/advisor/district';
+import { canChangePostcode, changePostcode, type PostcodeChange } from '@/lib/advisor/postcodeChange';
 import type { OptionsParts } from '@/lib/advisor/options';
+import { Button } from '@/components/ui/Button';
 import { AskClinicalPanel } from './AskClinicalPanel';
 import { OptionsMap } from './OptionsMap';
 import { OutOfArea, PostcodeNotFound } from './PostcodeStates';
@@ -18,7 +20,7 @@ import styles from './map.module.css';
 
 type Load =
   | { kind: 'loading' }
-  | { kind: 'ready'; parts: OptionsParts; postcode: string | null }
+  | { kind: 'ready'; parts: OptionsParts; postcode: string | null; view: CaseView | null }
   | { kind: 'failed' };
 
 export function MapScreen({ caseId }: { caseId: string }) {
@@ -37,7 +39,7 @@ export function MapScreen({ caseId }: { caseId: string }) {
       setLoad({ kind: 'failed' });
       return;
     }
-    setLoad({ kind: 'ready', parts: options.body, postcode: caseRead.ok ? caseRead.body.postcode : null });
+    setLoad({ kind: 'ready', parts: options.body, postcode: caseRead.ok ? caseRead.body.postcode : null, view: caseRead.ok ? caseRead.body : null });
   }, [id]);
 
   useEffect(() => {
@@ -53,16 +55,30 @@ export function MapScreen({ caseId }: { caseId: string }) {
     return true;
   };
 
+  // The postcode typed again from the not-found state: kept, the options are read again for it (MapWeb 3).
+  const searchAgain = async (typed: string): Promise<PostcodeChange> => {
+    if (load.kind !== 'ready' || load.view === null) return 'failed';
+    const result = await changePostcode(load.view, typed);
+    if (result === 'saved') await read();
+    return result;
+  };
+
   if (load.kind === 'loading') return <p>Loading the map.</p>;
   if (load.kind === 'failed') return <p role="alert">The map could not be read. Try again.</p>;
 
-  const { parts, postcode } = load;
+  const { parts, postcode, view } = load;
   // "Ask a clinical advisor" (W45): a postcode the map cannot place is one of the states that offers it.
   const ask = asking ? <AskClinicalPanel caseRef={caseId} optionsShown={0} onClose={() => setAsking(false)} /> : null;
   if (parts.notFound) {
     return (
       <>
-        <PostcodeNotFound caseId={caseId} onAskClinical={() => setAsking(true)} districts={parts.districts} onChooseDistrict={choose} />
+        <PostcodeNotFound
+          caseId={caseId}
+          onAskClinical={() => setAsking(true)}
+          districts={parts.districts}
+          onChooseDistrict={choose}
+          onSearchAgain={canChangePostcode(view) ? searchAgain : undefined}
+        />
         {ask}
       </>
     );
@@ -82,6 +98,7 @@ export function MapScreen({ caseId }: { caseId: string }) {
       <ViewToggle caseId={caseId} current="map" />
       <h2 className={styles.heading}>{`Options near ${place}`}</h2>
       <p className={styles.sub}>Same services as the list. Sorted by travel time. Not ranked.</p>
+      <p className={styles.caption} data-el="ADV-MAP-COUNT">{`${parts.options.length} ${parts.options.length === 1 ? 'service' : 'services'} shown`}</p>
       <OptionsMap
         caseId={caseId}
         postcode={place}
@@ -90,6 +107,11 @@ export function MapScreen({ caseId }: { caseId: string }) {
         selectedId={selected}
         onSelect={(serviceId) => setSelected(serviceId)}
       />
+      <div className={styles.actions}>
+        <Button variant="secondary" href={`/advisor/case/${id}/radar`} dataEl="ADV-MAP-RADAR-BTN">
+          Who covers this area
+        </Button>
+      </div>
     </section>
   );
 }

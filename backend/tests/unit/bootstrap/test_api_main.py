@@ -98,13 +98,13 @@ def test_a_store_with_no_secrets_names_each_missing_secret() -> None:
 
 @pytest.mark.parametrize("name", ["bff-jwt", "link-token", "account-ref"])
 def test_a_weak_secret_stops_start_up(name: str) -> None:
-    store = FixedSecretStore({**{n: GOOD for n in REQUIRED_SECRETS}, name: b"short"})
+    store = FixedSecretStore({**{n: GOOD for n in REQUIRED_SECRETS}, name: b"weakvalue"})
 
     with pytest.raises(ApiConfigError) as stopped:
         check_secrets(store)
 
     assert name in str(stopped.value)
-    assert "short" not in str(stopped.value)
+    assert "weakvalue" not in str(stopped.value)
 
 
 def test_preparing_the_process_with_a_missing_secret_stops_before_anything_is_built() -> None:
@@ -190,9 +190,7 @@ async def test_the_app_state_is_the_containers_own_cache_and_the_platform_secret
     assert app.state.secrets is parts.secrets
 
 
-async def test_the_exchange_is_given_the_verifier_the_operator_directory_and_the_platform_chain() -> (
-    None
-):
+async def test_the_exchange_is_given_the_verifier_directory_and_platform_chain() -> None:
     parts = _parts()
     settings = Settings(operator_directory_id="11111111-2222-3333-4444-555555555555")
     app = await _app(settings, parts)
@@ -306,7 +304,7 @@ def test_the_origin_secret_is_read_from_the_secret_store() -> None:
 
 def test_a_weak_origin_secret_stops_start_up() -> None:
     with pytest.raises(ApiConfigError, match=EDGE_ORIGIN_SECRET):
-        edge_for(Settings(), FixedSecretStore({EDGE_ORIGIN_SECRET: b"short"}))
+        edge_for(Settings(), FixedSecretStore({EDGE_ORIGIN_SECRET: b"weakvalue"}))
 
 
 def test_trusted_peers_are_parsed_and_a_bad_one_stops_start_up() -> None:
@@ -375,7 +373,7 @@ def test_a_process_with_no_centroids_key_telemetry_or_operator_says_so() -> None
 
 def test_a_fully_configured_process_has_no_warnings(tmp_path: Path) -> None:
     centroids = tmp_path / "centroids.csv"
-    centroids.write_text("DT4 8XX,50.6,-2.4\n")
+    centroids.write_text("postcode,latitude,longitude\nDT4 8XX,50.6,-2.4\n")
     settings = Settings(
         postcode_centroids_path=centroids,
         os_places_api_key=SecretStr("k" * 20),
@@ -436,7 +434,9 @@ async def test_the_lifespan_starts_the_container_and_closes_everything_on_exit()
 
 async def test_the_lifespan_closes_what_it_opened_when_the_container_will_not_start() -> None:
     events: list[str] = []
-    lifespan = serving_lifespan(_Lifecycle(events, fail=True), (_closer(events, "bus"),), lambda: [])
+    lifespan = serving_lifespan(
+        _Lifecycle(events, fail=True), (_closer(events, "bus"),), lambda: []
+    )
 
     with pytest.raises(RuntimeError):
         async with lifespan(FastAPI()):

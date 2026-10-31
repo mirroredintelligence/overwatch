@@ -478,9 +478,27 @@ def test_an_email_channel_round_trips_and_a_damaged_one_is_a_record_fault() -> N
     params = {k: v for k, v in channel_params(channel).items() if v is not None}
 
     assert channel_from_props(params) == channel
-    for damage in ({"provider": "twilio"}, {"status": "on"}, {"fromAddress": "x"}, {"kind": 1}):
+    for damage in ({"provider": "sendgrid"}, {"status": "on"}, {"fromAddress": "x"}, {"kind": 1}):
         with pytest.raises(TenantRecordInvalid):
             channel_from_props({**params, **damage})
+
+
+def test_a_twilio_email_channel_round_trips_and_may_hold_no_secret() -> None:
+    # DEC-1130: a new email channel names Twilio and uses the tenant's text subaccount.
+    channel = TenantChannel(
+        id="ch-3",
+        kind=ChannelKind.EMAIL,
+        provider=ChannelProvider.TWILIO,
+        status=NumberStatus.ACTIVE,
+        sender_label="Example capacity",
+        from_address="capacity@example.test",
+        from_display_name="Example capacity",
+    )
+    params = {k: v for k, v in channel_params(channel).items() if v is not None}
+
+    assert channel_from_props(params) == channel
+    with pytest.raises(TenantRecordInvalid):
+        channel_from_props({**params, "secretRef": "twilio/example-icb/auth-token"})
 
 
 def test_a_retention_rule_round_trips() -> None:

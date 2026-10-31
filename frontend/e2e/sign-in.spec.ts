@@ -54,7 +54,7 @@ test('asks the provider with PKCE and sends no tenant, and the browser never hol
   }[];
   const authorize = recorded.filter((r) => r.endpoint === 'authorize').at(-1)!;
   expect(authorize.params.code_challenge_method).toBe('S256');
-  expect(authorize.params.scope).toBe('openid');
+  expect(authorize.params.scope).toBe('openid profile');
   expect(Object.keys(authorize.params).join(' ')).not.toMatch(/tenant|login_hint/);
 
   const storage = await page.evaluate(() => JSON.stringify([localStorage, sessionStorage]));

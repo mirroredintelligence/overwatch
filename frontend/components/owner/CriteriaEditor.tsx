@@ -14,7 +14,7 @@ import {
   excludeLabel,
 } from '@/lib/criteria/model';
 import type { CriteriaValues, NeedCode } from '@/lib/criteria/types';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 
 // The owner's edit step (W30, ui-screens CriteriaOwner screen 4). A need cannot be both accepted and
 // not accepted: the conflict is shown as it arises and Preview stays unavailable until it is gone.

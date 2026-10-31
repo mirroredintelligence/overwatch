@@ -7,7 +7,7 @@ import { bffGet } from '@/lib/bff/client';
 import { canInvite, categoryLabel, flagLabel, parseScopeList, stateLabel } from '@/lib/registration/model';
 import type { ScopeEntry } from '@/lib/registration/types';
 import { AddScopeForm } from './AddScopeForm';
-import styles from './lead.module.css';
+import styles from './lead-forms.module.css';
 
 // The services that may be invited (W28, ui-screens ApprovalWeb1 screen 1). The list is the only
 // place an invitation can start from, so only an in-pilot service not yet invited shows Invite.

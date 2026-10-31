@@ -7,7 +7,7 @@ import { parseCriteriaOverview, acceptsLine, doesNotAcceptLine, valuesOf } from 
 import { diffCriteria } from '@/lib/criteria/diff';
 import type { CriteriaStep, CriteriaValues } from '@/lib/criteria/types';
 import { useRead } from '@/lib/bff/useRead';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 import { CriteriaConfirm } from './CriteriaConfirm';
 import { CriteriaEditor } from './CriteriaEditor';
 import { CriteriaOverview } from './CriteriaOverview';

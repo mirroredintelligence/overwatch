@@ -8,7 +8,7 @@ import { londonTime } from '@/lib/board/format';
 import { bffPost } from '@/lib/bff/client';
 import { parseDecision, parseOverview, setLiveEnabled } from '@/lib/registration/model';
 import type { Decision, Overview } from '@/lib/registration/types';
-import styles from '../lead.module.css';
+import styles from '../lead-forms.module.css';
 import { useRead } from '@/lib/bff/useRead';
 
 // Go live (W29, ui-screens ApprovalWeb2 screen 8). Set live is offered only once the test notification

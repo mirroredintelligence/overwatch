@@ -1,6 +1,6 @@
 import { acceptsLine, doesNotAcceptLine } from '@/lib/criteria/model';
 import type { CriteriaValues } from '@/lib/criteria/types';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 
 // What advisors will see if the change goes live, and what changed (W30, ui-screens CriteriaOwner
 // screen 5). The words are the same ones the advisor sees; the diff is computed by diffCriteria.

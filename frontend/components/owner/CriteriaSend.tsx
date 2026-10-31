@@ -6,7 +6,7 @@ import { OptionButton } from '@/components/ui/OptionButton';
 import { bffPost } from '@/lib/bff/client';
 import { REASON_MAX_LENGTH, REVIEW_PERIODS, reasonError, reviewPeriodError } from '@/lib/criteria/model';
 import type { CriteriaValues, ReviewPeriod } from '@/lib/criteria/types';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 import { CriteriaStatus } from './CriteriaStatus';
 
 // "Send for second approval" (W30, ui-screens CriteriaOwner screen 6). The change is sent with its

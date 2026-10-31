@@ -6,7 +6,7 @@ import { OptionButton } from '@/components/ui/OptionButton';
 import { bffPost } from '@/lib/bff/client';
 import { REVIEW_PERIODS, reviewPeriodError } from '@/lib/criteria/model';
 import type { ReviewPeriod } from '@/lib/criteria/types';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 
 // "Still right" (W30, ui-screens CriteriaOwner screen 3): the owner confirms the current criteria are
 // current and safe, and chooses when to review them again. Nothing changes but the review date.

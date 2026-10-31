@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { bffGet } from '@/lib/bff/client';
 import { parseOverview } from '@/lib/registration/model';
 import type { CallBackState, CriteriaState, Overview, ScopeState } from '@/lib/registration/types';
-import styles from './lead.module.css';
+import styles from './lead-forms.module.css';
 
 // One registration's review overview (W28, ui-screens ApprovalWeb1 screen 3). It shows what the
 // system checked and what the reviewer still does. The checks themselves are on the step pages (W29).

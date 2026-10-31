@@ -7,7 +7,7 @@ import { bffPost } from '@/lib/bff/client';
 import { useRead } from '@/lib/bff/useRead';
 import { acceptsLine, doesNotAcceptLine, shortDate } from '@/lib/criteria/model';
 import { parsePending } from '@/lib/criteria/pending';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 
 // The clinical lead's second approval of a criteria change (W31, ui-screens CriteriaOwner screen 10).
 // The approver sees what changed and why; the author sees that another clinical lead must approve.

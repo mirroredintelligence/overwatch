@@ -13,7 +13,7 @@ import {
   scopeReasonError,
 } from '@/lib/registration/model';
 import type { ScopeFlag } from '@/lib/registration/types';
-import styles from './lead.module.css';
+import styles from './lead-forms.module.css';
 
 // The small form that adds a service to the scope list (W28). The reason is checked here before
 // anything is sent: a flag other than the pilot needs one (scopeReasonError). Nothing is sent when a

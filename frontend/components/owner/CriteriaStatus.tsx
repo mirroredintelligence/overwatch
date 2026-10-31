@@ -1,5 +1,5 @@
 import { londonTime } from '@/lib/board/format';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 
 // The tracker after a send (W30, ui-screens CriteriaOwner screen 7). Advisors keep the current version
 // until the second approval is given; a send back comes with its note.

@@ -12,7 +12,7 @@ import {
   submittedText,
 } from '@/lib/registration/model';
 import type { QueueResponse, QueueTab } from '@/lib/registration/types';
-import styles from './lead.module.css';
+import styles from './lead-forms.module.css';
 
 // The registrations queue (W28, ui-screens ApprovalWeb1 screen 2). Each tab asks the back end for
 // its own items; the counts on every tab come from the same answer.

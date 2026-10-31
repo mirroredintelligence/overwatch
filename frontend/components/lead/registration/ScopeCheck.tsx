@@ -7,7 +7,7 @@ import { OptionButton } from '@/components/ui/OptionButton';
 import { bffPost } from '@/lib/bff/client';
 import { parseOverview, scopeFormError, SCOPE_FLAGS } from '@/lib/registration/model';
 import type { ScopeAnswer, ScopeAnswers, ScopeFlag } from '@/lib/registration/types';
-import styles from '../lead.module.css';
+import styles from '../lead-forms.module.css';
 import { useRead } from '@/lib/bff/useRead';
 
 // Check 2 of 4: is it in scope? (W29, ui-screens ApprovalWeb2 screen 5). Four answers, a decision, and

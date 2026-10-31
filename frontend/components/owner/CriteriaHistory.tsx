@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { parseHistory } from '@/lib/criteria/history';
 import { useRead } from '@/lib/bff/useRead';
 import type { HistoryVersion } from '@/lib/criteria/types';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 
 // The version history (W31, ui-screens CriteriaOwner screen 9). Every version is in the audit record.
 // The back end gives each version's status and review date, not who made it: the page shows no role.

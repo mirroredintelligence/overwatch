@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { shortDate } from '@/lib/criteria/model';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 
 // The owner's notice that the review date has passed (W31, ui-screens CriteriaOwner screen 8). The
 // owner can review now, or ask for the owner to be changed: that only shows the shift lead's role and

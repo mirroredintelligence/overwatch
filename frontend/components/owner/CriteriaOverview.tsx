@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { acceptsLine, doesNotAcceptLine, parseCriteriaOverview, shortDate, valuesOf } from '@/lib/criteria/model';
 import type { CriteriaOverview as Overview, CriteriaStep } from '@/lib/criteria/types';
 import { useRead } from '@/lib/bff/useRead';
-import styles from '@/components/lead/lead.module.css';
+import styles from '@/components/lead/lead-forms.module.css';
 import { OverdueNotice } from './OverdueNotice';
 
 // The owner's overview of one service's criteria (W30, ui-screens CriteriaOwner screen 2). Advisors

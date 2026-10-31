@@ -107,3 +107,21 @@ def test_a_record_needs_a_requester_and_a_reason() -> None:
     with pytest.raises(ValidationFailed) as no_reason:
         _record(why=" ")
     assert no_reason.value.field == "why"
+
+
+# KI-768: the service the advisor was considering when they asked.
+
+
+def test_a_request_may_name_the_service_the_advisor_was_considering() -> None:
+    record = _record(service_id="svc-ucr-west")
+
+    assert record.service_id == "svc-ucr-west"
+    assert _record().service_id is None
+
+
+@pytest.mark.parametrize("value", ["", "   ", 7])
+def test_a_service_that_is_named_is_a_non_blank_text(value: object) -> None:
+    with pytest.raises(ValidationFailed) as refused:
+        _record(service_id=value)
+
+    assert refused.value.field == "service_id"

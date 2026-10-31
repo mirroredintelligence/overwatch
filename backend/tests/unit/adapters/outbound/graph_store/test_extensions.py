@@ -70,6 +70,7 @@ REGISTERED_TYPES: dict[str, str] = {
     "acknowledgedAt": "dateTime",
     "why": "string",
     "snapshotRef": "string",
+    "consideredService": "string",
     "takenAt": "dateTime",
 }
 

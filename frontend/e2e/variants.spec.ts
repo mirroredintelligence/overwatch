@@ -41,6 +41,18 @@ async function checkAxe(page: Page) {
   expect(results.violations).toEqual([]);
 }
 
+/** A wall screen shows the whole board with no scrolling: nobody is at the screen to scroll it. */
+async function fitsTheWallScreen(page: Page) {
+  // The board's own element is measured, once the page font has loaded: the document also holds the dev server's
+  // overlay (a portal added a few seconds after load) and the fallback font is taller, and neither is the screen shown.
+  await page.evaluate(() => document.fonts.ready);
+  const { boardHeight, innerHeight } = await page.evaluate(() => ({
+    boardHeight: document.querySelector('main')?.scrollHeight ?? Number.POSITIVE_INFINITY,
+    innerHeight: window.innerHeight,
+  }));
+  expect(boardHeight).toBeLessThanOrEqual(innerHeight);
+}
+
 async function noHorizontalScroll(page: Page) {
   const { scrollWidth, clientWidth } = await page.evaluate(() => ({
     scrollWidth: document.documentElement.scrollWidth,
@@ -66,6 +78,17 @@ test.describe('the surge board', () => {
     const bannerBottom = await pressure(page).evaluate((el) => el.getBoundingClientRect().bottom);
     const gridTop = await page.getByRole('list', { name: 'Services' }).evaluate((el) => el.getBoundingClientRect().top);
     expect(bannerBottom).toBeLessThanOrEqual(gridTop);
+  });
+
+  test.describe('on the 1920 by 1080 wall screen', () => {
+    test.use({ viewport: { width: 1920, height: 1080 } });
+
+    test('shows the banner and all nine tiles without scrolling', async ({ page }) => {
+      await openBoard(page, TOKEN_SURGE);
+      await expect(pressure(page)).toBeVisible();
+      await expect(tiles(page)).toHaveCount(9);
+      await fitsTheWallScreen(page);
+    });
   });
 
   for (const size of SIZES) {
@@ -98,6 +121,16 @@ test.describe('the quiet board', () => {
       await expect(tile.locator('[data-el="WALL-TILE-NUMBER"]')).toHaveText('0');
       await expect(tile.locator('[data-shape="moon"]')).toHaveCount(1);
     }
+  });
+
+  test.describe('on the 1920 by 1080 wall screen', () => {
+    test.use({ viewport: { width: 1920, height: 1080 } });
+
+    test('shows all nine tiles without scrolling', async ({ page }) => {
+      await openBoard(page, TOKEN_QUIET);
+      await expect(tiles(page)).toHaveCount(9);
+      await fitsTheWallScreen(page);
+    });
   });
 
   for (const size of SIZES) {

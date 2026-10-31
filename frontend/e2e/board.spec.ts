@@ -67,14 +67,16 @@ test('a screen paired to the other organisation shows that board only', async ({
   for (const e of BOARD_A.entries) expect(text).not.toContain(e.name);
 });
 
-test('a reporter session is sent to /screen/pair, and so is a token the back end does not know', async ({ page }) => {
+test('a reporter session is sent to /screen/pair, and a token the back end does not know to /screen/reconnect (W9I)', async ({ page }) => {
   await signIn(page.context(), SITE_URL, 'reporter', TOKEN_ORG_A);
   await page.goto('/screen');
   await expect(page).toHaveURL(/\/screen\/pair$/);
 
+  // The back end does not know this screen: a screen with a wall session goes to reconnect, not to pairing,
+  // because pairing sends a display that holds a wall session back to the board and the two would loop.
   await signIn(page.context(), SITE_URL, 'wall', 'not-a-token-the-back-end-knows');
   await page.goto('/screen');
-  await expect(page).toHaveURL(/\/screen\/pair$/);
+  await expect(page).toHaveURL(/\/screen\/reconnect$/);
 });
 
 test.describe('wall layout at 1920 by 1080', () => {
@@ -94,11 +96,14 @@ test.describe('wall layout at 1920 by 1080', () => {
     expect(sizes).toHaveLength(9);
     for (const size of sizes) expect(size).toBeGreaterThanOrEqual(72);
 
-    const { scrollHeight, innerHeight } = await page.evaluate(() => ({
-      scrollHeight: document.documentElement.scrollHeight,
+    // The board's own element is measured, once the page font has loaded: the document also holds the dev server's
+    // overlay (a portal added a few seconds after load) and the fallback font is taller, and neither is the screen shown.
+    await page.evaluate(() => document.fonts.ready);
+    const { boardHeight, innerHeight } = await page.evaluate(() => ({
+      boardHeight: document.querySelector('main')?.scrollHeight ?? Number.POSITIVE_INFINITY,
       innerHeight: window.innerHeight,
     }));
-    expect(scrollHeight).toBeLessThanOrEqual(innerHeight);
+    expect(boardHeight).toBeLessThanOrEqual(innerHeight);
   });
 });
 

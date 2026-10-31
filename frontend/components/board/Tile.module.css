@@ -187,3 +187,11 @@
 .notUpdated .age {
   color: var(--c-ink-2);
 }
+
+/* On a wall screen the tile is tighter, so nine of them and the key fit in 1080px (artboard "Main"). */
+@media (min-width: 1600px) and (min-height: 1000px) {
+  .tile {
+    gap: var(--space-1);
+    padding: var(--space-2) var(--space-4);
+  }
+}

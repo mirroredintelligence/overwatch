@@ -148,3 +148,35 @@
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* A wall screen (1920 by 1080, artboard "Main"): nine tiles in three rows and the key must fit with no
+   scrolling, so the spacing is tighter than on a tablet. Text sizes do not change (72px numbers stay). */
+@media (min-width: 1600px) and (min-height: 1000px) {
+  .board {
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+  }
+
+  .grid {
+    gap: var(--space-2);
+  }
+
+  /* The line that says which board this is stays large enough to read across a room (28px), but not 56px. */
+  .board section [data-el='SCOPE-HEADER-LABEL'] {
+    font-size: var(--type-heading-size);
+    line-height: var(--type-heading-lh);
+  }
+
+  /* "System under pressure": the words on one line, so the banner and nine tiles fit with the key. */
+  .board [data-el='WALL-PRESSURE-BANNER'] {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-1) var(--space-4);
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .board [data-el='WALL-PRESSURE-BANNER'] > div {
+    margin-top: 0;
+  }
+}

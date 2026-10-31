@@ -1,0 +1,81 @@
+/* The frame of the three administration portals (AdminShell). Tokens from app/tokens.css only. */
+.shell {
+  font-family: var(--font-atkinson, system-ui), system-ui, sans-serif;
+  color: var(--c-ink);
+}
+
+.header {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-5);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--c-line);
+  background: Canvas;
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  border-radius: var(--radius);
+}
+
+.logo:focus-visible,
+.navLink:focus-visible {
+  outline: var(--focus);
+  outline-offset: 2px;
+}
+
+.context {
+  padding: 0 var(--space-3);
+  border: 2px solid var(--c-primary);
+  border-radius: var(--radius-chip);
+  font-size: var(--type-caption-size);
+  line-height: 26px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* Who is signed in and the way out, at the right on a wide page and under the logo on a phone. */
+.who {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-lh);
+  color: var(--c-ink-2);
+}
+
+.nav {
+  order: 3;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.navLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  color: var(--c-ink);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.navLink[aria-current='page'] {
+  box-shadow: inset 0 -4px 0 var(--c-primary);
+}
+
+@media (max-width: 40rem) {
+  .who {
+    margin-left: 0;
+    width: 100%;
+  }
+}

@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react';
-import { OperatorFooter } from '@/components/operator/OperatorFooter';
-import { OperatorNav } from '@/components/operator/OperatorNav';
+import { AdminShell } from '@/components/admin/AdminShell';
 import styles from '@/components/admin/admin.module.css';
 import { getOperatorSession } from '@/lib/operator/session';
 
-// The console's pages (TEN-083): the role's navigation and the way to sign out around the page. The proxy
-// keeps these pages to a signed-in operator; this check is the layout's own, so a page read on its own still
-// says what it is not for.
+// The console's pages (TEN-083): the shared admin frame (logo, the role's navigation, who is signed in and the
+// way to sign out) around the page. The proxy keeps these pages to a signed-in operator; this check is the
+// layout's own, so a page read on its own still says what it is not for.
 
 export default async function ConsoleLayout({ children }: { children: ReactNode }) {
   const session = await getOperatorSession();
@@ -20,10 +19,8 @@ export default async function ConsoleLayout({ children }: { children: ReactNode 
     );
   }
   return (
-    <>
-      <OperatorNav role={session.role} />
+    <AdminShell portal="operator" role={session.role}>
       {children}
-      <OperatorFooter />
-    </>
+    </AdminShell>
   );
 }

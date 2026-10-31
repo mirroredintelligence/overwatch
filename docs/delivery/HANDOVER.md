@@ -42,7 +42,7 @@ first; `docs/delivery/decisions.md` overrides everything else. Nothing here is a
 - Network option cards have no Criteria button; network rows are audited as `FilterNetworkOptions` (the clinician's "what the advisor saw" shows own services only).
 - Advisor work phone and advisor line have routes but no tenant-admin screen; a number cannot be cleared.
 - "Copy summary" before an outcome is chosen has no destination. Email and push booking echoes are text only (KI-357). The three score-correction reason labels are [ASSUMED].
-- KI-1303: behind `web` every visitor shares one API rate-limit bucket (no `clientIp` passed).
+- KI-1303: closed by DEC-1311 (the visitor address is passed to the API).
 - KI-1304: Service Bus still uses a connection string; identity auth later. KI-1306: a cold vault read blocks the event loop one round trip. H-831/KI-1305: tenant ids containing `--` or ending in a hyphen cannot have Twilio secrets (provisioning does not refuse them yet).
 - Rotating `session-secret` signs everyone out and takes up to 10 minutes to reach a replica; no previous-key unseal. The web tier has no start-up secret check (a bad revision shows as 5xx on first use).
 - `pytest -n` does not work for `tests/unit` (collection differs between workers); run the unit suite serially (about 8 minutes).

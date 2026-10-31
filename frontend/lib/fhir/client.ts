@@ -1,5 +1,7 @@
 import { namesTenantInput } from '@/lib/tenant/inputNames';
+import { edgeSecret } from './hostCall';
 import { newTraceparent } from './traceparent';
+import { ambientVisitorAddress } from './visitorAddress';
 import type { OperationOutcome } from './types';
 
 // Server-only client for the back end's FHIR R4B API. Route handlers and
@@ -151,6 +153,25 @@ function plainPayload(text: string): unknown {
   return parsed.ok && !isOperationOutcome(parsed.value) ? parsed.value : undefined;
 }
 
+/**
+ * The edge headers that tell the back end whose address this is (KI-1303, DEC-1311): the origin secret and
+ * the visitor's address of the request in progress, and nothing else (no X-Forwarded-Host: the tenant is the
+ * token's). Nothing is added when there is no visitor address or no edge secret, and a secret that cannot be
+ * read means no address for this call, never a failed call: the back end then keeps the shared bucket.
+ */
+async function addVisitor(headers: Headers): Promise<void> {
+  const visitor = await ambientVisitorAddress();
+  if (visitor === undefined) return;
+  try {
+    const secret = await edgeSecret();
+    if (secret === null) return;
+    headers.set('X-Edge-Auth', secret);
+    headers.set('CF-Connecting-IP', visitor);
+  } catch {
+    // No address for this call.
+  }
+}
+
 export async function fhirFetch<T>(path: string, init: FhirInit): Promise<FhirResult<T>> {
   const token = checkedToken(init?.token);
   const url = `${baseUrl(init?.root === true)}${checkedPath(path)}`;
@@ -167,6 +188,8 @@ export async function fhirFetch<T>(path: string, init: FhirInit): Promise<FhirRe
   // The back end refuses a POST or PUT with no JSON Content-Type before any route runs (415, BodyTypeMiddleware),
   // body or not: a bodiless POST (remind, resend, switch-to-text) carries the type too (WB4).
   if (hasBody || BODY_METHODS.has(method.toUpperCase())) headers.set('Content-Type', FHIR_MEDIA_TYPE);
+
+  await addVisitor(headers);
 
   let response: Response;
   let text: string;
@@ -229,6 +252,7 @@ export async function fhirStream(
   const url = `${baseUrl(init?.root === true)}${checkedPath(path)}`;
   const headers = new Headers({ Accept: EVENT_STREAM, traceparent: init.traceparent ?? newTraceparent() });
   headers.set('Authorization', `Bearer ${token}`);
+  await addVisitor(headers);
 
   let response: Response;
   try {

@@ -104,3 +104,46 @@ for (const path of PAGES) {
     expect(results.violations).toEqual([]);
   });
 }
+
+
+// WB11 (written, not run): the network variants of the advisor's and the executive's screens.
+
+test('the advisor’s home counts over the network, with the scope header and no pending count (WB11, written, not run)', async ({ page }) => {
+  await signIn(page.context(), SITE_URL, 'advisor', TOKEN_ORG_A);
+  await page.goto('/advisor');
+  await page.getByRole('link', { name: 'Network' }).click();
+  await expect(page).toHaveURL(/\/network\/home$/);
+  await expect(page.getByRole('region', { name: 'Which board you are viewing' })).toContainText('Showing: Network, Sample Network');
+  await expect(page.locator('[data-el="NET-HOME-COUNT-ACCEPTING"]')).toBeVisible();
+  await expect(page.getByText(/pending/i)).toHaveCount(0);
+});
+
+test('the advisor’s options in the network are read only: the service line to phone, and no booking, "I phoned" or "They declined" (WB11, written, not run)', async ({ page }) => {
+  await signIn(page.context(), SITE_URL, 'advisor', TOKEN_ORG_A);
+  await page.goto('/advisor/case/4821/network-options');
+  await expect(page.getByText('Sorted by travel time. Not ranked.')).toBeVisible();
+  await expect(page.getByText('Read only')).toBeVisible();
+  await expect(page.getByRole('link', { name: /^Phone Virtual ward frailty on / })).toBeVisible();
+  for (const word of ['Request booking', 'I phoned', 'They declined', 'Ask clinical advisor']) await expect(page.locator('article').getByText(word)).toHaveCount(0);
+  expect(page.url()).not.toMatch(/net-|tenant|DT4/i);
+  await page.getByRole('button', { name: 'Criteria' }).first().click();
+  await expect(page.getByRole('dialog', { name: /^Criteria: / })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Report a problem/ })).toHaveCount(0);
+});
+
+test('the network map has the same two toggles and a pin for a service with a place (WB11, written, not run)', async ({ page }) => {
+  await signIn(page.context(), SITE_URL, 'advisor', TOKEN_ORG_A);
+  await page.goto('/advisor/case/4821/network-map');
+  await expect(page.locator('[data-el="ADV-MAP-TOGGLE-MAP"]')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByRole('button', { name: 'Virtual ward frailty' }).click();
+  await expect(page.locator('[data-el="ADV-MAP-CARD"]')).toContainText('Sample Area B');
+});
+
+test('the executive’s home counts over the network, and says alerts are the organisation’s own (WB11, written, not run)', async ({ page }) => {
+  await signIn(page.context(), SITE_URL, 'exec', TOKEN_ORG_A);
+  await page.goto('/planning');
+  await page.getByRole('link', { name: 'Network' }).click();
+  await expect(page).toHaveURL(/\/network\/home$/);
+  await expect(page.getByText('Alerts are for your own organisation only.')).toBeVisible();
+  await expect(page.locator('[data-el="EXEC-ALERT"]')).toHaveCount(0);
+});

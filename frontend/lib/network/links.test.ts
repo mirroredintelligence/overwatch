@@ -25,6 +25,13 @@ describe('ownHrefFor', () => {
     expect(ownHrefFor('week', 'lead')).toBe('/lead');
   });
 
+  it('is the advisor’s home and the executive’s home for the home counts, and the executive’s services for a service (WB11)', () => {
+    expect(ownHrefFor('home', 'advisor')).toBe('/advisor');
+    expect(ownHrefFor('home', 'exec')).toBe('/planning');
+    expect(ownHrefFor('services', 'exec')).toBe('/planning/services');
+    expect(ownHrefFor('services', 'advisor')).toBe('/advisor');
+  });
+
   it('is always a page the role may open', () => {
     for (const page of NETWORK_PAGES) {
       for (const role of ['advisor', 'clinical', 'lead', 'owner', 'exec'] as const) {

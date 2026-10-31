@@ -34,3 +34,21 @@ describe('NotSuitableList (W13)', () => {
     expect((await runAxe(container)).violations).toEqual([]);
   });
 });
+
+
+describe('NotSuitableList: a network’s rows (WB11)', () => {
+  it('names the organisation of each row, with the service and the reason', async () => {
+    const user = userEvent.setup();
+    render(
+      <NotSuitableList
+        items={[
+          { serviceId: 'lst-1', name: 'Care packages north', reason: 'not accepting', organisation: 'Sample Area B' },
+          { serviceId: 'lst-2', name: 'UCR East', reason: 'outside criteria' },
+        ]}
+      />,
+    );
+    await user.click(screen.getByRole('button', { name: '2 services not suitable, and why' }));
+    expect(screen.getByText('Care packages north (Sample Area B): not accepting')).toBeInTheDocument();
+    expect(screen.getByText('UCR East: outside criteria')).toBeInTheDocument();
+  });
+});

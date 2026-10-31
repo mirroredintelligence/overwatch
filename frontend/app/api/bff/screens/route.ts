@@ -63,7 +63,8 @@ const get = withBff(
     const { data } = await fhirFetch<unknown>('/screens', { root: true, token: session.backendToken, cache: 'no-store' });
     return json(200, screenListFrom(data));
   },
-  { roles: ['lead'] },
+  // The two roles the back end lets list the screens and change their board (TEN-067); the page is the lead's.
+  { roles: ['lead', 'tenant-admin'] },
 );
 
 // Route handlers receive a context this route does not use.

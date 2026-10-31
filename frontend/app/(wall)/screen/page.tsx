@@ -4,8 +4,10 @@ import { LiveBoard } from '@/components/board/LiveBoard';
 import { BoardUnavailable } from '@/components/board/BoardUnavailable';
 import { getSession } from '@/lib/auth/session';
 import { serverNow } from '@/lib/board/clock';
-import { canReadBoard, readBoard } from '@/lib/board/read';
+import { canReadBoard } from '@/lib/board/read';
+import type { WallScope } from '@/lib/board/scope';
 import type { Board as BoardData } from '@/lib/board/types';
+import { readWallBoard } from '@/lib/board/wall';
 import { copy } from '@/lib/copy';
 import { FhirError } from '@/lib/fhir/client';
 import { readTenantProfile } from '@/lib/tenant/profile';
@@ -31,9 +33,12 @@ export default async function WallScreenPage() {
   if (!session || !canReadBoard(session.role)) redirect(PAIR);
 
   let board: BoardData;
+  let scope: WallScope;
   let serverTime: number;
   try {
-    board = await readBoard(session);
+    // The board the screen's administrator chose for it, and the setting it was read under (TEN-072): the
+    // screen's own record says which (its own organisation's or a network's), never the address.
+    ({ board, scope } = await readWallBoard(session));
     // The web server's clock when the board was read: the browser measures the
     // board's age against it, not against its own clock (DEC-152).
     serverTime = serverNow();
@@ -50,5 +55,5 @@ export default async function WallScreenPage() {
   const subtitle = copy.wallSubtitle(profile);
   // The heading is the tenant's own word for its system when it has one (TEN-069, KI-545).
   const heading = copy.capacityHeading(profile, board.organisation);
-  return <LiveBoard initialBoard={board} serverTime={serverTime} subtitle={subtitle} heading={heading} />;
+  return <LiveBoard initialBoard={board} initialScope={scope} serverTime={serverTime} subtitle={subtitle} heading={heading} />;
 }

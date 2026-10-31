@@ -1,29 +1,31 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { Dialog } from '@/components/ui/Dialog';
-import { leadPost, newIdempotencyKey, leadRead } from '@/lib/lead/browser';
+import { leadRead } from '@/lib/lead/browser';
 import { dateTimeLine, overdueText } from '@/lib/lead/format';
+import { londonTime } from '@/lib/board/format';
 import { screenListFrom, STATUS_WORDS, type ScreenList as List, type ScreenRow, type ScreenStatus } from '@/lib/screens/admin';
-import dialogStyles from '@/components/advisor/dialog-body.module.css';
+import { ScreenBoardChoice, type BoardOutcome } from './ScreenBoardChoice';
+import { ScreenUnpair, type UnpairOutcome } from './ScreenUnpair';
 import styles from './Lead.module.css';
 
-// The shift lead's list of the organisation's wall screens and the way to disconnect one (W9I, TEN-072).
-// A screen is listed by the name and place the lead gave it, with its status in words (and a shape),
-// when it was paired and when it was last seen. Ages are measured against the back end's clock (`asOf`),
-// never the browser's. Disconnecting asks first, names the screen, and ends it at once at the back end:
-// the screen then shows "This screen was disconnected" and goes back to its pairing page. Nothing here
-// holds a token, a hash or a pairing secret: the BFF does not send one. A failed read says so and never
-// shows an empty table.
+// The shift lead's wall screens page (docs/design/network-ui.md section 6, TEN-072; W9I): the
+// organisation's screens with their place, status in words (and a shape), when each was last seen and
+// which board it shows, and the three things a lead does to one: change its board, unpair it, pair it
+// again. Ages are measured against the back end's clock (`asOf`), never the browser's. Nothing here holds
+// a token, a hash or a pairing secret: the BFF does not send one. A failed read says so and never shows an
+// empty table. The screens' ids and the networks' ids are in memory only, never in an address or an id.
 
 const LIST_URL = '/api/bff/screens';
 const REFRESH_MS = 60_000;
 const SIGN_IN_AGAIN = '/sign-in?next=%2Flead%2Fscreens';
+const PAIRING_PAGE = '/lead/screens/new';
 const MINUTE_MS = 60_000;
 
 type Load = { kind: 'loading' } | { kind: 'ready'; list: List } | { kind: 'failed' };
-type Notice = { tone: 'done' | 'gone' | 'ended'; text: string } | null;
+type Notice = { tone: 'done' | 'problem' | 'ended'; text: string } | null;
+type Asking = { kind: 'unpair' | 'board'; row: ScreenRow } | null;
 
 const SHAPES: Record<ScreenStatus, string> = {
   online: 'M12 4a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z',
@@ -48,11 +50,29 @@ function seenText(row: ScreenRow, asOf: string): string {
   return minutes < 1 ? 'Just now' : `${overdueText(minutes)} ago`;
 }
 
+/** The status in words: "Online, updated 09:59", "Offline since Fri 30 Oct, 07:40", "Waiting to be connected". */
+function statusText(row: ScreenRow): string {
+  const word = STATUS_WORDS[row.state];
+  if (row.state === 'online' && row.lastSeenAt !== null) return `${word}, updated ${londonTime(row.lastSeenAt)}`;
+  if (row.state === 'offline' && row.lastSeenAt !== null) return `${word} since ${dateTimeLine(Date.parse(row.lastSeenAt))}`;
+  return word;
+}
+
 const when = (iso: string | null): string => (iso === null ? 'Not recorded' : dateTimeLine(Date.parse(iso)));
+
+/** What the screen shows, in the design's words; a network that is no longer open to it is said. */
+function showsText(row: ScreenRow): { main: string; note: string | null } {
+  if (row.boardScope === 'network' && row.networkAvailable) return { main: `Network, ${row.networkName ?? 'network'}`, note: null };
+  if (row.boardScope === 'network') return { main: 'Our organisation', note: `Set to Network, ${row.networkName ?? 'a network'}, which is no longer open to it.` };
+  return { main: 'Our organisation', note: null };
+}
+
+// Pairing again is for a screen that is not showing the board and is not waiting for its code.
+const CAN_REPAIR: readonly ScreenStatus[] = ['offline', 'never-connected', 'revoked'];
 
 export function ScreenList() {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
-  const [asking, setAsking] = useState<ScreenRow | null>(null);
+  const [asking, setAsking] = useState<Asking>(null);
   const [notice, setNotice] = useState<Notice>(null);
 
   const reload = useCallback(async () => {
@@ -81,14 +101,31 @@ export function ScreenList() {
 
   const list = load.kind === 'ready' ? load.list : null;
 
+  function unpaired(row: ScreenRow, result: UnpairOutcome) {
+    setAsking(null);
+    if (result === 'done') setNotice({ tone: 'done', text: `${row.name} was unpaired.` });
+    else if (result === 'gone') setNotice({ tone: 'problem', text: 'That screen is not in the list any more.' });
+    else setNotice({ tone: 'ended', text: 'Your session has ended.' });
+    void reload();
+  }
+
+  function boardChosen(row: ScreenRow, outcome: BoardOutcome) {
+    setAsking(null);
+    if (outcome.kind === 'saved') setNotice({ tone: 'done', text: `${row.name} now shows ${outcome.choice}.` });
+    else if (outcome.kind === 'stale') setNotice({ tone: 'problem', text: 'Someone else changed this screen’s board. The list has been read again. Choose again.' });
+    else if (outcome.kind === 'gone') setNotice({ tone: 'problem', text: 'That screen or that board is not available any more. The list has been read again.' });
+    else setNotice({ tone: 'ended', text: 'Your session has ended.' });
+    void reload();
+  }
+
   return (
     <main className={styles.page}>
       <h1 className={styles.title}>Wall screens</h1>
-      <p className={styles.muted}>The screens that show your organisation’s live board. A screen shows capacity only, never patient information.</p>
+      <p className={styles.muted}>The screens that show a live board. A screen shows capacity only, never patient information.</p>
 
       <div className={styles.actions}>
-        <Button variant="primary" href="/lead/screens/new" dataEl="LEAD-SCREENS-ADD-BTN">
-          Add a screen
+        <Button variant="primary" href={PAIRING_PAGE} dataEl="SCREENS-ADD-BTN">
+          Add a wall screen
         </Button>
         <Button variant="neutral" href="/lead" dataEl="LEAD-SCREENS-BACK-BTN">
           Back to the shift lead page
@@ -122,105 +159,70 @@ export function ScreenList() {
 
       {list !== null && list.screens.length > 0 ? (
         <div className={styles.scrollBox}>
-          <table className={styles.table}>
+          <table className={styles.table} data-el="SCREENS-LIST-TABLE">
             <caption className={styles.caption}>Wall screens in your organisation</caption>
             <thead>
               <tr>
                 <th scope="col">Screen</th>
+                <th scope="col">Where it is</th>
                 <th scope="col">Status</th>
-                <th scope="col">Paired</th>
                 <th scope="col">Last seen</th>
-                <th scope="col">Action</th>
+                <th scope="col">Shows</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {list.screens.map((row) => (
-                <tr key={row.deviceId}>
-                  <td>
-                    <span className={styles.screenName}>{row.name}</span>
-                    {row.location === null ? null : <span className={styles.screenPlace}>{row.location}</span>}
-                  </td>
-                  <td>
-                    <span className={styles.screenStatus}>
-                      <Shape status={row.state} />
-                      {STATUS_WORDS[row.state]}
-                    </span>
-                  </td>
-                  <td>{when(row.pairedAt)}</td>
-                  <td>{row.state === 'revoked' ? when(row.revokedAt) : seenText(row, list.asOf)}</td>
-                  <td>
-                    {row.state === 'revoked' ? null : (
-                      <Button variant="secondary" onClick={() => setAsking(row)} dataEl={`LEAD-SCREEN-DISCONNECT-${row.deviceId}`}>
-                        Disconnect<span className={styles.srOnly}> {row.name}</span>
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {list.screens.map((row) => {
+                const shows = showsText(row);
+                const live = row.state !== 'revoked';
+                return (
+                  <tr key={row.deviceId}>
+                    <td>
+                      <span className={styles.screenName}>{row.name}</span>
+                    </td>
+                    <td>{row.location ?? 'Not given'}</td>
+                    <td>
+                      <span className={styles.screenStatus}>
+                        <Shape status={row.state} />
+                        {statusText(row)}
+                      </span>
+                    </td>
+                    <td>{row.state === 'revoked' ? when(row.revokedAt) : seenText(row, list.asOf)}</td>
+                    <td>
+                      {shows.main}
+                      {shows.note === null ? null : <span className={styles.screenNote}>{shows.note}</span>}
+                    </td>
+                    <td>
+                      <div className={styles.rowActions}>
+                        {live ? (
+                          <Button variant="secondary" onClick={() => setAsking({ kind: 'board', row })} ariaLabel={`Change board for ${row.name}`} dataEl="SCREENS-BOARD-BTN">
+                            Change board
+                          </Button>
+                        ) : null}
+                        {live ? (
+                          <Button variant="secondary" onClick={() => setAsking({ kind: 'unpair', row })} ariaLabel={`Unpair ${row.name}`} dataEl="SCREENS-UNPAIR-BTN">
+                            Unpair
+                          </Button>
+                        ) : null}
+                        {CAN_REPAIR.includes(row.state) ? (
+                          <Button variant="secondary" href={PAIRING_PAGE} ariaLabel={`Re-pair ${row.name}`} dataEl="SCREENS-REPAIR-BTN">
+                            Re-pair
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
       ) : null}
 
-      {asking === null ? null : (
-        <DisconnectDialog
-          row={asking}
-          onClose={() => setAsking(null)}
-          onResult={(result) => {
-            setAsking(null);
-            if (result === 'done') setNotice({ tone: 'done', text: `${asking.name} was disconnected.` });
-            else if (result === 'gone') setNotice({ tone: 'gone', text: 'That screen is not in the list any more.' });
-            else setNotice({ tone: 'ended', text: 'Your session has ended.' });
-            void reload();
-          }}
-        />
-      )}
-    </main>
-  );
-}
-
-type Outcome = 'done' | 'gone' | 'ended';
-
-// The key and the busy flag live in the dialog, so a new dialog for another screen starts with a new key
-// and a second try of the same one sends the same key (the back end then answers it as one revoke).
-function DisconnectDialog({ row, onClose, onResult }: { row: ScreenRow; onClose: () => void; onResult: (result: Outcome) => void }) {
-  const [busy, setBusy] = useState(false);
-  const [failed, setFailed] = useState(false);
-  const key = useRef<string>(newIdempotencyKey());
-  const sending = useRef(false);
-
-  async function disconnect() {
-    if (sending.current) return;
-    sending.current = true;
-    setBusy(true);
-    setFailed(false);
-    const result = await leadPost(`/api/bff/screens/${encodeURIComponent(row.deviceId)}/revoke`, undefined, key.current);
-    sending.current = false;
-    setBusy(false);
-    if (result.ok) onResult('done');
-    else if (result.status === 404) onResult('gone');
-    else if (result.status === 401 || result.status === 403) onResult('ended');
-    else setFailed(true);
-  }
-
-  return (
-    <Dialog title={`Disconnect ${row.name}?`} dataEl="LEAD-SCREEN-DISCONNECT-DIALOG" onClose={onClose}>
-      <p className={dialogStyles.text}>
-        This screen will stop showing the board straight away and go back to its pairing page. To use it again, pair it again with a new code.
-      </p>
-      {failed ? (
-        <p role="alert" className={dialogStyles.error}>
-          The screen could not be disconnected. Try again.
-        </p>
+      {asking?.kind === 'unpair' ? <ScreenUnpair row={asking.row} onClose={() => setAsking(null)} onResult={(result) => unpaired(asking.row, result)} /> : null}
+      {asking?.kind === 'board' && list !== null ? (
+        <ScreenBoardChoice row={asking.row} networks={list.networks} onClose={() => setAsking(null)} onResult={(outcome) => boardChosen(asking.row, outcome)} />
       ) : null}
-      <div className={dialogStyles.actions}>
-        <Button variant="neutral" onClick={onClose}>
-          Cancel
-        </Button>
-        <Button variant="primary" busy={busy} onClick={() => void disconnect()} dataEl="LEAD-SCREEN-DISCONNECT-CONFIRM">
-          Disconnect screen
-        </Button>
-      </div>
-    </Dialog>
+    </main>
   );
 }

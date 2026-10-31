@@ -7,6 +7,7 @@ import { sessionFor } from '@/test/requests';
 import { TENANTS } from '@/test/tenants';
 import NetworkBoardPage from './board/page';
 import NetworkHistoryPage from './history/page';
+import NetworkHomePage from './home/page';
 import NetworkPhonesPage from './phones/page';
 import NetworkServicesPage from './services/page';
 import NetworkServicePage from './services/[id]/page';
@@ -36,6 +37,7 @@ vi.mock('@/lib/auth/session', async (importOriginal) => ({
 
 const PAGES: [string, () => Promise<React.ReactElement>, string[]][] = [
   ['/network/board', () => NetworkBoardPage(), ['advisor', 'clinical', 'lead', 'owner', 'exec']],
+  ['/network/home', () => NetworkHomePage(), ['advisor', 'exec']],
   ['/network/history', () => NetworkHistoryPage(), ['advisor', 'clinical', 'lead', 'owner', 'exec']],
   ['/network/services', () => NetworkServicesPage(), ['advisor', 'clinical', 'lead', 'owner', 'exec']],
   ['/network/services/[id]', () => NetworkServicePage({ params: Promise.resolve({ id: 'lst-0001' }) }), ['advisor', 'clinical', 'lead', 'owner', 'exec']],

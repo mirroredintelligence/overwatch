@@ -31,6 +31,11 @@ export type BffOptions = {
    * is a choice among the networks the server offered, never an authority.
    */
   allowNetworkId?: boolean;
+  /**
+   * The route changes which board a wall screen shows and takes the offered network's id as the top-level
+   * JSON body key `networkId` (TEN-072). Only that key; see lib/bff/inputGuard.ts.
+   */
+  allowNetworkIdInBody?: boolean;
 };
 
 export type BffHandler<C = unknown> = (
@@ -92,7 +97,7 @@ export function withBff<C = unknown>(
       const check = UNSAFE_METHODS.has(request.method.toUpperCase()) || options.csrf === true;
       if (check && !(await checkCsrf(request, session))) return refuse(403, 'csrf');
 
-      if (await refusesTenantInput(request, { allowNetworkId: options.allowNetworkId })) return refuse(400, 'invalid');
+      if (await refusesTenantInput(request, { allowNetworkId: options.allowNetworkId, allowNetworkIdInBody: options.allowNetworkIdInBody })) return refuse(400, 'invalid');
 
       // A reporter's token lasts 30 minutes: it is renewed from the live PIN session when due (W8E,
       // DEC-792), after every check above so a refused request asks the back end for nothing. A session

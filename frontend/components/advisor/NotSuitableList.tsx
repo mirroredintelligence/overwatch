@@ -27,7 +27,7 @@ export function NotSuitableList({ items }: { items: NotSuitableView[] }) {
       {open ? (
         <ul id={LIST_ID} className={styles.list}>
           {items.map((item) => (
-            <li key={item.serviceId}>{`${item.name}: ${item.reason}`}</li>
+            <li key={item.serviceId}>{`${item.name}${item.organisation === undefined ? '' : ` (${item.organisation})`}: ${item.reason}`}</li>
           ))}
         </ul>
       ) : null}

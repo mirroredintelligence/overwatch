@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { deviceExchange, standInToken } from '@/test/fixtures/exchange';
 import { SIGN_IN_HOST } from '@/test/oidc/constants';
-import { PairingStandIn } from './pairing';
+import { PairingStandIn, STAND_IN_NETWORK } from './pairing';
 
 // The stand-in's lead administration answers the shapes of routes_screens.py: GET /screens is
 // `{scope, asOf, screens: [...]}`, POST /screens/{id}/revoke is `{deviceId, status: 'revoked', revokedAt}`.
@@ -53,5 +53,44 @@ describe('the stand-in’s list and revoke', () => {
     expect(stand.revoke(SIGN_IN_HOST, advisor, 'k', deviceId).status).toBe(404);
     expect(stand.revoke('another.example.test', lead, 'k', deviceId).status).toBe(404);
     expect(stand.revoke(SIGN_IN_HOST, lead, 'k', 'nowhere').status).toBe(404);
+  });
+});
+
+
+describe('the stand-in’s board choice and preview (TEN-072)', () => {
+  it('lists the network the tenant may choose, and a screen on its own board with its version', () => {
+    pair();
+    const body = stand.list(SIGN_IN_HOST, lead).body as { networks: unknown[]; screens: { boardScope: string; scopeVersion: number }[] };
+    expect(body.networks).toEqual([STAND_IN_NETWORK]);
+    expect(body.screens[0]).toMatchObject({ boardScope: 'tenant', scopeVersion: 1 });
+  });
+
+  it('sets a screen to the network with the right version, moves the version, and says what the screen shows', () => {
+    const { deviceId } = pair();
+    const changed = stand.setBoard(SIGN_IN_HOST, lead, 'k-b', 'W/"1"', deviceId, { boardScope: 'network', networkId: STAND_IN_NETWORK.id });
+    expect(changed.status).toBe(200);
+    expect(changed.body).toMatchObject({ boardScope: 'network', networkName: STAND_IN_NETWORK.name, scopeVersion: 2 });
+    expect(stand.ownBoardScope(deviceId).body).toMatchObject({ boardScope: 'network', scopeVersion: 2, networkName: STAND_IN_NETWORK.name });
+    expect(stand.setBoard(SIGN_IN_HOST, lead, 'k-c', 'W/"1"', deviceId, { boardScope: 'tenant' }).status).toBe(412);
+  });
+
+  it('refuses a non-lead, no key, no If-Match, a network it does not know and another host’s screen', () => {
+    const { deviceId } = pair();
+    const body = { boardScope: 'network', networkId: STAND_IN_NETWORK.id };
+    expect(stand.setBoard(SIGN_IN_HOST, advisor, 'k', 'W/"1"', deviceId, body).status).toBe(404);
+    expect(stand.setBoard(SIGN_IN_HOST, lead, null, 'W/"1"', deviceId, body).status).toBe(400);
+    expect(stand.setBoard(SIGN_IN_HOST, lead, 'k', null, deviceId, body).status).toBe(428);
+    expect(stand.setBoard(SIGN_IN_HOST, lead, 'k', 'W/"1"', deviceId, { boardScope: 'network', networkId: 'net-other' }).status).toBe(404);
+    expect(stand.setBoard('another.example.test', lead, 'k', 'W/"1"', deviceId, body).status).toBe(404);
+  });
+
+  it('previews a live code with when it first asked, and refuses a code that is not live', () => {
+    const started = stand.start(SIGN_IN_HOST).body as { code: string };
+    const seen = stand.preview(SIGN_IN_HOST, lead, { code: started.code });
+    expect(seen.status).toBe(200);
+    expect(seen.body).toMatchObject({ deviceClass: 'wall-display' });
+    expect(stand.preview(SIGN_IN_HOST, lead, { code: '000000' }).status).toBe(404);
+    expect(stand.preview(SIGN_IN_HOST, advisor, { code: started.code }).status).toBe(404);
+    expect(stand.preview('another.example.test', lead, { code: started.code }).status).toBe(404);
   });
 });

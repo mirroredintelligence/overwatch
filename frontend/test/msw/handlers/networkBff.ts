@@ -5,12 +5,13 @@ import {
   DIRECTORY_BODY,
   DIRECTORY_HISTORY_BODY,
   NETWORKS_BODY,
+  OPTIONS_BODY,
   OWN_ORGANISATION,
   PHONES_BODY,
   SYSTEM_NOW_BODY,
   WEEK_BODY,
 } from '@/test/fixtures/network';
-import { parseBoard, parseCriteria, parseDirectory, parseNetworks, parsePhones, parseSystemNow, parseWeek } from '@/lib/network/parse';
+import { parseBoard, parseCriteria, parseDirectory, parseNetworkOptions, parseNetworks, parsePhones, parseSystemNow, parseWeek } from '@/lib/network/parse';
 
 // The app's own BFF routes for the network pages (`/api/bff/network...`), for component tests. Each
 // answers what the real route answers: the back end's body run through the same parser the route uses,
@@ -57,6 +58,7 @@ export const networkBffHandlers = [
     '/api/bff/network/system-now',
     answer('/api/bff/network/system-now', () => parseSystemNow(SYSTEM_NOW_BODY, 'backend')),
   ),
+  http.get('/api/bff/network/options', answer('/api/bff/network/options', () => parseNetworkOptions(OPTIONS_BODY, 'backend'))),
   http.get('/api/bff/network/phones', answer('/api/bff/network/phones', () => parsePhones(PHONES_BODY, 'backend'))),
   http.get('/api/bff/network/week', answer('/api/bff/network/week', () => parseWeek(WEEK_BODY, 'backend'))),
 ];

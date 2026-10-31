@@ -27,6 +27,10 @@ class NetworkRoute:
     roles: frozenset[Role]
     streams: bool = False
     needs_week: bool = False
+    needs_case: bool = False
+    """The route reads the viewer's own case (`?case=`): a 200 needs a case of the viewer's tenant,
+    so the generic 200 checks skip it. Its 13-role matrix, its two-tenant tests, its audit and its
+    privacy checks are in tests/integration/adapters/inbound/fhir_rest/test_network_options.py."""
     json_keys_are_scanned: bool = True
 
 
@@ -43,6 +47,12 @@ ROUTES: Final[tuple[NetworkRoute, ...]] = (
     NetworkRoute("GET", "/network/{network_id}/system-now", VIEW),
     NetworkRoute("GET", "/network/{network_id}/phones", VIEW),
     NetworkRoute("GET", "/network/{network_id}/week", frozenset(READERS), needs_week=True),
+    NetworkRoute(
+        "GET",
+        "/network/{network_id}/options",
+        frozenset({Role.ADVISOR, Role.CLINICAL}),
+        needs_case=True,
+    ),
     NetworkRoute("GET", "/screens/me/network-board", WALL),
     NetworkRoute("GET", "/screens/me/network-events", WALL, streams=True),
 )

@@ -8,12 +8,20 @@ import { ScreenForm, type ConnectApi } from './ScreenForm';
 // The ScreenPairing artboard, steps 2 and 3: the shift lead's page. Words are the prompt's.
 
 const CONNECTED = { name: 'Control room', status: 'online' as const, connectedAt: '2026-10-23T13:12:00Z' };
+const PREVIEW = { organisationName: 'Dorset Community Care', firstSeenAt: '2026-10-23T08:56:00Z', deviceClass: 'wall-display' as const };
 
-function setup(connect: ConnectApi['connect'] = vi.fn(async () => CONNECTED)) {
+function setup(connect: ConnectApi['connect'] = vi.fn(async () => CONNECTED), preview: ConnectApi['preview'] = vi.fn(async () => PREVIEW)) {
   const mocked = connect as ReturnType<typeof vi.fn>;
   const user = userEvent.setup();
-  const view = render(<ScreenForm api={{ connect }} />);
-  return { user, connect: mocked, ...view };
+  const view = render(<ScreenForm api={{ connect, preview }} />);
+  return { user, connect: mocked, preview: preview as ReturnType<typeof vi.fn>, ...view };
+}
+
+/** Presses the form's button, waits for the confirm step (ScreenClaim) and presses its Connect screen. */
+async function proceed(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(submit());
+  await screen.findByRole('heading', { name: 'Check before you connect' });
+  await user.click(submit());
 }
 
 const code = () => screen.getByLabelText(/Code shown on the screen/);
@@ -66,7 +74,7 @@ describe('ScreenForm: the form', () => {
     await user.type(code(), '482 913');
     await user.type(name(), ' Control room ');
     await user.type(place(), ' Ward 4 corridor ');
-    await user.click(submit());
+    await proceed(user);
     expect(connect).toHaveBeenCalledTimes(1);
     expect(connect).toHaveBeenCalledWith({ code: '482913', name: 'Control room', location: 'Ward 4 corridor' });
   });
@@ -75,7 +83,7 @@ describe('ScreenForm: the form', () => {
     const { user, connect } = setup();
     await user.type(code(), '482913');
     await user.type(name(), 'Control room');
-    await user.click(submit());
+    await proceed(user);
     expect(connect).toHaveBeenCalledWith({ code: '482913', name: 'Control room', location: null });
   });
 
@@ -83,6 +91,10 @@ describe('ScreenForm: the form', () => {
     const { user, connect } = setup();
     await user.type(code(), '482913');
     await user.type(name(), 'Control room{Enter}');
+    // Enter sends the form, which looks at the code first; nothing is connected yet (ScreenClaim).
+    expect(await screen.findByRole('heading', { name: 'Check before you connect' })).toBeInTheDocument();
+    expect(connect).not.toHaveBeenCalled();
+    await user.click(submit());
     expect(connect).toHaveBeenCalledTimes(1);
   });
 
@@ -91,7 +103,7 @@ describe('ScreenForm: the form', () => {
     expect(container.querySelectorAll('select, input[type="radio"], input[type="hidden"]')).toHaveLength(0);
     await user.type(code(), '482913');
     await user.type(name(), 'Control room');
-    await user.click(submit());
+    await proceed(user);
     expect(Object.keys(connect.mock.calls[0]![0] as object).sort()).toEqual(['code', 'location', 'name']);
   });
 });
@@ -153,7 +165,7 @@ describe('ScreenForm: what the back end says', () => {
     const view = setup(connect);
     await view.user.type(code(), '482913');
     await view.user.type(name(), 'Control room');
-    await view.user.click(submit());
+    await proceed(view.user);
     return view;
   }
 
@@ -175,11 +187,12 @@ describe('ScreenForm: what the back end says', () => {
   it.each([
     ['throttled', 'Too many attempts. Wait a few minutes and try again.'],
     ['unavailable', 'We could not connect the screen. Try again.'],
-  ] as const)('says %s as an alert above the form, and keeps what was typed', async (kind, text) => {
-    await submitGood(vi.fn(async () => { throw failure(kind); }));
+  ] as const)('says %s as an alert on the confirm step, and keeps what was typed for a second try', async (kind, text) => {
+    const { user } = await submitGood(vi.fn(async () => { throw failure(kind); }));
     expect(await screen.findByRole('alert')).toHaveTextContent(text);
-    expect(name()).toHaveValue('Control room');
     expect(submit()).not.toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(name()).toHaveValue('Control room');
   });
 
   it('says the session has ended, with a way to sign in again, when the lead is no longer signed in', async () => {
@@ -195,10 +208,10 @@ describe('ScreenForm: what the back end says', () => {
     const { user } = setup(connect);
     await user.type(code(), '482913');
     await user.type(name(), 'Control room');
-    await user.click(submit());
+    await proceed(user);
     expect(submit()).toBeDisabled();
     expect(submit()).toHaveAttribute('aria-busy', 'true');
-    await user.click(submit());
+    await proceed(user);
     expect(connect).toHaveBeenCalledTimes(1);
     finish(CONNECTED);
     await screen.findByText('Screen connected');
@@ -210,7 +223,7 @@ describe('ScreenForm: connected', () => {
     const view = setup(vi.fn(async () => ({ name: 'Control room', status: 'online' as const, connectedAt: '2026-10-23T13:12:00Z' })));
     await view.user.type(code(), '482913');
     await view.user.type(name(), 'Control room');
-    await view.user.click(submit());
+    await proceed(view.user);
     await screen.findByText('Screen connected');
     return view;
   }
@@ -241,7 +254,7 @@ describe('ScreenForm: connected', () => {
     const { user } = setup();
     await user.type(code(), '482 913');
     await user.type(name(), 'Control room');
-    await user.click(submit());
+    await proceed(user);
     expect(await screen.findByRole('link', { name: 'See all screens' })).toHaveAttribute('href', '/lead/screens');
   });
 
@@ -259,7 +272,7 @@ describe('ScreenForm: connected', () => {
     const view = setup(vi.fn(async () => ({ name: '<b>x</b>', status: 'online' as const, connectedAt: '2026-10-23T13:12:00Z' })));
     await view.user.type(code(), '482913');
     await view.user.type(name(), 'x');
-    await view.user.click(submit());
+    await proceed(view.user);
     expect(await screen.findByText('<b>x</b> is now showing the live board.')).toBeInTheDocument();
     expect(view.container.querySelector('b')).toBeNull();
   });
@@ -287,7 +300,7 @@ describe('ScreenForm: accessibility', () => {
     const view = setup(vi.fn(async () => { throw failure('unavailable'); }));
     await view.user.type(code(), '482913');
     await view.user.type(name(), 'Control room');
-    await view.user.click(submit());
+    await proceed(view.user);
     await screen.findByRole('alert');
     expect(await runAxe(view.container)).toHaveNoViolations();
   });
@@ -296,8 +309,118 @@ describe('ScreenForm: accessibility', () => {
     const view = setup();
     await view.user.type(code(), '482913');
     await view.user.type(name(), 'Control room');
-    await view.user.click(submit());
+    await proceed(view.user);
     await waitFor(() => expect(screen.getByText('Screen connected')).toBeInTheDocument());
     expect(await runAxe(view.container)).toHaveNoViolations();
+  });
+});
+
+
+describe('ScreenForm: the confirm step (ScreenClaim, TEN-072)', () => {
+  async function toTheStep(options: { connect?: ConnectApi['connect']; preview?: ConnectApi['preview'] } = {}) {
+    const view = setup(options.connect, options.preview);
+    await view.user.type(code(), '482 913');
+    await view.user.type(name(), 'Control room');
+    await view.user.type(place(), 'Ward 4 corridor');
+    await view.user.click(submit());
+    return view;
+  }
+
+  it('asks the back end about the code first and connects nothing until the lead says so', async () => {
+    const { preview, connect } = await toTheStep();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Check before you connect' })).toBeInTheDocument();
+    expect(preview).toHaveBeenCalledTimes(1);
+    expect(preview).toHaveBeenCalledWith('482913');
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it('says which organisation the screen will show, when it first asked and what kind of device it is', async () => {
+    await toTheStep();
+    await screen.findByText('Check before you connect');
+    expect(screen.getByText('You are connecting a screen to Dorset Community Care. It will show our organisation’s capacity only. It never shows patient information.')).toBeInTheDocument();
+    expect(screen.getByText('First seen 09:56 · Wall display')).toBeInTheDocument();
+  });
+
+  it('says "your organisation" when the organisation’s name could not be read', async () => {
+    await toTheStep({ preview: vi.fn(async () => ({ ...PREVIEW, organisationName: null })) });
+    await screen.findByText('Check before you connect');
+    expect(screen.getByText(/^You are connecting a screen to your organisation\. /)).toBeInTheDocument();
+  });
+
+  it('shows an organisation name with markup as text', async () => {
+    const view = await toTheStep({ preview: vi.fn(async () => ({ ...PREVIEW, organisationName: '<b>Trust</b>' })) });
+    await screen.findByText('Check before you connect');
+    expect(view.container.querySelector('b')).toBeNull();
+    expect(screen.getByText(/<b>Trust<\/b>/)).toBeInTheDocument();
+  });
+
+  it('connects with what was typed when the lead presses Connect screen, and then shows the confirmation', async () => {
+    const { user, connect } = await toTheStep();
+    await screen.findByText('Check before you connect');
+    await user.click(screen.getByRole('button', { name: 'Connect screen' }));
+    expect(connect).toHaveBeenCalledWith({ code: '482913', name: 'Control room', location: 'Ward 4 corridor' });
+    expect(await screen.findByRole('heading', { level: 1, name: 'Screen connected' })).toBeInTheDocument();
+  });
+
+  it('goes back to the form, with what was typed, on Cancel, and connects nothing', async () => {
+    const { user, connect } = await toTheStep();
+    await screen.findByText('Check before you connect');
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.getByRole('heading', { level: 1, name: 'Add a wall screen' })).toBeInTheDocument();
+    expect(code()).toHaveValue('482 913');
+    expect(name()).toHaveValue('Control room');
+    expect(connect).not.toHaveBeenCalled();
+  });
+
+  it('has the element ids of the step', async () => {
+    const { container } = await toTheStep();
+    await screen.findByText('Check before you connect');
+    expect(container.querySelector('[data-el="SCREENS-CLAIM-CONFIRM-BTN"]')).toBe(screen.getByRole('button', { name: 'Connect screen' }));
+    expect(container.querySelector('[data-el="SCREENS-CLAIM-CANCEL-BTN"]')).toBe(screen.getByRole('button', { name: 'Cancel' }));
+  });
+
+  it('moves the focus to the step’s heading', async () => {
+    await toTheStep();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Check before you connect' })).toHaveFocus();
+  });
+
+  it('says the code is not valid, beside the code field, when the back end does not know it, and stays on the form', async () => {
+    await toTheStep({ preview: vi.fn(async () => { throw failure('not-found'); }) });
+    const message = await screen.findByText('That code is not valid or has expired. Check the screen for a new code.', { selector: 'p' });
+    expect(code().getAttribute('aria-describedby')).toContain(message.id);
+    expect(screen.queryByText('Check before you connect')).toBeNull();
+  });
+
+  it.each([
+    ['throttled', 'Too many attempts. Wait a few minutes and try again.'],
+    ['unavailable', 'We could not connect the screen. Try again.'],
+  ] as const)('says %s as an alert above the form when the look at the code fails', async (kind, text) => {
+    await toTheStep({ preview: vi.fn(async () => { throw failure(kind); }) });
+    expect(await screen.findByRole('alert')).toHaveTextContent(text);
+    expect(name()).toHaveValue('Control room');
+  });
+
+  it('is busy while it looks at the code, and a second press asks once', async () => {
+    let finish: (value: typeof PREVIEW) => void = () => {};
+    const preview = vi.fn(() => new Promise<typeof PREVIEW>((resolve) => (finish = resolve)));
+    const { user } = await toTheStep({ preview });
+    expect(submit()).toBeDisabled();
+    await user.click(submit());
+    expect(preview).toHaveBeenCalledTimes(1);
+    finish(PREVIEW);
+    await screen.findByText('Check before you connect');
+  });
+
+  it('keeps the step when connecting fails, and says so', async () => {
+    const { user } = await toTheStep({ connect: vi.fn(async () => { throw failure('unavailable'); }) });
+    await screen.findByText('Check before you connect');
+    await user.click(screen.getByRole('button', { name: 'Connect screen' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('We could not connect the screen. Try again.');
+  });
+
+  it('has no axe violations on the step', async () => {
+    const { container } = await toTheStep();
+    await screen.findByText('Check before you connect');
+    expect(await runAxe(container)).toHaveNoViolations();
   });
 });

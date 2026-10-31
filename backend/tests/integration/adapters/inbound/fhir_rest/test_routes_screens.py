@@ -524,3 +524,89 @@ async def test_nothing_the_pairing_routes_handle_is_logged_by_the_application(
     logged = "\n".join(r.getMessage() for r in caplog.records if r.name.startswith("diucs"))
     for value in (code, spaced(code), secret, token):
         assert value not in logged
+
+
+# -- the lead's look at a code before connecting it (TEN-072, WB11) -------------------------------
+
+PREVIEW = "/screens/preview"
+ALL_ROLES = tuple(role for role in Role if role is not Role.PLATFORM_OPERATOR)
+
+
+def staff_headers(role: Role, tenant: str | None = None) -> dict[str, str]:
+    token = issue_test_token(role, (), "prac-staff-1", tenant=tenant)
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def test_a_lead_sees_when_the_screen_first_asked_and_its_kind_and_nothing_else(
+    screens: AsyncClient, screen_clock: FixedClock, neo4j_driver: AsyncDriver
+) -> None:
+    started = await start(screens)
+    screen_clock.advance(timedelta(minutes=4))
+    response = await screens.post(
+        PREVIEW, json={"code": spaced(started["code"])}, headers=staff_headers(Role.LEAD)
+    )
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    assert response.json() == {"firstSeenAt": "2026-10-23T13:02:00Z", "deviceClass": "wall-display"}
+    # It wrote nothing and burned nothing: the lead can connect the same code afterwards.
+    assert await count_nodes(neo4j_driver, "Device") == 0
+    assert (await connect(screens, spaced(started["code"]))).status_code == 201
+
+
+@pytest.mark.parametrize("role", ALL_ROLES)
+async def test_role_matrix_of_the_preview(screens: AsyncClient, role: Role) -> None:
+    started = await start(screens)
+    response = await screens.post(
+        PREVIEW, json={"code": started["code"]}, headers=staff_headers(role)
+    )
+    assert response.status_code == (200 if role is Role.LEAD else 404), (role, response.text)
+
+
+async def test_a_preview_with_no_token_is_unauthorised(screens: AsyncClient) -> None:
+    started = await start(screens)
+    response = await screens.post(PREVIEW, json={"code": started["code"]})
+    assert response.status_code == 401
+
+
+async def test_another_tenants_lead_cannot_preview_this_tenants_code(
+    screens: AsyncClient, other_tenant_id: str, tenant_id: str
+) -> None:
+    started = await start(screens)
+    crossed = await screens.post(
+        PREVIEW, json={"code": started["code"]}, headers=staff_headers(Role.LEAD, other_tenant_id)
+    )
+    refusal(crossed)
+    own = await screens.post(
+        PREVIEW, json={"code": started["code"]}, headers=staff_headers(Role.LEAD, tenant_id)
+    )
+    assert own.status_code == 200
+
+
+async def test_every_refused_code_is_the_same_answer_and_a_tenant_in_the_body_is_a_bad_request(
+    screens: AsyncClient, screen_clock: FixedClock
+) -> None:
+    started = await start(screens)
+    wrong = f"{(int(started['code']) + 1) % 1_000_000:06d}"
+    wrong_answer = await screens.post(
+        PREVIEW, json={"code": wrong}, headers=staff_headers(Role.LEAD)
+    )
+    refusal(wrong_answer)
+    short = await screens.post(PREVIEW, json={"code": "123"}, headers=staff_headers(Role.LEAD))
+    assert short.json() == wrong_answer.json()
+    named = await screens.post(
+        PREVIEW,
+        json={"code": started["code"], "tenantId": "someone-else"},
+        headers=staff_headers(Role.LEAD),
+    )
+    assert named.status_code == 400
+
+
+async def test_a_lead_who_previews_five_wrong_codes_is_throttled(screens: AsyncClient) -> None:
+    started = await start(screens)
+    wrong = f"{(int(started['code']) + 1) % 1_000_000:06d}"
+    for _ in range(5):
+        refusal(await screens.post(PREVIEW, json={"code": wrong}, headers=staff_headers(Role.LEAD)))
+    limited = await screens.post(
+        PREVIEW, json={"code": started["code"]}, headers=staff_headers(Role.LEAD)
+    )
+    assert limited.status_code == 429

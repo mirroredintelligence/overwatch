@@ -6,6 +6,7 @@ import {
   DIRECTORY_BODY,
   DIRECTORY_HISTORY_BODY,
   NETWORKS_BODY,
+  OPTIONS_BODY,
   PHONES_BODY,
   SYSTEM_NOW_BODY,
   WEEK_BODY,
@@ -28,6 +29,7 @@ export function resetNetworkBackend(): void {
 
 const VIEW_ROLES = ['advisor', 'clinical', 'lead', 'owner', 'exec'];
 const WEEK_ROLES = ['exec', 'lead'];
+const OPTIONS_ROLES = ['advisor', 'clinical'];
 const NOT_FOUND = {
   resourceType: 'OperationOutcome',
   issue: [{ severity: 'error', code: 'not-found', diagnostics: 'The requested resource was not found.' }],
@@ -87,5 +89,6 @@ export const networkHandlers = [
   ),
   http.get(`${NETWORK_ROOT}/network/:id/system-now`, networkRoute(() => SYSTEM_NOW_BODY)),
   http.get(`${NETWORK_ROOT}/network/:id/phones`, networkRoute(() => PHONES_BODY)),
+  http.get(`${NETWORK_ROOT}/network/:id/options`, networkRoute(() => OPTIONS_BODY, OPTIONS_ROLES)),
   http.get(`${NETWORK_ROOT}/network/:id/week`, networkRoute(() => WEEK_BODY, WEEK_ROLES)),
 ];

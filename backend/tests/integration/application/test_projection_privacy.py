@@ -284,6 +284,8 @@ async def test_no_network_route_answers_with_a_sentinel_a_patient_value_or_a_mem
         for route in ROUTES:
             if route.streams:
                 continue  # content-free by construction: `changedAt` only (test_network_stream)
+            if route.needs_case:
+                continue  # the viewer's own case: its privacy checks are in test_network_options.py
             response = await client.get(
                 url(route, network),
                 params={"weekStart": "2026-10-26"} if route.needs_week else {},
@@ -304,7 +306,7 @@ async def test_no_network_route_answers_with_a_sentinel_a_patient_value_or_a_mem
             found = scan_value(body) if route.json_keys_are_scanned else _values_only(body)
             assert found == [], (route.template, found)
             scanned += 1
-    assert scanned == len([r for r in ROUTES if not r.streams])
+    assert scanned == len([r for r in ROUTES if not r.streams and not r.needs_case])
 
 
 def _values_only(body: Any) -> list[str]:

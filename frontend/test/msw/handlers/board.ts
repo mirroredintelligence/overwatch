@@ -42,7 +42,11 @@ export function resetSeenBoardRequests() {
   seenBoardRequests.length = 0;
 }
 
+/** The setting every screen has unless a test says otherwise: its own organisation's board (TEN-072). */
+export const OWN_BOARD_SETTING = { boardScope: 'tenant', fallback: false, scopeVersion: 1 };
+
 export const boardHandlers = [
+  http.get(`${BACKEND_BASE.replace(/\/fhir$/, '')}/screens/me/board-scope`, () => HttpResponse.json(OWN_BOARD_SETTING, { headers: { 'Cache-Control': 'no-store' } })),
   http.get(BOARD_URL, ({ request }) => {
     seenBoardRequests.push(request.clone());
     const token = /^Bearer (.+)$/.exec(request.headers.get('authorization') ?? '')?.[1];

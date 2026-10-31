@@ -5,11 +5,13 @@ import type { Role } from '@/lib/auth/session';
 // viewer's own pages. The link back is that page, or the role's home when the role has none. Fixed routes
 // only: a change of scope is a navigation, never a parameter.
 
-export const NETWORK_PAGES = ['board', 'services', 'history', 'system-now', 'phones', 'week'] as const;
+export const NETWORK_PAGES = ['home', 'board', 'services', 'history', 'system-now', 'phones', 'week'] as const;
 export type NetworkPage = (typeof NETWORK_PAGES)[number];
 
 /** The network page's route. */
 export const NETWORK_ROUTES: Record<NetworkPage, string> = {
+  // The counts of the advisor's and the executive's homes over the network (WB11).
+  home: '/network/home',
   board: '/network/board',
   services: '/network/services',
   history: '/network/history',
@@ -23,6 +25,7 @@ export function ownHrefFor(page: NetworkPage, role: Role): string {
   if (page === 'system-now' && role === 'lead') return '/lead';
   if (page === 'phones' && role === 'lead') return '/lead/phones';
   if (page === 'week' && role === 'exec') return '/planning/week';
+  if (page === 'services' && role === 'exec') return '/planning/services';
   if (page === 'board' && role === 'advisor') return '/advisor/board';
   return roleHome(role);
 }

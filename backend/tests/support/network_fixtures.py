@@ -27,10 +27,13 @@ from diucs.adapters.outbound.graph_store.unit_of_work import (
     neo4j_uow_factory,
 )
 from diucs.adapters.testing.fixed_clock import FixedClock
+from diucs.adapters.testing.fixed_geo import FixedPostcodeLocator, FixedTravelTime
 from diucs.adapters.testing.fixed_secrets import FixedSecretStore
 from diucs.adapters.testing.tokens import TEST_BFF_SECRET, issue_test_token
 from diucs.application.network_access import NetworkAccess
+from diucs.application.ports.outbound.geo import TravelRange
 from diucs.application.tenancy import bind_network
+from diucs.application.use_cases.filter_network_options import FilterNetworkOptions
 from diucs.application.use_cases.network_board_projector import (
     NETWORK_BOARD_CACHE_KEY,
     NetworkBoardProjector,
@@ -144,6 +147,14 @@ async def net_app(world: NetworkWorld) -> AsyncIterator[NetApp]:
         directory=QueryNetworkDirectory(read_only, access, clock),
         criteria=QueryNetworkCriteria(read_only, access, clock),
         weeks=GetNetworkWeekSummary(read_only, access),
+        options=FilterNetworkOptions(
+            container.uow_factory,
+            read_only,
+            access,
+            clock,
+            FixedPostcodeLocator({}, {}),
+            FixedTravelTime(TravelRange(low_minutes=12, high_minutes=24, source="test fixed")),
+        ),
     )
     built.state.cache = cache
     yield NetApp(built, cache, clock)

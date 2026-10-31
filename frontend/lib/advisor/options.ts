@@ -52,7 +52,13 @@ export type OptionView = {
   travel: Travel | null;
 };
 
-export type NotSuitableView = { serviceId: string; name: string; reason: string };
+export type NotSuitableView = {
+  serviceId: string;
+  name: string;
+  reason: string;
+  /** Only on a network's row (WB11): the organisation the service belongs to. */
+  organisation?: string;
+};
 
 export type OptionsParts = {
   options: OptionView[];

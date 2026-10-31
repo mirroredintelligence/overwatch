@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BoardFetchError, fetchBoardFromBff, REFUSED_STATUSES, type FetchedBoard } from './client';
+import { BoardFetchError, fetchWallBoard, REFUSED_STATUSES, type FetchedBoard } from './client';
 import {
   assessBoard,
   FETCH_TIMEOUT_MS,
@@ -10,6 +10,7 @@ import {
   type Assessment,
   type Health,
 } from './liveness';
+import { OWN_SCOPE, scopeKey, type WallScope } from './scope';
 import type { Board } from './types';
 
 // Keeps the wall board current and says, at every moment, whether it may be
@@ -25,9 +26,17 @@ import type { Board } from './types';
 //    board dated in the future is refused (it would pin the wall).
 //  - An answer that cannot be read keeps the last good board and goes to Last
 //    known at once. Nothing is ever blanked.
+//  - Figures are kept PER SCOPE (TEN-072): each read says which board it was read under (the screen's own
+//    organisation's or a network's, and the screen's version of that setting). When the scope changes the
+//    figures of the old one are dropped at once and the new ones replace them, even if older; the stream is
+//    opened again for the new scope, and what failed for the old scope does not count against the new. A
+//    network board is never shown as last known of another scope, and a fall back to the own board is
+//    reported with the flag so the screen says so.
 //  - A heartbeat arrives every 15 s on an open stream. An open stream that has said nothing for
 //    three beats is taken for dead (a proxy that holds the connection but passes nothing): it is
-//    closed and opened again, and meanwhile the wall shows the stream as paused (KI-54).
+//    closed and opened again, and meanwhile the wall shows the stream as paused (KI-54). (A network's
+//    stream has no named heartbeat, only comments the browser does not deliver, so it is not watched
+//    this way: its 60-second read covers a silent one.)
 //  - It looks at the clock every second, so a board that stops refreshing for any
 //    reason (the stream says it is open, a request hangs, the machine slept) turns
 //    to Last known when it is too old.
@@ -46,18 +55,29 @@ export type BoardFeedOptions = {
   /** The web server's clock (epoch ms) when it read `initialBoard`. */
   serverTime: number;
   fetchBoard?: (signal: AbortSignal) => Promise<FetchedBoard>;
-  /** Opens the live stream, or returns null when there is none. */
-  createEventSource?: () => StreamSource | null;
+  /** The scope the page read the first board under. Absent: the screen's own organisation's board. */
+  initialScope?: WallScope;
+  /** Opens the live stream of the scope the screen shows now, or returns null when there is none. */
+  createEventSource?: (scope: WallScope) => StreamSource | null;
   /** The browser's clock in epoch ms. */
   now?: () => number;
   /** Called once when a refetch is refused because this screen is not paired. */
   onUnpaired?: () => void;
 };
 
-export type BoardFeed = { board: Board; assessment: Assessment };
+export type BoardFeed = {
+  board: Board;
+  assessment: Assessment;
+  /** The board the figures were read under. */
+  scope: WallScope;
+  /** The name of the network the screen showed last (or shows now), kept so a fall back can say which. */
+  lastNetworkName: string | null;
+};
 
 /** The events that mean the board changed. `board` is what the back end sends (R06). */
 export const REFRESH_EVENTS = ['board', 'board.updated', 'board-whole'] as const;
+/** The events of a network's stream: the board changed, or the screen may no longer read it (the read says which). */
+export const NETWORK_REFRESH_EVENTS = ['network-board', 'scope-ended'] as const;
 
 /** The back end's named heartbeat (KI-54): proof the stream is alive, not a change. */
 export const HEARTBEAT_EVENT = 'heartbeat';
@@ -81,10 +101,12 @@ function sameAssessment(a: Assessment, b: Assessment): boolean {
   );
 }
 
-type FeedState = { board: Board; assessment: Assessment };
+type FeedState = { board: Board; assessment: Assessment; scope: WallScope; lastNetworkName: string | null };
 
 export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
   const [state, setState] = useState<FeedState>(() => ({
+    scope: options.initialScope ?? OWN_SCOPE,
+    lastNetworkName: options.initialScope?.networkName ?? null,
     board: options.initialBoard,
     // The first render uses the web server's clock, so the server and the browser
     // draw the same thing and an old board is Last known from the first paint.
@@ -108,6 +130,8 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
     const now = () => (opts().now ?? Date.now)();
 
     let board = opts().initialBoard;
+    let scope = opts().initialScope ?? OWN_SCOPE;
+    let lastNetworkName = scope.networkName;
     // The back end's clock minus this browser's, from the last answer.
     let offset = opts().serverTime - now();
     const health: Health = { ...NO_PROBLEMS };
@@ -154,19 +178,31 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
         health,
       });
       const shown = board;
+      const shownScope = scope;
       setState((previous) =>
-        previous.board === shown && sameAssessment(previous.assessment, assessment)
+        previous.board === shown && previous.scope === shownScope && previous.lastNetworkName === lastNetworkName && sameAssessment(previous.assessment, assessment)
           ? previous
-          : { board: shown, assessment },
+          : { board: shown, assessment, scope: shownScope, lastNetworkName },
       );
     }
 
     function accept(result: FetchedBoard) {
       if (result.serverTime !== null) offset = result.serverTime - now();
       const builtAt = Date.parse(result.board.generatedAt);
+      const readUnder = result.scope ?? scope;
+      const changed = scopeKey(readUnder) !== scopeKey(scope);
       if (!Number.isFinite(builtAt) || builtAt - (now() + offset) > MAX_FUTURE_SKEW_MS) {
         // A board from the future cannot be right, and keeping it would refuse every real one.
         health.unreadableSince ??= now();
+      } else if (changed) {
+        // Another board: the figures of the old scope are dropped, never kept as the new one's last known,
+        // and nothing that failed for the old scope counts against the new one.
+        board = result.board;
+        scope = readUnder;
+        if (readUnder.networkName !== null) lastNetworkName = readUnder.networkName;
+        health.failingSince = null;
+        health.unreadableSince = null;
+        reconnect();
       } else {
         health.failingSince = null;
         health.unreadableSince = null;
@@ -217,7 +253,7 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
       }, FETCH_TIMEOUT_MS);
 
       void Promise.resolve()
-        .then(() => (opts().fetchBoard ?? fetchBoardFromBff)(controller.signal))
+        .then(() => (opts().fetchBoard ?? fetchWallBoard)(controller.signal))
         .then(
           (result) => {
             if (settled || stopped) return;
@@ -234,13 +270,24 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
         );
     }
 
+    // The stream of the scope shown now is closed and the one of the new scope opened.
+    function reconnect() {
+      if (retryTimer !== null) clearTimeout(retryTimer);
+      retryTimer = null;
+      source?.close();
+      source = null;
+      lastSignal = null;
+      health.streamDownSince = null;
+      connect();
+    }
+
     function connect() {
       if (stopped) return;
       // Down until the server confirms it is open.
       health.streamDownSince ??= now();
       let opened: StreamSource | null = null;
       try {
-        opened = opts().createEventSource?.() ?? null;
+        opened = opts().createEventSource?.(scope) ?? null;
       } catch {
         opened = null;
       }
@@ -251,7 +298,8 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
       }
       const current = opened;
       current.onopen = () => {
-        lastSignal = now();
+        // Only the board's own stream has a heartbeat to watch (see above).
+        lastSignal = scope.boardScope === 'network' ? null : now();
         health.streamDownSince = null;
         evaluate();
         // Everything that changed while it was away: refetch the whole board.
@@ -271,13 +319,18 @@ export function useBoardFeed(options: BoardFeedOptions): BoardFeed {
         }
         evaluate();
       };
-      for (const name of REFRESH_EVENTS) {
-        current.addEventListener(name, () => {
-          alive();
-          refetch();
-        });
+      if (scope.boardScope === 'network') {
+        // The network's own channel: a change, or "the screen may no longer read it". The read says which.
+        for (const name of NETWORK_REFRESH_EVENTS) current.addEventListener(name, refetch);
+      } else {
+        for (const name of REFRESH_EVENTS) {
+          current.addEventListener(name, () => {
+            alive();
+            refetch();
+          });
+        }
+        current.addEventListener(HEARTBEAT_EVENT, alive);
       }
-      current.addEventListener(HEARTBEAT_EVENT, alive);
     }
 
     // The clock may differ from the one the page was drawn with.

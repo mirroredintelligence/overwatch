@@ -27,6 +27,13 @@ export type BoardEntry = {
   reportedAt: string | null;
   nextDueAt: string | null;
   wasDueAt: string | null;
+  /**
+   * Only on a row of a network's board on a wall screen (TEN-072): the organisation the service belongs
+   * to, whether it is the viewer's own, and whether the listing is paused (no figure; phone to confirm).
+   */
+  organisation?: string;
+  ownOrganisation?: boolean;
+  paused?: boolean;
 };
 
 export type Board = {

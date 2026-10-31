@@ -58,10 +58,20 @@ function nullableInstant(source: Record<string, unknown>, key: string): string |
   return source[key] === null ? null : instant(source, key);
 }
 
+function optionalFlag(source: Record<string, unknown>, key: string): boolean | undefined {
+  const value = source[key];
+  if (value === undefined) return undefined;
+  if (typeof value !== 'boolean') fail(`${key} is not true or false`);
+  return value;
+}
+
 function entryFrom(value: unknown): BoardEntry {
   const source = record(value, 'an entry');
   const status = text(source, 'status');
   if (!isStatus(status)) fail('status is not one the board knows');
+  const organisation = source.organisation === undefined ? undefined : text(source, 'organisation');
+  const ownOrganisation = optionalFlag(source, 'ownOrganisation');
+  const paused = optionalFlag(source, 'paused');
   return {
     serviceId: text(source, 'serviceId'),
     name: text(source, 'name'),
@@ -77,6 +87,10 @@ function entryFrom(value: unknown): BoardEntry {
     reportedAt: nullableInstant(source, 'reportedAt'),
     nextDueAt: nullableInstant(source, 'nextDueAt'),
     wasDueAt: nullableInstant(source, 'wasDueAt'),
+    // Only a network's board on a wall has these; the wall's own board never does.
+    ...(organisation === undefined ? {} : { organisation }),
+    ...(ownOrganisation === undefined ? {} : { ownOrganisation }),
+    ...(paused === undefined ? {} : { paused }),
   };
 }
 

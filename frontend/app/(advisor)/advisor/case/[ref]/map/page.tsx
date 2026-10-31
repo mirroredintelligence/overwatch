@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { CallSteps } from '@/components/advisor/CallSteps';
 import { MapScreen } from '@/components/advisor/MapScreen';
+import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 
 export const metadata: Metadata = {
   title: 'Map · Overwatch',
@@ -13,6 +14,7 @@ export default async function CaseMapPage({ params }: { params: Promise<{ ref: s
   return (
     <main>
       <CallSteps current="options" />
+      <OwnScopeHeader ownHref={`/advisor/case/${encodeURIComponent(ref)}/map`} networkHref={`/advisor/case/${encodeURIComponent(ref)}/network-map`} />
       <MapScreen caseId={ref} />
     </main>
   );

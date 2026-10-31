@@ -15,6 +15,7 @@ from diucs.adapters.inbound.fhir_rest.routes_network_admin import NetworkAdminSe
 from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
 from diucs.application.network_access import NetworkAccess
+from diucs.application.use_cases.filter_network_options import FilterNetworkOptions
 from diucs.application.use_cases.grants import (
     ApproveGrant,
     DeclineGrant,
@@ -56,7 +57,8 @@ from diucs.bootstrap.container import Container
 
 def build_network_services(container: Container) -> NetworkServices:
     """The read services of `/network`: the board projector (which caches under the network's own
-    key and samples the board for the week summary), the directory, the criteria and the week."""
+    key and samples the board for the week summary), the directory, the criteria, the week and the
+    advisor's options (the case is read in the advisor's own tenant, the rows in the network)."""
     registry = Neo4jNetworkRegistry(container.neo4j)
     access = NetworkAccess(registry, container.tenants, UowScreens(container.uow_factory))
     read_only = neo4j_network_uow_factory(container.neo4j, clock=container.clock, read_only=True)
@@ -73,6 +75,14 @@ def build_network_services(container: Container) -> NetworkServices:
         directory=QueryNetworkDirectory(read_only, access, container.clock),
         criteria=QueryNetworkCriteria(read_only, access, container.clock),
         weeks=GetNetworkWeekSummary(read_only, access),
+        options=FilterNetworkOptions(
+            container.uow_factory,
+            read_only,
+            access,
+            container.clock,
+            container.postcodes,
+            container.travel,
+        ),
     )
 
 

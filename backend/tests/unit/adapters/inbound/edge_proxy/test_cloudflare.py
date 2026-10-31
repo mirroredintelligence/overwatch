@@ -73,6 +73,12 @@ async def test_an_ipv6_cloudflare_peer_is_trusted_too() -> None:
     assert body["client"] == VISITOR
 
 
+async def test_an_ipv4_peer_shown_as_a_mapped_ipv6_address_is_trusted() -> None:
+    body = await _get(_edge(), f"::ffff:{CLOUDFLARE_PEER}", {"CF-Connecting-IP": VISITOR})
+
+    assert body["client"] == VISITOR
+
+
 async def test_a_request_from_another_peer_keeps_the_socket_address() -> None:
     body = await _get(_edge(), OTHER_PEER, {"CF-Connecting-IP": VISITOR})
 

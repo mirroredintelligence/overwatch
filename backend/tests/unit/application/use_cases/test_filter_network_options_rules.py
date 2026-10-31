@@ -150,7 +150,10 @@ def test_limited_and_over_capacity_are_options_with_their_warnings() -> None:
 
 def test_a_figure_older_than_the_stale_limit_and_a_criteria_review_overdue_are_warned() -> None:
     old = classify(board_entry(reported_at=NOW - timedelta(hours=3)))
-    assert isinstance(old, NetworkOption) and "Data is over 2 hrs old. Consider phoning." in old.warnings
+    assert (
+        isinstance(old, NetworkOption)
+        and "Data is over 2 hrs old. Consider phoning." in old.warnings
+    )
     overdue = classify(criteria=criteria_entry(review_by=date(2026, 10, 1)))
     assert isinstance(overdue, NetworkOption) and "Criteria not reviewed" in overdue.warnings
 
@@ -211,7 +214,9 @@ def test_a_service_that_shared_no_criteria_cannot_be_checked_and_fails_closed() 
     assert row.reason == CRITERIA_NOT_SHARED_REASON
 
 
-def test_a_service_that_shared_no_directory_entry_is_still_an_option_with_no_position_or_number() -> None:
+def test_a_service_that_shared_no_directory_entry_is_still_an_option_with_no_position_or_number() -> (
+    None
+):
     row = classify_network_row(board_entry(), criteria_entry(), None, CASE, NOW, TODAY)
     assert isinstance(row, NetworkOption)
     assert row.position is None and row.contact_phone is None and row.contact_label is None
@@ -219,9 +224,7 @@ def test_a_service_that_shared_no_directory_entry_is_still_an_option_with_no_pos
 
 def test_criteria_that_cannot_be_built_fail_closed() -> None:
     # A need both accepted and excluded cannot be a criteria version: not suitable, never a pass.
-    broken = criteria_entry(
-        accepts=(NeedCategory.FRAILTY,), excludes=(NeedCategory.FRAILTY,)
-    )
+    broken = criteria_entry(accepts=(NeedCategory.FRAILTY,), excludes=(NeedCategory.FRAILTY,))
     row = classify(criteria=broken)
     assert isinstance(row, NetworkNotSuitable)
     assert row.reason == CRITERIA_NOT_SHARED_REASON

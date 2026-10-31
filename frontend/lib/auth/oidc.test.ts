@@ -11,6 +11,8 @@ import {
   DIRECTORY_UNBOUND,
   ENTRA_ENV,
   HOST,
+  OPERATOR_CLIENT_SECRET,
+  OPERATOR_ENV,
   OID_ADVISOR,
   REDIRECT_URI,
 } from '@/test/oidc/constants';
@@ -21,6 +23,7 @@ import {
   entraAuthorityOrigin,
   exchangeCode,
   loadEntraConfig,
+  loadOperatorEntraConfig,
   newTransaction,
   SignInRefused,
   verifyIdToken,
@@ -35,7 +38,8 @@ let config: EntraConfig;
 
 beforeEach(async () => {
   fake = await startFakeEntra();
-  config = loadEntraConfig({ ...ENTRA_ENV });
+  vi.stubEnv('ENTRA_CLIENT_SECRET', CLIENT_SECRET);
+  config = await loadEntraConfig({ ...ENTRA_ENV });
 });
 afterEach(() => vi.unstubAllEnvs());
 
@@ -63,60 +67,111 @@ describe('loadEntraConfig', () => {
     expect(Object.keys(config).sort()).toEqual(['authorityHost', 'clientId', 'clientSecret', 'directoryId', 'publicUrl']);
   });
 
-  it.each(['ENTRA_CLIENT_ID', 'ENTRA_CLIENT_SECRET', 'DIUCS_PUBLIC_URL'])(
+  it.each(['ENTRA_CLIENT_ID', 'DIUCS_PUBLIC_URL'])(
     'refuses to load without %s, naming the variable',
-    (name) => {
-      expect(() => loadEntraConfig({ ...ENTRA_ENV, [name]: undefined })).toThrow(name);
-      expect(() => loadEntraConfig({ ...ENTRA_ENV, [name]: '' })).toThrow(name);
+    async (name) => {
+      await expect(loadEntraConfig({ ...ENTRA_ENV, [name]: undefined })).rejects.toThrow(name);
+      await expect(loadEntraConfig({ ...ENTRA_ENV, [name]: '' })).rejects.toThrow(name);
     },
   );
 
-  it('does not read a table of directories and tenants any more: the back end holds it (TEN-043)', () => {
-    const withTable = loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: 'not json', BACKEND_JWT_SECRET: 'x' });
+  it('takes the client secret from the secret module (the process environment without a vault), naming the variable when it is missing', async () => {
+    expect(config.clientSecret).toBe(CLIENT_SECRET);
+    vi.stubEnv('ENTRA_CLIENT_SECRET', '');
+    await expect(loadEntraConfig({ ...ENTRA_ENV })).rejects.toThrow('ENTRA_CLIENT_SECRET');
+  });
+
+  it('ignores a client secret in the settings it is given: only the secret module is a source of it', async () => {
+    vi.stubEnv('ENTRA_CLIENT_SECRET', 'the-real-one');
+    expect((await loadEntraConfig({ ...ENTRA_ENV, ENTRA_CLIENT_SECRET: 'not-this' })).clientSecret).toBe('the-real-one');
+  });
+
+  it('refuses the plain client secret beside the vault, naming the variable and never the value', async () => {
+    vi.stubEnv('DIUCS_KEY_VAULT_URL', 'https://diucs-test.vault.azure.net');
+    const error = await loadEntraConfig({ ...ENTRA_ENV }).catch((e: unknown) => e);
+    expect((error as Error).message).toContain('ENTRA_CLIENT_SECRET');
+    expect(String(error)).not.toContain(CLIENT_SECRET);
+  });
+
+  it('does not read a table of directories and tenants any more: the back end holds it (TEN-043)', async () => {
+    const withTable = await loadEntraConfig({ ...ENTRA_ENV, DIUCS_ENTRA_BINDINGS: 'not json', BACKEND_JWT_SECRET: 'x' });
     expect(withTable).toEqual(config);
   });
 
-  it('reads the directory of a single-tenant app registration, as a lower-case GUID', () => {
-    expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A.toUpperCase() }).directoryId).toBe(DIRECTORY_A);
-    expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: '' }).directoryId).toBeNull();
+  it('reads the directory of a single-tenant app registration, as a lower-case GUID', async () => {
+    expect((await loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A.toUpperCase() })).directoryId).toBe(DIRECTORY_A);
+    expect((await loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: '' })).directoryId).toBeNull();
   });
 
   it.each(['common', 'organizations', 'contoso.onmicrosoft.com', '../x', DIRECTORY_A + '/x'])(
     'refuses a directory that is not a GUID (%s), naming the variable',
-    (value) => {
-      expect(() => loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: value })).toThrow('ENTRA_DIRECTORY_ID');
+    async (value) => {
+      await expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: value })).rejects.toThrow('ENTRA_DIRECTORY_ID');
     },
   );
 
-  it('defaults the authority host to Microsoft', () => {
-    expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: undefined }).authorityHost).toBe(
+  it('defaults the authority host to Microsoft', async () => {
+    expect((await loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: undefined })).authorityHost).toBe(
       'https://login.microsoftonline.com',
     );
   });
 
-  it('refuses an authority host that is not https in production, and a public address with a path', () => {
-    expect(() =>
+  it('refuses an authority host that is not https in production, and a public address with a path', async () => {
+    await expect(
       loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'http://login.example.test', NODE_ENV: 'production' }),
-    ).toThrow('ENTRA_AUTHORITY_HOST');
-    expect(() => loadEntraConfig({ ...ENTRA_ENV, DIUCS_PUBLIC_URL: 'https://capacity.example.test/app' })).toThrow(
+    ).rejects.toThrow('ENTRA_AUTHORITY_HOST');
+    await expect(loadEntraConfig({ ...ENTRA_ENV, DIUCS_PUBLIC_URL: 'https://capacity.example.test/app' })).rejects.toThrow(
       'DIUCS_PUBLIC_URL',
     );
-    expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'http://127.0.0.1:4011', NODE_ENV: 'development' }).authorityHost).toBe(
+    expect((await loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'http://127.0.0.1:4011', NODE_ENV: 'development' })).authorityHost).toBe(
       'http://127.0.0.1:4011',
     );
   });
 
-  it('refuses addresses that are not addresses', () => {
-    expect(() => loadEntraConfig({ ...ENTRA_ENV, DIUCS_PUBLIC_URL: 'not an address' })).toThrow('DIUCS_PUBLIC_URL');
-    expect(() => loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'ftp://login.example.test' })).toThrow('ENTRA_AUTHORITY_HOST');
+  it('refuses addresses that are not addresses', async () => {
+    await expect(loadEntraConfig({ ...ENTRA_ENV, DIUCS_PUBLIC_URL: 'not an address' })).rejects.toThrow('DIUCS_PUBLIC_URL');
+    await expect(loadEntraConfig({ ...ENTRA_ENV, ENTRA_AUTHORITY_HOST: 'ftp://login.example.test' })).rejects.toThrow('ENTRA_AUTHORITY_HOST');
   });
 
-  it('never puts the client secret in an error', () => {
+  it('never puts the client secret in an error', async () => {
     try {
-      loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: 'not a directory' });
+      await loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: 'not a directory' });
     } catch (error) {
       expect(String(error)).not.toContain(CLIENT_SECRET);
     }
+  });
+});
+
+describe('loadOperatorEntraConfig', () => {
+  beforeEach(() => {
+    vi.stubEnv('OPERATOR_ENTRA_CLIENT_SECRET', OPERATOR_CLIENT_SECRET);
+  });
+
+  it('takes the operator client secret from the secret module, and never the staff one', async () => {
+    vi.stubEnv('ENTRA_CLIENT_SECRET', 'the-staff-secret');
+    const operator = await loadOperatorEntraConfig({ ...OPERATOR_ENV });
+    expect(operator.clientSecret).toBe(OPERATOR_CLIENT_SECRET);
+    expect(operator.clientId).toBe(OPERATOR_ENV.OPERATOR_ENTRA_CLIENT_ID);
+  });
+
+  it('ignores a client secret in the settings it is given', async () => {
+    expect((await loadOperatorEntraConfig({ ...OPERATOR_ENV, OPERATOR_ENTRA_CLIENT_SECRET: 'not-this' })).clientSecret).toBe(OPERATOR_CLIENT_SECRET);
+  });
+
+  it.each(['OPERATOR_ENTRA_CLIENT_ID', 'OPERATOR_ENTRA_DIRECTORY_ID', 'DIUCS_OPERATOR_PUBLIC_URL'])('refuses to load without %s, naming the variable', async (name) => {
+    await expect(loadOperatorEntraConfig({ ...OPERATOR_ENV, [name]: undefined })).rejects.toThrow(name);
+  });
+
+  it('refuses to load without the secret, naming the variable', async () => {
+    vi.stubEnv('OPERATOR_ENTRA_CLIENT_SECRET', '');
+    await expect(loadOperatorEntraConfig({ ...OPERATOR_ENV })).rejects.toThrow('OPERATOR_ENTRA_CLIENT_SECRET');
+  });
+
+  it('refuses the plain operator secret beside the vault, naming the variable and never the value', async () => {
+    vi.stubEnv('DIUCS_KEY_VAULT_URL', 'https://diucs-test.vault.azure.net');
+    const error = await loadOperatorEntraConfig({ ...OPERATOR_ENV }).catch((e: unknown) => e);
+    expect((error as Error).message).toContain('OPERATOR_ENTRA_CLIENT_SECRET');
+    expect(String(error)).not.toContain(OPERATOR_CLIENT_SECRET);
   });
 });
 
@@ -155,8 +210,8 @@ describe('newTransaction', () => {
 });
 
 describe('authorizeUrl', () => {
-  it('asks the configured directory directly when the app registration is for one directory', () => {
-    const single = loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
+  it('asks the configured directory directly when the app registration is for one directory', async () => {
+    const single = await loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
     const url = authorizeUrl(single, newTransaction('/'));
     expect(url.origin + url.pathname).toBe(`${HOST}/${DIRECTORY_A}/oauth2/v2.0/authorize`);
   });
@@ -275,7 +330,7 @@ describe('verifyIdToken', () => {
   });
 
   it('takes the keys from the configured directory, and from organizations when none is', async () => {
-    const single = loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
+    const single = await loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
     const token = await idTokenFrom(fake, USER, { nonce: 'n', directory: DIRECTORY_A });
     await verifyIdToken(single, token, 'n', NOW);
     expect(fake.recorded('keys').at(-1)?.directory).toBe(DIRECTORY_A);
@@ -318,7 +373,7 @@ describe('verifyIdToken', () => {
   });
 
   it('refuses, for a configured directory, a token from any other directory even when it is signed correctly', async () => {
-    const single = loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
+    const single = await loadEntraConfig({ ...ENTRA_ENV, ENTRA_DIRECTORY_ID: DIRECTORY_A });
     const token = await idTokenFrom(fake, { ...USER, tid: DIRECTORY_B }, { nonce: 'n', directory: 'organizations' });
     expect(await reasonOf(verifyIdToken(single, token, 'n', NOW))).toBe('wrong-issuer');
   });

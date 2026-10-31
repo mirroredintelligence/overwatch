@@ -8,8 +8,8 @@ import {
   type VaultClient,
 } from './index';
 
-// The web tier reads two secrets, `session-secret` and `edge-origin`, from Key Vault through the app's
-// managed identity (DEC-1304). Nothing here reaches a network: the vault is a fake and so is the clock.
+// The web tier reads four secrets, `session-secret`, `edge-origin`, `entra-staff-client-secret` and
+// `entra-operator-client-secret`, from Key Vault through the app's managed identity (DEC-1304). Nothing here reaches a network: the vault is a fake and so is the clock.
 
 const VAULT = 'https://diucs-test.vault.azure.net';
 const VALUE = 'CANARY-vault-value-0f3a9c7d';
@@ -18,7 +18,22 @@ const SECONDS = 1000;
 
 type Fake = VaultClient & { getSecret: ReturnType<typeof vi.fn> };
 
-function fakeVault(values: Record<string, string> = { 'session-secret': VALUE, 'edge-origin': `${VALUE}-edge` }): Fake {
+const FOUR = ['session-secret', 'edge-origin', 'entra-staff-client-secret', 'entra-operator-client-secret'] as const;
+const VARIABLES: Record<(typeof FOUR)[number], string> = {
+  'session-secret': 'SESSION_SECRET',
+  'edge-origin': 'DIUCS_EDGE_ORIGIN_SECRET',
+  'entra-staff-client-secret': 'ENTRA_CLIENT_SECRET',
+  'entra-operator-client-secret': 'OPERATOR_ENTRA_CLIENT_SECRET',
+};
+
+function fakeVault(
+  values: Record<string, string> = {
+    'session-secret': VALUE,
+    'edge-origin': `${VALUE}-edge`,
+    'entra-staff-client-secret': `${VALUE}-staff`,
+    'entra-operator-client-secret': `${VALUE}-operator`,
+  },
+): Fake {
   const client = {
     getSecret: vi.fn(async (name: string) => {
       const value = values[name];
@@ -57,6 +72,24 @@ describe('without DIUCS_KEY_VAULT_URL (local runs and tests)', () => {
     expect(client.getSecret).not.toHaveBeenCalled();
   });
 
+  it('reads the plain variable of each of the four secrets, and each one only from its own', async () => {
+    const env = Object.fromEntries(FOUR.map((name) => [VARIABLES[name], `${PLAIN}-${name}`]));
+    const secrets = build(env, fakeVault());
+    for (const name of FOUR) expect(await secrets.getSecret(name)).toBe(`${PLAIN}-${name}`);
+    for (const name of FOUR) {
+      const alone = build({ [VARIABLES[name]]: PLAIN });
+      for (const other of FOUR.filter((n) => n !== name)) await expect(alone.getSecret(other)).rejects.toBeInstanceOf(SecretNotFoundError);
+    }
+  });
+
+  it('names the variable, never a value, when the Entra client secret is not set', async () => {
+    const error = await build({ ENTRA_CLIENT_SECRET: '' }).getSecret('entra-staff-client-secret').catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(SecretNotFoundError);
+    expect((error as Error).message).toContain('ENTRA_CLIENT_SECRET');
+    const operator = await build({}).getSecret('entra-operator-client-secret').catch((e: unknown) => e);
+    expect((operator as Error).message).toContain('OPERATOR_ENTRA_CLIENT_SECRET');
+  });
+
   it('says not found for an unset or empty variable and for a name it has no variable for', async () => {
     const secrets = build({ SESSION_SECRET: '' });
     await expect(secrets.getSecret('session-secret')).rejects.toBeInstanceOf(SecretNotFoundError);
@@ -74,6 +107,14 @@ describe('without DIUCS_KEY_VAULT_URL (local runs and tests)', () => {
 
 describe('with DIUCS_KEY_VAULT_URL', () => {
   const env = { DIUCS_KEY_VAULT_URL: VAULT };
+
+  it.each(FOUR)('reads %s from the vault, by its own name', async (name) => {
+    const client = fakeVault();
+    const secrets = build(env, client);
+    expect(secrets.vaultConfigured()).toBe(true);
+    expect(await secrets.getSecret(name)).toContain(VALUE);
+    expect(client.getSecret).toHaveBeenCalledWith(name);
+  });
 
   it('reads the secret from the vault, by its own name', async () => {
     const client = fakeVault();
@@ -295,10 +336,10 @@ describe('with DIUCS_KEY_VAULT_URL', () => {
   });
 
   describe('a plain variable beside the vault', () => {
-    it.each(['SESSION_SECRET', 'DIUCS_EDGE_ORIGIN_SECRET'])('refuses to serve when %s is set, naming it and never its value', async (variable) => {
+    it.each(['SESSION_SECRET', 'DIUCS_EDGE_ORIGIN_SECRET', 'ENTRA_CLIENT_SECRET', 'OPERATOR_ENTRA_CLIENT_SECRET'])('refuses to serve when %s is set, naming it and never its value', async (variable) => {
       const client = fakeVault();
       const secrets = build({ ...env, [variable]: PLAIN }, client);
-      for (const name of ['session-secret', 'edge-origin']) {
+      for (const name of FOUR) {
         const error = await secrets.getSecret(name).catch((e: unknown) => e);
         expect(error).toBeInstanceOf(SecretConfigurationError);
         expect((error as Error).message).toContain(variable);

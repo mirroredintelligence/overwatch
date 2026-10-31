@@ -84,6 +84,7 @@ from diucs.application.use_cases.listing_admission import (
     RequestListing,
     RequestListingCommand,
 )
+from diucs.application.use_cases.member_sharing import MemberSharingView, QueryMemberSharing
 from diucs.application.use_cases.membership import (
     AcceptMembership,
     AcceptMembershipCommand,
@@ -139,6 +140,7 @@ class NetworkAdminServices:
     listings: QueryListings
     request_listing: RequestListing
     decide_listing: DecideListing
+    sharing: QueryMemberSharing
 
 
 def services(request: Request) -> NetworkAdminServices:
@@ -280,6 +282,39 @@ def _listing(view: ListingView) -> dict[str, Any]:
     }
 
 
+def _sharing(view: MemberSharingView) -> dict[str, Any]:
+    return {
+        "allowlist": {
+            "version": view.allowlist_version,
+            "scopes": {kind.value: list(fields) for kind, fields in view.allowlist.items()},
+        },
+        "networks": [
+            {
+                "id": n.network_id,
+                "name": n.name,
+                "membership_id": n.membership_id,
+                "membership_status": n.membership_status.value,
+                "joined_at": _time(n.joined_at),
+                "left_at": _time(n.left_at),
+                "agreement_reference": n.agreement_reference,
+                "agreement_version": n.agreement_version,
+                "accepted_agreement_version": n.accepted_agreement_version,
+                "agreement_behind": n.agreement_behind,
+                "shared": [
+                    {
+                        "scope": k.kind.value,
+                        "status": k.status.value,
+                        "ended_at": _time(k.ended_at),
+                        "end_reason": None if k.end_reason is None else k.end_reason.value,
+                    }
+                    for k in n.kinds
+                ],
+            }
+            for n in view.networks
+        ],
+    }
+
+
 def _ok(body: dict[str, Any], status: int = 200) -> JSONResponse:
     return JSONResponse(body, status_code=status, headers=NO_STORE)
 
@@ -302,6 +337,14 @@ def _enum[E: GrantScope | ListingReason](cls: type[E], value: str | None, field:
 async def networks(request: Request, actor: TenantOrNetworkAdmin) -> JSONResponse:
     views = await services(request).query.networks(actor)
     return _ok({"networks": [_network(v) for v in views]})
+
+
+@router.get("/sharing")
+async def sharing(request: Request, actor: TenantAdmin) -> JSONResponse:
+    """What this organisation shares with each network it is in, and the exact keys that may leave
+    a tenant for each kind (TEN-081). The organisation is the token's."""
+    view = await services(request).sharing.execute(actor)
+    return _ok(_sharing(view))
 
 
 @router.get("/network/{network_id}/members")

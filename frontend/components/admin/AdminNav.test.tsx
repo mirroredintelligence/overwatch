@@ -29,6 +29,7 @@ describe('AdminNav', () => {
       ['Data retention', '/admin/retention'],
       ['Who has accessed your organisation', '/admin/access'],
       ['Support requests', '/admin/support'],
+      ['Sharing with the network', '/admin/sharing'],
     ]);
     expect(screen.getByRole('navigation', { name: 'Administration' })).toBeInTheDocument();
   });

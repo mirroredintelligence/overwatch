@@ -5,6 +5,7 @@ import { boardHandlers } from './board';
 import { criteriaHandlers } from './criteria';
 import { leadHandlers } from './lead';
 import { linkHandlers } from './links';
+import { networkAdminHandlers } from './networkAdmin';
 import { ownScopeHandlers } from './networkBff';
 import { operatorHandlers } from './operator';
 import { profileHandlers } from './profile';
@@ -33,5 +34,6 @@ export const handlers: RequestHandler[] = [
   ...tenantDataHandlers,
   ...ownScopeHandlers,
   ...tenantAdminHandlers,
+  ...networkAdminHandlers,
   ...operatorHandlers,
 ];

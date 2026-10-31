@@ -21,6 +21,7 @@ export const ADMIN_PAGES: readonly [string, string][] = [
   ['Data retention', '/admin/retention'],
   ['Who has accessed your organisation', '/admin/access'],
   ['Support requests', '/admin/support'],
+  ['Sharing with the network', '/admin/sharing'],
 ];
 
 export function AdminOverview() {

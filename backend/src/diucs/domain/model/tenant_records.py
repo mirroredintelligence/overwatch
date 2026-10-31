@@ -75,11 +75,23 @@ ALLOWED_PROVIDERS: Final = MappingProxyType(
     }
 )
 
-# The roles a directory group may be mapped to: the staff roles. A wall screen, an anonymous link
-# and a reporter's own device do not sign in through the directory, and `support` is a platform
-# role that comes from the operator directory (DEC-134 item 5), never from a customer's.
+# The roles a directory group may be mapped to: the staff roles, and the network administrator.
+# A wall screen, an anonymous link and a reporter's own device do not sign in through the directory,
+# and `support` is a platform role that comes from the operator directory (DEC-134 item 5), never
+# from a customer's. The tenant administrator is not mappable: that role comes from the first
+# administrator's invitation (DEC-1007 item 4). The network administrator is a role of the network
+# owner's own directory (TEN-080, DEC-1260): a mapping on any other tenant is stored but gives
+# nothing, because the token exchange gives the role only to a tenant that owns an active network.
 ENTRA_MAPPABLE_ROLES: Final = frozenset(
-    {Role.ADVISOR, Role.CLINICAL, Role.LEAD, Role.OWNER, Role.EXEC, Role.AUDIT}
+    {
+        Role.ADVISOR,
+        Role.CLINICAL,
+        Role.LEAD,
+        Role.OWNER,
+        Role.EXEC,
+        Role.AUDIT,
+        Role.NETWORK_ADMIN,
+    }
 )
 
 # Retention (DEC-136 item 10, audit F 2.3). The audit chain and the safety concerns are kept until

@@ -61,6 +61,7 @@ from diucs.application.use_cases.exchange_token import (
     ExchangeStaffCommand,
     ExchangeStaffToken,
     IssuedToken,
+    NetworkOwnership,
 )
 from diucs.domain.model.device import Device
 from diucs.domain.model.tenant import Tenant
@@ -103,6 +104,9 @@ class ExchangeDeps:
     """The platform chain (TEN-075). When set, every operator sign-in is written to it before the
     token is returned, and a sign-in that cannot be recorded gets no token (a fixed 503). None
     leaves sign-ins unrecorded (a process with no platform chain)."""
+    ownership: NetworkOwnership | None = None
+    """Whether the host's tenant owns an active network, from the network registry (TEN-080). With
+    none the role `network-admin` is never given: a process with no registry fails closed."""
 
 
 class _Container(Protocol):
@@ -187,7 +191,11 @@ async def exchange_staff(
 ) -> Response:
     container = _container(request)
     use_case = ExchangeStaffToken(
-        container.uow_factory, container.clock, _deps(request).verifier, _secrets(request)
+        container.uow_factory,
+        container.clock,
+        _deps(request).verifier,
+        _secrets(request),
+        _deps(request).ownership,
     )
     try:
         issued = await use_case.execute(

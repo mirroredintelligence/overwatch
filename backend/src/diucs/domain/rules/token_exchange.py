@@ -46,8 +46,9 @@ STAFF_TOKEN_LIFETIME: Final = timedelta(hours=8)
 OPERATOR_TOKEN_LIFETIME: Final = timedelta(hours=1)
 WALL_TOKEN_LIFETIME: Final = timedelta(hours=1)
 
-# The staff roles, highest first. The two administration roles lead; a directory group cannot be
-# mapped to them yet (ENTRA_MAPPABLE_ROLES), so they are reached only when provisioning allows it.
+# The staff roles, highest first. The two administration roles lead. The tenant administrator cannot
+# be mapped from a group (ENTRA_MAPPABLE_ROLES: it comes from the first administrator's invitation);
+# the network administrator can, and is given only to the owner of a network (`staff_role`).
 STAFF_ROLE_PRIORITY: Final = (
     Role.TENANT_ADMIN,
     Role.NETWORK_ADMIN,
@@ -71,8 +72,18 @@ _GUID: Final = re.compile(r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9
 _SUBJECT_HEX: Final = 32
 
 
-def staff_role(mappings: Iterable[RoleMapping], group_ids: Collection[str]) -> Role | None:
-    """The highest staff role the tenant's ACTIVE mappings give for the groups held, or None."""
+def staff_role(
+    mappings: Iterable[RoleMapping],
+    group_ids: Collection[str],
+    *,
+    owns_network: bool = False,
+) -> Role | None:
+    """The highest staff role the tenant's ACTIVE mappings give for the groups held, or None.
+
+    `network-admin` counts only when `owns_network` is exactly True (TEN-080, DEC-1260): the role
+    runs the sharing of a network, so it is the owner's alone, and a mapping of it on a tenant that
+    owns no network gives nothing (the person falls to the next role their groups give). Anything
+    but the boolean True is not ownership."""
     held = {group.lower() for group in group_ids if type(group) is str}
     given: set[Role] = set()
     for mapping in mappings:
@@ -82,6 +93,8 @@ def staff_role(mappings: Iterable[RoleMapping], group_ids: Collection[str]) -> R
             and mapping.group_object_id.lower() in held
         ):
             given.add(mapping.role)
+    if owns_network is not True:
+        given.discard(Role.NETWORK_ADMIN)
     return next((role for role in STAFF_ROLE_PRIORITY if role in given), None)
 
 

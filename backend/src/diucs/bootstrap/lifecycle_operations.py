@@ -45,6 +45,8 @@ from diucs.application.use_cases.network_admin import (
     CreateNetwork,
     CreateNetworkCommand,
     GovernanceRecorder,
+    MapNetworkAdminGroup,
+    MapNetworkAdminGroupCommand,
 )
 from diucs.application.use_cases.network_leave import EndProjections
 from diucs.application.use_cases.tenant_offboard import (
@@ -65,7 +67,14 @@ from diucs.bootstrap.provisioning import AuditHeads, operator_actor
 from diucs.bootstrap.settings import Settings
 from diucs.domain.errors import DomainError
 
-COMMANDS: Final = ("network-create", "offboard", "export", "complete-offboarding", "purge")
+COMMANDS: Final = (
+    "network-create",
+    "network-admin-group",
+    "offboard",
+    "export",
+    "complete-offboarding",
+    "purge",
+)
 
 
 @dataclass(frozen=True)
@@ -75,6 +84,7 @@ class Lifecycle:
 
     container: Container
     network_create: CreateNetwork
+    network_admin_group: MapNetworkAdminGroup
     offboard: OffboardTenant
     data: Neo4jTenantData
 
@@ -113,6 +123,7 @@ def build_lifecycle(container: Container) -> Lifecycle:
         network_create=CreateNetwork(
             registry, container.tenants, AuditHeads(container.neo4j), recorder, container.ids, clock
         ),
+        network_admin_group=MapNetworkAdminGroup(registry, container.uow_factory, clock),
         offboard=build_offboard(container),
         data=Neo4jTenantData(container.neo4j),
     )
@@ -134,6 +145,13 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     network.add_argument("--agreement-version", required=True, type=int)
     network.add_argument("--system-name", required=True)
     network.add_argument("--pathway-name", required=True)
+
+    admins = commands.add_parser(
+        "network-admin-group",
+        help="map a group of the owner's directory to its network administrators",
+    )
+    admins.add_argument("tenant_id", help="the owner tenant")
+    admins.add_argument("group", help="the directory group's object id (a GUID)")
 
     offboard = commands.add_parser("offboard", help="start offboarding: leave the networks")
     offboard.add_argument("tenant_id")
@@ -184,6 +202,14 @@ async def run_command(
                 return [
                     f"network {made.network_id}: "
                     + ("created, owned by the tenant" if made.created else "finished")
+                ]
+            case "network-admin-group":
+                mapped = await lifecycle.network_admin_group.execute(
+                    MapNetworkAdminGroupCommand(actor, args.group)
+                )
+                return [
+                    "network administrators: "
+                    + ("a group is mapped" if mapped.created else "the group already gave the role")
                 ]
             case "offboard":
                 started = await lifecycle.offboard.execute(

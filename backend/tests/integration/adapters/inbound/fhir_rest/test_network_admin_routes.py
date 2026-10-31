@@ -50,6 +50,11 @@ from diucs.application.use_cases.listing_admission import (
     QueryListings,
     RequestListing,
 )
+from diucs.application.use_cases.member_sharing import (
+    MemberSharingView,
+    QueryMemberSharing,
+    allowlist_fields,
+)
 from diucs.application.use_cases.membership import (
     AcceptMembership,
     InviteMember,
@@ -103,6 +108,7 @@ TA, NA, LD = Role.TENANT_ADMIN, Role.NETWORK_ADMIN, Role.LEAD
 # (method, path, body, the roles that may use it, the status they get)
 ROUTES: tuple[tuple[str, str, dict[str, Any] | None, frozenset[Role], int], ...] = (
     ("GET", "/network-admin/networks", None, frozenset({TA, NA}), 200),
+    ("GET", "/network-admin/sharing", None, frozenset({TA}), 200),
     ("GET", f"/network-admin/network/{NET}/members", None, frozenset({NA}), 200),
     ("POST", f"/network-admin/network/{NET}/members", {"tenant_id": "org-x"}, frozenset({NA}), 201),
     ("POST", f"/network-admin/network/{NET}/members/{REC}/remove", None, frozenset({NA}), 200),
@@ -240,6 +246,11 @@ def _stub_services(calls: list[str]) -> NetworkAdminServices:
             self._calls.append("mine")
             return []
 
+    class _Sharing(_Stub):
+        async def execute(self, *a: Any) -> MemberSharingView:
+            self._calls.append("sharing")
+            return MemberSharingView(1, allowlist_fields(), ())
+
     return NetworkAdminServices(
         query=_Query("query", calls),  # type: ignore[arg-type]
         invite=make("invite", _Result()),
@@ -256,6 +267,7 @@ def _stub_services(calls: list[str]) -> NetworkAdminServices:
         listings=_Listings("listings", calls),  # type: ignore[arg-type]
         request_listing=make("request_listing", "lst-1"),
         decide_listing=make("decide_listing"),
+        sharing=_Sharing("sharing", calls),  # type: ignore[arg-type]
     )
 
 
@@ -479,6 +491,7 @@ class _World:
                 self.clock,  # type: ignore[arg-type]
             ),
             decide_listing=DecideListing(reg, recorder, self.clock),
+            sharing=QueryMemberSharing(reg, factories.network_read_only),  # type: ignore[arg-type]
         )
         self.app = _app((OWNER, MEMBER_B, MEMBER_C), self.services, self.clock)
 
@@ -560,6 +573,57 @@ async def test_the_owner_lists_the_members_by_name_with_the_membership_as_the_ha
     assert {r["organisation_name"] for r in rows} == {"Owner Org", "Member B Org", "Member C Org"}
     assert not {OWNER, MEMBER_B, MEMBER_C} & set(response.text.replace('"', " ").split())
     assert all(MEMBER_B not in r["membership_id"].replace(rid("mem-opaque-b"), "") for r in rows)
+
+
+async def test_an_organisation_reads_what_it_shares_and_never_another_organisations(
+    two: _World,
+) -> None:
+    from diucs.application.ports.outbound.projection import (
+        ProjectionEndReason,
+        SourceState,
+        SourceStatus,
+    )
+
+    two.world.sources.extend(
+        [
+            SourceState(MEMBER_B, GrantScope.CAPACITY, SourceStatus.ACTIVE, "g-b", None, None),
+            SourceState(
+                MEMBER_C,
+                GrantScope.CRITERIA,
+                SourceStatus.ENDED,
+                "g-c",
+                NOW,
+                ProjectionEndReason.GRANT_ENDED,
+            ),
+        ]
+    )
+    async with _client(two.app) as client:
+        b = await client.get("/network-admin/sharing", headers=_bearer(TA, MEMBER_B))
+        c = await client.get("/network-admin/sharing", headers=_bearer(TA, MEMBER_C))
+        owner = await client.get("/network-admin/sharing", headers=_bearer(TA, OWNER))
+    assert [
+        (n["id"], [(k["scope"], k["status"]) for k in n["shared"]]) for n in b.json()["networks"]
+    ] == [(NETWORK_ID, [("capacity", "active")])]
+    assert [
+        (n["id"], [(k["scope"], k["status"], k["end_reason"]) for k in n["shared"]])
+        for n in c.json()["networks"]
+    ] == [(NETWORK_ID, [("criteria", "ended", "grant-ended")])]
+    # The owner's own organisation shares nothing yet, and sees none of the members'.
+    assert [n["shared"] for n in owner.json()["networks"]] == [[]]
+    # The allowlist is the same for everyone and holds no id of a tenant, a person or a record.
+    assert b.json()["allowlist"] == c.json()["allowlist"] == owner.json()["allowlist"]
+    assert MEMBER_C not in b.text and MEMBER_B not in c.text
+    assert OWNER not in b.text
+
+
+async def test_the_sharing_read_takes_no_tenant_from_the_caller(two: _World) -> None:
+    async with _client(two.app) as client:
+        by_query = await client.get(
+            f"/network-admin/sharing?tenant_id={MEMBER_C}&network_id={NETWORK_ID}",
+            headers={**_bearer(TA, MEMBER_B), "X-Tenant-Id": MEMBER_C},
+        )
+        plain = await client.get("/network-admin/sharing", headers=_bearer(TA, MEMBER_B))
+    assert by_query.json() == plain.json()
 
 
 async def test_an_organisation_that_is_not_in_the_network_is_told_nothing(two: _World) -> None:
@@ -692,6 +756,7 @@ async def test_invite_accept_grant_list_and_leave_over_http_on_a_real_graph(rig:
         listings=rig.listing_query,
         request_listing=rig.request_listing,
         decide_listing=rig.decide_listing,
+        sharing=rig.member_sharing,
     )
     member = rig.ids.members[0]
     app = _app((rig.ids.owner, member), services, rig.clock)
@@ -746,3 +811,68 @@ async def test_invite_accept_grant_list_and_leave_over_http_on_a_real_graph(rig:
     ]
     assert GrantScope.CAPACITY.value == "capacity"
     _ = (make_listing, make_owner_membership)
+
+
+async def test_what_a_member_shares_is_read_from_the_network_scope_on_a_real_graph(
+    rig: AdminRig,
+) -> None:
+    b, c = rig.ids.members[0], rig.ids.members[1]
+    await rig.join(b, rig.people.admins[0])
+    await rig.join(c, rig.people.admins[1])
+    capacity, directory = await rig.share(
+        b, rig.people.admins[0], GrantScope.CAPACITY, GrantScope.DIRECTORY
+    )
+    await rig.share(c, rig.people.admins[1], GrantScope.CRITERIA)
+    await rig.list_service(b, rig.people.admins[0])
+    await rig.list_service(c, rig.people.admins[1])
+    await rig.deliver_events()
+    await rig.project(b)
+    await rig.project(c)
+    app = _app((rig.ids.owner, b, c), _real_services(rig), rig.clock)
+    mine_b, mine_c = _bearer(TA, b, "m"), _bearer(TA, c, "m")
+
+    async with _client(app) as client:
+        seen_b = (await client.get("/network-admin/sharing", headers=mine_b)).json()
+        seen_c = (await client.get("/network-admin/sharing", headers=mine_c)).json()
+        assert (
+            await client.post(f"/network-admin/grants/{capacity}/end", headers=mine_b)
+        ).status_code == 200
+        await rig.deliver_events()
+        after = (await client.get("/network-admin/sharing", headers=mine_b)).json()
+
+    def states(view: dict[str, Any]) -> dict[str, tuple[str, str | None]]:
+        (network,) = view["networks"]
+        return {k["scope"]: (k["status"], k["end_reason"]) for k in network["shared"]}
+
+    assert states(seen_b) == {"capacity": ("active", None), "directory": ("active", None)}
+    assert states(seen_c) == {"criteria": ("active", None)}  # B's two kinds are not C's to see
+    assert states(after) == {
+        "capacity": ("ended", "grant-ended"),
+        "directory": ("active", None),
+    }
+    assert seen_b["allowlist"] == seen_c["allowlist"]
+    assert {"service_name", "contact_phone", "opening_hours"} <= set(
+        seen_b["allowlist"]["scopes"]["directory"]
+    )
+    _ = directory
+
+
+def _real_services(rig: AdminRig) -> NetworkAdminServices:
+    return NetworkAdminServices(
+        query=rig.admin_query,
+        invite=rig.invite,
+        accept=rig.accept,
+        leave=rig.leave,
+        remove=rig.remove,
+        agreement=rig.record_agreement,
+        grants=rig.grant_query,
+        propose=rig.propose,
+        approve=rig.approve,
+        decline=rig.decline,
+        end=rig.end_grant,
+        revise=rig.revise,
+        listings=rig.listing_query,
+        request_listing=rig.request_listing,
+        decide_listing=rig.decide_listing,
+        sharing=rig.member_sharing,
+    )

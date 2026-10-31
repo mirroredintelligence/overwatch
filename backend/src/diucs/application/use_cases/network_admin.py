@@ -64,6 +64,7 @@ from diucs.domain.model.network import (
 )
 from diucs.domain.model.network_settings import NetworkSettings
 from diucs.domain.model.tenant import DEFAULT_TIME_ZONE, TenantStatus
+from diucs.domain.model.tenant_records import DIRECTORY_ID_PATTERN, MappingStatus, RoleMapping
 from diucs.domain.rules.tenant_settings import is_named_ref
 
 AUDIT_CREATE: Final = "C"
@@ -79,6 +80,7 @@ UNNAMED: Final = "the person must be named"
 TAKEN: Final = "a network with this id already exists"
 AGREEMENT_NOT_NEWER: Final = "the agreement version is not newer than the current one"
 AGREEMENT_OTHER_REFERENCE: Final = "this version is already recorded with another reference"
+GROUP_GIVES_ANOTHER_ROLE: Final = "this group already gives another role"
 
 
 # ---------------------------------------------------------------- who is acting
@@ -111,6 +113,108 @@ def require_owner_of(actor: Actor, registered: RegisteredNetwork | None) -> Netw
 def require_active(network: Network) -> None:
     if network.status is not NetworkStatus.ACTIVE:
         raise Conflict(NOT_ACTIVE)
+
+
+# ---------------------------------------------------------------- who is a network administrator
+
+
+async def owns_active_network(registry: NetworkRegistry, tenant_id: str) -> bool:
+    """True when the tenant is the owner of an ACTIVE network (TEN-080, DEC-1260): it has an active
+    row of role `owner` in a network whose own `owner_tenant_id` is this tenant and whose status is
+    active. Both are checked, so a damaged row alone is not ownership. The registry is asked each
+    time; no token and no cache says it."""
+    for membership in await registry.memberships_of(tenant_id):
+        if membership.role is not MembershipRole.OWNER or membership.status is not (
+            MembershipStatus.ACTIVE
+        ):
+            continue
+        found = await registry.get_network(membership.network_id)
+        if (
+            found is not None
+            and found.network.owner_tenant_id == tenant_id
+            and found.network.status is NetworkStatus.ACTIVE
+        ):
+            return True
+    return False
+
+
+class RegistryNetworkOwnership:
+    """The token exchange's question (`NetworkOwnership`), answered from the registry."""
+
+    def __init__(self, registry: NetworkRegistry) -> None:
+        self._registry = registry
+
+    async def owns_active_network(self, tenant_id: str) -> bool:
+        return await owns_active_network(self._registry, tenant_id)
+
+
+@dataclass(frozen=True, slots=True)
+class MapNetworkAdminGroupCommand:
+    actor: Actor
+    group_object_id: str
+    """A group of the owner's own directory (a GUID). It is never echoed, logged or audited."""
+
+
+@dataclass(frozen=True, slots=True)
+class MapNetworkAdminGroupResult:
+    created: bool
+    """False when the group already gave the role and nothing changed."""
+
+
+class MapNetworkAdminGroup:
+    """The platform operator names the owner's first network administrators: a group of the owner's
+    own directory is mapped to `network-admin` (TEN-080, DEC-1260). It is how the first mapping is
+    made, as the tenant administrator who could make it cannot sign in yet; later ones are the
+    owner's tenant administrator's, through the ordinary role-mapping route. It runs for the one
+    tenant it is bound to, which must own an active network (another tenant, a member and a tenant
+    in no network are the one `NotFound`). A group that already gives another role is a `Conflict`:
+    the role of a group is never changed under it. A repeat changes nothing."""
+
+    def __init__(
+        self, registry: NetworkRegistry, uow_factory: UnitOfWorkFactory, clock: Clock
+    ) -> None:
+        self._registry = registry
+        self._uow_factory = uow_factory
+        self._clock = clock
+
+    async def execute(self, command: MapNetworkAdminGroupCommand) -> MapNetworkAdminGroupResult:
+        actor = command.actor
+        check_operator(actor)
+        require_actor_in_bound_tenant(actor)
+        tenant_id = current_tenant()
+        group = command.group_object_id
+        if type(group) is not str or DIRECTORY_ID_PATTERN.fullmatch(group.lower()) is None:
+            raise ValidationFailed("group_object_id", "must be a directory group id")
+        wanted = RoleMapping(group.lower(), Role.NETWORK_ADMIN, MappingStatus.ACTIVE)
+        if not await owns_active_network(self._registry, tenant_id):
+            raise NotFound(NETWORK_NOT_FOUND)
+        async with self._uow_factory() as uow:
+            tenant_scope_of_unit(uow.unit_scope, actor)
+            held = next(
+                (
+                    mapping
+                    for mapping in await uow.tenant_config.role_mappings()
+                    if mapping.group_object_id.lower() == wanted.group_object_id
+                ),
+                None,
+            )
+            if held is not None and held.role is not Role.NETWORK_ADMIN:
+                raise Conflict(GROUP_GIVES_ANOTHER_ROLE)
+            if held is not None and held.status is MappingStatus.ACTIVE:
+                return MapNetworkAdminGroupResult(created=False)
+            await uow.tenant_config.put_role_mapping(wanted)
+            await uow.audit.append(
+                AuditEntry(
+                    action=AUDIT_UPDATE,
+                    use_case="MapNetworkAdminGroup",
+                    actor=actor,
+                    entity_ids=("role-mapping",),
+                    snapshot={"role": wanted.role.value, "status": wanted.status.value},
+                    at=self._clock.now(),
+                )
+            )
+            await uow.commit()
+        return MapNetworkAdminGroupResult(created=True)
 
 
 # ---------------------------------------------------------------- the recorder

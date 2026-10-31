@@ -10,10 +10,12 @@ import type { Role } from './session';
 // directory must be the one that tenant has bound, and the role is that tenant's own mapping of the
 // person's groups. Nothing here logs, and no error holds a token, a subject or a claim.
 
-/** The roles the staff exchange gives that this front end has pages for. */
-export const STAFF_ROLES: readonly Role[] = ['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'tenant-admin'];
-/** Roles the back end can give that no page of this front end is for yet (a network administrator). */
-const NO_PAGES_YET: readonly string[] = ['network-admin'];
+/**
+ * The roles the staff exchange gives that this front end has pages for. `network-admin` is the owner's
+ * (TEN-080): the back end gives it only to a tenant that owns an active network, from a group of that
+ * tenant's own directory, and the pages (`/network-admin`) ask the back end again on every call.
+ */
+export const STAFF_ROLES: readonly Role[] = ['advisor', 'clinical', 'lead', 'owner', 'exec', 'audit', 'tenant-admin', 'network-admin'];
 
 const ID_TOKEN_MAX_LENGTH = 8192; // the back end refuses more (routes_auth.py)
 const TOKEN_MAX_LENGTH = 4096;
@@ -68,7 +70,6 @@ export async function exchangeStaffToken(
   if (typeof role !== 'string' || typeof token !== 'string' || typeof expiresAt !== 'string') {
     throw new SignInRefused('exchange-answer');
   }
-  if (NO_PAGES_YET.includes(role)) return { kind: 'refused' };
   if (!isStaffRole(role)) throw new SignInRefused('exchange-answer');
 
   const claims = readToken(token);

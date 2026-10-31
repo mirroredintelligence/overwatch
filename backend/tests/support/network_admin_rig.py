@@ -48,6 +48,7 @@ from diucs.application.use_cases.listing_admission import (
     QueryListings,
     RequestListing,
 )
+from diucs.application.use_cases.member_sharing import QueryMemberSharing
 from diucs.application.use_cases.membership import (
     AcceptMembership,
     InviteMember,
@@ -126,6 +127,7 @@ class AdminRig:
         tenant_factory = neo4j_uow_factory(driver, clock=self.clock)
         network_factory = neo4j_uow_factory(driver, clock=self.clock)
         network_read = neo4j_uow_factory(driver, clock=self.clock, read_only=True)
+        self.network_read = network_read
         self.tenant_factory = tenant_factory
         self.network_factory = network_factory
         self.ids_gen = RunIds(self.token)
@@ -160,6 +162,7 @@ class AdminRig:
         self.admin_query = QueryNetworkAdmin(reg, directory, network_read)
         self.grant_query = QueryGrants(reg, directory, self.clock)
         self.listing_query = QueryListings(reg, directory)
+        self.member_sharing = QueryMemberSharing(reg, network_read)
         self.producer = ProjectNetwork(
             neo4j_uow_factory(driver, clock=self.clock, read_only=True),
             reg,

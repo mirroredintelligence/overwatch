@@ -25,6 +25,7 @@ export type BffOptions = {
    * so an id that is in another tenant cannot be told from an id that is nowhere.
    */
   idScoped?: boolean;
+  allowNetworkId?: boolean;
 };
 
 export type BffHandler<C = unknown> = (

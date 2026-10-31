@@ -6,6 +6,7 @@
 // `booking.updated`); see DEC-152.
 
 export const RELAYED_EVENTS: readonly string[] = ['board', 'board.updated', 'booking.updated'];
+export const NETWORK_RELAYED_EVENTS: readonly string[] = [];
 
 const KEEP_ALIVE = ': keep-alive\n\n';
 // A frame bigger than this is not a board event. The relay stops rather than buffer it.

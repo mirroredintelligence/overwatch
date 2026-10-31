@@ -18,6 +18,8 @@ CONFIG="${CONFIG:-infra/servicebus-config.json}"
 API="2021-11-01"
 
 command -v jq >/dev/null || { echo "jq is required" >&2; exit 1; }
+# Windows jq writes CRLF line endings; a name read with a trailing CR makes an invalid URL. Strip the CRs.
+jq() { command jq "$@" | tr -d '\r'; }
 SUB="$(az account show --query id -o tsv)"
 BASE="https://management.azure.com/subscriptions/$SUB/resourceGroups/$RG/providers/Microsoft.ServiceBus/namespaces/$NS"
 

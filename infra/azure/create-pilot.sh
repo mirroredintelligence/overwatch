@@ -13,6 +13,10 @@
 # Secrets are generated here, written to Key Vault from a private temporary file and never printed. The non-secret
 # outputs (names, ids) are written to ./pilot-outputs.txt: send me that file, never a secret.
 set -uo pipefail
+# Git Bash on Windows rewrites arguments that start with "/" (such as --scope /subscriptions/...) into Windows paths,
+# which az rejects as MissingSubscription. Turn that off; it does nothing on Linux or Cloud Shell.
+export MSYS_NO_PATHCONV=1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 SUB="3547cde4-a873-4904-95ac-5f87e0d9e8d5"
 LOC="uksouth"
@@ -58,8 +62,19 @@ for ns in Microsoft.App Microsoft.ContainerRegistry Microsoft.KeyVault Microsoft
 done
 
 say "resource group"
-try "resource group" az group create --name "$RG" --location "$LOC" --tags app=diucs env="$E" --output none
-try "resource lock" az lock create --name no-delete --lock-type CanNotDelete --resource-group "$RG" --output none
+# Create only if missing: a create call on an existing group sends no tags, which replaces them (and Sentinel policy denies it).
+if [[ "$(az group exists --name "$RG")" == "true" ]]; then
+  echo "  $RG already exists, left as it is"
+else
+  try "resource group" az group create --name "$RG" --location "$LOC" --output none
+fi
+# Merge, not replace: the group may already exist with its own tags (for example data-classification, environment, product).
+try "resource group tags" az tag update --resource-id "$(az group show --name "$RG" --query id -o tsv)" --operation Merge --tags app=diucs env="$E" --output none
+if az lock show --name no-delete --resource-group "$RG" --output none 2>/dev/null; then
+  echo "  delete lock already exists"
+else
+  try "resource lock" az lock create --name no-delete --lock-type CanNotDelete --resource-group "$RG" --output none
+fi
 
 say "managed identities"
 for app in api web workers collector; do
@@ -77,7 +92,14 @@ if try "registry" az acr create -g "$RG" -n "$ACR" --sku Standard --admin-enable
 fi
 
 say "key vault (role-based access, purge protection)"
-if try "key vault" az keyvault create -g "$RG" -n "$KV" --location "$LOC" --enable-rbac-authorization true --enable-purge-protection true --retention-days 90 --output none; then
+# Create only if missing: az keyvault create refuses an existing vault, and the role assignments below must still run.
+if az keyvault show -n "$KV" --output none 2>/dev/null; then
+  echo "  $KV already exists, left as it is"
+  KV_OK=1
+else
+  try "key vault" az keyvault create -g "$RG" -n "$KV" --location "$LOC" --enable-rbac-authorization true --enable-purge-protection true --retention-days 90 --output none && KV_OK=1
+fi
+if [[ "${KV_OK:-0}" == 1 ]]; then
   KV_ID="$(az keyvault show -n "$KV" --query id -o tsv)"
   for app in api web workers; do
     try "Key Vault Secrets User $app" az role assignment create --assignee-object-id "$(pid $app)" --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope "$KV_ID" --output none
@@ -90,12 +112,18 @@ fi
 
 # Writes a secret to Key Vault from a private temp file (never printed, never in the process list).
 # put_secret <name> reads the value from stdin.
+# native <path>: the Windows form of a path under Git Bash (cygpath); unchanged elsewhere.
+native() { if command -v cygpath >/dev/null; then cygpath -w "$1"; else printf '%s' "$1"; fi; }
+
 put_secret() {
   local name="$1" tmp
   tmp="$(mktemp)"; chmod 600 "$tmp"
   cat > "$tmp"
+  # az is a Windows program under Git Bash: it needs the Windows form of the path (cygpath), not /tmp/...
+  local file_arg="$tmp"
+  command -v cygpath >/dev/null && file_arg="$(cygpath -w "$tmp")"
   local n=0
-  until az keyvault secret set --vault-name "$KV" --name "$name" --file "$tmp" --encoding utf-8 --output none 2>/dev/null; do
+  until az keyvault secret set --vault-name "$KV" --name "$name" --file "$file_arg" --encoding utf-8 --output none; do
     n=$((n + 1)); [[ $n -ge 12 ]] && { rm -f "$tmp"; FAILED+=("secret $name"); echo "!! FAILED: secret $name (role assignment may still be propagating: rerun)" >&2; return 1; }
     sleep 15   # a new role assignment can take a few minutes to reach Key Vault
   done
@@ -116,14 +144,16 @@ if az keyvault secret show --vault-name "$KV" --name webpush-vapid-private-key >
   echo "  VAPID keys already exist, left as they are"
 else
   TMPK="$(mktemp -d)"; chmod 700 "$TMPK"
-  if openssl ecparam -name prime256v1 -genkey -noout -out "$TMPK/priv.pem" 2>/dev/null; then
+  PEM="$(native "$TMPK/priv.pem")"   # openssl here is a Windows program under Git Bash: give it the Windows path
+  if openssl ecparam -name prime256v1 -genkey -noout -out "$PEM" 2>/dev/null; then
     # The application expects the URL-safe base64 raw keys web-push libraries use: private = 32-byte scalar,
     # public = 65-byte uncompressed point.
-    openssl ec -in "$TMPK/priv.pem" -outform DER 2>/dev/null | tail -c +8 | head -c 32 | basenc --base64url -w0 2>/dev/null | tr -d '=' | put_secret webpush-vapid-private-key && \
-    openssl ec -in "$TMPK/priv.pem" -pubout -outform DER 2>/dev/null | tail -c 65 | basenc --base64url -w0 2>/dev/null | tr -d '=' | put_secret webpush-vapid-public-key && echo "  VAPID keys created" \
+    openssl ec -in "$PEM" -outform DER 2>/dev/null | tail -c +8 | head -c 32 | basenc --base64url -w0 2>/dev/null | tr -d '=' | put_secret webpush-vapid-private-key && \
+    openssl ec -in "$PEM" -pubout -outform DER 2>/dev/null | tail -c 65 | basenc --base64url -w0 2>/dev/null | tr -d '=' | put_secret webpush-vapid-public-key && echo "  VAPID keys created" \
       || { FAILED+=("VAPID keys"); echo "!! VAPID key generation failed: tell me the output of 'openssl version' and 'basenc --version'" >&2; }
   else
     FAILED+=("VAPID keys")
+    echo "!! VAPID key generation failed: openssl could not write the key file" >&2
   fi
   rm -rf "$TMPK"
 fi
@@ -131,28 +161,37 @@ fi
 say "service bus (Standard) and its queues, topics and subscriptions"
 if try "service bus" az servicebus namespace create -g "$RG" -n "$SB" --location "$LOC" --sku Standard --output none; then
   note "service_bus=$SB"
-  CONFIG="${CONFIG:-infra/servicebus-config.json}"
-  if [[ -f "$CONFIG" && -f infra/azure/servicebus-entities.sh ]]; then
-    try "service bus entities" bash infra/azure/servicebus-entities.sh "$RG" "$SB"
+  # Found next to this script (the three-file folder), or in the repository at infra/servicebus-config.json.
+  # CONFIG can override it. A missing file is a failure, not a skip.
+  ENTITIES="$SCRIPT_DIR/servicebus-entities.sh"
+  SB_CONFIG="${CONFIG:-$SCRIPT_DIR/servicebus-config.json}"
+  [[ -f "$SB_CONFIG" ]] || SB_CONFIG="$SCRIPT_DIR/../../infra/servicebus-config.json"
+  if [[ -f "$ENTITIES" && -f "$SB_CONFIG" ]]; then
+    try "service bus entities" env CONFIG="$(native "$SB_CONFIG")" bash "$ENTITIES" "$RG" "$SB"
   else
-    echo "  run from the repository root to create the entities: bash infra/azure/servicebus-entities.sh $RG $SB"
+    FAILED+=("service bus entities: missing $ENTITIES or the servicebus config")
+    echo "!! FAILED: service bus entities (need servicebus-entities.sh and servicebus-config.json next to this script)" >&2
   fi
   CS="$(az servicebus namespace authorization-rule keys list -g "$RG" --namespace-name "$SB" --name RootManageSharedAccessKey --query primaryConnectionString -o tsv 2>/dev/null || true)"
   if [[ -n "$CS" ]]; then printf '%s' "$CS" | put_secret servicebus-connection && echo "  servicebus-connection stored"; fi
   unset CS
 fi
 
-say "redis (Azure Managed Redis, Enterprise cluster policy, public endpoint with TLS)"
-if try "redis" az redisenterprise create --cluster-name "$REDIS" -g "$RG" --location "$LOC" --sku Balanced_B0 --clustering-policy EnterpriseCluster --output none; then
-  note "redis=$REDIS (default database: check with: az redisenterprise database list --cluster-name $REDIS -g $RG)"
-  KEY="$(az redisenterprise database list-keys --cluster-name "$REDIS" -g "$RG" --query primaryKey -o tsv 2>/dev/null || true)"
-  HOST="$(az redisenterprise show --cluster-name "$REDIS" -g "$RG" --query hostName -o tsv 2>/dev/null || true)"
-  if [[ -n "$KEY" && -n "$HOST" ]]; then
-    printf 'rediss://:%s@%s:10000/0' "$KEY" "$HOST" | put_secret redis-url && echo "  redis-url stored"
-  else
-    echo "  could not read the Redis key or host: create the default database and tell me what 'az redisenterprise database list --cluster-name $REDIS -g $RG' says"
-  fi
-  unset KEY HOST
+# Redis runs as a container app in the environment, with internal-only TCP ingress (no VNet needed; checked on this
+# environment). One replica, no persistence. The password is a Key Vault secret, and redis-url is built from it.
+# Azure Managed Redis was tried and failed to create three times with no error detail, so it is not used.
+say "redis (container app in the environment, internal only)"
+if ! az keyvault secret show --vault-name "$KV" --name redis-password >/dev/null 2>&1; then
+  openssl rand -base64 32 | tr -d '\n=/+' | put_secret redis-password && echo "  redis-password created"
+fi
+if try "redis app" az deployment group create -g "$RG" -n redis-app -f "$(native "$SCRIPT_DIR/redis-app.bicep")" \
+    --parameters environmentId="$(az containerapp env show -n "$CAE" -g "$RG" --query id -o tsv)" \
+                 apiIdentityId="$(az identity show -g "$RG" -n id-${P}-api-${E} --query id -o tsv)" \
+                 keyVaultSecretUrl="https://$KV.vault.azure.net/secrets/redis-password" --output none; then
+  RHOST="$(az containerapp show -n redis -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
+  RPW="$(az keyvault secret show --vault-name "$KV" --name redis-password --query value -o tsv)"
+  printf 'redis://:%s@%s:6379/0' "$RPW" "$RHOST" | put_secret redis-url && echo "  redis-url stored"
+  unset RPW RHOST
 fi
 
 say "storage account"
@@ -174,20 +213,38 @@ say "container apps environment (no VNet, no log destination)"
 try "container apps environment" az containerapp env create -g "$RG" -n "$CAE" --location "$LOC" --logs-destination none --enable-workload-profiles --output none && note "container_apps_env=$CAE"
 
 say "entra app registrations"
-STAFF_APP_ID="$(az ad app create --display-name "DIUCS Staff (pilot)" --sign-in-audience AzureADMultipleOrgs --web-redirect-uris "https://${STAFF_HOST}/api/bff/auth/entra/callback" --enable-id-token-issuance true --query appId -o tsv 2>/dev/null || true)"
+# ensure_app <display name> <create args...>: the existing app's id, or a new app's. A rerun must not create a duplicate.
+ensure_app() {
+  local name="$1" id; shift
+  id="$(az ad app list --filter "displayName eq '$name'" --query "[0].appId" -o tsv 2>/dev/null)"
+  if [[ -z "$id" ]]; then
+    id="$(az ad app create --display-name "$name" "$@" --query appId -o tsv 2>/dev/null || true)"
+  fi
+  printf '%s' "$id"
+}
+STAFF_APP_ID="$(ensure_app "DIUCS Staff (pilot)" --sign-in-audience AzureADMultipleOrgs --web-redirect-uris "https://${STAFF_HOST}/api/bff/auth/entra/callback" --enable-id-token-issuance true)"
 if [[ -n "$STAFF_APP_ID" ]]; then
   az ad sp create --id "$STAFF_APP_ID" --only-show-errors >/dev/null 2>&1 || true
   az ad app update --id "$STAFF_APP_ID" --set groupMembershipClaims=SecurityGroup >/dev/null 2>&1 || FAILED+=("staff app group claims")
-  az ad app credential reset --id "$STAFF_APP_ID" --display-name diucs-bff --years 1 --query password -o tsv 2>/dev/null | tr -d '\n' | put_secret entra-staff-client-secret && echo "  staff client secret stored"
+  # A new client secret is made only if none is stored: a reset would invalidate the one in Key Vault.
+  if az keyvault secret show --vault-name "$KV" --name entra-staff-client-secret >/dev/null 2>&1; then
+    echo "  staff client secret already exists, left as it is"
+  else
+    az ad app credential reset --id "$STAFF_APP_ID" --display-name diucs-bff --years 1 --query password -o tsv 2>/dev/null | tr -d '\n' | put_secret entra-staff-client-secret && echo "  staff client secret stored"
+  fi
   note "staff_app_id=$STAFF_APP_ID staff_host=$STAFF_HOST"
 else
   FAILED+=("staff app registration")
 fi
-OPS_APP_ID="$(az ad app create --display-name "DIUCS Operator Console (pilot)" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://${OPS_HOST}/api/bff/platform/auth/callback" --enable-id-token-issuance true --query appId -o tsv 2>/dev/null || true)"
+OPS_APP_ID="$(ensure_app "DIUCS Operator Console (pilot)" --sign-in-audience AzureADMyOrg --web-redirect-uris "https://${OPS_HOST}/api/bff/platform/auth/callback" --enable-id-token-issuance true)"
 if [[ -n "$OPS_APP_ID" ]]; then
   az ad sp create --id "$OPS_APP_ID" --only-show-errors >/dev/null 2>&1 || true
   az ad app update --id "$OPS_APP_ID" --set groupMembershipClaims=SecurityGroup >/dev/null 2>&1 || FAILED+=("operator app group claims")
-  az ad app credential reset --id "$OPS_APP_ID" --display-name diucs-operator --years 1 --query password -o tsv 2>/dev/null | tr -d '\n' | put_secret entra-operator-client-secret && echo "  operator client secret stored"
+  if az keyvault secret show --vault-name "$KV" --name entra-operator-client-secret >/dev/null 2>&1; then
+    echo "  operator client secret already exists, left as it is"
+  else
+    az ad app credential reset --id "$OPS_APP_ID" --display-name diucs-operator --years 1 --query password -o tsv 2>/dev/null | tr -d '\n' | put_secret entra-operator-client-secret && echo "  operator client secret stored"
+  fi
   note "operator_app_id=$OPS_APP_ID operator_host=$OPS_HOST operator_directory_id=$(az account show --query tenantId -o tsv)"
 else
   FAILED+=("operator app registration")

@@ -65,6 +65,9 @@ export function ExecHome({ board, name, phoneAlerts = false }: { board: Board; n
         <Button variant="secondary" href="/planning/flows" dataEl="EXEC-HOME-FLOWS-BTN">
           See planning flows
         </Button>
+        <Button variant="secondary" href="/planning/coverage" dataEl="EXEC-HOME-COVERAGE-BTN">
+          Where coverage runs out
+        </Button>
         {phoneAlerts ? (
           <Button variant="secondary" href="/planning/phone" dataEl="EXEC-HOME-PHONE-BTN">
             Alerts on this phone

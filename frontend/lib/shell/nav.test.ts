@@ -36,6 +36,16 @@ describe('staff navigation', () => {
     }
   });
 
+  it('lists the coverage page for the planning role, which may open it, under a name no other item has', () => {
+    const items = navFor('exec');
+    expect(items).toContainEqual({ label: 'Coverage by time', href: '/planning/coverage' });
+    expect(canAccess('exec', '/planning/coverage')).toBe(true);
+    for (const role of ROLES) {
+      const labels = navFor(role).map((item) => item.label);
+      expect(new Set(labels).size).toBe(labels.length);
+    }
+  });
+
   it('sends the logo to the role home, the reporter app, or the front page', () => {
     expect(homeFor('lead')).toBe('/lead');
     expect(homeFor('exec')).toBe('/planning');

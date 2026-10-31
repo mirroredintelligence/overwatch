@@ -32,8 +32,17 @@ describe('PhonesList', () => {
       'Channel',
       'Last seen',
       'Flag',
+      'Coverage area',
     ]);
     expect(screen.getByText('More than 3 services on one phone slows replies.')).toBeInTheDocument();
+  });
+
+  it('links each service to the page where its coverage area is defined', async () => {
+    render(<PhonesList />);
+    const row = (await screen.findByText('…456')).closest('tr') as HTMLElement;
+    const links = within(row).getAllByRole('link', { name: /^Define the coverage area for / });
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) expect(link.getAttribute('href')).toMatch(/^\/lead\/coverage\/[^/]+$/);
   });
 
   it('links to moving a service and adding a service to a phone', async () => {

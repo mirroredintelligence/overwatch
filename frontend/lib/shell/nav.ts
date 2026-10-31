@@ -40,6 +40,7 @@ const NAV: Readonly<Partial<Record<Role, readonly NavItem[]>>> = {
     { label: 'All services', href: '/planning/services' },
     { label: 'This week', href: '/planning/week' },
     { label: 'Alerts', href: '/planning/alerts' },
+    { label: 'Coverage by time', href: '/planning/coverage' },
   ],
   reporter: [
     { label: 'Update', href: '/app' },

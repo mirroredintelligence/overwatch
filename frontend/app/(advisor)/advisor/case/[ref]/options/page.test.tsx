@@ -16,6 +16,11 @@ describe('options page (W13)', () => {
     expect(screen.getByText('Loading the options.')).toBeInTheDocument();
   });
 
+  it('has one level-one heading for the page', async () => {
+    render(await OptionsPage({ params: Promise.resolve({ ref: '4821' }) }));
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+  });
+
   it('says it shows our organisation’s options and offers the network’s, when the organisation is in a network (WB11)', async () => {
     server.use(...networkBffHandlers);
     render(await OptionsPage({ params: Promise.resolve({ ref: '4821' }) }));

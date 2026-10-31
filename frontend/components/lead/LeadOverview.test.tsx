@@ -83,6 +83,14 @@ describe('LeadOverview', () => {
     expect(within(nav).getByRole('link', { name: 'Wall screens' })).toBeInTheDocument();
   });
 
+  it('links to where coverage runs out, a page a lead may open', async () => {
+    server.use(http.get('/api/bff/lead/overview', () => HttpResponse.json({ code: 'unavailable', message: 'x' }, { status: 503 })));
+    render(<LeadOverview />);
+    const nav = screen.getByRole('navigation', { name: 'Shift lead pages' });
+    expect(within(nav).getByRole('link', { name: 'Where coverage runs out' })).toHaveAttribute('href', '/planning/coverage');
+    await screen.findByRole('alert');
+  });
+
   it('never says nothing needs chasing when the overview could not be read', async () => {
     server.use(
       http.get('/api/bff/lead/overview', () =>

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { CallSteps } from '@/components/advisor/CallSteps';
 import { CaseSummary } from '@/components/advisor/CaseSummary';
 import { OptionsList } from '@/components/advisor/OptionsList';
+import styles from '@/components/advisor/Advisor.module.css';
 import { OwnScopeHeader } from '@/components/scope/OwnScopeHeader';
 
 export const metadata: Metadata = {
@@ -14,6 +15,8 @@ export default async function CaseOptionsPage({ params }: { params: Promise<{ re
   const { ref } = await params;
   return (
     <main>
+      {/* The page's one level-one heading: the steps and the list below carry the visible words. */}
+      <h1 className={styles.visuallyHidden}>Options for this call</h1>
       <CallSteps current="options" />
       <CaseSummary caseId={ref} />
       {/* Which board this is, and the way to the network's options when the organisation is in one (WB11). */}

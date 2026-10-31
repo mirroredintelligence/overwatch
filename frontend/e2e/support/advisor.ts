@@ -7,6 +7,8 @@ import {
   BOOKING_SEARCH,
   CRITERIA_HISTORY,
   OPTIONS,
+  SUMMARY_NO_DESTINATION,
+  SUMMARY_WITH_DESTINATION,
 } from '@/test/fixtures/backend-shapes';
 import { caseOfOptionsBody, isRadarCase, postcodeSaved, radarCase, radarOptions } from './radar';
 
@@ -42,7 +44,7 @@ function drain(request: IncomingMessage): Promise<string> {
 export async function handleAdvisorRoute(request: IncomingMessage, response: ServerResponse, pathname: string): Promise<boolean> {
   const method = request.method ?? 'GET';
   const writes = method !== 'GET';
-  const isCase = /^\/fhir\/ServiceRequest(\/[^/]+)?(\/\$close)?$/.test(pathname);
+  const isCase = /^\/fhir\/ServiceRequest(\/[^/]+)?(\/\$(close|summary))?$/.test(pathname);
   const isTask = /^\/fhir\/Task(\/[^/]+)?(\/\$(cancel|acknowledge))?$/.test(pathname);
   const isOther = pathname === '/fhir/HealthcareService/$filter-options' || pathname === '/fhir/Basic';
   if (!isCase && !isTask && !isOther) return false;
@@ -78,6 +80,14 @@ export async function handleAdvisorRoute(request: IncomingMessage, response: Ser
   } else if (/^\/fhir\/ServiceRequest\/[^/]+$/.test(pathname) && method === 'PUT') {
     state.caseNow = CASE_FULL;
     send(response, 200, CASE_FULL, { ETag: 'W/"1"' });
+  } else if (pathname.endsWith('/$summary') && method === 'GET') {
+    // The referral summary of an open case; a closed case has none (the BFF answers 409 closed).
+    if (state.caseNow === CASE_CLOSED) {
+      send(response, 409, outcome(409, 'conflict'));
+    } else {
+      const named = new URL(request.url ?? '', 'http://stand-in.test').searchParams.has('destination');
+      send(response, 200, named ? SUMMARY_WITH_DESTINATION : SUMMARY_NO_DESTINATION);
+    }
   } else if (pathname.endsWith('/$close')) {
     state.caseNow = CASE_CLOSED;
     send(response, 200, CASE_CLOSED);

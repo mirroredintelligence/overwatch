@@ -163,6 +163,15 @@ export function OptionsList({ caseId, onCriteria, onPhoned, onAskClinical }: Opt
             <Button variant="secondary" dataEl="ADV-OPT-CLINICAL-BTN" onClick={() => askClinical()}>
               Ask clinical advisor
             </Button>
+            <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/radar`} dataEl="ADV-OPT-RADAR-BTN">
+              Who covers this patient
+            </Button>
+            <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/compare`} dataEl="ADV-OPT-COMPARE-BTN">
+              Compare options side by side
+            </Button>
+            <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/ways`} dataEl="ADV-OPT-WAYS-BTN">
+              Three ways to meet the need
+            </Button>
             <Button variant="neutral" href={`/advisor/case/${encodeURIComponent(caseId)}/finish`}>
               Record outcome
             </Button>

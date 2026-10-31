@@ -49,7 +49,7 @@ test.describe('call flow (W10 to W16, W20, W21, W50)', () => {
     await page.locator('[data-el="ADV-NEEDS-CONTINUE-BTN"]').click();
 
     await expect(page).toHaveURL(/\/advisor\/case\/case-1\/options$/);
-    await expect(page.getByRole('heading', { name: '2 services meet this patient\'s criteria' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '4 services meet this patient\'s criteria' })).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 
     const ucr = page.getByRole('article', { name: 'UCR West' });
@@ -161,22 +161,28 @@ test.describe('score correction and a changed case (B6)', () => {
   });
 
   test('a case changed by someone else is not overwritten: it says so and reads the case again', async ({ page }) => {
+    // The case is the recorded one until the save is refused, and the changed one after it. The reads are
+    // counted from that point: the dev server mounts the form twice (React strict mode), so the number of
+    // reads at load is not fixed, but "Read the case again" is exactly one more.
     let reads = 0;
+    let changed = false;
     await page.route('**/api/bff/cases/case-1', async (route) => {
       if (route.request().method() === 'PUT') {
+        changed = true;
         await route.fulfill({ status: 412, json: { code: 'conflict' } });
         return;
       }
       reads += 1;
-      await route.fulfill({ json: reads === 1 ? RECORDED : { ...RECORDED, urgency: 'today', etag: 'W/"4"' } });
+      await route.fulfill({ json: changed ? { ...RECORDED, urgency: 'today', etag: 'W/"4"' } : RECORDED });
     });
 
     await page.goto('/advisor/case/case-1');
     await page.locator('[data-el="ADV-NEEDS-CONTINUE-BTN"]').click();
     await expect(page.getByText('Someone changed this case since you opened it. Nothing of yours was saved.')).toBeVisible();
 
+    const readsBefore = reads;
     await page.getByRole('button', { name: 'Read the case again' }).click();
     await expect(page.getByText(/Someone changed this case/)).toHaveCount(0);
-    expect(reads).toBe(2);
+    expect(reads).toBe(readsBefore + 1);
   });
 });

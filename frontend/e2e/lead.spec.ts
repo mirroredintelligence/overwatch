@@ -19,14 +19,14 @@ test('an advisor is kept off the shift lead page', async ({ page }) => {
 test('the shift lead page says it could not load, and does not say nothing needs chasing', async ({ page }) => {
   await signIn(page.context(), SITE_URL, 'lead', TOKEN_ORG_A);
   await page.goto('/lead');
-  await expect(page.getByRole('alert')).toContainText('We could not load the shift lead page.');
+  await expect(page.getByRole('main').getByRole('alert')).toContainText('We could not load the shift lead page.');
   await expect(page.getByText('No services need chasing.')).toHaveCount(0);
 });
 
 test('the shift lead page passes axe once it has answered', async ({ page }) => {
   await signIn(page.context(), SITE_URL, 'lead', TOKEN_ORG_A);
   await page.goto('/lead');
-  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
   expect(results.violations).toEqual([]);
 });

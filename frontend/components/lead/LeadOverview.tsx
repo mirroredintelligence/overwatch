@@ -91,6 +91,7 @@ export function LeadOverview() {
 
       <nav aria-label="Shift lead pages" className={styles.actions}>
         <a href="/lead/screens">Wall screens</a>
+        <a href="/planning/coverage">Where coverage runs out</a>
       </nav>
 
       {load.kind === 'failed' ? (

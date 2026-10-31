@@ -46,6 +46,11 @@ describe('ExecHome', () => {
     expect(screen.getByRole('link', { name: 'See all services' })).toHaveAttribute('href', '/planning/services');
   });
 
+  it('links to where coverage runs out', () => {
+    render(<ExecHome board={sample} name="Dorset" />);
+    expect(screen.getByRole('link', { name: 'Where coverage runs out' })).toHaveAttribute('href', '/planning/coverage');
+  });
+
   it('links to the planning flows (W51)', () => {
     render(<ExecHome board={sample} name="Dorset" />);
     expect(screen.getByRole('link', { name: 'See planning flows' })).toHaveAttribute('href', '/planning/flows');

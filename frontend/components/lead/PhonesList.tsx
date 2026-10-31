@@ -83,6 +83,7 @@ export function PhonesList() {
                 <th scope="col">Channel</th>
                 <th scope="col">Last seen</th>
                 <th scope="col">Flag</th>
+                <th scope="col">Coverage area</th>
               </tr>
             </thead>
             <tbody>
@@ -94,6 +95,13 @@ export function PhonesList() {
                   <td>{phone.channel}</td>
                   <td>{phone.lastSeen}</td>
                   <td>{phone.services.length > FLAG_ABOVE ? `Holds ${phone.services.length} services` : ''}</td>
+                  <td>
+                    {phone.services.map((s) => (
+                      <a key={s.id} href={`/lead/coverage/${encodeURIComponent(s.id)}`} className={styles.coverageLink}>
+                        {`Define the coverage area for ${s.name}`}
+                      </a>
+                    ))}
+                  </td>
                 </tr>
               ))}
             </tbody>

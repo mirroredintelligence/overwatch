@@ -183,6 +183,38 @@ test.describe('where coverage runs out (RadarWeb 4)', () => {
   });
 });
 
+// The pages that were built but had no way in are reached by a link a person would use.
+test.describe('the way in to the radar and the coverage pages', () => {
+  test('the options list links to who covers, the comparison and the three ways', async ({ page }) => {
+    await signIn(page.context(), SITE_URL, 'advisor', TOKEN_ORG_A);
+    await page.goto('/advisor/case/radar-1/options');
+    await expect(page.getByRole('link', { name: 'Who covers this patient' })).toBeVisible(FIRST);
+    await expect(page.getByRole('link', { name: 'Compare options side by side' })).toHaveAttribute('href', '/advisor/case/radar-1/compare');
+    await expect(page.getByRole('link', { name: 'Three ways to meet the need' })).toHaveAttribute('href', '/advisor/case/radar-1/ways');
+    await page.getByRole('link', { name: 'Who covers this patient' }).click();
+    await expect(page).toHaveURL(/\/advisor\/case\/radar-1\/radar$/);
+    await expect(page.getByRole('heading', { name: 'Who covers DT4' })).toBeVisible(FIRST);
+  });
+
+  test('the planning home and its header both lead to where coverage runs out', async ({ page }) => {
+    await signIn(page.context(), SITE_URL, 'exec', TOKEN_ORG_A);
+    await page.goto('/planning');
+    await expect(page.getByRole('link', { name: 'Where coverage runs out' })).toBeVisible(FIRST);
+    await page.getByRole('link', { name: 'Where coverage runs out' }).click();
+    await expect(page).toHaveURL(/\/planning\/coverage$/);
+    await expect(page.getByRole('heading', { name: 'Coverage by time of day' })).toBeVisible(FIRST);
+    await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Coverage by time' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  test('the shift lead overview links to where coverage runs out', async ({ page }) => {
+    await signIn(page.context(), SITE_URL, 'lead', TOKEN_ORG_A);
+    await page.goto('/lead');
+    await page.getByRole('link', { name: 'Where coverage runs out' }).click();
+    await expect(page).toHaveURL(/\/planning\/coverage$/);
+    await expect(page.getByRole('heading', { name: 'Coverage by time of day' })).toBeVisible(FIRST);
+  });
+});
+
 test.describe('define a coverage area (RadarWeb 5)', () => {
   test.beforeEach(async ({ page }) => {
     await signIn(page.context(), SITE_URL, 'lead', TOKEN_ORG_A);

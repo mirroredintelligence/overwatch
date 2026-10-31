@@ -69,6 +69,15 @@ describe('OptionsList (W13)', () => {
     expect(onCriteria).toHaveBeenCalledWith('svc-ucr-west');
   });
 
+  it('links to who covers the patient, the comparison and the three ways, for the same case', async () => {
+    render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
+    await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });
+
+    expect(screen.getByRole('link', { name: 'Who covers this patient' })).toHaveAttribute('href', '/advisor/case/4821/radar');
+    expect(screen.getByRole('link', { name: 'Compare options side by side' })).toHaveAttribute('href', '/advisor/case/4821/compare');
+    expect(screen.getByRole('link', { name: 'Three ways to meet the need' })).toHaveAttribute('href', '/advisor/case/4821/ways');
+  });
+
   it('shows the footer note and the three next steps', async () => {
     render(<OptionsList caseId="4821" onCriteria={vi.fn()} onPhoned={vi.fn()} onAskClinical={vi.fn()} />);
     await screen.findByRole('heading', { name: "3 services meet this patient's criteria" });

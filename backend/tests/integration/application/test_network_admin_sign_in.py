@@ -66,7 +66,7 @@ from tests.support.tenancy import RunIdentity, as_tenant
 
 pytestmark = pytest.mark.asyncio(loop_scope="session")
 
-# The signing secret is the edge's own name for it (`bff-jwt`), so a token the exchange issues is one
+# The signing secret has the edge's own name (`bff-jwt`), so a token the exchange issues is one
 # the edge accepts.
 assert SIGNING_SECRET == BFF_SECRET_NAME
 ACCOUNT_KEY = b"synthetic-account-ref-key-for-the-network-admin-it-01"

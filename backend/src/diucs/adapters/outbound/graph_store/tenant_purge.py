@@ -46,8 +46,6 @@ from diucs.domain.errors import ValidationFailed
 BATCH_MAX: Final = 5000
 # The nodes that make up an audit chain: the head, the links and what they point at.
 AUDIT_LABELS: Final = ("AuditEvent", "ChainLink", "AuditHead", "Snapshot", "AuditRef")
-_NOT_AUDIT: Final = " AND ".join(f"NOT n:{label}" for label in AUDIT_LABELS)
-_IS_AUDIT: Final = " OR ".join(f"n:{label}" for label in AUDIT_LABELS)
 _PROPERTY_STRIPPED: Final = frozenset({"tenantId", "seedMarker"})
 
 _SEED: Final = TenantSeed(
@@ -129,7 +127,8 @@ _RELS = NamedQuery(
 _PURGE_DATA = NamedQuery(
     id="Q-TENANT-PURGE-DATA",
     cypher=(
-        f"MATCH (n {{tenantId: $tenant}}) WHERE {_NOT_AUDIT} "
+        "MATCH (n {tenantId: $tenant}) WHERE NOT n:AuditEvent AND NOT n:ChainLink "
+        "AND NOT n:AuditHead AND NOT n:Snapshot AND NOT n:AuditRef "
         "WITH n LIMIT $limit DETACH DELETE n RETURN count(*) AS deleted"
     ),
     mode="write",
@@ -148,9 +147,11 @@ _PURGE_DATA = NamedQuery(
 _PURGE_AUDIT = NamedQuery(
     id="Q-TENANT-PURGE-AUDIT",
     cypher=(
-        f"MATCH (m {{tenantId: $tenant}}) WHERE {_NOT_AUDIT.replace('n:', 'm:')} "
+        "MATCH (m {tenantId: $tenant}) WHERE NOT m:AuditEvent AND NOT m:ChainLink "
+        "AND NOT m:AuditHead AND NOT m:Snapshot AND NOT m:AuditRef "
         "WITH count(m) AS others WHERE others = 0 "
-        f"MATCH (n {{tenantId: $tenant}}) WHERE {_IS_AUDIT} "
+        "MATCH (n {tenantId: $tenant}) WHERE n:AuditEvent OR n:ChainLink OR n:AuditHead "
+        "OR n:Snapshot OR n:AuditRef "
         "WITH n LIMIT $limit DETACH DELETE n RETURN count(*) AS deleted"
     ),
     mode="write",

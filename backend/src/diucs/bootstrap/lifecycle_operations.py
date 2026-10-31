@@ -13,15 +13,15 @@ access of its own. It prints fixed words, ids and counts, and no value of any te
 
     tenant_lifecycle.py --operator NAME network-create OWNER-TENANT NETWORK-ID --name N
         --agreement-reference R --agreement-version V --system-name S --pathway-name P
-    tenant_lifecycle.py --operator NAME offboard TENANT
+    tenant_lifecycle.py --operator NAME offboard TENANT --confirm TENANT
     tenant_lifecycle.py --operator NAME export TENANT --out DIR [--protected]
     tenant_lifecycle.py --operator NAME complete-offboarding TENANT
         [--manifest HASH] [--export-waived] [--notice-waived]
     tenant_lifecycle.py --operator NAME purge TENANT --second NAME --type-id TENANT
-        --platform-audit FILE [--manifest HASH] [--dry-run]
+        [--manifest HASH] [--dry-run]
 
-The export is written under `--out`; the purge's tombstone is appended to `--platform-audit` before
-anything is deleted (the platform chain has no graph scope yet, DEC-529). A purge needs two
+The export is written under `--out`; the purge's tombstone is appended to the platform audit chain
+(`container.platform_audit`, TEN-075) before anything is deleted. A purge needs two
 different operators and the tenant's id typed again: the command line has no `--yes`.
 """
 
@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Final
 
 from diucs.adapters.outbound.cache_redis.redis_cache import RedisCache
-from diucs.adapters.outbound.export_files.file_storage import FileExportStorage, FilePlatformAudit
+from diucs.adapters.outbound.export_files.file_storage import FileExportStorage
 from diucs.adapters.outbound.graph_store.network_registry import Neo4jNetworkRegistry
 from diucs.adapters.outbound.graph_store.tenant_purge import Neo4jTenantData
 from diucs.adapters.outbound.graph_store.unit_of_work import neo4j_network_uow_factory
@@ -52,10 +52,14 @@ from diucs.application.use_cases.tenant_offboard import (
     CompleteOffboardingCommand,
     ExportTenant,
     ExportTenantCommand,
-    StartOffboarding,
+    OffboardTenant,
+)
+from diucs.application.use_cases.tenant_offboarding import (
     StartOffboardingCommand,
+    StartTenantOffboarding,
 )
 from diucs.application.use_cases.tenant_purge import PurgeTenant, PurgeTenantCommand
+from diucs.application.use_cases.tenant_suspend import TenantChanged
 from diucs.bootstrap.container import Container, build
 from diucs.bootstrap.provisioning import AuditHeads, operator_actor
 from diucs.bootstrap.settings import Settings
@@ -71,26 +75,45 @@ class Lifecycle:
 
     container: Container
     network_create: CreateNetwork
-    offboard: StartOffboarding
+    offboard: OffboardTenant
     data: Neo4jTenantData
 
 
-def build_lifecycle(container: Container) -> Lifecycle:
+def build_offboard(
+    container: Container, on_changed: tuple[TenantChanged, ...] = ()
+) -> OffboardTenant:
+    """The offboarding start of the operator's script and of its route: the memberships end
+    (`LeaveAllNetworks`), then TEN-075's `StartTenantOffboarding` moves the record."""
     registry = Neo4jNetworkRegistry(container.neo4j)
     factory = container.uow_factory
     clock = container.clock
     network_factory = neo4j_network_uow_factory(container.neo4j, clock=clock)
     recorder = GovernanceRecorder(factory, network_factory, container.ids, clock)
-    ends = EndProjections(network_factory, registry, clock)
-    leave = LeaveAllNetworks(registry, ends, recorder, clock)
+    leave = LeaveAllNetworks(
+        registry, EndProjections(network_factory, registry, clock), recorder, clock
+    )
+    return OffboardTenant(
+        container.tenants,
+        leave,
+        StartTenantOffboarding(
+            container.tenants, container.tenant_registry, factory, clock, on_changed
+        ),
+        factory,
+        clock,
+    )
+
+
+def build_lifecycle(container: Container) -> Lifecycle:
+    registry = Neo4jNetworkRegistry(container.neo4j)
+    clock = container.clock
+    network_factory = neo4j_network_uow_factory(container.neo4j, clock=clock)
+    recorder = GovernanceRecorder(container.uow_factory, network_factory, container.ids, clock)
     return Lifecycle(
         container=container,
         network_create=CreateNetwork(
             registry, container.tenants, AuditHeads(container.neo4j), recorder, container.ids, clock
         ),
-        offboard=StartOffboarding(
-            container.tenants, container.tenant_registry, leave, factory, clock
-        ),
+        offboard=build_offboard(container),
         data=Neo4jTenantData(container.neo4j),
     )
 
@@ -114,6 +137,7 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
 
     offboard = commands.add_parser("offboard", help="start offboarding: leave the networks")
     offboard.add_argument("tenant_id")
+    offboard.add_argument("--confirm", required=True, help="the tenant's own id, typed again")
 
     export = commands.add_parser("export", help="write the tenant's export package")
     export.add_argument("tenant_id")
@@ -131,7 +155,6 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
     purge.add_argument("tenant_id")
     purge.add_argument("--second", required=True, help="the second operator's name")
     purge.add_argument("--type-id", required=True, help="the tenant's id, typed again")
-    purge.add_argument("--platform-audit", required=True, type=Path)
     purge.add_argument("--manifest", default=None)
     purge.add_argument("--dry-run", action="store_true")
     return parser.parse_args(list(argv))
@@ -163,9 +186,12 @@ async def run_command(
                     + ("created, owned by the tenant" if made.created else "finished")
                 ]
             case "offboard":
-                started = await lifecycle.offboard.execute(StartOffboardingCommand(actor))
+                started = await lifecycle.offboard.execute(
+                    StartOffboardingCommand(actor, args.confirm)
+                )
                 return [
-                    f"tenant {started.tenant_id}: offboarding, "
+                    f"tenant {started.tenant_id}: offboarding until "
+                    f"{started.notice_ends_at.isoformat()}, "
                     f"{started.memberships_ended} memberships ended"
                     + (", finished a start that had stopped" if started.resumed else "")
                 ]
@@ -214,7 +240,7 @@ async def run_command(
                         lifecycle.data,
                         lifecycle.data,
                         cache,
-                        FilePlatformAudit(args.platform_audit),
+                        container.platform_audit,
                         container.clock,
                     )
                     purged = await purge.execute(

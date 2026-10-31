@@ -1,16 +1,12 @@
-"""The export storage and the platform record on files (TEN-074): a package is written whole and
-hashed, a name cannot leave its package, a manifest is found by its hash for its own tenant only,
-and the platform record is on disk when `append` returns."""
+"""The export storage on files (TEN-074): a package is written whole and hashed, a name cannot
+leave its package, and a manifest is found by its hash for its own tenant only."""
 
 import hashlib
-import json
-from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
 
-from diucs.adapters.outbound.export_files.file_storage import FileExportStorage, FilePlatformAudit
-from diucs.application.ports.outbound.platform_audit import PlatformAuditEntry
+from diucs.adapters.outbound.export_files.file_storage import FileExportStorage
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.rules.tenant_export import MANIFEST_FILE
 
@@ -57,15 +53,3 @@ async def test_a_manifest_is_found_by_its_hash_for_its_own_tenant_only(tmp_path:
     assert not await storage.has_package("org-b", wanted)
     assert not await storage.has_package("org-a", "0" * 64)
     assert not await storage.has_package("org-c", wanted)  # no directory at all
-
-
-async def test_the_platform_record_is_one_json_line_an_entry_and_appended(tmp_path: Path) -> None:
-    audit = FilePlatformAudit(tmp_path / "chain" / "platform.jsonl")
-    at = datetime(2026, 10, 30, 9, 0, tzinfo=UTC)
-    for action in ("PurgeTenant", "PurgeTenantCompleted"):
-        await audit.append(
-            PlatformAuditEntry(action, "stf-aaaa", "org-a", None, {"nodes": 3, "at": at}, at)
-        )
-    lines = (tmp_path / "chain/platform.jsonl").read_text().splitlines()
-    assert [json.loads(line)["action"] for line in lines] == ["PurgeTenant", "PurgeTenantCompleted"]
-    assert json.loads(lines[0])["snapshot"] == {"at": "2026-10-30T09:00:00+00:00", "nodes": 3}

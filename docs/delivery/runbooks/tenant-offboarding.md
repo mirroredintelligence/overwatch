@@ -2,10 +2,10 @@
 
 For the platform operator. A tenant that leaves goes through offboarding (a 30-day notice), is given its data, is offboarded, and only then can be purged by two operators. Decisions: DEC-136 item 10, DEC-132 item 6, DEC-271 item 6, DEC-968 to DEC-971; hazards H-T18 (a purge deletes the wrong tenant's data) and H-T29 (backups).
 
-    uv run python scripts/tenant_lifecycle.py --operator <name> offboard <tenant-id>
+    uv run python scripts/tenant_lifecycle.py --operator <name> offboard <tenant-id> --confirm <tenant-id>
     uv run python scripts/tenant_lifecycle.py --operator <name> export <tenant-id> --out <dir> [--protected]
     uv run python scripts/tenant_lifecycle.py --operator <name> complete-offboarding <tenant-id> --out <dir> --manifest <hash> [--export-waived] [--notice-waived]
-    uv run python scripts/tenant_lifecycle.py --operator <name> purge <tenant-id> --second <name> --type-id <tenant-id> --platform-audit <file> [--manifest <hash>] [--dry-run]
+    uv run python scripts/tenant_lifecycle.py --operator <name> purge <tenant-id> --second <name> --type-id <tenant-id> [--manifest <hash>] [--dry-run]
 
 ## 0. Before
 
@@ -15,7 +15,7 @@ For the platform operator. A tenant that leaves goes through offboarding (a 30-d
 
 ## 1. Start
 
-`offboard <tenant-id>` ends every network membership of the tenant, as a leave: its grants lapse, its listings are withdrawn, its projections in the network scope end with the date (history stays, nothing is deleted), the events are published; then the tenant's record moves to `offboarding`. From then on the edge refuses the tenant's people and the workers skip it: nothing is prompted, sent or projected. The tenant's administrator does not read anything while offboarding; the export is how it gets its data (DEC-968).
+`offboard <tenant-id> --confirm <tenant-id>` (or `POST /platform/tenants/{id}/offboarding`, which runs the same step) ends every network membership of the tenant, as a leave: its grants lapse, its listings are withdrawn, its projections in the network scope end with the date (history stays, nothing is deleted), the events are published; then the tenant's record moves to `offboarding`. From then on the edge refuses the tenant's people and the workers skip it: nothing is prompted, sent or projected. The tenant's administrator does not read anything while offboarding; the export is how it gets its data (DEC-968).
 
 If it stopped, run it again. A membership already ended is not met twice.
 
@@ -36,7 +36,7 @@ If it stopped, run it again. A membership already ended is not met twice.
 
 Purging is irreversible. Two operators, the tenant's id typed again, an offboarded tenant whose retention hold has passed (`retentionHoldUntil`), and the dry run reviewed first.
 
-1. `purge <tenant-id> --second <other-operator> --type-id <tenant-id> --platform-audit <file> --dry-run` prints the nodes by label set that would be deleted and changes nothing. Both operators read it against the export's manifest.
+1. `purge <tenant-id> --second <other-operator> --type-id <tenant-id> --dry-run` prints the nodes by label set that would be deleted and changes nothing. Both operators read it against the export's manifest.
 2. Run the same command without `--dry-run`.
 
 The order is the safety: the tombstone (both operators' references, the tenant's id, the **head of its audit chain** (last hash and sequence), the export's manifest hash, the counts) is appended to the platform's file first, and if it cannot be written nothing is deleted; then the record becomes `purged`; then the tenant's data is deleted in batches by `tenantId` and nothing else; then its cache names; the audit chain **last**; then a check that nothing of the tenant is left; then the completion entry. The audit chain is kept until the purge (DEC-271) and its final hash outlives it in the tombstone.

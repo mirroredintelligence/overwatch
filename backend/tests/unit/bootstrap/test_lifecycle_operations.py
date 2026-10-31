@@ -3,6 +3,7 @@ DEC-971): the command line, the tenant each command is bound to, the actors it r
 prints. The use cases are recording fakes, so a test shows which one a command calls, with what,
 under which binding, and that a purge needs the second operator and the typed id on the line."""
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 
@@ -28,7 +29,12 @@ class _Recorder:
 
 
 def test_the_operator_is_required_and_the_command_is_one_of_the_five() -> None:
-    for bad in ([], ["offboard", TENANT], ["--operator", "x", "unknown", TENANT]):
+    for bad in (
+        [],
+        ["offboard", TENANT],
+        ["--operator", "x", "offboard", TENANT],  # the typed id is required
+        ["--operator", "x", "unknown", TENANT],
+    ):
         with pytest.raises(SystemExit):
             parse_args(bad)
     assert set(COMMANDS) == {
@@ -43,15 +49,13 @@ def test_the_operator_is_required_and_the_command_is_one_of_the_five() -> None:
 def test_a_purge_cannot_be_asked_for_without_the_second_operator_and_the_typed_id() -> None:
     base = ["--operator", "one", "purge", TENANT]
     for missing in (
-        base + ["--type-id", TENANT, "--platform-audit", "a.jsonl"],
-        base + ["--second", "two", "--platform-audit", "a.jsonl"],
-        base + ["--second", "two", "--type-id", TENANT],
+        base + ["--type-id", TENANT],
+        base + ["--second", "two"],
+        base,
     ):
         with pytest.raises(SystemExit):
             parse_args(missing)
-    args = parse_args(
-        base + ["--second", "two", "--type-id", TENANT, "--platform-audit", "a.jsonl", "--dry-run"]
-    )
+    args = parse_args(base + ["--second", "two", "--type-id", TENANT, "--dry-run"])
     assert args.dry_run is True and args.second == "two"
     assert not any(a for a in vars(args) if a in ("yes", "force"))
 
@@ -59,12 +63,19 @@ def test_a_purge_cannot_be_asked_for_without_the_second_operator_and_the_typed_i
 async def test_offboard_runs_as_the_operator_of_the_tenant_it_names_and_prints_fixed_words() -> (
     None
 ):
-    started = SimpleNamespace(tenant_id=TENANT, memberships_ended=2, resumed=False)
+    ends = datetime(2026, 11, 29, 9, 0, tzinfo=UTC)
+    started = SimpleNamespace(
+        tenant_id=TENANT, memberships_ended=2, notice_ends_at=ends, resumed=False
+    )
     use_case = _Recorder(started)
     lifecycle = SimpleNamespace(offboard=use_case, container=SimpleNamespace())
-    lines = await run_command(lifecycle, parse_args(["--operator", "op-one", "offboard", TENANT]))  # type: ignore[arg-type]
-    assert lines == [f"tenant {TENANT}: offboarding, 2 memberships ended"]
+    args = parse_args(["--operator", "op-one", "offboard", TENANT, "--confirm", TENANT])
+    lines = await run_command(lifecycle, args)  # type: ignore[arg-type]
+    assert lines == [
+        f"tenant {TENANT}: offboarding until 2026-11-29T09:00:00+00:00, 2 memberships ended"
+    ]
     [command] = use_case.commands
+    assert command.confirm_tenant_id == TENANT
     assert command.actor.role is Role.PLATFORM_OPERATOR and command.actor.tenant_id == TENANT
     assert command.actor.practitioner_id == "op-one"
     assert use_case.scopes[0] is not None and use_case.scopes[0].value == TENANT
@@ -105,7 +116,7 @@ async def test_network_create_passes_the_arguments_and_names_no_agreement_conten
 
 
 async def test_a_purge_dry_run_prints_counts_by_label_set_and_says_nothing_was_deleted(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Any
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captured: dict[str, Any] = {}
 
@@ -136,7 +147,11 @@ async def test_a_purge_dry_run_prints_counts_by_label_set_and_says_nothing_was_d
     monkeypatch.setattr(module, "PurgeTenant", _Purge)
     monkeypatch.setattr(module, "RedisCache", _Cache)
     container = SimpleNamespace(
-        tenants=object(), tenant_registry=object(), clock=object(), uow_factory=object()
+        tenants=object(),
+        tenant_registry=object(),
+        clock=object(),
+        uow_factory=object(),
+        platform_audit=object(),
     )
     lifecycle = SimpleNamespace(container=container, data=object())
     args = parse_args(
@@ -149,8 +164,6 @@ async def test_a_purge_dry_run_prints_counts_by_label_set_and_says_nothing_was_d
             "two",
             "--type-id",
             TENANT,
-            "--platform-audit",
-            str(tmp_path / "audit.jsonl"),
             "--dry-run",
         ]
     )

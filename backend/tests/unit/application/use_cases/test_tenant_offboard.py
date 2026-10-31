@@ -32,11 +32,14 @@ from diucs.application.use_cases.tenant_offboard import (
     CompleteOffboardingCommand,
     ExportTenant,
     ExportTenantCommand,
-    StartOffboarding,
+    OffboardTenant,
+)
+from diucs.application.use_cases.tenant_offboarding import (
     StartOffboardingCommand,
+    StartTenantOffboarding,
 )
 from diucs.domain.codes import Role
-from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed
+from diucs.domain.errors import Conflict, InvalidTransition, NotAllowed, ValidationFailed
 from diucs.domain.model.network import MembershipStatus
 from diucs.domain.model.tenant import NumberStatus, TenantStatus
 from diucs.domain.rules.tenant_export import UnclassifiedData, sha256_hex
@@ -141,13 +144,18 @@ class _Rig:
         self.reader = _Reader()
         self.changed: list[str] = []
         platform: Any = self.platform
-        self.start = StartOffboarding(
-            platform,
+        self.start = OffboardTenant(
             platform,
             self.leave,
+            StartTenantOffboarding(
+                platform,
+                platform,
+                factories.tenant,  # type: ignore[arg-type]
+                self.clock,
+                (self.changed.append,),
+            ),
             factories.tenant,  # type: ignore[arg-type]
             self.clock,
-            (self.changed.append,),
         )
         self.export = ExportTenant(
             platform,
@@ -191,7 +199,7 @@ def _bound() -> Any:
 
 async def test_a_tenant_leaves_its_networks_and_then_its_record_moves_to_offboarding() -> None:
     rig = _Rig()
-    result = await rig.start.execute(StartOffboardingCommand(_operator()))
+    result = await rig.start.execute(StartOffboardingCommand(_operator(), TENANT))
     assert (result.memberships_ended, result.resumed) == (1, False)
     assert rig.tenant.status is TenantStatus.OFFBOARDING
     assert rig.tenant.offboarding_started_at == NOW
@@ -199,8 +207,12 @@ async def test_a_tenant_leaves_its_networks_and_then_its_record_moves_to_offboar
     assert rig.ends.calls == [(NETWORK_ID, TENANT)]
     assert rig.changed == [TENANT]
     # the memberships end while the tenant is still active, so their events are relayed
-    assert rig.log.index("ends:end_member") < rig.log.index("tenant:audit:StartOffboarding")
-    assert [e for _, e in rig.world.audits][-1].use_case == "StartOffboarding"
+    assert rig.log.index("ends:end_member") < rig.log.index("tenant:audit:StartTenantOffboarding")
+    assert [e.use_case for _, e in rig.world.audits][-2:] == [
+        "EndNetworkMemberships",
+        "StartTenantOffboarding",
+    ]
+    assert result.notice_ends_at == NOW + timedelta(days=30)
 
 
 async def test_the_owner_of_a_network_cannot_be_offboarded_until_it_hands_it_over() -> None:
@@ -211,7 +223,7 @@ async def test_the_owner_of_a_network_cannot_be_offboarded_until_it_hands_it_ove
     network, settings = rig.registry.networks[NETWORK_ID]
     rig.registry.networks[NETWORK_ID] = (replace(network, owner_tenant_id=TENANT), settings)
     with pytest.raises(NotAllowed):
-        await rig.start.execute(StartOffboardingCommand(_operator()))
+        await rig.start.execute(StartOffboardingCommand(_operator(), TENANT))
     assert rig.tenant.status is TenantStatus.ACTIVE and rig.ends.calls == []
 
 
@@ -227,7 +239,7 @@ async def test_a_tenant_in_another_state_is_refused_before_anything_changes(
         purged_at=NOW if status is TenantStatus.PURGED else None,
     )
     with pytest.raises((InvalidTransition, NotAllowed)):
-        await rig.start.execute(StartOffboardingCommand(_operator()))
+        await rig.start.execute(StartOffboardingCommand(_operator(), TENANT))
     assert rig.ends.calls == [] and rig.changed == []
 
 
@@ -235,7 +247,7 @@ async def test_a_tenant_in_another_state_is_refused_before_anything_changes(
 async def test_only_the_platform_operator_starts_it(role: Role) -> None:
     rig = _Rig()
     with pytest.raises(NotAllowed):
-        await rig.start.execute(StartOffboardingCommand(_operator(role)))
+        await rig.start.execute(StartOffboardingCommand(_operator(role), TENANT))
     assert rig.tenant.status is TenantStatus.ACTIVE
 
 
@@ -243,7 +255,7 @@ async def test_an_actor_of_another_tenant_is_a_wiring_fault() -> None:
     rig = _Rig()
     with pytest.raises(TenantMismatch):
         await rig.start.execute(
-            StartOffboardingCommand(person("other-org", Role.PLATFORM_OPERATOR))
+            StartOffboardingCommand(person("other-org", Role.PLATFORM_OPERATOR), "other-org")
         )
 
 
@@ -251,19 +263,28 @@ async def test_a_start_that_stopped_after_the_memberships_is_finished_by_running
     rig = _Rig()
     rig.platform.reject_save = True
     with pytest.raises(Conflict):
-        await rig.start.execute(StartOffboardingCommand(_operator()))
+        await rig.start.execute(StartOffboardingCommand(_operator(), TENANT))
     assert rig.registry.members[rid("mem-t")].status is MembershipStatus.LEFT  # already done
     assert rig.tenant.status is TenantStatus.ACTIVE
     rig.platform.reject_save = False
-    again = await rig.start.execute(StartOffboardingCommand(_operator()))
+    again = await rig.start.execute(StartOffboardingCommand(_operator(), TENANT))
     assert again.memberships_ended == 0 and rig.tenant.status is TenantStatus.OFFBOARDING
 
 
 async def test_a_second_start_on_an_offboarding_tenant_only_finishes_what_is_left() -> None:
     rig = _Rig(TenantStatus.OFFBOARDING)
-    result = await rig.start.execute(StartOffboardingCommand(_operator()))
+    result = await rig.start.execute(StartOffboardingCommand(_operator(), TENANT))
     assert result.resumed and rig.tenant.status is TenantStatus.OFFBOARDING
     assert rig.changed == []  # the record was not written again
+    assert result.notice_ends_at == NOW - timedelta(days=1)  # started 31 days ago
+
+
+async def test_the_operator_must_type_the_tenants_id_before_anything_ends() -> None:
+    rig = _Rig()
+    for typed in ("org-other", "", "ORG-LEAVING"):
+        with pytest.raises(ValidationFailed):
+            await rig.start.execute(StartOffboardingCommand(_operator(), typed))
+    assert rig.ends.calls == [] and rig.tenant.status is TenantStatus.ACTIVE
 
 
 # ---------------------------------------------------------------- export

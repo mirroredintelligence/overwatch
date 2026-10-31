@@ -7,9 +7,10 @@ one tenant its call is bound to, as it runs the rest of the lifecycle (`tenant_a
 operator is named, has no data access of its own, and writes the tenant's own audit chain so the
 tenant sees what was done); free text is never a reason.
 
-- **StartOffboarding.** The tenant ends every network membership (`LeaveAllNetworks`: the registry,
+- **OffboardTenant.** The tenant ends every network membership (`LeaveAllNetworks`: the registry,
   the network scope, the records; its sharing stops at once and its history stays), then the
-  registry record moves to `offboarding` by compare and set. The memberships come first on purpose:
+  registry record moves to `offboarding` through TEN-075's `StartTenantOffboarding` (compare and
+  set, the edge told, the audit entry, the typed tenant id). The memberships come first on purpose:
   while the tenant is still active its outbox is relayed, so the `MemberRemoved` events reach the
   network, and a start that stopped half way is run again (what ended is not met twice). A tenant
   that owns a network is refused: the owner cannot leave its own network (transfer or close it
@@ -60,7 +61,13 @@ from diucs.application.use_cases.tenant_admin import (
     _audit,
     _unit_scope,
 )
-from diucs.domain.errors import Conflict, NotAllowed, NotFound
+from diucs.application.use_cases.tenant_offboarding import (
+    CONFIRM_MESSAGE,
+    StartOffboardingCommand,
+    StartOffboardingResult,
+    StartTenantOffboarding,
+)
+from diucs.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
 from diucs.domain.model.tenant import NumberStatus, TenantStatus
 from diucs.domain.rules.tenant_export import (
     MANIFEST_FILE,
@@ -77,6 +84,7 @@ from diucs.domain.rules.tenant_export import (
 from diucs.domain.rules.tenant_lifecycle import (
     complete_offboarding,
     number_quarantine_until,
+    offboarding_may_complete_at,
     start_offboarding,
 )
 
@@ -95,35 +103,35 @@ TenantChanged = Callable[[str], None]
 
 
 @dataclass(frozen=True, slots=True)
-class StartOffboardingCommand:
-    actor: Actor
-
-
-@dataclass(frozen=True, slots=True)
-class StartOffboardingResult:
-    tenant_id: str
+class OffboardTenantResult(StartOffboardingResult):
     memberships_ended: int
     resumed: bool
     """True when the record was already offboarding and only what was left was finished."""
 
 
-class StartOffboarding(OperatorUseCase):
+class OffboardTenant(OperatorUseCase):
+    """Ends the tenant's network memberships and then starts its notice period, which is
+    `StartTenantOffboarding` (TEN-075: the record move by compare and set, the edge told, the
+    audit entry). This adds only what that left for TEN-074: the memberships come first. It takes
+    TEN-075's command and answers with the same fields and two more, so the operator's route and
+    the script both run it (`bootstrap/lifecycle_operations.py: build_offboard`)."""
+
     def __init__(
         self,
         tenants: TenantDirectory,
-        registry: TenantRegistry,
         leave: LeaveAllNetworks,
+        start: StartTenantOffboarding,
         uow_factory: UnitOfWorkFactory,
         clock: Clock,
-        on_changed: tuple[TenantChanged, ...] = (),
     ) -> None:
         super().__init__(tenants, uow_factory, clock)
-        self._registry = registry
         self._leave = leave
-        self._on_changed = on_changed
+        self._start = start
 
-    async def execute(self, command: StartOffboardingCommand) -> StartOffboardingResult:
+    async def execute(self, command: StartOffboardingCommand) -> OffboardTenantResult:
         _, scope = self._begin(command.actor)
+        if type(command.confirm_tenant_id) is not str or command.confirm_tenant_id != scope.value:
+            raise ValidationFailed("confirm_tenant_id", CONFIRM_MESSAGE)
         tenant = await self._tenants.get(scope.value)
         if tenant is None:
             raise NotFound(NO_TENANT)
@@ -131,30 +139,37 @@ class StartOffboarding(OperatorUseCase):
         if not resumed:
             # Only an active or suspended tenant starts (InvalidTransition otherwise, nothing
             # written): the move is checked before anything else changes.
-            offboarding = start_offboarding(tenant, self._clock.now())
+            start_offboarding(tenant, self._clock.now())
             if await self._leave.owned_networks(scope.value):
                 raise NotAllowed(OWNS_NETWORK)
+        # The memberships end first: while the tenant is still active its outbox is relayed, so the
+        # `MemberRemoved` events reach the network. A start that stopped half way is run again.
         ended = await self._leave.execute(command.actor, scope.value)
-        if not resumed:
-            if not await self._registry.save(
-                offboarding, expected_epoch=tenant.epoch, expected_status=tenant.status
-            ):
-                raise Conflict(MOVED)
-            for changed in self._on_changed:
-                changed(scope.value)
-        async with self._uow_factory() as uow:
-            _unit_scope(uow)
-            await _audit(
-                uow,
-                self._clock,
-                command.actor,
-                "StartOffboarding",
-                AUDIT_UPDATE,
-                f"tenant-{scope.value}",
-                {"memberships_ended": ended, "resumed": resumed},
+        if ended or resumed:
+            async with self._uow_factory() as uow:
+                _unit_scope(uow)
+                await _audit(
+                    uow,
+                    self._clock,
+                    command.actor,
+                    "EndNetworkMemberships",
+                    AUDIT_UPDATE,
+                    f"tenant-{scope.value}",
+                    {"memberships_ended": ended, "resumed": resumed},
+                )
+                await uow.commit()
+        if resumed:
+            return OffboardTenantResult(
+                scope.value,
+                tenant.offboarding_started_at or self._clock.now(),
+                offboarding_may_complete_at(tenant),
+                ended,
+                True,
             )
-            await uow.commit()
-        return StartOffboardingResult(scope.value, ended, resumed)
+        started = await self._start.execute(command)
+        return OffboardTenantResult(
+            scope.value, started.started_at, started.notice_ends_at, ended, False
+        )
 
 
 # ---------------------------------------------------------------- export

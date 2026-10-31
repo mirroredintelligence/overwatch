@@ -34,8 +34,11 @@ from diucs.application.use_cases.tenant_offboard import (
     CompleteOffboardingCommand,
     ExportTenant,
     ExportTenantCommand,
-    StartOffboarding,
+    OffboardTenant,
+)
+from diucs.application.use_cases.tenant_offboarding import (
     StartOffboardingCommand,
+    StartTenantOffboarding,
 )
 from diucs.application.use_cases.tenant_purge import PurgeTenant, PurgeTenantCommand
 from diucs.domain.codes import Role
@@ -130,9 +133,15 @@ async def test_a_tenant_leaves_the_network_is_exported_completed_and_purged_and_
 
     # 1. start: the membership ends first, then the record moves
     leave = LeaveAllNetworks(rig.registry, rig.ends, rig.recorder, rig.clock)
-    start = StartOffboarding(directory, registry, leave, rig.tenant_factory, rig.clock)
+    start = OffboardTenant(
+        directory,
+        leave,
+        StartTenantOffboarding(directory, registry, rig.tenant_factory, rig.clock),
+        rig.tenant_factory,
+        rig.clock,
+    )
     with bind_tenant(leaver):
-        started = await start.execute(StartOffboardingCommand(operator))
+        started = await start.execute(StartOffboardingCommand(operator, leaver))
     assert started.memberships_ended == 1
     [row] = [m for m in await rig.registry.memberships_of(leaver)]
     assert row.status is MembershipStatus.LEFT

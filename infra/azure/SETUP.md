@@ -186,6 +186,32 @@ Things about the staff app you should know:
   security groups there to map to roles (`groups` claim). Give me the group object ids per tenant when you onboard one.
 - The secrets expire in a year. A certificate is better than a secret; I can switch the code to a certificate later.
 
+
+## Pilot without a VNet (owner's decision 2026-10-31)
+
+For the pilot, skip section 2 (network), section 9 (private endpoints and private DNS) and the private-link parts of
+sections 4, 6 and 7. Use these instead:
+
+- Container registry: `--sku Standard` (Premium is only needed for a private endpoint).
+- Service Bus: `--sku Standard`.
+- Redis: create it with public network access enabled (TLS only, access keys or Entra authentication); store the
+  connection string or key in Key Vault. Change `--public-network-access Disabled` to `Enabled`.
+- Key Vault and storage: leave the public endpoint on; access is role-based only (no access policies, no keys for
+  storage: `--allow-shared-key-access false` on the storage account).
+- Container Apps environment: create it without `--infrastructure-subnet-resource-id`.
+
+```bash
+az containerapp env create -g "$RG" -n "cae-$P-$E" --location "$LOC" --logs-destination none --enable-workload-profiles
+```
+
+Restrict the front door instead: when the apps are created, set ingress IP restrictions to Cloudflare's published
+ranges only (`az containerapp ingress access-restriction set`), and add the `edge-origin` secret check the API already
+supports (`X-Edge-Auth`). Without a VNet the environment has no fixed outbound address, so Key Vault, storage and Redis
+cannot be limited by source address: managed identities, role-based access and TLS are the controls.
+
+Moving to a VNet later is not an in-place change: a Container Apps environment's network cannot be changed after it
+is created, so it means a new environment, new apps and a cut-over. Do it before any tenant beyond the pilot.
+
 ## 12. Values to send back (not secrets)
 
 Send me these, and nothing secret: subscription id, resource group name, the generated names (`ACR`, `KV`, `SA`, `SB`,

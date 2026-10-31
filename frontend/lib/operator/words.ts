@@ -19,6 +19,9 @@ export const ORGANISATION_TYPE_WORDS: readonly [string, string][] = [
   ['other', 'Other'],
 ];
 
+/** The types whose tenant is created with its ODS code (DEC-1313; the same set as the back end's). */
+export const NHS_ORGANISATION_TYPE_CODES: readonly string[] = ['nhs-trust', 'icb', 'gp-practice'];
+
 export function organisationTypeWord(code: string | null): string {
   if (code === null) return '-';
   return ORGANISATION_TYPE_WORDS.find(([value]) => value === code)?.[1] ?? code;

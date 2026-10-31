@@ -6936,3 +6936,15 @@ Status: accepted (decided 2026-10-31 under DEC-133) · Affects: `frontend/lib/fh
 4. **Not covered.** The Twilio webhook forward (DEC-1302) sends no edge header by design (the signature authenticates it); the API sees `web` as the caller there.
 5. **Setting.** `OVERWATCH_VISITOR_ADDRESS_SOURCE` = `x-forwarded-for` (default) or `cf-connecting-ip`. Not set in `apps.bicep`; the default is the pilot's value. Set it to `cf-connecting-ip` in the same change that puts Cloudflare in front of `web`.
 6. **Tests.** `visitorAddress.test.ts` (right-most, spoofed left-most ignored, invalid, ipv6, none, source), `visitor.wire.test.ts` (`callBackend`, `fhirFetch`, `fhirStream` on the wire).
+
+## DEC-1313 An NHS organisation's tenant is created from its NHS record: the ODS code names the provider, and only creation requires it
+
+Status: accepted (decided 2026-10-31 under DEC-133) · Affects: `backend/src/overwatch/application/provisioning.py` (`new_tenant`), `domain/model/tenant.py` (`NHS_ORGANISATION_TYPES`), `frontend/components/operator/CreateTenantForm.tsx`, `frontend/lib/operator/ods.ts`, `frontend/app/api/bff/platform/ods/`.
+
+1. **The ODS code is the provider's identity.** For an NHS trust, an ICB or a GP practice the tenant is created with its ODS code. The check is at creation only (`new_tenant`), so a tenant already on record still loads. The record itself keeps the code optional, because the other organisation types have none.
+2. **Find it by name first.** The create form searches the NHS Organisation Data Service by the friendly name (`GET /platform/ods?name=`, operator only, server-side, a contains-match on active organisations). The operator picks one, and the form reads its record (`GET /platform/ods/{code}`) and fills the names, the ODS code, the country and the time zone. The type comes from the primary role where the role is known: RO197 NHS TRUST to nhs-trust, RO98 CLINICAL COMMISSIONING GROUP to icb, RO76 GP PRACTICE and RO177 PRESCRIBING COST CENTRE to gp-practice. The operator can change any of it.
+3. **Show the record before the operator confirms.** The roles, the active links and the NHS last-change date are shown. Inactive links and old names are not shown.
+4. **Not yet stored.** The record's roles and links are not written to the graph by this change. Storing them as shared reference data, with the binding to each tenant, is the next decision and build.
+5. **Not an NHS organisation.** The form still takes these by hand, with no search.
+6. **Checked against the live NHS directory on 2026-10-31.** `The Ardleigh Surgery` is found by `ardleigh surgery` and by `the ardleigh surgery`. The record is `F81044`, CO7 7LD, primary role RO177 with RO76 also active. The name search is not fuzzy: a misspelling finds nothing.
+

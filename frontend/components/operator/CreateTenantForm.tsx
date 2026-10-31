@@ -5,7 +5,8 @@ import { ErrorSummary, type FieldError } from '@/components/lead/ErrorSummary';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
 import { operatorSend } from '@/lib/operator/browser';
-import { ORGANISATION_TYPE_WORDS, TENANT_ID_PATTERN } from '@/lib/operator/words';
+import type { OdsRecord, OdsSearchHit } from '@/lib/operator/ods';
+import { NHS_ORGANISATION_TYPE_CODES, ORGANISATION_TYPE_WORDS, TENANT_ID_PATTERN } from '@/lib/operator/words';
 import { useSubmitKey } from '@/lib/tenantAdmin/browser';
 import { MAPPABLE_ROLE_WORDS } from '@/lib/tenantAdmin/roles';
 import styles from '@/components/admin/admin.module.css';
@@ -24,6 +25,11 @@ type Row = { key: number; group: string; role: string };
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// A tenant id suggested from a name: lower case, letters, digits and hyphens. The operator may change it before creating.
+function suggestedTenantId(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 31).replace(/-+$/, '');
+}
+
 export function CreateTenantForm() {
   const [id, setId] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -34,6 +40,10 @@ export function CreateTenantForm() {
   const [zone, setZone] = useState('Europe/London');
   const [directory, setDirectory] = useState('');
   const [domain, setDomain] = useState('');
+  const [odsName, setOdsName] = useState('');
+  const [odsHits, setOdsHits] = useState<OdsSearchHit[] | null>(null);
+  const [odsRecord, setOdsRecord] = useState<OdsRecord | null>(null);
+  const [odsNote, setOdsNote] = useState('');
   const [lookupNote, setLookupNote] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
   const [nextKey, setNextKey] = useState(1);
@@ -61,6 +71,48 @@ export function CreateTenantForm() {
     setRows((all) => all.filter((r) => r.key !== key));
   };
 
+  // Searches the NHS directory by friendly name (a contains-match on the active organisations).
+  async function searchNhs() {
+    setOdsNote('');
+    setOdsHits(null);
+    const response = await fetch(`/api/bff/platform/ods?name=${encodeURIComponent(odsName.trim())}`, { cache: 'no-store' });
+    const body = (await response.json()) as { results?: OdsSearchHit[]; message?: string };
+    if (!response.ok || body.results === undefined) {
+      setOdsNote(body.message ?? 'The NHS directory cannot be reached. Try again.');
+      return;
+    }
+    setOdsHits(body.results);
+    if (body.results.length === 0) setOdsNote('No active NHS organisation has that name. Try the start of its name, or enter it by hand below.');
+  }
+
+  // Takes one NHS organisation from the directory and fills the organisation from its record: the names, the ODS code,
+  // the type its primary role suggests, and the country and time zone the NHS uses. The operator still checks each field.
+  async function chooseNhs(code: string) {
+    setOdsNote('');
+    const response = await fetch(`/api/bff/platform/ods/${encodeURIComponent(code)}`, { cache: 'no-store' });
+    const body = (await response.json()) as { record?: OdsRecord; message?: string };
+    if (!response.ok || body.record === undefined) {
+      setOdsNote(body.message ?? 'That organisation could not be read. Try again.');
+      return;
+    }
+    const record = body.record;
+    setOdsRecord(record);
+    setOdsHits(null);
+    setDisplayName(record.name);
+    setLegalName(record.name);
+    setOds(record.code);
+    if (record.suggestedOrganisationType !== null) setType(record.suggestedOrganisationType);
+    setCountry('GB');
+    setZone('Europe/London');
+    if (id.trim() === '') setId(suggestedTenantId(record.name));
+  }
+
+  function forgetNhs() {
+    setOdsRecord(null);
+    setOdsHits(null);
+    setOdsNote('');
+  }
+
   // Suggests the directory id from the organisation's domain (the public OpenID configuration, through this app's
   // route). It fills the field for the operator to check; nothing is saved here.
   async function lookUp() {
@@ -84,6 +136,7 @@ export function CreateTenantForm() {
     if (busy) return;
     setFailure('');
     const problems: FieldError[] = [];
+    if (NHS_ORGANISATION_TYPE_CODES.includes(type) && ods.trim() === '') problems.push({ field: 'ods-code', message: 'An NHS trust, ICB or GP practice needs its ODS code. Search for it above.' });
     if (!TENANT_ID_PATTERN.test(id) || id.startsWith('net-')) problems.push({ field: 'tenant-id', message: 'Use 2 to 31 lower-case letters, digits or hyphens, starting with a letter or a digit.' });
     if (displayName.trim() === '') problems.push({ field: 'display-name', message: 'Enter the name people know the organisation by.' });
     if (legalName.trim() === '') problems.push({ field: 'legal-name', message: 'Enter the organisation’s legal name.' });
@@ -149,6 +202,47 @@ export function CreateTenantForm() {
         <ErrorSummary errors={errors} />
         <fieldset className={styles.fieldset}>
           <legend className={styles.legend}>1 The organisation</legend>
+          {odsRecord === null ? (
+            <>
+              <TextField id="ods-name" label="Organisation’s name" value={odsName} onChange={edit(setOdsName)} requirement="none" hint="The name people know it by, for example Ardleigh Surgery. For an NHS organisation this finds its ODS code and fills the rest." autoComplete="off" dataEl="OP-CREATE-ODS-NAME-INPUT" />
+              <p className={styles.row}>
+                <Button variant="secondary" onClick={() => void searchNhs()} dataEl="OP-CREATE-ODS-SEARCH-BTN">
+                  Search the NHS directory
+                </Button>
+              </p>
+              {odsNote !== '' ? <p className={styles.text} role="status">{odsNote}</p> : null}
+              {odsHits !== null && odsHits.length > 0 ? (
+                <ul className={styles.stack}>
+                  {odsHits.map((hit) => (
+                    <li key={hit.code}>
+                      <Button variant="neutral" onClick={() => void chooseNhs(hit.code)} dataEl="OP-CREATE-ODS-PICK-BTN">
+                        {`Use ${hit.name} (${hit.code}${hit.postcode !== null ? `, ${hit.postcode}` : ''})`}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          ) : (
+            <div className={styles.panel} data-el="OP-CREATE-ODS-RECORD">
+              <p className={styles.text}>
+                <strong>{odsRecord.name}</strong> · {odsRecord.code} · {odsRecord.status}
+                {odsRecord.postcode !== null ? ` · ${odsRecord.postcode}` : ''}
+              </p>
+              <p className={styles.text}>
+                Roles: {odsRecord.roles.map((r) => `${r.name}${r.primary ? ' (primary)' : ''}`).join(', ') || 'none'}
+              </p>
+              <p className={styles.text}>
+                Active links: {odsRecord.links.map((l) => `${l.name} (${l.code})`).join(', ') || 'none'}
+              </p>
+              {odsRecord.lastChangedAt !== null ? <p className={styles.text}>Last changed in the NHS directory: {odsRecord.lastChangedAt}</p> : null}
+              <p className={styles.text}>The fields below are filled from this record. Check them before you create the tenant.</p>
+              <Button variant="neutral" onClick={forgetNhs} dataEl="OP-CREATE-ODS-FORGET-BTN">
+                Choose another organisation
+              </Button>
+            </div>
+          )}
+          <p className={styles.text}>Not an NHS organisation? Enter it by hand below. An NHS trust, ICB or GP practice needs its ODS code.</p>
           <TextField id="tenant-id" label="Tenant id" value={id} onChange={edit(setId)} requirement="none" hint="Lower-case letters, digits and hyphens. It cannot be changed." error={problemOf('tenant-id')} autoComplete="off" />
           <TextField id="display-name" label="Display name" value={displayName} onChange={edit(setDisplayName)} requirement="none" error={problemOf('display-name')} />
           <TextField id="legal-name" label="Legal name" value={legalName} onChange={edit(setLegalName)} requirement="none" error={problemOf('legal-name')} />
@@ -162,7 +256,7 @@ export function CreateTenantForm() {
               ))}
             </select>
           </div>
-          <TextField id="ods-code" label="ODS code" value={ods} onChange={edit(setOds)} requirement="optional" />
+          <TextField id="ods-code" label="ODS code" value={ods} onChange={edit(setOds)} requirement="optional" error={problemOf('ods-code')} />
           <TextField id="country" label="Country code" value={country} onChange={edit(setCountry)} requirement="none" error={problemOf('country')} />
           <TextField id="time-zone" label="Time zone" value={zone} onChange={edit(setZone)} requirement="none" />
         </fieldset>

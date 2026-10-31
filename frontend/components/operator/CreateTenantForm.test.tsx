@@ -13,7 +13,7 @@ import { CreateTenantForm } from './CreateTenantForm';
 beforeEach(() => resetOperatorWrites());
 
 async function fill(user: ReturnType<typeof userEvent.setup>, over: Partial<Record<string, string>> = {}) {
-  const values: Record<string, string> = { 'Tenant id': 'trust-d', 'Display name': 'Sample Area D', 'Legal name': 'Sample Area D Organisation', ...over };
+  const values: Record<string, string> = { 'Tenant id': 'trust-d', 'Display name': 'Sample Area D', 'Legal name': 'Sample Area D Organisation', 'ODS code': 'RZZ03', ...over };
   for (const [label, value] of Object.entries(values)) {
     const field = screen.getByLabelText(label);
     await user.clear(field);
@@ -45,6 +45,48 @@ describe('CreateTenantForm', () => {
     const done = await screen.findByRole('status');
     expect(done).toHaveTextContent('Tenant created. It is being set up.');
     expect(within(done).getByRole('link', { name: 'Open the tenant' })).toHaveAttribute('href', '/operator/tenants/trust-d');
+  });
+
+  it('searches the NHS directory by name, and fills the organisation from the record the operator picks', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('/api/bff/platform/ods', ({ request }) => {
+        expect(new URL(request.url).searchParams.get('name')).toBe('ardleigh surgery');
+        return HttpResponse.json({ results: [{ code: 'F81044', name: 'THE ARDLEIGH SURGERY', postcode: 'CO7 7LD', primaryRole: 'RO177', status: 'Active' }] });
+      }),
+      http.get('/api/bff/platform/ods/F81044', () =>
+        HttpResponse.json({
+          record: {
+            code: 'F81044', name: 'THE ARDLEIGH SURGERY', status: 'Active', postcode: 'CO7 7LD', primaryRole: 'RO177',
+            roles: [{ id: 'RO177', name: 'PRESCRIBING COST CENTRE', primary: true }, { id: 'RO76', name: 'GP PRACTICE', primary: false }],
+            links: [{ code: '06T', name: 'NHS ESSEX ICB - 06T', role: 'RO98' }],
+            lastChangedAt: '2025-01-01', suggestedOrganisationType: 'gp-practice',
+          },
+        }),
+      ),
+    );
+    render(<CreateTenantForm />);
+    await user.type(screen.getByLabelText('Organisation’s name'), 'ardleigh surgery');
+    await user.click(screen.getByRole('button', { name: 'Search the NHS directory' }));
+    await user.click(await screen.findByRole('button', { name: /Use THE ARDLEIGH SURGERY \(F81044/ }));
+    const record = await screen.findByText(/Active links:/);
+    expect(record).toHaveTextContent('NHS ESSEX ICB - 06T (06T)');
+    expect(screen.getByLabelText('Display name')).toHaveValue('THE ARDLEIGH SURGERY');
+    expect(screen.getByLabelText('Legal name')).toHaveValue('THE ARDLEIGH SURGERY');
+    expect(screen.getByLabelText('ODS code')).toHaveValue('F81044');
+    expect(screen.getByLabelText('Organisation type')).toHaveValue('gp-practice');
+    expect(screen.getByLabelText('Country code')).toHaveValue('GB');
+    expect(screen.getByLabelText('Time zone')).toHaveValue('Europe/London');
+    expect(screen.getByLabelText('Tenant id')).toHaveValue('the-ardleigh-surgery');
+  });
+
+  it('refuses an NHS trust, ICB or GP practice with no ODS code, and sends nothing', async () => {
+    const user = userEvent.setup();
+    render(<CreateTenantForm />);
+    await fill(user, { 'ODS code': '' });
+    await user.click(screen.getByRole('button', { name: 'Create tenant' }));
+    expect((await screen.findAllByText(/An NHS trust, ICB or GP practice needs its ODS code/)).length).toBeGreaterThan(0);
+    expect(seenOperatorWrites).toHaveLength(0);
   });
 
   it('looks the directory id up from the domain, fills it in for the operator to check, and says what it found', async () => {
@@ -100,6 +142,7 @@ describe('CreateTenantForm', () => {
       displayName: 'Sample Area D',
       legalName: 'Sample Area D Organisation',
       organisationType: 'nhs-trust',
+      odsCode: 'RZZ03',
       countryCode: 'GB',
       timeZone: 'Europe/London',
       directoryId: '00000000-0000-4000-8000-000000000000',

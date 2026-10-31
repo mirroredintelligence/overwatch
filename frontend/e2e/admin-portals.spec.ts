@@ -59,6 +59,7 @@ test.describe('the platform console', () => {
     await page.getByLabel('Tenant id').fill('example-trust-e2e');
     await page.getByLabel('Display name').fill('Example Trust E2E');
     await page.getByLabel('Legal name').fill('Example Trust E2E Organisation');
+    await page.getByLabel('ODS code').fill('RZZ03');
     await page.getByLabel('Directory id').fill(DIRECTORY);
     await page.getByRole('button', { name: 'Add a group' }).click();
     await page.getByRole('button', { name: 'Add another group' }).click();
@@ -103,6 +104,7 @@ test.describe('the platform console', () => {
     await page.getByLabel('Tenant id').fill('example-bad-directory');
     await page.getByLabel('Display name').fill('Example Bad Directory');
     await page.getByLabel('Legal name').fill('Example Bad Directory Organisation');
+    await page.getByLabel('ODS code').fill('RZZ03');
     await page.getByLabel('Directory id').fill('not-a-guid');
     await page.getByRole('button', { name: 'Create tenant' }).click();
     await expect(page.locator('[data-el="FORM-ERROR-SUMMARY"]')).toContainText('There is 1 problem');
@@ -119,6 +121,7 @@ test.describe('the platform console', () => {
     await page.getByLabel('Tenant id').fill('example-phone');
     await page.getByLabel('Display name').fill('Example Phone');
     await page.getByLabel('Legal name').fill('Example Phone Organisation');
+    await page.getByLabel('ODS code').fill('RZZ03');
     await page.getByRole('button', { name: 'Create tenant' }).click();
     await expect(page.getByRole('status')).toContainText('Tenant created.');
     await page.goto('/operator');

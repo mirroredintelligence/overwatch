@@ -51,6 +51,7 @@ CREATE_BODY = {
     "displayName": "Brand New Organisation",
     "legalName": "Brand New Organisation Ltd",
     "organisationType": "icb",
+    "odsCode": "F81044",
 }
 SUSPEND_BODY = {"mode": "blocked", "reason": "security-incident"}
 TICKET_BODY = {"reasonCode": "service-fault", "reason": REASON, "reference": "HD-1042"}

@@ -74,13 +74,15 @@ def test_a_new_tenant_is_in_provisioning_with_its_own_keys_and_nothing_else_set(
         display_name="New Organisation",
         legal_name="New Organisation Ltd",
         organisation_type=OrganisationType.ICB,
+        ods_code="QXX",
         now=NOW,
     )
     assert tenant.status is TenantStatus.PROVISIONING
     assert tenant.epoch == 1 and tenant.hash_key_version == 1
     assert tenant.created_at == NOW and tenant.activated_at is None
     assert tenant.time_zone == "Europe/London" and tenant.country_code == "GB"
-    assert (tenant.dsa_ref, tenant.dpia_ref, tenant.dcb0160_ref, tenant.ods_code) == (None,) * 4
+    assert (tenant.dsa_ref, tenant.dpia_ref, tenant.dcb0160_ref) == (None,) * 3
+    assert tenant.ods_code == "QXX"
 
 
 @pytest.mark.parametrize(
@@ -253,3 +255,43 @@ def test_the_facts_are_a_value_and_replace_keeps_the_checks() -> None:
     facts = _facts()
     assert replace(facts, time_zone="Europe/London").time_zone == "Europe/London"
     assert datetime(2026, 1, 1, tzinfo=UTC) < NOW
+
+
+@pytest.mark.parametrize(
+    "organisation_type",
+    [OrganisationType.NHS_TRUST, OrganisationType.ICB, OrganisationType.GP_PRACTICE],
+)
+def test_an_nhs_organisation_is_created_only_with_its_ods_code(
+    organisation_type: OrganisationType,
+) -> None:
+    base = {
+        "tenant_id": TENANT,
+        "display_name": "New Organisation",
+        "legal_name": "New Organisation Ltd",
+        "organisation_type": organisation_type,
+        "now": NOW,
+    }
+    with pytest.raises(ValidationFailed, match="ods_code"):
+        new_tenant(**base)  # type: ignore[arg-type]
+    assert new_tenant(**{**base, "ods_code": "F81044"}).ods_code == "F81044"  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "organisation_type",
+    [
+        OrganisationType.LOCAL_AUTHORITY,
+        OrganisationType.VOLUNTARY_INDEPENDENT,
+        OrganisationType.OTHER,
+    ],
+)
+def test_an_organisation_outside_the_nhs_needs_no_ods_code(
+    organisation_type: OrganisationType,
+) -> None:
+    tenant = new_tenant(
+        tenant_id=TENANT,
+        display_name="New Organisation",
+        legal_name="New Organisation Ltd",
+        organisation_type=organisation_type,
+        now=NOW,
+    )
+    assert tenant.ods_code is None

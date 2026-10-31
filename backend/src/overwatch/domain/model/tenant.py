@@ -99,6 +99,12 @@ class OrganisationType(StrEnum):
     OTHER = "other"
 
 
+# The organisation types whose tenant is created with its ODS code (DEC-1313).
+NHS_ORGANISATION_TYPES: Final = frozenset(
+    {OrganisationType.NHS_TRUST, OrganisationType.ICB, OrganisationType.GP_PRACTICE}
+)
+
+
 class TenantStatus(StrEnum):
     PROVISIONING = "provisioning"
     ACTIVE = "active"

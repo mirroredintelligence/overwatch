@@ -23,8 +23,10 @@ from overwatch.application.tenancy import ScopeKind, TenantNotBound, current_sco
 from overwatch.application.use_cases.criteria_reviews import ensure_daily_schedule
 from overwatch.application.use_cases.tenant_config import ConfigurationFacts
 from overwatch.application.use_cases.tenant_invariants import ensure_invariant_schedule
+from overwatch.domain.errors import ValidationFailed
 from overwatch.domain.model.tenant import (
     DEFAULT_TIME_ZONE,
+    NHS_ORGANISATION_TYPES,
     NumberStatus,
     OrganisationType,
     Tenant,
@@ -69,7 +71,12 @@ def new_tenant(
 ) -> Tenant:
     """The record of a tenant that has just been created: `provisioning`, epoch 1, no times but its
     creation. Every field is checked by the record itself; the tenant's keys are its own
-    (`hash_key_version` 1: only the default tenant keeps the platform's, DEC-350)."""
+    (`hash_key_version` 1: only the default tenant keeps the platform's, DEC-350).
+
+    An NHS organisation (trust, ICB or GP practice) is created with its ODS code: the code names the
+    provider (DEC-1313). Only creation requires it, so a tenant already on record still loads."""
+    if organisation_type in NHS_ORGANISATION_TYPES and not ods_code:
+        raise ValidationFailed("ods_code", "is required for an NHS organisation")
     return Tenant(
         id=tenant_id,
         display_name=display_name,

@@ -12,7 +12,10 @@ param environmentName string = 'cae-diucs-pilot-uks'
 param registryServer string = 'acrdiucspilot7k2q.azurecr.io'
 param keyVaultUrl string = 'https://kv-diucs-pilot-7k2q.vault.azure.net/'
 param neo4jUri string = 'neo4j+s://8cb817d8.databases.neo4j.io'
+// An Aura instance's username is its id, not "neo4j" (the settings default).
+param neo4jUser string = '8cb817d8'
 param baseUrl string = 'https://overwatch.mirroredintelligence.com'
+param operatorBaseUrl string = 'https://overwatch-admin.mirroredintelligence.com'
 param fhirBaseUrl string = 'https://api.internal.victorioustree-0cb125c2.uksouth.azurecontainerapps.io/fhir'
 param placeholderImage string = 'mcr.microsoft.com/k8se/quickstart:latest'
 // The real images, pushed to the pilot registry. Pass the tag at deploy time (the commit short sha).
@@ -75,6 +78,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'AZURE_CLIENT_ID', value: apiIdentity.properties.clientId }
             { name: 'DIUCS_BASE_URL', value: baseUrl }
             { name: 'DIUCS_NEO4J_URI', value: neo4jUri }
+            { name: 'DIUCS_NEO4J_USER', value: neo4jUser }
             { name: 'DIUCS_EDGE', value: 'none' }
             { name: 'DIUCS_ENTRA_STAFF_CLIENT_ID', value: entraStaffClientId }
             { name: 'DIUCS_ENTRA_OPERATOR_CLIENT_ID', value: entraOperatorClientId }
@@ -87,7 +91,7 @@ resource api 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
+        minReplicas: 1
         maxReplicas: 1
       }
     }
@@ -124,6 +128,7 @@ resource workers 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'DIUCS_KEY_VAULT_URL', value: keyVaultUrl }
             { name: 'AZURE_CLIENT_ID', value: workersIdentity.properties.clientId }
             { name: 'DIUCS_NEO4J_URI', value: neo4jUri }
+            { name: 'DIUCS_NEO4J_USER', value: neo4jUser }
           ]
           resources: {
             cpu: json('0.25')
@@ -132,7 +137,7 @@ resource workers 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
+        minReplicas: 1
         maxReplicas: 1
       }
     }
@@ -233,6 +238,11 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'DIUCS_KEY_VAULT_URL', value: keyVaultUrl }
             { name: 'AZURE_CLIENT_ID', value: webIdentity.properties.clientId }
             { name: 'DIUCS_FHIR_BASE_URL', value: fhirBaseUrl }
+            { name: 'ENTRA_CLIENT_ID', value: entraStaffClientId }
+            { name: 'DIUCS_PUBLIC_URL', value: baseUrl }
+            { name: 'OPERATOR_ENTRA_CLIENT_ID', value: entraOperatorClientId }
+            { name: 'OPERATOR_ENTRA_DIRECTORY_ID', value: operatorDirectoryId }
+            { name: 'DIUCS_OPERATOR_PUBLIC_URL', value: operatorBaseUrl }
           ]
           resources: {
             cpu: json('0.25')
@@ -241,7 +251,7 @@ resource web 'Microsoft.App/containerApps@2024-03-01' = {
         }
       ]
       scale: {
-        minReplicas: 0
+        minReplicas: 1
         maxReplicas: 1
       }
     }

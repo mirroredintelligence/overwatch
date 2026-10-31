@@ -130,12 +130,14 @@ put_secret() {
   rm -f "$tmp"
 }
 
-say "key vault secrets: platform keys (random, 48 bytes each; never printed)"
+say "key vault secrets: platform keys (random, 48 bytes each, session-secret 32; never printed)"
 for name in bff-jwt account-ref phone-hash link-token link-csrf code-hmac pin-hmac device-token support-code telemetry-markers edge-origin session-secret; do
   if az keyvault secret show --vault-name "$KV" --name "$name" --query id -o tsv >/dev/null 2>&1; then
     echo "  $name already exists, left as it is"
   else
-    openssl rand -base64 48 | tr -d '\n' | put_secret "$name" && echo "  $name created"
+    # The web app requires session-secret to be exactly 32 random bytes, base64 encoded.
+    bytes=48; [[ "$name" == session-secret ]] && bytes=32
+    openssl rand -base64 "$bytes" | tr -d '\n' | put_secret "$name" && echo "  $name created"
   fi
 done
 

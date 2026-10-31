@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { bffRequest, type BffResult } from '@/lib/bff/browser';
+import { bffRequest, type BffResult, type CsrfChannel } from '@/lib/bff/browser';
 import { newIdempotencyKey } from '@/lib/lead/browser';
 
 // The administration pages' calls to their BFF routes (TEN-076). A read says loading, ok or failed, with the
@@ -11,27 +11,27 @@ import { newIdempotencyKey } from '@/lib/lead/browser';
 
 export type Read<T> = { status: 'loading' } | { status: 'ok'; data: T } | { status: 'failed'; http: number };
 
-export function useAdminRead<T>(path: string | null): { state: Read<T>; reload: () => void } {
+export function useAdminRead<T>(path: string | null, csrf?: CsrfChannel): { state: Read<T>; reload: () => void } {
   const [state, setState] = useState<Read<T>>({ status: 'loading' });
   const [round, setRound] = useState(0);
   useEffect(() => {
     if (path === null) return;
     let current = true;
-    void bffRequest<T>(path).then((result) => {
+    void bffRequest<T>(path, { csrf }).then((result) => {
       if (!current) return;
       setState(result.ok ? { status: 'ok', data: result.data } : { status: 'failed', http: result.status });
     });
     return () => {
       current = false;
     };
-  }, [path, round]);
+  }, [path, round, csrf]);
   const reload = useCallback(() => setRound((n) => n + 1), []);
   return { state, reload };
 }
 
 /** One call to a write route, with the key of this submit. */
-export function adminSend<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, body: unknown, key: string): Promise<BffResult<T>> {
-  return bffRequest<T>(path, { method, body, idempotencyKey: key });
+export function adminSend<T>(method: 'POST' | 'PUT' | 'DELETE', path: string, body: unknown, key: string, csrf?: CsrfChannel): Promise<BffResult<T>> {
+  return bffRequest<T>(path, { method, body, idempotencyKey: key, csrf });
 }
 
 /** The idempotency key of the submit in progress: the same until `fresh()` (after an edit or a success). */

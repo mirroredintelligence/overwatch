@@ -9,22 +9,25 @@ export type BffResult<T> =
   | { ok: false; status: number; code: string };
 
 const CSRF_COOKIE = 'diucs_csrf';
+/** Where a console gets its CSRF token: the cookie it is in, and the session route that issues it. */
+export type CsrfChannel = { cookie: string; sessionUrl: string };
+const TENANT_CSRF: CsrfChannel = { cookie: CSRF_COOKIE, sessionUrl: '/api/bff/session' };
 const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
-export function csrfFromCookie(): string | null {
+export function csrfFromCookie(name: string = CSRF_COOKIE): string | null {
   if (typeof document === 'undefined') return null;
   for (const part of document.cookie.split(';')) {
     const at = part.indexOf('=');
-    if (at >= 0 && part.slice(0, at).trim() === CSRF_COOKIE) return part.slice(at + 1).trim() || null;
+    if (at >= 0 && part.slice(0, at).trim() === name) return part.slice(at + 1).trim() || null;
   }
   return null;
 }
 
-async function csrfToken(): Promise<string | null> {
-  const fromCookie = csrfFromCookie();
+async function csrfToken(channel: CsrfChannel): Promise<string | null> {
+  const fromCookie = csrfFromCookie(channel.cookie);
   if (fromCookie) return fromCookie;
   // The cookie is not set yet in this tab: the session route issues it and answers the same token.
-  const session = await fetch('/api/bff/session', withTraceparent({ cache: 'no-store', credentials: 'same-origin' })).catch(() => null);
+  const session = await fetch(channel.sessionUrl, withTraceparent({ cache: 'no-store', credentials: 'same-origin' })).catch(() => null);
   if (!session?.ok) return null;
   const body = (await session.json().catch(() => null)) as { csrfToken?: unknown } | null;
   return typeof body?.csrfToken === 'string' ? body.csrfToken : null;
@@ -38,7 +41,7 @@ async function codeOf(response: Response): Promise<string> {
 /** One call to a BFF route. The body is JSON when given. A network failure is status 0. */
 export async function bffRequest<T>(
   path: string,
-  options: { method?: string; body?: unknown; idempotencyKey?: string } = {},
+  options: { method?: string; body?: unknown; idempotencyKey?: string; csrf?: CsrfChannel } = {},
 ): Promise<BffResult<T>> {
   const method = (options.method ?? (options.body === undefined ? 'GET' : 'POST')).toUpperCase();
   const headers: Record<string, string> = {};
@@ -46,7 +49,7 @@ export async function bffRequest<T>(
   // One key per submit: a repeat of the same submit is a replay at the back end, not a second change.
   if (options.idempotencyKey !== undefined) headers['Idempotency-Key'] = options.idempotencyKey;
   if (UNSAFE.has(method)) {
-    const token = await csrfToken();
+    const token = await csrfToken(options.csrf ?? TENANT_CSRF);
     if (token) headers['X-CSRF-Token'] = token;
   }
   let response: Response;

@@ -15,6 +15,8 @@ host of its own; any other tenant without a host cannot be sent a link, which is
 that opens on another tenant's host (DEC-134 item 3: the host chooses the tenant).
 """
 
+import inspect
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Final, Protocol
 from zoneinfo import ZoneInfo
@@ -131,6 +133,36 @@ class DirectoryHostUrl:
 
 def as_link_base(source: str | LinkBases) -> LinkBases:
     return FixedLinkBase(source) if isinstance(source, str) else source
+
+
+LinkBaseUrlFor = Callable[[ScopeId], str | Awaitable[str]]
+"""A tenant's link base for the use cases that build a link of their own (a booking request, an
+invitation). The test rigs pass a function that answers text; the serving process passes the
+directory's source (`DirectoryLinkBase.link_base_url`), which is async: `resolve_link_base` takes
+either."""
+
+
+async def resolve_link_base(source: LinkBaseUrlFor, scope: ScopeId) -> str:
+    """The base `source` gives for this scope, awaited when the source is async."""
+    found = source(scope)
+    if isinstance(found, str):
+        return found
+    if inspect.isawaitable(found):
+        resolved = await found
+        if isinstance(resolved, str):
+            return resolved
+    raise TypeError("a link base source must answer with text")
+
+
+def require_tenant_link_bases(source: str | LinkBases) -> LinkBases:
+    """The link source of a serving process, which must be a tenant's own (KI-505): a plain string
+    or a fixed base is one host for every tenant, so a link could open on another tenant's host
+    (DEC-134 item 3). Only the test rigs and a one-host deployment may use one."""
+    if isinstance(source, str | FixedLinkBase):
+        raise TypeError(
+            "a serving process needs a link base for each tenant, not one for every tenant"
+        )
+    return source
 
 
 @dataclass(frozen=True, slots=True)

@@ -125,7 +125,7 @@ async def test_the_wording_of_another_tenant_than_the_bound_one_is_never_read() 
 async def test_a_network_scope_has_no_wording() -> None:
     reader = _Reader(WORDING)
 
-    with bind_scope(ScopeId.network("net-1")), pytest.raises(TenantNotBound):
-        await ConfiguredWording(reader)(ScopeId.network("net-1"))
+    with bind_scope(ScopeId.network("net-west")), pytest.raises(TenantNotBound):
+        await ConfiguredWording(reader)(ScopeId.network("net-west"))
 
     assert reader.reads == 0

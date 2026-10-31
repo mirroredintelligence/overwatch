@@ -13,7 +13,7 @@ Decisions: DEC-310 to DEC-312 (U24).
 """
 
 import hashlib
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Final
@@ -27,6 +27,7 @@ from diucs.application.ports.outbound.messaging import Communication
 from diucs.application.ports.outbound.outbox import OutboxMessage, outbox_message_for
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork, UnitOfWorkFactory
 from diucs.application.tenancy import ScopeId, ScopeKind, TenantNotBound
+from diucs.application.tenant_settings import resolve_link_base
 from diucs.application.use_cases.send_prompts import LinkTokenServiceFactory
 from diucs.application.use_cases.setup_service_by_lead import check_role_name, international
 from diucs.application.use_cases.text_code import INVITATION_PURPOSE
@@ -39,7 +40,8 @@ from diucs.domain.model.people import Practitioner, PractitionerRole
 from diucs.domain.model.registration import Invitation, Registration
 from diucs.domain.rules.registration import INVITATION_VALID_FOR, can_invite
 
-LinkBaseUrlFor = Callable[[ScopeId], str]
+LinkBaseUrlFor = Callable[[ScopeId], str | Awaitable[str]]
+"""Text or an awaitable of text (`resolve_link_base`): the serving process's source is async."""
 """The link base URL of a tenant (`https://<host>`), given the bound scope (DEC-134 item 3)."""
 INVITE_LINK_PATH: Final = "/i/"
 """The set-up page of an invitation is `/i/<token>`."""
@@ -317,7 +319,7 @@ class InviteReporter:
                     expires_at=expires_at,
                 )
             )
-            base_url = self._link_base_url_for(scope)
+            base_url = await resolve_link_base(self._link_base_url_for, scope)
             token = await self._link_tokens(uow.link_tokens).issue(
                 INVITATION_PURPOSE, invitation_id, phone_hash, expires_at
             )
@@ -424,7 +426,7 @@ class ResendInvitation:
             await uow.registrations.save_invitation(
                 replace(invitation, sent_at=now, expires_at=expires_at)
             )
-            base_url = self._link_base_url_for(scope)
+            base_url = await resolve_link_base(self._link_base_url_for, scope)
             await _send_text(
                 uow,
                 self._ids,

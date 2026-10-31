@@ -19,6 +19,7 @@ import Support from './support/page';
 import Contacts from './contacts/page';
 import Email from './email/page';
 import Retention from './retention/page';
+import Sharing from './sharing/page';
 
 // The pages of the tenant administration (TEN-076): each at its own address, each only the component that
 // reads its own BFF routes. The role guard is the proxy's (proxy.test.ts) and the BFF's (the routes' tests).
@@ -32,6 +33,7 @@ describe.each([
   ['/admin/contacts', Contacts, 'Contacts'],
   ['/admin/email', Email, 'Email sender'],
   ['/admin/retention', Retention, 'Data retention'],
+  ['/admin/sharing', Sharing, 'Sharing with the network'],
 ] as const)('%s', (_path, Page, heading) => {
   it(`shows ${heading}`, async () => {
     render(<Page />);

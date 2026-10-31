@@ -8,6 +8,7 @@ import { BackendCallError, backendRoot, callBackend } from './hostCall';
 const PING = `${BACKEND_ROOT}/public/ping`;
 
 beforeEach(() => {
+  vi.unstubAllEnvs();
   vi.stubEnv('DIUCS_FHIR_BASE_URL', `${BACKEND_ROOT}/fhir`);
 });
 
@@ -32,6 +33,66 @@ describe('callBackend', () => {
     const reply = await callBackend({ method: 'GET', path: '/public/ping', host: 'tenant-a.example.test' });
     expect(reply).toMatchObject({ status: 200, body: { ok: true } });
     expect(seen).toBe('tenant-a.example.test');
+  });
+
+  describe('behind the platform ingress (DIUCS_EDGE_ORIGIN_SECRET set)', () => {
+    const SECRET = 'edge-secret-value-of-sufficient-length-0123456789';
+    beforeEach(() => {
+      vi.stubEnv('DIUCS_EDGE_ORIGIN_SECRET', SECRET);
+    });
+
+    it('names the tenant in X-Forwarded-Host with the origin secret, and leaves Host alone', async () => {
+      let seen: Record<string, string | null> = {};
+      server.use(http.get(PING, ({ request }) => {
+        seen = {
+          host: request.headers.get('host'),
+          forwarded: request.headers.get('x-forwarded-host'),
+          auth: request.headers.get('x-edge-auth'),
+        };
+        return HttpResponse.json({ ok: true });
+      }));
+      await callBackend({ method: 'GET', path: '/public/ping', host: 'Tenant-A.example.test' });
+      expect(seen.forwarded).toBe('tenant-a.example.test');
+      expect(seen.auth).toBe(SECRET);
+      expect(seen.host).not.toBe('tenant-a.example.test');
+    });
+
+    it('passes the visitor address on as CF-Connecting-IP only when it is one address', async () => {
+      const seen: (string | null)[] = [];
+      server.use(http.get(PING, ({ request }) => {
+        seen.push(request.headers.get('cf-connecting-ip'));
+        return HttpResponse.json({});
+      }));
+      await callBackend({ method: 'GET', path: '/public/ping', host: 'a.test', clientIp: '203.0.113.9' });
+      await callBackend({ method: 'GET', path: '/public/ping', host: 'a.test', clientIp: '203.0.113.9, 10.0.0.1' });
+      await callBackend({ method: 'GET', path: '/public/ping', host: 'a.test' });
+      expect(seen).toEqual(['203.0.113.9', null, null]);
+    });
+
+    it('does not let a caller header replace the edge headers', async () => {
+      let seen: Record<string, string | null> = {};
+      server.use(http.get(PING, ({ request }) => {
+        seen = { forwarded: request.headers.get('x-forwarded-host'), auth: request.headers.get('x-edge-auth') };
+        return HttpResponse.json({});
+      }));
+      await callBackend({
+        method: 'GET', path: '/public/ping', host: 'a.test',
+        headers: { 'X-Forwarded-Host': 'evil.test', 'x-edge-auth': 'other' },
+      });
+      expect(seen).toEqual({ forwarded: 'a.test', auth: SECRET });
+    });
+  });
+
+  it('sends no edge headers when no origin secret is set (local and test runs)', async () => {
+    let names: string[] = [];
+    server.use(http.get(PING, ({ request }) => {
+      names = [...request.headers.keys()];
+      return HttpResponse.json({});
+    }));
+    await callBackend({ method: 'GET', path: '/public/ping', host: 'a.test', clientIp: '203.0.113.9' });
+    expect(names).not.toContain('x-edge-auth');
+    expect(names).not.toContain('x-forwarded-host');
+    expect(names).not.toContain('cf-connecting-ip');
   });
 
   it('sends no Authorization header and no tenant header of any kind', async () => {

@@ -8,10 +8,21 @@ import { normaliseHost } from '@/lib/auth/host';
 // back end as its Host header. The global fetch of Node ignores a Host header, so the request is made
 // with node:http. This file and `client.ts` are the only places the front end talks to the back end.
 //
+// Two ways to say which tenant the call is for:
+// - Locally and in tests the back end is reached directly, so the Host header carries it.
+// - Behind the platform ingress (Azure Container Apps) the back end is addressed by its own internal
+//   name: ingress routes on Host, so a Host naming the tenant would reach the wrong app. When
+//   DIUCS_EDGE_ORIGIN_SECRET is set (a secret from the secret store, never in the repository) the
+//   tenant host goes in X-Forwarded-Host with the secret in X-Edge-Auth, which the back end's edge
+//   middleware accepts only with the matching secret, and the visitor's address in CF-Connecting-IP.
+//
 // It never sends an Authorization header, a tenant header, a scope or a network: a call that needs a
 // bearer token goes through `fhirFetch`.
 
 const BASE_URL_VARIABLE = 'DIUCS_FHIR_BASE_URL';
+const EDGE_SECRET_VARIABLE = 'DIUCS_EDGE_ORIGIN_SECRET';
+const EDGE_HEADERS = ['x-forwarded-host', 'x-edge-auth', 'cf-connecting-ip'];
+const ONE_ADDRESS = /^[0-9a-fA-F:.]{2,45}$/;
 const FHIR_SUFFIX = '/fhir';
 const TIMEOUT_MS = 10_000;
 const MAX_ANSWER_BYTES = 64 * 1024;
@@ -47,6 +58,8 @@ export type BackendCall = {
   path: string;
   /** The host the request was addressed to: the tenant's own host. */
   host: string | null;
+  /** The visitor's address, passed on behind the platform ingress for the rate limits. One address only. */
+  clientIp?: string;
   body?: unknown;
   csrf?: string;
   /** Further request headers, such as `Authorization` or `X-Screen-Secret` (the screen and token routes). */
@@ -70,7 +83,15 @@ export async function callBackend(call: BackendCall): Promise<BackendReply> {
   if (host === null) throw new BackendCallError('unavailable');
   const url = new URL(call.path, backendRoot(process.env[BASE_URL_VARIABLE]));
   const payload = call.body === undefined ? undefined : JSON.stringify(call.body);
-  const headers: Record<string, string | number> = { Host: host, Accept: 'application/json' };
+  const edgeSecret = process.env[EDGE_SECRET_VARIABLE];
+  const headers: Record<string, string | number> = { Accept: 'application/json' };
+  if (edgeSecret) {
+    headers['X-Forwarded-Host'] = host;
+    headers['X-Edge-Auth'] = edgeSecret;
+    if (call.clientIp !== undefined && ONE_ADDRESS.test(call.clientIp)) headers['CF-Connecting-IP'] = call.clientIp;
+  } else {
+    headers.Host = host;
+  }
   if (payload !== undefined) {
     headers['Content-Type'] = 'application/json';
     headers['Content-Length'] = Buffer.byteLength(payload);
@@ -80,9 +101,9 @@ export async function callBackend(call: BackendCall): Promise<BackendReply> {
     headers['Content-Length'] = 0;
   }
   if (call.csrf !== undefined) headers['X-CSRF-Token'] = call.csrf;
-  // Applied last, but never over the host that names the tenant or the length of the body.
+  // Applied last, but never over the host that names the tenant, the edge headers or the length of the body.
   for (const [name, value] of Object.entries(call.headers ?? {})) {
-    if (!['host', 'content-length'].includes(name.toLowerCase())) headers[name] = value;
+    if (!['host', 'content-length', ...EDGE_HEADERS].includes(name.toLowerCase())) headers[name] = value;
   }
 
   // Read at call time from the module object, so a test double of the transport is the one used.

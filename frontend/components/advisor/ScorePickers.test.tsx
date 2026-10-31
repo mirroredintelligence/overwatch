@@ -111,7 +111,7 @@ describe('ScorePickers (W12)', () => {
     const user = userEvent.setup();
     const { onChange } = setup();
     await user.click(byEl('ADV-SCORE-PATHWAYS-CHIP'));
-    await user.type(screen.getByRole('searchbox', { name: 'Search Dx code or description' }), 'PD-101');
+    await user.type(screen.getByRole('searchbox', { name: 'Search Dx code or description' }), 'Dx101');
     expect(onChange.mock.calls.every((call) => (call[0] as Score[]).length === 0)).toBe(true);
 
     await waitFor(() => expect(pathwaysOptionCount()).toBeGreaterThan(0), { timeout: 8000 });

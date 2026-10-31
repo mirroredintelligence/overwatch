@@ -50,10 +50,10 @@ describe('summaryOf (W15)', () => {
       scores: [
         { method: 'ambulance-category', value: 2 },
         { method: 'manchester', value: 'very-urgent' },
-        { method: 'pathways-dx', value: 'PD-101' },
+        { method: 'pathways-dx', value: 'Dx101' },
       ],
     });
-    expect(summary.scores).toBe('Ambulance category 2; Manchester triage Very urgent; NHS Pathways Dx PD-101');
+    expect(summary.scores).toBe('Ambulance category 2; Manchester triage Very urgent; NHS Pathways Dx Dx101');
   });
 });
 

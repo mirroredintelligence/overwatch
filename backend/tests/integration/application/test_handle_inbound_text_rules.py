@@ -6,6 +6,7 @@ East on one phone, prompted together by one C9 at 10:00, reply-by 10:30). Sample
 """
 
 import asyncio
+import dataclasses
 from datetime import timedelta
 from typing import Any
 
@@ -24,7 +25,7 @@ from diucs.application.use_cases.handle_inbound_text import (
     STALE_FIGURE,
     HandleInboundTextResult,
 )
-from diucs.domain.codes import ReportType
+from diucs.domain.codes import Cadence, ReportType
 from diucs.domain.errors import Conflict
 from tests.integration.application.test_handle_inbound_text import (
     EARLY,
@@ -256,6 +257,55 @@ async def test_a_y_is_answered_when_the_latest_figure_is_dated_after_the_clock(
     latest = await _latest(uow_factory)
     assert latest.report_type is ReportType.CONFIRMED
     assert latest.effective_at == bst(10, 20) + timedelta(microseconds=1)
+
+
+# --- Q4, KI-27: a daily service may confirm a figure a day old -------------------------------------
+
+
+async def _daily_service_with_figure(
+    uow_factory: UnitOfWorkFactory, seed_service: Seed, figure_age: timedelta
+) -> None:
+    daily = dataclasses.replace(UCR_WEST, cadence=Cadence.ONCE_A_DAY)
+    await seed_service(daily)
+    await _seed_people(uow_factory)
+    await _seed_figure(uow_factory, 3, bst(10, 0) - figure_age)
+    await _seed_prompt(uow_factory, bst(10, 0))
+
+
+async def test_a_y_confirms_a_daily_services_figure_twenty_hours_old(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _daily_service_with_figure(uow_factory, seed_service, timedelta(hours=20))
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
+    assert result == HandleInboundTextResult(CONFIRMED, ("ucr-west",))
+
+
+async def test_a_y_does_not_confirm_a_daily_services_figure_past_its_day(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await _daily_service_with_figure(uow_factory, seed_service, timedelta(hours=24, microseconds=1))
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
+    assert result == HandleInboundTextResult(STALE_FIGURE, ("ucr-west",))
+
+
+async def test_a_y_for_a_two_hourly_service_keeps_the_two_hours(
+    uow_factory: UnitOfWorkFactory, neo4j_driver: AsyncDriver, seed_service: Seed
+) -> None:
+    await seed_service(UCR_WEST)
+    await _seed_people(uow_factory)
+    await _seed_figure(uow_factory, 3, bst(10, 0) - timedelta(hours=2, microseconds=1))
+    await _seed_prompt(uow_factory, bst(10, 0))
+    rig = Rig(uow_factory, neo4j_driver)
+
+    result = await rig.say("Y", bst(10, 5))
+
+    assert result == HandleInboundTextResult(STALE_FIGURE, ("ucr-west",))
 
 
 # --- KI-33: the recheck key is written before the commit ------------------------------------------

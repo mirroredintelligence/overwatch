@@ -40,6 +40,8 @@ class FhirJSONResponse(JSONResponse):
 
 # type -> (interactions, operations). Module-level, so the tests reset it with monkeypatch.
 _RESOURCES: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {}
+# type -> operations a route module adds to a type that another module registered (KI-399).
+_ADDED_OPERATIONS: dict[str, tuple[str, ...]] = {}
 # type -> the canonical URLs of the profiles the server publishes for it (R14).
 _PROFILES: dict[str, list[str]] = {}
 
@@ -63,6 +65,20 @@ def register_resource(
     _RESOURCES[resource_type] = (tuple(interactions), tuple(operations))
 
 
+def advertise_operations(resource_type: str, operations: Sequence[str]) -> None:
+    """Advertise more operations on a type, whoever registered the type and in whatever order
+    (KI-399): the advisor routes add the HealthcareService operations to the type the service
+    routes registered. They appear after the type's own, once each, and only if the type is
+    registered; operations of a type nobody registered are not advertised."""
+    if not resource_type:
+        raise ValueError("a resource type is required")
+    for url in operations:
+        if not url.startswith(("https://", "http://")):
+            raise ValueError(f"{resource_type}: an operation must be a canonical URL")
+    known = _ADDED_OPERATIONS.get(resource_type, ())
+    _ADDED_OPERATIONS[resource_type] = (*known, *(url for url in operations if url not in known))
+
+
 def add_supported_profile(resource_type: str, url: str) -> None:
     """Advertise a published profile for a registered type (R14). Adding one twice is harmless."""
     if not url.startswith("https://") and not url.startswith("http://"):
@@ -80,7 +96,11 @@ def is_registered(resource_type: str) -> bool:
 
 def build_capability_statement(now: datetime) -> dict[str, Any]:
     resources: list[dict[str, Any]] = []
-    for resource_type, (interactions, operations) in _RESOURCES.items():
+    for resource_type, (interactions, own_operations) in _RESOURCES.items():
+        operations = (
+            *own_operations,
+            *(url for url in _ADDED_OPERATIONS.get(resource_type, ()) if url not in own_operations),
+        )
         entry: dict[str, Any] = {
             "type": resource_type,
             "interaction": [{"code": code} for code in interactions],

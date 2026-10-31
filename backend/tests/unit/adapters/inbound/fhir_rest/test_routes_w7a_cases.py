@@ -28,3 +28,10 @@ async def test_closing_a_case_is_for_an_advisor_or_a_clinical_advisor() -> None:
             body=parameters,
             headers=KEY,
         )
+
+
+async def test_the_summary_is_for_an_advisor_or_a_clinical_advisor() -> None:
+    async with route_client() as client:
+        await assert_role_matrix(
+            client, "GET", "/fhir/ServiceRequest/case-1/$summary?destination=svc-1", CASE_ROLES
+        )

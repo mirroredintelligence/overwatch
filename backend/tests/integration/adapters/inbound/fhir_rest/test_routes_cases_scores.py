@@ -305,3 +305,71 @@ async def test_both_case_roles_may_correct_a_score(
     )
 
     assert response.status_code == 200, response.text
+
+
+# H-322: the summary route.
+
+
+def _rows(response: Any) -> dict[str, str]:
+    rows: dict[str, str] = {}
+    for item in response.json()["parameter"]:
+        if item["name"] == "row":
+            values = {part["name"]: part["valueString"] for part in item["part"]}
+            rows[values["label"]] = values["value"]
+    return rows
+
+
+async def test_the_summary_of_an_open_case_names_the_destination_and_the_data_age(
+    api_client: AsyncClient, seeded: None
+) -> None:
+    case_id = await opened(api_client)
+
+    response = await api_client.get(
+        f"/fhir/ServiceRequest/{case_id}/$summary?destination=svc-ucr-west",
+        headers=token_headers(role=Role.ADVISOR),
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.headers["cache-control"] == "no-store"
+    rows = _rows(response)
+    assert rows["Postcode"] == "DT4"
+    assert rows["Destination"] == "UCR West"
+    assert "Data age" in rows
+    assert "DT4 8XX" not in response.text
+
+
+async def test_the_summary_without_a_destination_leaves_those_rows_out(
+    api_client: AsyncClient, seeded: None
+) -> None:
+    case_id = await opened(api_client)
+
+    response = await api_client.get(
+        f"/fhir/ServiceRequest/{case_id}/$summary", headers=token_headers(role=Role.CLINICAL)
+    )
+
+    assert response.status_code == 200, response.text
+    assert not {"Destination", "Booked", "Data age"} & set(_rows(response))
+
+
+async def test_the_summary_of_a_closed_case_is_409_and_of_another_tenants_case_is_404(
+    api_client: AsyncClient, seeded: None
+) -> None:
+    case_id = await opened(api_client)
+    await api_client.post(
+        f"/fhir/ServiceRequest/{case_id}/$close",
+        json={
+            "resourceType": "Parameters",
+            "parameter": [{"name": "outcome", "valueCode": "declined"}],
+        },
+        headers=headers("sum-close"),
+    )
+
+    closed = await api_client.get(
+        f"/fhir/ServiceRequest/{case_id}/$summary", headers=token_headers(role=Role.ADVISOR)
+    )
+    foreign = await api_client.get(
+        f"/fhir/ServiceRequest/{B_CASE_ID}/$summary", headers=token_headers(role=Role.ADVISOR)
+    )
+
+    assert closed.status_code == 409
+    assert foreign.status_code == 404

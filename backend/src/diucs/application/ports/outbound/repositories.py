@@ -138,6 +138,11 @@ class BookingRepository(Protocol):
         """The open bookings per service. Every requested service id is a key, with [] if none."""
         ...
 
+    async def for_case(self, case_id: str) -> list[Booking]:
+        """Every booking made for this case, in any state, the most recently requested first
+        (Q-BOOK-FOR-CASE, H-322)."""
+        ...
+
     async def latest_for_services(self, service_ids: Sequence[str]) -> list[Booking]:
         """The most recent booking of each of these services that has one, in any state (U22).
         Q-BOOK-LATEST-FOR: one booking per service, by its authored time."""

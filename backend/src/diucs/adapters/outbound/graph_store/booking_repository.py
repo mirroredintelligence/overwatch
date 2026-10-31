@@ -98,6 +98,16 @@ _LATEST_FOR: Final = NamedQuery(
     mode="read",
     scenario=SCENARIOS["Q-BOOK-LATEST-FOR"],
 )
+_FOR_CASE: Final = NamedQuery(
+    id="Q-BOOK-FOR-CASE",
+    cypher=(
+        "MATCH (t:Task {tenantId: $tenant})-[:FOCUS]->(r:ServiceRequest {id: $case, "
+        "tenantId: $tenant}) WHERE t.reference IS NOT NULL "
+        "RETURN t.id AS id ORDER BY t.authoredOn DESC, t.id"
+    ),
+    mode="read",
+    scenario=SCENARIOS["Q-BOOK-FOR-CASE"],
+)
 _BY_REF: Final = NamedQuery(
     id="Q-BOOK-BY-REF",
     cypher=(
@@ -130,6 +140,7 @@ for _query in (
     _LATEST_FOR,
     _CONFIRMED_FOR,
     _CONFIRMED_FOR_SERVICES,
+    _FOR_CASE,
     _BY_REF,
     _SET_PROPS,
 ):
@@ -271,6 +282,15 @@ class Neo4jBookingRepository:
             if booking is not None:
                 grouped[str(row["serviceId"])].append(booking)
         return grouped
+
+    async def for_case(self, case_id: str) -> list[Booking]:
+        rows = await run_query(self._tx, REGISTRY.get("Q-BOOK-FOR-CASE"), case=case_id)
+        found: list[Booking] = []
+        for row in rows:
+            booking = await self.get(str(row["id"]))
+            if booking is not None:
+                found.append(booking)
+        return found
 
     async def latest_for_services(self, service_ids: Sequence[str]) -> list[Booking]:
         """The most recent booking of each of these services that has one (U22)."""

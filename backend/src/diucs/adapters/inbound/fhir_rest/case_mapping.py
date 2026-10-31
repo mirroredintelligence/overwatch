@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from diucs.application.idempotency import format_instant
+from diucs.application.use_cases.case_summary import CaseSummary
 from diucs.application.use_cases.filter_options import FilterOptionsResult, Option
 from diucs.domain.codes import (
     BASE_URL,
@@ -371,6 +372,23 @@ def _option_part(option: Option) -> dict[str, Any]:
     parts.extend({"name": "fits", "valueString": fit} for fit in option.fits)
     parts.extend({"name": "checks", "valueString": check} for check in option.warnings)
     return {"name": "option", "part": parts}
+
+
+def summary_to_fhir(summary: CaseSummary) -> dict[str, Any]:
+    """The summary as Parameters: the case reference, then one `row` part per row, in order, each
+    with its label and its value. Plain display text; no code and no id."""
+    parameters: list[dict[str, Any]] = [{"name": "reference", "valueString": summary.reference}]
+    parameters.extend(
+        {
+            "name": "row",
+            "part": [
+                {"name": "label", "valueString": label},
+                {"name": "value", "valueString": value},
+            ],
+        }
+        for label, value in summary.rows
+    )
+    return {"resourceType": "Parameters", "parameter": parameters}
 
 
 def filter_result_to_fhir(result: FilterOptionsResult) -> dict[str, Any]:

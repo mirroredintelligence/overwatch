@@ -5,6 +5,8 @@ POST /fhir/ServiceRequest                       open a case (OpenCase, U11, then
 GET  /fhir/ServiceRequest/{id}                  read one case, open or closed (W7A)
 PUT  /fhir/ServiceRequest/{id}                  update referrer, age band, postcode, needs, urgency
                                                 and scores (If-Match)
+GET  /fhir/ServiceRequest/{id}/$summary         the summary to copy, with the destination, booking
+                                                and data age of the service named (BuildCaseSummary)
 POST /fhir/ServiceRequest/{id}/$close           close with an outcome (RecordOutcome, U14)
 POST /fhir/HealthcareService/$filter-options    the options for a case (FilterOptions, U12); with a
                                                 `network` part, the other organisations' services
@@ -47,6 +49,7 @@ from diucs.adapters.inbound.fhir_rest.case_mapping import (
     filter_result_to_fhir,
     parse_case_details,
     refuse_patient_details,
+    summary_to_fhir,
 )
 from diucs.adapters.inbound.fhir_rest.concurrency import (
     etag_for,
@@ -69,6 +72,7 @@ from diucs.application.use_cases.advisor_phoned import (
     RecordAdvisorPhoned,
     RecordAdvisorPhonedCommand,
 )
+from diucs.application.use_cases.case_summary import BuildCaseSummary, BuildCaseSummaryQuery
 from diucs.application.use_cases.filter_network_options import (
     FilterNetworkOptionsCommand,
 )
@@ -103,7 +107,17 @@ router = APIRouter(prefix="/fhir")
 capability.register_resource(
     "ServiceRequest",
     ("read", "create", "update"),
-    (f"{BASE_URL}OperationDefinition/close",),
+    (f"{BASE_URL}OperationDefinition/close", f"{BASE_URL}OperationDefinition/summary"),
+)
+# The HealthcareService operations of the advisor's call (KI-399), added to the type the service
+# routes register: the options, "I phoned" and "they declined".
+capability.advertise_operations(
+    "HealthcareService",
+    (
+        f"{BASE_URL}OperationDefinition/filter-options",
+        f"{BASE_URL}OperationDefinition/advisor-phoned",
+        f"{BASE_URL}OperationDefinition/declined",
+    ),
 )
 
 
@@ -259,6 +273,25 @@ async def update_case(
         status_code=200,
         headers={"ETag": etag_for(version)},
     )
+
+
+@router.get("/ServiceRequest/{case_id}/$summary")
+async def case_summary(
+    case_id: str,
+    request: Request,
+    actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
+    destination: str | None = None,
+) -> Response:
+    """The summary to copy into the referral, for an open case (H-322). `destination` is the
+    service the advisor is referring to; without it the destination, booking and data age rows are
+    left out. A closed case has no summary (409)."""
+    container = get_container(request)
+    summary = await BuildCaseSummary(
+        container.uow_factory,
+        container.clock,
+        QueryBoard(container.uow_factory, container.clock),
+    ).execute(BuildCaseSummaryQuery(actor, case_id, destination))
+    return FhirJSONResponse(content=summary_to_fhir(summary), headers={"Cache-Control": "no-store"})
 
 
 @router.post("/ServiceRequest/{case_id}/$close")

@@ -212,7 +212,29 @@ _COVERAGE_SEED: Final = TenantSeed(
     rels=(SeedRel("ward", "COVERAGE_AREA", "area"),),
 )
 
+# A booking made for a case (H-322): a Task with a reference whose focus is the case.
+_CASE_BOOKING: Final = SeedNode(
+    "case-booking",
+    ("Resource", "Task"),
+    {"id": Marked("bk-3"), "key": "Task/bk-3", "businessStatus": "requested", "reference": "4823"},
+)
+_CASE_BOOKING_SEED: Final = TenantSeed(
+    nodes=(_REQUEST, _WARD, _CASE_BOOKING, _BOOKING_REQUESTED),
+    rels=(
+        SeedRel("case-booking", "FOCUS", "request"),
+        SeedRel("case-booking", "OWNER", "ward"),
+        SeedRel("booking-requested", "OWNER", "ward"),
+    ),
+)
+
 SCENARIOS: Final[dict[str, Scenario]] = {
+    "Q-BOOK-FOR-CASE": Scenario(
+        "the bookings made for one of the tenant's cases, newest first",
+        seed=_CASE_BOOKING_SEED,
+        params={"case": "case-1"},
+        lookup=("case",),
+        expect=Expect(rows=({"id": Marked("bk-3")},)),
+    ),
     "Q-SVC-COVERAGE": Scenario(
         "the districts each of the tenant's visiting services covers, from its coverage areas",
         seed=_COVERAGE_SEED,

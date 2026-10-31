@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { useAdminRead } from '@/lib/tenantAdmin/browser';
 import { whenText } from '@/lib/tenantAdmin/words';
@@ -66,9 +67,9 @@ function Loaded({ overview }: { overview: Overview }) {
           <p className={styles.text}>{`Version ${config.version}, in force since ${whenText(config.effectiveFrom)}.`}</p>
         )}
         <p className={styles.text}>
-          <a className={styles.link} href="/admin/config">
+          <Link className={styles.link} href="/admin/config">
             Settings and versions
-          </a>
+          </Link>
         </p>
       </Card>
 

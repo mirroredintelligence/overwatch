@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
+import { useId, useMemo, useState, type FormEvent } from 'react';
 import { ErrorSummary, type FieldError } from '@/components/lead/ErrorSummary';
 import { TextField } from '@/components/forms/TextField';
 import { Button } from '@/components/ui/Button';
@@ -108,6 +108,7 @@ export function ConfigVersions() {
 
       {open ? (
         <DraftForm
+          key={inForce?.version ?? 0}
           specs={settings.state.data.settings}
           values={inForce?.values ?? {}}
           basedOn={inForce?.version ?? 0}
@@ -145,7 +146,6 @@ function DraftForm({ specs, values, basedOn, onCancel, onSaved }: FormProps) {
   const [failure, setFailure] = useState('');
   const [busy, setBusy] = useState(false);
   const submitKey = useSubmitKey();
-  useEffect(() => setFields(initial), [initial]);
 
   function edit(key: string, value: FieldValue) {
     submitKey.fresh();

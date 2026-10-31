@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { bffRequest } from '@/lib/bff/browser';
-import { OPERATOR_CSRF } from '@/lib/operator/browser';
+import { OPERATOR_CSRF, useOperatorRead } from '@/lib/operator/browser';
 import type { parseAudit } from '@/lib/operator/views';
 import { auditWord } from '@/lib/operator/words';
 import { whenText } from '@/lib/tenantAdmin/words';
@@ -18,27 +18,23 @@ type Entry = Page['entries'][number];
 type Check = { kind: 'intact' } | { kind: 'broken' } | { kind: 'failed' } | null;
 
 export function AuditChain() {
-  const [entries, setEntries] = useState<Entry[]>([]);
-  const [next, setNext] = useState<number | null>(null);
-  const [status, setStatus] = useState<'loading' | 'ok' | 'failed'>('loading');
-  const [more, setMore] = useState(false);
+  const first = useOperatorRead<Page>('/api/bff/platform/audit?afterSeq=0&limit=50');
+  const [more, setMore] = useState<{ entries: Entry[]; next: number | null } | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [check, setCheck] = useState<Check>(null);
   const [checking, setChecking] = useState(false);
 
-  const load = useCallback(async (after: number, first: boolean) => {
-    const result = await bffRequest<Page>(`/api/bff/platform/audit?afterSeq=${after}&limit=50`, { csrf: OPERATOR_CSRF });
-    if (!result.ok) {
-      if (first) setStatus('failed');
-      return;
-    }
-    setEntries((current) => (first ? result.data.entries : [...current, ...result.data.entries]));
-    setNext(result.data.next);
-    setStatus('ok');
-  }, []);
+  const entries = first.state.status === 'ok' ? [...first.state.data.entries, ...(more?.entries ?? [])] : [];
+  const next = more !== null ? more.next : first.state.status === 'ok' ? first.state.data.next : null;
+  const status = first.state.status;
 
-  useEffect(() => {
-    void load(0, true);
-  }, [load]);
+  async function loadMore(after: number) {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    const result = await bffRequest<Page>(`/api/bff/platform/audit?afterSeq=${after}&limit=50`, { csrf: OPERATOR_CSRF });
+    setLoadingMore(false);
+    if (result.ok) setMore((current) => ({ entries: [...(current?.entries ?? []), ...result.data.entries], next: result.data.next }));
+  }
 
   async function verify() {
     if (checking) return;
@@ -108,14 +104,7 @@ export function AuditChain() {
           </div>
           {next !== null ? (
             <div className={styles.actions}>
-              <Button
-                variant="neutral"
-                busy={more}
-                onClick={() => {
-                  setMore(true);
-                  void load(next, false).finally(() => setMore(false));
-                }}
-              >
+              <Button variant="neutral" busy={loadingMore} onClick={() => void loadMore(next)}>
                 Load more
               </Button>
             </div>

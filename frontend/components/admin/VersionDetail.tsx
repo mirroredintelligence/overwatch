@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
@@ -109,9 +110,9 @@ export function VersionDetail({ version }: { version: number }) {
         </div>
       ) : null}
       <p className={styles.text}>
-        <a className={styles.link} href="/admin/config">
+        <Link className={styles.link} href="/admin/config">
           All versions
-        </a>
+        </Link>
       </p>
 
       {asking ? (

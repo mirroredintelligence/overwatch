@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { NETWORK, VIEW_GRANTS, VIEW_LISTINGS, VIEW_NETWORKS, VIEW_OVERVIEW } from '@/test/fixtures/networkAdmin';
+import { NETWORK, VIEW_GRANTS, VIEW_LISTINGS, VIEW_NETWORKS, VIEW_OVERVIEW, VIEW_SHARING_PAGE } from '@/test/fixtures/networkAdmin';
 
 // The network administrator's BFF routes for component tests (TEN-080): the answers are what the BFF gives the
 // browser (test/fixtures/networkAdmin.ts). A write is recorded with the CSRF token it carried, its path, its
@@ -64,6 +64,32 @@ export const networkAdminHandlers = [
   http.post('/api/bff/network-admin/grants/:id/decline', async ({ request }) => {
     await recorded(request);
     return HttpResponse.json({ status: 'declined' }, { headers: NO_STORE });
+  }),
+  // The member administrator's sharing routes (TEN-081).
+  http.get('/api/bff/sharing', read(VIEW_SHARING_PAGE)),
+  http.post('/api/bff/sharing/grants', async ({ request }) => {
+    await recorded(request);
+    return HttpResponse.json({ id: 'grant-new', status: 'proposed' }, { status: 201, headers: NO_STORE });
+  }),
+  http.post('/api/bff/sharing/grants/:id/approve', async ({ request }) => {
+    await recorded(request);
+    return HttpResponse.json({ effective: false }, { headers: NO_STORE });
+  }),
+  http.post('/api/bff/sharing/grants/:id/decline', async ({ request }) => {
+    await recorded(request);
+    return HttpResponse.json({ status: 'declined' }, { headers: NO_STORE });
+  }),
+  http.post('/api/bff/sharing/grants/:id/end', async ({ request }) => {
+    await recorded(request);
+    return HttpResponse.json({ status: 'ended' }, { headers: NO_STORE });
+  }),
+  http.post('/api/bff/sharing/leave', async ({ request }) => {
+    await recorded(request);
+    return HttpResponse.json({ status: 'left', grantsLapsed: 1, listingsWithdrawn: 0 }, { headers: NO_STORE });
+  }),
+  http.post('/api/bff/sharing/agreement', async ({ request }) => {
+    await recorded(request);
+    return HttpResponse.json({ status: 'active' }, { headers: NO_STORE });
   }),
   ...(['admit', 'reinstate', 'decline', 'suspend'] as const).map((action) =>
     http.post(`/api/bff/network-admin/listings/:id/${action}`, async ({ request }) => {

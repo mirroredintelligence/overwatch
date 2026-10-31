@@ -161,9 +161,69 @@ def test_phoned_report_exactly_60_minutes_before_is_inside_the_window() -> None:
     assert flags(rpt(5, at(13, 14)), recent) == [DIFFERS]
 
 
-def test_new_report_that_is_itself_phoned_is_not_flagged_as_differs() -> None:
+def test_a_phoned_figure_after_another_phoned_figure_is_not_flagged_as_differs() -> None:
+    # Two phone calls disagreeing is the advisor's correction, not a contradiction of the service.
     recent = [phoned(3, at(12, 30))]
     assert flags(phoned(5, at(13, 14)), recent) == []
+
+
+# --- Q10, DEC-1131: a phoned figure that contradicts the last text is flagged too --------------
+
+
+def test_a_phoned_figure_that_differs_from_the_last_text_flags_differs() -> None:
+    recent = [rpt(3, at(12, 30))]
+    assert flags(phoned(5, at(13, 14)), recent) == [DIFFERS]
+
+
+def test_a_phoned_figure_that_matches_the_last_text_is_not_flagged() -> None:
+    recent = [rpt(5, at(12, 30))]
+    assert flags(phoned(5, at(13, 14)), recent) == []
+
+
+def test_only_the_last_text_counts_not_an_older_one() -> None:
+    recent = [rpt(3, at(12, 20)), rpt(5, at(12, 50))]
+    assert flags(phoned(5, at(13, 14)), recent) == []
+    recent = [rpt(5, at(12, 20)), rpt(3, at(12, 50))]
+    assert flags(phoned(5, at(13, 14)), recent) == [DIFFERS]
+
+
+def test_a_text_older_than_the_window_is_not_the_last_text() -> None:
+    assert flags(phoned(5, at(13, 14)), [rpt(3, at(12, 13))]) == []
+    assert flags(phoned(5, at(13, 14)), [rpt(3, at(12, 14))]) == [DIFFERS]
+
+
+def test_a_text_later_than_the_phoned_figure_is_ignored() -> None:
+    assert flags(phoned(5, at(13, 14)), [rpt(3, at(13, 20))]) == []
+
+
+def test_a_confirmation_counts_as_the_service_having_said_its_figure_again() -> None:
+    recent = [rpt(3, at(12, 30), confirm=True)]
+    assert flags(phoned(5, at(13, 14)), recent) == [DIFFERS]
+
+
+def test_the_figure_of_another_service_is_never_the_last_text() -> None:
+    recent = [rpt(3, at(12, 30), service_id=OTHER_SERVICE)]
+    assert flags(phoned(5, at(13, 14)), recent) == []
+
+
+def test_an_app_link_or_email_report_counts_as_the_service_speaking() -> None:
+    for source in (ReportSource.APP, ReportSource.LINK, ReportSource.EMAIL):
+        assert flags(phoned(5, at(13, 14)), [rpt(3, at(12, 30), source=source)]) == [DIFFERS]
+
+
+def test_a_feed_figure_is_not_the_service_speaking() -> None:
+    recent = [rpt(3, at(12, 30), source=ReportSource.FEED)]
+    assert flags(phoned(5, at(13, 14)), recent) == []
+
+
+def test_when_two_texts_share_the_last_instant_a_disagreement_with_either_flags() -> None:
+    recent = [rpt(5, at(12, 30)), rpt(3, at(12, 30))]
+    assert flags(phoned(5, at(13, 14)), recent) == [DIFFERS]
+
+
+def test_a_phoned_figure_can_earn_many_changes_and_differs_together() -> None:
+    recent = [rpt(3, at(13, 10)), rpt(4, at(13, 12))]
+    assert flags(phoned(5, at(13, 14)), recent) == [MANY, DIFFERS]
 
 
 def test_any_differing_phoned_figure_in_the_window_flags_differs() -> None:
@@ -349,15 +409,23 @@ def oracle(new: CapacityReport, recent: Sequence[CapacityReport]) -> list[Report
     ]
     if len(in_five) + 1 >= 3:
         result.append(MANY)
+    in_hour = [
+        r for r in earlier if r.effective_at.astimezone(UTC) >= new_at - timedelta(minutes=60)
+    ]
     if new.source is not ReportSource.ADVISOR_PHONED:
-        in_hour_phoned = [
-            r
-            for r in earlier
-            if r.source is ReportSource.ADVISOR_PHONED
-            and r.effective_at.astimezone(UTC) >= new_at - timedelta(minutes=60)
-        ]
-        if any(r.value != new.value for r in in_hour_phoned):
+        if any(r.value != new.value for r in in_hour if r.source is ReportSource.ADVISOR_PHONED):
             result.append(DIFFERS)
+    else:
+        spoken = [
+            r
+            for r in in_hour
+            if r.source
+            in (ReportSource.TEXT, ReportSource.APP, ReportSource.LINK, ReportSource.EMAIL)
+        ]
+        if spoken:
+            last = max(r.effective_at.astimezone(UTC) for r in spoken)
+            if any(r.value != new.value for r in spoken if r.effective_at.astimezone(UTC) == last):
+                result.append(DIFFERS)
     return result
 
 

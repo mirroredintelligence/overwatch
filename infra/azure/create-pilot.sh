@@ -190,8 +190,10 @@ if try "redis app" az deployment group create -g "$RG" -n redis-app -f "$(native
     --parameters environmentId="$(az containerapp env show -n "$CAE" -g "$RG" --query id -o tsv)" \
                  apiIdentityId="$(az identity show -g "$RG" -n id-${P}-api-${E} --query id -o tsv)" \
                  keyVaultSecretUrl="https://$KV.vault.azure.net/secrets/redis-password" --output none; then
-  RHOST="$(az containerapp show -n redis -g "$RG" --query properties.configuration.ingress.fqdn -o tsv)"
-  RPW="$(az keyvault secret show --vault-name "$KV" --name redis-password --query value -o tsv)"
+  # The app's own name, not its internal FQDN: from another app in the environment `redis:6379` connects,
+  # while redis.internal.<domain>:6379 times out (found on the pilot; the FQDN answers on 443 only).
+  RHOST="redis"
+  RPW="$(az keyvault secret show --vault-name "$KV" --name redis-password --query value -o tsv | tr -d '\r\n')"
   printf 'redis://:%s@%s:6379/0' "$RPW" "$RHOST" | put_secret redis-url && echo "  redis-url stored"
   unset RPW RHOST
 fi

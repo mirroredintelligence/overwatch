@@ -206,3 +206,24 @@ def test_the_travel_legs_are_sent_as_leg_parts_in_the_shape_the_screen_reads() -
             ],
         }
     ]
+
+
+# KI-349, KI-794: a network option is labelled by its organisation.
+
+
+def test_a_network_option_names_its_organisation_and_where_the_entry_came_from() -> None:
+    network = option(organisation="Org m2", organisation_source="Entered by the organisation")
+
+    flat = parts(filter_result_to_fhir(result(network)))[0]["part"]
+
+    assert named(flat, "organisation") == [{"name": "organisation", "valueString": "Org m2"}]
+    assert named(flat, "organisationSource") == [
+        {"name": "organisationSource", "valueString": "Entered by the organisation"}
+    ]
+
+
+def test_an_own_option_names_no_organisation() -> None:
+    flat = parts(filter_result_to_fhir(result(option())))[0]["part"]
+
+    assert named(flat, "organisation") == []
+    assert named(flat, "organisationSource") == []

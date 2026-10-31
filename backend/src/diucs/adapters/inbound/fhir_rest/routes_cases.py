@@ -6,7 +6,9 @@ GET  /fhir/ServiceRequest/{id}                  read one case, open or closed (W
 PUT  /fhir/ServiceRequest/{id}                  update referrer, age band, postcode, needs, urgency
                                                 and scores (If-Match)
 POST /fhir/ServiceRequest/{id}/$close           close with an outcome (RecordOutcome, U14)
-POST /fhir/HealthcareService/$filter-options    the options for a case (FilterOptions, U12)
+POST /fhir/HealthcareService/$filter-options    the options for a case (FilterOptions, U12); with a
+                                                `network` part, the other organisations' services
+                                                of that network, read only (FilterNetworkOptions)
 POST /fhir/HealthcareService/{id}/$advisor-phoned   "I phoned" (RecordAdvisorPhoned, U13)
 POST /fhir/HealthcareService/{id}/$declined     declined despite capacity (RecordDecline, U13)
 
@@ -28,6 +30,7 @@ The ServiceRequest shape is in case_mapping.py.
 """
 
 import json
+import re
 from dataclasses import replace
 from typing import Annotated, Any, Final, cast
 
@@ -52,6 +55,11 @@ from diucs.adapters.inbound.fhir_rest.concurrency import (
     require_if_match,
 )
 from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
+from diucs.adapters.inbound.fhir_rest.routes_network import (
+    NETWORK_ID_PATTERN,
+    ensure_in_claim,
+    network_services,
+)
 from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
@@ -60,6 +68,9 @@ from diucs.application.use_cases.advisor_phoned import (
     PhonedAnswer,
     RecordAdvisorPhoned,
     RecordAdvisorPhonedCommand,
+)
+from diucs.application.use_cases.filter_network_options import (
+    FilterNetworkOptionsCommand,
 )
 from diucs.application.use_cases.filter_options import (
     FilterOptions,
@@ -310,6 +321,19 @@ async def filter_options(
     grouped = _parameters(await _json(request))
     case_id = _reference_id(_one(grouped, "case"), "case", "ServiceRequest")
     container = get_container(request)
+    network = _one(grouped, "network")
+    if network is not None:
+        # The network variant (KI-349): the other organisations' services, read only. The claim
+        # routes and the registry decides; every refusal is the one 404.
+        network_id = network.get("valueString")
+        if not isinstance(network_id, str) or re.fullmatch(NETWORK_ID_PATTERN, network_id) is None:
+            raise ValidationFailed("network", "must be a network id")
+        ensure_in_claim(actor, network_id)
+        options = network_services(request).options
+        if options is None:
+            raise RuntimeError("no network options are configured")
+        shown = await options.execute(FilterNetworkOptionsCommand(actor, case_id, network_id))
+        return FhirJSONResponse(content=filter_result_to_fhir(shown), status_code=200)
     result = await FilterOptions(
         container.uow_factory,
         container.clock,

@@ -490,7 +490,7 @@ async def test_reading_the_waiting_queue_releases_a_lapsed_lock_in_the_store(
     returns = await _returns(uow_factory)
     assert len(returns) == 1
     assert returns[0].entity_ids == (request_id,)
-    assert returns[0].actor.role is Role.SYSTEM if hasattr(Role, "SYSTEM") else True
+    assert returns[0].actor.practitioner_id is None  # the system, as the return timer is
 
 
 async def test_reading_the_queue_with_the_queue_use_case_releases_it_too(

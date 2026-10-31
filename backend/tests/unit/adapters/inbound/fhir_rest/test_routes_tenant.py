@@ -89,6 +89,7 @@ ROUTES: list[tuple[str, str, Any]] = [
     ("POST", "/tenant/config/drafts", DRAFT),
     ("POST", "/tenant/config/versions/2/approval", None),
     ("PUT", "/tenant/contacts", CONTACT),
+    ("PUT", "/tenant/staff/prac-1/work-phone", {"phone": "07700 900123"}),
     ("POST", "/tenant/channels", CHANNEL),
     ("PUT", "/tenant/channels/email-1", CHANNEL),
     ("PUT", "/tenant/retention", RETENTION),
@@ -189,6 +190,11 @@ async def test_the_tenant_is_the_signed_claim_and_nothing_a_request_sends() -> N
     [
         ("POST", "/tenant/config/drafts", {**DRAFT, "tenant": "tenant-b"}),
         ("PUT", "/tenant/contacts", {**CONTACT, "tenantId": "tenant-b"}),
+        (
+            "PUT",
+            "/tenant/staff/prac-1/work-phone",
+            {"phone": "07700 900123", "tenant": "tenant-b"},
+        ),
         ("PUT", "/tenant/retention", {**RETENTION, "tenant": "tenant-b"}),
         ("PUT", "/tenant/directory", {"directoryId": DIRECTORY, "tenant_id": "tenant-b"}),
         ("PUT", "/tenant/role-mappings", {"groupObjectId": GROUP, "role": "lead", "tenant": "x"}),

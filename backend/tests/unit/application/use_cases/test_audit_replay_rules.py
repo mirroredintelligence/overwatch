@@ -289,9 +289,7 @@ def test_an_over_capacity_service_shows_how_far_over_it_was() -> None:
     assert row.value_text == "+2"
 
 
-def test_an_over_capacity_row_from_before_over_by_was_kept_shows_no_figure_never_the_used_count() -> (
-    None
-):
+def test_an_over_capacity_row_from_before_over_by_shows_no_figure_never_the_used_count() -> None:
     (row,) = replay_rows([_row(status="over-capacity", number=14)], {"svc-a": "A"})
 
     assert row.value_text == "no figure"

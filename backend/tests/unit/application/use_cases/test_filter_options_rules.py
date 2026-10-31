@@ -188,9 +188,7 @@ def test_a_snapshot_row_keeps_the_name_the_advisor_saw() -> None:
     assert row["over_by"] == 2
 
 
-def test_a_snapshot_row_keeps_the_position_the_option_was_shown_at_and_a_service_not_suitable_has_none() -> (
-    None
-):
+def test_a_snapshot_row_keeps_the_shown_position_and_a_service_not_suitable_has_none() -> None:
     from datetime import datetime, timedelta
 
     from diucs.application.use_cases.filter_options import _snapshot_row

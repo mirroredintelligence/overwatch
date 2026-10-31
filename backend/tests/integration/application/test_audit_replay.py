@@ -280,7 +280,7 @@ async def test_the_rows_are_what_the_advisor_saw(seed_trail: Seed, replay: GetAu
         for r in result.rows
     ] == [
         ("UCR West", "Accepting", "4", "9 min old", 3),
-        # The name the advisor saw, not the service's name now; and how far over, not the used count.
+        # The name the advisor saw, not the name now; how far over, not the used count.
         ("Hospital at home (as shown)", "Over capacity", "+2", "14 min old", 3),
         # A row written before names were kept shows the current name.
         ("Community hospital · Ward B", "Accepting", "5", "2 hrs 10 min old", 3),

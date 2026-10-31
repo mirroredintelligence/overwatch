@@ -156,4 +156,8 @@ register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/why", "why", "st
 register_extension(
     ExtensionDef(f"{BASE_URL}StructureDefinition/snapshotRef", "snapshotRef", "string")
 )
+# KI-768: the service the advisor was considering when they asked for clinical advice.
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/consideredService", "consideredService", "string")
+)
 register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/takenAt", "takenAt", "dateTime"))

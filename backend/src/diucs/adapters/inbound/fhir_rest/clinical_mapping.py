@@ -10,7 +10,12 @@ input or output that is not a FHIR element is an extension under the `task-input
     need            one per need (repeats)               case-urgency the case's urgency
     news2           the case's NEWS2 score               urgency      now or within-15-min
     why             the reason it was asked              returns-at   when a held lock ends
+    service         the name of the service the advisor was considering, when one was named
     advice-choice, advice-reason, advice-note, advised-at   the advice, once given
+
+The advice is also `Task.output` (KI-232): one typed output per part, under the `task-output` code
+system, so a FHIR read of the Task shows it. The extensions stay beside the outputs until the
+screens read the outputs.
 """
 
 from typing import Any, Final
@@ -25,6 +30,7 @@ REQUESTED: Final = "requested"
 IN_PROGRESS: Final = "in-progress"
 COMPLETED: Final = "completed"
 TASK_CODE_SYSTEM: Final = code_system_url("task-code")
+TASK_OUTPUT_SYSTEM: Final = code_system_url("task-output")
 TASK_INPUT: Final = "task-input"
 
 
@@ -34,6 +40,13 @@ def input_url(name: str) -> str:
 
 def _item(name: str, value_key: str, value: object) -> dict[str, Any]:
     return {"url": input_url(name), value_key: value}
+
+
+def _output(code: str, value_key: str, value: object) -> dict[str, Any]:
+    return {
+        "type": {"coding": [{"system": TASK_OUTPUT_SYSTEM, "code": code}]},
+        value_key: value,
+    }
 
 
 def task_status(view: ClinicalRequestView) -> str:
@@ -62,17 +75,25 @@ def clinical_task(view: ClinicalRequestView) -> dict[str, Any]:
             extensions.append(_item("case-urgency", "valueCode", glance.urgency.value))
         if glance.news2 is not None:
             extensions.append(_item("news2", "valueInteger", glance.news2))
+    if view.service_name is not None:
+        extensions.append(_item("service", "valueString", view.service_name))
     if view.returns_at is not None:
         extensions.append(_item("returns-at", "valueDateTime", format_instant(view.returns_at)))
     advice = record.advice
+    outputs: list[dict[str, Any]] = []
     if advice is not None:
         extensions.append(_item("advice-choice", "valueCode", advice.choice))
+        outputs.append(_output("advice-choice", "valueCode", advice.choice))
         if advice.reason is not None:
             extensions.append(_item("advice-reason", "valueCode", advice.reason))
+            outputs.append(_output("advice-reason", "valueCode", advice.reason))
         if view.note is not None:
             extensions.append(_item("advice-note", "valueString", view.note))
-        extensions.append(_item("advised-at", "valueDateTime", format_instant(advice.at)))
-    return {
+            outputs.append(_output("advice-note", "valueString", view.note))
+        advised_at = format_instant(advice.at)
+        extensions.append(_item("advised-at", "valueDateTime", advised_at))
+        outputs.append(_output("advised-at", "valueDateTime", advised_at))
+    task: dict[str, Any] = {
         "resourceType": "Task",
         "id": request.id,
         "status": task_status(view),
@@ -81,6 +102,9 @@ def clinical_task(view: ClinicalRequestView) -> dict[str, Any]:
         "authoredOn": format_instant(request.requested_at),
         "extension": extensions,
     }
+    if outputs:
+        task["output"] = outputs
+    return task
 
 
 def seen_json(saw: WhatAdvisorSaw) -> dict[str, Any]:

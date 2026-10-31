@@ -214,8 +214,15 @@ def _clinical_request(task: dict[str, Any], actor: Actor) -> RequestClinicalAdvi
     why = _input(task, "why", "valueCode")
     if why not in REQUEST_WHYS:
         raise ValidationFailed("why", "is not a known reason")
+    service = _input(task, "service", "valueString")
+    if service is not None and (not isinstance(service, str) or not service.strip()):
+        raise ValidationFailed("service", "must be a service id")
     return RequestClinicalAdviceCommand(
-        actor=actor, case_id=case_id, urgency=str(urgency), why=str(why)
+        actor=actor,
+        case_id=case_id,
+        urgency=str(urgency),
+        why=str(why),
+        service_id=None if service is None else str(service),
     )
 
 

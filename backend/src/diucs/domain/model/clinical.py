@@ -50,11 +50,15 @@ class ClinicalRequestRecord:
     why: str
     snapshot_ref: str | None
     advice: ClinicalAdvice | None = None
+    service_id: str | None = None
+    """The service the advisor was considering when they asked (KI-768): the advice is about it, so
+    the clinician's sentence can name it. None when the advisor asked about the case as a whole."""
 
     def __post_init__(self) -> None:
         _text("requester_id", self.requester_id)
         _text("why", self.why)
         _optional_text("snapshot_ref", self.snapshot_ref)
+        _optional_text("service_id", self.service_id)
         if self.advice is None:
             if self.request.advised_at is not None:
                 raise ValidationFailed("advice", "an advised request needs its advice")

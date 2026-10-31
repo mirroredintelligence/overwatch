@@ -105,7 +105,9 @@ def _fields(message: object) -> tuple[str, str | None, str] | None:
 
 
 def _event(name: str, changed_at: str) -> str:
-    return f"event: {name}\ndata: {json.dumps({'changedAt': changed_at}, separators=(',', ':'))}\n\n"
+    return (
+        f"event: {name}\ndata: {json.dumps({'changedAt': changed_at}, separators=(',', ':'))}\n\n"
+    )
 
 
 def heartbeat_sse(now: datetime) -> str:

@@ -69,7 +69,9 @@ def test_a_projector_message_with_no_service_id_key_is_dropped() -> None:
     assert to_sse({"type": "board-changed", "at": CHANGED_AT}) is None
 
 
-@pytest.mark.parametrize("changed_at", ["13:12", "2026-10-23T13:12:00", "2026-13-45T99:99:00Z", 7, None])
+@pytest.mark.parametrize(
+    "changed_at", ["13:12", "2026-10-23T13:12:00", "2026-13-45T99:99:00Z", 7, None]
+)
 def test_a_whole_board_message_with_a_bad_time_is_dropped(changed_at: object) -> None:
     assert to_sse({"type": "board-changed", "service_id": None, "at": changed_at}) is None
 

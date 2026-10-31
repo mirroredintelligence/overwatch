@@ -409,7 +409,9 @@ async def test_a_twilio_email_channel_resolves_to_a_sender_on_the_tenants_own_su
     assert directory.asked == [SAMPLE_ID]
 
 
-async def test_the_twilio_email_sender_sends_from_the_channels_address_with_the_lines_credentials() -> None:
+async def test_the_twilio_email_sender_sends_from_the_channels_address_with_the_lines_credentials() -> (
+    None
+):
     import base64
     import json
 

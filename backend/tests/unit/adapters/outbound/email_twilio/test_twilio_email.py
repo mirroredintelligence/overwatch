@@ -102,7 +102,9 @@ async def test_the_202_with_no_operation_id_is_a_fault_not_a_success() -> None:
             await _email(client).send(TO, SUBJECT, TEXT, None)
 
 
-@pytest.mark.parametrize("body", [b"not json", b"[]", b'{"operationId": 7}', b'{"operationId": ""}'])
+@pytest.mark.parametrize(
+    "body", [b"not json", b"[]", b'{"operationId": 7}', b'{"operationId": ""}']
+)
 async def test_a_202_body_that_cannot_be_read_is_a_fault(body: bytes) -> None:
     _, transport = _recording(httpx.Response(202, content=body))
     async with httpx.AsyncClient(transport=transport) as client:
@@ -141,7 +143,14 @@ async def test_any_other_refusal_is_a_fault_that_a_retry_will_not_fix(status: in
 
 @pytest.mark.parametrize(
     "address",
-    ["", "no-at-sign", "a@b", "a b@example.test", "a@example.test, b@example.test", "<a@example.test>"],
+    [
+        "",
+        "no-at-sign",
+        "a@b",
+        "a b@example.test",
+        "a@example.test, b@example.test",
+        "<a@example.test>",
+    ],
 )
 async def test_an_address_that_is_not_one_role_inbox_is_refused_before_any_call(
     address: str,
@@ -196,7 +205,7 @@ async def test_nothing_that_identifies_a_person_or_a_secret_is_logged(
         async with httpx.AsyncClient(transport=transport) as client:
             try:
                 await _email(client).send(TO, SUBJECT, TEXT, HTML)
-            except (SendFailedError, TransientSendError):
+            except SendFailedError, TransientSendError:
                 pass
 
     logged = caplog.text

@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from typing import Final
 
 from overwatch.application.actor import Actor, require_actor_in_bound_tenant
+from overwatch.application.ods_organisation import organisation_bundle
 from overwatch.application.ports.outbound.audit import AuditEntry
 from overwatch.application.ports.outbound.clock import Clock
 from overwatch.application.ports.outbound.ids import IdGenerator
@@ -60,7 +61,9 @@ from overwatch.application.tenancy import ScopeId, ScopeKind, TenantNotBound, cu
 from overwatch.application.use_cases.tenant_config import configuration_facts, plan_binding
 from overwatch.domain.codes import Role
 from overwatch.domain.errors import Conflict, NotAllowed, NotFound, ValidationFailed
+from overwatch.domain.model.ods_record import OdsOrganisationRecord
 from overwatch.domain.model.tenant import (
+    NHS_ORGANISATION_TYPES,
     NumberStatus,
     OrganisationType,
     Tenant,
@@ -194,6 +197,9 @@ class CreateTenantCommand:
     makes a directory usable."""
     role_mappings: tuple[tuple[str, Role], ...] = ()
     """(group object id, role) pairs, written in use. A role a group may not give is refused."""
+    ods_record: OdsOrganisationRecord | None = None
+    """The NHS record the operator confirmed (DEC-1314). Kept only for an NHS organisation, and its
+    code must be the tenant's ODS code. Written into the tenant's own scope as its Organization."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,6 +248,12 @@ class CreateTenant(OperatorUseCase):
         mappings = tuple(
             RoleMapping(group, role, MappingStatus.ACTIVE) for group, role in command.role_mappings
         )
+        record = command.ods_record
+        if record is not None:
+            if wanted.organisation_type not in NHS_ORGANISATION_TYPES:
+                raise ValidationFailed("odsRecord", "is kept for an NHS organisation only")
+            if record.code != wanted.ods_code:
+                raise ValidationFailed("odsRecord", "must be the record of the tenant's ODS code")
         existing = await self._tenants.get(wanted.id)
         created = existing is None
         if existing is None:
@@ -259,6 +271,18 @@ class CreateTenant(OperatorUseCase):
                 _unit_scope(uow)
                 for mapping in mappings:
                     await uow.tenant_config.put_role_mapping(mapping)
+            if wanted.ods_code is not None and wanted.organisation_type in NHS_ORGANISATION_TYPES:
+                # The tenant's own copy of its organisation (DEC-1314): replaced, not duplicated, if
+                # the creation is run again.
+                _unit_scope(uow)
+                await uow.registrations.write_bundle(
+                    organisation_bundle(
+                        ods_code=wanted.ods_code,
+                        legal_name=command.legal_name,
+                        record=record,
+                        now=self._clock.now(),
+                    )
+                )
             await _audit(
                 uow,
                 self._clock,

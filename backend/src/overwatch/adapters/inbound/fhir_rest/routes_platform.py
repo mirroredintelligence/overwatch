@@ -88,6 +88,7 @@ from overwatch.application.use_cases.tenant_admin import (
 from overwatch.application.use_cases.tenant_offboarding import StartOffboardingCommand
 from overwatch.application.use_cases.tenant_suspend import ResumeTenantCommand, SuspendTenantCommand
 from overwatch.domain.codes import Role
+from overwatch.domain.model.ods_record import OdsLink, OdsOrganisationRecord, OdsRole
 from overwatch.domain.model.tenant import OrganisationType, SuspendMode, SuspendReason, Tenant
 from overwatch.domain.model.tenant_records import BindingStatus
 from overwatch.domain.rules.bff_token import OperatorClaims
@@ -137,6 +138,31 @@ class RoleMappingBody(_Body):
     role: Role
 
 
+class OdsRoleBody(_Body):
+    id: str = Field(min_length=1, max_length=20)
+    name: str = Field(min_length=1, max_length=120)
+    primary: bool
+
+
+class OdsLinkBody(_Body):
+    code: str = Field(min_length=1, max_length=8)
+    name: str = Field(min_length=1, max_length=120)
+    role: str = Field(default="", max_length=20)
+
+
+class OdsRecordBody(_Body):
+    """The NHS record the operator confirmed (DEC-1314). The domain checks every value again."""
+
+    code: str = Field(min_length=1, max_length=8)
+    name: str = Field(min_length=1, max_length=120)
+    status: str = Field(min_length=1, max_length=40)
+    postcode: str | None = Field(default=None, max_length=16)
+    primaryRole: str | None = Field(default=None, max_length=20)
+    roles: list[OdsRoleBody] = Field(default_factory=list, max_length=20)
+    links: list[OdsLinkBody] = Field(default_factory=list, max_length=50)
+    lastChangedAt: str | None = Field(default=None, max_length=40)
+
+
 class CreateTenantBody(_Body):
     displayName: str = Field(min_length=1, max_length=120)
     legalName: str = Field(min_length=1, max_length=200)
@@ -146,6 +172,7 @@ class CreateTenantBody(_Body):
     odsCode: str | None = Field(default=None, max_length=16)
     directoryId: str | None = Field(default=None, max_length=64)
     roleMappings: list[RoleMappingBody] = Field(default_factory=list, max_length=12)
+    odsRecord: OdsRecordBody | None = None
 
 
 class HostBody(_Body):
@@ -208,6 +235,23 @@ def _services(request: Request) -> PlatformServices:
 
 def _json(status: int, body: Any) -> Response:
     return JSONResponse(body, status_code=status, headers=NO_STORE)
+
+
+def _ods_record(body: OdsRecordBody | None) -> OdsOrganisationRecord | None:
+    """The domain record from the body (DEC-1314). The domain checks it and refuses what it does not
+    accept, as a validation failure."""
+    if body is None:
+        return None
+    return OdsOrganisationRecord(
+        code=body.code,
+        name=body.name,
+        status=body.status,
+        postcode=body.postcode,
+        primary_role=body.primaryRole,
+        roles=tuple(OdsRole(r.id, r.name, r.primary) for r in body.roles),
+        links=tuple(OdsLink(k.code, k.name, k.role) for k in body.links),
+        last_changed_at=body.lastChangedAt,
+    )
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -405,6 +449,7 @@ async def create_tenant(
                 ods_code=body.odsCode,
                 directory_id=body.directoryId,
                 role_mappings=tuple((m.groupObjectId, m.role) for m in body.roleMappings),
+                ods_record=_ods_record(body.odsRecord),
             )
         )
         return await _step(

@@ -953,3 +953,54 @@ async def test_no_answer_holds_a_token_a_secret_or_a_hash() -> None:
 
 async def test_failing_audit_stand_in_is_the_one_the_rig_gives() -> None:
     assert isinstance(build().audit, FailingAudit)
+
+
+# ---------------------------------------------------------------- the NHS record (DEC-1314)
+
+ODS_RECORD = {
+    "code": "F81044",
+    "name": "THE ARDLEIGH SURGERY",
+    "status": "Active",
+    "postcode": "CO7 7LD",
+    "primaryRole": "RO177",
+    "roles": [{"id": "RO177", "name": "PRESCRIBING COST CENTRE", "primary": True}],
+    "links": [{"code": "F81045", "name": "A PARENT PRACTICE", "role": "RO98"}],
+    "lastChangedAt": "2024-05-01",
+}
+
+
+async def test_a_creation_with_the_nhs_record_is_accepted_and_the_record_reaches_the_use_case() -> (
+    None
+):
+    body = {**CREATE_BODY, "odsRecord": ODS_RECORD}
+    async with routes() as (r, client):
+        response = await send(client, "PUT", "/platform/tenants/brand-new", body, ops())
+
+    assert response.status_code == 201
+    assert r.fake.tenants["brand-new"].ods_code == "F81044"
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {**ODS_RECORD, "unexpected": True},
+        {**ODS_RECORD, "code": "f81044"},
+        {**ODS_RECORD, "roles": [{"id": "RO177", "name": "X", "primary": True, "x": 1}]},
+        {**ODS_RECORD, "links": [{"code": "F81045", "name": "A", "role": "RO98!"}]},
+        {**ODS_RECORD, "roles": [{"id": "RO1", "name": "N", "primary": True}] * 21},
+    ],
+)
+async def test_a_record_with_an_unknown_key_or_a_bad_value_is_refused(
+    record: dict[str, Any],
+) -> None:
+    async with routes() as (r, client):
+        response = await send(
+            client,
+            "PUT",
+            "/platform/tenants/brand-new",
+            {**CREATE_BODY, "odsRecord": record},
+            ops(),
+        )
+
+    assert response.status_code in (400, 422)
+    assert r.fake.tenants.get("brand-new") is None

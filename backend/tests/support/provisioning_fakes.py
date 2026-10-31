@@ -237,11 +237,17 @@ class FakeUnit:
         self.link_tokens = world.tokens
         self.audit = SimpleNamespace(append=self._append)
         self.scope = SimpleNamespace(ensure_list=self._ensure_list)
+        self.registrations = SimpleNamespace(write_bundle=self._write_bundle)
         self.committed = False
         self._world = world
 
     async def _append(self, entry: Any) -> None:
         self._world.audit.append(entry)
+
+    async def _write_bundle(self, bundle: dict[str, Any]) -> dict[str, str]:
+        """Records the bundle in the scope it was written to; the resource store is not needed."""
+        self._world.bundles.append((self.unit_scope, bundle))
+        return {}
 
     async def _ensure_list(self) -> None:
         self._world.lists_ensured += 1
@@ -274,6 +280,7 @@ class FakeWorld:
         self.opened = 0
         self.commits = 0
         self.lists_ensured = 0
+        self.bundles: list[tuple[ScopeId | None, dict[str, Any]]] = []
 
     def factory(self) -> Callable[[], FakeUnit]:
         return lambda: FakeUnit(self, current_scope_or_none())

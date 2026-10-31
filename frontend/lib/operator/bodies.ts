@@ -30,9 +30,31 @@ export const ORGANISATION_TYPES = ['nhs-trust', 'icb', 'gp-practice', 'local-aut
 export const SUSPENSION_MODES = ['read-only', 'blocked'] as const;
 export const SUSPENSION_REASONS = ['security-incident', 'information-governance', 'clinical-safety', 'contract', 'operator-request'] as const;
 
+function odsRecordBody(raw: unknown): Obj {
+  const record = asObject(raw);
+  if (!Array.isArray(record.roles) || record.roles.length > 20) throw invalidRequest();
+  if (!Array.isArray(record.links) || record.links.length > 50) throw invalidRequest();
+  return {
+    code: text(record.code, 1, 8),
+    name: text(record.name, 1, 120),
+    status: text(record.status, 1, 40),
+    postcode: record.postcode === null || record.postcode === undefined ? null : text(record.postcode, 1, 16),
+    primaryRole: record.primaryRole === null || record.primaryRole === undefined ? null : text(record.primaryRole, 1, 20),
+    roles: record.roles.map((r: unknown) => {
+      const role = asObject(r);
+      return { id: text(role.id, 1, 20), name: text(role.name, 1, 120), primary: role.primary === true };
+    }),
+    links: record.links.map((l: unknown) => {
+      const link = asObject(l);
+      return { code: text(link.code, 1, 8), name: text(link.name, 1, 120), role: typeof link.role === 'string' ? text(link.role, 0, 20) : '' };
+    }),
+    lastChangedAt: record.lastChangedAt === null || record.lastChangedAt === undefined ? null : text(record.lastChangedAt, 1, 40),
+  };
+}
+
 export function createTenantBody(raw: unknown): Obj {
   const body = asObject(raw);
-  only(body, ['displayName', 'legalName', 'organisationType', 'countryCode', 'timeZone', 'odsCode', 'directoryId', 'roleMappings']);
+  only(body, ['displayName', 'legalName', 'organisationType', 'countryCode', 'timeZone', 'odsCode', 'odsRecord', 'directoryId', 'roleMappings']);
   const out: Obj = {
     displayName: text(body.displayName, 1, 200),
     legalName: text(body.legalName, 1, 300),
@@ -41,6 +63,8 @@ export function createTenantBody(raw: unknown): Obj {
   if (body.countryCode !== undefined) out.countryCode = text(body.countryCode, 2, 2);
   if (body.timeZone !== undefined) out.timeZone = text(body.timeZone, 1, 64);
   if (body.odsCode !== undefined) out.odsCode = text(body.odsCode, 1, 16);
+  // The NHS record the operator confirmed (DEC-1314). The back end checks every value again.
+  if (body.odsRecord !== undefined) out.odsRecord = odsRecordBody(body.odsRecord);
   // The directory the tenant's staff will sign in through (bound as waiting; the operator verifies it later)
   // and the groups of it that give a role. A group is never given the administrator's role: the list has none.
   if (body.directoryId !== undefined) out.directoryId = directoryBody({ directoryId: body.directoryId }).directoryId;

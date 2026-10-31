@@ -149,6 +149,8 @@ export function CreateTenantForm() {
     if (problems.length > 0) return;
     const body: Record<string, unknown> = { displayName: displayName.trim(), legalName: legalName.trim(), organisationType: type, countryCode: country.trim().toUpperCase(), timeZone: zone.trim() };
     if (ods.trim() !== '') body.odsCode = ods.trim();
+    // The NHS record the operator confirmed, only while the ODS code is still the one it was read under (DEC-1314).
+    if (odsRecord !== null && ods.trim().toUpperCase() === odsRecord.code) body.odsRecord = odsRecord;
     if (directory.trim() !== '') body.directoryId = directory.trim().toLowerCase();
     if (rows.length > 0) body.roleMappings = rows.map((r) => ({ groupObjectId: r.group.trim().toLowerCase(), role: r.role }));
     setBusy(true);

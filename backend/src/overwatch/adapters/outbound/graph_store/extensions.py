@@ -151,6 +151,17 @@ register_extension(
 register_extension(
     ExtensionDef(f"{BASE_URL}StructureDefinition/acknowledgedAt", "acknowledgedAt", "dateTime")
 )
+# DEC-1314: a tenant's own NHS organisation (the ODS record it was created from): the primary
+# role id, the time the record was taken and the date ODS last changed it.
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/odsPrimaryRole", "odsPrimaryRole", "string")
+)
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/odsSnapshotAt", "odsSnapshotAt", "dateTime")
+)
+register_extension(
+    ExtensionDef(f"{BASE_URL}StructureDefinition/odsLastChangedAt", "odsLastChangedAt", "string")
+)
 # P18: a clinical advice request's reason, the snapshot of the options shown, and the time taken.
 register_extension(ExtensionDef(f"{BASE_URL}StructureDefinition/why", "why", "string"))
 register_extension(

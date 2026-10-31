@@ -259,7 +259,7 @@ async def test_a_y_is_answered_when_the_latest_figure_is_dated_after_the_clock(
     assert latest.effective_at == bst(10, 20) + timedelta(microseconds=1)
 
 
-# --- Q4, KI-27: a daily service may confirm a figure a day old -------------------------------------
+# --- Q4, KI-27: a daily service may confirm a figure a day old ------------------------------------
 
 
 async def _daily_service_with_figure(

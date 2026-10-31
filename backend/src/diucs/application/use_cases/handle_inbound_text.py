@@ -84,6 +84,7 @@ from diucs.domain.rules.booking_reply_text import (
     plan_booking_text,
 )
 from diucs.domain.rules.booking_rules import OpenBookingRef
+from diucs.domain.rules.confirmable_age import confirmable_age
 from diucs.domain.rules.london_time import format_hhmm, format_stamp
 from diucs.domain.rules.multi_service import letters_for
 from diucs.domain.rules.reply_parser import (
@@ -968,7 +969,11 @@ class HandleInboundText:
         processing, because the confirmation is stamped now and would make the figure current now
         (H-32). Otherwise the judged report is the one ConfirmCapacity must find (DEC-148)."""
         if latest is not None and (
-            figure_is_out_of_date(latest.effective_at, item.target.prompt_at)
+            figure_is_out_of_date(
+                latest.effective_at,
+                item.target.prompt_at,
+                confirmable_age(item.target.profile, DEFAULT_POLICY),
+            )
             or number_after_prompt
             or plan.processing_delay > CONFIRM_PROCESSING_LIMIT
         ):

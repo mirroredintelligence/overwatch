@@ -57,6 +57,7 @@ from diucs.domain.codes import Channel
 from diucs.domain.errors import ValidationFailed
 from diucs.domain.messages.catalogue import MessageId
 from diucs.domain.messages.templates import render
+from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import cover_in_force, phone_contact_key, role_holder
 from diucs.domain.model.tenant import NumberStatus
 from diucs.domain.model.tenant_records import ChannelKind
@@ -84,6 +85,8 @@ PERSON_BODY_MAX: Final = 300
 
 # The reason a Communication records when it is not sent (stored as `errorCode`, never logged
 # with an address).
+SERVICE_SUSPENDED: Final = "service-suspended"
+"""A prompt for a service that is suspended or no longer active at send time (KI-388, H-137)."""
 NO_CONTACT: Final = "no-contact"
 NO_CHANNEL: Final = "no-channel"
 REFUSED: Final = "refused"
@@ -174,6 +177,26 @@ def parse_outbound(
     )
 
 
+PROMPTS_HELD_BACK: Final = frozenset(
+    message.value for message in (MessageId.C1, MessageId.C2, MessageId.C8, MessageId.C9)
+)
+"""The messages that ask a reporter for a figure. One queued before its service was suspended is
+not sent after it; an echo or a refusal answers a reporter and still goes (KI-388, H-137)."""
+
+
+async def prompt_is_held_back(uow: UnitOfWork, communication: Communication) -> bool:
+    """True when this is a prompt for a figure and its service is suspended, no longer active or
+    gone now, at send time. SendPrompts judges the service when it runs; a prompt it had already
+    queued is judged again here, so a suspension stops what is still waiting to go (H-137)."""
+    if communication.message_id not in PROMPTS_HELD_BACK or communication.about_id is None:
+        return False
+    profile = await uow.services.get(communication.about_id)
+    if profile is None or not profile.active:
+        return True
+    flags = await uow.flags.service_flags(communication.about_id)
+    return any(flag.code == SERVICE_FLAG_SUSPENDED for flag in flags)
+
+
 def is_handled(communication: Communication) -> bool:
     """True when this communication was sent or refused already: it has a provider id, or it has
     left `queued`. Such a message is never sent again (I10)."""
@@ -210,6 +233,9 @@ class _OutboundSender:
         if communication is None:
             raise PermanentError(NO_COMMUNICATION)
         if is_handled(communication):
+            return
+        if await prompt_is_held_back(uow, communication):
+            await self._settle(uow, message, communication.id, "failed", None, SERVICE_SUSPENDED)
             return
 
         address = await self._address(uow, outbound.recipient_role_id, self._clock.now())
@@ -440,6 +466,10 @@ class PushMessageSender:
         if communication is None:
             raise PermanentError(NO_COMMUNICATION)
         if is_handled(communication):
+            return
+
+        if await prompt_is_held_back(uow, communication):
+            await self._settle(uow, message, communication.id, "failed", SERVICE_SUSPENDED)
             return
 
         now = self._clock.now()

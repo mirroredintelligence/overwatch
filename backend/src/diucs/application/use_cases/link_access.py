@@ -90,6 +90,7 @@ from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import PractitionerRole
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules.confirmable_age import confirmable_age
 from diucs.domain.rules.london_time import LONDON
 from diucs.domain.rules.reply_parser import Confirm, Number
 from diucs.domain.rules.reply_policy import (
@@ -608,7 +609,9 @@ def judge(
         case RecordConfirm():
             if (
                 latest is None
-                or figure_is_out_of_date(latest.effective_at, prompt_sent_at)
+                or figure_is_out_of_date(
+                    latest.effective_at, prompt_sent_at, confirmable_age(profile)
+                )
                 or number_since_prompt
             ):
                 raise SendTheNumber("stale")

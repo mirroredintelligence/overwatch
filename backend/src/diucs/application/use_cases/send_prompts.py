@@ -59,9 +59,10 @@ from diucs.domain.model.flags import SERVICE_FLAG_SUSPENDED
 from diucs.domain.model.people import PractitionerRole, role_holder
 from diucs.domain.model.service import ServiceProfile
 from diucs.domain.model.tenant_policy import DEFAULT_POLICY, TenantPolicy
+from diucs.domain.rules.confirmable_age import confirmable_age
 from diucs.domain.rules.london_time import LONDON, format_hhmm, format_stamp
 from diucs.domain.rules.multi_service import GroupedItem, group_due
-from diucs.domain.rules.opening_hours import is_in_hours
+from diucs.domain.rules.prompt_hours import is_due_time_in_hours
 from diucs.domain.rules.schedule import LadderStep, current_due, ladder_times, next_due, reply_by
 
 MESSAGES_TOPIC: Final = "messages.outbound"
@@ -145,6 +146,22 @@ def prompt_key(service_id: str, due: datetime) -> str:
     return f"prompt:{service_id}:{due.astimezone(UTC).isoformat()}"
 
 
+RACED_MESSAGE: Final = "this prompt is being sent by another request"
+"""What the loser of a race for one due prompt is told. Two racers compute results that differ only
+in their record ids, so the idempotency store's own text ("a different result is already stored
+for this command key") reads as a different command; it is the same command, and the other
+request got there first (KI-24)."""
+
+
+async def store_prompt_result(uow: UnitOfWork, key: str, stored: object) -> None:
+    """Store the prompt's result under its command key. A Conflict is a lost race for this prompt,
+    and says so."""
+    try:
+        await uow.idempotency.put(key, stored)
+    except Conflict:
+        raise Conflict(RACED_MESSAGE) from None
+
+
 def _replay(stored: _StoredPrompt, fingerprint: str) -> SendPromptResult:
     if stored.fingerprint != fingerprint:
         raise Conflict("this command key was used for a different prompt")
@@ -208,7 +225,9 @@ def _skip_reason(
         return SKIP_INACTIVE
     if suspended:
         return SKIP_SUSPENDED
-    if not is_in_hours(profile.available_times, due, zone=zone):
+    # The closing time counts as inside the hours for a due time (DEC-1100 Q3): the prompt due at
+    # the close is the closing figure a night coordinator relies on.
+    if not is_due_time_in_hours(profile.available_times, due, zone):
         return SKIP_OUT_OF_HOURS
     if now >= reply_by(due, policy):
         return SKIP_REPLY_WINDOW
@@ -282,12 +301,18 @@ class _Group:
 
 
 def _too_old_to_confirm(
-    latest: CapacityReport, now: datetime, policy: TenantPolicy = DEFAULT_POLICY
+    latest: CapacityReport,
+    now: datetime,
+    policy: TenantPolicy = DEFAULT_POLICY,
+    profile: ServiceProfile | None = None,
 ) -> bool:
-    """True when a Y could not confirm this figure: it was more than the tenant's stale limit old
-    when the prompt is sent, the line U05 draws (`figure_is_out_of_date`, DEC-148 item 2, DEC-156
-    item 4). Exactly that age is still inside."""
-    return now - latest.effective_at > policy.stale_warning_after
+    """True when a Y could not confirm this figure: it was older than the window when the prompt is
+    sent, the line U05 draws (`figure_is_out_of_date`, DEC-148 item 2, DEC-156 item 4). The window
+    is the service's own (`confirmable_age`, DEC-1100 Q4: the larger of the tenant's stale limit and
+    the service's reporting interval), or the tenant's stale limit when no profile is given.
+    Exactly that age is still inside."""
+    window = policy.stale_warning_after if profile is None else confirmable_age(profile, policy)
+    return now - latest.effective_at > window
 
 
 def _grouped_ids(groups: list[_Group], service_id: str) -> tuple[str, ...]:
@@ -390,7 +415,9 @@ class SendPrompts:
             flags = await uow.flags.service_flags(profile.id)
             suspended = any(flag.code == SERVICE_FLAG_SUSPENDED for flag in flags)
             result = await self._decide(uow, command, profile, due, now, suspended, run)
-            await uow.idempotency.put(command.idempotency_key, _StoredPrompt(fingerprint, result))
+            await store_prompt_result(
+                uow, command.idempotency_key, _StoredPrompt(fingerprint, result)
+            )
             await uow.commit()
         return result
 
@@ -484,7 +511,7 @@ class SendPrompts:
         if (
             latest is None
             or me.profile.channel is not Channel.TEXT
-            or _too_old_to_confirm(latest, now, run.policy)
+            or _too_old_to_confirm(latest, now, run.policy, me.profile)
         ):
             return []
         groups: list[_Group] = []
@@ -557,7 +584,7 @@ class SendPrompts:
         if profile is None or profile.channel is not Channel.TEXT:
             return None
         latest = await uow.capacity.latest(service_id)
-        if latest is None or _too_old_to_confirm(latest, now, run.policy):
+        if latest is None or _too_old_to_confirm(latest, now, run.policy, profile):
             return None
         suspended = any(
             flag.code == SERVICE_FLAG_SUSPENDED

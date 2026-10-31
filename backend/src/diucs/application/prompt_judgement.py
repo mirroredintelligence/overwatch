@@ -15,7 +15,7 @@ cannot drift:
 Decisions: DEC-148 items 2, 17 and 20.
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Final
 
 from diucs.application.ports.outbound.unit_of_work import UnitOfWork
@@ -34,8 +34,14 @@ def _instant(name: str, value: datetime) -> datetime:
     return value.astimezone(UTC)
 
 
-def figure_is_out_of_date(figure_as_of: datetime, prompt_sent_at: datetime) -> bool:
-    """True when the figure was older than the window at the moment the prompt named it.
+def figure_is_out_of_date(
+    figure_as_of: datetime,
+    prompt_sent_at: datetime,
+    window: timedelta = CONFIRMABLE_FIGURE_AGE,
+) -> bool:
+    """True when the figure was older than the window at the moment the prompt named it. The window
+    is the service's own (`domain.rules.confirmable_age`, DEC-1100 Q4); with none given it is the
+    tenant's default stale limit, two hours.
 
     Both are compared as UTC instants, so a London clock change cannot move the line (lesson L4).
     Exactly the window is still inside it, as D05's stale warning (strictly more than 2 hours). A
@@ -43,7 +49,7 @@ def figure_is_out_of_date(figure_as_of: datetime, prompt_sent_at: datetime) -> b
     """
     as_of = _instant("as_of", figure_as_of)
     sent_at = _instant("sent_at", prompt_sent_at)
-    return sent_at - as_of > CONFIRMABLE_FIGURE_AGE
+    return sent_at - as_of > window
 
 
 def recorded_since_prompt(report: CapacityReport, prompt_sent_at: datetime) -> bool:

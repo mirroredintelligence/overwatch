@@ -40,6 +40,7 @@ type Module = Record<string, Handler>;
 
 const ROUTES = {
   overview: () => import('./route') as Promise<Module>,
+  networks: () => import('./networks/route') as Promise<Module>,
   invite: () => import('./members/route') as Promise<Module>,
   remove: () => import('./members/[id]/remove/route') as Promise<Module>,
   agreement: () => import('./agreement/route') as Promise<Module>,
@@ -57,6 +58,7 @@ type Name = keyof typeof ROUTES;
 const BASE = '/api/bff/network-admin';
 const PATHS: Record<Name, [verb: 'GET' | 'POST', url: string, params?: Record<string, string>]> = {
   overview: ['GET', BASE],
+  networks: ['GET', `${BASE}/networks`],
   invite: ['POST', `${BASE}/members`],
   remove: ['POST', `${BASE}/members/mem-a/remove`, { id: 'mem-a' }],
   agreement: ['POST', `${BASE}/agreement`],
@@ -76,7 +78,7 @@ const BODIES: Partial<Record<Name, unknown>> = {
   suspend: { reason: 'data-quality' },
 };
 /** Routes that name no network: a grant is found by its own handle and the back end checks the owner. */
-const NO_NETWORK: Name[] = ['approve', 'declineGrant'];
+const NO_NETWORK: Name[] = ['approve', 'declineGrant', 'networks'];
 
 async function call(
   name: Name,
@@ -186,18 +188,22 @@ describe('which network: the registry decides, never the browser', () => {
     expect(backend()).toEqual([]);
   });
 
-  it('when the organisation owns more than one network the overview offers them and chooses none', async () => {
-    const second = { ...OWNER_NETWORKS.networks[0]!, id: 'net-second', name: 'Second Network' };
-    server.use(http.get(`${ADMIN_ROOT}/network-admin/networks`, () => HttpResponse.json({ networks: [OWNER_NETWORKS.networks[0], second] })));
-    const response = await call('overview');
-    const body = await response.json();
-    expect(response.status).toBe(200);
-    expect(body.network).toBeNull();
-    expect(body.networks).toEqual([
-      { id: 'net-sample', name: 'Sample Network' },
-      { id: 'net-second', name: 'Second Network' },
-    ]);
-    expect(backend()).toEqual([]); // the overridden list is the only call; no network route was called
+  it('lists the networks the organisation runs, by name and the opaque id, and none for one that runs none', async () => {
+    expect(await (await call('networks')).json()).toEqual({ networks: [{ id: NETWORK_ID, name: 'Sample Network' }] });
+    expect(await (await call('networks', { tenant: TENANTS.C })).json()).toEqual({ networks: [] });
+    expect(await (await call('networks', { tenant: MEMBER })).json()).toEqual({ networks: [] });
+  });
+
+  it('lists only the networks it owns and is active in: a membership that is only a member’s or only an invitation is not one it runs', async () => {
+    const own = OWNER_NETWORKS.networks[0]!;
+    server.use(
+      http.get(`${ADMIN_ROOT}/network-admin/networks`, () =>
+        HttpResponse.json({
+          networks: [own, { ...own, id: 'net-second', name: 'Second Network' }, { ...own, id: 'net-third', is_owner: false }, { ...own, id: 'net-fourth', membership_status: 'invited' }],
+        }),
+      ),
+    );
+    expect((await (await call('networks')).json()).networks.map((n: { id: string }) => n.id)).toEqual(['net-sample', 'net-second']);
   });
 
   it('with more than one network and none named, a route that needs one is a 400; naming an owned one works; naming a member-only one is a 404', async () => {
@@ -214,7 +220,7 @@ describe('which network: the registry decides, never the browser', () => {
 describe('the overview', () => {
   it('answers the network, its members, and what each member’s sharing is, field by field', async () => {
     const body = await (await call('overview')).json();
-    expect(body.networks).toEqual([{ id: NETWORK_ID, name: 'Sample Network' }]);
+    expect(Object.keys(body)).toEqual(['network']);
     expect(body.network).toMatchObject({ id: NETWORK_ID, name: 'Sample Network', agreementReference: 'DSA-2026-1', agreementVersion: 1 });
     expect(body.network.members).toHaveLength(6);
     expect(body.network.members[1]).toEqual({

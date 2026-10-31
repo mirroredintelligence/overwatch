@@ -114,7 +114,9 @@ from diucs.application.tenant_settings import (
     DirectoryZones,
     LinkBases,
     TenantZones,
+    require_tenant_link_bases,
 )
+from diucs.application.tenant_wording import ConfiguredWording
 from diucs.application.use_cases.alerts import (
     EscalateAlert,
     EscalateAlertCommand,
@@ -131,6 +133,7 @@ from diucs.application.use_cases.criteria_reviews import (
     RunCriteriaReviewsCommand,
     ensure_daily_schedule,
 )
+from diucs.application.use_cases.link_access import UnitOfWorkIdempotency
 from diucs.application.use_cases.missed_report_ladder import (
     LADDER_KINDS,
     LadderStepCommand,
@@ -138,7 +141,9 @@ from diucs.application.use_cases.missed_report_ladder import (
 )
 from diucs.application.use_cases.request_booking import LinkBaseUrlFor
 from diucs.application.use_cases.review_registration import AreaDistrictsFor
+from diucs.application.use_cases.send_prompts import SendPromptCommand, SendPrompts, prompt_key
 from diucs.application.use_cases.suspend_service import WordingFor
+from diucs.application.use_cases.tenant_config import ReadTenantConfig
 from diucs.application.use_cases.tenant_invariants import (
     InvariantMonitor,
     RunInvariantCheck,
@@ -229,9 +234,9 @@ class Container:
     # The area of each tenant for the registration review (U28, DEC-317): no default, so a tenant
     # with no entry in the settings has an empty area (R11 wiring, bootstrap/wiring.py).
     area_districts_for: AreaDistrictsFor
-    # The link host of a tenant and the wording its booking messages print (R09, L02). Neither has a
-    # source in production yet (tenant configuration: TEN-022, TEN-028), so the production profile
-    # fails closed: no host is an error, no wording a refused request (H-T15).
+    # The link host of a tenant and the wording its booking messages print (R09, L02). Production
+    # reads them from the tenant directory and the tenant's configuration (B1): a tenant with no
+    # host is an error and one with no wording a refused request (H-T15).
     link_base_url_for: LinkBaseUrlFor
     wording_for: WordingFor
     # The platform's own audit chain, the support-access tickets and the cross-tenant guard
@@ -291,16 +296,6 @@ class Container:
             await self.redis.aclose()
 
 
-def _no_link_host(scope: ScopeId) -> str:
-    """Production has no link host for a tenant yet (TEN-028): a booking request is refused."""
-    raise RuntimeError("no link host is configured for this tenant")
-
-
-async def _no_wording(scope: ScopeId) -> TenantWording | None:
-    """Production has no wording for a tenant yet (TEN-022): a booking request is refused."""
-    return None
-
-
 async def _test_wording(scope: ScopeId) -> TenantWording | None:
     return TenantWording(
         system_name="Test system",
@@ -329,6 +324,26 @@ def ladder_handlers(ladder: MissedReportLadder) -> dict[WorkKind, WorkHandler]:
         )
 
     return {kind: step for kind in LADDER_KINDS}
+
+
+def prompt_due_handler(send: SendPrompts) -> WorkHandler:
+    """The capacity question of a service that is due (U03, KI-96): one `SendPrompts` run for each
+    scheduled work of its kind, keyed by the service and the due instant (`prompt_key`), so a
+    redelivery of the same work is a replay and a grouped prompt that already served this service
+    makes it do nothing (DEC-156 item 5). The work's tenant is the bound one (the consumer bound
+    it): the actor is that tenant's scheduler and no other's."""
+
+    async def step(work: ScheduledWork) -> None:
+        await send.execute(
+            SendPromptCommand(
+                idempotency_key=prompt_key(work.about_id, work.due_at),
+                actor=system_actor(current_tenant(), SCHEDULER_CHANNEL),
+                service_id=work.about_id,
+                due_at=work.due_at,
+            )
+        )
+
+    return step
 
 
 def criteria_review_handler(job: RunCriteriaReviews) -> WorkHandler:
@@ -388,11 +403,16 @@ def _scheduled_work(
     invariants: TenantInvariants,
     monitor: InvariantMonitor,
     zones: TenantZones | None = None,
+    *,
+    serving: bool = False,
 ) -> ScheduledWorkDispatcher:
     """The dispatch table, built on the same clock, ids and secrets as the rest of the container.
-    `link_base_url` is the tenant source of the reminder's link and `zones` of the tenant's time
-    zone: the serving process passes the directory's (TEN-027), the test container a fixed base
-    and London."""
+    `link_base_url` is the tenant source of the prompt's and the reminder's link and `zones` of the
+    tenant's time zone: the serving process passes the directory's (TEN-027), the test container a
+    fixed base and London. With `serving` a plain-string link base is refused (KI-505): one base
+    for every tenant could put a tenant's link on another tenant's host."""
+    if serving:
+        require_tenant_link_bases(link_base_url)
 
     def tokens(repo: LinkTokenRepository) -> LinkTokenService:
         return LinkTokenService(repo, secrets, clock)
@@ -401,6 +421,19 @@ def _scheduled_work(
         uow_factory, clock, ids, tokens, link_base_url, AesGcmContentSealer(secrets), zones
     )
     handlers: dict[WorkKind, WorkHandler] = dict(ladder_handlers(ladder))
+    # The capacity question itself (U03): the first rung of the ladder, which sets the next one.
+    handlers[WorkKind.PROMPT_DUE] = prompt_due_handler(
+        SendPrompts(
+            uow_factory,
+            clock,
+            ids,
+            UnitOfWorkIdempotency(uow_factory),
+            tokens,
+            link_base_url,
+            AesGcmContentSealer(secrets),
+            zones=zones,
+        )
+    )
     # The booking timers (U19): the advisor's phone prompt and the expiry of a request.
     handlers.update(
         booking_timer_handlers(
@@ -517,6 +550,8 @@ def build(
     redis_cache = RedisCache(redis)
     directory = Neo4jTenantDirectory(neo4j)
     platform_audit = Neo4jPlatformAudit(neo4j)
+    # Only the default tenant, which has no host of its own, falls back to the platform's base URL.
+    links = DirectoryLinkBase(directory, fallback=settings.base_url)
     return Container(
         clock=clock,
         ids=ids,
@@ -558,17 +593,19 @@ def build(
             clock,
             ids,
             store,
-            # Each tenant's links are on its own host (DEC-134 item 3); only the default tenant,
-            # which has no host of its own, falls back to the platform's base URL.
-            DirectoryLinkBase(directory, fallback=settings.base_url),
+            # Each tenant's links are on its own host (DEC-134 item 3).
+            links,
             invariants,
             monitor,
             DirectoryZones(directory),
+            serving=True,
         ),
         sealer=AesGcmContentSealer(store),
         area_districts_for=area_districts_for(settings.tenant_areas),
-        link_base_url_for=_no_link_host,
-        wording_for=_no_wording,
+        # Each tenant's links are on its own host, from the directory (the same source as the
+        # prompt's and the ladder's), and its words come from its configuration in force (B1).
+        link_base_url_for=links.link_base_url,
+        wording_for=ConfiguredWording(ReadTenantConfig(uow_factory)),
         platform_audit=platform_audit,
         support_tickets=Neo4jSupportTickets(neo4j),
         cross_tenant_guard=CrossTenantGuard(

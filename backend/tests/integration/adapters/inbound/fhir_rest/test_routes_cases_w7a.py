@@ -9,13 +9,17 @@ telecom.
 """
 
 import copy
+import dataclasses
 from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from fastapi import FastAPI
 from httpx import AsyncClient
 
+from diucs.adapters.testing.fixed_terminology import FixedTerminology
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
+from diucs.bootstrap.container import Container
 from diucs.domain.codes import AgeBand, NeedCategory, ReferrerType, Role, Urgency
 from diucs.domain.model.case import Case
 from tests.integration.adapters.inbound.fhir_rest.test_routes_cases import (
@@ -41,6 +45,23 @@ NEED_SYSTEM = "https://diucs.example/CodeSystem/need-category"
 EMPTY_CASE: dict[str, Any] = {"resourceType": "ServiceRequest"}
 B_CASE_ID = "case-of-tenant-b"
 B_REFERENCE = "7391"
+
+
+def with_dx_list(api_app: FastAPI) -> None:
+    """The app answers from a Pathways Dx list that holds these sample codes (H-85): the container's
+    own list is empty, so every code is refused."""
+    container: Container = api_app.state.container
+    api_app.state.container = dataclasses.replace(
+        container,
+        terminology=FixedTerminology(
+            {},
+            {},
+            [
+                ("DX123", "Sample (not a real code)"),
+                ("DxSAMPLE01", "Sample (not a real code)"),
+            ],
+        ),
+    )
 
 
 def headers(key: str, role: Role = Role.ADVISOR, **extra: str) -> dict[str, str]:
@@ -71,9 +92,21 @@ async def open_empty(client: AsyncClient, key: str = "open-empty") -> str:
     return str(response.json()["id"])
 
 
-async def put(client: AsyncClient, case_id: str, body: dict[str, Any], key: str) -> Any:
+async def current_version(client: AsyncClient, case_id: str) -> str:
+    """The ETag a read of the case gives now: the version a PUT must name (H-192). A case that
+    cannot be read (another tenant's) has none: the stand-in matches no version."""
+    read = await client.get(
+        f"/fhir/ServiceRequest/{case_id}", headers=token_headers(role=Role.ADVISOR)
+    )
+    return read.headers.get("etag", 'W/"999"')
+
+
+async def put(
+    client: AsyncClient, case_id: str, body: dict[str, Any], key: str, version: str | None = None
+) -> Any:
+    named = version if version is not None else await current_version(client, case_id)
     return await client.put(
-        f"/fhir/ServiceRequest/{case_id}", json=body, headers=headers(key, **{"If-Match": 'W/"1"'})
+        f"/fhir/ServiceRequest/{case_id}", json=body, headers=headers(key, **{"If-Match": named})
     )
 
 
@@ -385,8 +418,9 @@ async def test_an_urgency_that_disagrees_with_its_priority_is_a_400(
 
 
 async def test_scores_are_stored_and_read_back(
-    api_client: AsyncClient, seeded: None, test_container: Any
+    api_client: AsyncClient, api_app: FastAPI, seeded: None, test_container: Any
 ) -> None:
+    with_dx_list(api_app)
     case_id = await open_empty(api_client, "a5-open")
     body = case_body()
     body["extension"] += [
@@ -424,7 +458,7 @@ async def test_the_same_scores_again_are_accepted_and_other_scores_are_refused(
 
     assert same.status_code == 200, same.text
     assert other.status_code == 400
-    assert "recorded scores cannot change" in other.text
+    assert "a recorded score changes only with a reason" in other.text
 
 
 async def test_a_put_that_leaves_the_scores_out_keeps_them(

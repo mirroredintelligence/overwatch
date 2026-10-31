@@ -18,8 +18,10 @@ The only stored patient data is the postcode district and an age band (DEC-398).
 name, identifier, birth date or telecom is refused with 400 invalid before anything is read or
 written; the message never echoes the value.
 
-Decisions: DEC-397 (the open is two use cases in two units), DEC-398 (no case version: If-Match is
-required but its value is not compared; the answers are the stored shape), DEC-770 (an empty open,
+Decisions: DEC-1172 (the open is one unit; the case version is the ServiceRequest's version: a
+PUT must send the ETag it read as If-Match and a case at another version is 412, H-192; this
+replaces DEC-397's two units and DEC-398's unchecked If-Match), DEC-398 (the answers are the stored
+shape), DEC-770 (an empty open,
 the referrer optional until the case is complete), DEC-773 (planned is kept as planned; scores are
 stored), DEC-779 (the options carry category, place and the map flags), DEC-781 (the close time).
 The ServiceRequest shape is in case_mapping.py.
@@ -43,7 +45,12 @@ from diucs.adapters.inbound.fhir_rest.case_mapping import (
     parse_case_details,
     refuse_patient_details,
 )
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key, require_if_match
+from diucs.adapters.inbound.fhir_rest.concurrency import (
+    etag_for,
+    idempotency_key,
+    parse_if_match,
+    require_if_match,
+)
 from diucs.adapters.inbound.fhir_rest.mapping import validate_outbound
 from diucs.adapters.inbound.fhir_rest.routes_services import UnitOfWorkIdempotency
 from diucs.application.actor import Actor
@@ -80,7 +87,6 @@ from diucs.domain.model.case import Case
 
 CASE_ROLES: Final = (Role.ADVISOR, Role.CLINICAL)
 NO_SUCH_CASE: Final = "no case with this id"
-ETAG_OPEN: Final = 'W/"1"'
 
 router = APIRouter(prefix="/fhir")
 capability.register_resource(
@@ -130,16 +136,17 @@ async def _json(request: Request) -> Any:
         raise ValidationFailed("body", "is not valid JSON") from None
 
 
-async def _case_or_404(factory: UnitOfWorkFactory, case_id: str) -> Case:
+async def _case_or_404(factory: UnitOfWorkFactory, case_id: str) -> tuple[Case, int]:
+    """The case and its version, the one the ETag of the answer names (H-192, DEC-1172)."""
     async with factory() as uow:
-        case = await uow.cases.get(case_id)
-    if case is None:
+        found = await uow.cases.get_versioned(case_id)
+    if found is None:
         raise NotFound(NO_SUCH_CASE)
-    return case
+    return found
 
 
 def _update_command(
-    key: str, actor: Actor, case_id: str, details: CaseDetails
+    key: str, actor: Actor, case_id: str, details: CaseDetails, expected_version: int | None = None
 ) -> UpdateCaseCommand:
     return UpdateCaseCommand(
         idempotency_key=key,
@@ -152,6 +159,8 @@ def _update_command(
         urgency=details.urgency,
         scores=details.scores,
         district=details.district,
+        score_correction_reason=details.score_correction_reason,
+        expected_version=expected_version,
     )
 
 
@@ -170,27 +179,32 @@ async def open_case(
     actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
 ) -> Response:
     """Open a case. The body may be empty of details: the call screen opens the case before
-    anything is known (DEC-770), and every detail comes by a later PUT."""
+    anything is known (DEC-770), and every detail comes by a later PUT. A body with details opens
+    and fills the case in one unit of work (KI-400, DEC-1172): a refusal leaves no case."""
     key = idempotency_key(request)
     _, details = await _service_request(request)
     container = get_container(request)
+    rest = replace(details, referrer_type=None)
     opened = await OpenCase(
         container.uow_factory,
         container.clock,
         container.ids,
         UnitOfWorkIdempotency(container.uow_factory),
         container.rng,
-    ).execute(OpenCaseCommand(key, actor, details.referrer_type))
-    rest = replace(details, referrer_type=None)
-    if not rest.is_empty:
-        await UpdateCase(
-            container.uow_factory, container.clock, UnitOfWorkIdempotency(container.uow_factory)
-        ).execute(_update_command(f"{key}:details", actor, opened.case_id, rest))
-    case = await _case_or_404(container.uow_factory, opened.case_id)
+        container.terminology,
+    ).execute(
+        OpenCaseCommand(
+            key,
+            actor,
+            details.referrer_type,
+            None if rest.is_empty else _update_command(key, actor, "", rest),
+        )
+    )
+    case, version = await _case_or_404(container.uow_factory, opened.case_id)
     return FhirJSONResponse(
         content=validate_outbound(case_to_fhir(case)),
         status_code=201,
-        headers={"Location": f"/fhir/ServiceRequest/{case.id}", "ETag": ETAG_OPEN},
+        headers={"Location": f"/fhir/ServiceRequest/{case.id}", "ETag": etag_for(version)},
     )
 
 
@@ -200,11 +214,12 @@ async def read_case(
     request: Request,
     actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
 ) -> Response:
-    """One case, open or closed. Another tenant's id is the same 404 as an unknown id."""
-    case = await _case_or_404(get_container(request).uow_factory, case_id)
+    """One case, open or closed. Another tenant's id is the same 404 as an unknown id. The ETag is
+    the version to send back as If-Match on a PUT (H-192)."""
+    case, version = await _case_or_404(get_container(request).uow_factory, case_id)
     return FhirJSONResponse(
         content=validate_outbound(case_to_fhir(case)),
-        headers={"ETag": ETAG_OPEN, "Cache-Control": "no-store"},
+        headers={"ETag": etag_for(version), "Cache-Control": "no-store"},
     )
 
 
@@ -214,18 +229,24 @@ async def update_case(
     request: Request,
     actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
 ) -> Response:
+    """Update an open case. If-Match is the version the caller read: a case at another version is
+    412 and nothing is written (H-192, DEC-1172), so two advisors editing one case cannot
+    silently overwrite each other."""
     key = idempotency_key(request)
-    require_if_match(request)
+    expected = require_if_match(request)
     _, details = await _service_request(request)
     container = get_container(request)
     await UpdateCase(
-        container.uow_factory, container.clock, UnitOfWorkIdempotency(container.uow_factory)
-    ).execute(_update_command(key, actor, case_id, details))
-    case = await _case_or_404(container.uow_factory, case_id)
+        container.uow_factory,
+        container.clock,
+        UnitOfWorkIdempotency(container.uow_factory),
+        container.terminology,
+    ).execute(_update_command(key, actor, case_id, details, expected))
+    case, version = await _case_or_404(container.uow_factory, case_id)
     return FhirJSONResponse(
         content=validate_outbound(case_to_fhir(case)),
         status_code=200,
-        headers={"ETag": ETAG_OPEN},
+        headers={"ETag": etag_for(version)},
     )
 
 
@@ -236,6 +257,10 @@ async def close_case(
     actor: Annotated[Actor, Depends(require_role(*CASE_ROLES))],
 ) -> Response:
     key = idempotency_key(request)
+    # The version is optional on a close: one that names it is checked (a case another advisor
+    # changed since is 412); one that does not closes whatever is stored (DEC-1172).
+    named = request.headers.get("if-match")
+    expected = None if named is None else parse_if_match(named)
     grouped = _parameters(await _json(request))
     try:
         outcome = Outcome(_code(_one(grouped, "outcome"), "outcome"))
@@ -265,10 +290,15 @@ async def close_case(
             outcome=outcome,
             destination_service_id=destination_id,
             best_fit_not_used=best_fit,
+            expected_version=expected,
         )
     )
-    case = await _case_or_404(container.uow_factory, case_id)
-    return FhirJSONResponse(content=validate_outbound(case_to_fhir(case)), status_code=200)
+    case, version = await _case_or_404(container.uow_factory, case_id)
+    return FhirJSONResponse(
+        content=validate_outbound(case_to_fhir(case)),
+        status_code=200,
+        headers={"ETag": etag_for(version)},
+    )
 
 
 @router.post("/HealthcareService/$filter-options")

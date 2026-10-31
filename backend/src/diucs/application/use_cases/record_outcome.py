@@ -27,7 +27,7 @@ from diucs.application.tenancy import current_scope_or_none
 from diucs.application.use_cases.filter_options import need_phrase
 from diucs.application.use_cases.open_case import check_role, replay_key, tenant_scope
 from diucs.domain.codes import BestFitNotUsedReason, Outcome, display
-from diucs.domain.errors import Conflict, NotFound, ValidationFailed
+from diucs.domain.errors import Conflict, NotFound, StaleVersion, ValidationFailed
 from diucs.domain.model.case import Case
 from diucs.domain.model.scores import (
     AmbulanceCategory,
@@ -36,7 +36,7 @@ from diucs.domain.model.scores import (
     News2,
     PathwaysDx,
     Score,
-    method_of,
+    score_record,
 )
 
 RECORD_OUTCOME: Final = "RecordOutcome"
@@ -63,6 +63,9 @@ class RecordOutcomeCommand:
     outcome: Outcome
     destination_service_id: str | None = None
     best_fit_not_used: BestFitNotUsedReason | None = None
+    expected_version: int | None = None
+    """The version of the case the caller read, when it says (H-192, DEC-1172): a case at another
+    version raises StaleVersion. A close that names none closes whatever is stored."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,15 +153,7 @@ def build_summary(
 
 
 def score_snapshot(score: Score) -> dict[str, Any]:
-    method = method_of(score).value
-    match score:
-        case News2() | ClinicalFrailty() | AmbulanceCategory():
-            return {"method": method, "value": score.value}
-        case ManchesterTriage():
-            return {"method": method, "value": score.level}
-        case PathwaysDx():
-            return {"method": method, "value": score.code}
-    raise ValidationFailed("scores", "not a known score")
+    return score_record(score)
 
 
 def close_snapshot(
@@ -233,11 +228,14 @@ class RecordOutcome:
                 _same_command(stored.fingerprint, fingerprint)
                 return stored.result
 
-            case = await uow.cases.get(command.case_id)
-            if case is None:
+            found = await uow.cases.get_versioned(command.case_id)
+            if found is None:
                 raise NotFound("no case with this id")
+            case, version = found
             if case.closed_at is not None:
                 raise Conflict("the case is already closed")
+            if command.expected_version is not None and command.expected_version != version:
+                raise StaleVersion
             destination = command.destination_service_id
             if destination is not None:
                 # A service of another tenant is not found, as an unknown one is (DEC-131).
@@ -255,7 +253,7 @@ class RecordOutcome:
                 destination_service_id=destination,
                 best_fit_not_used=command.best_fit_not_used,
             )
-            await uow.cases.save(closed)
+            await uow.cases.save(closed, expected_version=command.expected_version)
             entities = (case.id,) if destination is None else (case.id, destination)
             await uow.audit.append(
                 AuditEntry(

@@ -43,7 +43,9 @@ async def test_a_listed_code_is_listed(tmp_path: Path) -> None:
     assert await _file(tmp_path).pathways_dx_listed("Dx02") is True
 
 
-@pytest.mark.parametrize("code", ["dx02", "DX02", " Dx02", "Dx02 ", "Dx02\n", "Dx0", "", "Dx", "ZZ99"])
+@pytest.mark.parametrize(
+    "code", ["dx02", "DX02", " Dx02", "Dx02 ", "Dx02\n", "Dx0", "", "Dx", "ZZ99"]
+)
 async def test_a_code_not_exactly_on_the_list_is_not_listed(tmp_path: Path, code: str) -> None:
     assert await _file(tmp_path).pathways_dx_listed(code) is False
 
@@ -63,7 +65,8 @@ def test_a_list_holding_a_code_the_score_could_never_record_is_refused_at_load(
         PathwaysDxFile(path)
 
     assert refused.value.field == "code"
-    assert code.strip() not in refused.value.message
+    if len(code.strip()) > 2:  # a one-letter code is a letter of the words, not an echo
+        assert code.strip() not in refused.value.message
 
 
 async def test_the_pilot_sample_list_is_recordable_and_listed() -> None:

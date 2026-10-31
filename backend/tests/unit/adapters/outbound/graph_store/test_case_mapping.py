@@ -301,8 +301,8 @@ def test_a_case_with_scores_lists_one_supporting_reference_per_score_in_order() 
     assert [resource["id"] for resource in scores] == ["sc-case-1-1", "sc-case-1-2"]
 
 
-# Q7 (KI-815): a corrected score is a new Observation under a new revision; the original stays in the
-# graph, unlisted, and the audit holds the pair.
+# Q7 (KI-815): a corrected score is a new Observation under a new revision; the original stays in
+# the graph, unlisted, and the audit holds the pair.
 
 
 CORRECTED = replace(OPEN_CASE, scores=(News2(5), ClinicalFrailty(6)), score_corrections=1)

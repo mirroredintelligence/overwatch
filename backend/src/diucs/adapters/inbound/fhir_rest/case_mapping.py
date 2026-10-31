@@ -41,6 +41,7 @@ from diucs.domain.model.scores import (
     News2,
     PathwaysDx,
     Score,
+    ScoreCorrectionReason,
     method_of,
 )
 
@@ -49,6 +50,12 @@ AGE_BAND_EXTENSION: Final = f"{STRUCTURE}age-band"
 REFERRER_EXTENSION: Final = f"{STRUCTURE}referrer-type"
 URGENCY_EXTENSION: Final = f"{STRUCTURE}urgency"
 SCORE_EXTENSION: Final = f"{STRUCTURE}score"
+SCORE_REASON_EXTENSION: Final = f"{STRUCTURE}score-correction-reason"
+"""Why a recorded score is changed, on the request of a PUT (Q7, DEC-1171): one of the codes of
+`ScoreCorrectionReason`. Sent with the scores it corrects, and refused when nothing is corrected."""
+SCORE_CORRECTIONS_EXTENSION: Final = f"{STRUCTURE}score-corrections"
+"""How many times a recorded score was corrected (valueInteger), on the answer, only when above
+zero. The screen says "corrected" from it; the original score and the reason are in the audit."""
 CLOSED_AT_EXTENSION: Final = f"{STRUCTURE}closed-at"
 OUTCOME_EXTENSION: Final = f"{STRUCTURE}outcome"
 DISTRICT_EXTENSION: Final = f"{STRUCTURE}postcode-district"
@@ -73,6 +80,7 @@ class CaseDetails:
     urgency: Urgency | None
     scores: tuple[Score, ...] | None
     district: str | None = None
+    score_correction_reason: ScoreCorrectionReason | None = None
 
     @property
     def is_empty(self) -> bool:
@@ -84,6 +92,7 @@ class CaseDetails:
             and self.urgency is None
             and self.scores is None
             and self.district is None
+            and self.score_correction_reason is None
         )
 
 
@@ -217,6 +226,18 @@ def _scores(service_request: dict[str, Any]) -> tuple[Score, ...] | None:
     return scores
 
 
+def _correction_reason(service_request: dict[str, Any]) -> ScoreCorrectionReason | None:
+    code = _extension_code(service_request, SCORE_REASON_EXTENSION, "score-correction-reason")
+    if code is None:
+        return None
+    try:
+        return ScoreCorrectionReason(code)
+    except ValueError:
+        raise ValidationFailed(
+            "score-correction-reason", "is not a listed reason for a correction"
+        ) from None
+
+
 def parse_case_details(service_request: dict[str, Any]) -> CaseDetails:
     return CaseDetails(
         referrer_type=_referrer(service_request),
@@ -226,6 +247,7 @@ def parse_case_details(service_request: dict[str, Any]) -> CaseDetails:
         urgency=_urgency(service_request),
         scores=_scores(service_request),
         district=_extension_code(_patient(service_request), DISTRICT_EXTENSION, "district"),
+        score_correction_reason=_correction_reason(service_request),
     )
 
 
@@ -270,6 +292,10 @@ def case_to_fhir(case: Case) -> dict[str, Any]:
         request["priority"] = priority_for(case.urgency)
         extensions.append({"url": URGENCY_EXTENSION, "valueCode": case.urgency.value})
     extensions.extend(_score_extension(score) for score in case.scores)
+    if case.score_corrections:
+        extensions.append(
+            {"url": SCORE_CORRECTIONS_EXTENSION, "valueInteger": case.score_corrections}
+        )
     if case.closed_at is not None:
         extensions.append(
             {"url": CLOSED_AT_EXTENSION, "valueDateTime": format_instant(case.closed_at)}

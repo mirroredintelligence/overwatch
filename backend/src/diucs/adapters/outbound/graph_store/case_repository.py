@@ -11,10 +11,18 @@ resource store, with three deliberate departures from the FHIR form, recorded in
 - A ServiceRequest's reference is a copy of its identifier value, set after the put (DEC-063
   item 2 pattern).
 
-Scores are Observations. The store refuses to put an existing Observation (DEC-053 item 3), so
-scores are written once and never rewritten: with the case on add, or by the first save of a case
-that was opened with none (U11: UpdateCase records the referrer's scores after OpenCase). A save
-that changes scores already recorded is refused.
+Scores are Observations. The store refuses to put an existing Observation (DEC-053 item 3), so an
+Observation is written once and never rewritten: with the case on add, or by a later save that
+records a score of a method not yet recorded (U11: UpdateCase records the referrer's scores after
+OpenCase). A recorded score is corrected (Q7, DEC-1171) by a new revision: every score of the case
+is written again as a new Observation named with the revision (`sc-<case>-<n>-r<revision>`), the
+request lists the new ones, and the original Observations stay in the graph, unlisted. The number of
+corrections is an extension of the request. Any other change to a recorded score is refused.
+
+The version of a case is the version of its ServiceRequest (H-192, DEC-1172): `get_versioned`
+returns it and `save` takes the version the caller read, so a write over a newer version is refused
+with StaleVersion before anything is written, and the store's own check after its lock refuses a
+racing one.
 """
 
 import re
@@ -43,7 +51,13 @@ from diucs.domain.codes import (
     Urgency,
     parse_code,
 )
-from diucs.domain.errors import Conflict, InvalidTransition, NotFound, ValidationFailed
+from diucs.domain.errors import (
+    Conflict,
+    InvalidTransition,
+    NotFound,
+    StaleVersion,
+    ValidationFailed,
+)
 from diucs.domain.model.case import Case, priority_for
 from diucs.domain.model.scores import (
     AmbulanceCategory,
@@ -105,6 +119,7 @@ _EXT_URGENCY: Final = "urgency"
 _EXT_CLOSED_AT: Final = "closedAt"
 _EXT_OUTCOME: Final = "outcome"
 _EXT_BEST_FIT: Final = "bestFitNotUsed"
+_EXT_SCORE_CORRECTIONS: Final = "scoreCorrections"
 
 _LOOKUP_BY_REFERENCE: Final = NamedQuery(
     id="Q-CASE-BY-REF",
@@ -154,8 +169,10 @@ def _patient_id(case_id: str) -> str:
     return f"pt-{case_id}"
 
 
-def _score_id(case_id: str, index: int) -> str:
-    return f"sc-{case_id}-{index}"
+def _score_id(case_id: str, index: int, revision: int = 0) -> str:
+    """The id of the index-th score observation. Revision 0 is the first recording; a corrected
+    case names its observations by the correction count, so a correction never rewrites one."""
+    return f"sc-{case_id}-{index}" if revision == 0 else f"sc-{case_id}-{index}-r{revision}"
 
 
 def _utc_text(value: datetime) -> str:
@@ -260,10 +277,12 @@ def _check_status(request: dict[str, Any], closed_text: str | None) -> None:
         raise ValidationFailed("status", "does not match the close time")
 
 
-def _score_to_fhir(case_id: str, patient_id: str, index: int, score: Score) -> dict[str, Any]:
+def _score_to_fhir(
+    case_id: str, patient_id: str, index: int, score: Score, revision: int = 0
+) -> dict[str, Any]:
     resource: dict[str, Any] = {
         "resourceType": _OBSERVATION,
-        "id": _score_id(case_id, index),
+        "id": _score_id(case_id, index, revision),
         "status": _STATUS_FINAL,
         "code": codeable_to_fhir(method_of(score)),
         "subject": {"reference": f"{_PATIENT}/{patient_id}"},
@@ -350,7 +369,7 @@ def case_to_fhir(case: Case) -> tuple[dict[str, Any], dict[str, Any], list[dict[
         # Left out when empty: the resource store refuses an empty list (a case is opened before
         # any score is known, U11).
         request["supportingInfo"] = [
-            {"reference": f"Observation/{_score_id(case.id, index)}"}
+            {"reference": f"Observation/{_score_id(case.id, index, case.score_corrections)}"}
             for index in range(1, len(case.scores) + 1)
         ]
     if case.urgency is not None:
@@ -366,12 +385,14 @@ def case_to_fhir(case: Case) -> tuple[dict[str, Any], dict[str, Any], list[dict[
         extensions.append(_extension(_EXT_OUTCOME, case.outcome.value))
     if case.best_fit_not_used is not None:
         extensions.append(_extension(_EXT_BEST_FIT, case.best_fit_not_used.value))
+    if case.score_corrections:
+        extensions.append(_extension(_EXT_SCORE_CORRECTIONS, case.score_corrections))
     if extensions:
         # Left out when empty, as the store refuses an empty list (a case with no referrer yet).
         request["extension"] = extensions
 
     scores = [
-        _score_to_fhir(case.id, patient_id, index, score)
+        _score_to_fhir(case.id, patient_id, index, score, case.score_corrections)
         for index, score in enumerate(case.scores, start=1)
     ]
     return patient, request, scores
@@ -445,6 +466,7 @@ def case_from_fhir(
             None if best_fit_text is None else parse_code(BestFitNotUsedReason, best_fit_text)
         ),
         destination_service_id=destination,
+        score_corrections=int(values.get(_EXT_SCORE_CORRECTIONS, 0)),
     )
 
 
@@ -498,40 +520,70 @@ class Neo4jCaseRepository:
             _rebuilt_patient(patient, postcode), _rebuilt_request(request), observations
         )
 
+    async def get_versioned(self, case_id: str) -> tuple[Case, int] | None:
+        """The case and its version: the version of its ServiceRequest (H-192)."""
+        request = await self._store.get(_REQUEST, case_id)
+        if request is None:
+            return None
+        case = await self.get(case_id)
+        if case is None:
+            return None
+        return case, int(request["meta"]["versionId"])
+
     async def get_by_reference(self, reference: str) -> Case | None:
         rows = await run_query(self._tx, REGISTRY.get("Q-CASE-BY-REF"), reference=reference)
         if not rows:
             return None
         return await self.get(str(rows[0]["id"]))
 
-    async def save(self, case: Case) -> None:
-        # Every refusal comes before the first write, so a caller that catches it commits nothing.
+    async def save(self, case: Case, *, expected_version: int | None = None) -> None:
+        """Replace the stored case. With `expected_version`, a case that is at another version is
+        StaleVersion, before anything is written. Every refusal comes before the first write, so a
+        caller that catches it commits nothing."""
         current = await self._store.get(_REQUEST, case.id)
         if current is None:
             raise NotFound(f"{_REQUEST}/{case.id}")
+        current_version = str(current["meta"]["versionId"])
+        if expected_version is not None and str(expected_version) != current_version:
+            raise StaleVersion
         stored = await self.get(case.id)
         if stored is None:  # the request exists, so this is a broken graph
             raise NotFound(f"{_REQUEST}/{case.id}")
-        first_recording = not stored.scores and bool(case.scores)
-        if stored.scores != case.scores and not first_recording:
-            raise ValidationFailed("scores", "recorded scores cannot change")
+        _check_scores_change(stored, case)
         if stored.reference != case.reference:
             raise ValidationFailed("reference", "the case reference cannot change")
         if stored.closed_at is not None and case != stored:
             raise InvalidTransition("a closed case cannot change")
 
         patient, request, scores = case_to_fhir(case)
+        try:
+            await self._write(case, patient, request, scores, current_version)
+        except Conflict as error:
+            if expected_version is not None and "is at version" in str(error):
+                raise StaleVersion from error  # a writer got in after the check above
+            raise
+
+    async def _write(
+        self,
+        case: Case,
+        patient: dict[str, Any],
+        request: dict[str, Any],
+        scores: list[dict[str, Any]],
+        request_version: str,
+    ) -> None:
         patient_current = await self._store.get(_PATIENT, _patient_id(case.id))
         patient_expected = (
             None if patient_current is None else str(patient_current["meta"]["versionId"])
         )
         await self._put_patient(case, patient, expected=patient_expected)
-        if first_recording:
-            # Each Observation is new (the store refuses an existing one), written before the
+        for resource in scores:
+            # Each Observation is written once (the store refuses an existing one): one that is
+            # already there is a score kept as recorded, and one that is not is new (a first
+            # recording, an added method or a correction's new revision), written before the
             # request that lists it, in the bound tenant like every other put.
-            for resource in scores:
+            if await self._store.get(_OBSERVATION, resource["id"]) is None:
                 await self._store.put(resource, None)
-        await self._put_request(case, request, expected=str(current["meta"]["versionId"]))
+        await self._put_request(case, request, expected=request_version)
 
     async def _put_patient(self, case: Case, patient: dict[str, Any], expected: str | None) -> None:
         # The stub is not written with its meta or its postcode: the store refuses meta, and the
@@ -572,6 +624,21 @@ class Neo4jCaseRepository:
         if not rows or rows[0]["postalCode"] is None:
             return None
         return str(rows[0]["postalCode"])
+
+
+def _check_scores_change(stored: Case, case: Case) -> None:
+    """A recorded score changes only as a correction (DEC-1171): the correction count rises by one
+    and every recorded method stays recorded; otherwise the recorded scores are a prefix of the
+    saved ones (a method added). Anything else is refused, before any write."""
+    if case.score_corrections == stored.score_corrections:
+        if case.scores[: len(stored.scores)] != stored.scores:
+            raise ValidationFailed("scores", "recorded scores cannot change")
+        return
+    if case.score_corrections != stored.score_corrections + 1:
+        raise ValidationFailed("scores", "a save records one correction at most")
+    kept = {method_of(score) for score in case.scores}
+    if any(method_of(score) not in kept for score in stored.scores):
+        raise ValidationFailed("scores", "a correction does not remove a recorded score")
 
 
 def _rebuilt_patient(patient: dict[str, Any], postcode: str | None) -> dict[str, Any]:

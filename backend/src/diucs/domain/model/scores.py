@@ -6,7 +6,8 @@ The message never echoes the value: a score is clinical data, and errors can rea
 
 import re
 from dataclasses import dataclass
-from typing import Final
+from enum import StrEnum
+from typing import Any, Final
 
 from diucs.domain.codes import AcuityMethod
 from diucs.domain.errors import ValidationFailed
@@ -22,9 +23,12 @@ MANCHESTER_LEVELS: Final[frozenset[str]] = frozenset(
     {"immediate", "very-urgent", "urgent", "standard", "non-urgent"}
 )
 
-# [ASSUMED] domain-rules.md section 4: a Pathways Dx code is validated for format only, from a
-# list the service provides. Two to ten upper-case letters or digits.
-PATHWAYS_DX_PATTERN: Final = re.compile(r"[A-Z0-9]{2,10}")
+# [ASSUMED] The shape of a Pathways Dx code (DEC-1170, KI-816): two to twelve letters of either case
+# and digits. The codes of the list begin "Dx" (the pilot's own sample is "DxSAMPLE01"), so the
+# upper-case-only shape of domain-rules.md section 4 refused every one of them. The shape only keeps
+# stray text out; what makes a code acceptable is that it is on the list (the Terminology port,
+# H-85), and the list file is refused at load when it holds a code of another shape.
+PATHWAYS_DX_PATTERN: Final = re.compile(r"[A-Za-z0-9]{2,12}")
 
 
 def _whole_number(field: str, value: object, low: int, high: int) -> None:
@@ -80,6 +84,59 @@ class PathwaysDx:
 
 
 Score = News2 | ClinicalFrailty | AmbulanceCategory | ManchesterTriage | PathwaysDx
+
+
+class ScoreCorrectionReason(StrEnum):
+    """Why a recorded score was changed (Q7, DEC-1100, DEC-1171). A closed set of codes, never free
+    text: a reason can reach the audit trail, which must not hold anything a person typed."""
+
+    TYPING_ERROR = "typing-error"
+    REFERRER_CORRECTED = "referrer-corrected"
+    RESCORED = "rescored"
+
+
+@dataclass(frozen=True, slots=True)
+class ScoreMerge:
+    """The recorded scores after a write, in order: the recorded methods (with a corrected value
+    where one was given), then the methods added. `corrected` holds (was, now) per method
+    changed."""
+
+    scores: tuple[Score, ...]
+    corrected: tuple[tuple[Score, Score], ...]
+    added: tuple[Score, ...]
+
+
+def merge_scores(recorded: tuple[Score, ...], given: tuple[Score, ...]) -> ScoreMerge:
+    """Merge the scores of a write into the recorded ones, by method (DEC-1171). A method not yet
+    recorded is added; a method recorded with another value is a correction; a recorded method not
+    mentioned stays as it is. Nothing is calculated or judged."""
+    given_by_method: dict[AcuityMethod, Score] = {}
+    for score in given:
+        method = method_of(score)
+        if method in given_by_method:
+            raise ValidationFailed("scores", "at most one score per method")
+        given_by_method[method] = score
+    kept: list[Score] = []
+    corrected: list[tuple[Score, Score]] = []
+    for was in recorded:
+        now = given_by_method.pop(method_of(was), was)
+        if now != was:
+            corrected.append((was, now))
+        kept.append(now)
+    added = tuple(given_by_method.values())
+    return ScoreMerge(tuple(kept) + added, tuple(corrected), added)
+
+
+def score_record(score: Score) -> dict[str, Any]:
+    """A score as the audit keeps it: the method and the value, nothing else."""
+    method = method_of(score).value
+    match score:
+        case News2() | ClinicalFrailty() | AmbulanceCategory():
+            return {"method": method, "value": score.value}
+        case ManchesterTriage():
+            return {"method": method, "value": score.level}
+        case PathwaysDx():
+            return {"method": method, "value": score.code}
 
 
 def method_of(score: Score) -> AcuityMethod:

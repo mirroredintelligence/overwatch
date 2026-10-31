@@ -28,6 +28,11 @@ class Conflict(DomainError):
     """The request clashes with the current state of the record."""
 
 
+class StaleVersion(DomainError):
+    """The record is at another version than the caller read: a change made since they read it
+    would be lost by this write (412 at the edge, H-192)."""
+
+
 class NotAllowed(DomainError):
     """The actor may not do this."""
 

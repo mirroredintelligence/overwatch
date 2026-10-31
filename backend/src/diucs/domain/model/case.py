@@ -38,6 +38,14 @@ def _check_one_score_per_method(scores: tuple[Score, ...]) -> None:
         seen.add(method)
 
 
+def _check_corrections(case: Case) -> None:
+    count = case.score_corrections
+    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+        raise ValidationFailed("score_corrections", "must be a whole number from 0")
+    if count and not case.scores:
+        raise ValidationFailed("score_corrections", "a correction needs a recorded score")
+
+
 def _check_open(case: Case) -> None:
     if case.closed_at is not None:
         raise InvalidTransition("the case is already closed")
@@ -68,10 +76,15 @@ class Case:
     outcome: Outcome | None = None
     best_fit_not_used: BestFitNotUsedReason | None = None
     destination_service_id: str | None = None
+    score_corrections: int = 0
+    """How many times a recorded score was corrected (Q7, DEC-1171). Each correction is a new
+    recorded score with a reason; the original and the reason are in the audit. Zero for a case
+    whose scores were never changed."""
 
     def __post_init__(self) -> None:
         _check_utc("opened_at", self.opened_at)
         _check_one_score_per_method(self.scores)
+        _check_corrections(self)
 
     def close(
         self,

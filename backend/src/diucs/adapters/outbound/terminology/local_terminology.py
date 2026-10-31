@@ -99,3 +99,6 @@ class LocalTerminology:
 
     async def search_pathways_dx(self, text: str, limit: int = 20) -> list[tuple[str, str]]:
         return await self._pathways_dx.search_pathways_dx(text, limit)
+
+    async def pathways_dx_listed(self, code: str) -> bool:
+        return await self._pathways_dx.pathways_dx_listed(code)

@@ -49,6 +49,9 @@ class FixedTerminology:
     async def search_pathways_dx(self, text: str, limit: int = 20) -> list[tuple[str, str]]:
         return search_codes(self._pathways_dx, text, limit)
 
+    async def pathways_dx_listed(self, code: str) -> bool:
+        return type(code) is str and any(code == listed for listed, _ in self._pathways_dx)
+
 
 class PassThroughValidator:
     """Reports every resource as valid. A stand-in for the FHIR validator, not a validation."""

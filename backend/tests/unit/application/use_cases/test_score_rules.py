@@ -6,6 +6,7 @@ Pure rules. The unit of work, the audit chain and the replay are in the integrat
 """
 
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -31,7 +32,6 @@ from diucs.domain.model.scores import (
     ScoreCorrectionReason,
 )
 from tests.support.actors import ACTOR_TENANT
-from datetime import UTC, datetime
 
 OPENED = datetime(2026, 10, 29, 9, 30, tzinfo=UTC)
 ADVISOR = Actor(
@@ -74,7 +74,9 @@ async def test_a_code_in_the_wrong_case_is_not_on_the_list() -> None:
         await check_pathways_listed(LIST, (PathwaysDx("dx02"),), ())
 
 
-async def test_a_code_already_recorded_is_not_checked_again_so_a_changed_list_blocks_no_edit() -> None:
+async def test_a_code_already_recorded_is_not_checked_again_so_a_changed_list_blocks_no_edit() -> (
+    None
+):
     await check_pathways_listed(LIST, (PathwaysDx("Dx77"),), (PathwaysDx("Dx77"),))
 
 
@@ -178,7 +180,9 @@ def test_a_reason_given_with_no_scores_is_refused() -> None:
     with pytest.raises(ValidationFailed):
         apply_update(
             case_with(News2(2)),
-            update(age_band=AgeBand.A80_PLUS, score_correction_reason=ScoreCorrectionReason.RESCORED),
+            update(
+                age_band=AgeBand.A80_PLUS, score_correction_reason=ScoreCorrectionReason.RESCORED
+            ),
         )
 
 
@@ -207,10 +211,15 @@ def test_the_reason_is_part_of_the_command_fingerprint() -> None:
     reasoned = update(scores=(News2(5),), score_correction_reason=ScoreCorrectionReason.RESCORED)
     other = update(scores=(News2(5),), score_correction_reason=ScoreCorrectionReason.TYPING_ERROR)
 
-    assert len({update_fingerprint(plain), update_fingerprint(reasoned), update_fingerprint(other)}) == 3
+    assert (
+        len({update_fingerprint(plain), update_fingerprint(reasoned), update_fingerprint(other)})
+        == 3
+    )
 
 
-def test_the_audit_snapshot_of_a_correction_keeps_the_original_the_new_score_and_the_reason() -> None:
+def test_the_audit_snapshot_of_a_correction_keeps_the_original_the_new_score_and_the_reason() -> (
+    None
+):
     snapshot = score_correction_snapshot(
         (News2(2), ManchesterTriage("urgent")),
         (News2(5), ManchesterTriage("urgent")),

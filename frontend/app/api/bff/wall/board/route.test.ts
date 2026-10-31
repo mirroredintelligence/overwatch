@@ -11,6 +11,11 @@ import { requestAs } from '@/test/requests';
 import { TENANTS } from '@/test/tenants';
 import { GET } from './route';
 
+vi.mock('next/headers', async () => {
+  const m = await import('@/test/cookies');
+  return { cookies: m.cookiesMock, headers: m.headersMock };
+});
+
 // GET /api/bff/wall/board (TEN-072): what a wall screen shows. The back end says which board the screen
 // shows (`GET /screens/me/board-scope`) and this answers both the setting and the board, so the screen
 // never reads one for the scope of the other. It takes no input: no tenant, scope or network comes from

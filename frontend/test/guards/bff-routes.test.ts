@@ -90,6 +90,13 @@ const TAKES_NETWORK_ID = [
   'app/api/bff/network/week/route.ts',
 ];
 
+/**
+ * The one route that lets a `networkId` through in a JSON BODY (TEN-072): the route that changes which board
+ * a wall screen shows. It says `allowNetworkIdInBody: true`; no other route may, and no route takes the
+ * key in a query unless it is in the list above.
+ */
+const TAKES_NETWORK_ID_IN_BODY = ['app/api/bff/screens/[id]/board-scope/route.ts'];
+
 function textOf(file: string): string {
   return readFileSync(`${ROOT}${file}`, 'utf8');
 }
@@ -169,6 +176,13 @@ describe('the routes on disk', () => {
   it('say allowNetworkId on exactly the network read routes, and nowhere else (TEN-068)', () => {
     const says = files.filter((f) => /\ballowNetworkId:\s*true/.test(textOf(f)));
     expect(says.sort()).toEqual([...TAKES_NETWORK_ID].sort());
+  });
+
+  it('say allowNetworkIdInBody on exactly the one route that changes a screen’s board, and nowhere else (TEN-072)', () => {
+    const says = files.filter((f) => /\ballowNetworkIdInBody:\s*true/.test(textOf(f)));
+    expect(says.sort()).toEqual([...TAKES_NETWORK_ID_IN_BODY].sort());
+    // It takes the id in the body only: the route does not also say allowNetworkId (the query key).
+    for (const file of TAKES_NETWORK_ID_IN_BODY) expect(TAKES_NETWORK_ID).not.toContain(file);
   });
 
   it('give an operator route no tenant wrapper and a tenant route no operator wrapper: one door each', () => {

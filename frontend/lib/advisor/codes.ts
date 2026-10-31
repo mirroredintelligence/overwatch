@@ -62,6 +62,16 @@ export const URGENCIES = [
 export type UrgencyCode = (typeof URGENCIES)[number]['code'];
 
 /** What the needs form saves. Nothing is typed except the postcode; every other field is a code. */
+/** Why a recorded score is changed (Q7): the back end's closed set, never free text. [ASSUMED] wording. */
+export const SCORE_CORRECTION_REASONS = [
+  { code: 'typing-error', label: 'I entered it wrongly' },
+  { code: 'referrer-corrected', label: 'The referrer gave a corrected score' },
+  { code: 'rescored', label: 'The patient was scored again' },
+] as const;
+export type ScoreCorrectionReasonCode = (typeof SCORE_CORRECTION_REASONS)[number]['code'];
+export const isScoreCorrectionReason = (value: unknown): value is ScoreCorrectionReasonCode =>
+  SCORE_CORRECTION_REASONS.some((reason) => reason.code === value);
+
 export type CaseInput = {
   referrerType: ReferrerCode;
   ageBand: AgeCode;
@@ -70,6 +80,8 @@ export type CaseInput = {
   needs: NeedCode[];
   urgency: UrgencyCode;
   scores: Score[];
+  /** Why a recorded score was changed. Sent only with a score that differs from the recorded one (Q7). */
+  scoreCorrectionReason?: ScoreCorrectionReasonCode | null;
 };
 
 /** What the BFF answers for a case. Nulls mean not yet recorded. */
@@ -84,6 +96,8 @@ export type CaseView = {
   needs: NeedCode[];
   urgency: UrgencyCode | null;
   scores: Score[];
+  /** How many times a recorded score was corrected: the first score and each reason are in the audit (Q7). */
+  scoreCorrections: number;
   /** When the back end opened the case (ServiceRequest.authoredOn): the call clock counts from it. */
   openedAt: string | null;
   /** A closed case cannot change (D18): it has no postcode or needs, and the page says so. */
@@ -131,6 +145,9 @@ export function parseCaseInput(value: unknown): CaseInput | null {
   }
   const scores = parseScores(source.scores);
   if (scores === null) return null;
+  // A reason is one of the listed ones or absent; any other text is refused, not passed on.
+  const reason = source.scoreCorrectionReason;
+  if (reason !== undefined && reason !== null && !isScoreCorrectionReason(reason)) return null;
   return {
     referrerType: source.referrerType,
     ageBand: source.ageBand,
@@ -138,6 +155,7 @@ export function parseCaseInput(value: unknown): CaseInput | null {
     needs: [...new Set(needs)],
     urgency: source.urgency,
     scores,
+    scoreCorrectionReason: reason ?? null,
   };
 }
 

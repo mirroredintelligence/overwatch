@@ -41,8 +41,12 @@ export const CFS_LABELS: Readonly<Record<number, string>> = {
 export const PATHWAYS_MIN_CHARACTERS = 2;
 export const PATHWAYS_DEBOUNCE_MS = 250;
 export const PATHWAYS_RESULTS_MAX = 20;
-/** A Pathways Dx code as the lookup returns it: letters, digits, dot, dash, underscore. */
-export const PATHWAYS_CODE = /^[A-Za-z0-9._-]{1,32}$/;
+/**
+ * A Pathways Dx code the back end will record: letters of either case and digits, two to twelve. It is
+ * the back end's own shape (domain/model/scores.py PATHWAYS_DX_PATTERN, DEC-1170): a code the picker
+ * offered and the back end refused was how a wrong score could be lost on a call (KI-625, KI-816).
+ */
+export const PATHWAYS_CODE = /^[A-Za-z0-9]{2,12}$/;
 
 export type Score =
   | { method: 'news2'; value: number }

@@ -25,6 +25,10 @@ export const NEED_SYSTEM = `${BASE}CodeSystem/need-category`;
 // A referrer's score: one complex extension per score, with its method and value. The back end reads
 // and writes this shape (case_mapping.py `_score`, `_score_extension`).
 export const SCORE_EXTENSION = `${BASE}StructureDefinition/score`;
+// Why a recorded score is changed (sent with the corrected scores) and how many times the scores were
+// corrected (read; present only above zero): case_mapping.py SCORE_REASON_EXTENSION, SCORE_CORRECTIONS_EXTENSION.
+export const SCORE_REASON_EXTENSION = `${BASE}StructureDefinition/score-correction-reason`;
+export const SCORE_CORRECTIONS_EXTENSION = `${BASE}StructureDefinition/score-corrections`;
 
 // The FHIR priority has two values: urgent for within 2 hrs, routine for today and planned. The urgency
 // extension carries which of the three it is, and the back end refuses a priority that disagrees with
@@ -82,6 +86,7 @@ export function toServiceRequest(id: string, input: CaseInput): Record<string, u
       { url: REFERRER_EXTENSION, valueCode: input.referrerType },
       { url: URGENCY_EXTENSION, valueCode: input.urgency },
       ...input.scores.map(scoreExtension),
+      ...(input.scoreCorrectionReason ? [{ url: SCORE_REASON_EXTENSION, valueCode: input.scoreCorrectionReason }] : []),
     ],
     priority: priorityOf(input.urgency),
     reasonCode: input.needs.map((need) => ({ coding: [{ system: NEED_SYSTEM, code: need }] })),
@@ -99,6 +104,12 @@ function urgencyOf(request: Record_): UrgencyCode | null {
   if (request.priority === 'urgent') return 'within-2-hrs';
   if (request.priority === 'routine') return 'today';
   return null;
+}
+
+/** The number of corrections on the request: a whole number from zero, else none (never a guess). */
+function correctionsOf(request: Record_): number {
+  const value = extensionsOf(request).find((item) => item.url === SCORE_CORRECTIONS_EXTENSION)?.valueInteger;
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : 0;
 }
 
 function instantOf(value: unknown): string | null {
@@ -145,6 +156,7 @@ export function fromServiceRequest(value: unknown, etag: string | null): CaseVie
     needs: needs.filter(isNeedCode),
     urgency: urgencyOf(request),
     scores,
+    scoreCorrections: correctionsOf(request),
     openedAt: instantOf(request.authoredOn),
     closed: request.status === 'completed',
     closedAt: instantOf(closedAt),

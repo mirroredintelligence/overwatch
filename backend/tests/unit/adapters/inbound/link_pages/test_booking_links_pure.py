@@ -184,7 +184,7 @@ def test_the_change_page_names_the_booking_and_no_postcode_name_or_case() -> Non
     assert "case-1001" not in text
 
 
-# -- what a closed link says (KI-169, KI-648, KI-649, KI-664, KI-665; H-486, H-488, H-499) ------------
+# -- what a closed link says (KI-169, KI-648, KI-649, KI-664, KI-665; H-486, H-488, H-499) ----
 
 
 def _closed(status: BookingStatus, **times: datetime) -> Booking:
@@ -202,6 +202,7 @@ def test_a_cancelled_booking_says_when_it_was_confirmed_and_when_it_was_cancelle
         cancelled_at=_at(14, 40),
         coordination_phone="0300 123 4567",
         booking=True,
+        reference="4821",
     )
 
 
@@ -246,10 +247,12 @@ def test_the_closed_body_carries_the_state_the_times_and_the_number() -> None:
         cancelled_at=_at(14, 40),
         coordination_phone="0300 123 4567",
         booking=True,
+        reference="4821",
     )
     assert closed_body("cancelled", detail) == {
         "state": "cancelled",
         "kind": "booking",
+        "reference": "4821",
         "closedAt": "2026-10-29T14:40:00Z",
         "confirmedAt": "2026-10-29T14:20:00Z",
         "cancelledAt": "2026-10-29T14:40:00Z",
@@ -263,7 +266,7 @@ def test_the_closed_body_of_an_unknown_link_is_the_state_word_alone() -> None:
     assert closed_body("expired", ClosedDetail()) == {"state": "expired"}
 
 
-def test_a_capacity_link_that_expired_says_when() -> None:
+def test_a_closed_link_that_knows_when_it_closed_says_so_and_no_more() -> None:
     body = closed_body("expired", ClosedDetail(closed_at=_at(9, 30)))
     assert body == {"state": "expired", "closedAt": "2026-10-29T09:30:00Z"}
     assert "kind" not in body and "coordinationPhone" not in body

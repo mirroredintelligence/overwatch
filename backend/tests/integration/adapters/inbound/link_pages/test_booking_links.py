@@ -87,6 +87,13 @@ async def _link_for(factory: UnitOfWorkFactory, container: Container, booking_id
     return token
 
 
+async def _reference(factory: UnitOfWorkFactory, booking_id: str) -> str:
+    async with factory() as uow:
+        booking = await uow.bookings.get(booking_id)
+    assert booking is not None
+    return booking.reference
+
+
 async def _status(factory: UnitOfWorkFactory, booking_id: str) -> BookingStatus:
     async with factory() as uow:
         booking = await uow.bookings.get(booking_id)
@@ -144,6 +151,7 @@ async def test_a_confirm_records_the_booking_and_gives_a_change_link_once(
     assert again.json() == {
         "state": "used",
         "kind": "booking",
+        "reference": await _reference(booked, booking_id),
         "closedAt": "2026-10-29T14:16:00Z",
         "confirmedAt": "2026-10-29T14:16:00Z",
         "coordinationPhone": COORDINATION_PHONE,
@@ -186,6 +194,7 @@ async def test_a_closed_booking_shows_expired_and_refuses_an_answer(
     assert response.json() == {
         "state": "expired",
         "kind": "booking",
+        "reference": await _reference(booked, booking_id),
         "closedAt": "2026-10-29T14:26:00Z",
         "coordinationPhone": COORDINATION_PHONE,
     }
@@ -292,6 +301,7 @@ async def test_a_change_link_of_a_cancelled_booking_says_when_it_was_confirmed_a
     assert response.json() == {
         "state": "cancelled",
         "kind": "booking",
+        "reference": await _reference(booked, booking_id),
         "closedAt": "2026-10-29T14:40:00Z",
         "confirmedAt": "2026-10-29T14:16:00Z",
         "cancelledAt": "2026-10-29T14:40:00Z",

@@ -51,6 +51,7 @@ from diucs.application.use_cases.confirm_capacity import ConfirmCapacity
 from diucs.application.use_cases.link_access import (
     CAPACITY_PURPOSE,
     CapacityLinkHandler,
+    ClosedDetail,
     CsrfRejected,
     LinkAction,
     LinkConflict,
@@ -66,6 +67,7 @@ from diucs.application.use_cases.link_access import (
     UnitOfWorkIdempotency,
     ViewLink,
     ViewLinkQuery,
+    closed_body,
 )
 from diucs.application.use_cases.report_capacity import ReportCapacity
 from diucs.application.use_cases.respond_to_booking import RespondToBooking
@@ -150,8 +152,8 @@ def _json(status: int, body: dict[str, Any], headers: dict[str, str] | None = No
     return JSONResponse(body, status_code=status, headers={**_NO_STORE, **(headers or {})})
 
 
-def _gone(state: str = "expired") -> Response:
-    return _json(410, {"state": state})
+def _gone(state: str = "expired", detail: ClosedDetail | None = None) -> Response:
+    return _json(410, closed_body(state, detail))
 
 
 def _refused(reason: str) -> None:
@@ -253,11 +255,11 @@ async def _guarded(run: Callable[[], Awaitable[Response]]) -> Response:
     try:
         return await run()
     except LinkGone as error:
-        return _gone(error.state)
+        return _gone(error.state, error.detail)
     except CsrfRejected:
         return _json(403, {"state": "forbidden"})
     except LinkConflict as error:
-        return _json(409, {"state": error.state})
+        return _json(409, closed_body(error.state, error.detail))
     except LinkOutOfRange as error:
         return _json(
             422,

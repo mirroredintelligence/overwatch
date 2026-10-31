@@ -133,7 +133,7 @@ describe('networkToWallBoard', () => {
   });
 
   it('shows a paused listing as Not updated with no figure and says it is paused', () => {
-    const [row] = networkToWallBoard(networkBoard([entry({ presentation: 'unavailable', status: null, effectiveAvailable: null, used: null })]), null).entries;
+    const [row] = networkToWallBoard(networkBoard([entry({ presentation: 'unavailable', status: null, unitLabel: null, effectiveAvailable: null, used: null })]), null).entries;
     expect(row).toMatchObject({ status: 'not-updated', effectiveAvailable: null, used: null, paused: true, unitLabel: 'Phone to confirm' });
   });
 });

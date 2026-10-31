@@ -18,6 +18,8 @@ const TABLE: [string, Role[]][] = [
   ['/criteria/s1', ['owner', 'clinical', 'lead']],
   ['/criteria/s1/history', ['owner', 'clinical', 'lead']],
   ['/planning', ['exec', 'lead']],
+  // W9H: the executive's alerts on their phone sit under /planning; the page itself sends a lead on to the home screen.
+  ['/planning/phone', ['exec', 'lead']],
   ['/console', ['support']],
   // The tenant administrator's pages (TEN-076).
   ['/admin', ['tenant-admin']],

@@ -193,7 +193,7 @@ async def test_no_token_is_refused_with_the_one_401(
 
 
 @pytest.mark.parametrize(("method", "path", "body"), ROUTES)
-@pytest.mark.parametrize("role", [Role.ADVISOR, Role.LEAD, Role.CLINICAL, Role.WALL, Role.EXEC])
+@pytest.mark.parametrize("role", [role for role in Role if role is not Role.REPORTER])
 async def test_a_role_that_is_not_a_reporter_reads_nothing_and_writes_nothing(
     api: AsyncClient,
     world: Container,
@@ -204,6 +204,9 @@ async def test_a_role_that_is_not_a_reporter_reads_nothing_and_writes_nothing(
     body: dict[str, Any] | None,
     role: Role,
 ) -> None:
+    # All thirteen roles (W9H): every role but a reporter is refused, with one body. The executive
+    # is admitted to the test notification only (DEC-1040); there it is answered by the person check
+    # (no person record for the sample subject: 401), never the 404 of a refused role.
     await seed_booking(world, tenant_id)
     before = await count_nodes(neo4j_driver, "Observation")
 
@@ -211,8 +214,11 @@ async def test_a_role_that_is_not_a_reporter_reads_nothing_and_writes_nothing(
         method, path, json=body, headers=keyed(role=role, person="advisor-1", device=None)
     )
 
-    assert response.status_code == 404
-    assert response.json()["issue"][0]["code"] == "not-found"
+    if role is Role.PLATFORM_OPERATOR or (role is Role.EXEC and path == "/reporter/push-test"):
+        assert response.status_code == 401
+    else:
+        assert response.status_code == 404
+        assert response.json()["issue"][0]["code"] == "not-found"
     assert await count_nodes(neo4j_driver, "Observation") == before
 
 

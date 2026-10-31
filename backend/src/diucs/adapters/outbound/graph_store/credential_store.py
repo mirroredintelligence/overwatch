@@ -306,6 +306,7 @@ _SCREEN: Final = SeedNode(
         "status": "active",
         "deviceName": Marked("Ward 4 corridor"),
         "boardScope": "tenant",
+        "boardScopeVersion": 1,
         "tokenHash": _SCREEN_HASH,
     },
 )
@@ -321,7 +322,43 @@ _SCREEN_GET_SCENARIO: Final = Scenario(
                 "id": "screen-1",
                 "status": "active",
                 "name": Marked("Ward 4 corridor"),
+                "boardScope": "tenant",
+                "scopeVersion": 1,
                 "tokenHash": _SCREEN_HASH,
+            },
+        )
+    ),
+)
+_SCREEN_PEEK_SCENARIO: Final = Scenario(
+    "read the wall screen of the tenant by id, without taking its lock",
+    seed=_SCREEN_SEED,
+    params={"id": "screen-1", "type": _WALL_DISPLAY},
+    lookup=("id", "type"),
+    expect=Expect(
+        rows=(
+            {
+                "id": "screen-1",
+                "status": "active",
+                "name": Marked("Ward 4 corridor"),
+                "boardScope": "tenant",
+                "scopeVersion": 1,
+            },
+        )
+    ),
+)
+_SCREEN_LIST_SCENARIO: Final = Scenario(
+    "list the wall screens of the tenant",
+    seed=_SCREEN_SEED,
+    params={"type": _WALL_DISPLAY},
+    lookup=("type",),
+    expect=Expect(
+        rows=(
+            {
+                "id": "screen-1",
+                "status": "active",
+                "name": Marked("Ward 4 corridor"),
+                "boardScope": "tenant",
+                "scopeVersion": 1,
             },
         )
     ),
@@ -335,11 +372,13 @@ _SCREEN_SAVE_SCENARIO: Final = Scenario(
         "status": "revoked",
         "name": "Renamed corridor",
         "location": "Level 3",
-        "boardScope": "tenant",
+        "boardScope": "network",
+        "networkId": "net-dorset",
+        "scopeVersion": 2,
         "tokenHash": "f" * 64,
     },
     lookup=("id", "type"),
-    new=("status", "name", "location", "tokenHash"),
+    new=("status", "name", "location", "boardScope", "networkId", "scopeVersion", "tokenHash"),
     expect=Expect(
         rows=({"n": 1},),
         after=(
@@ -350,6 +389,9 @@ _SCREEN_SAVE_SCENARIO: Final = Scenario(
                     "status": "revoked",
                     "deviceName": "Renamed corridor",
                     "locationName": "Level 3",
+                    "boardScope": "network",
+                    "networkId": "net-dorset",
+                    "boardScopeVersion": 2,
                     "tokenHash": "f" * 64,
                 },
             ),
@@ -383,6 +425,8 @@ _SCENARIOS: Final[dict[str, Scenario]] = {
     "Q-DEVICE-MARK-VERIFIED": _MARK_VERIFIED_SCENARIO,
     "Q-DEVICE-VERIFIED": _VERIFIED_SCENARIO,
     "Q-SCREEN-GET": _SCREEN_GET_SCENARIO,
+    "Q-SCREEN-PEEK": _SCREEN_PEEK_SCENARIO,
+    "Q-SCREEN-LIST": _SCREEN_LIST_SCENARIO,
     "Q-SCREEN-SAVE": _SCREEN_SAVE_SCENARIO,
     "Q-SCREEN-BY-TOKEN": _SCREEN_BY_TOKEN_SCENARIO,
 }
@@ -506,8 +550,27 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "SET d.id = d.id "
         "RETURN d.id AS id, d.status AS status, d.deviceName AS name, "
         "d.locationName AS location, d.deviceType AS deviceType, d.boardScope AS boardScope, "
+        "d.networkId AS networkId, coalesce(d.boardScopeVersion, 1) AS scopeVersion, "
         "d.tokenHash AS tokenHash",
         "write",
+    ),
+    # The same read without the lock, for the board reads of a wall screen (TEN-067): a screen asks
+    # for its setting on every refresh, and a read that judges nothing single-use needs no lock.
+    "Q-SCREEN-PEEK": (
+        "MATCH (d:Device {id: $id, tenantId: $tenant, deviceType: $type}) "
+        "RETURN d.id AS id, d.status AS status, d.deviceName AS name, "
+        "d.locationName AS location, d.deviceType AS deviceType, d.boardScope AS boardScope, "
+        "d.networkId AS networkId, coalesce(d.boardScopeVersion, 1) AS scopeVersion, "
+        "d.tokenHash AS tokenHash",
+        "read",
+    ),
+    "Q-SCREEN-LIST": (
+        "MATCH (d:Device {tenantId: $tenant, deviceType: $type}) "
+        "RETURN d.id AS id, d.status AS status, d.deviceName AS name, "
+        "d.locationName AS location, d.deviceType AS deviceType, d.boardScope AS boardScope, "
+        "d.networkId AS networkId, coalesce(d.boardScopeVersion, 1) AS scopeVersion, "
+        "d.tokenHash AS tokenHash ORDER BY d.deviceName, d.id",
+        "read",
     ),
     # The type is in the MERGE key, so a practitioner's device with this id (it has no type) is
     # never matched: the MERGE tries to create, the unique id refuses it, and nothing changes. A
@@ -515,7 +578,8 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
     "Q-SCREEN-SAVE": (
         "MERGE (d:Device {id: $id, tenantId: $tenant, deviceType: $type}) "
         "SET d.status = $status, d.deviceName = $name, d.locationName = $location, "
-        "d.boardScope = $boardScope, d.tokenHash = $tokenHash, "
+        "d.boardScope = $boardScope, d.networkId = $networkId, "
+        "d.boardScopeVersion = $scopeVersion, d.tokenHash = $tokenHash, "
         "d.updatedAt = datetime({timezone: 'UTC'}) "
         "RETURN count(d) AS n",
         "write",
@@ -525,6 +589,7 @@ _QUERIES: dict[str, tuple[str, Literal["read", "write"]]] = {
         "status: $status}) "
         "RETURN d.id AS id, d.status AS status, d.deviceName AS name, "
         "d.locationName AS location, d.deviceType AS deviceType, d.boardScope AS boardScope, "
+        "d.networkId AS networkId, coalesce(d.boardScopeVersion, 1) AS scopeVersion, "
         "d.tokenHash AS tokenHash",
         "read",
     ),
@@ -621,6 +686,8 @@ def _screen(row: dict[str, Any]) -> Device:
         device_type=DeviceType(row["deviceType"]),
         token_hash=None if row["tokenHash"] is None else str(row["tokenHash"]),
         board_scope=BoardScope(row["boardScope"]),
+        network_id=None if row["networkId"] is None else str(row["networkId"]),
+        scope_version=int(row["scopeVersion"]),
     )
 
 
@@ -748,12 +815,22 @@ class Neo4jDeviceRegistry:
                 name=device.name,
                 location=device.location,
                 boardScope=device.board_scope.value,
+                networkId=device.network_id,
+                scopeVersion=device.scope_version,
                 tokenHash=device.token_hash,
             )
         except ConstraintError as error:
             # The id belongs to a device that is not a wall screen of this tenant. The write is
             # refused and nothing is stored.
             raise Conflict("device already exists") from error
+
+    async def peek(self, device_id: str) -> Device | None:
+        rows = await self._run("Q-SCREEN-PEEK", id=device_id, type=_WALL_DISPLAY)
+        return _screen(rows[0]) if rows else None
+
+    async def list_screens(self) -> list[Device]:
+        rows = await self._run("Q-SCREEN-LIST", type=_WALL_DISPLAY)
+        return [_screen(row) for row in rows]
 
     async def find_by_token_hash(self, token_hash: str) -> Device | None:
         rows = await self._run(

@@ -33,7 +33,7 @@ def _migration():  # type: ignore[no-untyped-def]
 def test_the_projection_migration_follows_the_registry_one_in_the_block() -> None:
     ids = [m.id for m in NETWORK_MIGRATIONS]
     assert ids[:2] == ["0110_network_registry", "0111_projection_keys"]
-    assert all(110 <= int(i[:4]) <= 129 for i in ids)
+    assert all(110 <= int(i[:4]) <= 129 or 185 <= int(i[:4]) <= 189 for i in ids)
 
 
 def test_every_key_is_composite_with_the_scope_and_one_statement() -> None:

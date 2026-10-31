@@ -182,4 +182,31 @@ describe('optionsFromParameters against the back end\'s own answer (W13, W50, DE
       outOfArea: true,
     });
   });
+
+  // The districts to choose from (W50, W9H DEC-1045): the back end sends one `district` part each, in the
+  // order to show them, only with a flag. The page keeps only what is a postcode district.
+  const withDistricts = (flags: Record<string, boolean>, ...districts: unknown[]) => ({
+    resourceType: 'Parameters',
+    parameter: [
+      ...Object.entries(flags).map(([name, valueBoolean]) => ({ name, valueBoolean })),
+      ...districts.map((valueString) => ({ name: 'district', valueString })),
+    ],
+  });
+
+  it('reads the districts to choose from, in the order sent', () => {
+    expect(optionsFromParameters(withDistricts({ notFound: true }, 'DT1', 'DT3', 'BH21'))?.districts).toEqual(['DT1', 'DT3', 'BH21']);
+    expect(optionsFromParameters(withDistricts({ outOfArea: true }, 'DT2'))?.districts).toEqual(['DT2']);
+  });
+
+  it('keeps only what is a district: no postcode, no lower case, no repeat, no more than twelve', () => {
+    const many = Array.from({ length: 20 }, (_, n) => `DT${n + 1}`);
+    expect(optionsFromParameters(withDistricts({ notFound: true }, 'DT4 8XX', 'dt4', 'DT4', 'DT4', 7, null, '', 'DT 4', 'DT48X9'))?.districts).toEqual(['DT4']);
+    expect(optionsFromParameters(withDistricts({ notFound: true }, ...many))?.districts).toHaveLength(12);
+  });
+
+  it('offers none unless the postcode was not found or is outside the area, and none when none were sent', () => {
+    expect(optionsFromParameters(withDistricts({}, 'DT1'))?.districts).toEqual([]);
+    expect(optionsFromParameters(withDistricts({ notFound: true }))?.districts).toEqual([]);
+    expect(optionsFromParameters(OPTIONS_PARAMETERS)?.districts).toEqual([]);
+  });
 });

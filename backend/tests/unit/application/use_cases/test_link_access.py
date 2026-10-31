@@ -19,6 +19,7 @@ from diucs.application.use_cases.link_access import (
     ACTIONS,
     BAD_ATTEMPT_WINDOW,
     BAD_ATTEMPTS_PER_ADDRESS,
+    BOOKING_ACTIONS,
     CAPACITY_PURPOSE,
     LINK_CSRF_SECRET,
     LINK_PROMPT_MESSAGES,
@@ -246,7 +247,9 @@ def test_a_malformed_answer_is_refused_by_field_name(action: LinkAction, field: 
 
 
 @given(
-    action=st.one_of(st.none(), st.integers(), st.text(), st.sampled_from(sorted(ACTIONS))),
+    action=st.one_of(
+        st.none(), st.integers(), st.text(), st.sampled_from(sorted(ACTIONS | BOOKING_ACTIONS))
+    ),
     value=st.one_of(st.none(), st.integers(), st.floats(), st.text(), st.booleans()),
     out_of_range=st.one_of(st.booleans(), st.none(), st.integers(), st.text()),
 )
@@ -261,7 +264,12 @@ def test_an_answer_is_accepted_or_refused_by_field_and_never_raises_anything_els
         assert refused.field in {"action", "value", "confirmOutOfRange"}
         assert "token" not in refused.message
         return
-    assert answer.action in ACTIONS
+    assert answer.action in ACTIONS | BOOKING_ACTIONS
+    if answer.action in BOOKING_ACTIONS:
+        # A booking answer takes no figure and no out-of-range confirmation (L02).
+        assert answer.value is None
+        assert not answer.confirm_out_of_range
+        return
     if answer.action == "number":
         assert type(answer.value) is int and 0 <= answer.value <= 999
     else:

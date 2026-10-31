@@ -24,6 +24,28 @@ proxy (DEC-224 item 18).
 
 The routes hold no business rule: they check the secrets, bind the host's tenant where the use case
 needs one, run one use case and map the result.
+
+Which board a screen shows (TEN-067, DEC-132 item 5). The setting is on the screen's record in the
+tenant, never in its token:
+
+GET  /screens                        the tenant's screens with what each shows and the networks an
+                                     administrator may choose. Role lead or tenant-admin.
+PUT  /screens/{deviceId}/board-scope change one screen's board: `{boardScope, networkId?}`, with
+                                     If-Match (the screen's `scopeVersion`) and Idempotency-Key.
+                                     Role lead or tenant-admin. A network the tenant is not an
+                                     active member of, an unknown or revoked screen and every other
+                                     refusal are the one 404; a stale version is 412.
+GET  /screens/me/board-scope         a wall screen reads its own setting: the board it shows now and
+                                     a `fallback` flag when its network is no longer open to it.
+GET  /screens/me/network-board       a wall screen's network board. The network is the screen's
+                                     record's, never a path or a query: nothing to ask for, and a
+                                     screen set to its own board gets the 404 of every refusal.
+GET  /screens/me/network-events      the network stream for a wall screen (as /network/{id}/events:
+                                     the setting is read again every 30 seconds, and a screen that
+                                     is no longer allowed is sent `scope-ended`).
+
+The wall role of `/network/{id}/...` stays closed (DEC-548 item 3): a wall reads a network only
+here.
 """
 
 import hashlib
@@ -32,14 +54,25 @@ import random
 from collections.abc import Awaitable, Callable
 from typing import Annotated, Any, Final, Literal, Protocol, cast
 
-from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi import APIRouter, Depends, Path, Request
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict
 
 from diucs.adapters.inbound.fhir_rest.app import get_container
 from diucs.adapters.inbound.fhir_rest.auth import require_role
-from diucs.adapters.inbound.fhir_rest.concurrency import idempotency_key
-from diucs.adapters.inbound.fhir_rest.errors import NOT_FOUND_TEXT, operation_outcome
+from diucs.adapters.inbound.fhir_rest.concurrency import (
+    etag_for,
+    idempotency_key,
+    replay_or_run,
+    require_if_match,
+)
+from diucs.adapters.inbound.fhir_rest.errors import (
+    NOT_FOUND_TEXT,
+    PreconditionFailed,
+    operation_outcome,
+)
+from diucs.adapters.inbound.fhir_rest.routes_network import network_services
+from diucs.adapters.inbound.fhir_rest.routes_network_events import open_wall_network_events
 from diucs.application.actor import Actor
 from diucs.application.edge_tenant import resolve_active_tenant
 from diucs.application.ports.outbound.cache import Cache
@@ -50,6 +83,7 @@ from diucs.application.ports.outbound.tenants import TenantDirectory
 from diucs.application.ports.outbound.tokens import LINK_TOKEN_SECRET, SecretStore
 from diucs.application.ports.outbound.unit_of_work import UnitOfWorkFactory
 from diucs.application.tenancy import bind_tenant
+from diucs.application.use_cases.network_board_projector import network_board_to_dict
 from diucs.application.use_cases.pair_wall_screen import (
     LIMIT_WINDOW,
     RATE_LIMITED_MESSAGE,
@@ -60,6 +94,16 @@ from diucs.application.use_cases.pair_wall_screen import (
     ConfirmPairingCommand,
     PairingRateLimited,
     StartPairing,
+)
+from diucs.application.use_cases.wall_board_scope import (
+    ADMIN_ROLES,
+    FALLBACK_REASON,
+    ListScreens,
+    ReadWallScope,
+    ScreenSetting,
+    ScreenSettingChanged,
+    SetBoardScopeCommand,
+    SetScreenBoardScope,
 )
 from diucs.domain.codes import Role
 from diucs.domain.errors import NotAllowed
@@ -122,7 +166,8 @@ class ConnectScreenBody(BaseModel):
     code: str
     name: str
     location: str | None = None
-    boardScope: Literal["tenant", "network"] = "tenant"
+    boardScope: Literal["tenant"] = "tenant"
+    """A screen is paired to its own board. A network board is set afterwards (TEN-067)."""
 
 
 router = APIRouter()
@@ -288,3 +333,107 @@ async def connect_screen(
         )
 
     return await _answer(run)
+
+
+# ---------------------------------------------------------------- which board a screen shows
+
+DEVICE_ID_PATTERN: Final = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"
+DeviceId = Annotated[str, Path(pattern=DEVICE_ID_PATTERN)]
+ScreenAdmin = Annotated[Actor, Depends(require_role(*sorted(ADMIN_ROLES)))]
+WallScreen = Annotated[Actor, Depends(require_role(Role.WALL))]
+
+
+class BoardScopeBody(BaseModel):
+    """The setting asked for. The tenant is never a field (`extra="forbid"`); `networkId` is one the
+    server offered in `GET /screens`, and the use case checks the tenant's membership of it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    boardScope: Literal["tenant", "network"]
+    networkId: str | None = None
+
+
+def _setting(setting: ScreenSetting) -> dict[str, Any]:
+    return {
+        "deviceId": setting.id,
+        "name": setting.name,
+        "location": setting.location,
+        "status": setting.status.value,
+        "boardScope": setting.board_scope.value,
+        "networkId": setting.network_id,
+        "networkName": setting.network_name,
+        "networkAvailable": setting.network_available,
+        "scopeVersion": setting.scope_version,
+    }
+
+
+@router.get(SCREENS_PATH)
+async def list_screens(request: Request, actor: ScreenAdmin) -> Response:
+    container = _container(request)
+    listed = await ListScreens(container.uow_factory, network_services(request).access).execute(
+        actor
+    )
+    return _json(
+        200,
+        {
+            "screens": [_setting(screen) for screen in listed.screens],
+            "networks": [{"id": n.id, "name": n.name} for n in listed.networks],
+        },
+    )
+
+
+@router.put(SCREENS_PATH + "/{device_id}/board-scope")
+async def set_board_scope(
+    device_id: DeviceId, body: BoardScopeBody, request: Request, actor: ScreenAdmin
+) -> Response:
+    key = idempotency_key(request)
+    expected = require_if_match(request)
+    container = _container(request)
+
+    async def run() -> Response:
+        try:
+            setting = await SetScreenBoardScope(
+                container.uow_factory, network_services(request).access, container.clock
+            ).execute(
+                SetBoardScopeCommand(
+                    actor=actor,
+                    device_id=device_id,
+                    board_scope=BoardScope(body.boardScope),
+                    network_id=body.networkId,
+                    expected_version=expected,
+                    idempotency_key=key,
+                )
+            )
+        except ScreenSettingChanged:
+            raise PreconditionFailed() from None
+        response = _json(200, _setting(setting))
+        response.headers["ETag"] = etag_for(setting.scope_version)
+        return response
+
+    return await replay_or_run(request, actor, f"screen-board:{device_id}:{key}", run)
+
+
+@router.get(SCREENS_PATH + "/me/board-scope")
+async def own_board_scope(request: Request, actor: WallScreen) -> Response:
+    scope = await ReadWallScope(network_services(request).access).execute(actor)
+    body: dict[str, Any] = {
+        "boardScope": scope.shows.value,
+        "fallback": scope.fallback,
+        "scopeVersion": scope.scope_version,
+    }
+    if scope.network_name is not None:
+        body["networkName"] = scope.network_name
+    if scope.fallback:
+        body["fallbackReason"] = FALLBACK_REASON
+    return _json(200, body)
+
+
+@router.get(SCREENS_PATH + "/me/network-board")
+async def own_network_board(request: Request, actor: WallScreen) -> Response:
+    view = await network_services(request).projector.get_wall_board(actor)
+    return _json(200, network_board_to_dict(view))
+
+
+@router.get(SCREENS_PATH + "/me/network-events")
+async def own_network_events(request: Request, actor: WallScreen) -> StreamingResponse:
+    return await open_wall_network_events(request, actor)

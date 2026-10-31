@@ -192,6 +192,8 @@ PINNED_MIGRATION_IDS = [
     # and so sort after the contract step (block 0110 to 0129, TEN-051, TEN-053)
     "0110_network_registry",
     "0111_projection_keys",
+    # the hourly sample of a network board (block 0185 to 0189, TEN-082)
+    "0185_network_samples",
 ]
 
 

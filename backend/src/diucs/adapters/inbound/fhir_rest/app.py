@@ -122,6 +122,7 @@ def create_app(
         routes_lead_views,
         routes_network,
         routes_network_events,
+        routes_network_views,
         routes_public,
         routes_registration,
         routes_registration_session,
@@ -138,6 +139,8 @@ def create_app(
     # The network read routes and live stream (TEN-059): JSON outside /fhir, behind the registry.
     app.include_router(routes_network.router)
     app.include_router(routes_network_events.router)
+    # The lead's and the executive's network reads: system now, phones, the week (TEN-082).
+    app.include_router(routes_network_views.router)
     # $board must be routed before any HealthcareService/{id} route, or {id} would take it.
     app.include_router(routes_board.router)
     # The alert and summary routes (R12) read `/HealthcareService/$week-summary`: they are mounted

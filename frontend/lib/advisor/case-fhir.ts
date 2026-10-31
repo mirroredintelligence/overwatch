@@ -19,6 +19,8 @@ export const REFERRER_EXTENSION = `${BASE}StructureDefinition/referrer-type`;
 export const URGENCY_EXTENSION = `${BASE}StructureDefinition/urgency`;
 export const CLOSED_AT_EXTENSION = `${BASE}StructureDefinition/closed-at`;
 export const OUTCOME_EXTENSION = `${BASE}StructureDefinition/outcome`;
+// A postcode district chosen on its own (W50, W9H DEC-1045): the back end's `postcode-district` extension on the contained Patient.
+export const DISTRICT_EXTENSION = `${BASE}StructureDefinition/postcode-district`;
 export const NEED_SYSTEM = `${BASE}CodeSystem/need-category`;
 // A referrer's score: one complex extension per score, with its method and value. The back end reads
 // and writes this shape (case_mapping.py `_score`, `_score_extension`).

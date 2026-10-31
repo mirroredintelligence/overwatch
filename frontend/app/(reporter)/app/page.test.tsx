@@ -29,6 +29,11 @@ describe('/app', () => {
     expect(await goes()).toBe('redirect:/app/pin');
   });
 
+  it('sends a signed-in executive to their own home: the installed app opens here, and an executive holds no post (W9H)', async () => {
+    getSession.mockResolvedValue(session('exec', []));
+    expect(await goes()).toBe('redirect:/planning');
+  });
+
   it('goes to the one service’s update, to the grouped update for several, and to the list for none', async () => {
     getSession.mockResolvedValue(session('reporter', ['s1']));
     expect(await goes()).toBe('redirect:/app/respond/s1');

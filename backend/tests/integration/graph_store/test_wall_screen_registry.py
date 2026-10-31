@@ -83,23 +83,27 @@ async def test_an_unclaimed_screen_round_trips_and_stores_no_null(
         "status",
         "deviceName",
         "boardScope",
+        "boardScopeVersion",
         "updatedAt",
     }
     assert props["tenantId"] == tenant_id
     assert props["status"] == "paired-unclaimed"
     assert props["boardScope"] == "tenant"
+    assert props["boardScopeVersion"] == 1
 
 
 async def test_an_active_screen_with_a_place_and_the_network_board_round_trips(
     neo4j_driver: AsyncDriver,
 ) -> None:
-    device = _active(board_scope=BoardScope.NETWORK)
+    device = _active(board_scope=BoardScope.NETWORK, network_id="net-sample", scope_version=3)
     await _save(neo4j_driver, device)
     assert await _get(neo4j_driver, "screen-1") == device
     props = await node_props(neo4j_driver, "Device", id="screen-1")
     assert props["tokenHash"] == HASH
     assert props["locationName"] == "Level 2"
     assert props["boardScope"] == "network"
+    assert props["networkId"] == "net-sample"
+    assert props["boardScopeVersion"] == 3
 
 
 async def test_saving_again_replaces_the_record_and_clears_what_is_no_longer_set(
@@ -188,3 +192,76 @@ async def test_a_screen_of_one_tenant_is_not_found_by_another(
     assert (await node_props(neo4j_driver, "Device", id="screen-a"))[
         "deviceName"
     ] == "Ward 4 corridor"
+
+
+async def test_a_network_screen_round_trips_with_its_network_and_version(
+    neo4j_driver: AsyncDriver,
+) -> None:
+    device = _active(board_scope=BoardScope.NETWORK, network_id="net-sample", scope_version=4)
+    await _save(neo4j_driver, device)
+    assert await _peek(neo4j_driver, "screen-1") == device
+
+
+async def test_a_screen_stored_before_the_setting_existed_reads_as_version_one_on_its_own_board(
+    neo4j_driver: AsyncDriver, tenant_id: str
+) -> None:
+    async def work(tx: AsyncManagedTransaction) -> None:
+        await tx.run(
+            "CREATE (:Device {id: 'screen-old', tenantId: $tenant, deviceType: 'wall-display', "
+            "status: 'active', deviceName: 'Old wall', boardScope: 'tenant', tokenHash: $hash})",
+            tenant=tenant_id,
+            hash=HASH,
+        )
+
+    await write_tx(neo4j_driver, work)
+    found = await _peek(neo4j_driver, "screen-old")
+    assert found is not None
+    assert (found.board_scope, found.network_id, found.scope_version) == (
+        BoardScope.TENANT,
+        None,
+        1,
+    )
+
+
+async def test_peek_does_not_wait_for_a_held_get(neo4j_driver: AsyncDriver) -> None:
+    """A screen's board reads take no lock: a peek finishes while a `get` holds the screen."""
+    await _save(neo4j_driver, _active())
+    async with neo4j_driver.session() as holder:
+        held = scoped(await holder.begin_transaction())
+        await Neo4jDeviceRegistry(cast(AsyncManagedTransaction, held)).get("screen-1")
+        assert await asyncio.wait_for(_peek(neo4j_driver, "screen-1"), timeout=5) == _active()
+        await held.commit()
+
+
+async def test_the_list_holds_every_screen_of_the_tenant_by_name_and_none_of_another(
+    neo4j_driver: AsyncDriver, other_tenant_id: str
+) -> None:
+    await _save(neo4j_driver, _active("screen-2", HASH, name="Ward B"))
+    await _save(neo4j_driver, _unclaimed("screen-1", name="Ward A"))
+    await _save(neo4j_driver, _active("screen-3", OTHER_HASH, name="Ward B"))
+    with as_tenant(other_tenant_id):
+        await _save(neo4j_driver, _active("screen-9", HASH, name="Other tenant's wall"))
+        assert [d.id for d in await _list(neo4j_driver)] == ["screen-9"]
+    assert [d.id for d in await _list(neo4j_driver)] == ["screen-1", "screen-2", "screen-3"]
+
+
+async def test_a_screen_of_another_tenant_is_not_peeked(
+    neo4j_driver: AsyncDriver, other_tenant_id: str
+) -> None:
+    await _save(neo4j_driver, _active("screen-a", HASH))
+    with as_tenant(other_tenant_id):
+        assert await _peek(neo4j_driver, "screen-a") is None
+
+
+async def _peek(driver: AsyncDriver, device_id: str) -> Device | None:
+    async def work(tx: AsyncManagedTransaction) -> Device | None:
+        return await Neo4jDeviceRegistry(tx).peek(device_id)
+
+    return await read_tx(driver, work)
+
+
+async def _list(driver: AsyncDriver) -> list[Device]:
+    async def work(tx: AsyncManagedTransaction) -> list[Device]:
+        return await Neo4jDeviceRegistry(tx).list_screens()
+
+    return await read_tx(driver, work)

@@ -18,7 +18,7 @@ ends or the client goes away. A keep-alive comment is sent when nothing has been
 import asyncio
 import contextlib
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Annotated, Final
 
 from fastapi import APIRouter, Depends, Request
@@ -66,12 +66,29 @@ async def _still_a_member(access: NetworkAccess, actor: Actor, network_id: str) 
     return True
 
 
+async def _wall_still_allowed(access: NetworkAccess, actor: Actor, network_id: str) -> bool:
+    """A wall screen is still allowed while its own record names this network and the registry
+    lists its tenant as a member: a changed setting or a left network ends the stream (TEN-067)."""
+    try:
+        member = await access.require_wall(actor)
+    except NotFound, NotAllowed:
+        return False
+    return member.network.id == network_id
+
+
 async def network_events(
-    messages: AsyncIterator[str], access: NetworkAccess, actor: Actor, network_id: str
+    messages: AsyncIterator[str],
+    access: NetworkAccess,
+    actor: Actor,
+    network_id: str,
+    *,
+    still_allowed: Callable[[], Awaitable[bool]] | None = None,
 ) -> AsyncIterator[str]:
     """The stream: board events, keep-alives, and `scope-ended` once the registry says the viewer
     is no longer a member (then it ends). The read stays pending across ticks, so no message is lost
-    to a timeout. Closes the subscription however it ends."""
+    to a timeout. Closes the subscription however it ends. `still_allowed` replaces the staff check
+    for a viewer that is not staff (a wall screen)."""
+    check = still_allowed or (lambda: _still_a_member(access, actor, network_id))
     loop = asyncio.get_running_loop()
     next_check = loop.time() + RECHECK_INTERVAL_SECONDS
     pending: asyncio.Future[str | None] | None = None
@@ -82,7 +99,7 @@ async def network_events(
             timeout = min(KEEPALIVE_INTERVAL_SECONDS, max(0.0, next_check - loop.time()))
             done, _ = await asyncio.wait({pending}, timeout=timeout)
             if loop.time() >= next_check:
-                if not await _still_a_member(access, actor, network_id):
+                if not await check():
                     yield _SCOPE_ENDED
                     return
                 next_check = loop.time() + RECHECK_INTERVAL_SECONDS
@@ -126,6 +143,28 @@ async def events(
         messages = await _cache(request).subscribe(NETWORK_BOARD_UPDATES_CHANNEL)
     return StreamingResponse(
         network_events(messages, services.access, actor, network_id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+async def open_wall_network_events(request: Request, actor: Actor) -> StreamingResponse:
+    """The stream of a wall screen (TEN-067): the network is the one the screen's record names, so
+    there is no path to ask with. The record is read before the subscription opens and again on
+    every re-check."""
+    services = network_services(request)
+    member = await services.access.require_wall(actor)
+    network_id = member.network.id
+    with bind_network(network_id):
+        messages = await _cache(request).subscribe(NETWORK_BOARD_UPDATES_CHANNEL)
+    return StreamingResponse(
+        network_events(
+            messages,
+            services.access,
+            actor,
+            network_id,
+            still_allowed=lambda: _wall_still_allowed(services.access, actor, network_id),
+        ),
         media_type="text/event-stream",
         headers={"Cache-Control": "no-store"},
     )

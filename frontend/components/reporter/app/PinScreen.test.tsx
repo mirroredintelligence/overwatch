@@ -22,6 +22,11 @@ async function typePin(digits: string) {
 }
 
 describe('PinScreen', () => {
+  it('offers an executive the organisation sign-in, which comes back to their home (W9H)', () => {
+    render(<PinScreen />);
+    expect(screen.getByRole('link', { name: 'Sign in with your organisation account' })).toHaveAttribute('href', '/sign-in?next=/planning');
+  });
+
   it('says how many tries are left after a wrong PIN, and offers the forgotten-PIN route', async () => {
     server.use(http.post('/api/bff/identity/pin/verify', () => HttpResponse.json({ ok: false, triesLeft: 4 })));
     const { container } = render(<PinScreen />);

@@ -156,3 +156,66 @@ def test_a_district_the_locator_cannot_place_is_left_out_and_none_placed_gives_n
     assert coverage_of(["DT1", "ZZ9"], places.get) == Coverage(lat=50.0, lon=-2.0, radius_km=1)
     assert coverage_of(["ZZ9"], places.get) is None
     assert coverage_of([], places.get) is None
+
+
+def test_a_snapshot_row_keeps_the_name_the_advisor_saw() -> None:
+    from datetime import datetime, timedelta
+
+    from diucs.application.use_cases.filter_options import _snapshot_row
+    from diucs.application.use_cases.query_board import BoardEntry
+    from diucs.domain.codes import ServiceCategory
+
+    entry = BoardEntry(
+        service_id="svc-1",
+        name="UCR West",
+        category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+        status=Status.OVER_CAPACITY,
+        effective_available=0,
+        over_by=2,
+        used=14,
+        established=12,
+        pending=0,
+        unit_label="patients",
+        comment="",
+        reported_at=datetime(2026, 10, 29, 9, 0),
+        next_due_at=None,
+        was_due_at=None,
+    )
+
+    row = _snapshot_row(entry, 14, timedelta(minutes=9), None, "option")
+
+    assert row["name"] == "UCR West"
+    assert row["over_by"] == 2
+
+
+def test_a_snapshot_row_keeps_the_position_the_option_was_shown_at_and_a_service_not_suitable_has_none() -> (
+    None
+):
+    from datetime import datetime, timedelta
+
+    from diucs.application.use_cases.filter_options import _snapshot_row
+    from diucs.application.use_cases.query_board import BoardEntry
+    from diucs.domain.codes import ServiceCategory
+
+    entry = BoardEntry(
+        service_id="svc-1",
+        name="UCR West",
+        category=ServiceCategory.URGENT_COMMUNITY_RESPONSE,
+        status=Status.ACCEPTING,
+        effective_available=4,
+        over_by=None,
+        used=4,
+        established=8,
+        pending=0,
+        unit_label="referrals",
+        comment="",
+        reported_at=datetime(2026, 10, 29, 9, 0),
+        next_due_at=None,
+        was_due_at=None,
+    )
+
+    shown = _snapshot_row(entry, 4, timedelta(minutes=9), None, "option", order=2)
+    refused = _snapshot_row(entry, 4, timedelta(minutes=9), None, "not-suitable", "not accepting")
+
+    assert shown["order"] == 2
+    assert "order" not in refused

@@ -2,7 +2,7 @@
 rule, the hiding of counts under 10, the heat grid, the flows and the declines. No I/O."""
 
 import dataclasses
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -22,6 +22,7 @@ from diucs.application.use_cases.planning_analysis import (
     is_unavailable,
     share_of,
     validate_query,
+    windows,
 )
 from diucs.domain.errors import ValidationFailed
 
@@ -131,7 +132,7 @@ def test_no_display_before_the_outcome_gives_no_decision() -> None:
     assert decision_for(_outcome(), [later]) is None
 
 
-def test_the_best_fit_is_the_first_option_row() -> None:
+def test_the_best_fit_is_the_first_option_row_of_a_display_with_no_order() -> None:
     rows = [
         {**_row("a", "accepting", 4), "shown_as": "not-suitable"},
         _row("b", "limited", 2),
@@ -272,3 +273,75 @@ def test_a_case_with_no_display_is_not_counted_as_a_referral() -> None:
     outcomes, _ = _case_set(3, "accepting")
     result = build_planning(PlanningQuery(period_days=30, need_group="all"), outcomes, [], [], {})
     assert result.referrals == HiddenCount(None, True)
+
+
+# KI-476, H-193: the best fit is the option the advisor was shown first, which is the nearest.
+
+
+def _ordered(row: dict[str, object], order: int) -> dict[str, object]:
+    return {**row, "order": order}
+
+
+def test_the_best_fit_is_the_option_shown_first_not_the_first_in_the_snapshot() -> None:
+    rows = [
+        _ordered(_row("far", "accepting", 4), 2),
+        _ordered(_row("near", "accepting", 1), 1),
+    ]
+
+    assert best_fit(rows)["id"] == "near"  # type: ignore[index]
+
+
+def test_not_suitable_rows_have_no_order_and_are_never_the_best_fit() -> None:
+    rows = [
+        {**_row("no", "not-accepting", 0), "shown_as": "not-suitable"},
+        _ordered(_row("far", "accepting", 4), 2),
+        _ordered(_row("near", "accepting", 1), 1),
+    ]
+
+    assert best_fit(rows)["id"] == "near"  # type: ignore[index]
+
+
+def test_a_display_with_an_order_on_some_options_only_keeps_the_listed_order() -> None:
+    rows = [_row("first", "accepting", 4), _ordered(_row("second", "accepting", 1), 1)]
+
+    assert best_fit(rows)["id"] == "first"  # type: ignore[index]
+
+
+def test_a_best_fit_that_was_full_is_counted_when_it_was_the_nearest() -> None:
+    nearest_full = _ordered(_row("near", "accepting", 0), 1)
+    farther = _ordered(_row("far", "accepting", 4), 2)
+    displays = [
+        _display(f"c{n}", [farther, nearest_full])  # the board listed the far one first
+        for n in range(10)
+    ]
+    outcomes = [_outcome(f"c{n}", destination="far") for n in range(10)]
+
+    result = build_planning(
+        PlanningQuery(30, "all"), outcomes, displays, [], {"near": "Near", "far": "Far"}
+    )
+
+    assert result.best_fit_unavailable == HiddenCount(10, False)
+    assert result.went_elsewhere == HiddenCount(10, False)
+    assert result.flows[0].best_fit == "Near"
+
+
+# KI-477: the window is read in months, not in one piece.
+
+
+def test_the_window_is_cut_into_contiguous_pieces_that_cover_it_exactly() -> None:
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    end = start + timedelta(days=365)
+
+    pieces = windows(start, end, 30)
+
+    assert pieces[0][0] == start
+    assert pieces[-1][1] == end
+    assert all(a[1] == b[0] for a, b in zip(pieces, pieces[1:], strict=False))
+    assert all(low < high for low, high in pieces)
+    assert all(high - low <= timedelta(days=30) for low, high in pieces)
+
+
+def test_a_short_window_is_one_piece() -> None:
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+
+    assert windows(start, start + timedelta(days=30), 30) == [(start, start + timedelta(days=30))]

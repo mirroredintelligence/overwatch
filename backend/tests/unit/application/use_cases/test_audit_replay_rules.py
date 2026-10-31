@@ -242,3 +242,97 @@ def test_lead_and_audit_may_open_a_replay(role: Role) -> None:
 def test_other_roles_are_refused(role: Role) -> None:
     with pytest.raises(NotAllowed):
         check_replay_role(_actor(role))
+
+
+# KI-474, KI-475, H-190: the replay shows what the advisor saw, in the words they saw.
+
+
+def _row(**changes: object) -> dict[str, object]:
+    row: dict[str, object] = {
+        "id": "svc-a",
+        "status": "accepting",
+        "number": 3,
+        "data_age_seconds": 60,
+        "criteria_version": 1,
+        "shown_as": "option",
+    }
+    row.update(changes)
+    return row
+
+
+def test_the_name_the_advisor_saw_is_shown_even_when_the_service_has_been_renamed() -> None:
+    (row,) = replay_rows([_row(name="UCR West (old name)")], {"svc-a": "UCR West"})
+
+    assert row.service_name == "UCR West (old name)"
+    assert row.name_as_shown is True
+
+
+def test_a_row_written_before_names_were_kept_shows_the_current_name_and_says_so() -> None:
+    (row,) = replay_rows([_row()], {"svc-a": "UCR West"})
+
+    assert row.service_name == "UCR West"
+    assert row.name_as_shown is False
+
+
+def test_a_blank_name_in_the_snapshot_is_not_a_name() -> None:
+    (row,) = replay_rows([_row(name="  ")], {"svc-a": "UCR West"})
+
+    assert row.service_name == "UCR West"
+    assert row.name_as_shown is False
+
+
+def test_an_over_capacity_service_shows_how_far_over_it_was() -> None:
+    (row,) = replay_rows(
+        [_row(status="over-capacity", number=14, over_by=2)], {"svc-a": "Hospital at home"}
+    )
+
+    assert row.value_text == "+2"
+
+
+def test_an_over_capacity_row_from_before_over_by_was_kept_shows_no_figure_never_the_used_count() -> (
+    None
+):
+    (row,) = replay_rows([_row(status="over-capacity", number=14)], {"svc-a": "A"})
+
+    assert row.value_text == "no figure"
+
+
+@pytest.mark.parametrize("status", ["not-accepting", "not-updated", "out-of-hours"])
+def test_a_status_that_offers_no_figure_shows_none_even_when_the_snapshot_holds_a_number(
+    status: str,
+) -> None:
+    (row,) = replay_rows([_row(status=status, number=7)], {"svc-a": "A"})
+
+    assert row.value_text == "no figure"
+
+
+def test_an_accepting_or_limited_service_shows_what_it_could_take() -> None:
+    accepting, limited = replay_rows(
+        [_row(status="accepting", number=4), _row(status="limited", number=1)], {"svc-a": "A"}
+    )
+
+    assert (accepting.value_text, limited.value_text) == ("4", "1")
+
+
+# H-193: the replay lists the options in the order the advisor was shown them (nearest first).
+
+
+def test_the_options_are_listed_in_the_order_they_were_shown_then_the_services_not_suitable() -> (
+    None
+):
+    rows = replay_rows(
+        [
+            _row(id="far", order=2, name="Far"),
+            {**_row(id="no", name="Closed", status="not-accepting"), "shown_as": "not-suitable"},
+            _row(id="near", order=1, name="Near"),
+        ],
+        {},
+    )
+
+    assert [row.service_name for row in rows] == ["Near", "Far", "Closed"]
+
+
+def test_rows_with_no_order_stay_in_the_order_written() -> None:
+    rows = replay_rows([_row(id="b", name="B"), _row(id="a", name="A")], {})
+
+    assert [row.service_name for row in rows] == ["B", "A"]
